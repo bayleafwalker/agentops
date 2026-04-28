@@ -1,6 +1,6 @@
 # agent-ops substrate: pg backend, audit log, dispatch service
 
-Plan for the next slice of development workflow tooling: sprintctl gains a pg backend and remote mode for cross-host coordination, auditctl is added as a new repo-local tool, actionq becomes the queue/service/daemon boundary for dispatched sessions, and the agent-cockpit surface in `agentops` becomes the operator frontend for the substrate that actually exists.
+Plan for the next slice of development workflow tooling: sprintctl gains a pg backend and remote mode for cross-host coordination, auditctl serves as the repo-local audit tool, actionq becomes the queue/service/daemon boundary for dispatched sessions, and the agent-cockpit surface in `agentops` becomes the operator frontend for the substrate that actually exists.
 
 This plan absorbs the earlier `sprintctl-multi-agent-takeup-plan.md` as workstream A; that plan ships unchanged and is the prerequisite for everything else.
 
@@ -23,6 +23,7 @@ The current `/projects/dev` workspace is a flat set of sibling repositories plus
 
 ```text
 /projects/dev/
+  auditctl/             # existing repo-local audit ledger implementation
   actionq/              # existing Postgres-backed queue and actionctl CLI
   actionq-dispatcher/   # existing dispatcher-once implementation
   appservice/           # existing GitOps/deployment source of truth
@@ -32,7 +33,7 @@ The current `/projects/dev` workspace is a flat set of sibling repositories plus
   agentops/             # cross-repo plans and future cockpit/operator surface
 ```
 
-There is not yet an `auditctl/` repo. The agent-cockpit operator surface is planned inside `/projects/dev/agentops`, not as a separate `/projects/dev/agent-cockpit` repo.
+`auditctl/` now exists as an implementation repo. Workstream D still owns any remaining rollout or contract-alignment work, but the repo-creation step is no longer future work. The agent-cockpit operator surface is planned inside `/projects/dev/agentops`, not as a separate `/projects/dev/agent-cockpit` repo.
 
 Current deployment state in `appservice` includes the actionq Postgres database at:
 
@@ -41,6 +42,17 @@ Current deployment state in `appservice` includes the actionq Postgres database 
 ```
 
 That Flux app creates CNPG cluster `actionq-cnpg-main` in the `vscode` namespace. There is no `actionq-server`, `sprintctl-postgres`, or `agent-cockpit` app yet; those are target deployment units for later workstreams.
+
+## Current Readiness Snapshot
+
+As of 2026-04-28:
+
+- `agentops` is still docs-only; there is no `apps/web/` scaffold yet.
+- `auditctl` exists and the planned artifact root is already in use at `/projects/dev/_artifacts/homelab-analytics/audit/`.
+- `homelab-analytics` is a clean pilot target rather than an actively blocked implementation repo: sprint `#78` is still marked active, but its items are `5/5` done with no active claims.
+- The only stale sprintctl item currently visible in the pilot repo is backlog item `#414` in sprint `#64 cinder-ledger-path`.
+- `appservice` only carries `actionq-db`; there are still no runtime manifests for `sprintctl-postgres`, `actionq-server`, or `agent-cockpit`.
+- Cockpit dispatch remains blocked on an actionq API contract that workstream C minimum does not provide.
 
 ## Why
 
@@ -100,8 +112,8 @@ Open item resolved by this plan: heartbeat events stay deferred indefinitely. Se
 
 Single schema. Tables mirror the sqlite schema with `repo_id text not null` added to `Sprint`, `Track`, `WorkItem`, `Event`. Indexes:
 
-- `(repo_id, archived_at)` on Sprint for cockpit "active sprints across all repos"
-- `(repo_id, sprint_id, type, ts)` on Event for the takeup-status query and per-sprint render
+- `(repo_id, status, kind, created_at DESC)` on Sprint for cockpit "active sprints across all repos"
+- `(repo_id, sprint_id, event_type, created_at)` on Event for the takeup-status query and per-sprint render
 - `(repo_id, sprint_id, status)` on WorkItem for claim/state aggregation
 
 Event types are the union of existing sprintctl events plus the takeup events from workstream A. No pg-specific event types.
@@ -239,7 +251,7 @@ Each numbered step is independently shippable. Stop after any of them and the sy
 
 5. **Workstream C full**: actionq-server as k8s service, queue + scheduler + dispatch policy, pause/resume on usage limits, multi-harness routing.
 
-6. **Workstream E**: agent-cockpit surface in `agentops`. Built against the substrate that now actually exists. Read-only against pg + /projects/dev/_artifacts. Dispatch composer talks to actionq-server API.
+6. **Workstream E**: agent-cockpit surface in `agentops`. Built against the substrate that now actually exists. Read-only against pg + /projects/dev/_artifacts can ship before live dispatch, but the dispatch composer depends on Workstream C full and a real actionq-server API.
 
 7. **Migrate financial-analytics extension to remote mode.** Second pilot of workstream B in real use.
 

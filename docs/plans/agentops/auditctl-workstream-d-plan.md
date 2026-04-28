@@ -1,6 +1,6 @@
 # auditctl plan
 
-Workstream D of `/projects/dev/agentops/docs/plans/agentops/agent-ops-substrate-plan.md`. Auditctl is a new repo-local audit event tool in the kctl/sprintctl family: Click CLI, sqlite query index, stdlib implementation beyond Click, per-repo database, and durable daily NDJSON shards for cockpit and migration.
+Workstream D of `/projects/dev/agentops/docs/plans/agentops/agent-ops-substrate-plan.md`. Auditctl is the repo-local audit event tool in the kctl/sprintctl family: Click CLI, sqlite query index, stdlib implementation beyond Click, per-repo database, and durable daily NDJSON shards for cockpit and migration.
 
 ## Goal
 
@@ -10,7 +10,7 @@ Ship a standalone repo-local audit ledger that records human, agent, git, sprint
 
 What ships in this workstream:
 
-- New repository at `/projects/dev/auditctl/`; this repo does not exist yet and must be created by the workstream. Auditctl does not live inside kctl.
+- Repository-owned implementation at `/projects/dev/auditctl/`. The repo now exists; remaining workstream-D work is contract completion, rollout, and any required alignment between the shipped implementation and this plan. Auditctl does not live inside kctl.
 - Python package `auditctl` with `cli.py`, `db.py`, `ids.py`, `paths.py`, `ndjson.py`, and `render.py`.
 - Click CLI with `auditctl add`, `auditctl list`, `auditctl render`, and `auditctl rebuild`.
 - Sqlite schema and numbered migrations using the sprintctl `db.py` pattern.

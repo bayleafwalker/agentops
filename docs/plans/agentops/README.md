@@ -9,6 +9,7 @@ Current plan set:
 - `agent-ops-substrate-plan.md` - master cross-repo substrate plan.
 - `auditctl-workstream-d-plan.md` - standalone auditctl tool plan.
 - `agent-cockpit-workstream-e-plan.md` - agent-cockpit frontend plan for the future cockpit surface inside this repo.
+- `cockpit-agentops-readiness-2026-04-28.md` - current readiness and sequencing assessment for cockpit and substrate rollout.
 
 Repo-owned companion plans:
 
@@ -18,13 +19,10 @@ Repo-owned companion plans:
 
 Current implementation repos relevant to these plans:
 
+- `/projects/dev/auditctl` - repo-local audit ledger implementation and publisher contract.
 - `/projects/dev/actionq` - existing Postgres-backed queue and `actionctl`.
 - `/projects/dev/actionq-dispatcher` - existing `dispatcher-once` coordinator implementation.
 - `/projects/dev/appservice` - existing GitOps source of truth; current actionq CNPG lives under `clusters/main/kubernetes/apps/actionq-db/`.
-
-Target repos that do not exist yet:
-
-- `/projects/dev/auditctl`
 
 Future in-repo implementation target:
 

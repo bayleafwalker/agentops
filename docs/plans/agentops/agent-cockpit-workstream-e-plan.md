@@ -134,6 +134,11 @@ The route joins sprintctl claim/work-item state with actionq session state by th
 
 If actionq is unavailable, the route still returns sprintctl claim rows with `session=null` and a degraded-source marker.
 
+Required upstream actionq read contract before implementation starts:
+
+- A list/read surface that returns `session_id`, `runtime_session_id` when present, heartbeat timestamp or age, TTL or deadline, harness, model, and the action/claim association used to map a session back onto sprintctl claims.
+- Stable semantics for the fallback join path when `runtime_session_id` is absent. The cockpit should not invent this join from event payload guesses.
+
 ### Sprint Event Feed
 
 Route: `GET /cockpit/api/events?repo_id=<repo|ALL>&sprint_id=<id?>&limit=100&cursor=<cursor>`
@@ -234,6 +239,8 @@ Route: `POST /cockpit/api/dispatch`
 Source target: actionq-server API
 
 The route validates the request, attaches operator context, forwards to actionq-server, and returns the action id or validation errors. It does not write to sprintctl or /projects/dev/_artifacts.
+
+This is a hard dependency, not a convenience layer. Workstream C minimum does not create `actionq-server`; it keeps the public interface on `actionctl` and daemon-side integration. A live cockpit dispatch path therefore requires Workstream C full or an explicitly documented interim API bridge.
 
 Wire format from cockpit to Next.js route:
 
@@ -347,13 +354,17 @@ Frontend verification commands:
    - Implement paginated server-side reads of latest N daily shards.
    - Add 30-second audit polling and independent artifact-root degraded state.
 
-4. Actionq session liveness and dispatch composer.
+4. Actionq session liveness.
    - Add `lib/cockpit/actionq` client helpers.
    - Enrich claims with actionq heartbeat/TTL via 10-second polling.
+   - If actionq only exposes read-side session data at this stage, ship cockpit as read-only and keep dispatch disabled.
+
+5. Dispatch composer after actionq-server exists.
    - Implement `POST /cockpit/api/dispatch`.
    - Show queued/failed feedback and immediate post-dispatch refresh.
+   - Document the exact actionq-server request/response contract used by the route.
 
-5. Operator hardening.
+6. Operator hardening.
    - Add route-level mock adapter tests.
    - Add degraded-source regression tests.
    - Tune density and keyboard navigation from real use.
