@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+.envrc
 node_modules/
 dist/
 build/
