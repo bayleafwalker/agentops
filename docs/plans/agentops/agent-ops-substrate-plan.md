@@ -41,7 +41,7 @@ Current deployment state in `appservice` includes the actionq Postgres database 
 /projects/dev/appservice/clusters/main/kubernetes/apps/actionq-db/
 ```
 
-That Flux app creates CNPG cluster `actionq-cnpg-main` in the `vscode` namespace. There is no `actionq-server`, `sprintctl-postgres`, or `agent-cockpit` app yet; those are target deployment units for later workstreams.
+That Flux app creates CNPG cluster `actionq-cnpg-main` in the `vscode` namespace. `sprintctl-postgres` now also exists as a Flux app at `/projects/dev/appservice/clusters/main/kubernetes/apps/sprintctl-postgres/`, while `actionq-server` and `agent-cockpit` remain target deployment units for later workstreams.
 
 ## Current Readiness Snapshot
 
@@ -51,7 +51,7 @@ As of 2026-04-28:
 - `auditctl` exists and the planned artifact root is already in use at `/projects/dev/_artifacts/homelab-analytics/audit/`.
 - `homelab-analytics` is a clean pilot target rather than an actively blocked implementation repo: sprint `#78` is still marked active, but its items are `5/5` done with no active claims.
 - The only stale sprintctl item currently visible in the pilot repo is backlog item `#414` in sprint `#64 cinder-ledger-path`.
-- `appservice` only carries `actionq-db`; there are still no runtime manifests for `sprintctl-postgres`, `actionq-server`, or `agent-cockpit`.
+- `appservice` carries `actionq-db` and `sprintctl-postgres`; there are still no runtime manifests for `actionq-server` or `agent-cockpit`.
 - Cockpit dispatch remains blocked on an actionq API contract that workstream C minimum does not provide.
 
 ## Why
@@ -93,7 +93,7 @@ Rather than retrofit the mock onto sprintctl, this plan defines the substrate th
 
   CLUSTER (k8s, appservice GitOps)
   ├── current: actionq-db CNPG at clusters/main/kubernetes/apps/actionq-db/
-  ├── target: sprintctl-postgres (CNPG; sprintctl clients use pg directly)
+  ├── current: sprintctl-postgres CNPG at clusters/main/kubernetes/apps/sprintctl-postgres/
   ├── target: actionq-server (queue/service API; talks to daemon over k8s network)
   └── target: agent-cockpit surface from agentops (read-only against pg + /projects/dev/_artifacts/)
 ```
@@ -251,7 +251,7 @@ Each numbered step is independently shippable. Stop after any of them and the sy
 
 5. **Workstream C full**: actionq-server as k8s service, queue + scheduler + dispatch policy, pause/resume on usage limits, multi-harness routing.
 
-6. **Workstream E**: agent-cockpit surface in `agentops`. Built against the substrate that now actually exists. Read-only against pg + /projects/dev/_artifacts can ship before live dispatch, but the dispatch composer depends on Workstream C full and a real actionq-server API.
+6. **Workstream E**: agent-cockpit surface in `agentops`. Built against the substrate that now actually exists. Read-only against pg + /projects/dev/_artifacts can ship before live dispatch, with `actionq://sessions` satisfied in v1 by a server-side `actionctl sessions` adapter. The dispatch composer still depends on Workstream C full and a real actionq-server API.
 
 7. **Migrate financial-analytics extension to remote mode.** Second pilot of workstream B in real use.
 

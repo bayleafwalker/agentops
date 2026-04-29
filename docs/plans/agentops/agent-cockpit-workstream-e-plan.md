@@ -139,6 +139,15 @@ Required upstream actionq read contract before implementation starts:
 - A list/read surface that returns `session_id`, `runtime_session_id` when present, heartbeat timestamp or age, TTL or deadline, harness, model, and the action/claim association used to map a session back onto sprintctl claims.
 - Stable semantics for the fallback join path when `runtime_session_id` is absent. The cockpit should not invent this join from event payload guesses.
 
+Current reference implementation: `/projects/dev/actionq/docs/session-read-contract.md`.
+
+V1 implementation decision:
+
+- `actionq://sessions` is an actionq-owned read contract and source label, not a promise of a network API in the minimum cockpit slice.
+- The Next.js server route satisfies this source by invoking `actionctl sessions`, validating the JSON shape against the documented contract, and joining it to sprintctl claim rows server-side.
+- The route may keep a short in-process cache, target 5-10 seconds, so the cockpit can poll frequently without spawning a subprocess per browser refresh.
+- When `actionq-server` exists, the same contract may move behind a thin read endpoint without changing the cockpit response shape or UI source label.
+
 ### Sprint Event Feed
 
 Route: `GET /cockpit/api/events?repo_id=<repo|ALL>&sprint_id=<id?>&limit=100&cursor=<cursor>`
@@ -178,7 +187,7 @@ Use polling in v1. Do not add pg LISTEN/NOTIFY proxying or SSE until the basic s
 Per-source mechanism:
 
 - `pg://sprintctl`: poll every 30 seconds for repo inventory, active sprint state, takeup state, and sprint events. Trigger immediate refetch on selected repo or sprint tab changes.
-- `actionq://sessions`: poll every 10 seconds for session liveness and claims enrichment. This is the only data source with heartbeat/TTL semantics, so it refreshes more frequently.
+- `actionq://sessions`: poll every 10 seconds for session liveness and claims enrichment. In v1 this source is backed by the cockpit server invoking `actionctl sessions` with a short cache. This is the only data source with heartbeat/TTL semantics, so it refreshes more frequently.
 - `artifact:audit/<repo>`: poll every 30 seconds for new audit shard lines and use paginated on-demand fetches for older history.
 - Dispatch submission: after a successful dispatch POST, immediately refetch actionq session state, sprint state, and audit feed once.
 

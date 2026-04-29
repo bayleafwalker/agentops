@@ -16,7 +16,7 @@ Document current substrate readiness, identify the places where the plan set dri
 ### sprintctl
 
 - Workstream A is represented as shipped planning input: takeup is the event-model contract for the rest of the substrate.
-- Workstream B is still planning-only. There is no active sprint in `/projects/dev/sprintctl/.sprintctl/`, and the repo currently has no active sprint state driving a pg cutover.
+- Workstream B now has concrete implementation in `/projects/dev/sprintctl`: backend selection, pg storage, and `migrate-to-remote` are present, with remote-mode operator guidance under `docs/guides/remote-mode.md`.
 - The pg backend plan already corrected one schema assumption from the master plan: the sprint table has no `archived_at`, so the active-sprint read path is based on `(repo_id, status, kind, created_at)`.
 
 ### actionq / actionq-dispatcher
@@ -33,8 +33,10 @@ Document current substrate readiness, identify the places where the plan set dri
 
 ### appservice
 
-- Current GitOps state only includes `actionq-db` under `/projects/dev/appservice/clusters/main/kubernetes/apps/actionq-db/`.
-- There are still no runtime app definitions for `sprintctl-postgres`, `actionq-server`, or `agent-cockpit`.
+- `actionq-db` is live under `/projects/dev/appservice/clusters/main/kubernetes/apps/actionq-db/`.
+- `sprintctl-postgres` now exists under `/projects/dev/appservice/clusters/main/kubernetes/apps/sprintctl-postgres/`.
+- `vscode-shell` now depends on `sprintctl-postgres` and injects `SPRINTCTL_URL` from `sprintctl-cnpg-main-app`.
+- There are still no runtime app definitions for `actionq-server` or `agent-cockpit`.
 
 ### homelab-analytics pilot
 
@@ -50,13 +52,14 @@ Document current substrate readiness, identify the places where the plan set dri
 - Audit shard path and repo-local audit publishing shape.
 - Queue foundation in `actionq`.
 - Dispatcher and daemon implementation base in `actionq-dispatcher`.
+- `sprintctl` remote backend and migration path.
+- `sprintctl-postgres` appservice deployment slice.
+- Actionq session read contract for cockpit claims/session enrichment, with a viable v1 adapter path through `actionctl sessions`.
 - Pilot repo documentation target and real artifact location.
 
 ### Not ready yet
 
-- `sprintctl` remote mode implementation and migration path.
-- Appservice manifests for sprintctl Postgres, actionq-server, and agent-cockpit.
-- A canonical read contract for cockpit claims/session enrichment from actionq.
+- Appservice manifests for `actionq-server` and `agent-cockpit`.
 - A live actionq API target for cockpit dispatch.
 - Any in-repo `agentops/apps/web` scaffold.
 
@@ -71,8 +74,8 @@ Document current substrate readiness, identify the places where the plan set dri
 3. Normalize the sprintctl pg query contract to the companion plan.
    The master plan should use the same active-sprint index/query language as `pg-backend-remote-mode-plan.md`.
 
-4. Pin the cockpit claims/session join contract before implementation.
-   Cockpit needs a stable actionq read shape that exposes at least `session_id`, `runtime_session_id` where present, `heartbeat_at`, `ttl_seconds`, and the claim/session association used to enrich sprintctl claims.
+4. Point cockpit implementation at the shipped actionq session contract.
+   The read-side contract now exists in `/projects/dev/actionq/docs/session-read-contract.md`, including runtime-session join semantics, TTL/deadline fields, and the fallback claim association. In v1, consume it through a cockpit server adapter that invokes `actionctl sessions`; do not invent a second session summarizer in the cockpit codebase.
 
 ## Recommended Sequencing
 
@@ -80,16 +83,16 @@ Document current substrate readiness, identify the places where the plan set dri
    Update the master/cockpit/pilot docs so the current repos and dependencies are described accurately.
 
 2. Use the pilot repo as a rollout target, not as a source of new substrate work.
-   `homelab-analytics` is ready for migration rehearsal once workstream B exists; there is no repo-local sprint work to unblock first.
+   `homelab-analytics` is ready for migration rehearsal once the rollout sequence is scheduled; there is no repo-local sprint work to unblock first.
 
 3. Sequence cockpit implementation in two slices.
-   Slice 1: shell plus read-only panes backed by pg/audit once workstream B is available.
-   Slice 2: claims/session enrichment and dispatch only after actionq exposes the required read/write API.
+   Slice 1: shell plus read-only panes backed by pg/audit plus the shipped actionq session contract, consumed through a server-side `actionctl sessions` adapter with short caching.
+   Slice 2: live dispatch only after actionq exposes the required write API, and session reads can later move to a thin actionq read route if that service surface proves worth operating.
 
-4. Keep appservice work explicit.
-   No plan should imply cluster readiness until `sprintctl-postgres`, `actionq-server`, and `agent-cockpit` manifests exist beside `actionq-db`.
+4. Keep remaining appservice work explicit.
+   No plan should imply full cluster readiness until `actionq-server` and `agent-cockpit` manifests exist beside `actionq-db` and `sprintctl-postgres`.
 
 ## Immediate Follow-Up
 
-- Start the next sprint in `sprintctl` for workstream B or workstream C rather than continuing to hold `homelab-analytics` sprint `#78` open as a placeholder.
+- Start the next execution sprint against cockpit or actionq-server work rather than continuing to describe workstream B as planning-only.
 - Reconcile the shipped `auditctl` repo against the workstream D plan and capture any delta in a focused follow-up doc instead of leaving contradictory repo-exists / repo-does-not-exist statements in the main plan set.
