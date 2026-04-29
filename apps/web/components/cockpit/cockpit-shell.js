@@ -1,9 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { buildCommandPaletteEntries, DEFAULT_TWEAKS, getPollIntervalMs, getVisibilityBackoffMultiplier, pickSprintSelection } from "../../lib/cockpit/client-state.js";
+import { CockpitNav } from "./cockpit-nav";
 import { CockpitStatusBar } from "./cockpit-status-bar";
+import { CommandPalette } from "./command-palette";
 import { DegradedSourceBanner } from "./degraded-source-banner";
+import { DispatchComposer } from "./dispatch-composer";
 import { SourceTruthTag } from "./source-truth-tag";
+import { TweaksPanel } from "./tweaks-panel";
 
 function isoLabel(value) {
   if (!value) {
@@ -32,9 +37,40 @@ export function CockpitShell() {
   const [auditData, setAuditData] = useState({ events: [], degraded: null });
   const [refreshedAt, setRefreshedAt] = useState(null);
   const [fatalError, setFatalError] = useState("");
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [visibilityState, setVisibilityState] = useState("visible");
+  const [tweaks, setTweaks] = useState(DEFAULT_TWEAKS);
+
+  const pollMultiplier = getVisibilityBackoffMultiplier(visibilityState);
+
+  useEffect(() => {
+    function onVisibilityChange() {
+      setVisibilityState(document.visibilityState || "visible");
+    }
+
+    onVisibilityChange();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, []);
+
+  useEffect(() => {
+    function onKeyDown(event) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setPaletteOpen((open) => !open);
+      }
+      if (event.key === "Escape") {
+        setPaletteOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
+    let timer;
 
     async function loadRepos() {
       try {
@@ -52,52 +88,89 @@ export function CockpitShell() {
         if (!cancelled) {
           setFatalError(error.message);
         }
+      } finally {
+        if (!cancelled) {
+          timer = setTimeout(loadRepos, getPollIntervalMs("repos", document.visibilityState || "visible"));
+        }
       }
     }
 
     loadRepos();
-    const timer = setInterval(loadRepos, 30000);
     return () => {
       cancelled = true;
-      clearInterval(timer);
+      clearTimeout(timer);
     };
-  }, [selectedRepo]);
+  }, [selectedRepo, visibilityState]);
 
   useEffect(() => {
     let cancelled = false;
+    let timer;
 
     async function loadPrimary() {
-      const params = new URLSearchParams({ repo_id: selectedRepo });
+      const params = new URLSearchParams({ repo_id: selectedRepo, limit: String(tweaks.eventLimit) });
       try {
-        const [sprints, claims, events] = await Promise.all([
+        const [sprints, events] = await Promise.all([
           readJson(`/cockpit/api/sprints?${params}`),
-          readJson(`/cockpit/api/claims?${params}`),
           readJson(`/cockpit/api/events?${params}`),
         ]);
         if (cancelled) {
           return;
         }
         setSprintsData(sprints);
-        setClaimsData(claims);
         setEventsData(events);
-        if (!selectedSprint && sprints.sprints.length > 0) {
-          setSelectedSprint(String(sprints.sprints[0].id));
-        }
+        setSelectedSprint((current) => pickSprintSelection(sprints.sprints, current));
         setRefreshedAt(new Date().toISOString());
       } catch (error) {
         if (!cancelled) {
           setFatalError(error.message);
         }
+      } finally {
+        if (!cancelled) {
+          timer = setTimeout(loadPrimary, getPollIntervalMs("primary", document.visibilityState || "visible"));
+        }
       }
     }
 
     loadPrimary();
-    const timer = setInterval(loadPrimary, 30000);
     return () => {
       cancelled = true;
-      clearInterval(timer);
+      clearTimeout(timer);
     };
-  }, [selectedRepo]);
+  }, [selectedRepo, tweaks.eventLimit, visibilityState]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer;
+
+    async function loadClaims() {
+      const params = new URLSearchParams({ repo_id: selectedRepo });
+      if (selectedRepo !== "ALL" && selectedSprint) {
+        params.set("sprint_id", selectedSprint);
+      }
+      try {
+        const claims = await readJson(`/cockpit/api/claims?${params}`);
+        if (cancelled) {
+          return;
+        }
+        setClaimsData(claims);
+        setRefreshedAt(new Date().toISOString());
+      } catch (error) {
+        if (!cancelled) {
+          setFatalError(error.message);
+        }
+      } finally {
+        if (!cancelled) {
+          timer = setTimeout(loadClaims, getPollIntervalMs("claims", document.visibilityState || "visible"));
+        }
+      }
+    }
+
+    loadClaims();
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [selectedRepo, selectedSprint, visibilityState]);
 
   useEffect(() => {
     if (selectedRepo === "ALL") {
@@ -112,8 +185,9 @@ export function CockpitShell() {
       }
       return;
     }
-    if (!sprintsData.sprints.some((sprint) => String(sprint.id) === selectedSprint)) {
-      setSelectedSprint(String(sprintsData.sprints[0].id));
+    const nextSelection = pickSprintSelection(sprintsData.sprints, selectedSprint);
+    if (nextSelection !== selectedSprint) {
+      setSelectedSprint(nextSelection);
     }
   }, [selectedRepo, selectedSprint, sprintsData.sprints]);
 
@@ -126,10 +200,11 @@ export function CockpitShell() {
 
     let cancelled = false;
     const sprintId = selectedSprint;
+    let timer;
 
     async function loadSecondary() {
       const takeupParams = new URLSearchParams({ repo_id: selectedRepo, sprint_id: sprintId });
-      const auditParams = new URLSearchParams({ repo_id: selectedRepo, days: "3", limit: "20" });
+      const auditParams = new URLSearchParams({ repo_id: selectedRepo, days: "3", limit: String(tweaks.eventLimit) });
       try {
         const [takeup, audit] = await Promise.all([
           readJson(`/cockpit/api/takeup?${takeupParams}`),
@@ -145,20 +220,28 @@ export function CockpitShell() {
         if (!cancelled) {
           setFatalError(error.message);
         }
+      } finally {
+        if (!cancelled) {
+          timer = setTimeout(loadSecondary, getPollIntervalMs("secondary", document.visibilityState || "visible"));
+        }
       }
     }
 
     loadSecondary();
-    const timer = setInterval(loadSecondary, 30000);
     return () => {
       cancelled = true;
-      clearInterval(timer);
+      clearTimeout(timer);
     };
-  }, [selectedRepo, selectedSprint]);
+  }, [selectedRepo, selectedSprint, tweaks.eventLimit, visibilityState]);
 
   const activeSprint = sprintsData.sprints.find((sprint) => String(sprint.id) === selectedSprint);
   const sprintsWithItems = sprintsData.sprints.filter((sprint) => sprint.summary.total_items > 0).length;
   const emptySprints = sprintsData.sprints.length - sprintsWithItems;
+  const paletteEntries = buildCommandPaletteEntries({
+    repos: reposData.repos,
+    sprints: sprintsData.sprints,
+    selectedRepo
+  });
   const health = {
     pg: reposData.degraded ? "degraded" : "ok",
     actionq: claimsData.degraded ? "degraded" : "ok",
@@ -166,17 +249,35 @@ export function CockpitShell() {
   };
 
   return (
-    <div className="cockpit-pane cockpit-shell">
+    <div className={`cockpit-pane cockpit-shell ${tweaks.compact ? "compact" : ""}`}>
+      <CommandPalette
+        entries={paletteEntries}
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onPick={(entry) => {
+          if (entry.kind === "repo") {
+            setSelectedRepo(entry.value);
+            setSelectedSprint("");
+            return;
+          }
+          setSelectedRepo(entry.repo_id);
+          setSelectedSprint(entry.value);
+        }}
+      />
       <aside className="cockpit-pane">
         <div className="cockpit-paneInner">
           <section className="cockpit-section">
             <p className="eyebrow">read-only cockpit</p>
             <div className="title-row">
               <h1 className="pane-title">Repo Strip</h1>
-              <SourceTruthTag source="pg://sprintctl" />
+              {tweaks.alwaysShowSources ? <SourceTruthTag source="pg://sprintctl" /> : null}
             </div>
             <p className="small muted">Remote mode only</p>
+            <p className="small muted">Cmd/Ctrl+K opens repo and sprint jump.</p>
             <DegradedSourceBanner message={reposData.degraded?.message || fatalError} />
+          </section>
+          <section className="cockpit-section">
+            <CockpitNav />
           </section>
           <section className="cockpit-section repo-list">
             <button
@@ -217,10 +318,10 @@ export function CockpitShell() {
 
       <section className="cockpit-pane">
         <div className="cockpit-paneInner">
-          <section className="cockpit-section">
+          <section className="cockpit-section" id="overview">
             <div className="title-row">
               <h2 className="pane-title">Sprint Overview</h2>
-              <SourceTruthTag source="pg://sprintctl" />
+              {tweaks.alwaysShowSources ? <SourceTruthTag source="pg://sprintctl" /> : null}
             </div>
             <DegradedSourceBanner message={sprintsData.degraded?.message} />
           </section>
@@ -249,7 +350,7 @@ export function CockpitShell() {
                 : `${sprintsWithItems} sprints with work items, ${emptySprints} currently empty.`}
             </div>
           </section>
-          <section className="cockpit-section">
+          <section className="cockpit-section" id="sprints">
             <div className="title-row">
               <h3 className="section-title">Active Sprint Tabs</h3>
               <span className="small muted">{selectedRepo}</span>
@@ -276,7 +377,7 @@ export function CockpitShell() {
               <div className="empty-state small muted">No active remote sprints are visible for this repo filter.</div>
             ) : null}
           </section>
-          <section className="cockpit-section">
+          <section className="cockpit-section" id="work-items">
             <div className="title-row">
               <h3 className="section-title">Work Items</h3>
               <span className="small muted">{activeSprint ? activeSprint.repo_id : selectedRepo}</span>
@@ -304,10 +405,10 @@ export function CockpitShell() {
               </div>
             ) : null}
           </section>
-          <section className="cockpit-section">
+          <section className="cockpit-section" id="claims">
             <div className="title-row">
               <h3 className="section-title">Claims</h3>
-              <SourceTruthTag source="actionq://sessions + pg://sprintctl" />
+              {tweaks.alwaysShowSources ? <SourceTruthTag source="actionq://sessions + pg://sprintctl" /> : null}
             </div>
             <DegradedSourceBanner message={claimsData.degraded?.message} />
             <div className="table-wrap">
@@ -338,10 +439,10 @@ export function CockpitShell() {
               <div className="empty-state small muted">No active claims match the current repo filter.</div>
             ) : null}
           </section>
-          <section className="cockpit-section">
+          <section className="cockpit-section" id="takeup">
             <div className="title-row">
               <h3 className="section-title">Takeup</h3>
-              <SourceTruthTag source="pg://sprintctl" />
+              {tweaks.alwaysShowSources ? <SourceTruthTag source="pg://sprintctl" /> : null}
             </div>
             <DegradedSourceBanner message={takeupData.degraded?.message} />
             <div className="item-list">
@@ -361,7 +462,18 @@ export function CockpitShell() {
               <div className="empty-state small muted">No takeup activity is recorded for the selected sprint.</div>
             ) : null}
           </section>
-          <CockpitStatusBar repoId={selectedRepo} refreshedAt={refreshedAt} health={health} />
+          <section className="cockpit-section" id="dispatch">
+            <div className="title-row">
+              <h3 className="section-title">Dispatch</h3>
+              <span className="small muted">write path gated</span>
+            </div>
+            <DispatchComposer
+              repoId={selectedRepo}
+              sprintId={selectedSprint}
+              disabledReason="Dispatch remains disabled in this tranche. The UI is present, but a live POST path depends on actionq-server or an explicitly documented interim bridge."
+            />
+          </section>
+          <CockpitStatusBar repoId={selectedRepo} refreshedAt={refreshedAt} health={health} pollMultiplier={pollMultiplier} />
         </div>
       </section>
 
@@ -373,10 +485,12 @@ export function CockpitShell() {
               <span className="small muted">polling v1</span>
             </div>
           </section>
-          <section className="cockpit-section">
+          <section className="cockpit-section" id="outcomes">
             <div className="title-row">
               <h3 className="section-title">Outcomes & Review</h3>
-              <SourceTruthTag source={selectedRepo === "ALL" ? "artifact:audit/<repo>" : `artifact:audit/${selectedRepo}`} />
+              {tweaks.alwaysShowSources ? (
+                <SourceTruthTag source={selectedRepo === "ALL" ? "artifact:audit/<repo>" : `artifact:audit/${selectedRepo}`} />
+              ) : null}
             </div>
             <DegradedSourceBanner message={auditData.degraded?.message} />
             <div className="feed-list">
@@ -397,10 +511,10 @@ export function CockpitShell() {
               <div className="empty-state small muted">No audit events were found in the current lookback window.</div>
             ) : null}
           </section>
-          <section className="cockpit-section">
+          <section className="cockpit-section" id="events">
             <div className="title-row">
               <h3 className="section-title">Sprint Event Feed</h3>
-              <SourceTruthTag source="pg://sprintctl" />
+              {tweaks.alwaysShowSources ? <SourceTruthTag source="pg://sprintctl" /> : null}
             </div>
             <div className="feed-list">
               {eventsData.events.map((event) => (
@@ -418,6 +532,13 @@ export function CockpitShell() {
             {eventsData.events.length === 0 ? (
               <div className="empty-state small muted">No sprint events match the current repo filter.</div>
             ) : null}
+          </section>
+          <section className="cockpit-section" id="tweaks">
+            <TweaksPanel
+              tweaks={tweaks}
+              pollMultiplier={pollMultiplier}
+              onChange={(patch) => setTweaks((current) => ({ ...current, ...patch }))}
+            />
           </section>
         </div>
       </aside>

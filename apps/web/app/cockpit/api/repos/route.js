@@ -1,6 +1,8 @@
 import { errorPayload, ok } from "../../../../lib/cockpit/http.js";
 import { listRepos } from "../../../../lib/cockpit/sprintctl.js";
 
+export const dynamic = "force-dynamic";
+
 export function createGetHandler(deps = { listRepos }) {
   return async function GET() {
     try {

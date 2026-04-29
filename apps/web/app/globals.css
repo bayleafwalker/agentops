@@ -166,6 +166,14 @@ a {
   gap: 10px;
 }
 
+.cockpit-nav,
+.tweaks-grid,
+.dispatch-grid,
+.palette-results {
+  display: grid;
+  gap: 10px;
+}
+
 .repo-button,
 .sprint-button {
   width: 100%;
@@ -181,6 +189,22 @@ a {
 .sprint-button.active {
   border-color: var(--line-strong);
   background: rgba(115, 255, 211, 0.08);
+}
+
+.nav-link,
+.palette-item {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  color: var(--text);
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.nav-link:hover,
+.palette-item:hover {
+  border-color: var(--line-strong);
 }
 
 .split-row,
@@ -246,6 +270,89 @@ th {
   padding: 12px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.02);
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field input,
+.field textarea,
+.field select,
+.palette-input {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: rgba(4, 10, 15, 0.88);
+  color: var(--text);
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dispatch-shell,
+.tweaks-shell {
+  display: grid;
+  gap: 12px;
+}
+
+.dispatch-button {
+  justify-self: start;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  background: rgba(255, 212, 121, 0.08);
+  color: var(--muted);
+}
+
+.dispatch-button:disabled,
+.field input:disabled,
+.field textarea:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.palette-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: start center;
+  padding-top: 10vh;
+  background: rgba(2, 8, 12, 0.72);
+}
+
+.palette-shell {
+  width: min(720px, calc(100vw - 32px));
+  border: 1px solid var(--line-strong);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.palette-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.compact .cockpit-section {
+  padding: 12px;
+}
+
+.compact .repo-button,
+.compact .sprint-button,
+.compact .feed-item,
+.compact .item-card,
+.compact .nav-link,
+.compact .palette-item {
+  padding: 10px;
 }
 
 .status-bar {
