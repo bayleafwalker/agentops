@@ -13,11 +13,11 @@ The core rule: **state ownership decides repo ownership.**
 | Domain | Tool | Repo |
 |---|---|---|
 | Sprint and work-item state | `sprintctl` | [bayleafwalker/sprintctl](https://github.com/bayleafwalker/sprintctl) |
-| Knowledge extraction and review | `kctl` | local |
+| Knowledge extraction and review | `kctl` | [bayleafwalker/kctl](https://github.com/bayleafwalker/kctl) |
 | Repo-local audit and event ledger | `auditctl` | [bayleafwalker/auditctl](https://github.com/bayleafwalker/auditctl) |
 | Action queue and session lifecycle | `actionq` | [bayleafwalker/actionq](https://github.com/bayleafwalker/actionq) |
 | Operator UI and cross-repo plans | `agentops` | [bayleafwalker/agentops](https://github.com/bayleafwalker/agentops) |
-| Kubernetes deployment | `appservice` | local |
+| Kubernetes deployment | `appservice` | private — internal operations only |
 
 These are siblings under `/projects/dev/`, not nested inside each other. `_artifacts/` is their shared output directory.
 
@@ -359,7 +359,7 @@ Default intervals: action queue 2 s, sessions 2 s, audit feed 5 s (gateway-side 
 
 ## Deployment
 
-All live Kubernetes manifests live in `appservice/clusters/main/kubernetes/apps/`. The tool repos may include example manifests in `deploy/examples/` but `appservice` is the deployment source of truth.
+All live Kubernetes manifests live in `appservice/clusters/main/kubernetes/apps/`. The tool repos may include example manifests in `deploy/examples/` but `appservice` is the deployment source of truth. `appservice` is a private, internal-operations-only repo and is not published under `bayleafwalker`.
 
 ### PostgreSQL Clusters (CNPG)
 
@@ -533,6 +533,6 @@ The dispatcher emits `session.*` coordinator events into actionq and calls `audi
 | `auditctl` | Repo-local audit index, NDJSON shards, git hook templates | Sprint state, knowledge graph, centralized storage |
 | `actionq` | Action queue, session lifecycle, heartbeat / TTL semantics, dispatch daemon | Sprint state, knowledge, audit internals |
 | `agentops` | Operator UI, cross-repo substrate plans | Substrate state (reads only) |
-| `appservice` | Live Kubernetes manifests, CNPG clusters, secrets | Application logic |
+| `appservice` | Live Kubernetes manifests, CNPG clusters, secrets (private repo) | Application logic |
 
 The boundary rule: if data travels with a repo (is per-repo, local-first, recoverable from the repo's own history), it belongs in `auditctl` or `kctl`. If data is cluster-wide coordination (active sessions, dispatch policy, sprint state across hosts), it belongs in `actionq` or `sprintctl remote`. The cockpit reads all of these; it writes to none of them except through the dispatch composer → actionq path.

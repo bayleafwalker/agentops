@@ -4,11 +4,11 @@ Repo-owned planning and future operator surface for the `/projects/dev` agent-op
 
 The implementation repos remain separate:
 
-- `sprintctl` owns sprint/work-item state.
-- `kctl` owns knowledge artifact extraction.
-- `auditctl` will own repo-local audit ledgers.
-- `actionq` owns queue and session lifecycle.
-- `appservice` owns Kubernetes/GitOps deployment.
+- `sprintctl` owns sprint/work-item state. ([bayleafwalker/sprintctl](https://github.com/bayleafwalker/sprintctl))
+- `kctl` owns knowledge artifact extraction. ([bayleafwalker/kctl](https://github.com/bayleafwalker/kctl))
+- `auditctl` will own repo-local audit ledgers. ([bayleafwalker/auditctl](https://github.com/bayleafwalker/auditctl))
+- `actionq` owns queue and session lifecycle. ([bayleafwalker/actionq](https://github.com/bayleafwalker/actionq))
+- `appservice` owns Kubernetes/GitOps deployment. (private — internal operations only)
 
 This repo owns cross-repo substrate plans now and is the intended home for the future agent-cockpit UI:
 
