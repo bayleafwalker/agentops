@@ -63,3 +63,20 @@ action contract, missing or failed verification must fail closed.
 The manifest is the portable source for repo defaults. `actionq-dispatcher` can keep TOML as its
 runtime config while this format proves out, either by reading the manifest directly or generating
 TOML from it.
+
+## Cockpit Visibility
+
+The cockpit reads manifests through:
+
+```text
+/cockpit/api/dispatch-manifests?repo_id=<repo>
+```
+
+The manifest directory defaults to:
+
+```text
+/projects/dev/agentops/templates/dispatch/examples
+```
+
+Override it with `COCKPIT_DISPATCH_MANIFEST_ROOT` when repos begin committing their own
+`*.dispatch.json` files or when generated manifests are staged in `_artifacts`.

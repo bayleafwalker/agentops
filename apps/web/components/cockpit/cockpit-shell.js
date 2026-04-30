@@ -42,6 +42,7 @@ export function CockpitShell() {
   const [claimsData, setClaimsData] = useState({ claims: [], degraded: null });
   const [eventsData, setEventsData] = useState({ events: [], degraded: null });
   const [auditData, setAuditData] = useState({ events: [], degraded: null });
+  const [dispatchData, setDispatchData] = useState({ manifests: [], warnings: [], degraded: null });
   const [refreshedAt, setRefreshedAt] = useState(null);
   const [fatalError, setFatalError] = useState("");
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -191,6 +192,36 @@ export function CockpitShell() {
   }, [effectiveSprintMode, selectedRepo, selectedSprint, visibilityState]);
 
   useEffect(() => {
+    let cancelled = false;
+    let timer;
+
+    async function loadDispatchManifests() {
+      const params = new URLSearchParams({ repo_id: selectedRepo });
+      try {
+        const manifests = await readJson(`/cockpit/api/dispatch-manifests?${params}`);
+        if (cancelled) {
+          return;
+        }
+        setDispatchData(manifests);
+      } catch (error) {
+        if (!cancelled) {
+          setFatalError(error.message);
+        }
+      } finally {
+        if (!cancelled) {
+          timer = setTimeout(loadDispatchManifests, getPollIntervalMs("primary", document.visibilityState || "visible"));
+        }
+      }
+    }
+
+    loadDispatchManifests();
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [selectedRepo, visibilityState]);
+
+  useEffect(() => {
     if (selectedRepo === "ALL") {
       if (selectedSprint) {
         setSelectedSprint("");
@@ -267,6 +298,10 @@ export function CockpitShell() {
     actionq: claimsData.degraded ? "degraded" : "ok",
     audit: auditData.degraded ? "degraded" : "ok"
   };
+  const activeDispatchManifest =
+    selectedRepo === "ALL"
+      ? null
+      : dispatchData.manifests.find((manifest) => manifest.repo_id === selectedRepo);
 
   return (
     <div className={`cockpit-pane cockpit-shell ${tweaks.compact ? "compact" : ""}`}>
@@ -536,7 +571,42 @@ export function CockpitShell() {
           <section className="cockpit-section" id="dispatch">
             <div className="title-row">
               <h3 className="section-title">Dispatch</h3>
-              <span className="small muted">write path gated</span>
+              {tweaks.alwaysShowSources ? <SourceTruthTag source={dispatchData.source || "dispatch-manifest"} /> : null}
+            </div>
+            <DegradedSourceBanner message={dispatchData.degraded?.message} />
+            <div className="item-list">
+              {selectedRepo === "ALL" ? (
+                <div className="item-card">
+                  <div className="title-row">
+                    <strong>Dispatch Manifests</strong>
+                    <span className="status-chip ok">{dispatchData.manifests.length} visible</span>
+                  </div>
+                  <div className="small muted">
+                    Select a repo to inspect routing defaults, adoption level, hooks, and selected shared skills.
+                  </div>
+                </div>
+              ) : activeDispatchManifest ? (
+                <div className="item-card">
+                  <div className="title-row">
+                    <strong>{activeDispatchManifest.adoption_level}</strong>
+                    <span className="status-chip ok">{activeDispatchManifest.routing.default_harness}</span>
+                  </div>
+                  <div className="small muted">
+                    default_model={activeDispatchManifest.routing.default_model_alias}
+                  </div>
+                  <div className="small muted">
+                    classes={Object.entries(activeDispatchManifest.routing.action_classes)
+                      .filter(([, actionClass]) => actionClass.enabled)
+                      .map(([name]) => name)
+                      .join(", ")}
+                  </div>
+                  <div className="small muted">
+                    hooks={activeDispatchManifest.hooks.level} / {activeDispatchManifest.hooks.publishers.join(", ")}
+                  </div>
+                </div>
+              ) : (
+                <div className="empty-state small muted">No dispatch manifest is registered for {selectedRepo}.</div>
+              )}
             </div>
             <DispatchComposer
               repoId={selectedRepo}

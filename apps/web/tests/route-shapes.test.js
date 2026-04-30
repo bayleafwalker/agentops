@@ -6,6 +6,7 @@ import { createGetHandler as createTakeupHandler } from "../app/cockpit/api/take
 import { createGetHandler as createClaimsHandler } from "../app/cockpit/api/claims/route.js";
 import { createGetHandler as createEventsHandler } from "../app/cockpit/api/events/route.js";
 import { createGetHandler as createAuditHandler } from "../app/cockpit/api/audit/route.js";
+import { createGetHandler as createDispatchManifestsHandler } from "../app/cockpit/api/dispatch-manifests/route.js";
 
 function request(url) {
   return new Request(url);
@@ -70,4 +71,21 @@ test("audit route returns expected shape", async () => {
   const payload = await (await GET(request("http://localhost/cockpit/api/audit?repo_id=alpha"))).json();
   assert.equal(payload.source, "artifact:audit/alpha");
   assert.equal(payload.events.length, 1);
+});
+
+test("dispatch manifests route returns expected shape", async () => {
+  const GET = createDispatchManifestsHandler({
+    listDispatchManifests: async () => ({
+      source: "dispatch-manifest:/tmp/manifests",
+      manifests: [{ repo_id: "alpha", adoption_level: "dispatchable", routing: {}, skills: [], verification: {}, hooks: {} }],
+      warnings: []
+    }),
+    getDispatchManifest: async () => {
+      throw new Error("filter should not be called for ALL");
+    }
+  });
+  const payload = await (await GET(request("http://localhost/cockpit/api/dispatch-manifests"))).json();
+  assert.equal(payload.repo_id, "ALL");
+  assert.equal(payload.manifests[0].repo_id, "alpha");
+  assert.equal(payload.degraded, null);
 });
