@@ -11,6 +11,8 @@ export const DEFAULT_TWEAKS = {
   eventLimit: 20
 };
 
+export const SPRINT_VIEW_MODES = ["active", "backlog", "history"];
+
 export function getVisibilityBackoffMultiplier(visibilityState) {
   return visibilityState === "hidden" ? 4 : 1;
 }
@@ -33,7 +35,7 @@ export function pickSprintSelection(sprints, selectedSprint) {
   return String(sprints[0].id);
 }
 
-export function buildCommandPaletteEntries({ repos, sprints, selectedRepo }) {
+export function buildCommandPaletteEntries({ repos, sprints, selectedRepo, sprintMode = "active" }) {
   const entries = [
     { id: "repo:ALL", kind: "repo", label: "ALL", meta: "remote aggregate", value: "ALL" }
   ];
@@ -53,7 +55,7 @@ export function buildCommandPaletteEntries({ repos, sprints, selectedRepo }) {
       id: `sprint:${sprint.repo_id}:${sprint.id}`,
       kind: "sprint",
       label: `#${sprint.id} ${sprint.name}`,
-      meta: sprint.repo_id === selectedRepo ? "selected repo" : sprint.repo_id,
+      meta: sprint.repo_id === selectedRepo ? `${sprintMode} / selected repo` : `${sprintMode} / ${sprint.repo_id}`,
       value: String(sprint.id),
       repo_id: sprint.repo_id
     });

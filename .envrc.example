@@ -1,0 +1,2 @@
+export SPRINTCTL_BACKEND=remote
+export SPRINTCTL_URL="${SPRINTCTL_URL:?Set SPRINTCTL_URL from an injected secret or local shell before entering this repo}"

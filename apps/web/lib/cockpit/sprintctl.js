@@ -39,6 +39,43 @@ function summarizeWorkItems(items) {
   return summary;
 }
 
+function summarizeAttention({ status, kind, summary }) {
+  const reasons = [];
+  if (status === "closed" && (summary.pending_items > 0 || summary.active_items > 0 || summary.blocked_items > 0)) {
+    reasons.push("closed sprint still has open work items");
+  }
+  if (status === "planned" && summary.blocked_items > 0) {
+    reasons.push("planned sprint contains blocked items");
+  }
+  if (kind === "archive" && summary.total_items === 0) {
+    reasons.push("archive sprint has no recorded work items");
+  }
+  return {
+    level: reasons.length > 0 ? "warn" : "ok",
+    reasons
+  };
+}
+
+function buildSprintWhereClause(mode, repoFilter) {
+  if (mode === "backlog") {
+    return `WHERE s.status = 'planned' AND s.kind = 'backlog' ${repoFilter}`;
+  }
+  if (mode === "history") {
+    return `WHERE (s.status = 'closed' OR s.kind = 'archive') ${repoFilter}`;
+  }
+  return `WHERE s.status = 'active' AND s.kind = 'active_sprint' ${repoFilter}`;
+}
+
+function buildSprintOrderClause(mode) {
+  if (mode === "backlog") {
+    return "ORDER BY s.repo_id ASC, s.start_date ASC NULLS LAST, s.created_at ASC, s.id ASC";
+  }
+  if (mode === "history") {
+    return "ORDER BY s.repo_id ASC, COALESCE(s.end_date, s.start_date, s.created_at::text) DESC, s.id DESC";
+  }
+  return "ORDER BY s.repo_id ASC, s.created_at DESC, s.id DESC";
+}
+
 export async function listRepos() {
   const rows = await query(
     `
@@ -88,7 +125,7 @@ export async function listRepos() {
   }));
 }
 
-export async function listSprints(repoId = "ALL") {
+export async function listSprints(repoId = "ALL", mode = "active") {
   const values = [];
   let repoFilter = "";
   if (repoId !== "ALL") {
@@ -99,8 +136,8 @@ export async function listSprints(repoId = "ALL") {
     `
       SELECT s.*
       FROM sprint s
-      WHERE s.status = 'active' AND s.kind = 'active_sprint' ${repoFilter}
-      ORDER BY s.repo_id ASC, s.created_at DESC, s.id DESC
+      ${buildSprintWhereClause(mode, repoFilter)}
+      ${buildSprintOrderClause(mode)}
     `,
     values
   );
@@ -151,7 +188,12 @@ export async function listSprints(repoId = "ALL") {
       end_date: sprint.end_date,
       created_at: sprint.created_at.toISOString(),
       work_items: workItems,
-      summary: summarizeWorkItems(workItems)
+      summary: summarizeWorkItems(workItems),
+      attention: summarizeAttention({
+        status: sprint.status,
+        kind: sprint.kind,
+        summary: summarizeWorkItems(workItems)
+      })
     };
   });
 }

@@ -167,11 +167,36 @@ a {
 }
 
 .cockpit-nav,
+.mode-toggle,
 .tweaks-grid,
 .dispatch-grid,
 .palette-results {
   display: grid;
   gap: 10px;
+}
+
+.mode-toggle {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.mode-button {
+  width: 100%;
+  text-align: center;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.mode-button.active {
+  border-color: var(--line-strong);
+  background: rgba(115, 255, 211, 0.08);
+}
+
+.mode-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .repo-button,

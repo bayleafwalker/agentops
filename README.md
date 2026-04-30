@@ -14,5 +14,23 @@ This repo owns cross-repo substrate plans now and is the intended home for the f
 
 ```text
 docs/plans/agentops/   # cross-repo plans
-apps/web/              # future agent-cockpit frontend
+apps/web/              # agent-cockpit frontend (live)
 ```
+
+## Agent Cockpit
+
+A read-only sprint and session cockpit deployed at `cockpit.kotona.app`. Backed by sprintctl postgres, actionctl session reads, and audit shard artifacts.
+
+### Screenshots
+
+**Home**
+
+![Agent Cockpit home screen](docs/screenshots/home.png)
+
+**Sprint Overview** — live homelab-analytics backlog, active tasks, claims, and dispatch feed
+
+![Cockpit sprint overview](docs/screenshots/cockpit-main.png)
+
+**Command Palette** — repo and sprint switcher (Ctrl+K)
+
+![Cockpit command palette](docs/screenshots/cockpit-command-palette.png)

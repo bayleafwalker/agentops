@@ -103,11 +103,11 @@ Source: `pg://sprintctl`
 
 Returns remote-mode repositories that have pg sprintctl data, active sprint counts, latest sprint update time, and source health. `ALL` is a virtual client option and exists only when pg connectivity is healthy.
 
-Route: `GET /cockpit/api/sprints?repo_id=<repo|ALL>`
+Route: `GET /cockpit/api/sprints?repo_id=<repo|ALL>&mode=<active|backlog|history>`
 
 Source: `pg://sprintctl`
 
-For `repo_id=ALL`, returns active sprints across all remote-mode repos. For a concrete repo, returns that repo's active sprint(s), tracks, work items, claim records that are stored in sprintctl, and sprint-level metadata.
+`mode=active` is the default and remains the aggregate-friendly cockpit view. For `repo_id=ALL`, the UI keeps `mode=active` only so the cross-repo strip remains a live operations surface. For a concrete repo, `mode=backlog` returns planned backlog sprints and `mode=history` returns closed/archive sprint records. Each sprint payload includes work-item summary plus attention metadata so closed sprints with open items can be flagged as cleanup-required instead of blending into normal planning state.
 
 ### Current Takeup State
 

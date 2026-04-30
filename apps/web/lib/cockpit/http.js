@@ -14,6 +14,17 @@ export function parseRepoId(request) {
   return getSearchParams(request).get("repo_id") || "ALL";
 }
 
+export function parseEnumParam(request, name, allowed, fallback) {
+  const raw = getSearchParams(request).get(name);
+  if (raw == null || raw === "") {
+    return fallback;
+  }
+  if (!allowed.includes(raw)) {
+    throw new Error(`${name} must be one of: ${allowed.join(", ")}`);
+  }
+  return raw;
+}
+
 export function parseIntParam(request, name, fallback) {
   const raw = getSearchParams(request).get(name);
   if (raw == null || raw === "") {

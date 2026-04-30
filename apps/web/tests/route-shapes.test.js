@@ -22,12 +22,18 @@ test("repos route returns expected shape", async () => {
 });
 
 test("sprints route returns expected shape", async () => {
+  let receivedArgs = null;
   const GET = createSprintsHandler({
-    listSprints: async () => [{ repo_id: "alpha", id: 1, name: "Sprint", summary: { total_items: 0, done_items: 0 } }]
+    listSprints: async (repoId, mode) => {
+      receivedArgs = { repoId, mode };
+      return [{ repo_id: "alpha", id: 1, name: "Sprint", summary: { total_items: 0, done_items: 0 }, attention: { level: "ok", reasons: [] } }];
+    }
   });
-  const payload = await (await GET(request("http://localhost/cockpit/api/sprints?repo_id=alpha"))).json();
+  const payload = await (await GET(request("http://localhost/cockpit/api/sprints?repo_id=alpha&mode=backlog"))).json();
   assert.equal(payload.repo_id, "alpha");
+  assert.equal(payload.mode, "backlog");
   assert.equal(payload.sprints[0].id, 1);
+  assert.deepEqual(receivedArgs, { repoId: "alpha", mode: "backlog" });
 });
 
 test("takeup route returns expected shape", async () => {
