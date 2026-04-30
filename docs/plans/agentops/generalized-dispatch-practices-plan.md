@@ -167,7 +167,10 @@ basic audit publishing or manual local work.
 ## Implementation order
 
 1. Define a shared dispatch manifest schema in `agentops` docs. Include selected skills, repo
-   defaults, allowed action classes, verification command families, and hook level.
+   defaults, allowed action classes, verification command families, and hook level. Initial
+   schema, examples, and shared skill templates now live under
+   `agentops/templates/dispatch/`, with the operator-facing contract documented in
+   `agentops/docs/dispatch/dispatch-manifest.md`.
 2. Add actionq-dispatcher support for reading project defaults from that manifest or generating
    dispatcher TOML from it. Keep current TOML as the runtime format until the manifest proves out.
 3. Extract shared skill templates from `homelab-analytics` into an `agentops` template directory.
@@ -191,4 +194,3 @@ basic audit publishing or manual local work.
   needs appear.
 - Whether model tiers should use provider-specific names or logical aliases. Prefer logical aliases
   in repo manifests and resolve to provider IDs in dispatcher config.
-

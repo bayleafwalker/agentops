@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "repo_id": "appservice",
+  "adoption_level": "dispatchable",
+  "routing": {
+    "default_harness": "claude",
+    "default_model_alias": "fast-build",
+    "action_classes": {
+      "plan": {
+        "enabled": true,
+        "model_alias": "frontier-plan"
+      },
+      "build": {
+        "enabled": true,
+        "model_alias": "fast-build",
+        "review_required": true
+      },
+      "review": {
+        "enabled": true,
+        "model_alias": "review-synthesis"
+      },
+      "release-ops": {
+        "enabled": true,
+        "model_alias": "release-ops"
+      }
+    }
+  },
+  "skills": {
+    "template_root": "/projects/dev/agentops/templates/dispatch/skills",
+    "selected": [
+      "dispatch-plan",
+      "dispatch-build",
+      "dispatch-review",
+      "code-change-verification",
+      "pr-handoff-summary"
+    ],
+    "overlays": [
+      ".agents/overlays/appservice.dispatch.md"
+    ]
+  },
+  "scope": {
+    "allowed_path_roots": [
+      "clusters/",
+      "docs/"
+    ],
+    "out_of_scope": [
+      "plaintext secret values",
+      "manual cluster mutation except explicit verification reads"
+    ]
+  },
+  "verification": {
+    "command_families": [
+      "kustomize",
+      "secrets",
+      "docs"
+    ],
+    "targeted_first": true,
+    "commands": [
+      "kustomize build clusters/main/kubernetes/<category>",
+      "sops --decrypt <changed-secret-file> >/dev/null"
+    ]
+  },
+  "hooks": {
+    "level": "audit",
+    "publishers": [
+      "git",
+      "workspace-cost",
+      "dispatcher-gate"
+    ]
+  }
+}

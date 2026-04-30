@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/dispatch-manifest.schema.json",
+  "title": "Agentops dispatch manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "repo_id", "adoption_level", "routing", "skills", "verification", "hooks"],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "repo_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "adoption_level": {
+      "type": "string",
+      "enum": ["guidance-only", "observable", "dispatchable"]
+    },
+    "routing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["default_harness", "default_model_alias", "action_classes"],
+      "properties": {
+        "default_harness": {
+          "type": "string",
+          "enum": ["claude", "codex", "opencode"]
+        },
+        "default_model_alias": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action_classes": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["enabled"],
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "harness": {
+                "type": "string",
+                "enum": ["claude", "codex", "opencode"]
+              },
+              "model_alias": { "type": "string", "minLength": 1 },
+              "review_required": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "skills": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selected"],
+      "properties": {
+        "template_root": {
+          "type": "string",
+          "default": "/projects/dev/agentops/templates/dispatch/skills"
+        },
+        "selected": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "dispatch-plan",
+              "dispatch-build",
+              "dispatch-review",
+              "code-change-verification",
+              "pr-handoff-summary",
+              "sprint-resume",
+              "sprint-packet",
+              "item-done",
+              "sprint-snapshot",
+              "kctl-extract"
+            ]
+          }
+        },
+        "overlays": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allowed_path_roots": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "out_of_scope": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command_families"],
+      "properties": {
+        "command_families": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": ["unit", "integration", "lint", "typecheck", "architecture", "docs", "kustomize", "secrets", "docker", "full-suite"]
+          }
+        },
+        "targeted_first": {
+          "type": "boolean",
+          "default": true
+        },
+        "commands": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "hooks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "publishers"],
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["none", "audit", "session", "cost", "verification", "pr"]
+        },
+        "publishers": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": ["git", "actionq-daemon", "workspace-cost", "dispatcher-gate", "github"]
+          }
+        }
+      }
+    }
+  }
+}

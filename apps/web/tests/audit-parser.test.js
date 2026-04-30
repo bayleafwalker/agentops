@@ -3,11 +3,15 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { parseAuditShardName, readAuditFeed } from "../lib/cockpit/audit.js";
+import { parseAuditShardName, readAuditFeed, resolveAuditDir } from "../lib/cockpit/audit.js";
 
 test("audit shard parser accepts daily shard names", () => {
   assert.equal(parseAuditShardName("events-2026-04-29.ndjson"), "2026-04-29");
   assert.equal(parseAuditShardName("notes.txt"), null);
+});
+
+test("audit directory resolves under workspace artifact root", () => {
+  assert.equal(resolveAuditDir("/projects/dev", "alpha"), "/projects/dev/_artifacts/alpha/audit");
 });
 
 test("audit reader parses valid events and reports invalid lines", async () => {

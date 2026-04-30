@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "repo_id": "homelab-analytics",
+  "adoption_level": "dispatchable",
+  "routing": {
+    "default_harness": "claude",
+    "default_model_alias": "fast-build",
+    "action_classes": {
+      "plan": {
+        "enabled": true,
+        "model_alias": "frontier-plan"
+      },
+      "build": {
+        "enabled": true,
+        "model_alias": "fast-build",
+        "review_required": true
+      },
+      "review": {
+        "enabled": true,
+        "model_alias": "review-synthesis"
+      }
+    }
+  },
+  "skills": {
+    "template_root": "/projects/dev/agentops/templates/dispatch/skills",
+    "selected": [
+      "dispatch-plan",
+      "dispatch-build",
+      "dispatch-review",
+      "code-change-verification",
+      "pr-handoff-summary",
+      "sprint-resume",
+      "sprint-packet",
+      "item-done",
+      "sprint-snapshot",
+      "kctl-extract"
+    ],
+    "overlays": [
+      ".agents/overlays/homelab-analytics.dispatch.md"
+    ]
+  },
+  "scope": {
+    "allowed_path_roots": [
+      "src/",
+      "tests/",
+      "docs/"
+    ],
+    "out_of_scope": [
+      "deployment manifests unless explicitly in scope"
+    ]
+  },
+  "verification": {
+    "command_families": [
+      "unit",
+      "lint",
+      "typecheck",
+      "architecture",
+      "full-suite"
+    ],
+    "targeted_first": true,
+    "commands": [
+      "ruff check <changed-python-files>",
+      "mypy <changed-python-files>",
+      "pytest <specific-test-files> -x --tb=short",
+      "make verify-fast"
+    ]
+  },
+  "hooks": {
+    "level": "verification",
+    "publishers": [
+      "git",
+      "actionq-daemon",
+      "workspace-cost",
+      "dispatcher-gate"
+    ]
+  }
+}

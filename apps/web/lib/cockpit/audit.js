@@ -15,6 +15,10 @@ export function parseAuditShardName(fileName) {
   return match[1];
 }
 
+export function resolveAuditDir(auditRoot, repoId) {
+  return path.join(auditRoot, "_artifacts", repoId, "audit");
+}
+
 async function loadShard(repoId, fullPath, fileName) {
   const stats = await fs.stat(fullPath);
   const cacheKey = `audit:${repoId}:${fileName}:${stats.mtimeMs}:${stats.size}`;
@@ -51,7 +55,7 @@ async function loadShard(repoId, fullPath, fileName) {
 export async function readAuditFeed({ repoId, days = 3, limit = 100, cursor = null }) {
   const config = getConfig();
   const lookback = Math.max(1, Math.min(days, config.auditLookbackDays));
-  const auditDir = path.join(config.auditRoot, repoId, "audit");
+  const auditDir = resolveAuditDir(config.auditRoot, repoId);
   const decodedCursor = decodeCursor(cursor);
   const entries = await fs.readdir(auditDir, { withFileTypes: true });
   const shardFiles = entries
