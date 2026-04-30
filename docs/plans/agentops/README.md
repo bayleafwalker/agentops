@@ -12,6 +12,13 @@ Current plan set:
 - `cockpit-agentops-readiness-2026-04-28.md` - readiness and sequencing assessment for cockpit and substrate rollout.
 - `meta-sprint-cross-repo-dispatch-plan.md` - meta-sprint model and cross-repo dispatch via `_orchestration` sprint and actionq parent-child actions.
 - `generalized-dispatch-practices-plan.md` - shared dispatch model, model routing, skills, hooks, and repo adoption levels.
+- `substrate-resilience-plan.md` - failure taxonomy, backup posture, recovery runbooks, and new mechanisms required (daemon startup recovery, takeup sweep, workspace PVC backup gap).
+
+Implemented dispatch contracts:
+
+- `/projects/dev/agentops/docs/dispatch/dispatch-manifest.md` - manifest contract for repo dispatch adoption.
+- `/projects/dev/agentops/templates/dispatch/manifest.schema.json` - JSON schema for dispatch manifests.
+- `/projects/dev/agentops/templates/dispatch/skills/` - shared dispatch skill templates selected by manifests and repo overlays.
 
 Repo-owned companion plans:
 
