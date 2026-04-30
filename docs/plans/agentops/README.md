@@ -11,6 +11,7 @@ Current plan set:
 - `agent-cockpit-workstream-e-plan.md` - agent-cockpit frontend plan for the future cockpit surface inside this repo.
 - `cockpit-agentops-readiness-2026-04-28.md` - readiness and sequencing assessment for cockpit and substrate rollout.
 - `meta-sprint-cross-repo-dispatch-plan.md` - meta-sprint model and cross-repo dispatch via `_orchestration` sprint and actionq parent-child actions.
+- `generalized-dispatch-practices-plan.md` - shared dispatch model, model routing, skills, hooks, and repo adoption levels.
 
 Repo-owned companion plans:
 
