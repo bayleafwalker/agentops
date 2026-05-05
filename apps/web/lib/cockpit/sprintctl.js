@@ -1,12 +1,9 @@
-import pg from "pg";
 import { decodeCursor, encodeCursor } from "./http.js";
 import { getConfig } from "./env.js";
 
-const { Pool } = pg;
-
 let pool;
 
-function getPool() {
+async function getPool() {
   if (pool) {
     return pool;
   }
@@ -14,12 +11,13 @@ function getPool() {
   if (!sprintctlUrl) {
     throw new Error("SPRINTCTL_URL is required");
   }
-  pool = new Pool({ connectionString: sprintctlUrl });
+  const { default: pg } = await import("pg");
+  pool = new pg.Pool({ connectionString: sprintctlUrl });
   return pool;
 }
 
 async function query(text, values = []) {
-  const client = await getPool().connect();
+  const client = await (await getPool()).connect();
   try {
     const result = await client.query(text, values);
     return result.rows;
