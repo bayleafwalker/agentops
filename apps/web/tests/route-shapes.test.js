@@ -7,9 +7,18 @@ import { createGetHandler as createClaimsHandler } from "../app/cockpit/api/clai
 import { createGetHandler as createEventsHandler } from "../app/cockpit/api/events/route.js";
 import { createGetHandler as createAuditHandler } from "../app/cockpit/api/audit/route.js";
 import { createGetHandler as createDispatchManifestsHandler } from "../app/cockpit/api/dispatch-manifests/route.js";
+import { createPostHandler as createDispatchHandler } from "../app/cockpit/api/dispatch/route.js";
 
 function request(url) {
   return new Request(url);
+}
+
+function jsonRequest(url, body) {
+  return new Request(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body)
+  });
 }
 
 test("repos route returns expected shape", async () => {
@@ -88,4 +97,52 @@ test("dispatch manifests route returns expected shape", async () => {
   assert.equal(payload.repo_id, "ALL");
   assert.equal(payload.manifests[0].repo_id, "alpha");
   assert.equal(payload.degraded, null);
+});
+
+test("dispatch route stays gated without actionq-server contract", async () => {
+  const POST = createDispatchHandler({
+    getDispatchGate: () => ({ enabled: false, source: "actionq-server", reason: "Dispatch disabled: no contract." }),
+    forwardDispatchToActionqServer: async () => {
+      throw new Error("should not forward");
+    }
+  });
+  const response = await POST(jsonRequest("http://localhost/cockpit/api/dispatch", {
+    repo_id: "alpha",
+    action_type: "scope-iterate",
+    target_ref: "42"
+  }));
+  const payload = await response.json();
+  assert.equal(response.status, 503);
+  assert.equal(payload.accepted, false);
+  assert.equal(payload.source, "actionq-server");
+});
+
+test("dispatch route forwards validated payload when gate is enabled", async () => {
+  let forwarded = null;
+  const POST = createDispatchHandler({
+    getDispatchGate: () => ({ enabled: true, source: "actionq-server" }),
+    forwardDispatchToActionqServer: async (payload) => {
+      forwarded = payload;
+      return { id: 12, status: "pending" };
+    }
+  });
+  const response = await POST(jsonRequest("http://localhost/cockpit/api/dispatch", {
+    repo_id: "alpha",
+    action_type: "scope-iterate",
+    target_ref: "42",
+    source_refs: ["sprint:1"],
+    priority: 40
+  }));
+  const payload = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(payload.accepted, true);
+  assert.equal(payload.action.id, 12);
+  assert.deepEqual(forwarded, {
+    repo_id: "alpha",
+    action_type: "scope-iterate",
+    target_ref: "42",
+    source_refs: ["sprint:1"],
+    priority: 40,
+    prompt: ""
+  });
 });
