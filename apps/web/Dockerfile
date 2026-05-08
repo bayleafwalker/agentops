@@ -15,6 +15,13 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
+# Install actionctl for dispatch and session reads
+COPY vendor/actionq-0.1.1-py3-none-any.whl /tmp/actionq-0.1.1-py3-none-any.whl
+RUN apk add --no-cache python3 py3-pip && \
+    pip3 install --break-system-packages "psycopg[binary]" && \
+    pip3 install --break-system-packages /tmp/actionq-0.1.1-py3-none-any.whl && \
+    rm /tmp/actionq-0.1.1-py3-none-any.whl
+
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
 

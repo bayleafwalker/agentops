@@ -334,11 +334,32 @@ th {
   color: var(--muted);
 }
 
+.dispatch-button:not(:disabled) {
+  color: var(--warn);
+  cursor: pointer;
+}
+
 .dispatch-button:disabled,
 .field input:disabled,
-.field textarea:disabled {
+.field textarea:disabled,
+.field select:disabled {
   opacity: 0.72;
   cursor: not-allowed;
+}
+
+.dispatch-result {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+}
+
+.dispatch-result.ok {
+  color: var(--ok);
+  border-color: rgba(115, 255, 211, 0.25);
+}
+
+.dispatch-result.error {
+  color: var(--danger);
+  border-color: rgba(255, 80, 100, 0.25);
 }
 
 .palette-backdrop {

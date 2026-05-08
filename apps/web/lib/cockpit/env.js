@@ -25,6 +25,9 @@ export function getConfig() {
     auditCacheMs: Number(process.env.COCKPIT_AUDIT_CACHE_MS || 5000),
     dispatchManifestRoot:
       process.env.COCKPIT_DISPATCH_MANIFEST_ROOT || "/projects/dev/agentops/templates/dispatch/examples",
-    dispatchManifestCacheMs: Number(process.env.COCKPIT_DISPATCH_MANIFEST_CACHE_MS || 5000)
+    dispatchManifestCacheMs: Number(process.env.COCKPIT_DISPATCH_MANIFEST_CACHE_MS || 5000),
+    actionqServerUrl: process.env.COCKPIT_ACTIONQ_SERVER_URL || "",
+    actionqDispatchContract: process.env.COCKPIT_ACTIONQ_DISPATCH_CONTRACT || "",
+    cockpitOperatorId: process.env.COCKPIT_OPERATOR_ID || "operator:cockpit"
   };
 }

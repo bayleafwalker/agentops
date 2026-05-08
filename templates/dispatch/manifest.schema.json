@@ -76,7 +76,8 @@
               "sprint-packet",
               "item-done",
               "sprint-snapshot",
-              "kctl-extract"
+              "kctl-extract",
+              "sprint-close"
             ]
           }
         },

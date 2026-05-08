@@ -16,7 +16,8 @@ const SKILLS = new Set([
   "sprint-packet",
   "item-done",
   "sprint-snapshot",
-  "kctl-extract"
+  "kctl-extract",
+  "sprint-close"
 ]);
 
 export function validateDispatchManifest(manifest) {
