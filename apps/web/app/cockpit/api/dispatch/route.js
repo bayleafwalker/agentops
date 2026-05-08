@@ -1,9 +1,9 @@
-import { forwardDispatchToActionqServer, getDispatchGate, getDispatchOperator, normalizeDispatchPayload } from "../../../../lib/cockpit/dispatch.js";
+import { dispatchViaActionctl, forwardDispatchToActionqServer, getDispatchGate, getDispatchOperator, normalizeDispatchPayload } from "../../../../lib/cockpit/dispatch.js";
 import { errorPayload, ok } from "../../../../lib/cockpit/http.js";
 
 export const dynamic = "force-dynamic";
 
-export function createPostHandler(deps = { forwardDispatchToActionqServer, getDispatchGate, getDispatchOperator }) {
+export function createPostHandler(deps = { dispatchViaActionctl, forwardDispatchToActionqServer, getDispatchGate, getDispatchOperator }) {
   return async function POST(request) {
     const gate = deps.getDispatchGate();
     if (!gate.enabled) {
@@ -22,7 +22,9 @@ export function createPostHandler(deps = { forwardDispatchToActionqServer, getDi
       const payload = normalizeDispatchPayload(await request.json(), {
         requestedBy: deps.getDispatchOperator()
       });
-      const action = await deps.forwardDispatchToActionqServer(payload);
+      const action = gate.method === "actionctl"
+        ? await deps.dispatchViaActionctl(payload, gate.bin)
+        : await deps.forwardDispatchToActionqServer(payload);
       return ok({
         source: gate.source,
         accepted: true,

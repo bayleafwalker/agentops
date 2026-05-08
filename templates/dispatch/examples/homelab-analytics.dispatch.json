@@ -33,7 +33,8 @@
       "sprint-packet",
       "item-done",
       "sprint-snapshot",
-      "kctl-extract"
+      "kctl-extract",
+      "sprint-close"
     ],
     "overlays": [
       ".agents/overlays/homelab-analytics.dispatch.md"

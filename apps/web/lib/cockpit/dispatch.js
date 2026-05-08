@@ -1,29 +1,44 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { getConfig } from "./env.js";
+
+const execFileAsync = promisify(execFile);
 
 export const DISPATCH_CONTRACT_VERSION = "v1";
 const DISPATCH_KINDS = new Set(["implement", "review", "test", "investigate", "document", "custom"]);
 const DISPATCH_HARNESSES = new Set(["claude", "codex", "copilot-cli", "codestral"]);
 const DISPATCH_PRIORITIES = new Set(["normal", "high"]);
 
+const KIND_TO_ACTION_TYPE = {
+  implement: "scope-iterate",
+  review: "scope-iterate",
+  test: "scope-iterate",
+  investigate: "scope-iterate",
+  document: "scope-iterate",
+  custom: "scope-iterate"
+};
+
 export function getDispatchGate(config = getConfig()) {
-  if (!config.actionqServerUrl) {
+  if (config.actionqServerUrl) {
+    if (config.actionqDispatchContract !== DISPATCH_CONTRACT_VERSION) {
+      return {
+        enabled: false,
+        source: "actionq-server",
+        reason: `Dispatch disabled: actionq-server dispatch contract must be ${DISPATCH_CONTRACT_VERSION}.`
+      };
+    }
     return {
-      enabled: false,
+      enabled: true,
       source: "actionq-server",
-      reason: "Dispatch disabled: COCKPIT_ACTIONQ_SERVER_URL is not configured."
-    };
-  }
-  if (config.actionqDispatchContract !== DISPATCH_CONTRACT_VERSION) {
-    return {
-      enabled: false,
-      source: "actionq-server",
-      reason: `Dispatch disabled: actionq-server dispatch contract must be ${DISPATCH_CONTRACT_VERSION}.`
+      method: "server",
+      url: config.actionqServerUrl.replace(/\/+$/, "")
     };
   }
   return {
     enabled: true,
-    source: "actionq-server",
-    url: config.actionqServerUrl.replace(/\/+$/, "")
+    source: "actionctl",
+    method: "actionctl",
+    bin: config.actionctlBin
   };
 }
 
@@ -101,6 +116,20 @@ export function normalizeDispatchPayload(payload, { requestedBy = getDispatchOpe
     refs,
     requested_by: operatorId
   };
+}
+
+export async function dispatchViaActionctl(payload, bin = "actionctl") {
+  const type = KIND_TO_ACTION_TYPE[payload.kind] || "scope-iterate";
+  const priority = payload.priority === "high" ? 50 : 100;
+  const args = ["add", "--type", type, "--project", payload.repo_id, "--created-by", payload.requested_by || "operator:cockpit", "--priority", String(priority)];
+  if (payload.work_item_id) {
+    args.push("--target", payload.work_item_id);
+  }
+  if (payload.sprint_id) {
+    args.push("--source", `sprint:${payload.sprint_id}`);
+  }
+  const { stdout } = await execFileAsync(bin, args, { encoding: "utf8", timeout: 10000 });
+  return JSON.parse(stdout || "{}");
 }
 
 async function parseJsonResponse(response) {

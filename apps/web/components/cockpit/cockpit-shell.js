@@ -614,7 +614,7 @@ export function CockpitShell() {
               disabledReason={
                 effectiveSprintMode !== "active"
                   ? "Dispatch is intentionally limited to the Active view so backlog and history stay read-only planning surfaces."
-                  : "Dispatch remains disabled in this tranche. The UI is present, but a live POST path depends on actionq-server or an explicitly documented interim bridge."
+                  : null
               }
             />
           </section>

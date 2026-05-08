@@ -8,7 +8,7 @@ import { createGetHandler as createEventsHandler } from "../app/cockpit/api/even
 import { createGetHandler as createAuditHandler } from "../app/cockpit/api/audit/route.js";
 import { createGetHandler as createDispatchManifestsHandler } from "../app/cockpit/api/dispatch-manifests/route.js";
 import { createPostHandler as createDispatchHandler } from "../app/cockpit/api/dispatch/route.js";
-import { forwardDispatchToActionqServer } from "../lib/cockpit/dispatch.js";
+import { dispatchViaActionctl, forwardDispatchToActionqServer } from "../lib/cockpit/dispatch.js";
 
 function request(url) {
   return new Request(url);
@@ -189,4 +189,38 @@ test("dispatch forwarder preserves upstream status for non-json failures", async
     ),
     /actionq-server dispatch failed with 502/
   );
+});
+
+test("dispatch route uses actionctl when gate method is actionctl", async () => {
+  let dispatchedPayload = null;
+  let dispatchedBin = null;
+  const POST = createDispatchHandler({
+    getDispatchGate: () => ({ enabled: true, source: "actionctl", method: "actionctl", bin: "/usr/local/bin/actionctl" }),
+    getDispatchOperator: () => "operator:test",
+    dispatchViaActionctl: async (payload, bin) => {
+      dispatchedPayload = payload;
+      dispatchedBin = bin;
+      return { id: 42, type: "scope-iterate", status: "pending" };
+    },
+    forwardDispatchToActionqServer: async () => {
+      throw new Error("should not forward to server");
+    }
+  });
+  const response = await POST(jsonRequest("http://localhost/cockpit/api/dispatch", {
+    repo_id: "alpha",
+    sprint_id: 12,
+    work_item_id: "wi:42",
+    kind: "implement",
+    title: "Build alpha",
+    harness: "claude",
+    priority: "high"
+  }));
+  const payload = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(payload.accepted, true);
+  assert.equal(payload.source, "actionctl");
+  assert.equal(payload.action.id, 42);
+  assert.equal(dispatchedPayload.repo_id, "alpha");
+  assert.equal(dispatchedPayload.priority, "high");
+  assert.equal(dispatchedBin, "/usr/local/bin/actionctl");
 });
