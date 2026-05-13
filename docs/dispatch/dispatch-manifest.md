@@ -3,6 +3,8 @@
 The dispatch manifest is the repo-local contract that lets `actionq` route work without reading
 repo prose. It is intentionally smaller than `AGENTS.md`: it names the repo's adoption level,
 selected shared skills, routing defaults, verification families, and hook publishers.
+It may also provide a default `dispatch_group_id` for cockpit grouping, although
+the per-dispatch payload value is the authoritative grouping key for lifecycle rows.
 
 Schema:
 

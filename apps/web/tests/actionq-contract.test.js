@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateActionSessionsPayload } from "../lib/cockpit/contracts.js";
+import { validateActionSessionsPayload, validateDispatchesPayload } from "../lib/cockpit/contracts.js";
 import { resolveActionctlBin } from "../lib/cockpit/env.js";
 
 test("actionctl sessions payload validates documented v1 shape", () => {
@@ -41,4 +41,32 @@ test("resolveActionctlBin falls back to user-local actionctl when present", () =
     }),
     "/home/dev/.local/bin/actionctl"
   );
+});
+
+test("actionq dispatches payload validates lifecycle row shape", () => {
+  const payload = validateDispatchesPayload([
+    {
+      id: 12,
+      action_type: "scope-iterate",
+      kind: "investigate",
+      output_expectation: "sprint-proposal",
+      project: "agentops",
+      target_ref: null,
+      source_refs: [],
+      status: "pending",
+      priority: 100,
+      created_at: "2026-05-13T08:00:00Z",
+      claimed_at: null,
+      completed_at: null,
+      claimed_by: null,
+      result_ref: null,
+      failure_reason: null,
+      parent_id: null,
+      chain_depth: 0,
+      dispatch_group_id: "dg:refine",
+      session: null,
+      audit_refs: []
+    }
+  ]);
+  assert.equal(payload[0].dispatch_group_id, "dg:refine");
 });

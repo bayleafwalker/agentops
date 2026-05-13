@@ -24,6 +24,14 @@ export function TweaksPanel({ tweaks, onChange, pollMultiplier }) {
           />
           <span>always show source tags</span>
         </label>
+        <label className="toggle-row">
+          <input
+            type="checkbox"
+            checked={tweaks.headroomPoll}
+            onChange={(event) => onChange({ headroomPoll: event.target.checked })}
+          />
+          <span>poll model headroom</span>
+        </label>
         <label className="field">
           <span className="small muted">feed page size</span>
           <select

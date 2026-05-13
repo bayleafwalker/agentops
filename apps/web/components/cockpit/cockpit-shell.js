@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { buildCommandPaletteEntries, DEFAULT_TWEAKS, getPollIntervalMs, getVisibilityBackoffMultiplier, pickSprintSelection, SPRINT_VIEW_MODES } from "../../lib/cockpit/client-state.js";
+import { buildCommandPaletteEntries, DEFAULT_TWEAKS, getPollIntervalMs, getVisibilityBackoffMultiplier, pickSprintSelection, SPRINT_VIEW_MODES, summarizeReviewWorktrees } from "../../lib/cockpit/client-state.js";
 import { CockpitNav } from "./cockpit-nav";
 import { CockpitStatusBar } from "./cockpit-status-bar";
 import { CommandPalette } from "./command-palette";
@@ -17,8 +17,8 @@ function isoLabel(value) {
   return new Date(value).toISOString();
 }
 
-async function readJson(url) {
-  const response = await fetch(url, { cache: "no-store" });
+async function readJson(url, init = {}) {
+  const response = await fetch(url, { cache: "no-store", ...init });
   const payload = await response.json();
   if (!response.ok) {
     throw new Error(payload.error?.message || `request failed: ${response.status}`);
@@ -32,6 +32,119 @@ const MODE_LABELS = {
   history: "History"
 };
 
+function durationLabel(start, end) {
+  if (!start) {
+    return "n/a";
+  }
+  const started = Date.parse(start);
+  const ended = end ? Date.parse(end) : Date.now();
+  if (Number.isNaN(started) || Number.isNaN(ended) || ended < started) {
+    return "n/a";
+  }
+  const seconds = Math.round((ended - started) / 1000);
+  if (seconds < 90) {
+    return `${seconds}s`;
+  }
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 90) {
+    return `${minutes}m`;
+  }
+  return `${Math.round(minutes / 60)}h`;
+}
+
+function secondsLabel(value) {
+  if (value == null || !Number.isFinite(Number(value))) {
+    return "unknown";
+  }
+  const seconds = Math.max(0, Math.round(Number(value)));
+  if (seconds < 90) {
+    return `${seconds}s`;
+  }
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 90) {
+    return `${minutes}m`;
+  }
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) {
+    return `${hours}h`;
+  }
+  return `${Math.round(hours / 24)}d`;
+}
+
+function ageLabel(value) {
+  if (!value) {
+    return "never";
+  }
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) {
+    return "unknown";
+  }
+  const seconds = Math.max(0, Math.round((Date.now() - parsed) / 1000));
+  if (seconds < 90) {
+    return `${seconds}s ago`;
+  }
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 90) {
+    return `${minutes}m ago`;
+  }
+  return `${Math.round(minutes / 60)}h ago`;
+}
+
+function percentLabel(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? `${Math.round(number)}%` : "unknown";
+}
+
+function groupDispatches(rows) {
+  const groups = new Map();
+  for (const row of rows) {
+    const key = row.dispatch_group_id || "ungrouped";
+    const bucket = groups.get(key) || [];
+    bucket.push(row);
+    groups.set(key, bucket);
+  }
+  return [...groups.entries()];
+}
+
+function claimLivenessLabel(session) {
+  if (!session) {
+    return "missing";
+  }
+  if (session.is_stale) {
+    return "stale";
+  }
+  if (session.ttl_remaining_seconds != null) {
+    return `${secondsLabel(session.ttl_remaining_seconds)} left`;
+  }
+  return "alive";
+}
+
+function ModelHeadroomPanel({ data, refreshing, onRefresh }) {
+  const snapshot = data?.snapshot;
+  const codex = snapshot?.providers?.codex;
+  const claude = snapshot?.providers?.claude;
+  return (
+    <section className="item-card">
+      <div className="title-row">
+        <strong>Model Headroom</strong>
+        <button className="mode-button" type="button" onClick={onRefresh} disabled={refreshing}>
+          {refreshing ? "Refreshing" : "Refresh"}
+        </button>
+      </div>
+      <div className="small muted">
+        refreshed={ageLabel(snapshot?.refreshed_at)}{snapshot?.stale ? " stale" : ""}
+      </div>
+      <div className="small muted">
+        codex 5h={percentLabel(codex?.rate_limit?.primary_window?.used_percent)} weekly={percentLabel(codex?.rate_limit?.secondary_window?.used_percent)} credits={codex?.credits?.unlimited ? "unlimited" : codex?.credits?.balance ?? "unknown"}
+      </div>
+      <div className="small muted">
+        claude 5h={percentLabel(claude?.current_window?.used_percent)} opus-weekly={percentLabel(claude?.weekly_limit?.opus?.used_percent)} other-weekly={percentLabel(claude?.weekly_limit?.other?.used_percent)}
+      </div>
+      {data?.degraded ? <div className="small muted">{data.degraded.message}</div> : null}
+    </section>
+  );
+}
+
 export function CockpitShell() {
   const [reposData, setReposData] = useState({ repos: [], degraded: null });
   const [selectedRepo, setSelectedRepo] = useState("ALL");
@@ -40,9 +153,15 @@ export function CockpitShell() {
   const [sprintsData, setSprintsData] = useState({ sprints: [], degraded: null });
   const [takeupData, setTakeupData] = useState({ active_takeups: [], released_takeups: [], degraded: null });
   const [claimsData, setClaimsData] = useState({ claims: [], degraded: null });
+  const [dispatchesData, setDispatchesData] = useState({ dispatches: [], degraded: null });
   const [eventsData, setEventsData] = useState({ events: [], degraded: null });
   const [auditData, setAuditData] = useState({ events: [], degraded: null });
+  const [costData, setCostData] = useState({ summary: null, degraded: null });
+  const [headroomData, setHeadroomData] = useState({ snapshot: null, degraded: null });
+  const [headroomRefreshing, setHeadroomRefreshing] = useState(false);
   const [dispatchData, setDispatchData] = useState({ manifests: [], warnings: [], degraded: null });
+  const [dispatcherPauseData, setDispatcherPauseData] = useState({ paused: false, pause_file: null, updated_at: null, degraded: null });
+  const [pauseUpdating, setPauseUpdating] = useState(false);
   const [refreshedAt, setRefreshedAt] = useState(null);
   const [fatalError, setFatalError] = useState("");
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -50,7 +169,57 @@ export function CockpitShell() {
   const [tweaks, setTweaks] = useState(DEFAULT_TWEAKS);
 
   const pollMultiplier = getVisibilityBackoffMultiplier(visibilityState);
-  const effectiveSprintMode = selectedRepo === "ALL" ? "active" : selectedMode;
+  const effectiveSprintMode = selectedMode;
+
+  async function loadHeadroom(force = false) {
+    setHeadroomRefreshing(true);
+    try {
+      const data = await readJson("/cockpit/api/headroom", {
+        method: force ? "POST" : "GET"
+      });
+      setHeadroomData(data);
+    } catch (error) {
+      setHeadroomData((current) => ({
+        ...current,
+        degraded: { source: "model-headroom", message: error.message }
+      }));
+    } finally {
+      setHeadroomRefreshing(false);
+    }
+  }
+
+  async function loadDispatcherPause() {
+    try {
+      const data = await readJson("/cockpit/api/dispatcher/pause");
+      setDispatcherPauseData(data);
+      return data;
+    } catch (error) {
+      setDispatcherPauseData((current) => ({
+        ...current,
+        degraded: { source: "fs://dispatcher-pause", message: error.message }
+      }));
+      return null;
+    }
+  }
+
+  async function toggleDispatcherPause(nextPaused) {
+    setPauseUpdating(true);
+    try {
+      const data = await readJson("/cockpit/api/dispatcher/pause", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ paused: nextPaused })
+      });
+      setDispatcherPauseData(data);
+    } catch (error) {
+      setDispatcherPauseData((current) => ({
+        ...current,
+        degraded: { source: "fs://dispatcher-pause", message: error.message }
+      }));
+    } finally {
+      setPauseUpdating(false);
+    }
+  }
 
   useEffect(() => {
     function onVisibilityChange() {
@@ -78,10 +247,52 @@ export function CockpitShell() {
   }, []);
 
   useEffect(() => {
-    if (selectedRepo === "ALL" && selectedMode !== "active") {
-      setSelectedMode("active");
+    loadHeadroom(false);
+    loadDispatcherPause();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer;
+
+    async function pollPause() {
+      if (!cancelled) {
+        await loadDispatcherPause();
+      }
+      if (!cancelled) {
+        timer = setTimeout(pollPause, getPollIntervalMs("claims", document.visibilityState || "visible"));
+      }
     }
-  }, [selectedMode, selectedRepo]);
+
+    timer = setTimeout(pollPause, getPollIntervalMs("claims", document.visibilityState || "visible"));
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [visibilityState]);
+
+  useEffect(() => {
+    if (!tweaks.headroomPoll) {
+      return undefined;
+    }
+    let cancelled = false;
+    let timer;
+
+    async function pollHeadroom() {
+      if (!cancelled) {
+        await loadHeadroom(false);
+      }
+      if (!cancelled) {
+        timer = setTimeout(pollHeadroom, getPollIntervalMs("headroom", document.visibilityState || "visible"));
+      }
+    }
+
+    timer = setTimeout(pollHeadroom, getPollIntervalMs("headroom", document.visibilityState || "visible"));
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [tweaks.headroomPoll, visibilityState]);
 
   useEffect(() => {
     let cancelled = false;
@@ -195,6 +406,41 @@ export function CockpitShell() {
     let cancelled = false;
     let timer;
 
+    async function loadDispatchesAndCost() {
+      const params = new URLSearchParams({ repo_id: selectedRepo, limit: "100" });
+      try {
+        const [dispatches, costs] = await Promise.all([
+          readJson(`/cockpit/api/dispatches?${params}`),
+          readJson("/cockpit/api/costs/summary"),
+        ]);
+        if (cancelled) {
+          return;
+        }
+        setDispatchesData(dispatches);
+        setCostData(costs);
+        setRefreshedAt(new Date().toISOString());
+      } catch (error) {
+        if (!cancelled) {
+          setFatalError(error.message);
+        }
+      } finally {
+        if (!cancelled) {
+          timer = setTimeout(loadDispatchesAndCost, getPollIntervalMs("claims", document.visibilityState || "visible"));
+        }
+      }
+    }
+
+    loadDispatchesAndCost();
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [selectedRepo, visibilityState]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer;
+
     async function loadDispatchManifests() {
       const params = new URLSearchParams({ repo_id: selectedRepo });
       try {
@@ -222,12 +468,6 @@ export function CockpitShell() {
   }, [selectedRepo, visibilityState]);
 
   useEffect(() => {
-    if (selectedRepo === "ALL") {
-      if (selectedSprint) {
-        setSelectedSprint("");
-      }
-      return;
-    }
     if (sprintsData.sprints.length === 0) {
       if (selectedSprint) {
         setSelectedSprint("");
@@ -302,6 +542,9 @@ export function CockpitShell() {
     selectedRepo === "ALL"
       ? null
       : dispatchData.manifests.find((manifest) => manifest.repo_id === selectedRepo);
+  const dispatchGroups = groupDispatches(dispatchesData.dispatches);
+  const costsBySession = costData.summary?.by_session || {};
+  const reviewWorktrees = summarizeReviewWorktrees(dispatchesData.dispatches);
 
   return (
     <div className={`cockpit-pane cockpit-shell ${tweaks.compact ? "compact" : ""}`}>
@@ -340,7 +583,6 @@ export function CockpitShell() {
               type="button"
               onClick={() => {
                 setSelectedRepo("ALL");
-                setSelectedMode("active");
                 setSelectedSprint("");
               }}
             >
@@ -394,7 +636,6 @@ export function CockpitShell() {
                   key={mode}
                   className={`mode-button ${effectiveSprintMode === mode ? "active" : ""}`}
                   type="button"
-                  disabled={selectedRepo === "ALL" && mode !== "active"}
                   onClick={() => {
                     setSelectedMode(mode);
                     setSelectedSprint("");
@@ -406,7 +647,7 @@ export function CockpitShell() {
             </div>
             <div className="section-note small muted">
               {selectedRepo === "ALL"
-                ? "ALL stays on Active so the aggregate view remains a live operations surface."
+                ? "ALL aggregates remote repos in the selected read-only mode; dispatch remains repo-scoped."
                 : effectiveSprintMode === "active"
                   ? "Now view: active repo sprints, claims, takeup, and live work-item posture."
                   : effectiveSprintMode === "backlog"
@@ -522,12 +763,20 @@ export function CockpitShell() {
                     </thead>
                     <tbody>
                       {claimsData.claims.map((row) => (
-                        <tr key={row.claim.claim_id}>
+                        <tr key={row.claim.claim_id} className={row.session?.is_stale ? "row-muted" : ""}>
                           <td>#{row.claim.work_item_id} {row.claim.item_title}</td>
                           <td>{row.claim.actor}</td>
                           <td className="table-mono">{row.session?.runtime_session_id || "unknown"}</td>
-                          <td>{row.session?.heartbeat_at || "unknown"}</td>
-                          <td>{row.session?.ttl_seconds ?? "unknown"}</td>
+                          <td>
+                            <div>{row.session?.heartbeat_at || "unknown"}</div>
+                            {row.session?.deadline_at ? <div className="small muted">deadline={row.session.deadline_at}</div> : null}
+                          </td>
+                          <td>
+                            <span className={`status-chip ${row.session?.is_stale ? "error" : row.session ? "ok" : "warn"}`}>
+                              {claimLivenessLabel(row.session)}
+                            </span>
+                            <div className="small muted">ttl={row.session?.ttl_seconds ?? "unknown"}</div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -538,6 +787,101 @@ export function CockpitShell() {
                 ) : null}
               </>
             )}
+          </section>
+          <section className="cockpit-section" id="dispatches">
+            <div className="title-row">
+              <h3 className="section-title">Dispatches</h3>
+              {tweaks.alwaysShowSources ? <SourceTruthTag source="actionq://dispatches" /> : null}
+            </div>
+            <DegradedSourceBanner message={dispatchesData.degraded?.message} />
+            <div className="item-card review-worktrees">
+              <div className="title-row">
+                <strong>Review Worktrees</strong>
+                <span className={`status-chip ${reviewWorktrees.count ? "warn" : "ok"}`}>
+                  {reviewWorktrees.count} abandoned
+                </span>
+              </div>
+              <div className="small muted">
+                oldest={reviewWorktrees.oldest_age_seconds == null ? "none" : `${secondsLabel(reviewWorktrees.oldest_age_seconds)} ago`}
+              </div>
+              {reviewWorktrees.rows.length ? (
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Action</th>
+                        <th>State</th>
+                        <th>Age</th>
+                        <th>Branch / worktree</th>
+                        <th>Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reviewWorktrees.rows.map((row) => (
+                        <tr key={`${row.action_id}:${row.worktree}`}>
+                          <td>#{row.action_id} {row.repo_id}</td>
+                          <td><span className="status-chip error">{row.status}</span></td>
+                          <td>{row.age_seconds == null ? "unknown" : `${secondsLabel(row.age_seconds)} ago`}</td>
+                          <td className="table-mono path-cell">
+                            <div>{row.branch || "unknown branch"}</div>
+                            <div className="small muted">{row.worktree}</div>
+                          </td>
+                          <td>{row.failure_reason || "runbook review required"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="empty-state small muted">No failed or rejected dispatch worktrees are visible in the current dispatch window.</div>
+              )}
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Action</th>
+                    <th>Repo / target</th>
+                    <th>State</th>
+                    <th>Wall</th>
+                    <th>Session</th>
+                    <th>Result</th>
+                    <th>Cost</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dispatchGroups.flatMap(([groupId, rows]) => [
+                    <tr key={`group:${groupId}`}>
+                      <td colSpan="7" className="table-mono muted">group={groupId} count={rows.length}</td>
+                    </tr>,
+                    ...rows.map((row) => {
+                      const sessionId = row.session?.runtime_session_id || row.session?.session_id || "";
+                      const sessionCost = sessionId && costsBySession[sessionId] != null ? `$${Number(costsBySession[sessionId]).toFixed(2)}` : "unknown";
+                      return (
+                        <tr key={row.id}>
+                          <td>
+                            <div>#{row.id} {row.kind || row.action_type}</div>
+                            <div className="small muted">{row.output_expectation || row.action_type}</div>
+                          </td>
+                          <td>
+                            <div>{row.project || "unknown"}</div>
+                            <div className="small muted">{row.target_ref || row.source_refs?.join(" ") || "no target"}</div>
+                          </td>
+                          <td><span className={`status-chip ${row.status === "completed" ? "ok" : row.status === "failed" || row.status === "rejected" ? "error" : "warn"}`}>{row.status}</span></td>
+                          <td>{durationLabel(row.claimed_at || row.created_at, row.completed_at)}</td>
+                          <td className="table-mono">{sessionId || "unknown"}</td>
+                          <td>{row.result_ref || row.failure_reason || row.audit_refs?.join(" ") || "pending"}</td>
+                          <td>{sessionCost}</td>
+                        </tr>
+                      );
+                    })
+                  ])}
+                </tbody>
+              </table>
+            </div>
+            {dispatchesData.dispatches.length === 0 && !dispatchesData.degraded ? (
+              <div className="empty-state small muted">No dispatch lifecycle rows match the current repo filter.</div>
+            ) : null}
           </section>
           <section className="cockpit-section" id="takeup">
             <div className="title-row">
@@ -607,18 +951,31 @@ export function CockpitShell() {
               ) : (
                 <div className="empty-state small muted">No dispatch manifest is registered for {selectedRepo}.</div>
               )}
+              <ModelHeadroomPanel
+                data={headroomData}
+                refreshing={headroomRefreshing}
+                onRefresh={() => loadHeadroom(true)}
+              />
             </div>
             <DispatchComposer
               repoId={selectedRepo}
-              sprintId={effectiveSprintMode === "active" ? selectedSprint : ""}
+              sprintId={effectiveSprintMode === "active" || effectiveSprintMode === "backlog" ? selectedSprint : ""}
+              mode={effectiveSprintMode}
+              headroom={headroomData.snapshot}
+              onRefreshHeadroom={() => loadHeadroom(true)}
+              dispatcherPause={dispatcherPauseData}
+              pauseUpdating={pauseUpdating}
+              onTogglePause={toggleDispatcherPause}
               disabledReason={
-                effectiveSprintMode !== "active"
-                  ? "Dispatch is intentionally limited to the Active view so backlog and history stay read-only planning surfaces."
+                selectedRepo === "ALL"
+                  ? "Dispatch remains scoped to one concrete repo; ALL is browse-only."
+                  : effectiveSprintMode === "history"
+                    ? "History is read-only; use Active or Backlog for dispatch."
                   : null
               }
             />
           </section>
-          <CockpitStatusBar repoId={selectedRepo} refreshedAt={refreshedAt} health={health} pollMultiplier={pollMultiplier} />
+          <CockpitStatusBar repoId={selectedRepo} refreshedAt={refreshedAt} health={health} pollMultiplier={pollMultiplier} costSummary={costData.summary} dispatcherPause={dispatcherPauseData} />
         </div>
       </section>
 

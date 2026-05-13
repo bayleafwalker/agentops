@@ -4,6 +4,7 @@ export function CockpitNav() {
     { href: "#sprints", label: "sprints" },
     { href: "#work-items", label: "items" },
     { href: "#claims", label: "claims" },
+    { href: "#dispatches", label: "dispatches" },
     { href: "#takeup", label: "takeup" },
     { href: "#dispatch", label: "dispatch" },
     { href: "#outcomes", label: "outcomes" },

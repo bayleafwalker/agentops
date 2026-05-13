@@ -39,6 +39,43 @@ These are siblings under `/projects/dev/`, not nested inside each other. `_artif
         knowledge-YYYY-MM-DD.ndjson
 ```
 
+## Live Cockpit Architecture
+
+The cockpit is a Next.js app in `agentops/apps/web`. The browser talks only to
+`/cockpit/api/*` routes served by the same pod; those routes are the gateway for
+PostgreSQL, actionq-server, workspace artifacts, and the shared cost log.
+
+Current live data paths:
+
+| Cockpit surface | Source |
+|---|---|
+| Repos, sprints, work items, claims, takeup, sprint events | `pg://sprintctl` through `SPRINTCTL_URL` |
+| Sessions and dispatch lifecycle rows | `actionq-server` (`/sessions`, `/dispatches`, `/dispatch`) |
+| Audit outcome feed | `/projects/dev/_artifacts/<repo-id>/audit/*.ndjson` read-only |
+| Dispatch manifest summary | `agentops/templates/dispatch/examples/*.dispatch.json` by default |
+| Status-bar cost token | `/projects/dev/.claude/session-costs.jsonl` |
+| Model headroom | Configured JSON refresh commands cached by `/cockpit/api/headroom` |
+
+The cockpit has one write path: `POST /cockpit/api/dispatch`, which forwards to
+`actionq-server` when `COCKPIT_ACTIONQ_SERVER_URL` and
+`COCKPIT_ACTIONQ_DISPATCH_CONTRACT=v1` are set. Sprintctl PostgreSQL and the
+workspace artifact mount remain read-only from the cockpit.
+
+The Dispatches pane is the lifecycle view for a queued unit of work. It renders
+one actionq row across `pending -> claimed/running -> completed/failed/rejected`,
+shows the latest session summary when available, groups by optional
+`dispatch_group_id`, and joins cost only when a stable runtime/session id is
+present in the workspace cost log. Dispatcher-meta UI, a log-tail pane, and a
+billing dashboard are intentionally deferred.
+
+Model headroom is intentionally a soft signal. Codex `/status` and Claude Code
+`/usage` are slash-command/TUI surfaces today, so the cockpit does not scrape
+them or assume private auth endpoints. Operators can provide
+`COCKPIT_CODEX_HEADROOM_COMMAND` and `COCKPIT_CLAUDE_HEADROOM_COMMAND` that emit
+JSON shaped like the upstream usage data. The gateway keeps reset timestamps,
+Codex credits and review limits, and Claude's Opus/non-Opus weekly split, caches
+the last successful value, and marks stale data when refresh fails.
+
 ---
 
 ## Tools

@@ -362,6 +362,30 @@ th {
   border-color: rgba(255, 80, 100, 0.25);
 }
 
+.dispatch-result.warn {
+  color: var(--warn);
+  border-color: rgba(255, 212, 121, 0.25);
+}
+
+.pause-toggle {
+  width: auto;
+  margin-left: 10px;
+  padding: 6px 10px;
+}
+
+.row-muted {
+  opacity: 0.58;
+}
+
+.path-cell {
+  max-width: 340px;
+  overflow-wrap: anywhere;
+}
+
+.review-worktrees {
+  margin-bottom: 12px;
+}
+
 .palette-backdrop {
   position: fixed;
   inset: 0;

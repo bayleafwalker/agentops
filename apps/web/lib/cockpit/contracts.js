@@ -37,6 +37,46 @@ export function validateActionSessionsPayload(payload) {
   return payload.map(validateActionSessionRow);
 }
 
+export function validateDispatchRow(row) {
+  if (!row || typeof row !== "object") {
+    throw new Error("dispatch row must be an object");
+  }
+  for (const field of ["id", "action_type", "project", "status", "priority", "created_at"]) {
+    if (!(field in row)) {
+      throw new Error(`dispatch row missing ${field}`);
+    }
+  }
+  if (typeof row.id !== "number") {
+    throw new Error("dispatch id must be a number");
+  }
+  if (typeof row.action_type !== "string" || row.action_type.length === 0) {
+    throw new Error("action_type must be a non-empty string");
+  }
+  if (row.project != null && typeof row.project !== "string") {
+    throw new Error("project must be a string when present");
+  }
+  if (typeof row.status !== "string" || row.status.length === 0) {
+    throw new Error("status must be a non-empty string");
+  }
+  if (typeof row.priority !== "number") {
+    throw new Error("priority must be a number");
+  }
+  if (typeof row.created_at !== "string" || !row.created_at.endsWith("Z")) {
+    throw new Error("created_at must be an ISO UTC string");
+  }
+  if (!Array.isArray(row.source_refs)) {
+    throw new Error("source_refs must be an array");
+  }
+  return row;
+}
+
+export function validateDispatchesPayload(payload) {
+  if (!Array.isArray(payload)) {
+    throw new Error("actionq dispatches output must be an array");
+  }
+  return payload.map(validateDispatchRow);
+}
+
 const EVENT_ID_RE = /^ad:[0-9A-HJKMNP-TV-Z]{26}$/;
 const VALID_REF_PREFIXES = ["wi:", "ka:", "ad:", "sha:", "pr:", "sprint:"];
 

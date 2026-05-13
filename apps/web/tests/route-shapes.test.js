@@ -4,8 +4,11 @@ import { createGetHandler as createReposHandler } from "../app/cockpit/api/repos
 import { createGetHandler as createSprintsHandler } from "../app/cockpit/api/sprints/route.js";
 import { createGetHandler as createTakeupHandler } from "../app/cockpit/api/takeup/route.js";
 import { createGetHandler as createClaimsHandler } from "../app/cockpit/api/claims/route.js";
+import { createGetHandler as createDispatchesHandler } from "../app/cockpit/api/dispatches/route.js";
 import { createGetHandler as createEventsHandler } from "../app/cockpit/api/events/route.js";
 import { createGetHandler as createAuditHandler } from "../app/cockpit/api/audit/route.js";
+import { createGetHandler as createCostSummaryHandler } from "../app/cockpit/api/costs/summary/route.js";
+import { createGetHandler as createHeadroomGetHandler, createPostHandler as createHeadroomPostHandler } from "../app/cockpit/api/headroom/route.js";
 import { createGetHandler as createDispatchManifestsHandler } from "../app/cockpit/api/dispatch-manifests/route.js";
 import { createPostHandler as createDispatchHandler } from "../app/cockpit/api/dispatch/route.js";
 import { dispatchViaActionctl, forwardDispatchToActionqServer } from "../lib/cockpit/dispatch.js";
@@ -59,11 +62,85 @@ test("takeup route returns expected shape", async () => {
 test("claims route joins claims and sessions", async () => {
   const GET = createClaimsHandler({
     listClaims: async () => [{ claim_id: 81, work_item_id: 95, actor: "codex", runtime_session_id: "aqs:1" }],
-    getActionqSessions: async () => [{ session_id: "aqs:1", runtime_session_id: "aqs:1", status: "running", heartbeat_at: "2026-04-29T00:00:00Z", ttl_seconds: 120 }]
+    getActionqSessions: async () => [{ session_id: "aqs:1", runtime_session_id: "aqs:1", status: "running", heartbeat_at: "2026-04-29T00:00:00Z", ttl_seconds: 120 }],
+    now: () => new Date("2026-04-29T00:01:00Z")
   });
   const payload = await (await GET(request("http://localhost/cockpit/api/claims?repo_id=alpha"))).json();
   assert.equal(payload.claims[0].claim.source, "pg://sprintctl");
   assert.equal(payload.claims[0].session.source, "actionq://sessions");
+  assert.equal(payload.claims[0].session.is_stale, false);
+  assert.equal(payload.claims[0].session.ttl_remaining_seconds, 60);
+});
+
+test("claims route marks sessions stale after heartbeat ttl expires", async () => {
+  const GET = createClaimsHandler({
+    listClaims: async () => [{ claim_id: 81, work_item_id: 95, actor: "codex", runtime_session_id: "aqs:1" }],
+    getActionqSessions: async () => [{ session_id: "aqs:1", runtime_session_id: "aqs:1", status: "running", heartbeat_at: "2026-04-29T00:00:00Z", ttl_seconds: 120 }],
+    now: () => new Date("2026-04-29T00:03:00Z")
+  });
+  const payload = await (await GET(request("http://localhost/cockpit/api/claims?repo_id=alpha"))).json();
+  assert.equal(payload.claims[0].session.is_stale, true);
+  assert.equal(payload.claims[0].session.deadline_at, "2026-04-29T00:02:00.000Z");
+});
+
+test("dispatches route returns actionq lifecycle rows", async () => {
+  let args = null;
+  const GET = createDispatchesHandler({
+    getActionqDispatches: async (received) => {
+      args = received;
+      return [{ id: 7, action_type: "scope-iterate", project: "alpha", status: "pending", priority: 100, created_at: "2026-05-13T00:00:00Z", source_refs: [] }];
+    }
+  });
+  const payload = await (await GET(request("http://localhost/cockpit/api/dispatches?repo_id=alpha&limit=25"))).json();
+  assert.equal(payload.source, "actionq://dispatches");
+  assert.equal(payload.dispatches[0].id, 7);
+  assert.deepEqual(args, { repoId: "alpha", status: null, limit: 25 });
+});
+
+test("cost summary route returns workspace cost shape", async () => {
+  const GET = createCostSummaryHandler({
+    readCostSummary: async () => ({ day: "2026-05-13", sessions: 2, total_cost_usd: 1.25, by_session: {}, by_model: {} })
+  });
+  const payload = await (await GET(request("http://localhost/cockpit/api/costs/summary"))).json();
+  assert.equal(payload.summary.sessions, 2);
+  assert.equal(payload.summary.total_cost_usd, 1.25);
+});
+
+test("headroom route returns cached and forced model quota shape", async () => {
+  const snapshot = {
+    source: "model-headroom",
+    refreshed_at: "2026-05-13T10:00:00Z",
+    stale: false,
+    providers: { codex: { available: true }, claude: { available: false } },
+    warnings: [],
+    degraded: null
+  };
+  let forced = false;
+  const deps = {
+    getModelHeadroom: async ({ force }) => {
+      forced = force;
+      return snapshot;
+    }
+  };
+  const GET = createHeadroomGetHandler(deps);
+  const getPayload = await (await GET(request("http://localhost/cockpit/api/headroom"))).json();
+  assert.equal(getPayload.snapshot.refreshed_at, "2026-05-13T10:00:00Z");
+  assert.equal(forced, false);
+
+  const POST = createHeadroomPostHandler(deps);
+  await POST(request("http://localhost/cockpit/api/headroom"));
+  assert.equal(forced, true);
+});
+
+test("dispatches route degrades independently when actionq is unavailable", async () => {
+  const GET = createDispatchesHandler({
+    getActionqDispatches: async () => {
+      throw new Error("boom");
+    }
+  });
+  const payload = await (await GET(request("http://localhost/cockpit/api/dispatches?repo_id=alpha"))).json();
+  assert.equal(payload.dispatches.length, 0);
+  assert.equal(payload.degraded.source, "actionq://dispatches");
 });
 
 test("events route returns expected shape", async () => {
@@ -153,14 +230,46 @@ test("dispatch route forwards validated payload when gate is enabled", async () 
     sprint_id: 12,
     work_item_id: "wi:abc123",
     kind: "implement",
+    output_expectation: "implementation",
     title: "Build alpha",
     prompt: "Do the work",
     harness: "codex",
     model: "gpt-5.3-codex",
     priority: "high",
     refs: ["wi:abc123", "sprint:12"],
+    dispatch_group_id: null,
     requested_by: "operator:test"
   });
+});
+
+test("dispatch route accepts no-sprint refinement payload", async () => {
+  let forwarded = null;
+  const POST = createDispatchHandler({
+    getDispatchGate: () => ({ enabled: true, source: "actionq-server" }),
+    getDispatchOperator: () => "operator:test",
+    forwardDispatchToActionqServer: async (payload) => {
+      forwarded = payload;
+      return { id: 13, status: "pending" };
+    }
+  });
+  const response = await POST(jsonRequest("http://localhost/cockpit/api/dispatch", {
+    repo_id: "alpha",
+    sprint_id: null,
+    work_item_id: null,
+    kind: "investigate",
+    output_expectation: "sprint-proposal",
+    title: "Refine backlog",
+    harness: "codex",
+    priority: "normal",
+    refs: [],
+    dispatch_group_id: "dg:refine"
+  }));
+  const payload = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(payload.accepted, true);
+  assert.equal(forwarded.sprint_id, null);
+  assert.equal(forwarded.output_expectation, "sprint-proposal");
+  assert.equal(forwarded.dispatch_group_id, "dg:refine");
 });
 
 test("dispatch forwarder preserves upstream status for non-json failures", async () => {

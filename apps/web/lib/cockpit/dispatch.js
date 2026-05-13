@@ -8,6 +8,7 @@ export const DISPATCH_CONTRACT_VERSION = "v1";
 const DISPATCH_KINDS = new Set(["implement", "review", "test", "investigate", "document", "custom"]);
 const DISPATCH_HARNESSES = new Set(["claude", "codex", "copilot-cli", "codestral"]);
 const DISPATCH_PRIORITIES = new Set(["normal", "high"]);
+const OUTPUT_EXPECTATIONS = new Set(["plan", "audit-event", "draft-work-items", "sprint-proposal", "implementation", "review"]);
 
 const KIND_TO_ACTION_TYPE = {
   implement: "scope-iterate",
@@ -81,12 +82,14 @@ export function normalizeDispatchPayload(payload, { requestedBy = getDispatchOpe
   const priority = trimString(payload.priority || "normal");
   const refs = validateStringList(payload.refs, "refs");
   const workItemId = optionalTrimmedString(payload.work_item_id);
+  const outputExpectation = trimString(payload.output_expectation || "implementation");
+  const dispatchGroupId = optionalTrimmedString(payload.dispatch_group_id);
   const operatorId = String(requestedBy || "").trim();
   if (!repoId || repoId === "ALL") {
     throw new Error("repo_id must name one concrete repo");
   }
-  if (!Number.isInteger(payload.sprint_id)) {
-    throw new Error("sprint_id must be an integer");
+  if (payload.sprint_id != null && !Number.isInteger(payload.sprint_id)) {
+    throw new Error("sprint_id must be an integer when present");
   }
   if (!DISPATCH_KINDS.has(kind)) {
     throw new Error(`kind must be one of: ${[...DISPATCH_KINDS].join(", ")}`);
@@ -100,20 +103,25 @@ export function normalizeDispatchPayload(payload, { requestedBy = getDispatchOpe
   if (!DISPATCH_PRIORITIES.has(priority)) {
     throw new Error(`priority must be one of: ${[...DISPATCH_PRIORITIES].join(", ")}`);
   }
+  if (!OUTPUT_EXPECTATIONS.has(outputExpectation)) {
+    throw new Error(`output_expectation must be one of: ${[...OUTPUT_EXPECTATIONS].join(", ")}`);
+  }
   if (!operatorId) {
     throw new Error("requested_by is required");
   }
   return {
     repo_id: repoId,
-    sprint_id: payload.sprint_id,
+    sprint_id: payload.sprint_id ?? null,
     work_item_id: workItemId,
     kind,
+    output_expectation: outputExpectation,
     title,
     prompt,
     harness,
     model,
     priority,
     refs,
+    dispatch_group_id: dispatchGroupId,
     requested_by: operatorId
   };
 }
@@ -125,7 +133,7 @@ export async function dispatchViaActionctl(payload, bin = "actionctl") {
   if (payload.work_item_id) {
     args.push("--target", payload.work_item_id);
   }
-  if (payload.sprint_id) {
+  if (payload.sprint_id != null) {
     args.push("--source", `sprint:${payload.sprint_id}`);
   }
   const { stdout } = await execFileAsync(bin, args, { encoding: "utf8", timeout: 10000 });

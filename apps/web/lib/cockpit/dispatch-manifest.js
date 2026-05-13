@@ -33,6 +33,9 @@ export function validateDispatchManifest(manifest) {
   if (!ADOPTION_LEVELS.has(manifest.adoption_level)) {
     throw new Error("adoption_level must be guidance-only, observable, or dispatchable");
   }
+  if (manifest.dispatch_group_id != null && (typeof manifest.dispatch_group_id !== "string" || manifest.dispatch_group_id.length === 0)) {
+    throw new Error("dispatch_group_id must be a non-empty string when present");
+  }
   const routing = manifest.routing;
   if (!routing || typeof routing !== "object") {
     throw new Error("routing must be an object");
@@ -79,6 +82,7 @@ function summarizeManifest(manifest, sourcePath) {
   return {
     repo_id: manifest.repo_id,
     adoption_level: manifest.adoption_level,
+    dispatch_group_id: manifest.dispatch_group_id || null,
     source: sourcePath,
     routing: {
       default_harness: manifest.routing.default_harness,

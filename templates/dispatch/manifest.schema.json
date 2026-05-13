@@ -18,6 +18,10 @@
       "type": "string",
       "enum": ["guidance-only", "observable", "dispatchable"]
     },
+    "dispatch_group_id": {
+      "type": "string",
+      "minLength": 1
+    },
     "routing": {
       "type": "object",
       "additionalProperties": false,

@@ -180,7 +180,11 @@ GET  /api/sprints/active                       → all active sprints across REM
 GET  /api/sprints/:sprint_id                   → sprint hero + items + takeup state
 GET  /api/sessions                             → actionq sessions (cross-repo)
 GET  /api/sessions?repo_id=...                 → filtered
+GET  /api/dispatches                           → actionq dispatch lifecycle rows
 GET  /api/audit?repo_id=...&since=...          → audit NDJSON, parsed + normalized
+GET  /api/costs/summary                        → workspace session cost summary
+GET  /api/headroom                             → cached Codex/Claude quota headroom snapshot
+POST /api/headroom                             → force-refresh configured headroom commands
 GET  /api/audit/stream?repo_id=...             → SSE upgrade path (deferred to v1.1)
 GET  /api/sprint-events?repo_id=...&sprint_id  → secondary right-pane feed
 POST /api/dispatch                             → forwards to actionq-cluster
@@ -199,7 +203,10 @@ What it explicitly does not do: cache, denormalize, schema-rewrite, or aggregate
 
 ## Implementation order
 
-Each step is independently shippable and leaves the cockpit in a coherent state.
+This section records the original phased plan. As of the current cockpit build,
+steps 1-5 are shipped as a co-located Next.js SPA plus API gateway, step 6 is
+partially shipped, and a new dispatch lifecycle slice has been added on top of
+the original claims/dispatch composer split.
 
 1. **Gateway skeleton + health endpoint.** Read-only pg connection from a pod, NFS read mount, actionq-cluster client. Serves `/api/health` only. Deployable as the cockpit-web pod with a placeholder SPA. Validates connectivity, mount permissions, and the gateway pattern itself.
 
@@ -209,7 +216,7 @@ Each step is independently shippable and leaves the cockpit in a coherent state.
 
 4. **Audit feed in right primary.** Gateway parses NDJSON shards, returns normalized events. Polling at 5s. Source label `nfs:_artifacts/<repo>/audit/`. Sprint event feed (right secondary) ships in the same step — both right-pane feeds together so the split is visible from day one.
 
-5. **Actionq-cluster integration.** Sessions endpoint, claims table gets heartbeat/TTL columns, log tail panel becomes real. Dispatch composer wired through `/api/dispatch`. Status bar's actionq dot goes live. This is the "cockpit feels alive" step.
+5. **Actionq integration.** Sessions endpoint, claims table gets heartbeat/TTL columns, dispatch lifecycle rows come from `GET /dispatches`, and the dispatch composer is wired through `/api/dispatch`. Status bar's actionq dot goes live. The log-tail panel remains deferred.
 
 6. **Sprint takeup panel.** Multi-sprint surface; sprint switcher in the hero when N>1. The reduce-events-to-takeup-state computation lives in the gateway.
 
@@ -217,7 +224,7 @@ Each step is independently shippable and leaves the cockpit in a coherent state.
 
 8. **TWEAKS additions.** Poll-interval overrides, source-label-always-visible toggle, theme/density already from mock.
 
-9. **Command palette gateway-sourced.** Replaces the mock's hard-coded payload. Searches across repos, sprints, items, sessions, audit events.
+9. **Command palette gateway-sourced.** Replaces the mock's hard-coded payload. Repos and sprints are searchable today; items, sessions, audit events, and dispatches are later expansions.
 
 10. **v1 cut.** Tailscale exposure decision (in or deferred). Gateway containerized, pod manifest reviewed, NFS mount confirmed `ro`.
 
@@ -242,6 +249,10 @@ Stop after step 4 and cockpit is a useful read-only sprint+audit dashboard. Stop
 - **Workstation cockpit** for true local-mode visibility. Architecture allows it; v1 doesn't ship it.
 - **Mobile layout.** Cockpit is a desktop operator console. Phone screens get a "use a real screen" splash.
 - **Substrate changes.** Workstreams A–D own those; cockpit consumes whatever they expose.
+- **Dispatcher-meta cockpit UI.** The cockpit only renders `dispatch_group_id` grouping until a coordinator exists.
+- **Billing dashboard.** The status bar and dispatch row show lightweight cost facts; period reports can live in command-palette or tweaks-adjacent surfaces later.
+- **Private usage API coupling.** Model headroom is consumed from configured JSON-producing commands, not hard-coded Codex or Claude auth scraping. The cockpit shows staleness age inline so dispatch warnings are proportional to how fresh the quota signal is.
+- **Log-tail pane.** Session id visibility plus operator CLI/tmux hints are enough until log-tail pain is proven.
 
 ## Rejected paths (do not re-propose)
 
@@ -259,8 +270,8 @@ Stop after step 4 and cockpit is a useful read-only sprint+audit dashboard. Stop
 
 ## Open items
 
-- **Gateway language and framework.** Defer to whatever workstream C / actionq-cluster picked; cockpit-gateway should match for operator-skill reuse.
-- **NFS read-only mount mechanism in the cockpit pod.** Subpath mount of the existing `_artifacts/` PVC, or a separate read-only PV. Pick before step 4.
+- **Gateway framework.** Resolved: cockpit uses Next.js API routes as the gateway, not a separate Go/Python service.
+- **NFS read-only mount mechanism in the cockpit pod.** Resolved in deployment: the cockpit reads the workspace PVC read-only and serves audit shards from `/projects/dev/_artifacts`.
 - **Server time source for the UTC clock.** Gateway-served, but if the gateway is restarted mid-tick, the SPA needs a graceful resync. Trivial; flag here so it isn't forgotten.
 - **Per-pane poll-interval TWEAKS persistence.** TWEAKS already persists via the host protocol in the mock; verify it still does once cockpit is hosted as a real SPA outside the design environment.
 - **First-load latency budget.** Initial fetch of repos + active sprints + today's audit shards across all REMOTE repos must complete in under 2s on the cluster network. Establish the budget before step 4 so step 5+ can defend it.
@@ -272,6 +283,6 @@ Stop after step 4 and cockpit is a useful read-only sprint+audit dashboard. Stop
 - Workstreams A–D minimum tier shipped (sprintctl pg pilot, auditctl NDJSON, actionq-daemon, actionq-cluster API at least readable).
 - Read-only pg role exists on the CNPG cluster and grants are scoped to the sprintctl tables only.
 - `_artifacts/` NFS path is mountable read-only by an `appservice` namespace pod.
-- Actionq-cluster API has documented endpoints for `/sessions` and `/dispatch` (workstream C minimum implies the latter; the former needs confirmation).
+- Actionq API coverage is documented for `/sessions`, `/dispatches`, and `/dispatch`; `/dispatches` is the lifecycle row surface that ties queued actions, sessions, result refs, optional grouping, and lightweight cost attribution together.
 - A staging cockpit pod can be deployed without disrupting any in-flight sprint or actionq session — the cockpit is read-only but the gateway pod still occupies cluster resources and an `appservice` namespace slot.
 - Naming: pick the v1 cut's three-word codename. Substrate plan suggested seed words including `cockpit-realign`; that fits.
