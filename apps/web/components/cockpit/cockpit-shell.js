@@ -307,7 +307,7 @@ export function CockpitShell() {
 
     async function pollHeadroom() {
       if (!cancelled) {
-        await loadHeadroom(false);
+        await loadHeadroom(true);
       }
       if (!cancelled) {
         timer = setTimeout(pollHeadroom, getPollIntervalMs("headroom", document.visibilityState || "visible"));

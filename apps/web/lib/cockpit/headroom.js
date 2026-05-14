@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { stat, writeFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import { getConfig } from "./env.js";
 
@@ -124,10 +125,40 @@ export async function refreshModelHeadroom({ config = getConfig(), now = new Dat
   return snapshot;
 }
 
+async function triggerAndWait({ config = getConfig(), now = new Date() } = {}) {
+  const { headroomTriggerPath, headroomFile, headroomTriggerTimeoutMs } = config;
+
+  let previousMtime = 0;
+  try {
+    const s = await stat(headroomFile);
+    previousMtime = s.mtimeMs;
+  } catch {
+    // file may not exist yet
+  }
+
+  await writeFile(headroomTriggerPath, now.toISOString(), "utf8");
+
+  const deadline = Date.now() + headroomTriggerTimeoutMs;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      const s = await stat(headroomFile);
+      if (s.mtimeMs > previousMtime) {
+        break;
+      }
+    } catch {
+      // not yet written
+    }
+  }
+}
+
 export async function getModelHeadroom({ force = false, config = getConfig(), now = new Date() } = {}) {
   const ageMs = now.getTime() - cachedAtMs;
   if (!force && cachedSnapshot && ageMs >= 0 && ageMs < config.headroomCacheMs) {
     return cachedSnapshot;
+  }
+  if (force && config.headroomTriggerPath && config.headroomFile) {
+    await triggerAndWait({ config, now });
   }
   const previousSnapshot = cachedSnapshot;
   const snapshot = await refreshModelHeadroom({ config, now });

@@ -41,6 +41,9 @@ export function getConfig() {
     claudeHeadroomCommand: process.env.COCKPIT_CLAUDE_HEADROOM_COMMAND || "",
     headroomCacheMs: Number(process.env.COCKPIT_HEADROOM_CACHE_MS || 60000),
     headroomCommandTimeoutMs: Number(process.env.COCKPIT_HEADROOM_COMMAND_TIMEOUT_MS || 10000),
+    headroomFile: process.env.COCKPIT_CLAUDE_HEADROOM_FILE || "",
+    headroomTriggerPath: process.env.COCKPIT_HEADROOM_TRIGGER_PATH || "",
+    headroomTriggerTimeoutMs: Number(process.env.COCKPIT_HEADROOM_TRIGGER_TIMEOUT_MS || 15000),
     dispatcherPauseFile,
     dispatcherPauseFileExplicit: Boolean(process.env.COCKPIT_DISPATCHER_PAUSE_FILE)
   };
