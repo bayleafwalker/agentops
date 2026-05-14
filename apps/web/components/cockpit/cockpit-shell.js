@@ -138,10 +138,10 @@ function ModelHeadroomPanel({ data, refreshing, onRefresh }) {
         codex 5h={percentLabel(codex?.rate_limit?.primary_window?.used_percent)} weekly={percentLabel(codex?.rate_limit?.secondary_window?.used_percent)} credits={codex?.credits?.unlimited ? "unlimited" : codex?.credits?.balance ?? "unknown"}
       </div>
       <div className="small muted">
-        claude elapsed={percentLabel(claude?.current_window?.used_percent)} left={secondsLabel(claude?.current_window?.remaining_seconds)} cost=${claude?.cost_usd != null ? Number(claude.cost_usd).toFixed(2) : "unknown"}{claude?.projected_cost_usd != null ? ` proj=$${Number(claude.projected_cost_usd).toFixed(2)}` : ""}
+        claude session={percentLabel(claude?.current_window?.used_percent)} resets={claude?.current_window?.reset_at ?? "unknown"}
       </div>
       <div className="small muted">
-        opus-weekly={percentLabel(claude?.weekly_limit?.opus?.used_percent)} other-weekly={percentLabel(claude?.weekly_limit?.other?.used_percent)}
+        week={percentLabel(claude?.weekly_limit?.other?.used_percent)} resets={claude?.weekly_limit?.other?.reset_at ?? "unknown"}
       </div>
       {data?.degraded ? <div className="small muted">{data.degraded.message}</div> : null}
     </section>
