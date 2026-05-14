@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { stat, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import { getConfig } from "./env.js";
 
@@ -126,30 +126,11 @@ export async function refreshModelHeadroom({ config = getConfig(), now = new Dat
 }
 
 async function triggerAndWait({ config = getConfig(), now = new Date() } = {}) {
-  const { headroomTriggerPath, headroomFile, headroomTriggerTimeoutMs } = config;
-
-  let previousMtime = 0;
-  try {
-    const s = await stat(headroomFile);
-    previousMtime = s.mtimeMs;
-  } catch {
-    // file may not exist yet
-  }
-
+  const { headroomTriggerPath } = config;
+  // Fire-and-forget: write the trigger and return immediately.
+  // The devbox polling daemon (cockpit-headroom-poll) picks it up within ~5s
+  // and updates the JSON file. Subsequent GET requests return the fresh data.
   await writeFile(headroomTriggerPath, now.toISOString(), "utf8");
-
-  const deadline = Date.now() + headroomTriggerTimeoutMs;
-  while (Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    try {
-      const s = await stat(headroomFile);
-      if (s.mtimeMs > previousMtime) {
-        break;
-      }
-    } catch {
-      // not yet written
-    }
-  }
 }
 
 export async function getModelHeadroom({ force = false, config = getConfig(), now = new Date() } = {}) {
