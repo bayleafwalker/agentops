@@ -66,6 +66,8 @@ export function normalizeClaudeHeadroom(raw = {}, refreshedAt = new Date().toISO
     degraded: null,
     refreshed_at: refreshedAt,
     model: textOrNull(raw.model),
+    cost_usd: numberOrNull(raw.cost_usd),
+    projected_cost_usd: numberOrNull(raw.projected_cost_usd),
     current_window: normalizeWindow(raw.current_window ?? raw.current_5h_session ?? raw.session),
     weekly_limit: {
       opus: normalizeWindow(weekly.opus ?? raw.opus_weekly),
