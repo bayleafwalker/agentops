@@ -1,6 +1,6 @@
 "use client";
 
-export function TweaksPanel({ tweaks, onChange, pollMultiplier }) {
+export function TweaksPanel({ tweaks, onChange, pollMultiplier, onRefreshAll }) {
   return (
     <section className="tweaks-shell">
       <div className="title-row">
@@ -27,10 +27,10 @@ export function TweaksPanel({ tweaks, onChange, pollMultiplier }) {
         <label className="toggle-row">
           <input
             type="checkbox"
-            checked={tweaks.headroomPoll}
-            onChange={(event) => onChange({ headroomPoll: event.target.checked })}
+            checked={tweaks.pollAll}
+            onChange={(event) => onChange({ pollAll: event.target.checked })}
           />
-          <span>poll model headroom</span>
+          <span>auto-poll all sources</span>
         </label>
         <label className="field">
           <span className="small muted">feed page size</span>
@@ -43,6 +43,11 @@ export function TweaksPanel({ tweaks, onChange, pollMultiplier }) {
             <option value="50">50</option>
           </select>
         </label>
+      </div>
+      <div className="tweaks-actions">
+        <button className="mode-button" type="button" onClick={onRefreshAll}>
+          Refresh all
+        </button>
       </div>
     </section>
   );

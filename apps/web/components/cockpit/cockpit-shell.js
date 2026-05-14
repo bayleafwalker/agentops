@@ -159,9 +159,11 @@ export function CockpitShell() {
   const [costData, setCostData] = useState({ summary: null, degraded: null });
   const [headroomData, setHeadroomData] = useState({ snapshot: null, degraded: null });
   const [headroomRefreshing, setHeadroomRefreshing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [dispatchData, setDispatchData] = useState({ manifests: [], warnings: [], degraded: null });
   const [dispatcherPauseData, setDispatcherPauseData] = useState({ paused: false, pause_file: null, updated_at: null, degraded: null });
   const [pauseUpdating, setPauseUpdating] = useState(false);
+  const [activatingSprint, setActivatingSprint] = useState(null);
   const [refreshedAt, setRefreshedAt] = useState(null);
   const [fatalError, setFatalError] = useState("");
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -202,6 +204,12 @@ export function CockpitShell() {
     }
   }
 
+  function loadAll() {
+    setRefreshKey((k) => k + 1);
+    loadHeadroom(false);
+    loadDispatcherPause();
+  }
+
   async function toggleDispatcherPause(nextPaused) {
     setPauseUpdating(true);
     try {
@@ -218,6 +226,22 @@ export function CockpitShell() {
       }));
     } finally {
       setPauseUpdating(false);
+    }
+  }
+
+  async function handleActivateSprint(repoId, sprintId) {
+    setActivatingSprint(sprintId);
+    try {
+      await readJson("/cockpit/api/sprints/activate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ repo_id: repoId, sprint_id: sprintId })
+      });
+      setSelectedMode("active");
+    } catch (error) {
+      console.error("Sprint activation failed:", error.message);
+    } finally {
+      setActivatingSprint(null);
     }
   }
 
@@ -259,7 +283,7 @@ export function CockpitShell() {
       if (!cancelled) {
         await loadDispatcherPause();
       }
-      if (!cancelled) {
+      if (!cancelled && tweaks.pollAll) {
         timer = setTimeout(pollPause, getPollIntervalMs("claims", document.visibilityState || "visible"));
       }
     }
@@ -269,10 +293,10 @@ export function CockpitShell() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [visibilityState]);
+  }, [tweaks.pollAll, visibilityState]);
 
   useEffect(() => {
-    if (!tweaks.headroomPoll) {
+    if (!tweaks.pollAll) {
       return undefined;
     }
     let cancelled = false;
@@ -292,7 +316,7 @@ export function CockpitShell() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [tweaks.headroomPoll, visibilityState]);
+  }, [tweaks.pollAll, visibilityState]);
 
   useEffect(() => {
     let cancelled = false;
@@ -315,7 +339,7 @@ export function CockpitShell() {
           setFatalError(error.message);
         }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && tweaks.pollAll) {
           timer = setTimeout(loadRepos, getPollIntervalMs("repos", document.visibilityState || "visible"));
         }
       }
@@ -326,7 +350,7 @@ export function CockpitShell() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [selectedRepo, visibilityState]);
+  }, [selectedRepo, tweaks.pollAll, refreshKey, visibilityState]);
 
   useEffect(() => {
     let cancelled = false;
@@ -355,7 +379,7 @@ export function CockpitShell() {
           setFatalError(error.message);
         }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && tweaks.pollAll) {
           timer = setTimeout(loadPrimary, getPollIntervalMs("primary", document.visibilityState || "visible"));
         }
       }
@@ -366,7 +390,7 @@ export function CockpitShell() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [effectiveSprintMode, selectedRepo, tweaks.eventLimit, visibilityState]);
+  }, [effectiveSprintMode, selectedRepo, tweaks.eventLimit, tweaks.pollAll, refreshKey, visibilityState]);
 
   useEffect(() => {
     let cancelled = false;
@@ -389,7 +413,7 @@ export function CockpitShell() {
           setFatalError(error.message);
         }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && tweaks.pollAll) {
           timer = setTimeout(loadClaims, getPollIntervalMs("claims", document.visibilityState || "visible"));
         }
       }
@@ -400,7 +424,7 @@ export function CockpitShell() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [effectiveSprintMode, selectedRepo, selectedSprint, visibilityState]);
+  }, [effectiveSprintMode, selectedRepo, selectedSprint, tweaks.pollAll, refreshKey, visibilityState]);
 
   useEffect(() => {
     let cancelled = false;
@@ -424,7 +448,7 @@ export function CockpitShell() {
           setFatalError(error.message);
         }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && tweaks.pollAll) {
           timer = setTimeout(loadDispatchesAndCost, getPollIntervalMs("claims", document.visibilityState || "visible"));
         }
       }
@@ -435,7 +459,7 @@ export function CockpitShell() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [selectedRepo, visibilityState]);
+  }, [selectedRepo, tweaks.pollAll, refreshKey, visibilityState]);
 
   useEffect(() => {
     let cancelled = false;
@@ -454,7 +478,7 @@ export function CockpitShell() {
           setFatalError(error.message);
         }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && tweaks.pollAll) {
           timer = setTimeout(loadDispatchManifests, getPollIntervalMs("primary", document.visibilityState || "visible"));
         }
       }
@@ -465,7 +489,7 @@ export function CockpitShell() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [selectedRepo, visibilityState]);
+  }, [selectedRepo, tweaks.pollAll, refreshKey, visibilityState]);
 
   useEffect(() => {
     if (sprintsData.sprints.length === 0) {
@@ -510,7 +534,7 @@ export function CockpitShell() {
           setFatalError(error.message);
         }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && tweaks.pollAll) {
           timer = setTimeout(loadSecondary, getPollIntervalMs("secondary", document.visibilityState || "visible"));
         }
       }
@@ -521,7 +545,7 @@ export function CockpitShell() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [selectedRepo, selectedSprint, tweaks.eventLimit, visibilityState]);
+  }, [selectedRepo, selectedSprint, tweaks.eventLimit, tweaks.pollAll, refreshKey, visibilityState]);
 
   const activeSprint = sprintsData.sprints.find((sprint) => String(sprint.id) === selectedSprint);
   const sprintsWithItems = sprintsData.sprints.filter((sprint) => sprint.summary.total_items > 0).length;
@@ -713,23 +737,34 @@ export function CockpitShell() {
             </div>
             <div className="repo-list">
               {sprintsData.sprints.map((sprint) => (
-                <button
-                  key={`${sprint.repo_id}:${sprint.id}`}
-                  className={`sprint-button ${String(sprint.id) === selectedSprint ? "active" : ""}`}
-                  type="button"
-                  onClick={() => setSelectedSprint(String(sprint.id))}
-                >
-                  <div className="title-row">
-                    <strong>#{sprint.id} {sprint.name}</strong>
-                    <span className="small muted">{sprint.repo_id}</span>
-                  </div>
-                  <div className="small muted">
-                    items {sprint.summary.total_items} / done {sprint.summary.done_items} / open {sprint.summary.pending_items + sprint.summary.active_items + sprint.summary.blocked_items}
-                  </div>
-                  {sprint.attention?.reasons?.length ? (
-                    <div className="small muted">attention: {sprint.attention.reasons.join("; ")}</div>
+                <div key={`${sprint.repo_id}:${sprint.id}`} className="sprint-item">
+                  <button
+                    className={`sprint-button ${String(sprint.id) === selectedSprint ? "active" : ""}`}
+                    type="button"
+                    onClick={() => setSelectedSprint(String(sprint.id))}
+                  >
+                    <div className="title-row">
+                      <strong>#{sprint.id} {sprint.name}</strong>
+                      <span className="small muted">{sprint.repo_id}</span>
+                    </div>
+                    <div className="small muted">
+                      items {sprint.summary.total_items} / done {sprint.summary.done_items} / open {sprint.summary.pending_items + sprint.summary.active_items + sprint.summary.blocked_items}
+                    </div>
+                    {sprint.attention?.reasons?.length ? (
+                      <div className="small muted">attention: {sprint.attention.reasons.join("; ")}</div>
+                    ) : null}
+                  </button>
+                  {effectiveSprintMode === "backlog" ? (
+                    <button
+                      className="mode-button"
+                      type="button"
+                      disabled={activatingSprint === sprint.id}
+                      onClick={() => handleActivateSprint(sprint.repo_id, sprint.id)}
+                    >
+                      {activatingSprint === sprint.id ? "Activating…" : "Activate"}
+                    </button>
                   ) : null}
-                </button>
+                </div>
               ))}
             </div>
             {sprintsData.sprints.length === 0 ? (
@@ -1018,6 +1053,7 @@ export function CockpitShell() {
               tweaks={tweaks}
               pollMultiplier={pollMultiplier}
               onChange={(patch) => setTweaks((current) => ({ ...current, ...patch }))}
+              onRefreshAll={loadAll}
             />
           </section>
         </div>

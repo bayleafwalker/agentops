@@ -79,7 +79,7 @@ async function runJsonCommand(command, timeoutMs) {
     return { configured: false, payload: null, error: "refresh command not configured" };
   }
   try {
-    const { stdout } = await execFileAsync("bash", ["-lc", command], {
+    const { stdout } = await execFileAsync("/bin/sh", ["-lc", command], {
       timeout: timeoutMs,
       maxBuffer: 1024 * 1024
     });

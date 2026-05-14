@@ -10,7 +10,7 @@ export const DEFAULT_TWEAKS = {
   compact: false,
   alwaysShowSources: true,
   eventLimit: 20,
-  headroomPoll: false
+  pollAll: false
 };
 
 export const SPRINT_VIEW_MODES = ["active", "backlog", "history"];

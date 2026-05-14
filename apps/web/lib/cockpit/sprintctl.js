@@ -360,3 +360,15 @@ export async function listEvents({ repoId = "ALL", sprintId = null, limit = 100,
     next_cursor: hasMore && last ? encodeCursor({ created_at: last.created_at, id: last.id }) : null
   };
 }
+
+export async function activateSprint(repoId, sprintId) {
+  const rows = await query(
+    `UPDATE sprint SET status = 'active', kind = 'active_sprint' WHERE id = $1 AND repo_id = $2 RETURNING id, repo_id, name, status, kind`,
+    [sprintId, repoId]
+  );
+  if (rows.length === 0) {
+    throw new Error(`Sprint ${sprintId} not found for repo ${repoId}`);
+  }
+  const row = rows[0];
+  return { id: Number(row.id), repo_id: row.repo_id, name: row.name, status: row.status, kind: row.kind };
+}

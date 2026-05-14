@@ -88,7 +88,7 @@ export function DispatchComposer({
 
   const blocked = !!disabledReason;
   const paused = Boolean(dispatcherPause?.paused);
-  const noSprint = !sprintId && mode === "active";
+  const noSprint = !sprintId && mode === "active" && !form.no_sprint;
   const allRepo = repoId === "ALL";
   const quotaNote = headroomWarning(headroom, form.harness, form.output_expectation);
 
@@ -255,7 +255,7 @@ export function DispatchComposer({
               type="checkbox"
               checked={form.no_sprint}
               onChange={(e) => setForm((f) => ({ ...f, no_sprint: e.target.checked }))}
-              disabled={submitting || mode === "active"}
+              disabled={submitting}
             />
             no sprint target
           </label>
