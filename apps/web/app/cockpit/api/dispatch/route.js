@@ -1,10 +1,16 @@
 import { dispatchViaActionctl, forwardDispatchToActionqServer, getDispatchGate, getDispatchOperator, normalizeDispatchPayload } from "../../../../lib/cockpit/dispatch.js";
 import { errorPayload, ok } from "../../../../lib/cockpit/http.js";
+import { requireWriteAuth } from "../../../../lib/cockpit/auth.js";
 
 export const dynamic = "force-dynamic";
 
 export function createPostHandler(deps = { dispatchViaActionctl, forwardDispatchToActionqServer, getDispatchGate, getDispatchOperator }) {
+  const checkAuth = deps.requireWriteAuth ?? requireWriteAuth;
   return async function POST(request) {
+    const denied = checkAuth(request, "actionq://dispatch");
+    if (denied) {
+      return denied;
+    }
     const gate = deps.getDispatchGate();
     if (!gate.enabled) {
       return Response.json(

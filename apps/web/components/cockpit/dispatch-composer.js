@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { withWriteToken } from "../../lib/cockpit/write-token.js";
 
 const EXPECTATIONS = [
   ["implementation", "Implementation"],
@@ -183,7 +184,7 @@ export function DispatchComposer({
       }
       const res = await fetch("/cockpit/api/dispatch", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: withWriteToken({ "content-type": "application/json" }),
         body: JSON.stringify(body)
       });
       const payload = await res.json();

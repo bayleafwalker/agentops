@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { buildCommandPaletteEntries, DEFAULT_TWEAKS, getPollIntervalMs, getVisibilityBackoffMultiplier, pickSprintSelection, SPRINT_VIEW_MODES, summarizeReviewWorktrees } from "../../lib/cockpit/client-state.js";
+import { withWriteToken } from "../../lib/cockpit/write-token.js";
 import { CockpitNav } from "./cockpit-nav";
 import { CockpitStatusBar } from "./cockpit-status-bar";
 import { CommandPalette } from "./command-palette";
@@ -18,7 +19,7 @@ function isoLabel(value) {
 }
 
 async function readJson(url, init = {}) {
-  const response = await fetch(url, { cache: "no-store", ...init });
+  const response = await fetch(url, { cache: "no-store", ...init, headers: withWriteToken(init.headers || {}) });
   const payload = await response.json();
   if (!response.ok) {
     throw new Error(payload.error?.message || `request failed: ${response.status}`);
