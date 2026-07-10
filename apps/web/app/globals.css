@@ -77,7 +77,7 @@ a {
 
 .cockpit-shell {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr) 360px;
+  grid-template-columns: 260px minmax(0, 1fr) 520px;
   gap: 10px;
   min-height: calc(100vh - 20px);
 }
@@ -421,6 +421,110 @@ th {
   margin-bottom: 12px;
 }
 
+/* Model headroom cards */
+.headroom-panel {
+  background: rgba(6, 14, 22, 0.98);
+}
+
+.headroom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.headroom-card {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-top-width: 2px;
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.headroom-card--codex {
+  border-top-color: #ff8c42;
+}
+
+.headroom-card--claude {
+  border-top-color: #a78bfa;
+}
+
+.headroom-card-name {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  margin-bottom: 6px;
+}
+
+.headroom-card--codex .headroom-card-name {
+  color: #ff8c42;
+}
+
+.headroom-card--claude .headroom-card-name {
+  color: #a78bfa;
+}
+
+.headroom-stat {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12px;
+  padding: 2px 0;
+  gap: 2px 6px;
+}
+
+.headroom-stat > span:first-child {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.headroom-stat-sub {
+  width: 100%;
+  text-align: right;
+  opacity: 0.75;
+  padding-top: 1px;
+}
+
+.headroom-card--other {
+  border-top-color: var(--muted);
+}
+
+.usage-ok { color: var(--ok); }
+.usage-warn { color: var(--warn); }
+.usage-critical { color: var(--danger); }
+
+.headroom-refresh {
+  width: auto;
+  padding: 4px 8px;
+  font-size: 14px;
+}
+
+/* Work item dispatch shortcut */
+.dispatch-item-button {
+  width: auto;
+  padding: 3px 7px;
+  font-size: 11px;
+}
+
+.text-warn { color: var(--warn); }
+.text-danger { color: var(--danger); }
+
+.result-cell {
+  max-width: 220px;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+/* Sprint list in left pane can scroll */
+.sprint-list-pane {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+}
+
 .palette-backdrop {
   position: fixed;
   inset: 0;
@@ -485,7 +589,7 @@ th {
   font-size: 12px;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1280px) {
   .cockpit-shell {
     grid-template-columns: 1fr;
   }
@@ -496,5 +600,9 @@ th {
 
   .mode-toggle-inline {
     min-width: 0;
+  }
+
+  .headroom-grid {
+    grid-template-columns: 1fr 1fr;
   }
 }

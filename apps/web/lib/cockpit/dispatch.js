@@ -81,7 +81,10 @@ export function normalizeDispatchPayload(payload, { requestedBy = getDispatchOpe
   const model = optionalTrimmedString(payload.model);
   const priority = trimString(payload.priority || "normal");
   const refs = validateStringList(payload.refs, "refs");
-  const workItemId = optionalTrimmedString(payload.work_item_id);
+  let workItemId = optionalTrimmedString(payload.work_item_id);
+  if (workItemId && /^wi:/i.test(workItemId)) {
+    workItemId = workItemId.slice(workItemId.indexOf(":") + 1).trim() || null;
+  }
   const outputExpectation = trimString(payload.output_expectation || "implementation");
   const dispatchGroupId = optionalTrimmedString(payload.dispatch_group_id);
   const operatorId = String(requestedBy || "").trim();

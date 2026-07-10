@@ -23,7 +23,7 @@ test("command palette entries include ALL, repos, and sprints", () => {
     selectedRepo: "alpha",
     sprintMode: "backlog"
   });
-  assert.deepEqual(DEFAULT_TWEAKS, { compact: false, alwaysShowSources: true, eventLimit: 20, headroomPoll: false });
+  assert.deepEqual(DEFAULT_TWEAKS, { compact: false, alwaysShowSources: true, eventLimit: 20, pollAll: false });
   assert.deepEqual(SPRINT_VIEW_MODES, ["active", "backlog", "history"]);
   assert.equal(entries[0].id, "repo:ALL");
   assert.equal(entries[1].meta, "2 active sprints");

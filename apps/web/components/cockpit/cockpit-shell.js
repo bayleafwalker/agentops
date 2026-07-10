@@ -92,7 +92,15 @@ function ageLabel(value) {
 
 function percentLabel(value) {
   const number = Number(value);
-  return Number.isFinite(number) ? `${Math.round(number)}%` : "unknown";
+  return Number.isFinite(number) ? `${Math.round(number)}%` : "—";
+}
+
+function getUsageClass(percent) {
+  const n = Number(percent);
+  if (!Number.isFinite(n)) return "";
+  if (n >= 90) return "usage-critical";
+  if (n >= 70) return "usage-warn";
+  return "usage-ok";
 }
 
 function groupDispatches(rows) {
@@ -119,31 +127,91 @@ function claimLivenessLabel(session) {
   return "alive";
 }
 
+function HeadroomStat({ label, value, cls, sub }) {
+  return (
+    <div className="headroom-stat">
+      <span>{label}</span>
+      <span className={cls || ""}>{value}</span>
+      {sub ? <span className="headroom-stat-sub small muted">{sub}</span> : null}
+    </div>
+  );
+}
+
+function CodexCard({ codex }) {
+  const primary = codex?.rate_limit?.primary_window;
+  const secondary = codex?.rate_limit?.secondary_window;
+  return (
+    <div className="headroom-card headroom-card--codex">
+      <div className="headroom-card-name">Codex{codex?.model ? ` · ${codex.model}` : ""}</div>
+      {codex?.available === false ? (
+        <div className="small muted">{codex?.degraded || "unavailable"}</div>
+      ) : (
+        <>
+          <HeadroomStat label="5h" value={percentLabel(primary?.used_percent)} cls={getUsageClass(primary?.used_percent)} sub={primary?.reset_at || null} />
+          <HeadroomStat label="weekly" value={percentLabel(secondary?.used_percent)} cls={getUsageClass(secondary?.used_percent)} sub={secondary?.reset_at || null} />
+          <HeadroomStat label="credits" value={codex?.credits?.unlimited ? "∞" : (codex?.credits?.balance ?? "—")} />
+        </>
+      )}
+    </div>
+  );
+}
+
+function ClaudeCard({ claude }) {
+  const win = claude?.current_window;
+  const week = claude?.weekly_limit?.other;
+  return (
+    <div className="headroom-card headroom-card--claude">
+      <div className="headroom-card-name">Claude{claude?.model ? ` · ${claude.model}` : ""}</div>
+      {claude?.available === false ? (
+        <div className="small muted">{claude?.degraded || "unavailable"}</div>
+      ) : (
+        <>
+          <HeadroomStat label="session" value={percentLabel(win?.used_percent)} cls={getUsageClass(win?.used_percent)} sub={win?.reset_at || null} />
+          <HeadroomStat label="week" value={percentLabel(week?.used_percent)} cls={getUsageClass(week?.used_percent)} sub={week?.reset_at || null} />
+        </>
+      )}
+    </div>
+  );
+}
+
+function GenericProviderCard({ name, provider }) {
+  return (
+    <div className="headroom-card headroom-card--other">
+      <div className="headroom-card-name">{name}</div>
+      {provider?.available === false ? (
+        <div className="small muted">{provider?.degraded || "unavailable"}</div>
+      ) : (
+        <div className="small muted">no headroom data</div>
+      )}
+    </div>
+  );
+}
+
+const KNOWN_PROVIDERS = new Set(["codex", "claude"]);
+
 function ModelHeadroomPanel({ data, refreshing, onRefresh }) {
   const snapshot = data?.snapshot;
-  const codex = snapshot?.providers?.codex;
-  const claude = snapshot?.providers?.claude;
+  const providers = snapshot?.providers || {};
+  const otherProviders = Object.entries(providers).filter(([name]) => !KNOWN_PROVIDERS.has(name));
   return (
-    <section className="item-card">
+    <section className="cockpit-section headroom-panel">
       <div className="title-row">
-        <strong>Model Headroom</strong>
-        <button className="mode-button" type="button" onClick={onRefresh} disabled={refreshing}>
-          {refreshing ? "Refreshing" : "Refresh"}
-        </button>
+        <h2 className="pane-title">Model Headroom</h2>
+        <div className="title-row" style={{ gap: "8px" }}>
+          <span className="small muted">{ageLabel(snapshot?.refreshed_at)}{snapshot?.stale ? " stale" : ""}</span>
+          <button className="mode-button headroom-refresh" type="button" onClick={onRefresh} disabled={refreshing}>
+            {refreshing ? "…" : "↻"}
+          </button>
+        </div>
       </div>
-      <div className="small muted">
-        refreshed={ageLabel(snapshot?.refreshed_at)}{snapshot?.stale ? " stale" : ""}
+      <div className="headroom-grid">
+        <CodexCard codex={providers.codex} />
+        <ClaudeCard claude={providers.claude} />
+        {otherProviders.map(([name, provider]) => (
+          <GenericProviderCard key={name} name={name} provider={provider} />
+        ))}
       </div>
-      <div className="small muted">
-        codex 5h={percentLabel(codex?.rate_limit?.primary_window?.used_percent)} weekly={percentLabel(codex?.rate_limit?.secondary_window?.used_percent)} credits={codex?.credits?.unlimited ? "unlimited" : codex?.credits?.balance ?? "unknown"}
-      </div>
-      <div className="small muted">
-        claude session={percentLabel(claude?.current_window?.used_percent)} resets={claude?.current_window?.reset_at ?? "unknown"}
-      </div>
-      <div className="small muted">
-        week={percentLabel(claude?.weekly_limit?.other?.used_percent)} resets={claude?.weekly_limit?.other?.reset_at ?? "unknown"}
-      </div>
-      {data?.degraded ? <div className="small muted">{data.degraded.message}</div> : null}
+      {data?.degraded ? <div className="small muted" style={{ marginTop: "6px" }}>{data.degraded.message}</div> : null}
     </section>
   );
 }
@@ -172,6 +240,7 @@ export function CockpitShell() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [visibilityState, setVisibilityState] = useState("visible");
   const [tweaks, setTweaks] = useState(DEFAULT_TWEAKS);
+  const [dispatchWorkItemId, setDispatchWorkItemId] = useState("");
 
   const pollMultiplier = getVisibilityBackoffMultiplier(visibilityState);
   const effectiveSprintMode = selectedMode;
@@ -597,12 +666,14 @@ export function CockpitShell() {
           setSelectedSprint(entry.value);
         }}
       />
+
+      {/* LEFT PANE — Coordination: repos + sprint navigation */}
       <aside className="cockpit-pane">
         <div className="cockpit-paneInner">
           <section className="cockpit-section">
-            <p className="eyebrow">read-only cockpit</p>
+            <p className="eyebrow">agentops cockpit</p>
             <div className="title-row">
-              <h1 className="pane-title">Repo Strip</h1>
+              <h1 className="pane-title">Repos</h1>
               {tweaks.alwaysShowSources ? <SourceTruthTag source="pg://sprintctl" /> : null}
             </div>
             <p className="small muted">Remote mode only</p>
@@ -647,41 +718,86 @@ export function CockpitShell() {
               </button>
             ))}
           </section>
+
+          {/* Sprint mode toggle + sprint list */}
+          <section className="cockpit-section">
+            <div className="title-row">
+              <h2 className="pane-title">Sprints</h2>
+              {tweaks.alwaysShowSources ? <SourceTruthTag source="pg://sprintctl" /> : null}
+            </div>
+            <div className="mode-toggle" role="tablist" aria-label="Sprint view mode">
+              {SPRINT_VIEW_MODES.map((mode) => (
+                <button
+                  key={mode}
+                  className={`mode-button ${effectiveSprintMode === mode ? "active" : ""}`}
+                  type="button"
+                  onClick={() => {
+                    setSelectedMode(mode);
+                    setSelectedSprint("");
+                  }}
+                >
+                  {MODE_LABELS[mode]}
+                </button>
+              ))}
+            </div>
+            <div className="small muted" style={{ marginTop: "6px" }}>{sprintModeNote}</div>
+            <DegradedSourceBanner message={sprintsData.degraded?.message} />
+          </section>
+          <section className="cockpit-section sprint-list-pane">
+            <div className="title-row" style={{ marginBottom: "6px" }}>
+              <span className="small muted">{sprintsWithItems} with-items / {emptySprints} empty</span>
+              {cleanupRequiredCount > 0 ? <span className="status-chip warn">{cleanupRequiredCount} cleanup</span> : null}
+            </div>
+            <div className="repo-list">
+              {sprintsData.sprints.map((sprint) => (
+                <div key={`${sprint.repo_id}:${sprint.id}`} className="sprint-item">
+                  <button
+                    className={`sprint-button ${String(sprint.id) === selectedSprint ? "active" : ""}`}
+                    type="button"
+                    onClick={() => setSelectedSprint(String(sprint.id))}
+                  >
+                    <div className="title-row">
+                      <strong>#{sprint.id} {sprint.name}</strong>
+                      <span className="small muted">{sprint.repo_id}</span>
+                    </div>
+                    <div className="small muted">
+                      items {sprint.summary.total_items} / done {sprint.summary.done_items} / open {sprint.summary.pending_items + sprint.summary.active_items + sprint.summary.blocked_items}
+                    </div>
+                    {sprint.attention?.reasons?.length ? (
+                      <div className="small muted">attention: {sprint.attention.reasons.join("; ")}</div>
+                    ) : null}
+                  </button>
+                  {effectiveSprintMode === "backlog" ? (
+                    <button
+                      className="mode-button"
+                      type="button"
+                      disabled={activatingSprint === sprint.id}
+                      onClick={() => handleActivateSprint(sprint.repo_id, sprint.id)}
+                    >
+                      {activatingSprint === sprint.id ? "Activating…" : "Activate"}
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+            {sprintsData.sprints.length === 0 ? (
+              <div className="empty-state small muted">
+                No {effectiveSprintMode} remote sprints for this repo filter.
+              </div>
+            ) : null}
+          </section>
         </div>
       </aside>
 
+      {/* CENTER PANE — Tasks: work items, dispatch, operator state */}
       <section className="cockpit-pane">
         <div className="cockpit-paneInner">
           <section className="cockpit-section" id="overview">
-            <div className="ops-head">
-              <div>
-                <div className="title-row title-row-start">
-                  <h2 className="pane-title">Sprints</h2>
-                  {tweaks.alwaysShowSources ? <SourceTruthTag source="pg://sprintctl" /> : null}
-                </div>
-                <div className="ops-summary-line table-mono">
-                  repo={selectedRepo} mode={effectiveSprintMode} sprints={sprintsData.sprints.length} cleanup={cleanupRequiredCount} claims={claimsData.claims.length} events={eventsData.events.length}
-                </div>
-                <div className="small muted">{sprintModeNote}</div>
-              </div>
-              <div className="mode-toggle mode-toggle-inline" role="tablist" aria-label="Sprint view mode">
-                {SPRINT_VIEW_MODES.map((mode) => (
-                  <button
-                    key={mode}
-                    className={`mode-button ${effectiveSprintMode === mode ? "active" : ""}`}
-                    type="button"
-                    onClick={() => {
-                      setSelectedMode(mode);
-                      setSelectedSprint("");
-                    }}
-                  >
-                    {MODE_LABELS[mode]}
-                  </button>
-                ))}
-              </div>
+            <div className="ops-summary-line table-mono">
+              repo={selectedRepo} mode={effectiveSprintMode} sprints={sprintsData.sprints.length} claims={claimsData.claims.length} events={eventsData.events.length}
             </div>
-            <DegradedSourceBanner message={sprintsData.degraded?.message} />
           </section>
+
           <section className="cockpit-section live-section" id="claims">
             <div className="title-row">
               <h3 className="section-title">Claims</h3>
@@ -730,59 +846,54 @@ export function CockpitShell() {
               </>
             )}
           </section>
-          <section className="cockpit-section reference-section" id="sprints">
+
+          <section className="cockpit-section reference-section" id="work-items">
             <div className="title-row">
-              <div className="title-row title-row-start">
-                <h3 className="section-title">{MODE_LABELS[effectiveSprintMode]} Sprint Tabs</h3>
-                <span className="small muted">{sprintsWithItems} with-items / {emptySprints} empty</span>
-              </div>
-              <span className="small muted">{selectedRepo}</span>
+              <h3 className="section-title">Work Items</h3>
+              <span className="small muted">{activeSprint ? activeSprint.repo_id : selectedRepo}</span>
             </div>
-            <div className="repo-list">
-              {sprintsData.sprints.map((sprint) => (
-                <div key={`${sprint.repo_id}:${sprint.id}`} className="sprint-item">
-                  <button
-                    className={`sprint-button ${String(sprint.id) === selectedSprint ? "active" : ""}`}
-                    type="button"
-                    onClick={() => setSelectedSprint(String(sprint.id))}
-                  >
-                    <div className="title-row">
-                      <strong>#{sprint.id} {sprint.name}</strong>
-                      <span className="small muted">{sprint.repo_id}</span>
+            <div className="item-list">
+              {(activeSprint?.work_items || []).map((item) => (
+                <div key={item.id} className="item-card work-item-card">
+                  <div className="title-row">
+                    <strong>#{item.id} {item.title}</strong>
+                    <div className="title-row" style={{ gap: "6px" }}>
+                      <span className={`status-chip ${item.status === "done" ? "ok" : item.status === "blocked" ? "error" : "warn"}`}>
+                        {item.status}
+                      </span>
+                      {item.status === "pending" || item.status === "active" ? (
+                        <button
+                          className="mode-button dispatch-item-button"
+                          type="button"
+                          onClick={() => setDispatchWorkItemId(String(item.id))}
+                        >
+                          ↓ dispatch
+                        </button>
+                      ) : null}
                     </div>
-                    <div className="small muted">
-                      items {sprint.summary.total_items} / done {sprint.summary.done_items} / open {sprint.summary.pending_items + sprint.summary.active_items + sprint.summary.blocked_items}
-                    </div>
-                    {sprint.attention?.reasons?.length ? (
-                      <div className="small muted">attention: {sprint.attention.reasons.join("; ")}</div>
-                    ) : null}
-                  </button>
-                  {effectiveSprintMode === "backlog" ? (
-                    <button
-                      className="mode-button"
-                      type="button"
-                      disabled={activatingSprint === sprint.id}
-                      onClick={() => handleActivateSprint(sprint.repo_id, sprint.id)}
-                    >
-                      {activatingSprint === sprint.id ? "Activating…" : "Activate"}
-                    </button>
-                  ) : null}
+                  </div>
+                  <div className="small muted">
+                    track={item.track_name} assignee={item.assignee || "none"}
+                  </div>
                 </div>
               ))}
             </div>
-            {sprintsData.sprints.length === 0 ? (
+            {!activeSprint ? (
+              <div className="empty-state small muted">Select a repo sprint to inspect its work items.</div>
+            ) : activeSprint.work_items.length === 0 ? (
               <div className="empty-state small muted">
-                No {effectiveSprintMode} remote sprints are visible for this repo filter.
+                Sprint #{activeSprint.id} has no work items yet. This is valid live data, not a loading gap.
               </div>
             ) : null}
           </section>
+
           <section className="cockpit-section live-section" id="dispatch">
             <div className="title-row">
               <h3 className="section-title">Dispatch</h3>
               {tweaks.alwaysShowSources ? <SourceTruthTag source={dispatchData.source || "dispatch-manifest"} /> : null}
             </div>
             <DegradedSourceBanner message={dispatchData.degraded?.message} />
-            <div className="item-list">
+            <div className="item-list" style={{ marginBottom: "10px" }}>
               {selectedRepo === "ALL" ? (
                 <div className="item-card">
                   <div className="title-row">
@@ -815,11 +926,6 @@ export function CockpitShell() {
               ) : (
                 <div className="empty-state small muted">No dispatch manifest is registered for {selectedRepo}.</div>
               )}
-              <ModelHeadroomPanel
-                data={headroomData}
-                refreshing={headroomRefreshing}
-                onRefresh={() => loadHeadroom(true)}
-              />
             </div>
             <DispatchComposer
               repoId={selectedRepo}
@@ -830,6 +936,8 @@ export function CockpitShell() {
               dispatcherPause={dispatcherPauseData}
               pauseUpdating={pauseUpdating}
               onTogglePause={toggleDispatcherPause}
+              onDispatched={() => setRefreshKey((k) => k + 1)}
+              externalWorkItemId={dispatchWorkItemId}
               disabledReason={
                 selectedRepo === "ALL"
                   ? "Dispatch remains scoped to one concrete repo; ALL is browse-only."
@@ -839,34 +947,50 @@ export function CockpitShell() {
               }
             />
           </section>
-          <section className="cockpit-section reference-section" id="work-items">
+
+          <section className="cockpit-section live-section" id="takeup">
             <div className="title-row">
-              <h3 className="section-title">Work Items</h3>
-              <span className="small muted">{activeSprint ? activeSprint.repo_id : selectedRepo}</span>
+              <h3 className="section-title">Takeup</h3>
+              {tweaks.alwaysShowSources ? <SourceTruthTag source="pg://sprintctl" /> : null}
             </div>
-            <div className="item-list">
-              {(activeSprint?.work_items || []).map((item) => (
-                <div key={item.id} className="item-card">
-                  <div className="title-row">
-                    <strong>#{item.id} {item.title}</strong>
-                    <span className={`status-chip ${item.status === "done" ? "ok" : item.status === "blocked" ? "error" : "warn"}`}>
-                      {item.status}
-                    </span>
-                  </div>
-                  <div className="small muted">
-                    track={item.track_name} assignee={item.assignee || "none"}
-                  </div>
+            <DegradedSourceBanner message={takeupData.degraded?.message} />
+            {effectiveSprintMode !== "active" ? (
+              <div className="empty-state small muted">Takeup is only tracked in the Active view for a concrete repo sprint.</div>
+            ) : (
+              <>
+                <div className="item-list">
+                  {takeupData.active_takeups.map((takeup, index) => (
+                    <div key={`${takeup.actor}:${takeup.instance_id || index}`} className="item-card">
+                      <div className="title-row">
+                        <strong>{takeup.actor}</strong>
+                        <span className="small muted">{takeup.instance_id || "no-instance"}</span>
+                      </div>
+                      <div className="small muted">taken_up={takeup.taken_up_at}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            {!activeSprint ? (
-              <div className="empty-state small muted">Select a repo sprint to inspect its work items.</div>
-            ) : activeSprint.work_items.length === 0 ? (
-              <div className="empty-state small muted">
-                Sprint #{activeSprint.id} has no work items yet. This is valid live data, not a loading gap.
-              </div>
-            ) : null}
+                {selectedRepo === "ALL" ? (
+                  <div className="empty-state small muted">Takeup is shown only for a concrete repo sprint, not the ALL view.</div>
+                ) : takeupData.active_takeups.length === 0 && takeupData.released_takeups.length === 0 ? (
+                  <div className="empty-state small muted">No takeup activity is recorded for the selected sprint.</div>
+                ) : null}
+              </>
+            )}
           </section>
+
+          <CockpitStatusBar repoId={selectedRepo} refreshedAt={refreshedAt} health={health} pollMultiplier={pollMultiplier} costSummary={costData.summary} dispatcherPause={dispatcherPauseData} />
+        </div>
+      </section>
+
+      {/* RIGHT PANE — Visibility: headroom + dispatches + outcomes + feeds */}
+      <aside className="cockpit-pane">
+        <div className="cockpit-paneInner">
+          <ModelHeadroomPanel
+            data={headroomData}
+            refreshing={headroomRefreshing}
+            onRefresh={() => loadHeadroom(true)}
+          />
+
           <section className="cockpit-section" id="dispatches">
             <div className="title-row">
               <h3 className="section-title">Dispatches</h3>
@@ -912,45 +1036,41 @@ export function CockpitShell() {
                   </table>
                 </div>
               ) : (
-                <div className="empty-state small muted">No failed or rejected dispatch worktrees are visible in the current dispatch window.</div>
+                <div className="empty-state small muted">No failed or rejected dispatch worktrees in the current window.</div>
               )}
             </div>
             <div className="table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>Action</th>
-                    <th>Repo / target</th>
-                    <th>State</th>
-                    <th>Wall</th>
-                    <th>Session</th>
+                    <th>Action / target</th>
+                    <th>Repo</th>
+                    <th>State / time</th>
                     <th>Result</th>
-                    <th>Cost</th>
                   </tr>
                 </thead>
                 <tbody>
                   {dispatchGroups.flatMap(([groupId, rows]) => [
                     <tr key={`group:${groupId}`}>
-                      <td colSpan="7" className="table-mono muted">group={groupId} count={rows.length}</td>
+                      <td colSpan="4" className="table-mono muted">group={groupId} count={rows.length}</td>
                     </tr>,
                     ...rows.map((row) => {
                       const sessionId = row.session?.runtime_session_id || row.session?.session_id || "";
-                      const sessionCost = sessionId && costsBySession[sessionId] != null ? `$${Number(costsBySession[sessionId]).toFixed(2)}` : "unknown";
+                      const sessionShort = sessionId ? sessionId.slice(0, 12) : "—";
+                      const sessionCost = sessionId && costsBySession[sessionId] != null ? `$${Number(costsBySession[sessionId]).toFixed(2)}` : "—";
+                      const statusClass = row.status === "completed" ? "ok" : row.status === "failed" || row.status === "rejected" ? "error" : "warn";
                       return (
                         <tr key={row.id}>
                           <td>
                             <div>#{row.id} {row.kind || row.action_type}</div>
-                            <div className="small muted">{row.output_expectation || row.action_type}</div>
+                            <div className="small muted">{row.target_ref || "—"}</div>
                           </td>
+                          <td>{row.project || "—"}</td>
                           <td>
-                            <div>{row.project || "unknown"}</div>
-                            <div className="small muted">{row.target_ref || row.source_refs?.join(" ") || "no target"}</div>
+                            <span className={`status-chip ${statusClass}`}>{row.status}</span>
+                            <div className="small muted">{durationLabel(row.claimed_at || row.created_at, row.completed_at)} {sessionCost}</div>
                           </td>
-                          <td><span className={`status-chip ${row.status === "completed" ? "ok" : row.status === "failed" || row.status === "rejected" ? "error" : "warn"}`}>{row.status}</span></td>
-                          <td>{durationLabel(row.claimed_at || row.created_at, row.completed_at)}</td>
-                          <td className="table-mono">{sessionId || "unknown"}</td>
-                          <td>{row.result_ref || row.failure_reason || row.audit_refs?.join(" ") || "pending"}</td>
-                          <td>{sessionCost}</td>
+                          <td className="table-mono result-cell">{row.result_ref || row.failure_reason || "pending"}</td>
                         </tr>
                       );
                     })
@@ -962,47 +1082,7 @@ export function CockpitShell() {
               <div className="empty-state small muted">No dispatch lifecycle rows match the current repo filter.</div>
             ) : null}
           </section>
-          <section className="cockpit-section live-section" id="takeup">
-            <div className="title-row">
-              <h3 className="section-title">Takeup</h3>
-              {tweaks.alwaysShowSources ? <SourceTruthTag source="pg://sprintctl" /> : null}
-            </div>
-            <DegradedSourceBanner message={takeupData.degraded?.message} />
-            {effectiveSprintMode !== "active" ? (
-              <div className="empty-state small muted">Takeup is only tracked in the Active view for a concrete repo sprint.</div>
-            ) : (
-              <>
-                <div className="item-list">
-                  {takeupData.active_takeups.map((takeup, index) => (
-                    <div key={`${takeup.actor}:${takeup.instance_id || index}`} className="item-card">
-                      <div className="title-row">
-                        <strong>{takeup.actor}</strong>
-                        <span className="small muted">{takeup.instance_id || "no-instance"}</span>
-                      </div>
-                      <div className="small muted">taken_up={takeup.taken_up_at}</div>
-                    </div>
-                  ))}
-                </div>
-                {selectedRepo === "ALL" ? (
-                  <div className="empty-state small muted">Takeup is shown only for a concrete repo sprint, not the ALL view.</div>
-                ) : takeupData.active_takeups.length === 0 && takeupData.released_takeups.length === 0 ? (
-                  <div className="empty-state small muted">No takeup activity is recorded for the selected sprint.</div>
-                ) : null}
-              </>
-            )}
-          </section>
-          <CockpitStatusBar repoId={selectedRepo} refreshedAt={refreshedAt} health={health} pollMultiplier={pollMultiplier} costSummary={costData.summary} dispatcherPause={dispatcherPauseData} />
-        </div>
-      </section>
 
-      <aside className="cockpit-pane">
-        <div className="cockpit-paneInner">
-          <section className="cockpit-section">
-            <div className="title-row">
-              <h2 className="pane-title">Right Feed</h2>
-              <span className="small muted">polling v1</span>
-            </div>
-          </section>
           <section className="cockpit-section feed-primary" id="outcomes">
             <div className="title-row">
               <h3 className="section-title">Outcomes & Review</h3>
@@ -1029,6 +1109,7 @@ export function CockpitShell() {
               <div className="empty-state small muted">No audit events were found in the current lookback window.</div>
             ) : null}
           </section>
+
           <section className="cockpit-section feed-secondary" id="events">
             <div className="title-row">
               <h3 className="section-title">Sprint Event Feed</h3>
@@ -1051,6 +1132,7 @@ export function CockpitShell() {
               <div className="empty-state small muted">No sprint events match the current repo filter.</div>
             ) : null}
           </section>
+
           <section className="cockpit-section" id="tweaks">
             <TweaksPanel
               tweaks={tweaks}

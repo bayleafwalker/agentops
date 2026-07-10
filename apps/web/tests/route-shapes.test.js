@@ -228,7 +228,7 @@ test("dispatch route forwards validated payload when gate is enabled", async () 
   assert.deepEqual(forwarded, {
     repo_id: "alpha",
     sprint_id: 12,
-    work_item_id: "wi:abc123",
+    work_item_id: "abc123",
     kind: "implement",
     output_expectation: "implementation",
     title: "Build alpha",
