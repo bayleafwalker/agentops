@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "repo_id": "scribectl",
+  "adoption_level": "observable",
+  "dispatch_group_id": "scribectl-dispatch",
+  "routing": {
+    "default_harness": "claude",
+    "default_model_alias": "frontier-default",
+    "action_classes": {
+      "plan": {
+        "enabled": false
+      },
+      "build": {
+        "enabled": false
+      },
+      "review": {
+        "enabled": false
+      }
+    }
+  },
+  "skills": {
+    "template_root": "/projects/dev/agentops/templates/dispatch/skills",
+    "selected": [
+      "sprint-resume",
+      "sprint-packet",
+      "item-done",
+      "sprint-snapshot",
+      "sprint-close"
+    ]
+  },
+  "scope": {
+    "allowed_path_roots": [
+      "scribectl/",
+      "scribedispatch/",
+      "tests/",
+      "docs/",
+      "fixtures/",
+      ".agents/"
+    ],
+    "out_of_scope": [
+      "/media/Creative is production: only scribe-dispatch writes there, and only under body/drafts/, reviews/<lane>/, control/context-packs/",
+      "ratification ledger, inbox verdicts, and any '## Ratified facts' section — the writer's taste gate, never automated",
+      "actionq never drives fills or reviews: scribe-dispatch is the coordinator; this manifest is observability only"
+    ]
+  },
+  "verification": {
+    "command_families": [
+      "unit",
+      "full-suite"
+    ],
+    "targeted_first": true,
+    "commands": [
+      ".venv/bin/pytest tests/<specific-test-files> -x --tb=short",
+      ".venv/bin/pytest"
+    ]
+  },
+  "hooks": {
+    "level": "audit",
+    "publishers": [
+      "git",
+      "workspace-cost"
+    ]
+  }
+}
