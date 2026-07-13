@@ -175,7 +175,11 @@ uv tool install /projects/dev/auditctl --python python3
 ```
 <AUDITCTL_ARTIFACTS_ROOT>/_artifacts/<repo-id>/audit/events-YYYY-MM-DD.ndjson
 ```
-Each `auditctl add` writes atomically to both SQLite and the current day's NDJSON shard. If the NDJSON write fails, the SQLite write is rolled back. Either side is fully reconstructible from the other.
+`auditctl add` is an ordered, recoverable dual-write: SQLite insertion is held
+uncommitted while the locked NDJSON append is fsynced, then SQLite commits. It
+is not a fictional cross-store atomic transaction. A successful response means
+both writes completed; a crash or lost response can leave an unknown outcome
+that must be resolved by the audit repository's rebuild/recovery procedure.
 
 **Configure a repo.**
 ```bash

@@ -12,7 +12,7 @@ async function readJson(path) {
 }
 
 test("dispatch manifest examples satisfy routing contract invariants", async () => {
-  for (const file of ["homelab-analytics.dispatch.json", "appservice.dispatch.json"]) {
+  for (const file of ["homelab-analytics.dispatch.json", "appservice.dispatch.json", "scribectl.dispatch.json"]) {
     assert.equal(validateDispatchManifest(await readJson(join(EXAMPLES_DIR, file))).schema_version, 1);
   }
 });
@@ -30,7 +30,7 @@ test("dispatch manifest loader lists and filters examples", async () => {
   const all = await listDispatchManifests({ root: EXAMPLES_DIR });
   assert.deepEqual(
     all.manifests.map((manifest) => manifest.repo_id),
-    ["appservice", "homelab-analytics"]
+    ["appservice", "homelab-analytics", "scribectl"]
   );
 
   const filtered = await getDispatchManifest("appservice", { root: EXAMPLES_DIR });

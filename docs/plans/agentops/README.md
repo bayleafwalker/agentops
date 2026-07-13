@@ -20,6 +20,11 @@ Implemented dispatch contracts:
 - `/projects/dev/agentops/templates/dispatch/manifest.schema.json` - JSON schema for dispatch manifests.
 - `/projects/dev/agentops/templates/dispatch/skills/` - shared dispatch skill templates selected by manifests and repo overlays.
 
+Semantic-verification contract:
+
+- [`docs/verification/test-context-packet-v0.md`](../../verification/test-context-packet-v0.md) - data-only packet contract and ownership rules.
+- [`templates/verification/test-context-packet-v0.schema.json`](../../../templates/verification/test-context-packet-v0.schema.json) - normative JSON schema.
+
 Repo-owned companion plans:
 
 - `/projects/dev/sprintctl/docs/plans/sprintctl-multi-agent-takeup-plan.md`
