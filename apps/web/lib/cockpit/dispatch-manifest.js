@@ -5,7 +5,7 @@ import { getConfig } from "./env.js";
 
 const ADOPTION_LEVELS = new Set(["guidance-only", "observable", "dispatchable"]);
 const HARNESSES = new Set(["claude", "codex", "opencode"]);
-const ACTION_CLASSES = new Set(["plan", "build", "review", "release-ops", "meta-dispatch"]);
+const ACTION_CLASSES = new Set(["plan", "build", "review", "verify", "reconcile", "release-ops", "meta-dispatch"]);
 const SKILLS = new Set([
   "dispatch-plan",
   "dispatch-build",
@@ -17,8 +17,11 @@ const SKILLS = new Set([
   "item-done",
   "sprint-snapshot",
   "kctl-extract",
-  "sprint-close"
+  "sprint-close",
+  "verify-state-protocols",
+  "reconcile-project-contracts"
 ]);
+const RISK_SKILLS = new Set(["verify-state-protocols", "reconcile-project-contracts"]);
 
 export function validateDispatchManifest(manifest) {
   if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)) {
@@ -69,6 +72,26 @@ export function validateDispatchManifest(manifest) {
       throw new Error(`unknown selected skill: ${skill}`);
     }
   }
+  if (manifest.risk_surfaces != null && !Array.isArray(manifest.risk_surfaces)) {
+    throw new Error("risk_surfaces must be an array when present");
+  }
+  for (const surface of manifest.risk_surfaces || []) {
+    if (!surface || typeof surface !== "object" || !/^[A-Za-z0-9._-]+$/.test(surface.id || "")) {
+      throw new Error("risk surface id must be a valid identifier");
+    }
+    if (!Array.isArray(surface.paths) || surface.paths.length === 0) {
+      throw new Error(`risk surface ${surface.id} must include paths`);
+    }
+    if (!Array.isArray(surface.skills) || surface.skills.length === 0 || surface.skills.some((skill) => !RISK_SKILLS.has(skill))) {
+      throw new Error(`risk surface ${surface.id} has invalid skills`);
+    }
+    if (surface.default_depth != null && (!Number.isInteger(surface.default_depth) || surface.default_depth < 0 || surface.default_depth > 3)) {
+      throw new Error(`risk surface ${surface.id} default_depth must be 0..3`);
+    }
+    if (surface.required_on_change != null && typeof surface.required_on_change !== "boolean") {
+      throw new Error(`risk surface ${surface.id} required_on_change must be boolean`);
+    }
+  }
   if (!Array.isArray(manifest.verification?.command_families) || manifest.verification.command_families.length === 0) {
     throw new Error("verification.command_families must not be empty");
   }
@@ -90,6 +113,7 @@ function summarizeManifest(manifest, sourcePath) {
       action_classes: manifest.routing.action_classes
     },
     skills: manifest.skills.selected,
+    risk_surfaces: manifest.risk_surfaces || [],
     verification: manifest.verification,
     hooks: manifest.hooks
   };
