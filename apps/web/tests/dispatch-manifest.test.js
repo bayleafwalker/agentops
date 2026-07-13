@@ -12,7 +12,7 @@ async function readJson(path) {
 }
 
 test("dispatch manifest examples satisfy routing contract invariants", async () => {
-  for (const file of ["homelab-analytics.dispatch.json", "appservice.dispatch.json", "scribectl.dispatch.json"]) {
+  for (const file of ["actionq.dispatch.json", "scribectl.dispatch.json", "homelab-analytics.dispatch.json", "appservice.dispatch.json"]) {
     assert.equal(validateDispatchManifest(await readJson(join(EXAMPLES_DIR, file))).schema_version, 1);
   }
 });
@@ -26,11 +26,21 @@ test("dispatchable repos include build routing and verification hooks", async ()
   assert.ok(manifest.hooks.publishers.includes("dispatcher-gate"));
 });
 
+test("stateful manifests select protocol skills and bounded risk surfaces", async () => {
+  const manifest = await readJson(join(EXAMPLES_DIR, "actionq.dispatch.json"));
+  const validated = validateDispatchManifest(manifest);
+
+  assert.equal(validated.routing.action_classes.verify.enabled, true);
+  assert.ok(validated.skills.selected.includes("verify-state-protocols"));
+  assert.deepEqual(validated.risk_surfaces[0].skills, ["verify-state-protocols", "reconcile-project-contracts"]);
+  assert.equal(validated.risk_surfaces[0].default_depth, 2);
+});
+
 test("dispatch manifest loader lists and filters examples", async () => {
   const all = await listDispatchManifests({ root: EXAMPLES_DIR });
   assert.deepEqual(
     all.manifests.map((manifest) => manifest.repo_id),
-    ["appservice", "homelab-analytics", "scribectl"]
+    ["actionq", "appservice", "homelab-analytics", "scribectl"]
   );
 
   const filtered = await getDispatchManifest("appservice", { root: EXAMPLES_DIR });

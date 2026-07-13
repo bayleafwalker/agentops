@@ -7,15 +7,11 @@
     "default_harness": "claude",
     "default_model_alias": "frontier-default",
     "action_classes": {
-      "plan": {
-        "enabled": false
-      },
-      "build": {
-        "enabled": false
-      },
-      "review": {
-        "enabled": false
-      }
+      "plan": { "enabled": false },
+      "build": { "enabled": false },
+      "review": { "enabled": false },
+      "verify": { "enabled": true, "model_alias": "review-synthesis", "review_required": true },
+      "reconcile": { "enabled": true, "model_alias": "review-synthesis" }
     }
   },
   "skills": {
@@ -25,40 +21,47 @@
       "sprint-packet",
       "item-done",
       "sprint-snapshot",
-      "sprint-close"
-    ]
+      "sprint-close",
+      "verify-state-protocols",
+      "reconcile-project-contracts"
+    ],
+    "overlays": [".agents/overlays/scribectl.state-protocols.md"]
   },
   "scope": {
-    "allowed_path_roots": [
-      "scribectl/",
-      "scribedispatch/",
-      "tests/",
-      "docs/",
-      "fixtures/",
-      ".agents/"
-    ],
+    "allowed_path_roots": ["scribectl/", "scribedispatch/", "tests/", "docs/", "verification/", "fixtures/", ".agents/"],
     "out_of_scope": [
       "/media/Creative is production: only scribe-dispatch writes there, and only under body/drafts/, reviews/<lane>/, control/context-packs/",
       "ratification ledger, inbox verdicts, and any '## Ratified facts' section — the writer's taste gate, never automated",
       "actionq never drives fills or reviews: scribe-dispatch is the coordinator; this manifest is observability only"
     ]
   },
+  "risk_surfaces": [
+    {
+      "id": "artifact-landing",
+      "paths": ["scribedispatch/landing.py", "scribedispatch/engine.py", "scribedispatch/cli.py"],
+      "skills": ["verify-state-protocols", "reconcile-project-contracts"],
+      "default_depth": 2,
+      "required_on_change": true
+    },
+    {
+      "id": "canon-ratification",
+      "paths": ["scribectl/core/inbox.py", "scribectl/core/project.py", "scribectl/cli.py"],
+      "skills": ["verify-state-protocols", "reconcile-project-contracts"],
+      "default_depth": 2,
+      "required_on_change": true
+    }
+  ],
   "verification": {
-    "command_families": [
-      "unit",
-      "full-suite"
-    ],
+    "command_families": ["unit", "docs", "full-suite"],
     "targeted_first": true,
     "commands": [
       ".venv/bin/pytest tests/<specific-test-files> -x --tb=short",
+      "python /projects/dev/agentops/templates/dispatch/scripts/validate_verification_artifacts.py --root .",
       ".venv/bin/pytest"
     ]
   },
   "hooks": {
     "level": "audit",
-    "publishers": [
-      "git",
-      "workspace-cost"
-    ]
+    "publishers": ["git", "workspace-cost"]
   }
 }

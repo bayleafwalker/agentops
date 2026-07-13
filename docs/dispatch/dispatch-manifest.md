@@ -17,6 +17,8 @@ Examples:
 ```text
 /projects/dev/agentops/templates/dispatch/examples/homelab-analytics.dispatch.json
 /projects/dev/agentops/templates/dispatch/examples/appservice.dispatch.json
+/projects/dev/agentops/templates/dispatch/examples/actionq.dispatch.json
+/projects/dev/agentops/templates/dispatch/examples/scribectl.dispatch.json
 ```
 
 ## Routing Precedence
@@ -50,6 +52,14 @@ Repos should select shared skills in the manifest and commit only overlay fragme
 differences: domain boundaries, test commands, specialist roster, architecture rules, cluster
 safety rules, or escalation rules. Full skill bodies should be copied into a repo only when the
 repo has a real behavioral fork.
+
+## Stateful Protocol Risk Surfaces
+
+The optional `risk_surfaces` array maps closed stateful subjects to changed paths, shared
+verification skills, a default verification depth, and an optional `required_on_change` gate.
+Use the `verify` and `reconcile` action classes for these workflows. See
+[Stateful protocol verification](state-protocol-verification.md) for modes, overlays, and
+data-only context/result packets.
 
 ## Hook Contract
 
