@@ -1,5 +1,16 @@
 # agent-ops substrate: pg backend, audit log, dispatch service
 
+> **Direction update (2026-07-14):** this plan's framing of separate "local"
+> and "remote" sprintctl backend modes — including the core decisions "two
+> named modes, not a pluggable backend" and "pg unreachable = clear error, no
+> local queue, no replay" — is superseded as *target direction* by
+> `sprintctl/docs/plans/adr-outbox-sync-model.md` (doc_id
+> `adr-outbox-sync-model`): one producer-side write mechanism (durable local
+> outbox), a cached local projection with a visible remote watermark, and an
+> observation/command/decision split. The rest of this plan (ownership
+> boundaries, auditctl, actionq, cockpit workstreams) remains valid; read the
+> backend-mode sections as shipped history, not as the current target.
+
 Plan for the next slice of development workflow tooling: sprintctl gains a pg backend and remote mode for cross-host coordination, auditctl serves as the repo-local audit tool, actionq becomes the queue/service/daemon boundary for dispatched sessions, and the agent-cockpit surface in `agentops` becomes the operator frontend for the substrate that actually exists.
 
 This plan absorbs the earlier `sprintctl-multi-agent-takeup-plan.md` as workstream A; that plan ships unchanged and is the prerequisite for everything else.

@@ -92,6 +92,42 @@ Adding an MCP tool that mutates sprint state requires the same justification
 as adding a 2a route. If it can't be validated server-side, it must be a
 dispatch template instead.
 
+## Documented boundary exception: cockpit sprint-activation SQL transaction
+
+Status: grandfathered exception, documented 2026-07-14
+
+`apps/web/lib/cockpit/sprintctl.js` (`activateSprint`, ~lines 371–393)
+implements the sprint-activation transaction **directly in JavaScript**
+against the sprintctl database: `BEGIN` / `SELECT … FOR UPDATE` /
+`UPDATE sprint …` / `INSERT INTO event …`. The transition rules
+(`planned -> active`, archive-kind rejection) are re-implemented in JS to
+mirror sprintctl's `SPRINT_TRANSITIONS`.
+
+**Classification against the tier model.** This is the implementation behind
+the Tier 2a allowlisted route `POST /cockpit/api/sprints/activate`. It
+satisfies the letter of Tier 2a (server-validatable transition, event-ledger
+provenance with a truthful actor, write auth) but violates its spirit on one
+axis: rule 1 demands *parity* with sprintctl's transition rules, and parity is
+maintained here by **duplicating domain invariants outside the owning
+domain**. sprintctl owns sprint-transition semantics; a second copy in
+cockpit JavaScript can silently drift whenever sprintctl's rules change. It
+also breaches the stated boundary that no remote surface is handed raw
+database write access — the cockpit process itself holds `SPRINTCTL_URL`
+semantics for this one transition.
+
+**Standing.** The path is **grandfathered as a documented exception**: it
+remains on the Tier 2a allowlist and may continue to operate, but it must not
+be used as precedent. No new route may re-implement domain invariants in
+cockpit code; anything not expressible by *calling into* the owning domain is
+Tier 2b (dispatch) until a domain-owned handler exists.
+
+**Intended end-state.** Migration to a domain-owned command handler: sprint
+activation becomes a sprintctl authority command per
+`sprintctl/docs/plans/adr-outbox-sync-model.md` (doc_id
+`adr-outbox-sync-model`), with the cockpit submitting the command and
+projecting the remote decision rather than executing SQL. Removal of the
+direct SQL path is tracked in the agentops backlog.
+
 ## Related
 
 - `docs/plans/agentops/` — cockpit workstream plans

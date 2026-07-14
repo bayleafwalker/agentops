@@ -21,11 +21,20 @@ This means the durable queue state (all actionq actions, events, coordinator emi
 
 All implementation repos push to GitHub (`bayleafwalker/`). The canonical copy of every repo's code, commit history, and plan docs is off-cluster. A full workspace rebuild from git is always possible.
 
-### What is not cluster-managed
+### Workspace PVC (cluster-managed backup verified 2026-07-14)
 
-The workspace PVC (`truenas-workspace-pvc`, namespace `vscode`) is an NFS-backed volume served by TrueNAS at `/mnt/storage_layer/projects`. It is mounted into the vscode-shell pod as `/projects/dev` and `/home/dev`. **There is no VolSync ReplicationSource or other cluster-managed backup for this path.**
+The workspace PVC (`truenas-workspace-pvc`, namespace `vscode`) is an NFS-backed volume served by TrueNAS at `/mnt/storage_layer/projects`. It is mounted into the vscode-shell pod as `/projects/dev` and `/home/dev`.
 
-Everything on the workspace PVC is implicitly protected only by TrueNAS's own ZFS snapshot and replication practices (assumed, not cluster-managed). If TrueNAS suffers data loss before a ZFS snapshot is promoted, the following are lost without recovery path:
+An earlier revision of this plan claimed the workspace PVC had "no VolSync ReplicationSource or other cluster-managed backup". **That claim is stale.** Per the verified reconciliation in `ops-upgrade-reconciliation-2026-07.md` (facts 4 and the runtime-verified backup state section):
+
+- **Implemented in GitOps:** `appservice/clusters/main/kubernetes/apps/vscode/app/workspace-backup.yaml` defines a daily Restic backup (03:55 UTC, with retention policy and excludes) plus a monthly restore drill with dedicated PVCs.
+- **Deployed / runtime-verified (2026-07-14):** CronJobs `workspace-backup` and `workspace-restore-drill` exist in namespace `vscode` and are not suspended.
+- **Last successful backup:** job `workspace-backup-29733355` completed 2026-07-14T03:56:19Z. Verified green.
+- **Last successful restore drill: unknown for July.** Drill CronJobs last scheduled 2026-07-01, but the job history from that date was garbage-collected; the only surviving drill evidence is a manual `sprintctl-cnpg-restore-drill-remediation-20260712` job (completed 2026-07-12). Drill outcomes are **not durably observable**.
+
+The remaining gap is therefore **drill observability/alerting and semantic restore validation, not backup existence**. Do not plan or backlog building a workspace backup — it exists and runs.
+
+TrueNAS's own ZFS snapshot and replication practices remain an additional, independently managed layer. If both the Restic backup and TrueNAS snapshots fail to cover a loss window, the following would be lost without recovery path:
 
 - Per-repo SQLite databases: `auditctl.db`, local-mode `sprintctl.db`, `kctl.db`
 - NDJSON audit shards: `_artifacts/<repo>/audit/events-*.ndjson`
@@ -33,7 +42,7 @@ Everything on the workspace PVC is implicitly protected only by TrueNAS's own ZF
 - Agent session worktrees: `~/.local/state/actionq-dispatcher/worktrees/`
 - The vscode-home subPath: tmux sessions, shell history, local tool installs in `~/.local/`
 
-See **Open items** for the recommended gap closure.
+See **Open items** for the remaining drill-observability gap.
 
 ---
 
@@ -91,7 +100,7 @@ Specific consequences:
 - `kctl.db`: re-extract from sprintctl events (`kctl extract`).
 - Local-mode `sprintctl.db`: unrecoverable without the file (remote-mode repos are not affected; local-mode repos lose sprint history not reflected in git commits).
 
-**NDJSON shard loss:** if TrueNAS data is lost (not just temporarily unavailable), audit shards in `_artifacts/` are gone. They are not reconstructible from CNPG data alone — audit events are emitted asynchronously and are not stored in pg. The only recovery path is from a TrueNAS ZFS snapshot or an external backup of the NFS dataset. See **Open items: workspace backup**.
+**NDJSON shard loss:** if TrueNAS data is lost (not just temporarily unavailable), audit shards in `_artifacts/` are gone. They are not reconstructible from CNPG data alone — audit events are emitted asynchronously and are not stored in pg. The recovery path is the daily Restic workspace backup (see backup posture above) or a TrueNAS ZFS snapshot. See **Open items: workspace backup** for the drill-observability gap.
 
 ---
 
@@ -233,17 +242,19 @@ sqlite3 /projects/dev/<repo>/.sprintctl/sprintctl.db "PRAGMA integrity_check;"
 
 ## Open items
 
-### Workspace PVC backup gap (critical)
+### Workspace backup: drill observability and semantic restore validation
 
-The TrueNAS NFS dataset (`/mnt/storage_layer/projects`) has no cluster-managed backup. The cluster's VolSync infrastructure is configured for Longhorn-backed PVCs and some NFS sources (Nextcloud, Paperless). The workspace dataset is absent.
+**Resolved (2026-07-14):** the previously described backup gap is closed. A daily Restic backup (03:55 UTC) and monthly restore drill are implemented in GitOps (`appservice/.../vscode/app/workspace-backup.yaml`) and runtime-verified — see the backup posture section above and `ops-upgrade-reconciliation-2026-07.md`. Do not re-propose building the backup.
+
+**Remaining gap:** restore-drill outcomes are not durably observable. The July 1 drill job history was garbage-collected before anyone could confirm success, and a manual `sprintctl-cnpg-restore-drill-remediation-20260712` job indicates the July sprintctl CNPG drill required manual remediation.
 
 **Recommended actions (in priority order):**
 
-1. **Verify TrueNAS ZFS snapshot schedule** for `/mnt/storage_layer/projects`. If ZFS snapshots run hourly or better and replicate off-appliance (to a remote TrueNAS or Hetzner StorageBox), the implicit protection is adequate for most failure modes. Document the schedule explicitly so it is not assumed.
+1. **Make drill outcomes durable and alerting.** Persist drill success/failure beyond job garbage collection (durable record or push-gateway metric) and alert on drill failure or absence.
 
-2. **Add a VolSync ReplicationSource for the workspace PVC.** The workspace is an RWX NFS volume; use `copyMethod: Direct` (the same approach that works for Nextcloud). This gives Restic-encrypted snapshots in Hetzner S3 alongside the CNPG backups, managed by Flux GitOps. The workspace is large and changes frequently (worktrees, node_modules, build artifacts), so configure an exclude list (`--exclude ~/.local/state/actionq-dispatcher/worktrees/`, `**/node_modules/`, `**/.venv/`, `**/build/`).
+2. **Add semantic restore validation.** A drill that only proves files restore is weaker than one that proves the restored data is usable — validate restored SQLite integrity and NDJSON shard parseability, not just file presence.
 
-3. **Add a restore drill** (a `ReplicationDestination` with `cleanupTempPVC: true`) on a monthly schedule, per the existing VolSync pattern.
+3. **Verify TrueNAS ZFS snapshot schedule** for `/mnt/storage_layer/projects` and document it explicitly, as the independent second layer of protection.
 
 The critical data on the workspace that is not recoverable from git or CNPG: `_artifacts/` NDJSON shards and local SQLite databases. These are small in total size and high in recovery value.
 
