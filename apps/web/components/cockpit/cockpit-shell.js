@@ -228,6 +228,8 @@ export function CockpitShell() {
   const [dispatchesData, setDispatchesData] = useState({ dispatches: [], degraded: null });
   const [eventsData, setEventsData] = useState({ events: [], degraded: null });
   const [auditData, setAuditData] = useState({ events: [], degraded: null });
+  const [reconciliationData, setReconciliationData] = useState({ review_queue: [], lag: null, watermark: null, dogfooding: null, warnings: [], degraded: null });
+  const [decidingProposal, setDecidingProposal] = useState(null);
   const [costData, setCostData] = useState({ summary: null, degraded: null });
   const [headroomData, setHeadroomData] = useState({ snapshot: null, degraded: null });
   const [headroomRefreshing, setHeadroomRefreshing] = useState(false);
@@ -315,6 +317,37 @@ export function CockpitShell() {
       console.error("Sprint activation failed:", error.message);
     } finally {
       setActivatingSprint(null);
+    }
+  }
+
+  async function handleDecideProposal(proposalId, decision) {
+    let rejectionReason = null;
+    if (decision === "rejected") {
+      rejectionReason = window.prompt("Rejection reason (recorded durably on the proposal):");
+      if (!rejectionReason) {
+        return;
+      }
+    }
+    setDecidingProposal(proposalId);
+    try {
+      await readJson("/cockpit/api/reconciliation/decide", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          repo_id: selectedRepo,
+          proposal_id: proposalId,
+          decision,
+          rejection_reason: rejectionReason
+        })
+      });
+      setReconciliationData((current) => ({
+        ...current,
+        review_queue: current.review_queue.filter((proposal) => proposal.proposal_id !== proposalId)
+      }));
+    } catch (error) {
+      console.error("Proposal decision failed:", error.message);
+    } finally {
+      setDecidingProposal(null);
     }
   }
 
@@ -558,6 +591,40 @@ export function CockpitShell() {
     }
 
     loadDispatchManifests();
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [selectedRepo, tweaks.pollAll, refreshKey, visibilityState]);
+
+  useEffect(() => {
+    if (selectedRepo === "ALL") {
+      setReconciliationData({ review_queue: [], lag: null, watermark: null, dogfooding: null, warnings: [], degraded: null });
+      return undefined;
+    }
+    let cancelled = false;
+    let timer;
+
+    async function loadReconciliation() {
+      const params = new URLSearchParams({ repo_id: selectedRepo });
+      try {
+        const data = await readJson(`/cockpit/api/reconciliation?${params}`);
+        if (cancelled) {
+          return;
+        }
+        setReconciliationData(data);
+      } catch (error) {
+        if (!cancelled) {
+          setFatalError(error.message);
+        }
+      } finally {
+        if (!cancelled && tweaks.pollAll) {
+          timer = setTimeout(loadReconciliation, getPollIntervalMs("secondary", document.visibilityState || "visible"));
+        }
+      }
+    }
+
+    loadReconciliation();
     return () => {
       cancelled = true;
       clearTimeout(timer);
@@ -1082,6 +1149,91 @@ export function CockpitShell() {
             {dispatchesData.dispatches.length === 0 && !dispatchesData.degraded ? (
               <div className="empty-state small muted">No dispatch lifecycle rows match the current repo filter.</div>
             ) : null}
+          </section>
+
+          <section className="cockpit-section" id="reconciliation">
+            <div className="title-row">
+              <h3 className="section-title">Reconciliation</h3>
+              {tweaks.alwaysShowSources ? (
+                <SourceTruthTag
+                  source={selectedRepo === "ALL" ? "artifact:reconciliation/<repo>" : `artifact:reconciliation/${selectedRepo}`}
+                />
+              ) : null}
+            </div>
+            <DegradedSourceBanner message={reconciliationData.degraded?.message} />
+            {selectedRepo === "ALL" ? (
+              <div className="empty-state small muted">Reconciliation surfaces activate after choosing a concrete repo.</div>
+            ) : (
+              <>
+                {reconciliationData.lag ? (
+                  <div className="small muted">
+                    unreconciled {reconciliationData.lag.unreconciled_count}/{reconciliationData.lag.total_capsules} capsules
+                    {" · "}oldest {secondsLabel(reconciliationData.lag.oldest_unreconciled_age_seconds)}
+                    {" · "}median {secondsLabel(reconciliationData.lag.median_unreconciled_age_seconds)}
+                    {" · "}p95 {secondsLabel(reconciliationData.lag.p95_unreconciled_age_seconds)}
+                    {" · "}cursor advanced {ageLabel(reconciliationData.lag.cursor_last_advanced_at)}
+                  </div>
+                ) : null}
+                {reconciliationData.watermark ? (
+                  <div className="small muted">
+                    latest capsule ended {ageLabel(reconciliationData.watermark.latest_capsule_ended_at)}
+                    {" · "}starting watermark age {secondsLabel(reconciliationData.watermark.starting_watermark?.age_seconds)}
+                  </div>
+                ) : null}
+                {reconciliationData.dogfooding && reconciliationData.dogfooding.proposals_total > 0 ? (
+                  <div className="small muted">
+                    proposals {reconciliationData.dogfooding.proposals_total}
+                    {" · "}pending {reconciliationData.dogfooding.pending_review_count}
+                    {" · "}accepted {reconciliationData.dogfooding.proposals_by_state.accepted}
+                    {" · "}rejected {reconciliationData.dogfooding.proposals_by_state.rejected}
+                    {" · "}no-change {reconciliationData.dogfooding.proposals_by_classification["incidental-no-change"]}
+                  </div>
+                ) : null}
+                <div className="feed-list">
+                  {reconciliationData.review_queue.map((proposal) => (
+                    <div key={proposal.proposal_id} className="feed-item">
+                      <div className="title-row">
+                        <strong>{proposal.classification}</strong>
+                        <span className="small muted">{proposal.created_at}</span>
+                      </div>
+                      <div className="small">
+                        {proposal.target?.ref || "no target"} · confidence {proposal.confidence?.level || "unknown"}
+                      </div>
+                      {proposal.confidence?.rationale ? (
+                        <div className="small muted">{proposal.confidence.rationale}</div>
+                      ) : null}
+                      <div className="small muted">sessions: {proposal.source_sessions.join(", ") || "n/a"}</div>
+                      {proposal.proposed_commands.length > 0 ? (
+                        <div className="small muted">
+                          on accept: {proposal.proposed_commands.map((command) => command.command_type).join(", ")}
+                        </div>
+                      ) : null}
+                      <div className="title-row">
+                        <button
+                          className="mode-button"
+                          type="button"
+                          disabled={decidingProposal === proposal.proposal_id}
+                          onClick={() => handleDecideProposal(proposal.proposal_id, "accepted")}
+                        >
+                          {decidingProposal === proposal.proposal_id ? "Deciding…" : "Accept"}
+                        </button>
+                        <button
+                          className="mode-button"
+                          type="button"
+                          disabled={decidingProposal === proposal.proposal_id}
+                          onClick={() => handleDecideProposal(proposal.proposal_id, "rejected")}
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {reconciliationData.review_queue.length === 0 && !reconciliationData.degraded ? (
+                  <div className="empty-state small muted">No pending reconciliation proposals.</div>
+                ) : null}
+              </>
+            )}
           </section>
 
           <section className="cockpit-section feed-primary" id="outcomes">

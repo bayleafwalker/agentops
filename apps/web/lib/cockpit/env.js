@@ -29,6 +29,7 @@ export function getConfig() {
     auditRoot: process.env.COCKPIT_ARTIFACTS_ROOT || "/projects/dev",
     auditLookbackDays: Number(process.env.COCKPIT_AUDIT_LOOKBACK_DAYS || 3),
     auditCacheMs: Number(process.env.COCKPIT_AUDIT_CACHE_MS || 5000),
+    reconciliationCacheMs: Number(process.env.COCKPIT_RECONCILIATION_CACHE_MS || 5000),
     dispatchManifestRoot:
       process.env.COCKPIT_DISPATCH_MANIFEST_ROOT || "/projects/dev/agentops/templates/dispatch/examples",
     dispatchManifestCacheMs: Number(process.env.COCKPIT_DISPATCH_MANIFEST_CACHE_MS || 5000),

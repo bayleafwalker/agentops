@@ -209,6 +209,16 @@ but observable queue, never a quietly wrong sprint record.
 
 ## Cockpit surfaces
 
+**Implemented (item #1109):** `apps/web/lib/cockpit/reconciliation.js` plus
+`GET /cockpit/api/reconciliation` (review queue, reconciliation-lag,
+watermark-age, dogfooding metrics) and
+`POST /cockpit/api/reconciliation/decide` (accept/reject recorded on the
+proposal artifact's lifecycle; gated on `COCKPIT_WRITE_TOKEN`, disabled
+until configured). The decide route records the decision only — it never
+executes `proposed_commands`; acceptance still runs through normal
+sprintctl authority commands per the write-surface policy. The shell UI
+renders these in a "Reconciliation" section.
+
 The agent-cockpit surface (agentops-owned) grows:
 
 - a **review queue** for `reconciliation-proposal/v1` artifacts — pending
