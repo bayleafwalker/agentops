@@ -69,6 +69,11 @@ Hooks publish facts; they do not decide policy. Hook payloads should include `re
 `runtime_session_id` when available, `action_id` when dispatched, refs (`wi:`, `sprint:`, `sha:`,
 `pr:`), summary, and timestamp.
 
+The Tier-0 session-mechanization wrapper is the mechanical superset of this contract for a whole
+session rather than one hook payload — see
+[Session mechanization contracts](session-mechanization-contracts.md) for the `session-capsule/v1`
+and `reconciliation-proposal/v1` schemas it and the periodic scribe produce.
+
 Dispatcher gates are the exception to best-effort publishing: if verification is part of the
 action contract, missing or failed verification must fail closed.
 

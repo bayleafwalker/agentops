@@ -71,6 +71,10 @@ validity depends on shared state and gates.
 
 ## Session mechanization (see [`session-mechanization-plan.md`](session-mechanization-plan.md))
 
+Artifact schemas and field contracts for the two rows below marked
+`(artifact + pointer)` / `(proposal artifact)`:
+[`session-mechanization-contracts.md`](../../dispatch/session-mechanization-contracts.md).
+
 | Event / command | Class | Offline | Remote validation | Local projection | Authoritative result event |
 |---|---|---|---|---|---|
 | `session.started` | observation | yes | no | applied immediately | the observation itself, once ingested |

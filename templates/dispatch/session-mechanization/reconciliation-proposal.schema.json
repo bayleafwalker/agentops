@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/reconciliation-proposal.schema.json",
+  "title": "Reconciliation proposal",
+  "description": "A reviewable proposal produced by the canonical periodic scribe (agentops-owned, NOT the scribectl repo) or a fresh post-session reconciler. Never mutates authoritative state itself; acceptance executes as normal sprintctl authority commands.",
+  "$comment": "This schema mirrors structure for editor support. templates/dispatch/scripts/validate_session_mechanization_artifacts.py is normative for cross-field rules.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "proposal_id",
+    "dedup_key",
+    "created_at",
+    "source_capsules",
+    "evidence_refs",
+    "basis",
+    "target",
+    "classification",
+    "proposed_commands",
+    "confidence",
+    "lifecycle"
+  ],
+  "properties": {
+    "schema_version": { "const": "reconciliation-proposal/v1" },
+    "proposal_id": { "$ref": "#/$defs/uuid" },
+    "dedup_key": {
+      "$ref": "#/$defs/nonBlankString",
+      "description": "Stable key so the scribe does not repeatedly rediscover a rejected proposal."
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "source_capsules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["runtime_session_id", "capsule_ref"],
+        "properties": {
+          "runtime_session_id": { "$ref": "#/$defs/nonBlankString" },
+          "capsule_ref": { "$ref": "#/$defs/immutableRef" }
+        }
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/immutableRef" }
+    },
+    "basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observed_revision", "current_revision"],
+      "properties": {
+        "observed_revision": {
+          "$ref": "#/$defs/nonBlankString",
+          "description": "The target aggregate's revision the evidence was authored against."
+        },
+        "current_revision": {
+          "$ref": "#/$defs/nonBlankString",
+          "description": "The target aggregate's revision at proposal time. Equal to observed_revision when nothing else advanced it meanwhile."
+        }
+      }
+    },
+    "target": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "ref"],
+          "properties": {
+            "kind": { "enum": ["work-item", "sprint"] },
+            "ref": {
+              "$ref": "#/$defs/nonBlankString",
+              "description": "e.g. wi:1106, sprint:380."
+            }
+          }
+        }
+      ],
+      "description": "Null only when classification is incidental-no-change."
+    },
+    "classification": {
+      "enum": [
+        "link-existing-item",
+        "mark-item-advanced",
+        "propose-completion",
+        "flag-conflict-or-duplicate",
+        "propose-new-item",
+        "incidental-no-change"
+      ]
+    },
+    "proposed_commands": {
+      "type": "array",
+      "description": "Concrete sprintctl authority-command intents to execute on acceptance. Empty exactly when classification is incidental-no-change.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["command_type", "params"],
+        "properties": {
+          "command_type": { "$ref": "#/$defs/nonBlankString" },
+          "params": { "type": "object" }
+        }
+      }
+    },
+    "confidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "rationale"],
+      "properties": {
+        "level": { "enum": ["high", "medium", "low"] },
+        "rationale": { "$ref": "#/$defs/nonBlankString" }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state"],
+      "properties": {
+        "state": { "enum": ["pending", "accepted", "rejected", "superseded"] },
+        "decided_at": { "type": ["string", "null"], "format": "date-time" },
+        "decided_by": { "type": ["string", "null"] },
+        "rejection_reason": { "type": ["string", "null"] },
+        "superseded_by": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/uuid" }]
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "state": { "const": "pending" } }, "required": ["state"] },
+          "then": {
+            "properties": {
+              "decided_at": { "const": null },
+              "decided_by": { "const": null },
+              "rejection_reason": { "const": null },
+              "superseded_by": { "const": null }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "state": { "enum": ["accepted", "rejected", "superseded"] } },
+            "required": ["state"]
+          },
+          "then": {
+            "required": ["decided_at", "decided_by"],
+            "properties": {
+              "decided_at": { "type": "string", "format": "date-time" },
+              "decided_by": { "$ref": "#/$defs/nonBlankString" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "state": { "const": "rejected" } }, "required": ["state"] },
+          "then": {
+            "required": ["rejection_reason"],
+            "properties": { "rejection_reason": { "$ref": "#/$defs/nonBlankString" } }
+          }
+        },
+        {
+          "if": { "properties": { "state": { "const": "superseded" } }, "required": ["state"] },
+          "then": {
+            "required": ["superseded_by"],
+            "properties": { "superseded_by": { "$ref": "#/$defs/uuid" } }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "classification": { "const": "incidental-no-change" } },
+        "required": ["classification"]
+      },
+      "then": {
+        "properties": {
+          "target": { "const": null },
+          "proposed_commands": { "maxItems": 0 }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "classification": { "enum": ["link-existing-item", "mark-item-advanced", "propose-completion", "flag-conflict-or-duplicate", "propose-new-item"] }
+        },
+        "required": ["classification"]
+      },
+      "then": {
+        "properties": {
+          "proposed_commands": { "minItems": 1 }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "nonBlankString": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "immutableRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "source", "revision"],
+      "properties": {
+        "kind": {
+          "enum": ["git-commit", "sprint-event", "document", "verification-result", "release", "artifact"]
+        },
+        "source": { "$ref": "#/$defs/nonBlankString" },
+        "revision": { "$ref": "#/$defs/nonBlankString" }
+      }
+    }
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "schema_version": "session-capsule/v1",
+  "capsule_id": "0f1e2d3c-4b5a-4978-8b6c-1a2b3c4d5e6f",
+  "origin_stream_id": "1a2b3c4d-5e6f-4788-9a0b-1c2d3e4f5061",
+  "runtime_session_id": "sess-20260714-183012-agentops",
+  "repo": {
+    "project": "agentops"
+  },
+  "harness": "claude",
+  "model": {
+    "name": "claude-sonnet-5"
+  },
+  "actor": "dev",
+  "target": {
+    "rank": "explicit",
+    "ref": "wi:1106"
+  },
+  "claim": null,
+  "starting_watermark": {
+    "ingest_offset": 4821,
+    "age_seconds": 12
+  },
+  "started_at": "2026-07-14T18:30:12Z",
+  "ended_at": "2026-07-14T19:41:03Z",
+  "end": {
+    "kind": "clean-end",
+    "reason": "task complete",
+    "exit_code": 0
+  },
+  "git": {
+    "base_commit": "fd452382bc970bd0788b5d1407751bb0115a6466",
+    "head_commit": "a1b2c3d4e5f60718293a4b5c6d7e8f9012a3b4c5",
+    "commits": ["a1b2c3d4e5f60718293a4b5c6d7e8f9012a3b4c5"],
+    "branch": "main",
+    "worktree": "/mnt/truenas/storage_layer/projects/dev/agentops",
+    "dirty": false,
+    "patch_digest": null,
+    "diff_stat": {
+      "files_changed": 7,
+      "insertions": 512,
+      "deletions": 3
+    },
+    "touched_paths": [
+      "docs/dispatch/session-mechanization-contracts.md",
+      "templates/dispatch/session-mechanization/session-capsule.schema.json"
+    ]
+  },
+  "verification": [
+    {
+      "command": "python templates/dispatch/scripts/validate_session_mechanization_artifacts.py --root .",
+      "result": "pass",
+      "evidence_ref": null
+    }
+  ],
+  "privacy": {
+    "raw_transcript_captured": false,
+    "raw_transcript_ref": null,
+    "retention_days": null
+  }
+}

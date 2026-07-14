@@ -26,6 +26,11 @@ Semantic-verification contract:
 - [`templates/dispatch/schemas/test-context.schema.json`](../../../templates/dispatch/schemas/test-context.schema.json) - sole normative JSON schema.
 - [`templates/dispatch/repository-baseline/`](../../../templates/dispatch/repository-baseline/) - copyable consumer baseline and CI example.
 
+Session mechanization contracts:
+
+- [`docs/dispatch/session-mechanization-contracts.md`](../../dispatch/session-mechanization-contracts.md) - `session-capsule/v1` and `reconciliation-proposal/v1` schemas and field contracts.
+- [`templates/dispatch/session-mechanization/`](../../../templates/dispatch/session-mechanization/) - schemas and examples.
+
 Repo-owned companion plans:
 
 - `/projects/dev/sprintctl/docs/plans/sprintctl-multi-agent-takeup-plan.md`

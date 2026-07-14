@@ -96,7 +96,9 @@ the whole backlog into the prompt.
 
 Do not depend on the exhausted primary agent to perform bookkeeping
 correctly. The session-end mechanism creates a **`session-capsule/v1`**
-artifact and enqueues reconciliation.
+artifact (schema and field contract:
+[`session-mechanization-contracts.md`](../../dispatch/session-mechanization-contracts.md))
+and enqueues reconciliation.
 
 A **fresh** reconciler — a new session, not the one that did the work —
 receives:
@@ -131,7 +133,9 @@ runs, the scribe still converges the record.
 The scribe:
 
 - consumes unreconciled session exhaust up to a **durable cursor**;
-- creates reviewable **`reconciliation-proposal/v1`** artifacts;
+- creates reviewable **`reconciliation-proposal/v1`** artifacts (schema and
+  field contract:
+  [`session-mechanization-contracts.md`](../../dispatch/session-mechanization-contracts.md));
 - **never directly mutates authoritative sprint state**;
 - groups related sessions where useful;
 - records explicit no-change outcomes;
@@ -204,6 +208,9 @@ its ratification status.
 
 ## Related documents
 
+- [`session-mechanization-contracts.md`](../../dispatch/session-mechanization-contracts.md)
+  — `session-capsule/v1` and `reconciliation-proposal/v1` schemas and field
+  contracts (item #1106).
 - `sprintctl/docs/ops-upgrade-plan.md` — ratified product direction (sections 5, 6).
 - `sprintctl/docs/plans/adr-outbox-sync-model.md` — canonical protocol text:
   outbox, observation/command/decision split, identities, cursors.

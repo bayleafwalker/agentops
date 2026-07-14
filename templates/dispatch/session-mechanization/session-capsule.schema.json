@@ -1,0 +1,244 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/session-capsule.schema.json",
+  "title": "Session capsule",
+  "description": "Tier-0 mechanical session exhaust: what a harness-neutral session wrapper recorded with no agent cooperation required. Produced once, at session end (clean or inferred). Not a work log and not proof that any backlog state should change.",
+  "$comment": "This schema mirrors structure for editor support. templates/dispatch/scripts/validate_session_mechanization_artifacts.py is normative for cross-field rules.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "capsule_id",
+    "origin_stream_id",
+    "runtime_session_id",
+    "repo",
+    "harness",
+    "model",
+    "actor",
+    "target",
+    "claim",
+    "starting_watermark",
+    "started_at",
+    "ended_at",
+    "end",
+    "git",
+    "verification",
+    "privacy"
+  ],
+  "properties": {
+    "schema_version": { "const": "session-capsule/v1" },
+    "capsule_id": { "$ref": "#/$defs/uuid" },
+    "origin_stream_id": {
+      "$ref": "#/$defs/uuid",
+      "description": "Durable producer outbox stream identity (adr-outbox-sync-model). Never a remote-origin id."
+    },
+    "runtime_session_id": {
+      "$ref": "#/$defs/nonBlankString",
+      "description": "Semantic session identity, distinct from transport identity. Same field name actionq already projects in session summaries."
+    },
+    "repo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project"],
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/identifier",
+          "description": "Portable repo scope identifier, e.g. the sprintctl repo name."
+        },
+        "repo_id": {
+          "$ref": "#/$defs/uuid",
+          "description": "Minted repo_id from the dispatch manifest, once repos carry it. Optional until that migration lands."
+        }
+      }
+    },
+    "harness": {
+      "$ref": "#/$defs/nonBlankString",
+      "description": "Harness name, e.g. claude, codex, opencode, or manual. Deliberately not an enum: the wrapper must work regardless of which harness runs inside it, including no harness at all."
+    },
+    "model": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name"],
+          "properties": {
+            "name": { "$ref": "#/$defs/nonBlankString" },
+            "version": { "type": "string" }
+          }
+        }
+      ],
+      "description": "Null for manual (human-only) sessions."
+    },
+    "actor": { "$ref": "#/$defs/nonBlankString" },
+    "target": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rank", "ref"],
+          "properties": {
+            "rank": {
+              "enum": ["explicit", "path-scope", "doc-link", "candidate", "repo-level"],
+              "description": "Tier-1 ranking (session-mechanization-plan.md). Only rank=explicit may accompany an automatically acquired claim."
+            },
+            "ref": {
+              "$ref": "#/$defs/nonBlankString",
+              "description": "e.g. wi:1106, sprint:380 -- the prefixed ref vocabulary from docs/dispatch/dispatch-manifest.md."
+            }
+          }
+        }
+      ]
+    },
+    "claim": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["claim_id", "work_item_id", "claim_type", "acquired_automatically"],
+          "properties": {
+            "claim_id": { "$ref": "#/$defs/nonBlankString" },
+            "work_item_id": { "$ref": "#/$defs/nonBlankString" },
+            "claim_type": { "$ref": "#/$defs/nonBlankString" },
+            "acquired_automatically": {
+              "type": "boolean",
+              "description": "True only when the wrapper acquired this claim before the harness began, which the plan permits only for an explicit (rank=explicit) target."
+            }
+          }
+        }
+      ]
+    },
+    "starting_watermark": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ingest_offset", "age_seconds"],
+      "properties": {
+        "ingest_offset": {
+          "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "string", "minLength": 1 }],
+          "description": "The server-assigned monotonic remote ordering cursor visible at session start, per adr-outbox-sync-model."
+        },
+        "age_seconds": { "type": "number", "minimum": 0 }
+      }
+    },
+    "started_at": { "type": "string", "format": "date-time" },
+    "ended_at": { "type": "string", "format": "date-time" },
+    "end": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "enum": ["clean-end", "end-inferred"],
+          "description": "end-inferred means crash recovery emitted this capsule from surviving evidence; no clean session.ended was observed."
+        },
+        "reason": { "type": ["string", "null"] },
+        "exit_code": { "type": ["integer", "null"] }
+      }
+    },
+    "git": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "base_commit",
+        "head_commit",
+        "commits",
+        "branch",
+        "worktree",
+        "dirty",
+        "diff_stat",
+        "touched_paths"
+      ],
+      "properties": {
+        "base_commit": { "$ref": "#/$defs/gitSha" },
+        "head_commit": { "$ref": "#/$defs/gitSha" },
+        "commits": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/gitSha" }
+        },
+        "branch": { "type": "string" },
+        "worktree": { "type": "string" },
+        "dirty": { "type": "boolean" },
+        "patch_digest": {
+          "description": "sha256 of the uncommitted dirty-state patch, when dirty is true.",
+          "oneOf": [{ "type": "null" }, { "type": "string", "pattern": "^[0-9a-f]{64}$" }]
+        },
+        "diff_stat": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["files_changed", "insertions", "deletions"],
+          "properties": {
+            "files_changed": { "type": "integer", "minimum": 0 },
+            "insertions": { "type": "integer", "minimum": 0 },
+            "deletions": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "touched_paths": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "verification": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["command", "result"],
+        "properties": {
+          "command": { "$ref": "#/$defs/nonBlankString" },
+          "result": { "enum": ["pass", "fail", "error", "skipped"] },
+          "evidence_ref": {
+            "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/immutableRef" }]
+          }
+        }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["raw_transcript_captured"],
+      "properties": {
+        "raw_transcript_captured": { "type": "boolean" },
+        "raw_transcript_ref": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/immutableRef" }]
+        },
+        "retention_days": { "type": ["integer", "null"], "minimum": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "nonBlankString": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "gitSha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"
+    },
+    "immutableRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "source", "revision"],
+      "properties": {
+        "kind": {
+          "enum": ["git-commit", "sprint-event", "document", "verification-result", "release", "artifact"]
+        },
+        "source": { "$ref": "#/$defs/nonBlankString" },
+        "revision": { "$ref": "#/$defs/nonBlankString" }
+      }
+    }
+  }
+}
