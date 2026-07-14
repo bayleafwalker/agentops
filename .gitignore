@@ -9,6 +9,8 @@ build/
 .next/
 coverage/
 apps/node_modules.bad*/
+__pycache__/
+*.py[cod]
 .envrc.local
 .envrc.*
 !.envrc.example

@@ -1,6 +1,6 @@
 ---
 doc_id: state-event-command-matrix
-status: draft
+status: ratified
 supersedes: null
 ---
 

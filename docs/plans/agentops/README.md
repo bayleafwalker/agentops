@@ -22,8 +22,9 @@ Implemented dispatch contracts:
 
 Semantic-verification contract:
 
-- [`docs/verification/test-context-packet-v0.md`](../../verification/test-context-packet-v0.md) - data-only packet contract and ownership rules.
-- [`templates/verification/test-context-packet-v0.schema.json`](../../../templates/verification/test-context-packet-v0.schema.json) - normative JSON schema.
+- [`docs/verification/test-context-packet-v1.md`](../../verification/test-context-packet-v1.md) - data-only packet contract and ownership rules.
+- [`templates/dispatch/schemas/test-context.schema.json`](../../../templates/dispatch/schemas/test-context.schema.json) - sole normative JSON schema.
+- [`templates/dispatch/repository-baseline/`](../../../templates/dispatch/repository-baseline/) - copyable consumer baseline and CI example.
 
 Repo-owned companion plans:
 

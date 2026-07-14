@@ -40,6 +40,7 @@
       "id": "artifact-landing",
       "paths": ["scribedispatch/landing.py", "scribedispatch/engine.py", "scribedispatch/cli.py"],
       "skills": ["verify-state-protocols", "reconcile-project-contracts"],
+      "context_ids": ["scribectl.dispatch.concurrent-artifact-landing"],
       "default_depth": 2,
       "required_on_change": true
     },
@@ -47,6 +48,7 @@
       "id": "canon-ratification",
       "paths": ["scribectl/core/inbox.py", "scribectl/core/project.py", "scribectl/cli.py"],
       "skills": ["verify-state-protocols", "reconcile-project-contracts"],
+      "context_ids": ["scribectl.ratification.sweep-recovery"],
       "default_depth": 2,
       "required_on_change": true
     }

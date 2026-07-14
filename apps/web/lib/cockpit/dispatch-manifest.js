@@ -18,6 +18,7 @@ const SKILLS = new Set([
   "sprint-snapshot",
   "kctl-extract",
   "sprint-close",
+  "capability-receipt",
   "verify-state-protocols",
   "reconcile-project-contracts"
 ]);
@@ -84,6 +85,9 @@ export function validateDispatchManifest(manifest) {
     }
     if (!Array.isArray(surface.skills) || surface.skills.length === 0 || surface.skills.some((skill) => !RISK_SKILLS.has(skill))) {
       throw new Error(`risk surface ${surface.id} has invalid skills`);
+    }
+    if (surface.context_ids != null && (!Array.isArray(surface.context_ids) || surface.context_ids.length === 0 || surface.context_ids.some((id) => typeof id !== "string" || id.length === 0))) {
+      throw new Error(`risk surface ${surface.id} context_ids must be non-empty strings`);
     }
     if (surface.default_depth != null && (!Number.isInteger(surface.default_depth) || surface.default_depth < 0 || surface.default_depth > 3)) {
       throw new Error(`risk surface ${surface.id} default_depth must be 0..3`);

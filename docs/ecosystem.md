@@ -61,6 +61,12 @@ The cockpit has one write path: `POST /cockpit/api/dispatch`, which forwards to
 `COCKPIT_ACTIONQ_DISPATCH_CONTRACT=v1` are set. Sprintctl PostgreSQL and the
 workspace artifact mount remain read-only from the cockpit.
 
+New repository adoption starts from
+`agentops/templates/dispatch/repository-baseline/`. The baseline keeps shared
+skills and schemas in agentops while the consumer owns its overlay, semantic
+document, context packets, executable tests, and evidence. Run the shared
+dependency-free validator from the consumer root before dispatch or publication.
+
 The Dispatches pane is the lifecycle view for a queued unit of work. It renders
 one actionq row across `pending -> claimed/running -> completed/failed/rejected`,
 shows the latest session summary when available, groups by optional

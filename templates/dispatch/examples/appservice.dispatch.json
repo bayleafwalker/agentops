@@ -19,6 +19,15 @@
         "enabled": true,
         "model_alias": "review-synthesis"
       },
+      "verify": {
+        "enabled": true,
+        "model_alias": "review-synthesis",
+        "review_required": true
+      },
+      "reconcile": {
+        "enabled": true,
+        "model_alias": "review-synthesis"
+      },
       "release-ops": {
         "enabled": true,
         "model_alias": "release-ops"
@@ -32,10 +41,12 @@
       "dispatch-build",
       "dispatch-review",
       "code-change-verification",
-      "pr-handoff-summary"
+      "pr-handoff-summary",
+      "verify-state-protocols",
+      "reconcile-project-contracts"
     ],
     "overlays": [
-      ".agents/overlays/appservice.dispatch.md"
+      ".agents/overlays/appservice.state-protocols.md"
     ]
   },
   "scope": {
@@ -48,6 +59,24 @@
       "manual cluster mutation except explicit verification reads"
     ]
   },
+  "risk_surfaces": [
+    {
+      "id": "flux-desired-live-convergence",
+      "paths": ["clusters/main/kubernetes/**"],
+      "skills": ["verify-state-protocols", "reconcile-project-contracts"],
+      "context_ids": ["appservice.flux.desired-live-convergence"],
+      "default_depth": 1,
+      "required_on_change": true
+    },
+    {
+      "id": "backup-restore-readiness",
+      "paths": ["docs/operations/**", "docs/training/health-checks/**", ".github/workflows/**"],
+      "skills": ["verify-state-protocols", "reconcile-project-contracts"],
+      "context_ids": ["appservice.backup.restore-readiness"],
+      "default_depth": 1,
+      "required_on_change": false
+    }
+  ],
   "verification": {
     "command_families": [
       "kustomize",
@@ -57,6 +86,7 @@
     "targeted_first": true,
     "commands": [
       "kustomize build clusters/main/kubernetes/<category>",
+      "python /projects/dev/agentops/templates/dispatch/scripts/validate_verification_artifacts.py --root .",
       "sops --decrypt <changed-secret-file> >/dev/null"
     ]
   },

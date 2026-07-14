@@ -18,6 +18,15 @@
       "review": {
         "enabled": true,
         "model_alias": "review-synthesis"
+      },
+      "verify": {
+        "enabled": true,
+        "model_alias": "review-synthesis",
+        "review_required": true
+      },
+      "reconcile": {
+        "enabled": true,
+        "model_alias": "review-synthesis"
       }
     }
   },
@@ -34,22 +43,46 @@
       "item-done",
       "sprint-snapshot",
       "kctl-extract",
-      "sprint-close"
+      "sprint-close",
+      "verify-state-protocols",
+      "reconcile-project-contracts"
     ],
     "overlays": [
-      ".agents/overlays/homelab-analytics.dispatch.md"
+      ".agents/overlays/homelab-analytics.state-protocols.md"
     ]
   },
   "scope": {
     "allowed_path_roots": [
-      "src/",
+      "apps/",
+      "packages/",
+      "migrations/",
       "tests/",
-      "docs/"
+      "docs/",
+      "verification/",
+      ".agents/"
     ],
     "out_of_scope": [
       "deployment manifests unless explicitly in scope"
     ]
   },
+  "risk_surfaces": [
+    {
+      "id": "execution-lifecycle",
+      "paths": ["apps/worker/**", "packages/**/execution*", "migrations/**"],
+      "skills": ["verify-state-protocols", "reconcile-project-contracts"],
+      "context_ids": ["homelab-analytics.execution.lifecycle"],
+      "default_depth": 2,
+      "required_on_change": true
+    },
+    {
+      "id": "publication-projection",
+      "paths": ["packages/**/publication*", "apps/web/**", "migrations/**"],
+      "skills": ["verify-state-protocols", "reconcile-project-contracts"],
+      "context_ids": ["homelab-analytics.publication.projection"],
+      "default_depth": 2,
+      "required_on_change": true
+    }
+  ],
   "verification": {
     "command_families": [
       "unit",
@@ -63,6 +96,7 @@
       "ruff check <changed-python-files>",
       "mypy <changed-python-files>",
       "pytest <specific-test-files> -x --tb=short",
+      "python /projects/dev/agentops/templates/dispatch/scripts/validate_verification_artifacts.py --root .",
       "make verify-fast"
     ]
   },

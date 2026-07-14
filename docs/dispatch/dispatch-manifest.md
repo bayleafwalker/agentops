@@ -57,6 +57,8 @@ repo has a real behavioral fork.
 
 The optional `risk_surfaces` array maps closed stateful subjects to changed paths, shared
 verification skills, a default verification depth, and an optional `required_on_change` gate.
+Use `context_ids` to bind a surface to the repository-owned v1 context packets
+that describe its evidence contract.
 Use the `verify` and `reconcile` action classes for these workflows. See
 [Stateful protocol verification](state-protocol-verification.md) for modes, overlays, and
 data-only context/result packets.

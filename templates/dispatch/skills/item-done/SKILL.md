@@ -36,7 +36,7 @@ Close a sprint item cleanly: confirm verification passes, capture durable knowle
 
 4. **Mark done and release the claim.**
    ```bash
-   sprintctl item done-from-claim --item-id <id> --claim-id <claim-id> --claim-token <token>
+   sprintctl item done-from-claim --id <id> --claim-id <claim-id> --claim-token <token>
    ```
    Remove `.sprintctl/claims/claim-<item_id>.token` after successful close.
 

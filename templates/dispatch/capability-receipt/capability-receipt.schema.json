@@ -1,0 +1,272 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/capability-receipt.schema.json",
+  "title": "Capability receipt",
+  "description": "A ratifiable capability delta at a project boundary, not an activity record.",
+  "$comment": "The dependency-free Python validator is normative for semantic constraints. This schema is a structural and editor aid. Validation of procedural human-attestation fields is not proof of identity, authority, or human action.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "project",
+    "as_of",
+    "boundary",
+    "status",
+    "before",
+    "after",
+    "locus",
+    "evidence",
+    "counterfactual",
+    "transfer",
+    "dependency",
+    "belief_changed",
+    "displaced_alternative",
+    "would_disconfirm",
+    "unknowns",
+    "publication"
+  ],
+  "properties": {
+    "schema_version": { "const": "capability-receipt/v1" },
+    "id": {
+      "$ref": "#/$defs/receiptIdentifier",
+      "description": "Must begin with the exact project value followed by a dot; cross-field prefix matching is enforced by the normative validator."
+    },
+    "project": { "$ref": "#/$defs/identifier" },
+    "as_of": { "type": "string", "format": "date" },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "ref"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "release",
+            "sprint-close",
+            "experiment-killed",
+            "operating-change"
+          ]
+        },
+        "ref": { "$ref": "#/$defs/immutableRef" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "kind": { "const": "sprint-close" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "ref": {
+                "properties": {
+                  "kind": { "const": "sprint-event" },
+                  "source": {
+                    "description": "Identifies the local Sprintctl database project and sprint. This is not content-bound or migration-stable.",
+                    "pattern": "^sprintctl:[A-Za-z0-9][A-Za-z0-9._-]*:sprint:[A-Za-z0-9][A-Za-z0-9._-]*$"
+                  },
+                  "revision": { "pattern": "^event:[1-9][0-9]*$" }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "status": { "enum": ["draft", "ratified", "superseded"] },
+    "before": { "$ref": "#/$defs/nonBlankString" },
+    "after": { "$ref": "#/$defs/nonBlankString" },
+    "locus": {
+      "enum": ["embodied", "delegated", "governed", "institutionalised"]
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ref", "observation"],
+        "properties": {
+          "ref": { "$ref": "#/$defs/immutableRef" },
+          "observation": { "$ref": "#/$defs/nonBlankString" }
+        }
+      }
+    },
+    "expectation_ref": { "$ref": "#/$defs/immutableRef" },
+    "counterfactual": { "$ref": "#/$defs/nonBlankString" },
+    "transfer": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/nonBlankString" }
+    },
+    "dependency": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/nonBlankString" }
+    },
+    "belief_changed": { "$ref": "#/$defs/nonBlankString" },
+    "displaced_alternative": { "$ref": "#/$defs/nonBlankString" },
+    "would_disconfirm": { "$ref": "#/$defs/nonBlankString" },
+    "unknowns": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["field", "reason"],
+        "properties": {
+          "field": { "$ref": "#/$defs/nonBlankString" },
+          "reason": { "$ref": "#/$defs/nonBlankString" }
+        }
+      }
+    },
+    "publication": { "enum": ["private", "candidate", "published"] },
+    "ratification": {
+      "type": "object",
+      "description": "A procedural human-attestation assertion. Ratifier identity, authority, and human action are declared, not authenticated by this format or validator; successful validation is not identity proof. decision_ref points to the independently persisted decision assertion.",
+      "additionalProperties": false,
+      "required": ["authority", "ratifier", "at", "decision_ref"],
+      "properties": {
+        "authority": { "const": "human" },
+        "ratifier": { "$ref": "#/$defs/nonBlankString" },
+        "at": { "type": "string", "format": "date-time" },
+        "decision_ref": { "$ref": "#/$defs/immutableRef" }
+      }
+    },
+    "supersedes": { "$ref": "#/$defs/receiptRef" }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "receiptIdentifier": {
+      "allOf": [
+        { "$ref": "#/$defs/identifier" },
+        {
+          "description": "A project-prefixed receipt id with at least one non-empty suffix character.",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*\\.[A-Za-z0-9][A-Za-z0-9._-]*$"
+        }
+      ]
+    },
+    "nonBlankString": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "immutableRef": {
+      "type": "object",
+      "description": "A source identity plus a kind-specific exact revision. Durability is kind-dependent; sprint-event is only a source-local database row identity.",
+      "additionalProperties": false,
+      "required": ["kind", "source", "revision"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "git-commit",
+            "sprint-event",
+            "document",
+            "verification-result",
+            "release",
+            "artifact"
+          ]
+        },
+        "source": { "$ref": "#/$defs/nonBlankString" },
+        "revision": { "$ref": "#/$defs/nonBlankString" }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "kind": { "const": "git-commit" },
+            "revision": { "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$" }
+          }
+        },
+        {
+          "properties": {
+            "kind": { "const": "sprint-event" },
+            "revision": {
+              "description": "A source-local database event id, not a content digest or migration-stable identity.",
+              "pattern": "^event:[1-9][0-9]*$"
+            }
+          }
+        },
+        {
+          "properties": {
+            "kind": { "const": "artifact" },
+            "revision": { "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        {
+          "properties": {
+            "kind": { "const": "verification-result" },
+            "revision": { "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        {
+          "properties": {
+            "kind": { "const": "document" },
+            "revision": {
+              "pattern": "^([0-9a-f]{40}|[0-9a-f]{64}|sha256:[0-9a-f]{64})$"
+            }
+          }
+        },
+        {
+          "properties": {
+            "kind": { "const": "release" },
+            "revision": {
+              "pattern": "^([0-9a-f]{40}|[0-9a-f]{64}|sha256:[0-9a-f]{64})$"
+            }
+          }
+        }
+      ]
+    },
+    "receiptRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "sha256"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "const": "draft" } },
+        "required": ["status"]
+      },
+      "then": { "not": { "required": ["ratification"] } }
+    },
+    {
+      "if": {
+        "properties": { "status": { "const": "ratified" } },
+        "required": ["status"]
+      },
+      "then": { "required": ["ratification", "supersedes"] }
+    },
+    {
+      "if": {
+        "properties": { "status": { "const": "superseded" } },
+        "required": ["status"]
+      },
+      "then": { "required": ["ratification", "supersedes"] }
+    },
+    {
+      "if": {
+        "properties": {
+          "publication": { "enum": ["candidate", "published"] }
+        },
+        "required": ["publication"]
+      },
+      "then": {
+        "required": ["ratification", "supersedes"],
+        "properties": {
+          "status": { "enum": ["ratified", "superseded"] }
+        }
+      }
+    }
+  ]
+}

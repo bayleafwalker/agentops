@@ -1,6 +1,6 @@
 ---
 doc_id: ops-upgrade-reconciliation-2026-07
-status: draft
+status: ratified
 supersedes: null
 ---
 

@@ -1,0 +1,48 @@
+{
+  "schema_version": "capability-receipt/v1",
+  "id": "example.2026-07-13.release-boundary",
+  "project": "example",
+  "as_of": "2026-07-13",
+  "boundary": {
+    "kind": "release",
+    "ref": {
+      "kind": "git-commit",
+      "source": "repo:example",
+      "revision": "0123456789abcdef0123456789abcdef01234567"
+    }
+  },
+  "status": "draft",
+  "before": "The release could not be completed reliably without reconstructing its verification and handoff steps.",
+  "after": "The release can now be completed from a checked workflow with explicit evidence and recovery points.",
+  "locus": "governed",
+  "evidence": [
+    {
+      "ref": {
+        "kind": "verification-result",
+        "source": "repo:example/verification/results/release.json",
+        "revision": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      },
+      "observation": "The example result records a successful run of the checked release workflow at the boundary revision."
+    }
+  ],
+  "expectation_ref": {
+    "kind": "document",
+    "source": "repo:example/docs/release-plan.md",
+    "revision": "0123456789abcdef0123456789abcdef01234567"
+  },
+  "counterfactual": "Without this change, the manual release path would likely have remained necessary.",
+  "transfer": [],
+  "dependency": [
+    "The capability depends on the repository contract, validation command, and maintained provider adapter."
+  ],
+  "belief_changed": "Reliable delegation depended more on explicit recovery evidence than the original plan anticipated.",
+  "displaced_alternative": "The same time could have been spent on the next product feature named in the contemporaneous plan.",
+  "would_disconfirm": "A provider change or six-month pause that requires reconstructing the release process from scratch would weaken this claim.",
+  "unknowns": [
+    {
+      "field": "transfer",
+      "reason": "No cross-project reuse has been observed at draft time."
+    }
+  ],
+  "publication": "private"
+}

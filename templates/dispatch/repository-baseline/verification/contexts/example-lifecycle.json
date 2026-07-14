@@ -1,0 +1,31 @@
+{
+  "schema_version": "test-context/v1",
+  "id": "example.example-lifecycle",
+  "owner_repo": "example",
+  "subject": "example-state-object",
+  "contract_ref": {
+    "doc_id": "example.example-lifecycle",
+    "revision": "replace-with-content-or-git-revision"
+  },
+  "source_of_truth": "replace-with-authoritative-store",
+  "depth": 1,
+  "backends": ["replace-with-backend"],
+  "actors": ["actor-a", "actor-b"],
+  "initial_state": ["replace with an observable initial-state assertion"],
+  "operations": [
+    {
+      "name": "example-transition",
+      "actors": ["actor-a"],
+      "synchronization": "none"
+    }
+  ],
+  "consistency": {
+    "target": "documented-only",
+    "object": "example-state-object"
+  },
+  "invariants": ["replace-with-a-falsifiable-invariant"],
+  "faults": ["replace-with-a-named-fault-boundary"],
+  "oracles": ["semantic-document-and-targeted-test"],
+  "implementation_anchors": ["src/example/store.py:transition"],
+  "expansions": ["semantic-doc", "stateful-test", "fault-scenario"]
+}

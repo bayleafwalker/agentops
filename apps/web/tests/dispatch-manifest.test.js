@@ -33,7 +33,22 @@ test("stateful manifests select protocol skills and bounded risk surfaces", asyn
   assert.equal(validated.routing.action_classes.verify.enabled, true);
   assert.ok(validated.skills.selected.includes("verify-state-protocols"));
   assert.deepEqual(validated.risk_surfaces[0].skills, ["verify-state-protocols", "reconcile-project-contracts"]);
+  assert.deepEqual(validated.risk_surfaces[0].context_ids, ["actionq.action.claim-concurrency"]);
   assert.equal(validated.risk_surfaces[0].default_depth, 2);
+});
+
+test("stateful manifest rejects empty context ids", async () => {
+  const manifest = await readJson(join(EXAMPLES_DIR, "actionq.dispatch.json"));
+  manifest.risk_surfaces[0].context_ids = [];
+
+  assert.throws(() => validateDispatchManifest(manifest), /context_ids must be non-empty strings/);
+});
+
+test("dispatch manifests may select the procedurally attested capability receipt skill", async () => {
+  const manifest = await readJson(join(EXAMPLES_DIR, "actionq.dispatch.json"));
+  manifest.skills.selected.push("capability-receipt");
+
+  assert.ok(validateDispatchManifest(manifest).skills.selected.includes("capability-receipt"));
 });
 
 test("dispatch manifest loader lists and filters examples", async () => {

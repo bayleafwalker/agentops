@@ -1,6 +1,6 @@
 ---
 doc_id: session-mechanization-plan
-status: draft
+status: ratified
 supersedes: null
 ---
 

@@ -28,6 +28,7 @@ Repositories opt in through `*.dispatch.json`:
       "id": "claim-lifecycle",
       "paths": ["src/claims/**", "migrations/**"],
       "skills": ["verify-state-protocols", "reconcile-project-contracts"],
+      "context_ids": ["example.claim-lifecycle"],
       "default_depth": 2,
       "required_on_change": true
     }
@@ -46,5 +47,21 @@ Run the dependency-free minimum validator from the repository root:
 ```bash
 python /projects/dev/agentops/templates/dispatch/scripts/validate_verification_artifacts.py --root .
 ```
+
+The same command validates a root `*.dispatch.json`, verifies that overlays and
+referenced context ids exist, and reports risk surfaces selected by changed
+paths:
+
+```bash
+python /projects/dev/agentops/templates/dispatch/scripts/validate_verification_artifacts.py \
+  --root . \
+  --changed-path src/claims/store.py
+```
+
+Dispatcher and release gates may add `--require-results` and
+`--implementation-sha <sha>` to require a matching v1 verification result for
+every selected surface marked `required_on_change`. Ordinary pull-request CI
+should validate the manifest and packets while publishing execution results as
+CI artifacts rather than committing them by default.
 
 Packets contain data and symbol-level anchors only. They must not embed executable code, secrets, production credentials, or copied production validation logic.
