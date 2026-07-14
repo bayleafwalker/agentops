@@ -14,8 +14,12 @@ the cockpit surfaces that read it. Both artifact types are classified
 silently discarded for a stale basis revision.
 
 This document defines the contract only. It does not implement the Tier-0
-wrapper (`actionq`), the periodic scribe, or the fresh post-session reconciler
-— those are backlog items #1107 and #1108, blocked on this one.
+wrapper (`actionq`) or the fresh post-session reconciler — those are backlog
+items #1108 (reconciler) and the actionq-owned wrapper mechanism. The
+canonical periodic scribe (item #1107) is implemented:
+`templates/dispatch/skills/session-scribe/SKILL.md` (judgment procedure) and
+`templates/dispatch/scripts/session_scribe.py` (durable cursor, capsule
+discovery/grouping, validated artifact writing).
 
 ## Canonical schemas
 
@@ -87,9 +91,12 @@ reconciliation outcome.
   them as `observation` in a producer's taxonomy. That is an integration
   decision for whichever repo implements the wrapper (proposed: `actionq`)
   and is out of scope for this contract.
-- Where finalized artifacts are stored (`_artifacts/<repo>/session-capsules/`
-  is assumed by analogy with capability receipts, but is not committed here
-  as fact).
+- Where finalized artifacts are stored. This contract does not mandate it,
+  but the shipped scribe implementation (`session_scribe.py`) operates
+  against `_artifacts/<repo>/session-capsules/*.json` and
+  `_artifacts/<repo>/reconciliation-proposals/*.json` by analogy with
+  capability receipts — treat that as the working convention until a Tier-0
+  wrapper decision says otherwise.
 - The scribe's internal durable-cursor bookkeeping (which session exhaust it
   has already consumed) — that belongs to the scribe implementation (#1107),
   not to the proposal artifact it emits.

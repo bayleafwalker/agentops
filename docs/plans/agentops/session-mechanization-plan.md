@@ -130,6 +130,16 @@ The **periodic scribe is the correctness path**. Immediate per-session
 reconciliation (Tier 2 above) is only a latency optimization — if it never
 runs, the scribe still converges the record.
 
+**Implemented (item #1107):**
+[`session-scribe/SKILL.md`](../../../templates/dispatch/skills/session-scribe/SKILL.md)
+is the judgment procedure a fresh dispatched session follows;
+[`session_scribe.py`](../../../templates/dispatch/scripts/session_scribe.py)
+is the mechanical half (durable cursor, capsule discovery/grouping,
+schema-validated artifact writing). The split follows this plan's own
+product direction: mechanism in code, genuine judgment in a fresh session at
+a deterministic trigger point. Scheduling the trigger itself (cron/dispatch
+wiring) is not part of this item.
+
 The scribe:
 
 - consumes unreconciled session exhaust up to a **durable cursor**;
@@ -211,6 +221,9 @@ its ratification status.
 - [`session-mechanization-contracts.md`](../../dispatch/session-mechanization-contracts.md)
   — `session-capsule/v1` and `reconciliation-proposal/v1` schemas and field
   contracts (item #1106).
+- [`session-scribe/SKILL.md`](../../../templates/dispatch/skills/session-scribe/SKILL.md)
+  and [`session_scribe.py`](../../../templates/dispatch/scripts/session_scribe.py)
+  — the canonical periodic scribe implementation (item #1107).
 - `sprintctl/docs/ops-upgrade-plan.md` — ratified product direction (sections 5, 6).
 - `sprintctl/docs/plans/adr-outbox-sync-model.md` — canonical protocol text:
   outbox, observation/command/decision split, identities, cursors.
