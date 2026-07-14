@@ -362,66 +362,38 @@ export async function listEvents({ repoId = "ALL", sprintId = null, limit = 100,
 export class SprintNotFoundError extends Error {}
 export class SprintTransitionError extends Error {}
 
-// Mirrors sprintctl's SPRINT_TRANSITIONS (planned -> active only) and records
-// the transition in the event ledger so API writes carry the same provenance
-// as CLI writes.
+// Sprint activation executes through sprintctl's domain-owned command
+// handler (sprintctl_sprint_activate in sprintctl's schema, agentops item
+// #1105). The transition rule, kind flip, and ledger event live there — the
+// cockpit no longer reimplements them in a JS transaction. The handler
+// signals failures with stable SQLSTATEs: SP404 not-found, SP409 invalid
+// transition.
 export async function activateSprint(repoId, sprintId, { actor = "operator:cockpit" } = {}) {
-  const client = await getPool().connect();
+  let result;
   try {
-    await client.query("BEGIN");
-    const found = await client.query(
-      `SELECT id, repo_id, name, status, kind FROM sprint WHERE id = $1 AND repo_id = $2 FOR UPDATE`,
-      [sprintId, repoId]
+    result = await query(
+      "SELECT * FROM sprintctl_sprint_activate($1, $2, $3, $4)",
+      [repoId, sprintId, actor, "cockpit:sprints/activate"]
     );
-    if (found.rows.length === 0) {
-      throw new SprintNotFoundError(`Sprint ${sprintId} not found for repo ${repoId}`);
-    }
-    const current = found.rows[0];
-    if (current.kind === "archive") {
-      throw new SprintTransitionError(`cannot activate sprint ${sprintId}: kind is archive`);
-    }
-    if (current.status !== "planned") {
-      throw new SprintTransitionError(
-        `cannot transition sprint ${current.status} -> active. Allowed: planned -> active`
-      );
-    }
-    const updated = await client.query(
-      `UPDATE sprint SET status = 'active', kind = 'active_sprint' WHERE id = $1 AND repo_id = $2 RETURNING id, repo_id, name, status, kind`,
-      [sprintId, repoId]
-    );
-    const event = await client.query(
-      `INSERT INTO event (repo_id, sprint_id, source_type, actor, event_type, payload)
-       VALUES ($1, $2, 'actor', $3, 'sprint-activated', $4::jsonb)
-       RETURNING id`,
-      [
-        repoId,
-        sprintId,
-        actor,
-        JSON.stringify({
-          summary: `sprint ${sprintId} activated via cockpit`,
-          previous_status: current.status,
-          previous_kind: current.kind,
-          context: "cockpit:sprints/activate"
-        })
-      ]
-    );
-    await client.query("COMMIT");
-    const row = updated.rows[0];
-    return {
-      id: Number(row.id),
-      repo_id: row.repo_id,
-      name: row.name,
-      status: row.status,
-      kind: row.kind,
-      previous_status: current.status,
-      previous_kind: current.kind,
-      actor,
-      event_id: Number(event.rows[0].id)
-    };
   } catch (error) {
-    await client.query("ROLLBACK").catch(() => {});
+    if (error.code === "SP404") {
+      throw new SprintNotFoundError(error.message);
+    }
+    if (error.code === "SP409") {
+      throw new SprintTransitionError(error.message);
+    }
     throw error;
-  } finally {
-    client.release();
   }
+  const row = result[0];
+  return {
+    id: Number(row.id),
+    repo_id: row.repo_id,
+    name: row.name,
+    status: row.status,
+    kind: row.kind,
+    previous_status: row.previous_status,
+    previous_kind: row.previous_kind,
+    actor: row.actor,
+    event_id: Number(row.event_id)
+  };
 }
