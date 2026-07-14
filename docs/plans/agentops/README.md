@@ -14,6 +14,16 @@ Current plan set:
 - `generalized-dispatch-practices-plan.md` - shared dispatch model, model routing, skills, hooks, and repo adoption levels.
 - `substrate-resilience-plan.md` - failure taxonomy, backup posture, recovery runbooks, and new mechanisms required (daemon startup recovery, takeup sweep, workspace PVC backup gap).
 
+Ops-upgrade / outbox-mechanization tranche (2026-07):
+
+- `ops-upgrade-reconciliation-2026-07.md` - verified source-of-truth reconciliation underlying the tranche.
+- `session-mechanization-plan.md` - Tier 0/1/2 session bookkeeping, capsule, reconciler, periodic scribe, cockpit metrics.
+- `state-event-command-matrix.md` - per-event classification and ownership.
+- `write-surface-policy.md` - which surfaces may mutate sprint state.
+- `outbox-mechanization-rollout-sequencing.md` - cross-repo execution sequencing and gates for the rollout (item #1110).
+- `agent-cockpit-deployment-handoff.md` - appservice deployment handoff/runbook for agent-cockpit (item #951).
+- `kctl-cockpit-knowledge-reads-followup.md` - kctl knowledge-artifact integration definition for cockpit knowledge reads (item #953).
+
 Implemented dispatch contracts:
 
 - `/projects/dev/agentops/docs/dispatch/dispatch-manifest.md` - manifest contract for repo dispatch adoption.
