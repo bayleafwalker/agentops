@@ -14,12 +14,14 @@ the cockpit surfaces that read it. Both artifact types are classified
 silently discarded for a stale basis revision.
 
 This document defines the contract only. It does not implement the Tier-0
-wrapper (`actionq`) or the fresh post-session reconciler — those are backlog
-items #1108 (reconciler) and the actionq-owned wrapper mechanism. The
-canonical periodic scribe (item #1107) is implemented:
-`templates/dispatch/skills/session-scribe/SKILL.md` (judgment procedure) and
-`templates/dispatch/scripts/session_scribe.py` (durable cursor, capsule
-discovery/grouping, validated artifact writing).
+wrapper — that remains the actionq-owned wrapper mechanism. Both consumers
+are implemented: the canonical periodic scribe (item #1107,
+`templates/dispatch/skills/session-scribe/SKILL.md` +
+`templates/dispatch/scripts/session_scribe.py`) and the fresh post-session
+reconciler (item #1108,
+`templates/dispatch/skills/session-reconciler/SKILL.md` +
+`templates/dispatch/scripts/session_reconciler.py`), which share one
+durable cursor so neither path double-processes a capsule.
 
 ## Canonical schemas
 

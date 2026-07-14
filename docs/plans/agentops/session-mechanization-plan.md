@@ -100,6 +100,17 @@ artifact (schema and field contract:
 [`session-mechanization-contracts.md`](../../dispatch/session-mechanization-contracts.md))
 and enqueues reconciliation.
 
+**Implemented (item #1108):**
+[`session-reconciler/SKILL.md`](../../../templates/dispatch/skills/session-reconciler/SKILL.md)
+is the judgment procedure the fresh dispatched session follows;
+[`session_reconciler.py`](../../../templates/dispatch/scripts/session_reconciler.py)
+is the mechanical half (single-capsule context assembly, idempotence
+guards, single-capsule scope enforcement). It shares the scribe's durable
+cursor, so a capsule reconciled on this path is invisible to the scribe
+and vice versa — no double-processing by construction. Triggering the
+reconciler at session end (Tier-0 wrapper/dispatch wiring) is not part of
+this item.
+
 A **fresh** reconciler — a new session, not the one that did the work —
 receives:
 
