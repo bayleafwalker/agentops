@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { resolveArtifactRepoRoot } from "./artifacts.js";
 import { getCached, setCached } from "./cache.js";
 import { validateAuditEvent } from "./contracts.js";
 import { getConfig } from "./env.js";
@@ -16,7 +17,7 @@ export function parseAuditShardName(fileName) {
 }
 
 export function resolveAuditDir(auditRoot, repoId) {
-  return path.join(auditRoot, "_artifacts", repoId, "audit");
+  return path.join(resolveArtifactRepoRoot(auditRoot, repoId), "audit");
 }
 
 async function loadShard(repoId, fullPath, fileName) {

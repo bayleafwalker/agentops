@@ -229,6 +229,7 @@ export function CockpitShell() {
   const [eventsData, setEventsData] = useState({ events: [], degraded: null });
   const [auditData, setAuditData] = useState({ events: [], degraded: null });
   const [reconciliationData, setReconciliationData] = useState({ review_queue: [], lag: null, watermark: null, dogfooding: null, warnings: [], degraded: null });
+  const [knowledgeData, setKnowledgeData] = useState({ entries: [], warnings: [], updated_at: null, degraded: null });
   const [decidingProposal, setDecidingProposal] = useState(null);
   const [costData, setCostData] = useState({ summary: null, degraded: null });
   const [headroomData, setHeadroomData] = useState({ snapshot: null, degraded: null });
@@ -625,6 +626,40 @@ export function CockpitShell() {
     }
 
     loadReconciliation();
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [selectedRepo, tweaks.pollAll, refreshKey, visibilityState]);
+
+  useEffect(() => {
+    if (selectedRepo === "ALL") {
+      setKnowledgeData({ entries: [], warnings: [], updated_at: null, degraded: null });
+      return undefined;
+    }
+    let cancelled = false;
+    let timer;
+
+    async function loadKnowledge() {
+      const params = new URLSearchParams({ repo_id: selectedRepo });
+      try {
+        const data = await readJson("/cockpit/api/knowledge?" + params);
+        if (cancelled) {
+          return;
+        }
+        setKnowledgeData(data);
+      } catch (error) {
+        if (!cancelled) {
+          setFatalError(error.message);
+        }
+      } finally {
+        if (!cancelled && tweaks.pollAll) {
+          timer = setTimeout(loadKnowledge, getPollIntervalMs("secondary", document.visibilityState || "visible"));
+        }
+      }
+    }
+
+    loadKnowledge();
     return () => {
       cancelled = true;
       clearTimeout(timer);
@@ -1231,6 +1266,57 @@ export function CockpitShell() {
                 </div>
                 {reconciliationData.review_queue.length === 0 && !reconciliationData.degraded ? (
                   <div className="empty-state small muted">No pending reconciliation proposals.</div>
+                ) : null}
+              </>
+            )}
+          </section>
+
+          <section className="cockpit-section" id="knowledge">
+            <div className="title-row">
+              <h3 className="section-title">Knowledge</h3>
+              {tweaks.alwaysShowSources ? (
+                <SourceTruthTag
+                  source={selectedRepo === "ALL" ? "artifact:knowledge/<repo>" : "artifact:knowledge/" + selectedRepo}
+                />
+              ) : null}
+            </div>
+            <DegradedSourceBanner message={knowledgeData.degraded?.message} />
+            {selectedRepo === "ALL" ? (
+              <div className="empty-state small muted">Knowledge artifacts activate after choosing a concrete repo.</div>
+            ) : (
+              <>
+                {knowledgeData.updated_at ? (
+                  <div className="small muted">
+                    {knowledgeData.entries.length} published entries · artifact updated {ageLabel(knowledgeData.updated_at)}
+                  </div>
+                ) : null}
+                <div className="feed-list">
+                  {knowledgeData.entries.map((entry) => (
+                    <div key={entry.repo_id + ":" + entry.entry_id} className="feed-item">
+                      <div className="title-row">
+                        <strong>{entry.title}</strong>
+                        <span className="status-chip ok">{entry.stream}</span>
+                      </div>
+                      <div className="small muted">
+                        {entry.category} · published {ageLabel(entry.published_at)} · {entry.source.event_ref}
+                      </div>
+                      <div className="small muted">
+                        sprint {entry.source.sprint_id}
+                        {entry.source.item_id ? " · item #" + entry.source.item_id : ""}
+                        {entry.source.track ? " · track " + entry.source.track : ""}
+                      </div>
+                      <div className="small">{entry.body}</div>
+                      {entry.superseded_by ? (
+                        <div className="small muted">superseded by entry #{entry.superseded_by}</div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+                {knowledgeData.warnings.length > 0 ? (
+                  <div className="small muted">artifact warnings: {knowledgeData.warnings.length}</div>
+                ) : null}
+                {knowledgeData.entries.length === 0 && !knowledgeData.degraded ? (
+                  <div className="empty-state small muted">No published knowledge artifacts for {selectedRepo}.</div>
                 ) : null}
               </>
             )}

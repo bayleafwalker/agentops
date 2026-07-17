@@ -14,6 +14,14 @@ test("audit directory resolves under workspace artifact root", () => {
   assert.equal(resolveAuditDir("/projects/dev", "alpha"), "/projects/dev/_artifacts/alpha/audit");
 });
 
+test("audit directory accepts direct artifact root during deployment rollout", () => {
+  assert.equal(resolveAuditDir("/projects/dev/_artifacts", "alpha"), "/projects/dev/_artifacts/alpha/audit");
+});
+
+test("artifact readers reject traversal-shaped repository IDs", () => {
+  assert.throws(() => resolveAuditDir("/projects/dev/_artifacts", "../secrets"), /repo_id is invalid/);
+});
+
 test("audit reader parses valid events and reports invalid lines", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "agentops-audit-"));
   process.env.COCKPIT_ARTIFACTS_ROOT = root;

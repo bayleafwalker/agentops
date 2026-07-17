@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { resolveArtifactRepoRoot } from "./artifacts.js";
 import { getCached, setCached } from "./cache.js";
 import { getConfig } from "./env.js";
 
@@ -22,7 +23,7 @@ const CLASSIFICATIONS = [
 ];
 
 export function resolveMechanizationRoot(artifactsRoot, repoId) {
-  return path.join(artifactsRoot, "_artifacts", repoId);
+  return resolveArtifactRepoRoot(artifactsRoot, repoId);
 }
 
 async function readJsonDir(dirPath) {
