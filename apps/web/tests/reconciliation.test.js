@@ -159,6 +159,13 @@ test("readReconciliationState reports queue, lag, watermark, and dogfooding", as
   });
 });
 
+test("resolveMechanizationRoot accepts a direct artifact root", () => {
+  assert.equal(
+    resolveMechanizationRoot("/projects/dev/_artifacts", "agentops"),
+    "/projects/dev/_artifacts/agentops"
+  );
+});
+
 test("readReconciliationState handles a repo with no artifacts", async () => {
   const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "cockpit-reconciliation-empty-"));
   await withArtifactsRoot(rootDir, async () => {
