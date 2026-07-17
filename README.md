@@ -1,5 +1,9 @@
 # agentops
 
+[![pages](https://github.com/bayleafwalker/agentops/actions/workflows/pages.yml/badge.svg)](https://github.com/bayleafwalker/agentops/actions/workflows/pages.yml)
+
+[Explore the interactive AgentOps ecosystem map.](https://bayleafwalker.github.io/agentops/)
+
 Repo-owned planning and future operator surface for the `/projects/dev` agent-ops substrate.
 
 The implementation repos remain separate:
@@ -8,6 +12,7 @@ The implementation repos remain separate:
 - `kctl` owns knowledge artifact extraction. ([bayleafwalker/kctl](https://github.com/bayleafwalker/kctl))
 - `auditctl` will own repo-local audit ledgers. ([bayleafwalker/auditctl](https://github.com/bayleafwalker/auditctl))
 - `actionq` owns queue and session lifecycle. ([bayleafwalker/actionq](https://github.com/bayleafwalker/actionq))
+- `actionq-dispatch` owns bounded worker coordination, worktrees, ACLs, and gates. ([bayleafwalker/actionq-dispatch](https://github.com/bayleafwalker/actionq-dispatch))
 - `appservice` owns Kubernetes/GitOps deployment. (private — internal operations only)
 
 This repo owns cross-repo substrate plans now and is the intended home for the future agent-cockpit UI:
@@ -15,6 +20,7 @@ This repo owns cross-repo substrate plans now and is the intended home for the f
 ```text
 docs/plans/agentops/   # cross-repo plans
 apps/web/              # agent-cockpit frontend (live)
+site/index.html         # interactive map of the wider AgentOps ecosystem
 ```
 
 ## Agent Cockpit
