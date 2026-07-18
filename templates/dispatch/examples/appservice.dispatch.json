@@ -41,6 +41,10 @@
       "dispatch-build",
       "dispatch-review",
       "code-change-verification",
+      "backlog-refinement",
+      "sprint-maintenance",
+      "task-pickup",
+      "plan-review",
       "pr-handoff-summary",
       "verify-state-protocols",
       "reconcile-project-contracts"

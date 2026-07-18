@@ -11,15 +11,23 @@ Recover durable knowledge and coordination lessons from sprint events before the
 
 - A closed or nearly-closed sprint with events logged via `sprintctl event add`.
 - A loaded project DB via `.envrc` or exported `SPRINTCTL_DB` and `KCTL_DB`.
-- Optional explicit event types when default filtering is not sufficient.
+- Optional explicit event types when default filtering is not sufficient. Defaults come from `KCTL_EVENT_TYPES` or the tool's built-in durable+coordination set; coordination types worth passing explicitly via `--event-types`: `claim-handoff`, `claim-ownership-corrected`, `claim-ambiguity-detected`, `coordination-failure`.
+- Process, coordination, or workflow corrections logged during the sprint when they were discovered, even if extraction waits until sprint close.
 
 ## Event Payload Quality
 
-`kctl` extracts candidates from event payloads. A bare event with no payload fields produces a thin candidate. Always include:
+`kctl` extracts candidates from event payloads. A bare event with no payload fields produces a thin candidate: a reminder that something happened, not a durable record. Always include:
 - `summary` — one sentence: what was decided or learned. Becomes the candidate title.
 - `detail` — reasoning, context, or alternatives considered.
 - `tags` — JSON array of topic tags.
 - `confidence` — `high`, `medium`, or `low`.
+
+Pass the fields through `--payload` when recording the event:
+```bash
+sprintctl event add --sprint-id <sprint-id> --item-id <item-id> \
+   --type decision --actor <actor> \
+   --payload '{"summary":"<decision or lesson>","detail":"<reasoning and alternatives>","tags":["<topic>"],"confidence":"high"}'
+```
 
 Log events at the moment a decision is made or a blocker resolves — not retroactively at sprint close, where context is lost.
 

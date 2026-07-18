@@ -17,6 +17,10 @@
   "skills": {
     "template_root": "/projects/dev/agentops/templates/dispatch/skills",
     "selected": [
+      "backlog-refinement",
+      "sprint-maintenance",
+      "task-pickup",
+      "plan-review",
       "sprint-resume",
       "sprint-packet",
       "item-done",
