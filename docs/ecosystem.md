@@ -329,7 +329,8 @@ path               = "/projects/dev/sprintctl"
 base_ref           = "HEAD"
 
 [actions.scope-iterate]
-model              = "claude-sonnet-4-6"
+model              = "claude-haiku-4-5-20251001"
+reasoning           = "medium"
 runner             = "local"
 prompt_template    = "/projects/dev/actionq-dispatcher/prompts/scope-iterate.md"
 tool_acl           = "/projects/dev/actionq-dispatcher/acls/scope-iterate.json"

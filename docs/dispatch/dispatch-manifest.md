@@ -32,6 +32,9 @@ Dispatchers must resolve `harness` and `model` in this order:
 
 The manifest may use logical `model_alias` values. Provider-specific model IDs belong in
 dispatcher runtime config so repos can keep stable policy while providers change model names.
+The canonical alias-to-provider mapping is
+`templates/dispatch/model-routing.json`; see [Model Routing](model-routing.md)
+for availability, fallbacks, and reasoning-control rules.
 
 ## Adoption Levels
 

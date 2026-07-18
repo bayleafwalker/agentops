@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "aliases": {
+    "frontier-default": {
+      "anthropic": {
+        "model": "claude-fable-5",
+        "fallback": "claude-opus-4-8",
+        "verified": true
+      }
+    },
+    "frontier-plan": {
+      "anthropic": {
+        "model": "claude-opus-4-8",
+        "verified": true
+      },
+      "codex": {
+        "model": "gpt-5.6-sol",
+        "verified": false
+      }
+    },
+    "review-synthesis": {
+      "anthropic": {
+        "model": "claude-sonnet-5",
+        "verified": true
+      },
+      "codex": {
+        "model": "gpt-5.6-terra",
+        "verified": false
+      }
+    },
+    "release-ops": {
+      "anthropic": {
+        "model": "claude-sonnet-5",
+        "verified": true
+      }
+    },
+    "fast-build": {
+      "anthropic": {
+        "model": "claude-haiku-4-5-20251001",
+        "verified": true
+      },
+      "codex": {
+        "model": "gpt-5.6-luna",
+        "verified": false
+      }
+    }
+  }
+}
