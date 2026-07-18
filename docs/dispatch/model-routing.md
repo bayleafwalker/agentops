@@ -7,12 +7,12 @@
 | Alias | Anthropic model | Codex model | Fallback / status |
 |---|---|---|---|
 | `frontier-default` | `claude-fable-5` | - | Fall back to `claude-opus-4-8` when Fable is unavailable to the API key or OpenCode provider. |
-| `frontier-plan` | `claude-opus-4-8` | `gpt-5.6-sol` | The Codex ID remains unverified. |
-| `review-synthesis` | `claude-sonnet-5` | `gpt-5.6-terra` | The Codex ID remains unverified. |
+| `frontier-plan` | `claude-opus-4-8` | `gpt-5.6-sol` | Verified: GPT-5.6 GA 2026-07-09; ID confirmed via OpenAI docs. |
+| `review-synthesis` | `claude-sonnet-5` | `gpt-5.6-terra` | Verified: GPT-5.6 GA 2026-07-09; ID confirmed via OpenAI docs. |
 | `release-ops` | `claude-sonnet-5` | - | Verified Anthropic routing. |
-| `fast-build` | `claude-haiku-4-5-20251001` | `gpt-5.6-luna` | The Codex ID remains unverified. |
+| `fast-build` | `claude-haiku-4-5-20251001` | `gpt-5.6-luna` | Verified: GPT-5.6 GA 2026-07-09; ID confirmed via OpenAI docs. |
 
-The `verified` field belongs to the concrete provider ID, not the alias. An unverified ID must not become a required default until its provider CLI or official documentation confirms availability.
+The `verified` field belongs to the concrete provider ID, not the alias. The gpt-5.6 tier IDs (`-sol`/`-terra`/`-luna`) were confirmed against OpenAI's GA announcement and Codex model docs on 2026-07-18; recent Codex CLI releases ship them in the built-in catalog, but tier access depends on the authenticated plan (free/Go accounts get Terra only) and older CLI builds (e.g. 0.144.x) may predate the catalog entries. An unverified ID must not become a required default until its provider CLI or official documentation confirms availability.
 
 ## Resolution
 

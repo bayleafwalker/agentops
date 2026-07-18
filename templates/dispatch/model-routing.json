@@ -15,7 +15,7 @@
       },
       "codex": {
         "model": "gpt-5.6-sol",
-        "verified": false
+        "verified": true
       }
     },
     "review-synthesis": {
@@ -25,7 +25,7 @@
       },
       "codex": {
         "model": "gpt-5.6-terra",
-        "verified": false
+        "verified": true
       }
     },
     "release-ops": {
@@ -41,7 +41,7 @@
       },
       "codex": {
         "model": "gpt-5.6-luna",
-        "verified": false
+        "verified": true
       }
     }
   }
