@@ -17,6 +17,7 @@ Current plan set:
 Ops-upgrade / outbox-mechanization tranche (2026-07):
 
 - `ops-upgrade-reconciliation-2026-07.md` - verified source-of-truth reconciliation underlying the tranche.
+- `ecosystem-backlog-review-2026-07-17.md` - current ecosystem evidence, plan corrections, and owner-correct backlog refinement.
 - `session-mechanization-plan.md` - Tier 0/1/2 session bookkeeping, capsule, reconciler, periodic scribe, cockpit metrics.
 - `state-event-command-matrix.md` - per-event classification and ownership.
 - `write-surface-policy.md` - which surfaces may mutate sprint state.

@@ -99,7 +99,8 @@ Artifact schemas and field contracts for the two rows below marked
 
 The [reconciliation doc](ops-upgrade-reconciliation-2026-07.md) left open who
 owns the Tier-0 harness-neutral session wrapper. This matrix records the
-**proposed default, pending operator ratification**:
+ratified assignment. Actionq backlog decision #968 closed the repository
+boundary on 2026-07-18:
 
 - **`actionq` owns the wrapper mechanism** — actionq is the session lifecycle
   authority; the wrapper spawns, observes, and closes sessions, which is
@@ -110,9 +111,9 @@ owns the Tier-0 harness-neutral session wrapper. This matrix records the
   reconciler, and cockpit, not actionq-internal state.
 
 This follows the ownership rule directly: the session lifecycle *state* is
-actionq's; the cross-domain *contract and projection* are agentops'. Until an
-operator ratifies or overrides this, treat it as the working assignment for
-backlog placement.
+actionq's; the cross-domain *contract and projection* are agentops'. The new
+daemon and wrapper land directly in actionq; actionq-dispatch remains the
+bounded one-shot compatibility surface until parity is proven.
 
 ## Related documents
 

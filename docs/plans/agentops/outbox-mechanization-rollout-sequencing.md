@@ -1,6 +1,7 @@
 ---
 doc_id: outbox-mechanization-rollout-sequencing
-status: draft
+status: reviewed
+last_verified: 2026-07-18
 supersedes: null
 ---
 
@@ -28,16 +29,21 @@ sequences; it does not re-specify.
 Known caveat: sprintctl `main` carries unpushed commits (including the
 sprint-activate handler); the live DB already has the function applied.
 
+Operator attestation, 2026-07-18: agent-cockpit is deployed. This workstation
+does not have firewall permission to reach the runtime, so the exact image
+tag, environment values, and smoke results were not independently verified.
+
 ## Sequenced tranches
 
 Each tranche is independently valuable and reversible (ops-upgrade-plan
 requirement 7). A tranche's **gate** must hold before starting it; nothing
 inside a tranche depends on a later tranche.
 
-### Tranche A — deploy what is already shipped (appservice + operator)
+### Tranche A — deployed; operational evidence capture remains
 
-Everything in the agentops repo from #1105/#1109 is inert until the cockpit
-image is rebuilt. This is the highest-leverage, lowest-risk step.
+The operator reports the cockpit deployed. The original rollout procedure is
+retained below as the provenance and rollback checklist; it is not an open
+application deployment blocker.
 
 1. Rebuild `agent-cockpit` image from agentops `main`
    (`apps/web/Dockerfile`), push to the cluster registry, bump the tag in
@@ -55,10 +61,11 @@ image is rebuilt. This is the highest-leverage, lowest-risk step.
 3. Push sprintctl `main` to origin so the deployed handler's source of truth
    is not workstation-only.
 
-Gate: none (ready now). Rollback: pin the previous image tag.
+Gate: satisfied by operator deployment attestation. Runtime smoke evidence is
+still pending firewall-permitted access. Rollback: pin the previous image tag.
 Detailed runbook: [`agent-cockpit-deployment-handoff.md`](agent-cockpit-deployment-handoff.md) (#951).
 
-### Tranche B — Tier-0 capsule producer (actionq, pending ownership ratification)
+### Tranche B — Tier-0 capsule producer (actionq)
 
 The scribe (#1107), reconciler (#1108), and cockpit surfaces (#1109) all read
 `session-capsule/v1` artifacts that nothing produces yet — they have been
@@ -66,15 +73,15 @@ validated against synthetic capsules only. The harness-neutral session
 wrapper is the missing producer.
 
 - Owner: **actionq** owns the wrapper mechanism; **agentops** owns the
-  capsule contract — the matrix's proposed default, **still pending operator
-  ratification**. Ratifying (or overriding) that assignment is the first
-  action of this tranche; backlog placement follows it.
+  capsule contract. This assignment is ratified by the matrix and actionq
+  decision #968. Implementation is tracked by actionq #969/#971/#1114/#1115.
 - Scope: wrapper emits `session.started` / `session.ended` /
   `session.end-inferred` plus capsule fields per the contract; fails open
   for manual work; crash recovery for unclosed sessions.
 
-Gate: ownership ratified. Rollback: wrapper is additive exhaust; disable it
-and the ecosystem returns to today's behaviour.
+Gate: ownership is satisfied; implementation and live-capsule evidence remain.
+Rollback: wrapper is additive exhaust; disable it and the ecosystem returns
+to today's behaviour.
 
 ### Tranche C — trigger wiring (agentops)
 
@@ -83,21 +90,22 @@ and firing the reconciler at session end. Wire both only after Tranche B
 produces real capsules — wiring triggers against synthetic exhaust proves
 nothing and risks cargo-cult cron jobs.
 
+- #1172 owns the immediate-reconciler and periodic-scribe trigger wiring.
+- #1173 owns idempotent execution of accepted proposals through normal
+  sprintctl authority commands; acceptance itself never implies success.
+
 Gate: live capsules exist (Tranche B deployed). Rollback: remove the
 schedule/trigger; capsules accumulate safely for the scribe to drain later —
 that is the designed degradation mode (bounded, visible lag).
 
-### Tranche D — config/secret hardening (agentops + appservice)
+### Tranche D — config/secret hardening (source scope complete; runtime evidence pending)
 
-- #947 (blocked): replace committed-literal `SPRINTCTL_URL` with the
-  injected-secret contract everywhere a repo still carries a literal.
-- Blocked-state review: the 2026-05-05 `coordination-failure` blocks on
-  #947/#948 predate the write-surface policy and the #1105 handler; both
-  items need re-triage against current state rather than more work stacked
-  on top.
+- Agentops #947 and #948 are complete through normal claim/evidence history.
+- Appservice #977 retains the cluster-owned rotation and consumer-reload
+  procedure; #979/#982 retain authorized runtime config and network evidence.
 
-Gate: Tranche A deployed (so enforcement changes are observable in a current
-image). Rollback: env-var level, per change.
+Gate: satisfied by the 2026-07-18 deployment attestation. Rollback: env-var
+level, per change.
 
 ### Tranche E — migration and removal (sprintctl-owned, P3)
 
@@ -109,18 +117,18 @@ evidence**. Sequencing within this tranche belongs to sprintctl's own plan
 
 Gate: Tranches A–C live and the dogfooding metrics
 (session-mechanization-plan §Dogfooding) show real data, not synthetic.
+Agentops #1174 owns the cross-repo gate record consumed by sprintctl #1163.
 
 ### Housekeeping (any time)
 
-- #1111: archive `sprintctl-orchestrator` on GitHub once ADR-001
-  supersession is pushed and referenced downstream. Independent of all
-  tranches.
+- #1111 is complete as a backlog record. The remote GitHub archive state was
+  not independently re-verified from this workspace.
 
 ## Dependency summary
 
 ```
 A (deploy shipped)  ──► D (hardening)
-B (capsule producer) ──► C (trigger wiring) ──► E (migration/cutover)
+B (capsule producer) ──► C (triggers + proposal execution) ──► E (dogfood/cutover)
 A ────────────────────────────────────────────► E
 ```
 

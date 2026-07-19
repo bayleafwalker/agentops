@@ -231,11 +231,11 @@ The agent-cockpit surface (agentops-owned) grows:
 ## Ownership
 
 Per the matrix ([`state-event-command-matrix.md`](state-event-command-matrix.md)):
-the Tier-0 session wrapper *mechanism* is proposed as actionq-owned (session
-lifecycle authority); the capsule/exhaust *contract*, cross-domain projection,
-scribe, and cockpit surfaces are agentops-owned. Proposal acceptance executes
-as sprintctl authority commands. See the matrix for the full assignment and
-its ratification status.
+the Tier-0 session wrapper *mechanism* is actionq-owned (session lifecycle
+authority); the capsule/exhaust *contract*, cross-domain projection, scribe,
+and cockpit surfaces are agentops-owned. This assignment was ratified through
+actionq backlog decision #968. Proposal acceptance executes as sprintctl
+authority commands. See the matrix for the full assignment.
 
 ## Related documents
 

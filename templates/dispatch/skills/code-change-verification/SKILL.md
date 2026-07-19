@@ -1,4 +1,3 @@
----
 name: code-change-verification
 description: Use after repo-tracked code or docs changes to select, run, and report verification before review, handoff, or PR prep.
 ---

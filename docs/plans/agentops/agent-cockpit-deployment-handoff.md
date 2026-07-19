@@ -1,10 +1,16 @@
 ---
 doc_id: agent-cockpit-deployment-handoff
-status: draft
+status: reviewed
+last_verified: 2026-07-18
 supersedes: null
 ---
 
 # agent-cockpit deployment handoff (appservice)
+
+Deployment status (operator attestation, 2026-07-18): deployed. This
+workstation is not permitted through the runtime firewall, so the deployed
+image tag, environment values, and smoke checks below remain operational
+evidence to capture from an authorized host.
 
 Operational handoff for running, rebuilding, and reconfiguring the
 agent-cockpit web app (sprint item #951). Application source is
@@ -76,12 +82,14 @@ Retrieve the token:
 kubectl -n vscode get secret agent-cockpit-write -o jsonpath='{.data.token}' | base64 -d
 ```
 
-## Pending actions at handoff (2026-07-14)
+## Post-deployment verification actions (original handoff 2026-07-14)
 
-The deployed `0.1.13` image predates agentops commits `044bfaf` (#1105
-sprint-activation via sprintctl handler), `f2f138d` (#1109 reconciliation
-surfaces), the audit.js path fix, and write-token enforcement. One rebuild
-picks up all of them. In the same change window:
+The original handoff baseline, image `0.1.13`, predated agentops commits
+`044bfaf` (#1105 sprint-activation via sprintctl handler), `f2f138d` (#1109
+reconciliation surfaces), the audit.js path fix, and write-token enforcement.
+The current deployed tag is not visible from this workstation. From an
+authorized host, confirm that the deployed image includes those changes and
+capture the following checks:
 
 1. **Revert `COCKPIT_ARTIFACTS_ROOT` to `/projects/dev/_artifacts`.** The
    current `/projects/dev` value works around old audit.js appending
