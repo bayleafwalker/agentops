@@ -109,6 +109,18 @@ sprintctl to return the original atomic decision. The shared
 `reconciliation-proposal/v1` remains unchanged so producers do not need to
 understand executor runtime state.
 
+### Cockpit lifecycle sidecar
+
+The source proposal is immutable evidence. Cockpit records an operator's
+accepted or rejected decision as
+`reconciliation-lifecycles/<proposal-id>.json`, with
+`schema_version: reconciliation-lifecycle/v1`, the proposal ID, deduplication
+key, and lifecycle object. The sidecar is checked against the immutable
+proposal identity before it is read or written. This lets deployment place
+operator-write state on a dedicated durable volume without widening the
+producer artifact mount; reconciliation readers overlay the sidecar when they
+render state.
+
 ## What this contract does not decide
 
 - Which outbox transports these artifacts (actionq's Tier-0 wrapper, or a

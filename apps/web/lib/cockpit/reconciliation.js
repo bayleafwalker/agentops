@@ -29,6 +29,14 @@ export function resolveMechanizationRoot(artifactsRoot, repoId) {
   return resolveArtifactRepoRoot(artifactsRoot, repoId);
 }
 
+function lifecyclePath(stateRoot, repoId, proposalId) {
+  return path.join(
+    resolveMechanizationRoot(stateRoot, repoId),
+    "reconciliation-lifecycles",
+    `${proposalId}.json`
+  );
+}
+
 async function readJsonDir(dirPath) {
   const values = [];
   const warnings = [];
@@ -103,19 +111,35 @@ function summarizeProposal(entry) {
 export async function readReconciliationState({ repoId, now = Date.now() }) {
   const config = getConfig();
   const root = resolveMechanizationRoot(config.auditRoot, repoId);
+  const stateRoot = resolveMechanizationRoot(config.reconciliationStateRoot, repoId);
   const cacheKey = `reconciliation:${repoId}`;
   const cached = getCached(cacheKey);
   if (cached) {
     return cached;
   }
 
-  const [capsules, proposals, executions, cursor] = await Promise.all([
+  const [capsules, proposals, lifecycles, executions, cursor] = await Promise.all([
     readJsonDir(path.join(root, "session-capsules")),
     readJsonDir(path.join(root, "reconciliation-proposals")),
-    readJsonDir(path.join(root, "reconciliation-executions")),
+    readJsonDir(path.join(stateRoot, "reconciliation-lifecycles")),
+    readJsonDir(path.join(stateRoot, "reconciliation-executions")),
     readCursor(root)
   ]);
-  const warnings = [...capsules.warnings, ...proposals.warnings, ...executions.warnings];
+  const warnings = [...capsules.warnings, ...proposals.warnings, ...lifecycles.warnings, ...executions.warnings];
+  const lifecycleByProposalId = new Map();
+  for (const entry of lifecycles.values) {
+    const lifecycle = entry.value;
+    if (
+      lifecycle?.schema_version !== "reconciliation-lifecycle/v1" ||
+      typeof lifecycle.proposal_id !== "string" ||
+      typeof lifecycle.dedup_key !== "string" ||
+      !LIFECYCLE_STATES.includes(lifecycle?.lifecycle?.state)
+    ) {
+      warnings.push({ file: entry.path, message: "lifecycle sidecar is malformed" });
+      continue;
+    }
+    lifecycleByProposalId.set(lifecycle.proposal_id, { ...lifecycle, artifact_path: entry.path });
+  }
 
   const consumed = new Set(cursor?.consumed_capsule_ids || []);
   const unreconciled = [];
@@ -146,19 +170,27 @@ export async function readReconciliationState({ repoId, now = Date.now() }) {
   const byState = Object.fromEntries(LIFECYCLE_STATES.map((state) => [state, 0]));
   const byClassification = Object.fromEntries(CLASSIFICATIONS.map((name) => [name, 0]));
   const reviewQueue = [];
+  const proposalValues = [];
   for (const entry of proposals.values) {
     const proposal = entry.value;
-    const state = proposal?.lifecycle?.state;
-    if (!proposal?.proposal_id || !LIFECYCLE_STATES.includes(state)) {
+    const lifecycle = lifecycleByProposalId.get(proposal?.proposal_id);
+    if (lifecycle && lifecycle.dedup_key !== proposal?.dedup_key) {
+      warnings.push({ file: lifecycle.artifact_path, message: "lifecycle sidecar does not match proposal identity" });
+      continue;
+    }
+    const proposalWithLifecycle = lifecycle ? { ...proposal, lifecycle: lifecycle.lifecycle } : proposal;
+    const state = proposalWithLifecycle?.lifecycle?.state;
+    if (!proposalWithLifecycle?.proposal_id || !LIFECYCLE_STATES.includes(state)) {
       warnings.push({ file: entry.path, message: "proposal missing id or recognized lifecycle.state" });
       continue;
     }
+    proposalValues.push(proposalWithLifecycle);
     byState[state] += 1;
-    if (CLASSIFICATIONS.includes(proposal.classification)) {
-      byClassification[proposal.classification] += 1;
+    if (CLASSIFICATIONS.includes(proposalWithLifecycle.classification)) {
+      byClassification[proposalWithLifecycle.classification] += 1;
     }
     if (state === "pending") {
-      reviewQueue.push(summarizeProposal(entry));
+      reviewQueue.push(summarizeProposal({ ...entry, value: proposalWithLifecycle }));
     }
   }
   reviewQueue.sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
@@ -225,8 +257,8 @@ export async function readReconciliationState({ repoId, now = Date.now() }) {
       pending_review_count: byState.pending,
       executions_total: executionRows.length,
       executions_by_state: executionsByState,
-      accepted_without_execution_count: proposals.values.filter(
-        (entry) => entry.value?.lifecycle?.state === "accepted" && !executionProposalIds.has(entry.value.proposal_id)
+      accepted_without_execution_count: proposalValues.filter(
+        (proposal) => proposal.lifecycle.state === "accepted" && !executionProposalIds.has(proposal.proposal_id)
       ).length,
       authority_decisions_by_outcome: {
         accepted: acceptedAuthorityDecisions,
@@ -250,9 +282,9 @@ function validateProposalId(proposalId) {
   }
 }
 
-// Records an accept/reject decision on the proposal artifact's lifecycle.
-// This is the durable decision record the scribe's dedup logic depends on.
-// An identical accepted decision is idempotent so a caller can resume a
+// Records an accept/reject decision in a cockpit-owned lifecycle sidecar. The
+// source proposal stays immutable on the read-only artifact mount. An
+// identical accepted decision is idempotent so a caller can resume a
 // separately persisted authority execution after a crash or outage.
 export async function decideProposal({ repoId, proposalId, decision, decidedBy, rejectionReason = null }) {
   validateProposalId(proposalId);
@@ -274,11 +306,29 @@ export async function decideProposal({ repoId, proposalId, decision, decidedBy, 
     }
     throw error;
   }
-  const state = proposal?.lifecycle?.state;
+  const sidecarPath = lifecyclePath(config.reconciliationStateRoot, repoId, proposalId);
+  let lifecycle = proposal?.lifecycle;
+  try {
+    const sidecar = JSON.parse(await fs.readFile(sidecarPath, "utf8"));
+    if (
+      sidecar.schema_version !== "reconciliation-lifecycle/v1" ||
+      sidecar.proposal_id !== proposal.proposal_id ||
+      sidecar.dedup_key !== proposal.dedup_key ||
+      !LIFECYCLE_STATES.includes(sidecar?.lifecycle?.state)
+    ) {
+      throw new ProposalDecisionError("proposal lifecycle sidecar does not match immutable proposal identity");
+    }
+    lifecycle = sidecar.lifecycle;
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+  }
+  const state = lifecycle?.state;
   if (state === "accepted" && decision === "accepted") {
     return {
       proposal_id: proposal.proposal_id,
-      lifecycle: proposal.lifecycle,
+      lifecycle,
       classification: proposal.classification,
       proposed_commands: proposal.proposed_commands || []
     };
@@ -286,19 +336,26 @@ export async function decideProposal({ repoId, proposalId, decision, decidedBy, 
   if (state !== "pending") {
     throw new ProposalDecisionError(`Proposal ${proposalId} is ${state}, only pending proposals can be decided`);
   }
-  proposal.lifecycle = {
+  lifecycle = {
     state: decision,
     decided_at: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
     decided_by: decidedBy,
     rejection_reason: decision === "rejected" ? rejectionReason : null,
     superseded_by: null
   };
-  const tmpPath = `${artifactPath}.${process.pid}.${randomUUID()}.tmp`;
-  await fs.writeFile(tmpPath, `${JSON.stringify(proposal, null, 2)}\n`, "utf8");
-  await fs.rename(tmpPath, artifactPath);
+  const sidecar = {
+    schema_version: "reconciliation-lifecycle/v1",
+    proposal_id: proposal.proposal_id,
+    dedup_key: proposal.dedup_key,
+    lifecycle
+  };
+  await fs.mkdir(path.dirname(sidecarPath), { recursive: true });
+  const tmpPath = `${sidecarPath}.${process.pid}.${randomUUID()}.tmp`;
+  await fs.writeFile(tmpPath, `${JSON.stringify(sidecar, null, 2)}\n`, "utf8");
+  await fs.rename(tmpPath, sidecarPath);
   return {
     proposal_id: proposal.proposal_id,
-    lifecycle: proposal.lifecycle,
+    lifecycle,
     classification: proposal.classification,
     proposed_commands: proposal.proposed_commands || []
   };

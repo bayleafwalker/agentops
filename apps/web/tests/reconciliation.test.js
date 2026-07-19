@@ -122,6 +122,7 @@ async function makeFixture() {
 function executorConfig(rootDir, enabled = true) {
   return {
     auditRoot: rootDir,
+    reconciliationStateRoot: rootDir,
     reconciliationExecutionEnabled: enabled,
     reconciliationExecutionTimeoutMs: 1000,
     sprintctlBin: "sprintctl",
@@ -155,8 +156,12 @@ async function acceptFixtureProposal(rootDir) {
 
 function withArtifactsRoot(rootDir, fn) {
   const previousRoot = process.env.COCKPIT_ARTIFACTS_ROOT;
+  const previousReconciliationRoot = process.env.COCKPIT_RECONCILIATION_ROOT;
+  const previousReconciliationStateRoot = process.env.COCKPIT_RECONCILIATION_STATE_ROOT;
   const previousCache = process.env.COCKPIT_RECONCILIATION_CACHE_MS;
   process.env.COCKPIT_ARTIFACTS_ROOT = rootDir;
+  delete process.env.COCKPIT_RECONCILIATION_ROOT;
+  delete process.env.COCKPIT_RECONCILIATION_STATE_ROOT;
   process.env.COCKPIT_RECONCILIATION_CACHE_MS = "0";
   return fn().finally(() => {
     if (previousRoot === undefined) {
@@ -164,11 +169,42 @@ function withArtifactsRoot(rootDir, fn) {
     } else {
       process.env.COCKPIT_ARTIFACTS_ROOT = previousRoot;
     }
+    if (previousReconciliationRoot === undefined) {
+      delete process.env.COCKPIT_RECONCILIATION_ROOT;
+    } else {
+      process.env.COCKPIT_RECONCILIATION_ROOT = previousReconciliationRoot;
+    }
+    if (previousReconciliationStateRoot === undefined) {
+      delete process.env.COCKPIT_RECONCILIATION_STATE_ROOT;
+    } else {
+      process.env.COCKPIT_RECONCILIATION_STATE_ROOT = previousReconciliationStateRoot;
+    }
     if (previousCache === undefined) {
       delete process.env.COCKPIT_RECONCILIATION_CACHE_MS;
     } else {
       process.env.COCKPIT_RECONCILIATION_CACHE_MS = previousCache;
     }
+  });
+}
+
+function withReconciliationRoot(artifactsRoot, reconciliationRoot, fn) {
+  const previousArtifactsRoot = process.env.COCKPIT_ARTIFACTS_ROOT;
+  const previousReconciliationRoot = process.env.COCKPIT_RECONCILIATION_ROOT;
+  const previousReconciliationStateRoot = process.env.COCKPIT_RECONCILIATION_STATE_ROOT;
+  const previousCache = process.env.COCKPIT_RECONCILIATION_CACHE_MS;
+  process.env.COCKPIT_ARTIFACTS_ROOT = artifactsRoot;
+  delete process.env.COCKPIT_RECONCILIATION_ROOT;
+  process.env.COCKPIT_RECONCILIATION_STATE_ROOT = reconciliationRoot;
+  process.env.COCKPIT_RECONCILIATION_CACHE_MS = "0";
+  return fn().finally(() => {
+    if (previousArtifactsRoot === undefined) delete process.env.COCKPIT_ARTIFACTS_ROOT;
+    else process.env.COCKPIT_ARTIFACTS_ROOT = previousArtifactsRoot;
+    if (previousReconciliationRoot === undefined) delete process.env.COCKPIT_RECONCILIATION_ROOT;
+    else process.env.COCKPIT_RECONCILIATION_ROOT = previousReconciliationRoot;
+    if (previousReconciliationStateRoot === undefined) delete process.env.COCKPIT_RECONCILIATION_STATE_ROOT;
+    else process.env.COCKPIT_RECONCILIATION_STATE_ROOT = previousReconciliationStateRoot;
+    if (previousCache === undefined) delete process.env.COCKPIT_RECONCILIATION_CACHE_MS;
+    else process.env.COCKPIT_RECONCILIATION_CACHE_MS = previousCache;
   });
 }
 
@@ -216,6 +252,33 @@ test("resolveMechanizationRoot accepts a direct artifact root", () => {
   );
 });
 
+test("reconciliation state is independently rooted from read-only artifacts", async () => {
+  const artifactsRoot = await makeFixture();
+  const reconciliationRoot = await fs.mkdtemp(path.join(os.tmpdir(), "cockpit-reconciliation-state-"));
+  await withReconciliationRoot(artifactsRoot, reconciliationRoot, async () => {
+    const result = await decideProposal({
+      repoId: "agentops",
+      proposalId: PROPOSAL_PENDING,
+      decision: "rejected",
+      decidedBy: "operator:reviewer",
+      rejectionReason: "separate durable state"
+    });
+    assert.equal(result.lifecycle.state, "rejected");
+    const state = await readReconciliationState({ repoId: "agentops" });
+    assert.equal(state.dogfooding.proposals_by_state.rejected, 2);
+    const original = JSON.parse(await fs.readFile(
+      path.join(resolveMechanizationRoot(artifactsRoot, "agentops"), "reconciliation-proposals", `${PROPOSAL_PENDING}.json`),
+      "utf8"
+    ));
+    assert.equal(original.lifecycle.state, "pending");
+    const sidecar = JSON.parse(await fs.readFile(
+      path.join(resolveMechanizationRoot(reconciliationRoot, "agentops"), "reconciliation-lifecycles", `${PROPOSAL_PENDING}.json`),
+      "utf8"
+    ));
+    assert.equal(sidecar.lifecycle.state, "rejected");
+  });
+});
+
 test("readReconciliationState handles a repo with no artifacts", async () => {
   const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "cockpit-reconciliation-empty-"));
   await withArtifactsRoot(rootDir, async () => {
@@ -257,10 +320,11 @@ test("decideProposal rejects a pending proposal durably", async () => {
     assert.equal(result.lifecycle.rejection_reason, "diff does not match done criteria");
     const written = JSON.parse(
       await fs.readFile(
-        path.join(resolveMechanizationRoot(rootDir, "agentops"), "reconciliation-proposals", `${PROPOSAL_PENDING}.json`),
+        path.join(resolveMechanizationRoot(rootDir, "agentops"), "reconciliation-lifecycles", `${PROPOSAL_PENDING}.json`),
         "utf8"
       )
     );
+    assert.equal(written.schema_version, "reconciliation-lifecycle/v1");
     assert.equal(written.lifecycle.state, "rejected");
     assert.equal(written.lifecycle.decided_by, "operator:reviewer");
     assert.ok(written.lifecycle.decided_at);
@@ -355,6 +419,44 @@ test("accepted authority decisions are correlated and persisted", async () => {
     assert.equal(state.dogfooding.executions_by_state.succeeded, 1);
     assert.equal(state.dogfooding.authority_decisions_by_outcome.accepted, 1);
     assert.equal(state.dogfooding.accepted_without_execution_count, 0);
+  });
+});
+
+test("accepted execution reads immutable proposals and writes only the separate state root", async () => {
+  const artifactsRoot = await makeFixture();
+  const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "cockpit-execution-state-"));
+  await withReconciliationRoot(artifactsRoot, stateRoot, async () => {
+    await decideProposal({
+      repoId: "agentops",
+      proposalId: PROPOSAL_PENDING,
+      decision: "accepted",
+      decidedBy: "operator:reviewer"
+    });
+    const execution = await executeAcceptedProposal({
+      repoId: "agentops",
+      proposalId: PROPOSAL_PENDING,
+      executedBy: "operator:reviewer",
+      config: {
+        auditRoot: artifactsRoot,
+        reconciliationStateRoot: stateRoot,
+        reconciliationExecutionEnabled: true,
+        reconciliationExecutionTimeoutMs: 1000,
+        sprintctlBin: "sprintctl",
+        workspaceRoot: artifactsRoot
+      },
+      runCommand: async (command) => acceptedResult(command)
+    });
+    assert.equal(execution.state, "succeeded");
+    const original = JSON.parse(await fs.readFile(
+      path.join(resolveMechanizationRoot(artifactsRoot, "agentops"), "reconciliation-proposals", `${PROPOSAL_PENDING}.json`),
+      "utf8"
+    ));
+    assert.equal(original.lifecycle.state, "pending");
+    const executionSidecar = JSON.parse(await fs.readFile(
+      path.join(resolveMechanizationRoot(stateRoot, "agentops"), "reconciliation-executions", `${PROPOSAL_PENDING}.json`),
+      "utf8"
+    ));
+    assert.equal(executionSidecar.state, "succeeded");
   });
 });
 

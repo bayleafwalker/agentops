@@ -31,6 +31,14 @@ export function getConfig() {
     auditCacheMs: Number(process.env.COCKPIT_AUDIT_CACHE_MS || 5000),
     knowledgeCacheMs: Number(process.env.COCKPIT_KNOWLEDGE_CACHE_MS || 5000),
     reconciliationCacheMs: Number(process.env.COCKPIT_RECONCILIATION_CACHE_MS || 5000),
+    // Proposals and capsules remain immutable input from auditRoot. Cockpit
+    // lifecycle/execution sidecars use their own durable state root. The
+    // legacy name is accepted during rollout for local compatibility.
+    reconciliationStateRoot:
+      process.env.COCKPIT_RECONCILIATION_STATE_ROOT ||
+      process.env.COCKPIT_RECONCILIATION_ROOT ||
+      process.env.COCKPIT_ARTIFACTS_ROOT ||
+      "/projects/dev",
     reconciliationExecutionEnabled:
       process.env.COCKPIT_RECONCILIATION_EXECUTION_ENABLED === "true",
     reconciliationExecutionTimeoutMs: Number(

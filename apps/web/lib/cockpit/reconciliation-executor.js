@@ -168,8 +168,19 @@ function proposalPath(config, repoId, proposalId) {
 
 function executionPath(config, repoId, proposalId) {
   commandRequestId(proposalId, 0);
-  const root = resolveArtifactRepoRoot(config.auditRoot, repoId);
+  const root = resolveArtifactRepoRoot(
+    config.reconciliationStateRoot || config.reconciliationRoot || config.auditRoot,
+    repoId
+  );
   return path.join(root, "reconciliation-executions", `${proposalId}.json`);
+}
+
+function lifecyclePath(config, repoId, proposalId) {
+  const root = resolveArtifactRepoRoot(
+    config.reconciliationStateRoot || config.reconciliationRoot || config.auditRoot,
+    repoId
+  );
+  return path.join(root, "reconciliation-lifecycles", `${proposalId}.json`);
 }
 
 async function readJson(filePath) {
@@ -378,6 +389,21 @@ export async function executeAcceptedProposal({
   now = () => new Date()
 }) {
   const proposal = await readJson(proposalPath(config, repoId, proposalId));
+  try {
+    const lifecycle = await readJson(lifecyclePath(config, repoId, proposalId));
+    if (
+      lifecycle.schema_version !== "reconciliation-lifecycle/v1" ||
+      lifecycle.proposal_id !== proposal.proposal_id ||
+      lifecycle.dedup_key !== proposal.dedup_key
+    ) {
+      throw new ProposalExecutionError("proposal lifecycle sidecar does not match immutable proposal identity");
+    }
+    proposal.lifecycle = lifecycle.lifecycle;
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+  }
   if (proposal?.lifecycle?.state !== "accepted") {
     throw new ProposalExecutionError("only accepted proposals can execute authority commands");
   }
