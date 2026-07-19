@@ -1,0 +1,34 @@
+# Canonical vuoro project binding.
+# project_id is registered in agentops.toml and is immutable.
+
+schema_version = 1
+project_id = "981b2073-d7af-4c28-bff3-3cf807495fba"
+display_name = "vuoro"
+home_repo = "agentops"
+
+[[members]]
+repo_id = "agentops"
+backlog = true
+render = "none"
+path_notes = [
+  "Home repo: hosts sprintctl backlog #380 and project render sources.",
+  "The agent-cockpit operator UI is apps/web in this repository, not a separate member.",
+]
+
+[[members]]
+repo_id = "sprintctl"
+backlog = true
+render = "full"
+
+[[members]]
+repo_id = "kctl"
+backlog = true
+render = "full"
+
+[[members]]
+repo_id = "actionq"
+backlog = true
+render = "full"
+path_notes = [
+  "actionq-dispatcher is an actionq sub-component until it has its own sprintctl and dispatch identity.",
+]
