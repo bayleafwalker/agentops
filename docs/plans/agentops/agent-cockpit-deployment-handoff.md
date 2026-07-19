@@ -162,6 +162,29 @@ That stops new runner calls without deleting accepted decisions, proposal
 lifecycle, the sprintctl outbox, or execution sidecars; a later retry reuses
 the deterministic request identity.
 
+### Wave 4 deployment-readiness evidence (2026-07-19)
+
+Appservice commit `8908ef43` reconciled successfully with image
+`agent-cockpit:0.1.14` (registry manifest digest
+`sha256:4d5b149703e7b4df94eb0cb3b215146b3fd750fc06df94d21b42a6dd46c65140`).
+Flux reported the same revision Ready; both private Longhorn PVCs were Bound,
+and the replacement cockpit pod became Ready with zero restarts.
+
+The in-pod smoke evidence was configuration-only: `sprintctl --version`
+returned `0.2.0`; `/projects/dev` and `/runner-workspace` were non-writable;
+the two private state mounts were writable; and `GET /cockpit` plus
+`GET /cockpit/api/reconciliation?repo_id=agentops` returned 200 with an empty
+queue/execution list. `sprintctl authority status --json` from the runner
+workspace reported `mode: off`, no authority configuration, zero outbox
+records, and zero pending credentials. No proposal was accepted, no authority
+command was submitted, and no sprint state changed.
+
+This is not authority-execution smoke evidence. The external gate is precise:
+provision a disposable remote authority target, have its owner prove the
+repeated stable-event CLI path returns the original duplicate decision, and
+then run the accepted/rejected/unavailable/duplicate sequence before enabling
+the flag.
+
 ## Operational notes
 
 - The pod reads the whole workspace **read-only**; it can never repair its
