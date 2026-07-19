@@ -164,6 +164,10 @@ What makes a project "in-place" is where `project.toml` lives:
   rule), but a separate project folder (project-folder-materialization, item 4) holds worktrees
   of every member plus a mirrored copy of resolved context for agent-session convenience.
 
+The implemented setup/sync layout and its safe Git behavior are documented in
+[`project-folder.md`](project-folder.md). The folder contains derived worktrees
+and resolved context only; it never becomes another copy of project truth.
+
 `project.toml`'s canonical location is *always* the home repo's root — in-place and multi-repo
 projects differ only in whether a project folder additionally exists, never in where the source
 of truth lives. This is why in-place needs nothing from project-folder-materialization (item 4):

@@ -43,6 +43,15 @@ state, audit state, or Kubernetes desired state.
   generated outputs. Commit authored source changes before rendering and keep
   each member repository's generated output in a separate `chore(render)`
   commit.
+- Materialize or synchronize a derived multi-repository project folder:
+  ```bash
+  python templates/dispatch/scripts/materialize_project.py setup --project /projects/dev/<home-repo>/project.toml --folder <derived-folder>
+  python templates/dispatch/scripts/materialize_project.py sync --project /projects/dev/<home-repo>/project.toml --folder <derived-folder>
+  ```
+  The folder must be outside every member repository and is never a Git or
+  dispatch authority. Sync fast-forwards only clean project worktrees; it
+  reports dirty, ahead, diverged, detached, or unexpected branches without
+  resolving them.
 - Inspect declared `risk_surfaces` before changing queue, claim, lease, retry,
   recovery, projection, publication, reconciliation, or backend-parity paths.
   `full` is a sequence, not blanket authority to repair or mutate production.
