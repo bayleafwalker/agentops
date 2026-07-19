@@ -34,6 +34,15 @@ state, audit state, or Kubernetes desired state.
   ```bash
   python /projects/dev/agentops/templates/dispatch/scripts/validate_verification_artifacts.py --root .
   ```
+- Check or render a canonical project binding from its home repository:
+  ```bash
+  python templates/dispatch/scripts/render_project.py check --project /projects/dev/<home-repo>/project.toml
+  python templates/dispatch/scripts/render_project.py check --project /projects/dev/<home-repo>/project.toml --apply
+  ```
+  `--apply` refuses dirty project inputs, member overrides, `AGENTS.md`, and
+  generated outputs. Commit authored source changes before rendering and keep
+  each member repository's generated output in a separate `chore(render)`
+  commit.
 - Inspect declared `risk_surfaces` before changing queue, claim, lease, retry,
   recovery, projection, publication, reconciliation, or backend-parity paths.
   `full` is a sequence, not blanket authority to repair or mutate production.

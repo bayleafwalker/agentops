@@ -1,0 +1,4 @@
+interface:
+  display_name: "Golden Child Escalation"
+  short_description: "Escalate non-deterministic guidance merges"
+  default_prompt: "Use $golden-child to assess a guidance conflict that deterministic project rendering cannot express."

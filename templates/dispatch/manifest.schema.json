@@ -67,7 +67,8 @@
               "workflow-artifact-capture",
               "capability-receipt",
               "verify-state-protocols",
-              "reconcile-project-contracts"
+              "reconcile-project-contracts",
+              "golden-child"
             ]
           }
         },

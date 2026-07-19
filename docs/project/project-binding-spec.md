@@ -265,6 +265,17 @@ refusal, hash comparison). render-command (item 3) supersedes `sync_skills.py`'s
 sync function for anything expressible as a project render; `sync_skills.py` itself is unrelated
 tooling (shared *skill* trees, not project instruction content) and is untouched by this spec.
 
+The implemented command and operator workflow are documented in
+[`project-render.md`](project-render.md). The canonical `golden-child` skill is
+semantic-escalation-only: missing, stale, or hand-edited output is always routed
+to the deterministic renderer, never merged by an agent.
+
+Implementation reconciliation: no canonical or workspace-local golden-child
+skill existed when render-command work began; repository history contained only
+this specification's references to one. The new canonical skill therefore
+preserves the intended escalation name and boundary, but it does not claim a
+mechanical predecessor or an implicit file mapping that cannot be verified.
+
 ## 5. Precedence
 
 Exactly one rule, stated once, here: **project baseline, then repo-specific override,
