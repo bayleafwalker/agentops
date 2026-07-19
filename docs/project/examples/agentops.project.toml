@@ -1,16 +1,13 @@
-# Draft — see docs/project/project-binding-spec.md.
+# Draft — see docs/project/project-binding-spec.md, §1a/§1b.
 # Canonical location once instantiated (item pilot-agentops-project): agentops/project.toml
 #
-# Open question (see spec, Open Questions): the backlog prompt that named this project's
-# members listed "sprintctl, kctl, actionq, cockpit". "cockpit" is not a separate repo — it is
-# the agent-cockpit app inside agentops/apps/web. Modeled here as the home repo's own member
-# entry. actionq-dispatcher was considered and excluded: it has no sprintctl repo_id and no
-# *.dispatch.json, so it cannot be expressed as a member without first onboarding it as a
-# tracked repo (out of scope for this spec).
+# display_name is "vuoro" (ecosystem-rename-decision, landed): the repo directory and
+# home_repo/repo_id stay "agentops" until the mechanical rename lands elsewhere; this file
+# only controls the project's own display_name.
 
 schema_version = 1
 project_id = "981b2073-d7af-4c28-bff3-3cf807495fba"
-display_name = "agentops"
+display_name = "vuoro"
 home_repo = "agentops"
 
 [[members]]
@@ -36,3 +33,6 @@ render = "full"
 repo_id = "actionq"
 backlog = true
 render = "full"
+path_notes = [
+  "actionq-dispatcher (/projects/dev/actionq-dispatcher) is a sub-component of actionq: same product, split into a second repo by convention. Not a peer member -- it has no sprintctl repo_id or *.dispatch.json yet. Promote to its own [[members]] entry if/when it's onboarded to sprintctl (separate, prior decision).",
+]

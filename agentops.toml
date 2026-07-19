@@ -1,0 +1,24 @@
+# Ecosystem-wide project UUID minting registry.
+# See docs/project/project-binding-spec.md §1a ("UUID discipline").
+#
+# Append-only. Before minting a new project's project_id, check here for uniqueness;
+# after minting, append the new entry. Not itself a project.toml -- this is the ledger
+# project.toml project_id values are drawn against. Not read at runtime by anything
+# except the minting step itself.
+
+schema_version = 1
+
+[[projects]]
+project_id = "981b2073-d7af-4c28-bff3-3cf807495fba"
+display_name = "vuoro"
+home_repo = "agentops"
+
+[[projects]]
+project_id = "5bbc5637-182a-4d2b-bd73-f5343b248ff1"
+display_name = "appservice"
+home_repo = "appservice"
+
+[[projects]]
+project_id = "a40e9a1d-cf76-4bae-a330-f62ecc9e59f8"
+display_name = "homelab-analytics"
+home_repo = "homelab-analytics"
