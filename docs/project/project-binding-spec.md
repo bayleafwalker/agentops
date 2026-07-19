@@ -177,6 +177,23 @@ For a single-member project, `render` is typically `none` (see appservice exampl
 second repo to source a baseline from, so there is nothing for render to produce. This is a
 consequence of the render contract, not a special rule — see §4.
 
+### Appservice migration availability (2026-07-19)
+
+The first in-place migration attempt confirmed that the topology itself remains
+near-noop, but the canonical private appservice repository is not present in
+the devbox-vm workspace. `/projects/dev/appservice` currently contains only
+untracked local harness settings and is not a Git worktree; the private
+repository is intentionally not published under the public GitHub owner. Do
+not initialize that directory, create project truth outside the owning clone,
+or treat the draft example and UUID registry entry as an instantiated project.
+
+Item `#1182` therefore remains blocked on making the canonical appservice clone
+available in an authorized environment (or running the migration from the
+workstation/shared clone). Once available, the acceptance path is still exactly
+the generic one-member path: add the registered binding at the repository root,
+confirm the `render = "none"` no-op, run a path-free `--project` read from that
+repository, and commit the small owner-repo diff.
+
 ## 4. Render contract
 
 ### Source layout
