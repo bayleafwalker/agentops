@@ -1,0 +1,21 @@
+# Draft — see docs/project/project-binding-spec.md, section 6 (AE test case).
+# Canonical location once instantiated (item ha-ae-boundary-migration): homelab-analytics/project.toml
+
+schema_version = 1
+project_id = "a40e9a1d-cf76-4bae-a330-f62ecc9e59f8"
+display_name = "homelab-analytics"
+home_repo = "homelab-analytics"
+
+[[members]]
+repo_id = "homelab-analytics"
+backlog = true
+render = "none"
+
+[[members]]
+repo_id = "aligned-equity"
+backlog = true
+render = "baseline"
+path_notes = [
+  "Semi-private by design: render:baseline means AE receives only source fragments tagged for the baseline level. AE's own AGENTS.md and .agents/overlays/aligned-equity.project-overrides.md remain locally authoritative and untouched.",
+  "The plugin contract (aligned_equity.integrations.homelab_analytics + homelab-analytics.registry.json) is the only code-level interface. Project source fragments must not reference either repo's internals.",
+]

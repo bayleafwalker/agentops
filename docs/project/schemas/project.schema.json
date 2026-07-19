@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/project.schema.json",
+  "title": "Agentops project binding",
+  "description": "Structural shape of project.toml, expressed as JSON Schema (TOML maps 1:1 onto these JSON types). Documentation and optional runtime-validation reference; not itself the file format.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project_id", "display_name", "home_repo", "members"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "project_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "description": "Minted once via uuid4 at project creation. Immutable: no tool ever regenerates this value."
+    },
+    "display_name": { "type": "string", "minLength": 1 },
+    "home_repo": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+$",
+      "description": "Must equal the repo_id of exactly one entry in members. Hosts the project's backlog (sprintctl) and render sources (.project/sources/)."
+    },
+    "members": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["repo_id", "backlog", "render"],
+        "properties": {
+          "repo_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._-]+$",
+            "description": "Matches the repo's sprintctl repo_id and *.dispatch.json repo_id."
+          },
+          "backlog": {
+            "type": "boolean",
+            "description": "Include this repo's sprintctl backlog in --project union views."
+          },
+          "render": {
+            "type": "string",
+            "enum": ["full", "baseline", "none"],
+            "description": "Instruction distribution level. full: all project source fragments. baseline: fragments tagged render_levels including baseline. none: no generated file, no pointer line — repo is untouched by render."
+          },
+          "path_notes": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Optional free-text agent guidance specific to this member's binding. Not rendered; read directly from project.toml by agents resolving project scope."
+          }
+        }
+      }
+    }
+  }
+}

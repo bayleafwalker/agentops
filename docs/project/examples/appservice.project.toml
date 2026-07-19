@@ -1,0 +1,18 @@
+# Draft — see docs/project/project-binding-spec.md, section 3 (single-repo degenerate case).
+# Canonical location once instantiated (item appservice-in-place): appservice/project.toml
+# (in-place: lives in the repo itself, no project folder, no worktrees).
+#
+# Sole member's render is "none" by design, not by special-casing: this project has no
+# cross-repo baseline to distribute (appservice is the only member), so there is nothing for
+# render to produce. If appservice ever gains sibling members, flip render on the affected
+# entries — no schema change required.
+
+schema_version = 1
+project_id = "5bbc5637-182a-4d2b-bd73-f5343b248ff1"
+display_name = "appservice"
+home_repo = "appservice"
+
+[[members]]
+repo_id = "appservice"
+backlog = true
+render = "none"
