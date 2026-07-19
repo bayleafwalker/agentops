@@ -10,6 +10,11 @@ import {
   readReconciliationState,
   resolveMechanizationRoot
 } from "../lib/cockpit/reconciliation.js";
+import {
+  commandRequestId,
+  executeAcceptedProposal,
+  normalizeProposalCommand
+} from "../lib/cockpit/reconciliation-executor.js";
 import { createGetHandler } from "../app/cockpit/api/reconciliation/route.js";
 import { createPostHandler } from "../app/cockpit/api/reconciliation/decide/route.js";
 
@@ -55,11 +60,19 @@ function proposal(proposalId, lifecycleState, createdAt, overrides = {}) {
         }
       }
     ],
-    evidence_refs: [],
+    evidence_refs: [
+      {
+        kind: "git-commit",
+        source: "repo:agentops",
+        revision: "a".repeat(40)
+      }
+    ],
     basis: { observed_revision: "event:1", current_revision: "event:1" },
     target: { kind: "work-item", ref: "wi:1108" },
     classification: "mark-item-advanced",
-    proposed_commands: [{ command_type: "work.completed", params: { item_id: 1108 } }],
+    proposed_commands: [
+      { command_type: "item.done", params: { item_id: 1108, evidence_event_id: 853 } }
+    ],
     confidence: { level: "medium", rationale: "test" },
     lifecycle,
     ...overrides
@@ -104,6 +117,40 @@ async function makeFixture() {
     )
   );
   return rootDir;
+}
+
+function executorConfig(rootDir, enabled = true) {
+  return {
+    auditRoot: rootDir,
+    reconciliationExecutionEnabled: enabled,
+    reconciliationExecutionTimeoutMs: 1000,
+    sprintctlBin: "sprintctl",
+    workspaceRoot: rootDir
+  };
+}
+
+function acceptedResult(command, overrides = {}) {
+  return {
+    request_event_id: command.request_event_id,
+    decision_event_id: "5e6f7081-92a3-4b42-8c0d-5f60718293a4",
+    decision_ingest_offset: 17,
+    decision_type: "item.transitioned",
+    status: "accepted",
+    duplicate: false,
+    effect: { item_id: command.aggregate_id, status: "done" },
+    ...overrides
+  };
+}
+
+async function acceptFixtureProposal(rootDir) {
+  await withArtifactsRoot(rootDir, () =>
+    decideProposal({
+      repoId: "agentops",
+      proposalId: PROPOSAL_PENDING,
+      decision: "accepted",
+      decidedBy: "operator:reviewer"
+    })
+  );
 }
 
 function withArtifactsRoot(rootDir, fn) {
@@ -155,6 +202,9 @@ test("readReconciliationState reports queue, lag, watermark, and dogfooding", as
     assert.equal(state.dogfooding.no_change_rate, 0.5);
     assert.equal(state.dogfooding.rejected_rate, 1);
     assert.equal(state.dogfooding.pending_review_count, 1);
+    assert.equal(state.dogfooding.executions_total, 0);
+    assert.equal(state.dogfooding.accepted_without_execution_count, 0);
+    assert.deepEqual(state.executions, []);
     assert.deepEqual(state.warnings, []);
   });
 });
@@ -227,8 +277,276 @@ test("decideProposal accepts and returns proposed commands without executing the
       decidedBy: "operator:reviewer"
     });
     assert.equal(result.lifecycle.state, "accepted");
-    assert.deepEqual(result.proposed_commands, [{ command_type: "work.completed", params: { item_id: 1108 } }]);
+    assert.deepEqual(result.proposed_commands, [
+      { command_type: "item.done", params: { item_id: 1108, evidence_event_id: 853 } }
+    ]);
   });
+});
+
+test("accepted proposal decisions are idempotent so execution can resume", async () => {
+  const rootDir = await makeFixture();
+  await withArtifactsRoot(rootDir, async () => {
+    const first = await decideProposal({
+      repoId: "agentops",
+      proposalId: PROPOSAL_PENDING,
+      decision: "accepted",
+      decidedBy: "operator:reviewer"
+    });
+    const retried = await decideProposal({
+      repoId: "agentops",
+      proposalId: PROPOSAL_PENDING,
+      decision: "accepted",
+      decidedBy: "operator:reviewer"
+    });
+    assert.deepEqual(retried.lifecycle, first.lifecycle);
+  });
+});
+
+test("proposal command normalization enforces the authority allowlist and target", () => {
+  const value = proposal(PROPOSAL_PENDING, "accepted", "2026-07-14T19:30:00Z");
+  const normalized = normalizeProposalCommand(value, value.proposed_commands[0], 0);
+  assert.equal(normalized.command_type, "item.done");
+  assert.equal(normalized.aggregate_id, 1108);
+  assert.equal(normalized.basis_revision, "event:1");
+  assert.deepEqual(normalized.payload, { to_status: "done" });
+  assert.equal(normalized.request_event_id, commandRequestId(PROPOSAL_PENDING, 0));
+  assert.throws(
+    () => normalizeProposalCommand(
+      value,
+      { command_type: "work.completed", params: { item_id: 1108 } },
+      0
+    ),
+    /not allowlisted/
+  );
+});
+
+test("accepted authority decisions are correlated and persisted", async () => {
+  const rootDir = await makeFixture();
+  await acceptFixtureProposal(rootDir);
+  const calls = [];
+  const execution = await executeAcceptedProposal({
+    repoId: "agentops",
+    proposalId: PROPOSAL_PENDING,
+    executedBy: "operator:reviewer",
+    config: executorConfig(rootDir),
+    runCommand: async (command) => {
+      calls.push(command);
+      return acceptedResult(command);
+    }
+  });
+  assert.equal(execution.state, "succeeded");
+  assert.equal(execution.commands[0].state, "accepted");
+  assert.equal(execution.commands[0].decision.request_event_id, calls[0].request_event_id);
+  const written = JSON.parse(
+    await fs.readFile(
+      path.join(
+        resolveMechanizationRoot(rootDir, "agentops"),
+        "reconciliation-executions",
+        `${PROPOSAL_PENDING}.json`
+      ),
+      "utf8"
+    )
+  );
+  assert.equal(written.state, "succeeded");
+  await withArtifactsRoot(rootDir, async () => {
+    const state = await readReconciliationState({ repoId: "agentops" });
+    assert.equal(state.executions.length, 1);
+    assert.equal(state.executions[0].state, "succeeded");
+    assert.equal(state.dogfooding.executions_by_state.succeeded, 1);
+    assert.equal(state.dogfooding.authority_decisions_by_outcome.accepted, 1);
+    assert.equal(state.dogfooding.accepted_without_execution_count, 0);
+  });
+});
+
+test("remote authority rejection is durable and terminal", async () => {
+  const rootDir = await makeFixture();
+  await acceptFixtureProposal(rootDir);
+  let calls = 0;
+  const runCommand = async (command) => {
+    calls += 1;
+    return acceptedResult(command, {
+      status: "rejected",
+      decision_type: "command.rejected",
+      reason_code: "invalid-transition",
+      reason_detail: "item is already done",
+      effect: {}
+    });
+  };
+  const first = await executeAcceptedProposal({
+    repoId: "agentops",
+    proposalId: PROPOSAL_PENDING,
+    executedBy: "operator:reviewer",
+    config: executorConfig(rootDir),
+    runCommand
+  });
+  const retry = await executeAcceptedProposal({
+    repoId: "agentops",
+    proposalId: PROPOSAL_PENDING,
+    executedBy: "operator:reviewer",
+    config: executorConfig(rootDir),
+    runCommand
+  });
+  assert.equal(first.state, "rejected");
+  assert.equal(first.commands[0].decision.reason_code, "invalid-transition");
+  assert.equal(retry.state, "rejected");
+  assert.equal(calls, 1);
+});
+
+test("uncorrelated terminal authority responses remain unavailable", async () => {
+  const rootDir = await makeFixture();
+  await acceptFixtureProposal(rootDir);
+  const execution = await executeAcceptedProposal({
+    repoId: "agentops",
+    proposalId: PROPOSAL_PENDING,
+    executedBy: "operator:reviewer",
+    config: executorConfig(rootDir),
+    runCommand: async () => ({ status: "accepted", effect: { status: "done" } })
+  });
+  assert.equal(execution.state, "unavailable");
+  assert.match(execution.commands[0].error, /correlated request or decision identity/);
+});
+
+test("stale proposal basis is rejected before authority submission", async () => {
+  const rootDir = await makeFixture();
+  const artifactPath = path.join(
+    resolveMechanizationRoot(rootDir, "agentops"),
+    "reconciliation-proposals",
+    `${PROPOSAL_PENDING}.json`
+  );
+  const value = JSON.parse(await fs.readFile(artifactPath, "utf8"));
+  value.basis.current_revision = "event:2";
+  await fs.writeFile(artifactPath, JSON.stringify(value));
+  await acceptFixtureProposal(rootDir);
+  let called = false;
+  const execution = await executeAcceptedProposal({
+    repoId: "agentops",
+    proposalId: PROPOSAL_PENDING,
+    executedBy: "operator:reviewer",
+    config: executorConfig(rootDir),
+    runCommand: async () => {
+      called = true;
+      return {};
+    }
+  });
+  assert.equal(execution.state, "rejected");
+  assert.equal(execution.error.code, "validation-failed");
+  assert.match(execution.error.message, /already stale/);
+  assert.equal(called, false);
+});
+
+test("unavailable authority retries the same stable request identity", async () => {
+  const rootDir = await makeFixture();
+  await acceptFixtureProposal(rootDir);
+  const requestIds = [];
+  let attempt = 0;
+  const runCommand = async (command) => {
+    requestIds.push(command.request_event_id);
+    attempt += 1;
+    if (attempt === 1) {
+      return {
+        status: "unavailable",
+        reason_code: "authority-unavailable",
+        reason_detail: "connection refused"
+      };
+    }
+    return acceptedResult(command, { duplicate: true });
+  };
+  const unavailable = await executeAcceptedProposal({
+    repoId: "agentops",
+    proposalId: PROPOSAL_PENDING,
+    executedBy: "operator:reviewer",
+    config: executorConfig(rootDir),
+    runCommand
+  });
+  const recovered = await executeAcceptedProposal({
+    repoId: "agentops",
+    proposalId: PROPOSAL_PENDING,
+    executedBy: "operator:reviewer",
+    config: executorConfig(rootDir),
+    runCommand
+  });
+  assert.equal(unavailable.state, "unavailable");
+  assert.equal(recovered.state, "succeeded");
+  assert.equal(recovered.commands[0].decision.duplicate, true);
+  assert.deepEqual(requestIds, [requestIds[0], requestIds[0]]);
+});
+
+test("duplicate retry after success does not resubmit a terminal command", async () => {
+  const rootDir = await makeFixture();
+  await acceptFixtureProposal(rootDir);
+  let calls = 0;
+  const runCommand = async (command) => {
+    calls += 1;
+    return acceptedResult(command);
+  };
+  await executeAcceptedProposal({
+    repoId: "agentops",
+    proposalId: PROPOSAL_PENDING,
+    executedBy: "operator:reviewer",
+    config: executorConfig(rootDir),
+    runCommand
+  });
+  const retry = await executeAcceptedProposal({
+    repoId: "agentops",
+    proposalId: PROPOSAL_PENDING,
+    executedBy: "operator:reviewer",
+    config: executorConfig(rootDir),
+    runCommand
+  });
+  assert.equal(retry.state, "succeeded");
+  assert.equal(calls, 1);
+});
+
+test("partial failure preserves earlier decisions and stops ordered execution", async () => {
+  const rootDir = await makeFixture();
+  const artifactPath = path.join(
+    resolveMechanizationRoot(rootDir, "agentops"),
+    "reconciliation-proposals",
+    `${PROPOSAL_PENDING}.json`
+  );
+  const value = JSON.parse(await fs.readFile(artifactPath, "utf8"));
+  value.proposed_commands = [
+    { command_type: "item.transition", params: { item_id: 1108, to_status: "active" } },
+    { command_type: "item.done", params: { item_id: 1108, evidence_event_id: 853 } }
+  ];
+  await fs.writeFile(artifactPath, JSON.stringify(value));
+  await acceptFixtureProposal(rootDir);
+  const execution = await executeAcceptedProposal({
+    repoId: "agentops",
+    proposalId: PROPOSAL_PENDING,
+    executedBy: "operator:reviewer",
+    config: executorConfig(rootDir),
+    runCommand: async (command) => command.index === 0
+      ? acceptedResult(command, { effect: { item_id: 1108, status: "active" } })
+      : acceptedResult(command, {
+          status: "rejected",
+          decision_type: "command.rejected",
+          reason_code: "stale-basis",
+          reason_detail: "aggregate advanced",
+          effect: { current_revision: "item:x@status:active" }
+        })
+  });
+  assert.equal(execution.state, "partial");
+  assert.deepEqual(execution.commands.map((command) => command.state), ["accepted", "rejected"]);
+});
+
+test("execution feature flag defers work without losing acceptance", async () => {
+  const rootDir = await makeFixture();
+  await acceptFixtureProposal(rootDir);
+  let called = false;
+  const execution = await executeAcceptedProposal({
+    repoId: "agentops",
+    proposalId: PROPOSAL_PENDING,
+    executedBy: "operator:reviewer",
+    config: executorConfig(rootDir, false),
+    runCommand: async () => {
+      called = true;
+      return {};
+    }
+  });
+  assert.equal(execution.state, "deferred");
+  assert.equal(execution.error.code, "execution-disabled");
+  assert.equal(called, false);
 });
 
 test("decideProposal refuses non-pending proposals and missing proposals", async () => {
@@ -251,6 +569,15 @@ test("decideProposal refuses non-pending proposals and missing proposals", async
         decidedBy: "operator:reviewer"
       }),
       ProposalNotFoundError
+    );
+    await assert.rejects(
+      decideProposal({
+        repoId: "agentops",
+        proposalId: "../escape",
+        decision: "accepted",
+        decidedBy: "operator:reviewer"
+      }),
+      ProposalDecisionError
     );
   });
 });
@@ -288,6 +615,11 @@ test("decide route validates input and forwards decisions", async () => {
       calls.push(args);
       return { proposal_id: args.proposalId, lifecycle: { state: args.decision }, classification: "mark-item-advanced", proposed_commands: [] };
     },
+    executeAcceptedProposal: async (args) => ({
+      proposal_id: args.proposalId,
+      state: "succeeded",
+      commands: []
+    }),
     requireConfiguredWriteAuth: () => null
   });
 
@@ -318,6 +650,7 @@ test("decide route validates input and forwards decisions", async () => {
   );
   const payload = await accepted.json();
   assert.equal(payload.lifecycle.state, "accepted");
+  assert.equal(payload.execution.state, "succeeded");
   assert.equal(calls[0].decidedBy, "operator:me");
 });
 

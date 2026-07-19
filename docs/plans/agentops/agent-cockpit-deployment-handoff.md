@@ -1,10 +1,16 @@
 ---
 doc_id: agent-cockpit-deployment-handoff
-status: draft
+status: reviewed
+last_verified: 2026-07-18
 supersedes: null
 ---
 
 # agent-cockpit deployment handoff (appservice)
+
+Deployment status (operator attestation, 2026-07-18): deployed. This
+workstation is not permitted through the runtime firewall, so the deployed
+image tag, environment values, and smoke checks below remain operational
+evidence to capture from an authorized host.
 
 Operational handoff for running, rebuilding, and reconfiguring the
 agent-cockpit web app (sprint item #951). Application source is
@@ -65,6 +71,10 @@ doubt):
 | `COCKPIT_ACTIONQ_DISPATCH_CONTRACT` | literal `v1` | |
 | `COCKPIT_CLAUDE_HEADROOM_COMMAND` / `_FILE`, `COCKPIT_CODEX_HEADROOM_COMMAND`, `COCKPIT_HEADROOM_TRIGGER_PATH` | literals | headroom panels + refresh trigger file |
 | `COCKPIT_RECONCILIATION_CACHE_MS` | *not yet set* | optional cache knob added with the reconciliation surfaces (#1109); defaults sensibly in code |
+| `COCKPIT_RECONCILIATION_EXECUTION_ENABLED` | *not yet set; defaults false* | enables #1173 accepted-proposal execution only after the runtime prerequisites below are satisfied |
+| `COCKPIT_SPRINTCTL_BIN` | *not yet set* | optional sprintctl executable override; defaults to `sprintctl` |
+| `COCKPIT_WORKSPACE_ROOT` | *not yet set* | repository-root parent for authority command cwd; defaults to `/projects/dev` |
+| `COCKPIT_RECONCILIATION_EXECUTION_TIMEOUT_MS` | *not yet set* | per-command timeout; defaults to 15000 ms |
 
 Write-token semantics: routes are **legacy-open when the env var is unset**;
 once set, writes require bearer or `x-cockpit-write-token` (timing-safe
@@ -76,12 +86,14 @@ Retrieve the token:
 kubectl -n vscode get secret agent-cockpit-write -o jsonpath='{.data.token}' | base64 -d
 ```
 
-## Pending actions at handoff (2026-07-14)
+## Post-deployment verification actions (original handoff 2026-07-14)
 
-The deployed `0.1.13` image predates agentops commits `044bfaf` (#1105
-sprint-activation via sprintctl handler), `f2f138d` (#1109 reconciliation
-surfaces), the audit.js path fix, and write-token enforcement. One rebuild
-picks up all of them. In the same change window:
+The original handoff baseline, image `0.1.13`, predated agentops commits
+`044bfaf` (#1105 sprint-activation via sprintctl handler), `f2f138d` (#1109
+reconciliation surfaces), the audit.js path fix, and write-token enforcement.
+The current deployed tag is not visible from this workstation. From an
+authorized host, confirm that the deployed image includes those changes and
+capture the following checks:
 
 1. **Revert `COCKPIT_ARTIFACTS_ROOT` to `/projects/dev/_artifacts`.** The
    current `/projects/dev` value works around old audit.js appending
@@ -96,6 +108,27 @@ picks up all of them. In the same change window:
      `sprintctl-cnpg-main` DB; expect `SP404`/`SP409` SQLSTATE mapping);
    - `GET /cockpit/api/reconciliation` → healthy empty review queue (no
      live capsules exist yet — expected until the Tier-0 producer ships).
+
+### Accepted-proposal executor rollout (#1173)
+
+Keep `COCKPIT_RECONCILIATION_EXECUTION_ENABLED` unset/false in the current
+pod. The source implementation is fail-closed and fully retryable, but the
+deployed topology still has two prerequisites that appservice must provide
+before enabling it:
+
+1. a writable durable location for proposal lifecycle and
+   `reconciliation-executions/` sidecars (the current `/projects/dev` mount is
+   read-only); and
+2. a sprintctl authority runner or service that can durably append its command
+   outbox. The current CLI stores rollout/outbox state below the repository
+   root, which is also read-only in this pod.
+
+Do not make the workspace mount broadly writable to satisfy these. Prefer a
+dedicated writable state mount plus a domain-owned sprintctl service/runner.
+Once selected, enable the flag and smoke one accepted, one authority-rejected,
+and one repeated request. The repeated request must retain the same
+`request_event_id` and return the original decision. Rollback is the flag only;
+proposal decisions and execution sidecars remain for later retry.
 
 ## Operational notes
 

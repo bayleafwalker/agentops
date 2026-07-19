@@ -81,7 +81,7 @@ Artifact schemas and field contracts for the two rows below marked
 | `session.ended` / `session.end-inferred` | observation | yes | no | applied immediately | the observation itself, once ingested |
 | `session-capsule/v1` | observation (artifact + pointer) | yes | no (pointer is non-validation-bearing) | capsule pointer visible immediately | the observation itself, once ingested |
 | `reconciliation-proposal/v1` created | observation (proposal artifact) | yes (scribe-authored, cursor-tracked) | no — proposals never mutate authoritative state | appears in review queue | the proposal artifact itself |
-| proposal accepted | authority command(s) | no | yes — acceptance **executes as normal sprintctl authority commands** (see sprintctl rows above) | pending intents until sprintctl decisions | the corresponding sprintctl decisions; proposal lifecycle → `accepted` |
+| proposal accepted | authority command(s) | no | yes — acceptance **executes as normal sprintctl authority commands** (see sprintctl rows above) | proposal lifecycle is `accepted`; execution remains deferred/pending until sprintctl decisions | corresponding sprintctl decisions plus the agentops execution sidecar; proposal acceptance never implies command success |
 | proposal rejected / superseded | observation (durable lifecycle record) | yes | no | proposal leaves review queue; rejection durable for dedup | the lifecycle record itself |
 
 ## Ownership assignments
@@ -99,7 +99,8 @@ Artifact schemas and field contracts for the two rows below marked
 
 The [reconciliation doc](ops-upgrade-reconciliation-2026-07.md) left open who
 owns the Tier-0 harness-neutral session wrapper. This matrix records the
-**proposed default, pending operator ratification**:
+ratified assignment. Actionq backlog decision #968 closed the repository
+boundary on 2026-07-18:
 
 - **`actionq` owns the wrapper mechanism** — actionq is the session lifecycle
   authority; the wrapper spawns, observes, and closes sessions, which is
@@ -110,9 +111,9 @@ owns the Tier-0 harness-neutral session wrapper. This matrix records the
   reconciler, and cockpit, not actionq-internal state.
 
 This follows the ownership rule directly: the session lifecycle *state* is
-actionq's; the cross-domain *contract and projection* are agentops'. Until an
-operator ratifies or overrides this, treat it as the working assignment for
-backlog placement.
+actionq's; the cross-domain *contract and projection* are agentops'. The new
+daemon and wrapper land directly in actionq; actionq-dispatch remains the
+bounded one-shot compatibility surface until parity is proven.
 
 ## Related documents
 

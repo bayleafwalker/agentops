@@ -6,16 +6,19 @@ import {
 } from "../../../../../lib/cockpit/reconciliation.js";
 import { requireConfiguredWriteAuth } from "../../../../../lib/cockpit/auth.js";
 import { getConfig } from "../../../../../lib/cockpit/env.js";
+import {
+  executeAcceptedProposal,
+  ProposalExecutionError
+} from "../../../../../lib/cockpit/reconciliation-executor.js";
 
 export const dynamic = "force-dynamic";
 
 const SOURCE = "artifact:reconciliation";
 
-// Records the accept/reject decision on the proposal artifact only. It never
-// executes the proposal's sprintctl commands — acceptance is carried out
-// through normal sprintctl authority commands per write-surface-policy.md,
-// and the response echoes proposed_commands so the operator knows what to run.
-export function createPostHandler(deps = { decideProposal }) {
+// Rejections stop at the durable proposal lifecycle. Acceptances additionally
+// invoke the bounded executor; its sidecar distinguishes the review decision
+// from accepted/rejected/unavailable sprintctl authority outcomes.
+export function createPostHandler(deps = { decideProposal, executeAcceptedProposal }) {
   const checkAuth = deps.requireConfiguredWriteAuth ?? requireConfiguredWriteAuth;
   return async function POST(request) {
     const denied = checkAuth(request, SOURCE);
@@ -55,18 +58,27 @@ export function createPostHandler(deps = { decideProposal }) {
         ? body.decided_by.trim()
         : getConfig().cockpitOperatorId;
     try {
-      const result = await deps.decideProposal({
+      let result = await deps.decideProposal({
         repoId: repo_id,
         proposalId: proposal_id,
         decision,
         decidedBy,
         rejectionReason: rejection_reason ?? null
       });
+      if (decision === "accepted") {
+        const execute = deps.executeAcceptedProposal ?? executeAcceptedProposal;
+        const execution = await execute({
+          repoId: repo_id,
+          proposalId: proposal_id,
+          executedBy: decidedBy
+        });
+        result = { ...result, execution };
+      }
       return ok({ source: SOURCE, repo_id, ...result, degraded: null });
     } catch (error) {
       const status = error instanceof ProposalNotFoundError
         ? 404
-        : error instanceof ProposalDecisionError
+        : error instanceof ProposalDecisionError || error instanceof ProposalExecutionError
           ? 409
           : 500;
       return Response.json(

@@ -31,6 +31,13 @@ export function getConfig() {
     auditCacheMs: Number(process.env.COCKPIT_AUDIT_CACHE_MS || 5000),
     knowledgeCacheMs: Number(process.env.COCKPIT_KNOWLEDGE_CACHE_MS || 5000),
     reconciliationCacheMs: Number(process.env.COCKPIT_RECONCILIATION_CACHE_MS || 5000),
+    reconciliationExecutionEnabled:
+      process.env.COCKPIT_RECONCILIATION_EXECUTION_ENABLED === "true",
+    reconciliationExecutionTimeoutMs: Number(
+      process.env.COCKPIT_RECONCILIATION_EXECUTION_TIMEOUT_MS || 15000
+    ),
+    sprintctlBin: process.env.COCKPIT_SPRINTCTL_BIN || "sprintctl",
+    workspaceRoot: process.env.COCKPIT_WORKSPACE_ROOT || "/projects/dev",
     dispatchManifestRoot:
       process.env.COCKPIT_DISPATCH_MANIFEST_ROOT || "/projects/dev/agentops/templates/dispatch/examples",
     dispatchManifestCacheMs: Number(process.env.COCKPIT_DISPATCH_MANIFEST_CACHE_MS || 5000),

@@ -209,15 +209,36 @@ but observable queue, never a quietly wrong sprint record.
 
 ## Cockpit surfaces
 
-**Implemented (item #1109):** `apps/web/lib/cockpit/reconciliation.js` plus
+**Implemented (items #1109 and #1173):** `apps/web/lib/cockpit/reconciliation.js`
+plus
 `GET /cockpit/api/reconciliation` (review queue, reconciliation-lag,
 watermark-age, dogfooding metrics) and
 `POST /cockpit/api/reconciliation/decide` (accept/reject recorded on the
 proposal artifact's lifecycle; gated on `COCKPIT_WRITE_TOKEN`, disabled
-until configured). The decide route records the decision only — it never
-executes `proposed_commands`; acceptance still runs through normal
-sprintctl authority commands per the write-surface policy. The shell UI
-renders these in a "Reconciliation" section.
+until configured). Rejection remains an observation-only lifecycle decision.
+Acceptance invokes the bounded executor in
+`apps/web/lib/cockpit/reconciliation-executor.js` when
+`COCKPIT_RECONCILIATION_EXECUTION_ENABLED=true`:
+
+- only `item.transition`, `item.done`, `sprint.activate`, and `sprint.close`
+  are accepted;
+- target IDs, current/observed basis revisions, evidence inputs, and command
+  parameter shapes are checked before submission;
+- every command receives a deterministic request UUID, so a retry after an
+  unavailable response or process crash resolves to the first sprintctl
+  authority decision;
+- accepted, rejected, partial, unavailable, and deferred outcomes are written
+  to `reconciliation-executions/<proposal-id>.json`, separate from the review
+  lifecycle; and
+- claim-proof environment variables are deliberately removed from the child
+  process. A proposal cannot smuggle or accidentally inherit claim authority;
+  sprintctl rejects a transition that requires proof.
+
+The proposal may therefore be durably `accepted` while its authority
+execution is rejected, partial, unavailable, or deferred. The shell renders
+recent execution outcomes and authority decision counts in the
+"Reconciliation" section. Disabling the execution flag is the source-level
+rollback: accepted decisions remain durable and can be retried later.
 
 The agent-cockpit surface (agentops-owned) grows:
 
@@ -231,11 +252,11 @@ The agent-cockpit surface (agentops-owned) grows:
 ## Ownership
 
 Per the matrix ([`state-event-command-matrix.md`](state-event-command-matrix.md)):
-the Tier-0 session wrapper *mechanism* is proposed as actionq-owned (session
-lifecycle authority); the capsule/exhaust *contract*, cross-domain projection,
-scribe, and cockpit surfaces are agentops-owned. Proposal acceptance executes
-as sprintctl authority commands. See the matrix for the full assignment and
-its ratification status.
+the Tier-0 session wrapper *mechanism* is actionq-owned (session lifecycle
+authority); the capsule/exhaust *contract*, cross-domain projection, scribe,
+and cockpit surfaces are agentops-owned. This assignment was ratified through
+actionq backlog decision #968. Proposal acceptance executes as sprintctl
+authority commands. See the matrix for the full assignment.
 
 ## Related documents
 

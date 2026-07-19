@@ -11,6 +11,11 @@ const SKILLS = new Set([
   "dispatch-build",
   "dispatch-review",
   "code-change-verification",
+  "backlog-refinement",
+  "sprint-maintenance",
+  "task-pickup",
+  "plan-review",
+  "model-routing-optimizer",
   "pr-handoff-summary",
   "sprint-resume",
   "sprint-packet",
@@ -19,6 +24,10 @@ const SKILLS = new Set([
   "kctl-extract",
   "sprint-close",
   "capability-receipt",
+  "domain-impact-scan",
+  "workflow-artifact-capture",
+  "session-reconciler",
+  "session-scribe",
   "verify-state-protocols",
   "reconcile-project-contracts"
 ]);

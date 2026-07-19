@@ -86,6 +86,29 @@ mechanization plan is explicit that not every session should create backlog
 activity, but every code-bearing session should eventually receive a recorded
 reconciliation outcome.
 
+### Agentops execution sidecar
+
+Proposal acceptance and sprintctl command success are deliberately separate
+facts. The cockpit executor persists its internal runtime record at
+`reconciliation-executions/<proposal-id>.json` with
+`schema_version: reconciliation-execution/v1`. This is an agentops-owned
+sidecar, not a third cross-repository proposal contract. It contains:
+
+- the proposal ID and deduplication key;
+- overall state (`deferred`, `pending`, `succeeded`, `rejected`, `partial`, or
+  `unavailable`);
+- executor actor, timestamps, and attempt count; and
+- an ordered command list with deterministic `request_event_id`, command type,
+  aggregate ID, basis revision, non-secret payload, attempts, and the
+  correlated sprintctl decision or availability error.
+
+The sidecar never stores claim tokens or other authority credentials. A
+terminal accepted/rejected command is not resubmitted. An unavailable or
+crash-interrupted command is retried with the same request UUID, allowing
+sprintctl to return the original atomic decision. The shared
+`reconciliation-proposal/v1` remains unchanged so producers do not need to
+understand executor runtime state.
+
 ## What this contract does not decide
 
 - Which outbox transports these artifacts (actionq's Tier-0 wrapper, or a
