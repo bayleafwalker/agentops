@@ -71,6 +71,10 @@ doubt):
 | `COCKPIT_ACTIONQ_DISPATCH_CONTRACT` | literal `v1` | |
 | `COCKPIT_CLAUDE_HEADROOM_COMMAND` / `_FILE`, `COCKPIT_CODEX_HEADROOM_COMMAND`, `COCKPIT_HEADROOM_TRIGGER_PATH` | literals | headroom panels + refresh trigger file |
 | `COCKPIT_RECONCILIATION_CACHE_MS` | *not yet set* | optional cache knob added with the reconciliation surfaces (#1109); defaults sensibly in code |
+| `COCKPIT_RECONCILIATION_EXECUTION_ENABLED` | *not yet set; defaults false* | enables #1173 accepted-proposal execution only after the runtime prerequisites below are satisfied |
+| `COCKPIT_SPRINTCTL_BIN` | *not yet set* | optional sprintctl executable override; defaults to `sprintctl` |
+| `COCKPIT_WORKSPACE_ROOT` | *not yet set* | repository-root parent for authority command cwd; defaults to `/projects/dev` |
+| `COCKPIT_RECONCILIATION_EXECUTION_TIMEOUT_MS` | *not yet set* | per-command timeout; defaults to 15000 ms |
 
 Write-token semantics: routes are **legacy-open when the env var is unset**;
 once set, writes require bearer or `x-cockpit-write-token` (timing-safe
@@ -104,6 +108,27 @@ capture the following checks:
      `sprintctl-cnpg-main` DB; expect `SP404`/`SP409` SQLSTATE mapping);
    - `GET /cockpit/api/reconciliation` → healthy empty review queue (no
      live capsules exist yet — expected until the Tier-0 producer ships).
+
+### Accepted-proposal executor rollout (#1173)
+
+Keep `COCKPIT_RECONCILIATION_EXECUTION_ENABLED` unset/false in the current
+pod. The source implementation is fail-closed and fully retryable, but the
+deployed topology still has two prerequisites that appservice must provide
+before enabling it:
+
+1. a writable durable location for proposal lifecycle and
+   `reconciliation-executions/` sidecars (the current `/projects/dev` mount is
+   read-only); and
+2. a sprintctl authority runner or service that can durably append its command
+   outbox. The current CLI stores rollout/outbox state below the repository
+   root, which is also read-only in this pod.
+
+Do not make the workspace mount broadly writable to satisfy these. Prefer a
+dedicated writable state mount plus a domain-owned sprintctl service/runner.
+Once selected, enable the flag and smoke one accepted, one authority-rejected,
+and one repeated request. The repeated request must retain the same
+`request_event_id` and return the original decision. Rollback is the flag only;
+proposal decisions and execution sidecars remain for later retry.
 
 ## Operational notes
 

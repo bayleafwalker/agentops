@@ -228,7 +228,7 @@ export function CockpitShell() {
   const [dispatchesData, setDispatchesData] = useState({ dispatches: [], degraded: null });
   const [eventsData, setEventsData] = useState({ events: [], degraded: null });
   const [auditData, setAuditData] = useState({ events: [], degraded: null });
-  const [reconciliationData, setReconciliationData] = useState({ review_queue: [], lag: null, watermark: null, dogfooding: null, warnings: [], degraded: null });
+  const [reconciliationData, setReconciliationData] = useState({ review_queue: [], executions: [], lag: null, watermark: null, dogfooding: null, warnings: [], degraded: null });
   const [knowledgeData, setKnowledgeData] = useState({ entries: [], warnings: [], updated_at: null, degraded: null });
   const [decidingProposal, setDecidingProposal] = useState(null);
   const [costData, setCostData] = useState({ summary: null, degraded: null });
@@ -331,7 +331,7 @@ export function CockpitShell() {
     }
     setDecidingProposal(proposalId);
     try {
-      await readJson("/cockpit/api/reconciliation/decide", {
+      const result = await readJson("/cockpit/api/reconciliation/decide", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -343,7 +343,15 @@ export function CockpitShell() {
       });
       setReconciliationData((current) => ({
         ...current,
-        review_queue: current.review_queue.filter((proposal) => proposal.proposal_id !== proposalId)
+        review_queue: current.review_queue.filter((proposal) => proposal.proposal_id !== proposalId),
+        executions: result.execution
+          ? [
+              result.execution,
+              ...(current.executions || []).filter(
+                (execution) => execution.proposal_id !== result.execution.proposal_id
+              )
+            ]
+          : current.executions
       }));
     } catch (error) {
       console.error("Proposal decision failed:", error.message);
@@ -600,7 +608,7 @@ export function CockpitShell() {
 
   useEffect(() => {
     if (selectedRepo === "ALL") {
-      setReconciliationData({ review_queue: [], lag: null, watermark: null, dogfooding: null, warnings: [], degraded: null });
+      setReconciliationData({ review_queue: [], executions: [], lag: null, watermark: null, dogfooding: null, warnings: [], degraded: null });
       return undefined;
     }
     let cancelled = false;
@@ -1222,6 +1230,27 @@ export function CockpitShell() {
                     {" · "}accepted {reconciliationData.dogfooding.proposals_by_state.accepted}
                     {" · "}rejected {reconciliationData.dogfooding.proposals_by_state.rejected}
                     {" · "}no-change {reconciliationData.dogfooding.proposals_by_classification["incidental-no-change"]}
+                    {" · "}authority accepted {reconciliationData.dogfooding.authority_decisions_by_outcome?.accepted || 0}
+                    {" · "}authority rejected {reconciliationData.dogfooding.authority_decisions_by_outcome?.rejected || 0}
+                  </div>
+                ) : null}
+                {(reconciliationData.executions || []).length > 0 ? (
+                  <div className="feed-list">
+                    {reconciliationData.executions.slice(0, 5).map((execution) => (
+                      <div key={execution.proposal_id} className="feed-item">
+                        <div className="title-row">
+                          <strong>execution {execution.state}</strong>
+                          <span className="small muted">{execution.updated_at}</span>
+                        </div>
+                        <div className="small muted">
+                          proposal {execution.proposal_id}
+                          {" · "}{(execution.commands || []).map((command) => `${command.command_type}:${command.state}`).join(", ") || "no commands"}
+                        </div>
+                        {execution.error?.message ? (
+                          <div className="small muted">{execution.error.message}</div>
+                        ) : null}
+                      </div>
+                    ))}
                   </div>
                 ) : null}
                 <div className="feed-list">

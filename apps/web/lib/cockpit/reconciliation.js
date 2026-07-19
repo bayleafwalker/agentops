@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { resolveArtifactRepoRoot } from "./artifacts.js";
@@ -9,10 +10,12 @@ import { getConfig } from "./env.js";
 // watermark-age panels, and the dogfooding metrics named in
 // docs/plans/agentops/session-mechanization-plan.md. Read side only — the
 // artifacts are produced by the scribe/reconciler (items #1107/#1108), and
-// decisions are recorded via decideProposal below, which never executes the
-// proposed sprintctl commands (write-surface-policy.md).
+// decisions are recorded via decideProposal below. Accepted proposals are
+// executed separately by reconciliation-executor.js so the review decision
+// and each sprintctl authority outcome remain independently durable.
 
 const LIFECYCLE_STATES = ["pending", "accepted", "rejected", "superseded"];
+const EXECUTION_STATES = ["deferred", "pending", "succeeded", "rejected", "partial", "unavailable"];
 const CLASSIFICATIONS = [
   "link-existing-item",
   "mark-item-advanced",
@@ -106,12 +109,13 @@ export async function readReconciliationState({ repoId, now = Date.now() }) {
     return cached;
   }
 
-  const [capsules, proposals, cursor] = await Promise.all([
+  const [capsules, proposals, executions, cursor] = await Promise.all([
     readJsonDir(path.join(root, "session-capsules")),
     readJsonDir(path.join(root, "reconciliation-proposals")),
+    readJsonDir(path.join(root, "reconciliation-executions")),
     readCursor(root)
   ]);
-  const warnings = [...capsules.warnings, ...proposals.warnings];
+  const warnings = [...capsules.warnings, ...proposals.warnings, ...executions.warnings];
 
   const consumed = new Set(cursor?.consumed_capsule_ids || []);
   const unreconciled = [];
@@ -161,6 +165,32 @@ export async function readReconciliationState({ repoId, now = Date.now() }) {
 
   const decidedCount = byState.accepted + byState.rejected + byState.superseded;
   const totalProposals = proposals.values.length;
+  const executionsByState = Object.fromEntries(EXECUTION_STATES.map((state) => [state, 0]));
+  const executionRows = [];
+  let acceptedAuthorityDecisions = 0;
+  let rejectedAuthorityDecisions = 0;
+  for (const entry of executions.values) {
+    const execution = entry.value;
+    if (
+      !execution?.proposal_id ||
+      execution.schema_version !== "reconciliation-execution/v1" ||
+      !EXECUTION_STATES.includes(execution.state)
+    ) {
+      warnings.push({ file: entry.path, message: "execution missing proposal id or recognized state" });
+      continue;
+    }
+    executionsByState[execution.state] += 1;
+    for (const command of execution.commands || []) {
+      if (command.state === "accepted") {
+        acceptedAuthorityDecisions += 1;
+      } else if (command.state === "rejected") {
+        rejectedAuthorityDecisions += 1;
+      }
+    }
+    executionRows.push({ ...execution, artifact_path: entry.path });
+  }
+  executionRows.sort((a, b) => (a.updated_at > b.updated_at ? -1 : 1));
+  const executionProposalIds = new Set(executionRows.map((execution) => execution.proposal_id));
 
   const state = {
     repo_id: repoId,
@@ -184,6 +214,7 @@ export async function readReconciliationState({ repoId, now = Date.now() }) {
           observed_age_seconds: ageSeconds(latestCapsule.ended_at, now)
         }
       : null,
+    executions: executionRows.slice(0, 50),
     dogfooding: {
       proposals_total: totalProposals,
       proposals_by_state: byState,
@@ -191,7 +222,16 @@ export async function readReconciliationState({ repoId, now = Date.now() }) {
       no_change_rate: totalProposals ? byClassification["incidental-no-change"] / totalProposals : null,
       accepted_rate: decidedCount ? byState.accepted / decidedCount : null,
       rejected_rate: decidedCount ? byState.rejected / decidedCount : null,
-      pending_review_count: byState.pending
+      pending_review_count: byState.pending,
+      executions_total: executionRows.length,
+      executions_by_state: executionsByState,
+      accepted_without_execution_count: proposals.values.filter(
+        (entry) => entry.value?.lifecycle?.state === "accepted" && !executionProposalIds.has(entry.value.proposal_id)
+      ).length,
+      authority_decisions_by_outcome: {
+        accepted: acceptedAuthorityDecisions,
+        rejected: rejectedAuthorityDecisions
+      }
     },
     warnings
   };
@@ -201,12 +241,21 @@ export async function readReconciliationState({ repoId, now = Date.now() }) {
 export class ProposalNotFoundError extends Error {}
 export class ProposalDecisionError extends Error {}
 
+function validateProposalId(proposalId) {
+  if (
+    typeof proposalId !== "string" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(proposalId)
+  ) {
+    throw new ProposalDecisionError("proposal_id must be a lowercase UUID");
+  }
+}
+
 // Records an accept/reject decision on the proposal artifact's lifecycle.
-// This is the durable decision record the scribe's dedup logic depends on
-// (a rejected proposal is never rediscovered). It deliberately does NOT
-// execute proposed_commands — acceptance runs through normal sprintctl
-// authority commands per write-surface-policy.md.
+// This is the durable decision record the scribe's dedup logic depends on.
+// An identical accepted decision is idempotent so a caller can resume a
+// separately persisted authority execution after a crash or outage.
 export async function decideProposal({ repoId, proposalId, decision, decidedBy, rejectionReason = null }) {
+  validateProposalId(proposalId);
   if (!["accepted", "rejected"].includes(decision)) {
     throw new ProposalDecisionError(`decision must be accepted or rejected, got ${decision}`);
   }
@@ -226,6 +275,14 @@ export async function decideProposal({ repoId, proposalId, decision, decidedBy, 
     throw error;
   }
   const state = proposal?.lifecycle?.state;
+  if (state === "accepted" && decision === "accepted") {
+    return {
+      proposal_id: proposal.proposal_id,
+      lifecycle: proposal.lifecycle,
+      classification: proposal.classification,
+      proposed_commands: proposal.proposed_commands || []
+    };
+  }
   if (state !== "pending") {
     throw new ProposalDecisionError(`Proposal ${proposalId} is ${state}, only pending proposals can be decided`);
   }
@@ -236,15 +293,13 @@ export async function decideProposal({ repoId, proposalId, decision, decidedBy, 
     rejection_reason: decision === "rejected" ? rejectionReason : null,
     superseded_by: null
   };
-  const tmpPath = `${artifactPath}.tmp`;
+  const tmpPath = `${artifactPath}.${process.pid}.${randomUUID()}.tmp`;
   await fs.writeFile(tmpPath, `${JSON.stringify(proposal, null, 2)}\n`, "utf8");
   await fs.rename(tmpPath, artifactPath);
   return {
     proposal_id: proposal.proposal_id,
     lifecycle: proposal.lifecycle,
     classification: proposal.classification,
-    // What acceptance is expected to run via sprintctl authority commands —
-    // returned so the caller can act on them; never executed here.
     proposed_commands: proposal.proposed_commands || []
   };
 }

@@ -94,6 +94,14 @@ nothing and risks cargo-cult cron jobs.
 - #1173 owns idempotent execution of accepted proposals through normal
   sprintctl authority commands; acceptance itself never implies success.
 
+Agentops source status: #1173 now has the bounded, feature-flagged executor,
+durable execution sidecars, stable retry identities, operator read surface,
+and accepted/rejected/stale/duplicate/partial/unavailable test histories.
+Runtime enablement remains gated with the rest of Tranche C: the current
+cockpit pod has a read-only workspace and no writable sprintctl command-outbox
+path, so appservice must select the dedicated state/runner topology before the
+flag is enabled. #1172 and live-capsule evidence remain open.
+
 Gate: live capsules exist (Tranche B deployed). Rollback: remove the
 schedule/trigger; capsules accumulate safely for the scribe to drain later —
 that is the designed degradation mode (bounded, visible lag).

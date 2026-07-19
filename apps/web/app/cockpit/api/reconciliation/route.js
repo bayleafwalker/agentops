@@ -17,6 +17,7 @@ export function createGetHandler(deps = { readReconciliationState }) {
         source: `artifact:reconciliation/${repoId}`,
         repo_id: repoId,
         review_queue: [],
+        executions: [],
         lag: null,
         watermark: null,
         dogfooding: null,

@@ -44,11 +44,21 @@ Current allowlist:
 | `POST /cockpit/api/sprints/activate` | sprint `planned -> active`, kind -> `active_sprint` | Pure state transition; no working-tree evidence involved |
 | `POST /cockpit/api/dispatch` | enqueue actionq action | Doesn't mutate sprint state; hands an intent to Tier 1 |
 | `POST /cockpit/api/dispatcher/pause` | dispatcher pause file | Operational toggle, not sprint state |
+| `POST /cockpit/api/reconciliation/decide` | durable proposal review; accepted proposals may submit a bounded set of sprintctl authority commands | Operator reviews immutable evidence; executor validates target/basis/command shape and sprintctl remains the sole transition arbiter |
 
 Explicitly **not** eligible for API routes: `item done-from-claim`, claim
 start/heartbeat/handoff/release, anything whose correctness depends on tests,
 review artifacts, or claim-token possession. These stay Tier 1, reachable
 remotely only via dispatch.
+
+The reconciliation route does not weaken that exclusion. It never accepts a
+claim token in the request or artifact, removes inherited sprintctl authority
+credential variables before execution, and cannot perform claim operations.
+An `item.done` proposal must carry immutable evidence refs, but if current
+authority state requires an active exclusive-claim proof, sprintctl rejects
+the command. Proposal acceptance is a review decision, not proof that the
+authority command succeeded; the separate execution sidecar records the
+remote outcome.
 
 ### Tier 2b — dispatched writes (evidence-gated transitions)
 
