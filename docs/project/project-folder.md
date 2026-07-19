@@ -67,6 +67,22 @@ rendering so guidance is never projected from a mixed revision set. Exit `0`
 means synchronization and rendering succeeded, exit `1` means an unresolved
 member state, and exit `2` means invalid configuration or an unsafe operation.
 
+## Project-scoped sprint reads
+
+Run project-scoped sprint reads from a member worktree, not the folder root.
+The root is intentionally not a Git repository and therefore has no remote
+backend `repo_id`; `--project` still resolves upward through
+`project.context.json` from every member worktree:
+
+```bash
+cd <folder>/members/<home_repo>
+sprintctl usage --context --project --json
+sprintctl next-work --project --json --explain
+```
+
+This keeps the backend's repository identity explicit while the project
+binding supplies the ordered union of backlog members.
+
 ## Delete and rebuild
 
 Before removing a folder, verify its exact path and matching

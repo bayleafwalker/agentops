@@ -130,6 +130,10 @@ render_levels: [baseline, full]
             first_snapshot = self._snapshot(folder, repos)
             self.assertFalse((folder / ".git").exists())
             self.assertFalse(first.blocked)
+            self.assertIn(
+                "cd members/home && sprintctl usage --context --project --json",
+                first_snapshot["agents"].decode("utf-8"),
+            )
             self.assertTrue(
                 all(
                     status.generated in {"in-sync", "not-applicable"}

@@ -460,6 +460,8 @@ def _folder_agents(
             "",
             f"Resolved machine context: `{CONTEXT_NAME}`.",
             "Run the project-folder sync command before starting a new cross-repository work window.",
+            "Run project-scoped sprintctl reads from a member worktree so remote backend identity is explicit:",
+            f"`cd {MEMBERS_DIRECTORY}/{project.home_repo} && sprintctl usage --context --project --json`.",
             "",
         )
     )
