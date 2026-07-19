@@ -185,6 +185,28 @@ repeated stable-event CLI path returns the original duplicate decision, and
 then run the accepted/rejected/unavailable/duplicate sequence before enabling
 the flag.
 
+### Sprintctl duplicate-retry follow-up (2026-07-19)
+
+Sprintctl subsequently merged owner-side commit
+`42fffd5b05449ff3a9de38820dfae4fa7fdfee95` (`fix(authority): retry durable
+command event ids`). The fix makes a repeated `authority submit --event-id`
+load and validate the original durable request, resubmit that same record for
+remote arbitration, and return the remote duplicate decision instead of
+failing while trying to append a second local record. Its focused
+`tests/test_authority_cli.py` suite passed 6/6, including the exact stable-ID
+duplicate retry path.
+
+This supersedes only the source/unit-proof part of the preceding external
+gate. The recorded image `0.1.14` readiness evidence predates that sprintctl
+commit, no recorded OCI label proves the deployment contains it, and
+`sprintctl --version` cannot distinguish source revisions. Before
+authority-execution smoke, rebuild the cockpit image from a clean sprintctl
+source revision containing `42fffd5`, verify the image's
+`org.opencontainers.image.sprintctl-revision` label, and deploy it with the
+execution flag still `false`. The disposable remote target and actual
+accepted/rejected/unavailable/duplicate CLI evidence remain required before
+enablement.
+
 ## Operational notes
 
 - The pod reads the whole workspace **read-only**; it can never repair its
