@@ -18,7 +18,7 @@ reviewable from Git.
 
 | Owner | Items | Outcome | Priority / posture |
 | --- | --- | --- | --- |
-| agentops coordination | #1185–#1189 | public bootstrap, cross-repo mirrors, and appservice runtime handoff | P1; #1185 is blocked only on GitHub repository-creation permission, #1186–#1188 mirror owner items, and #1189 remains planning-gated on appservice inspection |
+| agentops coordination | #1185–#1189 | public bootstrap, cross-repo mirrors, and appservice runtime handoff | P1; the public repository exists but #1185 is blocked on a Git contents-write credential, #1186–#1188 mirror owner items, and #1189 remains planning-gated on appservice inspection |
 | `vuoro` owner backlog 427 | #1203–#1206 | contracts, four-domain composition, packaging, and marked recovery | P1/P3; #1203 is the owner-local chain head and #1206 remains parked |
 | agentops governance | #1190–#1192 | environment injection, ratification validation, and the recovery coordination mirror | P2/P3; #1191 needs a design pass and #1192 mirrors vuoro #1206 |
 | agentops existing | #1173, #1174 | catalog-mediated proposal execution and independent session dogfood evidence | P2; existing #1173 → #1174 dependency retained |
@@ -40,10 +40,11 @@ reviewable from Git.
   to vuoro #1203, #1204, #1205, and #1206 respectively. Structured notes on
   the old records mark them as coordination mirrors; agents must not dispatch
   both sides as separate implementations.
-- The local public-repository bootstrap and split distributions are committed
-  in `/projects/dev/vuoro`. The public GitHub remote cannot be created by the
-  current credential (`createRepository` is unavailable), so agentops project
-  membership remains unpushed until that external permission gate clears.
+- The public `bayleafwalker/vuoro` repository now exists and is empty. The
+  local bootstrap and split distributions remain in `/projects/dev/vuoro`
+  because the active HTTPS credential returns 403 for Git contents writes and
+  the workstation SSH path cannot authenticate. Agentops project membership
+  remains unpushed until `fbcebfb..d025498` is remotely durable.
 - The rebuildable project folder moved from `/projects/dev/vuoro` to
   `/projects/dev/vuoro-project` before the public repository was initialized.
 - Appservice work is coordinated by #1189 until its repository and live
@@ -63,7 +64,7 @@ reviewable from Git.
 ## Cross-repository critical path
 
 ```text
-#1185 public remote + project publication
+#1185 Vuoro commit publication + project publication
   -> vuoro #1203 contracts (agentops mirror #1186)
   -> domain migrations/adapters (#1193/#1194, #1196/#1197,
                                  #1199/#1200, #1201/#1202)
