@@ -36,6 +36,9 @@ Claim proof never enters workflow results or verifier prompts. A build worker ca
 exact mode-0600 workflow credential record for the authorized close stage, which validates the
 record identity and removes only that file after a successful close or release. This is necessary
 for remote sprintctl backends, where sprintctl's built-in local recovery record is unavailable.
+Proof records must never be printed for inspection. Secret-bearing fields may be nested, so deleting
+only top-level token keys is not redaction; validation must extract only explicitly safe scalar
+fields or use a tested recursive redactor.
 
 This is deliberately flat. Build workers do not recursively create planners, coders, reviewers, or
 summarizers. If a worker discovers an unresolved shared architecture, ownership boundary,
