@@ -60,3 +60,29 @@ Tier-assignment note: every item except actionq#1115 was tiered `hard`. In hinds
 3. **Recommended, not actioned:** actionq#976's Postgres-backed pause/resume drill needs a follow-up verification pass once a disposable `ACTIONQ_TEST_URL` schema is available in whatever environment runs it next.
 4. **Recommended, not actioned:** a small cleanup item to actually extract `actionq/session_wrapper.py`'s duplicate git-evidence logic onto the new `actionq/git_evidence.py` module from #1115, closing the drift risk its own commit message claimed to close.
 5. **Process note for future verify-gate prompts:** tell verifiers explicitly to run full-suite regression checks in the foreground with a bounded timeout rather than backgrounding and polling -- the #1160 rework cycle lost real wall-clock to a stalled background wait.
+
+## Follow-up resolution (2026-07-21)
+
+The historical recommendations above describe the workflow at the end of the recorded run. They
+were subsequently resolved in the canonical agentops sources:
+
+- Both saved workflows are now self-contained and no longer probe for project-scoped skills after
+  an agent starts. Selected shared skills were also synchronized into actionq and kctl for ordinary
+  repository-local sessions; agentops now has a root dispatch manifest and direct canonical skill
+  symlinks rather than a copied self-mirror.
+- Verification commands must run foreground with a configurable timeout (900 seconds by default),
+  report exact command outcomes, and treat a required timeout as inconclusive rather than entering
+  a background polling loop.
+- `mechanical` was superseded by `bounded` as the routing concept. Bounded includes substantial but
+  well-specified implementation; it is not restricted to bookkeeping. In Claude workflows Haiku is
+  limited to triage and deterministic closeout while Sonnet owns all code-bearing tiers. Canonical
+  Codex aliases route bounded build work to Luna, uncertain/hard implementation to Terra, and
+  unresolved decisions to Sol.
+- Same-repo work may now declare coherent `unit` boundaries. Units remain sequential in a shared
+  repository but receive separate implementation contexts and independent per-unit verification.
+  Discovery of an unresolved shared constraint stops later same-repo units instead of allowing a
+  recursively expanding dispatch tree.
+- Claim tokens were removed from workflow schemas and inter-agent payloads. Build workers capture
+  proof in exact mode-0600 workflow records for remote-backend compatibility; closeout consumes and
+  removes those records, with sprintctl's local-backend recovery as fallback. Requested Git
+  publication moved behind the independent verification gate.

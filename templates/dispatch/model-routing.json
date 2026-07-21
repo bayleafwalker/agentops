@@ -1,6 +1,16 @@
 {
   "schema_version": 1,
   "aliases": {
+    "clerical": {
+      "anthropic": {
+        "model": "claude-haiku-4-5-20251001",
+        "verified": true
+      },
+      "codex": {
+        "model": "gpt-5.6-luna",
+        "verified": true
+      }
+    },
     "frontier-default": {
       "anthropic": {
         "model": "claude-fable-5",
@@ -9,6 +19,16 @@
       }
     },
     "frontier-plan": {
+      "anthropic": {
+        "model": "claude-opus-4-8",
+        "verified": true
+      },
+      "codex": {
+        "model": "gpt-5.6-sol",
+        "verified": true
+      }
+    },
+    "frontier-review": {
       "anthropic": {
         "model": "claude-opus-4-8",
         "verified": true
@@ -36,11 +56,21 @@
     },
     "fast-build": {
       "anthropic": {
-        "model": "claude-haiku-4-5-20251001",
+        "model": "claude-sonnet-5",
         "verified": true
       },
       "codex": {
         "model": "gpt-5.6-luna",
+        "verified": true
+      }
+    },
+    "standard-build": {
+      "anthropic": {
+        "model": "claude-sonnet-5",
+        "verified": true
+      },
+      "codex": {
+        "model": "gpt-5.6-terra",
         "verified": true
       }
     },
@@ -50,6 +80,11 @@
         "fallback": "claude-opus-4-8",
         "verified": true,
         "note": "2026-07-20: claude-sonnet-5 replaces claude-opus-4-8 as the default for semantically hard bulk build/verify work (state-protocol semantics, read-path/parity/staleness logic) now that Sonnet 5 is available in this harness; opus-4-8 kept only as fallback."
+      },
+      "codex": {
+        "model": "gpt-5.6-terra",
+        "verified": true,
+        "note": "Semantically hard implementation remains a Terra workload when its architecture and acceptance contract are already decided; route unresolved architecture and cross-repository decisions through frontier-plan instead."
       }
     }
   }

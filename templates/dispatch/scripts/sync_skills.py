@@ -130,14 +130,27 @@ def _tree_diff(template: Path, repository: Path) -> str:
     return "\n".join(chunks)
 
 
-def _expected_symlink(name: str) -> str:
+def _template_is_repo_local(repo_root: Path, template_root: Path) -> bool:
+    """Return whether the canonical template tree is owned by this repository."""
+    try:
+        template_root.resolve().relative_to(repo_root.resolve())
+    except ValueError:
+        return False
+    return True
+
+
+def _expected_symlink(repo_root: Path, name: str, template_root: Path) -> str:
+    link = repo_root / ".claude" / "skills" / name
+    if _template_is_repo_local(repo_root, template_root):
+        return os.path.relpath(template_root / name, start=link.parent)
     return f"../../.agents/skills/{name}"
 
 
-def _symlink_status(repo_root: Path, name: str) -> str:
+def _symlink_status(repo_root: Path, name: str, template_root: Path) -> str:
     link = repo_root / ".claude" / "skills" / name
+    expected = _expected_symlink(repo_root, name, template_root)
     if link.is_symlink():
-        return "in-sync" if os.readlink(link) == _expected_symlink(name) else "drifted"
+        return "in-sync" if os.readlink(link) == expected else "drifted"
     return "drifted" if link.exists() else "missing"
 
 
@@ -149,23 +162,27 @@ def inspect_skills(
 ) -> list[SkillStatus]:
     """Compare selected skill trees and their Claude skill symlinks."""
     statuses: list[SkillStatus] = []
+    canonical_source = _template_is_repo_local(repo_root, template_root)
     for name in names:
         template = template_root / name
         repository = repo_root / ".agents" / "skills" / name
         if not template.is_dir():
             statuses.append(SkillStatus(name, "repo-local", "not-applicable"))
             continue
+        if canonical_source:
+            statuses.append(SkillStatus(name, "canonical", _symlink_status(repo_root, name, template_root)))
+            continue
         if not repository.is_dir() or repository.is_symlink():
-            statuses.append(SkillStatus(name, "missing", _symlink_status(repo_root, name)))
+            statuses.append(SkillStatus(name, "missing", _symlink_status(repo_root, name, template_root)))
             continue
         if tree_digest(template) == tree_digest(repository):
-            statuses.append(SkillStatus(name, "in-sync", _symlink_status(repo_root, name)))
+            statuses.append(SkillStatus(name, "in-sync", _symlink_status(repo_root, name, template_root)))
             continue
         statuses.append(
             SkillStatus(
                 name,
                 "drifted",
-                _symlink_status(repo_root, name),
+                _symlink_status(repo_root, name, template_root),
                 _tree_diff(template, repository),
             )
         )
@@ -243,11 +260,11 @@ def _copy_skill(source: Path, destination: Path) -> None:
         staged.rename(destination)
 
 
-def _repair_symlink(repo_root: Path, name: str) -> None:
+def _repair_symlink(repo_root: Path, name: str, template_root: Path) -> None:
     link = repo_root / ".claude" / "skills" / name
     link.parent.mkdir(parents=True, exist_ok=True)
     _remove_path(link)
-    link.symlink_to(_expected_symlink(name))
+    link.symlink_to(_expected_symlink(repo_root, name, template_root))
 
 
 def apply_sync(
@@ -272,7 +289,7 @@ def apply_sync(
         if status.content in SYNCABLE_STATUSES:
             _copy_skill(template_root / status.name, repo_root / ".agents" / "skills" / status.name)
         if status.symlink != "in-sync":
-            _repair_symlink(repo_root, status.name)
+            _repair_symlink(repo_root, status.name, template_root)
     return inspect_skills(repo_root, names, template_root=template_root)
 
 

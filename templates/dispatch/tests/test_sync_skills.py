@@ -18,6 +18,14 @@ SPEC.loader.exec_module(SYNC)
 
 
 class SkillSyncTests(unittest.TestCase):
+    def test_canonical_skills_have_discoverable_frontmatter(self) -> None:
+        malformed = [
+            path.parent.name
+            for path in sorted(SYNC.TEMPLATE_ROOT.glob("*/SKILL.md"))
+            if not path.read_text(encoding="utf-8").startswith("---\n")
+        ]
+        self.assertEqual(malformed, [])
+
     def _write_skill(self, root: Path, name: str, content: str = "canonical\n") -> Path:
         skill = root / name
         skill.mkdir(parents=True)
@@ -102,6 +110,26 @@ class SkillSyncTests(unittest.TestCase):
             link = repo / ".claude" / "skills" / "shared"
             self.assertTrue(link.is_symlink())
             self.assertEqual(os_readlink(link), "../../.agents/skills/shared")
+
+    def test_canonical_repository_links_directly_without_self_copy(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = Path(temporary) / "repo"
+            repo.mkdir()
+            template = repo / "templates" / "skills"
+            self._write_skill(template, "shared")
+            self._init_clean_git_repo(repo)
+
+            before = SYNC.inspect_skills(repo, ["shared"], template_root=template)
+            self.assertEqual(before[0].content, "canonical")
+            self.assertEqual(before[0].symlink, "missing")
+
+            statuses = SYNC.apply_sync(repo, ["shared"], template_root=template)
+
+            self.assertEqual(statuses[0].content, "canonical")
+            self.assertEqual(statuses[0].symlink, "in-sync")
+            link = repo / ".claude" / "skills" / "shared"
+            self.assertEqual(os_readlink(link), "../../templates/skills/shared")
+            self.assertFalse((repo / ".agents" / "skills" / "shared").exists())
 
     def test_repo_local_skill_is_preserved(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

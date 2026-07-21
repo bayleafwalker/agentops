@@ -56,6 +56,14 @@ differences: domain boundaries, test commands, specialist roster, architecture r
 safety rules, or escalation rules. Full skill bodies should be copied into a repo only when the
 repo has a real behavioral fork.
 
+`sync_skills.py` materializes a consumer's selected canonical skill bodies under
+`.agents/skills/` and exposes them to Claude through `.claude/skills/` symlinks. When the template
+root is inside the repository being synchronized (the canonical `agentops` repository), it links
+`.claude/skills/` directly to `templates/dispatch/skills/` instead of creating a redundant self-copy.
+Saved cross-repository workflows must still carry a complete action contract in their prompts:
+project-scoped skill discovery is fixed when an agent starts and is not a reliable runtime
+dependency after merely changing shell cwd.
+
 ## Stateful Protocol Risk Surfaces
 
 The optional `risk_surfaces` array maps closed stateful subjects to changed paths, shared

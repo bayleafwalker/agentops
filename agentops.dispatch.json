@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "repo_id": "agentops",
+  "adoption_level": "guidance-only",
+  "routing": {
+    "default_harness": "codex",
+    "default_model_alias": "fast-build",
+    "action_classes": {
+      "plan": { "enabled": true, "model_alias": "frontier-plan" },
+      "build": { "enabled": true, "model_alias": "fast-build", "review_required": true },
+      "review": { "enabled": true, "model_alias": "review-synthesis" },
+      "verify": { "enabled": true, "model_alias": "review-synthesis", "review_required": true },
+      "reconcile": { "enabled": true, "model_alias": "review-synthesis" }
+    }
+  },
+  "skills": {
+    "template_root": "/projects/dev/agentops/templates/dispatch/skills",
+    "selected": [
+      "dispatch-plan",
+      "dispatch-build",
+      "dispatch-review",
+      "code-change-verification",
+      "item-done",
+      "model-routing-optimizer",
+      "workflow-artifact-capture",
+      "reconcile-project-contracts"
+    ]
+  },
+  "scope": {
+    "allowed_path_roots": [
+      "apps/",
+      "templates/",
+      "docs/",
+      ".agents/",
+      ".claude/",
+      ".project/",
+      "AGENTS.md",
+      "agentops.toml",
+      "project.toml"
+    ],
+    "out_of_scope": [
+      "runtime behavior owned by sprintctl, kctl, actionq, or actionq-dispatcher",
+      "cluster reconciliation, image publication, or deployment mutation"
+    ]
+  },
+  "verification": {
+    "command_families": ["unit", "docs", "full-suite"],
+    "targeted_first": true,
+    "commands": [
+      "python -m unittest discover -s templates/dispatch/tests",
+      "npm --prefix apps/web test",
+      "npm --prefix apps/web run build"
+    ]
+  },
+  "hooks": {
+    "level": "verification",
+    "publishers": ["git", "dispatcher-gate"]
+  }
+}

@@ -69,20 +69,25 @@ state, audit state, or Kubernetes desired state.
 
 ## Saved Dispatch Workflows
 
-- `.claude/workflows/vuoro-dispatch-build.js` — claim → build → independent verify → close
-  pipeline for sprintctl items, grouped per repo (same-repo items stay sequential in one
-  build agent; independent repos dispatch in parallel). Routes model/effort per item
-  difficulty (`mechanical` / `standard` / `hard`, cheap-triaged when not supplied) instead
-  of applying one uniform tier to every item. The build agent never marks an item done; a
-  separate agent independently re-reads the diff and cold-reruns tests before closing it.
+- `.claude/workflows/vuoro-dispatch-build.js` — claim → build → independent verify → optional
+  publish → close pipeline for sprintctl items. Callers may group related items with `unit`;
+  same-repo units use separate accountable build contexts but stay sequential, while independent
+  repos dispatch in parallel. Routes by boundedness/uncertainty (`bounded` / `standard` / `hard`,
+  with legacy `mechanical` accepted as `bounded`) instead of diff size. Verification runs once per
+  reasoning unit in fresh context, with foreground timeouts and explicit command evidence. A shared
+  constraint trips a same-repo circuit breaker. The build agent never closes or pushes; `push=true`
+  publishes only after the entire built repo batch clears independent verification.
 - `.claude/workflows/vuoro-dispatch-verify.js` — independent verification pass, usable as
   the pre-close gate above (`mode: "gate"`) or as a standalone retroactive audit of work
-  already merged (`mode: "audit"`, files a triage note instead of closing anything).
+  already merged (`mode: "audit"`, files a triage note instead of closing anything). Gate mode
+  takes claim IDs and reads proof from mode-0600 workflow records (or sprintctl's local-backend
+  recovery record as fallback); claim tokens must not be passed through workflow args or results.
 - Both invoke via `Workflow({scriptPath: "/projects/dev/agentops/.claude/workflows/<name>.js"}, {args: {...}})`
-  — see each file's `meta.whenToUse` for the exact args shape. Their model tiers mirror the
-  `fast-build` / `hard-build` aliases in `templates/dispatch/model-routing.json`; keep them
-  in sync by hand (workflow scripts have no filesystem access to read the routing file at
-  run time).
+  — see each file's `meta.whenToUse` for the exact args shape. Their provider-specific tiers mirror
+  the `clerical` / `fast-build` / `standard-build` / `hard-build` aliases in
+  `templates/dispatch/model-routing.json`; keep them in sync by hand (workflow scripts have no
+  filesystem access to read the routing file at run time). See
+  `docs/dispatch/workflow-topology.md` for the reasoning-unit and escalation policy.
 
 ## Documentation Quality
 
