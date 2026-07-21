@@ -521,6 +521,29 @@ received this exact prompt:
   installed migration checksums matched. Verdict `pass`; #1196 is pushed and
   done.
 
+## Publication-unblock postscript
+
+The operator later created `bayleafwalker/vuoro` and updated its fine-grained
+credential in two steps. The first retry showed that repository selection plus
+Contents write was insufficient for the committed CI file: GitHub rejected the
+push until workflow-file permission was also granted. HTTPS then published the
+unchanged `fbcebfb..d025498` chain, public CI run 29851908487 passed, and
+agentops published the project binding as `1b38512` plus completion ledger
+`10bb217`. Items #1185, #1186, and vuoro #1203 were closed from fresh claims;
+each claim was released and its exact proof file deleted.
+
+Two closeout mistakes were observable:
+
+- Backticks inside a double-quoted `sprintctl item note --detail` argument were
+  interpreted by the shell, attempted to execute the workflow path and the
+  word `workflow`, and produced a malformed blocker-detail event. A later
+  decision event carries the correct completion evidence. Shell-bound note
+  text must avoid executable quoting or use a structured input path.
+- Running sprintctl mutations/reads concurrently from two repository roots
+  twice produced PostgreSQL deadlocks involving startup migration locks. Both
+  serial retries succeeded. Cross-repository backlog operations should be
+  serialized until normal sprintctl startup is DDL-free.
+
 ## Usage and cost snapshot
 
 Telemetry source: local Codex rollout JSONL `token_count` events. Token totals

@@ -93,11 +93,25 @@ envelopes.
 Also validated and published: actionq deployment migration/runtime role
 compatibility and auditctl central ingest/migration ownership contracts.
 
-Not validated: Vuoro public GitHub visibility, GitHub Actions, Vuoro package or
-OCI publication, the four-domain service adapter composition, the remaining
-work/kctl migrations and adapters, Compose/Kustomize, and appservice runtimes.
-Those are not silently treated as passes. Vuoro delivery is blocked
-specifically on repository-creation permission.
+Not validated at the initial snapshot: Vuoro public GitHub visibility and
+GitHub Actions. The publication follow-up below subsequently validated both.
+Still not validated: Vuoro package or OCI publication, the four-domain service
+adapter composition, the remaining work/kctl migrations and adapters,
+Compose/Kustomize, and appservice runtimes.
+
+## Publication follow-up
+
+The external Vuoro blocker cleared after the initial assessment. Repository
+selection, Contents write, and workflow-file permission were distinct gates;
+only the third state allowed the exact commit chain to publish. Vuoro public CI
+then passed at `d025498`, agentops published the project binding at `1b38512`,
+and #1185/#1186/vuoro#1203 closed with no active claims.
+
+This follow-up also exposed two provider-neutral orchestration defects worth
+retaining in the assessment: shell-interpreted note text corrupted one blocker
+detail, and concurrent sprintctl operations deadlocked twice around startup
+migration locks. Structured note input and serialized backlog mutation should
+be defaults.
 
 ## Cost summary
 
@@ -119,12 +133,10 @@ session currency charge. The artifact reports the former and marks the latter
 unavailable rather than applying API prices to a subscription-backed Codex
 session.
 
-## Follow-up changes named
+## Follow-up outcomes and remaining changes
 
-- Create `bayleafwalker/vuoro` with an account credential allowed to create
-  repositories, then push `fbcebfb..d025498` and publish agentops `0187bfb`.
-- Close #1185 and #1203 only after the exact commits are remotely durable and
-  re-run CI evidence is attached.
+- Completed: publish `fbcebfb..d025498`, publish the equivalent agentops
+  project-binding commit `1b38512`, pass public CI, and close #1185/#1186/#1203.
 - Add a Codex-callable wrapper for the saved dispatch workflow or define a
   provider-neutral orchestration surface; manual semantic parity is useful but
   not ideal process evidence.
