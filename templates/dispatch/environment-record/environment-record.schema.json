@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vuoro.dev/schemas/environment-record/v1",
+  "title": "Vuoro environment record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "environment_class",
+    "revision",
+    "roles",
+    "constraints",
+    "capabilities",
+    "runbook_refs",
+    "identity_bindings"
+  ],
+  "properties": {
+    "schema_version": { "const": "environment-record/v1" },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+    "environment_class": {
+      "enum": ["local", "development", "production", "recovery"]
+    },
+    "revision": { "type": "integer", "minimum": 1 },
+    "roles": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/token" },
+      "uniqueItems": true
+    },
+    "constraints": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/token" },
+      "uniqueItems": true
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/token" },
+      "uniqueItems": true
+    },
+    "runbook_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "identity_bindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["principal", "roles"],
+        "properties": {
+          "principal": { "type": "string", "minLength": 1 },
+          "roles": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/token" },
+            "uniqueItems": true
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "token": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+    }
+  }
+}

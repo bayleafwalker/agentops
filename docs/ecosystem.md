@@ -2,6 +2,13 @@
 
 A reference for the `/projects/dev` agent-ops substrate: what each tool does, how they relate, how the cockpit reads them, how to deploy the system, and how to get started.
 
+> **Target architecture, ratified 2026-07-21:** Vuoro is moving substrate-owned
+> semantics out of workstation installations and behind a modular authority
+> service with a server-published operation catalog. The implementation
+> descriptions below remain current-state documentation until that migration
+> ships. See
+> [`vuoro-served-substrate-plan.md`](plans/agentops/vuoro-served-substrate-plan.md).
+
 ---
 
 ## What This Is
@@ -9,6 +16,11 @@ A reference for the `/projects/dev` agent-ops substrate: what each tool does, ho
 The agent-ops substrate is a set of small, composable tools that give one developer (with optional agent sessions) structured execution state, durable history, and an operator view over their work. Each tool owns exactly one domain. None of them replaces the others.
 
 The core rule: **state ownership decides repo ownership.**
+
+The companion target rule is: **a Vuoro client may understand transport and
+presentation, but it does not carry the authoritative implementation of
+substrate policy.** Domain ownership remains split even when one deployed
+Vuoro process composes all domain adapters.
 
 | Domain | Tool | Repo |
 |---|---|---|

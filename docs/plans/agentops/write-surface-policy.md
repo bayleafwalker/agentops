@@ -12,6 +12,16 @@ templates can be checked against a stated boundary instead of re-deriving it.
 enforced.** No remote surface is ever handed `SPRINTCTL_URL` semantics (raw
 database write access).
 
+## Ratified target: served operations
+
+The direct-CLI tiers below describe the current transitional implementation.
+The target in [`vuoro-served-substrate-plan.md`](vuoro-served-substrate-plan.md)
+replaces shared-database clients with endpoint/identity clients. A
+server-published operation catalog classifies each invocation as read,
+bufferable observation, consensus-required authority command, or local effect.
+Network clients never migrate a shared authority database or receive its
+credentials. Domain-owned handlers remain the only transition arbiters.
+
 ## Tiers
 
 ### Tier 1 — direct CLI (full write surface)

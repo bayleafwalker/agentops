@@ -1,0 +1,26 @@
+{
+  "schema_version": "environment-record/v1",
+  "id": "workstation-linux",
+  "environment_class": "local",
+  "revision": 1,
+  "roles": ["shared-development-host"],
+  "constraints": [
+    "docker-daemon-restart-has-shared-blast-radius",
+    "use-canonical-path-for-direnv",
+    "image-push-preferred-via-crane"
+  ],
+  "capabilities": [
+    "container-build",
+    "git-worktree",
+    "kubernetes-access"
+  ],
+  "runbook_refs": [
+    "/projects/dev/AGENTS.md#workflow--workstation"
+  ],
+  "identity_bindings": [
+    {
+      "principal": "environment:workstation-linux",
+      "roles": ["local-effect-runner"]
+    }
+  ]
+}

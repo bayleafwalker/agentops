@@ -25,6 +25,14 @@ Ops-upgrade / outbox-mechanization tranche (2026-07):
 - `agent-cockpit-deployment-handoff.md` - appservice deployment handoff/runbook for agent-cockpit (item #951).
 - `kctl-cockpit-knowledge-reads-followup.md` - kctl knowledge-artifact integration definition for cockpit knowledge reads (item #953).
 
+Vuoro served-substrate direction (ratified 2026-07-21):
+
+- `vuoro-served-substrate-plan.md` - canonical capability scoping, modular
+  service, operation catalog, client, deployment packaging, environment,
+  ratification, and recovery decision.
+- `vuoro-appservice-runtime-handoff.md` - appservice-owned persistent
+  development and production deployment contract.
+
 Implemented dispatch contracts:
 
 - `/projects/dev/agentops/docs/dispatch/dispatch-manifest.md` - manifest contract for repo dispatch adoption.

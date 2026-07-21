@@ -95,6 +95,20 @@ Artifact schemas and field contracts for the two rows below marked
 | Cross-domain projection, gateway, operator UX, review queue, metrics panels | `agentops` | cross-domain projection/operator UX → agentops |
 | Deployment truth | `appservice` | GitOps source of truth |
 
+## Served-operation projection
+
+The ratified Vuoro service does not change the classifications above. It
+publishes them through an operation catalog with `owner`, `input_schema`,
+`result_schema`, `required_authority`, `execution_semantics`, `idempotency`,
+and `required_client_features`. The generic client renders and submits those
+contracts; it does not reimplement their transitions.
+
+Environment declarations are agentops-owned cross-domain metadata. Local
+effects remain machine-scoped and report evidence after execution. Marked
+disaster-recovery records are observations or requested commands only; they
+cannot project a claim, grant, or accepted decision until reconciled by the
+restored authority.
+
 ### Tier-0 session wrapper ownership (settling reconciliation open question 1)
 
 The [reconciliation doc](ops-upgrade-reconciliation-2026-07.md) left open who
@@ -125,3 +139,5 @@ bounded one-shot compatibility surface until parity is proven.
   issue the commands above.
 - [`ops-upgrade-reconciliation-2026-07.md`](ops-upgrade-reconciliation-2026-07.md)
   — verified facts underlying these assignments.
+- [`vuoro-served-substrate-plan.md`](vuoro-served-substrate-plan.md) — ratified
+  deployment, catalog, environment, and recovery architecture.
