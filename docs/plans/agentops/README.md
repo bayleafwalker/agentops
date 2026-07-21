@@ -32,6 +32,8 @@ Vuoro served-substrate direction (ratified 2026-07-21):
   ratification, and recovery decision.
 - `vuoro-appservice-runtime-handoff.md` - appservice-owned persistent
   development and production deployment contract.
+- `vuoro-backlog-enablement-2026-07-21.md` - approved owner-local item map,
+  refinement decisions, and cross-repository critical path.
 
 Implemented dispatch contracts:
 

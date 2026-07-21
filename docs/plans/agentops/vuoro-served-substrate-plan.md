@@ -272,3 +272,6 @@ plans are preserved but must link here when describing target architecture.
   cockpit and direct-client write surfaces.
 - [`vuoro-appservice-runtime-handoff.md`](vuoro-appservice-runtime-handoff.md)
   translates this plan into deployment-owned work.
+- [`vuoro-backlog-enablement-2026-07-21.md`](vuoro-backlog-enablement-2026-07-21.md)
+  records owner-local items #1185–#1202, refinements to #1163/#1164 and
+  #1173/#1174, priorities, and the cross-repository critical path.

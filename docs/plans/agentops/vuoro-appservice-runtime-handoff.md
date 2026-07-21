@@ -63,3 +63,7 @@ against a newer schema.
 The appservice repository was unavailable in the authoring workspace. Before
 registration there, re-read its live backlog and current GitOps topology and
 link the resulting owner-local records back to this handoff.
+
+Agentops coordination item **#1189** holds this handoff and the deployment done
+conditions until that owner-local inspection is possible. Do not implement
+GitOps from #1189 or create a duplicate appservice item without linking the two.
