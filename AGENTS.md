@@ -67,6 +67,23 @@ state, audit state, or Kubernetes desired state.
   reconciliation from this repository unless that operational work is separately
   authorized in `appservice`.
 
+## Saved Dispatch Workflows
+
+- `.claude/workflows/vuoro-dispatch-build.js` — claim → build → independent verify → close
+  pipeline for sprintctl items, grouped per repo (same-repo items stay sequential in one
+  build agent; independent repos dispatch in parallel). Routes model/effort per item
+  difficulty (`mechanical` / `standard` / `hard`, cheap-triaged when not supplied) instead
+  of applying one uniform tier to every item. The build agent never marks an item done; a
+  separate agent independently re-reads the diff and cold-reruns tests before closing it.
+- `.claude/workflows/vuoro-dispatch-verify.js` — independent verification pass, usable as
+  the pre-close gate above (`mode: "gate"`) or as a standalone retroactive audit of work
+  already merged (`mode: "audit"`, files a triage note instead of closing anything).
+- Both invoke via `Workflow({scriptPath: "/projects/dev/agentops/.claude/workflows/<name>.js"}, {args: {...}})`
+  — see each file's `meta.whenToUse` for the exact args shape. Their model tiers mirror the
+  `fast-build` / `hard-build` aliases in `templates/dispatch/model-routing.json`; keep them
+  in sync by hand (workflow scripts have no filesystem access to read the routing file at
+  run time).
+
 ## Documentation Quality
 
 - Keep policy, current implementation, shipped history, and future plans

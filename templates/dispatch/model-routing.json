@@ -43,6 +43,14 @@
         "model": "gpt-5.6-luna",
         "verified": true
       }
+    },
+    "hard-build": {
+      "anthropic": {
+        "model": "claude-sonnet-5",
+        "fallback": "claude-opus-4-8",
+        "verified": true,
+        "note": "2026-07-20: claude-sonnet-5 replaces claude-opus-4-8 as the default for semantically hard bulk build/verify work (state-protocol semantics, read-path/parity/staleness logic) now that Sonnet 5 is available in this harness; opus-4-8 kept only as fallback."
+      }
     }
   }
 }
