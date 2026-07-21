@@ -18,8 +18,8 @@ reviewable from Git.
 
 | Owner | Items | Outcome | Priority / posture |
 | --- | --- | --- | --- |
-| agentops coordination | #1185–#1189 | public bootstrap, cross-repo mirrors, and appservice runtime handoff | P1; the public repository exists but #1185 is blocked on a Git contents-write credential, #1186–#1188 mirror owner items, and #1189 remains planning-gated on appservice inspection |
-| `vuoro` owner backlog 427 | #1203–#1206 | contracts, four-domain composition, packaging, and marked recovery | P1/P3; #1203 is the owner-local chain head and #1206 remains parked |
+| agentops coordination | #1185–#1189 | public bootstrap, cross-repo mirrors, and appservice runtime handoff | #1185 is published/done, #1186 is satisfied by owner item #1203, #1187–#1188 mirror remaining owner work, and #1189 remains planning-gated on appservice inspection |
+| `vuoro` owner backlog 427 | #1203–#1206 | contracts, four-domain composition, packaging, and marked recovery | #1203 is published/done at `d025498`; #1204 is the P1 chain head and #1206 remains parked |
 | agentops governance | #1190–#1192 | environment injection, ratification validation, and the recovery coordination mirror | P2/P3; #1191 needs a design pass and #1192 mirrors vuoro #1206 |
 | agentops existing | #1173, #1174 | catalog-mediated proposal execution and independent session dogfood evidence | P2; existing #1173 → #1174 dependency retained |
 | sprintctl | #1193–#1195 | deployment migrations, work application core/catalog, endpoint/identity cutover | P1; #1193 and #1194 both block #1195 |
@@ -40,11 +40,10 @@ reviewable from Git.
   to vuoro #1203, #1204, #1205, and #1206 respectively. Structured notes on
   the old records mark them as coordination mirrors; agents must not dispatch
   both sides as separate implementations.
-- The public `bayleafwalker/vuoro` repository now exists and is empty. The
-  local bootstrap and split distributions remain in `/projects/dev/vuoro`
-  because the active HTTPS credential returns 403 for Git contents writes and
-  the workstation SSH path cannot authenticate. Agentops project membership
-  remains unpushed until `fbcebfb..d025498` is remotely durable.
+- Public `bayleafwalker/vuoro` main contains `fbcebfb..d025498`, including the
+  split distributions, CI, dispatch identity, and protocol-v1 contracts.
+  Agentops origin/main contains the project binding at `1b38512`. Bootstrap
+  #1185, owner item #1203, and coordination mirror #1186 are done.
 - The rebuildable project folder moved from `/projects/dev/vuoro` to
   `/projects/dev/vuoro-project` before the public repository was initialized.
 - Appservice work is coordinated by #1189 until its repository and live
@@ -64,10 +63,9 @@ reviewable from Git.
 ## Cross-repository critical path
 
 ```text
-#1185 Vuoro commit publication + project publication
-  -> vuoro #1203 contracts (agentops mirror #1186)
-  -> domain migrations/adapters (#1193/#1194, #1196/#1197,
-                                 #1199/#1200, #1201/#1202)
+done: #1185 bootstrap + vuoro #1203 contracts (agentops mirror #1186)
+  -> domain migrations/adapters (#1193/#1194, #1196(done)/#1197,
+                                 #1199/#1200, #1201(done)/#1202)
   -> vuoro #1204 four-domain composition (agentops mirror #1187)
   -> vuoro #1205 packaging (agentops mirror #1188)
   -> #1189 isolated vuoro-dev + production promotion
