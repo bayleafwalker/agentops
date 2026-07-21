@@ -16,6 +16,15 @@ path_notes = [
 ]
 
 [[members]]
+repo_id = "vuoro"
+backlog = true
+render = "full"
+path_notes = [
+  "Public runtime repository: owns the transport-only client and modular service shell.",
+  "Appservice remains the private deployment authority for development and production overlays.",
+]
+
+[[members]]
 repo_id = "sprintctl"
 backlog = true
 render = "full"

@@ -79,3 +79,12 @@ repository identity. Project reads therefore begin in a member worktree. The
 folder generator and `project-folder.md` now state that explicitly and provide
 the home-member command. This is operator guidance, not a project database or
 new runtime authority.
+
+## 2026-07-21 path follow-up
+
+The original derived folder was cleanly synchronized and rebuilt at
+`/projects/dev/vuoro-project` before the separately packaged public runtime
+repository was initialized at `/projects/dev/vuoro`. The member worktrees were
+removed through Git's worktree interface and recreated on the same project
+branches; no authored member state was deleted. The canonical binding remains
+in agentops, so the derived folder continues to be disposable projection state.

@@ -1,9 +1,9 @@
 # Draft — see docs/project/project-binding-spec.md, §1a/§1b.
 # Canonical location once instantiated (item pilot-agentops-project): agentops/project.toml
 #
-# display_name is "vuoro" (ecosystem-rename-decision, landed): the repo directory and
-# home_repo/repo_id stay "agentops" until the mechanical rename lands elsewhere; this file
-# only controls the project's own display_name.
+# display_name is "vuoro" (ecosystem-rename-decision, landed). The agentops
+# repository remains the project home while the separately packaged public
+# runtime is the `vuoro` member.
 
 schema_version = 1
 project_id = "981b2073-d7af-4c28-bff3-3cf807495fba"
@@ -17,6 +17,15 @@ render = "none"
 path_notes = [
   "Home repo: hosts the project's backlog (sprintctl sprint #380) and render sources (.project/sources/).",
   "Also hosts the agent-cockpit operator UI at apps/web — not a separate project member.",
+]
+
+[[members]]
+repo_id = "vuoro"
+backlog = true
+render = "full"
+path_notes = [
+  "Public runtime repository: owns the transport-only client and modular service shell.",
+  "Appservice remains the private deployment authority for development and production overlays.",
 ]
 
 [[members]]
