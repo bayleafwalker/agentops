@@ -1,0 +1,10 @@
+[Unit]
+Description=Tick the agentops session-mechanization periodic scribe, the correctness path (item #1172)
+
+[Timer]
+OnBootSec=15min
+OnUnitActiveSec=30min
+Persistent=false
+
+[Install]
+WantedBy=timers.target

@@ -1,7 +1,7 @@
 ---
 doc_id: outbox-mechanization-rollout-sequencing
 status: reviewed
-last_verified: 2026-07-18
+last_verified: 2026-07-21
 supersedes: null
 ---
 
@@ -79,9 +79,13 @@ wrapper is the missing producer.
   `session.end-inferred` plus capsule fields per the contract; fails open
   for manual work; crash recovery for unclosed sessions.
 
-Gate: ownership is satisfied; implementation and live-capsule evidence remain.
-Rollback: wrapper is additive exhaust; disable it and the ecosystem returns
-to today's behaviour.
+Gate: satisfied 2026-07-21. `actionq-session-wrap` (actionq #1114/#1115,
+already merged) was reinstalled and exercised for real on devbox-vm, producing
+two genuine `session-capsule/v1` artifacts under
+`_artifacts/agentops/session-capsules/` — real git evidence (base/head commit,
+diff stat, touched paths, dirty state), not fixtures. See Tranche C below for
+what consumed them. Rollback: wrapper is additive exhaust; disable it and the
+ecosystem returns to today's behaviour.
 
 ### Tranche C — trigger wiring (agentops)
 
@@ -97,14 +101,49 @@ nothing and risks cargo-cult cron jobs.
 Agentops source status: #1173 now has the bounded, feature-flagged executor,
 durable execution sidecars, stable retry identities, operator read surface,
 and accepted/rejected/stale/duplicate/partial/unavailable test histories.
-Runtime enablement remains gated with the rest of Tranche C: the current
-cockpit pod has a read-only workspace and no writable sprintctl command-outbox
-path, so appservice must select the dedicated state/runner topology before the
-flag is enabled. #1172 and live-capsule evidence remain open.
+`#1173`'s runtime enablement stays gated: the cockpit pod's read-only
+workspace and lack of a writable sprintctl command-outbox path is a separate,
+still-open decision from #1172's trigger wiring below.
 
-Gate: live capsules exist (Tranche B deployed). Rollback: remove the
-schedule/trigger; capsules accumulate safely for the scribe to drain later —
-that is the designed degradation mode (bounded, visible lag).
+**#1172 — closed 2026-07-21.** Runtime path selected: devbox-vm via
+`systemd --user` timers, not a new in-cluster runner. Devbox-vm already has
+git-write access, `ACTIONQ_URL`/`SPRINTCTL_URL`, and is the existing agent
+dispatch host — no new appservice secrets, PVC, or workload identity needed.
+`templates/dispatch/scripts/session_mechanization_trigger.py` provides
+`reconcile-tick` (dispatches one fresh, non-interactive `claude -p` session
+per unconsumed capsule, following `skills/session-reconciler/SKILL.md`) and
+`scribe-tick` (one fresh session per artifact root on a schedule, following
+`skills/session-scribe/SKILL.md`); `ops/systemd/session-mechanization-{reconcile,scribe}.{service,timer}`
+schedule them (5 min / 30 min). A per-project-root flock keyed the same for
+both tick types makes them single-consumer even if they race; the shared
+`session_scribe.py` cursor makes a capsule immune to double-processing even
+across separate invocations. Neither skill executes a sprintctl authority
+command — both only ever write a `reconciliation-proposal/v1` or a no-change
+record, so a bad tick produces at most a bad proposal for a human to reject.
+
+Real end-to-end evidence (devbox-vm, 2026-07-21): two capsules produced via
+`actionq-session-wrap`. `reconcile-tick` discovered the first, dispatched a
+real Claude session, which read the actual sprintctl item #1172 (including
+its own open blocker event #1249), classified it `mark-item-advanced` at
+medium confidence, and wrote a valid proposal
+(`a26b9407-e54b-469d-91e3-a4dd06ec42eb`) — cursor advanced, no sprintctl
+authority command ran. A second `reconcile-tick` against the same (now empty)
+backlog correctly no-op'd (duplicate-trigger case). `scribe-tick` against the
+second capsule dispatched a real session that wrote a second proposal
+(`1879f07b-5e5c-4ae3-8b17-a5a26def1006`) and advanced the cursor the same way.
+`session_mechanization_trigger.py status` correctly reports backlog age
+(`unreconciled_count: 0` after both ticks) and the trigger attempt history
+(`dispatched-ok` / `no-op` outcomes), covering the item's "expose trigger
+failures and backlog age" scope. The `.service`/`.timer` units are installed
+on devbox-vm (`systemctl --user daemon-reload`) but deliberately left
+`disabled` — proven correct once, not left running unattended pending an
+explicit decision to enable recurring autonomous dispatch.
+
+Gate: live capsules exist (Tranche B) and #1172's trigger wiring is proven
+end-to-end. Rollback: `systemctl --user disable` the timers (a no-op today
+since they were never enabled) or remove the unit files; capsules accumulate
+safely for a manually-invoked scribe pass to drain later — the designed
+degradation mode (bounded, visible lag).
 
 ### Tranche D — config/secret hardening (source scope complete; runtime evidence pending)
 

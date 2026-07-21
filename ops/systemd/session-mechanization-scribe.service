@@ -1,0 +1,6 @@
+[Unit]
+Description=agentops session-mechanization: periodic scribe tick (item #1172)
+
+[Service]
+Type=oneshot
+ExecStart=/projects/dev/agentops/ops/systemd/session-mechanization-tick.sh scribe-tick

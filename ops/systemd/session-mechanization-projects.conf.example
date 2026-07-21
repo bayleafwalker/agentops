@@ -1,0 +1,7 @@
+# Copy to session-mechanization-projects.conf (gitignored, host-local) and
+# list one "project:artifact-root" pair per line for every repo whose
+# session capsules should be reconciled/scribed. Lines starting with # and
+# blank lines are ignored.
+#
+# agentops:/projects/dev/_artifacts/agentops
+# actionq:/projects/dev/_artifacts/actionq
