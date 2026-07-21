@@ -140,14 +140,14 @@ function buildPrompt(group, tierCfg, push) {
     : 'Do not push — leave commits local (default for this session).'
   return `Repo: ${repoPath(group.repo)} (cd there first — sprintctl scopes by CWD directory name).
 
-First call the Skill tool with skill "dispatch-build" to load the standard implementation procedure. Then process these items IN ORDER, one fully committed before starting the next — same repo means same working tree, stay sequential, do not parallelize within yourself:
+If a "dispatch-build" skill is available for this repo (project-scoped skills only load when your cwd is inside that repo — check before relying on it), call it to load the standard implementation procedure; otherwise proceed directly with the steps below. Process these items IN ORDER, one fully committed before starting the next — same repo means same working tree, stay sequential, do not parallelize within yourself:
 
 ${itemLines}
 
 For each item:
 1. \`sprintctl claim start --item-id <id> --actor ${tierCfg.actor} --ttl 3600 --branch main --json\` (record claim_id/claim_token).
 2. Implement the item's scope only.
-3. Call the Skill tool with skill "code-change-verification" and run the repo's real targeted checks yourself, foreground, blocking, before moving on.
+3. If a "code-change-verification" skill is available for this repo (project-scoped, only loads when your cwd is inside that repo), call it; otherwise run the repo's real targeted checks yourself, foreground, blocking, before moving on.
 4. \`git commit\` locally (one commit per item, or per tight related scope). ${pushLine}
 5. Do NOT run \`item status --done\` or \`done-from-claim\`. An independent verifier — a different agent, told not to trust your self-report — checks your work and closes the item afterward. Leave the claim open/active.
 
@@ -167,7 +167,7 @@ ${itemLines}
 For EACH item:
 1. Isolate: \`git worktree add /tmp/verify-${group.repo}-<item_id> <commit_sha>\` — never touch the shared working tree.
 2. Read \`git show <commit_sha>\` and judge whether the diff matches the item's claimed scope (no unrelated files, no silently skipped acceptance criteria).
-3. In the isolated worktree, call the Skill tool with skill "code-change-verification" and cold-rerun the real commands yourself.
+3. In the isolated worktree, call a "code-change-verification" skill if one is available for this repo (project-scoped, only loads when your cwd is inside that repo); otherwise cold-rerun the real commands yourself.
 4. \`git worktree remove\` when done.
 5. Verdict: "confirmed" only if scope matches AND your own rerun passed; "issues_found" otherwise with concrete concerns; "inconclusive" if a real check needs infra you don't have (say what and why, don't guess).
 
@@ -182,11 +182,11 @@ cd into ${repoPath(group.repo)} first (sprintctl scopes by CWD directory name).`
   if (verifyResult.verdict === 'confirmed') {
     return `${header}
 
-First call the Skill tool with skill "item-done" to load the standard closeout procedure. Then close it: \`sprintctl item done-from-claim --id ${item.item_id} --claim-id ${item.claim_id} --claim-token ${item.claim_token}\`. Log any decision/lesson-learned knowledge event the skill calls for, and remove the local claim token file. Report {item_id: "${item.item_id}", closed:true, action:"done-from-claim"}.`
+Close it: \`sprintctl item done-from-claim --id ${item.item_id} --claim-id ${item.claim_id} --claim-token ${item.claim_token}\`. Log a decision/lesson-learned knowledge event (\`sprintctl item note --id ${item.item_id} --type decision --actor claude-sonnet-verify-gate --summary ... --detail ...\`, no --json flag on item note) summarizing the confirmed verification, and remove the local claim token file if one exists on disk (search first — it may never have been persisted). Report {item_id: "${item.item_id}", closed:true, action:"done-from-claim"}.`
   }
   return `${header}
 
-Do NOT mark the item done. Release the claim (\`sprintctl claim release --claim-id ${item.claim_id} --claim-token ${item.claim_token}\`) and leave a note for human triage: \`sprintctl item note --id ${item.item_id} --type decision --actor claude-sonnet-verify-gate --summary "independent verify failed before close" --detail "${verifyResult.summary}"\` (item note takes --summary/--detail, not --note or --json — check \`sprintctl item note --help\` if this has drifted). Report {item_id: "${item.item_id}", closed:false, action:"left-open-for-triage", note:<what you wrote>}.`
+Do NOT mark the item done. Release the claim (\`sprintctl claim release --id ${item.claim_id} --claim-token ${item.claim_token}\`) and leave a note for human triage: \`sprintctl item note --id ${item.item_id} --type decision --actor claude-sonnet-verify-gate --summary "independent verify failed before close" --detail "${verifyResult.summary}"\` (item note takes --summary/--detail, not --note or --json — check \`sprintctl item note --help\` if this has drifted). Report {item_id: "${item.item_id}", closed:false, action:"left-open-for-triage", note:<what you wrote>}.`
 }
 
 const parsedArgs = typeof args === 'string' ? JSON.parse(args) : args

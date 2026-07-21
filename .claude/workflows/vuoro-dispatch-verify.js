@@ -60,7 +60,7 @@ function verifyPrompt(mode, group) {
     .join('\n')
   return `You are an INDEPENDENT verifier — you did not write this code and must not trust anyone's self-report of "tests passed." Repo: ${repoPath(group.repo)} (cd there first).
 
-First call the Skill tool with skill "code-change-verification" to load the standard verification procedure for this repo, and skim AGENTS.md if present.
+If a "code-change-verification" skill is available for this repo (project-scoped skills only load when your cwd is inside that repo — check before relying on it), call it to load the standard verification procedure; otherwise skim AGENTS.md if present and proceed with the checks below directly.
 
 Items to verify in this repo (mode=${mode}):
 ${itemLines}
@@ -68,7 +68,7 @@ ${itemLines}
 For EACH item:
 1. Identify its commit(s). If commit_sha is not given, use \`sprintctl item show --id <item_id> --json\` (cd into the repo dir first — sprintctl scopes by CWD directory name) and/or \`git log\` to find it.
 2. Create an isolated worktree so you never touch the shared working tree: \`git worktree add /tmp/verify-${group.repo}-<item_id> <sha>\`. Read the full diff there (\`git show <sha>\`) and judge whether it matches the item's claimed scope — no unrelated file changes, no silently skipped acceptance criteria.
-3. In that worktree, cold-run the repo's real test/verification commands (the ones code-change-verification tells you to use). Do not assume any prior reported pass/fail was correct — rerun them yourself.
+3. In that worktree, cold-run the repo's real test/verification commands. Do not assume any prior reported pass/fail was correct — rerun them yourself.
 4. Remove the worktree when done (\`git worktree remove\`).
 5. Record a verdict: "confirmed" only if the diff matches scope AND your own cold rerun passed; "issues_found" if either check fails, with concrete concerns; "inconclusive" if you could not run the real check (e.g. needs infra you don't have, like a Postgres test DB) — say exactly what was skipped and why, do not guess.
 
@@ -85,11 +85,11 @@ cd into ${repoPath(group.repo)} first (sprintctl scopes by CWD directory name).`
     if (verifyResult.verdict === 'confirmed') {
       return `${header}
 
-First call the Skill tool with skill "item-done" to load the standard closeout procedure. Then close it: \`sprintctl item done-from-claim --id ${item.item_id} --claim-id ${item.claim_id} --claim-token ${item.claim_token}\`. Log any decision/lesson-learned knowledge event the skill calls for, and remove the local claim token file. Report {item_id: "${item.item_id}", closed:true, action:"done-from-claim"}.`
+If an "item-done" skill is available for this repo (project-scoped, only loads when your cwd is inside that repo), call it for the standard closeout procedure; otherwise proceed directly: close it: \`sprintctl item done-from-claim --id ${item.item_id} --claim-id ${item.claim_id} --claim-token ${item.claim_token}\`. Log a decision/lesson-learned knowledge event (\`sprintctl item note --id ${item.item_id} --type decision --actor ${actor} --summary ... --detail ...\`, no --json flag on item note) and remove the local claim token file if one exists on disk (search first — it may never have been persisted). Report {item_id: "${item.item_id}", closed:true, action:"done-from-claim"}.`
     }
     return `${header}
 
-Do NOT mark the item done. Release the claim (\`sprintctl claim release --claim-id ${item.claim_id} --claim-token ${item.claim_token}\` if still held) and leave a note for human triage: \`sprintctl item note --id ${item.item_id} --type decision --actor ${actor} --summary "independent verify failed before close" --detail "${verifyResult.summary}"\` (item note takes --summary/--detail, not --note or --json — check \`sprintctl item note --help\` if this has drifted). Report {item_id: "${item.item_id}", closed:false, action:"left-open-for-triage", note:<what you wrote>}.`
+Do NOT mark the item done. Release the claim (\`sprintctl claim release --id ${item.claim_id} --claim-token ${item.claim_token}\` if still held) and leave a note for human triage: \`sprintctl item note --id ${item.item_id} --type decision --actor ${actor} --summary "independent verify failed before close" --detail "${verifyResult.summary}"\` (item note takes --summary/--detail, not --note or --json — check \`sprintctl item note --help\` if this has drifted). Report {item_id: "${item.item_id}", closed:false, action:"left-open-for-triage", note:<what you wrote>}.`
   }
 
   // audit mode — item is already closed and shipped; file findings instead of closing anything.
