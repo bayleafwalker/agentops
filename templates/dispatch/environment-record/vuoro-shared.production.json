@@ -1,0 +1,21 @@
+{
+  "schema_version": "environment-record/v1",
+  "id": "vuoro-shared",
+  "environment_class": "production",
+  "revision": 1,
+  "roles": ["primary-production-authority", "vuoro-served-work-authority"],
+  "constraints": [
+    "production-identities-only",
+    "separate-from-vuoro-dev",
+    "production-database-authority"
+  ],
+  "capabilities": ["work-catalog", "schema-compatibility-gate", "black-box-parity"],
+  "runbook_refs": [
+    "/projects/dev/agentops/docs/runbooks/vuoro-workstation-cutover.md",
+    "/projects/dev/agentops/docs/plans/agentops/vuoro-appservice-runtime-handoff.md"
+  ],
+  "identity_bindings": [
+    {"principal": "workstation-vuoro", "roles": ["vuoro-shared-work-client"]},
+    {"principal": "devbox-agent-vuoro", "roles": ["vuoro-shared-work-client"]}
+  ]
+}

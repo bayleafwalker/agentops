@@ -18,3 +18,20 @@ repository gate.
 - Inspect declared `risk_surfaces` before changing queue, claim, lease, retry, recovery, projection, publication, reconciliation, or backend-parity paths.
 - Run `python /projects/dev/agentops/templates/dispatch/scripts/validate_verification_artifacts.py --root .` from an opted-in repository.
 - `full` is a sequence, not blanket repair authority. Repair and production mutation remain separately authorized.
+
+## Vuoro served-work cutover
+
+Normal shared Sprintctl work is moving to the durable `vuoro-shared` served API.
+`vuoro-dev` is ephemeral and is reserved for development-build tests and UX
+validation; never select it as a repository's normal Sprintctl authority. Do not obtain,
+export, or reuse `SPRINTCTL_URL` / a PostgreSQL URI for workstation or
+devbox-vm normal operation. The only approved client selection is a validated
+non-secret Vuoro profile plus its local credential-file reference; direct
+database commands remain deployment or explicitly marked recovery work.
+
+Before changing a repository profile, follow
+`/projects/dev/agentops/docs/runbooks/vuoro-workstation-cutover.md`. Workstation
+and devbox-vm have independent checkouts, profile state, credential files, and
+tool installations, so a cutover must pass separately on each host. The final
+eight-repository scanner and the profile validator in that runbook are required
+before database bootstrap access can be revoked.

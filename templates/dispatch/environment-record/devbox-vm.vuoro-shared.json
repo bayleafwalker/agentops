@@ -1,0 +1,21 @@
+{
+  "schema_version": "environment-record/v1",
+  "id": "devbox-vm",
+  "environment_class": "local",
+  "revision": 2,
+  "roles": ["unattended-agent-host", "vuoro-served-client"],
+  "constraints": [
+    "no-direct-postgresql-egress-for-sprintctl",
+    "profile-target-must-be-vuoro-shared",
+    "production-endpoint-required",
+    "independent-worktree-and-tool-install"
+  ],
+  "capabilities": ["git-worktree", "vuoro-served-work-client"],
+  "runbook_refs": [
+    "/projects/dev/agentops/docs/runbooks/vuoro-workstation-cutover.md#devbox-vm",
+    "/projects/dev/agentops/docs/runbooks/vuoro-workstation-cutover.md#identity-and-production-boundary"
+  ],
+  "identity_bindings": [
+    {"principal": "environment:devbox-agent", "roles": ["vuoro-shared-work-client"]}
+  ]
+}

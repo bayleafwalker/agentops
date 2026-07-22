@@ -90,3 +90,14 @@ Every new item has:
 
 Cross-repository dependencies are stated in item descriptions and this ledger
 because sprintctl dependency edges are repository-scoped.
+
+## Current continuation observation (2026-07-22)
+
+The historical registration above remains unchanged. For the current
+supervised continuation state, #1193 and #1194 are published/done at
+`f750d63`; #1195 is externally blocked on appservice source plus an
+authorized Vuoro endpoint/identity configuration. Vuoro #1204 is externally
+blocked on immutable four-domain adapter inputs (or a ratified composition
+manifest), and #1205 depends on its result. The actionable entry criteria are
+kept in
+[`vuoro-continuation-blockers-2026-07-22.md`](vuoro-continuation-blockers-2026-07-22.md).

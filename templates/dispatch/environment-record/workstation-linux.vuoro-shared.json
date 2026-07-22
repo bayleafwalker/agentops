@@ -1,0 +1,20 @@
+{
+  "schema_version": "environment-record/v1",
+  "id": "workstation-linux",
+  "environment_class": "local",
+  "revision": 3,
+  "roles": ["shared-development-host", "vuoro-served-client"],
+  "constraints": [
+    "no-workstation-postgresql-credentials",
+    "profile-target-must-be-vuoro-shared",
+    "production-endpoint-required"
+  ],
+  "capabilities": ["git-worktree", "vuoro-served-work-client"],
+  "runbook_refs": [
+    "/projects/dev/agentops/docs/runbooks/vuoro-workstation-cutover.md#workstation",
+    "/projects/dev/agentops/docs/runbooks/vuoro-workstation-cutover.md#identity-and-production-boundary"
+  ],
+  "identity_bindings": [
+    {"principal": "environment:workstation-linux", "roles": ["vuoro-shared-work-client"]}
+  ]
+}

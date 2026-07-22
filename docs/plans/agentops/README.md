@@ -34,6 +34,21 @@ Vuoro served-substrate direction (ratified 2026-07-21):
   development and production deployment contract.
 - `vuoro-backlog-enablement-2026-07-21.md` - approved owner-local item map,
   refinement decisions, and cross-repository critical path.
+- `vuoro-continuation-blockers-2026-07-22.md` - current supervised-resumption
+  blockers and entry criteria for #1195 and #1204.
+
+Vuoro phase-1 comparison study (drafted 2026-07-22, independent of the
+implementation backlog above):
+
+- `vuoro-phase1-study-corpus.md` - source material: per-capability-slice
+  system/reading assignments (primary / reference / domain).
+- `vuoro-phase1-study-prompt-template.md` - source material: the
+  functional-investigation prompt template and method.
+- `vuoro-phase1-study-backlog.md` - derived item backlog (35 items across
+  primary investigations, reference reads, domain reading, and the
+  cross-cutting shelf), sourcing status, and suggested execution order.
+  sprintctl registration is deferred pending the same endpoint blocker as
+  `vuoro-continuation-blockers-2026-07-22.md`.
 
 Implemented dispatch contracts:
 
