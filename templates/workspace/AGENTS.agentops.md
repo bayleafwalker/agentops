@@ -1,5 +1,14 @@
 ## Agentops repository contracts
 
+## Workstation workspace storage
+
+On the workstation, `/projects/dev` is local Btrfs storage. TrueNAS NFS is
+only a migration and emergency-recovery source, never a writable live Git
+workspace. The initial local recovery policy retains seven daily and four
+weekly read-only Btrfs snapshots. devbox-vm and the legacy pod have independent
+workspace trees; do not assume ignored state, tool installations, cost logs, or
+Git worktrees propagate between environments.
+
 `/projects/dev/agentops` is the canonical source for shared dispatch skills,
 manifest schemas, state-protocol context/result schemas, and the dependency-free
 repository gate.
