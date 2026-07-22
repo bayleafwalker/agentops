@@ -127,7 +127,8 @@ class SavedWorkflowTests(unittest.TestCase):
 
         self.assertEqual(aliases["clerical"]["anthropic"]["model"], "claude-haiku-4-5-20251001")
         self.assertEqual(aliases["fast-build"]["anthropic"]["model"], "claude-sonnet-5")
-        self.assertEqual(aliases["fast-build"]["codex"]["model"], "gpt-5.6-luna")
+        self.assertEqual(aliases["fast-build"]["codex"]["model"], "gpt-5.3-codex-spark")
+        self.assertEqual(aliases["fast-build"]["codex"]["fallback"], "gpt-5.6-luna")
         self.assertEqual(aliases["standard-build"]["codex"]["model"], "gpt-5.6-terra")
         self.assertEqual(aliases["hard-build"]["codex"]["model"], "gpt-5.6-terra")
         self.assertEqual(aliases["frontier-plan"]["codex"]["model"], "gpt-5.6-sol")

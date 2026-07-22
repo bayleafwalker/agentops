@@ -1,5 +1,10 @@
 {
   "schema_version": 1,
+  "caller_harness_providers": {
+    "claude": "anthropic",
+    "codex": "codex",
+    "kimi": "kimi"
+  },
   "aliases": {
     "clerical": {
       "anthropic": {
@@ -15,6 +20,10 @@
       "anthropic": {
         "model": "claude-fable-5",
         "fallback": "claude-opus-4-8",
+        "verified": true
+      },
+      "codex": {
+        "model": "gpt-5.6-sol",
         "verified": true
       }
     },
@@ -52,6 +61,10 @@
       "anthropic": {
         "model": "claude-sonnet-5",
         "verified": true
+      },
+      "codex": {
+        "model": "gpt-5.6-terra",
+        "verified": true
       }
     },
     "fast-build": {
@@ -60,8 +73,12 @@
         "verified": true
       },
       "codex": {
-        "model": "gpt-5.6-luna",
-        "verified": true
+        "model": "gpt-5.3-codex-spark",
+        "fallback": "gpt-5.6-luna",
+        "verified": true,
+        "transport": "chatgpt",
+        "surfaces": ["codex-cli", "codex-app", "vscode-extension"],
+        "note": "2026-07-22: Spark is the preferred bounded fast-build model when the caller is an authenticated Codex surface. It has a separate preview usage limit and is not generally API-accessible; API-key workers and exhausted/unavailable Spark sessions fall back to gpt-5.6-luna."
       }
     },
     "standard-build": {
