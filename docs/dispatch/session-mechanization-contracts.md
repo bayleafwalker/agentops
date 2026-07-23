@@ -138,6 +138,24 @@ render state.
   has already consumed) — that belongs to the scribe implementation (#1107),
   not to the proposal artifact it emits.
 
+## Planned: session-note/v1 (not yet in this contract)
+
+A third artifact type, **session-note/v1** — agent-authored semantic
+handover/summary/outcome notes, the cooperative counterpart to the capsule's
+no-cooperation mechanical exhaust — is planned in
+[`session-note-contract-plan.md`](../plans/agentops/session-note-contract-plan.md)
+(status: ratified 2026-07-23). Its schema section, matrix row, and validator
+discovery land with that plan's build items (#1213–#1215); until then this
+document defines only the two contracts above.
+
+Naming rationale, recorded because the originating requirement
+(`docs/plans/trace-originating-req.md`) uses the word "trace" for this need:
+`trace*` naming is deliberately **not** used. In this workspace it is
+reserved for execution-shaped evidence work (the traceq commission), and in
+industry usage "trace" means execution spans — both connote mechanical
+capture, which is the opposite of this artifact's point. An authored
+observation is a *note*.
+
 ## Related documents
 
 - [`session-mechanization-plan.md`](../plans/agentops/session-mechanization-plan.md) — product direction, Tier 0/1/2, dogfooding metrics, cockpit surfaces.
