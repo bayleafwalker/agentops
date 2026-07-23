@@ -1,0 +1,21 @@
+schema_version: vuoro-clean-room-comparison.run.v1
+artifact_type: lane_run_manifest
+status: partial-component-corpus
+run_id: 2026-07-23-lane-b-reduced-corpus
+contract_id: vuoro-clean-room-2026-07-23
+lane_id: B
+lane_variant: reduced
+fixture: ../../fixtures/sprintctl-real-corpus-v1.yaml
+reduction_profile: ../../contract/reduced-vuoro-operating-profile.yaml
+source_revision: f22132c21ca17ad79d347ca1f43df8b3fe636c66
+scenario_status:
+  S-BATCH: partial-10-obligations-passed
+  S-SOLO: not-started
+  S-RESUME: component-covered-not-idle-qualified
+  S-DORMANT: not-seeded
+  S-SIMPLIFY: not-applicable
+evidence: [evidence/test-results.md]
+limits: >-
+  The run did not invoke any path listed as non-required in the frozen reduced
+  operating profile. It confirms retained core obligations only; it does not
+  prove deletion, carrying-cost reduction, or deployment-level equivalence.

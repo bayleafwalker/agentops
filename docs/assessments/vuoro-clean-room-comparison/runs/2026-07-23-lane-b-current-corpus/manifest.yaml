@@ -1,0 +1,20 @@
+schema_version: vuoro-clean-room-comparison.run.v1
+artifact_type: lane_run_manifest
+status: partial-component-corpus
+run_id: 2026-07-23-lane-b-current-corpus
+contract_id: vuoro-clean-room-2026-07-23
+lane_id: B
+lane_variant: current
+fixture: ../../fixtures/sprintctl-real-corpus-v1.yaml
+source_revision: f22132c21ca17ad79d347ca1f43df8b3fe636c66
+scenario_status:
+  S-BATCH: partial-10-obligations-passed
+  S-SOLO: not-started
+  S-RESUME: component-covered-not-idle-qualified
+  S-DORMANT: not-seeded
+  S-SIMPLIFY: not-applicable
+evidence: [evidence/test-results.md]
+limits: >-
+  This validates the frozen real corpus against the current implementation. It
+  is not the full ten-live-agent/current-operation measurement and does not
+  score operational cost, R5 duplicate delivery, or all R6 deployment clauses.

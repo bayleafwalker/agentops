@@ -1,0 +1,65 @@
+schema_version: vuoro-clean-room-comparison.fixture.v1
+fixture_id: sprintctl-real-corpus-v1
+status: locked
+repository:
+  source: /projects/dev/sprintctl
+  immutable_commit: f22132c21ca17ad79d347ca1f43df8b3fe636c66
+  disposable_clone: /tmp/vuoro-clean-room-sprintctl-fixture-20260723
+purpose: >-
+  A real source/test corpus for coordination experiments. Candidate lanes work
+  only against disposable clones and must not write sprintctl's live backlog,
+  served authority, or release branch.
+work_items:
+  - id: CR-01
+    title: dependency activation gate
+    acceptance: tests/test_deps.py::TestDepDB::test_pending_to_active_raises_when_blockers_unresolved
+    boundaries: [R1, R3]
+  - id: CR-02
+    title: exclusive concurrent claim
+    acceptance: tests/test_failure_modes.py::TestConcurrentClaimWrites::test_threaded_race_only_one_claim_wins
+    boundaries: [R2]
+  - id: CR-03
+    title: proof-gated mutation
+    acceptance: tests/test_claims.py::TestClaimEnforcement::test_transition_blocked_without_claim_proof
+    boundaries: [R2]
+  - id: CR-04
+    title: proof rotation on transfer
+    acceptance: tests/test_claims.py::TestClaimOwnership::test_explicit_handoff_success_rotates_token
+    boundaries: [R2]
+  - id: CR-05
+    title: proof-loss recovery
+    acceptance: tests/test_claims.py::TestClaimOwnership::test_lost_proof_can_be_explicitly_adopted_but_invalid_proof_is_rejected
+    boundaries: [R2]
+  - id: CR-06
+    title: blocked-work resume conflict
+    acceptance: tests/test_usage_context.py::TestUsageContext::test_context_json_dependency_conflict_and_next_action
+    boundaries: [R3]
+  - id: CR-07
+    title: cold session next action
+    acceptance: tests/test_session_resume.py::TestSessionResumeCommand::test_resume_json_uses_single_next_action_even_when_context_conflicts_exist
+    boundaries: [R3]
+  - id: CR-08
+    title: decision event persistence
+    acceptance: tests/test_core.py::TestEventLogging::test_event_add_with_payload
+    boundaries: [R4]
+  - id: CR-09
+    title: stale command rejection
+    acceptance: tests/test_authority_fault_protocol.py::test_sqlite_stale_item_and_sprint_commands_reject_without_second_mutation
+    boundaries: [R5]
+  - id: CR-10
+    title: served proof transport
+    acceptance: tests/test_served_lifecycle_routes.py::test_served_claim_handoff_rotate_mints_new_token_and_bumps_lease_epoch
+    boundaries: [R2, R6]
+common_acceptance_command: >-
+  python -m pytest -q -p no:cacheprovider <the selected node ids>; candidate
+  adapters may add their own isolated checks but may not replace these.
+controls:
+  worktree: one disposable clone per lane
+  production_credentials: forbidden
+  production_mutation: forbidden
+  agent_workers: 10 logical actors named worker-01 through worker-10
+  secret_evidence: proof values are represented only by sha256 digest
+limitations: >-
+  This corpus supplies real claim, resume, and authority test obligations. It
+  does not by itself model a production unattended agent run, so R5 execution
+  substitutions still need their dedicated duplicate-delivery sandbox probe.
