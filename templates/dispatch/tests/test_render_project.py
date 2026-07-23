@@ -17,6 +17,21 @@ SPEC.loader.exec_module(RENDER)
 
 
 class ProjectRenderTests(unittest.TestCase):
+    def setUp(self) -> None:
+        # These tests exercise the project-source render pipeline only; an
+        # empty records dir keeps them isolated from whatever environment
+        # record (if any) happens to resolve for the real host running the
+        # suite -- see test_render_environment_wiring.py for that behavior.
+        no_env = tempfile.TemporaryDirectory()
+        self.addCleanup(no_env.cleanup)
+        self.no_env_dir = Path(no_env.name)
+
+    def _apply(self, project: "RENDER.ProjectBinding") -> list:
+        return RENDER.apply_project(project, environment_records_dir=self.no_env_dir)
+
+    def _inspect(self, project: "RENDER.ProjectBinding") -> list:
+        return RENDER.inspect_project(project, environment_records_dir=self.no_env_dir)
+
     def _write(self, path: Path, value: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(value, encoding="utf-8")
@@ -140,13 +155,13 @@ render_levels: [full]
             project_path, repos = self._fixture(Path(temporary))
             project = RENDER.load_project(project_path)
 
-            first = RENDER.apply_project(project)
+            first = self._apply(project)
             full_output = (
                 repos["full-member"] / ".agents" / "project.generated.md"
             ).read_bytes()
             full_agents = (repos["full-member"] / "AGENTS.md").read_bytes()
             self._commit_all(repos, "render")
-            second = RENDER.apply_project(project)
+            second = self._apply(project)
 
             self.assertFalse(any(status.needs_sync for status in first))
             self.assertFalse(any(status.needs_sync for status in second))
@@ -166,13 +181,13 @@ render_levels: [full]
         with tempfile.TemporaryDirectory() as temporary:
             project_path, repos = self._fixture(Path(temporary))
             project = RENDER.load_project(project_path)
-            RENDER.apply_project(project)
+            self._apply(project)
             self._commit_all(repos, "render")
 
             generated = repos["full-member"] / ".agents" / "project.generated.md"
             generated.write_bytes(generated.read_bytes() + b"manual edit\n")
             statuses = {
-                status.repo_id: status for status in RENDER.inspect_project(project)
+                status.repo_id: status for status in self._inspect(project)
             }
             self.assertEqual(statuses["full-member"].generated, "hand-edited")
 
@@ -183,7 +198,7 @@ render_levels: [full]
             source = repos["home"] / ".project" / "sources" / "10-shared.md"
             source.write_bytes(source.read_bytes() + b"source edit\n")
             statuses = {
-                status.repo_id: status for status in RENDER.inspect_project(project)
+                status.repo_id: status for status in self._inspect(project)
             }
             self.assertEqual(statuses["full-member"].generated, "stale")
             self.assertEqual(statuses["baseline-member"].generated, "stale")
@@ -192,7 +207,7 @@ render_levels: [full]
         with tempfile.TemporaryDirectory() as temporary:
             project_path, repos = self._fixture(Path(temporary))
             project = RENDER.load_project(project_path)
-            RENDER.apply_project(project)
+            self._apply(project)
             self._commit_all(repos, "render")
             project_path.write_text(
                 project_path.read_text(encoding="utf-8").replace(
@@ -203,7 +218,7 @@ render_levels: [full]
 
             statuses = {
                 status.repo_id: status
-                for status in RENDER.inspect_project(RENDER.load_project(project_path))
+                for status in self._inspect(RENDER.load_project(project_path))
             }
 
             self.assertEqual(statuses["full-member"].generated, "stale")
@@ -217,7 +232,7 @@ render_levels: [full]
             source.write_bytes(source.read_bytes() + b"dirty\n")
 
             with self.assertRaisesRegex(RENDER.DirtyProjectError, "refusing --apply"):
-                RENDER.apply_project(project)
+                self._apply(project)
 
     def test_render_none_removes_only_managed_output_and_pointer(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -229,7 +244,7 @@ render_levels: [full]
             (home / "AGENTS.md").write_bytes(RENDER._with_pointer(original))
             self._commit_all(repos, "stale managed output")
 
-            statuses = RENDER.apply_project(RENDER.load_project(project_path))
+            statuses = self._apply(RENDER.load_project(project_path))
 
             self.assertFalse(generated.exists())
             self.assertEqual(
@@ -265,11 +280,11 @@ render_levels: [full]
             project = RENDER.load_project(project_path)
 
             statuses = {
-                status.repo_id: status for status in RENDER.inspect_project(project)
+                status.repo_id: status for status in self._inspect(project)
             }
             self.assertEqual(statuses["baseline-member"].pointer, "invalid")
             with self.assertRaisesRegex(RENDER.ProjectRenderError, "out of order"):
-                RENDER.apply_project(project)
+                self._apply(project)
             self.assertFalse(
                 (repos["full-member"] / ".agents" / "project.generated.md").exists()
             )
@@ -283,6 +298,8 @@ render_levels: [full]
                 "check",
                 "--project",
                 str(project_path),
+                "--environment-records-dir",
+                str(self.no_env_dir),
             ]
 
             missing = subprocess.run(

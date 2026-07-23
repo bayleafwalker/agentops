@@ -489,6 +489,7 @@ def materialize(
     folder: Path,
     *,
     command: str,
+    environment_records_dir: Path = render_project.ENVIRONMENT_RECORDS_DIR,
 ) -> MaterializationResult:
     folder = _prepare_folder(project, folder, require_existing=command == "sync")
     states: list[WorktreeState] = []
@@ -505,7 +506,11 @@ def materialize(
             folder / MEMBERS_DIRECTORY / project.home_repo / "project.toml",
             workspace_root=folder / MEMBERS_DIRECTORY,
         )
-        render_statuses = tuple(render_project.apply_project(materialized_project))
+        render_statuses = tuple(
+            render_project.apply_project(
+                materialized_project, environment_records_dir=environment_records_dir
+            )
+        )
 
     for member in project.members:
         _git(member.repo_root, "worktree", "prune")
@@ -545,6 +550,12 @@ def main(argv: list[str] | None = None) -> int:
             type=Path,
             help="primary repository parent (default: parent of the home repository)",
         )
+        command.add_argument(
+            "--environment-records-dir",
+            type=Path,
+            default=render_project.ENVIRONMENT_RECORDS_DIR,
+            help="directory to search for environment-record/v1 files (default: templates/dispatch/environment-record)",
+        )
     args = parser.parse_args(argv)
 
     try:
@@ -552,7 +563,12 @@ def main(argv: list[str] | None = None) -> int:
             args.project,
             workspace_root=args.workspace_root,
         )
-        result = materialize(project, args.folder, command=args.command)
+        result = materialize(
+            project,
+            args.folder,
+            command=args.command,
+            environment_records_dir=args.environment_records_dir,
+        )
         _print_result(result)
     except (ProjectFolderError, render_project.ProjectRenderError) as error:
         print(f"error: {error}", file=sys.stderr)

@@ -16,6 +16,22 @@ import render_project as RENDER  # noqa: E402
 
 
 class ProjectMaterializationTests(unittest.TestCase):
+    def setUp(self) -> None:
+        # Isolate from whatever environment record (if any) resolves for the
+        # real host running the suite; environment-context wiring is covered
+        # separately in test_render_environment_wiring.py.
+        no_env = tempfile.TemporaryDirectory()
+        self.addCleanup(no_env.cleanup)
+        self.no_env_dir = Path(no_env.name)
+
+    def _materialize(self, project, folder: Path, *, command: str):
+        return MATERIALIZE.materialize(
+            project,
+            folder,
+            command=command,
+            environment_records_dir=self.no_env_dir,
+        )
+
     def _git(self, repo: Path, *arguments: str) -> str:
         result = subprocess.run(
             ["git", "-C", str(repo), *arguments],
@@ -94,7 +110,9 @@ render_levels: [baseline, full]
             self._commit_push(repo, "initial")
 
         project_path = repos["home"] / "project.toml"
-        RENDER.apply_project(RENDER.load_project(project_path))
+        RENDER.apply_project(
+            RENDER.load_project(project_path), environment_records_dir=self.no_env_dir
+        )
         self._commit_push(repos["child"], "chore(render): initial project context")
         return project_path, repos
 
@@ -126,7 +144,7 @@ render_levels: [baseline, full]
             project = RENDER.load_project(project_path)
             folder = root / "project-folders" / "fixture"
 
-            first = MATERIALIZE.materialize(project, folder, command="setup")
+            first = self._materialize(project, folder, command="setup")
             first_snapshot = self._snapshot(folder, repos)
             self.assertFalse((folder / ".git").exists())
             self.assertFalse(first.blocked)
@@ -154,7 +172,7 @@ render_levels: [baseline, full]
                 )
 
             shutil.rmtree(folder)
-            second = MATERIALIZE.materialize(project, folder, command="setup")
+            second = self._materialize(project, folder, command="setup")
 
             self.assertFalse(second.blocked)
             self.assertEqual(self._snapshot(folder, repos), first_snapshot)
@@ -170,7 +188,7 @@ render_levels: [baseline, full]
             project_path, repos = self._fixture(root)
             project = RENDER.load_project(project_path)
             folder = root / "project-folders" / "fixture"
-            MATERIALIZE.materialize(project, folder, command="setup")
+            self._materialize(project, folder, command="setup")
 
             self._write(repos["child"] / "upstream.txt", "upstream\n")
             child_head = self._commit_push(repos["child"], "upstream child change")
@@ -181,7 +199,7 @@ render_levels: [baseline, full]
             )
             home_head = self._commit_push(repos["home"], "project source update")
 
-            result = MATERIALIZE.materialize(project, folder, command="sync")
+            result = self._materialize(project, folder, command="sync")
             states = {state.repo_id: state for state in result.members}
             generated = (
                 folder
@@ -217,7 +235,7 @@ render_levels: [baseline, full]
             project_path, repos = self._fixture(root)
             project = RENDER.load_project(project_path)
             folder = root / "project-folders" / "fixture"
-            MATERIALIZE.materialize(project, folder, command="setup")
+            self._materialize(project, folder, command="setup")
             child_worktree = folder / MATERIALIZE.MEMBERS_DIRECTORY / "child"
 
             self._write(child_worktree / "local.txt", "local\n")
@@ -227,7 +245,7 @@ render_levels: [baseline, full]
             self._write(repos["child"] / "remote.txt", "remote\n")
             self._commit_push(repos["child"], "independent upstream commit")
 
-            result = MATERIALIZE.materialize(project, folder, command="sync")
+            result = self._materialize(project, folder, command="sync")
             state = next(
                 member for member in result.members if member.repo_id == "child"
             )
@@ -249,11 +267,11 @@ render_levels: [baseline, full]
             with self.assertRaisesRegex(
                 MATERIALIZE.ProjectFolderError, "non-empty folder"
             ):
-                MATERIALIZE.materialize(project, occupied, command="setup")
+                self._materialize(project, occupied, command="setup")
             with self.assertRaisesRegex(
                 MATERIALIZE.ProjectFolderError, "inside member"
             ):
-                MATERIALIZE.materialize(
+                self._materialize(
                     project, repos["home"] / "nested", command="setup"
                 )
 
@@ -272,6 +290,8 @@ render_levels: [baseline, full]
                     str(project_path),
                     "--folder",
                     str(folder),
+                    "--environment-records-dir",
+                    str(self.no_env_dir),
                 ],
                 check=False,
                 capture_output=True,
@@ -285,6 +305,8 @@ render_levels: [baseline, full]
                     str(project_path),
                     "--folder",
                     str(folder),
+                    "--environment-records-dir",
+                    str(self.no_env_dir),
                 ],
                 check=False,
                 capture_output=True,

@@ -15,6 +15,14 @@ import tempfile
 import tomllib
 from uuid import UUID
 
+sys.path.insert(0, str(Path(__file__).parent))
+from render_environment_context import render_environment_context  # noqa: E402
+from resolve_environment_record import (  # noqa: E402
+    EnvironmentResolutionError,
+    resolve_environment_record,
+)
+from validate_vuoro_profiles import ProfileError  # noqa: E402
+
 
 REPO_ID_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 FRONTMATTER_RE = re.compile(
@@ -36,6 +44,21 @@ POINTER_BLOCK = b"\n".join(
         POINTER_END,
     )
 )
+
+ENV_POINTER_START = b"<!-- agentops-environment-pointer:start -->"
+ENV_POINTER_END = b"<!-- agentops-environment-pointer:end -->"
+ENV_POINTER_BLOCK = b"\n".join(
+    (
+        ENV_POINTER_START,
+        b"See `.agents/environment.generated.md` for the active Vuoro "
+        b"environment's constraints and runbooks (agentops-managed; do not "
+        b"hand-edit).",
+        ENV_POINTER_END,
+    )
+)
+ENV_RENDER_PREFIX = b"<!-- agentops-render: DO NOT HAND-EDIT\n"
+ENV_HASH_RE = re.compile(rb"environment_record_sha256: (?P<digest>[0-9a-f]{64})")
+ENVIRONMENT_RECORDS_DIR = Path(__file__).resolve().parent.parent / "environment-record"
 
 
 class ProjectRenderError(ValueError):
@@ -70,6 +93,10 @@ class MemberBinding:
             / "overlays"
             / f"{self.repo_id}.project-overrides.md"
         )
+
+    @property
+    def environment_path(self) -> Path:
+        return self.repo_root / ".agents" / "environment.generated.md"
 
 
 @dataclass(frozen=True)
@@ -116,11 +143,19 @@ class MemberStatus:
     generated: str
     pointer: str
     detail: str = ""
+    environment: str = "not-applicable"
+    environment_pointer: str = "not-applicable"
+    environment_detail: str = ""
 
     @property
     def needs_sync(self) -> bool:
         clean = {"in-sync", "not-applicable"}
-        return self.generated not in clean or self.pointer not in clean
+        return (
+            self.generated not in clean
+            or self.pointer not in clean
+            or self.environment not in clean
+            or self.environment_pointer not in clean
+        )
 
 
 def _exact_keys(
@@ -355,48 +390,86 @@ def expected_render(
     return ExpectedRender(digest, header, body)
 
 
-def _pointer_counts(content: bytes) -> tuple[int, int]:
-    return content.count(POINTER_START), content.count(POINTER_END)
+def _marker_counts(content: bytes, start: bytes, end: bytes) -> tuple[int, int]:
+    return content.count(start), content.count(end)
 
 
-def _pointer_span(content: bytes) -> tuple[int, int]:
-    starts, ends = _pointer_counts(content)
+def _marker_span(
+    content: bytes, start: bytes, end: bytes, *, label: str
+) -> tuple[int, int]:
+    starts, ends = _marker_counts(content, start, end)
     if starts != 1 or ends != 1:
         raise ProjectRenderError(
-            "AGENTS.md has duplicate or unbalanced project pointer sentinels"
+            f"AGENTS.md has duplicate or unbalanced {label} sentinels"
         )
-    start = content.index(POINTER_START)
+    span_start = content.index(start)
     try:
-        end = content.index(POINTER_END, start) + len(POINTER_END)
+        span_end = content.index(end, span_start) + len(end)
     except ValueError as error:
         raise ProjectRenderError(
-            "AGENTS.md project pointer sentinels are out of order"
+            f"AGENTS.md {label} sentinels are out of order"
         ) from error
-    return start, end
+    return span_start, span_end
 
 
-def _with_pointer(content: bytes) -> bytes:
-    starts, ends = _pointer_counts(content)
+def _with_marker(
+    content: bytes, start: bytes, end: bytes, block: bytes, *, label: str
+) -> bytes:
+    starts, ends = _marker_counts(content, start, end)
     if starts == 0 and ends == 0:
         if not content:
-            return POINTER_BLOCK + b"\n"
+            return block + b"\n"
         if content.endswith(b"\n\n"):
             separator = b""
         elif content.endswith(b"\n"):
             separator = b"\n"
         else:
             separator = b"\n\n"
-        return content + separator + POINTER_BLOCK + b"\n"
-    start, end = _pointer_span(content)
-    return content[:start] + POINTER_BLOCK + content[end:]
+        return content + separator + block + b"\n"
+    span_start, span_end = _marker_span(content, start, end, label=label)
+    return content[:span_start] + block + content[span_end:]
+
+
+def _without_marker(content: bytes, start: bytes, end: bytes, *, label: str) -> bytes:
+    starts, ends = _marker_counts(content, start, end)
+    if starts == 0 and ends == 0:
+        return content
+    span_start, span_end = _marker_span(content, start, end, label=label)
+    return content[:span_start] + content[span_end:]
+
+
+def _pointer_counts(content: bytes) -> tuple[int, int]:
+    return _marker_counts(content, POINTER_START, POINTER_END)
+
+
+def _pointer_span(content: bytes) -> tuple[int, int]:
+    return _marker_span(content, POINTER_START, POINTER_END, label="project pointer")
+
+
+def _with_pointer(content: bytes) -> bytes:
+    return _with_marker(
+        content, POINTER_START, POINTER_END, POINTER_BLOCK, label="project pointer"
+    )
 
 
 def _without_pointer(content: bytes) -> bytes:
-    starts, ends = _pointer_counts(content)
-    if starts == 0 and ends == 0:
-        return content
-    start, end = _pointer_span(content)
-    return content[:start] + content[end:]
+    return _without_marker(content, POINTER_START, POINTER_END, label="project pointer")
+
+
+def _with_env_pointer(content: bytes) -> bytes:
+    return _with_marker(
+        content,
+        ENV_POINTER_START,
+        ENV_POINTER_END,
+        ENV_POINTER_BLOCK,
+        label="environment pointer",
+    )
+
+
+def _without_env_pointer(content: bytes) -> bytes:
+    return _without_marker(
+        content, ENV_POINTER_START, ENV_POINTER_END, label="environment pointer"
+    )
 
 
 def _read_regular_or_empty(path: Path) -> bytes:
@@ -425,6 +498,89 @@ def _pointer_status(member: MemberBinding) -> str:
             return "invalid"
     try:
         expected = _with_pointer(content)
+    except ProjectRenderError:
+        return "invalid"
+    if starts == 0 and ends == 0:
+        return "missing"
+    return "in-sync" if expected == content else "hand-edited"
+
+
+def _resolve_environment_record(records_dir: Path) -> Path | None:
+    """Best-effort resolution; no matching record for this host is not an error."""
+    try:
+        return resolve_environment_record(records_dir)
+    except EnvironmentResolutionError:
+        return None
+
+
+def expected_environment_section(record_path: Path) -> bytes:
+    """Render the active environment's bounded context block plus a small,
+    independently-hashed provenance header. This is deliberately a separate
+    file and hash chain from `expected_render`'s project-source bundle: the
+    environment record is host/session state, not a per-repo git-versioned
+    source fragment, and mixing the two would make the existing project-render
+    dirty-check machinery responsible for state it wasn't designed to track.
+    """
+    block = render_environment_context(record_path).encode("utf-8")
+    digest = hashlib.sha256(record_path.read_bytes()).hexdigest()
+    header = (
+        "<!-- agentops-render: DO NOT HAND-EDIT\n"
+        f"     environment_record: {record_path.name}\n"
+        f"     environment_record_sha256: {digest}\n"
+        "     tool: agentops-environment-context/v1\n"
+        "-->\n"
+    ).encode("utf-8")
+    return header + block
+
+
+def _environment_status(
+    member: MemberBinding, expected: bytes | None
+) -> tuple[str, str]:
+    path = member.environment_path
+    if expected is None:
+        if path.exists():
+            return "stale", "no environment record resolves for this host anymore"
+        return "not-applicable", ""
+    if path.is_symlink():
+        return "invalid", "environment path must not be a symlink"
+    if not path.exists():
+        return "missing", ""
+    if not path.is_file():
+        return "invalid", "environment path is not a regular file"
+    actual = path.read_bytes()
+    header_end = actual.find(b"-->\n")
+    if header_end == -1 or not actual.startswith(ENV_RENDER_PREFIX):
+        return "invalid", "environment output has no valid agentops provenance header"
+    header_end += len(b"-->\n")
+    if ENV_HASH_RE.search(actual[:header_end]) is None:
+        return "invalid", "environment output has no valid record hash"
+    expected_header_end = expected.find(b"-->\n") + len(b"-->\n")
+    if actual[:header_end] != expected[:expected_header_end]:
+        return "stale", "active environment record changed since the last render"
+    if actual[header_end:] != expected[expected_header_end:]:
+        return (
+            "hand-edited",
+            "environment body differs while its source hash is current",
+        )
+    return "in-sync", ""
+
+
+def _env_pointer_status(member: MemberBinding, *, applicable: bool) -> str:
+    content = _read_regular_or_empty(member.agents_path)
+    starts, ends = _marker_counts(content, ENV_POINTER_START, ENV_POINTER_END)
+    if not applicable:
+        if starts == 0 and ends == 0:
+            return "not-applicable"
+        try:
+            return (
+                "unexpected"
+                if _without_env_pointer(content) != content
+                else "not-applicable"
+            )
+        except ProjectRenderError:
+            return "invalid"
+    try:
+        expected = _with_env_pointer(content)
     except ProjectRenderError:
         return "invalid"
     if starts == 0 and ends == 0:
@@ -467,8 +623,18 @@ def _generated_status(
     return "in-sync", ""
 
 
-def inspect_project(project: ProjectBinding) -> list[MemberStatus]:
+def inspect_project(
+    project: ProjectBinding,
+    *,
+    environment_records_dir: Path = ENVIRONMENT_RECORDS_DIR,
+) -> list[MemberStatus]:
     fragments = load_fragments(project)
+    environment_record = _resolve_environment_record(environment_records_dir)
+    expected_environment = (
+        expected_environment_section(environment_record)
+        if environment_record is not None
+        else None
+    )
     statuses: list[MemberStatus] = []
     for member in project.members:
         expected = (
@@ -477,6 +643,9 @@ def inspect_project(project: ProjectBinding) -> list[MemberStatus]:
             else expected_render(project, member, fragments)
         )
         generated, detail = _generated_status(member, expected)
+        environment, environment_detail = _environment_status(
+            member, expected_environment
+        )
         statuses.append(
             MemberStatus(
                 repo_id=member.repo_id,
@@ -484,6 +653,11 @@ def inspect_project(project: ProjectBinding) -> list[MemberStatus]:
                 generated=generated,
                 pointer=_pointer_status(member),
                 detail=detail,
+                environment=environment,
+                environment_pointer=_env_pointer_status(
+                    member, applicable=expected_environment is not None
+                ),
+                environment_detail=environment_detail,
             )
         )
     return statuses
@@ -520,6 +694,7 @@ def _dirty_render_paths(project: ProjectBinding) -> str:
             {
                 "AGENTS.md",
                 ".agents/project.generated.md",
+                ".agents/environment.generated.md",
                 f".agents/overlays/{member.repo_id}.project-overrides.md",
             }
         )
@@ -554,9 +729,13 @@ def _atomic_write(path: Path, content: bytes) -> None:
             pass
 
 
-def apply_project(project: ProjectBinding) -> list[MemberStatus]:
+def apply_project(
+    project: ProjectBinding,
+    *,
+    environment_records_dir: Path = ENVIRONMENT_RECORDS_DIR,
+) -> list[MemberStatus]:
     """Apply deterministic renders after refusing dirty inputs and managed paths."""
-    before = inspect_project(project)
+    before = inspect_project(project, environment_records_dir=environment_records_dir)
     if not any(status.needs_sync for status in before):
         return before
     dirty = _dirty_render_paths(project)
@@ -567,6 +746,12 @@ def apply_project(project: ProjectBinding) -> list[MemberStatus]:
         )
 
     fragments = load_fragments(project)
+    environment_record = _resolve_environment_record(environment_records_dir)
+    expected_environment = (
+        expected_environment_section(environment_record)
+        if environment_record is not None
+        else None
+    )
     operations: list[tuple[MemberBinding, ExpectedRender | None, bytes, bytes]] = []
     for member in project.members:
         agents = _read_regular_or_empty(member.agents_path)
@@ -581,12 +766,18 @@ def apply_project(project: ProjectBinding) -> list[MemberStatus]:
                     raise ProjectRenderError(
                         f"refusing to remove non-managed output: {member.generated_path}"
                     )
-            without_pointer = _without_pointer(agents)
-            operations.append((member, None, agents, without_pointer))
-            continue
+            expected = None
+            next_agents = _without_pointer(agents)
+        else:
+            expected = expected_render(project, member, fragments)
+            next_agents = _with_pointer(agents)
 
-        expected = expected_render(project, member, fragments)
-        operations.append((member, expected, agents, _with_pointer(agents)))
+        next_agents = (
+            _with_env_pointer(next_agents)
+            if expected_environment is not None
+            else _without_env_pointer(next_agents)
+        )
+        operations.append((member, expected, agents, next_agents))
 
     for member, expected, agents, next_agents in operations:
         if expected is None:
@@ -594,19 +785,29 @@ def apply_project(project: ProjectBinding) -> list[MemberStatus]:
                 member.generated_path.unlink()
         else:
             _atomic_write(member.generated_path, expected.content)
+        if expected_environment is not None:
+            _atomic_write(member.environment_path, expected_environment)
+        elif member.environment_path.exists():
+            current_env = _read_regular_or_empty(member.environment_path)
+            if current_env.startswith(ENV_RENDER_PREFIX):
+                member.environment_path.unlink()
         if next_agents != agents:
             _atomic_write(member.agents_path, next_agents)
-    return inspect_project(project)
+    return inspect_project(project, environment_records_dir=environment_records_dir)
 
 
 def _print_statuses(statuses: list[MemberStatus]) -> None:
     for status in statuses:
         print(
             f"{status.repo_id} ({status.render}): "
-            f"generated={status.generated}; pointer={status.pointer}"
+            f"generated={status.generated}; pointer={status.pointer}; "
+            f"environment={status.environment}; "
+            f"environment_pointer={status.environment_pointer}"
         )
         if status.detail:
             print(f"  {status.detail}")
+        if status.environment_detail:
+            print(f"  {status.environment_detail}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -624,14 +825,24 @@ def main(argv: list[str] | None = None) -> int:
     check.add_argument(
         "--apply", action="store_true", help="write deterministic render output"
     )
+    check.add_argument(
+        "--environment-records-dir",
+        type=Path,
+        default=ENVIRONMENT_RECORDS_DIR,
+        help="directory to search for environment-record/v1 files (default: templates/dispatch/environment-record)",
+    )
     args = parser.parse_args(argv)
 
     try:
         project = load_project(args.project, workspace_root=args.workspace_root)
-        statuses = inspect_project(project)
+        statuses = inspect_project(
+            project, environment_records_dir=args.environment_records_dir
+        )
         if args.apply:
             _print_statuses(statuses)
-            statuses = apply_project(project)
+            statuses = apply_project(
+                project, environment_records_dir=args.environment_records_dir
+            )
             print("after apply:")
         _print_statuses(statuses)
     except ProjectRenderError as error:

@@ -19,6 +19,10 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+from resolve_environment_record import (  # noqa: E402
+    EnvironmentResolutionError,
+    resolve_environment_record,
+)
 from validate_vuoro_profiles import ProfileError, validate_environment  # noqa: E402
 
 
@@ -46,11 +50,24 @@ def render_environment_context(path: Path) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--environment", required=True, type=Path)
+    parser.add_argument(
+        "--environment",
+        type=Path,
+        help="explicit environment record path (default: auto-resolve from hostname)",
+    )
+    parser.add_argument(
+        "--records-dir",
+        type=Path,
+        default=Path(__file__).parent.parent / "environment-record",
+        help="directory to search when auto-resolving (default: templates/dispatch/environment-record)",
+    )
     args = parser.parse_args()
+    environment_path = args.environment
     try:
-        sys.stdout.write(render_environment_context(args.environment))
-    except ProfileError as exc:
+        if environment_path is None:
+            environment_path = resolve_environment_record(args.records_dir)
+        sys.stdout.write(render_environment_context(environment_path))
+    except (ProfileError, EnvironmentResolutionError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     return 0
