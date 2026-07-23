@@ -101,3 +101,10 @@ gaps not reasonably representable in R3/R4; otherwise retain as optional
 local convenience or remove the mechanization. Until decided, the scope
 fence in R3 holds (no kctl ingestion, no cockpit pane, no new kinds, no
 stable served transport, no authority mutation).
+
+### H9 status (2026-07-23 observation audit)
+
+Gate-4 evidence currently includes five retrospective cold-resume observations
+and `No` completed full timing protocol rows (incident-level times were not all
+captured consistently), so H9 remains open and cannot yet adjudicate a
+systematic note-success rate.

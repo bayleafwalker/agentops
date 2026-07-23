@@ -23,6 +23,30 @@ access; resumable unattended agent work; concurrency and claim ownership
 across ~10 concurrent agents; durable audit-quality history of decisions;
 long idle periods (months) without state rot.
 
+## Five cold-resume observations (observational status toward Gate 4)
+
+These observations are evidence-backed from the 30–60 day retrospective but
+only one instance currently has a comparable timed next-action metric.
+Until four additional normal-work *timed* observations are collected, the freeze
+is explicitly blocked.
+
+| # | Date | Context | Resume surface | Evidence of value | Timing |
+|---|---|---|---|---|---|
+| 1 | 2026-07-08 | homelab-analytics recovery after lost claude-agent sessions (items #730–#734) | claim records + `claim resume` | 5 rotate recoveries completed with ownership continuity; conflict duplication avoided | `<5 m` (rotate operations) |
+| 2 | 2026-07-14 | sprintctl ops-upgrade wave (~20 claim handoffs across ~8 actors; repeated "previous proof was unavailable; explicit adopt") | claim handoff + bundles (6 handoffs) | Proven proof-loss recovery and transfer continuity in active multi-actor work | **not timed in-band** |
+| 3 | 2026-07-21 | sprintctl/vuoro 10-agent dispatch batch (`942` tool calls) | orchestrator-owned claims, done-from-claim, kctl capture | Batch-scale claim continuity preserved across orchestrator chains | **not timed in-band** |
+| 4 | 2026-07-22 | sprintctl #1195 end-of-day handoff into next-session continuation | `handoff-1195-served-backend-2026-07-22-eod.txt` / bundle | Deterministic next action produced; conflicts surfaced (`[unclaimed-active-work]`, dependency block) and bundle-correct decisions prevented wrong branch | `<5 min` assisted; `15–60 min` counterfactual reconstruction |
+| 5 | 2026-07-19→23 | ecosystem cold resume into #1195 continuation after idle period | sprint list + continuation-blockers plan + bundle | Multi-day gap did not lose operational continuity; remaining proof-channel risk stayed explicit | **not timed in-band** |
+
+Freeze condition result:
+
+* **Valid observed resumes:** 5
+* **Valid timed observations:** 1
+* **Gate-4 status:** **BLOCKED** pending 4 additional timed observations with idle-gap and multi-agent coverage.
+
+Current claim: no R1–R8 wording changes are made from these observations until
+the protocol-complete timed set closes.
+
 ## Requirement vs mechanism confidence
 
 The eight requirements are not equally established. Confidence in the
