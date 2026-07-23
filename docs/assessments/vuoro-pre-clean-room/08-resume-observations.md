@@ -188,3 +188,45 @@ continuation of item #1216 (this assessment's own gate-completion item).
 Still needed: at least one true multi-agent-batch resume, and enough
 additional observations (any shape) to reach five. The solo requirement
 flagged as outstanding in Observation 1's write-up is now satisfied.
+
+---
+
+## Pre-pause state, 2026-07-23T17:04:44Z (prep for a future Observation 3)
+
+This is the *before-pausing* half only. Item #1216 was claimed (claim
+#159), an evidence note (#1398) was recorded, the claim was released, and
+status was explicitly set back to `blocked` — no claim is currently held.
+Do not count this section as a third observation on its own.
+
+**Repository, branch/worktree, task/item:** agentops, `main`, no worktree.
+Item #1216 (status `blocked`, unclaimed, 2 of 5 sub-observations done).
+No other repo's runtime/deployment state was touched this session.
+
+**Timestamp and session shape:** 2026-07-23T17:04:44Z. This session was
+uniformly **solo** — no sub-agent dispatched at any point.
+
+**What state is intentionally left in Git/Vuoro:** commit `d7a17c9`
+pushed-eligible (not yet pushed — same as prior sessions in this thread,
+confirm push policy before assuming remote is current). Working tree
+clean except `docs/plans/evidence-needed.md`, still untracked and still
+not this session's to commit or discard (it predates this session and
+its ownership remains unresolved — flagging again since it has now
+survived two consecutive sessions untouched). Item #1216 explicitly
+`blocked`, no active claims.
+
+**Whether a handoff bundle or authored note exists:** no new authored
+note was written beyond this document itself and note #1398 on the item.
+The standing untracked note (`docs/plans/evidence-needed.md`) still
+exists and, per this observation's H9 finding, was redundant with
+tracker-native state — a future resuming session re-encountering it is
+itself a small additional H9 data point worth recording if it recurs.
+
+**What a future Observation 3 should prioritize:** the multi-agent-batch
+resume is now the sole remaining shape gap. That cannot be manufactured
+by claiming #1216 alone — it requires resuming into an actually-running
+multi-agent batch (as Observation 1's pre-pause note for #1195 briefly
+was, mid-session). The next genuine opportunity is whatever real
+multi-agent dispatch next occurs in this or another repo; do not dispatch
+throwaway concurrent agents solely to check this box, per the plan's
+"do not artificially exercise unused features merely to generate data"
+principle (Vuoro-Pre-Clean-Room-Assessment-Plan.md:147).
