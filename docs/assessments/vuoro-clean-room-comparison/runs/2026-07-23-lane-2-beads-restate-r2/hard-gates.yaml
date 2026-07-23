@@ -1,0 +1,40 @@
+schema_version: vuoro-clean-room-comparison.verdict.v1
+artifact_type: hard_gate_and_required_verdicts
+lane_id: '2'
+run_id: 2026-07-23-lane-2-beads-restate-r2
+hard_gate_results:
+  work_correctness:
+    passed: not-yet-assessed
+    evidence_links: []
+    notes: Full Beads plus adapter concurrent scenario is still required.
+  resume_correctness:
+    passed: not-yet-assessed
+    evidence_links: []
+    notes: No prime/resume scenario was run.
+  execution_safety:
+    passed: not-applicable
+    evidence_links: []
+    notes: Lane 2 makes no execution-substitution claim.
+  trust_boundary:
+    passed: partial
+    evidence_links: [evidence/r2-litmus.md]
+    notes: >-
+      The claim state lives in one Restate VirtualObject and the adapter records
+      only proof digests. Actual Beads-to-adapter integration remains untested.
+r2_litmus_verdict:
+  passes: true
+  reason: >-
+    The isolated adapter prevented a delegated proofless mutation, rotated and
+    invalidated proof on handoff, and rotated and invalidated proof on controlled
+    recovery. Rejections are durable decision receipts rather than retried errors.
+  evidence_links: [evidence/r2-litmus.md, adapter/adapter.py]
+r6_verdict:
+  passes: not-yet-assessed
+  reason: This adapter probe did not exercise execution identity or migration separation.
+  evidence_links: []
+overall_lane_gate:
+  status: partial-r2-boundary-pass
+  blocking_issue: >-
+    The narrow R2 authority protocol passes, but the Lane 2 composition is not
+    eligible for recommendation until Beads integration and remaining scenarios
+    establish that it does not split mutation authority.

@@ -1,0 +1,25 @@
+schema_version: vuoro-clean-room-comparison.run.v1
+artifact_type: lane_run_manifest
+status: partial-r2-adapter-complete
+run_id: 2026-07-23-lane-2-beads-restate-r2
+contract_id: vuoro-clean-room-2026-07-23
+lane_id: '2'
+lane_variant: beads-minimal-restate-claim-adapter
+fixture: ../../fixtures/sprintctl-real-corpus-v1.yaml
+participant_locks:
+  beads: d7b9f4fc52deebc86cb25c214107e96cdd512b67
+  restate_source: 8c8d8de53466be1fc9fc123919259679847115e8
+  restate_image: docker.restate.dev/restatedev/restate@sha256:53b245bcd64318233128c49ce56577737c888fcfacd5dbe8e7c88deb12753681
+  adapter_image: vuoro-clean-room-lane2-adapter@sha256:13816d72ba84dc2df76bb624a4c27de283c505aad4c2b44f0a23466cbbfcdb9d
+  restate_sdk: 1.0.2
+scenario_status:
+  S-BATCH: r2-litmus-complete
+  S-SOLO: not-started
+  S-RESUME: not-started
+  S-DORMANT: not-seeded
+  S-SIMPLIFY: not-applicable
+evidence: [hard-gates.yaml, evidence/r2-litmus.md, adapter/adapter.py, adapter/verify.py, adapter/Dockerfile]
+scope_note: >-
+  This proves the narrow adapter's R2 protocol only. Beads was not wired to
+  this adapter, so the composed Lane 2 claim does not yet establish a full
+  Beads mutation boundary, R1/R4 behavior, or operational carrying cost.
