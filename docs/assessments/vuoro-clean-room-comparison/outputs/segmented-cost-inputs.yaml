@@ -1,64 +1,31 @@
 schema_version: vuoro-clean-room-comparison.cost.v1
 artifact_type: segmented_horizon_cost_inputs
-lane_id: B|0|1|2|3|4
+status: not-measured-no-synthetic-costs
+collection_rule: >-
+  The frozen experiment requires scenario-segmented operator, agent, and
+  failure data. The completed probes were component litmuses, not comparable
+  ten-worker scenario runs, so no numeric adoption, carrying, or per-workflow
+  cost is valid.
+lane_cost_status:
+  B: baseline corpus acceptance only; no cost instrumentation
+  '0': non-comparable discovery; excluded
+  '1': R2 failure before cost study
+  '2': adapter R2 litmus only; Beads integration absent
+  '3': R5/R6 failure as executed before cost study
+  '4': reference spike only; not a migration candidate
 cost_segments:
-  adoption_horizon:
-    integration: todo
-    migration: todo
-    retraining: todo
-    parallel_run: todo
-    rollback_implementation: todo
-  monthly_carrying_horizon:
-    service_operations: todo
-    upgrades: todo
-    incident_repair: todo
-    adapter_maintenance: todo
-    subscription_or_hosting: todo
+  adoption_horizon: not-measured
+  monthly_carrying_horizon: not-measured
   per_workflow_cost:
-    S-SOLO:
-      operator_minutes: todo
-      agent_overhead:
-        tool_calls: todo
-        context_tokens: todo
-      delayed_resolution_cost: todo
-      failure_rate: todo
-    S-RESUME:
-      operator_minutes: todo
-      agent_overhead:
-        tool_calls: todo
-        context_tokens: todo
-      delayed_resolution_cost: todo
-      failure_rate: todo
-    S-BATCH:
-      operator_minutes: todo
-      agent_overhead:
-        tool_calls: todo
-        context_tokens: todo
-      delayed_resolution_cost: todo
-      failure_rate: todo
-    interrupted_execution:
-      operator_minutes: todo
-      agent_overhead:
-        tool_calls: todo
-        context_tokens: todo
-      delayed_resolution_cost: todo
-      failure_rate: todo
-    unattended_run:
-      operator_minutes: todo
-      agent_overhead:
-        tool_calls: todo
-        context_tokens: todo
-      delayed_resolution_cost: todo
-      failure_rate: todo
-  normalization:
-    scenario_not_to_be_averaged: true
-    compute_per_boundary: true
-    compute_per_lane: true
-  notes: >
-    Per-plan rule: per-workflow cost is computed separately per scenario class and
-    must not be collapsed to one average.
+    S-SOLO: not-measured
+    S-RESUME: not-measured
+    S-BATCH: not-measured
+    interrupted_execution: not-measured
+    unattended_run: not-measured
+normalization:
+  scenario_not_to_be_averaged: true
+  compute_per_boundary: true
+  compute_per_lane: true
 evidence_links:
-  - docs/plans/Vuoro-Clean-Room-Comparison-Plan.md
-  - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
-  - docs/assessments/vuoro-pre-clean-room/08-resume-observations.md
-status: todo
+  - outputs/hard-gate-r2-r6-verdict.yaml
+  - runs/README.md

@@ -1,44 +1,30 @@
 schema_version: vuoro-clean-room-comparison.adaptation.v1
 artifact_type: adaptation_probe
-lane_id: B|0|1|2|3|4
+status: not-run-no-synthetic-adaptation-counts
 probes:
   - probe_id: AP-1
     change_name: optional-work-item-field
-    description: add one optional work-item schema field in the lane
-    files_touched: [todo]
-    repos_touched: [todo]
-    custom_code_required: todo
-    upstream_constraint: >
-      whether candidate or existing surface rejected, ignored, required migration,
-      or needed compatibility gates
-    rollback_instructions: todo
-    evidence_links: [docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md]
-    status: todo
+    status: not-run
+    reason: No candidate completed a comparable work-item integration.
   - probe_id: AP-2
     change_name: resume-bundle-output-shape
-    description: alter resume output schema without changing authoritative state
-    files_touched: [todo]
-    repos_touched: [todo]
-    custom_code_required: todo
-    upstream_constraint: >
-      whether the lane owner can safely evolve output format without protocol
-      breakage or manual migration
-    rollback_instructions: todo
-    evidence_links: [docs/assessments/vuoro-pre-clean-room/07-open-hypotheses.md]
-    status: todo
+    status: not-run
+    reason: No lane completed S-RESUME.
   - probe_id: AP-3
     change_name: execution-policy-toggle
-    description: add one execution policy change under the lane's execution path
-    files_touched: [todo]
-    repos_touched: [todo]
-    custom_code_required: todo
-    upstream_constraint: >
-      whether policy change stays within lane boundary and does not import extra
-      migration debt
-    rollback_instructions: todo
-    evidence_links: [docs/plans/Vuoro-Clean-Room-Comparison-Plan.md]
-    status: todo
+    status: not-run
+    reason: Lane 3 failed the safety boundary and Lane 4 is reference-only.
+observed_non_probe_adaptation:
+  lane_2_adapter:
+    status: implemented-for-litmus-only
+    files_added: 3
+    custom_code_lines: 139
+    rollback: delete the isolated adapter deployment; no production state was changed
+    limit: Does not measure a real Beads adaptation.
 summary:
-  adaptation_total_custom_code_lines: todo
-  adaptation_total_files_touched: todo
-  adaptation_reverted_successfully: todo
+  adaptation_total_custom_code_lines: not-comparable
+  adaptation_total_files_touched: not-comparable
+  adaptation_reverted_successfully: not-applicable
+evidence_links:
+  - runs/2026-07-23-lane-2-beads-restate-r2/manifest.yaml
+  - outputs/hard-gate-r2-r6-verdict.yaml

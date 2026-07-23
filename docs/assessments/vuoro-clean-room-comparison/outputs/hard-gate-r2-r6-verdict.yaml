@@ -1,56 +1,58 @@
 schema_version: vuoro-clean-room-comparison.verdict.v1
 document_type: hard_gate_and_required_verdicts
-lane_id: B|0|1|2|3|4
-lane_role:
-  - baseline
-  - minimized-control
-  - replacement-adjacent
-  - external-composition
-  - execution-substitution
-  - durable-reference
-run_id: run-YYYY-000
-run_window:
-  started_at: 2026-07-XX-XXT00:00:00Z
-  completed_at: 2026-07-XX-XXT00:00:00Z
-hard_gate_results:
-  work_correctness:
-    passed: todo
-    evidence_links: []
-    notes: >
-      no-two-actors-have-valid-exclusive-execution-authority-simultaneously
-  resume_correctness:
-    passed: todo
-    evidence_links: []
-    notes: >
-      stale info marked stale and ownership ambiguity visible
-  execution_safety:
-    passed: todo
-    evidence_links: []
-    notes: >
-      duplicate work or stale-authority execution prevented
-  trust_boundary:
-    passed: todo
-    evidence_links: []
-    notes: >
-      R6 acceptance criteria (server-resolved identity, no self-asserted privilege,
-      no credential persistence in transit, authority/runtime role split)
-r2_litmus_verdict:
-  passes: todo
-  reason: >
-    mutation requires proof, transfer rotates proof, proof can be withheld from
-    delegated sub-agents, lost proof has authoritative recovery path.
-  evidence_links:
-    - docs/plans/Vuoro-Clean-Room-Comparison-Plan.md
-    - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
-r6_verdict:
-  passes: todo
-  reason: >
-    server-resolved identity, migration/runtime role split, credential non-
-    persistence, schema/catalog compatibility and identity controls.
-  evidence_links:
-    - docs/plans/Vuoro-Clean-Room-Comparison-Plan.md
-    - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
+status: partial-evidence-consolidated
+completed_run_ids:
+  - 2026-07-23-lane-b-current-corpus
+  - 2026-07-23-lane-b-reduced-corpus
+  - 2026-07-23-lane-1-beads-gastown-r2
+  - 2026-07-23-lane-2-beads-restate-r2
+  - 2026-07-23-lane-3-windmill-daytona
+  - 2026-07-23-lane-4-temporal
+lane_verdicts:
+  B:
+    hard_gates: not-assessed
+    r2: not-assessed
+    r6: not-assessed
+    evidence: [runs/2026-07-23-lane-b-current-corpus/manifest.yaml, runs/2026-07-23-lane-b-reduced-corpus/manifest.yaml]
+  '0':
+    hard_gates: invalid-comparison-order
+    r2: false
+    r6: false
+    evidence: [runs/2026-07-23-lane-0-td/hard-gates.yaml]
+  '1':
+    hard_gates: not-assessed
+    r2: false
+    r6: not-assessed
+    evidence: [runs/2026-07-23-lane-1-beads-gastown-r2/hard-gates.yaml]
+  '2':
+    hard_gates: not-assessed
+    r2: true
+    r6: not-assessed
+    evidence: [runs/2026-07-23-lane-2-beads-restate-r2/hard-gates.yaml]
+  '3':
+    hard_gates: failed-as-executed
+    r2: not-applicable
+    r6: false
+    evidence: [runs/2026-07-23-lane-3-windmill-daytona/hard-gates.yaml]
+  '4':
+    hard_gates: partial-reference-pass
+    r2: not-applicable
+    r6: not-assessed
+    evidence: [runs/2026-07-23-lane-4-temporal/hard-gates.yaml]
+aggregate:
+  work_correctness: not-concluded
+  resume_correctness: not-concluded
+  execution_safety: not-concluded
+  trust_boundary: no-candidate-pass
+  r2_litmus: >-
+    Only the isolated Lane 2 adapter passed. It is not yet wired to a Beads
+    mutation boundary, so no composed replacement passes R2.
+  r6_verdict: >-
+    No external candidate passed every frozen R6 clause. Lane 3 failed as
+    executed; the other candidate probes did not assess R6.
 overall_lane_gate:
-  status: todo
-  blocking_issue: >
-    hard-gate/R2/R6 blocker if any single row is failed or evidence is missing.
+  status: no-external-composition-eligible-for-migration
+  blocking_issue: >-
+    Required full scenarios, valid per-scenario costs, adaptation probes, and
+    the 14-day dormant observation remain incomplete. The evidence supports no
+    migration decision beyond retaining the current/reduced baseline.

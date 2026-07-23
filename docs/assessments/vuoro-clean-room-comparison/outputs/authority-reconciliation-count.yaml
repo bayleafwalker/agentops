@@ -1,41 +1,38 @@
 schema_version: vuoro-clean-room-comparison.authority.v1
 artifact_type: authority_reconciliation_count
-lane_id: B|0|1|2|3|4
-authoritative_stores:
-  count: todo
-  list: []
-  notes: >
-    authoritative domain-owned stores where correctness decisions are made.
-projections:
-  count: todo
-  list: []
-  notes: >
-    projection/read-only systems that mirror or derive from authoritative stores.
-disagreement_states: todo
-disagreement_examples:
-  - example_id: D-1
-    boundary: R1-R8
-    description: todo
-    reproduction_path: todo
-    recovery_steps:
-      - step: todo
-        owner: todo
-  - example_id: D-2
-    boundary: R1-R8
-    description: todo
-    reproduction_path: todo
-    recovery_steps:
-      - step: todo
-        owner: todo
+status: partial-architecture-counts
+lane_counts:
+  '1':
+    authoritative_stores: [{name: Beads planner state, boundaries: [R1, R4]}]
+    count: 1
+    reconciliation_risk: R2 missing rather than split; no proof authority
+  '2':
+    authoritative_stores: [{name: Restate WorkItemClaim object, boundaries: [R2]}]
+    count_in_litmus: 1
+    projected_composition_count: 2
+    projected_composition: [Beads R1/R4 state, Restate R2 state]
+    reconciliation_risk: >-
+      High until every Beads execution-state mutation is gated by the Restate
+      decision. This was not integrated or measured.
+  '3':
+    authoritative_stores: [{name: Windmill PostgreSQL job state, boundaries: [executor]}]
+    count_in_probe: 1
+    reconciliation_risk: >-
+      External claim and completion authority remains required because duplicate
+      idempotency keys were accepted twice.
+  '4':
+    authoritative_stores: [{name: Temporal workflow history, boundaries: [durable execution reference]}]
+    count_in_spike: 1
+    reconciliation_risk: not-assessed-for-work-registry-composition
+disagreement_states:
+  count: 1
+  examples:
+    - boundary: Lane 2 Beads-to-Restate
+      description: Beads can reflect a work transition without an adapter decision unless explicitly wired.
+      recovery: operator reconciliation; procedure not yet designed
 recovery_procedure:
   documented: false
-  commands_or_steps: []
-  expected_latency_seconds: todo
-  owner_chain: [orchestrator, operator, operator-review]
-boundary_coupling_risk: >
-  Record one coupling score per boundary pair when authority can diverge between
-  stores or projections.
+  reason: No composed multi-store lane reached the recovery test stage.
 evidence_links:
-  - docs/plans/Vuoro-Clean-Room-Comparison-Plan.md
-  - docs/assessments/vuoro-pre-clean-room/03-architecture-tax.md
-  - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
+  - runs/2026-07-23-lane-2-beads-restate-r2/evidence/r2-litmus.md
+  - runs/2026-07-23-lane-3-windmill-daytona/evidence/windmill-execution-probe.md
