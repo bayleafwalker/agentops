@@ -1,0 +1,22 @@
+schema_version: vuoro-clean-room-comparison.run.v1
+artifact_type: lane_run_manifest
+status: partial-r2-litmus-complete
+run_id: 2026-07-23-lane-1-beads-gastown-r2
+contract_id: vuoro-clean-room-2026-07-23
+lane_id: '1'
+lane_variant: beads-gastown
+fixture: ../../fixtures/sprintctl-real-corpus-v1.yaml
+participant_locks:
+  beads: d7b9f4fc52deebc86cb25c214107e96cdd512b67
+  gas_town: 649b832b7672bc7a2dbef26f5983aba6198b819b
+scenario_status:
+  S-BATCH: r2-litmus-only
+  S-SOLO: not-started
+  S-RESUME: not-started
+  S-DORMANT: not-seeded
+  S-SIMPLIFY: not-applicable
+evidence: [hard-gates.yaml, evidence/r2-litmus.md]
+scope_note: >-
+  Beads owns the planner claim state used by the composed Lane 1 stack. Its R2
+  result is decisive for replacement of R2, but not for Gas Town's independent
+  R3/operator-projection assessment; those remain pending.

@@ -1,0 +1,38 @@
+schema_version: vuoro-clean-room-comparison.verdict.v1
+artifact_type: hard_gate_and_required_verdicts
+lane_id: '1'
+run_id: 2026-07-23-lane-1-beads-gastown-r2
+hard_gate_results:
+  work_correctness:
+    passed: not-yet-assessed
+    evidence_links: []
+    notes: full concurrent server-mode scenario pending
+  resume_correctness:
+    passed: not-yet-assessed
+    evidence_links: []
+    notes: Gas Town prime/resume comparison pending
+  execution_safety:
+    passed: not-applicable
+    evidence_links: []
+    notes: Lane 1 has no independent execution-substitution claim
+  trust_boundary:
+    passed: not-yet-assessed
+    evidence_links: []
+    notes: Dolt/Git/tmux trust model assessment pending
+r2_litmus_verdict:
+  passes: false
+  reason: >-
+    Pinned Beads tests establish that `--claim` records an assignee and
+    in-progress status. No proof is returned or required by a later mutation;
+    no proof rotates at transfer, can be withheld from a delegated subagent, or
+    has an authoritative loss-recovery path.
+  evidence_links: [evidence/r2-litmus.md]
+r6_verdict:
+  passes: not-yet-assessed
+  reason: not assessed by this R2-only probe
+  evidence_links: []
+overall_lane_gate:
+  status: fails-r2-boundary
+  blocking_issue: >-
+    Lane 1 cannot replace the R2 claim authority. It may still be assessed for
+    R1/R3/R4/R8, but only alongside retained or wrapped proof authority.
