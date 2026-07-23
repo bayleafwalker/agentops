@@ -1,0 +1,26 @@
+schema_version: vuoro-clean-room-comparison.run.v1
+artifact_type: lane_run_manifest
+status: small-reference-spike-complete
+run_id: 2026-07-23-lane-4-temporal
+contract_id: vuoro-clean-room-2026-07-23
+lane_id: '4'
+lane_variant: temporal-durable-execution-reference
+fixture: ../../fixtures/sprintctl-real-corpus-v1.yaml
+participant_locks:
+  temporal_server_source: 7d2e361ef782fd1882fdaa49750bdff67d09b573
+  temporal_server_image: temporalio/auto-setup@sha256:5b3502a3b685f9eff1b925af90c57c9e3dbeccbef367cc28a2a9712c63379312
+  temporal_server_tag: 1.29.1
+  temporal_python_sdk_source: 759876e43a856577620f9350a22d79213c79482c
+  temporal_python_sdk: 1.30.0
+  postgres_image: postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
+scenario_status:
+  S-BATCH: duplicate-start-reference-complete
+  S-SOLO: not-started
+  S-RESUME: not-started
+  S-DORMANT: not-seeded
+  S-SIMPLIFY: not-applicable
+evidence: [hard-gates.yaml, evidence/reference-spike.md, temporal_reference.py]
+scope_note: >-
+  This is a small durable-execution calibration only. It does not map Temporal
+  identity, authorization, migrations, work authority, or a complete corpus
+  scenario, and is not a migration trial.

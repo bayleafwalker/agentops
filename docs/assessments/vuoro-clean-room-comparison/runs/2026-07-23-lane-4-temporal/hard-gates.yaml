@@ -1,0 +1,34 @@
+schema_version: vuoro-clean-room-comparison.verdict.v1
+artifact_type: hard_gate_and_required_verdicts
+lane_id: '4'
+run_id: 2026-07-23-lane-4-temporal
+hard_gate_results:
+  work_correctness:
+    passed: partial
+    evidence_links: [evidence/reference-spike.md]
+    notes: A duplicate start while a workflow was running was rejected; no claim authority was tested.
+  resume_correctness:
+    passed: not-yet-assessed
+    evidence_links: []
+    notes: No worker crash, replay, or cold-resume case was run.
+  execution_safety:
+    passed: partial
+    evidence_links: [evidence/reference-spike.md]
+    notes: The reference workflow's duplicate start was rejected, but no external effect or verification-failure path was tested.
+  trust_boundary:
+    passed: not-yet-assessed
+    evidence_links: []
+    notes: Identity, credentials, and migration/runtime separation are outside this spike.
+r2_litmus_verdict:
+  passes: not-applicable
+  reason: Temporal was tested as a durable execution reference, not claim authority.
+  evidence_links: []
+r6_verdict:
+  passes: not-yet-assessed
+  reason: The small local reference does not assess the R6 acceptance clauses.
+  evidence_links: []
+overall_lane_gate:
+  status: reference-spike-partial-pass
+  blocking_issue: >-
+    Temporal demonstrates duplicate workflow-start rejection under its explicit
+    conflict policy, but full adoption remains unassessed and out of scope.
