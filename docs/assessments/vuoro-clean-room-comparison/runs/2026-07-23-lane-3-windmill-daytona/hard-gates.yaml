@@ -1,0 +1,44 @@
+schema_version: vuoro-clean-room-comparison.verdict.v1
+artifact_type: hard_gate_and_required_verdicts
+lane_id: '3'
+run_id: 2026-07-23-lane-3-windmill-daytona
+hard_gate_results:
+  work_correctness:
+    passed: not-yet-assessed
+    evidence_links: []
+    notes: Existing claim authority was intentionally not wired into this executor-only probe.
+  resume_correctness:
+    passed: not-yet-assessed
+    evidence_links: []
+    notes: No sandbox pause/restore or cold-resume scenario was run.
+  execution_safety:
+    passed: false
+    evidence_links: [evidence/windmill-execution-probe.md]
+    notes: >-
+      Windmill accepted and completed two submissions carrying the same
+      BATCH-02 idempotency key. The pure test function caused no authoritative
+      duplicate effect, but the executor supplied no deduplication boundary.
+  trust_boundary:
+    passed: false
+    evidence_links: [evidence/windmill-execution-probe.md, evidence/daytona-availability.md]
+    notes: >-
+      The unprivileged worker reported that unshare isolation was unavailable
+      and that jobs configured for unshare would run without isolation. Daytona
+      could not be exercised without an out-of-scope hosted account credential.
+r2_litmus_verdict:
+  passes: not-applicable
+  reason: Existing Vuoro or Beads proof authority remains outside Lane 3 by contract.
+  evidence_links: []
+r6_verdict:
+  passes: false
+  reason: >-
+    Partial compliance is a failure under the frozen oracle. This probe neither
+    produced a verified sandbox boundary nor exercised Daytona's hosted identity,
+    credential, or migration/runtime controls.
+  evidence_links: [evidence/windmill-execution-probe.md, evidence/daytona-availability.md]
+overall_lane_gate:
+  status: fails-r5-r6-as-executed
+  blocking_issue: >-
+    Keep an external idempotency/claim-gated completion authority and do not use
+    this Windmill configuration as a sandbox boundary. A separately authorized
+    Daytona account-based probe would be needed before evaluating its R5/R6 role.

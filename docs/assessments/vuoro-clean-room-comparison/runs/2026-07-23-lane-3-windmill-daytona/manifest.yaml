@@ -1,0 +1,26 @@
+schema_version: vuoro-clean-room-comparison.run.v1
+artifact_type: lane_run_manifest
+status: partial-execution-probe-complete
+run_id: 2026-07-23-lane-3-windmill-daytona
+contract_id: vuoro-clean-room-2026-07-23
+lane_id: '3'
+lane_variant: existing-authority-windmill-daytona
+fixture: ../../fixtures/sprintctl-real-corpus-v1.yaml
+participant_locks:
+  windmill_source: f02df7fc454b0c2a2afa9ae9848e26af0e379246
+  windmill_image: ghcr.io/windmill-labs/windmill@sha256:8bf06bb81a975a9533fe96c0fb140146f8c3b2515a2a7b20ec71d683b94f7abe
+  windmill_version: v1.767.0-15-gf02df7fc45
+  postgres_image: postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
+  daytona_source: ec4c21b2d597091ac09ecc278f3bcc172575a987
+scenario_status:
+  S-BATCH: windmill-execution-probe-complete
+  S-SOLO: not-started
+  S-RESUME: not-started
+  S-DORMANT: not-seeded
+  S-SIMPLIFY: not-applicable
+evidence: [hard-gates.yaml, evidence/windmill-execution-probe.md, evidence/daytona-availability.md]
+scope_note: >-
+  Windmill was tested with one unprivileged worker and no Docker socket or
+  workspace mount. Daytona was not invoked: the locked public source requires
+  a user account and API key for its quick start and reports core development
+  moved to a private codebase. No account or credential was in scope.
