@@ -1,19 +1,22 @@
-# Clean-Room Comparison Decision Readout
+# Clean-Room Comparison Gate-Stage Decision Readout
 
 ## Evidence-bounded conclusion
 
-No external composition is eligible to replace Vuoro now. Retain the reduced
-Vuoro composition as the operating recommendation and do not start a
-production migration from this exercise. This is not a claim that the reduced
-baseline won every comparison: full multi-actor scenarios, valid cost data,
+The clean-room comparison has been closed with a no-migration decision after
+the gate-stage evaluation. No tested external composition is currently eligible
+to replace Vuoro. Continue operating the existing/reduced Vuoro system by
+default and do not start a production migration from this exercise. This is not
+a claim that reduced Vuoro won a complete comparative evaluation or passed the
+frozen evaluation itself: full multi-actor scenarios, valid cost data,
 adaptation probes, and the fourteen-day dormant scenario were not completed.
-It is the only recommendation compatible with the failed hard gates and the
-remaining unknowns.
 
-The viable research direction is narrow: Beads may own R1/R4 only if a small
-Restate claim adapter is placed in front of every execution-state mutation.
-The adapter passed R2 in isolation, but the composed authority count and
-reconciliation path are unproven. It is a follow-up hypothesis, not a rollout.
+The viable research direction is a Restate-gated planner mutation boundary,
+initially tested with Beads. The narrowly scoped claim adapter passed R2 in
+isolation, but the composed authority count and reconciliation path are
+unproven. It is a follow-up hypothesis, not a rollout.
+
+The td minimization control failed the intended R1, R2, R5, and R6 boundaries;
+it is evidence about what cannot be removed, not a competing migration path.
 
 ## Hypothesis readout
 
@@ -33,9 +36,9 @@ reconciliation path are unproven. It is a follow-up hypothesis, not a rollout.
 
 1. **Now:** operate the reduced Vuoro profile; retain current R2/R3/R5/R6
    authorities. Do not migrate production state.
-2. **Only if explicitly authorized:** implement one Beads-to-Restate mutation
-   boundary. It must deny a Beads transition without a current adapter receipt,
-   and it must create no second write authority.
+2. **Only if explicitly authorized:** implement one planner-to-Restate mutation
+   boundary, initially with Beads. It must deny a planner transition without a
+   current adapter receipt and create no second write authority.
 3. Run the complete locked S-BATCH, S-SOLO, S-RESUME, S-SIMPLIFY, and dormant
    protocol against that integration. Record segmented costs, adaptation probes,
    and authority reconciliation before reconsidering R1/R2/R4.

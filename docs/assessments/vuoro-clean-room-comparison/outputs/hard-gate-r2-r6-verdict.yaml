@@ -1,43 +1,44 @@
 schema_version: vuoro-clean-room-comparison.verdict.v1
 document_type: hard_gate_and_required_verdicts
-status: partial-evidence-consolidated
+status: gate-stage-closed-no-migration
 completed_run_ids:
   - 2026-07-23-lane-b-current-corpus
   - 2026-07-23-lane-b-reduced-corpus
+  - 2026-07-23-lane-0-td-rerun
   - 2026-07-23-lane-1-beads-gastown-r2
   - 2026-07-23-lane-2-beads-restate-r2
   - 2026-07-23-lane-3-windmill-daytona
   - 2026-07-23-lane-4-temporal
 lane_verdicts:
   B:
-    hard_gates: not-assessed
-    r2: not-assessed
-    r6: not-assessed
+    hard_gates: {status: not-assessed, scope: baseline-component-corpus, composition_eligible: false}
+    r2: {status: not-assessed, scope: baseline-component-corpus, composition_eligible: false}
+    r6: {status: not-assessed, scope: baseline-component-corpus, composition_eligible: false}
     evidence: [runs/2026-07-23-lane-b-current-corpus/manifest.yaml, runs/2026-07-23-lane-b-reduced-corpus/manifest.yaml]
   '0':
-    hard_gates: failed-expected-control-boundaries
-    r2: false
-    r6: false
+    hard_gates: {status: failed-expected-control-boundaries, scope: td-control-rerun, composition_eligible: false}
+    r2: {status: failed, scope: td-control-rerun, composition_eligible: false}
+    r6: {status: failed, scope: td-control-rerun, composition_eligible: false}
     evidence: [runs/2026-07-23-lane-0-td-rerun/hard-gates.yaml]
   '1':
-    hard_gates: not-assessed
-    r2: false
-    r6: not-assessed
+    hard_gates: {status: not-assessed, scope: r2-litmus-only, composition_eligible: false}
+    r2: {status: failed, scope: Beads-claim-semantics, composition_eligible: false}
+    r6: {status: not-assessed, scope: r2-litmus-only, composition_eligible: false}
     evidence: [runs/2026-07-23-lane-1-beads-gastown-r2/hard-gates.yaml]
   '2':
-    hard_gates: not-assessed
-    r2: true
-    r6: not-assessed
+    hard_gates: {status: not-assessed, scope: isolated-adapter-litmus, composition_eligible: false}
+    r2: {status: passed-in-isolation, scope: Restate-adapter, composition_eligible: false}
+    r6: {status: not-assessed, scope: isolated-adapter-litmus, composition_eligible: false}
     evidence: [runs/2026-07-23-lane-2-beads-restate-r2/hard-gates.yaml]
   '3':
-    hard_gates: failed-as-executed
-    r2: not-applicable
-    r6: false
+    hard_gates: {status: failed-as-executed, scope: Windmill-execution-probe, composition_eligible: false}
+    r2: {status: not-applicable, scope: external-claim-authority-retained, composition_eligible: false}
+    r6: {status: failed, scope: Windmill-Daytona-as-executed, composition_eligible: false}
     evidence: [runs/2026-07-23-lane-3-windmill-daytona/hard-gates.yaml]
   '4':
-    hard_gates: partial-reference-pass
-    r2: not-applicable
-    r6: not-assessed
+    hard_gates: {status: partial-reference-pass, scope: Temporal-duplicate-start, composition_eligible: false}
+    r2: {status: not-applicable, scope: durable-execution-reference, composition_eligible: false}
+    r6: {status: not-assessed, scope: durable-execution-reference, composition_eligible: false}
     evidence: [runs/2026-07-23-lane-4-temporal/hard-gates.yaml]
 aggregate:
   work_correctness: not-concluded
@@ -53,6 +54,9 @@ aggregate:
 overall_lane_gate:
   status: no-external-composition-eligible-for-migration
   blocking_issue: >-
-    Required full scenarios, valid per-scenario costs, adaptation probes, and
-    the 14-day dormant observation remain incomplete. The evidence supports no
-    migration decision beyond retaining the current/reduced baseline.
+    No composed R2 pass exists; no external R6 pass exists; Beads fails R2;
+    Windmill plus Daytona fails R5/R6 as executed; and the required full
+    scenarios, valid per-scenario costs, adaptation probes, and 14-day dormant
+    observation remain incomplete. Continue the existing/reduced system by
+    default because no migration candidate qualified, not because Lane B
+    independently passed the frozen evaluation.
