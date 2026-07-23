@@ -2,6 +2,7 @@
 doc_id: vuoro-continuation-blockers-2026-07-22
 status: current-observation
 observed_at: 2026-07-22
+updated_at: 2026-07-23
 scope: supervised-continuation-handoff
 ---
 
@@ -12,6 +13,15 @@ appservice implementation authorization. The ratified architecture remains
 [`vuoro-served-substrate-plan.md`](vuoro-served-substrate-plan.md), and the
 deployment owner handoff remains
 [`vuoro-appservice-runtime-handoff.md`](vuoro-appservice-runtime-handoff.md).
+
+## 2026-07-23 update
+
+Item #1195 has been resumed by a separate implementation session; this
+document's earlier pre-claim instructions are retained as the handoff history,
+not as a direction to create a competing claim. The operator-approved Group A
+contract for claim proof transport, authenticated claim context, parity, retry,
+and recovery separation is now
+[`vuoro-claim-proof-transport-clarification-2026-07-23.md`](vuoro-claim-proof-transport-clarification-2026-07-23.md).
 
 ## Confirmed completion
 

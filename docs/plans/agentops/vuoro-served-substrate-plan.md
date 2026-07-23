@@ -275,3 +275,7 @@ plans are preserved but must link here when describing target architecture.
 - [`vuoro-backlog-enablement-2026-07-21.md`](vuoro-backlog-enablement-2026-07-21.md)
   records owner-local items #1185–#1202, refinements to #1163/#1164 and
   #1173/#1174, priorities, and the cross-repository critical path.
+- [`vuoro-claim-proof-transport-clarification-2026-07-23.md`](vuoro-claim-proof-transport-clarification-2026-07-23.md)
+  records the operator-approved transient-proof, authenticated claim-context,
+  parity, retry, and recovery boundary for Sprintctl #1195 Group A without
+  changing this ratified architecture.

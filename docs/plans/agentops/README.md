@@ -36,6 +36,9 @@ Vuoro served-substrate direction (ratified 2026-07-21):
   refinement decisions, and cross-repository critical path.
 - `vuoro-continuation-blockers-2026-07-22.md` - current supervised-resumption
   blockers and entry criteria for #1195 and #1204.
+- `vuoro-claim-proof-transport-clarification-2026-07-23.md` -
+  operator-approved Group A contract for transient claim proofs, authenticated
+  claim context, retry sidecars, parity, and proofless-recovery separation.
 
 Vuoro phase-1 comparison study (drafted 2026-07-22, independent of the
 implementation backlog above):

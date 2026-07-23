@@ -1,7 +1,7 @@
 ---
 doc_id: vuoro-workstation-cutover
 status: current-runbook
-revision: 3
+revision: 4
 scope: sprintctl-item-1195
 ---
 
@@ -66,7 +66,9 @@ environment and shared-work profiles; `vuoro-dev` cannot satisfy this gate.
 5. A black-box parity run has exercised each catalog operation and its error
    mapping: reads, claim start/arbitration, lifecycle arbitration, evidence,
    ordered batches, project reads/batches, and cutover evidence. Claims and
-   lifecycle retries must retain immutable-command idempotency.
+   lifecycle retries must retain immutable-command idempotency. Group A claim
+   arbitration must also satisfy
+   [`vuoro-claim-proof-transport-clarification-2026-07-23.md`](../plans/agentops/vuoro-claim-proof-transport-clarification-2026-07-23.md).
 6. The kctl remote adapter has either a served read composition or an explicit,
    verified local-only mode. It must not silently retain a direct Sprintctl
    database connection after the profile migration.
@@ -85,9 +87,12 @@ The owner implementation must make these boundaries mechanically observable:
 | Backend selection | Accept `SPRINTCTL_BACKEND=served`; require `SPRINTCTL_VUORO_PROFILE`; reject a set `SPRINTCTL_URL`. |
 | Profile | Parse the validated JSON profile, use the endpoint and expected environment exactly as recorded, and resolve only its `file:` credential reference. |
 | Dependencies | Put `vuoro-client` in a `served` extra; the normal served import graph contains no PostgreSQL driver, DSN parser, DDL, or migration code. |
-| Transport | Use `AsyncVuoroClient.handshake()`, catalog discovery, and schema-driven `invoke()`. Keep catalog revision, basis revision, and idempotency keys intact. |
+| Transport | Use `AsyncVuoroClient.handshake()`, catalog discovery, and schema-driven invocation. Keep catalog revision, basis revision, and idempotency keys intact. Proof-bearing commands use negotiated `invocation/v2`; proofless v1 compatibility remains explicit. |
+| Claim proof | Carry digest-bound proof bytes only in v2 transient credentials, outside catalog arguments. Support both current and proposed proofs for rotating handoff and prove the bytes never enter logs, records, decisions, caches, or errors. |
+| Claim context | Resolve authenticated actor, authority repository UUID, non-secret claim state, and claim revision through `work.claim.context`; never guess them or open a database from the client. |
+| Claim parity | Heartbeat applies metadata, handoff emits non-secret coordination evidence atomically, retry reuses the immutable record, and release clears terminal retry material. |
 | CLI parity | Route every ordinary work command through the catalog mapping in `docs/reference/vuoro-work-adapter.md`; do not add a direct SQL compatibility branch. |
-| Recovery | Local SQLite is selected only by explicit `local`/recovery configuration. Claim recovery files remain local-only and are never written by served mode. |
+| Recovery | Local SQLite is selected only by explicit `local`/recovery configuration. Legacy claim-recovery files remain local-only and are never written by served mode. Mode-0600 event-keyed authority sidecars may retain proof only for immutable-command retry and proposed-proof recovery. Ordinary served mode rejects `--allow-legacy-adopt`; proofless adoption requires a separate recovery authority. |
 | Diagnostics | `sprintctl doctor` in served mode performs handshake/catalog diagnostics only. Database migration/administration commands fail closed unless explicitly invoked in deployment/recovery mode. |
 
 The current public `vuoro-client` distribution intentionally supplies the
@@ -96,6 +101,26 @@ small `file:` reference resolver. It must expand only `~/` for the effective
 user, require a regular mode-0600 file owned by that user, strip one trailing
 newline, reject empty content, and never render the reference's contents in
 errors or diagnostics.
+
+## Group A claim arbitration gate
+
+The approved proof, context, parity, retry, and recovery boundaries are
+normative in
+[`vuoro-claim-proof-transport-clarification-2026-07-23.md`](../plans/agentops/vuoro-claim-proof-transport-clarification-2026-07-23.md).
+Do not wire served heartbeat, handoff, or release by:
+
+- putting raw proofs in catalog operation arguments or immutable records;
+- treating the identity bearer credential, actor label, proof digest, or
+  current database row as a substitute for possession of the claim proof;
+- deriving command actor or basis revision from an advisory CLI option;
+- adding a direct PostgreSQL preflight;
+- retrying an unknown outcome with a new event ID; or
+- allowing `--allow-legacy-adopt` under an ordinary `work:claim` identity.
+
+The black-box gate must include a rotating handoff carrying two transient
+bindings, a lost-response identical retry, a stale-basis rejection, heartbeat
+metadata parity, atomic handoff evidence, release cleanup, proof-redaction
+inspection, and an explicit ordinary-served rejection of proofless adoption.
 
 ## Identity and environment boundary
 
