@@ -1,6 +1,6 @@
 # Vuoro Clean-Room Comparison Plan
 
-Status: **DRAFT**. Successor to the sketch in
+Status: **READY — reduced-spec baseline frozen 2026-07-23**. Successor to the sketch in
 `Vuoro-Pre-Clean-Room-Assessment-Plan.md` ("Relationship to the clean-room
 exercise"). Incorporates the 2026-07-23 external-candidate shortlist review
 and the adopted items from `clean-room-adjustments-suggestions.md`
@@ -11,8 +11,8 @@ protocol, pre-registered decision thresholds, segmented cost model).
 
 1. The reduced workflow specification (R1–R8) —
    `docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md`.
-   Currently DRAFT-FOR-FREEZE; the only remaining freeze blocker is the five
-   timed resume observations.
+   Frozen after Gate 4 reconciliation; five live timed observations are
+   recorded in `08-resume-observations.md`.
 2. Open hypotheses H1–H9 —
    `docs/assessments/vuoro-pre-clean-room/07-open-hypotheses.md`.
 3. The 2026-07-23 candidate shortlist review (Beads, Gas Town, Restate,
@@ -464,9 +464,9 @@ litmus. Temporal proves capable but disproportionate.
 
 ## Execution order
 
-1. Freeze the reduced spec (complete the five timed resume observations —
-   pre-existing blocker, unchanged by this plan). The observations double
-   as Lane B's S-RESUME leg.
+1. **Completed 2026-07-23:** freeze the reduced spec after five accepted
+   live timed resume observations. The observations double as Lane B's
+   S-RESUME leg.
 2. Confirm scenarios, hard gates, measurements, and decision thresholds
    as written here — frozen before any hands-on lane work.
 3. Lane B (Vuoro baseline) — the yardstick; complete before external

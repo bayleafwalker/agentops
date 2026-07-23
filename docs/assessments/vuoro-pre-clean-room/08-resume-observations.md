@@ -358,20 +358,15 @@ and git state.
 
 ### Gate 4 status after this observation
 
-**The multi-agent-batch requirement is now satisfied.** Firm rows: 1
-(delegated, meaningful gap), 2 (solo, meaningful gap), 5 (multi-agent,
-no meaningful gap but not required to have one given 1–2 already cover
-that axis). Provisional rows: 3, 4 (both explicitly left to the gate
-reconciler in their own write-ups — 3 for its near-zero gap and
-non-qualifying concurrency claim, 4 for correctly determining
-non-qualification). Counting 1, 2, and 5 as firm and either of 3/4 as a
-fourth row still leaves the set one short of five; counting both 3 and 4
-reaches five. **The reconciler's decision on Observations 3 and 4 is now
-the sole remaining gate-4 blocker** — the multi-agent and idle-gap
-conditions are both independently satisfied regardless of that decision.
-No further observations should be dispatched until that reconciliation
-happens, per the plan's standing guidance against manufacturing
-observations.
+The multi-agent-batch requirement is satisfied by Observations 5 and 6,
+and meaningful idle gaps are satisfied by Observations 1 and 2. The gate
+reconciler accepts Observation 3 as the fifth valid timed row despite its
+near-immediate gap; its shape is explicitly solo and it is not used as the
+multi-agent evidence. Observation 4 remains supplemental evidence of a
+correctly rejected batch qualification attempt.
+
+**Gate 4 passed 2026-07-23.** Accepted rows: 1, 2, 3, 5, and 6. No further
+observations should be dispatched.
 
 ---
 
@@ -417,16 +412,13 @@ resuming session doing what the protocol asked — verifying tracker state
 directly rather than trusting prior text, including text written by this
 same assessment's own orchestrator.
 
-### Gate 4 status after this observation
+### Gate 4 reconciliation
 
-**Two independent, tracker-qualifying multi-agent observations now
-exist (5 and 6).** Firm rows: 1, 2, 5, 6 — four rows, none retrospective,
-covering delegated + solo + two independently-verified multi-agent
-batches, plus both meaningful-idle-gap and multi-agent conditions
-satisfied more than once over. Provisional rows 3 and 4 remain exactly
-as flagged in their own write-ups. **The set now stands at 4 firm rows;
-counting either provisional row 3 or 4 reaches five and closes Gate 4.**
-No further observations should be dispatched — the reconciler now has
-more than enough evidence on every required axis, and additional
-same-shape rows would add confirmation, not new information. The
-remaining action is reconciliation and freeze, not more observation.
+Observations 5 and 6 independently satisfy the tracker-visible
+multi-agent-batch requirement. Observations 1 and 2 satisfy the meaningful
+idle-gap requirement. Observation 3 is accepted as the fifth live timed
+resume row; Observation 4 remains supplemental and non-qualifying for
+batch shape.
+
+**Gate 4 passed 2026-07-23.** The remaining action is reduced-spec freeze
+and clean-room setup, not more observation.

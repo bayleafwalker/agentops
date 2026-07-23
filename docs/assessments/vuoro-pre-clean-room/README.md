@@ -102,14 +102,14 @@ non-migration July work.
 | 1 — Kernel definition | **Passed** — evidence-backed kernel list in the reduced spec |
 | 2 — Compression decisions | **Passed** — dispositions marked in the semantic register |
 | 3 — Migration normalization | **Passed** — migration dataset separated throughout |
-| 4 — Counterfactual established | **Effectively satisfied, pending one reconciliation call.** Retrospective sample of 12 documented resumption incidents remains analytical-only (see [`06`](06-reduced-workflow-specification.md#five-cold-resume-observations-observational-status-toward-gate-4)). Six genuinely live, protocol-complete timed observations now exist in [`08-resume-observations.md`](08-resume-observations.md): **Observation 1** (delegated, 3h30m idle gap), **Observation 2** (solo, 4h22m idle gap, first instrumented wall-clock), **Observation 3** (solo, 3m37s gap, provisional — concurrency attested but not tracker-visible), **Observation 4** (solo, 3m47s gap, provisional — a deliberate multi-agent-capture attempt that correctly determined the observed concurrency did NOT qualify), **Observation 5** (**multi-agent, tracker-qualifying** — two independent forked workers on real, different-repo items with active exclusive claims, dispatch and evidence events, independently verified against tracker and git state), **Observation 6** (**second multi-agent, tracker-qualifying** — a three-worker burst where the resuming session caught and corrected an orchestrator pre-pause note that overclaimed three active items when only two were genuinely live). Firm rows now stand at **4 of 5** (1, 2, 5, 6); both the multi-agent-batch and meaningful-idle-gap conditions are independently satisfied more than once. The only remaining call is whether the gate reconciler counts provisional Observation 3 or 4 as the fifth row — either reaches five and closes the gate. No further observations should be dispatched; additional same-shape rows would add confirmation, not new information. None of the six are retrospective reconstructions. |
-| 5 — Clean-room input frozen | **Draft-for-freeze** — spec is complete; freeze after Gate 4 completes (the actionq volume inspection completed 2026-07-23; R5 split applied) |
+| 4 — Counterfactual established | **Passed (2026-07-23)** — five live protocol-complete timed rows accepted: Observations 1, 2, 3, 5, and 6. Observation 4 remains supplemental and explicitly non-qualifying for the multi-agent shape. The meaningful-idle-gap and tracker-visible multi-agent requirements are independently satisfied. |
+| 5 — Clean-room input frozen | **Passed (2026-07-23)** — reduced workflow specification frozen after Gate 4 reconciliation; external comparison may begin against the recorded baseline. |
 
 ## Path to freeze (per 2026-07-23 review reconciliation)
 
-Two substantive evidence gates remain; two freeze-discipline edits are
-already applied in the spec (H8 model-sensitivity tags; session-note/v1
-classified as a provisional R3 input surface with H9 recorded).
+Gate 4 is complete. The reduced specification is frozen; the remaining
+comparison work must use it as written and must not reshape requirements in
+response to candidate capabilities or gaps.
 
 **1. Five timed resume observations** during normal work, each recording:
 

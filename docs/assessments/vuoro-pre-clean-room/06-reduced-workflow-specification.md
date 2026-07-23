@@ -1,14 +1,14 @@
 # Output 6 — Reduced Workflow Specification (Clean-Room Handoff)
 
-Status: **DRAFT-FOR-FREEZE**. Freeze blockers (per the 2026-07-23 review
-reconciliation): (1) five timed resume observations during normal work,
-recorded per the README's template, including at least one multi-agent
-resume and one after a meaningful idle gap — these also test H9; (2) one
-successful actionq queue-volume inspection — **completed 2026-07-23**
-(read-only via CNPG pod exec; outcome: effectively no real usage; R5
-split applied below). The only remaining blocker is (1). Paired blinded
-shadow reconstructions would strengthen the sample but are not required
-to complete the planned gate. Per Gate 5,
+Status: **FROZEN (2026-07-23)**. Gate 4 is complete: five valid live timed
+resume rows are accepted (Observations 1, 2, 3, 5, and 6 in Output 8),
+including two tracker-visible multi-agent batches and meaningful idle gaps.
+Observation 4 remains supplemental evidence of a deliberately rejected
+qualification attempt and is not counted toward the five. The actionq
+queue-volume inspection was completed 2026-07-23 (read-only via CNPG pod
+exec; outcome: effectively no real usage; R5 split applied below). Paired
+blinded shadow reconstructions would strengthen the sample but were not
+required to complete the planned gate. Per Gate 5,
 this document must be frozen before external tools are studied in detail,
 and must not be modified during the comparison — including in response to
 attractive features or awkward gaps found in candidate tools.
@@ -23,15 +23,14 @@ access; resumable unattended agent work; concurrency and claim ownership
 across ~10 concurrent agents; durable audit-quality history of decisions;
 long idle periods (months) without state rot.
 
-## Five cold-resume observations (observational status toward Gate 4)
+## Five cold-resume observations (Gate 4 evidence)
 
-These observations are evidence-backed from the 30–60 day retrospective but
-only one instance currently has a comparable timed next-action metric.
-Until four additional normal-work *timed* observations are collected, the freeze
-is explicitly blocked.
-Task #1216 re-review confirms this remains unchanged: five candidate resume
-incidents are identified, but only one includes a defensible assisted timing band.
-No remaining incident has complete assisted-versus-manual timing fields.
+The historical rows below remain retrospective context. The live, protocol-
+complete evidence is recorded in `08-resume-observations.md`: Observations 1,
+2, 3, 5, and 6 are accepted for Gate 4; Observation 4 is retained as a
+non-qualifying capture attempt. The multi-agent and meaningful-idle-gap
+conditions are independently satisfied, and H9 findings remain recorded
+without promoting session-note/v1.
 
 | # | Date | Context | Resume surface | Evidence of value | Timing |
 |---|---|---|---|---|---|
@@ -51,7 +50,8 @@ No remaining incident has complete assisted-versus-manual timing fields.
 | 4 | Assisted `<5m` band; manual comparison band `15–60m` | `handoff-1195-served-backend-2026-07-22-eod.txt`, `02-workflow-economics.md` counterfactual detail |
 | 5 | No assisted timing field; no manual-comparison timing | `README` evidence source list + `06` row 5 |
 
-Result: **1 of 5 resumptions has any defensible timed metric; none are protocol-complete with all fields.**
+Result: **Gate 4 passed.** Five live protocol-complete rows are accepted;
+Observation 4 is supplemental and not counted.
 
 Freeze condition result:
 
