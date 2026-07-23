@@ -315,3 +315,60 @@ capture attempt that correctly refused to qualify itself. The next
 attempt should fire only once the dispatching session can point to two
 items with **active claims** and dispatch events, per the operator
 protocol now on record above.
+
+---
+
+## Observation 5 — 2026-07-23 (first tracker-qualifying multi-agent batch)
+
+Dispatched under the exact protocol Observation 4 established: the
+orchestrating session first dispatched two independent forked workers on
+genuinely different, real backlog items (agentops #1189, appservice
+scope; agentops #1190, vuoro+agentops scope), confirmed via `sprintctl`
+that both held real active claims with dispatch and evidence events,
+recorded non-secret pre-pause metadata (note #1408 on #1216), and only
+then launched a **genuinely fresh, non-forked** Claude session with no
+prior transcript to independently verify and resume cold. This is the
+first observation in the set where the fresh session verified the batch
+itself, rather than being told it existed.
+
+| Field | Value |
+|---|---|
+| Repo | agentops (docs/tracker); items span sprint #380 (#1189, #1190); cross-verified against vuoro, appservice, sprintctl via `git log` |
+| Idle duration | **Not meaningful, and the resuming session said so plainly rather than dressing it up.** Most recent tracker event (#1407, 17:24:49Z) and most recent commit (agentops `011a687`, 17:24:30Z) both landed ~75–95s before resume start (17:26:04Z) — resuming into the tail of a still-warm burst, not after a dormant period. Idle-gap coverage remains satisfied by Observations 1–2 (3h30m, 4h22m). |
+| Session shape | **Multi-agent — the first observation to clear the tracker-native bar Observation 4 set.** Two independent items simultaneously `active` in sprint #380 with distinct, unexpired, exclusive claims passing the tool's *default* (non-`--all`) active-claim filter: #1189 claim **#159** (`claude:reconcile-1189-worker`, created 17:17:10Z, expires 19:17:10Z) and #1190 claim **#160** (`claude:env-injection-worker`, created 17:17:24Z, expires 19:17:24Z). Each has its own dispatch event (#1403, #1404) and its own evidence event (#1405, #1407). The resuming session independently cross-verified both workers' cited commits (vuoro `ccc0c4d`, agentops `011a687`) actually exist in `git log` with matching timestamps — corroboration beyond tracker text alone. One honest caveat the resuming session itself flagged: `ps -p` on the recorded PIDs (528248, 528557) found neither running at check time — the claims are lease-valid and tracker-visible-active, but the underlying worker processes had already exited (short-lived dispatched workers whose claims outlive the process). Not treated as disqualifying — the protocol's bar is tracker state, not process liveness — but recorded plainly rather than glossed over. |
+| Active item and claim IDs | #1189/claim #159, #1190/claim #160 (the qualifying batch). #1216/claim #161 also found via `--all`, correctly TTL-expired (17:22:57Z) and absent from the default view — no real collision. |
+| Dispatch/session event IDs | #1400–#1402 (reconciliation-evidence on #1187/#1188/#1189, 17:12:00–17:12:20Z, a separate prior thread); #1403/#1404 (dispatch, this batch); #1405/#1407 (evidence, this batch). One gap noted: event **#1406 does not appear** in sprint #380's event list up to limit 100 — not chased further, low value relative to effort. |
+| Resume surface used | In order: `date`/`date -u` → `git status`/`git log` (agentops) → directory/file discovery (`pwd`, `ls`, `find` for the assessments dir) → `ls -la` on the assessments directory (mtimes only) → full read of this document (08), read-only → `sprintctl sprint list --json` with archive/backlog flags (surfaced sprint #380) → `item list --sprint-id 380` → `claim list-sprint --sprint-id 380 --all` → `item show --id 1189/1190 --json` → `event list --sprint-id 380` → sprint #428 sweep (`item list`/`claim list-sprint`/`claim list --item-id 1216` with and without `--all`, confirming expiry filtering) → `claim list --item-id 1189/1190` (confirmed genuinely active) → cross-repo `git log`/`status` in vuoro, appservice, sprintctl → non-decisive `ps -p` check → `date`/`date -u` again → `docs/plans/evidence-needed.md`, read last, for H9 only. |
+| Time / effort to first confident, evidence-backed next action | **~4 minutes of a 5m38s total investigation** (17:26:04Z → 17:31:42Z), roughly 15 of ~22 tool-call rounds. The determination point was confirming claims #159/#160 pass the *default* active-claim filter, not merely `--all`. |
+| Conflicts / blockers surfaced | #1189 left `active`/claimed with a genuine unresolved cross-repo policy conflict (same-digest promotion violated between vuoro-dev and vuoro-shared — see item #1189's evidence note #1405), explicitly deferred to the orchestrating session, not unilaterally fixed. #1190 left `active`/claimed as honestly partial (automatic pipeline wiring and per-identity record auto-selection explicitly deferred — evidence note #1407). Claim #161 on #1216 is stale/TTL-expired/unreleased — a minor recurring tracker-hygiene gap already flagged in Observations 3–4. Claims #159/#160 are lease-valid for ~1h50m more but their recorded PIDs are not running — an orphaned-lease risk if nobody explicitly releases them before natural TTL expiry. |
+| Other sources consulted (non-Vuoro) | `git log`/`git status` across four repos (agentops, vuoro, appservice, sprintctl); `ps` (non-decisive OS-level check, explicitly not treated as tracker evidence per protocol). |
+| Ambiguity remaining after resume | Whether the dispatching/orchestrating session is still active anywhere to act on #1189's deferred policy decision or release the claims before TTL expiry; the missing event #1406; whether the near-zero idle gap limits this row's marginal value the same way it did for Observations 3–4 (the marginal value here is the multi-agent qualification itself, not the gap, same reasoning as those rows applied to their own axes). |
+| H9 — did an authored note change/accelerate the next action? | **No — a fifth consecutive negative/redundant finding for the standalone note.** `docs/plans/evidence-needed.md` was read last, for completeness, after the determination was already made; it restated fields already in the operator's dispatch instructions and in this document. What did help, again, was this in-repo assessment log (08) itself, which supplied the exact qualifying bar Observation 4 established, which the resuming session then applied. Same pattern as all four prior observations: tracker-native state and in-repo assessment logs carry the accelerant value; the standalone note file consistently does not. |
+
+### Determination
+
+**This is a real, tracker-qualifying multi-agent batch** — the first in
+the set to clear the bar Observation 4 correctly refused to grant itself.
+Two genuinely independent real work items (different repos: appservice
+for #1189's scope, vuoro+agentops for #1190's scope), each with its own
+active exclusive claim, dispatch event, and evidence event, cross-verified
+against real git commits by an independent fresh session that had no
+foreknowledge the batch existed and confirmed it entirely from tracker
+and git state.
+
+### Gate 4 status after this observation
+
+**The multi-agent-batch requirement is now satisfied.** Firm rows: 1
+(delegated, meaningful gap), 2 (solo, meaningful gap), 5 (multi-agent,
+no meaningful gap but not required to have one given 1–2 already cover
+that axis). Provisional rows: 3, 4 (both explicitly left to the gate
+reconciler in their own write-ups — 3 for its near-zero gap and
+non-qualifying concurrency claim, 4 for correctly determining
+non-qualification). Counting 1, 2, and 5 as firm and either of 3/4 as a
+fourth row still leaves the set one short of five; counting both 3 and 4
+reaches five. **The reconciler's decision on Observations 3 and 4 is now
+the sole remaining gate-4 blocker** — the multi-agent and idle-gap
+conditions are both independently satisfied regardless of that decision.
+No further observations should be dispatched until that reconciliation
+happens, per the plan's standing guidance against manufacturing
+observations.
