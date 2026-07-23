@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(kubectl get *)",
+      "Bash(kubectl -n * get *)",
+      "Bash(uv run pytest *)",
+      "Bash(gh run list *)",
+      "Bash(npm run check*)",
+      "Bash(gh pr checks *)",
+      "Bash(gh run view *)",
+      "Bash(gh pr view *)",
+      "Bash(sprintctl *)",
+      "Bash(direnv exec . sprintctl *)"
+    ],
+    "deny": [
+      "Bash(sprintctl repo delete*)",
+      "Bash(direnv exec . sprintctl repo delete*)",
+      "Bash(sprintctl migrate-to-remote*)",
+      "Bash(direnv exec . sprintctl migrate-to-remote*)"
+    ]
+  }
+}

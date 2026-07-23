@@ -15,4 +15,5 @@ __pycache__/
 .envrc.*
 !.envrc.example
 .sprintctl/
+.auditctl/
 ops/systemd/session-mechanization-projects.conf
