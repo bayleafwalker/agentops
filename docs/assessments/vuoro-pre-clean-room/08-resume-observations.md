@@ -230,3 +230,36 @@ multi-agent dispatch next occurs in this or another repo; do not dispatch
 throwaway concurrent agents solely to check this box, per the plan's
 "do not artificially exercise unused features merely to generate data"
 principle (Vuoro-Pre-Clean-Room-Assessment-Plan.md:147).
+
+---
+
+## Observation 3 — 2026-07-23 (provisional — see validity flags)
+
+A fresh Claude session, no prior transcript, dispatched by the operator
+with "Initiate resume (another session is active currently)". Recorded
+live per protocol. **Two validity concerns are flagged inline rather than
+resolved; whoever reconciles Gate 4 decides whether this counts toward
+the five.**
+
+| Field | Value |
+|---|---|
+| Repo | agentops (docs/tracker only); sprintctl, homelab-analytics, actionq-dispatcher cross-checked via `git log`, not modified |
+| Idle duration | **3m37s only** — prior session's pre-pause note at 2026-07-23T17:04:44Z (commit `65cd123`) → this session's first action at 17:08:21Z. This is a near-immediate continuation, not a meaningful idle gap. The gate's idle-gap requirement is already satisfied by Observations 1–2, so this does not damage the sample on that axis, but under the "five uninterrupted same-day solo continuations do not qualify" rule this observation's marginal value is shape/context, not gap. |
+| Session shape | **Solo, beginning while other sessions were active.** This session dispatched no sub-agents. The operator attested another session was active at resume time; `pgrep` corroborated multiple concurrent standalone `claude` and `codex` processes beyond IDE servers. **However, the tracker shows zero evidence of a multi-agent batch**: no active claims on any item (checked #1216, #1217), no active items in sprints #428/#421, no dispatch events since 17:04:30Z. Per Observation 1's definition (concurrent *dispatched agents* on real work) and the pre-pause guidance above ("an actually-running multi-agent batch"), concurrent *interactive operator sessions* are a different phenomenon. **This observation does NOT claim to satisfy the multi-agent-batch requirement.** |
+| Resume surface used | In order: (1) `date`; (2) the operator's dispatch message (restated gate status: 2 of 5, three remaining, multi-agent condition rules); (3) read of `docs/plans/evidence-needed.md` (the standing untracked note — see H9) and `git show --stat` on commits `4b76e7e`/`d7a17c9`; (4) full read of this document (08), which functioned as the primary handoff artifact; (5) `git status`/`git log` in agentops — HEAD `65cd123` matched the pre-pause note; (6) `sprintctl sprint list` → `item show --id 1216 --json` (status `blocked`, zero claims, events #1387/#1388/#1398); (7) claim-evidence sweep for the concurrent session: `pgrep`, `claim list` on #1216/#1217, `item list` on both sprints, cross-repo `git log` — all negative on tracker-visible concurrent work; (8) `sprintctl claim start --item-id 1216` (claim #159 reissued, `blocked` → `active`). |
+| Time / effort to first confident, evidence-backed next action | **2m09s wall-clock** (17:08:21Z → claim acquired 17:10:30Z), ~7 tool-call rounds (~13 invocations). Comparable to Observation 2's 2m05s despite the extra verification branch (hunting for the attested concurrent session in observable state) — because this document itself now functions as a mature, self-describing resume surface: the pre-pause section stated exactly what a future Observation 3 should check. |
+| Conflicts / blockers surfaced | None on the claim (reissued cleanly as #159). One near-miss worth recording: `claim start` failed once on a missing required `--actor` flag — CLI-contract friction, not contention. The concurrent-session attestation itself surfaced the observation's central finding: **operator-attested concurrency was invisible to every tracker-native surface.** If the other session is doing real work, a resuming agent has no way to discover or avoid colliding with it through Vuoro/sprintctl — the same docs-corpus-unprotected asymmetry Observation 1 flagged, now generalized to whole sessions. |
+| Other sources consulted (non-Vuoro) | OS process list (`pgrep`) — the only surface that corroborated the operator's concurrency claim at all; Claude auto-memory (supplied repo roles and the append-only sprintctl convention, minor). |
+| Ambiguity remaining after resume | (1) Whether this counts toward the five at all, given the 3m37s gap — deliberately left to the gate reconciler. (2) What the concurrent session is actually doing — unresolved and unresolvable from tracker state; its only durable trace remains the untracked `docs/plans/evidence-needed.md`, now three sessions old. |
+| H9 — did an authored note change/accelerate the next action? | **Mixed, with a new wrinkle: the observation log itself was the accelerant.** The standalone note (`evidence-needed.md`) was again redundant — its content restated the protocol fields already in the operator's message and this document (third consecutive redundancy finding). But this document (08) *did* materially accelerate the resume: the pre-pause section's "what a future Observation 3 should prioritize" paragraph pre-answered the classification question this session faced. That is evidence for authored *in-repo assessment logs* as a resume surface — still not evidence for the session-note/v1 mechanism H9 specifically tests. |
+
+### Gate 4 status after this observation
+
+**2 of 5 firm, plus this provisional row.** If the reconciler accepts
+Observation 3, the count is 3 of 5. Either way the multi-agent-batch
+requirement remains **open** — concurrent interactive sessions without
+any tracker-visible dispatched batch do not meet Observation 1's
+definition, and counting this row as the multi-agent sample would be
+exactly the flattering shortcut this document exists to prevent. Still
+needed: one true multi-agent-batch resume, and enough more rows
+(any shape, meaningful gaps preferred) to reach five.
