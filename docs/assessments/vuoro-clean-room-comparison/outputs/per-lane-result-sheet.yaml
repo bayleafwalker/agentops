@@ -1,117 +1,38 @@
 schema_version: vuoro-clean-room-comparison.lane-result.v1
 artifact_type: per_lane_result_sheet
 documented_at: 2026-07-23T00:00:00Z
-item_id: 1217
+status: partial-evidence-consolidated
 lane_registry:
   - lane_id: B
-    lane_label: baseline
-    scenario_rows:
-      - scenario: S-BATCH
-        sheet_path: outputs/per-lane-placeholder.md
-      - scenario: S-SOLO
-        sheet_path: outputs/per-lane-placeholder.md
-      - scenario: S-RESUME
-        sheet_path: outputs/per-lane-placeholder.md
-      - scenario: S-DORMANT
-        sheet_path: outputs/per-lane-placeholder.md
-      - scenario: S-SIMPLIFY
-        sheet_path: outputs/per-lane-placeholder.md
-    verdict:
-      hard_gate_ref: outputs/hard-gate-r2-r6-verdict.yaml
-      r1_score: todo
-      r2_score: todo
-      r3_score: todo
-      r4_score: todo
-      r5_score: todo
-      r6_score: todo
-      r7_score: todo
-      r8_score: todo
-      notes: ""
-    references:
-      - docs/plans/Vuoro-Clean-Room-Comparison-Plan.md
-      - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
-      - docs/assessments/vuoro-pre-clean-room/07-open-hypotheses.md
-      - docs/assessments/vuoro-pre-clean-room/08-resume-observations.md
-  - lane_id: 0
-    lane_label: minimization-control
-    scenario_rows:
-      - scenario: S-BATCH
-        sheet_path: outputs/per-lane-placeholder.md
-      - scenario: S-SOLO
-        sheet_path: outputs/per-lane-placeholder.md
-      - scenario: S-RESUME
-        sheet_path: outputs/per-lane-placeholder.md
-      - scenario: S-DORMANT
-        sheet_path: outputs/per-lane-placeholder.md
-      - scenario: S-SIMPLIFY
-        sheet_path: outputs/per-lane-placeholder.md
-    verdict: { todo: true }
-    references:
-      - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
-  - lane_id: 1
-    lane_label: adjacent-replacement
-    scenario_rows:
-      - scenario: S-BATCH
-        sheet_path: outputs/per-lane-placeholder.md
-      - scenario: S-SOLO
-        sheet_path: outputs/per-lane-placeholder.md
-      - scenario: S-RESUME
-        sheet_path: outputs/per-lane-placeholder.md
-      - scenario: S-DORMANT
-        sheet_path: outputs/per-lane-placeholder.md
-      - scenario: S-SIMPLIFY
-        sheet_path: outputs/per-lane-placeholder.md
-    verdict: { todo: true }
-    references:
-      - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
-  - lane_id: 2
-    lane_label: hybrid-composition
-    scenario_rows:
-      - scenario: S-BATCH
-        sheet_path: outputs/per-lane-placeholder.md
-      - scenario: S-SOLO
-        sheet_path: outputs/per-lane-placeholder.md
-      - scenario: S-RESUME
-        sheet_path: outputs/per-lane-placeholder.md
-      - scenario: S-DORMANT
-        sheet_path: outputs/per-lane-placeholder.md
-      - scenario: S-SIMPLIFY
-        sheet_path: outputs/per-lane-placeholder.md
-    verdict: { todo: true }
-    references:
-      - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
-  - lane_id: 3
-    lane_label: execution-substitution
-    scenario_rows:
-      - scenario: S-BATCH
-        sheet_path: outputs/per-lane-placeholder.md
-      - scenario: S-SOLO
-        sheet_path: outputs/per-lane-placeholder.md
-      - scenario: S-RESUME
-        sheet_path: outputs/per-lane-placeholder.md
-      - scenario: S-DORMANT
-        sheet_path: outputs/per-lane-placeholder.md
-      - scenario: S-SIMPLIFY
-        sheet_path: outputs/per-lane-placeholder.md
-    verdict: { todo: true }
-    references:
-      - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
-  - lane_id: 4
-    lane_label: durable-runtime-reference
-    scenario_rows:
-      - scenario: S-BATCH
-        sheet_path: outputs/per-lane-placeholder.md
-      - scenario: S-SOLO
-        sheet_path: outputs/per-lane-placeholder.md
-      - scenario: S-RESUME
-        sheet_path: outputs/per-lane-placeholder.md
-      - scenario: S-DORMANT
-        sheet_path: outputs/per-lane-placeholder.md
-      - scenario: S-SIMPLIFY
-        sheet_path: outputs/per-lane-placeholder.md
-    verdict: { todo: true }
-    references:
-      - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
-notes: >
-  This file is intentionally neutral and pre-fills lane and scenario shape only.
-  Fill all TODO markers with lane outcomes as evidence is collected.
+    outcome: partial-baseline-component-pass
+    scenarios: {S-BATCH: corpus-component-pass, S-SOLO: not-run, S-RESUME: not-run, S-DORMANT: not-seeded, S-SIMPLIFY: not-run}
+    scores: {R1: not-assessed, R2: not-assessed, R3: not-assessed, R4: not-assessed, R5: not-assessed, R6: not-assessed, R7: not-assessed, R8: not-assessed}
+    evidence: [runs/2026-07-23-lane-b-current-corpus/manifest.yaml, runs/2026-07-23-lane-b-reduced-corpus/manifest.yaml]
+  - lane_id: '0'
+    outcome: expected-control-boundary-failure
+    scenarios: {S-BATCH: control-rerun-complete, S-SOLO: not-run, S-RESUME: not-run, S-DORMANT: not-seeded, S-SIMPLIFY: not-run}
+    scores: {R1: failed, R2: failed, R3: partial, R4: not-assessed, R5: failed, R6: failed, R7: not-assessed, R8: not-assessed}
+    evidence: [runs/2026-07-23-lane-0-td-rerun/hard-gates.yaml]
+  - lane_id: '1'
+    outcome: fails-r2-boundary
+    scenarios: {S-BATCH: r2-litmus-failed, S-SOLO: not-run, S-RESUME: not-run, S-DORMANT: not-seeded, S-SIMPLIFY: not-applicable}
+    scores: {R1: partial, R2: failed, R3: not-assessed, R4: not-assessed, R5: not-applicable, R6: not-assessed, R7: not-assessed, R8: not-assessed}
+    evidence: [runs/2026-07-23-lane-1-beads-gastown-r2/hard-gates.yaml]
+  - lane_id: '2'
+    outcome: isolated-r2-pass-composition-unproven
+    scenarios: {S-BATCH: r2-litmus-passed, S-SOLO: not-run, S-RESUME: not-run, S-DORMANT: not-seeded, S-SIMPLIFY: not-applicable}
+    scores: {R1: not-assessed, R2: passed-in-isolation, R3: not-assessed, R4: not-assessed, R5: not-applicable, R6: not-assessed, R7: not-assessed, R8: not-assessed}
+    evidence: [runs/2026-07-23-lane-2-beads-restate-r2/hard-gates.yaml]
+  - lane_id: '3'
+    outcome: fails-r5-r6-as-executed
+    scenarios: {S-BATCH: execution-probe-complete, S-SOLO: not-run, S-RESUME: not-run, S-DORMANT: not-seeded, S-SIMPLIFY: not-applicable}
+    scores: {R1: not-assessed, R2: not-applicable, R3: not-assessed, R4: not-assessed, R5: failed, R6: failed, R7: not-assessed, R8: not-assessed}
+    evidence: [runs/2026-07-23-lane-3-windmill-daytona/hard-gates.yaml]
+  - lane_id: '4'
+    outcome: durable-execution-reference-partial-pass
+    scenarios: {S-BATCH: duplicate-start-rejected, S-SOLO: not-run, S-RESUME: not-run, S-DORMANT: not-seeded, S-SIMPLIFY: not-applicable}
+    scores: {R1: not-assessed, R2: not-applicable, R3: not-assessed, R4: not-assessed, R5: partial, R6: not-assessed, R7: not-assessed, R8: not-assessed}
+    evidence: [runs/2026-07-23-lane-4-temporal/hard-gates.yaml]
+notes: >-
+  No row not explicitly marked passed was promoted from a narrow litmus to a
+  full scenario outcome. Cost and dormant evidence remain incomplete.

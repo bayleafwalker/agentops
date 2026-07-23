@@ -15,10 +15,10 @@ lane_verdicts:
     r6: not-assessed
     evidence: [runs/2026-07-23-lane-b-current-corpus/manifest.yaml, runs/2026-07-23-lane-b-reduced-corpus/manifest.yaml]
   '0':
-    hard_gates: invalid-comparison-order
+    hard_gates: failed-expected-control-boundaries
     r2: false
     r6: false
-    evidence: [runs/2026-07-23-lane-0-td/hard-gates.yaml]
+    evidence: [runs/2026-07-23-lane-0-td-rerun/hard-gates.yaml]
   '1':
     hard_gates: not-assessed
     r2: false

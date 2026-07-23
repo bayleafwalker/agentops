@@ -1,0 +1,12 @@
+schema_version: vuoro-clean-room-comparison.verdict.v1
+artifact_type: hard_gate_and_required_verdicts
+lane_id: '0'
+run_id: 2026-07-23-lane-0-td-rerun
+hard_gate_results:
+  work_correctness: {passed: false, evidence_links: [evidence/control-rerun.md], notes: dependency-blocked CR-03 activation was accepted}
+  resume_correctness: {passed: not-yet-assessed, evidence_links: [], notes: no idle-qualified resume}
+  execution_safety: {passed: not-applicable, evidence_links: [], notes: no executor}
+  trust_boundary: {passed: false, evidence_links: [evidence/control-rerun.md], notes: local SQLite and client context labels are not R6 authority}
+r2_litmus_verdict: {passes: false, reason: td start has no proof-gated mutation, transfer rotation, delegation withholding, or recovery, evidence_links: [evidence/control-rerun.md]}
+r6_verdict: {passes: false, reason: local-only store and client-supplied session contexts do not meet R6, evidence_links: [evidence/control-rerun.md]}
+overall_lane_gate: {status: control-fails-expected-boundaries, blocking_issue: td is a deletion/tolerance control only}

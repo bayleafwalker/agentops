@@ -1,0 +1,17 @@
+schema_version: vuoro-clean-room-comparison.run.v1
+artifact_type: lane_run_manifest
+status: comparable-control-rerun-complete
+run_id: 2026-07-23-lane-0-td-rerun
+contract_id: vuoro-clean-room-2026-07-23
+lane_id: '0'
+lane_variant: td-minimization-control
+fixture: ../../fixtures/sprintctl-real-corpus-v1.yaml
+participant_locks:
+  td: b739b10255e71f39ef7490ef0177e556db5b285c
+  fixture_commit: f22132c21ca17ad79d347ca1f43df8b3fe636c66
+scenario_status: {S-BATCH: control-rerun-complete, S-SOLO: not-run, S-RESUME: not-run, S-DORMANT: not-seeded, S-SIMPLIFY: not-run}
+evidence: [hard-gates.yaml, evidence/control-rerun.md]
+scope_note: >-
+  This supersedes the sequencing-invalid discovery result for comparison
+  purposes. It uses real corpus node references but remains a limited control,
+  not a full ten-worker scenario pack.
