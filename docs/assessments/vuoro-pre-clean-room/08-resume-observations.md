@@ -106,13 +106,12 @@ from Observation 1 would double-count one real event as two samples.
 
 ---
 
-## Pre-pause state, 2026-07-23T12:38:26Z (prep for a future Observation 2)
+## Observation 2 — 2026-07-23
 
-This is the *before-pausing* half of the protocol only — the resume-side
-half doesn't exist yet, and won't until some session (this one resumed, a
-different one, doesn't matter) actually reconstructs state from a cold
-start against what's recorded here. Do not count this section as a second
-observation on its own.
+### Pre-pause half, recorded 2026-07-23T12:38:26Z
+
+This is the *before-pausing* half of the protocol, recorded by the prior
+session before it paused.
 
 **Repository, branch/worktree, task/item:**
 - sprintctl, `main`, no worktree (all work landed directly on the shared
@@ -163,3 +162,29 @@ resuming session finds the tracker event trail sufficient without a
 separate authored note — or gets tripped up by the same absence this
 session flagged for the prior handoff — is exactly the H9-relevant data
 point the eventual resume-side observation should capture.
+
+### Resume half, recorded live 2026-07-23
+
+A fresh Claude session, no prior transcript, invoked by the operator with
+an explicit instruction to record the resume-protocol fields. This is the
+resume-side counterpart to the pre-pause state above, and also the direct
+continuation of item #1216 (this assessment's own gate-completion item).
+
+| Field | Value |
+|---|---|
+| Repo | agentops (docs/tracker only); sprintctl, appservice, vuoro cross-checked via `git log`, not modified |
+| Idle duration | **4h22m05s**, wall-clock and tracker-timestamped this time: prior session's pre-pause note at 2026-07-23T12:38:26Z (commit `739116a` landed 2026-07-23T12:39:21Z) → this session's first action at 2026-07-23T17:00:31Z. Unlike Observation 1, both endpoints are real timestamps, not a tracker-event proxy. |
+| Session shape | **Solo** — no sub-agent dispatched, no delegation, single continuous investigation. This satisfies the gate's outstanding "at least one solo resume" requirement (README.md:105 flagged this as still needed after Observation 1, which was delegated). |
+| Resume surface used | In actual order: (1) `date` for a start timestamp; (2) `git status` + `git log --oneline -10` in agentops — surfaced the untracked `docs/plans/evidence-needed.md` and confirmed HEAD matched the pre-pause note's commit; (3) `sprintctl sprint list` — found active sprint #428 ("Vuoro Clean-Room Comparison — Foundation"); (4) `sprintctl item list --sprint-id 428` — found item #1216, status `blocked`, p1, unclaimed, title matching this exact task; (5) `sprintctl item show --id 1216 --json` — full description, prior codex-spark dispatch events #1387/#1388, zero active claims; (6) `git log -1` on commit `739116a` to get an exact timestamp for idle-gap arithmetic; (7) cross-repo `git log` in sprintctl and appservice for corroboration (found unrelated served-authority and infra-chore commits — no direct bearing on #1216); (8) read of `06-reduced-workflow-specification.md`'s status block — confirmed freeze-blocker text unchanged; (9) `sprintctl claim start --item-id 1216` — claimed the item, which auto-transitioned it `blocked` → `active`. |
+| Time / effort to first confident, evidence-backed next action | **~2m05s wall-clock** (17:00:31Z start → 17:02:36Z claim acquired), across ~9 tool-call rounds (~15 individual invocations). Substantially faster than Observation 1's ~17-18 rounds — no source-code archaeology was needed here, because the task itself *is* the tracker/observation-recording work, not an implementation whose contract lived only in source. This is the first observation in the sample with a genuinely instrumented (not proxied) wall-clock reading. |
+| Conflicts / blockers surfaced | None — item #1216 had zero active claims; claim #159 was acquired cleanly. Note a terminology wrinkle worth flagging: the item's `blocked` status here means "evidence-gate blocked" (waiting on more observations), not "claim-contended" — a reader skimming `sprintctl item list` status alone could conflate the two; only `item show` disambiguates. |
+| Other sources consulted (non-Vuoro) | The untracked `docs/plans/evidence-needed.md` note (see H9 below); no source-code reading was required this time. |
+| Ambiguity remaining after resume | Whether recording this as a same-calendar-day second observation is legitimate under the gate's "five same-day solo resumptions do not satisfy it" rule — resolved here as legitimate: this observation is not same-day *solo-only* in aggregate (Observation 1 was delegated), and it crosses a genuine multi-hour idle gap rather than being an uninterrupted continuation. Flagging explicitly for whoever reconciles the gate next, per the same discipline Observation 1 applied to its own cross-reference finding. |
+| H9 — did an authored note change/accelerate the next action? | **No, and this is a cleaner negative data point than Observation 1's.** The untracked note (`docs/plans/evidence-needed.md`) restates the same protocol fields, but it added no information beyond what was already available from three independent sources: the operator's own dispatch instruction (which pasted the identical field list), item #1216's tracker description (a detailed, item-specific scope statement), and `README.md`/`Plan.md` at the cited line numbers. My actual navigation to the next action did not route through the note at all — it came from `sprintctl sprint list` → `item list` → `item show`, i.e., straight from the tracker. Classify as: the note was redundant with tracker-native state, not accelerating. Contrast with Observation 1, where the tracker's own handoff-event payload (not a standalone note file) *did* materially narrow the task. Two observations in, the pattern favors tracker-native event/item data over standalone authored note files as the higher-value resume surface. |
+
+### Gate 4 status after this observation
+
+**2 of 5 recorded** — one delegated (Observation 1), one solo (this one).
+Still needed: at least one true multi-agent-batch resume, and enough
+additional observations (any shape) to reach five. The solo requirement
+flagged as outstanding in Observation 1's write-up is now satisfied.
