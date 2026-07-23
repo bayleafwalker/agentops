@@ -263,3 +263,55 @@ definition, and counting this row as the multi-agent sample would be
 exactly the flattering shortcut this document exists to prevent. Still
 needed: one true multi-agent-batch resume, and enough more rows
 (any shape, meaningful gaps preferred) to reach five.
+
+---
+
+## Observation 4 — 2026-07-23 (attempted multi-agent capture; determination: batch not tracker-qualifying)
+
+A fresh Claude session dispatched explicitly to attempt the multi-agent
+observation, under a tightened operator protocol: the batch qualifies
+only if **at least two genuinely independent work items are visibly
+active with tracker-native claims and dispatch/session events** —
+operator assertions and `pgrep` explicitly do not count. The operator's
+dispatch message included a pasted excerpt of the concurrent session's
+own output (it reported reconciling items #1187–#1189 and proceeding
+with #1189/#1190/#1191); per protocol this was treated as untrusted
+until verified against the tracker.
+
+| Field | Value |
+|---|---|
+| Repo | agentops (docs/tracker only); tracker items span agentops sprint #380 (the concurrent session's reconciliation work) and sprint #428 (this item) |
+| Idle duration | **3m47s** — prior commit `bab5852` at 17:11:32Z → this session's first action at 17:15:19Z. Same near-immediate-continuation caveat as Observation 3; the marginal value of this row is the batch-qualification determination, not the gap. |
+| Session shape | **Solo resume beginning while one concurrent session was verifiably active.** Unlike Observation 3, the concurrency was **tracker-visible this time**: events #1400/#1401/#1402 (actor `claude:reconcile-1187/1188/1189`) landed at 17:12:00–17:12:20Z, roughly three minutes before this session started. **But the batch does not qualify as multi-agent** under the stated bar: zero active claims across sprints #380 and #428 (`claim list-sprint --all` returned empty for both), zero items in `active` status in sprint #380 (#1189/#1190/#1191 all `pending`, unclaimed), zero dispatch events for worker agents, and the three fresh events show one actor working sequentially (17:12:00 → :11 → :20), not two independent dispatched items. |
+| Active item and claim IDs | Concurrent work: items #1187 (done), #1188 (done), #1189/#1190/#1191 (pending, zero claims). This session: item #1216, claim #161 (claim ID only; token not recorded anywhere, including this file, per protocol). |
+| Dispatch/session event IDs | Concurrent session's evidence events #1400/#1401/#1402 on #1187/#1188/#1189; no dispatch events. This session's prior-thread trail: #1387/#1388/#1398/#1399 on #1216. |
+| Resume surface used | In order: (1) `date`; (2) operator dispatch message incl. pasted concurrent-session output — used only for targeting, then verified; (3) `git status`/`git log` in agentops (HEAD `bab5852`, clean but for the standing untracked note); (4) `sprintctl sprint list` + `item show --id 1189 --json` (located sprint #380); (5) `item list --sprint-id 380 --status active --json` (empty) + `claim list-sprint --sprint-id 380 --all --json` (empty); (6) `event list --sprint-id 380 --limit 100 --json` — **the decisive surface**: surfaced events #1400–#1402 proving real concurrent work minutes old; (7) `item show` on #1187/#1188/#1190/#1191; (8) `claim list-sprint`/`event list` on sprint #428 (no new activity); (9) `claim start --item-id 1216`. |
+| Time / effort to first confident, evidence-backed next action | **2m38s wall-clock** (17:15:19Z → claim #161 at 17:17:57Z), ~8 tool-call rounds. The batch-qualification determination itself was reached at ~17:16:40Z (~1m20s in), after the sprint-380 claim/event sweep; the remainder was the sprint-428 completeness check and claiming. |
+| Conflicts / blockers surfaced | None for this session's claim. **One live collision hazard recorded:** the concurrent session is actively working #1189 (its event #1402 is minutes old and its pasted output says it is proceeding on it) while #1189 sits `pending` with zero claims — any other agent could legitimately claim #1189 right now. The claim mechanism exists in this repo (this session used it on #1216 twice), so this is a discipline gap, not a tooling gap. |
+| Other sources consulted (non-Vuoro) | The operator's pasted transcript excerpt (verified, not trusted); no `pgrep` this time — deliberately, since the protocol demoted it; no source-code reading needed. |
+| Ambiguity remaining after resume | (1) Whether the concurrent session will claim #1189/#1190/#1191 as it proceeds, or continue unclaimed. (2) Whether this row counts toward the five — left to the gate reconciler, same as Observation 3. (3) Whether the planned "real workers" phase (two dispatched items, different repos) will materialize later in this burst — this resume fired while the batch was still one sequential session. |
+| H9 — did an authored note change/accelerate the next action? | The operator's pasted excerpt accelerated *targeting* (named the items and sprint region to inspect) but not the *determination* — that came entirely from tracker queries, and the excerpt alone would have been misleading if trusted (it reads like an active multi-item batch; the tracker shows an unclaimed single-actor session). This document (08) again pre-answered the classification method. Standalone note `evidence-needed.md`: untouched, unconsulted — fourth consecutive session where it contributed nothing. |
+
+### Determination and refined finding
+
+**Not a qualifying multi-agent batch.** Two independent dispatched items
+with visible claims did not exist at resume time; what existed was one
+concurrent session doing real, sequential, unclaimed work.
+
+The refinement over Observation 3's finding: concurrent work *was*
+discoverable this time — but only via the **event log, after the fact**
+(events land when work units complete), not via claims, which are the
+only surface that gives *forward-looking* collision protection. Events
+tell a resuming agent what already happened; claims tell it what is
+happening. A batch that emits events but holds no claims is visible yet
+unprotected — #1189 being actively worked while claimable by anyone is
+the concrete instance.
+
+### Gate 4 status after this observation
+
+**2 of 5 firm; Observations 3 and 4 both provisional.** The
+multi-agent-batch requirement remains **open** — this was a deliberate
+capture attempt that correctly refused to qualify itself. The next
+attempt should fire only once the dispatching session can point to two
+items with **active claims** and dispatch events, per the operator
+protocol now on record above.
