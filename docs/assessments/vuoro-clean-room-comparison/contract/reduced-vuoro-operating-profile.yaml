@@ -1,0 +1,42 @@
+schema_version: vuoro-clean-room-comparison.reduced-profile.v1
+artifact_type: reduced_vuoro_operating_profile
+profile_id: reduced-vuoro-v1
+status: frozen-for-lane-b-full-run
+derived_from:
+  - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
+  - docs/plans/Vuoro-Clean-Room-Comparison-Plan.md
+rule: >-
+  This profile changes only which current mechanisms are invoked or measured in
+  Lane B reduced. It does not change R1-R8, hard gates, H8 weights, or decision
+  thresholds. It is an operational approximation, not a claim that the current
+  implementation has already deleted these paths.
+retain_and_measure:
+  - R1 validated lifecycle and dependency gate
+  - R2 proof-gated exclusive claim, transfer, and recovery
+  - R3 deterministic conflict-detecting resume bundle
+  - R4 constrained consumed decision vocabulary
+  - R5 isolated unattended execution safety envelope
+  - R6 served authority, server-resolved identity, and role separation
+  - R7 downstream knowledge distillation
+  - R8 read-only composed operator projection
+do_not_invoke_or_count_as_required:
+  - client claim heartbeat upkeep
+  - authority-command journal and remote decision arbitration
+  - capability-receipt machinery
+  - central audit ingest and observation-envelope paths
+  - takeup occupancy events other than dead-session sweep evidence
+  - open event taxonomy outside the reduced consumed vocabulary
+  - sprint kinds and multi-active-sprint process
+  - served catalog operation aliases and compatibility pseudo-operations
+  - cockpit takeup/audit panes, MCP endpoint, and reconciliation executor
+  - cutover-only outbox, dual-write, shadow, projection-read, pilot, and ingest-cursor scaffolding
+execution_rule:
+  current: run the locked fixture through the currently operated path and record all invoked operational surfaces
+  reduced: >-
+    run the identical fixture while omitting the listed non-required operations
+    and surfaces; report any background dependency on them as a reduction
+    failure or carrying-cost finding
+comparison_rule: >-
+  Only differences caused by this profile count as current-versus-reduced
+  evidence. Candidate capabilities may not add, remove, or reinterpret a
+  profile entry.

@@ -1,0 +1,26 @@
+schema_version: vuoro-clean-room-comparison.run.v1
+artifact_type: lane_baseline_component_preflight
+status: complete-not-a-full-lane-run
+run_id: 2026-07-23-lane-b-current-preflight
+contract_id: vuoro-clean-room-2026-07-23
+lane_id: B
+lane_variant: current
+started_at: 2026-07-23T18:58:00Z
+completed_at: 2026-07-23T19:01:00Z
+source_locks:
+  sprintctl: f22132c21ca17ad79d347ca1f43df8b3fe636c66
+  vuoro: ccc0c4d94a5f765b7f9c4ef6fb4321e6a42b87c4
+  actionq: 9327973cff9dd555d95af6bb9a547379fbd8701e
+  actionq_dispatcher: 6e32068dc878903cbe5d1f15a2e8277dc0f2fe3f
+evidence:
+  - evidence/test-results.md
+scope_note: >-
+  This is source-level current-baseline evidence, not the required full Lane B
+  scenario-pack run. It confirms that the current claim and served-transport
+  components execute their focused test contracts before the common live
+  fixture is selected. It must not be used for cost, hard-gate, or disposition
+  scoring.
+next_required:
+  - lock one common live fixture and acceptance commands
+  - define the reduced-Vuoro operational profile from frozen non-requirements
+  - execute current and reduced full scenario packs before scoring any external lane

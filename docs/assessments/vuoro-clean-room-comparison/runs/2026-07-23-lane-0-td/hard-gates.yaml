@@ -33,7 +33,8 @@ r6_verdict:
   reason: local project SQLite state is not a served cross-machine authority service.
   evidence_links: [candidate-lock.yaml]
 overall_lane_gate:
-  status: failed-as-expected-control
+  status: non-scoreable-discovery
   blocking_issue: >-
-    Lane 0 is a minimization/deletion control and is not eligible to replace
-    claim, execution, or cross-machine authority boundaries.
+    This run preceded the Lane B baseline and is retained as a discovery record
+    only. Lane 0 is a minimization/deletion control and is not eligible to
+    replace claim, execution, or cross-machine authority boundaries.

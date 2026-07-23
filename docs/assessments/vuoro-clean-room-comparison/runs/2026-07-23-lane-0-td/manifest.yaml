@@ -1,6 +1,6 @@
 schema_version: vuoro-clean-room-comparison.run.v1
 artifact_type: lane_run_manifest
-status: in-progress
+status: non-comparable-discovery
 run_id: 2026-07-23-lane-0-td
 contract_id: vuoro-clean-room-2026-07-23
 contract_revision: 0cc9907
@@ -30,6 +30,8 @@ evidence:
   acceptance_output: evidence/observations.md
   redacted_secret_scan: not-applicable; Lane 0 has no proof channel to scan
 scope_note: >-
-  This is an early control run, not a completed Lane 0 verdict. It records the
-  observed dependency and authority behavior before any adaptation work. The
-  participant is intentionally not expected to satisfy R2, R5, or R6.
+  This discovery run began before the Lane B baseline preflight, contrary to
+  the planned sequencing. Preserve its observations, but do not compare or
+  score them against Lane B. Rerun the locked control fixture after the complete
+  Lane B current and reduced runs. The participant is intentionally not
+  expected to satisfy R2, R5, or R6.
