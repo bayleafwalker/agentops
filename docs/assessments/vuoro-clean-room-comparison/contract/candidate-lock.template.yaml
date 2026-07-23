@@ -1,0 +1,73 @@
+schema_version: vuoro-clean-room-comparison.candidate-lock.v1
+artifact_type: candidate_participant_lock
+status: template-do-not-run
+contract_id: vuoro-clean-room-2026-07-23
+usage: >-
+  Copy to candidate-lock.yaml, resolve every TODO before the first hands-on
+  action, and commit it with the lane run manifest. Do not change a resolved
+  entry in place; create a new run id for a new version or configuration.
+participants:
+  - lane_id: '0'
+    component: td
+    source_url: TODO
+    immutable_revision_or_image_digest: TODO
+    distribution_version: TODO
+    installation_command: TODO
+    configuration_sha256: TODO
+    license_or_hosting_assumption: TODO
+  - lane_id: '1'
+    component: beads
+    source_url: TODO
+    immutable_revision_or_image_digest: TODO
+    distribution_version: TODO
+    installation_command: TODO
+    configuration_sha256: TODO
+    license_or_hosting_assumption: TODO
+  - lane_id: '1'
+    component: gas-town
+    source_url: TODO
+    immutable_revision_or_image_digest: TODO
+    distribution_version: TODO
+    installation_command: TODO
+    configuration_sha256: TODO
+    license_or_hosting_assumption: TODO
+  - lane_id: '2'
+    component: beads
+    source_url: TODO
+    immutable_revision_or_image_digest: TODO
+    distribution_version: TODO
+    installation_command: TODO
+    configuration_sha256: TODO
+    license_or_hosting_assumption: TODO
+  - lane_id: '2'
+    component: restate
+    source_url: TODO
+    immutable_revision_or_image_digest: TODO
+    distribution_version: TODO
+    installation_command: TODO
+    configuration_sha256: TODO
+    license_or_hosting_assumption: TODO
+  - lane_id: '3'
+    component: windmill
+    source_url: TODO
+    immutable_revision_or_image_digest: TODO
+    distribution_version: TODO
+    installation_command: TODO
+    configuration_sha256: TODO
+    license_or_hosting_assumption: TODO
+  - lane_id: '3'
+    component: daytona
+    source_url: TODO
+    immutable_revision_or_image_digest: TODO
+    distribution_version: TODO
+    installation_command: TODO
+    configuration_sha256: TODO
+    license_or_hosting_assumption: TODO
+  - lane_id: '4'
+    component: temporal
+    source_url: TODO
+    immutable_revision_or_image_digest: TODO
+    distribution_version: TODO
+    installation_command: TODO
+    configuration_sha256: TODO
+    license_or_hosting_assumption: TODO

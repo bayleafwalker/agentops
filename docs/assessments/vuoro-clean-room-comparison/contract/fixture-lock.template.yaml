@@ -1,0 +1,32 @@
+schema_version: vuoro-clean-room-comparison.fixture-lock.v1
+artifact_type: comparable_fixture_lock
+status: template-do-not-run
+contract_id: vuoro-clean-room-2026-07-23
+usage: >-
+  Resolve every TODO once for the comparison cohort. Copy the completed file
+  unchanged into each comparable lane run. A task, repository, or acceptance
+  change requires a new fixture cohort and must not be compared directly with
+  the old one.
+fixture:
+  source_repository: TODO
+  immutable_commit: TODO
+  task_corpus_path_or_digest: TODO
+  task_corpus_revision: TODO
+  acceptance_commands:
+    - TODO
+  expected_acceptance_output_digest: TODO
+  baseline_setup_commands:
+    - TODO
+failure_schedule:
+  BATCH-01: TODO command or reproducible operator action
+  BATCH-02: TODO command or reproducible operator action
+  BATCH-03: TODO command or reproducible operator action
+  BATCH-04: TODO command or reproducible operator action
+  BATCH-05: TODO command or reproducible operator action
+  BATCH-06: TODO command or reproducible operator action
+  BATCH-07: TODO command or reproducible operator action
+  BATCH-08: TODO command or reproducible operator action
+redaction:
+  proof_digest_algorithm: sha256
+  secret_scan_command: TODO
+  transcript_storage: TODO local path or approved evidence store

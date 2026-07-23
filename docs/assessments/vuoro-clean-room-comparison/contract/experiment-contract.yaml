@@ -1,0 +1,191 @@
+schema_version: vuoro-clean-room-comparison.contract.v1
+artifact_type: immutable_experiment_contract
+contract_id: vuoro-clean-room-2026-07-23
+status: frozen
+frozen_at: 2026-07-23T00:00:00Z
+freeze_rule: >-
+  R1-R8 wording, hard gates, pre-registered thresholds, scenario definitions,
+  controls, and H8 weights are immutable for this comparison. A correction
+  requires a new contract id, a stated procedural error, and does not alter the
+  frozen requirement sources.
+
+frozen_inputs:
+  reduced_spec:
+    path: docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
+    revision: 91970e8
+  hypotheses:
+    path: docs/assessments/vuoro-pre-clean-room/07-open-hypotheses.md
+    revision: 91970e8
+  resume_baseline:
+    path: docs/assessments/vuoro-pre-clean-room/08-resume-observations.md
+    revision: 91970e8
+    use: Lane B S-RESUME baseline evidence only; it does not authorize new observations.
+  comparison_plan:
+    path: docs/plans/Vuoro-Clean-Room-Comparison-Plan.md
+    revision: 91970e8
+  thresholds_and_weights:
+    path: references/frozen-thresholds-and-h8-weights.md
+    revision: f253124
+
+common_controls:
+  fixture_lock:
+    requirement: >-
+      Every run must record one source repository, immutable commit SHA, task
+      corpus revision, and acceptance-command transcript before any candidate
+      action. The same lock is reused for all comparable lanes.
+    prohibited: moving branch names, unrecorded task substitutions, and candidate-specific acceptance tests
+  participant_lock:
+    requirement: >-
+      Candidate version, distribution/source URL, immutable revision or image
+      digest, installation command, configuration hash, and license/hosted
+      assumptions are recorded in contract/candidate-lock.yaml before a lane
+      begins. A version change starts a new run id.
+  actor_control:
+    workers: 10
+    identity_rule: >-
+      Each simulated worker has a distinct server-resolved identity where the
+      lane supports one. Assignee labels or client-supplied identities are
+      recorded as such and do not satisfy R6.
+    model_rule: same model, reasoning setting, and task prompt across comparable lanes
+    secret_rule: >-
+      A proof/credential test value is injected only into the holder's authority
+      channel. Raw values must not appear in prompts, logs, transcripts, or
+      delegated-subagent context; evidence records redacted digests only.
+  intervention_control:
+    maximum_unscheduled_interventions: 2
+    counting_rule: >-
+      Count any manual unlock, reassignment, state repair, candidate-console
+      correction, or unplanned clarification. Scheduled failure injections and
+      the explicitly required handoff/recovery actions are not interventions.
+  evidence_control:
+    required: [command-transcript, candidate-config, fixture-lock, event-log, acceptance-output, redacted-secret-scan]
+    classification_rule: >-
+      "prevented" requires an authoritative rejection before a conflicting
+      effect. Detecting, displaying, or later repairing the effect is
+      "recorded". Missing evidence is a failed/unknown gate, never a pass.
+  environment_control:
+    rule: >-
+      Candidate services run only in disposable local/container environments or
+      separately authorized infrastructure. They receive no production
+      credentials, no production queues, and no authority to mutate the shared
+      Vuoro state.
+
+scenario_pack:
+  S-BATCH:
+    required_for: [B, 0, 1, 2, 3, 4]
+    task_shape: ten actors, overlapping work, one blocked dependency, and one cold operator resume
+    scheduled_events:
+      - id: BATCH-01
+        boundary: R1
+        action: attempt activation of a dependency-blocked item
+        expected: authoritative prevention, or recorded hard-gate failure
+      - id: BATCH-02
+        boundary: R2
+        action: two actors acquire the same executable item concurrently
+        expected: at most one valid exclusive execution authority
+      - id: BATCH-03
+        boundary: R2
+        action: mutate the claimed item without its proof
+        expected: authoritative rejection
+      - id: BATCH-04
+        boundary: R2
+        action: transfer the claim and retry with the pre-transfer proof
+        expected: rotated proof is rejected; new holder alone may mutate
+      - id: BATCH-05
+        boundary: R2
+        action: delegated subagent attempts mutation without receiving the proof
+        expected: rejection and no proof leakage in prompt/log capture
+      - id: BATCH-06
+        boundary: R2
+        action: simulate holder crash, perform authoritative recovery, then retry old proof
+        expected: recovery preserves state and invalidates the old proof
+      - id: BATCH-07
+        boundary: R5
+        action: deliver a stale or duplicate completion after transfer/recovery
+        expected: no duplicate authoritative effect or false success
+      - id: BATCH-08
+        boundary: R3
+        action: cold operator identifies the next safe action from the lane resume surface
+        expected: active, blocked, stale, and ownership-ambiguous state is visible
+  S-SOLO:
+    required_for: [B, 0, 1, 2, 3, 4]
+    task_shape: one actor, one repository, one same-day task, no interruption or handoff
+    acceptance: measure ceremony and successful validated completion without importing batch-only controls
+  S-RESUME:
+    required_for: [B, 0, 1, 2, 3, 4]
+    task_shape: cold actor resumes an incomplete task from a recorded idle state
+    acceptance: record first safe next action, consulted surfaces, stale markers, and remaining ambiguity
+    baseline_note: existing accepted Lane B observations may be cited; no new resume-observation gate exists
+  S-DORMANT:
+    required_for: [B, 0, 1, 2, 3, 4]
+    task_shape: dormant state is seeded at lane setup and resumed only after the contract's recorded idle interval
+    minimum_idle_days: 14
+    acceptance: stale ownership/projections are visible or safely repaired without silent state loss
+  S-SIMPLIFY:
+    required_for: [B, 0]
+    task_shape: rerun batch tasks with fewer concurrent actors, no unattended execution, explicit operator assignment, and one end-session note
+    acceptance: compare relevant scenario success and operator time against Lane B without averaging scenario classes
+
+lane_scope:
+  B:
+    label: Vuoro current then reduced
+    required_variants: [current, reduced]
+    comparison_role: yardstick; complete before external-lane scoring
+  '0':
+    label: td minimization control
+    comparison_role: deletion/tolerance control; R2/R5/R6 non-coverage is an expected finding, not a waived gate
+  '1':
+    label: Beads plus Gas Town
+    comparison_role: adjacent replacement
+    early_stop_test: execute BATCH-02 through BATCH-06 before full-lane adaptation work
+  '2':
+    label: Beads plus minimal Restate claim adapter
+    comparison_role: R1/R4 commodity registry plus narrow R2/R3 authority spike
+    scope_fence: do not rebuild catalog, knowledge pipeline, or cockpit
+  '3':
+    label: existing authority plus Windmill plus Daytona
+    comparison_role: R5 execution/sandbox substitution only; preserve external claim authority
+    scope_fence: no claim-proof replacement claim may be inferred from this lane
+  '4':
+    label: Temporal reference spike
+    comparison_role: small durable-runtime calibration, not migration work
+
+hard_gate_oracle:
+  work_correctness: >-
+    No simultaneous valid exclusive authorities; blocked work cannot activate;
+    recovery retains in-flight state.
+  resume_correctness: >-
+    Cold resume identifies a safe next action, marks stale state, and exposes
+    ownership ambiguity.
+  execution_safety: >-
+    Duplicate/stale delivery cannot produce a duplicate authoritative effect or
+    success after verification failure.
+  trust_boundary: >-
+    Identity is server-resolved, privilege is not self-asserted, credentials do
+    not persist or leak in transit, and migration authority is separated from
+    runtime authority.
+  r2_litmus: >-
+    All of BATCH-02 through BATCH-06 must pass: proof-gated mutation, rotation
+    on transfer, proof withholding from delegation, and authoritative recovery.
+  r6_verdict: evaluate all trust_boundary clauses independently; partial compliance is fail
+
+capture_and_decision:
+  run_directory: runs/<run-id>/
+  required_files:
+    - manifest.yaml
+    - fixture-lock.yaml
+    - candidate-lock.yaml
+    - events.yaml
+    - measurements.yaml
+    - adaptation.yaml
+    - authority-reconciliation.yaml
+    - cost-inputs.yaml
+    - evidence/
+  output_rule: >-
+    Populate shared result sheets only with links to completed run-local evidence.
+    Do not convert an expected non-coverage, an unsupported feature claim, or a
+    prior into a pass.
+  scoring_rule: >-
+    Judge each boundary against the frozen remove/buy/wrap/keep thresholds and
+    H8 weights. Keep per-scenario costs segmented; do not manufacture a single
+    average or a final disposition while a required lane is incomplete.
