@@ -1,0 +1,60 @@
+schema_version: vuoro-clean-room-comparison.scenario.v1
+scenario_code: S-BATCH
+scenario_name: standard multi-agent batch
+capture_shape:
+  description: >
+    Baseline Vuoro-shaped multi-agent batch pack reused by all lanes.
+    Includes overlapping work, explicit handoff, crash/recovery, ownership transfer,
+    proof-loss recovery, and dependency/blocked work pressure.
+  boundaries_tested:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+  required_horizon: multi-agent
+required_inputs:
+  - boundary
+  - task_id
+  - actor_identity
+  - evidence_reference
+  - event_outcome
+event_columns:
+  - event_id
+  - boundary
+  - event_timestamp
+  - event_name
+  - expected_preventable_conflict
+  - prevented_or_recorded
+  - owner_authority
+  - intervention_required
+  - manual_verification_source
+  - remaining_ambiguity
+  - raw_evidence_links
+entry_template:
+  event_id: EVT-001
+  boundary: R2
+  event_timestamp: 2026-07-XX-XXT00:00:00Z
+  event_name: >
+    one-agent-crash, ownership-transfer, proof-loss-recovery, dependency-block,
+    or blocked-dependency conflict
+  expected_preventable_conflict: >-
+    If true, must be prevented by authoritative logic; if false, then recorded.
+  prevented_or_recorded: prevented|recorded|not-applicable
+  owner_authority: authoritative-domain|handoff|projection|external-tool
+  intervention_required:
+    count: 0
+    type: none|operator-retry|operator-escalation|operator-disambiguation
+  manual_verification_source:
+    - vuoro-cli
+    - sprintctl-events
+    - git-log
+    - notes
+  remaining_ambiguity:
+    - >
+      unresolved ownership, stale projection, confidence gap
+    - none
+  raw_evidence_links:
+    - docs/assessments/vuoro-pre-clean-room/08-resume-observations.md
+    - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md

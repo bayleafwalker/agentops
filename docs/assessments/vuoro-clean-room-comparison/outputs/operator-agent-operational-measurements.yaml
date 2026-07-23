@@ -1,0 +1,48 @@
+schema_version: vuoro-clean-room-comparison.measurements.v1
+artifact_type: operator_agent_operational_metrics
+lane_id: B|0|1|2|3|4
+scenario_code: S-BATCH|S-SOLO|S-DORMANT|S-SIMPLIFY|S-RESUME
+measurement_set:
+  operator:
+    time_to_first_confident_next_action:
+      unit: seconds
+      value: todo
+      notes: "capture from resume surface to first explicit action"
+    interventions_count:
+      value: todo
+      notes: "claims, clarifications, corrections, manual unlocks"
+    surfaces_consulted:
+      - vuoro-cli
+      - sprintctl-events
+      - git
+      - task-notes
+      - external-tool-console
+    ambiguity_remaining: low|medium|high|none
+  agent:
+    tool_calls:
+      count: todo
+      retries: todo
+    context_consumed_tokens:
+      value: todo
+      unit: tokens
+    failed_claims:
+      value: todo
+    manual_recoveries:
+      count: todo
+  operational:
+    setup_overhead_minutes:
+      value: todo
+    infra_services_touched:
+      count: todo
+    maintenance_backlog:
+      description: >
+        upgrades, rebuilds, schema sync, backups, migration, adapter drift, and
+        known follow-ups triggered by the lane run
+      value: todo
+    downtime_or_wait_seconds:
+      value: todo
+  links:
+    - docs/assessments/vuoro-pre-clean-room/07-open-hypotheses.md
+    - docs/plans/Vuoro-Clean-Room-Comparison-Plan.md
+    - docs/assessments/vuoro-pre-clean-room/08-resume-observations.md
+status: todo

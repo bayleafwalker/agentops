@@ -1,0 +1,59 @@
+schema_version: vuoro-clean-room-comparison.scenario.v1
+scenario_code: S-DORMANT
+scenario_name: dormancy and state rot
+capture_shape:
+  description: >
+    Extended idle period then cold resume on a previously touched work item.
+    Measures stale ownership, stale projections, reconstruction burden and
+    operational maintenance required before work can resume safely.
+  boundaries_tested:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+  required_horizon: dormant-resume
+required_inputs:
+  - idle_duration
+  - state_left_in_repo
+  - state_left_in_tracker
+  - resume_surface
+  - first_confident_action_timestamp
+  - stale_state_items
+  - unresolved_work_items
+event_columns:
+  - event_id
+  - boundary
+  - event_timestamp
+  - event_name
+  - prevented_or_recorded
+  - stale_signal_detected
+  - evidence_source_verified
+  - manual_repair_steps
+  - raw_evidence_links
+entry_template:
+  event_id: EVT-001
+  boundary: R2
+  event_timestamp: 2026-07-XX-XXT00:00:00Z
+  event_name: claimed work returns after dormancy
+  prevented_or_recorded: prevented|recorded|not-applicable
+  stale_signal_detected:
+    - stale-claim
+    - dependency-rot
+    - status-ambiguity
+    - none
+  evidence_source_verified:
+    - vuoro-cli
+    - sprintctl-events
+    - git-log
+    - repo-branch-state
+  manual_repair_steps:
+    - release stale claim
+    - refresh dependency graph
+    - regenerate resumptive context
+  raw_evidence_links:
+    - docs/assessments/vuoro-pre-clean-room/08-resume-observations.md
+    - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md

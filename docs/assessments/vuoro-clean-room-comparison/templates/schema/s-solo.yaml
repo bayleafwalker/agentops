@@ -1,0 +1,50 @@
+schema_version: vuoro-clean-room-comparison.scenario.v1
+scenario_code: S-SOLO
+scenario_name: ordinary single-agent same-day work
+capture_shape:
+  description: >
+    One agent, one repository, no interruption, no handoff.
+    Baseline for overhead and ceremony under normal solo operating mode.
+  boundaries_tested:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+  required_horizon: solo
+required_inputs:
+  - scenario_id
+  - actor_identity
+  - repository
+  - task_id
+  - claim_or_assigned_surface
+  - first_confident_action_timestamp
+event_columns:
+  - event_id
+  - boundary
+  - event_timestamp
+  - event_name
+  - prevented_or_recorded
+  - operator_decision_impact
+  - manual_surfaces_consulted
+  - raw_evidence_links
+entry_template:
+  event_id: EVT-001
+  boundary: R3
+  event_timestamp: 2026-07-XX-XXT00:00:00Z
+  event_name: >-
+    routine claim/start/done path, resume-necessary task handoff, or dependency
+    rejection
+  prevented_or_recorded: prevented|recorded|not-applicable
+  operator_decision_impact: high|medium|low|none
+  manual_surfaces_consulted:
+    - vuoro-cli
+    - git
+    - repo_docs
+    - external-candidate-tool
+  raw_evidence_links:
+    - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
+    - docs/plans/Vuoro-Clean-Room-Comparison-Plan.md

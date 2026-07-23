@@ -1,0 +1,41 @@
+schema_version: vuoro-clean-room-comparison.authority.v1
+artifact_type: authority_reconciliation_count
+lane_id: B|0|1|2|3|4
+authoritative_stores:
+  count: todo
+  list: []
+  notes: >
+    authoritative domain-owned stores where correctness decisions are made.
+projections:
+  count: todo
+  list: []
+  notes: >
+    projection/read-only systems that mirror or derive from authoritative stores.
+disagreement_states: todo
+disagreement_examples:
+  - example_id: D-1
+    boundary: R1-R8
+    description: todo
+    reproduction_path: todo
+    recovery_steps:
+      - step: todo
+        owner: todo
+  - example_id: D-2
+    boundary: R1-R8
+    description: todo
+    reproduction_path: todo
+    recovery_steps:
+      - step: todo
+        owner: todo
+recovery_procedure:
+  documented: false
+  commands_or_steps: []
+  expected_latency_seconds: todo
+  owner_chain: [orchestrator, operator, operator-review]
+boundary_coupling_risk: >
+  Record one coupling score per boundary pair when authority can diverge between
+  stores or projections.
+evidence_links:
+  - docs/plans/Vuoro-Clean-Room-Comparison-Plan.md
+  - docs/assessments/vuoro-pre-clean-room/03-architecture-tax.md
+  - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md

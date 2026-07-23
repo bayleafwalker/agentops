@@ -1,0 +1,117 @@
+schema_version: vuoro-clean-room-comparison.lane-result.v1
+artifact_type: per_lane_result_sheet
+documented_at: 2026-07-23T00:00:00Z
+item_id: 1217
+lane_registry:
+  - lane_id: B
+    lane_label: baseline
+    scenario_rows:
+      - scenario: S-BATCH
+        sheet_path: outputs/per-lane-placeholder.md
+      - scenario: S-SOLO
+        sheet_path: outputs/per-lane-placeholder.md
+      - scenario: S-RESUME
+        sheet_path: outputs/per-lane-placeholder.md
+      - scenario: S-DORMANT
+        sheet_path: outputs/per-lane-placeholder.md
+      - scenario: S-SIMPLIFY
+        sheet_path: outputs/per-lane-placeholder.md
+    verdict:
+      hard_gate_ref: outputs/hard-gate-r2-r6-verdict.yaml
+      r1_score: todo
+      r2_score: todo
+      r3_score: todo
+      r4_score: todo
+      r5_score: todo
+      r6_score: todo
+      r7_score: todo
+      r8_score: todo
+      notes: ""
+    references:
+      - docs/plans/Vuoro-Clean-Room-Comparison-Plan.md
+      - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
+      - docs/assessments/vuoro-pre-clean-room/07-open-hypotheses.md
+      - docs/assessments/vuoro-pre-clean-room/08-resume-observations.md
+  - lane_id: 0
+    lane_label: minimization-control
+    scenario_rows:
+      - scenario: S-BATCH
+        sheet_path: outputs/per-lane-placeholder.md
+      - scenario: S-SOLO
+        sheet_path: outputs/per-lane-placeholder.md
+      - scenario: S-RESUME
+        sheet_path: outputs/per-lane-placeholder.md
+      - scenario: S-DORMANT
+        sheet_path: outputs/per-lane-placeholder.md
+      - scenario: S-SIMPLIFY
+        sheet_path: outputs/per-lane-placeholder.md
+    verdict: { todo: true }
+    references:
+      - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
+  - lane_id: 1
+    lane_label: adjacent-replacement
+    scenario_rows:
+      - scenario: S-BATCH
+        sheet_path: outputs/per-lane-placeholder.md
+      - scenario: S-SOLO
+        sheet_path: outputs/per-lane-placeholder.md
+      - scenario: S-RESUME
+        sheet_path: outputs/per-lane-placeholder.md
+      - scenario: S-DORMANT
+        sheet_path: outputs/per-lane-placeholder.md
+      - scenario: S-SIMPLIFY
+        sheet_path: outputs/per-lane-placeholder.md
+    verdict: { todo: true }
+    references:
+      - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
+  - lane_id: 2
+    lane_label: hybrid-composition
+    scenario_rows:
+      - scenario: S-BATCH
+        sheet_path: outputs/per-lane-placeholder.md
+      - scenario: S-SOLO
+        sheet_path: outputs/per-lane-placeholder.md
+      - scenario: S-RESUME
+        sheet_path: outputs/per-lane-placeholder.md
+      - scenario: S-DORMANT
+        sheet_path: outputs/per-lane-placeholder.md
+      - scenario: S-SIMPLIFY
+        sheet_path: outputs/per-lane-placeholder.md
+    verdict: { todo: true }
+    references:
+      - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
+  - lane_id: 3
+    lane_label: execution-substitution
+    scenario_rows:
+      - scenario: S-BATCH
+        sheet_path: outputs/per-lane-placeholder.md
+      - scenario: S-SOLO
+        sheet_path: outputs/per-lane-placeholder.md
+      - scenario: S-RESUME
+        sheet_path: outputs/per-lane-placeholder.md
+      - scenario: S-DORMANT
+        sheet_path: outputs/per-lane-placeholder.md
+      - scenario: S-SIMPLIFY
+        sheet_path: outputs/per-lane-placeholder.md
+    verdict: { todo: true }
+    references:
+      - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
+  - lane_id: 4
+    lane_label: durable-runtime-reference
+    scenario_rows:
+      - scenario: S-BATCH
+        sheet_path: outputs/per-lane-placeholder.md
+      - scenario: S-SOLO
+        sheet_path: outputs/per-lane-placeholder.md
+      - scenario: S-RESUME
+        sheet_path: outputs/per-lane-placeholder.md
+      - scenario: S-DORMANT
+        sheet_path: outputs/per-lane-placeholder.md
+      - scenario: S-SIMPLIFY
+        sheet_path: outputs/per-lane-placeholder.md
+    verdict: { todo: true }
+    references:
+      - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
+notes: >
+  This file is intentionally neutral and pre-fills lane and scenario shape only.
+  Fill all TODO markers with lane outcomes as evidence is collected.

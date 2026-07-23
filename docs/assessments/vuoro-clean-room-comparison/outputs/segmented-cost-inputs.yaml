@@ -1,0 +1,64 @@
+schema_version: vuoro-clean-room-comparison.cost.v1
+artifact_type: segmented_horizon_cost_inputs
+lane_id: B|0|1|2|3|4
+cost_segments:
+  adoption_horizon:
+    integration: todo
+    migration: todo
+    retraining: todo
+    parallel_run: todo
+    rollback_implementation: todo
+  monthly_carrying_horizon:
+    service_operations: todo
+    upgrades: todo
+    incident_repair: todo
+    adapter_maintenance: todo
+    subscription_or_hosting: todo
+  per_workflow_cost:
+    S-SOLO:
+      operator_minutes: todo
+      agent_overhead:
+        tool_calls: todo
+        context_tokens: todo
+      delayed_resolution_cost: todo
+      failure_rate: todo
+    S-RESUME:
+      operator_minutes: todo
+      agent_overhead:
+        tool_calls: todo
+        context_tokens: todo
+      delayed_resolution_cost: todo
+      failure_rate: todo
+    S-BATCH:
+      operator_minutes: todo
+      agent_overhead:
+        tool_calls: todo
+        context_tokens: todo
+      delayed_resolution_cost: todo
+      failure_rate: todo
+    interrupted_execution:
+      operator_minutes: todo
+      agent_overhead:
+        tool_calls: todo
+        context_tokens: todo
+      delayed_resolution_cost: todo
+      failure_rate: todo
+    unattended_run:
+      operator_minutes: todo
+      agent_overhead:
+        tool_calls: todo
+        context_tokens: todo
+      delayed_resolution_cost: todo
+      failure_rate: todo
+  normalization:
+    scenario_not_to_be_averaged: true
+    compute_per_boundary: true
+    compute_per_lane: true
+  notes: >
+    Per-plan rule: per-workflow cost is computed separately per scenario class and
+    must not be collapsed to one average.
+evidence_links:
+  - docs/plans/Vuoro-Clean-Room-Comparison-Plan.md
+  - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
+  - docs/assessments/vuoro-pre-clean-room/08-resume-observations.md
+status: todo

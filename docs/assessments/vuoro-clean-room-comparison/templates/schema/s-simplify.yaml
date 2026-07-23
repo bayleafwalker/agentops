@@ -1,0 +1,50 @@
+schema_version: vuoro-clean-room-comparison.scenario.v1
+scenario_code: S-SIMPLIFY
+scenario_name: workflow simplification challenge
+capture_shape:
+  description: >
+    Re-run S-BATCH task set with reduced process (fewer concurrent agents, no
+    unattended execution, explicit operator assignment, one end-of-session note).
+    Tests whether claimed value is workflow-specific process and can be deleted.
+  boundaries_tested:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+  required_horizon: simplification
+required_inputs:
+  - process_controls_applied
+  - changed_workload_shape
+  - note_style
+  - manual_judgment_delta
+  - success_criteria
+event_columns:
+  - event_id
+  - boundary
+  - event_timestamp
+  - event_name
+  - prevented_or_recorded
+  - simplification_control_active
+  - result_quality_delta
+  - operator_cost_delta
+  - raw_evidence_links
+entry_template:
+  event_id: EVT-001
+  boundary: R5
+  event_timestamp: 2026-07-XX-XXT00:00:00Z
+  event_name: reduced concurrency or assignment-only workflow path
+  prevented_or_recorded: prevented|recorded|not-applicable
+  simplification_control_active:
+    - fewer-concurrent-agents
+    - no-unattended-run
+    - explicit-assignment
+    - single-end-session-note
+  result_quality_delta: better|same|worse|unknown
+  operator_cost_delta: lower|same|higher|not-measured
+  raw_evidence_links:
+    - docs/plans/Vuoro-Clean-Room-Comparison-Plan.md
+    - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md

@@ -1,0 +1,48 @@
+schema_version: vuoro-clean-room-comparison.eventlog.v1
+artifact_type: prevented_vs_recorded_event_log
+lane_id:
+  required: true
+  enum: [B, 0, 1, 2, 3, 4]
+scenario_code:
+  required: true
+  enum: [S-BATCH, S-SOLO, S-RESUME, S-DORMANT, S-SIMPLIFY]
+items:
+  - event_id:
+      type: string
+    scenario: [S-BATCH, S-SOLO, S-RESUME, S-DORMANT, S-SIMPLIFY]
+    boundary:
+      type: string
+      description: R1-R8
+    timestamp:
+      type: string
+      format: date-time
+    actor:
+      type: string
+    event_type:
+      type: string
+      description: descriptive label for the observed lane outcome
+    prevented_or_recorded:
+      type: string
+      enum: [prevented, recorded]
+    outcome_quality:
+      type: string
+      enum: [success, failure, partial, not-run]
+    why_classified:
+      type: string
+    manual_intervention_required:
+      type: integer
+    raw_evidence:
+      type: array
+      items:
+        type: string
+    notes:
+      type: string
+meta:
+  raw_evidence_links:
+    - docs/assessments/vuoro-pre-clean-room/08-resume-observations.md
+    - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
+    - docs/assessments/vuoro-pre-clean-room/07-open-hypotheses.md
+  usage_rule: >
+    Every scenario event must be labeled as either prevented or recorded.
+    If the boundary and outcome do not materially affect a later action, mark
+    outcome_quality as not-run only after explicit review justification.

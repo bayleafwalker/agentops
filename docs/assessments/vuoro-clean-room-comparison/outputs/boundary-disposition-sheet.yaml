@@ -1,0 +1,113 @@
+schema_version: vuoro-clean-room-comparison.disposition.v1
+artifact_type: boundary_disposition_sheet
+boundaries:
+  - id: R1
+    name: work registry
+    baseline_reference:
+      requirement: docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
+    lane_dispositions:
+      - lane_id: B
+        disposition: baseline|buy|wrap|remove|keep-bespoke|keep-bespoke-current
+        satisfies_threshold_rule:
+          remove: >
+            lane B/S-SIMPLIFY passes hard gates, succeeds in >=90%, adds <=20%
+            operator overhead, and no trust/regression
+          buy: >
+            passes hard gates, matches or improves Lane B, lowers carrying cost by
+            >=30%, no broad adapters/forks, credible rollback path
+          wrap: >
+            commodity externalizes routine work while adapter remains smaller than
+            displaced implementation, authority unambiguous, reconciliation decreases
+          keep: >
+            reduced lane materially outperforms baseline at this boundary
+        confidence: low|medium|high|not-assessed
+        evidence_links: []
+        reversal_condition: >
+          one-sentence condition under which this boundary decision must be revisited
+  - id: R2
+    name: exclusive claims and transferable proof
+    baseline_reference:
+      requirement: docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
+    lane_dispositions:
+      - lane_id: B
+        disposition: baseline|buy|wrap|remove|keep-bespoke|keep-bespoke-current
+        confidence: not-assessed
+        evidence_links: []
+        reversal_condition: todo
+  - id: R3
+    name: deterministic resume bundle
+    baseline_reference:
+      requirement: docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
+    lane_dispositions:
+      - lane_id: B
+        disposition: baseline|buy|wrap|remove|keep-bespoke|keep-bespoke-current
+        confidence: not-assessed
+        evidence_links: []
+        reversal_condition: todo
+  - id: R4
+    name: constrained append-only decision log
+    baseline_reference:
+      requirement: docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
+    lane_dispositions:
+      - lane_id: B
+        disposition: baseline|buy|wrap|remove|keep-bespoke|keep-bespoke-current
+        confidence: not-assessed
+        evidence_links: []
+        reversal_condition: todo
+  - id: R5
+    name: execution queue and fenced completion safety
+    baseline_reference:
+      requirement: docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
+    lane_dispositions:
+      - lane_id: B
+        disposition: baseline|buy|wrap|remove|keep-bespoke|keep-bespoke-current
+        confidence: not-assessed
+        evidence_links: []
+        reversal_condition: todo
+  - id: R6
+    name: cross-machine authority
+    baseline_reference:
+      requirement: docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
+    lane_dispositions:
+      - lane_id: B
+        disposition: baseline|buy|wrap|remove|keep-bespoke|keep-bespoke-current
+        confidence: not-assessed
+        evidence_links: []
+        reversal_condition: todo
+  - id: R7
+    name: durable knowledge transfer
+    baseline_reference:
+      requirement: docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
+    lane_dispositions:
+      - lane_id: B
+        disposition: baseline|buy|wrap|remove|keep-bespoke|keep-bespoke-current
+        confidence: not-assessed
+        evidence_links: []
+        reversal_condition: todo
+  - id: R8
+    name: operator projection and composed view
+    baseline_reference:
+      requirement: docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
+    lane_dispositions:
+      - lane_id: B
+        disposition: baseline|buy|wrap|remove|keep-bespoke|keep-bespoke-current
+        confidence: not-assessed
+        evidence_links: []
+        reversal_condition: todo
+meta:
+  thresholds:
+    remove: >
+      Lane 0 / S-SIMPLIFY passes hard gates, succeeds in >=90% of relevant
+      scenarios, adds <=20% operator time versus baseline, no trust regression.
+    buy: >
+      passes hard gates, matches or improves Lane B outcome quality, lowers
+      expected carrying cost by >=30%, adapter/fork <= one-third, credible rollback.
+    wrap: >
+      commodity externalized, adapter stable and smaller than displaced
+      implementation, authority unambiguous, reconciliation decreases.
+    keep_bespoke_reduced: >
+      reduced baseline materially outperforms, externals fail hard gates or need
+      broad adaptation.
+    keep_bespoke_current: >
+      difficult outcome requiring clear proof of materially better operational
+      and maintenance posture versus reduced variant.

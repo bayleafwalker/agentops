@@ -1,0 +1,56 @@
+schema_version: vuoro-clean-room-comparison.verdict.v1
+document_type: hard_gate_and_required_verdicts
+lane_id: B|0|1|2|3|4
+lane_role:
+  - baseline
+  - minimized-control
+  - replacement-adjacent
+  - external-composition
+  - execution-substitution
+  - durable-reference
+run_id: run-YYYY-000
+run_window:
+  started_at: 2026-07-XX-XXT00:00:00Z
+  completed_at: 2026-07-XX-XXT00:00:00Z
+hard_gate_results:
+  work_correctness:
+    passed: todo
+    evidence_links: []
+    notes: >
+      no-two-actors-have-valid-exclusive-execution-authority-simultaneously
+  resume_correctness:
+    passed: todo
+    evidence_links: []
+    notes: >
+      stale info marked stale and ownership ambiguity visible
+  execution_safety:
+    passed: todo
+    evidence_links: []
+    notes: >
+      duplicate work or stale-authority execution prevented
+  trust_boundary:
+    passed: todo
+    evidence_links: []
+    notes: >
+      R6 acceptance criteria (server-resolved identity, no self-asserted privilege,
+      no credential persistence in transit, authority/runtime role split)
+r2_litmus_verdict:
+  passes: todo
+  reason: >
+    mutation requires proof, transfer rotates proof, proof can be withheld from
+    delegated sub-agents, lost proof has authoritative recovery path.
+  evidence_links:
+    - docs/plans/Vuoro-Clean-Room-Comparison-Plan.md
+    - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
+r6_verdict:
+  passes: todo
+  reason: >
+    server-resolved identity, migration/runtime role split, credential non-
+    persistence, schema/catalog compatibility and identity controls.
+  evidence_links:
+    - docs/plans/Vuoro-Clean-Room-Comparison-Plan.md
+    - docs/assessments/vuoro-pre-clean-room/06-reduced-workflow-specification.md
+overall_lane_gate:
+  status: todo
+  blocking_issue: >
+    hard-gate/R2/R6 blocker if any single row is failed or evidence is missing.
