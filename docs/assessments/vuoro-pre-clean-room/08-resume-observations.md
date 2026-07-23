@@ -103,3 +103,63 @@ be re-labeled to make clear its timing is analytical/retrospective, not a
 protocol-complete live observation, and should cross-link to this document
 rather than stand as an independent data point — counting it separately
 from Observation 1 would double-count one real event as two samples.
+
+---
+
+## Pre-pause state, 2026-07-23T12:38:26Z (prep for a future Observation 2)
+
+This is the *before-pausing* half of the protocol only — the resume-side
+half doesn't exist yet, and won't until some session (this one resumed, a
+different one, doesn't matter) actually reconstructs state from a cold
+start against what's recorded here. Do not count this section as a second
+observation on its own.
+
+**Repository, branch/worktree, task/item:**
+- sprintctl, `main`, no worktree (all work landed directly on the shared
+  checkout, deliberately sequenced rather than parallelized across
+  worktrees — see the concurrent-edit correction below). Item #1195
+  (status `done`, closed 2026-07-23T11:32:22Z) plus its two spun-out
+  siblings, #1211 and #1212 (both `done`).
+- appservice, `main`, no worktree. One unrelated fix (a malformed RBAC
+  manifest), unclaimed — appservice isn't sprintctl-claim-tracked at all,
+  so there was no claim to release there.
+- agentops, `main`, no worktree. This assessment's own docs, plus a memory
+  update (see below). Not sprintctl-claim-tracked either.
+- vuoro: touched only earlier in the day (invocation/v2 transport, already
+  captured in the prior handover); untouched this segment.
+
+**Timestamp and session shape:** 2026-07-23T12:38:26Z. This session's shape
+was **not static** — it started **delegated** (one build agent, A3), then
+became genuinely **multi-agent** at two points: #1211's build ran
+concurrently with Group C's decision-scoping brief, and later Group C's
+build ran concurrently with a CI-fix agent (up to 3 background agents
+alive at once at the peak). Recording the shape as a single label for the
+whole session would understate this — if a future protocol run wants a
+"multi-agent session" sample, this session qualifies for the *later*
+portion of itself, not uniformly throughout.
+
+**What state is intentionally left in Git/Vuoro:** everything committed
+and pushed, working trees clean in sprintctl/appservice/vuoro. No active
+sprintctl claims held by this session on #1195/#1211/#1212 (all released
+via `item done-from-claim`). agentops has one untracked file
+(`docs/plans/evidence-needed.md`) belonging to the *other* concurrent
+session (see the earlier collision finding above) — deliberately left
+untouched, not this session's to commit or discard. Real CI verified green
+on sprintctl (run 30003277273) before considering any of this settled —
+not just locally-green tests.
+
+**Whether a handoff bundle or authored note exists:** no file-based
+handoff bundle was written for this pause, consistent with this session's
+earlier finding that the *previous* handoff's own referenced bundle
+(`handoff-407.json`) didn't exist on disk either — this looks like a
+pattern, not a one-off. What *does* exist: a complete tracker event trail
+on #1195 (events #1382 through #1397 — dispatch, verification, and
+correction events for every build in this segment, including two
+independent-review-caught bugs and the CI-breakage discovery), and two
+persistent-memory updates in this session's own memory store
+(`project_vuoro_served_backend_1195.md`, now marked complete;
+`feedback_verify_real_ci_not_just_local_pytest.md`, new). Whether a *future*
+resuming session finds the tracker event trail sufficient without a
+separate authored note — or gets tripped up by the same absence this
+session flagged for the prior handoff — is exactly the H9-relevant data
+point the eventual resume-side observation should capture.
