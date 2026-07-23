@@ -372,3 +372,61 @@ conditions are both independently satisfied regardless of that decision.
 No further observations should be dispatched until that reconciliation
 happens, per the plan's standing guidance against manufacturing
 observations.
+
+---
+
+## Observation 6 — 2026-07-23 (second qualifying multi-agent batch; caught an orchestrator overclaim)
+
+Dispatched under the same protocol as Observation 5, this time against a
+three-worker real burst (agentops #1189 continuation, #1190 continuation,
+#1191 design pass — three genuinely different backlog items, two
+different repos as the primary pair). The orchestrating session recorded
+pre-pause metadata (note #1415 on #1216) asserting **three** active
+claims, then launched a fresh, non-forked, zero-context Claude session
+immediately after. By the time that session actually inspected tracker
+state, #1191's worker had already finished and released its claim —
+the fresh session caught this discrepancy itself, independently, and
+corrected the record rather than accepting the pre-pause note at face
+value. This is the sharpest test yet of "do not rely on prior transcript
+or operator assertions," because the operator-adjacent assertion here was
+wrong, not just redundant.
+
+| Field | Value |
+|---|---|
+| Repo | agentops (docs/tracker); qualifying items span sprint #380 (#1189, #1190); #1191 also in #380 but non-qualifying (see below); cross-verified against vuoro, appservice, sprintctl via `git log` |
+| Idle duration | **Not meaningful / effectively none.** Claim heartbeats on the batch sit at 17:41:59Z/17:42:01Z; one of the batch's own evidence events (#1418) landed at 17:44:55Z — *after* this session's own resume start (17:43:44Z). A resume into a still-live batch, not after a gap. Idle-gap coverage remains satisfied by Observations 1–2. |
+| Session shape | **Multi-agent — confirmed, but exactly TWO qualifying items, not the three the pre-pause note claimed.** #1189 (claim **#159**, `claude:1189-backfill-worker`, rotated via handoff event #1410, dispatch #1412, evidence #1418) and #1190 (claim **#160**, `claude:1190-completion-worker`, rotated via handoff event #1411, dispatch #1404, evidence #1407) both passed `claim list --item-id` with a live result. **#1191 did not qualify**: `claim list --item-id 1191` returned `[]` — zero claims — despite having dispatch event #1414 and decision event #1416. The resuming session correctly applied the two-part bar (active claim *and* dispatch/evidence events) rather than counting event-presence alone, and explicitly flagged that the pre-pause note's claim of "claim #162" was not corroborated by live query. |
+| Active item and claim IDs | #1189/claim #159, #1190/claim #160 (the qualifying pair). #1216/claim #161 found expired (17:22:57Z, ~21 min stale at inspection) — correctly excluded, flagged as tracker-hygiene debris consistent with Observations 3–5. |
+| Dispatch/session event IDs | #1189: 1402, 1403, 1405, 1410, 1412, 1418. #1190: 1404, 1407, 1411. #1191 (non-qualifying, event-only): 1414, 1416, 1417. #1216 meta-chain: 1387, 1388, 1398, 1399, 1406, 1408, 1409, 1415. |
+| Resume surface used | In order: `date` → agentops `git status`/`git log` + `sprintctl --version` → directory listing of the assessments folder (not opened) + read of `docs/plans/evidence-needed.md` → `sprintctl sprint list --json` → `item list --sprint-id 428` → `claim list-sprint --sprint-id 428 --all` + `claim list --item-id 1216/1217` → `item show --id 1216/1217` + `event list --sprint-id 428` → `claim list --item-id 1189/1190/1191` + `item show --id 1189/1190/1191` → `claim list-sprint --sprint-id 380 --all` → detailed event-payload extraction for #1189/#1191 → cross-repo `git log`/`git show` (agentops, appservice, vuoro) → `sprintctl sprint show --id 380` → sprintctl repo `git status`/`git log` (negative check, ruled out as unrelated). |
+| Time / effort to first confident, evidence-backed next action | **~3 minutes of a 4m18s total** (17:43:44Z → 17:48:02Z), roughly 12–13 of ~23 tool-call rounds. |
+| Conflicts / blockers surfaced | #1189 left `active`/claimed with an unpushed appservice digest-backfill commit (`770763fa`) awaiting an operator push decision, plus an honestly-flagged verification gap (only a local `kind-bindery` cluster was reachable, not the real appservice cluster). #1190 left `active`/claimed with two sub-scopes still deliberately deferred. #1216's claim #161 remains stale/expired/unreleased. Both #1189 and #1190 show claim-handoff "lost-proof-adopted" rotations — the original short-lived workers lost their tokens and had to be recovered via `--allow-legacy-adopt`, a minor recurring irregularity, not a collision. **The concrete finding this observation adds to the set: tracker-authored text (this thread's own pre-pause note, #1415) was itself wrong** — it asserted three active claims when only two were live by inspection time — and the resuming session caught this by direct query rather than trusting it. |
+| Other sources consulted (non-Vuoro) | `git log`/`git status`/`git show` across four repos (agentops, appservice, vuoro, sprintctl); deliberately did *not* open this document (08) itself this time, only listed the directory, to avoid being anchored by it — a stricter self-imposed bar than Observations 1–5 applied. |
+| Ambiguity remaining after resume | Whether #1216's stale claim #161 will be treated as noise or a real collision risk by whoever writes next; whether #1191's event-only activity should count under a looser future batch definition (this session correctly did not extend it that benefit); whether appservice's unpushed backfill commit gets pushed; process-liveness beyond heartbeats/fresh-commit-timestamps was not independently checked this time (no `ps` call), consistent with the instruction to treat tracker state, not process inspection, as decisive. |
+| H9 — did an authored note change/accelerate the next action? | **No — sixth consecutive negative/redundant finding for the standalone note**, and this time a piece of *tracker-native* text (#1415) actively required correction rather than helping. `docs/plans/evidence-needed.md` again added nothing beyond what item #1216's own description and the operator protocol already state. What drove the determination was direct `claim list --item-id` queries plus independent cross-repo git corroboration — not any authored note, and specifically not the pre-pause note this same investigation had to overrule. |
+
+### Determination
+
+**A second real, tracker-qualifying multi-agent batch — and the first
+observation to independently catch and correct an inaccurate tracker
+note rather than merely finding standalone notes redundant.** The
+pre-pause note's overclaim (three items asserted, two verified) is not a
+process failure to paper over: it is exactly the kind of discrepancy this
+five-observation gate exists to surface, and it was caught by the
+resuming session doing what the protocol asked — verifying tracker state
+directly rather than trusting prior text, including text written by this
+same assessment's own orchestrator.
+
+### Gate 4 status after this observation
+
+**Two independent, tracker-qualifying multi-agent observations now
+exist (5 and 6).** Firm rows: 1, 2, 5, 6 — four rows, none retrospective,
+covering delegated + solo + two independently-verified multi-agent
+batches, plus both meaningful-idle-gap and multi-agent conditions
+satisfied more than once over. Provisional rows 3 and 4 remain exactly
+as flagged in their own write-ups. **The set now stands at 4 firm rows;
+counting either provisional row 3 or 4 reaches five and closes Gate 4.**
+No further observations should be dispatched — the reconciler now has
+more than enough evidence on every required axis, and additional
+same-shape rows would add confirmation, not new information. The
+remaining action is reconciliation and freeze, not more observation.
