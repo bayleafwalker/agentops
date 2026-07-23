@@ -105,6 +105,8 @@ stable served transport, no authority mutation).
 ### H9 status (2026-07-23 observation audit)
 
 Gate-4 evidence currently includes five retrospective cold-resume observations
-and `No` completed full timing protocol rows (incident-level times were not all
-captured consistently), so H9 remains open and cannot yet adjudicate a
-systematic note-success rate.
+and `No` completed full timing protocol rows (incident-level protocol fields were
+not all captured), so H9 remains open and cannot yet adjudicate a systematic
+note-success rate. Task #1216 confirms this status: only one of the five
+candidates had a defensible assisted timing band and none had full assisted-versus-
+manual timing comparisons.

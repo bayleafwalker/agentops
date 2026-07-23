@@ -20,6 +20,9 @@ full operating record rather than prospectively. Evidence sources:
 
 Known gaps: no *timed* with/without resume measurements exist; the
 Workstream 2 counterfactual is analytical (see economics report §2).
+Only one candidate incident has an explicit assisted resume timing band and no
+candidate has a full assisted-versus-manual paired timing capture with protocol
+fields.
 The actionq CNPG LoadBalancer (5432) is filtered from assessment hosts,
 but the queue authority was inspected read-only via CNPG pod exec on
 2026-07-23, closing the original queue-volume gap — results under
@@ -99,7 +102,7 @@ non-migration July work.
 | 1 — Kernel definition | **Passed** — evidence-backed kernel list in the reduced spec |
 | 2 — Compression decisions | **Passed** — dispositions marked in the semantic register |
 | 3 — Migration normalization | **Passed** — migration dataset separated throughout |
-| 4 — Counterfactual established | **Partial** — retrospective sample of 12 documented resumption incidents + analytical counterfactuals; no timed live pairs. To complete: 5 timed resume observations during normal work (protocol below) |
+| 4 — Counterfactual established | **Partial** — retrospective sample of 12 documented resumption incidents + analytical counterfactuals; no full 5-tuple timed-resume protocol rows. To complete: 5 timed resume observations during normal work (protocol below) |
 | 5 — Clean-room input frozen | **Draft-for-freeze** — spec is complete; freeze after Gate 4 completes (the actionq volume inspection completed 2026-07-23; R5 split applied) |
 
 ## Path to freeze (per 2026-07-23 review reconciliation)

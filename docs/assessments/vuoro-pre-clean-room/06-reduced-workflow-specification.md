@@ -29,14 +29,29 @@ These observations are evidence-backed from the 30–60 day retrospective but
 only one instance currently has a comparable timed next-action metric.
 Until four additional normal-work *timed* observations are collected, the freeze
 is explicitly blocked.
+Task #1216 re-review confirms this remains unchanged: five candidate resume
+incidents are identified, but only one includes a defensible assisted timing band.
+No remaining incident has complete assisted-versus-manual timing fields.
 
 | # | Date | Context | Resume surface | Evidence of value | Timing |
 |---|---|---|---|---|---|
-| 1 | 2026-07-08 | homelab-analytics recovery after lost claude-agent sessions (items #730–#734) | claim records + `claim resume` | 5 rotate recoveries completed with ownership continuity; conflict duplication avoided | `<5 m` (rotate operations) |
-| 2 | 2026-07-14 | sprintctl ops-upgrade wave (~20 claim handoffs across ~8 actors; repeated "previous proof was unavailable; explicit adopt") | claim handoff + bundles (6 handoffs) | Proven proof-loss recovery and transfer continuity in active multi-actor work | **not timed in-band** |
-| 3 | 2026-07-21 | sprintctl/vuoro 10-agent dispatch batch (`942` tool calls) | orchestrator-owned claims, done-from-claim, kctl capture | Batch-scale claim continuity preserved across orchestrator chains | **not timed in-band** |
-| 4 | 2026-07-22 | sprintctl #1195 end-of-day handoff into next-session continuation | `handoff-1195-served-backend-2026-07-22-eod.txt` / bundle | Deterministic next action produced; conflicts surfaced (`[unclaimed-active-work]`, dependency block) and bundle-correct decisions prevented wrong branch | `<5 min` assisted; `15–60 min` counterfactual reconstruction |
-| 5 | 2026-07-19→23 | ecosystem cold resume into #1195 continuation after idle period | sprint list + continuation-blockers plan + bundle | Multi-day gap did not lose operational continuity; remaining proof-channel risk stayed explicit | **not timed in-band** |
+| 1 | 2026-07-08 | homelab-analytics recovery after lost claude-agent sessions (items #730–#734) | claim records + `claim resume` | 5 rotate recoveries completed with ownership continuity; conflict duplication avoided | Assisted timing only (`<5 m` rotate ops); manual baseline not captured in-band |
+| 2 | 2026-07-14 | sprintctl ops-upgrade wave (~20 claim handoffs across ~8 actors; repeated "previous proof was unavailable; explicit adopt") | claim handoff + bundles (6 handoffs) | Proven proof-loss recovery and transfer continuity in active multi-actor work | **not timed in-band; no protocol timing fields recorded** |
+| 3 | 2026-07-21 | sprintctl/vuoro 10-agent dispatch batch (`942` tool calls) | orchestrator-owned claims, done-from-claim, kctl capture | Batch-scale claim continuity preserved across orchestrator chains | **not timed in-band; no protocol timing fields recorded** |
+| 4 | 2026-07-22 | sprintctl #1195 end-of-day handoff into next-session continuation | `handoff-1195-served-backend-2026-07-22-eod.txt` / bundle | Deterministic next action produced; conflicts surfaced (`[unclaimed-active-work]`, dependency block) and bundle-correct decisions prevented wrong branch | Assisted timing: `<5 min` (from in-band band in source artifact); manual comparison: `15–60 min` reconstruction counterfactual in `02-workflow-economics.md` |
+| 5 | 2026-07-19→23 | ecosystem cold resume into #1195 continuation after idle period | sprint list + continuation-blockers plan + bundle | Multi-day gap did not lose operational continuity; remaining proof-channel risk stayed explicit | **not timed in-band; no protocol timing fields recorded** |
+
+### Task #1216 protocol coverage
+
+| # | Resume timing evidence | Source |
+|---|---|---|
+| 1 | Assisted only (`<5m`) with no paired manual clock | `02-workflow-economics.md` (§2 incidents 1–5), incident claim records in `.sprintctl` |
+| 2 | No assisted timing field; no manual-comparison timing | `06-reduced-workflow-specification.md` row 2, `handoff-407` chain context |
+| 3 | No assisted timing field; no manual-comparison timing | 10-agent dispatch session (`.agents/sessions/2026-07-21-vuoro-served-substrate-codex-dispatch.md`) and 06 row 3 |
+| 4 | Assisted `<5m` band; manual comparison band `15–60m` | `handoff-1195-served-backend-2026-07-22-eod.txt`, `02-workflow-economics.md` counterfactual detail |
+| 5 | No assisted timing field; no manual-comparison timing | `README` evidence source list + `06` row 5 |
+
+Result: **1 of 5 resumptions has any defensible timed metric; none are protocol-complete with all fields.**
 
 Freeze condition result:
 
