@@ -1,0 +1,32 @@
+schema_version: vuoro-clean-room-comparison.fixture-lock.v1
+artifact_type: comparable_fixture_lock
+contract_id: vuoro-clean-room-2026-07-23
+fixture:
+  source_repository: /tmp/vuoro-clean-room-lane0-fixture
+  immutable_commit: edf5841696e2e840c74aead5c98ff861ac87ae98
+  task_corpus_path_or_digest: workload.md sha256:f9f13436809a564cc7a583be2cb5ed72678b34ac3ae99b0abbe5264bd1d2ddee
+  task_corpus_revision: lane-0-control-v1
+  acceptance_commands:
+    - td dep add <guarded-mutation> <bootstrap>
+    - TD_CONTEXT_ID=actor-blocked td start <guarded-mutation> --json
+    - TD_CONTEXT_ID=actor-a td start <overlap-a> --json
+    - TD_CONTEXT_ID=actor-b td start <overlap-a> --json
+    - TD_CONTEXT_ID=actor-handoff td handoff <handoff-target> --done ... --remaining ... --decision ... --uncertain ... --json
+    - TD_CONTEXT_ID=actor-resume td usage --new-session --json
+  expected_acceptance_output_digest: not-applicable; this exploratory control records behavior rather than a pass oracle
+  baseline_setup_commands:
+    - git init /tmp/vuoro-clean-room-lane0-fixture
+    - td init
+failure_schedule:
+  BATCH-01: start guarded-mutation while bootstrap remains open
+  BATCH-02: start overlap-a from two TD_CONTEXT_ID values
+  BATCH-03: not-applicable; td exposes no proof-gated mutation operation
+  BATCH-04: not-applicable; td exposes no transferable proof operation
+  BATCH-05: not-applicable; td exposes no proof to withhold from delegation
+  BATCH-06: not-applicable; td exposes no authoritative proof recovery operation
+  BATCH-07: not-applicable; no unattended execution path was configured
+  BATCH-08: run usage in a fresh TD_CONTEXT_ID after structured handoff
+redaction:
+  proof_digest_algorithm: sha256
+  secret_scan_command: not-applicable; control has no injected proof or credential
+  transcript_storage: evidence/observations.md

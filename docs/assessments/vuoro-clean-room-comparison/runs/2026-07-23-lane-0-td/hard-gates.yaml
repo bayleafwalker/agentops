@@ -1,0 +1,39 @@
+schema_version: vuoro-clean-room-comparison.verdict.v1
+artifact_type: hard_gate_and_required_verdicts
+lane_id: '0'
+run_id: 2026-07-23-lane-0-td
+run_window:
+  started_at: 2026-07-23T18:56:11Z
+  completed_at: null
+hard_gate_results:
+  work_correctness:
+    passed: false
+    evidence_links: [events.yaml]
+    notes: dependency-blocked item activated while its blocker was open
+  resume_correctness:
+    passed: not-yet-assessed
+    evidence_links: [events.yaml]
+    notes: structured handoff exists, but the required idle/conflict/staleness exercise is incomplete
+  execution_safety:
+    passed: not-applicable
+    evidence_links: []
+    notes: no unattended execution path exists in the Lane 0 control
+  trust_boundary:
+    passed: false
+    evidence_links: [candidate-lock.yaml]
+    notes: local SQLite has no server-resolved identity or cross-machine authority boundary
+r2_litmus_verdict:
+  passes: false
+  reason: >-
+    td has no proof-gated mutation, proof rotation, proof-withholding boundary,
+    or authoritative lost-proof recovery operation.
+  evidence_links: [events.yaml, evidence/observations.md]
+r6_verdict:
+  passes: false
+  reason: local project SQLite state is not a served cross-machine authority service.
+  evidence_links: [candidate-lock.yaml]
+overall_lane_gate:
+  status: failed-as-expected-control
+  blocking_issue: >-
+    Lane 0 is a minimization/deletion control and is not eligible to replace
+    claim, execution, or cross-machine authority boundaries.

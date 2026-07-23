@@ -1,0 +1,14 @@
+schema_version: vuoro-clean-room-comparison.candidate-lock.v1
+artifact_type: candidate_participant_lock
+contract_id: vuoro-clean-room-2026-07-23
+lane_id: '0'
+participants:
+  - component: td
+    source_url: https://github.com/marcus/td.git
+    immutable_revision_or_image_digest: b739b10255e71f39ef7490ef0177e556db5b285c
+    distribution_version: v0.51.3-0.20260718194829-b739b10255e7
+    installation_command: >-
+      GOCACHE=/tmp/vuoro-clean-room-lane0-go-cache
+      GOMODCACHE=/tmp/vuoro-clean-room-lane0-go-mod go build -o bin/td .
+    configuration_sha256: not-applicable; default local SQLite configuration
+    license_or_hosting_assumption: local-only disposable SQLite store; no server or hosted account

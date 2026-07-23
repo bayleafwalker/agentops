@@ -1,0 +1,50 @@
+schema_version: vuoro-clean-room-comparison.eventlog.v1
+artifact_type: prevented_vs_recorded_event_log
+lane_id: '0'
+scenario_code: S-BATCH
+items:
+  - event_id: BATCH-01
+    scenario: S-BATCH
+    boundary: R1
+    timestamp: 2026-07-23T18:56:19Z
+    actor: actor-blocked
+    event_type: dependency-blocked item start
+    prevented_or_recorded: recorded
+    outcome_quality: failure
+    why_classified: >-
+      td accepted `start` for guarded-mutation while its declared bootstrap
+      dependency remained open. The dependency remained queryable, but it did
+      not authoritatively prevent activation.
+    manual_intervention_required: 0
+    raw_evidence: [evidence/observations.md]
+    notes: R1 hard-gate failure for this control run.
+  - event_id: BATCH-02
+    scenario: S-BATCH
+    boundary: R2
+    timestamp: 2026-07-23T18:56:19Z
+    actor: actor-a and actor-b
+    event_type: overlapping start attempt
+    prevented_or_recorded: recorded
+    outcome_quality: partial
+    why_classified: >-
+      The first start set only an implementer-session field. A second distinct
+      context's start returned success without a proof challenge or an explicit
+      exclusive-authority decision; no proof exists to gate a later mutation.
+    manual_intervention_required: 0
+    raw_evidence: [evidence/observations.md]
+    notes: The R2 litmus fails by absence of proof-gated mutation, rotation, and recovery.
+  - event_id: BATCH-08
+    scenario: S-RESUME
+    boundary: R3
+    timestamp: 2026-07-23T18:56:19Z
+    actor: actor-resume
+    event_type: fresh-session structured handoff and usage view
+    prevented_or_recorded: recorded
+    outcome_quality: partial
+    why_classified: >-
+      td retained done, remaining, decision, and uncertainty fields and listed
+      ready work in a fresh session. This was not an idle-qualified cold resume
+      and did not demonstrate conflict/staleness detection.
+    manual_intervention_required: 0
+    raw_evidence: [evidence/observations.md]
+    notes: Evidence is informative for R3 structure only; no R3 hard-gate pass is claimed.

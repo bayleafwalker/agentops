@@ -1,0 +1,35 @@
+schema_version: vuoro-clean-room-comparison.run.v1
+artifact_type: lane_run_manifest
+status: in-progress
+run_id: 2026-07-23-lane-0-td
+contract_id: vuoro-clean-room-2026-07-23
+contract_revision: 0cc9907
+lane_id: '0'
+lane_variant: control
+started_at: 2026-07-23T18:56:11Z
+completed_at: null
+fixture_lock: fixture-lock.yaml
+candidate_lock: candidate-lock.yaml
+scenario_status:
+  S-BATCH: partial
+  S-SOLO: not-started
+  S-RESUME: partial-not-idle-qualified
+  S-DORMANT: seeded
+  S-SIMPLIFY: not-started
+environment:
+  isolation: disposable local Git repository and td SQLite store under /tmp
+  services_or_images: []
+  production_credentials_present: false
+  production_state_mutated: false
+operator_interventions:
+  unscheduled_count: 0
+  records: []
+evidence:
+  commands: evidence/observations.md
+  event_log: events.yaml
+  acceptance_output: evidence/observations.md
+  redacted_secret_scan: not-applicable; Lane 0 has no proof channel to scan
+scope_note: >-
+  This is an early control run, not a completed Lane 0 verdict. It records the
+  observed dependency and authority behavior before any adaptation work. The
+  participant is intentionally not expected to satisfy R2, R5, or R6.
