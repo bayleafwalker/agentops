@@ -654,6 +654,15 @@ Freeze the reduced workflow specification before studying external tools in deta
 
 This avoids modifying the requirements to favour either Vuoro or a promising competitor during comparison.
 
+**Status note (2026-07-23):** the external shortlist review was conducted
+while the spec was one blocker (the five timed resume observations) short
+of freeze. To preserve the gate's intent, the spec text committed
+2026-07-23 is the recorded baseline; until freeze it may change only in
+response to evidence from the resume observations (and H9), never in
+response to candidate capabilities or gaps; and the shortlist's coverage
+scores are recorded in the comparison plan as dated priors, judged by
+whether hands-on testing confirms or overturns them.
+
 ---
 
 # Relationship to the clean-room exercise
@@ -670,14 +679,29 @@ It produces the reduced workflow specification.
 
 > Which system or combination of systems best provides those retained capabilities?
 
-It compares:
+The 2026-07-23 external-candidate shortlist review established that no
+single reviewed tool covers all five differentiators (proof-bearing claims,
+transfer/recovery, conflict-detecting resume, fenced execution,
+trust-separated authority); the market splits them across product classes,
+so the credible alternative is a composed stack. The comparison is
+therefore structured by **ownership boundary** (work registry, claim
+authority, semantic resume, execution queue, sandbox boundary, knowledge
+distillation, operator projection, cross-machine authority), not product
+by product, and runs in five lanes:
 
-* current Vuoro;
-* a reduced Vuoro kernel;
-* external tools such as `td`;
-* external tool plus adapter;
-* forked external tool;
-* hybrid arrangements.
+* Lane 0 — minimized control: `td` (can claim authority and execution
+  governance simply be removed?);
+* Lane 1 — closest market substitute: Beads + Gas Town (mandatory);
+* Lane 2 — decomposed hybrid: Beads + minimal Restate claim/resume adapter;
+* Lane 3 — execution substitution: existing work authority + Windmill +
+  Daytona;
+* Lane 4 — durable-execution reference: Temporal spike (calibration, not
+  presumed winner).
+
+See `Vuoro-Clean-Room-Comparison-Plan.md` for lane protocols, the standard
+batch scenario, the R2 litmus test (prevented conflicting mutation vs
+recorded assignment), recorded priors, and exclusions (LangGraph, OpenAI
+Agents SDK, standalone sandboxes).
 
 Internal utilization evidence must not be presented as proof that Vuoro should continue implementing a feature. It only establishes whether the capability belongs in the requirement set.
 
