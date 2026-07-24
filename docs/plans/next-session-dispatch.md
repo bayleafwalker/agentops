@@ -115,6 +115,53 @@ slice, fresh locked run, effort-budgeted). Constraints that survive every
 session: frozen R1–R8/H8 unchanged; no strategic work grants authority; the
 strategic track never gates #1164.
 
+## Session 6: finish #1220 deploy, close #1221, file the served-catalog gap
+
+Prepared 2026-07-24 (session 5 handoff). Session 5 landed real code:
+
+- **devbox-agent fully replicated** — reconciled its diverged `sprintctl`
+  clone (2 real unpushed commits recovered as PostgreSQL schema version 4,
+  see sprintctl PR #2), reinstalled the `uv tool` with `remote,served`
+  extras, fixed `.envrc` to support host-local `.envrc.local` overrides
+  (sprintctl PR merged directly to main), and verified `sprintctl doctor` +
+  a live `item show` work over served mode via plain `direnv`. Its
+  `agentops` clone was also diverged but confirmed to hold zero unique
+  commits (all duplicates already on `origin/main`) and was reset cleanly.
+- **vuoro #1245 code landed** — sprintctl PR #3 and vuoro PR #1 (both
+  merged, CI green): `WorkApplication.invoke()` now resolves `repo_id` from
+  `context.identity.repo_id` per call instead of the fixed
+  `VUORO_WORK_REPOSITORY_ID` bound at process start; `Identity` gained a
+  `repo_id` field; `load_identities` requires it on any `work:`-authority
+  identity. **This is NOT yet released** — releasing requires: build+publish
+  a new sprintctl adapter wheel, update its SHA256 pin in the vuoro-shared
+  composition manifest, add `repo_id` to each production identity-registry
+  entry, and redeploy `vuoro-shared`. All four are deployment actions
+  against a live production service, deliberately not done this session.
+- **sprintctl #1220 write-denial evidence recorded** — see sprintctl
+  `docs/plans/1164-gate-evidence-ledger.md`, "#1220 stale-install
+  fail-closed record": doctor + representative write commands all denied
+  before any DB mutation, against a disposable PostgreSQL stuck at schema
+  version 1. Migration upgrade path was already documented in an earlier
+  session's PR.
+
+**Session 6 should do, in order:**
+
+1. **Redeploy vuoro-shared** (the #1245 deployment follow-up above) — needs
+   appservice/kubernetes access and an explicit go-ahead; this is the last
+   step that actually unblocks the other 7 workstation repos and
+   devbox-agent's non-sprintctl repos from served mode.
+2. **sprintctl #1221** — record the operator gate decision event on #1164,
+   once #1245 is genuinely deployed (not just merged) and #1220 is closed.
+3. **Served-catalog gap (finalizer action, filed not fixed)** — see
+   sprintctl `docs/plans/1164-gate-evidence-ledger.md`, "Follow-up finding:
+   served catalog gap for item metadata writes". `sprintctl item add`,
+   `item note`, and `item ref add` are not in `vuoro_adapter.
+   WORK_OPERATION_CONTRACTS` and fail under plain `SPRINTCTL_BACKEND=served`
+   (no direct DSN) with `could not connect to postgres from SPRINTCTL_URL:
+   'NoneType' object has no attribute 'encode'`. Inventory every CLI write
+   command missing a served operation, decide the operation set, and extend
+   the catalog + `WorkApplication` to close it — independent of #1245.
+
 ## Dispatch hints
 
 - `sprintctl next-work --sprint-id 407` (sprintctl repo) and
