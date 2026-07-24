@@ -7,6 +7,7 @@ completed_run_ids:
   - 2026-07-23-lane-0-td-rerun
   - 2026-07-23-lane-1-beads-gastown-r2
   - 2026-07-23-lane-2-beads-restate-r2
+  - 2026-07-23-lane-2-beads-restate-integrated
   - 2026-07-23-lane-3-windmill-daytona
   - 2026-07-23-lane-4-temporal
 lane_verdicts:
@@ -26,10 +27,10 @@ lane_verdicts:
     r6: {status: not-assessed, scope: r2-litmus-only, composition_eligible: false}
     evidence: [runs/2026-07-23-lane-1-beads-gastown-r2/hard-gates.yaml]
   '2':
-    hard_gates: {status: not-assessed, scope: isolated-adapter-litmus, composition_eligible: false}
-    r2: {status: passed-in-isolation, scope: Restate-adapter, composition_eligible: false}
+    hard_gates: {status: failed-as-integrated, scope: Beads-Restate-receipt-gated-mutation-boundary, composition_eligible: false}
+    r2: {status: failed-in-composition, scope: Restate adapter passes but Beads native mutation bypasses it, composition_eligible: false}
     r6: {status: not-assessed, scope: isolated-adapter-litmus, composition_eligible: false}
-    evidence: [runs/2026-07-23-lane-2-beads-restate-r2/hard-gates.yaml]
+    evidence: [runs/2026-07-23-lane-2-beads-restate-r2/hard-gates.yaml, runs/2026-07-23-lane-2-beads-restate-integrated/manifest.yaml, runs/2026-07-23-lane-2-beads-restate-integrated/authority-reconciliation.yaml]
   '3':
     hard_gates: {status: failed-as-executed, scope: Windmill-execution-probe, composition_eligible: false}
     r2: {status: not-applicable, scope: external-claim-authority-retained, composition_eligible: false}
@@ -41,13 +42,18 @@ lane_verdicts:
     r6: {status: not-assessed, scope: durable-execution-reference, composition_eligible: false}
     evidence: [runs/2026-07-23-lane-4-temporal/hard-gates.yaml]
 aggregate:
+  decision_scope: >-
+    Migration-safety gate only. These verdicts exclude the tested
+    configurations; they do not measure a source-level adaptation, maintained
+    fork, or residual bespoke cost.
   work_correctness: not-concluded
   resume_correctness: not-concluded
   execution_safety: not-concluded
   trust_boundary: no-candidate-pass
   r2_litmus: >-
-    Only the isolated Lane 2 adapter passed. It is not yet wired to a Beads
-    mutation boundary, so no composed replacement passes R2.
+    The isolated Lane 2 adapter passed, but the real Beads-to-Restate bridge
+    failed composition: native Beads mutation bypassed the receipt gate. No
+    composed replacement passes R2.
   r6_verdict: >-
     No external candidate passed every frozen R6 clause. Lane 3 failed as
     executed; the other candidate probes did not assess R6.

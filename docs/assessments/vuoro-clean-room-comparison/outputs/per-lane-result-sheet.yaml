@@ -19,10 +19,10 @@ lane_registry:
     scores: {R1: partial, R2: failed, R3: not-assessed, R4: not-assessed, R5: not-applicable, R6: not-assessed, R7: not-assessed, R8: not-assessed}
     evidence: [runs/2026-07-23-lane-1-beads-gastown-r2/hard-gates.yaml]
   - lane_id: '2'
-    outcome: isolated-r2-pass-composition-unproven
-    scenarios: {S-BATCH: r2-litmus-passed, S-SOLO: not-run, S-RESUME: not-run, S-DORMANT: not-seeded, S-SIMPLIFY: not-applicable}
-    scores: {R1: not-assessed, R2: passed-in-isolation, R3: not-assessed, R4: not-assessed, R5: not-applicable, R6: not-assessed, R7: not-assessed, R8: not-assessed}
-    evidence: [runs/2026-07-23-lane-2-beads-restate-r2/hard-gates.yaml]
+    outcome: integrated-r2-fails-authority-exclusivity
+    scenarios: {S-BATCH: integrated-r2-litmus-failed-authority-exclusivity, S-SOLO: not-run, S-RESUME: not-run, S-DORMANT: seeded, S-SIMPLIFY: not-applicable}
+    scores: {R1: not-assessed, R2: failed-in-composition, R3: not-assessed, R4: not-assessed, R5: not-applicable, R6: not-assessed, R7: not-assessed, R8: not-assessed}
+    evidence: [runs/2026-07-23-lane-2-beads-restate-integrated/authority-reconciliation.yaml, runs/2026-07-23-lane-2-beads-restate-integrated/evidence/integrated-r2-boundary.md]
   - lane_id: '3'
     outcome: fails-r5-r6-as-executed
     scenarios: {S-BATCH: execution-probe-complete, S-SOLO: not-run, S-RESUME: not-run, S-DORMANT: not-seeded, S-SIMPLIFY: not-applicable}

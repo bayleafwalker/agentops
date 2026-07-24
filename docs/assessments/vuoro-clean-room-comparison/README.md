@@ -1,7 +1,13 @@
 # Vuoro Clean-Room Comparison — Evidence Package
 
-Status: **experiment contract frozen in Git; no lane outcome is recorded yet**
-(`2026-07-23`).
+Status: **migration-safety gate closed; strategic buy/adapt/fork assessment
+open** (`2026-07-23`). No tested external composition is eligible for
+migration. That supports retaining Vuoro's existing/reduced authority by
+default; it does not establish that an external substrate cannot replace most
+of Vuoro after measured adaptation or a maintained fork. See the
+[decision readout](outputs/decision-readout.md),
+[strategic assessment](outputs/strategic-assessment.md), and
+[final-criteria study](outputs/final-criteria-study.md).
 
 This package is the reusable evidence framework for **item #1217**. It creates
 stable recording schemas for all planned capture formats before any external lane
@@ -29,19 +35,23 @@ The package is anchored to the frozen artifacts and does not modify requirements
 - `contract/`
   - the immutable scenario/control package and the candidate-version lock
 - `runs/`
-  - run-local evidence, created only after the contract and candidate lock are
-    committed
+  - run-local gate probes and future qualifying runs; the recorded probes are
+    intentionally narrower than the complete scenario contract
 
 ## Usage pattern
 
-1. Commit `contract/experiment-contract.yaml` and a resolved
-   `contract/candidate-lock.yaml` before the first hands-on run.
-2. For each lane run, create the required run-local files described in
-   `runs/README.md`; do not overwrite the shared output schemas.
-3. Copy event rows into the shared `prevented-recorded` log template, then
-   populate the result sheets under `outputs/` with links to that raw evidence.
-4. Populate boundary disposition only after all lanes that can affect that
-   boundary have completed, and compare against the frozen thresholds.
+1. Treat the existing lane records as gate-stage evidence only. They exclude
+   drop-in migration and the tested configurations; they do not estimate the
+   residual bespoke core of an adapted or forked candidate.
+2. Run the source-level adaptation and fork analysis described in
+   `outputs/strategic-assessment.md` before declaring any candidate
+   economically unfit.
+3. Before an authoritative vertical slice, create a new run ID and the
+   complete run-local evidence set described in `runs/README.md`; do not
+   overwrite the shared output sheets.
+4. Populate a final boundary disposition only after a qualified integrated
+   candidate satisfies the frozen safety criteria *and* the residual-ownership
+   comparison supports the proposed migration shape.
 
 The intent is to keep candidate evidence comparable by forcing one scenario
 pack, one failure schedule, and one capture set across all lanes. The frozen

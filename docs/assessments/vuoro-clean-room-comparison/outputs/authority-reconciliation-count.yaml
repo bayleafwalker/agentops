@@ -9,11 +9,12 @@ lane_counts:
   '2':
     authoritative_stores: [{name: Restate WorkItemClaim object, boundaries: [R2]}]
     count_in_litmus: 1
-    projected_composition_count: 2
-    projected_composition: [Beads R1/R4 state, Restate R2 state]
+    integrated_composition_count: 2
+    integrated_composition: [Beads execution-state mutation path, Restate R2 state]
     reconciliation_risk: >-
-      High until every Beads execution-state mutation is gated by the Restate
-      decision. This was not integrated or measured.
+      Observed. The bridge gates its own Beads transition, but native Beads
+      mutation remains callable without a receipt. Repair succeeds but bypass
+      remains, so reconciliation does not decrease.
   '3':
     authoritative_stores: [{name: Windmill PostgreSQL job state, boundaries: [executor]}]
     count_in_probe: 1
@@ -31,8 +32,10 @@ disagreement_states:
       description: Beads can reflect a work transition without an adapter decision unless explicitly wired.
       recovery: operator reconciliation; procedure not yet designed
 recovery_procedure:
-  documented: false
-  reason: No composed multi-store lane reached the recovery test stage.
+  documented: true
+  reason: >-
+    The current Restate proof can rewrite the Beads projection through the
+    bridge, but it cannot make the native bypass unavailable.
 evidence_links:
-  - runs/2026-07-23-lane-2-beads-restate-r2/evidence/r2-litmus.md
+  - runs/2026-07-23-lane-2-beads-restate-integrated/authority-reconciliation.yaml
   - runs/2026-07-23-lane-3-windmill-daytona/evidence/windmill-execution-probe.md

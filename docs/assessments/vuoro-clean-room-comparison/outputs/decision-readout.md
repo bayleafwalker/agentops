@@ -2,18 +2,25 @@
 
 ## Evidence-bounded conclusion
 
-The clean-room comparison has been closed with a no-migration decision after
-the gate-stage evaluation. No tested external composition is currently eligible
-to replace Vuoro. Continue operating the existing/reduced Vuoro system by
-default and do not start a production migration from this exercise. This is not
-a claim that reduced Vuoro won a complete comparative evaluation or passed the
-frozen evaluation itself: full multi-actor scenarios, valid cost data,
-adaptation probes, and the fourteen-day dormant scenario were not completed.
+The clean-room comparison has closed its **migration-safety gate**, not the
+strategic build-versus-buy decision. No tested external composition is eligible
+to replace Vuoro today. Continue operating the existing/reduced Vuoro system by
+default and do not start a production migration from this exercise.
 
-The viable research direction is a Restate-gated planner mutation boundary,
-initially tested with Beads. The narrowly scoped claim adapter passed R2 in
-isolation, but the composed authority count and reconciliation path are
-unproven. It is a follow-up hypothesis, not a rollout.
+This result answers only: “Can a mostly off-the-shelf composition replace Vuoro
+immediately, without first implementing the missing Vuoro semantics?” The
+answer is no. It does not answer whether an external substrate could replace
+most of Vuoro through a small, stable adapter, an upstreamable extension, or a
+maintained fork. No source-level adaptation analysis, fork comparison, real
+workflow substitution, or residual-bespoke-cost measurement was completed.
+
+The Beads-to-Restate planner mutation boundary has now been tested. The
+narrowly scoped claim adapter still passes R2 in isolation, but the real bridge
+leaves Beads' native mutation path callable without a receipt. Its authority
+count is therefore two, and its repair path does not remove the bypass. This
+disqualifies the **tested adapter configuration** from migration; it does not
+disqualify a differently structured adapter, a narrow Beads fork, an
+upstreamable extension, or a Restate-backed replacement module.
 
 The td minimization control failed the intended R1, R2, R5, and R6 boundaries;
 it is evidence about what cannot be removed, not a competing migration path.
@@ -22,8 +29,8 @@ it is evidence about what cannot be removed, not a competing migration path.
 
 | Hypothesis | Readout | Why |
 | --- | --- | --- |
-| H1 external planner owns most work | Not supported as a replacement | Beads lacks R2; the only promising form is an unproven wrapped composition. |
-| H2 claims can live in a narrow adapter | Supported in isolation; open in composition | Restate passed proof, rotation, delegation, and recovery litmus. |
+| H1 external planner owns most work | Open after adaptation | Beads-as-is lacks R2; the cost and maintainability of making a planner safely participate are unmeasured. |
+| H2 claims can live in a narrow adapter | Supported in isolation; open in a real composition | Restate passed proof, rotation, delegation, and recovery litmus; adapter versus fork is untested. |
 | H3 downstream knowledge | Untested | No candidate event-feed/knowledge lane ran. |
 | H4 repo-local audit | Unchanged | No audit consumer or substitute was exercised. |
 | H5 cockpit uniqueness | Untested | No full supervised batch or projection replacement ran. |
@@ -32,21 +39,24 @@ it is evidence about what cannot be removed, not a competing migration path.
 | H8 model sensitivity | Frozen, unchanged | No candidate result changes the frozen weights. |
 | H9 authored notes | Open by instruction | No additional resume observations were collected. |
 
-## Recommended composition and migration order
+## Immediate operating decision
 
 1. **Now:** operate the reduced Vuoro profile; retain current R2/R3/R5/R6
    authorities. Do not migrate production state.
-2. **Only if explicitly authorized:** implement one planner-to-Restate mutation
-   boundary, initially with Beads. It must deny a planner transition without a
-   current adapter receipt and create no second write authority.
-3. Run the complete locked S-BATCH, S-SOLO, S-RESUME, S-SIMPLIFY, and dormant
-   protocol against that integration. Record segmented costs, adaptation probes,
-   and authority reconciliation before reconsidering R1/R2/R4.
-4. Evaluate an execution runtime independently behind the retained claim-gated
+
+2. Keep execution evaluation separate behind the retained claim-gated
    completion callback. Windmill's tested configuration is excluded; Temporal
    is only a durable-runtime reference.
-5. Consider any production cutover only after all hard gates, R2, R6, cost,
-   and rollback criteria pass. The current evidence does not meet that bar.
+
+## Open strategic assessment
+
+The next question is: **which external substrate leaves the smallest, cleanest,
+and most stable residual Vuoro-specific core?** The primary unfinished
+hypothesis is Beads plus Restate, evaluated across adapter, fork, and
+replacement-module variants. The required stages and decision criteria are in
+[the strategic assessment](strategic-assessment.md). A production cutover
+remains unavailable until a variant passes both that residual-ownership
+comparison and the frozen hard gates.
 
 ## Rollback paths
 
@@ -66,10 +76,12 @@ it is evidence about what cannot be removed, not a competing migration path.
 
 The required fourteen-day S-DORMANT observation cannot be accelerated or
 substituted. It should remain explicitly incomplete. The absence of that run,
-the unrun full scenarios, and absent valid cost data are why this readout makes
-a conservative no-migration decision rather than declaring a final winner.
+the unrun full scenarios, absent valid cost data, and absent adaptation/fork
+measurement are why this readout does not declare a strategic winner.
 
 Evidence: [per-lane results](per-lane-result-sheet.yaml),
 [hard-gate verdicts](hard-gate-r2-r6-verdict.yaml),
 [authority count](authority-reconciliation-count.yaml), and
-[cost status](segmented-cost-inputs.yaml).
+[cost status](segmented-cost-inputs.yaml). See also the
+[execution-boundary study](execution-boundary-study.md) and
+[reduced-profile sufficiency study](reduced-profile-sufficiency-study.md).

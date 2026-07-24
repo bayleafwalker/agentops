@@ -1,6 +1,6 @@
 schema_version: vuoro-clean-room-comparison.adaptation.v1
 artifact_type: adaptation_probe
-status: not-run-no-synthetic-adaptation-counts
+status: not-run-no-synthetic-adaptation-or-fork-counts
 probes:
   - probe_id: AP-1
     change_name: optional-work-item-field
@@ -20,11 +20,24 @@ observed_non_probe_adaptation:
     files_added: 3
     custom_code_lines: 139
     rollback: delete the isolated adapter deployment; no production state was changed
-    limit: Does not measure a real Beads adaptation.
+    limit: Does not measure a real Beads adaptation, mutation-path coverage, or adapter-versus-fork burden.
+required_strategic_mapping:
+  status: source-analysis-complete; feasibility-slice-not-run
+  candidate: Beads-plus-Restate
+  required_fields: [requirement, current_owner, candidate_owner, beads_change_type, affected_paths, bypass_prevention, state_migration, upstream_sync_risk]
+  variants: [thin-adapter, maintained-fork, upstreamable-extension, restate-backed-replacement-module, beads-as-projection]
+  decision_rule: >-
+    Measure Vuoro surface removed against custom integration/fork surface,
+    authoritative stores, reconciliation loops, upgrade burden, and normal-use
+    operator friction. A drop-in gate failure is not an adaptation estimate.
 summary:
   adaptation_total_custom_code_lines: not-comparable
   adaptation_total_files_touched: not-comparable
   adaptation_reverted_successfully: not-applicable
 evidence_links:
   - runs/2026-07-23-lane-2-beads-restate-r2/manifest.yaml
+  - runs/2026-07-23-lane-2-beads-restate-integrated/manifest.yaml
   - outputs/hard-gate-r2-r6-verdict.yaml
+  - outputs/strategic-assessment.md
+  - outputs/beads-restate-source-analysis.md
+  - outputs/beads-restate-adaptation-fork-map.yaml

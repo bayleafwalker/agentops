@@ -1,0 +1,10 @@
+schema_version: vuoro-clean-room-comparison.eventlog.v1
+run_id: 2026-07-23-lane-2-beads-restate-integrated
+events:
+  - {id: INT-01, boundary: R2, action: two concurrent Restate acquires for cr-689, outcome: prevented, detail: one accepted and one rejected}
+  - {id: INT-02, boundary: R2, action: bridge mutation without a proof, outcome: prevented, detail: adapter rejected before Beads command}
+  - {id: INT-03, boundary: R2, action: bridge mutation with current proof, outcome: accepted, detail: Restate receipt preceded real Beads update}
+  - {id: INT-04, boundary: R2, action: transfer then bridge mutation with old proof, outcome: prevented, detail: stale proof rejected}
+  - {id: INT-05, boundary: R2, action: controlled recovery then bridge mutation with old proof, outcome: prevented, detail: stale proof rejected}
+  - {id: INT-06, boundary: R2, action: native Beads status/assignee update without adapter receipt, outcome: recorded, detail: accepted; bypasses the bridge}
+  - {id: INT-07, boundary: reconciliation, action: bridge repair from the current recovered proof, outcome: recorded, detail: planner projection restored but native bypass remains}

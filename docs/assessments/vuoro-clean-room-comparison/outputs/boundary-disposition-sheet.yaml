@@ -1,9 +1,13 @@
 schema_version: vuoro-clean-room-comparison.disposition.v1
 artifact_type: boundary_disposition_sheet
-status: evidence-bounded-provisional-dispositions
+status: gate-stage-interim-operating-dispositions-not-strategic-final
+scope: >-
+  These retain/keep dispositions govern the current operating authority only.
+  They exclude the tested configurations and do not decide the economic
+  adapter-versus-fork-versus-retain question.
 boundaries:
   - {id: R1, disposition: keep-bespoke-reduced, confidence: low, reason: no candidate completed comparable registry scenarios, reversal_condition: integrated Lane 2 passes comparable S-BATCH/S-SOLO and lowers measured carrying cost}
-  - {id: R2, disposition: keep-bespoke-current, confidence: medium, reason: Beads fails R2; Restate passes only in isolation, reversal_condition: Beads mutations are all adapter-gated and the full R2 pack plus authority count pass}
+  - {id: R2, disposition: keep-bespoke-current, confidence: medium, reason: Beads fails R2; the real Beads-Restate bridge permits native planner bypass despite the adapter's isolated pass, reversal_condition: a materially different planner composition eliminates native mutation bypass and the full R2 pack plus authority count pass}
   - {id: R3, disposition: keep-bespoke-current, confidence: low, reason: no external resume scenario ran, reversal_condition: a candidate completes S-RESUME and S-DORMANT without ambiguity regression}
   - {id: R4, disposition: keep-bespoke-reduced, confidence: low, reason: no comparable event-log test ran, reversal_condition: a candidate provides constrained append evidence with no reconciliation growth}
   - {id: R5, disposition: keep-bespoke-current, confidence: medium, reason: Windmill failed idempotency and isolation as executed; Temporal is only a reference, reversal_condition: an executor passes duplicate, verification-failure, and isolation cases behind a claim-gated completion boundary}

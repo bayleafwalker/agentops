@@ -1,0 +1,16 @@
+schema_version: vuoro-clean-room-comparison.authority.v1
+authoritative_stores:
+  - {name: Restate WorkItemClaim, boundary: R2 proof/revision, count: 1}
+  - {name: Beads planner item, boundary: execution-state projection but directly mutable, count: 1}
+authority_count: 2
+disagreement_state:
+  trigger: native Beads assignee/status update after adapter-gated recovery
+  owner: Restate WorkItemClaim
+  detection: compare current Restate owner/revision with Beads assignee/status before accepting work or completion
+  tested_repair: current Restate proof through bridge rewrites Beads assignee/status
+  repair_result: planner restored; direct native mutation path remains available
+verdict: failed
+reason: >-
+  The bridge is a valid receipt prerequisite on its own path, but Beads retains
+  an independently callable mutation path. Reconciliation is recoverable, not
+  reduced; this is two authorities rather than one authority plus a projection.

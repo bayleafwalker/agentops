@@ -1,0 +1,9 @@
+schema_version: vuoro-clean-room-comparison.measurements.v1
+status: partial-integrated-litmus-only
+operator_time: not-measured
+agent_tokens_and_tool_calls: not-comparable
+retries: 0
+failures:
+  - native-planner-bypass-accepted
+setup: disposable local Beads build plus two loopback-only containers
+limit: no full ten-worker scenario or comparable cost capture was run

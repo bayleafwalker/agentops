@@ -1,0 +1,3 @@
+schema_version: vuoro-clean-room-comparison.cost.v1
+status: not-comparable
+reason: the authority-exclusivity hard gate failed before comparable scenario and cost collection

@@ -1,0 +1,64 @@
+schema_version: vuoro-clean-room-comparison.adaptation-fork-map.v1
+artifact_type: adaptation_fork_implementation_map
+status: template
+purpose: >-
+  Record source-level fit and maintenance burden before treating an as-is
+  candidate failure as a build-versus-buy conclusion. This is planning and
+  measurement evidence, not a safety-gate pass.
+candidate_lock:
+  candidate: replace-with-candidate-name
+  revision_or_image: replace-with-immutable-revision-or-digest
+  source_repository: replace-with-source-url-or-local-path
+  lock_date: YYYY-MM-DD
+variants:
+  - id: thin-adapter
+    status: not-assessed
+    direct-write-prevention: not-assessed
+    upstream-maintenance: not-assessed
+  - id: maintained-fork
+    status: not-assessed
+    direct-write-prevention: not-assessed
+    upstream-maintenance: not-assessed
+  - id: upstreamable-extension
+    status: not-assessed
+    direct-write-prevention: not-assessed
+    upstream-maintenance: not-assessed
+  - id: restate-backed-replacement-module
+    status: not-assessed
+    direct-write-prevention: not-assessed
+    upstream-maintenance: not-assessed
+  - id: planner-projection-only
+    status: not-assessed
+    direct-write-prevention: not-applicable
+    upstream-maintenance: not-assessed
+requirements:
+  - requirement: R2-stale-claim-rejection
+    current_owner: Vuoro
+    candidate_owner: replace-with-variant-owner
+    fit: native|configuration|adapter|upstreamable-modification|permanent-fork|still-bespoke
+    candidate_change:
+      type: adapter|extension|fork-patch|replacement-module|none
+      affected_paths: []
+      stable_interception_point: not-assessed
+      bypass_prevention: not-assessed
+    state_and_operations:
+      migration: not-assessed
+      rollback: not-assessed
+      reconciliation_owner: not-assessed
+      upstream_sync_risk: not-assessed
+residual_ownership:
+  vuoro_modules_removed: not-measured
+  vuoro_lines_removed: not-measured
+  custom_modules_added: not-measured
+  custom_lines_added: not-measured
+  authoritative_stores: not-measured
+  reconciliation_loops: not-measured
+  independently_upgraded_services: not-measured
+  normal_workflow_friction: not-measured
+  scenario_segmented_carrying_cost: not-measured
+decision:
+  selected_variant: none
+  justification: >-
+    Fill only after source analysis and a representative vertical slice.
+  migration_gate_status: not-assessed
+evidence_links: []

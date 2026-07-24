@@ -1,0 +1,7 @@
+schema_version: vuoro-clean-room-comparison.adaptation.v1
+status: measured-integration-spike-not-comparable-adaptation-probe
+custom_files: [adapter/planner_bridge.py, adapter/verify_integration.py]
+custom_lines: 277
+functional_change: receipt-gated bridge invokes a real Beads transition only after Restate accepts the current proof
+reversal: stop bridge and discard the disposable planner and Restate data
+finding: native Beads mutation remains callable, so the adapter does not create a single authority

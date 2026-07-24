@@ -1,0 +1,35 @@
+schema_version: vuoro-clean-room-comparison.run.v1
+artifact_type: lane_run_manifest
+status: integrated-r2-boundary-complete-failed-authority-exclusivity
+run_id: 2026-07-23-lane-2-beads-restate-integrated
+contract_id: vuoro-clean-room-2026-07-23
+lane_id: '2'
+lane_variant: beads-restate-receipt-gated-mutation-boundary
+started_at: 2026-07-23T20:19:20Z
+completed_at: 2026-07-23T20:27:00Z
+fixture_lock: fixture-lock.yaml
+candidate_lock: candidate-lock.yaml
+scenario_status:
+  S-BATCH: r2-integrated-litmus-complete-authority-exclusivity-failed
+  S-SOLO: not-started
+  S-RESUME: not-started
+  S-DORMANT: seeded-2026-07-23T20:19:20Z
+  S-SIMPLIFY: not-applicable
+environment:
+  isolation: disposable Beads workspace, embedded local planner data, and loopback-only Docker network
+  services_or_images: [pinned-restate, pinned-lane2-adapter]
+  production_credentials_present: false
+  production_state_mutated: false
+operator_interventions:
+  unscheduled_count: 0
+  records: []
+evidence:
+  command_transcript: evidence/integrated-r2-boundary.md
+  candidate_config: candidate-lock.yaml
+  event_log: events.yaml
+  acceptance_output: evidence/integrated-r2-boundary.md
+  redacted_secret_scan: no proof or recovery value is stored; only SHA-256 digest prefixes are recorded
+scope_note: >-
+  This is a real planner-to-Restate mutation integration, not a full candidate
+  lane. The bridge path satisfies the R2 sequence, but a native Beads update
+  bypasses it. The composed authority-exclusivity requirement therefore fails.

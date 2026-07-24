@@ -1,0 +1,19 @@
+schema_version: vuoro-clean-room-comparison.candidate-lock.v1
+candidate: Beads plus Restate receipt-gated planner bridge
+beads:
+  source: /tmp/vuoro-clean-room-lane1-beads-20260723
+  revision: d7b9f4fc52deebc86cb25c214107e96cdd512b67
+  build: go build -o <disposable>/bd ./cmd/bd
+  storage_mode: embedded-local-dolt
+restate:
+  image: docker.restate.dev/restatedev/restate@sha256:53b245bcd64318233128c49ce56577737c888fcfacd5dbe8e7c88deb12753681
+  sdk: 1.0.2
+adapter:
+  image: vuoro-clean-room-lane2-adapter@sha256:13816d72ba84dc2df76bb624a4c27de283c505aad4c2b44f0a23466cbbfcdb9d
+  bridge_sha256: ab28c077a19ab6c61f3c2a72a08a12e41d92079ba356d116b258bac5619f4b9a
+  verifier_sha256: 61d150c0eca59801e077436edca047a45a1623f1cd74681838e2a2f0002faa65
+configuration:
+  loopback_ports: [28080, 29070, 29071]
+  production_mounts: false
+  production_credentials: false
+  planner_worker_access: bridge-path-and-native-cli-for-bypass-test

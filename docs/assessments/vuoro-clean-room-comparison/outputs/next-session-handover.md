@@ -2,28 +2,43 @@
 
 ## Current decision
 
-The assessment is **closed at the gate stage** with a no-migration decision:
-no tested external composition is eligible for production migration. Continue
-operating the existing/reduced Vuoro system by default. This is not a claim
-that reduced Vuoro passed the full frozen comparison.
+The migration-safety gate is **closed** with a no-migration decision: no tested
+external composition is eligible for production migration. Continue operating
+the existing/reduced Vuoro system by default. The strategic buy/adapt/fork
+assessment is still open; this is not a claim that reduced Vuoro passed the
+full frozen comparison or is the cheapest maintainable design.
 
 The authoritative decision record is [decision-readout.md](decision-readout.md)
 and the normalized gate data is
 [hard-gate-r2-r6-verdict.yaml](hard-gate-r2-r6-verdict.yaml).
 
-## Do not reopen for matrix completion
+## Do not reopen the safety gate for matrix completion
 
 Do not run more probes merely to fill empty scenario rows. Lane 1 fails R2;
 Lane 3 fails R5/R6 as executed; Lane 4 is reference-only; td is a negative
 control. The required dormant horizon, cost study, and adaptation probes are
 intentionally recorded as incomplete rather than estimated.
 
-## Only valid reopening trigger
+## Tested integration result
 
-Reopen only when there is a real **planner-to-Restate mutation boundary** to
-test, initially with Beads. The integration must make Restate's claim decision
-a prerequisite for every planner execution-state mutation; it must not create a
-second write authority.
+The real **Beads-to-Restate mutation boundary** was run after this handover.
+The bridge made Restate's claim decision a prerequisite on its own path, but
+native Beads mutation remained callable and created a second authority. It is
+therefore disqualified; do not repeat it merely to fill scenario rows.
+
+Do not repeat that configuration merely to fill scenario rows. A new safety-gate
+candidate must materially eliminate or deny the native planner mutation path
+before it reaches authoritative execution state.
+
+## Strategic work that remains authorized by this record
+
+The missing substantive question is whether a candidate can meet the gate with
+less total bespoke and operational surface than Vuoro. Begin with the
+[strategic assessment](strategic-assessment.md): source-map Beads mutations,
+identify supported interception points and direct-write prevention, and compare
+a thin adapter, maintained fork, upstreamable extension, Restate-backed module,
+and Beads-as-projection variants. This analysis does not itself grant a
+candidate production authority.
 
 Before touching a candidate, create a new run ID and lock the candidate
 revision/image, configuration hash, and fixture. Keep the frozen R1–R8 and H8
@@ -31,7 +46,8 @@ weights unchanged.
 
 ## Required next protocol
 
-1. Prove the mutation boundary denies a planner transition without a current
+1. Lock the selected adapter/fork/replacement variant and prove its materially
+   changed mutation boundary denies a planner transition without a current
    Restate proof/receipt and accepts it with the current proof.
 2. Repeat the complete R2 sequence: concurrent acquire, proofless delegated
    mutation, handoff proof rotation, stale-proof rejection, controlled recovery,
@@ -45,7 +61,8 @@ weights unchanged.
    retries, failures, setup, carrying work, adaptation effort, and rollback.
    Do not average scenario classes or infer costs from this gate-stage work.
 6. Re-evaluate R1/R2/R4 only if every hard gate and R6 pass, reconciliation
-   decreases, and the candidate has a credible rollback.
+   decreases, the candidate has a credible rollback, and the residual
+   ownership comparison is favorable.
 
 ## Rollback invariant
 
@@ -60,6 +77,8 @@ projection until reconciliation confirms agreement.
 - [Boundary dispositions](boundary-disposition-sheet.yaml)
 - [Authority and reconciliation count](authority-reconciliation-count.yaml)
 - [Cost status](segmented-cost-inputs.yaml)
+- [Final-criteria study](final-criteria-study.md)
+- [Strategic assessment](strategic-assessment.md)
 - [Adaptation status](adaptation-probe.yaml)
 - [Locked real corpus](../fixtures/sprintctl-real-corpus-v1.yaml)
 - [Experiment contract](../contract/experiment-contract.yaml)

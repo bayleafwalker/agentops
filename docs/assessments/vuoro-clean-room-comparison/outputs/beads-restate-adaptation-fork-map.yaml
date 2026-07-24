@@ -1,0 +1,144 @@
+schema_version: vuoro-clean-room-comparison.adaptation-fork-map.v1
+artifact_type: adaptation_fork_implementation_map
+status: source-analysis-complete-vertical-slice-not-run
+purpose: >-
+  Version-locked Stage-1 map for deciding whether Beads plus Restate can become
+  a single-authority composition with less residual bespoke surface than Vuoro.
+candidate_lock:
+  candidate: Beads plus Restate
+  revision_or_image: beads d7b9f4fc52deebc86cb25c214107e96cdd512b67; Restate image docker.restate.dev/restatedev/restate@sha256:53b245bcd64318233128c49ce56577737c888fcfacd5dbe8e7c88deb12753681
+  source_repository: /tmp/vuoro-clean-room-lane1-beads-20260723
+  lock_date: 2026-07-23
+variants:
+  - id: thin-adapter
+    status: rejected-in-tested-embedded-deployment
+    direct-write-prevention: absent; native CLI update accepted without Restate receipt
+    upstream-maintenance: low-code-but-invalid-authority-model
+  - id: maintained-fork
+    status: advance-to-feasibility-slice
+    direct-write-prevention: >-
+      Requires a fail-closed pre-mutation authorization seam plus served storage
+      and denial of worker raw database/data-directory writes.
+    upstream-maintenance: unknown; measure patch count, touched interfaces, and rebase conflicts
+  - id: upstreamable-extension
+    status: open-low-confidence
+    direct-write-prevention: absent in pinned source; a generic synchronous authorizer would need design and acceptance
+    upstream-maintenance: unknown; orchestration-policy scope may limit acceptance
+  - id: restate-backed-replacement-module
+    status: open
+    direct-write-prevention: possible if Beads is projection-only
+    upstream-maintenance: lower Beads patch burden; custom module and reconciliation burden unmeasured
+  - id: planner-projection-only
+    status: open-deployment-dependent
+    direct-write-prevention: >-
+      Possible only when workers lack Beads write and raw-storage access and the
+      adapter service is the sole planner writer.
+    upstream-maintenance: no Beads fork assumed; access-control and projection reconciliation burden unmeasured
+requirements:
+  - requirement: R1-lifecycle-and-readiness
+    current_owner: Vuoro
+    candidate_owner: Beads for graph/readiness; authority kernel for execution-relevant transition
+    fit: native-plus-adapter
+    candidate_change:
+      type: fork-patch-or-projection-boundary
+      affected_paths: [cmd/bd/update.go, cmd/bd/ready.go, cmd/bd/close.go, cmd/bd/batch.go, internal/storage/storage.go]
+      stable_interception_point: absent in pinned source; domain/use-case construction is an internal fork seam
+      bypass_prevention: unproven; current embedded deployment permits direct CLI mutation
+    state_and_operations:
+      migration: planner graph import/export not assessed
+      rollback: retain Vuoro authority and treat Beads as a projection until reconciliation
+      reconciliation_owner: authority kernel must own discrepancy resolution
+      upstream_sync_risk: unknown pending fork prototype
+  - requirement: R2-proof-gated-claim-transfer-recovery
+    current_owner: Vuoro
+    candidate_owner: Restate authority kernel
+    fit: adapter-plus-permanent-fork-or-projection
+    candidate_change:
+      type: fork-patch-or-replacement-module
+      affected_paths: [cmd/bd/update.go, cmd/bd/assign.go, cmd/bd/ready.go, cmd/bd/close.go, cmd/bd/reopen.go, cmd/bd/batch.go, internal/storage/storage.go, internal/storage/domain/issue.go, internal/storage/uow/uow.go]
+      stable_interception_point: post-mutation hooks only; not usable for authorization
+      bypass_prevention: failed in existing bridge; must be fail-closed before claim/status/assignee/close/reopen/unclaim/recovery
+    state_and_operations:
+      migration: Restate claim proof/revision becomes sole execution authority; planner state remains projection until proven otherwise
+      rollback: stop candidate callback acceptance and restore work from retained Vuoro proof/revision
+      reconciliation_owner: Restate/Vuoro authority kernel, never a Beads assignee field
+      upstream_sync_risk: medium-to-high until a central generic authorization seam is proven small and stable
+  - requirement: R3-resume-and-recovery
+    current_owner: Vuoro
+    candidate_owner: not-selected
+    fit: still-bespoke
+    candidate_change:
+      type: adapter-or-replacement-module
+      affected_paths: [planner-event-projection, Restate-authority-state]
+      stable_interception_point: not-assessed
+      bypass_prevention: not-applicable-until-authority-boundary-is-proven
+    state_and_operations:
+      migration: not-assessed
+      rollback: retained Vuoro resume remains authoritative
+      reconciliation_owner: not-assessed
+      upstream_sync_risk: not-assessed
+  - requirement: R4-constrained-history
+    current_owner: Vuoro
+    candidate_owner: split-unresolved
+    fit: still-bespoke
+    candidate_change:
+      type: adapter-or-projection
+      affected_paths: [Beads-events, Restate-receipts, audit-projection]
+      stable_interception_point: Beads history is available but not evaluated as a constrained authority log
+      bypass_prevention: a direct planner mutation would create a divergent history without the authority receipt
+    state_and_operations:
+      migration: not-assessed
+      rollback: retain Vuoro audit authority
+      reconciliation_owner: not-assessed
+      upstream_sync_risk: not-assessed
+  - requirement: R5-verified-completion
+    current_owner: Vuoro
+    candidate_owner: retained authority kernel pending executor assessment
+    fit: still-bespoke
+    candidate_change:
+      type: none
+      affected_paths: [claim-gated-completion-callback]
+      stable_interception_point: not-applicable
+      bypass_prevention: completion harness passes only behind retained authority
+    state_and_operations:
+      migration: not-assessed
+      rollback: disable candidate callback acceptance
+      reconciliation_owner: retained authority kernel
+      upstream_sync_risk: not-applicable
+  - requirement: R6-server-resolved-authority
+    current_owner: Vuoro
+    candidate_owner: not-selected
+    fit: still-bespoke
+    candidate_change:
+      type: fork-patch-and-deployment-change
+      affected_paths: [internal/storage/uow/uow.go, cmd/bd/uow_factory.go, worker-storage-access-policy]
+      stable_interception_point: no current receipt or server-resolved identity contract on Beads mutation methods
+      bypass_prevention: unproven; actor remains caller-provided and raw storage access must be denied
+    state_and_operations:
+      migration: not-assessed
+      rollback: retain Vuoro service authority
+      reconciliation_owner: retained authority kernel
+      upstream_sync_risk: medium-to-high
+residual_ownership:
+  vuoro_modules_removed: not-measured
+  vuoro_lines_removed: not-measured
+  custom_modules_added: not-measured
+  custom_lines_added: not-measured
+  authoritative_stores: current-bridge-count-2; target-count-1
+  reconciliation_loops: current-bridge-repair-loop-1-with-bypass; target-must-not-increase
+  independently_upgraded_services: [Beads, Restate, authority-adapter-or-fork]
+  normal_workflow_friction: not-measured
+  scenario_segmented_carrying_cost: not-measured
+decision:
+  selected_variant: maintained-fork-or-projection-only; choose only after deployment feasibility slice
+  justification: >-
+    Existing supported hooks and the thin embedded adapter cannot prevent native
+    writes. A fork has an internal domain seam but requires a server/deployment
+    boundary as well as receipt verification; a projection-only deployment may
+    avoid the fork but has not proven worker write denial or reconciliation cost.
+  migration_gate_status: failed-for-tested-bridge; not-assessed-for-fork-and-projection-variants
+evidence_links:
+  - beads-restate-source-analysis.md
+  - ../runs/2026-07-23-lane-2-beads-restate-integrated/evidence/integrated-r2-boundary.md
+  - ../runs/2026-07-23-lane-2-beads-restate-integrated/adapter/verify_integration.py
+  - ../runs/2026-07-23-lane-2-beads-restate-integrated/candidate-lock.yaml

@@ -10,7 +10,7 @@ lane_cost_status:
   B: baseline corpus acceptance only; no cost instrumentation
   '0': non-comparable discovery; excluded
   '1': R2 failure before cost study
-  '2': adapter R2 litmus only; Beads integration absent
+  '2': adapter R2 litmus and integrated mutation-boundary exclusion; no comparable adaptation, fork, or cost study
   '3': R5/R6 failure as executed before cost study
   '4': reference spike only; not a migration candidate
 cost_segments:

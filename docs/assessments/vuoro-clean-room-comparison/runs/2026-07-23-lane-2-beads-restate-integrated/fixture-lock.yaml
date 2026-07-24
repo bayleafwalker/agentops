@@ -1,0 +1,12 @@
+schema_version: vuoro-clean-room-comparison.fixture-lock.v1
+fixture_id: sprintctl-real-corpus-v1
+source_repository: /projects/dev/sprintctl
+immutable_commit: f22132c21ca17ad79d347ca1f43df8b3fe636c66
+mapped_obligation:
+  fixture_id: CR-02
+  planner_item: cr-689
+  boundaries: [R2]
+acceptance_command: >-
+  adapter/verify_integration.py against the pinned local Beads binary and
+  loopback-only Restate deployment; it supplements and does not replace the
+  locked sprintctl corpus node.
