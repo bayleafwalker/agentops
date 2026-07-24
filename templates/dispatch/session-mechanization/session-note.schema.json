@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/session-note.schema.json",
+  "title": "Session note",
+  "description": "Agent-authored semantic handover/summary/outcome note bound to a repo, project, and optional work-item refs. The cooperative counterpart to session-capsule/v1's no-cooperation mechanical exhaust.",
+  "$comment": "This schema mirrors structure for editor support. templates/dispatch/scripts/validate_session_mechanization_artifacts.py is normative for cross-field rules.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "note_id",
+    "origin_stream_id",
+    "runtime_session_id",
+    "repo",
+    "note_kind",
+    "target_refs",
+    "capsule_ref",
+    "created_at",
+    "supersedes",
+    "body",
+    "privacy"
+  ],
+  "properties": {
+    "schema_version": { "const": "session-note/v1" },
+    "note_id": { "$ref": "#/$defs/uuid" },
+    "origin_stream_id": {
+      "$ref": "#/$defs/uuid",
+      "description": "Durable producer outbox stream identity (adr-outbox-sync-model), same semantics as session-capsule/v1. Never a remote-origin id."
+    },
+    "runtime_session_id": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/nonBlankString" }],
+      "description": "Same field semantics as session-capsule/v1. Null for manual (non-runtime-tracked) sessions."
+    },
+    "repo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project"],
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/identifier",
+          "description": "Portable repo scope identifier, e.g. the sprintctl repo name."
+        },
+        "repo_id": {
+          "$ref": "#/$defs/uuid",
+          "description": "Minted repo_id from the dispatch manifest, once repos carry it. Optional until that migration lands."
+        }
+      }
+    },
+    "note_kind": {
+      "enum": ["handover", "summary", "outcome"],
+      "description": "Deliberately only three kinds in v1; governance and process-observation kinds were considered and deferred pending a demonstrated consumer."
+    },
+    "target_refs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/nonBlankString" },
+      "description": "Zero or more prefixed refs from the wi:/sprint: vocabulary (dispatch-manifest.md)."
+    },
+    "capsule_ref": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/immutableRef" }],
+      "description": "Immutable ref to the session's session-capsule/v1, when one exists."
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "supersedes": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/uuid" }],
+      "description": "Nullable note_id of the note this one supersedes, forming the repeated-/clear chain. Chains are not assumed linear: concurrent sessions can produce multiple heads."
+    },
+    "body": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16384,
+      "description": "Markdown, capped at 16 KiB (16384 bytes) so notes stay handover-sized, not transcript-sized."
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["raw_transcript_captured"],
+      "properties": {
+        "raw_transcript_captured": { "type": "boolean" },
+        "raw_transcript_ref": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/immutableRef" }]
+        },
+        "retention_days": { "type": ["integer", "null"], "minimum": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "nonBlankString": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "immutableRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "source", "revision"],
+      "properties": {
+        "kind": {
+          "enum": ["git-commit", "sprint-event", "document", "verification-result", "release", "artifact"]
+        },
+        "source": { "$ref": "#/$defs/nonBlankString" },
+        "revision": { "$ref": "#/$defs/nonBlankString" }
+      }
+    }
+  }
+}

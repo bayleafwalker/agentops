@@ -1,4 +1,4 @@
-# Session mechanization contracts: session-capsule/v1 and reconciliation-proposal/v1
+# Session mechanization contracts: session-capsule/v1, reconciliation-proposal/v1, and session-note/v1
 
 Status: adopted for session-mechanization work (item #1106)
 
@@ -27,16 +27,17 @@ durable cursor so neither path double-processes a capsule.
 
 - `templates/dispatch/session-mechanization/session-capsule.schema.json`
 - `templates/dispatch/session-mechanization/reconciliation-proposal.schema.json`
+- `templates/dispatch/session-mechanization/session-note.schema.json`
 
-Both mirror structure for editor support only. The dependency-free semantic
-validator is normative:
+All three mirror structure for editor support only. The dependency-free
+semantic validator is normative:
 
 ```bash
 python /projects/dev/agentops/templates/dispatch/scripts/validate_session_mechanization_artifacts.py --root .
 ```
 
-Run against explicit paths, or let it discover `session-capsules/*.json` and
-`reconciliation-proposals/*.json` under `--root`.
+Run against explicit paths, or let it discover `session-capsules/*.json`,
+`reconciliation-proposals/*.json`, and `session-notes/*.json` under `--root`.
 
 ## session-capsule/v1
 
@@ -140,6 +141,10 @@ render state.
 
 ## Planned: session-note/v1 (not yet in this contract)
 
+**Superseded by item #1213 (schema, matrix row, and validator discovery
+shipped) — see the `session-note/v1` section below.** Original text kept for
+history:
+
 A third artifact type, **session-note/v1** — agent-authored semantic
 handover/summary/outcome notes, the cooperative counterpart to the capsule's
 no-cooperation mechanical exhaust — is planned in
@@ -147,6 +152,32 @@ no-cooperation mechanical exhaust — is planned in
 (status: ratified 2026-07-23). Its schema section, matrix row, and validator
 discovery land with that plan's build items (#1213–#1215); until then this
 document defines only the two contracts above.
+
+## session-note/v1
+
+Agent-authored semantic handover/summary/outcome note, the cooperative
+counterpart to `session-capsule/v1`'s no-cooperation mechanical exhaust. Only
+the contract, matrix row, and validator discovery ship with #1213; writer/
+reader tooling and the session-handover skill are #1214, hook wiring and
+coverage automation are #1215.
+
+| Field | Rule |
+|---|---|
+| `note_id`, `origin_stream_id` | UUIDs, same semantics as `session-capsule/v1`. |
+| `runtime_session_id` | Nullable — manual sessions exist. |
+| `repo.project` | Same rule as `session-capsule/v1`. |
+| `note_kind` | `handover`, `summary`, or `outcome` — deliberately only three; `governance` and `process-observation` kinds were considered and deferred pending a demonstrated consumer. |
+| `target_refs` | Zero or more prefixed refs from the `wi:`/`sprint:` vocabulary ([`dispatch-manifest.md`](dispatch-manifest.md)). |
+| `capsule_ref` | Nullable `artifact`-kind immutable ref to the session's capsule, when one exists. |
+| `created_at` | RFC 3339 timestamp. |
+| `supersedes` | Nullable note ref, forming the repeated-`/clear` chain. Chains are not assumed linear: concurrent sessions can produce multiple heads; the resolver (#1214) tiebreaks on newest `created_at`, then `note_id`. |
+| `body` | Markdown, capped at 16 384 bytes (16 KiB) so notes stay handover-sized, not transcript-sized. |
+| `privacy` | Same shape and rule as `session-capsule/v1`'s privacy object: a note is deliberately authored content, but it must never embed transcripts or credentials. |
+
+Classified **observation** in the matrix: appendable offline, never
+authoritative, never discarded for a stale basis revision. Working storage
+convention, by analogy with capsules: `_artifacts/<repo>/session-notes/*.json`
+(not yet mandated — see "What this contract does not decide" above).
 
 Naming rationale, recorded because the originating requirement
 (`docs/plans/trace-originating-req.md`) uses the word "trace" for this need:

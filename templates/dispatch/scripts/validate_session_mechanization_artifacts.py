@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate session-capsule/v1 and reconciliation-proposal/v1 artifacts without dependencies."""
+"""Validate session-capsule/v1, reconciliation-proposal/v1, and session-note/v1 artifacts without dependencies."""
 
 from __future__ import annotations
 
@@ -26,6 +26,8 @@ CLASSIFICATIONS = {
     "incidental-no-change",
 }
 LIFECYCLE_STATES = {"pending", "accepted", "rejected", "superseded"}
+NOTE_KINDS = {"handover", "summary", "outcome"}
+NOTE_BODY_MAX_BYTES = 16384
 
 
 def _require(value: dict[str, Any], fields: tuple[str, ...], path: Path) -> None:
@@ -228,6 +230,62 @@ def validate_reconciliation_proposal(value: dict[str, Any], path: Path) -> None:
             _uuid(superseded_by, "lifecycle.superseded_by", path)
 
 
+def validate_session_note(value: dict[str, Any], path: Path) -> None:
+    _require(
+        value,
+        (
+            "note_id",
+            "origin_stream_id",
+            "runtime_session_id",
+            "repo",
+            "note_kind",
+            "target_refs",
+            "capsule_ref",
+            "created_at",
+            "supersedes",
+            "body",
+            "privacy",
+        ),
+        path,
+    )
+    _uuid(value["note_id"], "note_id", path)
+    _uuid(value["origin_stream_id"], "origin_stream_id", path)
+
+    runtime_session_id = value["runtime_session_id"]
+    if runtime_session_id is not None:
+        _non_blank(runtime_session_id, "runtime_session_id", path)
+
+    _non_blank(value.get("repo", {}).get("project"), "repo.project", path)
+
+    if value["note_kind"] not in NOTE_KINDS:
+        raise ValueError(f"{path}: note_kind {value['note_kind']!r} is not a recognized kind")
+
+    target_refs = value["target_refs"]
+    if not isinstance(target_refs, list):
+        raise ValueError(f"{path}: target_refs must be an array")
+    for ref in target_refs:
+        _non_blank(ref, "target_refs[]", path)
+
+    capsule_ref = value["capsule_ref"]
+    if capsule_ref is not None:
+        _validate_ref(capsule_ref, "capsule_ref", path)
+
+    supersedes = value["supersedes"]
+    if supersedes is not None:
+        _uuid(supersedes, "supersedes", path)
+
+    body = value["body"]
+    if not isinstance(body, str) or not body.strip():
+        raise ValueError(f"{path}: body must be a non-empty string")
+    if len(body.encode("utf-8")) > NOTE_BODY_MAX_BYTES:
+        raise ValueError(f"{path}: body exceeds {NOTE_BODY_MAX_BYTES} bytes")
+
+    privacy = value["privacy"]
+    _require(privacy, ("raw_transcript_captured",), path)
+    if not privacy["raw_transcript_captured"] and privacy.get("raw_transcript_ref"):
+        raise ValueError(f"{path}: raw_transcript_ref must be null when raw_transcript_captured is false")
+
+
 def load_json(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
@@ -242,6 +300,8 @@ def validate(path: Path) -> dict[str, Any]:
         validate_session_capsule(value, path)
     elif version == "reconciliation-proposal/v1":
         validate_reconciliation_proposal(value, path)
+    elif version == "session-note/v1":
+        validate_session_note(value, path)
     else:
         raise ValueError(f"{path}: unknown schema_version {version!r}")
     return value
@@ -251,6 +311,7 @@ def discover(root: Path) -> list[Path]:
     return sorted(
         set(root.glob("session-capsules/*.json"))
         | set(root.glob("reconciliation-proposals/*.json"))
+        | set(root.glob("session-notes/*.json"))
     )
 
 
@@ -264,7 +325,7 @@ def main() -> int:
     seen_ids: set[str] = set()
     for path in paths:
         value = validate(path)
-        artifact_id = value.get("capsule_id") or value.get("proposal_id")
+        artifact_id = value.get("capsule_id") or value.get("proposal_id") or value.get("note_id")
         if artifact_id in seen_ids:
             raise ValueError(f"{path}: duplicate artifact id {artifact_id!r}")
         seen_ids.add(artifact_id)

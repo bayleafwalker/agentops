@@ -120,6 +120,48 @@ class ReconciliationProposalValidatorTests(unittest.TestCase):
             VALIDATOR.validate_reconciliation_proposal(proposal, Path("bad"))
 
 
+class SessionNoteValidatorTests(unittest.TestCase):
+    def test_shipped_example_is_valid(self) -> None:
+        note = _load_example("session-note")
+        VALIDATOR.validate_session_note(note, Path("session-note.example.json"))
+
+    def test_idempotent_revalidation(self) -> None:
+        note = _load_example("session-note")
+        VALIDATOR.validate_session_note(note, Path("session-note.example.json"))
+        VALIDATOR.validate_session_note(note, Path("session-note.example.json"))
+
+    def test_unknown_note_kind_rejected(self) -> None:
+        note = copy.deepcopy(_load_example("session-note"))
+        note["note_kind"] = "governance"
+        with self.assertRaisesRegex(ValueError, "not a recognized kind"):
+            VALIDATOR.validate_session_note(note, Path("bad"))
+
+    def test_oversize_body_rejected(self) -> None:
+        note = copy.deepcopy(_load_example("session-note"))
+        note["body"] = "x" * (VALIDATOR.NOTE_BODY_MAX_BYTES + 1)
+        with self.assertRaisesRegex(ValueError, "exceeds .* bytes"):
+            VALIDATOR.validate_session_note(note, Path("bad"))
+
+    def test_raw_transcript_ref_requires_capture_flag(self) -> None:
+        note = copy.deepcopy(_load_example("session-note"))
+        note["privacy"] = {
+            "raw_transcript_captured": False,
+            "raw_transcript_ref": {
+                "kind": "artifact",
+                "source": "agentops:_artifacts/agentops/transcripts/x.json",
+                "revision": "sha256:" + "0" * 64,
+            },
+        }
+        with self.assertRaisesRegex(ValueError, "raw_transcript_ref must be null"):
+            VALIDATOR.validate_session_note(note, Path("bad"))
+
+    def test_via_schema_version_dispatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "note.json"
+            path.write_text(json.dumps(_load_example("session-note")), encoding="utf-8")
+            VALIDATOR.validate(path)
+
+
 class DiscoveryAndMainTests(unittest.TestCase):
     def test_discovers_and_rejects_duplicate_ids(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

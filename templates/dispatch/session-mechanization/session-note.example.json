@@ -1,0 +1,20 @@
+{
+  "schema_version": "session-note/v1",
+  "note_id": "2b3c4d5e-6f70-4819-9a0b-1c2d3e4f5061",
+  "origin_stream_id": "3c4d5e6f-7081-492a-8b0c-2d3e4f506172",
+  "runtime_session_id": "sess-20260723-140512-agentops",
+  "repo": {
+    "project": "agentops"
+  },
+  "note_kind": "handover",
+  "target_refs": ["wi:1213"],
+  "capsule_ref": null,
+  "created_at": "2026-07-23T14:05:12Z",
+  "supersedes": null,
+  "body": "## Handover\n\nShipped the session-note/v1 schema, example, validator discovery, and tests. Next: writer/reader tooling in #1214.",
+  "privacy": {
+    "raw_transcript_captured": false,
+    "raw_transcript_ref": null,
+    "retention_days": null
+  }
+}

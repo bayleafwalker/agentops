@@ -80,6 +80,7 @@ Artifact schemas and field contracts for the two rows below marked
 | `session.started` | observation | yes | no | applied immediately | the observation itself, once ingested |
 | `session.ended` / `session.end-inferred` | observation | yes | no | applied immediately | the observation itself, once ingested |
 | `session-capsule/v1` | observation (artifact + pointer) | yes | no (pointer is non-validation-bearing) | capsule pointer visible immediately | the observation itself, once ingested |
+| `session-note/v1` | observation (artifact + pointer) | yes | no (pointer is non-validation-bearing) | note pointer visible immediately | the observation itself, once ingested |
 | `reconciliation-proposal/v1` created | observation (proposal artifact) | yes (scribe-authored, cursor-tracked) | no — proposals never mutate authoritative state | appears in review queue | the proposal artifact itself |
 | proposal accepted | authority command(s) | no | yes — acceptance **executes as normal sprintctl authority commands** (see sprintctl rows above) | proposal lifecycle is `accepted`; execution remains deferred/pending until sprintctl decisions | corresponding sprintctl decisions plus the agentops execution sidecar; proposal acceptance never implies command success |
 | proposal rejected / superseded | observation (durable lifecycle record) | yes | no | proposal leaves review queue; rejection durable for dedup | the lifecycle record itself |
