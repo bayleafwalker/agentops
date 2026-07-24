@@ -45,6 +45,60 @@ allows.
   code, rerun full suite and catalog parity, update migration docs, and
   capture the removal diff (modules/lines) for the Stage-4 baseline.
 
+## Session 5 (next): finish #1220, start vuoro #1245, then devbox-agent, then #1221
+
+Prepared 2026-07-24 (session 4 handoff). Session 4 closed #1225, #1223, and
+#1222 live (not just documented — see sprintctl `docs/plans/1164-gate-evidence-ledger.md`
+rows 6/10/8, vuoro `docs/plans/1223-production-promotion-record.md` and
+`docs/plans/1222-dev-four-domain-evidence.md`) and flipped the `sprintctl`
+repo's own workstation `.envrc` to served mode (verified live).
+
+**Do not report or treat #1164/track=projection-cutover as released.** It is
+not. "Released and in production use for workstation and development
+box(es)" requires all of the following, none of which session 4 completed:
+
+1. **vuoro #1245 — make `work_store.repo_id` a per-request parameter**
+   (`packages/vuoro-service/src/vuoro_service/composition.py:261` currently
+   hardcodes it once at process start from `VUORO_WORK_REPOSITORY_ID`).
+   This is real feature work, not a config change — `vuoro-shared` today can
+   only ever serve the `sprintctl` repo tenant. It blocks: the other 7
+   workstation repos (`agentops`, `box`, `actionq`, `aligned-equity`,
+   `_orchestration`, `homelab-analytics`, `scribectl`) ever using served
+   mode, and devbox-agent using anything but the `sprintctl` repo.
+2. **Devbox-agent — untouched as of session 4.** No SSH, no inventory of its
+   repo clones/credential files/`.envrc` state, no served-mode verification.
+   Per `AGENTS.md`, devbox-agent has no cluster/kubectl/Talos reach, but
+   served mode needs none of that — only HTTPS to the Vuoro endpoint and a
+   credential file at `~/.config/vuoro/credentials/` (workstation's
+   equivalent lives at `~/.config/vuoro/credentials/vuoro-shared-workstation`;
+   devbox-agent likely needs its own, per the `devbox-agent-vuoro-shared.json`
+   profile already in
+   `agentops/templates/dispatch/environment-record/profiles/` — check
+   whether that profile's `credential_ref` file actually exists on
+   devbox-agent before assuming it's ready). Start here: `ssh devbox-agent`,
+   check its `sprintctl` repo clone's `.envrc`/`.sprintctl/backend.json`,
+   confirm the credential file, then repeat session 4's served-mode flip
+   (marker to `served`, `SPRINTCTL_VUORO_PROFILE` to the devbox-agent
+   profile) and verify with `sprintctl doctor` + a real `item show`.
+3. **sprintctl #1220** — partial evidence only (doctor fail-closed on schema
+   mismatch confirmed, event #1433). Still needs denied-**write** evidence
+   from a stale install on every remote entry point, plus the documented
+   upgrade path in migration docs.
+4. **sprintctl #1221** — the actual release decision. Record only once
+   #1245, the devbox-agent replication, and #1220 are all genuinely green —
+   not before. This is the terminal event that #1164's own removal work
+   (dead remote-client bootstrap code, full suite, catalog parity, migration
+   docs) depends on.
+
+Sequencing note: #1245 is the long pole (real service code + tests + a
+redeploy of `vuoro-shared`) and blocks both the other-7-repos work and most
+of devbox-agent's usefulness beyond the `sprintctl` repo. Doing devbox-agent's
+`sprintctl`-repo-only inventory/flip first is still worthwhile and unblocked
+today — it doesn't need #1245.
+
+Full memory: `project_1164_session3_gate_status.md` in the agentops-memory
+store (despite the filename, current as of session 4).
+
 ## Parallel clocks to start early (cheap, time-gated)
 
 - agentops **#1231** — seed S-DORMANT; the fourteen-day horizon cannot be
