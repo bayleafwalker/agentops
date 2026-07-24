@@ -7,17 +7,22 @@
 - **Repos touched:** sprintctl, vuoro, appservice, agentops.
 - **kctl tracking:** sprintctl item #1291 (sprint 428, `agentops` repo_id;
   renumbered from #1246 after a backfill), events #1566–#1573, #2068,
-  #2069, #2070. First 8 events were extracted into the kctl review
+  #2069, #2070, #2071. First 8 events were extracted into the kctl review
   pipeline earlier this session; #2068–#2070 (the concurrency-race
-  incident, the scope-creep lesson, and the effort-routing gap, all added
-  later the same session) are recorded but **not yet extracted** — `kctl
-  extract --sprint-id 428` currently fails with `invalid backend
-  marker backend='served'. Expected 'local' or 'remote'.` once `agentops`
-  itself moved to served mode. Root cause suspected but not yet confirmed:
-  `kctl`'s uv-tool install pins its own separate copy of `sprintctl` as a
-  local directory dependency (`/home/bayleaf/.local/share/uv/tools/kctl/
-  uv-receipt.toml`), which may simply be stale relative to sprintctl's
-  current served-mode-aware backend code. See the follow-up list below.
+  incident, the scope-creep lesson, and the effort-routing gap) and #2071
+  (this kctl finding itself) are recorded but **not yet extracted** —
+  `kctl extract --sprint-id 428` still cannot run in served mode. Root
+  cause is now confirmed and was two distinct bugs, not one: (1) *fixed*,
+  kctl commit 84fe0b7 — a committed `build/lib/kctl/` directory in the
+  `kctl` repo shadowed current source with a pre-served-mode snapshot
+  during every `uv tool install`, regardless of `--reinstall` or
+  cache-clearing; removed from git tracking and gitignored. (2) *still
+  open* — `kctl/source.py::open_sprintctl_source` never implemented a
+  `served` branch at all (only `local`/`remote`), and a real fix is
+  blocked upstream: the served catalog has no sprint-scoped-events read
+  operation (`sprintctl/served.py` documents this same gap near its
+  cutover-evidence facade), so there is nothing for kctl to call yet.
+  See event #2071 and the follow-up list below.
 
 ## Scenario
 
@@ -179,15 +184,15 @@ isolated incidents:
   (e.g. "after N identical failed attempts, force a structurally
   different retry") rather than being purely the acting agent's
   responsibility to self-correct.
-- **`kctl extract` doesn't understand the `served` backend marker**
-  (surfaced, not yet filed as its own item): blocks extracting events
-  #2068–#2070 into the kctl review pipeline. Suspected stale
-  directory-pinned `sprintctl` dependency inside `kctl`'s own uv-tool
-  install; a `uv tool install --reinstall kctl` retry is the first thing
-  to try, and if that doesn't resolve it, `kctl`'s own backend-resolution
-  code likely needs a small patch to accept `served` alongside
-  `local`/`remote`. Same category as the CI-leg and doctor-probe staleness
-  incidents above — not yet fixed this session.
+- **`kctl extract` doesn't understand the `served` backend** (event
+  #2071): partially fixed this session. The packaging half (a committed
+  `build/lib/kctl/` snapshot shadowing current source on every reinstall)
+  is fixed — kctl commit 84fe0b7. The remaining half needs real feature
+  work, not a client patch: a sprint-scoped-events read operation added to
+  the served catalog (Vuoro work adapter), then `kctl/source.py` wired to
+  call it under `SPRINTCTL_BACKEND=served`. Not yet filed as its own
+  sprintctl item. Same category as the CI-leg and doctor-probe staleness
+  incidents above.
 - **Scope-divergence checkpoint gap** (lesson-learned, event #2069): no
   process currently prompts an explicit "here is everything this session
   has grown to include, still good?" checkpoint distinct from per-step
