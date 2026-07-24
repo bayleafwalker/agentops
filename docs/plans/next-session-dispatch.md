@@ -115,73 +115,64 @@ slice, fresh locked run, effort-budgeted). Constraints that survive every
 session: frozen R1–R8/H8 unchanged; no strategic work grants authority; the
 strategic track never gates #1164.
 
-## Session 6: redesign #1245's repo_id source, then deploy, then close #1221
+## track=projection-cutover: released (2026-07-24, session 5)
 
-Prepared 2026-07-24 (session 5 handoff). Session 5 landed real code across
-three merged, CI-green PRs, closed #1220, but **the projection-cutover goal
-is still not released** — #1245 turned out to need a design correction
-before it's safe to deploy, caught before any production write.
+**Goal met.** All 11 gates in sprintctl `docs/plans/1164-gate-evidence-ledger.md`
+are Done. `vuoro-shared` is redeployed and verified live in production for
+both workstation and devbox-agent. The #1221 operator-gate decision is
+recorded (event #1442 on #1164), with explicit user sign-off obtained
+before recording it (that item is scoped "Owner: operator" — not something
+to self-authorize).
 
-**What's actually done:**
+**What shipped, across 8 merged/pushed commits in 3 repos plus a live
+production deploy:**
 
-- **devbox-agent fully replicated to served mode** — reconciled its
-  diverged `sprintctl` clone (2 real unpushed commits recovered as
-  PostgreSQL schema version 4, sprintctl PR #2), reinstalled the `uv tool`
-  with `remote,served` extras, fixed `.envrc` to support host-local
-  `.envrc.local` overrides, verified `sprintctl doctor` + a live
-  `item show` work via plain `direnv`. Its `agentops` clone was diverged
-  too but confirmed to hold zero unique commits and was reset cleanly.
-- **sprintctl #1220 write-denial evidence recorded** — sprintctl
-  `docs/plans/1164-gate-evidence-ledger.md`, "#1220 stale-install
-  fail-closed record": doctor + representative write commands all denied
-  before any DB mutation against a disposable PostgreSQL stuck at schema
-  version 1.
-- **Served-catalog gap partly closed** — `item note` now works over served
-  mode end-to-end (sprintctl PR #4: new `work.item.note` operation,
-  handler, client facade, CLI bridge, tests against SQLite and real
-  PostgreSQL). `item ref add`/`item add` remain open, documented in the
-  ledger's "Follow-up finding" section as needing their own new
-  service-side operations (no existing outbox/durable-record precedent to
-  lean on the way `item note` had).
-- **vuoro #1245 code merged but wrong for production** (sprintctl PR #3,
-  vuoro PR #1, both CI-green) — `WorkApplication.invoke()` correctly
-  resolves `repo_id` per call now, but from `context.identity.repo_id`, a
-  value fixed on the bearer identity at mint time. Production has exactly
-  2 tokens (`workstation-vuoro`, `devbox-agent-vuoro` — one per **host**),
-  and every other repo-identity resolution in this codebase is
-  client/cwd-driven, not identity-bound. Deploying as merged would need
-  7+ new per-repo tokens instead of reusing the 2 that exist. **Caught
-  before writing anything to the production `vuoro-identities` secret** —
-  it was decrypted read-only to confirm its exact contents (2 tokens, no
-  `repo_id`), never modified. Full corrected design (client sends
-  `repo_id` in the invocation envelope; identity carries an
-  authorized-repos allowlist/wildcard instead) is written up in sprintctl
-  `docs/plans/1164-gate-evidence-ledger.md`, "#1245 redesign needed before
-  deploy".
+- **devbox-agent fully replicated to served mode** — reconciled a
+  diverged `sprintctl` clone (2 real unpushed commits recovered, sprintctl
+  PR #2), fixed `.envrc` to support host-local `.envrc.local` overrides.
+  Its `agentops` clone was diverged too but held zero unique commits.
+- **sprintctl #1220** — write-denial evidence recorded against a
+  disposable stale-schema PostgreSQL; every representative write command
+  denied before any DB mutation.
+- **Served-catalog gap partly closed** — `work.item.note` now works over
+  served mode end-to-end (sprintctl PR #4). `item ref add`/`item add`
+  remain open, filed in the ledger's "Follow-up finding" section.
+- **vuoro #1245 — corrected and deployed.** First merge (sprintctl PR #3,
+  vuoro PR #1) bound `repo_id` to the bearer identity at token-mint time —
+  wrong for production (2 host-scoped tokens, not one per repo). Caught
+  before writing to the production `vuoro-identities` secret. Corrected
+  (sprintctl PR #5, vuoro PR #2): the client now sends `repo_id` in the
+  invocation envelope; `Identity.repo_ids` authorizes it (wildcard `"*"`
+  for both existing tokens). Then actually deployed: new sprintctl wheel
+  published, `adapter-pins.json` updated (vuoro PR #3), new
+  `vuoro-service` image built (`vuoro-service-v0.1.2`), production
+  `vuoro-identities` secret and `deployment.yaml` updated together
+  (`appservice`, direct commit, explicit user sign-off obtained first),
+  Flux reconciled. Rollout hit two real, resolved issues: a schema-version
+  mismatch (ran a one-off migration job, schema 3→4) and a stale
+  idle-in-transaction connection blocking it (a pre-existing latent issue
+  in `sprintctl.pg`'s single-long-lived-connection pattern, not introduced
+  this session — terminated it; zero downtime, the old pod kept serving
+  throughout). Verified live: real `work.read.item` and `work.item.note`
+  calls succeeded from both workstation and devbox-agent, after fixing a
+  stale `vuoro-client` dependency pin on both hosts. Full record in
+  sprintctl's ledger doc, "#1245 deployed and verified live".
 
-**Session 6 should do, in order:**
+**Follow-up work, not gating #1164 or the projection-cutover goal:**
 
-1. **Implement the corrected #1245 design** per the 8-step list in
-   sprintctl's ledger doc "#1245 redesign needed before deploy" section:
-   envelope-level `repo_id` (new/extended invocation protocol version in
-   `vuoro_service/contracts.py`), `Identity.repo_ids` allowlist/wildcard,
-   `vuoro-client` and `sprintctl.served` sending the client's own
-   cwd-resolved `repo_id`, and reworking this session's identity-bound
-   tests to match. This supersedes (not just extends) the merged #1245
-   PRs' `Identity.repo_id` field.
-2. **Deploy**: build+publish a new sprintctl adapter wheel, update
-   `adapter-pins.json`'s work entry, build+push a new `vuoro-service`
-   image, update `deployment.yaml`'s image digest, update the production
-   `vuoro-identities` secret (existing 2 tokens gain `repo_ids: ["*"]` —
-   no new tokens needed under the corrected design), redeploy
-   `vuoro-shared`. All against a live production service — confirm scope
-   explicitly before each write, same as session 5's approach.
-3. **sprintctl #1221** — record the operator gate decision event on #1164,
-   only once #1245 is genuinely deployed (not just merged) and #1220 is
-   closed.
-4. **`item ref add`/`item add` served-catalog gap** — still filed, not
-   fixed; see the ledger doc's "Follow-up finding" section for the
-   `work.item.note` precedent to follow.
+- Flip the other 7 workstation repos' (`agentops`, `box`, `actionq`,
+  `aligned-equity`, `_orchestration`, `homelab-analytics`, `scribectl`)
+  own `.envrc` to served mode — the server-side capability is live, this
+  is now just a per-repo config change, no code needed.
+- `item ref add`/`item add` served-catalog gap (ledger doc, "Follow-up
+  finding").
+- `#1164` itself — remove the dead remote-client bootstrap/mode code, full
+  suite, catalog parity, migration docs. Now unblocked by the #1221
+  decision event, but the removal itself is separate, non-scope work.
+- The stale-connection pattern that blocked the migration (`sprintctl.pg`
+  holds one long-lived connection per process with no reconnect/pooling)
+  is a latent reliability issue worth a dedicated look, independent of
+  this track.
 
 ## Dispatch hints
 
