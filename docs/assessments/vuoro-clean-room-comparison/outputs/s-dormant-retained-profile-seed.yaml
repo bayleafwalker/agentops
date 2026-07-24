@@ -1,0 +1,73 @@
+schema_version: vuoro-clean-room-comparison.scenario.v1
+scenario_code: S-DORMANT
+scenario_name: dormancy and state rot — retained/reduced Vuoro profile
+subject: >
+  The retained/reduced Vuoro profile itself (sprintctl #1164 served-authority
+  cutover and its dependent gate work), not the Beads/Restate strategic
+  candidate. This is agentops #1231's seed record. The Stage-2 candidate's own
+  S-DORMANT clock starts separately at that experiment's integration setup per
+  runs/README.md and is not-run until then.
+status: seeded-not-run
+seed_timestamp: "2026-07-24T05:36:42Z"
+required_horizon_end: "2026-08-07T05:36:42Z"
+horizon_days: 14
+note: >
+  No substitutes, no backfill, no acceleration. Do not report a verdict before
+  required_horizon_end. A resume before that date is a valid H9 resume
+  observation (see docs/plans/evidence-needed.md) but not a qualifying
+  S-DORMANT report.
+
+state_left_in_repo:
+  agentops:
+    commit: 25c57c7822616a04d302b34ae8a2c8176b0fa605
+    branch: main
+    note: >
+      Clean-room comparison record and cross-repo backlog committed and
+      pushed this session (#1227). docs/plans/assessment-review.md and
+      docs/plans/evidence-needed.md remain intentionally uncommitted.
+  sprintctl:
+    commit: 04416226843e8fbf1026cec9f628f3d575ef7216
+    branch: main
+    note: >
+      #1164 gate-evidence ledger (docs/plans/1164-gate-evidence-ledger.md)
+      committed and pushed this session (#1218), attached as a ref on #1164
+      and #1218.
+
+state_left_in_tracker:
+  sprintctl:
+    "#1164":
+      status: pending
+      blocked_by: ["#1219", "#1220", "#1221"]
+      note: gate ledger attached (refs #331/#332); rows 1-5 done, 6-11 open.
+    "#1218":
+      status: done
+      note: gate-evidence ledger, closed this session.
+    "#1219": {status: pending, note: export/recovery rehearsal, next session}
+    "#1220": {status: pending, note: old-client fail-closed guidance}
+    "#1221": {status: pending, note: operator gate, blocked on #1218 (now satisfied) and #1219/#1220}
+  vuoro:
+    "#1222": {status: pending, note: vuoro-dev four-domain evidence}
+    "#1223": {status: pending, note: production promotion evidence}
+  appservice:
+    "#1225": {status: pending, note: migration job + DDL denial, deployed}
+    "#1226": {status: pending, note: direct credential removal}
+  agentops:
+    "#1227": {status: done, note: commit the clean-room record, closed this session}
+    "#1228": {status: blocked, note: blocked on #1227 (now done) and #1229 status}
+    "#1229": {status: blocked, note: blocked until #1227 and #1228 are done}
+    "#1231": {status: pending, note: this item — seeded, not yet closeable}
+    "#1232": {status: pending, note: resume-observation tracking, ongoing}
+
+resume_surface: TBD
+first_confident_action_timestamp: TBD
+stale_state_items: TBD
+unresolved_work_items: TBD
+
+required_inputs_recorded_at_seed:
+  - idle_duration: not-started
+  - state_left_in_repo: recorded above
+  - state_left_in_tracker: recorded above
+  - resume_surface: pending (record at cold resume ≥14 days out)
+  - first_confident_action_timestamp: pending
+  - stale_state_items: pending
+  - unresolved_work_items: pending
