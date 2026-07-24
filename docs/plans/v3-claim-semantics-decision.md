@@ -48,17 +48,24 @@ continuity and turned every recovery export into a secrets-bearing artifact.
 - agentops #1242 (sprint #428): cross-repo guidance mirrors — agentops
   dispatch skills + sprintctl-bootstrap-template docs drop token/heartbeat
   ceremony once sprintctl #1241 lands.
-- **Outstanding:** the V3-3 vuoro twin (catalog v2 composition,
-  transient-credential carrier retire-vs-retain, plan doc Q5) must be filed
-  in vuoro's backlog by a session with vuoro backlog access; per the
-  coordination-mirror convention it is not duplicated on this side.
+- **Filed 2026-07-24:** the V3-3 vuoro twin is vuoro #1243 (sprint 429,
+  track `v3-reservations`), created by bootstrapping `.sprintctl/backend.json`
+  in the vuoro checkout (repo_id `vuoro` was already registered in remote
+  postgres — only the local marker was missing). Q5 resolved as **retire**:
+  invocation/v2's transient-credential carrier existed only to transport
+  `claim_token` proofs (#1195 Group A) and has no consumer once v3 removes
+  `claim_token`. #1243 also covers vuoro's composition/client-discovery
+  refresh for the catalog v2 cutover, sequenced after sprintctl #1237. Per
+  the coordination-mirror convention this is not duplicated as a separate
+  item on this side.
 
 ## Open operator questions
 
-Q1–Q7 in sprintctl `docs/plans/v3-reservation-model-plan.md` §4 (reserve
-conflict policy, claim-type taxonomy, activity tracking, stale sweep, vuoro
-credential carrier, retirement interleaving — resolved by placement, catalog
-cutover window).
+Q1–Q4, Q7 open in sprintctl `docs/plans/v3-reservation-model-plan.md` §4
+(reserve conflict policy, claim-type taxonomy, activity tracking, stale
+sweep, catalog cutover window). Q5 (vuoro credential carrier) resolved
+2026-07-24 as retire — see filing note above. Q6 (retirement interleaving)
+was resolved by placement.
 
 ## Relationship to the retained-Vuoro assessment
 
