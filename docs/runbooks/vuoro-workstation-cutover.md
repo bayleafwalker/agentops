@@ -1,7 +1,7 @@
 ---
 doc_id: vuoro-workstation-cutover
 status: current-runbook
-revision: 4
+revision: 5
 scope: sprintctl-item-1195
 ---
 
@@ -170,14 +170,44 @@ the full black-box Sprintctl parity suite against `vuoro-shared`. Run the
    unset SPRINTCTL_URL
    ```
 
+   `<operator-issued-vuoro-shared-profile>` is the path to the profile JSON
+   itself (e.g.
+   `templates/dispatch/environment-record/profiles/workstation-vuoro-shared.json`),
+   **not** the path the profile's own `credential_ref` points at — those are
+   two different files.
+
    Apply that replacement to `_orchestration`, `actionq`, `agentops`,
    `aligned-equity`, `box`, `homelab-analytics`, `scribectl`, and `sprintctl`.
    Retain `SPRINTCTL_DB` only where it is needed for explicitly selected local
    recovery; served mode must not open it.
-5. Start a fresh shell in each repository and prove `SPRINTCTL_URL` is unset,
-   `sprintctl doctor --json` reports `served`, and a read plus one safe dev
-   lifecycle/claim test reaches the catalog. Keep the existing profiles as
-   uncommitted backups until all eight checks pass.
+5. Each repository also carries a local, uncommitted `.sprintctl/backend.json`
+   marker (written once by an earlier `migrate-to-remote` run) that pins the
+   backend mode independently of `.envrc`. `sprintctl` refuses to run in
+   `served` mode unless this marker's `"backend"` field also reads `"served"`
+   — flip it by hand in each repository before testing:
+
+   ```bash
+   python3 -c "
+   import json
+   p = '.sprintctl/backend.json'
+   d = json.load(open(p))
+   d['backend'] = 'served'
+   json.dump(d, open(p, 'w'), indent=2)
+   open(p, 'a').write('\n')
+   "
+   ```
+
+   Keep the prior marker content (uncommitted) alongside the `.envrc` backup
+   until all eight checks pass.
+6. Start a fresh shell in each repository and prove `SPRINTCTL_URL` is unset,
+   `sprintctl doctor --json` reports `served` with `credential_resolved: true`,
+   and a read plus one safe dev lifecycle/claim test reaches the catalog. Keep
+   the existing profiles and backend markers as uncommitted backups until all
+   eight checks pass. An empty catalog under `served` mode (no sprints/items
+   where `remote` mode shows real ones) is not proof of a broken profile — it
+   means the production `vuoro-shared` substrate has not yet been promoted
+   with this repository's data (see sprintctl #1223); do not roll `.envrc` or
+   the marker forward workstation-wide until that promotion evidence exists.
 
    The final static check is:
 

@@ -23,6 +23,20 @@ def test_served_envrc_is_accepted(tmp_path: Path) -> None:
     assert validator.validate_envrc(path, profile) == []
 
 
+def test_served_envrc_with_unset_sprintctl_url_is_accepted(tmp_path: Path) -> None:
+    """The prescribed cutover block ends with `unset SPRINTCTL_URL`; that
+    cleanup line must not itself trip the direct-backend-wiring check."""
+    profile = "/projects/dev/agentops/templates/dispatch/environment-record/profiles/workstation-vuoro-shared.json"
+    path = tmp_path / ".envrc"
+    path.write_text(
+        "export SPRINTCTL_BACKEND=served\n"
+        f"export SPRINTCTL_VUORO_PROFILE={profile}\n"
+        "unset SPRINTCTL_URL\n"
+    )
+
+    assert validator.validate_envrc(path, profile) == []
+
+
 def test_direct_postgres_wiring_is_rejected(tmp_path: Path) -> None:
     profile = "/profiles/vuoro-shared.json"
     path = tmp_path / ".envrc"

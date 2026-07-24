@@ -39,8 +39,14 @@ def validate_envrc(path: Path, profile: str) -> list[str]:
     expected = f"export SPRINTCTL_VUORO_PROFILE={profile}"
     if expected not in text:
         errors.append(f"{path}: missing exact profile binding `{expected}`")
+    # `unset SPRINTCTL_URL` is the prescribed served-mode cleanup line, not a
+    # direct-backend wiring; exclude it so the DIRECT_PATTERNS scan below
+    # doesn't reject the exact block this validator requires.
+    scan_text = "\n".join(
+        line for line in text.splitlines() if not re.match(r"\s*unset\s+SPRINTCTL_URL\s*$", line)
+    )
     for pattern in DIRECT_PATTERNS:
-        if pattern.search(text):
+        if pattern.search(scan_text):
             errors.append(f"{path}: contains prohibited direct-backend wiring matching {pattern.pattern!r}")
     return errors
 
