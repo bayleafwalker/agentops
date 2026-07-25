@@ -13,6 +13,15 @@ Git worktrees propagate between environments.
 manifest schemas, state-protocol context/result schemas, and the dependency-free
 repository gate.
 
+Always `git fetch origin` before trusting local repo state. Local `main` silently
+falls behind origin between sessions/environments; a commit hash, plan doc, or
+item referenced by a handover can look "not found" purely because it hasn't been
+fetched yet. Fetch first, then fast-forward or rebase local `main` onto the
+fetched remote before starting new work. If a rebase or merge produces conflicts,
+resolve them directly (read both sides, merge the actual intent) rather than
+aborting or force-picking one side; only stop and flag it to the user if a
+conflict can't be resolved confidently.
+
 - Repositories opt in with one root `*.dispatch.json` and repository-specific overlays under `.agents/overlays/`.
 - Reusable verification intent belongs in data-only `verification/contexts/*.json`; executable tests and production logic remain in the owning repository.
 - Inspect declared `risk_surfaces` before changing queue, claim, lease, retry, recovery, projection, publication, reconciliation, or backend-parity paths.
