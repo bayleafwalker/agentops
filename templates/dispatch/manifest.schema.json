@@ -68,7 +68,9 @@
               "capability-receipt",
               "verify-state-protocols",
               "reconcile-project-contracts",
-              "golden-child"
+              "golden-child",
+              "session-reconciler",
+              "session-scribe"
             ]
           }
         },

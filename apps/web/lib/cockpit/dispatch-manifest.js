@@ -26,6 +26,7 @@ const SKILLS = new Set([
   "capability-receipt",
   "domain-impact-scan",
   "workflow-artifact-capture",
+  "golden-child",
   "session-reconciler",
   "session-scribe",
   "verify-state-protocols",
