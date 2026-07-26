@@ -74,20 +74,52 @@ observed production verdict rather than reclassifying it from local source.
 | --- | --- | --- | --- |
 | `kctl-extract` step 2 | `kctl preflight --sprint-id <id>` | source-ready (P1; deployment pending) | Sprintctl `071f747` adds the owning `work.maintain.check` read and Kctl `9954f2b` consumes it directly. The currently deployed adapter does not contain either artifact, so its failure remains deployed evidence until release acceptance. |
 | `kctl-extract` step 2 | `sprintctl maintain check --sprint-id <id>` | recovery-only | Direct-store diagnostic with no served equivalent; retain only for separately authorized recovery, not normal blind-agent execution. |
-| `kctl-extract` steps 4–9 | `kctl extract`, `kctl review list/show/approve/reject`, `kctl status` | partial source-ready (deployment pending) | Kctl `0afd377` serves UUID-based list/show/approve/reject/status without opening SQLite. Extraction intake remains local-only; do not claim four-domain parity until it has a tested served composition. |
+| `kctl-extract` steps 4–9 | `kctl extract --sprint-id <id> --basis-git-revision <full-commit>`, `kctl review list/show/approve/reject`, `kctl status` | partial source-ready (intake design decided; implementation/deployment pending) | Kctl `0afd377` serves UUID-based list/show/approve/reject/status without opening SQLite. Served extraction must require an explicit full immutable Git commit, derive and digest each candidate deterministically, and submit it through `knowledge.candidate.intake`; it must not infer `HEAD` or write a local SQLite candidate/watermark store. |
 | `kctl-extract` step 10 | `kctl publish`, `kctl render` | unsupported | Publication/render remain kctl-owned persistence/output operations in the checked-in CLI. No served blind-agent acceptance evidence exists; keep them outside the normal loop pending an explicit domain decision. |
 
 The existing Kctl adapter catalog is not a CLI composition: `kctl extract`
 still writes a local SQLite candidate/watermark store after its served event
 read, and review/status commands open that same store. Completing this domain
 requires (1) Kctl served facades for candidate intake/list/show/review and
-publication-reference reads, and (2) Git-basis/digest evidence for an
-event-to-candidate intake.
+publication-reference reads, and (2) the decided evidence-bearing
+event-to-candidate composition below.
 Kctl source `c21dffe` now makes repository-bearing knowledge operations
 envelope-scoped and verifies their record arguments before application calls;
 it is deployment-pending and does not itself make the local CLI served.
 Publication, render, and export remain Git-owned projections unless a
 separate ownership decision changes that boundary.
+
+### Served Kctl extraction evidence decision
+
+The authority choice for served extraction is an **explicit immutable CLI
+input**. `kctl extract` must require `--basis-git-revision <full-commit>` in
+served mode. The value must be a complete 40- or 64-hex Git object ID supplied
+by the invoking dispatch composition; Kctl must validate it and must never
+derive it from a mutable checkout, branch, or abbreviated revision.
+
+Kctl owns the deterministic event-to-candidate transformation. For each
+selected Sprintctl event it must canonicalize the candidate, compute
+`content_digest` from `summary` and `detail`, and invoke
+`knowledge.candidate.intake` with:
+
+- the explicit commit in `candidate.basis_git_revision` and the invocation
+  basis revision;
+- the computed candidate content digest; and
+- an idempotency key derived from repository identity, source event identity,
+  Git basis, and content digest.
+
+The central Kctl application remains responsible for recomputing the digest,
+rejecting content/evidence mismatches, and rejecting a changed replay. Served
+mode must not create or advance local SQLite candidates or extraction
+watermarks. Its durable progress is the central candidate identity and
+idempotent intake result; rereading the append-only Sprintctl event stream is
+safe.
+
+Sprintctl event metadata is not the Git authority. Its event payload may carry
+incidental `git_sha` data, but `work.read.events` does not guarantee immutable
+Git provenance for every knowledge-bearing event. A new catalog aggregate is
+also out of scope: Vuoro composes the existing Sprintctl read and Kctl intake
+without becoming a third knowledge or Git authority.
 
 ## Implementation and release queue implied by this inventory
 

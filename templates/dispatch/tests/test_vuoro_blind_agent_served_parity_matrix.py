@@ -39,7 +39,7 @@ def test_matrix_covers_every_blind_agent_guidance_command() -> None:
         "sprintctl claim release --claim-id",
         "kctl preflight --sprint-id <id>",
         "sprintctl maintain check --sprint-id <id>",
-        "kctl extract",
+        "kctl extract --sprint-id <id> --basis-git-revision <full-commit>",
         "kctl publish",
         "kctl render",
     )
@@ -67,4 +67,8 @@ def test_matrix_preserves_source_deployment_boundary_and_remaining_gaps() -> Non
     assert "Deployed failure" in text
     assert "project-wide orientation" in text
     assert "kctl preflight" in text
+    assert "explicit immutable CLI" in text
+    assert "derive it from a mutable checkout" in text
+    assert "local SQLite candidates or extraction" in text
+    assert "knowledge.candidate.intake" in text
     assert "2026-07-26-vuoro-blind-agent-parity-next-devbox.md" in text

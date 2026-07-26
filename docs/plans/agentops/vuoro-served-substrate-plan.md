@@ -96,6 +96,28 @@ does not merge their databases or allow cross-domain writes.
 | `/api/knowledge/v1` | `kctl` | candidate/review workflow and publication references | Git document content and local authored projections |
 | `/api/audit/v1` | `auditctl` | observation ingestion and receipts | SQLite/NDJSON capture, buffering, and rebuild |
 
+### Kctl served extraction evidence
+
+The remaining served extraction authority decision is resolved in favor of an
+explicit immutable CLI input. In served mode, `kctl extract` requires
+`--basis-git-revision <full-commit>` using a complete 40- or 64-hex Git object
+ID supplied by the dispatch composition. Kctl validates the value and does not
+infer it from a checkout, branch, or abbreviated revision.
+
+This does not move Git authority into Sprintctl or Vuoro. Sprintctl owns the
+append-only event read, Kctl owns the deterministic event-to-candidate
+transformation and candidate lifecycle, and the dispatch composition is
+accountable for selecting the immutable Git basis. Kctl computes the canonical
+candidate content digest, submits both pieces of evidence through
+`knowledge.candidate.intake`, and the central Kctl application recomputes and
+validates the digest and replay evidence.
+
+Served extraction does not use a local SQLite fallback or local extraction
+watermark. It may reread Sprintctl events and rely on deterministic,
+idempotent central intake. Sprintctl's optional event-payload Git fields are
+not authoritative provenance, and no new owning catalog aggregate is required
+for this tranche.
+
 ## Service contract
 
 The first deployment exposes:
