@@ -43,6 +43,7 @@ observed production verdict rather than reclassifying it from local source.
 | workspace `AGENTS.md` / devbox start | `sprintctl doctor --json` | served | Recorded as a successful served read in the handoff; catalog probing is part of `doctor`. |
 | `task-pickup` step 1 | `sprintctl sprint list --active --json` | served | `sprint.list` routes to `work.read.sprints`; its served implementation forwards `active_only` (`cli.py:sprint_list`). |
 | `task-pickup` step 1 | `sprintctl sprint list --include-backlog --json` | served | Same `work.read.sprints` route; the served implementation forwards `include_backlog`. Project-wide `--project` has a separate, deployment-pending aggregate route. |
+| unattended-dispatch binding prerequisite | `sprintctl sprint create --name ... --status active --json` | source-ready (deployment pending) | `work.sprint.create` landed in Sprintctl `1aa8cc3`. It is repository-scoped and requires the distinct `work:sprint` authority, so a release/deployment must explicitly grant it to an authorized operator; it does not widen normal claim/lifecycle permissions. |
 | `task-pickup` step 3; `sprint-resume` step 3 | `sprintctl claim list-sprint --sprint-id <sprint-id> --json` | source-ready (P0; deployment pending) | `work.read.claims` route landed in Sprintctl `934ceb6`/`c199961`; production still has the handoff’s direct PostgreSQL fall-through and misleading `psycopg` advice. |
 | `task-pickup` step 4 | `sprintctl next-work --sprint-id <sprint-id> --json --explain` | source-ready (P1; deployment pending) | Atomic `work.read.next-work-explain` landed in `8b585a6`; it is not yet available from the deployed adapter. |
 | `task-pickup` step 6; `sprint-resume` step 3 | `sprintctl item show --id <item-id> --json` | served | `item.show` routes to `work.read.item`; served output includes events, active claims, refs, and dependency fields (`cli.py:item_show`). |
@@ -131,11 +132,12 @@ without becoming a third knowledge or Git authority.
 
 Sprintctl source-ready work awaiting release is: `usage --context`; `item
 list`; ref/dependency list and mutations; claim list/list-sprint/show/resume;
-tracker `handoff`; `item done-from-claim`; `next-work --explain`; and sprint
-detail. The adapter release must include at least `7b9da6a` and `4cc02c0`
-(current source head `43cab10`), then Vuoro must pin that immutable artifact
-and an operator must deploy it. Only post-deploy black-box calls may replace
-the deployed-failure wording above.
+tracker `handoff`; `item done-from-claim`; `next-work --explain`; sprint
+detail; and authorized `sprint create`. The adapter release must include at
+least `7b9da6a`, `4cc02c0`, and `1aa8cc3`, then Vuoro must pin that immutable
+artifact and an operator must deploy it. The deployed composition must grant
+`work:sprint` only to the intended operator identity. Only post-deploy
+black-box calls may replace the deployed-failure wording above.
 
 The project-orientation source contracts now exist, but a released Vuoro
 composition must construct the guarded aggregate from an immutable canonical
