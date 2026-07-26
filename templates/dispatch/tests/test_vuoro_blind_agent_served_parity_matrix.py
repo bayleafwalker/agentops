@@ -64,5 +64,6 @@ def test_matrix_preserves_p0_gaps_and_evidence_boundary() -> None:
         assert gap in text, gap
 
     assert "P0" in text and "inventory" in text
-    assert "not a claim that the listed unsupported operations already fail cleanly" in text
+    assert "not a claim that" in text
+    assert "unsupported operations already fail cleanly" in text
     assert "2026-07-26-vuoro-blind-agent-parity-next-devbox.md" in text
