@@ -1,316 +1,184 @@
-# Vuoro Ecosystem Architecture & Implementation Findings Dossier  
+# Vuoro Ecosystem Architecture Findings Dossier
+
 **Created:** 2026-07-25  
-**Owner:** agentops assessment pass (read-only review only)  
-**Context:** codex-spark assessment across `agentops`, `vuoro`, `sprintctl`, `auditctl`, `actionq`, and `actionq-dispatcher` for code + architecture alignment.  
+**Reworked:** 2026-07-26  
+**Owner:** agentops assessment pass  
+**Status:** planning evidence; no backlog or production changes
 
-This dossier records discovered issues, risks, and correction pathways.  
-No sprint backlog items are created or updated in this pass.
+## Purpose and evidence standard
 
-## Executive summary
+This dossier records implementation findings across `agentops`, `vuoro`, `sprintctl`, `actionq`, and `actionq-dispatcher`. A finding is **confirmed** only when it names the current implementation location and observed behavior. A **policy decision** or **hypothesis** must not be executed as a defect repair until its decision gate is complete.
 
-- General posture is **intentionally conservative and mostly coherent**: ownership boundaries exist, contracts are codified, and core dispatch machinery is in place.
-- The dominant risk is not implementation chaos but **boundary integrity**:
-  - served-vs-direct control-plane wiring,
-  - contract parity across layers,
-  - claim/lease lifecycle behavior under long-running execution,
-  - and mode-dependent identity semantics.
-- Recommended order: fix critical path issues first (served cutover + claim lease liveness), then high-severity identity/contract risks, then medium-risk parity/traceability cleanup.
+Implementation line references below describe the revisions inspected on 2026-07-26. Every build unit must pin its own input and output revisions in the verification record because line numbers can move.
 
-## Dossier scope
+## Corrected executive summary
 
-- Repos inspected:
-  - `/projects/dev/agentops`
-  - `/projects/dev/vuoro`
-  - `/projects/dev/sprintctl`
-  - `/projects/dev/auditctl`
-  - `/projects/dev/actionq`
-  - `/projects/dev/actionq-dispatcher`
-- Review mode: read-only, with background-context checks against available scripts/docs.
-- No code changes were made by this pass.
+- Claim renewal and terminal ownership fencing are one safety invariant and must be designed, built, and independently reviewed together.
+- Workstation cutover currently exposes a checker-policy mismatch; it does not by itself prove that active runtime traffic bypasses Vuoro.
+- Sprint repository identity is already propagated and authorized in served mode, but effective identity remains path-derived in one resolver.
+- SQLite/Postgres `lease_epoch` behavior is a documented capability boundary. It becomes a defect only if production policy requires epoch fencing.
+- Dispatch contracts have confirmed bidirectional drift across schema, runtime, MCP, and UI.
+- Vuoro advertises operational CLI commands that are unavailable, while authority for migrations remains with domain-owner CLIs.
 
-## Findings and correction pathways
+## Findings
 
-### F1 — Incomplete Vuoro workstation served cutover (Critical)
+### F1 - Workstation cutover validator and policy disagree
 
+**Status:** Confirmed tooling-policy mismatch; active bypass not proven  
+**Severity:** High until policy and live tenant-routing proof are complete  
+**Owners:** `agentops` validator policy; each selected repository owns its runtime configuration
+
+**Evidence**
+
+- The checker owns an explicit eight-repository scope in `templates/dispatch/scripts/validate_vuoro_workstation_cutover.py:19-28,60-61`: `_orchestration`, `actionq`, `agentops`, `aligned-equity`, `box`, `homelab-analytics`, `scribectl`, and `sprintctl`.
+- It scans `.envrc` text lexically, including comments, and requires exact literal exports at `validate_vuoro_workstation_cutover.py:37-50`.
+- Several `.envrc` files retain commented rollback wiring. `homelab-analytics` sources active served exports from another file, which the checker does not inspect.
+- The `--profile` argument is an absolute profile path, not a profile name (`validate_vuoro_workstation_cutover.py:57`).
+- `vuoro` is not in the checker scope and retains its own remote backend configuration; it must not be swept into workstation-client edits without an owner decision.
+
+**Decision required**
+
+Choose and document one policy before editing consumers:
+
+1. Require literal served exports in every selected `.envrc` and prohibit committed rollback snippets there; or
+2. Make the validator shell-aware enough to recognize approved sourced canonical configuration and distinguish active wiring from comments.
+
+**Closure evidence**
+
+- Checker fixtures cover literal served configuration, approved sourced configuration, comments, active overrides, missing profile, and local-only rollback.
+- Static validation passes with the absolute profile path.
+- Read-only smoke checks from the actual working directory of at least two repositories assert the effective repo ID and return tenant-distinguishing records. HTTP success under wildcard credentials is insufficient.
+
+### F2 - Dispatcher does not renew execution or coordination claims
+
+**Status:** Confirmed  
 **Severity:** Critical  
-**Scope:** cross-repo deployment posture (`agentops`, `sprintctl`, `actionq`, and others in `/projects/dev`)  
+**Owners:** `actionq` for execution authority; `actionq-dispatcher` for orchestration; `sprintctl` for coordination authority
 
-**Observed issue:**  
-Validation indicates residual direct-backend configuration markers still present in multiple repos despite served-path expectation (e.g., `SPRINTCTL_URL`, `SPRINTCTL_BACKEND=remote`, direct DB host references).
+**Evidence**
 
-**Evidence references:**
-- Workstation cutover validation output patterns in:
-  - `templates/dispatch/scripts/validate_vuoro_workstation_cutover.py`
-  - `docs/assessments/vuoro-pre-clean-room/...` notes captured in prior assessment review
+- `actionq` already provides claimant-checked renewal in `actionq/actionq/db.py:645-752` and exposes it in `actionq/actionq/cli.py:152-175`.
+- Dispatcher clients implement claim/complete/fail but no renewal at `actionq-dispatcher/actionq_dispatcher/clients.py:31-72`.
+- One-shot execution blocks synchronously in `core.py:451-477`, so it cannot renew while invoking work.
+- The daemon heartbeat at `daemon.py:901-914` is session observability only; it renews neither authority.
+- Daemon sprint claim TTL is derived as `max(heartbeat_interval * 2, 1)` at `daemon.py:600-616`.
+- Sprint claim heartbeat validation already exists in SQLite, Postgres, and served authority paths (`sprintctl/db.py:1521-1609`, `sprintctl/pg.py:2179-2198`, `sprintctl/authority.py:582-635`).
 
-**Risk / blast radius:**
-- Runtime authority can bypass intended Vuoro-served path, weakening tenant/claim safety and increasing drift risk between repos and environments.
+**Safety constraint**
 
-**Root cause hypothesis:**  
-Environment-mode migration is incomplete and partially rolled back/annotated in committed shell state files rather than isolated local overrides.
+Do not implement renewal as an isolated timer. Define authority ordering, partial-renewal behavior, worker cancellation, unknown outcomes, recovery, and immediate pre-settlement proof together with F7.
 
-**Correction pathway:**
-1. Standardize `.envrc` and shell config across the impacted repos to a canonical served-mode block:
-   - `SPRINTCTL_BACKEND=served`
-   - `SPRINTCTL_VUORO_PROFILE=<active-profile>`
-2. Remove direct DB/host references from committed workspace files used by runtime.
-3. Keep rollback-only direct-backend snippets in local-only files, not shared checked-in configuration.
-4. Re-run workstation cutover validator; require zero violations before marking complete.
+### F3 - Effective sprint repository identity is path-derived
 
-**Pass criteria:**
-- Cutover validator returns clean for all active member repos.
-- No direct-backend residue in files expected to represent served-mode runtime configuration.
+**Status:** Confirmed, narrower than originally stated  
+**Severity:** High  
+**Owner:** `sprintctl`; Vuoro owns authorization enforcement
 
----
+**Evidence**
 
-### F2 — Missing claim lease renewal for long-running execution (Critical)
+- Served calls already propagate `repo_id` (`sprintctl/served.py:55-82`), and Vuoro rejects missing or unauthorized scoped IDs (`vuoro_service/app.py:326-359`).
+- `resolve_repo_identity()` reads the marker but derives the effective ID from `repo_root.name` at `sprintctl/backend.py:89-111`; `load_backend_config` forwards that value at `backend.py:222-240`.
+- Existing tests assert mismatch failure but do not prove stable identity after rename (`sprintctl/tests/test_backend_mode.py:104-136`).
+- Work-adapter tenant slugs and authority-command committed UUIDs are different identity types. The repair must define their mapping and invariants rather than collapse them.
+- Wildcard Vuoro credentials can authorize the wrong repo, so successful requests are not tenant-routing proof.
 
+**Closure evidence**
+
+End-to-end tests cover renamed clones, nested working directories, linked worktrees, missing markers, mismatch policy, unauthorized repos, and local/served behavior. Live smoke evidence must distinguish tenants.
+
+### F4 - `lease_epoch` differs by backend under a documented capability boundary
+
+**Status:** Policy decision, not a confirmed defect  
+**Severity:** Medium  
+**Owner:** `sprintctl`
+
+**Evidence**
+
+- The protocol documents `lease_epoch` as future fencing and SQLite as carrying it for schema parity (`sprintctl/docs/protocols/claim-ownership.md:69-75`).
+- Postgres rotates/increments the epoch (`sprintctl/pg.py:2333-2349`); SQLite rotates the token without incrementing it (`sprintctl/db.py:1763-1800`).
+
+**Decision required**
+
+Determine whether any production consumer relies on epoch fencing. If not, preserve and test the documented capability boundary. If yes, design expected-epoch inputs and downstream enforcement; incrementing SQLite alone provides no fence.
+
+### F5 - Dispatch contracts drift across schema, runtime, MCP, and UI
+
+**Status:** Confirmed  
+**Severity:** High  
+**Owner:** `agentops`
+
+**Evidence**
+
+- Manifest JSON Schema accepts arbitrary action-class keys (`templates/dispatch/manifest.schema.json:20-34`), while cockpit runtime rejects keys outside a fixed list (`apps/web/lib/cockpit/dispatch-manifest.js:8,65-68`).
+- Schema accepts `golden-child` but omits `session-reconciler` and `session-scribe` (`manifest.schema.json:49-72`); runtime does the inverse (`dispatch-manifest.js:9-33`).
+- Dispatch request enums are duplicated in `apps/web/lib/cockpit/dispatch.js:8-11`.
+- MCP advertises unconstrained strings and an incomplete output list at `apps/web/app/cockpit/api/mcp/route.js:99-107`, while runtime requires valid nonempty `kind` and `harness` (`dispatch.js:97-105`).
+- UI exposes an undocumented subset and conflates plan/audit labeling (`apps/web/components/cockpit/dispatch-composer.js:6-13,39-49`).
+- Existing tests do not assert schema/runtime/MCP/UI parity and mask the MCP-required-field mismatch (`apps/web/tests/write-surface.test.js:112-119,157-160`).
+
+**Closure evidence**
+
+Separate canonical contracts exist for manifests and dispatch requests. Every projection is generated or declares a tested subset relation. A fixture matrix proves accepted and rejected values through schema, runtime, HTTP, MCP, and UI projection.
+
+### F6 - Claim handoff contracts differ intentionally by mode without a stable common envelope
+
+**Status:** Confirmed contract portability gap  
+**Severity:** Medium  
+**Owner:** `sprintctl`
+
+**Evidence**
+
+- The same CLI dispatches local and served paths (`sprintctl/cli.py:6503-6560,6929-7000`).
+- Served handoff intentionally rejects legacy adoption and transports proof differently (`cli.py:6714-6743`).
+
+**Closure evidence**
+
+Publish per-mode request/response schemas and stable common fields. Do not force semantic equivalence where capabilities intentionally differ.
+
+### F7 - Action terminal transitions lack current-incarnation fencing
+
+**Status:** Confirmed; coupled to F2  
 **Severity:** Critical  
-**Scope:** `actionq`, `actionq-dispatcher` (with implications into `sprintctl`)  
+**Owners:** `actionq` and `actionq-dispatcher`
 
-**Observed issue:**  
-Long-running execution does not actively renew queue/sprint leases during runtime in several execution paths. Expired claims can be reclaimed while worker is still running, enabling duplicate execution races.
+**Evidence**
 
-**Evidence references:**
-- `actionq-daemon`/workflow logic in `actionq` and `actionq-dispatcher`
-- `actionq/db.py` terminal path and sweep/reclaim behavior
+- Terminal updates are status-gated but not claimant-incarnation-gated in `actionq/actionq/db.py:780-873`.
+- Dispatcher terminal clients supply actor but no claimant proof (`actionq_dispatcher/clients.py:50-72`).
+- Settlement mutates sprint state before unfenced action completion (`core.py:440-449`); failure paths have the same cross-authority partial-commit exposure (`core.py:595-621`).
+- Daemon settlement exceptions can trigger another unfenced fail attempt (`daemon.py:709-717`).
+- Sprint item transitions already require live `claim_id` and `claim_token` in SQLite and Postgres (`sprintctl/db.py:824-876`, `sprintctl/pg.py:1588-1630`).
 
-**Risk / blast radius:**
-- Duplicate action completion/retry behavior under timeout pressure.
-- Hard-to-debug race conditions across queue + sprint claim transitions.
+**Safety constraint**
 
-**Root cause hypothesis:**  
-Current lifecycle assumes external sweeper behavior and fixed claim TTLs, but no periodic in-run heartbeat/renewal enforcement in executor paths.
+Use an opaque claim receipt/token or monotonic incarnation, not the claimant name. Ownership loss must stop or terminate execution and prohibit settlement. Cross-tool writes are not atomic, so recovery and idempotency must be explicit.
 
-**Correction pathway:**
-1. Add periodic claim renewal during active execution in dispatcher (`run_forever` / one-shot prepare/execute/settle path).
-2. Require ownership-token/claim identity checks at terminal transitions.
-3. Add bounded backoff + explicit stale-claim refusal when renewals are impossible.
-4. Add integration test for long-running action where claim TTL is shorter than execution window.
+### F8 - Vuoro advertises unavailable operational CLI commands
 
-**Pass criteria:**
-- Long-running action cannot be reclaimed until explicit end-of-work state is emitted.
-- No duplicate in-flight execution for a single action under controlled timeout expiry.
-
----
-
-### F3 — Repo identity canonicalization mismatch in `sprintctl` (High)
-
-**Severity:** High  
-**Scope:** `sprintctl` backend selection and authority command paths  
-
-**Observed issue:**  
-`repo_id` derivation is path-based in local/backend-resolution paths while authority paths use committed repo identity, creating possible cross-mode identity drift.
-
-**Evidence references:**
-- `sprintctl/sprintctl/backend.py`
-- `sprintctl/sprintctl/cli.py`
-- `sprintctl/tests/`
-
-**Risk / blast radius:**  
-Tenant/project interpretation can diverge by mode, especially across clones/worktrees and served/local execution boundaries.
-
-**Root cause hypothesis:**  
-Inconsistent source-of-truth order for `repo_id`.
-
-**Correction pathway:**
-1. Make identity resolution source-of-truth explicit and shared across modes.
-2. Validate identity marker vs authority UUID mismatch at command boundaries.
-3. Add regression tests for directory rename/move/worktree clone scenarios.
-
-**Pass criteria:**
-- Same logical repo resolves to one canonical ID in local, served, and authority modes.
-
----
-
-### F4 — Backend lease-lineage divergence in `sprintctl` (High)
-
-**Severity:** High  
-**Scope:** `sprintctl` sqlite vs postgres claim lease behavior  
-
-**Observed issue:**  
-Lease lineage (`lease_epoch` semantics) differs across storage backends; one backend increments/fences while the other does not (or behaves differently).
-
-**Evidence references:**
-- `sprintctl/sprintctl/db.py`
-- `sprintctl/sprintctl/db/pg.py`
-- `sprintctl/docs/protocols/claim-ownership.md`
-
-**Risk / blast radius:**  
-Operational tooling that assumes monotonic fencing/lease lineage may behave inconsistently when backends differ.
-
-**Root cause hypothesis:**  
-Backend-specific behavior was not normalized or explicitly documented as a compatibility boundary.
-
-**Correction pathway:**
-1. Choose one of:
-   - parity implementation across backends, or
-   - explicit backend capability contract with strict guards/tests.
-2. Update protocol docs to describe supported behavior by backend.
-3. Add parity-focused tests that fail if assumptions diverge.
-
-**Pass criteria:**
-- No hidden backend behavior divergence for claim lease expectations under accepted production modes.
-
----
-
-### F5 — Dispatch contract parity drift in `agentops` (High)
-
-**Severity:** High  
-**Scope:** `agentops` runtime/API/UI/workspace surfaces  
-
-**Observed issue:**  
-Allowed action/output enums and manifest fields are not fully synchronized across schema, MCP interface, runtime normalizer, and UI paths.
-
-**Evidence references:**
-- `templates/dispatch/manifest.schema.json`
-- `apps/web/lib/cockpit/dispatch-manifest.js`
-- `apps/web/app/cockpit/api/mcp/route.js`
-- `apps/web/lib/cockpit/dispatch.js`
-- `apps/web/components/cockpit/dispatch-composer.js`
-
-**Risk / blast radius:**  
-Clients can send values/skills that are valid in one layer and invalid in another, causing silent inconsistency and protocol drift.
-
-**Root cause hypothesis:**  
-Contracts are maintained separately without a canonical generated/shared contract export.
-
-**Correction pathway:**
-1. Define single canonical schema source for:
-   - manifest action classes/skills,
-   - MCP request enum set,
-   - dispatcher normalizer,
-   - UI selectors.
-2. Add parity tests at boundary edges (schema ↔ runtime ↔ MCP ↔ UI).
-3. Add explicit negative tests for unsupported combinations.
-
-**Pass criteria:**
-- One enum set and one manifest contract accepted consistently across all dispatch entry points.
-
----
-
-### F6 — Claim handoff shape and mode portability mismatch (`sprintctl`) (Medium)
-
+**Status:** Confirmed  
 **Severity:** Medium  
-**Scope:** `sprintctl` served-vs-local command semantics  
+**Owner:** `vuoro`; domain repositories retain migration authority unless a separate decision changes it
 
-**Observed issue:**  
-CLI behavior for handoff/claim commands differs by mode; JSON effect shapes and option acceptance are not uniform.
+**Evidence**
 
-**Evidence references:**
-- `sprintctl/sprintctl/cli.py`
-- `sprintctl/tests/test_served_lifecycle_routes.py`
-- `sprintctl/tests/test_claims.py`
+- CLI advertises `check-compatibility`, `migrate`, and `admin` (`vuoro_service/cli.py:23-38`), but compatibility returns a static unavailable result and migrate/admin fail through argparse (`cli.py:55-61`).
+- Tests enshrine only the advertised stubs (`packages/vuoro-service/tests/test_app.py:16-22`).
+- Public docs say the service owns compatibility checks, migration entrypoints, and authorized admin commands (`README.md:13-15`, `docs/architecture/packaging.md:21`).
+- Composition loads adapters and pins, including migration entrypoints (`composition.py:37-69,265-327`), but exposes no operational context independent of ready-app construction.
+- Deployment jobs currently call domain-owner migration CLIs directly (`deploy/kustomize/base/migration-jobs.yaml:18`).
 
-**Risk / blast radius:**  
-Automation/scripts assuming uniform command contracts can fail or mis-handle responses.
+**Decision required**
 
-**Root cause hypothesis:**  
-Legacy/local and served flows were intentionally differentiated without complete contract harmonization.
+For each command choose `implemented`, `intentionally unavailable`, or `owner CLI only`, by environment. Do not introduce a second migration authority or an open-ended admin action string.
 
-**Correction pathway:**
-1. Add mode-specific contract documentation for each command.
-2. Introduce schema-shape adapters or explicit stable fields for all paths.
-3. Add integration fixtures for both modes.
+## Dependency map
 
-**Pass criteria:**
-- Explicitly documented and tested command contracts by mode.
+- `S0/S1/S2`: F2 + F7 claim safety, sequential and blocking publication of that safety change.
+- `I1`: F3 identity correction, independent of claim safety.
+- `C1/C2/C3`: F5 contract convergence, internally sequenced but independent of claim safety.
+- `P1`: F1 policy and validator alignment, before any consumer configuration edits.
+- `L1`: F4 capability decision, independent unless epoch becomes part of claim fencing.
+- `H1`: F6 handoff portability contract, independent.
+- `O1/O2`: F8 authority decision then truthful/implemented CLI surface.
 
----
-
-### F7 — Terminal ownership fencing gap in execution layers (Medium)
-
-**Severity:** Medium  
-**Scope:** `actionq` terminal state transitions / dispatcher settle path  
-
-**Observed issue:**  
-Terminal transitions (`complete`/`fail`/`reject`) are status-gated but may not always verify live claimant/process ownership, allowing cross-path stale completion risk.
-
-**Evidence references:**
-- `actionq/actionq/db.py`
-- `actionq-dispatcher` execution and settle handlers
-
-**Risk / blast radius:**  
-Potential incorrect finalization if stale/overlapping process paths race.
-
-**Root cause hypothesis:**  
-Terminal state transitions rely on row status rather than owner token identity at finalize moment.
-
-**Correction pathway:**
-1. Add ownership token checks before terminal transition attempts.
-2. Ensure terminal writes always include ownership proof or claim receipt.
-3. Add tests for stale runner/overlap terminal race conditions.
-
-**Pass criteria:**
-- Terminal events reject when caller is not current owner of the active claim.
-
----
-
-### F8 — Vuoro operational compatibility gaps (Medium)
-
-**Severity:** Medium  
-**Scope:** `vuoro` service/client operational CLI surface  
-
-**Observed issue:**  
-Service CLI paths for compatibility/migration/admin operations are explicitly stubbed/deferred in implementation.
-
-**Evidence references:**
-- `packages/vuoro-service/src/vuoro_service/cli.py`
-
-**Risk / blast radius:**  
-Operational workflows that expect runnable compatibility/migration/admin commands fail early and may skip maintenance playbooks.
-
-**Root cause hypothesis:**  
-Feature surface intentionally deferred until adapter registration and ownership boundary tasks complete.
-
-**Correction pathway:**
-1. Document intended command availability by mode/environment.
-2. Gate runbooks to avoid invoking unavailable commands.
-3. Implement deferred paths once adapter and ownership checks are in place.
-
-**Pass criteria:**
-- No documented workflow references unavailable operational commands.
-
----
-
-## Shared correction sequence (recommended)
-
-### Wave A — Boundary correctness (Critical)
-1. F1 (served cutover)
-2. F2 (claim lease renewal)
-
-### Wave B — Identity and contract consistency (High)
-3. F3 (repo identity canonicalization)
-4. F4 (lease-lineage parity/contract)
-5. F5 (dispatch contract parity)
-
-### Wave C — Runtime hardening (Medium)
-6. F6 (mode portability contract docs)
-7. F7 (terminal ownership fencing)
-8. F8 (vuoro deferred command handling clarity)
-
-## Verification plan (read-only safe checklist)
-
-For each finding closure, re-run:
-- `python templates/dispatch/scripts/validate_vuoro_workstation_cutover.py --root /projects/dev --profile ...` (for F1)
-- `python templates/dispatch/scripts/validate_vuoro_profiles.py --project ...` (supporting env profile checks)
-- Focused unit/integration tests in modified repo scopes
-- Scripted regression checks for claim lifecycle and handoff behaviors where implemented
-- Manual contract consistency check with a representative run-through of:
-  - manifest read/load,
-  - MCP dispatch input validation,
-  - claim prepare/terminalization paths
-
-## Acceptance criteria (global)
-
-- No new direct-backend runtime residues for served-path repos.
-- No unbounded cross-mode repo identity divergence.
-- No claim-lifecycle race from missing in-run lease renewal.
-- Single canonical dispatch contract accepted across schema/API/UI.
-- Terminal claim transitions are ownership-safe.
-
-## Notes
-
-- This dossier is documentation only.
-- It is intentionally not yet represented as sprint backlog items.
-- Execution roadmap is in: [vuoro-architecture-implementation-plan-2026-07-25.md](/projects/dev/agentops/docs/assessments/vuoro-architecture-implementation-plan-2026-07-25.md)
+The executable plan is [vuoro-architecture-implementation-plan-2026-07-25.md](/projects/dev/agentops/docs/assessments/vuoro-architecture-implementation-plan-2026-07-25.md).

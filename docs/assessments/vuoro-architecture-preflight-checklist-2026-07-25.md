@@ -1,85 +1,113 @@
-# Vuoro Ecosystem Remediation Pre-Flight Checklist
-**Date:** 2026-07-25  
-**Mode:** execution planning helper (documentation only)
+# Vuoro Ecosystem Remediation Preflight Checklist
 
-Use this before starting each remediation wave to reduce regression risk.
+**Created:** 2026-07-25  
+**Reworked:** 2026-07-26  
+**Mode:** execution planning helper; no implicit operational authorization
 
-## Global pre-flight (before any wave)
+## Global preflight
 
-- [ ] Confirm target repo checkouts are on the expected branches and clean where required.
-- [ ] Confirm `git status` for working repos is either clean or intentionally isolated.
-- [ ] Confirm `.envrc` is sourced where required (`direnv allow`, `direnv exec` for script-driven checks).
-- [ ] Confirm required tooling versions are available (Node, Python, pytest, etc.) for targeted tests.
-- [ ] Confirm no active manual dispatch/closeout is underway against the same repos.
-- [ ] Create a checkpoint note with date/time and operator initials.
+- [ ] Select one implementation-plan unit and confirm all dependency gates.
+- [ ] Name the decision owner, builder, primary verifier, and fresh Spark-class secondary reviewer.
+- [ ] Confirm repository ownership and separate authorization for every repository to be changed.
+- [ ] Record input revision SHAs and expected branches without modifying unrelated dirty work.
+- [ ] Inspect declared `risk_surfaces` for queue, claim, lease, retry, recovery, projection, publication, reconciliation, and backend-parity work.
+- [ ] Record the approved contract or policy decision; do not build from an unresolved hypothesis.
+- [ ] Define validation commands, fixtures, backends, fault schedule, and expected observable results before editing.
+- [ ] Define rollback/forward-recovery behavior. Claim lifecycle rollback must account for schema and mixed-version clients.
+- [ ] Choose the protected verification-record location and redaction rules.
+- [ ] Confirm no claim tokens, credentials, direct connection strings, or unredacted environment output will enter Markdown or workflow args/results.
+- [ ] Confirm no overlapping manual dispatch or closeout touches the same reasoning unit.
+- [ ] Obtain separate authorization for any deployment, Kubernetes, Flux, image, or live-data action.
 
-## Wave A pre-flight
+## Secondary implementation review preflight
 
-### A1 — Vuoro served cutover
-- [ ] Run baseline cutover check and archive output.
-- [ ] Identify all repos in scope for the boundary (active runtime repos only).
-- [ ] Identify any local-only rollback snippets that can stay out of committed shared config.
-- [ ] Confirm required profile names (workstation/devbox/prod) before editing.
+- [ ] Reviewer did not implement the unit and starts from a fresh context.
+- [ ] Review input names exact output revision SHAs, not a moving branch.
+- [ ] Reviewer receives the approved contract, affected public surfaces, diff, and required fault/fixture matrix.
+- [ ] Reviewer can access primary evidence but must reproduce critical assertions independently.
+- [ ] Gate defines objective failure conditions and requires `PASS`, `FAIL`, or `BLOCKED`.
+- [ ] Publication and closure are blocked until `PASS`.
 
-Validation checkpoints (before edits)
-- [ ] `python templates/dispatch/scripts/validate_vuoro_workstation_cutover.py --root /projects/dev --profile workstation-vuoro-shared`
-- [ ] Spot-check target `.envrc`/config files for direct backend markers.
+## S0-S3 claim safety
 
-### A2 — Long-running claim lease renewal
-- [ ] Confirm action execution timeout and TTL knobs in current actionq/sprintctl usage.
-- [ ] Identify both worker paths: `run_forever` and one-shot handlers.
-- [ ] Confirm test harness can simulate long-running action and failure/kill scenarios.
+- [ ] S0 defines execution authority, coordination authority, and opaque claim-incarnation proof.
+- [ ] Renewal order and every partial-success/unknown-outcome state are specified.
+- [ ] Ownership loss stops or terminates work and prohibits all settlement.
+- [ ] One-shot supervision or an explicit TTL bound is decided.
+- [ ] Cross-tool terminal partial commits have idempotent recovery behavior.
+- [ ] S1 migration and mixed-version compatibility are defined before changing terminal APIs.
+- [ ] S2 inventory covers daemon, one-shot, shutdown, exception, retry, and settlement paths.
+- [ ] Session heartbeat is not counted as authority renewal.
+- [ ] Fault histories include execution beyond TTL, wrong owner, response loss, sweep/reclaim, each renewal failing independently, shutdown during renewal, and each settlement write failing after the other succeeds.
+- [ ] Integrated S3 review uses the combined pinned revisions.
 
-Validation checkpoints (before edits)
-- [ ] Baseline reproduction test for stale claim behavior (if currently available).
-- [ ] Confirm log collection paths for session/action events.
+## P1-P2 served policy and cutover
 
-## Wave B pre-flight
+- [ ] Choose literal-only or approved-sourced `.envrc` policy before editing consumers.
+- [ ] Confirm the validator's explicit eight-repository scope with owners; do not add `vuoro` implicitly.
+- [ ] Checker fixtures distinguish active wiring, comments, sourced configuration, local-only rollback, missing profile, and override.
+- [ ] Use the absolute profile path:
 
-### B1 — Repo identity canonicalization
-- [ ] Identify all repo modes tested: local sqlite vs served/backend mode.
-- [ ] Collect one reference path per mode for the same logical repo.
-- [ ] Confirm `sprintctl.dispatch.json` and marker IDs for each repo.
+```bash
+python /projects/dev/agentops/templates/dispatch/scripts/validate_vuoro_workstation_cutover.py \
+  --root /projects/dev \
+  --profile /projects/dev/agentops/templates/dispatch/environment-record/profiles/workstation-vuoro-shared.json
+```
 
-### B2 — Lease-lineage parity
-- [ ] Identify whether both sqlite and pg behaviors are used in practice in deployment.
-- [ ] Confirm test data setup for each backend in CI/local harness.
-- [ ] Confirm any docs or policy currently claims lease semantics.
+- [ ] Run smoke checks from the actual repository cwd with `direnv exec .`.
+- [ ] Assert effective repo identity and tenant-specific data; do not accept HTTP success under wildcard credentials as proof.
+- [ ] Smoke work remains read-only.
 
-### B3 — Dispatch contract parity (agentops)
-- [ ] List current accepted enums/fields per layer (schema, runtime, MCP, UI).
-- [ ] Confirm if codegen/central contract path already exists.
-- [ ] Identify all schema/normalizer/UI tests to update together.
+## I1 repository identity
 
-## Wave C pre-flight
+- [ ] Keep tenant slug, committed marker, path fallback, and authority UUID as explicitly mapped identity types.
+- [ ] Define behavior for rename, linked worktree, nested cwd, missing marker, and disagreement.
+- [ ] Verify the entire dataflow through served facade, envelope, Vuoro authorization, and work store.
+- [ ] Include unauthorized and wildcard-credential cases.
+- [ ] Secondary reviewer performs tenant-distinguishing read-only smoke from two real repository directories.
 
-### C1 — Mode portability of claim handoff
-- [ ] Capture command examples for local mode vs served mode and the intended parser behavior.
-- [ ] Confirm script expectations on claim effect shape.
-- [ ] Ensure test fixtures for both mode responses exist or can be added.
+## L1 lease capability
 
-### C2 — Terminal ownership fencing
-- [ ] Confirm action terminalization flow and error paths.
-- [ ] Confirm existing event fields can hold claimant proof/ownership token.
-- [ ] Identify rollback behavior on rejected terminal transitions.
+- [ ] Inventory every consumer of `lease_epoch` before calling backend divergence a defect.
+- [ ] Decide token-only versus epoch fencing policy.
+- [ ] If epoch fencing is selected, specify expected-epoch inputs and downstream rejection behavior before implementation.
+- [ ] Compare SQLite, Postgres, and served histories and document accepted capability differences.
 
-### C3 — Vuoro operational CLI clarity
-- [ ] Identify all workflows currently invoking deferred CLI commands.
-- [ ] Confirm mode/adaptation prerequisites for each command.
-- [ ] Confirm docs references for operational commands in repo and runbooks.
+## H1 handoff portability
 
-## Acceptance checklist before moving between waves
+- [ ] Capture versioned local and served request/response shapes.
+- [ ] Name stable common fields and intentional capability differences.
+- [ ] Test positive and negative fixtures in both modes.
+- [ ] Do not normalize away semantic differences such as unsupported legacy adoption.
 
-- [ ] Required wave-specific validation commands pass.
-- [ ] Issue-level exit criteria in implementation plan are met.
-- [ ] No new critical/high findings introduced in wave scope.
-- [ ] Notes updated with before/after evidence artifacts (command + summary).
+## C0-C3 dispatch contracts
 
-## Post-wave close actions
+- [ ] Approve separate canonical manifest and dispatch-request contracts.
+- [ ] Decide whether UI is a full projection or documented subset.
+- [ ] Decide whether `kind` and `harness` are required or defaulted.
+- [ ] Inventory action classes, skills, kinds, harnesses, priorities, outputs, required fields, and output-to-kind mappings.
+- [ ] Test schema, runtime, HTTP, MCP tools/list, MCP execution, and UI projection from one fixture matrix.
+- [ ] Reject duplicate literal enum sources outside declared/generated projections.
+- [ ] From `apps/web`, run `npm test` and `npm run build` when implementation is ready and authorized.
+- [ ] Secondary reviewer independently extracts and compares all sets and subset relations.
 
-- [ ] Capture diff summary (files touched + changed behavior).
-- [ ] Record validation command outputs in a dated appendix.
-- [ ] Verify no unintended config mode backslide.
-- [ ] Prepare next-wave blocker/clearance decision:
-  - **Continue** only if all exit criteria passed.
-  - **Pause** and escalate if ownership, data safety, or identity safety changed unexpectedly.
+## O1-O2 operational CLI
+
+- [ ] Classify each command as implemented, intentionally unavailable, or owner-CLI-only by environment.
+- [ ] Prove there is exactly one migration authority per domain.
+- [ ] Compatibility inspection does not require construction of an already-compatible ready app.
+- [ ] Unavailable operations return truthful, stable machine-readable results.
+- [ ] Migration, if approved, uses closed domains, pinned entrypoints, separate credentials, environment confirmation, and no automatic run on serve.
+- [ ] Admin, if approved, uses a closed authorized action registry rather than an arbitrary string.
+- [ ] Secondary review starts from docs/help and compares parser, exit codes, JSON shapes, environment availability, and implementation.
+- [ ] Migration/admin secondary tests use fake adapters and no real database.
+
+## Evidence and closeout
+
+- [ ] Record input/output revisions, commands, cwd, versions, exit status, redacted summaries, fixtures, and fault schedules.
+- [ ] Record minimized counterexamples and residual risks.
+- [ ] Primary verification passed.
+- [ ] Fresh secondary implementation review returned `PASS`.
+- [ ] Owning domains accepted residual risks.
+- [ ] Dependent units were cleared explicitly; independent units were not blocked by obsolete blanket wave gates.
+- [ ] Publication or closeout occurred only after all preceding checks.
