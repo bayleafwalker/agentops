@@ -8,6 +8,7 @@ import fnmatch
 import json
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 
 CLASSIFICATIONS = {
@@ -112,6 +113,14 @@ def validate_manifest(value: dict[str, Any], path: Path, root: Path) -> list[dic
     _require(value, ("schema_version", "repo_id", "adoption_level", "routing", "skills", "verification", "hooks"), path)
     if value["schema_version"] != 1:
         raise ValueError(f"{path}: schema_version must be 1")
+    authority_repo_uuid = value.get("authority_repo_uuid")
+    if authority_repo_uuid is not None:
+        try:
+            canonical_authority_repo_uuid = str(UUID(str(authority_repo_uuid)))
+        except (AttributeError, TypeError, ValueError) as exc:
+            raise ValueError(f"{path}: authority_repo_uuid must be a UUID") from exc
+        if authority_repo_uuid != canonical_authority_repo_uuid:
+            raise ValueError(f"{path}: authority_repo_uuid must be a canonical UUID")
     if value["adoption_level"] not in {"guidance-only", "observable", "dispatchable"}:
         raise ValueError(f"{path}: invalid adoption_level")
 

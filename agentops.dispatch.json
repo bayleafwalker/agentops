@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "repo_id": "agentops",
+  "authority_repo_uuid": "1308d624-3413-4327-a891-9d9cdfc2d4ea",
   "adoption_level": "guidance-only",
   "routing": {
     "default_harness": "codex",

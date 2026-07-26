@@ -8,6 +8,11 @@
   "properties": {
     "schema_version": { "type": "integer", "const": 1 },
     "repo_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+    "authority_repo_uuid": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Stable repository authority identity for UUID-based command journals; distinct from the human-readable repo_id."
+    },
     "adoption_level": { "type": "string", "enum": ["guidance-only", "observable", "dispatchable"] },
     "dispatch_group_id": { "type": "string", "minLength": 1 },
     "routing": {

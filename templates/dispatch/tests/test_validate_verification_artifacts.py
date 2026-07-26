@@ -83,6 +83,40 @@ class RepositoryContractValidatorTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "overlay does not exist"):
                 VALIDATOR.validate_manifest(manifest, root / "example.dispatch.json", root)
 
+    def test_accepts_canonical_authority_repository_uuid(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest = {
+                "schema_version": 1,
+                "repo_id": "example",
+                "authority_repo_uuid": "1308d624-3413-4327-a891-9d9cdfc2d4ea",
+                "adoption_level": "guidance-only",
+                "routing": {"action_classes": {}},
+                "skills": {"selected": ["verify-state-protocols"], "overlays": []},
+                "verification": {"command_families": ["unit"]},
+                "hooks": {"publishers": []},
+            }
+            self.assertEqual(
+                VALIDATOR.validate_manifest(manifest, root / "example.dispatch.json", root),
+                [],
+            )
+
+    def test_rejects_non_uuid_authority_repository_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest = {
+                "schema_version": 1,
+                "repo_id": "example",
+                "authority_repo_uuid": "example",
+                "adoption_level": "guidance-only",
+                "routing": {"action_classes": {}},
+                "skills": {"selected": ["verify-state-protocols"], "overlays": []},
+                "verification": {"command_families": ["unit"]},
+                "hooks": {"publishers": []},
+            }
+            with self.assertRaisesRegex(ValueError, "authority_repo_uuid must be a UUID"):
+                VALIDATOR.validate_manifest(manifest, root / "example.dispatch.json", root)
+
 
 if __name__ == "__main__":
     unittest.main()
