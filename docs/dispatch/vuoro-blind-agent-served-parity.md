@@ -36,6 +36,13 @@ pending)” means the command has a catalog route and direct source tests, but
 the deployed adapter does not yet contain it. “Deployed failure” preserves the
 observed production verdict rather than reclassifying it from local source.
 
+**Source hardening update.** Sprintctl `bdabf23` classifies all 78 registered
+CLI leaf paths as catalog, explicitly local/recovery-only, or unavailable in
+served mode. Its callback guard runs before store construction and its
+inventory assertion fails if a new command is added without a classification.
+This prevents source-level accidental SQLite/PostgreSQL fall-through; it does
+not establish that the currently deployed adapter contains the guard.
+
 ## Orientation and selection
 
 | Guidance source | Prescribed command or operation | Status | Evidence and required disposition |
@@ -133,11 +140,12 @@ without becoming a third knowledge or Git authority.
 Sprintctl source-ready work awaiting release is: `usage --context`; `item
 list`; ref/dependency list and mutations; claim list/list-sprint/show/resume;
 tracker `handoff`; `item done-from-claim`; `next-work --explain`; sprint
-detail; and authorized `sprint create`. The adapter release must include at
-least `7b9da6a`, `4cc02c0`, and `1aa8cc3`, then Vuoro must pin that immutable
-artifact and an operator must deploy it. The deployed composition must grant
-`work:sprint` only to the intended operator identity. Only post-deploy
-black-box calls may replace the deployed-failure wording above.
+detail; authorized `sprint create`; and the exhaustive served command guard.
+The adapter release must include at least `7b9da6a`, `4cc02c0`, `1aa8cc3`, and
+`bdabf23`, then Vuoro must pin that immutable artifact and an operator must
+deploy it. The deployed composition must grant `work:sprint` only to the
+intended operator identity. Only post-deploy black-box calls may replace the
+deployed-failure wording above.
 
 The project-orientation source contracts now exist, but a released Vuoro
 composition must construct the guarded aggregate from an immutable canonical
