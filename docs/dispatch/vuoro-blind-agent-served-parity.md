@@ -72,7 +72,7 @@ observed production verdict rather than reclassifying it from local source.
 
 | Guidance source | Prescribed command or operation | Status | Evidence and required disposition |
 | --- | --- | --- | --- |
-| `kctl-extract` step 2 | `kctl preflight --sprint-id <id>` | unsupported (P1 decision) | `kctl/extract.py:run_preflight_for_source` explicitly reports that served Sprintctl lacks a `maintain.check` equivalent. It must report that stable served-unavailable result, not a database-install hint. |
+| `kctl-extract` step 2 | `kctl preflight --sprint-id <id>` | source-ready (P1; deployment pending) | Sprintctl `071f747` adds the owning `work.maintain.check` read and Kctl `9954f2b` consumes it directly. The currently deployed adapter does not contain either artifact, so its failure remains deployed evidence until release acceptance. |
 | `kctl-extract` step 2 | `sprintctl maintain check --sprint-id <id>` | recovery-only | Direct-store diagnostic with no served equivalent; retain only for separately authorized recovery, not normal blind-agent execution. |
 | `kctl-extract` steps 4–9 | `kctl extract`, `kctl review list/show/approve/reject`, `kctl status` | unsupported | Only the Sprintctl **event source** for `kctl extract` is evidenced as served in the deployed verdict. The checked-in kctl CLI still opens its own local knowledge store for extraction/review/status; no complete served CLI acceptance has been recorded. Do not claim four-domain parity until these commands are either served and tested or the guidance gives an approved composition. |
 | `kctl-extract` step 10 | `kctl publish`, `kctl render` | unsupported | Publication/render remain kctl-owned persistence/output operations in the checked-in CLI. No served blind-agent acceptance evidence exists; keep them outside the normal loop pending an explicit domain decision. |
@@ -80,9 +80,9 @@ observed production verdict rather than reclassifying it from local source.
 The existing Kctl adapter catalog is not a CLI composition: `kctl extract`
 still writes a local SQLite candidate/watermark store after its served event
 read, and review/status commands open that same store. Completing this domain
-requires (1) a Sprintctl-owned `maintain.check` read operation, (2) Kctl
-served facades for candidate intake/list/show/review and publication-reference
-reads, and (3) Git-basis/digest evidence for an event-to-candidate intake.
+requires (1) Kctl served facades for candidate intake/list/show/review and
+publication-reference reads, and (2) Git-basis/digest evidence for an
+event-to-candidate intake.
 Kctl source `c21dffe` now makes repository-bearing knowledge operations
 envelope-scoped and verifies their record arguments before application calls;
 it is deployment-pending and does not itself make the local CLI served.
@@ -102,7 +102,7 @@ the deployed-failure wording above.
 The project-orientation source contracts now exist, but a released Vuoro
 composition must construct the guarded aggregate from an immutable canonical
 binding before either command is callable in a served profile. Remaining
-source decisions are kctl preflight/knowledge CLI composition.
-`kctl preflight` must continue to fail closed with stable served-unavailable
-guidance; it must not recommend PostgreSQL support. The matrix intentionally
+source decisions are knowledge CLI composition. `kctl preflight` must fail
+visibly when an older deployed profile lacks `work.maintain.check`; it must
+not recommend PostgreSQL support or a direct fallback. The matrix intentionally
 does not turn any of these into direct-mode instructions.

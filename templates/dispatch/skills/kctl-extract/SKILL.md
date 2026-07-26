@@ -41,11 +41,12 @@ Log events at the moment a decision is made or a blocker resolves — not retroa
    load the project databases. In served mode, use the declared Vuoro profile
    and do not derive authority from a checkout.
 2. Run `kctl preflight --sprint-id <id>` first so stale-item or sprint-health
-   warnings are visible. In served mode it currently fails with the stable
-   `served-operation-unavailable` result because Sprintctl has no
-   `maintain.check` catalog operation. Stop and obtain an operator-recorded
-   health decision; do **not** run `sprintctl maintain check`, add
-   `--no-preflight`, or switch to a direct backend to bypass this gate.
+   warnings are visible. The source contract is `work.maintain.check`; use it
+   only after the selected deployed profile contains the released Sprintctl
+   and Kctl artifacts. If an older profile reports it unavailable, stop and
+   obtain an operator-recorded health decision; do **not** run `sprintctl
+   maintain check`, add `--no-preflight`, or switch to a direct backend to
+   bypass this gate.
 3. Confirm the sprint has meaningful events logged. If none, note that extraction will yield no candidates.
 4. Extract:
    - `kctl extract --sprint-id <id>` for the default event set.

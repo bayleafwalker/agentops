@@ -20,10 +20,12 @@ Encode the full sprint close-out sequence so steps are not repeated ad-hoc acros
 
 1. **Run the repo's sprint-close gate.** Use the verification commands from the repo's dispatch manifest or overlay (e.g., targeted tests, contract checks). Report pass/fail. If the gate fails, diagnose and fix before continuing. Do not close a sprint on a failing gate.
 
-2. **Confirm sprint item health (local/recovery only).** In served mode,
-   `maintain check` is unavailable. Stop for an operator-recorded health
-   decision rather than opening a local/direct store or continuing with an
-   unverified close.
+2. **Confirm sprint item health.** In served mode, use the released
+   `work.maintain.check` composition through `kctl preflight`; do not invoke
+   the direct `maintain check` CLI. If the selected deployed profile does not
+   yet contain that contract, stop for an operator-recorded health decision
+   rather than opening a local/direct store or continuing with an unverified
+   close.
 
    In local/recovery mode:
 
@@ -75,10 +77,11 @@ Encode the full sprint close-out sequence so steps are not repeated ad-hoc acros
 
 6. **Refresh the sprint snapshot.** Run `sprint-snapshot` to commit the final state. Use a standalone `chore:` commit.
 
-7. **Extract knowledge.** Run `kctl-extract` only in local/recovery mode.
-   In served mode, its preflight deliberately fails closed until Sprintctl
-   owns a health-check operation and Kctl has a reviewed served knowledge
-   composition. Do not use `--no-preflight` or a local store to bypass it.
+7. **Extract knowledge.** Run `kctl-extract` only when its required served
+   knowledge composition is released, or in separately authorized
+   local/recovery mode. The served preflight has an owning health-check
+   contract, but Kctl candidate/review composition remains release-pending.
+   Do not use `--no-preflight` or a local store to bypass it.
    Key local/recovery steps:
    ```bash
    kctl extract --sprint-id <id>
