@@ -153,6 +153,113 @@ For each task below:
 
 ---
 
+## Served-readiness amendments (2026-07-26)
+
+These tracks refine the earlier implementation plan after the served-mode
+readiness and UX audit. They are source and configuration work only. Releasing
+the adapter wheel, updating a Vuoro pin or tag, and reconciling an appservice
+deployment require their owning repositories and separate operator authority.
+
+The two Vuoro CLI assessment labels previously referred to as `O1` and `O2`
+are named `V0` and `V1` in this plan. `O*` is reserved for the UX-plan
+observations below, avoiding a misleading collision between CLI completeness
+and UX policy.
+
+### Track G — Served command completeness
+
+- **G0 — Inventory and classify command surfaces.** Maintain a route-to-
+  catalog-operation inventory. Mark every unavailable aggregation explicitly;
+  do not silently open a direct backend as a fallback.
+- **G1 — Event creation.** Provide `work.event.add` and served `event add`.
+  The server selects the authenticated actor; a served client must not need or
+  transmit a client actor value.
+- **G2 — Item creation.** Provide `work.item.create` and served `item add`.
+  Resolve tracks in the server repository scope and preserve the established
+  response shape.
+- **G3 — Sprint reads.** Provide a basic `work.read.sprint` and served
+  `sprint show`. Client-side polling is acceptable for `--watch`; `--detail`
+  must fail explicitly until its aggregate has a catalog operation.
+- **G4 — Catalog and doctor coverage.** Add every G1--G3 operation to the
+  catalog contracts, command-route map, and doctor probes. Treat absent
+  operations as a blocked compatibility state, not a local fallback.
+- **G5 — Release and deployed verification.** After separately authorized
+  Vuoro/appservice release work, verify catalog/doctor and the real served
+  calls from both workstation and devbox-agent. This task is not authorization
+  to publish a wheel, change a pin, deploy, or reconcile.
+
+### Track I — Identity and references
+
+- **I0 — Parse references before command dispatch.** Accept canonical
+  `repo#id` references for every relevant item, sprint, claim, and event
+  surface; retain bare numeric IDs only where the resolved repository makes
+  them unambiguous.
+- **I1 — Make precedence deterministic.** Resolve repository identity in this
+  order: explicit reference/flag, committed marker or authority identity, then
+  guarded local-path compatibility. Reject mismatches instead of choosing a
+  convenient repository.
+- **I2 — Render resolved context safely.** Show the effective repository,
+  target, and backend before consequential calls, while redacting credentials,
+  tokens, and profile-secret material.
+- **I3 — Test identity boundaries.** Cover renamed clones, malformed and
+  mismatched references, served/local precedence, and marker-less invocation
+  without depending on live shared state.
+
+### Track U — UX fail-closed robustness
+
+- **U0 — Record the policy.** Remote and served execution without a repository
+  marker fails closed by default. An explicit `--repo-id` plus an
+  invocation-scoped opt-in flag may corroborate a marker-less invocation;
+  neither is a persistent global bypass.
+- **U1 — Introduce parsing and preflight scaffolding.** Build the shared
+  reference parser, repository precedence resolver, and universal preflight
+  before migrating individual command groups.
+- **U2 — Enforce the marker-less guard.** Require the U0 corroboration for
+  remote/served commands, retain unchanged local behavior, and expose the
+  resolved context or a precise failure taxonomy.
+- **U3 — Keep daemon/service identity explicit.** Daemon and service
+  environments must supply a marker or explicit repository identity. Reconcile
+  their environment split before any daemon rollout; never add a global daemon
+  allowlist or persistent bypass.
+- **U4 — Surface actionable failures.** Classify malformed references,
+  mismatches, missing markers, unavailable catalog operations, and tombstoned
+  targets so ordinary agents can act without operator guesswork.
+- **U5 — Prove safe handling with disposable fixtures.** Test tombstones and
+  remote-like paths only against disposable fixtures; do not use production
+  stores as a UX test harness.
+
+**Dependencies.** G1--G4 require U1--U3 where their CLI routes accept a
+repository or target reference: parse and resolve context before issuing a
+served operation, and enforce the marker-less guard before an authority call.
+G5 depends on landed G1--G4 paths and separately authorized release work.
+
+### Cutover evidence and configuration conformance
+
+- **P1 — Reconcile static and historical evidence.** Compare the static
+  workstation checker with the historical runtime-cutover ledger. A checker
+  failure may reveal configuration-policy drift without invalidating recorded
+  runtime evidence; report the two facts separately and correct the checker or
+  executable configuration deliberately.
+- **P2 — Configuration conformance.** Keep committed executable environment
+  files on the served profile, remove direct-backend rollback wiring from them,
+  and validate a deliberate repository subset when a declared workspace member
+  is absent or on an independently owned branch. Report exclusions rather than
+  calling the full workspace gate clean.
+
+### Independent secondary-review checklist
+
+Before accepting a G/I/U implementation, a fresh reviewer must verify:
+
+- malformed and mismatched references, resolver precedence, and redacted
+  resolved-context output;
+- marker-less remote/served behavior, unchanged local behavior, and absence
+  of a global daemon bypass;
+- disposable tombstone coverage and the failure taxonomy;
+- catalog/doctor coverage only for commands whose G/#1984 paths have landed;
+- response-shape parity, authenticated server actor selection, and explicit
+  failure for unavailable aggregates.
+
+---
+
 ## Cross-cutting validation checklist (after each wave)
 
 - `python templates/dispatch/scripts/validate_vuoro_profiles.py` for active members
