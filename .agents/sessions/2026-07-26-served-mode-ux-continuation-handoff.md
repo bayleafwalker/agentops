@@ -1,6 +1,6 @@
 # Handover: served-mode UX continuation
 
-- Cut: `2026-07-26T11:20:00+03:00`
+- Cut: `2026-07-26T13:20:00+03:00`
 - Goal: make served mode safe and usable across workstation and devbox-agent.
 - Scope boundary: source/configuration work is published; Vuoro release and
   appservice deployment remain separately authorized operator work.
@@ -10,7 +10,7 @@
 
 ## Published state
 
-`sprintctl/main` is at `531df1d` and equals `origin/main`.
+`sprintctl/main` is at `2f2a9cb` and equals `origin/main`.
 
 | Commit | Delivered source behavior |
 | --- | --- |
@@ -27,6 +27,9 @@
 | `d6b759f` | Restores local cwd identity and recovery's existing-output refusal while adding scoped `item list`, `next-work`, and `context-candidates` targets. |
 | `fc4eecc` | Preserves previously unscoped local capability-receipt event writes while retaining explicit/committed project checks. |
 | `531df1d` | Shared next-work guidance uses `repo#id` for generated item/sprint commands; local guidance remains bare-ID compatible. |
+| `e69d89b`, `9952bde`, `b1ba051` | Text-mode served writes, claim start, and item/sprint status echo redacted resolved context on their supported success and error paths. |
+| `cdd7fd5` | Text-mode served `next-work`, including project mode, echoes resolved context for ready, empty, and served-error outcomes; JSON remains unchanged. |
+| `2f2a9cb` | Text-mode served `item note` echoes resolved context on success and served rejection; JSON remains unchanged. |
 | `a16e311` | Agent and doc-ref guidance requires `repo#id` on shared state. |
 
 Related committed cutover configuration is on the owning repositories:
@@ -61,6 +64,10 @@ plan includes G/I/U served-readiness tracks in `9af951d`; upstream
   evidence is now present.
 - GitHub CI run `30192103641` for `531df1d` is green across the same full
   Python, disposable PostgreSQL, and producer-contract jobs.
+- GitHub CI run `30192405825` for `2f2a9cb` is green across the same full
+  Python, disposable PostgreSQL, and producer-contract jobs. Focused
+  `tests/test_served_lifecycle_routes.py` also passed with 53 tests after the
+  `next-work` and `item note` context additions.
 - A broad suite was started more than once but entered an unrelated
   long-running I/O/integration segment; it was deliberately terminated. Do
   not represent the full suite as passing. Re-run it in a fresh session, with
@@ -77,11 +84,12 @@ commits; do not turn the checked-in partial behavior into a completion claim.
    self-referential instructions. Preserve IDs that are genuinely local to a
    command (for example, a ref or dependency row ID) rather than pretending
    they are repository references.
-2. Extend resolved-context reporting beyond the currently covered served
-   reads (`item show`, `sprint show`/`list`, `event list`) to the remaining
-   relevant commands and self-referential instructions. Success, not-found,
-   and empty output must name repository, source, backend, and a
-   credential-redacted target without breaking established JSON contracts.
+2. Audit and extend resolved-context reporting beyond the now-covered served
+   reads, `next-work`, `item add`/`event add`/`item note`, claim start, and
+   item/sprint status to the remaining relevant commands and
+   self-referential instructions. Success, not-found, and empty output must
+   name repository, source, backend, and a credential-redacted target without
+   breaking established JSON contracts.
 3. Preserve unchanged local behavior. A marker without `repo_id` is not a
    non-local identity. Daemon/service environments need a committed marker or
    explicit per-invocation identity; never add a persistent allowlist.
