@@ -77,6 +77,17 @@ observed production verdict rather than reclassifying it from local source.
 | `kctl-extract` steps 4–9 | `kctl extract`, `kctl review list/show/approve/reject`, `kctl status` | unsupported | Only the Sprintctl **event source** for `kctl extract` is evidenced as served in the deployed verdict. The checked-in kctl CLI still opens its own local knowledge store for extraction/review/status; no complete served CLI acceptance has been recorded. Do not claim four-domain parity until these commands are either served and tested or the guidance gives an approved composition. |
 | `kctl-extract` step 10 | `kctl publish`, `kctl render` | unsupported | Publication/render remain kctl-owned persistence/output operations in the checked-in CLI. No served blind-agent acceptance evidence exists; keep them outside the normal loop pending an explicit domain decision. |
 
+The existing Kctl adapter catalog is not a CLI composition: `kctl extract`
+still writes a local SQLite candidate/watermark store after its served event
+read, and review/status commands open that same store. Completing this domain
+requires (1) a Sprintctl-owned `maintain.check` read operation, (2) a
+repository-scoped knowledge envelope that verifies the argument or returned
+record belongs to the authorized `repo_id`, (3) Kctl served facades for
+candidate intake/list/show/review and publication-reference reads, and (4)
+Git-basis/digest evidence for an event-to-candidate intake. Publication,
+render, and export remain Git-owned projections unless a separate ownership
+decision changes that boundary.
+
 ## Implementation and release queue implied by this inventory
 
 Sprintctl source-ready work awaiting release is: `usage --context`; `item
