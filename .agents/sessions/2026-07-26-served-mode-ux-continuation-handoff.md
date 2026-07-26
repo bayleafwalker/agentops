@@ -1,6 +1,6 @@
 # Handover: served-mode UX continuation
 
-- Cut: `2026-07-26T09:38:31+03:00`
+- Cut: `2026-07-26T10:12:00+03:00`
 - Goal: make served mode safe and usable across workstation and devbox-agent.
 - Scope boundary: source/configuration work is published; Vuoro release and
   appservice deployment remain separately authorized operator work.
@@ -10,7 +10,7 @@
 
 ## Published state
 
-`sprintctl/main` is at `ac83121` and equals `origin/main`.
+`sprintctl/main` is at `a7736a3` and equals `origin/main`.
 
 | Commit | Delivered source behavior |
 | --- | --- |
@@ -20,6 +20,7 @@
 | `809165b` | `item show --id repo#id`, scope-conflict rejection, and redacted resolved context. |
 | `749e757` | Doctor reports `backend-uncorroborated` as its own finding. |
 | `3e57df4`, `7511450`, `02fac70`, `ac83121` | Scoped `repo#id` inputs for item status, served creation/read paths, item management, and claim create/start. |
+| `a7736a3` | Scoped remaining local item, claim, event-list, and sprint targets, including optional `item done-from-claim --id`; claim/ref row IDs remain local numeric IDs. |
 | `a16e311` | Agent and doc-ref guidance requires `repo#id` on shared state. |
 
 Related committed cutover configuration is on the owning repositories:
@@ -42,6 +43,11 @@ plan includes G/I/U served-readiness tracks in `9af951d`; upstream
   tests; 23 claim CLI tests; plus focused scoped-reference tests.
 - `python /projects/dev/agentops/templates/dispatch/scripts/validate_verification_artifacts.py --root .`
   passed in Sprintctl.
+- Sprintctl `a7736a3` passed four direct scoped-reference tests covering claim
+  list, optional done-from-claim item, event-list sprint/item, and sprint kind,
+  plus `git diff --check` and the verification-artifact gate. Its broader
+  claim/core test invocations began successfully but entered the known
+  long-running segment; they are not pass evidence.
 - A broad suite was started more than once but entered an unrelated
   long-running I/O/integration segment; it was deliberately terminated. Do
   not represent the full suite as passing. Re-run it in a fresh session, with
