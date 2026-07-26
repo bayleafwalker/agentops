@@ -17,7 +17,8 @@
     "work:batch",
     "work:project-read",
     "work:project-write",
-    "work:pilot-read"
+    "work:pilot-read",
+    "work:sprint"
   ],
   "production_endpoint_denied": false
 }
