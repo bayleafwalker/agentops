@@ -6,9 +6,10 @@ change; those remain owner-controlled deployment actions.
 
 ## Required source revisions
 
-- ActionQ: `7a2af7b` or a descendant. It contains ActionQ schema v2, opaque
-  claim receipts, terminal settlement fencing, dual-authority supervision, and
-  settlement evidence.
+- ActionQ: `d344cc2` or a descendant. It contains ActionQ schema v2, opaque
+  claim receipts, terminal settlement fencing, dual-authority supervision,
+  settlement evidence, and the complete disposable cross-authority fault
+  matrix.
 - ActionQ dispatcher: `6436306` or a descendant. It no longer publishes the
   colliding `actionq-daemon` command.
 - Vuoro: `b652c4f` or a descendant. Its service CLI exposes only operations it
