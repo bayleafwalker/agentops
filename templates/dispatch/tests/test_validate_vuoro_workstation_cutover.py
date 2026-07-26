@@ -18,6 +18,11 @@ def _profile(tmp_path: Path) -> Path:
     return profile
 
 
+def test_vuoro_is_a_selected_cutover_repository() -> None:
+    """The public Vuoro repo must receive the same served-session contract."""
+    assert "vuoro" in validator.REPOSITORIES
+
+
 def test_served_envrc_is_accepted(tmp_path: Path) -> None:
     profile = _profile(tmp_path)
     path = tmp_path / ".envrc"

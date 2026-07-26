@@ -25,6 +25,7 @@ REPOSITORIES = (
     "homelab-analytics",
     "scribectl",
     "sprintctl",
+    "vuoro",
 )
 
 
