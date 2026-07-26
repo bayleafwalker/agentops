@@ -87,27 +87,20 @@ plan includes G/I/U served-readiness tracks in `9af951d`; upstream
   a foreground timeout and an explicit report of any skipped integration
   tests.
 
-## Remaining source work
+## Source acceptance status
 
-The UX plan remains incomplete. Continue in small, independently tested
-commits; do not turn the checked-in partial behavior into a completion claim.
+The supported served command set has completed its source-side acceptance
+audit: repository-scoped inputs and generated guidance are covered; all served
+facade invocations pass resolved context into transport failures; text
+success, empty, and rejection paths have direct coverage without changing JSON
+contracts; marker-less non-local reads fail closed under the
+`backend-uncorroborated` taxonomy; and the remote tombstone path has
+disposable-Postgres CI evidence. Preserve this boundary: a marker without
+`repo_id` is not a non-local identity, and daemon/service environments still
+need a committed marker or the explicit invocation-only opt-in.
 
-1. Before declaring source completion, retain the plan's requirement-by-
-   requirement audit: all supported served facade calls now pass resolved
-   context into transport failures, while text success/error/empty coverage
-   has direct tests for the user-facing served commands. Preserve established
-   JSON contracts.
-2. Reconfirm no user-facing repository reference was missed by the `repo#id`
-   audit, including optional item/sprint targets and generated self-reference
-   instructions. Preserve IDs that are genuinely command-local (for example,
-   ref or dependency row IDs) rather than pretending they are repository
-   references.
-3. Preserve unchanged local behavior. A marker without `repo_id` is not a
-   non-local identity. Daemon/service environments need a committed marker or
-   explicit per-invocation identity; never add a persistent allowlist.
-4. Update status/evidence in `docs/plans/vuoro-ux-robustness-plan.md` only
-   when a requirement has direct tests. Keep its D2--D8/D-new-1 acceptance
-   criteria as the authoritative audit checklist.
+The plan's D2--D8/D-new-1 checklist remains the authoritative record of this
+source evidence. It is not a release or deployment claim.
 
 ## Next-agent session guidance
 
