@@ -33,7 +33,7 @@ For each task below:
   3. Remove/relocate commented or fallback direct-backend snippets to local-only files.
   4. Re-run checker and confirm zero violations.
 - **Validation:**
-  - `python templates/dispatch/scripts/validate_vuoro_workstation_cutover.py --root /projects/dev --profile workstation-vuoro-shared`
+  - `python templates/dispatch/scripts/validate_vuoro_workstation_cutover.py --root /projects/dev --profile /projects/dev/agentops/templates/dispatch/environment-record/profiles/workstation-vuoro-shared.json`
   - repo-specific smoke run: `. .envrc && sprintctl sprint list` should route through Vuoro-served context.
 - **Exit criteria:**
   - No `SPRINTCTL_BACKEND=remote`, `SPRINTCTL_URL`, or direct DB host hints in covered repos’ committed runtime configs.

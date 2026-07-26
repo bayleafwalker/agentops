@@ -12,8 +12,14 @@ validator = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(validator)
 
 
+def _profile(tmp_path: Path) -> Path:
+    profile = tmp_path / "workstation-vuoro-shared.json"
+    profile.write_text("{}\n")
+    return profile
+
+
 def test_served_envrc_is_accepted(tmp_path: Path) -> None:
-    profile = "/projects/dev/agentops/templates/dispatch/environment-record/profiles/workstation-vuoro-shared.json"
+    profile = _profile(tmp_path)
     path = tmp_path / ".envrc"
     path.write_text(
         "export SPRINTCTL_BACKEND=served\n"
@@ -26,7 +32,7 @@ def test_served_envrc_is_accepted(tmp_path: Path) -> None:
 def test_served_envrc_with_unset_sprintctl_url_is_accepted(tmp_path: Path) -> None:
     """The prescribed cutover block ends with `unset SPRINTCTL_URL`; that
     cleanup line must not itself trip the direct-backend-wiring check."""
-    profile = "/projects/dev/agentops/templates/dispatch/environment-record/profiles/workstation-vuoro-shared.json"
+    profile = _profile(tmp_path)
     path = tmp_path / ".envrc"
     path.write_text(
         "export SPRINTCTL_BACKEND=served\n"
@@ -38,7 +44,7 @@ def test_served_envrc_with_unset_sprintctl_url_is_accepted(tmp_path: Path) -> No
 
 
 def test_direct_postgres_wiring_is_rejected(tmp_path: Path) -> None:
-    profile = "/profiles/vuoro-shared.json"
+    profile = _profile(tmp_path)
     path = tmp_path / ".envrc"
     path.write_text(
         "export SPRINTCTL_BACKEND=remote\n"
@@ -50,3 +56,28 @@ def test_direct_postgres_wiring_is_rejected(tmp_path: Path) -> None:
 
     assert any("direct-backend" in error for error in errors)
     assert any("missing `export SPRINTCTL_BACKEND=served`" in error for error in errors)
+
+
+def test_commented_direct_backend_wiring_is_ignored(tmp_path: Path) -> None:
+    profile = _profile(tmp_path)
+    path = tmp_path / ".envrc"
+    path.write_text(
+        "export SPRINTCTL_BACKEND=served # default\n"
+        f"export SPRINTCTL_VUORO_PROFILE={profile} # selected profile\n"
+        "# export SPRINTCTL_BACKEND=remote\n"
+        "# export SPRINTCTL_URL=postgresql://example.invalid/sprintctl\n"
+    )
+
+    assert validator.validate_envrc(path, profile) == []
+
+
+def test_hash_in_quoted_value_is_not_treated_as_comment(tmp_path: Path) -> None:
+    profile = _profile(tmp_path)
+    path = tmp_path / ".envrc"
+    path.write_text(
+        "export SPRINTCTL_BACKEND=served\n"
+        f"export SPRINTCTL_VUORO_PROFILE={profile}\n"
+        'export SPRINTCTL_URL="postgresql://example.invalid/sprintctl#fragment"\n'
+    )
+
+    assert any("direct-backend" in error for error in validator.validate_envrc(path, profile))
