@@ -36,7 +36,7 @@ observed production verdict rather than reclassifying it from local source.
 | --- | --- | --- | --- |
 | workspace `AGENTS.md` / devbox start | `sprintctl doctor --json` | served | Recorded as a successful served read in the handoff; catalog probing is part of `doctor`. |
 | `task-pickup` step 1 | `sprintctl sprint list --active --json` | served | `sprint.list` routes to `work.read.sprints`; its served implementation forwards `active_only` (`cli.py:sprint_list`). |
-| `task-pickup` step 1 | `sprintctl sprint list --include-backlog --json` | served | Same `work.read.sprints` route; the served implementation forwards `include_backlog`. Project-wide `--project` is separately unsupported. |
+| `task-pickup` step 1 | `sprintctl sprint list --include-backlog --json` | served | Same `work.read.sprints` route; the served implementation forwards `include_backlog`. Project-wide `--project` has a separate, deployment-pending aggregate route. |
 | `task-pickup` step 3; `sprint-resume` step 3 | `sprintctl claim list-sprint --sprint-id <sprint-id> --json` | source-ready (P0; deployment pending) | `work.read.claims` route landed in Sprintctl `934ceb6`/`c199961`; production still has the handoff’s direct PostgreSQL fall-through and misleading `psycopg` advice. |
 | `task-pickup` step 4 | `sprintctl next-work --sprint-id <sprint-id> --json --explain` | source-ready (P1; deployment pending) | Atomic `work.read.next-work-explain` landed in `8b585a6`; it is not yet available from the deployed adapter. |
 | `task-pickup` step 6; `sprint-resume` step 3 | `sprintctl item show --id <item-id> --json` | served | `item.show` routes to `work.read.item`; served output includes events, active claims, refs, and dependency fields (`cli.py:item_show`). |
@@ -44,8 +44,8 @@ observed production verdict rather than reclassifying it from local source.
 | `task-pickup` step 6 | `sprintctl item dep list --id <item-id> --json` | source-ready (P0; deployment pending) | `work.read.item` item-scoped dependency view landed in `934ceb6`; deployed behavior remains unavailable. |
 | `task-pickup` step 7; `sprint-resume` step 4 | `sprintctl claim start --item-id <item-id> ... --json` | deployed served | `claim.start` routes to `work.claim.start`; the deployed verdict includes claim start. |
 | shared/project orientation | `sprintctl usage --context --sprint-id <id> --json` | source-ready (P0; deployment pending) | Atomic `work.read.context` landed in `3ac6cac`, with snapshot-isolation regression evidence in `fa1ccc7`; deployed behavior remains the handoff’s direct PostgreSQL fall-through and integer-only scope. |
-| shared/project orientation | `sprintctl usage --context --project --json` | unsupported (P1 decision) | The project composition in `cli.py:usage_cmd` opens project stores. No catalog aggregate has been established. |
-| project orientation | `sprintctl sprint list --project ... --json` | unsupported (P1 decision) | `SERVED_COMMAND_ROUTES` explicitly excludes project-scoped sprint lists and `cli.py:sprint_list` rejects it in served mode. |
+| shared/project orientation | `sprintctl usage --context --project --json` | source-ready (P1; deployment pending) | `work.project.context` landed in `43cab10`. The served CLI treats the client path as presence-only and never reads `project.toml`; the owner requires a canonical server binding and authorization for every member before member reads. |
+| project orientation | `sprintctl sprint list --project ... --json` | source-ready (P1; deployment pending) | `work.project.sprints` landed in `43cab10`, preserving the existing bare JSON array of origin-tagged sprints. It fails closed without the canonical server binding and all-member authorization. |
 | project orientation | `sprintctl sprint show --detail --json` | source-ready (P1; deployment pending) | Server-side `work.read.sprint-detail` landed in `4cc02c0`; it does not make project-wide orientation available and is not in the deployed adapter. |
 
 ## Inspect, claim, resume, and iterate
@@ -83,13 +83,14 @@ Sprintctl source-ready work awaiting release is: `usage --context`; `item
 list`; ref/dependency list and mutations; claim list/list-sprint/show/resume;
 tracker `handoff`; `item done-from-claim`; `next-work --explain`; and sprint
 detail. The adapter release must include at least `7b9da6a` and `4cc02c0`
-(current source head `9185883`), then Vuoro must pin that immutable artifact
+(current source head `43cab10`), then Vuoro must pin that immutable artifact
 and an operator must deploy it. Only post-deploy black-box calls may replace
 the deployed-failure wording above.
 
-Remaining source decisions are server-side project orientation (`usage
---context --project`, `sprint list --project`, including canonical binding and
-per-member authorization) and kctl preflight/knowledge CLI composition.
+The project-orientation source contracts now exist, but a released Vuoro
+composition must construct the guarded aggregate from an immutable canonical
+binding before either command is callable in a served profile. Remaining
+source decisions are kctl preflight/knowledge CLI composition.
 `kctl preflight` must continue to fail closed with stable served-unavailable
 guidance; it must not recommend PostgreSQL support. The matrix intentionally
 does not turn any of these into direct-mode instructions.
