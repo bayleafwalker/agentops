@@ -10,7 +10,7 @@
 
 ## Published state
 
-`sprintctl/main` is at `b4e1311` and equals `origin/main`.
+`sprintctl/main` is at `e65af4e` and equals `origin/main`.
 
 | Commit | Delivered source behavior |
 | --- | --- |
@@ -33,6 +33,7 @@
 | `53092ce` | Text-mode served claim heartbeat, release, and handoff report resolved context on supported success, rejection, and transport-error paths. |
 | `8790add` | Served `item show` now includes resolved context when its service read fails. |
 | `1bf4a68` | Text-mode served `authority sync` and `pilot cutover-evidence` report resolved context; all supported served facade invocations now propagate it through transport failures. |
+| `40160cb` | Directly tests text-success resolved-context output for served `item show`, closing the source acceptance evidence gap. |
 | `a16e311` | Agent and doc-ref guidance requires `repo#id` on shared state. |
 
 Related committed cutover configuration is on the owning repositories:
@@ -74,6 +75,8 @@ plan includes G/I/U served-readiness tracks in `9af951d`; upstream
 - GitHub CI run `30192601734` for `1bf4a68` is green across both full Python
   suites, disposable PostgreSQL integration, and the producer-contract job.
   The focused lifecycle and served-authority-sync suites passed 68 tests.
+- GitHub CI run `30192732608` for `40160cb` is green across both full Python
+  suites, disposable PostgreSQL integration, and the producer-contract job.
 - A broad suite was started more than once but entered an unrelated
   long-running I/O/integration segment; it was deliberately terminated. Do
   not represent the full suite as passing. Re-run it in a fresh session, with
@@ -85,12 +88,12 @@ plan includes G/I/U served-readiness tracks in `9af951d`; upstream
 The UX plan remains incomplete. Continue in small, independently tested
 commits; do not turn the checked-in partial behavior into a completion claim.
 
-1. Run a requirement-by-requirement source acceptance audit against
-   `docs/plans/vuoro-ux-robustness-plan.md`. The direct served facade paths
-   have context propagation, but do not equate that with D6's broader
-   every-command claim without reviewing all relevant CLI outputs and their
-   established JSON contracts.
-2. Confirm no user-facing repository reference was missed by the `repo#id`
+1. Before declaring source completion, retain the plan's requirement-by-
+   requirement audit: all supported served facade calls now pass resolved
+   context into transport failures, while text success/error/empty coverage
+   has direct tests for the user-facing served commands. Preserve established
+   JSON contracts.
+2. Reconfirm no user-facing repository reference was missed by the `repo#id`
    audit, including optional item/sprint targets and generated self-reference
    instructions. Preserve IDs that are genuinely command-local (for example,
    ref or dependency row IDs) rather than pretending they are repository
