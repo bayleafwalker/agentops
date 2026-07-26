@@ -28,6 +28,7 @@ WORK_AUTHORITIES = {
     "work:project-write",
     "work:pilot-read",
 }
+WORKSTATION_OPERATOR_AUTHORITIES = WORK_AUTHORITIES | {"work:sprint"}
 
 
 class ProfileError(ValueError):
@@ -111,8 +112,13 @@ def validate_profile(path: Path, environment: dict[str, object]) -> dict[str, ob
     if not isinstance(credential_ref, str) or not re.fullmatch(r"file:(?:/|~/).+", credential_ref):
         raise ProfileError(f"{path}: credential_ref must be a local file reference, never a token or URL")
     authorities = set(_strings(value["required_authorities"], "required_authorities", path, AUTHORITY))
-    missing = WORK_AUTHORITIES - authorities
-    extra = authorities - WORK_AUTHORITIES
+    expected_authorities = (
+        WORKSTATION_OPERATOR_AUTHORITIES
+        if environment["id"] == "workstation-linux"
+        else WORK_AUTHORITIES
+    )
+    missing = expected_authorities - authorities
+    extra = authorities - expected_authorities
     if missing or extra:
         raise ProfileError(f"{path}: authorities must exactly cover current served work operations; missing={sorted(missing)} extra={sorted(extra)}")
     if value["production_endpoint_denied"] is not False:

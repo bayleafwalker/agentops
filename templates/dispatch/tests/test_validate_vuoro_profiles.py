@@ -24,6 +24,7 @@ def test_checked_in_workstation_profile_is_valid() -> None:
     profile = validator.validate_profile(_profile("workstation-vuoro-shared.json"), environment)
 
     assert profile["target"]["environment_class"] == "production"
+    assert "work:sprint" in profile["required_authorities"]
 
 
 def test_checked_in_devbox_profile_is_valid() -> None:
@@ -33,6 +34,7 @@ def test_checked_in_devbox_profile_is_valid() -> None:
     profile = validator.validate_profile(_profile("devbox-agent-vuoro-shared.json"), environment)
 
     assert profile["source_environment_id"] == "devbox-vm"
+    assert "work:sprint" not in profile["required_authorities"]
 
 
 def test_production_target_is_rejected(tmp_path: Path) -> None:

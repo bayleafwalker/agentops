@@ -129,7 +129,7 @@ production tokens through the approved secret workflow; write each token only
 to the profile's mode-0600 credential file on its named host. Do not put a
 token in Git, `.envrc`, a shell history, a sprint note, or a command argument.
 
-The following registry entries use these principals and exactly the eight
+The following registry entries use these principals and exactly the nine
 profile authorities, but are ephemeral-validation identities only:
 
 | Credential file | Actor | Bound environment |
