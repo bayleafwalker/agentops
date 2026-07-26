@@ -74,7 +74,7 @@ observed production verdict rather than reclassifying it from local source.
 | --- | --- | --- | --- |
 | `kctl-extract` step 2 | `kctl preflight --sprint-id <id>` | source-ready (P1; deployment pending) | Sprintctl `071f747` adds the owning `work.maintain.check` read and Kctl `9954f2b` consumes it directly. The currently deployed adapter does not contain either artifact, so its failure remains deployed evidence until release acceptance. |
 | `kctl-extract` step 2 | `sprintctl maintain check --sprint-id <id>` | recovery-only | Direct-store diagnostic with no served equivalent; retain only for separately authorized recovery, not normal blind-agent execution. |
-| `kctl-extract` steps 4–9 | `kctl extract`, `kctl review list/show/approve/reject`, `kctl status` | partial source-ready (deployment pending) | Kctl `58d81c1` serves UUID-based list/show/approve/reject without opening SQLite. Extraction intake and status remain local-only; do not claim four-domain parity until they have a tested served composition. |
+| `kctl-extract` steps 4–9 | `kctl extract`, `kctl review list/show/approve/reject`, `kctl status` | partial source-ready (deployment pending) | Kctl `0afd377` serves UUID-based list/show/approve/reject/status without opening SQLite. Extraction intake remains local-only; do not claim four-domain parity until it has a tested served composition. |
 | `kctl-extract` step 10 | `kctl publish`, `kctl render` | unsupported | Publication/render remain kctl-owned persistence/output operations in the checked-in CLI. No served blind-agent acceptance evidence exists; keep them outside the normal loop pending an explicit domain decision. |
 
 The existing Kctl adapter catalog is not a CLI composition: `kctl extract`
