@@ -1,6 +1,6 @@
 # Handover: served-mode UX continuation
 
-- Cut: `2026-07-26T10:45:00+03:00`
+- Cut: `2026-07-26T11:05:00+03:00`
 - Goal: make served mode safe and usable across workstation and devbox-agent.
 - Scope boundary: source/configuration work is published; Vuoro release and
   appservice deployment remain separately authorized operator work.
@@ -10,7 +10,7 @@
 
 ## Published state
 
-`sprintctl/main` is at `7cb278d` and equals `origin/main`.
+`sprintctl/main` is at `fc4eecc` and equals `origin/main`.
 
 | Commit | Delivered source behavior |
 | --- | --- |
@@ -24,6 +24,8 @@
 | `8cf06d8` | Text-mode served `sprint show`/`sprint list`/`event list` echo redacted resolved context on success, empty output, and served errors; existing JSON shapes remain unchanged. |
 | `b84a3d5` | Doctor distinguishes reachable-but-empty remote data (SF2-b) and a remote `superseded_marker` (SF3), read-only. |
 | `7cb278d` | Remote commands query the optional tombstone read-only and fail closed before schema handshake when it is present. |
+| `d6b759f` | Restores local cwd identity and recovery's existing-output refusal while adding scoped `item list`, `next-work`, and `context-candidates` targets. |
+| `fc4eecc` | Preserves previously unscoped local capability-receipt event writes while retaining explicit/committed project checks. |
 | `a16e311` | Agent and doc-ref guidance requires `repo#id` on shared state. |
 
 Related committed cutover configuration is on the owning repositories:
@@ -51,11 +53,11 @@ plan includes G/I/U served-readiness tracks in `9af951d`; upstream
   plus `git diff --check` and the verification-artifact gate. Its broader
   claim/core test invocations began successfully but entered the known
   long-running segment; they are not pass evidence.
-- Sprintctl `8cf06d8` passed all 50 served lifecycle route tests. Sprintctl
-  `b84a3d5` passed all 20 doctor tests. Sprintctl `7cb278d` passed 39
-  backend/doctor tests; its new disposable-Postgres integration test is
-  collected but skipped without `SPRINTCTL_TEST_PG_URL` (107 skips total), so
-  no real disposable-Postgres execution is claimed.
+- GitHub CI run `30191969056` for `fc4eecc` is green: Python 3.11 and 3.12
+  full suites, disposable PostgreSQL integration, and the kctl producer
+  contract all passed. This executes the tombstone test against CI's
+  disposable PostgreSQL fixture, so the prior missing D-new-1 integration
+  evidence is now present.
 - A broad suite was started more than once but entered an unrelated
   long-running I/O/integration segment; it was deliberately terminated. Do
   not represent the full suite as passing. Re-run it in a fresh session, with
@@ -77,13 +79,10 @@ commits; do not turn the checked-in partial behavior into a completion claim.
    relevant commands and self-referential instructions. Success, not-found,
    and empty output must name repository, source, backend, and a
    credential-redacted target without breaking established JSON contracts.
-3. Run the new tombstone check against `SPRINTCTL_TEST_PG_URL`'s disposable
-   Postgres fixture. The command preflight and doctor diagnostics are
-   implemented, but that integration evidence is absent in this environment.
-4. Preserve unchanged local behavior. A marker without `repo_id` is not a
+3. Preserve unchanged local behavior. A marker without `repo_id` is not a
    non-local identity. Daemon/service environments need a committed marker or
    explicit per-invocation identity; never add a persistent allowlist.
-5. Update status/evidence in `docs/plans/vuoro-ux-robustness-plan.md` only
+4. Update status/evidence in `docs/plans/vuoro-ux-robustness-plan.md` only
    when a requirement has direct tests. Keep its D2--D8/D-new-1 acceptance
    criteria as the authoritative audit checklist.
 
