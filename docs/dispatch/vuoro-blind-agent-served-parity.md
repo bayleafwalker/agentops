@@ -1,12 +1,18 @@
 # Vuoro blind-agent served parity matrix
 
-Status: **source/deployment split, 2026-07-26**. This is the blind-agent
+Status: **historical source/deployment split, 2026-07-26**. This is the blind-agent
 inventory required by the parity handoff. It records Sprintctl source that is
 ready to ship separately from the currently deployed Vuoro adapter. It is
 **not a claim of deployed parity**: production remains on the adapter assessed
 in the handoff below, so its observed unsupported operations remain failures
 until an immutable adapter release is pinned by Vuoro and deployed by the
 operator.
+
+**Current release clarification.** Vuoro v0.1.9 subsequently received
+accepted evidence for its bounded served four-domain catalog. That acceptance
+does not clear unattended ActionQ dispatch: claim-incarnation, supervised
+renewal, and fault-recovery work are separate operational gates. See
+[`vuoro-substrate-simplification-refactoring-assessment-2026-07-26.md`](../assessments/vuoro-substrate-simplification-refactoring-assessment-2026-07-26.md).
 
 The contract is deliberately narrow. A command is **served** only when the
 guidance can use it against the selected Vuoro profile without opening a
