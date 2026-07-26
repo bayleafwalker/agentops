@@ -1,6 +1,6 @@
 # Handover: served-mode UX continuation
 
-- Cut: `2026-07-26T11:05:00+03:00`
+- Cut: `2026-07-26T11:20:00+03:00`
 - Goal: make served mode safe and usable across workstation and devbox-agent.
 - Scope boundary: source/configuration work is published; Vuoro release and
   appservice deployment remain separately authorized operator work.
@@ -10,7 +10,7 @@
 
 ## Published state
 
-`sprintctl/main` is at `fc4eecc` and equals `origin/main`.
+`sprintctl/main` is at `531df1d` and equals `origin/main`.
 
 | Commit | Delivered source behavior |
 | --- | --- |
@@ -26,6 +26,7 @@
 | `7cb278d` | Remote commands query the optional tombstone read-only and fail closed before schema handshake when it is present. |
 | `d6b759f` | Restores local cwd identity and recovery's existing-output refusal while adding scoped `item list`, `next-work`, and `context-candidates` targets. |
 | `fc4eecc` | Preserves previously unscoped local capability-receipt event writes while retaining explicit/committed project checks. |
+| `531df1d` | Shared next-work guidance uses `repo#id` for generated item/sprint commands; local guidance remains bare-ID compatible. |
 | `a16e311` | Agent and doc-ref guidance requires `repo#id` on shared state. |
 
 Related committed cutover configuration is on the owning repositories:
@@ -58,6 +59,8 @@ plan includes G/I/U served-readiness tracks in `9af951d`; upstream
   contract all passed. This executes the tombstone test against CI's
   disposable PostgreSQL fixture, so the prior missing D-new-1 integration
   evidence is now present.
+- GitHub CI run `30192103641` for `531df1d` is green across the same full
+  Python, disposable PostgreSQL, and producer-contract jobs.
 - A broad suite was started more than once but entered an unrelated
   long-running I/O/integration segment; it was deliberately terminated. Do
   not represent the full suite as passing. Re-run it in a fresh session, with
