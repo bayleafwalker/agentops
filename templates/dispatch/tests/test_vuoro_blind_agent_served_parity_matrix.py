@@ -48,22 +48,23 @@ def test_matrix_covers_every_blind_agent_guidance_command() -> None:
         assert command in text, command
 
 
-def test_matrix_preserves_p0_gaps_and_evidence_boundary() -> None:
+def test_matrix_preserves_source_deployment_boundary_and_remaining_gaps() -> None:
     text = MATRIX.read_text(encoding="utf-8")
 
-    for gap in (
-        "usage --context",
-        "item list",
-        "item ref list",
-        "item dep list",
-        "claim list-sprint",
-        "claim resume",
-        "item done-from-claim",
-        "tracker `handoff`",
+    for source_ready in (
+        "Atomic `work.read.context` landed in `3ac6cac`",
+        "`work.read.items` landed in `934ceb6`",
+        "`work.read.claims` route landed in Sprintctl `934ceb6`/`c199961`",
+        "`work.read.next-work-explain` landed in `8b585a6`",
+        "Server-side `work.read.sprint-detail` landed in `4cc02c0`",
+        "`89b22b8`",
+        "`7b9da6a`",
     ):
-        assert gap in text, gap
+        assert source_ready in text, source_ready
 
-    assert "P0" in text and "inventory" in text
-    assert "not a claim that" in text
-    assert "unsupported operations already fail cleanly" in text
+    assert "P0" in text and "source/deployment split" in text
+    assert "not a claim of deployed parity" in text
+    assert "Deployed failure" in text
+    assert "project-wide orientation" in text
+    assert "kctl preflight" in text
     assert "2026-07-26-vuoro-blind-agent-parity-next-devbox.md" in text
