@@ -9,13 +9,19 @@ Keep sprintctl execution state trustworthy by diagnosing health, claim expiry, t
 
 ## Inputs
 
-- A loaded project DB environment via `.envrc` or exported `SPRINTCTL_DB`.
+- A local/recovery project DB environment via `.envrc` or exported
+  `SPRINTCTL_DB`. This skill is not a normal served blind-agent workflow:
+  `maintain check`, sweep, carryover, integrity, and vacuum have no served
+  catalog equivalents.
 - The sprint ID when more than one active sprint exists.
 - Operator authority for any state-changing cleanup, carryover, or backlog request.
 
 ## Steps
 
-1. Start with read-only environment and repository diagnostics:
+1. In served mode, stop before running this skill's maintenance commands and
+   obtain an operator-approved recovery workflow. Do not bypass the boundary
+   by opening a local or direct store. In local/recovery mode, start with
+   read-only environment and repository diagnostics:
    ```bash
    sprintctl doctor --json
    sprintctl maintain check --sprint-id <sprint-id> --json
@@ -52,6 +58,8 @@ Keep sprintctl execution state trustworthy by diagnosing health, claim expiry, t
 ## Do not
 
 - Do not run `maintain sweep`, `takeup sweep`, or `maintain carryover` before the read-only review.
+- Do not present `maintain check` as a served preflight or install/database
+  guidance. Its direct-store path is recovery-only.
 - Do not use `--auto-close` as a convenience flag; it changes sprint lifecycle state.
 - Do not treat a broken document reference or dangling dependency as harmless backlog metadata.
 - Do not mutate, adopt, or heartbeat a claim without its matching ownership proof.

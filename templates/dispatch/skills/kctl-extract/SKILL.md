@@ -10,7 +10,11 @@ Recover durable knowledge and coordination lessons from sprint events before the
 ## Inputs
 
 - A closed or nearly-closed sprint with events logged via `sprintctl event add`.
-- A loaded project DB via `.envrc` or exported `SPRINTCTL_DB` and `KCTL_DB`.
+- **Local/recovery mode only:** a loaded project DB via `.envrc` or exported
+  `SPRINTCTL_DB` and `KCTL_DB`.
+- **Served mode:** the selected Vuoro profile and the authorized repository
+  scope. Do not open a Sprintctl or Kctl database as a substitute for a
+  missing catalog operation.
 - Optional explicit event types when default filtering is not sufficient. Defaults come from `KCTL_EVENT_TYPES` or the tool's built-in durable+coordination set; coordination types worth passing explicitly via `--event-types`: `claim-handoff`, `claim-ownership-corrected`, `claim-ambiguity-detected`, `coordination-failure`.
 - Process, coordination, or workflow corrections logged during the sprint when they were discovered, even if extraction waits until sprint close.
 
@@ -33,8 +37,15 @@ Log events at the moment a decision is made or a blocker resolves — not retroa
 
 ## Steps
 
-1. Load the project DB via `.envrc` or exported `SPRINTCTL_DB` and `KCTL_DB`.
-2. Run `kctl preflight --sprint-id <id>` or `sprintctl maintain check --sprint-id <id>` first so stale-item or sprint-health warnings are visible.
+1. Establish the selected backend before reading state. In local/recovery mode,
+   load the project databases. In served mode, use the declared Vuoro profile
+   and do not derive authority from a checkout.
+2. Run `kctl preflight --sprint-id <id>` first so stale-item or sprint-health
+   warnings are visible. In served mode it currently fails with the stable
+   `served-operation-unavailable` result because Sprintctl has no
+   `maintain.check` catalog operation. Stop and obtain an operator-recorded
+   health decision; do **not** run `sprintctl maintain check`, add
+   `--no-preflight`, or switch to a direct backend to bypass this gate.
 3. Confirm the sprint has meaningful events logged. If none, note that extraction will yield no candidates.
 4. Extract:
    - `kctl extract --sprint-id <id>` for the default event set.
@@ -63,4 +74,6 @@ Log events at the moment a decision is made or a blocker resolves — not retroa
 
 - Do not extract from an empty sprint and expect useful output.
 - Do not skip the `preflight` check — stale items affect extraction quality.
+- Do not treat local/direct `maintain check` as a served fallback. It is
+  recovery-only and requires separate operator authority.
 - Do not publish without reviewing candidates first.
