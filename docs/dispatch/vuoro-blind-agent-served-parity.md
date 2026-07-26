@@ -80,13 +80,14 @@ observed production verdict rather than reclassifying it from local source.
 The existing Kctl adapter catalog is not a CLI composition: `kctl extract`
 still writes a local SQLite candidate/watermark store after its served event
 read, and review/status commands open that same store. Completing this domain
-requires (1) a Sprintctl-owned `maintain.check` read operation, (2) a
-repository-scoped knowledge envelope that verifies the argument or returned
-record belongs to the authorized `repo_id`, (3) Kctl served facades for
-candidate intake/list/show/review and publication-reference reads, and (4)
-Git-basis/digest evidence for an event-to-candidate intake. Publication,
-render, and export remain Git-owned projections unless a separate ownership
-decision changes that boundary.
+requires (1) a Sprintctl-owned `maintain.check` read operation, (2) Kctl
+served facades for candidate intake/list/show/review and publication-reference
+reads, and (3) Git-basis/digest evidence for an event-to-candidate intake.
+Kctl source `c21dffe` now makes repository-bearing knowledge operations
+envelope-scoped and verifies their record arguments before application calls;
+it is deployment-pending and does not itself make the local CLI served.
+Publication, render, and export remain Git-owned projections unless a
+separate ownership decision changes that boundary.
 
 ## Implementation and release queue implied by this inventory
 
