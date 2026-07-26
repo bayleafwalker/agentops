@@ -1,6 +1,6 @@
 # Handover: served-mode UX continuation
 
-- Cut: `2026-07-26T13:20:00+03:00`
+- Cut: `2026-07-26T14:00:00+03:00`
 - Goal: make served mode safe and usable across workstation and devbox-agent.
 - Scope boundary: source/configuration work is published; Vuoro release and
   appservice deployment remain separately authorized operator work.
@@ -10,7 +10,7 @@
 
 ## Published state
 
-`sprintctl/main` is at `2f2a9cb` and equals `origin/main`.
+`sprintctl/main` is at `b4e1311` and equals `origin/main`.
 
 | Commit | Delivered source behavior |
 | --- | --- |
@@ -30,6 +30,9 @@
 | `e69d89b`, `9952bde`, `b1ba051` | Text-mode served writes, claim start, and item/sprint status echo redacted resolved context on their supported success and error paths. |
 | `cdd7fd5` | Text-mode served `next-work`, including project mode, echoes resolved context for ready, empty, and served-error outcomes; JSON remains unchanged. |
 | `2f2a9cb` | Text-mode served `item note` echoes resolved context on success and served rejection; JSON remains unchanged. |
+| `53092ce` | Text-mode served claim heartbeat, release, and handoff report resolved context on supported success, rejection, and transport-error paths. |
+| `8790add` | Served `item show` now includes resolved context when its service read fails. |
+| `1bf4a68` | Text-mode served `authority sync` and `pilot cutover-evidence` report resolved context; all supported served facade invocations now propagate it through transport failures. |
 | `a16e311` | Agent and doc-ref guidance requires `repo#id` on shared state. |
 
 Related committed cutover configuration is on the owning repositories:
@@ -68,6 +71,9 @@ plan includes G/I/U served-readiness tracks in `9af951d`; upstream
   Python, disposable PostgreSQL, and producer-contract jobs. Focused
   `tests/test_served_lifecycle_routes.py` also passed with 53 tests after the
   `next-work` and `item note` context additions.
+- GitHub CI run `30192601734` for `1bf4a68` is green across both full Python
+  suites, disposable PostgreSQL integration, and the producer-contract job.
+  The focused lifecycle and served-authority-sync suites passed 68 tests.
 - A broad suite was started more than once but entered an unrelated
   long-running I/O/integration segment; it was deliberately terminated. Do
   not represent the full suite as passing. Re-run it in a fresh session, with
@@ -79,17 +85,16 @@ plan includes G/I/U served-readiness tracks in `9af951d`; upstream
 The UX plan remains incomplete. Continue in small, independently tested
 commits; do not turn the checked-in partial behavior into a completion claim.
 
-1. Finish `repo#id` parsing for remaining relevant item/claim/event/sprint
-   arguments, including optional item targets and commands which render
-   self-referential instructions. Preserve IDs that are genuinely local to a
-   command (for example, a ref or dependency row ID) rather than pretending
-   they are repository references.
-2. Audit and extend resolved-context reporting beyond the now-covered served
-   reads, `next-work`, `item add`/`event add`/`item note`, claim start, and
-   item/sprint status to the remaining relevant commands and
-   self-referential instructions. Success, not-found, and empty output must
-   name repository, source, backend, and a credential-redacted target without
-   breaking established JSON contracts.
+1. Run a requirement-by-requirement source acceptance audit against
+   `docs/plans/vuoro-ux-robustness-plan.md`. The direct served facade paths
+   have context propagation, but do not equate that with D6's broader
+   every-command claim without reviewing all relevant CLI outputs and their
+   established JSON contracts.
+2. Confirm no user-facing repository reference was missed by the `repo#id`
+   audit, including optional item/sprint targets and generated self-reference
+   instructions. Preserve IDs that are genuinely command-local (for example,
+   ref or dependency row IDs) rather than pretending they are repository
+   references.
 3. Preserve unchanged local behavior. A marker without `repo_id` is not a
    non-local identity. Daemon/service environments need a committed marker or
    explicit per-invocation identity; never add a persistent allowlist.
