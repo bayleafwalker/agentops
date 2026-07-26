@@ -23,19 +23,6 @@ The builder may not self-close a unit. Secondary review is required before publi
 
 ## Verification record contract
 
-- **Findings:** F1
-- **Scope:** `agentops`, `sprintctl`, `actionq`, `vuoro`, `homelab-analytics`, `_orchestration`, `aligned-equity`, `box`, `scribectl` (or every active member with runtime integration)
-- **Steps:**
-  1. Capture baseline with cutover checker (record output and timestamp).
-  2. Normalize `.envrc` in each target repo to the canonical served block using the same profile.
-  3. Remove/relocate commented or fallback direct-backend snippets to local-only files.
-  4. Re-run checker and confirm zero violations.
-- **Validation:**
-  - `python templates/dispatch/scripts/validate_vuoro_workstation_cutover.py --root /projects/dev --profile /projects/dev/agentops/templates/dispatch/environment-record/profiles/workstation-vuoro-shared.json`
-  - repo-specific smoke run: `. .envrc && sprintctl sprint list` should route through Vuoro-served context.
-- **Exit criteria:**
-  - No `SPRINTCTL_BACKEND=remote`, `SPRINTCTL_URL`, or direct DB host hints in covered repos’ committed runtime configs.
-  - `validate_vuoro_workstation_cutover` passes.
 Store each unit's evidence in the owning workflow's protected verification record. Do not put claim tokens, credentials, connection strings, or unredacted environment output in Markdown.
 
 Each record must contain:
@@ -94,6 +81,8 @@ Implement real renewal methods in dispatcher client protocols and concrete clien
 
 **Primary validation:** execution longer than initial TTL; daemon and one-shot paths; worker kill; action renewal failure; sprint renewal failure after action renewal; response loss; shutdown during renewal; first settlement write succeeds and second fails.
 
+**Secondary implementation review:** fresh Spark-class reviewer traces every execution path and proves it either renews both authorities or is explicitly TTL-bounded. The reviewer independently runs the fault-history matrix and blocks publication on duplicate side effects, stale settlement, or an unhandled unknown outcome.
+
 ## Served-readiness amendments (2026-07-26)
 
 These tracks refine the earlier implementation plan after the served-mode
@@ -111,46 +100,34 @@ and UX policy.
 - **G0 — Inventory and classify command surfaces.** Maintain a route-to-
   catalog-operation inventory. Mark every unavailable aggregation explicitly;
   do not silently open a direct backend as a fallback.
-- **G1 — Event creation.** Provide `work.event.add` and served `event add`.
+- **G1 — Event reads.** Provide `work.read.events` and served `event list`.
+  Reuse the catalog operation in every served consumer rather than opening a
+  direct database connection.
+- **G2 — Event creation.** Provide `work.event.add` and served `event add`.
   The server selects the authenticated actor; a served client must not need or
   transmit a client actor value.
-- **G2 — Item creation.** Provide `work.item.create` and served `item add`.
+- **G3 — Item creation.** Provide `work.item.create` and served `item add`.
   Resolve tracks in the server repository scope and preserve the established
   response shape.
-- **G3 — Sprint reads.** Provide a basic `work.read.sprint` and served
+- **G4 — Sprint reads.** Provide a basic `work.read.sprint` and served
   `sprint show`. Client-side polling is acceptable for `--watch`; `--detail`
   must fail explicitly until its aggregate has a catalog operation.
-- **G4 — Catalog and doctor coverage.** Add every G1--G3 operation to the
+- **G5 — Catalog and doctor coverage.** Add every G1--G4 operation to the
   catalog contracts, command-route map, and doctor probes. Treat absent
   operations as a blocked compatibility state, not a local fallback.
-- **G5 — Release and deployed verification.** After separately authorized
+- **G6 — Release and deployed verification.** After separately authorized
   Vuoro/appservice release work, verify catalog/doctor and the real served
   calls from both workstation and devbox-agent. This task is not authorization
   to publish a wheel, change a pin, deploy, or reconcile.
 
-### Track I — Identity and references
-
-- **I0 — Parse references before command dispatch.** Accept canonical
-  `repo#id` references for every relevant item, sprint, claim, and event
-  surface; retain bare numeric IDs only where the resolved repository makes
-  them unambiguous.
-- **I1 — Make precedence deterministic.** Resolve repository identity in this
-  order: explicit reference/flag, committed marker or authority identity, then
-  guarded local-path compatibility. Reject mismatches instead of choosing a
-  convenient repository.
-- **I2 — Render resolved context safely.** Show the effective repository,
-  target, and backend before consequential calls, while redacting credentials,
-  tokens, and profile-secret material.
-- **I3 — Test identity boundaries.** Cover renamed clones, malformed and
-  mismatched references, served/local precedence, and marker-less invocation
-  without depending on live shared state.
-
 ### Track U — UX fail-closed robustness
 
-- **U0 — Record the policy.** Remote and served execution without a repository
-  marker fails closed by default. An explicit `--repo-id` plus an
-  invocation-scoped opt-in flag may corroborate a marker-less invocation;
-  neither is a persistent global bypass.
+- **U0 — Decide and record the policy.** The operator must decide UX-plan O1
+  and O6 before enforcement: whether marker-less remote/served execution
+  always fails closed or may proceed after explicit corroboration, and which
+  invocation-scoped mechanism supplies that corroboration. Recommended:
+  fail closed by default and permit an explicit `--repo-id` plus a
+  per-invocation opt-in flag. Do not introduce a persistent global bypass.
 - **U1 — Introduce parsing and preflight scaffolding.** Build the shared
   reference parser, repository precedence resolver, and universal preflight
   before migrating individual command groups.
@@ -168,23 +145,11 @@ and UX policy.
   remote-like paths only against disposable fixtures; do not use production
   stores as a UX test harness.
 
-**Dependencies.** G1--G4 require U1--U3 where their CLI routes accept a
-repository or target reference: parse and resolve context before issuing a
-served operation, and enforce the marker-less guard before an authority call.
-G5 depends on landed G1--G4 paths and separately authorized release work.
-
-### Cutover evidence and configuration conformance
-
-- **P1 — Reconcile static and historical evidence.** Compare the static
-  workstation checker with the historical runtime-cutover ledger. A checker
-  failure may reveal configuration-policy drift without invalidating recorded
-  runtime evidence; report the two facts separately and correct the checker or
-  executable configuration deliberately.
-- **P2 — Configuration conformance.** Keep committed executable environment
-  files on the served profile, remove direct-backend rollback wiring from them,
-  and validate a deliberate repository subset when a declared workspace member
-  is absent or on an independently owned branch. Report exclusions rather than
-  calling the full workspace gate clean.
+**Dependencies.** G1--G5 source work may proceed independently of U0. UX
+acceptance for a G command depends on the applicable I/U parsing, preflight,
+and guard work. G6 depends on landed G1--G5 paths and separately authorized
+release work. U2 and daemon rollout are blocked on U0; U1, U4 taxonomy
+scaffolding, and disposable-fixture work may proceed before that decision.
 
 ### Independent secondary-review checklist
 
@@ -201,9 +166,6 @@ Before accepting a G/I/U implementation, a fresh reviewer must verify:
 
 ---
 
-## Cross-cutting validation checklist (after each wave)
-**Secondary implementation review:** fresh Spark-class reviewer traces every execution path and proves it either renews both authorities or is explicitly TTL-bounded. The reviewer independently runs the fault-history matrix and blocks publication on duplicate side effects, stale settlement, or an unhandled unknown outcome.
-
 ### S3 - Integrated safety review
 
 **Depends on:** S1 and S2  
@@ -219,6 +181,11 @@ A fresh reviewer examines the combined pinned revisions, not only per-repo diffs
 **Owner:** `agentops`
 
 Choose literal-only or approved-sourced configuration policy. Update checker fixtures and documentation before changing any consumer. Explicitly confirm the eight-repository target list with owners; keep `vuoro` out unless separately approved.
+
+Reconcile the checker result with the historical runtime-cutover ledger. Report
+runtime cutover evidence and configuration-policy conformance as separate
+facts; a lexical checker failure does not by itself invalidate prior runtime
+evidence.
 
 **Static validation:**
 
@@ -237,6 +204,8 @@ python /projects/dev/agentops/templates/dispatch/scripts/validate_vuoro_workstat
 **Authorization:** separate per-repository build context; operational changes remain out of scope
 
 Change only repositories confirmed by the checker scope and owner decision. Preserve repository-local documentation and local-only rollback mechanisms.
+Report absent, independently owned, or intentionally excluded repositories
+instead of describing a partial subset as a clean full-workspace gate.
 
 **Read-only smoke pattern:**
 
@@ -250,14 +219,39 @@ Run from the actual repository working directory. Evidence must assert the effec
 
 **Secondary implementation review:** fresh reviewer checks every selected repository diff, reruns the static checker, and performs tenant-distinguishing read-only smoke checks for at least two repositories. No lifecycle writes.
 
-## Track I - Repository identity
+## Track I - Repository identity and references
 
-### I1 - Define and implement stable identity mapping
+### I0 - Approve identity and public-reference contracts
 
 **Finding:** F3  
 **Owner:** `sprintctl`; Vuoro reviews authorization boundary
 
-Define invariants between work-adapter tenant slug, committed marker identity, path fallback, and authority UUID. Then change resolution so a renamed clone or linked worktree follows the chosen canonical identity without collapsing distinct identity types.
+Define invariants between work-adapter tenant slug, committed marker identity,
+path fallback, authority UUID, and canonical `repo#id` public references.
+Specify precedence among explicit reference/flag, environment, committed
+marker, and guarded cwd compatibility.
+
+### I1 - Implement stable identity mapping and precedence
+
+**Depends on:** I0
+
+Change resolution so a renamed clone or linked worktree follows the chosen
+canonical identity without collapsing distinct identity types. Reject explicit
+reference, marker, environment, and cwd disagreements rather than silently
+choosing one repository.
+
+### I2 - Parse and render scoped references
+
+**Depends on:** I0
+
+Accept canonical `repo#id` references on ambiguity-prone surfaces. Retain bare
+numeric IDs only where the resolved repository makes them unambiguous. Render
+the effective repository, target, backend, and resolution source while
+redacting credentials and tokens.
+
+### I3 - Verify identity boundaries
+
+**Depends on:** I1 and I2
 
 **Primary validation:**
 
@@ -266,7 +260,9 @@ cd /projects/dev/sprintctl
 pytest -q tests/test_backend_mode.py tests/test_backend_served_mode.py tests/test_vuoro_work_adapter_integration.py
 ```
 
-Add cases for renamed clones, nested cwd, linked worktrees, missing marker, disagreement policy, unauthorized repo, wildcard credentials, and local/served behavior.
+Add cases for renamed clones, nested cwd, linked worktrees, missing marker,
+malformed and mismatched references, precedence, unauthorized repo, wildcard
+credentials, marker-less invocation, and local/served behavior.
 
 **Secondary implementation review:** fresh Spark-class reviewer traces cwd to marker, `BackendConfig.repo_id`, served facade, invocation envelope, Vuoro authorization, and work store. Run the targeted tests plus read-only, tenant-distinguishing smoke checks from two actual repository working directories.
 
@@ -332,18 +328,18 @@ npm run build
 
 **Secondary implementation review:** a fresh Spark-class reviewer independently extracts enum and required-field sets from canonical artifacts, schema, runtime exports, MCP tools/list, and UI. Require exact equality or a documented/tested subset. Run positive and negative fixtures through HTTP and MCP, including omitted-default behavior. Duplicate literal enums or an MCP-advertised runtime-invalid request fail the gate.
 
-## Track O - Vuoro operational CLI truthfulness
+## Track V - Vuoro operational CLI truthfulness
 
-### O1 - Decide command authority and availability
+### V0 - Decide command authority and availability
 
 **Finding:** F8  
 **Owner:** `vuoro`; each domain owner approves migration authority
 
 For `check-compatibility`, `migrate`, and `admin`, select `implemented`, `intentionally unavailable`, or `owner CLI only` per environment. Decide whether Vuoro orchestrates migrations or deployment jobs continue calling owner CLIs. Exactly one authority must exist per domain.
 
-### O2 - Align parser, docs, and implementation
+### V1 - Align parser, docs, and implementation
 
-**Depends on:** O1  
+**Depends on:** V0  
 **Owner:** `vuoro`
 
 Immediately make unavailable commands truthful and machine-readable. For compatibility, extract configuration/composition loading that can inspect pins and adapters without constructing a ready app. Implement migration only with a closed domain enum, pinned entrypoint, separate credentials, explicit environment confirmation, and stable audit envelope. Implement admin only from a closed authorized action registry.
