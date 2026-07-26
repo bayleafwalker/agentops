@@ -2,11 +2,13 @@
 
 - Cut: `2026-07-26T14:00:00+03:00`
 - Goal: make served mode safe and usable across workstation and devbox-agent.
-- Scope boundary: source/configuration work is published; Vuoro release and
-  appservice deployment remain separately authorized operator work.
+- Scope boundary: source/configuration work is published. The separately
+  authorized Vuoro release, Appservice deployment, and two-host runtime
+  verification were completed on 2026-07-26; evidence is recorded below.
 - Secret handling: no database URL, credential, or claim proof is recorded.
-- Live state: this session did not mutate a cluster, Flux, a live backlog,
-  claims, outboxes, or recovery state.
+- Live state: the authorized continuation reconciled the Appservice Vuoro
+  deployment and recorded two labeled verification events. It did not mutate
+  claims, outboxes, recovery state, or unrelated runtime authorities.
 
 ## Published state
 
@@ -124,18 +126,46 @@ source evidence. It is not a release or deployment claim.
 
 ## Release and deployment handoff (operator-owned)
 
-The deployed Vuoro work adapter is still behind the published Sprintctl
-operations. After source UX work reaches its acceptance audit, an authorized
-operator must:
+Completed on 2026-07-26 under explicit operator authorization:
 
-1. release Vuoro/client-service artifacts containing `work.read.events`,
-   `work.event.add`, `work.item.create`, and `work.read.sprint`;
-2. update the consuming Vuoro/Sprintctl pin and deploy through Appservice;
-3. verify doctor/catalog and real served reads/writes from both workstation
-   and devbox-agent, including marker-less refusal and an explicitly scoped
-   allowed invocation; and
-4. report source, configuration, released-adapter, and deployed-runtime
-   evidence separately.
+1. **Source evidence.** Sprintctl `45ec7650122f59a9f7cd52a3163d6cffd572af41`
+   passed GitHub CI run `30192948737`. The released catalog includes
+   `work.read.events`, `work.event.add`, `work.item.create`, and
+   `work.read.sprint`.
+2. **Released-adapter evidence.** GitHub release
+   `vuoro-adapter-v1-45ec765` contains
+   `sprintctl-0.2.0-py3-none-any.whl`, SHA-256
+   `20bd15f70e17d5938ddb4edfe7ca107e54d9a73c29272b4e96fc819891efcdc5`.
+   Vuoro composition commit `23d83121ff793d6febcc6a8cb9c51333f1e9370b`
+   pins that exact source, URL, and checksum. Vuoro service tests passed
+   (`74 passed`), the verification-artifact gate passed, and a full container
+   build fetched and verified every pinned adapter. Tag
+   `vuoro-service-v0.1.5` published successfully in GitHub Actions run
+   `30194251449`.
+3. **Configuration and deployed-runtime evidence.** Appservice commit
+   `ba841bd5bf4c2fc0bd1312f9ff988fa249dda9a2` pins
+   `ghcr.io/bayleafwalker/vuoro-service@sha256:8f5f8d1b68f29e13e68597fab57caa4d1e9942753ad52958c4b2f5e601d9d87d`.
+   Full Kustomize validation and the verification-artifact gate passed.
+   Flux applied that revision; `vuoro-shared` reported `Ready=True`, and its
+   deployment completed at `1/1` on the pinned digest.
+4. **Workstation evidence.** The shared profile validator passed.
+   `sprintctl doctor --json` reported `status=ok`, `backend=served`,
+   `credential_resolved=true`, and a current catalog containing all four new
+   operations. Real `sprint show` and `event list` calls succeeded, and the
+   authenticated server actor `workstation-vuoro` recorded verification event
+   `2076`. A marker-less call failed with `backend-uncorroborated`; the same
+   invocation with explicit `--repo-id agentops
+   --allow-markerless-nonlocal` succeeded.
+5. **devbox-agent evidence.** The devbox profile validator and the same
+   doctor/catalog and real served reads passed. The authenticated server actor
+   `devbox-agent-vuoro` recorded verification event `2077`. Marker-less
+   execution failed with `backend-uncorroborated`, and the explicitly scoped
+   invocation succeeded. Sprintctl's `served` extra was installed from the
+   host's clean `45ec765` checkout. Because that checkout's `direnv` state was
+   blocked and its untracked local environment had not been reviewed, runtime
+   verification used invocation-scoped non-secret backend/profile variables
+   rather than persistently trusting it.
 
-The goal is not complete until that independently authorized runtime evidence
-exists.
+The operator-owned release/deployment gate described here is complete. Any
+remaining goal work is source/acceptance scope, not missing release or runtime
+evidence.
