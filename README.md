@@ -4,6 +4,8 @@
 
 [Explore the interactive AgentOps ecosystem map.](https://bayleafwalker.github.io/agentops/)
 
+[Read the Vuoro system shape and end-to-end walkthrough.](docs/architecture/vuoro-system-shape.md)
+
 Repo-owned planning and future operator surface for the `/projects/dev` agent-ops substrate.
 
 The implementation repos remain separate:
