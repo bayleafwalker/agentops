@@ -340,22 +340,113 @@ def worktree_path(packet: dict[str, Any]) -> Path:
     return Path(packet["worktree"]["root"]) / packet["repo_id"] / packet["task_id"]
 
 
-def prepare_worktree(repo_root: Path, packet: dict[str, Any]) -> Path:
+#: Agent-context files OpenCode auto-loads into the worker's prompt without a
+#: tool call. These are the measured leak vector for the coordinator's path.
+AGENT_CONTEXT_FILES = ("AGENTS.md", "CLAUDE.md", ".agents/AGENTS.md")
+
+
+def reroot_agent_context(workspace: Path, repo_root: Path) -> list[str]:
+    """Repoint absolute coordinator paths in auto-loaded context at the clone.
+
+    This is the actual escape mechanism, and it is not a git one. A repository's
+    ``AGENTS.md`` documents commands with the absolute checkout path; OpenCode
+    loads it into the prompt unasked; a worker given a packet it must *locate*
+    work for then explores those absolute paths and writes to them. It never
+    consults git to do so.
+
+    Rerooting only works in a standalone clone. Attempted first on a linked
+    worktree it changed nothing, because OpenCode resolved the project root to
+    the coordinator's checkout and loaded *that* copy -- which is why clone
+    isolation and this rewrite are one fix rather than two, and why neither
+    alone was sufficient.
+    """
+    needle = str(repo_root)
+    rewritten: list[str] = []
+    for relative in AGENT_CONTEXT_FILES:
+        path = workspace / relative
+        if not path.is_file():
+            continue
+        original = path.read_text(encoding="utf-8")
+        if needle not in original:
+            continue
+        path.write_text(original.replace(needle, str(workspace)), encoding="utf-8")
+        rewritten.append(relative)
+    return rewritten
+
+
+def restore_agent_context(workspace: Path, repo_root: Path) -> None:
+    """Undo :func:`reroot_agent_context` where the worker left the file alone.
+
+    The rewrite is coordinator scaffolding, not worker output, so it must not
+    reach the captured diff and trip ``diff-scope-respected``. A file whose only
+    difference from its committed blob is the substitution is restored; one the
+    worker genuinely edited is left as found, so a real out-of-scope edit still
+    fails its gate instead of being quietly reverted.
+    """
+    for relative in AGENT_CONTEXT_FILES:
+        path = workspace / relative
+        if not path.is_file():
+            continue
+        current = path.read_text(encoding="utf-8")
+        if str(workspace) not in current:
+            continue
+        restored = current.replace(str(workspace), str(repo_root))
+        if restored == _git(workspace, "show", f"HEAD:{relative}"):
+            path.write_text(restored, encoding="utf-8")
+
+
+def safety_ref(repo_root: Path, packet: dict[str, Any]) -> dict[str, Any]:
+    """Pin the coordinator's pre-dispatch commit behind a named ref.
+
+    Recoverability must be a property of the tool, not of operator discipline:
+    the ref is created here so nobody has to remember to checkpoint, and the
+    receipt carries the one command that undoes the wave. Uncommitted
+    coordinator work is *not* covered by it -- git cannot restore what was never
+    committed -- so a dirty tree is reported alongside as what remains at risk.
+    """
+    name = f"safety/pre-dispatch-{packet['task_id']}"
+    head = _git(repo_root, "rev-parse", "HEAD").strip()
+    existing = _git(repo_root, "for-each-ref", "--format=%(refname:short)", f"refs/heads/{name}")
+    if not existing.strip():
+        _git(repo_root, "branch", name, head)
+    dirty = [
+        line.strip()
+        for line in _git(repo_root, "status", "--porcelain").splitlines()
+        if line.strip()
+    ]
+    return {
+        "ref": name,
+        "commit": head,
+        "restore_command": f"git -C {repo_root} reset --hard {name}",
+        "uncommitted_paths_at_risk": dirty,
+    }
+
+
+def prepare_workspace(repo_root: Path, packet: dict[str, Any]) -> Path:
+    """Clone the repository into a disposable standalone workspace.
+
+    A linked ``git worktree`` is not a containment boundary: OpenCode resolves a
+    linked worktree's project root to the *main* checkout, so the worker reads
+    the coordinator's context files and writes to the coordinator's absolute
+    paths. Measured 2026-07-27 -- it escaped on every attempt, and the
+    post-gates could not see it because the worktree diff stayed empty.
+
+    A standalone clone removes the coordinator from the worker's git topology
+    entirely, and the same probe then wrote only inside the clone. ``origin`` is
+    dropped afterwards so no push path back to the coordinator survives, and
+    ``--no-hardlinks`` keeps the worker off the coordinator's object store.
+    """
     target = worktree_path(packet)
     if target.exists():
         raise PacketError(
-            f"{target} already exists; never dispatch two workers into one worktree"
+            f"{target} already exists; never dispatch two workers into one workspace"
         )
     target.parent.mkdir(parents=True, exist_ok=True)
-    _git(
-        repo_root,
-        "worktree",
-        "add",
-        "-b",
-        packet["worktree"]["branch"],
-        str(target),
-        packet["starting_commit"],
-    )
+    _git(repo_root, "clone", "--no-hardlinks", "--quiet", str(repo_root), str(target))
+    _git(target, "switch", "--quiet", "--create", packet["worktree"]["branch"],
+         packet["starting_commit"])
+    _git(target, "remote", "remove", "origin")
+    reroot_agent_context(target, repo_root)
     return target
 
 
@@ -472,8 +563,10 @@ def post_gates(
     worktree: Path,
     packet: dict[str, Any],
     manifest: dict[str, Any],
+    repo_root: Path,
 ) -> dict[str, Any]:
     """Run the deterministic post-dispatch gates. Worker claims are not evidence."""
+    restore_agent_context(worktree, repo_root)
     changed = [
         line.strip()
         for line in _git(worktree, "diff", "--name-only", packet["starting_commit"]).splitlines()
@@ -568,7 +661,8 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.command == "prepare":
-            worktree = prepare_worktree(repo_root, packet)
+            safety = safety_ref(repo_root, packet)
+            worktree = prepare_workspace(repo_root, packet)
             cold = run_registered_commands(worktree, packet, manifest)
             green = all(r["exit_code"] == 0 for r in cold)
             _emit(
@@ -578,6 +672,7 @@ def main(argv: list[str] | None = None) -> int:
                     stage="prepare",
                     worktree=str(worktree),
                     overlay_sha256=overlay_hash(overlay),
+                    safety=safety,
                     cold_command_results=cold,
                     eligible_for_dispatch=green,
                 )
@@ -605,6 +700,19 @@ def main(argv: list[str] | None = None) -> int:
                     containment={
                         "coordinator_tree_untouched": not breach,
                         "coordinator_tree_changes": breach,
+                        # A breach receipt states how to undo itself. An
+                        # operator reading this is mid-incident and should not
+                        # have to reconstruct the cleanup from the path list.
+                        "recovery": (
+                            [
+                                f"git -C {repo_root} checkout --"
+                                f" {' '.join(p.split(maxsplit=1)[-1] for p in breach if not p.startswith('??'))}".rstrip(),
+                                f"git -C {repo_root} clean -f --"
+                                f" {' '.join(p.split(maxsplit=1)[-1] for p in breach if p.startswith('??'))}".rstrip(),
+                            ]
+                            if breach
+                            else []
+                        ),
                     },
                     **(
                         {"disposition": "containment_breach"}
@@ -619,7 +727,7 @@ def main(argv: list[str] | None = None) -> int:
             return 3 if breach else 0
 
         if args.command == "gate":
-            evidence = post_gates(worktree, packet, manifest)
+            evidence = post_gates(worktree, packet, manifest, repo_root)
             _emit(
                 _receipt(
                     packet,
