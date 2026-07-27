@@ -177,26 +177,49 @@ without ever reaching inference — indistinguishable from a slow model, and the
 likely explanation for any route that "ran past its timeout". The driver passes
 `stdin=subprocess.DEVNULL`.
 
-### Open: the worktree is not a containment boundary
+### Open: the worker escapes to the coordinator checkout
 
-**A worker in a linked git worktree writes to the main checkout.** The model
-globs correctly relative to its worktree, then issues `write` against the
-*coordinator's* absolute path — OpenCode resolves a linked worktree's project
-root to the main checkout. `external_directory: deny` does not stop this. It
-reproduced on every attempt.
+**A worker writes to the coordinator's main checkout instead of its disposable
+workspace.** It globs correctly relative to its own tree, then issues `write`
+against the coordinator's absolute path. `external_directory: deny` does not
+stop it. It reproduced on every attempt.
 
-Scrubbing the absolute root from the worktree's `AGENTS.md` does **not** fix it
-(the path also appears across `docs/**`, and the root is resolved by OpenCode
-rather than read from context), so that mitigation was tried and removed rather
-than left in place looking protective.
+Three fixes were tried and **all failed**, in this order:
 
-Until this closes, containment rests on one thing: `run` snapshots the
-coordinator's `git status --porcelain` around the worker loop and any new entry
-fails the packet as `containment_breach` (exit 3), naming the escaped paths. A
-breach is never a retryable quality result — it stops for human triage. Note the
-post-gates alone would *not* have caught this: they only ever saw an empty
-worktree diff.
+1. Rewriting the absolute coordinator path out of the workspace's auto-loaded
+   `AGENTS.md`. No effect — on a linked worktree OpenCode resolves the project
+   root to the main checkout and loads *that* copy.
+2. Replacing the linked worktree with a standalone clone (no `origin`, own
+   object store). A bare probe in such a clone wrote only inside the clone, but
+   the same clone driven through the full packet path still escaped on its
+   first tool call.
+3. Clone plus reroot together, with the rewrite verified to have applied. Still
+   escaped.
 
-The candidate fix is to stop using linked worktrees for dispatch and give the
-worker a standalone local clone, so no coordinator path exists to resolve to.
-That is unimplemented and unverified.
+So the channel is **neither git topology nor the auto-loaded context file**, and
+further textual mitigation is not worth chasing. The boundary has to be one the
+worker cannot address at all — an identity without write access to the
+coordinator checkout, or a mount namespace where that path is absent.
+
+Two controls hold in the meantime, both enforced by the driver rather than by
+operator discipline:
+
+- `run` **refuses to dispatch** when the coordinator checkout is writable by the
+  worker's identity, which is exactly the condition under which the escape
+  succeeds. `--allow-writable-coordinator` overrides it for a supervised run on
+  a disposable host. This is why workers belong on devbox, where the agent
+  identity has no write access, and not on the workstation.
+- `run` snapshots the coordinator's porcelain status around the worker loop and
+  fails the packet as `containment_breach` (exit 3), naming the escaped paths
+  and the commands that undo them. Note the post-gates alone would **not** catch
+  this: they only ever observe an empty workspace diff.
+
+`prepare` also pins `safety/pre-dispatch-<task_id>` and reports the reset
+command, plus any uncommitted coordinator paths that ref cannot protect.
+
+### Qualification is void until this closes
+
+Route assessments recorded before 2026-07-27 measured the overlay, not the
+models, and must be rerun against the fixed driver. Runs from that period are
+additionally contaminated: an empty worker diff did **not** mean no edit
+occurred.

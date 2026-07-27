@@ -635,6 +635,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--agentops-root", type=Path, default=AGENTOPS_ROOT)
     parser.add_argument("--opencode-bin", default=os.environ.get("OPENCODE_BIN", "opencode"))
     parser.add_argument(
+        "--allow-writable-coordinator",
+        action="store_true",
+        help=(
+            "Dispatch even though the worker's identity can write the coordinator "
+            "checkout. Workers are known to escape into it; only supervised runs "
+            "on a disposable host should ever pass this."
+        ),
+    )
+    parser.add_argument(
         "command",
         choices=["validate", "overlay", "prepare", "run", "gate", "receipt"],
     )
@@ -684,6 +693,21 @@ def main(argv: list[str] | None = None) -> int:
             raise PacketError(f"{worktree} does not exist; run 'prepare' first")
 
         if args.command == "run":
+            # The worker inherits this process's identity, and a worker that can
+            # write the coordinator checkout demonstrably does -- measured on
+            # every attempt, through a linked worktree and through a standalone
+            # clone alike. Where the filesystem already denies the write there is
+            # nothing to decide; where it does not, refusing is the only control
+            # that actually holds, so it is the default rather than advice.
+            if os.access(repo_root, os.W_OK) and not args.allow_writable_coordinator:
+                raise PacketError(
+                    f"{repo_root} is writable by this identity, so a worker can "
+                    "escape into it and the disposable workspace is not a real "
+                    "boundary. Dispatch from a host where the worker runs as an "
+                    "identity without write access to the coordinator checkout "
+                    "(devbox), or pass --allow-writable-coordinator to accept the "
+                    "risk on a supervised, disposable host."
+                )
             before = coordinator_tree_state(repo_root)
             transcript = dispatch_worker(
                 worktree, packet_path, packet, overlay, policy, args.opencode_bin
