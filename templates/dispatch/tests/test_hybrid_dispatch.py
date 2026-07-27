@@ -187,9 +187,12 @@ class OverlayTests(unittest.TestCase):
     def _overlay(self):
         return dispatch.build_overlay(self.packet, self.manifest, self.policy, self.base)
 
-    def test_overlay_denies_by_default_and_leaves_nothing_at_ask(self) -> None:
+    def test_overlay_enumerates_every_tool_and_leaves_nothing_at_ask(self) -> None:
         overlay = self._overlay()
-        self.assertEqual(overlay["permission"]["*"], "deny")
+        # A blanket top-level "*": "deny" withholds every tool from the model
+        # rather than gating calls, which leaves the worker unable to act and
+        # guarantees an empty diff. Tools are enumerated instead.
+        self.assertNotIn("*", overlay["permission"])
         # Noninteractive `opencode run` rejects any permission left at "ask",
         # so every resolved value must be an explicit allow or deny.
         blocks = [overlay["permission"], *(a["permission"] for a in overlay["agent"].values())]
@@ -200,15 +203,31 @@ class OverlayTests(unittest.TestCase):
                     with self.subTest(key=key):
                         self.assertIn(resolved, ("allow", "deny"))
 
+    def test_overlay_grants_the_read_side_tools_the_worker_needs(self) -> None:
+        permission = self._overlay()["permission"]
+        for key in ("read", "glob", "grep", "list"):
+            with self.subTest(key=key):
+                self.assertEqual(permission[key], "allow")
+
     def test_overlay_allows_only_the_packet_commands(self) -> None:
         bash = self._overlay()["permission"]["bash"]
         self.assertEqual(bash["pytest -q"], "allow")
         self.assertEqual(bash["*"], "deny")
 
-    def test_overlay_allows_only_the_packet_writable_paths(self) -> None:
-        edit = self._overlay()["permission"]["edit"]
-        self.assertEqual(edit["tests/**"], "allow")
-        self.assertEqual(edit["*"], "deny")
+    def test_overlay_grants_edit_whole_and_defers_scope_to_the_gates(self) -> None:
+        # OpenCode 1.18.5 withholds the edit tool outright when an `edit` map
+        # denies "*", so per-path scoping here would only ever produce an empty
+        # diff. writable_patch_paths stays enforced by the cold post-gates.
+        overlay = self._overlay()
+        self.assertEqual(overlay["permission"]["edit"], "allow")
+        self.assertEqual(overlay["permission"]["external_directory"], "deny")
+
+    def test_review_route_withholds_every_write_surface(self) -> None:
+        self.packet["route"] = "worker_review_challenger"
+        permission = self._overlay()["permission"]
+        for key in ("edit", "write", "patch", "bash"):
+            with self.subTest(key=key):
+                self.assertEqual(permission[key], "deny")
 
     def test_overlay_keeps_network_and_subagents_denied(self) -> None:
         agent = self._overlay()["agent"]["ao-bulk"]["permission"]
@@ -219,8 +238,16 @@ class OverlayTests(unittest.TestCase):
     def test_overlay_hash_is_stable_and_content_addressed(self) -> None:
         first = dispatch.overlay_hash(self._overlay())
         self.assertEqual(first, dispatch.overlay_hash(self._overlay()))
-        self.packet["writable_patch_paths"] = ["src/**"]
+        # The overlay now carries the command vocabulary but not the writable
+        # paths, so the hash tracks what the worker is actually granted.
+        self.packet["allowed_command_ids"] = []
         self.assertNotEqual(first, dispatch.overlay_hash(self._overlay()))
+
+    def test_writable_scope_is_enforced_by_the_gates_not_the_overlay(self) -> None:
+        # Since the overlay no longer scopes `edit`, the packet's writable
+        # contract has to bite somewhere. It bites in the cold post-gates.
+        self.assertNotIn("tests/**", json.dumps(self._overlay()))
+        self.assertIn("diff-scope-respected", self.policy["gates"]["post"])
 
 
 class ExamplePacketTests(unittest.TestCase):

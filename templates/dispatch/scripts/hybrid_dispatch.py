@@ -246,6 +246,26 @@ def build_overlay(
     Noninteractive ``opencode run`` refuses permissions left at ``ask``, and
     ``--auto`` is far too broad for a frozen packet, so every permission is
     resolved here to an explicit allow or deny.
+
+    Two OpenCode 1.18.5 behaviours constrain the shape, both measured against
+    ``opencode-go/deepseek-v4-flash`` on a trivial single-file edit:
+
+    * A wildcard ``"*": "deny"`` does not merely gate calls, it withholds the
+      tools from the model entirely. A blanket top-level deny left the worker
+      with no toolset at all, so it emitted a pseudo tool call as prose
+      (``<read_file src=.../>``) and stopped with an empty diff. Every tool is
+      therefore enumerated explicitly and the blanket deny is gone.
+    * The same applies inside a per-tool map: an ``edit`` map whose ``"*"`` is
+      ``deny`` withholds the edit tool even when specific paths are allowed, so
+      per-path scoping of ``edit`` silently guarantees an empty diff. ``bash``
+      does not share this behaviour and keeps its registered-command map.
+
+    So ``edit`` is granted whole and write containment rests where it is
+    actually adjudicated anyway: the disposable exact-commit worktree,
+    ``external_directory: deny``, and the cold ``diff-scope-respected`` /
+    ``protected-paths-untouched`` post-gates. The packet's
+    ``writable_patch_paths`` stay the contract the gates enforce; the overlay is
+    defence in depth over them, never the sole boundary.
     """
     route = packet["route"]
     agent_name = policy["routes"][route]["agent"]
@@ -257,42 +277,45 @@ def build_overlay(
         bash[commands[command_id]] = "allow"
     bash["*"] = "deny"
 
-    edit: dict[str, str] = {}
-    for pattern in packet["writable_patch_paths"]:
-        edit[pattern] = "allow"
-    edit["*"] = "deny"
+    # Read-side tools the worker needs to locate its own work. Without these
+    # the model cannot inspect the tree it is asked to patch.
+    permission = {
+        "read": "allow",
+        "glob": "allow",
+        "grep": "allow",
+        "list": "allow",
+        "todowrite": "allow",
+        "todoread": "allow",
+        "edit": "allow",
+        "write": "allow",
+        "patch": "allow",
+        "bash": bash,
+        "task": "deny",
+        "external_directory": "deny",
+        "webfetch": "deny",
+        "websearch": "deny",
+    }
 
     overlay = {
         "$schema": base_config.get("$schema", "https://opencode.ai/config.json"),
         "model": base_agent["model"],
-        "permission": {
-            "*": "deny",
-            "edit": edit,
-            "bash": bash,
-            "external_directory": "deny",
-            "webfetch": "deny",
-            "websearch": "deny",
-        },
+        "permission": dict(permission),
         "agent": {
             agent_name: {
                 **base_agent,
                 "permission": {
                     **base_agent.get("permission", {}),
-                    "edit": edit,
-                    "bash": bash,
-                    "task": "deny",
-                    "external_directory": "deny",
-                    "webfetch": "deny",
-                    "websearch": "deny",
+                    **permission,
                 },
             }
         },
     }
     if agent_name == "ao-review":
-        overlay["permission"]["edit"] = "deny"
-        overlay["permission"]["bash"] = "deny"
-        overlay["agent"][agent_name]["permission"]["edit"] = "deny"
-        overlay["agent"][agent_name]["permission"]["bash"] = "deny"
+        # The challenger reads a captured diff and never mutates the worktree,
+        # so every write surface is withheld, not just `edit`.
+        for surface in ("edit", "write", "patch", "bash"):
+            overlay["permission"][surface] = "deny"
+            overlay["agent"][agent_name]["permission"][surface] = "deny"
     return overlay
 
 
@@ -347,6 +370,9 @@ def run_registered_commands(
             command,
             shell=True,
             cwd=worktree,
+            # Registered gate commands are noninteractive too: a prompt here
+            # would stall the cold run rather than fail it.
+            stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
             timeout=packet["limits"]["timeout_seconds"],
@@ -362,6 +388,24 @@ def run_registered_commands(
             }
         )
     return results
+
+
+def coordinator_tree_state(repo_root: Path) -> list[str]:
+    """Porcelain status of the coordinator's own working tree.
+
+    The disposable worktree is the worker's boundary, but nothing in the
+    OpenCode overlay reliably enforces it: ``external_directory: deny`` did not
+    stop a worker from writing an absolute path into the coordinator's tree,
+    and a repository's own ``AGENTS.md`` routinely hands the model that
+    absolute root in its auto-loaded context. Comparing this before and after
+    the worker loop turns an escape into a hard, observable failure instead of
+    an empty diff that merely looks like a weak model.
+    """
+    return [
+        line.strip()
+        for line in _git(repo_root, "status", "--porcelain").splitlines()
+        if line.strip()
+    ]
 
 
 def dispatch_worker(
@@ -384,6 +428,9 @@ def dispatch_worker(
         **os.environ,
         "OPENCODE_CONFIG_CONTENT": json.dumps(overlay),
     }
+    # Another path by which the worker learns the coordinator's real checkout.
+    # It has no use for it: everything it may touch is inside the worktree.
+    env.pop("AGENTOPS_ROOT", None)
     # OpenCode 1.18.5 treats positional arguments after --file as further file
     # values, so the message must precede it.
     argv = [
@@ -401,6 +448,11 @@ def dispatch_worker(
         argv,
         cwd=worktree,
         env=env,
+        # A worker loop is strictly noninteractive. With the coordinator's stdin
+        # inherited, `opencode run` blocks in init and the packet burns its whole
+        # timeout without ever reaching inference -- indistinguishable from a slow
+        # model. The same packet exits promptly once stdin is closed.
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
         timeout=packet["limits"]["timeout_seconds"],
@@ -417,7 +469,9 @@ def dispatch_worker(
 
 
 def post_gates(
-    worktree: Path, packet: dict[str, Any], manifest: dict[str, Any]
+    worktree: Path,
+    packet: dict[str, Any],
+    manifest: dict[str, Any],
 ) -> dict[str, Any]:
     """Run the deterministic post-dispatch gates. Worker claims are not evidence."""
     changed = [
@@ -535,9 +589,11 @@ def main(argv: list[str] | None = None) -> int:
             raise PacketError(f"{worktree} does not exist; run 'prepare' first")
 
         if args.command == "run":
+            before = coordinator_tree_state(repo_root)
             transcript = dispatch_worker(
                 worktree, packet_path, packet, overlay, policy, args.opencode_bin
             )
+            breach = sorted(set(coordinator_tree_state(repo_root)) - set(before))
             _emit(
                 _receipt(
                     packet,
@@ -546,9 +602,21 @@ def main(argv: list[str] | None = None) -> int:
                     worktree=str(worktree),
                     overlay_sha256=overlay_hash(overlay),
                     worker=transcript,
+                    containment={
+                        "coordinator_tree_untouched": not breach,
+                        "coordinator_tree_changes": breach,
+                    },
+                    **(
+                        {"disposition": "containment_breach"}
+                        if breach
+                        else {}
+                    ),
                 )
             )
-            return 0
+            # A worker that wrote outside its disposable worktree has escaped the
+            # boundary the packet exists to enforce. That is never a retryable
+            # quality result: it stops the packet for human triage.
+            return 3 if breach else 0
 
         if args.command == "gate":
             evidence = post_gates(worktree, packet, manifest)

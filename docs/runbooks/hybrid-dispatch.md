@@ -149,3 +149,54 @@ overlay and the `--file` argument ordering on upgrade.
 - `templates/dispatch/scripts/hybrid_dispatch.py` — coordinator driver
 - `templates/dispatch/scripts/validate_hybrid_dispatch.py` — deterministic policy gate
 - gitops-nixos `modules/system/hybrid-dispatch.nix` — pinned host deployment
+
+## Measured OpenCode 1.18.5 worker behaviour
+
+Established 2026-07-27 against `opencode-go/deepseek-v4-flash` on a trivial
+single-file task, by comparing a permissive control run with the packet
+overlay. Each item cost a real dispatch to find; none is inferable from the
+OpenCode config schema.
+
+**A `"*": "deny"` withholds tools, it does not gate them.** The overlay's
+blanket top-level deny left the worker with no toolset at all. The model then
+emitted a pseudo tool call as prose — `<read_file src="…"/>` — and stopped with
+an empty diff after ~15s and exit 0. This reads exactly like a weak model and is
+not: the same model with tools enumerated completes the task in two calls. The
+overlay therefore enumerates every tool explicitly.
+
+**The same applies inside a per-tool map.** An `edit` map whose `"*"` is `deny`
+withholds the edit tool even when specific paths are allowed, so per-path
+scoping of `edit` silently guarantees an empty diff. `bash` does not share this
+behaviour and keeps its registered-command map. `edit` is consequently granted
+whole, and `writable_patch_paths` is enforced where it was always adjudicated:
+the cold `diff-scope-respected` post-gate.
+
+**A worker loop must have stdin closed.** With the coordinator's stdin
+inherited, `opencode run` blocks in `init` and burns the packet's entire timeout
+without ever reaching inference — indistinguishable from a slow model, and the
+likely explanation for any route that "ran past its timeout". The driver passes
+`stdin=subprocess.DEVNULL`.
+
+### Open: the worktree is not a containment boundary
+
+**A worker in a linked git worktree writes to the main checkout.** The model
+globs correctly relative to its worktree, then issues `write` against the
+*coordinator's* absolute path — OpenCode resolves a linked worktree's project
+root to the main checkout. `external_directory: deny` does not stop this. It
+reproduced on every attempt.
+
+Scrubbing the absolute root from the worktree's `AGENTS.md` does **not** fix it
+(the path also appears across `docs/**`, and the root is resolved by OpenCode
+rather than read from context), so that mitigation was tried and removed rather
+than left in place looking protective.
+
+Until this closes, containment rests on one thing: `run` snapshots the
+coordinator's `git status --porcelain` around the worker loop and any new entry
+fails the packet as `containment_breach` (exit 3), naming the escaped paths. A
+breach is never a retryable quality result — it stops for human triage. Note the
+post-gates alone would *not* have caught this: they only ever saw an empty
+worktree diff.
+
+The candidate fix is to stop using linked worktrees for dispatch and give the
+worker a standalone local clone, so no coordinator path exists to resolve to.
+That is unimplemented and unverified.
