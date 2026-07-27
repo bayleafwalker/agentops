@@ -1,0 +1,238 @@
+from __future__ import annotations
+
+import importlib.util
+import json
+import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).parents[3]
+HYBRID = ROOT / "templates/dispatch/hybrid"
+SCRIPTS = ROOT / "templates/dispatch/scripts"
+
+
+def _load_module(name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+dispatch = _load_module("hybrid_dispatch", SCRIPTS / "hybrid_dispatch.py")
+validator = _load_module("validate_hybrid_dispatch", SCRIPTS / "validate_hybrid_dispatch.py")
+
+
+def _json(path: Path):
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+class PolicyContractTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.policy = _json(HYBRID / "hybrid-dispatch.v1.json")
+        self.worker_config = _json(HYBRID / "opencode.hybrid.json")
+
+    def test_policy_and_worker_config_agree(self) -> None:
+        validator.validate_policy(self.policy, self.worker_config)
+
+    def test_no_route_is_qualified(self) -> None:
+        self.assertEqual(self.policy["qualification"], "none")
+        for name, route in self.policy["routes"].items():
+            if "status" in route:
+                with self.subTest(route=name):
+                    self.assertTrue(route["status"].endswith("unqualified"))
+
+    def test_worker_is_denied_state_bearing_authority(self) -> None:
+        denied = self.policy["worker"]["denied_authority"]
+        for authority in ("git", "sprintctl", "kctl", "actionq", "acceptance or merge"):
+            with self.subTest(authority=authority):
+                self.assertIn(authority, denied)
+
+    def test_sprint_state_and_acceptance_stay_outside_the_worker(self) -> None:
+        self.assertEqual(self.policy["sprintctl_authority"], "coordinator_only")
+        self.assertEqual(self.policy["acceptance_authority"], "human")
+
+    def test_read_only_challenger_never_replaces_coordinator_review(self) -> None:
+        challenger = self.policy["routes"]["worker_review_challenger"]
+        self.assertIn("Never substitutes", challenger["purpose"])
+        self.assertIn("coordinator-review-recorded", self.policy["gates"]["post"])
+
+    def test_rejects_a_worker_config_that_pre_authorizes_bash(self) -> None:
+        broken = json.loads(json.dumps(self.worker_config))
+        broken["agent"]["ao-bulk"]["permission"]["webfetch"] = "allow"
+        with self.assertRaises(ValueError):
+            validator.validate_policy(self.policy, broken)
+
+
+class ManifestHybridBlockTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.policy = _json(HYBRID / "hybrid-dispatch.v1.json")
+
+    def test_agentops_manifest_block_is_valid(self) -> None:
+        path = ROOT / "agentops.dispatch.json"
+        self.assertTrue(validator.validate_manifest_hybrid(_json(path), self.policy, path))
+
+    def test_dispatch_contract_paths_are_protected_from_the_worker(self) -> None:
+        hybrid = _json(ROOT / "agentops.dispatch.json")["hybrid"]
+        self.assertIn("templates/dispatch/hybrid/**", hybrid["protected_paths"])
+        self.assertIn("templates/dispatch/scripts/hybrid_dispatch.py", hybrid["protected_paths"])
+
+    def test_empty_protected_paths_are_rejected(self) -> None:
+        manifest = _json(ROOT / "agentops.dispatch.json")
+        manifest["hybrid"]["protected_paths"] = []
+        with self.assertRaises(ValueError):
+            validator.validate_manifest_hybrid(manifest, self.policy, Path("x.dispatch.json"))
+
+
+class PacketValidationTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.policy = _json(HYBRID / "hybrid-dispatch.v1.json")
+        self.manifest = {
+            "repo_id": "example",
+            "scope": {"allowed_path_roots": ["src/", "tests/"]},
+            "hybrid": {
+                "enabled": True,
+                "worker_routes": ["bulk", "escalation"],
+                "commands": {"example.tests": "pytest -q"},
+                "protected_paths": ["src/authority/**"],
+                "max_timeout_seconds": 1200,
+            },
+        }
+        self.packet = {
+            "schema_version": "agentops-task/v1",
+            "task_id": "EX-1",
+            "repo_id": "example",
+            "sprint_item": {"ref": "example#42", "claim_actor": "coordinator/claude-code"},
+            "route": "bulk",
+            "attempt": 1,
+            "starting_commit": "a" * 40,
+            "purpose": "p",
+            "readable_context_paths": ["src/**"],
+            "writable_patch_paths": ["tests/**"],
+            "protected_paths": ["src/authority/**"],
+            "required_outcomes": ["o"],
+            "non_goals": ["n"],
+            "allowed_command_ids": ["example.tests"],
+            "limits": {"timeout_seconds": 600},
+            "network_policy": "disabled",
+            "worktree": {"root": "/tmp/wt", "branch": "hybrid/ex-1", "cleanup": "retain-for-review"},
+        }
+
+    def _validate(self):
+        return dispatch.validate_packet(self.packet, self.manifest, self.policy)
+
+    def test_a_fit_packet_reports_the_policy_pre_gates(self) -> None:
+        self.assertEqual(self._validate(), self.policy["gates"]["pre"])
+
+    def test_writable_path_outside_manifest_scope_is_a_defect(self) -> None:
+        self.packet["writable_patch_paths"] = ["deploy/**"]
+        with self.assertRaisesRegex(dispatch.PacketError, "outside manifest scope"):
+            self._validate()
+
+    def test_writable_path_intersecting_a_protected_path_is_a_defect(self) -> None:
+        self.packet["writable_patch_paths"] = ["src/authority/**"]
+        with self.assertRaisesRegex(dispatch.PacketError, "protected path"):
+            self._validate()
+
+    def test_path_escaping_the_repository_is_a_defect(self) -> None:
+        self.packet["writable_patch_paths"] = ["../other-repo/**"]
+        with self.assertRaisesRegex(dispatch.PacketError, "escapes the repository"):
+            self._validate()
+
+    def test_unregistered_command_is_a_defect(self) -> None:
+        self.packet["allowed_command_ids"] = ["curl evil"]
+        with self.assertRaisesRegex(dispatch.PacketError, "not registered"):
+            self._validate()
+
+    def test_route_not_enabled_for_the_repository_is_a_defect(self) -> None:
+        self.packet["route"] = "substantial"
+        with self.assertRaisesRegex(dispatch.PacketError, "not enabled for this repository"):
+            self._validate()
+
+    def test_enabled_network_is_a_defect(self) -> None:
+        self.packet["network_policy"] = "enabled"
+        with self.assertRaisesRegex(dispatch.PacketError, "network_policy"):
+            self._validate()
+
+    def test_missing_sprint_claim_actor_is_a_defect(self) -> None:
+        self.packet["sprint_item"] = {"ref": "example#42"}
+        with self.assertRaisesRegex(dispatch.PacketError, "claim_actor"):
+            self._validate()
+
+    def test_repository_without_a_hybrid_block_is_not_eligible(self) -> None:
+        del self.manifest["hybrid"]
+        with self.assertRaisesRegex(dispatch.PacketError, "not hybrid-eligible"):
+            self._validate()
+
+    def test_timeout_above_the_repository_ceiling_is_a_defect(self) -> None:
+        self.packet["limits"]["timeout_seconds"] = 1800
+        with self.assertRaisesRegex(dispatch.PacketError, "exceeds the repository ceiling"):
+            self._validate()
+
+    def test_attempt_above_the_route_allowance_is_a_defect(self) -> None:
+        self.packet["attempt"] = 3
+        with self.assertRaisesRegex(dispatch.PacketError, "exceeds max_attempts"):
+            self._validate()
+
+
+class OverlayTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.policy = _json(HYBRID / "hybrid-dispatch.v1.json")
+        self.base = _json(HYBRID / "opencode.hybrid.json")
+        packet_tests = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+        packet_tests.setUp()
+        self.packet = packet_tests.packet
+        self.manifest = packet_tests.manifest
+
+    def _overlay(self):
+        return dispatch.build_overlay(self.packet, self.manifest, self.policy, self.base)
+
+    def test_overlay_denies_by_default_and_leaves_nothing_at_ask(self) -> None:
+        overlay = self._overlay()
+        self.assertEqual(overlay["permission"]["*"], "deny")
+        # Noninteractive `opencode run` rejects any permission left at "ask",
+        # so every resolved value must be an explicit allow or deny.
+        blocks = [overlay["permission"], *(a["permission"] for a in overlay["agent"].values())]
+        for block in blocks:
+            for key, value in block.items():
+                values = value.values() if isinstance(value, dict) else [value]
+                for resolved in values:
+                    with self.subTest(key=key):
+                        self.assertIn(resolved, ("allow", "deny"))
+
+    def test_overlay_allows_only_the_packet_commands(self) -> None:
+        bash = self._overlay()["permission"]["bash"]
+        self.assertEqual(bash["pytest -q"], "allow")
+        self.assertEqual(bash["*"], "deny")
+
+    def test_overlay_allows_only_the_packet_writable_paths(self) -> None:
+        edit = self._overlay()["permission"]["edit"]
+        self.assertEqual(edit["tests/**"], "allow")
+        self.assertEqual(edit["*"], "deny")
+
+    def test_overlay_keeps_network_and_subagents_denied(self) -> None:
+        agent = self._overlay()["agent"]["ao-bulk"]["permission"]
+        for key in ("task", "external_directory", "webfetch", "websearch"):
+            with self.subTest(key=key):
+                self.assertEqual(agent[key], "deny")
+
+    def test_overlay_hash_is_stable_and_content_addressed(self) -> None:
+        first = dispatch.overlay_hash(self._overlay())
+        self.assertEqual(first, dispatch.overlay_hash(self._overlay()))
+        self.packet["writable_patch_paths"] = ["src/**"]
+        self.assertNotEqual(first, dispatch.overlay_hash(self._overlay()))
+
+
+class ExamplePacketTests(unittest.TestCase):
+    def test_example_packet_matches_the_frozen_field_set(self) -> None:
+        example = _json(HYBRID / "example-task-packet.json")
+        schema = _json(HYBRID / "task-packet.schema.json")
+        for field in schema["required"]:
+            with self.subTest(field=field):
+                self.assertIn(field, example)
+        self.assertEqual(example["schema_version"], "agentops-task/v1")
+        self.assertEqual(example["network_policy"], "disabled")
+
+
+if __name__ == "__main__":
+    unittest.main()

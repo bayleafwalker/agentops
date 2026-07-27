@@ -44,6 +44,28 @@
       "cluster reconciliation, image publication, or deployment mutation"
     ]
   },
+  "hybrid": {
+    "enabled": true,
+    "worker_routes": ["bulk"],
+    "commands": {
+      "agentops.dispatch.tests": "python -m unittest discover -s templates/dispatch/tests",
+      "agentops.hybrid.validate": "python templates/dispatch/scripts/validate_hybrid_dispatch.py --agentops-root . --manifest agentops.dispatch.json"
+    },
+    "protected_paths": [
+      "templates/dispatch/hybrid/**",
+      "templates/dispatch/model-routing.json",
+      "templates/dispatch/manifest.schema.json",
+      "templates/dispatch/scripts/hybrid_dispatch.py",
+      "agentops.dispatch.json",
+      ".claude/**"
+    ],
+    "worktree_root": "/tmp/agentops-hybrid/worktrees",
+    "max_timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "notes": [
+      "The dispatch contract itself is coordinator-only: a worker must never edit the policy, schema, or driver that bounds it."
+    ]
+  },
   "verification": {
     "command_families": ["unit", "docs", "full-suite"],
     "targeted_first": true,

@@ -5,6 +5,49 @@
     "codex": "codex",
     "kimi": "kimi"
   },
+  "worker_harness_providers": {
+    "opencode": "opencode-go"
+  },
+  "worker_routes": {
+    "note": "Bulk implementation workers for the supervised hybrid mode. These are never caller harnesses: a worker holds no git, sprintctl, deployment, or acceptance authority. The governing contract is templates/dispatch/hybrid/hybrid-dispatch.v1.json.",
+    "bulk": {
+      "opencode": {
+        "model": "opencode-go/deepseek-v4-flash",
+        "agent": "ao-bulk",
+        "verified": true,
+        "qualified": false,
+        "max_attempts": 2
+      }
+    },
+    "substantial": {
+      "opencode": {
+        "model": "opencode-go/kimi-k2.7-code",
+        "agent": "ao-substantial",
+        "verified": true,
+        "qualified": false,
+        "max_attempts": 1
+      }
+    },
+    "escalation": {
+      "opencode": {
+        "model": "opencode-go/glm-5.2",
+        "agent": "ao-escalation",
+        "verified": true,
+        "qualified": false,
+        "max_attempts": 1
+      }
+    },
+    "worker-review-challenger": {
+      "opencode": {
+        "model": "opencode-go/kimi-k3",
+        "agent": "ao-review",
+        "verified": true,
+        "qualified": false,
+        "max_attempts": 1,
+        "note": "Read-only challenger. Never substitutes for the coordinator review required by the dispatch contract."
+      }
+    }
+  },
   "aliases": {
     "clerical": {
       "anthropic": {
