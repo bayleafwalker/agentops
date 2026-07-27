@@ -425,16 +425,22 @@ def safety_ref(repo_root: Path, packet: dict[str, Any]) -> dict[str, Any]:
 def prepare_workspace(repo_root: Path, packet: dict[str, Any]) -> Path:
     """Clone the repository into a disposable standalone workspace.
 
-    A linked ``git worktree`` is not a containment boundary: OpenCode resolves a
-    linked worktree's project root to the *main* checkout, so the worker reads
-    the coordinator's context files and writes to the coordinator's absolute
-    paths. Measured 2026-07-27 -- it escaped on every attempt, and the
-    post-gates could not see it because the worktree diff stayed empty.
+    This provides **execution isolation and provenance, not containment.** It
+    buys: no push route back to the coordinator (``origin`` is removed), an
+    independent object store (``--no-hardlinks``), and disposable per-packet
+    task state that can be destroyed without touching coordinator refs.
 
-    A standalone clone removes the coordinator from the worker's git topology
-    entirely, and the same probe then wrote only inside the clone. ``origin`` is
-    dropped afterwards so no push path back to the coordinator survives, and
-    ``--no-hardlinks`` keeps the worker off the coordinator's object store.
+    It does **not** stop a worker reaching the coordinator's checkout. That was
+    the original justification and it was wrong: a bare probe inside such a
+    clone stayed put, but the same clone driven through the full packet path
+    still wrote to the coordinator's absolute paths on its first tool call.
+    Rewriting those paths out of the auto-loaded ``AGENTS.md`` did not help
+    either. The channel is neither git topology nor the context file, and it is
+    deliberately left uninvestigated: once the filesystem denies the write, the
+    source of the path stops mattering.
+
+    Filesystem containment is the worker uid (and later a mount namespace).
+    See ``coordinator_tree_state`` for the detection that backs it up.
     """
     target = worktree_path(packet)
     if target.exists():
@@ -481,6 +487,36 @@ def run_registered_commands(
     return results
 
 
+def worker_cannot_write(repo_root: Path, worker_user: str | None) -> bool:
+    """True when the worker's identity genuinely cannot write the checkout.
+
+    Asked of the *worker's* uid, not the coordinator's, and answered by the
+    kernel rather than by inspecting modes: ``test -w`` under the target
+    identity accounts for every path component, group membership, ACLs and
+    read-only mounts at once. A permission audit that reasons only about the
+    repository directory misses a parent that grants access.
+
+    Absence of a worker identity is not containment -- the worker then inherits
+    this process's uid, which is the configuration the escape was measured in.
+    """
+    if worker_user is None:
+        return not os.access(repo_root, os.W_OK)
+    probe = subprocess.run(
+        ["sudo", "--non-interactive", "--user", worker_user, "test", "-w", str(repo_root)],
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+        check=False,
+    )
+    if probe.returncode not in (0, 1):
+        raise PacketError(
+            f"could not determine whether {worker_user} can write {repo_root}: "
+            f"{probe.stderr.strip() or 'sudo probe failed'}. Refusing to guess "
+            "about a containment boundary."
+        )
+    return probe.returncode == 1
+
+
 def coordinator_tree_state(repo_root: Path) -> list[str]:
     """Porcelain status of the coordinator's own working tree.
 
@@ -506,6 +542,7 @@ def dispatch_worker(
     overlay: dict[str, Any],
     policy: dict[str, Any],
     opencode_bin: str,
+    worker_user: str | None = None,
 ) -> dict[str, Any]:
     """Run exactly one bounded worker loop and return its raw transcript record."""
     agent_name = policy["routes"][packet["route"]]["agent"]
@@ -535,6 +572,19 @@ def dispatch_worker(
         "--format",
         "json",
     ]
+    if worker_user:
+        # The only containment that actually holds: run the worker as an
+        # identity with no write access to the coordinator's checkout. sudo
+        # scrubs the environment, so the overlay has to be carried explicitly --
+        # it is session configuration, not a secret.
+        argv = [
+            "sudo",
+            "--non-interactive",
+            "--user",
+            worker_user,
+            f"--preserve-env=OPENCODE_CONFIG_CONTENT",
+            *argv,
+        ]
     completed = subprocess.run(
         argv,
         cwd=worktree,
@@ -551,6 +601,7 @@ def dispatch_worker(
     )
     return {
         "argv": [shlex.quote(a) for a in argv],
+        "worker_user": worker_user,
         "agent": agent_name,
         "model": policy["routes"][packet["route"]]["harness_model"],
         "exit_code": completed.returncode,
@@ -635,13 +686,27 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--agentops-root", type=Path, default=AGENTOPS_ROOT)
     parser.add_argument("--opencode-bin", default=os.environ.get("OPENCODE_BIN", "opencode"))
     parser.add_argument(
+        "--worker-user",
+        default=os.environ.get("AGENTOPS_WORKER_USER"),
+        help=(
+            "Run the worker loop as this identity via sudo. It must have no write "
+            "access to the coordinator checkout; that is the only containment that "
+            "holds. Without it the run is supervised-diagnostic only."
+        ),
+    )
+    parser.add_argument(
         "--allow-writable-coordinator",
         action="store_true",
         help=(
             "Dispatch even though the worker's identity can write the coordinator "
             "checkout. Workers are known to escape into it; only supervised runs "
-            "on a disposable host should ever pass this."
+            "on a disposable host should ever pass this. Requires --override-reason "
+            "and permanently marks the run ineligible for qualification."
         ),
+    )
+    parser.add_argument(
+        "--override-reason",
+        help="Why the containment override is acceptable for this run. Required with it.",
     )
     parser.add_argument(
         "command",
@@ -699,18 +764,37 @@ def main(argv: list[str] | None = None) -> int:
             # clone alike. Where the filesystem already denies the write there is
             # nothing to decide; where it does not, refusing is the only control
             # that actually holds, so it is the default rather than advice.
-            if os.access(repo_root, os.W_OK) and not args.allow_writable_coordinator:
+            contained = worker_cannot_write(repo_root, args.worker_user)
+            if not contained and not args.allow_writable_coordinator:
                 raise PacketError(
-                    f"{repo_root} is writable by this identity, so a worker can "
-                    "escape into it and the disposable workspace is not a real "
-                    "boundary. Dispatch from a host where the worker runs as an "
-                    "identity without write access to the coordinator checkout "
-                    "(devbox), or pass --allow-writable-coordinator to accept the "
-                    "risk on a supervised, disposable host."
+                    f"{repo_root} is writable by the worker identity "
+                    f"({args.worker_user or 'this process'}), so a worker can escape "
+                    "into it and the disposable workspace is not a real boundary. "
+                    "Dispatch with --worker-user naming an identity that cannot "
+                    "write the coordinator checkout (devbox), or pass "
+                    "--allow-writable-coordinator --override-reason '...' to accept "
+                    "the risk on a supervised, disposable host."
                 )
+            if not contained and not (args.override_reason or "").strip():
+                raise PacketError(
+                    "--allow-writable-coordinator requires a non-empty "
+                    "--override-reason; an unexplained override is how a "
+                    "diagnostic run gets mistaken for a qualifying one"
+                )
+            # An uncontained run is diagnostic forever. Recording that on the
+            # receipt is what stops it being folded into a qualification corpus
+            # later, when the circumstances are no longer remembered.
+            containment_override = {
+                "containment_override": not contained,
+                "worker_user": args.worker_user,
+                "qualification_eligible": contained,
+                "unattended_eligible": contained,
+                "override_reason": args.override_reason if not contained else None,
+            }
             before = coordinator_tree_state(repo_root)
             transcript = dispatch_worker(
-                worktree, packet_path, packet, overlay, policy, args.opencode_bin
+                worktree, packet_path, packet, overlay, policy, args.opencode_bin,
+                args.worker_user,
             )
             breach = sorted(set(coordinator_tree_state(repo_root)) - set(before))
             _emit(
@@ -721,6 +805,7 @@ def main(argv: list[str] | None = None) -> int:
                     worktree=str(worktree),
                     overlay_sha256=overlay_hash(overlay),
                     worker=transcript,
+                    **containment_override,
                     containment={
                         "coordinator_tree_untouched": not breach,
                         "coordinator_tree_changes": breach,
