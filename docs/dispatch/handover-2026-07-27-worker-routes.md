@@ -109,14 +109,61 @@ Deferred deliberately, in the revised plan order:
   cheap-worker control, not a general one.
 - **Branch deletions** — decided but awaiting the operator.
 
+## Controls, and what each actually provides
+
+Conflating these is what produced the wrong conclusion the first time.
+
+| Control | What it provides |
+|---|---|
+| Standalone clone | No push route, independent objects, disposable task state |
+| Dedicated worker uid | **Actual filesystem containment** |
+| Diff and breach gates | Detection and acceptance, after the attempt |
+| Safety ref | Coordinator rollback |
+| Coordinator-owned main | Integration authority |
+
+The clone was implemented correctly; only its justification was wrong. It is
+execution isolation and provenance, never protection from absolute-path escape.
+
+## Landed since: the uid boundary
+
+gitops-nixos `e0bf6ac` adds `agentworker` — a system identity with no
+supplementary groups whose only writable territory is the dispatch workspace —
+plus a narrowly scoped declarative sudo rule (the OpenCode binary and the
+driver's `test -w` probe, nothing else; hand-edited sudoers on the host would
+not survive a rebuild). Workspace roots become setgid and group-shared so the
+worker writes the patch and the coordinator still reads the diff back, without
+sharing anything above that level.
+
+agentops `38c30e0` adds `--worker-user`, which runs the worker loop as that
+identity and verifies containment by asking the kernel (`test -w` under the
+target uid) rather than reasoning about mode bits, so parents, ACLs and
+read-only mounts are all accounted for. An inconclusive probe refuses rather
+than guesses. `--allow-writable-coordinator` now requires a non-empty
+`--override-reason` and stamps the receipt `qualification_eligible: false`,
+`unattended_eligible: false`, so a supervised diagnostic run cannot later be
+folded into a qualification corpus.
+
+`scripts/check-worker-containment.sh` is the adversarial canary: it attempts
+the forbidden write and walks every path component with `namei -om`, and flags
+supplementary groups, which are the most likely way this boundary silently
+regresses.
+
+**None of it is deployed or verified.** Nix cannot evaluate from the
+workstation, so this is parse-checked only.
+
 ## Next actions, in order
 
-1. Devbox uid separation so the agent identity cannot write coordinator
-   checkouts (**needs sudo — operator**).
-2. Re-verify the escape under that boundary; the refusal gate should then pass
-   on devbox and continue refusing on the workstation.
-3. Rerun the #2017 qualification corpus against the fixed driver — the first
-   real measurement of these routes.
+1. `nixos-rebuild switch` on devbox for gitops-nixos `e0bf6ac` (**operator**).
+2. Run `scripts/check-worker-containment.sh agentworker <workspace> /projects/dev`
+   on the host. It must pass before anything else counts.
+3. Re-run the smoke packet with `--worker-user agentworker`: the clone edit must
+   succeed and the coordinator write must fail with EACCES.
+4. Add the mount namespace (bubblewrap) as the second boundary — the uid stops
+   writes but may still leave coordinator content *readable*. Check
+   `security.unprivilegedUsernsClone` on devbox first. Network cannot simply be
+   unshared while OpenCode needs provider access.
+5. Rerun the #2017 qualification corpus from zero — the first real measurement
+   of these routes.
 4. Confirm no deployment path follows `main` HEAD (gitops-nixos
    `deploy-host.sh`, appservice GitOps revisions) before relying on "main may
    break". **Unverified.**
