@@ -151,6 +151,23 @@ regresses.
 **None of it is deployed or verified.** Nix cannot evaluate from the
 workstation, so this is parse-checked only.
 
+## OpenCode version drift — record which build a corpus ran against
+
+The findings here were measured on **1.18.5**. Neither host runs that now:
+devbox runs **1.18.4**, and the Arch workstation has since moved to **1.18.7**.
+
+`nix flake update` cannot close this. nixpkgs-unstable's opencode *is* 1.18.4,
+so devbox is already at the newest packaged build; the workstation's is Arch's.
+Closing it would mean reintroducing a local derivation, deliberately removed
+because autoPatchelfHook corrupts Bun single-file executables.
+
+The driver fixes are version-independent: enumerating tools explicitly works
+whatever the wildcard means, and closing stdin is correct everywhere. But the
+two overlay findings (`"*": "deny"` withholding tools; an `edit` map denying
+`"*"` withholding edit) are **1.18.5 observations** and must be re-confirmed on
+1.18.4 before being treated as facts there. Any qualification corpus must record
+its OpenCode build, or it will be uncomparable with the next one.
+
 ## Next actions, in order
 
 1. `nixos-rebuild switch` on devbox for gitops-nixos `e0bf6ac` (**operator**).
