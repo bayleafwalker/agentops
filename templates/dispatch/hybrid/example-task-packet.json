@@ -1,0 +1,54 @@
+{
+  "schema_version": "agentops-task/v1",
+  "task_id": "VUORO-1252-repo-id-param-tests",
+  "repo_id": "vuoro",
+  "sprint_item": {
+    "ref": "vuoro#1252",
+    "claim_actor": "coordinator/claude-code"
+  },
+  "route": "bulk",
+  "attempt": 1,
+  "starting_commit": "0000000000000000000000000000000000000000",
+  "purpose": "Add table-driven tests covering per-request repository resolution in the service work-store adapter. Implementation contract is already fixed by the coordinator.",
+  "readable_context_paths": [
+    "AGENTS.md",
+    "vuoro.dispatch.json",
+    "packages/vuoro-service/src/vuoro_service/composition.py",
+    "packages/vuoro-service/tests/**"
+  ],
+  "writable_patch_paths": [
+    "packages/vuoro-service/tests/**"
+  ],
+  "protected_paths": [
+    "deploy/**",
+    "packages/vuoro-client/**",
+    "vuoro.dispatch.json",
+    ".github/**"
+  ],
+  "required_outcomes": [
+    "a request carrying an unknown repository id fails closed with the documented error",
+    "two requests in one process can resolve two different repository ids",
+    "the new tests fail against the pre-change composition module"
+  ],
+  "non_goals": [
+    "changing composition.py itself",
+    "changing client transport behavior",
+    "touching deployment overlays or migrations"
+  ],
+  "allowed_command_ids": ["vuoro.service.tests"],
+  "limits": {
+    "timeout_seconds": 900,
+    "max_cost_usd": 2.0
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/home/agent/.local/state/hybrid-dispatch/worktrees",
+    "branch": "hybrid/vuoro-1252-repo-id-param-tests",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": ["docs/plans/1245-repo-id-parameterization.md"]
+  }
+}

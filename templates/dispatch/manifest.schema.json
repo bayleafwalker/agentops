@@ -125,6 +125,38 @@
         }
       }
     },
+    "hybrid": {
+      "type": "object",
+      "description": "Supervised hybrid dispatch eligibility. Governed by templates/dispatch/hybrid/hybrid-dispatch.v1.json; absence means the repository is coordinator-only.",
+      "additionalProperties": false,
+      "required": ["enabled", "worker_routes", "commands", "protected_paths"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "worker_routes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "enum": ["bulk", "substantial", "escalation"] }
+        },
+        "commands": {
+          "type": "object",
+          "minProperties": 1,
+          "description": "Registered command ids a packet may grant. Free-form shell is never granted to a worker.",
+          "additionalProperties": { "type": "string", "minLength": 1 },
+          "propertyNames": { "pattern": "^[A-Za-z0-9._-]+$" }
+        },
+        "protected_paths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "worktree_root": { "type": "string", "minLength": 1 },
+        "max_timeout_seconds": { "type": "integer", "minimum": 30, "maximum": 5400 },
+        "max_cost_usd": { "type": "number", "minimum": 0 },
+        "notes": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
     "verification": {
       "type": "object",
       "additionalProperties": false,

@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/hybrid-task-packet.schema.json",
+  "title": "Agentops hybrid dispatch task packet",
+  "description": "A frozen bounded implementation packet handed to one disposable OpenCode worker loop. The coordinator authors it; the worker never edits it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "repo_id",
+    "sprint_item",
+    "route",
+    "starting_commit",
+    "purpose",
+    "readable_context_paths",
+    "writable_patch_paths",
+    "protected_paths",
+    "required_outcomes",
+    "non_goals",
+    "allowed_command_ids",
+    "limits",
+    "network_policy",
+    "worktree"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "const": "agentops-task/v1" },
+    "task_id": { "type": "string", "pattern": "^[A-Z0-9]+-[A-Za-z0-9._-]+$" },
+    "repo_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+    "sprint_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "claim_actor"],
+      "properties": {
+        "ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]+#[0-9]+$",
+          "description": "sprintctl item reference as repo#id."
+        },
+        "claim_actor": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Actor holding the sprintctl claim. Always the coordinator, never the worker."
+        }
+      }
+    },
+    "route": { "type": "string", "enum": ["bulk", "substantial", "escalation"] },
+    "attempt": { "type": "integer", "minimum": 1, "default": 1 },
+    "supersedes": { "type": "string", "description": "task_id of the failed packet this corrected retry replaces." },
+    "starting_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "purpose": { "type": "string", "minLength": 1 },
+    "readable_context_paths": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "writable_patch_paths": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "protected_paths": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "required_outcomes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "non_goals": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "allowed_command_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Command ids resolved against the repository hybrid.commands map. Free-form shell is never granted."
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timeout_seconds"],
+      "properties": {
+        "timeout_seconds": { "type": "integer", "minimum": 30, "maximum": 5400 },
+        "max_cost_usd": { "type": "number", "minimum": 0 }
+      }
+    },
+    "network_policy": { "type": "string", "enum": ["disabled"] },
+    "worktree": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root", "branch", "cleanup"],
+      "properties": {
+        "root": { "type": "string", "minLength": 1 },
+        "branch": { "type": "string", "minLength": 1 },
+        "cleanup": { "type": "string", "enum": ["remove-on-disposition", "retain-for-review"] }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "coordinator_context": { "type": "string", "enum": ["independent", "same-session"], "default": "independent" },
+        "challenger_enabled": { "type": "boolean", "default": false },
+        "references": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    }
+  }
+}

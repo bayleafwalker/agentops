@@ -1,0 +1,59 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "opencode-go/deepseek-v4-flash",
+  "permission": {
+    "*": "ask",
+    "external_directory": "deny",
+    "webfetch": "deny",
+    "websearch": "deny"
+  },
+  "agent": {
+    "ao-bulk": {
+      "description": "Bounded routine implementation from a frozen AgentOps task packet.",
+      "mode": "primary",
+      "model": "opencode-go/deepseek-v4-flash",
+      "temperature": 0,
+      "permission": {
+        "task": "deny",
+        "external_directory": "deny",
+        "webfetch": "deny",
+        "websearch": "deny"
+      }
+    },
+    "ao-substantial": {
+      "description": "Bounded multi-file implementation after architecture and acceptance are settled.",
+      "mode": "primary",
+      "model": "opencode-go/kimi-k2.7-code",
+      "permission": {
+        "task": "deny",
+        "external_directory": "deny",
+        "webfetch": "deny",
+        "websearch": "deny"
+      }
+    },
+    "ao-escalation": {
+      "description": "One corrected retry for a difficult frozen packet; never architecture or scope expansion.",
+      "mode": "primary",
+      "model": "opencode-go/glm-5.2",
+      "permission": {
+        "task": "deny",
+        "external_directory": "deny",
+        "webfetch": "deny",
+        "websearch": "deny"
+      }
+    },
+    "ao-review": {
+      "description": "Read-only cheap challenger over a frozen packet and its captured diff.",
+      "mode": "primary",
+      "model": "opencode-go/kimi-k3",
+      "permission": {
+        "edit": "deny",
+        "bash": "deny",
+        "task": "deny",
+        "external_directory": "deny",
+        "webfetch": "deny",
+        "websearch": "deny"
+      }
+    }
+  }
+}

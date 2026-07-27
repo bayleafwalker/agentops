@@ -1,0 +1,147 @@
+{
+  "schema_version": "agentops-hybrid-dispatch/v1",
+  "reviewed_on": "2026-07-27",
+  "origin": "Generalized from the Frontier Weave supervised harness hybrid (frontier-routing/v1).",
+  "default_mode": "supervised_hybrid",
+  "workflow_precedence": ["supervised_hybrid", "frontier_only"],
+  "modes": {
+    "supervised_hybrid": {
+      "description": "A frontier Claude or Codex coordinator session plans, freezes a task packet, dispatches one disposable OpenCode worker loop, runs cold deterministic gates, and reviews the captured diff. The worker holds no Git, sprintctl, deployment, or acceptance authority.",
+      "execution_boundary": "harness",
+      "role": "primary",
+      "status": "operational_supervised"
+    },
+    "frontier_only": {
+      "description": "The coordinator harness owns planning, implementation, verification, and review without a bulk worker.",
+      "execution_boundary": "frontier-harness",
+      "role": "secondary",
+      "status": "operational"
+    }
+  },
+  "coordinator": {
+    "surfaces": ["claude-code", "codex-cli"],
+    "plan_alias": "frontier-plan",
+    "review_alias": "review-synthesis",
+    "authority": [
+      "architecture and ambiguity resolution",
+      "task packet construction and freezing",
+      "session permission overlay authorship",
+      "cold deterministic gate execution",
+      "diff review and failure classification",
+      "sprintctl item and claim state",
+      "git branch, commit, and push"
+    ]
+  },
+  "worker": {
+    "harness": "opencode",
+    "provider": "opencode-go",
+    "cli_version_verified": "1.18.5",
+    "authority": [
+      "edit files inside writable_patch_paths within its own worktree",
+      "run registered command ids"
+    ],
+    "denied_authority": [
+      "git",
+      "sprintctl",
+      "kctl",
+      "actionq",
+      "deployment or cluster mutation",
+      "network fetch or search",
+      "external directories outside the worktree",
+      "sub-agent spawning",
+      "scope expansion",
+      "acceptance or merge"
+    ]
+  },
+  "routes": {
+    "coordinator_plan": {
+      "purpose": "Architecture, ambiguity resolution, dependency ordering, and packet construction.",
+      "modes": ["supervised_hybrid", "frontier_only"],
+      "surfaces": ["claude-code", "codex-cli"],
+      "selection": "calling_coordinator_harness"
+    },
+    "coordinator_review": {
+      "purpose": "Wave review, failure classification, and corrected retry packets.",
+      "modes": ["supervised_hybrid", "frontier_only"],
+      "surfaces": ["claude-code", "codex-cli"],
+      "selection": "independent_coordinator_context"
+    },
+    "bulk": {
+      "purpose": "Routine bounded implementation, fixtures, schemas, mechanical migrations, and test-driven repair behind strong deterministic gates.",
+      "mode": "supervised_hybrid",
+      "harness_model": "opencode-go/deepseek-v4-flash",
+      "agent": "ao-bulk",
+      "status": "available_unqualified",
+      "max_attempts": 2
+    },
+    "substantial": {
+      "purpose": "Multi-file implementation once contracts and architecture are already decided.",
+      "mode": "supervised_hybrid",
+      "harness_model": "opencode-go/kimi-k2.7-code",
+      "agent": "ao-substantial",
+      "status": "available_unqualified",
+      "max_attempts": 1
+    },
+    "escalation": {
+      "purpose": "One corrected retry after coordinator triage of a failed packet.",
+      "mode": "supervised_hybrid",
+      "harness_model": "opencode-go/glm-5.2",
+      "agent": "ao-escalation",
+      "status": "available_unqualified",
+      "max_attempts": 1
+    },
+    "worker_review_challenger": {
+      "purpose": "Read-only cheap challenger over the captured diff. Never substitutes for the required coordinator review.",
+      "mode": "supervised_hybrid",
+      "harness_model": "opencode-go/kimi-k3",
+      "agent": "ao-review",
+      "status": "available_unqualified",
+      "max_attempts": 1
+    }
+  },
+  "eligibility": {
+    "required_before_dispatch": [
+      "packet references an existing sprintctl item in a startable state",
+      "the coordinator holds the sprintctl claim for that item",
+      "architecture, acceptance criteria, and non-goals are settled",
+      "writable_patch_paths are inside the repository manifest scope.allowed_path_roots",
+      "no writable path intersects the repository hybrid.protected_paths",
+      "every registered command runs green cold in the disposable worktree before inference",
+      "the exact repository payload and worker model are operator-approved"
+    ],
+    "route_to_coordinator_instead": [
+      "unresolved architecture or ownership",
+      "cross-repository sequencing",
+      "contradictory or missing acceptance criteria",
+      "security, credential, authority, or migration semantics",
+      "changes smaller than the packet overhead",
+      "a packet that already failed its escalation attempt"
+    ]
+  },
+  "gates": {
+    "pre": [
+      "sprint-item-exists",
+      "sprint-item-claimed-by-coordinator",
+      "packet-schema-valid",
+      "scope-within-manifest",
+      "protected-paths-untouched",
+      "worktree-exact-commit",
+      "registered-commands-green-cold"
+    ],
+    "post": [
+      "diff-nonempty",
+      "diff-scope-respected",
+      "protected-paths-untouched",
+      "worktree-clean",
+      "registered-commands-green",
+      "coordinator-review-recorded"
+    ]
+  },
+  "dispositions": ["candidate", "retry_same_route", "reroute", "task_defect", "human_decision"],
+  "cross_provider_fallback": "explicit_only",
+  "free_remote_models": "forbidden_for_repository_context",
+  "network_policy_default": "disabled",
+  "acceptance_authority": "human",
+  "sprintctl_authority": "coordinator_only",
+  "qualification": "none"
+}

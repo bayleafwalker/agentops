@@ -89,6 +89,63 @@ state, audit state, or Kubernetes desired state.
   filesystem access to read the routing file at run time). See
   `docs/dispatch/workflow-topology.md` for the reasoning-unit and escalation policy.
 
+## Choosing Hybrid Mode
+
+Hybrid mode delegates one bounded implementation loop to a cheap OpenCode Go
+worker while a Claude or Codex coordinator keeps every decision. The operator
+chooses it per task, before any work starts. Contract:
+`templates/dispatch/hybrid/hybrid-dispatch.v1.json`; runbook:
+`docs/runbooks/hybrid-dispatch.md`.
+
+**Choose hybrid when all of these hold.** Any "no" means coordinator-only:
+
+1. The repository's `*.dispatch.json` has `hybrid.enabled: true` and a
+   `worker_routes` entry for the route you want.
+2. Architecture, interface, and acceptance criteria are already decided — the
+   task is "implement this", not "work out what this should be".
+3. The writable paths are inside `scope.allowed_path_roots` and touch no
+   `hybrid.protected_paths`.
+4. A registered command in `hybrid.commands` can actually falsify the result.
+   Without a gate that fails on a wrong answer, a cheap worker's output is
+   unreviewable at a glance and costs more to check than to write.
+5. The change is big enough that freezing a packet is cheaper than typing it.
+
+**Never hybrid**, regardless of the above: unresolved architecture or
+ownership, cross-repository sequencing, security, credential, authority,
+compatibility, or migration semantics, sprint or release decisions, and
+anything that already failed its escalation attempt.
+
+**What the operator does, and what stays theirs.** Claim the sprintctl item as
+the coordinator, freeze the packet at an exact commit, then run the driver
+stages. The worker never holds Git, sprintctl, deployment, or acceptance
+authority; sprint state is coordinator-only and acceptance is human. A
+`gate` result is a *candidate*, never a merge.
+
+```bash
+D=/projects/dev/agentops/templates/dispatch/scripts/hybrid_dispatch.py
+python "$D" --repo-root . --packet packets/<TASK>.json validate
+python "$D" --repo-root . --packet packets/<TASK>.json overlay   # inspect before dispatch
+python "$D" --repo-root . --packet packets/<TASK>.json prepare   # worktree + cold gates
+python "$D" --repo-root . --packet packets/<TASK>.json run       # one bounded worker loop
+python "$D" --repo-root . --packet packets/<TASK>.json gate      # cold post-gates
+```
+
+On devbox-agent the deployed `hybrid-dispatch` wrapper does the same against
+pinned `/etc/agentops` policy. Queue-driven work uses the actionq
+`hybrid-bulk-*` actions instead; there the dispatcher owns the worktree, the
+claim, and the gate command.
+
+**This repository's own scope.** `agentops` enables the `bulk` route only, and
+the dispatch contract itself — `templates/dispatch/hybrid/**`,
+`model-routing.json`, `manifest.schema.json`, `hybrid_dispatch.py`,
+`agentops.dispatch.json` — is protected. A worker must never edit the policy
+that bounds it.
+
+**Nothing is qualified.** Every worker model/task-class pair is
+`available_unqualified` and the policy records `qualification: none`.
+Availability is not qualification and a passing smoke run promotes nothing;
+admission is decided by the frozen assessment in the `hybrid-dispatch` track.
+
 ## Documentation Quality
 
 - Keep policy, current implementation, shipped history, and future plans
