@@ -182,3 +182,37 @@ remains coordinator-only regardless.
 5. Resume repository enablement one repository at a time, retaining an
    explicit coordinator-only disposition wherever no cold deterministic gate
    can be proven. Infrastructure repositories remain intentionally excluded.
+
+## Addendum: workstation and devbox preflight, 2026-07-28
+
+The follow-up preflight was completed after the served-recovery release. It
+does not change the selected served authority or enable any rollout state.
+
+- On the workstation, `sprintctl authority reconcile --json` remained
+  conflict-free and applied no new receipts; `authority status --json` had no
+  pending records. A normal served `sprint list --json` completed successfully.
+- The intentionally scoped Vuoro dependency write was checked on both hosts:
+  `item dep add --id 2018 --blocks-item-id 2019` returned the existing
+  idempotent dependency `#230`. The before/after served reads both showed
+  `#2018` blocks `#2019`; no new dependency was created.
+- Devbox-agent's independent `sprintctl`, `vuoro`, and `agentops` checkouts
+  were fast-forwarded to `3a3192d`, `175de90`, and `7a19b39` respectively.
+  Its `sprintctl[served,remote]` tool installation is package version `0.2.4`.
+- Devbox's separate producer outbox has seven pending records on origin stream
+  `dee4a948-672b-4b12-b42c-8e2576db657f`, all above the served high-water.
+  `authority reconcile --json` found no semantic conflicts and did not settle,
+  upload, replay, or modify any of them. They remain pending and must be
+  investigated as devbox-local authority work; do not use `authority sync` as
+  a rollout shortcut.
+- Hybrid dispatch remains disabled. The observed devbox OpenCode is `1.18.4`,
+  below the contract's verified `1.18.5`, and its effective configuration
+  permits wildcard/tool/network access instead of the canonical constrained
+  worker overlay. The `agentworker` account exists, but its configured model
+  credentials have not been independently exercised without exposing secrets.
+
+**Decision:** retain authority-command mode `off` and do not name a pilot yet.
+Do not enable `actionq`; its cold gate is still unproven. Do not dispatch a
+cheap/hybrid worker until the actual `agentworker` identity has configured
+credentials, the no-override and permission boundary is observed with the
+required OpenCode version, and a fresh-clone cold gate passes under that
+identity. Infrastructure repositories remain excluded.
