@@ -1,3 +1,11 @@
+---
+doc_id: vuoro-architecture-remediation-implementation
+status: ratified
+ratified_at: 2026-07-28
+ratified_by: operator
+supersedes: []
+---
+
 # Vuoro Ecosystem Architecture Remediation Implementation Plan
 
 **Created:** 2026-07-25  
@@ -7,8 +15,25 @@
 References:
 
 - [Findings dossier](/projects/dev/agentops/docs/assessments/vuoro-architecture-findings-2026-07-25.md)
+- [Simplification assessment](/projects/dev/agentops/docs/assessments/vuoro-substrate-simplification-refactoring-assessment-2026-07-26.md)
 - [Operator packet](/projects/dev/agentops/docs/assessments/vuoro-architecture-operator-packet-2026-07-25.md)
 - [Preflight checklist](/projects/dev/agentops/docs/assessments/vuoro-architecture-preflight-checklist-2026-07-25.md)
+
+## Reconciliation checkpoint (2026-07-28)
+
+Live Sprintctl state, not this checkpoint, owns execution status.
+
+- S1 and coordinator convergence are complete through actionq #2010-#2013.
+  The independent combined-revision gate is agentops #2014. S2 follow-up must
+  not recreate an `actionq-dispatcher` coordinator.
+- Sprintctl backend retirement is owner work #1164, with current parity work
+  in #2038. Direct Postgres administration is not a supported consumer mode
+  and is not removed by that item.
+- R8's service-model slice landed at Vuoro `cb825c9` under #2024. Client
+  invocation/profile loading remains a separate unit.
+- Agentops #2039 covers R3/R6 network and cockpit convergence. Agentops #2040
+  covers R7/R11 dispatch-contract semantics and projections. Vuoro #2041,
+  #2042, and #2043 cover the remaining R8, R9, and R10 scope respectively.
 
 ## Execution model
 
@@ -78,6 +103,11 @@ Implement claimant-incarnation proof on complete/fail/reject APIs and persistenc
 **Owner:** `actionq-dispatcher`; coordinated client changes may require `sprintctl`
 
 Implement real renewal methods in dispatcher client protocols and concrete clients. The daemon must renew both claims; `session.heartbeat` remains observability only. One-shot execution must use a supervised runner capable of renewal or be explicitly rejected when work can exceed TTL. Ownership loss terminates execution and prevents settlement. Re-prove both authorities immediately before terminal writes and implement S0 recovery semantics for partial settlement.
+
+**Current-state amendment:** Actionq is now the canonical coordinator and the
+standalone dispatcher delegates once to its kernel. Interpret “dispatcher
+client protocols” below as the Actionq-owned coordinator boundary. Do not add
+new lifecycle behavior to the compatibility shim.
 
 **Primary validation:** execution longer than initial TTL; daemon and one-shot paths; worker kill; action renewal failure; sprint renewal failure after action renewal; response loss; shutdown during renewal; first settlement write succeeds and second fails.
 

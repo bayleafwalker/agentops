@@ -1,8 +1,16 @@
+---
+doc_id: vuoro-substrate-simplification-refactoring
+status: ratified
+ratified_at: 2026-07-28
+ratified_by: operator
+supersedes: []
+---
+
 # Vuoro Substrate Simplification and Refactoring Assessment
 
 **Created:** 2026-07-26  
 **Mode:** read-only planner assessment  
-**Status:** planning evidence; no backlog, implementation, tests, queue mutation, or deployment work  
+**Status:** ratified architecture scope; live execution state remains in Sprintctl
 **Scope:** `vuoro`, `sprintctl`, `actionq`, `actionq-dispatcher`, and relevant `agentops` dispatch/cockpit contracts
 
 ## Executive recommendation
@@ -21,7 +29,12 @@ This is not a recommendation to merge repositories or state machines. `actionq` 
 
 ## Assessment method and evidence limits
 
-The pass inspected current implementation and architecture documents without running tests or runtime commands. Line references identify the revisions present on 2026-07-26 and must be rebound to revision SHAs before implementation.
+The original pass inspected implementation and architecture documents without
+running tests or runtime commands. This revision reconciles that assessment
+against repository heads and live Sprintctl state on 2026-07-28. Historical
+line references still describe the 2026-07-26 source shape; implementation
+must use the revision-bound work-item refs below rather than treating those
+line numbers as current.
 
 The assessment cross-checks:
 
@@ -31,6 +44,26 @@ The assessment cross-checks:
 - `docs/assessments/vuoro-architecture-preflight-checklist-2026-07-25.md`.
 
 Absence of a reference in this document is not evidence that a surface is unused. Every deletion or mode retirement requires a repository-wide consumer inventory and a fresh secondary implementation review.
+
+## Current-state and backlog crosswalk
+
+Sprintctl is authoritative for execution status. This table is a dated
+projection that prevents already-landed convergence work from being planned
+again; re-read each item before dispatch.
+
+| Recommendation | 2026-07-28 state | Governing backlog |
+| --- | --- | --- |
+| R1 coordinator convergence | Landed and independently verified. Actionq owns the kernel and `actionq-daemon`; `actionq-dispatcher` is a compatibility shim and no longer publishes the daemon entrypoint. | actionq #2010, #2012, #2013; agentops #2014 |
+| R2 fenced supervision and settlement | Action claim fencing, governed kernel supervision, retained fault evidence, and the convergence review are landed. Any further protocol redesign must start from these revisions, not the 2026-07-26 call sites. | actionq #2011; agentops #2014 |
+| R3 legacy Actionq HTTP retirement | Catalog parity and consumer inventory remain prerequisites. | agentops #2039 |
+| R4 two Sprintctl consumer modes | Cutover is complete; retirement and parity evidence remain live owner work. Owner-only Postgres administration remains explicitly out of the consumer-mode removal. | sprintctl #1164, #2038 |
+| R5 cutover-surface disposition | Partially represented by the split-backend retirement ledger; pilot/projection retention decisions must be recorded before deletion. | sprintctl #1164, #1218, #1234 |
+| R6 cockpit owner-mediated reads/writes | Sprint activation is owner-mediated, but direct read-schema and Actionq fallback removal remain. | agentops #2039 |
+| R7 canonical dispatch request | The portable execution envelope is ratified, but the browser/MCP/request-field convergence decision remains. | agentops #2040; agentops #2036 is downstream execution-envelope work |
+| R8 shared invocation/profile internals | Service request-field sharing landed at Vuoro `cb825c9`; client invocation and profile-loader consolidation remain separate bounded work. | vuoro #2024, #2041 |
+| R9 recovery prototype disposition | Marked recovery shipped, but the disconnected in-memory service reconciler still needs an explicit keep/remove/owner-route decision. | vuoro #2042 |
+| R10 truthful adapter locking | Immutable wheel URLs and revision provenance are landed; the release-lock/runtime-descriptor split remains. | vuoro #2043 |
+| R11 generated/direct Agentops projections | Covered with R7 so generated projections cannot precede the field-semantics decision. | agentops #2040 |
 
 ## Priority summary
 
