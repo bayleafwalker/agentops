@@ -226,6 +226,13 @@ def validate_packet(
             f"repository ceiling {ceiling}"
         )
 
+    cost_ceiling = hybrid.get("max_cost_usd")
+    if cost_ceiling and limits.get("max_cost_usd", 0) > cost_ceiling:
+        raise PacketError(
+            f"limits.max_cost_usd {limits['max_cost_usd']} exceeds the "
+            f"repository ceiling {cost_ceiling}"
+        )
+
     max_attempts = policy["routes"][route].get("max_attempts", 1)
     if packet.get("attempt", 1) > max_attempts:
         raise PacketError(
@@ -650,6 +657,56 @@ def dispatch_worker(
     }
 
 
+def worker_spend(transcript_stdout: str, cap_usd: float | None) -> dict[str, Any]:
+    """Total what the worker loop actually spent, from its own transcript.
+
+    ``limits.max_cost_usd`` was declared in the packet schema, the manifest
+    schema and every example packet, and read by nothing: unlike
+    ``timeout_seconds`` it bounded no behaviour at all. That is tolerable while
+    the worker holds a separately capped credential and load-bearing when it
+    does not -- on devbox the worker's key shares the coordinator's usage plan,
+    so a runaway worker degrades the coordinator, and this is the only spend
+    control in the system.
+
+    OpenCode reports ``cost`` and ``tokens`` per ``step-finish`` part, so the
+    figure is the harness's own accounting rather than an estimate from token
+    counts and a price table that would drift. It is necessarily **post hoc**:
+    it cannot abort a run mid-flight, and a single packet can still overspend
+    its cap once. What it does is make that visible on the receipt and stop the
+    packet, so a wave does not repeat the overspend across every item in it.
+
+    A route whose provider reports no cost yields 0.0, which is indistinguishable
+    from a free model. ``cost_reported`` records which case it was, so a corpus
+    is never read as "this route is free" when it is really "this route did not
+    say".
+    """
+    cost = 0.0
+    tokens = 0
+    cost_reported = False
+    for line in transcript_stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            part = json.loads(line).get("part") or {}
+        except json.JSONDecodeError:
+            continue
+        if part.get("type") != "step-finish":
+            continue
+        if "cost" in part and part["cost"] is not None:
+            cost += float(part["cost"])
+            cost_reported = True
+        tokens += int((part.get("tokens") or {}).get("total", 0) or 0)
+
+    return {
+        "cost_usd": round(cost, 6),
+        "tokens": tokens,
+        "cost_reported": cost_reported,
+        "cap_usd": cap_usd,
+        "within_cap": cap_usd is None or cost <= cap_usd,
+    }
+
+
 def post_gates(
     worktree: Path,
     packet: dict[str, Any],
@@ -860,6 +917,9 @@ def main(argv: list[str] | None = None) -> int:
                 args.worker_user, args.worker_model,
             )
             breach = sorted(set(coordinator_tree_state(repo_root)) - set(before))
+            spend = worker_spend(
+                transcript["stdout"], packet["limits"].get("max_cost_usd")
+            )
             _emit(
                 _receipt(
                     packet,
@@ -868,6 +928,7 @@ def main(argv: list[str] | None = None) -> int:
                     worktree=str(worktree),
                     overlay_sha256=overlay_hash(overlay),
                     worker=transcript,
+                    spend=spend,
                     **containment_override,
                     containment={
                         "coordinator_tree_untouched": not breach,
@@ -889,14 +950,19 @@ def main(argv: list[str] | None = None) -> int:
                     **(
                         {"disposition": "containment_breach"}
                         if breach
-                        else {}
+                        else {} if spend["within_cap"] else {"disposition": "cost_exceeded"}
                     ),
                 )
             )
             # A worker that wrote outside its disposable worktree has escaped the
             # boundary the packet exists to enforce. That is never a retryable
             # quality result: it stops the packet for human triage.
-            return 3 if breach else 0
+            if breach:
+                return 3
+            # Overspend cannot be prevented after the fact, only stopped from
+            # repeating. Exiting non-zero is what keeps a wave from running the
+            # same overspend across every remaining packet.
+            return 4 if not spend["within_cap"] else 0
 
         if args.command == "gate":
             evidence = post_gates(worktree, packet, manifest, repo_root)

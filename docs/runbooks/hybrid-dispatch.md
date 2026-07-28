@@ -175,9 +175,9 @@ never through the coordinator. `auth.json` is just
 `{"opencode-go":{"type":"api","key":"…"}}`, so the whole mechanism is a file
 drop at `/var/lib/agentworker/.local/share/opencode/auth.json`.
 
-1. Create a **new** key in the OpenCode provider console with its own spend
-   cap. Do not reuse the coordinator's key — that removes the separation the
-   worker uid exists to create. This step cannot be automated.
+1. Create a **new** key in the OpenCode provider console — on its own capped
+   plan if one exists. Do not reuse the coordinator's key; that removes the
+   separation the worker uid exists to create. This step cannot be automated.
 2. Encrypt it, from the gitops-nixos checkout:
 
    ```bash
@@ -203,6 +203,17 @@ drop at `/var/lib/agentworker/.local/share/opencode/auth.json`.
    key still spends.
 
 Rotation afterwards is the same script with no flags: encrypt, deploy, verify.
+
+**The separate key does not isolate spend.** As deployed 2026-07-28 both keys
+sit on the same usage plan, because no separate budget exists to put the worker
+on. The split still buys independent revocation, separate provider-side
+attribution, and a worker compromise that does not yield the coordinator's
+credential — but a runaway worker can still exhaust the shared plan and degrade
+the coordinator. Until a capped plan exists, `limits.max_cost_usd` is the only
+spend control: the driver totals OpenCode's own per-step cost reporting into
+the run receipt and fails the packet as `cost_exceeded` (exit 4) when the cap
+is passed. That is necessarily post hoc — one packet can still overspend once —
+so its job is stopping a wave from repeating the overspend, not preventing it.
 
 ## Validation
 

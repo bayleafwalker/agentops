@@ -98,6 +98,7 @@ class PacketValidationTests(unittest.TestCase):
                 "commands": {"example.tests": "pytest -q"},
                 "protected_paths": ["src/authority/**"],
                 "max_timeout_seconds": 1200,
+                "max_cost_usd": 3.0,
             },
         }
         self.packet = {
@@ -168,6 +169,13 @@ class PacketValidationTests(unittest.TestCase):
 
     def test_timeout_above_the_repository_ceiling_is_a_defect(self) -> None:
         self.packet["limits"]["timeout_seconds"] = 1800
+        with self.assertRaisesRegex(dispatch.PacketError, "exceeds the repository ceiling"):
+            self._validate()
+
+    def test_cost_above_the_repository_ceiling_is_a_defect(self) -> None:
+        # The timeout ceiling was enforced from the start and the cost ceiling
+        # was not, so a packet could declare any budget it liked.
+        self.packet["limits"]["max_cost_usd"] = 99.0
         with self.assertRaisesRegex(dispatch.PacketError, "exceeds the repository ceiling"):
             self._validate()
 
@@ -250,6 +258,66 @@ class OverlayTests(unittest.TestCase):
         # contract has to bite somewhere. It bites in the cold post-gates.
         self.assertNotIn("tests/**", json.dumps(self._overlay()))
         self.assertIn("diff-scope-respected", self.policy["gates"]["post"])
+
+
+class WorkerSpendTests(unittest.TestCase):
+    """`limits.max_cost_usd` was declared everywhere and read by nothing.
+
+    It becomes load-bearing when the worker's credential shares the
+    coordinator's usage plan, which is the case on devbox: there is no
+    provider-side cap separating them, so this is the only spend control.
+    """
+
+    def _stream(self, *steps: dict) -> str:
+        return "\n".join(
+            json.dumps({"type": "step_finish", "part": {"type": "step-finish", **s}})
+            for s in steps
+        )
+
+    def test_costs_and_tokens_are_summed_across_steps(self) -> None:
+        stream = self._stream(
+            {"cost": 0.001, "tokens": {"total": 100}},
+            {"cost": 0.002, "tokens": {"total": 250}},
+        )
+        spend = dispatch.worker_spend(stream, 2.0)
+        self.assertAlmostEqual(spend["cost_usd"], 0.003)
+        self.assertEqual(spend["tokens"], 350)
+        self.assertTrue(spend["within_cap"])
+        self.assertTrue(spend["cost_reported"])
+
+    def test_exceeding_the_cap_is_reported(self) -> None:
+        spend = dispatch.worker_spend(
+            self._stream({"cost": 3.5, "tokens": {"total": 10}}), 2.0
+        )
+        self.assertFalse(spend["within_cap"])
+
+    def test_a_provider_reporting_no_cost_is_distinguished_from_free(self) -> None:
+        # 0.0 alone would read as "this route is free" in a corpus, when it may
+        # mean "this route did not say".
+        spend = dispatch.worker_spend(self._stream({"tokens": {"total": 10}}), 2.0)
+        self.assertEqual(spend["cost_usd"], 0.0)
+        self.assertFalse(spend["cost_reported"])
+        self.assertTrue(spend["within_cap"])
+
+    def test_non_json_and_non_step_lines_are_ignored(self) -> None:
+        stream = "\n".join(
+            [
+                "not json at all",
+                json.dumps({"type": "text", "part": {"type": "text", "text": "hi"}}),
+                self._stream({"cost": 0.5, "tokens": {"total": 7}}),
+                "",
+            ]
+        )
+        spend = dispatch.worker_spend(stream, 1.0)
+        self.assertAlmostEqual(spend["cost_usd"], 0.5)
+        self.assertEqual(spend["tokens"], 7)
+
+    def test_no_cap_never_reports_an_overspend(self) -> None:
+        spend = dispatch.worker_spend(
+            self._stream({"cost": 99.0, "tokens": {"total": 1}}), None
+        )
+        self.assertTrue(spend["within_cap"])
+        self.assertIsNone(spend["cap_usd"])
 
 
 class ModelOverrideTests(unittest.TestCase):
