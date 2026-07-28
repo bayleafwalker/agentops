@@ -168,6 +168,42 @@ can reach, for diagnostics about the harness rather than the model. It marks
 the receipt `qualification_eligible: false`, because a route assessed on a
 model it does not name measured nothing about that route.
 
+### Credentialing the worker
+
+The key is delivered as a sops secret decrypted straight to the worker's uid,
+never through the coordinator. `auth.json` is just
+`{"opencode-go":{"type":"api","key":"…"}}`, so the whole mechanism is a file
+drop at `/var/lib/agentworker/.local/share/opencode/auth.json`.
+
+1. Create a **new** key in the OpenCode provider console with its own spend
+   cap. Do not reuse the coordinator's key — that removes the separation the
+   worker uid exists to create. This step cannot be automated.
+2. Encrypt it, from the gitops-nixos checkout:
+
+   ```bash
+   ./scripts/rotate-agentworker-opencode-key.sh --no-deploy
+   git commit -m 'chore(secrets): rotate agentworker opencode key' -- secrets/common.yaml
+   ```
+
+   The script prompts with echo off and passes the key to sops through the
+   environment — never argv, never a plaintext file.
+3. Set `profiles.hybridDispatch.workerAuthSecret = "opencode/agentworker/auth"`
+   in `hosts/devbox/default.nix`. **After** step 2: sops-nix validates that the
+   secrets file is in the store, not that the key exists, so naming a missing
+   key builds cleanly and then fails during activation.
+4. Deploy and verify:
+
+   ```bash
+   ./scripts/rotate-agentworker-opencode-key.sh --verify-only
+   ```
+
+   It asserts the worker can list `opencode-go` models *and* that the
+   coordinator cannot read the worker's credential. Then revoke the previous
+   key in the console — nothing local can do that, and until it is done the old
+   key still spends.
+
+Rotation afterwards is the same script with no flags: encrypt, deploy, verify.
+
 ## Validation
 
 ```bash
