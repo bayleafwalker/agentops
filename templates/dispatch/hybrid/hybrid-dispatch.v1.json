@@ -146,7 +146,7 @@
   "qualification": {
     "mode": "named_pilot",
     "pilot_id": "vuoro-bulk-2026-07-28",
-    "repositories": ["vuoro"],
+    "repositories": ["1deb57d0-af6f-479c-811a-b5b7254841f9"],
     "routes": ["bulk"],
     "models": ["opencode-go/deepseek-v4-flash"],
     "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",

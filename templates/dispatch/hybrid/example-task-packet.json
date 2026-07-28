@@ -1,9 +1,9 @@
 {
   "schema_version": "agentops-task/v1",
   "task_id": "VUORO-1252-repo-id-param-tests",
-  "repo_id": "vuoro",
+  "repo_id": "1deb57d0-af6f-479c-811a-b5b7254841f9",
   "sprint_item": {
-    "ref": "vuoro#1252",
+    "ref": "1deb57d0-af6f-479c-811a-b5b7254841f9#1252",
     "claim_id": 4321,
     "claim_actor": "coordinator/claude-code"
   },

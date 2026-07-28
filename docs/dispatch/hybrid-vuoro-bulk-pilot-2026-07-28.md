@@ -8,7 +8,7 @@ decision.
 
 The policy admits only the following pairing as `named_pilot:vuoro-bulk-2026-07-28`:
 
-- repository: `vuoro`
+- repository: `vuoro` (immutable manifest ID `1deb57d0-af6f-479c-811a-b5b7254841f9`)
 - route: `bulk`
 - worker model: `opencode-go/deepseek-v4-flash`
 - host and contained worker identity: devbox / `agentworker`
