@@ -121,8 +121,35 @@ decision is recorded.
 - `appservice` `cf973c58`: digest deployed; Flux applied the revision and the
   `vuoro-shared` deployment reported one ready updated replica on that digest.
 
-This session could not perform the live status/replay step because sibling
-repository state is mounted read-only in the execution sandbox.
+### Resolution: served ledger selected as authority
+
+The operator explicitly selected served records as authoritative. The recovery
+was implemented and completed without changing a served row or cursor:
+
+- `sprintctl` `3a3192d` (`0.2.4`) adds `authority reconcile`. It pages the
+  served record and decision ledgers, compares canonical record content, and
+  writes local receipts only after a conflict-free audit.
+- The same release preserves fractional UTC seconds in PostgreSQL record reads.
+  Previously those reads silently truncated microseconds, so an audit could
+  report a false content mismatch.
+- The apparently different local and remote `record_sha256` values were not a
+  content conflict. The producer outbox and served ingest ledger intentionally
+  used different fingerprint domains. Reconciliation compares the canonical
+  served-ingest fingerprint instead of comparing those unrelated stored hashes.
+- Live audit found 27 semantically matching local requests with served terminal
+  decisions and 11 local-only requests below the served stream high-water.
+  `authority reconcile --apply --json` wrote 27 served-decision receipts and
+  11 `absent-from-served-ledger` receipts; it did not replay, delete, or alter
+  a producer record.
+- Follow-up `authority status --json` reported no pending records and
+  `authority sync --json` completed with zero uploads and zero decisions.
+
+The new release/deployment chain is `sprintctl` `3a3192d`, `vuoro` `175de90`
+(`vuoro-service-v0.1.19`), and `appservice` `f3173502`, with deployed manifest
+digest `sha256:05eef506af0ff5af982fc914fd01e45e62b7fb19786bc5b1507f58da5b8ca106`.
+Future recovery must begin with `authority reconcile --json`; never compare
+the raw producer and served hash columns, retry old missing records, or edit
+the served ingest cursor.
 
 ## Hybrid enablement finding: actionq
 
