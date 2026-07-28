@@ -16,6 +16,7 @@
         "agent": "ao-bulk",
         "verified": true,
         "qualified": false,
+        "qualification_note": "A named Vuoro bulk pilot is governed by hybrid-dispatch.v1.json; this routing table remains globally unqualified.",
         "max_attempts": 2
       }
     },

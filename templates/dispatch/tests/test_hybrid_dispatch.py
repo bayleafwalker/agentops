@@ -38,10 +38,15 @@ class PolicyContractTests(unittest.TestCase):
     def test_policy_and_worker_config_agree(self) -> None:
         validator.validate_policy(self.policy, self.worker_config)
 
-    def test_no_route_is_qualified(self) -> None:
-        self.assertEqual(self.policy["qualification"], "none")
+    def test_only_vuoro_bulk_is_a_named_pilot(self) -> None:
+        qualification = self.policy["qualification"]
+        self.assertEqual(qualification["mode"], "named_pilot")
+        self.assertEqual(qualification["repositories"], ["vuoro"])
+        self.assertEqual(qualification["routes"], ["bulk"])
+        self.assertEqual(qualification["default"], "unqualified")
+        self.assertEqual(self.policy["routes"]["bulk"]["status"], "available_named_pilot")
         for name, route in self.policy["routes"].items():
-            if "status" in route:
+            if name != "bulk" and "status" in route:
                 with self.subTest(route=name):
                     self.assertTrue(route["status"].endswith("unqualified"))
 
@@ -127,6 +132,13 @@ class PacketValidationTests(unittest.TestCase):
 
     def test_a_fit_packet_reports_the_policy_pre_gates(self) -> None:
         self.assertEqual(self._validate(), self.policy["gates"]["pre"])
+
+    def test_only_the_named_scope_is_labelled_as_pilot(self) -> None:
+        self.assertEqual(dispatch.qualification_state(self.policy, self.packet), "unqualified")
+        pilot = json.loads(json.dumps(self.packet))
+        pilot["repo_id"] = "vuoro"
+        pilot["sprint_item"]["ref"] = "vuoro#42"
+        self.assertEqual(dispatch.qualification_state(self.policy, pilot), "named_pilot:vuoro-bulk-2026-07-28")
 
     def test_policy_requires_review_and_captures_worktree_state(self) -> None:
         self.assertIn("coordinator-review-recorded", self.policy["gates"]["post"])

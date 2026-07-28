@@ -1,8 +1,10 @@
 # Supervised hybrid dispatch
 
-Status: operational as a workflow; every worker model/task-class pair is
-**available but unqualified**. Availability is not qualification, and a passing
-smoke run promotes nothing.
+Status: operational as a workflow. The sole qualification is the bounded
+[`vuoro` `bulk` named pilot](../dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md)
+on devbox with `opencode-go/deepseek-v4-flash`. Every other worker
+model/task-class/repository pairing remains **available but unqualified**.
+Availability is not qualification, and a passing smoke run promotes nothing.
 
 ## What it is
 

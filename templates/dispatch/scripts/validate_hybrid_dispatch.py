@@ -38,11 +38,24 @@ def validate_policy(policy: dict[str, Any], worker_config: dict[str, Any]) -> No
         raise ValueError("free remote models must stay forbidden for repository context")
     if policy["network_policy_default"] != "disabled":
         raise ValueError("worker network policy must default to disabled")
-    if policy["qualification"] != "none":
-        raise ValueError(
-            "no route is qualified; availability and a passing smoke run do not "
-            "promote a model/task-class pair"
-        )
+    qualification = policy["qualification"]
+    if qualification == "none":
+        pass
+    elif isinstance(qualification, dict) and qualification.get("mode") == "named_pilot":
+        required = {"pilot_id", "repositories", "routes", "models", "evidence_document", "default", "admission"}
+        missing = required - qualification.keys()
+        if missing:
+            raise ValueError(f"named pilot is missing fields: {', '.join(sorted(missing))}")
+        if qualification["default"] != "unqualified":
+            raise ValueError("a named pilot must leave the default unqualified")
+        if not all(isinstance(qualification[key], list) and qualification[key] for key in ("repositories", "routes", "models")):
+            raise ValueError("a named pilot must bound repositories, routes, and models")
+        for route in qualification["routes"]:
+            configured = policy["routes"].get(route)
+            if not configured or configured.get("harness_model") not in qualification["models"]:
+                raise ValueError(f"named pilot route {route!r} is not bound to a pilot model")
+    else:
+        raise ValueError("qualification must be 'none' or a bounded named_pilot")
 
     for authority in ("git", "sprintctl", "deployment or cluster mutation"):
         if authority not in policy["worker"]["denied_authority"]:
@@ -109,6 +122,20 @@ def validate_manifest_hybrid(manifest: dict[str, Any], policy: dict[str, Any], p
     return True
 
 
+def qualification_state(policy: dict[str, Any], repo_id: str, route: str) -> str:
+    """Return the exact qualification label that must be retained in receipts."""
+    qualification = policy["qualification"]
+    if qualification == "none":
+        return "unqualified"
+    if (
+        repo_id in qualification["repositories"]
+        and route in qualification["routes"]
+        and policy["routes"][route]["harness_model"] in qualification["models"]
+    ):
+        return f"named_pilot:{qualification['pilot_id']}"
+    return qualification["default"]
+
+
 def live_check(policy: dict[str, Any]) -> None:
     models = {
         route["harness_model"]
@@ -159,7 +186,7 @@ def main() -> int:
 
     print(
         f"hybrid dispatch policy valid; {checked} manifest hybrid block(s) checked"
-        + ("; models available (unqualified)" if args.live else "")
+        + ("; models available" if args.live else "")
     )
     return 0
 

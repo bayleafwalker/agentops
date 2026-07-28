@@ -1,6 +1,6 @@
 {
   "schema_version": "agentops-hybrid-dispatch/v1",
-  "reviewed_on": "2026-07-27",
+  "reviewed_on": "2026-07-28",
   "origin": "Generalized from the Frontier Weave supervised harness hybrid (frontier-routing/v1).",
   "default_mode": "supervised_hybrid",
   "workflow_precedence": ["supervised_hybrid", "frontier_only"],
@@ -35,7 +35,7 @@
   "worker": {
     "harness": "opencode",
     "provider": "opencode-go",
-    "cli_version_verified": "1.18.5",
+    "cli_version_verified": "1.18.4",
     "authority": [
       "edit files inside writable_patch_paths within its own worktree",
       "run registered command ids"
@@ -71,7 +71,7 @@
       "mode": "supervised_hybrid",
       "harness_model": "opencode-go/deepseek-v4-flash",
       "agent": "ao-bulk",
-      "status": "available_unqualified",
+      "status": "available_named_pilot",
       "max_attempts": 2
     },
     "substantial": {
@@ -143,5 +143,14 @@
   "network_policy_default": "disabled",
   "acceptance_authority": "human",
   "sprintctl_authority": "coordinator_only",
-  "qualification": "none"
+  "qualification": {
+    "mode": "named_pilot",
+    "pilot_id": "vuoro-bulk-2026-07-28",
+    "repositories": ["vuoro"],
+    "routes": ["bulk"],
+    "models": ["opencode-go/deepseek-v4-flash"],
+    "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+    "default": "unqualified",
+    "admission": "A named-pilot packet still requires every normal pre/post gate, a live coordinator claim, an independent review record, and human acceptance. It does not qualify another repository, route, model, host, or task class."
+  }
 }

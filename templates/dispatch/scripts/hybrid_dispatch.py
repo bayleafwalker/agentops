@@ -249,6 +249,20 @@ def validate_packet(
     return list(policy["gates"]["pre"])
 
 
+def qualification_state(policy: dict[str, Any], packet: dict[str, Any]) -> str:
+    """Label a packet narrowly; availability never widens pilot qualification."""
+    qualification = policy["qualification"]
+    if qualification == "none":
+        return "unqualified"
+    if (
+        packet["repo_id"] in qualification["repositories"]
+        and packet["route"] in qualification["routes"]
+        and policy["routes"][packet["route"]]["harness_model"] in qualification["models"]
+    ):
+        return f"named_pilot:{qualification['pilot_id']}"
+    return qualification["default"]
+
+
 def verify_live_coordinator_claim(
     repo_root: Path, packet: dict[str, Any], sprintctl_bin: str,
 ) -> dict[str, Any]:
@@ -860,7 +874,8 @@ def _receipt(packet: dict[str, Any], policy: dict[str, Any], **extra: Any) -> di
         "route": packet["route"],
         "attempt": packet.get("attempt", 1),
         "harness_model": policy["routes"][packet["route"]]["harness_model"],
-        "qualification": policy["qualification"],
+        "qualification": qualification_state(policy, packet),
+        "qualification_policy": policy["qualification"],
         "acceptance_authority": policy["acceptance_authority"],
         **extra,
     }
