@@ -145,12 +145,18 @@
   "sprintctl_authority": "coordinator_only",
   "qualification": {
     "mode": "named_pilot",
-    "pilot_id": "vuoro-bulk-2026-07-28",
-    "repositories": ["1deb57d0-af6f-479c-811a-b5b7254841f9"],
+    "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+    "repositories": [
+      "agentops",
+      "1deb57d0-af6f-479c-811a-b5b7254841f9",
+      "2be118eb-8e89-433a-8d32-ada157624f95",
+      "kctl",
+      "actionq"
+    ],
     "routes": ["bulk"],
     "models": ["opencode-go/deepseek-v4-flash"],
     "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
     "default": "unqualified",
-    "admission": "A named-pilot packet still requires every normal pre/post gate, a live coordinator claim, an independent review record, and human acceptance. It does not qualify another repository, route, model, host, or task class."
+    "admission": "Vuoro ecosystem tooling is admitted for real bounded implementation work. Every packet still requires a live coordinator claim, frozen acceptance contract, cold registered gates, captured artifact/session evidence, independent review, and human acceptance. Worker authority remains bounded by each repository manifest."
   }
 }

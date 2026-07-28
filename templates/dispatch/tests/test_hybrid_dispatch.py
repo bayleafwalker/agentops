@@ -38,12 +38,16 @@ class PolicyContractTests(unittest.TestCase):
     def test_policy_and_worker_config_agree(self) -> None:
         validator.validate_policy(self.policy, self.worker_config)
 
-    def test_only_vuoro_bulk_is_a_named_pilot(self) -> None:
+    def test_vuoro_tooling_bulk_is_a_named_pilot(self) -> None:
         qualification = self.policy["qualification"]
         self.assertEqual(qualification["mode"], "named_pilot")
-        self.assertEqual(
-            qualification["repositories"], ["1deb57d0-af6f-479c-811a-b5b7254841f9"]
-        )
+        self.assertEqual(qualification["repositories"], [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq",
+        ])
         self.assertEqual(qualification["routes"], ["bulk"])
         self.assertEqual(qualification["default"], "unqualified")
         self.assertEqual(self.policy["routes"]["bulk"]["status"], "available_named_pilot")
@@ -140,7 +144,7 @@ class PacketValidationTests(unittest.TestCase):
         pilot = json.loads(json.dumps(self.packet))
         pilot["repo_id"] = "1deb57d0-af6f-479c-811a-b5b7254841f9"
         pilot["sprint_item"]["ref"] = "1deb57d0-af6f-479c-811a-b5b7254841f9#42"
-        self.assertEqual(dispatch.qualification_state(self.policy, pilot), "named_pilot:vuoro-bulk-2026-07-28")
+        self.assertEqual(dispatch.qualification_state(self.policy, pilot), "named_pilot:vuoro-tooling-bulk-2026-07-28")
 
     def test_packet_cannot_self_label_another_repository_as_vuoro(self) -> None:
         spoofed = json.loads(json.dumps(self.packet))

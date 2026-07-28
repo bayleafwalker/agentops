@@ -1,14 +1,15 @@
 # Vuoro bulk hybrid named-pilot qualification — 2026-07-28
 
-Status: active named pilot. This is an admission decision for a deliberately
-small scope, not a global model qualification or an unattended acceptance
-decision.
+Status: active named tooling admission. This authorizes real bounded
+implementation work across the Vuoro project tooling ecosystem; it is not
+unattended acceptance.
 
 ## Scope
 
-The policy admits only the following pairing as `named_pilot:vuoro-bulk-2026-07-28`:
+The policy admits `bulk` packets as `named_pilot:vuoro-tooling-bulk-2026-07-28`
+for AgentOps, Vuoro, Sprintctl, Kctl, and ActionQ, subject to each repository's
+own hybrid manifest and packet protections.
 
-- repository: `vuoro` (immutable manifest ID `1deb57d0-af6f-479c-811a-b5b7254841f9`)
 - route: `bulk`
 - worker model: `opencode-go/deepseek-v4-flash`
 - host and contained worker identity: devbox / `agentworker`
@@ -20,10 +21,10 @@ no Git, sprintctl, deployment, or acceptance authority. The pilot does not
 extend to another task class simply because a task is small; packets require a
 strong registered command that can falsify the proposed change.
 
-Actionq remains unenabled: it has no fresh-clone gate proof because its clone
-cannot resolve `psycopg-binary`. Infrastructure repositories remain excluded:
-they define the worker-containment boundary. `substantial`, `escalation`, and
-`worker_review_challenger`, and all non-Vuoro repositories, remain unqualified.
+Infrastructure repositories remain excluded: they define the worker-containment
+boundary. `substantial`, `escalation`, and `worker_review_challenger` remain
+unqualified. A repository without its own hybrid manifest is not dispatchable
+until it declares registered gates and protected paths.
 
 ## Retained qualification corpus
 
