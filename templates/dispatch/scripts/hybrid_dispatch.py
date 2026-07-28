@@ -191,8 +191,8 @@ def validate_packet(
     if "#" not in item_ref:
         raise PacketError("sprint_item.ref must be a sprintctl repo#id reference")
     item_repo, _, item_id = item_ref.partition("#")
-    if item_repo != manifest.get("repo_id") or not item_id.isdigit() or int(item_id) < 1:
-        raise PacketError("sprint_item.ref must name this repository and a positive item id")
+    if item_repo != packet["repo_id"] or not item_id.isdigit() or int(item_id) < 1:
+        raise PacketError("sprint_item.ref must name the packet repository and a positive item id")
     claim_id = packet["sprint_item"].get("claim_id")
     if isinstance(claim_id, bool) or not isinstance(claim_id, int) or claim_id < 1:
         raise PacketError("sprint_item.claim_id must be a positive integer")
