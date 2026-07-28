@@ -227,7 +227,7 @@ python -m unittest discover -s templates/dispatch/tests
 
 Add `--live` after an OpenCode upgrade, credential change, or model-catalog
 refresh to confirm the concrete model ids are still listed. The OpenCode
-permission-overlay shape was verified against **OpenCode 1.18.5**; re-verify the
+permission-overlay shape was verified against **OpenCode 1.18.4**; re-verify the
 overlay and the `--file` argument ordering on upgrade.
 
 ## Contract files
@@ -239,7 +239,7 @@ overlay and the `--file` argument ordering on upgrade.
 - `templates/dispatch/scripts/validate_hybrid_dispatch.py` — deterministic policy gate
 - gitops-nixos `modules/system/hybrid-dispatch.nix` — pinned host deployment
 
-## Measured OpenCode 1.18.5 worker behaviour
+## Measured OpenCode 1.18.x worker behaviour
 
 Established 2026-07-27 against `opencode-go/deepseek-v4-flash` on a trivial
 single-file task, by comparing a permissive control run with the packet

@@ -167,6 +167,11 @@ def validate_packet(
         raise PacketError(
             f"repository {manifest.get('repo_id')!r} has hybrid dispatch disabled"
         )
+    if manifest.get("repo_id") != packet["repo_id"]:
+        raise PacketError(
+            "packet.repo_id must match the repository dispatch manifest; a packet "
+            "cannot self-label itself as an admitted pilot repository"
+        )
 
     route = packet["route"]
     if route not in policy["routes"]:
@@ -217,6 +222,8 @@ def validate_packet(
             raise PacketError(f"readable path escapes the repository: {pattern}")
 
     commands = hybrid.get("commands", {})
+    if not packet["allowed_command_ids"]:
+        raise PacketError("allowed_command_ids must name at least one registered gate")
     for command_id in packet["allowed_command_ids"]:
         if command_id not in commands:
             raise PacketError(
@@ -232,8 +239,11 @@ def validate_packet(
             f"repository ceiling {ceiling}"
         )
 
+    max_cost = limits.get("max_cost_usd")
+    if isinstance(max_cost, bool) or not isinstance(max_cost, (int, float)) or max_cost <= 0:
+        raise PacketError("limits.max_cost_usd must be a positive explicit packet cap")
     cost_ceiling = hybrid.get("max_cost_usd")
-    if cost_ceiling and limits.get("max_cost_usd", 0) > cost_ceiling:
+    if cost_ceiling and max_cost > cost_ceiling:
         raise PacketError(
             f"limits.max_cost_usd {limits['max_cost_usd']} exceeds the "
             f"repository ceiling {cost_ceiling}"

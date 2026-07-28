@@ -122,7 +122,7 @@ class PacketValidationTests(unittest.TestCase):
             "required_outcomes": ["o"],
             "non_goals": ["n"],
             "allowed_command_ids": ["example.tests"],
-            "limits": {"timeout_seconds": 600},
+            "limits": {"timeout_seconds": 600, "max_cost_usd": 0.25},
             "network_policy": "disabled",
             "worktree": {"root": "/tmp/wt", "branch": "hybrid/ex-1", "cleanup": "retain-for-review"},
         }
@@ -139,6 +139,23 @@ class PacketValidationTests(unittest.TestCase):
         pilot["repo_id"] = "vuoro"
         pilot["sprint_item"]["ref"] = "vuoro#42"
         self.assertEqual(dispatch.qualification_state(self.policy, pilot), "named_pilot:vuoro-bulk-2026-07-28")
+
+    def test_packet_cannot_self_label_another_repository_as_vuoro(self) -> None:
+        spoofed = json.loads(json.dumps(self.packet))
+        spoofed["repo_id"] = "vuoro"
+        spoofed["sprint_item"]["ref"] = "vuoro#42"
+        with self.assertRaises(dispatch.PacketError):
+            dispatch.validate_packet(spoofed, self.manifest, self.policy)
+
+    def test_packet_requires_a_gate_and_positive_cost_cap(self) -> None:
+        no_gate = json.loads(json.dumps(self.packet))
+        no_gate["allowed_command_ids"] = []
+        with self.assertRaises(dispatch.PacketError):
+            dispatch.validate_packet(no_gate, self.manifest, self.policy)
+        no_cost = json.loads(json.dumps(self.packet))
+        no_cost["limits"].pop("max_cost_usd")
+        with self.assertRaises(dispatch.PacketError):
+            dispatch.validate_packet(no_cost, self.manifest, self.policy)
 
     def test_policy_requires_review_and_captures_worktree_state(self) -> None:
         self.assertIn("coordinator-review-recorded", self.policy["gates"]["post"])
