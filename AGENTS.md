@@ -91,7 +91,7 @@ state, audit state, or Kubernetes desired state.
 
 ## Choosing Hybrid Mode
 
-Hybrid mode delegates one bounded implementation loop to a cheap OpenCode Go
+Hybrid mode delegates one mechanically specified implementation loop to a cheap OpenCode Go
 worker while a Claude or Codex coordinator keeps every decision. The operator
 chooses it per task, before any work starts. Contract:
 `templates/dispatch/hybrid/hybrid-dispatch.v1.json`; runbook:
@@ -101,19 +101,26 @@ chooses it per task, before any work starts. Contract:
 
 1. The repository's `*.dispatch.json` has `hybrid.enabled: true` and a
    `worker_routes` entry for the route you want.
-2. Architecture, interface, and acceptance criteria are already decided — the
-   task is "implement this", not "work out what this should be".
+2. Architecture, interface, acceptance semantics, and the test oracle are
+   already decided — the task is "implement this", not "work out what correct
+   means".
 3. The writable paths are inside `scope.allowed_path_roots` and touch no
    `hybrid.protected_paths`.
-4. A registered command in `hybrid.commands` can actually falsify the result.
+4. A registered command in `hybrid.commands` can actually falsify every
+   relevant requirement, and the packet states which incorrect behaviour each
+   acceptance property detects.
    Without a gate that fails on a wrong answer, a cheap worker's output is
    unreviewable at a glance and costs more to check than to write.
 5. The change is big enough that freezing a packet is cheaper than typing it.
 
-**Never hybrid**, regardless of the above: unresolved architecture or
+**Never hybrid**, regardless of the above: test-oracle or parity-fixture
+construction, tests as the primary deliverable, cross-layer behavioural proof,
+unresolved architecture or
 ownership, cross-repository sequencing, security, credential, authority,
 compatibility, or migration semantics, sprint or release decisions, and
-anything that already failed its escalation attempt.
+anything rejected once unless a coordinator supplies a materially revised
+packet. Packet contradiction or a missing oracle is a task defect, not an
+escalation trigger.
 
 **What the operator does, and what stays theirs.** Claim the sprintctl item as
 the coordinator, freeze the packet at an exact commit, then run the driver
@@ -135,16 +142,17 @@ pinned `/etc/agentops` policy. Queue-driven work uses the actionq
 `hybrid-bulk-*` actions instead; there the dispatcher owns the worktree, the
 claim, and the gate command.
 
-**This repository's own scope.** `agentops` enables the `bulk` route only, and
+**This repository's own scope.** `agentops` enables the `mechanical_bulk` route only, and
 the dispatch contract itself — `templates/dispatch/hybrid/**`,
 `model-routing.json`, `manifest.schema.json`, `hybrid_dispatch.py`,
 `agentops.dispatch.json` — is protected. A worker must never edit the policy
 that bounds it.
 
-**Nothing is qualified.** Every worker model/task-class pair is
-`available_unqualified` and the policy records `qualification: none`.
-Availability is not qualification and a passing smoke run promotes nothing;
-admission is decided by the frozen assessment in the `hybrid-dispatch` track.
+**Qualification is narrow.** Only the named Vuoro `mechanical_bulk` pilot is
+admitted, and only where the coordinator supplies the semantic oracle and
+discriminating executable gates. Kimi K2.7 is experimental, GLM 5.2 is
+available-unqualified with no escalation role, and Kimi K3 is benchmark-only.
+Availability is not qualification and a passing smoke run promotes nothing.
 
 ## Documentation Quality
 

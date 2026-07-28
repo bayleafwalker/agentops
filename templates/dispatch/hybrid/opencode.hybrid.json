@@ -8,8 +8,8 @@
     "websearch": "deny"
   },
   "agent": {
-    "ao-bulk": {
-      "description": "Bounded routine implementation from a frozen AgentOps task packet.",
+    "ao-mechanical-bulk": {
+      "description": "Low-ambiguity mechanical implementation against an externally supplied oracle and discriminating gates.",
       "mode": "primary",
       "model": "opencode-go/deepseek-v4-flash",
       "temperature": 0,
@@ -20,8 +20,8 @@
         "websearch": "deny"
       }
     },
-    "ao-substantial": {
-      "description": "Bounded multi-file implementation after architecture and acceptance are settled.",
+    "ao-bounded-semantic": {
+      "description": "Assessment-only bounded semantic implementation; no production route authority.",
       "mode": "primary",
       "model": "opencode-go/kimi-k2.7-code",
       "permission": {
@@ -31,19 +31,8 @@
         "websearch": "deny"
       }
     },
-    "ao-escalation": {
-      "description": "One corrected retry for a difficult frozen packet; never architecture or scope expansion.",
-      "mode": "primary",
-      "model": "opencode-go/glm-5.2",
-      "permission": {
-        "task": "deny",
-        "external_directory": "deny",
-        "webfetch": "deny",
-        "websearch": "deny"
-      }
-    },
     "ao-review": {
-      "description": "Read-only cheap challenger over a frozen packet and its captured diff.",
+      "description": "Benchmark-only read-only K3 agent; never a production challenger or substitute for coordinator review.",
       "mode": "primary",
       "model": "opencode-go/kimi-k3",
       "permission": {

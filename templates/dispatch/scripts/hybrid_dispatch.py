@@ -46,12 +46,16 @@ REQUIRED_PACKET_FIELDS = (
     "repo_id",
     "sprint_item",
     "route",
+    "task_class",
+    "risk",
+    "oracle",
     "starting_commit",
     "purpose",
     "readable_context_paths",
     "writable_patch_paths",
     "protected_paths",
     "required_outcomes",
+    "acceptance_properties",
     "non_goals",
     "allowed_command_ids",
     "limits",
@@ -184,6 +188,15 @@ def validate_packet(
             f"route {route!r} is not enabled for this repository "
             f"(allowed: {', '.join(allowed_routes) or 'none'})"
         )
+    if packet.get("task_class") != "mechanical_implementation":
+        raise PacketError("worker dispatch requires task_class mechanical_implementation")
+    if packet.get("risk") != "low":
+        raise PacketError("worker dispatch requires risk low")
+    oracle = packet.get("oracle") or {}
+    if oracle.get("ownership") != "externally_defined" or oracle.get("worker_may_modify") is not False:
+        raise PacketError(
+            "worker dispatch requires an externally defined oracle that the worker cannot modify"
+        )
 
     if packet["network_policy"] != "disabled":
         raise PacketError("network_policy must be 'disabled' for worker dispatch")
@@ -230,6 +243,21 @@ def validate_packet(
                 f"command id {command_id!r} is not registered in the repository "
                 "hybrid.commands map"
             )
+    acceptance_properties = packet.get("acceptance_properties") or []
+    if not acceptance_properties:
+        raise PacketError(
+            "acceptance_properties must define at least one coordinator-authored falsifying condition"
+        )
+    for acceptance in acceptance_properties:
+        command_id = acceptance.get("command_id")
+        if command_id not in packet["allowed_command_ids"]:
+            raise PacketError(
+                f"acceptance property command {command_id!r} is not granted by allowed_command_ids"
+            )
+        if not acceptance.get("requirement") or not acceptance.get("fails_when"):
+            raise PacketError(
+                "each acceptance property must name its requirement and the incorrect behaviour it falsifies"
+            )
 
     limits = packet["limits"]
     ceiling = hybrid.get("max_timeout_seconds")
@@ -248,6 +276,18 @@ def validate_packet(
             f"limits.max_cost_usd {limits['max_cost_usd']} exceeds the "
             f"repository ceiling {cost_ceiling}"
         )
+    soft_tokens = limits.get("soft_token_ceiling")
+    hard_tokens = limits.get("hard_token_ceiling")
+    repo_soft_tokens = hybrid.get("soft_token_ceiling")
+    repo_hard_tokens = hybrid.get("hard_token_ceiling")
+    if not isinstance(soft_tokens, int) or not isinstance(hard_tokens, int):
+        raise PacketError("limits must declare integer soft_token_ceiling and hard_token_ceiling")
+    if soft_tokens <= 0 or hard_tokens <= soft_tokens:
+        raise PacketError("hard_token_ceiling must exceed a positive soft_token_ceiling")
+    if repo_soft_tokens and soft_tokens > repo_soft_tokens:
+        raise PacketError("packet soft_token_ceiling exceeds the repository ceiling")
+    if repo_hard_tokens and hard_tokens > repo_hard_tokens:
+        raise PacketError("packet hard_token_ceiling exceeds the repository ceiling")
 
     max_attempts = policy["routes"][route].get("max_attempts", 1)
     if packet.get("attempt", 1) > max_attempts:
@@ -746,7 +786,12 @@ def dispatch_worker(
     }
 
 
-def worker_spend(transcript_stdout: str, cap_usd: float | None) -> dict[str, Any]:
+def worker_spend(
+    transcript_stdout: str,
+    cap_usd: float | None,
+    soft_token_ceiling: int | None = None,
+    hard_token_ceiling: int | None = None,
+) -> dict[str, Any]:
     """Total what the worker loop actually spent, from its own transcript.
 
     ``limits.max_cost_usd`` was declared in the packet schema, the manifest
@@ -793,6 +838,14 @@ def worker_spend(transcript_stdout: str, cap_usd: float | None) -> dict[str, Any
         "cost_reported": cost_reported,
         "cap_usd": cap_usd,
         "within_cap": cap_usd is None or cost <= cap_usd,
+        "soft_token_ceiling": soft_token_ceiling,
+        "hard_token_ceiling": hard_token_ceiling,
+        "soft_token_ceiling_exceeded": (
+            soft_token_ceiling is not None and tokens > soft_token_ceiling
+        ),
+        "within_hard_token_ceiling": (
+            hard_token_ceiling is None or tokens <= hard_token_ceiling
+        ),
     }
 
 
@@ -875,14 +928,30 @@ def _now() -> str:
 
 
 def _receipt(packet: dict[str, Any], policy: dict[str, Any], **extra: Any) -> dict[str, Any]:
+    packet_bytes = json.dumps(packet, sort_keys=True, separators=(",", ":")).encode()
+    gate_bytes = json.dumps(
+        {
+            "allowed_command_ids": packet["allowed_command_ids"],
+            "acceptance_properties": packet["acceptance_properties"],
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    packet_hash = hashlib.sha256(packet_bytes).hexdigest()
     return {
         "schema_version": "agentops-hybrid-receipt/v1",
         "recorded_at": _now(),
+        "execution_id": f"{packet['task_id']}:{packet_hash[:16]}:attempt-{packet.get('attempt', 1)}",
         "task_id": packet["task_id"],
         "repo_id": packet["repo_id"],
         "sprint_item": packet["sprint_item"],
         "route": packet["route"],
         "attempt": packet.get("attempt", 1),
+        "inputs": {
+            "packet_hash": f"sha256:{packet_hash}",
+            "repository_commit": packet["starting_commit"],
+            "gate_set_hash": f"sha256:{hashlib.sha256(gate_bytes).hexdigest()}",
+        },
         "harness_model": policy["routes"][packet["route"]]["harness_model"],
         "qualification": qualification_state(policy, packet),
         "qualification_policy": policy["qualification"],
@@ -1050,7 +1119,10 @@ def main(argv: list[str] | None = None) -> int:
             )
             breach = sorted(set(coordinator_tree_state(repo_root)) - set(before))
             spend = worker_spend(
-                transcript["stdout"], packet["limits"].get("max_cost_usd")
+                transcript["stdout"],
+                packet["limits"].get("max_cost_usd"),
+                packet["limits"].get("soft_token_ceiling"),
+                packet["limits"].get("hard_token_ceiling"),
             )
             _emit(
                 _receipt(
@@ -1083,7 +1155,11 @@ def main(argv: list[str] | None = None) -> int:
                     **(
                         {"disposition": "containment_breach"}
                         if breach
-                        else {} if spend["within_cap"] else {"disposition": "cost_exceeded"}
+                        else (
+                            {}
+                            if spend["within_cap"] and spend["within_hard_token_ceiling"]
+                            else {"disposition": "budget_exceeded"}
+                        )
                     ),
                 )
             )
@@ -1095,7 +1171,7 @@ def main(argv: list[str] | None = None) -> int:
             # Overspend cannot be prevented after the fact, only stopped from
             # repeating. Exiting non-zero is what keeps a wave from running the
             # same overspend across every remaining packet.
-            return 4 if not spend["within_cap"] else 0
+            return 4 if not spend["within_cap"] or not spend["within_hard_token_ceiling"] else 0
 
         if args.command == "gate":
             claim_evidence = verify_live_coordinator_claim(repo_root, packet, args.sprintctl_bin)

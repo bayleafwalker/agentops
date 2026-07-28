@@ -9,43 +9,43 @@
     "opencode": "opencode-go"
   },
   "worker_routes": {
-    "note": "Bulk implementation workers for the supervised hybrid mode. These are never caller harnesses: a worker holds no git, sprintctl, deployment, or acceptance authority. The governing contract is templates/dispatch/hybrid/hybrid-dispatch.v1.json.",
-    "bulk": {
+    "note": "Mechanically specified implementation workers for supervised hybrid mode. Route names describe failure mode and oracle ownership, not diff size. Workers never hold git, sprintctl, deployment, correctness-definition, or acceptance authority.",
+    "mechanical_bulk": {
       "opencode": {
         "model": "opencode-go/deepseek-v4-flash",
-        "agent": "ao-bulk",
+        "agent": "ao-mechanical-bulk",
         "verified": true,
         "qualified": false,
-        "qualification_note": "A named Vuoro bulk pilot is governed by hybrid-dispatch.v1.json; this routing table remains globally unqualified.",
-        "max_attempts": 2
+        "qualification_note": "A named Vuoro mechanical-bulk pilot is governed by hybrid-dispatch.v1.json; this routing table remains globally unqualified.",
+        "max_attempts": 1
       }
     },
-    "substantial": {
+    "bounded_semantic_experiment": {
       "opencode": {
         "model": "opencode-go/kimi-k2.7-code",
-        "agent": "ao-substantial",
+        "agent": "ao-bounded-semantic",
         "verified": true,
         "qualified": false,
-        "max_attempts": 1
+        "production_authority": false,
+        "note": "Experimental paired-assessment target only. Production bounded-semantic work remains coordinator-owned."
       }
     },
-    "escalation": {
+    "glm_benchmark": {
       "opencode": {
         "model": "opencode-go/glm-5.2",
-        "agent": "ao-escalation",
         "verified": true,
         "qualified": false,
-        "max_attempts": 1
+        "production_authority": false,
+        "note": "Callable but unqualified. Worker failure returns to the coordinator; GLM has no semantic escalation role."
       }
     },
-    "worker-review-challenger": {
+    "k3_benchmark": {
       "opencode": {
         "model": "opencode-go/kimi-k3",
-        "agent": "ao-review",
         "verified": true,
         "qualified": false,
-        "max_attempts": 1,
-        "note": "Read-only challenger. Never substitutes for the coordinator review required by the dispatch contract."
+        "production_authority": false,
+        "note": "Benchmark-only until a specific repository-scale semantic-integration hypothesis is approved."
       }
     }
   },

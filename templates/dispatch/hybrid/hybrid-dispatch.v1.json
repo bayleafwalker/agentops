@@ -6,7 +6,7 @@
   "workflow_precedence": ["supervised_hybrid", "frontier_only"],
   "modes": {
     "supervised_hybrid": {
-      "description": "A frontier Claude or Codex coordinator session plans, freezes a task packet, dispatches one disposable OpenCode worker loop, runs cold deterministic gates, and reviews the captured diff. The worker holds no Git, sprintctl, deployment, or acceptance authority.",
+      "description": "A frontier Claude or Codex coordinator defines the semantic oracle, freezes a mechanical task packet with discriminating gates, dispatches one disposable OpenCode worker loop, runs cold deterministic gates, and reviews the captured diff. The worker holds no correctness-definition, Git, sprintctl, deployment, or acceptance authority.",
       "execution_boundary": "harness",
       "role": "primary",
       "status": "operational_supervised"
@@ -25,6 +25,7 @@
     "authority": [
       "architecture and ambiguity resolution",
       "task packet construction and freezing",
+      "semantic oracle and falsifying acceptance-property design",
       "session permission overlay authorship",
       "cold deterministic gate execution",
       "diff review and failure classification",
@@ -50,6 +51,7 @@
       "external directories outside the worktree",
       "sub-agent spawning",
       "scope expansion",
+      "test-oracle, parity-fixture, or adversarial-verification design",
       "acceptance or merge"
     ]
   },
@@ -66,37 +68,51 @@
       "surfaces": ["claude-code", "codex-cli"],
       "selection": "independent_coordinator_context"
     },
-    "bulk": {
-      "purpose": "Routine bounded implementation, fixtures, schemas, mechanical migrations, and test-driven repair behind strong deterministic gates.",
+    "mechanical_bulk": {
+      "purpose": "Low-ambiguity implementation against frozen interfaces, an externally supplied oracle, and coordinator-authored gates that deterministically fail for every relevant unmet requirement.",
       "mode": "supervised_hybrid",
       "harness_model": "opencode-go/deepseek-v4-flash",
-      "agent": "ao-bulk",
+      "agent": "ao-mechanical-bulk",
       "status": "available_named_pilot",
-      "max_attempts": 2
+      "max_attempts": 1,
+      "task_class": "mechanical_implementation",
+      "risk": "low",
+      "oracle_ownership": "coordinator"
     },
-    "substantial": {
-      "purpose": "Multi-file implementation once contracts and architecture are already decided.",
-      "mode": "supervised_hybrid",
-      "harness_model": "opencode-go/kimi-k2.7-code",
-      "agent": "ao-substantial",
-      "status": "available_unqualified",
-      "max_attempts": 1
+    "bounded_semantic": {
+      "purpose": "Behaviourally coupled implementation with frozen interfaces but meaningful semantic uncertainty. Production remains coordinator-owned; Kimi K2.7 is an assessment experiment only.",
+      "modes": ["frontier_only"],
+      "selection": "calling_coordinator_harness",
+      "status": "coordinator_only",
+      "experiment": {
+        "model": "opencode-go/kimi-k2.7-code",
+        "agent": "ao-bounded-semantic",
+        "status": "experimental_no_production_authority"
+      }
     },
-    "escalation": {
-      "purpose": "One corrected retry after coordinator triage of a failed packet.",
-      "mode": "supervised_hybrid",
-      "harness_model": "opencode-go/glm-5.2",
-      "agent": "ao-escalation",
-      "status": "available_unqualified",
-      "max_attempts": 1
+    "adversarial_verification": {
+      "purpose": "Test-oracle, parity-fixture, mutation, falsifiability, and cross-layer behavioural-proof design.",
+      "modes": ["frontier_only"],
+      "selection": "calling_coordinator_harness",
+      "status": "coordinator_only"
     },
-    "worker_review_challenger": {
-      "purpose": "Read-only cheap challenger over the captured diff. Never substitutes for the required coordinator review.",
-      "mode": "supervised_hybrid",
-      "harness_model": "opencode-go/kimi-k3",
-      "agent": "ao-review",
-      "status": "available_unqualified",
-      "max_attempts": 1
+    "architecture_authority": {
+      "purpose": "Architecture, authority, compatibility, release, migration, recovery, and materially underspecified work.",
+      "modes": ["frontier_only"],
+      "selection": "calling_coordinator_harness",
+      "status": "coordinator_only"
+    },
+    "worker_failure": {
+      "purpose": "Any semantic rejection, missing oracle, packet contradiction, inability to execute a focused gate, repeated reading without mutation, or authority-boundary discovery returns to the coordinator. GLM has no assigned production role.",
+      "modes": ["frontier_only"],
+      "selection": "calling_coordinator_harness",
+      "status": "coordinator_only"
+    },
+    "k3_benchmark": {
+      "purpose": "Benchmark-only read-only model surface for a separately approved hypothesis; no production authority.",
+      "modes": ["frontier_only"],
+      "selection": "benchmark_only",
+      "status": "benchmark_only"
     }
   },
   "eligibility": {
@@ -104,6 +120,9 @@
       "packet references an existing sprintctl item in a startable state",
       "the coordinator holds the sprintctl claim for that item",
       "architecture, acceptance criteria, and non-goals are settled",
+      "task_class is mechanical_implementation and risk is low",
+      "the semantic oracle is externally defined by the coordinator and the worker cannot modify it",
+      "each relevant requirement has a coordinator-authored deterministic acceptance property naming a registered command and the incorrect behaviour it falsifies",
       "writable_patch_paths are inside the repository manifest scope.allowed_path_roots",
       "no writable path intersects the repository hybrid.protected_paths",
       "every registered command runs green cold in the disposable worktree before inference",
@@ -113,9 +132,12 @@
       "unresolved architecture or ownership",
       "cross-repository sequencing",
       "contradictory or missing acceptance criteria",
-      "security, credential, authority, or migration semantics",
+      "worker would need to invent or modify the test oracle",
+      "test, parity fixture, or adversarial verification is the primary deliverable",
+      "cross-layer behavioural proof",
+      "security, credential, authority, release, compatibility, migration, or recovery semantics",
       "changes smaller than the packet overhead",
-      "a packet that already failed its escalation attempt"
+      "any rejected worker attempt unless the coordinator authors a materially revised packet"
     ]
   },
   "gates": {
@@ -126,7 +148,8 @@
       "scope-within-manifest",
       "protected-paths-untouched",
       "worktree-exact-commit",
-      "registered-commands-green-cold"
+      "registered-commands-green-cold",
+      "acceptance-properties-discriminating"
     ],
     "post": [
       "diff-nonempty",
@@ -153,10 +176,30 @@
       "kctl",
       "actionq"
     ],
-    "routes": ["bulk"],
+    "routes": ["mechanical_bulk"],
     "models": ["opencode-go/deepseek-v4-flash"],
     "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
     "default": "unqualified",
-    "admission": "Vuoro ecosystem tooling is admitted for real bounded implementation work. Every packet still requires a live coordinator claim, frozen acceptance contract, cold registered gates, captured artifact/session evidence, independent review, and human acceptance. Worker authority remains bounded by each repository manifest."
+    "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+  },
+  "model_states": {
+    "opencode-go/deepseek-v4-flash": {
+      "state": "admitted_named_pilot",
+      "routes": ["mechanical_bulk"],
+      "restrictions": ["externally_defined_oracle", "executable_falsifying_gates", "no_authority_or_release_decisions"]
+    },
+    "opencode-go/kimi-k2.7-code": {
+      "state": "experimental",
+      "routes": [],
+      "next_assessment": ["bounded_semantic_implementation"]
+    },
+    "opencode-go/glm-5.2": {
+      "state": "available_unqualified",
+      "routes": []
+    },
+    "opencode-go/kimi-k3": {
+      "state": "benchmark_only",
+      "routes": []
+    }
   }
 }

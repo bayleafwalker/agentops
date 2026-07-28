@@ -11,12 +11,16 @@
     "repo_id",
     "sprint_item",
     "route",
+    "task_class",
+    "risk",
+    "oracle",
     "starting_commit",
     "purpose",
     "readable_context_paths",
     "writable_patch_paths",
     "protected_paths",
     "required_outcomes",
+    "acceptance_properties",
     "non_goals",
     "allowed_command_ids",
     "limits",
@@ -49,7 +53,19 @@
         }
       }
     },
-    "route": { "type": "string", "enum": ["bulk", "substantial", "escalation"] },
+    "route": { "type": "string", "enum": ["mechanical_bulk"] },
+    "task_class": { "type": "string", "const": "mechanical_implementation" },
+    "risk": { "type": "string", "const": "low" },
+    "oracle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ownership", "worker_may_modify", "description"],
+      "properties": {
+        "ownership": { "type": "string", "const": "externally_defined" },
+        "worker_may_modify": { "type": "boolean", "const": false },
+        "description": { "type": "string", "minLength": 1 }
+      }
+    },
     "attempt": { "type": "integer", "minimum": 1, "default": 1 },
     "supersedes": { "type": "string", "description": "task_id of the failed packet this corrected retry replaces." },
     "starting_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
@@ -77,6 +93,21 @@
       "uniqueItems": true,
       "items": { "type": "string", "minLength": 1 }
     },
+    "acceptance_properties": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Coordinator-authored deterministic failure properties. Each relevant requirement needs a gate that fails when the requirement is ignored.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["requirement", "command_id", "fails_when"],
+        "properties": {
+          "requirement": { "type": "string", "minLength": 1 },
+          "command_id": { "type": "string", "minLength": 1 },
+          "fails_when": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
     "non_goals": {
       "type": "array",
       "uniqueItems": true,
@@ -94,7 +125,9 @@
       "required": ["timeout_seconds"],
       "properties": {
         "timeout_seconds": { "type": "integer", "minimum": 30, "maximum": 5400 },
-        "max_cost_usd": { "type": "number", "minimum": 0 }
+        "max_cost_usd": { "type": "number", "minimum": 0 },
+        "soft_token_ceiling": { "type": "integer", "minimum": 1 },
+        "hard_token_ceiling": { "type": "integer", "minimum": 1 }
       }
     },
     "network_policy": { "type": "string", "enum": ["disabled"] },

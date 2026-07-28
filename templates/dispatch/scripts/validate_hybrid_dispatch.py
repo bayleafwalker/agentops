@@ -79,9 +79,9 @@ def validate_policy(policy: dict[str, Any], worker_config: dict[str, Any]) -> No
             if permission.get(key) != "deny":
                 raise ValueError(f"{agent}: {key} must be denied")
 
-    review = agents["ao-review"]["permission"]
+    review = agents.get("ao-review", {}).get("permission", {})
     if review.get("edit") != "deny" or review.get("bash") != "deny":
-        raise ValueError("ao-review must be read-only")
+        raise ValueError("benchmark-only ao-review must be read-only")
 
     base = worker_config["permission"]
     if base["*"] != "ask":
@@ -118,6 +118,14 @@ def validate_manifest_hybrid(manifest: dict[str, Any], policy: dict[str, Any], p
         raise ValueError(
             f"{path}: hybrid dispatch requires scope.allowed_path_roots to bound "
             "writable packet paths"
+        )
+    soft_tokens = hybrid.get("soft_token_ceiling")
+    hard_tokens = hybrid.get("hard_token_ceiling")
+    if not isinstance(soft_tokens, int) or not isinstance(hard_tokens, int):
+        raise ValueError(f"{path}: hybrid token ceilings must be explicit integers")
+    if soft_tokens <= 0 or hard_tokens <= soft_tokens:
+        raise ValueError(
+            f"{path}: hybrid.hard_token_ceiling must exceed a positive soft_token_ceiling"
         )
     return True
 

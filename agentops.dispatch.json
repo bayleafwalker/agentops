@@ -46,7 +46,7 @@
   },
   "hybrid": {
     "enabled": true,
-    "worker_routes": ["bulk"],
+    "worker_routes": ["mechanical_bulk"],
     "commands": {
       "agentops.dispatch.tests": "python -m unittest discover -s templates/dispatch/tests",
       "agentops.hybrid.validate": "python templates/dispatch/scripts/validate_hybrid_dispatch.py --agentops-root . --manifest agentops.dispatch.json"
@@ -62,8 +62,11 @@
     "worktree_root": "/tmp/agentops-hybrid/worktrees",
     "max_timeout_seconds": 1800,
     "max_cost_usd": 3.0,
+    "soft_token_ceiling": 500000,
+    "hard_token_ceiling": 1000000,
     "notes": [
-      "The dispatch contract itself is coordinator-only: a worker must never edit the policy, schema, or driver that bounds it."
+      "The dispatch contract itself is coordinator-only: a worker must never edit the policy, schema, or driver that bounds it.",
+      "Eligibility is determined by oracle ownership and failure mode, not implementation size."
     ]
   },
   "verification": {

@@ -136,7 +136,7 @@
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "type": "string", "enum": ["bulk", "substantial", "escalation"] }
+          "items": { "type": "string", "enum": ["mechanical_bulk"] }
         },
         "commands": {
           "type": "object",
@@ -154,6 +154,8 @@
         "worktree_root": { "type": "string", "minLength": 1 },
         "max_timeout_seconds": { "type": "integer", "minimum": 30, "maximum": 5400 },
         "max_cost_usd": { "type": "number", "minimum": 0 },
+        "soft_token_ceiling": { "type": "integer", "minimum": 1 },
+        "hard_token_ceiling": { "type": "integer", "minimum": 1 },
         "notes": { "type": "array", "items": { "type": "string", "minLength": 1 } }
       }
     },

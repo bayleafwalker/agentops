@@ -1,30 +1,41 @@
-# Vuoro bulk hybrid named-pilot qualification — 2026-07-28
+# Vuoro mechanical-bulk hybrid named-pilot qualification — 2026-07-28
 
-Status: active named tooling admission. This authorizes real bounded
-implementation work across the Vuoro project tooling ecosystem; it is not
-unattended acceptance.
+Status: active named tooling admission, narrowed after the Sprintctl
+parity-fixture session exposed the semantic-oracle boundary. This authorizes
+low-ambiguity mechanical implementation across the Vuoro tooling ecosystem; it
+does not authorize the worker to define correctness.
 
 ## Scope
 
-The policy admits `bulk` packets as `named_pilot:vuoro-tooling-bulk-2026-07-28`
+The policy admits `mechanical_bulk` packets as
+`named_pilot:vuoro-tooling-bulk-2026-07-28`
 for AgentOps, Vuoro, Sprintctl, Kctl, and ActionQ, subject to each repository's
 own hybrid manifest and packet protections.
 
-- route: `bulk`
+- route: `mechanical_bulk`
 - worker model: `opencode-go/deepseek-v4-flash`
 - host and contained worker identity: devbox / `agentworker`
 - workflow: frozen packet, live coordinator claim, cold registered gates,
   independent coordinator review, then human acceptance
 
-Each packet must still satisfy the policy and manifest gates. The worker retains
-no Git, sprintctl, deployment, or acceptance authority. The pilot does not
-extend to another task class simply because a task is small; packets require a
-strong registered command that can falsify the proposed change.
+Each packet must have frozen interfaces and acceptance semantics, low semantic
+risk, an externally defined oracle that the worker cannot modify, and at least
+one deterministic failure condition for every relevant requirement. The worker
+retains no correctness-definition, Git, sprintctl, deployment, or acceptance
+authority. Size is not an admission criterion: a large repetitive migration can
+fit while a tiny parity fixture can remain coordinator-only.
 
-Infrastructure repositories remain excluded: they define the worker-containment
-boundary. `substantial`, `escalation`, and `worker_review_challenger` remain
-unqualified. A repository without its own hybrid manifest is not dispatchable
-until it declares registered gates and protected paths.
+Explicit exclusions are test-oracle and parity-fixture construction; tests as
+the primary deliverable; adversarial verification and cross-layer behavioural
+proof; contradictory or materially underspecified packets; tracker settlement;
+authority, release, deployment, compatibility, migration, and recovery
+decisions.
+
+Infrastructure repositories remain excluded because they define the worker
+containment boundary. Bounded semantic work and adversarial verification remain
+coordinator-owned. Kimi K2.7 is assessment-only, GLM has no escalation role, and
+Kimi K3 is benchmark-only. A repository without its own hybrid manifest is not
+dispatchable until it declares registered gates and protected paths.
 
 ## Retained qualification corpus
 
@@ -32,7 +43,9 @@ The two accepted samples are independent worker sessions at different frozen
 Vuoro commits with different served coordinator claims and distinct test-only
 assertions. Both used the exact configured route model, a contained worker,
 no model override, a cold pre-gate and post-gate, and an independent Sol review
-before the coordinator committed the candidate.
+before the coordinator committed the candidate. They support mechanical
+implementation behind coordinator-owned oracles; they do not support worker
+authorship of tests, parity fixtures, or semantic proof.
 
 | Packet | Live claim | Evidence | Result | Worker spend |
 |---|---:|---|---|---:|
@@ -53,6 +66,7 @@ requires independent review and human acceptance.
 
 Suspend this pilot immediately on a containment breach, unauthorized tool or
 network use, coordinator-tree mutation, failed cold gate, provider model
-override, missing live claim, or cost-cap breach. Reassess expansion only from
-additional retained, independently reviewed evidence; do not infer it from
-availability, passing smoke runs, or these two examples alone.
+override, missing live claim, hard token ceiling, or cost-cap breach. One
+rejected worker attempt ends the packet; another attempt requires a materially
+revised coordinator packet or an assessment protocol. Reassess expansion only
+from additional retained, independently reviewed evidence.

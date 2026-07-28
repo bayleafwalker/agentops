@@ -7,7 +7,14 @@
     "claim_id": 4321,
     "claim_actor": "coordinator/claude-code"
   },
-  "route": "bulk",
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "Existing service behavior and coordinator-authored mutation-sensitive tests define correctness."
+  },
   "attempt": 1,
   "starting_commit": "0000000000000000000000000000000000000000",
   "purpose": "Add table-driven tests covering per-request repository resolution in the service work-store adapter. Implementation contract is already fixed by the coordinator.",
@@ -31,6 +38,18 @@
     "two requests in one process can resolve two different repository ids",
     "the new tests fail against the pre-change composition module"
   ],
+  "acceptance_properties": [
+    {
+      "requirement": "unknown repository ids fail closed",
+      "command_id": "vuoro.service.tests",
+      "fails_when": "the unknown-id rejection is removed or changed to fallback resolution"
+    },
+    {
+      "requirement": "two repository ids resolve independently",
+      "command_id": "vuoro.service.tests",
+      "fails_when": "repository resolution is cached globally or either request ignores its repository id"
+    }
+  ],
   "non_goals": [
     "changing composition.py itself",
     "changing client transport behavior",
@@ -39,7 +58,9 @@
   "allowed_command_ids": ["vuoro.service.tests"],
   "limits": {
     "timeout_seconds": 900,
-    "max_cost_usd": 2.0
+    "max_cost_usd": 2.0,
+    "soft_token_ceiling": 500000,
+    "hard_token_ceiling": 1000000
   },
   "network_policy": "disabled",
   "worktree": {

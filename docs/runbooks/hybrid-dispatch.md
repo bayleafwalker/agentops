@@ -1,10 +1,11 @@
 # Supervised hybrid dispatch
 
-Status: operational as a workflow. The sole qualification is the bounded
-[`vuoro` `bulk` named pilot](../dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md)
+Status: operational as a workflow. The sole qualification is the
+[`vuoro` `mechanical_bulk` named pilot](../dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md)
 on devbox with `opencode-go/deepseek-v4-flash`. Every other worker
-model/task-class/repository pairing remains **available but unqualified**.
-Availability is not qualification, and a passing smoke run promotes nothing.
+model/task-class/repository pairing is experimental, benchmark-only,
+available-unqualified, or coordinator-only. Availability is not qualification,
+and a passing smoke run promotes nothing.
 
 ## What it is
 
@@ -55,7 +56,7 @@ A repository is hybrid-eligible only when its `*.dispatch.json` manifest has a
 ```json
 "hybrid": {
   "enabled": true,
-  "worker_routes": ["bulk"],
+  "worker_routes": ["mechanical_bulk"],
   "commands": { "repo.unit.tests": "uv run pytest -q tests/unit" },
   "protected_paths": ["deploy/**", "*.dispatch.json"],
   "max_timeout_seconds": 1800
@@ -113,22 +114,34 @@ sprintctl is the work-state authority; the packet only references it.
 
 Routes that must go back to the coordinator instead of a worker: unresolved
 architecture or ownership, cross-repository sequencing, contradictory acceptance
-criteria, security/credential/authority/migration semantics, changes smaller
-than the packet overhead, and anything that already failed its escalation
-attempt.
+criteria, a missing or worker-authored oracle, tests/parity fixtures/adversarial
+verification as the primary deliverable, cross-layer behavioural proof,
+security/credential/authority/release/compatibility/migration/recovery
+semantics, changes smaller than the packet overhead, and any rejected worker
+attempt without a materially revised coordinator packet.
 
 ## Routes
 
-| Route | Model | Attempts | Use |
-|---|---|---|---|
-| `bulk` | `opencode-go/deepseek-v4-flash` | 2 | Routine bounded work, fixtures, schemas, mechanical migrations, test-driven repair |
-| `substantial` | `opencode-go/kimi-k2.7-code` | 1 | Multi-file work with contracts already decided |
-| `escalation` | `opencode-go/glm-5.2` | 1 | One corrected retry after coordinator triage |
-| `worker_review_challenger` | `opencode-go/kimi-k3` | 1 | Read-only cheap challenger; never replaces coordinator review |
+| Task class | Production owner/model | State |
+|---|---|---|
+| `mechanical_implementation`, low risk, external oracle | `opencode-go/deepseek-v4-flash` | named pilot, one attempt |
+| `bounded_semantic_implementation` | coordinator; paired K2.7 assessment only | unqualified |
+| `adversarial_verification` | coordinator | coordinator-only |
+| `architecture_authority` | coordinator | coordinator-only |
+| worker failure | coordinator triage | GLM has no assigned escalation role |
+| experimental benchmark | none | K3 benchmark-only |
 
-Do not keep a premium model inside a worker retry loop. A worker gets a fixed
-attempt allowance and returns a candidate or a structured blocker; failures are
-triaged as a wave, then reissued as corrected packets or rerouted explicitly.
+Route by failure mode and oracle ownership, not diff size. A large repetitive
+migration with generated falsifying checks can be mechanical; a tiny fixture
+whose author must infer behavioural parity is not. A worker that cannot execute
+its registered focused gate returns `blocked`, not `complete`. Packet
+contradiction or a missing oracle is `task_defect`, never a model escalation.
+
+Every mechanical packet declares coordinator-owned acceptance properties. Each
+property binds one requirement to a registered command and describes the
+incorrect behaviour that makes that command fail. A passing test is not
+discriminating evidence when the worker invented or was allowed to modify the
+test oracle.
 
 ## Host containment (devbox)
 
@@ -213,9 +226,28 @@ attribution, and a worker compromise that does not yield the coordinator's
 credential — but a runaway worker can still exhaust the shared plan and degrade
 the coordinator. Until a capped plan exists, `limits.max_cost_usd` is the only
 spend control: the driver totals OpenCode's own per-step cost reporting into
-the run receipt and fails the packet as `cost_exceeded` (exit 4) when the cap
+the run receipt and fails the packet as `budget_exceeded` (exit 4) when the cap
 is passed. That is necessarily post hoc — one packet can still overspend once —
 so its job is stopping a wave from repeating the overspend, not preventing it.
+
+Token ceilings are process-health controls rather than price controls. Small
+mechanical packets start with a 500,000-token soft ceiling and a 1,000,000-token
+hard ceiling. Crossing the soft ceiling is retained for coordinator review;
+crossing the hard ceiling fails the run receipt and stops the packet. Cheap
+multi-million-token loops are operational failures even when provider cost is
+microscopic.
+
+The optimization target is total operational cost:
+
+```text
+coordinator preparation + worker latency + review effort
++ correction effort + verification latency + model cost
+```
+
+Run the fastest falsifying command per candidate, focused owner tests after the
+candidate is captured, and the full suite only after independent approval.
+Retain the packet, candidate bundle, run receipt, logs, gate results, and review
+outcome under one durable execution identity.
 
 ## Validation
 

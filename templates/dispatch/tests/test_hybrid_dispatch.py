@@ -38,7 +38,7 @@ class PolicyContractTests(unittest.TestCase):
     def test_policy_and_worker_config_agree(self) -> None:
         validator.validate_policy(self.policy, self.worker_config)
 
-    def test_vuoro_tooling_bulk_is_a_named_pilot(self) -> None:
+    def test_vuoro_tooling_mechanical_bulk_is_a_named_pilot(self) -> None:
         qualification = self.policy["qualification"]
         self.assertEqual(qualification["mode"], "named_pilot")
         self.assertEqual(qualification["repositories"], [
@@ -48,13 +48,13 @@ class PolicyContractTests(unittest.TestCase):
             "kctl",
             "actionq",
         ])
-        self.assertEqual(qualification["routes"], ["bulk"])
+        self.assertEqual(qualification["routes"], ["mechanical_bulk"])
         self.assertEqual(qualification["default"], "unqualified")
-        self.assertEqual(self.policy["routes"]["bulk"]["status"], "available_named_pilot")
+        self.assertEqual(self.policy["routes"]["mechanical_bulk"]["status"], "available_named_pilot")
         for name, route in self.policy["routes"].items():
-            if name != "bulk" and "status" in route:
+            if name != "mechanical_bulk" and "status" in route:
                 with self.subTest(route=name):
-                    self.assertTrue(route["status"].endswith("unqualified"))
+                    self.assertNotEqual(route["status"], "available_named_pilot")
 
     def test_worker_is_denied_state_bearing_authority(self) -> None:
         denied = self.policy["worker"]["denied_authority"]
@@ -66,14 +66,15 @@ class PolicyContractTests(unittest.TestCase):
         self.assertEqual(self.policy["sprintctl_authority"], "coordinator_only")
         self.assertEqual(self.policy["acceptance_authority"], "human")
 
-    def test_read_only_challenger_never_replaces_coordinator_review(self) -> None:
-        challenger = self.policy["routes"]["worker_review_challenger"]
-        self.assertIn("Never substitutes", challenger["purpose"])
+    def test_k3_is_benchmark_only_and_never_replaces_coordinator_review(self) -> None:
+        challenger = self.policy["routes"]["k3_benchmark"]
+        self.assertEqual(challenger["status"], "benchmark_only")
+        self.assertEqual(self.policy["model_states"]["opencode-go/kimi-k3"]["routes"], [])
         self.assertIn("coordinator-review-recorded", self.policy["gates"]["post"])
 
     def test_rejects_a_worker_config_that_pre_authorizes_bash(self) -> None:
         broken = json.loads(json.dumps(self.worker_config))
-        broken["agent"]["ao-bulk"]["permission"]["webfetch"] = "allow"
+        broken["agent"]["ao-mechanical-bulk"]["permission"]["webfetch"] = "allow"
         with self.assertRaises(ValueError):
             validator.validate_policy(self.policy, broken)
 
@@ -106,11 +107,13 @@ class PacketValidationTests(unittest.TestCase):
             "scope": {"allowed_path_roots": ["src/", "tests/"]},
             "hybrid": {
                 "enabled": True,
-                "worker_routes": ["bulk", "escalation"],
+                "worker_routes": ["mechanical_bulk"],
                 "commands": {"example.tests": "pytest -q"},
                 "protected_paths": ["src/authority/**"],
                 "max_timeout_seconds": 1200,
                 "max_cost_usd": 3.0,
+                "soft_token_ceiling": 500000,
+                "hard_token_ceiling": 1000000,
             },
         }
         self.packet = {
@@ -118,7 +121,14 @@ class PacketValidationTests(unittest.TestCase):
             "task_id": "EX-1",
             "repo_id": "example",
             "sprint_item": {"ref": "example#42", "claim_id": 7, "claim_actor": "coordinator/claude-code"},
-            "route": "bulk",
+            "route": "mechanical_bulk",
+            "task_class": "mechanical_implementation",
+            "risk": "low",
+            "oracle": {
+                "ownership": "externally_defined",
+                "worker_may_modify": False,
+                "description": "Coordinator-authored executable oracle",
+            },
             "attempt": 1,
             "starting_commit": "a" * 40,
             "purpose": "p",
@@ -126,9 +136,21 @@ class PacketValidationTests(unittest.TestCase):
             "writable_patch_paths": ["tests/**"],
             "protected_paths": ["src/authority/**"],
             "required_outcomes": ["o"],
+            "acceptance_properties": [
+                {
+                    "requirement": "o",
+                    "command_id": "example.tests",
+                    "fails_when": "o is not implemented",
+                }
+            ],
             "non_goals": ["n"],
             "allowed_command_ids": ["example.tests"],
-            "limits": {"timeout_seconds": 600, "max_cost_usd": 0.25},
+            "limits": {
+                "timeout_seconds": 600,
+                "max_cost_usd": 0.25,
+                "soft_token_ceiling": 500000,
+                "hard_token_ceiling": 1000000,
+            },
             "network_policy": "disabled",
             "worktree": {"root": "/tmp/wt", "branch": "hybrid/ex-1", "cleanup": "retain-for-review"},
         }
@@ -189,8 +211,27 @@ class PacketValidationTests(unittest.TestCase):
             self._validate()
 
     def test_route_not_enabled_for_the_repository_is_a_defect(self) -> None:
-        self.packet["route"] = "substantial"
-        with self.assertRaisesRegex(dispatch.PacketError, "not enabled for this repository"):
+        self.packet["route"] = "bounded_semantic"
+        with self.assertRaisesRegex(dispatch.PacketError, "not a supervised_hybrid worker route"):
+            self._validate()
+
+    def test_worker_cannot_own_or_modify_the_oracle(self) -> None:
+        self.packet["oracle"]["worker_may_modify"] = True
+        with self.assertRaisesRegex(dispatch.PacketError, "externally defined oracle"):
+            self._validate()
+
+    def test_semantic_or_higher_risk_packet_is_rejected(self) -> None:
+        self.packet["task_class"] = "bounded_semantic_implementation"
+        with self.assertRaisesRegex(dispatch.PacketError, "mechanical_implementation"):
+            self._validate()
+        self.packet["task_class"] = "mechanical_implementation"
+        self.packet["risk"] = "moderate"
+        with self.assertRaisesRegex(dispatch.PacketError, "risk low"):
+            self._validate()
+
+    def test_acceptance_property_must_name_a_granted_gate(self) -> None:
+        self.packet["acceptance_properties"][0]["command_id"] = "example.missing"
+        with self.assertRaisesRegex(dispatch.PacketError, "not granted"):
             self._validate()
 
     def test_enabled_network_is_a_defect(self) -> None:
@@ -278,15 +319,14 @@ class OverlayTests(unittest.TestCase):
         self.assertEqual(overlay["permission"]["edit"], "allow")
         self.assertEqual(overlay["permission"]["external_directory"], "deny")
 
-    def test_review_route_withholds_every_write_surface(self) -> None:
-        self.packet["route"] = "worker_review_challenger"
-        permission = self._overlay()["permission"]
-        for key in ("edit", "write", "patch", "bash"):
+    def test_benchmark_agent_withholds_every_write_surface(self) -> None:
+        permission = self.base["agent"]["ao-review"]["permission"]
+        for key in ("edit", "bash"):
             with self.subTest(key=key):
                 self.assertEqual(permission[key], "deny")
 
     def test_overlay_keeps_network_and_subagents_denied(self) -> None:
-        agent = self._overlay()["agent"]["ao-bulk"]["permission"]
+        agent = self._overlay()["agent"]["ao-mechanical-bulk"]["permission"]
         for key in ("task", "external_directory", "webfetch", "websearch"):
             with self.subTest(key=key):
                 self.assertEqual(agent[key], "deny")
@@ -416,6 +456,23 @@ class WorkerSpendTests(unittest.TestCase):
             self._stream({"cost": 3.5, "tokens": {"total": 10}}), 2.0
         )
         self.assertFalse(spend["within_cap"])
+
+    def test_token_process_ceilings_are_reported(self) -> None:
+        spend = dispatch.worker_spend(
+            self._stream({"cost": 0.01, "tokens": {"total": 750000}}),
+            2.0,
+            500000,
+            1000000,
+        )
+        self.assertTrue(spend["soft_token_ceiling_exceeded"])
+        self.assertTrue(spend["within_hard_token_ceiling"])
+        hard = dispatch.worker_spend(
+            self._stream({"cost": 0.01, "tokens": {"total": 1000001}}),
+            2.0,
+            500000,
+            1000000,
+        )
+        self.assertFalse(hard["within_hard_token_ceiling"])
 
     def test_a_provider_reporting_no_cost_is_distinguished_from_free(self) -> None:
         # 0.0 alone would read as "this route is free" in a corpus, when it may
