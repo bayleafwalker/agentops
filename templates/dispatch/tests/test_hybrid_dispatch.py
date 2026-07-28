@@ -252,6 +252,55 @@ class OverlayTests(unittest.TestCase):
         self.assertIn("diff-scope-respected", self.policy["gates"]["post"])
 
 
+class ModelOverrideTests(unittest.TestCase):
+    """A diagnostic model override must reach the agent, not just the root.
+
+    Provider access follows the identity: a contained worker has its own auth
+    store, so the route's model can be unreachable as the worker while being
+    reachable as the coordinator. Measured on devbox 2026-07-28 -- the whole
+    `opencode-go` provider was absent for `agentworker`.
+    """
+
+    def setUp(self) -> None:
+        self.policy = _json(HYBRID / "hybrid-dispatch.v1.json")
+        self.base = _json(HYBRID / "opencode.hybrid.json")
+        self.manifest = _json(ROOT / "agentops.dispatch.json")
+        self.packet = _json(HYBRID / "example-task-packet.json")
+        self.packet["allowed_command_ids"] = []
+        self.agent = self.policy["routes"][self.packet["route"]]["agent"]
+
+    def test_override_applies_to_both_the_root_and_the_agent(self) -> None:
+        overlay = dispatch.build_overlay(
+            self.packet, self.manifest, self.policy, self.base, "opencode/some-free-model"
+        )
+        self.assertEqual(overlay["model"], "opencode/some-free-model")
+        # The agent entry is what `--agent` selects, so a root-only override
+        # would be silently ignored for the run that matters.
+        self.assertEqual(
+            overlay["agent"][self.agent]["model"], "opencode/some-free-model"
+        )
+
+    def test_without_an_override_the_route_model_is_unchanged(self) -> None:
+        overlay = dispatch.build_overlay(
+            self.packet, self.manifest, self.policy, self.base
+        )
+        expected = self.base["agent"][self.agent]["model"]
+        self.assertEqual(overlay["model"], expected)
+        self.assertEqual(overlay["agent"][self.agent]["model"], expected)
+
+    def test_an_override_changes_the_overlay_hash(self) -> None:
+        # The hash is what ties a receipt to the configuration that produced
+        # it; an override that did not move it would let a diagnostic run and a
+        # qualifying one be mistaken for each other.
+        plain = dispatch.build_overlay(self.packet, self.manifest, self.policy, self.base)
+        overridden = dispatch.build_overlay(
+            self.packet, self.manifest, self.policy, self.base, "opencode/some-free-model"
+        )
+        self.assertNotEqual(
+            dispatch.overlay_hash(plain), dispatch.overlay_hash(overridden)
+        )
+
+
 class WorkspaceSharingTests(unittest.TestCase):
     """The workspace must be writable by the worker, not only by its creator.
 

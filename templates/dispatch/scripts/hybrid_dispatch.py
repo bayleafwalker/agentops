@@ -241,6 +241,7 @@ def build_overlay(
     manifest: dict[str, Any],
     policy: dict[str, Any],
     base_config: dict[str, Any],
+    model_override: str | None = None,
 ) -> dict[str, Any]:
     """Build the session-only OpenCode permission overlay for one packet.
 
@@ -297,13 +298,15 @@ def build_overlay(
         "websearch": "deny",
     }
 
+    model = model_override or base_agent["model"]
     overlay = {
         "$schema": base_config.get("$schema", "https://opencode.ai/config.json"),
-        "model": base_agent["model"],
+        "model": model,
         "permission": dict(permission),
         "agent": {
             agent_name: {
                 **base_agent,
+                "model": model,
                 "permission": {
                     **base_agent.get("permission", {}),
                     **permission,
@@ -579,6 +582,7 @@ def dispatch_worker(
     policy: dict[str, Any],
     opencode_bin: str,
     worker_user: str | None = None,
+    model_override: str | None = None,
 ) -> dict[str, Any]:
     """Run exactly one bounded worker loop and return its raw transcript record."""
     agent_name = policy["routes"][packet["route"]]["agent"]
@@ -639,7 +643,7 @@ def dispatch_worker(
         "argv": [shlex.quote(a) for a in argv],
         "worker_user": worker_user,
         "agent": agent_name,
-        "model": policy["routes"][packet["route"]]["harness_model"],
+        "model": model_override or policy["routes"][packet["route"]]["harness_model"],
         "exit_code": completed.returncode,
         "stdout": completed.stdout,
         "stderr_tail": completed.stderr[-4000:],
@@ -745,6 +749,20 @@ def main(argv: list[str] | None = None) -> int:
         help="Why the containment override is acceptable for this run. Required with it.",
     )
     parser.add_argument(
+        "--worker-model",
+        help=(
+            "Run the loop on this model instead of the route's, for diagnostics "
+            "that are about the harness rather than the model -- containment "
+            "smokes above all, where the question is whether the worker can edit "
+            "its clone and not reach the coordinator. Needed because provider "
+            "access follows the identity: a contained worker has its own auth "
+            "store, so the route's model may not be reachable as the worker even "
+            "though it is as the coordinator. Permanently marks the run "
+            "ineligible for qualification: a route assessed on a different model "
+            "measured nothing about that route."
+        ),
+    )
+    parser.add_argument(
         "command",
         choices=["validate", "overlay", "prepare", "run", "gate", "receipt"],
     )
@@ -764,7 +782,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         base_config = _load_json(load_worker_config_path(args.agentops_root.resolve()))
-        overlay = build_overlay(packet, manifest, policy, base_config)
+        overlay = build_overlay(packet, manifest, policy, base_config, args.worker_model)
 
         if args.command == "overlay":
             _emit({"overlay": overlay, "overlay_sha256": overlay_hash(overlay)})
@@ -820,17 +838,26 @@ def main(argv: list[str] | None = None) -> int:
             # An uncontained run is diagnostic forever. Recording that on the
             # receipt is what stops it being folded into a qualification corpus
             # later, when the circumstances are no longer remembered.
+            # A run on a model the route does not name measures the harness, not
+            # the route, so it is disqualified on the same footing and for the
+            # same reason: the receipt has to carry it, because the
+            # circumstances will not be remembered when the corpus is read.
+            route_model = policy["routes"][packet["route"]]["harness_model"]
+            on_route_model = args.worker_model in (None, route_model)
             containment_override = {
                 "containment_override": not contained,
                 "worker_user": args.worker_user,
-                "qualification_eligible": contained,
-                "unattended_eligible": contained,
+                "worker_model": args.worker_model or route_model,
+                "route_model": route_model,
+                "model_override": not on_route_model,
+                "qualification_eligible": contained and on_route_model,
+                "unattended_eligible": contained and on_route_model,
                 "override_reason": args.override_reason if not contained else None,
             }
             before = coordinator_tree_state(repo_root)
             transcript = dispatch_worker(
                 worktree, packet_path, packet, overlay, policy, args.opencode_bin,
-                args.worker_user,
+                args.worker_user, args.worker_model,
             )
             breach = sorted(set(coordinator_tree_state(repo_root)) - set(before))
             _emit(
