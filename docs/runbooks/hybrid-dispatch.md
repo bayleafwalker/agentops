@@ -84,8 +84,8 @@ python "$AO" --packet packets/EX-1.json overlay
 #    evidence that a clean worktree passes.
 python "$AO" --packet packets/EX-1.json prepare
 
-# 4. One bounded worker loop.
-python "$AO" --packet packets/EX-1.json run
+# 4. One bounded worker loop, as the contained identity.
+python "$AO" --packet packets/EX-1.json --worker-user agentworker run
 
 # 5. Cold post-gates over the captured diff. Worker claims are not evidence.
 python "$AO" --packet packets/EX-1.json gate
@@ -127,6 +127,46 @@ attempt.
 Do not keep a premium model inside a worker retry loop. A worker gets a fixed
 attempt allowance and returns a candidate or a structured blocker; failures are
 triaged as a wave, then reissued as corrected packets or rerouted explicitly.
+
+## Host containment (devbox)
+
+The worker runs as `agentworker`, a separate uid, because nothing in the
+OpenCode overlay stopped a worker writing into the coordinator's checkout.
+Pass `--worker-user agentworker`; the driver refuses to dispatch unless that
+identity genuinely cannot write the checkout, asked of the kernel rather than
+inferred from modes.
+
+The workspace is shared through the `agentdispatch` group, which holds both
+identities and grants `/var/lib/agentops/hybrid-dispatch` and nothing else.
+Ownership alone cannot span the split: whichever identity creates a file, the
+other is "other". setgid carries group ownership but not the group write bit,
+so both halves are explicit — the driver opens its own clone at the end of
+`prepare`, and `Defaults>agentworker umask = 0002, umask_override` keeps the
+worker's output group-writable for the cold gates.
+
+Verify after any rebuild, on the host:
+
+```bash
+sudo ./scripts/check-worker-containment.sh \
+  agentworker /var/lib/agentops/hybrid-dispatch/worktrees /projects/dev
+```
+
+It must pass before any run counts. It asserts the group set is exactly
+`{agentworker, agentdispatch}`, that `agentdispatch` owns nothing under the
+coordinator paths, that the workspace round-trips in both directions, and —
+adversarially — that the worker cannot create a sentinel under `/projects/dev`.
+
+**Reads are not contained.** `/projects/dev` is world-readable, so a worker can
+read every repository on the host. The uid boundary stops writes only; the
+mount namespace is still outstanding.
+
+**Provider access follows the identity.** `agentworker` has its own OpenCode
+auth store — deliberately, so a compromised worker cannot spend the
+coordinator's budget — and until it is credentialed the paid routes are not
+reachable as the worker. `--worker-model` runs the loop on a model the worker
+can reach, for diagnostics about the harness rather than the model. It marks
+the receipt `qualification_eligible: false`, because a route assessed on a
+model it does not name measured nothing about that route.
 
 ## Validation
 
