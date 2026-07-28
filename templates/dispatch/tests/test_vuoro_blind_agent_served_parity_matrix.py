@@ -23,6 +23,7 @@ def test_matrix_covers_every_blind_agent_guidance_command() -> None:
         "sprintctl claim list-sprint --sprint-id <sprint-id> --json",
         "sprintctl next-work --sprint-id <sprint-id> --json --explain",
         "sprintctl item show --id <item-id> --json",
+        "sprintctl item edit --id <item-id> --description <text>",
         "sprintctl item ref list --id <item-id> --json",
         "sprintctl item dep list --id <item-id> --json",
         "sprintctl claim start --item-id <item-id>",
