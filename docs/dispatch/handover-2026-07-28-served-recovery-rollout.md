@@ -216,3 +216,22 @@ cheap/hybrid worker until the actual `agentworker` identity has configured
 credentials, the no-override and permission boundary is observed with the
 required OpenCode version, and a fresh-clone cold gate passes under that
 identity. Infrastructure repositories remain excluded.
+
+## Addendum: explicit devbox divergent-stream quarantine, 2026-07-28
+
+The old devbox Vuoro stream `80832652-6e17-4ef1-b9bd-ec9639a63933` was
+resolved without replaying it or modifying served state. A current served
+ledger-and-cursor audit found four unrelated served records, no matching
+ledger decision, and no authoritative cursor entry for this stream. That is
+insufficient evidence to label the two local commands absent from the served
+ledger, so reconciliation deliberately left them pending.
+
+`sprintctl` `5ae656d` (`0.2.7`) adds the intentionally local-only
+`authority quarantine` flow for exactly this residual case. On devbox it
+recorded terminal `quarantined-divergent-stream` receipts, with the reason
+`served-ledger-and-cursor-audit-2026-07-28-has-no-authoritative-disposition`,
+for the immutable `item.done` sequence 1 and `claim.release` sequence 2
+records. It removed the corresponding local credential sidecar only. The
+outbox rows, served ledger, served cursor, and work state were not modified;
+`authority status --json` now has no pending records and `authority sync
+--json` reports zero uploads and decisions.

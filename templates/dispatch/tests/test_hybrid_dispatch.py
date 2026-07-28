@@ -127,6 +127,11 @@ class PacketValidationTests(unittest.TestCase):
     def test_a_fit_packet_reports_the_policy_pre_gates(self) -> None:
         self.assertEqual(self._validate(), self.policy["gates"]["pre"])
 
+    def test_policy_requires_review_and_captures_worktree_state(self) -> None:
+        self.assertIn("coordinator-review-recorded", self.policy["gates"]["post"])
+        self.assertIn("worktree-state-captured", self.policy["gates"]["post"])
+        self.assertNotIn("worktree-clean", self.policy["gates"]["post"])
+
     def test_writable_path_outside_manifest_scope_is_a_defect(self) -> None:
         self.packet["writable_patch_paths"] = ["deploy/**"]
         with self.assertRaisesRegex(dispatch.PacketError, "outside manifest scope"):
@@ -259,6 +264,46 @@ class OverlayTests(unittest.TestCase):
         self.assertNotIn("tests/**", json.dumps(self._overlay()))
         self.assertIn("diff-scope-respected", self.policy["gates"]["post"])
 
+
+class IndependentReviewTests(unittest.TestCase):
+    def setUp(self) -> None:
+        packet_tests = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+        packet_tests.setUp()
+        self.packet = packet_tests.packet
+
+    def test_independent_candidate_review_requires_distinct_reviewer_and_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            evidence = root / "gate.json"
+            evidence.write_text("{}\n", encoding="utf-8")
+            review_path = root / "review.json"
+            review_path.write_text(json.dumps({
+                "task_id": self.packet["task_id"],
+                "reviewer": "reviewer/codex",
+                "context": "independent",
+                "decision": "candidate",
+                "evidence_path": str(evidence),
+            }), encoding="utf-8")
+            self.assertEqual(
+                dispatch.load_independent_review(review_path, self.packet)["reviewer"],
+                "reviewer/codex",
+            )
+
+    def test_independent_review_cannot_be_authored_by_claim_actor(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            evidence = root / "gate.json"
+            evidence.write_text("{}\n", encoding="utf-8")
+            review_path = root / "review.json"
+            review_path.write_text(json.dumps({
+                "task_id": self.packet["task_id"],
+                "reviewer": self.packet["sprint_item"]["claim_actor"],
+                "context": "independent",
+                "decision": "candidate",
+                "evidence_path": str(evidence),
+            }), encoding="utf-8")
+            with self.assertRaisesRegex(dispatch.PacketError, "reviewer must differ"):
+                dispatch.load_independent_review(review_path, self.packet)
 
 class WorkerSpendTests(unittest.TestCase):
     """`limits.max_cost_usd` was declared everywhere and read by nothing.

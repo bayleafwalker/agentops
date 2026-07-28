@@ -733,11 +733,12 @@ def post_gates(
     protected_hits = [p for p in touched if _matches_any(p, protected)]
     command_results = run_registered_commands(worktree, packet, manifest)
 
+    worktree_status = _git(worktree, "status", "--porcelain").splitlines()
     gates = {
         "diff-nonempty": bool(touched),
         "diff-scope-respected": not out_of_scope,
         "protected-paths-untouched": not protected_hits,
-        "worktree-clean": True,
+        "worktree-state-captured": True,
         "registered-commands-green": all(r["exit_code"] == 0 for r in command_results),
     }
     return {
@@ -748,7 +749,36 @@ def post_gates(
         "protected_path_hits": protected_hits,
         "command_results": command_results,
         "diff": _git(worktree, "diff", packet["starting_commit"]),
+        "worktree_status": worktree_status,
     }
+
+
+def load_independent_review(path: Path, packet: dict[str, Any]) -> dict[str, Any]:
+    """Validate the coordinator's independent review record for a packet.
+
+    A green mechanical gate is evidence, not acceptance.  The record is a
+    deliberately separate artifact authored after inspecting that evidence;
+    requiring it here makes a candidate impossible to mint from the worker
+    loop alone.
+    """
+    review = _load_json(path)
+    if not isinstance(review, dict):
+        raise PacketError("review record must be a JSON object")
+    required = {"task_id", "reviewer", "context", "decision", "evidence_path"}
+    if not required.issubset(review):
+        raise PacketError("review record is missing required independent-review fields")
+    if review["task_id"] != packet["task_id"]:
+        raise PacketError("review record task_id does not match packet")
+    if review["context"] != "independent":
+        raise PacketError("review record must be authored in an independent context")
+    if review["decision"] != "candidate":
+        raise PacketError("review record decision must be candidate")
+    if review["reviewer"] == packet["sprint_item"]["claim_actor"]:
+        raise PacketError("reviewer must differ from the coordinator claim actor")
+    evidence_path = Path(str(review["evidence_path"]))
+    if not evidence_path.is_file():
+        raise PacketError("review record evidence_path does not exist")
+    return review
 
 
 def _now() -> str:
@@ -790,6 +820,11 @@ def main(argv: list[str] | None = None) -> int:
             "access to the coordinator checkout; that is the only containment that "
             "holds. Without it the run is supervised-diagnostic only."
         ),
+    )
+    parser.add_argument(
+        "--review-record",
+        type=Path,
+        help="Independent coordinator-review JSON required before gate may emit candidate.",
     )
     parser.add_argument(
         "--allow-writable-coordinator",
@@ -966,6 +1001,13 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.command == "gate":
             evidence = post_gates(worktree, packet, manifest, repo_root)
+            review = None
+            if evidence["passed"] and args.review_record is not None:
+                review = load_independent_review(args.review_record, packet)
+            disposition = (
+                "candidate" if evidence["passed"] and review is not None
+                else "coordinator_review_required"
+            )
             _emit(
                 _receipt(
                     packet,
@@ -974,12 +1016,11 @@ def main(argv: list[str] | None = None) -> int:
                     worktree=str(worktree),
                     overlay_sha256=overlay_hash(overlay),
                     evidence=evidence,
-                    disposition=(
-                        "candidate" if evidence["passed"] else "coordinator_review_required"
-                    ),
+                    independent_review=review,
+                    disposition=disposition,
                 )
             )
-            return 0 if evidence["passed"] else 2
+            return 0 if disposition == "candidate" else 2
 
         # receipt
         _emit(

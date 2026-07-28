@@ -132,7 +132,7 @@
       "diff-nonempty",
       "diff-scope-respected",
       "protected-paths-untouched",
-      "worktree-clean",
+      "worktree-state-captured",
       "registered-commands-green",
       "coordinator-review-recorded"
     ]
