@@ -84,6 +84,43 @@ the SQLite outbox or terminal-receipt files manually.
    stop. Do not bypass ordering or create a new event; attach the status and
    sync evidence to a sprintctl incident instead.
 
+## 2026-07-28 live recovery incident: divergent stream history
+
+The source and deployment recovery chain completed, but the first live replay
+exposed an older authority-ledger inconsistency. The exact stream is
+`f7b7bdea-6b53-4804-8986-5222dae41e38` in the `sprintctl` work repository.
+
+- Local outbox: records `1..16` remain without local terminal receipts.
+- Remote cursor: `highest_origin_seq=38`.
+- Remote history: only 27 records, covering sequences `12..38`, with 27
+  authority decisions; sequences `1..11` are absent.
+- At the overlap (`12..16`), the remote rows have the same event IDs as the
+  local records but different immutable record SHA-256 values.
+
+The service correctly rejects replay of local sequence 1 with `expected
+sequence 39, received 1`. This is no longer an ordinary retry problem:
+
+- Writing local terminal receipts would treat divergent remote evidence as
+  equivalent without a proof.
+- Rewinding/seeding the remote cursor or reinserting `1..11` would change
+  historical authority ordering and is not authorized by ordinary served work.
+
+**Required next authority:** an operator-approved recovery design that names
+the source of truth for the missing records and explicitly handles the
+same-event/different-hash overlap. Do not retry `authority sync`, mutate the
+outbox, alter `work.ingest_stream`, or create substitute events until that
+decision is recorded.
+
+### Completed release/deployment chain
+
+- `sprintctl` `e0f785c`: `0.2.3` adapter release
+  `vuoro-adapter-v1-e0f785c`, wheel SHA-256
+  `394240e1c3f31f8f950d526a2a5108d42d9ff363db645ed5a9cc7481ec42c2d6`.
+- `vuoro` `01406ed`, tag `vuoro-service-v0.1.18`: immutable service manifest
+  digest `sha256:76e3ab2182aa56ff5ba49943baa8ecb118d42d1d0610c09ca3f3f1cdc327b801`.
+- `appservice` `cf973c58`: digest deployed; Flux applied the revision and the
+  `vuoro-shared` deployment reported one ready updated replica on that digest.
+
 This session could not perform the live status/replay step because sibling
 repository state is mounted read-only in the execution sandbox.
 
