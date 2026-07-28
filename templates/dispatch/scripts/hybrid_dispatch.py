@@ -26,6 +26,7 @@ import hashlib
 import json
 import os
 import shlex
+import stat
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -422,6 +423,40 @@ def safety_ref(repo_root: Path, packet: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def share_workspace_with_group(workspace: Path) -> None:
+    """Make the freshly cloned workspace writable by its owning group.
+
+    The workspace root is setgid and group-shared precisely so the coordinator
+    and the worker can both write it, but setgid only propagates group
+    *ownership* -- the mode still comes from the creating process's umask. The
+    clone is made by the coordinator at its own umask, so without this every
+    file lands ``0644 coordinator:shared`` and the worker, which is in the
+    group but is not the owner, can write none of it.
+
+    That state is worth naming because it is silent and looks like something
+    else: measured on devbox 2026-07-28, a correctly moded workspace root still
+    left the contained worker unable to edit the clone it was dispatched into.
+    Its first edit fails with EACCES inside its *own* workspace, which reads
+    exactly like the containment boundary working -- and it is why the
+    containment probe alone (``test -w`` on the coordinator checkout) is not
+    sufficient evidence that a contained run can do anything.
+
+    Inert where no worker split exists: the workspace is then owned by the
+    coordinator's own group and nothing else is in it.
+    """
+    for path in [workspace, *workspace.rglob("*")]:
+        try:
+            mode = path.lstat().st_mode
+            if stat.S_ISLNK(mode):
+                continue
+            path.chmod(stat.S_IMODE(mode) | stat.S_IWGRP)
+        except OSError:
+            # A single unreadable or racing path is not worth failing the whole
+            # prepare over; the worker's first write would surface it, and the
+            # group-write round trip is asserted by check-worker-containment.sh.
+            continue
+
+
 def prepare_workspace(repo_root: Path, packet: dict[str, Any]) -> Path:
     """Clone the repository into a disposable standalone workspace.
 
@@ -453,6 +488,7 @@ def prepare_workspace(repo_root: Path, packet: dict[str, Any]) -> Path:
          packet["starting_commit"])
     _git(target, "remote", "remove", "origin")
     reroot_agent_context(target, repo_root)
+    share_workspace_with_group(target)
     return target
 
 

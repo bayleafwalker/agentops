@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import stat
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -248,6 +250,68 @@ class OverlayTests(unittest.TestCase):
         # contract has to bite somewhere. It bites in the cold post-gates.
         self.assertNotIn("tests/**", json.dumps(self._overlay()))
         self.assertIn("diff-scope-respected", self.policy["gates"]["post"])
+
+
+class WorkspaceSharingTests(unittest.TestCase):
+    """The workspace must be writable by the worker, not only by its creator.
+
+    A contained worker is in the workspace's group but never owns the clone the
+    coordinator made for it. Without the group-write pass its first edit fails
+    with EACCES inside its own workspace -- which is indistinguishable from
+    containment working correctly, and was measured on devbox 2026-07-28.
+    """
+
+    def test_group_write_is_added_to_every_file_and_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "workspace"
+            (workspace / "nested").mkdir(parents=True)
+            clone_file = workspace / "nested" / "AGENTS.md"
+            clone_file.write_text("x", encoding="utf-8")
+            # What `git clone` leaves behind at the coordinator's 0022 umask.
+            clone_file.chmod(0o644)
+            (workspace / "nested").chmod(0o755)
+
+            dispatch.share_workspace_with_group(workspace)
+
+            for path in (workspace, workspace / "nested", clone_file):
+                with self.subTest(path=path.name):
+                    self.assertTrue(
+                        stat.S_IMODE(path.stat().st_mode) & stat.S_IWGRP,
+                        f"{path} is not group-writable; a contained worker could not edit it",
+                    )
+
+    def test_existing_permissions_are_widened_not_replaced(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "workspace"
+            workspace.mkdir()
+            script = workspace / "run.sh"
+            script.write_text("#!/bin/sh\n", encoding="utf-8")
+            script.chmod(0o755)
+
+            dispatch.share_workspace_with_group(workspace)
+
+            mode = stat.S_IMODE(script.stat().st_mode)
+            self.assertTrue(mode & stat.S_IWGRP)
+            # Nothing is granted to "other": the group is the boundary.
+            self.assertFalse(mode & stat.S_IWOTH)
+            self.assertTrue(mode & stat.S_IXUSR, "executable bits must survive")
+
+    def test_symlinks_are_left_alone(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "workspace"
+            workspace.mkdir()
+            (workspace / "real").write_text("x", encoding="utf-8")
+            (workspace / "link").symlink_to(workspace / "real")
+            outside = Path(tmp) / "outside"
+            outside.write_text("x", encoding="utf-8")
+            outside.chmod(0o600)
+            (workspace / "escape").symlink_to(outside)
+
+            dispatch.share_workspace_with_group(workspace)
+
+            # Following a symlink out of the workspace would widen a path the
+            # workspace does not own.
+            self.assertEqual(stat.S_IMODE(outside.stat().st_mode), 0o600)
 
 
 class ExamplePacketTests(unittest.TestCase):
