@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/composed-artifact.schema.json",
+  "title": "Composed artifact evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "domain",
+    "cli",
+    "served_facade",
+    "released_adapter",
+    "composition",
+    "deployment"
+  ],
+  "properties": {
+    "schema_version": {"const": "composed-artifact/v1"},
+    "domain": {"type": "string", "minLength": 1},
+    "cli": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_revision", "commands"],
+      "properties": {
+        "source_revision": {"$ref": "#/$defs/revision"},
+        "commands": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["command", "disposition", "operations"],
+            "properties": {
+              "command": {"type": "string", "minLength": 1},
+              "disposition": {"enum": ["catalog", "local", "unavailable"]},
+              "operations": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {"type": "string", "minLength": 1}
+              }
+            }
+          }
+        }
+      }
+    },
+    "served_facade": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_revision", "routes"],
+      "properties": {
+        "source_revision": {"$ref": "#/$defs/revision"},
+        "routes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["command", "operation"],
+            "properties": {
+              "command": {"type": "string", "minLength": 1},
+              "operation": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    },
+    "released_adapter": {"$ref": "#/$defs/artifactCatalog"},
+    "composition": {
+      "allOf": [
+        {"$ref": "#/$defs/artifactCatalog"},
+        {
+          "type": "object",
+          "required": ["pin_manifest_sha256"],
+          "properties": {
+            "pin_manifest_sha256": {"$ref": "#/$defs/sha256"}
+          }
+        }
+      ]
+    },
+    "deployment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "environment",
+        "image_digest",
+        "observed_at",
+        "operations",
+        "operations_sha256"
+      ],
+      "properties": {
+        "environment": {"type": "string", "minLength": 1},
+        "image_digest": {"pattern": "^sha256:[0-9a-f]{64}$"},
+        "observed_at": {"type": "string", "minLength": 1},
+        "operations": {"$ref": "#/$defs/operations"},
+        "operations_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  },
+  "$defs": {
+    "revision": {"pattern": "^[0-9a-f]{40}$"},
+    "sha256": {"pattern": "^[0-9a-f]{64}$"},
+    "operations": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "artifactCatalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_revision",
+        "distribution",
+        "distribution_version",
+        "artifact_sha256",
+        "operations",
+        "operations_sha256"
+      ],
+      "properties": {
+        "source_revision": {"$ref": "#/$defs/revision"},
+        "distribution": {"type": "string", "minLength": 1},
+        "distribution_version": {"type": "string", "minLength": 1},
+        "artifact_sha256": {"$ref": "#/$defs/sha256"},
+        "pin_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "operations": {"$ref": "#/$defs/operations"},
+        "operations_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}
