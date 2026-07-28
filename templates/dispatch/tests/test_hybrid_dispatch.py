@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import stat
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -105,7 +106,7 @@ class PacketValidationTests(unittest.TestCase):
             "schema_version": "agentops-task/v1",
             "task_id": "EX-1",
             "repo_id": "example",
-            "sprint_item": {"ref": "example#42", "claim_actor": "coordinator/claude-code"},
+            "sprint_item": {"ref": "example#42", "claim_id": 7, "claim_actor": "coordinator/claude-code"},
             "route": "bulk",
             "attempt": 1,
             "starting_commit": "a" * 40,
@@ -163,8 +164,13 @@ class PacketValidationTests(unittest.TestCase):
             self._validate()
 
     def test_missing_sprint_claim_actor_is_a_defect(self) -> None:
-        self.packet["sprint_item"] = {"ref": "example#42"}
+        self.packet["sprint_item"] = {"ref": "example#42", "claim_id": 7}
         with self.assertRaisesRegex(dispatch.PacketError, "claim_actor"):
+            self._validate()
+
+    def test_missing_sprint_claim_id_is_a_defect(self) -> None:
+        del self.packet["sprint_item"]["claim_id"]
+        with self.assertRaisesRegex(dispatch.PacketError, "claim_id"):
             self._validate()
 
     def test_repository_without_a_hybrid_block_is_not_eligible(self) -> None:
@@ -304,6 +310,46 @@ class IndependentReviewTests(unittest.TestCase):
             }), encoding="utf-8")
             with self.assertRaisesRegex(dispatch.PacketError, "reviewer must differ"):
                 dispatch.load_independent_review(review_path, self.packet)
+
+
+class LiveClaimTests(unittest.TestCase):
+    def setUp(self) -> None:
+        packet_tests = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+        packet_tests.setUp()
+        self.packet = packet_tests.packet
+
+    def test_live_claim_requires_exact_item_actor_and_unexpired_lease(self) -> None:
+        completed = subprocess.CompletedProcess(
+            args=[], returncode=0,
+            stdout=json.dumps([{
+                "claim_id": 7, "work_item_id": 42,
+                "agent": "coordinator/claude-code",
+                "expires_at": "2999-01-01T00:00:00Z",
+            }]), stderr="",
+        )
+        original = dispatch.subprocess.run
+        dispatch.subprocess.run = lambda *args, **kwargs: completed
+        try:
+            evidence = dispatch.verify_live_coordinator_claim(Path("."), self.packet, "sprintctl")
+        finally:
+            dispatch.subprocess.run = original
+        self.assertEqual(evidence["claim_id"], 7)
+
+    def test_live_claim_rejects_a_different_actor(self) -> None:
+        completed = subprocess.CompletedProcess(
+            args=[], returncode=0,
+            stdout=json.dumps([{
+                "claim_id": 7, "work_item_id": 42,
+                "agent": "someone-else", "expires_at": "2999-01-01T00:00:00Z",
+            }]), stderr="",
+        )
+        original = dispatch.subprocess.run
+        dispatch.subprocess.run = lambda *args, **kwargs: completed
+        try:
+            with self.assertRaisesRegex(dispatch.PacketError, "not held"):
+                dispatch.verify_live_coordinator_claim(Path("."), self.packet, "sprintctl")
+        finally:
+            dispatch.subprocess.run = original
 
 class WorkerSpendTests(unittest.TestCase):
     """`limits.max_cost_usd` was declared everywhere and read by nothing.

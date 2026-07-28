@@ -30,7 +30,7 @@
     "sprint_item": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["ref", "claim_actor"],
+      "required": ["ref", "claim_id", "claim_actor"],
       "properties": {
         "ref": {
           "type": "string",
@@ -41,6 +41,11 @@
           "type": "string",
           "minLength": 1,
           "description": "Actor holding the sprintctl claim. Always the coordinator, never the worker."
+        },
+        "claim_id": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Exact live claim id held by claim_actor for this packet."
         }
       }
     },

@@ -190,6 +190,12 @@ def validate_packet(
     item_ref = packet["sprint_item"].get("ref", "")
     if "#" not in item_ref:
         raise PacketError("sprint_item.ref must be a sprintctl repo#id reference")
+    item_repo, _, item_id = item_ref.partition("#")
+    if item_repo != manifest.get("repo_id") or not item_id.isdigit() or int(item_id) < 1:
+        raise PacketError("sprint_item.ref must name this repository and a positive item id")
+    claim_id = packet["sprint_item"].get("claim_id")
+    if isinstance(claim_id, bool) or not isinstance(claim_id, int) or claim_id < 1:
+        raise PacketError("sprint_item.claim_id must be a positive integer")
     if not packet["sprint_item"].get("claim_actor"):
         raise PacketError("sprint_item.claim_actor is required; the coordinator holds the claim")
 
@@ -241,6 +247,65 @@ def validate_packet(
         )
 
     return list(policy["gates"]["pre"])
+
+
+def verify_live_coordinator_claim(
+    repo_root: Path, packet: dict[str, Any], sprintctl_bin: str,
+) -> dict[str, Any]:
+    """Read and validate the exact served claim that authorizes this packet.
+
+    The worker never receives this authority.  This coordinator-side check
+    prevents a frozen packet from being dispatched after its claim expired,
+    moved to a different actor, or ceased to cover the intended item.
+    """
+    item_ref = packet["sprint_item"]["ref"]
+    _, _, item_text = item_ref.partition("#")
+    item_id = int(item_text)
+    expected_claim_id = packet["sprint_item"]["claim_id"]
+    expected_actor = packet["sprint_item"]["claim_actor"]
+    try:
+        completed = subprocess.run(
+            [sprintctl_bin, "claim", "list", "--item-id", str(item_id), "--json"],
+            cwd=repo_root,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except OSError as exc:
+        raise PacketError(f"cannot execute sprintctl claim read: {exc}") from exc
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or completed.stdout.strip()
+        raise PacketError(f"served claim read failed: {detail or completed.returncode}")
+    try:
+        claims = json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        raise PacketError("served claim read returned invalid JSON") from exc
+    if not isinstance(claims, list):
+        raise PacketError("served claim read returned a non-list payload")
+    matching = [claim for claim in claims if isinstance(claim, dict) and claim.get("claim_id") == expected_claim_id]
+    if len(matching) != 1:
+        raise PacketError(f"served claim {expected_claim_id} is not active for item #{item_id}")
+    claim = matching[0]
+    if claim.get("work_item_id") != item_id:
+        raise PacketError(f"served claim {expected_claim_id} does not cover item #{item_id}")
+    if claim.get("agent") != expected_actor:
+        raise PacketError(f"served claim {expected_claim_id} is not held by {expected_actor!r}")
+    expires_at = claim.get("expires_at")
+    if not isinstance(expires_at, str):
+        raise PacketError(f"served claim {expected_claim_id} has no expiry")
+    try:
+        expiry = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise PacketError(f"served claim {expected_claim_id} has invalid expiry") from exc
+    if expiry.tzinfo is None or expiry <= datetime.now(timezone.utc):
+        raise PacketError(f"served claim {expected_claim_id} is expired")
+    return {
+        "claim_id": expected_claim_id,
+        "work_item_id": item_id,
+        "agent": expected_actor,
+        "expires_at": expires_at,
+        "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
 
 
 def build_overlay(
@@ -813,6 +878,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--agentops-root", type=Path, default=AGENTOPS_ROOT)
     parser.add_argument("--opencode-bin", default=os.environ.get("OPENCODE_BIN", "opencode"))
     parser.add_argument(
+        "--sprintctl-bin", default=os.environ.get("SPRINTCTL_BIN", "sprintctl"),
+        help="Coordinator-side sprintctl executable used for served claim verification.",
+    )
+    parser.add_argument(
         "--worker-user",
         default=os.environ.get("AGENTOPS_WORKER_USER"),
         help=(
@@ -881,6 +950,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.command == "prepare":
+            claim_evidence = verify_live_coordinator_claim(repo_root, packet, args.sprintctl_bin)
             safety = safety_ref(repo_root, packet)
             worktree = prepare_workspace(repo_root, packet)
             cold = run_registered_commands(worktree, packet, manifest)
@@ -892,6 +962,7 @@ def main(argv: list[str] | None = None) -> int:
                     stage="prepare",
                     worktree=str(worktree),
                     overlay_sha256=overlay_hash(overlay),
+                    coordinator_claim=claim_evidence,
                     safety=safety,
                     cold_command_results=cold,
                     eligible_for_dispatch=green,
@@ -904,6 +975,7 @@ def main(argv: list[str] | None = None) -> int:
             raise PacketError(f"{worktree} does not exist; run 'prepare' first")
 
         if args.command == "run":
+            claim_evidence = verify_live_coordinator_claim(repo_root, packet, args.sprintctl_bin)
             # The worker inherits this process's identity, and a worker that can
             # write the coordinator checkout demonstrably does -- measured on
             # every attempt, through a linked worktree and through a standalone
@@ -962,6 +1034,7 @@ def main(argv: list[str] | None = None) -> int:
                     stage="run",
                     worktree=str(worktree),
                     overlay_sha256=overlay_hash(overlay),
+                    coordinator_claim=claim_evidence,
                     worker=transcript,
                     spend=spend,
                     **containment_override,
@@ -1000,6 +1073,7 @@ def main(argv: list[str] | None = None) -> int:
             return 4 if not spend["within_cap"] else 0
 
         if args.command == "gate":
+            claim_evidence = verify_live_coordinator_claim(repo_root, packet, args.sprintctl_bin)
             evidence = post_gates(worktree, packet, manifest, repo_root)
             review = None
             if evidence["passed"] and args.review_record is not None:
@@ -1015,6 +1089,7 @@ def main(argv: list[str] | None = None) -> int:
                     stage="gate",
                     worktree=str(worktree),
                     overlay_sha256=overlay_hash(overlay),
+                    coordinator_claim=claim_evidence,
                     evidence=evidence,
                     independent_review=review,
                     disposition=disposition,

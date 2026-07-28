@@ -4,6 +4,7 @@
   "repo_id": "vuoro",
   "sprint_item": {
     "ref": "vuoro#1252",
+    "claim_id": 4321,
     "claim_actor": "coordinator/claude-code"
   },
   "route": "bulk",
