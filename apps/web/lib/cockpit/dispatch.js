@@ -22,6 +22,7 @@ const V2_PRODUCER_FIELDS = [
   "title", "prompt", "harness", "model", "priority", "refs", "dispatch_group_id"
 ];
 const V2_PRODUCER_FIELD_SET = new Set(V2_PRODUCER_FIELDS);
+const V2_ENQUEUE_RESULT_FIELDS = new Set(["action_id", "status", "request_ref", "request_sha256"]);
 
 export function getDispatchGate(config = getConfig()) {
   if (config.actionqServerUrl) {
@@ -230,6 +231,22 @@ async function parseJsonResponse(response) {
 function validateEnqueuePersistence(body) {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     throw new Error("actionq-server v2 dispatch response must be an object");
+  }
+  for (const field of V2_ENQUEUE_RESULT_FIELDS) {
+    if (!Object.hasOwn(body, field)) {
+      throw new Error(`actionq-server v2 dispatch response is missing ${field}`);
+    }
+  }
+  for (const field of Object.keys(body)) {
+    if (!V2_ENQUEUE_RESULT_FIELDS.has(field)) {
+      throw new Error(`actionq-server v2 dispatch response has unknown field: ${field}`);
+    }
+  }
+  if (!(Number.isInteger(body.action_id) || (typeof body.action_id === "string" && body.action_id.trim()))) {
+    throw new Error("actionq-server v2 dispatch response is missing a valid action_id");
+  }
+  if (body.status !== "pending") {
+    throw new Error("actionq-server v2 dispatch response must have status pending");
   }
   if (typeof body.request_ref !== "string" || !body.request_ref.trim()) {
     throw new Error("actionq-server v2 dispatch response is missing a valid request_ref");

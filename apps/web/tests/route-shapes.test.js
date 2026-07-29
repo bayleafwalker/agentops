@@ -205,7 +205,10 @@ test("dispatch route forwards validated payload when gate is enabled", async () 
     getDispatchOperator: () => "operator:test",
     forwardDispatchToActionqServer: async (payload) => {
       forwarded = payload;
-      return { action_id: "aq:12", status: "queued" };
+      return {
+        action_id: "aq:12", status: "pending", request_ref: "req:12",
+        request_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      };
     }
   });
   const response = await POST(jsonRequest("http://localhost/cockpit/api/dispatch", {
@@ -252,7 +255,10 @@ test("dispatch route accepts no-sprint refinement payload", async () => {
     getDispatchOperator: () => "operator:test",
     forwardDispatchToActionqServer: async (payload) => {
       forwarded = payload;
-      return { id: 13, status: "pending" };
+      return {
+        action_id: 13, status: "pending", request_ref: "req:13",
+        request_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      };
     }
   });
   const response = await POST(jsonRequest("http://localhost/cockpit/api/dispatch", {
@@ -360,23 +366,40 @@ test("v2 normalizer rejects unknown fields, wrong types, and blank nullable valu
   assert.throws(() => normalizeDispatchPayload({ ...valid, prompt: null }, { requestedBy: "operator:test" }), /prompt must be a string/);
 });
 
-test("dispatch forwarder requires ActionQ immutable snapshot proof on success", async () => {
+test("dispatch forwarder requires the exact ActionQ enqueue result schema on success", async () => {
   const payload = {
     contract_version: "v2", action_type: "scope-iterate", output_expectation: "plan", repo_id: "alpha",
     sprint_id: null, work_item_id: null, title: "t", prompt: "", harness: "codex", model: null,
     priority: "normal", refs: [], dispatch_group_id: null, requested_by: "operator:test"
   };
+  const validResult = {
+    action_id: "aq:1", status: "pending", request_ref: "req:opaque",
+    request_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  };
   const options = {
     config: { actionqServerUrl: "http://actionq-server", actionqDispatchContract: "v2" },
     fetchImpl: async () => Response.json({ action_id: "aq:1", status: "pending" })
   };
-  await assert.rejects(() => forwardDispatchToActionqServer(payload, options), /missing a valid request_ref/);
+  await assert.rejects(() => forwardDispatchToActionqServer(payload, options), /missing request_ref/);
+  await assert.rejects(() => forwardDispatchToActionqServer(payload, {
+    ...options, fetchImpl: async () => Response.json({ ...validResult, status: "completed" })
+  }), /must have status pending/);
+  await assert.rejects(() => forwardDispatchToActionqServer(payload, {
+    ...options, fetchImpl: async () => Response.json({ ...validResult, action_id: "" })
+  }), /valid action_id/);
+  await assert.rejects(() => forwardDispatchToActionqServer(payload, {
+    ...options,
+    fetchImpl: async () => {
+      const { action_id, ...withoutActionId } = validResult;
+      return Response.json(withoutActionId);
+    }
+  }), /missing action_id/);
+  await assert.rejects(() => forwardDispatchToActionqServer(payload, {
+    ...options, fetchImpl: async () => Response.json({ ...validResult, extra: true })
+  }), /unknown field/);
   const accepted = await forwardDispatchToActionqServer(payload, {
     ...options,
-    fetchImpl: async () => Response.json({
-      action_id: "aq:1", status: "pending", request_ref: "req:opaque",
-      request_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-    })
+    fetchImpl: async () => Response.json(validResult)
   });
   assert.equal(accepted.request_ref, "req:opaque");
 });
