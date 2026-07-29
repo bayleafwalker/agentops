@@ -72,6 +72,15 @@ Session mechanization contracts:
 - [`templates/dispatch/skills/session-scribe/SKILL.md`](../../../templates/dispatch/skills/session-scribe/SKILL.md) - the canonical periodic scribe (item #1107): judgment procedure for a fresh dispatched session.
 - [`templates/dispatch/scripts/session_scribe.py`](../../../templates/dispatch/scripts/session_scribe.py) - the scribe's mechanical half: durable cursor, capsule discovery/grouping, validated artifact writing.
 
+Advisory experiments (delete-by-default; no gate authority):
+
+- `execution-scope-declaration-pilot.md` - `execution-scope/v0`. Track A:
+  planner concerns that never reached the frozen envelope (`PLANNER_GAP`,
+  #2053-#2056). Track B: independent scope reconstruction from artifacts alone
+  (#2057). Track C: scope declaration as a prospective intervention, measured by
+  randomized trial (#2058). Supersedes `planner-focus-manifest-pilot.md`;
+  introspective framing is closed, not deferred.
+
 Repo-owned companion plans:
 
 - `/projects/dev/sprintctl/docs/plans/sprintctl-multi-agent-takeup-plan.md`
