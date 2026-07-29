@@ -162,3 +162,7 @@ Availability is not qualification and a passing smoke run promotes nothing.
 - Treat model IDs and provider capabilities as data in
   `templates/dispatch/model-routing.json`; do not make unverified provider
   syntax executable policy.
+
+<!-- agentops-environment-pointer:start -->
+See `.agents/environment.generated.md` for the active Vuoro environment's constraints and runbooks (agentops-managed; do not hand-edit).
+<!-- agentops-environment-pointer:end -->
