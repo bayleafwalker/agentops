@@ -21,6 +21,7 @@ const V2_PRODUCER_FIELDS = [
   "contract_version", "action_type", "output_expectation", "repo_id", "sprint_id", "work_item_id",
   "title", "prompt", "harness", "model", "priority", "refs", "dispatch_group_id"
 ];
+const V2_PRODUCER_FIELD_SET = new Set(V2_PRODUCER_FIELDS);
 
 export function getDispatchGate(config = getConfig()) {
   if (config.actionqServerUrl) {
@@ -71,6 +72,42 @@ function validateStringList(value, name) {
   return refs.map((ref) => ref.trim()).filter(Boolean);
 }
 
+function requireV2NonBlankString(payload, field) {
+  if (typeof payload[field] !== "string" || !payload[field].trim()) {
+    throw new Error(`${field} must be a non-blank string for v2`);
+  }
+}
+
+function validateV2ProducerPayload(payload) {
+  for (const field of V2_PRODUCER_FIELDS) {
+    if (!Object.hasOwn(payload, field)) {
+      throw new Error(`${field} is required for v2`);
+    }
+  }
+  for (const field of Object.keys(payload)) {
+    if (!V2_PRODUCER_FIELD_SET.has(field)) {
+      throw new Error(`unknown v2 dispatch field: ${field}`);
+    }
+  }
+  for (const field of ["contract_version", "action_type", "output_expectation", "repo_id", "title", "harness", "priority"]) {
+    requireV2NonBlankString(payload, field);
+  }
+  if (typeof payload.prompt !== "string") {
+    throw new Error("prompt must be a string for v2");
+  }
+  if (payload.sprint_id !== null && !Number.isInteger(payload.sprint_id)) {
+    throw new Error("sprint_id must be an integer or null for v2");
+  }
+  for (const field of ["work_item_id", "model", "dispatch_group_id"]) {
+    if (payload[field] !== null && (typeof payload[field] !== "string" || !payload[field].trim())) {
+      throw new Error(`${field} must be null or a non-blank string for v2`);
+    }
+  }
+  if (!Array.isArray(payload.refs) || payload.refs.some((ref) => typeof ref !== "string" || !ref.trim())) {
+    throw new Error("refs must be an array of non-blank strings for v2");
+  }
+}
+
 export function normalizeDispatchPayload(payload, { requestedBy = getDispatchOperator() } = {}) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     throw new Error("dispatch payload must be an object");
@@ -102,13 +139,9 @@ export function normalizeDispatchPayload(payload, { requestedBy = getDispatchOpe
     throw new Error("sprint_id must be an integer when present");
   }
   if (inputVersion === DISPATCH_CONTRACT_VERSION) {
-    for (const field of V2_PRODUCER_FIELDS) {
-      if (!Object.hasOwn(payload, field)) {
-        throw new Error(`${field} is required for v2`);
-      }
-    }
-    if (Object.hasOwn(payload, "kind")) {
-      throw new Error("kind is not valid in v2; use action_type and output_expectation");
+    validateV2ProducerPayload(payload);
+    if (typeof payload.work_item_id === "string" && /^wi:/i.test(payload.work_item_id)) {
+      throw new Error("work_item_id must be normalized without a wi: prefix for v2");
     }
     if (!trimString(payload.action_type)) {
       throw new Error("action_type is required for v2");
@@ -194,6 +227,19 @@ async function parseJsonResponse(response) {
   }
 }
 
+function validateEnqueuePersistence(body) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new Error("actionq-server v2 dispatch response must be an object");
+  }
+  if (typeof body.request_ref !== "string" || !body.request_ref.trim()) {
+    throw new Error("actionq-server v2 dispatch response is missing a valid request_ref");
+  }
+  if (typeof body.request_sha256 !== "string" || !/^[a-f0-9]{64}$/.test(body.request_sha256)) {
+    throw new Error("actionq-server v2 dispatch response is missing a valid request_sha256");
+  }
+  return body;
+}
+
 export async function forwardDispatchToActionqServer(payload, { config = getConfig(), fetchImpl = fetch } = {}) {
   const gate = getDispatchGate(config);
   if (!gate.enabled) {
@@ -214,5 +260,5 @@ export async function forwardDispatchToActionqServer(payload, { config = getConf
   if (!response.ok) {
     throw new Error(body?.error || body?.message || `actionq-server dispatch failed with ${response.status}`);
   }
-  return body;
+  return validateEnqueuePersistence(body);
 }

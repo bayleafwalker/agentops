@@ -160,16 +160,12 @@ export function DispatchComposer({
         output_expectation: form.output_expectation,
         title: form.title.trim(),
         harness: form.harness,
+        model: form.model.trim() || null,
         priority: form.priority,
         prompt: form.prompt,
-        refs
+        refs,
+        dispatch_group_id: form.dispatch_group_id.trim() || null
       };
-      if (form.model.trim()) {
-        body.model = form.model.trim();
-      }
-      if (form.dispatch_group_id.trim()) {
-        body.dispatch_group_id = form.dispatch_group_id.trim();
-      }
       const res = await fetch("/cockpit/api/dispatch", {
         method: "POST",
         headers: withWriteToken({ "content-type": "application/json" }),
