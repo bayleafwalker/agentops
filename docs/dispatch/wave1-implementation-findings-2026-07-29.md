@@ -107,14 +107,18 @@ gates are operational, not a known source defect:
    `initdb` and `pg_ctl` are absent.
 
 The candidate was published over workstation GitHub SSH and then exercised in
-a clean devbox worktree with its disposable PostgreSQL harness. That run
-reached the stateful suite (212 passed, 7 failed, 7 skipped). It exposed a
-real migration-compatibility regression: existing deployment and adapter
-fixtures still observe schema version `2` where the candidate produces `3`.
-The failures cover migration retry/adoption/serialization, future-version
-runtime refusal, role compatibility, and one Vuoro adapter compatibility case.
-The candidate is therefore returned to implementation; no release or dev
-deployment is authorized from this evidence.
+a clean devbox worktree with its disposable PostgreSQL harness. The first run
+exposed migration-v3 fixture and compatibility defects. They were repaired in
+`1204c5b`, `65565b1`, `dbbca10`, and `7c6f13e`, then republished through the
+same SSH branch. The final exact-candidate run passed:
+
+```text
+220 passed, 7 skipped in 24.95s
+```
+
+The skipped tests are intentionally environment-gated daemon cases. This is
+valid disposable PostgreSQL evidence for the ActionQ candidate; it is not yet
+an adapter release, Vuoro image build, or deployment authorization.
 
 ### Vuoro #2031 identity prerequisite
 
