@@ -385,7 +385,8 @@ def build_overlay(
     ``--auto`` is far too broad for a frozen packet, so every permission is
     resolved here to an explicit allow or deny.
 
-    Two OpenCode 1.18.5 behaviours constrain the shape, both measured against
+    The qualified OpenCode implementation profile constrains the shape. Its
+    current devbox observation was measured against
     ``opencode-go/deepseek-v4-flash`` on a trivial single-file edit:
 
     * A wildcard ``"*": "deny"`` does not merely gate calls, it withholds the
@@ -735,8 +736,8 @@ def dispatch_worker(
     # Another path by which the worker learns the coordinator's real checkout.
     # It has no use for it: everything it may touch is inside the worktree.
     env.pop("AGENTOPS_ROOT", None)
-    # OpenCode 1.18.5 treats positional arguments after --file as further file
-    # values, so the message must precede it.
+    # The qualified OpenCode implementation profile treats positional arguments
+    # after --file as further file values, so the message must precede it.
     argv = [
         opencode_bin,
         "run",

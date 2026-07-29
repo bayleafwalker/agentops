@@ -38,6 +38,13 @@ class PolicyContractTests(unittest.TestCase):
     def test_policy_and_worker_config_agree(self) -> None:
         validator.validate_policy(self.policy, self.worker_config)
 
+    def test_worker_uses_a_named_implementation_profile(self) -> None:
+        self.assertEqual(
+            self.policy["worker"]["implementation_profile"],
+            "opencode-nixpkgs-devbox-1.18.4",
+        )
+        self.assertNotIn("cli_version_verified", self.policy["worker"])
+
     def test_vuoro_tooling_mechanical_bulk_is_a_named_pilot(self) -> None:
         qualification = self.policy["qualification"]
         self.assertEqual(qualification["mode"], "named_pilot")
@@ -312,9 +319,10 @@ class OverlayTests(unittest.TestCase):
         self.assertEqual(bash["*"], "deny")
 
     def test_overlay_grants_edit_whole_and_defers_scope_to_the_gates(self) -> None:
-        # OpenCode 1.18.5 withholds the edit tool outright when an `edit` map
-        # denies "*", so per-path scoping here would only ever produce an empty
-        # diff. writable_patch_paths stays enforced by the cold post-gates.
+        # The qualified implementation profile withholds the edit tool outright
+        # when an `edit` map denies "*", so per-path scoping here would only
+        # ever produce an empty diff. writable_patch_paths stays enforced by
+        # the cold post-gates.
         overlay = self._overlay()
         self.assertEqual(overlay["permission"]["edit"], "allow")
         self.assertEqual(overlay["permission"]["external_directory"], "deny")

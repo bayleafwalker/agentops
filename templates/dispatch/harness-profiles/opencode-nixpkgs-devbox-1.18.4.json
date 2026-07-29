@@ -1,0 +1,42 @@
+{
+  "schema_version": "harness-profile/v1",
+  "profile_id": "opencode-nixpkgs-devbox-1.18.4",
+  "semantic_adapter": "opencode-noninteractive/v1",
+  "host_class": "devbox-agent",
+  "implementation": {
+    "channel": "nixpkgs/nixos-unstable",
+    "package": "opencode",
+    "cli_version": "1.18.4"
+  },
+  "invocation": {
+    "command": ["opencode", "run"],
+    "message_before_file": true,
+    "stdin": "closed"
+  },
+  "policy": {
+    "config_file": "opencode.actionq-worker.json",
+    "overlay_transport": "OPENCODE_CONFIG_CONTENT"
+  },
+  "required_probes": [
+    "cli-version",
+    "run-help",
+    "contained-worktree-model-list",
+    "explicit-tool-enumeration",
+    "message-before-file"
+  ],
+  "receipt_fields": [
+    "semantic_adapter",
+    "profile_id",
+    "cli_version",
+    "executable_fingerprint",
+    "channel_revision",
+    "config_digest",
+    "overlay_digest",
+    "provider_model",
+    "worker_identity"
+  ],
+  "qualification": {
+    "state": "preflight_observed",
+    "blocking_probes": ["contained-disposable-no-override-smoke"]
+  }
+}

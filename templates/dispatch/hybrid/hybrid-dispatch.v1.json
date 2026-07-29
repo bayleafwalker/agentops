@@ -36,7 +36,7 @@
   "worker": {
     "harness": "opencode",
     "provider": "opencode-go",
-    "cli_version_verified": "1.18.4",
+    "implementation_profile": "opencode-nixpkgs-devbox-1.18.4",
     "authority": [
       "edit files inside writable_patch_paths within its own worktree",
       "run registered command ids"
