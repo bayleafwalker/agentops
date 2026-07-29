@@ -35,9 +35,17 @@ backlog = true
 render = "full"
 
 [[members]]
+repo_id = "auditctl"
+backlog = true
+render = "full"
+path_notes = [
+  "Owns the repo-local audit index, durable NDJSON evidence shards, and rebuild semantics.",
+]
+
+[[members]]
 repo_id = "actionq"
 backlog = true
 render = "full"
 path_notes = [
-  "actionq-dispatcher is an actionq sub-component until it has its own sprintctl and dispatch identity.",
+  "actionq-dispatcher is part of this product family through Actionq until it has its own sprintctl repository identity and dispatch manifest; promote it to a peer member only after that onboarding lands.",
 ]
