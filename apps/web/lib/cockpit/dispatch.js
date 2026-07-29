@@ -93,11 +93,26 @@ function validateV2ProducerPayload(payload) {
   for (const field of ["contract_version", "action_type", "output_expectation", "repo_id", "title", "harness", "priority"]) {
     requireV2NonBlankString(payload, field);
   }
+  if (payload.contract_version !== DISPATCH_CONTRACT_VERSION) {
+    throw new Error("contract_version must be exactly v2");
+  }
+  if (payload.action_type !== "scope-iterate") {
+    throw new Error("action_type must be exactly scope-iterate for v2");
+  }
+  if (!OUTPUT_EXPECTATIONS.has(payload.output_expectation)) {
+    throw new Error("output_expectation must be an exact v2 enum value");
+  }
+  if (!DISPATCH_HARNESSES.has(payload.harness)) {
+    throw new Error("harness must be an exact v2 enum value");
+  }
+  if (!DISPATCH_PRIORITIES.has(payload.priority)) {
+    throw new Error("priority must be an exact v2 enum value");
+  }
   if (typeof payload.prompt !== "string") {
     throw new Error("prompt must be a string for v2");
   }
-  if (payload.sprint_id !== null && !Number.isInteger(payload.sprint_id)) {
-    throw new Error("sprint_id must be an integer or null for v2");
+  if (payload.sprint_id !== null && (!Number.isInteger(payload.sprint_id) || payload.sprint_id < 1)) {
+    throw new Error("sprint_id must be a positive integer or null for v2");
   }
   for (const field of ["work_item_id", "model", "dispatch_group_id"]) {
     if (payload[field] !== null && (typeof payload[field] !== "string" || !payload[field].trim())) {
@@ -113,7 +128,7 @@ export function normalizeDispatchPayload(payload, { requestedBy = getDispatchOpe
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     throw new Error("dispatch payload must be an object");
   }
-  const inputVersion = trimString(payload.contract_version || "v1");
+  const inputVersion = payload.contract_version === undefined ? "v1" : payload.contract_version;
   if (inputVersion !== "v1" && inputVersion !== DISPATCH_CONTRACT_VERSION) {
     throw new Error("contract_version must be v1 or v2");
   }
