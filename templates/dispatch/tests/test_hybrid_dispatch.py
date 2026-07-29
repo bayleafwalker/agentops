@@ -315,6 +315,7 @@ class OverlayTests(unittest.TestCase):
 
     def test_overlay_allows_only_the_packet_commands(self) -> None:
         bash = self._overlay()["permission"]["bash"]
+        self.assertEqual(list(bash), ["*", "pytest -q"])
         self.assertEqual(bash["pytest -q"], "allow")
         self.assertEqual(bash["*"], "deny")
 
