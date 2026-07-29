@@ -411,10 +411,13 @@ def build_overlay(
     base_agent = base_config["agent"][agent_name]
     commands = manifest["hybrid"]["commands"]
 
-    bash: dict[str, str] = {}
+    # OpenCode evaluates matching permission patterns in insertion order and
+    # the last match wins.  Put the fallback first so an exact registered
+    # command can override it; appending "*" last withholds the bash tool even
+    # when an earlier command entry says allow.
+    bash: dict[str, str] = {"*": "deny"}
     for command_id in packet["allowed_command_ids"]:
         bash[commands[command_id]] = "allow"
-    bash["*"] = "deny"
 
     # Read-side tools the worker needs to locate its own work. Without these
     # the model cannot inspect the tree it is asked to patch.
