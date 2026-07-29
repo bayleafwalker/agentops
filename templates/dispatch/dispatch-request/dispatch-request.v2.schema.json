@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.kotona.app/schemas/dispatch-request/v2",
+  "title": "Canonical dispatch request v2",
+  "description": "The transport-neutral, normalized intent accepted for durable ActionQ enqueue. Every accepted request is persisted as this complete immutable object, with a separately-addressable opaque reference and SHA-256 digest.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "action_type", "output_expectation", "repo_id", "sprint_id", "work_item_id", "title", "prompt", "harness", "model", "priority", "refs", "dispatch_group_id", "requested_by"],
+  "properties": {
+    "contract_version": { "const": "v2" },
+    "action_type": { "const": "scope-iterate", "description": "Coordinator handler. This is not an outcome label." },
+    "output_expectation": { "enum": ["plan", "audit-event", "draft-work-items", "sprint-proposal", "implementation", "review"] },
+    "repo_id": { "type": "string", "minLength": 1, "pattern": "^(?!ALL$).+" },
+    "sprint_id": { "type": ["integer", "null"], "minimum": 1 },
+    "work_item_id": { "type": ["string", "null"], "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "prompt": { "type": "string" },
+    "harness": { "enum": ["claude", "codex", "copilot-cli", "codestral"] },
+    "model": { "type": ["string", "null"], "minLength": 1 },
+    "priority": { "enum": ["normal", "high"] },
+    "refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "dispatch_group_id": { "type": ["string", "null"], "minLength": 1 },
+    "requested_by": { "type": "string", "minLength": 1 }
+  }
+}

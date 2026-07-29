@@ -4,20 +4,23 @@ import { getConfig } from "./env.js";
 
 const execFileAsync = promisify(execFile);
 
-export const DISPATCH_CONTRACT_VERSION = "v1";
+export const DISPATCH_CONTRACT_VERSION = "v2";
 const DISPATCH_KINDS = new Set(["implement", "review", "test", "investigate", "document", "custom"]);
 const DISPATCH_HARNESSES = new Set(["claude", "codex", "copilot-cli", "codestral"]);
 const DISPATCH_PRIORITIES = new Set(["normal", "high"]);
 const OUTPUT_EXPECTATIONS = new Set(["plan", "audit-event", "draft-work-items", "sprint-proposal", "implementation", "review"]);
 
-const KIND_TO_ACTION_TYPE = {
-  implement: "scope-iterate",
-  review: "scope-iterate",
-  test: "scope-iterate",
-  investigate: "scope-iterate",
-  document: "scope-iterate",
-  custom: "scope-iterate"
+const V1_KIND_TO_EXPECTATION = {
+  implement: "implementation",
+  review: "review",
+  test: "review",
+  investigate: "plan",
+  document: "plan"
 };
+const V2_PRODUCER_FIELDS = [
+  "contract_version", "action_type", "output_expectation", "repo_id", "sprint_id", "work_item_id",
+  "title", "prompt", "harness", "model", "priority", "refs", "dispatch_group_id"
+];
 
 export function getDispatchGate(config = getConfig()) {
   if (config.actionqServerUrl) {
@@ -36,10 +39,9 @@ export function getDispatchGate(config = getConfig()) {
     };
   }
   return {
-    enabled: true,
+    enabled: false,
     source: "actionctl",
-    method: "actionctl",
-    bin: config.actionctlBin
+    reason: "Dispatch disabled: actionctl cannot yet persist the v2 immutable request snapshot, request_ref, and request_sha256."
   };
 }
 
@@ -73,8 +75,13 @@ export function normalizeDispatchPayload(payload, { requestedBy = getDispatchOpe
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     throw new Error("dispatch payload must be an object");
   }
+  const inputVersion = trimString(payload.contract_version || "v1");
+  if (inputVersion !== "v1" && inputVersion !== DISPATCH_CONTRACT_VERSION) {
+    throw new Error("contract_version must be v1 or v2");
+  }
   const repoId = trimString(payload.repo_id);
   const kind = trimString(payload.kind);
+  const actionType = trimString(payload.action_type || "scope-iterate");
   const title = trimString(payload.title);
   const prompt = typeof payload.prompt === "string" ? payload.prompt : "";
   const harness = trimString(payload.harness);
@@ -85,7 +92,7 @@ export function normalizeDispatchPayload(payload, { requestedBy = getDispatchOpe
   if (workItemId && /^wi:/i.test(workItemId)) {
     workItemId = workItemId.slice(workItemId.indexOf(":") + 1).trim() || null;
   }
-  const outputExpectation = trimString(payload.output_expectation || "implementation");
+  let outputExpectation = trimString(payload.output_expectation);
   const dispatchGroupId = optionalTrimmedString(payload.dispatch_group_id);
   const operatorId = String(requestedBy || "").trim();
   if (!repoId || repoId === "ALL") {
@@ -94,8 +101,33 @@ export function normalizeDispatchPayload(payload, { requestedBy = getDispatchOpe
   if (payload.sprint_id != null && !Number.isInteger(payload.sprint_id)) {
     throw new Error("sprint_id must be an integer when present");
   }
-  if (!DISPATCH_KINDS.has(kind)) {
-    throw new Error(`kind must be one of: ${[...DISPATCH_KINDS].join(", ")}`);
+  if (inputVersion === DISPATCH_CONTRACT_VERSION) {
+    for (const field of V2_PRODUCER_FIELDS) {
+      if (!Object.hasOwn(payload, field)) {
+        throw new Error(`${field} is required for v2`);
+      }
+    }
+    if (Object.hasOwn(payload, "kind")) {
+      throw new Error("kind is not valid in v2; use action_type and output_expectation");
+    }
+    if (!trimString(payload.action_type)) {
+      throw new Error("action_type is required for v2");
+    }
+    if (!outputExpectation) {
+      throw new Error("output_expectation is required for v2");
+    }
+  } else {
+    if (!DISPATCH_KINDS.has(kind)) {
+      throw new Error(`kind must be one of: ${[...DISPATCH_KINDS].join(", ")}`);
+    }
+    const mappedExpectation = V1_KIND_TO_EXPECTATION[kind];
+    if (!mappedExpectation) {
+      throw new Error("v1 kind custom has no deterministic v2 compatibility mapping");
+    }
+    if (outputExpectation && outputExpectation !== mappedExpectation) {
+      throw new Error(`v1 kind ${kind} conflicts with output_expectation ${outputExpectation}`);
+    }
+    outputExpectation = mappedExpectation;
   }
   if (!title) {
     throw new Error("title is required");
@@ -109,14 +141,18 @@ export function normalizeDispatchPayload(payload, { requestedBy = getDispatchOpe
   if (!OUTPUT_EXPECTATIONS.has(outputExpectation)) {
     throw new Error(`output_expectation must be one of: ${[...OUTPUT_EXPECTATIONS].join(", ")}`);
   }
+  if (actionType !== "scope-iterate") {
+    throw new Error("action_type must be scope-iterate");
+  }
   if (!operatorId) {
     throw new Error("requested_by is required");
   }
   return {
+    contract_version: DISPATCH_CONTRACT_VERSION,
+    action_type: actionType,
     repo_id: repoId,
     sprint_id: payload.sprint_id ?? null,
     work_item_id: workItemId,
-    kind,
     output_expectation: outputExpectation,
     title,
     prompt,
@@ -130,7 +166,7 @@ export function normalizeDispatchPayload(payload, { requestedBy = getDispatchOpe
 }
 
 export async function dispatchViaActionctl(payload, bin = "actionctl") {
-  const type = KIND_TO_ACTION_TYPE[payload.kind] || "scope-iterate";
+  const type = payload.action_type;
   const priority = payload.priority === "high" ? 50 : 100;
   const args = ["add", "--type", type, "--project", payload.repo_id, "--created-by", payload.requested_by || "operator:cockpit", "--priority", String(priority)];
   if (payload.work_item_id) {

@@ -91,20 +91,21 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
+        contract_version: { const: "v2" },
+        action_type: { const: "scope-iterate" },
         repo_id: { type: "string" },
-        sprint_id: { type: "integer" },
-        work_item_id: { type: "string" },
+        sprint_id: { type: ["integer", "null"] },
+        work_item_id: { type: ["string", "null"] },
         title: { type: "string" },
         prompt: { type: "string" },
-        kind: { type: "string" },
-        output_expectation: { type: "string", description: "implementation | review | plan (default implementation)" },
+        output_expectation: { type: "string", enum: ["plan", "audit-event", "draft-work-items", "sprint-proposal", "implementation", "review"] },
         harness: { type: "string" },
-        model: { type: "string" },
+        model: { type: ["string", "null"] },
         priority: { type: "string" },
         refs: { type: "array", items: { type: "string" } },
-        dispatch_group_id: { type: "string" }
+        dispatch_group_id: { type: ["string", "null"] }
       },
-      required: ["repo_id", "title", "prompt"],
+      required: ["contract_version", "action_type", "repo_id", "sprint_id", "work_item_id", "title", "prompt", "output_expectation", "harness", "model", "priority", "refs", "dispatch_group_id"],
       additionalProperties: false
     }
   }
