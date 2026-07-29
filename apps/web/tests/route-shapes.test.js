@@ -11,7 +11,7 @@ import { createGetHandler as createCostSummaryHandler } from "../app/cockpit/api
 import { createGetHandler as createHeadroomGetHandler, createPostHandler as createHeadroomPostHandler } from "../app/cockpit/api/headroom/route.js";
 import { createGetHandler as createDispatchManifestsHandler } from "../app/cockpit/api/dispatch-manifests/route.js";
 import { createPostHandler as createDispatchHandler } from "../app/cockpit/api/dispatch/route.js";
-import { dispatchViaActionctl, forwardDispatchToActionqServer } from "../lib/cockpit/dispatch.js";
+import { dispatchViaActionctl, forwardDispatchToActionqServer, normalizeDispatchPayload } from "../lib/cockpit/dispatch.js";
 
 function request(url) {
   return new Request(url);
@@ -213,7 +213,7 @@ test("dispatch route forwards validated payload when gate is enabled", async () 
     action_type: "scope-iterate",
     repo_id: "alpha",
     sprint_id: 12,
-    work_item_id: "wi:abc123",
+    work_item_id: "abc123",
     output_expectation: "implementation",
     title: "Build alpha",
     prompt: "Do the work",
@@ -221,8 +221,7 @@ test("dispatch route forwards validated payload when gate is enabled", async () 
     model: "gpt-5.3-codex",
     priority: "high",
     refs: ["wi:abc123", "sprint:12"],
-    dispatch_group_id: null,
-    requested_by: "operator:browser"
+    dispatch_group_id: null
   }));
   const payload = await response.json();
   assert.equal(response.status, 200);
@@ -346,6 +345,40 @@ test("dispatch route rejects omitted v2 fields instead of applying v1 defaults",
   }));
   assert.equal(response.status, 400);
   assert.match((await response.json()).degraded.detail, /sprint_id is required/);
+});
+
+test("v2 normalizer rejects unknown fields, wrong types, and blank nullable values", () => {
+  const valid = {
+    contract_version: "v2", action_type: "scope-iterate", output_expectation: "plan", repo_id: "alpha",
+    sprint_id: null, work_item_id: null, title: "t", prompt: "", harness: "codex", model: null,
+    priority: "normal", refs: [], dispatch_group_id: null
+  };
+  assert.throws(() => normalizeDispatchPayload({ ...valid, unexpected: true }, { requestedBy: "operator:test" }), /unknown v2 dispatch field/);
+  assert.throws(() => normalizeDispatchPayload({ ...valid, refs: null }, { requestedBy: "operator:test" }), /refs must be an array/);
+  assert.throws(() => normalizeDispatchPayload({ ...valid, model: " " }, { requestedBy: "operator:test" }), /model must be null or a non-blank string/);
+  assert.throws(() => normalizeDispatchPayload({ ...valid, work_item_id: "wi:" }, { requestedBy: "operator:test" }), /must be normalized without a wi: prefix/);
+  assert.throws(() => normalizeDispatchPayload({ ...valid, prompt: null }, { requestedBy: "operator:test" }), /prompt must be a string/);
+});
+
+test("dispatch forwarder requires ActionQ immutable snapshot proof on success", async () => {
+  const payload = {
+    contract_version: "v2", action_type: "scope-iterate", output_expectation: "plan", repo_id: "alpha",
+    sprint_id: null, work_item_id: null, title: "t", prompt: "", harness: "codex", model: null,
+    priority: "normal", refs: [], dispatch_group_id: null, requested_by: "operator:test"
+  };
+  const options = {
+    config: { actionqServerUrl: "http://actionq-server", actionqDispatchContract: "v2" },
+    fetchImpl: async () => Response.json({ action_id: "aq:1", status: "pending" })
+  };
+  await assert.rejects(() => forwardDispatchToActionqServer(payload, options), /missing a valid request_ref/);
+  const accepted = await forwardDispatchToActionqServer(payload, {
+    ...options,
+    fetchImpl: async () => Response.json({
+      action_id: "aq:1", status: "pending", request_ref: "req:opaque",
+      request_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    })
+  });
+  assert.equal(accepted.request_ref, "req:opaque");
 });
 
 test("dispatch route uses actionctl when gate method is actionctl", async () => {
