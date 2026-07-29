@@ -84,7 +84,7 @@ issuer configuration, deployment grant, or local fallback.
 ### ActionQ #2027
 
 The isolated candidate in `/tmp/actionq-2027-action-root` contains the v2
-Action-root enqueue series through `1204c5b`:
+Action-root enqueue series through `7c6f13e`:
 
 - byte-exact immutable normalized snapshots, opaque request refs, and digests;
 - transactional Action/enqueue/snapshot binding and idempotent replay/conflict
