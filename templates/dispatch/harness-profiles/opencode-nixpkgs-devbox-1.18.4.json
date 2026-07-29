@@ -3,6 +3,7 @@
   "profile_id": "opencode-nixpkgs-devbox-1.18.4",
   "semantic_adapter": "opencode-noninteractive/v1",
   "host_class": "devbox-agent",
+  "worker_identity": "agentworker",
   "implementation": {
     "channel": "nixpkgs/nixos-unstable",
     "package": "opencode",
@@ -30,6 +31,7 @@
     "cli_version",
     "executable_fingerprint",
     "channel_revision",
+    "profile_digest",
     "config_digest",
     "overlay_digest",
     "provider_model",

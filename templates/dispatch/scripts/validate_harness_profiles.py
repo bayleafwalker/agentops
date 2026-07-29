@@ -14,10 +14,12 @@ SCHEMA_VERSION = "harness-profile/v1"
 PROFILE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 SEMANTIC_ADAPTER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
 VERSION = re.compile(r"^\d+\.\d+\.\d+$")
+WORKER_IDENTITY = re.compile(r"^[a-z_][a-z0-9_-]*[$]?$")
 STATES = {"preflight_observed", "qualified", "superseded"}
 REQUIRED_RECEIPT_FIELDS = {
     "semantic_adapter", "profile_id", "cli_version", "executable_fingerprint",
-    "channel_revision", "config_digest", "overlay_digest", "provider_model", "worker_identity",
+    "channel_revision", "profile_digest", "config_digest", "overlay_digest",
+    "provider_model", "worker_identity",
 }
 
 
@@ -58,7 +60,8 @@ def _unique_texts(value: Any, field: str, path: Path, *, non_empty: bool = True)
 def validate_profile(value: dict[str, Any], path: Path) -> None:
     _keys(value, "profile", path, {
         "schema_version", "profile_id", "semantic_adapter", "host_class", "implementation",
-        "invocation", "policy", "required_probes", "receipt_fields", "qualification",
+        "worker_identity", "invocation", "policy", "required_probes", "receipt_fields",
+        "qualification",
     })
     if value["schema_version"] != SCHEMA_VERSION:
         raise _error(path, "schema_version", f"must be {SCHEMA_VERSION}")
@@ -67,6 +70,8 @@ def validate_profile(value: dict[str, Any], path: Path) -> None:
     if not SEMANTIC_ADAPTER.fullmatch(_text(value["semantic_adapter"], "semantic_adapter", path)):
         raise _error(path, "semantic_adapter", "must be a semantic adapter identifier")
     _text(value["host_class"], "host_class", path)
+    if not WORKER_IDENTITY.fullmatch(_text(value["worker_identity"], "worker_identity", path)):
+        raise _error(path, "worker_identity", "must be a safe local username")
 
     implementation = _object(value["implementation"], "implementation", path)
     _keys(implementation, "implementation", path, {"channel", "package", "cli_version"})

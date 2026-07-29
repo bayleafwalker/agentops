@@ -31,6 +31,7 @@ class HarnessProfileValidationTests(unittest.TestCase):
         validator.validate_profile(self.profile, self.path)
         self.assertEqual(self.profile["qualification"]["state"], "preflight_observed")
         self.assertIn("contained-disposable-no-override-smoke", self.profile["qualification"]["blocking_probes"])
+        self.assertEqual(self.profile["worker_identity"], "agentworker")
 
     def test_qualified_profile_cannot_retain_blocking_probes(self) -> None:
         self.profile["qualification"] = {"state": "qualified", "blocking_probes": ["still-blocked"]}
@@ -40,4 +41,9 @@ class HarnessProfileValidationTests(unittest.TestCase):
     def test_profile_requires_receipt_identity_and_fingerprints(self) -> None:
         self.profile["receipt_fields"].remove("executable_fingerprint")
         with self.assertRaisesRegex(ValueError, "missing required evidence: executable_fingerprint"):
+            validator.validate_profile(self.profile, self.path)
+
+    def test_profile_requires_a_safe_contained_worker_identity(self) -> None:
+        self.profile["worker_identity"] = "root user"
+        with self.assertRaisesRegex(ValueError, "must be a safe local username"):
             validator.validate_profile(self.profile, self.path)

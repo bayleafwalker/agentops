@@ -33,7 +33,7 @@ semantic harness adapter -> implementation profile -> host package/config
 Every qualification receipt must bind the semantic adapter, profile id, CLI
 version, executable or store fingerprint, channel revision, profile and
 overlay hashes, provider/model revision, capability-probe results, and the
-contained worker identity. A new fingerprint starts a new qualification
+contained worker identity named by the profile. A new fingerprint starts a new qualification
 stratum unless the same profile's compatibility probes pass.
 
 ## Delivery sequence

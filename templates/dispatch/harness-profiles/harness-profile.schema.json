@@ -9,6 +9,7 @@
     "profile_id",
     "semantic_adapter",
     "host_class",
+    "worker_identity",
     "implementation",
     "invocation",
     "policy",
@@ -21,6 +22,7 @@
     "profile_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"},
     "semantic_adapter": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"},
     "host_class": {"type": "string", "minLength": 1},
+    "worker_identity": {"type": "string", "pattern": "^[a-z_][a-z0-9_-]*[$]?$"},
     "implementation": {
       "type": "object",
       "additionalProperties": false,
