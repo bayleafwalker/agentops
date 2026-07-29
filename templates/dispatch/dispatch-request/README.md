@@ -18,10 +18,12 @@ from ActionQ's lifecycle resources.
 - Unknown fields fail validation. Consumers must not silently drop them.
 - `kind` is absent from v2. A v1 adapter may accept it only as the deterministic
   compatibility alias listed below, then emits a v2 object without `kind`.
-- An ActionQ enqueue must retain the entire normalized v2 object immutably,
-  return an opaque `request_ref`, and bind it to `request_sha256` computed over
-  the canonical serialized snapshot. A transport that cannot provide this
-  persistence is not a v2 enqueue path.
+- An ActionQ enqueue must retain the entire normalized v2 object immutably and
+  return an opaque `request_ref` with `request_sha256`. The ActionQ contract
+  owns the exact canonical serialization and verifies that digest-to-snapshot
+  binding; AgentOps only validates the returned result shape and does not claim
+  to verify the binding. A transport that cannot provide this persistence is
+  not a v2 enqueue path.
 
 ### v1 compatibility alias
 

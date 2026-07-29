@@ -105,6 +105,8 @@ test("write routes deny unauthenticated requests when a token is configured", as
   assert.equal((await pause(jsonRequest("http://localhost/x", { paused: true }))).status, 401);
 });
 
+let mcpDispatched = null;
+
 const mcpDeps = {
   listRepos: async () => [{ repo_id: "alpha" }],
   listSprints: async (repoId, mode) => [{ repo_id: repoId, mode }],
@@ -115,7 +117,15 @@ const mcpDeps = {
   getDispatchOperator: () => "operator:test",
   normalizeDispatchPayload: (payload, { requestedBy }) => ({ ...payload, requested_by: requestedBy }),
   dispatchViaActionctl: async () => ({}),
-  forwardDispatchToActionqServer: async (payload) => ({ action_id: 42, payload }),
+  forwardDispatchToActionqServer: async (payload) => {
+    mcpDispatched = payload;
+    return {
+      action_id: 42,
+      status: "pending",
+      request_ref: "req:test",
+      request_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    };
+  },
   requireConfiguredWriteAuth: () => null
 };
 
@@ -161,7 +171,8 @@ test("mcp tools/call routes reads and writes to lib functions", async () => {
   const dispatchResult = JSON.parse(dispatched.result.content[0].text);
   assert.equal(dispatchResult.accepted, true);
   assert.equal(dispatchResult.action.action_id, 42);
-  assert.equal(dispatchResult.action.payload.requested_by, "operator:test");
+  assert.equal(dispatchResult.action.request_ref, "req:test");
+  assert.equal(mcpDispatched.requested_by, "operator:test");
 });
 
 test("mcp tool failures surface as isError results, not protocol errors", async () => {
