@@ -364,6 +364,17 @@ test("v2 normalizer rejects unknown fields, wrong types, and blank nullable valu
   assert.throws(() => normalizeDispatchPayload({ ...valid, model: " " }, { requestedBy: "operator:test" }), /model must be null or a non-blank string/);
   assert.throws(() => normalizeDispatchPayload({ ...valid, work_item_id: "wi:" }, { requestedBy: "operator:test" }), /must be normalized without a wi: prefix/);
   assert.throws(() => normalizeDispatchPayload({ ...valid, prompt: null }, { requestedBy: "operator:test" }), /prompt must be a string/);
+
+  for (const [field, value, message] of [
+    ["sprint_id", 0, /positive integer/],
+    ["sprint_id", -1, /positive integer/],
+    ["action_type", " scope-iterate ", /exactly scope-iterate/],
+    ["output_expectation", " plan ", /exact v2 enum/],
+    ["harness", " codex ", /exact v2 enum/],
+    ["priority", " normal ", /exact v2 enum/]
+  ]) {
+    assert.throws(() => normalizeDispatchPayload({ ...valid, [field]: value }, { requestedBy: "operator:test" }), message);
+  }
 });
 
 test("dispatch forwarder requires the exact ActionQ enqueue result schema on success", async () => {
