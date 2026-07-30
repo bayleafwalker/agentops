@@ -47,11 +47,12 @@ and the insecure-HTTP caveats):
 
 ```bash
 cd /projects/dev/agentops/apps/web
-# Build from clean agentops and sprintctl source worktrees. The named context
-# puts only sprintctl's public CLI in the image; it does not grant the cockpit
-# its database implementation or a writeable project workspace.
+# Build from clean agentops, ActionQ, and Sprintctl source worktrees. The named
+# contexts put only their packaged public CLIs in the image; they do not grant
+# the cockpit Git metadata, local state, or a writeable project workspace.
 export SPRINTCTL_REVISION="$(git -C /projects/dev/sprintctl rev-parse HEAD)"
 DOCKER_BUILDKIT=1 docker build \
+  --build-context actionq-source=/projects/dev/actionq \
   --build-context sprintctl-source=/projects/dev/sprintctl \
   --build-arg SPRINTCTL_REVISION="$SPRINTCTL_REVISION" \
   -t <registry-lb-ip>:5000/agent-cockpit:<new-tag> .
