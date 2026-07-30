@@ -1,0 +1,16 @@
+{
+  "contract_version": "v2",
+  "action_type": "scope-iterate",
+  "output_expectation": "implementation",
+  "repo_id": "agentops",
+  "sprint_id": 12,
+  "work_item_id": "2040",
+  "title": "Canonical dispatch request",
+  "prompt": "Implement and verify the contract.",
+  "harness": "codex",
+  "model": null,
+  "priority": "high",
+  "refs": ["wi:2040", "sprint:12"],
+  "dispatch_group_id": null,
+  "requested_by": "operator:fixture"
+}

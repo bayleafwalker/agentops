@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.kotona.app/schemas/dispatch-enqueue-result/v2",
+  "title": "Dispatch enqueue result v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["action_id", "status", "request_ref", "request_sha256"],
+  "properties": {
+    "action_id": { "type": ["integer", "string"], "minLength": 1 },
+    "status": { "const": "pending" },
+    "request_ref": { "type": "string", "minLength": 1, "description": "Opaque immutable request reference; consumers must not parse it." },
+    "request_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

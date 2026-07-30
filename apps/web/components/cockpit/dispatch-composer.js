@@ -36,19 +36,6 @@ function blankForm() {
   };
 }
 
-function kindForExpectation(expectation) {
-  if (expectation === "review") {
-    return "review";
-  }
-  if (expectation === "implementation") {
-    return "implement";
-  }
-  if (expectation === "plan" || expectation === "draft-work-items" || expectation === "sprint-proposal") {
-    return "investigate";
-  }
-  return "custom";
-}
-
 function minutesSince(value) {
   const parsed = Date.parse(value || "");
   if (Number.isNaN(parsed)) {
@@ -165,23 +152,20 @@ export function DispatchComposer({
         refs.push(`sprint:${targetSprintId}`);
       }
       const body = {
+        contract_version: "v2",
+        action_type: "scope-iterate",
         repo_id: repoId,
         sprint_id: targetSprintId,
         work_item_id: resolvedWorkItemId || null,
-        kind: kindForExpectation(form.output_expectation),
         output_expectation: form.output_expectation,
         title: form.title.trim(),
         harness: form.harness,
+        model: form.model.trim() || null,
         priority: form.priority,
         prompt: form.prompt,
-        refs
+        refs,
+        dispatch_group_id: form.dispatch_group_id.trim() || null
       };
-      if (form.model.trim()) {
-        body.model = form.model.trim();
-      }
-      if (form.dispatch_group_id.trim()) {
-        body.dispatch_group_id = form.dispatch_group_id.trim();
-      }
       const res = await fetch("/cockpit/api/dispatch", {
         method: "POST",
         headers: withWriteToken({ "content-type": "application/json" }),
