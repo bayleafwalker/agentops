@@ -52,7 +52,7 @@ export function joinSessions(claims, sessions, { now = new Date() } = {}) {
       session = byClaimId.get(claim.claim_id);
     }
     return {
-      claim: { ...claim, source: "pg://sprintctl" },
+      claim: { ...claim, source: "served://vuoro/work" },
       session: session ? { ...session, source: "actionq://sessions" } : null
     };
   });
@@ -69,7 +69,7 @@ export function createGetHandler(deps = { listClaims, getActionqSessions }) {
         const sessions = await deps.getActionqSessions();
         const now = deps.now ? deps.now() : new Date();
         return ok({
-          sources: ["pg://sprintctl", "actionq://sessions"],
+          sources: ["served://vuoro/work", "actionq://sessions"],
           repo_id: repoId,
           sprint_id: sprintId,
           claims: joinSessions(claims, sessions, { now }),
@@ -77,11 +77,11 @@ export function createGetHandler(deps = { listClaims, getActionqSessions }) {
         });
       } catch (error) {
         return ok({
-          sources: ["pg://sprintctl", "actionq://sessions"],
+          sources: ["served://vuoro/work", "actionq://sessions"],
           repo_id: repoId,
           sprint_id: sprintId,
           claims: claims.map((claim) => ({
-            claim: { ...claim, source: "pg://sprintctl" },
+            claim: { ...claim, source: "served://vuoro/work" },
             session: null
           })),
           degraded: errorPayload("Session data unavailable — actionq://sessions unreachable", "actionq://sessions", {
@@ -91,11 +91,11 @@ export function createGetHandler(deps = { listClaims, getActionqSessions }) {
       }
     } catch (error) {
       return ok({
-        sources: ["pg://sprintctl", "actionq://sessions"],
+        sources: ["served://vuoro/work", "actionq://sessions"],
         repo_id: repoId,
         sprint_id: sprintId,
         claims: [],
-        degraded: errorPayload("Claim data unavailable — pg://sprintctl unreachable", "pg://sprintctl", {
+        degraded: errorPayload("Claim data unavailable — served://vuoro/work unreachable", "served://vuoro/work", {
           detail: error.message
         })
       });

@@ -22,7 +22,10 @@ export function getConfig() {
     process.env.COCKPIT_DISPATCHER_PAUSE_FILE ||
     (process.env.HOME ? path.join(process.env.HOME, ".local", "state", "actionq-dispatcher", "PAUSED") : "~/.local/state/actionq-dispatcher/PAUSED");
   return {
-    sprintctlUrl: process.env.SPRINTCTL_URL || "",
+    sprintctlRepoRoot:
+      process.env.COCKPIT_SPRINTCTL_REPO_ROOT ||
+      path.join(process.env.COCKPIT_WORKSPACE_ROOT || "/projects/dev", "agentops"),
+    sprintctlTimeoutMs: Number(process.env.COCKPIT_SPRINTCTL_TIMEOUT_MS || 30000),
     actionctlBin: resolveActionctlBin(),
     actionqCacheMs: Number(process.env.COCKPIT_ACTIONQ_CACHE_MS || 5000),
     actionqLimit: Number(process.env.COCKPIT_ACTIONQ_LIMIT || 500),

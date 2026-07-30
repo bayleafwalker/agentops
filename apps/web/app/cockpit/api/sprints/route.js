@@ -9,7 +9,7 @@ export function createGetHandler(deps = { listSprints }) {
       mode = parseEnumParam(request, "mode", ["active", "backlog", "history"], "active");
       const sprints = await deps.listSprints(repoId, mode);
       return ok({
-        source: "pg://sprintctl",
+        source: "served://vuoro/work",
         repo_id: repoId,
         mode,
         sprints,
@@ -17,11 +17,11 @@ export function createGetHandler(deps = { listSprints }) {
       });
     } catch (error) {
       return ok({
-        source: "pg://sprintctl",
+        source: "served://vuoro/work",
         repo_id: repoId,
         mode,
         sprints: [],
-        degraded: errorPayload("Sprint data unavailable — pg://sprintctl unreachable", "pg://sprintctl", {
+        degraded: errorPayload("Sprint data unavailable — served://vuoro/work unreachable", "served://vuoro/work", {
           detail: error.message
         })
       });

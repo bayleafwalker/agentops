@@ -785,7 +785,7 @@ export function CockpitShell() {
             <p className="eyebrow">agentops cockpit</p>
             <div className="title-row">
               <h1 className="pane-title">Repos</h1>
-              {tweaks.alwaysShowSources ? <SourceTruthTag source="pg://sprintctl" /> : null}
+              {tweaks.alwaysShowSources ? <SourceTruthTag source="served://vuoro/work" /> : null}
             </div>
             <p className="small muted">Remote mode only</p>
             <DegradedSourceBanner message={reposData.degraded?.message || fatalError} />
@@ -834,7 +834,7 @@ export function CockpitShell() {
           <section className="cockpit-section">
             <div className="title-row">
               <h2 className="pane-title">Sprints</h2>
-              {tweaks.alwaysShowSources ? <SourceTruthTag source="pg://sprintctl" /> : null}
+              {tweaks.alwaysShowSources ? <SourceTruthTag source="served://vuoro/work" /> : null}
             </div>
             <div className="mode-toggle" role="tablist" aria-label="Sprint view mode">
               {SPRINT_VIEW_MODES.map((mode) => (
@@ -912,7 +912,7 @@ export function CockpitShell() {
           <section className="cockpit-section live-section" id="claims">
             <div className="title-row">
               <h3 className="section-title">Claims</h3>
-              {tweaks.alwaysShowSources ? <SourceTruthTag source="actionq://sessions + pg://sprintctl" /> : null}
+              {tweaks.alwaysShowSources ? <SourceTruthTag source="actionq://sessions + served://vuoro/work" /> : null}
             </div>
             <DegradedSourceBanner message={claimsData.degraded?.message} />
             {effectiveSprintMode !== "active" ? (
@@ -1062,7 +1062,7 @@ export function CockpitShell() {
           <section className="cockpit-section live-section" id="takeup">
             <div className="title-row">
               <h3 className="section-title">Takeup</h3>
-              {tweaks.alwaysShowSources ? <SourceTruthTag source="pg://sprintctl" /> : null}
+              {tweaks.alwaysShowSources ? <SourceTruthTag source="served://vuoro/work" /> : null}
             </div>
             <DegradedSourceBanner message={takeupData.degraded?.message} />
             {effectiveSprintMode !== "active" ? (
@@ -1381,7 +1381,7 @@ export function CockpitShell() {
           <section className="cockpit-section feed-secondary" id="events">
             <div className="title-row">
               <h3 className="section-title">Sprint Event Feed</h3>
-              {tweaks.alwaysShowSources ? <SourceTruthTag source="pg://sprintctl" /> : null}
+              {tweaks.alwaysShowSources ? <SourceTruthTag source="served://vuoro/work" /> : null}
             </div>
             <div className="feed-list">
               {eventsData.events.map((event) => (

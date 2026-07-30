@@ -25,16 +25,16 @@ const EMPTY_ENV = {};
 
 test("write auth is not enforced when no token is configured", () => {
   assert.deepEqual(getWriteAuthState(EMPTY_ENV), { configured: false, token: "" });
-  assert.equal(requireWriteAuth(new Request("http://x", { method: "POST" }), "pg://sprintctl", EMPTY_ENV), null);
+  assert.equal(requireWriteAuth(new Request("http://x", { method: "POST" }), "served://vuoro/work", EMPTY_ENV), null);
 });
 
 test("write auth rejects missing or wrong token and accepts bearer and header forms", async () => {
-  const denied = requireWriteAuth(jsonRequest("http://x", {}), "pg://sprintctl", TOKEN_ENV);
+  const denied = requireWriteAuth(jsonRequest("http://x", {}), "served://vuoro/work", TOKEN_ENV);
   assert.equal(denied.status, 401);
-  const wrong = requireWriteAuth(jsonRequest("http://x", {}, { authorization: "Bearer nope" }), "pg://sprintctl", TOKEN_ENV);
+  const wrong = requireWriteAuth(jsonRequest("http://x", {}, { authorization: "Bearer nope" }), "served://vuoro/work", TOKEN_ENV);
   assert.equal(wrong.status, 401);
-  assert.equal(requireWriteAuth(jsonRequest("http://x", {}, { authorization: "Bearer s3cret" }), "pg://sprintctl", TOKEN_ENV), null);
-  assert.equal(requireWriteAuth(jsonRequest("http://x", {}, { "x-cockpit-write-token": "s3cret" }), "pg://sprintctl", TOKEN_ENV), null);
+  assert.equal(requireWriteAuth(jsonRequest("http://x", {}, { authorization: "Bearer s3cret" }), "served://vuoro/work", TOKEN_ENV), null);
+  assert.equal(requireWriteAuth(jsonRequest("http://x", {}, { "x-cockpit-write-token": "s3cret" }), "served://vuoro/work", TOKEN_ENV), null);
 });
 
 test("configured-only surfaces are disabled without a token", async () => {
