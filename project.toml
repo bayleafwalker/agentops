@@ -47,5 +47,13 @@ repo_id = "actionq"
 backlog = true
 render = "full"
 path_notes = [
-  "actionq-dispatcher is part of this product family through Actionq until it has its own sprintctl repository identity and dispatch manifest; promote it to a peer member only after that onboarding lands.",
+  "Owns ActionQ queue claims, receipts, worktree preparation, policy enforcement, harness invocation, and Sprintctl claim coordination.",
+]
+
+[[members]]
+repo_id = "actionq-dispatcher"
+backlog = true
+render = "none"
+path_notes = [
+  "Compatibility launcher for the historical dispatcher-once command. It is a peer for served Sprintctl identity and project visibility, while ActionQ retains queue, worker, and settlement authority.",
 ]
