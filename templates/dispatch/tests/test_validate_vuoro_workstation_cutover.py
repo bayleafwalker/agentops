@@ -23,12 +23,17 @@ def test_vuoro_is_a_selected_cutover_repository() -> None:
     assert "vuoro" in validator.REPOSITORIES
 
 
+def test_newly_enrolled_repositories_are_selected() -> None:
+    assert {"actionq-dispatcher", "frontier-weave"} <= set(validator.REPOSITORIES)
+
+
 def test_served_envrc_is_accepted(tmp_path: Path) -> None:
     profile = _profile(tmp_path)
     path = tmp_path / ".envrc"
     path.write_text(
         "export SPRINTCTL_BACKEND=served\n"
         f"export SPRINTCTL_VUORO_PROFILE={profile}\n"
+        "unset SPRINTCTL_URL\n"
     )
 
     assert validator.validate_envrc(path, profile) == []
@@ -63,12 +68,24 @@ def test_direct_postgres_wiring_is_rejected(tmp_path: Path) -> None:
     assert any("missing `export SPRINTCTL_BACKEND=served`" in error for error in errors)
 
 
+def test_missing_url_unset_is_rejected(tmp_path: Path) -> None:
+    profile = _profile(tmp_path)
+    path = tmp_path / ".envrc"
+    path.write_text(
+        "export SPRINTCTL_BACKEND=served\n"
+        f"export SPRINTCTL_VUORO_PROFILE={profile}\n"
+    )
+
+    assert any("missing `unset SPRINTCTL_URL`" in error for error in validator.validate_envrc(path, profile))
+
+
 def test_commented_direct_backend_wiring_is_ignored(tmp_path: Path) -> None:
     profile = _profile(tmp_path)
     path = tmp_path / ".envrc"
     path.write_text(
         "export SPRINTCTL_BACKEND=served # default\n"
         f"export SPRINTCTL_VUORO_PROFILE={profile} # selected profile\n"
+        "unset SPRINTCTL_URL\n"
         "# export SPRINTCTL_BACKEND=remote\n"
         "# export SPRINTCTL_URL=postgresql://example.invalid/sprintctl\n"
     )

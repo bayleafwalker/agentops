@@ -176,8 +176,9 @@ the full black-box Sprintctl parity suite against `vuoro-shared`. Run the
    **not** the path the profile's own `credential_ref` points at — those are
    two different files.
 
-   Apply that replacement to `_orchestration`, `actionq`, `agentops`,
-   `aligned-equity`, `box`, `homelab-analytics`, `scribectl`, and `sprintctl`.
+   Apply that replacement to `_orchestration`, `actionq`, `actionq-dispatcher`,
+   `agentops`, `aligned-equity`, `box`, `frontier-weave`, `homelab-analytics`,
+   `scribectl`, `sprintctl`, and `vuoro`.
    Retain `SPRINTCTL_DB` only where it is needed for explicitly selected local
    recovery; served mode must not open it.
 5. Each repository also carries a local, uncommitted `.sprintctl/backend.json`
@@ -198,7 +199,7 @@ the full black-box Sprintctl parity suite against `vuoro-shared`. Run the
    ```
 
    Keep the prior marker content (uncommitted) alongside the `.envrc` backup
-   until all eight checks pass.
+   until all eleven checks pass.
 6. Start a fresh shell in each repository and prove `SPRINTCTL_URL` is unset,
    `sprintctl doctor --json` reports `served` with `credential_resolved: true`,
    and a read plus one safe dev lifecycle/claim test reaches the catalog. Keep
@@ -229,7 +230,7 @@ the workstation change does not propagate. Perform the same steps as user
    not reuse the workstation or ephemeral identity, or a PostgreSQL URI.
 3. Validate the devbox `vuoro-shared` record and profile, then run handshake,
    catalog, parity, and production-negative checks from the VM.
-4. Replace the same eight devbox `.envrc` blocks with the following exact
+4. Replace the same eleven devbox `.envrc` blocks with the following exact
    non-secret selection and refresh `direnv allow` in each checkout:
 
    ```bash
