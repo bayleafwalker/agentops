@@ -121,7 +121,7 @@ a separate repo. `agentops/apps/web` is the agent-cockpit operator UI, part of t
 repo itself — modeled as the home repo's own member entry, not a fourth member. See the agentops
 draft's `path_notes`.
 
-### 1b. actionq-dispatcher membership (assessed)
+### 1b. actionq-dispatcher membership (superseded)
 
 Previously an open question — assessed here rather than left pending. `actionq-dispatcher` is
 its own git repository but has no sprintctl `repo_id` and no `*.dispatch.json`; §1's schema binds
@@ -131,14 +131,11 @@ real prerequisite work, not a spec-level decision), or treat it as logically par
 (same product, split into a second repo by convention, e.g. isolation for dispatcher-specific
 tooling) without a schema-level "sub-member" concept.
 
-Decision: **sub-member of `actionq` for now**, expressed the same way `path_notes` already
-expresses anything that doesn't need its own schema construct — a note on the `actionq` member
-entry, not a new membership tier. Adding a grouping/hierarchy concept to the schema to express
-one repo's relationship to another would be exactly the kind of special-casing §6's closing
-paragraph warns against, and `actionq-dispatcher` isn't sprintctl-trackable yet regardless. If it
-is later onboarded to sprintctl with its own `repo_id` and manifest — a separate, prior decision —
-promote it to a peer `[[members]]` entry at that point; no schema change either way. See the
-agentops draft's `path_notes` on the `actionq` entry.
+Superseded by the served-mode enrollment on 2026-07-30. `actionq-dispatcher` now has its own
+`repo_id`, dispatch manifest, and local served backend marker, so it is a peer `[[members]]`
+entry in the canonical Vuoro project. This changes project visibility and Sprintctl tenancy only:
+it remains a transparent compatibility launcher, while `actionq` retains queue, worktree,
+execution-policy, and settlement authority. No project-schema hierarchy was added.
 
 ## 2. Home-repo convention
 
@@ -392,11 +389,19 @@ backlog = true
 render = "full"
 
 [[members]]
+repo_id = "auditctl"
+backlog = true
+render = "full"
+path_notes = [
+  "Owns the repo-local audit index, durable NDJSON evidence shards, and rebuild semantics.",
+]
+
+[[members]]
 repo_id = "actionq"
 backlog = true
 render = "full"
 path_notes = [
-  "actionq-dispatcher (/projects/dev/actionq-dispatcher) is a sub-component of actionq: same product, split into a second repo by convention. Not a peer member -- it has no sprintctl repo_id or *.dispatch.json yet. Promote to its own [[members]] entry if/when it's onboarded to sprintctl (separate, prior decision).",
+  "actionq-dispatcher (/projects/dev/actionq-dispatcher) is part of this product family through Actionq: same product, split into a second repo by convention. Not a peer member -- it has no sprintctl repo_id or *.dispatch.json yet. Promote to its own [[members]] entry after that onboarding lands.",
 ]
 ```
 

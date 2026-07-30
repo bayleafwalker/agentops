@@ -35,9 +35,25 @@ backlog = true
 render = "full"
 
 [[members]]
+repo_id = "auditctl"
+backlog = true
+render = "full"
+path_notes = [
+  "Owns the repo-local audit index, durable NDJSON evidence shards, and rebuild semantics.",
+]
+
+[[members]]
 repo_id = "actionq"
 backlog = true
 render = "full"
 path_notes = [
-  "actionq-dispatcher is an actionq sub-component until it has its own sprintctl and dispatch identity.",
+  "Owns ActionQ queue claims, receipts, worktree preparation, policy enforcement, harness invocation, and Sprintctl claim coordination.",
+]
+
+[[members]]
+repo_id = "actionq-dispatcher"
+backlog = true
+render = "none"
+path_notes = [
+  "Compatibility launcher for the historical dispatcher-once command. It is a peer for served Sprintctl identity and project visibility, while ActionQ retains queue, worker, and settlement authority.",
 ]

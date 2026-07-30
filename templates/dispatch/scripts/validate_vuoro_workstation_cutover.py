@@ -19,9 +19,11 @@ DIRECT_PATTERNS = (
 REPOSITORIES = (
     "_orchestration",
     "actionq",
+    "actionq-dispatcher",
     "agentops",
     "aligned-equity",
     "box",
+    "frontier-weave",
     "homelab-analytics",
     "scribectl",
     "sprintctl",
@@ -76,6 +78,8 @@ def validate_envrc(path: Path, profile: Path) -> list[str]:
     expected = f"export SPRINTCTL_VUORO_PROFILE={profile}"
     if expected not in executable_text:
         errors.append(f"{path}: missing exact profile binding `{expected}`")
+    if not re.search(r"^\s*unset\s+SPRINTCTL_URL\s*$", executable_text, re.MULTILINE):
+        errors.append(f"{path}: missing `unset SPRINTCTL_URL` for served-mode isolation")
     # `unset SPRINTCTL_URL` is prescribed served-mode cleanup, not direct
     # backend wiring.  It may appear in a normal executable selection block.
     scan_text = "\n".join(
