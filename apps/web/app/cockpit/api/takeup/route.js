@@ -8,7 +8,7 @@ export function createGetHandler(deps = { getTakeup }) {
       const sprintId = parseIntParam(request, "sprint_id");
       const payload = await deps.getTakeup(repoId, sprintId);
       return ok({
-        source: "pg://sprintctl",
+        source: "served://vuoro/work",
         repo_id: repoId,
         sprint_id: sprintId,
         ...payload,
@@ -16,14 +16,14 @@ export function createGetHandler(deps = { getTakeup }) {
       });
     } catch (error) {
       return ok({
-        source: "pg://sprintctl",
+        source: "served://vuoro/work",
         repo_id: repoId,
         sprint_id: getSearchParams(request).get("sprint_id") || null,
         operation: "takeup_list",
         active_takeups: [],
         released_takeups: [],
         unmatched_releases: [],
-        degraded: errorPayload("Takeup data unavailable — pg://sprintctl unreachable", "pg://sprintctl", {
+        degraded: errorPayload("Takeup data unavailable — served://vuoro/work unreachable", "served://vuoro/work", {
           detail: error.message
         })
       });

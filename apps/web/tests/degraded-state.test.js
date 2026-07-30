@@ -8,7 +8,7 @@ function request(url) {
   return new Request(url);
 }
 
-test("repos route degrades when pg is unavailable", async () => {
+test("repos route degrades when served work API is unavailable", async () => {
   const GET = createReposHandler({
     listRepos: async () => {
       throw new Error("connect ECONNREFUSED");
@@ -16,7 +16,7 @@ test("repos route degrades when pg is unavailable", async () => {
   });
   const payload = await (await GET(request("http://localhost/cockpit/api/repos"))).json();
   assert.equal(payload.repos.length, 0);
-  assert.match(payload.degraded.message, /pg:\/\/sprintctl unreachable/);
+  assert.match(payload.degraded.message, /served:\/\/vuoro\/work unreachable/);
 });
 
 test("claims route degrades when actionq is unavailable but retains sprintctl rows", async () => {

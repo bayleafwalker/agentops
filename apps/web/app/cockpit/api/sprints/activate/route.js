@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export function createPostHandler(deps = { activateSprint }) {
   const checkAuth = deps.requireWriteAuth ?? requireWriteAuth;
   return async function POST(request) {
-    const denied = checkAuth(request, "pg://sprintctl");
+    const denied = checkAuth(request, "served://vuoro/work");
     if (denied) {
       return denied;
     }
@@ -17,14 +17,14 @@ export function createPostHandler(deps = { activateSprint }) {
       body = await request.json();
     } catch (error) {
       return Response.json(
-        { degraded: errorPayload(`Invalid JSON: ${error.message}`, "pg://sprintctl") },
+        { degraded: errorPayload(`Invalid JSON: ${error.message}`, "served://vuoro/work") },
         { status: 400 }
       );
     }
     const { repo_id, sprint_id } = body || {};
     if (!repo_id || !sprint_id) {
       return Response.json(
-        { degraded: errorPayload("repo_id and sprint_id are required", "pg://sprintctl") },
+        { degraded: errorPayload("repo_id and sprint_id are required", "served://vuoro/work") },
         { status: 400 }
       );
     }
@@ -34,7 +34,7 @@ export function createPostHandler(deps = { activateSprint }) {
         : getConfig().cockpitOperatorId;
     try {
       const sprint = await deps.activateSprint(repo_id, Number(sprint_id), { actor });
-      return ok({ source: "pg://sprintctl", sprint, degraded: null });
+      return ok({ source: "served://vuoro/work", sprint, degraded: null });
     } catch (error) {
       const status = error instanceof SprintNotFoundError
         ? 404
@@ -42,7 +42,7 @@ export function createPostHandler(deps = { activateSprint }) {
           ? 409
           : 500;
       return Response.json(
-        { degraded: errorPayload(`Activation failed: ${error.message}`, "pg://sprintctl") },
+        { degraded: errorPayload(`Activation failed: ${error.message}`, "served://vuoro/work") },
         { status }
       );
     }

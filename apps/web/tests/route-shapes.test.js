@@ -30,7 +30,7 @@ test("repos route returns expected shape", async () => {
     listRepos: async () => [{ repo_id: "alpha", active_sprint_count: 1, active_sprints: [], latest_update_at: null, source_health: { status: "ok" } }]
   });
   const payload = await (await GET(request("http://localhost/cockpit/api/repos"))).json();
-  assert.equal(payload.source, "pg://sprintctl");
+  assert.equal(payload.source, "served://vuoro/work");
   assert.equal(payload.repos[0].repo_id, "alpha");
   assert.equal(payload.degraded, null);
 });
@@ -66,7 +66,7 @@ test("claims route joins claims and sessions", async () => {
     now: () => new Date("2026-04-29T00:01:00Z")
   });
   const payload = await (await GET(request("http://localhost/cockpit/api/claims?repo_id=alpha"))).json();
-  assert.equal(payload.claims[0].claim.source, "pg://sprintctl");
+  assert.equal(payload.claims[0].claim.source, "served://vuoro/work");
   assert.equal(payload.claims[0].session.source, "actionq://sessions");
   assert.equal(payload.claims[0].session.is_stale, false);
   assert.equal(payload.claims[0].session.ttl_remaining_seconds, 60);

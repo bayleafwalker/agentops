@@ -10,7 +10,7 @@ export function createGetHandler(deps = { listEvents }) {
       const cursor = getSearchParams(request).get("cursor");
       const payload = await deps.listEvents({ repoId, sprintId, limit, cursor });
       return ok({
-        source: "pg://sprintctl",
+        source: "served://vuoro/work",
         repo_id: repoId,
         sprint_id: sprintId,
         degraded: null,
@@ -18,12 +18,12 @@ export function createGetHandler(deps = { listEvents }) {
       });
     } catch (error) {
       return ok({
-        source: "pg://sprintctl",
+        source: "served://vuoro/work",
         repo_id: repoId,
         sprint_id: getSearchParams(request).get("sprint_id"),
         events: [],
         next_cursor: null,
-        degraded: errorPayload("Sprint data unavailable — pg://sprintctl unreachable", "pg://sprintctl", {
+        degraded: errorPayload("Sprint data unavailable — served://vuoro/work unreachable", "served://vuoro/work", {
           detail: error.message
         })
       });

@@ -8,15 +8,15 @@ export function createGetHandler(deps = { listRepos }) {
     try {
       const repos = await deps.listRepos();
       return ok({
-        source: "pg://sprintctl",
+        source: "served://vuoro/work",
         repos,
         degraded: null
       });
     } catch (error) {
       return ok({
-        source: "pg://sprintctl",
+        source: "served://vuoro/work",
         repos: [],
-        degraded: errorPayload("Sprint data unavailable — pg://sprintctl unreachable", "pg://sprintctl", {
+        degraded: errorPayload("Sprint data unavailable — served://vuoro/work unreachable", "served://vuoro/work", {
           detail: error.message
         })
       });
