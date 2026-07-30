@@ -27,10 +27,10 @@ class HarnessProfileValidationTests(unittest.TestCase):
         self.path = PROFILES / "opencode-nixpkgs-devbox-1.18.4.json"
         self.profile = json.loads(self.path.read_text(encoding="utf-8"))
 
-    def test_devbox_profile_is_a_preflight_observation_not_a_qualification(self) -> None:
+    def test_devbox_profile_is_qualified_after_contained_provider_smoke(self) -> None:
         validator.validate_profile(self.profile, self.path)
-        self.assertEqual(self.profile["qualification"]["state"], "preflight_observed")
-        self.assertIn("contained-disposable-no-override-smoke", self.profile["qualification"]["blocking_probes"])
+        self.assertEqual(self.profile["qualification"]["state"], "qualified")
+        self.assertEqual(self.profile["qualification"]["blocking_probes"], [])
         self.assertEqual(self.profile["worker_identity"], "agentworker")
 
     def test_qualified_profile_cannot_retain_blocking_probes(self) -> None:
