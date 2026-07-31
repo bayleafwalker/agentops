@@ -423,16 +423,16 @@ All live Kubernetes manifests live in `appservice/clusters/main/kubernetes/apps/
 
 ### PostgreSQL Clusters (CNPG)
 
-Two CNPG clusters serve the substrate:
+ActionQ's CNPG cluster serves its durable queue state:
 
 - `actionq-cnpg-main` (namespace `vscode`) — action queue tables.
-- `sprintctl-cnpg-main` — sprintctl remote-mode tables, `repo_id` as a column on Sprint / Track / WorkItem / Event, single schema across all repos.
-
-The `vscode-shell` pod has `SPRINTCTL_URL` injected from the sprintctl CNPG app secret so remote-mode tools work in the devbox without manual configuration.
+Normal Sprintctl clients use the authenticated `vuoro-shared` served API.
+Direct Sprintctl database administration is deployment/recovery-only and is
+not injected into developer environments.
 
 ### Devbox Pattern
 
-`actionq-daemon` runs on the devbox (the `vscode-shell` pod) as a long-running process. It:
+`actionq-daemon` runs on the devbox-vm as a long-running process. It:
 
 - Pulls dispatch instructions from the action queue.
 - Spawns agent sessions (`claude`, `codex`, `opencode`) with ACL-scoped tool permissions.
@@ -440,7 +440,8 @@ The `vscode-shell` pod has `SPRINTCTL_URL` injected from the sprintctl CNPG app 
 - Calls `sprintctl claim start / done-from-claim` on session boundaries.
 - Calls `auditctl add --type session.start / session.exit` for each session.
 
-Scheduling the daemon (systemd unit, cron, or k8s init container restart loop) is an operator choice. Example unit files live under `actionq-dispatcher/ops/`.
+Scheduling the daemon is an operator choice on that host. The retired
+`vscode-shell` pod is not an execution environment or recovery path.
 
 ### Cockpit Pod
 

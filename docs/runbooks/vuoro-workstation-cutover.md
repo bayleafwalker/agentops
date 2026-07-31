@@ -1,7 +1,7 @@
 ---
 doc_id: vuoro-workstation-cutover
 status: current-runbook
-revision: 5
+revision: 6
 scope: sprintctl-item-1195
 ---
 
@@ -17,6 +17,15 @@ development-build tests and UX validation. It is not the shared authority for
 normal development work, must not be selected by a repository `.envrc`, and
 must not be used as evidence for retiring the shared database path. The
 `vuoro-shared` profiles below select the persistent primary authority.
+
+## Completion record — 2026-07-30
+
+The served-mode cutover is complete. The static cutover validator passed for
+all eleven workstation profiles, and the supplied operational evidence records
+the corresponding live API, claim, ActionQ, Flux, and cluster assertions.
+Normal work must use the served profiles below. The former direct-PostgreSQL
+workstation fallback, URI-secret retrieval, and `sprintctl-pg` LoadBalancer
+path are retired; recovery remains an explicit appservice-owner operation.
 
 The current canonical non-secret inputs for normal shared work are:
 
