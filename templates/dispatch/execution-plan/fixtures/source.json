@@ -1,0 +1,17 @@
+{
+  "contract_id": "dispatch-plan-source/v1",
+  "plan_id": "portable-wave-1",
+  "repositories": [
+    {"repository_id": "agentops", "repository_url": "https://github.com/bayleafwalker/agentops.git", "commit": "1111111111111111111111111111111111111111"},
+    {"repository_id": "actionq", "repository_url": "git@github.com:bayleafwalker/actionq.git", "commit": "2222222222222222222222222222222222222222"}
+  ],
+  "entries": [
+    {"id": "compiler", "repository_id": "agentops", "work": {"item_id": 2036, "selected_revision": "item-edit:7:aaa", "observed_revision": "item-edit:7:aaa"}, "topology": "wave-integrated", "integration_lane": "compiler", "command_id": "agentops.worker-focused", "allowed_paths": ["templates/dispatch/execution-plan", "templates/dispatch/scripts/compile_execution_plan.py"], "required_capabilities": ["harness:codex", "runtime:python-3"], "worker_profile": "worker-focused", "acceptance_gates": ["canonical-bytes", "source-provenance"]},
+    {"id": "compiler-docs", "repository_id": "agentops", "work": {"item_id": 2038, "selected_revision": "item-edit:2:bbb", "observed_revision": "item-edit:2:bbb"}, "topology": "wave-integrated", "integration_lane": "docs", "command_id": "agentops.worker-focused", "allowed_paths": ["templates/dispatch/execution-plan/README.md"], "required_capabilities": ["harness:codex"], "worker_profile": "worker-focused", "acceptance_gates": ["documentation"]},
+    {"id": "runner", "repository_id": "actionq", "work": {"item_id": 2035, "selected_revision": "item-edit:4:ccc", "observed_revision": "item-edit:4:ccc"}, "topology": "independent", "integration_lane": null, "command_id": "actionq.worker-focused", "allowed_paths": ["packages/actionq-runner"], "required_capabilities": ["isolation:disposable-checkout"], "worker_profile": "worker-focused", "acceptance_gates": ["runner-contract"]}
+  ],
+  "integrations": [
+    {"id": "agentops-wave-1", "repository_id": "agentops", "member_ids": ["compiler", "compiler-docs"], "base_commit": "1111111111111111111111111111111111111111", "verification_profile": "integration-broad", "review_required": true}
+  ],
+  "execution": {"max_parallel": 3, "failure_policy": "continue-independent"}
+}

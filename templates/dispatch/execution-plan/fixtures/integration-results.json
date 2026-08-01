@@ -1,0 +1,8 @@
+{
+  "contract_id": "integration-results/v1",
+  "integration_id": "agentops-wave-1",
+  "member_results": [
+    {"entry_id": "compiler", "result_ref": "artifact:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+    {"entry_id": "compiler-docs", "result_ref": "artifact:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}
+  ]
+}
