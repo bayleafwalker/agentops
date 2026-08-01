@@ -1,5 +1,11 @@
 # Next-Session Dispatch — Clean-Room × #1164 Workpath
 
+> Historical execution record. Its sessions and “open” warnings describe the
+> 2026-07-24 state and must not be used as the live dispatch queue. The current
+> cross-repository topology is
+> [post-cockpit-waved-dispatch-program.md](agentops/post-cockpit-waved-dispatch-program.md);
+> Sprintctl remains authoritative for status and dependencies.
+
 Prepared: 2026-07-24. Context: the clean-room migration-safety gate is closed
 (no migration; Vuoro retains authority), the strategic buy/adapt/fork
 assessment is open at Stage 2, and the cross-repo backlog is filed. Full
