@@ -1,5 +1,10 @@
 # Cross-Repository Backlog — Clean-Room Findings × sprintctl #1164 Capstone
 
+> Historical backlog snapshot. Preserve its assessment rationale, but do not
+> use its 2026-07-24 gate statuses as current truth. See
+> [post-cockpit-waved-dispatch-program.md](agentops/post-cockpit-waved-dispatch-program.md)
+> for current wave topology and read live state from Sprintctl.
+
 Status: draft backlog, 2026-07-24. Source review: the Vuoro clean-room
 comparison record (`docs/assessments/vuoro-clean-room-comparison/`) read
 against sprintctl item #1164 (sprint #407, projection-cutover track), and the

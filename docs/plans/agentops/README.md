@@ -6,6 +6,10 @@ These files live in the `/projects/dev/agentops` repo. Treat this repo as the co
 
 Current plan set:
 
+- `post-cockpit-waved-dispatch-program.md` - live cross-repository projection
+  of cockpit convergence plus the dependency-cleared reasoning units,
+  concurrent lanes, review gates, and compiler handoff for its successor goal
+  inventory (AgentOps #2070).
 - `agent-ops-substrate-plan.md` - master cross-repo substrate plan.
 - `auditctl-workstream-d-plan.md` - standalone auditctl tool plan.
 - `agent-cockpit-workstream-e-plan.md` - agent-cockpit frontend plan for the future cockpit surface inside this repo.
