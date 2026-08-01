@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.kotona.app/schemas/dispatch-plan/v1",
+  "title": "Canonical compiled dispatch plan v1",
+  "description": "Canonical output of dispatch-plan-source/v1. The compiler additionally enforces ordering, references, URL policy, and set ordering.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_id", "plan_id", "repositories", "entries", "integrations", "execution"],
+  "properties": {
+    "contract_id": {"const": "dispatch-plan/v1"},
+    "plan_id": {"type": "string", "minLength": 1},
+    "repositories": {"type": "array", "minItems": 1, "items": {"$ref": "dispatch-plan-source.v1.schema.json#/$defs/repository"}},
+    "entries": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/entry"}},
+    "integrations": {"type": "array", "items": {"$ref": "dispatch-plan-source.v1.schema.json#/$defs/integration"}},
+    "execution": {"$ref": "dispatch-plan-source.v1.schema.json#/$defs/execution"}
+  },
+  "$defs": {
+    "work": {
+      "type": "object", "additionalProperties": false,
+      "required": ["item_id", "revision"],
+      "properties": {"item_id": {"type": "integer", "minimum": 1}, "revision": {"type": "string", "minLength": 1}}
+    },
+    "entry": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "repository_id", "work", "topology", "integration_lane", "command_id", "allowed_paths", "required_capabilities", "worker_profile", "acceptance_gates"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "repository_id": {"type": "string", "minLength": 1},
+        "work": {"$ref": "#/$defs/work"}, "topology": {"enum": ["independent", "stacked", "wave-integrated"]},
+        "base_entry_id": {"type": "string", "minLength": 1}, "integration_lane": {"type": ["string", "null"], "minLength": 1},
+        "command_id": {"type": "string", "minLength": 1},
+        "allowed_paths": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "required_capabilities": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "worker_profile": {"type": "string", "minLength": 1},
+        "acceptance_gates": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    }
+  }
+}

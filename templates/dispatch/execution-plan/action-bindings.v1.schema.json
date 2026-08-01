@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.kotona.app/schemas/action-bindings/v1",
+  "title": "ActionQ identity bindings for a compiled plan",
+  "type": "object", "additionalProperties": false,
+  "required": ["contract_id", "bindings"],
+  "properties": {
+    "contract_id": {"const": "action-bindings/v1"},
+    "bindings": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["entry_id", "action_id", "attempt_id"],
+        "properties": {
+          "entry_id": {"type": "string", "minLength": 1},
+          "action_id": {"type": "integer", "minimum": 1},
+          "attempt_id": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

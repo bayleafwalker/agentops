@@ -1,0 +1,8 @@
+{
+  "contract_id": "action-bindings/v1",
+  "bindings": [
+    {"entry_id": "compiler", "action_id": 301, "attempt_id": "attempt-compiler"},
+    {"entry_id": "compiler-docs", "action_id": 302, "attempt_id": "attempt-compiler-docs"},
+    {"entry_id": "runner", "action_id": 303, "attempt_id": "attempt-runner"}
+  ]
+}
