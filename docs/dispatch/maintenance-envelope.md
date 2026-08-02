@@ -6,12 +6,14 @@ For controlled maintenance that temporarily removes the normal served
 authority, use a reviewed exact-plan-bound `maintenance-envelope/v1`. Prepare
 the envelope, every activation commit, every independent review, and every
 publication receipt while normal authority is healthy. The envelope expires
-and permits only its exact ordered commits, operations, paths, and registered
-commands.
+and permits only its exact ordered commits, operations, paths, and commands
+whose exact argument vectors are content-bound by a command-registry artifact.
 
-Plan 1 is the selected operating path. At migration start there must be zero
-dependent implementation sessions and zero active normal claims, with fresh
-evidence for both predicates. A failed predicate, changed base, stale review,
+Plan 1 is the selected operating path. Activation validation takes an explicit
+trusted evaluation time and exact next step; structural validation alone never
+authorizes execution. At migration start there must be zero dependent
+implementation sessions and zero active normal claims, with observations and
+immutable evidence/receipt references no more than five minutes old. A failed predicate, changed base, stale review,
 expired window, missing receipt, unexpected job/image/schema/backup state, or
 any other plan drift aborts the window.
 
@@ -38,8 +40,10 @@ Repository URLs and bases, candidate commits, step order and dependencies,
 operator decision, operations, paths, commands, reviews, verification refs,
 window, abort policy, and audit requirements are immutable before activation.
 Only the unique backup name, live backup UID, and drain boundary timestamp may
-be bound just in time. Each has a bounded source-specific pattern and an exact
-step before which binding must complete.
+be bound just in time. Each has a bounded source-specific pattern, in-window
+observed value, immutable source evidence, binding receipt, and an exact step
+before which activation validation must complete. Each step also carries its
+independent review, executable verification, and publication receipt.
 
 ## Abort and reconciliation
 

@@ -6,7 +6,7 @@
   "$comment": "The dependency-free Python validator is normative for cross-field ordering, binding, authority-negative, and expiry constraints.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["contract_id", "envelope_id", "plan_ref", "issued_at", "window", "operator", "repositories", "operations", "jit_fields", "start_gate", "steps", "abort", "recovery_policy", "audit_reconciliation"],
+  "required": ["contract_id", "envelope_id", "plan_ref", "issued_at", "window", "operator", "repositories", "command_registry_ref", "command_registry", "operations", "jit_fields", "jit_bindings", "start_gate", "steps", "abort", "recovery_policy", "audit_reconciliation"],
   "properties": {
     "contract_id": {"const": "maintenance-envelope/v1"},
     "envelope_id": {"$ref": "#/$defs/identifier"},
@@ -23,8 +23,19 @@
       "properties": {"identity": {"$ref": "#/$defs/identifier"}, "decision_ref": {"$ref": "#/$defs/immutableRef"}}
     },
     "repositories": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/repository"}},
+    "command_registry_ref": {"$ref": "#/$defs/artifactRef"},
+    "command_registry": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/registeredCommand"}},
     "operations": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/operation"}},
-    "jit_fields": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"$ref": "#/$defs/jitField"}},
+    "jit_fields": {
+      "type": "array", "minItems": 3, "maxItems": 3,
+      "prefixItems": [
+        {"$ref": "#/$defs/backupNameField"},
+        {"$ref": "#/$defs/backupUidField"},
+        {"$ref": "#/$defs/drainBoundaryField"}
+      ],
+      "items": false
+    },
+    "jit_bindings": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"$ref": "#/$defs/jitBinding"}},
     "start_gate": {"$ref": "#/$defs/startGate"},
     "steps": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/step"}},
     "abort": {"$ref": "#/$defs/abort"},
@@ -49,7 +60,7 @@
     "repository": {
       "type": "object", "additionalProperties": false,
       "required": ["id", "url", "commit"],
-      "properties": {"id": {"$ref": "#/$defs/identifier"}, "url": {"type": "string", "pattern": "^(https://|git@)[^@[:space:]]+"}, "commit": {"$ref": "#/$defs/gitCommit"}}
+      "properties": {"id": {"$ref": "#/$defs/identifier"}, "url": {"type": "string", "pattern": "^(https://[^@\\s]+|git@[^@\\s]+:[^\\s]+)$"}, "commit": {"$ref": "#/$defs/gitCommit"}}
     },
     "operation": {
       "type": "object", "additionalProperties": false,
@@ -58,6 +69,14 @@
         "id": {"$ref": "#/$defs/identifier"}, "owner_repository": {"$ref": "#/$defs/identifier"}, "command_id": {"$ref": "#/$defs/identifier"},
         "allowed_paths": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/relativePath"}},
         "allowed_commands": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/identifier"}}
+      }
+    },
+    "registeredCommand": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "argv"],
+      "properties": {
+        "id": {"$ref": "#/$defs/identifier"},
+        "argv": {"type": "array", "minItems": 1, "maxItems": 32, "items": {"type": "string", "minLength": 1, "maxLength": 512}}
       }
     },
     "jitField": {
@@ -71,10 +90,24 @@
         "required": {"const": true}
       }
     },
+    "backupNameField": {"allOf": [{"$ref": "#/$defs/jitField"}, {"properties": {"name": {"const": "backup_name"}, "source": {"const": "backup-observation"}}, "required": ["name", "source"]}]},
+    "backupUidField": {"allOf": [{"$ref": "#/$defs/jitField"}, {"properties": {"name": {"const": "backup_uid"}, "source": {"const": "backup-observation"}}, "required": ["name", "source"]}]},
+    "drainBoundaryField": {"allOf": [{"$ref": "#/$defs/jitField"}, {"properties": {"name": {"const": "drain_boundary_utc"}, "source": {"const": "clock-observation"}}, "required": ["name", "source"]}]},
+    "jitBinding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "value", "observed_at", "evidence_ref", "receipt_ref"],
+      "properties": {
+        "name": {"enum": ["backup_name", "backup_uid", "drain_boundary_utc"]},
+        "value": {"type": "string", "minLength": 1, "maxLength": 512},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "evidence_ref": {"$ref": "#/$defs/immutableRef"},
+        "receipt_ref": {"$ref": "#/$defs/immutableRef"}
+      }
+    },
     "zeroPredicate": {
       "type": "object", "additionalProperties": false,
-      "required": ["expected_count", "evidence_required"],
-      "properties": {"expected_count": {"const": 0}, "evidence_required": {"const": true}}
+      "required": ["expected_count", "observed_at", "evidence_ref", "receipt_ref"],
+      "properties": {"expected_count": {"const": 0}, "observed_at": {"type": "string", "format": "date-time"}, "evidence_ref": {"$ref": "#/$defs/immutableRef"}, "receipt_ref": {"$ref": "#/$defs/immutableRef"}}
     },
     "startGate": {
       "type": "object", "additionalProperties": false,
@@ -92,7 +125,7 @@
     },
     "step": {
       "type": "object", "additionalProperties": false,
-      "required": ["id", "sequence", "repository_id", "base_commit", "commit", "operation_id", "depends_on", "paths", "commands", "reviews", "verification_refs", "phase"],
+      "required": ["id", "sequence", "repository_id", "base_commit", "commit", "operation_id", "depends_on", "paths", "commands", "reviews", "verification_refs", "publication_ref", "phase"],
       "properties": {
         "id": {"$ref": "#/$defs/identifier"}, "sequence": {"type": "integer", "minimum": 1}, "repository_id": {"$ref": "#/$defs/identifier"},
         "base_commit": {"$ref": "#/$defs/gitCommit"}, "commit": {"$ref": "#/$defs/gitCommit"}, "operation_id": {"$ref": "#/$defs/identifier"},
@@ -101,6 +134,7 @@
         "commands": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/identifier"}},
         "reviews": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/review"}},
         "verification_refs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/immutableRef"}},
+        "publication_ref": {"$ref": "#/$defs/immutableRef"},
         "phase": {"enum": ["pre-migration", "migration", "post-migration"]}
       }
     },
@@ -110,7 +144,7 @@
       "properties": {
         "before_migration": {"const": "restore-reviewed-pre-migration-state"},
         "after_migration": {"enum": ["restore-uid-attested-backup", "reviewed-forward-fix"]},
-        "forbidden": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"enum": ["delete-migration-ledger", "edit-released-migration", "unreviewed-commit", "recovery-request-authority"]}}
+        "forbidden": {"const": ["delete-migration-ledger", "edit-released-migration", "recovery-request-authority", "unreviewed-commit"]}
       }
     },
     "recoveryPolicy": {
@@ -119,7 +153,7 @@
       "properties": {
         "record_kinds": {"const": ["observation", "requested-command"]},
         "authority": {"const": "none"},
-        "forbidden_uses": {"type": "array", "minItems": 7, "uniqueItems": true, "items": {"enum": ["grant", "claim", "approve", "publish", "reconcile", "advance", "bind-jit"]}}
+        "forbidden_uses": {"const": ["advance", "approve", "bind-jit", "claim", "grant", "publish", "reconcile"]}
       }
     },
     "auditReconciliation": {
@@ -127,9 +161,9 @@
       "required": ["incident_correlation_required", "immutable_receipts", "required_outcomes", "redact", "retention", "export_required", "independent_review_required"],
       "properties": {
         "incident_correlation_required": {"const": true},
-        "immutable_receipts": {"type": "array", "minItems": 4, "uniqueItems": true, "items": {"enum": ["command", "effect", "review", "publication", "jit-binding", "start-gate", "abort", "reconciliation"]}},
-        "required_outcomes": {"type": "array", "minItems": 4, "uniqueItems": true, "items": {"enum": ["accepted", "rejected", "duplicate", "expired", "aborted", "incomplete"]}},
-        "redact": {"type": "array", "minItems": 3, "uniqueItems": true, "items": {"enum": ["credentials", "claim-tokens", "capability-secrets"]}},
+        "immutable_receipts": {"const": ["abort", "command", "effect", "jit-binding", "publication", "reconciliation", "review", "start-gate"]},
+        "required_outcomes": {"const": ["aborted", "accepted", "duplicate", "expired", "incomplete", "rejected"]},
+        "redact": {"const": ["capability-secrets", "claim-tokens", "credentials"]},
         "retention": {"enum": ["append-only-export", "content-addressed-export"]},
         "export_required": {"const": true},
         "independent_review_required": {"const": true}

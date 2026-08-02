@@ -17,8 +17,9 @@ from urllib.parse import urlsplit
 CONTRACT_ID = "maintenance-envelope/v1"
 TOP_FIELDS = {
     "contract_id", "envelope_id", "plan_ref", "issued_at", "window",
-    "operator", "repositories", "operations", "jit_fields", "start_gate",
-    "steps", "abort", "recovery_policy", "audit_reconciliation",
+    "operator", "repositories", "command_registry_ref", "command_registry",
+    "operations", "jit_fields", "jit_bindings", "start_gate", "steps",
+    "abort", "recovery_policy", "audit_reconciliation",
 }
 IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 GIT_COMMIT = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
@@ -101,6 +102,10 @@ def _sorted_unique(values: list[str], field: str, path: Path) -> None:
         raise _fail(path, field, "must be sorted and unique")
 
 
+def _canonical_bytes(value: Any) -> bytes:
+    return json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode("utf-8")
+
+
 def _relative_path(value: Any, field: str, path: Path) -> str:
     text = _text(value, field, path)
     parsed = PurePosixPath(text)
@@ -141,7 +146,13 @@ def _repository_url(value: Any, field: str, path: Path) -> str:
     return url
 
 
-def validate_envelope(value: Any, path: Path) -> dict[str, Any]:
+def validate_envelope(
+    value: Any,
+    path: Path,
+    *,
+    evaluation_time: datetime | None = None,
+    evaluation_step_id: str | None = None,
+) -> dict[str, Any]:
     envelope = _object(value, "envelope", path, TOP_FIELDS)
     if envelope["contract_id"] != CONTRACT_ID:
         raise _fail(path, "contract_id", f"must be {CONTRACT_ID}")
@@ -159,6 +170,15 @@ def validate_envelope(value: Any, path: Path) -> dict[str, Any]:
         raise _fail(path, "window.expires_at", "must be after window.not_before")
     if expires - not_before > timedelta(hours=24):
         raise _fail(path, "window", "must not exceed 24 hours")
+    if (evaluation_time is None) != (evaluation_step_id is None):
+        raise _fail(path, "activation", "requires both evaluation time and step id")
+    if evaluation_time is not None:
+        if evaluation_time.tzinfo is None:
+            raise _fail(path, "activation.at", "must include an explicit offset")
+        if evaluation_time < not_before:
+            raise _fail(path, "activation.at", "is before window.not_before")
+        if evaluation_time >= expires:
+            raise _fail(path, "activation.at", "is at or after window.expires_at")
 
     operator = _object(envelope["operator"], "operator", path, {"identity", "decision_ref"})
     _identifier(operator["identity"], "operator.identity", path)
@@ -176,6 +196,24 @@ def validate_envelope(value: Any, path: Path) -> dict[str, Any]:
             raise _fail(path, f"{field}.commit", "must be a full lowercase Git object id")
         repositories[repo_id] = {"id": repo_id, "url": _repository_url(repo["url"], f"{field}.url", path), "commit": commit}
 
+    registry_raw = _array(envelope["command_registry"], "command_registry", path, non_empty=True)
+    expected_registry_ref = "artifact:sha256:" + hashlib.sha256(_canonical_bytes(registry_raw)).hexdigest()
+    if envelope["command_registry_ref"] != expected_registry_ref:
+        raise _fail(path, "command_registry_ref", "must bind the canonical command registry bytes")
+    registered_commands: dict[str, tuple[str, ...]] = {}
+    for index, raw in enumerate(registry_raw):
+        field = f"command_registry[{index}]"
+        command = _object(raw, field, path, {"id", "argv"})
+        command_id = _identifier(command["id"], f"{field}.id", path)
+        if command_id in registered_commands:
+            raise _fail(path, "command_registry", f"contains duplicate id {command_id}")
+        argv = [_text(arg, f"{field}.argv[]", path) for arg in _array(command["argv"], f"{field}.argv", path, non_empty=True)]
+        if len(argv) > 32 or any(len(arg) > 512 for arg in argv):
+            raise _fail(path, f"{field}.argv", "must contain at most 32 bounded exact arguments")
+        if any(any(character in arg for character in (";", "|", "`", "\n", "\r")) for arg in argv):
+            raise _fail(path, f"{field}.argv", "must not contain shell control syntax")
+        registered_commands[command_id] = tuple(argv)
+
     operations: dict[str, dict[str, Any]] = {}
     for index, raw in enumerate(_array(envelope["operations"], "operations", path, non_empty=True)):
         field = f"operations[{index}]"
@@ -190,7 +228,12 @@ def validate_envelope(value: Any, path: Path) -> dict[str, Any]:
         commands = [_identifier(item, f"{field}.allowed_commands[]", path) for item in _array(op["allowed_commands"], f"{field}.allowed_commands", path, non_empty=True)]
         _sorted_unique(paths, f"{field}.allowed_paths", path)
         _sorted_unique(commands, f"{field}.allowed_commands", path)
-        operations[op_id] = {"owner": owner, "paths": paths, "commands": commands, "command_id": _identifier(op["command_id"], f"{field}.command_id", path)}
+        primary_command = _identifier(op["command_id"], f"{field}.command_id", path)
+        if primary_command not in registered_commands or any(command not in registered_commands for command in commands):
+            raise _fail(path, field, "must reference only content-bound registered commands")
+        if primary_command not in commands:
+            raise _fail(path, f"{field}.command_id", "must be included in allowed_commands")
+        operations[op_id] = {"owner": owner, "paths": paths, "commands": commands, "command_id": primary_command}
 
     steps_raw = _array(envelope["steps"], "steps", path, non_empty=True)
     step_ids = []
@@ -203,6 +246,7 @@ def validate_envelope(value: Any, path: Path) -> dict[str, Any]:
 
     jit = _array(envelope["jit_fields"], "jit_fields", path, non_empty=True)
     jit_names: set[str] = set()
+    jit_definitions: dict[str, dict[str, Any]] = {}
     for index, raw in enumerate(jit):
         field = f"jit_fields[{index}]"
         item = _object(raw, field, path, {"name", "source", "pattern", "bind_before_step", "required"})
@@ -223,23 +267,54 @@ def validate_envelope(value: Any, path: Path) -> dict[str, Any]:
         if item["required"] is not True:
             raise _fail(path, f"{field}.required", "must be true")
         jit_names.add(name)
+        jit_definitions[name] = item
     if jit_names != JIT_NAMES:
         raise _fail(path, "jit_fields", f"must contain exactly {sorted(JIT_NAMES)}")
+
+    bindings = _array(envelope["jit_bindings"], "jit_bindings", path, non_empty=True)
+    bound_names: set[str] = set()
+    for index, raw in enumerate(bindings):
+        field = f"jit_bindings[{index}]"
+        binding = _object(raw, field, path, {"name", "value", "observed_at", "evidence_ref", "receipt_ref"})
+        name = _text(binding["name"], f"{field}.name", path)
+        if name not in jit_definitions or name in bound_names:
+            raise _fail(path, f"{field}.name", "must bind each fixed JIT field exactly once")
+        value_text = _text(binding["value"], f"{field}.value", path)
+        if not re.fullmatch(jit_definitions[name]["pattern"], value_text):
+            raise _fail(path, f"{field}.value", "must match its frozen JIT pattern")
+        observed = _datetime(binding["observed_at"], f"{field}.observed_at", path)
+        if observed < not_before or observed >= expires:
+            raise _fail(path, f"{field}.observed_at", "must fall inside the maintenance window")
+        if evaluation_time is not None and observed > evaluation_time:
+            raise _fail(path, f"{field}.observed_at", "must not be after activation evaluation")
+        _immutable_ref(binding["evidence_ref"], f"{field}.evidence_ref", path, kinds={"verification-result", "artifact"})
+        _immutable_ref(binding["receipt_ref"], f"{field}.receipt_ref", path, kinds={"artifact"})
+        bound_names.add(name)
+    if bound_names != JIT_NAMES:
+        raise _fail(path, "jit_bindings", f"must bind exactly {sorted(JIT_NAMES)}")
 
     start = _object(envelope["start_gate"], "start_gate", path, {"plan", "dependent_implementation_sessions", "active_normal_claims"})
     if start["plan"] != "plan-1":
         raise _fail(path, "start_gate.plan", "must be plan-1")
     for name in ("dependent_implementation_sessions", "active_normal_claims"):
-        predicate = _object(start[name], f"start_gate.{name}", path, {"expected_count", "evidence_required"})
-        if predicate["expected_count"] != 0 or predicate["evidence_required"] is not True:
+        predicate = _object(start[name], f"start_gate.{name}", path, {"expected_count", "observed_at", "evidence_ref", "receipt_ref"})
+        if predicate["expected_count"] != 0:
             raise _fail(path, f"start_gate.{name}", "must require evidenced count zero")
+        observed = _datetime(predicate["observed_at"], f"start_gate.{name}.observed_at", path)
+        if observed < not_before or observed >= expires:
+            raise _fail(path, f"start_gate.{name}.observed_at", "must fall inside the maintenance window")
+        if evaluation_time is not None:
+            if observed > evaluation_time or evaluation_time - observed > timedelta(minutes=5):
+                raise _fail(path, f"start_gate.{name}.observed_at", "must be fresh within five minutes before activation")
+        _immutable_ref(predicate["evidence_ref"], f"start_gate.{name}.evidence_ref", path, kinds={"verification-result"})
+        _immutable_ref(predicate["receipt_ref"], f"start_gate.{name}.receipt_ref", path, kinds={"artifact"})
 
     prior_ids: set[str] = set()
     repo_heads = {repo_id: repo["commit"] for repo_id, repo in repositories.items()}
     previous_phase = -1
     for index, raw in enumerate(steps_raw):
         field = f"steps[{index}]"
-        step = _object(raw, field, path, {"id", "sequence", "repository_id", "base_commit", "commit", "operation_id", "depends_on", "paths", "commands", "reviews", "verification_refs", "phase"})
+        step = _object(raw, field, path, {"id", "sequence", "repository_id", "base_commit", "commit", "operation_id", "depends_on", "paths", "commands", "reviews", "verification_refs", "publication_ref", "phase"})
         if isinstance(step["sequence"], bool) or step["sequence"] != index + 1:
             raise _fail(path, f"{field}.sequence", "must be contiguous and match array order")
         repo_id = _identifier(step["repository_id"], f"{field}.repository_id", path)
@@ -284,11 +359,19 @@ def validate_envelope(value: Any, path: Path) -> dict[str, Any]:
             review_refs.add(key)
         for verify_index, verify in enumerate(_array(step["verification_refs"], f"{field}.verification_refs", path, non_empty=True)):
             _immutable_ref(verify, f"{field}.verification_refs[{verify_index}]", path, kinds={"verification-result", "artifact"})
+        _immutable_ref(step["publication_ref"], f"{field}.publication_ref", path, kinds={"verification-result", "artifact"})
         phase = _text(step["phase"], f"{field}.phase", path)
         if phase not in PHASE_ORDER or PHASE_ORDER[phase] < previous_phase:
             raise _fail(path, f"{field}.phase", "must be known and non-decreasing")
         previous_phase = PHASE_ORDER[phase]
         prior_ids.add(step["id"])
+
+    if evaluation_step_id is not None:
+        if evaluation_step_id not in step_ids:
+            raise _fail(path, "activation.step", "must name an exact step")
+        for name, definition in jit_definitions.items():
+            if definition["bind_before_step"] != evaluation_step_id:
+                raise _fail(path, f"jit_fields.{name}.bind_before_step", "must equal the activation evaluation step")
 
     abort = _object(envelope["abort"], "abort", path, {"before_migration", "after_migration", "forbidden"})
     if abort["before_migration"] != "restore-reviewed-pre-migration-state":
@@ -319,21 +402,40 @@ def validate_envelope(value: Any, path: Path) -> dict[str, Any]:
     return envelope
 
 
-def validate_file(path: Path) -> str:
+def validate_file(
+    path: Path,
+    *,
+    evaluation_time: datetime | None = None,
+    evaluation_step_id: str | None = None,
+) -> str:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise EnvelopeError(f"{path}: cannot read canonical JSON: {exc}") from exc
-    validate_envelope(value, path)
+    validate_envelope(value, path, evaluation_time=evaluation_time, evaluation_step_id=evaluation_step_id)
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("paths", nargs="+", type=Path)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--structural", action="store_true", help="validate frozen structure without asserting activation readiness")
+    mode.add_argument("--at", help="activation evaluation time as RFC 3339; rejects early or expired envelopes")
+    parser.add_argument("--step", help="exact step about to execute; required with --at")
     args = parser.parse_args(argv)
     try:
-        results = [(path, validate_file(path)) for path in args.paths]
+        evaluation_time = None
+        if args.at is not None:
+            if args.step is None:
+                raise EnvelopeError("--step is required with --at")
+            evaluation_time = _datetime(args.at, "--at", Path("<cli>"))
+        elif args.step is not None:
+            raise EnvelopeError("--step is allowed only with --at")
+        results = [
+            (path, validate_file(path, evaluation_time=evaluation_time, evaluation_step_id=args.step))
+            for path in args.paths
+        ]
     except EnvelopeError as exc:
         print(str(exc), file=sys.stderr)
         return 1
