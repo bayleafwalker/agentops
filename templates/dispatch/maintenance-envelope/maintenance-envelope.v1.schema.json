@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.kotona.app/schemas/maintenance-envelope/v1",
+  "title": "Reviewed exact-plan-bound maintenance envelope v1",
+  "description": "A pre-reviewed, expiring allowlist for an exact maintenance plan. It is not a claim, lease, credential, recovery grant, or execution record.",
+  "$comment": "The dependency-free Python validator is normative for cross-field ordering, binding, authority-negative, and expiry constraints.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_id", "envelope_id", "plan_ref", "issued_at", "window", "operator", "repositories", "command_registry_ref", "command_registry", "operations", "jit_fields", "jit_bindings", "start_gate", "steps", "abort", "recovery_policy", "audit_reconciliation"],
+  "properties": {
+    "contract_id": {"const": "maintenance-envelope/v1"},
+    "envelope_id": {"$ref": "#/$defs/identifier"},
+    "plan_ref": {"$ref": "#/$defs/artifactRef"},
+    "issued_at": {"type": "string", "format": "date-time"},
+    "window": {
+      "type": "object", "additionalProperties": false,
+      "required": ["not_before", "expires_at"],
+      "properties": {"not_before": {"type": "string", "format": "date-time"}, "expires_at": {"type": "string", "format": "date-time"}}
+    },
+    "operator": {
+      "type": "object", "additionalProperties": false,
+      "required": ["identity", "decision_ref"],
+      "properties": {"identity": {"$ref": "#/$defs/identifier"}, "decision_ref": {"$ref": "#/$defs/immutableRef"}}
+    },
+    "repositories": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/repository"}},
+    "command_registry_ref": {"$ref": "#/$defs/artifactRef"},
+    "command_registry": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/registeredCommand"}},
+    "operations": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/operation"}},
+    "jit_fields": {
+      "type": "array", "minItems": 3, "maxItems": 3,
+      "prefixItems": [
+        {"$ref": "#/$defs/backupNameField"},
+        {"$ref": "#/$defs/backupUidField"},
+        {"$ref": "#/$defs/drainBoundaryField"}
+      ],
+      "items": false
+    },
+    "jit_bindings": {
+      "type": "array", "maxItems": 3, "items": {"$ref": "#/$defs/jitBinding"},
+      "allOf": [
+        {"contains": {"properties": {"name": {"const": "backup_name"}}}, "minContains": 0, "maxContains": 1},
+        {"contains": {"properties": {"name": {"const": "backup_uid"}}}, "minContains": 0, "maxContains": 1},
+        {"contains": {"properties": {"name": {"const": "drain_boundary_utc"}}}, "minContains": 0, "maxContains": 1}
+      ]
+    },
+    "start_gate": {"$ref": "#/$defs/startGate"},
+    "steps": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/step"}},
+    "abort": {"$ref": "#/$defs/abort"},
+    "recovery_policy": {"$ref": "#/$defs/recoveryPolicy"},
+    "audit_reconciliation": {"$ref": "#/$defs/auditReconciliation"}
+  },
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "gitCommit": {"type": "string", "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"},
+    "artifactRef": {"type": "string", "pattern": "^artifact:sha256:[0-9a-f]{64}$"},
+    "relativePath": {"type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//).+$"},
+    "immutableRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "source", "revision"],
+      "properties": {
+        "kind": {"type": "string"},
+        "source": {"type": "string", "minLength": 1},
+        "revision": {"type": "string"}
+      },
+      "oneOf": [
+        {"properties": {"kind": {"const": "git-commit"}, "revision": {"pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"}}},
+        {"properties": {"kind": {"const": "artifact"}, "revision": {"pattern": "^sha256:[0-9a-f]{64}$"}}},
+        {"properties": {"kind": {"const": "verification-result"}, "revision": {"pattern": "^sha256:[0-9a-f]{64}$"}}},
+        {"properties": {"kind": {"const": "sprint-event"}, "revision": {"pattern": "^event:[1-9][0-9]*$"}}},
+        {"properties": {"kind": {"const": "release"}, "revision": {"pattern": "^([0-9a-f]{40}([0-9a-f]{24})?|sha256:[0-9a-f]{64})$"}}}
+      ]
+    },
+    "artifactOnlyRef": {"allOf": [{"$ref": "#/$defs/immutableRef"}, {"properties": {"kind": {"const": "artifact"}}}]},
+    "verificationOnlyRef": {"allOf": [{"$ref": "#/$defs/immutableRef"}, {"properties": {"kind": {"const": "verification-result"}}}]},
+    "evidenceRef": {"allOf": [{"$ref": "#/$defs/immutableRef"}, {"properties": {"kind": {"enum": ["artifact", "verification-result"]}}}]},
+    "repository": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "url", "commit"],
+      "properties": {"id": {"$ref": "#/$defs/identifier"}, "url": {"type": "string", "pattern": "^(https://[^@\\s]+|git@[^@\\s]+:[^\\s]+)$"}, "commit": {"$ref": "#/$defs/gitCommit"}}
+    },
+    "operation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "owner_repository", "command_id", "allowed_paths", "allowed_commands"],
+      "properties": {
+        "id": {"$ref": "#/$defs/identifier"}, "owner_repository": {"$ref": "#/$defs/identifier"}, "command_id": {"$ref": "#/$defs/identifier"},
+        "allowed_paths": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/relativePath"}},
+        "allowed_commands": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/identifier"}}
+      }
+    },
+    "registeredCommand": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "argv"],
+      "properties": {
+        "id": {"$ref": "#/$defs/identifier"},
+        "argv": {"type": "array", "minItems": 1, "maxItems": 32, "items": {"type": "string", "minLength": 1, "maxLength": 512, "pattern": "^[^;|`\\r\\n]+$"}}
+      }
+    },
+    "jitField": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "source", "pattern", "bind_before_step", "bind_by", "required"],
+      "properties": {
+        "name": {"enum": ["backup_name", "backup_uid", "drain_boundary_utc"]},
+        "source": {"enum": ["backup-observation", "clock-observation"]},
+        "pattern": {"type": "string", "minLength": 3, "maxLength": 256},
+        "bind_before_step": {"$ref": "#/$defs/identifier"},
+        "bind_by": {"type": "string", "format": "date-time"},
+        "required": {"const": true}
+      }
+    },
+    "backupNameField": {"allOf": [{"$ref": "#/$defs/jitField"}, {"properties": {"name": {"const": "backup_name"}, "source": {"const": "backup-observation"}}, "required": ["name", "source"]}]},
+    "backupUidField": {"allOf": [{"$ref": "#/$defs/jitField"}, {"properties": {"name": {"const": "backup_uid"}, "source": {"const": "backup-observation"}}, "required": ["name", "source"]}]},
+    "drainBoundaryField": {"allOf": [{"$ref": "#/$defs/jitField"}, {"properties": {"name": {"const": "drain_boundary_utc"}, "source": {"const": "clock-observation"}}, "required": ["name", "source"]}]},
+    "jitBinding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "value", "observed_at", "bound_at", "evidence_ref", "receipt_ref"],
+      "properties": {
+        "name": {"enum": ["backup_name", "backup_uid", "drain_boundary_utc"]},
+        "value": {"type": "string", "minLength": 1, "maxLength": 512},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "bound_at": {"type": "string", "format": "date-time"},
+        "evidence_ref": {"$ref": "#/$defs/evidenceRef"},
+        "receipt_ref": {"$ref": "#/$defs/artifactOnlyRef"}
+      }
+    },
+    "zeroPredicate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["expected_count", "observed_at", "evidence_ref", "receipt_ref"],
+      "properties": {"expected_count": {"const": 0}, "observed_at": {"type": "string", "format": "date-time"}, "evidence_ref": {"$ref": "#/$defs/verificationOnlyRef"}, "receipt_ref": {"$ref": "#/$defs/artifactOnlyRef"}}
+    },
+    "startGate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["plan", "dependent_implementation_sessions", "active_normal_claims"],
+      "properties": {
+        "plan": {"const": "plan-1"},
+        "dependent_implementation_sessions": {"$ref": "#/$defs/zeroPredicate"},
+        "active_normal_claims": {"$ref": "#/$defs/zeroPredicate"}
+      }
+    },
+    "review": {
+      "type": "object", "additionalProperties": false,
+      "required": ["reviewer", "author", "verdict", "ref"],
+      "properties": {"reviewer": {"$ref": "#/$defs/identifier"}, "author": {"$ref": "#/$defs/identifier"}, "verdict": {"const": "pass"}, "ref": {"$ref": "#/$defs/verificationOnlyRef"}}
+    },
+    "step": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "sequence", "repository_id", "base_commit", "commit", "operation_id", "depends_on", "paths", "commands", "reviews", "verification_refs", "publication_ref", "phase"],
+      "properties": {
+        "id": {"$ref": "#/$defs/identifier"}, "sequence": {"type": "integer", "minimum": 1}, "repository_id": {"$ref": "#/$defs/identifier"},
+        "base_commit": {"$ref": "#/$defs/gitCommit"}, "commit": {"$ref": "#/$defs/gitCommit"}, "operation_id": {"$ref": "#/$defs/identifier"},
+        "depends_on": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/identifier"}},
+        "paths": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/relativePath"}},
+        "commands": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/identifier"}},
+        "reviews": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/review"}},
+        "verification_refs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidenceRef"}},
+        "publication_ref": {"$ref": "#/$defs/evidenceRef"},
+        "phase": {"enum": ["pre-migration", "migration", "post-migration"]}
+      }
+    },
+    "abort": {
+      "type": "object", "additionalProperties": false,
+      "required": ["before_migration", "after_migration", "forbidden"],
+      "properties": {
+        "before_migration": {"const": "restore-reviewed-pre-migration-state"},
+        "after_migration": {"enum": ["restore-uid-attested-backup", "reviewed-forward-fix"]},
+        "forbidden": {"const": ["delete-migration-ledger", "edit-released-migration", "recovery-request-authority", "unreviewed-commit"]}
+      }
+    },
+    "recoveryPolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["record_kinds", "authority", "forbidden_uses"],
+      "properties": {
+        "record_kinds": {"const": ["observation", "requested-command"]},
+        "authority": {"const": "none"},
+        "forbidden_uses": {"const": ["advance", "approve", "bind-jit", "claim", "grant", "publish", "reconcile"]}
+      }
+    },
+    "auditReconciliation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["incident_correlation_required", "immutable_receipts", "required_outcomes", "redact", "retention", "export_required", "independent_review_required"],
+      "properties": {
+        "incident_correlation_required": {"const": true},
+        "immutable_receipts": {"const": ["abort", "command", "effect", "jit-binding", "publication", "reconciliation", "review", "start-gate"]},
+        "required_outcomes": {"const": ["aborted", "accepted", "duplicate", "expired", "incomplete", "rejected"]},
+        "redact": {"const": ["capability-secrets", "claim-tokens", "credentials"]},
+        "retention": {"enum": ["append-only-export", "content-addressed-export"]},
+        "export_required": {"const": true},
+        "independent_review_required": {"const": true}
+      }
+    }
+  }
+}
