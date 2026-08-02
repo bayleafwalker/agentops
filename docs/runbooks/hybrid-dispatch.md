@@ -18,7 +18,7 @@ human accepts and merges.
 ```text
 coordinator (claude-code | codex-cli)
   → sprintctl item + claim
-  → frozen agentops-task/v1 packet at an exact commit
+  → frozen agentops-task/v2 packet at an exact commit
   → disposable worktree, cold registered-command run
   → one bounded worker loop (opencode-go, session permission overlay)
   → cold deterministic gates over the captured diff
@@ -138,10 +138,20 @@ its registered focused gate returns `blocked`, not `complete`. Packet
 contradiction or a missing oracle is `task_defect`, never a model escalation.
 
 Every mechanical packet declares coordinator-owned acceptance properties. Each
-property binds one requirement to a registered command and describes the
-incorrect behaviour that makes that command fail. A passing test is not
+property has a packet-unique stable `id` using the portable identifier syntax
+`^[A-Za-z0-9][A-Za-z0-9._-]*$`, binds one requirement to a registered command,
+and describes the incorrect behaviour that makes that command fail. A passing test is not
 discriminating evidence when the worker invented or was allowed to modify the
 test oracle.
+
+`agentops-task/v2` is the gate-hash compatibility boundary. It added acceptance
+property IDs. Receipts retain `agentops-hybrid-receipt/v1` for compatibility and
+make this boundary machine-visible as `inputs.packet_schema_version`.
+`inputs.gate_set_hash` includes the complete
+`acceptance_properties` array. Receipts from v1 and v2 are therefore not hash
+comparable; corpus consumers such as AgentOps #2017 must partition them by
+packet schema version. In v2, `required_outcomes` and `non_goals` remain strings
+addressable by stable array index and are deliberately not promoted to objects.
 
 ## Host containment (devbox)
 
@@ -265,7 +275,7 @@ overlay and the `--file` argument ordering on upgrade.
 ## Contract files
 
 - `templates/dispatch/hybrid/hybrid-dispatch.v1.json` — modes, routes, gates, authority split
-- `templates/dispatch/hybrid/task-packet.schema.json` — the `agentops-task/v1` packet
+- `templates/dispatch/hybrid/task-packet.schema.json` — the `agentops-task/v2` packet
 - `templates/dispatch/hybrid/opencode.hybrid.json` — checked-in worker agents
 - `templates/dispatch/scripts/hybrid_dispatch.py` — coordinator driver
 - `templates/dispatch/scripts/validate_hybrid_dispatch.py` — deterministic policy gate

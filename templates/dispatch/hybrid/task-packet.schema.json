@@ -28,7 +28,7 @@
     "worktree"
   ],
   "properties": {
-    "schema_version": { "type": "string", "const": "agentops-task/v1" },
+    "schema_version": { "type": "string", "const": "agentops-task/v2" },
     "task_id": { "type": "string", "pattern": "^[A-Z0-9]+-[A-Za-z0-9._-]+$" },
     "repo_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
     "sprint_item": {
@@ -100,8 +100,13 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["requirement", "command_id", "fails_when"],
+        "required": ["id", "requirement", "command_id", "fails_when"],
         "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "description": "Packet-unique stable requirement identifier using the repository portable-identifier syntax."
+          },
           "requirement": { "type": "string", "minLength": 1 },
           "command_id": { "type": "string", "minLength": 1 },
           "fails_when": { "type": "string", "minLength": 1 }
