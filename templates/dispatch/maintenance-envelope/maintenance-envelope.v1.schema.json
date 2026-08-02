@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.kotona.app/schemas/maintenance-envelope/v1",
+  "title": "Reviewed exact-plan-bound maintenance envelope v1",
+  "description": "A pre-reviewed, expiring allowlist for an exact maintenance plan. It is not a claim, lease, credential, recovery grant, or execution record.",
+  "$comment": "The dependency-free Python validator is normative for cross-field ordering, binding, authority-negative, and expiry constraints.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_id", "envelope_id", "plan_ref", "issued_at", "window", "operator", "repositories", "operations", "jit_fields", "start_gate", "steps", "abort", "recovery_policy", "audit_reconciliation"],
+  "properties": {
+    "contract_id": {"const": "maintenance-envelope/v1"},
+    "envelope_id": {"$ref": "#/$defs/identifier"},
+    "plan_ref": {"$ref": "#/$defs/artifactRef"},
+    "issued_at": {"type": "string", "format": "date-time"},
+    "window": {
+      "type": "object", "additionalProperties": false,
+      "required": ["not_before", "expires_at"],
+      "properties": {"not_before": {"type": "string", "format": "date-time"}, "expires_at": {"type": "string", "format": "date-time"}}
+    },
+    "operator": {
+      "type": "object", "additionalProperties": false,
+      "required": ["identity", "decision_ref"],
+      "properties": {"identity": {"$ref": "#/$defs/identifier"}, "decision_ref": {"$ref": "#/$defs/immutableRef"}}
+    },
+    "repositories": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/repository"}},
+    "operations": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/operation"}},
+    "jit_fields": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"$ref": "#/$defs/jitField"}},
+    "start_gate": {"$ref": "#/$defs/startGate"},
+    "steps": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/step"}},
+    "abort": {"$ref": "#/$defs/abort"},
+    "recovery_policy": {"$ref": "#/$defs/recoveryPolicy"},
+    "audit_reconciliation": {"$ref": "#/$defs/auditReconciliation"}
+  },
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "gitCommit": {"type": "string", "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"},
+    "artifactRef": {"type": "string", "pattern": "^artifact:sha256:[0-9a-f]{64}$"},
+    "relativePath": {"type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//).+$"},
+    "immutableRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "source", "revision"],
+      "properties": {
+        "kind": {"enum": ["git-commit", "artifact", "verification-result", "sprint-event", "release"]},
+        "source": {"type": "string", "minLength": 1},
+        "revision": {"type": "string", "minLength": 1}
+      }
+    },
+    "repository": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "url", "commit"],
+      "properties": {"id": {"$ref": "#/$defs/identifier"}, "url": {"type": "string", "pattern": "^(https://|git@)[^@[:space:]]+"}, "commit": {"$ref": "#/$defs/gitCommit"}}
+    },
+    "operation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "owner_repository", "command_id", "allowed_paths", "allowed_commands"],
+      "properties": {
+        "id": {"$ref": "#/$defs/identifier"}, "owner_repository": {"$ref": "#/$defs/identifier"}, "command_id": {"$ref": "#/$defs/identifier"},
+        "allowed_paths": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/relativePath"}},
+        "allowed_commands": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/identifier"}}
+      }
+    },
+    "jitField": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "source", "pattern", "bind_before_step", "required"],
+      "properties": {
+        "name": {"enum": ["backup_name", "backup_uid", "drain_boundary_utc"]},
+        "source": {"enum": ["backup-observation", "clock-observation"]},
+        "pattern": {"type": "string", "minLength": 3, "maxLength": 256},
+        "bind_before_step": {"$ref": "#/$defs/identifier"},
+        "required": {"const": true}
+      }
+    },
+    "zeroPredicate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["expected_count", "evidence_required"],
+      "properties": {"expected_count": {"const": 0}, "evidence_required": {"const": true}}
+    },
+    "startGate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["plan", "dependent_implementation_sessions", "active_normal_claims"],
+      "properties": {
+        "plan": {"const": "plan-1"},
+        "dependent_implementation_sessions": {"$ref": "#/$defs/zeroPredicate"},
+        "active_normal_claims": {"$ref": "#/$defs/zeroPredicate"}
+      }
+    },
+    "review": {
+      "type": "object", "additionalProperties": false,
+      "required": ["reviewer", "author", "verdict", "ref"],
+      "properties": {"reviewer": {"$ref": "#/$defs/identifier"}, "author": {"$ref": "#/$defs/identifier"}, "verdict": {"const": "pass"}, "ref": {"$ref": "#/$defs/immutableRef"}}
+    },
+    "step": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "sequence", "repository_id", "base_commit", "commit", "operation_id", "depends_on", "paths", "commands", "reviews", "verification_refs", "phase"],
+      "properties": {
+        "id": {"$ref": "#/$defs/identifier"}, "sequence": {"type": "integer", "minimum": 1}, "repository_id": {"$ref": "#/$defs/identifier"},
+        "base_commit": {"$ref": "#/$defs/gitCommit"}, "commit": {"$ref": "#/$defs/gitCommit"}, "operation_id": {"$ref": "#/$defs/identifier"},
+        "depends_on": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/identifier"}},
+        "paths": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/relativePath"}},
+        "commands": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/identifier"}},
+        "reviews": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/review"}},
+        "verification_refs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/immutableRef"}},
+        "phase": {"enum": ["pre-migration", "migration", "post-migration"]}
+      }
+    },
+    "abort": {
+      "type": "object", "additionalProperties": false,
+      "required": ["before_migration", "after_migration", "forbidden"],
+      "properties": {
+        "before_migration": {"const": "restore-reviewed-pre-migration-state"},
+        "after_migration": {"enum": ["restore-uid-attested-backup", "reviewed-forward-fix"]},
+        "forbidden": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"enum": ["delete-migration-ledger", "edit-released-migration", "unreviewed-commit", "recovery-request-authority"]}}
+      }
+    },
+    "recoveryPolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["record_kinds", "authority", "forbidden_uses"],
+      "properties": {
+        "record_kinds": {"const": ["observation", "requested-command"]},
+        "authority": {"const": "none"},
+        "forbidden_uses": {"type": "array", "minItems": 7, "uniqueItems": true, "items": {"enum": ["grant", "claim", "approve", "publish", "reconcile", "advance", "bind-jit"]}}
+      }
+    },
+    "auditReconciliation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["incident_correlation_required", "immutable_receipts", "required_outcomes", "redact", "retention", "export_required", "independent_review_required"],
+      "properties": {
+        "incident_correlation_required": {"const": true},
+        "immutable_receipts": {"type": "array", "minItems": 4, "uniqueItems": true, "items": {"enum": ["command", "effect", "review", "publication", "jit-binding", "start-gate", "abort", "reconciliation"]}},
+        "required_outcomes": {"type": "array", "minItems": 4, "uniqueItems": true, "items": {"enum": ["accepted", "rejected", "duplicate", "expired", "aborted", "incomplete"]}},
+        "redact": {"type": "array", "minItems": 3, "uniqueItems": true, "items": {"enum": ["credentials", "claim-tokens", "capability-secrets"]}},
+        "retention": {"enum": ["append-only-export", "content-addressed-export"]},
+        "export_required": {"const": true},
+        "independent_review_required": {"const": true}
+      }
+    }
+  }
+}

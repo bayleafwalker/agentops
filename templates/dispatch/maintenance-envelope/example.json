@@ -1,0 +1,23 @@
+{
+  "contract_id": "maintenance-envelope/v1",
+  "envelope_id": "appservice-vuoro-v6-example",
+  "plan_ref": "artifact:sha256:eec434b80d9be675e768ed3eee3d02d9d1e33b1368249c31216ba43150dca175",
+  "issued_at": "2026-08-02T18:40:00Z",
+  "window": {"not_before": "2026-08-02T19:00:00Z", "expires_at": "2026-08-02T21:00:00Z"},
+  "operator": {"identity": "example-operator", "decision_ref": {"kind": "sprint-event", "source": "sprintctl:agentops:item:2085", "revision": "event:2246"}},
+  "repositories": [{"id": "appservice", "url": "https://github.com/bayleafwalker/appservice.git", "commit": "ccfbdf0bc352a44de853d0a2458b5956a16e4e57"}],
+  "operations": [{"id": "appservice-vuoro-targeted", "owner_repository": "appservice", "command_id": "appservice.vuoro-maintenance", "allowed_paths": ["clusters/main/kubernetes/apps/vuoro-shared", "clusters/main/kubernetes/apps/vuoro-shared-db"], "allowed_commands": ["flux-reconcile-source-cluster", "flux-reconcile-vuoro-shared", "flux-reconcile-vuoro-shared-db"]}],
+  "jit_fields": [
+    {"name": "backup_name", "source": "backup-observation", "pattern": "^vuoro-cutover-[0-9]{8}T[0-9]{6}Z$", "bind_before_step": "attest-backup", "required": true},
+    {"name": "backup_uid", "source": "backup-observation", "pattern": "^[0-9a-f]{8}-[0-9a-f-]{27,35}$", "bind_before_step": "attest-backup", "required": true},
+    {"name": "drain_boundary_utc", "source": "clock-observation", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$", "bind_before_step": "attest-backup", "required": true}
+  ],
+  "start_gate": {"plan": "plan-1", "dependent_implementation_sessions": {"expected_count": 0, "evidence_required": true}, "active_normal_claims": {"expected_count": 0, "evidence_required": true}},
+  "steps": [
+    {"id": "create-backup", "sequence": 1, "repository_id": "appservice", "base_commit": "ccfbdf0bc352a44de853d0a2458b5956a16e4e57", "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "operation_id": "appservice-vuoro-targeted", "depends_on": [], "paths": ["clusters/main/kubernetes/apps/vuoro-shared-db"], "commands": ["flux-reconcile-source-cluster", "flux-reconcile-vuoro-shared-db"], "reviews": [{"reviewer": "independent-reviewer", "author": "maintenance-author", "verdict": "pass", "ref": {"kind": "verification-result", "source": "audit:review:create-backup", "revision": "sha256:1111111111111111111111111111111111111111111111111111111111111111"}}], "verification_refs": [{"kind": "verification-result", "source": "appservice:gate:create-backup", "revision": "sha256:2222222222222222222222222222222222222222222222222222222222222222"}], "phase": "pre-migration"},
+    {"id": "attest-backup", "sequence": 2, "repository_id": "appservice", "base_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "operation_id": "appservice-vuoro-targeted", "depends_on": ["create-backup"], "paths": ["clusters/main/kubernetes/apps/vuoro-shared-db"], "commands": ["flux-reconcile-source-cluster", "flux-reconcile-vuoro-shared-db"], "reviews": [{"reviewer": "independent-reviewer", "author": "maintenance-author", "verdict": "pass", "ref": {"kind": "verification-result", "source": "audit:review:attest-backup", "revision": "sha256:3333333333333333333333333333333333333333333333333333333333333333"}}], "verification_refs": [{"kind": "verification-result", "source": "appservice:gate:attest-backup", "revision": "sha256:4444444444444444444444444444444444444444444444444444444444444444"}], "phase": "pre-migration"}
+  ],
+  "abort": {"before_migration": "restore-reviewed-pre-migration-state", "after_migration": "restore-uid-attested-backup", "forbidden": ["delete-migration-ledger", "edit-released-migration", "recovery-request-authority", "unreviewed-commit"]},
+  "recovery_policy": {"record_kinds": ["observation", "requested-command"], "authority": "none", "forbidden_uses": ["advance", "approve", "bind-jit", "claim", "grant", "publish", "reconcile"]},
+  "audit_reconciliation": {"incident_correlation_required": true, "immutable_receipts": ["abort", "command", "effect", "jit-binding", "publication", "reconciliation", "review", "start-gate"], "required_outcomes": ["aborted", "accepted", "duplicate", "expired", "incomplete", "rejected"], "redact": ["capability-secrets", "claim-tokens", "credentials"], "retention": "content-addressed-export", "export_required": true, "independent_review_required": true}
+}
