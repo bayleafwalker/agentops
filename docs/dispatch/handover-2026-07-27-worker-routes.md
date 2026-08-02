@@ -1,5 +1,7 @@
 # Handover — hybrid worker routes, 2026-07-27
 
+> **Status:** Superseded by [the 2026-07-28 contained run](handover-2026-07-28-contained-run.md).
+
 Session outcome in one line: the "cheap worker routes cannot produce a patch"
 result was **two driver defects**, both fixed; the routes are still not usable
 unattended because a **worker escapes its workspace and writes to the
