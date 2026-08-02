@@ -1,5 +1,5 @@
 {
-  "schema_version": "agentops-task/v1",
+  "schema_version": "agentops-task/v2",
   "task_id": "VUORO-1252-repo-id-param-tests",
   "repo_id": "1deb57d0-af6f-479c-811a-b5b7254841f9",
   "sprint_item": {
@@ -40,11 +40,13 @@
   ],
   "acceptance_properties": [
     {
+      "id": "REQ-001",
       "requirement": "unknown repository ids fail closed",
       "command_id": "vuoro.service.tests",
       "fails_when": "the unknown-id rejection is removed or changed to fallback resolution"
     },
     {
+      "id": "REQ-002",
       "requirement": "two repository ids resolve independently",
       "command_id": "vuoro.service.tests",
       "fails_when": "repository resolution is cached globally or either request ignores its repository id"

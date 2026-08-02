@@ -25,6 +25,7 @@ import fnmatch
 import hashlib
 import json
 import os
+import re
 import shlex
 import stat
 import subprocess
@@ -35,7 +36,8 @@ from typing import Any
 
 POLICY_RELATIVE = Path("templates/dispatch/hybrid/hybrid-dispatch.v1.json")
 WORKER_CONFIG_RELATIVE = Path("templates/dispatch/hybrid/opencode.hybrid.json")
-PACKET_SCHEMA_VERSION = "agentops-task/v1"
+PACKET_SCHEMA_VERSION = "agentops-task/v2"
+PORTABLE_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 AGENTOPS_ROOT = Path(
     os.environ.get("AGENTOPS_ROOT", "/projects/dev/agentops")
 ).resolve()
@@ -248,7 +250,17 @@ def validate_packet(
         raise PacketError(
             "acceptance_properties must define at least one coordinator-authored falsifying condition"
         )
+    acceptance_ids: set[str] = set()
     for acceptance in acceptance_properties:
+        acceptance_id = acceptance.get("id")
+        if not isinstance(acceptance_id, str) or not PORTABLE_IDENTIFIER_PATTERN.fullmatch(acceptance_id):
+            raise PacketError(
+                "each acceptance property id must match "
+                "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+            )
+        if acceptance_id in acceptance_ids:
+            raise PacketError(f"acceptance property id {acceptance_id!r} is duplicated")
+        acceptance_ids.add(acceptance_id)
         command_id = acceptance.get("command_id")
         if command_id not in packet["allowed_command_ids"]:
             raise PacketError(
@@ -956,6 +968,7 @@ def _receipt(packet: dict[str, Any], policy: dict[str, Any], **extra: Any) -> di
         "attempt": packet.get("attempt", 1),
         "inputs": {
             "packet_hash": f"sha256:{packet_hash}",
+            "packet_schema_version": packet["schema_version"],
             "repository_commit": packet["starting_commit"],
             "gate_set_hash": f"sha256:{hashlib.sha256(gate_bytes).hexdigest()}",
         },

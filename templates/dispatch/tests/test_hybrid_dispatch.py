@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import stat
 import subprocess
 import tempfile
@@ -124,7 +125,7 @@ class PacketValidationTests(unittest.TestCase):
             },
         }
         self.packet = {
-            "schema_version": "agentops-task/v1",
+            "schema_version": "agentops-task/v2",
             "task_id": "EX-1",
             "repo_id": "example",
             "sprint_item": {"ref": "example#42", "claim_id": 7, "claim_actor": "coordinator/claude-code"},
@@ -145,6 +146,7 @@ class PacketValidationTests(unittest.TestCase):
             "required_outcomes": ["o"],
             "acceptance_properties": [
                 {
+                    "id": "REQ-001",
                     "requirement": "o",
                     "command_id": "example.tests",
                     "fails_when": "o is not implemented",
@@ -240,6 +242,38 @@ class PacketValidationTests(unittest.TestCase):
         self.packet["acceptance_properties"][0]["command_id"] = "example.missing"
         with self.assertRaisesRegex(dispatch.PacketError, "not granted"):
             self._validate()
+
+    def test_acceptance_property_requires_an_id(self) -> None:
+        del self.packet["acceptance_properties"][0]["id"]
+        with self.assertRaisesRegex(dispatch.PacketError, "id must match"):
+            self._validate()
+
+    def test_acceptance_property_id_rejects_whitespace_and_invalid_characters(self) -> None:
+        schema_pattern = _json(HYBRID / "task-packet.schema.json")["properties"][
+            "acceptance_properties"
+        ]["items"]["properties"]["id"]["pattern"]
+        self.assertEqual(schema_pattern, dispatch.PORTABLE_IDENTIFIER_PATTERN.pattern)
+        for invalid_id in (" REQ-001", "REQ 001", "REQ/001", "REQ-001 "):
+            with self.subTest(invalid_id=invalid_id):
+                self.assertIsNone(re.fullmatch(schema_pattern, invalid_id))
+                self.packet["acceptance_properties"][0]["id"] = invalid_id
+                with self.assertRaisesRegex(dispatch.PacketError, "id must match"):
+                    self._validate()
+
+    def test_acceptance_property_ids_are_packet_unique(self) -> None:
+        duplicate = json.loads(json.dumps(self.packet["acceptance_properties"][0]))
+        self.packet["acceptance_properties"].append(duplicate)
+        with self.assertRaisesRegex(dispatch.PacketError, "REQ-001.*duplicated"):
+            self._validate()
+
+    def test_acceptance_ids_are_part_of_the_versioned_gate_hash(self) -> None:
+        receipt = dispatch._receipt(self.packet, self.policy)
+        self.assertEqual(receipt["schema_version"], "agentops-hybrid-receipt/v1")
+        self.assertEqual(receipt["inputs"]["packet_schema_version"], "agentops-task/v2")
+        original = receipt["inputs"]["gate_set_hash"]
+        self.packet["acceptance_properties"][0]["id"] = "REQ-002"
+        changed = dispatch._receipt(self.packet, self.policy)["inputs"]["gate_set_hash"]
+        self.assertNotEqual(original, changed)
 
     def test_enabled_network_is_a_defect(self) -> None:
         self.packet["network_policy"] = "enabled"
@@ -637,7 +671,7 @@ class ExamplePacketTests(unittest.TestCase):
         for field in schema["required"]:
             with self.subTest(field=field):
                 self.assertIn(field, example)
-        self.assertEqual(example["schema_version"], "agentops-task/v1")
+        self.assertEqual(example["schema_version"], "agentops-task/v2")
         self.assertEqual(example["network_policy"], "disabled")
 
 
