@@ -154,7 +154,7 @@ class MaintenanceEnvelopeValidatorTests(unittest.TestCase):
         self.assert_invalid(lambda e: e["jit_fields"][0].__setitem__("bind_before_step", "missing"), "exact step")
         self.assert_invalid(lambda e: e["jit_fields"].pop(), "exactly")
         self.assert_invalid(lambda e: e["jit_bindings"][0].__setitem__("value", "wrong"), "frozen JIT pattern")
-        self.assert_invalid(lambda e: e["jit_bindings"][0].__setitem__("observed_at", "2026-08-02T20:01:00Z"), "after activation")
+        self.assert_invalid(lambda e: e["jit_bindings"][0].__setitem__("observed_at", "2026-08-02T20:01:00Z"), "follow observation|no later than activation")
         self.assert_invalid(lambda e: e["jit_bindings"].pop(), "must bind drain_boundary_utc")
 
     def test_jit_bindings_are_sequence_aware(self) -> None:
@@ -188,9 +188,24 @@ class MaintenanceEnvelopeValidatorTests(unittest.TestCase):
             evaluation_time=self.evaluation_time,
             evaluation_step_id="begin-migration",
         )
+        late = copy.deepcopy(after)
+        for binding in late["jit_bindings"]:
+            binding["observed_at"] = "2026-08-02T20:02:00Z"
+            binding["bound_at"] = "2026-08-02T20:02:30Z"
+        with self.assertRaisesRegex(ValueError, "frozen target-step deadline"):
+            VALIDATOR.validate_envelope(
+                late,
+                self.path,
+                evaluation_time=datetime.fromisoformat("2026-08-02T20:03:00+00:00"),
+                evaluation_step_id="begin-migration",
+            )
 
     def test_schema_acceptance_matches_adversarial_validator_shapes(self) -> None:
         self.assertTrue(schema_accepts(self.schema, self.envelope, self.schema))
+        for count in range(4):
+            staged = copy.deepcopy(self.envelope)
+            staged["jit_bindings"] = staged["jit_bindings"][:count]
+            self.assertTrue(schema_accepts(self.schema, staged, self.schema), f"binding count {count}")
         mutations = []
 
         def duplicate_jit(envelope) -> None:

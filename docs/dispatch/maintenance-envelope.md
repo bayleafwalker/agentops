@@ -44,7 +44,9 @@ be bound just in time. Each has a bounded source-specific pattern, in-window
 observed value, immutable source evidence, binding receipt, and an exact step
 at which activation validation first requires it. Earlier steps may omit the
 binding; that step and every later step must retain the validated binding, and
-no observation may postdate evaluation. Each step also carries its
+its receipt time cannot exceed the pre-reviewed `bind_by` deadline for that
+target step. Neither observation nor binding may postdate evaluation. Each
+step also carries its
 independent review, executable verification, and publication receipt.
 
 ## Abort and reconciliation

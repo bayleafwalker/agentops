@@ -38,9 +38,9 @@
     "jit_bindings": {
       "type": "array", "maxItems": 3, "items": {"$ref": "#/$defs/jitBinding"},
       "allOf": [
-        {"contains": {"properties": {"name": {"const": "backup_name"}}}, "maxContains": 1},
-        {"contains": {"properties": {"name": {"const": "backup_uid"}}}, "maxContains": 1},
-        {"contains": {"properties": {"name": {"const": "drain_boundary_utc"}}}, "maxContains": 1}
+        {"contains": {"properties": {"name": {"const": "backup_name"}}}, "minContains": 0, "maxContains": 1},
+        {"contains": {"properties": {"name": {"const": "backup_uid"}}}, "minContains": 0, "maxContains": 1},
+        {"contains": {"properties": {"name": {"const": "drain_boundary_utc"}}}, "minContains": 0, "maxContains": 1}
       ]
     },
     "start_gate": {"$ref": "#/$defs/startGate"},
@@ -95,12 +95,13 @@
     },
     "jitField": {
       "type": "object", "additionalProperties": false,
-      "required": ["name", "source", "pattern", "bind_before_step", "required"],
+      "required": ["name", "source", "pattern", "bind_before_step", "bind_by", "required"],
       "properties": {
         "name": {"enum": ["backup_name", "backup_uid", "drain_boundary_utc"]},
         "source": {"enum": ["backup-observation", "clock-observation"]},
         "pattern": {"type": "string", "minLength": 3, "maxLength": 256},
         "bind_before_step": {"$ref": "#/$defs/identifier"},
+        "bind_by": {"type": "string", "format": "date-time"},
         "required": {"const": true}
       }
     },
@@ -109,11 +110,12 @@
     "drainBoundaryField": {"allOf": [{"$ref": "#/$defs/jitField"}, {"properties": {"name": {"const": "drain_boundary_utc"}, "source": {"const": "clock-observation"}}, "required": ["name", "source"]}]},
     "jitBinding": {
       "type": "object", "additionalProperties": false,
-      "required": ["name", "value", "observed_at", "evidence_ref", "receipt_ref"],
+      "required": ["name", "value", "observed_at", "bound_at", "evidence_ref", "receipt_ref"],
       "properties": {
         "name": {"enum": ["backup_name", "backup_uid", "drain_boundary_utc"]},
         "value": {"type": "string", "minLength": 1, "maxLength": 512},
         "observed_at": {"type": "string", "format": "date-time"},
+        "bound_at": {"type": "string", "format": "date-time"},
         "evidence_ref": {"$ref": "#/$defs/immutableRef"},
         "receipt_ref": {"$ref": "#/$defs/immutableRef"}
       }

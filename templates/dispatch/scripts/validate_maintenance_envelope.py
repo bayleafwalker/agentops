@@ -249,7 +249,7 @@ def validate_envelope(
     jit_definitions: dict[str, dict[str, Any]] = {}
     for index, raw in enumerate(jit):
         field = f"jit_fields[{index}]"
-        item = _object(raw, field, path, {"name", "source", "pattern", "bind_before_step", "required"})
+        item = _object(raw, field, path, {"name", "source", "pattern", "bind_before_step", "bind_by", "required"})
         name = _text(item["name"], f"{field}.name", path)
         if name not in JIT_NAMES or name in jit_names:
             raise _fail(path, f"{field}.name", "must be one of each fixed v1 JIT field")
@@ -264,6 +264,9 @@ def validate_envelope(
             raise _fail(path, f"{field}.pattern", "must compile") from exc
         if item["bind_before_step"] not in step_ids:
             raise _fail(path, f"{field}.bind_before_step", "must name an exact step")
+        bind_by = _datetime(item["bind_by"], f"{field}.bind_by", path)
+        if bind_by < not_before or bind_by >= expires:
+            raise _fail(path, f"{field}.bind_by", "must fall inside the maintenance window")
         if item["required"] is not True:
             raise _fail(path, f"{field}.required", "must be true")
         jit_names.add(name)
@@ -275,7 +278,7 @@ def validate_envelope(
     bound_names: set[str] = set()
     for index, raw in enumerate(bindings):
         field = f"jit_bindings[{index}]"
-        binding = _object(raw, field, path, {"name", "value", "observed_at", "evidence_ref", "receipt_ref"})
+        binding = _object(raw, field, path, {"name", "value", "observed_at", "bound_at", "evidence_ref", "receipt_ref"})
         name = _text(binding["name"], f"{field}.name", path)
         if name not in jit_definitions or name in bound_names:
             raise _fail(path, f"{field}.name", "must bind each fixed JIT field exactly once")
@@ -283,10 +286,14 @@ def validate_envelope(
         if not re.fullmatch(jit_definitions[name]["pattern"], value_text):
             raise _fail(path, f"{field}.value", "must match its frozen JIT pattern")
         observed = _datetime(binding["observed_at"], f"{field}.observed_at", path)
+        bound_at = _datetime(binding["bound_at"], f"{field}.bound_at", path)
         if observed < not_before or observed >= expires:
             raise _fail(path, f"{field}.observed_at", "must fall inside the maintenance window")
-        if evaluation_time is not None and observed > evaluation_time:
-            raise _fail(path, f"{field}.observed_at", "must not be after activation evaluation")
+        bind_by = _datetime(jit_definitions[name]["bind_by"], f"jit_fields.{name}.bind_by", path)
+        if bound_at < observed or bound_at > bind_by:
+            raise _fail(path, f"{field}.bound_at", "must follow observation and not exceed the frozen target-step deadline")
+        if evaluation_time is not None and (observed > evaluation_time or bound_at > evaluation_time):
+            raise _fail(path, field, "must be observed and bound no later than activation evaluation")
         _immutable_ref(binding["evidence_ref"], f"{field}.evidence_ref", path, kinds={"verification-result", "artifact"})
         _immutable_ref(binding["receipt_ref"], f"{field}.receipt_ref", path, kinds={"artifact"})
         bound_names.add(name)
