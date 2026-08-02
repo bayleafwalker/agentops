@@ -214,6 +214,9 @@ class MaintenanceEnvelopeValidatorTests(unittest.TestCase):
         mutations.append(duplicate_jit)
         mutations.append(lambda envelope: envelope["command_registry"][0]["argv"].append("; reboot"))
         mutations.append(lambda envelope: envelope["operator"]["decision_ref"].update(kind="git-commit", revision="sha256:" + "1" * 64))
+        mutations.append(lambda envelope: envelope["jit_bindings"][0]["receipt_ref"].update(kind="sprint-event", revision="event:1"))
+        mutations.append(lambda envelope: envelope["start_gate"]["active_normal_claims"]["evidence_ref"].update(kind="artifact"))
+        mutations.append(lambda envelope: envelope["steps"][0]["reviews"][0]["ref"].update(kind="artifact"))
         mutations.append(lambda envelope: envelope["abort"]["forbidden"].pop())
         for mutation in mutations:
             with self.subTest(mutation=mutation):
