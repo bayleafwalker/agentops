@@ -1,0 +1,17 @@
+{
+  "contract_version": "v2",
+  "action_type": "scope-iterate",
+  "output_expectation": "implementation",
+  "repo_id": "agentops",
+  "sprint_id": null,
+  "work_item_id": null,
+  "title": "Must reject legacy alias",
+  "prompt": "",
+  "harness": "codex",
+  "model": null,
+  "priority": "normal",
+  "refs": [],
+  "dispatch_group_id": null,
+  "requested_by": "operator:fixture",
+  "kind": "implement"
+}
