@@ -2,7 +2,7 @@
   "schema_version": "vuoro-client-profile/v1",
   "id": "devbox-agent-vuoro-shared",
   "revision": 3,
-  "source_environment_id": "devbox-vm",
+  "source_environment_id": "devbox",
   "target": {
     "environment_id": "vuoro-shared",
     "environment_class": "production",

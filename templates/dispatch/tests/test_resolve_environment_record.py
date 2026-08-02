@@ -94,7 +94,7 @@ class ResolveEnvironmentRecordTests(unittest.TestCase):
             records_dir, hostname="workstation-linux"
         )
         self.assertEqual(resolved.name, "workstation-linux.vuoro-shared.json")
-        resolved = resolver.resolve_environment_record(records_dir, hostname="devbox-vm")
+        resolved = resolver.resolve_environment_record(records_dir, hostname="devbox")
         self.assertEqual(resolved.name, "devbox-vm.vuoro-shared.json")
 
 
