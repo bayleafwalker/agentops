@@ -38,7 +38,7 @@
     "worker_identity"
   ],
   "qualification": {
-    "state": "qualified",
-    "blocking_probes": []
+    "state": "preflight_observed",
+    "blocking_probes": ["contained-disposable-no-override-smoke"]
   }
 }

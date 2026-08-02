@@ -41,6 +41,18 @@
             "enum": ["full", "baseline", "none"],
             "description": "Instruction distribution level. full: all project source fragments. baseline: fragments tagged render_levels including baseline. none: no generated file, no pointer line — repo is untouched by render."
           },
+          "relationship": {
+            "type": "string",
+            "enum": ["implementation", "planning-authority", "execution-authority", "deployment-owner", "governance", "tooling", "reference"],
+            "default": "implementation",
+            "description": "Descriptive member relationship; it does not grant authority. Omitted values preserve the implementation default."
+          },
+          "access": {
+            "type": "string",
+            "enum": ["write", "reference"],
+            "default": "write",
+            "description": "Materialization boundary. reference members use detached, filesystem-read-only worktrees and receive no render writes; omitted values preserve writable-member behavior."
+          },
           "path_notes": {
             "type": "array",
             "items": { "type": "string" },

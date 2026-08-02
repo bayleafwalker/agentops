@@ -33,6 +33,16 @@ RENDER_LEVELS_RE = re.compile(r"^render_levels\s*:\s*\[(?P<levels>[^]]*)\]\s*$")
 SOURCE_HASH_RE = re.compile(rb"source_bundle_sha256: (?P<digest>[0-9a-f]{64})")
 RENDER_LEVELS = {"baseline", "full"}
 RENDER_MODES = RENDER_LEVELS | {"none"}
+MEMBER_RELATIONSHIPS = {
+    "implementation",
+    "planning-authority",
+    "execution-authority",
+    "deployment-owner",
+    "governance",
+    "tooling",
+    "reference",
+}
+MEMBER_ACCESS_MODES = {"write", "reference"}
 RENDER_PREFIX = b"<!-- agentops-render: DO NOT HAND-EDIT\n"
 POINTER_START = b"<!-- agentops-project-pointer:start -->"
 POINTER_END = b"<!-- agentops-project-pointer:end -->"
@@ -74,6 +84,8 @@ class MemberBinding:
     repo_id: str
     backlog: bool
     render: str
+    relationship: str
+    access: str
     path_notes: tuple[str, ...]
     repo_root: Path
 
@@ -253,7 +265,7 @@ def load_project(
         _exact_keys(
             raw_member,
             required={"repo_id", "backlog", "render"},
-            optional={"path_notes"},
+            optional={"path_notes", "relationship", "access"},
             subject=subject,
         )
         repo_id = _required_text(raw_member["repo_id"], f"{subject}.repo_id")
@@ -269,6 +281,16 @@ def load_project(
             raise ProjectRenderError(
                 f"{subject}.render must be full, baseline, or none"
             )
+        relationship = raw_member.get("relationship", "implementation")
+        if not isinstance(relationship, str) or relationship not in MEMBER_RELATIONSHIPS:
+            allowed = ", ".join(sorted(MEMBER_RELATIONSHIPS))
+            raise ProjectRenderError(
+                f"{subject}.relationship must be one of: {allowed}"
+            )
+        access = raw_member.get("access", "write")
+        if not isinstance(access, str) or access not in MEMBER_ACCESS_MODES:
+            allowed = ", ".join(sorted(MEMBER_ACCESS_MODES))
+            raise ProjectRenderError(f"{subject}.access must be one of: {allowed}")
         raw_notes = raw_member.get("path_notes", [])
         if not isinstance(raw_notes, list) or not all(
             isinstance(note, str) and note.strip() for note in raw_notes
@@ -284,6 +306,8 @@ def load_project(
                 repo_id=repo_id,
                 backlog=raw_member["backlog"],
                 render=render,
+                relationship=relationship,
+                access=access,
                 path_notes=tuple(raw_notes),
                 repo_root=repo_root,
             )

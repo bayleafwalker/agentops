@@ -464,10 +464,7 @@ def build_overlay(
 
 
 def overlay_hash(overlay: dict[str, Any]) -> str:
-    # Permission maps are ordered policy: OpenCode applies the last matching
-    # rule.  Sorting keys would make behaviorally different overlays share a
-    # digest, so preserve the insertion order used for dispatch.
-    payload = json.dumps(overlay, separators=(",", ":"))
+    payload = json.dumps(overlay, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
