@@ -32,8 +32,10 @@ dependent-session/zero-normal-claim start gate.
 
 Only `backup_name`, `backup_uid`, and `drain_boundary_utc` are just-in-time in
 v1. Their definitions are required, source-specific, anchored, and each value
-has an in-window observation, immutable evidence reference, and receipt bound
-before the exact activation step. A JIT value cannot select a commit, operation, path, command,
+has an in-window observation, immutable evidence reference, and receipt. A
+binding may be absent before its declared step, is mandatory at that step, and
+remains mandatory for every later step; observations can never be later than
+the activation evaluation. A JIT value cannot select a commit, operation, path, command,
 review, actor, authority, image, schema, or rollback policy.
 
 Recovery records remain separate. `observation` and `requested-command` may be

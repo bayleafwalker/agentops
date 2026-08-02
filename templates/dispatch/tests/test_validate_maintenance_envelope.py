@@ -6,6 +6,7 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -20,6 +21,65 @@ SPEC = importlib.util.spec_from_file_location("maintenance_envelope_validator", 
 assert SPEC and SPEC.loader
 VALIDATOR = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(VALIDATOR)
+
+
+def schema_accepts(schema: dict, instance, root: dict) -> bool:
+    """Evaluate the dependency-free Draft 2020-12 subset used by this schema."""
+    if "$ref" in schema:
+        target = root
+        for part in schema["$ref"].removeprefix("#/").split("/"):
+            target = target[part]
+        return schema_accepts(target, instance, root)
+    if "const" in schema and instance != schema["const"]:
+        return False
+    if "enum" in schema and instance not in schema["enum"]:
+        return False
+    if "oneOf" in schema and sum(schema_accepts(item, instance, root) for item in schema["oneOf"]) != 1:
+        return False
+    if "allOf" in schema and not all(schema_accepts(item, instance, root) for item in schema["allOf"]):
+        return False
+    expected = schema.get("type")
+    type_matches = {
+        "object": isinstance(instance, dict),
+        "array": isinstance(instance, list),
+        "string": isinstance(instance, str),
+        "integer": isinstance(instance, int) and not isinstance(instance, bool),
+    }
+    if expected in type_matches and not type_matches[expected]:
+        return False
+    if isinstance(instance, str):
+        if len(instance) < schema.get("minLength", 0) or len(instance) > schema.get("maxLength", sys.maxsize):
+            return False
+        if "pattern" in schema and re.search(schema["pattern"], instance) is None:
+            return False
+    if isinstance(instance, dict):
+        if any(field not in instance for field in schema.get("required", [])):
+            return False
+        properties = schema.get("properties", {})
+        if schema.get("additionalProperties") is False and any(field not in properties for field in instance):
+            return False
+        if any(field in instance and not schema_accepts(child, instance[field], root) for field, child in properties.items()):
+            return False
+    if isinstance(instance, list):
+        if len(instance) < schema.get("minItems", 0) or len(instance) > schema.get("maxItems", sys.maxsize):
+            return False
+        if schema.get("uniqueItems") and len({json.dumps(item, sort_keys=True) for item in instance}) != len(instance):
+            return False
+        prefixes = schema.get("prefixItems", [])
+        if any(not schema_accepts(child, instance[index], root) for index, child in enumerate(prefixes) if index < len(instance)):
+            return False
+        items = schema.get("items")
+        if items is False and len(instance) > len(prefixes):
+            return False
+        if isinstance(items, dict) and any(not schema_accepts(items, item, root) for item in instance[len(prefixes):]):
+            return False
+        if "contains" in schema:
+            count = sum(schema_accepts(schema["contains"], item, root) for item in instance)
+            if count < schema.get("minContains", 1) or count > schema.get("maxContains", sys.maxsize):
+                return False
+    if isinstance(instance, int) and instance < schema.get("minimum", instance):
+        return False
+    return True
 
 
 class MaintenanceEnvelopeValidatorTests(unittest.TestCase):
@@ -95,7 +155,56 @@ class MaintenanceEnvelopeValidatorTests(unittest.TestCase):
         self.assert_invalid(lambda e: e["jit_fields"].pop(), "exactly")
         self.assert_invalid(lambda e: e["jit_bindings"][0].__setitem__("value", "wrong"), "frozen JIT pattern")
         self.assert_invalid(lambda e: e["jit_bindings"][0].__setitem__("observed_at", "2026-08-02T20:01:00Z"), "after activation")
-        self.assert_invalid(lambda e: e["jit_bindings"].pop(), "bind exactly")
+        self.assert_invalid(lambda e: e["jit_bindings"].pop(), "must bind drain_boundary_utc")
+
+    def test_jit_bindings_are_sequence_aware(self) -> None:
+        before = copy.deepcopy(self.envelope)
+        before["jit_bindings"] = []
+        VALIDATOR.validate_envelope(
+            before,
+            self.path,
+            evaluation_time=self.evaluation_time,
+            evaluation_step_id="create-backup",
+        )
+        VALIDATOR.validate_envelope(
+            self.envelope,
+            self.path,
+            evaluation_time=self.evaluation_time,
+            evaluation_step_id="attest-backup",
+        )
+        after = copy.deepcopy(self.envelope)
+        after["steps"].append({
+            **copy.deepcopy(after["steps"][1]),
+            "id": "begin-migration",
+            "sequence": 3,
+            "base_commit": "b" * 40,
+            "commit": "c" * 40,
+            "depends_on": ["attest-backup"],
+            "phase": "migration",
+        })
+        VALIDATOR.validate_envelope(
+            after,
+            self.path,
+            evaluation_time=self.evaluation_time,
+            evaluation_step_id="begin-migration",
+        )
+
+    def test_schema_acceptance_matches_adversarial_validator_shapes(self) -> None:
+        self.assertTrue(schema_accepts(self.schema, self.envelope, self.schema))
+        mutations = []
+
+        def duplicate_jit(envelope) -> None:
+            envelope["jit_bindings"][1]["name"] = "backup_name"
+
+        mutations.append(duplicate_jit)
+        mutations.append(lambda envelope: envelope["command_registry"][0]["argv"].append("; reboot"))
+        mutations.append(lambda envelope: envelope["operator"]["decision_ref"].update(kind="git-commit", revision="sha256:" + "1" * 64))
+        mutations.append(lambda envelope: envelope["abort"]["forbidden"].pop())
+        for mutation in mutations:
+            with self.subTest(mutation=mutation):
+                candidate = copy.deepcopy(self.envelope)
+                mutation(candidate)
+                self.assertFalse(schema_accepts(self.schema, candidate, self.schema))
 
     def test_plan_one_requires_evidenced_zero_sessions_and_claims(self) -> None:
         self.assert_invalid(lambda e: e["start_gate"].__setitem__("plan", "plan-2"), "plan-1")

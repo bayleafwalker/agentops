@@ -271,7 +271,7 @@ def validate_envelope(
     if jit_names != JIT_NAMES:
         raise _fail(path, "jit_fields", f"must contain exactly {sorted(JIT_NAMES)}")
 
-    bindings = _array(envelope["jit_bindings"], "jit_bindings", path, non_empty=True)
+    bindings = _array(envelope["jit_bindings"], "jit_bindings", path)
     bound_names: set[str] = set()
     for index, raw in enumerate(bindings):
         field = f"jit_bindings[{index}]"
@@ -290,9 +290,6 @@ def validate_envelope(
         _immutable_ref(binding["evidence_ref"], f"{field}.evidence_ref", path, kinds={"verification-result", "artifact"})
         _immutable_ref(binding["receipt_ref"], f"{field}.receipt_ref", path, kinds={"artifact"})
         bound_names.add(name)
-    if bound_names != JIT_NAMES:
-        raise _fail(path, "jit_bindings", f"must bind exactly {sorted(JIT_NAMES)}")
-
     start = _object(envelope["start_gate"], "start_gate", path, {"plan", "dependent_implementation_sessions", "active_normal_claims"})
     if start["plan"] != "plan-1":
         raise _fail(path, "start_gate.plan", "must be plan-1")
@@ -369,9 +366,15 @@ def validate_envelope(
     if evaluation_step_id is not None:
         if evaluation_step_id not in step_ids:
             raise _fail(path, "activation.step", "must name an exact step")
+        evaluation_sequence = step_ids.index(evaluation_step_id) + 1
         for name, definition in jit_definitions.items():
-            if definition["bind_before_step"] != evaluation_step_id:
-                raise _fail(path, f"jit_fields.{name}.bind_before_step", "must equal the activation evaluation step")
+            binding_sequence = step_ids.index(definition["bind_before_step"]) + 1
+            if evaluation_sequence >= binding_sequence and name not in bound_names:
+                raise _fail(
+                    path,
+                    "jit_bindings",
+                    f"must bind {name} at and after step {definition['bind_before_step']}",
+                )
 
     abort = _object(envelope["abort"], "abort", path, {"before_migration", "after_migration", "forbidden"})
     if abort["before_migration"] != "restore-reviewed-pre-migration-state":

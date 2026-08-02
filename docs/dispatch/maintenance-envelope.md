@@ -42,7 +42,9 @@ window, abort policy, and audit requirements are immutable before activation.
 Only the unique backup name, live backup UID, and drain boundary timestamp may
 be bound just in time. Each has a bounded source-specific pattern, in-window
 observed value, immutable source evidence, binding receipt, and an exact step
-before which activation validation must complete. Each step also carries its
+at which activation validation first requires it. Earlier steps may omit the
+binding; that step and every later step must retain the validated binding, and
+no observation may postdate evaluation. Each step also carries its
 independent review, executable verification, and publication receipt.
 
 ## Abort and reconciliation
