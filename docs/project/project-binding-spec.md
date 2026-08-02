@@ -42,6 +42,26 @@ These hold across every item downstream of this spec, not just this one:
   output committed into member repos. There is no project database, no project_id column in
   sprintctl, no runtime service that "knows" about projects.
 
+## Project definition versus materialization instance (implemented clarification, 2026-08-02)
+
+This specification's **project** remains the logical, source-controlled binding: it describes
+members, a home repository, shared guidance, and backlog projection. It is not a writable
+workspace. A generated project folder is instead a **materialization instance** of one project
+binding for a local session. One logical project can have zero, one, or many instances; an
+instance carries no independent project, sprint, queue, deployment, or runtime authority.
+
+This clarification is implemented by the v2 materializer foundation documented
+in [`project-folder.md`](project-folder.md): distinct instance modes and branch
+identities, local leases, context provenance, and checked destruction. It is not
+a claim of distributed workspace authority or filesystem-enforced read-only
+access. Writable instances are derived and ephemeral, but destroyable only
+after clean-state verification—not inherently “disposable.”
+
+`/projects/dev/<repo>` may be called a local anchor checkout: it is the host-local source of Git
+objects and worktree registration. It is not a portable Git authority. Execution and dispatch
+contracts identify repository, immutable commit SHA, and their execution envelope, rather than
+assuming arbitrary state in an anchor checkout or materialized member worktree.
+
 ## Terminology collision
 
 actionq-dispatcher's own config (`config.py`) already uses `project` to mean *a single
@@ -82,6 +102,8 @@ Per-member fields:
 | `repo_id` | string | Matches the repo's sprintctl `repo_id` and `*.dispatch.json` `repo_id`. |
 | `backlog` | bool | Include this repo in `--project` union views (sprintctl-project-union). |
 | `render` | enum: `full` \| `baseline` \| `none` | Instruction distribution level (§4). |
+| `relationship` | enum, optional | Descriptive relationship: `implementation`, `planning-authority`, `execution-authority`, `deployment-owner`, `governance`, `tooling`, or `reference`. Defaults to `implementation`; never grants authority. |
+| `access` | enum, optional | Materialization boundary: `write` or `reference`. Defaults to `write`. `reference` uses a detached, filesystem-read-only worktree and receives no render writes. |
 | `path_notes` | array of strings, optional | Free-text agent guidance for this specific binding. Read directly from `project.toml`, never rendered into a file. |
 
 `schema_version` and the `repo_id` pattern (`^[A-Za-z0-9._-]+$`) reuse
@@ -163,7 +185,9 @@ What makes a project "in-place" is where `project.toml` lives:
 
 The implemented setup/sync layout and its safe Git behavior are documented in
 [`project-folder.md`](project-folder.md). The folder contains derived worktrees
-and resolved context only; it never becomes another copy of project truth.
+and resolved context only; it never becomes another copy of project truth. The
+v2 implementation supports multiple identified local instances while retaining
+the owning repositories and tools as the only authorities.
 
 `project.toml`'s canonical location is *always* the home repo's root — in-place and multi-repo
 projects differ only in whether a project folder additionally exists, never in where the source
@@ -294,7 +318,7 @@ this specification's references to one. The new canonical skill therefore
 preserves the intended escalation name and boundary, but it does not claim a
 mechanical predecessor or an implicit file mapping that cannot be verified.
 
-## 5. Precedence
+## 5. Render order and semantic precedence
 
 Exactly one rule, stated once, here: **project baseline, then repo-specific override,
 concatenated in that order into one file at render time.** There is no runtime resolution —
@@ -302,6 +326,15 @@ by the time an agent reads `.agents/project.generated.md`, precedence has alread
 into the linear order of the text. Agents never choose between baseline and override; they read
 one file, top to bottom, where later text (the override) is the more specific, more current
 statement for that repo.
+
+That is a textual render-order rule, not a general semantic authorization merge. For an active
+materialization instance, the operating policy is: safety and authority restrictions use the
+most restrictive applicable rule; repository ownership remains authoritative; shared terminology
+is additive; commands and local paths use the nearest applicable scope; active project-binding
+metadata wins; and secrets or credentials are never aggregated from member repositories. Free-form
+Markdown cannot automatically prove semantic conflict resolution, so context provenance must be
+inspectable and automated authority merging is out of scope until relevant declarations are
+structured.
 
 ## 6. Worked case: aligned-equity
 

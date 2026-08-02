@@ -10,6 +10,8 @@ home_repo = "agentops"
 repo_id = "agentops"
 backlog = true
 render = "none"
+relationship = "governance"
+access = "write"
 path_notes = [
   "Home repo: hosts sprintctl backlog #380 and project render sources.",
   "The agent-cockpit operator UI is apps/web in this repository, not a separate member.",
@@ -19,6 +21,8 @@ path_notes = [
 repo_id = "vuoro"
 backlog = true
 render = "full"
+relationship = "implementation"
+access = "write"
 path_notes = [
   "Public runtime repository: owns the transport-only client and modular service shell.",
   "Appservice remains the private deployment authority for development and production overlays.",
@@ -28,16 +32,22 @@ path_notes = [
 repo_id = "sprintctl"
 backlog = true
 render = "full"
+relationship = "planning-authority"
+access = "write"
 
 [[members]]
 repo_id = "kctl"
 backlog = true
 render = "full"
+relationship = "tooling"
+access = "write"
 
 [[members]]
 repo_id = "auditctl"
 backlog = true
 render = "full"
+relationship = "tooling"
+access = "write"
 path_notes = [
   "Owns the repo-local audit index, durable NDJSON evidence shards, and rebuild semantics.",
 ]
@@ -46,6 +56,8 @@ path_notes = [
 repo_id = "actionq"
 backlog = true
 render = "full"
+relationship = "execution-authority"
+access = "write"
 path_notes = [
   "Owns ActionQ queue claims, receipts, worktree preparation, policy enforcement, harness invocation, and Sprintctl claim coordination.",
 ]
@@ -54,6 +66,8 @@ path_notes = [
 repo_id = "actionq-dispatcher"
 backlog = true
 render = "none"
+relationship = "tooling"
+access = "reference"
 path_notes = [
   "Compatibility launcher for the historical dispatcher-once command. It is a peer for served Sprintctl identity and project visibility, while ActionQ retains queue, worker, and settlement authority.",
 ]
