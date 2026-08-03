@@ -171,12 +171,17 @@ class ListNotesTests(unittest.TestCase):
 
 
 class ResolveLatestMultiTests(unittest.TestCase):
+    """resolve_latest_multi takes bare artifact roots (no caller-supplied labels):
+    each note is already self-describing via its own repo.project field, so the
+    reported repo attribution is derived from the winning note, not from the caller.
+    """
+
     def test_picks_newest_across_two_repos(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_a, tempfile.TemporaryDirectory() as tmp_b:
             root_a, root_b = Path(tmp_a), Path(tmp_b)
             _write_note(root_a, _make_note(NOTE_A, "2026-07-23T14:00:00Z", repo="agentops"))
             _write_note(root_b, _make_note(NOTE_B, "2026-07-23T18:00:00Z", repo="vuoro"))
-            result = NOTES.resolve_latest_multi([("agentops", root_a), ("vuoro", root_b)])
+            result = NOTES.resolve_latest_multi([root_a, root_b])
             self.assertEqual(result["note"]["note_id"], NOTE_B)
             self.assertEqual(result["repo"], "vuoro")
 
@@ -185,19 +190,19 @@ class ResolveLatestMultiTests(unittest.TestCase):
             root_a, root_b = Path(tmp_a), Path(tmp_b)
             _write_note(root_a, _make_note(NOTE_A, "2026-07-23T18:00:00Z", repo="agentops"))
             _write_note(root_b, _make_note(NOTE_B, "2026-07-23T14:00:00Z", repo="vuoro"))
-            result = NOTES.resolve_latest_multi([("agentops", root_a), ("vuoro", root_b)])
+            result = NOTES.resolve_latest_multi([root_a, root_b])
             self.assertEqual(result["repo"], "agentops")
 
     def test_empty_repo_root_among_roots_is_skipped_not_fatal(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_a, tempfile.TemporaryDirectory() as tmp_b:
             root_a, root_b = Path(tmp_a), Path(tmp_b)
             _write_note(root_b, _make_note(NOTE_B, "2026-07-23T14:00:00Z", repo="vuoro"))
-            result = NOTES.resolve_latest_multi([("agentops", root_a), ("vuoro", root_b)])
+            result = NOTES.resolve_latest_multi([root_a, root_b])
             self.assertEqual(result["repo"], "vuoro")
 
     def test_no_notes_anywhere_resolves_to_none(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_a, tempfile.TemporaryDirectory() as tmp_b:
-            result = NOTES.resolve_latest_multi([("agentops", Path(tmp_a)), ("vuoro", Path(tmp_b))])
+            result = NOTES.resolve_latest_multi([Path(tmp_a), Path(tmp_b)])
             self.assertIsNone(result)
 
 

@@ -207,6 +207,16 @@ for:
 silent divergence. When the mechanism degrades, the metrics show a growing
 but observable queue, never a quietly wrong sprint record.
 
+**Note-coverage metric (added with #1280):** `session-note/v1` is
+Tier-1-adjacent **cooperative semantic exhaust** — distinct from Tier-0's
+no-cooperation rule above, and never a substitute for it. Add note coverage
+to this metric family: the percentage of ended sessions with an associated
+`session-note/v1` (once real capsules flow via #1174); until then, the proxy
+is notes written per week per repo. A decaying ratio is the designed signal
+that skill-level recording is failing and #1281's hook-wiring/mechanism layer
+should be prioritized. See
+`docs/plans/agentops/session-note-contract-plan.md`.
+
 ## Cockpit surfaces
 
 **Implemented (items #1109 and #1173):** `apps/web/lib/cockpit/reconciliation.js`

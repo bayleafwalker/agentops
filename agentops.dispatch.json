@@ -24,7 +24,8 @@
       "item-done",
       "model-routing-optimizer",
       "workflow-artifact-capture",
-      "reconcile-project-contracts"
+      "reconcile-project-contracts",
+      "session-handover"
     ]
   },
   "scope": {
