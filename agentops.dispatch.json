@@ -24,7 +24,8 @@
       "item-done",
       "model-routing-optimizer",
       "workflow-artifact-capture",
-      "reconcile-project-contracts"
+      "reconcile-project-contracts",
+      "session-handover"
     ]
   },
   "scope": {
@@ -49,7 +50,8 @@
     "worker_routes": ["mechanical_bulk"],
     "commands": {
       "agentops.dispatch.tests": "python -m unittest discover -s templates/dispatch/tests",
-      "agentops.hybrid.validate": "python templates/dispatch/scripts/validate_hybrid_dispatch.py --agentops-root . --manifest agentops.dispatch.json"
+      "agentops.hybrid.validate": "python templates/dispatch/scripts/validate_hybrid_dispatch.py --agentops-root . --manifest agentops.dispatch.json",
+      "agentops.session-notes.tests": "python -m unittest discover -s templates/dispatch/tests -p test_session_notes.py"
     },
     "protected_paths": [
       "templates/dispatch/hybrid/**",

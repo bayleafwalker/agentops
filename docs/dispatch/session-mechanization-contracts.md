@@ -156,10 +156,13 @@ document defines only the two contracts above.
 ## session-note/v1
 
 Agent-authored semantic handover/summary/outcome note, the cooperative
-counterpart to `session-capsule/v1`'s no-cooperation mechanical exhaust. Only
-the contract, matrix row, and validator discovery ship with #1213; writer/
-reader tooling and the session-handover skill are #1214, hook wiring and
-coverage automation are #1215.
+counterpart to `session-capsule/v1`'s no-cooperation mechanical exhaust. The
+contract, matrix row, and validator discovery shipped with #1213. **Writer/
+reader tooling and the session-handover skill shipped with #1280** (tracked
+as #1214 in the original plan numbering) —
+`templates/dispatch/scripts/session_notes.py` and
+`templates/dispatch/skills/session-handover/SKILL.md`. Hook wiring and
+coverage automation remain #1281 (#1215 in the original plan numbering).
 
 | Field | Rule |
 |---|---|
