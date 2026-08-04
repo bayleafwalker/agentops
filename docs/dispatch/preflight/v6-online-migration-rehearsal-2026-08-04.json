@@ -1,0 +1,110 @@
+{
+  "schema_version": "vuoro-online-migration-rehearsal/v1",
+  "observed_at": "2026-08-04T19:00:00Z",
+  "host": "workstation",
+  "phase": "plan-1-step-4-rehearsal",
+  "purpose": "Prove migrations 004-006 can run against a live serving runtime, or find the reason they cannot, before any production migration.",
+  "production_touched": false,
+  "verdict": "PASS - online migration is supported by measurement, subject to the stated conditions and limitations",
+  "environment": {
+    "kind": "disposable production-shaped clone",
+    "postgres": "16.14",
+    "database": "sprintctl_test_exec",
+    "parity_method": "pg_dump of the live execution schema (structure, ownership, grants) plus the live data, restored into the clone; roles vuoro_execution_migration and vuoro_execution_runtime recreated",
+    "pre_state": {
+      "ledger": [1, 2, 3],
+      "actions_rows": 6,
+      "execution_tables": 4,
+      "status_constraint": "old form, without 'cancelling' - confirming the clone was genuinely at v3",
+      "checksums_match_production": true
+    },
+    "session_limits_applied": "lock_timeout=5s, statement_timeout=300s on vuoro_execution_migration, matching the production guardrail"
+  },
+  "artifacts": {
+    "migration_image": "192.168.20.221:5000/actionq-server:0.1.14-dd41a98",
+    "migration_image_digest": "sha256:4877eb4ac9789d2e5f68abe220f926a4dadf625126502f6c099f3ccd728ff469",
+    "digest_matches_job_pin": true,
+    "candidate_image": "ghcr.io/bayleafwalker/vuoro-service@sha256:d23387480772a4d6b41f8fdf1c1d0f43a985a1087f76f4c4e80cc4325c53060e",
+    "candidate_actionq_version": "0.1.16"
+  },
+  "required_questions": {
+    "maximum_observed_blocking_time": {
+      "answer": "115.7 ms",
+      "method": "1900 samples of SELECT count(*) FROM execution.actions on a pooled connection, ~20 ms apart, spanning the migration",
+      "baseline_median_ms": 0.35,
+      "baseline_p99_ms": 2.89,
+      "max_ms": 115.7,
+      "max_sample_inside_migration_window": true,
+      "read_errors": 0,
+      "note": "The outlier is two orders of magnitude above p99 and falls inside the migration window, so it is the lock hold, not noise. Measured on a 6-row / 96 kB table, which is exactly the production size."
+    },
+    "does_readiness_touch_locked_execution_tables": {
+      "answer": "No",
+      "evidence": "/health/ready returns settings.compatibility_state, an in-memory value; it issues no query. Source: vuoro_service/app.py.",
+      "consequence": "A lock on execution.actions cannot fail readiness or remove the pod from the Service."
+    },
+    "could_liveness_restart_the_pod_mid_migration": {
+      "answer": "No",
+      "evidence": "/health/live returns a static {'status': 'live'}; it issues no query.",
+      "consequence": "This removes the most dangerous online failure mode -- a probe-induced restart while the migration transaction is open."
+    },
+    "does_an_existing_connection_survive_the_commit": {
+      "answer": "Yes",
+      "evidence": "A connection opened against schema 3 before the migration read 6 rows before the commit and 6 rows after, with no error and no reconnect."
+    },
+    "does_a_fresh_connection_recognise_schema_6": {
+      "answer": "Yes, including on the version that is actually deployed",
+      "actionq_0_1_14": "state=compatible, observed_schema_version=6, rc=0",
+      "actionq_0_1_16_deployed": "state=compatible, observed_schema_version=6, compatible=true",
+      "note": "Testing 0.1.16 matters more than 0.1.14: 0.1.16 is what production runs, and it is what must start cleanly at schema 6."
+    }
+  },
+  "migration_results": {
+    "applied_versions": [4, 5, 6],
+    "retry_applied_versions": [],
+    "idempotent": true,
+    "post_ledger": [1, 2, 3, 4, 5, 6],
+    "post_checksums_match_job_assertions": true,
+    "wall_clock_including_container_start_s": 0.964,
+    "runtime_privileges_on_new_tables": {
+      "execution_groups": "SELECT, INSERT, UPDATE",
+      "execution_group_members": "SELECT, INSERT",
+      "immutable_action_specs": "SELECT, INSERT",
+      "immutable_action_requests": "SELECT, INSERT",
+      "immutable_action_runtime_grants": "SELECT, INSERT",
+      "note": "Granted explicitly by _grant_runtime_privileges inside the migration transaction, not inherited from ALTER DEFAULT PRIVILEGES. The absence of DELETE on the immutable tables is by design."
+    },
+    "runtime_ddl_denied": true
+  },
+  "findings": [
+    {
+      "finding": "Readiness is a startup snapshot, so serving continuity across the migration is guaranteed by construction and is NOT evidence that the runtime works at schema 6.",
+      "detail": "create_composed_app performs the compatibility check once and then hardcodes compatibility_state='compatible' into ServiceSettings. It is never re-evaluated. The pod will keep reporting ready regardless of the post-migration schema.",
+      "consequence": "The cold-start proof -- a same-digest rolling restart after the migration -- is not optional polish. It is the only step that proves a fresh process can start at schema 6. Until it passes, a node eviction or crash could leave the service unable to start.",
+      "severity": "important"
+    },
+    {
+      "finding": "The ACCESS EXCLUSIVE lock is held for the whole migration transaction, not just the ALTER.",
+      "detail": "actionq.schema.migrate wraps 004, 005, 006, the runtime grants and the final compatibility check in a single conn.transaction() under pg_advisory_xact_lock.",
+      "consequence": "Measure transaction duration, not statement duration. The 115.7 ms figure is the transaction-scoped hold as experienced by a reader."
+    }
+  ],
+  "limitations": [
+    "Only concurrent READERS were exercised. A concurrent writer takes RowExclusiveLock, which conflicts with ACCESS EXCLUSIVE identically, so it would block and then proceed the same way -- but this was not measured directly. The producer fence means no execution writes should be in flight regardless.",
+    "The clone carried production's data volume, which is small (6 rows). The 115.7 ms figure does not generalise to a large actions table; re-measure if the table grows.",
+    "The full four-domain composition was not exercised against the clone, which holds only the execution schema. Full composition against the live post-bridge database was already proven separately in #2080-B."
+  ],
+  "conditions_for_production": [
+    "lock_timeout must be present on vuoro_execution_migration (asserted by the pre-migrate-online preflight phase).",
+    "Producer fence established and held until post-migration verification and E2E pass.",
+    "Zero claimed/cancelling actions and no stale execution-role transaction at the moment of migration.",
+    "Cold-start proof by same-digest rolling restart is mandatory after the migration."
+  ],
+  "process_note": "The first rehearsal attempt produced no usable data: the observer window closed before the migration started, so the two never overlapped. It was discarded, the clone was reset to exact v3, and the run was repeated with both inside a single invocation so overlap was guaranteed. Only the second run is reported here.",
+  "cleanup": "Disposable clone destroyed; no test containers remain.",
+  "basis_revisions": {
+    "appservice": "3b1a286c0fb55d6aaf3711c9b67470b63e1bac41",
+    "runbook": "docs/runbooks/vuoro-execution-v6-maintenance.md at 6bdfe5e6"
+  },
+  "next": "Independent review of this rehearsal and the online plan, then the staged online migration. Production remains work 5 + bridge, execution 3, service serving, migrate-v6 suspended with sentinels intact."
+}
