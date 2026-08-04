@@ -1,0 +1,220 @@
+{
+  "schema_version": "vuoro-pre-appservice-preflight/v2",
+  "observed_at": "2026-08-04T06:15:56Z",
+  "host": "workstation",
+  "phase": "2080-A",
+  "phase_scope": "stage and verify schema-5 maintenance bridge only",
+  "supersedes_observation": {
+    "receipt": "pre-2080-preflight-2026-08-03.json",
+    "sha256": "86ead0f2b38eb18a1655a0d5ff5c3194ab8da35ae5a2ccdc97c43e28c40ee2b9",
+    "result": "FAIL",
+    "relationship": "references, does not overwrite",
+    "note": "The earlier receipt remains byte-identical on disk. It is the evidence that the maintenance bridge was absent from production and that deploying the candidate against that state would have crashlooped. This receipt records the remediation of that single blocking finding; it does not retract or replace any other observation in it."
+  },
+  "filename_note": "The name carries the 2026-08-03 preflight-campaign date as specified in the #2080-A instruction. The work itself was executed 2026-08-04 UTC; all timestamps in this receipt are the true observation times.",
+  "candidate": {
+    "image": "ghcr.io/bayleafwalker/vuoro-service",
+    "digest": "sha256:d23387480772a4d6b41f8fdf1c1d0f43a985a1087f76f4c4e80cc4325c53060e",
+    "tag": "vuoro-service-v0.1.35",
+    "qualification_revision": "10cb208b6ee9b34e0158e68f14f831eb4d3ef3da",
+    "pinned_by": "index digest, not tag"
+  },
+  "gates": {
+    "operator_cli": "pass",
+    "authority_integrity": "pass",
+    "pre_activation_baseline": "pass",
+    "backup_rollback_position": "pass",
+    "bridge_stage_acceptance": "pass",
+    "runtime_continuity": "pass",
+    "candidate_composition_probe": "pass",
+    "clock_coherence": "pass"
+  },
+  "findings": {
+    "operator_cli": {
+      "version": "0.2.17",
+      "upgraded_from": "0.2.13",
+      "artifact_verified_independently": true,
+      "tag_commit": "c9725d39f6e2dc45b3c9934b43bfb2510d4b1e63",
+      "matches_handover_basis_revision": true,
+      "upgrade_was_inert": "authority-command-outbox.db byte-identical before and after (sha256 5a01f55593584bc4c4125a176befc724e1d7c3e4083512edb81d16ac698a5566)",
+      "resolves": "the operation_capability warn in the superseded receipt"
+    },
+    "authority_integrity": {
+      "host_repo": "appservice",
+      "authority_stream_id": "b06ecc59-5d16-448a-96dc-46306b1bb2c2",
+      "outbox_records": 4,
+      "record_sequences": [1, 2, 3, 4],
+      "contiguous": true,
+      "next_origin_seq": 5,
+      "dir_modes": "credentials 700, terminal-decisions 700",
+      "setgid_found": 0,
+      "quarantined_streams": "none in appservice",
+      "reconcile": "3 confirmed, 0 absent, 0 pending, 0 conflicts",
+      "unchanged_across_cli_upgrade": true
+    },
+    "pre_activation_baseline": {
+      "work_schema_version": 5,
+      "work_schema_version_rows": 1,
+      "work_maintenance_relations": 0,
+      "work_maintenance_trigger_functions": 0,
+      "execution_schema_version": 3,
+      "deployment_image": "sha256:9c1d0e53c47219153a1fbabf313484ce1db3f19bc20abd08d19061a53949ce73",
+      "deployment_ready": "1/1",
+      "restarts": 0,
+      "job_state_at_publication": "suspended, sentinels unreplaced, no pods"
+    },
+    "backup_rollback_position": {
+      "name": "vuoro-work5-pre-bridge-20260804084900",
+      "uid": "d9217e3d-a671-4ff9-9b92-6af703ada19c",
+      "phase": "completed",
+      "backup_id": "20260804T055028",
+      "started_at": "2026-08-04T05:50:28Z",
+      "stopped_at": "2026-08-04T05:50:48Z",
+      "cluster": "vuoro-postgres",
+      "method": "barmanObjectStore",
+      "distinct_from": "the Plan 1 post-drain backup, which must still be taken fresh after producer quiescence",
+      "prerequisite_incident": "cnpg_backup_outage"
+    },
+    "cnpg_backup_outage": {
+      "severity": "production incident, discovered and resolved during this phase",
+      "symptom": "every CNPG backup in vuoro-shared failed with 'dial tcp 172.17.0.1:443: i/o timeout' from the instance manager",
+      "failed_backups": [
+        "vuoro-shared-postgres-daily-20260803023500",
+        "vuoro-work5-pre-bridge-20260803185900",
+        "vuoro-shared-postgres-daily-20260804023500"
+      ],
+      "last_successful_before_fix": "vuoro-shared-postgres-daily-20260802023500",
+      "outage_window": "2026-08-02T17:47Z to 2026-08-04T05:50Z",
+      "cause": "appservice a66c6f42 removed vuoro-shared from the clusterwide allow-egress-kube-apiserver-nodes CCNP. That CCNP was the only policy granting the namespace host/remote-node egress. The namespace-local rules reach the API server solely via toCIDRSet 172.17.0.1/32 and toServices; Cilium performs socket-level ClusterIP translation before egress policy enforcement, so the verdict is taken against the control-plane node identity rather than the service CIDR, and those rules never match.",
+      "verification": "control probe -- two pods on the same node in the same namespace with the same image and ServiceAccount token, differing only in the label selecting which policy covers them. The pod covered by a toEntities rule reached the API server (Server Version v1.36.2); the pod covered only by CIDR rules timed out. Reproduced from k8s-worker-gpu-1 and k8s-worker-2, ruling out a node-local CNI fault.",
+      "fix": "appservice PR #1331 (d42d5e09) -- adds toEntities [host, remote-node] scoped to the CNPG cluster pods rather than re-granting the whole namespace, preserving the intent of a66c6f42; adds the same scoped pair for the bridge-staging Job.",
+      "confirmed_by": "vuoro-work5-pre-bridge-20260804084900 completed -- the first successful backup since 2026-08-02"
+    },
+    "bridge_stage_activation": {
+      "job": "vuoro-work-stage-maintenance-bridge-v1",
+      "namespace": "vuoro-shared",
+      "image": "sha256:d23387480772a4d6b41f8fdf1c1d0f43a985a1087f76f4c4e80cc4325c53060e",
+      "reused_existing_migration_job": false,
+      "baseline_publication": "appservice PR #1326 (a99238d8), inert: suspended, sentinels unreplaced, no pods",
+      "activation": "appservice PR #1334 (b8bb0c85), separate commit and separate activation",
+      "gate_correction": "appservice PR #1335 (95a8dc7f)",
+      "operation_activated": "sprintctl remote-schema stage-maintenance-bridge (migration credential) only",
+      "compatibility_check": "sprintctl remote-schema check (runtime credential)",
+      "first_attempt": {
+        "pod": "vuoro-work-stage-maintenance-bridge-v1-787hc",
+        "outcome": "failed closed at the backup-checkpoint init gate, before any database connection",
+        "error": "unable to read certificate-authority /var/run/secrets/bridge-backup-gate/ca.crt: permission denied",
+        "cause": "projected volume files are owned root:root; the pod runs as 1000:1000, so defaultMode 0440 matched only the 'other' bits. The token itself was readable because kubelet chowns projected serviceAccountToken files to the container's runAsUser; the configMap ca.crt source gets no such treatment.",
+        "database_state_after_failure": "work schema 5, 0 bridge relations -- unchanged",
+        "assessment": "the gate behaved as designed; it is not decorative"
+      },
+      "second_attempt": {
+        "pod": "vuoro-work-stage-maintenance-bridge-v1-w4qrr",
+        "outcome": "Completed",
+        "init_gate": "pre-bridge CNPG backup identity and completion verified",
+        "pre_stage_guard": {"work_schema": 5, "bridge_relations": 0}
+      }
+    },
+    "bridge_stage_acceptance": {
+      "work_schema_version_after": 5,
+      "schema_version_unchanged": true,
+      "maintenance_relations": [
+        "maintenance_capability",
+        "maintenance_capability_receipt",
+        "maintenance_capability_recovery",
+        "sprintctl_schema_capability"
+      ],
+      "relation_count": 4,
+      "catalog_fingerprint": "e2fbaeb38769a8d0c41ffd2a8e49dd98",
+      "catalog_fingerprint_matches_expected": true,
+      "trigger_function_schema": "work",
+      "trigger_function_fingerprint": "5d7ab6ecc35d3b82f5a2975ae7a672a739af36728cb61e7d4afb5c68d217b6f9",
+      "trigger_function_fingerprint_matches_expected": true,
+      "marker": {"capability": "maintenance-storage", "version": 1},
+      "available": true,
+      "complete": true,
+      "ledger_counts": {
+        "maintenance_capability": 0,
+        "maintenance_capability_receipt": 0,
+        "maintenance_capability_recovery": 0
+      },
+      "ledgers_empty": true,
+      "runtime_schema_usage": true,
+      "runtime_table_privileges": {
+        "maintenance_capability": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "maintenance_capability_receipt": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "maintenance_capability_recovery": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "sprintctl_schema_capability": ["SELECT"]
+      },
+      "runtime_function_execute": true,
+      "runtime_function_execute_note": "proven, not assumed. vuoro-schema-grants-v1 sets ALTER DEFAULT PRIVILEGES for TABLES and SEQUENCES only, never ON FUNCTIONS; EXECUTE on work.sprintctl_maintenance_evidence_immutable() arrives via PostgreSQL's default PUBLIC grant. Confirmed identically in the live pg_dump.",
+      "runtime_ddl_denied": true,
+      "runtime_ddl_denial_probe": "CREATE TABLE work.sprintctl_runtime_ddl_denial_probe as the runtime role, expecting psycopg.errors.InsufficientPrivilege",
+      "privileges_observed_as": "runtime role, deliberately -- not the migration role",
+      "compatibility_handshake": {
+        "compatible": true,
+        "reason": null,
+        "remote_schema": {"actual": 5, "minimum": 5, "maximum": 6},
+        "work_api_version": "sprintctl-work/v1"
+      }
+    },
+    "runtime_continuity": {
+      "deployment_image": "sha256:9c1d0e53c47219153a1fbabf313484ce1db3f19bc20abd08d19061a53949ce73",
+      "image_changed": false,
+      "pod": "vuoro-shared-7d6c69bcdd-6j4wl",
+      "pod_start_time": "2026-08-02T18:33:58Z",
+      "same_pod_throughout": true,
+      "restarts": 0,
+      "containers_ready": "2/2",
+      "service_endpoints": 1,
+      "uninterrupted": true
+    },
+    "candidate_composition_probe": {
+      "scope": "full composition, against the live post-bridge database",
+      "method": "one-shot Pod on the candidate digest, running vuoro_service.composition.create_composed_app() with the live Deployment's exact env, envFrom and identity volume",
+      "result": "ok",
+      "app_type": "FastAPI",
+      "isolation": "labelled app.kubernetes.io/name=vuoro-candidate-composition-probe so it could not join the vuoro-shared Service; endpoints verified to contain only the production pod. Pod deleted after the probe.",
+      "negative_control": "the same composition was reproduced failing against production-parity state without the bridge: CompositionError, compatible false, reason 'maintenance-storage-missing', exit 1",
+      "resolves": "the BLOCKING_FINDING in the superseded receipt"
+    },
+    "clock_coherence": {
+      "db_statement_timestamp": "2026-08-04T06:15:56.811415Z",
+      "workstation_utc": "2026-08-04T06:15:56.847Z",
+      "offset_ms": 36,
+      "threshold_ms": 2000,
+      "within_threshold": true
+    }
+  },
+  "stop_boundary_honoured": {
+    "vuoro_shared_deployment_image_changed": false,
+    "remote_schema_migrate_run": false,
+    "work_schema_advanced_to_6": false,
+    "execution_schema_advanced": false,
+    "execution_schema_version": 3,
+    "maintenance_capability_activated": false,
+    "producer_state_resumed_or_altered": false,
+    "plan_1_invoked": false
+  },
+  "rollback_position": {
+    "primary": "old image 9c1d0e53 plus the staged additive bridge",
+    "rationale": "the bridge is additive and the old runtime is proven healthy against it, so the staged bridge is not itself a rollback trigger",
+    "policy": "if a later candidate check fails, do NOT drop the bridge -- leave it staged, keep the old image, do not begin rollout, investigate from preserved state",
+    "hard_rollback_backup": "vuoro-work5-pre-bridge-20260804084900 (uid d9217e3d-a671-4ff9-9b92-6af703ada19c)",
+    "cleanup_precondition": "all bridge tables empty; never improvise manual DROP statements"
+  },
+  "open_items_flagged_not_actioned": [
+    {
+      "item": "vuoro-execution-migrate-v6.yaml carries two independent latent defects: its CNP grants API egress via toCIDRSet/toServices with no toEntities, and its projected volume uses defaultMode 0440. Its Job has never run, so neither has been exercised. Its backup gate cannot pass in its current form.",
+      "scope": "outside #2080-A; left unchanged"
+    }
+  ],
+  "basis_revisions": {
+    "sprintctl": "c9725d39f6e2dc45b3c9934b43bfb2510d4b1e63",
+    "vuoro": "10cb208b6ee9b34e0158e68f14f831eb4d3ef3da",
+    "appservice_at_publication": "95a8dc7f636af92e592d7426e4d91f46f19caf3d"
+  },
+  "volatile_observations_expire_at": "2026-08-04T12:15:56Z",
+  "result": "PASS",
+  "next_phase": "2080-B -- roll d23387480772a4d6b41f8fdf1c1d0f43a985a1087f76f4c4e80cc4325c53060e against schema 5 plus bridge. Not started. Requires separate authorization."
+}
