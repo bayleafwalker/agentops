@@ -1,0 +1,183 @@
+{
+  "schema_version": "vuoro-candidate-roll-receipt/v1",
+  "observed_at": "2026-08-04T10:52:09Z",
+  "host": "workstation",
+  "phase": "2080-B",
+  "phase_scope": "roll both vuoro-shared containers to the v0.1.35 candidate against schema 5 plus bridge; stop before any migration",
+  "builds_on": {
+    "receipt": "pre-2080-preflight-v2-bridge-staged-2026-08-03.json",
+    "sha256": "fe9d9851628c1f599cc8ac52dbad4f55fa2709db52b81ec5e455f83f11793c62",
+    "ref": "appservice#2080 ref #657",
+    "result": "PASS"
+  },
+  "candidate": {
+    "image": "ghcr.io/bayleafwalker/vuoro-service",
+    "digest": "sha256:d23387480772a4d6b41f8fdf1c1d0f43a985a1087f76f4c4e80cc4325c53060e",
+    "tag": "vuoro-service-v0.1.35",
+    "qualification_revision": "10cb208b6ee9b34e0158e68f14f831eb4d3ef3da"
+  },
+  "rollback_digest": {
+    "digest": "sha256:9c1d0e53c47219153a1fbabf313484ce1db3f19bc20abd08d19061a53949ce73",
+    "still_pullable": true,
+    "verified_by": "one-shot pod pull in vuoro-shared"
+  },
+  "gates": {
+    "repository_identity": "pass",
+    "volatile_preflight": "pass",
+    "digest_applied": "pass",
+    "rollout_continuity": "pass",
+    "no_composition_error": "pass",
+    "no_startup_ddl": "pass",
+    "bridge_intact": "pass",
+    "runtime_ddl_denied": "pass",
+    "blast_radius": "pass",
+    "clock_coherence": "pass"
+  },
+  "findings": {
+    "repository_identity": {
+      "marker_commit": "7afa6bfd143db563daa95ae2d01cd86c91a0ba69",
+      "marker_pr": "appservice #1337",
+      "resolution": "repo=appservice source=marker backend=served target=https://vuoro-shared.apps.kotona.app",
+      "override_flags_used": "none",
+      "ref_657_verified_through_marker_path": true,
+      "provenance_note": "appservice#2080 note #2322 (decision), the first marker-corroborated write against appservice",
+      "negative_controls": [
+        "from the appservice checkout, ordinary served access resolves appservice with no override flags (source=marker)",
+        "from the marked sprintctl repository, --repo-id appservice is rejected: 'repo scope mismatch: flag repo_id=appservice but repo marker requires sprintctl'; adding --allow-markerless-nonlocal does not override it"
+      ],
+      "carve_out_created": false,
+      "operational_note": "appservice .envrc scrubs the environment for cluster tooling, so SPRINTCTL_BACKEND is unset inside 'direnv exec'. With the marker committed that now resolves invalid (env=local vs marker=served) and fails closed rather than being bypassable. Sprintctl for appservice runs from the plain shell; direnv remains for kubectl and talos context only."
+    },
+    "volatile_preflight": {
+      "authority_stream_id": "b06ecc59-5d16-448a-96dc-46306b1bb2c2",
+      "outbox_records": 4,
+      "record_sequences": [1, 2, 3, 4],
+      "next_origin_seq": 5,
+      "reconcile": "3 confirmed, 0 absent, 0 pending, 0 conflicts",
+      "active_claims_on_2080": 0,
+      "work_schema_before": 5,
+      "bridge_relations_before": 4,
+      "marker_before": "maintenance-storage v1",
+      "ledgers_before": "all empty",
+      "execution_schema_before": 3,
+      "old_pod_before": "vuoro-shared-7d6c69bcdd-6j4wl, started 2026-08-02T18:33:58Z, 0 restarts, 2/2 ready",
+      "candidate_composition_probe": "ok, imageID resolved to the candidate digest -- proving the cluster can pull it",
+      "clock_offset_ms": 51
+    },
+    "digest_applied": {
+      "gitops_commit": "f03a48e2432b7a1eaf2881220fca35c565a3cd8a",
+      "pr": "appservice #1338",
+      "flux_applied_revision": "main@sha1:f03a48e2432b7a1eaf2881220fca35c565a3cd8a",
+      "containers_updated": ["service", "actionq-db-proxy"],
+      "both_containers_on_candidate": true,
+      "observed_image_ids": {
+        "service": "ghcr.io/bayleafwalker/vuoro-service@sha256:d23387480772a4d6b41f8fdf1c1d0f43a985a1087f76f4c4e80cc4325c53060e",
+        "actionq-db-proxy": "ghcr.io/bayleafwalker/vuoro-service@sha256:d23387480772a4d6b41f8fdf1c1d0f43a985a1087f76f4c4e80cc4325c53060e"
+      },
+      "old_digest_references_remaining_in_vuoro_shared": 0
+    },
+    "rollout_continuity": {
+      "new_pod": "vuoro-shared-585648ff76-qjsr7",
+      "new_pod_start": "2026-08-04T10:40:21Z",
+      "ready": "2/2",
+      "restarts": 0,
+      "strategy": "default RollingUpdate; at replicas=1 Kubernetes floors maxUnavailable to 0 and ceils maxSurge to 1",
+      "endpointslice_observation": {
+        "method": "2-second polling of EndpointSlice ready conditions across the entire rollout",
+        "samples": 240,
+        "transition_sequence": [
+          "15 samples: 172.16.2.197=true (old alone)",
+          "5 samples: 172.16.2.197=true 172.16.2.73=false (new surged, not yet ready)",
+          "14 samples: 172.16.2.197=false 172.16.2.73=true (old draining, new serving)",
+          "100 samples: 172.16.2.73=true (new alone)"
+        ],
+        "min_ready_endpoints": 1,
+        "samples_with_zero_ready_endpoints": 0,
+        "old_pod_ready_until_new_endpoint_admitted": true
+      }
+    },
+    "no_composition_error": {
+      "composition_error_or_traceback_lines": 0,
+      "startup_log": "Started server process; Waiting for application startup; Application startup complete; Uvicorn running on http://0.0.0.0:8080",
+      "health_live": 200,
+      "health_ready": 200
+    },
+    "no_startup_ddl": {
+      "work_schema_version": 5,
+      "work_schema_version_rows": 1,
+      "work_total_base_relations": 18,
+      "execution_schema_version": 3,
+      "execution_migration_rows": 3,
+      "bridge_relations": 4,
+      "marker": "maintenance-storage v1",
+      "ledger_counts": {
+        "maintenance_capability": 0,
+        "maintenance_capability_receipt": 0,
+        "maintenance_capability_recovery": 0
+      },
+      "unchanged_from_2080a_baseline": true
+    },
+    "bridge_intact": {
+      "observed_from": "the new candidate runtime pod, using the runtime credential",
+      "catalog_fingerprint": "e2fbaeb38769a8d0c41ffd2a8e49dd98",
+      "catalog_matches_expected": true,
+      "trigger_function_fingerprint": "5d7ab6ecc35d3b82f5a2975ae7a672a739af36728cb61e7d4afb5c68d217b6f9",
+      "trigger_matches_expected": true,
+      "marker_version": 1,
+      "relation_count": 4,
+      "available": true,
+      "complete": true,
+      "capability_schema_version": "sprintctl-maintenance-storage/v1"
+    },
+    "runtime_ddl_denied": {
+      "probe": "CREATE TABLE work.sprintctl_runtime_ddl_denial_probe_b as the runtime role from inside the new pod",
+      "denied": true,
+      "exception": "psycopg.errors.InsufficientPrivilege"
+    },
+    "blast_radius": {
+      "deployments_on_vuoro-service_image": {
+        "vuoro-shared/vuoro-shared": "both containers rolled to d2338748",
+        "vscode/agent-cockpit": "unchanged on 9c1d0e53",
+        "vuoro-dev/vuoro-dev": "unchanged on 70c4569a"
+      },
+      "only_intended_workload_changed": true
+    },
+    "clock_coherence": {
+      "db_statement_timestamp": "2026-08-04T10:52:09.130223Z",
+      "workstation_utc": "2026-08-04T10:52:09.171Z",
+      "offset_ms": 41,
+      "threshold_ms": 2000,
+      "within_threshold": true
+    }
+  },
+  "stop_boundary_honoured": {
+    "canonical_work_migration_run": false,
+    "execution_migration_run": false,
+    "work_schema_advanced_to_6": false,
+    "execution_schema_advanced": false,
+    "maintenance_capability_activated": false,
+    "producer_state_resumed_or_altered": false,
+    "plan_1_invoked": false,
+    "execution_v6_job_state": "suspended, REPLACE_AT_ACTIVATION sentinels unchanged"
+  },
+  "rollback_position": {
+    "action_if_regression": "revert both container digests to 9c1d0e53, leave the staged bridge in place, preserve candidate logs and compatibility output",
+    "do_not_drop_the_bridge": true,
+    "rationale": "the bridge is additive, correctly fingerprinted, and demonstrably ignored by the old runtime",
+    "hard_rollback_backup": "vuoro-work5-pre-bridge-20260804084900 (uid d9217e3d-a671-4ff9-9b92-6af703ada19c)"
+  },
+  "basis_revisions": {
+    "sprintctl": "c9725d39f6e2dc45b3c9934b43bfb2510d4b1e63",
+    "vuoro": "10cb208b6ee9b34e0158e68f14f831eb4d3ef3da",
+    "appservice_at_roll": "f03a48e2432b7a1eaf2881220fca35c565a3cd8a"
+  },
+  "volatile_observations_expire_at": "2026-08-04T16:52:09Z",
+  "result": "PASS",
+  "open_items": [
+    "Plan 1 gate hardening: vuoro-execution-migrate-v6 needs toEntities [host, remote-node] on its CNP and projected defaultMode 0444, validated by a non-mutating gate-only probe. Hard blocker for Plan 1; does not block this phase.",
+    "CNPG backup freshness alerting for vuoro-postgres: three failed backups went unnoticed for roughly 48 hours before #2080-A surfaced them.",
+    "sprintctl #2096 split: reproduce sequence atomicity on 0.2.17, retain authority-doctor work.",
+    "sprintctl #2097: enforce the markerless read/write distinction at the command or operation layer. No carve-out was created."
+  ],
+  "next_phase": "Close #2072 from live candidate evidence, then Plan 1 gate hardening. Plan 1 cutover itself requires a fresh dispatch/session fence, a fresh post-drain backup, and separate authorization."
+}
