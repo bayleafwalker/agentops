@@ -29,6 +29,17 @@ path_notes = [
 ]
 
 [[members]]
+repo_id = "outctl"
+backlog = true
+render = "full"
+relationship = "tooling"
+access = "write"
+path_notes = [
+  "Public supplemental substrate: owns bounded command-output capture, deterministic projection, retrieval, verification, and retention mechanics.",
+  "It runs at the runner/harness boundary and owns no command scheduling, action lifecycle, audit judgment, curated knowledge, remote execution, or Vuoro service state.",
+]
+
+[[members]]
 repo_id = "sprintctl"
 backlog = true
 render = "full"

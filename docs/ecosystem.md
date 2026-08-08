@@ -28,6 +28,7 @@ Vuoro process composes all domain adapters.
 | Knowledge extraction and review | `kctl` | [bayleafwalker/kctl](https://github.com/bayleafwalker/kctl) |
 | Repo-local audit and event ledger | `auditctl` | [bayleafwalker/auditctl](https://github.com/bayleafwalker/auditctl) |
 | Action queue and session lifecycle | `actionq` | [bayleafwalker/actionq](https://github.com/bayleafwalker/actionq) |
+| Bounded command-output capture and retrieval | `outctl` | [bayleafwalker/outctl](https://github.com/bayleafwalker/outctl) |
 | Operator UI and cross-repo plans | `agentops` | [bayleafwalker/agentops](https://github.com/bayleafwalker/agentops) |
 | Kubernetes deployment | `appservice` | private — internal operations only |
 
@@ -40,6 +41,7 @@ These are siblings under `/projects/dev/`, not nested inside each other. `_artif
   auditctl/
   actionq/
   actionq-dispatcher/
+  outctl/
   agentops/
   appservice/
   <consumer-repos>/
@@ -78,6 +80,14 @@ New repository adoption starts from
 skills and schemas in agentops while the consumer owns its overlay, semantic
 document, context packets, executable tests, and evidence. Run the shared
 dependency-free validator from the consumer root before dispatch or publication.
+
+`outctl` is an adjacent execution-mediation component. A runner or harness uses
+it to retain exact stdout/stderr locally, expose a deterministic bounded
+projection, and retrieve omitted slices without rerunning a command. It does
+not enqueue commands, settle actions, interpret evidence as an audit finding,
+or make raw captures authoritative merely because they live under
+`_artifacts/`. Its public contracts and Phase 1 boundaries live in the
+[`outctl` repository](https://github.com/bayleafwalker/outctl).
 
 The Dispatches pane is the lifecycle view for a queued unit of work. It renders
 one actionq row across `pending -> claimed/running -> completed/failed/rejected`,
