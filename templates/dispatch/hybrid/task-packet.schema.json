@@ -24,7 +24,6 @@
     "non_goals",
     "allowed_command_ids",
     "limits",
-    "context_churn",
     "network_policy",
     "worktree"
   ],

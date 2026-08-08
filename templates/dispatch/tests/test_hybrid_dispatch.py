@@ -284,11 +284,13 @@ class PacketValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(dispatch.PacketError, "exceeds max_attempts"):
             self._validate()
 
-    def test_context_churn_limits_are_required_and_bounded(self) -> None:
+    def test_context_churn_defaults_preserve_v1_and_explicit_limits_are_bounded(self) -> None:
         missing = json.loads(json.dumps(self.packet))
         del missing["context_churn"]
-        with self.assertRaisesRegex(dispatch.PacketError, "context_churn"):
-            dispatch.validate_packet(missing, self.manifest, self.policy)
+        dispatch.validate_packet(missing, self.manifest, self.policy)
+        self.assertEqual(
+            dispatch.context_churn_limits(missing)["max_repeated_reads_per_path"], 4
+        )
         self.packet["context_churn"]["max_repeated_reads_per_path"] = 13
         with self.assertRaisesRegex(dispatch.PacketError, "max_repeated_reads_per_path"):
             self._validate()

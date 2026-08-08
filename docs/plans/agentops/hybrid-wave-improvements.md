@@ -31,7 +31,8 @@ integration entry's `verification_profile` is the once-per-wave broad gate.
 
 ## Ordered implementation
 
-1. Land and qualify the wave skill and packet churn controls.
+1. Land and qualify the wave skill and additive v1 packet churn controls;
+   omitted fields resolve to conservative defaults recorded in the receipt.
 2. Add repository-specific adversarial fixture histories to packets; do not
    put generic filter semantics in the shared schema.
 3. Stabilize Actionq observable action/group snapshots, cursors, terminal
