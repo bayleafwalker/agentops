@@ -140,7 +140,11 @@ fuzzy-matching coordinator prose. Adding a packet-unique `id` to
 
 `hybrid_dispatch.py::_receipt` folds `acceptance_properties` into
 `inputs.gate_set_hash`, so the change breaks hash comparability across the
-boundary; record the schema version where it breaks for the #2017 corpus.
+boundary. `agentops-task/v2` receipts therefore record both
+`inputs.packet_schema_version` and
+`inputs.gate_set_hash_schema_version = agentops-hybrid-gate-set/v2`; the #2017
+corpus must not compare that hash to a v1 receipt as though both had the same
+input contract.
 
 ## Track A — planner gap detection (#2053–#2056)
 

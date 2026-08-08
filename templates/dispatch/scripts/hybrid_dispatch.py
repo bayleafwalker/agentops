@@ -25,6 +25,7 @@ import fnmatch
 import hashlib
 import json
 import os
+import re
 import shlex
 import stat
 import subprocess
@@ -35,7 +36,17 @@ from typing import Any
 
 POLICY_RELATIVE = Path("templates/dispatch/hybrid/hybrid-dispatch.v1.json")
 WORKER_CONFIG_RELATIVE = Path("templates/dispatch/hybrid/opencode.hybrid.json")
-PACKET_SCHEMA_VERSION = "agentops-task/v1"
+LEGACY_PACKET_SCHEMA_VERSION = "agentops-task/v1"
+PACKET_SCHEMA_VERSION = "agentops-task/v2"
+SUPPORTED_PACKET_SCHEMA_VERSIONS = (
+    LEGACY_PACKET_SCHEMA_VERSION,
+    PACKET_SCHEMA_VERSION,
+)
+GATE_SET_HASH_SCHEMA_VERSIONS = {
+    LEGACY_PACKET_SCHEMA_VERSION: "agentops-hybrid-gate-set/v1",
+    PACKET_SCHEMA_VERSION: "agentops-hybrid-gate-set/v2",
+}
+ACCEPTANCE_PROPERTY_ID_RE = re.compile(r"[A-Za-z][A-Za-z0-9._-]*\Z")
 AGENTOPS_ROOT = Path(
     os.environ.get("AGENTOPS_ROOT", "/projects/dev/agentops")
 ).resolve()
@@ -155,10 +166,11 @@ def validate_packet(
     missing = [field for field in REQUIRED_PACKET_FIELDS if field not in packet]
     if missing:
         raise PacketError(f"packet is missing required fields: {', '.join(missing)}")
-    if packet["schema_version"] != PACKET_SCHEMA_VERSION:
+    packet_schema_version = packet["schema_version"]
+    if packet_schema_version not in SUPPORTED_PACKET_SCHEMA_VERSIONS:
         raise PacketError(
-            f"packet schema_version must be {PACKET_SCHEMA_VERSION}, "
-            f"got {packet['schema_version']!r}"
+            "packet schema_version must be one of "
+            f"{', '.join(SUPPORTED_PACKET_SCHEMA_VERSIONS)}, got {packet_schema_version!r}"
         )
 
     hybrid = manifest.get("hybrid")
@@ -248,6 +260,7 @@ def validate_packet(
         raise PacketError(
             "acceptance_properties must define at least one coordinator-authored falsifying condition"
         )
+    requirement_ids: set[str] = set()
     for acceptance in acceptance_properties:
         command_id = acceptance.get("command_id")
         if command_id not in packet["allowed_command_ids"]:
@@ -258,6 +271,21 @@ def validate_packet(
             raise PacketError(
                 "each acceptance property must name its requirement and the incorrect behaviour it falsifies"
             )
+        if packet_schema_version == PACKET_SCHEMA_VERSION:
+            requirement_id = acceptance.get("id")
+            if not isinstance(requirement_id, str) or not requirement_id:
+                raise PacketError("each v2 acceptance property must declare a stable id")
+            if not ACCEPTANCE_PROPERTY_ID_RE.fullmatch(requirement_id):
+                raise PacketError(
+                    "each v2 acceptance property id must start with a letter and use only letters, digits, '.', '_', or '-'"
+                )
+            if requirement_id in requirement_ids:
+                raise PacketError(
+                    f"acceptance property id {requirement_id!r} is duplicated within the packet"
+                )
+            requirement_ids.add(requirement_id)
+        elif "id" in acceptance:
+            raise PacketError("v1 acceptance properties cannot declare v2 stable ids")
 
     limits = packet["limits"]
     ceiling = hybrid.get("max_timeout_seconds")
@@ -501,6 +529,14 @@ def context_churn_limits(packet: dict[str, Any]) -> dict[str, Any]:
         "max_identical_context_tokens": 250000,
         "handoff_when_candidate_ready": True,
     }
+
+
+def gate_set_hash_schema_version(packet: dict[str, Any]) -> str:
+    """Return the version needed to compare this receipt's gate-set hash."""
+    try:
+        return GATE_SET_HASH_SCHEMA_VERSIONS[packet["schema_version"]]
+    except KeyError as exc:
+        raise PacketError(f"unsupported packet schema_version {packet.get('schema_version')!r}") from exc
 
 
 def _git(repo_root: Path, *args: str) -> str:
@@ -993,6 +1029,8 @@ def _receipt(packet: dict[str, Any], policy: dict[str, Any], **extra: Any) -> di
         "inputs": {
             "packet_hash": f"sha256:{packet_hash}",
             "repository_commit": packet["starting_commit"],
+            "packet_schema_version": packet["schema_version"],
+            "gate_set_hash_schema_version": gate_set_hash_schema_version(packet),
             "gate_set_hash": f"sha256:{hashlib.sha256(gate_bytes).hexdigest()}",
         },
         "harness_model": policy["routes"][packet["route"]]["harness_model"],

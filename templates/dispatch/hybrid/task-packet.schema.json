@@ -28,7 +28,11 @@
     "worktree"
   ],
   "properties": {
-    "schema_version": { "type": "string", "const": "agentops-task/v1" },
+    "schema_version": {
+      "type": "string",
+      "enum": ["agentops-task/v1", "agentops-task/v2"],
+      "description": "v1 packets remain readable for receipt/replay compatibility. New packets use v2, whose acceptance properties have stable ids."
+    },
     "task_id": { "type": "string", "pattern": "^[A-Z0-9]+-[A-Za-z0-9._-]+$" },
     "repo_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
     "sprint_item": {
@@ -96,17 +100,7 @@
     "acceptance_properties": {
       "type": "array",
       "minItems": 1,
-      "description": "Coordinator-authored deterministic failure properties. Each relevant requirement needs a gate that fails when the requirement is ignored.",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["requirement", "command_id", "fails_when"],
-        "properties": {
-          "requirement": { "type": "string", "minLength": 1 },
-          "command_id": { "type": "string", "minLength": 1 },
-          "fails_when": { "type": "string", "minLength": 1 }
-        }
-      }
+      "description": "Coordinator-authored deterministic failure properties. Each relevant requirement needs a gate that fails when the requirement is ignored. v2 requires a packet-unique stable id."
     },
     "non_goals": {
       "type": "array",
@@ -167,5 +161,50 @@
         "references": { "type": "array", "items": { "type": "string", "minLength": 1 } }
       }
     }
-  }
+  },
+  "$defs": {
+    "acceptance_property_v1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requirement", "command_id", "fails_when"],
+      "properties": {
+        "requirement": { "type": "string", "minLength": 1 },
+        "command_id": { "type": "string", "minLength": 1 },
+        "fails_when": { "type": "string", "minLength": 1 }
+      }
+    },
+    "acceptance_property_v2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "requirement", "command_id", "fails_when"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9._-]*$",
+          "description": "Packet-unique stable requirement identifier, for example REQ-001."
+        },
+        "requirement": { "type": "string", "minLength": 1 },
+        "command_id": { "type": "string", "minLength": 1 },
+        "fails_when": { "type": "string", "minLength": 1 }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "schema_version": { "const": "agentops-task/v1" } } },
+      "then": {
+        "properties": {
+          "acceptance_properties": { "items": { "$ref": "#/$defs/acceptance_property_v1" } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "schema_version": { "const": "agentops-task/v2" } } },
+      "then": {
+        "properties": {
+          "acceptance_properties": { "items": { "$ref": "#/$defs/acceptance_property_v2" } }
+        }
+      }
+    }
+  ]
 }
