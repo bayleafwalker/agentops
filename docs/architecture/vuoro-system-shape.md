@@ -30,6 +30,9 @@ remote mode   ┌───────────────▼─────
 
 local mode    agent / owning CLI ──► repo-local SQLite and artifacts
               machine-local effects stay on the executing machine
+
+runner edge   harness ──► outctl capture/projection ──► command
+                         host-local raw evidence; bounded model view
 ```
 
 - **Local mode** calls an owning CLI directly. Repo-local SQLite databases,
@@ -85,9 +88,9 @@ projections with their owning records.
 | Work items, dependencies, claims, handoffs | sprintctl |
 | Actions, sessions, execution claims, outcomes | actionq |
 | Bounded worktree and worker coordination | actionq-dispatch |
+| Command-output capture, projection, retrieval, retention mechanics | outctl |
 | Knowledge extraction, review, publication | kctl |
 | Audit index and portable evidence shards | auditctl |
 | Shared contracts, dispatch guidance, cockpit application | agentops |
 | Client/service packaging and released adapter composition | vuoro |
 | Environment deployment and credentials | appservice |
-
