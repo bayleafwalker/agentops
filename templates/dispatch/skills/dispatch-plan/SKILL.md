@@ -1,6 +1,6 @@
 ---
 name: dispatch-plan
-description: Use when a request needs architecture decisions, scope shaping, or cross-repo sequencing before implementation. Produces a decision-complete brief without repo mutations.
+description: Use when a request needs architecture decisions, scope shaping, cross-repo sequencing, or a batch/wave execution design before implementation. Produces a decision-complete brief or immutable-wave source without repo mutations.
 ---
 
 ## Goal
@@ -21,8 +21,19 @@ Produce an implementation brief that is complete enough for a build worker to ex
 3. Read the dispatch manifest first. Treat model and harness assignment as structured routing data, not prose.
 4. Read the repo overlay for domain constraints, affected paths, verification commands, and escalation rules.
 5. Gather only the sprint/action/doc context needed to decide the scope.
-6. Produce a brief with goal, allowed scope, out-of-scope, expected file areas, acceptance checks, verification, audit/review expectations, and unresolved questions.
-7. Stop before implementation. If new sprint/action scope is needed, hand off to the repo's sprint or action creation workflow.
+6. Choose `single` or `wave` mode. Use wave mode only when interfaces and
+   acceptance histories are frozen and multiple coherent units can amortize
+   context, preparation, review, and broad verification.
+7. In wave mode, classify entries as independent, stacked, or wave-integrated;
+   set bounded parallelism; declare worker-focused, candidate-focused, and
+   integration/repository-full verification; and identify the owner-issued
+   terminal resource reference and required attachments.
+8. Produce a brief with goal, allowed scope, out-of-scope, expected file areas,
+   adversarial acceptance checks, verification stages, audit/review
+   expectations, context-churn limits, and unresolved questions.
+9. Stop before implementation. If new sprint/action scope is needed, hand off
+   to the repo's sprint or action creation workflow. Route an approved wave to
+   `dispatch-wave`.
 
 ## Output Contract
 
@@ -30,6 +41,8 @@ Produce an implementation brief that is complete enough for a build worker to ex
 - Explicit scope boundaries and verification commands.
 - No repo edits.
 - Open questions separated from decisions.
+- In wave mode, a compiler-ready `dispatch-plan-source/v1` outline with exact
+  topology and registered command/profile identifiers.
 
 ## Do Not
 
