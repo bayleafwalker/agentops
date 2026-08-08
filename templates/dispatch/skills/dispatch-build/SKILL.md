@@ -21,9 +21,17 @@ Implement approved, bounded work using the repo's dispatch packet, manifest, and
 3. Read the dispatch packet and manifest. Respect explicit action routing first, then project defaults, action-class defaults, and global fallback.
 4. Treat claims as orchestrator-owned. Use item/action context, but do not request or propagate claim tokens unless the orchestrator explicitly owns that operation.
 5. Edit only within the allowed scope. If the needed change crosses the scope boundary, stop and report the required expansion.
-6. Run targeted verification from the dispatch packet or manifest before broader gates.
-7. Record exact verification commands and results for the handoff and for any dispatcher verification hook.
-8. Once the scope is stable, route code-bearing work to `dispatch-review` when the manifest or action packet requires review.
+6. Run the worker-attempt registered falsifier from the packet. Workers must be
+   able to execute their exact granted command IDs; inability to run the
+   focused gate is a blocker, not a completion claim.
+7. Apply adversarial acceptance: negative fixtures, wrong-order inputs,
+   mutation-sensitive expectations, real calls through the claimed layer, and
+   anti-vacuity checks where filters or parity are involved.
+8. Stop rereading unchanged context when the packet's churn limits are reached.
+   Once the diff and focused gate are stable, emit the structured candidate
+   handoff immediately; cheap cache writes alone are not a reason to stop.
+9. Record exact verification commands and results for the handoff and for any dispatcher verification hook.
+10. Once the scope is stable, route code-bearing work to `dispatch-review` when the manifest or action packet requires review.
 
 ## Output Contract
 

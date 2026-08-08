@@ -130,6 +130,23 @@
         "hard_token_ceiling": { "type": "integer", "minimum": 1 }
       }
     },
+    "context_churn": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_repeated_reads_per_path",
+        "max_reasoning_steps_without_mutation",
+        "max_identical_context_tokens",
+        "handoff_when_candidate_ready"
+      ],
+      "properties": {
+        "max_repeated_reads_per_path": {"type": "integer", "minimum": 1, "maximum": 12},
+        "max_reasoning_steps_without_mutation": {"type": "integer", "minimum": 1, "maximum": 24},
+        "max_identical_context_tokens": {"type": "integer", "minimum": 1000},
+        "handoff_when_candidate_ready": {"const": true}
+      },
+      "description": "Coordinator-authored stall limits. These target repeated unchanged context and mutation-free churn, not cheap cache writes generally. Enforcement is harness-side when telemetry permits and otherwise recorded in the receipt."
+    },
     "network_policy": { "type": "string", "enum": ["disabled"] },
     "worktree": {
       "type": "object",

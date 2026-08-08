@@ -62,6 +62,12 @@
     "soft_token_ceiling": 500000,
     "hard_token_ceiling": 1000000
   },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 8,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
   "network_policy": "disabled",
   "worktree": {
     "root": "/home/agent/.local/state/hybrid-dispatch/worktrees",

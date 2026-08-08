@@ -158,6 +158,12 @@ class PacketValidationTests(unittest.TestCase):
                 "soft_token_ceiling": 500000,
                 "hard_token_ceiling": 1000000,
             },
+            "context_churn": {
+                "max_repeated_reads_per_path": 4,
+                "max_reasoning_steps_without_mutation": 8,
+                "max_identical_context_tokens": 250000,
+                "handoff_when_candidate_ready": True,
+            },
             "network_policy": "disabled",
             "worktree": {"root": "/tmp/wt", "branch": "hybrid/ex-1", "cleanup": "retain-for-review"},
         }
@@ -276,6 +282,22 @@ class PacketValidationTests(unittest.TestCase):
     def test_attempt_above_the_route_allowance_is_a_defect(self) -> None:
         self.packet["attempt"] = 3
         with self.assertRaisesRegex(dispatch.PacketError, "exceeds max_attempts"):
+            self._validate()
+
+    def test_context_churn_defaults_preserve_v1_and_explicit_limits_are_bounded(self) -> None:
+        missing = json.loads(json.dumps(self.packet))
+        del missing["context_churn"]
+        dispatch.validate_packet(missing, self.manifest, self.policy)
+        self.assertEqual(
+            dispatch.context_churn_limits(missing)["max_repeated_reads_per_path"], 4
+        )
+        self.packet["context_churn"]["max_repeated_reads_per_path"] = 13
+        with self.assertRaisesRegex(dispatch.PacketError, "max_repeated_reads_per_path"):
+            self._validate()
+
+    def test_candidate_ready_requires_early_handoff(self) -> None:
+        self.packet["context_churn"]["handoff_when_candidate_ready"] = False
+        with self.assertRaisesRegex(dispatch.PacketError, "handoff_when_candidate_ready"):
             self._validate()
 
 

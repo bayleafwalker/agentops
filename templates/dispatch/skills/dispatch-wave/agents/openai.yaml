@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dispatch Wave"
+  short_description: "Plan and run immutable dispatch waves"
+  default_prompt: "Use $dispatch-wave to compile and coordinate a bounded immutable execution wave."

@@ -289,6 +289,28 @@ def validate_packet(
     if repo_hard_tokens and hard_tokens > repo_hard_tokens:
         raise PacketError("packet hard_token_ceiling exceeds the repository ceiling")
 
+    churn = context_churn_limits(packet)
+    required_churn = {
+        "max_repeated_reads_per_path",
+        "max_reasoning_steps_without_mutation",
+        "max_identical_context_tokens",
+        "handoff_when_candidate_ready",
+    }
+    if set(churn) != required_churn:
+        raise PacketError("context_churn must declare the exact supported stall limits")
+    for name, maximum in (
+        ("max_repeated_reads_per_path", 12),
+        ("max_reasoning_steps_without_mutation", 24),
+    ):
+        value = churn[name]
+        if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= maximum:
+            raise PacketError(f"context_churn.{name} must be between 1 and {maximum}")
+    identical_tokens = churn["max_identical_context_tokens"]
+    if isinstance(identical_tokens, bool) or not isinstance(identical_tokens, int) or identical_tokens < 1000:
+        raise PacketError("context_churn.max_identical_context_tokens must be >= 1000")
+    if churn["handoff_when_candidate_ready"] is not True:
+        raise PacketError("context_churn.handoff_when_candidate_ready must be true")
+
     max_attempts = policy["routes"][route].get("max_attempts", 1)
     if packet.get("attempt", 1) > max_attempts:
         raise PacketError(
@@ -469,6 +491,16 @@ def overlay_hash(overlay: dict[str, Any]) -> str:
     # digest, so preserve the insertion order used for dispatch.
     payload = json.dumps(overlay, separators=(",", ":"))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def context_churn_limits(packet: dict[str, Any]) -> dict[str, Any]:
+    """Resolve additive v1 churn controls without breaking older packets."""
+    return packet.get("context_churn") or {
+        "max_repeated_reads_per_path": 4,
+        "max_reasoning_steps_without_mutation": 8,
+        "max_identical_context_tokens": 250000,
+        "handoff_when_candidate_ready": True,
+    }
 
 
 def _git(repo_root: Path, *args: str) -> str:
@@ -733,7 +765,11 @@ def dispatch_worker(
         "Implement only the attached frozen task packet. Stay inside the writable "
         "paths it declares, use only the registered commands, and stop with a "
         "structured blocker on any ambiguity, missing context, or scope conflict. "
-        "Do not use git, do not change sprint state, and do not expand scope."
+        "Do not use git, do not change sprint state, and do not expand scope. "
+        "Respect context_churn: stop repeated unchanged reads or mutation-free "
+        "reasoning at its limits. Do not optimize for cheap cache writes alone. "
+        "As soon as the candidate and focused registered gate are ready, return "
+        "the structured handoff instead of continuing self-review."
     )
     env = {
         **os.environ,
@@ -963,6 +999,7 @@ def _receipt(packet: dict[str, Any], policy: dict[str, Any], **extra: Any) -> di
         "qualification": qualification_state(policy, packet),
         "qualification_policy": policy["qualification"],
         "acceptance_authority": policy["acceptance_authority"],
+        "context_churn": context_churn_limits(packet),
         **extra,
     }
 
