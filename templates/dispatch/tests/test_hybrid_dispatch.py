@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
 import stat
 import subprocess
@@ -124,7 +125,7 @@ class PacketValidationTests(unittest.TestCase):
             },
         }
         self.packet = {
-            "schema_version": "agentops-task/v1",
+            "schema_version": "agentops-task/v2",
             "task_id": "EX-1",
             "repo_id": "example",
             "sprint_item": {"ref": "example#42", "claim_id": 7, "claim_actor": "coordinator/claude-code"},
@@ -145,6 +146,7 @@ class PacketValidationTests(unittest.TestCase):
             "required_outcomes": ["o"],
             "acceptance_properties": [
                 {
+                    "id": "REQ-001",
                     "requirement": "o",
                     "command_id": "example.tests",
                     "fails_when": "o is not implemented",
@@ -246,6 +248,90 @@ class PacketValidationTests(unittest.TestCase):
         self.packet["acceptance_properties"][0]["command_id"] = "example.missing"
         with self.assertRaisesRegex(dispatch.PacketError, "not granted"):
             self._validate()
+
+    def test_v2_acceptance_properties_require_unique_stable_ids(self) -> None:
+        missing_id = json.loads(json.dumps(self.packet))
+        del missing_id["acceptance_properties"][0]["id"]
+        with self.assertRaisesRegex(dispatch.PacketError, "stable id"):
+            dispatch.validate_packet(missing_id, self.manifest, self.policy)
+
+        duplicate = json.loads(json.dumps(self.packet))
+        duplicate["acceptance_properties"].append(
+            {
+                "id": "REQ-001",
+                "requirement": "another requirement",
+                "command_id": "example.tests",
+                "fails_when": "another requirement is not implemented",
+            }
+        )
+        with self.assertRaisesRegex(dispatch.PacketError, "duplicated"):
+            dispatch.validate_packet(duplicate, self.manifest, self.policy)
+
+    def test_legacy_v1_packet_preserves_pre_id_validation(self) -> None:
+        legacy = json.loads(json.dumps(self.packet))
+        legacy["schema_version"] = dispatch.LEGACY_PACKET_SCHEMA_VERSION
+        del legacy["acceptance_properties"][0]["id"]
+        self.assertEqual(
+            dispatch.validate_packet(legacy, self.manifest, self.policy),
+            self.policy["gates"]["pre"],
+        )
+        self.assertEqual(
+            dispatch.gate_set_hash_schema_version(legacy),
+            "agentops-hybrid-gate-set/v1",
+        )
+
+    def test_v1_packet_cannot_silently_change_to_v2_id_semantics(self) -> None:
+        legacy = json.loads(json.dumps(self.packet))
+        legacy["schema_version"] = dispatch.LEGACY_PACKET_SCHEMA_VERSION
+        with self.assertRaisesRegex(dispatch.PacketError, "cannot declare v2 stable ids"):
+            dispatch.validate_packet(legacy, self.manifest, self.policy)
+
+    def test_v2_id_grammar_matches_the_schema_contract(self) -> None:
+        invalid = json.loads(json.dumps(self.packet))
+        invalid["acceptance_properties"][0]["id"] = "REQ 001"
+        with self.assertRaisesRegex(dispatch.PacketError, "must start with a letter"):
+            dispatch.validate_packet(invalid, self.manifest, self.policy)
+
+    def test_receipt_versions_the_gate_hash_break(self) -> None:
+        legacy = json.loads(json.dumps(self.packet))
+        legacy["schema_version"] = dispatch.LEGACY_PACKET_SCHEMA_VERSION
+        del legacy["acceptance_properties"][0]["id"]
+        dispatch.validate_packet(legacy, self.manifest, self.policy)
+
+        legacy_receipt = dispatch._receipt(legacy, self.policy)
+        v2_receipt = dispatch._receipt(self.packet, self.policy)
+        legacy_gate_bytes = json.dumps(
+            {
+                "allowed_command_ids": legacy["allowed_command_ids"],
+                "acceptance_properties": legacy["acceptance_properties"],
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+        self.assertEqual(
+            legacy_receipt["inputs"]["gate_set_hash"],
+            f"sha256:{hashlib.sha256(legacy_gate_bytes).hexdigest()}",
+        )
+        self.assertEqual(
+            legacy_receipt["inputs"]["packet_schema_version"],
+            "agentops-task/v1",
+        )
+        self.assertEqual(
+            legacy_receipt["inputs"]["gate_set_hash_schema_version"],
+            "agentops-hybrid-gate-set/v1",
+        )
+        self.assertEqual(
+            v2_receipt["inputs"]["packet_schema_version"],
+            "agentops-task/v2",
+        )
+        self.assertEqual(
+            v2_receipt["inputs"]["gate_set_hash_schema_version"],
+            "agentops-hybrid-gate-set/v2",
+        )
+        self.assertNotEqual(
+            legacy_receipt["inputs"]["gate_set_hash"],
+            v2_receipt["inputs"]["gate_set_hash"],
+        )
 
     def test_enabled_network_is_a_defect(self) -> None:
         self.packet["network_policy"] = "enabled"
@@ -659,7 +745,15 @@ class ExamplePacketTests(unittest.TestCase):
         for field in schema["required"]:
             with self.subTest(field=field):
                 self.assertIn(field, example)
-        self.assertEqual(example["schema_version"], "agentops-task/v1")
+        self.assertEqual(example["schema_version"], "agentops-task/v2")
+        self.assertEqual(
+            [property_["id"] for property_ in example["acceptance_properties"]],
+            ["REQ-001", "REQ-002"],
+        )
+        self.assertEqual(
+            schema["properties"]["schema_version"]["enum"],
+            ["agentops-task/v1", "agentops-task/v2"],
+        )
         self.assertEqual(example["network_policy"], "disabled")
 
 

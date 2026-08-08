@@ -265,7 +265,7 @@ overlay and the `--file` argument ordering on upgrade.
 ## Contract files
 
 - `templates/dispatch/hybrid/hybrid-dispatch.v1.json` — modes, routes, gates, authority split
-- `templates/dispatch/hybrid/task-packet.schema.json` — the `agentops-task/v1` packet
+- `templates/dispatch/hybrid/task-packet.schema.json` — v1 legacy packets and the current `agentops-task/v2` packet. New v2 packets give every acceptance property a packet-unique stable id. Their receipt records both `packet_schema_version` and `gate_set_hash_schema_version`; never compare a v1 and v2 `gate_set_hash` as though they used the same input contract.
 - `templates/dispatch/hybrid/opencode.hybrid.json` — checked-in worker agents
 - `templates/dispatch/scripts/hybrid_dispatch.py` — coordinator driver
 - `templates/dispatch/scripts/validate_hybrid_dispatch.py` — deterministic policy gate
