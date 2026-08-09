@@ -1,0 +1,43 @@
+{
+  "schema_version": "session.completion-observed/v1",
+  "event_id": "4d5e6f70-8192-4a3b-8c0d-3e4f50617283",
+  "origin_stream_id": "1a2b3c4d-5e6f-4788-9a0b-1c2d3e4f5061",
+  "origin_sequence": 42,
+  "runtime_session_id": "sess-20260809-110000-agentops",
+  "attempt_id": "attempt-2121-1",
+  "action_id": "action-2121",
+  "repo": {"project": "agentops"},
+  "harness": "opencode",
+  "model": {"name": "opencode-go"},
+  "terminal": {
+    "kind": "succeeded",
+    "exit_code": 0,
+    "reason_code": "completed",
+    "retryable": false
+  },
+  "started_at": "2026-08-09T11:00:00Z",
+  "completed_at": "2026-08-09T11:04:12Z",
+  "observed_at": "2026-08-09T11:04:12Z",
+  "duration_ms": 252000,
+  "refs": [
+    {
+      "kind": "artifact",
+      "source": "agentops:_artifacts/agentops/session-capsules/capsule.json",
+      "revision": "sha256:9f8e7d6c5b4a39281706f5e4d3c2b1a09f8e7d6c5b4a39281706f5e4d3c2b1a"
+    }
+  ],
+  "evidence": {
+    "dirty": false,
+    "commit_count": 1,
+    "verification": {"pass": 3, "fail": 0, "error": 0}
+  },
+  "privacy": {
+    "prompt_absent": true,
+    "transcript_absent": true,
+    "raw_output_absent": true,
+    "environment_absent": true,
+    "credentials_absent": true,
+    "absolute_paths_absent": true,
+    "claim_proofs_absent": true
+  }
+}

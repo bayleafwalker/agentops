@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Validate session-capsule/v1, reconciliation-proposal/v1, and session-note/v1 artifacts without dependencies."""
+"""Validate AgentOps session-mechanization artifacts without dependencies."""
 
 from __future__ import annotations
 
 import argparse
 import json
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +29,31 @@ CLASSIFICATIONS = {
 LIFECYCLE_STATES = {"pending", "accepted", "rejected", "superseded"}
 NOTE_KINDS = {"handover", "summary", "outcome"}
 NOTE_BODY_MAX_BYTES = 16384
+COMPLETION_KINDS = {"succeeded", "failed", "cancelled", "timed-out", "usage-limited", "end-inferred"}
+COMPLETION_REASON_CODES = {
+    "succeeded": {"completed"},
+    "failed": {"process-exit", "start-failed"},
+    "cancelled": {"cancelled"},
+    "timed-out": {"timeout"},
+    "usage-limited": {"usage-limit"},
+    "end-inferred": {"crash-inferred"},
+}
+COMPLETION_PRIVACY_ASSERTIONS = {
+    "prompt_absent", "transcript_absent", "raw_output_absent", "environment_absent",
+    "credentials_absent", "absolute_paths_absent", "claim_proofs_absent",
+}
+PROHIBITED_COMPLETION_KEYS = {
+    "prompt", "transcript", "raw_output", "rawoutput", "stdout", "stderr", "environment", "env",
+    "secret", "secrets", "token", "password", "credential", "credentials", "claim_token",
+    "access_token", "accesstoken", "client_secret", "clientsecret", "claim_proof", "claimproof", "worktree",
+    "request_snapshot", "requestsnapshot", "provenance", "api_key", "apikey",
+    "command_output", "commandoutput", "failure_details", "failuredetails", "failure_detail",
+    "request_body", "requestbody", "headers",
+}
+SECRET_LIKE_VALUE = re.compile(
+    r"(?i)(-----BEGIN [A-Z ]*PRIVATE KEY-----|\bBearer\s+[A-Za-z0-9._~+/=-]{8,}|\b(?:sk|ghp|github_pat)_[A-Za-z0-9_-]{8,})"
+)
+ABSOLUTE_PATH_VALUE = re.compile(r"^(?:/|[A-Za-z]:[\\/]|\\\\)")
 
 
 def _require(value: dict[str, Any], fields: tuple[str, ...], path: Path) -> None:
@@ -54,6 +80,129 @@ def _validate_ref(ref: Any, field: str, path: Path) -> None:
         raise ValueError(f"{path}: {field}.kind {ref['kind']!r} is not a recognized ref kind")
     _non_blank(ref["source"], f"{field}.source", path)
     _non_blank(ref["revision"], f"{field}.revision", path)
+
+
+def _timestamp(value: Any, field: str, path: Path) -> datetime:
+    _non_blank(value, field, path)
+    if not value.endswith("Z"):
+        raise ValueError(f"{path}: {field} must be a UTC timestamp ending in Z")
+    try:
+        return datetime.fromisoformat(value[:-1] + "+00:00")
+    except ValueError as exc:
+        raise ValueError(f"{path}: {field} must be an RFC 3339 timestamp") from exc
+
+
+def _reject_prohibited_completion_keys(value: Any, path: Path, prefix: str = "") -> None:
+    if isinstance(value, dict):
+        for key, child in value.items():
+            dotted = f"{prefix}.{key}" if prefix else key
+            normalized_key = re.sub(r"[^a-z0-9]+", "_", key.lower()).strip("_")
+            if normalized_key in PROHIBITED_COMPLETION_KEYS:
+                raise ValueError(f"{path}: prohibited completion field {dotted!r}")
+            _reject_prohibited_completion_keys(child, path, dotted)
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            _reject_prohibited_completion_keys(child, path, f"{prefix}[{index}]")
+    elif isinstance(value, str) and SECRET_LIKE_VALUE.search(value):
+        raise ValueError(f"{path}: secret-like content is prohibited at {prefix!r}")
+    elif isinstance(value, str) and ABSOLUTE_PATH_VALUE.match(value):
+        raise ValueError(f"{path}: absolute path is prohibited at {prefix!r}")
+
+
+def validate_session_completion_observed(value: dict[str, Any], path: Path) -> None:
+    _require(value, (
+        "event_id", "origin_stream_id", "origin_sequence", "runtime_session_id", "attempt_id",
+        "action_id", "repo", "harness", "model", "terminal", "started_at", "completed_at",
+        "observed_at", "duration_ms", "refs", "evidence", "privacy",
+    ), path)
+    _reject_prohibited_completion_keys(value, path)
+    _uuid(value["event_id"], "event_id", path)
+    _uuid(value["origin_stream_id"], "origin_stream_id", path)
+    if isinstance(value["origin_sequence"], bool) or not isinstance(value["origin_sequence"], int) or value["origin_sequence"] <= 0:
+        raise ValueError(f"{path}: origin_sequence must be a positive integer")
+    _non_blank(value["runtime_session_id"], "runtime_session_id", path)
+    attempt_id, action_id = value["attempt_id"], value["action_id"]
+    if (attempt_id is None) != (action_id is None):
+        raise ValueError(f"{path}: attempt_id and action_id must both be null or both be present")
+    if attempt_id is not None:
+        _non_blank(attempt_id, "attempt_id", path)
+        _non_blank(action_id, "action_id", path)
+    repo = value["repo"]
+    if not isinstance(repo, dict):
+        raise ValueError(f"{path}: repo must be an object")
+    _require(repo, ("project",), path)
+    _non_blank(repo["project"], "repo.project", path)
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", repo["project"]):
+        raise ValueError(f"{path}: repo.project must be a portable identifier")
+    if "repo_id" in repo:
+        _uuid(repo["repo_id"], "repo.repo_id", path)
+    _non_blank(value["harness"], "harness", path)
+    model = value["model"]
+    if model is not None:
+        if not isinstance(model, dict):
+            raise ValueError(f"{path}: model must be null or an object")
+        _require(model, ("name",), path)
+        _non_blank(model["name"], "model.name", path)
+        if "version" in model and not isinstance(model["version"], str):
+            raise ValueError(f"{path}: model.version must be a string")
+
+    terminal = value["terminal"]
+    if not isinstance(terminal, dict):
+        raise ValueError(f"{path}: terminal must be an object")
+    _require(terminal, ("kind", "exit_code", "reason_code", "retryable"), path)
+    kind = terminal["kind"]
+    if kind not in COMPLETION_KINDS:
+        raise ValueError(f"{path}: terminal.kind {kind!r} is not recognized")
+    if terminal["reason_code"] not in COMPLETION_REASON_CODES[kind]:
+        raise ValueError(f"{path}: terminal.reason_code is invalid for terminal.kind {kind!r}")
+    if not isinstance(terminal["retryable"], bool):
+        raise ValueError(f"{path}: terminal.retryable must be a boolean")
+    exit_code = terminal["exit_code"]
+    if isinstance(exit_code, bool) or (exit_code is not None and not isinstance(exit_code, int)):
+        raise ValueError(f"{path}: terminal.exit_code must be null or an integer")
+    if kind == "succeeded" and (exit_code != 0 or terminal["retryable"]):
+        raise ValueError(f"{path}: succeeded requires exit_code 0 and retryable false")
+    if kind == "failed" and terminal["reason_code"] == "process-exit" and (isinstance(exit_code, bool) or not isinstance(exit_code, int) or exit_code == 0):
+        raise ValueError(f"{path}: process-exit failure requires a non-zero exit_code")
+    if kind in {"cancelled", "timed-out", "usage-limited", "end-inferred"} and exit_code is not None:
+        raise ValueError(f"{path}: terminal.kind {kind!r} requires a null exit_code")
+
+    started = _timestamp(value["started_at"], "started_at", path)
+    completed = _timestamp(value["completed_at"], "completed_at", path)
+    observed = _timestamp(value["observed_at"], "observed_at", path)
+    if completed < started or observed < completed:
+        raise ValueError(f"{path}: timestamps must satisfy started_at <= completed_at <= observed_at")
+    duration = value["duration_ms"]
+    if duration is not None and (isinstance(duration, bool) or not isinstance(duration, int) or duration < 0):
+        raise ValueError(f"{path}: duration_ms must be null or a non-negative integer")
+    refs = value["refs"]
+    if not isinstance(refs, list):
+        raise ValueError(f"{path}: refs must be an array")
+    for ref in refs:
+        _validate_ref(ref, "refs[]", path)
+    evidence = value["evidence"]
+    if not isinstance(evidence, dict):
+        raise ValueError(f"{path}: evidence must be an object")
+    _require(evidence, ("dirty", "commit_count", "verification"), path)
+    if not isinstance(evidence["dirty"], bool):
+        raise ValueError(f"{path}: evidence.dirty must be a boolean")
+    verification = evidence["verification"]
+    if not isinstance(verification, dict):
+        raise ValueError(f"{path}: evidence.verification must be an object")
+    _require(verification, ("pass", "fail", "error"), path)
+    for field in ("commit_count",):
+        if isinstance(evidence[field], bool) or not isinstance(evidence[field], int) or evidence[field] < 0:
+            raise ValueError(f"{path}: evidence.{field} must be a non-negative integer")
+    for field in ("pass", "fail", "error"):
+        count = verification[field]
+        if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+            raise ValueError(f"{path}: evidence.verification.{field} must be a non-negative integer")
+    privacy = value["privacy"]
+    if not isinstance(privacy, dict):
+        raise ValueError(f"{path}: privacy must be an object")
+    _require(privacy, tuple(sorted(COMPLETION_PRIVACY_ASSERTIONS)), path)
+    if any(privacy[field] is not True for field in COMPLETION_PRIVACY_ASSERTIONS):
+        raise ValueError(f"{path}: every completion privacy assertion must be true")
 
 
 def validate_session_capsule(value: dict[str, Any], path: Path) -> None:
@@ -302,6 +451,8 @@ def validate(path: Path) -> dict[str, Any]:
         validate_reconciliation_proposal(value, path)
     elif version == "session-note/v1":
         validate_session_note(value, path)
+    elif version == "session.completion-observed/v1":
+        validate_session_completion_observed(value, path)
     else:
         raise ValueError(f"{path}: unknown schema_version {version!r}")
     return value
@@ -312,6 +463,7 @@ def discover(root: Path) -> list[Path]:
         set(root.glob("session-capsules/*.json"))
         | set(root.glob("reconciliation-proposals/*.json"))
         | set(root.glob("session-notes/*.json"))
+        | set(root.glob("session-completions/*.json"))
     )
 
 
@@ -323,12 +475,18 @@ def main() -> int:
     root = args.root.resolve()
     paths = args.paths or discover(root)
     seen_ids: set[str] = set()
+    seen_stream_positions: set[tuple[str, int]] = set()
     for path in paths:
         value = validate(path)
-        artifact_id = value.get("capsule_id") or value.get("proposal_id") or value.get("note_id")
+        artifact_id = value.get("capsule_id") or value.get("proposal_id") or value.get("note_id") or value.get("event_id")
         if artifact_id in seen_ids:
             raise ValueError(f"{path}: duplicate artifact id {artifact_id!r}")
         seen_ids.add(artifact_id)
+        if value.get("schema_version") == "session.completion-observed/v1":
+            position = (value["origin_stream_id"], value["origin_sequence"])
+            if position in seen_stream_positions:
+                raise ValueError(f"{path}: duplicate origin stream position {position!r}")
+            seen_stream_positions.add(position)
         print(f"ok {path}")
     if not paths:
         print("no session mechanization artifacts found")

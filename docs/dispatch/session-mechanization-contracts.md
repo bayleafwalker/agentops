@@ -1,4 +1,4 @@
-# Session mechanization contracts: session-capsule/v1, reconciliation-proposal/v1, and session-note/v1
+# Session mechanization contracts
 
 Status: adopted for session-mechanization work (item #1106)
 
@@ -29,7 +29,7 @@ durable cursor so neither path double-processes a capsule.
 - `templates/dispatch/session-mechanization/reconciliation-proposal.schema.json`
 - `templates/dispatch/session-mechanization/session-note.schema.json`
 
-All three mirror structure for editor support only. The dependency-free
+All four mirror structure for editor support only. The dependency-free
 semantic validator is normative:
 
 ```bash
@@ -37,7 +37,71 @@ python /projects/dev/agentops/templates/dispatch/scripts/validate_session_mechan
 ```
 
 Run against explicit paths, or let it discover `session-capsules/*.json`,
-`reconciliation-proposals/*.json`, and `session-notes/*.json` under `--root`.
+`reconciliation-proposals/*.json`, `session-notes/*.json`, and
+`session-completions/*.json` under `--root`.
+
+## session.completion-observed/v1
+
+This ActionQ-owned observation is emitted when a harness/session reaches a
+terminal fact. It is intentionally smaller than `session-capsule/v1` and does
+not mean that an ActionQ action settled, reconciliation ran, a proposal was
+accepted, or Sprintctl work completed. AgentOps owns the shared schema with
+ActionQ review; ActionQ owns the session fact, identity, production, outbox,
+and served log.
+
+Canonical files:
+
+- `templates/dispatch/session-mechanization/session-completion-observed.schema.json`
+- `templates/dispatch/session-mechanization/session-completion-observed.example.json`
+
+The stable idempotency identity is `event_id`. Retries and replay retain it.
+`origin_stream_id` is installation-scoped and durable, and
+`origin_sequence` is a transactionally allocated positive integer. A stream
+position always denotes one payload digest; reuse with different bytes is
+corruption and must be quarantined. Dispatch sessions require both
+`attempt_id` and `action_id`; direct sessions set both to null. Unknown
+additive fields are accepted within v1, but removing a required field or
+changing any field's meaning requires a new version.
+
+Terminal reason codes are closed in v1:
+
+| Terminal kind | Allowed reason code | Exit-code rule |
+|---|---|---|
+| `succeeded` | `completed` | exactly `0`; never retryable |
+| `failed` | `process-exit`, `start-failed` | `process-exit` is non-zero; `start-failed` may be null |
+| `cancelled` | `cancelled` | null |
+| `timed-out` | `timeout` | null |
+| `usage-limited` | `usage-limit` | null |
+| `end-inferred` | `crash-inferred` | null |
+
+Timing is frozen at harness/session exit. `completed_at` is the observed
+session fact and `observed_at` may be later during recovery. Publication and
+alerting never wait for action settlement. A later settlement fact is a
+separate correlated event.
+
+Privacy is fail-closed: events contain no prompt, transcript, raw output,
+environment, token/secret/credential, absolute path, claim proof, request
+snapshot, or embedded capsule. `refs` are immutable, non-secret pointers;
+`evidence` is counts and booleans only. Every explicit absence assertion must
+be true. The dependency-free validator also rejects prohibited field names
+inside otherwise permitted additive objects.
+
+The ratified storage and delivery defaults are:
+
+- producer outbox: ActionQ-owned SQLite in WAL mode with `synchronous=FULL`;
+  enqueue and sequence allocation commit before completion is reported as
+  recorded; compaction removes only durably acknowledged rows;
+- server log: a distinct append-only ActionQ projection keyed by `event_id`,
+  not an overloaded action-terminal ledger;
+- first alert route: cockpit-only; delivered means durably present in the
+  AgentOps cockpit projection, not that a browser was open;
+- retention: independently configured for producer acknowledgements, ActionQ
+  server events, AgentOps inbox events, and delivery receipts. No class may
+  inherit another class's setting, and unacknowledged or quarantined producer
+  rows are never age-pruned; and
+- compaction and retention values are runtime policy owned by their domains,
+  not wire-contract fields. Implementations must choose explicit finite
+  values and expose backlog/oldest-row health before enablement.
 
 ## session-capsule/v1
 

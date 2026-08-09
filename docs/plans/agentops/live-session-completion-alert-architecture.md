@@ -1,6 +1,6 @@
 ---
 doc_id: live-session-completion-alert-architecture
-status: proposed
+status: ratified-contract
 last_verified: 2026-08-08
 tracker_item: agentops#2115
 supersedes: null
@@ -246,20 +246,25 @@ reuse `(event_id, route_id)` as the idempotency key.
 - Record actor and delivery audit facts without broadening auditctl or cockpit
   into a queue authority.
 
-## Open questions to close before implementation
+## Ratified implementation decisions (AgentOps #2119)
 
-1. Select and document the producer store (SQLite/WAL is the default proposal)
-   and its fsync/compaction policy.
-2. Decide whether the durable server completion log lives in ActionQ's existing
-   event ledger or an append-only projection table keyed by `event_id`; it must
-   not overload action terminal events.
-3. Name the first operator route (cockpit-only, desktop notification, or an
-   existing messaging integration) and define its delivery acknowledgement.
-4. Choose retention windows independently for producer-acknowledged rows,
-   ActionQ server records, AgentOps inbox entries, and delivery receipts.
-5. Confirm whether a completion alert fires at harness exit or ActionQ action
-   settlement. The recommended default is harness/session exit, with settlement
-   supplied later as a correlated event rather than delaying the alert.
+1. The producer store is ActionQ-owned SQLite/WAL with `synchronous=FULL`.
+   Sequence allocation and enqueue are one transaction. Compaction is allowed
+   only for durably acknowledged rows; unacknowledged and quarantined rows are
+   not age-pruned.
+2. The durable server completion log is a distinct append-only ActionQ
+   projection keyed by `event_id`, not the action terminal-event ledger.
+3. The first operator route is cockpit-only. Delivery acknowledgement means
+   durable insertion into the AgentOps cockpit projection, not browser receipt.
+4. Producer acknowledgements, ActionQ server events, AgentOps inbox entries,
+   and delivery receipts have independent, explicitly configured finite
+   retention policies. Runtime owners choose values and expose health before
+   enablement; the wire contract does not couple or encode them.
+5. The completion observation fires at harness/session exit. Action settlement
+   is a later, separate correlated fact and never delays the completion alert.
+
+These decisions freeze contract semantics only. They authorize no runtime
+producer, served operation, consumer, cockpit implementation, or deployment.
 
 ## Related contracts
 
