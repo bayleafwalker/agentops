@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/session-completion-observed.schema.json",
+  "title": "Session completion observed",
+  "description": "ActionQ-owned observation emitted at harness/session exit. It is not action settlement, reconciliation, acceptance, or Sprintctl completion.",
+  "$comment": "Unknown additive fields are tolerated in v1. The dependency-free validator is normative for cross-field and privacy rules.",
+  "type": "object",
+  "required": ["schema_version", "event_id", "origin_stream_id", "origin_sequence", "runtime_session_id", "attempt_id", "action_id", "repo", "harness", "model", "terminal", "started_at", "completed_at", "observed_at", "duration_ms", "refs", "evidence", "privacy"],
+  "properties": {
+    "schema_version": {"const": "session.completion-observed/v1"},
+    "event_id": {"$ref": "#/$defs/uuid"},
+    "origin_stream_id": {"$ref": "#/$defs/uuid"},
+    "origin_sequence": {"type": "integer", "minimum": 1},
+    "runtime_session_id": {"$ref": "#/$defs/nonBlank"},
+    "attempt_id": {"type": ["string", "null"], "minLength": 1},
+    "action_id": {"type": ["string", "null"], "minLength": 1},
+    "repo": {"type": "object", "required": ["project"], "properties": {"project": {"$ref": "#/$defs/identifier"}, "repo_id": {"$ref": "#/$defs/uuid"}}},
+    "harness": {"$ref": "#/$defs/nonBlank"},
+    "model": {"oneOf": [{"type": "null"}, {"type": "object", "required": ["name"], "properties": {"name": {"$ref": "#/$defs/nonBlank"}, "version": {"type": "string"}}}]},
+    "terminal": {
+      "type": "object",
+      "required": ["kind", "exit_code", "reason_code", "retryable"],
+      "properties": {
+        "kind": {"enum": ["succeeded", "failed", "cancelled", "timed-out", "usage-limited", "end-inferred"]},
+        "exit_code": {"type": ["integer", "null"]},
+        "reason_code": {"enum": ["completed", "process-exit", "start-failed", "cancelled", "timeout", "usage-limit", "crash-inferred"]},
+        "retryable": {"type": "boolean"}
+      },
+      "allOf": [
+        {"if": {"properties": {"kind": {"const": "succeeded"}}, "required": ["kind"]}, "then": {"properties": {"exit_code": {"const": 0}, "reason_code": {"const": "completed"}, "retryable": {"const": false}}}},
+        {"if": {"properties": {"kind": {"const": "failed"}}, "required": ["kind"]}, "then": {"properties": {"reason_code": {"enum": ["process-exit", "start-failed"]}}}},
+        {"if": {"properties": {"reason_code": {"const": "process-exit"}}, "required": ["reason_code"]}, "then": {"properties": {"exit_code": {"type": "integer", "not": {"const": 0}}}}},
+        {"if": {"properties": {"kind": {"const": "cancelled"}}, "required": ["kind"]}, "then": {"properties": {"exit_code": {"const": null}, "reason_code": {"const": "cancelled"}}}},
+        {"if": {"properties": {"kind": {"const": "timed-out"}}, "required": ["kind"]}, "then": {"properties": {"exit_code": {"const": null}, "reason_code": {"const": "timeout"}}}},
+        {"if": {"properties": {"kind": {"const": "usage-limited"}}, "required": ["kind"]}, "then": {"properties": {"exit_code": {"const": null}, "reason_code": {"const": "usage-limit"}}}},
+        {"if": {"properties": {"kind": {"const": "end-inferred"}}, "required": ["kind"]}, "then": {"properties": {"exit_code": {"const": null}, "reason_code": {"const": "crash-inferred"}}}}
+      ]
+    },
+    "started_at": {"type": "string", "format": "date-time"},
+    "completed_at": {"type": "string", "format": "date-time"},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "duration_ms": {"type": ["integer", "null"], "minimum": 0},
+    "refs": {"type": "array", "items": {"$ref": "#/$defs/immutableRef"}},
+    "evidence": {"type": "object", "required": ["dirty", "commit_count", "verification"], "properties": {"dirty": {"type": "boolean"}, "commit_count": {"type": "integer", "minimum": 0}, "verification": {"type": "object", "required": ["pass", "fail", "error"], "properties": {"pass": {"type": "integer", "minimum": 0}, "fail": {"type": "integer", "minimum": 0}, "error": {"type": "integer", "minimum": 0}}}}},
+    "privacy": {"type": "object", "required": ["prompt_absent", "transcript_absent", "raw_output_absent", "environment_absent", "credentials_absent", "absolute_paths_absent", "claim_proofs_absent"], "properties": {"prompt_absent": {"const": true}, "transcript_absent": {"const": true}, "raw_output_absent": {"const": true}, "environment_absent": {"const": true}, "credentials_absent": {"const": true}, "absolute_paths_absent": {"const": true}, "claim_proofs_absent": {"const": true}}}
+  },
+  "$defs": {
+    "uuid": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "identifier": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"},
+    "nonBlank": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "immutableRef": {"type": "object", "required": ["kind", "source", "revision"], "properties": {"kind": {"enum": ["git-commit", "sprint-event", "document", "verification-result", "release", "artifact"]}, "source": {"$ref": "#/$defs/nonBlank"}, "revision": {"$ref": "#/$defs/nonBlank"}}}
+  }
+}

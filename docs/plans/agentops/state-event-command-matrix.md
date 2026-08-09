@@ -79,6 +79,7 @@ Artifact schemas and field contracts for the two rows below marked
 |---|---|---|---|---|---|
 | `session.started` | observation | yes | no | applied immediately | the observation itself, once ingested |
 | `session.ended` / `session.end-inferred` | observation | yes | no | applied immediately | the observation itself, once ingested |
+| `session.completion-observed/v1` | ActionQ-owned observation (AgentOps shared contract) | yes — durable ActionQ outbox | no (identity/digest dedup; conflicts quarantine) | applied at harness/session exit; never projects action settlement or Sprintctl completion | the observation itself, once durably ingested |
 | `session-capsule/v1` | observation (artifact + pointer) | yes | no (pointer is non-validation-bearing) | capsule pointer visible immediately | the observation itself, once ingested |
 | `session-note/v1` | observation (artifact + pointer) | yes | no (pointer is non-validation-bearing) | note pointer visible immediately | the observation itself, once ingested |
 | `reconciliation-proposal/v1` created | observation (proposal artifact) | yes (scribe-authored, cursor-tracked) | no — proposals never mutate authoritative state | appears in review queue | the proposal artifact itself |

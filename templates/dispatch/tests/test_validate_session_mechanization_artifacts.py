@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 
 SCRIPT = Path(__file__).parents[1] / "scripts" / "validate_session_mechanization_artifacts.py"
@@ -162,6 +163,124 @@ class SessionNoteValidatorTests(unittest.TestCase):
             VALIDATOR.validate(path)
 
 
+class SessionCompletionObservedValidatorTests(unittest.TestCase):
+    def test_shipped_example_is_valid(self) -> None:
+        event = _load_example("session-completion-observed")
+        VALIDATOR.validate_session_completion_observed(event, Path("completion.example.json"))
+
+    def test_dispatch_correlations_are_atomic(self) -> None:
+        event = copy.deepcopy(_load_example("session-completion-observed"))
+        event["attempt_id"] = None
+        with self.assertRaisesRegex(ValueError, "must both be null or both be present"):
+            VALIDATOR.validate_session_completion_observed(event, Path("bad"))
+
+    def test_stream_position_must_be_positive_integer(self) -> None:
+        for invalid in (0, -1, True, "1"):
+            with self.subTest(invalid=invalid):
+                event = copy.deepcopy(_load_example("session-completion-observed"))
+                event["origin_sequence"] = invalid
+                with self.assertRaisesRegex(ValueError, "positive integer"):
+                    VALIDATOR.validate_session_completion_observed(event, Path("bad"))
+
+    def test_invalid_terminal_combinations_are_rejected(self) -> None:
+        cases = [
+            ({"kind": "succeeded", "exit_code": 1, "reason_code": "completed", "retryable": False}, "succeeded requires"),
+            ({"kind": "failed", "exit_code": 0, "reason_code": "process-exit", "retryable": True}, "non-zero exit_code"),
+            ({"kind": "timed-out", "exit_code": None, "reason_code": "cancelled", "retryable": True}, "invalid for terminal.kind"),
+            ({"kind": "end-inferred", "exit_code": 9, "reason_code": "crash-inferred", "retryable": True}, "requires a null exit_code"),
+        ]
+        for terminal, message in cases:
+            with self.subTest(terminal=terminal):
+                event = copy.deepcopy(_load_example("session-completion-observed"))
+                event["terminal"] = terminal
+                with self.assertRaisesRegex(ValueError, message):
+                    VALIDATOR.validate_session_completion_observed(event, Path("bad"))
+
+    def test_unstable_identities_are_rejected(self) -> None:
+        event = copy.deepcopy(_load_example("session-completion-observed"))
+        event["event_id"] = "session-42"
+        with self.assertRaisesRegex(ValueError, "lowercase UUID"):
+            VALIDATOR.validate_session_completion_observed(event, Path("bad"))
+
+    def test_prohibited_content_fields_are_rejected_at_any_depth(self) -> None:
+        for key in (
+            "prompt", "transcript", "raw_output", "environment", "claim_token",
+            "api_key", "api-key", "apiKey", "command_output", "commandOutput",
+            "failure_details", "failureDetails", "raw_output", "raw-output", "rawOutput",
+            "claim_proof", "claim-proof", "claimProof", "request_snapshot",
+            "request-snapshot", "requestSnapshot", "access_token", "access-token",
+            "accessToken", "client_secret", "client-secret", "clientSecret",
+        ):
+            with self.subTest(key=key):
+                event = copy.deepcopy(_load_example("session-completion-observed"))
+                event["additive"] = {key: "must never appear"}
+                with self.assertRaisesRegex(ValueError, "prohibited completion field"):
+                    VALIDATOR.validate_session_completion_observed(event, Path("bad"))
+
+    def test_privacy_assertions_must_all_be_true(self) -> None:
+        event = copy.deepcopy(_load_example("session-completion-observed"))
+        event["privacy"]["raw_output_absent"] = False
+        with self.assertRaisesRegex(ValueError, "every completion privacy assertion"):
+            VALIDATOR.validate_session_completion_observed(event, Path("bad"))
+
+    def test_secret_like_additive_value_is_rejected(self) -> None:
+        event = copy.deepcopy(_load_example("session-completion-observed"))
+        event["future_safe_scalar"] = "Bearer abcdefghijklmnop"
+        with self.assertRaisesRegex(ValueError, "secret-like content"):
+            VALIDATOR.validate_session_completion_observed(event, Path("bad"))
+
+    def test_additive_unknown_field_is_accepted(self) -> None:
+        event = copy.deepcopy(_load_example("session-completion-observed"))
+        event["future_safe_scalar"] = "value"
+        VALIDATOR.validate_session_completion_observed(event, Path("event"))
+
+    def test_observation_cannot_precede_completion(self) -> None:
+        event = copy.deepcopy(_load_example("session-completion-observed"))
+        event["observed_at"] = "2026-08-09T11:00:01Z"
+        with self.assertRaisesRegex(ValueError, "started_at <= completed_at <= observed_at"):
+            VALIDATOR.validate_session_completion_observed(event, Path("bad"))
+
+    def test_absolute_ref_is_rejected(self) -> None:
+        event = copy.deepcopy(_load_example("session-completion-observed"))
+        event["refs"][0]["source"] = "/projects/dev/secret/capsule.json"
+        with self.assertRaisesRegex(ValueError, "absolute path is prohibited"):
+            VALIDATOR.validate_session_completion_observed(event, Path("bad"))
+
+    def test_absolute_paths_are_rejected_recursively(self) -> None:
+        for absolute in ("/projects/dev/private", "C:\\Users\\operator\\secret", "\\\\server\\share\\secret"):
+            with self.subTest(absolute=absolute):
+                event = copy.deepcopy(_load_example("session-completion-observed"))
+                event["future_safe"] = {"nested": [absolute]}
+                with self.assertRaisesRegex(ValueError, "absolute path is prohibited"):
+                    VALIDATOR.validate_session_completion_observed(event, Path("bad"))
+
+    def test_schema_shape_and_scalar_types_are_enforced(self) -> None:
+        mutations = [
+            (lambda event: event["terminal"].update(retryable=1), "terminal.retryable must be a boolean"),
+            (lambda event: event["terminal"].update(exit_code=True), "terminal.exit_code must be null or an integer"),
+            (lambda event: event["evidence"].update(dirty=0), "evidence.dirty must be a boolean"),
+            (lambda event: event.update(model="opencode-go"), "model must be null or an object"),
+            (lambda event: event.update(model={"name": "x", "version": 1}), "model.version must be a string"),
+            (lambda event: event["repo"].update(repo_id="repo-1"), "repo.repo_id must be a lowercase UUID"),
+            (lambda event: event.update(refs={}), "refs must be an array"),
+            (lambda event: event.update(evidence=[]), "evidence must be an object"),
+            (lambda event: event["evidence"].update(verification=[]), "evidence.verification must be an object"),
+            (lambda event: event.update(privacy=[]), "privacy must be an object"),
+        ]
+        for mutate, message in mutations:
+            with self.subTest(message=message):
+                event = copy.deepcopy(_load_example("session-completion-observed"))
+                mutate(event)
+                with self.assertRaisesRegex(ValueError, message):
+                    VALIDATOR.validate_session_completion_observed(event, Path("bad"))
+
+    def test_via_schema_version_dispatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "completion.json"
+            path.write_text(json.dumps(_load_example("session-completion-observed")), encoding="utf-8")
+            VALIDATOR.validate(path)
+
+
 class DiscoveryAndMainTests(unittest.TestCase):
     def test_discovers_and_rejects_duplicate_ids(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -180,6 +299,20 @@ class DiscoveryAndMainTests(unittest.TestCase):
                     if artifact_id in seen:
                         raise ValueError(f"{path}: duplicate artifact id {artifact_id!r}")
                     seen.add(artifact_id)
+
+    def test_main_rejects_duplicate_completion_stream_positions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            completions = root / "session-completions"
+            completions.mkdir()
+            first = _load_example("session-completion-observed")
+            second = copy.deepcopy(first)
+            second["event_id"] = "5e6f7081-92a3-4b4c-8d0e-4f5061728394"
+            (completions / "a.json").write_text(json.dumps(first), encoding="utf-8")
+            (completions / "b.json").write_text(json.dumps(second), encoding="utf-8")
+            with mock.patch("sys.argv", [str(SCRIPT), "--root", str(root)]):
+                with self.assertRaisesRegex(ValueError, "duplicate origin stream position"):
+                    VALIDATOR.main()
 
 
 if __name__ == "__main__":
