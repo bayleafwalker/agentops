@@ -26,11 +26,13 @@ COPY --from=actionq-source actionq /tmp/actionq/actionq
 COPY --from=actionq-source packages/actionq-contracts /tmp/actionq-contracts
 COPY --from=sprintctl-source pyproject.toml /tmp/sprintctl/
 COPY --from=sprintctl-source sprintctl /tmp/sprintctl/sprintctl
+COPY --from=vuoro-source packages/vuoro-client /tmp/vuoro-client
 RUN apk add --no-cache python3 py3-pip git && \
     pip3 install --break-system-packages /tmp/actionq-contracts && \
     pip3 install --break-system-packages /tmp/actionq && \
-    pip3 install --break-system-packages "/tmp/sprintctl[served]" && \
-    rm -rf /tmp/actionq /tmp/actionq-contracts /tmp/sprintctl
+    pip3 install --break-system-packages /tmp/vuoro-client && \
+    pip3 install --break-system-packages --no-deps /tmp/sprintctl && \
+    rm -rf /tmp/actionq /tmp/actionq-contracts /tmp/sprintctl /tmp/vuoro-client
 
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
