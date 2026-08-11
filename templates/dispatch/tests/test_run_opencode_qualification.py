@@ -59,6 +59,79 @@ def _event(tokens: int) -> dict[str, object]:
     }
 
 
+class PinnedExecutableValidationTests(unittest.TestCase):
+    def _linked_target(self, mode: int, *, directory: bool = False) -> tuple[tempfile.TemporaryDirectory[str], Path, Path]:
+        temporary = tempfile.TemporaryDirectory()
+        root = Path(temporary.name)
+        target = root / "target"
+        if directory:
+            target.mkdir()
+        else:
+            target.write_bytes(b"pinned executable fixture")
+        os.chmod(target, mode)
+        configured = root / "configured"
+        configured.symlink_to(target)
+        return temporary, configured, target
+
+    def _check(self, configured: Path, label: str = "fixture executable") -> tuple[Path, tuple[int, ...]]:
+        old_owner = runner.EXPECTED_OWNER_UID
+        runner.EXPECTED_OWNER_UID = os.getuid()
+        try:
+            return runner._check_pinned_executable(configured, label)
+        finally:
+            runner.EXPECTED_OWNER_UID = old_owner
+
+    def test_nix_style_symlink_to_root_owned_0555_target_is_accepted(self) -> None:
+        temporary, configured, target = self._linked_target(0o555)
+        try:
+            resolved, _ = self._check(configured)
+            self.assertEqual(resolved, target)
+        finally:
+            temporary.cleanup()
+
+    def test_non_root_target_owner_is_rejected_when_testable(self) -> None:
+        if os.getuid() == 0:
+            self.skipTest("fixture cannot create a non-root-owned target without changing host ownership")
+        temporary, configured, _ = self._linked_target(0o555)
+        old_owner = runner.EXPECTED_OWNER_UID
+        runner.EXPECTED_OWNER_UID = 0
+        try:
+            with self.assertRaisesRegex(runner.RunnerError, "unexpected owner"):
+                runner._check_pinned_executable(configured, "fixture executable")
+        finally:
+            runner.EXPECTED_OWNER_UID = old_owner
+            temporary.cleanup()
+
+    def test_non_regular_target_is_rejected(self) -> None:
+        temporary, configured, _ = self._linked_target(0o555, directory=True)
+        try:
+            with self.assertRaisesRegex(runner.RunnerError, "regular file"):
+                self._check(configured)
+        finally:
+            temporary.cleanup()
+
+    def test_non_executable_target_is_rejected(self) -> None:
+        temporary, configured, _ = self._linked_target(0o644)
+        try:
+            with self.assertRaisesRegex(runner.RunnerError, "executable"):
+                self._check(configured)
+        finally:
+            temporary.cleanup()
+
+    def test_group_and_world_writable_targets_are_rejected(self) -> None:
+        for mode in (0o775, 0o757):
+            temporary, configured, _ = self._linked_target(mode)
+            try:
+                with self.subTest(mode=oct(mode)), self.assertRaisesRegex(runner.RunnerError, "group/world-writable"):
+                    self._check(configured)
+            finally:
+                temporary.cleanup()
+
+    def test_only_the_five_pinned_system_paths_use_target_validation(self) -> None:
+        self.assertEqual(set(runner.PINNED_EXECUTABLE_NAMES), {"OPENCODE", "RUNUSER", "TOUCH", "MKDIR", "SSH_KEYGEN"})
+        self.assertNotIn("RUNNER_PATH", runner.PINNED_EXECUTABLE_NAMES)
+
+
 class OneShotRunnerTests(unittest.TestCase):
     def test_one_contained_invocation_and_exact_boundary_are_accepted(self) -> None:
         calls: list[list[str]] = []

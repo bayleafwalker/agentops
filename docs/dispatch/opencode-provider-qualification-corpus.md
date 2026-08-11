@@ -102,7 +102,11 @@ checked against the checked-in `templates/dispatch/provider-qualification/prefli
 bytes and pinned digests before the packet sentinel is created.
 The installation root itself is `root:root` mode `0700`; every parent and
 installed file is a non-symlink regular object with the specified owner and
-mode. The runner verifies the worker's actual UID, exact supplementary groups,
+mode. The five pinned system executable inputs (`opencode`, `runuser`, `touch`,
+`mkdir`, and `ssh-keygen`) are the deliberate portability exception: their
+configured paths may be Nix-style symlinks, but the runner resolves each final
+target and requires a root-owned regular executable with no group/world write
+bits. The runner verifies the worker's actual UID, exact supplementary groups,
 workspace round-trip, coordinator write denial, and OpenCode `1.18.4` version
 before issuing the provider-facing command.
 
@@ -173,7 +177,12 @@ fingerprints as well as these exact absolute paths:
 ```
 
 The privileged launcher must reject substitutions, symlinks, non-regular
-files, wrong owners, group/world-writable parents, and mode mismatches.
+files, wrong owners, group/world-writable parents, and mode mismatches for
+trust material, state, installed artifacts, and the runner. The five pinned
+system executable paths named above are the sole symlink exception; their
+resolved final targets are checked for root ownership, regular-file type,
+execute permission, and absence of group/world write bits, with a stable
+metadata fingerprint carried through resolution and use.
 Completed records and detached signatures are `root:root` mode `0400`; nonce
 consumption markers are also `root:root` mode `0400`. Admission verification
 uses only the pinned public key and allowed-signers material. An HMAC, shared
