@@ -1,8 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
 import { CompletionAlertPanel, formatCompletionAge, normalizeCompletionAlerts } from "../components/cockpit/completion-alert-panel.js";
+import { CompletionAlertConsumer, DurableCompletionAlertStore, readCompletionAlertProjection, readCompletionPage } from "../lib/cockpit/completion-alerts.js";
 import { getPollIntervalMs } from "../lib/cockpit/client-state.js";
 
 const h = createElement;
@@ -94,7 +98,8 @@ test("projection outage names server unavailability instead of hiding the source
   const html = renderToStaticMarkup(h(CompletionAlertPanel, {
     data: { alerts: [], degraded: { message: "projection unavailable" }, health: null }
   }));
-  assert.match(html, /server unavailable/);
+  assert.match(html, /projection unavailable/);
+  assert.doesNotMatch(html, /server unavailable/);
 });
 
 test("ActionQ read failure stays distinct from a generic consumer status", () => {
@@ -104,7 +109,7 @@ test("ActionQ read failure stays distinct from a generic consumer status", () =>
       degraded: { message: "completion log read failed" },
       health: {
         server: { ingest_lag_seconds: null },
-        consumer: { status: "degraded", server_unavailable: true },
+        consumer: { status: "degraded", failure_origin: "served-read", server_unavailable: true },
         routes: { cockpit: { pending: 3, dead_lettered: 1 } }
       }
     }
@@ -114,4 +119,53 @@ test("ActionQ read failure stays distinct from a generic consumer status", () =>
   assert.match(html, /route pending 3/);
   assert.match(html, /route dead-lettered 1/);
   assert.doesNotMatch(html, /consumer degraded/);
+});
+
+test("served ActionQ read failure flows through durable health into the panel", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "agentops-completion-panel-served-read-"));
+  const fixedNow = new Date("2026-08-11T12:05:00Z");
+  const store = new DurableCompletionAlertStore({ root, now: () => fixedNow });
+  await store.initialize();
+  await store.writeCheckpoint({ server_cursor: 6 });
+  await store.writeHealth({ server: { cursor: 8, producer_backlog_age_seconds: 121, ingest_lag_seconds: 2 } });
+  await store.writeReceipt({ event_id: "4d5e6f70-8192-4a3b-8c0d-3e4f50617284", route_id: "cockpit", state: "pending", created_at: "2026-08-11T12:04:00Z" });
+  const consumer = new CompletionAlertConsumer({
+    stateRoot: root,
+    now: () => fixedNow,
+    fetchPage: async (args) => readCompletionPage({
+      ...args,
+      config: { completionAlertActionqUrl: "http://actionq.test/v1/completions" },
+      fetchImpl: async () => ({
+        ok: false,
+        status: 503,
+        async json() { return { error: { code: "service_unavailable" } }; }
+      })
+    })
+  });
+  const result = await consumer.pollOnce();
+  assert.equal(result.failure_origin, "served-read");
+  assert.equal(result.server_unavailable, true);
+  const projection = await readCompletionAlertProjection({ stateRoot: root, now: () => fixedNow });
+  assert.equal(projection.health.consumer.failure_origin, "served-read");
+  const html = renderToStaticMarkup(h(CompletionAlertPanel, { data: projection }));
+  assert.match(html, /server unavailable/);
+  assert.match(html, /consumer retrying/);
+  assert.match(html, /producer backlog 2m/);
+  assert.match(html, /consumer lag 2 cursors/);
+  assert.match(html, /oldest pending 60s/);
+  assert.match(html, /route pending 1/);
+  assert.doesNotMatch(html, /consumer degraded \(local failure\)/);
+});
+
+test("local consumer failure is persisted and not labeled server unavailable", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "agentops-completion-panel-local-failure-"));
+  const consumer = new CompletionAlertConsumer({ stateRoot: root, fetchPage: async () => null });
+  const result = await consumer.pollOnce();
+  assert.equal(result.failure_origin, "consumer-storage");
+  assert.equal(result.server_unavailable, false);
+  const projection = await readCompletionAlertProjection({ stateRoot: root });
+  assert.equal(projection.health.consumer.failure_origin, "consumer-storage");
+  const html = renderToStaticMarkup(h(CompletionAlertPanel, { data: projection }));
+  assert.match(html, /consumer degraded \(consumer-storage\)/);
+  assert.doesNotMatch(html, /server unavailable/);
 });

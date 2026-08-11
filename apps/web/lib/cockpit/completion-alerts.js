@@ -909,9 +909,18 @@ export class CompletionAlertConsumer {
     await this.store.initialize();
     const startedAt = nowIso(this.now());
     const checkpoint = await this.store.readCheckpoint();
-    await this._health({ status: "polling", last_poll_started_at: startedAt, last_error: null });
+    await this._health({ status: "polling", failure_origin: null, server_unavailable: false, last_poll_started_at: startedAt, last_error: null });
     try {
-      let page = await this.fetchPage({ cursor: checkpoint.server_cursor, limit: this.pageSize, replay, timeoutMs: this.pollTimeoutMs });
+      const fetchServedPage = async (args) => {
+        try {
+          return await this.fetchPage(args);
+        } catch (error) {
+          const classified = error instanceof Error ? error : new Error(String(error));
+          classified.completion_failure_origin = "served-read";
+          throw classified;
+        }
+      };
+      let page = await fetchServedPage({ cursor: checkpoint.server_cursor, limit: this.pageSize, replay, timeoutMs: this.pollTimeoutMs });
       if (page.cursor_expired || page.advance_cursor === false) {
         const cursorError = page.error?.message || "completion cursor expired; explicit recovery is required";
         await this._health({
@@ -939,7 +948,7 @@ export class CompletionAlertConsumer {
       if (page.gap && !replay) {
         // A notification or a server page hint is not a correctness record.
         // Re-read the same durable cursor in replay mode before advancing it.
-        page = await this.fetchPage({ cursor: checkpoint.server_cursor, limit: this.pageSize, replay: true, timeoutMs: this.pollTimeoutMs });
+        page = await fetchServedPage({ cursor: checkpoint.server_cursor, limit: this.pageSize, replay: true, timeoutMs: this.pollTimeoutMs });
         gapRepaired = true;
       }
       const results = [];
@@ -963,6 +972,8 @@ export class CompletionAlertConsumer {
       });
       await this._health({
         status: "healthy",
+        failure_origin: null,
+        server_unavailable: false,
         last_poll_completed_at: nowIso(this.now()),
         last_server_cursor: page.next_cursor ?? checkpoint.server_cursor,
         last_page_size: (page.events || []).length,
@@ -976,8 +987,17 @@ export class CompletionAlertConsumer {
       return { status: "ok", events: results.length, results, next_cursor: page.next_cursor ?? checkpoint.server_cursor, health };
     } catch (error) {
       const safeError = redactDiagnostic(error?.message || error);
-      await this._health({ status: "degraded", server_unavailable: true, last_poll_completed_at: nowIso(this.now()), last_error: safeError });
-      return { status: "degraded", events: 0, error: safeError };
+      const failureOrigin = error?.completion_failure_origin || "consumer-storage";
+      const serverUnavailable = failureOrigin === "served-read";
+      await this._health({
+        status: "degraded",
+        failure_origin: failureOrigin,
+        server_unavailable: serverUnavailable,
+        last_poll_completed_at: nowIso(this.now()),
+        last_error: safeError
+      });
+      const health = await this.store.listHealth({ now: this.now() });
+      return { status: "degraded", events: 0, error: safeError, failure_origin: failureOrigin, server_unavailable: serverUnavailable, health };
     } finally {
       this.polling = false;
     }

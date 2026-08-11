@@ -84,7 +84,7 @@ function cursorLagSummary(health) {
 
 function healthSummary(health, degradedMessage = null) {
   if (!health) {
-    return { state: "error", parts: [degradedMessage ? "server unavailable" : "health unavailable"] };
+    return { state: "error", parts: [degradedMessage ? "projection unavailable" : "health unavailable"] };
   }
   const parts = [];
   const server = health.server;
@@ -92,8 +92,10 @@ function healthSummary(health, degradedMessage = null) {
   const cockpit = health.routes?.cockpit;
   if (server?.cursor_expired) {
     parts.push(`server cursor expired${server.recovery_floor == null ? "" : ` at ${server.recovery_floor}`}`);
-  } else if (degradedMessage || consumer?.status === "degraded" || consumer?.server_unavailable) {
+  } else if (consumer?.failure_origin === "served-read") {
     parts.push("server unavailable");
+  } else if (degradedMessage) {
+    parts.push("projection unavailable");
   } else if (server) {
     if (server.ingest_lag_seconds != null) {
       parts.push(`server lag ${formatHealthAge(server.ingest_lag_seconds)}`);
@@ -101,7 +103,7 @@ function healthSummary(health, degradedMessage = null) {
       parts.push("server connected");
     }
   } else {
-    parts.push(consumer?.status === "degraded" ? "server unavailable" : "server health unknown");
+    parts.push("server health unknown");
   }
   parts.push(`producer backlog ${server?.producer_backlog_age_seconds == null ? "unknown" : formatHealthAge(server.producer_backlog_age_seconds)}`);
   parts.push(cursorLagSummary(health));
@@ -109,7 +111,7 @@ function healthSummary(health, degradedMessage = null) {
   if (consumer?.status === "cursor-expired" || consumer?.cursor_expired) {
     parts.push(`consumer recovery required${consumer.recovery_floor == null ? "" : ` from ${consumer.recovery_floor}`}`);
   } else if (consumer?.status === "degraded") {
-    parts.push("consumer retrying");
+    parts.push(consumer.failure_origin === "served-read" ? "consumer retrying" : `consumer degraded (${text(consumer.failure_origin, "local failure")})`);
   } else if (consumer?.status) {
     parts.push(`consumer ${text(consumer.status)}`);
   } else {
@@ -118,7 +120,7 @@ function healthSummary(health, degradedMessage = null) {
   if (cockpit?.dead_lettered) parts.push(`route dead-lettered ${cockpit.dead_lettered}`);
   if (cockpit?.pending) parts.push(`route pending ${cockpit.pending}`);
   return {
-    state: degradedMessage || server?.cursor_expired || consumer?.status === "cursor-expired" || consumer?.cursor_expired || consumer?.status === "degraded" || consumer?.server_unavailable || cockpit?.dead_lettered || !server ? "error" : cockpit?.pending || !consumer ? "warn" : "ok",
+    state: degradedMessage || server?.cursor_expired || consumer?.status === "cursor-expired" || consumer?.cursor_expired || consumer?.status === "degraded" || cockpit?.dead_lettered || !server ? "error" : cockpit?.pending || !consumer ? "warn" : "ok",
     parts
   };
 }
