@@ -23,12 +23,14 @@ LABEL org.opencontainers.image.vendor="agentops" \
 # authority state.
 COPY --from=actionq-source pyproject.toml /tmp/actionq/
 COPY --from=actionq-source actionq /tmp/actionq/actionq
+COPY --from=actionq-source packages/actionq-contracts /tmp/actionq-contracts
 COPY --from=sprintctl-source pyproject.toml /tmp/sprintctl/
 COPY --from=sprintctl-source sprintctl /tmp/sprintctl/sprintctl
 RUN apk add --no-cache python3 py3-pip git && \
+    pip3 install --break-system-packages /tmp/actionq-contracts && \
     pip3 install --break-system-packages /tmp/actionq && \
     pip3 install --break-system-packages "/tmp/sprintctl[served]" && \
-    rm -rf /tmp/actionq /tmp/sprintctl
+    rm -rf /tmp/actionq /tmp/actionq-contracts /tmp/sprintctl
 
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
