@@ -41,7 +41,7 @@ class HarnessProfileValidationTests(unittest.TestCase):
         self.assertIn("lifecycle", schema["required"])
         self.assertEqual(
             schema["properties"]["lifecycle"]["properties"]["session_id_field"]["const"],
-            "properties.sessionID",
+            "sessionID",
         )
         self.assertEqual(
             schema["properties"]["lifecycle"]["properties"]["finalizer"]["properties"]["agent"]["const"],
@@ -83,7 +83,7 @@ class HarnessProfileValidationTests(unittest.TestCase):
         self.assertIn("capability_probe_results", self.profile["receipt_fields"])
         self.assertIn("lifecycle_probe_results", self.profile["receipt_fields"])
         self.assertEqual(self.profile["lifecycle"]["event_format"], "json")
-        self.assertEqual(self.profile["lifecycle"]["session_id_field"], "properties.sessionID")
+        self.assertEqual(self.profile["lifecycle"]["session_id_field"], "sessionID")
         self.assertEqual(self.profile["lifecycle"]["continuation"]["mode"], "same-session")
         self.assertEqual(self.profile["lifecycle"]["finalizer"]["tools"], [])
 

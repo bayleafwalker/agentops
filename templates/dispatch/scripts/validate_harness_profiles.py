@@ -111,8 +111,8 @@ def validate_profile(value: dict[str, Any], path: Path) -> None:
         raise _error(path, "lifecycle.event_format", "must be json")
     if lifecycle["event_stream"] != "stdout":
         raise _error(path, "lifecycle.event_stream", "must be stdout")
-    if lifecycle["session_id_field"] != "properties.sessionID":
-        raise _error(path, "lifecycle.session_id_field", "must be properties.sessionID")
+    if lifecycle["session_id_field"] != "sessionID":
+        raise _error(path, "lifecycle.session_id_field", "must be sessionID")
 
     continuation = _object(lifecycle["continuation"], "lifecycle.continuation", path)
     _keys(continuation, "lifecycle.continuation", path, {

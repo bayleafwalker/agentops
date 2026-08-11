@@ -40,7 +40,7 @@ version, executable or store fingerprint, channel revision, profile and
 overlay hashes, provider/model revision, capability-probe results, and the
 contained worker identity named by the profile. For this profile, lifecycle
 evidence also covers stdout JSON event envelopes with `type` and
-`properties.sessionID`, stable session values, explicit
+top-level `sessionID`, stable session values, explicit
 same-session continuation without forking, and a finalizer agent with no
 tools. A new fingerprint starts a new qualification stratum unless the same
 profile's compatibility probes pass.

@@ -21,7 +21,7 @@
   "lifecycle": {
     "event_format": "json",
     "event_stream": "stdout",
-    "session_id_field": "properties.sessionID",
+    "session_id_field": "sessionID",
     "continuation": {
       "mode": "same-session",
       "session_flag": "--session",

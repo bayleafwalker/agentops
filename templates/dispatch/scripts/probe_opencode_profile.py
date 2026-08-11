@@ -51,6 +51,7 @@ TOOL_KEYS = (
     "read", "glob", "grep", "list", "todowrite", "todoread", "edit", "write",
     "patch", "bash", "task", "external_directory", "webfetch", "websearch",
 )
+PINNED_EVENT_TYPES = frozenset({"step_start", "text", "step_finish"})
 
 
 class ProbeError(ValueError):
@@ -115,8 +116,24 @@ import os
 import sys
 
 args = sys.argv[1:]
+state_path = os.environ["FAKE_OPENCODE_STATE"]
+if args and args[0] == "export":
+    with open(state_path, encoding="utf-8") as stream:
+        state = json.loads(stream.read())
+    session = args[1]
+    if session != state["sessionID"] or "--sanitize" not in args:
+        raise SystemExit(6)
+    messages = [
+        {"info": {"role": "user", "agent": state["agent"]}, "parts": [{"type": "text"}]},
+        {"info": {"role": "assistant", "agent": state["agent"],
+                  "providerID": "opencode-go", "modelID": "deepseek-v4-flash",
+                  "finish": "stop"},
+         "parts": [{"type": "step-start"}, {"type": "text"}, {"type": "step-finish"}]},
+    ]
+    print(json.dumps({"info": {"id": session}, "messages": messages}, separators=(",", ":")))
+    raise SystemExit(0)
 if not args or args[0] != "run":
-    print("fake OpenCode only supports run", file=sys.stderr)
+    print("fake OpenCode only supports run and export", file=sys.stderr)
     raise SystemExit(2)
 if "--format" not in args or args[args.index("--format") + 1] != "json":
     print("json format is required", file=sys.stderr)
@@ -138,15 +155,18 @@ if agent == "ao-finalizer":
         print("finalizer received a tool", file=sys.stderr)
         raise SystemExit(5)
 
+with open(state_path, "w", encoding="utf-8") as stream:
+    stream.write(json.dumps({"sessionID": session, "agent": agent}))
 for event in (
-    {"type": "message.updated", "properties": {"sessionID": session, "info": {"role": "assistant", "agent": agent}}},
-    {"type": "session.status", "properties": {"sessionID": session, "status": {"type": "idle"}}},
+    {"type": "step_start", "sessionID": session, "timestamp": 1, "part": {"type": "step-start"}},
+    {"type": "text", "sessionID": session, "timestamp": 2, "part": {"type": "text"}},
+    {"type": "step_finish", "sessionID": session, "timestamp": 3, "part": {"type": "step-finish"}},
 ):
     print(json.dumps(event, separators=(",", ":")))
 '''
 
 
-def _events(stdout: str, *, label: str, session_id_field: str = "properties.sessionID") -> list[dict[str, Any]]:
+def _events(stdout: str, *, label: str, session_id_field: str = "sessionID") -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
     session_ids: set[str] = set()
     for line_number, line in enumerate(stdout.splitlines(), 1):
@@ -161,11 +181,14 @@ def _events(stdout: str, *, label: str, session_id_field: str = "properties.sess
         if not isinstance(event.get("type"), str) or not event["type"]:
             raise ProbeError(f"{label}: event has no type")
         _reject_error_terminal(event, label=label)
-        properties = event.get("properties")
-        if not isinstance(properties, dict):
-            raise ProbeError(f"{label}: event has no properties envelope")
-        if "sessionID" in event:
-            raise ProbeError(f"{label}: multiple session IDs in event envelope")
+        if "properties" in event:
+            raise ProbeError(f"{label}: event uses unsupported properties envelope")
+        if event["type"] not in PINNED_EVENT_TYPES:
+            raise ProbeError(f"{label}: unsupported event type {event['type']!r}")
+        if not isinstance(event.get("part"), dict):
+            raise ProbeError(f"{label}: event has no part object")
+        if not isinstance(event.get("timestamp"), (int, float)):
+            raise ProbeError(f"{label}: event has no numeric timestamp")
         cursor: Any = event
         for component in session_id_field.split("."):
             if not isinstance(cursor, dict) or component not in cursor:
@@ -232,38 +255,82 @@ def _session_ids(events: list[dict[str, Any]], session_id_field: str) -> set[str
     return ids
 
 
-def _effective_agent(events: list[dict[str, Any]], expected: str, *, label: str) -> None:
-    agents = {
-        event["properties"]["info"].get("agent")
-        for event in events
-        if event["type"] == "message.updated"
-        and isinstance(event["properties"].get("info"), dict)
-        and event["properties"]["info"].get("role") == "assistant"
-    }
-    if agents != {expected}:
-        observed = sorted(str(agent) for agent in agents)
-        raise ProbeError(f"{label}: effective agent {observed!r}, expected {expected!r}")
-
-
 def _assert_no_tool_events(events: list[dict[str, Any]], *, label: str) -> None:
     for event in events:
-        properties = event.get("properties", {})
-        part = properties.get("part", {}) if isinstance(properties, dict) else {}
+        part = event.get("part", {})
         event_type = _normalise_terminal_value(event.get("type"))
         part_type = _normalise_terminal_value(part.get("type")) if isinstance(part, dict) else None
-        info = properties.get("info", {}) if isinstance(properties, dict) else {}
-        roles = {
-            properties.get("role") if isinstance(properties, dict) else None,
-            info.get("role") if isinstance(info, dict) else None,
-        }
         if (
             event_type == "tool"
             or (event_type and event_type.startswith("tool-"))
             or part_type == "tool"
             or (part_type and part_type.startswith("tool-"))
-            or "tool" in roles
         ):
             raise ProbeError(f"{label}: finalizer emitted a tool event")
+
+
+def _export_evidence(
+    stdout: str,
+    *,
+    label: str,
+    session_id: str,
+    expected_agent: str | None,
+    expected_model: str,
+    require_no_tools: bool = False,
+    forbidden_agent: str | None = None,
+) -> dict[str, Any]:
+    try:
+        exported = json.loads(stdout)
+    except json.JSONDecodeError as exc:
+        raise ProbeError(f"{label}: sanitized export is not JSON: {exc}") from exc
+    if not isinstance(exported, dict) or not isinstance(exported.get("info"), dict):
+        raise ProbeError(f"{label}: sanitized export has no info object")
+    if exported["info"].get("id") != session_id:
+        raise ProbeError(f"{label}: sanitized export changed session identity")
+    messages = exported.get("messages")
+    if not isinstance(messages, list) or not messages:
+        raise ProbeError(f"{label}: sanitized export has no messages")
+    assistants = [
+        message for message in messages
+        if isinstance(message, dict)
+        and isinstance(message.get("info"), dict)
+        and message["info"].get("role") == "assistant"
+    ]
+    if not assistants:
+        raise ProbeError(f"{label}: sanitized export has no assistant message")
+    latest = assistants[-1]
+    info = latest["info"]
+    if expected_agent is not None and info.get("agent") != expected_agent:
+        raise ProbeError(
+            f"{label}: effective agent {info.get('agent')!r}, expected {expected_agent!r}"
+        )
+    if forbidden_agent is not None and info.get("agent") == forbidden_agent:
+        raise ProbeError(f"{label}: forbidden effective agent {forbidden_agent!r}")
+    provider, model = expected_model.split("/", 1)
+    if info.get("providerID") != provider or info.get("modelID") != model:
+        raise ProbeError(f"{label}: sanitized export provider/model mismatch")
+    if _is_error_status(info.get("finish")) or not isinstance(info.get("finish"), str):
+        raise ProbeError(f"{label}: sanitized export has invalid finish state")
+    parts = latest.get("parts")
+    if not isinstance(parts, list):
+        raise ProbeError(f"{label}: sanitized export has no assistant parts")
+    part_types = [part.get("type") for part in parts if isinstance(part, dict)]
+    if len(part_types) != len(parts) or any(not isinstance(value, str) for value in part_types):
+        raise ProbeError(f"{label}: sanitized export has malformed assistant parts")
+    if require_no_tools and any(
+        _normalise_terminal_value(value) == "tool"
+        or (_normalise_terminal_value(value) or "").startswith("tool-")
+        for value in part_types
+    ):
+        raise ProbeError(f"{label}: finalizer emitted a tool part")
+    return {
+        "session_id": session_id,
+        "agent": info.get("agent"),
+        "provider_model": expected_model,
+        "finish": info["finish"],
+        "part_types": part_types,
+        "assistant_message_count": len(assistants),
+    }
 
 
 def _finalizer_args(profile: dict[str, Any], session_id: str) -> list[str]:
@@ -278,8 +345,17 @@ def _finalizer_args(profile: dict[str, Any], session_id: str) -> list[str]:
     ]
 
 
-def _run_fake(fake_path: Path, args: list[str], config: dict[str, Any]) -> tuple[int, str, str]:
-    env = {**os.environ, "OPENCODE_CONFIG_CONTENT": json.dumps(config)}
+def _run_fake(
+    fake_path: Path,
+    args: list[str],
+    config: dict[str, Any],
+    state_path: Path,
+) -> tuple[int, str, str]:
+    env = {
+        **os.environ,
+        "OPENCODE_CONFIG_CONTENT": json.dumps(config),
+        "FAKE_OPENCODE_STATE": str(state_path),
+    }
     completed = subprocess.run(
         [sys.executable, str(fake_path), *args],
         env=env,
@@ -299,10 +375,26 @@ def run_fake_probes(profile_path: Path = DEFAULT_PROFILE, config_path: Path = DE
 
     with tempfile.TemporaryDirectory(prefix="agentops-opencode-probe-") as temporary:
         fake_path = Path(temporary) / "opencode-fake.py"
+        state_path = Path(temporary) / "state.json"
         fake_path.write_text(FAKE_OPENCODE, encoding="utf-8")
 
+        def fake_export(session_id: str, expected_agent: str, label: str, *, no_tools: bool = False) -> dict[str, Any]:
+            code, stdout, stderr = _run_fake(
+                fake_path, ["export", session_id, "--sanitize"], config, state_path
+            )
+            if code != 0:
+                raise ProbeError(f"{label}: sanitized export failed ({code}): {stderr.strip()}")
+            return _export_evidence(
+                stdout,
+                label=label,
+                session_id=session_id,
+                expected_agent=expected_agent,
+                expected_model="opencode-go/deepseek-v4-flash",
+                require_no_tools=no_tools,
+            )
+
         base_args = ["run", "probe", "--agent", "ao-mechanical-bulk", "--format", "json"]
-        code, stdout, stderr = _run_fake(fake_path, base_args, config)
+        code, stdout, stderr = _run_fake(fake_path, base_args, config, state_path)
         if code != 0:
             raise ProbeError(f"initial fake session failed ({code}): {stderr.strip()}")
         initial = _events(stdout, label="initial session")
@@ -310,41 +402,42 @@ def run_fake_probes(profile_path: Path = DEFAULT_PROFILE, config_path: Path = DE
         if len(session_ids) != 1:
             raise ProbeError(f"initial session changed identity: {sorted(session_ids)}")
         session_id = next(iter(session_ids))
+        fake_export(session_id, "ao-mechanical-bulk", "initial session")
 
         continuation_args = [
             "run", "continue", "--continue", lifecycle["continuation"]["session_flag"],
             session_id, "--agent", "ao-mechanical-bulk", "--format", "json",
         ]
-        code, stdout, stderr = _run_fake(fake_path, continuation_args, config)
+        code, stdout, stderr = _run_fake(fake_path, continuation_args, config, state_path)
         if code != 0:
             raise ProbeError(f"same-session continuation failed ({code}): {stderr.strip()}")
         continued = _events(stdout, label="continued session")
         if _session_ids(continued, lifecycle["session_id_field"]) != {session_id}:
             raise ProbeError("continuation created a different session identity")
+        fake_export(session_id, "ao-mechanical-bulk", "continued session")
 
         finalizer_args = _finalizer_args(profile, session_id)
-        code, stdout, stderr = _run_fake(fake_path, finalizer_args, config)
+        code, stdout, stderr = _run_fake(fake_path, finalizer_args, config, state_path)
         if code != 0:
             raise ProbeError(f"no-tools finalizer failed ({code}): {stderr.strip()}")
         finalized = _events(stdout, label="finalizer")
         if _session_ids(finalized, lifecycle["session_id_field"]) != {session_id}:
             raise ProbeError("finalizer did not continue the same session")
-        _effective_agent(finalized, finalizer_name, label="finalizer")
         _assert_no_tool_events(finalized, label="finalizer")
+        fake_export(session_id, finalizer_name, "finalizer", no_tools=True)
 
         fallback_args = [
             arg for index, arg in enumerate(finalizer_args)
             if not (arg == "--agent" or (index and finalizer_args[index - 1] == "--agent"))
         ]
-        code, stdout, stderr = _run_fake(fake_path, fallback_args, config)
+        code, stdout, stderr = _run_fake(fake_path, fallback_args, config, state_path)
         if code != 0:
             raise ProbeError(f"default-agent fallback probe failed ({code}): {stderr.strip()}")
         fallback = _events(stdout, label="default-agent fallback")
-        try:
-            _effective_agent(fallback, finalizer_name, label="default-agent fallback")
-        except ProbeError:
-            pass
-        else:
+        fallback_evidence = fake_export(
+            session_id, "ao-mechanical-bulk", "default-agent fallback"
+        )
+        if fallback_evidence["agent"] == finalizer_name:
             raise ProbeError("CLI fallback/default agent was accepted as ao-finalizer")
 
     return {
@@ -436,6 +529,38 @@ def run_contained_probe(
 
     env = {**os.environ, "OPENCODE_CONFIG_CONTENT": json.dumps(config, separators=(",", ":"))}
 
+    def sanitized_export(
+        session_id: str,
+        *,
+        label: str,
+        expected_agent: str | None,
+        expected_model: str,
+        require_no_tools: bool = False,
+        forbidden_agent: str | None = None,
+    ) -> dict[str, Any]:
+        completed = _sudo(
+            expected_user,
+            [opencode_bin, "export", session_id, "--sanitize"],
+            cwd=root,
+            env=env,
+            timeout=30,
+            preserve_config=True,
+        )
+        if completed.returncode != 0:
+            raise ProbeError(
+                f"{label}: sanitized export failed ({completed.returncode}): "
+                f"{completed.stderr.strip()[-500:]}"
+            )
+        return _export_evidence(
+            completed.stdout,
+            label=label,
+            session_id=session_id,
+            expected_agent=expected_agent,
+            expected_model=expected_model,
+            require_no_tools=require_no_tools,
+            forbidden_agent=forbidden_agent,
+        )
+
     def real_run(args: list[str], label: str) -> list[dict[str, Any]]:
         completed = _sudo(
             expected_user,
@@ -473,8 +598,14 @@ def run_contained_probe(
     initial_ids = _session_ids(initial, lifecycle["session_id_field"])
     if len(initial_ids) != 1:
         raise ProbeError(f"contained initial session changed identity: {sorted(initial_ids)}")
-    _effective_agent(initial, "ao-mechanical-bulk", label="contained initial session")
     session_id = next(iter(initial_ids))
+    mechanical_model = config["agent"]["ao-mechanical-bulk"]["model"]
+    initial_evidence = sanitized_export(
+        session_id,
+        label="contained initial session",
+        expected_agent="ao-mechanical-bulk",
+        expected_model=mechanical_model,
+    )
 
     continued = real_run(
         [
@@ -486,7 +617,12 @@ def run_contained_probe(
     )
     if _session_ids(continued, lifecycle["session_id_field"]) != {session_id}:
         raise ProbeError("contained continuation created a different session identity")
-    _effective_agent(continued, "ao-mechanical-bulk", label="contained same-session continuation")
+    continued_evidence = sanitized_export(
+        session_id,
+        label="contained same-session continuation",
+        expected_agent="ao-mechanical-bulk",
+        expected_model=mechanical_model,
+    )
 
     fallback = real_run(
         [
@@ -498,12 +634,13 @@ def run_contained_probe(
     )
     if _session_ids(fallback, lifecycle["session_id_field"]) != {session_id}:
         raise ProbeError("contained default-agent fallback changed session identity")
-    try:
-        _effective_agent(fallback, FINALIZER_AGENT, label="contained default-agent fallback")
-    except ProbeError:
-        pass
-    else:
-        raise ProbeError("CLI default-agent fallback was accepted as ao-finalizer")
+    fallback_evidence = sanitized_export(
+        session_id,
+        label="contained default-agent fallback",
+        expected_agent=None,
+        expected_model=config["model"],
+        forbidden_agent=FINALIZER_AGENT,
+    )
 
     finalizer_args = _finalizer_args(profile, session_id)
     if finalizer_args[finalizer_args.index("--agent") + 1] != FINALIZER_AGENT:
@@ -511,8 +648,14 @@ def run_contained_probe(
     finalized = real_run(finalizer_args, "contained ao-finalizer")
     if _session_ids(finalized, lifecycle["session_id_field"]) != {session_id}:
         raise ProbeError("contained finalizer did not continue the same session")
-    _effective_agent(finalized, FINALIZER_AGENT, label="contained ao-finalizer")
     _assert_no_tool_events(finalized, label="contained ao-finalizer")
+    finalizer_evidence = sanitized_export(
+        session_id,
+        label="contained ao-finalizer",
+        expected_agent=FINALIZER_AGENT,
+        expected_model=config["agent"][FINALIZER_AGENT]["model"],
+        require_no_tools=True,
+    )
 
     return {
         "mode": "contained",
@@ -533,10 +676,10 @@ def run_contained_probe(
         "outstanding_evidence": ["provider-qualification"],
         "lifecycle_probe_results": {
             "session_id": session_id,
-            "initial": initial,
-            "continuation": continued,
-            "default_agent_fallback": fallback,
-            "finalizer": finalized,
+            "initial": initial_evidence,
+            "continuation": continued_evidence,
+            "default_agent_fallback": fallback_evidence,
+            "finalizer": finalizer_evidence,
             "finalizer_agent": FINALIZER_AGENT,
             "finalizer_args": finalizer_args,
         },
