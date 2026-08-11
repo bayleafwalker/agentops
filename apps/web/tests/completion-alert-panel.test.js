@@ -104,7 +104,7 @@ test("ActionQ read failure stays distinct from a generic consumer status", () =>
       degraded: { message: "completion log read failed" },
       health: {
         server: { ingest_lag_seconds: null },
-        consumer: { status: "degraded" },
+        consumer: { status: "degraded", server_unavailable: true },
         routes: { cockpit: { pending: 3, dead_lettered: 1 } }
       }
     }

@@ -167,6 +167,22 @@ test("readCompletionPage preserves the released ActionQ cursor-expired response"
   assert.equal(page.server_cursor, 9);
 });
 
+test("ActionQ read failure marks server unavailable without discarding the last server health", async () => {
+  const root = await stateRoot();
+  const store = new DurableCompletionAlertStore({ root });
+  await store.initialize();
+  await store.writeHealth({ server: { cursor: 8, ingest_lag_seconds: 2 } });
+  const consumer = new CompletionAlertConsumer({
+    stateRoot: root,
+    fetchPage: async () => { throw new Error("completion log read failed"); }
+  });
+  const result = await consumer.pollOnce();
+  assert.equal(result.status, "degraded");
+  const health = await consumer.health();
+  assert.equal(health.consumer.server_unavailable, true);
+  assert.equal(health.server.cursor, 8);
+});
+
 test("closed event identities reject traversal, absolute, and encoded path attacks before filesystem access", async () => {
   const root = await stateRoot();
   const store = new DurableCompletionAlertStore({ root });

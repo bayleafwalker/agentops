@@ -92,7 +92,7 @@ function healthSummary(health, degradedMessage = null) {
   const cockpit = health.routes?.cockpit;
   if (server?.cursor_expired) {
     parts.push(`server cursor expired${server.recovery_floor == null ? "" : ` at ${server.recovery_floor}`}`);
-  } else if (degradedMessage || consumer?.status === "degraded") {
+  } else if (degradedMessage || consumer?.status === "degraded" || consumer?.server_unavailable) {
     parts.push("server unavailable");
   } else if (server) {
     if (server.ingest_lag_seconds != null) {
@@ -118,7 +118,7 @@ function healthSummary(health, degradedMessage = null) {
   if (cockpit?.dead_lettered) parts.push(`route dead-lettered ${cockpit.dead_lettered}`);
   if (cockpit?.pending) parts.push(`route pending ${cockpit.pending}`);
   return {
-    state: degradedMessage || server?.cursor_expired || consumer?.status === "cursor-expired" || consumer?.cursor_expired || consumer?.status === "degraded" || cockpit?.dead_lettered || !server ? "error" : cockpit?.pending || !consumer ? "warn" : "ok",
+    state: degradedMessage || server?.cursor_expired || consumer?.status === "cursor-expired" || consumer?.cursor_expired || consumer?.status === "degraded" || consumer?.server_unavailable || cockpit?.dead_lettered || !server ? "error" : cockpit?.pending || !consumer ? "warn" : "ok",
     parts
   };
 }

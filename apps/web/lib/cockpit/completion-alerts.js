@@ -976,7 +976,7 @@ export class CompletionAlertConsumer {
       return { status: "ok", events: results.length, results, next_cursor: page.next_cursor ?? checkpoint.server_cursor, health };
     } catch (error) {
       const safeError = redactDiagnostic(error?.message || error);
-      await this._health({ status: "degraded", last_poll_completed_at: nowIso(this.now()), last_error: safeError });
+      await this._health({ status: "degraded", server_unavailable: true, last_poll_completed_at: nowIso(this.now()), last_error: safeError });
       return { status: "degraded", events: 0, error: safeError };
     } finally {
       this.polling = false;
