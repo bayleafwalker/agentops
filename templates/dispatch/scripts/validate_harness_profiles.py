@@ -20,7 +20,13 @@ REQUIRED_RECEIPT_FIELDS = {
     "semantic_adapter", "profile_id", "cli_version", "executable_fingerprint",
     "channel_revision", "profile_digest", "config_digest", "overlay_digest",
     "provider_model", "worker_identity", "capability_probe_results",
-    "lifecycle_probe_results",
+    "lifecycle_probe_results", "worker_model", "route_model", "model_override",
+    "workspace_opt_in", "usage_baseline", "usage_observed", "usage_multiplier",
+    "containment_evidence", "qualification_state", "independent_review",
+    "provider_id", "model_id", "provider_contacted", "workspace_evidence", "usage_evidence",
+    "usage_evidence_digest", "containment", "provider_model_evidence", "capability_evidence_digest",
+    "lifecycle_evidence_digest", "evidence_artifacts", "raw_transcript_captured", "cost_usd", "tokens", "attempts",
+    "runner_id", "run_id", "run_nonce", "packet_digest", "runner_record_digest", "evidence_bundle_digest",
 }
 REQUIRED_LIFECYCLE_PROBES = {
     "json-events", "stable-session-identity", "session-continuation",
@@ -41,9 +47,9 @@ def _object(value: Any, field: str, path: Path) -> dict[str, Any]:
     return value
 
 
-def _keys(value: dict[str, Any], field: str, path: Path, required: set[str]) -> None:
+def _keys(value: dict[str, Any], field: str, path: Path, required: set[str], *, optional: set[str] | None = None) -> None:
     missing = sorted(required - value.keys())
-    extra = sorted(value.keys() - required)
+    extra = sorted(value.keys() - required - (optional or set()))
     if missing:
         raise _error(path, field, f"is missing fields: {', '.join(missing)}")
     if extra:
@@ -156,7 +162,7 @@ def validate_profile(value: dict[str, Any], path: Path) -> None:
         raise _error(path, "receipt_fields", f"is missing required evidence: {', '.join(missing_receipt)}")
 
     qualification = _object(value["qualification"], "qualification", path)
-    _keys(qualification, "qualification", path, {"state", "blocking_probes"})
+    _keys(qualification, "qualification", path, {"state", "blocking_probes"}, optional={"receipt_ref", "review_ref"})
     if qualification["state"] not in STATES:
         raise _error(path, "qualification.state", f"must be one of: {', '.join(sorted(STATES))}")
     blocking = _unique_texts(qualification["blocking_probes"], "qualification.blocking_probes", path, non_empty=False)
@@ -164,6 +170,14 @@ def validate_profile(value: dict[str, Any], path: Path) -> None:
         raise _error(path, "qualification.blocking_probes", "must be empty when qualified")
     if qualification["state"] != "qualified" and not blocking:
         raise _error(path, "qualification.blocking_probes", "must name an outstanding probe")
+    receipt_ref = qualification.get("receipt_ref")
+    review_ref = qualification.get("review_ref")
+    if qualification["state"] == "qualified":
+        for field, value in (("qualification.receipt_ref", receipt_ref), ("qualification.review_ref", review_ref)):
+            if not isinstance(value, dict) or set(value) != {"kind", "revision"} or value["kind"] not in {"artifact", "verification-result"} or not isinstance(value["revision"], str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", value["revision"]):
+                raise _error(path, field, "must bind an immutable qualification receipt and independent review")
+    elif receipt_ref is not None or review_ref is not None:
+        raise _error(path, "qualification", "receipt_ref and review_ref must be null before qualification")
     if qualification["state"] == "preflight_observed":
         missing_evidence = sorted(REQUIRED_PREQUALIFICATION_EVIDENCE - set(blocking))
         if missing_evidence:

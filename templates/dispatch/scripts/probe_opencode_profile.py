@@ -52,6 +52,7 @@ TOOL_KEYS = (
     "patch", "bash", "task", "external_directory", "webfetch", "websearch",
 )
 PINNED_EVENT_TYPES = frozenset({"step_start", "text", "step_finish"})
+EXPECTED_PROVIDER_MODEL = "opencode-go/deepseek-v4-flash"
 
 
 class ProbeError(ValueError):
@@ -107,6 +108,15 @@ def _profile_and_config(profile_path: Path, config_path: Path) -> tuple[dict[str
         raise ProbeError("finalizer declares MCP tools")
     if any(permissions.get(key) != "deny" for key in TOOL_KEYS):
         raise ProbeError("finalizer has an allowed or unspecified tool")
+    policy = _load_json(ROOT / "templates/dispatch/hybrid/hybrid-dispatch.v1.json")
+    route = policy.get("routes", {}).get("mechanical_bulk")
+    if not isinstance(route, dict) or route.get("harness_model") != EXPECTED_PROVIDER_MODEL:
+        raise ProbeError("mechanical_bulk policy does not bind the exact provider/model")
+    if config.get("model") != EXPECTED_PROVIDER_MODEL:
+        raise ProbeError("OpenCode root config does not bind the exact provider/model")
+    mechanical = agents.get("ao-mechanical-bulk")
+    if not isinstance(mechanical, dict) or mechanical.get("model") != EXPECTED_PROVIDER_MODEL:
+        raise ProbeError("ao-mechanical-bulk does not bind the exact provider/model")
     return profile, config
 
 

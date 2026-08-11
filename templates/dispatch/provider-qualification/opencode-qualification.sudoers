@@ -1,0 +1,6 @@
+# Installed by the workstation owner as root, after independent review.
+# The helper performs its own fixed-root/path validation before ledger consume.
+User_Alias AGENTOPS_QUALIFICATION_ADMISSION = agentops-admission
+Cmnd_Alias AGENTOPS_QUALIFICATION_CONSUME = /usr/local/libexec/agentops-opencode-qualification-verify-consume /var/lib/agentops/opencode-qualification/evidence/*/receipt.json /var/lib/agentops/opencode-qualification/evidence/* /var/lib/agentops/opencode-qualification/records/run-*.json
+AGENTOPS_QUALIFICATION_ADMISSION ALL=(root) NOPASSWD: AGENTOPS_QUALIFICATION_CONSUME
+Defaults!AGENTOPS_QUALIFICATION_CONSUME env_reset,secure_path=/run/current-system/sw/bin

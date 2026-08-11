@@ -53,6 +53,11 @@ class HarnessProfileValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "must be empty when qualified"):
             validator.validate_profile(self.profile, self.path)
 
+    def test_qualified_profile_requires_receipt_and_independent_review_refs(self) -> None:
+        self.profile["qualification"] = {"state": "qualified", "blocking_probes": []}
+        with self.assertRaisesRegex(ValueError, "immutable qualification receipt"):
+            validator.validate_profile(self.profile, self.path)
+
     def test_profile_requires_receipt_identity_and_fingerprints(self) -> None:
         self.profile["receipt_fields"].remove("executable_fingerprint")
         with self.assertRaisesRegex(ValueError, "missing required evidence: executable_fingerprint"):
@@ -78,6 +83,7 @@ class HarnessProfileValidationTests(unittest.TestCase):
                 "session-continuation",
                 "contained-identity",
                 "no-tools-finalizer",
+                "provider-qualification",
             },
         )
         self.assertIn("capability_probe_results", self.profile["receipt_fields"])
