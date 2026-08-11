@@ -73,7 +73,16 @@ ACTIVE_WORKSPACE_ROOT = WORKSPACE_ROOT
 PINNED_PREFLIGHT_EVIDENCE: dict[str, str] = {}
 PINNED_RUNNER_DIGEST = ""
 PINNED_OPENCODE_DIGEST = ""
-PINNED_EXECUTABLE_TARGETS: dict[Path, tuple[Path, tuple[tuple[int, ...], ...]]] = {}
+class _PinnedExecutableState:
+    __slots__ = ("target_fingerprint", "resolved_parent_fingerprints", "configured_chain_fingerprints")
+
+    def __init__(self, target_fingerprint: tuple[int, ...], resolved_parent_fingerprints: tuple[tuple[int, ...], ...], configured_chain_fingerprints: tuple[tuple[Path, tuple[int, ...]], ...]) -> None:
+        self.target_fingerprint = target_fingerprint
+        self.resolved_parent_fingerprints = resolved_parent_fingerprints
+        self.configured_chain_fingerprints = configured_chain_fingerprints
+
+
+PINNED_EXECUTABLE_TARGETS: dict[Path, tuple[Path, _PinnedExecutableState]] = {}
 PINNED_EXECUTABLE_PARENT_OWNER_UID = 0
 NIX_STORE = Path("/nix/store")
 PINNED_CONFIG_DIGEST = "sha256:dc8e846c1cf22e536a35b3d842b518e194c2fde355b87e1b677ca82570ae566c"
@@ -107,9 +116,9 @@ def _file_digest(path: Path) -> str:
     target = _executable_path(path) if path in PINNED_EXECUTABLE_TARGETS else path
     digest = "sha256:" + hashlib.sha256(target.read_bytes()).hexdigest()
     if path in PINNED_EXECUTABLE_TARGETS:
-        checked_target, fingerprints = PINNED_EXECUTABLE_TARGETS[path]
+        checked_target, state = PINNED_EXECUTABLE_TARGETS[path]
         label = next((label for candidate, label in _pinned_executables() if candidate == path), f"pinned executable {path}")
-        _assert_pinned_executable_stable(path, checked_target, fingerprints, label)
+        _assert_pinned_executable_stable(path, checked_target, state, label)
     return digest
 
 
@@ -211,7 +220,39 @@ def _check_resolved_executable_parents(target: Path, label: str) -> tuple[tuple[
         current = current.parent
 
 
-def _check_pinned_executable(path: Path, label: str) -> tuple[Path, tuple[tuple[int, ...], ...]]:
+def _check_configured_executable_chain(path: Path, label: str) -> tuple[tuple[Path, tuple[int, ...]], ...]:
+    """Pin the configured path, including symlink objects and lexical parents."""
+    fingerprints: list[tuple[Path, tuple[int, ...]]] = []
+    for current in (path, *path.parents):
+        try:
+            info = current.lstat()
+        except OSError as exc:
+            raise RunnerError(f"{label} has an unavailable configured-chain object: {exc}") from exc
+        if info.st_uid not in {0, PINNED_EXECUTABLE_PARENT_OWNER_UID}:
+            raise RunnerError(f"{label} has a non-root configured-chain object")
+        if current == path:
+            if not stat.S_ISLNK(info.st_mode) and not stat.S_ISREG(info.st_mode):
+                raise RunnerError(f"{label} configured path must be a regular file or symlink")
+        elif stat.S_ISLNK(info.st_mode):
+            # The symlink itself is pinned by lstat; its resolved destination
+            # is covered by the resolved target/parent checks above.
+            pass
+        else:
+            if not stat.S_ISDIR(info.st_mode):
+                raise RunnerError(f"{label} has an unsafe configured parent")
+            mode = stat.S_IMODE(info.st_mode)
+            if mode & 0o022:
+                try:
+                    read_only = bool(os.statvfs(current).f_flag & os.ST_RDONLY)
+                except OSError as exc:
+                    raise RunnerError(f"{label} cannot inspect configured parent mount: {exc}") from exc
+                if not (current == NIX_STORE and mode == 0o1775 and read_only):
+                    raise RunnerError(f"{label} has a writable configured parent")
+        fingerprints.append((current, _stat_fingerprint(info)))
+    return tuple(fingerprints)
+
+
+def _check_pinned_executable(path: Path, label: str) -> tuple[Path, _PinnedExecutableState]:
     """Validate a configured executable's target and resolved parent chain.
 
     The configured path may be a symlink, but its resolved final target must be
@@ -240,11 +281,14 @@ def _check_pinned_executable(path: Path, label: str) -> tuple[Path, tuple[tuple[
     if target_info.st_mode & 0o022:
         raise RunnerError(f"{label} target must not be group/world-writable")
     parent_fingerprints = _check_resolved_executable_parents(target, label)
-    return target, (fingerprint, *parent_fingerprints)
+    configured_chain_fingerprints = _check_configured_executable_chain(path, label)
+    state = _PinnedExecutableState(fingerprint, parent_fingerprints, configured_chain_fingerprints)
+    _assert_pinned_executable_stable(path, target, state, label)
+    return target, state
 
 
-def _assert_pinned_executable_stable(path: Path, target: Path, fingerprints: tuple[tuple[int, ...], ...], label: str) -> None:
-    """Recheck the resolved target and every resolved parent before use."""
+def _assert_pinned_executable_stable(path: Path, target: Path, state: _PinnedExecutableState, label: str) -> None:
+    """Recheck the target and both complete parent chains before use."""
     try:
         if path.resolve(strict=True) != target:
             raise RunnerError(f"{label} changed its resolved target")
@@ -252,13 +296,19 @@ def _assert_pinned_executable_stable(path: Path, target: Path, fingerprints: tup
         configured_info = os.stat(path, follow_symlinks=True)
     except (OSError, RuntimeError) as exc:
         raise RunnerError(f"{label} became unavailable: {exc}") from exc
-    if _stat_fingerprint(target_info) != fingerprints[0] or _stat_fingerprint(configured_info) != fingerprints[0]:
+    if _stat_fingerprint(target_info) != state.target_fingerprint or _stat_fingerprint(configured_info) != state.target_fingerprint:
         raise RunnerError(f"{label} changed after validation")
+    try:
+        current_configured_chain = _check_configured_executable_chain(path, label)
+    except OSError as exc:
+        raise RunnerError(f"{label} has an unavailable configured-chain object: {exc}") from exc
+    if current_configured_chain != state.configured_chain_fingerprints:
+        raise RunnerError(f"{label} changed its configured executable chain after validation")
     try:
         current_fingerprints = _check_resolved_executable_parents(target, label)
     except OSError as exc:
         raise RunnerError(f"{label} has an unavailable resolved parent: {exc}") from exc
-    if current_fingerprints != fingerprints[1:]:
+    if current_fingerprints != state.resolved_parent_fingerprints:
         raise RunnerError(f"{label} changed a resolved parent after validation")
 
 
@@ -267,10 +317,26 @@ def _executable_path(path: Path) -> Path:
     checked = PINNED_EXECUTABLE_TARGETS.get(path)
     if checked is None:
         return path
-    target, fingerprints = checked
+    target, state = checked
     label = next((label for candidate, label in _pinned_executables() if candidate == path), f"pinned executable {path}")
-    _assert_pinned_executable_stable(path, target, fingerprints, label)
+    _assert_pinned_executable_stable(path, target, state, label)
     return target
+
+
+def _pinned_executable_command(path: Path, *args: str) -> tuple[list[str], Path | None]:
+    """Build an argv0-preserving command and return its safe exec target.
+
+    ``executable`` makes the kernel execute the checked final target while
+    argv[0] remains the configured applet name (important for Nix coreutils).
+    An unvalidated call retains the old test-only behavior and has no override.
+    """
+    checked = PINNED_EXECUTABLE_TARGETS.get(path)
+    if checked is None:
+        return [str(path), *args], None
+    target, state = checked
+    label = next((label for candidate, label in _pinned_executables() if candidate == path), f"pinned executable {path}")
+    _assert_pinned_executable_stable(path, target, state, label)
+    return [str(path), *args], target
 
 
 def _check_parents(path: Path, label: str, *, allowed_owner_uids: set[int] | None = None) -> None:
@@ -421,7 +487,9 @@ def verify_installation() -> None:
     if _file_digest(PUBLIC_KEY) != PINNED_PUBLIC_KEY_DIGEST or _file_digest(ALLOWED_SIGNERS) != PINNED_ALLOWED_SIGNERS_DIGEST:
         raise RunnerError("installed public verification material is not the pinned material")
     PINNED_EXECUTABLE_TARGETS = executable_targets
-    derived = subprocess.run([str(_executable_path(Path(SSH_KEYGEN))), "-y", "-f", str(PRIVATE_KEY)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False, timeout=5)
+    ssh_keygen_command, ssh_keygen_target = _pinned_executable_command(Path(SSH_KEYGEN), "-y", "-f", str(PRIVATE_KEY))
+    derived_kwargs = {"executable": str(ssh_keygen_target)} if ssh_keygen_target is not None else {}
+    derived = subprocess.run(ssh_keygen_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False, timeout=5, **derived_kwargs)
     if derived.returncode != 0 or derived.stdout.strip().split()[:2] != PUBLIC_KEY.read_text(encoding="utf-8").strip().split()[:2]:
         raise RunnerError("runner private key does not match the pinned public key")
 
@@ -455,25 +523,30 @@ def _create_fresh_workspace(run_id: str) -> Path:
 def _contained_probe() -> dict[str, Any]:
     """Prove the worker boundary and workspace round-trip before OpenCode."""
     def run_worker(args: list[str]) -> subprocess.CompletedProcess[str]:
-        return subprocess.run([str(_executable_path(RUNUSER)), "--user", WORKER_USER, "--", *args], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False, timeout=10)
+        runuser_command, runuser_target = _pinned_executable_command(RUNUSER, "--user", WORKER_USER, "--", *args)
+        runuser_kwargs = {"executable": str(runuser_target)} if runuser_target is not None else {}
+        return subprocess.run(runuser_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False, timeout=10, **runuser_kwargs)
 
     accessible = run_worker(["/run/current-system/sw/bin/test", "-d", str(ACTIVE_WORKSPACE_ROOT)])
     writable = run_worker(["/run/current-system/sw/bin/test", "-w", str(ACTIVE_WORKSPACE_ROOT)])
     coordinator_writable = run_worker(["/run/current-system/sw/bin/test", "-w", str(RECORD_ROOT)])
     groups = run_worker(["/run/current-system/sw/bin/id", "-Gn"])
-    version = run_worker([str(_executable_path(OPENCODE)), "--version"])
+    version_command, _ = _pinned_executable_command(OPENCODE, "--version")
+    version = run_worker(version_command)
     if accessible.returncode != 0 or writable.returncode != 0 or coordinator_writable.returncode != 1 or version.returncode != 0 or version.stdout.strip() != "1.18.4":
         raise RunnerError("contained worker boundary probe failed")
     if set(groups.stdout.split()) != {"agentworker", "agentdispatch"}:
         raise RunnerError("contained worker groups are not the exact reviewed set")
-    config_dirs = run_worker([str(_executable_path(MKDIR)), "-p", str(ACTIVE_WORKSPACE_ROOT / ".config"), str(ACTIVE_WORKSPACE_ROOT / ".cache")])
+    mkdir_command, _ = _pinned_executable_command(MKDIR, "-p", str(ACTIVE_WORKSPACE_ROOT / ".config"), str(ACTIVE_WORKSPACE_ROOT / ".cache"))
+    config_dirs = run_worker(mkdir_command)
     if config_dirs.returncode != 0:
         raise RunnerError("contained worker could not create its disposable config/cache directories")
     marker = ACTIVE_WORKSPACE_ROOT / ".agentops-roundtrip"
     try:
         if marker.exists():
             raise RunnerError("contained workspace round-trip marker already exists")
-        created = run_worker([str(_executable_path(TOUCH)), str(marker)])
+        touch_command, _ = _pinned_executable_command(TOUCH, str(marker))
+        created = run_worker(touch_command)
         if created.returncode != 0 or not marker.is_file():
             raise RunnerError("contained workspace round-trip failed")
     finally:
@@ -636,16 +709,26 @@ def execute_once(
     command: list[str],
     environment: dict[str, str],
     popen: Callable[..., Any] = subprocess.Popen,
+    popen_executable: Path | None = None,
 ) -> dict[str, Any]:
     """Run exactly one contained command and terminate on either ceiling.
 
     The subprocess receives no retry loop.  stdout is parsed line-by-line and
     never persisted; only bounded provider-origin fields and digests survive.
     """
-    expected_prefix = [str(_executable_path(RUNUSER)), "--user", WORKER_USER, "--", str(_executable_path(OPENCODE)), "run"]
+    expected_prefix = [str(RUNUSER), "--user", WORKER_USER, "--", str(OPENCODE), "run"]
     if command[:len(expected_prefix)] != expected_prefix:
         raise RunnerError("runner command is not the exact one-shot OpenCode run")
-    process = popen(command, cwd=str(ACTIVE_WORKSPACE_ROOT), env=environment, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1)
+    if RUNUSER in PINNED_EXECUTABLE_TARGETS:
+        checked_runuser, checked_state = PINNED_EXECUTABLE_TARGETS[RUNUSER]
+        runuser_label = next((label for candidate, label in _pinned_executables() if candidate == RUNUSER), "pinned runuser executable")
+        _assert_pinned_executable_stable(RUNUSER, checked_runuser, checked_state, runuser_label)
+        if popen_executable is None:
+            popen_executable = checked_runuser
+        elif popen_executable != checked_runuser:
+            raise RunnerError("runner executable target is not the checked runuser target")
+    popen_kwargs = {"executable": str(popen_executable)} if popen_executable is not None else {}
+    process = popen(command, cwd=str(ACTIVE_WORKSPACE_ROOT), env=environment, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1, **popen_kwargs)
     events: list[dict[str, Any]] = []
     observed = 0
     provider_events = 0
@@ -743,9 +826,12 @@ def execute_once(
 
 
 def _sign(record_path: Path, signature_path: Path) -> None:
+    ssh_keygen_command, ssh_keygen_target = _pinned_executable_command(Path(SSH_KEYGEN), "-q", "-Y", "sign", "-f", str(PRIVATE_KEY), "-n", SIGNATURE_NAMESPACE, str(record_path))
+    sign_kwargs = {"executable": str(ssh_keygen_target)} if ssh_keygen_target is not None else {}
     completed = subprocess.run(
-        [str(_executable_path(Path(SSH_KEYGEN))), "-q", "-Y", "sign", "-f", str(PRIVATE_KEY), "-n", SIGNATURE_NAMESPACE, str(record_path)],
+        ssh_keygen_command,
         stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False, timeout=10,
+        **sign_kwargs,
     )
     generated = record_path.with_name(record_path.name + ".sig")
     if completed.returncode != 0 or not generated.is_file():
@@ -798,7 +884,10 @@ def _parse_sanitized_export(stdout: str, session_id: str) -> dict[str, Any]:
 
 
 def _sanitized_export(session_id: str, environment: dict[str, str]) -> dict[str, Any]:
-    completed = subprocess.run([str(_executable_path(RUNUSER)), "--user", WORKER_USER, "--", str(_executable_path(OPENCODE)), "export", session_id, "--sanitize"], cwd=str(ACTIVE_WORKSPACE_ROOT), env=environment, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, check=False, timeout=30)
+    opencode_command, _ = _pinned_executable_command(OPENCODE, "export", session_id, "--sanitize")
+    runuser_command, runuser_target = _pinned_executable_command(RUNUSER, "--user", WORKER_USER, "--", *opencode_command)
+    runuser_kwargs = {"executable": str(runuser_target)} if runuser_target is not None else {}
+    completed = subprocess.run(runuser_command, cwd=str(ACTIVE_WORKSPACE_ROOT), env=environment, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, check=False, timeout=30, **runuser_kwargs)
     if completed.returncode != 0:
         raise RunnerError("contained sanitized OpenCode export failed")
     return _parse_sanitized_export(completed.stdout, session_id)
@@ -833,8 +922,9 @@ def run_one_shot() -> dict[str, Any]:
         }
         config["OPENCODE_CONFIG_CONTENT"] = CONFIG.read_text(encoding="utf-8")
         request = packet["request"]
-        command = [str(_executable_path(RUNUSER)), "--user", WORKER_USER, "--", str(_executable_path(OPENCODE)), "run", request["prompt"], "--agent", request["agent"], "--format", request["format"]]
-        execution = execute_once(command=command, environment=config)
+        opencode_command, _ = _pinned_executable_command(OPENCODE, "run", request["prompt"], "--agent", request["agent"], "--format", request["format"])
+        command, runuser_target = _pinned_executable_command(RUNUSER, "--user", WORKER_USER, "--", *opencode_command)
+        execution = execute_once(command=command, environment=config, popen_executable=runuser_target)
         execution["provider_payload"] = _sanitized_export(execution["provider_events"][0]["session_id"], config)
     finally:
         if auth_path is not None:

@@ -74,7 +74,7 @@ class PinnedExecutableValidationTests(unittest.TestCase):
         configured.symlink_to(target)
         return temporary, configured, target
 
-    def _check(self, configured: Path, label: str = "fixture executable", *, owner_uid: int | None = None) -> tuple[Path, tuple[tuple[int, ...], ...]]:
+    def _check(self, configured: Path, label: str = "fixture executable", *, owner_uid: int | None = None) -> tuple[Path, runner._PinnedExecutableState]:
         old_owner = runner.EXPECTED_OWNER_UID
         old_parent_owner = runner.PINNED_EXECUTABLE_PARENT_OWNER_UID
         runner.EXPECTED_OWNER_UID = os.getuid() if owner_uid is None else owner_uid
@@ -202,6 +202,59 @@ class PinnedExecutableValidationTests(unittest.TestCase):
                     self.assertEqual(resolved, target)
         finally:
             runner.EXPECTED_OWNER_UID = old_owner
+
+    def test_current_nix_coreutils_applets_preserve_argv0(self) -> None:
+        executables = {name: path for path, name in ((runner.TOUCH, "touch"), (runner.MKDIR, "mkdir"))}
+        if not all(path.is_symlink() for path in executables.values()):
+            self.skipTest("host does not expose current touch and mkdir as symlinks")
+        targets = {name: path.resolve(strict=True) for name, path in executables.items()}
+        if not all(runner.NIX_STORE in target.parents for target in targets.values()):
+            self.skipTest("host does not use Nix store targets for touch and mkdir")
+        if targets["touch"] != targets["mkdir"]:
+            self.skipTest("host does not use one multicall target for touch and mkdir")
+
+        old_owner = runner.EXPECTED_OWNER_UID
+        old_targets = runner.PINNED_EXECUTABLE_TARGETS
+        try:
+            runner.EXPECTED_OWNER_UID = 0
+            checked = {}
+            for name, path in executables.items():
+                target, state = runner._check_pinned_executable(path, f"pinned {name} executable")
+                checked[path] = (target, state)
+            runner.PINNED_EXECUTABLE_TARGETS = checked
+            with tempfile.TemporaryDirectory(dir=str(Path.home())) as temporary:
+                root = Path(temporary)
+                nested = root / "created" / "by" / "mkdir"
+                mkdir_command, mkdir_target = runner._pinned_executable_command(runner.MKDIR, "-p", str(nested))
+                mkdir_result = subprocess.run(mkdir_command, executable=str(mkdir_target), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
+                self.assertEqual(mkdir_result.returncode, 0, mkdir_result.stderr)
+                self.assertTrue(nested.is_dir())
+
+                marker = nested / "touched"
+                touch_command, touch_target = runner._pinned_executable_command(runner.TOUCH, str(marker))
+                touch_result = subprocess.run(touch_command, executable=str(touch_target), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
+                self.assertEqual(touch_result.returncode, 0, touch_result.stderr)
+                self.assertTrue(marker.is_file())
+        finally:
+            runner.EXPECTED_OWNER_UID = old_owner
+            runner.PINNED_EXECUTABLE_TARGETS = old_targets
+
+    def test_configured_link_replacement_is_rejected_even_when_target_is_unchanged(self) -> None:
+        temporary, configured, target = self._linked_target(0o555)
+        old_parent_owner = runner.PINNED_EXECUTABLE_PARENT_OWNER_UID
+        old_targets = runner.PINNED_EXECUTABLE_TARGETS
+        try:
+            checked_target, state = self._check(configured)
+            runner.PINNED_EXECUTABLE_PARENT_OWNER_UID = os.getuid()
+            runner.PINNED_EXECUTABLE_TARGETS = {configured: (checked_target, state)}
+            configured.unlink()
+            configured.symlink_to(target)
+            with self.assertRaisesRegex(runner.RunnerError, "configured executable chain"):
+                runner._pinned_executable_command(configured, "--version")
+        finally:
+            runner.PINNED_EXECUTABLE_PARENT_OWNER_UID = old_parent_owner
+            runner.PINNED_EXECUTABLE_TARGETS = old_targets
+            temporary.cleanup()
 
     def test_only_the_five_pinned_system_paths_use_target_validation(self) -> None:
         self.assertEqual(set(runner.PINNED_EXECUTABLE_NAMES), {"OPENCODE", "RUNUSER", "TOUCH", "MKDIR", "SSH_KEYGEN"})

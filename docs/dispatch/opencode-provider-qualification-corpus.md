@@ -112,10 +112,15 @@ exact `/nix/store` directory on this host: root-owned, sticky mode `01775`,
 and on a read-only filesystem. That exact mount rule prevents even the root
 runner identity from replacing a store entry; arbitrary sticky or writable
 directories are rejected. The parent metadata and read-only mount condition
-are rechecked before each execution. The runner verifies the worker's actual
-UID, exact supplementary groups, workspace round-trip, coordinator write
-denial, and OpenCode `1.18.4` version before issuing the provider-facing
-command.
+are rechecked before each execution. The configured path, symlink objects, and
+lexical parents are also fingerprinted and rechecked. Direct executions use
+the resolved target as the `execve` executable while retaining the configured
+path as `argv[0]`; the nested worker command retains that configured path only
+after its complete chain is pinned and rechecked. This preserves Nix
+coreutils applet identity (`touch` and `mkdir`) without executing through an
+unpinned path. The runner verifies the worker's actual UID, exact
+supplementary groups, workspace round-trip, coordinator write denial, and
+OpenCode `1.18.4` version before issuing the provider-facing command.
 
 | Path | Owner and mode | Purpose |
 | --- | --- | --- |
