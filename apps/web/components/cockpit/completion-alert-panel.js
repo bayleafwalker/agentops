@@ -72,29 +72,44 @@ function formatHealthAge(value) {
   return minutes < 90 ? `${minutes}m` : `${Math.round(minutes / 60)}h`;
 }
 
-function healthSummary(health) {
+function cursorLagSummary(health) {
+  const consumerCursor = health?.lag?.consumer_cursor;
+  const serverCursor = health?.lag?.server_cursor;
+  if (consumerCursor == null || serverCursor == null) return "consumer lag unknown";
+  if (Number.isInteger(Number(consumerCursor)) && Number.isInteger(Number(serverCursor))) {
+    return `consumer lag ${Math.max(0, Number(serverCursor) - Number(consumerCursor))} cursor${Number(serverCursor) - Number(consumerCursor) === 1 ? "" : "s"}`;
+  }
+  return `consumer cursor ${text(consumerCursor)} / server cursor ${text(serverCursor)}`;
+}
+
+function healthSummary(health, degradedMessage = null) {
   if (!health) {
-    return { state: "warn", parts: ["health unavailable"] };
+    return { state: "error", parts: [degradedMessage ? "server unavailable" : "health unavailable"] };
   }
   const parts = [];
   const server = health.server;
   const consumer = health.consumer;
   const cockpit = health.routes?.cockpit;
-  if (server) {
-    if (server.cursor_expired) {
-      parts.push(`server cursor expired${server.recovery_floor == null ? "" : ` at ${server.recovery_floor}`}`);
-    } else if (server.ingest_lag_seconds != null) {
+  if (server?.cursor_expired) {
+    parts.push(`server cursor expired${server.recovery_floor == null ? "" : ` at ${server.recovery_floor}`}`);
+  } else if (degradedMessage || consumer?.status === "degraded") {
+    parts.push("server unavailable");
+  } else if (server) {
+    if (server.ingest_lag_seconds != null) {
       parts.push(`server lag ${formatHealthAge(server.ingest_lag_seconds)}`);
     } else {
       parts.push("server connected");
     }
   } else {
-    parts.push("server health unknown");
+    parts.push(consumer?.status === "degraded" ? "server unavailable" : "server health unknown");
   }
+  parts.push(`producer backlog ${server?.producer_backlog_age_seconds == null ? "unknown" : formatHealthAge(server.producer_backlog_age_seconds)}`);
+  parts.push(cursorLagSummary(health));
+  parts.push(`oldest pending ${health.oldest_pending_age_seconds == null ? "unknown" : formatHealthAge(health.oldest_pending_age_seconds)}`);
   if (consumer?.status === "cursor-expired" || consumer?.cursor_expired) {
     parts.push(`consumer recovery required${consumer.recovery_floor == null ? "" : ` from ${consumer.recovery_floor}`}`);
   } else if (consumer?.status === "degraded") {
-    parts.push("consumer degraded");
+    parts.push("consumer retrying");
   } else if (consumer?.status) {
     parts.push(`consumer ${text(consumer.status)}`);
   } else {
@@ -103,7 +118,7 @@ function healthSummary(health) {
   if (cockpit?.dead_lettered) parts.push(`route dead-lettered ${cockpit.dead_lettered}`);
   if (cockpit?.pending) parts.push(`route pending ${cockpit.pending}`);
   return {
-    state: server?.cursor_expired || consumer?.status === "cursor-expired" || consumer?.cursor_expired || cockpit?.dead_lettered ? "error" : cockpit?.pending || !server || !consumer ? "warn" : "ok",
+    state: degradedMessage || server?.cursor_expired || consumer?.status === "cursor-expired" || consumer?.cursor_expired || consumer?.status === "degraded" || cockpit?.dead_lettered || !server ? "error" : cockpit?.pending || !consumer ? "warn" : "ok",
     parts
   };
 }
@@ -160,8 +175,8 @@ function AlertCard({ alert, now, acknowledging, onAcknowledge }) {
 
 export function CompletionAlertPanel({ data, now = Date.now(), acknowledgingAlertId = null, onAcknowledge, onRefresh, refreshing = false }) {
   const alerts = normalizeCompletionAlerts(data);
-  const health = healthSummary(data?.health);
   const degradedMessage = data?.degraded?.message || data?.degraded?.detail;
+  const health = healthSummary(data?.health, degradedMessage);
   const pendingDeliveries = Array.isArray(data?.pending_deliveries) ? data.pending_deliveries.length : 0;
   const acknowledgedCount = alerts.filter((alert) => alert.acknowledged).length;
   return h(

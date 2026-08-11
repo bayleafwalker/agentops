@@ -70,9 +70,11 @@ test("completion panel makes cursor expiry and projection failures explicit", ()
       alerts: [],
       degraded: { message: "Completion alerts unavailable — projection unreachable" },
       health: {
-        server: { cursor_expired: true, recovery_floor: 42 },
+        server: { cursor_expired: true, recovery_floor: 42, producer_backlog_age_seconds: 121 },
         consumer: { status: "cursor-expired", recovery_floor: 42 },
-        routes: { cockpit: { pending: 2, dead_lettered: 1 } }
+        routes: { cockpit: { pending: 2, dead_lettered: 1 } },
+        lag: { consumer_cursor: 40, server_cursor: 42 },
+        oldest_pending_age_seconds: 63
       }
     }
   }));
@@ -82,5 +84,34 @@ test("completion panel makes cursor expiry and projection failures explicit", ()
   assert.match(html, /consumer recovery required from 42/);
   assert.match(html, /route dead-lettered 1/);
   assert.match(html, /route pending 2/);
+  assert.match(html, /producer backlog 2m/);
+  assert.match(html, /consumer lag 2 cursors/);
+  assert.match(html, /oldest pending 63s/);
   assert.match(html, /No completion alerts available/);
+});
+
+test("projection outage names server unavailability instead of hiding the source state", () => {
+  const html = renderToStaticMarkup(h(CompletionAlertPanel, {
+    data: { alerts: [], degraded: { message: "projection unavailable" }, health: null }
+  }));
+  assert.match(html, /server unavailable/);
+});
+
+test("ActionQ read failure stays distinct from a generic consumer status", () => {
+  const html = renderToStaticMarkup(h(CompletionAlertPanel, {
+    data: {
+      alerts: [],
+      degraded: { message: "completion log read failed" },
+      health: {
+        server: { ingest_lag_seconds: null },
+        consumer: { status: "degraded" },
+        routes: { cockpit: { pending: 3, dead_lettered: 1 } }
+      }
+    }
+  }));
+  assert.match(html, /server unavailable/);
+  assert.match(html, /consumer retrying/);
+  assert.match(html, /route pending 3/);
+  assert.match(html, /route dead-lettered 1/);
+  assert.doesNotMatch(html, /consumer degraded/);
 });

@@ -34,6 +34,7 @@ export const GET = createGetHandler();
 
 export function createPostHandler(deps = { acknowledgeCompletionAlert }) {
   const checkAuth = deps.requireConfiguredWriteAuth ?? requireConfiguredWriteAuth;
+  const getOperatorId = deps.getOperatorId ?? (() => getConfig().cockpitOperatorId || "operator:cockpit");
   return async function POST(request) {
     const denied = checkAuth(request, "agentops://completion-alerts");
     if (denied) return denied;
@@ -47,9 +48,9 @@ export function createPostHandler(deps = { acknowledgeCompletionAlert }) {
     if (typeof alertId !== "string" || !alertId.trim()) {
       return Response.json({ degraded: errorPayload("alert_id is required", "agentops://completion-alerts") }, { status: 400 });
     }
-    const acknowledgedBy = typeof body?.acknowledged_by === "string" && body.acknowledged_by.trim()
-      ? body.acknowledged_by.trim()
-      : getConfig().cockpitOperatorId;
+    // The browser may request an acknowledgement, but cannot choose the
+    // durable operator identity recorded by AgentOps.
+    const acknowledgedBy = getOperatorId();
     try {
       return ok(await deps.acknowledgeCompletionAlert({ alertId, acknowledgedBy }));
     } catch (error) {

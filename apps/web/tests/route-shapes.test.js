@@ -185,13 +185,14 @@ test("completion alert acknowledgement route writes only the AgentOps operator p
   let received = null;
   const POST = createCompletionAlertAckHandler({
     requireConfiguredWriteAuth: () => null,
+    getOperatorId: () => "operator:server",
     acknowledgeCompletionAlert: async (input) => {
       received = input;
       return { source: "agentops://completion-alerts", alert: { alert_id: input.alertId, acknowledged: true }, degraded: null };
     }
   });
-  const payload = await (await POST(jsonRequest("http://localhost/cockpit/api/completion-alerts", { alert_id: "4d5e6f70-8192-4a3b-8c0d-3e4f50617284", acknowledged_by: "operator:test" }))).json();
-  assert.deepEqual(received, { alertId: "4d5e6f70-8192-4a3b-8c0d-3e4f50617284", acknowledgedBy: "operator:test" });
+  const payload = await (await POST(jsonRequest("http://localhost/cockpit/api/completion-alerts", { alert_id: "4d5e6f70-8192-4a3b-8c0d-3e4f50617284", acknowledged_by: "spoofed-client" }))).json();
+  assert.deepEqual(received, { alertId: "4d5e6f70-8192-4a3b-8c0d-3e4f50617284", acknowledgedBy: "operator:server" });
   assert.equal(payload.alert.acknowledged, true);
 });
 
