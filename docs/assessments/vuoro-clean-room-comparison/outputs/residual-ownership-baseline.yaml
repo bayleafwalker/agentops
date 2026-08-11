@@ -1,0 +1,193 @@
+schema_version: vuoro-clean-room-comparison.residual-ownership.v1
+artifact_type: residual_ownership_baseline
+status: measured-source-surface-operational-costs-partial
+measured_at: '2026-08-11'
+
+scope:
+  statement: >-
+    Current bespoke production and test Python owned by the Vuoro transport and
+    service shell plus Sprintctl work authority. AgentOps cockpit, ActionQ,
+    Kctl, Auditctl, Appservice deployment overlays, generated files, vendored
+    code, documentation, and external dependencies are excluded. Their
+    operational effects must still be counted by a candidate run when touched.
+  baseline_revisions:
+    vuoro: 10e0db963002a6616c4995de5004c4f9ac7f945d
+    sprintctl: 8c53621d622435a7efc4a39e525dd0b20ce993cc
+  concurrent_work_excluded:
+    repository: vuoro
+    item: vuoro#2126
+    branch: codex/vuoro-2126-release-contracts-20260811b
+    reason: active devbox feature-enablement claim was not merged into the pinned baseline
+
+counting_contract:
+  line_metric: physical tracked lines, equivalent to Python splitlines()
+  nonblank_metric: tracked lines whose stripped value is non-empty
+  module_metric: tracked Python files
+  generated_files: excluded
+  vendored_files: excluded
+  reproduction: >-
+    At each pinned revision, enumerate tracked files with git ls-files, retain
+    .py files under the named roots, and sum splitlines() and non-empty
+    splitlines(). Test roots are counted separately and never presented as
+    displaced production logic.
+
+surface_baseline:
+  production:
+    modules: 62
+    physical_lines: 36778
+    nonblank_lines: 33071
+    components:
+      - id: vuoro-client
+        roots: [packages/vuoro-client/src]
+        modules: 8
+        physical_lines: 1041
+        nonblank_lines: 887
+      - id: vuoro-service
+        roots: [packages/vuoro-service/src]
+        modules: 12
+        physical_lines: 3342
+        nonblank_lines: 2912
+      - id: vuoro-bootstrap
+        roots: [packages/vuoro-bootstrap/src]
+        modules: 4
+        physical_lines: 618
+        nonblank_lines: 552
+      - id: sprintctl
+        roots: [sprintctl]
+        modules: 38
+        physical_lines: 31777
+        nonblank_lines: 28720
+  tests:
+    modules: 103
+    physical_lines: 37279
+    nonblank_lines: 32026
+    components:
+      - id: vuoro-tests
+        modules: 29
+        physical_lines: 5479
+        nonblank_lines: 4712
+      - id: sprintctl-tests
+        modules: 74
+        physical_lines: 31800
+        nonblank_lines: 27314
+
+post_1164_structural_entry:
+  repository: sprintctl
+  revision: 52a0620
+  title: retire direct remote normal client
+  interpretation: >-
+    The commit removed normal direct-PostgreSQL client behavior and retained
+    named migration, recovery, and circuit-breaker paths. It is a semantic
+    reduction, but not a production-Python line reduction. Do not count the
+    whole-commit net deletion as displaced authority logic.
+  whole_commit:
+    files_changed: 9
+    insertions: 209
+    deletions: 369
+    net_physical_lines: -160
+  production_python:
+    modules_before: 37
+    modules_after: 37
+    physical_lines_before: 30920
+    physical_lines_after: 30941
+    net_physical_lines: 21
+    nonblank_lines_before: 27937
+    nonblank_lines_after: 27956
+    net_nonblank_lines: 19
+  evidence:
+    - sprintctl@52a0620
+    - sprintctl/docs/guides/remote-mode.md
+    - sprintctl/verification/contexts/direct-remote-circuit-breaker.json
+
+authority_and_operations:
+  authoritative_mutation_paths:
+    count: 1
+    entries:
+      - owner: Sprintctl work application
+        store: deployment-owned PostgreSQL for shared served work
+        path: Vuoro catalog transport to released Sprintctl adapter
+        evidence:
+          - sprintctl/docs/reference/vuoro-work-adapter.md
+          - sprintctl/docs/guides/remote-mode.md
+    qualifications:
+      - Local SQLite is a separate standalone or explicitly restored recovery authority, not a simultaneous normal shared-write path.
+      - Named migration and recovery commands may receive direct database credentials; normal served clients may not.
+  authoritative_databases:
+    normal_shared_operation:
+      count: 1
+      entries:
+        - owner: Sprintctl
+          engine: PostgreSQL
+          purpose: shared work, claims, events, and capability state
+          evidence: sprintctl/docs/reference/postgres-schema-compatibility.md
+    supported_modes_including_recovery:
+      count: 2
+      entries:
+        - owner: Sprintctl
+          engine: PostgreSQL
+          purpose: shared served authority
+        - owner: Sprintctl
+          engine: SQLite
+          purpose: standalone local or explicit recovery authority
+  reconciliation_loops:
+    normal_shared_operation_count: 0
+    retained_operator_paths:
+      - id: authority-reconcile
+        direction: served authority record and decision ledgers to local outbox repair
+        automatic: false
+        evidence: sprintctl/docs/guides/authority-commands.md
+      - id: recover-from-remote
+        direction: PostgreSQL snapshot to ownership-invalidating SQLite recovery database
+        automatic: false
+        evidence: sprintctl/docs/guides/remote-mode.md
+  independently_upgraded_services:
+    minimum_runtime_count: 2
+    entries:
+      - service: Vuoro service shell
+        owner: Vuoro
+        release_unit: vuoro-service artifact/image
+        evidence: vuoro/docs/architecture/packaging.md
+      - service: Sprintctl work adapter
+        owner: Sprintctl
+        release_unit: pinned Sprintctl package consumed by service composition
+        evidence: sprintctl/docs/reference/vuoro-work-adapter.md
+    deployment_owner_excluded_but_required: Appservice owns database, identities, migrations, and rollout.
+  upstream_patch_burden:
+    kind: none
+    rationale: Baseline is entirely project-owned code; no maintained third-party fork is part of the measured surface.
+  procedures:
+    migration:
+      summary: Appservice migration role runs the pinned Sprintctl migration package under a global advisory lock; runtime startup is read-only compatibility checking.
+      evidence: sprintctl/docs/reference/postgres-schema-compatibility.md
+    rollback:
+      summary: Roll back the compatible service/adapter release and use retained exports; no implicit dual-write path exists.
+      evidence:
+        - sprintctl/docs/guides/remote-mode.md
+        - docs/plans/clean-room-1164-cross-repo-backlog.md
+    recovery:
+      summary: An explicit read-only PostgreSQL export creates a new SQLite recovery authority with claims closed and proof tokens stripped.
+      evidence: sprintctl/docs/guides/remote-mode.md
+
+scenario_costs:
+  status: not-measured-no-synthetic-costs
+  reference: outputs/segmented-cost-inputs.yaml
+  S-SOLO: not-measured
+  S-BATCH: not-measured
+  S-RESUME: not-measured
+  S-DORMANT: not-measured
+  rule: >-
+    The baseline fixes source and ownership counts only. A future locked run
+    must populate scenario-segmented setup, operator, maintenance, and idle
+    carrying costs from direct observations; retrospective bands are context,
+    not substitutes for comparable measurements.
+
+decision_readiness:
+  exactly_one_normal_shared_authoritative_mutation_path: true
+  substantially_more_surface_removed_than_introduced: not-applicable-baseline
+  carrying_cost_reduction_percent: not-measured
+  candidate_threshold_result: insufficient-evidence
+  next_measurement: >-
+    Copy templates/schema/residual-ownership-measurement.yaml into the locked
+    Stage-2 run, preserve these revisions or record an explicit refreshed
+    baseline, and fill every displaced, introduced, authority, operational,
+    and scenario-cost field before applying the frozen buy/wrap thresholds.

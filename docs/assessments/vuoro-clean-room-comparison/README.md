@@ -26,9 +26,13 @@ The package is anchored to the frozen artifacts and does not modify requirements
   - scenario-specific recording schemas for `S-BATCH`, `S-SOLO`, `S-DORMANT`,
     `S-RESUME`, and `S-SIMPLIFY`
   - a shared prevented-versus-recorded event log schema
+  - a residual-ownership sheet that binds code displacement, authority,
+    operations, upstream burden, and scenario-segmented cost to exact revisions
 - `outputs/`
   - reusable data sheets for lane results, gate verdicts, measurements, adaptation
     probe, authority/reconciliation count, cost inputs, and boundary disposition
+  - the pinned Vuoro/Sprintctl residual-ownership baseline, including the honest
+    post-#1164 semantic-removal versus physical-line result
 - `references/`
   - frozen threshold and H8 model-sensitivity capture
   - canonical raw evidence links
@@ -52,6 +56,11 @@ The package is anchored to the frozen artifacts and does not modify requirements
 4. Populate a final boundary disposition only after a qualified integrated
    candidate satisfies the frozen safety criteria *and* the residual-ownership
    comparison supports the proposed migration shape.
+5. For a Stage-2 candidate, copy
+   `templates/schema/residual-ownership-measurement.yaml` into its locked run,
+   compare it with `outputs/residual-ownership-baseline.yaml`, and retain exact
+   Git revisions and direct scenario observations. Do not reconstruct costs or
+   treat a whole-commit diff as displaced production logic.
 
 The intent is to keep candidate evidence comparable by forcing one scenario
 pack, one failure schedule, and one capture set across all lanes. The frozen

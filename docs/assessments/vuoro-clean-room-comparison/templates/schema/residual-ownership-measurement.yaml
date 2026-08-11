@@ -1,0 +1,148 @@
+schema_version: vuoro-clean-room-comparison.residual-ownership.v1
+artifact_type: residual_ownership_measurement
+status: template
+
+# Copy this file into a locked run directory. Replace every `todo` value and
+# preserve the baseline/candidate Git revisions and counting rules so the
+# comparison can be reproduced without reconstructing session context.
+identity:
+  run_id: todo
+  measured_at: todo
+  recorder: todo
+  baseline_revisions:
+    vuoro: todo
+    sprintctl: todo
+  candidate_revisions:
+    - repository: todo
+      revision: todo
+
+counting_contract:
+  line_metric: physical tracked lines, equivalent to Python splitlines()
+  nonblank_metric: tracked lines whose stripped value is non-empty
+  module_metric: tracked Python files
+  generated_files: excluded
+  vendored_files: excluded
+  production_roots:
+    - repository: vuoro
+      paths:
+        - packages/vuoro-client/src
+        - packages/vuoro-service/src
+        - packages/vuoro-bootstrap/src
+    - repository: sprintctl
+      paths:
+        - sprintctl
+  test_roots:
+    - repository: vuoro
+      paths:
+        - packages/*/tests
+        - tests
+    - repository: sprintctl
+      paths:
+        - tests
+
+surface:
+  displaced:
+    production_modules: todo
+    production_physical_lines: todo
+    production_nonblank_lines: todo
+    test_modules: todo
+    test_physical_lines: todo
+    operational_procedures:
+      - id: todo
+        summary: todo
+        evidence: todo
+  introduced:
+    production_modules: todo
+    production_physical_lines: todo
+    production_nonblank_lines: todo
+    test_modules: todo
+    test_physical_lines: todo
+    adapter_or_fork_fraction_of_displaced_logic: todo
+    upstream_patch:
+      kind: none|upstreamable|permanent-fork|todo
+      changed_upstream_modules: todo
+      physical_lines: todo
+      expected_rebase_frequency: todo
+      evidence: todo
+
+authority_and_operations:
+  authoritative_mutation_paths:
+    count: todo
+    entries:
+      - owner: todo
+        store: todo
+        path: todo
+        evidence: todo
+  authoritative_databases:
+    count: todo
+    entries:
+      - owner: todo
+        engine: todo
+        purpose: todo
+        evidence: todo
+  reconciliation_loops:
+    count: todo
+    entries:
+      - owner: todo
+        source: todo
+        target: todo
+        trigger: todo
+        evidence: todo
+  independently_upgraded_services:
+    count: todo
+    entries:
+      - service: todo
+        owner: todo
+        release_unit: todo
+        evidence: todo
+  procedures:
+    migration:
+      steps: todo
+      operator_decisions: todo
+      evidence: todo
+    rollback:
+      steps: todo
+      operator_decisions: todo
+      evidence: todo
+    recovery:
+      steps: todo
+      operator_decisions: todo
+      evidence: todo
+
+scenario_costs:
+  S-SOLO:
+    setup_minutes: todo
+    operator_minutes: todo
+    maintenance_minutes: todo
+    services_touched: todo
+    ambiguity: none|low|medium|high|todo
+    evidence: todo
+  S-BATCH:
+    setup_minutes: todo
+    operator_minutes: todo
+    maintenance_minutes: todo
+    services_touched: todo
+    ambiguity: none|low|medium|high|todo
+    evidence: todo
+  S-RESUME:
+    setup_minutes: todo
+    operator_minutes: todo
+    maintenance_minutes: todo
+    services_touched: todo
+    ambiguity: none|low|medium|high|todo
+    evidence: todo
+  S-DORMANT:
+    horizon_days: 14
+    idle_carrying_minutes: todo
+    resume_operator_minutes: todo
+    services_touched: todo
+    ambiguity: none|low|medium|high|todo
+    evidence: todo
+
+decision:
+  exactly_one_authoritative_mutation_path: todo
+  substantially_more_surface_removed_than_introduced: todo
+  carrying_cost_reduction_percent: todo
+  rollback_credible: todo
+  threshold_result: buy|wrap|keep-bespoke-reduced|keep-bespoke-current|insufficient-evidence
+  rationale: todo
