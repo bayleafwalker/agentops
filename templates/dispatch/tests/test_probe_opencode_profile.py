@@ -108,7 +108,9 @@ class OpenCodeLifecycleProbeTests(unittest.TestCase):
         with self.assertRaisesRegex(probe.ProbeError, "multiple session IDs"):
             probe._events(stdout, label="mismatch")
 
-    def test_real_1_18_4_event_shape_regression(self) -> None:
+    def test_synthesized_observed_1_18_4_event_shape_regression(self) -> None:
+        # Synthesized from the redacted structural observation on devbox; no
+        # provider response or transcript content is retained in this fixture.
         stdout = "\n".join(json.dumps(event) for event in (
             {"type": "step_start", "sessionID": "ses_real", "timestamp": 1, "part": {"type": "step-start"}},
             {"type": "text", "sessionID": "ses_real", "timestamp": 2, "part": {"type": "text"}},
@@ -129,6 +131,22 @@ class OpenCodeLifecycleProbeTests(unittest.TestCase):
             probe._export_evidence(json.dumps(exported), label="finalizer", session_id="ses_1", expected_agent="ao-finalizer", expected_model="opencode-go/deepseek-v4-flash", require_no_tools=True)
         exported["info"]["id"] = "ses_1"
         with self.assertRaisesRegex(probe.ProbeError, "tool part"):
+            probe._export_evidence(json.dumps(exported), label="finalizer", session_id="ses_1", expected_agent="ao-finalizer", expected_model="opencode-go/deepseek-v4-flash", require_no_tools=True)
+
+    def test_sanitized_export_rejects_stale_no_growth_evidence(self) -> None:
+        exported = {"info": {"id": "ses_1"}, "messages": [
+            {"info": {"role": "user", "agent": "ao-mechanical-bulk"}, "parts": [{"type": "text"}]},
+            {"info": {"role": "assistant", "agent": "ao-mechanical-bulk", "providerID": "opencode-go", "modelID": "deepseek-v4-flash", "finish": "stop"}, "parts": [{"type": "text"}]},
+        ]}
+        with self.assertRaisesRegex(probe.ProbeError, "did not add a message"):
+            probe._export_evidence(json.dumps(exported), label="continuation", session_id="ses_1", expected_agent="ao-mechanical-bulk", expected_model="opencode-go/deepseek-v4-flash", previous_message_count=2, previous_assistant_count=1)
+
+    def test_finalizer_rejects_hidden_tool_message_before_latest_assistant(self) -> None:
+        exported = {"info": {"id": "ses_1"}, "messages": [
+            {"info": {"role": "tool"}, "parts": [{"type": "tool-result"}]},
+            {"info": {"role": "assistant", "agent": "ao-finalizer", "providerID": "opencode-go", "modelID": "deepseek-v4-flash", "finish": "stop"}, "parts": [{"type": "text"}]},
+        ]}
+        with self.assertRaisesRegex(probe.ProbeError, "tool-role message"):
             probe._export_evidence(json.dumps(exported), label="finalizer", session_id="ses_1", expected_agent="ao-finalizer", expected_model="opencode-go/deepseek-v4-flash", require_no_tools=True)
 
     def test_no_tool_events_rejects_nested_tool_shapes(self) -> None:
