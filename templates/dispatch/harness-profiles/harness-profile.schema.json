@@ -13,6 +13,7 @@
     "implementation",
     "invocation",
     "policy",
+    "lifecycle",
     "required_probes",
     "receipt_fields",
     "qualification"
@@ -50,6 +51,54 @@
       "properties": {
         "config_file": {"type": "string", "minLength": 1},
         "overlay_transport": {"const": "OPENCODE_CONFIG_CONTENT"}
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_format",
+        "event_stream",
+        "session_id_field",
+        "continuation",
+        "contained_identity",
+        "finalizer"
+      ],
+      "properties": {
+        "event_format": {"const": "json"},
+        "event_stream": {"const": "stdout"},
+        "session_id_field": {"const": "properties.sessionID"},
+        "continuation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "session_flag", "continue_flag", "fork"],
+          "properties": {
+            "mode": {"const": "same-session"},
+            "session_flag": {"const": "--session"},
+            "continue_flag": {"const": "--continue"},
+            "fork": {"const": false}
+          }
+        },
+        "contained_identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["worker_user", "enforced_by", "probe"],
+          "properties": {
+            "worker_user": {"type": "string", "minLength": 1},
+            "enforced_by": {"const": "filesystem-and-uid"},
+            "probe": {"const": "contained-identity"}
+          }
+        },
+        "finalizer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["agent", "tools", "same_session"],
+          "properties": {
+            "agent": {"const": "ao-finalizer"},
+            "tools": {"const": []},
+            "same_session": {"const": true}
+          }
+        }
       }
     },
     "required_probes": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},

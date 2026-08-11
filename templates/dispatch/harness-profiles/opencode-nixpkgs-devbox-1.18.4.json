@@ -18,12 +18,38 @@
     "config_file": "opencode.actionq-worker.json",
     "overlay_transport": "OPENCODE_CONFIG_CONTENT"
   },
+  "lifecycle": {
+    "event_format": "json",
+    "event_stream": "stdout",
+    "session_id_field": "properties.sessionID",
+    "continuation": {
+      "mode": "same-session",
+      "session_flag": "--session",
+      "continue_flag": "--continue",
+      "fork": false
+    },
+    "contained_identity": {
+      "worker_user": "agentworker",
+      "enforced_by": "filesystem-and-uid",
+      "probe": "contained-identity"
+    },
+    "finalizer": {
+      "agent": "ao-finalizer",
+      "tools": [],
+      "same_session": true
+    }
+  },
   "required_probes": [
     "cli-version",
     "run-help",
     "contained-worktree-model-list",
     "explicit-tool-enumeration",
-    "message-before-file"
+    "message-before-file",
+    "json-events",
+    "stable-session-identity",
+    "session-continuation",
+    "contained-identity",
+    "no-tools-finalizer"
   ],
   "receipt_fields": [
     "semantic_adapter",
@@ -35,10 +61,15 @@
     "config_digest",
     "overlay_digest",
     "provider_model",
-    "worker_identity"
+    "worker_identity",
+    "capability_probe_results",
+    "lifecycle_probe_results"
   ],
   "qualification": {
-    "state": "qualified",
-    "blocking_probes": []
+    "state": "preflight_observed",
+    "blocking_probes": [
+      "contained-identity",
+      "provider-qualification"
+    ]
   }
 }

@@ -19,7 +19,15 @@ STATES = {"preflight_observed", "qualified", "superseded"}
 REQUIRED_RECEIPT_FIELDS = {
     "semantic_adapter", "profile_id", "cli_version", "executable_fingerprint",
     "channel_revision", "profile_digest", "config_digest", "overlay_digest",
-    "provider_model", "worker_identity",
+    "provider_model", "worker_identity", "capability_probe_results",
+    "lifecycle_probe_results",
+}
+REQUIRED_LIFECYCLE_PROBES = {
+    "json-events", "stable-session-identity", "session-continuation",
+    "contained-identity", "no-tools-finalizer",
+}
+REQUIRED_PREQUALIFICATION_EVIDENCE = {
+    "contained-identity", "provider-qualification",
 }
 
 
@@ -60,7 +68,7 @@ def _unique_texts(value: Any, field: str, path: Path, *, non_empty: bool = True)
 def validate_profile(value: dict[str, Any], path: Path) -> None:
     _keys(value, "profile", path, {
         "schema_version", "profile_id", "semantic_adapter", "host_class", "implementation",
-        "worker_identity", "invocation", "policy", "required_probes", "receipt_fields",
+        "worker_identity", "invocation", "policy", "lifecycle", "required_probes", "receipt_fields",
         "qualification",
     })
     if value["schema_version"] != SCHEMA_VERSION:
@@ -94,7 +102,54 @@ def validate_profile(value: dict[str, Any], path: Path) -> None:
     if policy["overlay_transport"] != "OPENCODE_CONFIG_CONTENT":
         raise _error(path, "policy.overlay_transport", "must be OPENCODE_CONFIG_CONTENT")
 
-    _unique_texts(value["required_probes"], "required_probes", path)
+    lifecycle = _object(value["lifecycle"], "lifecycle", path)
+    _keys(lifecycle, "lifecycle", path, {
+        "event_format", "event_stream", "session_id_field", "continuation",
+        "contained_identity", "finalizer",
+    })
+    if lifecycle["event_format"] != "json":
+        raise _error(path, "lifecycle.event_format", "must be json")
+    if lifecycle["event_stream"] != "stdout":
+        raise _error(path, "lifecycle.event_stream", "must be stdout")
+    if lifecycle["session_id_field"] != "properties.sessionID":
+        raise _error(path, "lifecycle.session_id_field", "must be properties.sessionID")
+
+    continuation = _object(lifecycle["continuation"], "lifecycle.continuation", path)
+    _keys(continuation, "lifecycle.continuation", path, {
+        "mode", "session_flag", "continue_flag", "fork",
+    })
+    if continuation != {
+        "mode": "same-session",
+        "session_flag": "--session",
+        "continue_flag": "--continue",
+        "fork": False,
+    }:
+        raise _error(path, "lifecycle.continuation", "must use same-session continuation without forking")
+
+    contained = _object(lifecycle["contained_identity"], "lifecycle.contained_identity", path)
+    _keys(contained, "lifecycle.contained_identity", path, {
+        "worker_user", "enforced_by", "probe",
+    })
+    if contained["worker_user"] != value["worker_identity"]:
+        raise _error(path, "lifecycle.contained_identity.worker_user", "must match worker_identity")
+    if contained["enforced_by"] != "filesystem-and-uid":
+        raise _error(path, "lifecycle.contained_identity.enforced_by", "must be filesystem-and-uid")
+    if contained["probe"] != "contained-identity":
+        raise _error(path, "lifecycle.contained_identity.probe", "must name contained-identity")
+
+    finalizer = _object(lifecycle["finalizer"], "lifecycle.finalizer", path)
+    _keys(finalizer, "lifecycle.finalizer", path, {"agent", "tools", "same_session"})
+    if finalizer["agent"] != "ao-finalizer":
+        raise _error(path, "lifecycle.finalizer.agent", "must be ao-finalizer")
+    if finalizer["tools"] != []:
+        raise _error(path, "lifecycle.finalizer.tools", "must be empty")
+    if finalizer["same_session"] is not True:
+        raise _error(path, "lifecycle.finalizer.same_session", "must be true")
+
+    required_probes = set(_unique_texts(value["required_probes"], "required_probes", path))
+    missing_lifecycle = sorted(REQUIRED_LIFECYCLE_PROBES - required_probes)
+    if missing_lifecycle:
+        raise _error(path, "required_probes", f"is missing lifecycle evidence: {', '.join(missing_lifecycle)}")
     receipt_fields = set(_unique_texts(value["receipt_fields"], "receipt_fields", path))
     missing_receipt = sorted(REQUIRED_RECEIPT_FIELDS - receipt_fields)
     if missing_receipt:
@@ -109,6 +164,14 @@ def validate_profile(value: dict[str, Any], path: Path) -> None:
         raise _error(path, "qualification.blocking_probes", "must be empty when qualified")
     if qualification["state"] != "qualified" and not blocking:
         raise _error(path, "qualification.blocking_probes", "must name an outstanding probe")
+    if qualification["state"] == "preflight_observed":
+        missing_evidence = sorted(REQUIRED_PREQUALIFICATION_EVIDENCE - set(blocking))
+        if missing_evidence:
+            raise _error(
+                path,
+                "qualification.blocking_probes",
+                f"must name outstanding contained/provider evidence: {', '.join(missing_evidence)}",
+            )
 
 
 def load(path: Path) -> dict[str, Any]:

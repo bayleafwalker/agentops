@@ -17,6 +17,10 @@ from typing import Any
 POLICY_RELATIVE = Path("templates/dispatch/hybrid/hybrid-dispatch.v1.json")
 WORKER_CONFIG_RELATIVE = Path("templates/dispatch/hybrid/opencode.hybrid.json")
 DENIED = ("external_directory", "webfetch", "websearch", "task")
+FINALIZER_TOOLS = (
+    "read", "glob", "grep", "list", "todowrite", "todoread", "edit", "write",
+    "patch", "bash", "task", "external_directory", "webfetch", "websearch",
+)
 
 
 def _load(path: Path) -> Any:
@@ -82,6 +86,26 @@ def validate_policy(policy: dict[str, Any], worker_config: dict[str, Any]) -> No
     review = agents.get("ao-review", {}).get("permission", {})
     if review.get("edit") != "deny" or review.get("bash") != "deny":
         raise ValueError("benchmark-only ao-review must be read-only")
+
+    finalizer = agents.get("ao-finalizer")
+    if not isinstance(finalizer, dict):
+        raise ValueError("ao-finalizer must be configured")
+    if finalizer.get("mode") != "primary":
+        raise ValueError("ao-finalizer must be a primary agent")
+    finalizer_permission = finalizer.get("permission")
+    if not isinstance(finalizer_permission, dict):
+        raise ValueError("ao-finalizer permission map is missing")
+    if finalizer_permission.get("*") != "deny":
+        raise ValueError("ao-finalizer must deny the wildcard tool surface")
+    if finalizer.get("tools") not in (None, {}):
+        raise ValueError("ao-finalizer must not declare tools")
+    if finalizer.get("mcp") not in (None, {}):
+        raise ValueError("ao-finalizer must not declare MCP tools")
+    for tool in FINALIZER_TOOLS:
+        if finalizer_permission.get(tool) != "deny":
+            raise ValueError(f"ao-finalizer: {tool} must be denied")
+    if any(value != "deny" for value in finalizer_permission.values()):
+        raise ValueError("ao-finalizer must deny every explicit tool and MCP permission")
 
     base = worker_config["permission"]
     if base["*"] != "ask":

@@ -86,6 +86,23 @@ class PolicyContractTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validator.validate_policy(self.policy, broken)
 
+    def test_rejects_missing_finalizer_instead_of_allowing_default_agent_fallback(self) -> None:
+        broken = json.loads(json.dumps(self.worker_config))
+        del broken["agent"]["ao-finalizer"]
+        with self.assertRaisesRegex(ValueError, "ao-finalizer must be configured"):
+            validator.validate_policy(self.policy, broken)
+
+    def test_rejects_finalizer_tool_or_mcp_permission(self) -> None:
+        for mutation in (
+            lambda config: config["agent"]["ao-finalizer"]["permission"].update({"mcp.filesystem": "allow"}),
+            lambda config: config["agent"]["ao-finalizer"].update({"tools": {"read": True}}),
+        ):
+            with self.subTest(mutation=mutation):
+                broken = json.loads(json.dumps(self.worker_config))
+                mutation(broken)
+                with self.assertRaises(ValueError):
+                    validator.validate_policy(self.policy, broken)
+
 
 class ManifestHybridBlockTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -439,6 +456,13 @@ class OverlayTests(unittest.TestCase):
     def test_benchmark_agent_withholds_every_write_surface(self) -> None:
         permission = self.base["agent"]["ao-review"]["permission"]
         for key in ("edit", "bash"):
+            with self.subTest(key=key):
+                self.assertEqual(permission[key], "deny")
+
+    def test_finalizer_withholds_every_tool_surface(self) -> None:
+        permission = self.base["agent"]["ao-finalizer"]["permission"]
+        self.assertEqual(permission["*"], "deny")
+        for key in ("read", "glob", "grep", "list", "edit", "write", "patch", "bash", "task"):
             with self.subTest(key=key):
                 self.assertEqual(permission[key], "deny")
 
