@@ -32,6 +32,12 @@ RUN apk add --no-cache python3 py3-pip git && \
 
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+# The completion-alert consumer is an independently invoked bounded poller,
+# not part of Next's traced server entrypoint. Keep its source modules in the
+# runtime image so Appservice can run it as a least-privilege sidecar from the
+# same reviewed artifact.
+COPY --from=builder --chown=node:node /app/scripts/completion-alert-consumer.js ./scripts/completion-alert-consumer.js
+COPY --from=builder --chown=node:node /app/lib/cockpit ./lib/cockpit
 
 USER node
 EXPOSE 3000
