@@ -256,6 +256,24 @@ test("a route outage remains pending, retries with the same idempotency key, and
   assert.equal((await new DurableCompletionAlertStore({ root }).readReceipt(event.event_id)).attempts, 2);
 });
 
+test("local route processing failure is persisted without becoming server unavailable", async () => {
+  const root = await stateRoot();
+  const event = await failureFixture();
+  const consumer = new CompletionAlertConsumer({
+    stateRoot: root,
+    fetchPage: async () => ({ events: [event], next_cursor: "route-local-1" }),
+    deliverRoute: async () => { throw new Error("cockpit projection write failed"); }
+  });
+  const result = await consumer.pollOnce();
+  assert.equal(result.status, "degraded");
+  assert.equal(result.failure_origin, "local-route");
+  assert.equal(result.server_unavailable, false);
+  const health = await consumer.health();
+  assert.equal(health.consumer.failure_origin, "local-route");
+  assert.equal(health.consumer.server_unavailable, false);
+  assert.equal(health.routes.cockpit.pending, 1);
+});
+
 test("production default delivery projects cockpit only and fails unsupported routes honestly", async () => {
   const root = await stateRoot();
   const event = await failureFixture();

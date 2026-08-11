@@ -724,8 +724,14 @@ export class CompletionAlertConsumer {
     this.fetchPage = fetchPage || ((args) => readCompletionPage({ ...args, config, limit: args.limit || pageSize }));
     this.deliverRoute = deliverRoute || (async ({ routeId, event, evaluation, coalescedInto, receivedAt }) => {
       if (routeId === COCKPIT_ROUTE_ID) {
-        const existing = await this.store.readProjection(event.event_id);
-        return this.store.writeProjection(existing || safeAlertProjection(event, evaluation, receivedAt, coalescedInto));
+        try {
+          const existing = await this.store.readProjection(event.event_id);
+          return this.store.writeProjection(existing || safeAlertProjection(event, evaluation, receivedAt, coalescedInto));
+        } catch (error) {
+          const classified = error instanceof Error ? error : new Error(String(error));
+          classified.completion_failure_origin = "local-projection";
+          throw classified;
+        }
       }
       throw new Error(`completion route ${routeId} is not implemented by the default AgentOps consumer`);
     });
@@ -834,7 +840,7 @@ export class CompletionAlertConsumer {
       if (!(await this.store.readOutcome(event.event_id))) {
         await this.store.writeOutcome({ schema_version: "completion-alert-outcome/v1", event_id: event.event_id, outcome: "dead-lettered", reason: "identity-conflict", error: redactDiagnostic(error.message), updated_at: nowIso(this.now()) });
       }
-      return { outcome: "dead-lettered", reason: "identity-conflict" };
+      return { outcome: "dead-lettered", reason: "identity-conflict", failure_origin: "local-inbox" };
     }
     const existingOutcome = replay ? null : await this.store.readOutcome(event.event_id);
     if (existingOutcome && ["delivered", "suppressed", "dead-lettered"].includes(existingOutcome.outcome)) return { outcome: existingOutcome.outcome, duplicate: true };
@@ -862,6 +868,7 @@ export class CompletionAlertConsumer {
     const coalescingRoot = await this._coalescingRoot(event);
     if (coalescingRoot) return this._coalesceEvent(event, evaluation, coalescingRoot);
     const routeReceipts = [];
+    let routeFailureOrigin = null;
     for (const routeId of evaluation.routes) {
       const existing = await this.store.readReceipt(event.event_id, routeId);
       if (existing?.state === "delivered" && !replay) {
@@ -882,6 +889,7 @@ export class CompletionAlertConsumer {
         receipt.next_attempt_at = null;
         receipt.last_error = null;
       } catch (error) {
+        routeFailureOrigin ||= error?.completion_failure_origin || "local-route";
         receipt.last_error = redactDiagnostic(error?.message || error);
         if (receipt.attempts >= this.maxAttempts) {
           receipt.state = "dead-lettered";
@@ -900,17 +908,24 @@ export class CompletionAlertConsumer {
       reason: outcome === "delivered" ? "route-delivered" : outcome === "pending" ? "route-retry" : "route-exhausted",
       route_receipts: routeReceipts.map((receipt) => ({ route_id: receipt.route_id, state: receipt.state, attempts: receipt.attempts, last_error: receipt.last_error || null }))
     });
-    return { outcome, route_receipts: routeReceipts };
+    return { outcome, route_receipts: routeReceipts, ...(routeFailureOrigin ? { failure_origin: routeFailureOrigin } : {}) };
   }
 
   async pollOnce({ replay = false } = {}) {
     if (this.polling) return { status: "busy" };
     this.polling = true;
-    await this.store.initialize();
-    const startedAt = nowIso(this.now());
-    const checkpoint = await this.store.readCheckpoint();
-    await this._health({ status: "polling", failure_origin: null, server_unavailable: false, last_poll_started_at: startedAt, last_error: null });
+    let checkpoint = null;
     try {
+      await this.store.initialize();
+      const startedAt = nowIso(this.now());
+      try {
+        checkpoint = await this.store.readCheckpoint();
+      } catch (error) {
+        const classified = error instanceof Error ? error : new Error(String(error));
+        classified.completion_failure_origin = "local-checkpoint";
+        throw classified;
+      }
+      await this._health({ status: "polling", failure_origin: null, server_unavailable: false, last_poll_started_at: startedAt, last_error: null });
       const fetchServedPage = async (args) => {
         try {
           return await this.fetchPage(args);
@@ -952,7 +967,12 @@ export class CompletionAlertConsumer {
         gapRepaired = true;
       }
       const results = [];
-      for (const event of page.events || []) results.push(await this._processEvent(event, page.server_cursor ?? page.next_cursor ?? checkpoint.server_cursor, { replay }));
+      let localFailureOrigin = null;
+      for (const event of page.events || []) {
+        const result = await this._processEvent(event, page.server_cursor ?? page.next_cursor ?? checkpoint.server_cursor, { replay });
+        if (!localFailureOrigin && result.failure_origin) localFailureOrigin = result.failure_origin;
+        results.push(result);
+      }
       // A page can be empty while a route is still backing off. Retry those
       // receipts from the durable inbox; the server cursor must never be held
       // hostage by one unavailable route.
@@ -960,31 +980,39 @@ export class CompletionAlertConsumer {
         for (const { value } of await this.store.listInbox()) {
           const outcome = await this.store.readOutcome(value.event_id);
           if (outcome?.outcome === "pending") {
-            results.push(await this._processEvent(value.event, value.server_cursor, { replay: false }));
+            const result = await this._processEvent(value.event, value.server_cursor, { replay: false });
+            if (!localFailureOrigin && result.failure_origin) localFailureOrigin = result.failure_origin;
+            results.push(result);
           }
         }
       }
-      await this.store.writeCheckpoint({
-        server_cursor: page.next_cursor ?? checkpoint.server_cursor,
-        last_advanced_at: nowIso(this.now()),
-        pages: checkpoint.pages + 1,
-        events_seen: checkpoint.events_seen + results.length
-      });
+      try {
+        await this.store.writeCheckpoint({
+          server_cursor: page.next_cursor ?? checkpoint.server_cursor,
+          last_advanced_at: nowIso(this.now()),
+          pages: checkpoint.pages + 1,
+          events_seen: checkpoint.events_seen + results.length
+        });
+      } catch (error) {
+        const classified = error instanceof Error ? error : new Error(String(error));
+        classified.completion_failure_origin = "local-checkpoint";
+        throw classified;
+      }
       await this._health({
-        status: "healthy",
-        failure_origin: null,
+        status: localFailureOrigin ? "degraded" : "healthy",
+        failure_origin: localFailureOrigin,
         server_unavailable: false,
         last_poll_completed_at: nowIso(this.now()),
         last_server_cursor: page.next_cursor ?? checkpoint.server_cursor,
         last_page_size: (page.events || []).length,
         last_gap_repaired: gapRepaired,
-        last_error: null
+        last_error: localFailureOrigin ? "local completion consumer processing degraded" : null
       });
       if (page.health) {
         await this._health({ server: safeServerHealth(page.health, page.server_cursor ?? page.next_cursor ?? null) });
       }
       const health = await this.store.listHealth({ now: this.now() });
-      return { status: "ok", events: results.length, results, next_cursor: page.next_cursor ?? checkpoint.server_cursor, health };
+      return { status: localFailureOrigin ? "degraded" : "ok", events: results.length, results, next_cursor: page.next_cursor ?? checkpoint.server_cursor, failure_origin: localFailureOrigin, server_unavailable: false, health };
     } catch (error) {
       const safeError = redactDiagnostic(error?.message || error);
       const failureOrigin = error?.completion_failure_origin || "consumer-storage";

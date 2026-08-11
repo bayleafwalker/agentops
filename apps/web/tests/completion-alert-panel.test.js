@@ -157,15 +157,18 @@ test("served ActionQ read failure flows through durable health into the panel", 
   assert.doesNotMatch(html, /consumer degraded \(local failure\)/);
 });
 
-test("local consumer failure is persisted and not labeled server unavailable", async () => {
+test("durable local consumer failure is persisted and not labeled server unavailable", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "agentops-completion-panel-local-failure-"));
-  const consumer = new CompletionAlertConsumer({ stateRoot: root, fetchPage: async () => null });
+  const store = new DurableCompletionAlertStore({ root });
+  await store.initialize();
+  store.writeCheckpoint = async () => { throw new Error("checkpoint filesystem unavailable"); };
+  const consumer = new CompletionAlertConsumer({ store, fetchPage: async () => ({ events: [], next_cursor: 1 }) });
   const result = await consumer.pollOnce();
-  assert.equal(result.failure_origin, "consumer-storage");
+  assert.equal(result.failure_origin, "local-checkpoint");
   assert.equal(result.server_unavailable, false);
   const projection = await readCompletionAlertProjection({ stateRoot: root });
-  assert.equal(projection.health.consumer.failure_origin, "consumer-storage");
+  assert.equal(projection.health.consumer.failure_origin, "local-checkpoint");
   const html = renderToStaticMarkup(h(CompletionAlertPanel, { data: projection }));
-  assert.match(html, /consumer degraded \(consumer-storage\)/);
+  assert.match(html, /consumer degraded \(local-checkpoint\)/);
   assert.doesNotMatch(html, /server unavailable/);
 });
