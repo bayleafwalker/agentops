@@ -53,10 +53,41 @@
             "default": "write",
             "description": "Materialization boundary. reference members use detached, filesystem-read-only worktrees and receive no render writes; omitted values preserve writable-member behavior."
           },
+          "repository": {
+            "type": "string",
+            "pattern": "^https://[^/@?#]+(?:/[^/?#]+)+$",
+            "description": "Optional credential-free canonical HTTPS Git URL. Required when creating a portable project-release descriptor."
+          },
+          "default_ref": {
+            "type": "string",
+            "pattern": "^refs/heads/[A-Za-z0-9._/-]+$",
+            "description": "Optional canonical default branch ref. Required when creating a portable project-release descriptor."
+          },
           "path_notes": {
             "type": "array",
             "items": { "type": "string" },
             "description": "Optional free-text agent guidance specific to this member's binding. Not rendered; read directly from project.toml by agents resolving project scope."
+          },
+          "documents": {
+            "description": "Declarative member document contract. Paths are normalized relative paths within the member repository. AGENTS.md is authored and required for every member; generated project guidance is renderer-managed and required for full/baseline members, forbidden for render:none members.",
+            "oneOf": [
+              {
+                "type": "array",
+                "items": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))(?![A-Za-z]:)(?!.*\\\\)[^/]+(?:/[^/]+)*$" },
+                "description": "Additional required document paths."
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "required": { "type": "array", "items": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))(?![A-Za-z]:)(?!.*\\\\)[^/]+(?:/[^/]+)*$" } },
+                  "authored": { "type": "array", "items": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))(?![A-Za-z]:)(?!.*\\\\)[^/]+(?:/[^/]+)*$" } },
+                  "generated": { "type": "array", "items": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))(?![A-Za-z]:)(?!.*\\\\)[^/]+(?:/[^/]+)*$" } },
+                  "optional": { "type": "array", "items": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))(?![A-Za-z]:)(?!.*\\\\)[^/]+(?:/[^/]+)*$" } },
+                  "forbidden": { "type": "array", "items": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))(?![A-Za-z]:)(?!.*\\\\)[^/]+(?:/[^/]+)*$" } }
+                }
+              }
+            ]
           }
         }
       }

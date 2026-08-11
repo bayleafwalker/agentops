@@ -172,7 +172,7 @@ Initially, modes are intentionally narrow:
   implicitly. The local lease lifecycle prevents concurrent lifecycle mutation
   by cooperating processes on the same filesystem.
 
-The implemented script commands are `setup`, legacy-compatible `sync`, `status`,
+The implemented script commands are `setup`, `rebuild`, legacy-compatible `sync`, `status`,
 `refresh-context`, `context --explain`, `lease`, and `destroy`. A future ergonomic
 `projectctl` may add `list`, `members`, `path`, and `materialize` aliases. There
 is no planned project-owned work selection, broad command
@@ -185,6 +185,13 @@ change its parent shell's working directory.
 recorded inputs. It must not fetch, merge, rebase, reset, or otherwise advance
 member worktrees. Any future Git-state inspection or advancement command must
 be named separately and be explicit about its effects.
+
+`rebuild --descriptor` is the release-pinned path. It uses the descriptor's
+committed home binding and exact Git refs (or a verified package), never a
+local project file supplied as authority, and does not render member documents.
+Release-pinned instances refuse legacy `sync` and `refresh-context`; changed
+release state requires a new descriptor. Cloud authority, uploads, registries,
+signatures, ref pushes, and distributed locks remain out of scope.
 
 ## Guidance and provenance
 

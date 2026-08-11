@@ -152,6 +152,36 @@ render = "baseline"
                 self.assertEqual(status.environment, "in-sync")
                 self.assertEqual(status.environment_pointer, "in-sync")
 
+    def test_reference_member_is_read_only_for_active_environment_render(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            project_path, repos = self._fixture(Path(temporary))
+            project_path.write_text(
+                project_path.read_text(encoding="utf-8").replace(
+                    'repo_id = "member"\nbacklog = true\nrender = "baseline"',
+                    'repo_id = "member"\nbacklog = true\nrender = "baseline"\naccess = "reference"',
+                ),
+                encoding="utf-8",
+            )
+            subprocess.run(["git", "-C", str(repos["home"]), "add", "project.toml"], check=True)
+            subprocess.run(["git", "-C", str(repos["home"]), "commit", "-qm", "reference role"], check=True)
+            records_dir = self._record(Path(temporary))
+            project = RENDER.load_project(project_path)
+            import socket
+
+            original = socket.gethostname
+            socket.gethostname = lambda: "testhost"  # type: ignore[assignment]
+            try:
+                statuses = RENDER.apply_project(project, environment_records_dir=records_dir)
+            finally:
+                socket.gethostname = original  # type: ignore[assignment]
+
+            self.assertTrue((repos["home"] / ".agents" / "environment.generated.md").exists())
+            self.assertFalse((repos["member"] / ".agents" / "environment.generated.md").exists())
+            self.assertNotIn("environment.generated.md", (repos["member"] / "AGENTS.md").read_text())
+            member_status = next(item for item in statuses if item.repo_id == "member")
+            self.assertEqual(member_status.environment, "not-applicable")
+            self.assertEqual(member_status.environment_pointer, "not-applicable")
+
     def test_stale_record_content_is_detected(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             project_path, repos = self._fixture(Path(temporary))

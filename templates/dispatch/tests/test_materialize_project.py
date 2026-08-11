@@ -201,6 +201,108 @@ render_levels: [baseline, full]
                 self.assertEqual(worktrees.count(f"worktree {expected_path}"), 1)
                 self.assertNotIn("prunable", worktrees)
 
+    def test_status_reports_canonical_missing_member_and_unexpected_member(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            project_path, repos = self._fixture(root)
+            project = RENDER.load_project(project_path)
+            folder = root / "project-folders" / "fixture"
+            self._materialize(project, folder, command="setup")
+
+            # Canonical membership can advance independently of this derived
+            # instance.  Status must report the missing repository and stale
+            # materialized binding together instead of aborting in load_project.
+            self._write(
+                project_path,
+                project_path.read_text(encoding="utf-8")
+                + '\n[[members]]\nrepo_id = "not-present"\nbacklog = false\nrender = "none"\n',
+            )
+            (folder / MATERIALIZE.MEMBERS_DIRECTORY / "unexpected").mkdir()
+            changed = RENDER.load_project(project_path, allow_missing_members=True)
+            result = self._materialize(changed, folder, command="status")
+            states = {state.repo_id: state for state in result.members}
+            self.assertEqual(states["not-present"].status, "missing-member")
+            self.assertEqual(states["unexpected"].status, "unexpected-member")
+            self.assertTrue(any("binding" in line for line in result.drift))
+
+    def test_empty_git_placeholder_and_managed_runtime_paths_are_allowed(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            project_path, _repos = self._fixture(root)
+            project = RENDER.load_project(project_path)
+            folder = root / "project-folders" / "fixture"
+            folder.mkdir(parents=True)
+            (folder / ".git").mkdir()
+            for name in (".workers", ".cache", ".evidence-staging"):
+                (folder / name).mkdir()
+            result = self._materialize(project, folder, command="setup")
+            self.assertFalse(result.blocked)
+            status = self._materialize(project, folder, command="status")
+            self.assertFalse(any("runtime" in line for line in status.drift))
+            (folder / ".git" / "config").write_text("[core]\n", encoding="utf-8")
+            with self.assertRaisesRegex(MATERIALIZE.ProjectFolderError, "must not itself be a git repository"):
+                self._materialize(project, folder, command="status")
+
+    def test_status_reports_required_document_and_render_none_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            project_path, _repos = self._fixture(root)
+            project = RENDER.load_project(project_path)
+            folder = root / "project-folders" / "fixture"
+            self._materialize(project, folder, command="setup")
+            child = folder / MATERIALIZE.MEMBERS_DIRECTORY / "child"
+            (child / "AGENTS.md").unlink()
+            (child / ".agents" / "project.generated.md").unlink()
+            home_generated = folder / MATERIALIZE.MEMBERS_DIRECTORY / "home" / ".agents" / "project.generated.md"
+            home_generated.parent.mkdir(parents=True, exist_ok=True)
+            home_generated.write_text("managed output\n", encoding="utf-8")
+            result = self._materialize(project, folder, command="status")
+            self.assertTrue(any("child/AGENTS.md" in line for line in result.drift))
+            self.assertTrue(any("child/.agents/project.generated.md" in line for line in result.drift))
+            self.assertTrue(any("home/.agents/project.generated.md" in line for line in result.drift))
+
+    def test_status_reports_detached_and_foreign_worktrees_without_aborting(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            project_path, repos = self._fixture(root)
+            project = RENDER.load_project(project_path)
+            folder = root / "project-folders" / "fixture"
+            self._materialize(project, folder, command="setup")
+            child = folder / MATERIALIZE.MEMBERS_DIRECTORY / "child"
+            self._git(child, "checkout", "--detach", "HEAD")
+            detached = self._materialize(project, folder, command="status")
+            self.assertEqual(
+                {state.repo_id: state for state in detached.members}["child"].status,
+                "unexpected-branch",
+            )
+            self.assertIn("home", {state.repo_id for state in detached.members})
+
+            # Replace one linked worktree with an unrelated Git root.  Status
+            # must retain diagnostics for the foreign path and inspect others.
+            self._git(repos["child"], "worktree", "remove", "--force", str(child))
+            subprocess.run(["git", "init", "-q", str(child)], check=True)
+            foreign = self._materialize(project, folder, command="status")
+            self.assertEqual(
+                {state.repo_id: state for state in foreign.members}["child"].status,
+                "foreign-worktree",
+            )
+            self.assertIn("home", {state.repo_id for state in foreign.members})
+
+    def test_sync_fails_closed_on_document_violation_even_when_member_is_dirty(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            project_path, _repos = self._fixture(root)
+            project = RENDER.load_project(project_path)
+            folder = root / "project-folders" / "fixture"
+            self._materialize(project, folder, command="setup")
+            forbidden = folder / MATERIALIZE.MEMBERS_DIRECTORY / "home" / ".agents" / "project.generated.md"
+            forbidden.parent.mkdir(parents=True, exist_ok=True)
+            forbidden.write_text("forbidden\n", encoding="utf-8")
+            context_before = (folder / MATERIALIZE.CONTEXT_NAME).read_bytes()
+            with self.assertRaisesRegex(MATERIALIZE.ProjectFolderError, "document contract"):
+                self._materialize(project, folder, command="sync")
+            self.assertEqual((folder / MATERIALIZE.CONTEXT_NAME).read_bytes(), context_before)
+
     def test_sync_fast_forwards_members_but_keeps_home_binding_pinned(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -470,6 +572,36 @@ render_levels: [baseline, full]
             refused = destroy(session, "session")
             self.assertEqual(refused.returncode, 2)
             self.assertIn("non-empty .session", refused.stderr)
+
+            root_git = setup("root-git")
+            (root_git / ".git").mkdir()
+            refused = destroy(root_git, "root-git")
+            self.assertEqual(refused.returncode, 2)
+            self.assertIn("root .git", refused.stderr)
+            self.assertTrue((root_git / MATERIALIZE.MEMBERS_DIRECTORY / "home").is_dir())
+
+            stale_member = setup("stale-member")
+            (stale_member / MATERIALIZE.MEMBERS_DIRECTORY / "stale").mkdir()
+            refused = destroy(stale_member, "stale-member")
+            self.assertEqual(refused.returncode, 2)
+            self.assertIn("unexpected member", refused.stderr)
+            self.assertTrue((stale_member / MATERIALIZE.MEMBERS_DIRECTORY / "home").is_dir())
+
+            semantic = setup("semantic")
+            original_binding = project_path.read_text(encoding="utf-8")
+            project_path.write_text(
+                original_binding.replace(
+                    'path_notes = ["Child boundary note."]',
+                    'path_notes = ["canonical guidance changed"]',
+                ),
+                encoding="utf-8",
+            )
+            changed_project = RENDER.load_project(project_path)
+            with self.assertRaisesRegex(MATERIALIZE.ProjectFolderError, "materialized home repository project binding differs"):
+                MATERIALIZE.destroy(changed_project, semantic, instance="semantic")
+            # The API raises before any member worktree is removed.
+            self.assertTrue((semantic / MATERIALIZE.MEMBERS_DIRECTORY / "home").is_dir())
+            project_path.write_text(original_binding, encoding="utf-8")
 
             clean = setup("clean")
             removed = destroy(clean, "clean")
