@@ -3,7 +3,8 @@ export const BASE_INTERVALS_MS = {
   primary: 30000,
   claims: 10000,
   secondary: 30000,
-  headroom: 300000
+  headroom: 300000,
+  "completion-alerts": 5000
 };
 
 export const DEFAULT_TWEAKS = {
