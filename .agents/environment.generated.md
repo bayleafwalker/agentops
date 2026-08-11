@@ -1,12 +1,12 @@
 <!-- agentops-render: DO NOT HAND-EDIT
-     environment_record: workstation-linux.vuoro-shared.json
-     environment_record_sha256: 7b75bccb0c6ecb722819e71343ed8d7a3363bf15a008fd0488b9c579798fa8bf
+     environment_record: devbox-vm.vuoro-shared.json
+     environment_record_sha256: 9448d4a2d5dbbdc6efe758fe78c834949bf03aa4514480db37fbdb63c5014a71
      tool: agentops-environment-context/v1
 -->
 <!-- vuoro-environment-context:start -->
-Active Vuoro environment: workstation-linux (local)
-Constraints: no-workstation-postgresql-credentials, profile-target-must-be-vuoro-shared, production-endpoint-required
+Active Vuoro environment: devbox (local)
+Constraints: no-direct-postgresql-egress-for-sprintctl, profile-target-must-be-vuoro-shared, production-endpoint-required, independent-worktree-and-tool-install
 Runbooks:
-- /projects/dev/agentops/docs/runbooks/vuoro-workstation-cutover.md#workstation
+- /projects/dev/agentops/docs/runbooks/vuoro-workstation-cutover.md#devbox-vm
 - /projects/dev/agentops/docs/runbooks/vuoro-workstation-cutover.md#identity-and-production-boundary
 <!-- vuoro-environment-context:end -->
