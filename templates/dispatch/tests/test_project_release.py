@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import socket
 import subprocess
 import sys
 import tempfile
@@ -12,6 +13,7 @@ SCRIPTS = Path(__file__).parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 import project_release as RELEASE  # noqa: E402
 import render_project as RENDER  # noqa: E402
+from resolve_environment_record import normalize_hostname  # noqa: E402
 
 
 class ProjectReleaseTests(unittest.TestCase):
@@ -121,6 +123,53 @@ default_ref = "refs/heads/main"
             self.assertEqual(before, {name: self._git(repo, "rev-parse", "HEAD") for name, repo in repos.items()})
             with self.assertRaises(RELEASE.ReleaseError):
                 RELEASE.pack_release(descriptor_path, package_path, root / "workspace")
+
+    def test_verify_package_resolves_environment_records_from_home_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            project_path, repos = self._fixture(root)
+            records = repos["home"] / "templates" / "dispatch" / "environment-record"
+            records.mkdir(parents=True)
+            environment_id = normalize_hostname(socket.gethostname())
+            (records / f"{environment_id}.json").write_text(
+                json.dumps({
+                    "schema_version": "environment-record/v1",
+                    "id": environment_id,
+                    "environment_class": "local",
+                    "revision": 1,
+                    "roles": ["release-test"],
+                    "constraints": [],
+                    "capabilities": [],
+                    "runbook_refs": [],
+                    "identity_bindings": [],
+                }),
+                encoding="utf-8",
+            )
+            project = RENDER.load_project(project_path, workspace_root=root / "workspace")
+            RENDER.apply_project(project, environment_records_dir=records)
+            for repo in repos.values():
+                if self._git(repo, "status", "--porcelain", "--untracked-files=all"):
+                    self._git(repo, "add", ".")
+                    self._git(repo, "commit", "-m", "chore(render): fixture environment")
+                    self._git(repo, "push", "origin", "main")
+
+            descriptor_path = root / "release.json"
+            RELEASE.create_release(
+                project_path,
+                descriptor_path,
+                remote_verifier=lambda repository, ref, commit: {
+                    "kind": "remote-ref", "repository": repository,
+                    "ref": ref, "target": commit, "verified": True,
+                },
+            )
+            package_path = root / "package.json"
+            RELEASE.pack_release(descriptor_path, package_path, root / "workspace")
+            receipt = RELEASE.verify_package(
+                package_path,
+                descriptor_path=descriptor_path,
+                source_host="test-source",
+            )
+            self.assertEqual(receipt["outcome"], "verified")
 
     def test_strict_url_and_ref_parsers_reject_credentials_and_noncanonical_values(self) -> None:
         for value in ("http://example.invalid/repo.git", "https://user@example.invalid/repo.git", "https://example.invalid/repo.git?x=1", "https://example.invalid/repo.git/"):
