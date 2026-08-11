@@ -67,7 +67,9 @@ export function redactDiagnostic(value) {
 
 function safeServerHealth(value, cursor) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const safe = { cursor: typeof cursor === "string" ? cursor : null };
+  const safe = { cursor: typeof cursor === "string" || Number.isInteger(cursor) ? cursor : null };
+  if (typeof value.cursor_expired === "boolean") safe.cursor_expired = value.cursor_expired;
+  if (Number.isInteger(value.recovery_floor) && value.recovery_floor >= 0) safe.recovery_floor = value.recovery_floor;
   for (const field of ["producer_backlog_age_seconds", "ingest_lag_seconds", "stream_lag_seconds", "retry_age_seconds", "quarantine_count", "oldest_event_age_seconds"]) {
     if (Number.isFinite(Number(value[field]))) safe[field] = Number(value[field]);
   }
@@ -507,6 +509,26 @@ export class DurableCompletionAlertStore {
   async readProjection(eventId) { assertEventId(eventId); return readJson(this.file("projections", eventId)); }
   async listProjections() { return listJson(this.directory("projections")); }
 
+  async acknowledgeProjection(eventId, acknowledgedBy) {
+    assertEventId(eventId);
+    if (typeof acknowledgedBy !== "string" || !acknowledgedBy.trim()) {
+      throw new Error("acknowledged_by must be a non-empty string");
+    }
+    const projection = await this.readProjection(eventId);
+    if (!projection) {
+      const error = new Error(`completion alert ${eventId} was not found`);
+      error.code = "alert_not_found";
+      throw error;
+    }
+    const acknowledgedAt = nowIso(this.now());
+    return this.writeProjection({
+      ...projection,
+      acknowledged: true,
+      acknowledged_at: projection.acknowledged_at || acknowledgedAt,
+      acknowledged_by: projection.acknowledged_by || acknowledgedBy.trim()
+    });
+  }
+
   async putInbox(event, { serverCursor = null, receivedAt = nowIso(this.now()) } = {}) {
     validateCompletionEvent(event);
     const digest = completionDigest(event);
@@ -646,6 +668,19 @@ export async function readCompletionPage({ cursor = null, limit = null, replay =
   const response = await fetchWithTimeout(url, { headers, cache: "no-store" }, config.completionAlertPollTimeoutMs || 3000, fetchImpl);
   let body;
   try { body = await response.json(); } catch { body = null; }
+  if (response.status === 409 && body?.error?.code === "cursor_expired") {
+    return {
+      events: [],
+      next_cursor: body.next_cursor ?? cursor,
+      server_cursor: body.server_cursor ?? null,
+      recovery_floor: body.recovery_floor ?? body.error.recovery_floor ?? null,
+      gap: false,
+      cursor_expired: true,
+      advance_cursor: false,
+      error: body.error,
+      health: body.health || null
+    };
+  }
   if (!response.ok) throw new Error(`completion log read failed with HTTP ${response.status}`);
   const rows = body?.events || body?.completions || body?.items || [];
   if (!Array.isArray(rows)) throw new Error("completion log response events must be an array");
@@ -653,6 +688,9 @@ export async function readCompletionPage({ cursor = null, limit = null, replay =
     events: rows.map((row) => row?.event || row?.payload || row),
     next_cursor: body?.next_cursor ?? body?.nextCursor ?? body?.cursor?.next ?? null,
     server_cursor: body?.server_cursor ?? body?.cursor?.current ?? null,
+    recovery_floor: body?.recovery_floor ?? null,
+    cursor_expired: body?.status === "cursor_expired",
+    advance_cursor: body?.advance_cursor !== false,
     gap: Boolean(body?.gap || body?.cursor_gap || body?.requires_replay),
     health: body?.health || null
   };
@@ -705,9 +743,11 @@ export class CompletionAlertConsumer {
 
   async _health(patch = {}) {
     const previous = await this.store.readHealth();
+    const { server, ...consumerPatch } = patch;
     const health = {
       ...(previous || {}),
-      consumer: { ...(previous?.consumer || {}), ...patch },
+      ...(server ? { server } : {}),
+      consumer: { ...(previous?.consumer || {}), ...consumerPatch },
       updated_at: nowIso(this.now())
     };
     await this.store.writeHealth(health);
@@ -872,6 +912,29 @@ export class CompletionAlertConsumer {
     await this._health({ status: "polling", last_poll_started_at: startedAt, last_error: null });
     try {
       let page = await this.fetchPage({ cursor: checkpoint.server_cursor, limit: this.pageSize, replay, timeoutMs: this.pollTimeoutMs });
+      if (page.cursor_expired || page.advance_cursor === false) {
+        const cursorError = page.error?.message || "completion cursor expired; explicit recovery is required";
+        await this._health({
+          status: "cursor-expired",
+          last_poll_completed_at: nowIso(this.now()),
+          cursor_expired: true,
+          recovery_floor: page.recovery_floor ?? null,
+          last_error: cursorError
+        });
+        if (page.health) {
+          await this._health({ server: safeServerHealth(page.health, page.server_cursor ?? checkpoint.server_cursor) });
+        }
+        const health = await this.store.listHealth({ now: this.now() });
+        return {
+          status: "cursor-expired",
+          events: 0,
+          results: [],
+          cursor_expired: true,
+          recovery_floor: page.recovery_floor ?? null,
+          next_cursor: checkpoint.server_cursor,
+          health
+        };
+      }
       let gapRepaired = false;
       if (page.gap && !replay) {
         // A notification or a server page hint is not a correctness record.
@@ -968,6 +1031,17 @@ export async function readCompletionAlertProjection({ repoId = "ALL", limit = 50
     .sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)))
     .slice(0, 200);
   return { source: "agentops://completion-alerts", repo_id: repoId, alerts, coalesced_events: coalescedEvents, outcomes, pending_deliveries: outcomes.filter((outcome) => outcome.outcome === "pending"), health, degraded: null };
+}
+
+export async function acknowledgeCompletionAlert({ alertId, acknowledgedBy = null, stateRoot = null, now = () => new Date() } = {}) {
+  const config = getConfig();
+  const store = new DurableCompletionAlertStore({ root: stateRoot || config.completionAlertStateRoot, now });
+  await store.initialize();
+  const projection = await store.acknowledgeProjection(
+    alertId,
+    acknowledgedBy || config.cockpitOperatorId || "operator:cockpit"
+  );
+  return { source: "agentops://completion-alerts", alert: projection, degraded: null };
 }
 
 export { safeAlertProjection };

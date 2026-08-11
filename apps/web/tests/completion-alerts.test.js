@@ -107,6 +107,66 @@ test("duplicate pages and restart with a new consumer instance preserve one inbo
   assert.equal((await store.readCheckpoint()).server_cursor, "cursor-2");
 });
 
+test("expired served cursor is explicit and never advances the durable consumer checkpoint", async () => {
+  const root = await stateRoot();
+  const store = new DurableCompletionAlertStore({ root });
+  await store.initialize();
+  await store.writeCheckpoint({ server_cursor: 0, pages: 4, events_seen: 9 });
+  let requests = 0;
+  const consumer = new CompletionAlertConsumer({
+    stateRoot: root,
+    fetchPage: async () => {
+      requests += 1;
+      return {
+        schema_version: "session-completion-cursor/v1",
+        status: "cursor_expired",
+        cursor: 0,
+        events: [],
+        next_cursor: 0,
+        server_cursor: 9,
+        recovery_floor: 4,
+        advance_cursor: false,
+        error: { code: "cursor_expired", message: "completion cursor is below the durable recovery floor" },
+        health: { cursor_expired: true, recovery_floor: 4, ingest_lag_seconds: 7 }
+      };
+    }
+  });
+  const result = await consumer.pollOnce();
+  assert.equal(result.status, "cursor-expired");
+  assert.equal(result.cursor_expired, true);
+  assert.equal(result.recovery_floor, 4);
+  assert.equal(result.health.server.cursor_expired, true);
+  assert.equal(result.health.server.recovery_floor, 4);
+  assert.equal(requests, 1);
+  assert.equal((await store.readCheckpoint()).server_cursor, 0);
+});
+
+test("readCompletionPage preserves the released ActionQ cursor-expired response", async () => {
+  const page = await readCompletionPage({
+    cursor: 0,
+    config: { completionAlertActionqUrl: "https://actionq.example/session-completions", completionAlertReadToken: "read-secret", completionAlertPageSize: 10, completionAlertPollTimeoutMs: 1000 },
+    fetchImpl: async () => new Response(JSON.stringify({
+      schema_version: "session-completion-cursor/v1",
+      status: "cursor_expired",
+      error: { code: "cursor_expired", message: "completion cursor is below the durable recovery floor", recovery_floor: 4 },
+      cursor: 0,
+      recovery_floor: 4,
+      server_cursor: 9,
+      next_cursor: 0,
+      events: [],
+      advance_cursor: false,
+      gap: false,
+      requires_replay: false,
+      health: {}
+    }), { status: 409, headers: { "content-type": "application/json" } })
+  });
+  assert.equal(page.cursor_expired, true);
+  assert.equal(page.advance_cursor, false);
+  assert.equal(page.next_cursor, 0);
+  assert.equal(page.recovery_floor, 4);
+  assert.equal(page.server_cursor, 9);
+});
+
 test("closed event identities reject traversal, absolute, and encoded path attacks before filesystem access", async () => {
   const root = await stateRoot();
   const store = new DurableCompletionAlertStore({ root });
@@ -231,7 +291,7 @@ test("repeated failures coalesce into one operator delivery while retaining each
   const first = await failureFixture();
   const second = { ...structuredClone(first), event_id: "4d5e6f70-8192-4a3b-8c0d-3e4f50617285", origin_sequence: 44, completed_at: "2026-08-11T12:04:13Z", observed_at: "2026-08-11T12:04:13Z" };
   const pages = [{ events: [first], next_cursor: "coalesce-1" }, { events: [second], next_cursor: "coalesce-2" }];
-  const consumer = new CompletionAlertConsumer({ stateRoot: root, policy: { ...DEFAULT_COMPLETION_ALERT_POLICY, coalesce_window_seconds: 60 }, fetchPage: async () => pages.shift() });
+  const consumer = new CompletionAlertConsumer({ stateRoot: root, policy: { ...DEFAULT_COMPLETION_ALERT_POLICY, coalesce_window_seconds: 60 }, fetchPage: async () => pages.shift(), now: () => new Date("2026-08-11T12:05:00Z") });
   await consumer.pollOnce();
   await consumer.pollOnce();
   const store = new DurableCompletionAlertStore({ root });
@@ -318,6 +378,29 @@ test("projection reads are non-mutating on a fresh read-only state root", async 
   } finally {
     await fs.chmod(root, 0o755);
   }
+});
+
+test("acknowledgement changes only the AgentOps cockpit projection", async () => {
+  const root = await stateRoot();
+  const event = await failureFixture();
+  const store = new DurableCompletionAlertStore({ root, now: () => new Date("2026-08-11T12:06:00Z") });
+  await store.initialize();
+  await store.writeProjection({
+    alert_id: event.event_id,
+    event_id: event.event_id,
+    acknowledged: false,
+    acknowledged_at: null,
+    acknowledged_by: null,
+    completed_at: event.completed_at,
+    repo: event.repo,
+    terminal: event.terminal
+  });
+  const acknowledged = await store.acknowledgeProjection(event.event_id, "operator:test");
+  assert.equal(acknowledged.acknowledged, true);
+  assert.equal(acknowledged.acknowledged_by, "operator:test");
+  assert.equal(acknowledged.acknowledged_at, "2026-08-11T12:06:00.000Z");
+  assert.equal((await store.readProjection(event.event_id)).acknowledged, true);
+  await assert.rejects(() => store.acknowledgeProjection("00000000-0000-0000-0000-000000000000", "operator:test"), /not found/);
 });
 
 test("served read credentials and route diagnostics never enter durable histories", async () => {

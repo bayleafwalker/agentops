@@ -10,7 +10,7 @@ import { createGetHandler as createAuditHandler } from "../app/cockpit/api/audit
 import { createGetHandler as createCostSummaryHandler } from "../app/cockpit/api/costs/summary/route.js";
 import { createGetHandler as createHeadroomGetHandler, createPostHandler as createHeadroomPostHandler } from "../app/cockpit/api/headroom/route.js";
 import { createGetHandler as createDispatchManifestsHandler } from "../app/cockpit/api/dispatch-manifests/route.js";
-import { createGetHandler as createCompletionAlertsHandler } from "../app/cockpit/api/completion-alerts/route.js";
+import { createGetHandler as createCompletionAlertsHandler, createPostHandler as createCompletionAlertAckHandler } from "../app/cockpit/api/completion-alerts/route.js";
 import { createPostHandler as createDispatchHandler } from "../app/cockpit/api/dispatch/route.js";
 import { dispatchViaActionctl, forwardDispatchToActionqServer, normalizeDispatchPayload } from "../lib/cockpit/dispatch.js";
 
@@ -179,6 +179,20 @@ test("completion alerts route returns the AgentOps projection shape", async () =
   assert.equal(payload.repo_id, "alpha");
   assert.equal(payload.alerts[0].event_id, "event-1");
   assert.equal(payload.health.checkpoint, "c1");
+});
+
+test("completion alert acknowledgement route writes only the AgentOps operator projection", async () => {
+  let received = null;
+  const POST = createCompletionAlertAckHandler({
+    requireConfiguredWriteAuth: () => null,
+    acknowledgeCompletionAlert: async (input) => {
+      received = input;
+      return { source: "agentops://completion-alerts", alert: { alert_id: input.alertId, acknowledged: true }, degraded: null };
+    }
+  });
+  const payload = await (await POST(jsonRequest("http://localhost/cockpit/api/completion-alerts", { alert_id: "4d5e6f70-8192-4a3b-8c0d-3e4f50617284", acknowledged_by: "operator:test" }))).json();
+  assert.deepEqual(received, { alertId: "4d5e6f70-8192-4a3b-8c0d-3e4f50617284", acknowledgedBy: "operator:test" });
+  assert.equal(payload.alert.acknowledged, true);
 });
 
 test("dispatch manifests route returns expected shape", async () => {
