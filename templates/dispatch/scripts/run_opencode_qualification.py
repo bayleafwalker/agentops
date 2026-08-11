@@ -73,7 +73,9 @@ ACTIVE_WORKSPACE_ROOT = WORKSPACE_ROOT
 PINNED_PREFLIGHT_EVIDENCE: dict[str, str] = {}
 PINNED_RUNNER_DIGEST = ""
 PINNED_OPENCODE_DIGEST = ""
-PINNED_EXECUTABLE_TARGETS: dict[Path, tuple[Path, tuple[int, ...]]] = {}
+PINNED_EXECUTABLE_TARGETS: dict[Path, tuple[Path, tuple[tuple[int, ...], ...]]] = {}
+PINNED_EXECUTABLE_PARENT_OWNER_UID = 0
+NIX_STORE = Path("/nix/store")
 PINNED_CONFIG_DIGEST = "sha256:dc8e846c1cf22e536a35b3d842b518e194c2fde355b87e1b677ca82570ae566c"
 PINNED_PROFILE_DIGEST = "sha256:38d17f648ffc6831752fd6250638648580fbfc478cb4789b732c8ae95e25b84a"
 PINNED_POLICY_DIGEST = "sha256:dc9fcb92f1c4dfceecc5372f84cadeb1b58aad026a45ea0379a5f7ab196555a6"
@@ -105,9 +107,9 @@ def _file_digest(path: Path) -> str:
     target = _executable_path(path) if path in PINNED_EXECUTABLE_TARGETS else path
     digest = "sha256:" + hashlib.sha256(target.read_bytes()).hexdigest()
     if path in PINNED_EXECUTABLE_TARGETS:
-        checked_target, fingerprint = PINNED_EXECUTABLE_TARGETS[path]
+        checked_target, fingerprints = PINNED_EXECUTABLE_TARGETS[path]
         label = next((label for candidate, label in _pinned_executables() if candidate == path), f"pinned executable {path}")
-        _assert_pinned_executable_stable(path, checked_target, fingerprint, label)
+        _assert_pinned_executable_stable(path, checked_target, fingerprints, label)
     return digest
 
 
@@ -174,16 +176,54 @@ def _pinned_executables() -> tuple[tuple[Path, str], ...]:
     return tuple((Path(globals()[name]), labels[name]) for name in PINNED_EXECUTABLE_NAMES)
 
 
-def _check_pinned_executable(path: Path, label: str) -> tuple[Path, tuple[int, ...]]:
-    """Validate a configured executable's final target, allowing Nix symlinks.
+def _check_resolved_executable_parents(target: Path, label: str) -> tuple[tuple[int, ...], ...]:
+    """Check every parent of a resolved executable target.
+
+    The only writable-parent exception is the host's Nix store: its exact
+    root-owned sticky ``01775`` mode is accepted only while its filesystem is
+    read-only, which prevents the runner identity from replacing an entry.
+    This exception is deliberately path-, owner-, mode-, and mount-specific;
+    arbitrary sticky or writable directories remain rejected.
+    """
+    fingerprints: list[tuple[int, ...]] = []
+    current = target.parent
+    while True:
+        try:
+            info = current.lstat()
+        except OSError as exc:
+            raise RunnerError(f"{label} has an unavailable resolved parent: {exc}") from exc
+        if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+            raise RunnerError(f"{label} has an unsafe resolved parent")
+        if info.st_uid not in {0, PINNED_EXECUTABLE_PARENT_OWNER_UID}:
+            raise RunnerError(f"{label} has a non-root resolved parent")
+        mode = stat.S_IMODE(info.st_mode)
+        if mode & 0o022:
+            try:
+                read_only = bool(os.statvfs(current).f_flag & os.ST_RDONLY)
+            except OSError as exc:
+                raise RunnerError(f"{label} cannot inspect resolved parent mount: {exc}") from exc
+            nix_store_exception = current == NIX_STORE and mode == 0o1775 and read_only
+            if not nix_store_exception:
+                raise RunnerError(f"{label} has a writable resolved parent")
+        fingerprints.append(_stat_fingerprint(info))
+        if current.parent == current:
+            return tuple(fingerprints)
+        current = current.parent
+
+
+def _check_pinned_executable(path: Path, label: str) -> tuple[Path, tuple[tuple[int, ...], ...]]:
+    """Validate a configured executable's target and resolved parent chain.
 
     The configured path may be a symlink, but its resolved final target must be
-    root-owned, regular, executable, and free of group/world write bits.  The
-    target is statted both through the resolved path and through the configured
-    path so a changed link or target is rejected during this validation.
+    root-owned, regular, executable, and free of group/world write bits. Every
+    parent of that resolved target is lstat-checked, and the target plus parent
+    metadata is checked again before use so a changed link, target, parent, or
+    Nix-store mount state is rejected.
     """
     try:
         target = path.resolve(strict=True)
+        if path.resolve(strict=True) != target:
+            raise RunnerError(f"{label} changed while resolving its target")
         target_info = os.stat(target, follow_symlinks=False)
         configured_info = os.stat(path, follow_symlinks=True)
     except (OSError, RuntimeError) as exc:
@@ -199,11 +239,12 @@ def _check_pinned_executable(path: Path, label: str) -> tuple[Path, tuple[int, .
         raise RunnerError(f"{label} target must be executable")
     if target_info.st_mode & 0o022:
         raise RunnerError(f"{label} target must not be group/world-writable")
-    return target, fingerprint
+    parent_fingerprints = _check_resolved_executable_parents(target, label)
+    return target, (fingerprint, *parent_fingerprints)
 
 
-def _assert_pinned_executable_stable(path: Path, target: Path, fingerprint: tuple[int, ...], label: str) -> None:
-    """Recheck the resolved target before using a previously validated path."""
+def _assert_pinned_executable_stable(path: Path, target: Path, fingerprints: tuple[tuple[int, ...], ...], label: str) -> None:
+    """Recheck the resolved target and every resolved parent before use."""
     try:
         if path.resolve(strict=True) != target:
             raise RunnerError(f"{label} changed its resolved target")
@@ -211,8 +252,14 @@ def _assert_pinned_executable_stable(path: Path, target: Path, fingerprint: tupl
         configured_info = os.stat(path, follow_symlinks=True)
     except (OSError, RuntimeError) as exc:
         raise RunnerError(f"{label} became unavailable: {exc}") from exc
-    if _stat_fingerprint(target_info) != fingerprint or _stat_fingerprint(configured_info) != fingerprint:
+    if _stat_fingerprint(target_info) != fingerprints[0] or _stat_fingerprint(configured_info) != fingerprints[0]:
         raise RunnerError(f"{label} changed after validation")
+    try:
+        current_fingerprints = _check_resolved_executable_parents(target, label)
+    except OSError as exc:
+        raise RunnerError(f"{label} has an unavailable resolved parent: {exc}") from exc
+    if current_fingerprints != fingerprints[1:]:
+        raise RunnerError(f"{label} changed a resolved parent after validation")
 
 
 def _executable_path(path: Path) -> Path:
@@ -220,9 +267,9 @@ def _executable_path(path: Path) -> Path:
     checked = PINNED_EXECUTABLE_TARGETS.get(path)
     if checked is None:
         return path
-    target, fingerprint = checked
+    target, fingerprints = checked
     label = next((label for candidate, label in _pinned_executables() if candidate == path), f"pinned executable {path}")
-    _assert_pinned_executable_stable(path, target, fingerprint, label)
+    _assert_pinned_executable_stable(path, target, fingerprints, label)
     return target
 
 
@@ -928,11 +975,11 @@ def verify_installation_only() -> dict[str, Any]:
     }
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     import argparse
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--verify-installation", action="store_true", help="verify installed final bytes and trust material without creating state")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     try:
         print(json.dumps(verify_installation_only() if args.verify_installation else run_one_shot(), sort_keys=True))
     except (OSError, RunnerError, subprocess.SubprocessError) as exc:

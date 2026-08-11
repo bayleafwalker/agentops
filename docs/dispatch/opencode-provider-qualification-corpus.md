@@ -106,9 +106,16 @@ mode. The five pinned system executable inputs (`opencode`, `runuser`, `touch`,
 `mkdir`, and `ssh-keygen`) are the deliberate portability exception: their
 configured paths may be Nix-style symlinks, but the runner resolves each final
 target and requires a root-owned regular executable with no group/world write
-bits. The runner verifies the worker's actual UID, exact supplementary groups,
-workspace round-trip, coordinator write denial, and OpenCode `1.18.4` version
-before issuing the provider-facing command.
+bits. It then `lstat`s every parent of the resolved target. Resolved parents
+must be root-owned directories without group/world write bits, except for the
+exact `/nix/store` directory on this host: root-owned, sticky mode `01775`,
+and on a read-only filesystem. That exact mount rule prevents even the root
+runner identity from replacing a store entry; arbitrary sticky or writable
+directories are rejected. The parent metadata and read-only mount condition
+are rechecked before each execution. The runner verifies the worker's actual
+UID, exact supplementary groups, workspace round-trip, coordinator write
+denial, and OpenCode `1.18.4` version before issuing the provider-facing
+command.
 
 | Path | Owner and mode | Purpose |
 | --- | --- | --- |
@@ -181,8 +188,13 @@ files, wrong owners, group/world-writable parents, and mode mismatches for
 trust material, state, installed artifacts, and the runner. The five pinned
 system executable paths named above are the sole symlink exception; their
 resolved final targets are checked for root ownership, regular-file type,
-execute permission, and absence of group/world write bits, with a stable
-metadata fingerprint carried through resolution and use.
+execute permission, and absence of group/world write bits. Every resolved
+parent is checked with the narrow `/nix/store` read-only `01775` exception
+described above, and stable metadata fingerprints cover both the target and
+the complete resolved parent chain through use. The CLI accepts the exact
+`--verify-installation` option only; abbreviation such as `--verify-i` is
+rejected. The exact verification mode is side-effect-free and contacts no
+provider.
 Completed records and detached signatures are `root:root` mode `0400`; nonce
 consumption markers are also `root:root` mode `0400`. Admission verification
 uses only the pinned public key and allowed-signers material. An HMAC, shared

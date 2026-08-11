@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import io
 import importlib.util
 import json
@@ -61,7 +62,7 @@ def _event(tokens: int) -> dict[str, object]:
 
 class PinnedExecutableValidationTests(unittest.TestCase):
     def _linked_target(self, mode: int, *, directory: bool = False) -> tuple[tempfile.TemporaryDirectory[str], Path, Path]:
-        temporary = tempfile.TemporaryDirectory()
+        temporary = tempfile.TemporaryDirectory(dir=str(Path.home()))
         root = Path(temporary.name)
         target = root / "target"
         if directory:
@@ -73,13 +74,16 @@ class PinnedExecutableValidationTests(unittest.TestCase):
         configured.symlink_to(target)
         return temporary, configured, target
 
-    def _check(self, configured: Path, label: str = "fixture executable") -> tuple[Path, tuple[int, ...]]:
+    def _check(self, configured: Path, label: str = "fixture executable", *, owner_uid: int | None = None) -> tuple[Path, tuple[tuple[int, ...], ...]]:
         old_owner = runner.EXPECTED_OWNER_UID
-        runner.EXPECTED_OWNER_UID = os.getuid()
+        old_parent_owner = runner.PINNED_EXECUTABLE_PARENT_OWNER_UID
+        runner.EXPECTED_OWNER_UID = os.getuid() if owner_uid is None else owner_uid
+        runner.PINNED_EXECUTABLE_PARENT_OWNER_UID = os.getuid()
         try:
             return runner._check_pinned_executable(configured, label)
         finally:
             runner.EXPECTED_OWNER_UID = old_owner
+            runner.PINNED_EXECUTABLE_PARENT_OWNER_UID = old_parent_owner
 
     def test_nix_style_symlink_to_root_owned_0555_target_is_accepted(self) -> None:
         temporary, configured, target = self._linked_target(0o555)
@@ -93,13 +97,10 @@ class PinnedExecutableValidationTests(unittest.TestCase):
         if os.getuid() == 0:
             self.skipTest("fixture cannot create a non-root-owned target without changing host ownership")
         temporary, configured, _ = self._linked_target(0o555)
-        old_owner = runner.EXPECTED_OWNER_UID
-        runner.EXPECTED_OWNER_UID = 0
         try:
             with self.assertRaisesRegex(runner.RunnerError, "unexpected owner"):
-                runner._check_pinned_executable(configured, "fixture executable")
+                self._check(configured, owner_uid=0)
         finally:
-            runner.EXPECTED_OWNER_UID = old_owner
             temporary.cleanup()
 
     def test_non_regular_target_is_rejected(self) -> None:
@@ -127,9 +128,98 @@ class PinnedExecutableValidationTests(unittest.TestCase):
             finally:
                 temporary.cleanup()
 
+    def test_mutable_intermediate_resolved_parent_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory(dir=str(Path.home())) as temporary:
+            root = Path(temporary)
+            parent = root / "store-entry"; parent.mkdir(); os.chmod(parent, 0o755)
+            target = parent / "executable"; target.write_bytes(b"pinned executable fixture"); os.chmod(target, 0o555)
+            configured = root / "configured"; configured.symlink_to(target)
+            os.chmod(parent, 0o775)
+            with self.assertRaisesRegex(runner.RunnerError, "writable resolved parent"):
+                self._check(configured)
+
+    def test_arbitrary_sticky_writable_intermediate_parent_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory(dir=str(Path.home())) as temporary:
+            root = Path(temporary)
+            parent = root / "arbitrary-sticky"; parent.mkdir(); os.chmod(parent, 0o1775)
+            target = parent / "executable"; target.write_bytes(b"pinned executable fixture"); os.chmod(target, 0o555)
+            configured = root / "configured"; configured.symlink_to(target)
+            with self.assertRaisesRegex(runner.RunnerError, "writable resolved parent"):
+                self._check(configured)
+
+    def test_resolved_parent_symlink_race_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory(dir=str(Path.home())) as temporary:
+            root = Path(temporary)
+            safe = root / "safe"; safe.mkdir()
+            target = safe / "executable"; target.write_bytes(b"pinned executable fixture"); os.chmod(target, 0o555)
+            configured = root / "configured"; configured.symlink_to(target)
+            replacement = root / "replacement"; replacement.mkdir()
+            replacement_target = replacement / "executable"; replacement_target.write_bytes(b"replacement executable"); os.chmod(replacement_target, 0o555)
+            original_resolve = Path.resolve
+
+            def race(path: Path, strict: bool = False) -> Path:
+                resolved = original_resolve(path, strict=strict)
+                if path == configured and safe.is_dir() and not safe.is_symlink():
+                    safe.rename(root / "safe-original")
+                    safe.symlink_to(replacement, target_is_directory=True)
+                return resolved
+
+            with mock.patch.object(Path, "resolve", new=race), self.assertRaisesRegex(runner.RunnerError, "changed while resolving"):
+                self._check(configured)
+
+    def test_resolved_parent_metadata_change_fails_stability_check(self) -> None:
+        with tempfile.TemporaryDirectory(dir=str(Path.home())) as temporary:
+            root = Path(temporary)
+            parent = root / "stable-entry"; parent.mkdir(); os.chmod(parent, 0o755)
+            target = parent / "executable"; target.write_bytes(b"pinned executable fixture"); os.chmod(target, 0o555)
+            configured = root / "configured"; configured.symlink_to(target)
+            old_parent_owner = runner.PINNED_EXECUTABLE_PARENT_OWNER_UID
+            try:
+                checked_target, fingerprints = self._check(configured)
+                runner.PINNED_EXECUTABLE_PARENT_OWNER_UID = os.getuid()
+                os.chmod(parent, 0o750)
+                with self.assertRaisesRegex(runner.RunnerError, "changed a resolved parent"):
+                    runner._assert_pinned_executable_stable(configured, checked_target, fingerprints, "fixture executable")
+            finally:
+                runner.PINNED_EXECUTABLE_PARENT_OWNER_UID = old_parent_owner
+
+    def test_current_nix_executables_are_root_owned_0555_targets_when_available(self) -> None:
+        executables = runner._pinned_executables()
+        if not all(path.is_symlink() for path, _ in executables):
+            self.skipTest("host does not expose all five configured executables as symlinks")
+        targets = [(path, label, path.resolve(strict=True)) for path, label in executables]
+        if not all(runner.NIX_STORE in target.parents for _, _, target in targets):
+            self.skipTest("host does not use the Nix store for all five configured executables")
+        old_owner = runner.EXPECTED_OWNER_UID
+        try:
+            runner.EXPECTED_OWNER_UID = 0
+            for path, label, target in targets:
+                info = target.stat()
+                with self.subTest(path=path):
+                    self.assertEqual((info.st_uid, info.st_gid), (0, 0))
+                    self.assertEqual(stat.S_IMODE(info.st_mode), 0o555)
+                    resolved, _ = runner._check_pinned_executable(path, label)
+                    self.assertEqual(resolved, target)
+        finally:
+            runner.EXPECTED_OWNER_UID = old_owner
+
     def test_only_the_five_pinned_system_paths_use_target_validation(self) -> None:
         self.assertEqual(set(runner.PINNED_EXECUTABLE_NAMES), {"OPENCODE", "RUNUSER", "TOUCH", "MKDIR", "SSH_KEYGEN"})
         self.assertNotIn("RUNNER_PATH", runner.PINNED_EXECUTABLE_NAMES)
+
+    def test_cli_requires_exact_verify_installation_spelling(self) -> None:
+        with mock.patch.object(runner, "verify_installation_only") as verify, mock.patch.object(runner, "run_one_shot") as run:
+            with self.assertRaises(SystemExit) as rejected:
+                runner.main(["--verify-i"])
+            self.assertEqual(rejected.exception.code, 2)
+            verify.assert_not_called()
+            run.assert_not_called()
+
+        with mock.patch.object(runner, "verify_installation_only", return_value={"status": "verified", "side_effects": False}) as verify, mock.patch.object(runner, "run_one_shot") as run:
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(runner.main(["--verify-installation"]), 0)
+            verify.assert_called_once_with()
+            run.assert_not_called()
 
 
 class OneShotRunnerTests(unittest.TestCase):
@@ -156,7 +246,9 @@ class OneShotRunnerTests(unittest.TestCase):
         corpus = json.loads(corpus_path.read_text(encoding="utf-8"))
         self.assertEqual(runner._file_digest(corpus_path), (ROOT / "templates/dispatch/provider-qualification/corpus.sha256").read_text(encoding="ascii").strip())
         self.assertEqual(runner._file_digest(SCRIPT), corpus["live_run"]["runner_digest"])
-        self.assertEqual(runner._file_digest(ROOT / "templates/dispatch/scripts/verify_and_consume_opencode_qualification.py"), (ROOT / "templates/dispatch/provider-qualification/verify-consume.sha256").read_text(encoding="ascii").strip())
+        helper = _load(HELPER, "verify_and_consume_opencode_qualification_pin_test")
+        self.assertEqual(runner._file_digest(corpus_path), helper.EXPECTED_CORPUS_DIGEST)
+        self.assertEqual(runner._file_digest(HELPER), (ROOT / "templates/dispatch/provider-qualification/verify-consume.sha256").read_text(encoding="ascii").strip())
         for name, digest in corpus["live_run"]["preflight_evidence"].items():
             self.assertEqual(runner._file_digest(ROOT / "templates/dispatch/provider-qualification/preflight-evidence" / name), digest)
 
@@ -354,7 +446,7 @@ shutil.rmtree(workspace)
     def test_real_fake_provider_end_to_end_runner_admission_and_replay_rejection(self) -> None:
         """Run the actual one-shot runner against a disposable fake-provider installation."""
         gate = _load(VALIDATOR, "validate_opencode_qualification_e2e")
-        with tempfile.TemporaryDirectory() as temporary:
+        with tempfile.TemporaryDirectory(dir=str(Path.home())) as temporary:
             root = Path(temporary)
             install = root / "etc/agentops/opencode-qualification"
             state = root / "var/lib/agentops/opencode-qualification"
@@ -430,14 +522,14 @@ else:
             (install / "corpus.json").write_text(json.dumps(installed_corpus, sort_keys=True, separators=(",", ":")))
             os.chmod(install / "corpus.json", 0o400)
             corpus_pin = install / "corpus.sha256"; corpus_pin.write_text(runner._file_digest(install / "corpus.json") + "\n"); os.chmod(corpus_pin, 0o400)
-            names = ("INSTALL_ROOT", "CORPUS", "CORPUS_DIGEST_FILE", "CONFIG", "PROFILE", "POLICY", "MANIFEST", "STATIC_EVIDENCE_ROOT", "PRIVATE_KEY", "AUTH_SOURCE", "PUBLIC_KEY", "ALLOWED_SIGNERS", "RECORD_ROOT", "LEDGER_ROOT", "ATTEMPT_SENTINEL", "EVIDENCE_ROOT", "WORKSPACE_PARENT", "OPENCODE", "RUNUSER", "TOUCH", "MKDIR", "SSH_KEYGEN", "RUNNER_PATH", "EXPECTED_OWNER_UID", "EXPECTED_EUID", "EXPECTED_WORKER_UID", "ACTIVE_WORKSPACE_ROOT")
+            names = ("INSTALL_ROOT", "CORPUS", "CORPUS_DIGEST_FILE", "CONFIG", "PROFILE", "POLICY", "MANIFEST", "STATIC_EVIDENCE_ROOT", "PRIVATE_KEY", "AUTH_SOURCE", "PUBLIC_KEY", "ALLOWED_SIGNERS", "RECORD_ROOT", "LEDGER_ROOT", "ATTEMPT_SENTINEL", "EVIDENCE_ROOT", "WORKSPACE_PARENT", "OPENCODE", "RUNUSER", "TOUCH", "MKDIR", "SSH_KEYGEN", "RUNNER_PATH", "EXPECTED_OWNER_UID", "PINNED_EXECUTABLE_PARENT_OWNER_UID", "PINNED_EXECUTABLE_TARGETS", "EXPECTED_EUID", "EXPECTED_WORKER_UID", "ACTIVE_WORKSPACE_ROOT")
             old = {name: getattr(runner, name) for name in names}
             pins = ("PINNED_CONFIG_DIGEST", "PINNED_PROFILE_DIGEST", "PINNED_POLICY_DIGEST", "PINNED_MANIFEST_DIGEST", "PINNED_PUBLIC_KEY_DIGEST", "PINNED_ALLOWED_SIGNERS_DIGEST")
             old_pins = {name: getattr(runner, name) for name in pins}
             try:
                 runner.INSTALL_ROOT = install; runner.CORPUS = install / "corpus.json"; runner.CORPUS_DIGEST_FILE = corpus_pin; runner.CONFIG = install / "opencode.hybrid.json"; runner.PROFILE = install / "profile.json"; runner.POLICY = install / "hybrid-dispatch.v1.json"; runner.MANIFEST = install / "agentops.dispatch.json"; runner.STATIC_EVIDENCE_ROOT = install / "preflight-evidence"
                 runner.PRIVATE_KEY = key; runner.AUTH_SOURCE = auth_source; runner.PUBLIC_KEY = public; runner.ALLOWED_SIGNERS = allowed; runner.RECORD_ROOT = state / "records"; runner.LEDGER_ROOT = state / "ledger"; runner.ATTEMPT_SENTINEL = state / "ledger/packet.attempted"; runner.EVIDENCE_ROOT = state / "evidence"; runner.WORKSPACE_PARENT = state / "workspaces"; runner.OPENCODE = opencode; runner.RUNUSER = runuser; runner.TOUCH = tools["touch"]; runner.MKDIR = tools["mkdir"]; runner.SSH_KEYGEN = tools["ssh-keygen"]; runner.RUNNER_PATH = runner_install
-                runner.EXPECTED_OWNER_UID = os.getuid(); runner.EXPECTED_EUID = os.geteuid(); runner.EXPECTED_WORKER_UID = os.getuid(); runner.ACTIVE_WORKSPACE_ROOT = runner.WORKSPACE_ROOT
+                runner.EXPECTED_OWNER_UID = os.getuid(); runner.PINNED_EXECUTABLE_PARENT_OWNER_UID = os.getuid(); runner.EXPECTED_EUID = os.geteuid(); runner.EXPECTED_WORKER_UID = os.getuid(); runner.ACTIVE_WORKSPACE_ROOT = runner.WORKSPACE_ROOT
                 for name, path in (("CORPUS", runner.CORPUS), ("CONFIG", runner.CONFIG), ("PROFILE", runner.PROFILE), ("POLICY", runner.POLICY), ("MANIFEST", runner.MANIFEST)):
                     setattr(runner, "PINNED_" + name + "_DIGEST", runner._file_digest(path))
                 runner.PINNED_PUBLIC_KEY_DIGEST = runner._file_digest(public); runner.PINNED_ALLOWED_SIGNERS_DIGEST = runner._file_digest(allowed)
