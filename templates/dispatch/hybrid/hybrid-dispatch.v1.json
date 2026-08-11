@@ -52,6 +52,7 @@
       "sub-agent spawning",
       "scope expansion",
       "test-oracle, parity-fixture, or adversarial-verification design",
+      "session lifecycle, terminal settlement, or publication",
       "acceptance or merge"
     ]
   },

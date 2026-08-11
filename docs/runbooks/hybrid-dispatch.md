@@ -7,6 +7,17 @@ model/task-class/repository pairing is experimental, benchmark-only,
 available-unqualified, or coordinator-only. Availability is not qualification,
 and a passing smoke run promotes nothing.
 
+The OpenCode profile `opencode-nixpkgs-devbox-1.18.4` is currently
+`preflight_observed`, not qualified. Its lifecycle contract is deliberately
+narrow: JSON stdout event envelopes carry a `type` and
+`properties.sessionID`; finalization continues that same session with
+`--continue --session <sessionID>` and the exact `ao-finalizer` agent; and the
+finalizer has no tools. The fake and contained probes are not qualification
+evidence. Contained identity and provider qualification remain explicit
+blockers. The controller owns the work/finalization budgets, terminal result,
+settlement, and any publication. A worker transcript or finalizer response is
+evidence for the controller, never settlement by itself.
+
 ## What it is
 
 A frontier **coordinator** (a Claude or Codex harness session) resolves
@@ -257,10 +268,50 @@ python templates/dispatch/scripts/validate_hybrid_dispatch.py \
 python -m unittest discover -s templates/dispatch/tests
 ```
 
+Before a profile or host change is considered, run the offline contract probe:
+
+```bash
+python templates/dispatch/scripts/probe_opencode_profile.py --mode fake
+```
+
+On the intended devbox, the contained host probe additionally checks the real
+1.18.4 executable as `agentworker` and checks coordinator-root writability. It
+then invokes the configured model to exercise the real JSON lifecycle. It
+returns non-zero when provider, identity, CLI-shape, or filesystem-boundary
+evidence cannot be proven:
+
+```bash
+python templates/dispatch/scripts/probe_opencode_profile.py \
+  --mode contained --worker-user agentworker --coordinator-root "$PWD"
+```
+
+`--mode all` is an explicit convenience for both checks. Fake evidence is
+never qualification evidence; contained evidence is still harness/host and
+single-invocation evidence, not provider qualification, model-quality, route,
+settlement, or deployment authorization.
+
 Add `--live` after an OpenCode upgrade, credential change, or model-catalog
 refresh to confirm the concrete model ids are still listed. The OpenCode
 permission-overlay shape was verified against **OpenCode 1.18.4**; re-verify the
 overlay and the `--file` argument ordering on upgrade.
+
+## Lifecycle and finalization boundary
+
+The work loop and finalizer are separate controller phases. The controller
+captures the session identity from JSON events, verifies that every observed
+event in the work phase carries the same `properties.sessionID`, rejects
+malformed and error events, and invokes the
+no-tools finalizer on that identity. The finalizer may synthesize the bounded
+terminal handoff from the same observed session; it may not investigate,
+edit, run commands, fetch, spawn agents, settle an ActionQ action, or change
+Sprintctl state. A missing, malformed, or identity-changing event fails
+closed. A process exit, a natural-language claim of completion, or a
+finalizer response without a valid immutable result can never settle success.
+
+Continuation here means same-process-session protocol continuation, not a
+restart/recovery policy and not the ActionQ `session.resumed` re-dispatch
+event. Recovery, retry, settlement, and publication remain owning-controller
+contracts and are outside this AgentOps qualification item.
 
 ## Contract files
 

@@ -43,6 +43,29 @@
         "webfetch": "deny",
         "websearch": "deny"
       }
+    },
+    "ao-finalizer": {
+      "description": "Same-session terminal synthesis only; no investigation, mutation, or other tools.",
+      "mode": "primary",
+      "model": "opencode-go/deepseek-v4-flash",
+      "temperature": 0,
+      "permission": {
+        "*": "deny",
+        "read": "deny",
+        "glob": "deny",
+        "grep": "deny",
+        "list": "deny",
+        "todowrite": "deny",
+        "todoread": "deny",
+        "edit": "deny",
+        "write": "deny",
+        "patch": "deny",
+        "bash": "deny",
+        "task": "deny",
+        "external_directory": "deny",
+        "webfetch": "deny",
+        "websearch": "deny"
+      }
     }
   }
 }
