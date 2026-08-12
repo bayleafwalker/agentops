@@ -1,7 +1,9 @@
 ---
 doc_id: boundary-resolutions
-status: proposed
+status: ratified
 proposed_by: operator
+ratified_by: operator
+ratified_at: 2026-08-12
 created_at: 2026-08-12
 references:
   - ecosystem-simplification-plan.md
@@ -38,7 +40,7 @@ and who may prepare worktrees.
 - Once `actionq-daemon` parity is proven in production, `actionq-dispatcher`
   may be retired.
 
-**Ratification:** pending
+**Ratification:** ratified 2026-08-12
 
 ## R2 — Worktree/runner materialization: ActionQ owns worktree preparation; Runner is an internal package
 
@@ -63,7 +65,7 @@ not a new authority class.
 - Worktree preparation remains inside `actionq` and does not move to
   `vuoro` or a new member.
 
-**Ratification:** pending
+**Ratification:** ratified 2026-08-12
 
 ## R3 — Cockpit write surface: sprint activation uses sprintctl authority command
 
@@ -85,7 +87,7 @@ must be removed to prevent future routes from treating it as precedent.
   transaction" section in `write-surface-policy.md` is deleted and replaced
   with a note that activation is domain-owned.
 
-**Ratification:** pending
+**Ratification:** ratified 2026-08-12
 
 ## R4 — Recovery authority: remove the service-side in-memory recovery reconciler
 
@@ -107,7 +109,7 @@ for recovery semantics without a catalog-backed domain adapter.
 - Future recovery authority must be a domain-owned adapter (likely
   `sprintctl` or `auditctl`) with a published catalog contract.
 
-**Ratification:** pending
+**Ratification:** ratified 2026-08-12
 
 ## R5 — outctl membership: outctl is a full ecosystem member
 
@@ -127,7 +129,7 @@ confusion about whether it participates in the served-substrate migration.
   knowledge, or remote execution.
 - `outctl`'s W0–W8 Rust migration remains a separate owner-local plan.
 
-**Ratification:** pending
+**Ratification:** ratified 2026-08-12
 
 ## Next steps
 
