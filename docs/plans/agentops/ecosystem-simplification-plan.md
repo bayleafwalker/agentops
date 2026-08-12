@@ -101,27 +101,33 @@ Batch 1 resolves the design-intent contention points that block clean future
 development. It is scoped for maximum strategic clarity with minimal
 structural risk.
 
-| # | Work item | Rationale | Success criteria |
-|---|---|---|---|
-| B1.1 | Document boundary resolutions for contention points in §4 | Prevents repeated design debates during later refactoring | `boundary-resolutions.md` ratified |
-| B1.2 | Deprecate `actionq-dispatcher` and absorb residual coordinator behavior into `actionq-daemon` | Single execution authority; unblocks P3.3 | `dispatcher-once` is a thin launcher; no queue/worktree logic remains |
-| B1.3 | Decide and record Runner vs. ActionQ worktree ownership | Unblocks portable-execution architecture and P2.4 | ADR in `actionq` or `vuoro` docs; affected plans updated |
-| B1.4 | Remove stale cockpit direct-SQL exception documentation | The code already calls sprintctl; the exception text is outdated | `write-surface-policy.md` exception removed |
-| B1.5 | Add `outctl` to member enumerations consistently | Prevents accidental exclusion from cross-member work | `project.context.json`, AGENTS tables, and generated guidance include `outctl` |
+| # | Work item | Rationale | Success criteria | Status (2026-08-13) |
+|---|---|---|---|---|
+| B1.1 | Document boundary resolutions for contention points in §4 | Prevents repeated design debates during later refactoring | `boundary-resolutions.md` ratified | **Done.** Ratified in agentops `e4b36bb` ("ratify boundary resolutions R1-R5"). |
+| B1.2 | Deprecate `actionq-dispatcher` and absorb residual coordinator behavior into `actionq-daemon` | Single execution authority; unblocks P3.3 | `dispatcher-once` is a thin launcher; no queue/worktree logic remains | **Done at the code level.** `actionq-dispatcher/actionq_dispatcher/cli.py` is a 40-line launcher with no queue/worktree/claim logic; `docs/ecosystem.md` documents the deprecated-shim status. `AGENTS.md` in the actionq-dispatcher home repo got a matching notice this session (commit `d568ae8`, uncommitted-to-remote). The package is explicitly retained until "`actionq-daemon` parity is proven in production" — that production-parity proof, not the doc/code state, is what's still open; retiring the package entirely is separate follow-up work, not blocking this item's own success criteria. |
+| B1.3 | Decide and record Runner vs. ActionQ worktree ownership | Unblocks portable-execution architecture and P2.4 | ADR in `actionq` or `vuoro` docs; affected plans updated | **Done.** `vuoro/docs/architecture/portable-execution.md`: "The Runner is an internal ActionQ package, not a separate repository member." |
+| B1.4 | Remove stale cockpit direct-SQL exception documentation | The code already calls sprintctl; the exception text is outdated | `write-surface-policy.md` exception removed | **Done.** `write-surface-policy.md` documents cockpit calling the sprintctl command (`apps/web/lib/cockpit/sprintctl.js`), not raw SQL; no grandfathered-exception text remains. |
+| B1.5 | Add `outctl` to member enumerations consistently | Prevents accidental exclusion from cross-member work | `project.context.json`, AGENTS tables, and generated guidance include `outctl` | **Done at the canonical source.** `agentops/project.toml` has an `outctl` member entry; `docs/ecosystem.md` documents it as a full member. Derived per-task `project.context.json` snapshots are scoped/generated views and won't list every member in every snapshot by design — their absence isn't evidence against this item. |
 
-Suggested order: B1.1 → B1.5 → B1.2 → B1.3 → B1.4.
+Suggested order: B1.1 → B1.5 → B1.2 → B1.3 → B1.4. All five substantively actioned as of 2026-08-13; see per-row status.
 
 ## Critical-path contention points
 
 These design-intent mismatches must be resolved before large-scale code moves.
 
-| Contention | Current state | Decision needed | Proposed resolution |
-|---|---|---|---|
-| Execution authority | `actionq-dispatcher` docs describe a coordinator; current AGENTS says it is only a launcher; `actionq-daemon` is absorbing the old role | Who owns one-shot vs. daemon execution? | `actionq` owns all execution lifecycle; `actionq-dispatcher` is a deprecated compatibility shim |
-| Worktree/runner materialization | ActionQ claims worktree prep; portable-execution doc assigns it to a separate Runner | Is Runner a separate repo or an ActionQ internal package? | Decide in B1.3; if separate, define its home and contract; if ActionQ, update `portable-execution.md` |
-| Cockpit write surface | `write-surface-policy.md` still documents a grandfathered direct-SQL exception, but the code now calls sprintctl | Remove stale exception documentation | Exception text deleted; activation confirmed as domain-owned command |
-| Recovery authority | Service-side in-memory reconciler has no durable owner | Who owns recovery records and reconciliation? | Per V-S2: either remove service reconciler and keep local client export, or route recovery to a durable sprintctl/auditctl adapter |
-| outctl membership | Outctl exists but is not consistently represented in member tables | Is outctl a full substrate member? | Yes; enumerate consistently and respect its local-only, non-authoritative contract |
+| Contention | Current state | Decision needed | Proposed resolution | Status (2026-08-13) |
+|---|---|---|---|---|
+| Execution authority | `actionq-dispatcher` docs describe a coordinator; current AGENTS says it is only a launcher; `actionq-daemon` is absorbing the old role | Who owns one-shot vs. daemon execution? | `actionq` owns all execution lifecycle; `actionq-dispatcher` is a deprecated compatibility shim | **Resolved.** `docs/ecosystem.md`'s actionq-dispatcher section states this explicitly; `actionq-dispatcher/actionq_dispatcher/cli.py` is a 40-line launcher with no queue/worktree logic left to absorb. |
+| Worktree/runner materialization | ActionQ claims worktree prep; portable-execution doc assigns it to a separate Runner | Is Runner a separate repo or an ActionQ internal package? | Decide in B1.3; if separate, define its home and contract; if ActionQ, update `portable-execution.md` | **Resolved.** `portable-execution.md`: "The Runner is an internal ActionQ package, not a separate repository member." |
+| Cockpit write surface | `write-surface-policy.md` still documents a grandfathered direct-SQL exception, but the code now calls sprintctl | Remove stale exception documentation | Exception text deleted; activation confirmed as domain-owned command | **Resolved.** Exception text is gone; `write-surface-policy.md` documents the cockpit calling the sprintctl command via `apps/web/lib/cockpit/sprintctl.js`. |
+| Recovery authority | Service-side in-memory reconciler has no durable owner | Who owns recovery records and reconciliation? | Per V-S2: either remove service reconciler and keep local client export, or route recovery to a durable sprintctl/auditctl adapter | **Investigated, pending ratification** — see note below the table. |
+| outctl membership | Outctl exists but is not consistently represented in member tables | Is outctl a full substrate member? | Yes; enumerate consistently and respect its local-only, non-authoritative contract | **Resolved.** `agentops/project.toml` has an outctl member entry; `docs/ecosystem.md` documents it as a full member. |
+
+**Recovery authority note (2026-08-13):** a planning pass, verified independently, found V-S2 is **not resolved**, and the commits that looked like evidence of a decision (`01406ed`/`26dc781`, "promote/pin served recovery adapter") are a red herring: `adapter-pins.json` only ever pins four domains (`work`, `execution`, `knowledge`, `audit` — enforced by `composition.py`'s `_REQUIRED_DOMAINS`), and those two commits are routine sprintctl version bumps of the existing `work` adapter, mislabeled by a commit message referencing a sprintctl release that happened to ship recovery-related work upstream. No recovery domain or adapter was ever wired into the served composition.
+
+What's actually true: `vuoro_service.recovery.RecoveryReconciler` (`packages/vuoro-service/src/vuoro_service/recovery.py`, 209 lines) is dead code — `create_composed_app()` never imports or wires it, and nothing outside its own module and its own dedicated test (`packages/vuoro-service/tests/test_recovery_reconciler.py`, 152 lines) references it (grep-verified). The hard constraint ("Vuoro must not become recovery authority and an in-memory production decision path is forbidden") is **not currently violated** — the in-memory path is unreachable, not live — but V-S2's disposition was never formally chosen. What's actually live in production is `vuoro-client`'s `RecoveryLog`/CLI export path (`vuoro recovery begin|observe|request-command|export`), which is disposition option 1's "local client export" half; option 1's other half ("remove the disconnected service reconciler") was never done.
+
+**Recommendation, ready to execute, not yet done:** delete `packages/vuoro-service/src/vuoro_service/recovery.py` and its test to formally close V-S2 as option 1 — this is a same-day, low-risk, well-evidenced cleanup (confirmed zero external references), not a new architectural question. Blocked here only because deleting files in a repo this session hasn't been actively working in needs explicit sign-off; whoever picks this up next should just do it and record the V-S2 outcome in `architectural-simplification-alignment.md`.
 
 ## Worktree, branch, and review practice
 
