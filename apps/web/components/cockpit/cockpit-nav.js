@@ -5,6 +5,7 @@ export function CockpitNav() {
     { href: "#work-items", label: "items" },
     { href: "#claims", label: "claims" },
     { href: "#dispatches", label: "dispatches" },
+    { href: "#completion-alerts", label: "completions" },
     { href: "#takeup", label: "takeup" },
     { href: "#dispatch", label: "dispatch" },
     { href: "#outcomes", label: "outcomes" },

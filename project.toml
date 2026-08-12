@@ -12,6 +12,8 @@ backlog = true
 render = "none"
 relationship = "governance"
 access = "write"
+repository = "https://github.com/bayleafwalker/agentops.git"
+default_ref = "refs/heads/main"
 path_notes = [
   "Home repo: hosts sprintctl backlog #380 and project render sources.",
   "The agent-cockpit operator UI is apps/web in this repository, not a separate member.",
@@ -23,6 +25,8 @@ backlog = true
 render = "full"
 relationship = "implementation"
 access = "write"
+repository = "https://github.com/bayleafwalker/vuoro.git"
+default_ref = "refs/heads/main"
 path_notes = [
   "Public runtime repository: owns the transport-only client and modular service shell.",
   "Appservice remains the private deployment authority for development and production overlays.",
@@ -34,6 +38,8 @@ backlog = true
 render = "full"
 relationship = "tooling"
 access = "write"
+repository = "https://github.com/bayleafwalker/outctl.git"
+default_ref = "refs/heads/main"
 path_notes = [
   "Public supplemental substrate: owns bounded command-output capture, deterministic projection, retrieval, verification, and retention mechanics.",
   "It runs at the runner/harness boundary and owns no command scheduling, action lifecycle, audit judgment, curated knowledge, remote execution, or Vuoro service state.",
@@ -45,6 +51,8 @@ backlog = true
 render = "full"
 relationship = "planning-authority"
 access = "write"
+repository = "https://github.com/bayleafwalker/sprintctl.git"
+default_ref = "refs/heads/main"
 
 [[members]]
 repo_id = "kctl"
@@ -52,6 +60,8 @@ backlog = true
 render = "full"
 relationship = "tooling"
 access = "write"
+repository = "https://github.com/bayleafwalker/kctl.git"
+default_ref = "refs/heads/main"
 
 [[members]]
 repo_id = "auditctl"
@@ -59,6 +69,8 @@ backlog = true
 render = "full"
 relationship = "tooling"
 access = "write"
+repository = "https://github.com/bayleafwalker/auditctl.git"
+default_ref = "refs/heads/main"
 path_notes = [
   "Owns the repo-local audit index, durable NDJSON evidence shards, and rebuild semantics.",
 ]
@@ -69,6 +81,8 @@ backlog = true
 render = "full"
 relationship = "execution-authority"
 access = "write"
+repository = "https://github.com/bayleafwalker/actionq.git"
+default_ref = "refs/heads/main"
 path_notes = [
   "Owns ActionQ queue claims, receipts, worktree preparation, policy enforcement, harness invocation, and Sprintctl claim coordination.",
 ]
@@ -79,6 +93,8 @@ backlog = true
 render = "none"
 relationship = "tooling"
 access = "reference"
+repository = "https://github.com/bayleafwalker/actionq-dispatch.git"
+default_ref = "refs/heads/main"
 path_notes = [
   "Compatibility launcher for the historical dispatcher-once command. It is a peer for served Sprintctl identity and project visibility, while ActionQ retains queue, worker, and settlement authority.",
 ]

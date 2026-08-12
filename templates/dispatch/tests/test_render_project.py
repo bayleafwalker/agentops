@@ -150,6 +150,46 @@ render_levels: [full]
             self.assertNotIn(b"# Full only", baseline.content)
             self.assertNotIn(b"# Full override", baseline.content)
 
+    def test_member_document_contracts_are_role_aware_and_declarative(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            project_path, repos = self._fixture(Path(temporary))
+            project_path.write_text(
+                project_path.read_text(encoding="utf-8").replace(
+                    'repo_id = "full-member"\nbacklog = true\nrender = "full"',
+                    'repo_id = "full-member"\nbacklog = true\nrender = "full"\ndocuments = { required = ["README.md"], optional = ["CONTRIBUTING.md"] }',
+                ),
+                encoding="utf-8",
+            )
+            project = RENDER.load_project(project_path)
+            full = next(member for member in project.members if member.repo_id == "full-member")
+            self.assertIn("AGENTS.md", full.required_documents)
+            self.assertIn(".agents/project.generated.md", full.required_documents)
+            self.assertIn("README.md", full.required_documents)
+            self.assertIn("CONTRIBUTING.md", full.optional_documents)
+            status = next(item for item in self._inspect(project) if item.repo_id == "full-member")
+            self.assertIn(("README.md", "missing"), status.documents)
+            self.assertIn((".agents/project.generated.md", "missing"), status.documents)
+            self.assertTrue(status.needs_sync)
+
+    def test_document_contract_rejects_unsafe_paths_and_contradictions(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            project_path, _repos = self._fixture(Path(temporary))
+            original = project_path.read_text(encoding="utf-8")
+            for declaration in (
+                'documents = { required = ["../README.md"] }',
+                'documents = { required = ["/tmp/README.md"] }',
+                'documents = { required = ["README.md"], forbidden = ["README.md"] }',
+            ):
+                project_path.write_text(
+                    original.replace(
+                        'repo_id = "full-member"\nbacklog = true\nrender = "full"',
+                        'repo_id = "full-member"\nbacklog = true\nrender = "full"\n' + declaration,
+                    ),
+                    encoding="utf-8",
+                )
+                with self.assertRaises(RENDER.ProjectRenderError):
+                    RENDER.load_project(project_path)
+
     def test_apply_is_idempotent_and_preserves_agents_content(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             project_path, repos = self._fixture(Path(temporary))
@@ -234,28 +274,60 @@ render_levels: [full]
             with self.assertRaisesRegex(RENDER.DirtyProjectError, "refusing --apply"):
                 self._apply(project)
 
-    def test_render_none_removes_only_managed_output_and_pointer(self) -> None:
+    def test_apply_requires_preexisting_authored_agents(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             project_path, repos = self._fixture(Path(temporary))
-            home = repos["home"]
-            generated = home / ".agents" / "project.generated.md"
-            self._write(generated, RENDER.RENDER_PREFIX.decode() + "-->\n")
-            original = (home / "AGENTS.md").read_bytes()
-            (home / "AGENTS.md").write_bytes(RENDER._with_pointer(original))
-            self._commit_all(repos, "stale managed output")
-
-            statuses = self._apply(RENDER.load_project(project_path))
-
+            (repos["full-member"] / "AGENTS.md").unlink()
+            generated = repos["full-member"] / ".agents" / "project.generated.md"
+            with self.assertRaisesRegex(RENDER.ProjectRenderError, "authored document"):
+                self._apply(RENDER.load_project(project_path))
             self.assertFalse(generated.exists())
-            self.assertEqual(
-                (home / "AGENTS.md").read_bytes(),
-                RENDER._without_pointer(RENDER._with_pointer(original)),
+
+    def test_render_none_migration_removes_only_renderer_owned_output(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            project_path, repos = self._fixture(Path(temporary))
+            project = RENDER.load_project(project_path)
+            self._apply(project)
+            self._commit_all(repos, "initial render")
+            project_path.write_text(
+                project_path.read_text(encoding="utf-8").replace(
+                    'repo_id = "full-member"\nbacklog = true\nrender = "full"',
+                    'repo_id = "full-member"\nbacklog = true\nrender = "none"',
+                ),
+                encoding="utf-8",
             )
-            home_status = next(
-                status for status in statuses if status.repo_id == "home"
-            )
-            self.assertEqual(home_status.generated, "not-applicable")
-            self.assertEqual(home_status.pointer, "not-applicable")
+            self._commit_all(repos, "switch to render none")
+            migrated = self._apply(RENDER.load_project(project_path))
+            generated = repos["full-member"] / ".agents" / "project.generated.md"
+            self.assertFalse(generated.exists())
+            status = next(item for item in migrated if item.repo_id == "full-member")
+            self.assertEqual(status.generated, "not-applicable")
+            self.assertEqual(status.pointer, "not-applicable")
+
+    def test_render_none_refuses_foreign_output_and_symlink(self) -> None:
+        for unsafe in ("foreign", "symlink"):
+            with self.subTest(unsafe=unsafe), tempfile.TemporaryDirectory() as temporary:
+                project_path, repos = self._fixture(Path(temporary))
+                project = RENDER.load_project(project_path)
+                self._apply(project)
+                self._commit_all(repos, "initial render")
+                project_path.write_text(
+                    project_path.read_text(encoding="utf-8").replace(
+                        'repo_id = "full-member"\nbacklog = true\nrender = "full"',
+                        'repo_id = "full-member"\nbacklog = true\nrender = "none"',
+                    ),
+                    encoding="utf-8",
+                )
+                self._commit_all(repos, "switch to render none")
+                generated = repos["full-member"] / ".agents" / "project.generated.md"
+                if unsafe == "foreign":
+                    generated.write_text("hand-owned\n", encoding="utf-8")
+                else:
+                    generated.unlink()
+                    generated.symlink_to(repos["home"] / "AGENTS.md")
+                with self.assertRaises(RENDER.ProjectRenderError):
+                    self._apply(RENDER.load_project(project_path))
+                self.assertTrue(generated.is_symlink() if unsafe == "symlink" else generated.exists())
 
     def test_invalid_source_frontmatter_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

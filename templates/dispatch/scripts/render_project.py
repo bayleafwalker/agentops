@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import tomllib
+from urllib.parse import urlsplit
 from uuid import UUID
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -69,6 +70,12 @@ ENV_POINTER_BLOCK = b"\n".join(
 ENV_RENDER_PREFIX = b"<!-- agentops-render: DO NOT HAND-EDIT\n"
 ENV_HASH_RE = re.compile(rb"environment_record_sha256: (?P<digest>[0-9a-f]{64})")
 ENVIRONMENT_RECORDS_DIR = Path(__file__).resolve().parent.parent / "environment-record"
+RENDER_MANAGED_DOCUMENTS = frozenset({
+    ".agents/project.generated.md",
+    ".agents/environment.generated.md",
+})
+WINDOWS_DRIVE_RE = re.compile(r"^[A-Za-z]:")
+DEFAULT_REF_RE = re.compile(r"^refs/heads/[A-Za-z0-9._/-]+$")
 
 
 class ProjectRenderError(ValueError):
@@ -87,7 +94,12 @@ class MemberBinding:
     relationship: str
     access: str
     path_notes: tuple[str, ...]
+    required_documents: tuple[str, ...]
+    optional_documents: tuple[str, ...]
+    forbidden_documents: tuple[str, ...]
     repo_root: Path
+    repository: str | None = None
+    default_ref: str | None = None
 
     @property
     def generated_path(self) -> Path:
@@ -158,15 +170,17 @@ class MemberStatus:
     environment: str = "not-applicable"
     environment_pointer: str = "not-applicable"
     environment_detail: str = ""
+    documents: tuple[tuple[str, str], ...] = ()
 
     @property
     def needs_sync(self) -> bool:
-        clean = {"in-sync", "not-applicable"}
+        clean = {"in-sync", "not-applicable", "absent", "present"}
         return (
             self.generated not in clean
             or self.pointer not in clean
             or self.environment not in clean
             or self.environment_pointer not in clean
+            or any(state not in clean for _path, state in self.documents)
         )
 
 
@@ -193,6 +207,67 @@ def _required_text(value: object, field: str) -> str:
     return value
 
 
+def _document_path(value: object, field: str) -> str:
+    """Validate a normalized, relative path within one member repository."""
+    if not isinstance(value, str) or not value or value != value.strip():
+        raise ProjectRenderError(f"{field} must be a non-empty normalized relative path")
+    if value.startswith(("/", "\\")) or WINDOWS_DRIVE_RE.match(value):
+        raise ProjectRenderError(f"{field} must be a relative in-repository path")
+    if "\\" in value:
+        raise ProjectRenderError(f"{field} must use normalized '/' separators")
+    parts = value.split("/")
+    if any(part in {"", ".", ".."} for part in parts):
+        raise ProjectRenderError(f"{field} must not contain empty, '.', or '..' path components")
+    return value
+
+
+def canonical_repository_url(value: object, field: str = "repository") -> str:
+    """Validate a credential-free canonical HTTPS Git repository URL."""
+    if not isinstance(value, str) or not value or value != value.strip():
+        raise ProjectRenderError(f"{field} must be a canonical HTTPS Git URL")
+    parsed = urlsplit(value)
+    try:
+        port = parsed.port
+    except ValueError as error:
+        raise ProjectRenderError(f"{field} must be a canonical credential-free HTTPS Git URL") from error
+    if (
+        parsed.scheme != "https"
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+        or port is not None
+        or parsed.path in {"", "/"}
+        or parsed.path.endswith("/")
+        or "//" in parsed.path
+        or any(part in {"", ".", ".."} for part in parsed.path.removeprefix("/").split("/"))
+        or parsed.hostname != parsed.hostname.lower()
+    ):
+        raise ProjectRenderError(f"{field} must be a canonical credential-free HTTPS Git URL")
+    return value
+
+
+def canonical_default_ref(value: object, field: str = "default_ref") -> str:
+    if not isinstance(value, str) or not DEFAULT_REF_RE.fullmatch(value):
+        raise ProjectRenderError(f"{field} must be a canonical refs/heads/... ref")
+    branch = value.removeprefix("refs/heads/")
+    if (
+        branch.startswith("/")
+        or branch.endswith("/")
+        or branch.endswith(".")
+        or branch.endswith(".lock")
+        or "//" in branch
+        or "@{" in branch
+        or any(ord(char) < 0x20 or char.isspace() for char in branch)
+        or any(
+        part in {"", ".", ".."} for part in branch.split("/")
+        )
+    ):
+        raise ProjectRenderError(f"{field} must be a canonical refs/heads/... ref")
+    return value
+
+
 def _canonical_uuid4(value: object) -> str:
     text = _required_text(value, "project_id")
     try:
@@ -205,7 +280,8 @@ def _canonical_uuid4(value: object) -> str:
 
 
 def load_project(
-    project_path: Path, *, workspace_root: Path | None = None
+    project_path: Path, *, workspace_root: Path | None = None,
+    allow_missing_members: bool = False,
 ) -> ProjectBinding:
     """Load and validate a canonical project.toml and its member locations."""
     project_path = project_path.resolve()
@@ -265,7 +341,7 @@ def load_project(
         _exact_keys(
             raw_member,
             required={"repo_id", "backlog", "render"},
-            optional={"path_notes", "relationship", "access"},
+            optional={"path_notes", "relationship", "access", "documents", "repository", "default_ref"},
             subject=subject,
         )
         repo_id = _required_text(raw_member["repo_id"], f"{subject}.repo_id")
@@ -291,6 +367,12 @@ def load_project(
         if not isinstance(access, str) or access not in MEMBER_ACCESS_MODES:
             allowed = ", ".join(sorted(MEMBER_ACCESS_MODES))
             raise ProjectRenderError(f"{subject}.access must be one of: {allowed}")
+        repository = raw_member.get("repository")
+        if repository is not None:
+            repository = canonical_repository_url(repository, f"{subject}.repository")
+        default_ref = raw_member.get("default_ref")
+        if default_ref is not None:
+            default_ref = canonical_default_ref(default_ref, f"{subject}.default_ref")
         raw_notes = raw_member.get("path_notes", [])
         if not isinstance(raw_notes, list) or not all(
             isinstance(note, str) and note.strip() for note in raw_notes
@@ -298,8 +380,61 @@ def load_project(
             raise ProjectRenderError(
                 f"{subject}.path_notes must be an array of non-empty strings"
             )
+        required_documents = ["AGENTS.md"]
+        optional_documents: list[str] = []
+        forbidden_documents: list[str] = []
+        if render == "none" or access == "reference":
+            forbidden_documents.append(".agents/project.generated.md")
+        else:
+            required_documents.append(".agents/project.generated.md")
+        raw_documents = raw_member.get("documents", {})
+        if isinstance(raw_documents, list):
+            explicit_required = raw_documents
+            raw_documents = {"required": explicit_required}
+        if not isinstance(raw_documents, dict):
+            raise ProjectRenderError(f"{subject}.documents must be a table or array")
+        allowed_document_keys = {"required", "optional", "forbidden", "authored", "generated"}
+        unknown_document_keys = set(raw_documents) - allowed_document_keys
+        if unknown_document_keys:
+            raise ProjectRenderError(
+                f"{subject}.documents has unsupported field(s): {', '.join(sorted(unknown_document_keys))}"
+            )
+        def document_list(key: str) -> list[str]:
+            value = raw_documents.get(key, [])
+            if not isinstance(value, list):
+                raise ProjectRenderError(f"{subject}.documents.{key} must be an array of paths")
+            return [_document_path(item, f"{subject}.documents.{key}[{index}]") for index, item in enumerate(value)]
+        generic_required = document_list("required")
+        authored_documents = document_list("authored")
+        generated_documents = document_list("generated")
+        optional_documents.extend(document_list("optional"))
+        forbidden_documents.extend(document_list("forbidden"))
+        if any(path in RENDER_MANAGED_DOCUMENTS for path in authored_documents):
+            raise ProjectRenderError(f"{subject}.documents.authored may only name authored documents")
+        if any(path not in RENDER_MANAGED_DOCUMENTS for path in generated_documents):
+            raise ProjectRenderError(f"{subject}.documents.generated may only name renderer-managed documents")
+        required_documents.extend(generic_required)
+        required_documents.extend(authored_documents)
+        required_documents.extend(generated_documents)
+        groups = {
+            "required": required_documents,
+            "optional": optional_documents,
+            "forbidden": forbidden_documents,
+        }
+        for left_name, left in groups.items():
+            for right_name, right in groups.items():
+                if left_name >= right_name:
+                    continue
+                overlap = sorted(set(left) & set(right))
+                if overlap:
+                    raise ProjectRenderError(
+                        f"{subject}.documents contradicts {left_name}/{right_name}: {', '.join(overlap)}"
+                    )
+        required_documents = list(dict.fromkeys(required_documents))
+        optional_documents = list(dict.fromkeys(optional_documents))
+        forbidden_documents = list(dict.fromkeys(forbidden_documents))
         repo_root = (workspace / repo_id).resolve()
-        if not repo_root.is_dir():
+        if not repo_root.is_dir() and not allow_missing_members:
             raise ProjectRenderError(f"member repository does not exist: {repo_root}")
         members.append(
             MemberBinding(
@@ -309,7 +444,12 @@ def load_project(
                 relationship=relationship,
                 access=access,
                 path_notes=tuple(raw_notes),
+                required_documents=tuple(required_documents),
+                optional_documents=tuple(optional_documents),
+                forbidden_documents=tuple(forbidden_documents),
                 repo_root=repo_root,
+                repository=repository,
+                default_ref=default_ref,
             )
         )
 
@@ -509,7 +649,7 @@ def _read_regular_or_empty(path: Path) -> bytes:
 def _pointer_status(member: MemberBinding) -> str:
     content = _read_regular_or_empty(member.agents_path)
     starts, ends = _pointer_counts(content)
-    if member.render == "none":
+    if member.render == "none" or member.access == "reference":
         if starts == 0 and ends == 0:
             return "not-applicable"
         try:
@@ -619,11 +759,11 @@ def _generated_status(
     if path.is_symlink():
         return "invalid", "generated path must not be a symlink"
     if not path.exists():
-        return ("not-applicable", "") if member.render == "none" else ("missing", "")
+        return ("not-applicable", "") if member.render == "none" or member.access == "reference" else ("missing", "")
     if not path.is_file():
         return "invalid", "generated path is not a regular file"
     actual = path.read_bytes()
-    if member.render == "none":
+    if member.render == "none" or member.access == "reference":
         if actual.startswith(RENDER_PREFIX):
             return "unexpected", "render:none member retains managed output"
         return "conflict", "render:none output is not agentops-managed"
@@ -667,9 +807,39 @@ def inspect_project(
             else expected_render(project, member, fragments)
         )
         generated, detail = _generated_status(member, expected)
-        environment, environment_detail = _environment_status(
-            member, expected_environment
-        )
+        if member.access == "reference":
+            # Reference members are observable inputs only.  Their authored
+            # files are inspected, but renderer-owned environment output and
+            # pointers are never expected or changed.
+            environment, environment_detail = "not-applicable", ""
+        else:
+            environment, environment_detail = _environment_status(member, expected_environment)
+        documents: list[tuple[str, str]] = []
+        for path in member.required_documents:
+            candidate = member.repo_root / path
+            if path == ".agents/project.generated.md":
+                state = generated
+            elif path == ".agents/environment.generated.md":
+                state = environment
+            elif not candidate.exists():
+                state = "missing"
+            elif candidate.is_symlink() or not candidate.is_file():
+                state = "invalid"
+            else:
+                state = "in-sync"
+            documents.append((path, state))
+        for path in member.optional_documents:
+            candidate = member.repo_root / path
+            documents.append((path, "absent" if not candidate.exists() else "present"))
+        for path in member.forbidden_documents:
+            candidate = member.repo_root / path
+            if not candidate.exists():
+                state = "not-applicable"
+            elif candidate.is_symlink() or not candidate.is_file():
+                state = "invalid"
+            else:
+                state = "unexpected"
+            documents.append((path, state))
         statuses.append(
             MemberStatus(
                 repo_id=member.repo_id,
@@ -679,15 +849,19 @@ def inspect_project(
                 detail=detail,
                 environment=environment,
                 environment_pointer=_env_pointer_status(
-                    member, applicable=expected_environment is not None
+                    member,
+                    applicable=(expected_environment is not None and member.access != "reference"),
                 ),
                 environment_detail=environment_detail,
+                documents=tuple(documents),
             )
         )
     return statuses
 
 
 def _git_dirty(repo_root: Path, pathspecs: set[str]) -> str:
+    git_environment = os.environ.copy()
+    git_environment["GIT_OPTIONAL_LOCKS"] = "0"
     result = subprocess.run(
         [
             "git",
@@ -702,6 +876,7 @@ def _git_dirty(repo_root: Path, pathspecs: set[str]) -> str:
         check=False,
         capture_output=True,
         text=True,
+        env=git_environment,
     )
     if result.returncode != 0:
         detail = result.stderr.strip() or "not a git worktree"
@@ -714,6 +889,8 @@ def _git_dirty(repo_root: Path, pathspecs: set[str]) -> str:
 def _dirty_render_paths(project: ProjectBinding) -> str:
     pathspecs: dict[Path, set[str]] = {}
     for member in project.members:
+        if member.access == "reference":
+            continue
         pathspecs.setdefault(member.repo_root, set()).update(
             {
                 "AGENTS.md",
@@ -731,6 +908,67 @@ def _dirty_render_paths(project: ProjectBinding) -> str:
         if result:
             dirty.append(f"[{repo_root}]\n{result}")
     return "\n".join(dirty)
+
+
+def document_contract_violations(
+    project: ProjectBinding,
+    statuses: list[MemberStatus] | None = None,
+    *,
+    check_renderer_state: bool = False,
+) -> list[str]:
+    """Return hard document-contract violations with ownership-aware wording."""
+    violations: list[str] = []
+    for member in project.members:
+        # Authored documents are never synthesized by the renderer.  A regular
+        # pre-existing file is required before any generated output is touched.
+        for path in member.required_documents:
+            if path in RENDER_MANAGED_DOCUMENTS:
+                continue
+            candidate = member.repo_root / path
+            if candidate.is_symlink() or not candidate.is_file():
+                violations.append(
+                    f"{member.repo_id}/{path}: missing required authored document"
+                )
+        for path in member.forbidden_documents:
+            candidate = member.repo_root / path
+            if candidate.exists():
+                if (
+                    path == ".agents/project.generated.md"
+                    and member.render == "none"
+                    and member.access != "reference"
+                    and candidate.is_file()
+                    and not candidate.is_symlink()
+                    and candidate.read_bytes().startswith(RENDER_PREFIX)
+                ):
+                    # A writable render:none transition may remove a stale
+                    # renderer-owned output; all other forbidden files fail
+                    # closed and reference members are never mutated.
+                    continue
+                violations.append(
+                    f"{member.repo_id}/{path}: forbidden document is present"
+                )
+            elif candidate.is_symlink():
+                violations.append(f"{member.repo_id}/{path}: forbidden document is a symlink")
+    if statuses is not None and check_renderer_state:
+        members_by_id = {member.repo_id: member for member in project.members}
+        for status in statuses:
+            member = members_by_id[status.repo_id]
+            for path, state in status.documents:
+                if path in RENDER_MANAGED_DOCUMENTS and path in member.required_documents:
+                    if state not in {"in-sync", "not-applicable"}:
+                        violations.append(
+                            f"{status.repo_id}/{path}: renderer-managed output is {state}"
+                        )
+            if member.render == "none" or member.access == "reference":
+                if status.pointer not in {"not-applicable", "in-sync"}:
+                    violations.append(
+                        f"{status.repo_id}/AGENTS.md: forbidden project pointer is {status.pointer}"
+                    )
+            elif status.pointer not in {"in-sync"}:
+                violations.append(
+                    f"{status.repo_id}/AGENTS.md: renderer-managed project pointer is {status.pointer}"
+                )
+    return violations
 
 
 def _atomic_write(path: Path, content: bytes) -> None:
@@ -760,6 +998,12 @@ def apply_project(
 ) -> list[MemberStatus]:
     """Apply deterministic renders after refusing dirty inputs and managed paths."""
     before = inspect_project(project, environment_records_dir=environment_records_dir)
+    contract_violations = document_contract_violations(project, before)
+    if contract_violations:
+        raise ProjectRenderError(
+            "refusing --apply because document contracts are violated:\n"
+            + "\n".join(f"- {item}" for item in contract_violations)
+        )
     if not any(status.needs_sync for status in before):
         return before
     dirty = _dirty_render_paths(project)
@@ -777,9 +1021,12 @@ def apply_project(
         else None
     )
     operations: list[tuple[MemberBinding, ExpectedRender | None, bytes, bytes]] = []
-    for member in project.members:
+    renderable_members = tuple(member for member in project.members if member.access != "reference")
+    for member in renderable_members:
+        # AGENTS.md is authored input.  The renderer may update its managed
+        # pointer blocks, but it must never create an absent authored file.
         agents = _read_regular_or_empty(member.agents_path)
-        if member.render == "none":
+        if member.render == "none" or member.access == "reference":
             if member.generated_path.is_symlink():
                 raise ProjectRenderError(
                     f"refusing to remove symlink: {member.generated_path}"
@@ -817,7 +1064,18 @@ def apply_project(
                 member.environment_path.unlink()
         if next_agents != agents:
             _atomic_write(member.agents_path, next_agents)
-    return inspect_project(project, environment_records_dir=environment_records_dir)
+    after = inspect_project(project, environment_records_dir=environment_records_dir)
+    remaining = document_contract_violations(project, after, check_renderer_state=True)
+    for status in after:
+        for path, state in status.documents:
+            if path in RENDER_MANAGED_DOCUMENTS and state not in {"in-sync", "not-applicable"}:
+                remaining.append(f"{status.repo_id}/{path}: renderer-managed output is {state}")
+    if remaining:
+        raise ProjectRenderError(
+            "render completed with document contract violations:\n"
+            + "\n".join(f"- {item}" for item in remaining)
+        )
+    return after
 
 
 def _print_statuses(statuses: list[MemberStatus]) -> None:
@@ -832,6 +1090,8 @@ def _print_statuses(statuses: list[MemberStatus]) -> None:
             print(f"  {status.detail}")
         if status.environment_detail:
             print(f"  {status.environment_detail}")
+        for path, state in status.documents:
+            print(f"  document {path}: {state}")
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -148,3 +148,18 @@ render = "full"
         with self.assertRaisesRegex(MATERIALIZE.ProjectFolderError, "does not exist"):
             self._materialize(folder, command="status")
         self.assertFalse(folder.exists())
+
+    def test_status_rejects_untrusted_context_source_paths(self) -> None:
+        folder = self.root / "instances" / "unsafe-source"
+        self._materialize(folder, command="setup")
+        context_path = folder / MATERIALIZE.CONTEXT_NAME
+        context = json.loads(context_path.read_text(encoding="utf-8"))
+        context["context_sources"].append({
+            "scope": "repository",
+            "kind": "agents",
+            "path": "../../outside-secret",
+            "sha256": hashlib.sha256(b"secret").hexdigest(),
+        })
+        context_path.write_text(json.dumps(context), encoding="utf-8")
+        result = self._materialize(folder, command="status")
+        self.assertTrue(any("escapes folder" in line for line in result.drift))

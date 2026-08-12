@@ -53,6 +53,25 @@ export function getConfig() {
       process.env.COCKPIT_DISPATCH_MANIFEST_ROOT || "/projects/dev/agentops/templates/dispatch/examples",
     dispatchManifestCacheMs: Number(process.env.COCKPIT_DISPATCH_MANIFEST_CACHE_MS || 5000),
     actionqServerUrl: process.env.COCKPIT_ACTIONQ_SERVER_URL || "",
+    // Completion alerts consume the narrow served completion-log operation.
+    // This is intentionally separate from the ActionQ dispatch endpoint and
+    // never carries queue/claim/settlement authority.
+    completionAlertActionqUrl:
+      process.env.COCKPIT_ACTIONQ_COMPLETION_URL ||
+      (process.env.COCKPIT_ACTIONQ_SERVER_URL
+        ? `${process.env.COCKPIT_ACTIONQ_SERVER_URL.replace(/\/+$/, "")}/session-completions`
+        : ""),
+    completionAlertReadToken: process.env.COCKPIT_ACTIONQ_COMPLETION_READ_TOKEN || "",
+    completionAlertStateRoot:
+      process.env.COCKPIT_COMPLETION_ALERT_STATE_ROOT ||
+      path.join(process.env.COCKPIT_ARTIFACTS_ROOT || "/projects/dev", "_agentops", "completion-alerts"),
+    completionAlertPollIntervalMs: Number(process.env.COCKPIT_COMPLETION_ALERT_POLL_MS || 1000),
+    completionAlertPollTimeoutMs: Number(process.env.COCKPIT_COMPLETION_ALERT_POLL_TIMEOUT_MS || 3000),
+    completionAlertPageSize: Number(process.env.COCKPIT_COMPLETION_ALERT_PAGE_SIZE || 100),
+    completionAlertMaxAttempts: Number(process.env.COCKPIT_COMPLETION_ALERT_MAX_ATTEMPTS || 8),
+    completionAlertRetryBaseMs: Number(process.env.COCKPIT_COMPLETION_ALERT_RETRY_BASE_MS || 500),
+    completionAlertRetryMaxMs: Number(process.env.COCKPIT_COMPLETION_ALERT_RETRY_MAX_MS || 30000),
+    completionAlertPolicyJson: process.env.COCKPIT_COMPLETION_ALERT_POLICY_JSON || "",
     actionqDispatchContract: process.env.COCKPIT_ACTIONQ_DISPATCH_CONTRACT || "",
     cockpitOperatorId: process.env.COCKPIT_OPERATOR_ID || "operator:cockpit",
     costLogPath: process.env.COCKPIT_COST_LOG_PATH || "/projects/dev/.claude/session-costs.jsonl",

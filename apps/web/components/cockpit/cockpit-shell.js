@@ -6,6 +6,7 @@ import { withWriteToken } from "../../lib/cockpit/write-token.js";
 import { CockpitNav } from "./cockpit-nav";
 import { CockpitStatusBar } from "./cockpit-status-bar";
 import { CommandPalette } from "./command-palette";
+import { CompletionAlertPanel } from "./completion-alert-panel";
 import { DegradedSourceBanner } from "./degraded-source-banner";
 import { DispatchComposer } from "./dispatch-composer";
 import { SourceTruthTag } from "./source-truth-tag";
@@ -234,6 +235,8 @@ export function CockpitShell() {
   const [costData, setCostData] = useState({ summary: null, degraded: null });
   const [headroomData, setHeadroomData] = useState({ snapshot: null, degraded: null });
   const [headroomRefreshing, setHeadroomRefreshing] = useState(false);
+  const [completionAlertsData, setCompletionAlertsData] = useState({ alerts: [], coalesced_events: [], outcomes: [], pending_deliveries: [], health: null, degraded: null });
+  const [acknowledgingAlertId, setAcknowledgingAlertId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [dispatchData, setDispatchData] = useState({ manifests: [], warnings: [], degraded: null });
   const [dispatcherPauseData, setDispatcherPauseData] = useState({ paused: false, pause_file: null, updated_at: null, degraded: null });
@@ -263,6 +266,45 @@ export function CockpitShell() {
       }));
     } finally {
       setHeadroomRefreshing(false);
+    }
+  }
+
+  async function loadCompletionAlerts() {
+    const params = new URLSearchParams({ repo_id: selectedRepo, limit: "20" });
+    try {
+      const data = await readJson(`/cockpit/api/completion-alerts?${params}`);
+      setCompletionAlertsData(data);
+    } catch (error) {
+      setCompletionAlertsData((current) => ({
+        ...current,
+        degraded: { source: "agentops://completion-alerts", message: error.message }
+      }));
+    }
+  }
+
+  async function acknowledgeCompletionAlert(alertId) {
+    setAcknowledgingAlertId(alertId);
+    try {
+      await readJson("/cockpit/api/completion-alerts", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ alert_id: alertId })
+      });
+      setCompletionAlertsData((current) => ({
+        ...current,
+        alerts: (current.alerts || []).map((alert) => (
+          (alert.alert_id || alert.event_id) === alertId
+            ? { ...alert, acknowledged: true }
+            : alert
+        ))
+      }));
+    } catch (error) {
+      setCompletionAlertsData((current) => ({
+        ...current,
+        degraded: { source: "agentops://completion-alerts", message: error.message }
+      }));
+    } finally {
+      setAcknowledgingAlertId(null);
     }
   }
 
@@ -389,6 +431,26 @@ export function CockpitShell() {
     loadHeadroom(false);
     loadDispatcherPause();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer;
+
+    async function pollCompletionAlerts() {
+      if (!cancelled) {
+        await loadCompletionAlerts();
+      }
+      if (!cancelled) {
+        timer = setTimeout(pollCompletionAlerts, getPollIntervalMs("completion-alerts", visibilityState));
+      }
+    }
+
+    pollCompletionAlerts();
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [selectedRepo, tweaks.pollAll, refreshKey, visibilityState]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1100,6 +1162,13 @@ export function CockpitShell() {
             data={headroomData}
             refreshing={headroomRefreshing}
             onRefresh={() => loadHeadroom(true)}
+          />
+
+          <CompletionAlertPanel
+            data={completionAlertsData}
+            acknowledgingAlertId={acknowledgingAlertId}
+            onAcknowledge={acknowledgeCompletionAlert}
+            onRefresh={loadCompletionAlerts}
           />
 
           <section className="cockpit-section" id="dispatches">

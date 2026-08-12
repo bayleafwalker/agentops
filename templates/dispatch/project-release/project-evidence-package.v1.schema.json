@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/project-evidence-package.v1.schema.json",
+  "title": "AgentOps project evidence package v1",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema", "descriptor_sha256", "members", "files"],
+  "properties": {
+    "schema": { "const": "project-evidence-package/v1" },
+    "descriptor_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "members": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "object", "additionalProperties": false, "required": ["repo_id", "commit", "bundle", "advertised_refs"], "properties": { "repo_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" }, "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" }, "bundle": { "type": "string", "pattern": "^[A-Za-z0-9._-]+\\.bundle$" }, "advertised_refs": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^refs/heads/[A-Za-z0-9._/-]+$" } } } } },
+    "files": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "object", "additionalProperties": false, "required": ["path", "sha256", "bytes"], "properties": { "path": { "type": "string", "pattern": "^[A-Za-z0-9._-]+\\.bundle$" }, "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }, "bytes": { "type": "integer", "minimum": 0, "maximum": 67108864 } } } }
+  }
+}

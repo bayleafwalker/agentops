@@ -1,0 +1,17 @@
+[Unit]
+Description=agentops live session completion alert consumer
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/projects/dev/agentops/apps/web
+ExecStart=/usr/bin/npm run completion-alert-consumer
+Restart=always
+RestartSec=2
+
+# Runtime credentials, state roots, and the ActionQ served read URL are
+# supplied by the separately-owned deployment/runtime configuration. This
+# unit performs no ActionQ queue or Sprintctl mutations.
+
+[Install]
+WantedBy=multi-user.target
