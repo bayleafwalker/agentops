@@ -61,6 +61,7 @@ HARD_TOKENS = 1_000_000
 MAX_COST_USD = 3.0
 HARD_WALL_SECONDS = 120
 COOLDOWN_SECONDS = 60
+EXPECTED_CLI_VERSION = "1.18.4"
 
 SAFE_PROVIDER_ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 AUTH_PROVIDER = "opencode-go"
@@ -224,6 +225,7 @@ def _create_fresh_workspace(run_id: str) -> Path:
         os.chown(target, worker_uid, -1)
         os.chmod(target, 0o700)
         _check_path(target, 0o700, "fresh run workspace", directory=True, owner_uid=worker_uid)
+        _check_parents(target, "fresh run workspace")
     except Exception:
         try:
             target.rmdir()
@@ -246,7 +248,7 @@ def _contained_probe() -> dict[str, Any]:
     writable = _run_worker(["/run/current-system/sw/bin/test", "-w", str(ACTIVE_WORKSPACE_ROOT)])
     groups = _run_worker(["/run/current-system/sw/bin/id", "-Gn"])
     version = _run_worker([str(OPENCODE), "--version"])
-    if accessible.returncode != 0 or writable.returncode != 0 or version.returncode != 0:
+    if accessible.returncode != 0 or writable.returncode != 0 or version.returncode != 0 or version.stdout.strip() != EXPECTED_CLI_VERSION:
         raise CheckError("contained worker boundary probe failed")
     if set(groups.stdout.split()) != {"agentworker", "agentdispatch"}:
         raise CheckError("contained worker groups are not the exact reviewed set")
@@ -420,8 +422,11 @@ def _parse_sanitized_export(stdout: str, session_id: str, *, provider: str, mode
     """Independently cross-check routability from a separately fetched export,
     not the live event stream. Loosened from an exact two-part grammar match
     (over-fit to one harness snapshot) to: session identity matches, at least
-    one assistant message exists, provider/model/finish are exact, and a
-    completion ("step-finish") part actually occurred somewhere in it."""
+    one assistant message exists, provider/model/finish are exact, and both a
+    real text part and a completion ("step-finish") part occurred somewhere
+    in it -- not merely a bare step-finish with no generated content, which
+    would satisfy "routable" and "cost-sane" without ever answering the
+    check's second question (does it produce a reasonable output)."""
     try:
         exported = json.loads(stdout)
     except (UnicodeError, json.JSONDecodeError) as exc:
@@ -438,8 +443,11 @@ def _parse_sanitized_export(stdout: str, session_id: str, *, provider: str, mode
     if info.get("providerID") != provider or info.get("modelID") != model or info.get("finish") != "stop":
         raise CheckError("sanitized OpenCode export provider/model/finish is not exact")
     parts = assistants[-1].get("parts")
-    if not isinstance(parts, list) or not any(isinstance(part, dict) and part.get("type") == "step-finish" for part in parts):
+    part_types = {part.get("type") for part in parts if isinstance(part, dict)} if isinstance(parts, list) else set()
+    if "step-finish" not in part_types:
         raise CheckError("sanitized OpenCode export has no completion evidence")
+    if "text" not in part_types:
+        raise CheckError("sanitized OpenCode export has no generated text content")
     return {"providerID": info["providerID"], "modelID": info["modelID"], "finish": info["finish"]}
 
 

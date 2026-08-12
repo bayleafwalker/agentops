@@ -154,6 +154,14 @@ class SanitizedExportTests(unittest.TestCase):
         with self.assertRaisesRegex(checker.CheckError, "no completion evidence"):
             checker._parse_sanitized_export(json.dumps(self._export(parts=parts)), "ses_test_0001", provider="opencode-go", model="deepseek-v4-flash")
 
+    def test_completion_with_no_generated_text_fails_closed(self) -> None:
+        """A bare step-finish with no text part must not pass as routable:
+        that would satisfy 'routable' and 'cost-sane' without ever answering
+        the check's second question (does it produce a reasonable output)."""
+        parts = [{"type": "step-finish"}]
+        with self.assertRaisesRegex(checker.CheckError, "no generated text content"):
+            checker._parse_sanitized_export(json.dumps(self._export(parts=parts)), "ses_test_0001", provider="opencode-go", model="deepseek-v4-flash")
+
     def test_wrong_provider_model_finish_fails_closed(self) -> None:
         for kwargs, message in (
             ({"provider": "other-provider"}, "provider/model/finish"),
