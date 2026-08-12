@@ -1,378 +1,151 @@
-# OpenCode provider-qualification corpus
+# OpenCode admission check
 
-Status: candidate gate only. The checked-in profile remains
-`preflight_observed`; this corpus does not qualify a provider, change routing,
-or authorize a live run.
+Status: a repeatable sanity check, not an attestation framework. There is no
+promotion, no "qualified" state, and no one-shot ceremony. Rerun it any time.
 
-The executable contract is
-`templates/dispatch/provider-qualification/opencode-go-deepseek-v4-flash.json`,
-validated by `validate_opencode_qualification.py`. It builds on the reviewed
-lifecycle probe at `47e6de6`: fake and contained lifecycle evidence remain
-offline/host evidence and are never treated as provider qualification.
+## What this answers
 
-## Historical basis
+Two questions, cheaply and repeatably:
 
-The earlier worker-route observation (`366f63e`) measured the wrong boundary,
-and the first contained run (`389551d`) was explicitly ineligible because it
-used a model override. The retained Vuoro pilot receipts are evidence for the
-named mechanical-bulk pilot only; they do not promote this implementation
-profile. The corpus therefore requires a fresh run on the exact configured
-route, without `--worker-model` or any other override.
+1. **Is this provider/model actually routable right now?** Proven by a real
+   contained OpenCode call plus an independently fetched sanitized export
+   that must agree on provider, model, and completion.
+2. **Does it produce a reasonable output for its cost?** Proven by
+   bound-checked usage/cost accounting (positive baseline, cost and token
+   ceilings, output-to-input ratio capped at 2x).
 
-## Deterministic routine gates
+That is the whole scope. It is not a promotion gate, not a signed record, not
+a one-time-use ledger, and not subject to independent review before or after
+running. Ongoing trust in a provider/model for a given role is a separate,
+rolling mechanism — role-scoped continuous fitness and routing evidence
+collected over hundreds of real runs (agentops#2143, backlog, not this
+check) — not a one-shot decision made here.
 
-- The repository must explicitly opt into hybrid dispatch, the
-  `mechanical_bulk` route, registered commands, allowed roots, and protected
-  paths.
-- The profile, root config, route, effective worker model, provider ID, and
-  model ID must agree exactly. A fallback, alias, diagnostic model, or missing
-  observed provider/model pair fails closed.
-- The worker is exactly `agentworker`; the coordinator checkout must be
-  kernel-proven unwritable, the worker workspace must be writable, and the
-  workspace check must round-trip in both directions with exactly the reviewed
-  `agentworker`/`agentdispatch` groups. Reads remain uncontained and are not
-  silently claimed to be isolated.
-- Provider workspace opt-in is an explicit receipt fact, never inherited from
-  an environment default. Usage accounting names its denominator: positive
-  provider-reported baseline units, observed units, and their ratio. The ratio
-  must be finite, internally consistent, and no greater than 2. Missing,
-  negative, non-finite, reset, or contradictory accounting fails closed.
-- One attempt is allowed. `$3.00`, 500,000 soft tokens, and 1,000,000 hard
-  tokens are post-hoc acceptance limits: the receipt is rejected if any is
-  exceeded, but they are not provider-side spend caps. The runner retains a
-  120-second hard wall and stops on observed token/cost overrun when evidence
-  arrives; only a real provider-side cap could make spend prevention
-  authoritative. These controls do not substitute for the 2x usage gate.
-- Receipts retain structural evidence only: byte-hashed JSON artifacts,
-  digests, counts, booleans, exact identity, and immutable references. The
-  validator parses each artifact and compares it with the receipt, including
-  the provider-reported usage denominator and the generated session overlay.
-  Prompts, transcripts, raw output,
-  credentials, claim proof, environment, and absolute worktree paths are
-  rejected. Raw transcript capture is a separate, explicit private-artifact
-  decision and is not part of this corpus.
-- Candidate admission requires the concrete one-shot packet in the corpus, a
-  runner-issued nonce, a fresh sealed `0400` execution record authenticated by
-  the externally provisioned key whose fingerprint is pinned in the corpus,
-  and an atomic consumption marker. A missing,
-  stale, forged, or already-consumed record cannot produce `candidate_ready`.
-- Provider origin is carried by the authenticated runner record through two
-  independent cross-checked channels, not a single opaque identifier: (a)
-  bound-checked usage/cost accounting from the live step-finish stream
-  (`_provider_usage` -- positive baseline, two-times ceiling, finite cost),
-  and (b) a separately fetched sanitized OpenCode export whose
-  provider/model/finish grammar (`providerID`, `modelID`, `finish`,
-  `part_types`) must exactly match. A non-provider-contacting stub that
-  speaks OpenCode's event format would have to satisfy both independently
-  fabricated channels to pass, which is what makes this proof meaningful. A
-  genuine provider-issued request identifier is captured and digested when
-  present, but real OpenCode 1.18.4 output for `opencode-go` never carries
-  one (verified against live captures, not merely absent from a fixture) --
-  it is optional bonus evidence, never a gating requirement. A receipt's
-  source labels are never trusted by themselves.
+## Why this changed
 
-The offline command is intentionally blocked on provider qualification:
+This item drifted into a "provider-qualified" attestation framework: an
+Ed25519-signed execution record, a permanent one-shot ledger sentinel, and
+two independent-human-review gates, around a check whose own code could
+never actually promote anything (`qualification_eligible` was hardcoded
+`False` in every code path, always). The operator reframed the goal
+mid-investigation:
 
-```bash
-python templates/dispatch/scripts/validate_opencode_qualification.py
-```
+> The whole point of qualification isn't to keep adding barriers, simply
+> answer the simplest questions like: can this model be used (is it actually
+> routable now), does it look to be doing what it's meant to be doing (in a
+> very general sense, do we get reasonable outputs for input cost). There's
+> no grand "qualified" sense like a five stage hiring process with an IQ test
+> on top.
 
-A receipt is not a candidate merely because its JSON is structurally valid. The
-admission command must call the fixed-path
-`agentops-opencode-qualification-verify-consume` helper with only receipt,
-evidence-root, and record paths. The helper verifies the signed runner record
-with pinned public-key/allowed-signers material, cannot access the private key,
-and atomically consumes the nonce, so a replay fails. Even after that gate, the result retains
-`qualification_eligible: false` and `qualification_state: preflight_observed`,
-requiring independent review and human acceptance. The corpus has no command
-that performs profile promotion.
+Two live attempts under the old design burned real spend chasing what turned
+out to be the same root cause: `_provider_event()` hard-required a
+provider-issued request identifier that no real OpenCode 1.18.4 output for
+`opencode-go` ever produces (confirmed against seven live captures, and
+against the sanitized export). The gate failed closed on every real run,
+unconditionally — not a security property, just a permanently broken check
+that happened to fail in the safe direction. The permanent ledger sentinel
+meant each of those trivial-infra-bug discoveries required a full fresh
+review cycle to even retry. That is the direct evidence behind removing it.
 
-## Privileged workstation installation and runbook handoff
+Full traceability: sprintctl events #2357–#2379 on agentops#2142; auditctl
+refs `ad:01KZV9ANHE819T26BK95MHFPJ5` (root-cause correction),
+`ad:01KZV9KAYH82ZBKVG2X9N7SNJE` (first simplification design pass),
+`ad:01KZVB1MBQ9PPTNCVX352BAJ83` (this design, as implemented).
 
-This is an installation contract, not an instruction to contact the provider.
-The live runner must be installed and operated by root on the intended
-workstation. Admission callers must not receive its private key or be able to
-write any trust material, records, or ledger entries.
+## What was deleted, and why
 
-Before independent review, the workstation owner must provision this fixed
-layout under `/var/lib/agentops/opencode-qualification`:
+- **Ed25519 signing** (`runner.key`/`runner.pub`/`allowed_signers`, the
+  signed execution record). No downstream logic depended on signed-ness
+  distinct from the plaintext fields the signature re-derived.
+- **The permanent one-shot ledger sentinel.** This was the mechanism that
+  burned a packet forever on *any* failure, including a trivial infra bug —
+  directly at odds with "cheap, repeatable sanity check." Replaced with an
+  optional, `--force`-overridable cooldown against accidental loop-spend,
+  which is directory hygiene, not a security gate.
+- **Both independent-review gates**, before and after. Nothing was ever
+  promoted or committed by this check, so nothing needs commitment-grade
+  review.
+- **~400 lines of pinned-executable / resolved-parent-chain / Nix-store-mount
+  fingerprinting**, and the root-owned digest-pinned install tree for the
+  corpus/profile/policy/manifest/runner bytes themselves. Attestation-grade
+  supply-chain ceremony unrelated to routability or cost.
+- **The optional, non-gating provider-request-ID plumbing** from the interim
+  fix. Dead weight — trivial to re-add if a future OpenCode version ever
+  actually emits one.
 
-The root-owned installation also freezes the reviewed packet and root config
-at `/etc/agentops/opencode-qualification/corpus.json` and
-`/etc/agentops/opencode-qualification/opencode.hybrid.json`. The launcher has
-no repository-relative fallback and accepts no alternate corpus/config path;
-the installed corpus must be byte-for-byte the reviewed candidate before the
-single run.
+## What was kept, and shrunk
 
-The same installation freezes the reviewed `profile.json`,
-`hybrid-dispatch.v1.json`, `agentops.dispatch.json`, and the four root-owned
-`0400` preflight artifacts under `preflight-evidence/` (`capability.json`,
-`lifecycle.json`, `overlay.json`, and `workspace.json`). Their bytes are
-checked against the checked-in `templates/dispatch/provider-qualification/preflight-evidence/`
-bytes and pinned digests before the packet sentinel is created.
-The installation root itself is `root:root` mode `0700`; every parent and
-installed file is a non-symlink regular object with the specified owner and
-mode. The five pinned system executable inputs (`opencode`, `runuser`, `touch`,
-`mkdir`, and `ssh-keygen`) are the deliberate portability exception: their
-configured paths may be Nix-style symlinks, but the runner resolves each final
-target and requires a root-owned regular executable with no group/world write
-bits. It then `lstat`s every parent of the resolved target. Resolved parents
-must be root-owned directories without group/world write bits, except for the
-exact `/nix/store` directory on this host: root-owned, sticky mode `01775`,
-and on a read-only filesystem. That exact mount rule prevents even the root
-runner identity from replacing a store entry; arbitrary sticky or writable
-directories are rejected. The parent metadata and read-only mount condition
-are rechecked before each execution. The configured path, symlink objects, and
-lexical parents are also fingerprinted and rechecked. Direct executions use
-the resolved target as the `execve` executable while retaining the configured
-path as `argv[0]`; the nested worker command retains that configured path only
-after its complete chain is pinned and rechecked. This preserves Nix
-coreutils applet identity (`touch` and `mkdir`) without executing through an
-unpinned path. The runner verifies the worker's actual UID, exact
-supplementary groups, workspace round-trip, coordinator write denial, and
-OpenCode `1.18.4` version before issuing the provider-facing command.
+- **`_provider_usage()` bound-checks** (positive baseline, finite cost, ratio
+  ≤ 2× baseline) — the real "reasonable for cost" answer.
+- **`_parse_sanitized_export()`** cross-check of `providerID`/`modelID`/
+  `finish` from a separately fetched `opencode export --sanitize` call — the
+  real "routable" answer, independent of the live event stream. The exact
+  `part_types == ["text", "step-finish"]` grammar match is loosened to "a
+  completion (`step-finish`) part occurred somewhere" — the exact match was
+  over-fit to one harness snapshot.
+- **"At least one clean completion event, sanity-bound all of them"**,
+  replacing "exactly one, hard-fail on any other count." That exact-count
+  strictness is the same over-fit-security-gate pattern that produced a
+  false diagnosis earlier in this investigation (a genuine multi-step
+  tool-use response legitimately emits more than one step-finish).
+- **Cost/token/wall-clock ceilings** ($3, 500k/1M tokens, 120s) — cheap
+  insurance, unchanged.
+- **The worker-boundary/containment probe** — cheap, mechanical, answers a
+  distinct question ("not obviously dangerous to assign this worker role").
+  Only its dependency on the deleted pinned-executable-chain machinery was
+  trimmed; it now calls configured binary paths directly.
+- **Credential provisioning/scrub discipline** (`0400`, disposable per-run
+  copy, wipe-and-scan-after) — unchanged. This is the one thing that still
+  needs real protection, explicitly separated from the deleted
+  non-repudiation ceremony.
 
-| Path | Owner and mode | Purpose |
-| --- | --- | --- |
-| `runner.key` | `root:root`, `0400` | Ed25519 private signing key; never passed to admission or receipt validation |
-| `provider-auth.json` | `root:root`, `0400` | Fixed bounded OpenCode provider credential source; copied only into the fresh worker HOME |
-| `corpus.sha256` | `root:root`, `0400` | Final installed corpus byte pin |
-| `runner.pub` | `root:root`, `0444` | Pinned public key used for signature verification |
-| `allowed_signers` | `root:root`, `0444` | OpenSSH allowed-signers entry restricted to the runner identity and qualification namespace |
-| `records/` | `root:root`, `0700` | Exact immutable execution-record root |
-| `ledger/` | `root:root`, `0700` | Exact one-time nonce-consumption ledger root |
-| `evidence/` | `root:root`, `0700` | Structural evidence output; no raw transcript or provider secret |
-| `workspaces/` | `root:root`, `0711` | Non-listable/searchable parent for fresh per-run directories; each child is `agentworker:agentworker`, `0700` |
+No harness abstraction layer was built. Only one implementation
+(`opencode`/`opencode-go`) exists; a plugin/adapter layer is speculative
+until a second harness family actually shows up. What's already
+harness-agnostic (the usage-bound-check shape, the containment-probe
+pattern, the credential-scrub pattern, the two-question shape itself) versus
+OpenCode-specific (the export format, the event-stream shape, the pinned
+executable paths, the `1.18.4` version check) is worth knowing if that day
+comes, but nothing was pre-built for it.
 
-During a run, the worker-owned child contains only the native auth path
-`$HOME/.local/share/opencode/`, with `.local`, `share`, and `opencode` each
-`agentworker:agentworker` mode `0700`; `auth.json` is `agentworker:agentworker`
-mode `0400`. The root runner creates and verifies this tree, then removes the
-credential on every post-run path and scans the disposable workspace to prove
-the credential value did not enter a regular runtime file. OpenCode's
-non-secret `opencode-stable.db`, WAL, logs, and `repos/` state may remain inside
-that private per-run workspace for bounded diagnostics; they are never copied
-to evidence or read by admission. If provisioning fails before OpenCode starts,
-the pristine auth tree is rolled back completely, including its directories.
+## Files
 
-Install the admission helper separately as a root-owned, non-writable
-executable at
-`/usr/local/libexec/agentops-opencode-qualification-verify-consume`. It must be
-the reviewed helper bytes, and its only caller inputs are `<receipt>
-<evidence-root> <runner-record>`; public verification material and trust roots
-remain compiled/configured in the helper, not caller arguments.
+- `templates/dispatch/scripts/check_opencode_admission.py` — the check
+  itself. Runs directly as the operator; no privileged install step.
+- `templates/dispatch/scripts/validate_opencode_qualification.py` — offline
+  sanity/privacy check of the config and, optionally, a result file. Not a
+  promotion gate.
+- `templates/dispatch/provider-qualification/opencode-go-deepseek-v4-flash.json`
+  — plain config: reviewed route, budgets, containment identity. Not
+  digest-pinned; edit and rerun against it like any other config file.
 
-The installed boundary is fixed, with no repository-relative fallback:
-
-```text
-/etc/agentops/opencode-qualification/corpus.json
-/etc/agentops/opencode-qualification/verify-consume.sha256
-/usr/local/libexec/agentops-opencode-qualification-verify-consume
-/usr/local/libexec/agentops-opencode-qualification-validator.py
-/usr/local/libexec/agentops-opencode-qualification-profile-validator.py
-/usr/local/libexec/agentops-opencode-qualification-hybrid-validator.py
-/usr/local/libexec/agentops-opencode-qualification-hybrid-dispatch.py
-```
-
-The helper verifies the root-owned modes and hashes of this package before it
-loads the installed validator. The workstation must grant only this exact
-helper through a sudoers or service boundary, for example:
-
-```text
-agentops-admission ALL=(root) NOPASSWD: /usr/local/libexec/agentops-opencode-qualification-verify-consume /var/lib/agentops/opencode-qualification/evidence/*/receipt.json /var/lib/agentops/opencode-qualification/evidence/* /var/lib/agentops/opencode-qualification/records/run-*.json
-Defaults!/usr/local/libexec/agentops-opencode-qualification-verify-consume env_reset,secure_path=/run/current-system/sw/bin
-```
-
-The admission identity receives no permission on `runner.key`; the privileged
-helper reads only public verification material, records, evidence, and the
-ledger. It has no general shell, path-selection, corpus-selection, or private
-key authority.
-
-The corpus and validator must pin the public-key and allowed-signers
-fingerprints as well as these exact absolute paths:
-
-```text
-/var/lib/agentops/opencode-qualification/runner.pub
-/var/lib/agentops/opencode-qualification/allowed_signers
-/var/lib/agentops/opencode-qualification/records
-/var/lib/agentops/opencode-qualification/ledger
-```
-
-The privileged launcher must reject substitutions, symlinks, non-regular
-files, wrong owners, group/world-writable parents, and mode mismatches for
-trust material, state, installed artifacts, and the runner. The five pinned
-system executable paths named above are the sole symlink exception; their
-resolved final targets are checked for root ownership, regular-file type,
-execute permission, and absence of group/world write bits. Every resolved
-parent is checked with the narrow `/nix/store` read-only `01775` exception
-described above, and stable metadata fingerprints cover both the target and
-the complete resolved parent chain through use. The CLI accepts the exact
-`--verify-installation` option only; abbreviation such as `--verify-i` is
-rejected. The exact verification mode is side-effect-free and contacts no
-provider.
-Completed records and detached signatures are `root:root` mode `0400`; nonce
-consumption markers are also `root:root` mode `0400`. Admission verification
-uses only the pinned public key and allowed-signers material. An HMAC, shared
-secret, self-authored source label, caller-selected key, or caller-selected
-record or ledger root is not trusted evidence. If the installed validator asks
-an admission caller for `runner.key`, stop and leave qualification blocked.
-
-The root-only one-shot handoff is:
-
-1. Freeze the reviewed corpus and independently review the packet, exact
-   route/model, workspace opt-in, containment facts, privacy schema, and both
-   token ceilings. Run the offline validator and confirm
-   `qualification_eligible: false`, `qualification_state: preflight_observed`,
-   and no provider contact.
-2. As the unprivileged admission identity, run the side-effect-free installation
-   check first:
-
-   ```bash
-   sudo -n /usr/local/sbin/agentops-opencode-qualification-runner --verify-installation
-   ```
-
-   It must report `side_effects: false`; it creates no workspace, sentinel,
-   ledger entry, or provider process. Then, after independent approval, as
-   root invoke the installed runner with no path or packet overrides. It
-   first creates a unique empty `workspaces/<run-id>` owned by
-   `agentworker:agentworker` and proves it has no prior state. It then creates
-   the root-owned O_EXCL `ledger/packet.attempted` sentinel, permanently
-   reserving this packet before any provider-facing process. It atomically
-   issues one fresh nonce, binds the exact request to the packet, and refuses
-   an existing sentinel, stale packet, second attempt, or replay; the sentinel
-   remains after failure.
-3. The runner invokes the contained OpenCode lifecycle exactly once and keeps
-   the 120-second hard wall. `$3/500k/1m` are post-hoc acceptance limits because
-   no provider-side spend cap is claimed; observed token/cost overruns stop the
-   run when possible and any over-limit receipt is rejected. A failed or
-   interrupted attempt is not candidate-ready.
-4. On successful completion only, the runner writes the `0400` immutable
-   record and one-time ledger marker, records provider-origin and
-   provider-reported usage evidence, and signs the record with `runner.key`.
-   The signature is verified with the pinned public/allowed-signers material;
-   the private key is never part of the receipt, evidence bundle, admission
-   process, or command arguments.
-5. After the independent reviewer authorizes this single bounded run, invoke
-   the fixed-path verifier/consume helper to validate the signed receipt and
-   evidence bundle against the exact configured roots and atomically consume
-   the nonce. A second validation or replay must fail closed. The result
-   remains a candidate for human qualification only; it never promotes the
-   profile automatically.
-
-The workstation installation handoff is explicit and must be performed by the
-root operator outside this repository: provision the pinned Ed25519 public key
-and matching private key through the workstation's approved secret process,
-write the allowed-signers line for identity
-`agentops-opencode-qualification-runner/v1` and namespace
-`agentops-opencode-qualification`, create the fixed directories above, then
-install the reviewed runner with root ownership and mode `0755` at the
-workstation's approved system path. The only invocation is equivalent to:
+## Usage
 
 ```bash
-sudo /usr/local/sbin/agentops-opencode-qualification-runner
+python templates/dispatch/scripts/check_opencode_admission.py \
+  --provider opencode-go --model deepseek-v4-flash --agent ao-mechanical-bulk
 ```
 
-Provision the fixed auth source at
-`/var/lib/agentops/opencode-qualification/provider-auth.json` as `root:root`
-mode `0400`, with only the bounded object
-`{"opencode-go":{"type":"api","key":"<approved credential>"}}`.
-This is the native OpenCode auth shape. The runner copies it into the fresh
-worker HOME at `$HOME/.local/share/opencode/auth.json`, sets
-`XDG_DATA_HOME=$HOME/.local/share`, and passes the same bounded native JSON
-through `OPENCODE_AUTH_CONTENT` in the scrubbed environment. It never sets
-`OPENCODE_AUTH_FILE`. The disposable native auth file is removed on success or
-failure. The credential is never logged, hashed into the receipt, or inherited
-from the operator environment.
+- One contained OpenCode call, with the same hard-wall/cost/token ceilings
+  enforced live.
+- One JSON result to stdout: routability, cost-sanity, containment result,
+  pass/fail.
+- The same JSON is written as a plain, non-privileged, unsigned run-report
+  log entry under `docs/dispatch/admission-runs/<provider>-<model>-<date>.json`
+  — a note for the next operator, not evidence infrastructure.
+- On failure: fix, rerun immediately. `--force` bypasses the accidental-loop
+  cooldown; there is no ledger to reset and no review cycle to restart.
 
-The launcher accepts no packet, key, record-root, ledger-root, workspace, or
-OpenCode-path overrides. If provider authentication is required, provision
-only the named runner/worker auth input through the workstation's approved
-secret mechanism; do not inherit the operator's environment or a broad secret
-set, and never write auth values to evidence. The private key is read only by
-that root-owned launcher. Admission invokes the installed verifier/consume
-helper with receipt, evidence-root, and record paths only; the helper supplies
-the pinned corpus/public-key/allowed-signers paths itself. Passing a private-key
-path, arbitrary root, or copied corpus is an immediate fail-closed condition. These are
-handoff commands only; this change does not install keys, alter workstation
-permissions, invoke the launcher, or contact the provider.
+Validate the config (and, optionally, a result) offline:
 
-The only permitted privileged invocation is the installed one-shot runner for
-this packet. Do not use an interactive OpenCode session, a retry loop, a
-different workspace, a different key, or a copied corpus. No installation,
-key generation, live invocation, provider spend, deployment, or Sprintctl
-mutation is performed by this change.
+```bash
+python templates/dispatch/scripts/validate_opencode_qualification.py \
+  --result docs/dispatch/admission-runs/opencode-go-deepseek-v4-flash-2026-08-12.json
+```
 
-## The single bounded live run after review
+## What this does not do
 
-After independent review of this candidate, the operator may run exactly one
-contained, disposable, docs-only qualification action on the intended devbox:
-`agentworker`, the explicitly opted-in workspace, pinned profile
-`opencode-nixpkgs-devbox-1.18.4`, and exact
-`opencode-go/deepseek-v4-flash`, with no model override. Use cold pre-gates and
-post-gates, retain the sanitized receipt and usage accounting, and stop on any
-containment, model, privacy, budget, or usage failure. Do not retry or promote
-from this candidate. A failed run leaves the profile preflight and requires a
-new review decision; it does not authorize a second attempt.
-
-No live provider run is part of this change.
-
-### Remediation after the first live attempt
-
-A prior authorized attempt on devbox failed the exactly-one-provider-event
-invariant: `execute_once` observed two `step_finish` events instead of one,
-consistent with (but not directly confirmed — the runner never persists raw
-event content, only bounded digests) OpenCode's own session-title-generation
-call landing alongside the task's real step-finish. This candidate adds two
-changes to reduce recurrence risk and improve the next failure's
-diagnosability without weakening the fail-closed invariant itself:
-
-- The one-shot invocation now passes `--title agentops-qualification-<run_id>`
-  explicitly, matching OpenCode's documented mechanism for supplying a
-  session title rather than leaving it to be inferred.
-- If `provider_events != 1` still occurs, the raised `RunnerError` now
-  includes a bounded, digest-only summary of every observed provider event
-  (session ID digest, provider request ID digest, source event digest, token
-  count) instead of a bare message, so a repeat occurrence carries enough
-  evidence to root-cause without ever persisting raw event content.
-
-Live reproduction was attempted (four separate live calls against
-`opencode-go/deepseek-v4-flash`, matching agent, prompt, and a fully isolated
-fresh environment mirroring the runner's own env-var construction) and did
-not reproduce a second `step_finish` event. The mitigation above is therefore
-a best-effort narrowing plus improved observability, not a confirmed root
-cause fix — treat the next live attempt's diagnostic output as the real
-evidence.
-
-### Confirmed root cause and provider-origin redefinition
-
-The next authorized live attempt used the bounded diagnostics above and
-reported `observed 0 provider events, 0 recorded` — not two events. Direct
-investigation of the deployed runner's own `_provider_event`/
-`_raw_provider_request_id` functions against seven independently captured
-real OpenCode 1.18.4 runs for `opencode-go` (varying agent, prompt, explicit
-vs. config-only model selection, and a fully isolated environment) confirmed
-`_provider_event` returns `False` unconditionally: no real step-finish event,
-in the live JSON stream or the sanitized `opencode export --sanitize`
-output, ever carries a `requestID`/`requestId`/`providerRequestID`/
-`provider_request_id` field. Every identifier present (`id`, `sessionID`,
-`messageID`) is OpenCode-generated, never provider-issued. The prior
-session-title theory was an unconfirmed inference from billed cost, made
-before this diagnostic existed, and was likely wrong — both live failures
-share this one defect.
-
-The test suite's own fixture had fabricated a `providerRequestID` field with
-no basis in any captured transcript, so this gate was never validated
-against reality — it failed closed 100% of the time regardless of actual
-provider contact, which is not a security property, just a permanently
-broken gate that happened to fail in the safe direction.
-
-Provider-origin proof is redefined accordingly (operator-authorized,
-schema `v2` → `v3` since the evidentiary meaning changes): the gate no
-longer requires a provider-issued request identifier. Provider contact is
-established by two independent cross-checked channels instead — see
-"Deterministic routine gates" above. A request identifier remains optional
-bonus evidence, captured and digested when present, for a future OpenCode
-version that emits one. Fixing this does not resurrect either burned
-packet (`eeeab7e6`, `79174c0` live attempts already wrote the permanent
-ledger sentinel before failing); any future live attempt requires a newly
-issued `packet_digest`.
+Does not deploy, does not touch gitops-nixos/devbox configuration, does not
+mark a provider "qualified" in any promotable sense, and does not feed
+routing decisions directly — those are agentops#2143's job, built from many
+runs over time, not a single check like this one.

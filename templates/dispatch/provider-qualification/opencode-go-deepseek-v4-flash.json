@@ -1,5 +1,5 @@
 {
-  "schema_version": "opencode-provider-qualification/v3",
+  "schema_version": "opencode-admission-check/v1",
   "corpus_id": "opencode-go-deepseek-v4-flash.devbox-1.18.4",
   "route": {
     "harness": "opencode",
@@ -8,81 +8,16 @@
     "provider_model": "opencode-go/deepseek-v4-flash",
     "provider": "opencode-go",
     "model": "deepseek-v4-flash",
-    "model_override": false,
-    "max_attempts": 1
-  },
-  "workspace": {
-    "repository_opt_in_required": true,
-    "provider_workspace_opt_in_required": true,
-    "usage_multiplier_ceiling": 2
-  },
-  "containment": {
-    "worker_identity": "agentworker",
-    "coordinator_write_denied": true,
-    "workspace_round_trip": true,
-    "exact_groups": ["agentworker", "agentdispatch"],
-    "reads_contained": false
+    "model_override": false
   },
   "budgets": {
     "max_cost_usd": 3.0,
     "soft_token_ceiling": 500000,
-    "hard_token_ceiling": 1000000
+    "hard_token_ceiling": 1000000,
+    "usage_multiplier_ceiling": 2
   },
-  "live_run": {
-    "runner_id": "agentops-opencode-qualification-runner/v1",
-    "runner_public_key_fingerprint": "sha256:309ddaae451d99a2350bdbaff31f9e6bfbd9b1f462bb5783e00f26ca41b49a5a",
-    "runner_public_key_path": "/var/lib/agentops/opencode-qualification/runner.pub",
-    "runner_allowed_signers_fingerprint": "sha256:0192272e12634cc312f56e3b32789be3a0e99e6c4b9295e5b1588bd13cd970a0",
-    "runner_allowed_signers_path": "/var/lib/agentops/opencode-qualification/allowed_signers",
-    "record_root": "/var/lib/agentops/opencode-qualification/records",
-    "consumption_ledger_root": "/var/lib/agentops/opencode-qualification/ledger",
-    "evidence_root": "/var/lib/agentops/opencode-qualification/evidence",
-    "provider_auth_source": "/var/lib/agentops/opencode-qualification/provider-auth.json",
-    "provider_auth_discovery": "XDG_DATA_HOME/opencode/auth.json",
-    "provider_auth_content_env": "OPENCODE_AUTH_CONTENT",
-    "provider_auth_provider": "opencode-go",
-    "provider_auth_type": "api",
-    "runner_path": "/usr/local/sbin/agentops-opencode-qualification-runner",
-    "runner_digest": "sha256:44cb2bb4c3ca06555fc8bf94dc4facd06bc859a78d462f707529d31487df14a8",
-    "opencode_path": "/run/current-system/sw/bin/opencode",
-    "opencode_digest": "sha256:1f193bdff5d0611679d8a3ebffb0d917e030e17bd5f081e0c7282139e14c2012",
-    "preflight_evidence": {
-      "capability.json": "sha256:e6527ea59be692dfd8a4ccdf986d5ba70fc6c5d114c53e3df9edcb1d9bbd11d0",
-      "lifecycle.json": "sha256:e6527ea59be692dfd8a4ccdf986d5ba70fc6c5d114c53e3df9edcb1d9bbd11d0",
-      "overlay.json": "sha256:30d629adb6522d5d954b9b58c35ce6cff752680362ab50845fb063294948665f",
-      "workspace.json": "sha256:1ff06e94a4c17e4afb0f30dc123e4d3b1d94d82ac6677afdb39bb206dd218f44"
-    },
-    "one_time": true,
-    "packet": {
-      "schema_version": "opencode-provider-qualification-packet/v1",
-      "packet_id": "opencode-go-deepseek-v4-flash.docs-only.one-shot",
-      "route": "mechanical_bulk",
-      "profile_id": "opencode-nixpkgs-devbox-1.18.4",
-      "provider_model": "opencode-go/deepseek-v4-flash",
-      "agent": "ao-mechanical-bulk",
-      "model_override": false,
-      "task_class": "docs-only-qualification",
-      "action_id": "opencode-provider-qualification-v1",
-      "allowed_command_ids": ["agentops.dispatch.tests"],
-      "attempts": 1,
-      "soft_token_ceiling": 500000,
-      "hard_token_ceiling": 1000000,
-      "freshness_window_seconds": 900,
-      "provider_origin_required": true,
-      "containment_probe_required": true,
-      "request": {"prompt": "Reply with the bounded qualification acknowledgement.", "agent": "ao-mechanical-bulk", "format": "json"}
-    }
-  },
-  "qualification": {
-    "state": "preflight_observed",
-    "qualification_eligible": false,
-    "blocking_probes": ["provider-qualification"],
-    "live_run_required": true
-  },
-  "historical_basis": [
-    {"kind": "commit", "source": "47e6de6", "claim": "reviewed lifecycle probe; fake and contained evidence remain non-qualifying"},
-    {"kind": "document", "source": "docs/dispatch/handover-2026-07-28-contained-run.md", "claim": "model override made the contained receipt non-qualifying"},
-    {"kind": "document", "source": "docs/dispatch/handover-2026-07-27-worker-routes.md", "claim": "provider access and containment findings"},
-    {"kind": "document", "source": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md", "claim": "named pilot evidence does not qualify the provider profile globally"}
-  ]
+  "containment": {
+    "worker_identity": "agentworker",
+    "exact_groups": ["agentworker", "agentdispatch"]
+  }
 }
