@@ -11,6 +11,11 @@ Current plan set:
   concurrent lanes, review gates, and compiler handoff for its successor goal
   inventory (AgentOps #2070).
 - `agent-ops-substrate-plan.md` - master cross-repo substrate plan.
+- `ecosystem-simplification-plan.md` - cross-member simplification and
+  stated-goal refactoring program: boundary resolutions, duplication
+  reduction, god-module decomposition, and batch sequencing.
+- `boundary-resolutions.md` - proposed decisions for the five critical-path
+  contention points that block large-scale refactoring.
 - `auditctl-workstream-d-plan.md` - standalone auditctl tool plan.
 - `agent-cockpit-workstream-e-plan.md` - agent-cockpit frontend plan for the future cockpit surface inside this repo.
 - `cockpit-agentops-readiness-2026-04-28.md` - readiness and sequencing assessment for cockpit and substrate rollout.
