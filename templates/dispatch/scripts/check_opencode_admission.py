@@ -525,7 +525,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--provider", required=True)
     parser.add_argument("--model", required=True)
     parser.add_argument("--agent", required=True)
-    parser.add_argument("--prompt", default="Reply with the bounded admission-check acknowledgement.")
+    parser.add_argument(
+        "--prompt",
+        default=(
+            "Reply with a short plaintext acknowledgement of this admission check. "
+            "Do not use any tools, run any commands, or read or write any files."
+        ),
+    )
     parser.add_argument("--force", action="store_true", help="bypass the accidental-loop-spend cooldown")
     args = parser.parse_args(argv)
     try:
