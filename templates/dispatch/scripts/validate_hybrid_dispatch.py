@@ -108,8 +108,21 @@ def validate_policy(policy: dict[str, Any], worker_config: dict[str, Any]) -> No
         raise ValueError("ao-finalizer must deny every explicit tool and MCP permission")
 
     base = worker_config["permission"]
-    if base["*"] != "ask":
-        raise ValueError("the checked-in base config must not pre-authorize anything")
+    if "*" in base:
+        raise ValueError(
+            "the checked-in base config must resolve every permission explicitly, "
+            "not leave a wildcard fallback -- noninteractive opencode run refuses "
+            "permissions left at 'ask', and a blanket '*': 'deny' withholds tools "
+            "from the model entirely (see build_overlay's docstring)"
+        )
+    bash = base.get("bash")
+    if not isinstance(bash, dict) or bash.get("*") != "deny":
+        raise ValueError(
+            "the checked-in base config must deny bash by default -- unlike edit/"
+            "write, bash has no containment equivalent to a disposable worktree "
+            "plus post-hoc scope gates, so it must never be pre-authorized outside "
+            "a packet-specific allowed_command_ids overlay"
+        )
     for key in ("external_directory", "webfetch", "websearch"):
         if base.get(key) != "deny":
             raise ValueError(f"base config: {key} must be denied")

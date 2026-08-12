@@ -41,7 +41,7 @@ class HarnessProfileValidationTests(unittest.TestCase):
         self.assertIn("lifecycle", schema["required"])
         self.assertEqual(
             schema["properties"]["lifecycle"]["properties"]["session_id_field"]["const"],
-            "properties.sessionID",
+            "sessionID",
         )
         self.assertEqual(
             schema["properties"]["lifecycle"]["properties"]["finalizer"]["properties"]["agent"]["const"],
@@ -51,6 +51,11 @@ class HarnessProfileValidationTests(unittest.TestCase):
     def test_qualified_profile_cannot_retain_blocking_probes(self) -> None:
         self.profile["qualification"] = {"state": "qualified", "blocking_probes": ["still-blocked"]}
         with self.assertRaisesRegex(ValueError, "must be empty when qualified"):
+            validator.validate_profile(self.profile, self.path)
+
+    def test_qualified_profile_requires_receipt_and_independent_review_refs(self) -> None:
+        self.profile["qualification"] = {"state": "qualified", "blocking_probes": []}
+        with self.assertRaisesRegex(ValueError, "immutable qualification receipt"):
             validator.validate_profile(self.profile, self.path)
 
     def test_profile_requires_receipt_identity_and_fingerprints(self) -> None:
@@ -78,12 +83,13 @@ class HarnessProfileValidationTests(unittest.TestCase):
                 "session-continuation",
                 "contained-identity",
                 "no-tools-finalizer",
+                "provider-qualification",
             },
         )
         self.assertIn("capability_probe_results", self.profile["receipt_fields"])
         self.assertIn("lifecycle_probe_results", self.profile["receipt_fields"])
         self.assertEqual(self.profile["lifecycle"]["event_format"], "json")
-        self.assertEqual(self.profile["lifecycle"]["session_id_field"], "properties.sessionID")
+        self.assertEqual(self.profile["lifecycle"]["session_id_field"], "sessionID")
         self.assertEqual(self.profile["lifecycle"]["continuation"]["mode"], "same-session")
         self.assertEqual(self.profile["lifecycle"]["finalizer"]["tools"], [])
 

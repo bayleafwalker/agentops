@@ -67,7 +67,7 @@
       "properties": {
         "event_format": {"const": "json"},
         "event_stream": {"const": "stdout"},
-        "session_id_field": {"const": "properties.sessionID"},
+        "session_id_field": {"const": "sessionID"},
         "continuation": {
           "type": "object",
           "additionalProperties": false,
@@ -109,7 +109,9 @@
       "required": ["state", "blocking_probes"],
       "properties": {
         "state": {"enum": ["preflight_observed", "qualified", "superseded"]},
-        "blocking_probes": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+        "blocking_probes": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "receipt_ref": {"type": ["object", "null"]},
+        "review_ref": {"type": ["object", "null"]}
       }
     }
   }

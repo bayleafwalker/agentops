@@ -10,7 +10,7 @@ and a passing smoke run promotes nothing.
 The OpenCode profile `opencode-nixpkgs-devbox-1.18.4` is currently
 `preflight_observed`, not qualified. Its lifecycle contract is deliberately
 narrow: JSON stdout event envelopes carry a `type` and
-`properties.sessionID`; finalization continues that same session with
+top-level `sessionID`; finalization continues that same session with
 `--continue --session <sessionID>` and the exact `ao-finalizer` agent; and the
 finalizer has no tools. The fake and contained probes are not qualification
 evidence. Contained identity and provider qualification remain explicit
@@ -299,7 +299,7 @@ overlay and the `--file` argument ordering on upgrade.
 
 The work loop and finalizer are separate controller phases. The controller
 captures the session identity from JSON events, verifies that every observed
-event in the work phase carries the same `properties.sessionID`, rejects
+event in the work phase carries the same top-level `sessionID`, rejects
 malformed and error events, and invokes the
 no-tools finalizer on that identity. The finalizer may synthesize the bounded
 terminal handoff from the same observed session; it may not investigate,
