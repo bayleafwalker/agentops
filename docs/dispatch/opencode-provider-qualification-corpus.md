@@ -305,3 +305,30 @@ from this candidate. A failed run leaves the profile preflight and requires a
 new review decision; it does not authorize a second attempt.
 
 No live provider run is part of this change.
+
+### Remediation after the first live attempt
+
+A prior authorized attempt on devbox failed the exactly-one-provider-event
+invariant: `execute_once` observed two `step_finish` events instead of one,
+consistent with (but not directly confirmed — the runner never persists raw
+event content, only bounded digests) OpenCode's own session-title-generation
+call landing alongside the task's real step-finish. This candidate adds two
+changes to reduce recurrence risk and improve the next failure's
+diagnosability without weakening the fail-closed invariant itself:
+
+- The one-shot invocation now passes `--title agentops-qualification-<run_id>`
+  explicitly, matching OpenCode's documented mechanism for supplying a
+  session title rather than leaving it to be inferred.
+- If `provider_events != 1` still occurs, the raised `RunnerError` now
+  includes a bounded, digest-only summary of every observed provider event
+  (session ID digest, provider request ID digest, source event digest, token
+  count) instead of a bare message, so a repeat occurrence carries enough
+  evidence to root-cause without ever persisting raw event content.
+
+Live reproduction was attempted (four separate live calls against
+`opencode-go/deepseek-v4-flash`, matching agent, prompt, and a fully isolated
+fresh environment mirroring the runner's own env-var construction) and did
+not reproduce a second `step_finish` event. The mitigation above is therefore
+a best-effort narrowing plus improved observability, not a confirmed root
+cause fix — treat the next live attempt's diagnostic output as the real
+evidence.

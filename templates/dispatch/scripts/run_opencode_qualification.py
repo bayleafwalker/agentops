@@ -799,7 +799,19 @@ def execute_once(
     if return_code != 0:
         raise RunnerError(f"contained OpenCode run failed with exit {return_code}")
     if provider_events != 1 or len(events) != 1:
-        raise RunnerError("one-shot run did not produce exactly one provider-origin step-finish")
+        observed_summary = _canonical([
+            {
+                "session_id_digest": item["session_id_digest"],
+                "provider_request_id_digest": item["provider_request_id_digest"],
+                "source_event_digest": item["source_event_digest"],
+                "usage_total_tokens": item["usage_total_tokens"],
+            }
+            for item in events
+        ]).decode("utf-8")
+        raise RunnerError(
+            "one-shot run did not produce exactly one provider-origin step-finish "
+            f"(observed {provider_events} provider events, {len(events)} recorded): {observed_summary}"
+        )
     usage_payload = {
         "schema_version": "opencode-provider-usage/v1",
         "provider_request_id_digest": events[0]["provider_request_id_digest"],
@@ -922,7 +934,10 @@ def run_one_shot() -> dict[str, Any]:
         }
         config["OPENCODE_CONFIG_CONTENT"] = CONFIG.read_text(encoding="utf-8")
         request = packet["request"]
-        opencode_command, _ = _pinned_executable_command(OPENCODE, "run", request["prompt"], "--agent", request["agent"], "--format", request["format"])
+        opencode_command, _ = _pinned_executable_command(
+            OPENCODE, "run", request["prompt"], "--agent", request["agent"], "--format", request["format"],
+            "--title", f"agentops-qualification-{run_id}",
+        )
         command, runuser_target = _pinned_executable_command(RUNUSER, "--user", WORKER_USER, "--", *opencode_command)
         execution = execute_once(command=command, environment=config, popen_executable=runuser_target)
         execution["provider_payload"] = _sanitized_export(execution["provider_events"][0]["session_id"], config)

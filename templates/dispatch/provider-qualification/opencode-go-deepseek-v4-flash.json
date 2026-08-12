@@ -43,7 +43,7 @@
     "provider_auth_provider": "opencode-go",
     "provider_auth_type": "api",
     "runner_path": "/usr/local/sbin/agentops-opencode-qualification-runner",
-    "runner_digest": "sha256:8507eb3636248c85f564c02773b75d05e617489384bb315de096c2aeaebe9652",
+    "runner_digest": "sha256:e70fb64ce2ff0f70c15e12599d79d2aa181af6e109977fb7348758b236c3b611",
     "opencode_path": "/run/current-system/sw/bin/opencode",
     "opencode_digest": "sha256:1f193bdff5d0611679d8a3ebffb0d917e030e17bd5f081e0c7282139e14c2012",
     "preflight_evidence": {

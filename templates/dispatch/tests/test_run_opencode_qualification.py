@@ -347,6 +347,26 @@ class OneShotRunnerTests(unittest.TestCase):
                     popen=lambda *args, **kwargs: process,
                 )
 
+    def test_second_provider_event_failure_carries_bounded_diagnostic_digests(self) -> None:
+        first, second = _event(1), _event(2)
+        second["sessionID"] = "ses_test_0002"
+        second["providerRequestID"] = "req_test_0002"
+        process = FakeProcess([first, second])
+        with self.assertRaises(runner.RunnerError) as boundary:
+            runner.execute_once(
+                command=[str(runner.RUNUSER), "--user", runner.WORKER_USER, "--", str(runner.OPENCODE), "run", "bounded"],
+                environment={},
+                popen=lambda *args, **kwargs: process,
+            )
+        message = str(boundary.exception)
+        self.assertIn("observed 2 provider events, 2 recorded", message)
+        expected_first_digest = runner._digest_bytes(first["sessionID"].encode("utf-8"))
+        expected_second_digest = runner._digest_bytes(second["sessionID"].encode("utf-8"))
+        self.assertIn(expected_first_digest, message)
+        self.assertIn(expected_second_digest, message)
+        self.assertNotIn(first["sessionID"], message)
+        self.assertNotIn(second["sessionID"], message)
+
     def test_validator_has_no_shared_secret_authentication_or_private_key_argument(self) -> None:
         source = VALIDATOR.read_text(encoding="utf-8").lower()
         self.assertNotIn("hmac", source)
@@ -543,6 +563,7 @@ a = sys.argv[1:]
 if a[:1] == ["--version"]:
     print("1.18.4")
 elif a[:1] == ["run"]:
+    pathlib.Path("__CAPTURED_ARGV_PATH__").write_text(json.dumps(a))
     state = pathlib.Path(os.environ["XDG_DATA_HOME"]) / "opencode"
     state.mkdir(mode=0o700, parents=True, exist_ok=True)
     (state / "opencode-stable.db").write_bytes(b"fake non-secret sqlite state")
@@ -558,8 +579,14 @@ elif a[:1] == ["export"]:
 else:
     raise SystemExit(2)
 """
+            # Must not live under `root` directly: it is an ancestor of the
+            # pinned OPENCODE executable's configured chain, and creating a
+            # new entry there would change its mtime and trip the later
+            # re-validation (_assert_pinned_executable_stable) as tampering.
+            captured_argv_path = state / "captured-run-argv.json"
             opencode.write_text(fake_provider)
             opencode.write_text(opencode.read_text().replace("#!/usr/bin/python3", f"#!{sys.executable}", 1))
+            opencode.write_text(opencode.read_text().replace("__CAPTURED_ARGV_PATH__", str(captured_argv_path)))
             os.chmod(opencode, 0o755)
             runuser = fake_bin / "runuser"
             runuser.write_text("#!/usr/bin/python3\nimport os,sys\na=sys.argv[1:]; c=a[a.index('--')+1:]\nif c and c[0].endswith('/id') and c[1:]==['-Gn']: print('agentworker agentdispatch'); raise SystemExit(0)\nif c and c[0].endswith('/test') and c[1:2]==['-w'] and c[2].endswith('/records'): raise SystemExit(1)\nos.execvpe(c[0],c,os.environ)\n")
@@ -595,6 +622,9 @@ else:
                 for name, value in old.items(): setattr(runner, name, value)
                 for name, value in old_pins.items(): setattr(runner, name, value)
             self.assertEqual({path.name for path in Path(output["evidence_root"]).iterdir()}, {"provider.json", "usage.json", "containment.json", "capability.json", "lifecycle.json", "overlay.json", "workspace.json", "receipt.json"})
+            captured_argv = json.loads(captured_argv_path.read_text())
+            self.assertIn("--title", captured_argv)
+            self.assertEqual(captured_argv[captured_argv.index("--title") + 1], f"agentops-qualification-{output['run_id']}")
             self.assertTrue((state / "ledger" / "packet.attempted").is_file())
             workspace = state / "workspaces" / output["run_id"]
             runtime = workspace / ".local" / "share" / "opencode"
