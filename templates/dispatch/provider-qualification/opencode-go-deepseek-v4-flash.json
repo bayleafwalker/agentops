@@ -1,0 +1,23 @@
+{
+  "schema_version": "opencode-admission-check/v1",
+  "corpus_id": "opencode-go-deepseek-v4-flash.devbox-1.18.4",
+  "route": {
+    "harness": "opencode",
+    "agent": "ao-mechanical-bulk",
+    "profile_id": "opencode-nixpkgs-devbox-1.18.4",
+    "provider_model": "opencode-go/deepseek-v4-flash",
+    "provider": "opencode-go",
+    "model": "deepseek-v4-flash",
+    "model_override": false
+  },
+  "budgets": {
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 500000,
+    "hard_token_ceiling": 1000000,
+    "usage_multiplier_ceiling": 2
+  },
+  "containment": {
+    "worker_identity": "agentworker",
+    "exact_groups": ["agentworker", "agentdispatch"]
+  }
+}

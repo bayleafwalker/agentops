@@ -64,15 +64,16 @@ class OpenCodeLifecycleProbeTests(unittest.TestCase):
             with self.assertRaisesRegex(probe.ProbeError, "ao-finalizer is missing"):
                 probe.run_fake_probes(PROFILE, config_path)
 
-    def test_event_parser_requires_type_properties_session_and_rejects_errors(self) -> None:
-        good = {"type": "session.status", "properties": {"sessionID": "ses_1"}}
-        self.assertEqual(probe._session_ids(probe._events(json.dumps(good), label="good"), "properties.sessionID"), {"ses_1"})
+    def test_event_parser_requires_pinned_top_level_envelope_and_rejects_errors(self) -> None:
+        good = {"type": "text", "sessionID": "ses_1", "timestamp": 1, "part": {"type": "text"}}
+        self.assertEqual(probe._session_ids(probe._events(json.dumps(good), label="good"), "sessionID"), {"ses_1"})
         cases = [
-            ({"properties": {"sessionID": "ses_1"}}, "no type"),
-            ({"type": "session.status", "properties": {}}, "no properties.sessionID"),
-            ({"type": "session.status", "sessionID": "ses_1"}, "no properties envelope"),
-            ({"type": "session.status", "sessionID": "ses_2", "properties": {"sessionID": "ses_1"}}, "multiple session IDs"),
-            ({"type": "session.error", "properties": {"sessionID": "ses_1", "error": {}}}, "error event"),
+            ({"sessionID": "ses_1", "part": {}}, "no type"),
+            ({"type": "text", "timestamp": 1, "part": {}}, "no sessionID"),
+            ({"type": "text", "sessionID": "ses_1"}, "no part object"),
+            ({"type": "text", "sessionID": "ses_1", "part": {}, "properties": {}}, "unsupported properties"),
+            ({"type": "message.updated", "sessionID": "ses_1", "part": {}}, "unsupported event type"),
+            ({"type": "session.error", "sessionID": "ses_1", "part": {}, "error": {}}, "error event"),
         ]
         for event, message in cases:
             with self.subTest(message=message), self.assertRaisesRegex(probe.ProbeError, message):
@@ -80,54 +81,79 @@ class OpenCodeLifecycleProbeTests(unittest.TestCase):
 
     def test_event_parser_rejects_nested_error_variants(self) -> None:
         cases = [
-            {"type": "session.status", "properties": {"sessionID": "ses_1", "status": "failed"}},
-            {"type": "session.status", "properties": {"sessionID": "ses_1", "status": {"type": "error"}}},
-            {"type": "message.updated", "properties": {"sessionID": "ses_1", "info": {"type": "failure"}}},
-            {"type": "message.updated", "properties": {"sessionID": "ses_1", "info": {"state": "timed_out"}}},
-            {"type": "message.updated", "properties": {"sessionID": "ses_1", "result": {"status": "cancelled"}}},
-            {"type": "message.updated", "properties": {"sessionID": "ses_1", "errors": []}},
-            {"type": "session.timeout", "properties": {"sessionID": "ses_1"}},
+            {"type": "text", "sessionID": "ses_1", "part": {"status": "failed"}},
+            {"type": "text", "sessionID": "ses_1", "part": {"status": {"type": "error"}}},
+            {"type": "text", "sessionID": "ses_1", "part": {"info": {"type": "failure"}}},
+            {"type": "text", "sessionID": "ses_1", "part": {"info": {"state": "timed_out"}}},
+            {"type": "text", "sessionID": "ses_1", "part": {"result": {"status": "cancelled"}}},
+            {"type": "text", "sessionID": "ses_1", "part": {"errors": []}},
+            {"type": "session.timeout", "sessionID": "ses_1", "part": {}},
         ]
         for event in cases:
             with self.subTest(event=event), self.assertRaisesRegex(probe.ProbeError, "error"):
                 probe._events(json.dumps(event), label="nested-error")
 
     def test_event_parser_accepts_nonterminal_nested_status(self) -> None:
-        event = {
-            "type": "session.status",
-            "properties": {
-                "sessionID": "ses_1",
-                "status": {"type": "idle"},
-                "info": {"state": "working", "type": "assistant"},
-            },
-        }
+        event = {"type": "text", "sessionID": "ses_1", "timestamp": 1, "part": {"status": {"type": "idle"}, "info": {"state": "working", "type": "assistant"}}}
         self.assertEqual(
-            probe._session_ids(probe._events(json.dumps(event), label="nonterminal"), "properties.sessionID"),
+            probe._session_ids(probe._events(json.dumps(event), label="nonterminal"), "sessionID"),
             {"ses_1"},
         )
 
     def test_event_parser_rejects_multiple_session_ids(self) -> None:
         stdout = "\n".join([
-            json.dumps({"type": "session.status", "properties": {"sessionID": "ses_1"}}),
-            json.dumps({"type": "session.status", "properties": {"sessionID": "ses_2"}}),
+            json.dumps({"type": "text", "sessionID": "ses_1", "timestamp": 1, "part": {"type": "text"}}),
+            json.dumps({"type": "text", "sessionID": "ses_2", "timestamp": 2, "part": {"type": "text"}}),
         ])
         with self.assertRaisesRegex(probe.ProbeError, "multiple session IDs"):
             probe._events(stdout, label="mismatch")
 
-    def test_finalizer_agent_must_be_effective_agent_not_cli_default(self) -> None:
-        events = [{
-            "type": "message.updated",
-            "properties": {"sessionID": "ses_1", "info": {"role": "assistant", "agent": "ao-mechanical-bulk"}},
-        }]
+    def test_synthesized_observed_1_18_4_event_shape_regression(self) -> None:
+        # Synthesized from the redacted structural observation on devbox; no
+        # provider response or transcript content is retained in this fixture.
+        stdout = "\n".join(json.dumps(event) for event in (
+            {"type": "step_start", "sessionID": "ses_real", "timestamp": 1, "part": {"type": "step-start"}},
+            {"type": "text", "sessionID": "ses_real", "timestamp": 2, "part": {"type": "text"}},
+            {"type": "step_finish", "sessionID": "ses_real", "timestamp": 3, "part": {"type": "step-finish"}},
+        ))
+        events = probe._events(stdout, label="real-1.18.4", session_id_field="sessionID")
+        self.assertEqual(probe._session_ids(events, "sessionID"), {"ses_real"})
+        self.assertEqual([event["type"] for event in events], ["step_start", "text", "step_finish"])
+
+    def test_sanitized_export_proves_effective_agent_not_cli_default(self) -> None:
+        exported = {"info": {"id": "ses_1"}, "messages": [{"info": {"role": "assistant", "agent": "ao-mechanical-bulk", "providerID": "opencode-go", "modelID": "deepseek-v4-flash", "finish": "stop"}, "parts": [{"type": "text"}]}]}
         with self.assertRaisesRegex(probe.ProbeError, "effective agent"):
-            probe._effective_agent(events, "ao-finalizer", label="fallback")
+            probe._export_evidence(json.dumps(exported), label="fallback", session_id="ses_1", expected_agent="ao-finalizer", expected_model="opencode-go/deepseek-v4-flash")
+
+    def test_sanitized_export_rejects_session_change_and_finalizer_tool_part(self) -> None:
+        exported = {"info": {"id": "ses_other"}, "messages": [{"info": {"role": "assistant", "agent": "ao-finalizer", "providerID": "opencode-go", "modelID": "deepseek-v4-flash", "finish": "stop"}, "parts": [{"type": "tool"}]}]}
+        with self.assertRaisesRegex(probe.ProbeError, "changed session identity"):
+            probe._export_evidence(json.dumps(exported), label="finalizer", session_id="ses_1", expected_agent="ao-finalizer", expected_model="opencode-go/deepseek-v4-flash", require_no_tools=True)
+        exported["info"]["id"] = "ses_1"
+        with self.assertRaisesRegex(probe.ProbeError, "tool part"):
+            probe._export_evidence(json.dumps(exported), label="finalizer", session_id="ses_1", expected_agent="ao-finalizer", expected_model="opencode-go/deepseek-v4-flash", require_no_tools=True)
+
+    def test_sanitized_export_rejects_stale_no_growth_evidence(self) -> None:
+        exported = {"info": {"id": "ses_1"}, "messages": [
+            {"info": {"role": "user", "agent": "ao-mechanical-bulk"}, "parts": [{"type": "text"}]},
+            {"info": {"role": "assistant", "agent": "ao-mechanical-bulk", "providerID": "opencode-go", "modelID": "deepseek-v4-flash", "finish": "stop"}, "parts": [{"type": "text"}]},
+        ]}
+        with self.assertRaisesRegex(probe.ProbeError, "did not add a message"):
+            probe._export_evidence(json.dumps(exported), label="continuation", session_id="ses_1", expected_agent="ao-mechanical-bulk", expected_model="opencode-go/deepseek-v4-flash", previous_message_count=2, previous_assistant_count=1)
+
+    def test_finalizer_rejects_hidden_tool_message_before_latest_assistant(self) -> None:
+        exported = {"info": {"id": "ses_1"}, "messages": [
+            {"info": {"role": "tool"}, "parts": [{"type": "tool-result"}]},
+            {"info": {"role": "assistant", "agent": "ao-finalizer", "providerID": "opencode-go", "modelID": "deepseek-v4-flash", "finish": "stop"}, "parts": [{"type": "text"}]},
+        ]}
+        with self.assertRaisesRegex(probe.ProbeError, "tool-role message"):
+            probe._export_evidence(json.dumps(exported), label="finalizer", session_id="ses_1", expected_agent="ao-finalizer", expected_model="opencode-go/deepseek-v4-flash", require_no_tools=True)
 
     def test_no_tool_events_rejects_nested_tool_shapes(self) -> None:
         for event in (
-            {"type": "tool", "properties": {"sessionID": "ses_1"}},
-            {"type": "message.updated", "properties": {"sessionID": "ses_1", "part": {"type": "tool"}}},
-            {"type": "message.updated", "properties": {"sessionID": "ses_1", "info": {"role": "tool"}}},
-            {"type": "tool_result", "properties": {"sessionID": "ses_1"}},
+            {"type": "tool", "sessionID": "ses_1", "part": {}},
+            {"type": "text", "sessionID": "ses_1", "part": {"type": "tool"}},
+            {"type": "tool_result", "sessionID": "ses_1", "part": {}},
         ):
             with self.subTest(event=event), self.assertRaisesRegex(probe.ProbeError, "tool event"):
                 probe._assert_no_tool_events([event], label="finalizer")
