@@ -153,6 +153,78 @@ The program is complete when:
 8. Transitional feature flags and git-SHA pins are removed.
 9. `outctl` is consistently represented as a member.
 
+## Progress log
+
+### P2.1 — sprintctl `db.py`/`pg.py` backend unification (2026-08-13)
+
+Nine increments landed on the sprintctl dispatch-ready branch, each behind a
+shared `sprintctl/<table>core.py` module (a `Conn` protocol implemented by a
+thin per-backend adapter class), tested against the full SQLite suite after
+every commit and, for the full chain, against a live disposable PostgreSQL
+instance (124/124 `test_pg_integration.py`, and the broader `-m pg` suite at
+169 passed against the same 8 pre-existing failures documented before this
+work started — zero regressions):
+
+- `rows.py` — claim/row serialization (landed before this session)
+- `sprintcore.py`, `trackcore.py`, `refcore.py`, `depcore.py` — CRUD-shaped
+  table sections
+- `workitemcore.py` — work-item CRUD, plus relocating `validate_priority`/
+  `effective_priority`/`validate_work_item_description` out of `db.py` so
+  `pg.py` stops depending on `db.py` for backend-agnostic logic
+- `eventcore.py` — event CRUD and the takeup/payload helpers, converging
+  three previously-inconsistent payload-decode call sites
+- `claimcore.py` — claim read-paths (4a), heartbeat/release (4b), handoff
+  (4c)
+
+**Two real SQLite/PostgreSQL behavioral drifts were found and fixed** while
+extracting the read-then-emit-event logic, which had been copy-pasted
+between the two backends since it looked backend-agnostic already:
+
+1. `release_claim`'s rejection event on pg.py always used
+   `["claims", "coordination", "release"]` tags, silently dropping the
+   `ambiguity`/`legacy` tags db.py used for claims with no `claim_token`.
+2. `handoff_claim`'s pg.py UPDATE bumped `lease_epoch` on rotation/adoption;
+   db.py's never did. `lease_epoch` is a fencing token consumed by
+   `terminal_recovery_server.py` and `authority.py` — the SQLite gap meant a
+   session holding a pre-handoff epoch could still pass a fencing check
+   after ownership changed hands. No existing test caught this on either
+   backend; three regression assertions were added.
+
+**Deferred, not attempted:** `create_claim` (sub-increment 4d) and the
+WorkItem CAS functions (`update_work_item_description`,
+`set_work_item_status`). `create_claim` is the highest-risk piece in this
+section — PostgreSQL arbitrates admission with an advisory lock *and* a row
+lock for two distinct concerns (repo-wide capability arbitration vs.
+per-item exclusivity), where SQLite's single `BEGIN IMMEDIATE` does both
+jobs at once. A [planning pass](#p21-planner-assessment-2026-08-13) explicitly
+recommended prototyping the shared-transaction-scaffold abstraction on the
+smaller WorkItem CAS surface before attempting `create_claim`, and that
+prototyping step has not happened yet.
+
+**LOC estimate correction:** a planning pass over the four already-landed
+CRUD-shaped increments (before this session added workitemcore/eventcore/
+claimcore) measured *net +507 lines* — extracting straightforward
+query-shape duplication into a Protocol/adapter split adds boilerplate that
+outweighs the SQL text removed for thin CRUD tables. The `~6,000 LOC`
+figure in the P2.1 row above is very unlikely to be sprintctl's slice
+alone; it most likely refers to the cross-repo P2.x total. Whoever owns
+this plan should correct or re-scope that estimate so P2.1's tracked
+outcome isn't read as under-delivered once sprintctl's portion lands.
+
+#### P2.1 planner assessment (2026-08-13)
+
+A Plan-agent pass (before `workitemcore`/`eventcore`/`claimcore` existed)
+produced a full section-by-section classification of WorkItem/Event/Claim
+into query-shape (movable), pure-Python (movable, no protocol), and
+transactional/locking (must stay backend-specific) logic, a recommended
+extraction sequence, and named risk points. Sub-increments 1–3 of that
+sequence (WorkItem reads, Event reads/writes, Claim 4a/4b/4c) are done;
+sub-increment 4 (`create_claim`) and the WorkItem CAS step explicitly need
+the transaction-scaffold prototyping step this plan has not yet done. The
+full assessment is preserved in this session's transcript; it should be
+copied into a standalone doc under `sprintctl/docs/plans/` before the next
+session picks up `create_claim`, rather than re-derived from scratch.
+
 ## Risks and mitigations
 
 | Risk | Mitigation |
