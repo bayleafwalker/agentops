@@ -48,16 +48,22 @@ class FakeProcess:
         return self.returncode
 
 
-def _event(tokens: int) -> dict[str, object]:
-    return {
+def _event(tokens: int, *, provider_request_id: str | None = None) -> dict[str, object]:
+    """Default shape matches real captured OpenCode 1.18.4 output: no
+    provider-issued request-ID field. Pass provider_request_id to cover the
+    optional-bonus-evidence path for a future OpenCode version that emits
+    one."""
+    event: dict[str, object] = {
         "type": "step_finish",
         "providerID": "opencode-go",
         "modelID": "deepseek-v4-flash",
         "finish": "stop",
         "sessionID": "ses_test_0001",
-        "providerRequestID": "req_test_0001",
         "usage": {"baseline_units": 100, "observed_units": 200, "total_tokens": tokens, "cost_usd": 0.01},
     }
+    if provider_request_id is not None:
+        event["providerRequestID"] = provider_request_id
+    return event
 
 
 class PinnedExecutableValidationTests(unittest.TestCase):
@@ -291,8 +297,23 @@ class OneShotRunnerTests(unittest.TestCase):
         )
         self.assertEqual(len(calls), 1)
         self.assertEqual(result["attempts"], 1)
+        # Regression: real OpenCode 1.18.4 output for opencode-go never
+        # carries a provider-issued request ID (verified against seven live
+        # transcripts). A missing request ID must not block acceptance --
+        # provider origin is established downstream via usage/cost
+        # accounting and the sanitized-export cross-check, not this field.
+        self.assertIsNone(result["provider_request_id_digest"])
         self.assertEqual(result["observed_tokens"], runner.SOFT_TOKENS)
         self.assertFalse(process.killed)
+
+    def test_provider_request_id_is_captured_as_optional_bonus_evidence_when_present(self) -> None:
+        process = FakeProcess([_event(runner.SOFT_TOKENS, provider_request_id="req_test_0001")])
+        result = runner.execute_once(
+            command=[str(runner.RUNUSER), "--user", runner.WORKER_USER, "--", str(runner.OPENCODE), "run", "bounded"],
+            environment={},
+            popen=lambda *args, **kwargs: process,
+        )
+        self.assertEqual(result["provider_request_id_digest"], runner._digest_bytes(b"req_test_0001"))
 
     def test_final_repository_byte_pins_are_self_consistent(self) -> None:
         corpus_path = ROOT / "templates/dispatch/provider-qualification/opencode-go-deepseek-v4-flash.json"
@@ -573,7 +594,10 @@ elif a[:1] == ["run"]:
     native = json.loads((state / "auth.json").read_text())
     assert native == {"opencode-go": {"type": "api", "key": "fake-test-credential"}}
     assert json.loads(os.environ["OPENCODE_AUTH_CONTENT"]) == native
-    print(json.dumps({"type": "step_finish", "sessionID": "ses_fake_0001", "part": {"type": "step-finish", "requestID": "req_fake_0001", "tokens": {"input": 100, "output": 50, "reasoning": 50}, "cost": 0.01}}))
+    # Matches real captured OpenCode 1.18.4 output for opencode-go: no
+    # requestID/requestId/providerRequestID field anywhere -- verified
+    # against seven live transcripts, not merely omitted here.
+    print(json.dumps({"type": "step_finish", "sessionID": "ses_fake_0001", "part": {"type": "step-finish", "tokens": {"input": 100, "output": 50, "reasoning": 50}, "cost": 0.01}}))
 elif a[:1] == ["export"]:
     print(json.dumps({"info": {"id": a[1]}, "messages": [{"info": {"role": "assistant", "providerID": "opencode-go", "modelID": "deepseek-v4-flash", "finish": "stop"}, "parts": [{"type": "text"}, {"type": "step-finish"}]}]}))
 else:

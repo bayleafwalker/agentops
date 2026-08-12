@@ -138,6 +138,16 @@ def _digest(value: Any, field: str) -> str:
     return text
 
 
+def _optional_digest(value: Any, field: str) -> str | None:
+    """Validate a digest when present; a real OpenCode provider request
+    identifier is not always available (verified: real OpenCode 1.18.4
+    output for opencode-go never carries one), so this field is optional
+    bonus evidence rather than gating admission."""
+    if value is None:
+        return None
+    return _digest(value, field)
+
+
 def _canonical(value: Any) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
 
@@ -199,8 +209,8 @@ def _validate_inputs(
     corpus_path: Path,
 ) -> None:
     _keys(corpus, {"schema_version", "corpus_id", "route", "workspace", "containment", "budgets", "live_run", "qualification", "historical_basis"}, set(), "corpus")
-    if corpus["schema_version"] != "opencode-provider-qualification/v2":
-        raise QualificationError("corpus schema_version is not opencode-provider-qualification/v2")
+    if corpus["schema_version"] != "opencode-provider-qualification/v3":
+        raise QualificationError("corpus schema_version is not opencode-provider-qualification/v3")
     _non_blank(corpus["corpus_id"], "corpus.corpus_id")
 
     route = corpus["route"]
@@ -601,9 +611,9 @@ def _verify_runner_record(
     _keys(usage, {"source", "baseline", "observed", "artifact_digest", "provider_request_id_digest", "source_event_digest"}, set(), "runner_record.usage")
     if usage["source"] != "opencode-provider-step-finish" or usage["artifact_digest"] != artifact_digests["usage"]:
         raise QualificationError("runner usage evidence is not bound to provider output")
-    _digest(usage["provider_request_id_digest"], "runner_record.usage.provider_request_id_digest")
+    _optional_digest(usage["provider_request_id_digest"], "runner_record.usage.provider_request_id_digest")
     _digest(usage["source_event_digest"], "runner_record.usage.source_event_digest")
-    if usage["provider_request_id_digest"] == usage["source_event_digest"]:
+    if usage["provider_request_id_digest"] is not None and usage["provider_request_id_digest"] == usage["source_event_digest"]:
         raise QualificationError("provider request identifier must not be relabeled whole-event digest")
     record_baseline = _finite_number(usage["baseline"], "runner_record.usage.baseline", positive=True)
     record_observed = _finite_number(usage["observed"], "runner_record.usage.observed")
@@ -667,7 +677,7 @@ def validate_provider_receipt(
         "lifecycle_probe_results", "capability_evidence_digest", "lifecycle_evidence_digest", "evidence_artifacts", "raw_transcript_captured", "qualification_state", "independent_review",
         "runner_id", "run_id", "run_nonce", "packet_digest", "request_digest", "runner_digest", "opencode_digest", "runner_record_digest", "runner_signature_digest", "evidence_bundle_digest", "cost_limit_semantics", "hard_wall_seconds",
     }, set(), "receipt")
-    if receipt["schema_version"] != "opencode-provider-qualification-receipt/v2":
+    if receipt["schema_version"] != "opencode-provider-qualification-receipt/v3":
         raise QualificationError("receipt schema_version is unsupported")
     if receipt["profile_id"] != corpus["route"]["profile_id"]:
         raise QualificationError("receipt profile_id does not match the corpus")
@@ -746,9 +756,9 @@ def validate_provider_receipt(
     _keys(usage_evidence, {"source", "provider_request_id_digest", "source_event_digest", "phase_units"}, set(), "receipt.usage_evidence")
     if usage_evidence["source"] != "provider-reported":
         raise QualificationError("usage evidence must come from the provider")
-    _digest(usage_evidence["provider_request_id_digest"], "receipt.usage_evidence.provider_request_id_digest")
+    _optional_digest(usage_evidence["provider_request_id_digest"], "receipt.usage_evidence.provider_request_id_digest")
     _digest(usage_evidence["source_event_digest"], "receipt.usage_evidence.source_event_digest")
-    if usage_evidence["provider_request_id_digest"] == usage_evidence["source_event_digest"]:
+    if usage_evidence["provider_request_id_digest"] is not None and usage_evidence["provider_request_id_digest"] == usage_evidence["source_event_digest"]:
         raise QualificationError("provider request identifier must not be relabeled whole-event digest")
     phase_units = usage_evidence["phase_units"]
     if not isinstance(phase_units, list) or not phase_units or any(not isinstance(item, dict) or set(item) != {"phase", "units"} for item in phase_units):

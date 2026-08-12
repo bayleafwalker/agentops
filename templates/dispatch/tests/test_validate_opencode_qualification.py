@@ -40,7 +40,7 @@ def _digest_bytes(value: bytes) -> str:
 
 def _receipt() -> dict[str, object]:
     return {
-        "schema_version": "opencode-provider-qualification-receipt/v2",
+        "schema_version": "opencode-provider-qualification-receipt/v3",
         "profile_id": "opencode-nixpkgs-devbox-1.18.4",
         "semantic_adapter": "opencode-noninteractive/v1",
         "cli_version": "1.18.4",

@@ -56,10 +56,20 @@ route, without `--worker-model` or any other override.
   the externally provisioned key whose fingerprint is pinned in the corpus,
   and an atomic consumption marker. A missing,
   stale, forged, or already-consumed record cannot produce `candidate_ready`.
-- Provider origin is carried by the authenticated runner record: the exact
-  sanitized OpenCode export digest and exact provider/model pair must match
-  the structural artifact. A receipt's source labels are never trusted by
-  themselves.
+- Provider origin is carried by the authenticated runner record through two
+  independent cross-checked channels, not a single opaque identifier: (a)
+  bound-checked usage/cost accounting from the live step-finish stream
+  (`_provider_usage` -- positive baseline, two-times ceiling, finite cost),
+  and (b) a separately fetched sanitized OpenCode export whose
+  provider/model/finish grammar (`providerID`, `modelID`, `finish`,
+  `part_types`) must exactly match. A non-provider-contacting stub that
+  speaks OpenCode's event format would have to satisfy both independently
+  fabricated channels to pass, which is what makes this proof meaningful. A
+  genuine provider-issued request identifier is captured and digested when
+  present, but real OpenCode 1.18.4 output for `opencode-go` never carries
+  one (verified against live captures, not merely absent from a fixture) --
+  it is optional bonus evidence, never a gating requirement. A receipt's
+  source labels are never trusted by themselves.
 
 The offline command is intentionally blocked on provider qualification:
 
@@ -332,3 +342,37 @@ not reproduce a second `step_finish` event. The mitigation above is therefore
 a best-effort narrowing plus improved observability, not a confirmed root
 cause fix — treat the next live attempt's diagnostic output as the real
 evidence.
+
+### Confirmed root cause and provider-origin redefinition
+
+The next authorized live attempt used the bounded diagnostics above and
+reported `observed 0 provider events, 0 recorded` — not two events. Direct
+investigation of the deployed runner's own `_provider_event`/
+`_raw_provider_request_id` functions against seven independently captured
+real OpenCode 1.18.4 runs for `opencode-go` (varying agent, prompt, explicit
+vs. config-only model selection, and a fully isolated environment) confirmed
+`_provider_event` returns `False` unconditionally: no real step-finish event,
+in the live JSON stream or the sanitized `opencode export --sanitize`
+output, ever carries a `requestID`/`requestId`/`providerRequestID`/
+`provider_request_id` field. Every identifier present (`id`, `sessionID`,
+`messageID`) is OpenCode-generated, never provider-issued. The prior
+session-title theory was an unconfirmed inference from billed cost, made
+before this diagnostic existed, and was likely wrong — both live failures
+share this one defect.
+
+The test suite's own fixture had fabricated a `providerRequestID` field with
+no basis in any captured transcript, so this gate was never validated
+against reality — it failed closed 100% of the time regardless of actual
+provider contact, which is not a security property, just a permanently
+broken gate that happened to fail in the safe direction.
+
+Provider-origin proof is redefined accordingly (operator-authorized,
+schema `v2` → `v3` since the evidentiary meaning changes): the gate no
+longer requires a provider-issued request identifier. Provider contact is
+established by two independent cross-checked channels instead — see
+"Deterministic routine gates" above. A request identifier remains optional
+bonus evidence, captured and digested when present, for a future OpenCode
+version that emits one. Fixing this does not resurrect either burned
+packet (`eeeab7e6`, `79174c0` live attempts already wrote the permanent
+ledger sentinel before failing); any future live attempt requires a newly
+issued `packet_digest`.
