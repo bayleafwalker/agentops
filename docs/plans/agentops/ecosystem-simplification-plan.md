@@ -190,16 +190,37 @@ between the two backends since it looked backend-agnostic already:
    after ownership changed hands. No existing test caught this on either
    backend; three regression assertions were added.
 
-**Deferred, not attempted:** `create_claim` (sub-increment 4d) and the
-WorkItem CAS functions (`update_work_item_description`,
-`set_work_item_status`). `create_claim` is the highest-risk piece in this
-section — PostgreSQL arbitrates admission with an advisory lock *and* a row
-lock for two distinct concerns (repo-wide capability arbitration vs.
-per-item exclusivity), where SQLite's single `BEGIN IMMEDIATE` does both
-jobs at once. A [planning pass](#p21-planner-assessment-2026-08-13) explicitly
-recommended prototyping the shared-transaction-scaffold abstraction on the
-smaller WorkItem CAS surface before attempting `create_claim`, and that
-prototyping step has not happened yet.
+**Update (2026-08-13, same day):** the WorkItem CAS functions are done. A
+second [planning pass](#p21-planner-assessment-2026-08-13) produced an
+execution-ready design for the transaction-scaffold abstraction
+`create_claim` needs, prototyped first on `update_work_item_description`
+(the smaller of the two CAS functions) and then reused on
+`set_work_item_status` in the same session to confirm it generalizes.
+`WorkItemConn` gained `begin_txn`/`commit`/`rollback`/`for_update_of`/
+`lock_for_update`/`execute`/`insert_event`. The abstraction deliberately
+does not paper over a real concurrency-model difference: SQLite's
+`begin_txn` takes a whole-DB write lock (so two CAS writers on *different*
+items still serialize, unchanged from before this work), while
+PostgreSQL's `lock_for_update` locks only the row in question. What both
+backends must guarantee identically — and what a new SQLite-side
+`threading.Barrier` regression test now proves, mirroring the PostgreSQL
+one that already existed — is that two writers racing the *same* item
+produce exactly one accepted write and one conflict. Verified against both
+the full SQLite suite and the live disposable-PostgreSQL suite with zero
+regressions.
+
+**Deferred, not attempted:** `create_claim` (sub-increment 4d), still the
+highest-risk piece in this section — PostgreSQL arbitrates admission with
+an advisory lock *and* a row lock for two distinct concerns (repo-wide
+capability arbitration vs. per-item exclusivity), where SQLite's single
+`BEGIN IMMEDIATE` does both jobs at once, plus a claim-token collision
+retry loop and a coordinate-claim delegation branch. The planning pass
+that designed the WorkItem CAS work explicitly recommended `create_claim`
+get its own fresh characterization pass rather than being folded into the
+same session, even with live PostgreSQL validation now available: real
+concurrent *processes* (not pytest threads in one process) could still
+hide a lock-ordering risk in the two-tier lock that functional tests won't
+catch.
 
 **LOC estimate correction:** a planning pass over the four already-landed
 CRUD-shaped increments (before this session added workitemcore/eventcore/
