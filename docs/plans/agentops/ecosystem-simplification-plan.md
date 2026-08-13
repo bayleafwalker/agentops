@@ -232,12 +232,12 @@ migration 011 and provisions three distinct runtime credentials: queue
 runtime, completion ingest, and completion read. The completion identities
 need narrowly separated append and SELECT privileges and their corresponding
 DSNs/secrets and authority bindings. Vuoro fails closed when those DSNs are
-missing, empty, or equal; it does not fall back to the queue runtime DSN. No
-`vuoro-service` 0.1.45 has since been released and the dev-only schema-11
-activation/canary has completed. That evidence is deliberately separate from
-P2.3: shared remains on 0.1.44/schema 10 and requires a fresh shared
-preflight/backup plus explicit operator approval before any schema or image
-promotion.
+missing, empty, or equal; it does not fall back to the queue runtime DSN.
+`vuoro-service` 0.1.45 was released and the dev-only schema-11
+activation/canary completed. That evidence was deliberately separate from
+P2.3. Shared activation subsequently proceeded only after an explicit operator
+approval, fresh drain/backup/quiescence evidence, and the same fail-closed
+role boundaries.
 
 **Dev activation evidence (2026-08-13):** Appservice PRs #1476, #1477,
 #1479, and #1480 staged the additive identities, drained `vuoro-dev`, took a
@@ -252,8 +252,27 @@ migration identities are distinct; ingest has only append/projection rights;
 read has only SELECT rights; neither completion identity can mutate queue
 actions/events, create schema objects, or write the migration ledger. The
 remaining dev check is a positive session-completion functional invocation
-with a provisioned non-self-asserted identity authority. It is not a reason to
-relax the shared approval gate.
+with a provisioned non-self-asserted identity authority. It is a functional
+follow-up, not a reason to weaken the authority boundary.
+
+**Shared activation evidence (2026-08-13):** after explicit operator approval,
+Appservice drained `vuoro-shared` at `2026-08-13T18:23:38Z` and completed
+backup `vuoro-shared-execution-schema10-20260813t182338z` (UID
+`7ea6fea5-a905-4a89-a79c-333ca2ac44f5`, backup ID `20260813T183614`) from
+`2026-08-13T18:36:14Z` through `2026-08-13T18:36:25Z`, with begin/end WAL
+`000000010000000500000016`. The exact preflight had ledger 1–10, retained
+actions/events 7/1,192, and zero active sessions, dispatch roots, nonterminal
+records, or other clients. Migration applied schema 11 with retry `[]`; the
+post ledger is 1–11 and retained counts remain 7/1,192. Both
+`vuoro-service` and `actionq-db-proxy` now use the same attested 0.1.45 OCI
+digest `sha256:9ce139991c376855448134544b1d3cc7a5c6bdb1ea4f1aa5acff7509e9141ed3`.
+The shared handshake reports four compatible domains, schema 11, and the
+84-operation revision
+`fc308e37ff1d56eccd9bd1f5372bf782e017936acf44994b22ddba4863e9f196`.
+Authority-negative checks left no forbidden completion privilege residue.
+Runtime activation is complete; the positive completion functional canary
+still needs a provisioned non-self-asserted identity authority, while P2.2
+remains an independent unstarted consumer-migration program.
 
 ### P2.1 — sprintctl `db.py`/`pg.py` backend unification (2026-08-13)
 
