@@ -22,6 +22,15 @@ resolve them directly (read both sides, merge the actual intent) rather than
 aborting or force-picking one side; only stop and flag it to the user if a
 conflict can't be resolved confidently.
 
+GitHub CLI access on the workstation is intentionally available outside the
+Codex filesystem/network sandbox. A sandboxed `gh auth status`, `gh repo`,
+`gh pr`, `gh run`, or other GitHub API failure is therefore inconclusive. Retry
+the required `gh` command with sandbox escalation before diagnosing expired
+authentication, unavailable networking, or asking the operator to log in. Do
+not report GitHub as blocked from sandbox-only evidence. If the escalated retry
+fails, report that exact outside-sandbox result. Use the narrowest reusable
+`gh` command prefix appropriate to the requested operation.
+
 - Repositories opt in with one root `*.dispatch.json` and repository-specific overlays under `.agents/overlays/`.
 - Reusable verification intent belongs in data-only `verification/contexts/*.json`; executable tests and production logic remain in the owning repository.
 - Inspect declared `risk_surfaces` before changing queue, claim, lease, retry, recovery, projection, publication, reconciliation, or backend-parity paths.

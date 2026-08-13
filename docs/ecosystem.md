@@ -314,9 +314,17 @@ actionctl sweep   # requeue timed-out claims
 
 ### actionq-dispatcher
 
-**What it does.** A one-shot coordinator that claims a single pending action, prepares an isolated git worktree, invokes an agent worker (Claude via CLI, or a fake worker for smoke testing), validates the resulting diff against configured ACLs and gates, and records the outcome through `actionctl` and `sprintctl`.
+**Status: deprecated compatibility shim.** `actionq-dispatcher` is retained only
+as a transparent launcher for the historical `dispatcher-once` command. It
+delegates one bounded cycle to ActionQ's canonical daemon (`actionq-daemon
+--once`). ActionQ owns queue claims, worktree preparation, policy enforcement,
+harness invocation, and settlement; do not add those behaviors back to this
+package.
 
-**When to use it.** When running agent sessions from a cron job, systemd timer, or manual invocation. Each `dispatcher-once` call handles exactly one action cycle. Scheduling frequency is an operator decision external to the tool.
+**When to use it.** Only when a caller still invokes `dispatcher-once`
+directly. New work should use `actionq-daemon` (long-running) or
+`actionq-daemon --once` (single cycle). The package may be retired once
+`actionq-daemon` parity is proven in production.
 
 **Install.**
 ```bash
