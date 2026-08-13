@@ -64,7 +64,7 @@ authority.
 
 | # | Work item | Owner | Outcome | Status (2026-08-13) |
 |---|---|---|---|---|
-| P2.1 | Extract backend-agnostic repository protocol; collapse mirrored `sprintctl/db.py`/`pg.py` | `sprintctl` | ~6,000 LOC duplicated logic removed | **In progress, substantial.** See the Progress log below: 11 increments landed (rows/sprint/track/ref/dep/workitem CRUD+CAS/event/claim read+heartbeat+release+handoff), validated on SQLite and live PostgreSQL. `create_claim` (the highest-risk piece) is the one deliberately deferred remainder. |
+| P2.1 | Extract backend-agnostic repository protocol; collapse mirrored `sprintctl/db.py`/`pg.py` | `sprintctl` | ~6,000 LOC duplicated logic removed | **Done.** All CRUD, CAS, and claim-lifecycle operations (including `create_claim`/`handoff_claim`, the last and highest-risk remainder) are unified behind `<table>core.py` Protocol/adapter modules. See the Progress log below. |
 | P2.2 | Extract shared central-schema runtime for `kctl`, `auditctl`, `actionq` | `kctl`/`auditctl`/`actionq` + `vuoro` packaging | Eliminates triplicated schema machinery | **Confirmed the duplication is real and scoped it; execution needs its own multi-repo planning pass, not attempted.** All three have independently-implemented migration/bookkeeping infrastructure: kctl's `kctl/central_migrations.py` (131 lines) and auditctl's `auditctl/central_schema.py` (532 lines) each own a `schema_migration`/`schema_principal` table pair, `__SCHEMA__` templating, sha256-verified migration application, and GRANT/REVOKE role security; actionq's `actionq/schema.py` has its own runner with a differently-named table (`schema_migrations`, plural — a naming inconsistency across repos, not just duplicated logic). This is materially different in kind from P2.1: it needs a *new* shared package (the plan's own Owner column says "vuoro packaging," implying it doesn't exist yet), then three separate consumer migrations to adopt it — and it touches database role/permission security code in three production systems. Not something to start without a dedicated cross-repo planning pass; flagging the real scope rather than leaving it an unexamined "not started." |
 | P2.3 | Extract shared Vuoro adapter base for JSON-schema builder/registration boilerplate | `vuoro` (library) + domain owners | Four adapters shrink and align | **Not started.** Not investigated this session. |
 | P2.4 | Remove direct cross-member internal imports from Vuoro verification scripts and kctl source | `vuoro` + `kctl` | Transport-only boundary restored | **Not started.** Not investigated this session. |
@@ -151,7 +151,7 @@ The program is complete when:
 1. Every contention point in §4 has a ratified decision record. **4/5 resolved with evidence as of 2026-08-13; Recovery authority investigated and a concrete next step identified, not yet ratified.**
 2. No member imports another member's internal modules directly (except
    explicitly authorized test fixtures). **Not audited this session (P2.4 scope).**
-3. `sprintctl` has one backend-agnostic storage layer. **Substantially there** — 11 increments landed on `db.py`/`pg.py` unification (see P2.1 progress log); `create_claim` is the one deliberately deferred piece.
+3. `sprintctl` has one backend-agnostic storage layer. **Done** — `db.py`/`pg.py` unification complete, including `create_claim`/`handoff_claim` (see P2.1 progress log).
 4. `kctl`, `auditctl`, and `actionq` share a central-schema runtime. **Not started** (P2.2).
 5. God modules identified in Phase 3 are split into submodules/services. **Not started** (P3.1-P3.5).
 6. `actionq-dispatcher` is either retired or documented as a deprecated shim. **Done** — documented as a deprecated shim in `docs/ecosystem.md`, code is a thin launcher; full retirement awaits `actionq-daemon` production-parity proof.
@@ -237,6 +237,40 @@ figure in the P2.1 row above is very unlikely to be sprintctl's slice
 alone; it most likely refers to the cross-repo P2.x total. Whoever owns
 this plan should correct or re-scope that estimate so P2.1's tracked
 outcome isn't read as under-delivered once sprintctl's portion lands.
+
+**Completed (2026-08-13, later same day): `create_claim`/`handoff_claim`.**
+Sub-increments 4d (protocol/pure-function extraction) and 4e (unifying both
+functions' bodies) landed in one commit (`ce09f54`). `ClaimConn` gained the
+same `begin_txn`/`commit`/`rollback`/`execute`/`insert_row` scaffold as
+`WorkItemConn`, plus claim-specific members: `lock_capability_arbitration`
+(no-op on SQLite, `pg_advisory_xact_lock` on PostgreSQL),
+`lock_work_item_row` (existence-check read on SQLite, `SELECT ... FOR
+UPDATE` on PostgreSQL — now called unconditionally on exclusive creates on
+both backends, closing a latent asymmetry where SQLite's existence check
+ran once before the retry loop instead of inside the locked transaction),
+`is_claim_token_collision`, and `maintenance_capability_active_sql`. Both
+functions' full bodies now live once in `claimcore.py`; `db.py`/`pg.py`
+keep thin wrappers. `require_claim_proof` and
+`MAX_CLAIM_TOKEN_INSERT_RETRIES` moved to `claimcore.py` too (same
+asymmetry fix as `EditConflict`/`StatusConflict`).
+
+Verified against a disposable PostgreSQL instance
+(`sprintctl_test_agent`/`sprintctl_test_run`) re-created for this session:
+1660 passed across the full SQLite+PG suite, 8 pre-existing failures
+(terminal-recovery ledger tests and a `str`/`datetime` driver mismatch,
+confirmed present before this change and unrelated to claims), 3 skipped —
+zero regressions. Two tests needed updating to track relocated internals
+(`test_failure_modes.py`'s token-collision tests now patch
+`claimcore._generate_claim_token`; `test_pg_integration.py`'s advisory-lock
+race test now patches `_ClaimPg.lock_capability_arbitration` instead of the
+removed free function it replaced) — both are infrastructure follow-ups of
+the move, not new test coverage.
+
+P2.1 is now complete. The deferred-work note above (real concurrent
+*processes* vs. pytest threads possibly hiding a lock-ordering risk in the
+two-tier PG lock) still applies as residual risk for production rollout,
+not as unfinished scope — the lock order itself was not changed by this
+extraction, only relocated.
 
 #### P2.1 planner assessment (2026-08-13)
 
