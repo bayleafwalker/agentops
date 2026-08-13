@@ -1,6 +1,6 @@
 ---
 doc_id: ecosystem-simplification
-status: draft
+status: active
 proposed_by: operator
 created_at: 2026-08-12
 references:
@@ -41,52 +41,52 @@ authority.
 
 ### Phase 0 — Foundational cleanup (low risk, high clarity)
 
-| # | Work item | Owner | Outcome |
-|---|---|---|---|
-| P0.1 | Remove stale `actionq/build/lib/` artifacts; enforce `build/` hygiene | `actionq` | Clean working tree |
-| P0.2 | Eliminate `sys.path` mutation in tests/scripts; use `PYTHONPATH` or package installs | `agentops`, `actionq`, `actionq-dispatcher` | Test reliability |
-| P0.3 | Inline duplicated canonical-JSON helpers in `outctl` into `serialization.py` | `outctl` | Reduced duplication |
-| P0.4 | Merge `kubectl_guard.py` + `kubectl_readonly_guard.py` in `outctl` | `outctl` | Single policy implementation |
-| P0.5 | Reconcile `actionq-contracts` workspace vs. PyPI dependency in `actionq` | `actionq` | Consistent packaging |
-| P0.6 | Document current boundary resolutions for contention points in §4 | `agentops` | Single source of truth |
+| # | Work item | Owner | Outcome | Status (2026-08-13) |
+|---|---|---|---|---|
+| P0.1 | Remove stale `actionq/build/lib/` artifacts; enforce `build/` hygiene | `actionq` | Clean working tree | **Done.** `build/` was already gitignored in both `actionq` and `actionq-dispatcher` (hygiene already enforced); removed the stale untracked local directories in both this session. Nothing to commit — they were never tracked. |
+| P0.2 | Eliminate `sys.path` mutation in tests/scripts; use `PYTHONPATH` or package installs | `agentops`, `actionq`, `actionq-dispatcher` | Test reliability | **Not started.** Confirmed the scope is real: `sys.path.insert`/`.append` appears in ~14 files across all three repos (agentops's `templates/dispatch/{scripts,tests}/`, actionq's `tests/conftest.py` and two test modules, actionq-dispatcher's `tests/conftest.py`). Not attempted — needs a per-file judgment call (some `conftest.py` sys.path tricks are legitimate pytest-bootstrap patterns, not necessarily bugs) that's its own dedicated pass, not a rushed sweep. |
+| P0.3 | Inline duplicated canonical-JSON helpers in `outctl` into `serialization.py` | `outctl` | Reduced duplication | **Not investigated closely enough to call.** `outctl/src/outctl/serialization.py` exists and owns canonical-JSON logic; a grep for JSON-serialization patterns also hits `kubernetes.py`, `ux.py`, `cli.py`, `pilot.py`, `capture/runner.py` — but that grep isn't precise enough to confirm true duplication versus unrelated `json.dumps` calls. Needs a real diff pass, not done this session. |
+| P0.4 | Merge `kubectl_guard.py` + `kubectl_readonly_guard.py` in `outctl` | `outctl` | Single policy implementation | **Investigated; not a simple merge.** Both files live under `outctl/acceptance/codex_appservice_ab/`. Diffed them: they're guardrails for two distinct experiment arms with materially different constraints (arm A requires kubectl invoked via `outctl run` and tracks a `wrapped_by_outctl` flag; the read-only arm doesn't and has its own direct-invocation check) — not copy-pasted duplication. "Merge" likely means parametrizing one guard by arm rather than literally combining two files; that's a real design decision, not this session's call to make unilaterally. |
+| P0.5 | Reconcile `actionq-contracts` workspace vs. PyPI dependency in `actionq` | `actionq` | Consistent packaging | **Confirmed not done.** `actionq/pyproject.toml` declares both `"actionq-contracts==0.1.1"` in `[project.dependencies]` *and* `actionq-contracts = { workspace = true }` in the workspace-sources override — exactly the coexisting-declarations tension this item describes. Not reconciled. |
+| P0.6 | Document current boundary resolutions for contention points in §4 | `agentops` | Single source of truth | **Done.** Same as B1.1 — ratified in agentops `e4b36bb`. |
 
 ### Phase 1 — Critical-path intent alignment (strategic priority)
 
-| # | Work item | Owner | Outcome |
-|---|---|---|---|
-| P1.1 | Deprecate `actionq-dispatcher` and absorb residual coordinator behavior into `actionq-daemon` | `actionq` + `agentops` docs | One execution authority |
-| P1.2 | Decide and record Runner vs. ActionQ worktree ownership | `actionq` + `vuoro` | No ambiguity |
-| P1.3 | Remove stale cockpit direct-SQL exception documentation; verify activation uses sprintctl command | `agentops` cockpit + `sprintctl` | No raw DB writes from UI |
-| P1.4 | Decide recovery authority disposition per `vuoro/docs/plans/architectural-simplification-alignment.md` V-S2 | `vuoro` + `sprintctl` | Recovery has an owner |
-| P1.5 | Add `outctl` to member enumerations consistently | `agentops` + `outctl` | Outctl treated as full member |
+| # | Work item | Owner | Outcome | Status (2026-08-13) |
+|---|---|---|---|---|
+| P1.1 | Deprecate `actionq-dispatcher` and absorb residual coordinator behavior into `actionq-daemon` | `actionq` + `agentops` docs | One execution authority | **Done at the code/doc level**, same evidence as B1.2. `actionq-daemon` production-parity proof (the stated condition for eventually retiring the package outright) is separately tracked, not blocking. |
+| P1.2 | Decide and record Runner vs. ActionQ worktree ownership | `actionq` + `vuoro` | No ambiguity | **Done**, same evidence as B1.3. |
+| P1.3 | Remove stale cockpit direct-SQL exception documentation; verify activation uses sprintctl command | `agentops` cockpit + `sprintctl` | No raw DB writes from UI | **Done**, same evidence as B1.4. |
+| P1.4 | Decide recovery authority disposition per `vuoro/docs/plans/architectural-simplification-alignment.md` V-S2 | `vuoro` + `sprintctl` | Recovery has an owner | **Investigated, not decided.** See the Recovery authority note under §4 — the hard "no in-memory production path" constraint isn't violated (the code is dead/unreachable), but V-S2's disposition was never formally ratified. A concrete, low-risk next step (delete the dead `RecoveryReconciler` module) is identified and ready, not yet executed. |
+| P1.5 | Add `outctl` to member enumerations consistently | `agentops` + `outctl` | Outctl treated as full member | **Done**, same evidence as B1.5. |
 
 ### Phase 2 — Structural duplication reduction
 
-| # | Work item | Owner | Outcome |
-|---|---|---|---|
-| P2.1 | Extract backend-agnostic repository protocol; collapse mirrored `sprintctl/db.py`/`pg.py` | `sprintctl` | ~6,000 LOC duplicated logic removed |
-| P2.2 | Extract shared central-schema runtime for `kctl`, `auditctl`, `actionq` | `kctl`/`auditctl`/`actionq` + `vuoro` packaging | Eliminates triplicated schema machinery |
-| P2.3 | Extract shared Vuoro adapter base for JSON-schema builder/registration boilerplate | `vuoro` (library) + domain owners | Four adapters shrink and align |
-| P2.4 | Remove direct cross-member internal imports from Vuoro verification scripts and kctl source | `vuoro` + `kctl` | Transport-only boundary restored |
+| # | Work item | Owner | Outcome | Status (2026-08-13) |
+|---|---|---|---|---|
+| P2.1 | Extract backend-agnostic repository protocol; collapse mirrored `sprintctl/db.py`/`pg.py` | `sprintctl` | ~6,000 LOC duplicated logic removed | **In progress, substantial.** See the Progress log below: 11 increments landed (rows/sprint/track/ref/dep/workitem CRUD+CAS/event/claim read+heartbeat+release+handoff), validated on SQLite and live PostgreSQL. `create_claim` (the highest-risk piece) is the one deliberately deferred remainder. |
+| P2.2 | Extract shared central-schema runtime for `kctl`, `auditctl`, `actionq` | `kctl`/`auditctl`/`actionq` + `vuoro` packaging | Eliminates triplicated schema machinery | **Not started.** Not investigated this session. |
+| P2.3 | Extract shared Vuoro adapter base for JSON-schema builder/registration boilerplate | `vuoro` (library) + domain owners | Four adapters shrink and align | **Not started.** Not investigated this session. |
+| P2.4 | Remove direct cross-member internal imports from Vuoro verification scripts and kctl source | `vuoro` + `kctl` | Transport-only boundary restored | **Not started.** Not investigated this session. |
 
 ### Phase 3 — God-module decomposition
 
-| # | Work item | Owner | Outcome |
-|---|---|---|---|
-| P3.1 | Split `sprintctl/cli.py` into `commands/` subpackage | `sprintctl` | Reviewable command modules |
-| P3.2 | Split `sprintctl/application.py` into service classes | `sprintctl` | Testable services |
-| P3.3 | Split `actionq/daemon.py` into lifecycle/runner/routing/audit/claim-client modules | `actionq` | Daemon maintainable |
-| P3.4 | Split `actionq/application.py` into enqueue/claim/complete/groups/outbox services | `actionq` | Clear boundaries |
-| P3.5 | Split `kctl/application.py` and `agentops` orchestration scripts | `kctl`, `agentops` | Parallel ownership |
+| # | Work item | Owner | Outcome | Status (2026-08-13) |
+|---|---|---|---|---|
+| P3.1 | Split `sprintctl/cli.py` into `commands/` subpackage | `sprintctl` | Reviewable command modules | **Not started.** `sprintctl/cli.py` is still one file (referenced at 8000+ lines elsewhere in this session's work); not attempted. |
+| P3.2 | Split `sprintctl/application.py` into service classes | `sprintctl` | Testable services | **Not started.** |
+| P3.3 | Split `actionq/daemon.py` into lifecycle/runner/routing/audit/claim-client modules | `actionq` | Daemon maintainable | **Not started.** Depends on P1.1's `actionq-daemon` parity work per the risk table below. |
+| P3.4 | Split `actionq/application.py` into enqueue/claim/complete/groups/outbox services | `actionq` | Clear boundaries | **Not started.** |
+| P3.5 | Split `kctl/application.py` and `agentops` orchestration scripts | `kctl`, `agentops` | Parallel ownership | **Not started.** |
 
 ### Phase 4 — Test and release ergonomics
 
-| # | Work item | Owner | Outcome |
-|---|---|---|---|
-| P4.1 | Merge sprintctl SQLite/PG test files via backend fixture parametrization | `sprintctl` | One test source |
-| P4.2 | Split oversized integration tests by domain/operation | `sprintctl`, `actionq`, `kctl` | Faster, focused tests |
-| P4.3 | Replace git-SHA pins of `vuoro-client` with released tags | `sprintctl`, `kctl` | Stable releases |
-| P4.4 | Remove transitional feature flags once migrations complete | `actionq`, `sprintctl` | No dead toggles |
+| # | Work item | Owner | Outcome | Status (2026-08-13) |
+|---|---|---|---|---|
+| P4.1 | Merge sprintctl SQLite/PG test files via backend fixture parametrization | `sprintctl` | One test source | **Not started.** `tests/test_core.py` (SQLite) and `tests/test_pg_integration.py` (PostgreSQL) remain separate files; this session added tests to both independently (mirroring, not parametrizing) rather than merging — consistent with not having started this item, flagged here rather than silently working around it. |
+| P4.2 | Split oversized integration tests by domain/operation | `sprintctl`, `actionq`, `kctl` | Faster, focused tests | **Not started.** |
+| P4.3 | Replace git-SHA pins of `vuoro-client` with released tags | `sprintctl`, `kctl` | Stable releases | **Confirmed not done, and blocked upstream.** `sprintctl/pyproject.toml` pins `vuoro-client @ git+...@1cce813b...`, with an inline comment explaining vuoro has no release tag yet (only `0.1.0.dev0` in-tree). This item can't complete until `vuoro` cuts a real `vuoro-client-vX.Y.Z` tag — that's vuoro-owned prerequisite work, not sprintctl's to unblock. |
+| P4.4 | Remove transitional feature flags once migrations complete | `actionq`, `sprintctl` | No dead toggles | **Not started.** Not investigated this session. |
 
 ### Phase 5 — outctl migration support
 
@@ -148,16 +148,16 @@ What's actually true: `vuoro_service.recovery.RecoveryReconciler` (`packages/vuo
 
 The program is complete when:
 
-1. Every contention point in §4 has a ratified decision record.
+1. Every contention point in §4 has a ratified decision record. **4/5 resolved with evidence as of 2026-08-13; Recovery authority investigated and a concrete next step identified, not yet ratified.**
 2. No member imports another member's internal modules directly (except
-   explicitly authorized test fixtures).
-3. `sprintctl` has one backend-agnostic storage layer.
-4. `kctl`, `auditctl`, and `actionq` share a central-schema runtime.
-5. God modules identified in Phase 3 are split into submodules/services.
-6. `actionq-dispatcher` is either retired or documented as a deprecated shim.
-7. Cockpit does not perform raw sprintctl DB writes.
-8. Transitional feature flags and git-SHA pins are removed.
-9. `outctl` is consistently represented as a member.
+   explicitly authorized test fixtures). **Not audited this session (P2.4 scope).**
+3. `sprintctl` has one backend-agnostic storage layer. **Substantially there** — 11 increments landed on `db.py`/`pg.py` unification (see P2.1 progress log); `create_claim` is the one deliberately deferred piece.
+4. `kctl`, `auditctl`, and `actionq` share a central-schema runtime. **Not started** (P2.2).
+5. God modules identified in Phase 3 are split into submodules/services. **Not started** (P3.1-P3.5).
+6. `actionq-dispatcher` is either retired or documented as a deprecated shim. **Done** — documented as a deprecated shim in `docs/ecosystem.md`, code is a thin launcher; full retirement awaits `actionq-daemon` production-parity proof.
+7. Cockpit does not perform raw sprintctl DB writes. **Done** — verified via `write-surface-policy.md`.
+8. Transitional feature flags and git-SHA pins are removed. **Not done** — `vuoro-client` is still pinned by git SHA in `sprintctl/pyproject.toml`, blocked on `vuoro` cutting a release tag (P4.3); feature-flag audit (P4.4) not investigated.
+9. `outctl` is consistently represented as a member. **Done** — verified via `project.toml` and `docs/ecosystem.md`.
 
 ## Progress log
 
