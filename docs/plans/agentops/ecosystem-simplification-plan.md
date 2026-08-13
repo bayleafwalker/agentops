@@ -65,8 +65,8 @@ authority.
 | # | Work item | Owner | Outcome | Status (2026-08-13) |
 |---|---|---|---|---|
 | P2.1 | Extract backend-agnostic repository protocol; collapse mirrored `sprintctl/db.py`/`pg.py` | `sprintctl` | ~6,000 LOC duplicated logic removed | **Done.** All CRUD, CAS, and claim-lifecycle operations (including `create_claim`/`handoff_claim`, the last and highest-risk remainder) are unified behind `<table>core.py` Protocol/adapter modules. See the Progress log below. |
-| P2.2 | Extract shared central-schema runtime for `kctl`, `auditctl`, `actionq` | `kctl`/`auditctl`/`actionq` + `vuoro` packaging | Eliminates triplicated schema machinery | **Architecture decided and package scaffold committed locally (2026-08-13); consumer migration is not started.** The shared runtime is the Vuoro-owned `vuoro-schema-runtime` package. Its scaffold and corrections are in Vuoro commits `cbf1d4f`, `2a0e4f3`, `8d659bb`, and `ff212d9`; the composition-v3 lock/attestation prerequisite is in `6eba6d6` and `0f07105`. These are local commits: the package is safe to tag, but no tag, push, or consumer release has happened. The original investigation remains valid: kctl's `kctl/central_migrations.py`, auditctl's `auditctl/central_schema.py`, and actionq's `actionq/schema.py` have materially different migration, naming, and role-security details. Each consumer still needs a separately reviewed compatibility migration. |
-| P2.3 | Extract shared Vuoro adapter base for JSON-schema builder/registration boilerplate | `vuoro` (library) + domain owners | Four adapters shrink and align | **Architecture decided and package scaffold committed locally (2026-08-13); consumer migration is not started.** The shared adapter contract is the Vuoro-owned `vuoro-adapter-kit` package, paired with `vuoro-schema-runtime` rather than placed in a new member or in `agentops`. The same Vuoro commits (`cbf1d4f`, `2a0e4f3`, `8d659bb`, `ff212d9`) scaffold and narrow the package to pure contracts and strict operation validation, while composition-v3 lock/attestation hardening is in `6eba6d6` and `0f07105`. These are local commits: the package is safe to tag, but no tag, push, or consumer release has happened. The four existing adapters still require separate migrations, preserving domain authority and wire behavior. |
+| P2.2 | Extract shared central-schema runtime for `kctl`, `auditctl`, `actionq` | `kctl`/`auditctl`/`actionq` + `vuoro` packaging | Eliminates triplicated schema machinery | **Foundation released; consumer migration not started.** Vuoro released the stdlib-only `vuoro-schema-runtime` 0.1.0 as the immutable GitHub Release `vuoro-schema-runtime-v0.1.0` (wheel SHA-256 `b66c9357c99aa9e1a7353991ce54105a8621958ecfac47f8c121d80b90b77912`). It is not a PyPI package. No member has adopted it yet: kctl 0.1.2's adapter-kit use is an adapter-contract migration, not a schema-runtime migration. The original finding remains decisive — kctl's `central_migrations.py`, auditctl's `central_schema.py`, and actionq's `schema.py` differ in migration history, naming, and role-security behavior — so each needs its own compatibility plan and owner-reviewed migration proof. |
+| P2.3 | Extract shared Vuoro adapter base for JSON-schema builder/registration boilerplate | `vuoro` (library) + domain owners | Four adapters shrink and align | **Foundation released; one of four consumer migrations complete.** Vuoro released `vuoro-adapter-kit` 0.1.0 as the immutable GitHub Release `vuoro-adapter-kit-v0.1.0` (wheel SHA-256 `0037898a4c9f01720a42302365b0172ecd203732070326ea2abdf549a44bf0c2`), with composition-v3 release locks separating adapters from owner/shared dependencies. `kctl` 0.1.2 adopted the kit for its knowledge adapter and Vuoro's released composition pins and validates that exact wheel alongside kctl. Auditctl, ActionQ, and Sprintctl have not adopted it. Their migrations must preserve catalog bytes, operation schemas, registration order, invocation behavior, and domain authority; they are separately reviewable owner changes, not a bulk refactor. GitHub Releases are the sole artifact authority; no PyPI publication is planned. |
 | P2.4 | Remove direct cross-member internal imports from Vuoro verification scripts and kctl source | `vuoro` + `kctl` | Transport-only boundary restored | **Audit complete (2026-08-13); capability-probe disposition pending.** `kctl/` has zero top-level imports of `sprintctl`/`actionq`/`auditctl`/`vuoro_service`. The Vuoro grep hits in `verify_pre_migration_startup.py` are source strings executed inside a candidate image, and the state-seeding imports in `test_2029_actual_sprintctl_composition.py` and `validate_released_work_adapter.py` fit the authorized test-fixture exception. `scripts/capability_safety_probe.py` remains the one unresolved judgment call: it directly imports sprintctl PostgreSQL capability-admission code because no adapter surface exposes that invariant. The audit is complete; deciding whether to retain that composition-boundary probe or replace it with a transport-safe proof remains open. |
 
 ### Phase 3 — God-module decomposition
@@ -85,7 +85,7 @@ authority.
 |---|---|---|---|---|
 | P4.1 | Consolidate sprintctl backend-common test cases through fixture parametrization while retaining domain-split files | `sprintctl` | One backend-common test source | **Reframed (2026-08-13), not started.** P4.2's domain split is compatible with P4.1: retain the `tests/pg/` domain modules and move only backend-common cases into parametrized modules/contracts; keep PostgreSQL-only concurrency, schema, and integration coverage under `tests/pg/`. The earlier literal "merge SQLite/PG test files" wording is superseded by this decomposition-aware target. |
 | P4.2 | Split oversized integration tests by domain/operation | `sprintctl`, `actionq`, `kctl` | Faster, focused tests | **`sprintctl`'s `test_pg_integration.py` done; `test_served_lifecycle_routes.py`, `actionq`, `kctl` not started.** `tests/test_pg_integration.py` (3611 lines, 20 classes) is now `tests/pg/` — twelve domain-grouped files sharing `tests/pg/_shared.py`'s fixtures/helpers, registered via `tests/pg/conftest.py`. Verified zero regressions (1660 passed / 8 pre-existing unrelated failures / 3 skipped, unchanged from before the split). `tests/test_served_lifecycle_routes.py` (3446 lines) is the other named oversized file and has not been looked at; `actionq`/`kctl` not investigated. |
-| P4.3 | Replace git-SHA pins of `vuoro-client` with released tags | `sprintctl`, `kctl` | Stable releases | **Confirmed not done, and blocked upstream.** `sprintctl/pyproject.toml` pins `vuoro-client @ git+...@1cce813b...`, with an inline comment explaining vuoro has no release tag yet (only `0.1.0.dev0` in-tree). This item can't complete until `vuoro` cuts a real `vuoro-client-vX.Y.Z` tag — that's vuoro-owned prerequisite work, not sprintctl's to unblock. |
+| P4.3 | Replace git-SHA pins of `vuoro-client` with released tags | `sprintctl`, `kctl` | Stable releases | **Confirmed not done, and blocked upstream.** The released shared contract wheels do not satisfy this item: `sprintctl/pyproject.toml` still pins `vuoro-client @ git+...@1cce813b...`, and no `vuoro-client-vX.Y.Z` release exists. This requires a Vuoro-owned client release decision and an immutable GitHub Release wheel; PyPI is explicitly out of scope. |
 | P4.4 | Remove transitional feature flags once migrations complete | `actionq`, `sprintctl` | No dead toggles | **Audit reconciled (2026-08-13); removal remains migration-gated.** No feature flags were found in `actionq`. `sprintctl/authority.py` is explicitly the feature-flagged migration path alongside the retained SQLite/PostgreSQL default functions. The audit is now complete and the flag cannot be removed until the authority-path migration and served-mode cutover are complete; premature removal would delete the fallback path mid-migration. |
 
 ### Phase 5 — outctl migration support
@@ -157,7 +157,7 @@ The program is complete when:
    `maintenance_capability` use remains a pending disposition decision; the
    audit itself is complete.
 3. `sprintctl` has one backend-agnostic storage layer. **Done** — `db.py`/`pg.py` unification complete, including `create_claim`/`handoff_claim` (see P2.1 progress log).
-4. `kctl`, `auditctl`, and `actionq` share a central-schema runtime. **Prerequisite package scaffold committed; consumer migrations not started** (P2.2).
+4. `kctl`, `auditctl`, and `actionq` share a central-schema runtime. **Foundation released; consumer migrations not started** (P2.2).
 5. God modules identified in Phase 3 are split into submodules/services. **In progress** — P3.1's first command extraction landed; P3.2-P3.5 remain not started.
 6. `actionq-dispatcher` is either retired or documented as a deprecated shim. **Done** — documented as a deprecated shim in `docs/ecosystem.md`, code is a thin launcher; full retirement awaits `actionq-daemon` production-parity proof.
 7. Cockpit does not perform raw sprintctl DB writes. **Done** — verified via `write-surface-policy.md`.
@@ -165,6 +165,39 @@ The program is complete when:
 9. `outctl` is consistently represented as a member. **Done** — verified via `project.toml` and `docs/ecosystem.md`.
 
 ## Progress log
+
+### Shared-package releases and Vuoro service 0.1.44 (2026-08-13)
+
+Vuoro's composition-v3 foundation is now published and deploy-proven:
+
+- `vuoro-adapter-kit-v0.1.0` and `vuoro-schema-runtime-v0.1.0` are immutable
+  GitHub Releases. Their wheel SHA-256 values are respectively
+  `0037898a4c9f01720a42302365b0172ecd203732070326ea2abdf549a44bf0c2` and
+  `b66c9357c99aa9e1a7353991ce54105a8621958ecfac47f8c121d80b90b77912`.
+  GitHub Releases, not PyPI, are the sole artifact authority for this
+  single-operator ecosystem.
+- `kctl` 0.1.2 is the first P2.3 consumer. Its released knowledge adapter has
+  a direct immutable dependency on the adapter-kit wheel; Vuoro composition
+  records it as a `shared-dependency` lock and validates the released-wheel
+  composition. This establishes the adapter migration path, not the schema
+  runtime migration path.
+- `vuoro-service-v0.1.43` produced a wheel but its OCI build failed during
+  shared-wheel installation. It was never an accepted deployable candidate
+  and is superseded; it must not be promoted or reused. The follow-up source
+  fix released `vuoro-service-v0.1.44` at `a7c6544`, whose attested OCI
+  digest is
+  `sha256:f5b382a8abe90640d6bfebe720641251407dc563b1e52ee93c85e3710ccdd5c3`.
+- The digest passed candidate verification, then a GitOps dev canary. The
+  canary exposed a missing observer-policy mount, added in appservice PR
+  #1474. After the corrected dev evidence, appservice PR #1475 promoted the
+  same digest to `vuoro-shared`, updating both `vuoro-service` and
+  `actionq-db-proxy`. Flux reported revision `906f763d` Ready. Both deployed
+  environments reported compatible readiness, all four domains compatible,
+  80 catalog operations, and handshake version 0.1.44. No database,
+  migration, secret, or route change was made.
+
+The durable Vuoro-side release/promotion record is
+`vuoro/docs/plans/2026-08-13-vuoro-service-0.1.44-promotion.md`.
 
 ### P2.1 — sprintctl `db.py`/`pg.py` backend unification (2026-08-13)
 
@@ -307,7 +340,6 @@ session picks up `create_claim`, rather than re-derived from scratch.
   `vuoro-schema-runtime` while preserving existing schema names, migration
   history, and role-security behavior? (P2.2 execution planning)
 - How should the four domain adapters adopt `vuoro-adapter-kit` while
-  preserving their wire contracts and independent authority? (P2.3 execution
-  planning)
-- When should the two Vuoro packages be tagged and released for consumers?
-  The current local scaffolds are ready to tag, but no release has occurred.
+  preserving their wire contracts and independent authority? `kctl` provides
+  the first released example; auditctl, ActionQ, and Sprintctl remain (P2.3
+  execution planning).
