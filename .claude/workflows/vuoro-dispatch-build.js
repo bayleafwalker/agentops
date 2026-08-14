@@ -597,24 +597,45 @@ async function closeRepo(state, push) {
   return { ...state, closeResults: normalizeCloseResults(state.repo, pairs, raw) }
 }
 
-const parsedArgs = parseArgs(args)
+// Keep the workflow entrypoint loader-compatible (it evaluates one script as
+// an AsyncFunction), while making the orchestration ownership explicit. These
+// services are deliberately data-only facades: input normalization, execution
+// phases, publication, and closeout can evolve independently without changing
+// the saved workflow contract.
+const buildInputService = Object.freeze({
+  parseArgs,
+  boundedInteger,
+  cleanInputItems,
+  groupByRepo,
+})
+const buildExecutionService = Object.freeze({
+  resolveTier,
+  buildRepo,
+  verifyRepo,
+})
+const buildPublicationService = Object.freeze({
+  publishRepo,
+  closeRepo,
+})
+
+const parsedArgs = buildInputService.parseArgs(args)
 if (!parsedArgs || !Array.isArray(parsedArgs.items) || !parsedArgs.items.length) {
   throw new Error('vuoro-dispatch-build requires args = { items: [{repo, item_id, description?, unit?, tier?}], push?: boolean, verify_timeout_seconds?: number, claim_ttl_seconds?: number }, got: ' + JSON.stringify(args))
 }
 if (parsedArgs.push != null && typeof parsedArgs.push !== 'boolean') throw new Error('push must be boolean when supplied')
 
-const items = cleanInputItems(parsedArgs.items)
+const items = buildInputService.cleanInputItems(parsedArgs.items)
 const push = parsedArgs.push === true
-const verifyTimeoutSeconds = boundedInteger(parsedArgs.verify_timeout_seconds, 900, 60, 3600, 'verify_timeout_seconds')
-const claimTtlSeconds = boundedInteger(parsedArgs.claim_ttl_seconds, 7200, 600, 21600, 'claim_ttl_seconds')
-const groups = groupByRepo(items)
+const verifyTimeoutSeconds = buildInputService.boundedInteger(parsedArgs.verify_timeout_seconds, 900, 60, 3600, 'verify_timeout_seconds')
+const claimTtlSeconds = buildInputService.boundedInteger(parsedArgs.claim_ttl_seconds, 7200, 600, 21600, 'claim_ttl_seconds')
+const groups = buildInputService.groupByRepo(items)
 
 const perRepo = await pipeline(
   groups,
-  group => buildRepo(group, verifyTimeoutSeconds, claimTtlSeconds),
-  buildState => verifyRepo(buildState, verifyTimeoutSeconds),
-  verifiedState => publishRepo(verifiedState, push),
-  publishState => closeRepo(publishState, push),
+  group => buildExecutionService.buildRepo(group, verifyTimeoutSeconds, claimTtlSeconds),
+  buildState => buildExecutionService.verifyRepo(buildState, verifyTimeoutSeconds),
+  verifiedState => buildPublicationService.publishRepo(verifiedState, push),
+  publishState => buildPublicationService.closeRepo(publishState, push),
 )
 
 const results = perRepo.filter(Boolean).flatMap(state => state.closeResults || [])

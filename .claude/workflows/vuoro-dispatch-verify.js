@@ -349,7 +349,25 @@ async function closeRepo(mode, state) {
   return { ...state, closeResults: normalizeCloseResults(state.repo, pairs, raw) }
 }
 
-const parsedArgs = parseArgs(args)
+// The workflow host evaluates this file as one AsyncFunction, so service
+// boundaries are explicit in-file facades rather than ES-module imports. The
+// split keeps input, verification, and deterministic closeout ownership
+// reviewable and independently replaceable.
+const verifyInputService = Object.freeze({
+  parseArgs,
+  boundedInteger,
+  cleanInputItems,
+  groupByRepo,
+})
+const verificationService = Object.freeze({
+  verifyRepo,
+  verificationPairs,
+})
+const verificationCloseoutService = Object.freeze({
+  closeRepo,
+})
+
+const parsedArgs = verifyInputService.parseArgs(args)
 if (!parsedArgs || !Array.isArray(parsedArgs.items) || !parsedArgs.items.length) {
   throw new Error('vuoro-dispatch-verify requires args = { mode?: "audit"|"gate", items: [{repo, item_id, commit_sha?, claim_id?, unit?, tier?}], verify_timeout_seconds?: number }, got: ' + JSON.stringify(args))
 }
@@ -358,14 +376,14 @@ if (parsedArgs.mode != null && !['audit', 'gate'].includes(parsedArgs.mode)) {
 }
 
 const mode = parsedArgs.mode || 'audit'
-const items = cleanInputItems(parsedArgs.items, mode)
-const verifyTimeoutSeconds = boundedInteger(parsedArgs.verify_timeout_seconds, 900, 60, 3600, 'verify_timeout_seconds')
-const groups = groupByRepo(items)
+const items = verifyInputService.cleanInputItems(parsedArgs.items, mode)
+const verifyTimeoutSeconds = verifyInputService.boundedInteger(parsedArgs.verify_timeout_seconds, 900, 60, 3600, 'verify_timeout_seconds')
+const groups = verifyInputService.groupByRepo(items)
 
 const perRepo = await pipeline(
   groups,
-  group => verifyRepo(mode, group, verifyTimeoutSeconds),
-  verifyState => closeRepo(mode, verifyState),
+  group => verificationService.verifyRepo(mode, group, verifyTimeoutSeconds),
+  verifyState => verificationCloseoutService.closeRepo(mode, verifyState),
 )
 
 const results = perRepo.filter(Boolean).flatMap(state => state.closeResults || [])
