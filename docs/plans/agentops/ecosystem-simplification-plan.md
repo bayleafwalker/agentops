@@ -75,8 +75,8 @@ authority.
 |---|---|---|---|---|
 | P3.1 | Split `sprintctl/cli.py` into `commands/` subpackage | `sprintctl` | Reviewable command modules | **Complete locally.** All root command groups and commands now live in independently importable `commands/` modules (`doctor`, `work`, `operations`, `lifecycle`, `session`, plus the earlier database, transfer, repository, and remote-schema modules). Registration preserves the historical Click order, broadcasts the shared runtime seam so sibling helpers and monkeypatches remain live, and installs served guards only after the complete tree is built. Structural and served-route checks pass; the implementation is committed through `sprintctl` commit `3f8e549` (with the preceding extraction commits). |
 | P3.2 | Split `sprintctl/application.py` into service classes | `sprintctl` | Testable services | **Complete locally.** `application.py` is now a compatibility export surface over shared application contracts/helpers, the repository-scoped `WorkApplication` service, and the project-scoped `ProjectWorkApplication` service. Public imports remain stable; structural, adapter, evidence-validator, and full-suite checks pass. Implemented in sprintctl commit `48bac91`. |
-| P3.3 | Split `actionq/daemon.py` into lifecycle/runner/routing/audit/claim-client modules | `actionq` | Daemon maintainable | **Complete locally.** `daemon.py` remains a compatibility/entrypoint surface over `daemon_config`, `daemon_clients`, and composed lifecycle, runner, routing, claim-client, and audit mixins. Historical imports and monkeypatch seams remain live; structural checks pass in ActionQ commit `33e9903`. The full PostgreSQL/runner suite remains environment-gated here because `initdb`/`pg_ctl` are unavailable and runner staging cannot write the host state directory. |
-| P3.4 | Split `actionq/application.py` into enqueue/claim/complete/groups/outbox services | `actionq` | Clear boundaries | **Complete locally.** `application.py` composes focused core, enqueue, claim, completion, groups, outbox, and dispatch services with stable public imports. Structural/import checks pass in ActionQ commit `33e9903`; PostgreSQL integration remains environment-gated for the same missing-binaries reason. |
+| P3.3 | Split `actionq/daemon.py` into lifecycle/runner/routing/audit/claim-client modules | `actionq` | Daemon maintainable | **Complete locally.** `daemon.py` remains a compatibility/entrypoint surface over `daemon_config`, `daemon_clients`, and composed lifecycle, runner, routing, claim-client, and audit mixins. Historical imports and monkeypatch seams remain live; structural checks pass in ActionQ commit `33e9903`; the 73-test daemon/runner suite passes with a writable `XDG_STATE_HOME`. PostgreSQL integration remains environment-gated because `initdb`/`pg_ctl` are unavailable. |
+| P3.4 | Split `actionq/application.py` into enqueue/claim/complete/groups/outbox services | `actionq` | Clear boundaries | **Complete locally.** `application.py` composes focused core, enqueue, claim, completion, groups, outbox, and dispatch services with stable public imports. Structural/import checks pass in ActionQ commit `33e9903`; PostgreSQL integration remains environment-gated because `initdb`/`pg_ctl` are unavailable. |
 | P3.5 | Split `kctl/application.py` and `agentops` orchestration scripts | `kctl`, `agentops` | Parallel ownership | **Complete locally.** Kctl now composes core, candidate, and publication services in commit `afd135b`; saved Agentops build/verify workflows expose focused input, execution/verification, publication, and closeout services while preserving the loader contract in commit `8730b8e`. Structural, adapter, and saved-workflow checks pass. |
 
 ### Phase 4 — Test and release ergonomics
@@ -182,9 +182,9 @@ The remaining Phase 3 decomposition is complete at the owner-local level:
   explicit service facades for input, execution/verification, publication,
   and closeout. The AsyncFunction workflow-loader contract is unchanged.
 
-ActionQ structural checks pass, but its PostgreSQL integration/runner checks
-cannot run in this environment because `initdb` and `pg_ctl` are unavailable;
-runner-only failures also reflect the read-only host state directory. Kctl
+ActionQ structural checks and its 73-test daemon/runner suite pass (the latter
+with a writable temporary `XDG_STATE_HOME`); PostgreSQL integration cannot run
+because `initdb` and `pg_ctl` are unavailable. Kctl
 structural and adapter checks pass (the broader local suite is 160 passed, one
 unrelated pre-existing render-status failure, and one skipped). Agentops
 saved-workflow checks pass; the broader dispatch-template suite is 397 passed
