@@ -65,7 +65,7 @@ authority.
 | # | Work item | Owner | Outcome | Status (2026-08-13) |
 |---|---|---|---|---|
 | P2.1 | Extract backend-agnostic repository protocol; collapse mirrored `sprintctl/db.py`/`pg.py` | `sprintctl` | ~6,000 LOC duplicated logic removed | **Done.** All CRUD, CAS, and claim-lifecycle operations (including `create_claim`/`handoff_claim`, the last and highest-risk remainder) are unified behind `<table>core.py` Protocol/adapter modules. See the Progress log below. |
-| P2.2 | Extract shared central-schema runtime for `kctl`, `auditctl`, `actionq` | `kctl`/`auditctl`/`actionq` + `vuoro` packaging | Eliminates triplicated schema machinery | **Foundation released; consumer migration not started.** Vuoro released the stdlib-only `vuoro-schema-runtime` 0.1.0 as the immutable GitHub Release `vuoro-schema-runtime-v0.1.0` (wheel SHA-256 `b66c9357c99aa9e1a7353991ce54105a8621958ecfac47f8c121d80b90b77912`). It is not a PyPI package. No member has adopted it yet: kctl 0.1.2's adapter-kit use is an adapter-contract migration, not a schema-runtime migration. The original finding remains decisive — kctl's `central_migrations.py`, auditctl's `central_schema.py`, and actionq's `schema.py` differ in migration history, naming, and role-security behavior — so each needs its own compatibility plan and owner-reviewed migration proof. |
+| P2.2 | Extract shared central-schema runtime for `kctl`, `auditctl`, `actionq` | `kctl`/`auditctl`/`actionq` + `vuoro` packaging | Eliminates triplicated schema machinery | **Done — 3/3 consumer migrations and composition acceptance.** Vuoro released the stdlib-only `vuoro-schema-runtime` 0.1.0 as the immutable GitHub Release `vuoro-schema-runtime-v0.1.0` (wheel SHA-256 `b66c9357c99aa9e1a7353991ce54105a8621958ecfac47f8c121d80b90b77912`). It is not a PyPI package. Kctl 0.1.3 (`789b5aadfc4c31171d574c76b79af9999b08b5cf212969cefc8504eb2e99e43d`), auditctl 0.1.2 (`b76d9d7aab727c77a7dcfcdc4e5de423b61a07c8f89369101347a4dc6eaf33d1`), and ActionQ 0.1.22 (`5ffce20b2e9b53305a522b25f8504081442311392b025ea220fc8792e8e50bd2`) are accepted in Vuoro composition `abdafcd`. The gate preserves their distinct schema descriptors and the 84-operation revision `fc308e37ff1d56eccd9bd1f5372bf782e017936acf44994b22ddba4863e9f196`; no runtime migration is implied. |
 | P2.3 | Extract shared Vuoro adapter base for JSON-schema builder/registration boilerplate | `vuoro` (library) + domain owners | Four adapters shrink and align | **Done — 4/4 consumer migrations.** Vuoro released `vuoro-adapter-kit` 0.1.0 as the immutable GitHub Release `vuoro-adapter-kit-v0.1.0` (wheel SHA-256 `0037898a4c9f01720a42302365b0172ecd203732070326ea2abdf549a44bf0c2`), with composition-v3 release locks separating adapters from owner/shared dependencies. Released `kctl` 0.1.2, `auditctl` 0.1.1, ActionQ 0.1.21, and Sprintctl 0.2.24 adopt it and are pinned in Vuoro composition (`c4e3357`). The accepted composed catalog has 84 operations at revision `fc308e37ff1d56eccd9bd1f5372bf782e017936acf44994b22ddba4863e9f196`. Every migration preserves catalog bytes, operation schemas, registration order, invocation behavior, and domain authority; it is an owner-reviewed change, not a bulk refactor. GitHub Releases are the sole artifact authority; no PyPI publication is planned. |
 | P2.4 | Remove direct cross-member internal imports from Vuoro verification scripts and kctl source | `vuoro` + `kctl` | Transport-only boundary restored | **Audit complete (2026-08-13); capability-probe disposition pending.** `kctl/` has zero top-level imports of `sprintctl`/`actionq`/`auditctl`/`vuoro_service`. The Vuoro grep hits in `verify_pre_migration_startup.py` are source strings executed inside a candidate image, and the state-seeding imports in `test_2029_actual_sprintctl_composition.py` and `validate_released_work_adapter.py` fit the authorized test-fixture exception. `scripts/capability_safety_probe.py` remains the one unresolved judgment call: it directly imports sprintctl PostgreSQL capability-admission code because no adapter surface exposes that invariant. The audit is complete; deciding whether to retain that composition-boundary probe or replace it with a transport-safe proof remains open. |
 
@@ -157,7 +157,7 @@ The program is complete when:
    `maintenance_capability` use remains a pending disposition decision; the
    audit itself is complete.
 3. `sprintctl` has one backend-agnostic storage layer. **Done** — `db.py`/`pg.py` unification complete, including `create_claim`/`handoff_claim` (see P2.1 progress log).
-4. `kctl`, `auditctl`, and `actionq` share a central-schema runtime. **Foundation released; consumer migrations not started** (P2.2).
+4. `kctl`, `auditctl`, and `actionq` share a central-schema runtime. **Done** — three released consumers are accepted in Vuoro composition (P2.2).
 5. God modules identified in Phase 3 are split into submodules/services. **In progress** — P3.1 has three merged command-group extractions; P3.2-P3.5 remain not started.
 6. `actionq-dispatcher` is either retired or documented as a deprecated shim. **Done** — documented as a deprecated shim in `docs/ecosystem.md`, code is a thin launcher; full retirement awaits `actionq-daemon` production-parity proof.
 7. Cockpit does not perform raw sprintctl DB writes. **Done** — verified via `write-surface-policy.md`.
@@ -270,9 +270,18 @@ The shared handshake reports four compatible domains, schema 11, and the
 84-operation revision
 `fc308e37ff1d56eccd9bd1f5372bf782e017936acf44994b22ddba4863e9f196`.
 Authority-negative checks left no forbidden completion privilege residue.
-Runtime activation is complete; the positive completion functional canary
-still needs a provisioned non-self-asserted identity authority, while P2.2
-remains an independent unstarted consumer-migration program.
+Runtime activation is complete. Positive completion functional canaries passed
+in dev and shared through the provisioned non-self-asserted identity authority;
+cleanup/revocation structural verification is also complete. P2.2 is complete
+at all three consumers and accepted in Vuoro composition `abdafcd`, preserving
+the catalog and domain schema descriptors. `vuoro-service-v0.1.46` is
+published from `6bc23212edd611965f067781fb6c6af090ac1ed5` (wheel SHA-256
+`978ef5a764932957636f9e6915e92f75ec773967f15a16dc5f9834a5ed71e938`; OCI
+digest `sha256:aeeb8088b8485c9637526b63d8557a68db618772979330ed5950f0e09c4a0f5c`;
+provenance verified). Dev Flux `648be1` canary and shared Flux `352b32`
+deployment both pass with schema 11 and the 84-operation revision. Retained
+counts are dev queue/completion `0/1` and shared queue/events/completion
+`7/1192/1`; P2.2 is fully released, composed, and deployed.
 
 ### P2.1 — sprintctl `db.py`/`pg.py` backend unification (2026-08-13)
 
@@ -411,9 +420,10 @@ session picks up `create_claim`, rather than re-derived from scratch.
 
 ## Open questions
 
-- How should each of `kctl`, `auditctl`, and `actionq` migrate to
-  `vuoro-schema-runtime` while preserving existing schema names, migration
-  history, and role-security behavior? (P2.2 execution planning)
+- P2.2 is closed: kctl, auditctl, and ActionQ retain their distinct schema
+  descriptors, migration histories, and role-security behavior while sharing
+  the immutable schema-runtime wheel. Future service release/tag publication
+  remains independently approval-gated.
 - P2.3 is closed. Its retained operational follow-up is not another adapter
   migration: shared schema-11/service promotion requires an explicitly
   approved, separately evidenced Appservice change after the dev canary.
