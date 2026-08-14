@@ -185,7 +185,10 @@ The remaining Phase 3 decomposition is complete at the owner-local level:
 ActionQ structural checks pass, but its PostgreSQL integration/runner checks
 cannot run in this environment because `initdb` and `pg_ctl` are unavailable;
 runner-only failures also reflect the read-only host state directory. Kctl
-structural and adapter checks and Agentops saved-workflow checks pass.
+structural and adapter checks pass (the broader local suite is 160 passed, one
+unrelated pre-existing render-status failure, and one skipped). Agentops
+saved-workflow checks pass; the broader dispatch-template suite is 397 passed
+with three credential-admission tests blocked by the read-only home directory.
 
 ### Shared-package releases and Vuoro service 0.1.44 (2026-08-13)
 
