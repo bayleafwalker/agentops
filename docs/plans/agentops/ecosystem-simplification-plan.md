@@ -41,7 +41,7 @@ authority.
 
 ### Phase 0 — Foundational cleanup (low risk, high clarity)
 
-| # | Work item | Owner | Outcome | Status (2026-08-13) |
+| # | Work item | Owner | Outcome | Status (2026-08-14) |
 |---|---|---|---|---|
 | P0.1 | Remove stale `actionq/build/lib/` artifacts; enforce `build/` hygiene | `actionq` | Clean working tree | **Done.** `build/` was already gitignored in both `actionq` and `actionq-dispatcher` (hygiene already enforced); removed the stale untracked local directories in both this session. Nothing to commit — they were never tracked. |
 | P0.2 | Eliminate `sys.path` mutation in tests/scripts; use `PYTHONPATH` or package installs | `agentops`, `actionq`, `actionq-dispatcher` | Test reliability | **Investigated in full; not a mechanical fix, correctly not attempted.** Read every occurrence (~14 across all three repos). agentops's `templates/dispatch/scripts/*.py` insert their own directory — these are portable template scripts copied verbatim into arbitrary target repos, where `sys.path.insert(0, Path(__file__).parent)` is the *correct* pattern (no guarantee `PYTHONPATH` is set at the copy site), not a bug this item's stated remedy actually fixes. actionq's/actionq-dispatcher's `conftest.py` files insert their own repo root — standard pytest bootstrapping, harmless without an editable install step. `actionq/tests/test_cross_authority_fault_matrix.py` inserts `SPRINTCTL_ROOT` nine times — deliberate cross-repo integration testing (actionq's tests reaching into a sibling repo's source tree, since sprintctl isn't a declared package dependency). Removing that would require adding an editable install of sprintctl to actionq's CI/dev test setup, which is an environment/CI change outside what this session can safely verify without visibility into the actual CI pipeline — not a same-session code edit. |
@@ -75,9 +75,9 @@ authority.
 |---|---|---|---|---|
 | P3.1 | Split `sprintctl/cli.py` into `commands/` subpackage | `sprintctl` | Reviewable command modules | **Complete locally.** All root command groups and commands now live in independently importable `commands/` modules (`doctor`, `work`, `operations`, `lifecycle`, `session`, plus the earlier database, transfer, repository, and remote-schema modules). Registration preserves the historical Click order, broadcasts the shared runtime seam so sibling helpers and monkeypatches remain live, and installs served guards only after the complete tree is built. Structural and served-route checks pass; the implementation is committed through `sprintctl` commit `3f8e549` (with the preceding extraction commits). |
 | P3.2 | Split `sprintctl/application.py` into service classes | `sprintctl` | Testable services | **Complete locally.** `application.py` is now a compatibility export surface over shared application contracts/helpers, the repository-scoped `WorkApplication` service, and the project-scoped `ProjectWorkApplication` service. Public imports remain stable; structural, adapter, evidence-validator, and full-suite checks pass. Implemented in sprintctl commit `48bac91`. |
-| P3.3 | Split `actionq/daemon.py` into lifecycle/runner/routing/audit/claim-client modules | `actionq` | Daemon maintainable | **Not started.** Depends on P1.1's `actionq-daemon` parity work per the risk table below. |
-| P3.4 | Split `actionq/application.py` into enqueue/claim/complete/groups/outbox services | `actionq` | Clear boundaries | **Not started.** |
-| P3.5 | Split `kctl/application.py` and `agentops` orchestration scripts | `kctl`, `agentops` | Parallel ownership | **Not started.** |
+| P3.3 | Split `actionq/daemon.py` into lifecycle/runner/routing/audit/claim-client modules | `actionq` | Daemon maintainable | **Complete locally.** `daemon.py` remains a compatibility/entrypoint surface over `daemon_config`, `daemon_clients`, and composed lifecycle, runner, claim-client, and audit mixins. Historical imports and monkeypatch seams remain live; structural checks pass in ActionQ commit `f94811c`. The full PostgreSQL/runner suite remains environment-gated here because `initdb`/`pg_ctl` are unavailable and runner staging cannot write the host state directory. |
+| P3.4 | Split `actionq/application.py` into enqueue/claim/complete/groups/outbox services | `actionq` | Clear boundaries | **Complete locally.** `application.py` composes focused core, enqueue, claim, completion, groups, outbox, and dispatch services with stable public imports. Structural/import checks pass in ActionQ commit `f94811c`; PostgreSQL integration remains environment-gated for the same missing-binaries reason. |
+| P3.5 | Split `kctl/application.py` and `agentops` orchestration scripts | `kctl`, `agentops` | Parallel ownership | **Complete locally.** Kctl now composes core, candidate, and publication services in commit `afd135b`; saved Agentops build/verify workflows expose focused input, execution/verification, publication, and closeout services while preserving the loader contract in commit `8730b8e`. Structural, adapter, and saved-workflow checks pass. |
 
 ### Phase 4 — Test and release ergonomics
 
@@ -158,13 +158,34 @@ The program is complete when:
    audit itself is complete.
 3. `sprintctl` has one backend-agnostic storage layer. **Done** — `db.py`/`pg.py` unification complete, including `create_claim`/`handoff_claim` (see P2.1 progress log).
 4. `kctl`, `auditctl`, and `actionq` share a central-schema runtime. **Done** — three released consumers are accepted in Vuoro composition (P2.2).
-5. God modules identified in Phase 3 are split into submodules/services. **P3.1 and P3.2 complete locally** — `sprintctl/cli.py` is a thin root/guard assembler over `commands/`, and `sprintctl/application.py` is a compatibility surface over focused service modules; P3.3-P3.5 remain not started.
+5. God modules identified in Phase 3 are split into submodules/services. **P3.1-P3.5 complete locally** — `sprintctl/cli.py` and `sprintctl/application.py` are compatibility surfaces over focused modules; ActionQ daemon/application boundaries, kctl knowledge services, and Agentops workflow services now have explicit ownership with stable entrypoints.
 6. `actionq-dispatcher` is either retired or documented as a deprecated shim. **Done** — documented as a deprecated shim in `docs/ecosystem.md`, code is a thin launcher; full retirement awaits `actionq-daemon` production-parity proof.
 7. Cockpit does not perform raw sprintctl DB writes. **Done** — verified via `write-surface-policy.md`.
 8. Transitional feature flags and git-SHA pins are removed. **Not done** — `vuoro-client` is still pinned by git SHA in `sprintctl/pyproject.toml`, blocked on `vuoro` cutting a release tag (P4.3); the P4.4 feature-flag audit is complete, but removal remains blocked on the authority-path migration and served-mode cutover.
 9. `outctl` is consistently represented as a member. **Done** — verified via `project.toml` and `docs/ecosystem.md`.
 
 ## Progress log
+
+### Phase 3 architectural slice (2026-08-14)
+
+The remaining Phase 3 decomposition is complete at the owner-local level:
+
+- ActionQ commit `f94811c` composes daemon lifecycle, runner, claim-client,
+  audit, configuration, and client modules, and composes application core,
+  enqueue, claim, completion, groups, outbox, and dispatch services. Its
+  compatibility modules preserve historical imports and subprocess
+  monkeypatch seams.
+- Kctl commit `afd135b` separates central-schema connection/core mechanics,
+  candidate intake/review, and publication/supersession operations while
+  retaining `CentralKnowledgeApplication` as the public boundary.
+- Agentops commit `8730b8e` makes the saved build and verify workflow phases
+  explicit service facades for input, execution/verification, publication,
+  and closeout. The AsyncFunction workflow-loader contract is unchanged.
+
+ActionQ structural checks pass, but its PostgreSQL integration/runner checks
+cannot run in this environment because `initdb` and `pg_ctl` are unavailable;
+runner-only failures also reflect the read-only host state directory. Kctl
+structural and adapter checks and Agentops saved-workflow checks pass.
 
 ### Shared-package releases and Vuoro service 0.1.44 (2026-08-13)
 
