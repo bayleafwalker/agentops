@@ -274,9 +274,14 @@ Runtime activation is complete. Positive completion functional canaries passed
 in dev and shared through the provisioned non-self-asserted identity authority;
 cleanup/revocation structural verification is also complete. P2.2 is complete
 at all three consumers and accepted in Vuoro composition `abdafcd`, preserving
-the catalog and domain schema descriptors. `vuoro-service` 0.1.46 source is
-merged at `6bc23212edd611965f067781fb6c6af090ac1ed5`, but annotated-tag
-publication remains a separately approval-gated release action.
+the catalog and domain schema descriptors. `vuoro-service-v0.1.46` is
+published from `6bc23212edd611965f067781fb6c6af090ac1ed5` (wheel SHA-256
+`978ef5a764932957636f9e6915e92f75ec773967f15a16dc5f9834a5ed71e938`; OCI
+digest `sha256:aeeb8088b8485c9637526b63d8557a68db618772979330ed5950f0e09c4a0f5c`;
+provenance verified). Dev Flux `648be1` canary and shared Flux `352b32`
+deployment both pass with schema 11 and the 84-operation revision. Retained
+counts are dev queue/completion `0/1` and shared queue/events/completion
+`7/1192/1`; P2.2 is fully released, composed, and deployed.
 
 ### P2.1 — sprintctl `db.py`/`pg.py` backend unification (2026-08-13)
 
