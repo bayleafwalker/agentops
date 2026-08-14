@@ -73,7 +73,7 @@ authority.
 
 | # | Work item | Owner | Outcome | Status (2026-08-13) |
 |---|---|---|---|---|
-| P3.1 | Split `sprintctl/cli.py` into `commands/` subpackage | `sprintctl` | Reviewable command modules | **In progress.** The remote-schema, repository, and database command-group extractions are merged. They retain shared CLI attachment support and structural tests. The implementation invariant remains: `_click_leaf_paths(cli)` must see the complete tree before `_install_served_command_guards(cli)` wraps every leaf callback. The remaining groups still need an ordered, independently verified extraction; no extractor may bypass that served-command guard wiring. |
+| P3.1 | Split `sprintctl/cli.py` into `commands/` subpackage | `sprintctl` | Reviewable command modules | **Complete locally.** All root command groups and commands now live in independently importable `commands/` modules (`doctor`, `work`, `operations`, `lifecycle`, `session`, plus the earlier database, transfer, repository, and remote-schema modules). Registration preserves the historical Click order, broadcasts the shared runtime seam so sibling helpers and monkeypatches remain live, and installs served guards only after the complete tree is built. Structural and served-route checks pass; the implementation is committed through `sprintctl` commit `3f8e549` (with the preceding extraction commits). |
 | P3.2 | Split `sprintctl/application.py` into service classes | `sprintctl` | Testable services | **Not started.** |
 | P3.3 | Split `actionq/daemon.py` into lifecycle/runner/routing/audit/claim-client modules | `actionq` | Daemon maintainable | **Not started.** Depends on P1.1's `actionq-daemon` parity work per the risk table below. |
 | P3.4 | Split `actionq/application.py` into enqueue/claim/complete/groups/outbox services | `actionq` | Clear boundaries | **Not started.** |
@@ -158,7 +158,7 @@ The program is complete when:
    audit itself is complete.
 3. `sprintctl` has one backend-agnostic storage layer. **Done** — `db.py`/`pg.py` unification complete, including `create_claim`/`handoff_claim` (see P2.1 progress log).
 4. `kctl`, `auditctl`, and `actionq` share a central-schema runtime. **Done** — three released consumers are accepted in Vuoro composition (P2.2).
-5. God modules identified in Phase 3 are split into submodules/services. **In progress** — P3.1 has three merged command-group extractions; P3.2-P3.5 remain not started.
+5. God modules identified in Phase 3 are split into submodules/services. **P3.1 complete locally** — `sprintctl/cli.py` is now a thin root/guard assembler over the ordered `commands/` package; P3.2-P3.5 remain not started.
 6. `actionq-dispatcher` is either retired or documented as a deprecated shim. **Done** — documented as a deprecated shim in `docs/ecosystem.md`, code is a thin launcher; full retirement awaits `actionq-daemon` production-parity proof.
 7. Cockpit does not perform raw sprintctl DB writes. **Done** — verified via `write-surface-policy.md`.
 8. Transitional feature flags and git-SHA pins are removed. **Not done** — `vuoro-client` is still pinned by git SHA in `sprintctl/pyproject.toml`, blocked on `vuoro` cutting a release tag (P4.3); the P4.4 feature-flag audit is complete, but removal remains blocked on the authority-path migration and served-mode cutover.
