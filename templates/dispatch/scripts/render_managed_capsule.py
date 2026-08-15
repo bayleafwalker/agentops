@@ -14,7 +14,7 @@ from typing import Any
 CONTRACT_ID = "managed-dispatch-capsule/v1"
 SOURCE_ID = "managed-dispatch-capsule-source/v1"
 RENDERER_VERSION = "agentops-managed-capsule/1"
-FORBIDDEN_KEY = re.compile(r"(?:credential|bearer|token|claim_proof|capability_handle|broker_(?:path|socket)|provider_secret|secret)", re.I)
+FORBIDDEN_KEY = re.compile(r"(?:credential|bearer|token|claim_(?:proof|receipt)|capability_handle|broker_(?:path|socket)|provider_secret|secret)", re.I)
 FORBIDDEN_VALUE = re.compile(r"(?:\bBearer\s+[A-Za-z0-9._~+/-]+=*|claim[_-]?token|capability[_-]?handle|/var/run/[^\s]+)", re.I)
 
 

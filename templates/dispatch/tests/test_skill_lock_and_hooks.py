@@ -46,6 +46,14 @@ class SkillLockTests(unittest.TestCase):
         (root / "source/demo/SKILL.md").write_text("tampered\n", encoding="utf-8")
         self.assertEqual(LOCK.inspect(lock, root / "source")["handling"], "fatal")
 
+    def test_nested_symlink_is_fatal_and_never_materialized(self) -> None:
+        root, lock = self.fixture()
+        (root / "source/demo/unhashed").symlink_to("/etc/hostname")
+        self.assertEqual(LOCK.inspect(lock, root / "source")["handling"], "fatal")
+        with self.assertRaises(LOCK.SkillLockError):
+            LOCK.materialize(lock, root / "source", root / "target", "codex")
+        self.assertFalse((root / "target/.codex/skills").exists())
+
     def test_missing_mandatory_is_repair_only_and_optional_is_degraded(self) -> None:
         root, lock = self.fixture(mandatory=True)
         (root / "source/demo/SKILL.md").unlink()

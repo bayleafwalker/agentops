@@ -41,6 +41,9 @@ def inspect(lock: dict[str, Any], source_root: Path) -> dict[str, Any]:
         if path.is_symlink() or not path.is_dir():
             (missing_mandatory if selected["mandatory"] else missing_optional).append(selected["id"])
             continue
+        if any(child.is_symlink() for child in path.rglob("*")):
+            tampered.append(selected["id"])
+            continue
         actual = tree_digest(path)
         observed.append((selected["id"], actual))
         if actual != selected["digest"]:

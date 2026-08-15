@@ -49,7 +49,7 @@ class ManagedCapsuleTests(unittest.TestCase):
             CAPSULE.verify(capsule, prompt)
 
     def test_model_visible_secret_fields_and_values_are_rejected(self) -> None:
-        for key, value in (("claim_token", "raw"), ("capability_handle", "abc"), ("broker_path", "/run/private"), ("provider_secret", "raw")):
+        for key, value in (("claim_token", "raw"), ("claim_receipt", "raw-claim-proof"), ("capability_handle", "abc"), ("broker_path", "/run/private"), ("provider_secret", "raw")):
             source = self.source()
             source["role_preset"][key] = value
             with self.subTest(key=key), self.assertRaises(CAPSULE.CapsuleError):
