@@ -48,7 +48,7 @@ do not hand-roll cursor math or proposal JSON.
    `python templates/dispatch/scripts/session_reconciler.py context --root _artifacts/<repo> --project <repo> --capsule-id <id>`.
    - `status: already-consumed` → **stop**. The scribe or a prior reconciler
      run already accounted for this capsule; a re-trigger is a clean no-op.
-   - `status: ready` → the packet contains the capsule's target, claim, git
+   - `status: ready` → the packet contains the capsule's target, reservation, git
      evidence, verification results, starting watermark, any
      `related_unconsumed_same_target` siblings, and any `existing_proposals`
      already referencing this capsule.
@@ -113,7 +113,7 @@ do not hand-roll cursor math or proposal JSON.
 ## Do Not
 
 - Do not call any `sprintctl item done`, `item transition`, `sprint activate`,
-  or claim-mutating command from this skill — see `write-surface-policy.md`.
+  or reservation-mutating command from this skill — see `write-surface-policy.md`.
 - Do not fold sibling capsules into the proposal to "save a scribe pass";
   the single-capsule scope is what keeps the latency path simple and safe.
 - Do not advance or edit cursor state by hand — only through the script.

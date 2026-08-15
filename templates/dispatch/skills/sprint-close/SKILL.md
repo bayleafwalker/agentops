@@ -32,7 +32,7 @@ Encode the full sprint close-out sequence so steps are not repeated ad-hoc acros
    ```bash
    sprintctl maintain check --sprint-id <id>
    ```
-   Review stale, blocked, or unclaimed items. Decide whether to defer or carry forward unfinished work before proceeding.
+   Review stale, blocked, or unreserved items. Decide whether to defer or carry forward unfinished work before proceeding.
 
 3. **Record any final close rationale.** Add it before the sprint becomes
    terminal:

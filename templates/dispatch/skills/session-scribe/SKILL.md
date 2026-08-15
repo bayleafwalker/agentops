@@ -116,7 +116,7 @@ confuse it with, that repository.
 ## Do Not
 
 - Do not call any `sprintctl item done`, `item transition`, `sprint activate`,
-  or claim-mutating command from this skill. Proposals are reviewed and
+  or reservation-mutating command from this skill. Proposals are reviewed and
   accepted through normal sprintctl authority commands by a separate action
   — see `write-surface-policy.md`.
 - Do not hand-write `proposal_id`, `dedup_key` collisions, or cursor state

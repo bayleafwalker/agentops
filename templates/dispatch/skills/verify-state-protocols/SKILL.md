@@ -87,7 +87,7 @@ Use data-only packets conforming to:
 - `../../schemas/test-context.schema.json` for reusable test intent;
 - `../../schemas/verification-result.schema.json` for what actually ran and what it established.
 
-Packets must not contain executable code, secrets, claim tokens, or copies of production validation logic.
+Packets must not contain executable code, secrets, credentials, or copies of production validation logic.
 
 Capture the governing document revision, implementation Git SHA, backend, isolation level, tool versions, bounds, seeds, exercised faults, and counterexamples. Use symbol-level implementation anchors and validate that they still resolve.
 
