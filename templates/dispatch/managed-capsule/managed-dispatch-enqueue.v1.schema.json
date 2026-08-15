@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/managed-dispatch-enqueue.v1.schema.json",
+  "title": "Managed dispatch enqueue v1",
+  "description": "Binds an admitted managed capsule to explicit queue routing. Routing never changes capsule bytes, and the caller never supplies a prompt.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_id", "dispatch", "managed_request"],
+  "properties": {
+    "contract_id": {"const": "managed-dispatch-enqueue/v1"},
+    "dispatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract_version", "action_type", "output_expectation", "repo_id", "sprint_id", "work_item_id", "title", "harness", "model", "priority", "refs", "dispatch_group_id"],
+      "properties": {
+        "contract_version": {"const": "v2"},
+        "action_type": {"const": "scope-iterate"},
+        "output_expectation": {"enum": ["plan", "audit-event", "draft-work-items", "sprint-proposal", "implementation", "review"]},
+        "repo_id": {"type": "string", "minLength": 1, "pattern": "^(?!ALL$).+"},
+        "sprint_id": {"type": ["integer", "null"], "minimum": 1},
+        "work_item_id": {"type": ["string", "null"], "minLength": 1},
+        "title": {"type": "string", "minLength": 1},
+        "harness": {"enum": ["claude", "codex", "copilot-cli", "codestral"]},
+        "model": {"type": ["string", "null"], "minLength": 1},
+        "priority": {"enum": ["normal", "high"]},
+        "refs": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "dispatch_group_id": {"type": ["string", "null"], "minLength": 1}
+      }
+    },
+    "managed_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "capsule", "rendered_prompt", "doctor_report", "doctor_report_digest", "provenance"],
+      "properties": {
+        "schema_version": {"const": "managed-dispatch-request/v1"},
+        "capsule": {"$ref": "managed-dispatch-capsule.v1.schema.json"},
+        "rendered_prompt": {"type": "string", "minLength": 1},
+        "doctor_report": {"type": "object"},
+        "doctor_report_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["renderer_version", "source_shas", "capsule_digest", "role_preset_digest", "rendered_prompt_digest"],
+          "properties": {
+            "renderer_version": {"const": "agentops-managed-capsule/1"},
+            "source_shas": {"type": "object", "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{7,64}$"}},
+            "capsule_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "role_preset_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "rendered_prompt_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          }
+        }
+      }
+    }
+  }
+}

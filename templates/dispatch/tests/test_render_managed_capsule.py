@@ -14,6 +14,7 @@ assert SPEC and SPEC.loader
 CAPSULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CAPSULE)
 FIXTURE = ROOT / "managed-capsule" / "source.fixture.json"
+ENQUEUE_SCHEMA = ROOT / "managed-capsule" / "managed-dispatch-enqueue.v1.schema.json"
 
 
 class ManagedCapsuleTests(unittest.TestCase):
@@ -64,6 +65,20 @@ class ManagedCapsuleTests(unittest.TestCase):
         del source["dependency_context"][0]["selection_reason"]
         with self.assertRaisesRegex(CAPSULE.CapsuleError, "selection_reason"):
             CAPSULE.render(source)
+
+    def test_managed_enqueue_schema_keeps_routing_explicit_and_prompt_derived(self) -> None:
+        schema = json.loads(ENQUEUE_SCHEMA.read_text(encoding="utf-8"))
+        dispatch = schema["properties"]["dispatch"]
+        managed = schema["properties"]["managed_request"]
+
+        self.assertFalse(dispatch["additionalProperties"])
+        self.assertNotIn("prompt", dispatch["properties"])
+        self.assertNotIn("requested_by", dispatch["properties"])
+        self.assertFalse(managed["additionalProperties"])
+        self.assertEqual(
+            managed["properties"]["capsule"]["$ref"],
+            "managed-dispatch-capsule.v1.schema.json",
+        )
 
 
 if __name__ == "__main__":
