@@ -270,6 +270,30 @@ def inspect(root: Path, cwd: Path | None = None) -> dict[str, Any]:
                 findings.append(_finding("duplicate-provider-adapter", "degraded", "provider has more than one instruction adapter", path=str(adapter.get("path", provider))))
             providers[provider] = str(adapter.get("path", ""))
 
+    skill_lock_ref = instruction_set.get("skill_lock_ref") if isinstance(instruction_set, dict) else None
+    locked_skills: dict[str, str] = {}
+    if skill_lock_ref is not None:
+        if not isinstance(skill_lock_ref, dict) or set(skill_lock_ref) != {"path", "digest", "mandatory"}:
+            findings.append(_finding("skill-lock-ref-invalid", "fatal", "skill_lock_ref shape is invalid"))
+        else:
+            lock_path = Path(str(skill_lock_ref["path"]))
+            candidate = root / lock_path
+            try:
+                candidate.resolve().relative_to(root)
+            except ValueError:
+                findings.append(_finding("skill-lock-path-escape", "fatal", "skill lock escapes --root", path=str(lock_path)))
+            if not candidate.is_file():
+                handling_level = "repair-only" if skill_lock_ref["mandatory"] else "degraded"
+                findings.append(_finding("skill-lock-missing", handling_level, "referenced skill lock is missing", path=str(lock_path)))
+            elif hashlib.sha256(candidate.read_bytes()).hexdigest() != skill_lock_ref["digest"]:
+                findings.append(_finding("skill-lock-digest-mismatch", "fatal", "referenced skill lock was tampered", path=str(lock_path)))
+            else:
+                try:
+                    lock_value = json.loads(candidate.read_text(encoding="utf-8"))
+                    locked_skills = {item["id"]: item["digest"] for item in lock_value.get("selected", []) if isinstance(item, dict) and isinstance(item.get("id"), str) and isinstance(item.get("digest"), str)}
+                except (OSError, UnicodeError, json.JSONDecodeError):
+                    findings.append(_finding("skill-lock-invalid", "fatal", "referenced skill lock is invalid", path=str(lock_path)))
+
     broken_refs: list[dict[str, str]] = []
     for source in catalog if isinstance(catalog, list) else []:
         if not isinstance(source, dict):
@@ -289,7 +313,7 @@ def inspect(root: Path, cwd: Path | None = None) -> dict[str, Any]:
         for item in observed
         for hook in item["hooks"]
     }
-    skill_digests = instruction_set.get("skill_lock", {}) if isinstance(instruction_set, dict) else {}
+    skill_digests = locked_skills or (instruction_set.get("skill_lock", {}) if isinstance(instruction_set, dict) else {})
     if isinstance(skill_digests, list):
         skill_digests = {item.get("id"): item.get("digest") for item in skill_digests if isinstance(item, dict) and item.get("id")}
     elif not isinstance(skill_digests, dict):

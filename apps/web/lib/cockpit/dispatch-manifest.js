@@ -77,6 +77,10 @@ function validateInstructionSet(instructionSet) {
   if (!Array.isArray(instructionSet.sources)) {
     throw new Error("instruction_set.sources must be an array");
   }
+  const allowedFields = new Set(["schema_version", "discovery", "sources", "applicability", "entrypoints", "role_presets", "provider_adapters", "skill_lock", "skill_lock_ref"]);
+  if (Object.keys(instructionSet).some((field) => !allowedFields.has(field))) {
+    throw new Error("instruction_set contains unsupported fields");
+  }
   const ids = new Set();
   for (const source of instructionSet.sources) {
     if (!source || typeof source !== "object" || Array.isArray(source)) {
@@ -108,6 +112,12 @@ function validateInstructionSet(instructionSet) {
     }
     if (source.line_budget != null && (!Number.isInteger(source.line_budget) || source.line_budget < 1)) {
       throw new Error(`instruction source ${source.id} line_budget must be positive`);
+    }
+  }
+  if (instructionSet.skill_lock_ref != null) {
+    const ref = instructionSet.skill_lock_ref;
+    if (!ref || typeof ref !== "object" || Array.isArray(ref) || Object.keys(ref).sort().join(",") !== "digest,mandatory,path" || typeof ref.path !== "string" || ref.path.startsWith("/") || ref.path.includes("..") || !/^[0-9a-f]{64}$/.test(ref.digest) || typeof ref.mandatory !== "boolean") {
+      throw new Error("instruction_set.skill_lock_ref is invalid");
     }
   }
   return instructionSet;

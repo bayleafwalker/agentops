@@ -180,6 +180,20 @@ class InstructionDoctorTests(unittest.TestCase):
         self.assertEqual(report["handling"], "fatal")
         self.assertFalse(report["managed_eligible"])
 
+    def test_missing_mandatory_skill_lock_is_repair_only(self) -> None:
+        root = self._root()
+        manifest_path = root / "fixture.dispatch.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["instruction_set"]["skill_lock_ref"] = {
+            "path": ".agents/skill-lock.json",
+            "digest": "0" * 64,
+            "mandatory": True,
+        }
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        report = DOCTOR.inspect(root, root)
+        self.assertEqual(report["handling"], "repair-only")
+        self.assertFalse(report["managed_eligible"])
+
 
 if __name__ == "__main__":
     unittest.main()

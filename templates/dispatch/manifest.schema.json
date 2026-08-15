@@ -241,6 +241,16 @@
             { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["id", "digest"], "properties": { "id": { "type": "string", "minLength": 1 }, "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" } } } }
           ]
         },
+        "skill_lock_ref": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "digest", "mandatory"],
+          "properties": {
+            "path": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))(?!.*\\\\).+$" },
+            "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "mandatory": { "type": "boolean" }
+          }
+        },
         "sources": {
           "type": "array",
           "uniqueItems": true,

@@ -156,6 +156,17 @@ def validate_manifest(value: dict[str, Any], path: Path, root: Path) -> list[dic
                 )
             if preset["model"] not in {"Sol", "Luna"} or preset["behavior"] not in {"high", "xhigh"} or preset["tool_mode"] not in {"read-only", "write"}:
                 raise ValueError(f"{path}: role preset {role} has invalid values")
+        skill_lock_ref = instruction_set.get("skill_lock_ref")
+        if skill_lock_ref is not None:
+            if not isinstance(skill_lock_ref, dict) or set(skill_lock_ref) != {"path", "digest", "mandatory"}:
+                raise ValueError(f"{path}: skill_lock_ref shape is invalid")
+            lock_path = Path(skill_lock_ref["path"])
+            if lock_path.is_absolute() or ".." in lock_path.parts:
+                raise ValueError(f"{path}: skill_lock_ref path must be relative")
+            if not re.fullmatch(r"[0-9a-f]{64}", skill_lock_ref["digest"]):
+                raise ValueError(f"{path}: skill_lock_ref digest must be sha256")
+            if not isinstance(skill_lock_ref["mandatory"], bool):
+                raise ValueError(f"{path}: skill_lock_ref mandatory must be boolean")
     elif "instruction_set" in value:
         raise ValueError(f"{path}: instruction_set requires schema_version 2")
     authority_repo_uuid = value.get("authority_repo_uuid")
