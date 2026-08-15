@@ -1,11 +1,11 @@
 ---
 name: sprint-maintenance
-description: Use to assess sprintctl health, claims, references, and carryover. Start read-only; perform mutations only after the review identifies an approved action.
+description: Use to assess sprintctl health, reservations, references, and carryover. Start read-only; perform mutations only after the review identifies an approved action.
 ---
 
 ## Goal
 
-Keep sprintctl execution state trustworthy by diagnosing health, claim expiry, takeup state, document references, dependencies, and stale active work before any maintenance mutation is made.
+Keep sprintctl execution state trustworthy by diagnosing health, stale reservations, takeup state, document references, dependencies, and stale active work before any maintenance mutation is made.
 
 ## Inputs
 
@@ -27,11 +27,11 @@ Keep sprintctl execution state trustworthy by diagnosing health, claim expiry, t
    sprintctl maintain check --sprint-id <sprint-id> --json
    ```
    Treat tool provenance, backend, schema, stale-item, and sprint-health warnings as findings to review, not automatic repair instructions.
-2. Inspect claims approaching expiry before they become ambiguous:
+2. Inspect reservations that have gone quiet before they become ambiguous:
    ```bash
-   sprintctl claim list-sprint --sprint-id <sprint-id> --expiring-within <seconds> --json
+   sprintctl reservation list --all --json
    ```
-   Confirm each claim's identity with its holder; do not heartbeat, release, or adopt another session's claim based on labels alone.
+   A reservation flagged `stale` has merely been inactive; nothing expires and nothing is transferred automatically. Confirm with the holder before reassigning or releasing, and never do so on a label alone.
 3. Inspect takeup state. Review potential stale runtime sessions and the effect of a `takeup sweep` before invoking it, because the sweep releases takeups:
    ```bash
    sprintctl takeup list --sprint-id <sprint-id> --json
@@ -40,7 +40,7 @@ Keep sprintctl execution state trustworthy by diagnosing health, claim expiry, t
    - List item document refs with `sprintctl item ref list --id <item-id> --json` and confirm local doc paths resolve to real files.
    - List dependencies with `sprintctl item dep list --id <item-id> --json` and identify dangling, cyclic, or status-inconsistent edges.
    - Compare stale active items and blocked dependencies with the `maintain check` report rather than trusting an old render.
-5. Produce a reviewable findings list: diagnosis, affected sprint/item/claim, evidence, proposed action, and whether it mutates state.
+5. Produce a reviewable findings list: diagnosis, affected sprint/item/reservation, evidence, proposed action, and whether it mutates state.
 6. Only after review and authorization, apply the smallest necessary mutation:
    - `sprintctl takeup sweep --sprint-id <sprint-id> --json` for confirmed stale takeups.
    - `sprintctl maintain sweep --sprint-id <sprint-id> --json` for approved stale-item cleanup.
@@ -62,5 +62,5 @@ Keep sprintctl execution state trustworthy by diagnosing health, claim expiry, t
   guidance. Its direct-store path is recovery-only.
 - Do not use `--auto-close` as a convenience flag; it changes sprint lifecycle state.
 - Do not treat a broken document reference or dangling dependency as harmless backlog metadata.
-- Do not mutate, adopt, or heartbeat a claim without its matching ownership proof.
+- Do not reassign, release, or override another session's reservation without confirming with its holder. There is no ownership proof to check; the confirmation is the control.
 - Do not run destructive database maintenance from this skill; use an explicitly approved tool capability when one exists.

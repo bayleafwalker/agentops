@@ -15,7 +15,7 @@ Recover durable knowledge and coordination lessons from sprint events before the
 - **Served mode:** the selected Vuoro profile and the authorized repository
   scope. Do not open a Sprintctl or Kctl database as a substitute for a
   missing catalog operation.
-- Optional explicit event types when default filtering is not sufficient. Defaults come from `KCTL_EVENT_TYPES` or the tool's built-in durable+coordination set; coordination types worth passing explicitly via `--event-types`: `claim-handoff`, `claim-ownership-corrected`, `claim-ambiguity-detected`, `coordination-failure`.
+- Optional explicit event types when default filtering is not sufficient. Defaults come from `KCTL_EVENT_TYPES` or the tool's built-in durable+coordination set; coordination types worth passing explicitly via `--event-types`: `coordination-failure`, plus the frozen historical types `claim-handoff` and `claim-ownership-corrected` when extracting from repositories with pre-reservation history (sprintctl still canonicalizes those two for archive import; nothing emits them now).
 - Process, coordination, or workflow corrections logged during the sprint when they were discovered, even if extraction waits until sprint close.
 
 ## Event Payload Quality
