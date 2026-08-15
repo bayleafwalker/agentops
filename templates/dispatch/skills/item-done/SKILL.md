@@ -11,9 +11,9 @@ If sprintctl mutation is not allowed in the current session, do not half-complet
 
 ## Inputs
 
-- A completed, verified sprint item with an active claim.
+- A completed, verified sprint item with an active reservation.
 - A loaded project DB via `.envrc` or exported `SPRINTCTL_DB`.
-- The `claim_id` and `claim_token` for the current claim.
+- The reservation `id` for the current session.
 
 ## Steps
 
@@ -36,28 +36,28 @@ If sprintctl mutation is not allowed in the current session, do not half-complet
 
 3. **Commit at the right scope boundary.** Use one commit per reviewable scope. Commit when this item closes a tight, related scope. Do not commit mechanically per item; do not bundle unrelated work.
 
-4. **Mark done and release the claim.**
+4. **Mark done, then release the reservation.**
    ```bash
-   sprintctl item done-from-claim --id <id> --claim-id <claim-id> --claim-token <token>
+   sprintctl item status --id <id> --status done --expected-revision <revision>
+   sprintctl reservation release --id <reservation-id> --actor <actor>
    ```
-   Remove `.sprintctl/claims/claim-<item_id>.token` after successful close.
+   Read `<revision>` from `sprintctl item show --id <id> --json`. These are two operations: the transition is guarded by the revision compare-and-swap, and releasing is a separate coordination signal. There is no token file to clean up.
 
-5. **Refresh the snapshot only when it is needed now.** If updated sprint state must be shared immediately (handoff, end-of-batch, review handoff, sprint close), run `sprint-snapshot`. Otherwise stop after `done-from-claim` and batch the refresh at the next natural milestone instead of creating a mechanical per-item snapshot commit.
+5. **Refresh the snapshot only when it is needed now.** If updated sprint state must be shared immediately (handoff, end-of-batch, review handoff, sprint close), run `sprint-snapshot`. Otherwise stop after the release and batch the refresh at the next natural milestone instead of creating a mechanical per-item snapshot commit.
 
 ## Output Contract
 
 - Targeted verification passes before the item closes.
 - Knowledge events logged while context is hot.
-- Item and claim status match live `sprintctl` state.
+- Item status and reservation state match live `sprintctl` state.
 - Commit made at the scope boundary, not mechanically per item.
 
 ## Do Not
 
 - Do not mark done without passing verification.
 - Do not skip knowledge event logging to save time — log now or it is lost.
-- Do not pass the claim token to subagents; keep it in the orchestrating session and the local recovery file only.
-- Do not heartbeat or reuse a claim whose live identity no longer belongs to the current session.
+- Do not release another session's reservation as part of finishing your own work.
 - Do not background a verification command whose exit status gates item closeout.
 - Do not manufacture events if nothing non-obvious happened; one honest event beats three thin ones.
-- Do not use `item status done` when a claim exists — use `done-from-claim` to preserve ownership proof.
-- Do not silently skip `done-from-claim` or snapshot refresh when the workflow requires them; if state mutation is unavailable, report the block instead.
+- Do not omit `--expected-revision`; a direct transition requires it, and it is what makes a stale basis fail closed.
+- Do not silently skip the done transition, the release, or a required snapshot refresh; if state mutation is unavailable, report the block instead.
