@@ -144,6 +144,18 @@ def validate_manifest(value: dict[str, Any], path: Path, root: Path) -> list[dic
                 raise ValueError(f"{path}: instruction source digest must be sha256")
             if not isinstance(source["source_rev"], str) or not source["source_rev"]:
                 raise ValueError(f"{path}: instruction source source_rev is required")
+        presets = instruction_set.get("role_presets", {})
+        if not isinstance(presets, dict) or any(
+            role not in {"planner", "worker", "reviewer"} for role in presets
+        ):
+            raise ValueError(f"{path}: instruction_set.role_presets has unsupported roles")
+        for role, preset in presets.items():
+            if not isinstance(preset, dict) or set(preset) != {"model", "behavior", "tool_mode"}:
+                raise ValueError(
+                    f"{path}: role preset {role} must contain only model, behavior, and tool_mode"
+                )
+            if preset["model"] not in {"Sol", "Luna"} or preset["behavior"] not in {"high", "xhigh"} or preset["tool_mode"] not in {"read-only", "write"}:
+                raise ValueError(f"{path}: role preset {role} has invalid values")
     elif "instruction_set" in value:
         raise ValueError(f"{path}: instruction_set requires schema_version 2")
     authority_repo_uuid = value.get("authority_repo_uuid")

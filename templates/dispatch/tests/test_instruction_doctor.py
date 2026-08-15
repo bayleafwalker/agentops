@@ -163,6 +163,23 @@ class InstructionDoctorTests(unittest.TestCase):
         self.assertEqual(report["handling"], "fatal")
         self.assertFalse(report["managed_eligible"])
 
+    def test_role_preset_cannot_carry_authority(self) -> None:
+        root = self._root()
+        manifest_path = root / "fixture.dispatch.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["instruction_set"]["role_presets"] = {
+            "worker": {
+                "model": "Luna",
+                "behavior": "high",
+                "tool_mode": "write",
+                "authority": "release",
+            }
+        }
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        report = DOCTOR.inspect(root, root)
+        self.assertEqual(report["handling"], "fatal")
+        self.assertFalse(report["managed_eligible"])
+
 
 if __name__ == "__main__":
     unittest.main()

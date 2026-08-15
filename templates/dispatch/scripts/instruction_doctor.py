@@ -146,6 +146,16 @@ def _validate_catalog(manifest: dict[str, Any]) -> list[dict[str, Any]]:
     if not isinstance(sources, list):
         raise DoctorError("instruction_set.sources must be an array")
     findings: list[dict[str, Any]] = []
+    presets = instruction_set.get("role_presets", {})
+    if not isinstance(presets, dict) or any(
+        role not in {"planner", "worker", "reviewer"} for role in presets
+    ):
+        raise DoctorError("instruction_set.role_presets has unsupported roles")
+    for role, preset in presets.items():
+        if not isinstance(preset, dict) or set(preset) != {"model", "behavior", "tool_mode"}:
+            raise DoctorError(f"role preset {role} must contain only model, behavior, and tool_mode")
+        if preset["model"] not in {"Sol", "Luna"} or preset["behavior"] not in {"high", "xhigh"} or preset["tool_mode"] not in {"read-only", "write"}:
+            raise DoctorError(f"role preset {role} has invalid values")
     ids: set[str] = set()
     for source in sources:
         if not isinstance(source, dict):
