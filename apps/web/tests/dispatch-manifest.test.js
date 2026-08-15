@@ -17,6 +17,35 @@ test("dispatch manifest examples satisfy routing contract invariants", async () 
   }
 });
 
+test("v2 manifests retain v1 routing and validate the instruction source catalog", () => {
+  const manifest = {
+    schema_version: 2,
+    repo_id: "fixture",
+    adoption_level: "guidance-only",
+    routing: {
+      default_harness: "codex",
+      default_model_alias: "fast-build",
+      action_classes: { plan: { enabled: true } }
+    },
+    skills: { selected: ["dispatch-plan"] },
+    verification: { command_families: ["unit"] },
+    hooks: { level: "none", publishers: [] },
+    instruction_set: {
+      schema_version: 1,
+      discovery: "native",
+      sources: [{
+        id: "agents",
+        path: "AGENTS.md",
+        kind: "AGENTS.md",
+        digest: "0".repeat(64),
+        source_rev: "git:fixture"
+      }]
+    }
+  };
+  assert.equal(validateDispatchManifest(manifest).schema_version, 2);
+  assert.throws(() => validateDispatchManifest({ ...manifest, instruction_set: undefined }), /instruction_set must be an object/);
+});
+
 test("dispatchable repos include build routing and verification hooks", async () => {
   const manifest = await readJson(join(EXAMPLES_DIR, "homelab-analytics.dispatch.json"));
 

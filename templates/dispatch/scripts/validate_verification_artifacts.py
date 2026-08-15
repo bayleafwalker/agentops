@@ -7,6 +7,7 @@ import argparse
 import fnmatch
 import json
 from pathlib import Path
+import re
 from typing import Any
 from uuid import UUID
 
@@ -111,8 +112,40 @@ def _string_list(value: Any, field: str, path: Path, *, allow_empty: bool = Fals
 
 def validate_manifest(value: dict[str, Any], path: Path, root: Path) -> list[dict[str, Any]]:
     _require(value, ("schema_version", "repo_id", "adoption_level", "routing", "skills", "verification", "hooks"), path)
-    if value["schema_version"] != 1:
-        raise ValueError(f"{path}: schema_version must be 1")
+    if value["schema_version"] not in {1, 2}:
+        raise ValueError(f"{path}: schema_version must be 1 or 2")
+    if value["schema_version"] == 2:
+        instruction_set = value.get("instruction_set")
+        if not isinstance(instruction_set, dict):
+            raise ValueError(f"{path}: schema_version 2 requires instruction_set")
+        if instruction_set.get("schema_version") != 1:
+            raise ValueError(f"{path}: instruction_set.schema_version must be 1")
+        if instruction_set.get("discovery") != "native" or not isinstance(
+            instruction_set.get("sources"), list
+        ):
+            raise ValueError(
+                f"{path}: instruction_set must declare native discovery and sources"
+            )
+        source_ids: set[str] = set()
+        for source in instruction_set["sources"]:
+            if not isinstance(source, dict):
+                raise ValueError(f"{path}: instruction source must be an object")
+            _require(source, ("id", "path", "kind", "digest", "source_rev"), path)
+            if source["id"] in source_ids:
+                raise ValueError(f"{path}: duplicate instruction source id {source['id']!r}")
+            source_ids.add(source["id"])
+            if source["kind"] not in {"AGENTS.md", "CLAUDE.md", "overlay", "generated", "other"}:
+                raise ValueError(f"{path}: invalid instruction source kind")
+            source_path = Path(source["path"])
+            if source_path.is_absolute() or ".." in source_path.parts:
+                raise ValueError(f"{path}: instruction source path must be relative")
+            digest = source["digest"]
+            if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+                raise ValueError(f"{path}: instruction source digest must be sha256")
+            if not isinstance(source["source_rev"], str) or not source["source_rev"]:
+                raise ValueError(f"{path}: instruction source source_rev is required")
+    elif "instruction_set" in value:
+        raise ValueError(f"{path}: instruction_set requires schema_version 2")
     authority_repo_uuid = value.get("authority_repo_uuid")
     if authority_repo_uuid is not None:
         try:

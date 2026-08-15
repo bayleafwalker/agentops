@@ -6,6 +6,23 @@ project_id = "981b2073-d7af-4c28-bff3-3cf807495fba"
 display_name = "vuoro"
 home_repo = "agentops"
 
+# Model/behavior presets are descriptive dispatch defaults only. They never
+# grant repository, queue, release, or deployment authority.
+[role_presets.planner]
+model = "Sol"
+behavior = "xhigh"
+tool_mode = "read-only"
+
+[role_presets.worker]
+model = "Luna"
+behavior = "high"
+tool_mode = "write"
+
+[role_presets.reviewer]
+model = "Sol"
+behavior = "xhigh"
+tool_mode = "read-only"
+
 [[members]]
 repo_id = "agentops"
 backlog = true

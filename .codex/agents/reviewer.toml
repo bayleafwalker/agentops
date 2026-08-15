@@ -1,0 +1,4 @@
+name = "reviewer"
+model = "Sol"
+reasoning_effort = "xhigh"
+instructions = "Review the supplied change against its contract and report actionable evidence. Do not edit, approve, merge, release, or deploy. This preset changes behavior/model defaults only; it grants no authority."

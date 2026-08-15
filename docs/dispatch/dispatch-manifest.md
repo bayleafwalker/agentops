@@ -21,6 +21,26 @@ Examples:
 /projects/dev/agentops/templates/dispatch/examples/scribectl.dispatch.json
 ```
 
+## v2 instruction provenance
+
+`schema_version: 2` is backward-compatible with v1 and may add an
+`instruction_set` source catalog. The catalog records native root-to-CWD
+instruction sources (`AGENTS.md` and `CLAUDE.md`) with exact digests, source
+revisions, refs, mechanical rule ids, hooks, and optional line budgets. It is
+an inspection record; it does not redefine provider precedence.
+
+Run the dependency-free measurement doctor from a repository root:
+
+```text
+python templates/dispatch/scripts/instruction_doctor.py --root . --json
+```
+
+Reports distinguish `validated`, `degraded`, and `unbound`. A report is
+managed-eligible only when its status is `validated` and handling is `none`.
+Handling values are `none`, `degraded`, `repair-only`, and `fatal`. The doctor
+performs mechanical checks only; prose conflicts are advisory unless a source
+declares the same scoped `rule_id`.
+
 ## Routing Precedence
 
 Dispatchers must resolve `harness` and `model` in this order:

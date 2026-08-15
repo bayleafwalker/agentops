@@ -106,6 +106,13 @@ Per-member fields:
 | `access` | enum, optional | Materialization boundary: `write` or `reference`. Defaults to `write`. `reference` uses a detached, filesystem-read-only worktree and receives no render writes. |
 | `path_notes` | array of strings, optional | Free-text agent guidance for this specific binding. Read directly from `project.toml`, never rendered into a file. |
 
+An optional `role_presets` table provides project-scoped model/behavior defaults
+for `planner`, `worker`, and `reviewer`. The preset vocabulary is deliberately
+small (`Sol`/`Luna`, `xhigh`/`high`, and `read-only`/`write`); it is descriptive
+dispatch configuration only and cannot grant repository, queue, release, or
+deployment authority. The Vuoro binding uses Sol/xhigh read-only for planning
+and review, and Luna/high for workers.
+
 `schema_version` and the `repo_id` pattern (`^[A-Za-z0-9._-]+$`) reuse
 `templates/dispatch/manifest.schema.json`'s conventions directly, so a repo_id is guaranteed to
 mean the same thing in a dispatch manifest and in a project binding.
