@@ -29,6 +29,18 @@ def tree_digest(path: Path) -> str:
     return digest.hexdigest()
 
 
+def has_symlink_component(source_root: Path, selected_path: str) -> bool:
+    relative = Path(selected_path)
+    if relative.is_absolute() or ".." in relative.parts or source_root.is_symlink():
+        return True
+    current = source_root
+    for part in relative.parts:
+        current = current / part
+        if current.is_symlink():
+            return True
+    return False
+
+
 def inspect(lock: dict[str, Any], source_root: Path) -> dict[str, Any]:
     if lock.get("schema_version") != "skill-lock/v1" or not isinstance(lock.get("selected"), list):
         raise SkillLockError("invalid skill lock")
@@ -38,7 +50,10 @@ def inspect(lock: dict[str, Any], source_root: Path) -> dict[str, Any]:
     observed: list[tuple[str, str]] = []
     for selected in lock["selected"]:
         path = source_root / selected["path"]
-        if path.is_symlink() or not path.is_dir():
+        if has_symlink_component(source_root, selected["path"]):
+            tampered.append(selected["id"])
+            continue
+        if not path.is_dir():
             (missing_mandatory if selected["mandatory"] else missing_optional).append(selected["id"])
             continue
         if any(child.is_symlink() for child in path.rglob("*")):

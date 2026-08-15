@@ -54,6 +54,21 @@ class SkillLockTests(unittest.TestCase):
             LOCK.materialize(lock, root / "source", root / "target", "codex")
         self.assertFalse((root / "target/.codex/skills").exists())
 
+    def test_intermediate_selected_path_symlink_is_fatal(self) -> None:
+        root, lock = self.fixture()
+        (root / "source/real").mkdir()
+        (root / "source/real/demo").mkdir()
+        (root / "source/real/demo/SKILL.md").write_text("# Other\n")
+        (root / "source/alias").symlink_to("real", target_is_directory=True)
+        lock["selected"][0]["path"] = "alias/demo"
+        lock["selected"][0]["digest"] = LOCK.tree_digest(root / "source/real/demo")
+        self.assertEqual(LOCK.inspect(lock, root / "source")["handling"], "fatal")
+
+    def test_symlinked_source_root_is_fatal(self) -> None:
+        root, lock = self.fixture()
+        (root / "source-link").symlink_to(root / "source", target_is_directory=True)
+        self.assertEqual(LOCK.inspect(lock, root / "source-link")["handling"], "fatal")
+
     def test_missing_mandatory_is_repair_only_and_optional_is_degraded(self) -> None:
         root, lock = self.fixture(mandatory=True)
         (root / "source/demo/SKILL.md").unlink()
