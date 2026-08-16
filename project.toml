@@ -49,20 +49,6 @@ path_notes = [
   "Appservice remains the private deployment authority for development and production overlays.",
 ]
 
-[[members]]
-repo_id = "outctl"
-backlog = true
-render = "full"
-relationship = "tooling"
-access = "write"
-repository = "https://github.com/bayleafwalker/outctl.git"
-default_ref = "refs/heads/main"
-path_notes = [
-  "Public supplemental substrate: owns bounded command-output capture, deterministic projection, retrieval, verification, and retention mechanics.",
-  "It runs at the runner/harness boundary and owns no command scheduling, action lifecycle, audit judgment, curated knowledge, remote execution, or Vuoro service state.",
-]
-
-[[members]]
 repo_id = "sprintctl"
 backlog = true
 render = "full"
