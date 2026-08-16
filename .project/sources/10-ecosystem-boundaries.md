@@ -8,6 +8,10 @@ render_levels: [full]
   tooling, cross-repository guidance, and the cockpit application source.
 - `sprintctl`, `kctl`, and `actionq` own their respective runtime semantics and
   state. Do not add raw cross-tool database writes or cross-tool transactions.
+- The former `outctl` member is retired from active Vuoro scope. Its repository
+  remains a frozen discovery artifact; new harness-evidence work belongs at the
+  native runtime boundary and targets standard OpenTelemetry plus Langfuse or
+  Phoenix with object storage rather than a new evidence product.
 - Inspect declared `risk_surfaces` before changing queue, claim, lease, retry,
   recovery, projection, publication, reconciliation, or backend-parity paths.
   `full` is a sequence of scoped actions, not blanket mutation authority.
