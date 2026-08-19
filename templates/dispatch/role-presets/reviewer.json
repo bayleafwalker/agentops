@@ -1,0 +1,6 @@
+{
+  "role": "reviewer",
+  "model": "Sol",
+  "behavior": "xhigh",
+  "tool_mode": "read-only"
+}

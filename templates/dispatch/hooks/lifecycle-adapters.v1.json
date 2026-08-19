@@ -1,0 +1,14 @@
+{
+  "schema_version": "lifecycle-adapters/v1",
+  "support_levels": ["native", "partial", "approximated", "unsupported"],
+  "adapters": {
+    "codex": {"session_start": "native", "pre_tool": "partial", "post_tool": "partial", "session_end": "native"},
+    "claude": {"session_start": "native", "pre_tool": "native", "post_tool": "native", "session_end": "native"},
+    "git": {"pre_publish": "native", "post_publish": "partial"},
+    "ci": {"admission": "native", "completion": "native"},
+    "actionq": {"admission": "native", "pre_command": "native", "settlement": "native"},
+    "deployment": {"admission": "partial", "completion": "approximated"}
+  },
+  "authoritative_denial": ["actionq-admission", "registered-command-wrapper", "git-ci", "deployment-boundary"],
+  "hook_semantics": "Provider hooks are early feedback and receipt adapters only. Ordering and lifecycle equivalence are not assumed; hook absence never grants authority."
+}

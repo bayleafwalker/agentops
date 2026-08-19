@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/role-preset.schema.json",
+  "title": "Project-scoped role preset",
+  "description": "A model and behavior default. It is not an authority or permission grant.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["role", "model", "behavior", "tool_mode"],
+  "properties": {
+    "role": { "type": "string", "enum": ["planner", "worker", "reviewer"] },
+    "model": { "type": "string", "enum": ["Sol", "Luna"] },
+    "behavior": { "type": "string", "enum": ["high", "xhigh"] },
+    "tool_mode": { "type": "string", "enum": ["read-only", "write"] }
+  }
+}

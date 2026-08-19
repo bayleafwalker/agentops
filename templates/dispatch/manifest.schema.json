@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "repo_id", "adoption_level", "routing", "skills", "verification", "hooks"],
   "properties": {
-    "schema_version": { "type": "integer", "const": 1 },
+    "schema_version": { "type": "integer", "enum": [1, 2] },
     "repo_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
     "authority_repo_uuid": {
       "type": "string",
@@ -186,6 +186,127 @@
           "items": { "type": "string", "enum": ["git", "actionq-daemon", "workspace-cost", "dispatcher-gate", "github"] }
         }
       }
+    },
+    "instruction_set": {
+      "type": "object",
+      "description": "Optional v2 source catalog. Discovery remains the native harness's root-to-CWD operation; this catalog records what was inspected and its provenance.",
+      "additionalProperties": false,
+      "required": ["schema_version", "discovery", "sources"],
+      "properties": {
+        "schema_version": { "type": "integer", "const": 1 },
+        "discovery": { "type": "string", "enum": ["native"] },
+        "applicability": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "paths": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "roles": { "type": "array", "items": { "type": "string", "enum": ["planner", "worker", "reviewer"] } }
+          }
+        },
+        "entrypoints": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "architecture": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "plan": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "runbook": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+          }
+        },
+        "role_presets": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "planner": { "$ref": "#/$defs/rolePreset" },
+            "worker": { "$ref": "#/$defs/rolePreset" },
+            "reviewer": { "$ref": "#/$defs/rolePreset" }
+          }
+        },
+        "provider_adapters": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["provider", "path"],
+            "properties": {
+              "provider": { "type": "string", "minLength": 1 },
+              "path": { "type": "string", "minLength": 1 },
+              "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+            }
+          }
+        },
+        "skill_lock": {
+          "oneOf": [
+            { "type": "object", "additionalProperties": { "type": "string", "pattern": "^[0-9a-f]{64}$" } },
+            { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["id", "digest"], "properties": { "id": { "type": "string", "minLength": 1 }, "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" } } } }
+          ]
+        },
+        "skill_lock_ref": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "digest", "mandatory"],
+          "properties": {
+            "path": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))(?!.*\\\\).+$" },
+            "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "mandatory": { "type": "boolean" }
+          }
+        },
+        "sources": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "path", "kind", "digest", "source_rev"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+              "path": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))(?!.*\\\\)[^/]+(?:/[^/]+)*$" },
+              "kind": { "type": "string", "enum": ["AGENTS.md", "CLAUDE.md", "overlay", "generated", "other"] },
+              "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+              "source_rev": { "type": "string", "minLength": 1 },
+              "refs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+              "rules": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["rule_id", "scope"],
+                  "properties": {
+                    "rule_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+                    "scope": { "type": "string", "minLength": 1 },
+                    "kind": { "type": "string", "enum": ["mechanical", "advisory"] }
+                  }
+                }
+              },
+              "hooks": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+              "line_budget": { "type": "integer", "minimum": 1 }
+            }
+          }
+        }
+      }
     }
-  }
+  },
+  "$defs": {
+    "rolePreset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "behavior", "tool_mode"],
+      "properties": {
+        "model": { "type": "string", "enum": ["Sol", "Luna"] },
+        "behavior": { "type": "string", "enum": ["high", "xhigh"] },
+        "tool_mode": { "type": "string", "enum": ["read-only", "write"] }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "schema_version": { "const": 2 } } },
+      "then": { "required": ["instruction_set"] }
+    },
+    {
+      "if": { "properties": { "schema_version": { "const": 1 } } },
+      "then": { "not": { "required": ["instruction_set"] } }
+    }
+  ]
 }

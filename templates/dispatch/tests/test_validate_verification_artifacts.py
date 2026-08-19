@@ -101,6 +101,71 @@ class RepositoryContractValidatorTests(unittest.TestCase):
                 [],
             )
 
+    def test_accepts_v2_manifest_with_native_instruction_set(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest = {
+                "schema_version": 2,
+                "repo_id": "example",
+                "adoption_level": "guidance-only",
+                "routing": {"action_classes": {}},
+                "skills": {"selected": ["verify-state-protocols"], "overlays": []},
+                "verification": {"command_families": ["unit"]},
+                "hooks": {"publishers": []},
+                "instruction_set": {
+                    "schema_version": 1,
+                    "discovery": "native",
+                    "sources": [],
+                },
+            }
+            self.assertEqual(
+                VALIDATOR.validate_manifest(manifest, root / "example.dispatch.json", root),
+                [],
+            )
+
+    def test_rejects_malformed_v2_instruction_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest = {
+                "schema_version": 2,
+                "repo_id": "example",
+                "adoption_level": "guidance-only",
+                "routing": {"action_classes": {}},
+                "skills": {"selected": ["verify-state-protocols"], "overlays": []},
+                "verification": {"command_families": ["unit"]},
+                "hooks": {"publishers": []},
+                "instruction_set": {
+                    "schema_version": 999,
+                    "discovery": "native",
+                    "sources": [{"id": "bad", "path": "AGENTS.md", "kind": "bogus", "digest": "no", "source_rev": "git:x"}],
+                },
+            }
+            with self.assertRaisesRegex(ValueError, "instruction_set.schema_version"):
+                VALIDATOR.validate_manifest(manifest, root / "example.dispatch.json", root)
+
+    def test_rejects_role_preset_authority_field(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest = {
+                "schema_version": 2,
+                "repo_id": "example",
+                "adoption_level": "guidance-only",
+                "routing": {"action_classes": {}},
+                "skills": {"selected": ["verify-state-protocols"], "overlays": []},
+                "verification": {"command_families": ["unit"]},
+                "hooks": {"publishers": []},
+                "instruction_set": {
+                    "schema_version": 1,
+                    "discovery": "native",
+                    "sources": [],
+                    "role_presets": {
+                        "worker": {"model": "Luna", "behavior": "high", "tool_mode": "write", "authority": "release"}
+                    },
+                },
+            }
+            with self.assertRaisesRegex(ValueError, "must contain only"):
+                VALIDATOR.validate_manifest(manifest, root / "example.dispatch.json", root)
+
     def test_rejects_non_uuid_authority_repository_identity(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

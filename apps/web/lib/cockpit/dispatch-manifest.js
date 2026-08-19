@@ -4,6 +4,7 @@ import { getCached, setCached } from "./cache.js";
 import { getConfig } from "./env.js";
 
 const ADOPTION_LEVELS = new Set(["guidance-only", "observable", "dispatchable"]);
+const MANIFEST_SCHEMA_VERSIONS = new Set([1, 2]);
 const HARNESSES = new Set(["claude", "codex", "opencode"]);
 const ACTION_CLASSES = new Set(["plan", "build", "review", "verify", "reconcile", "release-ops", "meta-dispatch"]);
 const SKILLS = new Set([
@@ -33,13 +34,105 @@ const SKILLS = new Set([
   "reconcile-project-contracts"
 ]);
 const RISK_SKILLS = new Set(["verify-state-protocols", "reconcile-project-contracts"]);
+const INSTRUCTION_KINDS = new Set(["AGENTS.md", "CLAUDE.md", "overlay", "generated", "other"]);
+const ROLE_PRESETS = new Set(["planner", "worker", "reviewer"]);
+
+function validateInstructionSet(instructionSet) {
+  if (!instructionSet || typeof instructionSet !== "object" || Array.isArray(instructionSet)) {
+    throw new Error("instruction_set must be an object");
+  }
+  if (instructionSet.schema_version !== 1) {
+    throw new Error("instruction_set.schema_version must be 1");
+  }
+  if (instructionSet.discovery !== "native") {
+    throw new Error("instruction_set.discovery must be native");
+  }
+  for (const field of ["applicability", "entrypoints"]) {
+    if (instructionSet[field] != null && (!instructionSet[field] || typeof instructionSet[field] !== "object" || Array.isArray(instructionSet[field]))) {
+      throw new Error(`instruction_set.${field} must be an object`);
+    }
+  }
+  if (instructionSet.role_presets != null) {
+    if (typeof instructionSet.role_presets !== "object" || Array.isArray(instructionSet.role_presets)) throw new Error("instruction_set.role_presets must be an object");
+    for (const [role, preset] of Object.entries(instructionSet.role_presets)) {
+      if (!ROLE_PRESETS.has(role) || !preset || typeof preset !== "object" || Array.isArray(preset) || !["Sol", "Luna"].includes(preset.model) || !["high", "xhigh"].includes(preset.behavior) || !["read-only", "write"].includes(preset.tool_mode)) {
+        throw new Error(`instruction_set.role_presets.${role} is invalid`);
+      }
+      if (Object.keys(preset).some((key) => !["model", "behavior", "tool_mode"].includes(key))) throw new Error(`instruction_set.role_presets.${role} contains unsupported authority fields`);
+    }
+  }
+  if (instructionSet.provider_adapters != null) {
+    if (!Array.isArray(instructionSet.provider_adapters)) throw new Error("instruction_set.provider_adapters must be an array");
+    const providers = new Set();
+    for (const adapter of instructionSet.provider_adapters) {
+      if (!adapter || typeof adapter.provider !== "string" || typeof adapter.path !== "string" || providers.has(adapter.provider)) throw new Error("instruction_set.provider_adapters must have unique providers");
+      providers.add(adapter.provider);
+      if (adapter.digest != null && (typeof adapter.digest !== "string" || !/^[0-9a-f]{64}$/.test(adapter.digest))) throw new Error("provider adapter digest must be sha256");
+    }
+  }
+  if (instructionSet.skill_lock != null) {
+    const lock = Array.isArray(instructionSet.skill_lock) ? instructionSet.skill_lock : Object.entries(instructionSet.skill_lock).map(([id, digest]) => ({ id, digest }));
+    if (!lock.every((item) => item && typeof item.id === "string" && typeof item.digest === "string" && /^[0-9a-f]{64}$/.test(item.digest))) throw new Error("instruction_set.skill_lock digests must be sha256");
+  }
+  if (!Array.isArray(instructionSet.sources)) {
+    throw new Error("instruction_set.sources must be an array");
+  }
+  const allowedFields = new Set(["schema_version", "discovery", "sources", "applicability", "entrypoints", "role_presets", "provider_adapters", "skill_lock", "skill_lock_ref"]);
+  if (Object.keys(instructionSet).some((field) => !allowedFields.has(field))) {
+    throw new Error("instruction_set contains unsupported fields");
+  }
+  const ids = new Set();
+  for (const source of instructionSet.sources) {
+    if (!source || typeof source !== "object" || Array.isArray(source)) {
+      throw new Error("instruction source must be an object");
+    }
+    if (typeof source.id !== "string" || !/^[A-Za-z0-9._-]+$/.test(source.id) || ids.has(source.id)) {
+      throw new Error("instruction source id must be unique and valid");
+    }
+    ids.add(source.id);
+    if (typeof source.path !== "string" || source.path.length === 0 || source.path.startsWith("/") || source.path.includes("..")) {
+      throw new Error(`instruction source ${source.id} path must be relative`);
+    }
+    if (!INSTRUCTION_KINDS.has(source.kind)) {
+      throw new Error(`instruction source ${source.id} kind is invalid`);
+    }
+    if (typeof source.digest !== "string" || !/^[0-9a-f]{64}$/.test(source.digest)) {
+      throw new Error(`instruction source ${source.id} digest must be sha256`);
+    }
+    if (typeof source.source_rev !== "string" || source.source_rev.length === 0) {
+      throw new Error(`instruction source ${source.id} source_rev is required`);
+    }
+    for (const field of ["refs", "hooks"]) {
+      if (source[field] != null && (!Array.isArray(source[field]) || source[field].some((item) => typeof item !== "string" || item.length === 0))) {
+        throw new Error(`instruction source ${source.id} ${field} must contain non-empty strings`);
+      }
+    }
+    if (source.rules != null && (!Array.isArray(source.rules) || source.rules.some((rule) => !rule || typeof rule.rule_id !== "string" || !/^[A-Za-z0-9._-]+$/.test(rule.rule_id) || typeof rule.scope !== "string" || rule.scope.length === 0))) {
+      throw new Error(`instruction source ${source.id} rules are invalid`);
+    }
+    if (source.line_budget != null && (!Number.isInteger(source.line_budget) || source.line_budget < 1)) {
+      throw new Error(`instruction source ${source.id} line_budget must be positive`);
+    }
+  }
+  if (instructionSet.skill_lock_ref != null) {
+    const ref = instructionSet.skill_lock_ref;
+    if (!ref || typeof ref !== "object" || Array.isArray(ref) || Object.keys(ref).sort().join(",") !== "digest,mandatory,path" || typeof ref.path !== "string" || ref.path.startsWith("/") || ref.path.includes("..") || !/^[0-9a-f]{64}$/.test(ref.digest) || typeof ref.mandatory !== "boolean") {
+      throw new Error("instruction_set.skill_lock_ref is invalid");
+    }
+  }
+  return instructionSet;
+}
 
 export function validateDispatchManifest(manifest) {
   if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)) {
     throw new Error("dispatch manifest must be an object");
   }
-  if (manifest.schema_version !== 1) {
-    throw new Error("schema_version must be 1");
+  if (!MANIFEST_SCHEMA_VERSIONS.has(manifest.schema_version)) {
+    throw new Error("schema_version must be 1 or 2");
+  }
+  if (manifest.schema_version === 2) validateInstructionSet(manifest.instruction_set);
+  if (manifest.schema_version === 1 && manifest.instruction_set != null) {
+    throw new Error("instruction_set requires schema_version 2");
   }
   if (typeof manifest.repo_id !== "string" || !/^[A-Za-z0-9._-]+$/.test(manifest.repo_id)) {
     throw new Error("repo_id must be a valid repo identifier");
@@ -129,7 +222,8 @@ function summarizeManifest(manifest, sourcePath) {
     skills: manifest.skills.selected,
     risk_surfaces: manifest.risk_surfaces || [],
     verification: manifest.verification,
-    hooks: manifest.hooks
+    hooks: manifest.hooks,
+    instruction_set: manifest.instruction_set || null
   };
 }
 

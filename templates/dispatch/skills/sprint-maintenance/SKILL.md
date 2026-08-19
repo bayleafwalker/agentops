@@ -62,5 +62,5 @@ Keep sprintctl execution state trustworthy by diagnosing health, stale reservati
   guidance. Its direct-store path is recovery-only.
 - Do not use `--auto-close` as a convenience flag; it changes sprint lifecycle state.
 - Do not treat a broken document reference or dangling dependency as harmless backlog metadata.
-- Do not reassign, release, or override another session's reservation without confirming with its holder. There is no ownership proof to check; the confirmation is the control.
+- Do not reassign, release, or interrupt another session's reservation without confirming with its holder. There is no ownership proof to check; the confirmation is the control.
 - Do not run destructive database maintenance from this skill; use an explicitly approved tool capability when one exists.

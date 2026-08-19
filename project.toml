@@ -6,6 +6,23 @@ project_id = "981b2073-d7af-4c28-bff3-3cf807495fba"
 display_name = "vuoro"
 home_repo = "agentops"
 
+# Model/behavior presets are descriptive dispatch defaults only. They never
+# grant repository, queue, release, or deployment authority.
+[role_presets.planner]
+model = "Sol"
+behavior = "xhigh"
+tool_mode = "read-only"
+
+[role_presets.worker]
+model = "Luna"
+behavior = "high"
+tool_mode = "write"
+
+[role_presets.reviewer]
+model = "Sol"
+behavior = "xhigh"
+tool_mode = "read-only"
+
 [[members]]
 repo_id = "agentops"
 backlog = true
@@ -32,20 +49,6 @@ path_notes = [
   "Appservice remains the private deployment authority for development and production overlays.",
 ]
 
-[[members]]
-repo_id = "outctl"
-backlog = true
-render = "full"
-relationship = "tooling"
-access = "write"
-repository = "https://github.com/bayleafwalker/outctl.git"
-default_ref = "refs/heads/main"
-path_notes = [
-  "Public supplemental substrate: owns bounded command-output capture, deterministic projection, retrieval, verification, and retention mechanics.",
-  "It runs at the runner/harness boundary and owns no command scheduling, action lifecycle, audit judgment, curated knowledge, remote execution, or Vuoro service state.",
-]
-
-[[members]]
 repo_id = "sprintctl"
 backlog = true
 render = "full"

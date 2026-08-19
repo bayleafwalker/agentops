@@ -100,6 +100,52 @@ render = "none"
         )
         self.assertEqual(access["enum"], ["write", "reference"])
 
+    def test_project_role_presets_are_model_and_behavior_only(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            project_path = self._project(
+                Path(temporary),
+                """
+[role_presets.planner]
+model = "Sol"
+behavior = "xhigh"
+tool_mode = "read-only"
+
+[role_presets.worker]
+model = "Luna"
+behavior = "high"
+tool_mode = "write"
+
+[role_presets.reviewer]
+model = "Sol"
+behavior = "xhigh"
+tool_mode = "read-only"
+""",
+            )
+            loaded = RENDER.load_project(project_path)
+            self.assertEqual(
+                loaded.role_presets,
+                (
+                    ("planner", "Sol", "xhigh", "read-only"),
+                    ("worker", "Luna", "high", "write"),
+                    ("reviewer", "Sol", "xhigh", "read-only"),
+                ),
+            )
+
+    def test_role_presets_cannot_grant_authority(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            project_path = self._project(
+                Path(temporary),
+                """
+[role_presets.planner]
+model = "Sol"
+behavior = "xhigh"
+tool_mode = "read-only"
+authority = "release"
+""",
+            )
+            with self.assertRaisesRegex(RENDER.ProjectRenderError, "unsupported field"):
+                RENDER.load_project(project_path)
+
 
 if __name__ == "__main__":
     unittest.main()

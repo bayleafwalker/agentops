@@ -59,13 +59,38 @@ continuity and turned every recovery export into a secrets-bearing artifact.
   the coordination-mirror convention this is not duplicated as a separate
   item on this side.
 
-## Open operator questions
+## Operator questions — resolved 2026-08-15
 
-Q1–Q4, Q7 open in sprintctl `docs/plans/v3-reservation-model-plan.md` §4
-(reserve conflict policy, claim-type taxonomy, activity tracking, stale
-sweep, catalog cutover window). Q5 (vuoro credential carrier) resolved
-2026-07-24 as retire — see filing note above. Q6 (retirement interleaving)
-was resolved by placement.
+All of §4 in sprintctl `docs/plans/v3-reservation-model-plan.md` is now
+decided; that file holds the reasoning, this is the cross-repo mirror.
+
+- **Q1 reserve conflict policy — overlap is reported, never refused.** A
+  reservation is a detector, not a lease. `reserve` always commits and returns
+  `conflict` / `conflicting_reservations` / `conflict_severity`; the partial
+  unique index that made exclusivity a database law is dropped (SQLite 22,
+  PostgreSQL 12). Deliberate takeover survives as `--interrupt-existing`
+  (renamed from `--override`).
+- **Q2 taxonomy — `execution` / `verification` / `observation`.** The role is
+  the relationship to the work, which is what makes an overlap classifiable.
+  `coordinate` was orchestration context rather than a work relationship, so
+  coordinators and `inspect` both fold into `observation`.
+- **Q3 activity — implicit plus explicit.** `last_activity_at` advances on
+  successful item-scoped mutations attributed to the reservation's session;
+  `reservation touch` remains for work done outside sprintctl.
+- **Q4 stale sweep — 4h display / 7d sweep horizon, explicit sweep only,**
+  and both are operator policy (`sprintctl/reservation_policy.py`) rather than
+  constants in the reservation model.
+- **Q5 vuoro credential carrier** resolved 2026-07-24 as retire — see filing
+  note above. **Q6 retirement interleaving** was resolved by placement.
+- **Q7 catalog cutover — clean break.** No dual registration of
+  `/api/invoke/v2`: an accepting shim would let an old client believe the
+  proof it supplied still had semantics after the server discarded it. A
+  temporary `410 Gone + "upgrade client"` route is defensible; an accepting
+  one is not.
+- **Schema admission floor (raised in review).** The v0.3 runtime admits only
+  the schema it was built against (`MINIMUM_SCHEMA_VERSION ==
+  CURRENT_SCHEMA_VERSION == 12`); the previous floor of 5 would have passed
+  the handshake for databases that cannot service a reservation call.
 
 ## Relationship to the retained-Vuoro assessment
 

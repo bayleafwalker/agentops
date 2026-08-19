@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/skill-lock.v1.schema.json",
+  "title": "Immutable skill lock v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "canonical_commit", "tree_digest", "selected", "overlays", "provider_materialization_targets"],
+  "properties": {
+    "schema_version": {"const": "skill-lock/v1"},
+    "canonical_commit": {"type": "string", "pattern": "^[0-9a-f]{7,64}$"},
+    "tree_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "selected": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["id", "version", "path", "digest", "mandatory"], "properties": {"id": {"type": "string"}, "version": {"type": "string"}, "path": {"type": "string"}, "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "mandatory": {"type": "boolean"}}},
+    "overlays": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["path", "digest"], "properties": {"path": {"type": "string"}, "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}},
+    "provider_materialization_targets": {"type": "object", "additionalProperties": {"type": "string"}}
+  }
+}

@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "repo_id": "agentops",
   "authority_repo_uuid": "1308d624-3413-4327-a891-9d9cdfc2d4ea",
   "adoption_level": "guidance-only",
@@ -28,6 +28,50 @@
       "reconcile-project-contracts",
       "session-handover"
     ]
+  },
+  "instruction_set": {
+    "schema_version": 1,
+    "discovery": "native",
+    "sources": [
+      {
+        "id": "agentops-agents",
+        "path": "AGENTS.md",
+        "kind": "AGENTS.md",
+        "digest": "b75eef9ebc304bb0ebdf4173430c2c67c454a0daaf5c7a3fb9b0650ab2c7b988",
+        "source_rev": "git:284766036925205a07b8756b0931def7822eb53c",
+        "refs": [],
+        "rules": [],
+        "hooks": [],
+        "line_budget": 180
+      }
+    ],
+    "applicability": {
+      "paths": ["templates/dispatch/", "apps/web/", "docs/"],
+      "roles": ["planner", "worker", "reviewer"]
+    },
+    "entrypoints": {
+      "architecture": ["docs/"],
+      "plan": ["docs/plans/", "templates/dispatch/skills/dispatch-plan/SKILL.md"],
+      "runbook": ["docs/runbooks/", "docs/dispatch/"]
+    },
+    "role_presets": {
+      "planner": { "model": "Sol", "behavior": "xhigh", "tool_mode": "read-only" },
+      "worker": { "model": "Luna", "behavior": "high", "tool_mode": "write" },
+      "reviewer": { "model": "Sol", "behavior": "xhigh", "tool_mode": "read-only" }
+    },
+    "provider_adapters": [],
+    "skill_lock": {
+      "dispatch-plan": "8da2efaaa4f760a468e5b642d2aa47162df594b52b813138e875189726cf34d6",
+      "dispatch-wave": "a85480af99dd4a628a5c55683cd5b79ef483f07771efb0358c3210c233647a7e",
+      "dispatch-build": "f895830df38ea72b79f13864130fd2e3ffca3488b261d38744c86cfc79995a1f",
+      "dispatch-review": "0bf4c6f46b30f8ea33c5e226f90f000919291bbe199e0ae14d39cb1c219ea678",
+      "code-change-verification": "da8dca1568f93ca1cb7f73ff88d75849c5c58676c4b3274516069a3197fe13a3",
+      "item-done": "441b9b333890d50fc6486f78e60662e8ebbdcefb51c57f34374b44fced32d68d",
+      "model-routing-optimizer": "8863acfbfaf08818272fbc5cfd2f139e4ea61e54e009ba6087406245cfc4c0a9",
+      "workflow-artifact-capture": "076fb30a2837cdc7e7a5c0ef3c31b1a52d06fe0d5ad903834bbaa5380a4c811c",
+      "reconcile-project-contracts": "3161e7ac4455bfccf20d783a4e9af5ac507c233d4a0afd3acad2857dafccad70",
+      "session-handover": "840bd46a272e2497647431465ef767f27c9348a7fabc31ce7a4dba86b4b2f4f9"
+    }
   },
   "scope": {
     "allowed_path_roots": [

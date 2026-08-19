@@ -14,6 +14,14 @@ does not clear unattended ActionQ dispatch: claim-incarnation, supervised
 renewal, and fault-recovery work are separate operational gates. See
 [`vuoro-substrate-simplification-refactoring-assessment-2026-07-26.md`](../assessments/vuoro-substrate-simplification-refactoring-assessment-2026-07-26.md).
 
+**Claim-era rows are historical, 2026-08-15.** The `sprintctl claim *` and
+`item done-from-claim` commands in the inventory below no longer exist: the v3
+cutover replaced them with `sprintctl reservation reserve|touch|reassign|release`
+and an ordinary `item status --expected-revision` transition. Their rows are
+retained because this file is a parity ledger, not agent guidance — a retired
+command still needs a recorded decision. Do not read them as live commands; see
+sprintctl `docs/protocols/reservation-model.md`.
+
 The contract is deliberately narrow. A command is **served** only when the
 guidance can use it against the selected Vuoro profile without opening a
 Sprintctl store. **Unsupported** means it is part of the blind-agent loop but

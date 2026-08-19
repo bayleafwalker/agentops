@@ -131,6 +131,7 @@ class ProjectBinding:
     display_name: str
     home_repo: str
     members: tuple[MemberBinding, ...]
+    role_presets: tuple[tuple[str, str, str, str], ...] = ()
 
     @property
     def home_root(self) -> Path:
@@ -310,6 +311,7 @@ def load_project(
             "home_repo",
             "members",
         },
+        optional={"role_presets"},
         subject=str(project_path),
     )
     if type(raw["schema_version"]) is not int or raw["schema_version"] != 1:
@@ -453,6 +455,31 @@ def load_project(
             )
         )
 
+    role_presets: list[tuple[str, str, str, str]] = []
+    raw_roles = raw.get("role_presets", {})
+    if not isinstance(raw_roles, dict):
+        raise ProjectRenderError("role_presets must be a table")
+    for role, preset in raw_roles.items():
+        if role not in {"planner", "worker", "reviewer"}:
+            raise ProjectRenderError(f"role_presets has unsupported role: {role}")
+        if not isinstance(preset, dict):
+            raise ProjectRenderError(f"role_presets.{role} must be a table")
+        _exact_keys(
+            preset,
+            required={"model", "behavior", "tool_mode"},
+            subject=f"role_presets.{role}",
+        )
+        model = preset["model"]
+        behavior = preset["behavior"]
+        tool_mode = preset["tool_mode"]
+        if model not in {"Sol", "Luna"}:
+            raise ProjectRenderError(f"role_presets.{role}.model must be Sol or Luna")
+        if behavior not in {"high", "xhigh"}:
+            raise ProjectRenderError(f"role_presets.{role}.behavior must be high or xhigh")
+        if tool_mode not in {"read-only", "write"}:
+            raise ProjectRenderError(f"role_presets.{role}.tool_mode must be read-only or write")
+        role_presets.append((role, model, behavior, tool_mode))
+
     if home_repo not in seen:
         raise ProjectRenderError("home_repo must also appear exactly once in members")
     project = ProjectBinding(
@@ -462,6 +489,7 @@ def load_project(
         display_name=display_name,
         home_repo=home_repo,
         members=tuple(members),
+        role_presets=tuple(role_presets),
     )
     if (
         any(member.render != "none" for member in members)

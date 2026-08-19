@@ -247,6 +247,16 @@ class SavedWorkflowTests(unittest.TestCase):
             check=True,
         )
 
+    def test_workflows_expose_focused_orchestration_services(self) -> None:
+        build_source = BUILD_WORKFLOW.read_text(encoding="utf-8")
+        verify_source = VERIFY_WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("const buildInputService = Object.freeze", build_source)
+        self.assertIn("const buildExecutionService = Object.freeze", build_source)
+        self.assertIn("const buildPublicationService = Object.freeze", build_source)
+        self.assertIn("const verifyInputService = Object.freeze", verify_source)
+        self.assertIn("const verificationService = Object.freeze", verify_source)
+        self.assertIn("const verificationCloseoutService = Object.freeze", verify_source)
+
 
 if __name__ == "__main__":
     unittest.main()

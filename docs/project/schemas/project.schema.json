@@ -91,6 +91,28 @@
           }
         }
       }
+    },
+    "role_presets": {
+      "type": "object",
+      "description": "Project-scoped model/behavior presets only. Presets never grant authority or alter repository/member access.",
+      "additionalProperties": false,
+      "properties": {
+        "planner": { "$ref": "#/$defs/rolePreset" },
+        "worker": { "$ref": "#/$defs/rolePreset" },
+        "reviewer": { "$ref": "#/$defs/rolePreset" }
+      }
+    }
+  },
+  "$defs": {
+    "rolePreset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "behavior", "tool_mode"],
+      "properties": {
+        "model": { "type": "string", "enum": ["Sol", "Luna"] },
+        "behavior": { "type": "string", "enum": ["high", "xhigh"] },
+        "tool_mode": { "type": "string", "enum": ["read-only", "write"] }
+      }
     }
   }
 }

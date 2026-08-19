@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/managed-dispatch-capsule.v1.schema.json",
+  "title": "Managed dispatch capsule v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_id", "renderer_version", "intent", "role_preset", "role_preset_digest", "instruction_sources", "governing_refs", "dependency_context", "acceptance_ids", "source_shas", "artifacts", "capsule_digest", "rendered_prompt_digest"],
+  "properties": {
+    "contract_id": {"const": "managed-dispatch-capsule/v1"},
+    "renderer_version": {"type": "string", "const": "agentops-managed-capsule/1"},
+    "intent": {"type": "string", "minLength": 1},
+    "role_preset": {"type": "object"},
+    "role_preset_digest": {"$ref": "#/$defs/digest"},
+    "instruction_sources": {"type": "array", "items": {"$ref": "#/$defs/selectedSource"}},
+    "governing_refs": {"type": "array", "items": {"$ref": "#/$defs/governingRef"}},
+    "dependency_context": {"type": "array", "items": {"$ref": "#/$defs/dependency"}},
+    "acceptance_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "source_shas": {"type": "object", "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{7,64}$"}},
+    "artifacts": {"type": "array", "items": {"$ref": "#/$defs/artifact"}},
+    "capsule_digest": {"$ref": "#/$defs/digest"},
+    "rendered_prompt_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "selectedSource": {"type": "object", "additionalProperties": false, "required": ["path", "sha256", "source_sha", "selection_reason"], "properties": {"path": {"type": "string"}, "sha256": {"$ref": "#/$defs/digest"}, "source_sha": {"type": "string"}, "selection_reason": {"type": "string", "minLength": 1}}},
+    "governingRef": {"type": "object", "additionalProperties": false, "required": ["kind", "path", "source_sha", "sha256"], "properties": {"kind": {"enum": ["architecture", "plan", "runbook"]}, "path": {"type": "string"}, "source_sha": {"type": "string"}, "sha256": {"$ref": "#/$defs/digest"}}},
+    "dependency": {"type": "object", "additionalProperties": false, "required": ["item_id", "summary", "source_sha", "selection_reason"], "properties": {"item_id": {"type": "string"}, "summary": {"type": "string"}, "source_sha": {"type": "string"}, "selection_reason": {"type": "string", "minLength": 1}}},
+    "artifact": {"type": "object", "additionalProperties": false, "required": ["id", "kind", "digest", "selection_reason"], "properties": {"id": {"type": "string"}, "kind": {"type": "string"}, "digest": {"$ref": "#/$defs/digest"}, "selection_reason": {"type": "string", "minLength": 1}}}
+  }
+}

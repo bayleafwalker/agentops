@@ -19,7 +19,7 @@ Implement approved, bounded work using the repo's dispatch packet, manifest, and
 1. Confirm the action is implementation-ready: scope, allowed paths, acceptance checks, and verification commands are known.
 2. Load the repo environment before running repo tools.
 3. Read the dispatch packet and manifest. Respect explicit action routing first, then project defaults, action-class defaults, and global fallback.
-4. Treat reservations as orchestrator-owned. Use item/action context, but do not reserve, reassign, release, or override on your own initiative; the orchestrator owns that operation.
+4. Treat reservations as orchestrator-owned. Use item/action context, but do not reserve, reassign, release, or interrupt on your own initiative; the orchestrator owns that operation.
 5. Edit only within the allowed scope. If the needed change crosses the scope boundary, stop and report the required expansion.
 6. Run the worker-attempt registered falsifier from the packet. Workers must be
    able to execute their exact granted command IDs; inability to run the
@@ -44,5 +44,5 @@ Implement approved, bounded work using the repo's dispatch packet, manifest, and
 
 - Do not make design decisions that should have been resolved by `dispatch-plan`.
 - Do not mutate unrelated files or broaden the scope silently.
-- Do not reserve, reassign, release, or override work from a subagent or worker prompt; reservation changes belong to the orchestrating session.
+- Do not reserve, reassign, release, or interrupt work from a subagent or worker prompt; reservation changes belong to the orchestrating session.
 - Do not mark work complete without reporting verification status.
