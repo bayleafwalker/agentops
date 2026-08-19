@@ -1,0 +1,71 @@
+{
+  "description": "Revision-gated volatile context hooks",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m volatile_context.hook_adapter --harness codex",
+            "timeout": 3,
+            "additionalContextLimit": 2000,
+            "statusMessage": "Resolving current task context"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m volatile_context.hook_adapter --harness codex",
+            "timeout": 3,
+            "additionalContextLimit": 2000
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m volatile_context.hook_adapter --harness codex",
+            "timeout": 2,
+            "additionalContextLimit": 2000
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|mcp__sprintctl__.*|mcp__vuoro__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m volatile_context.hook_adapter --harness codex",
+            "timeout": 3,
+            "additionalContextLimit": 2000,
+            "statusMessage": "Checking revision precondition"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|mcp__sprintctl__.*|mcp__vuoro__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m volatile_context.hook_adapter --harness codex",
+            "timeout": 3,
+            "additionalContextLimit": 2000
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vuoro.example/schemas/agent-context/projection-response-v1.json",
+  "title": "Agent context projection response v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "projection_id",
+    "mode",
+    "observed_at",
+    "context",
+    "providers",
+    "total_bytes"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "projection_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "full",
+        "delta"
+      ]
+    },
+    "observed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "context": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 7500
+    },
+    "providers": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "revision",
+          "status",
+          "bytes",
+          "truncated"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+          },
+          "revision": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "unavailable",
+              "unstable",
+              "omitted"
+            ]
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7500
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "total_bytes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 7500
+    }
+  }
+}

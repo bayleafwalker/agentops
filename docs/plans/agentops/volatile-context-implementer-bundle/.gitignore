@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+.venv/
+.agent-context-binding.json
+*.sqlite3
+*.log

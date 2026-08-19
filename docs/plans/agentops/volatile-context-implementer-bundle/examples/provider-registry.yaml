@@ -1,0 +1,45 @@
+schema_version: "1"
+global_budget_bytes: 7500
+
+# Registry entries name trusted server-side implementations. They are not
+# arbitrary repo-supplied shell commands.
+providers:
+  binding:
+    priority: 100
+    budget_bytes: 900
+    validator_kind: dispatch_row_version
+    renderer_kind: binding_projection_v1
+    binding_field: dispatch_id
+    events: [SessionStart, SubagentStart, UserPromptSubmit]
+    source_uri_template: "vuoro://dispatch/{dispatch_id}"
+    mutation_revision_field: null
+
+  task:
+    priority: 90
+    budget_bytes: 4000
+    validator_kind: sprintctl_task_watermark
+    renderer_kind: sprintctl_task_projection_v1
+    binding_field: task_id
+    events: [SessionStart, SubagentStart, UserPromptSubmit, PostToolUse]
+    source_uri_template: "sprintctl://task/{task_id}"
+    mutation_revision_field: if_revision
+
+  workspace:
+    priority: 70
+    budget_bytes: 1400
+    validator_kind: workspace_identity_digest
+    renderer_kind: workspace_projection_v1
+    binding_field: repo_id
+    events: [SessionStart, SubagentStart, UserPromptSubmit]
+    source_uri_template: "vuoro://repo/{repo_id}/workspace"
+    mutation_revision_field: null
+
+  host:
+    priority: 60
+    budget_bytes: 900
+    validator_kind: host_capability_generation
+    renderer_kind: host_projection_v1
+    binding_field: null
+    events: [SessionStart, SubagentStart]
+    source_uri_template: "vuoro://host/current"
+    mutation_revision_field: null

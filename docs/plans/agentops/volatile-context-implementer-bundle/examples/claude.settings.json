@@ -1,0 +1,98 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact|fork",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m volatile_context.hook_adapter --harness claude-code",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m volatile_context.hook_adapter --harness claude-code",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m volatile_context.hook_adapter --harness claude-code",
+            "timeout": 2
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|mcp__sprintctl__.*|mcp__vuoro__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m volatile_context.hook_adapter --harness claude-code",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|mcp__sprintctl__.*|mcp__vuoro__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m volatile_context.hook_adapter --harness claude-code",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash|mcp__sprintctl__.*|mcp__vuoro__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m volatile_context.hook_adapter --harness claude-code",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "CwdChanged": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m volatile_context.hook_adapter --harness claude-code",
+            "timeout": 2
+          }
+        ]
+      }
+    ],
+    "FileChanged": [
+      {
+        "matcher": ".agent-context-binding.json",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m volatile_context.hook_adapter --harness claude-code",
+            "timeout": 2
+          }
+        ]
+      }
+    ]
+  }
+}

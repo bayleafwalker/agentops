@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vuoro.example/schemas/agent-context/mutation-validation-response-v1.json",
+  "title": "Mutation validation response v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "allowed",
+    "reason",
+    "current_revision",
+    "context"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "allowed": {
+      "type": "boolean"
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2000
+    },
+    "current_revision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 256
+    },
+    "context": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 7500
+    }
+  }
+}

@@ -6,6 +6,8 @@ These files live in the `/projects/dev/agentops` repo. Treat this repo as the co
 
 Current plan set:
 
+- `volatile-context-implementer-bundle.md` - landed revision-gated volatile
+  context implementation handoff and cross-repository ownership note.
 - `post-cockpit-waved-dispatch-program.md` - live cross-repository projection
   of cockpit convergence plus the dependency-cleared reasoning units,
   concurrent lanes, review gates, and compiler handoff for its successor goal
