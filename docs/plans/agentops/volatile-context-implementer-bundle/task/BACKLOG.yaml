@@ -1,0 +1,69 @@
+epic:
+  id: VCTX
+  title: Revision-gated volatile context projection
+  non_goals:
+    - new public context CLI
+    - agent-maintained projection file
+    - new durable memory authority
+    - hooks as sole mutation enforcement
+
+items:
+  - id: VCTX-001
+    title: Inventory all authoritative mutation paths
+    depends_on: []
+    acceptance: Every CLI, HTTP, MCP, worker, and maintenance write path is classified.
+
+  - id: VCTX-002
+    title: Add opaque revision preconditions and CAS
+    depends_on: [VCTX-001]
+    acceptance: Hook-bypassed stale writes fail atomically with current revision.
+
+  - id: VCTX-003
+    title: Add provider validator/render interfaces
+    depends_on: []
+    acceptance: Unchanged validators skip rendering; snapshots are revision-consistent.
+
+  - id: VCTX-004
+    title: Integrate disposable consumer cursor
+    depends_on: [VCTX-003]
+    acceptance: Cursor loss causes duplicate output only; sessions/subagents are isolated.
+
+  - id: VCTX-005
+    title: Implement bounded projection endpoint
+    depends_on: [VCTX-003, VCTX-004]
+    acceptance: Full and delta responses satisfy schema and 7500-byte cap.
+
+  - id: VCTX-006
+    title: Implement mutation validation and observe endpoints
+    depends_on: [VCTX-002, VCTX-005]
+    acceptance: Stale/missing revisions return typed denial plus current projection.
+
+  - id: VCTX-007
+    title: Package cross-harness hook adapter
+    depends_on: [VCTX-005, VCTX-006]
+    acceptance: Adapter emits valid empty/inject/deny JSON for both harnesses.
+
+  - id: VCTX-008
+    title: Wire Claude Code hooks
+    depends_on: [VCTX-007]
+    acceptance: Session, compact, subagent, prompt, mutation, and invalidation paths pass.
+
+  - id: VCTX-009
+    title: Wire Codex hooks
+    depends_on: [VCTX-007]
+    acceptance: Session, compact, subagent, prompt, and mutation paths pass without spill.
+
+  - id: VCTX-010
+    title: Add metrics, audit metadata, and dashboards
+    depends_on: [VCTX-005, VCTX-006]
+    acceptance: Pilot questions are measurable without logging raw projections.
+
+  - id: VCTX-011
+    title: Run non-blocking pilot
+    depends_on: [VCTX-008, VCTX-009, VCTX-010]
+    acceptance: Latency, byte, collision, and spill gates pass.
+
+  - id: VCTX-012
+    title: Enable fail-closed recognized mutation precheck
+    depends_on: [VCTX-002, VCTX-011]
+    acceptance: Local and authority gates both reject stale writes; outage policy verified.

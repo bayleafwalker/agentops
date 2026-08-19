@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vuoro.example/schemas/agent-context/provider-registry-v1.json",
+  "title": "Provider registry v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "global_budget_bytes",
+    "providers"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "global_budget_bytes": {
+      "type": "integer",
+      "minimum": 512,
+      "maximum": 7500
+    },
+    "providers": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 32,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "priority",
+          "budget_bytes",
+          "validator_kind",
+          "renderer_kind",
+          "events"
+        ],
+        "properties": {
+          "priority": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "budget_bytes": {
+            "type": "integer",
+            "minimum": 128,
+            "maximum": 7000
+          },
+          "validator_kind": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+          },
+          "renderer_kind": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+          },
+          "binding_field": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "events": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          },
+          "source_uri_template": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 1024
+          },
+          "mutation_revision_field": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 64
+          }
+        }
+      }
+    }
+  }
+}

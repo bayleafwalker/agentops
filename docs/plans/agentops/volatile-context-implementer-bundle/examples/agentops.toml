@@ -1,0 +1,8 @@
+# Existing durable repository identity. The projection module reads this as a
+# validation hint; dispatch binding remains authoritative.
+repo_uuid = "00000000-0000-0000-0000-000000000000"
+
+[agent_context]
+endpoint = "http://127.0.0.1:8765"
+binding_fallback = ".agent-context-binding.json"
+projection_budget_bytes = 7500

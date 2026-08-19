@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vuoro.example/schemas/agent-context/invalidation-request-v1.json",
+  "title": "Context cursor invalidation request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "harness",
+    "dispatch_id",
+    "session_id",
+    "provider_ids"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "harness": {
+      "type": "string",
+      "enum": [
+        "claude-code",
+        "codex",
+        "reference"
+      ]
+    },
+    "dispatch_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "agent_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 256
+    },
+    "provider_ids": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+      }
+    }
+  }
+}
