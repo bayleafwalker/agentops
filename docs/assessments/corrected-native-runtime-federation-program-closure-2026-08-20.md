@@ -29,6 +29,10 @@ production-mutation authority, and it does not authorize W3-W7.
 Sprintctl served item `2217` records the same boundary in update event `2394`
 and binds ActionQ PR #33 through external reference `688`; the item remains
 `pending`, and no status transition was attempted.
+The companion
+[full session handoff](corrected-native-runtime-federation-full-session-handoff-2026-08-20.md)
+is the canonical continuation summary for processed tracts, backlog, risks,
+ownership, and storage classifications.
 
 ## Executive decision
 
