@@ -41,6 +41,7 @@ production credential mutation.
 | Dispatcher | actionq-dispatch #2 `510822a8ed1ee24e5eafdfd92aaf8a76f3f425e4`; `actionq-dispatcher-v0.2.0` | Terminal fail-closed tombstone. It is not a compatibility executor and must not be invoked or scheduled for new work. |
 | Tranche 4 W0 | ActionQ #31 `89ec87607d71af1156771db2e0c927d74017f5a0`; [owner ratification](https://github.com/bayleafwalker/actionq/pull/31#issuecomment-5353774023) | Separate `federation-schema/v1` and `federation/v1`; execution migrations 001-012 frozen; compatibility writable through W4; database-enforced redacted archive at W5; W7 unauthorized. |
 | Tranche 4 W1 | ActionQ #33, R1 **ACCEPT** at exact head `de0f17e2bffbf656f6e3aa0df3e2b1c768376fc7`; merge `edc6f41f38646531e8e6114128cec25cade7a700` | GitHub test success; full suite 489 passed, 19 skipped, zero failed; 51-member portable proof SHA-256 `1c3b37539a5bde36d812fe3a31430216235d0300be95bc875a1f79dfe646307c`. Pins reachability/classification only; no deployment/cutover authority. |
+| Tranche 4 W2 | Draft ActionQ #34 at exact head `145a6502805a8e065af4fd0100842f974c093b95` | Unmerged dormant source; local PostgreSQL 18.4 full suite 481 passed/19 skipped, focused gate 7 passed, separate PostgreSQL integration 39 passed, and artifact/wheel/migration-invariant gates green. GitHub CI run `32355444594` was in progress; independent R2 is pending. No runtime/deployment authority. |
 | Sprintctl | #41 `160b4cc`; release PR #42 `ef372b6805adc6c73d9650c3570f2aab4c846094`; v0.3.1; generated context #43 `f17c72f`; manifest cleanup #44 `db52e2f` | Adds opaque `status_revision`, bounded 4,096-byte allowlisted `work-item-context/v1`, read-only precheck, and authoritative under-lock recheck. Wheel SHA-256 `f59f0859c9a090cfb6fd8f71fa134c036e69182f413cf4e8a176b03d0e735112`; attestation verified. |
 | Acceptance Lab | Provenance adapter #2 `01f0bca`; campaign #3 `d18e75726fa0230b28c8c7e6c950e06aaabb2b04` | Both cases PASS/1.0. The takeover case grades the honest intermediate state at `4412ca1`, not the final adjudication. |
 | FlowLab | v0.1.0 at `5e002ab`; grounding #1 `d6ebec65`; campaign/ADR #2 `0189b70d4f4812680027cc5583f06eca85f264ce` | Public and disclosure-reviewed. Published hashes bind public/synthetic artifacts, not low-entropy secrets. |
@@ -129,13 +130,15 @@ the GitHub job failed before running steps because of a runner/billing/spending
 condition. Merge/deploy only after phase-1 proof, phase-2 proof, and
 stop-and-disable proof.
 
-### W2 is active but not durable
+### W2 is active, pushed, and unmerged
 
-W2 currently exists only in clean worktree `/tmp/actionq-w2.WCZFso`, branch
-`feature/federation-authority-v1`, based on `edc6f41`. It is not committed,
-pushed, reviewed, or merged. Dormant source presently includes federation
-migration 001, `federation_schema.py`, `federation.py`, package data, conftest,
-and tests. It covers:
+W2 is published as draft ActionQ PR
+[#34](https://github.com/bayleafwalker/actionq/pull/34) from branch
+`feature/federation-authority-v1`, exact head
+`145a6502805a8e065af4fd0100842f974c093b95`, based on W1 merge `edc6f41`.
+It is unmerged and independently unreviewed; R2 is pending. Its dormant source
+includes federation migration 001, `federation_schema.py`, `federation.py`,
+package data, conftest, and tests. It covers:
 
 - action-independent resources and a frozen state machine;
 - immutable owner plus expected-absence/exact-revision CAS;
@@ -145,11 +148,13 @@ and tests. It covers:
 - persistent denied/stale/conflict decisions and response-loss replay; and
 - `NOLOGIN` role separation.
 
-Current focused evidence is 67 passing tests; PostgreSQL 18.4 integration is 39
-passing. Remaining gates are the full suite, artifact validator, build/wheel
-invariants, diff review, stronger falsifiers, independent R2, commit, push, and
-draft PR. W2 grants no runtime, catalog, CLI, Vuoro, release, or schema
-deployment mutation.
+Local endpoint evidence is a PostgreSQL 18.4 full suite of 481 passed/19
+skipped, a seven-test focused federation gate, a separate 39-test PostgreSQL
+integration gate, and green artifact-validator, build/wheel-content, and
+migration-invariant gates. GitHub CI run `32355444594` was in progress at the
+handoff snapshot. Remaining gates are CI completion, diff/falsifier review,
+independent R2, and merge only after R2 ACCEPT. W2 grants no runtime, catalog,
+CLI, Vuoro, release, or schema deployment mutation.
 
 ### W3-W7 sequence
 
@@ -260,13 +265,14 @@ must intake/review/publish or reject, then attach the durable reference.
 14. Root-guide assembly and sync is per-host, not automatically replicated.
 15. Sprint authority binding and Kctl publisher authority remain missing.
 16. Agentops #47 remains stale about W1 until the companion addendum merges.
-17. W2 is worktree-local and independently unreviewed.
+17. W2 is now pushed as draft PR #34 but remains unmerged and independently
+    unreviewed; CI and R2 are pending.
 
 ## Next actions by owner and tract
 
 | Owner/tract | Next action | Gate/boundary |
 | --- | --- | --- |
-| W2 owner and R2 reviewer | Finish gates and falsifiers; commit/push a draft PR; run independent R2. | Do not merge until R2 ACCEPT. No production mutation. |
+| W2 owner and R2 reviewer | Confirm GitHub CI, review the exact diff/falsifiers, and run independent R2 on head `145a6502`. | Do not merge PR #34 until R2 ACCEPT. No production mutation. |
 | Appservice operator | Refresh/review phase 1, reconcile and prove health/ownership; only then refresh/review phase 2, reconcile, and prove health. | User-owned escalation channel; strict order. |
 | Runtime/Nix operator | Interactively stop and disable the unit; then merge/deploy gitops-nixos #16 and capture evidence. | Requires both appservice phase proofs first. |
 | Publication coordinator | After two empty public repositories exist, publish q-spec through reviewed PR and takeover audited main; verify. | Use only accepted/audited heads. |
@@ -279,16 +285,17 @@ must intake/review/publish or reject, then attach the durable reference.
 
 | Classification | Current records |
 | --- | --- |
-| Cross-host-replicated / durable Git | Merged GitHub PRs and releases; public FlowLab and cluster-alignment repositories; Agentops proposal and closure. This addendum/handoff joins this class only after merge. |
+| Cross-host-replicated / durable Git | Merged GitHub PRs and releases; public FlowLab and cluster-alignment repositories; Agentops proposal and closure. ActionQ W2 code is replicated in draft PR #34 but is not merged authority. This addendum/handoff joins this class only after merge. |
 | Durable-authoritative | Served Sprintctl item/events/refs; Auditctl receipt. Kctl has no accepted knowledge record and remains pending. |
 | Host-persistent / semi-ephemeral on WorkstationLinux | `_artifacts` bundles, receipts, Auditctl export, and takeover working repository; no verified replicas. |
 | Host-persistent only | Assembled workstation `/projects/dev/AGENTS.md`. |
-| Session-local / ephemeral | `/tmp/q-spec-retirement.307WPx` and active W2 worktree `/tmp/actionq-w2.WCZFso` until their content is committed and pushed. |
+| Session-local / ephemeral | `/tmp/q-spec-retirement.307WPx`. The local W2 worktree remains ephemeral, but its exact source endpoint is now replicated by draft PR #34. |
 
 ## Reasonable continuation endpoint
 
 The source/evaluation tranche and W1 closure are complete and reviewed. Public
 proofs already exist for FlowLab and cluster alignment. Takeover and q-spec are
 disclosure-cleared but await repository creation. Runtime rollout correctly
-remains operator-owned. Federation work is sequenced with W2 active in a
-session-local worktree and no downstream cutover authority implied.
+remains operator-owned. Federation work is sequenced with W2 active in an
+unmerged draft PR, independent R2 pending, and no downstream cutover authority
+implied.

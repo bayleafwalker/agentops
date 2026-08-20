@@ -26,6 +26,13 @@ W1 acceptance separately authorizes W2 as dormant repository work under the
 ratified tranche-4 sequence. W2 is not yet complete. This authorization grants
 no runtime, deployment, appservice, schema-migration, catalog-cutover, or other
 production-mutation authority, and it does not authorize W3-W7.
+W2 is now published for review as draft ActionQ PR
+[#34](https://github.com/bayleafwalker/actionq/pull/34) at exact head
+`145a6502805a8e065af4fd0100842f974c093b95`. It remains unmerged and dormant;
+R2 is pending. Local evidence reports a PostgreSQL 18.4 full suite of 481
+passed/19 skipped, a seven-test focused gate, a separate 39-test PostgreSQL
+integration gate, and green artifact, wheel, and migration-invariant gates.
+GitHub CI run `32355444594` was in progress when this endpoint was recorded.
 Sprintctl served item `2217` records the same boundary in update event `2394`
 and binds ActionQ PR #33 through external reference `688`; the item remains
 `pending`, and no status transition was attempted.
