@@ -4,31 +4,52 @@ Cross-repo planning for the agent-ops substrate lives here because the substrate
 
 These files live in the `/projects/dev/agentops` repo. Treat this repo as the coordination and future operator-surface home for the flat `/projects/dev` workspace, where implementation repos are siblings rather than nested under a `repos/` directory.
 
-Current plan set:
+## Live cross-repository architecture successor
+
+- `native-runtime-federation-realignment-2026-08-20.md` - current execution,
+  advisory-reservation, federation, cross-repository handoff, and retired
+  Outctl boundary. This is the **sole live successor** for the execution and
+  ownership direction covered by the older substrate, simplification,
+  dispatcher-meta, and waved-dispatch plans.
+
+## Current supporting mapping
+
+- `volatile-context-native-runtime-integration-mapping-2026-08-20.md` - current
+  mapping from the immutable volatile-context handoff to native runtimes,
+  Sprintctl revision CAS, and ActionQ federation references.
+
+## Historical and domain-specific plans
+
+Nothing in the lists below is a second live cross-repository execution or
+ownership plan. Domain contracts remain authoritative inside their domains;
+where older files discuss daemons, claims, Outctl, or fan-out, the live
+successor above controls the cross-repository direction.
 
 - `volatile-context-implementer-bundle.md` - landed revision-gated volatile
-  context implementation handoff and cross-repository ownership note.
-- `post-cockpit-waved-dispatch-program.md` - live cross-repository projection
-  of cockpit convergence plus the dependency-cleared reasoning units,
-  concurrent lanes, review gates, and compiler handoff for its successor goal
-  inventory (AgentOps #2070).
-- `agent-ops-substrate-plan.md` - master cross-repo substrate plan.
-- `ecosystem-simplification-plan.md` - cross-member simplification and
-  stated-goal refactoring program: boundary resolutions, duplication
-  reduction, god-module decomposition, and batch sequencing.
-- `boundary-resolutions.md` - proposed decisions for the five critical-path
-  contention points that block large-scale refactoring.
+  context implementation handoff and cross-repository ownership note; the
+  imported bundle is historical and checksum-pinned.
+- `post-cockpit-waved-dispatch-program.md` - superseded 2026-08-20; preserves
+  the 2026-08-01 cross-repository reconciliation and wave history.
+- `agent-ops-substrate-plan.md` - historical master substrate plan; its
+  execution/ownership direction is superseded by the live successor above.
+- `ecosystem-simplification-plan.md` - superseded historical cross-member
+  simplification program and completion evidence.
+- `boundary-resolutions.md` - historical 2026-08-12 ratification; R1, R2, and
+  R5 were superseded on 2026-08-20 while R3 and R4 remain current.
 - `auditctl-workstream-d-plan.md` - standalone auditctl tool plan.
 - `agent-cockpit-workstream-e-plan.md` - agent-cockpit frontend plan for the future cockpit surface inside this repo.
 - `cockpit-agentops-readiness-2026-04-28.md` - readiness and sequencing assessment for cockpit and substrate rollout.
-- `meta-sprint-cross-repo-dispatch-plan.md` - meta-sprint model and cross-repo dispatch via `_orchestration` sprint and actionq parent-child actions.
-- `generalized-dispatch-practices-plan.md` - shared dispatch model, model routing, skills, hooks, and repo adoption levels.
-- `substrate-resilience-plan.md` - failure taxonomy, backup posture, recovery runbooks, and new mechanisms required (daemon startup recovery, takeup sweep, workspace PVC backup gap).
+- `meta-sprint-cross-repo-dispatch-plan.md` - superseded historical
+  dispatcher-meta proposal; do not use as an implementation backlog.
+- `generalized-dispatch-practices-plan.md` - historical shared dispatch model;
+  reuse only portions consistent with the live successor.
+- `substrate-resilience-plan.md` - historical daemon-era failure taxonomy and
+  recovery plan; daemon growth/recovery mechanisms are not current backlog.
 
-Ops-upgrade / outbox-mechanization tranche (2026-07):
+Historical ops-upgrade / outbox-mechanization tranche (2026-07):
 
 - `ops-upgrade-reconciliation-2026-07.md` - verified source-of-truth reconciliation underlying the tranche.
-- `ecosystem-backlog-review-2026-07-17.md` - current ecosystem evidence, plan corrections, and owner-correct backlog refinement.
+- `ecosystem-backlog-review-2026-07-17.md` - dated ecosystem evidence, plan corrections, and owner-correct backlog refinement.
 - `session-mechanization-plan.md` - Tier 0/1/2 session bookkeeping, capsule, reconciler, periodic scribe, cockpit metrics.
 - `state-event-command-matrix.md` - per-event classification and ownership.
 - `write-surface-policy.md` - which surfaces may mutate sprint state.
@@ -36,11 +57,11 @@ Ops-upgrade / outbox-mechanization tranche (2026-07):
 - `agent-cockpit-deployment-handoff.md` - appservice deployment handoff/runbook for agent-cockpit (item #951).
 - `kctl-cockpit-knowledge-reads-followup.md` - kctl knowledge-artifact integration definition for cockpit knowledge reads (item #953).
 
-Vuoro served-substrate direction (ratified 2026-07-21):
+Historical Vuoro served-substrate direction (ratified 2026-07-21):
 
-- `vuoro-served-substrate-plan.md` - canonical capability scoping, modular
+- `vuoro-served-substrate-plan.md` - historical capability scoping, modular
   service, operation catalog, client, deployment packaging, environment,
-  ratification, and recovery decision.
+  ratification, and recovery decision; execution portions are superseded.
 - `vuoro-appservice-runtime-handoff.md` - appservice-owned persistent
   development and production deployment contract.
 - `vuoro-backlog-enablement-2026-07-21.md` - approved owner-local item map,
@@ -98,11 +119,13 @@ Repo-owned companion plans:
 - `/projects/dev/sprintctl/docs/plans/pg-backend-remote-mode-plan.md`
 - `/projects/dev/actionq/docs/plans/actionq-server-daemon-workstream-c-plan.md`
 
-Current implementation repos relevant to these plans:
+Current compatibility implementations referenced by these plans:
 
 - `/projects/dev/auditctl` - repo-local audit ledger implementation and publisher contract.
-- `/projects/dev/actionq` - existing Postgres-backed queue and `actionctl`.
-- `/projects/dev/actionq-dispatcher` - existing `dispatcher-once` coordinator implementation.
+- `/projects/dev/actionq` - existing PostgreSQL queue during migration toward
+  the federation/settlement target.
+- `/projects/dev/actionq-dispatcher` - compatibility launcher for historical
+  `dispatcher-once` callers; no coordinator growth is permitted.
 - `/projects/dev/appservice` - existing GitOps source of truth; current actionq CNPG lives under `clusters/main/kubernetes/apps/actionq-db/`.
 
 Future in-repo implementation target:

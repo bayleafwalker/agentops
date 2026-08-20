@@ -1,4 +1,47 @@
+---
+doc_id: meta-sprint-cross-repo-dispatch-plan
+status: superseded
+superseded_at: 2026-08-20
+superseded_by: native-runtime-federation-realignment-2026-08-20.md
+---
+
 # meta-sprint and cross-repo dispatch plan
+
+> **Superseded 2026-08-20.** This file preserves the historical
+> dispatcher-meta proposal; it is not an implementation plan. ActionQ's newer
+> owner plan removes the worker daemon, queue, leases, and fan-out engine, and
+> `actionq-dispatcher` is a compatibility shim that must not grow behavior.
+> Use
+> [`native-runtime-federation-realignment-2026-08-20.md`](native-runtime-federation-realignment-2026-08-20.md)
+> for the native-runtime/federation replacement.
+
+## Supersession and migration
+
+The useful product requirements survive, but their mechanism changes:
+
+| Historical requirement | Current path |
+|---|---|
+| `_orchestration` work visibility | Ordinary Sprintctl project/repository work with explicit dependencies and advisory reservations |
+| Parallel independent work | Coordinator starts independent native runtime sessions and records separate external execution references |
+| Sequential predecessor handoff | Pass accepted immutable Git/PR/evidence references and the relevant Sprintctl revision; never a worktree path or daemon result payload |
+| Parent/child rollup | ActionQ federation relations may describe related work/executions, without claiming, polling, launching, retrying, or settling them |
+| Failure attribution and retry | Inspect native runtime plus owner records; deliberately resume or start a new native session and reconcile its reference |
+| Pause switch | No replacement global dispatch pause exists because there is no autonomous fan-out daemon; stop or cancel at the selected native runtime |
+
+The historical work-spec payload, `dispatcher-meta` entry point, parent-action
+claim, child polling loops, deadline arithmetic, pause-file coupling, and
+automatic settlement are retired. They must not be moved into ActionQ,
+Agentops, Vuoro, or another new scheduler.
+
+**`_orchestration#1366` disposition.** The authoritative served item for
+dispatcher-meta sequential handoff is active in sprint `_orchestration#437`,
+is directionally obsolete, and must not be dispatched in its current form. Its
+tracker history is unchanged by this documentation update. The tracker owner
+should supersede it with a bounded contract item for immutable predecessor
+references, per-execution binding assurance, and federation reconciliation, or
+explicitly re-scope it under Sprintctl policy.
+
+## Historical proposal (retained verbatim below)
 
 A follow-on to `/projects/dev/agentops/docs/plans/agentops/agent-ops-substrate-plan.md`. The substrate plan seeds the answer: "meta-sprints are not architecturally special; they just have a designated `repo_id` (e.g. `_orchestration`)." This plan defines what that means in practice — the sprint model, the dispatch model, the operator UX, and the sequencing — without requiring schema changes to sprintctl or actionq.
 

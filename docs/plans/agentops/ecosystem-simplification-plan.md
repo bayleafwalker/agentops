@@ -1,8 +1,10 @@
 ---
 doc_id: ecosystem-simplification
-status: active
+status: superseded
 proposed_by: operator
 created_at: 2026-08-12
+superseded_at: 2026-08-20
+superseded_by: native-runtime-federation-realignment-2026-08-20.md
 references:
   - vuoro-served-substrate-plan.md
   - agent-ops-substrate-plan.md
@@ -16,6 +18,18 @@ references:
 ---
 
 # Ecosystem simplification and stated-goal refactoring plan
+
+> **Superseded 2026-08-20.** This file preserves the 2026-08-12 through
+> 2026-08-14 investigation, decisions, and completion evidence. It is not a
+> current architecture or execution backlog. In particular, its ActionQ daemon
+> promotion, internal Runner ownership, exclusive-claim language, Outctl
+> membership/migration, and dispatcher-parity follow-through are historical.
+> The sole live cross-repository execution/ownership successor is
+> [`native-runtime-federation-realignment-2026-08-20.md`](native-runtime-federation-realignment-2026-08-20.md).
+
+All phases, batches, status tables, and proposed resolutions below retain their
+meaning as dated evidence only. Do not dispatch them without a new owner plan
+and current Sprintctl item.
 
 ## Purpose
 

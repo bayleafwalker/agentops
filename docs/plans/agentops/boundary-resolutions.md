@@ -1,10 +1,12 @@
 ---
 doc_id: boundary-resolutions
-status: ratified
+status: partially_superseded
 proposed_by: operator
 ratified_by: operator
 ratified_at: 2026-08-12
 created_at: 2026-08-12
+superseded_at: 2026-08-20
+superseded_by: native-runtime-federation-realignment-2026-08-20.md
 references:
   - ecosystem-simplification-plan.md
   - vuoro-served-substrate-plan.md
@@ -16,11 +18,27 @@ references:
 
 # Boundary resolutions for ecosystem simplification
 
-This document records decisions for the five critical-path contention points
-identified in `ecosystem-simplification-plan.md`. Each resolution is proposed
-here and must be ratified before dependent work begins.
+> **Historical ratification with partial supersession (2026-08-20).** This
+> document preserves the decisions ratified by the operator on 2026-08-12.
+> Newer owner evidence supersedes R1, R2, and R5; R3 and R4 remain in force.
+> The current boundary is
+> [`native-runtime-federation-realignment-2026-08-20.md`](native-runtime-federation-realignment-2026-08-20.md).
+> Do not implement the superseded resolutions from this record.
+
+This document records the five critical-path decisions identified in
+`ecosystem-simplification-plan.md` and their historical ratification state.
+
+| Resolution | 2026-08-20 disposition |
+|---|---|
+| R1 ActionQ execution authority | **Superseded.** Native runtimes execute; ActionQ contracts toward a federation layer with no worker daemon or queue. |
+| R2 ActionQ-internal Runner | **Superseded.** Do not create or preserve an ActionQ-owned runner package; native harness/runtime integrations are the execution edge. |
+| R3 Cockpit sprint activation | **Still ratified.** Sprintctl remains the work authority and mutations use its owner API. |
+| R4 Recovery authority | **Still ratified.** Vuoro does not become recovery authority. |
+| R5 Outctl membership | **Superseded.** Outctl is retired from active Vuoro scope and retained only as a frozen discovery artifact. |
 
 ## R1 — Execution authority: `actionq` owns one-shot and daemon execution
+
+**Superseded 2026-08-20.** Preserved below as the 2026-08-12 ratification.
 
 **Resolution:** `actionq` is the sole execution authority for the ecosystem.
 `actionq-dispatcher` is deprecated as a compatibility shim whose only
@@ -43,6 +61,8 @@ and who may prepare worktrees.
 **Ratification:** ratified 2026-08-12
 
 ## R2 — Worktree/runner materialization: ActionQ owns worktree preparation; Runner is an internal package
+
+**Superseded 2026-08-20.** Preserved below as the 2026-08-12 ratification.
 
 **Resolution:** ActionQ owns worktree preparation as part of its execution
 authority. The portable-execution architecture's "Runner" is realized as an
@@ -113,6 +133,8 @@ for recovery semantics without a catalog-backed domain adapter.
 
 ## R5 — outctl membership: outctl is a full ecosystem member
 
+**Superseded 2026-08-20.** Preserved below as the 2026-08-12 ratification.
+
 **Resolution:** `outctl` is a full member of the agent-ops substrate. It is
 consistently represented in project member tables, AGENTS guidance, and
 generated project context.
@@ -133,8 +155,14 @@ confusion about whether it participates in the served-substrate migration.
 
 ## Next steps
 
+This list was the 2026-08-12 follow-through and is retained for provenance; it
+is not a current execution sequence:
+
 1. Ratify each resolution above.
 2. Update affected member AGENTS.md, plan documents, and ecosystem docs to
    match the ratified decisions.
 3. Proceed with `ecosystem-simplification-plan.md` Batch 1 implementation
    items B1.2–B1.5.
+
+Current work must instead use the 2026-08-20 successor and must not deepen
+ActionQ daemon/runner ownership or restore Outctl membership.

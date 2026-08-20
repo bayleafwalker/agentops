@@ -2,12 +2,16 @@
 
 A reference for the `/projects/dev` agent-ops substrate: what each tool does, how they relate, how the cockpit reads them, how to deploy the system, and how to get started.
 
-> **Target architecture, ratified 2026-07-21:** Vuoro is moving substrate-owned
-> semantics out of workstation installations and behind a modular authority
-> service with a server-published operation catalog. The implementation
-> descriptions below remain current-state documentation until that migration
-> ships. See
-> [`vuoro-served-substrate-plan.md`](plans/agentops/vuoro-served-substrate-plan.md).
+> **Current target architecture, realigned 2026-08-20:** native harnesses and
+> runtimes execute agent work; Sprintctl uses advisory reservations plus
+> expected-revision CAS; ActionQ contracts toward a federation layer that
+> records work/execution references, relations, assurance, acceptance, and
+> reconciliation without owning a worker daemon, queue, leases, or fan-out;
+> Outctl is retired from active Vuoro scope. See
+> [`native-runtime-federation-realignment-2026-08-20.md`](plans/agentops/native-runtime-federation-realignment-2026-08-20.md)
+> and [`vuoro-system-shape.md`](architecture/vuoro-system-shape.md). Sections
+> explicitly labelled **deployed compatibility** describe migration residue,
+> not a surface to extend.
 
 ---
 
@@ -27,8 +31,9 @@ Vuoro process composes all domain adapters.
 | Sprint and work-item state | `sprintctl` | [bayleafwalker/sprintctl](https://github.com/bayleafwalker/sprintctl) |
 | Knowledge extraction and review | `kctl` | [bayleafwalker/kctl](https://github.com/bayleafwalker/kctl) |
 | Repo-local audit and event ledger | `auditctl` | [bayleafwalker/auditctl](https://github.com/bayleafwalker/auditctl) |
-| Action queue and session lifecycle | `actionq` | [bayleafwalker/actionq](https://github.com/bayleafwalker/actionq) |
-| Bounded command-output capture and retrieval | `outctl` | [bayleafwalker/outctl](https://github.com/bayleafwalker/outctl) |
+| Federated work/execution references, relations, assurance, acceptance and reconciliation (target) | `actionq` | [bayleafwalker/actionq](https://github.com/bayleafwalker/actionq) |
+| Native agent execution and session lifecycle | selected first-party harness/runtime | external integration boundary |
+| Native harness telemetry and raw evidence | OpenTelemetry plus selected Langfuse or Phoenix/object storage | deployment-selected, non-authoritative |
 | Operator UI and cross-repo plans | `agentops` | [bayleafwalker/agentops](https://github.com/bayleafwalker/agentops) |
 | Kubernetes deployment | `appservice` | private — internal operations only |
 
@@ -41,11 +46,11 @@ These are siblings under `/projects/dev/`, not nested inside each other. `_artif
   auditctl/
   actionq/
   actionq-dispatcher/
-  outctl/
+  outctl/                  # frozen discovery artifact; not a project member
   agentops/
   appservice/
   <consumer-repos>/
-  _artifacts/
+  _artifacts/              # host-local unless explicitly replicated
     <repo-id>/
       audit/
         events-YYYY-MM-DD.ndjson
@@ -53,7 +58,7 @@ These are siblings under `/projects/dev/`, not nested inside each other. `_artif
         knowledge-YYYY-MM-DD.ndjson
 ```
 
-## Live Cockpit Architecture
+## Live Cockpit Architecture (deployed compatibility)
 
 The cockpit is a Next.js app in `agentops/apps/web`. The browser talks only to
 `/cockpit/api/*` routes served by the same pod; those routes are the gateway for
@@ -63,7 +68,7 @@ Current live data paths:
 
 | Cockpit surface | Source |
 |---|---|
-| Repos, sprints, work items, claims, takeup, sprint events | `pg://sprintctl` through `SPRINTCTL_URL` |
+| Repos, sprints, work items, historical claims/current reservations, takeup, sprint events | Sprintctl owner adapter (legacy deployment may still label this `pg://sprintctl`) |
 | Sessions and dispatch lifecycle rows | `actionq-server` (`/sessions`, `/dispatches`, `/dispatch`) |
 | Audit outcome feed | `/projects/dev/_artifacts/<repo-id>/audit/*.ndjson` read-only |
 | Dispatch manifest summary | `agentops/templates/dispatch/examples/*.dispatch.json` by default |
@@ -81,20 +86,18 @@ skills and schemas in agentops while the consumer owns its overlay, semantic
 document, context packets, executable tests, and evidence. Run the shared
 dependency-free validator from the consumer root before dispatch or publication.
 
-`outctl` is an adjacent execution-mediation component. A runner or harness uses
-it to retain exact stdout/stderr locally, expose a deterministic bounded
-projection, and retrieve omitted slices without rerunning a command. It does
-not enqueue commands, settle actions, interpret evidence as an audit finding,
-or make raw captures authoritative merely because they live under
-`_artifacts/`. Its public contracts and Phase 1 boundaries live in the
-[`outctl` repository](https://github.com/bayleafwalker/outctl).
+`outctl` was retired from active Vuoro scope on 2026-08-16. Its repository is a
+frozen discovery artifact, not an adjacent live component or project member.
+New harness-evidence work belongs at the native runtime boundary and targets
+standard OpenTelemetry plus the operator-selected Langfuse or Phoenix and
+object-storage path. Those observations remain non-authoritative and require
+explicit redaction and retention policy.
 
-The Dispatches pane is the lifecycle view for a queued unit of work. It renders
-one actionq row across `pending -> claimed/running -> completed/failed/rejected`,
-shows the latest session summary when available, groups by optional
-`dispatch_group_id`, and joins cost only when a stable runtime/session id is
-present in the workspace cost log. Dispatcher-meta UI, a log-tail pane, and a
-billing dashboard are intentionally deferred.
+The deployed Dispatches pane still renders historical/current compatibility
+ActionQ queue rows. The target cockpit instead shows federated native execution
+references and their assurance/acceptance/reconciliation state. There is no
+dispatcher-meta UI backlog: the underlying fan-out engine is retired, not
+deferred.
 
 Model headroom is intentionally a soft signal. Codex `/status` and Claude Code
 `/usage` are slash-command/TUI surfaces today, so the cockpit does not scrape
@@ -110,11 +113,17 @@ the last successful value, and marks stale data when refresh fails.
 
 ### sprintctl
 
-**What it does.** Tracks sprints, work items, claims, decisions, dependencies, and handoffs in SQLite (local mode) or PostgreSQL (remote mode). It is the system of record for active sprint execution.
+**What it does.** Tracks sprints, work items, revisions, decisions,
+dependencies, handoffs, and advisory reservations. A reservation makes
+overlapping work visible; it is not a capability and does not prevent a second
+reservation. Expected-revision CAS protects work mutation.
 
 **When to use it.** Any time you want to know what is active, what is blocked, what has been decided, or what to work on next. Use it at the start and end of every session.
 
-**Modes.** `local` uses a per-repo SQLite file; suited for single-host, single-operator repos. `remote` uses a shared PostgreSQL cluster; suited for repos where cockpit visibility or multi-host coordination is needed. Mode is selected via environment: `SPRINTCTL_BACKEND=local` with `SPRINTCTL_DB=<path>`, or `SPRINTCTL_BACKEND=remote` with `SPRINTCTL_URL=<pg-url>`. Mode mismatch against a repo's declared mode is a hard error, not a silent fallback.
+**Modes.** `local` uses the repository SQLite authority. Normal shared access
+uses the served Vuoro adapter selected by the repository backend record;
+normal-client direct PostgreSQL/`remote` mode is retired. Backend mismatch is a
+hard error, not a silent fallback.
 
 **Install.**
 ```bash
@@ -131,9 +140,12 @@ sprintctl item add --sprint-id 1 --track cli --title "Implement foo"
 sprintctl usage --context --json
 sprintctl session resume --json
 
-# Claim and complete work
-sprintctl claim start --item-id 1 --actor claude-session-1 --json
-sprintctl item done-from-claim --claim-id <id> --claim-token <token> --actor claude-session-1
+# Reserve and complete work
+sprintctl reservation reserve --item-id 1 --actor codex-session-1 \
+  --role execution --session-id "$SPRINTCTL_RUNTIME_SESSION_ID" --json
+sprintctl item show --id 1 --json   # read status_revision
+sprintctl item status --id 1 --status done --actor codex-session-1 \
+  --expected-revision 'item:<uuid>@status:active'
 
 # Record durable notes during work
 sprintctl item note --id 1 --type decision --summary "Chose X over Y because Z"
@@ -141,17 +153,17 @@ sprintctl item note --id 1 --type decision --summary "Chose X over Y because Z"
 # Render a committed snapshot
 sprintctl render > docs/sprint-snapshots/sprint-current.txt
 
-# Migrate a repo from local to remote mode
-sprintctl migrate-to-remote
+# Inspect overlapping advisory reservations
+sprintctl reservation list --item-id 1 --json
 ```
 
-**Key env vars.**
+**Key client settings.**
 
-| Variable | Purpose |
+| Setting | Purpose |
 |---|---|
-| `SPRINTCTL_BACKEND` | `local` or `remote` |
+| repository `.sprintctl/backend.json` | `local` or `served` normal-client selection |
 | `SPRINTCTL_DB` | Path to SQLite file (local mode) |
-| `SPRINTCTL_URL` | PostgreSQL connection string (remote mode) |
+| served endpoint/profile variables | Vuoro transport configuration; clients do not receive PostgreSQL authority credentials |
 
 ---
 
@@ -253,9 +265,24 @@ The hooks self-silence if `auditctl` is not on `PATH`, so they are safe to insta
 
 ### actionq
 
-**What it does.** A PostgreSQL-backed action queue with a strict lifecycle (`pending → claimed → completed / failed / rejected / cancelled`) and an append-only event log. `actionctl` is the public contract. Consumers do not import the package or write SQL directly.
+**Target responsibility.** ActionQ is contracting from its PostgreSQL queue and
+daemon into the federation owner for work identity/relations/revisions,
+authority and evidence requirements, references to external native executions,
+acceptance, reconciliation, and backend qualification. Each execution
+reference records the binding assurance the selected runtime can actually
+prove.
 
-**When to use it.** To enqueue, dispatch, and track discrete units of agent work. The queue provides concurrency-safe claiming (via `SELECT … FOR UPDATE SKIP LOCKED`), rate limiting for automated producers, chain-depth enforcement for parent-child actions, and a coordinator event surface for daemon session tracking.
+**When to use it.** New integrations use only the reviewed federation contracts
+as they land. They do not enqueue work for an ActionQ worker, create leases, or
+make ActionQ supervise a native runtime. Native sessions are started and
+controlled at their own runtime boundary.
+
+**Deployed compatibility.** The command examples below describe the queue that
+still exists during the deletion migration. They are retained for inspection,
+safe shutdown, and owner-local migration only, not for new workflow adoption.
+The controlling ActionQ branch is `delete/session-wrapper-execution-plane` at
+`27f4215`; it is gated on removing the cluster server and permanently stopping
+the devbox daemon before later deletion tranches.
 
 **Install.**
 ```bash
@@ -322,9 +349,11 @@ harness invocation, and settlement; do not add those behaviors back to this
 package.
 
 **When to use it.** Only when a caller still invokes `dispatcher-once`
-directly. New work should use `actionq-daemon` (long-running) or
-`actionq-daemon --once` (single cycle). The package may be retired once
-`actionq-daemon` parity is proven in production.
+directly during compatibility migration. **Do not route new work to
+`actionq-daemon` or `actionq-daemon --once`.** The newer ActionQ owner plan
+removes that daemon rather than promoting it as the successor. This package
+must not gain `dispatcher-meta`, work-spec validation, child polling, worktree
+handoff, or any other workflow behavior.
 
 **Install.**
 ```bash
@@ -337,7 +366,9 @@ dispatcher-once --config /path/to/config.toml
 ```
 If `DISPATCHER_CONFIG` is set, the flag can be omitted. Returns `{"result": "completed", "action_id": N}` or similar on success.
 
-**Runners.** `local` invokes the Claude CLI with ACL-scoped tool permissions. `fake` or `fake-commit` writes a deterministic file and commits without calling a model — use this to validate queue, worktree, and gate flow before enabling real sessions.
+**Historical runners.** The `local`, `fake`, and `fake-commit` descriptions in
+the configuration below document the compatibility implementation only. They
+are not target runtime integrations and must not receive new features.
 
 **Pause without changing service wiring.**
 ```bash
@@ -369,9 +400,15 @@ test_command       = "pytest"
 
 ---
 
-## The Agent Cockpit
+## The Agent Cockpit (deployed compatibility and migration target)
 
 The agent cockpit (`agentops/apps/web`) is a read-only operator surface. It displays sprint state, active sessions, and audit history from three independent data sources in a single UI. It does not own any state itself.
+
+The diagram and field names below describe the deployed queue-era UI. Migration
+replaces claim/session joins and queue dispatch writes with Sprintctl advisory
+reservations and read-only ActionQ federation references. A historical queue
+row may remain visible, but the cockpit must not launch or supervise a native
+runtime.
 
 ### Architecture
 
@@ -416,14 +453,15 @@ When a source is unreachable, its pane shows a labeled banner rather than phanto
 
 ### Session Join Contract
 
-The cockpit joins sprintctl claim records to actionq sessions in this order:
+The deployed cockpit joins historical Sprintctl claim records to ActionQ
+sessions in this order:
 
 1. `claim.runtime_session_id == session.runtime_session_id`
 2. Fallback: `claim.claim_id == session.claim.claim_id` within the same repo
 
 No joins on branch names, worktree paths, or other payload fragments.
 
-### Dispatch
+### Dispatch (retiring compatibility path)
 
 The dispatch composer POSTs to `cockpit-api → actionq-server`. Sprint takeup happens as a side effect of session start, not as a direct write from cockpit. The cockpit has no other write paths to pg or NFS.
 
@@ -435,7 +473,7 @@ Default intervals: action queue 2 s, sessions 2 s, audit feed 5 s (gateway-side 
 
 ---
 
-## Deployment
+## Deployment (current compatibility inventory)
 
 All live Kubernetes manifests live in `appservice/clusters/main/kubernetes/apps/`. The tool repos may include example manifests in `deploy/examples/` but `appservice` is the deployment source of truth. `appservice` is a private, internal-operations-only repo and is not published under `bayleafwalker`.
 
@@ -450,7 +488,9 @@ The `vscode-shell` pod has `SPRINTCTL_URL` injected from the sprintctl CNPG app 
 
 ### Devbox Pattern
 
-`actionq-daemon` runs on the devbox (the `vscode-shell` pod) as a long-running process. It:
+`actionq-daemon` currently runs on devbox as a long-running compatibility
+process. The ActionQ deletion plan requires an operator decision to stop it
+permanently before the daemon-only tranche is removed. It currently:
 
 - Pulls dispatch instructions from the action queue.
 - Spawns agent sessions (`claude`, `codex`, `opencode`) with ACL-scoped tool permissions.
@@ -458,7 +498,9 @@ The `vscode-shell` pod has `SPRINTCTL_URL` injected from the sprintctl CNPG app 
 - Calls `sprintctl claim start / done-from-claim` on session boundaries.
 - Calls `auditctl add --type session.start / session.exit` for each session.
 
-Scheduling the daemon (systemd unit, cron, or k8s init container restart loop) is an operator choice. Example unit files live under `actionq-dispatcher/ops/`.
+Do not add or renew scheduling for this daemon. Its remaining choice is
+permanent shutdown under the ActionQ owner plan, not which scheduler should run
+it.
 
 ### Cockpit Pod
 
@@ -472,7 +514,10 @@ Auth is network-identity-based (cluster-internal or Tailscale). No per-user logi
 
 ### Artifact Root
 
-`_artifacts/` is a sibling directory of the project repos under `/projects/dev`. It is not committed inside any repo. Back it up alongside the repos.
+`_artifacts/` is a sibling directory of the project repos under `/projects/dev`.
+It is semi-ephemeral and host-local unless explicitly copied and hash-verified;
+its path is not evidence of cross-host durability. Durable references belong in
+the owning served systems.
 
 ```
 /projects/dev/_artifacts/
@@ -512,10 +557,13 @@ sprintctl item add --sprint-id 1 --track cli --title "Bootstrap tooling"
 
 # 4. Work loop
 sprintctl usage --context --json      # check context at session start
-sprintctl claim start --item-id 1 --actor me --json
+sprintctl reservation reserve --item-id 1 --actor me --role execution \
+  --session-id "$SPRINTCTL_RUNTIME_SESSION_ID" --json
 # ... do work ...
 sprintctl item note --id 1 --type decision --summary "Decided on X"
-sprintctl item done-from-claim --claim-id <id> --claim-token <token> --actor me
+sprintctl item show --id 1 --json  # read status_revision
+sprintctl item status --id 1 --status done --actor me \
+  --expected-revision 'item:<uuid>@status:active'
 
 # 5. Extract and publish knowledge at sprint end
 kctl extract --sprint-id 1
@@ -556,9 +604,13 @@ Commits and merges now land in the daily NDJSON shard automatically. The cockpit
 
 ---
 
-### Track C: Queue-dispatched agent sessions
+### Historical Track C: queue-dispatched agent sessions (retired adoption path)
 
-Extend Track B with `actionq` and `actionq-dispatcher` to run agent sessions as discrete claimed actions with full lifecycle tracking.
+This was the queue-era adoption track. It is preserved so existing deployments
+can be recognized and removed safely. **Do not use it for new adoption and do
+not schedule `dispatcher-once`.** New work starts through a selected native
+runtime and records/reconciles an external execution reference through the
+future ActionQ federation contract.
 
 ```bash
 # 1. Install
@@ -591,7 +643,8 @@ actionctl sessions --active
 actionctl events --limit 20
 ```
 
-For continuous dispatch, schedule `dispatcher-once` via cron or a systemd timer. The tool exits with code `2` when the queue is empty, making it safe to poll:
+The following historical cron example is retained as migration evidence only;
+remove such schedules rather than installing them:
 
 ```bash
 # cron: run every 5 minutes
@@ -606,11 +659,16 @@ The dispatcher emits `session.*` coordinator events into actionq and calls `audi
 
 | Repo | Owns | Does not own |
 |---|---|---|
-| `sprintctl` | Sprint state, work items, claims, decisions, takeup events | Session liveness, heartbeats, audit events |
+| `sprintctl` | Sprint state, work items, revisions, decisions, dependencies, advisory reservations | Native session lifecycle, telemetry, audit events |
 | `kctl` | Knowledge review pipeline, durable artifact rendering | Sprint writes, audit events |
 | `auditctl` | Repo-local audit index, NDJSON shards, git hook templates | Sprint state, knowledge graph, centralized storage |
-| `actionq` | Action queue, session lifecycle, heartbeat / TTL semantics, dispatch daemon | Sprint state, knowledge, audit internals |
+| `actionq` | Target: federated work/execution references, relations, assurance, acceptance and reconciliation; queue/daemon only as retiring compatibility | Native runtime execution, Sprint state, knowledge, audit internals |
 | `agentops` | Operator UI, cross-repo substrate plans | Substrate state (reads only) |
 | `appservice` | Live Kubernetes manifests, CNPG clusters, secrets (private repo) | Application logic |
 
-The boundary rule: if data travels with a repo (is per-repo, local-first, recoverable from the repo's own history), it belongs in `auditctl` or `kctl`. If data is cluster-wide coordination (active sessions, dispatch policy, sprint state across hosts), it belongs in `actionq` or `sprintctl remote`. The cockpit reads all of these; it writes to none of them except through the dispatch composer → actionq path.
+The boundary rule: work state and its mutation revisions belong to Sprintctl;
+native execution belongs to the selected runtime; cross-runtime identity,
+relations, assurance, evidence requirements, acceptance, and reconciliation
+belong to ActionQ's target federation layer. Auditctl and Kctl retain their own
+audit and knowledge records. The cockpit composes owner APIs and does not gain
+raw database or native-runtime execution authority.

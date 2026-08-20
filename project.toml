@@ -46,9 +46,11 @@ repository = "https://github.com/bayleafwalker/vuoro.git"
 default_ref = "refs/heads/main"
 path_notes = [
   "Public runtime repository: owns the transport-only client and modular service shell.",
+  "Agent execution and session behavior remain at the selected native harness/runtime boundary; Vuoro does not schedule or supervise them.",
   "Appservice remains the private deployment authority for development and production overlays.",
 ]
 
+[[members]]
 repo_id = "sprintctl"
 backlog = true
 render = "full"
@@ -56,6 +58,10 @@ relationship = "planning-authority"
 access = "write"
 repository = "https://github.com/bayleafwalker/sprintctl.git"
 default_ref = "refs/heads/main"
+path_notes = [
+  "Owns sprint/work-item state, revisions, dependencies, notes, and advisory reservations.",
+  "Reservations expose overlap and grant no capability; expected-revision compare-and-swap protects mutations.",
+]
 
 [[members]]
 repo_id = "kctl"
@@ -82,22 +88,25 @@ path_notes = [
 repo_id = "actionq"
 backlog = true
 render = "full"
-relationship = "execution-authority"
+relationship = "reference"
 access = "write"
 repository = "https://github.com/bayleafwalker/actionq.git"
 default_ref = "refs/heads/main"
 path_notes = [
-  "Owns ActionQ queue claims, receipts, worktree preparation, policy enforcement, harness invocation, and Sprintctl claim coordination.",
+  "Target owner for federated work/execution identities, relations, external execution references, assurance, evidence requirements, acceptance, settlement, and reconciliation.",
+  "Native harnesses/runtimes execute work; ActionQ must not own worktrees, harness invocation, leases, fan-out, or Sprintctl reservation coordination.",
+  "The existing queue/server/daemon are migration compatibility surfaces pending the separately authorized owner deletion gates.",
 ]
 
 [[members]]
 repo_id = "actionq-dispatcher"
 backlog = true
 render = "none"
-relationship = "tooling"
+relationship = "reference"
 access = "reference"
 repository = "https://github.com/bayleafwalker/actionq-dispatch.git"
 default_ref = "refs/heads/main"
 path_notes = [
-  "Compatibility launcher for the historical dispatcher-once command. It is a peer for served Sprintctl identity and project visibility, while ActionQ retains queue, worker, and settlement authority.",
+  "Compatibility launcher for the historical dispatcher-once command only; it is not an execution, worker, settlement, or federation authority.",
+  "Do not add dispatcher-meta, queue clients, worktree preparation, harness logic, Sprintctl mutation, or other workflow behavior.",
 ]
