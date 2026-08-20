@@ -1,96 +1,120 @@
 # Vuoro system shape
 
 Vuoro is the public name for a family of tools with deliberately separate
-state owners. The tools documented here are the current operational system.
-The [`vuoro`](https://github.com/bayleafwalker/vuoro) repository is the target
-client/service composition layer; it packages those capabilities without
-moving their domain state machines into a new owner.
+state owners. The `vuoro` repository is a transport and released-adapter
+composition layer; it does not absorb the domain state machines or become an
+execution scheduler.
 
-## Operating modes
+## Current target boundary (2026-08-20)
+
+The governing cross-repository alignment is
+[`native-runtime-federation-realignment-2026-08-20.md`](../plans/agentops/native-runtime-federation-realignment-2026-08-20.md).
+It incorporates ActionQ's execution-plane deletion plan, Sprintctl v0.3.0's
+advisory reservation contract, and the merged retirement of Outctl from the
+active project.
 
 ```text
                          shared operator view
                       ┌────────────────────────┐
-                      │ agent-cockpit          │
-                      │ reads projections;     │
-                      │ dispatches via actionq │
-                      └───────┬────────────────┘
-                              │ HTTP / owning contracts
-              ┌───────────────▼────────────────┐
-served mode   │ vuoro-service                  │
-              │ auth, catalog, compatibility,  │
-              │ released adapter composition   │
-              └───────────────┬────────────────┘
-                              │ pinned domain adapters
-remote mode   ┌───────────────▼────────────────┐
-              │ PostgreSQL authorities         │
-              │ sprintctl · actionq · kctl ·   │
-              │ auditctl                       │
-              └────────────────────────────────┘
+                      │ Agent Cockpit          │
+                      │ owner projections and │
+                      │ federated references  │
+                      └───────────┬────────────┘
+                                  │ owning APIs / released adapters
+                  ┌───────────────▼────────────────┐
+served mode       │ vuoro-service                  │
+                  │ auth, catalog, compatibility,  │
+                  │ transport and composition      │
+                  └───────┬──────────────┬─────────┘
+                          │              │
+             ┌────────────▼──────┐  ┌────▼─────────────────────┐
+work domain  │ Sprintctl         │  │ ActionQ federation       │
+             │ items, revisions, │  │ work/execution refs,     │
+             │ advisory reserves │  │ relations, assurance,    │
+             │ and CAS mutation  │  │ acceptance/reconciliation│
+             └───────────────────┘  └──────────────────────────┘
 
-local mode    agent / owning CLI ──► repo-local SQLite and artifacts
-              machine-local effects stay on the executing machine
-
-runner edge   harness ──► outctl capture/projection ──► command
-                         host-local raw evidence; bounded model view
+execution    coordinator ──► selected native harness/runtime
+edge                         │
+                             ├── immutable Git/PR/evidence references
+                             └── OpenTelemetry ──► selected
+                                 Langfuse or Phoenix + object storage
 ```
 
-- **Local mode** calls an owning CLI directly. Repo-local SQLite databases,
-  claim recovery records, Git worktrees, and other machine effects remain
-  local.
-- **Remote mode** uses the same domain tool against its shared PostgreSQL
-  authority. It is a backend choice, not a separate state owner.
-- **Served mode** sends a transport-only `vuoro-client` request to
-  `vuoro-service`. The service authenticates the caller, checks compatibility,
-  and invokes a pinned adapter for the owning domain. It does not replace the
-  domain authority.
-- **Cockpit** composes read models and submits dispatch through documented
-  APIs. It does not write the domain databases directly.
+The ActionQ federation box is a **target**, not a claim that deletion has
+already shipped. ActionQ's `delete/session-wrapper-execution-plane` branch at
+`27f4215` still has two operator gates: removal of the cluster
+`actionq-server` deployment and permanent shutdown of the devbox dispatch
+service. Until those gates and owner-local deletion tranches complete, the
+queue/server/daemon are deployed compatibility surfaces only. New design must
+not deepen their use.
 
-These paths can coexist. A served request may reach a remote domain authority,
-while its bounded worker still performs Git and filesystem effects locally.
-No diagram arrow implies a distributed transaction: handoffs use explicit
-receipts, append-only evidence, idempotency, and recovery.
+## Operating modes
 
-## One end-to-end walkthrough
+- **Local mode** calls an owning domain CLI directly. Repository databases,
+  Git worktrees, and other machine effects remain on that host.
+- **Served mode** sends a transport-only request to Vuoro Service. The service
+  authenticates the caller, checks catalog compatibility, and invokes a pinned
+  adapter for the owning domain. It owns neither the domain decision nor the
+  native runtime.
+- **Native execution** occurs in the selected first-party harness/runtime.
+  Provider capabilities are unequal. Every federated execution reference must
+  record the assurance actually observed (for example pre-flight binding,
+  post-hoc attribution, requested-model-only, or unverified).
+- **Cockpit** composes owner read models and federated references. It does not
+  write databases directly or turn a relationship row into execution
+  authority.
 
-The concrete property to preserve across adapters and deployment composition
-is:
+No arrow implies a distributed transaction. Cross-owner workflows use
+expected revisions, idempotent owner operations, immutable references, explicit
+acceptance, and reconciliation.
 
-1. An operator or integration creates a sprintctl work item. Sprintctl records
-   the item and its event history as the work authority.
-2. An agent starts a claim. The returned claim ID and secret token—not an actor
-   name, branch, or hostname—prove the live ownership incarnation.
-3. Dispatch submits an action through actionq. Actionq-dispatch creates a
-   bounded Git worktree, applies path and command policy, invokes one worker,
-   and runs pre- and post-gates.
-4. A failed worker or invalid result is not published or used to close the work
-   item. The queue records the failed/rejected outcome, and the independent
-   verification gate remains authoritative for acceptance.
-5. The same owner can resume from its private claim recovery record. A
-   different owner requires an explicit handoff or recovery that rotates
-   ownership proof; stale proof must no longer settle the item.
-6. After a valid result clears independent verification, the owning CLI
-   records completion and releases the claim. Auditctl indexes the resulting
-   events into portable evidence, and the cockpit projects the sprint, claim,
-   dispatch, and audit outcome.
+## End-to-end walkthrough
 
-The walkthrough is a system-level acceptance scenario, not a claim that all
-six steps are one atomic operation. A complete proof must inject failure
-between boundaries, demonstrate rejection of stale ownership proof, resume or
-recover without duplicate settlement, and compare the audit and cockpit
-projections with their owning records.
+1. An operator or coordinator creates/decomposes Sprintctl work with explicit
+   dependencies. A native session may create an advisory reservation. Multiple
+   execution reservations can overlap; the overlap is visible and grants no
+   capability.
+2. The coordinator reads the item's current revision and selects one
+   dependency-cleared reasoning unit. Independent repositories may run in
+   parallel; same-repository integration remains sequential.
+3. The coordinator starts the selected native harness/runtime. ActionQ records
+   or later reconciles an external execution reference, its relation to the
+   work, evidence/acceptance requirements, and its real binding-assurance
+   level. ActionQ does not launch, lease, heartbeat, poll, or settle the native
+   runtime.
+4. Sequential continuation passes an accepted commit or PR, verification
+   evidence, the relevant work revision, and explicit instructions. A mutable
+   branch head, host-local worktree path, queue claim, or bearer token is not a
+   durable handoff.
+5. A fresh verifier inspects the actual diff and runs the owner-defined gates.
+   Standard telemetry may retain observations, but telemetry is not acceptance
+   authority.
+6. Sprintctl applies a successful status transition only through its owning
+   operation with the expected revision. ActionQ reconciles the external
+   execution/evidence/acceptance references; Kctl and Auditctl retain their own
+   knowledge and audit facts.
+
+Failure recovery is deliberate: inspect native runtime state and durable owner
+records, then resume or start a native session and reconcile the new reference.
+There is no automatic parent-action re-claim or fan-out replay loop.
 
 ## Ownership summary
 
-| Concern | Authority |
-| --- | --- |
-| Work items, dependencies, claims, handoffs | sprintctl |
-| Actions, sessions, execution claims, outcomes | actionq |
-| Bounded worktree and worker coordination | actionq-dispatch |
-| Command-output capture, projection, retrieval, retention mechanics | outctl |
-| Knowledge extraction, review, publication | kctl |
-| Audit index and portable evidence shards | auditctl |
-| Shared contracts, dispatch guidance, cockpit application | agentops |
-| Client/service packaging and released adapter composition | vuoro |
-| Environment deployment and credentials | appservice |
+| Concern | Authority/boundary |
+|---|---|
+| Work items, dependencies, revisions, notes, advisory reservations | Sprintctl |
+| Native agent execution, tools, and session lifecycle | Selected native harness/runtime |
+| Federated work/execution identity, relations, assurance, evidence requirements, acceptance and reconciliation | ActionQ target federation layer |
+| Knowledge extraction, review, publication | Kctl |
+| Audit index and portable evidence records | Auditctl |
+| Shared contracts, dispatch guidance, project binding, cockpit source | Agentops |
+| Client/service transport and released adapter composition | Vuoro |
+| Deployment, credentials, telemetry routing | Appservice |
+| Raw/native harness observations | OpenTelemetry plus the operator-selected Langfuse or Phoenix/object-storage path; non-authoritative |
+
+Outctl is not an active member. Its repository is a frozen discovery artifact;
+no plan may assign it scheduling, capture, projection, retention, or evidence
+authority. `actionq-dispatcher` is likewise only a compatibility launcher for
+historical callers and must not gain `dispatcher-meta` or any other workflow
+behavior.

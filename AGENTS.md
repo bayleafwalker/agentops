@@ -69,6 +69,13 @@ state, audit state, or Kubernetes desired state.
 
 ## Saved Dispatch Workflows
 
+> **Compatibility warning (2026-08-20):** the saved workflows below still
+> describe ActionQ queue/daemon execution and pre-v0.3 Sprintctl claim-proof
+> transport. Do not use them for new work until their contracts are migrated to
+> native runtime execution, ActionQ federation references, and Sprintctl
+> advisory reservations/expected-revision CAS. The target boundary is
+> `docs/plans/agentops/native-runtime-federation-realignment-2026-08-20.md`.
+
 - `.claude/workflows/vuoro-dispatch-build.js` — claim → build → independent verify → optional
   publish → close pipeline for sprintctl items. Callers may group related items with `unit`;
   same-repo units use separate accountable build contexts but stay sequential, while independent
@@ -122,11 +129,13 @@ anything rejected once unless a coordinator supplies a materially revised
 packet. Packet contradiction or a missing oracle is a task defect, not an
 escalation trigger.
 
-**What the operator does, and what stays theirs.** Claim the sprintctl item as
-the coordinator, freeze the packet at an exact commit, then run the driver
-stages. The worker never holds Git, sprintctl, deployment, or acceptance
-authority; sprint state is coordinator-only and acceptance is human. A
-`gate` result is a *candidate*, never a merge.
+**What the operator does, and what stays theirs.** Create an advisory
+Sprintctl reservation (normally `observation` for a coordinator), freeze the
+packet at an exact commit, then run the driver stages. A reservation grants no
+authority; Sprintctl mutation uses expected-revision CAS. The worker never
+holds Git, Sprintctl, deployment, or acceptance authority; sprint state is
+coordinator-only and acceptance is human. A `gate` result is a *candidate*,
+never a merge.
 
 ```bash
 D=/projects/dev/agentops/templates/dispatch/scripts/hybrid_dispatch.py
@@ -138,9 +147,9 @@ python "$D" --repo-root . --packet packets/<TASK>.json gate      # cold post-gat
 ```
 
 On devbox-agent the deployed `hybrid-dispatch` wrapper does the same against
-pinned `/etc/agentops` policy. Queue-driven work uses the actionq
-`hybrid-bulk-*` actions instead; there the dispatcher owns the worktree, the
-claim, and the gate command.
+pinned `/etc/agentops` policy. Historical queue-driven `hybrid-bulk-*` ActionQ
+actions are compatibility surfaces only; do not enqueue new work or grow their
+dispatcher-owned worktree/claim/gate path.
 
 **This repository's own scope.** `agentops` enables the `mechanical_bulk` route only, and
 the dispatch contract itself — `templates/dispatch/hybrid/**`,

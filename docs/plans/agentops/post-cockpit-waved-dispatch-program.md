@@ -1,12 +1,45 @@
 ---
 doc_id: cockpit-and-post-cockpit-waved-dispatch-program
-status: active
+status: superseded
 created_at: 2026-08-01
 owner: agentops
 tracker_item: agentops#2070
+superseded_at: 2026-08-20
+superseded_by: native-runtime-federation-realignment-2026-08-20.md
 ---
 
 # Cockpit convergence and post-cockpit waved dispatch program
+
+> **Superseded 2026-08-20.** This remains the historical 2026-08-01 backlog
+> reconciliation and wave design. It does not override live Sprintctl state and
+> is no longer a dispatch recipe. The current execution boundary is
+> [`native-runtime-federation-realignment-2026-08-20.md`](native-runtime-federation-realignment-2026-08-20.md).
+
+## 2026-08-20 migration disposition
+
+- Preserve the reasoning-unit, same-repository serialization, independent
+  verification, owner-API, and separate deployment-authorization rules.
+- Replace exclusive claims and proof transport with Sprintctl `origin/main`
+  v0.3.0 advisory reservations and expected-revision CAS. Overlap is visible,
+  not prevented, and a reservation grants no mutation authority.
+- Do not create ActionQ actions/attempts to realize a wave. Start work through
+  the selected native runtime and register its external execution reference and
+  actual binding-assurance level in the ActionQ federation surface.
+- Do not implement the deferred ActionQ external-runtime backend in Wave 6.
+  It preserves the execution-plane ownership that ActionQ's newer deletion plan
+  removes.
+- Treat `_orchestration#1366` in active sprint `_orchestration#437`
+  (dispatcher-meta sequential handoff) as **do not dispatch** until its tracker
+  owner records supersession or a native-runtime /
+  immutable-predecessor-reference re-scope. This document makes no Sprintctl
+  mutation.
+- Outctl is not a member or a future wave. Native harness evidence targets
+  standard OpenTelemetry plus the selected Langfuse or Phoenix/object-storage
+  path.
+
+All dates, item readiness statements, dependency corrections, and wave tables
+below are retained as historical evidence. Re-read live Sprintctl state and
+owner plans before scheduling any successor work.
 
 This is the cross-repository execution projection for cockpit convergence and
 the goal inventory that follows it. The filename retains the destination's
@@ -222,6 +255,10 @@ then closes or supersedes the item; implementation must not be redispatched.
 
 ### Wave 6 — deferred external runtime
 
+> **Retired 2026-08-20:** do not dispatch this wave. Native runtimes are the
+> execution boundary; ActionQ records/reconciles external references and must
+> not invoke a runtime as its backend.
+
 ActionQ #1445 remains parked. It becomes dispatch-plan eligible only after an
 operator selects an external runtime and the AgentOps #2061 corpus contains
 content-addressed normal, denial, cancellation, and abrupt-failure scenarios.
@@ -299,10 +336,11 @@ For each dependency-cleared reasoning unit:
      --source <wave-source.json> --output <wave-plan.json>
    ```
 
-6. Create ActionQ actions, establish or claim attempts under ActionQ authority,
-   then bind the exact existing action and attempt identities and realize the
-   group. Generic realization must not be used for `stacked` work; stage it and
-   bind the predecessor candidate commit explicitly.
+6. ~~Create ActionQ actions, establish or claim attempts under ActionQ
+   authority, then bind and realize the group.~~ **Retired 2026-08-20.** Start
+   the selected native runtime deliberately and record/reconcile its external
+   execution reference plus assurance level through the ActionQ federation
+   contract when available.
 7. Run the independent gate once per reasoning unit. Publish or clear a
    dependent only after `PASS` and immutable evidence attachment.
 
