@@ -24,7 +24,11 @@ def test_vuoro_is_a_selected_cutover_repository() -> None:
 
 
 def test_newly_enrolled_repositories_are_selected() -> None:
-    assert {"actionq-dispatcher", "frontier-weave"} <= set(validator.REPOSITORIES)
+    assert "frontier-weave" in validator.REPOSITORIES
+
+
+def test_retired_dispatcher_is_not_a_cutover_repository() -> None:
+    assert "actionq-dispatcher" not in validator.REPOSITORIES
 
 
 def test_served_envrc_is_accepted(tmp_path: Path) -> None:

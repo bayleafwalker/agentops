@@ -10,7 +10,9 @@ These files live in the `/projects/dev/agentops` repo. Treat this repo as the co
   advisory-reservation, federation, cross-repository handoff, and retired
   Outctl boundary. This is the **sole live successor** for the execution and
   ownership direction covered by the older substrate, simplification,
-  dispatcher-meta, and waved-dispatch plans.
+  dispatcher-meta, and waved-dispatch plans. Its ActionQ deletion milestone is
+  now implemented in owner source (`actionq` 0.1.26); the operator rollout and
+  federation extraction remain incomplete and separately gated.
 
 ## Current supporting mapping
 
@@ -122,10 +124,11 @@ Repo-owned companion plans:
 Current compatibility implementations referenced by these plans:
 
 - `/projects/dev/auditctl` - repo-local audit ledger implementation and publisher contract.
-- `/projects/dev/actionq` - existing PostgreSQL queue during migration toward
-  the federation/settlement target.
-- `/projects/dev/actionq-dispatcher` - compatibility launcher for historical
-  `dispatcher-once` callers; no coordinator growth is permitted.
+- `/projects/dev/actionq` - PostgreSQL queue and Vuoro adapter retained after
+  daemon/server/harness source deletion, during extraction toward the
+  federation/settlement target.
+- `/projects/dev/actionq-dispatcher` - inactive 0.2.0 retirement tombstone;
+  existing installations may upgrade once for a clear failure, then remove it.
 - `/projects/dev/appservice` - existing GitOps source of truth; current actionq CNPG lives under `clusters/main/kubernetes/apps/actionq-db/`.
 
 Future in-repo implementation target:

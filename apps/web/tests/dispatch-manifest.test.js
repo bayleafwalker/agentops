@@ -46,13 +46,13 @@ test("v2 manifests retain v1 routing and validate the instruction source catalog
   assert.throws(() => validateDispatchManifest({ ...manifest, instruction_set: undefined }), /instruction_set must be an object/);
 });
 
-test("dispatchable repos include build routing and verification hooks", async () => {
+test("dispatchable repos include build routing and non-retired evidence publishers", async () => {
   const manifest = await readJson(join(EXAMPLES_DIR, "homelab-analytics.dispatch.json"));
 
   assert.equal(manifest.adoption_level, "dispatchable");
   assert.equal(manifest.routing.action_classes.build.enabled, true);
   assert.equal(manifest.routing.action_classes.build.review_required, true);
-  assert.ok(manifest.hooks.publishers.includes("dispatcher-gate"));
+  assert.deepEqual(manifest.hooks.publishers, ["git", "workspace-cost", "github"]);
 });
 
 test("stateful manifests select protocol skills and bounded risk surfaces", async () => {

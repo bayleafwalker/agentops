@@ -95,18 +95,19 @@ default_ref = "refs/heads/main"
 path_notes = [
   "Target owner for federated work/execution identities, relations, external execution references, assurance, evidence requirements, acceptance, settlement, and reconciliation.",
   "Native harnesses/runtimes execute work; ActionQ must not own worktrees, harness invocation, leases, fan-out, or Sprintctl reservation coordination.",
-  "The existing queue/server/daemon are migration compatibility surfaces pending the separately authorized owner deletion gates.",
+  "ActionQ 0.1.26 removed its daemon, harness adapters, worktree/session execution plane, and standalone server source; the retained queue and Vuoro adapter are the extraction boundary for the federation transition.",
+  "Running server/daemon residue is not a source feature and is not assumed retired until the separately authorized appservice and devbox rollout gates are evidenced.",
 ]
 
 [[members]]
 repo_id = "actionq-dispatcher"
-backlog = true
+backlog = false
 render = "none"
 relationship = "reference"
 access = "reference"
 repository = "https://github.com/bayleafwalker/actionq-dispatch.git"
 default_ref = "refs/heads/main"
 path_notes = [
-  "Compatibility launcher for the historical dispatcher-once command only; it is not an execution, worker, settlement, or federation authority.",
-  "Do not add dispatcher-meta, queue clients, worktree preparation, harness logic, Sprintctl mutation, or other workflow behavior.",
+  "Inactive retirement tombstone at actionq-dispatcher-v0.2.0; dispatcher-once always fails with an actionable retirement message and performs no queue or process work.",
+  "Do not install or schedule it for new work. Existing installations may upgrade once to replace a stale launcher, then remove it after operator-owned callers and services are retired.",
 ]

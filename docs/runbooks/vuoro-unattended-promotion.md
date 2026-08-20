@@ -1,5 +1,14 @@
 # Vuoro unattended-dispatch promotion gate
 
+> **Superseded 2026-08-20 — do not execute.** This runbook preserves the
+> queue/daemon promotion gate used by the historical deployment. ActionQ
+> 0.1.26 removed the daemon, harness/worktree/session execution plane, and
+> standalone server source; `actionq-dispatcher` 0.2.0 is a fail-closed
+> tombstone. Current work follows
+> [`native-runtime-federation-realignment-2026-08-20.md`](../plans/agentops/native-runtime-federation-realignment-2026-08-20.md).
+> Runtime removal remains operator-owned and must not be inferred from these
+> historical source revisions.
+
 This runbook is the operator handoff for promoting the claim-safety changes
 that follow Vuoro v0.1.9. It authorizes neither an image build nor a cluster
 change; those remain owner-controlled deployment actions.

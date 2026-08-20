@@ -41,13 +41,18 @@ edge                         │
                                  Langfuse or Phoenix + object storage
 ```
 
-The ActionQ federation box is a **target**, not a claim that deletion has
-already shipped. ActionQ's `delete/session-wrapper-execution-plane` branch at
-`27f4215` still has two operator gates: removal of the cluster
-`actionq-server` deployment and permanent shutdown of the devbox dispatch
-service. Until those gates and owner-local deletion tranches complete, the
-queue/server/daemon are deployed compatibility surfaces only. New design must
-not deepen their use.
+The ActionQ federation box is a **target**, not a claim that federation
+extraction has already shipped. ActionQ 0.1.26 (`9dccf4e`) removed the daemon,
+harness/worktree/session execution plane, and standalone HTTP server from the
+owner source. The queue and Vuoro adapter remain while lease/claim persistence
+is extracted behind the future federation contracts.
+
+Source retirement does not prove running-system retirement. The appservice
+phase 1 → health proof → phase 2 sequence, interactive devbox unit disablement,
+and the separately reviewed NixOS retirement remain operator-owned gates until
+their evidence lands. `actionq-dispatcher` 0.2.0 (`510822a`) is an inactive
+fail-closed tombstone, not a compatibility worker. New design and operations
+must not deepen, reinstall, or reschedule any removed execution path.
 
 ## Operating modes
 
@@ -115,6 +120,6 @@ There is no automatic parent-action re-claim or fan-out replay loop.
 
 Outctl is not an active member. Its repository is a frozen discovery artifact;
 no plan may assign it scheduling, capture, projection, retention, or evidence
-authority. `actionq-dispatcher` is likewise only a compatibility launcher for
-historical callers and must not gain `dispatcher-meta` or any other workflow
-behavior.
+authority. `actionq-dispatcher` is an inactive tombstone retained only so stale
+callers fail with a migration message; it must not gain `dispatcher-meta` or
+any other workflow behavior.

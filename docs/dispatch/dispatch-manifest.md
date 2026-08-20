@@ -105,14 +105,24 @@ session rather than one hook payload — see
 [Session mechanization contracts](session-mechanization-contracts.md) for the `session-capsule/v1`
 and `reconciliation-proposal/v1` schemas it and the periodic scribe produce.
 
-Dispatcher gates are the exception to best-effort publishing: if verification is part of the
-action contract, missing or failed verification must fail closed.
+Verification gates are coordinator-owned acceptance inputs: if verification is
+required by the work contract, missing or failed evidence must fail closed.
+Hooks may publish the resulting facts, but no publisher is itself acceptance
+authority.
+
+The schema continues to parse historical `actionq-daemon` and
+`dispatcher-gate` publisher names so existing manifests can be migrated
+without losing their meaning. New and refreshed manifests must not select
+them; use only the actual non-retired evidence destination (`git`, `github`, or
+`workspace-cost`) and keep coordinator acceptance separate.
 
 ## Runtime Format
 
-The manifest is the portable source for repo defaults. `actionq-dispatcher` can keep TOML as its
-runtime config while this format proves out, either by reading the manifest directly or generating
-TOML from it.
+The manifest is the portable source for repository defaults consumed by a
+frontier coordinator and the selected native harness/runtime. It is not a
+worker configuration and does not authorize a queue, daemon, or process
+launcher. The retired `actionq-dispatcher` must never read or generate runtime
+configuration from it.
 
 ## Cockpit Visibility
 

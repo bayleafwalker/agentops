@@ -60,18 +60,20 @@ path_notes = [
 repo_id = "actionq"
 backlog = true
 render = "full"
-relationship = "execution-authority"
+relationship = "reference"
 access = "write"
 path_notes = [
-  "Owns ActionQ queue claims, receipts, worktree preparation, policy enforcement, harness invocation, and Sprintctl claim coordination.",
+  "Target owner for federated work/execution identities, relations, external execution references, assurance, evidence requirements, acceptance, settlement, and reconciliation.",
+  "ActionQ 0.1.26 removed its daemon, harness adapters, worktree/session execution plane, and standalone server source; native runtimes execute work.",
+  "Running server/daemon residue is not assumed retired until the separately authorized rollout gates are evidenced.",
 ]
 
 [[members]]
 repo_id = "actionq-dispatcher"
-backlog = true
+backlog = false
 render = "none"
-relationship = "tooling"
+relationship = "reference"
 access = "reference"
 path_notes = [
-  "Compatibility launcher for dispatcher-once. It has a served Sprintctl identity and project visibility; ActionQ retains queue, worker, and settlement authority.",
+  "Inactive retirement tombstone at actionq-dispatcher-v0.2.0; never install or schedule it for new work.",
 ]

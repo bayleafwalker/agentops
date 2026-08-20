@@ -37,12 +37,12 @@
         "id": "agentops-agents",
         "path": "AGENTS.md",
         "kind": "AGENTS.md",
-        "digest": "b75eef9ebc304bb0ebdf4173430c2c67c454a0daaf5c7a3fb9b0650ab2c7b988",
-        "source_rev": "git:284766036925205a07b8756b0931def7822eb53c",
+        "digest": "8f669cb7663ff0a36060f325a4a9b0be6a3af45ee9308ff45fa40e27f37a317d",
+        "source_rev": "git:a688960608f624d96c1791138dcb07bfe55c973d",
         "refs": [],
         "rules": [],
         "hooks": [],
-        "line_budget": 180
+        "line_budget": 190
       }
     ],
     "applicability": {
@@ -86,7 +86,7 @@
       "project.toml"
     ],
     "out_of_scope": [
-      "runtime behavior owned by sprintctl, kctl, actionq, or actionq-dispatcher",
+      "runtime behavior owned by sprintctl, kctl, or actionq; actionq-dispatcher is an inactive tombstone",
       "cluster reconciliation, image publication, or deployment mutation"
     ]
   },
@@ -127,6 +127,6 @@
   },
   "hooks": {
     "level": "verification",
-    "publishers": ["git", "dispatcher-gate"]
+    "publishers": ["git", "github"]
   }
 }

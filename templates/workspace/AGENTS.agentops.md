@@ -37,6 +37,22 @@ fails, report that exact outside-sandbox result. Use the narrowest reusable
 - Run `python /projects/dev/agentops/templates/dispatch/scripts/validate_verification_artifacts.py --root .` from an opted-in repository.
 - `full` is a sequence, not blanket repair authority. Repair and production mutation remain separately authorized.
 
+## ActionQ retirement boundary
+
+ActionQ 0.1.26 removed `actionq-daemon`, its harness/worktree/session execution
+plane, and the standalone `actionq-server` source. `actionq-dispatcher` 0.2.0 is
+an inactive, fail-closed tombstone: do not install, invoke, or schedule it for
+new work. An existing host may upgrade to the tombstone once so a stale
+`dispatcher-once` shim fails clearly, then remove it after operator-owned
+callers and services are retired.
+
+Repository retirement and running-system retirement are different facts. Do
+not claim the appservice server or devbox unit is gone without operator rollout
+evidence. The gated order remains appservice phase 1 and health proof, then
+phase 2 and health proof, then interactive disablement of the devbox unit and
+the separately reviewed NixOS retirement. Do not revive the removed daemon by
+bumping its pinned revision.
+
 ## Vuoro served-work cutover
 
 Normal shared Sprintctl work is moving to the durable `vuoro-shared` served API.

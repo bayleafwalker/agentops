@@ -14,11 +14,12 @@ The implementation repos remain separate:
 - `kctl` owns knowledge artifact extraction. ([bayleafwalker/kctl](https://github.com/bayleafwalker/kctl))
 - `auditctl` will own repo-local audit ledgers. ([bayleafwalker/auditctl](https://github.com/bayleafwalker/auditctl))
 - `actionq` is contracting toward federation of work/execution references,
-  relations, assurance, acceptance, and reconciliation; its queue/daemon are
-  retiring compatibility surfaces. ([bayleafwalker/actionq](https://github.com/bayleafwalker/actionq))
+  relations, assurance, acceptance, and reconciliation. Release 0.1.26 removed
+  its daemon, harness/worktree execution plane, and standalone server source;
+  the queue and Vuoro adapter remain the extraction boundary. ([bayleafwalker/actionq](https://github.com/bayleafwalker/actionq))
 - selected native harnesses/runtimes own execution and session behavior;
-  `actionq-dispatch` is only a deprecated compatibility launcher and must not
-  grow new workflow behavior. ([bayleafwalker/actionq-dispatch](https://github.com/bayleafwalker/actionq-dispatch))
+  `actionq-dispatch` 0.2.0 is an inactive tombstone whose retained
+  `dispatcher-once` command fails closed. ([bayleafwalker/actionq-dispatch](https://github.com/bayleafwalker/actionq-dispatch))
 - `appservice` owns Kubernetes/GitOps deployment. (private — internal operations only)
 
 Outctl is retired from active Vuoro scope and retained only as a frozen

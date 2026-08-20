@@ -13,8 +13,9 @@ state, audit state, or Kubernetes desired state.
   data, and repository-safe validation scripts.
 - `docs/` owns cross-repo decisions and ecosystem guidance.
 - `apps/web/` owns cockpit application code; `appservice` owns its deployment.
-- `../sprintctl`, `../kctl`, `../auditctl`, `../actionq`, and
-  `../actionq-dispatcher` own their respective runtime behavior.
+- `../sprintctl`, `../kctl`, `../auditctl`, and `../actionq` own their respective
+  runtime behavior. `../actionq-dispatcher` owns only its inactive retirement
+  tombstone; it is not a runtime or dispatch authority.
 
 ## Dispatch Template Rules
 
@@ -75,6 +76,14 @@ state, audit state, or Kubernetes desired state.
 > native runtime execution, ActionQ federation references, and Sprintctl
 > advisory reservations/expected-revision CAS. The target boundary is
 > `docs/plans/agentops/native-runtime-federation-realignment-2026-08-20.md`.
+
+ActionQ 0.1.26 no longer packages `actionq-daemon`, harness adapters,
+worktree/session execution, or `actionq-server`. The separately released
+`actionq-dispatcher` 0.2.0 is a fail-closed tombstone. Do not install, invoke,
+schedule, or restore either execution path. A one-time tombstone upgrade is
+permitted only to replace an already installed stale launcher before removing
+it. Running cluster/devbox residue is a separately authorized rollout concern;
+repository state alone does not prove that rollout complete.
 
 - `.claude/workflows/vuoro-dispatch-build.js` — claim → build → independent verify → optional
   publish → close pipeline for sprintctl items. Callers may group related items with `unit`;

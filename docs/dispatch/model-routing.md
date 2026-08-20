@@ -73,7 +73,10 @@ Validation does not have to use a more expensive model to be independent. Fresh 
 
 ## Reasoning Controls
 
-`actionq-dispatcher` supports an optional reasoning value at the action, project, and harness levels using the same precedence as model resolution. The installed Claude CLI documents `--effort <level>`, so Claude-backed dispatches pass that value through. The Codex CLI documents generic `-c key=value` overrides, but `model_reasoning_effort` was not verified in the available reference; Codex reasoning is intentionally not emitted yet. OpenCode reasoning syntax was not available for verification and is also ignored.
+Reasoning controls are applied by the frontier coordinator through the selected
+native runtime's verified interface. Treat unsupported or unverified controls
+as absent and record the observed model/binding assurance in evidence. The
+retired `actionq-dispatcher` supplies no routing or reasoning behavior.
 
 ## Refresh Procedure
 

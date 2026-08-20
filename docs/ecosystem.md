@@ -58,13 +58,18 @@ These are siblings under `/projects/dev/`, not nested inside each other. `_artif
         knowledge-YYYY-MM-DD.ndjson
 ```
 
-## Live Cockpit Architecture (deployed compatibility)
+## Cockpit Architecture (staged rollout boundary)
 
 The cockpit is a Next.js app in `agentops/apps/web`. The browser talks only to
 `/cockpit/api/*` routes served by the same pod; those routes are the gateway for
 PostgreSQL, actionq-server, workspace artifacts, and the shared cost log.
 
-Current live data paths:
+The table below describes the pre-retirement deployment shape. It may remain
+observable until the operator lands appservice phase 1, proves namespace and
+database health, and then lands phase 2. Repository source does not prove those
+runtime steps have happened.
+
+Pre-retirement data paths:
 
 | Cockpit surface | Source |
 |---|---|
@@ -75,9 +80,10 @@ Current live data paths:
 | Status-bar cost token | `/projects/dev/.claude/session-costs.jsonl` |
 | Model headroom | Configured JSON refresh commands cached by `/cockpit/api/headroom` |
 
-The cockpit has one write path: `POST /cockpit/api/dispatch`, which forwards to
-`actionq-server` when `COCKPIT_ACTIONQ_SERVER_URL` and
-`COCKPIT_ACTIONQ_DISPATCH_CONTRACT=v1` are set. Sprintctl PostgreSQL and the
+The pre-retirement cockpit write path, `POST /cockpit/api/dispatch`, forwards
+to `actionq-server` only when `COCKPIT_ACTIONQ_SERVER_URL` and
+`COCKPIT_ACTIONQ_DISPATCH_CONTRACT=v1` are set. Appservice phase 2 removes that
+binding; it is intentionally not replaced by a queue worker. Sprintctl and the
 workspace artifact mount remain read-only from the cockpit.
 
 New repository adoption starts from
@@ -266,67 +272,43 @@ The hooks self-silence if `auditctl` is not on `PATH`, so they are safe to insta
 ### actionq
 
 **Target responsibility.** ActionQ is contracting from its PostgreSQL queue and
-daemon into the federation owner for work identity/relations/revisions,
+execution plane into the federation owner for work identity/relations/revisions,
 authority and evidence requirements, references to external native executions,
 acceptance, reconciliation, and backend qualification. Each execution
 reference records the binding assurance the selected runtime can actually
 prove.
 
-**When to use it.** New integrations use only the reviewed federation contracts
-as they land. They do not enqueue work for an ActionQ worker, create leases, or
-make ActionQ supervise a native runtime. Native sessions are started and
-controlled at their own runtime boundary.
+**Current owner source.** ActionQ 0.1.26 (`9dccf4e`) removed
+`actionq-daemon`, all harness adapters, worktree/session execution, and the
+standalone HTTP server. The retained package is a PostgreSQL action-lifecycle
+owner with `actionctl`, its Vuoro execution adapter, completion outbox, and
+supporting persistence. Lease/claim persistence remains in that retained
+surface and is the next extraction boundary; source deletion is not a claim
+that the federation target is complete.
 
-**Deployed compatibility.** The command examples below describe the queue that
-still exists during the deletion migration. They are retained for inspection,
-safe shutdown, and owner-local migration only, not for new workflow adoption.
-The controlling ActionQ branch is `delete/session-wrapper-execution-plane` at
-`27f4215`; it is gated on removing the cluster server and permanently stopping
-the devbox daemon before later deletion tranches.
+**When to use it.** New integrations use only reviewed federation contracts as
+they land. They do not enqueue work for an ActionQ worker, create a worker
+loop, or make ActionQ supervise a native runtime. Native sessions start and are
+controlled at their own runtime boundary. Current queue commands are retained
+for owner-local inspection, migration, compatibility, and extraction work, not
+as a new execution adoption path.
 
 **Install.**
 ```bash
 uv tool install /projects/dev/actionq --python python3
 ```
 
-**Queue setup.**
+**Owner-local inspection commands.**
 ```bash
-export ACTIONQ_URL='postgresql://user:password@host:5432/db'
-actionctl migrate
-```
-
-**Key commands.**
-```bash
-# Enqueue
-actionctl add \
-  --type scope-iterate \
-  --project sprintctl \
-  --target 42 \
-  --source doc:plan \
-  --created-by human:cli
-
-# Dispatch loop (exits with code 2 when queue is empty)
-actionctl claim --worker worker:dispatcher-1
-actionctl complete 1 --result branch=agent/scope-iterate/1
-
-# Inspect
+actionctl check-compatibility
 actionctl ls --status pending
 actionctl show 1
 actionctl events
-
-# Session state (daemon sessions, derived from coordinator events)
-actionctl sessions --active
-actionctl sessions --project homelab-analytics
-
-# Coordinator events from daemon
-actionctl emit --type session.heartbeat --actor daemon:devbox \
-  --payload '{"session_id": "aqs:abc", "pid": 12345}'
-
-# Maintenance
-actionctl sweep   # requeue timed-out claims
 ```
 
-**Session read contract.** `actionctl sessions` returns a JSON array where each row summarizes a session by reducing `session.*` coordinator events. The cockpit consumes this through a gateway adapter; it is the stable interface regardless of whether a dedicated `actionq-server` API sits in front.
+Do not infer a current session or worker API from historical `session.*`
+events. The session wrapper and server projection that produced those rows were
+removed from owner source.
 
 **Key env vars.**
 
@@ -341,62 +323,18 @@ actionctl sweep   # requeue timed-out claims
 
 ### actionq-dispatcher
 
-**Status: deprecated compatibility shim.** `actionq-dispatcher` is retained only
-as a transparent launcher for the historical `dispatcher-once` command. It
-delegates one bounded cycle to ActionQ's canonical daemon (`actionq-daemon
---once`). ActionQ owns queue claims, worktree preparation, policy enforcement,
-harness invocation, and settlement; do not add those behaviors back to this
-package.
+**Status: inactive retirement tombstone.** Release 0.2.0 (`510822a`, tag
+`actionq-dispatcher-v0.2.0`) retains the `dispatcher-once` console-script name
+only. Every invocation exits nonzero with an actionable retirement message; it
+does not resolve an executable, spawn a process, read configuration, or access
+a queue.
 
-**When to use it.** Only when a caller still invokes `dispatcher-once`
-directly during compatibility migration. **Do not route new work to
-`actionq-daemon` or `actionq-daemon --once`.** The newer ActionQ owner plan
-removes that daemon rather than promoting it as the successor. This package
-must not gain `dispatcher-meta`, work-spec validation, child polling, worktree
-handoff, or any other workflow behavior.
-
-**Install.**
-```bash
-uv tool install /projects/dev/actionq-dispatcher --python python3
-```
-
-**One cycle.**
-```bash
-dispatcher-once --config /path/to/config.toml
-```
-If `DISPATCHER_CONFIG` is set, the flag can be omitted. Returns `{"result": "completed", "action_id": N}` or similar on success.
-
-**Historical runners.** The `local`, `fake`, and `fake-commit` descriptions in
-the configuration below document the compatibility implementation only. They
-are not target runtime integrations and must not receive new features.
-
-**Pause without changing service wiring.**
-```bash
-touch ~/.local/state/actionq-dispatcher/PAUSED
-# Invocations exit cleanly, emit coordinator_paused, claim nothing
-rm ~/.local/state/actionq-dispatcher/PAUSED
-```
-
-**Config shape (TOML).**
-```toml
-[global]
-worktree_root      = "~/.local/state/actionq-dispatcher/worktrees"
-pause_file         = "~/.local/state/actionq-dispatcher/PAUSED"
-actionctl_bin      = "actionctl"
-claude_bin         = "claude"
-
-[projects.sprintctl]
-path               = "/projects/dev/sprintctl"
-base_ref           = "HEAD"
-
-[actions.scope-iterate]
-model              = "claude-haiku-4-5-20251001"
-reasoning           = "medium"
-runner             = "local"
-prompt_template    = "/projects/dev/actionq-dispatcher/prompts/scope-iterate.md"
-tool_acl           = "/projects/dev/actionq-dispatcher/acls/scope-iterate.json"
-test_command       = "pytest"
-```
+Do not install or schedule this package for new work. On a host that still has
+the pre-retirement launcher, an operator may upgrade once to 0.2.0 so stale
+callers fail clearly, then uninstall it after the callers and services are
+removed. This is a migration operation, not a functioning compatibility mode.
+Historical implementation remains in Git history and the
+`actionq-dispatcher-v0.1.2` tag.
 
 ---
 
@@ -461,9 +399,12 @@ sessions in this order:
 
 No joins on branch names, worktree paths, or other payload fragments.
 
-### Dispatch (retiring compatibility path)
+### Dispatch (pre-retirement deployment shape)
 
-The dispatch composer POSTs to `cockpit-api → actionq-server`. Sprint takeup happens as a side effect of session start, not as a direct write from cockpit. The cockpit has no other write paths to pg or NFS.
+Before appservice phase 2, the dispatch composer may still POST to
+`cockpit-api → actionq-server`. That path has no current owner-source server or
+worker behind it and is removed, not replaced, by the gated rollout. The
+cockpit has no other write paths to Sprintctl or the artifact mount.
 
 ### Live Update
 
@@ -477,38 +418,33 @@ Default intervals: action queue 2 s, sessions 2 s, audit feed 5 s (gateway-side 
 
 All live Kubernetes manifests live in `appservice/clusters/main/kubernetes/apps/`. The tool repos may include example manifests in `deploy/examples/` but `appservice` is the deployment source of truth. `appservice` is a private, internal-operations-only repo and is not published under `bayleafwalker`.
 
-### PostgreSQL Clusters (CNPG)
+### PostgreSQL Clusters (pre-retirement inventory)
 
-Two CNPG clusters serve the substrate:
+The staged deployment inventory includes two CNPG clusters; verify their
+actual state through the operator-owned appservice rollout evidence:
 
 - `actionq-cnpg-main` (namespace `vscode`) — action queue tables.
 - `sprintctl-cnpg-main` — sprintctl remote-mode tables, `repo_id` as a column on Sprint / Track / WorkItem / Event, single schema across all repos.
 
 The `vscode-shell` pod has `SPRINTCTL_URL` injected from the sprintctl CNPG app secret so remote-mode tools work in the devbox without manual configuration.
 
-### Devbox Pattern
+### Devbox retirement gate
 
-`actionq-daemon` currently runs on devbox as a long-running compatibility
-process. The ActionQ deletion plan requires an operator decision to stop it
-permanently before the daemon-only tranche is removed. It currently:
+The devbox unit and its pinned checkout are running-system residue, not a
+current ActionQ package surface. Do not start, reinstall, refresh, or repin
+`actionq-dispatch.service`: ActionQ 0.1.26 has no matching daemon entry point.
+Runtime retirement is complete only after operator evidence shows the unit was
+disabled and stopped and the separately reviewed NixOS module retirement was
+deployed. Repository merge state alone is insufficient.
 
-- Pulls dispatch instructions from the action queue.
-- Spawns agent sessions (`claude`, `codex`, `opencode`) with ACL-scoped tool permissions.
-- Tracks session PID and emits `session.*` coordinator events via `actionctl emit`.
-- Calls `sprintctl claim start / done-from-claim` on session boundaries.
-- Calls `auditctl add --type session.start / session.exit` for each session.
-
-Do not add or renew scheduling for this daemon. Its remaining choice is
-permanent shutdown under the ActionQ owner plan, not which scheduler should run
-it.
-
-### Cockpit Pod
+### Cockpit Pod (pre-retirement requirements)
 
 The cockpit pod runs in the `appservice` namespace. It requires:
 
 - A read-only PostgreSQL role scoped to sprintctl tables.
 - A read-only mount of the `_artifacts/` PVC at the NFS root path.
-- Network access to the actionq-server service.
+- Network access to the actionq-server service until appservice phase 2 removes
+  the retired binding.
 
 Auth is network-identity-based (cluster-internal or Tailscale). No per-user login in the single-operator homelab configuration.
 
@@ -604,54 +540,14 @@ Commits and merges now land in the daily NDJSON shard automatically. The cockpit
 
 ---
 
-### Historical Track C: queue-dispatched agent sessions (retired adoption path)
+### Historical Track C: queue-dispatched agent sessions (superseded)
 
-This was the queue-era adoption track. It is preserved so existing deployments
-can be recognized and removed safely. **Do not use it for new adoption and do
-not schedule `dispatcher-once`.** New work starts through a selected native
-runtime and records/reconciles an external execution reference through the
-future ActionQ federation contract.
-
-```bash
-# 1. Install
-uv tool install /projects/dev/actionq            --python python3
-uv tool install /projects/dev/actionq-dispatcher --python python3
-
-# 2. Configure (add to .envrc)
-export ACTIONQ_URL='postgresql://user:password@host:5432/db'
-export ACTIONQ_SCHEMA='actionq'
-
-# 3. Initialize queue schema
-actionctl migrate
-
-# 4. Enqueue work
-actionctl add \
-  --type scope-iterate \
-  --project homelab-analytics \
-  --target 42 \
-  --source doc:plan \
-  --created-by human:cli
-
-# 5. Smoke-test the dispatcher (fake worker, no model call)
-dispatcher-once --config /projects/dev/actionq-dispatcher/examples/config.smoke.toml
-
-# 6. Run a real session
-dispatcher-once --config /path/to/config.toml
-
-# 7. Observe session state
-actionctl sessions --active
-actionctl events --limit 20
-```
-
-The following historical cron example is retained as migration evidence only;
-remove such schedules rather than installing them:
-
-```bash
-# cron: run every 5 minutes
-*/5 * * * * dispatcher-once --config /path/to/config.toml || true
-```
-
-The dispatcher emits `session.*` coordinator events into actionq and calls `auditctl add` on session boundaries. Both event streams flow through to the cockpit without additional wiring.
+This was the queue-era adoption track. Its implementation is preserved in Git
+history, not as executable current guidance. Remove old schedules and units;
+do not install, invoke, or smoke-test `dispatcher-once`, and do not replace it
+with `actionq-daemon --once`. New work starts through the selected native
+runtime and, once reviewed contracts exist, records or reconciles an external
+execution reference through ActionQ federation.
 
 ---
 
@@ -662,7 +558,8 @@ The dispatcher emits `session.*` coordinator events into actionq and calls `audi
 | `sprintctl` | Sprint state, work items, revisions, decisions, dependencies, advisory reservations | Native session lifecycle, telemetry, audit events |
 | `kctl` | Knowledge review pipeline, durable artifact rendering | Sprint writes, audit events |
 | `auditctl` | Repo-local audit index, NDJSON shards, git hook templates | Sprint state, knowledge graph, centralized storage |
-| `actionq` | Target: federated work/execution references, relations, assurance, acceptance and reconciliation; queue/daemon only as retiring compatibility | Native runtime execution, Sprint state, knowledge, audit internals |
+| `actionq` | Target federation domain; currently retained queue lifecycle, Vuoro adapter, and persistence extraction boundary after daemon/server/harness source deletion | Native runtime execution, Sprint state, knowledge, audit internals |
+| `actionq-dispatcher` | Inactive fail-closed retirement tombstone | Dispatch, queue access, process launch, federation, or workflow policy |
 | `agentops` | Operator UI, cross-repo substrate plans | Substrate state (reads only) |
 | `appservice` | Live Kubernetes manifests, CNPG clusters, secrets (private repo) | Application logic |
 

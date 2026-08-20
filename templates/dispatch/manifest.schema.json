@@ -183,7 +183,11 @@
         "publishers": {
           "type": "array",
           "uniqueItems": true,
-          "items": { "type": "string", "enum": ["git", "actionq-daemon", "workspace-cost", "dispatcher-gate", "github"] }
+          "items": {
+            "type": "string",
+            "description": "Legacy actionq-daemon and dispatcher-gate values remain readable only for migration of existing manifests; new or refreshed manifests must not select them.",
+            "enum": ["git", "actionq-daemon", "workspace-cost", "dispatcher-gate", "github"]
+          }
         }
       }
     },

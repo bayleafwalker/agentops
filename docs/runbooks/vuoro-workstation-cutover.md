@@ -176,8 +176,8 @@ the full black-box Sprintctl parity suite against `vuoro-shared`. Run the
    **not** the path the profile's own `credential_ref` points at — those are
    two different files.
 
-   Apply that replacement to `_orchestration`, `actionq`, `actionq-dispatcher`,
-   `agentops`, `aligned-equity`, `box`, `frontier-weave`, `homelab-analytics`,
+   Apply that replacement to `_orchestration`, `actionq`, `agentops`,
+   `aligned-equity`, `box`, `frontier-weave`, `homelab-analytics`,
    `scribectl`, `sprintctl`, and `vuoro`.
    Retain `SPRINTCTL_DB` only where it is needed for explicitly selected local
    recovery; served mode must not open it.

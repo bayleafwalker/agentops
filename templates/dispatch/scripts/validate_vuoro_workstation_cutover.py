@@ -19,7 +19,6 @@ DIRECT_PATTERNS = (
 REPOSITORIES = (
     "_orchestration",
     "actionq",
-    "actionq-dispatcher",
     "agentops",
     "aligned-equity",
     "box",
