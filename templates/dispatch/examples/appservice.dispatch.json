@@ -99,7 +99,7 @@
     "publishers": [
       "git",
       "workspace-cost",
-      "dispatcher-gate"
+      "github"
     ]
   }
 }

@@ -33,11 +33,10 @@ These hold across every item downstream of this spec, not just this one:
   or dispatch behavior differs from today.
 - **Local SQLite mode is unchanged.** `--project` union may decline to union across repos in
   local mode (see sprintctl-project-union); it must never alter single-repo local behavior.
-- **Dispatcher isolation is untouched.** actionq-dispatcher worktrees anchor on primary repo
-  clones (`/projects/dev/<repo>`), never on project-folder worktrees (project-folder-materialization,
-  item 4). A dispatch worktree created from any member repo gets correct instructions with no
-  project context in existence — the repo's own committed instruction files are always
-  sufficient on their own.
+- **Native-runtime isolation is retained.** Execution worktrees belong to the
+  selected native harness/runtime and are identified by repository plus
+  immutable revision, never by a project-folder path. The retired
+  `actionq-dispatcher` creates no worktrees and has no project behavior.
 - **No new state store.** A project is a projection: `project.toml` plus deterministic render
   output committed into member repos. There is no project database, no project_id column in
   sprintctl, no runtime service that "knows" about projects.
@@ -62,14 +61,15 @@ objects and worktree registration. It is not a portable Git authority. Execution
 contracts identify repository, immutable commit SHA, and their execution envelope, rather than
 assuming arbitrary state in an anchor checkout or materialized member worktree.
 
-## Terminology collision
+## Historical terminology collision (superseded)
 
-actionq-dispatcher's own config (`config.py`) already uses `project` to mean *a single
+The retired actionq-dispatcher config (`config.py` in Git history) used
+`project` to mean *a single
 configured repo* (e.g. `working_dir = "{worktree_root}/{project}/{action.id}"`, where `project`
 is the dispatcher's per-repo config key). That is a different, older, and unrelated sense of the
-word from the multi-repo `project.toml` this spec defines. Do not conflate them. Nothing in this
-spec touches actionq-dispatcher's config vocabulary; the dispatcher invariant above exists
-precisely to keep the two senses from ever needing to interact.
+word from the multi-repo `project.toml` this spec defines. The configuration no
+longer exists on the tombstone's current branch and is retained here only to
+explain old evidence.
 
 ## 1. project.toml schema
 
@@ -160,11 +160,17 @@ real prerequisite work, not a spec-level decision), or treat it as logically par
 (same product, split into a second repo by convention, e.g. isolation for dispatcher-specific
 tooling) without a schema-level "sub-member" concept.
 
-Superseded by the served-mode enrollment on 2026-07-30. `actionq-dispatcher` now has its own
+That decision was superseded by the served-mode enrollment on 2026-07-30. `actionq-dispatcher` gained its own
 `repo_id`, dispatch manifest, and local served backend marker, so it is a peer `[[members]]`
 entry in the canonical Vuoro project. This changes project visibility and Sprintctl tenancy only:
 it remains a transparent compatibility launcher, while `actionq` retains queue, worktree,
 execution-policy, and settlement authority. No project-schema hierarchy was added.
+
+The enrollment was superseded again on 2026-08-20. Version 0.2.0 is an
+inactive fail-closed tombstone, so the canonical binding retains it only as a
+reference member with `backlog = false`, `render = "none"`, and no dispatch or
+runtime authority. The served identity may remain as historical state; it is
+not a reason to schedule or reinstall the package.
 
 ## 2. Home-repo convention
 
@@ -387,6 +393,11 @@ path under `docs/project/examples/` for direct reuse when the corresponding migr
 
 ### vuoro (home repo: agentops)
 
+> **Historical draft snapshot.** The instantiated `agentops/project.toml` and
+> `docs/project/examples/agentops.project.toml` are canonical. In particular,
+> they now describe ActionQ's removed execution plane and the dispatcher
+> tombstone; do not copy the older membership notes below.
+
 ```toml
 # Draft — see docs/project/project-binding-spec.md, §1a/§1b.
 # Canonical location once instantiated (item pilot-agentops-project): agentops/project.toml
@@ -502,9 +513,9 @@ All four flagged at first draft were resolved in review rather than left pending
    ecosystem project registry, created now (see §1a) rather than left to a later item.
 2. **"cockpit" as an agentops-project member.** Resolved: confirmed as part of the agentops home
    repo (`apps/web`), not a separate repo. See §1a.
-3. **actionq-dispatcher.** Resolved: sub-member of `actionq`, expressed via `path_notes`, not a
-   schema-level grouping concept. Revisit only if it's onboarded to sprintctl with its own
-   `repo_id`/manifest. See §1b.
+3. **actionq-dispatcher.** Historical resolution superseded twice; it is now a
+   reference-only inactive tombstone with `backlog = false`. See §1b and the
+   canonical binding.
 4. **ecosystem-rename-decision.** Resolved: it has landed and is propagated in places already;
    confirmed name is **vuoro**. Adopted here as the agentops project's `display_name` (the repo
    directory and `repo_id` stay `agentops` until the mechanical rename lands elsewhere — this

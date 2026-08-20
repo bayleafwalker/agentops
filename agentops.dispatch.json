@@ -86,7 +86,7 @@
       "project.toml"
     ],
     "out_of_scope": [
-      "runtime behavior owned by sprintctl, kctl, actionq, or actionq-dispatcher",
+      "runtime behavior owned by sprintctl, kctl, or actionq; actionq-dispatcher is an inactive tombstone",
       "cluster reconciliation, image publication, or deployment mutation"
     ]
   },
@@ -127,6 +127,6 @@
   },
   "hooks": {
     "level": "verification",
-    "publishers": ["git", "dispatcher-gate"]
+    "publishers": ["git", "github"]
   }
 }

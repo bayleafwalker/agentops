@@ -111,9 +111,8 @@
     "level": "verification",
     "publishers": [
       "git",
-      "actionq-daemon",
       "workspace-cost",
-      "dispatcher-gate"
+      "github"
     ]
   }
 }
