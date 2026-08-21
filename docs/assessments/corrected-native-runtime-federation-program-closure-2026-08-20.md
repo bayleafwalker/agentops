@@ -1,12 +1,64 @@
 # Corrected native-runtime federation program closure and retained-boundary ADR
 
-Status: **source and evaluation tranche closed; operator cutover, W1 review,
-knowledge publication, and two public repository publications remain open**.
+Status: **source and evaluation tranche closed; operator cutover, W2 merge
+(pending W3 operator decisions), knowledge publication, and two public
+repository publications remain open**.
 
 Evidence snapshot: 2026-08-20T08:44Z. GitHub states were fetched from the
 canonical repositories. Served Sprintctl state was read from repository
 `_orchestration`; no served or runtime state was changed while preparing this
 record.
+
+## 2026-08-20 addendum: W1 accepted and merged
+
+This addendum supersedes the original 08:44Z snapshot wherever that snapshot
+describes ActionQ W1 PR #33 as open, blocked, or incomplete. PR
+[#33](https://github.com/bayleafwalker/actionq/pull/33) passed independent R1
+with **ACCEPT** on exact head
+`de0f17e2bffbf656f6e3aa0df3e2b1c768376fc7` and merged at
+`edc6f41f38646531e8e6114128cec25cade7a700` on 2026-08-20T09:30:29Z. Its
+full PostgreSQL suite reported 489 passed, 19 skipped, and zero failures. The
+portable external-consumer proof contains exactly 51 members and is bound by
+SHA-256
+`1c3b37539a5bde36d812fe3a31430216235d0300be95bc875a1f79dfe646307c`.
+
+W1 acceptance separately authorizes W2 as dormant repository work under the
+ratified tranche-4 sequence. This authorization grants no runtime, deployment,
+appservice, schema-migration, catalog-cutover, or other production-mutation
+authority, and it does not authorize W3-W7.
+W2 was published for review as draft ActionQ PR
+[#34](https://github.com/bayleafwalker/actionq/pull/34), originally at exact
+head `145a6502805a8e065af4fd0100842f974c093b95` when this addendum was first
+recorded. Local evidence at that snapshot reported a PostgreSQL 18.4 full
+suite of 481 passed/19 skipped, a seven-test focused gate, a separate 39-test
+PostgreSQL integration gate, and green artifact, wheel, and migration-invariant
+gates. GitHub CI run `32355444594` was in progress when this endpoint was
+recorded.
+
+**2026-08-21 addendum: W2 review-fix loop converged.** W2's review-fix loop is
+now converged at exact head `4ff4c6dad16cfb81b73465eb3e465d655e0155b1`, after
+20 total rounds of dispatched `code-review` skill subagent review (rounds
+1-12 in the initial session, 13-20 across follow-up sessions), each round
+fixing or investigated-and-declining every finding returned. Round 20 returned
+zero findings of any kind and independently re-verified every fix from rounds
+15-19. **There is no separate external "R2" reviewer for W2** — the operator
+confirmed on 2026-08-20 that dispatched `code-review` skill subagents are the
+only review mechanism in use; the "R2 is pending" language above (describing
+the original head `145a6502`) is superseded by this fact, not merely by a
+later commit. Final local evidence: hermetic PostgreSQL 18.6, full suite 507
+passed/20 skipped/0 failed, wheel builds clean. Current GitHub CI state was
+not reverified by this addendum. **PR #34 remains unmerged**; merge still
+requires the W3 operator decisions (retention duration, durable export
+target, restore objective, destructive-archive approval path), which this
+addendum does not ratify.
+
+Sprintctl served item `2217` records the same boundary in update event `2394`
+and binds ActionQ PR #33 through external reference `688`; the item remains
+`pending`, and no status transition was attempted.
+The companion
+[full session handoff](corrected-native-runtime-federation-full-session-handoff-2026-08-20.md)
+is the canonical continuation summary for processed tracts, backlog, risks,
+ownership, and storage classifications.
 
 ## Executive decision
 
@@ -43,14 +95,14 @@ route.
 | Plan realignment | Agentops [#45](https://github.com/bayleafwalker/agentops/pull/45) at `038c345`; Vuoro [#49](https://github.com/bayleafwalker/vuoro/pull/49) at `4af415d`; generated Kctl [#6](https://github.com/bayleafwalker/kctl/pull/6) at `5f009bf`; generated Auditctl [#8](https://github.com/bayleafwalker/auditctl/pull/8) at `c8ca47b` | Merged | Current guidance still needs the host-local root assembly update described below. |
 | ActionQ execution retirement | ActionQ [#30](https://github.com/bayleafwalker/actionq/pull/30) at `9dccf4e084da88f3f0c52bb9d845b64bed89d202`; CI success | Source complete | Appservice phases, running unit shutdown, and NixOS deployment are not complete or implied. |
 | Dispatcher retirement | actionq-dispatch [#2](https://github.com/bayleafwalker/actionq-dispatch/pull/2) at `510822a8ed1ee24e5eafdfd92aaf8a76f3f425e4`; terminal release [`actionq-dispatcher-v0.2.0`](https://github.com/bayleafwalker/actionq-dispatch/releases/tag/actionq-dispatcher-v0.2.0) | Merged and released as a deterministic fail-fast tombstone | Existing launchers still require operator retirement; the tombstone is not a compatibility executor. |
-| Tranche-4 architecture | ActionQ W0 [#31](https://github.com/bayleafwalker/actionq/pull/31) at `89ec87607d71af1156771db2e0c927d74017f5a0`; CI success | Contract ratified | W1 [#33](https://github.com/bayleafwalker/actionq/pull/33) is an open draft and R1 is **BLOCKED** pending classification/completeness remediation; W2-W6 and operator decisions remain future work. W7 is not authorized. |
+| Tranche-4 architecture | ActionQ W0 [#31](https://github.com/bayleafwalker/actionq/pull/31) at `89ec87607d71af1156771db2e0c927d74017f5a0`; W1 [#33](https://github.com/bayleafwalker/actionq/pull/33) at `edc6f41f38646531e8e6114128cec25cade7a700`; CI success and independent R1 **ACCEPT** | Contract ratified and reachability frozen | W2 is separately authorized as dormant repository work but is not complete; production mutation is not authorized. W3-W6 remain future sequential packets. W7 is not authorized. |
 | Volatile context and CAS | Sprintctl [#41](https://github.com/bayleafwalker/sprintctl/pull/41) at `160b4cc`; release [v0.3.1](https://github.com/bayleafwalker/sprintctl/releases/tag/v0.3.1) at `ef372b6805adc6c73d9650c3570f2aab4c846094` | Merged, tested, and released | Native-hook installation and any deployment remain operator-owned and were not performed. |
 | Cluster-alignment proof | cluster-alignment-mvp [#1](https://github.com/bayleafwalker/cluster-alignment-mvp/pull/1) at `27f4480`; coordinator-integrated candidate `0a05a37` | Capability proof published | It is a bounded read-only proof, not a cluster controller or deployment. |
 | Local-inference dogfood | Receipt SHA-256 `bee8f37c820fc83bb503771511f3a2ce7447e530db55dfd1426c733994b0443b`; OpenCode session `ses_fe1ee6077ffekc2oWIsZl36Chd` | One attempt accepted after coordinator refinement | `experimental_unqualified`; no formal route promotion. |
 | Acceptance Lab | Provenance adapter [#2](https://github.com/bayleafwalker/acceptance-lab/pull/2) at `01f0bca`; campaign [#3](https://github.com/bayleafwalker/acceptance-lab/pull/3) at `d18e757` | Evaluation path landed | The takeover campaign case intentionally evaluates the earlier `4412ca1` state; it is not the later final adjudication. |
 | FlowLab | Baseline release [v0.1.0](https://github.com/bayleafwalker/flowlab/releases/tag/v0.1.0) at `5e002ab`; Auditctl grounding [#1](https://github.com/bayleafwalker/flowlab/pull/1) at `d6ebec6`; campaign [#2](https://github.com/bayleafwalker/flowlab/pull/2) at `0189b70` | Evaluation and ADR landed | Capacity-policy interventions remain unmeasurable; no production instrumentation was added. |
 | Takeover experiment | Final experiment `208f38d`; publication audit `c083ddbc59d4db1b601d53dd0f3cf79ba270f4b7`; blind reviewer preferred direct control | Final verdict **NARROW** | Public `bayleafwalker/vuoro-takeover-experiment` repository is absent. |
-| Durable workflow closure | Sprintctl item `2217`, events `2392` and `2393`; Auditctl `ad:01M0F3TF5R9WR90WKZDGCBT5F7` | Findings and authority rejection recorded | Item is pending; Kctl intake awaits an actor with `knowledge.candidate.intake`. |
+| Durable workflow closure | Sprintctl item `2217`, events `2392`-`2394`, refs `680`-`688`; Auditctl `ad:01M0F3TF5R9WR90WKZDGCBT5F7` | Findings, W1 acceptance boundary, and authority rejection recorded | Item is pending; Kctl intake awaits an actor with `knowledge.candidate.intake`. |
 
 ## Exact source and release ledger
 
@@ -68,17 +120,17 @@ compatibility only through W4, and requires a database-enforced redacted
 archive at W5. Storage remains an internal `actionq.storage` boundary unless a
 second real consumer and separate packaging RFC justify extraction.
 
-As of the evidence snapshot, W1 PR #33 is **OPEN, DRAFT** at head
-`d0fa1fee10270a9608997b92db4fb3ef2e1db1f2`. Its GitHub `test` check is
-successful. The PR adds a machine-readable reachability inventory and
-falsifiers; its reported focused gate is 70 passing tests and its reported
-full PostgreSQL suite is 473 passed, 20 skipped. No GitHub reviews or comments
-are recorded. The independent R1 boundary review is nevertheless **BLOCKED**
-pending classification/completeness remediation; that review result has not
-yet been submitted as a GitHub review or comment. A green static gate is not
-acceptance. The PR changes no ActionQ Python, SQL, package metadata, catalog,
-runtime, deployment, or appservice state and grants no authority for W2,
-module movement, or extraction.
+The original evidence snapshot captured an earlier W1 state. As recorded in
+the dated addendum, W1 PR #33 subsequently passed independent R1 with
+**ACCEPT** on exact head `de0f17e2bffbf656f6e3aa0df3e2b1c768376fc7`
+and merged at `edc6f41f38646531e8e6114128cec25cade7a700`. Its final full
+PostgreSQL suite is 489 passed, 19 skipped, zero failed. The machine-readable
+reachability inventory binds an exact 51-member portable external-consumer
+proof at SHA-256
+`1c3b37539a5bde36d812fe3a31430216235d0300be95bc875a1f79dfe646307c`.
+The PR changes no ActionQ Python, SQL, package metadata, catalog, runtime,
+deployment, or appservice state. It authorizes only the next dormant
+repository packet, W2; it grants no production-mutation authority.
 
 ### Sprintctl volatile-context pilot
 
@@ -232,7 +284,7 @@ gaps:
 
 Sprintctl served item `2217`, “Close corrected native-runtime federation
 evaluation program,” is currently `pending`, assigned to `meta-coordinator`,
-with no active reservation. Its refs `680`-`687` bind the primary ActionQ,
+with no active reservation. Its refs `680`-`688` bind the primary ActionQ,
 dispatcher, Sprintctl release, cluster-alignment, Acceptance Lab, FlowLab, and
 gitops-nixos artifacts.
 
@@ -242,6 +294,9 @@ gitops-nixos artifacts.
   `workstation-vuoro` lacks `knowledge.candidate.intake`. It points to Auditctl
   receipt `ad:01M0F3TF5R9WR90WKZDGCBT5F7` and leaves publication pending for
   an authorized actor.
+- Event `2394` records W1 R1 **ACCEPT**, exact accepted and merge commits, the
+  489/19/0 suite result, the 51-member proof digest, and the dormant-only W2
+  authorization boundary. Ref `688` binds ActionQ PR #33.
 - The Sprintctl item remains pending because `_orchestration` has no committed
   UUID authority binding for the required CAS status transition. This report
   does not grant itself that authority.
@@ -275,7 +330,7 @@ host-local assembled `AGENTS.md` remains pending.
 | Realign plans to the native-runtime federation end state | Agentops #45, Vuoro #49, Kctl #6, Auditctl #8, and Agentops #46 are merged | **Proven complete for versioned plans/current guidance** |
 | Remove ActionQ execution/server source and retire the dispatcher | ActionQ #30 and actionq-dispatch #2/release are merged; successful ActionQ CI and tombstone evidence recorded | **Proven complete in source** |
 | Complete runtime and deployment retirement | Ordered branches and held Nix PR exist, but no phase reconciliation, health proof, interactive stop/disable, or deploy evidence exists | **Incomplete; operator-owned** |
-| Ratify tranche-4 architecture before extraction | W0 #31 merged; W1 #33 is a green open draft but independent R1 is BLOCKED pending classification/completeness remediation | **W0 complete; W1 blocked/incomplete; W2-W7 not claimed** |
+| Ratify tranche-4 architecture before extraction | W0 #31 and W1 #33 merged; W1 exact head `de0f17e2` passed independent R1 with ACCEPT, 489 passed/19 skipped/0 failed, and a digest-bound 51-member portable proof; W2's 20-round review-fix loop converged at head `4ff4c6d`, 507 passed/20 skipped/0 failed | **W0-W2 review-fix loop complete; PR #34 unmerged pending W3 operator decisions; W3-W7 not claimed** |
 | Deliver volatile-context freshness/CAS | Sprintctl #41 and v0.3.1 are merged/released with four green check families and pinned wheel digest | **Proven complete in released source; deployment not claimed** |
 | Deliver cluster-alignment capability proof | Public repository main contains #1 at `27f4480`; bounded runtime tests and manifest gates recorded | **Proven as a read-only capability proof** |
 | Dogfood local inference through frontier coordination | Frozen packet, one worker attempt, coordinator refinement, cold positive/negative gates, and receipt hash exist | **Proven for one experimental task; route qualification explicitly not proven** |
@@ -292,8 +347,10 @@ This document closes the corrected 20 August source/evaluation tranche and
 records its retained architecture. It does not close the operator rollout or
 tranche-4 implementation program. Full program closure requires, at minimum:
 
-- classification/completeness remediation and independent R1 acceptance of W1
-  PR #33;
+- ratification of the W3 operator decisions (retention duration, durable
+  export target, restore objective, destructive-archive approval path) and
+  merge of the now-converged dormant W2 repository packet (PR #34, head
+  `4ff4c6d`), followed by separate authorization for any later packet;
 - ordered appservice phase evidence, daemon disable/stop, and PR #16 deployment;
 - creation and reviewed publication of q-spec and the takeover experiment;
 - an authorized Kctl intake decision and Sprintctl item CAS closure; and
