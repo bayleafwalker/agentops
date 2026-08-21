@@ -1,8 +1,8 @@
 # Corrected native-runtime federation program closure and retained-boundary ADR
 
-Status: **source and evaluation tranche closed; operator cutover, W2
-implementation, knowledge publication, and two public repository publications
-remain open**.
+Status: **source and evaluation tranche closed; operator cutover, W2 merge
+(pending W3 operator decisions), knowledge publication, and two public
+repository publications remain open**.
 
 Evidence snapshot: 2026-08-20T08:44Z. GitHub states were fetched from the
 canonical repositories. Served Sprintctl state was read from repository
@@ -23,16 +23,35 @@ SHA-256
 `1c3b37539a5bde36d812fe3a31430216235d0300be95bc875a1f79dfe646307c`.
 
 W1 acceptance separately authorizes W2 as dormant repository work under the
-ratified tranche-4 sequence. W2 is not yet complete. This authorization grants
-no runtime, deployment, appservice, schema-migration, catalog-cutover, or other
-production-mutation authority, and it does not authorize W3-W7.
-W2 is now published for review as draft ActionQ PR
-[#34](https://github.com/bayleafwalker/actionq/pull/34) at exact head
-`145a6502805a8e065af4fd0100842f974c093b95`. It remains unmerged and dormant;
-R2 is pending. Local evidence reports a PostgreSQL 18.4 full suite of 481
-passed/19 skipped, a seven-test focused gate, a separate 39-test PostgreSQL
-integration gate, and green artifact, wheel, and migration-invariant gates.
-GitHub CI run `32355444594` was in progress when this endpoint was recorded.
+ratified tranche-4 sequence. This authorization grants no runtime, deployment,
+appservice, schema-migration, catalog-cutover, or other production-mutation
+authority, and it does not authorize W3-W7.
+W2 was published for review as draft ActionQ PR
+[#34](https://github.com/bayleafwalker/actionq/pull/34), originally at exact
+head `145a6502805a8e065af4fd0100842f974c093b95` when this addendum was first
+recorded. Local evidence at that snapshot reported a PostgreSQL 18.4 full
+suite of 481 passed/19 skipped, a seven-test focused gate, a separate 39-test
+PostgreSQL integration gate, and green artifact, wheel, and migration-invariant
+gates. GitHub CI run `32355444594` was in progress when this endpoint was
+recorded.
+
+**2026-08-21 addendum: W2 review-fix loop converged.** W2's review-fix loop is
+now converged at exact head `4ff4c6dad16cfb81b73465eb3e465d655e0155b1`, after
+20 total rounds of dispatched `code-review` skill subagent review (rounds
+1-12 in the initial session, 13-20 across follow-up sessions), each round
+fixing or investigated-and-declining every finding returned. Round 20 returned
+zero findings of any kind and independently re-verified every fix from rounds
+15-19. **There is no separate external "R2" reviewer for W2** — the operator
+confirmed on 2026-08-20 that dispatched `code-review` skill subagents are the
+only review mechanism in use; the "R2 is pending" language above (describing
+the original head `145a6502`) is superseded by this fact, not merely by a
+later commit. Final local evidence: hermetic PostgreSQL 18.6, full suite 507
+passed/20 skipped/0 failed, wheel builds clean. Current GitHub CI state was
+not reverified by this addendum. **PR #34 remains unmerged**; merge still
+requires the W3 operator decisions (retention duration, durable export
+target, restore objective, destructive-archive approval path), which this
+addendum does not ratify.
+
 Sprintctl served item `2217` records the same boundary in update event `2394`
 and binds ActionQ PR #33 through external reference `688`; the item remains
 `pending`, and no status transition was attempted.
@@ -311,7 +330,7 @@ host-local assembled `AGENTS.md` remains pending.
 | Realign plans to the native-runtime federation end state | Agentops #45, Vuoro #49, Kctl #6, Auditctl #8, and Agentops #46 are merged | **Proven complete for versioned plans/current guidance** |
 | Remove ActionQ execution/server source and retire the dispatcher | ActionQ #30 and actionq-dispatch #2/release are merged; successful ActionQ CI and tombstone evidence recorded | **Proven complete in source** |
 | Complete runtime and deployment retirement | Ordered branches and held Nix PR exist, but no phase reconciliation, health proof, interactive stop/disable, or deploy evidence exists | **Incomplete; operator-owned** |
-| Ratify tranche-4 architecture before extraction | W0 #31 and W1 #33 merged; W1 exact head `de0f17e2` passed independent R1 with ACCEPT, 489 passed/19 skipped/0 failed, and a digest-bound 51-member portable proof | **W0-W1 complete; W2 separately authorized as dormant repository work but incomplete; W3-W7 not claimed** |
+| Ratify tranche-4 architecture before extraction | W0 #31 and W1 #33 merged; W1 exact head `de0f17e2` passed independent R1 with ACCEPT, 489 passed/19 skipped/0 failed, and a digest-bound 51-member portable proof; W2's 20-round review-fix loop converged at head `4ff4c6d`, 507 passed/20 skipped/0 failed | **W0-W2 review-fix loop complete; PR #34 unmerged pending W3 operator decisions; W3-W7 not claimed** |
 | Deliver volatile-context freshness/CAS | Sprintctl #41 and v0.3.1 are merged/released with four green check families and pinned wheel digest | **Proven complete in released source; deployment not claimed** |
 | Deliver cluster-alignment capability proof | Public repository main contains #1 at `27f4480`; bounded runtime tests and manifest gates recorded | **Proven as a read-only capability proof** |
 | Dogfood local inference through frontier coordination | Frozen packet, one worker attempt, coordinator refinement, cold positive/negative gates, and receipt hash exist | **Proven for one experimental task; route qualification explicitly not proven** |
@@ -328,8 +347,10 @@ This document closes the corrected 20 August source/evaluation tranche and
 records its retained architecture. It does not close the operator rollout or
 tranche-4 implementation program. Full program closure requires, at minimum:
 
-- completion and independent review of the now-authorized dormant W2
-  repository packet, followed by separate authorization for any later packet;
+- ratification of the W3 operator decisions (retention duration, durable
+  export target, restore objective, destructive-archive approval path) and
+  merge of the now-converged dormant W2 repository packet (PR #34, head
+  `4ff4c6d`), followed by separate authorization for any later packet;
 - ordered appservice phase evidence, daemon disable/stop, and PR #16 deployment;
 - creation and reviewed publication of q-spec and the takeover experiment;
 - an authorized Kctl intake decision and Sprintctl item CAS closure; and

@@ -2,10 +2,24 @@
 
 Date: 2026-08-20
 
-Status: **source/evaluation tranche reasonably complete; W0 and W1 complete;
-W2 active as unreviewed dormant-source implementation; operator cutover,
-publications, knowledge/workflow closure, and W2-W6 remain open. W7 is
-unauthorized.**
+Status: **source/evaluation tranche reasonably complete; W0, W1, and W2 review-
+fix loop complete (converged at ActionQ PR #34 head `4ff4c6d`, still unmerged
+pending operator W3 decisions); operator cutover, publications, knowledge/
+workflow closure, and W3-W6 remain open. W7 is unauthorized.**
+
+**2026-08-21 addendum (this update):** W2's review-fix loop is now converged.
+Twenty code-review-skill subagent dispatch rounds ran against ActionQ PR #34
+across two sessions; round 20 returned zero findings of any kind (correctness,
+cleanup, altitude, convention) and independently re-verified every fix from
+rounds 15-19 rather than trusting prior commit messages. There is no separate
+human/external "R2" reviewer for W2 — every round's review was a dispatched
+`code-review` skill subagent, confirmed by the operator on 2026-08-20 as the
+only reviewer in use; the "R2 pending" language below and in the companion
+closure assessment is superseded by this fact. Final state: PR #34 at head
+`4ff4c6d`, full suite 507 passed/20 skipped/0 failed (hermetic PostgreSQL
+18.6), wheel builds clean. **PR #34 remains unmerged.** This addendum does not
+authorize W3, W4, merge, or any deployment/runtime action; those gates are
+unchanged and remain operator-owned per the W3-W7 sequence below.
 
 This is the canonical continuation handoff for the 20 August program. The
 [closure assessment](corrected-native-runtime-federation-program-closure-2026-08-20.md)
@@ -41,7 +55,7 @@ production credential mutation.
 | Dispatcher | actionq-dispatch #2 `510822a8ed1ee24e5eafdfd92aaf8a76f3f425e4`; `actionq-dispatcher-v0.2.0` | Terminal fail-closed tombstone. It is not a compatibility executor and must not be invoked or scheduled for new work. |
 | Tranche 4 W0 | ActionQ #31 `89ec87607d71af1156771db2e0c927d74017f5a0`; [owner ratification](https://github.com/bayleafwalker/actionq/pull/31#issuecomment-5353774023) | Separate `federation-schema/v1` and `federation/v1`; execution migrations 001-012 frozen; compatibility writable through W4; database-enforced redacted archive at W5; W7 unauthorized. |
 | Tranche 4 W1 | ActionQ #33, R1 **ACCEPT** at exact head `de0f17e2bffbf656f6e3aa0df3e2b1c768376fc7`; merge `edc6f41f38646531e8e6114128cec25cade7a700` | GitHub test success; full suite 489 passed, 19 skipped, zero failed; 51-member portable proof SHA-256 `1c3b37539a5bde36d812fe3a31430216235d0300be95bc875a1f79dfe646307c`. Pins reachability/classification only; no deployment/cutover authority. |
-| Tranche 4 W2 | Draft ActionQ #34 at exact head `145a6502805a8e065af4fd0100842f974c093b95` | Unmerged dormant source; local PostgreSQL 18.4 full suite 481 passed/19 skipped, focused gate 7 passed, separate PostgreSQL integration 39 passed, and artifact/wheel/migration-invariant gates green. GitHub CI run `32355444594` was in progress; independent R2 is pending. No runtime/deployment authority. |
+| Tranche 4 W2 | Draft ActionQ #34 at exact converged head `4ff4c6dad16cfb81b73465eb3e465d655e0155b1` | Unmerged dormant source; 20-round code-review-skill dispatch loop converged (round 20: zero findings, independently re-verified every prior round's fix); local hermetic PostgreSQL 18.6 full suite 507 passed/20 skipped/0 failed, wheel builds clean. No separate external "R2" reviewer exists for W2 — every round was a dispatched subagent review. No runtime/deployment authority; remains unmerged pending operator W3 decisions. |
 | Sprintctl | #41 `160b4cc`; release PR #42 `ef372b6805adc6c73d9650c3570f2aab4c846094`; v0.3.1; generated context #43 `f17c72f`; manifest cleanup #44 `db52e2f` | Adds opaque `status_revision`, bounded 4,096-byte allowlisted `work-item-context/v1`, read-only precheck, and authoritative under-lock recheck. Wheel SHA-256 `f59f0859c9a090cfb6fd8f71fa134c036e69182f413cf4e8a176b03d0e735112`; attestation verified. |
 | Acceptance Lab | Provenance adapter #2 `01f0bca`; campaign #3 `d18e75726fa0230b28c8c7e6c950e06aaabb2b04` | Both cases PASS/1.0. The takeover case grades the honest intermediate state at `4412ca1`, not the final adjudication. |
 | FlowLab | v0.1.0 at `5e002ab`; grounding #1 `d6ebec65`; campaign/ADR #2 `0189b70d4f4812680027cc5583f06eca85f264ce` | Public and disclosure-reviewed. Published hashes bind public/synthetic artifacts, not low-entropy secrets. |
@@ -130,15 +144,13 @@ the GitHub job failed before running steps because of a runner/billing/spending
 condition. Merge/deploy only after phase-1 proof, phase-2 proof, and
 stop-and-disable proof.
 
-### W2 is active, pushed, and unmerged
+### W2 review-fix loop is converged; still unmerged, pending operator W3 decisions
 
 W2 is published as draft ActionQ PR
 [#34](https://github.com/bayleafwalker/actionq/pull/34) from branch
-`feature/federation-authority-v1`, exact head
-`145a6502805a8e065af4fd0100842f974c093b95`, based on W1 merge `edc6f41`.
-It is unmerged and independently unreviewed; R2 is pending. Its dormant source
-includes federation migration 001, `federation_schema.py`, `federation.py`,
-package data, conftest, and tests. It covers:
+`feature/federation-authority-v1`, based on W1 merge `edc6f41`. Its dormant
+source includes federation migration 001, `federation_schema.py`,
+`federation.py`, package data, conftest, and tests. It covers:
 
 - action-independent resources and a frozen state machine;
 - immutable owner plus expected-absence/exact-revision CAS;
@@ -148,13 +160,33 @@ package data, conftest, and tests. It covers:
 - persistent denied/stale/conflict decisions and response-loss replay; and
 - `NOLOGIN` role separation.
 
-Local endpoint evidence is a PostgreSQL 18.4 full suite of 481 passed/19
-skipped, a seven-test focused federation gate, a separate 39-test PostgreSQL
-integration gate, and green artifact-validator, build/wheel-content, and
-migration-invariant gates. GitHub CI run `32355444594` was in progress at the
-handoff snapshot. Remaining gates are CI completion, diff/falsifier review,
-independent R2, and merge only after R2 ACCEPT. W2 grants no runtime, catalog,
-CLI, Vuoro, release, or schema deployment mutation.
+**Updated 2026-08-21**: the review-fix loop converged at exact head
+`4ff4c6dad16cfb81b73465eb3e465d655e0155b1`, after 20 total review/fix rounds
+(rounds 1-12 across the initial session, rounds 13-20 in follow-up sessions).
+Each round dispatched a `code-review` skill subagent against the current PR
+head and fixed, or investigated-and-declined with documented rationale, every
+finding it returned. Round 16 is worth noting explicitly: it reported zero
+correctness findings across all 8 finder angles, but its own refactor
+introduced a real regression (an unhandled `UniqueViolation` on a repeated
+idempotency-conflict call) that round 17 caught, reproduced live against the
+pre-fix head, and fixed — a caution against treating any single "clean" round
+as proof of correctness. Round 20 is the round that established genuine
+convergence: it returned `[]` (zero findings of any kind) and independently
+re-verified every round 15-19 fix directly, rather than trusting prior commit
+messages. **There is no separate external "R2" reviewer for W2** — the
+operator confirmed on 2026-08-20 that dispatched `code-review` skill
+subagents are the only review mechanism in use; prior "R2 pending" language
+in this document and the companion closure assessment is superseded.
+
+Final local endpoint evidence: hermetic PostgreSQL 18.6, full suite 507
+passed/20 skipped/0 failed, wheel builds clean. GitHub CI status as of this
+addendum was not reverified — confirm current CI state independently before
+relying on it. W2 grants no runtime, catalog, CLI, Vuoro, release, or schema
+deployment mutation, and **PR #34 remains unmerged**: per the staged W-series
+plan, merge requires the W3 operator decisions (legacy read-retention
+duration, durable-authoritative export target, restore objective, and
+destructive-archive approval path) to be ratified first, which this addendum
+does not do.
 
 ### W3-W7 sequence
 
@@ -265,14 +297,14 @@ must intake/review/publish or reject, then attach the durable reference.
 14. Root-guide assembly and sync is per-host, not automatically replicated.
 15. Sprint authority binding and Kctl publisher authority remain missing.
 16. Agentops #47 remains stale about W1 until the companion addendum merges.
-17. W2 is now pushed as draft PR #34 but remains unmerged and independently
-    unreviewed; CI and R2 are pending.
+17. W2's review-fix loop converged at head `4ff4c6d` (2026-08-21) but PR #34
+    remains unmerged, pending the W3 operator decisions.
 
 ## Next actions by owner and tract
 
 | Owner/tract | Next action | Gate/boundary |
 | --- | --- | --- |
-| W2 owner and R2 reviewer | Confirm GitHub CI, review the exact diff/falsifiers, and run independent R2 on head `145a6502`. | Do not merge PR #34 until R2 ACCEPT. No production mutation. |
+| W2 owner | Confirm current GitHub CI state at head `4ff4c6d` (not reverified by this addendum), then ratify the W3 operator decisions (retention duration, durable export target, restore objective, destructive-archive approval path). | Do not merge PR #34 until W3 decisions are ratified. No production mutation. |
 | Appservice operator | Refresh/review phase 1, reconcile and prove health/ownership; only then refresh/review phase 2, reconcile, and prove health. | User-owned escalation channel; strict order. |
 | Runtime/Nix operator | Interactively stop and disable the unit; then merge/deploy gitops-nixos #16 and capture evidence. | Requires both appservice phase proofs first. |
 | Publication coordinator | After two empty public repositories exist, publish q-spec through reviewed PR and takeover audited main; verify. | Use only accepted/audited heads. |
@@ -296,6 +328,7 @@ must intake/review/publish or reject, then attach the durable reference.
 The source/evaluation tranche and W1 closure are complete and reviewed. Public
 proofs already exist for FlowLab and cluster alignment. Takeover and q-spec are
 disclosure-cleared but await repository creation. Runtime rollout correctly
-remains operator-owned. Federation work is sequenced with W2 active in an
-unmerged draft PR, independent R2 pending, and no downstream cutover authority
+remains operator-owned. Federation work is sequenced with W2's review-fix
+loop converged in an unmerged draft PR, W3 operator decisions pending, and no
+downstream cutover authority
 implied.
