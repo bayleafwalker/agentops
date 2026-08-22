@@ -2,6 +2,10 @@
 
 Status: complete (retrospective execution, 2026-07-23)
 Plan: [../../plans/Vuoro-Pre-Clean-Room-Assessment-Plan.md](../../plans/Vuoro-Pre-Clean-Room-Assessment-Plan.md)
+Downstream (2026-08-22): superseded in direction, not in result, by
+`vuoro/docs/plans/2026-08-22-long-term-direction.md`; the first self-evidence
+Vuoro has produced about itself is
+`vuoro/docs/evidence/2026-08-22-agentic-eventstorm.html`.
 
 ## Method and evidence base
 

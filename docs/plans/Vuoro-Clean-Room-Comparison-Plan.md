@@ -1,6 +1,15 @@
 # Vuoro Clean-Room Comparison Plan
 
-Status: **READY — reduced-spec baseline frozen 2026-07-23**. Successor to the sketch in
+Status: **READY — reduced-spec baseline frozen 2026-07-23**.
+
+**2026-08-22:** `vuoro/docs/plans/2026-08-22-long-term-direction.md` §7.1 requires a one-time
+five-way classification of the frozen R1–R8 spec — essential safety/recovery invariant,
+essential workflow outcome, migration-only compatibility, incumbent convenience, or unresolved
+assumption — before any lane runs. The classified spec becomes the Gate-5 baseline.
+Classification is not a licence to amend requirements mid-comparison. That document's Beads/Gas
+Town judgement (§7.3) is a desk prior only — the five lanes below have not run.
+
+Successor to the sketch in
 `Vuoro-Pre-Clean-Room-Assessment-Plan.md` ("Relationship to the clean-room
 exercise"). Incorporates the 2026-07-23 external-candidate shortlist review
 and the adopted items from `clean-room-adjustments-suggestions.md`
