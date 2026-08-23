@@ -1,0 +1,132 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-M6a-cost-hook-artifacts-root",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 2,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "templates/dispatch/hooks/tests/test-artifacts-root.sh decides correctness: REQ-006..REQ-011, and nothing outside log-session-cost.sh. Written from the spec row by an author with no access to any implementation. agentops.hooks.tests is carried as a non-starts_red guard so the rest of the telemetry surface cannot regress unnoticed.",
+    "starts_red": [
+      "agentops.hooks.tests.artifacts-root"
+    ]
+  },
+  "attempt": 1,
+  "starting_commit": "cc3e9c37adbd8b19caaeb6204dd47d77b0ae991c",
+  "purpose": "Make templates/dispatch/hooks/log-session-cost.sh read its AUDITCTL_ARTIFACTS_ROOT default from one place instead of hardcoding it. Today line 57 is export AUDITCTL_ARTIFACTS_ROOT=\"${AUDITCTL_ARTIFACTS_ROOT:-/projects/dev}\", and the same literal is written again in templates/dispatch/scripts/dispatch_release.py; the comment beside each points at the other as the reason it exists, which is how two copies of a path drift. The single source is the data file templates/dispatch/artifacts-root.default, which already exists and holds one line. Change the two lines that establish the root and nothing else. An AUDITCTL_ARTIFACTS_ROOT already in the environment must still win. With it unset, the hook must export the value read from that data file, resolved RELATIVE TO THE HOOK'S OWN LOCATION -- not to the working directory and not to a hardcoded absolute path. This matters because the hooks are symlinked into /projects/dev/.claude/hooks/, so a hook invoked through the symlink sees the symlink path in BASH_SOURCE and a plain dirname finds the wrong directory; resolve the real path first. If the data file is missing or empty the hook must still exit 0 and still write its cost record -- a hook must never fail its caller because a defaults file went away; what it does about the root in that case is your choice. Leave the cost-log default on line 19 and the gate-log default on line 20 byte-identical: they are different defaults with different owners and are not this packet's business. Everything else about the hook is untouched -- the JSON record's field names, order and types, AGENTOPS_COST_LOG, the auditctl workflow.session write, the max-per-session semantics, and exiting 0 in every case.",
+  "readable_context_paths": [
+    "templates/dispatch/hooks/log-session-cost.sh",
+    "templates/dispatch/hooks/tests/test-artifacts-root.sh",
+    "templates/dispatch/artifacts-root.default"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/hooks/log-session-cost.sh"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/**",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/hooks/tests/**",
+    "templates/dispatch/tests/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "an explicit AUDITCTL_ARTIFACTS_ROOT still wins",
+    "with it unset the root comes from templates/dispatch/artifacts-root.default",
+    "the data file is found relative to the hook's real location, including through a symlink and from any working directory",
+    "a missing or empty data file still leaves the hook exiting 0 with its cost record written",
+    "the cost-log and gate-log defaults are unchanged",
+    "every assertion the T-1/T-4 telemetry oracle already made still holds"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-006",
+      "requirement": "an explicit root wins",
+      "command_id": "agentops.hooks.tests.artifacts-root",
+      "fails_when": "the hook overrides an AUDITCTL_ARTIFACTS_ROOT already set in the environment"
+    },
+    {
+      "id": "REQ-007",
+      "requirement": "the default comes from the data file",
+      "command_id": "agentops.hooks.tests.artifacts-root",
+      "fails_when": "the exported root does not equal the contents of templates/dispatch/artifacts-root.default"
+    },
+    {
+      "id": "REQ-008",
+      "requirement": "resolution follows the hook, not the caller",
+      "command_id": "agentops.hooks.tests.artifacts-root",
+      "fails_when": "the hook fails to resolve the file from a foreign working directory or when invoked through a symlink"
+    },
+    {
+      "id": "REQ-009",
+      "requirement": "the root is not written down twice",
+      "command_id": "agentops.hooks.tests.artifacts-root",
+      "fails_when": "a line mentioning AUDITCTL_ARTIFACTS_ROOT still contains a hardcoded path"
+    },
+    {
+      "id": "REQ-010",
+      "requirement": "the neighbouring defaults are left alone",
+      "command_id": "agentops.hooks.tests.artifacts-root",
+      "fails_when": "the cost-log or gate-log default line changes"
+    },
+    {
+      "id": "REQ-011",
+      "requirement": "a missing defaults file never fails the caller",
+      "command_id": "agentops.hooks.tests.artifacts-root",
+      "fails_when": "the hook exits non-zero or writes no cost record when the data file is absent"
+    },
+    {
+      "id": "REQ-012",
+      "requirement": "the rest of the telemetry surface is untouched",
+      "command_id": "agentops.hooks.tests",
+      "fails_when": "any assertion the T-1/T-4 telemetry or maintain-check oracle already made regresses"
+    }
+  ],
+  "non_goals": [
+    "the driver's copy of the default, which is M-6b",
+    "the cost-log and gate-log defaults",
+    "the auditctl drain and the record's shape",
+    "anything outside templates/dispatch/hooks/log-session-cost.sh"
+  ],
+  "allowed_command_ids": [
+    "agentops.hooks.tests.artifacts-root",
+    "agentops.hooks.tests"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 500000,
+    "hard_token_ceiling": 1000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 8,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-m6a-cost-hook-artifacts-root",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  }
+}
