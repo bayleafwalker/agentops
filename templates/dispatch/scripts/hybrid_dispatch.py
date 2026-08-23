@@ -939,6 +939,17 @@ def assess_cold_run(
     for result in results:
         command_id = result["command_id"]
         red = result["exit_code"] != 0
+        # 127 is "command not found", which is not a gate failing -- it is a gate
+        # that does not exist at this commit. Accepting it as a declared red let a
+        # packet dispatch against an oracle its workspace did not contain, and the
+        # worker was judged by a test that never ran.
+        if result["exit_code"] == 127:
+            result["expectation"] = "red" if command_id in expected_red else "green"
+            faults.append(
+                f"{command_id} exited 127 at the starting commit: the command does not "
+                "exist there, so it cannot be an oracle for this packet"
+            )
+            continue
         if command_id in expected_red:
             result["expectation"] = "red"
             if not red:

@@ -655,6 +655,16 @@ class ColdRunAssessmentTests(unittest.TestCase):
         self.assertFalse(green)
         self.assertIn("cannot fail proves nothing", faults[0])
 
+    def test_a_missing_command_is_a_fault_even_when_declared_red(self) -> None:
+        """127 is "command not found", not a gate failing. Accepting it let a
+        packet dispatch against an oracle its workspace did not contain, and the
+        worker was judged by a test that never ran."""
+        self.packet["oracle"]["starts_red"] = ["b"]
+        self.packet["allowed_command_ids"] = ["a", "b"]
+        _, green, faults = dispatch.assess_cold_run(self._results(a=0, b=127), self.packet)
+        self.assertFalse(green)
+        self.assertIn("does not exist there", faults[0])
+
     def test_starts_red_must_name_a_command_the_packet_may_run(self) -> None:
         self.packet["oracle"]["starts_red"] = ["not-granted"]
         with self.assertRaisesRegex(dispatch.PacketError, "cannot run"):
