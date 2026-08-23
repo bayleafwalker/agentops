@@ -119,6 +119,9 @@ def write_escalation(
         "--ref", f"sha:{packet['starting_commit']}",
         "--metadata", json.dumps(metadata, sort_keys=True),
     ]
+    # Same default as templates/dispatch/hooks/log-session-cost.sh: without it
+    # every auditctl write fails with "AUDITCTL_ARTIFACTS_ROOT is required".
+    os.environ.setdefault("AUDITCTL_ARTIFACTS_ROOT", "/projects/dev")
     completed = runner(cmd, None)
     record["sink"] = "auditctl" if completed.returncode == 0 else "auditctl_failed"
     if completed.returncode != 0:
