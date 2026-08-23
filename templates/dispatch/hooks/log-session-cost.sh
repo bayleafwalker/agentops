@@ -7,6 +7,13 @@
 # T-1 added turns / assistant_msgs / tool_calls / duration_s to the record. Every field the
 # cockpit already reads (apps/web/lib/cockpit/costs.js) keeps its name, position and type:
 # the new keys are additive, and an old row still parses.
+#
+# IMPORTANT — Stop fires once per assistant turn, not once per session. Every record is a
+# *cumulative snapshot* of the session so far, so rows and events for one session supersede
+# each other: a consumer must reduce to the newest row per `session` before aggregating.
+# Summing every row over-counts roughly quadratically (measured 2026-08-23: $56,485 summed
+# vs $3,825 actual across 97 sessions). That is why the gate log is accumulated rather than
+# consumed — draining it on the first stop would drop every gate from the final snapshot.
 set -euo pipefail
 
 LOG="${AGENTOPS_COST_LOG:-/projects/dev/.claude/session-costs.jsonl}"
@@ -23,6 +30,7 @@ GATE_FILE="$GATE_DIR/gates-$SESSION.jsonl"
 
 # --- T-4: gate outcomes collected by gate-log.sh during this session -------------------
 # rework_rounds = a red gate followed by a later retry of the same command.
+# The log is read, never consumed: each snapshot must carry every gate the session has run.
 if [[ -s "$GATE_FILE" ]]; then
   GATES="$(jq -cs '.' "$GATE_FILE" 2>/dev/null || echo '[]')"
 else
@@ -66,7 +74,6 @@ if [[ -z "$TRANSCRIPT" || ! -f "$TRANSCRIPT" ]]; then
     --arg runtime_session "$RUNTIME_SESSION" \
     '{ts:$ts, project:$proj, session:$session, runtime_session_id:($runtime_session // ""), model:"unknown", in:0, cache_write:0, cache_read:0, out:0, cost_usd:0, turns:0, assistant_msgs:0, tool_calls:0, duration_s:0}')"
   emit_record "$RECORD"
-  rm -f "$GATE_FILE"
   exit 0
 fi
 
@@ -110,4 +117,7 @@ RECORD="$(jq -rcs \
   ' "$TRANSCRIPT")"
 
 emit_record "$RECORD"
-rm -f "$GATE_FILE"
+
+# Gate logs belong to their session for its whole life, so they are swept by age rather than
+# consumed. Seven days is longer than any session and short enough to stay tidy.
+find "$GATE_DIR" -maxdepth 1 -name 'gates-*.jsonl' -mtime +7 -delete 2>/dev/null || true

@@ -8,8 +8,12 @@ LOG="/projects/dev/.claude/session-costs.jsonl"
 
 FILTER="${1:-.}"
 
+# The Stop hook fires once per assistant turn and each record is a cumulative snapshot of the
+# session so far, so rows for one session supersede each other. Reduce to the newest row per
+# session before aggregating: summing every row over-counts roughly quadratically.
 jq -rs --arg filter "$FILTER" '
-  [ .[] | select(.project | test($filter)) ]
+  group_by(.session) | map(sort_by(.ts) | last)
+  | [ .[] | select(.project | test($filter)) ]
   | group_by(.project)[]
   | {
       project:     .[0].project,
