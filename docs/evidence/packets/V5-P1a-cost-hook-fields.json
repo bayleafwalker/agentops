@@ -13,9 +13,9 @@
   "oracle": {
     "ownership": "externally_defined",
     "worker_may_modify": false,
-    "description": "templates/dispatch/hooks/tests/test-session-telemetry.sh REQ-001 and REQ-002 decide correctness; they are red for exactly these four fields.",
+    "description": "templates/dispatch/hooks/tests/test-cost-hook-fields.sh decides correctness: REQ-001/002/003, and nothing outside T-1.",
     "starts_red": [
-      "agentops.hooks.tests"
+      "agentops.hooks.tests.t1"
     ]
   },
   "attempt": 1,
@@ -23,7 +23,7 @@
   "purpose": "Add four fields to the JSON object log-session-cost.sh already emits: turns (user messages), assistant_msgs, tool_calls, duration_s, all derived from the transcript file the hook already reads. Also make the output log path overridable with AGENTOPS_COST_LOG, defaulting to the current hardcoded path, so the test can point the hook at a temp file. Change nothing else: every existing field keeps its name, position and type.",
   "readable_context_paths": [
     "templates/dispatch/hooks/log-session-cost.sh",
-    "templates/dispatch/hooks/tests/test-session-telemetry.sh"
+    "templates/dispatch/hooks/tests/test-cost-hook-fields.sh"
   ],
   "writable_patch_paths": [
     "templates/dispatch/hooks/log-session-cost.sh"
@@ -48,19 +48,19 @@
     {
       "id": "REQ-001",
       "requirement": "the cost record stays backward compatible",
-      "command_id": "agentops.hooks.tests",
+      "command_id": "agentops.hooks.tests.t1",
       "fails_when": "an existing field is renamed, removed, or changes type"
     },
     {
       "id": "REQ-002",
       "requirement": "the counters come from the transcript",
-      "command_id": "agentops.hooks.tests",
+      "command_id": "agentops.hooks.tests.t1",
       "fails_when": "a counter reads a key the Stop payload does not carry, or is hardcoded"
     },
     {
       "id": "REQ-003",
       "requirement": "the log path is overridable so the oracle can observe the record",
-      "command_id": "agentops.hooks.tests",
+      "command_id": "agentops.hooks.tests.t1",
       "fails_when": "the hook writes to its hardcoded path when AGENTOPS_COST_LOG is set"
     }
   ],
@@ -71,7 +71,7 @@
     "anything outside log-session-cost.sh"
   ],
   "allowed_command_ids": [
-    "agentops.hooks.tests",
+    "agentops.hooks.tests.t1",
     "agentops.dispatch.tests"
   ],
   "limits": {
