@@ -22,3 +22,8 @@ home_repo = "appservice"
 project_id = "a40e9a1d-cf76-4bae-a330-f62ecc9e59f8"
 display_name = "homelab-analytics"
 home_repo = "homelab-analytics"
+
+[[projects]]
+project_id = "799e7931-4384-4dcb-b1d7-a6eececabea8"
+display_name = "bindery-core"
+home_repo = "bindery-core"
