@@ -287,14 +287,20 @@ else:
             runuser = fake_bin / "runuser"
             runuser.write_text(f"#!{sys.executable}\nimport os,sys\na=sys.argv[1:]; c=a[a.index('--')+1:]\nif c and c[0].endswith('/id') and c[1:]==['-Gn']: print('agentworker agentdispatch'); raise SystemExit(0)\nos.execvpe(c[0],c,os.environ)\n")
             os.chmod(runuser, 0o755)
+            # Resolve the real coreutils binaries through PATH rather than a NixOS store
+            # path: this suite also runs on the workstation, where /run/current-system
+            # does not exist and the hardcoded path made the test fail for a reason that
+            # had nothing to do with what it checks.
+            for name in ("touch", "mkdir", "test", "id"):
+                real = shutil.which(name, path=os.defpath) or shutil.which(name)
+                if real is None:
+                    self.skipTest(f"{name} not found on PATH")
+                shutil.copyfile(real, fake_bin / name)
+                os.chmod(fake_bin / name, 0o755)
             touch = fake_bin / "touch"
-            shutil.copyfile("/run/current-system/sw/bin/touch", touch)
-            os.chmod(touch, 0o755)
             mkdir = fake_bin / "mkdir"
-            shutil.copyfile("/run/current-system/sw/bin/mkdir", mkdir)
-            os.chmod(mkdir, 0o755)
 
-            old = {name: getattr(checker, name) for name in ("AUTH_SOURCE", "WORKSPACE_PARENT", "OPENCODE", "RUNUSER", "TOUCH", "MKDIR", "RUN_REPORT_ROOT", "EXPECTED_WORKER_UID")}
+            old = {name: getattr(checker, name) for name in ("AUTH_SOURCE", "WORKSPACE_PARENT", "OPENCODE", "RUNUSER", "TOUCH", "MKDIR", "TEST_BIN", "ID_BIN", "RUN_REPORT_ROOT", "EXPECTED_WORKER_UID")}
             try:
                 checker.AUTH_SOURCE = auth_source
                 checker.WORKSPACE_PARENT = workspaces
@@ -302,6 +308,8 @@ else:
                 checker.RUNUSER = runuser
                 checker.TOUCH = touch
                 checker.MKDIR = mkdir
+                checker.TEST_BIN = fake_bin / "test"
+                checker.ID_BIN = fake_bin / "id"
                 checker.RUN_REPORT_ROOT = root / "reports"
                 checker.EXPECTED_WORKER_UID = os.getuid()
                 result = checker.check_admission(provider="opencode-go", model="deepseek-v4-flash", agent="ao-mechanical-bulk", prompt="Reply with the bounded admission-check acknowledgement.", force=True)

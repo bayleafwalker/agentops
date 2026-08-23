@@ -2,7 +2,7 @@
 # Gate for T-1/T-3/T-4 (agentops.hooks.tests). Covers the packet's acceptance properties:
 #   REQ-001 the cost record stays backward compatible
 #   REQ-002 the new counters are derived from the transcript, not the Stop payload
-#   REQ-003 gate outcomes reach the sink exactly once per session
+#   REQ-003 gate outcomes reach the sink and survive every stop in the session
 #   REQ-004 rework_rounds distinguishes a retry from a first attempt
 #   REQ-005 a missing auditctl degrades quietly
 set -euo pipefail
@@ -100,9 +100,14 @@ assert_eq "REQ-004 retry green"        "$(jq -r 'select(.cmd|test("test_thing"))
 
 log_b="$tmp/costs-b.jsonl"
 run_stop "sess-b" "$log_b" "$gatedir"
-[[ -f "$gatefile" ]] && fail "REQ-003: the gate log survived into the next session"
 row_b="$(tail -1 "$log_b")"
-jq -e 'has("turns")' <<<"$row_b" >/dev/null || fail "REQ-003: the cost row was lost while draining gates"
+jq -e 'has("turns")' <<<"$row_b" >/dev/null || fail "REQ-003: the cost row was lost while reading gates"
+# Stop fires once per assistant turn, so the gate log must survive its own publication:
+# consuming it would leave every later snapshot of the session with no gates at all.
+[[ -f "$gatefile" ]] || fail "REQ-003: the gate log was consumed mid-session"
+assert_eq "REQ-003 gate rows are preserved" "$(wc -l < "$gatefile")" "3"
+run_stop "sess-b" "$log_b" "$gatedir"
+assert_eq "REQ-003 gate rows survive a second stop" "$(wc -l < "$gatefile")" "3"
 
 # REQ-004: one red gate retried with the same command = exactly one rework round;
 # a red gate never retried = zero.
@@ -138,7 +143,7 @@ run_gate_hook "sess-d" "$gatedir" "pytest tests/x.py" '{"stdout":"1 passed","std
 [[ -s "$gatefile_d" ]] || fail "REQ-003: the gate hook wrote nothing to drain"
 run_stop "sess-d" "$tmp/costs-d.jsonl" "$gatedir" "$pubdir:$PATH"
 
-assert_eq "REQ-003 published exactly once" "$(wc -l < "$AUDITCTL_STUB_LOG")" "1"
+assert_eq "REQ-003 one publication per stop" "$(wc -l < "$AUDITCTL_STUB_LOG")" "1"
 call="$(cat "$AUDITCTL_STUB_LOG")"
 grep -q -- "--type workflow.session" <<<"$call" || fail "REQ-003: wrong event type"
 if grep -q -- "--ref " <<<"$call"; then fail "REQ-003: --ref is rejected by auditctl for session ids"; fi
@@ -146,6 +151,29 @@ meta="$(sed -n 's/.*--metadata //p' <<<"$call")"
 assert_eq "REQ-003 session id in metadata" "$(jq -r '.session' <<<"$meta")" "sess-d"
 assert_eq "REQ-004 published rework_rounds" "$(jq -r '.rework_rounds' <<<"$meta")" "1"
 assert_eq "REQ-003 published gate count" "$(jq -r '.gates | length' <<<"$meta")" "2"
+
+# A later stop in the same session must publish a snapshot that still carries both gates,
+# because consumers reduce to the newest event per session.
+run_stop "sess-d" "$tmp/costs-d.jsonl" "$gatedir" "$pubdir:$PATH"
+assert_eq "REQ-003 two stops, two publications" "$(wc -l < "$AUDITCTL_STUB_LOG")" "2"
+meta2="$(sed -n 's/.*--metadata //p' <<<"$(tail -1 "$AUDITCTL_STUB_LOG")")"
+assert_eq "REQ-003 the newest snapshot is complete" "$(jq -r '.gates | length' <<<"$meta2")" "2"
+assert_eq "REQ-003 rework survives to the newest snapshot" "$(jq -r '.rework_rounds' <<<"$meta2")" "1"
+
+# --- the read side must reduce to the newest row per session ----------------------------
+# Summing every row over-counts roughly quadratically, since each row is a cumulative
+# snapshot. cost-summary.sh is the consumer that has to know this.
+summary_log="$tmp/summary.jsonl"
+cat > "$summary_log" <<'ROWS'
+{"ts":"2026-08-23T10:00:00Z","project":"p","session":"s1","model":"opus","in":1,"cache_write":0,"cache_read":0,"out":1,"cost_usd":1.0}
+{"ts":"2026-08-23T10:05:00Z","project":"p","session":"s1","model":"opus","in":2,"cache_write":0,"cache_read":0,"out":2,"cost_usd":3.0}
+{"ts":"2026-08-23T10:06:00Z","project":"p","session":"s2","model":"opus","in":1,"cache_write":0,"cache_read":0,"out":1,"cost_usd":2.0}
+ROWS
+summary_script="$tmp/cost-summary.sh"
+sed "s|^LOG=.*|LOG=\"$summary_log\"|" "$hooks_dir/cost-summary.sh" > "$summary_script"
+out="$(bash "$summary_script")"
+grep -q "sessions=2" <<<"$out" || fail "read side: rows were counted as sessions ($out)"
+grep -q 'total=\$5' <<<"$out" || fail "read side: superseded rows were summed instead of reduced ($out)"
 
 # --- REQ-005: auditctl absent ----------------------------------------------------------
 stub="$tmp/bin"; mkdir -p "$stub"
@@ -157,5 +185,10 @@ if ! run_stop "sess-c" "$log_c" "$gatedir" "$stub"; then
   fail "REQ-005: the Stop hook exited non-zero with auditctl off PATH"
 fi
 [[ -s "$log_c" ]] || fail "REQ-005: the cost row was lost with auditctl off PATH"
+
+# --- both hooks are registered as commands, so both must be executable ------------------
+for h in "$stop_hook" "$gate_hook"; do
+  [[ -x "$h" ]] || fail "hook is not executable: $h"
+done
 
 printf 'session telemetry hook tests passed\n'
