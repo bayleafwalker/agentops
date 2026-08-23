@@ -864,6 +864,26 @@ def _probe_was_refused(stderr: str) -> bool:
     )
 
 
+def workspace_is_retry_reuse(packet: dict[str, Any]) -> bool:
+    """True when an existing workspace is this packet's own, left by attempt N-1.
+
+    Narrow on purpose: the packet must *declare* a retry, and the standing
+    workspace must be a git work tree already on the branch this packet names.
+    Anything else -- a stale directory, someone else's branch, a first attempt --
+    is still the two-workers case and is still refused.
+    """
+    if int(packet.get("attempt", 1) or 1) <= 1:
+        return False
+    target = worktree_path(packet)
+    if not (target / ".git").exists():
+        return False
+    try:
+        branch = _git(target, "rev-parse", "--abbrev-ref", "HEAD").strip()
+    except Exception:  # noqa: BLE001 - an unreadable work tree is not a reusable one
+        return False
+    return branch == packet["worktree"]["branch"]
+
+
 def prepare_workspace(
     repo_root: Path, packet: dict[str, Any], worker_user: str | None = None,
 ) -> Path:
@@ -888,14 +908,21 @@ def prepare_workspace(
     """
     target = worktree_path(packet)
     if target.exists():
-        raise PacketError(
-            f"{target} already exists; never dispatch two workers into one workspace"
-        )
-    target.parent.mkdir(parents=True, exist_ok=True)
-    _git(repo_root, "clone", "--no-hardlinks", "--quiet", str(repo_root), str(target))
-    _git(target, "switch", "--quiet", "--create", packet["worktree"]["branch"],
-         packet["starting_commit"])
-    _git(target, "remote", "remove", "origin")
+        # The guard is about two workers at once. It also blocked the one thing
+        # L-4 needs -- a packet coming back to its own workspace for a second
+        # attempt -- which is what made V5-M2 the packet that could not unblock
+        # its own retry. A declared retry, on the workspace already standing on
+        # this packet's own branch, is the one case that is not a second worker.
+        if not workspace_is_retry_reuse(packet):
+            raise PacketError(
+                f"{target} already exists; never dispatch two workers into one workspace"
+            )
+    else:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        _git(repo_root, "clone", "--no-hardlinks", "--quiet", str(repo_root), str(target))
+        _git(target, "switch", "--quiet", "--create", packet["worktree"]["branch"],
+             packet["starting_commit"])
+        _git(target, "remote", "remove", "origin")
     reroot_agent_context(target, repo_root)
     share_workspace_with_group(target, worker_user)
     writable, detail = worker_can_write_workspace(target, worker_user)
@@ -1004,9 +1031,11 @@ ORACLE_READ_TRACE_EXEMPT_PREFIXES = (".git/", "__pycache__/", ".venv/")
 ORACLE_READ_TRACE_EXEMPT_FILES = (
     "pyproject.toml", "setup.cfg", "pytest.ini", "tox.ini", "conftest.py",
 )
-ORACLE_READ_TRACE_SYSCALLS = "openat,open,stat,readlink"
+#: strace's own file-syscall class. A hand-maintained list silently misses
+#: whatever a platform names differently; the class is what strace keeps current.
+ORACLE_READ_TRACE_SYSCALLS = "%file"
 _STRACE_OPEN_RE = re.compile(
-    r'^(?:\[pid\s+\d+\]\s*|\d+\s+)?(openat|open)\((?:[^,]*,\s*)?"([^"]*)",\s*([A-Z_|0-9]+)'
+    r'^(?:\[pid\s+\d+\]\s*|\d+\s+)?(openat|open)\((?:([^,]*),\s*)?"([^"]*)",\s*([A-Z_|0-9]+)'
     r'[^)]*\)\s*=\s*(-?\d+)'
 )
 
@@ -1048,8 +1077,22 @@ def parse_strace_reads(trace_text: str, checkout: Path) -> set[str]:
         match = _STRACE_OPEN_RE.match(line)
         if match is None:
             continue
-        _, raw_path, flags, result = match.groups()
+        syscall, dirfd, raw_path, flags, result = match.groups()
         if int(result) < 0 or "O_WRONLY" in flags.split("|"):
+            continue
+        # ``openat``'s first argument is a directory fd, and a relative path is
+        # relative to *that*, not to the cwd. shutil.rmtree walks with such fds,
+        # so tempfile.TemporaryDirectory cleanup emits
+        # ``openat(3, "coordinator", ...)`` -- and resolving it against the
+        # checkout invented a read of a path that does not exist there. Every
+        # Python oracle in this repository uses TemporaryDirectory, so this
+        # false-positived all of them and made oracle_reads_within_paths
+        # unobtainable. AT_FDCWD is the one fd that does mean the cwd.
+        if (
+            not raw_path.startswith("/")
+            and syscall == "openat"
+            and (dirfd or "").strip() != "AT_FDCWD"
+        ):
             continue
         resolved = Path(os.path.realpath(root / raw_path if not raw_path.startswith("/") else raw_path))
         if resolved == root or root not in resolved.parents or resolved.is_dir():
@@ -1562,55 +1605,6 @@ def dispatch_worker(
     }
 
 
-def export_worker_session(
-    opencode_bin: str,
-    session_id: str | None,
-    destination: Path,
-    worktree: Path,
-    worker_user: str | None = None,
-) -> dict[str, Any]:
-    """Write the worker's full OpenCode transcript beside the receipt.
-
-    The streamed ``run`` output is what the coordinator could enforce limits on;
-    the exported session is what actually happened -- every tool call, every
-    denied write, every message. Without it, explaining a run that changed
-    nothing costs a second dispatch. Export failure is recorded, never fatal: a
-    missing transcript must not turn a finished run into a failed one.
-    """
-    if not session_id:
-        return {"error": "no session id was observed on the worker's event stream"}
-    argv = [opencode_bin, "export", session_id]
-    if worker_user:
-        # The session store belongs to the identity that ran the worker.
-        argv = ["sudo", "--non-interactive", "--user", worker_user, *argv]
-    try:
-        completed = subprocess.run(
-            argv, cwd=worktree, stdin=subprocess.DEVNULL, capture_output=True,
-            text=True, check=False, timeout=120,
-        )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        return {"session_id": session_id, "error": str(exc)[-4000:]}
-    if completed.returncode != 0 or not completed.stdout.strip():
-        return {
-            "session_id": session_id,
-            "error": (completed.stderr or f"opencode export exited {completed.returncode} with no output")[-4000:],
-        }
-    try:
-        json.loads(completed.stdout)
-    except json.JSONDecodeError as exc:
-        return {"session_id": session_id, "error": f"export was not JSON: {exc}"}
-    try:
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_text(completed.stdout, encoding="utf-8")
-    except OSError as exc:
-        return {"session_id": session_id, "error": str(exc)[-4000:]}
-    return {
-        "session_id": session_id,
-        "path": str(destination),
-        "sha256": hashlib.sha256(completed.stdout.encode("utf-8")).hexdigest(),
-    }
-
-
 def worker_spend(
     transcript_stdout: str,
     cap_usd: float | None,
@@ -1929,9 +1923,22 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "prepare":
             claim_evidence = verify_live_coordinator_claim(repo_root, packet, args.sprintctl_bin)
             safety = safety_ref(repo_root, packet)
+            reused = workspace_is_retry_reuse(packet)
             worktree = prepare_workspace(repo_root, packet, args.worker_user)
             cold = run_registered_commands(worktree, packet, manifest)
-            cold, green, cold_faults = assess_cold_run(cold, packet)
+            if reused:
+                # A reused workspace holds the previous attempt's edits, so its
+                # cold gates no longer have the colours the packet declared --
+                # assessing them would fail every retry on the work the retry
+                # exists to finish. The commands still run and are still
+                # recorded; only the verdict is withheld, and the receipt says
+                # so, because a reader cannot otherwise tell a skipped
+                # assessment from a green one.
+                green, cold_faults = True, []
+                cold_gate_assessment = "skipped:workspace-reused"
+            else:
+                cold, green, cold_faults = assess_cold_run(cold, packet)
+                cold_gate_assessment = "assessed"
             _emit(
                 _receipt(
                     packet,
@@ -1943,6 +1950,8 @@ def main(argv: list[str] | None = None) -> int:
                     safety=safety,
                     cold_command_results=cold,
                     cold_faults=cold_faults,
+                    workspace_reused=reused,
+                    cold_gate_assessment=cold_gate_assessment,
                     eligible_for_dispatch=green,
                 )
             )
@@ -2002,11 +2011,6 @@ def main(argv: list[str] | None = None) -> int:
                 args.worker_user, args.worker_model,
             )
             breach = sorted(set(coordinator_tree_state(repo_root)) - set(before))
-            worker_session = export_worker_session(
-                args.opencode_bin, transcript.get("session_id"),
-                worktree.parent / f"{packet['task_id']}.worker-session.json",
-                worktree, args.worker_user,
-            )
             spend = worker_spend(
                 transcript["stdout"],
                 packet["limits"].get("max_cost_usd"),
@@ -2022,7 +2026,6 @@ def main(argv: list[str] | None = None) -> int:
                     overlay_sha256=overlay_hash(overlay),
                     coordinator_claim=claim_evidence,
                     worker=transcript,
-                    worker_session=worker_session,
                     spend=spend,
                     **containment_override,
                     containment={

@@ -254,26 +254,55 @@ class StopConditionTests(unittest.TestCase):
                 self.assertEqual(len(runner.gh_calls()), 1)
 
     # 4. gate-red-twice
+    def _red_then_green(self) -> FakeRunner:
+        """A gate that is red once and green on the retry L-4 spends for it."""
+
+        class RedThenGreen(FakeRunner):
+            def __call__(self, cmd, cwd):
+                if cmd[-1] == "gate" and any(c[-1] == "gate" for c, _ in self.calls):
+                    self.exits, self.disposition = {}, "candidate"
+                return super().__call__(cmd, cwd)
+
+        return RedThenGreen(
+            str(self.auditctl), exits={"gate": 2}, disposition="coordinator_review_required",
+        )
+
     def test_first_red_gate_is_recorded_but_does_not_stop(self):
+        # Amended for L-4 (spec M-2, Amendment 1). This used to pin "one red gate
+        # skips the PR with a reason and exits 0"; L-4 answers the first red with
+        # one cheap retry instead, so that reason string no longer exists and must
+        # not be restored. What survives is that the first red is recorded and is
+        # not itself a stop.
         packet = self._packet()
-        runner = self._runner(exits={"gate": 2}, disposition="coordinator_review_required")
+        runner = self._red_then_green()
         code, report = self._drive(packet, runner)
-        # REQ-002's existing behaviour survives: one red gate skips the PR with a
-        # reason and exits 0. Only the ledger entry is new.
         self.assertEqual(code, 0)
         self._assert_no_stop(report)
-        self.assertTrue(report["pr"]["skipped"])
+        self.assertEqual(len(runner.gh_calls()), 1, "a green retry reaches the hand-off")
         ledger = driver.worktree_path(json.loads(packet.read_text())).parent / "T-DRIVER.attempts.json"
         self.assertTrue(ledger.exists(), f"the default ledger {ledger} was not written")
+        self.assertEqual(json.loads(ledger.read_text())["0" * 40], 1)
 
     def test_second_red_gate_on_the_same_commit_stops(self):
+        # Amended for L-4 (spec M-2, Amendment 1). The first drive can no longer
+        # be a plain red run -- that would spend its own retry and stop inside
+        # this call -- so it is the red-then-green run that leaves exactly one
+        # red in the ledger. The point of the fixture is unchanged: the ledger is
+        # what carries a red across drive() calls, and a fresh drive() on the
+        # same starting_commit does not get a clean slate.
         packet = self._packet()
-        first = self._runner(exits={"gate": 2}, disposition="coordinator_review_required")
+        first = self._red_then_green()
         code, _ = self._drive(packet, first)
+        # A completed run, not a stopped one: its retry went green and handed
+        # off. What it leaves behind is the single red in the ledger.
         self.assertEqual(code, 0)
+        self.assertEqual(len(first.gh_calls()), 1)
         second = self._runner(exits={"gate": 2}, disposition="coordinator_review_required")
         code, report = self._drive(packet, second)
         self._assert_stopped(code, report, second, "gate-red-twice")
+        # The ledger already held a red for this commit, so this run has no cheap
+        # retry left to spend: it stops on the gate it just ran.
+        self.assertEqual(second.steps().count("gate"), 1)
 
     def test_gate_receipt_marked_not_passed_counts_as_red(self):
         # "Red" is not only a non-zero exit: a candidate disposition carrying

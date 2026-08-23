@@ -1187,64 +1187,11 @@ class OracleReferenceOverlayTests(unittest.TestCase):
         self.assertIn("reference_patch", schema["properties"]["oracle"]["properties"])
 
 
-class WorkerSessionExportTests(unittest.TestCase):
-    """L-1b: the exported OpenCode session is the record of what the worker
-    actually did; its absence must be recorded, never fatal."""
-
-    STUB = """#!/bin/sh
-if [ "$1" = "export" ] && [ -n "$FAKE_EXPORT_JSON" ]; then
-  printf '%s' "$FAKE_EXPORT_JSON"; exit 0
-fi
-echo "export failed: session $2 not found" >&2
-exit 1
-"""
-
-    def setUp(self) -> None:
-        self.tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(self.tmp.cleanup)
-        root = Path(self.tmp.name)
-        self.opencode = root / "bin" / "opencode"
-        self.opencode.parent.mkdir()
-        self.opencode.write_text(self.STUB, encoding="utf-8")
-        self.opencode.chmod(0o755)
-        self.worktree = root / "wt" / "T-1"
-        self.worktree.mkdir(parents=True)
-        self.destination = self.worktree.parent / "T-1.worker-session.json"
-        self.addCleanup(os.environ.pop, "FAKE_EXPORT_JSON", None)
-
-    def test_export_success_is_recorded_with_sha256(self) -> None:
-        body = json.dumps({"id": "ses_1", "messages": [{"role": "user"}]})
-        os.environ["FAKE_EXPORT_JSON"] = body
-        record = dispatch.export_worker_session(str(self.opencode), "ses_1", self.destination, self.worktree)
-        self.assertEqual(record["path"], str(self.destination))
-        self.assertEqual(record["sha256"], hashlib.sha256(body.encode()).hexdigest())
-        self.assertEqual(self.destination.read_text(encoding="utf-8"), body)
-        self.assertNotIn("error", record)
-
-    def test_export_failure_is_recorded_without_failing(self) -> None:
-        record = dispatch.export_worker_session(str(self.opencode), "ses_missing", self.destination, self.worktree)
-        self.assertIn("session ses_missing not found", record["error"])
-        self.assertNotIn("path", record)
-        self.assertFalse(self.destination.exists())
-
-    def test_unknown_session_is_recorded_as_an_error(self) -> None:
-        record = dispatch.export_worker_session(str(self.opencode), None, self.destination, self.worktree)
-        self.assertIn("no session id", record["error"])
-
-    def test_a_contained_worker_is_exported_as_that_identity(self) -> None:
-        calls: list[list[str]] = []
-        original = dispatch.subprocess.run
-
-        def fake_run(argv, **kw):
-            calls.append(list(argv))
-            return subprocess.CompletedProcess(argv, 0, "{}", "")
-
-        dispatch.subprocess.run = fake_run
-        try:
-            dispatch.export_worker_session("opencode", "ses_1", self.destination, self.worktree, "worker")
-        finally:
-            dispatch.subprocess.run = original
-        self.assertEqual(calls[0][:4], ["sudo", "--non-interactive", "--user", "worker"])
+# The `opencode export` worker-session path was removed deliberately (hand-pass
+# item C, 2026-08-23): it produced truncated JSON on every session it ever ran
+# on, and the transcript already survives in the run receipt under
+# `worker.stdout`. Its replacement contract is pinned in
+# test_hybrid_dispatch_handpass.py -- do not restore fixtures for the export.
 
 
 class ChurnVerdictTests(unittest.TestCase):
