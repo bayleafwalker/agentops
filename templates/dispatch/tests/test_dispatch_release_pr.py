@@ -47,7 +47,14 @@ BASE_BRANCH = "trunk-never-pushed"
 #: pointed at ``starting_commit``, so the driver now commits the worktree
 #: first. Do not restore the three-name tuple — the commit leads, and
 #: test_dispatch_release_commit.py pins that order against the driver.
-PR_STEP_NAMES = ("commit", "remote-add", "push", "pr-create")
+#:
+#: M-10 superseded M-9's four names in turn: the receipt capture writes the
+#: files the commit has to carry, so it precedes the commit. The commit no
+#: longer leads; test_dispatch_release_body.py pins the five-name order
+#: against the driver, and pins that no sub-step indexes this tuple
+#: positionally — M-9's did, and every one of them then reported the step
+#: before it.
+PR_STEP_NAMES = ("receipt-capture", "commit", "remote-add", "push", "pr-create")
 
 #: git subcommands and flags that write. None of them may run against the
 #: coordinator checkout: resolution is read-only.

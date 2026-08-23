@@ -190,18 +190,29 @@ class CommitStepTests(_DriverFixture):
     def _require_commit_step(self) -> None:
         """A fixture that asserts the commit did *not* happen proves nothing
         while there is no commit step at all, so each one pins the behaviour it
-        is guarding first."""
-        self.assertEqual(
-            driver.PR_STEP_NAMES[0], "commit", "the PR step has no commit to skip",
+        is guarding first.
+
+        M-10 superseded the position this used to check: the receipt capture
+        now leads, so the guard asks that the commit is *named*, not that it is
+        first. What is first is pinned by test_dispatch_release_body.py.
+        """
+        self.assertIn(
+            "commit", driver.PR_STEP_NAMES, "the PR step has no commit to skip",
         )
 
-    # 1. The step vocabulary. M-9 supersedes M-8's three names: a reader of a
+    # 1. The step vocabulary. M-9 superseded M-8's three names: a reader of a
     # failed report has to be able to tell "the commit would not be made" from
     # the three failures M-8 already names, and the tuple order is the contract
     # the fixtures below assert the driver against.
+    #
+    # M-10 superseded M-9's four in turn. The capture writes the two files the
+    # commit has to carry, so it precedes the commit and the commit no longer
+    # leads. Everything below still holds: the commit precedes the remote, the
+    # push and gh, and it is still the first thing pushed onward.
     def test_pr_step_names_lead_with_the_commit(self):
         self.assertEqual(
-            driver.PR_STEP_NAMES, ("commit", "remote-add", "push", "pr-create"),
+            driver.PR_STEP_NAMES,
+            ("receipt-capture", "commit", "remote-add", "push", "pr-create"),
         )
 
     # 2. The order is the row: a push before the commit is exactly the bug --
