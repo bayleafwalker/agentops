@@ -20,7 +20,7 @@
   },
   "attempt": 1,
   "starting_commit": "775ce5f1558ea3ce1824167aea2d6eac2d4d4996",
-  "purpose": "Add four fields to the JSON object log-session-cost.sh already emits: turns (user messages), assistant_msgs, tool_calls, duration_s. Derive all four from the transcript file the hook already reads. Change nothing else: every existing field keeps its name, position and type.",
+  "purpose": "Add four fields to the JSON object log-session-cost.sh already emits: turns (user messages), assistant_msgs, tool_calls, duration_s, all derived from the transcript file the hook already reads. Also make the output log path overridable with AGENTOPS_COST_LOG, defaulting to the current hardcoded path, so the test can point the hook at a temp file. Change nothing else: every existing field keeps its name, position and type.",
   "readable_context_paths": [
     "templates/dispatch/hooks/log-session-cost.sh",
     "templates/dispatch/hooks/tests/test-session-telemetry.sh"
@@ -41,6 +41,7 @@
   "required_outcomes": [
     "log-session-cost.sh emits turns, assistant_msgs, tool_calls and duration_s",
     "all four are computed from the transcript, not from the Stop event payload",
+    "the log path honours AGENTOPS_COST_LOG when set and is unchanged when it is not",
     "every field the hook emits today keeps its name, position and type"
   ],
   "acceptance_properties": [
@@ -55,6 +56,12 @@
       "requirement": "the counters come from the transcript",
       "command_id": "agentops.hooks.tests",
       "fails_when": "a counter reads a key the Stop payload does not carry, or is hardcoded"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "the log path is overridable so the oracle can observe the record",
+      "command_id": "agentops.hooks.tests",
+      "fails_when": "the hook writes to its hardcoded path when AGENTOPS_COST_LOG is set"
     }
   ],
   "non_goals": [
