@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
 import hashlib
 import json
 import os
@@ -802,6 +804,202 @@ class OracleAttainabilityTests(unittest.TestCase):
     def test_a_packet_without_starts_red_is_not_checked(self) -> None:
         self.packet["oracle"].pop("starts_red")
         self.assertEqual(dispatch.check_oracle_attainable(Path("."), self.packet, self.manifest), [])
+
+
+class OracleReadTraceTests(unittest.TestCase):
+    """L-2(b), read-trace half: an oracle that reads a file the packet never
+    declared demands an unstated seam, or covers work the packet does not hold."""
+
+    FAKE_STRACE = """#!/bin/sh
+# Fake strace: writes the canned trace named by FAKE_TRACE_SRC to the -o file.
+out=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -o) out="$2"; shift 2 ;;
+    --) shift; break ;;
+    -f|-qq) shift ;;
+    -e) shift 2 ;;
+    *) break ;;
+  esac
+done
+cp "$FAKE_TRACE_SRC" "$out"
+exit 1
+"""
+
+    def setUp(self) -> None:
+        packet_tests = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+        packet_tests.setUp()
+        self.packet = packet_tests.packet
+        self.packet["oracle"]["starts_red"] = ["a"]
+        self.packet["allowed_command_ids"] = ["a"]
+        self.packet["readable_context_paths"] = ["src/**"]
+        self.packet["writable_patch_paths"] = ["tests/**"]
+        self.commands = {"a": "pytest -q tests/test_a.py"}
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.checkout = Path(os.path.realpath(self.tmp.name)) / "checkout"
+        for rel in ("tests/test_a.py", "src/a.py", "docs/secret.md", "pyproject.toml",
+                    ".git/HEAD", "src/__pycache__/a.pyc"):
+            (self.checkout / rel).parent.mkdir(parents=True, exist_ok=True)
+            (self.checkout / rel).write_text("x", encoding="utf-8")
+        bin_dir = Path(self.tmp.name) / "bin"
+        bin_dir.mkdir()
+        self.strace = bin_dir / "strace"
+        self.strace.write_text(self.FAKE_STRACE, encoding="utf-8")
+        self.strace.chmod(0o755)
+
+    def _trace(self, *paths: str, strace: str | None = "fake", allow_untraced: bool = False):
+        lines = [f'123   openat(AT_FDCWD, "{self.checkout}/{p}", O_RDONLY|O_CLOEXEC) = 3' for p in paths]
+        lines.append(f'123   openat(AT_FDCWD, "{self.checkout}/src", O_RDONLY|O_DIRECTORY) = 4')
+        lines.append(f'123   openat(AT_FDCWD, "{self.checkout}/docs/missing.md", O_RDONLY) = -1 ENOENT (No such file)')
+        lines.append(f'123   openat(AT_FDCWD, "{self.checkout}/docs/out.log", O_WRONLY|O_CREAT, 0666) = 5')
+        lines.append('123   openat(AT_FDCWD, "/usr/lib/python3/os.py", O_RDONLY|O_CLOEXEC) = 6')
+        src = Path(self.tmp.name) / "trace.src"
+        src.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        os.environ["FAKE_TRACE_SRC"] = str(src)
+        self.addCleanup(os.environ.pop, "FAKE_TRACE_SRC", None)
+        strace_bin = str(self.strace) if strace == "fake" else strace
+        return dispatch.trace_oracle_reads(
+            self.checkout, self.packet, self.commands, strace_bin, allow_untraced,
+        )
+
+    def test_a_read_outside_declared_paths_is_rejected(self) -> None:
+        faults, report = self._trace("docs/secret.md", "src/a.py")
+        self.assertEqual(len(faults), 1)
+        self.assertIn("oracle reads outside declared paths", faults[0])
+        self.assertIn("docs/secret.md", faults[0])
+        self.assertIs(report["oracle_reads_within_paths"], False)
+        self.assertEqual(report["reads_outside_declared_paths"], {"a": ["docs/secret.md"]})
+
+    def test_reads_inside_declared_paths_pass(self) -> None:
+        faults, report = self._trace("src/a.py", "tests/test_a.py")
+        self.assertEqual(faults, [])
+        self.assertIs(report["oracle_reads_within_paths"], True)
+        self.assertIs(report["read_trace"], True)
+
+    def test_exempt_paths_and_non_reads_are_ignored(self) -> None:
+        # The oracle's own file, VCS, bytecode, runner config, directories,
+        # failed opens, write-only opens and paths outside the checkout.
+        faults, report = self._trace(
+            "tests/test_a.py", ".git/HEAD", "src/__pycache__/a.pyc", "pyproject.toml",
+        )
+        self.assertEqual(faults, [])
+        self.assertIs(report["oracle_reads_within_paths"], True)
+
+    def test_no_strace_and_no_flag_fails_closed(self) -> None:
+        faults, report = self._trace("src/a.py", strace=None)
+        self.assertEqual(len(faults), 1)
+        self.assertIn("strace is not on PATH", faults[0])
+        self.assertIn("--allow-untraced-oracle", faults[0])
+        self.assertIsNone(report["oracle_reads_within_paths"])
+
+    def test_no_strace_with_flag_is_skipped_never_true(self) -> None:
+        faults, report = self._trace("docs/secret.md", strace=None, allow_untraced=True)
+        self.assertEqual(faults, [])
+        self.assertEqual(report["oracle_reads_within_paths"], "skipped:untraced")
+        self.assertEqual(report["read_trace"], "skipped:untraced")
+        self.assertIsNot(report["oracle_reads_within_paths"], True)
+
+    def test_a_packet_without_starts_red_is_not_traced(self) -> None:
+        self.packet["oracle"].pop("starts_red")
+        faults, report = dispatch.trace_oracle_reads(self.checkout, self.packet, self.commands, None)
+        self.assertEqual(faults, [])
+        self.assertIsNone(report["oracle_reads_within_paths"])
+
+    def test_exemptions_are_one_stated_constant(self) -> None:
+        self.assertEqual(dispatch.ORACLE_READ_TRACE_EXEMPT_PREFIXES, (".git/", "__pycache__/", ".venv/"))
+
+    def test_validate_passes_the_flag_through(self) -> None:
+        original = (dispatch.check_oracle_reads, dispatch.check_oracle_attainable)
+        seen: dict = {}
+
+        def fake(repo_root, packet, manifest, allow_untraced=False):
+            seen["allow"] = allow_untraced
+            return [], {"oracle_reads_within_paths": "skipped:untraced", "read_trace": "skipped:untraced"}
+
+        dispatch.check_oracle_reads = fake
+        dispatch.check_oracle_attainable = lambda *a, **k: []
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                packet_path = Path(tmp) / "p.json"
+                self.packet["oracle"]["starts_red"] = ["example.tests"]
+                self.packet["allowed_command_ids"] = ["example.tests"]
+                packet_path.write_text(json.dumps(self.packet), encoding="utf-8")
+                manifest_path = Path(tmp) / "example.dispatch.json"
+                manifest = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+                manifest.setUp()
+                manifest_path.write_text(json.dumps(manifest.manifest), encoding="utf-8")
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out):
+                    code = dispatch.main([
+                        "--repo-root", tmp, "--packet", str(packet_path),
+                        "--agentops-root", str(ROOT), "--allow-untraced-oracle", "validate",
+                    ])
+                self.assertEqual(code, 0, out.getvalue())
+                self.assertTrue(seen["allow"])
+                self.assertEqual(json.loads(out.getvalue())["oracle_reads_within_paths"], "skipped:untraced")
+        finally:
+            dispatch.check_oracle_reads, dispatch.check_oracle_attainable = original
+
+
+class WorkerSessionExportTests(unittest.TestCase):
+    """L-1b: the exported OpenCode session is the record of what the worker
+    actually did; its absence must be recorded, never fatal."""
+
+    STUB = """#!/bin/sh
+if [ "$1" = "export" ] && [ -n "$FAKE_EXPORT_JSON" ]; then
+  printf '%s' "$FAKE_EXPORT_JSON"; exit 0
+fi
+echo "export failed: session $2 not found" >&2
+exit 1
+"""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        root = Path(self.tmp.name)
+        self.opencode = root / "bin" / "opencode"
+        self.opencode.parent.mkdir()
+        self.opencode.write_text(self.STUB, encoding="utf-8")
+        self.opencode.chmod(0o755)
+        self.worktree = root / "wt" / "T-1"
+        self.worktree.mkdir(parents=True)
+        self.destination = self.worktree.parent / "T-1.worker-session.json"
+        self.addCleanup(os.environ.pop, "FAKE_EXPORT_JSON", None)
+
+    def test_export_success_is_recorded_with_sha256(self) -> None:
+        body = json.dumps({"id": "ses_1", "messages": [{"role": "user"}]})
+        os.environ["FAKE_EXPORT_JSON"] = body
+        record = dispatch.export_worker_session(str(self.opencode), "ses_1", self.destination, self.worktree)
+        self.assertEqual(record["path"], str(self.destination))
+        self.assertEqual(record["sha256"], hashlib.sha256(body.encode()).hexdigest())
+        self.assertEqual(self.destination.read_text(encoding="utf-8"), body)
+        self.assertNotIn("error", record)
+
+    def test_export_failure_is_recorded_without_failing(self) -> None:
+        record = dispatch.export_worker_session(str(self.opencode), "ses_missing", self.destination, self.worktree)
+        self.assertIn("session ses_missing not found", record["error"])
+        self.assertNotIn("path", record)
+        self.assertFalse(self.destination.exists())
+
+    def test_unknown_session_is_recorded_as_an_error(self) -> None:
+        record = dispatch.export_worker_session(str(self.opencode), None, self.destination, self.worktree)
+        self.assertIn("no session id", record["error"])
+
+    def test_a_contained_worker_is_exported_as_that_identity(self) -> None:
+        calls: list[list[str]] = []
+        original = dispatch.subprocess.run
+
+        def fake_run(argv, **kw):
+            calls.append(list(argv))
+            return subprocess.CompletedProcess(argv, 0, "{}", "")
+
+        dispatch.subprocess.run = fake_run
+        try:
+            dispatch.export_worker_session("opencode", "ses_1", self.destination, self.worktree, "worker")
+        finally:
+            dispatch.subprocess.run = original
+        self.assertEqual(calls[0][:4], ["sudo", "--non-interactive", "--user", "worker"])
 
 
 class ChurnVerdictTests(unittest.TestCase):

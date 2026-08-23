@@ -201,6 +201,7 @@ def drive(
     receipt_path = worktree.parent / f"{packet['task_id']}.receipt.json"
     report["receipt_path"] = str(receipt_path)
     gate_receipt: dict[str, Any] | None = None
+    worker_session: dict[str, Any] | None = None
 
     for step in STEPS:
         cmd = hybrid_cmd(step, packet_path, repo_root, python_bin, passthrough)
@@ -224,6 +225,10 @@ def drive(
             entry["receipt"] = parsed
         elif completed.stdout:
             entry["stdout_tail"] = completed.stdout.strip()[-4000:]
+        if step == "run" and parsed is not None:
+            # The worker transcript lives beside the receipt; the PR body has to
+            # say where, or a reviewer reading the PR cannot find it.
+            worker_session = parsed.get("worker_session")
         if step == "gate":
             disposition = parsed.get("disposition") if parsed else None
             entry["disposition"] = disposition
@@ -247,6 +252,7 @@ def drive(
             final = parsed if parsed is not None else {"raw_stdout": completed.stdout}
             final = dict(final)
             final["gate"] = gate_receipt
+            final["worker_session"] = worker_session
             final["driver_steps"] = [
                 {k: v for k, v in s.items() if k != "command"} for s in report["steps"]
             ]
