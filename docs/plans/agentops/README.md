@@ -14,6 +14,15 @@ These files live in the `/projects/dev/agentops` repo. Treat this repo as the co
   now implemented in owner source (`actionq` 0.1.26); the operator rollout and
   federation extraction remain incomplete and separately gated.
 
+## Current hand-off backlogs (2026-08-23, draft)
+
+- `2026-08-23-handoff-loop-and-telemetry.md` - hand-off backlog from the vuoro
+  requirements pathway (`vuoro/docs/plans/2026-08-23-requirements-pathway-v5-v7.md`,
+  G3.1 / G4, decisions D-8, D-9): Track T workflow telemetry (v4.1, starts
+  before v5) and Track L unattended hand-off loop (v7, L-1 early). Consumer is
+  the orchestration-planning session; the pathway itself is still draft for
+  owner ratification and authorizes nothing.
+
 ## Current supporting mapping
 
 - `volatile-context-native-runtime-integration-mapping-2026-08-20.md` - current
