@@ -38,10 +38,16 @@ EXPLICIT_URL = "https://example.invalid/explicit/repo.git"
 BRANCH = "hybrid/t-driver"
 BASE_BRANCH = "trunk-never-pushed"
 
-#: The three things the PR step does, in order. ``report["pr"]`` names one of
-#: these when the step fails, so a reader of a failed report can tell "the
-#: remote would not add" from "the push was rejected" from "gh refused".
-PR_STEP_NAMES = ("remote-add", "push", "pr-create")
+#: The things the PR step does, in order. ``report["pr"]`` names one of these
+#: when the step fails, so a reader of a failed report can tell "the commit
+#: would not be made" from "the remote would not add" from "the push was
+#: rejected" from "gh refused".
+#:
+#: M-9 superseded the three names M-8 shipped: the branch M-8 pushed still
+#: pointed at ``starting_commit``, so the driver now commits the worktree
+#: first. Do not restore the three-name tuple — the commit leads, and
+#: test_dispatch_release_commit.py pins that order against the driver.
+PR_STEP_NAMES = ("commit", "remote-add", "push", "pr-create")
 
 #: git subcommands and flags that write. None of them may run against the
 #: coordinator checkout: resolution is read-only.
@@ -76,7 +82,7 @@ class FakeRunner:
     ``resolve_url`` is what a read-only origin query answers with; ``None``
     makes every such query fail the way it does in a checkout with no remote.
     ``exits`` is keyed by stage name, by ``gh``, and by the PR step names in
-    ``PR_STEP_NAMES``, so a fixture can fail exactly one of the three.
+    ``PR_STEP_NAMES``, so a fixture can fail exactly one of them.
     """
 
     def __init__(

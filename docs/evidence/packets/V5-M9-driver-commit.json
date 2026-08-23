@@ -1,0 +1,124 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-M9-driver-commit",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 2,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "templates/dispatch/tests/test_dispatch_release_commit.py decides correctness: ten fixtures, and nothing outside dispatch_release.py. Written from the spec row by an author with no access to any implementation. The real-git proof lives in test_realgit_dispatch_commit.py, outside the traced glob, and is checked at the section 4.6 merge-preview instead.",
+    "starts_red": [
+      "agentops.dispatch.tests.commit"
+    ]
+  },
+  "attempt": 1,
+  "starting_commit": "f77175a0ede7bfc2932c98b42399828c8eb1092b",
+  "purpose": "Make the L-1 driver commit the worker's diff before it pushes, in templates/dispatch/scripts/dispatch_release.py. M-8 added the remote and the push and both work, but the branch still points at the packet's starting_commit because nothing commits the worker's work: post_gates reads the diff from the working tree with git diff --name-only <starting_commit>, and it stays uncommitted. Two dispatches pushed branches that carried nothing. Change PR_STEP_NAMES to (\"commit\", \"remote-add\", \"push\", \"pr-create\") -- the order is the contract. In the PR step only, when the disposition is candidate and this is not a dry run, and BEFORE the remote is added, commit everything in the worktree onto the packet's branch with cwd set to the worktree. Capture files the worker created as well as files it changed: a worker that adds a file must not have it silently dropped. Stage and commit nothing outside the worktree. The commit message must contain the packet's task_id and the short starting_commit. The commit must succeed on a host with NO configured git identity -- the worktree is a clone and user.name/user.email may be set nowhere, so supply an identity for this commit instead of depending on the environment. Afterwards the branch tip must be a new commit whose parent is starting_commit, and its diff against starting_commit must list exactly the paths the gate reported as touched. A failed commit sets report[\"pr\"][\"failed_step\"] to \"commit\", writes exactly one workflow.escalation whose metadata step is \"pr\", exits non-zero, and never reaches remote-add, push or gh. report[\"pr\"] records the resulting commit sha. A dry run commits nothing. A non-candidate disposition and every L-2 stop condition reach neither the commit nor anything after it. Change nothing else: STEPS, RETRY_STEPS, STOP_CONDITIONS, MAX_GATE_ATTEMPTS, the L-4 retry, the L-2 stop conditions, default_artifacts_root, the never-merge property and the rest of the M-8 PR step all stay exactly as they are.",
+  "readable_context_paths": [
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/tests/test_dispatch_release_commit.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/dispatch_release.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "PR_STEP_NAMES leads with the commit and keeps the other three in order",
+    "a candidate run commits the worktree onto the packet branch before the remote is added",
+    "the commit captures created files as well as changed ones, and nothing outside the worktree",
+    "the commit succeeds with no git identity configured on the host",
+    "the branch tip parents starting_commit and its diff lists exactly the touched paths",
+    "a failed commit escalates once as the pr step and never reaches remote-add, push or gh",
+    "a dry run, a non-candidate disposition and every stop condition reach no commit"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "the commit leads the PR step",
+      "command_id": "agentops.dispatch.tests.commit",
+      "fails_when": "PR_STEP_NAMES does not start with commit, or the commit runs after the remote is added"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "the worker's work actually reaches the branch",
+      "command_id": "agentops.dispatch.tests.commit",
+      "fails_when": "the branch tip is still starting_commit, a created file is dropped, or the diff does not match the touched paths"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "the commit does not depend on host git config",
+      "command_id": "agentops.dispatch.tests.commit",
+      "fails_when": "the commit fails when no user.name or user.email is configured"
+    },
+    {
+      "id": "REQ-004",
+      "requirement": "a failed commit is a stop, not a silent skip",
+      "command_id": "agentops.dispatch.tests.commit",
+      "fails_when": "failed_step is not commit, the escalation is not written once as the pr step, or anything runs after it"
+    },
+    {
+      "id": "REQ-005",
+      "requirement": "nothing that is not a real hand-off commits",
+      "command_id": "agentops.dispatch.tests.commit",
+      "fails_when": "a dry run, a non-candidate disposition or any stop condition produces a commit"
+    },
+    {
+      "id": "REQ-006",
+      "requirement": "no other driver contract regresses",
+      "command_id": "agentops.dispatch.tests.commit",
+      "fails_when": "any fixture in the L-1, L-2, L-4, M-8 or M-6b driver oracles fails"
+    }
+  ],
+  "non_goals": [
+    "the PR body's size, which is M-10",
+    "hybrid_dispatch.py, the packet schema, the manifest or the dispatch policy",
+    "anything outside templates/dispatch/scripts/dispatch_release.py"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.commit"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 500000,
+    "hard_token_ceiling": 1000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 8,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-m9-driver-commit",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  }
+}

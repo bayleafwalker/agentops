@@ -101,6 +101,30 @@ the worker's. Rulings:
   code change once the coordinator has written its oracle from freeze Amendment 2.
 - Devbox needed `gh auth setup-git` for the push; recorded so it is not rediscovered.
 
+## 3c. Amendment 3 (2026-08-23, after M-9 ×3 zero-diff) — three defects, none the tier
+
+Cause chain: committed driver reports embed worker stdout as one JSON line (up to 288 KB) →
+ripgrep's 64 KB record limit errors on any repo-wide grep inside the worker's full clone →
+failed tool calls spent `max_reasoning_steps_without_mutation: 8` → our own guard killed the
+run. Separately, devbox's immutable policy was pinned to an unmerged agentops rev, so the L-4
+hand-pass never reached it (gitops-nixos #17 repins to main `027dc03`; owner merges + deploys
+with `./scripts/deploy-host.sh --host devbox --target-host devbox-deploy`).
+
+Rulings:
+- **M-10 respecified.** Worker stdout → `worker-stdout.txt` (newlines preserved), never inside
+  JSON. `docs/evidence/receipts/` and `docs/evidence/scorecards/` carry a `.ignore` file so
+  ripgrep skips them in every clone. Same packet rewrites the seven existing reports (stdout
+  extracted to `.txt`). Secret scan before commit stays.
+- **Churn guard:** a failed tool call spends no step; limit 12 on full-clone workspaces.
+  Policy file is protected → part of the next coordinator hand-pass, together with the driver
+  passing `--agentops-root`.
+- **Rule 11 — the reading list is part of the packet shape.** `readable_context_paths` =
+  what the oracle reads + the writable file, nothing more; an oracle whose glob pulls in
+  sibling oracles is mis-scoped and gets its own fixture dir. The read-trace is the measure:
+  declared list must match the trace, not exceed it.
+- Order: hand-pass (churn, `--agentops-root`) → owner deploys #17 → M-10 (new spec) → M-9
+  unchanged re-dispatch → M-11 → T-6/T-7 → L-5.
+
 ## 3. Packets to freeze and run, in order
 
 Each row: what the oracle must assert, the writable file, and the spec source. Write the
