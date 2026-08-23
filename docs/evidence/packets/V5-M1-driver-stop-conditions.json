@@ -1,0 +1,126 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-M1-driver-stop-conditions",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 2,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "templates/dispatch/tests/test_dispatch_release_stops.py decides correctness. It was written from the M-1 spec row by an author with no access to any implementation, and it is the only judge of this packet.",
+    "starts_red": [
+      "agentops.dispatch.tests.l2"
+    ],
+    "reference_patch": "docs/evidence/packets/V5-M1-driver-stop-conditions.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "31f6fa562c852780ad6548b53cf21446f8efb6e0",
+  "purpose": "Encode the four L-2 stop conditions in the L-1 driver templates/dispatch/scripts/dispatch_release.py. Today the driver stops only when a stage exits non-zero; it has no notion of a stop condition. Add a module constant STOP_CONDITIONS = (\"release-boundary\", \"command-not-allowed\", \"path-outside-writable\", \"gate-red-twice\") in that order, an optional keyword-only drive() parameter attempts_path: Path | None = None defaulting to worktree.parent / f\"{task_id}.attempts.json\", and a \"stop\" key in the report that is None when nothing fired and otherwise a dict carrying at least \"condition\" (one of STOP_CONDITIONS) and \"detail\" (a string naming the offending values). Any fired condition must: return a non-zero exit code, write exactly one workflow.escalation through the existing write_escalation path with \"stop_condition\" in its metadata, and never invoke gh. release-boundary and command-not-allowed have a pre-flight form checked before any stage runs, so report[\"steps\"] is empty; command-not-allowed and path-outside-writable also have a post-gate form checked after the gate stage and before the PR step. gate-red-twice needs a small JSON ledger at attempts_path keyed by starting_commit: the first red gate is recorded and is NOT a stop (existing behaviour survives -- PR skipped with a reason, exit 0), the second red gate on the same packet and starting_commit stops. A gate is red when the gate stage exited non-zero, or its disposition is not \"candidate\", or its evidence says passed is false. Gate evidence is nested under receipt[\"evidence\"] in a real receipt and flat at the top level in a stubbed one -- read both shapes. Change nothing else in the file: STEPS, the PR command, the never-merge property and the existing report keys all stay exactly as they are.",
+  "readable_context_paths": [
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/tests/test_dispatch_release_stops.py",
+    "templates/dispatch/tests/test_dispatch_release.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/dispatch_release.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "STOP_CONDITIONS names the four conditions in the order the spec row lists them",
+    "a fired condition exits non-zero, escalates once to workflow.escalation with stop_condition in the metadata, and never opens a PR",
+    "release-boundary and an unallowed command id in the packet are caught before any stage runs",
+    "an unallowed command id in the gate's command_results and a touched path outside writable_patch_paths are caught after the gate and before the PR",
+    "the second red gate on the same packet and starting_commit stops; the first is only recorded",
+    "the existing L-1 oracle keeps passing unchanged"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "the stop-condition vocabulary is fixed and ordered",
+      "command_id": "agentops.dispatch.tests.l2",
+      "fails_when": "STOP_CONDITIONS is absent, is not a tuple, or names the conditions in another order"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "a release boundary is refused before a worker is ever spent",
+      "command_id": "agentops.dispatch.tests.l2",
+      "fails_when": "release_boundary true runs a stage, exits 0, or fails to escalate"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "a command id outside allowed_command_ids stops the sequence",
+      "command_id": "agentops.dispatch.tests.l2",
+      "fails_when": "an unallowed id in the packet or in the gate's command_results reaches the PR step"
+    },
+    {
+      "id": "REQ-004",
+      "requirement": "a touched path outside writable_patch_paths stops before the PR",
+      "command_id": "agentops.dispatch.tests.l2",
+      "fails_when": "an out-of-scope touched path is reported as a skipped PR instead of a stop, in either receipt shape"
+    },
+    {
+      "id": "REQ-005",
+      "requirement": "a packet gets one red gate, not two",
+      "command_id": "agentops.dispatch.tests.l2",
+      "fails_when": "the attempt ledger is not written, or a second red gate on the same starting_commit does not stop"
+    },
+    {
+      "id": "REQ-006",
+      "requirement": "the L-1 hand-off contract is unchanged",
+      "command_id": "agentops.dispatch.tests.l1",
+      "fails_when": "any of REQ-001..REQ-005 of the L-1 oracle regresses"
+    }
+  ],
+  "non_goals": [
+    "the L-4 retry policy (that is the next packet)",
+    "hybrid_dispatch.py, the packet schema, the manifest or the dispatch policy",
+    "anything outside templates/dispatch/scripts/dispatch_release.py"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.l2",
+    "agentops.dispatch.tests.l1"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 500000,
+    "hard_token_ceiling": 1000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 8,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-m1-driver-stop-conditions",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  }
+}
