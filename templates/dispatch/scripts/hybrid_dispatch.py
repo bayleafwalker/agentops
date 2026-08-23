@@ -583,6 +583,11 @@ def build_overlay(
     overlay = {
         "$schema": base_config.get("$schema", "https://opencode.ai/config.json"),
         "model": model,
+        # OPENCODE_CONFIG_CONTENT is the complete session config, so retain
+        # the coordinator-declared provider registry when narrowing the
+        # worker's permissions. Without this, a project route such as
+        # local3090/worker-fast is rendered as an unknown model.
+        **({"provider": base_config["provider"]} if "provider" in base_config else {}),
         "permission": dict(permission),
         "agent": {
             agent_name: {
