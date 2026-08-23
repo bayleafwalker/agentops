@@ -107,6 +107,7 @@
     "Harness defects: the workspace group was inert so every worker write was denied (the 1.07M-token run); context_churn was declared in every packet and enforced nowhere; exit 127 was accepted as a declared red, so a packet ran against an oracle its workspace did not contain.",
     "Coordinator defects, all one gap: the oracle demanded a seam the packet did not state; the oracle covered the whole T-set when the packet covered one item; the oracle did not exist at starting_commit. Nothing checks that a packet's oracle is ATTAINABLE from its own text and its own starting commit -- validate checks discrimination only. This is the top L-2 item.",
     "The tier question is answered in the tier's favour: given one outcome, one writable file and one achievable failing test, opencode-go/deepseek-v4-flash produced correct scoped work for $0.014.",
-    "D-8's count is 1 of 5, and it starts here: no earlier run was ever evidence about the tier."
-  ]
+    "D-8's count is 1 of 5. Only attempt 7 was ever evidence about the tier: attempts 1-6 failed on harness or packet defects, so they measured the coordinator, not the model."
+  ],
+  "attribution_note": "The 'packet, not tier' diagnosis after attempt 4 was the owner's, made from the receipt alone. The receipt could not distinguish 'flash will not write' from 'the oracle is unattainable', so it was a plausible reading rather than evidence -- it happened to be right. Attempt 7 earned the claim. Recorded because D-8 counts runs that were evidence about the tier, and exactly one was."
 }
