@@ -30,6 +30,18 @@
         "websearch": "deny"
       }
     },
+    "ao-bindery-external-runtime-w0": {
+      "description": "Project-scoped mechanical implementation for bindery-core W0; no authority, credentials, network, or oracle ownership.",
+      "mode": "primary",
+      "model": "local3090/worker-fast",
+      "temperature": 0,
+      "permission": {
+        "task": "deny",
+        "external_directory": "deny",
+        "webfetch": "deny",
+        "websearch": "deny"
+      }
+    },
     "ao-bounded-semantic": {
       "description": "Assessment-only bounded semantic implementation; no production route authority.",
       "mode": "primary",

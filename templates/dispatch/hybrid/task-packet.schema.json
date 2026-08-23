@@ -73,7 +73,8 @@
     "route": {
       "type": "string",
       "enum": [
-        "mechanical_bulk"
+        "mechanical_bulk",
+        "bindery_external_runtime_w0"
       ]
     },
     "task_class": {

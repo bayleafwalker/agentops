@@ -80,6 +80,24 @@
       "risk": "low",
       "oracle_ownership": "coordinator"
     },
+    "bindery_external_runtime_w0": {
+      "purpose": "Project-scoped mechanical implementation for bindery-core external-runtime W0 beneath frozen coordinator-authored interfaces and tests.",
+      "mode": "supervised_hybrid",
+      "harness_model": "local3090/worker-fast",
+      "agent": "ao-bindery-external-runtime-w0",
+      "profile_id": "opencode-workstation-local3090-1.18.21",
+      "status": "project_scoped_preflight",
+      "repository_scope": {
+        "kind": "project",
+        "project_ref": "bindery-external-runtime",
+        "repositories": ["2f6f7f1c-0f0c-4dcb-90e7-0f1a4b7f89f2"],
+        "registration": "pending"
+      },
+      "max_attempts": 1,
+      "task_class": "mechanical_implementation",
+      "risk": "low",
+      "oracle_ownership": "coordinator"
+    },
     "bounded_semantic": {
       "purpose": "Behaviourally coupled implementation with frozen interfaces but meaningful semantic uncertainty. Production remains coordinator-owned; Kimi K2.7 is an assessment experiment only.",
       "modes": ["frontier_only"],
@@ -188,6 +206,11 @@
       "state": "admitted_named_pilot",
       "routes": ["mechanical_bulk"],
       "restrictions": ["externally_defined_oracle", "executable_falsifying_gates", "no_authority_or_release_decisions"]
+    },
+    "local3090/worker-fast": {
+      "state": "preflight_observed",
+      "routes": ["bindery_external_runtime_w0"],
+      "restrictions": ["project_scope_only", "contained_identity_required", "provider_qualification_required", "no_authority_or_release_decisions"]
     },
     "opencode-go/kimi-k2.7-code": {
       "state": "experimental",

@@ -67,6 +67,18 @@ def validate_policy(policy: dict[str, Any], worker_config: dict[str, Any]) -> No
 
     agents = worker_config["agent"]
     for name, route in policy["routes"].items():
+        repository_scope = route.get("repository_scope")
+        if repository_scope is not None:
+            if (
+                not isinstance(repository_scope, dict)
+                or repository_scope.get("kind") != "project"
+                or not isinstance(repository_scope.get("project_ref"), str)
+                or not repository_scope.get("project_ref").strip()
+                or not isinstance(repository_scope.get("repositories"), list)
+                or not repository_scope["repositories"]
+                or any(not isinstance(repo_id, str) or not repo_id.strip() for repo_id in repository_scope["repositories"])
+            ):
+                raise ValueError(f"{name}: project repository scope is invalid")
         agent = route.get("agent")
         if agent is None:
             if "modes" not in route:

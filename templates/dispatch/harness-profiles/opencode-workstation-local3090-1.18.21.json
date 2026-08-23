@@ -1,0 +1,112 @@
+{
+  "schema_version": "harness-profile/v1",
+  "profile_id": "opencode-workstation-local3090-1.18.21",
+  "semantic_adapter": "opencode-noninteractive/v1",
+  "host_class": "workstation-local-inference",
+  "worker_identity": "agentworker",
+  "implementation": {
+    "channel": "local-llama-swap",
+    "package": "opencode",
+    "cli_version": "1.18.21"
+  },
+  "invocation": {
+    "command": [
+      "opencode",
+      "run"
+    ],
+    "message_before_file": true,
+    "stdin": "closed"
+  },
+  "policy": {
+    "config_file": "opencode.hybrid.json",
+    "overlay_transport": "OPENCODE_CONFIG_CONTENT"
+  },
+  "lifecycle": {
+    "event_format": "json",
+    "event_stream": "stdout",
+    "session_id_field": "sessionID",
+    "continuation": {
+      "mode": "same-session",
+      "session_flag": "--session",
+      "continue_flag": "--continue",
+      "fork": false
+    },
+    "contained_identity": {
+      "worker_user": "agentworker",
+      "enforced_by": "filesystem-and-uid",
+      "probe": "contained-identity"
+    },
+    "finalizer": {
+      "agent": "ao-finalizer",
+      "tools": [],
+      "same_session": true
+    }
+  },
+  "required_probes": [
+    "cli-version",
+    "run-help",
+    "contained-worktree-model-list",
+    "explicit-tool-enumeration",
+    "message-before-file",
+    "json-events",
+    "stable-session-identity",
+    "session-continuation",
+    "contained-identity",
+    "no-tools-finalizer",
+    "provider-qualification"
+  ],
+  "receipt_fields": [
+    "semantic_adapter",
+    "profile_id",
+    "cli_version",
+    "executable_fingerprint",
+    "channel_revision",
+    "profile_digest",
+    "config_digest",
+    "overlay_digest",
+    "provider_model",
+    "worker_identity",
+    "capability_probe_results",
+    "lifecycle_probe_results",
+    "worker_model",
+    "route_model",
+    "model_override",
+    "workspace_opt_in",
+    "usage_baseline",
+    "usage_observed",
+    "usage_multiplier",
+    "containment_evidence",
+    "qualification_state",
+    "independent_review",
+    "provider_id",
+    "model_id",
+    "provider_contacted",
+    "workspace_evidence",
+    "usage_evidence",
+    "usage_evidence_digest",
+    "containment",
+    "provider_model_evidence",
+    "capability_evidence_digest",
+    "lifecycle_evidence_digest",
+    "evidence_artifacts",
+    "raw_transcript_captured",
+    "cost_usd",
+    "tokens",
+    "attempts",
+    "runner_id",
+    "run_id",
+    "run_nonce",
+    "packet_digest",
+    "runner_record_digest",
+    "evidence_bundle_digest"
+  ],
+  "qualification": {
+    "state": "preflight_observed",
+    "blocking_probes": [
+      "contained-identity",
+      "provider-qualification"
+    ],
+    "receipt_ref": null,
+    "review_ref": null
+  }
+}
