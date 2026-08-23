@@ -660,6 +660,45 @@ class ColdRunAssessmentTests(unittest.TestCase):
             dispatch.validate_packet(self.packet, self.manifest, self.policy)
 
 
+class WorkspaceWritabilityTests(unittest.TestCase):
+    """The check whose absence cost a whole run: a worker went straight for the
+    right three files, was denied on every one, spent 1.07M tokens probing why,
+    and hit its ceiling -- while prepare reported green and run exited 0."""
+
+    def test_no_worker_user_means_the_coordinator_writes(self) -> None:
+        ok, detail = dispatch.worker_can_write_workspace(Path("/tmp"), None)
+        self.assertTrue(ok)
+        self.assertIn("coordinator", detail)
+
+    def test_a_denied_probe_is_reported_as_unwritable(self) -> None:
+        completed = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="Permission denied")
+        original = dispatch.subprocess.run
+        dispatch.subprocess.run = lambda *a, **k: completed
+        try:
+            ok, detail = dispatch.worker_can_write_workspace(Path("/tmp/ws"), "agentworker")
+        finally:
+            dispatch.subprocess.run = original
+        self.assertFalse(ok)
+        self.assertIn("cannot write", detail)
+        self.assertIn("group", detail)
+
+    def test_a_successful_probe_passes(self) -> None:
+        completed = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
+        original = dispatch.subprocess.run
+        dispatch.subprocess.run = lambda *a, **k: completed
+        try:
+            ok, _ = dispatch.worker_can_write_workspace(Path("/tmp/ws"), "agentworker")
+        finally:
+            dispatch.subprocess.run = original
+        self.assertTrue(ok)
+
+    def test_shared_gid_is_a_group_the_worker_is_actually_in(self) -> None:
+        """Setting g+w on a group the worker does not belong to is inert, which
+        is exactly the state that produced the silent failure."""
+        self.assertIsNone(dispatch.worker_shared_gid(None))
+        self.assertIsNone(dispatch.worker_shared_gid("no-such-user-here"))
+
+
 class WorkerSpendTests(unittest.TestCase):
     """`limits.max_cost_usd` was declared everywhere and read by nothing.
 

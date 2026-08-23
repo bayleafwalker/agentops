@@ -22,9 +22,11 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
+import grp
 import hashlib
 import json
 import os
+import pwd
 import re
 import shlex
 import stat
@@ -706,7 +708,32 @@ def safety_ref(repo_root: Path, packet: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def share_workspace_with_group(workspace: Path) -> None:
+def worker_shared_gid(worker_user: str | None) -> int | None:
+    """The gid of the one group the coordinator and the contained worker share.
+
+    Setting the group-write bit is useless unless the group is one the worker is
+    actually in, and the clone lands owned by the coordinator's *primary* group,
+    which it is not. Measured on devbox 2026-08-23: workspace ``agent:agent``
+    mode 775, worker in ``agentworker`` and ``agentdispatch`` -- so every write
+    the worker attempted inside its own workspace failed ``PermissionDenied``
+    while the mode looked correct.
+    """
+    if not worker_user:
+        return None
+    try:
+        worker = pwd.getpwnam(worker_user)
+    except KeyError:
+        return None
+    worker_gids = {worker.pw_gid}
+    mine = set(os.getgroups())
+    for group in grp.getgrall():
+        if worker_user in group.gr_mem:
+            worker_gids.add(group.gr_gid)
+    shared = sorted(worker_gids & mine)
+    return shared[0] if shared else None
+
+
+def share_workspace_with_group(workspace: Path, worker_user: str | None = None) -> None:
     """Make the freshly cloned workspace writable by its owning group.
 
     The workspace root is setgid and group-shared precisely so the coordinator
@@ -727,11 +754,18 @@ def share_workspace_with_group(workspace: Path) -> None:
     Inert where no worker split exists: the workspace is then owned by the
     coordinator's own group and nothing else is in it.
     """
+    gid = worker_shared_gid(worker_user)
     for path in [workspace, *workspace.rglob("*")]:
         try:
             mode = path.lstat().st_mode
             if stat.S_ISLNK(mode):
                 continue
+            # Group ownership first: the write bit means nothing on a group the
+            # worker is not in, which is the state that produced a silent
+            # 1.07M-token run where every edit was denied inside the worker's
+            # own workspace.
+            if gid is not None:
+                os.chown(path, -1, gid)
             path.chmod(stat.S_IMODE(mode) | stat.S_IWGRP)
         except OSError:
             # A single unreadable or racing path is not worth failing the whole
@@ -740,7 +774,48 @@ def share_workspace_with_group(workspace: Path) -> None:
             continue
 
 
-def prepare_workspace(repo_root: Path, packet: dict[str, Any]) -> Path:
+def worker_can_write_workspace(workspace: Path, worker_user: str | None) -> tuple[bool, str]:
+    """Prove the contained worker can actually write the workspace it is given.
+
+    This is the check whose absence cost a whole run. On 2026-08-23 a worker went
+    straight for the right three files, was denied on every one, spent 1.07M
+    tokens probing why, and hit its token ceiling -- while prepare reported a
+    green cold gate and run exited 0. Nothing in the receipt said "the worker
+    could not write", because nothing had asked.
+
+    Asking costs one file. A workspace the worker cannot write is not a
+    dispatchable workspace, and saying so here turns the most expensive failure
+    mode in the system into an immediate, legible one.
+    """
+    if not worker_user:
+        return True, "no worker user: writes happen as the coordinator"
+    probe = workspace / ".agentops-write-probe"
+    try:
+        completed = subprocess.run(
+            ["sudo", "--non-interactive", "--user", worker_user,
+             "touch", str(probe)],
+            capture_output=True, text=True, check=False, timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return False, f"could not run the write probe as {worker_user}: {exc}"
+    finally:
+        try:
+            probe.unlink()
+        except OSError:
+            pass
+    if completed.returncode != 0:
+        detail = (completed.stderr or "").strip()[-400:]
+        return False, (
+            f"{worker_user} cannot write {workspace}: {detail or completed.returncode}. "
+            "Every worker edit would fail inside its own workspace while the mode looks "
+            "correct -- check that the workspace group is one the worker belongs to."
+        )
+    return True, f"{worker_user} can write the workspace"
+
+
+def prepare_workspace(
+    repo_root: Path, packet: dict[str, Any], worker_user: str | None = None,
+) -> Path:
     """Clone the repository into a disposable standalone workspace.
 
     This provides **execution isolation and provenance, not containment.** It
@@ -771,7 +846,10 @@ def prepare_workspace(repo_root: Path, packet: dict[str, Any]) -> Path:
          packet["starting_commit"])
     _git(target, "remote", "remove", "origin")
     reroot_agent_context(target, repo_root)
-    share_workspace_with_group(target)
+    share_workspace_with_group(target, worker_user)
+    writable, detail = worker_can_write_workspace(target, worker_user)
+    if not writable:
+        raise PacketError(f"prepared workspace is not writable by the worker: {detail}")
     return target
 
 
@@ -1233,7 +1311,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "prepare":
             claim_evidence = verify_live_coordinator_claim(repo_root, packet, args.sprintctl_bin)
             safety = safety_ref(repo_root, packet)
-            worktree = prepare_workspace(repo_root, packet)
+            worktree = prepare_workspace(repo_root, packet, args.worker_user)
             cold = run_registered_commands(worktree, packet, manifest)
             cold, green, cold_faults = assess_cold_run(cold, packet)
             _emit(
