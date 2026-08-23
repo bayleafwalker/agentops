@@ -158,4 +158,9 @@ if ! run_stop "sess-c" "$log_c" "$gatedir" "$stub"; then
 fi
 [[ -s "$log_c" ]] || fail "REQ-005: the cost row was lost with auditctl off PATH"
 
+# --- both hooks are registered as commands, so both must be executable ------------------
+for h in "$stop_hook" "$gate_hook"; do
+  [[ -x "$h" ]] || fail "hook is not executable: $h"
+done
+
 printf 'session telemetry hook tests passed\n'

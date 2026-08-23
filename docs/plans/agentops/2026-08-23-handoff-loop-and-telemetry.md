@@ -17,9 +17,14 @@ work but its first packet (L-1) is wanted during v5 so the scorecard has somethi
 - Per-repo routing: `*.dispatch.json` (`action_classes`, `risk_surfaces.required_on_change`).
 - Gates: actionq `verification/run_round_checks.py`, `tests/test_falsifier_coverage.py`,
   `validate_release_contract.py`; hostproto ordered gate list.
-- Cost telemetry: `/projects/dev/.claude/hooks/log-session-cost.sh` → `.claude/session-costs.jsonl`,
-  read by cockpit (`apps/web/lib/cockpit/costs.js`). Registered only in homelab-analytics,
-  appservice, sprintctl — **not** actionq or agentops (AGENTS.md:167 over-claims).
+- Cost telemetry: `agentops/templates/dispatch/hooks/log-session-cost.sh` (symlinked from
+  `/projects/dev/.claude/hooks/`) → `.claude/session-costs.jsonl`, read by cockpit
+  (`apps/web/lib/cockpit/costs.js`). **Landed 2026-08-23 (T-1..T-5):** the hook set moved into
+  the repo — it was in no git repository at all, so no packet could have patched it — and
+  Stop + PostToolUse are now registered in `/projects/dev`, actionq, agentops, appservice,
+  homelab-analytics, kctl and sprintctl; root `AGENTS.md` corrected. (Before the move,
+  registration was homelab-analytics, appservice, sprintctl **and kctl** — four repos, not the
+  three recorded here.)
 - Sink for everything else: `auditctl add --type <free-form> --metadata <json>` (CLI contract
   `auditctl/docs/contracts/publisher-subprocess.md`).
 - Running units: only `session-mechanization-{reconcile,scribe}` timers and
@@ -30,11 +35,11 @@ work but its first packet (L-1) is wanted during v5 so the scorecard has somethi
 
 | # | Item | Gate |
 |---|---|---|
-| T-1 | Extend `log-session-cost.sh` jq object with `turns` (user messages), `assistant_msgs`, `tool_calls`, `duration_s`; keep record backward-compatible for cockpit | cockpit summary still renders; old rows unaffected |
-| T-2 | Register the Stop hook in `actionq/.claude/settings.local.json` and `agentops/.claude/settings.local.json`; fix AGENTS.md:167 claim | session in actionq produces a cost row |
-| T-3 | `PostToolUse` hook (matcher: pytest / run_round_checks / hybrid_dispatch gate / cargo test) appends `{cmd, exit, ts}` to `$SCRATCH/gates.jsonl` | file populated in a gated session |
-| T-4 | Stop hook drains T-3 → `auditctl add --type workflow.session --source claude-hook --ref session:<id> --metadata {turns,cost_usd,gates[],rework_rounds}`; `rework_rounds` = red gate followed by a retry of the same cmd | auditctl row present |
-| T-5 | `/friction` skill → `auditctl add --type workflow.friction --summary "<note>"` | one note recorded |
+| T-1 | **DONE.** `log-session-cost.sh` emits `turns`, `assistant_msgs`, `tool_calls`, `duration_s`, all derived from the transcript (the Stop payload carries none of them) | cockpit summary still renders; old rows unaffected — verified against `cost-summary.sh` and `costs.js`, both field-selective |
+| T-2 | **DONE.** Stop + PostToolUse registered in `/projects/dev`, actionq, agentops, appservice, homelab-analytics, kctl, sprintctl; root `AGENTS.md` §"Session workflow telemetry" rewritten | a session in actionq produces a cost row |
+| T-3 | **DONE.** `gate-log.sh` (PostToolUse, matcher `Bash`) appends `{ts, cmd, exit, signal, ok}` to `$AGENTOPS_GATE_LOG_DIR/gates-<session>.jsonl`. **Correction:** the Bash tool result carries **no exit code** (verified across transcripts), so each row records which signal decided its verdict — `exit_code`, `is_error`, `interrupted` or `heuristic` — and a consumer needing certainty reads `signal`, not `ok` | file populated in a gated session |
+| T-4 | **DONE.** Stop hook drains T-3 → `auditctl add --type workflow.session --source claude-hook --actor claude-hook --summary … --metadata {session,turns,cost_usd,gates[],rework_rounds,…}`; `rework_rounds` = red gate followed by a later retry of the same cmd. **Two corrections:** `--actor` and `--summary` are *required* by the CLI, and `--ref session:<id>` is **rejected** (only `wi:`/`ka:`/`ad:`/`sha:`/`pr:`/`sprint:`/`capsule:` prefixes are allowed), so the session id travels in the metadata. The hook also defaults `AUDITCTL_ARTIFACTS_ROOT=/projects/dev`, since a Stop hook inherits no direnv | auditctl row present — **observed**: `ad:01M0PSA6TX8KD9XB3A9MJ8JRA8`, `rework_rounds: 1` from a red-then-retry pair |
+| T-5 | **DONE.** `/friction` skill at `templates/dispatch/skills/friction/`, symlinked into `~/.claude/skills/` so it is invocable from every repo | one note recorded |
 | T-6 | `scripts/release_scorecard.py <tag-range>`: frontier turns, cost, cheap-tier first-pass rate, escalations, rework, per release; writes `docs/evidence/scorecards/<release>.json` | v5 scorecard produced from hook data alone |
 | T-7 | "Worse" detector in T-6: flags rework↑ or escalations↑ or turns-flat-cost↑ for two consecutive releases | unit test on synthetic series |
 
@@ -53,11 +58,13 @@ sinks is accepted for v4.1; `sync-devbox.sh` dedups cost rows already.
 | L-5 | Release-unit packet template: one packet per pathway sub-release with its gate set (pathway §5) pre-filled | example packet validates |
 | L-6 | D-9 pilot design (Restate on appservice; one actionq review round as 4–8 parallel packets) — **design only**, separately authorized before any manifest lands (memory `orchestration-restate-pilot`) | design doc reviewed |
 
-Sequence: T-1..T-5 (one packet) → L-1 → L-2 → T-6/T-7 → L-5 → L-3/L-4 → L-6.
+Sequence: T-1..T-5 (**done 2026-08-23**) → L-1 → L-2 → T-6/T-7 → L-5 → L-3/L-4 → L-6.
 
 ## Packet notes
 
-Track T `writable_patch_paths`: `/projects/dev/.claude/hooks/`, per-repo
-`.claude/settings.local.json` (untracked — the packet must say so, or the untracked-file guard
-misreads it), `agentops/scripts/`, `agentops/docs/evidence/scorecards/`. Track L:
+Track T `writable_patch_paths`: `templates/dispatch/hooks/**` (the hook set lives there now;
+`/projects/dev/.claude/hooks/` holds symlinks and is in no repository, so it can never be a
+patch path), `templates/dispatch/skills/friction/**`, `agentops/scripts/`,
+`agentops/docs/evidence/scorecards/`. Per-repo `.claude/settings.local.json` is untracked and
+outside every worktree — registration stays a hand step, excluded from any packet. Track L:
 `templates/dispatch/scripts/`, `templates/dispatch/manifest.schema.json`, `tests/`.
