@@ -182,6 +182,18 @@ summary_script="$tmp/cost-summary.sh"
 sed "s|^LOG=.*|LOG=\"$summary_log\"|" "$hooks_dir/cost-summary.sh" > "$summary_script"
 out="$(bash "$summary_script")"
 grep -q "sessions=2" <<<"$out" || fail "read side: rows were counted as sessions ($out)"
+
+# `ts` has one-second resolution, so two stops can tie. The snapshots are monotonic, so the
+# largest is the latest; picking by input order would under-report the session.
+tie_log="$tmp/tie.jsonl"
+cat > "$tie_log" <<'ROWS'
+{"ts":"2026-08-23T10:00:00Z","project":"p","session":"t1","model":"opus","in":9,"cache_write":0,"cache_read":0,"out":9,"cost_usd":9.0}
+{"ts":"2026-08-23T10:00:00Z","project":"p","session":"t1","model":"opus","in":1,"cache_write":0,"cache_read":0,"out":1,"cost_usd":1.0}
+ROWS
+tie_script="$tmp/tie-summary.sh"
+sed "s|^LOG=.*|LOG=\"$tie_log\"|" "$hooks_dir/cost-summary.sh" > "$tie_script"
+tie_out="$(bash "$tie_script")"
+grep -q 'total=\$9' <<<"$tie_out" || fail "read side: a tied timestamp picked the smaller snapshot ($tie_out)"
 grep -q 'total=\$5' <<<"$out" || fail "read side: superseded rows were summed instead of reduced ($out)"
 
 # --- REQ-005: auditctl absent ----------------------------------------------------------

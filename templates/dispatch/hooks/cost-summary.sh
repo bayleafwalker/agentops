@@ -10,9 +10,15 @@ FILTER="${1:-.}"
 
 # The Stop hook fires once per assistant turn and each record is a cumulative snapshot of the
 # session so far, so rows for one session supersede each other. Reduce to the newest row per
-# session before aggregating: summing every row over-counts roughly quadratically.
+# session before aggregating: summing every row over-counts roughly quadratically (measured
+# 2026-08-23: $56,485 summed against $3,825 actual across 97 sessions).
+#
+# Ties are broken by cost rather than by input order: `ts` has one-second resolution, so two
+# stops in the same second are indistinguishable by timestamp, and the snapshots are
+# monotonic — the largest is the latest. Sorting on ts alone could otherwise pick the smaller
+# of a tied pair and silently under-report the session.
 jq -rs --arg filter "$FILTER" '
-  group_by(.session) | map(sort_by(.ts) | last)
+  group_by(.session) | map(sort_by([.ts, .cost_usd, .out]) | last)
   | [ .[] | select(.project | test($filter)) ]
   | group_by(.project)[]
   | {
