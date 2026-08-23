@@ -81,6 +81,15 @@ class PolicyContractTests(unittest.TestCase):
         self.assertNotIn("local3090/worker-fast", self.policy["qualification"]["models"])
         self.assertEqual(self.policy["qualification"]["default"], "unqualified")
 
+    def test_bindery_worker_config_declares_its_local_provider(self) -> None:
+        provider = self.worker_config["provider"]["local3090"]
+        self.assertEqual(provider["npm"], "@ai-sdk/openai-compatible")
+        self.assertEqual(provider["options"]["baseURL"], "http://127.0.0.1:8020/v1")
+        self.assertEqual(provider["models"]["worker-fast"]["limit"], {
+            "context": 32768,
+            "output": 8192,
+        })
+
     def test_worker_is_denied_state_bearing_authority(self) -> None:
         denied = self.policy["worker"]["denied_authority"]
         for authority in ("git", "sprintctl", "kctl", "actionq", "acceptance or merge"):
