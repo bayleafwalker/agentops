@@ -19,7 +19,7 @@
     ]
   },
   "attempt": 1,
-  "starting_commit": "775ce5f1558ea3ce1824167aea2d6eac2d4d4996",
+  "starting_commit": "8b1c8b9d63acf80e921b2a08c94d45c0f811b91c",
   "purpose": "Add four fields to the JSON object log-session-cost.sh already emits: turns (user messages), assistant_msgs, tool_calls, duration_s, all derived from the transcript file the hook already reads. Also make the output log path overridable with AGENTOPS_COST_LOG, defaulting to the current hardcoded path, so the test can point the hook at a temp file. Change nothing else: every existing field keeps its name, position and type.",
   "readable_context_paths": [
     "templates/dispatch/hooks/log-session-cost.sh",
