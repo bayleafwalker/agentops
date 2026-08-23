@@ -156,6 +156,25 @@ def validate_manifest_hybrid(manifest: dict[str, Any], policy: dict[str, Any], p
             f"{path}: hybrid dispatch requires scope.allowed_path_roots to bound "
             "writable packet paths"
         )
+    # L-3 (D-8): self_candidate is a manifest-level grant, so it must be a
+    # literal boolean on an enabled class that is actually a worker route, and
+    # it must carry its provenance -- a flip without a ruling is unreviewable.
+    classes = (manifest.get("routing") or {}).get("action_classes") or {}
+    for name, entry in classes.items():
+        flag = entry.get("self_candidate", False)
+        if not isinstance(flag, bool):
+            raise ValueError(f"{path}: action class {name} self_candidate must be a boolean")
+        if flag:
+            if not entry.get("enabled", False):
+                raise ValueError(f"{path}: action class {name} is self_candidate but not enabled")
+            if name not in worker_routes:
+                raise ValueError(
+                    f"{path}: action class {name} is self_candidate but is not a hybrid worker route"
+                )
+            if not str(entry.get("self_candidate_ruling", "")).strip():
+                raise ValueError(
+                    f"{path}: action class {name} is self_candidate without a self_candidate_ruling"
+                )
     soft_tokens = hybrid.get("soft_token_ceiling")
     hard_tokens = hybrid.get("hard_token_ceiling")
     if not isinstance(soft_tokens, int) or not isinstance(hard_tokens, int):

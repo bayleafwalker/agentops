@@ -1703,6 +1703,22 @@ def post_gates(
     }
 
 
+def self_candidate_class(packet: dict[str, Any], manifest: dict[str, Any]) -> str | None:
+    """The action class that lets this packet mint a candidate without a review
+    record, or None.
+
+    L-3 (D-8): ``routing.action_classes[<route>].self_candidate`` is the only
+    place that authority lives. The packet cannot claim it for itself, the
+    policy does not grant it per route, and a class that has not been flipped
+    in the manifest keeps the review-record requirement exactly as before.
+    """
+    classes = (manifest.get("routing") or {}).get("action_classes") or {}
+    entry = classes.get(packet["route"]) or {}
+    if entry.get("enabled", False) and entry.get("self_candidate", False) is True:
+        return packet["route"]
+    return None
+
+
 def load_independent_review(path: Path, packet: dict[str, Any]) -> dict[str, Any]:
     """Validate the coordinator's independent review record for a packet.
 
@@ -2036,6 +2052,11 @@ def main(argv: list[str] | None = None) -> int:
             review = None
             if evidence["passed"] and args.review_record is not None:
                 review = load_independent_review(args.review_record, packet)
+            # L-3: a self_candidate class needs no record when every evidence
+            # gate is green. Any red gate, or any other class, is unchanged.
+            self_class = self_candidate_class(packet, manifest)
+            if evidence["passed"] and review is None and self_class is not None:
+                review = {"mode": "self_candidate", "class": self_class, "basis": "manifest"}
             disposition = (
                 "candidate" if evidence["passed"] and review is not None
                 else "coordinator_review_required"

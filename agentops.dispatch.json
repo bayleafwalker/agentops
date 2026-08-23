@@ -28,6 +28,13 @@
       "reconcile": {
         "enabled": true,
         "model_alias": "review-synthesis"
+      },
+      "mechanical_bulk": {
+        "enabled": true,
+        "harness": "opencode",
+        "model_alias": "fast-build",
+        "self_candidate": true,
+        "self_candidate_ruling": "Owner ruling 2026-08-23 (L-3 / D-8): human approval is perpendicular to the loop -- review happens at release, architecture and style boundaries, not per mechanical packet. A green evidence gate on this class disposes candidate without a per-packet independent review record; D-8's >=5-green-first-pass-with-0-escalations rule governs which classes qualify."
       }
     }
   },
