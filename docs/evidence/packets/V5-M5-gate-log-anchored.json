@@ -1,0 +1,118 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-M5-gate-log-anchored",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 2,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "templates/dispatch/hooks/tests/test-gate-log.sh decides correctness. Its REQ-005 block was written from the M-5 spec row by an author with no access to any implementation, and it also keeps every assertion the T-3 oracle already made.",
+    "starts_red": [
+      "agentops.hooks.tests.t3"
+    ],
+    "reference_patch": "docs/evidence/packets/V5-M5-gate-log-anchored.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "13a2ad5b9c391ac466838265bb22bfe6a241ba0f",
+  "purpose": "Anchor the gate matcher in templates/dispatch/hooks/gate-log.sh to the command word. Today GATE_PATTERN is matched anywhere in the command string, so 'echo pytest-is-not-here-as-a-command-word' and 'git commit -m \"fix pytest fixture\"' both append a gate row. Nothing ran in either case, and each spurious row inflates the rework-round count the Stop hook drains into auditctl. Change the match, and only the match. A gate tool name counts when it sits on shell-word boundaries: preceded by the start of the string, whitespace, a shell separator, or a path component so 'python scripts/hybrid_dispatch.py --packet p.json gate' still counts, and followed by whitespace, a separator, or the end of the string -- optionally with an executable script suffix, so 'python verification/run_round_checks.py' still counts while 'cat pytest.ini' does not. Text inside single or double quotes is an argument to something else and must be dropped before matching. The AGENTOPS_GATE_PATTERN override selects which names are gates and is matched under the same anchoring rule; it is not an escape hatch from it. The row that gets written must still carry the ORIGINAL command in .cmd, not the stripped form. Everything else stays exactly as it is: the row shape {ts, cmd, exit, signal, ok}, the signal attribution ladder, the compound-command refusal with signal unattributable and ok null, the per-session gates-<session>.jsonl file, the jq dependency, and exiting 0 in every case including when the command does not match.",
+  "readable_context_paths": [
+    "templates/dispatch/hooks/gate-log.sh",
+    "templates/dispatch/hooks/tests/test-gate-log.sh"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/hooks/gate-log.sh"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/**",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/hooks/tests/**",
+    "templates/dispatch/tests/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "a gate tool name only counts as the command word, not as an argument or as part of a longer word",
+    "text inside quotes never makes a command a gate",
+    "a path prefix and an executable script suffix still leave the name a command word",
+    "the AGENTOPS_GATE_PATTERN override is matched under the same anchoring rule",
+    "every assertion the T-3 oracle already made still holds, including the row shape and the original .cmd"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "a real gate command still appends exactly one well-formed row",
+      "command_id": "agentops.hooks.tests.t3",
+      "fails_when": "any of pytest, cargo test, run_round_checks, unittest discover or hybrid_dispatch gate stops producing its row"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "a mention is not a gate",
+      "command_id": "agentops.hooks.tests.t3",
+      "fails_when": "a tool name inside a quoted string, glued into a longer word, or used as a bare argument appends a row"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "the compound-command refusal is untouched",
+      "command_id": "agentops.hooks.tests.t3",
+      "fails_when": "a piped or && command stops recording signal unattributable with ok null"
+    },
+    {
+      "id": "REQ-004",
+      "requirement": "the override obeys the anchoring rule",
+      "command_id": "agentops.hooks.tests.t3",
+      "fails_when": "AGENTOPS_GATE_PATTERN is matched as a raw substring"
+    },
+    {
+      "id": "REQ-005",
+      "requirement": "the hook never fails its caller",
+      "command_id": "agentops.hooks.tests.t3",
+      "fails_when": "the hook exits non-zero, or writes outside gates-<session>.jsonl under AGENTOPS_GATE_LOG_DIR"
+    }
+  ],
+  "non_goals": [
+    "the Stop hook and its auditctl drain",
+    "the row shape or the signal attribution ladder",
+    "the /friction skill",
+    "anything outside templates/dispatch/hooks/gate-log.sh"
+  ],
+  "allowed_command_ids": [
+    "agentops.hooks.tests.t3"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 500000,
+    "hard_token_ceiling": 1000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 8,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-m5-gate-log-anchored",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  }
+}
