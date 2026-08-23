@@ -942,6 +942,118 @@ exit 1
             dispatch.check_oracle_reads, dispatch.check_oracle_attainable = original
 
 
+class OracleReferenceOverlayTests(unittest.TestCase):
+    """L-2(b), reference-overlay half: a change confined to writable_patch_paths
+    must turn the starts_red oracle green, else the oracle demands an unstated
+    seam (defect 3) or covers more than the packet holds (defect 4)."""
+
+    def setUp(self) -> None:
+        packet_tests = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+        packet_tests.setUp()
+        self.packet = packet_tests.packet
+        self.packet["oracle"]["starts_red"] = ["a"]
+        self.packet["allowed_command_ids"] = ["a"]
+        self.packet["writable_patch_paths"] = ["src/**"]
+        # Oracle: green only when src/a.txt says "solved" AND (for the over-broad
+        # case) src/b.txt says "solved" too.
+        self.commands = {"a": "grep -qx solved src/a.txt"}
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.repo = Path(os.path.realpath(self.tmp.name)) / "repo"
+        (self.repo / "src").mkdir(parents=True)
+        (self.repo / "docs").mkdir()
+        (self.repo / "src/a.txt").write_text("unsolved\n", encoding="utf-8")
+        (self.repo / "docs/seam.txt").write_text("unsolved\n", encoding="utf-8")
+        env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@x", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@x"}
+        for args in (["init", "-q"], ["add", "."], ["commit", "-q", "-m", "start"]):
+            subprocess.run(["git", "-C", str(self.repo), *args], check=True, env=env, capture_output=True)
+        self.packet["starting_commit"] = subprocess.run(
+            ["git", "-C", str(self.repo), "rev-parse", "HEAD"], check=True, capture_output=True, text=True,
+        ).stdout.strip()
+
+    def _patch(self, rel: str, new_text: str, name: str = "ref.patch") -> Path:
+        old = (self.repo / rel).read_text(encoding="utf-8")
+        text = (
+            f"--- a/{rel}\n+++ b/{rel}\n@@ -1 +1 @@\n-{old.rstrip()}\n+{new_text}\n"
+        )
+        path = self.repo / "docs" / name
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    def _run(self, patch: Path | None):
+        with tempfile.TemporaryDirectory() as tmp:
+            checkout = Path(tmp) / "co"
+            subprocess.run(["git", "clone", "-q", str(self.repo), str(checkout)], check=True, capture_output=True)
+            return dispatch.overlay_reference_patch(checkout, self.packet, self.commands, patch)
+
+    def test_a_reference_inside_writable_paths_that_goes_green_is_satisfiable(self) -> None:
+        faults, report = self._run(self._patch("src/a.txt", "solved"))
+        self.assertEqual(faults, [])
+        self.assertIs(report["oracle_satisfiable_within_paths"], True)
+        self.assertEqual(report["red_after_reference"], [])
+
+    def test_a_reference_touching_outside_writable_paths_is_rejected(self) -> None:
+        faults, report = self._run(self._patch("docs/seam.txt", "solved"))
+        self.assertEqual(len(faults), 1)
+        self.assertIn("outside writable_patch_paths", faults[0])
+        self.assertIn("docs/seam.txt", faults[0])
+        self.assertIs(report["oracle_satisfiable_within_paths"], False)
+
+    def test_a_reference_that_applies_but_leaves_the_oracle_red_is_rejected_with_the_id(self) -> None:
+        self.commands = {"a": "grep -qx solved src/a.txt && grep -qx solved docs/seam.txt"}
+        faults, report = self._run(self._patch("src/a.txt", "solved"))
+        self.assertEqual(len(faults), 1)
+        self.assertIn("a is still red", faults[0])
+        self.assertIs(report["oracle_satisfiable_within_paths"], False)
+        self.assertEqual(report["red_after_reference"], ["a"])
+
+    def test_no_reference_is_skipped_never_true(self) -> None:
+        faults, report = self._run(None)
+        self.assertEqual(faults, [])
+        self.assertEqual(report["oracle_satisfiable_within_paths"], "skipped:no-reference")
+
+    def test_a_reference_that_does_not_apply_is_rejected(self) -> None:
+        (self.repo / "docs/bad.patch").write_text(
+            "--- a/src/a.txt\n+++ b/src/a.txt\n@@ -1 +1 @@\n-nonsense\n+solved\n", encoding="utf-8")
+        faults, report = self._run(self.repo / "docs/bad.patch")
+        self.assertIn("does not apply", faults[0])
+        self.assertIs(report["oracle_satisfiable_within_paths"], False)
+
+    def test_validate_reports_skipped_and_warns_without_a_reference(self) -> None:
+        original = (dispatch.check_oracle_reads, dispatch.check_oracle_attainable)
+        dispatch.check_oracle_reads = lambda *a, **k: ([], {"oracle_reads_within_paths": "skipped:untraced", "read_trace": "skipped:untraced"})
+        dispatch.check_oracle_attainable = lambda *a, **k: []
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                packet_path = Path(tmp) / "p.json"
+                self.packet["oracle"]["starts_red"] = ["example.tests"]
+                self.packet["allowed_command_ids"] = ["example.tests"]
+                packet_path.write_text(json.dumps(self.packet), encoding="utf-8")
+                manifest = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+                manifest.setUp()
+                (Path(tmp) / "example.dispatch.json").write_text(json.dumps(manifest.manifest), encoding="utf-8")
+                out, err = io.StringIO(), io.StringIO()
+                with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                    code = dispatch.main([
+                        "--repo-root", tmp, "--packet", str(packet_path),
+                        "--agentops-root", str(ROOT), "--allow-untraced-oracle", "validate",
+                    ])
+                self.assertEqual(code, 0, out.getvalue())
+                self.assertEqual(json.loads(out.getvalue())["oracle_satisfiable_within_paths"], "skipped:no-reference")
+                self.assertIn("no oracle.reference_patch", err.getvalue())
+        finally:
+            dispatch.check_oracle_reads, dispatch.check_oracle_attainable = original
+
+    def test_reference_patch_must_stay_inside_the_repository(self) -> None:
+        self.packet["oracle"]["reference_patch"] = "../outside.patch"
+        with self.assertRaisesRegex(dispatch.PacketError, "inside the repository"):
+            dispatch.resolve_reference_patch(self.repo, self.packet)
+
+    def test_schema_admits_reference_patch(self) -> None:
+        schema = _json(HYBRID / "task-packet.schema.json")
+        self.assertIn("reference_patch", schema["properties"]["oracle"]["properties"])
+
+
 class WorkerSessionExportTests(unittest.TestCase):
     """L-1b: the exported OpenCode session is the record of what the worker
     actually did; its absence must be recorded, never fatal."""

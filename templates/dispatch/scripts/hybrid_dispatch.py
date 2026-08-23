@@ -935,8 +935,8 @@ def check_oracle_attainable(
     one, and accepting it let a worker be judged by a gate that never ran.
 
     The other half -- proving the failure depends only on files the packet
-    declares -- is ``check_oracle_reads`` (L-2(b), read-trace form). The
-    reference-solution form is deferred: no packet has carried one.
+    declares -- is ``check_oracle_reads`` (L-2(b), read-trace form) plus
+    ``check_oracle_reference`` (L-2(b), reference-overlay form).
     """
     starts_red = (packet.get("oracle") or {}).get("starts_red") or []
     if not starts_red:
@@ -1136,6 +1136,135 @@ def check_oracle_reads(
         return trace_oracle_reads(
             checkout, packet, manifest["hybrid"]["commands"], shutil.which("strace"), allow_untraced,
         )
+
+
+def overlay_reference_patch(
+    checkout: Path,
+    packet: dict[str, Any],
+    commands: dict[str, str],
+    patch_path: Path | None,
+) -> tuple[list[str], dict[str, Any]]:
+    """L-2(b), reference-overlay half: a change confined to
+    ``writable_patch_paths`` must turn every ``starts_red`` oracle green.
+
+    The read-trace half proves the oracle reads nothing undeclared; it cannot
+    prove the oracle is *satisfiable* by the files the worker may write. An
+    oracle that demands a seam outside ``writable_patch_paths`` (defect 3) or
+    that covers more work than the packet holds (defect 4) passes the trace and
+    still cannot be met. Applying a coordinator-supplied reference patch at
+    ``starting_commit`` and requiring green closes that gap at freeze time.
+
+    ``patch_path`` is the already-resolved location of the unified diff (it
+    lives in the coordinator's tree, not at ``starting_commit``). Absent, the
+    check is recorded as ``"skipped:no-reference"`` -- never ``True``.
+    """
+    starts_red = (packet.get("oracle") or {}).get("starts_red") or []
+    report: dict[str, Any] = {
+        "oracle_satisfiable_within_paths": None,
+        "reference_patch": None,
+        "red_after_reference": [],
+    }
+    if not starts_red:
+        return [], report
+    if patch_path is None:
+        report["oracle_satisfiable_within_paths"] = "skipped:no-reference"
+        return [], report
+    report["reference_patch"] = (packet.get("oracle") or {}).get("reference_patch")
+    if not patch_path.is_file():
+        report["oracle_satisfiable_within_paths"] = False
+        return [f"oracle.reference_patch {report['reference_patch']!r} is not a file"], report
+    faults: list[str] = []
+    check = subprocess.run(
+        ["git", "apply", "--check", str(patch_path)], cwd=checkout,
+        stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False,
+    )
+    if check.returncode != 0:
+        report["oracle_satisfiable_within_paths"] = False
+        return [
+            f"reference_patch does not apply at {packet['starting_commit'][:12]}: "
+            f"{check.stderr.strip()[-400:]}"
+        ], report
+    numstat = subprocess.run(
+        ["git", "apply", "--numstat", str(patch_path)], cwd=checkout,
+        stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False,
+    )
+    touched = sorted({
+        line.split("\t", 2)[2].strip()
+        for line in numstat.stdout.splitlines() if line.count("\t") >= 2
+    })
+    writable = list(packet.get("writable_patch_paths") or [])
+    outside = [rel for rel in touched if not _matches_any(rel, writable)]
+    if outside:
+        report["oracle_satisfiable_within_paths"] = False
+        return [
+            "reference_patch touches files outside writable_patch_paths: "
+            + ", ".join(outside)
+            + " -- the oracle can only be met by writing where the worker may not"
+        ], report
+    applied = subprocess.run(
+        ["git", "apply", str(patch_path)], cwd=checkout,
+        stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False,
+    )
+    if applied.returncode != 0:
+        report["oracle_satisfiable_within_paths"] = False
+        return [f"reference_patch failed to apply: {applied.stderr.strip()[-400:]}"], report
+    still_red: list[str] = []
+    for command_id in starts_red:
+        command = commands.get(command_id)
+        if command is None:
+            continue  # already a fault from check_oracle_attainable
+        completed = subprocess.run(
+            command, shell=True, cwd=checkout, stdin=subprocess.DEVNULL,
+            capture_output=True, text=True, check=False,
+            timeout=packet["limits"]["timeout_seconds"],
+        )
+        if completed.returncode != 0:
+            still_red.append(command_id)
+            faults.append(
+                f"{command_id} is still red (exit {completed.returncode}) after the reference "
+                f"patch at {packet['starting_commit'][:12]}: the oracle demands something "
+                "outside writable_patch_paths, or more than this packet holds"
+            )
+    report["oracle_satisfiable_within_paths"] = not still_red
+    report["red_after_reference"] = still_red
+    return faults, report
+
+
+def resolve_reference_patch(repo_root: Path, packet: dict[str, Any]) -> Path | None:
+    """Where the packet's reference patch lives, or None when it carries none."""
+    rel = (packet.get("oracle") or {}).get("reference_patch")
+    if not rel:
+        return None
+    if Path(rel).is_absolute() or _pattern_escapes_repo(rel):
+        raise PacketError("oracle.reference_patch must be a repo-relative path that stays inside the repository")
+    return repo_root / rel
+
+
+def check_oracle_reference(
+    repo_root: Path, packet: dict[str, Any], manifest: dict[str, Any],
+) -> tuple[list[str], dict[str, Any]]:
+    """``overlay_reference_patch`` against a throwaway checkout of ``starting_commit``."""
+    starts_red = (packet.get("oracle") or {}).get("starts_red") or []
+    empty = {"oracle_satisfiable_within_paths": None, "reference_patch": None, "red_after_reference": []}
+    if not starts_red:
+        return [], empty
+    patch_path = resolve_reference_patch(repo_root, packet)
+    if patch_path is None:
+        print(
+            "hybrid-dispatch: warning: packet carries no oracle.reference_patch, so "
+            "oracle satisfiability within writable_patch_paths was not checked "
+            "(skipped:no-reference)",
+            file=sys.stderr,
+        )
+        return overlay_reference_patch(repo_root, packet, manifest["hybrid"]["commands"], None)
+    with tempfile.TemporaryDirectory(prefix="agentops-reference-") as tmp:
+        checkout = Path(tmp) / "at-starting-commit"
+        try:
+            _git(repo_root, "clone", "--no-hardlinks", "--quiet", str(repo_root), str(checkout))
+            _git(checkout, "checkout", "--quiet", "--detach", packet["starting_commit"])
+        except Exception as exc:  # noqa: BLE001 - reported, never raised past here
+            return [f"could not check out {packet['starting_commit']} to overlay the reference: {exc}"], {}
+        return overlay_reference_patch(checkout, packet, manifest["hybrid"]["commands"], patch_path)
 
 
 def assess_cold_run(
@@ -1736,6 +1865,13 @@ def main(argv: list[str] | None = None) -> int:
                 faults, read_report = check_oracle_reads(
                     repo_root, packet, manifest, args.allow_untraced_oracle,
                 )
+            # L-2(b), reference-overlay half: a change confined to
+            # writable_patch_paths must make the oracle green. Only run when
+            # the trace is clean; optional until the handoff doc makes it
+            # mandatory per class, but never reported true when absent.
+            ref_report: dict[str, Any] = {}
+            if not faults:
+                faults, ref_report = check_oracle_reference(repo_root, packet, manifest)
             if faults:
                 _emit({
                     "packet": packet["task_id"],
@@ -1743,10 +1879,11 @@ def main(argv: list[str] | None = None) -> int:
                     "pre_gates": pre_gates,
                     "oracle_faults": faults,
                     **read_report,
+                    **ref_report,
                 })
                 return 2
             _emit({"packet": packet["task_id"], "status": "fit", "pre_gates": pre_gates,
-                   "oracle_attainable": True, **read_report})
+                   "oracle_attainable": True, **read_report, **ref_report})
             return 0
 
         base_config = _load_json(load_worker_config_path(args.agentops_root.resolve()))
