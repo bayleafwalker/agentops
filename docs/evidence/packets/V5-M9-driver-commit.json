@@ -19,7 +19,7 @@
     ]
   },
   "attempt": 1,
-  "starting_commit": "f77175a0ede7bfc2932c98b42399828c8eb1092b",
+  "starting_commit": "96aee84103059005187989d32a06d75e507fc1c3",
   "purpose": "Make the L-1 driver commit the worker's diff before it pushes, in templates/dispatch/scripts/dispatch_release.py. M-8 added the remote and the push and both work, but the branch still points at the packet's starting_commit because nothing commits the worker's work: post_gates reads the diff from the working tree with git diff --name-only <starting_commit>, and it stays uncommitted. Two dispatches pushed branches that carried nothing. Change PR_STEP_NAMES to (\"commit\", \"remote-add\", \"push\", \"pr-create\") -- the order is the contract. In the PR step only, when the disposition is candidate and this is not a dry run, and BEFORE the remote is added, commit everything in the worktree onto the packet's branch with cwd set to the worktree. Capture files the worker created as well as files it changed: a worker that adds a file must not have it silently dropped. Stage and commit nothing outside the worktree. The commit message must contain the packet's task_id and the short starting_commit. The commit must succeed on a host with NO configured git identity -- the worktree is a clone and user.name/user.email may be set nowhere, so supply an identity for this commit instead of depending on the environment. Afterwards the branch tip must be a new commit whose parent is starting_commit, and its diff against starting_commit must list exactly the paths the gate reported as touched. A failed commit sets report[\"pr\"][\"failed_step\"] to \"commit\", writes exactly one workflow.escalation whose metadata step is \"pr\", exits non-zero, and never reaches remote-add, push or gh. report[\"pr\"] records the resulting commit sha. A dry run commits nothing. A non-candidate disposition and every L-2 stop condition reach neither the commit nor anything after it. Change nothing else: STEPS, RETRY_STEPS, STOP_CONDITIONS, MAX_GATE_ATTEMPTS, the L-4 retry, the L-2 stop conditions, default_artifacts_root, the never-merge property and the rest of the M-8 PR step all stay exactly as they are.",
   "readable_context_paths": [
     "templates/dispatch/scripts/dispatch_release.py",
@@ -103,7 +103,7 @@
   },
   "context_churn": {
     "max_repeated_reads_per_path": 4,
-    "max_reasoning_steps_without_mutation": 8,
+    "max_reasoning_steps_without_mutation": 12,
     "max_identical_context_tokens": 250000,
     "handoff_when_candidate_ready": true
   },
