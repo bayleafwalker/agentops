@@ -79,6 +79,28 @@ coordinator's `origin` remote to the disposable worktree, push the packet branch
 --head`; both M-1 candidates died here). Two consecutive first-attempt greens → class on. Then
 M-6 as two packets (one per file, one language each), M-3/M-4 are in the hand-pass.
 
+## 3b. Amendment 2 (2026-08-23, after the second sequence) — **class on**
+
+M-5, M-8, M-6a, M-6b all green first attempt (#61, #63, #64, #65); M-6a/b with no reference
+patch. D-8 = **5**; the per-packet escalations were all the driver's PR step (harness), none
+the worker's. Rulings:
+- Harness escalations do not spend D-8's budget; they do block *unattended-to-PR*, which is a
+  separate gate. `mechanical_bulk` is qualified; it is not yet unattended-to-PR.
+- Reference patch is now **SHOULD** for `mechanical_bulk`. L-2b read-trace stays **mandatory**
+  (free; caught M-6a's over-reach on first real use).
+- §4.5 is replaced: PR body = bounded summary (task, disposition, gate table, cost, sha,
+  receipt path). Receipt + `worker.stdout` are committed on the packet branch under
+  `docs/evidence/receipts/<task>/` after a secret scan. The repo is public; no transcript in
+  a PR body, ever. `<task>.worker-session.json` no longer exists (export removed; L-1b done
+  as-is).
+- Next packets: **M-9** driver commits the worker's diff in the worktree before push (branch
+  currently points at `starting_commit` → empty PR); **M-10** bounded body + receipt-to-branch
+  with secret scan; **M-11** `_path_allowed` aligned with `hybrid_dispatch._matches_any`.
+  M-9/M-10 are the first runs that can finish the loop end to end — report that outcome
+  explicitly. Then T-6/T-7 scorecard script, L-5 release-unit template, and the actionq rule-8
+  code change once the coordinator has written its oracle from freeze Amendment 2.
+- Devbox needed `gh auth setup-git` for the push; recorded so it is not rediscovered.
+
 ## 3. Packets to freeze and run, in order
 
 Each row: what the oracle must assert, the writable file, and the spec source. Write the
