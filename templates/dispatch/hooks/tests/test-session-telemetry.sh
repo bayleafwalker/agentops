@@ -212,4 +212,23 @@ for h in "$stop_hook" "$gate_hook"; do
   [[ -x "$h" ]] || fail "hook is not executable: $h"
 done
 
+# --- every auditctl caller uses a ref prefix auditctl accepts ---------------------------
+# auditctl rejects an unknown --ref prefix outright, failing the whole `add`, so a wrong
+# prefix does not degrade the record -- it loses it. The /friction skill shipped telling
+# callers to pass the session id as a ref, and every note written that way was dropped. This
+# checks the class, not that one line: every hook, script and skill that names a ref.
+allowed_ref_prefixes='^(wi|ka|ad|sha|pr|sprint|capsule):$'
+dispatch_dir="$(cd -- "$hooks_dir/.." && pwd -P)"
+while IFS= read -r ref_file; do
+  while IFS= read -r window; do
+    # The prefix is the first `word:` within reach of the flag. A ref built from a
+    # variable has none, and is the caller's to get right at runtime.
+    prefix="$(grep -oE '[A-Za-z_]+:' <<<"$window" | head -n1 || true)"
+    [[ -z "$prefix" ]] && continue
+    [[ "$prefix" =~ $allowed_ref_prefixes ]] && continue
+    fail "auditctl ref prefix '$prefix' is not one auditctl accepts, in $ref_file: $window"
+    # A comment is not a call, and `--ref:` in prose is punctuation, not a flag.
+  done < <(grep -v '^[[:space:]]*#' "$ref_file" | grep -oE -- '--ref["'"'"'`,[:space:]]+.{0,14}' || true)
+done < <(grep -rlI -- '--ref' "$dispatch_dir" --include='*.sh' --include='*.md' --include='*.py' 2>/dev/null || true)
+
 printf 'session telemetry hook tests passed\n'

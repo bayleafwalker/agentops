@@ -21,14 +21,20 @@ say one thing.
 2. **Record it:**
 
    ```bash
-   auditctl add --type workflow.friction --source claude-hook --actor "$USER" \
+   auditctl add --type workflow.friction --source friction-skill --actor "$USER" \
      --summary "<one sentence>" \
-     --ref "session:<session id if known>" \
+     --metadata '{"session": "<session id if known>"}' \
      --detail "<optional: what would have avoided it>"
    ```
 
    `--summary` and `--actor` are required by the CLI; `--detail` is where a proposed fix goes,
    so the summary stays a description of what happened.
+
+   **The session id is not a ref.** auditctl accepts only `wi:`, `ka:`, `ad:`, `sha:`,
+   `pr:`, `sprint:` and `capsule:` prefixes and rejects anything else outright — the whole
+   `add` fails and the note is lost, so a session-scoped ref must not be attempted. That is
+   why the session id travels in `--metadata`, the same place the Stop hook puts it. A `--ref` is worth passing only when the friction is
+   about a specific commit or PR (`sha:<hash>`, `pr:<n>`).
 3. **Do not open an item, edit a plan, or fix the thing** as part of this skill. The note is
    the deliverable. Deciding what to do about it is the scorecard's job, and batching that
    decision is the point of recording rather than reacting.
