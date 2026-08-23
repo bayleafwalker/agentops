@@ -64,6 +64,12 @@ STOP_CONDITIONS: tuple[str, ...] = (
     "gate-red-twice",
 )
 
+#: The three parts of the PR step, in the only order that works. A failed part
+#: names itself in report["pr"]["failed_step"] so a reader of a failed report
+#: can tell "the remote would not add" from "the push was rejected" from "gh
+#: refused".
+PR_STEP_NAMES: tuple[str, ...] = ("remote-add", "push", "pr-create")
+
 ESCALATION_TYPE = "workflow.escalation"
 DRIVER_ACTOR = "dispatch-release"
 
@@ -180,6 +186,20 @@ def pr_command(
         "--title", title,
         "--body-file", str(receipt_path),
     ]
+
+
+def _resolve_push_remote(
+    repo_root: Path, push_remote: str | None, runner: Runner,
+) -> str | None:
+    """The URL the PR step pushes to. An explicit argument wins; otherwise the
+    coordinator's origin is asked, read-only. None means no URL could be
+    resolved, and the PR step skips rather than failing."""
+    if push_remote is not None:
+        return push_remote
+    completed = runner(["git", "remote", "get-url", "origin"], repo_root)
+    if completed.returncode != 0:
+        return None
+    return (completed.stdout or "").strip() or None
 
 
 def _packet_command_ids(packet: dict[str, Any]) -> list[str]:
@@ -316,6 +336,7 @@ def drive(
     runner: Runner = _default_runner,
     report_path: Path | None = None,
     attempts_path: Path | None = None,
+    push_remote: str | None = None,
 ) -> tuple[int, dict[str, Any]]:
     """Run the fixed sequence. Returns (exit_code, report)."""
     packet = _load_json(packet_path)
@@ -471,6 +492,17 @@ def drive(
     title = f"[hybrid] {packet['task_id']} @ {packet['starting_commit'][:12]}"
     cmd = pr_command(packet, receipt_path, base_branch, title, gh_bin)
     pr: dict[str, Any] = {"command": cmd, "body_file": str(receipt_path), "opened": False}
+
+    def pr_failed(step_name: str, exit_code: int, stderr: str) -> tuple[int, dict[str, Any]]:
+        pr["failed_step"] = step_name
+        pr["exit_code"] = exit_code
+        pr["stderr"] = stderr
+        report["pr"] = pr
+        report["escalation"] = write_escalation(
+            packet, "pr", exit_code, stderr, runner, auditctl_bin,
+        )
+        return finish(exit_code)
+
     if report["disposition"] != "candidate":
         pr["skipped"] = True
         pr["reason"] = (
@@ -487,21 +519,46 @@ def drive(
         pr["skipped"] = True
         pr["reason"] = "dry-run: would open this PR with the receipt as body"
     else:
-        # Runs in the worktree so gh resolves the repository from there, never
-        # from the coordinator checkout. It is the only network step and the
-        # only step that is not a hybrid_dispatch stage.
-        completed = runner(cmd, worktree)
-        pr["exit_code"] = completed.returncode
-        pr["stdout"] = (completed.stdout or "").strip()
-        pr["stderr"] = (completed.stderr or "").strip()[-2000:]
-        pr["opened"] = completed.returncode == 0
-        if completed.returncode != 0:
-            report["pr"] = pr
-            report["escalation"] = write_escalation(
-                packet, "pr", completed.returncode, pr["stderr"], runner, auditctl_bin,
+        # The remote comes back here, in the driver, after the worker is done:
+        # prepare_workspace deliberately removes origin from the worker's clone,
+        # so the PR step has to re-add it. Resolution is read-only against the
+        # coordinator checkout; every mutating git command below is pinned to
+        # the packet's worktree.
+        remote = _resolve_push_remote(repo_root, push_remote, runner)
+        if remote is None:
+            pr["skipped"] = True
+            pr["reason"] = (
+                "could not resolve a push remote from the coordinator's origin; "
+                "no PR was opened"
             )
-            return finish(completed.returncode)
-        pr["url"] = pr["stdout"].splitlines()[-1] if pr["stdout"] else None
+        else:
+            branch = packet["worktree"]["branch"]
+            add_cmd = ["git", "remote", "add", "origin", remote]
+            completed = runner(add_cmd, worktree)
+            if completed.returncode != 0:
+                return pr_failed(
+                    PR_STEP_NAMES[0], completed.returncode,
+                    (completed.stderr or "").strip()[-2000:],
+                )
+            push_cmd = ["git", "push", "origin", f"{branch}:{branch}"]
+            completed = runner(push_cmd, worktree)
+            if completed.returncode != 0:
+                return pr_failed(
+                    PR_STEP_NAMES[1], completed.returncode,
+                    (completed.stderr or "").strip()[-2000:],
+                )
+            pr["push"] = {"remote": remote, "branch": branch}
+            # Runs in the worktree so gh resolves the repository from there,
+            # never from the coordinator checkout. It is the only network step
+            # and the only step that is not a hybrid_dispatch stage.
+            completed = runner(cmd, worktree)
+            pr["exit_code"] = completed.returncode
+            pr["stdout"] = (completed.stdout or "").strip()
+            pr["stderr"] = (completed.stderr or "").strip()[-2000:]
+            pr["opened"] = completed.returncode == 0
+            if completed.returncode != 0:
+                return pr_failed(PR_STEP_NAMES[2], completed.returncode, pr["stderr"])
+            pr["url"] = pr["stdout"].splitlines()[-1] if pr["stdout"] else None
     report["pr"] = pr
     return finish(0)
 
