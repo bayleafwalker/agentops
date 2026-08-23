@@ -4,8 +4,8 @@
   "repo_id": "agentops",
   "sprint_item": {
     "ref": "agentops#2254",
-    "claim_id": 0,
-    "claim_actor": "coordinator/claude-code"
+    "claim_id": 2,
+    "claim_actor": "workstation-vuoro"
   },
   "route": "mechanical_bulk",
   "task_class": "mechanical_implementation",
@@ -25,8 +25,7 @@
     "AGENTS.md",
     "agentops.dispatch.json",
     "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
-    "templates/dispatch/hooks/**",
-    "/projects/dev/appservice/.claude/settings.local.json"
+    "templates/dispatch/hooks/**"
   ],
   "writable_patch_paths": [
     "templates/dispatch/hooks/*.sh",
