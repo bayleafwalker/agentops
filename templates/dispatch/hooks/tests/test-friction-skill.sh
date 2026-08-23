@@ -86,10 +86,11 @@ assert_eq "--summary" "$summary_value" "$note"
 for ((i = 0; i < ${#argv[@]}; i++)); do
   a="${argv[$i]}"
   [[ "$a" == session:* ]] && fail "argv carries a session: ref ('$a'); auditctl rejects it"
-  if [[ "$a" == --ref || "$a" == --ref=* ]]; then
-    v="${a#--ref=}"; [[ "$a" == --ref ]] && v="${argv[$((i + 1))]:-}"
-    [[ "$v" == session:* ]] && fail "--ref session: is passed; auditctl rejects it"
-    case "$v" in wi:*|ka:*|ad:*|sha:*|pr:*|sprint:*|capsule:*) ;; *) fail "--ref '$v' uses a prefix auditctl rejects";; esac
+  ref_flag="--ref"
+  if [[ "$a" == "$ref_flag" || "$a" == "$ref_flag="* ]]; then
+    v="${a#"$ref_flag="}"; [[ "$a" == "$ref_flag" ]] && v="${argv[$((i + 1))]:-}"
+    [[ "$v" == session:* ]] && fail "a ref with the session prefix is passed; auditctl rejects it"
+    case "$v" in wi:*|ka:*|ad:*|sha:*|pr:*|sprint:*|capsule:*) ;; *) fail "ref '$v' uses a prefix auditctl rejects";; esac
   fi
 done
 
