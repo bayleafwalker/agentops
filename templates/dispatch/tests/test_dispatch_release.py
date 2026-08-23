@@ -218,5 +218,44 @@ class DriverTests(unittest.TestCase):
         self.assertTrue(report["pr"]["skipped"])
 
 
+class StageReceiptTests(unittest.TestCase):
+    """A stage's receipt is the only record of what it observed. Keeping only
+    stderr made a run that finished cleanly and changed nothing look identical
+    to one that never reached the model."""
+
+    def test_each_step_keeps_the_receipt_it_emitted(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            runner = FakeRunner({})
+            code, report = driver.drive(
+                _packet(tmp_path), tmp_path, dry_run=True, runner=runner,
+                base_branch="main", auditctl_bin="auditctl",
+            )
+            self.assertEqual(code, 0)
+            for entry in report["steps"]:
+                self.assertIn("receipt", entry, f"{entry['step']} dropped its receipt")
+                self.assertEqual(entry["receipt"]["stage"], entry["step"])
+
+    def test_unparseable_stdout_is_kept_as_a_tail(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+
+            class NoisyRunner(FakeRunner):
+                def __call__(self, cmd, cwd):
+                    result = super().__call__(cmd, cwd)
+                    if cmd[-1] == "prepare":
+                        return subprocess.CompletedProcess(cmd, 0, "not json at all", "")
+                    return result
+
+            runner = NoisyRunner({})
+            _, report = driver.drive(
+                _packet(tmp_path), tmp_path, dry_run=True, runner=runner,
+                base_branch="main", auditctl_bin="auditctl",
+            )
+            prepare = [e for e in report["steps"] if e["step"] == "prepare"][0]
+            self.assertNotIn("receipt", prepare)
+            self.assertEqual(prepare["stdout_tail"], "not json at all")
+
+
 if __name__ == "__main__":
     unittest.main()

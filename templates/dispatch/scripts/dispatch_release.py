@@ -215,6 +215,15 @@ def drive(
             "exit_code": completed.returncode,
             "stderr": (completed.stderr or "").strip()[-2000:],
         }
+        # Each stage emits its receipt on stdout, and that receipt is the only
+        # record of what the stage actually observed -- the worker's exit code,
+        # its spend, the gate's per-command results. Keeping only stderr made a
+        # run that finished cleanly and changed nothing indistinguishable from a
+        # run that never reached the model: diagnosing it cost a second dispatch.
+        if parsed is not None:
+            entry["receipt"] = parsed
+        elif completed.stdout:
+            entry["stdout_tail"] = completed.stdout.strip()[-4000:]
         if step == "gate":
             disposition = parsed.get("disposition") if parsed else None
             entry["disposition"] = disposition
