@@ -18,13 +18,21 @@ set -uo pipefail
 
 GATE_DIR="${AGENTOPS_GATE_LOG_DIR:-/projects/dev/.claude/state}"
 GATE_PATTERN="${AGENTOPS_GATE_PATTERN:-(pytest|run_round_checks|hybrid_dispatch(\.py)?[[:space:]].*[[:space:]]gate|cargo[[:space:]]+test|unittest[[:space:]]+discover)}"
+# M-5: a gate name counts only as a command word. It must sit on shell-word
+# boundaries -- preceded by the start of the string, whitespace, a shell
+# separator, or a path component, and followed by whitespace, a separator, the
+# end of the string, or an executable script suffix. Quoted text is an argument
+# to something else and is dropped before matching; the row still carries the
+# original command.
+GATE_ANCHOR="(^|[[:space:]]|[|&;]|/)($GATE_PATTERN)([[:space:]]|[|&;]|$|\\.(py|sh|bash|zsh|pl|rb|js|ts|php|lua))"
 
 EVENT="$(cat)"
 command -v jq >/dev/null 2>&1 || exit 0
 
 CMD="$(printf '%s' "$EVENT" | jq -r '.tool_input.command // ""')"
 [[ -n "$CMD" ]] || exit 0
-[[ "$CMD" =~ $GATE_PATTERN ]] || exit 0
+MATCH_CMD="$(printf '%s' "$CMD" | sed -E "s/\"[^\"]*\"//g; s/'[^']*'//g")"
+[[ "$MATCH_CMD" =~ $GATE_ANCHOR ]] || exit 0
 
 SESSION="$(printf '%s' "$EVENT" | jq -r '.session_id // "unknown"')"
 mkdir -p "$GATE_DIR" 2>/dev/null || exit 0
