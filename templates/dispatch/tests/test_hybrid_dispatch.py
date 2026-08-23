@@ -68,6 +68,19 @@ class PolicyContractTests(unittest.TestCase):
                 with self.subTest(route=name):
                     self.assertNotEqual(route["status"], "available_named_pilot")
 
+    def test_bindery_route_is_project_scoped_and_unqualified(self) -> None:
+        route = self.policy["routes"]["bindery_external_runtime_w0"]
+        self.assertEqual(route["harness_model"], "local3090/worker-fast")
+        self.assertEqual(route["profile_id"], "opencode-workstation-local3090-1.18.21")
+        self.assertEqual(route["status"], "project_scoped_preflight")
+        self.assertEqual(
+            route["repository_scope"]["repositories"],
+            ["2f6f7f1c-0f0c-4dcb-90e7-0f1a4b7f89f2"],
+        )
+        self.assertNotIn("bindery_external_runtime_w0", self.policy["qualification"]["routes"])
+        self.assertNotIn("local3090/worker-fast", self.policy["qualification"]["models"])
+        self.assertEqual(self.policy["qualification"]["default"], "unqualified")
+
     def test_worker_is_denied_state_bearing_authority(self) -> None:
         denied = self.policy["worker"]["denied_authority"]
         for authority in ("git", "sprintctl", "kctl", "actionq", "acceptance or merge"):
@@ -203,6 +216,32 @@ class PacketValidationTests(unittest.TestCase):
         pilot["repo_id"] = "1deb57d0-af6f-479c-811a-b5b7254841f9"
         pilot["sprint_item"]["ref"] = "1deb57d0-af6f-479c-811a-b5b7254841f9#42"
         self.assertEqual(dispatch.qualification_state(self.policy, pilot), "named_pilot:vuoro-tooling-bulk-2026-07-28")
+
+    def test_bound_project_route_is_accepted_but_remains_unqualified(self) -> None:
+        core_repo = "2f6f7f1c-0f0c-4dcb-90e7-0f1a4b7f89f2"
+        packet = json.loads(json.dumps(self.packet))
+        manifest = json.loads(json.dumps(self.manifest))
+        packet["route"] = "bindery_external_runtime_w0"
+        packet["repo_id"] = core_repo
+        packet["sprint_item"]["ref"] = f"{core_repo}#42"
+        manifest["repo_id"] = core_repo
+        manifest["hybrid"]["worker_routes"] = ["bindery_external_runtime_w0"]
+        self.assertEqual(dispatch.validate_packet(packet, manifest, self.policy), self.policy["gates"]["pre"])
+        self.assertEqual(dispatch.qualification_state(self.policy, packet), "unqualified")
+
+    def test_project_route_rejects_a_repository_outside_its_scope(self) -> None:
+        core_repo = "2f6f7f1c-0f0c-4dcb-90e7-0f1a4b7f89f2"
+        packet = json.loads(json.dumps(self.packet))
+        manifest = json.loads(json.dumps(self.manifest))
+        policy = json.loads(json.dumps(self.policy))
+        packet["route"] = "bindery_external_runtime_w0"
+        packet["repo_id"] = core_repo
+        packet["sprint_item"]["ref"] = f"{core_repo}#42"
+        manifest["repo_id"] = core_repo
+        manifest["hybrid"]["worker_routes"] = ["bindery_external_runtime_w0"]
+        policy["routes"]["bindery_external_runtime_w0"]["repository_scope"]["repositories"] = ["another-project"]
+        with self.assertRaisesRegex(dispatch.PacketError, "different project repository"):
+            dispatch.validate_packet(packet, manifest, policy)
 
     def test_packet_cannot_self_label_another_repository_as_vuoro(self) -> None:
         spoofed = json.loads(json.dumps(self.packet))

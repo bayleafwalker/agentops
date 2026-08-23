@@ -205,6 +205,23 @@ def validate_packet(
             f"route {route!r} is not enabled for this repository "
             f"(allowed: {', '.join(allowed_routes) or 'none'})"
         )
+    repository_scope = policy["routes"][route].get("repository_scope")
+    if repository_scope is not None:
+        if (
+            not isinstance(repository_scope, dict)
+            or repository_scope.get("kind") != "project"
+            or not isinstance(repository_scope.get("project_ref"), str)
+            or not repository_scope.get("project_ref").strip()
+            or not isinstance(repository_scope.get("repositories"), list)
+            or not repository_scope["repositories"]
+            or any(not isinstance(repo_id, str) or not repo_id.strip() for repo_id in repository_scope["repositories"])
+        ):
+            raise PacketError(f"route {route!r} has an invalid repository scope")
+        if packet["repo_id"] not in repository_scope["repositories"]:
+            raise PacketError(
+                f"route {route!r} is scoped to a different project repository"
+            )
+
     if packet.get("task_class") != "mechanical_implementation":
         raise PacketError("worker dispatch requires task_class mechanical_implementation")
     if packet.get("risk") != "low":
