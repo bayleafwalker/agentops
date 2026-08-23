@@ -1,0 +1,133 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-M2-driver-retry-policy",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 2,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "templates/dispatch/tests/test_dispatch_release_retry.py decides correctness, together with the two shipped driver oracles it supersedes fixtures in. All three were written from the spec row by an author with no access to any implementation, and the single starts_red command runs all three.",
+    "starts_red": [
+      "agentops.dispatch.tests.driver"
+    ],
+    "reference_patch": "docs/evidence/packets/V5-M2-driver-retry-policy.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "44ed8592ade6448e7e022f135be132898f05dfad",
+  "purpose": "Encode the L-4 retry policy in the L-1 driver templates/dispatch/scripts/dispatch_release.py. Today a red gate is simply reported: the PR is skipped with a reason and the driver exits 0. L-4 spends exactly one cheap retry first. Add a module constant MAX_GATE_ATTEMPTS = 2 and a \"retry\" key in the report that is None when no retry was spent and otherwise carries at least \"attempt\": 2, \"packet_path\" and \"reason\". After the gate comes back red on the first attempt -- gate stage exited non-zero, or disposition is not \"candidate\", or the evidence says passed is false, read from receipt[\"evidence\"] when present and the top level otherwise -- and the attempt ledger holds no earlier red for this packet and starting_commit, re-run run, gate and receipt ONLY. prepare is not re-run: the worktree already exists and its cold gates are no longer red, and that is what makes the retry cheap. The retried stages must be invoked with a retry packet written to worktree.parent / \"<task_id>.attempt-2.json\": the frozen packet with exactly two changes, \"attempt\" set to the previous attempt plus one (a packet with no attempt key is attempt 1), and a \"retry_context\" key holding at least attempt, stdout_tail and stderr_tail taken from the red gate's captured output -- with those same two tails also appended to the packet's \"purpose\" string under a line beginning \"retry_context:\", because the purpose is what actually reaches the worker. Nothing else in the packet changes. Every entry in report[\"steps\"] carries an \"attempt\" key, and the final receipt carries \"attempt\". A green retry proceeds to the PR normally; a red retry falls through to the existing gate-red-twice stop, which must escalate once and never invoke gh. A third attempt is never made. A green first gate spends no retry, a stop that fires before the gate never reaches the retry path, a post-gate stop spends no retry (the packet is wrong, not the worker), and a prepare or run stage failure escalates as it does today without a retry. Change nothing else in the file.",
+  "readable_context_paths": [
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/tests/test_dispatch_release_retry.py",
+    "templates/dispatch/tests/test_dispatch_release_stops.py",
+    "templates/dispatch/tests/test_dispatch_release.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/dispatch_release.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "MAX_GATE_ATTEMPTS is 2 and bounds the gate at two invocations",
+    "a red first gate spends exactly one retry that re-runs run, gate and receipt but never prepare",
+    "the retry packet is the frozen packet plus attempt and retry_context, with the gate's tails also in purpose",
+    "the retried stages are invoked with the retry packet's path, not the frozen packet's",
+    "a red retry falls through to gate-red-twice: one escalation, non-zero exit, no gh",
+    "a green first gate, a post-gate stop and a stage failure all spend no retry",
+    "the final receipt carries the attempt number"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "the retry is bounded and the bound is named",
+      "command_id": "agentops.dispatch.tests.driver",
+      "fails_when": "MAX_GATE_ATTEMPTS is absent or not 2, or a third gate invocation happens"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "a red first gate buys exactly one cheap retry",
+      "command_id": "agentops.dispatch.tests.driver",
+      "fails_when": "prepare is re-run, the retried stage set differs from run/gate/receipt, or no retry is spent"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "the retry carries the gate's own output to the worker",
+      "command_id": "agentops.dispatch.tests.driver",
+      "fails_when": "retry_context is missing either tail, or purpose does not carry them under a retry_context: line"
+    },
+    {
+      "id": "REQ-004",
+      "requirement": "the retry packet widens nothing",
+      "command_id": "agentops.dispatch.tests.driver",
+      "fails_when": "any key other than attempt, retry_context and purpose differs from the frozen packet"
+    },
+    {
+      "id": "REQ-005",
+      "requirement": "a second red gate stops instead of retrying again",
+      "command_id": "agentops.dispatch.tests.driver",
+      "fails_when": "gate-red-twice does not fire, escalates more than once, or a PR is opened"
+    },
+    {
+      "id": "REQ-006",
+      "requirement": "nothing that is not a red gate is retried",
+      "command_id": "agentops.dispatch.tests.driver",
+      "fails_when": "a green gate, a post-gate stop or a stage failure spends a retry"
+    },
+    {
+      "id": "REQ-007",
+      "requirement": "the L-1 and L-2 contracts survive their superseded fixtures",
+      "command_id": "agentops.dispatch.tests.driver",
+      "fails_when": "any unamended fixture in the two shipped driver oracles regresses"
+    }
+  ],
+  "non_goals": [
+    "hybrid_dispatch.py, the packet schema, the manifest or the dispatch policy",
+    "the route policy's max_attempts ceiling",
+    "anything outside templates/dispatch/scripts/dispatch_release.py"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.driver"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 500000,
+    "hard_token_ceiling": 1000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 8,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-m2-driver-retry-policy",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  }
+}

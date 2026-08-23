@@ -121,13 +121,22 @@ class DriverTests(unittest.TestCase):
         self.assertNotIn("merge", " ".join(gh_calls[0]))
 
     def test_req002_pr_skipped_with_reason_when_not_candidate(self):
+        # Amended for L-4 (spec M-2, Amendment 1). This used to pin "a red gate
+        # exits 0 with the PR skipped and a reason"; L-4 replaced that mechanism
+        # with one cheap retry and then the gate-red-twice stop, so do not
+        # restore the old assertions. REQ-002's actual requirement is unchanged
+        # and still pinned below: work the driver cannot vouch for is never
+        # handed off -- no gh, no PR.
         runner = FakeRunner({"gate": 2}, {"gate": "coordinator_review_required"})
         code, report = self._drive(runner)
-        self.assertEqual(code, 0)
-        self.assertEqual(runner.steps(), ["prepare", "run", "gate", "receipt"])
+        self.assertNotEqual(code, 0)
+        self.assertEqual(report["stop"]["condition"], "gate-red-twice")
         self.assertFalse(any(c[0] == "gh" for c, _ in runner.calls))
-        self.assertTrue(report["pr"]["skipped"])
-        self.assertIn("coordinator_review_required", report["pr"]["reason"])
+        self.assertFalse((report["pr"] or {}).get("opened"))
+        # The retry is cheap (the worktree already exists, so prepare is not
+        # re-run) and bounded (MAX_GATE_ATTEMPTS): one prepare, two gates.
+        self.assertEqual(runner.steps().count("prepare"), 1)
+        self.assertEqual(runner.steps().count("gate"), driver.MAX_GATE_ATTEMPTS)
 
     # REQ-003 — the receipt is attached to the PR
     def test_req003_receipt_written_before_pr_and_is_the_body(self):
