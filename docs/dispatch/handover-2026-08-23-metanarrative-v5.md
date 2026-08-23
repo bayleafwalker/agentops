@@ -51,6 +51,34 @@ This document is the whole brief. Read the files it names; do not re-derive them
    in §4 is green on `main` after the merge-preview, and only PRs whose packet is a closed
    backlog row. One PR per packet.
 
+9. **Cheap-tier packets are additive** (added 2026-08-23 after M-2): a new function, branch,
+   fixture or field. If the reference patch rewrites more than it adds, the packet is coordinator
+   work — the tier emits whole-file rewrites and hits the output cap before a write lands
+   (V5-M2 attempt 1, `finish_reason: length` at 131k). M-1 (additive, same size) went green first
+   attempt; that is the control.
+10. **The reference patch is never committed at `starting_commit`** (M-1's first run was void
+    because it was). It is mandatory while the class is off and becomes SHOULD once the class is
+    on — its cost (~8.5 min + 12 frontier turns per usable implementation vs $0.13 worker spend)
+    is not a labour saving; its value is diagnostic.
+
+## 3a. Outcome of the first sequence (2026-08-23) and the re-authorized order
+
+M-7 done (#55). M-1 green first attempt (#56). **M-2 red twice → stopped; withdrawn as a loop
+packet** (restructuring; and `prepare` refuses a second worker into an existing workspace, so
+L-4 is the packet that would unblock its own retry). M-3/M-4 never freezable: `hybrid_dispatch.py`
+is protected. D-8 = **2**. Scorecard: `docs/evidence/scorecards/v5-m-series.json`.
+
+**Owner-authorized coordinator hand-pass (one PR, protected scope):** read-trace fd-relative
+`openat` false positive (`parse_strace_reads`); `-e trace=%file`; export timeout from
+`packet.limits`; `mechanical_bulk.max_attempts: 2`; `task-packet.schema.json` admits
+`release_boundary`; **L-4 retry** in `prepare`/driver (one retry, gate tails appended under
+`retry_context`, `attempt: 2`). Oracles by a fresh author. Merge when §4 step 6 is green.
+
+**Then the readiness test restarts:** M-5 (frozen, fit, ready) → **M-8 driver PR step** (add the
+coordinator's `origin` remote to the disposable worktree, push the packet branch, `gh pr create
+--head`; both M-1 candidates died here). Two consecutive first-attempt greens → class on. Then
+M-6 as two packets (one per file, one language each), M-3/M-4 are in the hand-pass.
+
 ## 3. Packets to freeze and run, in order
 
 Each row: what the oracle must assert, the writable file, and the spec source. Write the
