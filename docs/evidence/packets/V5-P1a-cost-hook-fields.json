@@ -1,0 +1,103 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-P1a-cost-hook-fields",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 2,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "templates/dispatch/hooks/tests/test-cost-hook-fields.sh decides correctness: REQ-001/002/003, and nothing outside T-1.",
+    "starts_red": [
+      "agentops.hooks.tests.t1"
+    ]
+  },
+  "attempt": 1,
+  "starting_commit": "8b1c8b9d63acf80e921b2a08c94d45c0f811b91c",
+  "purpose": "Add four fields to the JSON object log-session-cost.sh already emits: turns (user messages), assistant_msgs, tool_calls, duration_s, all derived from the transcript file the hook already reads. Also make the output log path overridable with AGENTOPS_COST_LOG, defaulting to the current hardcoded path, so the test can point the hook at a temp file. Change nothing else: every existing field keeps its name, position and type.",
+  "readable_context_paths": [
+    "templates/dispatch/hooks/log-session-cost.sh",
+    "templates/dispatch/hooks/tests/test-cost-hook-fields.sh"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/hooks/log-session-cost.sh"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/hooks/tests/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "log-session-cost.sh emits turns, assistant_msgs, tool_calls and duration_s",
+    "all four are computed from the transcript, not from the Stop event payload",
+    "the log path honours AGENTOPS_COST_LOG when set and is unchanged when it is not",
+    "every field the hook emits today keeps its name, position and type"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "the cost record stays backward compatible",
+      "command_id": "agentops.hooks.tests.t1",
+      "fails_when": "an existing field is renamed, removed, or changes type"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "the counters come from the transcript",
+      "command_id": "agentops.hooks.tests.t1",
+      "fails_when": "a counter reads a key the Stop payload does not carry, or is hardcoded"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "the log path is overridable so the oracle can observe the record",
+      "command_id": "agentops.hooks.tests.t1",
+      "fails_when": "the hook writes to its hardcoded path when AGENTOPS_COST_LOG is set"
+    }
+  ],
+  "non_goals": [
+    "the PostToolUse gate hook",
+    "the auditctl drain",
+    "the /friction skill",
+    "anything outside log-session-cost.sh"
+  ],
+  "allowed_command_ids": [
+    "agentops.hooks.tests.t1",
+    "agentops.dispatch.tests"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 500000,
+    "hard_token_ceiling": 1000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 8,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-p1a-cost-hook-fields",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
+      "/projects/dev/vuoro/docs/plans/2026-08-23-v5-implementation-plan.md"
+    ]
+  }
+}

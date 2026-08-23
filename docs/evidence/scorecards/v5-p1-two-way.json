@@ -1,0 +1,113 @@
+{
+  "schema_version": "workflow-scorecard/v0",
+  "release": "v5-P1",
+  "recorded_at": "2026-08-23T10:50:00Z",
+  "packet": "V5-P1-telemetry-hooks",
+  "starting_commit": "775ce5f1558ea3ce1824167aea2d6eac2d4d4996",
+  "sprint_item": "agentops#2254",
+  "runs": {
+    "direct": {
+      "mode": "direct-dispatch",
+      "host": "workstation",
+      "outcome": "implemented; oracle green (agentops.hooks.tests, agentops.dispatch.tests)",
+      "turns": 9,
+      "assistant_msgs": 452,
+      "tool_calls": 254,
+      "duration_min": 214,
+      "cost_usd": 197.14,
+      "attribution": "NOT packet-isolated: the same session also produced the v5 plan, P-0, three rounds of fixes to coordinator-protected code, and drove both loop runs. A per-packet direct cost cannot be extracted from it."
+    },
+    "loop": {
+      "mode": "L-1 dispatch_release",
+      "host": "devbox",
+      "worker_user": "agentworker",
+      "harness_model": "opencode-go/deepseek-v4-flash",
+      "outcome": "no edits produced; gate diff-nonempty false, registered-commands-green false, passed false",
+      "runs": [
+        {
+          "attempt": 1,
+          "steps": "prepare 0, run 0, gate 2, receipt 0",
+          "disposition": "coordinator_review_required",
+          "pr": "skipped (not candidate)",
+          "duration_s": 309,
+          "spend": "not captured -- the driver discarded stage stdout (fixed in f698edc)"
+        },
+        {
+          "attempt": 2,
+          "steps": "run 4",
+          "disposition": "budget_exceeded",
+          "cost_usd": 0.043471,
+          "tokens": 1070608,
+          "cost_reported": true,
+          "soft_token_ceiling_exceeded": true,
+          "within_hard_token_ceiling": false
+        },
+        {
+          "attempt": 3,
+          "packet": "V5-P1-telemetry-hooks",
+          "note": "workspace permissions fixed; worker read and stopped, no write attempts",
+          "cost_usd": 0.007737,
+          "tokens": 66257,
+          "disposition": "coordinator_review_required",
+          "passed": false
+        },
+        {
+          "attempt": 4,
+          "packet": "V5-P1a-cost-hook-fields",
+          "note": "T-1 split; worker implemented all four fields correctly but the oracle demanded an unstated AGENTOPS_COST_LOG seam",
+          "cost_usd": 0.014713,
+          "tokens": 212057,
+          "passed": false
+        },
+        {
+          "attempt": 5,
+          "packet": "V5-P1a (seam stated)",
+          "note": "worker delivered the seam and the fields; oracle was the whole T-set suite, died on gate-log.sh (T-3)",
+          "cost_usd": 0.02245,
+          "tokens": 348778,
+          "passed": false
+        },
+        {
+          "attempt": 6,
+          "packet": "V5-P1a (oracle split)",
+          "note": "oracle absent at starting_commit; exit 127 accepted as a declared red",
+          "cost_usd": 0.004911,
+          "tokens": 57537,
+          "passed": false
+        },
+        {
+          "attempt": 7,
+          "packet": "V5-P1a @ 8b1c8b9",
+          "note": "FIRST FULLY GREEN LOOP RUN: every gate passed",
+          "cost_usd": 0.014206,
+          "tokens": 277103,
+          "passed": true,
+          "gates": {
+            "diff-nonempty": true,
+            "diff-scope-respected": true,
+            "protected-paths-untouched": true,
+            "worktree-state-captured": true,
+            "registered-commands-green": true
+          },
+          "touched_paths": [
+            "templates/dispatch/hooks/log-session-cost.sh"
+          ],
+          "disposition": "coordinator_review_required",
+          "disposition_note": "not 'candidate' only because an independent review record is required (hybrid_dispatch.py:995) -- that is D-8/L-3's business, not a gate failure"
+        }
+      ],
+      "containment": {
+        "coordinator_tree_untouched": true,
+        "coordinator_tree_changes": []
+      }
+    }
+  },
+  "findings": [
+    "SEVEN dispatches produced one green run. Not one failure was the model: five were defects in the harness or in coordinator-authored packets, each wearing the costume of a capability limit.",
+    "Harness defects: the workspace group was inert so every worker write was denied (the 1.07M-token run); context_churn was declared in every packet and enforced nowhere; exit 127 was accepted as a declared red, so a packet ran against an oracle its workspace did not contain.",
+    "Coordinator defects, all one gap: the oracle demanded a seam the packet did not state; the oracle covered the whole T-set when the packet covered one item; the oracle did not exist at starting_commit. Nothing checks that a packet's oracle is ATTAINABLE from its own text and its own starting commit -- validate checks discrimination only. This is the top L-2 item.",
+    "The tier question is answered in the tier's favour: given one outcome, one writable file and one achievable failing test, opencode-go/deepseek-v4-flash produced correct scoped work for $0.014.",
+    "D-8's count is 1 of 5. Only attempt 7 was ever evidence about the tier: attempts 1-6 failed on harness or packet defects, so they measured the coordinator, not the model."
+  ],
+  "attribution_note": "The 'packet, not tier' diagnosis after attempt 4 was the owner's, made from the receipt alone. The receipt could not distinguish 'flash will not write' from 'the oracle is unattainable', so it was a plausible reading rather than evidence -- it happened to be right. Attempt 7 earned the claim. Recorded because D-8 counts runs that were evidence about the tier, and exactly one was."
+}

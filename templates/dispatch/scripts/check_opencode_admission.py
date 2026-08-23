@@ -54,6 +54,12 @@ OPENCODE = Path("/run/current-system/sw/bin/opencode")
 RUNUSER = Path("/run/current-system/sw/bin/runuser")
 TOUCH = Path("/run/current-system/sw/bin/touch")
 MKDIR = Path("/run/current-system/sw/bin/mkdir")
+# The probe binaries are named as constants for the same reason TOUCH and MKDIR are:
+# they must be absolute (never a PATH lookup at call time, which the worker could steer)
+# and they must be substitutable by the end-to-end test, which runs the real checker
+# against fakes. Inlining them left the test with an incomplete seam.
+TEST_BIN = Path("/run/current-system/sw/bin/test")
+ID_BIN = Path("/run/current-system/sw/bin/id")
 WORKER_USER = "agentworker"
 
 SOFT_TOKENS = 500_000
@@ -244,9 +250,9 @@ def _contained_probe() -> dict[str, Any]:
     """Prove the worker boundary before spending on OpenCode: cheap, mechanical,
     answers a distinct question ("not obviously dangerous to assign this")."""
     assert ACTIVE_WORKSPACE_ROOT is not None
-    accessible = _run_worker(["/run/current-system/sw/bin/test", "-d", str(ACTIVE_WORKSPACE_ROOT)])
-    writable = _run_worker(["/run/current-system/sw/bin/test", "-w", str(ACTIVE_WORKSPACE_ROOT)])
-    groups = _run_worker(["/run/current-system/sw/bin/id", "-Gn"])
+    accessible = _run_worker([str(TEST_BIN), "-d", str(ACTIVE_WORKSPACE_ROOT)])
+    writable = _run_worker([str(TEST_BIN), "-w", str(ACTIVE_WORKSPACE_ROOT)])
+    groups = _run_worker([str(ID_BIN), "-Gn"])
     version = _run_worker([str(OPENCODE), "--version"])
     if accessible.returncode != 0 or writable.returncode != 0 or version.returncode != 0 or version.stdout.strip() != EXPECTED_CLI_VERSION:
         raise CheckError("contained worker boundary probe failed")

@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
 import hashlib
 import json
+import os
+from datetime import datetime, timedelta, timezone
 import stat
 import subprocess
 import tempfile
@@ -541,38 +545,511 @@ class LiveClaimTests(unittest.TestCase):
         packet_tests.setUp()
         self.packet = packet_tests.packet
 
-    def test_live_claim_requires_exact_item_actor_and_unexpired_lease(self) -> None:
+    @staticmethod
+    def _reservation(**overrides: object) -> dict:
+        row = {
+            "id": 7,
+            "work_item_id": 42,
+            "actor": "coordinator/claude-code",
+            "state": "active",
+            "last_activity_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        }
+        row.update(overrides)
+        return row
+
+    def _run(self, rows: list[dict], command: list[str] | None = None):
         completed = subprocess.CompletedProcess(
-            args=[], returncode=0,
-            stdout=json.dumps([{
-                "claim_id": 7, "work_item_id": 42,
-                "agent": "coordinator/claude-code",
-                "expires_at": "2999-01-01T00:00:00Z",
-            }]), stderr="",
+            args=[], returncode=0, stdout=json.dumps(rows), stderr="",
         )
         original = dispatch.subprocess.run
-        dispatch.subprocess.run = lambda *args, **kwargs: completed
+
+        def fake_run(args, *rest, **kwargs):
+            if command is not None:
+                command[:] = list(args)
+            return completed
+
+        dispatch.subprocess.run = fake_run
         try:
-            evidence = dispatch.verify_live_coordinator_claim(Path("."), self.packet, "sprintctl")
+            return dispatch.verify_live_coordinator_claim(Path("."), self.packet, "sprintctl")
         finally:
             dispatch.subprocess.run = original
+
+    def test_live_reservation_requires_exact_item_actor_and_recent_activity(self) -> None:
+        evidence = self._run([self._reservation()])
+        self.assertEqual(evidence["claim_id"], 7)
+        self.assertEqual(evidence["work_item_id"], 42)
+        self.assertLess(evidence["idle_seconds"], 60)
+
+    def test_it_reads_reservations_because_sprintctl_has_no_claim_command(self) -> None:
+        """sprintctl removed credential-bearing claims; calling `claim` fails on
+        every host, and the old tests missed it by mocking the payload shape."""
+        command: list[str] = []
+        self._run([self._reservation()], command)
+        self.assertEqual(command[1], "reservation")
+        self.assertIn("--active-only", command)
+        self.assertNotIn("claim", command)
+
+    def test_live_reservation_rejects_a_different_actor(self) -> None:
+        with self.assertRaisesRegex(dispatch.PacketError, "not held"):
+            self._run([self._reservation(actor="someone-else")])
+
+    def test_live_reservation_rejects_a_released_one(self) -> None:
+        with self.assertRaisesRegex(dispatch.PacketError, "not active"):
+            self._run([self._reservation(state="released")])
+
+    def test_live_reservation_rejects_a_stale_one(self) -> None:
+        """A reservation is a coordination signal, not a lease, so it has no
+        expiry -- staleness is the only honest substitute for one."""
+        stale = datetime.now(timezone.utc) - dispatch.reservation_stale_after() - timedelta(minutes=1)
+        with self.assertRaisesRegex(dispatch.PacketError, "idle for"):
+            self._run([self._reservation(last_activity_at=stale.strftime("%Y-%m-%dT%H:%M:%SZ"))])
+
+    def test_a_fresh_reservation_just_inside_the_horizon_is_accepted(self) -> None:
+        fresh = datetime.now(timezone.utc) - dispatch.reservation_stale_after() + timedelta(minutes=5)
+        evidence = self._run([self._reservation(last_activity_at=fresh.strftime("%Y-%m-%dT%H:%M:%SZ"))])
         self.assertEqual(evidence["claim_id"], 7)
 
-    def test_live_claim_rejects_a_different_actor(self) -> None:
-        completed = subprocess.CompletedProcess(
-            args=[], returncode=0,
-            stdout=json.dumps([{
-                "claim_id": 7, "work_item_id": 42,
-                "agent": "someone-else", "expires_at": "2999-01-01T00:00:00Z",
-            }]), stderr="",
+class ColdRunAssessmentTests(unittest.TestCase):
+    """A packet whose oracle is a test written before the code was
+    undispatchable: prepare demanded every gate green, and the packet existed
+    precisely because one is red."""
+
+    def setUp(self) -> None:
+        packet_tests = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+        packet_tests.setUp()
+        self.packet = packet_tests.packet
+        self.manifest = packet_tests.manifest
+        self.policy = packet_tests.policy
+
+    @staticmethod
+    def _results(**exits: int) -> list[dict]:
+        return [{"command_id": cid, "exit_code": code} for cid, code in exits.items()]
+
+    def test_all_green_is_fit_when_nothing_is_declared_red(self) -> None:
+        results, green, faults = dispatch.assess_cold_run(
+            self._results(a=0, b=0), self.packet
         )
-        original = dispatch.subprocess.run
-        dispatch.subprocess.run = lambda *args, **kwargs: completed
+        self.assertTrue(green)
+        self.assertEqual(faults, [])
+        self.assertEqual([r["expectation"] for r in results], ["green", "green"])
+
+    def test_an_unrelated_red_command_still_blocks_dispatch(self) -> None:
+        _, green, faults = dispatch.assess_cold_run(self._results(a=0, b=1), self.packet)
+        self.assertFalse(green)
+        self.assertIn("b failed at the starting commit", faults[0])
+
+    def test_a_declared_red_oracle_is_fit(self) -> None:
+        self.packet["oracle"]["starts_red"] = ["b"]
+        self.packet["allowed_command_ids"] = ["a", "b"]
+        results, green, faults = dispatch.assess_cold_run(
+            self._results(a=0, b=1), self.packet
+        )
+        self.assertTrue(green)
+        self.assertEqual(faults, [])
+        self.assertEqual(results[1]["expectation"], "red")
+
+    def test_a_declared_red_oracle_that_passes_is_a_fault(self) -> None:
+        """The resolution is stricter than the rule it replaces: a gate that
+        cannot fail at the starting commit is not evidence of anything."""
+        self.packet["oracle"]["starts_red"] = ["b"]
+        self.packet["allowed_command_ids"] = ["a", "b"]
+        _, green, faults = dispatch.assess_cold_run(self._results(a=0, b=0), self.packet)
+        self.assertFalse(green)
+        self.assertIn("cannot fail proves nothing", faults[0])
+
+    def test_a_missing_command_is_a_fault_even_when_declared_red(self) -> None:
+        """127 is "command not found", not a gate failing. Accepting it let a
+        packet dispatch against an oracle its workspace did not contain, and the
+        worker was judged by a test that never ran."""
+        self.packet["oracle"]["starts_red"] = ["b"]
+        self.packet["allowed_command_ids"] = ["a", "b"]
+        _, green, faults = dispatch.assess_cold_run(self._results(a=0, b=127), self.packet)
+        self.assertFalse(green)
+        self.assertIn("does not exist there", faults[0])
+
+    def test_starts_red_must_name_a_command_the_packet_may_run(self) -> None:
+        self.packet["oracle"]["starts_red"] = ["not-granted"]
+        with self.assertRaisesRegex(dispatch.PacketError, "cannot run"):
+            dispatch.validate_packet(self.packet, self.manifest, self.policy)
+
+
+class WorkspaceWritabilityTests(unittest.TestCase):
+    """The check whose absence cost a whole run: a worker went straight for the
+    right three files, was denied on every one, spent 1.07M tokens probing why,
+    and hit its ceiling -- while prepare reported green and run exited 0."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.ws = Path(self._tmp.name) / "ws"
+        self.ws.mkdir()
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def test_no_worker_user_means_the_coordinator_writes(self) -> None:
+        ok, detail = dispatch.worker_can_write_workspace(self.ws, None)
+        self.assertTrue(ok)
+        self.assertIn("coordinator", detail)
+
+    def test_a_group_the_worker_is_not_in_is_reported_as_inert(self) -> None:
+        """The exact failure: mode 775 looks correct and means nothing when the
+        group is the coordinator's own."""
+        original = dispatch.worker_shared_gid
+        dispatch.worker_shared_gid = lambda user: 993
         try:
-            with self.assertRaisesRegex(dispatch.PacketError, "not held"):
-                dispatch.verify_live_coordinator_claim(Path("."), self.packet, "sprintctl")
+            os.chmod(self.ws, 0o775)
+            ok, detail = dispatch.worker_can_write_workspace(self.ws, "agentworker")
+        finally:
+            dispatch.worker_shared_gid = original
+        self.assertFalse(ok)
+        self.assertIn("inert", detail)
+
+    def test_a_workspace_without_group_write_is_refused(self) -> None:
+        original = dispatch.worker_shared_gid
+        dispatch.worker_shared_gid = lambda user: self.ws.lstat().st_gid
+        try:
+            os.chmod(self.ws, 0o755)
+            ok, detail = dispatch.worker_can_write_workspace(self.ws, "agentworker")
+        finally:
+            dispatch.worker_shared_gid = original
+        self.assertFalse(ok)
+        self.assertIn("not group-writable", detail)
+
+    def test_no_shared_group_at_all_is_refused(self) -> None:
+        original = dispatch.worker_shared_gid
+        dispatch.worker_shared_gid = lambda user: None
+        try:
+            ok, detail = dispatch.worker_can_write_workspace(self.ws, "agentworker")
+        finally:
+            dispatch.worker_shared_gid = original
+        self.assertFalse(ok)
+        self.assertIn("shares no group", detail)
+
+    def test_a_probe_we_are_not_allowed_to_run_is_skipped_not_failed(self) -> None:
+        """Lacking sudo rights to ask is not evidence that the answer is no;
+        failing there would stop the run for a reason unrelated to the workspace."""
+        original_gid, original_run = dispatch.worker_shared_gid, dispatch.subprocess.run
+        dispatch.worker_shared_gid = lambda user: self.ws.lstat().st_gid
+        dispatch.subprocess.run = lambda *a, **k: subprocess.CompletedProcess(
+            args=[], returncode=1, stdout="", stderr="sudo: a password is required")
+        try:
+            os.chmod(self.ws, 0o775)
+            ok, detail = dispatch.worker_can_write_workspace(self.ws, "agentworker")
+        finally:
+            dispatch.worker_shared_gid, dispatch.subprocess.run = original_gid, original_run
+        self.assertTrue(ok)
+        self.assertIn("not permitted", detail)
+
+    def test_a_probe_that_ran_and_said_no_is_a_failure(self) -> None:
+        original_gid, original_run = dispatch.worker_shared_gid, dispatch.subprocess.run
+        dispatch.worker_shared_gid = lambda user: self.ws.lstat().st_gid
+        dispatch.subprocess.run = lambda *a, **k: subprocess.CompletedProcess(
+            args=[], returncode=1, stdout="", stderr="")
+        try:
+            os.chmod(self.ws, 0o775)
+            ok, detail = dispatch.worker_can_write_workspace(self.ws, "agentworker")
+        finally:
+            dispatch.worker_shared_gid, dispatch.subprocess.run = original_gid, original_run
+        self.assertFalse(ok)
+        self.assertIn("despite correct group and mode", detail)
+
+    def test_shared_gid_needs_a_real_user(self) -> None:
+        self.assertIsNone(dispatch.worker_shared_gid(None))
+        self.assertIsNone(dispatch.worker_shared_gid("no-such-user-here"))
+
+
+class OracleAttainabilityTests(unittest.TestCase):
+    """validate asked whether acceptance properties discriminate and never
+    whether they can be met. Three of the five defects behind a seven-run packet
+    were that gap."""
+
+    def setUp(self) -> None:
+        packet_tests = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+        packet_tests.setUp()
+        self.packet = packet_tests.packet
+        self.manifest = packet_tests.manifest
+        self.packet["oracle"]["starts_red"] = ["a"]
+        self.packet["allowed_command_ids"] = ["a"]
+        self.manifest["hybrid"]["commands"] = {"a": "true"}
+
+    def _faults(self, returncode: int) -> list[str]:
+        original_run, original_git = dispatch.subprocess.run, dispatch._git
+        dispatch._git = lambda *a, **k: ""
+        dispatch.subprocess.run = lambda *a, **k: subprocess.CompletedProcess(
+            args=[], returncode=returncode, stdout="", stderr="")
+        try:
+            return dispatch.check_oracle_attainable(Path("."), self.packet, self.manifest)
+        finally:
+            dispatch.subprocess.run, dispatch._git = original_run, original_git
+
+    def test_a_red_oracle_is_attainable(self) -> None:
+        self.assertEqual(self._faults(1), [])
+
+    def test_an_absent_oracle_is_a_fault(self) -> None:
+        """Defect 5: the test only existed on the branch tip, so the worker was
+        judged by a gate that never ran."""
+        faults = self._faults(127)
+        self.assertTrue(faults)
+        self.assertIn("does not exist in the workspace", faults[0])
+
+    def test_an_already_passing_oracle_is_a_fault(self) -> None:
+        faults = self._faults(0)
+        self.assertTrue(faults)
+        self.assertIn("cannot fail", faults[0])
+
+    def test_an_unregistered_command_is_a_fault(self) -> None:
+        self.manifest["hybrid"]["commands"] = {}
+        self.assertIn("not a registered command", self._faults(1)[0])
+
+    def test_a_packet_without_starts_red_is_not_checked(self) -> None:
+        self.packet["oracle"].pop("starts_red")
+        self.assertEqual(dispatch.check_oracle_attainable(Path("."), self.packet, self.manifest), [])
+
+
+class OracleReadTraceTests(unittest.TestCase):
+    """L-2(b), read-trace half: an oracle that reads a file the packet never
+    declared demands an unstated seam, or covers work the packet does not hold."""
+
+    FAKE_STRACE = """#!/bin/sh
+# Fake strace: writes the canned trace named by FAKE_TRACE_SRC to the -o file.
+out=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -o) out="$2"; shift 2 ;;
+    --) shift; break ;;
+    -f|-qq) shift ;;
+    -e) shift 2 ;;
+    *) break ;;
+  esac
+done
+cp "$FAKE_TRACE_SRC" "$out"
+exit 1
+"""
+
+    def setUp(self) -> None:
+        packet_tests = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+        packet_tests.setUp()
+        self.packet = packet_tests.packet
+        self.packet["oracle"]["starts_red"] = ["a"]
+        self.packet["allowed_command_ids"] = ["a"]
+        self.packet["readable_context_paths"] = ["src/**"]
+        self.packet["writable_patch_paths"] = ["tests/**"]
+        self.commands = {"a": "pytest -q tests/test_a.py"}
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.checkout = Path(os.path.realpath(self.tmp.name)) / "checkout"
+        for rel in ("tests/test_a.py", "src/a.py", "docs/secret.md", "pyproject.toml",
+                    ".git/HEAD", "src/__pycache__/a.pyc"):
+            (self.checkout / rel).parent.mkdir(parents=True, exist_ok=True)
+            (self.checkout / rel).write_text("x", encoding="utf-8")
+        bin_dir = Path(self.tmp.name) / "bin"
+        bin_dir.mkdir()
+        self.strace = bin_dir / "strace"
+        self.strace.write_text(self.FAKE_STRACE, encoding="utf-8")
+        self.strace.chmod(0o755)
+
+    def _trace(self, *paths: str, strace: str | None = "fake", allow_untraced: bool = False):
+        lines = [f'123   openat(AT_FDCWD, "{self.checkout}/{p}", O_RDONLY|O_CLOEXEC) = 3' for p in paths]
+        lines.append(f'123   openat(AT_FDCWD, "{self.checkout}/src", O_RDONLY|O_DIRECTORY) = 4')
+        lines.append(f'123   openat(AT_FDCWD, "{self.checkout}/docs/missing.md", O_RDONLY) = -1 ENOENT (No such file)')
+        lines.append(f'123   openat(AT_FDCWD, "{self.checkout}/docs/out.log", O_WRONLY|O_CREAT, 0666) = 5')
+        lines.append('123   openat(AT_FDCWD, "/usr/lib/python3/os.py", O_RDONLY|O_CLOEXEC) = 6')
+        src = Path(self.tmp.name) / "trace.src"
+        src.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        os.environ["FAKE_TRACE_SRC"] = str(src)
+        self.addCleanup(os.environ.pop, "FAKE_TRACE_SRC", None)
+        strace_bin = str(self.strace) if strace == "fake" else strace
+        return dispatch.trace_oracle_reads(
+            self.checkout, self.packet, self.commands, strace_bin, allow_untraced,
+        )
+
+    def test_a_read_outside_declared_paths_is_rejected(self) -> None:
+        faults, report = self._trace("docs/secret.md", "src/a.py")
+        self.assertEqual(len(faults), 1)
+        self.assertIn("oracle reads outside declared paths", faults[0])
+        self.assertIn("docs/secret.md", faults[0])
+        self.assertIs(report["oracle_reads_within_paths"], False)
+        self.assertEqual(report["reads_outside_declared_paths"], {"a": ["docs/secret.md"]})
+
+    def test_reads_inside_declared_paths_pass(self) -> None:
+        faults, report = self._trace("src/a.py", "tests/test_a.py")
+        self.assertEqual(faults, [])
+        self.assertIs(report["oracle_reads_within_paths"], True)
+        self.assertIs(report["read_trace"], True)
+
+    def test_exempt_paths_and_non_reads_are_ignored(self) -> None:
+        # The oracle's own file, VCS, bytecode, runner config, directories,
+        # failed opens, write-only opens and paths outside the checkout.
+        faults, report = self._trace(
+            "tests/test_a.py", ".git/HEAD", "src/__pycache__/a.pyc", "pyproject.toml",
+        )
+        self.assertEqual(faults, [])
+        self.assertIs(report["oracle_reads_within_paths"], True)
+
+    def test_no_strace_and_no_flag_fails_closed(self) -> None:
+        faults, report = self._trace("src/a.py", strace=None)
+        self.assertEqual(len(faults), 1)
+        self.assertIn("strace is not on PATH", faults[0])
+        self.assertIn("--allow-untraced-oracle", faults[0])
+        self.assertIsNone(report["oracle_reads_within_paths"])
+
+    def test_no_strace_with_flag_is_skipped_never_true(self) -> None:
+        faults, report = self._trace("docs/secret.md", strace=None, allow_untraced=True)
+        self.assertEqual(faults, [])
+        self.assertEqual(report["oracle_reads_within_paths"], "skipped:untraced")
+        self.assertEqual(report["read_trace"], "skipped:untraced")
+        self.assertIsNot(report["oracle_reads_within_paths"], True)
+
+    def test_a_packet_without_starts_red_is_not_traced(self) -> None:
+        self.packet["oracle"].pop("starts_red")
+        faults, report = dispatch.trace_oracle_reads(self.checkout, self.packet, self.commands, None)
+        self.assertEqual(faults, [])
+        self.assertIsNone(report["oracle_reads_within_paths"])
+
+    def test_exemptions_are_one_stated_constant(self) -> None:
+        self.assertEqual(dispatch.ORACLE_READ_TRACE_EXEMPT_PREFIXES, (".git/", "__pycache__/", ".venv/"))
+
+    def test_validate_passes_the_flag_through(self) -> None:
+        original = (dispatch.check_oracle_reads, dispatch.check_oracle_attainable)
+        seen: dict = {}
+
+        def fake(repo_root, packet, manifest, allow_untraced=False):
+            seen["allow"] = allow_untraced
+            return [], {"oracle_reads_within_paths": "skipped:untraced", "read_trace": "skipped:untraced"}
+
+        dispatch.check_oracle_reads = fake
+        dispatch.check_oracle_attainable = lambda *a, **k: []
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                packet_path = Path(tmp) / "p.json"
+                self.packet["oracle"]["starts_red"] = ["example.tests"]
+                self.packet["allowed_command_ids"] = ["example.tests"]
+                packet_path.write_text(json.dumps(self.packet), encoding="utf-8")
+                manifest_path = Path(tmp) / "example.dispatch.json"
+                manifest = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+                manifest.setUp()
+                manifest_path.write_text(json.dumps(manifest.manifest), encoding="utf-8")
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out):
+                    code = dispatch.main([
+                        "--repo-root", tmp, "--packet", str(packet_path),
+                        "--agentops-root", str(ROOT), "--allow-untraced-oracle", "validate",
+                    ])
+                self.assertEqual(code, 0, out.getvalue())
+                self.assertTrue(seen["allow"])
+                self.assertEqual(json.loads(out.getvalue())["oracle_reads_within_paths"], "skipped:untraced")
+        finally:
+            dispatch.check_oracle_reads, dispatch.check_oracle_attainable = original
+
+
+class WorkerSessionExportTests(unittest.TestCase):
+    """L-1b: the exported OpenCode session is the record of what the worker
+    actually did; its absence must be recorded, never fatal."""
+
+    STUB = """#!/bin/sh
+if [ "$1" = "export" ] && [ -n "$FAKE_EXPORT_JSON" ]; then
+  printf '%s' "$FAKE_EXPORT_JSON"; exit 0
+fi
+echo "export failed: session $2 not found" >&2
+exit 1
+"""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        root = Path(self.tmp.name)
+        self.opencode = root / "bin" / "opencode"
+        self.opencode.parent.mkdir()
+        self.opencode.write_text(self.STUB, encoding="utf-8")
+        self.opencode.chmod(0o755)
+        self.worktree = root / "wt" / "T-1"
+        self.worktree.mkdir(parents=True)
+        self.destination = self.worktree.parent / "T-1.worker-session.json"
+        self.addCleanup(os.environ.pop, "FAKE_EXPORT_JSON", None)
+
+    def test_export_success_is_recorded_with_sha256(self) -> None:
+        body = json.dumps({"id": "ses_1", "messages": [{"role": "user"}]})
+        os.environ["FAKE_EXPORT_JSON"] = body
+        record = dispatch.export_worker_session(str(self.opencode), "ses_1", self.destination, self.worktree)
+        self.assertEqual(record["path"], str(self.destination))
+        self.assertEqual(record["sha256"], hashlib.sha256(body.encode()).hexdigest())
+        self.assertEqual(self.destination.read_text(encoding="utf-8"), body)
+        self.assertNotIn("error", record)
+
+    def test_export_failure_is_recorded_without_failing(self) -> None:
+        record = dispatch.export_worker_session(str(self.opencode), "ses_missing", self.destination, self.worktree)
+        self.assertIn("session ses_missing not found", record["error"])
+        self.assertNotIn("path", record)
+        self.assertFalse(self.destination.exists())
+
+    def test_unknown_session_is_recorded_as_an_error(self) -> None:
+        record = dispatch.export_worker_session(str(self.opencode), None, self.destination, self.worktree)
+        self.assertIn("no session id", record["error"])
+
+    def test_a_contained_worker_is_exported_as_that_identity(self) -> None:
+        calls: list[list[str]] = []
+        original = dispatch.subprocess.run
+
+        def fake_run(argv, **kw):
+            calls.append(list(argv))
+            return subprocess.CompletedProcess(argv, 0, "{}", "")
+
+        dispatch.subprocess.run = fake_run
+        try:
+            dispatch.export_worker_session("opencode", "ses_1", self.destination, self.worktree, "worker")
         finally:
             dispatch.subprocess.run = original
+        self.assertEqual(calls[0][:4], ["sudo", "--non-interactive", "--user", "worker"])
+
+
+class ChurnVerdictTests(unittest.TestCase):
+    """context_churn was declared in every packet and enforced nowhere. A worker
+    read 1.07M tokens without one completed write while its own limit of 8 sat
+    unread."""
+
+    LIMITS = {"max_reasoning_steps_without_mutation": 3, "max_repeated_reads_per_path": 2}
+
+    @staticmethod
+    def _tool(tool: str, status: str = "completed", path: str | None = None) -> dict:
+        state: dict = {"status": status}
+        if path:
+            state["input"] = {"filePath": path}
+        return {"type": "tool_use", "part": {"tool": tool, "state": state}}
+
+    def test_progress_resets_the_counter(self) -> None:
+        events = [self._tool("read", path="a"), self._tool("write"), self._tool("read", path="b")]
+        self.assertIsNone(dispatch.churn_verdict(events, self.LIMITS))
+
+    def test_mutation_free_churn_is_stopped(self) -> None:
+        events = [self._tool("glob") for _ in range(4)]
+        verdict = dispatch.churn_verdict(events, self.LIMITS)
+        self.assertIsNotNone(verdict)
+        self.assertEqual(verdict[0], "churn_no_mutation")
+
+    def test_rereading_one_path_is_stopped(self) -> None:
+        events = [self._tool("write")] + [self._tool("read", path="same") for _ in range(3)]
+        verdict = dispatch.churn_verdict(events, self.LIMITS)
+        self.assertIsNotNone(verdict)
+        self.assertEqual(verdict[0], "churn_repeated_reads")
+
+    def test_denied_writes_do_not_count_as_progress(self) -> None:
+        """The exact 2026-08-23 failure: three denied edits look like work and
+        are not, so they must not reset the no-progress counter."""
+        events = [self._tool("write", status="error") for _ in range(3)]
+        verdict = dispatch.churn_verdict(events, self.LIMITS)
+        self.assertIsNotNone(verdict)
+        self.assertEqual(verdict[0], "worker_cannot_write")
+
+    def test_a_denied_write_run_is_named_separately_from_circling(self) -> None:
+        """"The worker cannot write here" and "the worker is going in circles"
+        are different facts and the operator needs to be told which."""
+        denied = dispatch.churn_verdict([self._tool("edit", status="error")] * 3, self.LIMITS)
+        circling = dispatch.churn_verdict([self._tool("glob")] * 4, self.LIMITS)
+        self.assertNotEqual(denied[0], circling[0])
+
+    def test_no_limits_means_no_verdict(self) -> None:
+        self.assertIsNone(dispatch.churn_verdict([self._tool("glob")] * 20, {}))
+
 
 class WorkerSpendTests(unittest.TestCase):
     """`limits.max_cost_usd` was declared everywhere and read by nothing.

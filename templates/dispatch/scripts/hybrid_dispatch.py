@@ -22,15 +22,20 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
+import grp
 import hashlib
 import json
 import os
+import pwd
 import re
 import shlex
+import shutil
 import stat
 import subprocess
+import tempfile
+import time
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -205,6 +210,14 @@ def validate_packet(
     if packet.get("risk") != "low":
         raise PacketError("worker dispatch requires risk low")
     oracle = packet.get("oracle") or {}
+    starts_red = oracle.get("starts_red") or []
+    if not isinstance(starts_red, list) or any(not isinstance(c, str) for c in starts_red):
+        raise PacketError("oracle.starts_red must be a list of command ids")
+    unknown = [c for c in starts_red if c not in packet.get("allowed_command_ids", [])]
+    if unknown:
+        raise PacketError(
+            f"oracle.starts_red names commands the packet cannot run: {', '.join(sorted(unknown))}"
+        )
     if oracle.get("ownership") != "externally_defined" or oracle.get("worker_may_modify") is not False:
         raise PacketError(
             "worker dispatch requires an externally defined oracle that the worker cannot modify"
@@ -363,14 +376,51 @@ def qualification_state(policy: dict[str, Any], packet: dict[str, Any]) -> str:
     return qualification["default"]
 
 
+RESERVATION_STALE_AFTER_ENV = "SPRINTCTL_RESERVATION_STALE_AFTER_HOURS"
+DEFAULT_RESERVATION_STALE_AFTER = timedelta(hours=4)
+
+
+def reservation_stale_after() -> timedelta:
+    """How idle a reservation may be and still authorize a dispatch.
+
+    Mirrors sprintctl's own horizon and reads the same environment variable, so
+    an operator who widens it there does not have to remember to widen it twice.
+    """
+    raw = os.environ.get(RESERVATION_STALE_AFTER_ENV)
+    if raw:
+        try:
+            hours = float(raw)
+        except ValueError:
+            return DEFAULT_RESERVATION_STALE_AFTER
+        if hours > 0:
+            return timedelta(hours=hours)
+    return DEFAULT_RESERVATION_STALE_AFTER
+
+
 def verify_live_coordinator_claim(
     repo_root: Path, packet: dict[str, Any], sprintctl_bin: str,
 ) -> dict[str, Any]:
-    """Read and validate the exact served claim that authorizes this packet.
+    """Read and validate the exact served reservation that authorizes this packet.
 
     The worker never receives this authority.  This coordinator-side check
-    prevents a frozen packet from being dispatched after its claim expired,
-    moved to a different actor, or ceased to cover the intended item.
+    prevents a frozen packet from being dispatched after its authorization went
+    stale, moved to a different actor, or ceased to cover the intended item.
+
+    **Migrated from ``sprintctl claim`` (2026-08-23).**  That command no longer
+    exists: sprintctl removed credential-bearing claims in favour of advisory
+    reservations, so every packet on every host failed here regardless of its
+    contents.  The unit tests did not catch it because they mocked the old
+    payload shape, which is the failure mode of testing a CLI you never call.
+
+    The two are not a rename.  A claim was a lease with an expiry; a reservation
+    is explicitly "a coordination signal, not a lease" and carries no expiry at
+    all.  The expiry check is therefore replaced by a **staleness** check on
+    ``last_activity_at``, matching sprintctl's own 4-hour horizon: an
+    authorization nobody has touched in that long is not evidence that anyone is
+    still coordinating this work, and ``sprintctl reservation touch`` refreshes
+    it deliberately rather than by accident.  ``sprint_item.claim_id`` and
+    ``claim_actor`` keep their names so frozen packets stay readable; they now
+    hold the reservation id and its actor.
     """
     item_ref = packet["sprint_item"]["ref"]
     _, _, item_text = item_ref.partition("#")
@@ -379,45 +429,69 @@ def verify_live_coordinator_claim(
     expected_actor = packet["sprint_item"]["claim_actor"]
     try:
         completed = subprocess.run(
-            [sprintctl_bin, "claim", "list", "--item-id", str(item_id), "--json"],
+            [sprintctl_bin, "reservation", "list", "--item-id", str(item_id),
+             "--active-only", "--json"],
             cwd=repo_root,
             text=True,
             capture_output=True,
             check=False,
         )
     except OSError as exc:
-        raise PacketError(f"cannot execute sprintctl claim read: {exc}") from exc
+        raise PacketError(f"cannot execute sprintctl reservation read: {exc}") from exc
     if completed.returncode != 0:
         detail = completed.stderr.strip() or completed.stdout.strip()
-        raise PacketError(f"served claim read failed: {detail or completed.returncode}")
+        raise PacketError(f"served reservation read failed: {detail or completed.returncode}")
     try:
-        claims = json.loads(completed.stdout)
+        reservations = json.loads(completed.stdout)
     except json.JSONDecodeError as exc:
-        raise PacketError("served claim read returned invalid JSON") from exc
-    if not isinstance(claims, list):
-        raise PacketError("served claim read returned a non-list payload")
-    matching = [claim for claim in claims if isinstance(claim, dict) and claim.get("claim_id") == expected_claim_id]
+        raise PacketError("served reservation read returned invalid JSON") from exc
+    if not isinstance(reservations, list):
+        raise PacketError("served reservation read returned a non-list payload")
+    matching = [
+        row for row in reservations
+        if isinstance(row, dict) and row.get("id") == expected_claim_id
+    ]
     if len(matching) != 1:
-        raise PacketError(f"served claim {expected_claim_id} is not active for item #{item_id}")
-    claim = matching[0]
-    if claim.get("work_item_id") != item_id:
-        raise PacketError(f"served claim {expected_claim_id} does not cover item #{item_id}")
-    if claim.get("agent") != expected_actor:
-        raise PacketError(f"served claim {expected_claim_id} is not held by {expected_actor!r}")
-    expires_at = claim.get("expires_at")
-    if not isinstance(expires_at, str):
-        raise PacketError(f"served claim {expected_claim_id} has no expiry")
+        raise PacketError(
+            f"served reservation {expected_claim_id} is not active for item #{item_id}"
+        )
+    reservation = matching[0]
+    if reservation.get("work_item_id") != item_id:
+        raise PacketError(
+            f"served reservation {expected_claim_id} does not cover item #{item_id}"
+        )
+    if reservation.get("actor") != expected_actor:
+        raise PacketError(
+            f"served reservation {expected_claim_id} is not held by {expected_actor!r}"
+        )
+    if reservation.get("state") != "active":
+        raise PacketError(f"served reservation {expected_claim_id} is not active")
+    last_activity_at = reservation.get("last_activity_at")
+    if not isinstance(last_activity_at, str):
+        raise PacketError(
+            f"served reservation {expected_claim_id} has no last_activity_at"
+        )
     try:
-        expiry = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+        touched = datetime.fromisoformat(last_activity_at.replace("Z", "+00:00"))
     except ValueError as exc:
-        raise PacketError(f"served claim {expected_claim_id} has invalid expiry") from exc
-    if expiry.tzinfo is None or expiry <= datetime.now(timezone.utc):
-        raise PacketError(f"served claim {expected_claim_id} is expired")
+        raise PacketError(
+            f"served reservation {expected_claim_id} has an invalid last_activity_at"
+        ) from exc
+    if touched.tzinfo is None:
+        touched = touched.replace(tzinfo=timezone.utc)
+    idle = datetime.now(timezone.utc) - touched
+    if idle > reservation_stale_after():
+        raise PacketError(
+            f"served reservation {expected_claim_id} has been idle for "
+            f"{idle.total_seconds() / 3600:.1f}h; touch it deliberately "
+            f"(sprintctl reservation touch) or reserve the item again"
+        )
     return {
         "claim_id": expected_claim_id,
         "work_item_id": item_id,
         "agent": expected_actor,
-        "expires_at": expires_at,
+        "last_activity_at": last_activity_at,
+        "idle_seconds": int(idle.total_seconds()),
         "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
 
@@ -637,7 +711,32 @@ def safety_ref(repo_root: Path, packet: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def share_workspace_with_group(workspace: Path) -> None:
+def worker_shared_gid(worker_user: str | None) -> int | None:
+    """The gid of the one group the coordinator and the contained worker share.
+
+    Setting the group-write bit is useless unless the group is one the worker is
+    actually in, and the clone lands owned by the coordinator's *primary* group,
+    which it is not. Measured on devbox 2026-08-23: workspace ``agent:agent``
+    mode 775, worker in ``agentworker`` and ``agentdispatch`` -- so every write
+    the worker attempted inside its own workspace failed ``PermissionDenied``
+    while the mode looked correct.
+    """
+    if not worker_user:
+        return None
+    try:
+        worker = pwd.getpwnam(worker_user)
+    except KeyError:
+        return None
+    worker_gids = {worker.pw_gid}
+    mine = set(os.getgroups())
+    for group in grp.getgrall():
+        if worker_user in group.gr_mem:
+            worker_gids.add(group.gr_gid)
+    shared = sorted(worker_gids & mine)
+    return shared[0] if shared else None
+
+
+def share_workspace_with_group(workspace: Path, worker_user: str | None = None) -> None:
     """Make the freshly cloned workspace writable by its owning group.
 
     The workspace root is setgid and group-shared precisely so the coordinator
@@ -658,11 +757,18 @@ def share_workspace_with_group(workspace: Path) -> None:
     Inert where no worker split exists: the workspace is then owned by the
     coordinator's own group and nothing else is in it.
     """
+    gid = worker_shared_gid(worker_user)
     for path in [workspace, *workspace.rglob("*")]:
         try:
             mode = path.lstat().st_mode
             if stat.S_ISLNK(mode):
                 continue
+            # Group ownership first: the write bit means nothing on a group the
+            # worker is not in, which is the state that produced a silent
+            # 1.07M-token run where every edit was denied inside the worker's
+            # own workspace.
+            if gid is not None:
+                os.chown(path, -1, gid)
             path.chmod(stat.S_IMODE(mode) | stat.S_IWGRP)
         except OSError:
             # A single unreadable or racing path is not worth failing the whole
@@ -671,7 +777,79 @@ def share_workspace_with_group(workspace: Path) -> None:
             continue
 
 
-def prepare_workspace(repo_root: Path, packet: dict[str, Any]) -> Path:
+def worker_can_write_workspace(workspace: Path, worker_user: str | None) -> tuple[bool, str]:
+    """Prove the contained worker can actually write the workspace it is given.
+
+    This is the check whose absence cost a whole run. On 2026-08-23 a worker went
+    straight for the right three files, was denied on every one, spent 1.07M
+    tokens probing why, and hit its token ceiling -- while prepare reported a
+    green cold gate and run exited 0. Nothing in the receipt said "the worker
+    could not write", because nothing had asked.
+
+    The decisive check is static and needs no privileges: the workspace's group
+    must be one the worker belongs to, and the group-write bit must be set.
+    That is exactly the state that failed, and it is knowable by stat alone.
+
+    The dynamic probe is a confirmation, not the check, because the coordinator
+    may run only a narrow allowlist as the worker -- on devbox that is opencode
+    and ``test``. A probe that cannot run is *skipped*, never treated as a
+    denial: refusing to dispatch because we lack sudo rights to ask would fail
+    the run for a reason that has nothing to do with the workspace.
+    """
+    if not worker_user:
+        return True, "no worker user: writes happen as the coordinator"
+
+    gid = worker_shared_gid(worker_user)
+    try:
+        info = workspace.lstat()
+    except OSError as exc:
+        return False, f"cannot stat {workspace}: {exc}"
+    if gid is None:
+        return False, (
+            f"{worker_user} shares no group with this process, so no mode can make "
+            f"{workspace} writable by it"
+        )
+    if info.st_gid != gid:
+        return False, (
+            f"{workspace} is group {info.st_gid}, not {gid}, which is the group "
+            f"{worker_user} is in: the group-write bit would be inert"
+        )
+    if not stat.S_IMODE(info.st_mode) & stat.S_IWGRP:
+        return False, f"{workspace} is not group-writable, so {worker_user} cannot write it"
+
+    test_bin = shutil.which("test", path=os.defpath) or shutil.which("test")
+    if test_bin is None:
+        return True, f"{workspace} is group-writable by {worker_user} (probe unavailable)"
+    try:
+        completed = subprocess.run(
+            ["sudo", "--non-interactive", "--user", worker_user, test_bin, "-w", str(workspace)],
+            capture_output=True, text=True, check=False, timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return True, f"group ownership correct; probe could not run ({exc})"
+    stderr = (completed.stderr or "").strip()
+    if completed.returncode != 0 and _probe_was_refused(stderr):
+        return True, f"group ownership correct; probe not permitted ({stderr[-160:]})"
+    if completed.returncode != 0:
+        return False, (
+            f"{worker_user} cannot write {workspace} despite correct group and mode: "
+            f"{stderr[-300:] or completed.returncode}"
+        )
+    return True, f"{worker_user} can write the workspace (probed)"
+
+
+def _probe_was_refused(stderr: str) -> bool:
+    """Tell "sudo would not let me ask" apart from "the answer is no"."""
+    lowered = stderr.lower()
+    return any(
+        marker in lowered
+        for marker in ("a password is required", "not allowed to execute", "may not run")
+    )
+
+
+def prepare_workspace(
+    repo_root: Path, packet: dict[str, Any], worker_user: str | None = None,
+) -> Path:
     """Clone the repository into a disposable standalone workspace.
 
     This provides **execution isolation and provenance, not containment.** It
@@ -702,7 +880,10 @@ def prepare_workspace(repo_root: Path, packet: dict[str, Any]) -> Path:
          packet["starting_commit"])
     _git(target, "remote", "remove", "origin")
     reroot_agent_context(target, repo_root)
-    share_workspace_with_group(target)
+    share_workspace_with_group(target, worker_user)
+    writable, detail = worker_can_write_workspace(target, worker_user)
+    if not writable:
+        raise PacketError(f"prepared workspace is not writable by the worker: {detail}")
     return target
 
 
@@ -735,6 +916,273 @@ def run_registered_commands(
             }
         )
     return results
+
+
+def check_oracle_attainable(
+    repo_root: Path, packet: dict[str, Any], manifest: dict[str, Any],
+) -> list[str]:
+    """Freeze-time check that a declared-red oracle can actually be satisfied.
+
+    ``validate`` asks whether acceptance properties *discriminate*. It never asks
+    whether they can be *met*, and three of the five defects behind a seven-run
+    packet were exactly that gap: an oracle that demanded a seam the packet did
+    not state, an oracle scoped to three items when the packet covered one, and
+    an oracle that did not exist at ``starting_commit`` at all.
+
+    This is L-2(a), the cheap half: run each ``starts_red`` command at the
+    starting commit in a throwaway checkout and require it to be **red for a
+    reason other than absence**. Exit 127 is not a failing test, it is a missing
+    one, and accepting it let a worker be judged by a gate that never ran.
+
+    The other half -- proving the failure depends only on files the packet
+    declares -- is ``check_oracle_reads`` (L-2(b), read-trace form). The
+    reference-solution form is deferred: no packet has carried one.
+    """
+    starts_red = (packet.get("oracle") or {}).get("starts_red") or []
+    if not starts_red:
+        return []
+    commands = manifest["hybrid"]["commands"]
+    faults: list[str] = []
+    with tempfile.TemporaryDirectory(prefix="agentops-attainable-") as tmp:
+        checkout = Path(tmp) / "at-starting-commit"
+        try:
+            _git(repo_root, "clone", "--no-hardlinks", "--quiet", str(repo_root), str(checkout))
+            _git(checkout, "checkout", "--quiet", "--detach", packet["starting_commit"])
+        except Exception as exc:  # noqa: BLE001 - reported, never raised past here
+            return [f"could not check out {packet['starting_commit']} to test the oracle: {exc}"]
+        for command_id in starts_red:
+            command = commands.get(command_id)
+            if command is None:
+                faults.append(f"{command_id} is not a registered command")
+                continue
+            completed = subprocess.run(
+                command, shell=True, cwd=checkout, stdin=subprocess.DEVNULL,
+                capture_output=True, text=True, check=False,
+                timeout=packet["limits"]["timeout_seconds"],
+            )
+            if completed.returncode == 127:
+                faults.append(
+                    f"{command_id} exits 127 at {packet['starting_commit'][:12]}: the oracle does "
+                    "not exist in the workspace the worker will be given"
+                )
+            elif completed.returncode == 0:
+                faults.append(
+                    f"{command_id} already passes at {packet['starting_commit'][:12]}: an oracle "
+                    "that cannot fail proves nothing about what the worker does to it"
+                )
+    return faults
+
+
+#: Paths the read-trace ignores even though they are inside the checkout.
+#: Everything here is either the version-control or interpreter machinery that
+#: any command touches regardless of what it tests (``.git/``, bytecode caches,
+#: a local virtualenv) or the test runner's own configuration discovery
+#: (pyproject/pytest/tox/setup.cfg, conftest.py), which a runner reads before
+#: it knows which test it is running. None of it is a seam the packet could
+#: have declared, so flagging it would only teach packets to declare
+#: ``pyproject.toml`` as context. The oracle's own test files -- the ones the
+#: command names on its command line -- are exempted separately in
+#: ``_oracle_named_paths``: that a test reads itself is not a dependency.
+ORACLE_READ_TRACE_EXEMPT_PREFIXES = (".git/", "__pycache__/", ".venv/")
+ORACLE_READ_TRACE_EXEMPT_FILES = (
+    "pyproject.toml", "setup.cfg", "pytest.ini", "tox.ini", "conftest.py",
+)
+ORACLE_READ_TRACE_SYSCALLS = "openat,open,stat,readlink"
+_STRACE_OPEN_RE = re.compile(
+    r'^(?:\[pid\s+\d+\]\s*|\d+\s+)?(openat|open)\((?:[^,]*,\s*)?"([^"]*)",\s*([A-Z_|0-9]+)'
+    r'[^)]*\)\s*=\s*(-?\d+)'
+)
+
+
+def _oracle_named_paths(checkout: Path, command: str) -> set[Path]:
+    """Files or directories the command names on its own command line."""
+    named: set[Path] = set()
+    try:
+        tokens = shlex.split(command)
+    except ValueError:
+        tokens = command.split()
+    for token in tokens:
+        # ``tests/test_x.py::TestCase::test_y`` names a file; strip the selector.
+        candidate = (checkout / token.split("::", 1)[0])
+        if candidate.exists():
+            named.add(Path(os.path.realpath(candidate)))
+    return named
+
+
+def _is_exempt_read(rel: str, resolved: Path, named: set[Path]) -> bool:
+    if rel in ORACLE_READ_TRACE_EXEMPT_FILES or rel.startswith(ORACLE_READ_TRACE_EXEMPT_PREFIXES):
+        return True
+    if "__pycache__" in Path(rel).parts:
+        return True
+    return any(resolved == n or n in resolved.parents for n in named)
+
+
+def parse_strace_reads(trace_text: str, checkout: Path) -> set[str]:
+    """Paths inside ``checkout`` that the traced command opened for reading.
+
+    Only *successful* opens that are not write-only count: a failed ``openat``
+    is a probe, not a read, and ``O_WRONLY`` is the oracle writing its own
+    cache. Directories are dropped -- a runner walks the tree to find tests,
+    and that walk is not a dependency on anything in it.
+    """
+    root = Path(os.path.realpath(checkout))
+    reads: set[str] = set()
+    for line in trace_text.splitlines():
+        match = _STRACE_OPEN_RE.match(line)
+        if match is None:
+            continue
+        _, raw_path, flags, result = match.groups()
+        if int(result) < 0 or "O_WRONLY" in flags.split("|"):
+            continue
+        resolved = Path(os.path.realpath(root / raw_path if not raw_path.startswith("/") else raw_path))
+        if resolved == root or root not in resolved.parents or resolved.is_dir():
+            continue
+        reads.add(resolved.relative_to(root).as_posix())
+    return reads
+
+
+def trace_oracle_reads(
+    checkout: Path,
+    packet: dict[str, Any],
+    commands: dict[str, str],
+    strace_bin: str | None,
+    allow_untraced: bool = False,
+) -> tuple[list[str], dict[str, Any]]:
+    """L-2(b), read-trace half: every file a ``starts_red`` oracle reads at
+    ``starting_commit`` must be inside the paths the packet declares.
+
+    An oracle that reads a file the worker may neither see nor write is an
+    oracle that demands an unstated seam, or covers work the packet does not
+    contain -- two of the five defects behind the seven-run packet. The packet
+    cannot be judged by a test whose inputs it cannot name.
+
+    Fails closed without ``strace``: a check that silently did not run is
+    indistinguishable from one that passed. ``allow_untraced`` records the gap
+    on the report as ``"skipped:untraced"`` and never as ``True``.
+    """
+    starts_red = (packet.get("oracle") or {}).get("starts_red") or []
+    report: dict[str, Any] = {
+        "oracle_reads_within_paths": None,
+        "read_trace": None,
+        "reads_outside_declared_paths": {},
+    }
+    if not starts_red:
+        return [], report
+    if strace_bin is None:
+        if allow_untraced:
+            report["oracle_reads_within_paths"] = "skipped:untraced"
+            report["read_trace"] = "skipped:untraced"
+            return [], report
+        return [
+            "strace is not on PATH, so the oracle's reads cannot be traced; install "
+            "strace or pass --allow-untraced-oracle to record the gap instead of "
+            "closing it"
+        ], report
+    declared = list(packet.get("readable_context_paths") or []) + list(
+        packet.get("writable_patch_paths") or []
+    )
+    faults: list[str] = []
+    outside: dict[str, list[str]] = {}
+    for command_id in starts_red:
+        command = commands.get(command_id)
+        if command is None:
+            continue  # already a fault from check_oracle_attainable
+        named = _oracle_named_paths(checkout, command)
+        with tempfile.NamedTemporaryFile(prefix="agentops-oracle-trace-", suffix=".log", delete=False) as handle:
+            trace_path = Path(handle.name)
+        try:
+            subprocess.run(
+                [strace_bin, "-f", "-qq", "-e", f"trace={ORACLE_READ_TRACE_SYSCALLS}",
+                 "-o", str(trace_path), "sh", "-c", command],
+                cwd=checkout, stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                check=False, timeout=packet["limits"]["timeout_seconds"],
+            )
+            trace_text = trace_path.read_text(encoding="utf-8", errors="replace")
+        finally:
+            trace_path.unlink(missing_ok=True)
+        offenders = sorted(
+            rel for rel in parse_strace_reads(trace_text, checkout)
+            if not _is_exempt_read(rel, Path(os.path.realpath(checkout / rel)), named)
+            and not _matches_any(rel, declared)
+        )
+        if offenders:
+            outside[command_id] = offenders
+            faults.append(
+                f"{command_id} oracle reads outside declared paths at "
+                f"{packet['starting_commit'][:12]}: {', '.join(offenders)}"
+            )
+    report["oracle_reads_within_paths"] = not outside
+    report["read_trace"] = True
+    report["reads_outside_declared_paths"] = outside
+    return faults, report
+
+
+def check_oracle_reads(
+    repo_root: Path, packet: dict[str, Any], manifest: dict[str, Any],
+    allow_untraced: bool = False,
+) -> tuple[list[str], dict[str, Any]]:
+    """``trace_oracle_reads`` against a throwaway checkout of ``starting_commit``."""
+    starts_red = (packet.get("oracle") or {}).get("starts_red") or []
+    if not starts_red:
+        return [], {"oracle_reads_within_paths": None, "read_trace": None,
+                    "reads_outside_declared_paths": {}}
+    with tempfile.TemporaryDirectory(prefix="agentops-attainable-") as tmp:
+        checkout = Path(tmp) / "at-starting-commit"
+        try:
+            _git(repo_root, "clone", "--no-hardlinks", "--quiet", str(repo_root), str(checkout))
+            _git(checkout, "checkout", "--quiet", "--detach", packet["starting_commit"])
+        except Exception as exc:  # noqa: BLE001 - reported, never raised past here
+            return [f"could not check out {packet['starting_commit']} to trace the oracle: {exc}"], {}
+        return trace_oracle_reads(
+            checkout, packet, manifest["hybrid"]["commands"], shutil.which("strace"), allow_untraced,
+        )
+
+
+def assess_cold_run(
+    results: list[dict[str, Any]], packet: dict[str, Any]
+) -> tuple[list[dict[str, Any]], bool, list[str]]:
+    """Decide whether a cold run means the workspace is fit to dispatch into.
+
+    "Every registered command is green" is the right rule for a packet whose
+    gates already pass, and the wrong one for a packet whose oracle is a test
+    written before the code -- which is what a coordinator-authored oracle
+    usually is.  Such a packet was undispatchable by construction: prepare
+    demanded green, and the point of the packet was that one command is red.
+
+    ``oracle.starts_red`` resolves it *upward* rather than by exempting anything.
+    A named command must be red here, and a command that is already green is a
+    fault: an oracle that cannot fail at the starting commit is not evidence of
+    anything the worker later does to it.  Everything else must still be green,
+    so unrelated breakage is caught exactly as before.
+    """
+    expected_red = set((packet.get("oracle") or {}).get("starts_red") or [])
+    faults: list[str] = []
+    for result in results:
+        command_id = result["command_id"]
+        red = result["exit_code"] != 0
+        # 127 is "command not found", which is not a gate failing -- it is a gate
+        # that does not exist at this commit. Accepting it as a declared red let a
+        # packet dispatch against an oracle its workspace did not contain, and the
+        # worker was judged by a test that never ran.
+        if result["exit_code"] == 127:
+            result["expectation"] = "red" if command_id in expected_red else "green"
+            faults.append(
+                f"{command_id} exited 127 at the starting commit: the command does not "
+                "exist there, so it cannot be an oracle for this packet"
+            )
+            continue
+        if command_id in expected_red:
+            result["expectation"] = "red"
+            if not red:
+                faults.append(
+                    f"{command_id} was declared starts_red but passed at the starting "
+                    f"commit; an oracle that cannot fail proves nothing"
+                )
+        else:
+            result["expectation"] = "green"
+            if red:
+                faults.append(f"{command_id} failed at the starting commit")
+    return results, not faults, faults
 
 
 def worker_cannot_write(repo_root: Path, worker_user: str | None) -> bool:
@@ -783,6 +1231,69 @@ def coordinator_tree_state(repo_root: Path) -> list[str]:
         for line in _git(repo_root, "status", "--porcelain").splitlines()
         if line.strip()
     ]
+
+
+MUTATION_TOOLS = frozenset({"write", "edit", "patch", "multiedit", "apply"})
+
+
+def churn_verdict(
+    events: list[dict[str, Any]], limits: dict[str, Any]
+) -> tuple[str, str] | None:
+    """Decide whether a worker stream has stopped making progress.
+
+    ``context_churn`` was declared in every packet and enforced nowhere: the
+    schema calls it "harness-side when telemetry permits", and it never did. A
+    worker that read 1.07M tokens without a single completed write ran to its
+    token ceiling with the limit sitting unread in its own packet.
+
+    The stream is what the harness can see, so the limits are counted in it:
+    tool events since the last *completed* mutation, and reads of one path. A
+    denied write does not reset the counter -- it is an attempt, not progress --
+    and a run of them gets its own verdict, because "the worker cannot write
+    here" is a different fact from "the worker is going in circles" and the
+    operator needs to be told which.
+    """
+    max_steps = limits.get("max_reasoning_steps_without_mutation")
+    max_reads = limits.get("max_repeated_reads_per_path")
+    steps_since_mutation = 0
+    failed_mutations = 0
+    reads: dict[str, int] = {}
+    for event in events:
+        if event.get("type") != "tool_use":
+            continue
+        part = event.get("part") or {}
+        tool = part.get("tool")
+        state = part.get("state") or {}
+        status = state.get("status")
+        if tool in MUTATION_TOOLS:
+            if status == "completed":
+                steps_since_mutation = 0
+                failed_mutations = 0
+                continue
+            failed_mutations += 1
+            if failed_mutations >= 3:
+                return (
+                    "worker_cannot_write",
+                    f"{failed_mutations} consecutive mutation attempts failed; the worker "
+                    "is being denied inside its own workspace",
+                )
+        steps_since_mutation += 1
+        if max_steps and steps_since_mutation > max_steps:
+            return (
+                "churn_no_mutation",
+                f"{steps_since_mutation} tool steps without a completed mutation "
+                f"(limit {max_steps})",
+            )
+        if tool == "read" and max_reads:
+            path = (state.get("input") or {}).get("filePath")
+            if path:
+                reads[path] = reads.get(path, 0) + 1
+                if reads[path] > max_reads:
+                    return (
+                        "churn_repeated_reads",
+                        f"{path} read {reads[path]} times (limit {max_reads})",
+                    )
+    return None
 
 
 def dispatch_worker(
@@ -840,7 +1351,12 @@ def dispatch_worker(
             f"--preserve-env=OPENCODE_CONFIG_CONTENT",
             *argv,
         ]
-    completed = subprocess.run(
+    # Streamed rather than captured whole, so context_churn can be enforced while
+    # the worker is still running. Captured output can only ever explain a
+    # ceiling after it has been paid.
+    limits = context_churn_limits(packet)
+    deadline = time.monotonic() + packet["limits"]["timeout_seconds"]
+    process = subprocess.Popen(
         argv,
         cwd=worktree,
         env=env,
@@ -849,19 +1365,103 @@ def dispatch_worker(
         # timeout without ever reaching inference -- indistinguishable from a slow
         # model. The same packet exits promptly once stdin is closed.
         stdin=subprocess.DEVNULL,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
-        timeout=packet["limits"]["timeout_seconds"],
-        check=False,
     )
+    lines: list[str] = []
+    events: list[dict[str, Any]] = []
+    stop: tuple[str, str] | None = None
+    session_id: str | None = None
+    try:
+        assert process.stdout is not None
+        for line in process.stdout:
+            lines.append(line)
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            events.append(event)
+            session_id = session_id or event.get("sessionID")
+            stop = churn_verdict(events, limits)
+            if stop is not None:
+                break
+            if time.monotonic() > deadline:
+                stop = ("timeout", "worker exceeded limits.timeout_seconds")
+                break
+    finally:
+        if stop is not None and process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                process.kill()
+        stderr = process.stderr.read() if process.stderr else ""
+        if stop is None:
+            try:
+                process.wait(timeout=max(0.0, deadline - time.monotonic()))
+            except subprocess.TimeoutExpired:
+                process.kill()
+                stop = ("timeout", "worker exceeded limits.timeout_seconds")
     return {
         "argv": [shlex.quote(a) for a in argv],
         "worker_user": worker_user,
         "agent": agent_name,
         "model": model_override or policy["routes"][packet["route"]]["harness_model"],
-        "exit_code": completed.returncode,
-        "stdout": completed.stdout,
-        "stderr_tail": completed.stderr[-4000:],
+        "exit_code": process.returncode if stop is None else 4,
+        "stdout": "".join(lines),
+        "stderr_tail": (stderr or "")[-4000:],
+        "session_id": session_id,
+        "churn_stop": None if stop is None else {"reason": stop[0], "detail": stop[1]},
+    }
+
+
+def export_worker_session(
+    opencode_bin: str,
+    session_id: str | None,
+    destination: Path,
+    worktree: Path,
+    worker_user: str | None = None,
+) -> dict[str, Any]:
+    """Write the worker's full OpenCode transcript beside the receipt.
+
+    The streamed ``run`` output is what the coordinator could enforce limits on;
+    the exported session is what actually happened -- every tool call, every
+    denied write, every message. Without it, explaining a run that changed
+    nothing costs a second dispatch. Export failure is recorded, never fatal: a
+    missing transcript must not turn a finished run into a failed one.
+    """
+    if not session_id:
+        return {"error": "no session id was observed on the worker's event stream"}
+    argv = [opencode_bin, "export", session_id]
+    if worker_user:
+        # The session store belongs to the identity that ran the worker.
+        argv = ["sudo", "--non-interactive", "--user", worker_user, *argv]
+    try:
+        completed = subprocess.run(
+            argv, cwd=worktree, stdin=subprocess.DEVNULL, capture_output=True,
+            text=True, check=False, timeout=120,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {"session_id": session_id, "error": str(exc)[-4000:]}
+    if completed.returncode != 0 or not completed.stdout.strip():
+        return {
+            "session_id": session_id,
+            "error": (completed.stderr or f"opencode export exited {completed.returncode} with no output")[-4000:],
+        }
+    try:
+        json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        return {"session_id": session_id, "error": f"export was not JSON: {exc}"}
+    try:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(completed.stdout, encoding="utf-8")
+    except OSError as exc:
+        return {"session_id": session_id, "error": str(exc)[-4000:]}
+    return {
+        "session_id": session_id,
+        "path": str(destination),
+        "sha256": hashlib.sha256(completed.stdout.encode("utf-8")).hexdigest(),
     }
 
 
@@ -1100,6 +1700,15 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
+        "--allow-untraced-oracle",
+        action="store_true",
+        help=(
+            "validate only: when strace is not on PATH, record the oracle read-trace "
+            "as skipped instead of failing closed. The report then says "
+            "'skipped:untraced', never true."
+        ),
+    )
+    parser.add_argument(
         "command",
         choices=["validate", "overlay", "prepare", "run", "gate", "receipt"],
     )
@@ -1115,7 +1724,29 @@ def main(argv: list[str] | None = None) -> int:
         pre_gates = validate_packet(packet, manifest, policy)
 
         if args.command == "validate":
-            _emit({"packet": packet["task_id"], "status": "fit", "pre_gates": pre_gates})
+            # L-2(a): a packet is not fit merely because it is well formed. An
+            # oracle that cannot fail, or is not there at all, passes every
+            # structural check and still cannot judge the worker.
+            faults = check_oracle_attainable(repo_root, packet, manifest)
+            # L-2(b), read-trace half: an attainable oracle may still depend on
+            # files the packet never declared. Only traced when (a) is clean;
+            # there is no point tracing a test that does not exist.
+            read_report: dict[str, Any] = {}
+            if not faults:
+                faults, read_report = check_oracle_reads(
+                    repo_root, packet, manifest, args.allow_untraced_oracle,
+                )
+            if faults:
+                _emit({
+                    "packet": packet["task_id"],
+                    "status": "unfit",
+                    "pre_gates": pre_gates,
+                    "oracle_faults": faults,
+                    **read_report,
+                })
+                return 2
+            _emit({"packet": packet["task_id"], "status": "fit", "pre_gates": pre_gates,
+                   "oracle_attainable": True, **read_report})
             return 0
 
         base_config = _load_json(load_worker_config_path(args.agentops_root.resolve()))
@@ -1128,9 +1759,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "prepare":
             claim_evidence = verify_live_coordinator_claim(repo_root, packet, args.sprintctl_bin)
             safety = safety_ref(repo_root, packet)
-            worktree = prepare_workspace(repo_root, packet)
+            worktree = prepare_workspace(repo_root, packet, args.worker_user)
             cold = run_registered_commands(worktree, packet, manifest)
-            green = all(r["exit_code"] == 0 for r in cold)
+            cold, green, cold_faults = assess_cold_run(cold, packet)
             _emit(
                 _receipt(
                     packet,
@@ -1141,6 +1772,7 @@ def main(argv: list[str] | None = None) -> int:
                     coordinator_claim=claim_evidence,
                     safety=safety,
                     cold_command_results=cold,
+                    cold_faults=cold_faults,
                     eligible_for_dispatch=green,
                 )
             )
@@ -1200,6 +1832,11 @@ def main(argv: list[str] | None = None) -> int:
                 args.worker_user, args.worker_model,
             )
             breach = sorted(set(coordinator_tree_state(repo_root)) - set(before))
+            worker_session = export_worker_session(
+                args.opencode_bin, transcript.get("session_id"),
+                worktree.parent / f"{packet['task_id']}.worker-session.json",
+                worktree, args.worker_user,
+            )
             spend = worker_spend(
                 transcript["stdout"],
                 packet["limits"].get("max_cost_usd"),
@@ -1215,6 +1852,7 @@ def main(argv: list[str] | None = None) -> int:
                     overlay_sha256=overlay_hash(overlay),
                     coordinator_claim=claim_evidence,
                     worker=transcript,
+                    worker_session=worker_session,
                     spend=spend,
                     **containment_override,
                     containment={

@@ -7,11 +7,28 @@
     "default_harness": "codex",
     "default_model_alias": "fast-build",
     "action_classes": {
-      "plan": { "enabled": true, "model_alias": "frontier-plan" },
-      "build": { "enabled": true, "model_alias": "fast-build", "review_required": true },
-      "review": { "enabled": true, "model_alias": "review-synthesis" },
-      "verify": { "enabled": true, "model_alias": "review-synthesis", "review_required": true },
-      "reconcile": { "enabled": true, "model_alias": "review-synthesis" }
+      "plan": {
+        "enabled": true,
+        "model_alias": "frontier-plan"
+      },
+      "build": {
+        "enabled": true,
+        "model_alias": "fast-build",
+        "review_required": true
+      },
+      "review": {
+        "enabled": true,
+        "model_alias": "review-synthesis"
+      },
+      "verify": {
+        "enabled": true,
+        "model_alias": "review-synthesis",
+        "review_required": true
+      },
+      "reconcile": {
+        "enabled": true,
+        "model_alias": "review-synthesis"
+      }
     }
   },
   "skills": {
@@ -46,18 +63,46 @@
       }
     ],
     "applicability": {
-      "paths": ["templates/dispatch/", "apps/web/", "docs/"],
-      "roles": ["planner", "worker", "reviewer"]
+      "paths": [
+        "templates/dispatch/",
+        "apps/web/",
+        "docs/"
+      ],
+      "roles": [
+        "planner",
+        "worker",
+        "reviewer"
+      ]
     },
     "entrypoints": {
-      "architecture": ["docs/"],
-      "plan": ["docs/plans/", "templates/dispatch/skills/dispatch-plan/SKILL.md"],
-      "runbook": ["docs/runbooks/", "docs/dispatch/"]
+      "architecture": [
+        "docs/"
+      ],
+      "plan": [
+        "docs/plans/",
+        "templates/dispatch/skills/dispatch-plan/SKILL.md"
+      ],
+      "runbook": [
+        "docs/runbooks/",
+        "docs/dispatch/"
+      ]
     },
     "role_presets": {
-      "planner": { "model": "Sol", "behavior": "xhigh", "tool_mode": "read-only" },
-      "worker": { "model": "Luna", "behavior": "high", "tool_mode": "write" },
-      "reviewer": { "model": "Sol", "behavior": "xhigh", "tool_mode": "read-only" }
+      "planner": {
+        "model": "Sol",
+        "behavior": "xhigh",
+        "tool_mode": "read-only"
+      },
+      "worker": {
+        "model": "Luna",
+        "behavior": "high",
+        "tool_mode": "write"
+      },
+      "reviewer": {
+        "model": "Sol",
+        "behavior": "xhigh",
+        "tool_mode": "read-only"
+      }
     },
     "provider_adapters": [],
     "skill_lock": {
@@ -92,11 +137,15 @@
   },
   "hybrid": {
     "enabled": true,
-    "worker_routes": ["mechanical_bulk"],
+    "worker_routes": [
+      "mechanical_bulk"
+    ],
     "commands": {
       "agentops.dispatch.tests": "python -m unittest discover -s templates/dispatch/tests",
       "agentops.hybrid.validate": "python templates/dispatch/scripts/validate_hybrid_dispatch.py --agentops-root . --manifest agentops.dispatch.json",
-      "agentops.session-notes.tests": "python -m unittest discover -s templates/dispatch/tests -p test_session_notes.py"
+      "agentops.session-notes.tests": "python -m unittest discover -s templates/dispatch/tests -p test_session_notes.py",
+      "agentops.hooks.tests": "bash templates/dispatch/hooks/tests/test-session-telemetry.sh && bash templates/dispatch/hooks/tests/test-sprintctl-maintain-check.sh",
+      "agentops.hooks.tests.t1": "bash templates/dispatch/hooks/tests/test-cost-hook-fields.sh"
     },
     "protected_paths": [
       "templates/dispatch/hybrid/**",
@@ -117,16 +166,24 @@
     ]
   },
   "verification": {
-    "command_families": ["unit", "docs", "full-suite"],
+    "command_families": [
+      "unit",
+      "docs",
+      "full-suite"
+    ],
     "targeted_first": true,
     "commands": [
       "python -m unittest discover -s templates/dispatch/tests",
       "npm --prefix apps/web test",
-      "npm --prefix apps/web run build"
+      "npm --prefix apps/web run build",
+      "bash templates/dispatch/hooks/tests/test-session-telemetry.sh"
     ]
   },
   "hooks": {
     "level": "verification",
-    "publishers": ["git", "github"]
+    "publishers": [
+      "git",
+      "github"
+    ]
   }
 }
