@@ -1,0 +1,107 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-T3-gate-log",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 3,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "templates/dispatch/hooks/tests/test-gate-log.sh decides correctness: REQ-001..004 of T-3, and nothing outside T-3. Frozen at the oracle commit itself: if the oracle is already green there, L-2a refuses the packet and no loop work exists for T-3.",
+    "starts_red": [
+      "agentops.hooks.tests.t3"
+    ]
+  },
+  "attempt": 1,
+  "starting_commit": "a9a7205f8126cb29087d9b97db423e7f1e8950ec",
+  "purpose": "make agentops.hooks.tests.t3 green: gate-log.sh appends {ts, cmd, exit, signal, ok} rows for matching commands to $AGENTOPS_GATE_LOG_DIR/gates-<session>.jsonl, marks compound commands unattributable, ignores non-matching commands, and never needs auditctl.",
+  "readable_context_paths": [
+    "templates/dispatch/hooks/gate-log.sh",
+    "templates/dispatch/hooks/tests/test-gate-log.sh"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/hooks/gate-log.sh"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/hooks/tests/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "matching commands append one {ts, cmd, exit, signal, ok} row",
+    "compound commands record signal unattributable and ok null",
+    "non-matching commands append nothing",
+    "the hook exits 0 without auditctl on PATH"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "a matching command appends one well-formed row",
+      "command_id": "agentops.hooks.tests.t3",
+      "fails_when": "a row is missing, malformed, or its signal does not name the evidence"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "a compound command is unattributable",
+      "command_id": "agentops.hooks.tests.t3",
+      "fails_when": "a pipeline gets a verdict instead of signal unattributable, ok null"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "non-matching commands are ignored",
+      "command_id": "agentops.hooks.tests.t3",
+      "fails_when": "ls or git status produces a row"
+    },
+    {
+      "id": "REQ-004",
+      "requirement": "auditctl is not required",
+      "command_id": "agentops.hooks.tests.t3",
+      "fails_when": "the hook exits non-zero with auditctl absent from PATH"
+    }
+  ],
+  "non_goals": [
+    "the Stop hook drain (T-4)",
+    "the cost hook (T-1)",
+    "the /friction skill (T-5)"
+  ],
+  "allowed_command_ids": [
+    "agentops.hooks.tests.t3",
+    "agentops.dispatch.tests"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 500000,
+    "hard_token_ceiling": 1000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 8,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-t3-gate-log",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md"
+    ]
+  }
+}

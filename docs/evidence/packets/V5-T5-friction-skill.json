@@ -1,0 +1,100 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-T5-friction-skill",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 3,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "templates/dispatch/hooks/tests/test-friction-skill.sh decides correctness: REQ-001..003 of T-5, and nothing outside T-5. Frozen at the oracle commit itself: if the oracle is already green there, L-2a refuses the packet and no loop work exists for T-5.",
+    "starts_red": [
+      "agentops.hooks.tests.t5"
+    ]
+  },
+  "attempt": 1,
+  "starting_commit": "a9a7205f8126cb29087d9b97db423e7f1e8950ec",
+  "purpose": "make agentops.hooks.tests.t5 green: the /friction skill's command records auditctl add --type workflow.friction --summary \"<note>\" with the CLI-required --actor, carries the session id in metadata, and passes no session: ref.",
+  "readable_context_paths": [
+    "templates/dispatch/skills/friction/SKILL.md",
+    "templates/dispatch/hooks/tests/test-friction-skill.sh"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/skills/friction/SKILL.md"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/hooks/tests/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "the skill's command invokes auditctl add --type workflow.friction --summary <note>",
+    "no session: ref is passed",
+    "the command succeeds against the CLI contract"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "the note is recorded as workflow.friction with the exact summary",
+      "command_id": "agentops.hooks.tests.t5",
+      "fails_when": "--type or --summary differ from the spec"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "no session: ref",
+      "command_id": "agentops.hooks.tests.t5",
+      "fails_when": "any argv token or --ref value starts with session:"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "the command is CLI-valid",
+      "command_id": "agentops.hooks.tests.t5",
+      "fails_when": "a required flag (--actor) is missing or a flag has no value"
+    }
+  ],
+  "non_goals": [
+    "the gate-log hook (T-3)",
+    "the Stop hook drain (T-4)",
+    "the cost hook (T-1)"
+  ],
+  "allowed_command_ids": [
+    "agentops.hooks.tests.t5",
+    "agentops.dispatch.tests"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 500000,
+    "hard_token_ceiling": 1000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 8,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-t5-friction-skill",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md"
+    ]
+  }
+}
