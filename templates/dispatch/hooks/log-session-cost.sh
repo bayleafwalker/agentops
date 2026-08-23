@@ -53,8 +53,20 @@ emit_record() {
   # auditctl is optional: a missing publisher must never cost the session its cost row.
   command -v auditctl >/dev/null 2>&1 || return 0
   # A Stop hook does not inherit direnv, so the artifacts root has to be defaulted here or
-  # every write fails with "AUDITCTL_ARTIFACTS_ROOT is required for audit writes".
-  export AUDITCTL_ARTIFACTS_ROOT="${AUDITCTL_ARTIFACTS_ROOT:-/projects/dev}"
+  # every write fails with "AUDITCTL_ARTIFACTS_ROOT is required for audit writes". The single
+  # source for that default is templates/dispatch/artifacts-root.default, found relative to
+  # this hook's real location: the hooks are symlinked into /projects/dev/.claude/hooks/, so
+  # BASH_SOURCE may be a symlink path and dirname alone would land in the wrong directory.
+  # A missing or empty data file must never fail the caller, so the record is still written.
+  if [[ -z "${AUDITCTL_ARTIFACTS_ROOT:-}" ]]; then
+    local hook_real hook_dir default_root=""
+    hook_real="$(readlink -f -- "${BASH_SOURCE[0]}")"
+    hook_dir="$(dirname -- "$hook_real")"
+    if [[ -f "$hook_dir/../artifacts-root.default" ]]; then
+      default_root="$(head -n1 "$hook_dir/../artifacts-root.default")"
+    fi
+    export AUDITCTL_ARTIFACTS_ROOT="$default_root"
+  fi
   local summary metadata
   summary="$(printf '%s' "$record" | jq -r '"session \(.project): \(.turns) turns, \(.tool_calls) tool calls, $\(.cost_usd * 100 | round / 100)"')"
   metadata="$(printf '%s' "$record" | jq -c \
