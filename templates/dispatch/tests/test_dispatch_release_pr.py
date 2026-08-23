@@ -125,7 +125,16 @@ class FakeRunner:
                     cmd, 2, "", "error: No such remote 'origin'",
                 )
             return subprocess.CompletedProcess(cmd, 0, self.resolve_url + "\n", "")
-        name = "remote-add" if "add" in cmd else "push" if "push" in cmd else "git"
+        # M-9 gave the PR step git calls of its own -- ``add -A``, ``commit``,
+        # ``rev-parse`` -- so "add" alone no longer means ``git remote add``.
+        if "remote" in cmd and "add" in cmd:
+            name = "remote-add"
+        elif "push" in cmd:
+            name = "push"
+        elif {"add", "commit", "rev-parse"} & set(cmd):
+            name = "commit"
+        else:
+            name = "git"
         code = self.exits.get(name, 0)
         return subprocess.CompletedProcess(cmd, code, "", "boom" if code else "")
 
