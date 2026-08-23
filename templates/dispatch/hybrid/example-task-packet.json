@@ -57,7 +57,9 @@
     "changing client transport behavior",
     "touching deployment overlays or migrations"
   ],
-  "allowed_command_ids": ["vuoro.service.tests"],
+  "allowed_command_ids": [
+    "vuoro.service.tests"
+  ],
   "limits": {
     "timeout_seconds": 900,
     "max_cost_usd": 2.0,
@@ -66,7 +68,7 @@
   },
   "context_churn": {
     "max_repeated_reads_per_path": 4,
-    "max_reasoning_steps_without_mutation": 8,
+    "max_reasoning_steps_without_mutation": 12,
     "max_identical_context_tokens": 250000,
     "handoff_when_candidate_ready": true
   },
@@ -79,6 +81,8 @@
   "review": {
     "coordinator_context": "independent",
     "challenger_enabled": false,
-    "references": ["docs/plans/1245-repo-id-parameterization.md"]
+    "references": [
+      "docs/plans/1245-repo-id-parameterization.md"
+    ]
   }
 }
