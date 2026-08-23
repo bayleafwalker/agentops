@@ -89,8 +89,8 @@
       "status": "project_scoped_preflight",
       "repository_scope": {
         "kind": "project",
-        "project_ref": "bindery-external-runtime",
-        "repositories": ["2f6f7f1c-0f0c-4dcb-90e7-0f1a4b7f89f2"],
+        "project_ref": "799e7931-4384-4dcb-b1d7-a6eececabea8",
+        "repositories": ["bindery-core"],
         "registration": "pending"
       },
       "max_attempts": 1,

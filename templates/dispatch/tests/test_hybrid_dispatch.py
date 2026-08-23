@@ -75,7 +75,7 @@ class PolicyContractTests(unittest.TestCase):
         self.assertEqual(route["status"], "project_scoped_preflight")
         self.assertEqual(
             route["repository_scope"]["repositories"],
-            ["2f6f7f1c-0f0c-4dcb-90e7-0f1a4b7f89f2"],
+            ["bindery-core"],
         )
         self.assertNotIn("bindery_external_runtime_w0", self.policy["qualification"]["routes"])
         self.assertNotIn("local3090/worker-fast", self.policy["qualification"]["models"])
@@ -218,7 +218,7 @@ class PacketValidationTests(unittest.TestCase):
         self.assertEqual(dispatch.qualification_state(self.policy, pilot), "named_pilot:vuoro-tooling-bulk-2026-07-28")
 
     def test_bound_project_route_is_accepted_but_remains_unqualified(self) -> None:
-        core_repo = "2f6f7f1c-0f0c-4dcb-90e7-0f1a4b7f89f2"
+        core_repo = "bindery-core"
         packet = json.loads(json.dumps(self.packet))
         manifest = json.loads(json.dumps(self.manifest))
         packet["route"] = "bindery_external_runtime_w0"
@@ -230,7 +230,7 @@ class PacketValidationTests(unittest.TestCase):
         self.assertEqual(dispatch.qualification_state(self.policy, packet), "unqualified")
 
     def test_project_route_rejects_a_repository_outside_its_scope(self) -> None:
-        core_repo = "2f6f7f1c-0f0c-4dcb-90e7-0f1a4b7f89f2"
+        core_repo = "bindery-core"
         packet = json.loads(json.dumps(self.packet))
         manifest = json.loads(json.dumps(self.manifest))
         policy = json.loads(json.dumps(self.policy))

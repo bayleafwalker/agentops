@@ -1,0 +1,128 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-M6b-driver-artifacts-root",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 2,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "templates/dispatch/tests/test_dispatch_release_artifacts_root.py decides correctness. Written from the spec row by an author with no access to any implementation; the single starts_red command runs the whole driver oracle set, so no other driver contract can regress unnoticed.",
+    "starts_red": [
+      "agentops.dispatch.tests.driver"
+    ]
+  },
+  "attempt": 1,
+  "starting_commit": "84a019a876a90e83968d8ad66e831dc49a92145b",
+  "purpose": "Make templates/dispatch/scripts/dispatch_release.py read its AUDITCTL_ARTIFACTS_ROOT default from the same place the cost hook now does. Today write_escalation calls os.environ.setdefault(\"AUDITCTL_ARTIFACTS_ROOT\", \"/projects/dev\") under a comment claiming it matches templates/dispatch/hooks/log-session-cost.sh -- which is no longer true, because M-6a moved the hook onto the data file templates/dispatch/artifacts-root.default and the hook holds no literal any more. Add a function that resolves the default root from that data file, located RELATIVE TO THE DRIVER'S OWN FILE (there is already a HERE constant for this), never from the working directory and never from a hardcoded absolute path. Use it in write_escalation exactly where the literal was: setdefault semantics are unchanged, so an AUDITCTL_ARTIFACTS_ROOT already in the environment still wins and the default only fills in when it is absent. The literal string /projects/dev must no longer appear anywhere in dispatch_release.py. A missing or empty data file must not raise and must not stop an escalation from being written -- an escalation that cannot be recorded because a defaults file went missing is strictly worse than one recorded against a wrong root. Change nothing else in the file: STEPS, RETRY_STEPS, PR_STEP_NAMES, STOP_CONDITIONS, MAX_GATE_ATTEMPTS, the L-4 retry, the L-2 stop conditions, the PR step and the never-merge property all stay exactly as they are.",
+  "readable_context_paths": [
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/artifacts-root.default",
+    "templates/dispatch/tests/test_dispatch_release_artifacts_root.py",
+    "templates/dispatch/tests/test_dispatch_release.py",
+    "templates/dispatch/tests/test_dispatch_release_stops.py",
+    "templates/dispatch/tests/test_dispatch_release_retry.py",
+    "templates/dispatch/tests/test_dispatch_release_pr.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/dispatch_release.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "the default root is resolved from templates/dispatch/artifacts-root.default, not from a literal",
+    "resolution is relative to the driver's own file, not to the working directory",
+    "an AUDITCTL_ARTIFACTS_ROOT already in the environment still wins",
+    "the literal /projects/dev no longer appears in dispatch_release.py",
+    "a missing or empty data file neither raises nor blocks the escalation record",
+    "every other driver contract is unchanged"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "the default has one source",
+      "command_id": "agentops.dispatch.tests.driver",
+      "fails_when": "the resolver is absent or does not return the data file's stripped contents"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "resolution follows the driver, not the caller",
+      "command_id": "agentops.dispatch.tests.driver",
+      "fails_when": "the resolver depends on the working directory or on a hardcoded absolute path"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "setdefault semantics are unchanged",
+      "command_id": "agentops.dispatch.tests.driver",
+      "fails_when": "an already-set AUDITCTL_ARTIFACTS_ROOT is overwritten, or an absent one is not filled in"
+    },
+    {
+      "id": "REQ-004",
+      "requirement": "the literal is gone",
+      "command_id": "agentops.dispatch.tests.driver",
+      "fails_when": "/projects/dev still appears in dispatch_release.py"
+    },
+    {
+      "id": "REQ-005",
+      "requirement": "a missing defaults file never costs an escalation",
+      "command_id": "agentops.dispatch.tests.driver",
+      "fails_when": "a missing or empty data file raises, or prevents the escalation record from being produced"
+    },
+    {
+      "id": "REQ-006",
+      "requirement": "no other driver contract regresses",
+      "command_id": "agentops.dispatch.tests.driver",
+      "fails_when": "any fixture in the L-1, L-2, L-4 or M-8 driver oracles fails"
+    }
+  ],
+  "non_goals": [
+    "the cost hook, which M-6a already moved onto the data file",
+    "hybrid_dispatch.py, the packet schema, the manifest or the dispatch policy",
+    "anything outside templates/dispatch/scripts/dispatch_release.py"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.driver"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 500000,
+    "hard_token_ceiling": 1000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 8,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-m6b-driver-artifacts-root",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  }
+}
