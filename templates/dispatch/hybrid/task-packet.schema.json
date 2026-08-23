@@ -127,6 +127,10 @@
       "minimum": 1,
       "default": 1
     },
+    "release_boundary": {
+      "type": "boolean",
+      "description": "Marks the packet as crossing a release boundary. The L-1 driver refuses such a packet before any stage runs (L-2 stop condition 'release-boundary'); a release boundary is an owner touchpoint, not loop work."
+    },
     "supersedes": {
       "type": "string",
       "description": "task_id of the failed packet this corrected retry replaces."

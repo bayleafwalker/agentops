@@ -75,7 +75,7 @@
       "harness_model": "opencode-go/deepseek-v4-flash",
       "agent": "ao-mechanical-bulk",
       "status": "available_named_pilot",
-      "max_attempts": 1,
+      "max_attempts": 2,
       "task_class": "mechanical_implementation",
       "risk": "low",
       "oracle_ownership": "coordinator"

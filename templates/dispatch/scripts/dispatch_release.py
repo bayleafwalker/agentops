@@ -23,6 +23,7 @@ without a parseable disposition is a failure like any other.
 from __future__ import annotations
 
 import argparse
+import copy
 import fnmatch
 import json
 import os
@@ -39,6 +40,15 @@ HYBRID_DISPATCH = HERE / "hybrid_dispatch.py"
 #: Fixed stage order. The PR step is not a hybrid_dispatch stage; it is the
 #: driver's own and runs only after ``receipt`` has been written to disk.
 STEPS: tuple[str, ...] = ("prepare", "run", "gate", "receipt")
+
+#: L-4: one cheap retry after a red gate, and no more. Named so a reader can
+#: tell a bounded retry from a loop that happened to stop.
+MAX_GATE_ATTEMPTS = 2
+
+#: What a retry re-runs. ``prepare`` is what makes a dispatch expensive and the
+#: worktree already exists with its cold gates no longer red, so re-running it
+#: would buy nothing -- that is what makes the retry cheap.
+RETRY_STEPS: tuple[str, ...] = ("run", "gate", "receipt")
 
 #: Gate exit codes that carry a verdict rather than a failure. hybrid_dispatch
 #: returns 2 from ``gate`` for ``coordinator_review_required``.
@@ -265,6 +275,34 @@ def _record_red_gate(attempts_path: Path, starting_commit: str) -> int:
     return count
 
 
+def build_retry_packet(
+    packet: dict[str, Any], attempt: int, stdout_tail: str, stderr_tail: str,
+) -> dict[str, Any]:
+    """The frozen packet plus the red gate's own output, and nothing else.
+
+    The tails go into ``purpose`` as well as into ``retry_context``: the purpose
+    is what the worker's prompt actually renders, so a retry that only sets a
+    sibling key re-runs the same dispatch and calls it a retry. Nothing else
+    moves -- a retry that quietly widened the sandbox would not be one.
+    """
+    retried = copy.deepcopy(packet)
+    retried["attempt"] = attempt
+    retried["retry_context"] = {
+        "attempt": attempt,
+        "stdout_tail": stdout_tail,
+        "stderr_tail": stderr_tail,
+    }
+    retried["purpose"] = (
+        str(packet.get("purpose", ""))
+        + f"\n\nretry_context: attempt {attempt}. The previous attempt's gate was red. "
+        "The gate's own output follows; it says what is still failing. Fix that, "
+        "inside the same writable paths.\n"
+        f"stdout_tail:\n{stdout_tail}\n"
+        f"stderr_tail:\n{stderr_tail}"
+    )
+    return retried
+
+
 def drive(
     packet_path: Path,
     repo_root: Path,
@@ -299,6 +337,7 @@ def drive(
         "pr": None,
         "escalation": None,
         "stop": None,
+        "retry": None,
     }
 
     def finish(code: int) -> tuple[int, dict[str, Any]]:
@@ -319,20 +358,27 @@ def drive(
     receipt_path = worktree.parent / f"{packet['task_id']}.receipt.json"
     report["receipt_path"] = str(receipt_path)
     gate_receipt: dict[str, Any] | None = None
-    worker_session: dict[str, Any] | None = None
-    gate_red = False
-
     preflight = _preflight_stop(packet)
     if preflight is not None:
         return stop(*preflight)
 
-    for step in STEPS:
-        cmd = hybrid_cmd(step, packet_path, repo_root, python_bin, passthrough)
+    attempt = int(packet.get("attempt", 1))
+    current_packet_path = packet_path
+    current_packet = packet
+    steps: tuple[str, ...] = STEPS
+
+    while True:
+      gate_red = False
+      red_stdout = ""
+      red_stderr = ""
+      for step in steps:
+        cmd = hybrid_cmd(step, current_packet_path, repo_root, python_bin, passthrough)
         started = _now()
         completed = runner(cmd, None)
         parsed = _parse_receipt(completed.stdout)
         entry: dict[str, Any] = {
             "step": step,
+            "attempt": attempt,
             "command": cmd,
             "started_at": started,
             "finished_at": _now(),
@@ -348,10 +394,6 @@ def drive(
             entry["receipt"] = parsed
         elif completed.stdout:
             entry["stdout_tail"] = completed.stdout.strip()[-4000:]
-        if step == "run" and parsed is not None:
-            # The worker transcript lives beside the receipt; the PR body has to
-            # say where, or a reviewer reading the PR cannot find it.
-            worker_session = parsed.get("worker_session")
         if step == "gate":
             disposition = parsed.get("disposition") if parsed else None
             entry["disposition"] = disposition
@@ -377,23 +419,48 @@ def drive(
                 return stop(*post_gate)
             if _gate_is_red(completed, parsed):
                 count = _record_red_gate(attempts_path, packet["starting_commit"])
-                if count >= 2:
+                if count >= MAX_GATE_ATTEMPTS:
                     return stop(
                         "gate-red-twice",
                         f"second red gate on starting_commit {packet['starting_commit']}",
                     )
                 gate_red = True
+                # The retry has to carry what the gate actually said, not a
+                # summary of it: the raw stdout is the gate's receipt and the
+                # stderr is the command output the receipt points at.
+                red_stdout = (completed.stdout or "").strip()[-4000:]
+                red_stderr = (completed.stderr or "").strip()[-4000:]
         if step == "receipt":
             # Written before the PR step, and it IS the PR body.
             final = parsed if parsed is not None else {"raw_stdout": completed.stdout}
             final = dict(final)
+            final["attempt"] = attempt
             final["gate"] = gate_receipt
-            final["worker_session"] = worker_session
             final["driver_steps"] = [
                 {k: v for k, v in s.items() if k != "command"} for s in report["steps"]
             ]
             receipt_path.parent.mkdir(parents=True, exist_ok=True)
             receipt_path.write_text(json.dumps(final, indent=2) + "\n", encoding="utf-8")
+
+      # L-4: exactly one cheap retry, and only for a red gate. A stage that
+      # exited non-zero never produced a verdict to feed back, and a post-gate
+      # stop means the packet is wrong rather than the worker -- neither is
+      # answerable by running the worker again.
+      if not gate_red or attempt >= MAX_GATE_ATTEMPTS:
+          break
+      attempt += 1
+      current_packet = build_retry_packet(current_packet, attempt, red_stdout, red_stderr)
+      current_packet_path = worktree.parent / f"{packet['task_id']}.attempt-{attempt}.json"
+      current_packet_path.parent.mkdir(parents=True, exist_ok=True)
+      current_packet_path.write_text(
+          json.dumps(current_packet, indent=2) + "\n", encoding="utf-8",
+      )
+      report["retry"] = {
+          "attempt": attempt,
+          "packet_path": str(current_packet_path),
+          "reason": "gate was red on the previous attempt; retried with its output",
+      }
+      steps = RETRY_STEPS
 
     if not receipt_path.exists():
         report["escalation"] = write_escalation(
