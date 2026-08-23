@@ -33,7 +33,17 @@
               "enabled": { "type": "boolean" },
               "harness": { "type": "string", "enum": ["claude", "codex", "opencode"] },
               "model_alias": { "type": "string", "minLength": 1 },
-              "review_required": { "type": "boolean" }
+              "review_required": { "type": "boolean" },
+              "self_candidate": {
+                "type": "boolean",
+                "default": false,
+                "description": "L-3 (D-8): when true, a packet routed to this class whose evidence gates all pass is disposed `candidate` by the gate without an independent review record; the receipt records independent_review.mode = self_candidate. Human approval stays perpendicular (release / architecture / style boundaries), and D-8's >=5 green first-pass with 0 escalations rule governs which classes may be flipped. Default false: the gate requires an independent review record."
+              },
+              "self_candidate_ruling": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Provenance for self_candidate: who ruled, when, and on what evidence."
+              }
             }
           }
         }

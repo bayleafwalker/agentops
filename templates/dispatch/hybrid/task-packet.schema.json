@@ -113,6 +113,11 @@
             "minLength": 1
           },
           "description": "Command ids the coordinator asserts are RED at starting_commit, because the oracle for this packet is a test that does not pass yet. prepare requires exactly these to fail and every other registered command to pass: a starts_red command that is already green means the oracle does not discriminate, and the packet is refused rather than dispatched against a gate that cannot fail."
+        },
+        "reference_patch": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional repo-relative path (under docs/evidence/packets/ or similar) to a unified diff that is a reference solution. validate applies it at starting_commit in a throwaway checkout, rejects it if it touches anything outside writable_patch_paths, and requires every starts_red command to go green. Absent, the report records oracle_satisfiable_within_paths as skipped:no-reference, never true. A cheap-tier packet SHOULD carry one; it is mandatory once L-3 self_candidate is on for the class."
         }
       }
     },

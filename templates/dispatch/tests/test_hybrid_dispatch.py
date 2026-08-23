@@ -539,6 +539,100 @@ class IndependentReviewTests(unittest.TestCase):
                 dispatch.load_independent_review(review_path, self.packet)
 
 
+class SelfCandidateTests(unittest.TestCase):
+    """L-3 (D-8): a class the manifest marks self_candidate mints a candidate
+    from green evidence alone; every other class still needs the record."""
+
+    def setUp(self) -> None:
+        packet_tests = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+        packet_tests.setUp()
+        self.packet = packet_tests.packet
+        self.manifest = packet_tests.manifest
+        self.manifest["routing"] = {
+            "default_harness": "opencode", "default_model_alias": "fast-build",
+            "action_classes": {"mechanical_bulk": {
+                "enabled": True, "self_candidate": True, "self_candidate_ruling": "owner 2026-08-23",
+            }},
+        }
+
+    def _gate(self, passed: bool, review_record: bool = False) -> tuple[int, dict]:
+        originals = (dispatch.verify_live_coordinator_claim, dispatch.post_gates, dispatch.load_independent_review)
+        dispatch.verify_live_coordinator_claim = lambda *a, **k: {"claim": "stubbed"}
+        dispatch.post_gates = lambda *a, **k: {"passed": passed, "results": []}
+        dispatch.load_independent_review = lambda *a, **k: {"reviewer": "reviewer/codex", "context": "independent"}
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                packet_path = Path(tmp) / "p.json"
+                self.packet["worktree"]["root"] = str(Path(tmp) / "wt")
+                (Path(tmp) / "wt" / self.packet["repo_id"] / self.packet["task_id"]).mkdir(parents=True)
+                packet_path.write_text(json.dumps(self.packet), encoding="utf-8")
+                (Path(tmp) / "example.dispatch.json").write_text(json.dumps(self.manifest), encoding="utf-8")
+                argv = ["--repo-root", tmp, "--packet", str(packet_path), "--agentops-root", str(ROOT)]
+                if review_record:
+                    argv += ["--review-record", str(packet_path)]
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out):
+                    code = dispatch.main(argv + ["gate"])
+                return code, json.loads(out.getvalue())
+        finally:
+            dispatch.verify_live_coordinator_claim, dispatch.post_gates, dispatch.load_independent_review = originals
+
+    def test_schema_declares_self_candidate_default_false(self) -> None:
+        schema = _json(ROOT / "templates/dispatch/manifest.schema.json")
+        prop = schema["properties"]["routing"]["properties"]["action_classes"]["additionalProperties"]["properties"]["self_candidate"]
+        self.assertEqual(prop["type"], "boolean")
+        self.assertIs(prop["default"], False)
+
+    def test_self_candidate_class_and_green_gates_is_candidate_without_a_record(self) -> None:
+        code, receipt = self._gate(passed=True)
+        self.assertEqual(code, 0, receipt)
+        self.assertEqual(receipt["disposition"], "candidate")
+        self.assertEqual(receipt["independent_review"],
+                         {"mode": "self_candidate", "class": "mechanical_bulk", "basis": "manifest"})
+
+    def test_self_candidate_class_with_a_red_gate_is_not_candidate(self) -> None:
+        code, receipt = self._gate(passed=False)
+        self.assertEqual(code, 2)
+        self.assertEqual(receipt["disposition"], "coordinator_review_required")
+        self.assertIsNone(receipt["independent_review"])
+
+    def test_a_class_without_self_candidate_still_requires_the_record(self) -> None:
+        self.manifest["routing"]["action_classes"]["mechanical_bulk"]["self_candidate"] = False
+        code, receipt = self._gate(passed=True)
+        self.assertEqual(code, 2)
+        self.assertEqual(receipt["disposition"], "coordinator_review_required")
+        self.assertIsNone(receipt["independent_review"])
+        code, receipt = self._gate(passed=True, review_record=True)
+        self.assertEqual(code, 0)
+        self.assertEqual(receipt["disposition"], "candidate")
+        self.assertEqual(receipt["independent_review"]["reviewer"], "reviewer/codex")
+
+    def test_a_packet_cannot_claim_self_candidate_for_an_unflipped_class(self) -> None:
+        self.manifest["routing"]["action_classes"] = {"build": {"enabled": True, "self_candidate": True}}
+        self.assertIsNone(dispatch.self_candidate_class(self.packet, self.manifest))
+        self.manifest.pop("routing")
+        self.assertIsNone(dispatch.self_candidate_class(self.packet, self.manifest))
+
+    def test_agentops_manifest_flips_mechanical_bulk_with_a_ruling(self) -> None:
+        manifest = _json(ROOT / "agentops.dispatch.json")
+        entry = manifest["routing"]["action_classes"]["mechanical_bulk"]
+        self.assertIs(entry["self_candidate"], True)
+        self.assertIn("2026-08-23", entry["self_candidate_ruling"])
+        policy = _json(HYBRID / "hybrid-dispatch.v1.json")
+        self.assertTrue(validator.validate_manifest_hybrid(manifest, policy, Path("agentops.dispatch.json")))
+
+    def test_validator_rejects_a_flip_without_a_ruling_or_outside_worker_routes(self) -> None:
+        policy = _json(HYBRID / "hybrid-dispatch.v1.json")
+        manifest = _json(ROOT / "agentops.dispatch.json")
+        manifest["routing"]["action_classes"]["mechanical_bulk"].pop("self_candidate_ruling")
+        with self.assertRaisesRegex(ValueError, "without a self_candidate_ruling"):
+            validator.validate_manifest_hybrid(manifest, policy, Path("m"))
+        manifest = _json(ROOT / "agentops.dispatch.json")
+        manifest["routing"]["action_classes"]["build"]["self_candidate"] = True
+        with self.assertRaisesRegex(ValueError, "not a hybrid worker route"):
+            validator.validate_manifest_hybrid(manifest, policy, Path("m"))
+
+
 class LiveClaimTests(unittest.TestCase):
     def setUp(self) -> None:
         packet_tests = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
@@ -940,6 +1034,118 @@ exit 1
                 self.assertEqual(json.loads(out.getvalue())["oracle_reads_within_paths"], "skipped:untraced")
         finally:
             dispatch.check_oracle_reads, dispatch.check_oracle_attainable = original
+
+
+class OracleReferenceOverlayTests(unittest.TestCase):
+    """L-2(b), reference-overlay half: a change confined to writable_patch_paths
+    must turn the starts_red oracle green, else the oracle demands an unstated
+    seam (defect 3) or covers more than the packet holds (defect 4)."""
+
+    def setUp(self) -> None:
+        packet_tests = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+        packet_tests.setUp()
+        self.packet = packet_tests.packet
+        self.packet["oracle"]["starts_red"] = ["a"]
+        self.packet["allowed_command_ids"] = ["a"]
+        self.packet["writable_patch_paths"] = ["src/**"]
+        # Oracle: green only when src/a.txt says "solved" AND (for the over-broad
+        # case) src/b.txt says "solved" too.
+        self.commands = {"a": "grep -qx solved src/a.txt"}
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.repo = Path(os.path.realpath(self.tmp.name)) / "repo"
+        (self.repo / "src").mkdir(parents=True)
+        (self.repo / "docs").mkdir()
+        (self.repo / "src/a.txt").write_text("unsolved\n", encoding="utf-8")
+        (self.repo / "docs/seam.txt").write_text("unsolved\n", encoding="utf-8")
+        env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@x", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@x"}
+        for args in (["init", "-q"], ["add", "."], ["commit", "-q", "-m", "start"]):
+            subprocess.run(["git", "-C", str(self.repo), *args], check=True, env=env, capture_output=True)
+        self.packet["starting_commit"] = subprocess.run(
+            ["git", "-C", str(self.repo), "rev-parse", "HEAD"], check=True, capture_output=True, text=True,
+        ).stdout.strip()
+
+    def _patch(self, rel: str, new_text: str, name: str = "ref.patch") -> Path:
+        old = (self.repo / rel).read_text(encoding="utf-8")
+        text = (
+            f"--- a/{rel}\n+++ b/{rel}\n@@ -1 +1 @@\n-{old.rstrip()}\n+{new_text}\n"
+        )
+        path = self.repo / "docs" / name
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    def _run(self, patch: Path | None):
+        with tempfile.TemporaryDirectory() as tmp:
+            checkout = Path(tmp) / "co"
+            subprocess.run(["git", "clone", "-q", str(self.repo), str(checkout)], check=True, capture_output=True)
+            return dispatch.overlay_reference_patch(checkout, self.packet, self.commands, patch)
+
+    def test_a_reference_inside_writable_paths_that_goes_green_is_satisfiable(self) -> None:
+        faults, report = self._run(self._patch("src/a.txt", "solved"))
+        self.assertEqual(faults, [])
+        self.assertIs(report["oracle_satisfiable_within_paths"], True)
+        self.assertEqual(report["red_after_reference"], [])
+
+    def test_a_reference_touching_outside_writable_paths_is_rejected(self) -> None:
+        faults, report = self._run(self._patch("docs/seam.txt", "solved"))
+        self.assertEqual(len(faults), 1)
+        self.assertIn("outside writable_patch_paths", faults[0])
+        self.assertIn("docs/seam.txt", faults[0])
+        self.assertIs(report["oracle_satisfiable_within_paths"], False)
+
+    def test_a_reference_that_applies_but_leaves_the_oracle_red_is_rejected_with_the_id(self) -> None:
+        self.commands = {"a": "grep -qx solved src/a.txt && grep -qx solved docs/seam.txt"}
+        faults, report = self._run(self._patch("src/a.txt", "solved"))
+        self.assertEqual(len(faults), 1)
+        self.assertIn("a is still red", faults[0])
+        self.assertIs(report["oracle_satisfiable_within_paths"], False)
+        self.assertEqual(report["red_after_reference"], ["a"])
+
+    def test_no_reference_is_skipped_never_true(self) -> None:
+        faults, report = self._run(None)
+        self.assertEqual(faults, [])
+        self.assertEqual(report["oracle_satisfiable_within_paths"], "skipped:no-reference")
+
+    def test_a_reference_that_does_not_apply_is_rejected(self) -> None:
+        (self.repo / "docs/bad.patch").write_text(
+            "--- a/src/a.txt\n+++ b/src/a.txt\n@@ -1 +1 @@\n-nonsense\n+solved\n", encoding="utf-8")
+        faults, report = self._run(self.repo / "docs/bad.patch")
+        self.assertIn("does not apply", faults[0])
+        self.assertIs(report["oracle_satisfiable_within_paths"], False)
+
+    def test_validate_reports_skipped_and_warns_without_a_reference(self) -> None:
+        original = (dispatch.check_oracle_reads, dispatch.check_oracle_attainable)
+        dispatch.check_oracle_reads = lambda *a, **k: ([], {"oracle_reads_within_paths": "skipped:untraced", "read_trace": "skipped:untraced"})
+        dispatch.check_oracle_attainable = lambda *a, **k: []
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                packet_path = Path(tmp) / "p.json"
+                self.packet["oracle"]["starts_red"] = ["example.tests"]
+                self.packet["allowed_command_ids"] = ["example.tests"]
+                packet_path.write_text(json.dumps(self.packet), encoding="utf-8")
+                manifest = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+                manifest.setUp()
+                (Path(tmp) / "example.dispatch.json").write_text(json.dumps(manifest.manifest), encoding="utf-8")
+                out, err = io.StringIO(), io.StringIO()
+                with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                    code = dispatch.main([
+                        "--repo-root", tmp, "--packet", str(packet_path),
+                        "--agentops-root", str(ROOT), "--allow-untraced-oracle", "validate",
+                    ])
+                self.assertEqual(code, 0, out.getvalue())
+                self.assertEqual(json.loads(out.getvalue())["oracle_satisfiable_within_paths"], "skipped:no-reference")
+                self.assertIn("no oracle.reference_patch", err.getvalue())
+        finally:
+            dispatch.check_oracle_reads, dispatch.check_oracle_attainable = original
+
+    def test_reference_patch_must_stay_inside_the_repository(self) -> None:
+        self.packet["oracle"]["reference_patch"] = "../outside.patch"
+        with self.assertRaisesRegex(dispatch.PacketError, "inside the repository"):
+            dispatch.resolve_reference_patch(self.repo, self.packet)
+
+    def test_schema_admits_reference_patch(self) -> None:
+        schema = _json(HYBRID / "task-packet.schema.json")
+        self.assertIn("reference_patch", schema["properties"]["oracle"]["properties"])
 
 
 class WorkerSessionExportTests(unittest.TestCase):
