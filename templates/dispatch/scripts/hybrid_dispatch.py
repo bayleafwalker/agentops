@@ -29,6 +29,7 @@ import os
 import pwd
 import re
 import shlex
+import shutil
 import stat
 import subprocess
 import sys
@@ -783,34 +784,65 @@ def worker_can_write_workspace(workspace: Path, worker_user: str | None) -> tupl
     green cold gate and run exited 0. Nothing in the receipt said "the worker
     could not write", because nothing had asked.
 
-    Asking costs one file. A workspace the worker cannot write is not a
-    dispatchable workspace, and saying so here turns the most expensive failure
-    mode in the system into an immediate, legible one.
+    The decisive check is static and needs no privileges: the workspace's group
+    must be one the worker belongs to, and the group-write bit must be set.
+    That is exactly the state that failed, and it is knowable by stat alone.
+
+    The dynamic probe is a confirmation, not the check, because the coordinator
+    may run only a narrow allowlist as the worker -- on devbox that is opencode
+    and ``test``. A probe that cannot run is *skipped*, never treated as a
+    denial: refusing to dispatch because we lack sudo rights to ask would fail
+    the run for a reason that has nothing to do with the workspace.
     """
     if not worker_user:
         return True, "no worker user: writes happen as the coordinator"
-    probe = workspace / ".agentops-write-probe"
+
+    gid = worker_shared_gid(worker_user)
+    try:
+        info = workspace.lstat()
+    except OSError as exc:
+        return False, f"cannot stat {workspace}: {exc}"
+    if gid is None:
+        return False, (
+            f"{worker_user} shares no group with this process, so no mode can make "
+            f"{workspace} writable by it"
+        )
+    if info.st_gid != gid:
+        return False, (
+            f"{workspace} is group {info.st_gid}, not {gid}, which is the group "
+            f"{worker_user} is in: the group-write bit would be inert"
+        )
+    if not stat.S_IMODE(info.st_mode) & stat.S_IWGRP:
+        return False, f"{workspace} is not group-writable, so {worker_user} cannot write it"
+
+    test_bin = shutil.which("test", path=os.defpath) or shutil.which("test")
+    if test_bin is None:
+        return True, f"{workspace} is group-writable by {worker_user} (probe unavailable)"
     try:
         completed = subprocess.run(
-            ["sudo", "--non-interactive", "--user", worker_user,
-             "touch", str(probe)],
+            ["sudo", "--non-interactive", "--user", worker_user, test_bin, "-w", str(workspace)],
             capture_output=True, text=True, check=False, timeout=30,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        return False, f"could not run the write probe as {worker_user}: {exc}"
-    finally:
-        try:
-            probe.unlink()
-        except OSError:
-            pass
+        return True, f"group ownership correct; probe could not run ({exc})"
+    stderr = (completed.stderr or "").strip()
+    if completed.returncode != 0 and _probe_was_refused(stderr):
+        return True, f"group ownership correct; probe not permitted ({stderr[-160:]})"
     if completed.returncode != 0:
-        detail = (completed.stderr or "").strip()[-400:]
         return False, (
-            f"{worker_user} cannot write {workspace}: {detail or completed.returncode}. "
-            "Every worker edit would fail inside its own workspace while the mode looks "
-            "correct -- check that the workspace group is one the worker belongs to."
+            f"{worker_user} cannot write {workspace} despite correct group and mode: "
+            f"{stderr[-300:] or completed.returncode}"
         )
-    return True, f"{worker_user} can write the workspace"
+    return True, f"{worker_user} can write the workspace (probed)"
+
+
+def _probe_was_refused(stderr: str) -> bool:
+    """Tell "sudo would not let me ask" apart from "the answer is no"."""
+    lowered = stderr.lower()
+    return any(
+        marker in lowered
+        for marker in ("a password is required", "not allowed to execute", "may not run")
+    )
 
 
 def prepare_workspace(

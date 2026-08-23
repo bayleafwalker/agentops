@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import hashlib
 import json
+import os
 from datetime import datetime, timedelta, timezone
 import stat
 import subprocess
@@ -665,36 +666,82 @@ class WorkspaceWritabilityTests(unittest.TestCase):
     right three files, was denied on every one, spent 1.07M tokens probing why,
     and hit its ceiling -- while prepare reported green and run exited 0."""
 
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.ws = Path(self._tmp.name) / "ws"
+        self.ws.mkdir()
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
     def test_no_worker_user_means_the_coordinator_writes(self) -> None:
-        ok, detail = dispatch.worker_can_write_workspace(Path("/tmp"), None)
+        ok, detail = dispatch.worker_can_write_workspace(self.ws, None)
         self.assertTrue(ok)
         self.assertIn("coordinator", detail)
 
-    def test_a_denied_probe_is_reported_as_unwritable(self) -> None:
-        completed = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="Permission denied")
-        original = dispatch.subprocess.run
-        dispatch.subprocess.run = lambda *a, **k: completed
+    def test_a_group_the_worker_is_not_in_is_reported_as_inert(self) -> None:
+        """The exact failure: mode 775 looks correct and means nothing when the
+        group is the coordinator's own."""
+        original = dispatch.worker_shared_gid
+        dispatch.worker_shared_gid = lambda user: 993
         try:
-            ok, detail = dispatch.worker_can_write_workspace(Path("/tmp/ws"), "agentworker")
+            os.chmod(self.ws, 0o775)
+            ok, detail = dispatch.worker_can_write_workspace(self.ws, "agentworker")
         finally:
-            dispatch.subprocess.run = original
+            dispatch.worker_shared_gid = original
         self.assertFalse(ok)
-        self.assertIn("cannot write", detail)
-        self.assertIn("group", detail)
+        self.assertIn("inert", detail)
 
-    def test_a_successful_probe_passes(self) -> None:
-        completed = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
-        original = dispatch.subprocess.run
-        dispatch.subprocess.run = lambda *a, **k: completed
+    def test_a_workspace_without_group_write_is_refused(self) -> None:
+        original = dispatch.worker_shared_gid
+        dispatch.worker_shared_gid = lambda user: self.ws.lstat().st_gid
         try:
-            ok, _ = dispatch.worker_can_write_workspace(Path("/tmp/ws"), "agentworker")
+            os.chmod(self.ws, 0o755)
+            ok, detail = dispatch.worker_can_write_workspace(self.ws, "agentworker")
         finally:
-            dispatch.subprocess.run = original
-        self.assertTrue(ok)
+            dispatch.worker_shared_gid = original
+        self.assertFalse(ok)
+        self.assertIn("not group-writable", detail)
 
-    def test_shared_gid_is_a_group_the_worker_is_actually_in(self) -> None:
-        """Setting g+w on a group the worker does not belong to is inert, which
-        is exactly the state that produced the silent failure."""
+    def test_no_shared_group_at_all_is_refused(self) -> None:
+        original = dispatch.worker_shared_gid
+        dispatch.worker_shared_gid = lambda user: None
+        try:
+            ok, detail = dispatch.worker_can_write_workspace(self.ws, "agentworker")
+        finally:
+            dispatch.worker_shared_gid = original
+        self.assertFalse(ok)
+        self.assertIn("shares no group", detail)
+
+    def test_a_probe_we_are_not_allowed_to_run_is_skipped_not_failed(self) -> None:
+        """Lacking sudo rights to ask is not evidence that the answer is no;
+        failing there would stop the run for a reason unrelated to the workspace."""
+        original_gid, original_run = dispatch.worker_shared_gid, dispatch.subprocess.run
+        dispatch.worker_shared_gid = lambda user: self.ws.lstat().st_gid
+        dispatch.subprocess.run = lambda *a, **k: subprocess.CompletedProcess(
+            args=[], returncode=1, stdout="", stderr="sudo: a password is required")
+        try:
+            os.chmod(self.ws, 0o775)
+            ok, detail = dispatch.worker_can_write_workspace(self.ws, "agentworker")
+        finally:
+            dispatch.worker_shared_gid, dispatch.subprocess.run = original_gid, original_run
+        self.assertTrue(ok)
+        self.assertIn("not permitted", detail)
+
+    def test_a_probe_that_ran_and_said_no_is_a_failure(self) -> None:
+        original_gid, original_run = dispatch.worker_shared_gid, dispatch.subprocess.run
+        dispatch.worker_shared_gid = lambda user: self.ws.lstat().st_gid
+        dispatch.subprocess.run = lambda *a, **k: subprocess.CompletedProcess(
+            args=[], returncode=1, stdout="", stderr="")
+        try:
+            os.chmod(self.ws, 0o775)
+            ok, detail = dispatch.worker_can_write_workspace(self.ws, "agentworker")
+        finally:
+            dispatch.worker_shared_gid, dispatch.subprocess.run = original_gid, original_run
+        self.assertFalse(ok)
+        self.assertIn("despite correct group and mode", detail)
+
+    def test_shared_gid_needs_a_real_user(self) -> None:
         self.assertIsNone(dispatch.worker_shared_gid(None))
         self.assertIsNone(dispatch.worker_shared_gid("no-such-user-here"))
 
