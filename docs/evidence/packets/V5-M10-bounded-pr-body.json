@@ -1,0 +1,123 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-M10-bounded-pr-body",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 2,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "templates/dispatch/tests/test_dispatch_release_body.py decides correctness: 22 fixtures, and nothing outside dispatch_release.py. Written from the spec row by an author with no access to any implementation.",
+    "starts_red": [
+      "agentops.dispatch.tests.body"
+    ]
+  },
+  "attempt": 1,
+  "starting_commit": "848ac4e6bcb8b97f13a19ca8fd3ff722b9251b33",
+  "purpose": "Give the L-1 driver a bounded PR body and put the receipt on the packet branch, in templates/dispatch/scripts/dispatch_release.py. The receipt file IS the body today and receipts run to 165 KB against GitHub's 65536-character limit, so gh pr create has failed on every candidate the loop has produced. Add \"receipt-capture\" as the FIRST entry of PR_STEP_NAMES, before \"commit\", because the captured files have to be inside the commit. Add a secret-scan function that takes text and returns the NAMES of the patterns that matched, never the matched text: at minimum GitHub tokens (ghp_, gho_, ghs_, ghu_, github_pat_), AWS access key ids (AKIA plus 16 uppercase alphanumerics), PEM private-key headers, Slack tokens (xoxb-/xoxa-/xoxp-/xoxr-/xoxs-), Authorization: Bearer with 20 or more characters, and a generic assignment of api_key/token/secret/password to a 20-plus character value; clean text returns an empty list. Run it over the receipt AND the worker stdout together. When it is clean, write docs/evidence/receipts/<task_id>/receipt.json and docs/evidence/receipts/<task_id>/worker-stdout.txt inside the worktree, so the commit picks them up. The committed receipt.json must have the worker's stdout REMOVED and a short marker naming the sidecar and its byte count left in its place; worker-stdout.txt holds the transcript as text, with its own newlines intact -- embedding it in JSON is what produced a 288 KB single line and broke ripgrep in every worker clone. When the scan finds anything, write NEITHER file, record the withholding and the pattern names under report[\"pr\"][\"receipt\"], and carry on: a secret in a transcript must not turn a green packet into a failed one. The receipt the driver already writes beside the worktree is unchanged and keeps its stdout; only the committed copy is split. Generate the PR body to its own file and point gh pr create --body-file at that, never at the receipt. The body carries the task id, the starting_commit, the disposition, a gate table of every gate name and its boolean, the worker's cost and tokens, and the repo-relative path of the captured receipt or the withheld notice. It must be under 65536 bytes no matter how large the receipt is, and must contain no transcript. A failed capture sets report[\"pr\"][\"failed_step\"] to \"receipt-capture\", escalates once as the pr step, exits non-zero and reaches nothing after it. A dry run captures nothing. A non-candidate disposition and every L-2 stop condition reach no capture. Do NOT identify the PR sub-steps by their position in PR_STEP_NAMES: each must report its own name, or a later insertion shifts them all again. Change nothing else.",
+  "readable_context_paths": [
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/tests/test_dispatch_release_body.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/dispatch_release.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "PR_STEP_NAMES leads with receipt-capture, then commit, remote-add, push, pr-create",
+    "the PR body is generated, always under 65536 bytes, and contains no transcript",
+    "the committed receipt.json has the stdout removed and worker-stdout.txt holds it as text",
+    "the secret scan runs over both and withholds both on any finding, without failing the run",
+    "each PR sub-step failure reports its own name, not a positional neighbour",
+    "a dry run, a non-candidate disposition and every stop condition reach no capture"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "the body fits and says enough",
+      "command_id": "agentops.dispatch.tests.body",
+      "fails_when": "the body exceeds 65536 bytes for any receipt, or omits the task, sha, disposition, gate table, cost or receipt path"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "no transcript ever reaches a PR body",
+      "command_id": "agentops.dispatch.tests.body",
+      "fails_when": "a marker planted in the worker stdout appears anywhere in the body"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "the transcript is text, not a JSON string",
+      "command_id": "agentops.dispatch.tests.body",
+      "fails_when": "the committed receipt.json still carries the stdout, or worker-stdout.txt is missing or escaped"
+    },
+    {
+      "id": "REQ-004",
+      "requirement": "a secret withholds both files and fails nothing",
+      "command_id": "agentops.dispatch.tests.body",
+      "fails_when": "a scanned pattern is written to the branch, the finding names leak the matched text, or the run turns red"
+    },
+    {
+      "id": "REQ-005",
+      "requirement": "each sub-step owns its name",
+      "command_id": "agentops.dispatch.tests.body",
+      "fails_when": "failing any of the five reports a different step's name"
+    },
+    {
+      "id": "REQ-006",
+      "requirement": "nothing that is not a real hand-off captures",
+      "command_id": "agentops.dispatch.tests.body",
+      "fails_when": "a dry run, a non-candidate disposition or any stop condition writes a receipt into the worktree"
+    }
+  ],
+  "non_goals": [
+    "the .ignore files and the seven rewritten reports, already landed as coordinator work in the \u00a73c hand-pass",
+    "the receipt the driver writes beside the worktree, which keeps its stdout",
+    "anything outside templates/dispatch/scripts/dispatch_release.py"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.body"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 500000,
+    "hard_token_ceiling": 1000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-m10-bounded-pr-body",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  }
+}
