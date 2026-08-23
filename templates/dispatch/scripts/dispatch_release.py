@@ -64,11 +64,12 @@ STOP_CONDITIONS: tuple[str, ...] = (
     "gate-red-twice",
 )
 
-#: The three parts of the PR step, in the only order that works. A failed part
-#: names itself in report["pr"]["failed_step"] so a reader of a failed report
-#: can tell "the remote would not add" from "the push was rejected" from "gh
-#: refused".
-PR_STEP_NAMES: tuple[str, ...] = ("remote-add", "push", "pr-create")
+#: The four parts of the PR step, in the only order that works. The commit is
+#: first: a push before it would put starting_commit on the remote and gh would
+#: open an empty PR. A failed part names itself in report["pr"]["failed_step"]
+#: so a reader of a failed report can tell "the commit would not be made" from
+#: "the remote would not add" from "the push was rejected" from "gh refused".
+PR_STEP_NAMES: tuple[str, ...] = ("commit", "remote-add", "push", "pr-create")
 
 ESCALATION_TYPE = "workflow.escalation"
 DRIVER_ACTOR = "dispatch-release"
@@ -225,6 +226,38 @@ def _resolve_push_remote(
     if completed.returncode != 0:
         return None
     return (completed.stdout or "").strip() or None
+
+
+def _commit_worktree(
+    packet: dict[str, Any], worktree: Path, runner: Runner,
+) -> tuple[dict[str, Any] | None, int, str]:
+    """Stage and commit the worker's worktree onto the packet branch.
+
+    Returns (record, exit_code, stderr): record carries the resulting sha and
+    is None when any git command failed, in which case exit_code and stderr
+    describe the first failure. The commit supplies its own identity because
+    the worktree is a clone and user.name/user.email may be configured nowhere
+    on the host.
+    """
+    completed = runner(["git", "add", "-A"], worktree)
+    if completed.returncode != 0:
+        return None, completed.returncode, (completed.stderr or "").strip()[-2000:]
+    message = f"[hybrid] {packet['task_id']} @ {packet['starting_commit'][:12]}"
+    completed = runner(
+        [
+            "git",
+            "-c", f"user.name={DRIVER_ACTOR}",
+            "-c", f"user.email={DRIVER_ACTOR}@agentops.invalid",
+            "commit", "-m", message,
+        ],
+        worktree,
+    )
+    if completed.returncode != 0:
+        return None, completed.returncode, (completed.stderr or "").strip()[-2000:]
+    completed = runner(["git", "rev-parse", "HEAD"], worktree)
+    if completed.returncode != 0:
+        return None, completed.returncode, (completed.stderr or "").strip()[-2000:]
+    return {"sha": (completed.stdout or "").strip(), "message": message}, 0, ""
 
 
 def _packet_command_ids(packet: dict[str, Any]) -> list[str]:
@@ -547,6 +580,13 @@ def drive(
         pr["skipped"] = True
         pr["reason"] = "dry-run: would open this PR with the receipt as body"
     else:
+        # M-9: the commit is the first thing the PR step hands onward, and it
+        # precedes remote resolution so an unresolvable remote still leaves the
+        # work committed on the packet branch.
+        commit, commit_code, commit_stderr = _commit_worktree(packet, worktree, runner)
+        if commit is None:
+            return pr_failed("commit", commit_code, commit_stderr)
+        pr["commit"] = commit
         # The remote comes back here, in the driver, after the worker is done:
         # prepare_workspace deliberately removes origin from the worker's clone,
         # so the PR step has to re-add it. Resolution is read-only against the
@@ -565,14 +605,14 @@ def drive(
             completed = runner(add_cmd, worktree)
             if completed.returncode != 0:
                 return pr_failed(
-                    PR_STEP_NAMES[0], completed.returncode,
+                    "remote-add", completed.returncode,
                     (completed.stderr or "").strip()[-2000:],
                 )
             push_cmd = ["git", "push", "origin", f"{branch}:{branch}"]
             completed = runner(push_cmd, worktree)
             if completed.returncode != 0:
                 return pr_failed(
-                    PR_STEP_NAMES[1], completed.returncode,
+                    "push", completed.returncode,
                     (completed.stderr or "").strip()[-2000:],
                 )
             pr["push"] = {"remote": remote, "branch": branch}
@@ -585,7 +625,7 @@ def drive(
             pr["stderr"] = (completed.stderr or "").strip()[-2000:]
             pr["opened"] = completed.returncode == 0
             if completed.returncode != 0:
-                return pr_failed(PR_STEP_NAMES[2], completed.returncode, pr["stderr"])
+                return pr_failed("pr-create", completed.returncode, pr["stderr"])
             pr["url"] = pr["stdout"].splitlines()[-1] if pr["stdout"] else None
     report["pr"] = pr
     return finish(0)
