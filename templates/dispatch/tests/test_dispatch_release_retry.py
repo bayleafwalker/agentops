@@ -91,7 +91,9 @@ class FakeRunner:
         return subprocess.CompletedProcess(cmd, code, json.dumps(payload), "boom" if code else "")
 
     def steps(self) -> list[str]:
-        return [c[-1] for c, _ in self.calls if c[0] not in (self.auditctl_bin, "gh")]
+        # M-8 made the PR step run git (remote add, push); their argv tails are
+        # not stage names, so they are excluded here as auditctl and gh are.
+        return [c[-1] for c, _ in self.calls if c[0] not in (self.auditctl_bin, "gh", "git")]
 
     def packets(self) -> list[tuple[str, str]]:
         """(step, --packet argument) for every hybrid_dispatch invocation, in order."""

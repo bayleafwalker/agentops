@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import re
 import subprocess
 import tempfile
 import unittest
@@ -101,11 +100,36 @@ class DriverTests(unittest.TestCase):
 
     # REQ-002 — the driver never merges
     def test_req002_source_has_no_merge_or_default_branch_push(self):
+        # Amended for M-8. This used to ban the literal strings "push" and
+        # `git push` anywhere in the source; M-8 makes the PR step push the
+        # packet branch, so that ban is superseded and must not be restored.
+        # REQ-002's requirement is unchanged and pinned below: the driver never
+        # merges, and the only ref it ever pushes is the packet's own branch --
+        # never the base branch, never a bare push with no refspec.
+        import inspect
+        self.assertIn(
+            "push_remote", inspect.signature(driver.drive).parameters,
+            "drive() has no push_remote keyword",
+        )
         src = (SCRIPTS / "dispatch_release.py").read_text(encoding="utf-8")
         self.assertNotRegex(src, r'"merge"')
         self.assertNotRegex(src, r"pr\s*merge")
-        self.assertNotRegex(src, r'"push"')
-        self.assertNotRegex(src, r"git\s+(merge|push)")
+        self.assertNotRegex(src, r"git\s+merge")
+        base = "trunk-never-pushed"
+        branch = json.loads(self.packet.read_text())["worktree"]["branch"]
+        runner = FakeRunner({})
+        code, report = self._drive(
+            runner, base_branch=base, push_remote="git@example.invalid:x/y.git",
+        )
+        self.assertEqual(code, 0)
+        pushes = [c for c, _ in runner.calls if c[0] == "git" and "push" in c]
+        self.assertTrue(pushes, "the PR step pushes the packet branch")
+        for push in pushes:
+            self.assertNotIn(base, " ".join(push), f"the base branch was pushed: {push}")
+            self.assertTrue(
+                any(arg == branch or arg.endswith(":" + branch) for arg in push),
+                f"push names no refspec for {branch}: {push}",
+            )
 
     def test_req002_only_gh_call_is_pr_create(self):
         runner = FakeRunner({})
@@ -199,17 +223,31 @@ class DriverTests(unittest.TestCase):
 
     # REQ-005 — the coordinator checkout is untouched
     def test_req005_no_git_anywhere_and_pr_runs_in_worktree(self):
+        # Amended for M-8. This used to ban `git` entirely and ban the literal
+        # "-C"; M-8 makes the PR step add a remote and push inside the packet's
+        # worktree, so those bans are superseded and must not be restored.
+        # REQ-005's requirement is unchanged and pinned below: the coordinator
+        # checkout is untouched -- every git the driver runs is either pinned to
+        # the worktree or a read-only query, and none of them writes there.
+        import inspect
+        self.assertIn(
+            "push_remote", inspect.signature(driver.drive).parameters,
+            "drive() has no push_remote keyword",
+        )
         runner = FakeRunner({})
-        code, report = self._drive(runner)
+        code, report = self._drive(runner, push_remote="git@example.invalid:x/y.git")
         self.assertEqual(code, 0)
+        worktree = driver.worktree_path(json.loads(self.packet.read_text()))
+        writing = {"add", "push", "commit", "merge", "checkout", "init", "set-url"}
         for cmd, cwd in runner.calls:
-            self.assertNotEqual(cmd[0], "git", cmd)
-            self.assertNotEqual(cwd, self.repo_root, cmd)
+            if cmd[0] != "git":
+                self.assertNotEqual(cwd, self.repo_root, cmd)
+                continue
+            if cwd == worktree:
+                continue
+            self.assertFalse(writing & set(cmd), f"git writes outside the worktree: {cmd}")
         gh = [(c, cwd) for c, cwd in runner.calls if c[0] == "gh"]
-        self.assertEqual(gh[0][1], driver.worktree_path(json.loads(self.packet.read_text())))
-        src = (SCRIPTS / "dispatch_release.py").read_text(encoding="utf-8")
-        self.assertIsNone(re.search(r'\[\s*"git"', src))
-        self.assertNotIn('"-C"', src)
+        self.assertEqual(gh[0][1], worktree)
 
     def test_cli_dry_run_end_to_end_with_stubbed_hybrid(self):
         # Exercise main() argument plumbing against a stub python that echoes a receipt.
