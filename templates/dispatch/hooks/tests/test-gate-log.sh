@@ -11,6 +11,14 @@
 #   REQ-003 a non-matching command appends nothing
 #   REQ-004 auditctl absent from PATH does not fail the hook
 #
+# Spec row M-5 then decided the question the REQ-003 probe used to leave open:
+#
+#   REQ-005 a gate tool name counts only as the *command word* -- the first
+#           word of the command, or the first word after a shell separator
+#           (| && || ;). The same name as an argument, inside a quoted string, or
+#           as part of a longer word is not a gate and appends no row. The
+#           AGENTOPS_GATE_PATTERN override is matched under the same rule.
+#
 # The hook is driven exactly as Claude Code drives it: the event JSON on stdin,
 # nothing on argv.
 set -euo pipefail
@@ -91,17 +99,64 @@ done
 # --- REQ-003: non-matching command appends nothing -----------------------------
 for cmd in "ls -la" "git status" "echo pytest-is-not-here-as-a-command-word"; do
   run_hook "$(event "$cmd" '{"stdout":"","stderr":""}')" || fail "hook exited non-zero for non-matching '$cmd'"
+  # Asserted per command rather than once at the end so a regression names the
+  # command that produced the row instead of just a count that drifted.
+  assert_eq "no row for non-matching '$cmd'" "$(rows)" "$expected"
 done
-# The third is a deliberate probe: a word like 'pytest' inside an echo argument is
-# not a gate. A hook that matches it anyway is recorded as a finding, not a
-# failure, because the row says whether the spec's "matching command" is a
-# word-boundary or substring match -- the spec does not.
-count_after="$(rows)"
-if [[ "$count_after" -eq $((expected + 1)) ]]; then
-  printf 'NOTE: substring match -- "echo pytest-..." produced a row; the spec does not say whether that is a gate\n' >&2
+
+# --- REQ-005: the matcher is anchored to the command word ---------------
+# The gate surface is what actually ran. A tool name that only appears as an
+# argument, inside a quoted string, or glued into a longer word did not run
+# anything, and a row for it inflates the rework-round count the Stop hook drains
+# into auditctl -- which is why the "no row" half of this block is a failure and
+# no longer a finding.
+anchored_gates=(
+  "pytest -q"
+  "pytest -q tests/test_x.py"
+  "cargo test"
+  "run_round_checks"
+  "python -m unittest discover -s templates/dispatch/tests"
+  "python templates/dispatch/scripts/hybrid_dispatch.py --packet p.json gate"
+  "pytest -q | tail -5"
+  "cargo test && echo done"
+)
+for cmd in "${anchored_gates[@]}"; do
+  run_hook "$(event "$cmd" '{"stdout":"3 passed in 0.1s","stderr":""}')" || fail "hook exited non-zero for anchored gate '$cmd'"
   expected=$((expected + 1))
-fi
-assert_eq "no rows for non-matching commands" "$count_after" "$expected"
+  assert_eq "exactly one row for anchored gate '$cmd'" "$(rows)" "$expected"
+  assert_eq "row cmd for anchored gate" "$(tail -n 1 "$log" | jq -r '.cmd')" "$cmd"
+  # M-5 changes the matcher only; the compound-command refusal stays where it was.
+  case "$cmd" in
+    *"|"*|*"&&"*)
+      assert_eq "compound gate '$cmd' stays unattributable" "$(tail -n 1 "$log" | jq -r '.signal')" "unattributable" ;;
+  esac
+done
+
+not_gates=(
+  "echo pytest-is-not-here-as-a-command-word"
+  'echo "run the pytest suite later"'
+  'git commit -m "fix pytest fixture"'
+  "ls -la"
+  "git status"
+)
+for cmd in "${not_gates[@]}"; do
+  run_hook "$(event "$cmd" '{"stdout":"","stderr":""}')" || fail "hook exited non-zero for non-gate '$cmd'"
+  assert_eq "no row for non-gate '$cmd'" "$(rows)" "$expected"
+done
+
+# The override is a pattern, not an escape hatch from the anchoring rule: the same
+# name still has to be the command word to count.
+(
+  export AGENTOPS_GATE_PATTERN="mise"
+  run_hook "$(event "mise run gate" '{"stdout":"ok","stderr":""}')" || fail "hook exited non-zero under AGENTOPS_GATE_PATTERN"
+)
+expected=$((expected + 1))
+assert_eq "override pattern matches as a command word" "$(rows)" "$expected"
+(
+  export AGENTOPS_GATE_PATTERN="mise"
+  run_hook "$(event "echo promise-not-a-command" '{"stdout":"","stderr":""}')" || fail "hook exited non-zero under AGENTOPS_GATE_PATTERN"
+)
+assert_eq "override pattern is anchored too" "$(rows)" "$expected"
 
 # Every row must be one JSON object per line.
 jq -e 'type == "object"' "$log" >/dev/null || fail "gates log is not one JSON object per line"
