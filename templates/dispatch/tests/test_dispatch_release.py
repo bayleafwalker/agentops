@@ -55,6 +55,10 @@ class FakeRunner:
         payload = {"stage": step}
         if step == "gate":
             payload["disposition"] = self.dispositions.get("gate", "candidate")
+        if step == "run":
+            payload["worker_session"] = {
+                "session_id": "ses_1", "path": "/tmp/wt/T-DRIVER.worker-session.json", "sha256": "ab" * 32,
+            }
         return subprocess.CompletedProcess(cmd, code, json.dumps(payload), "boom" if code else "")
 
     def steps(self):
@@ -235,6 +239,20 @@ class StageReceiptTests(unittest.TestCase):
             for entry in report["steps"]:
                 self.assertIn("receipt", entry, f"{entry['step']} dropped its receipt")
                 self.assertEqual(entry["receipt"]["stage"], entry["step"])
+
+    def test_worker_session_path_reaches_the_final_receipt(self) -> None:
+        """L-1b: the PR body is the receipt file, so the transcript's location
+        has to be in it or a reviewer cannot find the transcript."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            code, report = driver.drive(
+                _packet(tmp_path), tmp_path, dry_run=True, runner=FakeRunner({}),
+                base_branch="main", auditctl_bin="auditctl",
+            )
+            self.assertEqual(code, 0)
+            final = json.loads(Path(report["receipt_path"]).read_text(encoding="utf-8"))
+            self.assertEqual(final["worker_session"]["path"], "/tmp/wt/T-DRIVER.worker-session.json")
+            self.assertEqual(final["worker_session"]["sha256"], "ab" * 32)
 
     def test_unparseable_stdout_is_kept_as_a_tail(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

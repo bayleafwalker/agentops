@@ -934,10 +934,9 @@ def check_oracle_attainable(
     reason other than absence**. Exit 127 is not a failing test, it is a missing
     one, and accepting it let a worker be judged by a gate that never ran.
 
-    The expensive half -- proving the failure is caused only by files the packet
-    may write -- is deliberately not attempted here. It needs either a reference
-    solution or a read-trace of the failing test, and under C-3 shipping the half
-    that kills the commonest defect beats designing the whole.
+    The other half -- proving the failure depends only on files the packet
+    declares -- is ``check_oracle_reads`` (L-2(b), read-trace form). The
+    reference-solution form is deferred: no packet has carried one.
     """
     starts_red = (packet.get("oracle") or {}).get("starts_red") or []
     if not starts_red:
@@ -972,6 +971,171 @@ def check_oracle_attainable(
                     "that cannot fail proves nothing about what the worker does to it"
                 )
     return faults
+
+
+#: Paths the read-trace ignores even though they are inside the checkout.
+#: Everything here is either the version-control or interpreter machinery that
+#: any command touches regardless of what it tests (``.git/``, bytecode caches,
+#: a local virtualenv) or the test runner's own configuration discovery
+#: (pyproject/pytest/tox/setup.cfg, conftest.py), which a runner reads before
+#: it knows which test it is running. None of it is a seam the packet could
+#: have declared, so flagging it would only teach packets to declare
+#: ``pyproject.toml`` as context. The oracle's own test files -- the ones the
+#: command names on its command line -- are exempted separately in
+#: ``_oracle_named_paths``: that a test reads itself is not a dependency.
+ORACLE_READ_TRACE_EXEMPT_PREFIXES = (".git/", "__pycache__/", ".venv/")
+ORACLE_READ_TRACE_EXEMPT_FILES = (
+    "pyproject.toml", "setup.cfg", "pytest.ini", "tox.ini", "conftest.py",
+)
+ORACLE_READ_TRACE_SYSCALLS = "openat,open,stat,readlink"
+_STRACE_OPEN_RE = re.compile(
+    r'^(?:\[pid\s+\d+\]\s*|\d+\s+)?(openat|open)\((?:[^,]*,\s*)?"([^"]*)",\s*([A-Z_|0-9]+)'
+    r'[^)]*\)\s*=\s*(-?\d+)'
+)
+
+
+def _oracle_named_paths(checkout: Path, command: str) -> set[Path]:
+    """Files or directories the command names on its own command line."""
+    named: set[Path] = set()
+    try:
+        tokens = shlex.split(command)
+    except ValueError:
+        tokens = command.split()
+    for token in tokens:
+        # ``tests/test_x.py::TestCase::test_y`` names a file; strip the selector.
+        candidate = (checkout / token.split("::", 1)[0])
+        if candidate.exists():
+            named.add(Path(os.path.realpath(candidate)))
+    return named
+
+
+def _is_exempt_read(rel: str, resolved: Path, named: set[Path]) -> bool:
+    if rel in ORACLE_READ_TRACE_EXEMPT_FILES or rel.startswith(ORACLE_READ_TRACE_EXEMPT_PREFIXES):
+        return True
+    if "__pycache__" in Path(rel).parts:
+        return True
+    return any(resolved == n or n in resolved.parents for n in named)
+
+
+def parse_strace_reads(trace_text: str, checkout: Path) -> set[str]:
+    """Paths inside ``checkout`` that the traced command opened for reading.
+
+    Only *successful* opens that are not write-only count: a failed ``openat``
+    is a probe, not a read, and ``O_WRONLY`` is the oracle writing its own
+    cache. Directories are dropped -- a runner walks the tree to find tests,
+    and that walk is not a dependency on anything in it.
+    """
+    root = Path(os.path.realpath(checkout))
+    reads: set[str] = set()
+    for line in trace_text.splitlines():
+        match = _STRACE_OPEN_RE.match(line)
+        if match is None:
+            continue
+        _, raw_path, flags, result = match.groups()
+        if int(result) < 0 or "O_WRONLY" in flags.split("|"):
+            continue
+        resolved = Path(os.path.realpath(root / raw_path if not raw_path.startswith("/") else raw_path))
+        if resolved == root or root not in resolved.parents or resolved.is_dir():
+            continue
+        reads.add(resolved.relative_to(root).as_posix())
+    return reads
+
+
+def trace_oracle_reads(
+    checkout: Path,
+    packet: dict[str, Any],
+    commands: dict[str, str],
+    strace_bin: str | None,
+    allow_untraced: bool = False,
+) -> tuple[list[str], dict[str, Any]]:
+    """L-2(b), read-trace half: every file a ``starts_red`` oracle reads at
+    ``starting_commit`` must be inside the paths the packet declares.
+
+    An oracle that reads a file the worker may neither see nor write is an
+    oracle that demands an unstated seam, or covers work the packet does not
+    contain -- two of the five defects behind the seven-run packet. The packet
+    cannot be judged by a test whose inputs it cannot name.
+
+    Fails closed without ``strace``: a check that silently did not run is
+    indistinguishable from one that passed. ``allow_untraced`` records the gap
+    on the report as ``"skipped:untraced"`` and never as ``True``.
+    """
+    starts_red = (packet.get("oracle") or {}).get("starts_red") or []
+    report: dict[str, Any] = {
+        "oracle_reads_within_paths": None,
+        "read_trace": None,
+        "reads_outside_declared_paths": {},
+    }
+    if not starts_red:
+        return [], report
+    if strace_bin is None:
+        if allow_untraced:
+            report["oracle_reads_within_paths"] = "skipped:untraced"
+            report["read_trace"] = "skipped:untraced"
+            return [], report
+        return [
+            "strace is not on PATH, so the oracle's reads cannot be traced; install "
+            "strace or pass --allow-untraced-oracle to record the gap instead of "
+            "closing it"
+        ], report
+    declared = list(packet.get("readable_context_paths") or []) + list(
+        packet.get("writable_patch_paths") or []
+    )
+    faults: list[str] = []
+    outside: dict[str, list[str]] = {}
+    for command_id in starts_red:
+        command = commands.get(command_id)
+        if command is None:
+            continue  # already a fault from check_oracle_attainable
+        named = _oracle_named_paths(checkout, command)
+        with tempfile.NamedTemporaryFile(prefix="agentops-oracle-trace-", suffix=".log", delete=False) as handle:
+            trace_path = Path(handle.name)
+        try:
+            subprocess.run(
+                [strace_bin, "-f", "-qq", "-e", f"trace={ORACLE_READ_TRACE_SYSCALLS}",
+                 "-o", str(trace_path), "sh", "-c", command],
+                cwd=checkout, stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                check=False, timeout=packet["limits"]["timeout_seconds"],
+            )
+            trace_text = trace_path.read_text(encoding="utf-8", errors="replace")
+        finally:
+            trace_path.unlink(missing_ok=True)
+        offenders = sorted(
+            rel for rel in parse_strace_reads(trace_text, checkout)
+            if not _is_exempt_read(rel, Path(os.path.realpath(checkout / rel)), named)
+            and not _matches_any(rel, declared)
+        )
+        if offenders:
+            outside[command_id] = offenders
+            faults.append(
+                f"{command_id} oracle reads outside declared paths at "
+                f"{packet['starting_commit'][:12]}: {', '.join(offenders)}"
+            )
+    report["oracle_reads_within_paths"] = not outside
+    report["read_trace"] = True
+    report["reads_outside_declared_paths"] = outside
+    return faults, report
+
+
+def check_oracle_reads(
+    repo_root: Path, packet: dict[str, Any], manifest: dict[str, Any],
+    allow_untraced: bool = False,
+) -> tuple[list[str], dict[str, Any]]:
+    """``trace_oracle_reads`` against a throwaway checkout of ``starting_commit``."""
+    starts_red = (packet.get("oracle") or {}).get("starts_red") or []
+    if not starts_red:
+        return [], {"oracle_reads_within_paths": None, "read_trace": None,
+                    "reads_outside_declared_paths": {}}
+    with tempfile.TemporaryDirectory(prefix="agentops-attainable-") as tmp:
+        checkout = Path(tmp) / "at-starting-commit"
+        try:
+            _git(repo_root, "clone", "--no-hardlinks", "--quiet", str(repo_root), str(checkout))
+            _git(checkout, "checkout", "--quiet", "--detach", packet["starting_commit"])
+        except Exception as exc:  # noqa: BLE001 - reported, never raised past here
+            return [f"could not check out {packet['starting_commit']} to trace the oracle: {exc}"], {}
+        return trace_oracle_reads(
+            checkout, packet, manifest["hybrid"]["commands"], shutil.which("strace"), allow_untraced,
+        )
 
 
 def assess_cold_run(
@@ -1252,6 +1416,55 @@ def dispatch_worker(
     }
 
 
+def export_worker_session(
+    opencode_bin: str,
+    session_id: str | None,
+    destination: Path,
+    worktree: Path,
+    worker_user: str | None = None,
+) -> dict[str, Any]:
+    """Write the worker's full OpenCode transcript beside the receipt.
+
+    The streamed ``run`` output is what the coordinator could enforce limits on;
+    the exported session is what actually happened -- every tool call, every
+    denied write, every message. Without it, explaining a run that changed
+    nothing costs a second dispatch. Export failure is recorded, never fatal: a
+    missing transcript must not turn a finished run into a failed one.
+    """
+    if not session_id:
+        return {"error": "no session id was observed on the worker's event stream"}
+    argv = [opencode_bin, "export", session_id]
+    if worker_user:
+        # The session store belongs to the identity that ran the worker.
+        argv = ["sudo", "--non-interactive", "--user", worker_user, *argv]
+    try:
+        completed = subprocess.run(
+            argv, cwd=worktree, stdin=subprocess.DEVNULL, capture_output=True,
+            text=True, check=False, timeout=120,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {"session_id": session_id, "error": str(exc)[-4000:]}
+    if completed.returncode != 0 or not completed.stdout.strip():
+        return {
+            "session_id": session_id,
+            "error": (completed.stderr or f"opencode export exited {completed.returncode} with no output")[-4000:],
+        }
+    try:
+        json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        return {"session_id": session_id, "error": f"export was not JSON: {exc}"}
+    try:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(completed.stdout, encoding="utf-8")
+    except OSError as exc:
+        return {"session_id": session_id, "error": str(exc)[-4000:]}
+    return {
+        "session_id": session_id,
+        "path": str(destination),
+        "sha256": hashlib.sha256(completed.stdout.encode("utf-8")).hexdigest(),
+    }
+
+
 def worker_spend(
     transcript_stdout: str,
     cap_usd: float | None,
@@ -1487,6 +1700,15 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
+        "--allow-untraced-oracle",
+        action="store_true",
+        help=(
+            "validate only: when strace is not on PATH, record the oracle read-trace "
+            "as skipped instead of failing closed. The report then says "
+            "'skipped:untraced', never true."
+        ),
+    )
+    parser.add_argument(
         "command",
         choices=["validate", "overlay", "prepare", "run", "gate", "receipt"],
     )
@@ -1506,16 +1728,25 @@ def main(argv: list[str] | None = None) -> int:
             # oracle that cannot fail, or is not there at all, passes every
             # structural check and still cannot judge the worker.
             faults = check_oracle_attainable(repo_root, packet, manifest)
+            # L-2(b), read-trace half: an attainable oracle may still depend on
+            # files the packet never declared. Only traced when (a) is clean;
+            # there is no point tracing a test that does not exist.
+            read_report: dict[str, Any] = {}
+            if not faults:
+                faults, read_report = check_oracle_reads(
+                    repo_root, packet, manifest, args.allow_untraced_oracle,
+                )
             if faults:
                 _emit({
                     "packet": packet["task_id"],
                     "status": "unfit",
                     "pre_gates": pre_gates,
                     "oracle_faults": faults,
+                    **read_report,
                 })
                 return 2
             _emit({"packet": packet["task_id"], "status": "fit", "pre_gates": pre_gates,
-                   "oracle_attainable": True})
+                   "oracle_attainable": True, **read_report})
             return 0
 
         base_config = _load_json(load_worker_config_path(args.agentops_root.resolve()))
@@ -1601,6 +1832,11 @@ def main(argv: list[str] | None = None) -> int:
                 args.worker_user, args.worker_model,
             )
             breach = sorted(set(coordinator_tree_state(repo_root)) - set(before))
+            worker_session = export_worker_session(
+                args.opencode_bin, transcript.get("session_id"),
+                worktree.parent / f"{packet['task_id']}.worker-session.json",
+                worktree, args.worker_user,
+            )
             spend = worker_spend(
                 transcript["stdout"],
                 packet["limits"].get("max_cost_usd"),
@@ -1616,6 +1852,7 @@ def main(argv: list[str] | None = None) -> int:
                     overlay_sha256=overlay_hash(overlay),
                     coordinator_claim=claim_evidence,
                     worker=transcript,
+                    worker_session=worker_session,
                     spend=spend,
                     **containment_override,
                     containment={
