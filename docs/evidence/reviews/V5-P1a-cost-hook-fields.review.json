@@ -1,0 +1,9 @@
+{
+  "task_id": "V5-P1a-cost-hook-fields",
+  "reviewer": "bayleaf/human",
+  "context": "independent",
+  "decision": "candidate",
+  "evidence_path": "/tmp/agentops-hybrid/worktrees/agentops/V5-P1a-cost-hook-fields.receipt.json",
+  "reviewed_at": "2026-08-23T13:37:19Z",
+  "note": "Owner-approved 2026-08-23 via Claude session: turn predicate = tool_result-exclusion over string-type; identical count on current transcripts (15=15), correct on attachment turns; one file, 8+/1-, record shape unchanged (REQ-001). Owner also ruled per-packet human sign-off on mechanical classes is approval theatre; L-3 self_candidate becomes the default for qualified classes."
+}
