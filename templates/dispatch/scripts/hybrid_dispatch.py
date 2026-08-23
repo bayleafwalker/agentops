@@ -616,7 +616,9 @@ def context_churn_limits(packet: dict[str, Any]) -> dict[str, Any]:
     """Resolve additive v1 churn controls without breaking older packets."""
     return packet.get("context_churn") or {
         "max_repeated_reads_per_path": 4,
-        "max_reasoning_steps_without_mutation": 8,
+        # Every workspace the loop builds is a full clone of the repository, and
+        # eight steps is not enough room to orient in one before writing.
+        "max_reasoning_steps_without_mutation": 12,
         "max_identical_context_tokens": 250000,
         "handoff_when_candidate_ready": True,
     }
@@ -1466,6 +1468,16 @@ def churn_verdict(
                     f"{failed_mutations} consecutive mutation attempts failed; the worker "
                     "is being denied inside its own workspace",
                 )
+        # A call that did not complete is the harness failing, not the worker
+        # circling, and it must not spend the budget meant to catch circling.
+        # V5-M9 died on this three times: the worker's bash was refused by its
+        # own profile and a grep errored on ripgrep's record limit, and those
+        # four failures exhausted the steps before a write was ever attempted.
+        # A failed *mutation* is still counted above, because "the worker is
+        # being denied inside its own workspace" is a different fact and the
+        # operator needs to be told which.
+        if status != "completed":
+            continue
         steps_since_mutation += 1
         if max_steps and steps_since_mutation > max_steps:
             return (

@@ -1,0 +1,8 @@
+# Evidence, not source. Skipped by ripgrep in every clone.
+#
+# These files carry worker transcripts, diffs and receipts. Even with the
+# oversized strings extracted to sidecar .txt files, a repo-wide grep inside a
+# worker's workspace has no business searching them -- and before this file
+# existed, a single 288 KB JSON line tripped ripgrep's 64 KB record limit and
+# spent a worker's whole churn budget on the resulting tool errors (V5-M9 x3).
+*

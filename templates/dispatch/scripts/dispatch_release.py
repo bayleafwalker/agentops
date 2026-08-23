@@ -174,16 +174,26 @@ def write_escalation(
     return record
 
 
+#: The agentops checkout this driver belongs to. ``hybrid_dispatch`` otherwise
+#: falls back to its own hardcoded default, so a stage could resolve its policy
+#: from a different checkout than the one the coordinator validated the packet
+#: against -- and did: validate accepted a retry packet that the run stage then
+#: refused, because the two policies disagreed about max_attempts.
+DEFAULT_AGENTOPS_ROOT = HERE.parents[2]
+
+
 def hybrid_cmd(
     step: str,
     packet_path: Path,
     repo_root: Path,
     python_bin: str,
     passthrough: list[str],
+    agentops_root: Path | None = None,
 ) -> list[str]:
     return [
         python_bin, str(HYBRID_DISPATCH),
         "--repo-root", str(repo_root),
+        "--agentops-root", str(agentops_root or DEFAULT_AGENTOPS_ROOT),
         "--packet", str(packet_path),
         *passthrough,
         step,
@@ -352,6 +362,7 @@ def drive(
     report_path: Path | None = None,
     attempts_path: Path | None = None,
     push_remote: str | None = None,
+    agentops_root: Path | None = None,
 ) -> tuple[int, dict[str, Any]]:
     """Run the fixed sequence. Returns (exit_code, report)."""
     packet = _load_json(packet_path)
@@ -408,7 +419,9 @@ def drive(
       red_stdout = ""
       red_stderr = ""
       for step in steps:
-        cmd = hybrid_cmd(step, current_packet_path, repo_root, python_bin, passthrough)
+        cmd = hybrid_cmd(
+            step, current_packet_path, repo_root, python_bin, passthrough, agentops_root,
+        )
         started = _now()
         completed = runner(cmd, None)
         parsed = _parse_receipt(completed.stdout)
@@ -588,6 +601,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--gh-bin", default=os.environ.get("GH_BIN", "gh"))
     parser.add_argument("--auditctl-bin", default=os.environ.get("AUDITCTL_BIN", "auditctl"))
     parser.add_argument("--report", type=Path, help="Write the driver report JSON here too.")
+    parser.add_argument(
+        "--agentops-root", type=Path, default=None,
+        help="Agentops checkout every stage resolves its policy from. Defaults to "
+             "this driver's own checkout, so one run is judged by one policy.",
+    )
     args, passthrough = parser.parse_known_args(argv)
     if passthrough and passthrough[0] == "--":
         passthrough = passthrough[1:]
@@ -600,6 +618,7 @@ def main(argv: list[str] | None = None) -> int:
         auditctl_bin=args.auditctl_bin,
         passthrough=passthrough,
         report_path=args.report,
+        agentops_root=args.agentops_root,
     )
     json.dump(report, sys.stdout, indent=2)
     sys.stdout.write("\n")
