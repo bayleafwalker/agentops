@@ -745,7 +745,10 @@ def worker_shared_gid(worker_user: str | None) -> int | None:
     except KeyError:
         return None
     worker_gids = {worker.pw_gid}
-    mine = set(os.getgroups())
+    # A refreshed login may carry the shared group as its primary gid (for
+    # example via ``newgrp agentdispatch``) rather than as a supplementary
+    # group.  Both are part of the process's effective group identity.
+    mine = {os.getgid(), *os.getgroups()}
     for group in grp.getgrall():
         if worker_user in group.gr_mem:
             worker_gids.add(group.gr_gid)
