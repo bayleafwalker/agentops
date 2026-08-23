@@ -23,6 +23,7 @@ without a parseable disposition is a failure like any other.
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import os
 import shutil
@@ -42,6 +43,16 @@ STEPS: tuple[str, ...] = ("prepare", "run", "gate", "receipt")
 #: Gate exit codes that carry a verdict rather than a failure. hybrid_dispatch
 #: returns 2 from ``gate`` for ``coordinator_review_required``.
 GATE_VERDICT_EXITS = frozenset({0, 2})
+
+#: The L-2 stop-condition vocabulary, in the order the M-1 spec row lists them.
+#: A fired condition exits non-zero, escalates once with ``stop_condition`` in
+#: the metadata, and never reaches the PR step.
+STOP_CONDITIONS: tuple[str, ...] = (
+    "release-boundary",
+    "command-not-allowed",
+    "path-outside-writable",
+    "gate-red-twice",
+)
 
 ESCALATION_TYPE = "workflow.escalation"
 DRIVER_ACTOR = "dispatch-release"
@@ -88,6 +99,7 @@ def write_escalation(
     detail: str,
     runner: Runner,
     auditctl_bin: str,
+    stop_condition: str | None = None,
 ) -> dict[str, Any]:
     """Record a workflow.escalation event. Degrades quietly without auditctl."""
     metadata = {
@@ -98,6 +110,8 @@ def write_escalation(
         "starting_commit": packet["starting_commit"],
         "driver": DRIVER_ACTOR,
     }
+    if stop_condition is not None:
+        metadata["stop_condition"] = stop_condition
     record = {
         "type": ESCALATION_TYPE,
         "actor": DRIVER_ACTOR,
@@ -158,6 +172,99 @@ def pr_command(
     ]
 
 
+def _packet_command_ids(packet: dict[str, Any]) -> list[str]:
+    """Every command id a packet references, from the oracle and acceptance rows."""
+    ids: list[str] = []
+    oracle = packet.get("oracle")
+    if isinstance(oracle, dict):
+        starts_red = oracle.get("starts_red")
+        if isinstance(starts_red, str):
+            ids.append(starts_red)
+        elif isinstance(starts_red, list):
+            ids.extend(cid for cid in starts_red if isinstance(cid, str))
+    for prop in packet.get("acceptance_properties") or []:
+        if isinstance(prop, dict):
+            cid = prop.get("command_id")
+            if isinstance(cid, str):
+                ids.append(cid)
+    return ids
+
+
+def _preflight_stop(packet: dict[str, Any]) -> tuple[str, str] | None:
+    """Stop conditions checked before any stage runs. Returns (condition, detail)."""
+    if packet.get("release_boundary") is True:
+        return ("release-boundary", "release_boundary is true in the packet")
+    allowed = packet.get("allowed_command_ids")
+    if allowed is not None:
+        offending = [cid for cid in _packet_command_ids(packet) if cid not in allowed]
+        if offending:
+            return (
+                "command-not-allowed",
+                f"command ids outside allowed_command_ids: {', '.join(offending)}",
+            )
+    return None
+
+
+def _gate_evidence(receipt: dict[str, Any] | None) -> dict[str, Any]:
+    """The gate's evidence: nested under ``evidence`` in a real receipt, flat in a stub."""
+    if isinstance(receipt, dict) and isinstance(receipt.get("evidence"), dict):
+        return receipt["evidence"]
+    return receipt if isinstance(receipt, dict) else {}
+
+
+def _path_allowed(path: str, patterns: list[str]) -> bool:
+    return any(fnmatch.fnmatch(path, pattern) for pattern in patterns)
+
+
+def _post_gate_stop(packet: dict[str, Any], evidence: dict[str, Any]) -> tuple[str, str] | None:
+    """Stop conditions checked after the gate and before the PR step."""
+    allowed = packet.get("allowed_command_ids")
+    if allowed is not None:
+        results = evidence.get("command_results") or []
+        offending = [
+            r.get("command_id") for r in results
+            if isinstance(r, dict) and r.get("command_id") not in allowed
+        ]
+        if offending:
+            return (
+                "command-not-allowed",
+                f"command ids outside allowed_command_ids: {', '.join(offending)}",
+            )
+    writable = packet.get("writable_patch_paths")
+    if writable is not None:
+        touched = evidence.get("touched_paths") or []
+        offending = [p for p in touched if not _path_allowed(p, writable)]
+        if offending:
+            return (
+                "path-outside-writable",
+                f"touched paths outside writable_patch_paths: {', '.join(offending)}",
+            )
+    return None
+
+
+def _gate_is_red(completed: subprocess.CompletedProcess, parsed: dict[str, Any] | None) -> bool:
+    """A gate is red on a non-zero exit, a non-candidate disposition, or passed=false."""
+    if completed.returncode != 0:
+        return True
+    if not isinstance(parsed, dict):
+        return True
+    if parsed.get("disposition") != "candidate":
+        return True
+    return _gate_evidence(parsed).get("passed") is False
+
+
+def _record_red_gate(attempts_path: Path, starting_commit: str) -> int:
+    """Increment the red-gate count for a starting_commit; returns the new count."""
+    ledger: dict[str, Any] = {}
+    if attempts_path.exists():
+        ledger = _load_json(attempts_path)
+    count = int(ledger.get(starting_commit, 0)) + 1
+    ledger[starting_commit] = count
+    attempts_path.parent.mkdir(parents=True, exist_ok=True)
+    attempts_path.write_text(json.dumps(ledger, indent=2) + "\n", encoding="utf-8")
+    return count
+
+
 def drive(
     packet_path: Path,
     repo_root: Path,
@@ -170,11 +277,14 @@ def drive(
     passthrough: list[str] | None = None,
     runner: Runner = _default_runner,
     report_path: Path | None = None,
+    attempts_path: Path | None = None,
 ) -> tuple[int, dict[str, Any]]:
     """Run the fixed sequence. Returns (exit_code, report)."""
     packet = _load_json(packet_path)
     worktree = worktree_path(packet)
     passthrough = list(passthrough or [])
+    if attempts_path is None:
+        attempts_path = worktree.parent / f"{packet['task_id']}.attempts.json"
     report: dict[str, Any] = {
         "schema_version": "agentops-dispatch-release/v1",
         "task_id": packet["task_id"],
@@ -188,6 +298,7 @@ def drive(
         "receipt_path": None,
         "pr": None,
         "escalation": None,
+        "stop": None,
     }
 
     def finish(code: int) -> tuple[int, dict[str, Any]]:
@@ -198,10 +309,22 @@ def drive(
             report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
         return code, report
 
+    def stop(condition: str, detail: str) -> tuple[int, dict[str, Any]]:
+        report["stop"] = {"condition": condition, "detail": detail}
+        report["escalation"] = write_escalation(
+            packet, "stop", 1, detail, runner, auditctl_bin, stop_condition=condition,
+        )
+        return finish(1)
+
     receipt_path = worktree.parent / f"{packet['task_id']}.receipt.json"
     report["receipt_path"] = str(receipt_path)
     gate_receipt: dict[str, Any] | None = None
     worker_session: dict[str, Any] | None = None
+    gate_red = False
+
+    preflight = _preflight_stop(packet)
+    if preflight is not None:
+        return stop(*preflight)
 
     for step in STEPS:
         cmd = hybrid_cmd(step, packet_path, repo_root, python_bin, passthrough)
@@ -247,6 +370,19 @@ def drive(
                 packet, step, completed.returncode, detail, runner, auditctl_bin,
             )
             return finish(completed.returncode or 1)
+        if step == "gate":
+            evidence = _gate_evidence(parsed)
+            post_gate = _post_gate_stop(packet, evidence)
+            if post_gate is not None:
+                return stop(*post_gate)
+            if _gate_is_red(completed, parsed):
+                count = _record_red_gate(attempts_path, packet["starting_commit"])
+                if count >= 2:
+                    return stop(
+                        "gate-red-twice",
+                        f"second red gate on starting_commit {packet['starting_commit']}",
+                    )
+                gate_red = True
         if step == "receipt":
             # Written before the PR step, and it IS the PR body.
             final = parsed if parsed is not None else {"raw_stdout": completed.stdout}
@@ -272,6 +408,12 @@ def drive(
         pr["skipped"] = True
         pr["reason"] = (
             f"gate disposition is {report['disposition']!r}, not 'candidate'; "
+            "the coordinator must review before any PR is opened"
+        )
+    elif gate_red:
+        pr["skipped"] = True
+        pr["reason"] = (
+            "gate is red (first red gate recorded); "
             "the coordinator must review before any PR is opened"
         )
     elif dry_run:
