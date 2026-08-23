@@ -756,6 +756,54 @@ class WorkspaceWritabilityTests(unittest.TestCase):
         self.assertIsNone(dispatch.worker_shared_gid("no-such-user-here"))
 
 
+class OracleAttainabilityTests(unittest.TestCase):
+    """validate asked whether acceptance properties discriminate and never
+    whether they can be met. Three of the five defects behind a seven-run packet
+    were that gap."""
+
+    def setUp(self) -> None:
+        packet_tests = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+        packet_tests.setUp()
+        self.packet = packet_tests.packet
+        self.manifest = packet_tests.manifest
+        self.packet["oracle"]["starts_red"] = ["a"]
+        self.packet["allowed_command_ids"] = ["a"]
+        self.manifest["hybrid"]["commands"] = {"a": "true"}
+
+    def _faults(self, returncode: int) -> list[str]:
+        original_run, original_git = dispatch.subprocess.run, dispatch._git
+        dispatch._git = lambda *a, **k: ""
+        dispatch.subprocess.run = lambda *a, **k: subprocess.CompletedProcess(
+            args=[], returncode=returncode, stdout="", stderr="")
+        try:
+            return dispatch.check_oracle_attainable(Path("."), self.packet, self.manifest)
+        finally:
+            dispatch.subprocess.run, dispatch._git = original_run, original_git
+
+    def test_a_red_oracle_is_attainable(self) -> None:
+        self.assertEqual(self._faults(1), [])
+
+    def test_an_absent_oracle_is_a_fault(self) -> None:
+        """Defect 5: the test only existed on the branch tip, so the worker was
+        judged by a gate that never ran."""
+        faults = self._faults(127)
+        self.assertTrue(faults)
+        self.assertIn("does not exist in the workspace", faults[0])
+
+    def test_an_already_passing_oracle_is_a_fault(self) -> None:
+        faults = self._faults(0)
+        self.assertTrue(faults)
+        self.assertIn("cannot fail", faults[0])
+
+    def test_an_unregistered_command_is_a_fault(self) -> None:
+        self.manifest["hybrid"]["commands"] = {}
+        self.assertIn("not a registered command", self._faults(1)[0])
+
+    def test_a_packet_without_starts_red_is_not_checked(self) -> None:
+        self.packet["oracle"].pop("starts_red")
+        self.assertEqual(dispatch.check_oracle_attainable(Path("."), self.packet, self.manifest), [])
+
+
 class ChurnVerdictTests(unittest.TestCase):
     """context_churn was declared in every packet and enforced nowhere. A worker
     read 1.07M tokens without one completed write while its own limit of 8 sat

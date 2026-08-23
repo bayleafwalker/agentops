@@ -32,6 +32,7 @@ import shlex
 import shutil
 import stat
 import subprocess
+import tempfile
 import time
 import sys
 from datetime import datetime, timedelta, timezone
@@ -917,6 +918,62 @@ def run_registered_commands(
     return results
 
 
+def check_oracle_attainable(
+    repo_root: Path, packet: dict[str, Any], manifest: dict[str, Any],
+) -> list[str]:
+    """Freeze-time check that a declared-red oracle can actually be satisfied.
+
+    ``validate`` asks whether acceptance properties *discriminate*. It never asks
+    whether they can be *met*, and three of the five defects behind a seven-run
+    packet were exactly that gap: an oracle that demanded a seam the packet did
+    not state, an oracle scoped to three items when the packet covered one, and
+    an oracle that did not exist at ``starting_commit`` at all.
+
+    This is L-2(a), the cheap half: run each ``starts_red`` command at the
+    starting commit in a throwaway checkout and require it to be **red for a
+    reason other than absence**. Exit 127 is not a failing test, it is a missing
+    one, and accepting it let a worker be judged by a gate that never ran.
+
+    The expensive half -- proving the failure is caused only by files the packet
+    may write -- is deliberately not attempted here. It needs either a reference
+    solution or a read-trace of the failing test, and under C-3 shipping the half
+    that kills the commonest defect beats designing the whole.
+    """
+    starts_red = (packet.get("oracle") or {}).get("starts_red") or []
+    if not starts_red:
+        return []
+    commands = manifest["hybrid"]["commands"]
+    faults: list[str] = []
+    with tempfile.TemporaryDirectory(prefix="agentops-attainable-") as tmp:
+        checkout = Path(tmp) / "at-starting-commit"
+        try:
+            _git(repo_root, "clone", "--no-hardlinks", "--quiet", str(repo_root), str(checkout))
+            _git(checkout, "checkout", "--quiet", "--detach", packet["starting_commit"])
+        except Exception as exc:  # noqa: BLE001 - reported, never raised past here
+            return [f"could not check out {packet['starting_commit']} to test the oracle: {exc}"]
+        for command_id in starts_red:
+            command = commands.get(command_id)
+            if command is None:
+                faults.append(f"{command_id} is not a registered command")
+                continue
+            completed = subprocess.run(
+                command, shell=True, cwd=checkout, stdin=subprocess.DEVNULL,
+                capture_output=True, text=True, check=False,
+                timeout=packet["limits"]["timeout_seconds"],
+            )
+            if completed.returncode == 127:
+                faults.append(
+                    f"{command_id} exits 127 at {packet['starting_commit'][:12]}: the oracle does "
+                    "not exist in the workspace the worker will be given"
+                )
+            elif completed.returncode == 0:
+                faults.append(
+                    f"{command_id} already passes at {packet['starting_commit'][:12]}: an oracle "
+                    "that cannot fail proves nothing about what the worker does to it"
+                )
+    return faults
+
+
 def assess_cold_run(
     results: list[dict[str, Any]], packet: dict[str, Any]
 ) -> tuple[list[dict[str, Any]], bool, list[str]]:
@@ -1445,7 +1502,20 @@ def main(argv: list[str] | None = None) -> int:
         pre_gates = validate_packet(packet, manifest, policy)
 
         if args.command == "validate":
-            _emit({"packet": packet["task_id"], "status": "fit", "pre_gates": pre_gates})
+            # L-2(a): a packet is not fit merely because it is well formed. An
+            # oracle that cannot fail, or is not there at all, passes every
+            # structural check and still cannot judge the worker.
+            faults = check_oracle_attainable(repo_root, packet, manifest)
+            if faults:
+                _emit({
+                    "packet": packet["task_id"],
+                    "status": "unfit",
+                    "pre_gates": pre_gates,
+                    "oracle_faults": faults,
+                })
+                return 2
+            _emit({"packet": packet["task_id"], "status": "fit", "pre_gates": pre_gates,
+                   "oracle_attainable": True})
             return 0
 
         base_config = _load_json(load_worker_config_path(args.agentops_root.resolve()))
