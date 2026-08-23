@@ -1,0 +1,134 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-M8-driver-pr-step",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 2,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "templates/dispatch/tests/test_dispatch_release_pr.py decides correctness, together with the two REQ fixtures it supersedes in the shipped L-1 oracle. Written from the spec row by an author with no access to any implementation; the single starts_red command runs the whole driver oracle set.",
+    "starts_red": [
+      "agentops.dispatch.tests.driver"
+    ],
+    "reference_patch": "docs/evidence/packets/V5-M8-driver-pr-step.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "f5f850ccc305fb101fa376a384e1bd37ffa6d585",
+  "purpose": "Make the L-1 driver's PR step actually open a PR, in templates/dispatch/scripts/dispatch_release.py. gh pr create runs with cwd set to the packet's disposable worktree, and prepare_workspace deliberately removes origin there, so gh has always exited 1 with 'no git remotes found'. Three dispatches reached disposition candidate with every gate green and were finished by hand. prepare_workspace stays as it is -- the worker must have no push route -- and the remote comes back in the driver, after the worker is done, in the PR step only. Add a module constant PR_STEP_NAMES = (\"remote-add\", \"push\", \"pr-create\") and an optional keyword-only drive() parameter push_remote: str | None = None. When push_remote is None, resolve the URL from the coordinator repository's origin with a READ-ONLY git query; the driver must never run a mutating git command outside the packet's worktree. If no URL can be resolved, skip the PR with a recorded reason mentioning the remote and still exit 0 -- a driver that cannot find a remote must not turn a green packet into a failed one. When the disposition is candidate and this is not a dry run, do exactly three things in order, all with cwd set to the worktree: add a remote named origin pointing at the resolved URL; push the packet's own branch (packet[\"worktree\"][\"branch\"]) with an explicit refspec, never the base branch and never a bare push; then run the existing gh pr create --head. Record the push under report[\"pr\"][\"push\"] with at least remote and branch. A failure of any of the three sets report[\"pr\"][\"failed_step\"] to its PR_STEP_NAMES entry, writes exactly one workflow.escalation whose metadata step is \"pr\", exits non-zero, and never reaches a later part. A dry run adds no remote, pushes nothing and opens nothing, while still reporting the gh pr create it would have run. A non-candidate disposition and every L-2 stop condition must reach neither the push nor gh. Change nothing else in the file: STEPS, RETRY_STEPS, the L-4 retry, the L-2 stop conditions and the never-merge property all stay exactly as they are.",
+  "readable_context_paths": [
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/tests/test_dispatch_release_pr.py",
+    "templates/dispatch/tests/test_dispatch_release.py",
+    "templates/dispatch/tests/test_dispatch_release_stops.py",
+    "templates/dispatch/tests/test_dispatch_release_retry.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/dispatch_release.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "the PR step adds origin, pushes the packet branch, then runs gh pr create --head, in that order, all in the worktree",
+    "the pushed refspec names the packet branch and never the base branch",
+    "report['pr'] records the remote and the branch pushed, and names failed_step when one of the three fails",
+    "an unresolvable remote skips the PR with a reason and still exits 0",
+    "a dry run adds no remote and pushes nothing",
+    "a non-candidate disposition and every stop condition reach neither push nor gh",
+    "resolution never runs a mutating git command against the coordinator checkout"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "the three parts of the PR step happen in the only order that works",
+      "command_id": "agentops.dispatch.tests.driver",
+      "fails_when": "the remote is missing when the push runs, or the branch is missing when gh runs, or any of the three runs outside the worktree"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "only the packet's own branch is ever pushed",
+      "command_id": "agentops.dispatch.tests.driver",
+      "fails_when": "the base branch appears in a push, or a bare push with no refspec is used"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "a failed hand-off says where it failed",
+      "command_id": "agentops.dispatch.tests.driver",
+      "fails_when": "failed_step is absent or wrong, the escalation is not written once as the pr step, or gh runs after a failed push"
+    },
+    {
+      "id": "REQ-004",
+      "requirement": "a missing remote is a skip, not a failure",
+      "command_id": "agentops.dispatch.tests.driver",
+      "fails_when": "an unresolvable remote exits non-zero, or pushes, or opens a PR"
+    },
+    {
+      "id": "REQ-005",
+      "requirement": "a dry run is a rehearsal",
+      "command_id": "agentops.dispatch.tests.driver",
+      "fails_when": "a dry run adds a remote, pushes, or calls gh"
+    },
+    {
+      "id": "REQ-006",
+      "requirement": "a stopped or non-candidate run is never handed off",
+      "command_id": "agentops.dispatch.tests.driver",
+      "fails_when": "any stop condition or a non-candidate disposition reaches the push or gh"
+    },
+    {
+      "id": "REQ-007",
+      "requirement": "the coordinator checkout stays untouched",
+      "command_id": "agentops.dispatch.tests.driver",
+      "fails_when": "a mutating git command runs outside the packet worktree"
+    }
+  ],
+  "non_goals": [
+    "prepare_workspace, which must keep removing origin from the worker's clone",
+    "hybrid_dispatch.py, the packet schema, the manifest or the dispatch policy",
+    "anything outside templates/dispatch/scripts/dispatch_release.py"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.driver"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 500000,
+    "hard_token_ceiling": 1000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 8,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-m8-driver-pr-step",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  }
+}
