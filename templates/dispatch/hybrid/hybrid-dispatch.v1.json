@@ -91,7 +91,7 @@
         "kind": "project",
         "project_ref": "799e7931-4384-4dcb-b1d7-a6eececabea8",
         "repositories": ["bindery-core"],
-        "registration": "pending"
+        "registration": "active"
       },
       "max_attempts": 1,
       "task_class": "mechanical_implementation",
