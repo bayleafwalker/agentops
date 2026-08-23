@@ -8,6 +8,12 @@
 # The Bash tool result carries no exit code (verified against transcripts 2026-08-23),
 # so `ok` is decided from the strongest signal available and `signal` records which one
 # was used. A consumer that needs certainty must read `signal`, not just `ok`.
+#
+# A compound command is a special case worth refusing rather than guessing about: in
+# `pytest ... | tail -5` the status belongs to `tail`, and the failure text may be exactly
+# what got filtered out. Such a row is recorded with signal "unattributable" and ok null --
+# an honest gap that rework_rounds skips, rather than a verdict that is wrong in whichever
+# direction the text happened to fall.
 set -uo pipefail
 
 GATE_DIR="${AGENTOPS_GATE_LOG_DIR:-/projects/dev/.claude/state}"
@@ -29,14 +35,18 @@ printf '%s' "$EVENT" | jq -c \
   .tool_response as $r
   | ($r | if type == "object" then . else {} end) as $o
   | (($o.stdout // "") + "\n" + ($o.stderr // "") + "\n" + ($r | if type == "string" then . else "" end)) as $text
+  | ($cmd | test("[|]|&&|[|][|]|;")) as $compound
   | (if ($o | has("exit_code")) then {exit: ($o.exit_code | tonumber?), signal: "exit_code"}
      elif ($o.is_error // false) or ($o | has("error")) then {exit: 1, signal: "is_error"}
      elif ($o.interrupted // false) then {exit: null, signal: "interrupted"}
+     elif $compound then {exit: null, signal: "unattributable"}
      elif ($text | test("\\bFAILED\\b|\\bFAIL\\b|\\bfailures?=[1-9]|[1-9][0-9]* (failed|error)|Traceback \\(most recent|AssertionError|error(\\[|:)|exit(ed)? (code )?[1-9]"))
        then {exit: null, signal: "heuristic"}
      else {exit: 0, signal: "heuristic"} end) as $verdict
   | {ts: $ts, cmd: $cmd, exit: $verdict.exit, signal: $verdict.signal,
      ok: (if $verdict.signal == "exit_code" then ($verdict.exit == 0)
+          elif $verdict.signal == "unattributable" then null
+          elif $verdict.signal == "interrupted" then false
           elif $verdict.exit == 0 then true else false end)}
   ' >> "$GATE_DIR/gates-$SESSION.jsonl" 2>/dev/null || exit 0
 

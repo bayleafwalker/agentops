@@ -30,15 +30,28 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "enum": ["agentops-task/v1", "agentops-task/v2"],
+      "enum": [
+        "agentops-task/v1",
+        "agentops-task/v2"
+      ],
       "description": "v1 packets remain readable for receipt/replay compatibility. New packets use v2, whose acceptance properties have stable ids."
     },
-    "task_id": { "type": "string", "pattern": "^[A-Z0-9]+-[A-Za-z0-9._-]+$" },
-    "repo_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+    "task_id": {
+      "type": "string",
+      "pattern": "^[A-Z0-9]+-[A-Za-z0-9._-]+$"
+    },
+    "repo_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
     "sprint_item": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["ref", "claim_id", "claim_actor"],
+      "required": [
+        "ref",
+        "claim_id",
+        "claim_actor"
+      ],
       "properties": {
         "ref": {
           "type": "string",
@@ -57,45 +70,103 @@
         }
       }
     },
-    "route": { "type": "string", "enum": ["mechanical_bulk"] },
-    "task_class": { "type": "string", "const": "mechanical_implementation" },
-    "risk": { "type": "string", "const": "low" },
+    "route": {
+      "type": "string",
+      "enum": [
+        "mechanical_bulk"
+      ]
+    },
+    "task_class": {
+      "type": "string",
+      "const": "mechanical_implementation"
+    },
+    "risk": {
+      "type": "string",
+      "const": "low"
+    },
     "oracle": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["ownership", "worker_may_modify", "description"],
+      "required": [
+        "ownership",
+        "worker_may_modify",
+        "description"
+      ],
       "properties": {
-        "ownership": { "type": "string", "const": "externally_defined" },
-        "worker_may_modify": { "type": "boolean", "const": false },
-        "description": { "type": "string", "minLength": 1 }
+        "ownership": {
+          "type": "string",
+          "const": "externally_defined"
+        },
+        "worker_may_modify": {
+          "type": "boolean",
+          "const": false
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "starts_red": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Command ids the coordinator asserts are RED at starting_commit, because the oracle for this packet is a test that does not pass yet. prepare requires exactly these to fail and every other registered command to pass: a starts_red command that is already green means the oracle does not discriminate, and the packet is refused rather than dispatched against a gate that cannot fail."
+        }
       }
     },
-    "attempt": { "type": "integer", "minimum": 1, "default": 1 },
-    "supersedes": { "type": "string", "description": "task_id of the failed packet this corrected retry replaces." },
-    "starting_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
-    "purpose": { "type": "string", "minLength": 1 },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 1
+    },
+    "supersedes": {
+      "type": "string",
+      "description": "task_id of the failed packet this corrected retry replaces."
+    },
+    "starting_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
     "readable_context_paths": {
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
-      "items": { "type": "string", "minLength": 1 }
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
     "writable_patch_paths": {
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
-      "items": { "type": "string", "minLength": 1 }
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
     "protected_paths": {
       "type": "array",
       "uniqueItems": true,
-      "items": { "type": "string", "minLength": 1 }
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
     "required_outcomes": {
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
-      "items": { "type": "string", "minLength": 1 }
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
     "acceptance_properties": {
       "type": "array",
@@ -105,23 +176,44 @@
     "non_goals": {
       "type": "array",
       "uniqueItems": true,
-      "items": { "type": "string", "minLength": 1 }
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
     "allowed_command_ids": {
       "type": "array",
       "uniqueItems": true,
-      "items": { "type": "string", "minLength": 1 },
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
       "description": "Command ids resolved against the repository hybrid.commands map. Free-form shell is never granted."
     },
     "limits": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["timeout_seconds"],
+      "required": [
+        "timeout_seconds"
+      ],
       "properties": {
-        "timeout_seconds": { "type": "integer", "minimum": 30, "maximum": 5400 },
-        "max_cost_usd": { "type": "number", "minimum": 0 },
-        "soft_token_ceiling": { "type": "integer", "minimum": 1 },
-        "hard_token_ceiling": { "type": "integer", "minimum": 1 }
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 5400
+        },
+        "max_cost_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "soft_token_ceiling": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "hard_token_ceiling": {
+          "type": "integer",
+          "minimum": 1
+        }
       }
     },
     "context_churn": {
@@ -134,31 +226,81 @@
         "handoff_when_candidate_ready"
       ],
       "properties": {
-        "max_repeated_reads_per_path": {"type": "integer", "minimum": 1, "maximum": 12},
-        "max_reasoning_steps_without_mutation": {"type": "integer", "minimum": 1, "maximum": 24},
-        "max_identical_context_tokens": {"type": "integer", "minimum": 1000},
-        "handoff_when_candidate_ready": {"const": true}
+        "max_repeated_reads_per_path": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 12
+        },
+        "max_reasoning_steps_without_mutation": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 24
+        },
+        "max_identical_context_tokens": {
+          "type": "integer",
+          "minimum": 1000
+        },
+        "handoff_when_candidate_ready": {
+          "const": true
+        }
       },
       "description": "Coordinator-authored stall limits. These target repeated unchanged context and mutation-free churn, not cheap cache writes generally. Enforcement is harness-side when telemetry permits and otherwise recorded in the receipt."
     },
-    "network_policy": { "type": "string", "enum": ["disabled"] },
+    "network_policy": {
+      "type": "string",
+      "enum": [
+        "disabled"
+      ]
+    },
     "worktree": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["root", "branch", "cleanup"],
+      "required": [
+        "root",
+        "branch",
+        "cleanup"
+      ],
       "properties": {
-        "root": { "type": "string", "minLength": 1 },
-        "branch": { "type": "string", "minLength": 1 },
-        "cleanup": { "type": "string", "enum": ["remove-on-disposition", "retain-for-review"] }
+        "root": {
+          "type": "string",
+          "minLength": 1
+        },
+        "branch": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cleanup": {
+          "type": "string",
+          "enum": [
+            "remove-on-disposition",
+            "retain-for-review"
+          ]
+        }
       }
     },
     "review": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "coordinator_context": { "type": "string", "enum": ["independent", "same-session"], "default": "independent" },
-        "challenger_enabled": { "type": "boolean", "default": false },
-        "references": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        "coordinator_context": {
+          "type": "string",
+          "enum": [
+            "independent",
+            "same-session"
+          ],
+          "default": "independent"
+        },
+        "challenger_enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
       }
     }
   },
@@ -166,43 +308,90 @@
     "acceptance_property_v1": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["requirement", "command_id", "fails_when"],
+      "required": [
+        "requirement",
+        "command_id",
+        "fails_when"
+      ],
       "properties": {
-        "requirement": { "type": "string", "minLength": 1 },
-        "command_id": { "type": "string", "minLength": 1 },
-        "fails_when": { "type": "string", "minLength": 1 }
+        "requirement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "command_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fails_when": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "acceptance_property_v2": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "requirement", "command_id", "fails_when"],
+      "required": [
+        "id",
+        "requirement",
+        "command_id",
+        "fails_when"
+      ],
       "properties": {
         "id": {
           "type": "string",
           "pattern": "^[A-Za-z][A-Za-z0-9._-]*$",
           "description": "Packet-unique stable requirement identifier, for example REQ-001."
         },
-        "requirement": { "type": "string", "minLength": 1 },
-        "command_id": { "type": "string", "minLength": 1 },
-        "fails_when": { "type": "string", "minLength": 1 }
+        "requirement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "command_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fails_when": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     }
   },
   "allOf": [
     {
-      "if": { "properties": { "schema_version": { "const": "agentops-task/v1" } } },
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "agentops-task/v1"
+          }
+        }
+      },
       "then": {
         "properties": {
-          "acceptance_properties": { "items": { "$ref": "#/$defs/acceptance_property_v1" } }
+          "acceptance_properties": {
+            "items": {
+              "$ref": "#/$defs/acceptance_property_v1"
+            }
+          }
         }
       }
     },
     {
-      "if": { "properties": { "schema_version": { "const": "agentops-task/v2" } } },
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "agentops-task/v2"
+          }
+        }
+      },
       "then": {
         "properties": {
-          "acceptance_properties": { "items": { "$ref": "#/$defs/acceptance_property_v2" } }
+          "acceptance_properties": {
+            "items": {
+              "$ref": "#/$defs/acceptance_property_v2"
+            }
+          }
         }
       }
     }

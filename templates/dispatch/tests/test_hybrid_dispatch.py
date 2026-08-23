@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import hashlib
 import json
+from datetime import datetime, timedelta, timezone
 import stat
 import subprocess
 import tempfile
@@ -541,38 +542,123 @@ class LiveClaimTests(unittest.TestCase):
         packet_tests.setUp()
         self.packet = packet_tests.packet
 
-    def test_live_claim_requires_exact_item_actor_and_unexpired_lease(self) -> None:
+    @staticmethod
+    def _reservation(**overrides: object) -> dict:
+        row = {
+            "id": 7,
+            "work_item_id": 42,
+            "actor": "coordinator/claude-code",
+            "state": "active",
+            "last_activity_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        }
+        row.update(overrides)
+        return row
+
+    def _run(self, rows: list[dict], command: list[str] | None = None):
         completed = subprocess.CompletedProcess(
-            args=[], returncode=0,
-            stdout=json.dumps([{
-                "claim_id": 7, "work_item_id": 42,
-                "agent": "coordinator/claude-code",
-                "expires_at": "2999-01-01T00:00:00Z",
-            }]), stderr="",
+            args=[], returncode=0, stdout=json.dumps(rows), stderr="",
         )
         original = dispatch.subprocess.run
-        dispatch.subprocess.run = lambda *args, **kwargs: completed
+
+        def fake_run(args, *rest, **kwargs):
+            if command is not None:
+                command[:] = list(args)
+            return completed
+
+        dispatch.subprocess.run = fake_run
         try:
-            evidence = dispatch.verify_live_coordinator_claim(Path("."), self.packet, "sprintctl")
+            return dispatch.verify_live_coordinator_claim(Path("."), self.packet, "sprintctl")
         finally:
             dispatch.subprocess.run = original
+
+    def test_live_reservation_requires_exact_item_actor_and_recent_activity(self) -> None:
+        evidence = self._run([self._reservation()])
+        self.assertEqual(evidence["claim_id"], 7)
+        self.assertEqual(evidence["work_item_id"], 42)
+        self.assertLess(evidence["idle_seconds"], 60)
+
+    def test_it_reads_reservations_because_sprintctl_has_no_claim_command(self) -> None:
+        """sprintctl removed credential-bearing claims; calling `claim` fails on
+        every host, and the old tests missed it by mocking the payload shape."""
+        command: list[str] = []
+        self._run([self._reservation()], command)
+        self.assertEqual(command[1], "reservation")
+        self.assertIn("--active-only", command)
+        self.assertNotIn("claim", command)
+
+    def test_live_reservation_rejects_a_different_actor(self) -> None:
+        with self.assertRaisesRegex(dispatch.PacketError, "not held"):
+            self._run([self._reservation(actor="someone-else")])
+
+    def test_live_reservation_rejects_a_released_one(self) -> None:
+        with self.assertRaisesRegex(dispatch.PacketError, "not active"):
+            self._run([self._reservation(state="released")])
+
+    def test_live_reservation_rejects_a_stale_one(self) -> None:
+        """A reservation is a coordination signal, not a lease, so it has no
+        expiry -- staleness is the only honest substitute for one."""
+        stale = datetime.now(timezone.utc) - dispatch.reservation_stale_after() - timedelta(minutes=1)
+        with self.assertRaisesRegex(dispatch.PacketError, "idle for"):
+            self._run([self._reservation(last_activity_at=stale.strftime("%Y-%m-%dT%H:%M:%SZ"))])
+
+    def test_a_fresh_reservation_just_inside_the_horizon_is_accepted(self) -> None:
+        fresh = datetime.now(timezone.utc) - dispatch.reservation_stale_after() + timedelta(minutes=5)
+        evidence = self._run([self._reservation(last_activity_at=fresh.strftime("%Y-%m-%dT%H:%M:%SZ"))])
         self.assertEqual(evidence["claim_id"], 7)
 
-    def test_live_claim_rejects_a_different_actor(self) -> None:
-        completed = subprocess.CompletedProcess(
-            args=[], returncode=0,
-            stdout=json.dumps([{
-                "claim_id": 7, "work_item_id": 42,
-                "agent": "someone-else", "expires_at": "2999-01-01T00:00:00Z",
-            }]), stderr="",
+class ColdRunAssessmentTests(unittest.TestCase):
+    """A packet whose oracle is a test written before the code was
+    undispatchable: prepare demanded every gate green, and the packet existed
+    precisely because one is red."""
+
+    def setUp(self) -> None:
+        packet_tests = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+        packet_tests.setUp()
+        self.packet = packet_tests.packet
+        self.manifest = packet_tests.manifest
+        self.policy = packet_tests.policy
+
+    @staticmethod
+    def _results(**exits: int) -> list[dict]:
+        return [{"command_id": cid, "exit_code": code} for cid, code in exits.items()]
+
+    def test_all_green_is_fit_when_nothing_is_declared_red(self) -> None:
+        results, green, faults = dispatch.assess_cold_run(
+            self._results(a=0, b=0), self.packet
         )
-        original = dispatch.subprocess.run
-        dispatch.subprocess.run = lambda *args, **kwargs: completed
-        try:
-            with self.assertRaisesRegex(dispatch.PacketError, "not held"):
-                dispatch.verify_live_coordinator_claim(Path("."), self.packet, "sprintctl")
-        finally:
-            dispatch.subprocess.run = original
+        self.assertTrue(green)
+        self.assertEqual(faults, [])
+        self.assertEqual([r["expectation"] for r in results], ["green", "green"])
+
+    def test_an_unrelated_red_command_still_blocks_dispatch(self) -> None:
+        _, green, faults = dispatch.assess_cold_run(self._results(a=0, b=1), self.packet)
+        self.assertFalse(green)
+        self.assertIn("b failed at the starting commit", faults[0])
+
+    def test_a_declared_red_oracle_is_fit(self) -> None:
+        self.packet["oracle"]["starts_red"] = ["b"]
+        self.packet["allowed_command_ids"] = ["a", "b"]
+        results, green, faults = dispatch.assess_cold_run(
+            self._results(a=0, b=1), self.packet
+        )
+        self.assertTrue(green)
+        self.assertEqual(faults, [])
+        self.assertEqual(results[1]["expectation"], "red")
+
+    def test_a_declared_red_oracle_that_passes_is_a_fault(self) -> None:
+        """The resolution is stricter than the rule it replaces: a gate that
+        cannot fail at the starting commit is not evidence of anything."""
+        self.packet["oracle"]["starts_red"] = ["b"]
+        self.packet["allowed_command_ids"] = ["a", "b"]
+        _, green, faults = dispatch.assess_cold_run(self._results(a=0, b=0), self.packet)
+        self.assertFalse(green)
+        self.assertIn("cannot fail proves nothing", faults[0])
+
+    def test_starts_red_must_name_a_command_the_packet_may_run(self) -> None:
+        self.packet["oracle"]["starts_red"] = ["not-granted"]
+        with self.assertRaisesRegex(dispatch.PacketError, "cannot run"):
+            dispatch.validate_packet(self.packet, self.manifest, self.policy)
+
 
 class WorkerSpendTests(unittest.TestCase):
     """`limits.max_cost_usd` was declared everywhere and read by nothing.

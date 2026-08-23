@@ -30,7 +30,7 @@ import shlex
 import stat
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -205,6 +205,14 @@ def validate_packet(
     if packet.get("risk") != "low":
         raise PacketError("worker dispatch requires risk low")
     oracle = packet.get("oracle") or {}
+    starts_red = oracle.get("starts_red") or []
+    if not isinstance(starts_red, list) or any(not isinstance(c, str) for c in starts_red):
+        raise PacketError("oracle.starts_red must be a list of command ids")
+    unknown = [c for c in starts_red if c not in packet.get("allowed_command_ids", [])]
+    if unknown:
+        raise PacketError(
+            f"oracle.starts_red names commands the packet cannot run: {', '.join(sorted(unknown))}"
+        )
     if oracle.get("ownership") != "externally_defined" or oracle.get("worker_may_modify") is not False:
         raise PacketError(
             "worker dispatch requires an externally defined oracle that the worker cannot modify"
@@ -363,14 +371,51 @@ def qualification_state(policy: dict[str, Any], packet: dict[str, Any]) -> str:
     return qualification["default"]
 
 
+RESERVATION_STALE_AFTER_ENV = "SPRINTCTL_RESERVATION_STALE_AFTER_HOURS"
+DEFAULT_RESERVATION_STALE_AFTER = timedelta(hours=4)
+
+
+def reservation_stale_after() -> timedelta:
+    """How idle a reservation may be and still authorize a dispatch.
+
+    Mirrors sprintctl's own horizon and reads the same environment variable, so
+    an operator who widens it there does not have to remember to widen it twice.
+    """
+    raw = os.environ.get(RESERVATION_STALE_AFTER_ENV)
+    if raw:
+        try:
+            hours = float(raw)
+        except ValueError:
+            return DEFAULT_RESERVATION_STALE_AFTER
+        if hours > 0:
+            return timedelta(hours=hours)
+    return DEFAULT_RESERVATION_STALE_AFTER
+
+
 def verify_live_coordinator_claim(
     repo_root: Path, packet: dict[str, Any], sprintctl_bin: str,
 ) -> dict[str, Any]:
-    """Read and validate the exact served claim that authorizes this packet.
+    """Read and validate the exact served reservation that authorizes this packet.
 
     The worker never receives this authority.  This coordinator-side check
-    prevents a frozen packet from being dispatched after its claim expired,
-    moved to a different actor, or ceased to cover the intended item.
+    prevents a frozen packet from being dispatched after its authorization went
+    stale, moved to a different actor, or ceased to cover the intended item.
+
+    **Migrated from ``sprintctl claim`` (2026-08-23).**  That command no longer
+    exists: sprintctl removed credential-bearing claims in favour of advisory
+    reservations, so every packet on every host failed here regardless of its
+    contents.  The unit tests did not catch it because they mocked the old
+    payload shape, which is the failure mode of testing a CLI you never call.
+
+    The two are not a rename.  A claim was a lease with an expiry; a reservation
+    is explicitly "a coordination signal, not a lease" and carries no expiry at
+    all.  The expiry check is therefore replaced by a **staleness** check on
+    ``last_activity_at``, matching sprintctl's own 4-hour horizon: an
+    authorization nobody has touched in that long is not evidence that anyone is
+    still coordinating this work, and ``sprintctl reservation touch`` refreshes
+    it deliberately rather than by accident.  ``sprint_item.claim_id`` and
+    ``claim_actor`` keep their names so frozen packets stay readable; they now
+    hold the reservation id and its actor.
     """
     item_ref = packet["sprint_item"]["ref"]
     _, _, item_text = item_ref.partition("#")
@@ -379,45 +424,69 @@ def verify_live_coordinator_claim(
     expected_actor = packet["sprint_item"]["claim_actor"]
     try:
         completed = subprocess.run(
-            [sprintctl_bin, "claim", "list", "--item-id", str(item_id), "--json"],
+            [sprintctl_bin, "reservation", "list", "--item-id", str(item_id),
+             "--active-only", "--json"],
             cwd=repo_root,
             text=True,
             capture_output=True,
             check=False,
         )
     except OSError as exc:
-        raise PacketError(f"cannot execute sprintctl claim read: {exc}") from exc
+        raise PacketError(f"cannot execute sprintctl reservation read: {exc}") from exc
     if completed.returncode != 0:
         detail = completed.stderr.strip() or completed.stdout.strip()
-        raise PacketError(f"served claim read failed: {detail or completed.returncode}")
+        raise PacketError(f"served reservation read failed: {detail or completed.returncode}")
     try:
-        claims = json.loads(completed.stdout)
+        reservations = json.loads(completed.stdout)
     except json.JSONDecodeError as exc:
-        raise PacketError("served claim read returned invalid JSON") from exc
-    if not isinstance(claims, list):
-        raise PacketError("served claim read returned a non-list payload")
-    matching = [claim for claim in claims if isinstance(claim, dict) and claim.get("claim_id") == expected_claim_id]
+        raise PacketError("served reservation read returned invalid JSON") from exc
+    if not isinstance(reservations, list):
+        raise PacketError("served reservation read returned a non-list payload")
+    matching = [
+        row for row in reservations
+        if isinstance(row, dict) and row.get("id") == expected_claim_id
+    ]
     if len(matching) != 1:
-        raise PacketError(f"served claim {expected_claim_id} is not active for item #{item_id}")
-    claim = matching[0]
-    if claim.get("work_item_id") != item_id:
-        raise PacketError(f"served claim {expected_claim_id} does not cover item #{item_id}")
-    if claim.get("agent") != expected_actor:
-        raise PacketError(f"served claim {expected_claim_id} is not held by {expected_actor!r}")
-    expires_at = claim.get("expires_at")
-    if not isinstance(expires_at, str):
-        raise PacketError(f"served claim {expected_claim_id} has no expiry")
+        raise PacketError(
+            f"served reservation {expected_claim_id} is not active for item #{item_id}"
+        )
+    reservation = matching[0]
+    if reservation.get("work_item_id") != item_id:
+        raise PacketError(
+            f"served reservation {expected_claim_id} does not cover item #{item_id}"
+        )
+    if reservation.get("actor") != expected_actor:
+        raise PacketError(
+            f"served reservation {expected_claim_id} is not held by {expected_actor!r}"
+        )
+    if reservation.get("state") != "active":
+        raise PacketError(f"served reservation {expected_claim_id} is not active")
+    last_activity_at = reservation.get("last_activity_at")
+    if not isinstance(last_activity_at, str):
+        raise PacketError(
+            f"served reservation {expected_claim_id} has no last_activity_at"
+        )
     try:
-        expiry = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+        touched = datetime.fromisoformat(last_activity_at.replace("Z", "+00:00"))
     except ValueError as exc:
-        raise PacketError(f"served claim {expected_claim_id} has invalid expiry") from exc
-    if expiry.tzinfo is None or expiry <= datetime.now(timezone.utc):
-        raise PacketError(f"served claim {expected_claim_id} is expired")
+        raise PacketError(
+            f"served reservation {expected_claim_id} has an invalid last_activity_at"
+        ) from exc
+    if touched.tzinfo is None:
+        touched = touched.replace(tzinfo=timezone.utc)
+    idle = datetime.now(timezone.utc) - touched
+    if idle > reservation_stale_after():
+        raise PacketError(
+            f"served reservation {expected_claim_id} has been idle for "
+            f"{idle.total_seconds() / 3600:.1f}h; touch it deliberately "
+            f"(sprintctl reservation touch) or reserve the item again"
+        )
     return {
         "claim_id": expected_claim_id,
         "work_item_id": item_id,
         "agent": expected_actor,
-        "expires_at": expires_at,
+        "last_activity_at": last_activity_at,
+        "idle_seconds": int(idle.total_seconds()),
         "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
 
@@ -735,6 +804,42 @@ def run_registered_commands(
             }
         )
     return results
+
+
+def assess_cold_run(
+    results: list[dict[str, Any]], packet: dict[str, Any]
+) -> tuple[list[dict[str, Any]], bool, list[str]]:
+    """Decide whether a cold run means the workspace is fit to dispatch into.
+
+    "Every registered command is green" is the right rule for a packet whose
+    gates already pass, and the wrong one for a packet whose oracle is a test
+    written before the code -- which is what a coordinator-authored oracle
+    usually is.  Such a packet was undispatchable by construction: prepare
+    demanded green, and the point of the packet was that one command is red.
+
+    ``oracle.starts_red`` resolves it *upward* rather than by exempting anything.
+    A named command must be red here, and a command that is already green is a
+    fault: an oracle that cannot fail at the starting commit is not evidence of
+    anything the worker later does to it.  Everything else must still be green,
+    so unrelated breakage is caught exactly as before.
+    """
+    expected_red = set((packet.get("oracle") or {}).get("starts_red") or [])
+    faults: list[str] = []
+    for result in results:
+        command_id = result["command_id"]
+        red = result["exit_code"] != 0
+        if command_id in expected_red:
+            result["expectation"] = "red"
+            if not red:
+                faults.append(
+                    f"{command_id} was declared starts_red but passed at the starting "
+                    f"commit; an oracle that cannot fail proves nothing"
+                )
+        else:
+            result["expectation"] = "green"
+            if red:
+                faults.append(f"{command_id} failed at the starting commit")
+    return results, not faults, faults
 
 
 def worker_cannot_write(repo_root: Path, worker_user: str | None) -> bool:
@@ -1130,7 +1235,7 @@ def main(argv: list[str] | None = None) -> int:
             safety = safety_ref(repo_root, packet)
             worktree = prepare_workspace(repo_root, packet)
             cold = run_registered_commands(worktree, packet, manifest)
-            green = all(r["exit_code"] == 0 for r in cold)
+            cold, green, cold_faults = assess_cold_run(cold, packet)
             _emit(
                 _receipt(
                     packet,
@@ -1141,6 +1246,7 @@ def main(argv: list[str] | None = None) -> int:
                     coordinator_claim=claim_evidence,
                     safety=safety,
                     cold_command_results=cold,
+                    cold_faults=cold_faults,
                     eligible_for_dispatch=green,
                 )
             )

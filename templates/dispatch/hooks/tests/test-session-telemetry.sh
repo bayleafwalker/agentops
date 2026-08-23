@@ -128,6 +128,15 @@ assert_eq "REQ-004 unretried red counts zero" \
 assert_eq "REQ-004 all green counts zero" \
   "$(rework_of '[{"cmd":"pytest a","ok":true},{"cmd":"pytest a","ok":true}]')" "0"
 
+# --- a compound command's verdict is not attributable, and says so --------------------
+run_gate_hook "sess-pipe" "$gatedir" "pytest tests/x.py | tail -5" '{"stdout":"2 passed","stderr":"","interrupted":false}'
+pipefile="$gatedir/gates-sess-pipe.jsonl"
+assert_eq "compound signal"  "$(jq -r '.signal' "$pipefile")" "unattributable"
+assert_eq "compound verdict" "$(jq -r '.ok' "$pipefile")"     "null"
+# and it is skipped by rework accounting rather than counted as a red gate
+assert_eq "unattributable rows are not rework" \
+  "$(rework_of '[{"cmd":"pytest a | tail","ok":null},{"cmd":"pytest a | tail","ok":null}]')" "0"
+
 # --- REQ-003 (publication): the session reaches auditctl exactly once, with its gates ----
 pubdir="$tmp/pub"; mkdir -p "$pubdir"
 cat > "$pubdir/auditctl" <<'STUB'

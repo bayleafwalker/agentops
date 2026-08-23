@@ -29,7 +29,9 @@ PROJ="$(echo "$EVENT" | jq -r '.cwd // ""' | xargs basename 2>/dev/null || basen
 GATE_FILE="$GATE_DIR/gates-$SESSION.jsonl"
 
 # --- T-4: gate outcomes collected by gate-log.sh during this session -------------------
-# rework_rounds = a red gate followed by a later retry of the same command.
+# rework_rounds = a red gate followed by a later retry of the same command. Rows whose verdict
+# could not be attributed (ok null, a compound command) are skipped rather than counted either
+# way: `.ok == false` is false for null, which is the behaviour wanted here.
 # The log is read, never consumed: each snapshot must carry every gate the session has run.
 if [[ -s "$GATE_FILE" ]]; then
   GATES="$(jq -cs '.' "$GATE_FILE" 2>/dev/null || echo '[]')"
