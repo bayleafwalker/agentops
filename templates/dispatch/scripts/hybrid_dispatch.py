@@ -32,6 +32,7 @@ import shlex
 import shutil
 import stat
 import subprocess
+import time
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -1000,6 +1001,69 @@ def coordinator_tree_state(repo_root: Path) -> list[str]:
     ]
 
 
+MUTATION_TOOLS = frozenset({"write", "edit", "patch", "multiedit", "apply"})
+
+
+def churn_verdict(
+    events: list[dict[str, Any]], limits: dict[str, Any]
+) -> tuple[str, str] | None:
+    """Decide whether a worker stream has stopped making progress.
+
+    ``context_churn`` was declared in every packet and enforced nowhere: the
+    schema calls it "harness-side when telemetry permits", and it never did. A
+    worker that read 1.07M tokens without a single completed write ran to its
+    token ceiling with the limit sitting unread in its own packet.
+
+    The stream is what the harness can see, so the limits are counted in it:
+    tool events since the last *completed* mutation, and reads of one path. A
+    denied write does not reset the counter -- it is an attempt, not progress --
+    and a run of them gets its own verdict, because "the worker cannot write
+    here" is a different fact from "the worker is going in circles" and the
+    operator needs to be told which.
+    """
+    max_steps = limits.get("max_reasoning_steps_without_mutation")
+    max_reads = limits.get("max_repeated_reads_per_path")
+    steps_since_mutation = 0
+    failed_mutations = 0
+    reads: dict[str, int] = {}
+    for event in events:
+        if event.get("type") != "tool_use":
+            continue
+        part = event.get("part") or {}
+        tool = part.get("tool")
+        state = part.get("state") or {}
+        status = state.get("status")
+        if tool in MUTATION_TOOLS:
+            if status == "completed":
+                steps_since_mutation = 0
+                failed_mutations = 0
+                continue
+            failed_mutations += 1
+            if failed_mutations >= 3:
+                return (
+                    "worker_cannot_write",
+                    f"{failed_mutations} consecutive mutation attempts failed; the worker "
+                    "is being denied inside its own workspace",
+                )
+        steps_since_mutation += 1
+        if max_steps and steps_since_mutation > max_steps:
+            return (
+                "churn_no_mutation",
+                f"{steps_since_mutation} tool steps without a completed mutation "
+                f"(limit {max_steps})",
+            )
+        if tool == "read" and max_reads:
+            path = (state.get("input") or {}).get("filePath")
+            if path:
+                reads[path] = reads.get(path, 0) + 1
+                if reads[path] > max_reads:
+                    return (
+                        "churn_repeated_reads",
+                        f"{path} read {reads[path]} times (limit {max_reads})",
+                    )
+    return None
+
+
 def dispatch_worker(
     worktree: Path,
     packet_path: Path,
@@ -1055,7 +1119,12 @@ def dispatch_worker(
             f"--preserve-env=OPENCODE_CONFIG_CONTENT",
             *argv,
         ]
-    completed = subprocess.run(
+    # Streamed rather than captured whole, so context_churn can be enforced while
+    # the worker is still running. Captured output can only ever explain a
+    # ceiling after it has been paid.
+    limits = context_churn_limits(packet)
+    deadline = time.monotonic() + packet["limits"]["timeout_seconds"]
+    process = subprocess.Popen(
         argv,
         cwd=worktree,
         env=env,
@@ -1064,19 +1133,54 @@ def dispatch_worker(
         # timeout without ever reaching inference -- indistinguishable from a slow
         # model. The same packet exits promptly once stdin is closed.
         stdin=subprocess.DEVNULL,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
-        timeout=packet["limits"]["timeout_seconds"],
-        check=False,
     )
+    lines: list[str] = []
+    events: list[dict[str, Any]] = []
+    stop: tuple[str, str] | None = None
+    session_id: str | None = None
+    try:
+        assert process.stdout is not None
+        for line in process.stdout:
+            lines.append(line)
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            events.append(event)
+            session_id = session_id or event.get("sessionID")
+            stop = churn_verdict(events, limits)
+            if stop is not None:
+                break
+            if time.monotonic() > deadline:
+                stop = ("timeout", "worker exceeded limits.timeout_seconds")
+                break
+    finally:
+        if stop is not None and process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                process.kill()
+        stderr = process.stderr.read() if process.stderr else ""
+        if stop is None:
+            try:
+                process.wait(timeout=max(0.0, deadline - time.monotonic()))
+            except subprocess.TimeoutExpired:
+                process.kill()
+                stop = ("timeout", "worker exceeded limits.timeout_seconds")
     return {
         "argv": [shlex.quote(a) for a in argv],
         "worker_user": worker_user,
         "agent": agent_name,
         "model": model_override or policy["routes"][packet["route"]]["harness_model"],
-        "exit_code": completed.returncode,
-        "stdout": completed.stdout,
-        "stderr_tail": completed.stderr[-4000:],
+        "exit_code": process.returncode if stop is None else 4,
+        "stdout": "".join(lines),
+        "stderr_tail": (stderr or "")[-4000:],
+        "session_id": session_id,
+        "churn_stop": None if stop is None else {"reason": stop[0], "detail": stop[1]},
     }
 
 

@@ -746,6 +746,55 @@ class WorkspaceWritabilityTests(unittest.TestCase):
         self.assertIsNone(dispatch.worker_shared_gid("no-such-user-here"))
 
 
+class ChurnVerdictTests(unittest.TestCase):
+    """context_churn was declared in every packet and enforced nowhere. A worker
+    read 1.07M tokens without one completed write while its own limit of 8 sat
+    unread."""
+
+    LIMITS = {"max_reasoning_steps_without_mutation": 3, "max_repeated_reads_per_path": 2}
+
+    @staticmethod
+    def _tool(tool: str, status: str = "completed", path: str | None = None) -> dict:
+        state: dict = {"status": status}
+        if path:
+            state["input"] = {"filePath": path}
+        return {"type": "tool_use", "part": {"tool": tool, "state": state}}
+
+    def test_progress_resets_the_counter(self) -> None:
+        events = [self._tool("read", path="a"), self._tool("write"), self._tool("read", path="b")]
+        self.assertIsNone(dispatch.churn_verdict(events, self.LIMITS))
+
+    def test_mutation_free_churn_is_stopped(self) -> None:
+        events = [self._tool("glob") for _ in range(4)]
+        verdict = dispatch.churn_verdict(events, self.LIMITS)
+        self.assertIsNotNone(verdict)
+        self.assertEqual(verdict[0], "churn_no_mutation")
+
+    def test_rereading_one_path_is_stopped(self) -> None:
+        events = [self._tool("write")] + [self._tool("read", path="same") for _ in range(3)]
+        verdict = dispatch.churn_verdict(events, self.LIMITS)
+        self.assertIsNotNone(verdict)
+        self.assertEqual(verdict[0], "churn_repeated_reads")
+
+    def test_denied_writes_do_not_count_as_progress(self) -> None:
+        """The exact 2026-08-23 failure: three denied edits look like work and
+        are not, so they must not reset the no-progress counter."""
+        events = [self._tool("write", status="error") for _ in range(3)]
+        verdict = dispatch.churn_verdict(events, self.LIMITS)
+        self.assertIsNotNone(verdict)
+        self.assertEqual(verdict[0], "worker_cannot_write")
+
+    def test_a_denied_write_run_is_named_separately_from_circling(self) -> None:
+        """"The worker cannot write here" and "the worker is going in circles"
+        are different facts and the operator needs to be told which."""
+        denied = dispatch.churn_verdict([self._tool("edit", status="error")] * 3, self.LIMITS)
+        circling = dispatch.churn_verdict([self._tool("glob")] * 4, self.LIMITS)
+        self.assertNotEqual(denied[0], circling[0])
+
+    def test_no_limits_means_no_verdict(self) -> None:
+        self.assertIsNone(dispatch.churn_verdict([self._tool("glob")] * 20, {}))
+
+
 class WorkerSpendTests(unittest.TestCase):
     """`limits.max_cost_usd` was declared everywhere and read by nothing.
 
