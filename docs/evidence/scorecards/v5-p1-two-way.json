@@ -1,0 +1,59 @@
+{
+  "schema_version": "workflow-scorecard/v0",
+  "release": "v5-P1",
+  "recorded_at": "2026-08-23T10:50:00Z",
+  "packet": "V5-P1-telemetry-hooks",
+  "starting_commit": "775ce5f1558ea3ce1824167aea2d6eac2d4d4996",
+  "sprint_item": "agentops#2254",
+  "runs": {
+    "direct": {
+      "mode": "direct-dispatch",
+      "host": "workstation",
+      "outcome": "implemented; oracle green (agentops.hooks.tests, agentops.dispatch.tests)",
+      "turns": 9,
+      "assistant_msgs": 452,
+      "tool_calls": 254,
+      "duration_min": 214,
+      "cost_usd": 197.14,
+      "attribution": "NOT packet-isolated: the same session also produced the v5 plan, P-0, three rounds of fixes to coordinator-protected code, and drove both loop runs. A per-packet direct cost cannot be extracted from it."
+    },
+    "loop": {
+      "mode": "L-1 dispatch_release",
+      "host": "devbox",
+      "worker_user": "agentworker",
+      "harness_model": "opencode-go/deepseek-v4-flash",
+      "outcome": "no edits produced; gate diff-nonempty false, registered-commands-green false, passed false",
+      "runs": [
+        {
+          "attempt": 1,
+          "steps": "prepare 0, run 0, gate 2, receipt 0",
+          "disposition": "coordinator_review_required",
+          "pr": "skipped (not candidate)",
+          "duration_s": 309,
+          "spend": "not captured -- the driver discarded stage stdout (fixed in f698edc)"
+        },
+        {
+          "attempt": 2,
+          "steps": "run 4",
+          "disposition": "budget_exceeded",
+          "cost_usd": 0.043471,
+          "tokens": 1070608,
+          "cost_reported": true,
+          "soft_token_ceiling_exceeded": true,
+          "within_hard_token_ceiling": false
+        }
+      ],
+      "containment": {
+        "coordinator_tree_untouched": true,
+        "coordinator_tree_changes": []
+      }
+    }
+  },
+  "findings": [
+    "The loop's mechanism works end to end: prepare (with oracle.starts_red), contained worker, gate verdict, receipt before PR, PR skipped with a recorded reason, empty escalation sink.",
+    "The cheap-tier worker read its way through 1.07M tokens and produced zero edits, then hit the hard token ceiling. The gate correctly refused it rather than waving through a no-op.",
+    "context_churn limits (max_reasoning_steps_without_mutation: 8) did not stop the churn -- they are harness-side only where telemetry permits, and here only the token ceiling bound it.",
+    "D-8 promotion needs 5 green first-pass runs with zero escalations. This packet produced zero green, so nothing promotes on this evidence.",
+    "rework_rounds is biased toward the loop: a coordinator runs gates in compound shell lines (6 of 13 rows unattributable) while the loop runs single registered command strings."
+  ]
+}
