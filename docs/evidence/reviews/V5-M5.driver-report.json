@@ -1,0 +1,489 @@
+{
+  "schema_version": "agentops-dispatch-release/v1",
+  "task_id": "V5-M5-gate-log-anchored",
+  "starting_commit": "13a2ad5b9c391ac466838265bb22bfe6a241ba0f",
+  "coordinator_repo_root": "/tmp/v5-coordinator",
+  "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored",
+  "dry_run": false,
+  "started_at": "2026-08-23T18:00:07Z",
+  "steps": [
+    {
+      "step": "prepare",
+      "command": [
+        "/run/current-system/sw/bin/python3",
+        "/tmp/v5-coordinator/templates/dispatch/scripts/hybrid_dispatch.py",
+        "--repo-root",
+        "/tmp/v5-coordinator",
+        "--packet",
+        "/tmp/v5-coordinator/docs/evidence/packets/V5-M5-gate-log-anchored.json",
+        "--worker-user",
+        "agentworker",
+        "--sprintctl-bin",
+        "sprintctl",
+        "prepare"
+      ],
+      "started_at": "2026-08-23T18:00:07Z",
+      "finished_at": "2026-08-23T18:00:10Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-23T18:00:10+00:00",
+        "execution_id": "V5-M5-gate-log-anchored:eb108611d902496d:attempt-1",
+        "task_id": "V5-M5-gate-log-anchored",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 2,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:eb108611d902496df43fbb477d95fe5e688449a1c3b6c6e4023efda727f7eed9",
+          "repository_commit": "13a2ad5b9c391ac466838265bb22bfe6a241ba0f",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:7227f0b004a7ca31e15f93340d9fd8cd437f3b7f1d2e2c805c11362c9ea73887"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 8,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "prepare",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored",
+        "overlay_sha256": "6e5d860c9cc4409732190b56e5f43a08fe884967805a113b7c80b41886e77bb8",
+        "coordinator_claim": {
+          "claim_id": 2,
+          "work_item_id": 2254,
+          "agent": "workstation-vuoro",
+          "last_activity_at": "2026-08-23T18:00:02Z",
+          "idle_seconds": 6,
+          "checked_at": "2026-08-23T18:00:08+00:00"
+        },
+        "safety": {
+          "ref": "safety/pre-dispatch-V5-M5-gate-log-anchored",
+          "commit": "6385d0c4131712ad6c9c49ef3b5d11fd7b0ea97e",
+          "restore_command": "git -C /tmp/v5-coordinator reset --hard safety/pre-dispatch-V5-M5-gate-log-anchored",
+          "uncommitted_paths_at_risk": [
+            "?? .sprintctl"
+          ]
+        },
+        "cold_command_results": [
+          {
+            "command_id": "agentops.hooks.tests.t3",
+            "command": "bash templates/dispatch/hooks/tests/test-gate-log.sh",
+            "exit_code": 1,
+            "stdout_tail": "",
+            "stderr_tail": "FAIL: no row for non-matching 'echo pytest-is-not-here-as-a-command-word': expected '7', got '8'\n",
+            "expectation": "red"
+          }
+        ],
+        "cold_faults": [],
+        "eligible_for_dispatch": true
+      },
+      "failed": false
+    },
+    {
+      "step": "run",
+      "command": [
+        "/run/current-system/sw/bin/python3",
+        "/tmp/v5-coordinator/templates/dispatch/scripts/hybrid_dispatch.py",
+        "--repo-root",
+        "/tmp/v5-coordinator",
+        "--packet",
+        "/tmp/v5-coordinator/docs/evidence/packets/V5-M5-gate-log-anchored.json",
+        "--worker-user",
+        "agentworker",
+        "--sprintctl-bin",
+        "sprintctl",
+        "run"
+      ],
+      "started_at": "2026-08-23T18:00:10Z",
+      "finished_at": "2026-08-23T18:02:25Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-23T18:02:25+00:00",
+        "execution_id": "V5-M5-gate-log-anchored:eb108611d902496d:attempt-1",
+        "task_id": "V5-M5-gate-log-anchored",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 2,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:eb108611d902496df43fbb477d95fe5e688449a1c3b6c6e4023efda727f7eed9",
+          "repository_commit": "13a2ad5b9c391ac466838265bb22bfe6a241ba0f",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:7227f0b004a7ca31e15f93340d9fd8cd437f3b7f1d2e2c805c11362c9ea73887"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 8,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "run",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored",
+        "overlay_sha256": "6e5d860c9cc4409732190b56e5f43a08fe884967805a113b7c80b41886e77bb8",
+        "coordinator_claim": {
+          "claim_id": 2,
+          "work_item_id": 2254,
+          "agent": "workstation-vuoro",
+          "last_activity_at": "2026-08-23T18:00:02Z",
+          "idle_seconds": 9,
+          "checked_at": "2026-08-23T18:00:11+00:00"
+        },
+        "worker": {
+          "argv": [
+            "sudo",
+            "--non-interactive",
+            "--user",
+            "agentworker",
+            "--preserve-env=OPENCODE_CONFIG_CONTENT",
+            "opencode",
+            "run",
+            "'Implement only the attached frozen task packet. Stay inside the writable paths it declares, use only the registered commands, and stop with a structured blocker on any ambiguity, missing context, or scope conflict. Do not use git, do not change sprint state, and do not expand scope. Respect context_churn: stop repeated unchanged reads or mutation-free reasoning at its limits. Do not optimize for cheap cache writes alone. As soon as the candidate and focused registered gate are ready, return the structured handoff instead of continuing self-review.'",
+            "--agent",
+            "ao-mechanical-bulk",
+            "--file",
+            "/tmp/v5-coordinator/docs/evidence/packets/V5-M5-gate-log-anchored.json",
+            "--format",
+            "json"
+          ],
+          "worker_user": "agentworker",
+          "agent": "ao-mechanical-bulk",
+          "model": "opencode-go/deepseek-v4-flash",
+          "exit_code": 0,
+          "stdout": "{\"type\":\"step_start\",\"timestamp\":1787508017349,\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"part\":{\"id\":\"prt_02fc7c89d001td6HOh6cNx5hQM\",\"messageID\":\"msg_02fc7bf2a001A7NnKGBE9oTAkc\",\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"type\":\"step-start\"}}\n{\"type\":\"tool_use\",\"timestamp\":1787508018179,\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"part\":{\"type\":\"tool\",\"tool\":\"read\",\"callID\":\"call_eebc633d240c47819a41abfe\",\"state\":{\"status\":\"completed\",\"input\":{\"filePath\":\"/tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored/templates/dispatch/hooks/gate-log.sh\"},\"output\":\"<path>/tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored/templates/dispatch/hooks/gate-log.sh</path>\\n<type>file</type>\\n<content>\\n1: #!/usr/bin/env bash\\n2: # Claude Code PostToolUse hook (T-3) \u2014 append one gate outcome per matching Bash\\n3: # command to a per-session gates log that the Stop hook (T-4) drains into auditctl.\\n4: #\\n5: # Matched commands are the gate surface named in the pathway \u00a75 gate set: pytest,\\n6: # run_round_checks, hybrid_dispatch gate, cargo test. Anything else is ignored.\\n7: #\\n8: # The Bash tool result carries no exit code (verified against transcripts 2026-08-23),\\n9: # so `ok` is decided from the strongest signal available and `signal` records which one\\n10: # was used. A consumer that needs certainty must read `signal`, not just `ok`.\\n11: #\\n12: # A compound command is a special case worth refusing rather than guessing about: in\\n13: # `pytest ... | tail -5` the status belongs to `tail`, and the failure text may be exactly\\n14: # what got filtered out. Such a row is recorded with signal \\\"unattributable\\\" and ok null --\\n15: # an honest gap that rework_rounds skips, rather than a verdict that is wrong in whichever\\n16: # direction the text happened to fall.\\n17: set -uo pipefail\\n18: \\n19: GATE_DIR=\\\"${AGENTOPS_GATE_LOG_DIR:-/projects/dev/.claude/state}\\\"\\n20: GATE_PATTERN=\\\"${AGENTOPS_GATE_PATTERN:-(pytest|run_round_checks|hybrid_dispatch(\\\\.py)?[[:space:]].*[[:space:]]gate|cargo[[:space:]]+test|unittest[[:space:]]+discover)}\\\"\\n21: \\n22: EVENT=\\\"$(cat)\\\"\\n23: command -v jq >/dev/null 2>&1 || exit 0\\n24: \\n25: CMD=\\\"$(printf '%s' \\\"$EVENT\\\" | jq -r '.tool_input.command // \\\"\\\"')\\\"\\n26: [[ -n \\\"$CMD\\\" ]] || exit 0\\n27: [[ \\\"$CMD\\\" =~ $GATE_PATTERN ]] || exit 0\\n28: \\n29: SESSION=\\\"$(printf '%s' \\\"$EVENT\\\" | jq -r '.session_id // \\\"unknown\\\"')\\\"\\n30: mkdir -p \\\"$GATE_DIR\\\" 2>/dev/null || exit 0\\n31: \\n32: printf '%s' \\\"$EVENT\\\" | jq -c \\\\\\n33:   --arg ts \\\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\\\" \\\\\\n34:   --arg cmd \\\"$CMD\\\" '\\n35:   .tool_response as $r\\n36:   | ($r | if type == \\\"object\\\" then . else {} end) as $o\\n37:   | (($o.stdout // \\\"\\\") + \\\"\\\\n\\\" + ($o.stderr // \\\"\\\") + \\\"\\\\n\\\" + ($r | if type == \\\"string\\\" then . else \\\"\\\" end)) as $text\\n38:   | ($cmd | test(\\\"[|]|&&|[|][|]|;\\\")) as $compound\\n39:   | (if ($o | has(\\\"exit_code\\\")) then {exit: ($o.exit_code | tonumber?), signal: \\\"exit_code\\\"}\\n40:      elif ($o.is_error // false) or ($o | has(\\\"error\\\")) then {exit: 1, signal: \\\"is_error\\\"}\\n41:      elif ($o.interrupted // false) then {exit: null, signal: \\\"interrupted\\\"}\\n42:      elif $compound then {exit: null, signal: \\\"unattributable\\\"}\\n43:      elif ($text | test(\\\"\\\\\\\\bFAILED\\\\\\\\b|\\\\\\\\bFAIL\\\\\\\\b|\\\\\\\\bfailures?=[1-9]|[1-9][0-9]* (failed|error)|Traceback \\\\\\\\(most recent|AssertionError|error(\\\\\\\\[|:)|exit(ed)? (code )?[1-9]\\\"))\\n44:        then {exit: null, signal: \\\"heuristic\\\"}\\n45:      else {exit: 0, signal: \\\"heuristic\\\"} end) as $verdict\\n46:   | {ts: $ts, cmd: $cmd, exit: $verdict.exit, signal: $verdict.signal,\\n47:      ok: (if $verdict.signal == \\\"exit_code\\\" then ($verdict.exit == 0)\\n48:           elif $verdict.signal == \\\"unattributable\\\" then null\\n49:           elif $verdict.signal == \\\"interrupted\\\" then false\\n50:           elif $verdict.exit == 0 then true else false end)}\\n51:   ' >> \\\"$GATE_DIR/gates-$SESSION.jsonl\\\" 2>/dev/null || exit 0\\n52: \\n53: exit 0\\n\\n(End of file - total 53 lines)\\n</content>\",\"metadata\":{\"preview\":\"#!/usr/bin/env bash\\n# Claude Code PostToolUse hook (T-3) \u2014 append one gate outcome per matching Bash\\n# command to a per-session gates log that the Stop hook (T-4) drains into auditctl.\\n#\\n# Matched commands are the gate surface named in the pathway \u00a75 gate set: pytest,\\n# run_round_checks, hybrid_dispatch gate, cargo test. Anything else is ignored.\\n#\\n# The Bash tool result carries no exit code (verified against transcripts 2026-08-23),\\n# so `ok` is decided from the strongest signal available and `signal` records which one\\n# was used. A consumer that needs certainty must read `signal`, not just `ok`.\\n#\\n# A compound command is a special case worth refusing rather than guessing about: in\\n# `pytest ... | tail -5` the status belongs to `tail`, and the failure text may be exactly\\n# what got filtered out. Such a row is recorded with signal \\\"unattributable\\\" and ok null --\\n# an honest gap that rework_rounds skips, rather than a verdict that is wrong in whichever\\n# direction the text happened to fall.\\nset -uo pipefail\\n\\nGATE_DIR=\\\"${AGENTOPS_GATE_LOG_DIR:-/projects/dev/.claude/state}\\\"\\nGATE_PATTERN=\\\"${AGENTOPS_GATE_PATTERN:-(pytest|run_round_checks|hybrid_dispatch(\\\\.py)?[[:space:]].*[[:space:]]gate|cargo[[:space:]]+test|unittest[[:space:]]+discover)}\\\"\",\"truncated\":false,\"loaded\":[],\"display\":{\"type\":\"file\",\"path\":\"/tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored/templates/dispatch/hooks/gate-log.sh\",\"text\":\"#!/usr/bin/env bash\\n# Claude Code PostToolUse hook (T-3) \u2014 append one gate outcome per matching Bash\\n# command to a per-session gates log that the Stop hook (T-4) drains into auditctl.\\n#\\n# Matched commands are the gate surface named in the pathway \u00a75 gate set: pytest,\\n# run_round_checks, hybrid_dispatch gate, cargo test. Anything else is ignored.\\n#\\n# The Bash tool result carries no exit code (verified against transcripts 2026-08-23),\\n# so `ok` is decided from the strongest signal available and `signal` records which one\\n# was used. A consumer that needs certainty must read `signal`, not just `ok`.\\n#\\n# A compound command is a special case worth refusing rather than guessing about: in\\n# `pytest ... | tail -5` the status belongs to `tail`, and the failure text may be exactly\\n# what got filtered out. Such a row is recorded with signal \\\"unattributable\\\" and ok null --\\n# an honest gap that rework_rounds skips, rather than a verdict that is wrong in whichever\\n# direction the text happened to fall.\\nset -uo pipefail\\n\\nGATE_DIR=\\\"${AGENTOPS_GATE_LOG_DIR:-/projects/dev/.claude/state}\\\"\\nGATE_PATTERN=\\\"${AGENTOPS_GATE_PATTERN:-(pytest|run_round_checks|hybrid_dispatch(\\\\.py)?[[:space:]].*[[:space:]]gate|cargo[[:space:]]+test|unittest[[:space:]]+discover)}\\\"\\n\\nEVENT=\\\"$(cat)\\\"\\ncommand -v jq >/dev/null 2>&1 || exit 0\\n\\nCMD=\\\"$(printf '%s' \\\"$EVENT\\\" | jq -r '.tool_input.command // \\\"\\\"')\\\"\\n[[ -n \\\"$CMD\\\" ]] || exit 0\\n[[ \\\"$CMD\\\" =~ $GATE_PATTERN ]] || exit 0\\n\\nSESSION=\\\"$(printf '%s' \\\"$EVENT\\\" | jq -r '.session_id // \\\"unknown\\\"')\\\"\\nmkdir -p \\\"$GATE_DIR\\\" 2>/dev/null || exit 0\\n\\nprintf '%s' \\\"$EVENT\\\" | jq -c \\\\\\n  --arg ts \\\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\\\" \\\\\\n  --arg cmd \\\"$CMD\\\" '\\n  .tool_response as $r\\n  | ($r | if type == \\\"object\\\" then . else {} end) as $o\\n  | (($o.stdout // \\\"\\\") + \\\"\\\\n\\\" + ($o.stderr // \\\"\\\") + \\\"\\\\n\\\" + ($r | if type == \\\"string\\\" then . else \\\"\\\" end)) as $text\\n  | ($cmd | test(\\\"[|]|&&|[|][|]|;\\\")) as $compound\\n  | (if ($o | has(\\\"exit_code\\\")) then {exit: ($o.exit_code | tonumber?), signal: \\\"exit_code\\\"}\\n     elif ($o.is_error // false) or ($o | has(\\\"error\\\")) then {exit: 1, signal: \\\"is_error\\\"}\\n     elif ($o.interrupted // false) then {exit: null, signal: \\\"interrupted\\\"}\\n     elif $compound then {exit: null, signal: \\\"unattributable\\\"}\\n     elif ($text | test(\\\"\\\\\\\\bFAILED\\\\\\\\b|\\\\\\\\bFAIL\\\\\\\\b|\\\\\\\\bfailures?=[1-9]|[1-9][0-9]* (failed|error)|Traceback \\\\\\\\(most recent|AssertionError|error(\\\\\\\\[|:)|exit(ed)? (code )?[1-9]\\\"))\\n       then {exit: null, signal: \\\"heuristic\\\"}\\n     else {exit: 0, signal: \\\"heuristic\\\"} end) as $verdict\\n  | {ts: $ts, cmd: $cmd, exit: $verdict.exit, signal: $verdict.signal,\\n     ok: (if $verdict.signal == \\\"exit_code\\\" then ($verdict.exit == 0)\\n          elif $verdict.signal == \\\"unattributable\\\" then null\\n          elif $verdict.signal == \\\"interrupted\\\" then false\\n          elif $verdict.exit == 0 then true else false end)}\\n  ' >> \\\"$GATE_DIR/gates-$SESSION.jsonl\\\" 2>/dev/null || exit 0\\n\\nexit 0\",\"lineStart\":1,\"lineEnd\":53,\"totalLines\":53,\"truncated\":false}},\"title\":\"tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored/templates/dispatch/hooks/gate-log.sh\",\"time\":{\"start\":1787508018036,\"end\":1787508018164}},\"id\":\"prt_02fc7c9d7001psFZE40rkxsuIE\",\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"messageID\":\"msg_02fc7bf2a001A7NnKGBE9oTAkc\"}}\n{\"type\":\"tool_use\",\"timestamp\":1787508018358,\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"part\":{\"type\":\"tool\",\"tool\":\"read\",\"callID\":\"call_674be3a318d94e88937cc074\",\"state\":{\"status\":\"completed\",\"input\":{\"filePath\":\"/tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored/templates/dispatch/hooks/tests/test-gate-log.sh\"},\"output\":\"<path>/tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored/templates/dispatch/hooks/tests/test-gate-log.sh</path>\\n<type>file</type>\\n<content>\\n1: #!/usr/bin/env bash\\n2: # T-3 oracle, written from the handoff-doc row (docs/plans/agentops/\\n3: # 2026-08-23-handoff-loop-and-telemetry.md, T-3) and nothing else:\\n4: #\\n5: #   REQ-001 a PostToolUse event for a matching command (pytest, run_round_checks,\\n6: #           hybrid_dispatch gate, cargo test) appends one row {ts, cmd, exit,\\n7: #           signal, ok} to $AGENTOPS_GATE_LOG_DIR/gates-<session>.jsonl, where\\n8: #           signal names which evidence decided ok: exit_code | is_error |\\n9: #           interrupted | heuristic\\n10: #   REQ-002 a pipeline / compound command records signal \\\"unattributable\\\", ok null\\n11: #   REQ-003 a non-matching command appends nothing\\n12: #   REQ-004 auditctl absent from PATH does not fail the hook\\n13: #\\n14: # Spec row M-5 then decided the question the REQ-003 probe used to leave open:\\n15: #\\n16: #   REQ-005 a gate tool name counts only as the *command word* -- the first\\n17: #           word of the command, or the first word after a shell separator\\n18: #           (| && || ;). The same name as an argument, inside a quoted string, or\\n19: #           as part of a longer word is not a gate and appends no row. The\\n20: #           AGENTOPS_GATE_PATTERN override is matched under the same rule.\\n21: #\\n22: # The hook is driven exactly as Claude Code drives it: the event JSON on stdin,\\n23: # nothing on argv.\\n24: set -euo pipefail\\n25: \\n26: here=\\\"$(cd -- \\\"$(dirname -- \\\"${BASH_SOURCE[0]}\\\")\\\" && pwd -P)\\\"\\n27: hook=\\\"$(cd -- \\\"$here/..\\\" && pwd -P)/gate-log.sh\\\"\\n28: \\n29: tmp=\\\"$(mktemp -d)\\\"\\n30: trap 'rm -rf \\\"$tmp\\\"' EXIT\\n31: \\n32: fail() { printf 'FAIL: %s\\\\n' \\\"$*\\\" >&2; exit 1; }\\n33: assert_eq() { [[ \\\"$2\\\" == \\\"$3\\\" ]] || fail \\\"$1: expected '$3', got '$2'\\\"; }\\n34: \\n35: command -v jq >/dev/null || fail \\\"jq is required to run this oracle\\\"\\n36: \\n37: # REQ-004: a PATH with everything the hook could legitimately need, and no auditctl.\\n38: mkdir -p \\\"$tmp/bin\\\"\\n39: for tool in bash sh jq date mkdir cat printf grep sed awk tr head tail env dirname basename wc cut mktemp rm tee; do\\n40:   bin=\\\"$(command -v \\\"$tool\\\" 2>/dev/null || true)\\\"\\n41:   [[ -n \\\"$bin\\\" ]] && ln -sf \\\"$bin\\\" \\\"$tmp/bin/$tool\\\"\\n42: done\\n43: export PATH=\\\"$tmp/bin\\\"\\n44: command -v auditctl >/dev/null 2>&1 && fail \\\"test PATH must not contain auditctl\\\"\\n45: \\n46: export AGENTOPS_GATE_LOG_DIR=\\\"$tmp/gates\\\"\\n47: session=\\\"sess-t3-oracle\\\"\\n48: log=\\\"$AGENTOPS_GATE_LOG_DIR/gates-$session.jsonl\\\"\\n49: \\n50: event() {  # $1 command, $2 tool_response JSON\\n51:   jq -cn --arg s \\\"$session\\\" --arg c \\\"$1\\\" --argjson r \\\"$2\\\" \\\\\\n52:     '{session_id: $s, hook_event_name: \\\"PostToolUse\\\", tool_name: \\\"Bash\\\", tool_input: {command: $c}, tool_response: $r}'\\n53: }\\n54: \\n55: run_hook() { printf '%s' \\\"$1\\\" | bash \\\"$hook\\\"; }\\n56: \\n57: rows() { [[ -f \\\"$log\\\" ]] && wc -l < \\\"$log\\\" || echo 0; }\\n58: \\n59: # --- REQ-001 / REQ-004: matching commands each append one well-formed row ----\\n60: matching=(\\n61:   \\\"pytest -q tests/test_a.py\\\"\\n62:   \\\"python verification/run_round_checks.py\\\"\\n63:   \\\"python templates/dispatch/scripts/hybrid_dispatch.py --repo-root . --packet p.json gate\\\"\\n64:   \\\"cargo test\\\"\\n65: )\\n66: expected=0\\n67: for cmd in \\\"${matching[@]}\\\"; do\\n68:   run_hook \\\"$(event \\\"$cmd\\\" '{\\\"stdout\\\":\\\"3 passed in 0.1s\\\",\\\"stderr\\\":\\\"\\\"}')\\\" || fail \\\"hook exited non-zero for '$cmd' (auditctl absent)\\\"\\n69:   expected=$((expected + 1))\\n70:   assert_eq \\\"row count after '$cmd'\\\" \\\"$(rows)\\\" \\\"$expected\\\"\\n71:   row=\\\"$(tail -n 1 \\\"$log\\\")\\\"\\n72:   assert_eq \\\"row keys for '$cmd'\\\" \\\"$(printf '%s' \\\"$row\\\" | jq -c 'keys')\\\" '[\\\"cmd\\\",\\\"exit\\\",\\\"ok\\\",\\\"signal\\\",\\\"ts\\\"]'\\n73:   assert_eq \\\"row cmd\\\" \\\"$(printf '%s' \\\"$row\\\" | jq -r '.cmd')\\\" \\\"$cmd\\\"\\n74:   signal=\\\"$(printf '%s' \\\"$row\\\" | jq -r '.signal')\\\"\\n75:   case \\\"$signal\\\" in exit_code|is_error|interrupted|heuristic) ;; *) fail \\\"row signal for '$cmd' must name its evidence, got '$signal'\\\";; esac\\n76:   assert_eq \\\"row ok is a boolean\\\" \\\"$(printf '%s' \\\"$row\\\" | jq -r '.ok | type')\\\" \\\"boolean\\\"\\n77:   assert_eq \\\"row ts is set\\\" \\\"$(printf '%s' \\\"$row\\\" | jq -r '.ts | type')\\\" \\\"string\\\"\\n78:   [[ -n \\\"$(printf '%s' \\\"$row\\\" | jq -r '.ts')\\\" ]] || fail \\\"row ts is empty\\\"\\n79:   printf '%s' \\\"$row\\\" | jq -e '.exit == null or (.exit | type) == \\\"number\\\"' >/dev/null || fail \\\"row exit must be a number or null\\\"\\n80: done\\n81: \\n82: # A failing-looking result must not be recorded as ok when the verdict is decided\\n83: # by exit_code or is_error.\\n84: run_hook \\\"$(event \\\"pytest -q\\\" '{\\\"stdout\\\":\\\"\\\",\\\"stderr\\\":\\\"1 failed\\\",\\\"is_error\\\":true}')\\\"\\n85: row=\\\"$(tail -n 1 \\\"$log\\\")\\\"\\n86: assert_eq \\\"is_error result is not ok\\\" \\\"$(printf '%s' \\\"$row\\\" | jq -r '.ok')\\\" \\\"false\\\"\\n87: expected=$((expected + 1))\\n88: \\n89: # --- REQ-002: pipeline / compound command is unattributable -------------------\\n90: for cmd in \\\"pytest -q | tail -5\\\" \\\"cargo test && echo done\\\"; do\\n91:   run_hook \\\"$(event \\\"$cmd\\\" '{\\\"stdout\\\":\\\"ok\\\",\\\"stderr\\\":\\\"\\\"}')\\\"\\n92:   expected=$((expected + 1))\\n93:   assert_eq \\\"row count after compound '$cmd'\\\" \\\"$(rows)\\\" \\\"$expected\\\"\\n94:   row=\\\"$(tail -n 1 \\\"$log\\\")\\\"\\n95:   assert_eq \\\"compound signal\\\" \\\"$(printf '%s' \\\"$row\\\" | jq -r '.signal')\\\" \\\"unattributable\\\"\\n96:   assert_eq \\\"compound ok is null\\\" \\\"$(printf '%s' \\\"$row\\\" | jq -r '.ok | type')\\\" \\\"null\\\"\\n97: done\\n98: \\n99: # --- REQ-003: non-matching command appends nothing -----------------------------\\n100: for cmd in \\\"ls -la\\\" \\\"git status\\\" \\\"echo pytest-is-not-here-as-a-command-word\\\"; do\\n101:   run_hook \\\"$(event \\\"$cmd\\\" '{\\\"stdout\\\":\\\"\\\",\\\"stderr\\\":\\\"\\\"}')\\\" || fail \\\"hook exited non-zero for non-matching '$cmd'\\\"\\n102:   # Asserted per command rather than once at the end so a regression names the\\n103:   # command that produced the row instead of just a count that drifted.\\n104:   assert_eq \\\"no row for non-matching '$cmd'\\\" \\\"$(rows)\\\" \\\"$expected\\\"\\n105: done\\n106: \\n107: # --- REQ-005: the matcher is anchored to the command word ---------------\\n108: # The gate surface is what actually ran. A tool name that only appears as an\\n109: # argument, inside a quoted string, or glued into a longer word did not run\\n110: # anything, and a row for it inflates the rework-round count the Stop hook drains\\n111: # into auditctl -- which is why the \\\"no row\\\" half of this block is a failure and\\n112: # no longer a finding.\\n113: anchored_gates=(\\n114:   \\\"pytest -q\\\"\\n115:   \\\"pytest -q tests/test_x.py\\\"\\n116:   \\\"cargo test\\\"\\n117:   \\\"run_round_checks\\\"\\n118:   \\\"python -m unittest discover -s templates/dispatch/tests\\\"\\n119:   \\\"python templates/dispatch/scripts/hybrid_dispatch.py --packet p.json gate\\\"\\n120:   \\\"pytest -q | tail -5\\\"\\n121:   \\\"cargo test && echo done\\\"\\n122: )\\n123: for cmd in \\\"${anchored_gates[@]}\\\"; do\\n124:   run_hook \\\"$(event \\\"$cmd\\\" '{\\\"stdout\\\":\\\"3 passed in 0.1s\\\",\\\"stderr\\\":\\\"\\\"}')\\\" || fail \\\"hook exited non-zero for anchored gate '$cmd'\\\"\\n125:   expected=$((expected + 1))\\n126:   assert_eq \\\"exactly one row for anchored gate '$cmd'\\\" \\\"$(rows)\\\" \\\"$expected\\\"\\n127:   assert_eq \\\"row cmd for anchored gate\\\" \\\"$(tail -n 1 \\\"$log\\\" | jq -r '.cmd')\\\" \\\"$cmd\\\"\\n128:   # M-5 changes the matcher only; the compound-command refusal stays where it was.\\n129:   case \\\"$cmd\\\" in\\n130:     *\\\"|\\\"*|*\\\"&&\\\"*)\\n131:       assert_eq \\\"compound gate '$cmd' stays unattributable\\\" \\\"$(tail -n 1 \\\"$log\\\" | jq -r '.signal')\\\" \\\"unattributable\\\" ;;\\n132:   esac\\n133: done\\n134: \\n135: not_gates=(\\n136:   \\\"echo pytest-is-not-here-as-a-command-word\\\"\\n137:   'echo \\\"run the pytest suite later\\\"'\\n138:   'git commit -m \\\"fix pytest fixture\\\"'\\n139:   \\\"ls -la\\\"\\n140:   \\\"git status\\\"\\n141: )\\n142: for cmd in \\\"${not_gates[@]}\\\"; do\\n143:   run_hook \\\"$(event \\\"$cmd\\\" '{\\\"stdout\\\":\\\"\\\",\\\"stderr\\\":\\\"\\\"}')\\\" || fail \\\"hook exited non-zero for non-gate '$cmd'\\\"\\n144:   assert_eq \\\"no row for non-gate '$cmd'\\\" \\\"$(rows)\\\" \\\"$expected\\\"\\n145: done\\n146: \\n147: # The override is a pattern, not an escape hatch from the anchoring rule: the same\\n148: # name still has to be the command word to count.\\n149: (\\n150:   export AGENTOPS_GATE_PATTERN=\\\"mise\\\"\\n151:   run_hook \\\"$(event \\\"mise run gate\\\" '{\\\"stdout\\\":\\\"ok\\\",\\\"stderr\\\":\\\"\\\"}')\\\" || fail \\\"hook exited non-zero under AGENTOPS_GATE_PATTERN\\\"\\n152: )\\n153: expected=$((expected + 1))\\n154: assert_eq \\\"override pattern matches as a command word\\\" \\\"$(rows)\\\" \\\"$expected\\\"\\n155: (\\n156:   export AGENTOPS_GATE_PATTERN=\\\"mise\\\"\\n157:   run_hook \\\"$(event \\\"echo promise-not-a-command\\\" '{\\\"stdout\\\":\\\"\\\",\\\"stderr\\\":\\\"\\\"}')\\\" || fail \\\"hook exited non-zero under AGENTOPS_GATE_PATTERN\\\"\\n158: )\\n159: assert_eq \\\"override pattern is anchored too\\\" \\\"$(rows)\\\" \\\"$expected\\\"\\n160: \\n161: # Every row must be one JSON object per line.\\n162: jq -e 'type == \\\"object\\\"' \\\"$log\\\" >/dev/null || fail \\\"gates log is not one JSON object per line\\\"\\n163: \\n164: # Rows for another session go to that session's file, not this one.\\n165: other_session=\\\"sess-t3-other\\\"\\n166: printf '%s' \\\"$(event \\\"pytest -q\\\" '{\\\"stdout\\\":\\\"\\\",\\\"stderr\\\":\\\"\\\"}' | jq -c --arg s \\\"$other_session\\\" '.session_id = $s')\\\" | bash \\\"$hook\\\"\\n167: [[ -f \\\"$AGENTOPS_GATE_LOG_DIR/gates-$other_session.jsonl\\\" ]] || fail \\\"gates-<session>.jsonl is not keyed by session_id\\\"\\n168: assert_eq \\\"other session did not write to this session's log\\\" \\\"$(rows)\\\" \\\"$expected\\\"\\n169: \\n170: printf 'PASS: gate-log oracle (T-3): %s rows, signals attributed, compound unattributable, non-matching ignored, no auditctl needed\\\\n' \\\"$expected\\\"\\n\\n(End of file - total 170 lines)\\n</content>\",\"metadata\":{\"preview\":\"#!/usr/bin/env bash\\n# T-3 oracle, written from the handoff-doc row (docs/plans/agentops/\\n# 2026-08-23-handoff-loop-and-telemetry.md, T-3) and nothing else:\\n#\\n#   REQ-001 a PostToolUse event for a matching command (pytest, run_round_checks,\\n#           hybrid_dispatch gate, cargo test) appends one row {ts, cmd, exit,\\n#           signal, ok} to $AGENTOPS_GATE_LOG_DIR/gates-<session>.jsonl, where\\n#           signal names which evidence decided ok: exit_code | is_error |\\n#           interrupted | heuristic\\n#   REQ-002 a pipeline / compound command records signal \\\"unattributable\\\", ok null\\n#   REQ-003 a non-matching command appends nothing\\n#   REQ-004 auditctl absent from PATH does not fail the hook\\n#\\n# Spec row M-5 then decided the question the REQ-003 probe used to leave open:\\n#\\n#   REQ-005 a gate tool name counts only as the *command word* -- the first\\n#           word of the command, or the first word after a shell separator\\n#           (| && || ;). The same name as an argument, inside a quoted string, or\\n#           as part of a longer word is not a gate and appends no row. The\\n#           AGENTOPS_GATE_PATTERN override is matched under the same rule.\",\"truncated\":false,\"loaded\":[],\"display\":{\"type\":\"file\",\"path\":\"/tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored/templates/dispatch/hooks/tests/test-gate-log.sh\",\"text\":\"#!/usr/bin/env bash\\n# T-3 oracle, written from the handoff-doc row (docs/plans/agentops/\\n# 2026-08-23-handoff-loop-and-telemetry.md, T-3) and nothing else:\\n#\\n#   REQ-001 a PostToolUse event for a matching command (pytest, run_round_checks,\\n#           hybrid_dispatch gate, cargo test) appends one row {ts, cmd, exit,\\n#           signal, ok} to $AGENTOPS_GATE_LOG_DIR/gates-<session>.jsonl, where\\n#           signal names which evidence decided ok: exit_code | is_error |\\n#           interrupted | heuristic\\n#   REQ-002 a pipeline / compound command records signal \\\"unattributable\\\", ok null\\n#   REQ-003 a non-matching command appends nothing\\n#   REQ-004 auditctl absent from PATH does not fail the hook\\n#\\n# Spec row M-5 then decided the question the REQ-003 probe used to leave open:\\n#\\n#   REQ-005 a gate tool name counts only as the *command word* -- the first\\n#           word of the command, or the first word after a shell separator\\n#           (| && || ;). The same name as an argument, inside a quoted string, or\\n#           as part of a longer word is not a gate and appends no row. The\\n#           AGENTOPS_GATE_PATTERN override is matched under the same rule.\\n#\\n# The hook is driven exactly as Claude Code drives it: the event JSON on stdin,\\n# nothing on argv.\\nset -euo pipefail\\n\\nhere=\\\"$(cd -- \\\"$(dirname -- \\\"${BASH_SOURCE[0]}\\\")\\\" && pwd -P)\\\"\\nhook=\\\"$(cd -- \\\"$here/..\\\" && pwd -P)/gate-log.sh\\\"\\n\\ntmp=\\\"$(mktemp -d)\\\"\\ntrap 'rm -rf \\\"$tmp\\\"' EXIT\\n\\nfail() { printf 'FAIL: %s\\\\n' \\\"$*\\\" >&2; exit 1; }\\nassert_eq() { [[ \\\"$2\\\" == \\\"$3\\\" ]] || fail \\\"$1: expected '$3', got '$2'\\\"; }\\n\\ncommand -v jq >/dev/null || fail \\\"jq is required to run this oracle\\\"\\n\\n# REQ-004: a PATH with everything the hook could legitimately need, and no auditctl.\\nmkdir -p \\\"$tmp/bin\\\"\\nfor tool in bash sh jq date mkdir cat printf grep sed awk tr head tail env dirname basename wc cut mktemp rm tee; do\\n  bin=\\\"$(command -v \\\"$tool\\\" 2>/dev/null || true)\\\"\\n  [[ -n \\\"$bin\\\" ]] && ln -sf \\\"$bin\\\" \\\"$tmp/bin/$tool\\\"\\ndone\\nexport PATH=\\\"$tmp/bin\\\"\\ncommand -v auditctl >/dev/null 2>&1 && fail \\\"test PATH must not contain auditctl\\\"\\n\\nexport AGENTOPS_GATE_LOG_DIR=\\\"$tmp/gates\\\"\\nsession=\\\"sess-t3-oracle\\\"\\nlog=\\\"$AGENTOPS_GATE_LOG_DIR/gates-$session.jsonl\\\"\\n\\nevent() {  # $1 command, $2 tool_response JSON\\n  jq -cn --arg s \\\"$session\\\" --arg c \\\"$1\\\" --argjson r \\\"$2\\\" \\\\\\n    '{session_id: $s, hook_event_name: \\\"PostToolUse\\\", tool_name: \\\"Bash\\\", tool_input: {command: $c}, tool_response: $r}'\\n}\\n\\nrun_hook() { printf '%s' \\\"$1\\\" | bash \\\"$hook\\\"; }\\n\\nrows() { [[ -f \\\"$log\\\" ]] && wc -l < \\\"$log\\\" || echo 0; }\\n\\n# --- REQ-001 / REQ-004: matching commands each append one well-formed row ----\\nmatching=(\\n  \\\"pytest -q tests/test_a.py\\\"\\n  \\\"python verification/run_round_checks.py\\\"\\n  \\\"python templates/dispatch/scripts/hybrid_dispatch.py --repo-root . --packet p.json gate\\\"\\n  \\\"cargo test\\\"\\n)\\nexpected=0\\nfor cmd in \\\"${matching[@]}\\\"; do\\n  run_hook \\\"$(event \\\"$cmd\\\" '{\\\"stdout\\\":\\\"3 passed in 0.1s\\\",\\\"stderr\\\":\\\"\\\"}')\\\" || fail \\\"hook exited non-zero for '$cmd' (auditctl absent)\\\"\\n  expected=$((expected + 1))\\n  assert_eq \\\"row count after '$cmd'\\\" \\\"$(rows)\\\" \\\"$expected\\\"\\n  row=\\\"$(tail -n 1 \\\"$log\\\")\\\"\\n  assert_eq \\\"row keys for '$cmd'\\\" \\\"$(printf '%s' \\\"$row\\\" | jq -c 'keys')\\\" '[\\\"cmd\\\",\\\"exit\\\",\\\"ok\\\",\\\"signal\\\",\\\"ts\\\"]'\\n  assert_eq \\\"row cmd\\\" \\\"$(printf '%s' \\\"$row\\\" | jq -r '.cmd')\\\" \\\"$cmd\\\"\\n  signal=\\\"$(printf '%s' \\\"$row\\\" | jq -r '.signal')\\\"\\n  case \\\"$signal\\\" in exit_code|is_error|interrupted|heuristic) ;; *) fail \\\"row signal for '$cmd' must name its evidence, got '$signal'\\\";; esac\\n  assert_eq \\\"row ok is a boolean\\\" \\\"$(printf '%s' \\\"$row\\\" | jq -r '.ok | type')\\\" \\\"boolean\\\"\\n  assert_eq \\\"row ts is set\\\" \\\"$(printf '%s' \\\"$row\\\" | jq -r '.ts | type')\\\" \\\"string\\\"\\n  [[ -n \\\"$(printf '%s' \\\"$row\\\" | jq -r '.ts')\\\" ]] || fail \\\"row ts is empty\\\"\\n  printf '%s' \\\"$row\\\" | jq -e '.exit == null or (.exit | type) == \\\"number\\\"' >/dev/null || fail \\\"row exit must be a number or null\\\"\\ndone\\n\\n# A failing-looking result must not be recorded as ok when the verdict is decided\\n# by exit_code or is_error.\\nrun_hook \\\"$(event \\\"pytest -q\\\" '{\\\"stdout\\\":\\\"\\\",\\\"stderr\\\":\\\"1 failed\\\",\\\"is_error\\\":true}')\\\"\\nrow=\\\"$(tail -n 1 \\\"$log\\\")\\\"\\nassert_eq \\\"is_error result is not ok\\\" \\\"$(printf '%s' \\\"$row\\\" | jq -r '.ok')\\\" \\\"false\\\"\\nexpected=$((expected + 1))\\n\\n# --- REQ-002: pipeline / compound command is unattributable -------------------\\nfor cmd in \\\"pytest -q | tail -5\\\" \\\"cargo test && echo done\\\"; do\\n  run_hook \\\"$(event \\\"$cmd\\\" '{\\\"stdout\\\":\\\"ok\\\",\\\"stderr\\\":\\\"\\\"}')\\\"\\n  expected=$((expected + 1))\\n  assert_eq \\\"row count after compound '$cmd'\\\" \\\"$(rows)\\\" \\\"$expected\\\"\\n  row=\\\"$(tail -n 1 \\\"$log\\\")\\\"\\n  assert_eq \\\"compound signal\\\" \\\"$(printf '%s' \\\"$row\\\" | jq -r '.signal')\\\" \\\"unattributable\\\"\\n  assert_eq \\\"compound ok is null\\\" \\\"$(printf '%s' \\\"$row\\\" | jq -r '.ok | type')\\\" \\\"null\\\"\\ndone\\n\\n# --- REQ-003: non-matching command appends nothing -----------------------------\\nfor cmd in \\\"ls -la\\\" \\\"git status\\\" \\\"echo pytest-is-not-here-as-a-command-word\\\"; do\\n  run_hook \\\"$(event \\\"$cmd\\\" '{\\\"stdout\\\":\\\"\\\",\\\"stderr\\\":\\\"\\\"}')\\\" || fail \\\"hook exited non-zero for non-matching '$cmd'\\\"\\n  # Asserted per command rather than once at the end so a regression names the\\n  # command that produced the row instead of just a count that drifted.\\n  assert_eq \\\"no row for non-matching '$cmd'\\\" \\\"$(rows)\\\" \\\"$expected\\\"\\ndone\\n\\n# --- REQ-005: the matcher is anchored to the command word ---------------\\n# The gate surface is what actually ran. A tool name that only appears as an\\n# argument, inside a quoted string, or glued into a longer word did not run\\n# anything, and a row for it inflates the rework-round count the Stop hook drains\\n# into auditctl -- which is why the \\\"no row\\\" half of this block is a failure and\\n# no longer a finding.\\nanchored_gates=(\\n  \\\"pytest -q\\\"\\n  \\\"pytest -q tests/test_x.py\\\"\\n  \\\"cargo test\\\"\\n  \\\"run_round_checks\\\"\\n  \\\"python -m unittest discover -s templates/dispatch/tests\\\"\\n  \\\"python templates/dispatch/scripts/hybrid_dispatch.py --packet p.json gate\\\"\\n  \\\"pytest -q | tail -5\\\"\\n  \\\"cargo test && echo done\\\"\\n)\\nfor cmd in \\\"${anchored_gates[@]}\\\"; do\\n  run_hook \\\"$(event \\\"$cmd\\\" '{\\\"stdout\\\":\\\"3 passed in 0.1s\\\",\\\"stderr\\\":\\\"\\\"}')\\\" || fail \\\"hook exited non-zero for anchored gate '$cmd'\\\"\\n  expected=$((expected + 1))\\n  assert_eq \\\"exactly one row for anchored gate '$cmd'\\\" \\\"$(rows)\\\" \\\"$expected\\\"\\n  assert_eq \\\"row cmd for anchored gate\\\" \\\"$(tail -n 1 \\\"$log\\\" | jq -r '.cmd')\\\" \\\"$cmd\\\"\\n  # M-5 changes the matcher only; the compound-command refusal stays where it was.\\n  case \\\"$cmd\\\" in\\n    *\\\"|\\\"*|*\\\"&&\\\"*)\\n      assert_eq \\\"compound gate '$cmd' stays unattributable\\\" \\\"$(tail -n 1 \\\"$log\\\" | jq -r '.signal')\\\" \\\"unattributable\\\" ;;\\n  esac\\ndone\\n\\nnot_gates=(\\n  \\\"echo pytest-is-not-here-as-a-command-word\\\"\\n  'echo \\\"run the pytest suite later\\\"'\\n  'git commit -m \\\"fix pytest fixture\\\"'\\n  \\\"ls -la\\\"\\n  \\\"git status\\\"\\n)\\nfor cmd in \\\"${not_gates[@]}\\\"; do\\n  run_hook \\\"$(event \\\"$cmd\\\" '{\\\"stdout\\\":\\\"\\\",\\\"stderr\\\":\\\"\\\"}')\\\" || fail \\\"hook exited non-zero for non-gate '$cmd'\\\"\\n  assert_eq \\\"no row for non-gate '$cmd'\\\" \\\"$(rows)\\\" \\\"$expected\\\"\\ndone\\n\\n# The override is a pattern, not an escape hatch from the anchoring rule: the same\\n# name still has to be the command word to count.\\n(\\n  export AGENTOPS_GATE_PATTERN=\\\"mise\\\"\\n  run_hook \\\"$(event \\\"mise run gate\\\" '{\\\"stdout\\\":\\\"ok\\\",\\\"stderr\\\":\\\"\\\"}')\\\" || fail \\\"hook exited non-zero under AGENTOPS_GATE_PATTERN\\\"\\n)\\nexpected=$((expected + 1))\\nassert_eq \\\"override pattern matches as a command word\\\" \\\"$(rows)\\\" \\\"$expected\\\"\\n(\\n  export AGENTOPS_GATE_PATTERN=\\\"mise\\\"\\n  run_hook \\\"$(event \\\"echo promise-not-a-command\\\" '{\\\"stdout\\\":\\\"\\\",\\\"stderr\\\":\\\"\\\"}')\\\" || fail \\\"hook exited non-zero under AGENTOPS_GATE_PATTERN\\\"\\n)\\nassert_eq \\\"override pattern is anchored too\\\" \\\"$(rows)\\\" \\\"$expected\\\"\\n\\n# Every row must be one JSON object per line.\\njq -e 'type == \\\"object\\\"' \\\"$log\\\" >/dev/null || fail \\\"gates log is not one JSON object per line\\\"\\n\\n# Rows for another session go to that session's file, not this one.\\nother_session=\\\"sess-t3-other\\\"\\nprintf '%s' \\\"$(event \\\"pytest -q\\\" '{\\\"stdout\\\":\\\"\\\",\\\"stderr\\\":\\\"\\\"}' | jq -c --arg s \\\"$other_session\\\" '.session_id = $s')\\\" | bash \\\"$hook\\\"\\n[[ -f \\\"$AGENTOPS_GATE_LOG_DIR/gates-$other_session.jsonl\\\" ]] || fail \\\"gates-<session>.jsonl is not keyed by session_id\\\"\\nassert_eq \\\"other session did not write to this session's log\\\" \\\"$(rows)\\\" \\\"$expected\\\"\\n\\nprintf 'PASS: gate-log oracle (T-3): %s rows, signals attributed, compound unattributable, non-matching ignored, no auditctl needed\\\\n' \\\"$expected\\\"\",\"lineStart\":1,\"lineEnd\":170,\"totalLines\":170,\"truncated\":false}},\"title\":\"tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored/templates/dispatch/hooks/tests/test-gate-log.sh\",\"time\":{\"start\":1787508018226,\"end\":1787508018304}},\"id\":\"prt_02fc7cb87001MurH1matRS73ir\",\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"messageID\":\"msg_02fc7bf2a001A7NnKGBE9oTAkc\"}}\n{\"type\":\"step_finish\",\"timestamp\":1787508018358,\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"part\":{\"id\":\"prt_02fc7cc8d001hKfH4Uh7XU7UMd\",\"reason\":\"tool-calls\",\"messageID\":\"msg_02fc7bf2a001A7NnKGBE9oTAkc\",\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"type\":\"step-finish\",\"tokens\":{\"total\":11861,\"input\":9863,\"output\":206,\"reasoning\":0,\"cache\":{\"write\":0,\"read\":1792}},\"cost\":0.002318364}}\n{\"type\":\"step_start\",\"timestamp\":1787508019498,\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"part\":{\"id\":\"prt_02fc7d113001Jo4M3I1IVJnQIR\",\"messageID\":\"msg_02fc7cca8001BAv3jEwdeq0vKD\",\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"type\":\"step-start\"}}\n{\"type\":\"tool_use\",\"timestamp\":1787508133609,\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"part\":{\"type\":\"tool\",\"tool\":\"edit\",\"callID\":\"call_0f4e46a435c64fab965896b9\",\"state\":{\"status\":\"completed\",\"input\":{\"filePath\":\"/tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored/templates/dispatch/hooks/gate-log.sh\",\"oldString\":\"GATE_DIR=\\\"${AGENTOPS_GATE_LOG_DIR:-/projects/dev/.claude/state}\\\"\\nGATE_PATTERN=\\\"${AGENTOPS_GATE_PATTERN:-(pytest|run_round_checks|hybrid_dispatch(\\\\.py)?[[:space:]].*[[:space:]]gate|cargo[[:space:]]+test|unittest[[:space:]]+discover)}\\\"\\n\\nEVENT=\\\"$(cat)\\\"\\ncommand -v jq >/dev/null 2>&1 || exit 0\\n\\nCMD=\\\"$(printf '%s' \\\"$EVENT\\\" | jq -r '.tool_input.command // \\\"\\\"')\\\"\\n[[ -n \\\"$CMD\\\" ]] || exit 0\\n[[ \\\"$CMD\\\" =~ $GATE_PATTERN ]] || exit 0\",\"newString\":\"GATE_DIR=\\\"${AGENTOPS_GATE_LOG_DIR:-/projects/dev/.claude/state}\\\"\\nGATE_PATTERN=\\\"${AGENTOPS_GATE_PATTERN:-(pytest|run_round_checks|hybrid_dispatch(\\\\.py)?[[:space:]].*[[:space:]]gate|cargo[[:space:]]+test|unittest[[:space:]]+discover)}\\\"\\n# M-5: a gate name counts only as a command word. It must sit on shell-word\\n# boundaries -- preceded by the start of the string, whitespace, a shell\\n# separator, or a path component, and followed by whitespace, a separator, the\\n# end of the string, or an executable script suffix. Quoted text is an argument\\n# to something else and is dropped before matching; the row still carries the\\n# original command.\\nGATE_ANCHOR=\\\"(^|[[:space:]]|[|&;]|/)($GATE_PATTERN)([[:space:]]|[|&;]|$|\\\\\\\\.(py|sh|bash|zsh|pl|rb|js|ts|php|lua))\\\"\\n\\nEVENT=\\\"$(cat)\\\"\\ncommand -v jq >/dev/null 2>&1 || exit 0\\n\\nCMD=\\\"$(printf '%s' \\\"$EVENT\\\" | jq -r '.tool_input.command // \\\"\\\"')\\\"\\n[[ -n \\\"$CMD\\\" ]] || exit 0\\nMATCH_CMD=\\\"$(printf '%s' \\\"$CMD\\\" | sed -E \\\"s/\\\\\\\"[^\\\\\\\"]*\\\\\\\"//g; s/'[^']*'//g\\\")\\\"\\n[[ \\\"$MATCH_CMD\\\" =~ $GATE_ANCHOR ]] || exit 0\"},\"output\":\"Edit applied successfully.\",\"metadata\":{\"diagnostics\":{},\"diff\":\"Index: /tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored/templates/dispatch/hooks/gate-log.sh\\n===================================================================\\n--- /tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored/templates/dispatch/hooks/gate-log.sh\\n+++ /tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored/templates/dispatch/hooks/gate-log.sh\\n@@ -17,15 +17,23 @@\\n set -uo pipefail\\n \\n GATE_DIR=\\\"${AGENTOPS_GATE_LOG_DIR:-/projects/dev/.claude/state}\\\"\\n GATE_PATTERN=\\\"${AGENTOPS_GATE_PATTERN:-(pytest|run_round_checks|hybrid_dispatch(\\\\.py)?[[:space:]].*[[:space:]]gate|cargo[[:space:]]+test|unittest[[:space:]]+discover)}\\\"\\n+# M-5: a gate name counts only as a command word. It must sit on shell-word\\n+# boundaries -- preceded by the start of the string, whitespace, a shell\\n+# separator, or a path component, and followed by whitespace, a separator, the\\n+# end of the string, or an executable script suffix. Quoted text is an argument\\n+# to something else and is dropped before matching; the row still carries the\\n+# original command.\\n+GATE_ANCHOR=\\\"(^|[[:space:]]|[|&;]|/)($GATE_PATTERN)([[:space:]]|[|&;]|$|\\\\\\\\.(py|sh|bash|zsh|pl|rb|js|ts|php|lua))\\\"\\n \\n EVENT=\\\"$(cat)\\\"\\n command -v jq >/dev/null 2>&1 || exit 0\\n \\n CMD=\\\"$(printf '%s' \\\"$EVENT\\\" | jq -r '.tool_input.command // \\\"\\\"')\\\"\\n [[ -n \\\"$CMD\\\" ]] || exit 0\\n-[[ \\\"$CMD\\\" =~ $GATE_PATTERN ]] || exit 0\\n+MATCH_CMD=\\\"$(printf '%s' \\\"$CMD\\\" | sed -E \\\"s/\\\\\\\"[^\\\\\\\"]*\\\\\\\"//g; s/'[^']*'//g\\\")\\\"\\n+[[ \\\"$MATCH_CMD\\\" =~ $GATE_ANCHOR ]] || exit 0\\n \\n SESSION=\\\"$(printf '%s' \\\"$EVENT\\\" | jq -r '.session_id // \\\"unknown\\\"')\\\"\\n mkdir -p \\\"$GATE_DIR\\\" 2>/dev/null || exit 0\\n \\n\",\"filediff\":{\"file\":\"/tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored/templates/dispatch/hooks/gate-log.sh\",\"patch\":\"Index: /tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored/templates/dispatch/hooks/gate-log.sh\\n===================================================================\\n--- /tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored/templates/dispatch/hooks/gate-log.sh\\n+++ /tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored/templates/dispatch/hooks/gate-log.sh\\n@@ -17,15 +17,23 @@\\n set -uo pipefail\\n \\n GATE_DIR=\\\"${AGENTOPS_GATE_LOG_DIR:-/projects/dev/.claude/state}\\\"\\n GATE_PATTERN=\\\"${AGENTOPS_GATE_PATTERN:-(pytest|run_round_checks|hybrid_dispatch(\\\\.py)?[[:space:]].*[[:space:]]gate|cargo[[:space:]]+test|unittest[[:space:]]+discover)}\\\"\\n+# M-5: a gate name counts only as a command word. It must sit on shell-word\\n+# boundaries -- preceded by the start of the string, whitespace, a shell\\n+# separator, or a path component, and followed by whitespace, a separator, the\\n+# end of the string, or an executable script suffix. Quoted text is an argument\\n+# to something else and is dropped before matching; the row still carries the\\n+# original command.\\n+GATE_ANCHOR=\\\"(^|[[:space:]]|[|&;]|/)($GATE_PATTERN)([[:space:]]|[|&;]|$|\\\\\\\\.(py|sh|bash|zsh|pl|rb|js|ts|php|lua))\\\"\\n \\n EVENT=\\\"$(cat)\\\"\\n command -v jq >/dev/null 2>&1 || exit 0\\n \\n CMD=\\\"$(printf '%s' \\\"$EVENT\\\" | jq -r '.tool_input.command // \\\"\\\"')\\\"\\n [[ -n \\\"$CMD\\\" ]] || exit 0\\n-[[ \\\"$CMD\\\" =~ $GATE_PATTERN ]] || exit 0\\n+MATCH_CMD=\\\"$(printf '%s' \\\"$CMD\\\" | sed -E \\\"s/\\\\\\\"[^\\\\\\\"]*\\\\\\\"//g; s/'[^']*'//g\\\")\\\"\\n+[[ \\\"$MATCH_CMD\\\" =~ $GATE_ANCHOR ]] || exit 0\\n \\n SESSION=\\\"$(printf '%s' \\\"$EVENT\\\" | jq -r '.session_id // \\\"unknown\\\"')\\\"\\n mkdir -p \\\"$GATE_DIR\\\" 2>/dev/null || exit 0\\n \\n\",\"additions\":9,\"deletions\":1},\"truncated\":false},\"title\":\"tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored/templates/dispatch/hooks/gate-log.sh\",\"time\":{\"start\":1787508133498,\"end\":1787508133516}},\"id\":\"prt_02fc98328001YXScgQCn2OwaQc\",\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"messageID\":\"msg_02fc7cca8001BAv3jEwdeq0vKD\"}}\n{\"type\":\"text\",\"timestamp\":1787508133609,\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"part\":{\"id\":\"prt_02fc9831b001aAsjyDCjYwTPtb\",\"messageID\":\"msg_02fc7cca8001BAv3jEwdeq0vKD\",\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"type\":\"text\",\"text\":\"\\n\\n\",\"time\":{\"start\":1787508130587,\"end\":1787508133529}}}\n{\"type\":\"step_finish\",\"timestamp\":1787508133609,\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"part\":{\"id\":\"prt_02fc98ea4001JZI0lWpuuMACmD\",\"reason\":\"tool-calls\",\"messageID\":\"msg_02fc7cca8001BAv3jEwdeq0vKD\",\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"type\":\"step-finish\",\"tokens\":{\"total\":34716,\"input\":4249,\"output\":18691,\"reasoning\":0,\"cache\":{\"write\":0,\"read\":11776}},\"cost\":0.013353272}}\n{\"type\":\"step_start\",\"timestamp\":1787508134810,\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"part\":{\"id\":\"prt_02fc99361001OWPBPpy8UxBrS3\",\"messageID\":\"msg_02fc98ecf001WsHZ41OglqywuT\",\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"type\":\"step-start\"}}\n{\"type\":\"text\",\"timestamp\":1787508135256,\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"part\":{\"id\":\"prt_02fc99380001K3H15tJ3fIefIx\",\"messageID\":\"msg_02fc98ecf001WsHZ41OglqywuT\",\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"type\":\"text\",\"text\":\"\\n\\n\",\"time\":{\"start\":1787508134784,\"end\":1787508135235}}}\n{\"type\":\"tool_use\",\"timestamp\":1787508137143,\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"part\":{\"type\":\"tool\",\"tool\":\"bash\",\"callID\":\"call_8d6c4fc169db437cb7561c7f\",\"state\":{\"status\":\"completed\",\"input\":{\"command\":\"bash templates/dispatch/hooks/tests/test-gate-log.sh\",\"workdir\":\"/tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored\"},\"output\":\"PASS: gate-log oracle (T-3): 16 rows, signals attributed, compound unattributable, non-matching ignored, no auditctl needed\\n\",\"metadata\":{\"output\":\"PASS: gate-log oracle (T-3): 16 rows, signals attributed, compound unattributable, non-matching ignored, no auditctl needed\\n\",\"exit\":0,\"truncated\":false},\"title\":\"bash templates/dispatch/hooks/tests/test-gate-log.sh\",\"time\":{\"start\":1787508137062,\"end\":1787508137081}},\"id\":\"prt_02fc9938b001cslaTeNIBnUqZn\",\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"messageID\":\"msg_02fc98ecf001WsHZ41OglqywuT\"}}\n{\"type\":\"step_finish\",\"timestamp\":1787508137144,\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"part\":{\"id\":\"prt_02fc99c830013TPNikmkVeHtz3\",\"reason\":\"tool-calls\",\"messageID\":\"msg_02fc98ecf001WsHZ41OglqywuT\",\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"type\":\"step-finish\",\"tokens\":{\"total\":34836,\"input\":682,\"output\":106,\"reasoning\":0,\"cache\":{\"write\":0,\"read\":34048}},\"cost\":0.000458336}}\n{\"type\":\"step_start\",\"timestamp\":1787508137999,\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"part\":{\"id\":\"prt_02fc99ff8001gSXkX2vx5TAske\",\"messageID\":\"msg_02fc99ca2001YIUvgZ0pZil4uR\",\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"type\":\"step-start\"}}\n{\"type\":\"tool_use\",\"timestamp\":1787508138699,\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"part\":{\"type\":\"tool\",\"tool\":\"bash\",\"callID\":\"call_2354eb28cce44b1788fe8bf3\",\"state\":{\"status\":\"error\",\"input\":{\"command\":\"bash -n templates/dispatch/hooks/gate-log.sh && echo \\\"syntax ok\\\"\",\"workdir\":\"/tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored\"},\"error\":\"The user has specified a rule which prevents you from using this specific tool call. Here are some of the relevant rules [{\\\"permission\\\":\\\"*\\\",\\\"action\\\":\\\"allow\\\",\\\"pattern\\\":\\\"*\\\"},{\\\"permission\\\":\\\"bash\\\",\\\"pattern\\\":\\\"*\\\",\\\"action\\\":\\\"deny\\\"},{\\\"permission\\\":\\\"bash\\\",\\\"pattern\\\":\\\"bash templates/dispatch/hooks/tests/test-gate-log.sh\\\",\\\"action\\\":\\\"allow\\\"},{\\\"permission\\\":\\\"bash\\\",\\\"pattern\\\":\\\"*\\\",\\\"action\\\":\\\"deny\\\"},{\\\"permission\\\":\\\"bash\\\",\\\"pattern\\\":\\\"bash templates/dispatch/hooks/tests/test-gate-log.sh\\\",\\\"action\\\":\\\"allow\\\"}]\",\"time\":{\"start\":1787508138664,\"end\":1787508138688}},\"id\":\"prt_02fc9a0f8001qq1YK7ECeMNBlu\",\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"messageID\":\"msg_02fc99ca2001YIUvgZ0pZil4uR\"}}\n{\"type\":\"tool_use\",\"timestamp\":1787508139157,\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"part\":{\"type\":\"tool\",\"tool\":\"read\",\"callID\":\"call_dd589d27716d4c91970d0974\",\"state\":{\"status\":\"completed\",\"input\":{\"filePath\":\"/tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored/templates/dispatch/hooks/gate-log.sh\",\"offset\":17,\"limit\":20},\"output\":\"<path>/tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored/templates/dispatch/hooks/gate-log.sh</path>\\n<type>file</type>\\n<content>\\n17: set -uo pipefail\\n18: \\n19: GATE_DIR=\\\"${AGENTOPS_GATE_LOG_DIR:-/projects/dev/.claude/state}\\\"\\n20: GATE_PATTERN=\\\"${AGENTOPS_GATE_PATTERN:-(pytest|run_round_checks|hybrid_dispatch(\\\\.py)?[[:space:]].*[[:space:]]gate|cargo[[:space:]]+test|unittest[[:space:]]+discover)}\\\"\\n21: # M-5: a gate name counts only as a command word. It must sit on shell-word\\n22: # boundaries -- preceded by the start of the string, whitespace, a shell\\n23: # separator, or a path component, and followed by whitespace, a separator, the\\n24: # end of the string, or an executable script suffix. Quoted text is an argument\\n25: # to something else and is dropped before matching; the row still carries the\\n26: # original command.\\n27: GATE_ANCHOR=\\\"(^|[[:space:]]|[|&;]|/)($GATE_PATTERN)([[:space:]]|[|&;]|$|\\\\\\\\.(py|sh|bash|zsh|pl|rb|js|ts|php|lua))\\\"\\n28: \\n29: EVENT=\\\"$(cat)\\\"\\n30: command -v jq >/dev/null 2>&1 || exit 0\\n31: \\n32: CMD=\\\"$(printf '%s' \\\"$EVENT\\\" | jq -r '.tool_input.command // \\\"\\\"')\\\"\\n33: [[ -n \\\"$CMD\\\" ]] || exit 0\\n34: MATCH_CMD=\\\"$(printf '%s' \\\"$CMD\\\" | sed -E \\\"s/\\\\\\\"[^\\\\\\\"]*\\\\\\\"//g; s/'[^']*'//g\\\")\\\"\\n35: [[ \\\"$MATCH_CMD\\\" =~ $GATE_ANCHOR ]] || exit 0\\n36: \\n\\n(Showing lines 17-36 of 61. Use offset=37 to continue.)\\n</content>\",\"metadata\":{\"preview\":\"set -uo pipefail\\n\\nGATE_DIR=\\\"${AGENTOPS_GATE_LOG_DIR:-/projects/dev/.claude/state}\\\"\\nGATE_PATTERN=\\\"${AGENTOPS_GATE_PATTERN:-(pytest|run_round_checks|hybrid_dispatch(\\\\.py)?[[:space:]].*[[:space:]]gate|cargo[[:space:]]+test|unittest[[:space:]]+discover)}\\\"\\n# M-5: a gate name counts only as a command word. It must sit on shell-word\\n# boundaries -- preceded by the start of the string, whitespace, a shell\\n# separator, or a path component, and followed by whitespace, a separator, the\\n# end of the string, or an executable script suffix. Quoted text is an argument\\n# to something else and is dropped before matching; the row still carries the\\n# original command.\\nGATE_ANCHOR=\\\"(^|[[:space:]]|[|&;]|/)($GATE_PATTERN)([[:space:]]|[|&;]|$|\\\\\\\\.(py|sh|bash|zsh|pl|rb|js|ts|php|lua))\\\"\\n\\nEVENT=\\\"$(cat)\\\"\\ncommand -v jq >/dev/null 2>&1 || exit 0\\n\\nCMD=\\\"$(printf '%s' \\\"$EVENT\\\" | jq -r '.tool_input.command // \\\"\\\"')\\\"\\n[[ -n \\\"$CMD\\\" ]] || exit 0\\nMATCH_CMD=\\\"$(printf '%s' \\\"$CMD\\\" | sed -E \\\"s/\\\\\\\"[^\\\\\\\"]*\\\\\\\"//g; s/'[^']*'//g\\\")\\\"\\n[[ \\\"$MATCH_CMD\\\" =~ $GATE_ANCHOR ]] || exit 0\\n\",\"truncated\":true,\"loaded\":[],\"display\":{\"type\":\"file\",\"path\":\"/tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored/templates/dispatch/hooks/gate-log.sh\",\"text\":\"set -uo pipefail\\n\\nGATE_DIR=\\\"${AGENTOPS_GATE_LOG_DIR:-/projects/dev/.claude/state}\\\"\\nGATE_PATTERN=\\\"${AGENTOPS_GATE_PATTERN:-(pytest|run_round_checks|hybrid_dispatch(\\\\.py)?[[:space:]].*[[:space:]]gate|cargo[[:space:]]+test|unittest[[:space:]]+discover)}\\\"\\n# M-5: a gate name counts only as a command word. It must sit on shell-word\\n# boundaries -- preceded by the start of the string, whitespace, a shell\\n# separator, or a path component, and followed by whitespace, a separator, the\\n# end of the string, or an executable script suffix. Quoted text is an argument\\n# to something else and is dropped before matching; the row still carries the\\n# original command.\\nGATE_ANCHOR=\\\"(^|[[:space:]]|[|&;]|/)($GATE_PATTERN)([[:space:]]|[|&;]|$|\\\\\\\\.(py|sh|bash|zsh|pl|rb|js|ts|php|lua))\\\"\\n\\nEVENT=\\\"$(cat)\\\"\\ncommand -v jq >/dev/null 2>&1 || exit 0\\n\\nCMD=\\\"$(printf '%s' \\\"$EVENT\\\" | jq -r '.tool_input.command // \\\"\\\"')\\\"\\n[[ -n \\\"$CMD\\\" ]] || exit 0\\nMATCH_CMD=\\\"$(printf '%s' \\\"$CMD\\\" | sed -E \\\"s/\\\\\\\"[^\\\\\\\"]*\\\\\\\"//g; s/'[^']*'//g\\\")\\\"\\n[[ \\\"$MATCH_CMD\\\" =~ $GATE_ANCHOR ]] || exit 0\\n\",\"lineStart\":17,\"lineEnd\":36,\"totalLines\":61,\"truncated\":true}},\"title\":\"tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored/templates/dispatch/hooks/gate-log.sh\",\"time\":{\"start\":1787508139084,\"end\":1787508139148}},\"id\":\"prt_02fc9a2b2001VgcpU9yljEmB7V\",\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"messageID\":\"msg_02fc99ca2001YIUvgZ0pZil4uR\"}}\n{\"type\":\"text\",\"timestamp\":1787508139380,\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"part\":{\"id\":\"prt_02fc9a0be0011f2AunfI2U6qC9\",\"messageID\":\"msg_02fc99ca2001YIUvgZ0pZil4uR\",\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"type\":\"text\",\"text\":\"\\n\\n\",\"time\":{\"start\":1787508138175,\"end\":1787508139317}}}\n{\"type\":\"step_finish\",\"timestamp\":1787508139380,\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"part\":{\"id\":\"prt_02fc9a541001FEhiw0mUvP3Mgo\",\"reason\":\"tool-calls\",\"messageID\":\"msg_02fc99ca2001YIUvgZ0pZil4uR\",\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"type\":\"step-finish\",\"tokens\":{\"total\":35113,\"input\":320,\"output\":233,\"reasoning\":0,\"cache\":{\"write\":0,\"read\":34560}},\"cost\":0.0004661}}\n{\"type\":\"step_start\",\"timestamp\":1787508140234,\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"part\":{\"id\":\"prt_02fc9a8b30018D6aFnKbrPg357\",\"messageID\":\"msg_02fc9a562001FKJPOqCH9eusXx\",\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"type\":\"step-start\"}}\n{\"type\":\"text\",\"timestamp\":1787508143676,\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"part\":{\"id\":\"prt_02fc9ab5c0018ypq2NT2A95lu5\",\"messageID\":\"msg_02fc9a562001FKJPOqCH9eusXx\",\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"type\":\"text\",\"text\":\"Candidate ready; focused registered gate `agentops.hooks.tests.t3` passes (16 rows, all assertions green).\\n\\n## Handoff \u2014 V5-M5-gate-log-anchored\\n\\n**Status:** candidate ready, gate green\\n\\n**Change (only `templates/dispatch/hooks/gate-log.sh`):**\\n- Replaced the raw substring match `[[ \\\"$CMD\\\" =~ $GATE_PATTERN ]]` with an anchored match `[[ \\\"$MATCH_CMD\\\" =~ $GATE_ANCHOR ]]` (gate-log.sh:27,34-35).\\n- `GATE_ANCHOR` wraps the pattern in shell-word boundaries: preceded by start / whitespace / separator (`|&;`) / path component (`/`), followed by whitespace / separator / end / executable script suffix (`\\\\.(py|sh|bash|zsh|pl|rb|js|ts|php|lua)`).\\n- `MATCH_CMD` drops single- and double-quoted text before matching; the row still writes the **original** `$CMD` in `.cmd` (unchanged jq block).\\n- Everything else untouched: row shape `{ts, cmd, exit, signal, ok}`, signal ladder, compound refusal (`unattributable`/`ok null`), per-session `gates-<session>.jsonl`, jq dependency, `exit 0` on every path including non-match.\\n\\n**Verification:**\\n- `bash templates/dispatch/hooks/tests/test-gate-log.sh` \u2192 `PASS: gate-log oracle (T-3): 16 rows, signals attributed, compound unattributable, non-matching ignored, no auditctl needed`\\n- Covers REQ-001..005: real gates (incl. `python verification/run_round_checks.py`, `hybrid_dispatch.py ... gate`, `python -m unittest discover`), quoted/glued/bare-argument non-gates, compound refusal, and `AGENTOPS_GATE_PATTERN=mise` anchored both ways.\\n\\n**Scope:** only the declared writable path modified; no git, no sprint state, no other files touched.\",\"time\":{\"start\":1787508140892,\"end\":1787508143615}}}\n{\"type\":\"step_finish\",\"timestamp\":1787508143676,\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"part\":{\"id\":\"prt_02fc9b60c001BRtByj2iMnoaZi\",\"reason\":\"stop\",\"messageID\":\"msg_02fc9a562001FKJPOqCH9eusXx\",\"sessionID\":\"ses_fd0384687ffeJH035v9cjJAJdZ\",\"type\":\"step-finish\",\"tokens\":{\"total\":36301,\"input\":928,\"output\":557,\"reasoning\":0,\"cache\":{\"write\":0,\"read\":34816}},\"cost\":0.000815492}}\n",
+          "stderr_tail": "",
+          "session_id": "ses_fd0384687ffeJH035v9cjJAJdZ",
+          "churn_stop": null
+        },
+        "worker_session": {
+          "session_id": "ses_fd0384687ffeJH035v9cjJAJdZ",
+          "error": "export was not JSON: Unterminated string starting at: line 283 column 19 (char 43908)"
+        },
+        "spend": {
+          "cost_usd": 0.017412,
+          "tokens": 152827,
+          "cost_reported": true,
+          "cap_usd": 3.0,
+          "within_cap": true,
+          "soft_token_ceiling": 500000,
+          "hard_token_ceiling": 1000000,
+          "soft_token_ceiling_exceeded": false,
+          "within_hard_token_ceiling": true
+        },
+        "containment_override": false,
+        "worker_user": "agentworker",
+        "worker_model": "opencode-go/deepseek-v4-flash",
+        "route_model": "opencode-go/deepseek-v4-flash",
+        "model_override": false,
+        "qualification_eligible": true,
+        "unattended_eligible": true,
+        "override_reason": null,
+        "containment": {
+          "coordinator_tree_untouched": true,
+          "coordinator_tree_changes": [],
+          "recovery": []
+        }
+      },
+      "failed": false
+    },
+    {
+      "step": "gate",
+      "command": [
+        "/run/current-system/sw/bin/python3",
+        "/tmp/v5-coordinator/templates/dispatch/scripts/hybrid_dispatch.py",
+        "--repo-root",
+        "/tmp/v5-coordinator",
+        "--packet",
+        "/tmp/v5-coordinator/docs/evidence/packets/V5-M5-gate-log-anchored.json",
+        "--worker-user",
+        "agentworker",
+        "--sprintctl-bin",
+        "sprintctl",
+        "gate"
+      ],
+      "started_at": "2026-08-23T18:02:25Z",
+      "finished_at": "2026-08-23T18:02:29Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-23T18:02:29+00:00",
+        "execution_id": "V5-M5-gate-log-anchored:eb108611d902496d:attempt-1",
+        "task_id": "V5-M5-gate-log-anchored",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 2,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:eb108611d902496df43fbb477d95fe5e688449a1c3b6c6e4023efda727f7eed9",
+          "repository_commit": "13a2ad5b9c391ac466838265bb22bfe6a241ba0f",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:7227f0b004a7ca31e15f93340d9fd8cd437f3b7f1d2e2c805c11362c9ea73887"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 8,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "gate",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored",
+        "overlay_sha256": "6e5d860c9cc4409732190b56e5f43a08fe884967805a113b7c80b41886e77bb8",
+        "coordinator_claim": {
+          "claim_id": 2,
+          "work_item_id": 2254,
+          "agent": "workstation-vuoro",
+          "last_activity_at": "2026-08-23T18:00:02Z",
+          "idle_seconds": 144,
+          "checked_at": "2026-08-23T18:02:26+00:00"
+        },
+        "evidence": {
+          "gates": {
+            "diff-nonempty": true,
+            "diff-scope-respected": true,
+            "protected-paths-untouched": true,
+            "worktree-state-captured": true,
+            "registered-commands-green": true
+          },
+          "passed": true,
+          "touched_paths": [
+            "templates/dispatch/hooks/gate-log.sh"
+          ],
+          "out_of_scope_paths": [],
+          "protected_path_hits": [],
+          "command_results": [
+            {
+              "command_id": "agentops.hooks.tests.t3",
+              "command": "bash templates/dispatch/hooks/tests/test-gate-log.sh",
+              "exit_code": 0,
+              "stdout_tail": "PASS: gate-log oracle (T-3): 16 rows, signals attributed, compound unattributable, non-matching ignored, no auditctl needed\n",
+              "stderr_tail": ""
+            }
+          ],
+          "diff": "diff --git a/templates/dispatch/hooks/gate-log.sh b/templates/dispatch/hooks/gate-log.sh\nindex b2f36e3..0fb58cc 100755\n--- a/templates/dispatch/hooks/gate-log.sh\n+++ b/templates/dispatch/hooks/gate-log.sh\n@@ -18,13 +18,21 @@ set -uo pipefail\n \n GATE_DIR=\"${AGENTOPS_GATE_LOG_DIR:-/projects/dev/.claude/state}\"\n GATE_PATTERN=\"${AGENTOPS_GATE_PATTERN:-(pytest|run_round_checks|hybrid_dispatch(\\.py)?[[:space:]].*[[:space:]]gate|cargo[[:space:]]+test|unittest[[:space:]]+discover)}\"\n+# M-5: a gate name counts only as a command word. It must sit on shell-word\n+# boundaries -- preceded by the start of the string, whitespace, a shell\n+# separator, or a path component, and followed by whitespace, a separator, the\n+# end of the string, or an executable script suffix. Quoted text is an argument\n+# to something else and is dropped before matching; the row still carries the\n+# original command.\n+GATE_ANCHOR=\"(^|[[:space:]]|[|&;]|/)($GATE_PATTERN)([[:space:]]|[|&;]|$|\\\\.(py|sh|bash|zsh|pl|rb|js|ts|php|lua))\"\n \n EVENT=\"$(cat)\"\n command -v jq >/dev/null 2>&1 || exit 0\n \n CMD=\"$(printf '%s' \"$EVENT\" | jq -r '.tool_input.command // \"\"')\"\n [[ -n \"$CMD\" ]] || exit 0\n-[[ \"$CMD\" =~ $GATE_PATTERN ]] || exit 0\n+MATCH_CMD=\"$(printf '%s' \"$CMD\" | sed -E \"s/\\\"[^\\\"]*\\\"//g; s/'[^']*'//g\")\"\n+[[ \"$MATCH_CMD\" =~ $GATE_ANCHOR ]] || exit 0\n \n SESSION=\"$(printf '%s' \"$EVENT\" | jq -r '.session_id // \"unknown\"')\"\n mkdir -p \"$GATE_DIR\" 2>/dev/null || exit 0\n",
+          "worktree_status": [
+            " M templates/dispatch/hooks/gate-log.sh"
+          ]
+        },
+        "independent_review": {
+          "mode": "self_candidate",
+          "class": "mechanical_bulk",
+          "basis": "manifest"
+        },
+        "disposition": "candidate"
+      },
+      "disposition": "candidate",
+      "failed": false
+    },
+    {
+      "step": "receipt",
+      "command": [
+        "/run/current-system/sw/bin/python3",
+        "/tmp/v5-coordinator/templates/dispatch/scripts/hybrid_dispatch.py",
+        "--repo-root",
+        "/tmp/v5-coordinator",
+        "--packet",
+        "/tmp/v5-coordinator/docs/evidence/packets/V5-M5-gate-log-anchored.json",
+        "--worker-user",
+        "agentworker",
+        "--sprintctl-bin",
+        "sprintctl",
+        "receipt"
+      ],
+      "started_at": "2026-08-23T18:02:29Z",
+      "finished_at": "2026-08-23T18:02:29Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-23T18:02:29+00:00",
+        "execution_id": "V5-M5-gate-log-anchored:eb108611d902496d:attempt-1",
+        "task_id": "V5-M5-gate-log-anchored",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 2,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:eb108611d902496df43fbb477d95fe5e688449a1c3b6c6e4023efda727f7eed9",
+          "repository_commit": "13a2ad5b9c391ac466838265bb22bfe6a241ba0f",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:7227f0b004a7ca31e15f93340d9fd8cd437f3b7f1d2e2c805c11362c9ea73887"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 8,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "receipt",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored",
+        "overlay_sha256": "6e5d860c9cc4409732190b56e5f43a08fe884967805a113b7c80b41886e77bb8",
+        "dispositions_available": [
+          "candidate",
+          "retry_same_route",
+          "reroute",
+          "task_defect",
+          "human_decision"
+        ],
+        "note": "The coordinator records the disposition and the human accepts, merges, and changes sprint state."
+      },
+      "failed": false
+    }
+  ],
+  "disposition": "candidate",
+  "receipt_path": "/tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored.receipt.json",
+  "pr": {
+    "command": [
+      "gh",
+      "pr",
+      "create",
+      "--head",
+      "hybrid/v5-m5-gate-log-anchored",
+      "--base",
+      "main",
+      "--title",
+      "[hybrid] V5-M5-gate-log-anchored @ 13a2ad5b9c39",
+      "--body-file",
+      "/tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored.receipt.json"
+    ],
+    "body_file": "/tmp/agentops-hybrid/worktrees/agentops/V5-M5-gate-log-anchored.receipt.json",
+    "opened": false,
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "no git remotes found"
+  },
+  "escalation": {
+    "type": "workflow.escalation",
+    "actor": "dispatch-release",
+    "summary": "V5-M5-gate-log-anchored: step pr exited 1; sequence stopped",
+    "detail": "no git remotes found",
+    "metadata": {
+      "task_id": "V5-M5-gate-log-anchored",
+      "repo_id": "agentops",
+      "step": "pr",
+      "exit_code": 1,
+      "starting_commit": "13a2ad5b9c391ac466838265bb22bfe6a241ba0f",
+      "driver": "dispatch-release"
+    },
+    "recorded_at": "2026-08-23T18:02:29Z",
+    "sink": "auditctl"
+  },
+  "stop": null,
+  "finished_at": "2026-08-23T18:02:30Z",
+  "exit_code": 1
+}
