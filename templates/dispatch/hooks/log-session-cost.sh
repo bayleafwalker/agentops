@@ -93,7 +93,14 @@ RECORD="$(jq -rcs \
   # Counters are derived from the transcript: the Stop payload carries none of them.
   # A turn is a user message the person actually sent — not a tool_result (array content)
   # and not a harness-injected meta entry.
-  | ([ $rows[] | select(.type == "user" and (.isMeta != true) and ((.message.content | type) == "string")) ] | length) as $turns
+  # A turn is a user message the person actually sent. Predicate taken from the
+  # L-1 worker implementation of this packet (V5-P1a @ 8b1c8b9): excluding
+  # content that carries a tool_result is more robust than requiring a string,
+  # which silently drops any future user turn whose content is an array for
+  # another reason, an attachment say. Same answer on the transcripts we have,
+  # better answer on the ones we do not.
+  | ([ $rows[] | select(.type == "user" and (.isMeta != true)
+       and ([ .message.content[]? | select(.type == "tool_result") ] | length) == 0) ] | length) as $turns
   | ([ $rows[] | select(.type == "assistant") ] | length) as $assistant_msgs
   | ([ $rows[] | select(.type == "assistant") | .message.content[]? | select(.type == "tool_use") ] | length) as $tool_calls
   | ([ $rows[] | .timestamp // empty | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601? // empty ]) as $stamps
