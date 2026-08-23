@@ -41,6 +41,59 @@
           "cost_reported": true,
           "soft_token_ceiling_exceeded": true,
           "within_hard_token_ceiling": false
+        },
+        {
+          "attempt": 3,
+          "packet": "V5-P1-telemetry-hooks",
+          "note": "workspace permissions fixed; worker read and stopped, no write attempts",
+          "cost_usd": 0.007737,
+          "tokens": 66257,
+          "disposition": "coordinator_review_required",
+          "passed": false
+        },
+        {
+          "attempt": 4,
+          "packet": "V5-P1a-cost-hook-fields",
+          "note": "T-1 split; worker implemented all four fields correctly but the oracle demanded an unstated AGENTOPS_COST_LOG seam",
+          "cost_usd": 0.014713,
+          "tokens": 212057,
+          "passed": false
+        },
+        {
+          "attempt": 5,
+          "packet": "V5-P1a (seam stated)",
+          "note": "worker delivered the seam and the fields; oracle was the whole T-set suite, died on gate-log.sh (T-3)",
+          "cost_usd": 0.02245,
+          "tokens": 348778,
+          "passed": false
+        },
+        {
+          "attempt": 6,
+          "packet": "V5-P1a (oracle split)",
+          "note": "oracle absent at starting_commit; exit 127 accepted as a declared red",
+          "cost_usd": 0.004911,
+          "tokens": 57537,
+          "passed": false
+        },
+        {
+          "attempt": 7,
+          "packet": "V5-P1a @ 8b1c8b9",
+          "note": "FIRST FULLY GREEN LOOP RUN: every gate passed",
+          "cost_usd": 0.014206,
+          "tokens": 277103,
+          "passed": true,
+          "gates": {
+            "diff-nonempty": true,
+            "diff-scope-respected": true,
+            "protected-paths-untouched": true,
+            "worktree-state-captured": true,
+            "registered-commands-green": true
+          },
+          "touched_paths": [
+            "templates/dispatch/hooks/log-session-cost.sh"
+          ],
+          "disposition": "coordinator_review_required",
+          "disposition_note": "not 'candidate' only because an independent review record is required (hybrid_dispatch.py:995) -- that is D-8/L-3's business, not a gate failure"
         }
       ],
       "containment": {
@@ -50,10 +103,10 @@
     }
   },
   "findings": [
-    "The loop's mechanism works end to end: prepare (with oracle.starts_red), contained worker, gate verdict, receipt before PR, PR skipped with a recorded reason, empty escalation sink.",
-    "The cheap-tier worker read its way through 1.07M tokens and produced zero edits, then hit the hard token ceiling. The gate correctly refused it rather than waving through a no-op.",
-    "context_churn limits (max_reasoning_steps_without_mutation: 8) did not stop the churn -- they are harness-side only where telemetry permits, and here only the token ceiling bound it.",
-    "D-8 promotion needs 5 green first-pass runs with zero escalations. This packet produced zero green, so nothing promotes on this evidence.",
-    "rework_rounds is biased toward the loop: a coordinator runs gates in compound shell lines (6 of 13 rows unattributable) while the loop runs single registered command strings."
+    "SEVEN dispatches produced one green run. Not one failure was the model: five were defects in the harness or in coordinator-authored packets, each wearing the costume of a capability limit.",
+    "Harness defects: the workspace group was inert so every worker write was denied (the 1.07M-token run); context_churn was declared in every packet and enforced nowhere; exit 127 was accepted as a declared red, so a packet ran against an oracle its workspace did not contain.",
+    "Coordinator defects, all one gap: the oracle demanded a seam the packet did not state; the oracle covered the whole T-set when the packet covered one item; the oracle did not exist at starting_commit. Nothing checks that a packet's oracle is ATTAINABLE from its own text and its own starting commit -- validate checks discrimination only. This is the top L-2 item.",
+    "The tier question is answered in the tier's favour: given one outcome, one writable file and one achievable failing test, opencode-go/deepseek-v4-flash produced correct scoped work for $0.014.",
+    "D-8's count is 1 of 5, and it starts here: no earlier run was ever evidence about the tier."
   ]
 }
