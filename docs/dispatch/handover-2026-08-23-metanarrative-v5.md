@@ -125,6 +125,37 @@ Rulings:
 - Order: hand-pass (churn, `--agentops-root`) → owner deploys #17 → M-10 (new spec) → M-9
   unchanged re-dispatch → M-11 → T-6/T-7 → L-5.
 
+## 3d. Amendment 4 (2026-08-24) — M-10 split, and two rules the loop earned
+
+M-10 was split three ways on the seam its oracle already had. The dependency order is
+**a → c → b**, not a → b → c: `BodyTests` asserts the body points at the captured receipt and
+that a withheld transcript is noted, so the body depends on the capture. M-10a is in (#71).
+
+- **M-9's spec row is amended.** It required the commit's diff to list *exactly* the paths the
+  gate reported as touched. M-10c requires the captured receipt and transcript to be written
+  inside the worktree so that commit picks them up. The row now reads: every touched path, plus
+  `docs/evidence/receipts/<task_id>/receipt.json` and `.../worker-stdout.txt`, and nothing else.
+  The frozen packet's `purpose` is left as dispatched and the amendment is recorded beside it —
+  a record that disagrees with what actually ran is worse than a stale one.
+- **Rule 12 — an oracle must be proven green in both directions before dispatch.** `prepare`
+  checks only that the oracle is RED; nothing checks it can ever be green. V5-M10c's frozen
+  oracle contained four subTests no correct implementation could pass (a shared worktree across
+  a `subTest` loop), and the packet still validated `fit`. It cost a 1.5M-token dispatch. This
+  matters most for an oracle that was **cut or inherited** rather than written fresh — exactly
+  what splitting M-10 did. It needs no throwaway solution: running the oracle against a rejected
+  attempt's own diff finds this in one command.
+- **Rule 13 — freezing a packet that changes a pinned shape carries the prior oracle's
+  reconciliation.** M-9's oracle pinned `PR_STEP_NAMES` as an exact 4-tuple and its real-git
+  proof pinned an exact path set. M-10c is specified to extend both. `templates/dispatch/tests/**`
+  is protected, so no worker could ever reconcile them; M-10c's own gate was green while the
+  merge-preview was red at 7. An exact-equality assertion on a shape later rows extend is the
+  smell — assert the invariant the row owns instead.
+- **`mechanical_bulk.max_attempts` is 3** (owner ruling, 2026-08-24). A packet never edits its
+  own `attempt` to get past the cap; the counter stays honest and the limit moves.
+- **The §4.6 merge-preview has now caught three real defects the gates did not** (M-9's
+  positional naming, and both halves of the M-9/M-10c collision). That is the trade rule 11
+  makes, and it is no longer theoretical.
+
 ## 3. Packets to freeze and run, in order
 
 Each row: what the oracle must assert, the writable file, and the spec source. Write the

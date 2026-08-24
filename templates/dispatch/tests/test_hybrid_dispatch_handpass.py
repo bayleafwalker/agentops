@@ -276,24 +276,42 @@ class WorkerSessionExportRemovalTests(unittest.TestCase):
 
 class RetryAttemptAllowanceTests(unittest.TestCase):
     """D: L-4's retry packet carries ``attempt: 2``, and a route capped at one
-    attempt made that packet impossible by construction."""
+    attempt made that packet impossible by construction.
+
+    The allowance was raised from one retry to two on 2026-08-24 by owner
+    ruling, after V5-M10c needed a third attempt: the counter stays honest and
+    the limit moves, rather than a packet resetting its own ``attempt`` field
+    to get past the cap.
+
+    The literal below is load-bearing and deliberate. The allowance is an owner
+    decision, and the derived fixtures elsewhere cannot see it change: widening
+    it to 99 leaves every one of them green. Pinning the number here is the only
+    thing that makes a silent widening fail, so this fixture guards the decision
+    and the ones in test_hybrid_dispatch.py guard the property."""
 
     def setUp(self) -> None:
         self.policy = _json(HYBRID / "hybrid-dispatch.v1.json")
         self.manifest = _manifest()
         self.packet = _packet()
 
-    def test_D_the_policy_allows_one_retry_on_mechanical_bulk(self) -> None:
-        self.assertEqual(self.policy["routes"]["mechanical_bulk"]["max_attempts"], 2)
-
-    def test_D_a_second_attempt_validates_and_a_third_is_still_refused(self) -> None:
-        self.packet["attempt"] = 2
+    def test_D_the_policy_allows_bounded_retries_on_mechanical_bulk(self) -> None:
         self.assertEqual(
-            dispatch.validate_packet(self.packet, self.manifest, self.policy),
-            self.policy["gates"]["pre"],
+            self.policy["routes"]["mechanical_bulk"]["max_attempts"], 3,
+            "the owner-ruled allowance is two retries; changing it is a decision, "
+            "not a refactor",
         )
-        # The allowance is one retry, not an open loop.
-        self.packet["attempt"] = 3
+
+    def test_D_attempts_up_to_the_allowance_validate_and_the_next_is_refused(self) -> None:
+        allowance = self.policy["routes"]["mechanical_bulk"]["max_attempts"]
+        for attempt in range(2, allowance + 1):
+            with self.subTest(attempt=attempt):
+                self.packet["attempt"] = attempt
+                self.assertEqual(
+                    dispatch.validate_packet(self.packet, self.manifest, self.policy),
+                    self.policy["gates"]["pre"],
+                )
+        # Bounded, not an open loop: one past the allowance is still refused.
+        self.packet["attempt"] = allowance + 1
         with self.assertRaisesRegex(dispatch.PacketError, "max_attempts"):
             dispatch.validate_packet(self.packet, self.manifest, self.policy)
         del self.packet["attempt"]

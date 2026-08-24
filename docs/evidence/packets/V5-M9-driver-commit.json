@@ -45,7 +45,7 @@
     "a candidate run commits the worktree onto the packet branch before the remote is added",
     "the commit captures created files as well as changed ones, and nothing outside the worktree",
     "the commit succeeds with no git identity configured on the host",
-    "the branch tip parents starting_commit and its diff lists exactly the touched paths",
+    "the branch tip parents starting_commit and its diff lists exactly the touched paths (amended 2026-08-24: plus the M-10c receipt capture, and nothing else -- see amendments)",
     "a failed commit escalates once as the pr step and never reaches remote-add, push or gh",
     "a dry run, a non-candidate disposition and every stop condition reach no commit"
   ],
@@ -120,5 +120,15 @@
       "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
       "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
     ]
-  }
+  },
+  "amendments": [
+    {
+      "date": "2026-08-24",
+      "amends": "the required_outcome and purpose clause reading 'its diff against starting_commit must list exactly the paths the gate reported as touched'",
+      "now_reads": "its diff against starting_commit must list every path the gate reported as touched, and may additionally carry the M-10c receipt capture -- docs/evidence/receipts/<task_id>/receipt.json and .../worker-stdout.txt -- and nothing else",
+      "why": "M-10c's spec row requires the captured receipt and transcript to be written inside the worktree so this commit picks them up. The two rows contradicted each other, and M-9's oracle enforced the older one on a protected path no worker could reconcile.",
+      "note": "the purpose text above is left exactly as it was dispatched. It is the record of what the worker was given, and rewriting it would make the record disagree with what actually ran. This block is the amendment; the row is the row plus this.",
+      "authority": "coordinator, under handover rule 4 (oracle design is an owner touchpoint); raised with the owner alongside PR #73"
+    }
+  ]
 }

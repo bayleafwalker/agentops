@@ -1,0 +1,150 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-M10c-receipt-capture",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 6,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "templates/dispatch/tests/test_dispatch_release_capture.py decides correctness: fifteen fixtures, and nothing outside dispatch_release.py. Cut without re-authoring from the M-10 oracle written from the spec row by an author with no access to any implementation. Every fixture pins what it is guarding before asserting it, so a fixture that checks the capture did NOT happen cannot pass merely because there is no capture step at all.",
+    "starts_red": [
+      "agentops.dispatch.tests.capture"
+    ]
+  },
+  "attempt": 3,
+  "starting_commit": "54dd5158bd31459958d8a9f10c5d3e29416df997",
+  "purpose": "Put the receipt and the worker's transcript on the packet branch, in templates/dispatch/scripts/dispatch_release.py. M-10a's scan_for_secrets already exists on main; call it, do not rewrite it. Add \"receipt-capture\" as the FIRST entry of PR_STEP_NAMES, before \"commit\", because the captured files have to be inside the commit M-9 added. Run the scan over the receipt AND the worker stdout together. When it is clean, write docs/evidence/receipts/<task_id>/receipt.json and docs/evidence/receipts/<task_id>/worker-stdout.txt inside the worktree, so the commit picks them up. The committed receipt.json must have the worker's stdout REMOVED and a short marker naming the sidecar and its byte count left in its place; worker-stdout.txt holds the transcript as text with its own newlines intact -- embedding it in JSON is what produced a 288 KB single line and broke ripgrep in every worker clone. When the scan finds anything, write NEITHER file, record the withholding and the pattern names under report[\"pr\"][\"receipt\"], and carry on: a secret in a transcript must not turn a green packet into a failed one, and the record must never carry the secret itself. The receipt the driver already writes beside the worktree is unchanged and keeps its stdout; only the committed copy is split. report[\"pr\"] records the capture and the repo-relative path of what was written. A failed capture sets report[\"pr\"][\"failed_step\"] to \"receipt-capture\", writes exactly one workflow.escalation whose metadata step is \"pr\", exits non-zero and reaches neither the commit nor anything after it. A dry run captures nothing. A non-candidate disposition, a red gate and every L-2 stop condition reach no capture. Do NOT identify the PR sub-steps by their position in PR_STEP_NAMES: each must report its own name, or a later insertion shifts them all again -- that is the bug M-9 shipped and inserting receipt-capture at the head is exactly the insertion that caused it. Change nothing else: STEPS, RETRY_STEPS, STOP_CONDITIONS, MAX_GATE_ATTEMPTS, the L-4 retry, the L-2 stop conditions, scan_for_secrets and the M-9 commit all stay as they are. Do not generate a PR body or change pr_command; that is M-10b. Leave no debugging output behind: no print(), no temporary imports, no commented-out scaffolding in the final diff.",
+  "readable_context_paths": [
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/tests/test_dispatch_release_capture.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/dispatch_release.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "PR_STEP_NAMES leads with receipt-capture, then commit, remote-add, push, pr-create",
+    "a clean receipt and transcript are captured into the worktree before the commit",
+    "the committed receipt.json has the stdout removed and names its sidecar and byte count",
+    "worker-stdout.txt is the transcript as text, newlines intact, never inside JSON",
+    "any finding withholds both files, records the names and not the secret, and the run still passes",
+    "the receipt beside the worktree is unchanged and keeps its stdout",
+    "a failed capture escalates once as the pr step and reaches nothing after it",
+    "a dry run, a non-candidate disposition, a red gate and every stop condition reach no capture",
+    "each PR sub-step failure reports its own name, not a positional neighbour"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "the capture leads the PR step",
+      "command_id": "agentops.dispatch.tests.capture",
+      "fails_when": "PR_STEP_NAMES does not start with receipt-capture, or the capture runs after the commit"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "the transcript reaches the branch as text, not as JSON",
+      "command_id": "agentops.dispatch.tests.capture",
+      "fails_when": "worker-stdout.txt is missing, its newlines are escaped, or the committed receipt still carries the stdout or fails to name the sidecar and its size"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "a secret withholds both files without failing the run",
+      "command_id": "agentops.dispatch.tests.capture",
+      "fails_when": "either file is written on a finding, the run stops being a pass, or the recorded withholding quotes the secret instead of the pattern names"
+    },
+    {
+      "id": "REQ-004",
+      "requirement": "the receipt beside the worktree is left alone",
+      "command_id": "agentops.dispatch.tests.capture",
+      "fails_when": "the driver's own receipt loses its stdout or is otherwise modified"
+    },
+    {
+      "id": "REQ-005",
+      "requirement": "a failed capture is a stop, not a silent skip",
+      "command_id": "agentops.dispatch.tests.capture",
+      "fails_when": "failed_step is not receipt-capture, the escalation is not written once as the pr step, or the commit runs anyway"
+    },
+    {
+      "id": "REQ-006",
+      "requirement": "nothing that is not a real hand-off captures",
+      "command_id": "agentops.dispatch.tests.capture",
+      "fails_when": "a dry run, a non-candidate disposition, a twice-red gate or any stop condition produces a capture"
+    },
+    {
+      "id": "REQ-007",
+      "requirement": "each sub-step names itself",
+      "command_id": "agentops.dispatch.tests.capture",
+      "fails_when": "any sub-step reports a positional neighbour's name, or a failure does not stop every sub-step after it"
+    }
+  ],
+  "non_goals": [
+    "the bounded PR body and pr_command, which are M-10b",
+    "scan_for_secrets, which landed in #71 and is called, not rewritten",
+    "the .ignore files and the seven rewritten reports, already coordinator work in the \u00a73c hand-pass",
+    "the receipt the driver writes beside the worktree, which keeps its stdout",
+    "anything outside templates/dispatch/scripts/dispatch_release.py"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.capture"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-m10c-receipt-capture",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  },
+  "retry_context": {
+    "prior_attempts": 2,
+    "prior_dispositions": [
+      "budget_exceeded",
+      "budget_exceeded"
+    ],
+    "prior_spend_tokens": [
+      1509082,
+      1435896
+    ],
+    "prior_hard_token_ceiling": 1000000,
+    "attempt_1_cause": "coordinator defect: the oracle's two sub-step fixtures shared one worktree across their subTest loops, so four subTests could not be passed by any correct implementation. Fixed at starting_commit 625aa60.",
+    "attempt_2_cause": "not the oracle and not the tier. On the fixed oracle the worker produced 86 insertions in one file, left no debugging output, and scored 15/15 -- then the run was stopped at 1 435 896 tokens against a hard ceiling of 1 000 000, before gate could run.",
+    "changed_for_this_attempt": "hard_token_ceiling 1000000 -> 2000000 and soft 500000 -> 1200000, owner-approved 2026-08-24. The limits block had been copied unchanged from V5-M9 since M-9; observed spend on this packet is 1.4-1.5M, so the ceiling sat below what the packet costs. Cost was never the binding constraint: $0.15 against a $3.00 cap.",
+    "attempt_counter_note": "This packet records attempt 3 because it was the third. An earlier revision reset it to 1 to get past the host's max_attempts of 2; the owner ruled on 2026-08-24 that the counter stays honest and the limit moves instead, so mechanical_bulk.max_attempts is now 3. The dispatch that produced the candidate on PR #73 ran while the packet still declared attempt 1; the diff, the gates and the spend are unaffected by the field, and the run is not re-executed."
+  }
+}

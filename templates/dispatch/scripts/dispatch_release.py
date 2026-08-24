@@ -65,12 +65,24 @@ STOP_CONDITIONS: tuple[str, ...] = (
     "gate-red-twice",
 )
 
-#: The four parts of the PR step, in the only order that works. The commit is
-#: first: a push before it would put starting_commit on the remote and gh would
-#: open an empty PR. A failed part names itself in report["pr"]["failed_step"]
-#: so a reader of a failed report can tell "the commit would not be made" from
-#: "the remote would not add" from "the push was rejected" from "gh refused".
-PR_STEP_NAMES: tuple[str, ...] = ("commit", "remote-add", "push", "pr-create")
+#: The five parts of the PR step, in the only order that works. M-10 adds the
+#: receipt capture and puts it *first*: the captured files have to be inside
+#: the commit that follows, and a push before it would put starting_commit on
+#: the remote and gh would open an empty PR. A failed part names itself in
+#: report["pr"]["failed_step"] so a reader of a failed report can tell "the
+#: capture would not write" from "the commit would not be made" from "the remote
+#: would not add" from "the push was rejected" from "gh refused".
+PR_STEP_NAMES: tuple[str, ...] = ("receipt-capture", "commit", "remote-add", "push", "pr-create")
+
+#: Where the capture lands, repo-relative to the worktree. The directory
+#: already carries an ``.ignore`` (coordinator work), so the files reach the
+#: commit but never a repo-wide grep inside a worker's clone.
+CAPTURE_ROOT = "docs/evidence/receipts"
+
+#: The sidecar that carries the worker's transcript as text, never inside JSON:
+#: embedding it produced a 288 KB single line and tripped ripgrep's 64 KB
+#: record limit in every worker clone.
+SIDECAR_NAME = "worker-stdout.txt"
 
 ESCALATION_TYPE = "workflow.escalation"
 DRIVER_ACTOR = "dispatch-release"
@@ -104,6 +116,80 @@ def scan_for_secrets(text: str) -> list[str]:
     transcript, which is the same as never capturing one.
     """
     return [name for name, pattern in SCAN_PATTERNS if pattern.search(text) is not None]
+
+
+def _worker_stdout(payload: dict[str, Any]) -> str:
+    """The run stage's transcript, where the receipt nested it under
+    ``driver_steps``. Empty when the run stage reported none."""
+    for entry in payload.get("driver_steps") or []:
+        if isinstance(entry, dict) and entry.get("step") == "run":
+            receipt = entry.get("receipt")
+            if isinstance(receipt, dict):
+                worker = receipt.get("worker")
+                if isinstance(worker, dict) and isinstance(worker.get("stdout"), str):
+                    return worker["stdout"]
+    return ""
+
+
+def _transcript_marker(transcript: str) -> str:
+    """The short marker left where the transcript was, naming the sidecar that
+    now holds it and the transcript's own byte count. It carries neither the
+    transcript nor any part of it, so a scan of the report stays clean."""
+    return (
+        f"<transcript removed; sidecar {SIDECAR_NAME} holds "
+        f"{len(transcript.encode('utf-8'))} bytes>"
+    )
+
+
+def _strip_transcript(payload: dict[str, Any], transcript: str) -> dict[str, Any]:
+    """A deep copy of ``payload`` with the transcript removed from every value
+    that carried it, the marker left in each place. An empty transcript removes
+    nothing: there is nothing to take out of the JSON."""
+    if not transcript:
+        return copy.deepcopy(payload)
+    marker = _transcript_marker(transcript)
+
+    def _walk(node: Any) -> Any:
+        if isinstance(node, dict):
+            return {k: _walk(v) for k, v in node.items()}
+        if isinstance(node, list):
+            return [_walk(v) for v in node]
+        return marker if node == transcript else node
+
+    return _walk(payload)
+
+
+def capture_receipt(
+    worktree: Path, task_id: str, payload: dict[str, Any], transcript: str,
+) -> dict[str, Any]:
+    """Put the receipt and the worker's transcript onto the packet branch, or
+    withhold both.
+
+    The scan runs over the receipt and the transcript together and returns the
+    *names* of the patterns that matched, never the matched text: the finding
+    goes into a report that may be read anywhere. A finding writes neither file
+    and returns a withholding record -- a secret in a transcript must not turn
+    a green packet into a failed one. A clean scan writes ``receipt.json`` with
+    the transcript removed (the marker names the sidecar and its byte count)
+    and the transcript beside it as ``worker-stdout.txt`` with its own
+    newlines intact.
+
+    Returns the ``report["pr"]["receipt"]`` record. Raises ``OSError`` when the
+    write cannot happen, which the caller treats as a failed ``receipt-capture``
+    step that stops before the commit.
+    """
+    capture_dir = worktree / CAPTURE_ROOT / task_id
+    receipt_text = json.dumps(payload, indent=2) + "\n"
+    findings = sorted(set(scan_for_secrets(receipt_text) + scan_for_secrets(transcript)))
+    if findings:
+        return {"captured": False, "findings": findings}
+    capture_dir.mkdir(parents=True, exist_ok=True)
+    (capture_dir / "receipt.json").write_text(
+        json.dumps(_strip_transcript(payload, transcript), indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (capture_dir / SIDECAR_NAME).write_text(transcript, encoding="utf-8")
+    return {"captured": True, "path": f"{CAPTURE_ROOT}/{task_id}/receipt.json"}
 
 
 class DriverError(RuntimeError):
@@ -469,6 +555,7 @@ def drive(
     receipt_path = worktree.parent / f"{packet['task_id']}.receipt.json"
     report["receipt_path"] = str(receipt_path)
     gate_receipt: dict[str, Any] | None = None
+    final: dict[str, Any] | None = None
     preflight = _preflight_stop(packet)
     if preflight is not None:
         return stop(*preflight)
@@ -611,7 +698,24 @@ def drive(
         pr["skipped"] = True
         pr["reason"] = "dry-run: would open this PR with the receipt as body"
     else:
-        # M-9: the commit is the first thing the PR step hands onward, and it
+        # M-10c: the receipt capture is the first thing the PR step hands
+        # onward, and it precedes the commit because the captured files have to
+        # be inside it. A withheld transcript is a capture that did not happen,
+        # recorded under report["pr"]["receipt"]; a capture that cannot be
+        # written is a failed step that names itself and stops here, before the
+        # commit and everything after it.
+        assert final is not None
+        transcript = _worker_stdout(final)
+        try:
+            pr["receipt"] = capture_receipt(
+                worktree, packet["task_id"], final, transcript,
+            )
+        except OSError as exc:
+            return pr_failed(
+                "receipt-capture", 1,
+                f"receipt-capture could not write into the worktree: {exc}",
+            )
+        # M-9: the commit is the next thing the PR step hands onward, and it
         # precedes remote resolution so an unresolvable remote still leaves the
         # work committed on the packet branch.
         commit, commit_code, commit_stderr = _commit_worktree(packet, worktree, runner)

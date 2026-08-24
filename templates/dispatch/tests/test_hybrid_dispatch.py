@@ -435,7 +435,12 @@ class PacketValidationTests(unittest.TestCase):
             self._validate()
 
     def test_attempt_above_the_route_allowance_is_a_defect(self) -> None:
-        self.packet["attempt"] = 3
+        # Derived, not hardcoded: the property is "one past the allowance is
+        # refused", and the allowance is a policy decision that has moved once
+        # already (one retry -> two, 2026-08-24). A literal here pins the
+        # decision rather than the property.
+        allowance = self.policy["routes"][self.packet["route"]]["max_attempts"]
+        self.packet["attempt"] = allowance + 1
         with self.assertRaisesRegex(dispatch.PacketError, "exceeds max_attempts"):
             self._validate()
 
