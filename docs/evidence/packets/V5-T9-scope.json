@@ -1,0 +1,117 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-T9-scope",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 25,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "test_release_scorecard_scope.py decides correctness, with the build and CLI oracles updated for the one new top-level key. The substring fixture is the load-bearing one: a naive containment check makes 'agentops' match 'agentops-web', which silently folds another repo's sessions back into the figure this packet exists to remove.",
+    "starts_red": [
+      "agentops.dispatch.tests.scorecard_scope",
+      "agentops.dispatch.tests.scorecard_build",
+      "agentops.dispatch.tests.scorecard_cli"
+    ],
+    "reference_patch": "docs/evidence/packets/V5-T9-scope.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "3e7de2fb4717868885855b825a646f135d44fa8b",
+  "purpose": "Scope the scorecard to a project, and make it record what it counted. The Stop-hook sink at /projects/dev/.claude/session-costs.jsonl carries a project field and receives rows from every repo on the machine, so the frontier half of an agentops release currently counts whatever else happened to run in the same window. Add filter_by_project(rows, project) to templates/dispatch/scripts/release_scorecard.py. A project of None means no scoping and returns the rows unchanged in the same order. Otherwise keep only the rows whose project equals it exactly -- not a substring and not case-folded, because agentops must not match agentops-web, which is precisely how another repo's sessions would fold back into the figure. A row with no project key, or a non-string one, is excluded when a project is requested, since a row that cannot be attributed to a project cannot be counted for one; with no project requested it is kept, because nothing is being attributed. Do not mutate the input. Then give build_scorecard one new optional trailing parameter, scope, defaulting to None, and one new top-level key, scope, carrying that dict through verbatim with None or omitted becoming an empty dict. Calling build_scorecard with five positional arguments must still work, because every existing caller does. Everything else about it is settled and must not change: the six existing top-level keys, the five cost_usd keys, the delegation to frontier_totals and worker_totals, the escalation summary, and no mutation. Finally give main an optional --project flag, applied to the sink rows after the window filter, and have it build the scope dict it passes down, carrying exactly project, since and until, all three keys always present and None where the flag was not given, so that a reader never has to tell absent from unbounded. Everything else about main stays as it is: the required flags, the entry point, indent-2 JSON with a trailing newline, and the rule that the written file equals build_scorecard called directly with the same loaded inputs and the same scope. A scorecard that does not say what window and what project it counted is the same failure as one that does not say what kind of number it holds. Leave no debugging output behind.",
+  "readable_context_paths": [
+    "templates/dispatch/tests/test_release_scorecard_scope.py",
+    "templates/dispatch/tests/test_release_scorecard_build.py",
+    "templates/dispatch/tests/test_release_scorecard_cli.py",
+    "templates/dispatch/tests/test_release_scorecard_entrypoint.py",
+    "templates/dispatch/scripts/release_scorecard.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/release_scorecard.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/scripts/release_unit_packet.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "project matching is exact, never a substring and never case-folded",
+    "an unattributable row is excluded when scoping and kept when not",
+    "scoping partitions the corpus rather than double-counting it",
+    "build_scorecard still accepts five positional arguments",
+    "scope is carried through verbatim and is an empty dict when omitted or None",
+    "main builds a scope carrying project, since and until with all three keys always present",
+    "nothing else in the module changes"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "a project is the project, not a prefix of one",
+      "command_id": "agentops.dispatch.tests.scorecard_scope",
+      "fails_when": "agentops-web or Agentops is counted under agentops, or a row with no project is counted while scoping"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "a scorecard says what it counted",
+      "command_id": "agentops.dispatch.tests.scorecard_scope",
+      "fails_when": "scope is absent, is not carried through verbatim, or is not an empty dict when omitted"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "the new parameter breaks no existing caller",
+      "command_id": "agentops.dispatch.tests.scorecard_build",
+      "fails_when": "build_scorecard rejects five positional arguments, or any settled key changes"
+    }
+  ],
+  "non_goals": [
+    "the cost-kind names settled in T-8",
+    "the loaders, the window filter and the entry point",
+    "filtering receipts, which are already scoped by the --receipts directory"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.scorecard_scope",
+    "agentops.dispatch.tests.scorecard_build",
+    "agentops.dispatch.tests.scorecard_cli",
+    "agentops.dispatch.tests.scorecard_entrypoint"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-t9-scope",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  }
+}

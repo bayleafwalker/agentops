@@ -238,9 +238,9 @@ Open rows: **T-6/T-7** (scorecard script) and **L-5** (release-unit template).
 #82 #84 #85 #86 #87 #88 #89, plus the hand-pass #83.
 Scorecard: `docs/evidence/scorecards/v5-t-series.json`.
 
-Eight packets (seven plus the correction below), **eight green on the first attempt** — no retry, no escalation, no rework round,
-and no hand step inside any of the eight loops. Total **billed** worker spend **$0.124** and
-2.01 M tokens. Against D-8's rule that is eight consecutive greens with zero escalations for
+Nine packets (seven plus the two corrections below), **nine worker greens on the first attempt** — no retry, no escalation, no rework round,
+and no hand step inside any of the nine loops. Total **billed** worker spend **$0.140** and
+2.47 M tokens. Against D-8's rule that is nine consecutive greens with zero escalations for
 `mechanical_bulk`.
 
 - **T-6 was split five ways** on the seams its oracle already had, in the spirit of M-10 in
@@ -354,6 +354,36 @@ usage figure, since "turns flat while cost rises" is a question about the fronti
 
 The honest figures for this session: **$0.124 billed**, against a usage-equivalent of $399.93
 that is a comparison unit between releases and nothing else.
+
+### Second correction: the sink is global, and a scorecard did not say what it counted
+
+`/projects/dev/.claude/session-costs.jsonl` receives rows from **every repo on the machine**,
+and `release_scorecard.py` had no way to scope to one — so the frontier half of an agentops
+release counted whatever else ran in the window. And a scorecard recorded no window and no
+project, so two of them were not comparable and neither said so.
+
+Measured on the same live window: unscoped, **4 sessions and $399.93**; scoped to
+`--project agentops`, **1 session and $174.33**. The unscoped figure was overcounting by 56%.
+
+Fixed in **#93** (V5-T9): `filter_by_project` with **exact** matching — `agentops` must not
+match `agentops-web`, which is precisely how another repo's sessions fold back in — plus a
+`--project` flag and a `scope` block recording project, since and until, all three keys always
+present so a reader never has to tell "absent" from "unbounded".
+
+**This is the same bug as the units bug.** $241.43 did not say it was mostly imputed; $399.93
+did not say it was mostly other repos. Neither was catchable by a test, because a test asserts
+what a number *is*, never what it *stands for*.
+
+### The one non-green step of the session, and it was the coordinator's
+
+V5-T9's first dispatch stopped at `prepare`, exit 2:
+`agentops.dispatch.tests.scorecard_cli failed at the starting commit`. The packet's `starts_red`
+named two of the three oracles the freeze had turned red. **Caught before any worker ran** —
+zero worker spend, one packet edit, and `starting_commit` never moved because the packet is
+commit 2 and the oracle is commit 1. That is the freeze shape earning its keep, and rule 12's
+cold gate doing exactly the job it was added for.
+
+Nine packets, **nine worker greens on the first attempt**, **$0.140 billed**.
 
 Open rows from this brief: **none**.
 

@@ -1,0 +1,98 @@
+diff --git a/templates/dispatch/scripts/release_scorecard.py b/templates/dispatch/scripts/release_scorecard.py
+index 360339a..e83ef6c 100644
+--- a/templates/dispatch/scripts/release_scorecard.py
++++ b/templates/dispatch/scripts/release_scorecard.py
+@@ -12,7 +12,8 @@ from datetime import datetime, timezone
+ from pathlib import Path
+ 
+ _REQUIRED_FLAGS = ("release", "sink", "receipts", "out")
+-_KNOWN_FLAGS = frozenset(_REQUIRED_FLAGS + ("since", "until", "escalations"))
++_KNOWN_FLAGS = frozenset(
++    _REQUIRED_FLAGS + ("since", "until", "escalations", "project"))
+ 
+ _USAGE = """\
+ usage: release_scorecard.py --release RELEASE --sink SINK --receipts RECEIPTS --out OUT [--since SINCE] [--until UNTIL] [--escalations ESCALATIONS]
+@@ -29,6 +30,7 @@ optional:
+   --since SINCE        lower bound (inclusive) on ts / recorded_at
+   --until UNTIL        upper bound (exclusive) on ts / recorded_at
+   --escalations FILE   JSON-lines escalation records (default: none)
++  --project PROJECT    count only sink rows from this project (exact match)
+   --help               show this help and exit
+ """
+ 
+@@ -144,7 +146,8 @@ def worker_totals(receipts):
+     }
+ 
+ 
+-def build_scorecard(release, rows, receipts, escalations, recorded_at):
++def build_scorecard(release, rows, receipts, escalations, recorded_at,
++                    scope=None):
+     """Join the two cost halves into the release scorecard.
+ 
+     ``frontier`` delegates to ``frontier_totals`` over the reduced sink rows
+@@ -179,6 +182,11 @@ def build_scorecard(release, rows, receipts, escalations, recorded_at):
+         "schema_version": "workflow-scorecard/v1",
+         "release": release,
+         "recorded_at": recorded_at,
++        # What this scorecard counted. Two scorecards built over different
++        # windows or different projects are not comparable, and nothing in
++        # either used to say so -- the same failure as a number that does not
++        # carry its own units.
++        "scope": dict(scope) if scope else {},
+         "frontier": frontier,
+         "worker": worker,
+         "escalations": {
+@@ -326,6 +334,27 @@ def filter_by_window(records, start, end, key):
+     return kept
+ 
+ 
++def filter_by_project(rows, project):
++    """Keep the sink rows belonging to one project.
++
++    The Stop-hook sink is global: it receives rows from every repo on the
++    machine, so an unscoped release counts whatever else happened to run in
++    the same window.
++
++    Matching is exact. Not a substring, because ``agentops`` would then match
++    ``agentops-web`` and quietly fold another repo's sessions back into the
++    figure this exists to remove; and not case-folded, for the same reason.
++
++    A row that names no project cannot be attributed to one, so it is dropped
++    while scoping -- but kept when ``project`` is None, since nothing is being
++    attributed then.
++    """
++    if project is None:
++        return list(rows)
++    return [row for row in rows if row.get("project") == project
++            and isinstance(row.get("project"), str)]
++
++
+ def main(argv):
+     """Wire the readers and window together and write the scorecard.
+ 
+@@ -373,19 +402,24 @@ def main(argv):
+     since = args.get("since")
+     until = args.get("until")
+     escalations_path = args.get("escalations")
++    project = args.get("project")
+ 
+     rows = load_sink_rows(sink_path)
+     receipts = load_receipts(receipts_root)
+     if since is not None or until is not None:
+         rows = filter_by_window(rows, since, until, "ts")
+         receipts = filter_by_window(receipts, since, until, "recorded_at")
++    rows = filter_by_project(rows, project)
+     if escalations_path is not None:
+         escalations = load_sink_rows(escalations_path)
+     else:
+         escalations = []
+     recorded_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
++    # All three keys always present, None where the flag was not given, so a
++    # reader never has to tell "absent" from "unbounded".
++    scope = {"project": project, "since": since, "until": until}
+     scorecard = build_scorecard(release, rows, receipts, escalations,
+-                                recorded_at)
++                                recorded_at, scope)
+     out = Path(out_path)
+     out.parent.mkdir(parents=True, exist_ok=True)
+     out.write_text(json.dumps(scorecard, indent=2) + "\n", encoding="utf-8")
