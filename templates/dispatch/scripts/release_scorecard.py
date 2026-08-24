@@ -115,3 +115,49 @@ def worker_totals(receipts):
         "first_pass_tasks": len(first_pass_tasks),
         "first_pass_rate": first_pass_rate,
     }
+
+
+def build_scorecard(release, rows, receipts, escalations, recorded_at):
+    """Join the two cost halves into the release scorecard.
+
+    ``frontier`` delegates to ``frontier_totals`` over the reduced sink rows
+    and ``worker`` delegates to ``worker_totals`` over the packet receipts.
+    Neither half substitutes for the other: the hooks never see an OpenCode
+    worker, and the receipts know nothing about frontier turns, so both stay
+    separately visible. ``cost_usd.total`` is only as trustworthy as its least
+    certain half, so ``total_reliable`` is the worker half's ``cost_reported``.
+    Escalation task ids and stop conditions come from each record's metadata;
+    a record that carried no stop condition is omitted rather than a null.
+    """
+    frontier = frontier_totals(rows)
+    worker = worker_totals(receipts)
+    task_ids = set()
+    stop_conditions = set()
+    for record in escalations:
+        metadata = record.get("metadata")
+        if not isinstance(metadata, dict):
+            continue
+        task_id = metadata.get("task_id")
+        if task_id is not None:
+            task_ids.add(task_id)
+        stop_condition = metadata.get("stop_condition")
+        if stop_condition is not None:
+            stop_conditions.add(stop_condition)
+    return {
+        "schema_version": "workflow-scorecard/v1",
+        "release": release,
+        "recorded_at": recorded_at,
+        "frontier": frontier,
+        "worker": worker,
+        "escalations": {
+            "count": len(escalations),
+            "tasks": sorted(task_ids),
+            "stop_conditions": sorted(stop_conditions),
+        },
+        "cost_usd": {
+            "frontier": frontier["cost_usd"],
+            "worker": worker["cost_usd"],
+            "total": round(frontier["cost_usd"] + worker["cost_usd"], 6),
+            "total_reliable": worker["cost_reported"],
+        },
+    }
