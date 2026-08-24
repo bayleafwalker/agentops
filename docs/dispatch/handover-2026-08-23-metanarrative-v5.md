@@ -216,6 +216,22 @@ something else, unreviewed and untested. The gate did not catch it and could not
 - **The qualification probe and dispatch now share one containment prefix.** They had silently
   diverged, so every profile measured an environment production no longer used.
 
+## 3g. Session close, 2026-08-24
+
+Main **563 → 615**. Merged: #71 #72 #73 #74 #75 #76 #78 #79 #80, plus gitops-nixos #17 and #18
+deployed and verified by reading the host.
+
+The loop reaches an opened PR with **no hand step** — first at V5-M11, then M-12 and M-13.
+
+**M-12 and M-13 exist because the loop started working.** Each fix exposed the next defect:
+finishing end to end stopped the packet evidence being committed (the hand step had been
+carrying it); review of the finished loop found the secret scan far weaker than its fixtures
+suggested (M-12); M-12's first attempt shipped a regex that backtracked, caught only because
+the merge-preview ran 92s instead of 30s; and M-12's retry then could not push at all (M-13).
+None were reachable before the mechanism ran.
+
+Open rows: **T-6/T-7** (scorecard script) and **L-5** (release-unit template).
+
 ## 3. Packets to freeze and run, in order
 
 Each row: what the oracle must assert, the writable file, and the spec source. Write the
