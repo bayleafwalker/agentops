@@ -166,7 +166,8 @@
       "agentops.hooks.tests.artifacts-root": "bash templates/dispatch/hooks/tests/test-artifacts-root.sh",
       "agentops.hooks.tests.t3": "bash templates/dispatch/hooks/tests/test-gate-log.sh",
       "agentops.hooks.tests.t5": "bash templates/dispatch/hooks/tests/test-friction-skill.sh",
-      "agentops.dispatch.tests.scorecard_reduce": "python templates/dispatch/tests/test_release_scorecard_reduce.py"
+      "agentops.dispatch.tests.scorecard_reduce": "python templates/dispatch/tests/test_release_scorecard_reduce.py",
+      "agentops.dispatch.tests.scorecard_worker": "python templates/dispatch/tests/test_release_scorecard_worker.py"
     },
     "protected_paths": [
       "templates/dispatch/hybrid/**",
