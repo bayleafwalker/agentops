@@ -709,6 +709,19 @@
    "id": "the-merge-preview-outperformed-the-gates-all-session",
    "summary": "Four real defects were caught by the section 4.6 merge-preview and none by the packet gates: M-9's positional sub-step naming, M-9's pinned PR_STEP_NAMES tuple, M-9's pinned commit path set, and L-1's REQ-003 pinning body_file to the receipt. Rule 11 narrows a packet's gate to that packet's own oracle, so a diff can satisfy its gate and still break a contract the oracle never exercises. Three of the four were coordinator defects at freeze time, which is what rule 13 now addresses.",
    "proposed": "keep the merge-preview mandatory and treat a green gate as necessary but not sufficient; consider the non-starts_red broader guard the M-9 finding already raised."
+  },
+  {
+   "id": "rule-10-as-implemented-makes-rule-12-unverifiable",
+   "from": "holistic review, 2026-08-24",
+   "summary": "Rule 10 says the reference patch is never committed AT starting_commit -- so the worker cannot find the answer in its own checkout. It has been implemented as never committed AT ALL: .git/info/exclude carries docs/evidence/packets/*.reference.patch. The result is that no reference patch for any packet in the programme is on main, so rule 12's green-in-both-directions proof is unverifiable after the fact for every packet, not just the ones that lack one.",
+   "correction_to_review": "The holistic review reported that M-1, M-2, M-5, M-8 and M-10b have their reference patches committed and that V5-M11 was the outlier. Checked against origin/main: NONE are tracked. V5-M11 is not an outlier; the gap is total, which makes the finding larger than reported rather than smaller.",
+   "resolution": "The two rules do not actually conflict -- rule 10 constrains the tree at starting_commit, not the repository forever. A reference patch committed with the merge is not at starting_commit and cannot reach the worker. V5-M10b's and V5-M11's are force-added here; the exclude line should be narrowed or dropped, and the four surviving earlier patches (M-1, M-2, M-5, M-8) committed from the coordinator's working copy before they are lost."
+  },
+  {
+   "id": "full-automation-drops-the-packet-evidence",
+   "from": "V5-M11",
+   "summary": "V5-M11 is the only M-series packet missing from main, and it is missing precisely BECAUSE it was the first fully-automated run. For M-10a, M-10c and M-10b the coordinator opened the PR by hand and added the packet JSON to the branch while doing so. The driver opens the PR without that step, and it does not commit the packet it was given -- so removing the hand step silently removed the evidence the hand step was also carrying.",
+   "proposed": "the receipt-capture step should commit the packet JSON alongside receipt.json and worker-stdout.txt. It is the same directory, the same commit, and the packet is already on disk in the coordinator's checkout."
   }
  ],
  "d8": {

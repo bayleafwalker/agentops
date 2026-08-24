@@ -1,0 +1,85 @@
+diff --git a/templates/dispatch/scripts/dispatch_release.py b/templates/dispatch/scripts/dispatch_release.py
+index 62660ec..4a10ee7 100644
+--- a/templates/dispatch/scripts/dispatch_release.py
++++ b/templates/dispatch/scripts/dispatch_release.py
+@@ -192,6 +192,56 @@ def capture_receipt(
+     return {"captured": True, "path": f"{CAPTURE_ROOT}/{task_id}/receipt.json"}
+ 
+ 
++#: GitHub caps a pull request body at this many characters. V5-M6a's receipt
++#: was 165 515 bytes, which is why every candidate died on "Body is too long".
++BODY_LIMIT = 65536
++
++
++def _run_spend(final: dict[str, Any]) -> dict[str, Any]:
++    """The worker's spend, from the run stage's receipt inside the final one."""
++    for step in final.get("driver_steps") or []:
++        if isinstance(step, dict) and step.get("step") == "run":
++            receipt = step.get("receipt")
++            if isinstance(receipt, dict) and isinstance(receipt.get("spend"), dict):
++                return receipt["spend"]
++    return {}
++
++
++def build_pr_body(
++    packet: dict[str, Any], final: dict[str, Any], disposition: str,
++    capture: dict[str, Any] | None,
++) -> str:
++    """A bounded PR body. Never the receipt, and never any of the transcript.
++
++    The receipt carries the worker's full stdout and runs to megabytes; this is
++    a summary of fixed shape, so its size does not track the transcript's.
++    """
++    gates = _gate_evidence(final.get("gate")).get("gates")
++    spend = _run_spend(final)
++    lines = [
++        f"**Packet** `{packet['task_id']}`",
++        "",
++        f"- starting commit: `{packet['starting_commit'][:12]}`",
++        f"- disposition: {disposition}",
++        f"- cost: ${spend.get('cost_usd', 0):.2f} "
++        f"(exactly {spend.get('cost_usd', 0)}) over {spend.get('tokens', 0)} tokens",
++    ]
++    if isinstance(capture, dict) and capture.get("captured"):
++        lines.append(f"- receipt: `{capture.get('path')}`")
++    elif isinstance(capture, dict):
++        names = ", ".join(capture.get("findings") or []) or "unnamed"
++        lines.append(
++            f"- receipt: **withheld** -- the secret scan matched {names}; "
++            "neither the receipt nor the transcript was committed"
++        )
++    if isinstance(gates, dict):
++        lines += ["", "| gate | |", "|---|---|"]
++        lines += [f"| {name} | {'true' if value else 'false'} |"
++                  for name, value in gates.items()]
++    body = "\n".join(lines) + "\n"
++    return body if len(body.encode("utf-8")) <= BODY_LIMIT else body[:BODY_LIMIT - 1]
++
++
+ class DriverError(RuntimeError):
+     pass
+ 
+@@ -669,8 +719,9 @@ def drive(
+         return finish(1)
+ 
+     title = f"[hybrid] {packet['task_id']} @ {packet['starting_commit'][:12]}"
+-    cmd = pr_command(packet, receipt_path, base_branch, title, gh_bin)
+-    pr: dict[str, Any] = {"command": cmd, "body_file": str(receipt_path), "opened": False}
++    body_path = receipt_path.parent / f"{packet['task_id']}.pr-body.md"
++    cmd = pr_command(packet, body_path, base_branch, title, gh_bin)
++    pr: dict[str, Any] = {"command": cmd, "body_file": str(body_path), "opened": False}
+ 
+     def pr_failed(step_name: str, exit_code: int, stderr: str) -> tuple[int, dict[str, Any]]:
+         pr["failed_step"] = step_name
+@@ -715,6 +766,11 @@ def drive(
+                 "receipt-capture", 1,
+                 f"receipt-capture could not write into the worktree: {exc}",
+             )
++        body_path.parent.mkdir(parents=True, exist_ok=True)
++        body_path.write_text(
++            build_pr_body(packet, final, report["disposition"], pr.get("receipt")),
++            encoding="utf-8",
++        )
+         # M-9: the commit is the next thing the PR step hands onward, and it
+         # precedes remote resolution so an unresolvable remote still leaves the
+         # work committed on the packet branch.
