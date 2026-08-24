@@ -534,7 +534,24 @@
     1509082,
     1435896,
     533033
-   ]
+   ],
+   "debt": [
+    "the packet records attempt 3 and the dispatch that produced the candidate ran while it declared attempt 1. Owner offered a re-dispatch; closed unrun. Re-running would swap a verified artifact -- 15/15 on its oracle, a green merge-preview, and an independent review that found a real secret-leak hole -- for an unverified one, to correct a metadata field that provably does not enter the diff, the gates or the spend. Spend on this packet has varied 1 509 082 / 1 435 896 / 533 033 tokens, so a re-run also carries a real chance of returning budget_exceeded and leaving nothing.",
+    "the test renamed from test_pr_step_names_lead_with_the_commit loses its string linkage back to M-9's spec row. The amendments block in V5-M9-driver-commit.json now carries that linkage explicitly, which is stronger than a test name; effectively closed.",
+    "dispatch_release.py uses a bare `assert final is not None` in the production path. Under python -O it vanishes and _worker_stdout(None) raises AttributeError instead of the receipt-capture escalation the spec mandates. Nothing in the repo sets -O or PYTHONOPTIMIZE and it is only reachable via a stale receipt_path, so it is deferred to a follow-up packet touching the driver rather than fixed in an oracle branch."
+   ],
+   "independent_review": {
+    "mode": "fresh author, no access to this session's reasoning; given the two spec rows and the diffs only",
+    "rounds": 2,
+    "verdict": "ACCEPT",
+    "found": [
+     "a driver could report the transcript as withheld and commit the secret in a third file with all 581 tests green -- the withholding path defeated silently. Not present in the shipped diff, but ungarded.",
+     "round 2: the first fix for that was task-scoped, so the same defect one directory away (worktree root, or another task's receipts dir) still passed. Widened to the whole worktree.",
+     "the pinned max_attempts literal is load-bearing: every derived fixture stays green if the allowance is widened to 99.",
+     "a starting_commit change riding undocumented in a chore(policy) commit; disclosed in the message on the rebuild."
+    ],
+    "note": "review's own proposed fix for the leak did not close it -- its fixture cannot reach the withholding branch. Established by re-running the exploit, not by argument, and review confirmed the contradiction against itself."
+   }
   }
  ],
  "coordinator_cost": {
@@ -591,6 +608,12 @@
    "proposed": "when freezing a packet whose spec changes a constant, a signature or a set that an existing oracle asserts, reconcile that oracle in the freeze commit. An exact-equality assertion on a shape later packets are specified to extend is the smell; assert the invariant the row actually owns instead.",
    "attestation_note": "the relaxations were authored by the same session that dispatched M-10c, which is the one part of this packet with no independent attestation. Rule 4 names oracle design an owner touchpoint; PR #73 is deliberately left unmerged for that reason.",
    "related": "rule-11-narrowed-the-gate"
+  },
+  {
+   "id": "re-running-beats-reasoning-about-the-fix",
+   "from": "V5-M10c review, both rounds",
+   "summary": "Twice on this branch a fix was asserted without exercising the path it guarded, and twice re-running the exploit contradicted the assertion. Once by the coordinator (a merge-preview measured before the fix was clobbered, then reported as green) and once by the reviewer (a tightened real-git check whose fixture cannot reach the withholding branch).",
+   "proposed": "a fix for a guard is not done until the defect it guards against has been re-injected and observed to fail. The suite being green after a fix proves nothing on its own -- it was green before, with the hole open."
   }
  ],
  "d8": {
