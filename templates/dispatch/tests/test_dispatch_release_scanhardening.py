@@ -151,6 +151,42 @@ class ScanHardeningTests(unittest.TestCase):
                     self.scan(blob), f"a JSON {key} of 32 characters was not seen",
                 )
 
+    def test_the_scan_does_not_blow_up_on_a_long_unbroken_token(self):
+        """A transcript is megabytes and arbitrary: it holds minified files,
+        base64 blobs and lines with no whitespace in them. A pattern that
+        backtracks catastrophically on one of those hangs the capture step,
+        which sits between a finished worker and its evidence.
+
+        The bound is deliberately loose. A correct implementation does this in
+        tens of milliseconds; the point is to fail an exponential one, not to
+        police the constant factor.
+        """
+        # The scan is INTERRUPTED rather than timed. Measuring afterwards only
+        # works if the call returns: an exponential pattern does not return, so
+        # a wall-clock assertion placed after it hangs the suite instead of
+        # failing it. SIGALRM turns the hang into a failure.
+        import signal
+
+        def _fire(signum, frame):
+            raise TimeoutError("scan did not return")
+
+        previous = signal.signal(signal.SIGALRM, _fire)
+        try:
+            for size in (50_000, 200_000):
+                with self.subTest(size=size):
+                    signal.setitimer(signal.ITIMER_REAL, 2.0)
+                    try:
+                        self.scan("a" * size)
+                    except TimeoutError:
+                        self.fail(
+                            f"scanning {size} unbroken characters did not finish in 2s; "
+                            "a pattern is backtracking catastrophically"
+                        )
+                    finally:
+                        signal.setitimer(signal.ITIMER_REAL, 0)
+        finally:
+            signal.signal(signal.SIGALRM, previous)
+
     def test_the_names_still_tell_the_kinds_apart(self):
         seen = {k: frozenset(self.scan(s)) for k, s in MUST_DETECT.items()}
         self.assertGreater(
