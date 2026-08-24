@@ -238,6 +238,14 @@ class PacketValidationTests(unittest.TestCase):
         self.assertEqual(dispatch.validate_packet(packet, manifest, self.policy), self.policy["gates"]["pre"])
         self.assertEqual(dispatch.qualification_state(self.policy, packet), "unqualified")
 
+    def test_unqualified_project_route_never_mints_qualification_evidence(self) -> None:
+        self.assertFalse(dispatch.qualification_eligible(self.policy, self.packet, True, True))
+        pilot = json.loads(json.dumps(self.packet))
+        pilot["repo_id"] = "1deb57d0-af6f-479c-811a-b5b7254841f9"
+        pilot["sprint_item"]["ref"] = "1deb57d0-af6f-479c-811a-b5b7254841f9#42"
+        self.assertTrue(dispatch.qualification_eligible(self.policy, pilot, True, True))
+        self.assertFalse(dispatch.qualification_eligible(self.policy, pilot, False, True))
+
     def test_project_route_rejects_a_repository_outside_its_scope(self) -> None:
         core_repo = "bindery-core"
         packet = json.loads(json.dumps(self.packet))

@@ -393,6 +393,25 @@ def qualification_state(policy: dict[str, Any], packet: dict[str, Any]) -> str:
     return qualification["default"]
 
 
+def qualification_eligible(
+    policy: dict[str, Any],
+    packet: dict[str, Any],
+    contained: bool,
+    on_route_model: bool,
+) -> bool:
+    """Keep operational containment evidence separate from pilot admission.
+
+    A project-scoped route may be dispatchable while remaining globally
+    unqualified.  The receipt must not turn a contained, on-model run into
+    qualification evidence merely because those two physical conditions hold.
+    """
+    return (
+        contained
+        and on_route_model
+        and qualification_state(policy, packet).startswith("named_pilot:")
+    )
+
+
 RESERVATION_STALE_AFTER_ENV = "SPRINTCTL_RESERVATION_STALE_AFTER_HOURS"
 DEFAULT_RESERVATION_STALE_AFTER = timedelta(hours=4)
 
@@ -2007,14 +2026,17 @@ def main(argv: list[str] | None = None) -> int:
             # circumstances will not be remembered when the corpus is read.
             route_model = policy["routes"][packet["route"]]["harness_model"]
             on_route_model = args.worker_model in (None, route_model)
+            pilot_eligible = qualification_eligible(
+                policy, packet, contained, on_route_model
+            )
             containment_override = {
                 "containment_override": not contained,
                 "worker_user": args.worker_user,
                 "worker_model": args.worker_model or route_model,
                 "route_model": route_model,
                 "model_override": not on_route_model,
-                "qualification_eligible": contained and on_route_model,
-                "unattended_eligible": contained and on_route_model,
+                "qualification_eligible": pilot_eligible,
+                "unattended_eligible": pilot_eligible,
                 "override_reason": args.override_reason if not contained else None,
             }
             before = coordinator_tree_state(repo_root)
