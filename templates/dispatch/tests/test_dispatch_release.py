@@ -158,25 +158,39 @@ class DriverTests(unittest.TestCase):
         self.assertEqual(runner.steps().count("prepare"), 1)
         self.assertEqual(runner.steps().count("gate"), driver.MAX_GATE_ATTEMPTS)
 
-    # REQ-003 — the receipt is attached to the PR
-    def test_req003_receipt_written_before_pr_and_is_the_body(self):
+    # REQ-003 — the receipt is written before the PR, and the PR carries a body
+    #
+    # This originally asserted the body file *was* the receipt, and parsed it as
+    # JSON. M-10b is specified to make the body a generated summary precisely
+    # because the receipt runs past GitHub's 65536-byte limit, so that identity
+    # had to break -- the same over-specification M-9's fixtures had, on a
+    # protected path no worker could reconcile. What L-1 owns is the ordering
+    # and that gh is handed a body which exists; which file that is belongs to
+    # M-10b.
+    def test_req003_receipt_written_before_pr_and_a_body_is_supplied(self):
         seen = {}
 
         class Probe(FakeRunner):
             def __call__(self, cmd, cwd):
                 if cmd[0] == "gh":
                     body = Path(cmd[cmd.index("--body-file") + 1])
+                    seen["path"] = str(body)
                     seen["existed"] = body.exists()
-                    seen["body"] = json.loads(body.read_text()) if body.exists() else None
+                    seen["text"] = body.read_text() if body.exists() else None
                 return super().__call__(cmd, cwd)
 
         runner = Probe({})
         code, report = self._drive(runner)
         self.assertEqual(code, 0)
-        self.assertTrue(seen["existed"])
-        self.assertEqual(seen["body"]["stage"], "receipt")
-        self.assertEqual(seen["body"]["gate"]["disposition"], "candidate")
-        self.assertEqual(report["pr"]["body_file"], report["receipt_path"])
+        self.assertTrue(seen["existed"], "gh was given a body file that does not exist")
+        self.assertTrue(seen["text"], "the body file is empty")
+        # The receipt is on disk and complete before the PR step runs, whatever
+        # file the body turns out to be.
+        receipt = json.loads(Path(report["receipt_path"]).read_text())
+        self.assertEqual(receipt["stage"], "receipt")
+        self.assertEqual(receipt["gate"]["disposition"], "candidate")
+        # gh is pointed at whatever the report says the body is -- they agree.
+        self.assertEqual(report["pr"]["body_file"], seen["path"])
         self.assertTrue(report["pr"]["opened"])
 
     def test_req003_dry_run_does_everything_but_open(self):
