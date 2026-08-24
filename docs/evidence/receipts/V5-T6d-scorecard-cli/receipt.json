@@ -1,0 +1,546 @@
+{
+  "schema_version": "agentops-hybrid-receipt/v1",
+  "recorded_at": "2026-08-24T18:49:41+00:00",
+  "execution_id": "V5-T6d-scorecard-cli:8dc106273112c15a:attempt-1",
+  "task_id": "V5-T6d-scorecard-cli",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 24,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "attempt": 1,
+  "inputs": {
+    "packet_hash": "sha256:8dc106273112c15ac17e19c28023ce9e411058c8d5d36190821bdd536ef15a50",
+    "repository_commit": "8278eb82fa4510a3065dbae6007a9b675cbc184f",
+    "packet_schema_version": "agentops-task/v2",
+    "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+    "gate_set_hash": "sha256:76df978988fcbaa328c66c26b1fce39f23dbb2e876d039fe1895a2d253b585e8"
+  },
+  "harness_model": "opencode-go/deepseek-v4-flash",
+  "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+  "qualification_policy": {
+    "mode": "named_pilot",
+    "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+    "repositories": [
+      "agentops",
+      "1deb57d0-af6f-479c-811a-b5b7254841f9",
+      "2be118eb-8e89-433a-8d32-ada157624f95",
+      "kctl",
+      "actionq"
+    ],
+    "routes": [
+      "mechanical_bulk"
+    ],
+    "models": [
+      "opencode-go/deepseek-v4-flash"
+    ],
+    "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+    "default": "unqualified",
+    "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+  },
+  "acceptance_authority": "human",
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "stage": "receipt",
+  "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-T6d-scorecard-cli",
+  "overlay_sha256": "037a6b5a7471daf636a0fffb27418c864280a515fa44021578392db1fcbe79f6",
+  "dispositions_available": [
+    "candidate",
+    "retry_same_route",
+    "reroute",
+    "task_defect",
+    "human_decision"
+  ],
+  "note": "The coordinator records the disposition and the human accepts, merges, and changes sprint state.",
+  "gate": {
+    "schema_version": "agentops-hybrid-receipt/v1",
+    "recorded_at": "2026-08-24T18:49:41+00:00",
+    "execution_id": "V5-T6d-scorecard-cli:8dc106273112c15a:attempt-1",
+    "task_id": "V5-T6d-scorecard-cli",
+    "repo_id": "agentops",
+    "sprint_item": {
+      "ref": "agentops#2254",
+      "claim_id": 24,
+      "claim_actor": "workstation-vuoro"
+    },
+    "route": "mechanical_bulk",
+    "attempt": 1,
+    "inputs": {
+      "packet_hash": "sha256:8dc106273112c15ac17e19c28023ce9e411058c8d5d36190821bdd536ef15a50",
+      "repository_commit": "8278eb82fa4510a3065dbae6007a9b675cbc184f",
+      "packet_schema_version": "agentops-task/v2",
+      "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+      "gate_set_hash": "sha256:76df978988fcbaa328c66c26b1fce39f23dbb2e876d039fe1895a2d253b585e8"
+    },
+    "harness_model": "opencode-go/deepseek-v4-flash",
+    "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+    "qualification_policy": {
+      "mode": "named_pilot",
+      "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+      "repositories": [
+        "agentops",
+        "1deb57d0-af6f-479c-811a-b5b7254841f9",
+        "2be118eb-8e89-433a-8d32-ada157624f95",
+        "kctl",
+        "actionq"
+      ],
+      "routes": [
+        "mechanical_bulk"
+      ],
+      "models": [
+        "opencode-go/deepseek-v4-flash"
+      ],
+      "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+      "default": "unqualified",
+      "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+    },
+    "acceptance_authority": "human",
+    "context_churn": {
+      "max_repeated_reads_per_path": 4,
+      "max_reasoning_steps_without_mutation": 20,
+      "max_identical_context_tokens": 250000,
+      "handoff_when_candidate_ready": true
+    },
+    "stage": "gate",
+    "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-T6d-scorecard-cli",
+    "overlay_sha256": "037a6b5a7471daf636a0fffb27418c864280a515fa44021578392db1fcbe79f6",
+    "coordinator_claim": {
+      "claim_id": 24,
+      "work_item_id": 2254,
+      "agent": "workstation-vuoro",
+      "last_activity_at": "2026-08-24T17:59:14Z",
+      "idle_seconds": 3027,
+      "checked_at": "2026-08-24T18:49:41+00:00"
+    },
+    "evidence": {
+      "gates": {
+        "diff-nonempty": true,
+        "diff-scope-respected": true,
+        "protected-paths-untouched": true,
+        "worktree-state-captured": true,
+        "registered-commands-green": true
+      },
+      "passed": true,
+      "touched_paths": [
+        "templates/dispatch/scripts/release_scorecard.py"
+      ],
+      "out_of_scope_paths": [],
+      "protected_path_hits": [],
+      "command_results": [
+        {
+          "command_id": "agentops.dispatch.tests.scorecard_cli",
+          "command": "python templates/dispatch/tests/test_release_scorecard_cli.py",
+          "exit_code": 0,
+          "stdout_tail": "",
+          "stderr_tail": "...............................\n----------------------------------------------------------------------\nRan 31 tests in 0.035s\n\nOK\n"
+        }
+      ],
+      "diff": "diff --git a/templates/dispatch/scripts/release_scorecard.py b/templates/dispatch/scripts/release_scorecard.py\nindex 4735b3b..a6b6bae 100644\n--- a/templates/dispatch/scripts/release_scorecard.py\n+++ b/templates/dispatch/scripts/release_scorecard.py\n@@ -5,6 +5,11 @@ session supersede each other. ``reduce_sessions`` keeps the newest snapshot per\n session and ``frontier_totals`` sums over those survivors only.\n \"\"\"\n \n+import json\n+import os\n+from datetime import datetime, timezone\n+from pathlib import Path\n+\n \n def reduce_sessions(rows):\n     \"\"\"Return {session id: that session's single surviving row}.\"\"\"\n@@ -215,4 +220,122 @@ def detect_worse(scorecards):\n         \"worse\": bool(signals),\n         \"signals\": signals,\n         \"insufficient_series\": False,\n-    }\n\\ No newline at end of file\n+    }\n+\n+\n+def load_sink_rows(path):\n+    \"\"\"Read a JSON-lines sink and return the parsed dict rows in order.\n+\n+    Tolerant by design: blank lines, lines that are not valid JSON, and lines\n+    that parse to something other than a dict are skipped rather than fatal,\n+    and a path that does not exist returns an empty list. The sink is appended\n+    to by a shell hook on every assistant turn, so one truncated line from an\n+    interrupted write must not cost a release its whole scorecard.\n+    \"\"\"\n+    rows = []\n+    try:\n+        with open(path, encoding=\"utf-8\") as handle:\n+            for line in handle:\n+                stripped = line.strip()\n+                if not stripped:\n+                    continue\n+                try:\n+                    parsed = json.loads(stripped)\n+                except ValueError:\n+                    continue\n+                if isinstance(parsed, dict):\n+                    rows.append(parsed)\n+    except OSError:\n+        return []\n+    return rows\n+\n+\n+def load_receipts(root):\n+    \"\"\"Parse every <task>/receipt.json beneath root, sorted by task_id.\n+\n+    A subdirectory without a receipt, an unparseable receipt, and a missing\n+    root are all skipped or empty rather than errors. Sorting by task_id makes\n+    a scorecard reproducible instead of filesystem-order dependent.\n+    \"\"\"\n+    receipts = []\n+    try:\n+        entries = sorted(os.listdir(root))\n+    except OSError:\n+        return []\n+    for name in entries:\n+        receipt_path = os.path.join(root, name, \"receipt.json\")\n+        try:\n+            with open(receipt_path, encoding=\"utf-8\") as handle:\n+                parsed = json.load(handle)\n+        except (OSError, ValueError):\n+            continue\n+        if isinstance(parsed, dict):\n+            receipts.append(parsed)\n+    receipts.sort(key=lambda r: r.get(\"task_id\", \"\"))\n+    return receipts\n+\n+\n+def filter_by_window(records, start, end, key):\n+    \"\"\"Keep records whose key timestamp falls in the half-open [start, end).\n+\n+    A None bound means that side is unbounded. A record missing the key, or\n+    carrying a non-string there, is excluded: a record that cannot be placed\n+    in time cannot be attributed to a release. ISO-8601 strings compare\n+    directly, which is correct for the fixed-width UTC format the sink writes.\n+    \"\"\"\n+    kept = []\n+    for record in records:\n+        value = record.get(key)\n+        if not isinstance(value, str):\n+            continue\n+        if start is not None and value < start:\n+            continue\n+        if end is not None and value >= end:\n+            continue\n+        kept.append(record)\n+    return kept\n+\n+\n+def main(argv):\n+    \"\"\"Wire the readers and window together and write the scorecard.\n+\n+    Takes --release, --sink, --receipts and --out, with optional --since and\n+    --until bounding the window (sink rows filtered on ts, receipts on\n+    recorded_at) and an optional --escalations JSON-lines file whose absence\n+    means an empty list rather than an error. Writes build_scorecard's output\n+    to --out as indent-2 JSON with a trailing newline, creating the parent\n+    directory if missing, and returns 0.\n+    \"\"\"\n+    args = {}\n+    index = 0\n+    while index < len(argv):\n+        flag = argv[index]\n+        if flag.startswith(\"--\") and index + 1 < len(argv):\n+            args[flag[2:]] = argv[index + 1]\n+            index += 2\n+        else:\n+            index += 1\n+    release = args.get(\"release\")\n+    sink_path = args.get(\"sink\")\n+    receipts_root = args.get(\"receipts\")\n+    out_path = args.get(\"out\")\n+    since = args.get(\"since\")\n+    until = args.get(\"until\")\n+    escalations_path = args.get(\"escalations\")\n+\n+    rows = load_sink_rows(sink_path)\n+    receipts = load_receipts(receipts_root)\n+    if since is not None or until is not None:\n+        rows = filter_by_window(rows, since, until, \"ts\")\n+        receipts = filter_by_window(receipts, since, until, \"recorded_at\")\n+    if escalations_path is not None:\n+        escalations = load_sink_rows(escalations_path)\n+    else:\n+        escalations = []\n+    recorded_at = datetime.now(timezone.utc).strftime(\"%Y-%m-%dT%H:%M:%SZ\")\n+    scorecard = build_scorecard(release, rows, receipts, escalations,\n+                                recorded_at)\n+    out = Path(out_path)\n+    out.parent.mkdir(parents=True, exist_ok=True)\n+    out.write_text(json.dumps(scorecard, indent=2) + \"\\n\", encoding=\"utf-8\")\n+    return 0\n\\ No newline at end of file\n",
+      "worktree_status": [
+        " M templates/dispatch/scripts/release_scorecard.py"
+      ]
+    },
+    "independent_review": {
+      "mode": "self_candidate",
+      "class": "mechanical_bulk",
+      "basis": "manifest"
+    },
+    "disposition": "candidate"
+  },
+  "driver_steps": [
+    {
+      "step": "prepare",
+      "attempt": 1,
+      "started_at": "2026-08-24T18:49:12Z",
+      "finished_at": "2026-08-24T18:49:13Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-24T18:49:13+00:00",
+        "execution_id": "V5-T6d-scorecard-cli:8dc106273112c15a:attempt-1",
+        "task_id": "V5-T6d-scorecard-cli",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 24,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:8dc106273112c15ac17e19c28023ce9e411058c8d5d36190821bdd536ef15a50",
+          "repository_commit": "8278eb82fa4510a3065dbae6007a9b675cbc184f",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:76df978988fcbaa328c66c26b1fce39f23dbb2e876d039fe1895a2d253b585e8"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 20,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "prepare",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-T6d-scorecard-cli",
+        "overlay_sha256": "037a6b5a7471daf636a0fffb27418c864280a515fa44021578392db1fcbe79f6",
+        "coordinator_claim": {
+          "claim_id": 24,
+          "work_item_id": 2254,
+          "agent": "workstation-vuoro",
+          "last_activity_at": "2026-08-24T17:59:14Z",
+          "idle_seconds": 2999,
+          "checked_at": "2026-08-24T18:49:13+00:00"
+        },
+        "safety": {
+          "ref": "safety/pre-dispatch-V5-T6d-scorecard-cli",
+          "commit": "3792663b2b7bf04f970986d4180ed81323501a39",
+          "restore_command": "git -C /tmp/v5-coordinator reset --hard safety/pre-dispatch-V5-T6d-scorecard-cli",
+          "uncommitted_paths_at_risk": [
+            "?? .sprintctl"
+          ]
+        },
+        "cold_command_results": [
+          {
+            "command_id": "agentops.dispatch.tests.scorecard_cli",
+            "command": "python templates/dispatch/tests/test_release_scorecard_cli.py",
+            "exit_code": 1,
+            "stdout_tail": "",
+            "stderr_tail": "ps/V5-T6d-scorecard-cli/templates/dispatch/tests/test_release_scorecard_cli.py\", line 485, in _run\n    rc = scorecard.main(self._argv(out=out, extra=extra))\n         ^^^^^^^^^^^^^^\nAttributeError: module 'release_scorecard_cli_subject' has no attribute 'main'\n\n======================================================================\nERROR: test_since_and_until_bound_the_window (__main__.MainTests.test_since_and_until_bound_the_window)\nThe bounded run must be a strictly smaller, different scorecard.\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T6d-scorecard-cli/templates/dispatch/tests/test_release_scorecard_cli.py\", line 602, in test_since_and_until_bound_the_window\n    unbounded = self._run(extra=[\"--escalations\", str(self.escalations)])\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T6d-scorecard-cli/templates/dispatch/tests/test_release_scorecard_cli.py\", line 485, in _run\n    rc = scorecard.main(self._argv(out=out, extra=extra))\n         ^^^^^^^^^^^^^^\nAttributeError: module 'release_scorecard_cli_subject' has no attribute 'main'\n\n======================================================================\nERROR: test_the_escalations_file_is_read_when_given (__main__.MainTests.test_the_escalations_file_is_read_when_given)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T6d-scorecard-cli/templates/dispatch/tests/test_release_scorecard_cli.py\", line 554, in test_the_escalations_file_is_read_when_given\n    written = self._run(extra=[\"--escalations\", str(self.escalations)])\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T6d-scorecard-cli/templates/dispatch/tests/test_release_scorecard_cli.py\", line 485, in _run\n    rc = scorecard.main(self._argv(out=out, extra=extra))\n         ^^^^^^^^^^^^^^\nAttributeError: module 'release_scorecard_cli_subject' has no attribute 'main'\n\n======================================================================\nERROR: test_the_written_file_is_indent_two_and_ends_with_a_newline (__main__.MainTests.test_the_written_file_is_indent_two_and_ends_with_a_newline)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T6d-scorecard-cli/templates/dispatch/tests/test_release_scorecard_cli.py\", line 579, in test_the_written_file_is_indent_two_and_ends_with_a_newline\n    self._run(extra=[\"--escalations\", str(self.escalations)])\n    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T6d-scorecard-cli/templates/dispatch/tests/test_release_scorecard_cli.py\", line 485, in _run\n    rc = scorecard.main(self._argv(out=out, extra=extra))\n         ^^^^^^^^^^^^^^\nAttributeError: module 'release_scorecard_cli_subject' has no attribute 'main'\n\n======================================================================\nERROR: test_until_is_exclusive_over_the_real_sink (__main__.MainTests.test_until_is_exclusive_over_the_real_sink)\nThe row stamped exactly at --until belongs to the next release.\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T6d-scorecard-cli/templates/dispatch/tests/test_release_scorecard_cli.py\", line 639, in test_until_is_exclusive_over_the_real_sink\n    bounded = self._run(extra=[\"--since\", SINCE, \"--until\", UNTIL])\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T6d-scorecard-cli/templates/dispatch/tests/test_release_scorecard_cli.py\", line 485, in _run\n    rc = scorecard.main(self._argv(out=out, extra=extra))\n         ^^^^^^^^^^^^^^\nAttributeError: module 'release_scorecard_cli_subject' has no attribute 'main'\n\n----------------------------------------------------------------------\nRan 31 tests in 0.039s\n\nFAILED (errors=31)\n",
+            "expectation": "red"
+          }
+        ],
+        "cold_faults": [],
+        "workspace_reused": false,
+        "cold_gate_assessment": "assessed",
+        "eligible_for_dispatch": true
+      },
+      "failed": false
+    },
+    {
+      "step": "run",
+      "attempt": 1,
+      "started_at": "2026-08-24T18:49:13Z",
+      "finished_at": "2026-08-24T18:49:40Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-24T18:49:40+00:00",
+        "execution_id": "V5-T6d-scorecard-cli:8dc106273112c15a:attempt-1",
+        "task_id": "V5-T6d-scorecard-cli",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 24,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:8dc106273112c15ac17e19c28023ce9e411058c8d5d36190821bdd536ef15a50",
+          "repository_commit": "8278eb82fa4510a3065dbae6007a9b675cbc184f",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:76df978988fcbaa328c66c26b1fce39f23dbb2e876d039fe1895a2d253b585e8"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 20,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "run",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-T6d-scorecard-cli",
+        "overlay_sha256": "037a6b5a7471daf636a0fffb27418c864280a515fa44021578392db1fcbe79f6",
+        "coordinator_claim": {
+          "claim_id": 24,
+          "work_item_id": 2254,
+          "agent": "workstation-vuoro",
+          "last_activity_at": "2026-08-24T17:59:14Z",
+          "idle_seconds": 3000,
+          "checked_at": "2026-08-24T18:49:14+00:00"
+        },
+        "worker": {
+          "argv": [
+            "sudo",
+            "--non-interactive",
+            "--set-home",
+            "--user",
+            "agentworker",
+            "--preserve-env=OPENCODE_CONFIG_CONTENT",
+            "opencode",
+            "run",
+            "'Implement only the attached frozen task packet. Stay inside the writable paths it declares, use only the registered commands, and stop with a structured blocker on any ambiguity, missing context, or scope conflict. Do not use git, do not change sprint state, and do not expand scope. Respect context_churn: stop repeated unchanged reads or mutation-free reasoning at its limits. Do not optimize for cheap cache writes alone. As soon as the candidate and focused registered gate are ready, return the structured handoff instead of continuing self-review.'",
+            "--agent",
+            "ao-mechanical-bulk",
+            "--file",
+            "/tmp/v5-coordinator/docs/evidence/packets/V5-T6d-scorecard-cli.json",
+            "--format",
+            "json"
+          ],
+          "worker_user": "agentworker",
+          "agent": "ao-mechanical-bulk",
+          "model": "opencode-go/deepseek-v4-flash",
+          "exit_code": 0,
+          "stdout": "<transcript removed; sidecar worker-stdout.txt holds 131715 bytes>",
+          "stderr_tail": "",
+          "session_id": "ses_fcae4ffc1ffeSbO2rbTfoEAk6S",
+          "churn_stop": null
+        },
+        "spend": {
+          "cost_usd": 0.01021,
+          "tokens": 199206,
+          "cost_reported": true,
+          "cap_usd": 3.0,
+          "within_cap": true,
+          "soft_token_ceiling": 1200000,
+          "hard_token_ceiling": 2000000,
+          "soft_token_ceiling_exceeded": false,
+          "within_hard_token_ceiling": true
+        },
+        "containment_override": false,
+        "worker_user": "agentworker",
+        "worker_model": "opencode-go/deepseek-v4-flash",
+        "route_model": "opencode-go/deepseek-v4-flash",
+        "model_override": false,
+        "qualification_eligible": true,
+        "unattended_eligible": true,
+        "override_reason": null,
+        "containment": {
+          "coordinator_tree_untouched": true,
+          "coordinator_tree_changes": [],
+          "recovery": []
+        }
+      },
+      "failed": false
+    },
+    {
+      "step": "gate",
+      "attempt": 1,
+      "started_at": "2026-08-24T18:49:40Z",
+      "finished_at": "2026-08-24T18:49:41Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-24T18:49:41+00:00",
+        "execution_id": "V5-T6d-scorecard-cli:8dc106273112c15a:attempt-1",
+        "task_id": "V5-T6d-scorecard-cli",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 24,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:8dc106273112c15ac17e19c28023ce9e411058c8d5d36190821bdd536ef15a50",
+          "repository_commit": "8278eb82fa4510a3065dbae6007a9b675cbc184f",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:76df978988fcbaa328c66c26b1fce39f23dbb2e876d039fe1895a2d253b585e8"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 20,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "gate",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-T6d-scorecard-cli",
+        "overlay_sha256": "037a6b5a7471daf636a0fffb27418c864280a515fa44021578392db1fcbe79f6",
+        "coordinator_claim": {
+          "claim_id": 24,
+          "work_item_id": 2254,
+          "agent": "workstation-vuoro",
+          "last_activity_at": "2026-08-24T17:59:14Z",
+          "idle_seconds": 3027,
+          "checked_at": "2026-08-24T18:49:41+00:00"
+        },
+        "evidence": {
+          "gates": {
+            "diff-nonempty": true,
+            "diff-scope-respected": true,
+            "protected-paths-untouched": true,
+            "worktree-state-captured": true,
+            "registered-commands-green": true
+          },
+          "passed": true,
+          "touched_paths": [
+            "templates/dispatch/scripts/release_scorecard.py"
+          ],
+          "out_of_scope_paths": [],
+          "protected_path_hits": [],
+          "command_results": [
+            {
+              "command_id": "agentops.dispatch.tests.scorecard_cli",
+              "command": "python templates/dispatch/tests/test_release_scorecard_cli.py",
+              "exit_code": 0,
+              "stdout_tail": "",
+              "stderr_tail": "...............................\n----------------------------------------------------------------------\nRan 31 tests in 0.035s\n\nOK\n"
+            }
+          ],
+          "diff": "diff --git a/templates/dispatch/scripts/release_scorecard.py b/templates/dispatch/scripts/release_scorecard.py\nindex 4735b3b..a6b6bae 100644\n--- a/templates/dispatch/scripts/release_scorecard.py\n+++ b/templates/dispatch/scripts/release_scorecard.py\n@@ -5,6 +5,11 @@ session supersede each other. ``reduce_sessions`` keeps the newest snapshot per\n session and ``frontier_totals`` sums over those survivors only.\n \"\"\"\n \n+import json\n+import os\n+from datetime import datetime, timezone\n+from pathlib import Path\n+\n \n def reduce_sessions(rows):\n     \"\"\"Return {session id: that session's single surviving row}.\"\"\"\n@@ -215,4 +220,122 @@ def detect_worse(scorecards):\n         \"worse\": bool(signals),\n         \"signals\": signals,\n         \"insufficient_series\": False,\n-    }\n\\ No newline at end of file\n+    }\n+\n+\n+def load_sink_rows(path):\n+    \"\"\"Read a JSON-lines sink and return the parsed dict rows in order.\n+\n+    Tolerant by design: blank lines, lines that are not valid JSON, and lines\n+    that parse to something other than a dict are skipped rather than fatal,\n+    and a path that does not exist returns an empty list. The sink is appended\n+    to by a shell hook on every assistant turn, so one truncated line from an\n+    interrupted write must not cost a release its whole scorecard.\n+    \"\"\"\n+    rows = []\n+    try:\n+        with open(path, encoding=\"utf-8\") as handle:\n+            for line in handle:\n+                stripped = line.strip()\n+                if not stripped:\n+                    continue\n+                try:\n+                    parsed = json.loads(stripped)\n+                except ValueError:\n+                    continue\n+                if isinstance(parsed, dict):\n+                    rows.append(parsed)\n+    except OSError:\n+        return []\n+    return rows\n+\n+\n+def load_receipts(root):\n+    \"\"\"Parse every <task>/receipt.json beneath root, sorted by task_id.\n+\n+    A subdirectory without a receipt, an unparseable receipt, and a missing\n+    root are all skipped or empty rather than errors. Sorting by task_id makes\n+    a scorecard reproducible instead of filesystem-order dependent.\n+    \"\"\"\n+    receipts = []\n+    try:\n+        entries = sorted(os.listdir(root))\n+    except OSError:\n+        return []\n+    for name in entries:\n+        receipt_path = os.path.join(root, name, \"receipt.json\")\n+        try:\n+            with open(receipt_path, encoding=\"utf-8\") as handle:\n+                parsed = json.load(handle)\n+        except (OSError, ValueError):\n+            continue\n+        if isinstance(parsed, dict):\n+            receipts.append(parsed)\n+    receipts.sort(key=lambda r: r.get(\"task_id\", \"\"))\n+    return receipts\n+\n+\n+def filter_by_window(records, start, end, key):\n+    \"\"\"Keep records whose key timestamp falls in the half-open [start, end).\n+\n+    A None bound means that side is unbounded. A record missing the key, or\n+    carrying a non-string there, is excluded: a record that cannot be placed\n+    in time cannot be attributed to a release. ISO-8601 strings compare\n+    directly, which is correct for the fixed-width UTC format the sink writes.\n+    \"\"\"\n+    kept = []\n+    for record in records:\n+        value = record.get(key)\n+        if not isinstance(value, str):\n+            continue\n+        if start is not None and value < start:\n+            continue\n+        if end is not None and value >= end:\n+            continue\n+        kept.append(record)\n+    return kept\n+\n+\n+def main(argv):\n+    \"\"\"Wire the readers and window together and write the scorecard.\n+\n+    Takes --release, --sink, --receipts and --out, with optional --since and\n+    --until bounding the window (sink rows filtered on ts, receipts on\n+    recorded_at) and an optional --escalations JSON-lines file whose absence\n+    means an empty list rather than an error. Writes build_scorecard's output\n+    to --out as indent-2 JSON with a trailing newline, creating the parent\n+    directory if missing, and returns 0.\n+    \"\"\"\n+    args = {}\n+    index = 0\n+    while index < len(argv):\n+        flag = argv[index]\n+        if flag.startswith(\"--\") and index + 1 < len(argv):\n+            args[flag[2:]] = argv[index + 1]\n+            index += 2\n+        else:\n+            index += 1\n+    release = args.get(\"release\")\n+    sink_path = args.get(\"sink\")\n+    receipts_root = args.get(\"receipts\")\n+    out_path = args.get(\"out\")\n+    since = args.get(\"since\")\n+    until = args.get(\"until\")\n+    escalations_path = args.get(\"escalations\")\n+\n+    rows = load_sink_rows(sink_path)\n+    receipts = load_receipts(receipts_root)\n+    if since is not None or until is not None:\n+        rows = filter_by_window(rows, since, until, \"ts\")\n+        receipts = filter_by_window(receipts, since, until, \"recorded_at\")\n+    if escalations_path is not None:\n+        escalations = load_sink_rows(escalations_path)\n+    else:\n+        escalations = []\n+    recorded_at = datetime.now(timezone.utc).strftime(\"%Y-%m-%dT%H:%M:%SZ\")\n+    scorecard = build_scorecard(release, rows, receipts, escalations,\n+                                recorded_at)\n+    out = Path(out_path)\n+    out.parent.mkdir(parents=True, exist_ok=True)\n+    out.write_text(json.dumps(scorecard, indent=2) + \"\\n\", encoding=\"utf-8\")\n+    return 0\n\\ No newline at end of file\n",
+          "worktree_status": [
+            " M templates/dispatch/scripts/release_scorecard.py"
+          ]
+        },
+        "independent_review": {
+          "mode": "self_candidate",
+          "class": "mechanical_bulk",
+          "basis": "manifest"
+        },
+        "disposition": "candidate"
+      },
+      "disposition": "candidate",
+      "failed": false
+    },
+    {
+      "step": "receipt",
+      "attempt": 1,
+      "started_at": "2026-08-24T18:49:41Z",
+      "finished_at": "2026-08-24T18:49:41Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-24T18:49:41+00:00",
+        "execution_id": "V5-T6d-scorecard-cli:8dc106273112c15a:attempt-1",
+        "task_id": "V5-T6d-scorecard-cli",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 24,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:8dc106273112c15ac17e19c28023ce9e411058c8d5d36190821bdd536ef15a50",
+          "repository_commit": "8278eb82fa4510a3065dbae6007a9b675cbc184f",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:76df978988fcbaa328c66c26b1fce39f23dbb2e876d039fe1895a2d253b585e8"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 20,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "receipt",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-T6d-scorecard-cli",
+        "overlay_sha256": "037a6b5a7471daf636a0fffb27418c864280a515fa44021578392db1fcbe79f6",
+        "dispositions_available": [
+          "candidate",
+          "retry_same_route",
+          "reroute",
+          "task_defect",
+          "human_decision"
+        ],
+        "note": "The coordinator records the disposition and the human accepts, merges, and changes sprint state."
+      },
+      "failed": false
+    }
+  ]
+}
