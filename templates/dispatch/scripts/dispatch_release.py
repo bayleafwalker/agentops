@@ -27,6 +27,7 @@ import copy
 import fnmatch
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -73,6 +74,36 @@ PR_STEP_NAMES: tuple[str, ...] = ("commit", "remote-add", "push", "pr-create")
 
 ESCALATION_TYPE = "workflow.escalation"
 DRIVER_ACTOR = "dispatch-release"
+
+#: The secret shapes the module-level scan detects, keyed by the stable name a
+#: finding carries. A finding never carries the matched text, so a report that
+#: embeds the names cannot echo a credential. The groups are what the M-10
+#: spec row enumerates; each name is what tells one kind from another.
+SCAN_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("github_token", re.compile(r"gh[opsu]_[A-Za-z0-9]{8,}|github_pat_[A-Za-z0-9]{8,}")),
+    ("aws_access_key_id", re.compile(r"AKIA[A-Z0-9]{16}")),
+    ("pem_private_key", re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----")),
+    ("slack_token", re.compile(r"xox[abprs]-[A-Za-z0-9-]{8,}")),
+    ("authorization_bearer", re.compile(r"Authorization:\s*Bearer\s+\S{20,}")),
+    (
+        "secret_assignment",
+        re.compile(
+            r"\b(?:api_key|token|secret|password)\b\s*=\s*"
+            r"(?:\"[^\"\n]{20,}\"|'[^'\n]{20,}'|\S{20,})"
+        ),
+    ),
+)
+
+
+def scan_for_secrets(text: str) -> list[str]:
+    """Names of the secret patterns that match ``text``; never the text itself.
+
+    The names are stable and distinct, so a report that embeds them can tell
+    one kind from another without ever echoing the credential. Ordinary prose
+    returns an empty list: a scan that fires on prose withholds every
+    transcript, which is the same as never capturing one.
+    """
+    return [name for name, pattern in SCAN_PATTERNS if pattern.search(text) is not None]
 
 
 class DriverError(RuntimeError):
