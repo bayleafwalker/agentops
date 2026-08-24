@@ -488,8 +488,25 @@
    "attempt_2": {
     "starting_commit": "625aa60c641d225fe0dcf00758cb4843e3132ee2",
     "changed": "the oracle's state leak is fixed and the purpose forbids leaving debugging output behind; the packet is otherwise unchanged",
-    "note": "the one retry section 7 grants, and the first use of the max_attempts: 2 that gitops-nixos #17 put on the host on 2026-08-24"
-   }
+    "note": "the one retry section 7 grants, and the first use of the max_attempts: 2 that gitops-nixos #17 put on the host on 2026-08-24",
+    "disposition": "budget_exceeded",
+    "cost_usd": 0.1,
+    "tokens": 1435896,
+    "hard_token_ceiling": 1000000,
+    "gate_reached": false,
+    "diff_produced": "86 insertions, 6 deletions in one file",
+    "scored_against_the_fixed_oracle": "15/15",
+    "debugging_left_behind": false,
+    "outcome": "correct and complete work, stopped by the harness before the gate could run"
+   },
+   "attempts": 2,
+   "first_attempt_green": false,
+   "stopped_under": "handover section 7: red twice, do not retry a third time. Escalation ad:01M0ST0EES9W09NR4EXFZCGBBE.",
+   "classification_final": "Not a tier failure and not rule 9. The tier produced a correct implementation twice. The packet's limits block was inherited unchanged from V5-M9 (soft 500000 / hard 1000000) and M-10c costs roughly 1.4-1.5M tokens, so the hard ceiling is set below what the packet costs and kills a run that has already succeeded. Cost is not the binding constraint: $0.15 against a $3.00 cap.",
+   "owner_decision_required": [
+    "raise M-10c's hard_token_ceiling and dispatch attempt 3, which section 7 does not permit without you",
+    "or rule on whether a correct diff from a budget_exceeded run may be gated on its existing worktree without further inference"
+   ]
   }
  ],
  "coordinator_cost": {
@@ -527,6 +544,14 @@
    "why_it_got_through": "rule 2 made oracle.reference_patch SHOULD at Amendment 2, and rules 9-11 tightened the packet's shape without ever requiring the oracle be shown green against a known-good implementation. Cutting an inherited oracle into three, as the M-10 split did, is exactly the operation that can introduce this and exactly the case where no reference patch existed.",
    "proposed": "for any packet whose oracle was cut, inherited or otherwise not written fresh against a known-good implementation, require proof of green in both directions before dispatch. It does not need a throwaway solution: running the oracle against a rejected attempt's own diff found this in one command, and for a fresh oracle a reference patch already reports oracle_attainable.",
    "related": "rule-11-narrowed-the-gate -- both are the same shape: the gate measures less than the reader assumes it does."
+  },
+  {
+   "id": "the-token-ceiling-is-not-calibrated-to-the-packet",
+   "from": "V5-M10c attempts 1 and 2",
+   "summary": "Every packet since V5-M9 has carried the same limits block: soft 500000, hard 1000000. Spend per packet is not remotely uniform -- M-10a needed 206 566 tokens and M-10c needs 1.4-1.5M -- so the ceiling is a constant applied to a variable. It killed two runs that had already produced correct work.",
+   "note": "the ceiling did its job as written; the fault is that the number was copied from packet to packet rather than set for each. Cost never came close to binding: $0.15 against $3.00.",
+   "proposed": "set limits per packet from the oracle's size, or make the hard ceiling a function of fixture count; and consider whether a hard token stop should be a hard stop at all when the cost cap is untouched and a gate could still run.",
+   "correction": "an earlier reading of attempt 1 attributed its token burn to the oracle defect. Attempt 2 on the fixed oracle spent 1 435 896 tokens, so the oracle defect was real but was not the cause of the burn. Both facts stand independently."
   }
  ],
  "d8": {
