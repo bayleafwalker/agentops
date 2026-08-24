@@ -12,6 +12,10 @@ This file pins the two functions that stand between the sink and any scorecard:
 ``reduce_sessions(rows)``   -> {session id: the one surviving row}
 ``frontier_totals(rows)``   -> the seven aggregate fields, over survivors only
 
+The money-shaped total ``frontier_totals`` reports is named ``usage_equivalent_usd``
+(see ``test_release_scorecard_naming.py``); the sink rows it reads still carry
+``cost_usd``, which is why the fixtures below spell both.
+
 Written against the packet spec only. ``templates/dispatch/scripts/release_scorecard.py``
 does not exist yet, so this oracle fails at import -- that is the declared red.
 """
@@ -70,7 +74,7 @@ FIVE_SNAPSHOTS: tuple[dict, ...] = (
 #: Written out by hand so the test can assert the correct answer is NOT this.
 NAIVE_SUM_OF_FIVE_SNAPSHOTS: dict = {
     "turns": 19, "assistant_msgs": 38, "tool_calls": 27,
-    "duration_s": 750, "cost_usd": 21.25, "rework_rounds": 4,
+    "duration_s": 750, "usage_equivalent_usd": 21.25, "rework_rounds": 4,
 }
 
 #: Two stops inside the same wall-clock second. ``ts`` has one-second
@@ -167,10 +171,13 @@ FLOAT_TAIL_ROWS: tuple[dict, ...] = (
     {"ts": "2026-08-24T15:00:09Z", "session": "f2", "cost_usd": 0.2},
 )
 
-#: The seven keys ``frontier_totals`` returns, exactly.
+#: The seven keys ``frontier_totals`` returns, exactly. The money-shaped one is
+#: ``usage_equivalent_usd``, never ``cost_usd``: the figure is tokens priced off
+#: a hardcoded list-price table, not spend anyone was billed, and the sink field
+#: it is summed from keeps its own name (``cost_usd``) regardless.
 TOTALS_KEYS = frozenset(
     {"sessions", "turns", "assistant_msgs", "tool_calls", "duration_s",
-     "cost_usd", "rework_rounds"}
+     "usage_equivalent_usd", "rework_rounds"}
 )
 
 
@@ -278,7 +285,7 @@ class FrontierTotalsTests(unittest.TestCase):
     def test_five_snapshots_total_to_one_session(self):
         totals = scorecard.frontier_totals(_rows(FIVE_SNAPSHOTS))
         self.assertEqual(totals["sessions"], 1)
-        self.assertEqual(totals["cost_usd"], 10.0)
+        self.assertEqual(totals["usage_equivalent_usd"], 10.0)
         self.assertEqual(totals["turns"], 8)
         self.assertEqual(totals["assistant_msgs"], 16)
         self.assertEqual(totals["tool_calls"], 13)
@@ -301,7 +308,7 @@ class FrontierTotalsTests(unittest.TestCase):
         totals = scorecard.frontier_totals(_rows(INTERLEAVED_ROWS))
         self.assertEqual(totals["sessions"], 3)
         # survivors: alpha 6.0/6, beta 5.0/5, gamma 4.0/4
-        self.assertEqual(totals["cost_usd"], 15.0)
+        self.assertEqual(totals["usage_equivalent_usd"], 15.0)
         self.assertEqual(totals["turns"], 15)
         self.assertEqual(totals["assistant_msgs"], 15)
         self.assertEqual(totals["tool_calls"], 15)
@@ -323,7 +330,7 @@ class FrontierTotalsTests(unittest.TestCase):
     def test_missing_numeric_fields_count_as_zero(self):
         totals = scorecard.frontier_totals(_rows(SPARSE_ROWS))
         self.assertEqual(totals["sessions"], 1)
-        self.assertEqual(totals["cost_usd"], 1.25)
+        self.assertEqual(totals["usage_equivalent_usd"], 1.25)
         self.assertEqual(totals["turns"], 4)
         self.assertEqual(totals["assistant_msgs"], 0)
         self.assertEqual(totals["tool_calls"], 0)
@@ -341,7 +348,7 @@ class FrontierTotalsTests(unittest.TestCase):
         totals = scorecard.frontier_totals(_rows(FLOAT_TAIL_ROWS))
         self.assertEqual(totals["sessions"], 2)
         self.assertEqual(
-            totals["cost_usd"], 0.3,
+            totals["usage_equivalent_usd"], 0.3,
             "0.1 + 0.2 was not rounded to 6 dp",
         )
 

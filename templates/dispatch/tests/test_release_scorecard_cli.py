@@ -573,7 +573,7 @@ class MainTests(TempDirTestCase):
             "the two snapshots of session loop-mid were not reduced to one",
         )
         self.assertAlmostEqual(
-            written["frontier"]["cost_usd"], 8.0, places=6,
+            written["frontier"]["usage_equivalent_usd"], 8.0, places=6,
             msg="the frontier cost is not the reduced figure (1.0 + 3.0 + "
                 "4.0); summing every row would report 11.0",
         )
@@ -664,7 +664,8 @@ class MainTests(TempDirTestCase):
             "the bounded run kept more than the one in-window session",
         )
         self.assertLess(
-            bounded["frontier"]["cost_usd"], unbounded["frontier"]["cost_usd"],
+            bounded["frontier"]["usage_equivalent_usd"],
+            unbounded["frontier"]["usage_equivalent_usd"],
             "the bounded frontier cost is not smaller than the unbounded one",
         )
         self.assertEqual(
@@ -681,7 +682,7 @@ class MainTests(TempDirTestCase):
         """The row stamped exactly at --until belongs to the next release."""
         bounded = self._run(extra=["--since", SINCE, "--until", UNTIL])
         self.assertAlmostEqual(
-            bounded["frontier"]["cost_usd"], 2.0, places=6,
+            bounded["frontier"]["usage_equivalent_usd"], 2.0, places=6,
             msg="the sink row stamped exactly at --until was counted; "
                 "--until is exclusive, or two adjacent releases both bill it",
         )
@@ -783,17 +784,18 @@ class ProjectScopeTests(TempDirTestCase):
         scoped = self._run(self.tmp / "scoped.json",
                            extra=["--project", "agentops"])
         self.assertLess(
-            scoped["frontier"]["cost_usd"], unscoped["frontier"]["cost_usd"],
+            scoped["frontier"]["usage_equivalent_usd"],
+            unscoped["frontier"]["usage_equivalent_usd"],
             "--project did not shrink the frontier half -- the shared sink's "
             "other repositories are still being billed to this release",
         )
         self.assertAlmostEqual(
-            unscoped["frontier"]["cost_usd"], PROJECT_UNSCOPED_COST, places=6,
+            unscoped["frontier"]["usage_equivalent_usd"], PROJECT_UNSCOPED_COST, places=6,
             msg="the unscoped frontier cost is not the whole sink's reduced "
                 "survivors",
         )
         self.assertAlmostEqual(
-            scoped["frontier"]["cost_usd"], PROJECT_SCOPED_COST, places=6,
+            scoped["frontier"]["usage_equivalent_usd"], PROJECT_SCOPED_COST, places=6,
             msg="the scoped frontier cost is not the two agentops sessions "
                 "only -- 'agentops-web' is a different repository, and the "
                 "row carrying no project cannot be attributed to one",

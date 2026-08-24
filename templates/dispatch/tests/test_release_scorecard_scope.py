@@ -160,7 +160,7 @@ PARTITION_SPRINTCTL_COST = 6.75
 PARTITION_TOTAL_COST = 10.5
 
 #: The aggregate fields that must partition additively across projects.
-#: ``cost_usd`` is compared separately because it is a float.
+#: ``usage_equivalent_usd`` is compared separately because it is a float.
 ADDITIVE_FIELDS = ("sessions", "turns", "assistant_msgs", "tool_calls",
                    "duration_s", "rework_rounds")
 
@@ -320,12 +320,12 @@ class ScopedScorecardTests(unittest.TestCase):
             "half -- the scope was not applied",
         )
         self.assertAlmostEqual(
-            agentops["cost_usd"], PARTITION_AGENTOPS_COST, places=6,
+            agentops["usage_equivalent_usd"], PARTITION_AGENTOPS_COST, places=6,
             msg="the agentops-scoped frontier cost is not the reduced "
                 "survivors of the agentops sessions only (3.5 + 0.25)",
         )
         self.assertAlmostEqual(
-            sprintctl["cost_usd"], PARTITION_SPRINTCTL_COST, places=6,
+            sprintctl["usage_equivalent_usd"], PARTITION_SPRINTCTL_COST, places=6,
             msg="the sprintctl-scoped frontier cost is not the reduced "
                 "survivors of the sprintctl sessions only (6.0 + 0.75)",
         )
@@ -348,12 +348,14 @@ class ScopedScorecardTests(unittest.TestCase):
         sprintctl = self._frontier("sprintctl")
         whole = self._build(PARTITION_ROWS)["frontier"]
         self.assertAlmostEqual(
-            whole["cost_usd"], PARTITION_TOTAL_COST, places=6,
+            whole["usage_equivalent_usd"], PARTITION_TOTAL_COST, places=6,
             msg="the unscoped frontier cost is not the reduced survivors of "
                 "the whole corpus",
         )
         self.assertAlmostEqual(
-            agentops["cost_usd"] + sprintctl["cost_usd"], whole["cost_usd"],
+            agentops["usage_equivalent_usd"]
+            + sprintctl["usage_equivalent_usd"],
+            whole["usage_equivalent_usd"],
             places=6,
             msg="the two per-project frontier costs do not add up to the "
                 "unscoped one -- a session was double-counted or dropped",
