@@ -174,8 +174,8 @@
     "worktree_root": "/tmp/agentops-hybrid/worktrees",
     "max_timeout_seconds": 1800,
     "max_cost_usd": 3.0,
-    "soft_token_ceiling": 500000,
-    "hard_token_ceiling": 1000000,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000,
     "notes": [
       "The dispatch contract itself is coordinator-only: a worker must never edit the policy, schema, or driver that bounds it.",
       "Eligibility is determined by oracle ownership and failure mode, not implementation size."
