@@ -423,13 +423,31 @@ def hybrid_cmd(
     ]
 
 
+def packet_branch(packet: dict[str, Any]) -> str:
+    """The remote branch an attempt pushes to.
+
+    The packet declares a fixed branch in ``worktree.branch``, and a first
+    attempt pushes that name, unchanged: every packet merged to date used it,
+    and renaming them retroactively would orphan their history. A retry -- any
+    attempt above 1 -- pushes a distinct name that still carries the packet's
+    branch and names the attempt, so two retries can never collide with each
+    other and the earlier attempt's branch stays exactly as it was. A missing
+    or non-integer attempt is a first attempt.
+    """
+    branch = packet["worktree"]["branch"]
+    attempt = packet.get("attempt")
+    if not isinstance(attempt, int) or attempt <= 1:
+        return branch
+    return f"{branch}.attempt-{attempt}"
+
+
 def pr_command(
     packet: dict[str, Any], body: Path, base: str, title: str, gh_bin: str,
 ) -> list[str]:
     """The single ``gh pr create`` invocation. Body is the generated body file."""
     return [
         gh_bin, "pr", "create",
-        "--head", packet["worktree"]["branch"],
+        "--head", packet_branch(packet),
         "--base", base,
         "--title", title,
         "--body-file", str(body),
@@ -882,6 +900,7 @@ def drive(
             )
         else:
             branch = packet["worktree"]["branch"]
+            remote_branch = packet_branch(packet)
             add_cmd = ["git", "remote", "add", "origin", remote]
             completed = runner(add_cmd, worktree)
             if completed.returncode != 0:
@@ -889,14 +908,14 @@ def drive(
                     "remote-add", completed.returncode,
                     (completed.stderr or "").strip()[-2000:],
                 )
-            push_cmd = ["git", "push", "origin", f"{branch}:{branch}"]
+            push_cmd = ["git", "push", "origin", f"{branch}:{remote_branch}"]
             completed = runner(push_cmd, worktree)
             if completed.returncode != 0:
                 return pr_failed(
                     "push", completed.returncode,
                     (completed.stderr or "").strip()[-2000:],
                 )
-            pr["push"] = {"remote": remote, "branch": branch}
+            pr["push"] = {"remote": remote, "branch": remote_branch}
             # Runs in the worktree so gh resolves the repository from there,
             # never from the coordinator checkout. It is the only network step
             # and the only step that is not a hybrid_dispatch stage.
