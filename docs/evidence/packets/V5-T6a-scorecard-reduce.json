@@ -1,0 +1,107 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-T6a-scorecard-reduce",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 24,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "templates/dispatch/tests/test_release_scorecard_reduce.py decides correctness. It fixes the reduction semantics the scorecard is built on: the Stop hook's rows are cumulative snapshots, so a session's rows supersede each other and must be reduced to the newest before anything is summed. The tie-break half is not decoration -- ts has one-second resolution, so a reduction that sorts on ts alone silently under-reports whichever tied pair it picks wrong.",
+    "starts_red": [
+      "agentops.dispatch.tests.scorecard_reduce"
+    ],
+    "reference_patch": "docs/evidence/packets/V5-T6a-scorecard-reduce.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "be30cfed1cf26ac9a03a77452388bcb50c5bd300",
+  "purpose": "Create templates/dispatch/scripts/release_scorecard.py with exactly two public functions, and nothing else. reduce_sessions(rows) takes a list of dicts parsed from the Claude Code Stop-hook sink and returns a dict keyed by session id whose value is that session's single surviving row. The Stop hook fires once per assistant turn and every row is a cumulative snapshot of the session so far, so rows for one session supersede each other rather than adding to each other: summing every row over-counts roughly quadratically -- measured 2026-08-23 at $56,485 summed against $3,825 actual across 97 sessions. Group by the row's session value; within a group the survivor is the maximum by the tuple (ts, cost_usd, out). The magnitude half of that tuple is load-bearing: ts is an ISO-8601 UTC string with one-second resolution, so two stops in the same second are indistinguishable by timestamp, and because the snapshots are monotonic the largest is the latest -- sorting on ts alone can pick the smaller of a tied pair. A row with no session key, or an empty one, cannot be attributed and is ignored entirely; it must not create a key and must not reach any total. Missing ts sorts as the empty string; missing cost_usd or out count as 0. frontier_totals(rows) takes the same raw list, reduces it through reduce_sessions, and returns exactly the seven keys sessions, turns, assistant_msgs, tool_calls, duration_s, cost_usd, rework_rounds -- the count of surviving sessions and the sums over surviving rows only, with a missing numeric field counting as 0 rather than raising, and cost_usd rounded to six decimal places. Neither function may mutate the list it is given or any dict inside it. Write no CLI, no argument parsing, no file reading, no tag resolution and no worker-side accounting: those are later packets and anything of theirs that appears here is out of scope. Leave no debugging output behind.",
+  "readable_context_paths": [
+    "templates/dispatch/tests/test_release_scorecard_reduce.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/release_scorecard.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "a session's rows are reduced to the newest one before anything is summed",
+    "the survivor is the maximum by (ts, cost_usd, out), not by ts alone",
+    "a row that names no session is ignored and reaches no total",
+    "frontier_totals returns exactly the seven named keys over the surviving rows",
+    "missing numeric fields count as 0 rather than raising",
+    "neither function mutates its input",
+    "no CLI, no file reading, no debugging output"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "cumulative snapshots reduce rather than accumulate",
+      "command_id": "agentops.dispatch.tests.scorecard_reduce",
+      "fails_when": "a multi-stop session aggregates to more than one session, or to the sum of its snapshots instead of the last one"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "the tie-break survives one-second ts resolution",
+      "command_id": "agentops.dispatch.tests.scorecard_reduce",
+      "fails_when": "two rows sharing a ts resolve to the smaller snapshot, or input order decides the survivor"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "unattributable and incomplete rows are handled without raising",
+      "command_id": "agentops.dispatch.tests.scorecard_reduce",
+      "fails_when": "a row with no session creates a key or reaches a total, a missing numeric field raises, or an input dict is mutated"
+    }
+  ],
+  "non_goals": [
+    "the CLI, the tag-range resolution and the scorecard file write, which are later packets",
+    "worker-side spend read from receipts, which is a later packet",
+    "the worse-detector, which is T-7"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.scorecard_reduce"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-t6a-scorecard-reduce",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-T6c-scorecard-build",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 24,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "templates/dispatch/tests/test_release_scorecard_build.py decides correctness: the scorecard's two sources joined into one release row without either standing in for the other. The empty-receipts fixture is the load-bearing one -- a scorecard that quietly reports the frontier figure as the whole cost is the exact miscount T-6 exists to prevent.",
+    "starts_red": [
+      "agentops.dispatch.tests.scorecard_build"
+    ],
+    "reference_patch": "docs/evidence/packets/V5-T6c-scorecard-build.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "dc1c5e0bac8269acf12ad0fcaf06636058b28103",
+  "purpose": "Add one function, build_scorecard(release, rows, receipts, escalations, recorded_at), to templates/dispatch/scripts/release_scorecard.py, and change nothing already in it. It is a pure function over already-parsed inputs: no file reading, no writing, no argument parsing, no git. It returns exactly the top-level keys schema_version, release, recorded_at, frontier, worker, escalations and cost_usd. schema_version is the literal string workflow-scorecard/v1; release and recorded_at are carried through verbatim. frontier is frontier_totals(rows) and worker is worker_totals(receipts) -- delegate to them, do not re-implement either, and in particular the frontier half must be computed from the reduced rows, since a scorecard built on the quadratic sum is the exact miscount this whole row exists to prevent. escalations is built from parsed auditctl workflow.escalation records, whose task_id and optional stop_condition live under a metadata key, and is {count, tasks, stop_conditions}: the number of records, the sorted distinct task ids, and the sorted distinct stop conditions with records carrying none omitted rather than contributing a null. Two escalations on one task count as two but name that task once, and an empty list yields a zero count with empty lists rather than missing keys. cost_usd is {frontier, worker, total, total_reliable}: the two halves, their sum rounded to six places, and worker's cost_reported -- the total is only as trustworthy as its least certain half, and a provider that reports no cost is indistinguishable from a free one. The two sources are the point of the row and neither substitutes for the other: the hooks never see an OpenCode worker so the hook sink alone undercounts a loop run, and the receipts know nothing about frontier turns. With no receipts at all the worker half is still present with zeroes and both halves stay separately visible; it must never collapse to the frontier figure. Do not mutate any input. Leave no debugging output behind.",
+  "readable_context_paths": [
+    "templates/dispatch/tests/test_release_scorecard_build.py",
+    "templates/dispatch/scripts/release_scorecard.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/release_scorecard.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "the frontier half delegates to frontier_totals over reduced rows",
+    "the worker half delegates to worker_totals",
+    "both halves stay separately visible even when one is empty",
+    "escalations count records but name tasks once, and omit absent stop conditions",
+    "cost_usd.total is the sum and total_reliable is the worker's cost_reported",
+    "schema_version is the literal workflow-scorecard/v1",
+    "no input is mutated and nothing else in the module changes"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "the release row is built from both sources, not one",
+      "command_id": "agentops.dispatch.tests.scorecard_build",
+      "fails_when": "the worker half is absent or collapses into the frontier figure when no receipts are given"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "the frontier half never carries the quadratic sum",
+      "command_id": "agentops.dispatch.tests.scorecard_build",
+      "fails_when": "a multi-stop session reaches the scorecard summed rather than reduced"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "a combined total says how far it can be trusted",
+      "command_id": "agentops.dispatch.tests.scorecard_build",
+      "fails_when": "total_reliable stays true while a contributing receipt reported no cost"
+    }
+  ],
+  "non_goals": [
+    "reduce_sessions, frontier_totals, worker_spend_from_receipt and worker_totals, which are settled",
+    "the CLI, the tag-range resolution and the scorecard file write",
+    "the worse-detector, which is T-7"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.scorecard_build"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-t6c-scorecard-build",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  }
+}

@@ -1,0 +1,74 @@
+diff --git a/templates/dispatch/scripts/release_scorecard.py b/templates/dispatch/scripts/release_scorecard.py
+index 1559507..80e7596 100644
+--- a/templates/dispatch/scripts/release_scorecard.py
++++ b/templates/dispatch/scripts/release_scorecard.py
+@@ -114,4 +114,68 @@ def worker_totals(receipts):
+         "cost_unreported_tasks": sorted(unreported_tasks),
+         "first_pass_tasks": len(first_pass_tasks),
+         "first_pass_rate": first_pass_rate,
++    }
++
++
++SCORECARD_SCHEMA_VERSION = "workflow-scorecard/v1"
++
++
++def _escalation_summary(escalations):
++    """Count the records, but name each task and stop condition once."""
++    tasks = set()
++    stop_conditions = set()
++    count = 0
++    for record in escalations:
++        count += 1
++        metadata = record.get("metadata")
++        if not isinstance(metadata, dict):
++            continue
++        task_id = metadata.get("task_id")
++        if task_id is not None:
++            tasks.add(task_id)
++        stop_condition = metadata.get("stop_condition")
++        # Absent is absent: a record that named no stop condition must not
++        # contribute a null to a list of them.
++        if stop_condition is not None:
++            stop_conditions.add(stop_condition)
++    return {
++        "count": count,
++        "tasks": sorted(tasks),
++        "stop_conditions": sorted(stop_conditions),
++    }
++
++
++def build_scorecard(release, rows, receipts, escalations, recorded_at):
++    """Join one release's two telemetry sources into a single scorecard row.
++
++    Two sources, and neither stands in for the other. The Claude Code hooks
++    never see an OpenCode worker at all, so a loop run scored from the hook
++    sink alone undercounts itself by the worker's whole side; the receipts in
++    turn know nothing about frontier turns. Both halves therefore stay
++    separately visible in the output even when one of them is empty -- a
++    scorecard that quietly reported the frontier figure as the total cost is
++    the miscount this row exists to prevent.
++    """
++    frontier = frontier_totals(rows)
++    worker = worker_totals(receipts)
++    frontier_cost = frontier["cost_usd"]
++    worker_cost = worker["cost_usd"]
++    return {
++        "schema_version": SCORECARD_SCHEMA_VERSION,
++        "release": release,
++        "recorded_at": recorded_at,
++        "frontier": frontier,
++        "worker": worker,
++        "escalations": _escalation_summary(escalations),
++        "cost_usd": {
++            "frontier": frontier_cost,
++            "worker": worker_cost,
++            "total": round(frontier_cost + worker_cost, 6),
++            # A total is only as trustworthy as its least certain half: a
++            # provider that reports no cost yields 0.0, indistinguishable from
++            # a free model. Read this beside worker.attempts -- an empty
++            # worker corpus has nothing that failed to report, which is not
++            # the same as a measured zero.
++            "total_reliable": worker["cost_reported"],
++        },
+     }
+\ No newline at end of file

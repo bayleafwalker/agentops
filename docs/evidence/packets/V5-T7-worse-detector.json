@@ -1,0 +1,109 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-T7-worse-detector",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 24,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "templates/dispatch/tests/test_release_scorecard_worse.py decides correctness: what 'worse' looks like, over a synthetic release series. The one-bad-release fixtures are the load-bearing half -- a detector that fires on a single bad transition is a detector nobody will keep listening to.",
+    "starts_red": [
+      "agentops.dispatch.tests.scorecard_worse"
+    ],
+    "reference_patch": "docs/evidence/packets/V5-T7-worse-detector.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "ad60375395319d0bbee41c874ea9a602d5668368",
+  "purpose": "Add one function, detect_worse(scorecards), to templates/dispatch/scripts/release_scorecard.py, and change nothing already in it. scorecards is a list of build_scorecard outputs in release order, oldest first. It reads no files, writes nothing and parses no arguments. The definition of worse is fixed in advance so it is recognizable rather than argued about after the fact: rework up, escalations up, or frontier turns flat while cost rises -- any one of them for two consecutive releases. Two consecutive releases means the signal worsened across two consecutive transitions, so it takes three scorecards to fire; one bad release is noise and two in a row is a trend. On a transition from a card a to the next card b, rework has worsened when b's frontier rework_rounds is strictly greater than a's; escalations when b's escalations count is strictly greater; and turns_flat_cost_up when b's frontier turns is greater than or equal to a's while b's cost_usd total is strictly greater. That last comparison is deliberate and the two halves pull in opposite directions: the programme's goal is frontier turns dropping, so turns that fail to drop while cost rises means paying more for the same frontier attention, whereas turns that actually drop stay quiet however the cost moved. Return the keys worse, signals and insufficient_series. worse is True when any signal fired. signals carries one entry per signal per window, each entry being exactly signal, releases and values: the three release ids oldest first, and that signal's value at each of the three -- for turns_flat_cost_up a pair of turns and cost total at each. Entries are ordered by the fixed signal order rework, then escalations, then turns_flat_cost_up, and oldest window first within a signal, so two runs over the same series read the same. Fewer than three scorecards gives worse False, no signals and insufficient_series True: not enough series to say is a different answer from not worse, and the field exists so a caller cannot read one as the other. With three or more, insufficient_series is False. Do not mutate the list or any scorecard in it. Leave no debugging output behind.",
+  "readable_context_paths": [
+    "templates/dispatch/tests/test_release_scorecard_worse.py",
+    "templates/dispatch/scripts/release_scorecard.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/release_scorecard.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/scripts/release_unit_packet.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "a signal fires only across two consecutive transitions, never on one",
+    "each of the three signals fires alone and does not fire for another's reason",
+    "equality is not a rise for rework and escalations, but flat turns with rising cost does fire",
+    "turns that drop while cost rises stay quiet",
+    "entries are ordered by the fixed signal order, oldest window first",
+    "fewer than three scorecards reports insufficient_series rather than a quiet False",
+    "no input is mutated and nothing else in the module changes"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "two in a row is a trend, one is noise",
+      "command_id": "agentops.dispatch.tests.scorecard_worse",
+      "fails_when": "a single worsening transition sets worse, or a genuine two-transition climb does not"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "each signal means its own thing",
+      "command_id": "agentops.dispatch.tests.scorecard_worse",
+      "fails_when": "a signal fires for another signal's data, equality counts as a rise for rework or escalations, or turns dropping while cost rises fires"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "too short a series says so",
+      "command_id": "agentops.dispatch.tests.scorecard_worse",
+      "fails_when": "fewer than three scorecards returns a plain False without insufficient_series, or a length-blind detector fires on two cards"
+    }
+  ],
+  "non_goals": [
+    "reduce_sessions, frontier_totals, worker_totals and build_scorecard, which are settled",
+    "the CLI, the tag-range resolution and the scorecard file write",
+    "changing what the three signals mean"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.scorecard_worse"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-t7-worse-detector",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  }
+}

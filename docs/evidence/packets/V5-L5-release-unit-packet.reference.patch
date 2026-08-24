@@ -1,0 +1,97 @@
+diff --git a/templates/dispatch/scripts/release_unit_packet.py b/templates/dispatch/scripts/release_unit_packet.py
+new file mode 100644
+index 0000000..6281de9
+--- /dev/null
++++ b/templates/dispatch/scripts/release_unit_packet.py
+@@ -0,0 +1,91 @@
++"""Build the packet for one release unit, with its gate set pre-filled.
++
++Each sub-release (v5.0, v5.1, v5.2 …) is one orchestrator hand-off unit with
++its own gate set. The gate set and the stop conditions are the same for every
++one of them -- they come from the pathway, not from the release -- so an
++orchestrator should never be composing them by hand, and two release units
++should never quietly disagree about what "gated" meant.
++
++The gate order is not decoration: a cold prepare that runs after the suite
++proves nothing, because the suite has already written to the tree it was
++supposed to find clean.
++"""
++
++#: The pathway §5 gate set, in the order the orchestrator runs it. Identifiers
++#: are stable: they are what a receipt and a scorecard refer to later.
++GATE_SET = (
++    "prepare_cold_worktree_at_pinned_commit",
++    "repo_suite_with_falsifier_coverage",
++    "round_checks_and_untracked_file_guard",
++    "release_contract_digest_validation",
++    "hybrid_dispatch_gate_then_receipt",
++    "pr_opened_with_receipt_then_stop",
++)
++
++#: The four encoded L-2 stop conditions.
++STOP_CONDITIONS = (
++    "gate_red_twice_on_same_packet",
++    "release_boundary_crossing",
++    "command_outside_allowed_command_ids",
++    "path_outside_writable_patch_paths",
++)
++
++#: Filled in at freeze time, when the release unit is pinned to a commit. It is
++#: shaped like a real sha so the packet is well-formed before it is pinned.
++UNPINNED_COMMIT = "0" * 40
++
++
++def release_unit_packet(release, repo_id, sprint_item, writable_patch_paths, purpose):
++    """Return the packet for one sub-release hand-off unit.
++
++    Everything the orchestrator must not have to think about is pre-filled and
++    identical across releases; only the release-derived id differs. Nothing the
++    caller passes in is aliased, so mutating an argument afterwards cannot
++    rewrite a packet that has already been built.
++    """
++    return {
++        "schema_version": "agentops-task/v2",
++        "task_id": "{}-release-unit".format(release),
++        "repo_id": repo_id,
++        "sprint_item": dict(sprint_item),
++        "route": "mechanical_bulk",
++        "task_class": "mechanical_implementation",
++        "risk": "low",
++        # A release unit crosses a release boundary by definition, so L-2's
++        # stop condition must fire on it rather than the driver running it
++        # unattended. This is the field that makes that automatic.
++        "release_boundary": True,
++        "gate_set": [
++            {"order": index, "gate": gate}
++            for index, gate in enumerate(GATE_SET, start=1)
++        ],
++        "stop_conditions": list(STOP_CONDITIONS),
++        "oracle": {
++            "ownership": "externally_defined",
++            "worker_may_modify": False,
++            "description": "The release unit's gate set decides acceptance; "
++                           "see gate_set, which is the pathway order.",
++            "starts_red": [],
++        },
++        "starting_commit": UNPINNED_COMMIT,
++        "purpose": purpose,
++        "readable_context_paths": [],
++        "writable_patch_paths": list(writable_patch_paths),
++        "protected_paths": [],
++        "required_outcomes": [],
++        "acceptance_properties": [],
++        "non_goals": [],
++        "allowed_command_ids": [],
++        "limits": {
++            "timeout_seconds": 1800,
++            "max_cost_usd": 3.0,
++            "soft_token_ceiling": 1200000,
++            "hard_token_ceiling": 2000000,
++        },
++        "network_policy": "disabled",
++        "worktree": {
++            "root": "/tmp/agentops-hybrid/worktrees",
++            "branch": "hybrid/release-unit",
++            "cleanup": "retain-for-review",
++        },
++    }
