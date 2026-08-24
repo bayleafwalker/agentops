@@ -169,7 +169,8 @@
       "agentops.dispatch.tests.scorecard_reduce": "python templates/dispatch/tests/test_release_scorecard_reduce.py",
       "agentops.dispatch.tests.scorecard_worker": "python templates/dispatch/tests/test_release_scorecard_worker.py",
       "agentops.dispatch.tests.scorecard_build": "python templates/dispatch/tests/test_release_scorecard_build.py",
-      "agentops.dispatch.tests.release_unit_packet": "python templates/dispatch/tests/test_release_unit_packet.py"
+      "agentops.dispatch.tests.release_unit_packet": "python templates/dispatch/tests/test_release_unit_packet.py",
+      "agentops.dispatch.tests.scorecard_worse": "python templates/dispatch/tests/test_release_scorecard_worse.py"
     },
     "protected_paths": [
       "templates/dispatch/hybrid/**",
