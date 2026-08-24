@@ -1,7 +1,7 @@
 {
  "schema_version": "workflow-scorecard/v0",
  "release": "v5-M",
- "recorded_at": "2026-08-24T16:30:00Z",
+ "recorded_at": "2026-08-24T18:30:00Z",
  "sprint_item": "agentops#2254",
  "mode": "metanarrative (planner -> driver -> cheap implementer), owner-unattended",
  "brief": "docs/dispatch/handover-2026-08-23-metanarrative-v5.md",
@@ -642,6 +642,78 @@
    },
    "end_to_end": "THE FIRST DISPATCH TO REACH A PR WITH NO HAND STEP. Driver exit 0. receipt-capture, commit, remote-add, push and gh pr create all succeeded unattended. PR #75 was opened by the driver with a 414-byte generated body carrying task, starting_commit, disposition, cost, tokens, the captured receipt path and the gate table. Commit 528e528 carries the worker's diff, receipt.json with worker.stdout removed, and worker-stdout.txt as 43 lines of text rather than a JSON-escaped single line. Every prior candidate this session died at pr-create on GraphQL: Body is too long.",
    "cheapest_of_the_series": "$0.010377 against V5-M10c attempt 1's $0.149579 for nothing usable."
+  },
+  {
+   "packet": "V5-M12-scan-hardening",
+   "handover_row": "M-12 (new; from holistic review)",
+   "writable": "templates/dispatch/scripts/dispatch_release.py",
+   "oracle": "templates/dispatch/tests/test_dispatch_release_scanhardening.py, 7 fixtures over 18 secret shapes and 6 kinds of output that must stay silent",
+   "reference_patch": "docs/evidence/packets/V5-M12-scan-hardening.reference.patch",
+   "attempts": 2,
+   "first_attempt_green": false,
+   "attempt_1": {
+    "disposition": "candidate",
+    "pr": 77,
+    "cost_usd": 0.030386,
+    "tokens": 428716,
+    "outcome": "rejected. Functionally perfect -- all 18 shapes detected, all 6 silence fixtures clean, PR opened by the driver with no hand step -- and its patterns backtracked catastrophically: 50 000 unbroken characters did not return within two seconds.",
+    "classification": "coordinator oracle gap. No fixture fed a long unbroken token and the spec said nothing about the cost of matching; the tier wrote what was asked for."
+   },
+   "attempt_2": {
+    "disposition": "candidate",
+    "pr": 78,
+    "cost_usd": 0.042933,
+    "tokens": 394913,
+    "performance": "1 MB unbroken in 53 ms",
+    "push": "REJECTED -- see the retry-push defect; the coordinator re-pushed the worker's diff unmodified"
+   },
+   "gates": {
+    "diff-nonempty": true,
+    "diff-scope-respected": true,
+    "protected-paths-untouched": true,
+    "worktree-state-captured": true,
+    "registered-commands-green": true
+   },
+   "merge_preview": {
+    "tests": 597,
+    "validator": "green",
+    "hooks": "green"
+   },
+   "note": "The false-positive half was checked against the real captured artifacts of the fully-automated V5-M11 run -- 30 640 bytes of receipt and 62 751 of transcript -- and returns no findings, so hardening detection did not start withholding genuine captures."
+  },
+  {
+   "packet": "V5-M13-retry-branch",
+   "handover_row": "M-13 (new; from V5-M12's own failure)",
+   "writable": "templates/dispatch/scripts/dispatch_release.py",
+   "oracle": "templates/dispatch/tests/test_dispatch_release_retrybranch.py, 4 fixtures",
+   "reference_patch": "docs/evidence/packets/V5-M13-retry-branch.reference.patch",
+   "validate": {
+    "status": "fit",
+    "oracle_attainable": true,
+    "oracle_satisfiable_within_paths": true,
+    "read_trace": true,
+    "reads_outside_declared_paths": {},
+    "red_after_reference": []
+   },
+   "attempts": 1,
+   "first_attempt_green": true,
+   "disposition": "candidate",
+   "pr": 80,
+   "cost_usd": 0.020864,
+   "tokens": 292309,
+   "gates": {
+    "diff-nonempty": true,
+    "diff-scope-respected": true,
+    "protected-paths-untouched": true,
+    "worktree-state-captured": true,
+    "registered-commands-green": true
+   },
+   "merge_preview": {
+    "tests": 615,
+    "validator": "green",
+    "hooks": "green"
+   },
+   "end_to_end": "opened by the driver with no hand step"
   }
  ],
  "coordinator_cost": {
@@ -739,6 +811,18 @@
    "id": "set-home-closes-no-leak-probe-2026-08-24",
    "summary": "The justification given for --set-home -- that without it the contained worker was reading the coordinator's ~/.ssh, ~/.config/gh and opencode auth store -- does not hold. Probed directly as agentworker: those paths exist but are NOT readable; filesystem permissions already denied them. --set-home points the worker's HOME at its own rather than at one it cannot read. It is hygiene, not a boundary, and the fixtures say so.",
    "what_the_probe_did_establish": "OPENCODE_CONFIG_CONTENT REPLACES rather than merges -- the worker has no opencode config or auth store anywhere and /home/agentworker does not exist -- so a provider registry must travel in the overlay or a model alias cannot resolve. And the worker completed real inference with no credential file at all, which makes options.apiKey in the overlay the ONLY credential-shaped value that ever crosses the boundary. That is what makes narrowing the copy the whole of the credential story rather than part of it."
+  },
+  {
+   "id": "a-retry-could-not-push",
+   "from": "V5-M12 attempt 2",
+   "summary": "The PR step pushed git push origin <branch>:<branch> with the branch fixed in worktree.branch, so a retry collided with its own earlier attempt: 'Updates were rejected because the remote contains work that you do not have locally'. Every retry reaching the PR step would hit it; none had reached it before, which is why it surfaced only after the loop started finishing end to end.",
+   "fixed_by": "V5-M13 (#80). A retry pushes <branch>.attempt-N and leaves the earlier branch alone.",
+   "why_not_force_push": "attempt 1's branch is the evidence the retry was authored against. The retry moves and the record stays -- the same shape as the owner's ruling on the attempt counter."
+  },
+  {
+   "id": "each-fix-exposed-the-next-defect",
+   "summary": "The last four rows form a chain, each found only because the previous one landed. M-10b made the loop finish end to end; finishing end to end meant the packet evidence stopped being committed, because the hand step had been carrying it. Holistic review of the finished loop found the secret scan far weaker than its fixtures suggested, which became M-12. M-12's first attempt shipped a regex that backtracked, caught only because the merge-preview ran 92 seconds instead of 30. M-12's retry then could not push at all, which became M-13. None of these were visible before the loop worked.",
+   "note": "This is the argument for finishing a mechanism before hardening it: four real defects were reachable only once the thing ran."
   }
  ],
  "d8": {
