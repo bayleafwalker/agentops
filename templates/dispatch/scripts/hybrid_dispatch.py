@@ -583,11 +583,12 @@ def build_overlay(
     overlay = {
         "$schema": base_config.get("$schema", "https://opencode.ai/config.json"),
         "model": model,
-        # The session overlay replaces the worker's config, so preserve the
-        # route's declared provider registry. Without this, a contained worker
-        # can receive a model alias such as local3090/worker-fast but OpenCode
-        # has no provider definition with which to resolve it.
-        "provider": base_config.get("provider", {}),
+        # The session overlay replaces the worker's config, so the route's
+        # declared provider registry has to travel or a model alias such as
+        # local3090/worker-fast cannot resolve. It travels narrowed: the
+        # credential is replaced with a placeholder and unknown keys are
+        # dropped. See worker_provider_registry.
+        "provider": worker_provider_registry(base_config),
         "permission": dict(permission),
         "agent": {
             agent_name: {
@@ -607,6 +608,95 @@ def build_overlay(
             overlay["permission"][surface] = "deny"
             overlay["agent"][agent_name]["permission"][surface] = "deny"
     return overlay
+
+
+#: The sudo flags that make a worker contained, defined once so the
+#: qualification probe and production dispatch cannot drift apart. They did:
+#: --set-home was added to dispatch and not to the probe, so every profile
+#: probe measured the CLI under the coordinator's HOME while dispatch ran under
+#: the worker's, and the qualification evidence stopped describing production.
+CONTAINED_SUDO_FLAGS: tuple[str, ...] = ("--non-interactive", "--set-home")
+
+#: What the worker's provider registry is allowed to carry, per provider and
+#: inside ``options``. Deny-by-default: an unrecognised key is dropped, not
+#: passed on, so adding a secret to the coordinator's config cannot leak by
+#: omission.
+_PROVIDER_KEYS: tuple[str, ...] = ("npm", "name", "models")
+_PROVIDER_OPTION_KEYS: tuple[str, ...] = ("baseURL",)
+
+#: openai-compatible clients will not construct without some apiKey string.
+#: Forcing this one means a provider that needs a real credential fails loudly
+#: at the worker instead of quietly succeeding with the coordinator's.
+WORKER_PLACEHOLDER_API_KEY = "local-only"
+
+
+def worker_provider_registry(base_config: dict[str, Any]) -> dict[str, Any]:
+    """The provider registry a worker needs, with no credential in it.
+
+    A model alias such as ``local3090/worker-fast`` cannot resolve unless the
+    overlay carries the provider that defines it: ``OPENCODE_CONFIG_CONTENT``
+    replaces the worker's configuration rather than merging with it, and the
+    worker has no configuration of its own -- probed 2026-08-24, its home does
+    not exist. So the registry has to travel.
+
+    What must not travel is ``options.apiKey``. The same probe established that
+    the worker authenticates with no credential file at all, which makes this
+    the only credential-shaped value that ever crosses the boundary, and the
+    worker's own declared contract is "no authority, credentials, network, or
+    oracle ownership".
+    """
+    registry: dict[str, Any] = {}
+    for name, provider in (base_config.get("provider") or {}).items():
+        if not isinstance(provider, dict):
+            continue
+        kept = {k: provider[k] for k in _PROVIDER_KEYS if k in provider}
+        options = provider.get("options")
+        if isinstance(options, dict):
+            kept_options = {
+                k: options[k] for k in _PROVIDER_OPTION_KEYS if k in options
+            }
+            kept_options["apiKey"] = WORKER_PLACEHOLDER_API_KEY
+            kept["options"] = kept_options
+        registry[name] = kept
+    return registry
+
+
+def worker_argv(
+    opencode_bin: str,
+    agent_name: str,
+    message: str,
+    packet_path: Path,
+    worker_user: str | None,
+) -> list[str]:
+    """The exact command one contained worker loop runs.
+
+    Extracted so it can be asserted over without running anything. Note what
+    ``--set-home`` does and does not do: the coordinator's opencode auth store
+    and ssh directory are already unreadable by the worker on filesystem
+    permissions, so this closes no leak. It points the worker's HOME at its own
+    rather than at one it cannot read.
+    """
+    argv = [
+        opencode_bin,
+        "run",
+        message,
+        "--agent",
+        agent_name,
+        "--file",
+        str(packet_path),
+        "--format",
+        "json",
+    ]
+    if not worker_user:
+        return argv
+    return [
+        "sudo",
+        *CONTAINED_SUDO_FLAGS,
+        "--user",
+        worker_user,
+        "--preserve-env=OPENCODE_CONFIG_CONTENT",
+        *argv,
+    ]
 
 
 def overlay_hash(overlay: dict[str, Any]) -> str:
@@ -1532,32 +1622,13 @@ def dispatch_worker(
     # It has no use for it: everything it may touch is inside the worktree.
     env.pop("AGENTOPS_ROOT", None)
     # The qualified OpenCode implementation profile treats positional arguments
-    # after --file as further file values, so the message must precede it.
-    argv = [
-        opencode_bin,
-        "run",
-        message,
-        "--agent",
-        agent_name,
-        "--file",
-        str(packet_path),
-        "--format",
-        "json",
-    ]
-    if worker_user:
-        # The only containment that actually holds: run the worker as an
-        # identity with no write access to the coordinator's checkout. sudo
-        # scrubs the environment, so the overlay has to be carried explicitly --
-        # it is session configuration, not a secret.
-        argv = [
-            "sudo",
-            "--non-interactive",
-            "--set-home",
-            "--user",
-            worker_user,
-            f"--preserve-env=OPENCODE_CONFIG_CONTENT",
-            *argv,
-        ]
+    # after --file as further file values, so the message must precede it. The
+    # containment prefix lives in worker_argv, shared with the qualification
+    # probe: the only containment that actually holds is running as an identity
+    # with no write access to the coordinator's checkout, and sudo scrubs the
+    # environment, so the overlay is carried explicitly -- it is session
+    # configuration, not a secret.
+    argv = worker_argv(opencode_bin, agent_name, message, packet_path, worker_user)
     # Streamed rather than captured whole, so context_churn can be enforced while
     # the worker is still running. Captured output can only ever explain a
     # ceiling after it has been paid.

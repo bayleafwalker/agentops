@@ -1,0 +1,24 @@
+name: protected paths
+
+# The dispatch gate asserts protected-paths-untouched over the worker's commit;
+# acceptance happens over the merged PR. This closes that gap for every PR, at
+# no cost in coordinator time.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+jobs:
+  protected-paths:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: check
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          python3 templates/dispatch/scripts/check_protected_paths.py \
+            --base "origin/${{ github.event.pull_request.base.ref }}" \
+            --head "${{ github.event.pull_request.head.sha }}" \
+            --title "$PR_TITLE"
