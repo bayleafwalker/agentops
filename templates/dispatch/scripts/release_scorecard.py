@@ -161,3 +161,58 @@ def build_scorecard(release, rows, receipts, escalations, recorded_at):
             "total_reliable": worker["cost_reported"],
         },
     }
+
+
+def detect_worse(scorecards):
+    """Return whether the release loop is trending worse over the series.
+
+    ``scorecards`` is a list of ``build_scorecard`` outputs in release order,
+    oldest first. A signal fires only when it worsened across two consecutive
+    transitions, so it takes three scorecards to fire: one bad release is
+    noise, two in a row is a trend. Fewer than three scorecards reports
+    ``insufficient_series`` rather than a quiet False.
+    """
+    if len(scorecards) < 3:
+        return {"worse": False, "signals": [], "insufficient_series": True}
+
+    def rework_worsened(a, b):
+        return b["frontier"]["rework_rounds"] > a["frontier"]["rework_rounds"]
+
+    def escalations_worsened(a, b):
+        return b["escalations"]["count"] > a["escalations"]["count"]
+
+    def turns_flat_cost_up_worsened(a, b):
+        return (
+            b["frontier"]["turns"] >= a["frontier"]["turns"]
+            and b["cost_usd"]["total"] > a["cost_usd"]["total"]
+        )
+
+    def rework_value(card):
+        return card["frontier"]["rework_rounds"]
+
+    def escalations_value(card):
+        return card["escalations"]["count"]
+
+    def turns_flat_cost_up_value(card):
+        return [card["frontier"]["turns"], card["cost_usd"]["total"]]
+
+    signals = []
+    for name, worsened, value_of in (
+        ("rework", rework_worsened, rework_value),
+        ("escalations", escalations_worsened, escalations_value),
+        ("turns_flat_cost_up", turns_flat_cost_up_worsened, turns_flat_cost_up_value),
+    ):
+        for index in range(len(scorecards) - 2):
+            a, b, c = scorecards[index], scorecards[index + 1], scorecards[index + 2]
+            if worsened(a, b) and worsened(b, c):
+                signals.append({
+                    "signal": name,
+                    "releases": [a["release"], b["release"], c["release"]],
+                    "values": [value_of(a), value_of(b), value_of(c)],
+                })
+
+    return {
+        "worse": bool(signals),
+        "signals": signals,
+        "insufficient_series": False,
+    }
