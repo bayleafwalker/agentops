@@ -238,9 +238,9 @@ Open rows: **T-6/T-7** (scorecard script) and **L-5** (release-unit template).
 #82 #84 #85 #86 #87 #88 #89, plus the hand-pass #83.
 Scorecard: `docs/evidence/scorecards/v5-t-series.json`.
 
-Nine packets (seven plus the two corrections below), **nine worker greens on the first attempt** — no retry, no escalation, no rework round,
-and no hand step inside any of the nine loops. Total **billed** worker spend **$0.140** and
-2.47 M tokens. Against D-8's rule that is nine consecutive greens with zero escalations for
+Ten packets (seven plus the three corrections below), **ten worker greens on the first attempt** — no retry, no escalation, no rework round,
+and no hand step inside any of the ten loops. Total **billed** worker spend **$0.151** and
+2.72 M tokens. Against D-8's rule that is ten consecutive greens with zero escalations for
 `mechanical_bulk`.
 
 - **T-6 was split five ways** on the seams its oracle already had, in the spirit of M-10 in
@@ -384,6 +384,44 @@ commit 2 and the oracle is commit 1. That is the freeze shape earning its keep, 
 cold gate doing exactly the job it was added for.
 
 Nine packets, **nine worker greens on the first attempt**, **$0.140 billed**.
+
+### Third correction: the same two keys, one level down
+
+#91 stopped the top-level block adding an imputed list price to real metered spend. One level
+below it, **`frontier_totals` reported `cost_usd` and `worker_totals` reported `cost_usd`** —
+two keys, the same name, opposite meanings, directly beneath the block whose whole purpose was
+keeping them apart. Anyone printing `scorecard["frontier"]["cost_usd"]` got $203.61 and every
+reason to read it as money. Found by reading the tool's own output, not by any gate.
+
+Fixed in **#95** (V5-T10): `usage_equivalent_usd` and `billed_usd`. Both functions still *read*
+`cost_usd` from the sink row and the receipt — those schemas own that spelling — and only what
+they *report* changed. `worker_spend_from_receipt` keeps `cost_usd` on purpose, with a named
+test saying it mirrors the receipt and must not be tidied.
+
+Enforced by `test_release_scorecard_naming.py`, which asserts the two reporters' money-named key
+sets are **disjoint by a syntactic rule** (`*_usd`, or exactly `cost_usd`) rather than a
+maintained list — so a future `spend_usd` is caught with nobody updating the test — and that
+each set is non-empty, so deleting a figure cannot pass it vacuously.
+
+Same packet: `worker_totals([])` reported `cost_reported: true`, i.e. "nothing failed to
+report", which reads as a measured zero. Nothing was measured, so it now reports `false`, and a
+scorecard over no receipts honestly reports `total_reliable: false`.
+
+### What the three corrections have in common
+
+**T-8 (units), T-9 (scope), T-10 (names) each fixed a number that was arithmetically correct and
+said the wrong thing.** Not one was findable by a gate, an oracle, a read-trace or the
+merge-preview — because every one of those asks whether a number **is** what the packet said,
+never what it **stands for**. Two were caught by the owner reading a figure; one by reading the
+tool's own output.
+
+That is the sharpest boundary this mechanism has hit. The loop is excellent at "does the code do
+what the packet says" and structurally blind to "is the packet asking for the right thing".
+Three of ten packets this session were that second question.
+
+Ten packets, **ten worker greens on the first attempt**, **$0.151 billed**. The scorecard for
+this work was produced by the tool it documents:
+`docs/evidence/scorecards/v5-t-series.generated.json`.
 
 Open rows from this brief: **none**.
 
