@@ -1,0 +1,117 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-M10b-bounded-body",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 6,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "templates/dispatch/tests/test_dispatch_release_body.py decides correctness: four fixtures, and nothing outside dispatch_release.py. Cut from the M-10 oracle written from the spec row by an author with no access to any implementation, then corrected under rule 12 -- its gate-table fixture read three gate names as though they were boolean values and would have failed every correct implementation.",
+    "starts_red": [
+      "agentops.dispatch.tests.body"
+    ],
+    "reference_patch": "docs/evidence/packets/V5-M10b-bounded-body.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "69118ec740dcfa44583f2378fb118e06ecdf0eec",
+  "purpose": "Give the L-1 driver a bounded PR body of its own, in templates/dispatch/scripts/dispatch_release.py. The receipt file IS the body today and receipts run past GitHub's 65536-character limit, so gh pr create has failed with 'GraphQL: Body is too long' on every candidate the loop has produced -- M-10a and M-10c both died there after everything else in the PR step worked. Generate the body to its own file and point gh pr create --body-file at that file, never at the receipt and never at the captured copy. The body carries the packet's task id, its starting_commit, the disposition, a gate table giving every gate name and its boolean, the worker's cost and token spend, and the repo-relative path of the captured receipt -- or, when M-10a's scan withheld it, a note saying so instead of a path that was never written. It must be under 65536 bytes no matter how large the receipt is, and must contain no part of the worker's transcript: the repo is public. Render cost so that its value rounded to two decimal places appears in the body. Render each gate's boolean so that true and false are distinguishable -- and note that three gate names contain boolean words themselves, so the rendering must not depend on the name. The receipt the driver writes beside the worktree is unchanged and keeps its stdout; the captured copy M-10c writes is unchanged. Change nothing else: PR_STEP_NAMES, STEPS, RETRY_STEPS, STOP_CONDITIONS, MAX_GATE_ATTEMPTS, the L-4 retry, the L-2 stop conditions, scan_for_secrets, capture_receipt and the M-9 commit all stay exactly as they are. Leave no debugging output behind.",
+  "readable_context_paths": [
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/tests/test_dispatch_release_body.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/dispatch_release.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "the PR body is generated to its own file, and gh pr create --body-file points at it",
+    "the body is under 65536 bytes against a receipt of several megabytes",
+    "the body contains no part of the worker's transcript",
+    "the body carries task id, starting_commit, disposition, gate table, cost and tokens",
+    "the body points at the captured receipt, or says the transcript was withheld",
+    "a withheld body names no secret and points at no path",
+    "nothing else in the driver changes, and no debugging output is left behind"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "the body is generated and bounded",
+      "command_id": "agentops.dispatch.tests.body",
+      "fails_when": "the body file is the receipt or the captured copy, gh points somewhere else, or the body reaches 65536 bytes against an oversized receipt"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "no transcript in a public PR body",
+      "command_id": "agentops.dispatch.tests.body",
+      "fails_when": "any window of the worker's stdout appears in the body"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "the body is worth opening",
+      "command_id": "agentops.dispatch.tests.body",
+      "fails_when": "the task id, starting_commit, disposition, cost, tokens, captured-receipt path or any gate row is missing, or a gate renders the wrong boolean"
+    },
+    {
+      "id": "REQ-004",
+      "requirement": "a withholding is stated, not faked",
+      "command_id": "agentops.dispatch.tests.body",
+      "fails_when": "a withheld run's body points at a path that was never written, omits the withholding, or quotes the secret"
+    }
+  ],
+  "non_goals": [
+    "scan_for_secrets and capture_receipt, which landed in #71 and #73 and are read, not rewritten",
+    "PR_STEP_NAMES and the sub-step naming, which M-10c settled",
+    "the receipt the driver writes beside the worktree, which keeps its stdout",
+    "anything outside templates/dispatch/scripts/dispatch_release.py"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.body"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-m10b-bounded-body",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  },
+  "debt": [
+    "the oracle requires cost rounded to two decimal places to appear in the body, which renders a $0.016 packet as $0.02. The reference patch prints the exact value beside it; a future row should decide whether 2dp is the right contract at all."
+  ]
+}

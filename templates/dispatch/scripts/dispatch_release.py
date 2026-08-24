@@ -192,6 +192,78 @@ def capture_receipt(
     return {"captured": True, "path": f"{CAPTURE_ROOT}/{task_id}/receipt.json"}
 
 
+def _gate_table(final: dict[str, Any]) -> dict[str, Any]:
+    """The gate table, as the gate receipt reports it under ``evidence.gates``."""
+    gate = final.get("gate")
+    if isinstance(gate, dict):
+        evidence = gate.get("evidence")
+        if isinstance(evidence, dict):
+            gates = evidence.get("gates")
+            if isinstance(gates, dict):
+                return gates
+    return {}
+
+
+def _run_spend(final: dict[str, Any]) -> dict[str, Any]:
+    """The run stage's spend record, where the receipt nested it under
+    ``driver_steps``. Empty when the run stage reported none."""
+    for entry in final.get("driver_steps") or []:
+        if isinstance(entry, dict) and entry.get("step") == "run":
+            receipt = entry.get("receipt")
+            if isinstance(receipt, dict):
+                spend = receipt.get("spend")
+                if isinstance(spend, dict):
+                    return spend
+    return {}
+
+
+def _disposition(final: dict[str, Any]) -> str | None:
+    gate = final.get("gate")
+    if isinstance(gate, dict):
+        return gate.get("disposition")
+    return None
+
+
+def build_pr_body(
+    packet: dict[str, Any], final: dict[str, Any], capture: dict[str, Any],
+) -> str:
+    """The bounded PR body: task, commit, disposition, gate table, spend, and
+    the captured receipt's path -- or a note that the transcript was withheld.
+
+    It carries no part of the worker's transcript, so it stays small no matter
+    how large the receipt is, and it never becomes the place a withheld secret
+    leaks. Cost is rendered rounded to two decimal places; each gate's boolean
+    is rendered with a word that does not depend on the gate's own name.
+    """
+    lines = [
+        f"# Hybrid dispatch {packet['task_id']}",
+        "",
+        f"- task: {packet['task_id']}",
+        f"- starting_commit: {packet['starting_commit']}",
+        f"- disposition: {_disposition(final)}",
+    ]
+    spend = _run_spend(final)
+    cost = spend.get("cost_usd")
+    tokens = spend.get("tokens")
+    if isinstance(cost, (int, float)):
+        lines.append(f"- cost_usd: {cost:.2f}")
+    else:
+        lines.append("- cost_usd: n/a")
+    if tokens is not None:
+        lines.append(f"- tokens: {tokens}")
+    else:
+        lines.append("- tokens: n/a")
+    if capture.get("captured"):
+        lines.append(f"- receipt: {capture['path']}")
+    else:
+        lines.append("- receipt: withheld (the transcript was not captured)")
+    lines.append("")
+    lines.append("## Gates")
+    for name, value in _gate_table(final).items():
+        lines.append(f"- {name}: {'true' if value else 'false'}")
+    return "\n".join(lines) + "\n"
+
+
 class DriverError(RuntimeError):
     pass
 
@@ -319,15 +391,15 @@ def hybrid_cmd(
 
 
 def pr_command(
-    packet: dict[str, Any], receipt_path: Path, base: str, title: str, gh_bin: str,
+    packet: dict[str, Any], body: Path, base: str, title: str, gh_bin: str,
 ) -> list[str]:
-    """The single ``gh pr create`` invocation. Body is the receipt file."""
+    """The single ``gh pr create`` invocation. Body is the generated body file."""
     return [
         gh_bin, "pr", "create",
         "--head", packet["worktree"]["branch"],
         "--base", base,
         "--title", title,
-        "--body-file", str(receipt_path),
+        "--body-file", str(body),
     ]
 
 
@@ -671,7 +743,6 @@ def drive(
     title = f"[hybrid] {packet['task_id']} @ {packet['starting_commit'][:12]}"
     cmd = pr_command(packet, receipt_path, base_branch, title, gh_bin)
     pr: dict[str, Any] = {"command": cmd, "body_file": str(receipt_path), "opened": False}
-
     def pr_failed(step_name: str, exit_code: int, stderr: str) -> tuple[int, dict[str, Any]]:
         pr["failed_step"] = step_name
         pr["exit_code"] = exit_code
@@ -715,6 +786,17 @@ def drive(
                 "receipt-capture", 1,
                 f"receipt-capture could not write into the worktree: {exc}",
             )
+        # M-10b: the PR body is generated to its own file, never the receipt and
+        # never the captured copy. It is bounded no matter how large the receipt
+        # is, and it carries no part of the worker's transcript. gh pr create
+        # points --body-file at it.
+        body_path = worktree.parent / f"{packet['task_id']}.pr-body.md"
+        body_path.write_text(
+            build_pr_body(packet, final, pr["receipt"]), encoding="utf-8",
+        )
+        pr["body_file"] = str(body_path)
+        cmd = pr_command(packet, body_path, base_branch, title, gh_bin)
+        pr["command"] = cmd
         # M-9: the commit is the next thing the PR step hands onward, and it
         # precedes remote resolution so an unresolvable remote still leaves the
         # work committed on the packet branch.
