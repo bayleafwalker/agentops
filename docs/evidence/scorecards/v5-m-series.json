@@ -499,13 +499,41 @@
     "debugging_left_behind": false,
     "outcome": "correct and complete work, stopped by the harness before the gate could run"
    },
-   "attempts": 2,
+   "attempts": 3,
    "first_attempt_green": false,
    "stopped_under": "handover section 7: red twice, do not retry a third time. Escalation ad:01M0ST0EES9W09NR4EXFZCGBBE.",
-   "classification_final": "Not a tier failure and not rule 9. The tier produced a correct implementation twice. The packet's limits block was inherited unchanged from V5-M9 (soft 500000 / hard 1000000) and M-10c costs roughly 1.4-1.5M tokens, so the hard ceiling is set below what the packet costs and kills a run that has already succeeded. Cost is not the binding constraint: $0.15 against a $3.00 cap.",
-   "owner_decision_required": [
-    "raise M-10c's hard_token_ceiling and dispatch attempt 3, which section 7 does not permit without you",
-    "or rule on whether a correct diff from a budget_exceeded run may be gated on its existing worktree without further inference"
+   "classification_final": "Not a tier failure. The tier produced a correct implementation on all three attempts. Two were stopped on the token ceiling before gate could run; the third came in at 533 033 tokens, comfortably under even the original 1000000 ceiling. Spend on one unchanged packet varied by a factor of nearly three.",
+   "attempt_3": {
+    "starting_commit": "54dd5158bd31459958d8a9f10c5d3e29416df997",
+    "changed": "hard_token_ceiling 1000000 -> 2000000 and soft 500000 -> 1200000, owner-approved, plus the same raise to the repository cap in agentops.dispatch.json, without which validate refuses the packet",
+    "disposition": "candidate",
+    "cost_usd": 0.034143,
+    "tokens": 533033,
+    "soft_token_ceiling_exceeded": false,
+    "gates": {
+     "diff-nonempty": true,
+     "diff-scope-respected": true,
+     "protected-paths-untouched": true,
+     "worktree-state-captured": true,
+     "registered-commands-green": true
+    },
+    "touched_paths": [
+     "templates/dispatch/scripts/dispatch_release.py"
+    ],
+    "diff": "111 insertions, 7 deletions in one file; no debugging output",
+    "escalation_cause": "pr step, sub-step pr-create: GraphQL: Body is too long. Harness-side and expected -- it is what M-10b removes.",
+    "pr": 73,
+    "merge_preview": {
+     "tests": 581,
+     "of_which_this_oracle": 15,
+     "validator": "green",
+     "hooks": "green"
+    }
+   },
+   "spend_by_attempt_tokens": [
+    1509082,
+    1435896,
+    533033
    ]
   }
  ],
@@ -548,10 +576,21 @@
   {
    "id": "the-token-ceiling-is-not-calibrated-to-the-packet",
    "from": "V5-M10c attempts 1 and 2",
-   "summary": "Every packet since V5-M9 has carried the same limits block: soft 500000, hard 1000000. Spend per packet is not remotely uniform -- M-10a needed 206 566 tokens and M-10c needs 1.4-1.5M -- so the ceiling is a constant applied to a variable. It killed two runs that had already produced correct work.",
+   "summary": "Every packet since V5-M9 carried the same limits block: soft 500000, hard 1000000. Observed spend ranges from 206 566 tokens (M-10a) to 1 509 082 (M-10c attempt 1) -- and varies by nearly 3x between runs of one unchanged packet. A single constant is inside that variance band, so it stops runs that would have succeeded, at random.",
    "note": "the ceiling did its job as written; the fault is that the number was copied from packet to packet rather than set for each. Cost never came close to binding: $0.15 against $3.00.",
-   "proposed": "set limits per packet from the oracle's size, or make the hard ceiling a function of fixture count; and consider whether a hard token stop should be a hard stop at all when the cost cap is untouched and a gate could still run.",
-   "correction": "an earlier reading of attempt 1 attributed its token burn to the oracle defect. Attempt 2 on the fixed oracle spent 1 435 896 tokens, so the oracle defect was real but was not the cause of the burn. Both facts stand independently."
+   "proposed": "Treat a hard token stop as a soft outcome when the cost cap is untouched: let gate run on the work already produced rather than discarding it. Two of M-10c's three runs produced correct diffs that were thrown away while cost stood at $0.15 against a $3.00 cap. Setting limits per packet from fixture count does NOT solve this, because the variance is run-to-run.",
+   "correction": "an earlier reading of attempt 1 attributed its token burn to the oracle defect. Attempt 2 on the fixed oracle spent 1 435 896 tokens, so the oracle defect was real but was not the cause of the burn. Both facts stand independently.",
+   "correction_2": "Attempt 3 falsifies this finding's central claim. It stated the ceiling 'sits below what the packet costs'; attempt 3 ran the same packet for 533 033 tokens, well under the original 1000000. Spend on an unchanged packet varied 1 509 082 / 1 435 896 / 533 033 -- a factor of nearly three. The ceiling did not sit below the packet's cost; it sat inside the packet's variance band, which is a different and more awkward problem: no single constant is safe, and calibrating per packet from fixture count would not have helped either, because the variation is between runs of the SAME packet."
+  },
+  {
+   "id": "an-oracle-can-forbid-the-next-specified-change",
+   "from": "V5-M10c merge-preview",
+   "summary": "M-9's oracle pinned PR_STEP_NAMES as an exact 4-tuple and its real-git proof asserted the commit's diff equals the gate's touched paths exactly. M-10c's spec row requires inserting receipt-capture at the head and requires the captured files to be in the commit. Both assertions therefore had to fail, and templates/dispatch/tests/** is protected, so no worker could reconcile them. M-10c's own gate was green; the merge-preview was red at 7.",
+   "caught_by": "the \u00a74.6 merge-preview, for the second time. It has now caught more real defects than the gates have.",
+   "classification": "coordinator defect at freeze time. Freezing a packet that changes a shape a prior oracle pinned must carry the prior oracle's reconciliation.",
+   "proposed": "when freezing a packet whose spec changes a constant, a signature or a set that an existing oracle asserts, reconcile that oracle in the freeze commit. An exact-equality assertion on a shape later packets are specified to extend is the smell; assert the invariant the row actually owns instead.",
+   "attestation_note": "the relaxations were authored by the same session that dispatched M-10c, which is the one part of this packet with no independent attestation. Rule 4 names oracle design an owner touchpoint; PR #73 is deliberately left unmerged for that reason.",
+   "related": "rule-11-narrowed-the-gate"
   }
  ],
  "d8": {
