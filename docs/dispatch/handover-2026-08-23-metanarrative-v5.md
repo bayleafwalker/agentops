@@ -175,6 +175,24 @@ or escalations rise, or frontier turns stay flat while cost rises, two packets r
 - Hook symlinks point into `/projects/dev/agentops`; do not check out a branch there that lacks
   `templates/dispatch/hooks/` (everything on `main` has it now).
 - `SPRINTCTL_BACKEND=local` leaks from some shells; agentops requires served — use `direnv exec .`.
+- **Dispatching from the workstation into devbox needs all four of these** (2026-08-24; six
+  prepare runs were spent rediscovering them). `sudo -u agent` needs a **login** shell (`-i`) or
+  `auditctl` resolves to the *system* binary and dies with "You must be root"; the agent login
+  profile is where `SPRINTCTL_BACKEND=local` leaks in, so export `served` explicitly; served then
+  requires `SPRINTCTL_VUORO_PROFILE=templates/dispatch/environment-record/profiles/devbox-agent-vuoro-shared.json`;
+  and nested quoting eats `cd`, so pipe a base64'd script into `bash` instead.
+- **Take your own reservation; never touch one you do not own.** `prepare` refuses on a
+  reservation idle more than a few hours, and the served backend refuses a `touch` from a
+  different session with `validation-failed: Reservation #N belongs to another session` — which
+  is correct. `sprintctl reservation reserve --item-id 2254 --actor <identity> --role execution`,
+  then point the packet's `claim_id` at it. Overlapping reservations are a coordination signal,
+  not a lease, so the stale one can be left for its owner. The actor must match the *authenticated*
+  identity of the profile in use: `workstation-vuoro` authenticates on the workstation, not under
+  the devbox agent credential.
+- **Keep devbox's sprintctl current.** It is a `uv tool install --editable /projects/dev/sprintctl[remote,served]`,
+  not nix-pinned, so it drifts silently. It sat at 0.3.0 while 0.3.2 was current, and
+  `reservation touch` was simply broken there — `idempotency-key-required`, fixed by sprintctl
+  #45. Devbox's `/projects/dev` is its own filesystem, so pull it there.
 - `/projects/dev/sprintctl` is now at 0.3.2 and current; `sprintctl reservation` is the claim
   API (`claim` no longer exists). Installed tool needs the `[served]` extra.
 - `mechanical_bulk` is both a route and an action class since L-3 — a naming debt, not a bug.

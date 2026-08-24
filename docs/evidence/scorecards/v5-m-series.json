@@ -1,455 +1,722 @@
 {
-  "schema_version": "workflow-scorecard/v0",
-  "release": "v5-M",
-  "recorded_at": "2026-08-23T19:05:00Z",
-  "sprint_item": "agentops#2254",
-  "mode": "metanarrative (planner -> driver -> cheap implementer), owner-unattended",
-  "brief": "docs/dispatch/handover-2026-08-23-metanarrative-v5.md",
-  "sequence_outcome": "First sequence stopped at M-2 under section 7. Owner reviewed, amended the handover (rules 9/10, section 3a), authorized a protected-scope coordinator hand-pass, and restarted the readiness test at M-5 then M-8. Both went green first attempt, the class turned on, and M-6 then ran as two packets -- also both green first attempt, and both frozen with no reference patch under rule 10. The brief is complete.",
-  "readiness_test": {
-    "rule": "a class is 'on' when two consecutive packets frozen without coordinator hand-inspection pass validate and go green first attempt",
-    "first_attempt": {
-      "M-1": "green first attempt",
-      "M-2": "red twice",
-      "verdict": "class NOT on"
+ "schema_version": "workflow-scorecard/v0",
+ "release": "v5-M",
+ "recorded_at": "2026-08-24T11:40:00Z",
+ "sprint_item": "agentops#2254",
+ "mode": "metanarrative (planner -> driver -> cheap implementer), owner-unattended",
+ "brief": "docs/dispatch/handover-2026-08-23-metanarrative-v5.md",
+ "sequence_outcome": "First sequence stopped at M-2 under section 7. Owner reviewed, amended the handover (rules 9/10, section 3a), authorized a protected-scope coordinator hand-pass, and restarted the readiness test at M-5 then M-8. Both went green first attempt, the class turned on, and M-6 then ran as two packets -- also both green first attempt, and both frozen with no reference patch under rule 10. The brief is complete. Continued 2026-08-24: M-9 landed (#70) after four coordinator-side kills and one fair attempt; its merge-preview caught a real bug the gate could not, which is the trade rule 11 makes and is now demonstrated rather than theoretical. M-10 died once on rule 9's boundary and was split three ways on the seam its oracle already had, with the dependency order corrected to a -> c -> b. gitops-nixos #17 was deployed, so mechanical_bulk.max_attempts is 2 on the host for the first time. M-10a green first attempt (#71); main green at 566.",
+ "readiness_test": {
+  "rule": "a class is 'on' when two consecutive packets frozen without coordinator hand-inspection pass validate and go green first attempt",
+  "first_attempt": {
+   "M-1": "green first attempt",
+   "M-2": "red twice",
+   "verdict": "class NOT on"
+  },
+  "restart": {
+   "M-5": "green first attempt",
+   "M-8": "green first attempt",
+   "verdict": "CLASS ON"
+  },
+  "after_class_on": {
+   "M-6a": "green first attempt, no reference patch",
+   "M-6b": "green first attempt, no reference patch"
+  }
+ },
+ "packets": [
+  {
+   "packet": "V5-M7-review-record",
+   "handover_row": "M-7",
+   "spec_row": "section 1 evidence",
+   "mode": "hand copy, not a loop packet",
+   "outcome": "done",
+   "pr": 55,
+   "note": "sha256 a9500e09af8772af224a0ea6f0ccd0efd4ccaf5774e4e624705ca87f2684c979 matches the devbox original."
+  },
+  {
+   "packet": "V5-M1-driver-stop-conditions",
+   "handover_row": "M-1",
+   "spec_row": "L-2",
+   "writable": "templates/dispatch/scripts/dispatch_release.py",
+   "oracle": "templates/dispatch/tests/test_dispatch_release_stops.py, 14 tests, independent author given the spec row only",
+   "validate": {
+    "status": "fit",
+    "oracle_attainable": true,
+    "oracle_satisfiable_within_paths": true,
+    "read_trace": "skipped:untraced"
+   },
+   "attempts": 1,
+   "first_attempt_green": true,
+   "gate_sequence": "prepare 0 -> run 0 -> gate 0 (candidate) -> receipt 0 -> pr 1",
+   "gates": {
+    "diff-nonempty": true,
+    "diff-scope-respected": true,
+    "protected-paths-untouched": true,
+    "worktree-state-captured": true,
+    "registered-commands-green": true
+   },
+   "disposition": "candidate",
+   "independent_review": {
+    "mode": "self_candidate",
+    "class": "mechanical_bulk",
+    "basis": "manifest"
+   },
+   "touched_paths": [
+    "templates/dispatch/scripts/dispatch_release.py"
+   ],
+   "starting_commit": "44ed8592ade6448e7e022f135be132898f05dfad",
+   "cost_usd": 0.031285,
+   "tokens": 675263,
+   "soft_token_ceiling_exceeded": true,
+   "contained": true,
+   "qualification_eligible": true,
+   "rework_rounds": 1,
+   "rework_cause": "coordinator, not worker: the reference patch was committed at starting_commit and therefore sat in the worker's checkout",
+   "escalations": 1,
+   "escalation_cause": "pr step: no git remotes found",
+   "pr": 56,
+   "merged": true,
+   "merge_preview_gate": "496 tests OK; validate_hybrid_dispatch OK; test-session-telemetry.sh OK",
+   "void_run": {
+    "starting_commit": "31f6fa562c852780ad6548b53cf21446f8efb6e0",
+    "cost_usd": 0.0275,
+    "tokens": 685278,
+    "gate": "green, candidate",
+    "why_void": "the diff came back byte-identical to the coordinator's reference patch, which was in the worker's workspace. Measured the coordinator, not the tier. Not counted toward D-8.",
+    "counts_toward_d8": false
+   },
+   "counts_toward_d8": true,
+   "reference_patch_cost": {
+    "wall_minutes": 2.5,
+    "frontier_turns": 3,
+    "lines_added": 225,
+    "green_on_first_try": true
+   }
+  },
+  {
+   "packet": "V5-M2-driver-retry-policy",
+   "handover_row": "M-2",
+   "spec_row": "L-4",
+   "writable": "templates/dispatch/scripts/dispatch_release.py",
+   "oracle": "templates/dispatch/tests/test_dispatch_release_retry.py, 9 tests, plus three superseded fixtures amended in the two shipped driver oracles; independent author given the spec row only",
+   "validate": {
+    "status": "fit",
+    "oracle_attainable": true,
+    "oracle_satisfiable_within_paths": true,
+    "read_trace": "skipped:untraced"
+   },
+   "starting_commit": "458f4b43bc471415e43d8b2a99c589aad6eb5298",
+   "attempts": 2,
+   "first_attempt_green": false,
+   "outcome": "RED TWICE -> gate-red-twice stop. Sequence stopped per handover section 7.",
+   "runs": [
+    {
+     "attempt": 1,
+     "gate_sequence": "prepare 0 -> run 0 -> gate 2 -> receipt 0",
+     "gates": {
+      "diff-nonempty": false,
+      "diff-scope-respected": true,
+      "protected-paths-untouched": true,
+      "worktree-state-captured": true,
+      "registered-commands-green": false
+     },
+     "touched_paths": [],
+     "cost_usd": 0.093734,
+     "tokens": 198304,
+     "worker_finish_reason": "length",
+     "worker_output_tokens": 131072,
+     "diagnosis": "the worker tried to emit the whole restructured file in one response and was truncated at its output cap before any write landed",
+     "session": "ses_fd088cd3effeoFtToTy4yRP0hX"
     },
-    "restart": {
-      "M-5": "green first attempt",
-      "M-8": "green first attempt",
-      "verdict": "CLASS ON"
+    {
+     "attempt": "retry, blocked",
+     "gate_sequence": "prepare 3",
+     "detail": "worktree already exists; never dispatch two workers into one workspace",
+     "diagnosis": "a retry is impossible today without clearing the worktree by hand -- which is precisely what L-4's cheap retry (run/gate/receipt, never prepare) exists to avoid. The row being implemented is the row that would have unblocked its own retry.",
+     "cost_usd": 0.0
     },
-    "after_class_on": {
-      "M-6a": "green first attempt, no reference patch",
-      "M-6b": "green first attempt, no reference patch"
+    {
+     "attempt": 2,
+     "gate_sequence": "prepare 0 -> run 0 -> gate 2 -> STOP",
+     "gates": {
+      "diff-nonempty": false,
+      "diff-scope-respected": true,
+      "protected-paths-untouched": true,
+      "worktree-state-captured": true,
+      "registered-commands-green": false
+     },
+     "touched_paths": [],
+     "cost_usd": 0.008456,
+     "tokens": 100258,
+     "worker_finish_reason": "tool-calls",
+     "diagnosis": "spent its turn listing docs/evidence/packets/ instead of implementing; no write attempted",
+     "session": "ses_fd07c55abffeBkHAOXsgqEPs6S",
+     "stop": {
+      "condition": "gate-red-twice",
+      "ledger": 2,
+      "exit_code": 1,
+      "pr": "never attempted"
+     }
     }
+   ],
+   "cost_usd_total": 0.10219,
+   "tokens_total": 298562,
+   "contained": true,
+   "qualification_eligible": true,
+   "escalations": 2,
+   "counts_toward_d8": false,
+   "d8_note": "Neither run was evidence about the tier's correctness: neither produced a diff to judge. They are evidence about packet SHAPE.",
+   "reference_patch_cost": {
+    "wall_minutes": 5,
+    "frontier_turns": 6,
+    "lines_added": 78,
+    "lines_removed": 5,
+    "green_on_first_try": true,
+    "note": "the 5 minutes include discovering that L-4 supersedes three shipped fixtures -- work the reference patch surfaced and the oracle would not have"
+   },
+   "branch": "v5-m2-driver-retry-policy",
+   "merged": false,
+   "withdrawn": "Withdrawn as a loop packet by owner decision 5. L-4 moved into the hand-pass and shipped there (PR #62); the oracle this packet froze was reused verbatim."
   },
-  "packets": [
-    {
-      "packet": "V5-M7-review-record",
-      "handover_row": "M-7",
-      "spec_row": "section 1 evidence",
-      "mode": "hand copy, not a loop packet",
-      "outcome": "done",
-      "pr": 55,
-      "note": "sha256 a9500e09af8772af224a0ea6f0ccd0efd4ccaf5774e4e624705ca87f2684c979 matches the devbox original."
-    },
-    {
-      "packet": "V5-M1-driver-stop-conditions",
-      "handover_row": "M-1",
-      "spec_row": "L-2",
-      "writable": "templates/dispatch/scripts/dispatch_release.py",
-      "oracle": "templates/dispatch/tests/test_dispatch_release_stops.py, 14 tests, independent author given the spec row only",
-      "validate": {
-        "status": "fit",
-        "oracle_attainable": true,
-        "oracle_satisfiable_within_paths": true,
-        "read_trace": "skipped:untraced"
-      },
-      "attempts": 1,
-      "first_attempt_green": true,
-      "gate_sequence": "prepare 0 -> run 0 -> gate 0 (candidate) -> receipt 0 -> pr 1",
-      "gates": {
-        "diff-nonempty": true,
-        "diff-scope-respected": true,
-        "protected-paths-untouched": true,
-        "worktree-state-captured": true,
-        "registered-commands-green": true
-      },
-      "disposition": "candidate",
-      "independent_review": {
-        "mode": "self_candidate",
-        "class": "mechanical_bulk",
-        "basis": "manifest"
-      },
-      "touched_paths": [
-        "templates/dispatch/scripts/dispatch_release.py"
-      ],
-      "starting_commit": "44ed8592ade6448e7e022f135be132898f05dfad",
-      "cost_usd": 0.031285,
-      "tokens": 675263,
-      "soft_token_ceiling_exceeded": true,
-      "contained": true,
-      "qualification_eligible": true,
-      "rework_rounds": 1,
-      "rework_cause": "coordinator, not worker: the reference patch was committed at starting_commit and therefore sat in the worker's checkout",
-      "escalations": 1,
-      "escalation_cause": "pr step: no git remotes found",
-      "pr": 56,
-      "merged": true,
-      "merge_preview_gate": "496 tests OK; validate_hybrid_dispatch OK; test-session-telemetry.sh OK",
-      "void_run": {
-        "starting_commit": "31f6fa562c852780ad6548b53cf21446f8efb6e0",
-        "cost_usd": 0.0275,
-        "tokens": 685278,
-        "gate": "green, candidate",
-        "why_void": "the diff came back byte-identical to the coordinator's reference patch, which was in the worker's workspace. Measured the coordinator, not the tier. Not counted toward D-8.",
-        "counts_toward_d8": false
-      },
-      "counts_toward_d8": true,
-      "reference_patch_cost": {
-        "wall_minutes": 2.5,
-        "frontier_turns": 3,
-        "lines_added": 225,
-        "green_on_first_try": true
-      }
-    },
-    {
-      "packet": "V5-M2-driver-retry-policy",
-      "handover_row": "M-2",
-      "spec_row": "L-4",
-      "writable": "templates/dispatch/scripts/dispatch_release.py",
-      "oracle": "templates/dispatch/tests/test_dispatch_release_retry.py, 9 tests, plus three superseded fixtures amended in the two shipped driver oracles; independent author given the spec row only",
-      "validate": {
-        "status": "fit",
-        "oracle_attainable": true,
-        "oracle_satisfiable_within_paths": true,
-        "read_trace": "skipped:untraced"
-      },
-      "starting_commit": "458f4b43bc471415e43d8b2a99c589aad6eb5298",
-      "attempts": 2,
-      "first_attempt_green": false,
-      "outcome": "RED TWICE -> gate-red-twice stop. Sequence stopped per handover section 7.",
-      "runs": [
-        {
-          "attempt": 1,
-          "gate_sequence": "prepare 0 -> run 0 -> gate 2 -> receipt 0",
-          "gates": {
-            "diff-nonempty": false,
-            "diff-scope-respected": true,
-            "protected-paths-untouched": true,
-            "worktree-state-captured": true,
-            "registered-commands-green": false
-          },
-          "touched_paths": [],
-          "cost_usd": 0.093734,
-          "tokens": 198304,
-          "worker_finish_reason": "length",
-          "worker_output_tokens": 131072,
-          "diagnosis": "the worker tried to emit the whole restructured file in one response and was truncated at its output cap before any write landed",
-          "session": "ses_fd088cd3effeoFtToTy4yRP0hX"
-        },
-        {
-          "attempt": "retry, blocked",
-          "gate_sequence": "prepare 3",
-          "detail": "worktree already exists; never dispatch two workers into one workspace",
-          "diagnosis": "a retry is impossible today without clearing the worktree by hand -- which is precisely what L-4's cheap retry (run/gate/receipt, never prepare) exists to avoid. The row being implemented is the row that would have unblocked its own retry.",
-          "cost_usd": 0.0
-        },
-        {
-          "attempt": 2,
-          "gate_sequence": "prepare 0 -> run 0 -> gate 2 -> STOP",
-          "gates": {
-            "diff-nonempty": false,
-            "diff-scope-respected": true,
-            "protected-paths-untouched": true,
-            "worktree-state-captured": true,
-            "registered-commands-green": false
-          },
-          "touched_paths": [],
-          "cost_usd": 0.008456,
-          "tokens": 100258,
-          "worker_finish_reason": "tool-calls",
-          "diagnosis": "spent its turn listing docs/evidence/packets/ instead of implementing; no write attempted",
-          "session": "ses_fd07c55abffeBkHAOXsgqEPs6S",
-          "stop": {
-            "condition": "gate-red-twice",
-            "ledger": 2,
-            "exit_code": 1,
-            "pr": "never attempted"
-          }
-        }
-      ],
-      "cost_usd_total": 0.10219,
-      "tokens_total": 298562,
-      "contained": true,
-      "qualification_eligible": true,
-      "escalations": 2,
-      "counts_toward_d8": false,
-      "d8_note": "Neither run was evidence about the tier's correctness: neither produced a diff to judge. They are evidence about packet SHAPE.",
-      "reference_patch_cost": {
-        "wall_minutes": 5,
-        "frontier_turns": 6,
-        "lines_added": 78,
-        "lines_removed": 5,
-        "green_on_first_try": true,
-        "note": "the 5 minutes include discovering that L-4 supersedes three shipped fixtures -- work the reference patch surfaced and the oracle would not have"
-      },
-      "branch": "v5-m2-driver-retry-policy",
-      "merged": false,
-      "withdrawn": "Withdrawn as a loop packet by owner decision 5. L-4 moved into the hand-pass and shipped there (PR #62); the oracle this packet froze was reused verbatim."
-    },
-    {
-      "packet": "V5-M5-gate-log-anchored",
-      "handover_row": "M-5",
-      "spec_row": "the NOTE in test-gate-log.sh",
-      "writable": "templates/dispatch/hooks/gate-log.sh",
-      "oracle": "templates/dispatch/hooks/tests/test-gate-log.sh REQ-005, independent author given the spec row only",
-      "starting_commit": "13a2ad5b9c391ac466838265bb22bfe6a241ba0f",
-      "validate": {
-        "status": "fit",
-        "oracle_attainable": true,
-        "oracle_satisfiable_within_paths": true,
-        "read_trace": "skipped:untraced"
-      },
-      "outcome": "FROZEN AND FIT, NOT DISPATCHED. The sequence stopped at M-2 before it was run.",
-      "branch": "v5-m5-gate-log-anchored",
-      "reference_patch_cost": {
-        "wall_minutes": 1,
-        "frontier_turns": 3,
-        "lines_added": 26,
-        "lines_removed": 1,
-        "green_on_first_try": false,
-        "note": "two iterations: the first anchoring rejected 'python verification/run_round_checks.py', which the shipped T-3 oracle already required"
-      }
-    },
-    {
-      "packet": "M-3 / M-4",
-      "handover_rows": [
-        "M-3",
-        "M-4"
-      ],
-      "outcome": "RESOLVED in the owner-authorized coordinator hand-pass (PR #62), items B and C",
-      "detail": "both name templates/dispatch/scripts/hybrid_dispatch.py as the writable file, and that path is in agentops.dispatch.json hybrid.protected_paths. validate_packet refuses: 'writable path templates/dispatch/scripts/hybrid_dispatch.py intersects a protected path'. Confirmed directly. Handover section 7 says stop and report rather than edit a protected path.",
-      "decision_owner": "owner"
-    },
-    {
-      "packet": "M-6",
-      "handover_row": "M-6",
-      "outcome": "DONE as two packets, V5-M6a and V5-M6b, both green first attempt with no reference patch",
-      "detail": "needs two writable files in two languages (templates/dispatch/hooks/log-session-cost.sh and templates/dispatch/scripts/dispatch_release.py) plus a shared source of the default. Rule 1 allows one writable file or one tight glob, and no tight glob spans hooks/ and scripts/. Either it splits into two packets or rule 1 gets an exception; both are the owner's call."
-    },
-    {
-      "packet": "V5-M8-driver-pr-step",
-      "handover_row": "M-8",
-      "spec_row": "L-1",
-      "writable": "templates/dispatch/scripts/dispatch_release.py",
-      "oracle": "templates/dispatch/tests/test_dispatch_release_pr.py, 12 fixtures, independent author given the spec row only",
-      "starting_commit": "f5f850ccc305fb101fa376a384e1bd37ffa6d585",
-      "validate": {
-        "status": "fit",
-        "oracle_attainable": true,
-        "oracle_reads_within_paths": true,
-        "oracle_satisfiable_within_paths": true,
-        "note": "the first packet ever to validate with all three of rule 2's fields true, made possible by hand-pass item A"
-      },
-      "attempts": 1,
-      "first_attempt_green": true,
-      "disposition": "candidate",
-      "gates": {
-        "diff-nonempty": true,
-        "diff-scope-respected": true,
-        "protected-paths-untouched": true,
-        "worktree-state-captured": true,
-        "registered-commands-green": true
-      },
-      "touched_paths": [
-        "templates/dispatch/scripts/dispatch_release.py"
-      ],
-      "cost_usd": 0.040391,
-      "tokens": 797189,
-      "contained": true,
-      "qualification_eligible": true,
-      "escalations": 1,
-      "escalation_cause": "pr step: no git remotes found -- this packet's own subject, on the pre-M-8 driver",
-      "superseded_fixtures": 2,
-      "pr": 63,
-      "merged": true,
-      "counts_toward_d8": true
-    },
-    {
-      "packet": "V5-M6a-cost-hook-artifacts-root",
-      "handover_row": "M-6a",
-      "writable": "templates/dispatch/hooks/log-session-cost.sh",
-      "oracle": "templates/dispatch/hooks/tests/test-artifacts-root.sh, REQ-006..REQ-011, independent author given the spec row only",
-      "starting_commit": "cc3e9c37adbd8b19caaeb6204dd47d77b0ae991c",
-      "reference_patch": null,
-      "reference_patch_note": "first packet ever frozen without one, under rule 10",
-      "validate": {
-        "status": "fit",
-        "oracle_attainable": true,
-        "oracle_reads_within_paths": true,
-        "oracle_satisfiable_within_paths": "skipped:no-reference"
-      },
-      "attempts": 1,
-      "first_attempt_green": true,
-      "disposition": "candidate",
-      "gates": {
-        "diff-nonempty": true,
-        "diff-scope-respected": true,
-        "protected-paths-untouched": true,
-        "worktree-state-captured": true,
-        "registered-commands-green": true
-      },
-      "touched_paths": [
-        "templates/dispatch/hooks/log-session-cost.sh"
-      ],
-      "cost_usd": 0.01729,
-      "tokens": 267809,
-      "contained": true,
-      "qualification_eligible": true,
-      "freeze_rework": 1,
-      "freeze_rework_cause": "the read trace rejected the first oracle for reading cost-summary.sh, gate-log.sh, the friction skill and two scripts under scripts/ -- agentops.hooks.tests runs the whole telemetry surface. Fixtures moved to their own script; rule 2 says fix the packet, not the declared paths. The read trace earned its keep on its first real use.",
-      "escalations": 1,
-      "escalation_cause": "pr step: body too long",
-      "pr": 64,
-      "merged": true,
-      "counts_toward_d8": true
-    },
-    {
-      "packet": "V5-M6b-driver-artifacts-root",
-      "handover_row": "M-6b",
-      "writable": "templates/dispatch/scripts/dispatch_release.py",
-      "oracle": "templates/dispatch/tests/test_dispatch_release_artifacts_root.py, 6 fixtures, independent author given the spec row only",
-      "starting_commit": "84a019a876a90e83968d8ad66e831dc49a92145b",
-      "reference_patch": null,
-      "validate": {
-        "status": "fit",
-        "oracle_attainable": true,
-        "oracle_reads_within_paths": true,
-        "oracle_satisfiable_within_paths": "skipped:no-reference"
-      },
-      "attempts": 1,
-      "first_attempt_green": true,
-      "disposition": "candidate",
-      "gates": {
-        "diff-nonempty": true,
-        "diff-scope-respected": true,
-        "protected-paths-untouched": true,
-        "worktree-state-captured": true,
-        "registered-commands-green": true
-      },
-      "touched_paths": [
-        "templates/dispatch/scripts/dispatch_release.py"
-      ],
-      "cost_usd": 0.011214,
-      "tokens": 269281,
-      "contained": true,
-      "qualification_eligible": true,
-      "freeze_rework": 0,
-      "escalations": 1,
-      "escalation_cause": "pr step: body too long",
-      "pr": 65,
-      "merged": true,
-      "counts_toward_d8": true
+  {
+   "packet": "V5-M5-gate-log-anchored",
+   "handover_row": "M-5",
+   "spec_row": "the NOTE in test-gate-log.sh",
+   "writable": "templates/dispatch/hooks/gate-log.sh",
+   "oracle": "templates/dispatch/hooks/tests/test-gate-log.sh REQ-005, independent author given the spec row only",
+   "starting_commit": "13a2ad5b9c391ac466838265bb22bfe6a241ba0f",
+   "validate": {
+    "status": "fit",
+    "oracle_attainable": true,
+    "oracle_satisfiable_within_paths": true,
+    "read_trace": "skipped:untraced"
+   },
+   "outcome": "FROZEN AND FIT, NOT DISPATCHED. The sequence stopped at M-2 before it was run.",
+   "branch": "v5-m5-gate-log-anchored",
+   "reference_patch_cost": {
+    "wall_minutes": 1,
+    "frontier_turns": 3,
+    "lines_added": 26,
+    "lines_removed": 1,
+    "green_on_first_try": false,
+    "note": "two iterations: the first anchoring rejected 'python verification/run_round_checks.py', which the shipped T-3 oracle already required"
+   }
+  },
+  {
+   "packet": "M-3 / M-4",
+   "handover_rows": [
+    "M-3",
+    "M-4"
+   ],
+   "outcome": "RESOLVED in the owner-authorized coordinator hand-pass (PR #62), items B and C",
+   "detail": "both name templates/dispatch/scripts/hybrid_dispatch.py as the writable file, and that path is in agentops.dispatch.json hybrid.protected_paths. validate_packet refuses: 'writable path templates/dispatch/scripts/hybrid_dispatch.py intersects a protected path'. Confirmed directly. Handover section 7 says stop and report rather than edit a protected path.",
+   "decision_owner": "owner"
+  },
+  {
+   "packet": "M-6",
+   "handover_row": "M-6",
+   "outcome": "DONE as two packets, V5-M6a and V5-M6b, both green first attempt with no reference patch",
+   "detail": "needs two writable files in two languages (templates/dispatch/hooks/log-session-cost.sh and templates/dispatch/scripts/dispatch_release.py) plus a shared source of the default. Rule 1 allows one writable file or one tight glob, and no tight glob spans hooks/ and scripts/. Either it splits into two packets or rule 1 gets an exception; both are the owner's call."
+  },
+  {
+   "packet": "V5-M8-driver-pr-step",
+   "handover_row": "M-8",
+   "spec_row": "L-1",
+   "writable": "templates/dispatch/scripts/dispatch_release.py",
+   "oracle": "templates/dispatch/tests/test_dispatch_release_pr.py, 12 fixtures, independent author given the spec row only",
+   "starting_commit": "f5f850ccc305fb101fa376a384e1bd37ffa6d585",
+   "validate": {
+    "status": "fit",
+    "oracle_attainable": true,
+    "oracle_reads_within_paths": true,
+    "oracle_satisfiable_within_paths": true,
+    "note": "the first packet ever to validate with all three of rule 2's fields true, made possible by hand-pass item A"
+   },
+   "attempts": 1,
+   "first_attempt_green": true,
+   "disposition": "candidate",
+   "gates": {
+    "diff-nonempty": true,
+    "diff-scope-respected": true,
+    "protected-paths-untouched": true,
+    "worktree-state-captured": true,
+    "registered-commands-green": true
+   },
+   "touched_paths": [
+    "templates/dispatch/scripts/dispatch_release.py"
+   ],
+   "cost_usd": 0.040391,
+   "tokens": 797189,
+   "contained": true,
+   "qualification_eligible": true,
+   "escalations": 1,
+   "escalation_cause": "pr step: no git remotes found -- this packet's own subject, on the pre-M-8 driver",
+   "superseded_fixtures": 2,
+   "pr": 63,
+   "merged": true,
+   "counts_toward_d8": true
+  },
+  {
+   "packet": "V5-M6a-cost-hook-artifacts-root",
+   "handover_row": "M-6a",
+   "writable": "templates/dispatch/hooks/log-session-cost.sh",
+   "oracle": "templates/dispatch/hooks/tests/test-artifacts-root.sh, REQ-006..REQ-011, independent author given the spec row only",
+   "starting_commit": "cc3e9c37adbd8b19caaeb6204dd47d77b0ae991c",
+   "reference_patch": null,
+   "reference_patch_note": "first packet ever frozen without one, under rule 10",
+   "validate": {
+    "status": "fit",
+    "oracle_attainable": true,
+    "oracle_reads_within_paths": true,
+    "oracle_satisfiable_within_paths": "skipped:no-reference"
+   },
+   "attempts": 1,
+   "first_attempt_green": true,
+   "disposition": "candidate",
+   "gates": {
+    "diff-nonempty": true,
+    "diff-scope-respected": true,
+    "protected-paths-untouched": true,
+    "worktree-state-captured": true,
+    "registered-commands-green": true
+   },
+   "touched_paths": [
+    "templates/dispatch/hooks/log-session-cost.sh"
+   ],
+   "cost_usd": 0.01729,
+   "tokens": 267809,
+   "contained": true,
+   "qualification_eligible": true,
+   "freeze_rework": 1,
+   "freeze_rework_cause": "the read trace rejected the first oracle for reading cost-summary.sh, gate-log.sh, the friction skill and two scripts under scripts/ -- agentops.hooks.tests runs the whole telemetry surface. Fixtures moved to their own script; rule 2 says fix the packet, not the declared paths. The read trace earned its keep on its first real use.",
+   "escalations": 1,
+   "escalation_cause": "pr step: body too long",
+   "pr": 64,
+   "merged": true,
+   "counts_toward_d8": true
+  },
+  {
+   "packet": "V5-M6b-driver-artifacts-root",
+   "handover_row": "M-6b",
+   "writable": "templates/dispatch/scripts/dispatch_release.py",
+   "oracle": "templates/dispatch/tests/test_dispatch_release_artifacts_root.py, 6 fixtures, independent author given the spec row only",
+   "starting_commit": "84a019a876a90e83968d8ad66e831dc49a92145b",
+   "reference_patch": null,
+   "validate": {
+    "status": "fit",
+    "oracle_attainable": true,
+    "oracle_reads_within_paths": true,
+    "oracle_satisfiable_within_paths": "skipped:no-reference"
+   },
+   "attempts": 1,
+   "first_attempt_green": true,
+   "disposition": "candidate",
+   "gates": {
+    "diff-nonempty": true,
+    "diff-scope-respected": true,
+    "protected-paths-untouched": true,
+    "worktree-state-captured": true,
+    "registered-commands-green": true
+   },
+   "touched_paths": [
+    "templates/dispatch/scripts/dispatch_release.py"
+   ],
+   "cost_usd": 0.011214,
+   "tokens": 269281,
+   "contained": true,
+   "qualification_eligible": true,
+   "freeze_rework": 0,
+   "escalations": 1,
+   "escalation_cause": "pr step: body too long",
+   "pr": 65,
+   "merged": true,
+   "counts_toward_d8": true
+  },
+  {
+   "packet": "V5-M9-driver-commit",
+   "handover_row": "M-9",
+   "spec_row": "Amendment 2, section 3b",
+   "writable": "templates/dispatch/scripts/dispatch_release.py",
+   "oracle": "templates/dispatch/tests/test_dispatch_release_commit.py; the real-git proof in test_realgit_dispatch_commit.py sits outside the traced glob and is checked at the section 4.6 merge-preview instead",
+   "attempts": 5,
+   "fair_attempts": 1,
+   "first_attempt_green": true,
+   "first_attempt_green_note": "green on the first attempt that was not killed by a coordinator-side defect; four of the five dispatches never reached the tier",
+   "attempt_causes": [
+    "killed: committed driver reports embed worker stdout as one JSON line up to 288 KB, so ripgrep's 64 KB record limit errored on any repo-wide grep in the worker's clone",
+    "killed: the same, and failed tool calls spent max_reasoning_steps_without_mutation",
+    "killed: the churn budget itself, 12, measured before failed tool calls stopped spending steps",
+    "killed: churn budget still 12 after the hand-pass",
+    "green: churn budget raised 12 -> 20"
+   ],
+   "disposition": "candidate",
+   "pr": 70,
+   "cost_usd": 0.0203,
+   "diff_lines": 75,
+   "rework_rounds": 0,
+   "rework_cause": "none in the tier; all four prior kills were coordinator-side and fixed by the section 3c hand-pass (#69)",
+   "escalations": 0,
+   "churn_budget": {
+    "max_reasoning_steps_without_mutation": 20,
+    "raised_from": 12,
+    "justification": "first limit ever loosened for the worker rather than for us. The transcript is not a worker circling: thirteen distinct steps, no path read twice, greps asking where the git identity comes from and who else consumes PR_STEP_NAMES. Looping is caught separately by max_repeated_reads_per_path."
+   },
+   "finding": {
+    "id": "rule-11-narrowed-the-gate",
+    "summary": "The worker's diff passed its gate and still shipped a real bug. PR_STEP_NAMES was indexed positionally, so when the tuple gained a leading commit every sub-step reported the one before it: a failed remote-add said commit, a failed push said remote-add, and pr-create had no reachable name at all. Precisely the confusion the constant exists to prevent.",
+    "why_the_gate_missed_it": "M-9's own oracle never exercised those branches, and rule 11's narrowing meant the gate ran only M-9's oracle.",
+    "caught_by": "the section 4.6 merge-preview",
+    "fix": "each sub-step names itself instead of bumping indices, so the next insertion cannot repeat it",
+    "open_question": "whether a packet should carry a second, broader command as a non-starts_red guard wherever one is green at the starting commit. M-6a did exactly that and it cost nothing."
+   },
+   "coordinator_turns_note": "the freeze cycle ran long, but no reference patch was written; the time went on re-freezes forced by real defects (the read trace rejecting the real-git fixture, then the reading list). Coordinator time spent doing the worker's job: zero."
+  },
+  {
+   "packet": "V5-M10-bounded-pr-body",
+   "handover_row": "M-10",
+   "spec_row": "Amendment 3, section 3c (respecified)",
+   "writable": "templates/dispatch/scripts/dispatch_release.py",
+   "oracle": "test_dispatch_release_body.py, 22 fixtures, never committed to main; recovered from devbox 2026-08-24 and split",
+   "attempts": 1,
+   "first_attempt_green": false,
+   "disposition": "coordinator_review_required",
+   "pr": null,
+   "cost_usd": 0.104515,
+   "tokens": 408693,
+   "outcome": "no diff, no churn stop. Finished with finish_reason: length at 131072 output tokens having emitted no tool call. The most expensive run of the session.",
+   "signature_matches": "V5-M2 attempt 1",
+   "classification": "task_defect, not a tier failure",
+   "cause": "rule 9's boundary. M-10 was additive and touched one file, but it added four things: a secret scan, a capture step, a body generator, and the PR_STEP_NAMES change with the renaming that follows. Rule 9 bounds additive-vs-restructuring; V5-M2 and V5-M10 say it also needs bounding by how much is added.",
+   "retry": {
+    "attempted": true,
+    "outcome": "refused",
+    "reason": "the deployed /etc/agentops/hybrid-dispatch.json capped mechanical_bulk at max_attempts 1; gitops-nixos #17 was merged but not deployed. Deployed 2026-08-24, max_attempts now 2."
+   },
+   "split": {
+    "approved_by": "owner, 2026-08-24",
+    "packets": [
+     "V5-M10a-secret-scan",
+     "V5-M10c-capture",
+     "V5-M10b-bounded-body"
+    ],
+    "dispatch_order": "a -> c -> b",
+    "order_correction": "the approved table put the body second and called the capture the only part depending on the other two. Running the oracle class by class against main shows the reverse: BodyTests asserts the body points at the captured receipt and that a withheld transcript is noted, so the body depends on both the scan and the capture. The seam is unchanged; only the order is.",
+    "fixture_partition": {
+     "M-10a": 3,
+     "M-10c": 15,
+     "M-10b": 4,
+     "total": 22,
+     "lost": 0
     }
+   }
+  },
+  {
+   "packet": "V5-M10a-secret-scan",
+   "handover_row": "M-10a",
+   "spec_row": "Amendment 3 section 3c, split 2026-08-24",
+   "writable": "templates/dispatch/scripts/dispatch_release.py",
+   "oracle": "templates/dispatch/tests/test_dispatch_release_secretscan.py, 3 fixtures, cut without re-authoring from the M-10 oracle",
+   "validate": {
+    "status": "fit",
+    "oracle_attainable": true,
+    "oracle_satisfiable_within_paths": "skipped:no-reference",
+    "read_trace": true,
+    "oracle_reads_within_paths": true,
+    "reads_outside_declared_paths": {}
+   },
+   "reference_patch": null,
+   "attempts": 1,
+   "first_attempt_green": true,
+   "gate_sequence": "prepare 0 -> run 0 -> gate 0 (candidate) -> receipt 0 -> pr 1",
+   "gates": {
+    "diff-nonempty": true,
+    "diff-scope-respected": true,
+    "protected-paths-untouched": true,
+    "worktree-state-captured": true,
+    "registered-commands-green": true
+   },
+   "disposition": "candidate",
+   "independent_review": {
+    "mode": "self_candidate",
+    "class": "mechanical_bulk",
+    "basis": "manifest"
+   },
+   "touched_paths": [
+    "templates/dispatch/scripts/dispatch_release.py"
+   ],
+   "starting_commit": "b8afe6526576d137f01f5f6f51961d711e672fed",
+   "cost_usd": 0.016064,
+   "tokens": 206566,
+   "soft_token_ceiling_exceeded": false,
+   "contained": true,
+   "qualification_eligible": true,
+   "rework_rounds": 0,
+   "escalations": 1,
+   "escalation_cause": "pr step, sub-step pr-create: GraphQL: Body is too long (maximum is 65536 characters). Harness-side and expected -- it is precisely what M-10b removes. Under Amendment 2 harness escalations do not spend D-8's budget.",
+   "pr": 71,
+   "merge_preview": {
+    "tests": 566,
+    "previously": 563,
+    "validator": "green",
+    "telemetry_hooks": "green"
+   },
+   "end_to_end": "The loop ran receipt -> commit -> remote-add -> push in code for the first time: the worker's diff was committed at 46ef83a and the branch pushed by the driver, with no hand step before pr-create. The PR body was written by hand this once.",
+   "confirms": "#70's sub-step naming fix: failed_step read pr-create, not the positional neighbour it would have reported before.",
+   "coordinator_defects_before_a_fair_attempt": 6,
+   "coordinator_defect_note": "Six prepare runs failed before the tier was reached, none of them the packet's fault: sudo -u agent without a login shell resolved auditctl to the system binary and had no sprintctl on PATH; the agent login profile leaks SPRINTCTL_BACKEND=local; served requires SPRINTCTL_VUORO_PROFILE; the reservation idle-guard fired; sprintctl 0.3.0 on devbox could not touch a reservation at all (missing the idempotency key that sprintctl #45 adds in 0.3.2); and reservation 2 belonged to a dead session, so this session took its own (id 6) rather than interrupt one it did not own. Recorded as friction ad:01M0SP7W5686V8931JZE3H1YEE."
+  },
+  {
+   "packet": "V5-M10c-receipt-capture",
+   "handover_row": "M-10c",
+   "spec_row": "Amendment 3 section 3c, split 2026-08-24",
+   "writable": "templates/dispatch/scripts/dispatch_release.py",
+   "oracle": "templates/dispatch/tests/test_dispatch_release_capture.py, 15 fixtures, cut without re-authoring from the M-10 oracle",
+   "attempt_1": {
+    "disposition": "budget_exceeded",
+    "cost_usd": 0.149579,
+    "tokens": 1509082,
+    "hard_token_ceiling": 1000000,
+    "within_hard_token_ceiling": false,
+    "gate_reached": false,
+    "diff_produced": "98 insertions, 5 deletions in one file -- a correct capture step",
+    "scored_against_the_frozen_oracle": "11/15",
+    "scored_against_the_fixed_oracle": "15/15",
+    "classification": "coordinator defect, not the tier. Must not count against D-8, by the same standard that excused four of M-9's five dispatches.",
+    "cause": "the oracle's two sub-step fixtures shared one worktree across their subTest loops. _DriverFixture.setUp runs once per test method and _worktree() mkdirs a deterministic path with exist_ok=True, so the failing='receipt-capture' case -- which poisons the capture path by writing docs as a file -- left it poisoned for commit, remote-add, push and pr-create. Every later case failed in the capture and reported failed_step='receipt-capture'. No correct implementation could pass those four subTests.",
+    "worker_defect": "left DEBUG print() calls and a temporary import behind, from chasing the impossible target. The only genuine fault in its diff, and the reason attempt 1 was not hand-landed."
+   },
+   "attempt_2": {
+    "starting_commit": "625aa60c641d225fe0dcf00758cb4843e3132ee2",
+    "changed": "the oracle's state leak is fixed and the purpose forbids leaving debugging output behind; the packet is otherwise unchanged",
+    "note": "the one retry section 7 grants, and the first use of the max_attempts: 2 that gitops-nixos #17 put on the host on 2026-08-24",
+    "disposition": "budget_exceeded",
+    "cost_usd": 0.1,
+    "tokens": 1435896,
+    "hard_token_ceiling": 1000000,
+    "gate_reached": false,
+    "diff_produced": "86 insertions, 6 deletions in one file",
+    "scored_against_the_fixed_oracle": "15/15",
+    "debugging_left_behind": false,
+    "outcome": "correct and complete work, stopped by the harness before the gate could run"
+   },
+   "attempts": 3,
+   "first_attempt_green": false,
+   "stopped_under": "handover section 7: red twice, do not retry a third time. Escalation ad:01M0ST0EES9W09NR4EXFZCGBBE.",
+   "classification_final": "Not a tier failure. The tier produced a correct implementation on all three attempts. Two were stopped on the token ceiling before gate could run; the third came in at 533 033 tokens, comfortably under even the original 1000000 ceiling. Spend on one unchanged packet varied by a factor of nearly three.",
+   "attempt_3": {
+    "starting_commit": "54dd5158bd31459958d8a9f10c5d3e29416df997",
+    "changed": "hard_token_ceiling 1000000 -> 2000000 and soft 500000 -> 1200000, owner-approved, plus the same raise to the repository cap in agentops.dispatch.json, without which validate refuses the packet",
+    "disposition": "candidate",
+    "cost_usd": 0.034143,
+    "tokens": 533033,
+    "soft_token_ceiling_exceeded": false,
+    "gates": {
+     "diff-nonempty": true,
+     "diff-scope-respected": true,
+     "protected-paths-untouched": true,
+     "worktree-state-captured": true,
+     "registered-commands-green": true
+    },
+    "touched_paths": [
+     "templates/dispatch/scripts/dispatch_release.py"
+    ],
+    "diff": "111 insertions, 7 deletions in one file; no debugging output",
+    "escalation_cause": "pr step, sub-step pr-create: GraphQL: Body is too long. Harness-side and expected -- it is what M-10b removes.",
+    "pr": 73,
+    "merge_preview": {
+     "tests": 581,
+     "of_which_this_oracle": 15,
+     "validator": "green",
+     "hooks": "green"
+    }
+   },
+   "spend_by_attempt_tokens": [
+    1509082,
+    1435896,
+    533033
+   ],
+   "debt": [
+    "the packet records attempt 3 and the dispatch that produced the candidate ran while it declared attempt 1. Owner offered a re-dispatch; closed unrun. Re-running would swap a verified artifact -- 15/15 on its oracle, a green merge-preview, and an independent review that found a real secret-leak hole -- for an unverified one, to correct a metadata field that provably does not enter the diff, the gates or the spend. Spend on this packet has varied 1 509 082 / 1 435 896 / 533 033 tokens, so a re-run also carries a real chance of returning budget_exceeded and leaving nothing.",
+    "the test renamed from test_pr_step_names_lead_with_the_commit loses its string linkage back to M-9's spec row. The amendments block in V5-M9-driver-commit.json now carries that linkage explicitly, which is stronger than a test name; effectively closed.",
+    "dispatch_release.py uses a bare `assert final is not None` in the production path. Under python -O it vanishes and _worker_stdout(None) raises AttributeError instead of the receipt-capture escalation the spec mandates. Nothing in the repo sets -O or PYTHONOPTIMIZE and it is only reachable via a stale receipt_path, so it is deferred to a follow-up packet touching the driver rather than fixed in an oracle branch."
+   ],
+   "independent_review": {
+    "mode": "fresh author, no access to this session's reasoning; given the two spec rows and the diffs only",
+    "rounds": 2,
+    "verdict": "ACCEPT",
+    "found": [
+     "a driver could report the transcript as withheld and commit the secret in a third file with all 581 tests green -- the withholding path defeated silently. Not present in the shipped diff, but ungarded.",
+     "round 2: the first fix for that was task-scoped, so the same defect one directory away (worktree root, or another task's receipts dir) still passed. Widened to the whole worktree.",
+     "the pinned max_attempts literal is load-bearing: every derived fixture stays green if the allowance is widened to 99.",
+     "a starting_commit change riding undocumented in a chore(policy) commit; disclosed in the message on the rebuild."
+    ],
+    "note": "review's own proposed fix for the leak did not close it -- its fixture cannot reach the withholding branch. Established by re-running the exploit, not by argument, and review confirmed the contradiction against itself."
+   }
+  }
+ ],
+ "coordinator_cost": {
+  "reference_patches_written": 3,
+  "total_wall_minutes_on_throwaway_solutions": 8.5,
+  "total_frontier_turns_on_throwaway_solutions": 12,
+  "verdict": "The reference-patch rule is cheap and it pays for itself twice over, but not the way it was sold. Writing three throwaway solutions cost about 8.5 minutes and 12 frontier turns -- against a worker spend of $0.13 for one usable implementation, that is not obviously a saving. Its real value was diagnostic: the M-2 patch is what surfaced that L-4 supersedes three shipped fixtures, before a single worker token was spent, and the M-5 patch is what caught an anchoring rule that would have broken an assertion the shipped T-3 oracle already made. Both would otherwise have been discovered as a red gate at $0.09 a look."
+ },
+ "findings": [
+  "The class is on. M-5, M-8, M-6a and M-6b all went green on the first attempt, on one outcome, one writable file and one attainable red oracle each, for between $0.011 and $0.040 a packet.",
+  "Rule 9 held on every packet that tested it. The only packet that ever failed on the model's side, V5-M2, was the only restructuring one; every additive packet since has gone green first attempt. V5-M2's attempt 1 is still the clearest evidence: the worker emitted 131072 output tokens without producing a single tool call and was truncated before any write landed.",
+  "The reference patch did not buy correctness. Two packets frozen without one both went green first attempt and were the cheapest runs of the session. What a reference patch bought, twice, was catching a bad packet before dispatch -- and on M-6a the L-2b read trace caught exactly that class of defect for free.",
+  "Hand-pass item A is the highest-leverage line changed all session. Before it, oracle_reads_within_paths was unobtainable for every Python oracle in the repository, because openat's directory-fd argument was being resolved against the checkout. After it, three packets validated with all three of rule 2's fields true -- and on M-6a the restored check immediately rejected an over-broad oracle that would otherwise have been dispatched.",
+  "The loop still cannot finish. remote-add and push work; pr-create dies on GitHub's 65536-character body limit, and the branch it pushes points at starting_commit because the driver never commits the worker's changes. Two additive fixes in an unprotected file stand between here and an unattended PR.",
+  "M-1's gate-red-twice stop fired in production on the second packet it ever saw, on exactly the evidence it was designed to read, and refused the hand-off. The L-2 stop conditions work.",
+  "Six shipped fixtures were superseded across the session -- three by L-4, two by M-8, one helper by M-8's git calls. Each carries a comment naming what superseded it. A row that changes what an earlier row pinned is normal in a sequenced track; the discipline that made it safe was giving every supersession to a fresh author rather than editing the oracle to fit the implementation.",
+  "L-1b is done as-is: the opencode export path is removed rather than repaired, and the worker transcript survives in the run receipt's worker.stdout beside the receipt. It is no longer a debt line.",
+  {
+   "id": "rule-11-narrowed-the-gate",
+   "from": "V5-M9",
+   "summary": "A packet's gate runs only that packet's oracle, so a diff can pass its gate and still break a contract the oracle never exercises. M-9's positional PR_STEP_NAMES indexing did exactly that; the \u00a74.6 merge-preview caught it.",
+   "open_question": "whether a packet should carry a second, broader command as a non-starts_red guard wherever one is green at the starting commit. M-6a did exactly that and it cost nothing."
+  },
+  {
+   "id": "rule-9-needs-a-size-bound",
+   "from": "V5-M2 and V5-M10",
+   "summary": "Rule 9 bounds additive-vs-restructuring but not how much is added. Both packets were additive and single-file, and both finished with finish_reason: length at 131072 output tokens having emitted no tool call. M-10 added four things at once.",
+   "proposed": "bound a mechanical_bulk packet by the number of independent additions as well as by their kind; the oracle's own class partition is a usable seam."
+  },
+  {
+   "id": "an-oracle-must-be-proven-green-in-both-directions",
+   "from": "V5-M10c attempt 1",
+   "summary": "A frozen oracle was proven red at starting_commit and never proven green anywhere. It contained a fixture no correct implementation could pass, and the packet still validated fit: prepare's registered-commands-green-cold and acceptance-properties-discriminating both check redness, not attainability. The worker spent 1 509 082 tokens against a 1 000 000 ceiling chasing it.",
+   "cost": "$0.149579 and one wasted dispatch, plus the re-freeze",
+   "why_it_got_through": "rule 2 made oracle.reference_patch SHOULD at Amendment 2, and rules 9-11 tightened the packet's shape without ever requiring the oracle be shown green against a known-good implementation. Cutting an inherited oracle into three, as the M-10 split did, is exactly the operation that can introduce this and exactly the case where no reference patch existed.",
+   "proposed": "for any packet whose oracle was cut, inherited or otherwise not written fresh against a known-good implementation, require proof of green in both directions before dispatch. It does not need a throwaway solution: running the oracle against a rejected attempt's own diff found this in one command, and for a fresh oracle a reference patch already reports oracle_attainable.",
+   "related": "rule-11-narrowed-the-gate -- both are the same shape: the gate measures less than the reader assumes it does."
+  },
+  {
+   "id": "the-token-ceiling-is-not-calibrated-to-the-packet",
+   "from": "V5-M10c attempts 1 and 2",
+   "summary": "Every packet since V5-M9 carried the same limits block: soft 500000, hard 1000000. Observed spend ranges from 206 566 tokens (M-10a) to 1 509 082 (M-10c attempt 1) -- and varies by nearly 3x between runs of one unchanged packet. A single constant is inside that variance band, so it stops runs that would have succeeded, at random.",
+   "note": "the ceiling did its job as written; the fault is that the number was copied from packet to packet rather than set for each. Cost never came close to binding: $0.15 against $3.00.",
+   "proposed": "Treat a hard token stop as a soft outcome when the cost cap is untouched: let gate run on the work already produced rather than discarding it. Two of M-10c's three runs produced correct diffs that were thrown away while cost stood at $0.15 against a $3.00 cap. Setting limits per packet from fixture count does NOT solve this, because the variance is run-to-run.",
+   "correction": "an earlier reading of attempt 1 attributed its token burn to the oracle defect. Attempt 2 on the fixed oracle spent 1 435 896 tokens, so the oracle defect was real but was not the cause of the burn. Both facts stand independently.",
+   "correction_2": "Attempt 3 falsifies this finding's central claim. It stated the ceiling 'sits below what the packet costs'; attempt 3 ran the same packet for 533 033 tokens, well under the original 1000000. Spend on an unchanged packet varied 1 509 082 / 1 435 896 / 533 033 -- a factor of nearly three. The ceiling did not sit below the packet's cost; it sat inside the packet's variance band, which is a different and more awkward problem: no single constant is safe, and calibrating per packet from fixture count would not have helped either, because the variation is between runs of the SAME packet."
+  },
+  {
+   "id": "an-oracle-can-forbid-the-next-specified-change",
+   "from": "V5-M10c merge-preview",
+   "summary": "M-9's oracle pinned PR_STEP_NAMES as an exact 4-tuple and its real-git proof asserted the commit's diff equals the gate's touched paths exactly. M-10c's spec row requires inserting receipt-capture at the head and requires the captured files to be in the commit. Both assertions therefore had to fail, and templates/dispatch/tests/** is protected, so no worker could reconcile them. M-10c's own gate was green; the merge-preview was red at 7.",
+   "caught_by": "the \u00a74.6 merge-preview, for the second time. It has now caught more real defects than the gates have.",
+   "classification": "coordinator defect at freeze time. Freezing a packet that changes a shape a prior oracle pinned must carry the prior oracle's reconciliation.",
+   "proposed": "when freezing a packet whose spec changes a constant, a signature or a set that an existing oracle asserts, reconcile that oracle in the freeze commit. An exact-equality assertion on a shape later packets are specified to extend is the smell; assert the invariant the row actually owns instead.",
+   "attestation_note": "the relaxations were authored by the same session that dispatched M-10c, which is the one part of this packet with no independent attestation. Rule 4 names oracle design an owner touchpoint; PR #73 is deliberately left unmerged for that reason.",
+   "related": "rule-11-narrowed-the-gate"
+  },
+  {
+   "id": "re-running-beats-reasoning-about-the-fix",
+   "from": "V5-M10c review, both rounds",
+   "summary": "Twice on this branch a fix was asserted without exercising the path it guarded, and twice re-running the exploit contradicted the assertion. Once by the coordinator (a merge-preview measured before the fix was clobbered, then reported as green) and once by the reviewer (a tightened real-git check whose fixture cannot reach the withholding branch).",
+   "proposed": "a fix for a guard is not done until the defect it guards against has been re-injected and observed to fail. The suite being green after a fix proves nothing on its own -- it was green before, with the hole open."
+  }
+ ],
+ "d8": {
+  "count": 5,
+  "greens": [
+   "V5-M1 (clean run)",
+   "V5-M5",
+   "V5-M8",
+   "V5-M6a",
+   "V5-M6b"
   ],
-  "coordinator_cost": {
-    "reference_patches_written": 3,
-    "total_wall_minutes_on_throwaway_solutions": 8.5,
-    "total_frontier_turns_on_throwaway_solutions": 12,
-    "verdict": "The reference-patch rule is cheap and it pays for itself twice over, but not the way it was sold. Writing three throwaway solutions cost about 8.5 minutes and 12 frontier turns -- against a worker spend of $0.13 for one usable implementation, that is not obviously a saving. Its real value was diagnostic: the M-2 patch is what surfaced that L-4 supersedes three shipped fixtures, before a single worker token was spent, and the M-5 patch is what caught an anchoring rule that would have broken an assertion the shipped T-3 oracle already made. Both would otherwise have been discovered as a red gate at $0.09 a look."
-  },
-  "findings": [
-    "The class is on. M-5, M-8, M-6a and M-6b all went green on the first attempt, on one outcome, one writable file and one attainable red oracle each, for between $0.011 and $0.040 a packet.",
-    "Rule 9 held on every packet that tested it. The only packet that ever failed on the model's side, V5-M2, was the only restructuring one; every additive packet since has gone green first attempt. V5-M2's attempt 1 is still the clearest evidence: the worker emitted 131072 output tokens without producing a single tool call and was truncated before any write landed.",
-    "The reference patch did not buy correctness. Two packets frozen without one both went green first attempt and were the cheapest runs of the session. What a reference patch bought, twice, was catching a bad packet before dispatch -- and on M-6a the L-2b read trace caught exactly that class of defect for free.",
-    "Hand-pass item A is the highest-leverage line changed all session. Before it, oracle_reads_within_paths was unobtainable for every Python oracle in the repository, because openat's directory-fd argument was being resolved against the checkout. After it, three packets validated with all three of rule 2's fields true -- and on M-6a the restored check immediately rejected an over-broad oracle that would otherwise have been dispatched.",
-    "The loop still cannot finish. remote-add and push work; pr-create dies on GitHub's 65536-character body limit, and the branch it pushes points at starting_commit because the driver never commits the worker's changes. Two additive fixes in an unprotected file stand between here and an unattended PR.",
-    "M-1's gate-red-twice stop fired in production on the second packet it ever saw, on exactly the evidence it was designed to read, and refused the hand-off. The L-2 stop conditions work.",
-    "Six shipped fixtures were superseded across the session -- three by L-4, two by M-8, one helper by M-8's git calls. Each carries a comment naming what superseded it. A row that changes what an earlier row pinned is normal in a sequenced track; the discipline that made it safe was giving every supersession to a fresh author rather than editing the oracle to fit the implementation.",
-    "L-1b is done as-is: the opencode export path is removed rather than repaired, and the worker transcript survives in the run receipt's worker.stdout beside the receipt. It is no longer a debt line."
+  "not_counted": [
+   "V5-M1 void run (returned the coordinator's own reference patch)",
+   "both V5-M2 runs (no diff produced)"
   ],
-  "d8": {
-    "count": 5,
-    "greens": [
-      "V5-M1 (clean run)",
-      "V5-M5",
-      "V5-M8",
-      "V5-M6a",
-      "V5-M6b"
-    ],
-    "not_counted": [
-      "V5-M1 void run (returned the coordinator's own reference patch)",
-      "both V5-M2 runs (no diff produced)"
-    ],
-    "caveat": "D-8 asks for >=5 green first pass with 0 escalations. All five greens carry exactly one escalation each, always the same one: the driver's PR step. None is attributable to the worker -- every gate passed, containment held, and every run was qualification-eligible. Whether a harness escalation spends the D-8 budget is the owner's ruling."
-  },
-  "end_to_end": {
-    "question": "does M-8's driver fix make a candidate reach a PR without a hand step?",
-    "answer": "No -- but it got two of three steps further, and the report now says exactly where it stopped.",
-    "remote_add": "works",
-    "push": "works: the loop pushed hybrid/v5-m6a-cost-hook-artifacts-root and hybrid/v5-m6b-driver-artifacts-root to origin itself",
-    "pr_create": "fails: GraphQL: Body is too long (maximum is 65536 characters)",
-    "gap_1": "The receipt is the PR body per section 4.5, and V5-M6a's receipt is 165515 bytes -- it carries the worker's full stdout, which is now the only transcript since the hand-pass removed the export path. The body has to become a bounded summary pointing at the receipt.",
-    "gap_2": "The driver never commits the worker's changes. The branch it pushed points at the packet's starting_commit: post_gates reads the diff from the working tree with git diff --name-only <starting_commit>, and nothing commits it between the worker finishing and the push. Even with a short enough body the PR would have been empty.",
-    "both": "additive, unprotected, rule-9 shaped, and neither is in the brief -- so neither was actioned"
-  },
-  "reference_patch_cost": {
-    "with_a_reference_patch": [
-      {
-        "packet": "V5-M1",
-        "wall_minutes": 2.5,
-        "frontier_turns": 3,
-        "lines": "225+",
-        "green_first_try": true
-      },
-      {
-        "packet": "V5-M2",
-        "wall_minutes": 5,
-        "frontier_turns": 6,
-        "lines": "78+/5-",
-        "green_first_try": true,
-        "note": "surfaced that L-4 supersedes three shipped fixtures, before a worker token was spent"
-      },
-      {
-        "packet": "V5-M5",
-        "wall_minutes": 1,
-        "frontier_turns": 3,
-        "lines": "26+/1-",
-        "green_first_try": false,
-        "note": "two iterations: the first anchoring rejected a case the shipped T-3 oracle already required"
-      },
-      {
-        "packet": "V5-M8",
-        "wall_minutes": 1.4,
-        "frontier_turns": 4,
-        "lines": "67+/2-",
-        "green_first_try": false,
-        "note": "one fix: the escalation had to record step 'pr' rather than the sub-step name"
-      }
-    ],
-    "without_a_reference_patch": [
-      {
-        "packet": "V5-M6a",
-        "wall_minutes": 0,
-        "frontier_turns": 0,
-        "outcome": "green first attempt, $0.017290",
-        "rework": "one freeze-time rework round -- the read trace rejected the oracle for reading outside the declared paths, and the fixtures moved to their own script. Caught by machinery at freeze, not by hand."
-      },
-      {
-        "packet": "V5-M6b",
-        "wall_minutes": 0,
-        "frontier_turns": 0,
-        "outcome": "green first attempt, $0.011214",
-        "rework": "none"
-      }
-    ],
-    "verdict": "Four reference patches cost about 9.9 minutes and 16 frontier turns. Their value was diagnostic rather than instructive: two of the four surfaced a defect before a worker token was spent (M-2's oracle supersession, M-5's over-tight anchoring rule), and none of the four was ever seen by the worker. Then the two packets frozen WITHOUT one -- the first ever -- both went green first attempt, at $0.0173 and $0.0112, the cheapest runs of the session. On additive packets the reference patch is not buying correctness. What it buys is early detection of a bad packet, and on M-6a the L-2b read trace bought that instead, for nothing. The honest reading: keep it optional, and let validate's own checks be the freeze-time gate."
-  },
-  "totals": {
-    "worker_spend_usd_this_session": 0.247282,
-    "packets_dispatched": 8,
-    "first_attempt_greens": 5,
-    "packets_red_twice": 1,
-    "coordinator_hand_passes": 1,
-    "prs_merged": [
-      55,
-      56,
-      58,
-      59,
-      61,
-      62,
-      63,
-      64,
-      65
-    ],
-    "escalations_recorded": 7
-  },
-  "debt_for_v5_9": [
-    "The PR body must be a bounded summary; section 4.5's 'the receipt is the body' cannot hold against a 65536-character limit.",
-    "The driver must commit the worker's changes in the worktree before pushing.",
-    "dispatch_release._path_allowed is a weaker matcher than hybrid_dispatch._matches_any: directory-prefix patterns like 'docs/' match in the gate and not in the driver's stop condition. Latent while packets use '**' globs.",
-    "mechanical_bulk is both a hybrid route and an action class -- a naming debt since L-3.",
-    "The manifest schema is still not machine-enforced; validate_hybrid_dispatch holds the invariants by hand."
-  ]
+  "caveat": "D-8 asks for >=5 green first pass with 0 escalations. All five greens carry exactly one escalation each, always the same one: the driver's PR step. None is attributable to the worker -- every gate passed, containment held, and every run was qualification-eligible. Whether a harness escalation spends the D-8 budget is the owner's ruling."
+ },
+ "end_to_end": {
+  "question": "does M-8's driver fix make a candidate reach a PR without a hand step?",
+  "answer": "No -- but it got two of three steps further, and the report now says exactly where it stopped.",
+  "remote_add": "works",
+  "push": "works: the loop pushed hybrid/v5-m6a-cost-hook-artifacts-root and hybrid/v5-m6b-driver-artifacts-root to origin itself",
+  "pr_create": "fails: GraphQL: Body is too long (maximum is 65536 characters)",
+  "gap_1": "The receipt is the PR body per section 4.5, and V5-M6a's receipt is 165515 bytes -- it carries the worker's full stdout, which is now the only transcript since the hand-pass removed the export path. The body has to become a bounded summary pointing at the receipt.",
+  "gap_2": "The driver never commits the worker's changes. The branch it pushed points at the packet's starting_commit: post_gates reads the diff from the working tree with git diff --name-only <starting_commit>, and nothing commits it between the worker finishing and the push. Even with a short enough body the PR would have been empty.",
+  "both": "additive, unprotected, rule-9 shaped, and neither is in the brief -- so neither was actioned"
+ },
+ "reference_patch_cost": {
+  "with_a_reference_patch": [
+   {
+    "packet": "V5-M1",
+    "wall_minutes": 2.5,
+    "frontier_turns": 3,
+    "lines": "225+",
+    "green_first_try": true
+   },
+   {
+    "packet": "V5-M2",
+    "wall_minutes": 5,
+    "frontier_turns": 6,
+    "lines": "78+/5-",
+    "green_first_try": true,
+    "note": "surfaced that L-4 supersedes three shipped fixtures, before a worker token was spent"
+   },
+   {
+    "packet": "V5-M5",
+    "wall_minutes": 1,
+    "frontier_turns": 3,
+    "lines": "26+/1-",
+    "green_first_try": false,
+    "note": "two iterations: the first anchoring rejected a case the shipped T-3 oracle already required"
+   },
+   {
+    "packet": "V5-M8",
+    "wall_minutes": 1.4,
+    "frontier_turns": 4,
+    "lines": "67+/2-",
+    "green_first_try": false,
+    "note": "one fix: the escalation had to record step 'pr' rather than the sub-step name"
+   }
+  ],
+  "without_a_reference_patch": [
+   {
+    "packet": "V5-M6a",
+    "wall_minutes": 0,
+    "frontier_turns": 0,
+    "outcome": "green first attempt, $0.017290",
+    "rework": "one freeze-time rework round -- the read trace rejected the oracle for reading outside the declared paths, and the fixtures moved to their own script. Caught by machinery at freeze, not by hand."
+   },
+   {
+    "packet": "V5-M6b",
+    "wall_minutes": 0,
+    "frontier_turns": 0,
+    "outcome": "green first attempt, $0.011214",
+    "rework": "none"
+   }
+  ],
+  "verdict": "Four reference patches cost about 9.9 minutes and 16 frontier turns. Their value was diagnostic rather than instructive: two of the four surfaced a defect before a worker token was spent (M-2's oracle supersession, M-5's over-tight anchoring rule), and none of the four was ever seen by the worker. Then the two packets frozen WITHOUT one -- the first ever -- both went green first attempt, at $0.0173 and $0.0112, the cheapest runs of the session. On additive packets the reference patch is not buying correctness. What it buys is early detection of a bad packet, and on M-6a the L-2b read trace bought that instead, for nothing. The honest reading: keep it optional, and let validate's own checks be the freeze-time gate."
+ },
+ "totals": {
+  "worker_spend_usd_this_session": 0.247282,
+  "packets_dispatched": 8,
+  "first_attempt_greens": 5,
+  "packets_red_twice": 1,
+  "coordinator_hand_passes": 1,
+  "prs_merged": [
+   55,
+   56,
+   58,
+   59,
+   61,
+   62,
+   63,
+   64,
+   65
+  ],
+  "escalations_recorded": 7
+ },
+ "debt_for_v5_9": [
+  "The PR body must be a bounded summary; section 4.5's 'the receipt is the body' cannot hold against a 65536-character limit.",
+  "The driver must commit the worker's changes in the worktree before pushing.",
+  "dispatch_release._path_allowed is a weaker matcher than hybrid_dispatch._matches_any: directory-prefix patterns like 'docs/' match in the gate and not in the driver's stop condition. Latent while packets use '**' globs.",
+  "mechanical_bulk is both a hybrid route and an action class -- a naming debt since L-3.",
+  "The manifest schema is still not machine-enforced; validate_hybrid_dispatch holds the invariants by hand."
+ ]
 }
