@@ -1445,6 +1445,7 @@ class WorkerInvocationTests(unittest.TestCase):
         assert isinstance(args, list)
         self.assertEqual(args[args.index("--dir") + 1], str(worktree))
         self.assertIn("Every packet path is relative to the exact task worktree", args[2])
+        self.assertIn("read that patch first", args[2])
         self.assertEqual(captured["kwargs"]["cwd"], worktree)
         self.assertEqual(result["exit_code"], 0)
 
