@@ -154,6 +154,7 @@
       "agentops.dispatch.tests.driver": "python -m unittest discover -s templates/dispatch/tests -p 'test_dispatch_release*.py'",
       "agentops.dispatch.tests.commit": "python templates/dispatch/tests/test_dispatch_release_commit.py",
       "agentops.dispatch.tests.secretscan": "python templates/dispatch/tests/test_dispatch_release_secretscan.py",
+      "agentops.dispatch.tests.capture": "python templates/dispatch/tests/test_dispatch_release_capture.py",
       "agentops.hybrid.validate": "python templates/dispatch/scripts/validate_hybrid_dispatch.py --agentops-root . --manifest agentops.dispatch.json",
       "agentops.session-notes.tests": "python -m unittest discover -s templates/dispatch/tests -p test_session_notes.py",
       "agentops.hooks.tests": "bash templates/dispatch/hooks/tests/test-session-telemetry.sh && bash templates/dispatch/hooks/tests/test-sprintctl-maintain-check.sh",
