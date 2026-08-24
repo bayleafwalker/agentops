@@ -1,0 +1,62 @@
+diff --git a/templates/dispatch/scripts/release_scorecard.py b/templates/dispatch/scripts/release_scorecard.py
+index a6b6bae..5398044 100644
+--- a/templates/dispatch/scripts/release_scorecard.py
++++ b/templates/dispatch/scripts/release_scorecard.py
+@@ -5,8 +5,10 @@ session supersede each other. ``reduce_sessions`` keeps the newest snapshot per
+ session and ``frontier_totals`` sums over those survivors only.
+ """
+ 
++import argparse
+ import json
+ import os
++import sys
+ from datetime import datetime, timezone
+ from pathlib import Path
+ 
+@@ -306,15 +308,26 @@ def main(argv):
+     to --out as indent-2 JSON with a trailing newline, creating the parent
+     directory if missing, and returns 0.
+     """
+-    args = {}
+-    index = 0
+-    while index < len(argv):
+-        flag = argv[index]
+-        if flag.startswith("--") and index + 1 < len(argv):
+-            args[flag[2:]] = argv[index + 1]
+-            index += 2
+-        else:
+-            index += 1
++    parser = argparse.ArgumentParser(
++        prog="release_scorecard.py",
++        description="Build one release's scorecard from the two telemetry sinks.",
++    )
++    # Required, and enforced before anything is written: a missing flag used to
++    # default silently to None, which produced a scorecard naming no release at
++    # all. That is worse than failing -- a nameless scorecard gets filed
++    # against the wrong release.
++    parser.add_argument("--release", required=True)
++    parser.add_argument("--sink", required=True)
++    parser.add_argument("--receipts", required=True)
++    parser.add_argument("--out", required=True)
++    parser.add_argument("--since", default=None)
++    parser.add_argument("--until", default=None)
++    parser.add_argument("--escalations", default=None)
++    parsed = parser.parse_args(argv)
++
++    args = {
++        key: value for key, value in vars(parsed).items() if value is not None
++    }
+     release = args.get("release")
+     sink_path = args.get("sink")
+     receipts_root = args.get("receipts")
+@@ -338,4 +351,8 @@ def main(argv):
+     out = Path(out_path)
+     out.parent.mkdir(parents=True, exist_ok=True)
+     out.write_text(json.dumps(scorecard, indent=2) + "\n", encoding="utf-8")
+-    return 0
+\ No newline at end of file
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main(sys.argv[1:]))

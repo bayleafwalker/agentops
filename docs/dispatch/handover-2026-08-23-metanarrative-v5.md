@@ -234,18 +234,20 @@ Open rows: **T-6/T-7** (scorecard script) and **L-5** (release-unit template).
 
 ## 3h. The T-series (2026-08-24) — the brief's last rows, and five for five
 
-**T-6, T-7 and L-5 are done. The brief has no open rows left.** Main 615 → 739. Merged:
-#82 #84 #85 #86 #87, plus the hand-pass #83. Scorecard: `docs/evidence/scorecards/v5-t-series.json`.
+**T-6, T-7 and L-5 are done. The brief has no open rows left.** Main 615 → 778. Merged:
+#82 #84 #85 #86 #87 #88 #89, plus the hand-pass #83.
+Scorecard: `docs/evidence/scorecards/v5-t-series.json`.
 
-Five packets, **five green on the first attempt** — no retry, no escalation, no rework round,
-and no hand step inside any of the five loops. Total worker spend **$0.083** and 1.13 M tokens
-across all five; the whole T-series cost less than a tenth of what one v5-P1 dispatch did.
-Against D-8's rule that is five consecutive greens with zero escalations for `mechanical_bulk`.
+Seven packets, **seven green on the first attempt** — no retry, no escalation, no rework round,
+and no hand step inside any of the seven loops. Total worker spend **$0.108** and 1.65 M tokens
+across all seven. Against D-8's rule that is seven consecutive greens with zero escalations for
+`mechanical_bulk`.
 
-- **T-6 was split three ways** on the seam its oracle already had, exactly as M-10 was in
+- **T-6 was split five ways** on the seams its oracle already had, in the spirit of M-10 in
   Amendment 4: T-6a `reduce_sessions`/`frontier_totals`, T-6b `worker_spend_from_receipt`/
-  `worker_totals`, T-6c `build_scorecard`. The split was free — three packets at $0.039
-  combined, each with a smaller oracle and a smaller failure surface than one packet.
+  `worker_totals`, T-6c `build_scorecard`, T-6d the I/O shell, T-6e the entry point. The split
+  was free — five packets at $0.063 combined, each with a smaller oracle and a smaller failure
+  surface than one packet would have had.
 - **L-5 became a generator, not a static template**, on the owner's ruling. A static template
   could not be a loop packet at all (everything it would write is coordinator-protected) and
   "example packet validates" would have been a claim rather than a test.
@@ -296,6 +298,37 @@ scorecard; the first is the one that needs an owner:
   rises. Specified consistently through brief, oracle and packet — a decision to revisit, not a
   bug.
 - `worker_totals` does not `list()` its argument, so `attempts` raises on a generator.
+
+### The finding worth carrying forward: green tests, dead command
+
+**T-6d passed 31 tests and shipped a CLI that did nothing when you ran it.** Every one of those
+tests called `main(argv)` in process. The module had no `if __name__ == "__main__"` block, so
+`python release_scorecard.py --release … --out …` exited 0 and wrote nothing at all. A missing
+required flag also defaulted silently to `None`, which would have written a scorecard naming no
+release — worse than failing, because a nameless scorecard gets filed against the wrong one.
+
+It was found by **running the command on real data**, not by reading the green suite. Note what
+did *not* catch it: the reference patch had an entry point, so the reference passed; `validate`
+reported `fit` on all three oracle fields; every gate was green; the merge-preview was green.
+
+**The defect was in the oracle's reach, not the worker's work.** The row asked for a scorecard
+produced by *running a command*; the brief written for its oracle graded a *function*. A
+reference patch proves a packet is satisfiable. It cannot prove the oracle is asking the right
+question — nothing in the loop can, except running the thing.
+
+T-6e closes it: an oracle that drives the script through `subprocess`, the way a person would.
+$0.0144 and 79 seconds to fix what 31 green tests could not see. That ratio is the argument for
+the loop, and the lesson is the one the M-series already paid for once — **re-running beats
+reasoning**.
+
+Verified after the merge, against the worker's code and not the reference:
+
+```
+$ python templates/dispatch/scripts/release_scorecard.py --release v5-T-series \
+    --sink /projects/dev/.claude/session-costs.jsonl \
+    --receipts docs/evidence/receipts --since 2026-08-24T18:00:00Z --out <path>
+exit 0 -- 7 tasks, first_pass_rate 1.0, worker cost $0.107688, escalations 0
+```
 
 Open rows from this brief: **none**.
 

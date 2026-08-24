@@ -8,7 +8,7 @@
   "harness_model": "opencode-go/deepseek-v4-flash",
   "host": "devbox",
   "worker_user": "agentworker",
-  "headline": "Five packets, five green on the first attempt, no retry and no hand step on any of them. The loop that took seven dispatches to produce one green run in v5-P1 now runs a packet from freeze to opened PR without intervention.",
+  "headline": "Seven packets, seven green on the first attempt, no retry and no hand step on any of them, for $0.108 of worker spend. The loop that took seven dispatches to produce ONE green run in v5-P1 now produces seven.",
   "packets": [
     {
       "task_id": "V5-T6a-scorecard-reduce",
@@ -20,7 +20,12 @@
       "cost_usd": 0.010525,
       "cost_reported": true,
       "wall_seconds": 47,
-      "gate_sequence": ["prepare 0", "run 0", "gate 0", "receipt 0"],
+      "gate_sequence": [
+        "prepare 0",
+        "run 0",
+        "gate 0",
+        "receipt 0"
+      ],
       "gates": {
         "diff-nonempty": true,
         "diff-scope-respected": true,
@@ -32,7 +37,9 @@
       "rework_rounds": 0,
       "escalations": 0,
       "oracle_tests": 20,
-      "touched_paths": ["templates/dispatch/scripts/release_scorecard.py"],
+      "touched_paths": [
+        "templates/dispatch/scripts/release_scorecard.py"
+      ],
       "receipt_withheld": false
     },
     {
@@ -45,7 +52,12 @@
       "cost_usd": 0.015338,
       "cost_reported": true,
       "wall_seconds": 65,
-      "gate_sequence": ["prepare 0", "run 0", "gate 0", "receipt 0"],
+      "gate_sequence": [
+        "prepare 0",
+        "run 0",
+        "gate 0",
+        "receipt 0"
+      ],
       "gates": {
         "diff-nonempty": true,
         "diff-scope-respected": true,
@@ -57,7 +69,9 @@
       "rework_rounds": 0,
       "escalations": 0,
       "oracle_tests": 27,
-      "touched_paths": ["templates/dispatch/scripts/release_scorecard.py"],
+      "touched_paths": [
+        "templates/dispatch/scripts/release_scorecard.py"
+      ],
       "receipt_withheld": false
     },
     {
@@ -70,7 +84,12 @@
       "cost_usd": 0.012788,
       "cost_reported": true,
       "wall_seconds": 43,
-      "gate_sequence": ["prepare 0", "run 0", "gate 0", "receipt 0"],
+      "gate_sequence": [
+        "prepare 0",
+        "run 0",
+        "gate 0",
+        "receipt 0"
+      ],
       "gates": {
         "diff-nonempty": true,
         "diff-scope-respected": true,
@@ -82,7 +101,9 @@
       "rework_rounds": 0,
       "escalations": 0,
       "oracle_tests": 13,
-      "touched_paths": ["templates/dispatch/scripts/release_scorecard.py"],
+      "touched_paths": [
+        "templates/dispatch/scripts/release_scorecard.py"
+      ],
       "receipt_withheld": false
     },
     {
@@ -95,7 +116,12 @@
       "cost_usd": 0.035438,
       "cost_reported": true,
       "wall_seconds": 265,
-      "gate_sequence": ["prepare 0", "run 0", "gate 0", "receipt 0"],
+      "gate_sequence": [
+        "prepare 0",
+        "run 0",
+        "gate 0",
+        "receipt 0"
+      ],
       "gates": {
         "diff-nonempty": true,
         "diff-scope-respected": true,
@@ -107,7 +133,9 @@
       "rework_rounds": 0,
       "escalations": 0,
       "oracle_tests": 27,
-      "touched_paths": ["templates/dispatch/scripts/release_unit_packet.py"],
+      "touched_paths": [
+        "templates/dispatch/scripts/release_unit_packet.py"
+      ],
       "receipt_withheld": false,
       "note": "Five times the tokens and four times the wall of its neighbours, for a packet that is not five times harder. The distinguishing feature is that its oracle reads the packet schema and asserts twenty required fields, so the worker had a much larger surface to satisfy at once. Cost still $0.035."
     },
@@ -121,7 +149,12 @@
       "cost_usd": 0.008987,
       "cost_reported": true,
       "wall_seconds": 42,
-      "gate_sequence": ["prepare 0", "run 0", "gate 0", "receipt 0"],
+      "gate_sequence": [
+        "prepare 0",
+        "run 0",
+        "gate 0",
+        "receipt 0"
+      ],
       "gates": {
         "diff-nonempty": true,
         "diff-scope-respected": true,
@@ -133,28 +166,96 @@
       "rework_rounds": 0,
       "escalations": 0,
       "oracle_tests": 28,
-      "touched_paths": ["templates/dispatch/scripts/release_scorecard.py"],
+      "touched_paths": [
+        "templates/dispatch/scripts/release_scorecard.py"
+      ],
       "receipt_withheld": false
+    },
+    {
+      "task_id": "V5-T6d-scorecard-cli",
+      "row": "T-6",
+      "pr": 88,
+      "attempts": 1,
+      "first_attempt_green": true,
+      "tokens": 199206,
+      "cost_usd": 0.01021,
+      "cost_reported": true,
+      "wall_seconds": 29,
+      "gate_sequence": [
+        "prepare 0",
+        "run 0",
+        "gate 0",
+        "receipt 0"
+      ],
+      "gates": {
+        "diff-nonempty": true,
+        "diff-scope-respected": true,
+        "protected-paths-untouched": true,
+        "worktree-state-captured": true,
+        "registered-commands-green": true
+      },
+      "disposition": "candidate",
+      "rework_rounds": 0,
+      "escalations": 0,
+      "oracle_tests": 31,
+      "touched_paths": [
+        "templates/dispatch/scripts/release_scorecard.py"
+      ],
+      "receipt_withheld": false,
+      "note": "Green, and shipped a CLI that did nothing when run. See T-6e: the defect was in the ORACLE's reach, not the worker's work."
+    },
+    {
+      "task_id": "V5-T6e-scorecard-entrypoint",
+      "row": "T-6",
+      "pr": 89,
+      "attempts": 1,
+      "first_attempt_green": true,
+      "tokens": 318856,
+      "cost_usd": 0.014402,
+      "cost_reported": true,
+      "wall_seconds": 79,
+      "gate_sequence": [
+        "prepare 0",
+        "run 0",
+        "gate 0",
+        "receipt 0"
+      ],
+      "gates": {
+        "diff-nonempty": true,
+        "diff-scope-respected": true,
+        "protected-paths-untouched": true,
+        "worktree-state-captured": true,
+        "registered-commands-green": true
+      },
+      "disposition": "candidate",
+      "rework_rounds": 0,
+      "escalations": 0,
+      "oracle_tests": 8,
+      "touched_paths": [
+        "templates/dispatch/scripts/release_scorecard.py"
+      ],
+      "receipt_withheld": false,
+      "note": "The corrective packet. Its oracle drives the script through subprocess rather than importing it, which is the only way the defect was visible."
     }
   ],
   "totals": {
-    "packets": 5,
-    "attempts": 5,
+    "packets": 7,
+    "attempts": 7,
     "first_pass_rate": 1.0,
-    "tokens": 1127304,
-    "cost_usd": 0.083076,
+    "tokens": 1645366,
+    "cost_usd": 0.107688,
     "cost_reported": true,
-    "wall_seconds": 462,
+    "wall_seconds": 570,
     "rework_rounds": 0,
     "escalations": 0,
     "hand_steps_inside_the_loop": 0
   },
   "reference_patch_cost": {
     "question": "Section 7 asks how long the coordinator spends writing throwaway solutions per packet, because that is the number that decides whether the cheap tier pays for itself.",
-    "reference_patches_written": 5,
+    "reference_patches_written": 7,
     "coordinator_turns_per_reference": "roughly one -- each was a single edit written straight from the packet's own purpose text",
-    "passed_its_oracle_first_try": 5,
-    "reading": "Five references, five first-try greens against oracles written independently by five different fresh authors. The reference is not throwaway work in the sense the question feared: writing it is the act that proves the packet's purpose text is sufficient to satisfy the oracle, and it costs about one coordinator turn. On these five it never once needed a second pass, which is itself the evidence that the packet-writing discipline -- state the seam, state why each rule exists -- is what makes the cheap tier work.",
+    "passed_its_oracle_first_try": 7,
+    "reading": "Seven references, seven first-try greens against oracles written independently by seven different fresh authors. Writing the reference is the act that proves the packet's purpose text is sufficient to satisfy the oracle, and it costs about one coordinator turn. It also caught nothing about T-6d's missing entry point -- because the reference HAD one, and the oracle never ran either as a command. A reference proves the packet is satisfiable; it does not prove the oracle is asking the right question.",
     "caveat": "This measures the reference, not the worker. The worker's own solution is what shipped in all five cases; the reference was never merged."
   },
   "frontier_turns": {
@@ -163,22 +264,31 @@
     "comparison_to_v5_P1": "v5-P1 spent 9 frontier turns and $197 of coordinator session across SEVEN dispatches to get one green run. This session got five green runs for $0.083 of worker spend, and the coordinator's per-packet share of the work fell to a fixed, mechanical sequence."
   },
   "findings": [
+    "THE ONE THAT MATTERS: T-6d passed 31 tests and shipped a CLI that did nothing when you ran it. Every test called main(argv) in process; the module had no __main__ block, so `python release_scorecard.py --release ... --out ...` exited 0 and wrote nothing. A missing required flag also defaulted silently to None, which would have filed a scorecard naming no release at all. Found by RUNNING the command on real data, not by reading the green suite. The defect was in the oracle's reach, not the worker's work -- the coordinator asked for a command and then wrote a brief that graded a function. T-6e closes both halves with an oracle that drives the script through subprocess.",
     "FIVE FOR FIVE, FIRST ATTEMPT. No retry, no escalation, no rework round, and no hand step inside any of the five loops. Against D-8's rule this is five consecutive greens with zero escalations for mechanical_bulk.",
     "The protected-paths CI gate from #79 was structurally red on EVERY hybrid packet PR and had been merged over twice (#80, #82). Commit 1 of every freeze branch registers the packet oracle's command id under hybrid.commands, and agentops.dispatch.json is a protected path -- so the gate fired on the one change every packet must make. A gate red on every legitimate PR is one you learn to merge over, and then it is not there for the case it was built for. Fixed in #83 with the narrowest exemption that works, and PROVEN in production: #84 through #87 all passed it natively with no branch update and no merge-over-red.",
     "Every one of the five references passed its independently-authored oracle on the first try. That is the strongest evidence yet that a packet's purpose text can carry the whole specification: five different fresh authors, given only a seam and a rationale, wrote oracles that a sixth independent implementation satisfied without negotiation.",
     "The oracle authors' 'ambiguities I had to resolve' reports are worth more than the tests. Four of the five surfaced a real defect or open question that no gate would have caught: the packet schema's task_id pattern rejecting the L-5 id, gate_set and stop_conditions being absent from an additionalProperties:false schema, worker_totals([]) reporting cost_reported true for an empty corpus, and the turns_flat_cost_up comparison firing on rising turns.",
-    "T-6 was split three ways on the seam its oracle already had, exactly as M-10 was in Amendment 4. The split was free: three packets at $0.039 combined, each with a smaller oracle and a smaller failure surface than one packet would have had."
+    "T-6 was split three ways on the seam its oracle already had, exactly as M-10 was in Amendment 4. The split was free: three packets at $0.039 combined, each with a smaller oracle and a smaller failure surface than one packet would have had.",
+    "The corrective packet is the cheapest part of the whole exercise: $0.0144 and 79 seconds to fix a defect that 31 green tests could not see. That ratio is the argument for the loop."
   ],
   "debt": [
     "debt: the packet schema (templates/dispatch/hybrid/task-packet.schema.json) rejects an L-5 packet on two counts -- task_id pattern ^[A-Z0-9]+- does not admit 'v5.2-release-unit', and gate_set/stop_conditions are not declared under additionalProperties:false. Not blocking today because the live validator checks required fields by hand and no jsonschema is installed on the host (section 6), so the schema file is documentation that has drifted from what the loop accepts. Editing it is a protected-path hand-pass, which section 7 says to stop and report rather than do.",
     "debt: worker_totals([]) returns cost_reported true, so a scorecard built with no receipts at all reports total_reliable true. Defensible ('nothing failed to report') but readable the wrong way. A consumer must read worker.attempts == 0 beside it. The T-6c oracle deliberately asserts the delegation rather than the value, so this can be resolved in worker_totals without touching build_scorecard.",
     "debt: turns_flat_cost_up uses turns >= previous, so it also fires when turns RISE while cost rises -- arguably a false positive, since rising turns explain rising cost. The alternative reading is strict equality ('flat'). Specified consistently across brief, oracle and packet, so it is a decision to revisit rather than a bug.",
     "debt: worker_totals does list() nothing, so attempts=len(receipts) raises on a generator. The spec says 'a list'; noted rather than fixed, because the shipped code is the measured artifact.",
-    "debt: devbox's /projects/dev/agentops checkout is 159 commits behind main with local modifications. The dispatch path does not use it (the coordinator runs from /tmp/v5-coordinator) but the hook symlinks point into it."
+    "debt: devbox's /projects/dev/agentops checkout is 159 commits behind main with local modifications. The dispatch path does not use it (the coordinator runs from /tmp/v5-coordinator) but the hook symlinks point into it.",
+    "debt: release_scorecard.py has no --project filter, so a window over the global sink counts every repo's sessions. The live v5-T-series run reports frontier cost $241.34 across 4 sessions since 18:00Z, which is this coordinator session plus whatever else ran in that window -- an overcount for an agentops release. Filter by the sink row's `project` field."
   ],
   "containment": {
     "coordinator_tree_untouched": true,
     "protected_paths_touched_by_any_worker": [],
     "receipts_withheld_by_the_secret_scan": 0
+  },
+  "live_run": {
+    "command": "python templates/dispatch/scripts/release_scorecard.py --release v5-T-series --sink /projects/dev/.claude/session-costs.jsonl --receipts docs/evidence/receipts --since 2026-08-24T18:00:00Z --out <path>",
+    "result": "exit 0; 7 tasks, first_pass_rate 1.0, worker cost $0.107688, escalations 0",
+    "note": "Run against the merged worker code, not the coordinator's reference. This is what T-6d's green suite could not tell us.",
+    "caveat": "The frontier half of that run ($241.34 over 4 sessions) is not agentops-only -- see the --project debt line."
   }
 }

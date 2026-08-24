@@ -1,0 +1,137 @@
+diff --git a/templates/dispatch/scripts/release_scorecard.py b/templates/dispatch/scripts/release_scorecard.py
+index 4735b3b..5fe530a 100644
+--- a/templates/dispatch/scripts/release_scorecard.py
++++ b/templates/dispatch/scripts/release_scorecard.py
+@@ -5,6 +5,11 @@ session supersede each other. ``reduce_sessions`` keeps the newest snapshot per
+ session and ``frontier_totals`` sums over those survivors only.
+ """
+ 
++import argparse
++import json
++from datetime import datetime, timezone
++from pathlib import Path
++
+ 
+ def reduce_sessions(rows):
+     """Return {session id: that session's single surviving row}."""
+@@ -215,4 +220,117 @@ def detect_worse(scorecards):
+         "worse": bool(signals),
+         "signals": signals,
+         "insufficient_series": False,
+-    }
+\ No newline at end of file
++    }
++
++
++def _load_jsonl(path):
++    """Parse a JSON-lines file, skipping anything that is not a JSON object.
++
++    Deliberately tolerant, and the tolerance is the point rather than laxness:
++    the sink is appended to by a shell hook on every assistant turn, so a
++    single truncated line from an interrupted write must not cost a release its
++    whole scorecard. A missing file is an empty corpus, not an error.
++    """
++    records = []
++    try:
++        with open(path, "r", encoding="utf-8") as handle:
++            lines = handle.readlines()
++    except (FileNotFoundError, NotADirectoryError, IsADirectoryError):
++        return records
++    for line in lines:
++        line = line.strip()
++        if not line:
++            continue
++        try:
++            parsed = json.loads(line)
++        except (json.JSONDecodeError, ValueError):
++            continue
++        if isinstance(parsed, dict):
++            records.append(parsed)
++    return records
++
++
++def load_sink_rows(path):
++    """Read the Stop-hook sink (JSON lines) into a list of rows."""
++    return _load_jsonl(path)
++
++
++def load_receipts(root):
++    """Parse every ``<task>/receipt.json`` under ``root``, sorted by task id.
++
++    Sorted rather than filesystem-ordered so that two runs over the same tree
++    produce the same scorecard.
++    """
++    receipts = []
++    root_path = Path(root)
++    if not root_path.is_dir():
++        return receipts
++    for child in sorted(root_path.iterdir()):
++        receipt_path = child / "receipt.json"
++        if not receipt_path.is_file():
++            continue
++        try:
++            parsed = json.loads(receipt_path.read_text(encoding="utf-8"))
++        except (json.JSONDecodeError, ValueError, OSError):
++            continue
++        if isinstance(parsed, dict):
++            receipts.append(parsed)
++    return sorted(receipts, key=lambda receipt: str(receipt.get("task_id", "")))
++
++
++def filter_by_window(records, start, end, key):
++    """Keep records whose ``key`` timestamp is in ``[start, end)``.
++
++    ISO-8601 in a fixed-width UTC format sorts correctly as a string, which is
++    what the sink writes. The window is half-open so that two adjacent releases
++    cannot both claim the record on their shared boundary.
++
++    A record with no usable timestamp is excluded: one that cannot be placed in
++    time cannot be attributed to a release either.
++    """
++    kept = []
++    for record in records:
++        stamp = record.get(key)
++        if not isinstance(stamp, str):
++            continue
++        if start is not None and stamp < start:
++            continue
++        if end is not None and stamp >= end:
++            continue
++        kept.append(record)
++    return kept
++
++
++def main(argv=None):
++    """Write one release's scorecard from the two sinks. Returns 0."""
++    parser = argparse.ArgumentParser(description="Build a release scorecard.")
++    parser.add_argument("--release", required=True)
++    parser.add_argument("--sink", required=True)
++    parser.add_argument("--receipts", required=True)
++    parser.add_argument("--out", required=True)
++    parser.add_argument("--since", default=None)
++    parser.add_argument("--until", default=None)
++    parser.add_argument("--escalations", default=None)
++    args = parser.parse_args(argv)
++
++    rows = filter_by_window(load_sink_rows(args.sink), args.since, args.until, "ts")
++    receipts = filter_by_window(
++        load_receipts(args.receipts), args.since, args.until, "recorded_at"
++    )
++    # An absent escalations file means no escalations were recorded, which is
++    # an ordinary release, not a broken invocation.
++    escalations = _load_jsonl(args.escalations) if args.escalations else []
++
++    scorecard = build_scorecard(
++        args.release, rows, receipts, escalations,
++        datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
++    )
++
++    out_path = Path(args.out)
++    out_path.parent.mkdir(parents=True, exist_ok=True)
++    out_path.write_text(json.dumps(scorecard, indent=2) + "\n", encoding="utf-8")
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+\ No newline at end of file
