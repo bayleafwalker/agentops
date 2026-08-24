@@ -1,0 +1,109 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-M11-path-matcher",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 6,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "templates/dispatch/tests/test_dispatch_release_pathmatch.py decides correctness: five fixtures over a table of pattern forms. The expected answers are not written down -- hybrid_dispatch._matches_any is the expectation, because the row's whole content is that the driver agrees with it. Four cases assert the matcher does not become permissive.",
+    "starts_red": [
+      "agentops.dispatch.tests.pathmatch"
+    ],
+    "reference_patch": "docs/evidence/packets/V5-M11-path-matcher.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "6ddd78ced05f8167d01e3927c3dd3bc26e74c794",
+  "purpose": "Align the driver's _path_allowed with hybrid_dispatch._matches_any, in templates/dispatch/scripts/dispatch_release.py. The driver decides the L-2 path-outside-writable stop with a bare fnmatch over the packet's writable_patch_paths; hybrid_dispatch decides the same question at validate time with a matcher that also resolves directory-prefix patterns ending in a slash (docs/) and treats a /** suffix as covering the directory itself as well as everything under it (docs/** covers docs). Because they disagree, a packet whose writable paths use the manifest's directory-prefix form validates fit and then has every touched path rejected by the driver as outside the writable set. Make _path_allowed answer exactly as _matches_any does, for every pattern form: a trailing-slash prefix, a /** suffix, an exact path, an ordinary glob, several patterns at once, and the empty pattern list. Do not import hybrid_dispatch to do it -- the driver must not depend on the packet engine at runtime; reproduce the behaviour. Do not make the matcher permissive: a path outside every pattern must still be refused, because that refusal is the only thing making the path-outside-writable stop mean anything. Change nothing else: PR_STEP_NAMES, STEPS, RETRY_STEPS, STOP_CONDITIONS, MAX_GATE_ATTEMPTS, the L-4 retry, the L-2 stop conditions, scan_for_secrets, capture_receipt, the body generator and the M-9 commit all stay exactly as they are. Leave no debugging output behind.",
+  "readable_context_paths": [
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/tests/test_dispatch_release_pathmatch.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/dispatch_release.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "_path_allowed answers as _matches_any does on every pattern form in the table",
+    "a directory-prefix pattern admits the files under it",
+    "a /** pattern admits the directory itself as well as its contents",
+    "ordinary globs and exact paths keep working",
+    "a path outside every pattern is still refused, and the empty pattern list admits nothing",
+    "the driver does not import hybrid_dispatch",
+    "nothing else in the driver changes, and no debugging output is left behind"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "one matcher, not two",
+      "command_id": "agentops.dispatch.tests.pathmatch",
+      "fails_when": "the driver's answer differs from hybrid_dispatch._matches_any for any path and pattern set in the table"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "the forms that motivated the row work",
+      "command_id": "agentops.dispatch.tests.pathmatch",
+      "fails_when": "a directory-prefix pattern rejects a file under it, or docs/** rejects docs"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "the stop still stops",
+      "command_id": "agentops.dispatch.tests.pathmatch",
+      "fails_when": "a path outside every pattern is admitted, or the empty pattern list admits anything"
+    }
+  ],
+  "non_goals": [
+    "hybrid_dispatch._matches_any itself, which is the reference and a protected path",
+    "importing hybrid_dispatch from the driver",
+    "the L-2 stop conditions and the PR step, which are settled",
+    "anything outside templates/dispatch/scripts/dispatch_release.py"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.pathmatch"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-m11-path-matcher",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  }
+}
