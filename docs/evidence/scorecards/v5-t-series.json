@@ -8,7 +8,7 @@
   "harness_model": "opencode-go/deepseek-v4-flash",
   "host": "devbox",
   "worker_user": "agentworker",
-  "headline": "Nine packets, nine worker greens on the first attempt, for $0.140 of REAL billed spend. The one non-green step of the session was a coordinator packet defect that prepare caught before any worker ran.",
+  "headline": "Ten packets, ten worker greens on the first attempt, for $0.151 of REAL billed spend. Three of the ten were corrections to what the numbers MEANT, and not one of those was findable by a test.",
   "packets": [
     {
       "task_id": "V5-T6a-scorecard-reduce",
@@ -303,16 +303,49 @@
       ],
       "receipt_withheld": false,
       "note": "The session's only non-green step, and it was the coordinator's: starts_red named two of the three oracles the packet turned red, so prepare refused at the cold gate. Caught BEFORE any worker ran -- zero worker spend, one packet edit, no change to starting_commit. The worker itself was still green on its first and only attempt."
+    },
+    {
+      "task_id": "V5-T10-money-names",
+      "row": "correction",
+      "pr": 95,
+      "attempts": 1,
+      "first_attempt_green": true,
+      "tokens": 253052,
+      "cost_usd": 0.010426,
+      "cost_reported": true,
+      "wall_seconds": 64,
+      "gate_sequence": [
+        "prepare 0",
+        "run 0",
+        "gate 0",
+        "receipt 0"
+      ],
+      "gates": {
+        "diff-nonempty": true,
+        "diff-scope-respected": true,
+        "protected-paths-untouched": true,
+        "worktree-state-captured": true,
+        "registered-commands-green": true
+      },
+      "disposition": "candidate",
+      "rework_rounds": 0,
+      "escalations": 0,
+      "oracle_tests": 200,
+      "touched_paths": [
+        "templates/dispatch/scripts/release_scorecard.py"
+      ],
+      "receipt_withheld": false,
+      "note": "Seven oracles red at the starting commit, all seven declared. The largest oracle surface of the session (200 tests across nine files) for a rename of two keys -- which is the correct ratio when the defect is what a name means."
     }
   ],
   "totals": {
-    "packets": 9,
-    "attempts": 9,
+    "packets": 10,
+    "attempts": 10,
     "first_pass_rate": 1.0,
-    "tokens": 2471643,
-    "cost_usd_billed": 0.140205,
+    "tokens": 2724695,
+    "billed_usd": 0.150631,
     "cost_reported": true,
-    "wall_seconds": 660,
+    "wall_seconds": 724,
     "rework_rounds": 0,
     "escalations": 0,
     "hand_steps_inside_the_loop": 0,
@@ -320,9 +353,9 @@
   },
   "reference_patch_cost": {
     "question": "Section 7 asks how long the coordinator spends writing throwaway solutions per packet, because that is the number that decides whether the cheap tier pays for itself.",
-    "reference_patches_written": 9,
+    "reference_patches_written": 10,
     "coordinator_turns_per_reference": "roughly one -- each was a single edit written straight from the packet's own purpose text",
-    "passed_its_oracle_first_try": 9,
+    "passed_its_oracle_first_try": 10,
     "reading": "Seven references, seven first-try greens against oracles written independently by seven different fresh authors. Writing the reference is the act that proves the packet's purpose text is sufficient to satisfy the oracle, and it costs about one coordinator turn. It also caught nothing about T-6d's missing entry point -- because the reference HAD one, and the oracle never ran either as a command. A reference proves the packet is satisfiable; it does not prove the oracle is asking the right question.",
     "caveat": "This measures the reference, not the worker. The worker's own solution is what shipped in all five cases; the reference was never merged."
   },
@@ -339,7 +372,8 @@
     "Every one of the five references passed its independently-authored oracle on the first try. That is the strongest evidence yet that a packet's purpose text can carry the whole specification: five different fresh authors, given only a seam and a rationale, wrote oracles that a sixth independent implementation satisfied without negotiation.",
     "The oracle authors' 'ambiguities I had to resolve' reports are worth more than the tests. Four of the five surfaced a real defect or open question that no gate would have caught: the packet schema's task_id pattern rejecting the L-5 id, gate_set and stop_conditions being absent from an additionalProperties:false schema, worker_totals([]) reporting cost_reported true for an empty corpus, and the turns_flat_cost_up comparison firing on rising turns.",
     "T-6 was split three ways on the seam its oracle already had, exactly as M-10 was in Amendment 4. The split was free: three packets at $0.039 combined, each with a smaller oracle and a smaller failure surface than one packet would have had.",
-    "The corrective packet is the cheapest part of the whole exercise: $0.0144 and 79 seconds to fix a defect that 31 green tests could not see. That ratio is the argument for the loop."
+    "The corrective packet is the cheapest part of the whole exercise: $0.0144 and 79 seconds to fix a defect that 31 green tests could not see. That ratio is the argument for the loop.",
+    "THREE OF TEN PACKETS WERE CORRECTIONS TO MEANING, NOT TO CODE. T-8 (units), T-9 (scope) and T-10 (names) each fixed a number that was arithmetically correct and said the wrong thing. None was findable by a gate, an oracle, a read-trace or a merge-preview, because every one of those asks whether a number IS what the packet said -- never what it STANDS FOR. Two were caught by the owner reading a figure; one by the coordinator reading the tool's own output. That is the sharpest boundary of the loop this session found, and it is worth more than the ten greens."
   ],
   "debt": [
     "debt: the packet schema (templates/dispatch/hybrid/task-packet.schema.json) rejects an L-5 packet on two counts -- task_id pattern ^[A-Z0-9]+- does not admit 'v5.2-release-unit', and gate_set/stop_conditions are not declared under additionalProperties:false. Not blocking today because the live validator checks required fields by hand and no jsonschema is installed on the host (section 6), so the schema file is documentation that has drifted from what the loop accepts. Editing it is a protected-path hand-pass, which section 7 says to stop and report rather than do.",
@@ -377,5 +411,11 @@
     "measured_effect": "The same live window, unscoped: 4 sessions and a frontier usage-equivalent of $399.93. Scoped to project agentops: 1 session and $174.33. The unscoped figure was overcounting by 56%.",
     "fixed_in": "V5-T9 (#93): filter_by_project with exact matching (agentops must not match agentops-web), a --project flag, and a scope block recording project, since and until with all three keys always present.",
     "why_it_is_the_same_bug_as_the_units": "Both are a number that does not carry what it means. $241.43 did not say it was mostly imputed; $399.93 did not say it was mostly other repos. Neither was catchable by a test, because a test asserts what a number IS, not what it stands for."
+  },
+  "naming_correction": {
+    "what_was_wrong": "#91 stopped the top-level block adding an imputed list price to real metered spend. But one level down, frontier_totals reported its figure as `cost_usd` and worker_totals reported its figure as `cost_usd` too -- two keys, same name, opposite meanings, directly beneath the block whose whole purpose was keeping them apart. Anyone printing scorecard['frontier']['cost_usd'] got $203.61 and every reason to read it as money.",
+    "also_fixed": "worker_totals([]) reported cost_reported true -- 'nothing failed to report' -- which reads as a measured zero. With no receipts nothing was measured, so it now reports false, and a scorecard built with no receipts honestly reports total_reliable false.",
+    "fixed_in": "V5-T10 (#95): frontier_totals -> usage_equivalent_usd, worker_totals -> billed_usd. Both still READ cost_usd from the sink row and the receipt, whose schemas own that spelling; only what they REPORT changed. worker_spend_from_receipt keeps cost_usd on purpose -- it mirrors the receipt and is a reader, not a reporter, with a named test saying so.",
+    "how_it_is_enforced": "test_release_scorecard_naming.py asserts the two reporters' money-named key sets are disjoint, by a syntactic rule (a name ending _usd, or exactly cost_usd) rather than a maintained list, so a future `spend_usd` is caught without anyone updating the test -- and asserts each set is non-empty, so deleting a figure cannot pass it vacuously."
   }
 }

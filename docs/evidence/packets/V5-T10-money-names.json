@@ -1,0 +1,129 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-T10-money-names",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 25,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "test_release_scorecard_naming.py is the file that fails if the ambiguity ever comes back: it asserts the two reporters share no money-shaped key name, by a syntactic rule rather than a maintained list, and that each still reports one so the test cannot pass vacuously. Six existing oracles carry the rename.",
+    "starts_red": [
+      "agentops.dispatch.tests.scorecard_naming",
+      "agentops.dispatch.tests.scorecard_reduce",
+      "agentops.dispatch.tests.scorecard_worker",
+      "agentops.dispatch.tests.scorecard_build",
+      "agentops.dispatch.tests.scorecard_kinds",
+      "agentops.dispatch.tests.scorecard_scope",
+      "agentops.dispatch.tests.scorecard_cli"
+    ],
+    "reference_patch": "docs/evidence/packets/V5-T10-money-names.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "90f2c63dfa3c2bcb142f92860a56b5653544bb4d",
+  "purpose": "Close the units trap one level below where it was already closed. The top-level cost block was fixed so that an imputed list price is never added to real metered spend, but frontier_totals still reports its figure under the key cost_usd and worker_totals reports its figure under the key cost_usd too: two keys, the same name, opposite meanings, one nesting level beneath the block whose whole purpose is to keep them apart. A reader who prints the frontier block's cost_usd gets a large number and every reason to believe it is money. Rename frontier_totals' money-shaped key to usage_equivalent_usd and worker_totals' to billed_usd. Every other key in both stays exactly as it is, and so does every behaviour: the reduction, the six-place rounding, the first-pass rate, the unreported-task list. Both functions still READ the field named cost_usd from their inputs -- the sink's row and the receipt's spend own those names and they are not this packet's to change. Only what the two functions REPORT is renamed. worker_spend_from_receipt is unchanged for the same reason: it mirrors the receipt's schema and is a reader, not a reporter, so its cost_usd key stays. Second, and in the same function: worker_totals over an empty list must report cost_reported false. Today it reports true, meaning nothing failed to report, which reads as though the zero were measured. With no receipts nothing was measured at all, and the honest consequence is that a scorecard built with no receipts now reports total_reliable false. build_scorecard reads the two renamed keys; its own five cost_usd names are settled and do not change, and detect_worse already reads a settled name and is untouched. Leave no debugging output behind.",
+  "readable_context_paths": [
+    "templates/dispatch/tests/test_release_scorecard_naming.py",
+    "templates/dispatch/tests/test_release_scorecard_reduce.py",
+    "templates/dispatch/tests/test_release_scorecard_worker.py",
+    "templates/dispatch/tests/test_release_scorecard_build.py",
+    "templates/dispatch/tests/test_release_scorecard_kinds.py",
+    "templates/dispatch/tests/test_release_scorecard_scope.py",
+    "templates/dispatch/tests/test_release_scorecard_cli.py",
+    "templates/dispatch/scripts/release_scorecard.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/release_scorecard.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/scripts/release_unit_packet.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "frontier_totals reports usage_equivalent_usd and no key named cost_usd",
+    "worker_totals reports billed_usd and no key named cost_usd",
+    "both still read cost_usd from their inputs, whose schemas own that name",
+    "worker_spend_from_receipt is unchanged and still returns cost_usd",
+    "worker_totals over an empty list reports cost_reported false",
+    "build_scorecard reads the renamed keys and its own five names are unchanged",
+    "every other key and behaviour in both functions is unchanged"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "the two reporters cannot share a money-shaped name",
+      "command_id": "agentops.dispatch.tests.scorecard_naming",
+      "fails_when": "either still reports cost_usd, their money-named key sets intersect, or either stops reporting a figure at all"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "an unmeasured zero does not claim to be measured",
+      "command_id": "agentops.dispatch.tests.scorecard_naming",
+      "fails_when": "worker_totals over an empty list reports cost_reported true, or a populated corpus stops reporting it correctly"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "a rename, not a redesign",
+      "command_id": "agentops.dispatch.tests.scorecard_build",
+      "fails_when": "any other key changes, the reduction or rounding changes, or worker_spend_from_receipt stops returning cost_usd"
+    }
+  ],
+  "non_goals": [
+    "the sink row and receipt schemas, which own the cost_usd spelling",
+    "the five settled cost_usd names in build_scorecard's own block",
+    "detect_worse, which already reads a settled name"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.scorecard_naming",
+    "agentops.dispatch.tests.scorecard_reduce",
+    "agentops.dispatch.tests.scorecard_worker",
+    "agentops.dispatch.tests.scorecard_build",
+    "agentops.dispatch.tests.scorecard_kinds",
+    "agentops.dispatch.tests.scorecard_scope",
+    "agentops.dispatch.tests.scorecard_cli",
+    "agentops.dispatch.tests.scorecard_worse",
+    "agentops.dispatch.tests.scorecard_entrypoint"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-t10-money-names",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  }
+}
