@@ -1528,6 +1528,8 @@ def dispatch_worker(
         opencode_bin,
         "run",
         message,
+        "--dir",
+        str(worktree),
         "--agent",
         agent_name,
         "--file",

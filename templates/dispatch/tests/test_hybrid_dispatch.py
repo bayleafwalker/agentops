@@ -1378,6 +1378,68 @@ class ModelOverrideTests(unittest.TestCase):
         )
 
 
+class WorkerInvocationTests(unittest.TestCase):
+    """OpenCode must receive the exact prepared worktree as its project root.
+
+    The process cwd is not sufficient for the workstation implementation: when
+    the root is inferred from the attached packet/project state, OpenCode can
+    otherwise fall back to the repository parent and the worker's
+    ``external_directory`` deny rule blocks every declared file.
+    """
+
+    def test_worker_run_pins_opencode_project_root_to_the_prepared_worktree(self) -> None:
+        packet_tests = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+        packet_tests.setUp()
+        packet = packet_tests.packet
+        worktree = Path("/tmp/agentworker/worktrees/bindery-core/ERM-003-r3")
+
+        class FakeStream:
+            def __iter__(self):
+                return iter(())
+
+            def read(self):
+                return ""
+
+        class FakeProcess:
+            stdout = FakeStream()
+            stderr = FakeStream()
+            returncode = 0
+
+            def poll(self):
+                return 0
+
+            def wait(self, timeout=None):
+                return 0
+
+        original_popen = dispatch.subprocess.Popen
+        captured: dict[str, object] = {}
+
+        def fake_popen(args, **kwargs):
+            captured["args"] = list(args)
+            captured["kwargs"] = kwargs
+            return FakeProcess()
+
+        dispatch.subprocess.Popen = fake_popen
+        try:
+            result = dispatch.dispatch_worker(
+                worktree,
+                Path("/tmp/erm-003-r3.packet.json"),
+                packet,
+                {"agent": {"ao-mechanical-bulk": {}}},
+                {"routes": {packet["route"]: {"agent": "ao-mechanical-bulk", "harness_model": "local3090/worker-fast"}}},
+                "opencode",
+            )
+        finally:
+            dispatch.subprocess.Popen = original_popen
+
+        args = captured["args"]
+        self.assertIsInstance(args, list)
+        assert isinstance(args, list)
+        self.assertEqual(args[args.index("--dir") + 1], str(worktree))
+        self.assertEqual(captured["kwargs"]["cwd"], worktree)
+        self.assertEqual(result["exit_code"], 0)
+
+
 class WorkspaceSharingTests(unittest.TestCase):
     """The workspace must be writable by the worker, not only by its creator.
 
