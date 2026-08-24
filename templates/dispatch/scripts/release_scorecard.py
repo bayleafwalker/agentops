@@ -151,10 +151,15 @@ def build_scorecard(release, rows, receipts, escalations, recorded_at):
     and ``worker`` delegates to ``worker_totals`` over the packet receipts.
     Neither half substitutes for the other: the hooks never see an OpenCode
     worker, and the receipts know nothing about frontier turns, so both stay
-    separately visible. ``cost_usd.total`` is only as trustworthy as its least
-    certain half, so ``total_reliable`` is the worker half's ``cost_reported``.
-    Escalation task ids and stop conditions come from each record's metadata;
-    a record that carried no stop condition is omitted rather than a null.
+    separately visible. The two halves are not the same kind of number -- the
+    frontier figure is an imputed list price that nothing meters, the worker
+    figure is real metered spend -- so ``cost_usd`` never adds them.
+    ``worker_billed_usd`` is the only money, ``total_billed_usd`` equals it,
+    ``frontier_usage_equivalent_usd`` carries the imputed figure renamed,
+    ``commensurable`` is always False, and ``total_reliable`` is the worker
+    half's ``cost_reported``. Escalation task ids and stop conditions come
+    from each record's metadata; a record that carried no stop condition is
+    omitted rather than a null.
     """
     frontier = frontier_totals(rows)
     worker = worker_totals(receipts)
@@ -182,9 +187,10 @@ def build_scorecard(release, rows, receipts, escalations, recorded_at):
             "stop_conditions": sorted(stop_conditions),
         },
         "cost_usd": {
-            "frontier": frontier["cost_usd"],
-            "worker": worker["cost_usd"],
-            "total": round(frontier["cost_usd"] + worker["cost_usd"], 6),
+            "worker_billed_usd": worker["cost_usd"],
+            "frontier_usage_equivalent_usd": frontier["cost_usd"],
+            "total_billed_usd": worker["cost_usd"],
+            "commensurable": False,
             "total_reliable": worker["cost_reported"],
         },
     }
@@ -211,7 +217,8 @@ def detect_worse(scorecards):
     def turns_flat_cost_up_worsened(a, b):
         return (
             b["frontier"]["turns"] >= a["frontier"]["turns"]
-            and b["cost_usd"]["total"] > a["cost_usd"]["total"]
+            and b["cost_usd"]["frontier_usage_equivalent_usd"]
+            > a["cost_usd"]["frontier_usage_equivalent_usd"]
         )
 
     def rework_value(card):
@@ -221,7 +228,8 @@ def detect_worse(scorecards):
         return card["escalations"]["count"]
 
     def turns_flat_cost_up_value(card):
-        return [card["frontier"]["turns"], card["cost_usd"]["total"]]
+        return [card["frontier"]["turns"],
+                card["cost_usd"]["frontier_usage_equivalent_usd"]]
 
     signals = []
     for name, worsened, value_of in (

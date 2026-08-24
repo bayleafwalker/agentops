@@ -1,0 +1,590 @@
+{
+  "schema_version": "agentops-hybrid-receipt/v1",
+  "recorded_at": "2026-08-24T19:11:39+00:00",
+  "execution_id": "V5-T8-cost-kinds:9440b6f0f7018a92:attempt-1",
+  "task_id": "V5-T8-cost-kinds",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 25,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "attempt": 1,
+  "inputs": {
+    "packet_hash": "sha256:9440b6f0f7018a9299b11469b70b5ecd840cdfeb57c71cf183eefa5b6a066fbb",
+    "repository_commit": "5be7cbfac83edb0df727944fe3c8cee26c46bdf6",
+    "packet_schema_version": "agentops-task/v2",
+    "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+    "gate_set_hash": "sha256:d80f1e3784968151528e7d10f3cda7d162dd18a48e1ab3727ced0faa033f0ade"
+  },
+  "harness_model": "opencode-go/deepseek-v4-flash",
+  "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+  "qualification_policy": {
+    "mode": "named_pilot",
+    "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+    "repositories": [
+      "agentops",
+      "1deb57d0-af6f-479c-811a-b5b7254841f9",
+      "2be118eb-8e89-433a-8d32-ada157624f95",
+      "kctl",
+      "actionq"
+    ],
+    "routes": [
+      "mechanical_bulk"
+    ],
+    "models": [
+      "opencode-go/deepseek-v4-flash"
+    ],
+    "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+    "default": "unqualified",
+    "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+  },
+  "acceptance_authority": "human",
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "stage": "receipt",
+  "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds",
+  "overlay_sha256": "d8438591a9c56c1c160e9dd65a90b871e33925dec901fc4216960e7757f030e3",
+  "dispositions_available": [
+    "candidate",
+    "retry_same_route",
+    "reroute",
+    "task_defect",
+    "human_decision"
+  ],
+  "note": "The coordinator records the disposition and the human accepts, merges, and changes sprint state.",
+  "gate": {
+    "schema_version": "agentops-hybrid-receipt/v1",
+    "recorded_at": "2026-08-24T19:11:39+00:00",
+    "execution_id": "V5-T8-cost-kinds:9440b6f0f7018a92:attempt-1",
+    "task_id": "V5-T8-cost-kinds",
+    "repo_id": "agentops",
+    "sprint_item": {
+      "ref": "agentops#2254",
+      "claim_id": 25,
+      "claim_actor": "workstation-vuoro"
+    },
+    "route": "mechanical_bulk",
+    "attempt": 1,
+    "inputs": {
+      "packet_hash": "sha256:9440b6f0f7018a9299b11469b70b5ecd840cdfeb57c71cf183eefa5b6a066fbb",
+      "repository_commit": "5be7cbfac83edb0df727944fe3c8cee26c46bdf6",
+      "packet_schema_version": "agentops-task/v2",
+      "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+      "gate_set_hash": "sha256:d80f1e3784968151528e7d10f3cda7d162dd18a48e1ab3727ced0faa033f0ade"
+    },
+    "harness_model": "opencode-go/deepseek-v4-flash",
+    "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+    "qualification_policy": {
+      "mode": "named_pilot",
+      "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+      "repositories": [
+        "agentops",
+        "1deb57d0-af6f-479c-811a-b5b7254841f9",
+        "2be118eb-8e89-433a-8d32-ada157624f95",
+        "kctl",
+        "actionq"
+      ],
+      "routes": [
+        "mechanical_bulk"
+      ],
+      "models": [
+        "opencode-go/deepseek-v4-flash"
+      ],
+      "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+      "default": "unqualified",
+      "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+    },
+    "acceptance_authority": "human",
+    "context_churn": {
+      "max_repeated_reads_per_path": 4,
+      "max_reasoning_steps_without_mutation": 20,
+      "max_identical_context_tokens": 250000,
+      "handoff_when_candidate_ready": true
+    },
+    "stage": "gate",
+    "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds",
+    "overlay_sha256": "d8438591a9c56c1c160e9dd65a90b871e33925dec901fc4216960e7757f030e3",
+    "coordinator_claim": {
+      "claim_id": 25,
+      "work_item_id": 2254,
+      "agent": "workstation-vuoro",
+      "last_activity_at": "2026-08-24T19:06:24Z",
+      "idle_seconds": 314,
+      "checked_at": "2026-08-24T19:11:38+00:00"
+    },
+    "evidence": {
+      "gates": {
+        "diff-nonempty": true,
+        "diff-scope-respected": true,
+        "protected-paths-untouched": true,
+        "worktree-state-captured": true,
+        "registered-commands-green": true
+      },
+      "passed": true,
+      "touched_paths": [
+        "templates/dispatch/scripts/release_scorecard.py"
+      ],
+      "out_of_scope_paths": [],
+      "protected_path_hits": [],
+      "command_results": [
+        {
+          "command_id": "agentops.dispatch.tests.scorecard_build",
+          "command": "python templates/dispatch/tests/test_release_scorecard_build.py",
+          "exit_code": 0,
+          "stdout_tail": "",
+          "stderr_tail": "..................\n----------------------------------------------------------------------\nRan 18 tests in 0.005s\n\nOK\n"
+        },
+        {
+          "command_id": "agentops.dispatch.tests.scorecard_worse",
+          "command": "python templates/dispatch/tests/test_release_scorecard_worse.py",
+          "exit_code": 0,
+          "stdout_tail": "",
+          "stderr_tail": "..............................\n----------------------------------------------------------------------\nRan 30 tests in 0.002s\n\nOK\n"
+        },
+        {
+          "command_id": "agentops.dispatch.tests.scorecard_kinds",
+          "command": "python templates/dispatch/tests/test_release_scorecard_kinds.py",
+          "exit_code": 0,
+          "stdout_tail": "",
+          "stderr_tail": "....................\n----------------------------------------------------------------------\nRan 20 tests in 0.004s\n\nOK\n"
+        }
+      ],
+      "diff": "diff --git a/templates/dispatch/scripts/release_scorecard.py b/templates/dispatch/scripts/release_scorecard.py\nindex 97d2746..360339a 100644\n--- a/templates/dispatch/scripts/release_scorecard.py\n+++ b/templates/dispatch/scripts/release_scorecard.py\n@@ -151,10 +151,15 @@ def build_scorecard(release, rows, receipts, escalations, recorded_at):\n     and ``worker`` delegates to ``worker_totals`` over the packet receipts.\n     Neither half substitutes for the other: the hooks never see an OpenCode\n     worker, and the receipts know nothing about frontier turns, so both stay\n-    separately visible. ``cost_usd.total`` is only as trustworthy as its least\n-    certain half, so ``total_reliable`` is the worker half's ``cost_reported``.\n-    Escalation task ids and stop conditions come from each record's metadata;\n-    a record that carried no stop condition is omitted rather than a null.\n+    separately visible. The two halves are not the same kind of number -- the\n+    frontier figure is an imputed list price that nothing meters, the worker\n+    figure is real metered spend -- so ``cost_usd`` never adds them.\n+    ``worker_billed_usd`` is the only money, ``total_billed_usd`` equals it,\n+    ``frontier_usage_equivalent_usd`` carries the imputed figure renamed,\n+    ``commensurable`` is always False, and ``total_reliable`` is the worker\n+    half's ``cost_reported``. Escalation task ids and stop conditions come\n+    from each record's metadata; a record that carried no stop condition is\n+    omitted rather than a null.\n     \"\"\"\n     frontier = frontier_totals(rows)\n     worker = worker_totals(receipts)\n@@ -182,9 +187,10 @@ def build_scorecard(release, rows, receipts, escalations, recorded_at):\n             \"stop_conditions\": sorted(stop_conditions),\n         },\n         \"cost_usd\": {\n-            \"frontier\": frontier[\"cost_usd\"],\n-            \"worker\": worker[\"cost_usd\"],\n-            \"total\": round(frontier[\"cost_usd\"] + worker[\"cost_usd\"], 6),\n+            \"worker_billed_usd\": worker[\"cost_usd\"],\n+            \"frontier_usage_equivalent_usd\": frontier[\"cost_usd\"],\n+            \"total_billed_usd\": worker[\"cost_usd\"],\n+            \"commensurable\": False,\n             \"total_reliable\": worker[\"cost_reported\"],\n         },\n     }\n@@ -211,7 +217,8 @@ def detect_worse(scorecards):\n     def turns_flat_cost_up_worsened(a, b):\n         return (\n             b[\"frontier\"][\"turns\"] >= a[\"frontier\"][\"turns\"]\n-            and b[\"cost_usd\"][\"total\"] > a[\"cost_usd\"][\"total\"]\n+            and b[\"cost_usd\"][\"frontier_usage_equivalent_usd\"]\n+            > a[\"cost_usd\"][\"frontier_usage_equivalent_usd\"]\n         )\n \n     def rework_value(card):\n@@ -221,7 +228,8 @@ def detect_worse(scorecards):\n         return card[\"escalations\"][\"count\"]\n \n     def turns_flat_cost_up_value(card):\n-        return [card[\"frontier\"][\"turns\"], card[\"cost_usd\"][\"total\"]]\n+        return [card[\"frontier\"][\"turns\"],\n+                card[\"cost_usd\"][\"frontier_usage_equivalent_usd\"]]\n \n     signals = []\n     for name, worsened, value_of in (\n",
+      "worktree_status": [
+        " M templates/dispatch/scripts/release_scorecard.py"
+      ]
+    },
+    "independent_review": {
+      "mode": "self_candidate",
+      "class": "mechanical_bulk",
+      "basis": "manifest"
+    },
+    "disposition": "candidate"
+  },
+  "driver_steps": [
+    {
+      "step": "prepare",
+      "attempt": 1,
+      "started_at": "2026-08-24T19:10:49Z",
+      "finished_at": "2026-08-24T19:10:51Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-24T19:10:51+00:00",
+        "execution_id": "V5-T8-cost-kinds:9440b6f0f7018a92:attempt-1",
+        "task_id": "V5-T8-cost-kinds",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 25,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:9440b6f0f7018a9299b11469b70b5ecd840cdfeb57c71cf183eefa5b6a066fbb",
+          "repository_commit": "5be7cbfac83edb0df727944fe3c8cee26c46bdf6",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:d80f1e3784968151528e7d10f3cda7d162dd18a48e1ab3727ced0faa033f0ade"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 20,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "prepare",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds",
+        "overlay_sha256": "d8438591a9c56c1c160e9dd65a90b871e33925dec901fc4216960e7757f030e3",
+        "coordinator_claim": {
+          "claim_id": 25,
+          "work_item_id": 2254,
+          "agent": "workstation-vuoro",
+          "last_activity_at": "2026-08-24T19:06:24Z",
+          "idle_seconds": 266,
+          "checked_at": "2026-08-24T19:10:50+00:00"
+        },
+        "safety": {
+          "ref": "safety/pre-dispatch-V5-T8-cost-kinds",
+          "commit": "df06856bb36f9c46bf2a62abbdd173c77e92ce9a",
+          "restore_command": "git -C /tmp/v5-coordinator reset --hard safety/pre-dispatch-V5-T8-cost-kinds",
+          "uncommitted_paths_at_risk": [
+            "?? .sprintctl"
+          ]
+        },
+        "cold_command_results": [
+          {
+            "command_id": "agentops.dispatch.tests.scorecard_build",
+            "command": "python templates/dispatch/tests/test_release_scorecard_build.py",
+            "exit_code": 1,
+            "stdout_tail": "",
+            "stderr_tail": "tops-hybrid/worktrees/agentops/V5-T8-cost-kinds/templates/dispatch/tests/test_release_scorecard_build.py\", line 335, in test_frontier_usage_equivalent_usd_preserves_the_frontier_figure\n    cost[\"frontier_usage_equivalent_usd\"],\n    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nKeyError: 'frontier_usage_equivalent_usd'\n\n======================================================================\nERROR: test_total_billed_usd_equals_worker_billed_usd_exactly (__main__.BuildScorecardTests.test_total_billed_usd_equals_worker_billed_usd_exactly)\nThe frontier half is 4.35 imputed against 0.031979 of real money.\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds/templates/dispatch/tests/test_release_scorecard_build.py\", line 355, in test_total_billed_usd_equals_worker_billed_usd_exactly\n    cost[\"total_billed_usd\"], cost[\"worker_billed_usd\"],\n    ~~~~^^^^^^^^^^^^^^^^^^^^\nKeyError: 'total_billed_usd'\n\n======================================================================\nERROR: test_worker_billed_usd_is_the_worker_figure (__main__.BuildScorecardTests.test_worker_billed_usd_is_the_worker_figure)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds/templates/dispatch/tests/test_release_scorecard_build.py\", line 322, in test_worker_billed_usd_is_the_worker_figure\n    cost[\"worker_billed_usd\"], REPORTING_WORKER_COST, places=6,\n    ~~~~^^^^^^^^^^^^^^^^^^^^^\nKeyError: 'worker_billed_usd'\n\n======================================================================\nFAIL: test_cost_block_carries_exactly_the_five_declared_keys (__main__.BuildScorecardTests.test_cost_block_carries_exactly_the_five_declared_keys)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds/templates/dispatch/tests/test_release_scorecard_build.py\", line 312, in test_cost_block_carries_exactly_the_five_declared_keys\n    self.assertEqual(\n    ~~~~~~~~~~~~~~~~^\n        set(cost), set(COST_KEYS),\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<2 lines>...\n        \"total_reliable\",\n        ^^^^^^^^^^^^^^^^^\n    )\n    ^\nAssertionError: Items in the first set but not the second:\n'frontier'\n'total'\n'worker'\nItems in the second set but not the first:\n'total_billed_usd'\n'worker_billed_usd'\n'frontier_usage_equivalent_usd'\n'commensurable' : cost_usd does not carry exactly worker_billed_usd/frontier_usage_equivalent_usd/total_billed_usd/commensurable/total_reliable\n\n======================================================================\nFAIL: test_no_key_in_the_cost_block_holds_frontier_plus_worker (__main__.BuildScorecardTests.test_no_key_in_the_cost_block_holds_frontier_plus_worker)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds/templates/dispatch/tests/test_release_scorecard_build.py\", line 373, in test_no_key_in_the_cost_block_holds_frontier_plus_worker\n    self.assertEqual(\n    ~~~~~~~~~~~~~~~~^\n        set(cost), set(COST_KEYS),\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^\n        \"cost_usd carries a key outside the declared five, which is where \"\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        \"a resurrected sum would hide\",\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\nAssertionError: Items in the first set but not the second:\n'frontier'\n'total'\n'worker'\nItems in the second set but not the first:\n'total_billed_usd'\n'worker_billed_usd'\n'frontier_usage_equivalent_usd'\n'commensurable' : cost_usd carries a key outside the declared five, which is where a resurrected sum would hide\n\n----------------------------------------------------------------------\nRan 18 tests in 0.008s\n\nFAILED (failures=2, errors=5)\n",
+            "expectation": "red"
+          },
+          {
+            "command_id": "agentops.dispatch.tests.scorecard_worse",
+            "command": "python templates/dispatch/tests/test_release_scorecard_worse.py",
+            "exit_code": 1,
+            "stdout_tail": "",
+            "stderr_tail": "ent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds/templates/dispatch/tests/test_release_scorecard_worse.py\", line 193, in test_turns_flat_while_cost_rises_fires_only_that_signal\n    result = scorecard.detect_worse(flat)\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds/templates/dispatch/scripts/release_scorecard.py\", line 234, in detect_worse\n    if worsened(a, b) and worsened(b, c):\n       ~~~~~~~~^^^^^^\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds/templates/dispatch/scripts/release_scorecard.py\", line 214, in turns_flat_cost_up_worsened\n    and b[\"cost_usd\"][\"total\"] > a[\"cost_usd\"][\"total\"]\n        ~~~~~~~~~~~~~^^^^^^^^^\nKeyError: 'total'\n\n======================================================================\nERROR: test_turns_rising_while_cost_rises_also_fires_the_flat_signal (__main__.SingleSignalTests.test_turns_rising_while_cost_rises_also_fires_the_flat_signal)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds/templates/dispatch/tests/test_release_scorecard_worse.py\", line 207, in test_turns_rising_while_cost_rises_also_fires_the_flat_signal\n    result = scorecard.detect_worse(climbing)\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds/templates/dispatch/scripts/release_scorecard.py\", line 234, in detect_worse\n    if worsened(a, b) and worsened(b, c):\n       ~~~~~~~~^^^^^^\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds/templates/dispatch/scripts/release_scorecard.py\", line 214, in turns_flat_cost_up_worsened\n    and b[\"cost_usd\"][\"total\"] > a[\"cost_usd\"][\"total\"]\n        ~~~~~~~~~~~~~^^^^^^^^^\nKeyError: 'total'\n\n======================================================================\nERROR: test_the_frontier_half_still_fires_while_worker_spend_falls (__main__.WorkerHalfIsNotTheSignalTests.test_the_frontier_half_still_fires_while_worker_spend_falls)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds/templates/dispatch/tests/test_release_scorecard_worse.py\", line 430, in test_the_frontier_half_still_fires_while_worker_spend_falls\n    result = scorecard.detect_worse(rising_frontier)\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds/templates/dispatch/scripts/release_scorecard.py\", line 234, in detect_worse\n    if worsened(a, b) and worsened(b, c):\n       ~~~~~~~~^^^^^^\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds/templates/dispatch/scripts/release_scorecard.py\", line 214, in turns_flat_cost_up_worsened\n    and b[\"cost_usd\"][\"total\"] > a[\"cost_usd\"][\"total\"]\n        ~~~~~~~~~~~~~^^^^^^^^^\nKeyError: 'total'\n\n======================================================================\nERROR: test_worker_cost_climbing_with_flat_frontier_does_not_fire (__main__.WorkerHalfIsNotTheSignalTests.test_worker_cost_climbing_with_flat_frontier_does_not_fire)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds/templates/dispatch/tests/test_release_scorecard_worse.py\", line 413, in test_worker_cost_climbing_with_flat_frontier_does_not_fire\n    result = scorecard.detect_worse(flat_frontier)\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds/templates/dispatch/scripts/release_scorecard.py\", line 234, in detect_worse\n    if worsened(a, b) and worsened(b, c):\n       ~~~~~~~~^^^^^^\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds/templates/dispatch/scripts/release_scorecard.py\", line 214, in turns_flat_cost_up_worsened\n    and b[\"cost_usd\"][\"total\"] > a[\"cost_usd\"][\"total\"]\n        ~~~~~~~~~~~~~^^^^^^^^^\nKeyError: 'total'\n\n----------------------------------------------------------------------\nRan 30 tests in 0.012s\n\nFAILED (errors=12)\n",
+            "expectation": "red"
+          },
+          {
+            "command_id": "agentops.dispatch.tests.scorecard_kinds",
+            "command": "python templates/dispatch/tests/test_release_scorecard_kinds.py",
+            "exit_code": 1,
+            "stdout_tail": "",
+            "stderr_tail": "   cost[\"total_billed_usd\"],\n    ~~~~^^^^^^^^^^^^^^^^^^^^\nKeyError: 'total_billed_usd'\n\n======================================================================\nERROR: test_a_silent_receipt_makes_total_reliable_false (__main__.TotalReliableTests.test_a_silent_receipt_makes_total_reliable_false)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds/templates/dispatch/tests/test_release_scorecard_kinds.py\", line 368, in test_a_silent_receipt_makes_total_reliable_false\n    card[\"cost_usd\"][\"commensurable\"], False,\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^\nKeyError: 'commensurable'\n\n======================================================================\nFAIL: test_cost_block_keys_are_exactly_the_five_declared_names (__main__.KeyNamesTests.test_cost_block_keys_are_exactly_the_five_declared_names)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds/templates/dispatch/tests/test_release_scorecard_kinds.py\", line 159, in test_cost_block_keys_are_exactly_the_five_declared_names\n    self.assertEqual(\n    ~~~~~~~~~~~~~~~~^\n        set(cost), set(COST_KEYS),\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<2 lines>...\n        \"of number have been conflated again\",\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\nAssertionError: Items in the first set but not the second:\n'total'\n'frontier'\n'worker'\nItems in the second set but not the first:\n'commensurable'\n'total_billed_usd'\n'worker_billed_usd'\n'frontier_usage_equivalent_usd' : cost_usd's keys are not exactly the five declared names -- if they were 'tidied' back to frontier/worker/total, the two kinds of number have been conflated again\n\n======================================================================\nFAIL: test_the_key_names_survive_an_empty_corpus (__main__.KeyNamesTests.test_the_key_names_survive_an_empty_corpus)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds/templates/dispatch/tests/test_release_scorecard_kinds.py\", line 177, in test_the_key_names_survive_an_empty_corpus\n    self.assertEqual(\n    ~~~~~~~~~~~~~~~~^\n        set(cost), set(COST_KEYS),\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^\n        \"the cost block changes shape when there is nothing to report\",\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\nAssertionError: Items in the first set but not the second:\n'total'\n'frontier'\n'worker'\nItems in the second set but not the first:\n'commensurable'\n'total_billed_usd'\n'worker_billed_usd'\n'frontier_usage_equivalent_usd' : the cost block changes shape when there is nothing to report\n\n======================================================================\nFAIL: test_the_old_conflating_names_are_gone (__main__.KeyNamesTests.test_the_old_conflating_names_are_gone)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds/templates/dispatch/tests/test_release_scorecard_kinds.py\", line 169, in test_the_old_conflating_names_are_gone\n    self.assertNotIn(\n    ~~~~~~~~~~~~~~~~^\n        name, cost,\n        ^^^^^^^^^^^\n        f\"cost_usd.{name} is back; that spelling is what let an \"\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        \"imputed list price be read as spend\",\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\nAssertionError: 'frontier' unexpectedly found in {'frontier': 241.33, 'worker': 0.110503, 'total': 241.440503, 'total_reliable': True} : cost_usd.frontier is back; that spelling is what let an imputed list price be read as spend\n\n----------------------------------------------------------------------\nRan 20 tests in 0.010s\n\nFAILED (failures=3, errors=15)\n",
+            "expectation": "red"
+          }
+        ],
+        "cold_faults": [],
+        "workspace_reused": false,
+        "cold_gate_assessment": "assessed",
+        "eligible_for_dispatch": true
+      },
+      "failed": false
+    },
+    {
+      "step": "run",
+      "attempt": 1,
+      "started_at": "2026-08-24T19:10:51Z",
+      "finished_at": "2026-08-24T19:11:37Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-24T19:11:37+00:00",
+        "execution_id": "V5-T8-cost-kinds:9440b6f0f7018a92:attempt-1",
+        "task_id": "V5-T8-cost-kinds",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 25,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:9440b6f0f7018a9299b11469b70b5ecd840cdfeb57c71cf183eefa5b6a066fbb",
+          "repository_commit": "5be7cbfac83edb0df727944fe3c8cee26c46bdf6",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:d80f1e3784968151528e7d10f3cda7d162dd18a48e1ab3727ced0faa033f0ade"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 20,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "run",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds",
+        "overlay_sha256": "d8438591a9c56c1c160e9dd65a90b871e33925dec901fc4216960e7757f030e3",
+        "coordinator_claim": {
+          "claim_id": 25,
+          "work_item_id": 2254,
+          "agent": "workstation-vuoro",
+          "last_activity_at": "2026-08-24T19:06:24Z",
+          "idle_seconds": 268,
+          "checked_at": "2026-08-24T19:10:52+00:00"
+        },
+        "worker": {
+          "argv": [
+            "sudo",
+            "--non-interactive",
+            "--set-home",
+            "--user",
+            "agentworker",
+            "--preserve-env=OPENCODE_CONFIG_CONTENT",
+            "opencode",
+            "run",
+            "'Implement only the attached frozen task packet. Stay inside the writable paths it declares, use only the registered commands, and stop with a structured blocker on any ambiguity, missing context, or scope conflict. Do not use git, do not change sprint state, and do not expand scope. Respect context_churn: stop repeated unchanged reads or mutation-free reasoning at its limits. Do not optimize for cheap cache writes alone. As soon as the candidate and focused registered gate are ready, return the structured handoff instead of continuing self-review.'",
+            "--agent",
+            "ao-mechanical-bulk",
+            "--file",
+            "/tmp/v5-coordinator/docs/evidence/packets/V5-T8-cost-kinds.json",
+            "--format",
+            "json"
+          ],
+          "worker_user": "agentworker",
+          "agent": "ao-mechanical-bulk",
+          "model": "opencode-go/deepseek-v4-flash",
+          "exit_code": 0,
+          "stdout": "<transcript removed; sidecar worker-stdout.txt holds 220628 bytes>",
+          "stderr_tail": "",
+          "session_id": "ses_fcad13341ffeb4Dibp0c1t7zY1",
+          "churn_stop": null
+        },
+        "spend": {
+          "cost_usd": 0.016653,
+          "tokens": 368824,
+          "cost_reported": true,
+          "cap_usd": 3.0,
+          "within_cap": true,
+          "soft_token_ceiling": 1200000,
+          "hard_token_ceiling": 2000000,
+          "soft_token_ceiling_exceeded": false,
+          "within_hard_token_ceiling": true
+        },
+        "containment_override": false,
+        "worker_user": "agentworker",
+        "worker_model": "opencode-go/deepseek-v4-flash",
+        "route_model": "opencode-go/deepseek-v4-flash",
+        "model_override": false,
+        "qualification_eligible": true,
+        "unattended_eligible": true,
+        "override_reason": null,
+        "containment": {
+          "coordinator_tree_untouched": true,
+          "coordinator_tree_changes": [],
+          "recovery": []
+        }
+      },
+      "failed": false
+    },
+    {
+      "step": "gate",
+      "attempt": 1,
+      "started_at": "2026-08-24T19:11:37Z",
+      "finished_at": "2026-08-24T19:11:39Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-24T19:11:39+00:00",
+        "execution_id": "V5-T8-cost-kinds:9440b6f0f7018a92:attempt-1",
+        "task_id": "V5-T8-cost-kinds",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 25,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:9440b6f0f7018a9299b11469b70b5ecd840cdfeb57c71cf183eefa5b6a066fbb",
+          "repository_commit": "5be7cbfac83edb0df727944fe3c8cee26c46bdf6",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:d80f1e3784968151528e7d10f3cda7d162dd18a48e1ab3727ced0faa033f0ade"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 20,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "gate",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds",
+        "overlay_sha256": "d8438591a9c56c1c160e9dd65a90b871e33925dec901fc4216960e7757f030e3",
+        "coordinator_claim": {
+          "claim_id": 25,
+          "work_item_id": 2254,
+          "agent": "workstation-vuoro",
+          "last_activity_at": "2026-08-24T19:06:24Z",
+          "idle_seconds": 314,
+          "checked_at": "2026-08-24T19:11:38+00:00"
+        },
+        "evidence": {
+          "gates": {
+            "diff-nonempty": true,
+            "diff-scope-respected": true,
+            "protected-paths-untouched": true,
+            "worktree-state-captured": true,
+            "registered-commands-green": true
+          },
+          "passed": true,
+          "touched_paths": [
+            "templates/dispatch/scripts/release_scorecard.py"
+          ],
+          "out_of_scope_paths": [],
+          "protected_path_hits": [],
+          "command_results": [
+            {
+              "command_id": "agentops.dispatch.tests.scorecard_build",
+              "command": "python templates/dispatch/tests/test_release_scorecard_build.py",
+              "exit_code": 0,
+              "stdout_tail": "",
+              "stderr_tail": "..................\n----------------------------------------------------------------------\nRan 18 tests in 0.005s\n\nOK\n"
+            },
+            {
+              "command_id": "agentops.dispatch.tests.scorecard_worse",
+              "command": "python templates/dispatch/tests/test_release_scorecard_worse.py",
+              "exit_code": 0,
+              "stdout_tail": "",
+              "stderr_tail": "..............................\n----------------------------------------------------------------------\nRan 30 tests in 0.002s\n\nOK\n"
+            },
+            {
+              "command_id": "agentops.dispatch.tests.scorecard_kinds",
+              "command": "python templates/dispatch/tests/test_release_scorecard_kinds.py",
+              "exit_code": 0,
+              "stdout_tail": "",
+              "stderr_tail": "....................\n----------------------------------------------------------------------\nRan 20 tests in 0.004s\n\nOK\n"
+            }
+          ],
+          "diff": "diff --git a/templates/dispatch/scripts/release_scorecard.py b/templates/dispatch/scripts/release_scorecard.py\nindex 97d2746..360339a 100644\n--- a/templates/dispatch/scripts/release_scorecard.py\n+++ b/templates/dispatch/scripts/release_scorecard.py\n@@ -151,10 +151,15 @@ def build_scorecard(release, rows, receipts, escalations, recorded_at):\n     and ``worker`` delegates to ``worker_totals`` over the packet receipts.\n     Neither half substitutes for the other: the hooks never see an OpenCode\n     worker, and the receipts know nothing about frontier turns, so both stay\n-    separately visible. ``cost_usd.total`` is only as trustworthy as its least\n-    certain half, so ``total_reliable`` is the worker half's ``cost_reported``.\n-    Escalation task ids and stop conditions come from each record's metadata;\n-    a record that carried no stop condition is omitted rather than a null.\n+    separately visible. The two halves are not the same kind of number -- the\n+    frontier figure is an imputed list price that nothing meters, the worker\n+    figure is real metered spend -- so ``cost_usd`` never adds them.\n+    ``worker_billed_usd`` is the only money, ``total_billed_usd`` equals it,\n+    ``frontier_usage_equivalent_usd`` carries the imputed figure renamed,\n+    ``commensurable`` is always False, and ``total_reliable`` is the worker\n+    half's ``cost_reported``. Escalation task ids and stop conditions come\n+    from each record's metadata; a record that carried no stop condition is\n+    omitted rather than a null.\n     \"\"\"\n     frontier = frontier_totals(rows)\n     worker = worker_totals(receipts)\n@@ -182,9 +187,10 @@ def build_scorecard(release, rows, receipts, escalations, recorded_at):\n             \"stop_conditions\": sorted(stop_conditions),\n         },\n         \"cost_usd\": {\n-            \"frontier\": frontier[\"cost_usd\"],\n-            \"worker\": worker[\"cost_usd\"],\n-            \"total\": round(frontier[\"cost_usd\"] + worker[\"cost_usd\"], 6),\n+            \"worker_billed_usd\": worker[\"cost_usd\"],\n+            \"frontier_usage_equivalent_usd\": frontier[\"cost_usd\"],\n+            \"total_billed_usd\": worker[\"cost_usd\"],\n+            \"commensurable\": False,\n             \"total_reliable\": worker[\"cost_reported\"],\n         },\n     }\n@@ -211,7 +217,8 @@ def detect_worse(scorecards):\n     def turns_flat_cost_up_worsened(a, b):\n         return (\n             b[\"frontier\"][\"turns\"] >= a[\"frontier\"][\"turns\"]\n-            and b[\"cost_usd\"][\"total\"] > a[\"cost_usd\"][\"total\"]\n+            and b[\"cost_usd\"][\"frontier_usage_equivalent_usd\"]\n+            > a[\"cost_usd\"][\"frontier_usage_equivalent_usd\"]\n         )\n \n     def rework_value(card):\n@@ -221,7 +228,8 @@ def detect_worse(scorecards):\n         return card[\"escalations\"][\"count\"]\n \n     def turns_flat_cost_up_value(card):\n-        return [card[\"frontier\"][\"turns\"], card[\"cost_usd\"][\"total\"]]\n+        return [card[\"frontier\"][\"turns\"],\n+                card[\"cost_usd\"][\"frontier_usage_equivalent_usd\"]]\n \n     signals = []\n     for name, worsened, value_of in (\n",
+          "worktree_status": [
+            " M templates/dispatch/scripts/release_scorecard.py"
+          ]
+        },
+        "independent_review": {
+          "mode": "self_candidate",
+          "class": "mechanical_bulk",
+          "basis": "manifest"
+        },
+        "disposition": "candidate"
+      },
+      "disposition": "candidate",
+      "failed": false
+    },
+    {
+      "step": "receipt",
+      "attempt": 1,
+      "started_at": "2026-08-24T19:11:39Z",
+      "finished_at": "2026-08-24T19:11:39Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-24T19:11:39+00:00",
+        "execution_id": "V5-T8-cost-kinds:9440b6f0f7018a92:attempt-1",
+        "task_id": "V5-T8-cost-kinds",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 25,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:9440b6f0f7018a9299b11469b70b5ecd840cdfeb57c71cf183eefa5b6a066fbb",
+          "repository_commit": "5be7cbfac83edb0df727944fe3c8cee26c46bdf6",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:d80f1e3784968151528e7d10f3cda7d162dd18a48e1ab3727ced0faa033f0ade"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 20,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "receipt",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-T8-cost-kinds",
+        "overlay_sha256": "d8438591a9c56c1c160e9dd65a90b871e33925dec901fc4216960e7757f030e3",
+        "dispositions_available": [
+          "candidate",
+          "retry_same_route",
+          "reroute",
+          "task_defect",
+          "human_decision"
+        ],
+        "note": "The coordinator records the disposition and the human accepts, merges, and changes sprint state."
+      },
+      "failed": false
+    }
+  ]
+}
