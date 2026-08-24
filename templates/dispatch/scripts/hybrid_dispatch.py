@@ -1629,9 +1629,11 @@ def worker_spend(
     so a runaway worker degrades the coordinator, and this is the only spend
     control in the system.
 
-    OpenCode reports ``cost`` and ``tokens`` per ``step-finish`` part, so the
-    figure is the harness's own accounting rather than an estimate from token
-    counts and a price table that would drift. It is necessarily **post hoc**:
+    OpenCode reports ``cost`` per ``step-finish`` part and a cumulative
+    ``tokens.total`` snapshot for the session. The figure is therefore the
+    harness's own accounting rather than an estimate from token counts and a
+    price table that would drift; cumulative token snapshots must be bounded by
+    their maximum, not summed across steps. It is necessarily **post hoc**:
     it cannot abort a run mid-flight, and a single packet can still overspend
     its cap once. What it does is make that visible on the receipt and stop the
     packet, so a wave does not repeat the overspend across every item in it.
@@ -1657,7 +1659,7 @@ def worker_spend(
         if "cost" in part and part["cost"] is not None:
             cost += float(part["cost"])
             cost_reported = True
-        tokens += int((part.get("tokens") or {}).get("total", 0) or 0)
+        tokens = max(tokens, int((part.get("tokens") or {}).get("total", 0) or 0))
 
     return {
         "cost_usd": round(cost, 6),

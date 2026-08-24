@@ -1266,14 +1266,14 @@ class WorkerSpendTests(unittest.TestCase):
             for s in steps
         )
 
-    def test_costs_and_tokens_are_summed_across_steps(self) -> None:
+    def test_costs_are_summed_but_cumulative_tokens_use_the_highest_snapshot(self) -> None:
         stream = self._stream(
             {"cost": 0.001, "tokens": {"total": 100}},
             {"cost": 0.002, "tokens": {"total": 250}},
         )
         spend = dispatch.worker_spend(stream, 2.0)
         self.assertAlmostEqual(spend["cost_usd"], 0.003)
-        self.assertEqual(spend["tokens"], 350)
+        self.assertEqual(spend["tokens"], 250)
         self.assertTrue(spend["within_cap"])
         self.assertTrue(spend["cost_reported"])
 
