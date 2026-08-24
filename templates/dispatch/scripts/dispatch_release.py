@@ -90,19 +90,35 @@ DRIVER_ACTOR = "dispatch-release"
 #: The secret shapes the module-level scan detects, keyed by the stable name a
 #: finding carries. A finding never carries the matched text, so a report that
 #: embeds the names cannot echo a credential. The groups are what the M-10
-#: spec row enumerates; each name is what tells one kind from another.
+#: spec row enumerates, hardened by M-12: matching is case-insensitive where
+#: case carries no meaning, the general assignment pattern accepts ':' beside
+#: '=', a quoted or bare and prefixed key name, and the vendor formats the
+#: shipped scan did not know. Each name tells one kind from another, and every
+#: pattern is bounded so a transcript full of unbroken tokens cannot hang it.
 SCAN_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("github_token", re.compile(r"gh[opsu]_[A-Za-z0-9]{8,}|github_pat_[A-Za-z0-9]{8,}")),
     ("aws_access_key_id", re.compile(r"AKIA[A-Z0-9]{16}")),
     ("pem_private_key", re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----")),
     ("slack_token", re.compile(r"xox[abprs]-[A-Za-z0-9-]{8,}")),
-    ("authorization_bearer", re.compile(r"Authorization:\s*Bearer\s+\S{20,}")),
+    ("authorization_bearer", re.compile(r"authorization:\s*bearer\s+\S{20,}", re.IGNORECASE)),
     (
         "secret_assignment",
         re.compile(
-            r"\b(?:api_key|token|secret|password)\b\s*=\s*"
-            r"(?:\"[^\"\n]{20,}\"|'[^'\n]{20,}'|\S{20,})"
+            r"\b\"?(?:[\w.-]+[_-])?(?:api_?key|token|secret|password|access_key)\"?\s*[:=]\s*"
+            r"(?:\"[^\"\n]{20,}\"|'[^'\n]{20,}'|\S{20,})",
+            re.IGNORECASE,
         ),
+    ),
+    ("openai_api_key", re.compile(r"(?<![A-Za-z0-9_])sk-[A-Za-z0-9_]{20,}")),
+    ("anthropic_api_key", re.compile(r"sk-ant-[A-Za-z0-9_-]{20,}")),
+    ("google_api_key", re.compile(r"AIza[0-9A-Za-z_-]{35}")),
+    ("stripe_secret_key", re.compile(r"sk_(?:live|test)_[0-9A-Za-z]{20,}")),
+    ("npm_token", re.compile(r"npm_[0-9A-Za-z]{20,}")),
+    ("pypi_token", re.compile(r"pypi-[0-9A-Za-z_]{20,}")),
+    ("jwt", re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}")),
+    (
+        "url_basic_auth",
+        re.compile(r"\b[A-Za-z][A-Za-z0-9+.-]{0,31}://[^/\s:@]+:[^/\s:@]{20,}@"),
     ),
 )
 
