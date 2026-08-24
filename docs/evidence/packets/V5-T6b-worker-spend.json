@@ -1,0 +1,108 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-T6b-worker-spend",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 24,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "templates/dispatch/tests/test_release_scorecard_worker.py decides correctness: the worker side of the scorecard, read from committed receipts. The cost_reported half is not decoration -- a provider that reports no cost yields 0.0, which is indistinguishable from a free model, and a corpus that loses that distinction reads 'this route did not say' as 'this route is free'.",
+    "starts_red": [
+      "agentops.dispatch.tests.scorecard_worker"
+    ],
+    "reference_patch": "docs/evidence/packets/V5-T6b-worker-spend.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "c51b53cce25679c1bde43669f2eaec56f2d859e8",
+  "purpose": "Add exactly two functions to templates/dispatch/scripts/release_scorecard.py, and change nothing already in it. worker_spend_from_receipt(receipt) takes one parsed docs/evidence/receipts/<task>/receipt.json and returns the three fields cost_usd, tokens and cost_reported. The figure lives at the entry of receipt['driver_steps'] whose 'step' is 'run', under entry['receipt']['spend'] -- that object is hybrid_dispatch.worker_spend's output and carries more fields than these three; take only these three. This is the second of the scorecard's two sources and it is not optional: the Claude Code hooks never see an OpenCode worker at all, so a loop run scored from the hook sink alone undercounts itself. Any missing link in that chain -- no driver_steps, no run step, no nested receipt, no spend -- returns the zero result {cost_usd 0.0, tokens 0, cost_reported False} and never raises. If several run steps are present, because a retry re-runs the step, the last one is the attempt that produced the receipt. worker_totals(receipts) takes a list of parsed receipts and returns exactly the keys attempts, tasks, cost_usd, tokens, cost_reported, cost_unreported_tasks, first_pass_tasks and first_pass_rate. attempts is how many receipts were given, since a retry's spend is still spend; tasks is the number of distinct task_id values; cost_usd is the sum rounded to six places and tokens the integer sum; cost_reported is True only when every contributing receipt reported its cost, because one silent receipt makes the whole total unreliable and the total must say so; cost_unreported_tasks is the sorted distinct task_ids of the receipts that did not report. A receipt that reported a genuine zero and one that said nothing both contribute 0.0, and only the second belongs in that list. first_pass_tasks counts the distinct tasks whose attempt 1 receipt passed, where passed means receipt['gate']['evidence']['passed'] is exactly True and a missing chain is not a pass; first_pass_rate is that over tasks, rounded to four places, and 0.0 when there are no tasks. Neither function may mutate its input. Write no CLI, no argument parsing, no file reading and no tag resolution: those are the next packet. Leave no debugging output behind.",
+  "readable_context_paths": [
+    "templates/dispatch/tests/test_release_scorecard_worker.py",
+    "templates/dispatch/scripts/release_scorecard.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/release_scorecard.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "the spend is read from the run step's nested receipt, not from a fixed index",
+    "a broken chain returns the zero result and never raises",
+    "the last run step wins when a retry produced two",
+    "cost_reported false anywhere makes the aggregate false and names the task",
+    "a reported zero is distinguished from an unreported one",
+    "first_pass_rate counts only attempt 1 receipts whose gate evidence passed",
+    "T-6a's reduce_sessions and frontier_totals are untouched"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "the worker's own accounting is found where it actually lives",
+      "command_id": "agentops.dispatch.tests.scorecard_worker",
+      "fails_when": "the run step is located by index rather than by its step name, or a missing link in the chain raises"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "silence is never read as free",
+      "command_id": "agentops.dispatch.tests.scorecard_worker",
+      "fails_when": "an unreported receipt leaves the aggregate cost_reported true, or is not named in cost_unreported_tasks, or a genuine reported zero is named there"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "first-pass rate means first attempt and a passed gate",
+      "command_id": "agentops.dispatch.tests.scorecard_worker",
+      "fails_when": "a task that passed only on attempt 2 counts as a first pass, or a missing gate chain counts as a pass, or the rate is not over distinct tasks"
+    }
+  ],
+  "non_goals": [
+    "reduce_sessions and frontier_totals, which are settled",
+    "the CLI, the tag-range resolution and the scorecard file write, which are the next packet",
+    "the worse-detector, which is T-7"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.scorecard_worker"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-t6b-worker-spend",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  }
+}

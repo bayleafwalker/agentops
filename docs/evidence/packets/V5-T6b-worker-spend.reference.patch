@@ -1,0 +1,91 @@
+diff --git a/templates/dispatch/scripts/release_scorecard.py b/templates/dispatch/scripts/release_scorecard.py
+index 8c775f4..c3c2221 100644
+--- a/templates/dispatch/scripts/release_scorecard.py
++++ b/templates/dispatch/scripts/release_scorecard.py
+@@ -37,4 +37,83 @@ def frontier_totals(rows):
+             totals[field] += row.get(field, 0)
+         totals["cost_usd"] += row.get("cost_usd", 0)
+     totals["cost_usd"] = round(totals["cost_usd"], 6)
+-    return totals
+\ No newline at end of file
++    return totals
++
++
++#: The answer for a receipt whose spend chain is broken. It is a real answer,
++#: not an error: a partial or older receipt should cost a release its worker
++#: figures, never the whole scorecard.
++_NO_SPEND = {"cost_usd": 0.0, "tokens": 0, "cost_reported": False}
++
++
++def worker_spend_from_receipt(receipt):
++    """Return {cost_usd, tokens, cost_reported} for one committed receipt.
++
++    This is the scorecard's second source and it is not optional: the Claude
++    Code hooks never see an OpenCode worker at all, so a loop run scored from
++    the hook sink alone undercounts itself by exactly the worker's side.
++
++    ``cost_reported`` travels with the figure because a provider that reports
++    no cost yields 0.0, indistinguishable from a free model. Dropping it turns
++    "this route did not say" into "this route is free".
++    """
++    steps = receipt.get("driver_steps")
++    if not isinstance(steps, list):
++        return dict(_NO_SPEND)
++    # The LAST run step, not the first: a retry re-runs the step, and it is the
++    # later attempt that produced the receipt being read.
++    spend = None
++    for step in steps:
++        if not isinstance(step, dict) or step.get("step") != "run":
++            continue
++        nested = step.get("receipt")
++        if isinstance(nested, dict) and isinstance(nested.get("spend"), dict):
++            spend = nested["spend"]
++    if spend is None:
++        return dict(_NO_SPEND)
++    return {
++        "cost_usd": float(spend.get("cost_usd") or 0),
++        "tokens": int(spend.get("tokens") or 0),
++        "cost_reported": spend.get("cost_reported") is True,
++    }
++
++
++def _gate_passed(receipt):
++    """A pass is an explicit True; a missing chain is not a pass."""
++    gate = receipt.get("gate")
++    evidence = gate.get("evidence") if isinstance(gate, dict) else None
++    return isinstance(evidence, dict) and evidence.get("passed") is True
++
++
++def worker_totals(receipts):
++    """Return the worker side of a release, totalled over its receipts."""
++    receipts = list(receipts)
++    cost = 0.0
++    tokens = 0
++    unreported = set()
++    tasks = set()
++    first_pass = set()
++
++    for receipt in receipts:
++        task = receipt.get("task_id")
++        tasks.add(task)
++        spend = worker_spend_from_receipt(receipt)
++        cost += spend["cost_usd"]
++        tokens += spend["tokens"]
++        if not spend["cost_reported"]:
++            unreported.add(task)
++        if receipt.get("attempt") == 1 and _gate_passed(receipt):
++            first_pass.add(task)
++
++    return {
++        "attempts": len(receipts),
++        "tasks": len(tasks),
++        "cost_usd": round(cost, 6),
++        "tokens": tokens,
++        # One silent receipt makes the whole total unreliable, and the total
++        # has to say so rather than present itself as a measured figure.
++        "cost_reported": not unreported,
++        "cost_unreported_tasks": sorted(unreported),
++        "first_pass_tasks": len(first_pass),
++        "first_pass_rate": round(len(first_pass) / len(tasks), 4) if tasks else 0.0,
++    }
+\ No newline at end of file

@@ -1,0 +1,109 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-T6e-scorecard-entrypoint",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 24,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "templates/dispatch/tests/test_release_scorecard_entrypoint.py decides correctness, and it drives the script through subprocess rather than importing it. That is the entire point: T-6d shipped 31 green tests over main(argv) called in process, and the file still did nothing at all when run as a command.",
+    "starts_red": [
+      "agentops.dispatch.tests.scorecard_entrypoint"
+    ],
+    "reference_patch": "docs/evidence/packets/V5-T6e-scorecard-entrypoint.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "0f838f11da1b87b84b3452033ac744596d2040fa",
+  "purpose": "Make templates/dispatch/scripts/release_scorecard.py runnable as a command, and make a wrong invocation fail loudly. Change nothing else. First, add a __main__ entry point so that running the file as a program executes main and exits with its return value. Today there is none, so the command exits 0 and writes nothing -- the row this implements says a scorecard is produced by running a command, and the existing tests all graded a function called in process. Second, --release, --sink, --receipts and --out are required: invoked without any one of them the command must exit non-zero, write something to stderr, and leave no output file behind. An implementation that errors after writing has still corrupted the evidence directory, so the ordering matters. Today a missing flag silently yields a scorecard whose release is null, which is worse than failing, because a scorecard that names no release gets filed against the wrong one. An unknown flag must also exit non-zero rather than being silently ignored. Third, --help must exit 0 and name the flags. The optional flags stay optional: a run with no --escalations, no --since and no --until succeeds and reports an escalations count of zero. Everything already settled stays exactly as it is -- the six computation functions, and main's behaviour for a fully specified invocation, including indent-2 JSON with a trailing newline. Running the command twice over the same inputs must produce the same scorecard apart from recorded_at. The error wording is yours to choose; only the exit status, the non-empty stderr and the absent file are graded. Leave no debugging output behind.",
+  "readable_context_paths": [
+    "templates/dispatch/tests/test_release_scorecard_entrypoint.py",
+    "templates/dispatch/scripts/release_scorecard.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/release_scorecard.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/scripts/release_unit_packet.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "the file is runnable as a command and exits with main's return value",
+    "each of the four required flags is required, and its absence exits non-zero with stderr output",
+    "a failed invocation leaves no output file behind",
+    "an unknown flag exits non-zero",
+    "--help exits 0 and names the flags",
+    "the optional flags stay optional and a full invocation behaves exactly as before",
+    "nothing else in the module changes"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "running the command produces the scorecard",
+      "command_id": "agentops.dispatch.tests.scorecard_entrypoint",
+      "fails_when": "invoking the script as a program writes no file, or its exit status is not main's return value"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "a wrong invocation fails instead of filing a nameless scorecard",
+      "command_id": "agentops.dispatch.tests.scorecard_entrypoint",
+      "fails_when": "a missing required flag exits zero, says nothing on stderr, or leaves an output file behind"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "what already worked still works",
+      "command_id": "agentops.dispatch.tests.scorecard_entrypoint",
+      "fails_when": "the optional flags become required, the output stops being indent-2 JSON with a trailing newline, or two identical runs differ outside recorded_at"
+    }
+  ],
+  "non_goals": [
+    "the six computation functions and main's aggregation, which are settled",
+    "git tag resolution",
+    "the wording of any error message"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.scorecard_entrypoint"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-t6e-scorecard-entrypoint",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  }
+}

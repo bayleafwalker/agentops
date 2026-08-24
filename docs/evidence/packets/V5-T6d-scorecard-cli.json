@@ -1,0 +1,109 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-T6d-scorecard-cli",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 24,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "templates/dispatch/tests/test_release_scorecard_cli.py decides correctness: the I/O shell that makes a scorecard producible by running one command. The tolerant-parse fixtures are the load-bearing half -- the sink is appended to by a shell hook on every assistant turn, so one truncated line from an interrupted write must not cost a release its whole scorecard.",
+    "starts_red": [
+      "agentops.dispatch.tests.scorecard_cli"
+    ],
+    "reference_patch": "docs/evidence/packets/V5-T6d-scorecard-cli.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "8278eb82fa4510a3065dbae6007a9b675cbc184f",
+  "purpose": "Add four functions to templates/dispatch/scripts/release_scorecard.py -- load_sink_rows, load_receipts, filter_by_window and main -- and change nothing already in it. load_sink_rows(path) reads a JSON-lines file and returns the parsed dicts. It is deliberately tolerant: blank lines, lines that are not valid JSON, and lines that parse to something other than a dict are all skipped rather than fatal, and a path that does not exist returns an empty list. That tolerance is the point, not laxness -- the sink is appended to by a shell hook on every assistant turn, so one truncated line from an interrupted write must not cost a release its whole scorecard. load_receipts(root) parses every <task>/receipt.json beneath root and returns them sorted by task_id, so a scorecard is reproducible instead of filesystem-order dependent; a subdirectory without a receipt, an unparseable receipt, and a missing root are all skipped or empty rather than errors. filter_by_window(records, start, end, key) keeps the records whose key timestamp falls in the half-open window from start inclusive to end exclusive, comparing ISO-8601 strings directly, which is correct for the fixed-width UTC format the sink writes. A None bound means that side is unbounded. A record missing the key, or carrying a non-string there, is excluded: a record that cannot be placed in time cannot be attributed to a release. main(argv) takes --release, --sink, --receipts and --out, with optional --since and --until bounding the window (sink rows filtered on ts, receipts on recorded_at) and an optional --escalations JSON-lines file whose absence means an empty list rather than an error. It builds the scorecard with build_scorecard and writes it to --out as JSON with indent 2 and a trailing newline, creating the parent directory if it is missing, and returns 0. It must not invent its own aggregation: the written file must equal build_scorecard called directly on the same loaded inputs, because a CLI that re-totals its own way is how two paths drift apart. Nothing here shells out to git or resolves tags -- the window is given, not discovered. Leave no debugging output behind.",
+  "readable_context_paths": [
+    "templates/dispatch/tests/test_release_scorecard_cli.py",
+    "templates/dispatch/scripts/release_scorecard.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/release_scorecard.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/scripts/release_unit_packet.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "a malformed sink line is skipped, never fatal",
+    "receipts are returned sorted by task_id, not in filesystem order",
+    "the window is half-open: inclusive at start, exclusive at end",
+    "a record that cannot be placed in time is excluded",
+    "main writes exactly what build_scorecard returns, with no aggregation of its own",
+    "a missing --escalations means an empty list, not an error",
+    "nothing already in the module changes and no debugging output is left behind"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "one bad line does not cost a release its scorecard",
+      "command_id": "agentops.dispatch.tests.scorecard_cli",
+      "fails_when": "a truncated, blank, or non-object line raises instead of being skipped, or a missing path raises"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "the window boundary does not double-count",
+      "command_id": "agentops.dispatch.tests.scorecard_cli",
+      "fails_when": "a record exactly at end is kept, a None bound is treated as a real bound, or an untimestamped record is included"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "the CLI is a shell, not a second implementation",
+      "command_id": "agentops.dispatch.tests.scorecard_cli",
+      "fails_when": "the written file differs from build_scorecard called directly on the same inputs, or the output is not indent-2 JSON with a trailing newline"
+    }
+  ],
+  "non_goals": [
+    "the six functions already in the module, which are settled",
+    "git tag resolution -- the window is given, not discovered",
+    "any change to the scorecard's shape, which build_scorecard owns"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.scorecard_cli"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-t6d-scorecard-cli",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  }
+}

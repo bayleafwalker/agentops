@@ -1,0 +1,97 @@
+diff --git a/templates/dispatch/scripts/release_scorecard.py b/templates/dispatch/scripts/release_scorecard.py
+new file mode 100644
+index 0000000..30e29b5
+--- /dev/null
++++ b/templates/dispatch/scripts/release_scorecard.py
+@@ -0,0 +1,91 @@
++#!/usr/bin/env python3
++"""Reduce and total the workflow-telemetry sinks a release scorecard is built from.
++
++The Claude Code Stop hook (``templates/dispatch/hooks/log-session-cost.sh``) fires
++once per assistant turn, and every record it appends is a *cumulative snapshot of
++the session so far*. Rows for one session therefore supersede each other rather
++than adding to each other, and any consumer must reduce to the newest row per
++session before it sums anything. Summing every row over-counts roughly
++quadratically: measured 2026-08-23 at $56,485 summed against $3,825 actual across
++97 sessions. ``cost-summary.sh`` carried that bug; this module is where the
++correct reduction lives for everything downstream of it.
++"""
++
++from __future__ import annotations
++
++from typing import Any, Iterable, Mapping
++
++#: The numeric fields ``frontier_totals`` sums over the surviving rows. A field
++#: missing from a snapshot counts as 0 -- an old row that predates a field is a
++#: gap in the record, not a reason to refuse the whole release.
++_TOTAL_FIELDS = (
++    "turns",
++    "assistant_msgs",
++    "tool_calls",
++    "duration_s",
++    "cost_usd",
++    "rework_rounds",
++)
++
++
++def _rank(row: Mapping[str, Any]) -> tuple[str, float, float]:
++    """Order snapshots of one session from oldest to newest.
++
++    ``ts`` decides, but it has one-second resolution, so two stops inside the
++    same second are indistinguishable by timestamp. The snapshots are monotonic,
++    so magnitude breaks the tie: the larger of a tied pair is the later one.
++    Ranking on ``ts`` alone would pick whichever of the two the sort happened to
++    leave last and silently under-report the session.
++    """
++    return (
++        str(row.get("ts") or ""),
++        _number(row.get("cost_usd")),
++        _number(row.get("out")),
++    )
++
++
++def _number(value: Any) -> float:
++    """A missing or unparseable numeric field counts as 0, never as an error."""
++    if value is None or isinstance(value, bool):
++        return 0.0
++    try:
++        return float(value)
++    except (TypeError, ValueError):
++        return 0.0
++
++
++def reduce_sessions(rows: Iterable[Mapping[str, Any]]) -> dict[str, Mapping[str, Any]]:
++    """Return the single surviving snapshot per session, keyed by session id.
++
++    A row that names no session cannot be attributed to one and is dropped
++    entirely: it must not create a key and must not reach any total. The input
++    list and the row dicts inside it are never mutated -- the surviving row
++    objects are returned as they were given.
++    """
++    survivors: dict[str, Mapping[str, Any]] = {}
++    for row in rows:
++        session = row.get("session")
++        if not isinstance(session, str) or not session:
++            continue
++        current = survivors.get(session)
++        if current is None or _rank(row) >= _rank(current):
++            survivors[session] = row
++    return survivors
++
++
++def frontier_totals(rows: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
++    """Total the frontier/coordinator side of a release over surviving rows only.
++
++    Takes the raw rows rather than an already-reduced mapping so that no caller
++    can total the sink without going through the reduction above.
++    """
++    survivors = reduce_sessions(rows)
++    totals: dict[str, Any] = {"sessions": len(survivors)}
++    for field in _TOTAL_FIELDS:
++        totals[field] = sum(_number(row.get(field)) for row in survivors.values())
++    # Float addition over per-session dollar figures grows a long tail that means
++    # nothing; six places is finer than any cost the sink records.
++    totals["cost_usd"] = round(totals["cost_usd"], 6)
++    for field in ("turns", "assistant_msgs", "tool_calls", "duration_s", "rework_rounds"):
++        totals[field] = int(totals[field])
++    return totals

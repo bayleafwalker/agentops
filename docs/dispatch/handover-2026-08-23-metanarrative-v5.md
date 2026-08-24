@@ -232,6 +232,106 @@ None were reachable before the mechanism ran.
 
 Open rows: **T-6/T-7** (scorecard script) and **L-5** (release-unit template).
 
+## 3h. The T-series (2026-08-24) — the brief's last rows, and five for five
+
+**T-6, T-7 and L-5 are done. The brief has no open rows left.** Main 615 → 778. Merged:
+#82 #84 #85 #86 #87 #88 #89, plus the hand-pass #83.
+Scorecard: `docs/evidence/scorecards/v5-t-series.json`.
+
+Seven packets, **seven green on the first attempt** — no retry, no escalation, no rework round,
+and no hand step inside any of the seven loops. Total worker spend **$0.108** and 1.65 M tokens
+across all seven. Against D-8's rule that is seven consecutive greens with zero escalations for
+`mechanical_bulk`.
+
+- **T-6 was split five ways** on the seams its oracle already had, in the spirit of M-10 in
+  Amendment 4: T-6a `reduce_sessions`/`frontier_totals`, T-6b `worker_spend_from_receipt`/
+  `worker_totals`, T-6c `build_scorecard`, T-6d the I/O shell, T-6e the entry point. The split
+  was free — five packets at $0.063 combined, each with a smaller oracle and a smaller failure
+  surface than one packet would have had.
+- **L-5 became a generator, not a static template**, on the owner's ruling. A static template
+  could not be a loop packet at all (everything it would write is coordinator-protected) and
+  "example packet validates" would have been a claim rather than a test.
+  `release_unit_packet()` pre-fills the pathway §5 gate set **in order** and the four L-2 stop
+  conditions; the oracle asserts the order, because a cold prepare that runs after the suite
+  proves nothing.
+
+### Rule 14 was crying wolf on every packet, and had been merged over twice
+
+`.github/workflows/protected-paths.yml` was **structurally red on every hybrid packet PR**.
+Commit 1 of every freeze branch registers the packet oracle's command id under
+`hybrid.commands`, and `agentops.dispatch.json` is a protected path — so the gate fired on the
+one change every packet must make. #80 and #82 were both merged over it. **A gate that is red
+on every legitimate PR is one you learn to merge over, and then it is not there for the case it
+was built for** (6b7265a inside PR #74).
+
+Fixed in **#83** with the narrowest exemption that works: `agentops.dispatch.json` only, purely
+additive keys under `hybrid.commands` only, and only under a title beginning `[hybrid]`. A
+second protected path, a re-pointed or removed command id, or any other manifest change all
+still fail — nine fixtures, one per way of staying narrow. **Proven in production, not just in
+fixtures:** #84 through #87 all passed it natively, with no branch update and no merge-over-red.
+
+### The reference-patch cost, which §7 asked for
+
+Five references written, five passed their oracle **first try**, roughly one coordinator turn
+each. The reference is not throwaway work in the sense the question feared: writing it is the
+act that proves the packet's own purpose text is sufficient to satisfy the oracle. Five
+different fresh authors wrote five oracles from a seam and a rationale, and a sixth independent
+implementation satisfied every one without negotiation. That is the strongest evidence yet that
+**the packet's purpose text can carry the whole specification** — which is what makes the cheap
+tier work at all.
+
+### The oracle authors' ambiguity reports were worth more than their tests
+
+Four of the five surfaced something no gate would have caught. All four are `debt:` lines in the
+scorecard; the first is the one that needs an owner:
+
+- **The packet schema has drifted from what the loop accepts.**
+  `templates/dispatch/hybrid/task-packet.schema.json` rejects an L-5 packet twice over: the
+  `task_id` pattern `^[A-Z0-9]+-` does not admit `v5.2-release-unit`, and `gate_set` /
+  `stop_conditions` are undeclared under `additionalProperties: false`. Not blocking — the live
+  validator checks required fields by hand and there is no `jsonschema` on the host (§6), so the
+  schema file is documentation. **Fixing it is a protected-path hand-pass, which §7 says to stop
+  and report rather than do.** Left for the owner.
+- `worker_totals([])` returns `cost_reported: true`, so an empty corpus reports
+  `total_reliable: true`. Read it beside `worker.attempts == 0`.
+- `turns_flat_cost_up` uses `turns >= previous`, so it also fires when turns *rise* while cost
+  rises. Specified consistently through brief, oracle and packet — a decision to revisit, not a
+  bug.
+- `worker_totals` does not `list()` its argument, so `attempts` raises on a generator.
+
+### The finding worth carrying forward: green tests, dead command
+
+**T-6d passed 31 tests and shipped a CLI that did nothing when you ran it.** Every one of those
+tests called `main(argv)` in process. The module had no `if __name__ == "__main__"` block, so
+`python release_scorecard.py --release … --out …` exited 0 and wrote nothing at all. A missing
+required flag also defaulted silently to `None`, which would have written a scorecard naming no
+release — worse than failing, because a nameless scorecard gets filed against the wrong one.
+
+It was found by **running the command on real data**, not by reading the green suite. Note what
+did *not* catch it: the reference patch had an entry point, so the reference passed; `validate`
+reported `fit` on all three oracle fields; every gate was green; the merge-preview was green.
+
+**The defect was in the oracle's reach, not the worker's work.** The row asked for a scorecard
+produced by *running a command*; the brief written for its oracle graded a *function*. A
+reference patch proves a packet is satisfiable. It cannot prove the oracle is asking the right
+question — nothing in the loop can, except running the thing.
+
+T-6e closes it: an oracle that drives the script through `subprocess`, the way a person would.
+$0.0144 and 79 seconds to fix what 31 green tests could not see. That ratio is the argument for
+the loop, and the lesson is the one the M-series already paid for once — **re-running beats
+reasoning**.
+
+Verified after the merge, against the worker's code and not the reference:
+
+```
+$ python templates/dispatch/scripts/release_scorecard.py --release v5-T-series \
+    --sink /projects/dev/.claude/session-costs.jsonl \
+    --receipts docs/evidence/receipts --since 2026-08-24T18:00:00Z --out <path>
+exit 0 -- 7 tasks, first_pass_rate 1.0, worker cost $0.107688, escalations 0
+```
+
+Open rows from this brief: **none**.
+
 ## 3. Packets to freeze and run, in order
 
 Each row: what the oracle must assert, the writable file, and the spec source. Write the

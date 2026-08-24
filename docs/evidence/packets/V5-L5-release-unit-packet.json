@@ -1,0 +1,109 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-L5-release-unit-packet",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 24,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "templates/dispatch/tests/test_release_unit_packet.py decides correctness: the release-unit packet an orchestrator hands off, with the pathway gate set and the four stop conditions pre-filled. The gate ORDER is asserted rather than mere membership -- a cold prepare that runs after the suite proves nothing, because the suite has already written to the tree it was supposed to find clean.",
+    "starts_red": [
+      "agentops.dispatch.tests.release_unit_packet"
+    ],
+    "reference_patch": "docs/evidence/packets/V5-L5-release-unit-packet.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "314f566a3005045b5be56fca68e48a2d097b0899",
+  "purpose": "Create templates/dispatch/scripts/release_unit_packet.py providing one public function, release_unit_packet(release, repo_id, sprint_item, writable_patch_paths, purpose), which returns a packet dict. It writes no file, parses no arguments and touches no git. Each sub-release -- v5.0, v5.1, v5.2 and so on -- is one orchestrator hand-off unit, and the parts an orchestrator must not have to think about are pre-filled and identical for every one of them. schema_version is agentops-task/v2 and task_id is the release with -release-unit appended. release_boundary is True: a release unit crosses a boundary by definition, so the stop condition must fire on it rather than the driver running it unattended. gate_set is the pathway gate set as a list of dicts each carrying order and gate, in order 1 to 6 with no gap and none reordered: a cold prepare from a disposable worktree at the pinned commit; the repo suite including falsifier coverage; round checks with the untracked-file guard; release-contract digest validation; the dispatch gate followed by the receipt; and the PR opened with the receipt, then stop. The order is not decoration -- a cold prepare that runs after the suite proves nothing, because the suite has already written to the tree it was supposed to find clean. stop_conditions is the four encoded conditions as stable identifiers: a gate red twice on the same packet, a release-boundary crossing, a command outside allowed_command_ids, and a path outside writable_patch_paths. The caller's repo_id, sprint_item, writable_patch_paths and purpose appear unchanged, and every other field the packet contract requires is present and correctly typed. Two different releases must produce packets whose gate set and stop conditions are identical by value -- a generator that varied its gates per release would defeat the whole point. Each call must return a fresh object graph: mutating one result, or mutating an argument after the call, must not reach any other packet. Leave no debugging output behind.",
+  "readable_context_paths": [
+    "templates/dispatch/tests/test_release_unit_packet.py",
+    "templates/dispatch/hybrid/task-packet.schema.json"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/release_unit_packet.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/scripts/release_scorecard.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "the six gates are present in order 1 to 6, none missing and none reordered",
+    "the four stop conditions are present",
+    "release_boundary is True",
+    "the caller's inputs are carried through unchanged and task_id derives from release",
+    "two releases share an identical gate set and stop conditions by value",
+    "each call returns a fresh object graph that no argument aliases",
+    "every field the packet contract requires is present and correctly typed"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "the gate set is the pathway's, in the pathway's order",
+      "command_id": "agentops.dispatch.tests.release_unit_packet",
+      "fails_when": "a gate is missing, duplicated, or the order is a set rather than a sequence"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "a release unit stops at its own boundary",
+      "command_id": "agentops.dispatch.tests.release_unit_packet",
+      "fails_when": "release_boundary is absent or false, or a stop condition is missing"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "the pre-filled parts do not vary, and packets do not share state",
+      "command_id": "agentops.dispatch.tests.release_unit_packet",
+      "fails_when": "two releases differ outside the release-derived id, or one packet aliases an argument or another packet"
+    }
+  ],
+  "non_goals": [
+    "writing the packet to a file, argument parsing, and any git or release pinning",
+    "the scorecard scripts, which are settled",
+    "changing the packet schema, which is a protected path"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.release_unit_packet"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-l5-release-unit-packet",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  }
+}
