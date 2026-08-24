@@ -8,7 +8,7 @@
   "harness_model": "opencode-go/deepseek-v4-flash",
   "host": "devbox",
   "worker_user": "agentworker",
-  "headline": "Seven packets, seven green on the first attempt, no retry and no hand step on any of them, for $0.108 of worker spend. The loop that took seven dispatches to produce ONE green run in v5-P1 now produces seven.",
+  "headline": "Eight packets, eight green on the first attempt, no retry and no hand step on any of them, for $0.124 of REAL billed worker spend.",
   "packets": [
     {
       "task_id": "V5-T6a-scorecard-reduce",
@@ -236,25 +236,58 @@
       ],
       "receipt_withheld": false,
       "note": "The corrective packet. Its oracle drives the script through subprocess rather than importing it, which is the only way the defect was visible."
+    },
+    {
+      "task_id": "V5-T8-cost-kinds",
+      "row": "correction",
+      "pr": 91,
+      "attempts": 1,
+      "first_attempt_green": true,
+      "tokens": 368824,
+      "cost_usd": 0.016653,
+      "cost_reported": true,
+      "wall_seconds": 50,
+      "gate_sequence": [
+        "prepare 0",
+        "run 0",
+        "gate 0",
+        "receipt 0"
+      ],
+      "gates": {
+        "diff-nonempty": true,
+        "diff-scope-respected": true,
+        "protected-paths-untouched": true,
+        "worktree-state-captured": true,
+        "registered-commands-green": true
+      },
+      "disposition": "candidate",
+      "rework_rounds": 0,
+      "escalations": 0,
+      "oracle_tests": 68,
+      "touched_paths": [
+        "templates/dispatch/scripts/release_scorecard.py"
+      ],
+      "receipt_withheld": false,
+      "note": "The owner's correction, made into a packet. Three oracles (build 18, worse 30, kinds 20) -- the largest oracle surface of the session, for the smallest code change."
     }
   ],
   "totals": {
-    "packets": 7,
-    "attempts": 7,
+    "packets": 8,
+    "attempts": 8,
     "first_pass_rate": 1.0,
-    "tokens": 1645366,
-    "cost_usd": 0.107688,
+    "tokens": 2014190,
+    "cost_usd_billed": 0.124341,
     "cost_reported": true,
-    "wall_seconds": 570,
+    "wall_seconds": 620,
     "rework_rounds": 0,
     "escalations": 0,
     "hand_steps_inside_the_loop": 0
   },
   "reference_patch_cost": {
     "question": "Section 7 asks how long the coordinator spends writing throwaway solutions per packet, because that is the number that decides whether the cheap tier pays for itself.",
-    "reference_patches_written": 7,
+    "reference_patches_written": 8,
     "coordinator_turns_per_reference": "roughly one -- each was a single edit written straight from the packet's own purpose text",
-    "passed_its_oracle_first_try": 7,
+    "passed_its_oracle_first_try": 8,
     "reading": "Seven references, seven first-try greens against oracles written independently by seven different fresh authors. Writing the reference is the act that proves the packet's purpose text is sufficient to satisfy the oracle, and it costs about one coordinator turn. It also caught nothing about T-6d's missing entry point -- because the reference HAD one, and the oracle never ran either as a command. A reference proves the packet is satisfiable; it does not prove the oracle is asking the right question.",
     "caveat": "This measures the reference, not the worker. The worker's own solution is what shipped in all five cases; the reference was never merged."
   },
@@ -264,6 +297,7 @@
     "comparison_to_v5_P1": "v5-P1 spent 9 frontier turns and $197 of coordinator session across SEVEN dispatches to get one green run. This session got five green runs for $0.083 of worker spend, and the coordinator's per-packet share of the work fell to a fixed, mechanical sequence."
   },
   "findings": [
+    "THE UNITS WERE WRONG, AND ONLY A HUMAN CAUGHT IT. The scorecard summed an imputed list price with real metered spend and called it a total -- $241.43, of which eleven cents was money. Every gate, every oracle and the merge-preview were green throughout, because the mistake was in what the numbers MEANT, and the oracles' author shared the misunderstanding. This is the clearest limit of the loop found so far: it verifies that code does what the packet says, and cannot verify that the packet is asking for the right thing. Fixed in #91.",
     "THE ONE THAT MATTERS: T-6d passed 31 tests and shipped a CLI that did nothing when you ran it. Every test called main(argv) in process; the module had no __main__ block, so `python release_scorecard.py --release ... --out ...` exited 0 and wrote nothing. A missing required flag also defaulted silently to None, which would have filed a scorecard naming no release at all. Found by RUNNING the command on real data, not by reading the green suite. The defect was in the oracle's reach, not the worker's work -- the coordinator asked for a command and then wrote a brief that graded a function. T-6e closes both halves with an oracle that drives the script through subprocess.",
     "FIVE FOR FIVE, FIRST ATTEMPT. No retry, no escalation, no rework round, and no hand step inside any of the five loops. Against D-8's rule this is five consecutive greens with zero escalations for mechanical_bulk.",
     "The protected-paths CI gate from #79 was structurally red on EVERY hybrid packet PR and had been merged over twice (#80, #82). Commit 1 of every freeze branch registers the packet oracle's command id under hybrid.commands, and agentops.dispatch.json is a protected path -- so the gate fired on the one change every packet must make. A gate red on every legitimate PR is one you learn to merge over, and then it is not there for the case it was built for. Fixed in #83 with the narrowest exemption that works, and PROVEN in production: #84 through #87 all passed it natively with no branch update and no merge-over-red.",
@@ -278,7 +312,7 @@
     "debt: turns_flat_cost_up uses turns >= previous, so it also fires when turns RISE while cost rises -- arguably a false positive, since rising turns explain rising cost. The alternative reading is strict equality ('flat'). Specified consistently across brief, oracle and packet, so it is a decision to revisit rather than a bug.",
     "debt: worker_totals does list() nothing, so attempts=len(receipts) raises on a generator. The spec says 'a list'; noted rather than fixed, because the shipped code is the measured artifact.",
     "debt: devbox's /projects/dev/agentops checkout is 159 commits behind main with local modifications. The dispatch path does not use it (the coordinator runs from /tmp/v5-coordinator) but the hook symlinks point into it.",
-    "debt: release_scorecard.py has no --project filter, so a window over the global sink counts every repo's sessions. The live v5-T-series run reports frontier cost $241.34 across 4 sessions since 18:00Z, which is this coordinator session plus whatever else ran in that window -- an overcount for an agentops release. Filter by the sink row's `project` field."
+    "debt: release_scorecard.py has no --project filter, so a window over the global sink counts every repo's sessions. The live v5-T-series run's frontier half covers 4 sessions since 18:00Z -- this coordinator session plus whatever else ran in that window. Filter by the sink row's `project` field. Note this only ever distorts the usage-equivalent half; the billed figure comes from receipts and is unaffected."
   ],
   "containment": {
     "coordinator_tree_untouched": true,
@@ -290,5 +324,17 @@
     "result": "exit 0; 7 tasks, first_pass_rate 1.0, worker cost $0.107688, escalations 0",
     "note": "Run against the merged worker code, not the coordinator's reference. This is what T-6d's green suite could not tell us.",
     "caveat": "The frontier half of that run ($241.34 over 4 sessions) is not agentops-only -- see the --project debt line."
+  },
+  "cost_kinds_correction": {
+    "what_was_wrong": "This scorecard, and build_scorecard itself, reported cost_usd.total as frontier + worker. Those are not the same kind of number. The frontier figure is computed by log-session-cost.sh as tokens times a hardcoded 2025 list-price table: nothing meters it, and on a subscription plan it is never billed. The worker figure is OpenCode's own step-finish accounting of real metered API spend. The sum was an imputed list price added to real money, and the coordinator quoted it to the owner as though it were spend.",
+    "who_caught_it": "The owner, in one sentence: sessions are usage, not actual API cost.",
+    "what_no_gate_could_see": "Every gate was green, validate was fit on all three oracle fields, seven oracles passed, and the merge-preview passed -- for an artifact whose headline number was a category error. No test can catch a units mistake that the test author shares.",
+    "fixed_in": "V5-T8 (#91): five keys, no sum, and a kinds oracle whose only job is that doubling the imputed half must not move the billed total.",
+    "the_honest_live_figures": {
+      "worker_billed_usd": 0.124341,
+      "frontier_usage_equivalent_usd": 399.931345,
+      "commensurable": false,
+      "reading": "12.4 cents of money was actually spent. The other figure is what the same tokens would have listed at, which is a comparison unit between releases and nothing else."
+    }
   }
 }

@@ -1,0 +1,71 @@
+diff --git a/templates/dispatch/scripts/release_scorecard.py b/templates/dispatch/scripts/release_scorecard.py
+index 97d2746..8ca4dc0 100644
+--- a/templates/dispatch/scripts/release_scorecard.py
++++ b/templates/dispatch/scripts/release_scorecard.py
+@@ -151,8 +151,8 @@ def build_scorecard(release, rows, receipts, escalations, recorded_at):
+     and ``worker`` delegates to ``worker_totals`` over the packet receipts.
+     Neither half substitutes for the other: the hooks never see an OpenCode
+     worker, and the receipts know nothing about frontier turns, so both stay
+-    separately visible. ``cost_usd.total`` is only as trustworthy as its least
+-    certain half, so ``total_reliable`` is the worker half's ``cost_reported``.
++    separately visible, and never summed -- see the cost block below.
++    ``total_reliable`` is the worker half's ``cost_reported``.
+     Escalation task ids and stop conditions come from each record's metadata;
+     a record that carried no stop condition is omitted rather than a null.
+     """
+@@ -181,10 +181,26 @@ def build_scorecard(release, rows, receipts, escalations, recorded_at):
+             "tasks": sorted(task_ids),
+             "stop_conditions": sorted(stop_conditions),
+         },
++        # The two halves are NOT the same kind of number, and adding them is a
++        # category error this block exists to make impossible.
++        #
++        # The frontier figure is computed by log-session-cost.sh as tokens
++        # multiplied by a hardcoded 2025 list-price table. Nothing meters it;
++        # on a subscription plan it is never billed. It is a usage-equivalent:
++        # useful for comparing releases against each other, meaningless as
++        # money. The worker figure is OpenCode's own step-finish accounting of
++        # real metered API spend that is actually charged.
++        #
++        # A scorecard that summed them once reported $241.43, of which eleven
++        # cents was money -- and whoever opened it next would have read the
++        # whole figure as spend. There is deliberately no key holding the sum.
+         "cost_usd": {
+-            "frontier": frontier["cost_usd"],
+-            "worker": worker["cost_usd"],
+-            "total": round(frontier["cost_usd"] + worker["cost_usd"], 6),
++            "worker_billed_usd": worker["cost_usd"],
++            "frontier_usage_equivalent_usd": frontier["cost_usd"],
++            # Named so that a reader asking "what did this cost" gets the true
++            # answer without having to know any of the above.
++            "total_billed_usd": worker["cost_usd"],
++            "commensurable": False,
+             "total_reliable": worker["cost_reported"],
+         },
+     }
+@@ -209,9 +225,14 @@ def detect_worse(scorecards):
+         return b["escalations"]["count"] > a["escalations"]["count"]
+ 
+     def turns_flat_cost_up_worsened(a, b):
++        # The frontier's own usage figure, not a mixed total: this signal asks
++        # whether more is being burned for the same frontier attention, and
++        # that is the half which moves with coordinator behaviour. A worker
++        # that costs more is a different question and must not fire this.
+         return (
+             b["frontier"]["turns"] >= a["frontier"]["turns"]
+-            and b["cost_usd"]["total"] > a["cost_usd"]["total"]
++            and b["cost_usd"]["frontier_usage_equivalent_usd"]
++            > a["cost_usd"]["frontier_usage_equivalent_usd"]
+         )
+ 
+     def rework_value(card):
+@@ -221,7 +242,8 @@ def detect_worse(scorecards):
+         return card["escalations"]["count"]
+ 
+     def turns_flat_cost_up_value(card):
+-        return [card["frontier"]["turns"], card["cost_usd"]["total"]]
++        return [card["frontier"]["turns"],
++                card["cost_usd"]["frontier_usage_equivalent_usd"]]
+ 
+     signals = []
+     for name, worsened, value_of in (

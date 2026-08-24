@@ -238,9 +238,9 @@ Open rows: **T-6/T-7** (scorecard script) and **L-5** (release-unit template).
 #82 #84 #85 #86 #87 #88 #89, plus the hand-pass #83.
 Scorecard: `docs/evidence/scorecards/v5-t-series.json`.
 
-Seven packets, **seven green on the first attempt** — no retry, no escalation, no rework round,
-and no hand step inside any of the seven loops. Total worker spend **$0.108** and 1.65 M tokens
-across all seven. Against D-8's rule that is seven consecutive greens with zero escalations for
+Eight packets (seven plus the correction below), **eight green on the first attempt** — no retry, no escalation, no rework round,
+and no hand step inside any of the eight loops. Total **billed** worker spend **$0.124** and
+2.01 M tokens. Against D-8's rule that is eight consecutive greens with zero escalations for
 `mechanical_bulk`.
 
 - **T-6 was split five ways** on the seams its oracle already had, in the spirit of M-10 in
@@ -329,6 +329,31 @@ $ python templates/dispatch/scripts/release_scorecard.py --release v5-T-series \
     --receipts docs/evidence/receipts --since 2026-08-24T18:00:00Z --out <path>
 exit 0 -- 7 tasks, first_pass_rate 1.0, worker cost $0.107688, escalations 0
 ```
+
+### Correction, same day: the units were wrong, and only the owner caught it
+
+The scorecard reported `cost_usd.total` as `frontier + worker`. **Those are not the same kind
+of number.** The frontier figure is computed by `log-session-cost.sh` as
+`tokens × a hardcoded 2025 list-price table` — nothing meters it, and on a subscription plan it
+is **never billed**. The worker figure is OpenCode's own `step-finish` accounting of real
+metered API spend. The sum was an imputed list price added to real money, and it was quoted to
+the owner as spend: **$241.43, of which eleven cents was money.**
+
+Every gate was green. `validate` was `fit` on all three oracle fields. Seven oracles passed. The
+merge-preview passed. **No test can catch a units mistake that the test's author shares** — and
+the loop verifies that code does what the packet says, never that the packet asks for the right
+thing. That is the clearest limit of this mechanism found so far, and it is worth more than the
+seven greens above.
+
+Fixed in **#91** (V5-T8), which is itself the eighth first-attempt green. `cost_usd` now carries
+exactly `worker_billed_usd`, `frontier_usage_equivalent_usd`, `total_billed_usd` (which *equals*
+the worker figure), `commensurable: false`, and `total_reliable`. **There is no key holding the
+sum**, and `test_release_scorecard_kinds.py` exists solely to fail if anyone reintroduces one:
+doubling the imputed half must not move the billed total. `detect_worse` now reads the frontier
+usage figure, since "turns flat while cost rises" is a question about the frontier half.
+
+The honest figures for this session: **$0.124 billed**, against a usage-equivalent of $399.93
+that is a comparison unit between releases and nothing else.
 
 Open rows from this brief: **none**.
 
