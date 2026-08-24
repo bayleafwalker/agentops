@@ -12,10 +12,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 _REQUIRED_FLAGS = ("release", "sink", "receipts", "out")
-_KNOWN_FLAGS = frozenset(_REQUIRED_FLAGS + ("since", "until", "escalations"))
+_KNOWN_FLAGS = frozenset(_REQUIRED_FLAGS + ("since", "until", "escalations",
+                                            "project"))
 
 _USAGE = """\
-usage: release_scorecard.py --release RELEASE --sink SINK --receipts RECEIPTS --out OUT [--since SINCE] [--until UNTIL] [--escalations ESCALATIONS]
+usage: release_scorecard.py --release RELEASE --sink SINK --receipts RECEIPTS --out OUT [--since SINCE] [--until UNTIL] [--escalations ESCALATIONS] [--project PROJECT]
 
 Reduce the Stop-hook sink and packet receipts into a release scorecard.
 
@@ -29,6 +30,7 @@ optional:
   --since SINCE        lower bound (inclusive) on ts / recorded_at
   --until UNTIL        upper bound (exclusive) on ts / recorded_at
   --escalations FILE   JSON-lines escalation records (default: none)
+  --project PROJECT    scope the sink to one project (exact match)
   --help               show this help and exit
 """
 
@@ -144,7 +146,8 @@ def worker_totals(receipts):
     }
 
 
-def build_scorecard(release, rows, receipts, escalations, recorded_at):
+def build_scorecard(release, rows, receipts, escalations, recorded_at,
+                    scope=None):
     """Join the two cost halves into the release scorecard.
 
     ``frontier`` delegates to ``frontier_totals`` over the reduced sink rows
@@ -160,6 +163,11 @@ def build_scorecard(release, rows, receipts, escalations, recorded_at):
     half's ``cost_reported``. Escalation task ids and stop conditions come
     from each record's metadata; a record that carried no stop condition is
     omitted rather than a null.
+
+    ``scope`` is the optional trailing parameter recording what the scorecard
+    was built from (project and window). It is carried through verbatim as the
+    top-level ``scope`` key, with ``None`` or an omitted value becoming an
+    empty dict, so a reader never has to tell absent from unbounded.
     """
     frontier = frontier_totals(rows)
     worker = worker_totals(receipts)
@@ -193,6 +201,7 @@ def build_scorecard(release, rows, receipts, escalations, recorded_at):
             "commensurable": False,
             "total_reliable": worker["cost_reported"],
         },
+        "scope": scope if scope is not None else {},
     }
 
 
@@ -326,15 +335,37 @@ def filter_by_window(records, start, end, key):
     return kept
 
 
+def filter_by_project(rows, project):
+    """Keep only the rows whose project equals ``project`` exactly.
+
+    A project of ``None`` means no scoping and returns the rows unchanged in
+    the same order. Otherwise matching is exact -- never a substring and never
+    case-folded, because ``agentops`` must not match ``agentops-web``, which is
+    precisely how another repository's sessions would fold back into the
+    figure. A row with no ``project`` key, or a non-string one, is excluded
+    when a project is requested, since a row that cannot be attributed to a
+    project cannot be counted for one; with no project requested it is kept,
+    because nothing is being attributed. The input is not mutated.
+    """
+    if project is None:
+        return list(rows)
+    kept = []
+    for row in rows:
+        if row.get("project") == project:
+            kept.append(row)
+    return kept
+
+
 def main(argv):
     """Wire the readers and window together and write the scorecard.
 
     Takes --release, --sink, --receipts and --out, with optional --since and
     --until bounding the window (sink rows filtered on ts, receipts on
-    recorded_at) and an optional --escalations JSON-lines file whose absence
-    means an empty list rather than an error. Writes build_scorecard's output
-    to --out as indent-2 JSON with a trailing newline, creating the parent
-    directory if missing, and returns 0.
+    recorded_at), an optional --project scoping the sink rows to one project
+    after the window filter, and an optional --escalations JSON-lines file
+    whose absence means an empty list rather than an error. Writes
+    build_scorecard's output to --out as indent-2 JSON with a trailing
+    newline, creating the parent directory if missing, and returns 0.
 
     The four required flags are validated before anything is written: a
     missing one, or an unknown flag, writes an error to stderr and returns
@@ -372,6 +403,7 @@ def main(argv):
     out_path = args.get("out")
     since = args.get("since")
     until = args.get("until")
+    project = args.get("project")
     escalations_path = args.get("escalations")
 
     rows = load_sink_rows(sink_path)
@@ -379,13 +411,16 @@ def main(argv):
     if since is not None or until is not None:
         rows = filter_by_window(rows, since, until, "ts")
         receipts = filter_by_window(receipts, since, until, "recorded_at")
+    if project is not None:
+        rows = filter_by_project(rows, project)
     if escalations_path is not None:
         escalations = load_sink_rows(escalations_path)
     else:
         escalations = []
     recorded_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    scope = {"project": project, "since": since, "until": until}
     scorecard = build_scorecard(release, rows, receipts, escalations,
-                                recorded_at)
+                                recorded_at, scope)
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(scorecard, indent=2) + "\n", encoding="utf-8")
