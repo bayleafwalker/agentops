@@ -5,6 +5,11 @@ session supersede each other. ``reduce_sessions`` keeps the newest snapshot per
 session and ``frontier_totals`` sums over those survivors only.
 """
 
+import json
+import os
+from datetime import datetime, timezone
+from pathlib import Path
+
 
 def reduce_sessions(rows):
     """Return {session id: that session's single surviving row}."""
@@ -216,3 +221,121 @@ def detect_worse(scorecards):
         "signals": signals,
         "insufficient_series": False,
     }
+
+
+def load_sink_rows(path):
+    """Read a JSON-lines sink and return the parsed dict rows in order.
+
+    Tolerant by design: blank lines, lines that are not valid JSON, and lines
+    that parse to something other than a dict are skipped rather than fatal,
+    and a path that does not exist returns an empty list. The sink is appended
+    to by a shell hook on every assistant turn, so one truncated line from an
+    interrupted write must not cost a release its whole scorecard.
+    """
+    rows = []
+    try:
+        with open(path, encoding="utf-8") as handle:
+            for line in handle:
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                try:
+                    parsed = json.loads(stripped)
+                except ValueError:
+                    continue
+                if isinstance(parsed, dict):
+                    rows.append(parsed)
+    except OSError:
+        return []
+    return rows
+
+
+def load_receipts(root):
+    """Parse every <task>/receipt.json beneath root, sorted by task_id.
+
+    A subdirectory without a receipt, an unparseable receipt, and a missing
+    root are all skipped or empty rather than errors. Sorting by task_id makes
+    a scorecard reproducible instead of filesystem-order dependent.
+    """
+    receipts = []
+    try:
+        entries = sorted(os.listdir(root))
+    except OSError:
+        return []
+    for name in entries:
+        receipt_path = os.path.join(root, name, "receipt.json")
+        try:
+            with open(receipt_path, encoding="utf-8") as handle:
+                parsed = json.load(handle)
+        except (OSError, ValueError):
+            continue
+        if isinstance(parsed, dict):
+            receipts.append(parsed)
+    receipts.sort(key=lambda r: r.get("task_id", ""))
+    return receipts
+
+
+def filter_by_window(records, start, end, key):
+    """Keep records whose key timestamp falls in the half-open [start, end).
+
+    A None bound means that side is unbounded. A record missing the key, or
+    carrying a non-string there, is excluded: a record that cannot be placed
+    in time cannot be attributed to a release. ISO-8601 strings compare
+    directly, which is correct for the fixed-width UTC format the sink writes.
+    """
+    kept = []
+    for record in records:
+        value = record.get(key)
+        if not isinstance(value, str):
+            continue
+        if start is not None and value < start:
+            continue
+        if end is not None and value >= end:
+            continue
+        kept.append(record)
+    return kept
+
+
+def main(argv):
+    """Wire the readers and window together and write the scorecard.
+
+    Takes --release, --sink, --receipts and --out, with optional --since and
+    --until bounding the window (sink rows filtered on ts, receipts on
+    recorded_at) and an optional --escalations JSON-lines file whose absence
+    means an empty list rather than an error. Writes build_scorecard's output
+    to --out as indent-2 JSON with a trailing newline, creating the parent
+    directory if missing, and returns 0.
+    """
+    args = {}
+    index = 0
+    while index < len(argv):
+        flag = argv[index]
+        if flag.startswith("--") and index + 1 < len(argv):
+            args[flag[2:]] = argv[index + 1]
+            index += 2
+        else:
+            index += 1
+    release = args.get("release")
+    sink_path = args.get("sink")
+    receipts_root = args.get("receipts")
+    out_path = args.get("out")
+    since = args.get("since")
+    until = args.get("until")
+    escalations_path = args.get("escalations")
+
+    rows = load_sink_rows(sink_path)
+    receipts = load_receipts(receipts_root)
+    if since is not None or until is not None:
+        rows = filter_by_window(rows, since, until, "ts")
+        receipts = filter_by_window(receipts, since, until, "recorded_at")
+    if escalations_path is not None:
+        escalations = load_sink_rows(escalations_path)
+    else:
+        escalations = []
+    recorded_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    scorecard = build_scorecard(release, rows, receipts, escalations,
+                                recorded_at)
+    out = Path(out_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(scorecard, indent=2) + "\n", encoding="utf-8")
+    return 0
