@@ -8,7 +8,17 @@ command, and nothing else:
 * ``load_sink_rows(path)``   -- read the Stop-hook JSON-lines sink
 * ``load_receipts(root)``    -- read ``<root>/<task>/receipt.json``
 * ``filter_by_window(records, start, end, key)`` -- half-open ``[start, end)``
-* ``main(argv)``             -- wire the three together and write the scorecard
+* ``filter_by_project(rows, project)`` -- scope the shared sink to one repo
+* ``main(argv)``             -- wire the four together and write the scorecard
+
+The sink is GLOBAL: the Stop hook appends to
+``/projects/dev/.claude/session-costs.jsonl`` from every repository on the
+machine, so without ``--project`` an agentops release counts whatever else ran
+in the same window. ``main`` also writes a ``scope`` block recording the
+project and the window it used -- a scorecard that does not say what it counted
+cannot be compared with another one. ``filter_by_project`` and ``scope`` are
+pinned in detail by ``test_release_scorecard_scope.py``; this file pins them
+where they meet the shell.
 
 Three properties are load-bearing and are asserted directly:
 
@@ -150,6 +160,35 @@ ESCALATIONS = (
                   "stop_condition": "cap-exceeded"},
      "recorded_at": "2026-08-24T10:07:00Z"},
 )
+
+
+#: A sink the way the real one looks: shared by every repository on the
+#: machine. Two agentops sessions, one sibling ``agentops-web`` session, and
+#: one row written before the field existed and so carrying no ``project`` at
+#: all. Scoping to "agentops" must keep the first two only.
+PROJECT_SINK_ROWS = (
+    {"ts": "2026-08-24T10:00:00Z", "session": "loop-ours-1",
+     "project": "agentops", "model": "claude-opus-5", "out": 120,
+     "cost_usd": 1.0, "turns": 1, "assistant_msgs": 2, "tool_calls": 1,
+     "duration_s": 22, "rework_rounds": 0},
+    {"ts": "2026-08-24T10:05:00Z", "session": "loop-sibling",
+     "project": "agentops-web", "model": "claude-opus-5", "out": 310,
+     "cost_usd": 8.0, "turns": 4, "assistant_msgs": 7, "tool_calls": 6,
+     "duration_s": 140, "rework_rounds": 1},
+    {"ts": "2026-08-24T10:06:00Z", "session": "loop-ours-2",
+     "project": "agentops", "model": "claude-opus-5", "out": 200,
+     "cost_usd": 2.0, "turns": 3, "assistant_msgs": 4, "tool_calls": 3,
+     "duration_s": 60, "rework_rounds": 0},
+    {"ts": "2026-08-24T10:07:00Z", "session": "loop-unlabelled",
+     "model": "claude-opus-5", "out": 90, "cost_usd": 16.0, "turns": 2,
+     "assistant_msgs": 3, "tool_calls": 2, "duration_s": 40,
+     "rework_rounds": 0},
+)
+
+#: The frontier cost of PROJECT_SINK_ROWS scoped to "agentops" (1.0 + 2.0) and
+#: unscoped (all four sessions), by hand.
+PROJECT_SCOPED_COST = 3.0
+PROJECT_UNSCOPED_COST = 27.0
 
 
 def _write_lines(path: Path, records) -> Path:
@@ -494,12 +533,16 @@ class MainTests(TempDirTestCase):
 
         ``recorded_at`` is the one field main is entitled to originate (the
         spec gives it no flag), so it is checked for shape and then excluded
-        from the comparison; every other field must be build_scorecard's.
+        from the comparison; every other field must be build_scorecard's --
+        including ``scope``, which main builds from --project/--since/--until
+        and passes through. This run gives none of the three, so the scope it
+        builds is all-None rather than absent.
         """
         written = self._run(extra=["--escalations", str(self.escalations)])
         expected = scorecard.build_scorecard(
             "v5", list(SINK_ROWS), list(RECEIPTS), list(ESCALATIONS),
             written.get("recorded_at"),
+            {"project": None, "since": None, "until": None},
         )
         self.assertIsInstance(
             written.get("recorded_at"), str,
@@ -702,6 +745,123 @@ class MainTests(TempDirTestCase):
         self.assertEqual(
             written["worker"], scorecard.worker_totals([]),
             "the empty worker half is not worker_totals([])",
+        )
+
+
+class ProjectScopeTests(TempDirTestCase):
+    """``--project`` and the ``scope`` block main writes.
+
+    The sink at ``/projects/dev/.claude/session-costs.jsonl`` is global: the
+    Stop hook appends to it from every repository on the machine. Without
+    ``--project`` an agentops release counts whatever else happened to run in
+    the same window -- on the live run that motivated this, four sessions fell
+    inside the window and only some of them were agentops.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.sink = _write_lines(self.tmp / "session-costs.jsonl",
+                                 PROJECT_SINK_ROWS)
+        self.receipts_root = _write_receipts(self.tmp / "receipts", RECEIPTS)
+        self.out = self.tmp / "scorecard.json"
+
+    def _run(self, out, extra=()):
+        argv = [
+            "--release", "v5",
+            "--sink", str(self.sink),
+            "--receipts", str(self.receipts_root),
+            "--out", str(out),
+        ] + list(extra)
+        rc = scorecard.main(argv)
+        self.assertEqual(
+            rc, 0, f"main did not return 0 (got {rc!r})",
+        )
+        return json.loads(Path(out).read_text(encoding="utf-8"))
+
+    def test_project_scoping_produces_a_smaller_frontier(self):
+        unscoped = self._run(self.tmp / "unscoped.json")
+        scoped = self._run(self.tmp / "scoped.json",
+                           extra=["--project", "agentops"])
+        self.assertLess(
+            scoped["frontier"]["cost_usd"], unscoped["frontier"]["cost_usd"],
+            "--project did not shrink the frontier half -- the shared sink's "
+            "other repositories are still being billed to this release",
+        )
+        self.assertAlmostEqual(
+            unscoped["frontier"]["cost_usd"], PROJECT_UNSCOPED_COST, places=6,
+            msg="the unscoped frontier cost is not the whole sink's reduced "
+                "survivors",
+        )
+        self.assertAlmostEqual(
+            scoped["frontier"]["cost_usd"], PROJECT_SCOPED_COST, places=6,
+            msg="the scoped frontier cost is not the two agentops sessions "
+                "only -- 'agentops-web' is a different repository, and the "
+                "row carrying no project cannot be attributed to one",
+        )
+        self.assertEqual(
+            scoped["frontier"]["sessions"], 2,
+            "the scoped run did not keep exactly the two agentops sessions",
+        )
+        self.assertEqual(
+            scoped["frontier"], scorecard.frontier_totals(
+                [PROJECT_SINK_ROWS[0], PROJECT_SINK_ROWS[2]]),
+            "the scoped frontier half is not the totals over the agentops "
+            "rows alone",
+        )
+
+    def test_the_scope_block_records_the_project_and_the_window(self):
+        written = self._run(
+            self.tmp / "scoped-window.json",
+            extra=["--project", "agentops", "--since", SINCE,
+                   "--until", UNTIL],
+        )
+        self.assertEqual(
+            written.get("scope"),
+            {"project": "agentops", "since": SINCE, "until": UNTIL},
+            "the written scorecard does not record what it was built from -- "
+            "two scorecards over different windows are not comparable and "
+            "nothing in either one says so",
+        )
+
+    def test_the_scope_block_is_present_with_nulls_when_no_flag_is_given(self):
+        """Absent must not have to be distinguished from unbounded."""
+        written = self._run(self.tmp / "bare.json")
+        self.assertEqual(
+            written.get("scope"),
+            {"project": None, "since": None, "until": None},
+            "an unscoped run did not write all three scope keys with nulls",
+        )
+
+    def test_the_written_file_still_equals_build_scorecard_with_that_scope(self):
+        """The shell delegates, scope included."""
+        written = self._run(
+            self.tmp / "delegated.json",
+            extra=["--project", "agentops", "--since", SINCE],
+        )
+        expected = scorecard.build_scorecard(
+            "v5",
+            scorecard.filter_by_project(
+                scorecard.filter_by_window(list(PROJECT_SINK_ROWS), SINCE,
+                                           None, "ts"),
+                "agentops"),
+            scorecard.filter_by_window(list(RECEIPTS), SINCE, None,
+                                       "recorded_at"),
+            [],
+            written.get("recorded_at"),
+            {"project": "agentops", "since": SINCE, "until": None},
+        )
+        self.assertEqual(
+            written, expected,
+            "the written scorecard is not build_scorecard's output for the "
+            "same loaded, windowed and scoped inputs with the same scope",
+        )
+
+    def test_the_project_flag_stays_optional(self):
+        written = self._run(self.tmp / "optional.json")
+        self.assertEqual(
+            written["frontier"], scorecard.frontier_totals(
+                list(PROJECT_SINK_ROWS)),
+            "omitting --project did not count the whole sink",
         )
 
 

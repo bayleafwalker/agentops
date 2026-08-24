@@ -8,7 +8,14 @@ never observe an OpenCode worker, so a loop run scored from the sink alone
 undercounts itself by the whole cheap half; and the receipts know nothing about
 frontier turns. This file pins the one function that joins them:
 
-``build_scorecard(release, rows, receipts, escalations, recorded_at)`` -> dict
+``build_scorecard(release, rows, receipts, escalations, recorded_at,
+scope=None)`` -> dict
+
+``scope`` is the optional trailing parameter added when the sink was
+scoped to a project: the dict recording what the scorecard was built from.
+It is pinned in detail by ``test_release_scorecard_scope.py``; this file
+only carries it in the declared top-level key set. Every call here still
+passes five positional arguments, which must keep working.
 
 Three properties are load-bearing and are asserted directly:
 
@@ -78,11 +85,14 @@ def _load_module(name: str, path: Path):
 scorecard = _load_module("release_scorecard_subject", SCRIPTS / "release_scorecard.py")
 
 
-#: The seven keys ``build_scorecard`` returns, exactly. Extra keys are a
-#: schema change and must be declared, not smuggled in.
+#: The eight keys ``build_scorecard`` returns, exactly. Extra keys are a
+#: schema change and must be declared, not smuggled in. ``scope`` is the
+#: eighth: what the scorecard was built FROM (project and window), added
+#: because two scorecards over different windows are not comparable and
+#: nothing in either one used to say so.
 TOP_LEVEL_KEYS = frozenset({
     "schema_version", "release", "recorded_at",
-    "frontier", "worker", "escalations", "cost_usd",
+    "frontier", "worker", "escalations", "cost_usd", "scope",
 })
 
 #: The five keys the ``cost_usd`` block carries, exactly. Spelled as literals:
@@ -244,12 +254,12 @@ class BuildScorecardTests(unittest.TestCase):
         return scorecard.build_scorecard(release, rows, receipts, escalations,
                                          recorded_at)
 
-    def test_it_returns_exactly_the_seven_top_level_keys(self):
+    def test_it_returns_exactly_the_eight_top_level_keys(self):
         card = self._build()
         self.assertIsInstance(card, dict, "build_scorecard did not return a dict")
         self.assertEqual(
             set(card), set(TOP_LEVEL_KEYS),
-            "the scorecard's top-level keys are not exactly the declared seven",
+            "the scorecard's top-level keys are not exactly the declared eight",
         )
 
     def test_schema_version_is_the_literal_string(self):
