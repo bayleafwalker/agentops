@@ -304,11 +304,11 @@ class BuildScorecardTests(unittest.TestCase):
     def test_frontier_is_computed_from_the_reduced_rows(self):
         card = self._build()
         self.assertAlmostEqual(
-            card["frontier"]["cost_usd"], REDUCED_FRONTIER_COST, places=6,
+            card["frontier"]["usage_equivalent_usd"], REDUCED_FRONTIER_COST, places=6,
             msg="the frontier cost is not the reduced figure",
         )
         self.assertNotAlmostEqual(
-            card["frontier"]["cost_usd"], NAIVE_FRONTIER_COST, places=6,
+            card["frontier"]["usage_equivalent_usd"], NAIVE_FRONTIER_COST, places=6,
             msg="the scorecard summed every sink row -- this is the quadratic "
                 "bug T-6 exists to prevent, now baked into the scorecard",
         )
@@ -334,7 +334,7 @@ class BuildScorecardTests(unittest.TestCase):
         )
         self.assertEqual(
             cost["worker_billed_usd"],
-            scorecard.worker_totals(list(REPORTING_RECEIPTS))["cost_usd"],
+            scorecard.worker_totals(list(REPORTING_RECEIPTS))["billed_usd"],
             "worker_billed_usd is not what worker_totals reports",
         )
 
@@ -343,9 +343,10 @@ class BuildScorecardTests(unittest.TestCase):
         cost = self._build()["cost_usd"]
         self.assertEqual(
             cost["frontier_usage_equivalent_usd"],
-            scorecard.frontier_totals(list(SINK_ROWS))["cost_usd"],
-            "frontier_usage_equivalent_usd is not frontier_totals' cost_usd -- "
-            "the imputed figure was dropped or recomputed instead of renamed",
+            scorecard.frontier_totals(list(SINK_ROWS))["usage_equivalent_usd"],
+            "frontier_usage_equivalent_usd is not frontier_totals' "
+            "usage_equivalent_usd -- the imputed figure was dropped or "
+            "recomputed instead of renamed",
         )
         self.assertAlmostEqual(
             cost["frontier_usage_equivalent_usd"], REDUCED_FRONTIER_COST,
@@ -472,6 +473,12 @@ class BuildScorecardTests(unittest.TestCase):
             card["cost_usd"]["total_reliable"],
             card["worker"]["cost_reported"],
             "total_reliable is not the worker half's cost_reported",
+        )
+        self.assertIs(
+            card["cost_usd"]["total_reliable"], False,
+            "total_reliable is True with no receipts at all -- a zero nobody "
+            "measured is not a reliable zero, and this used to read as 'every "
+            "receipt reported' when there were no receipts to report",
         )
 
     def test_escalations_count_tasks_and_stop_conditions(self):

@@ -10,6 +10,12 @@ the two functions that lift it back out:
 ``worker_spend_from_receipt(receipt)`` -> {cost_usd, tokens, cost_reported}
 ``worker_totals(receipts)``            -> the eight aggregate fields
 
+``worker_spend_from_receipt`` mirrors the receipt and keeps the receipt's own
+``cost_usd`` spelling. ``worker_totals`` *reports*, and what it reports is real
+metered spend, so its money key is named ``billed_usd`` -- distinct from the
+frontier half's imputed ``usage_equivalent_usd``. See
+``test_release_scorecard_naming.py``.
+
 ``cost_reported`` is the load-bearing field. A route whose provider reports no
 cost yields 0.0, which is indistinguishable from a free model; ``cost_reported``
 records which case it was, so a corpus is never read as "this route is free"
@@ -54,9 +60,12 @@ scorecard = _load_module("release_scorecard_subject", SCRIPTS / "release_scoreca
 #: must not be carried through.
 SPEND_KEYS = frozenset({"cost_usd", "tokens", "cost_reported"})
 
-#: The eight keys ``worker_totals`` returns, exactly.
+#: The eight keys ``worker_totals`` returns, exactly. The money key is
+#: ``billed_usd``: this half is real metered spend, and nothing named
+#: ``cost_usd`` may appear here, because that is the spelling the frontier
+#: half's imputed figure used to share.
 TOTALS_KEYS = frozenset({
-    "attempts", "tasks", "cost_usd", "tokens", "cost_reported",
+    "attempts", "tasks", "billed_usd", "tokens", "cost_reported",
     "cost_unreported_tasks", "first_pass_tasks", "first_pass_rate",
 })
 
@@ -215,7 +224,7 @@ MISSING_GATE_CORPUS = (
 )
 
 #: The whole reason ``cost_reported`` exists, as a pair. Both receipts
-#: contribute exactly 0.0 to cost_usd and are indistinguishable in the money
+#: contribute exactly 0.0 to billed_usd and are indistinguishable in the money
 #: column; only "silent" did not say, and only "silent" may be named.
 ZERO_COST_PAIR = (
     _receipt("free-and-said-so", 1, 0.0, 12000, True, True),
@@ -240,7 +249,7 @@ MIXED_REPORTING_CORPUS = (
     _receipt("m-b", 1, 2.0, 30, True, True),
 )
 
-#: 0.1 + 0.2 == 0.30000000000000004 in float. The spec rounds cost_usd to 6 dp,
+#: 0.1 + 0.2 == 0.30000000000000004 in float. The spec rounds billed_usd to 6 dp,
 #: so the answer is exactly 0.3.
 FLOAT_TAIL_CORPUS = (
     _receipt("f-a", 1, 0.1, 1, True, True),
@@ -386,7 +395,7 @@ class WorkerTotalsTests(unittest.TestCase):
         # Spend is spend: the failed first attempt burned real money and both
         # receipts must land in the totals.
         totals = scorecard.worker_totals(_copies(FOUR_TASK_CORPUS))
-        self.assertEqual(totals["cost_usd"], 1.5)
+        self.assertEqual(totals["billed_usd"], 1.5)
         self.assertEqual(totals["tokens"], 15000)
 
     def test_all_reporting_receipts_give_a_reliable_total(self):
@@ -396,7 +405,7 @@ class WorkerTotalsTests(unittest.TestCase):
             "every receipt reported, yet the total called itself unreliable",
         )
         self.assertEqual(totals["cost_unreported_tasks"], [])
-        self.assertEqual(totals["cost_usd"], 0.5)
+        self.assertEqual(totals["billed_usd"], 0.5)
 
     def test_one_silent_receipt_makes_the_whole_total_unreliable(self):
         totals = scorecard.worker_totals(_copies(MIXED_REPORTING_CORPUS))
@@ -408,14 +417,14 @@ class WorkerTotalsTests(unittest.TestCase):
             totals["cost_unreported_tasks"], ["z-quiet"],
             "the silent task was not named",
         )
-        self.assertEqual(totals["cost_usd"], 3.0)
+        self.assertEqual(totals["billed_usd"], 3.0)
 
     def test_a_reported_zero_is_not_an_unreported_zero(self):
         # The whole reason cost_reported exists. Both receipts add 0.0 to the
         # money column; only the silent one is unreliable, and an implementation
         # that infers "no cost means no report" fails both halves at once.
         totals = scorecard.worker_totals(_copies(ZERO_COST_PAIR))
-        self.assertEqual(totals["cost_usd"], 0.0)
+        self.assertEqual(totals["billed_usd"], 0.0)
         self.assertEqual(totals["tokens"], 46000)
         self.assertEqual(
             totals["cost_unreported_tasks"], ["silent"],
@@ -428,7 +437,7 @@ class WorkerTotalsTests(unittest.TestCase):
         totals = scorecard.worker_totals(
             _copies((ZERO_COST_PAIR[0],))
         )
-        self.assertEqual(totals["cost_usd"], 0.0)
+        self.assertEqual(totals["billed_usd"], 0.0)
         self.assertIs(
             totals["cost_reported"], True,
             "a genuinely free run was misread as a run that did not say",
@@ -474,12 +483,12 @@ class WorkerTotalsTests(unittest.TestCase):
         self.assertEqual(totals["first_pass_tasks"], 0)
         self.assertEqual(totals["first_pass_rate"], 0.0)
 
-    def test_an_empty_corpus_is_zero_and_reliable(self):
+    def test_an_empty_corpus_is_zero_and_not_a_measured_zero(self):
         totals = scorecard.worker_totals([])
         self.assertEqual(set(totals), set(TOTALS_KEYS))
         self.assertEqual(totals["attempts"], 0)
         self.assertEqual(totals["tasks"], 0)
-        self.assertEqual(totals["cost_usd"], 0.0)
+        self.assertEqual(totals["billed_usd"], 0.0)
         self.assertEqual(totals["tokens"], 0)
         self.assertEqual(totals["cost_unreported_tasks"], [])
         self.assertEqual(
@@ -488,15 +497,17 @@ class WorkerTotalsTests(unittest.TestCase):
         )
         self.assertEqual(totals["first_pass_tasks"], 0)
         self.assertIs(
-            totals["cost_reported"], True,
-            "nothing failed to report, yet the empty total called itself "
-            "unreliable",
+            totals["cost_reported"], False,
+            "an empty corpus reported cost_reported True -- with no receipts "
+            "nothing reported anything, so the zero is not a measured zero; "
+            "'nothing failed to report' is not the same claim as 'this was "
+            "measured and came to zero'",
         )
 
     def test_cost_is_rounded_to_six_decimal_places(self):
         totals = scorecard.worker_totals(_copies(FLOAT_TAIL_CORPUS))
         self.assertEqual(
-            totals["cost_usd"], 0.3,
+            totals["billed_usd"], 0.3,
             "0.1 + 0.2 was not rounded to 6 dp",
         )
 

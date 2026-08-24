@@ -57,15 +57,15 @@ def frontier_totals(rows):
         "assistant_msgs": 0,
         "tool_calls": 0,
         "duration_s": 0,
-        "cost_usd": 0.0,
+        "usage_equivalent_usd": 0.0,
         "rework_rounds": 0,
     }
     for row in survivors.values():
         for field in ("turns", "assistant_msgs", "tool_calls", "duration_s",
                       "rework_rounds"):
             totals[field] += row.get(field, 0)
-        totals["cost_usd"] += row.get("cost_usd", 0)
-    totals["cost_usd"] = round(totals["cost_usd"], 6)
+        totals["usage_equivalent_usd"] += row.get("cost_usd", 0)
+    totals["usage_equivalent_usd"] = round(totals["usage_equivalent_usd"], 6)
     return totals
 
 
@@ -137,9 +137,9 @@ def worker_totals(receipts):
     return {
         "attempts": len(receipts),
         "tasks": task_count,
-        "cost_usd": round(total_cost, 6),
+        "billed_usd": round(total_cost, 6),
         "tokens": total_tokens,
-        "cost_reported": len(unreported_tasks) == 0,
+        "cost_reported": len(receipts) > 0 and len(unreported_tasks) == 0,
         "cost_unreported_tasks": sorted(unreported_tasks),
         "first_pass_tasks": len(first_pass_tasks),
         "first_pass_rate": first_pass_rate,
@@ -195,9 +195,9 @@ def build_scorecard(release, rows, receipts, escalations, recorded_at,
             "stop_conditions": sorted(stop_conditions),
         },
         "cost_usd": {
-            "worker_billed_usd": worker["cost_usd"],
-            "frontier_usage_equivalent_usd": frontier["cost_usd"],
-            "total_billed_usd": worker["cost_usd"],
+            "worker_billed_usd": worker["billed_usd"],
+            "frontier_usage_equivalent_usd": frontier["usage_equivalent_usd"],
+            "total_billed_usd": worker["billed_usd"],
             "commensurable": False,
             "total_reliable": worker["cost_reported"],
         },

@@ -305,7 +305,7 @@ class TotalBilledTracksTheWorkerTests(unittest.TestCase):
         cost = _build()["cost_usd"]
         self.assertEqual(
             cost["total_billed_usd"],
-            scorecard.worker_totals(copy.deepcopy(list(RECEIPTS)))["cost_usd"],
+            scorecard.worker_totals(copy.deepcopy(list(RECEIPTS)))["billed_usd"],
             "total_billed_usd is not what worker_totals reports",
         )
 
