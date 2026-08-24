@@ -1,0 +1,107 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-M12-scan-hardening",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 6,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "templates/dispatch/tests/test_dispatch_release_scanhardening.py decides correctness: six fixtures over eighteen secret shapes that must be detected and six kinds of ordinary output that must stay silent. The silence half is not decoration -- a scan that fires on prose withholds every transcript, which is the same as never capturing one.",
+    "starts_red": [
+      "agentops.dispatch.tests.scanhardening"
+    ],
+    "reference_patch": "docs/evidence/packets/V5-M12-scan-hardening.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "ffefcd3d5bbc51c9003c3eb8062f48fa2c3e644f",
+  "purpose": "Harden scan_for_secrets in templates/dispatch/scripts/dispatch_release.py. It is the only control between worker output and a committed file, and independent review found two compounding gaps. First, every pattern is case-sensitive, so 'Authorization: Bearer' is caught and 'authorization: bearer' is not -- and the lowercase form is what a shell or a JSON dump actually emits. Second, the only general-purpose pattern requires '=', while the scan's own primary input is json.dumps(receipt), where every separator is ':'; on that half of its input the scan degrades to a handful of vendor prefixes. Make matching case-insensitive where case carries no meaning, and make the general-purpose assignment pattern accept ':' as well as '=', a quoted or bare key, a quoted or bare value, and a key that carries a prefix such as aws_secret_access_key. Add the vendor formats the scan does not know: OpenAI sk-, Anthropic sk-ant-, Google AIza, Stripe sk_live_ and sk_test_, npm_, pypi-, JSON Web Tokens, and URL basic auth of the form scheme://user:password@host. Keep every shape M-10a already detects -- a regression there is as bad as a new miss. Findings must still be pattern NAMES and never the matched text or any tail of it, and the names must still tell the kinds apart. Above all do not become permissive: ordinary worker prose, git hashes, nix store paths, sha256- SRI strings, gate JSON with no secrets, prose that merely mentions api_key or password, and long identifiers must all return an empty list. A value of fewer than twenty characters is not a secret. Change nothing else: capture_receipt, the body generator, _path_allowed, PR_STEP_NAMES, the L-2 stop conditions and the L-4 retry all stay exactly as they are. Leave no debugging output behind.",
+  "readable_context_paths": [
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/tests/test_dispatch_release_scanhardening.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/dispatch_release.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "matching is case-insensitive where case carries no meaning",
+    "the general-purpose pattern accepts ':' as well as '=', and a prefixed key name",
+    "the named vendor formats are detected",
+    "every shape M-10a detected is still detected",
+    "findings are pattern names, never the matched text, and still distinguish the kinds",
+    "ordinary prose, hashes, store paths, SRI strings and secret-free JSON return an empty list",
+    "nothing else in the driver changes, and no debugging output is left behind"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "the scan sees the shapes its input actually takes",
+      "command_id": "agentops.dispatch.tests.scanhardening",
+      "fails_when": "any of the eighteen secret shapes goes undetected, including the JSON-separator and lowercase forms"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "a finding still quotes nothing and still distinguishes kinds",
+      "command_id": "agentops.dispatch.tests.scanhardening",
+      "fails_when": "a finding contains the secret or its last twelve characters, or every kind returns the same names"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "the scan does not withhold everything",
+      "command_id": "agentops.dispatch.tests.scanhardening",
+      "fails_when": "prose, git hashes, nix store paths, SRI strings, secret-free JSON, prose naming the concepts, or long identifiers produce any finding"
+    }
+  ],
+  "non_goals": [
+    "capture_receipt and the withholding control flow, which are settled",
+    "the body generator and the path matcher",
+    "anything outside templates/dispatch/scripts/dispatch_release.py"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.scanhardening"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-m12-scan-hardening",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  }
+}
