@@ -8,7 +8,7 @@
   "harness_model": "opencode-go/deepseek-v4-flash",
   "host": "devbox",
   "worker_user": "agentworker",
-  "headline": "Eight packets, eight green on the first attempt, no retry and no hand step on any of them, for $0.124 of REAL billed worker spend.",
+  "headline": "Nine packets, nine worker greens on the first attempt, for $0.140 of REAL billed spend. The one non-green step of the session was a coordinator packet defect that prepare caught before any worker ran.",
   "packets": [
     {
       "task_id": "V5-T6a-scorecard-reduce",
@@ -269,25 +269,60 @@
       ],
       "receipt_withheld": false,
       "note": "The owner's correction, made into a packet. Three oracles (build 18, worse 30, kinds 20) -- the largest oracle surface of the session, for the smallest code change."
+    },
+    {
+      "task_id": "V5-T9-scope",
+      "row": "correction",
+      "pr": 93,
+      "attempts": 1,
+      "first_attempt_green": true,
+      "tokens": 457453,
+      "cost_usd": 0.015864,
+      "cost_reported": true,
+      "wall_seconds": 40,
+      "gate_sequence": [
+        "prepare 2 (coordinator packet defect)",
+        "prepare 0",
+        "run 0",
+        "gate 0",
+        "receipt 0"
+      ],
+      "gates": {
+        "diff-nonempty": true,
+        "diff-scope-respected": true,
+        "protected-paths-untouched": true,
+        "worktree-state-captured": true,
+        "registered-commands-green": true
+      },
+      "disposition": "candidate",
+      "rework_rounds": 0,
+      "escalations": 0,
+      "oracle_tests": 179,
+      "touched_paths": [
+        "templates/dispatch/scripts/release_scorecard.py"
+      ],
+      "receipt_withheld": false,
+      "note": "The session's only non-green step, and it was the coordinator's: starts_red named two of the three oracles the packet turned red, so prepare refused at the cold gate. Caught BEFORE any worker ran -- zero worker spend, one packet edit, no change to starting_commit. The worker itself was still green on its first and only attempt."
     }
   ],
   "totals": {
-    "packets": 8,
-    "attempts": 8,
+    "packets": 9,
+    "attempts": 9,
     "first_pass_rate": 1.0,
-    "tokens": 2014190,
-    "cost_usd_billed": 0.124341,
+    "tokens": 2471643,
+    "cost_usd_billed": 0.140205,
     "cost_reported": true,
-    "wall_seconds": 620,
+    "wall_seconds": 660,
     "rework_rounds": 0,
     "escalations": 0,
-    "hand_steps_inside_the_loop": 0
+    "hand_steps_inside_the_loop": 0,
+    "coordinator_packet_defects_caught_before_spend": 1
   },
   "reference_patch_cost": {
     "question": "Section 7 asks how long the coordinator spends writing throwaway solutions per packet, because that is the number that decides whether the cheap tier pays for itself.",
-    "reference_patches_written": 8,
+    "reference_patches_written": 9,
     "coordinator_turns_per_reference": "roughly one -- each was a single edit written straight from the packet's own purpose text",
-    "passed_its_oracle_first_try": 8,
+    "passed_its_oracle_first_try": 9,
     "reading": "Seven references, seven first-try greens against oracles written independently by seven different fresh authors. Writing the reference is the act that proves the packet's purpose text is sufficient to satisfy the oracle, and it costs about one coordinator turn. It also caught nothing about T-6d's missing entry point -- because the reference HAD one, and the oracle never ran either as a command. A reference proves the packet is satisfiable; it does not prove the oracle is asking the right question.",
     "caveat": "This measures the reference, not the worker. The worker's own solution is what shipped in all five cases; the reference was never merged."
   },
@@ -336,5 +371,11 @@
       "commensurable": false,
       "reading": "12.4 cents of money was actually spent. The other figure is what the same tokens would have listed at, which is a comparison unit between releases and nothing else."
     }
+  },
+  "scope_correction": {
+    "what_was_wrong": "The Stop-hook sink is global -- it takes rows from every repo on the machine -- and release_scorecard.py had no way to scope to one. An agentops release counted whatever else ran in the same window. Separately, a scorecard recorded no window and no project, so two of them were not comparable and neither said so.",
+    "measured_effect": "The same live window, unscoped: 4 sessions and a frontier usage-equivalent of $399.93. Scoped to project agentops: 1 session and $174.33. The unscoped figure was overcounting by 56%.",
+    "fixed_in": "V5-T9 (#93): filter_by_project with exact matching (agentops must not match agentops-web), a --project flag, and a scope block recording project, since and until with all three keys always present.",
+    "why_it_is_the_same_bug_as_the_units": "Both are a number that does not carry what it means. $241.43 did not say it was mostly imputed; $399.93 did not say it was mostly other repos. Neither was catchable by a test, because a test asserts what a number IS, not what it stands for."
   }
 }
