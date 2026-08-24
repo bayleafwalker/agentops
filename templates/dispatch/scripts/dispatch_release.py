@@ -490,7 +490,28 @@ def _gate_evidence(receipt: dict[str, Any] | None) -> dict[str, Any]:
 
 
 def _path_allowed(path: str, patterns: list[str]) -> bool:
-    return any(fnmatch.fnmatch(path, pattern) for pattern in patterns)
+    """True when ``path`` is covered by any glob or directory-prefix pattern.
+
+    Agrees with ``hybrid_dispatch._matches_any`` so the driver's L-2
+    path-outside-writable stop asks the same question the validator asks at
+    validate time. Manifest scope roots are written as directory prefixes
+    (``docs/``) while packets use globs (``docs/**``); both forms must resolve
+    here. Reproduced deliberately instead of importing the packet engine, so
+    the driver does not depend on it at runtime.
+    """
+    for pattern in patterns:
+        if pattern.endswith("/"):
+            if path == pattern.rstrip("/") or path.startswith(pattern):
+                return True
+            continue
+        if fnmatch.fnmatch(path, pattern):
+            return True
+        prefix = pattern[: -len("/**")] if pattern.endswith("/**") else None
+        if prefix is not None and (path == prefix or path.startswith(prefix + "/")):
+            return True
+        if path == pattern:
+            return True
+    return False
 
 
 def _post_gate_stop(packet: dict[str, Any], evidence: dict[str, Any]) -> tuple[str, str] | None:

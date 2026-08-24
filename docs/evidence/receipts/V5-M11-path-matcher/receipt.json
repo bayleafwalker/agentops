@@ -1,0 +1,548 @@
+{
+  "schema_version": "agentops-hybrid-receipt/v1",
+  "recorded_at": "2026-08-24T15:42:27+00:00",
+  "execution_id": "V5-M11-path-matcher:956a287879f73096:attempt-1",
+  "task_id": "V5-M11-path-matcher",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 6,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "attempt": 1,
+  "inputs": {
+    "packet_hash": "sha256:956a287879f73096eba4132cc9440a684b6f21492336506b9bb6d91c91d83934",
+    "repository_commit": "6ddd78ced05f8167d01e3927c3dd3bc26e74c794",
+    "packet_schema_version": "agentops-task/v2",
+    "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+    "gate_set_hash": "sha256:f09fb16b6581cce2de15f421d91ddb13a12187c1f8fafdc871bbb99faabf4f7e"
+  },
+  "harness_model": "opencode-go/deepseek-v4-flash",
+  "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+  "qualification_policy": {
+    "mode": "named_pilot",
+    "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+    "repositories": [
+      "agentops",
+      "1deb57d0-af6f-479c-811a-b5b7254841f9",
+      "2be118eb-8e89-433a-8d32-ada157624f95",
+      "kctl",
+      "actionq"
+    ],
+    "routes": [
+      "mechanical_bulk"
+    ],
+    "models": [
+      "opencode-go/deepseek-v4-flash"
+    ],
+    "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+    "default": "unqualified",
+    "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+  },
+  "acceptance_authority": "human",
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "stage": "receipt",
+  "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-M11-path-matcher",
+  "overlay_sha256": "3263b9973aec67e262f966045a61d8e00d67fb6cfef7747d11bdb67072213273",
+  "dispositions_available": [
+    "candidate",
+    "retry_same_route",
+    "reroute",
+    "task_defect",
+    "human_decision"
+  ],
+  "note": "The coordinator records the disposition and the human accepts, merges, and changes sprint state.",
+  "gate": {
+    "schema_version": "agentops-hybrid-receipt/v1",
+    "recorded_at": "2026-08-24T15:42:27+00:00",
+    "execution_id": "V5-M11-path-matcher:956a287879f73096:attempt-1",
+    "task_id": "V5-M11-path-matcher",
+    "repo_id": "agentops",
+    "sprint_item": {
+      "ref": "agentops#2254",
+      "claim_id": 6,
+      "claim_actor": "workstation-vuoro"
+    },
+    "route": "mechanical_bulk",
+    "attempt": 1,
+    "inputs": {
+      "packet_hash": "sha256:956a287879f73096eba4132cc9440a684b6f21492336506b9bb6d91c91d83934",
+      "repository_commit": "6ddd78ced05f8167d01e3927c3dd3bc26e74c794",
+      "packet_schema_version": "agentops-task/v2",
+      "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+      "gate_set_hash": "sha256:f09fb16b6581cce2de15f421d91ddb13a12187c1f8fafdc871bbb99faabf4f7e"
+    },
+    "harness_model": "opencode-go/deepseek-v4-flash",
+    "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+    "qualification_policy": {
+      "mode": "named_pilot",
+      "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+      "repositories": [
+        "agentops",
+        "1deb57d0-af6f-479c-811a-b5b7254841f9",
+        "2be118eb-8e89-433a-8d32-ada157624f95",
+        "kctl",
+        "actionq"
+      ],
+      "routes": [
+        "mechanical_bulk"
+      ],
+      "models": [
+        "opencode-go/deepseek-v4-flash"
+      ],
+      "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+      "default": "unqualified",
+      "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+    },
+    "acceptance_authority": "human",
+    "context_churn": {
+      "max_repeated_reads_per_path": 4,
+      "max_reasoning_steps_without_mutation": 20,
+      "max_identical_context_tokens": 250000,
+      "handoff_when_candidate_ready": true
+    },
+    "stage": "gate",
+    "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-M11-path-matcher",
+    "overlay_sha256": "3263b9973aec67e262f966045a61d8e00d67fb6cfef7747d11bdb67072213273",
+    "coordinator_claim": {
+      "claim_id": 6,
+      "work_item_id": 2254,
+      "agent": "workstation-vuoro",
+      "last_activity_at": "2026-08-24T15:41:03Z",
+      "idle_seconds": 84,
+      "checked_at": "2026-08-24T15:42:27+00:00"
+    },
+    "evidence": {
+      "gates": {
+        "diff-nonempty": true,
+        "diff-scope-respected": true,
+        "protected-paths-untouched": true,
+        "worktree-state-captured": true,
+        "registered-commands-green": true
+      },
+      "passed": true,
+      "touched_paths": [
+        "templates/dispatch/scripts/dispatch_release.py"
+      ],
+      "out_of_scope_paths": [],
+      "protected_path_hits": [],
+      "command_results": [
+        {
+          "command_id": "agentops.dispatch.tests.pathmatch",
+          "command": "python templates/dispatch/tests/test_dispatch_release_pathmatch.py",
+          "exit_code": 0,
+          "stdout_tail": "",
+          "stderr_tail": ".....\n----------------------------------------------------------------------\nRan 5 tests in 0.001s\n\nOK\n"
+        }
+      ],
+      "diff": "diff --git a/templates/dispatch/scripts/dispatch_release.py b/templates/dispatch/scripts/dispatch_release.py\nindex ce1d951..fb80c04 100644\n--- a/templates/dispatch/scripts/dispatch_release.py\n+++ b/templates/dispatch/scripts/dispatch_release.py\n@@ -490,7 +490,28 @@ def _gate_evidence(receipt: dict[str, Any] | None) -> dict[str, Any]:\n \n \n def _path_allowed(path: str, patterns: list[str]) -> bool:\n-    return any(fnmatch.fnmatch(path, pattern) for pattern in patterns)\n+    \"\"\"True when ``path`` is covered by any glob or directory-prefix pattern.\n+\n+    Agrees with ``hybrid_dispatch._matches_any`` so the driver's L-2\n+    path-outside-writable stop asks the same question the validator asks at\n+    validate time. Manifest scope roots are written as directory prefixes\n+    (``docs/``) while packets use globs (``docs/**``); both forms must resolve\n+    here. Reproduced deliberately instead of importing the packet engine, so\n+    the driver does not depend on it at runtime.\n+    \"\"\"\n+    for pattern in patterns:\n+        if pattern.endswith(\"/\"):\n+            if path == pattern.rstrip(\"/\") or path.startswith(pattern):\n+                return True\n+            continue\n+        if fnmatch.fnmatch(path, pattern):\n+            return True\n+        prefix = pattern[: -len(\"/**\")] if pattern.endswith(\"/**\") else None\n+        if prefix is not None and (path == prefix or path.startswith(prefix + \"/\")):\n+            return True\n+        if path == pattern:\n+            return True\n+    return False\n \n \n def _post_gate_stop(packet: dict[str, Any], evidence: dict[str, Any]) -> tuple[str, str] | None:\n",
+      "worktree_status": [
+        " M templates/dispatch/scripts/dispatch_release.py"
+      ]
+    },
+    "independent_review": {
+      "mode": "self_candidate",
+      "class": "mechanical_bulk",
+      "basis": "manifest"
+    },
+    "disposition": "candidate"
+  },
+  "driver_steps": [
+    {
+      "step": "prepare",
+      "attempt": 1,
+      "started_at": "2026-08-24T15:41:27Z",
+      "finished_at": "2026-08-24T15:41:29Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-24T15:41:29+00:00",
+        "execution_id": "V5-M11-path-matcher:956a287879f73096:attempt-1",
+        "task_id": "V5-M11-path-matcher",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 6,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:956a287879f73096eba4132cc9440a684b6f21492336506b9bb6d91c91d83934",
+          "repository_commit": "6ddd78ced05f8167d01e3927c3dd3bc26e74c794",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:f09fb16b6581cce2de15f421d91ddb13a12187c1f8fafdc871bbb99faabf4f7e"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 20,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "prepare",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-M11-path-matcher",
+        "overlay_sha256": "3263b9973aec67e262f966045a61d8e00d67fb6cfef7747d11bdb67072213273",
+        "coordinator_claim": {
+          "claim_id": 6,
+          "work_item_id": 2254,
+          "agent": "workstation-vuoro",
+          "last_activity_at": "2026-08-24T15:41:03Z",
+          "idle_seconds": 25,
+          "checked_at": "2026-08-24T15:41:28+00:00"
+        },
+        "safety": {
+          "ref": "safety/pre-dispatch-V5-M11-path-matcher",
+          "commit": "31a4e6a8b101f3ebdb915e33906b6704e00dc0b6",
+          "restore_command": "git -C /tmp/v5-coordinator reset --hard safety/pre-dispatch-V5-M11-path-matcher",
+          "uncommitted_paths_at_risk": [
+            "?? .sprintctl",
+            "?? docs/evidence/packets/V5-M10b-bounded-body.reference.patch",
+            "?? docs/evidence/packets/V5-M11-path-matcher.reference.patch"
+          ]
+        },
+        "cold_command_results": [
+          {
+            "command_id": "agentops.dispatch.tests.pathmatch",
+            "command": "python templates/dispatch/tests/test_dispatch_release_pathmatch.py",
+            "exit_code": 1,
+            "stdout_tail": "",
+            "stderr_tail": "M11-path-matcher/templates/dispatch/tests/test_dispatch_release_pathmatch.py\", line 81, in test_the_driver_agrees_with_the_validator_on_every_pattern_form\n    self.assertEqual(\n    ~~~~~~~~~~~~~~~~^\n        actual, expected,\n        ^^^^^^^^^^^^^^^^^\n        f\"driver says {actual} and the validator says {expected} \"\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        f\"for {path!r} against {list(patterns)!r}\",\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\nAssertionError: False != True : driver says False and the validator says True for 'docs/evidence/x.json' against ['docs/']\n\n======================================================================\nFAIL: test_the_driver_agrees_with_the_validator_on_every_pattern_form (__main__.PathMatcherAgreementTests.test_the_driver_agrees_with_the_validator_on_every_pattern_form) (path='docs', patterns=('docs/',))\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-M11-path-matcher/templates/dispatch/tests/test_dispatch_release_pathmatch.py\", line 81, in test_the_driver_agrees_with_the_validator_on_every_pattern_form\n    self.assertEqual(\n    ~~~~~~~~~~~~~~~~^\n        actual, expected,\n        ^^^^^^^^^^^^^^^^^\n        f\"driver says {actual} and the validator says {expected} \"\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        f\"for {path!r} against {list(patterns)!r}\",\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\nAssertionError: False != True : driver says False and the validator says True for 'docs' against ['docs/']\n\n======================================================================\nFAIL: test_the_driver_agrees_with_the_validator_on_every_pattern_form (__main__.PathMatcherAgreementTests.test_the_driver_agrees_with_the_validator_on_every_pattern_form) (path='templates/dispatch/scripts/dispatch_release.py', patterns=('templates/dispatch/scripts/',))\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-M11-path-matcher/templates/dispatch/tests/test_dispatch_release_pathmatch.py\", line 81, in test_the_driver_agrees_with_the_validator_on_every_pattern_form\n    self.assertEqual(\n    ~~~~~~~~~~~~~~~~^\n        actual, expected,\n        ^^^^^^^^^^^^^^^^^\n        f\"driver says {actual} and the validator says {expected} \"\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        f\"for {path!r} against {list(patterns)!r}\",\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\nAssertionError: False != True : driver says False and the validator says True for 'templates/dispatch/scripts/dispatch_release.py' against ['templates/dispatch/scripts/']\n\n======================================================================\nFAIL: test_the_driver_agrees_with_the_validator_on_every_pattern_form (__main__.PathMatcherAgreementTests.test_the_driver_agrees_with_the_validator_on_every_pattern_form) (path='docs', patterns=('docs/**',))\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-M11-path-matcher/templates/dispatch/tests/test_dispatch_release_pathmatch.py\", line 81, in test_the_driver_agrees_with_the_validator_on_every_pattern_form\n    self.assertEqual(\n    ~~~~~~~~~~~~~~~~^\n        actual, expected,\n        ^^^^^^^^^^^^^^^^^\n        f\"driver says {actual} and the validator says {expected} \"\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        f\"for {path!r} against {list(patterns)!r}\",\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\nAssertionError: False != True : driver says False and the validator says True for 'docs' against ['docs/**']\n\n----------------------------------------------------------------------\nRan 5 tests in 0.005s\n\nFAILED (failures=6)\n",
+            "expectation": "red"
+          }
+        ],
+        "cold_faults": [],
+        "workspace_reused": false,
+        "cold_gate_assessment": "assessed",
+        "eligible_for_dispatch": true
+      },
+      "failed": false
+    },
+    {
+      "step": "run",
+      "attempt": 1,
+      "started_at": "2026-08-24T15:41:29Z",
+      "finished_at": "2026-08-24T15:42:26Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-24T15:42:26+00:00",
+        "execution_id": "V5-M11-path-matcher:956a287879f73096:attempt-1",
+        "task_id": "V5-M11-path-matcher",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 6,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:956a287879f73096eba4132cc9440a684b6f21492336506b9bb6d91c91d83934",
+          "repository_commit": "6ddd78ced05f8167d01e3927c3dd3bc26e74c794",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:f09fb16b6581cce2de15f421d91ddb13a12187c1f8fafdc871bbb99faabf4f7e"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 20,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "run",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-M11-path-matcher",
+        "overlay_sha256": "3263b9973aec67e262f966045a61d8e00d67fb6cfef7747d11bdb67072213273",
+        "coordinator_claim": {
+          "claim_id": 6,
+          "work_item_id": 2254,
+          "agent": "workstation-vuoro",
+          "last_activity_at": "2026-08-24T15:41:03Z",
+          "idle_seconds": 27,
+          "checked_at": "2026-08-24T15:41:30+00:00"
+        },
+        "worker": {
+          "argv": [
+            "sudo",
+            "--non-interactive",
+            "--set-home",
+            "--user",
+            "agentworker",
+            "--preserve-env=OPENCODE_CONFIG_CONTENT",
+            "opencode",
+            "run",
+            "'Implement only the attached frozen task packet. Stay inside the writable paths it declares, use only the registered commands, and stop with a structured blocker on any ambiguity, missing context, or scope conflict. Do not use git, do not change sprint state, and do not expand scope. Respect context_churn: stop repeated unchanged reads or mutation-free reasoning at its limits. Do not optimize for cheap cache writes alone. As soon as the candidate and focused registered gate are ready, return the structured handoff instead of continuing self-review.'",
+            "--agent",
+            "ao-mechanical-bulk",
+            "--file",
+            "/tmp/v5-coordinator/docs/evidence/packets/V5-M11-path-matcher.json",
+            "--format",
+            "json"
+          ],
+          "worker_user": "agentworker",
+          "agent": "ao-mechanical-bulk",
+          "model": "opencode-go/deepseek-v4-flash",
+          "exit_code": 0,
+          "stdout": "<transcript removed; sidecar worker-stdout.txt holds 62779 bytes>",
+          "stderr_tail": "",
+          "session_id": "ses_fcb90e0eeffeBylMmDrxuS0bj8",
+          "churn_stop": null
+        },
+        "spend": {
+          "cost_usd": 0.010377,
+          "tokens": 197682,
+          "cost_reported": true,
+          "cap_usd": 3.0,
+          "within_cap": true,
+          "soft_token_ceiling": 1200000,
+          "hard_token_ceiling": 2000000,
+          "soft_token_ceiling_exceeded": false,
+          "within_hard_token_ceiling": true
+        },
+        "containment_override": false,
+        "worker_user": "agentworker",
+        "worker_model": "opencode-go/deepseek-v4-flash",
+        "route_model": "opencode-go/deepseek-v4-flash",
+        "model_override": false,
+        "qualification_eligible": true,
+        "unattended_eligible": true,
+        "override_reason": null,
+        "containment": {
+          "coordinator_tree_untouched": true,
+          "coordinator_tree_changes": [],
+          "recovery": []
+        }
+      },
+      "failed": false
+    },
+    {
+      "step": "gate",
+      "attempt": 1,
+      "started_at": "2026-08-24T15:42:26Z",
+      "finished_at": "2026-08-24T15:42:27Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-24T15:42:27+00:00",
+        "execution_id": "V5-M11-path-matcher:956a287879f73096:attempt-1",
+        "task_id": "V5-M11-path-matcher",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 6,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:956a287879f73096eba4132cc9440a684b6f21492336506b9bb6d91c91d83934",
+          "repository_commit": "6ddd78ced05f8167d01e3927c3dd3bc26e74c794",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:f09fb16b6581cce2de15f421d91ddb13a12187c1f8fafdc871bbb99faabf4f7e"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 20,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "gate",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-M11-path-matcher",
+        "overlay_sha256": "3263b9973aec67e262f966045a61d8e00d67fb6cfef7747d11bdb67072213273",
+        "coordinator_claim": {
+          "claim_id": 6,
+          "work_item_id": 2254,
+          "agent": "workstation-vuoro",
+          "last_activity_at": "2026-08-24T15:41:03Z",
+          "idle_seconds": 84,
+          "checked_at": "2026-08-24T15:42:27+00:00"
+        },
+        "evidence": {
+          "gates": {
+            "diff-nonempty": true,
+            "diff-scope-respected": true,
+            "protected-paths-untouched": true,
+            "worktree-state-captured": true,
+            "registered-commands-green": true
+          },
+          "passed": true,
+          "touched_paths": [
+            "templates/dispatch/scripts/dispatch_release.py"
+          ],
+          "out_of_scope_paths": [],
+          "protected_path_hits": [],
+          "command_results": [
+            {
+              "command_id": "agentops.dispatch.tests.pathmatch",
+              "command": "python templates/dispatch/tests/test_dispatch_release_pathmatch.py",
+              "exit_code": 0,
+              "stdout_tail": "",
+              "stderr_tail": ".....\n----------------------------------------------------------------------\nRan 5 tests in 0.001s\n\nOK\n"
+            }
+          ],
+          "diff": "diff --git a/templates/dispatch/scripts/dispatch_release.py b/templates/dispatch/scripts/dispatch_release.py\nindex ce1d951..fb80c04 100644\n--- a/templates/dispatch/scripts/dispatch_release.py\n+++ b/templates/dispatch/scripts/dispatch_release.py\n@@ -490,7 +490,28 @@ def _gate_evidence(receipt: dict[str, Any] | None) -> dict[str, Any]:\n \n \n def _path_allowed(path: str, patterns: list[str]) -> bool:\n-    return any(fnmatch.fnmatch(path, pattern) for pattern in patterns)\n+    \"\"\"True when ``path`` is covered by any glob or directory-prefix pattern.\n+\n+    Agrees with ``hybrid_dispatch._matches_any`` so the driver's L-2\n+    path-outside-writable stop asks the same question the validator asks at\n+    validate time. Manifest scope roots are written as directory prefixes\n+    (``docs/``) while packets use globs (``docs/**``); both forms must resolve\n+    here. Reproduced deliberately instead of importing the packet engine, so\n+    the driver does not depend on it at runtime.\n+    \"\"\"\n+    for pattern in patterns:\n+        if pattern.endswith(\"/\"):\n+            if path == pattern.rstrip(\"/\") or path.startswith(pattern):\n+                return True\n+            continue\n+        if fnmatch.fnmatch(path, pattern):\n+            return True\n+        prefix = pattern[: -len(\"/**\")] if pattern.endswith(\"/**\") else None\n+        if prefix is not None and (path == prefix or path.startswith(prefix + \"/\")):\n+            return True\n+        if path == pattern:\n+            return True\n+    return False\n \n \n def _post_gate_stop(packet: dict[str, Any], evidence: dict[str, Any]) -> tuple[str, str] | None:\n",
+          "worktree_status": [
+            " M templates/dispatch/scripts/dispatch_release.py"
+          ]
+        },
+        "independent_review": {
+          "mode": "self_candidate",
+          "class": "mechanical_bulk",
+          "basis": "manifest"
+        },
+        "disposition": "candidate"
+      },
+      "disposition": "candidate",
+      "failed": false
+    },
+    {
+      "step": "receipt",
+      "attempt": 1,
+      "started_at": "2026-08-24T15:42:27Z",
+      "finished_at": "2026-08-24T15:42:27Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-24T15:42:27+00:00",
+        "execution_id": "V5-M11-path-matcher:956a287879f73096:attempt-1",
+        "task_id": "V5-M11-path-matcher",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 6,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:956a287879f73096eba4132cc9440a684b6f21492336506b9bb6d91c91d83934",
+          "repository_commit": "6ddd78ced05f8167d01e3927c3dd3bc26e74c794",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:f09fb16b6581cce2de15f421d91ddb13a12187c1f8fafdc871bbb99faabf4f7e"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 20,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "receipt",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-M11-path-matcher",
+        "overlay_sha256": "3263b9973aec67e262f966045a61d8e00d67fb6cfef7747d11bdb67072213273",
+        "dispositions_available": [
+          "candidate",
+          "retry_same_route",
+          "reroute",
+          "task_defect",
+          "human_decision"
+        ],
+        "note": "The coordinator records the disposition and the human accepts, merges, and changes sprint state."
+      },
+      "failed": false
+    }
+  ]
+}
