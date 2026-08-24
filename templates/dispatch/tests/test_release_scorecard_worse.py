@@ -8,7 +8,8 @@ those scorecards and says whether the loop is getting worse:
 
 ``scorecards`` arrives in release order, oldest first. The pathway names what
 "worse" looks like so it is recognizable rather than argued about: rework rounds
-up, escalations up, or frontier turns flat while the frontier's own cost rises
+up, escalations up, or the frontier's own cost rising WITHOUT more frontier
+turns being spent
 -- any one of them for two consecutive releases. Two consecutive releases means the signal worsened
 across two consecutive TRANSITIONS, so it takes THREE scorecards to fire. One bad
 release is noise; two in a row is a trend, and that shape is what most of the
@@ -20,24 +21,42 @@ Three properties are load-bearing and are asserted directly:
   test, with the other two held clean -- a detector that fires on the wrong
   signal, or that ORs them together internally, fails here.
 * equality pulls in OPPOSITE directions across the signals. ``rework_rounds``
-  equal is not a rise and must not fire; ``turns`` equal with cost rising IS
-  "flat" and must fire. An implementation that reuses one comparison operator
-  everywhere gets exactly one of these wrong.
+  equal is not a rise and must not fire; ``turns`` equal with cost rising is
+  "no more frontier work for more money" and must fire. An implementation that
+  reuses one comparison operator everywhere gets exactly one of these wrong.
 * "not enough series" is not "not worse". Fewer than three scorecards sets
   ``insufficient_series`` True so a caller cannot read one as the other.
 
-The cost half ``turns_flat_cost_up`` reads is
+``cost_up_without_more_turns`` is the third signal, and its name is its
+contract: **more was spent without more frontier work being done.** It fires
+when ``turns`` did NOT rise (flat or dropping) while the frontier
+usage-equivalent rose::
+
+    b.frontier.turns <= a.frontier.turns
+    and b.cost.frontier_usage_equivalent_usd > a.cost.frontier_usage_equivalent_usd
+
+Dropping turns with rising cost is the loudest case, not the quiet one: turns
+dropping is the whole programme's goal (the v7 falsifier is "frontier turns per
+release drop >= 5x"), so cost rising anyway means every remaining turn got
+dramatically more expensive. Turns RISING is the ordinary explained case -- a
+bigger release did more frontier work and cost more -- and must never fire,
+however the cost moved; a detector red on ordinary releases is one people stop
+reading.
+
+The cost half ``cost_up_without_more_turns`` reads is
 ``cost_usd["frontier_usage_equivalent_usd"]``, NOT the billed total. The signal
-asks "am I burning more frontier attention-equivalent for the same number of
-turns", and that is the half that moves with coordinator behaviour. A worker
-that costs more money is a different question and must not fire this alarm --
-see ``WorkerHalfIsNotTheSignalTests``.
+asks "am I burning more frontier attention-equivalent without more frontier
+turns to show for it", and that is the half that moves with coordinator
+behaviour. A worker that costs more money is a different question and must not
+fire this alarm -- see ``WorkerHalfIsNotTheSignalTests``.
 
 ``detect_worse`` is pure: no file reads, no writes, no argv.
 
-Written against the packet spec only. ``release_scorecard.py`` exists and
-carries the five earlier functions, but not ``detect_worse`` -- so this oracle
-fails at attribute lookup. That is the declared red.
+Written against the packet spec only. ``release_scorecard.py`` carries a
+``detect_worse`` whose third signal is still the retired ``turns_flat_cost_up``
+with its ``>=`` comparison, so this oracle is red on the rename, on the
+false positive it fires (rising turns with rising cost), and on the alarm it
+misses (dropping turns with rising cost). That is the declared red.
 """
 from __future__ import annotations
 
@@ -73,7 +92,7 @@ TOP_LEVEL_KEYS = frozenset({"worse", "signals", "insufficient_series"})
 
 #: The fixed signal order. ``signals`` is sorted by this and not by discovery
 #: order, so two runs over the same data read the same.
-SIGNAL_ORDER = ("rework", "escalations", "turns_flat_cost_up")
+SIGNAL_ORDER = ("rework", "escalations", "cost_up_without_more_turns")
 
 
 def card(release, rework, turns, escalations, cost, worker=0.001):
@@ -185,7 +204,7 @@ class SingleSignalTests(unittest.TestCase):
         self.assertEqual(result["signals"][0]["releases"], ["r1", "r2", "r3"])
         self.assertEqual(result["signals"][0]["values"], [1, 2, 3])
 
-    def test_turns_flat_while_cost_rises_fires_only_that_signal(self):
+    def test_flat_turns_with_rising_cost_fires_only_that_signal(self):
         # turns held at 6 while cost climbs 3 -> 4 -> 5: paying more for the
         # same amount of frontier attention, which is the whole point of the
         # signal. rework and escalations falling so neither can be credited.
@@ -193,25 +212,28 @@ class SingleSignalTests(unittest.TestCase):
         result = scorecard.detect_worse(flat)
         self.assertIs(result["worse"], True)
         self.assertEqual(
-            [s["signal"] for s in result["signals"]], ["turns_flat_cost_up"]
+            [s["signal"] for s in result["signals"]], ["cost_up_without_more_turns"]
         )
         self.assertEqual(result["signals"][0]["releases"], ["r1", "r2", "r3"])
         self.assertEqual(
             result["signals"][0]["values"], [[6, 3.0], [6, 4.0], [6, 5.0]]
         )
 
-    def test_turns_rising_while_cost_rises_also_fires_the_flat_signal(self):
-        # ">= " means turns that FAIL TO DROP, so outright rising turns with
-        # rising cost is the worse case of the same shape and must fire.
+    def test_rising_turns_with_rising_cost_is_explained_spend_and_does_not_fire(self):
+        # THE FALSE POSITIVE. turns climb 6 -> 7 -> 9 while cost climbs
+        # 3 -> 4 -> 5. More frontier work was done, so more was spent: that is
+        # the ordinary, explained case a bigger release produces, and it is not
+        # the signal's subject. The signal is "more spent WITHOUT more turns".
         climbing = series((3, 6, 3, 3.0), (2, 7, 2, 4.0), (1, 9, 1, 5.0))
         result = scorecard.detect_worse(climbing)
-        self.assertIs(result["worse"], True)
-        self.assertEqual(
-            [s["signal"] for s in result["signals"]], ["turns_flat_cost_up"]
+        self.assertIs(
+            result["worse"], False,
+            "turns rose 6 -> 7 -> 9 alongside the cost, so the extra spend is "
+            "explained by extra frontier work; firing here is the cry-wolf red "
+            "that gets the scorecard ignored",
         )
-        self.assertEqual(
-            result["signals"][0]["values"], [[6, 3.0], [7, 4.0], [9, 5.0]]
-        )
+        self.assertEqual(result["signals"], [])
+        self.assertIs(result["insufficient_series"], False)
 
 
 class OneBadReleaseIsNoiseTests(unittest.TestCase):
@@ -230,11 +252,12 @@ class OneBadReleaseIsNoiseTests(unittest.TestCase):
         self.assertIs(result["worse"], False)
         self.assertEqual(result["signals"], [])
 
-    def test_turns_flat_cost_up_once_then_turns_drop_does_not_fire(self):
+    def test_cost_up_without_more_turns_once_then_cost_recovers_does_not_fire(self):
         # First transition: turns flat at 6, cost 3 -> 4, so that transition is
-        # bad. Second: turns drop to 4, so the signal breaks and there is no
-        # pair of consecutive bad transitions.
-        bounce = series((3, 6, 3, 3.0), (2, 6, 2, 4.0), (1, 4, 1, 5.0))
+        # bad. Second: turns still non-rising (6 -> 5) but the cost falls back
+        # 4 -> 3.5, so the second transition is clean and there is no pair of
+        # consecutive bad transitions. One bad release is noise.
+        bounce = series((3, 6, 3, 3.0), (2, 6, 2, 4.0), (1, 5, 1, 3.5))
         result = scorecard.detect_worse(bounce)
         self.assertIs(result["worse"], False)
         self.assertEqual(result["signals"], [])
@@ -261,12 +284,12 @@ class EqualityTests(unittest.TestCase):
 
     def test_equal_turns_with_rising_cost_does_fire(self):
         # The mirror of the case above: here equality IS the finding, because
-        # "flat" is literally what the signal is named for.
+        # equal turns means no more frontier work was done for the extra money.
         flat_turns = series((3, 5, 3, 1.0), (2, 5, 2, 2.0), (1, 5, 1, 3.0))
         result = scorecard.detect_worse(flat_turns)
         self.assertIs(result["worse"], True)
         self.assertEqual(
-            [s["signal"] for s in result["signals"]], ["turns_flat_cost_up"]
+            [s["signal"] for s in result["signals"]], ["cost_up_without_more_turns"]
         )
 
     def test_equal_cost_with_flat_turns_does_not_fire(self):
@@ -277,16 +300,47 @@ class EqualityTests(unittest.TestCase):
         self.assertIs(result["worse"], False)
         self.assertEqual(result["signals"], [])
 
+    def test_equal_cost_with_dropping_turns_does_not_fire(self):
+        # The other half of "cost must strictly rise": turns dropping is the
+        # non-rising side of the condition, but with the frontier figure held
+        # exactly flat nothing extra was spent, so there is nothing to report.
+        same_cost = series((3, 9, 3, 2.0), (2, 7, 2, 2.0), (1, 5, 1, 2.0))
+        result = scorecard.detect_worse(same_cost)
+        self.assertIs(result["worse"], False)
+        self.assertEqual(result["signals"], [])
+
 
 class TurnsDroppingTests(unittest.TestCase):
-    """Turns dropping is the programme's goal and never a finding."""
+    """Turns dropping while cost rises is the LOUDEST case, not a quiet one."""
 
-    def test_turns_dropping_while_cost_rises_does_not_fire(self):
-        # Cost climbs 1 -> 2 -> 3 the whole way, but turns fall 9 -> 7 -> 5.
-        # The signal is about turns FAILING to drop, so this must stay quiet
-        # even though the cost line alone looks bad.
+    def test_dropping_turns_with_rising_cost_fires(self):
+        # Cost climbs 1 -> 2 -> 3 the whole way while turns fall 9 -> 7 -> 5.
+        # Dropping turns is the programme's goal, so cost rising ANYWAY means
+        # each remaining turn got dramatically more expensive: 0.11/turn at r1,
+        # 0.60/turn at r3, a >5x rise in unit cost. This is precisely the
+        # regression the scorecard exists to surface.
         dropping = series((3, 9, 3, 1.0), (2, 7, 2, 2.0), (1, 5, 1, 3.0))
         result = scorecard.detect_worse(dropping)
+        self.assertIs(
+            result["worse"], True,
+            "turns dropped 9 -> 7 -> 5 while the frontier usage-equivalent "
+            "climbed 1.0 -> 2.0 -> 3.0: less frontier work for more money, so "
+            "per-turn cost went 0.11 -> 0.60. Staying silent here hides the "
+            "one regression this signal exists for",
+        )
+        self.assertEqual(
+            [s["signal"] for s in result["signals"]], ["cost_up_without_more_turns"]
+        )
+        self.assertEqual(result["signals"][0]["releases"], ["r1", "r2", "r3"])
+        self.assertEqual(
+            result["signals"][0]["values"], [[9, 1.0], [7, 2.0], [5, 3.0]]
+        )
+
+    def test_dropping_turns_with_falling_cost_stays_quiet(self):
+        # The mirror that keeps the test above honest: turns dropping while the
+        # frontier figure ALSO drops is the loop working, and must not fire.
+        good = series((3, 9, 3, 3.0), (2, 7, 2, 2.0), (1, 5, 1, 1.0))
+        result = scorecard.detect_worse(good)
         self.assertIs(result["worse"], False)
         self.assertEqual(result["signals"], [])
 
@@ -319,6 +373,41 @@ class MultipleSignalTests(unittest.TestCase):
         for entry in result["signals"]:
             self.assertIn(entry["signal"], SIGNAL_ORDER)
             self.assertEqual(set(entry), {"signal", "releases", "values"})
+
+
+class RetiredSignalNameTests(unittest.TestCase):
+    """``turns_flat_cost_up`` is retired and may not come back quietly.
+
+    The old name described neither the old behaviour nor the new one, and a
+    signal whose name does not say what it means is how the previous defects in
+    this module happened. The rename is part of the fix, so it is asserted
+    rather than left to review.
+    """
+
+    RETIRED = "turns_flat_cost_up"
+
+    def _assert_absent(self, result):
+        names = [entry["signal"] for entry in result["signals"]]
+        self.assertNotIn(
+            self.RETIRED, names,
+            f"the retired signal name {self.RETIRED!r} appeared in {names!r}; "
+            "the signal is now cost_up_without_more_turns, whose name states "
+            "its rule: more spent without more frontier work being done",
+        )
+
+    def test_retired_name_absent_when_the_signal_fires_on_flat_turns(self):
+        flat = series((3, 6, 3, 3.0), (2, 6, 2, 4.0), (1, 6, 1, 5.0))
+        self._assert_absent(scorecard.detect_worse(flat))
+
+    def test_retired_name_absent_when_the_signal_fires_on_dropping_turns(self):
+        dropping = series((3, 9, 3, 1.0), (2, 7, 2, 2.0), (1, 5, 1, 3.0))
+        self._assert_absent(scorecard.detect_worse(dropping))
+
+    def test_retired_name_absent_when_all_three_signals_fire(self):
+        everything = series((1, 6, 1, 3.0), (2, 6, 2, 4.0), (3, 6, 3, 5.0))
+        result = scorecard.detect_worse(everything)
+        self._assert_absent(result)
+        self.assertEqual(len(result["signals"]), 3)
 
 
 class OverlappingWindowTests(unittest.TestCase):
@@ -386,12 +475,12 @@ class ReleasesAndValuesTests(unittest.TestCase):
         ]
         result = scorecard.detect_worse(flat)
         entry = result["signals"][0]
-        self.assertEqual(entry["signal"], "turns_flat_cost_up")
+        self.assertEqual(entry["signal"], "cost_up_without_more_turns")
         self.assertEqual(entry["values"], [[6, 3.0], [6, 4.5], [6, 5.25]])
 
 
 class WorkerHalfIsNotTheSignalTests(unittest.TestCase):
-    """``turns_flat_cost_up`` is about the FRONTIER half, not billed money.
+    """``cost_up_without_more_turns`` is about the FRONTIER half, not billed money.
 
     The two figures are not the same kind of number: the frontier one is an
     imputed list price that tracks coordinator behaviour, the worker one is
@@ -413,7 +502,7 @@ class WorkerHalfIsNotTheSignalTests(unittest.TestCase):
         result = scorecard.detect_worse(flat_frontier)
         self.assertIs(
             result["worse"], False,
-            "a worker whose billed spend climbed fired turns_flat_cost_up; "
+            "a worker whose billed spend climbed fired cost_up_without_more_turns; "
             "the signal reads the frontier usage-equivalent, not money",
         )
         self.assertEqual(result["signals"], [])
@@ -430,7 +519,7 @@ class WorkerHalfIsNotTheSignalTests(unittest.TestCase):
         result = scorecard.detect_worse(rising_frontier)
         self.assertIs(result["worse"], True)
         self.assertEqual(
-            [s["signal"] for s in result["signals"]], ["turns_flat_cost_up"]
+            [s["signal"] for s in result["signals"]], ["cost_up_without_more_turns"]
         )
         self.assertEqual(
             result["signals"][0]["values"], [[6, 3.0], [6, 4.0], [6, 5.0]],
