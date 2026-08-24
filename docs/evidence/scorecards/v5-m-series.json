@@ -464,6 +464,32 @@
    "confirms": "#70's sub-step naming fix: failed_step read pr-create, not the positional neighbour it would have reported before.",
    "coordinator_defects_before_a_fair_attempt": 6,
    "coordinator_defect_note": "Six prepare runs failed before the tier was reached, none of them the packet's fault: sudo -u agent without a login shell resolved auditctl to the system binary and had no sprintctl on PATH; the agent login profile leaks SPRINTCTL_BACKEND=local; served requires SPRINTCTL_VUORO_PROFILE; the reservation idle-guard fired; sprintctl 0.3.0 on devbox could not touch a reservation at all (missing the idempotency key that sprintctl #45 adds in 0.3.2); and reservation 2 belonged to a dead session, so this session took its own (id 6) rather than interrupt one it did not own. Recorded as friction ad:01M0SP7W5686V8931JZE3H1YEE."
+  },
+  {
+   "packet": "V5-M10c-receipt-capture",
+   "handover_row": "M-10c",
+   "spec_row": "Amendment 3 section 3c, split 2026-08-24",
+   "writable": "templates/dispatch/scripts/dispatch_release.py",
+   "oracle": "templates/dispatch/tests/test_dispatch_release_capture.py, 15 fixtures, cut without re-authoring from the M-10 oracle",
+   "attempt_1": {
+    "disposition": "budget_exceeded",
+    "cost_usd": 0.149579,
+    "tokens": 1509082,
+    "hard_token_ceiling": 1000000,
+    "within_hard_token_ceiling": false,
+    "gate_reached": false,
+    "diff_produced": "98 insertions, 5 deletions in one file -- a correct capture step",
+    "scored_against_the_frozen_oracle": "11/15",
+    "scored_against_the_fixed_oracle": "15/15",
+    "classification": "coordinator defect, not the tier. Must not count against D-8, by the same standard that excused four of M-9's five dispatches.",
+    "cause": "the oracle's two sub-step fixtures shared one worktree across their subTest loops. _DriverFixture.setUp runs once per test method and _worktree() mkdirs a deterministic path with exist_ok=True, so the failing='receipt-capture' case -- which poisons the capture path by writing docs as a file -- left it poisoned for commit, remote-add, push and pr-create. Every later case failed in the capture and reported failed_step='receipt-capture'. No correct implementation could pass those four subTests.",
+    "worker_defect": "left DEBUG print() calls and a temporary import behind, from chasing the impossible target. The only genuine fault in its diff, and the reason attempt 1 was not hand-landed."
+   },
+   "attempt_2": {
+    "starting_commit": "625aa60c641d225fe0dcf00758cb4843e3132ee2",
+    "changed": "the oracle's state leak is fixed and the purpose forbids leaving debugging output behind; the packet is otherwise unchanged",
+    "note": "the one retry section 7 grants, and the first use of the max_attempts: 2 that gitops-nixos #17 put on the host on 2026-08-24"
+   }
   }
  ],
  "coordinator_cost": {
@@ -492,6 +518,15 @@
    "from": "V5-M2 and V5-M10",
    "summary": "Rule 9 bounds additive-vs-restructuring but not how much is added. Both packets were additive and single-file, and both finished with finish_reason: length at 131072 output tokens having emitted no tool call. M-10 added four things at once.",
    "proposed": "bound a mechanical_bulk packet by the number of independent additions as well as by their kind; the oracle's own class partition is a usable seam."
+  },
+  {
+   "id": "an-oracle-must-be-proven-green-in-both-directions",
+   "from": "V5-M10c attempt 1",
+   "summary": "A frozen oracle was proven red at starting_commit and never proven green anywhere. It contained a fixture no correct implementation could pass, and the packet still validated fit: prepare's registered-commands-green-cold and acceptance-properties-discriminating both check redness, not attainability. The worker spent 1 509 082 tokens against a 1 000 000 ceiling chasing it.",
+   "cost": "$0.149579 and one wasted dispatch, plus the re-freeze",
+   "why_it_got_through": "rule 2 made oracle.reference_patch SHOULD at Amendment 2, and rules 9-11 tightened the packet's shape without ever requiring the oracle be shown green against a known-good implementation. Cutting an inherited oracle into three, as the M-10 split did, is exactly the operation that can introduce this and exactly the case where no reference patch existed.",
+   "proposed": "for any packet whose oracle was cut, inherited or otherwise not written fresh against a known-good implementation, require proof of green in both directions before dispatch. It does not need a throwaway solution: running the oracle against a rejected attempt's own diff found this in one command, and for a fresh oracle a reference patch already reports oracle_attainable.",
+   "related": "rule-11-narrowed-the-gate -- both are the same shape: the gate measures less than the reader assumes it does."
   }
  ],
  "d8": {
