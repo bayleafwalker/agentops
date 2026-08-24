@@ -1,0 +1,546 @@
+{
+  "schema_version": "agentops-hybrid-receipt/v1",
+  "recorded_at": "2026-08-24T17:07:51+00:00",
+  "execution_id": "V5-M12-scan-hardening:bf22f0cba59fb7db:attempt-1",
+  "task_id": "V5-M12-scan-hardening",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 6,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "attempt": 1,
+  "inputs": {
+    "packet_hash": "sha256:bf22f0cba59fb7dbf8ec381405d320694eb3981effd6e0aa80bfa1508d713d17",
+    "repository_commit": "ffefcd3d5bbc51c9003c3eb8062f48fa2c3e644f",
+    "packet_schema_version": "agentops-task/v2",
+    "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+    "gate_set_hash": "sha256:d55861ea3829e9de04439db2b3755a805a36047f7fb7ff0dc0709f974949f40d"
+  },
+  "harness_model": "opencode-go/deepseek-v4-flash",
+  "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+  "qualification_policy": {
+    "mode": "named_pilot",
+    "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+    "repositories": [
+      "agentops",
+      "1deb57d0-af6f-479c-811a-b5b7254841f9",
+      "2be118eb-8e89-433a-8d32-ada157624f95",
+      "kctl",
+      "actionq"
+    ],
+    "routes": [
+      "mechanical_bulk"
+    ],
+    "models": [
+      "opencode-go/deepseek-v4-flash"
+    ],
+    "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+    "default": "unqualified",
+    "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+  },
+  "acceptance_authority": "human",
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "stage": "receipt",
+  "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-M12-scan-hardening",
+  "overlay_sha256": "4637c2758e8aff732b03946ce38fdb73271fe02f748e2dd597bca720b7f06c76",
+  "dispositions_available": [
+    "candidate",
+    "retry_same_route",
+    "reroute",
+    "task_defect",
+    "human_decision"
+  ],
+  "note": "The coordinator records the disposition and the human accepts, merges, and changes sprint state.",
+  "gate": {
+    "schema_version": "agentops-hybrid-receipt/v1",
+    "recorded_at": "2026-08-24T17:07:51+00:00",
+    "execution_id": "V5-M12-scan-hardening:bf22f0cba59fb7db:attempt-1",
+    "task_id": "V5-M12-scan-hardening",
+    "repo_id": "agentops",
+    "sprint_item": {
+      "ref": "agentops#2254",
+      "claim_id": 6,
+      "claim_actor": "workstation-vuoro"
+    },
+    "route": "mechanical_bulk",
+    "attempt": 1,
+    "inputs": {
+      "packet_hash": "sha256:bf22f0cba59fb7dbf8ec381405d320694eb3981effd6e0aa80bfa1508d713d17",
+      "repository_commit": "ffefcd3d5bbc51c9003c3eb8062f48fa2c3e644f",
+      "packet_schema_version": "agentops-task/v2",
+      "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+      "gate_set_hash": "sha256:d55861ea3829e9de04439db2b3755a805a36047f7fb7ff0dc0709f974949f40d"
+    },
+    "harness_model": "opencode-go/deepseek-v4-flash",
+    "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+    "qualification_policy": {
+      "mode": "named_pilot",
+      "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+      "repositories": [
+        "agentops",
+        "1deb57d0-af6f-479c-811a-b5b7254841f9",
+        "2be118eb-8e89-433a-8d32-ada157624f95",
+        "kctl",
+        "actionq"
+      ],
+      "routes": [
+        "mechanical_bulk"
+      ],
+      "models": [
+        "opencode-go/deepseek-v4-flash"
+      ],
+      "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+      "default": "unqualified",
+      "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+    },
+    "acceptance_authority": "human",
+    "context_churn": {
+      "max_repeated_reads_per_path": 4,
+      "max_reasoning_steps_without_mutation": 20,
+      "max_identical_context_tokens": 250000,
+      "handoff_when_candidate_ready": true
+    },
+    "stage": "gate",
+    "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-M12-scan-hardening",
+    "overlay_sha256": "4637c2758e8aff732b03946ce38fdb73271fe02f748e2dd597bca720b7f06c76",
+    "coordinator_claim": {
+      "claim_id": 6,
+      "work_item_id": 2254,
+      "agent": "workstation-vuoro",
+      "last_activity_at": "2026-08-24T17:04:18Z",
+      "idle_seconds": 212,
+      "checked_at": "2026-08-24T17:07:50+00:00"
+    },
+    "evidence": {
+      "gates": {
+        "diff-nonempty": true,
+        "diff-scope-respected": true,
+        "protected-paths-untouched": true,
+        "worktree-state-captured": true,
+        "registered-commands-green": true
+      },
+      "passed": true,
+      "touched_paths": [
+        "templates/dispatch/scripts/dispatch_release.py"
+      ],
+      "out_of_scope_paths": [],
+      "protected_path_hits": [],
+      "command_results": [
+        {
+          "command_id": "agentops.dispatch.tests.scanhardening",
+          "command": "python templates/dispatch/tests/test_dispatch_release_scanhardening.py",
+          "exit_code": 0,
+          "stdout_tail": "",
+          "stderr_tail": "......\n----------------------------------------------------------------------\nRan 6 tests in 0.005s\n\nOK\n"
+        }
+      ],
+      "diff": "diff --git a/templates/dispatch/scripts/dispatch_release.py b/templates/dispatch/scripts/dispatch_release.py\nindex fb80c04..94322f5 100644\n--- a/templates/dispatch/scripts/dispatch_release.py\n+++ b/templates/dispatch/scripts/dispatch_release.py\n@@ -89,21 +89,42 @@ DRIVER_ACTOR = \"dispatch-release\"\n \n #: The secret shapes the module-level scan detects, keyed by the stable name a\n #: finding carries. A finding never carries the matched text, so a report that\n-#: embeds the names cannot echo a credential. The groups are what the M-10\n-#: spec row enumerates; each name is what tells one kind from another.\n+#: embeds the names cannot echo a credential. The groups are what the M-10 and\n+#: M-12 spec rows enumerate; each name is what tells one kind from another.\n+#:\n+#: Matching is case-insensitive where case carries no meaning: the JSON keys and\n+#: the ``authorization: bearer`` header are lowercase in the very input this\n+#: scan is fed. The general-purpose assignment accepts ``:`` as well as ``=``,\n+#: a quoted or bare key and value, and a prefixed key such as\n+#: ``aws_secret_access_key``. A value of fewer than twenty characters is not a\n+#: secret, and every pattern stays narrow enough that ordinary prose, hashes,\n+#: store paths, and secret-free JSON return an empty list.\n SCAN_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (\n     (\"github_token\", re.compile(r\"gh[opsu]_[A-Za-z0-9]{8,}|github_pat_[A-Za-z0-9]{8,}\")),\n     (\"aws_access_key_id\", re.compile(r\"AKIA[A-Z0-9]{16}\")),\n     (\"pem_private_key\", re.compile(r\"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----\")),\n     (\"slack_token\", re.compile(r\"xox[abprs]-[A-Za-z0-9-]{8,}\")),\n-    (\"authorization_bearer\", re.compile(r\"Authorization:\\s*Bearer\\s+\\S{20,}\")),\n+    (\"authorization_bearer\", re.compile(r\"Authorization:\\s*Bearer\\s+\\S{20,}\", re.IGNORECASE)),\n     (\n         \"secret_assignment\",\n         re.compile(\n-            r\"\\b(?:api_key|token|secret|password)\\b\\s*=\\s*\"\n-            r\"(?:\\\"[^\\\"\\n]{20,}\\\"|'[^'\\n]{20,}'|\\S{20,})\"\n+            r\"[\\\"']?[A-Za-z0-9_-]*(?:api_?key|secret|password|token)[A-Za-z0-9_-]*[\\\"']?\"\n+            r\"\\s*[:=]\\s*\"\n+            r\"(?:\\\"[^\\\"\\n]{20,}\\\"|'[^'\\n]{20,}'|\\S{20,})\",\n+            re.IGNORECASE,\n         ),\n     ),\n+    (\"openai_key\", re.compile(r\"\\bsk-[A-Za-z0-9]{20,}\")),\n+    (\"anthropic_key\", re.compile(r\"\\bsk-ant-[A-Za-z0-9][A-Za-z0-9_-]{20,}\")),\n+    (\"google_api_key\", re.compile(r\"\\bAIzaSy[A-Za-z0-9_-]{20,}\")),\n+    (\"stripe_key\", re.compile(r\"\\bsk_(?:live|test)_[A-Za-z0-9]{16,}\")),\n+    (\"npm_token\", re.compile(r\"\\bnpm_[A-Za-z0-9]{20,}\")),\n+    (\"pypi_token\", re.compile(r\"\\bpypi-[A-Za-z0-9_-]{20,}\")),\n+    (\"jwt_token\", re.compile(r\"\\beyJ[A-Za-z0-9_-]{5,}\\.[A-Za-z0-9_-]{5,}\\.[A-Za-z0-9_-]{10,}\")),\n+    (\n+        \"url_basic_auth\",\n+        re.compile(r\"\\b[A-Za-z][A-Za-z0-9+.-]*://[^/\\s:@]+:[^/@\\s]{20,}@\"),\n+    ),\n )\n \n \n",
+      "worktree_status": [
+        " M templates/dispatch/scripts/dispatch_release.py"
+      ]
+    },
+    "independent_review": {
+      "mode": "self_candidate",
+      "class": "mechanical_bulk",
+      "basis": "manifest"
+    },
+    "disposition": "candidate"
+  },
+  "driver_steps": [
+    {
+      "step": "prepare",
+      "attempt": 1,
+      "started_at": "2026-08-24T17:04:28Z",
+      "finished_at": "2026-08-24T17:04:30Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-24T17:04:30+00:00",
+        "execution_id": "V5-M12-scan-hardening:bf22f0cba59fb7db:attempt-1",
+        "task_id": "V5-M12-scan-hardening",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 6,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:bf22f0cba59fb7dbf8ec381405d320694eb3981effd6e0aa80bfa1508d713d17",
+          "repository_commit": "ffefcd3d5bbc51c9003c3eb8062f48fa2c3e644f",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:d55861ea3829e9de04439db2b3755a805a36047f7fb7ff0dc0709f974949f40d"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 20,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "prepare",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-M12-scan-hardening",
+        "overlay_sha256": "4637c2758e8aff732b03946ce38fdb73271fe02f748e2dd597bca720b7f06c76",
+        "coordinator_claim": {
+          "claim_id": 6,
+          "work_item_id": 2254,
+          "agent": "workstation-vuoro",
+          "last_activity_at": "2026-08-24T17:04:18Z",
+          "idle_seconds": 11,
+          "checked_at": "2026-08-24T17:04:29+00:00"
+        },
+        "safety": {
+          "ref": "safety/pre-dispatch-V5-M12-scan-hardening",
+          "commit": "b4095ba85ba6be67f994a6a5da37fabe674ff100",
+          "restore_command": "git -C /tmp/v5-coordinator reset --hard safety/pre-dispatch-V5-M12-scan-hardening",
+          "uncommitted_paths_at_risk": [
+            "?? .sprintctl"
+          ]
+        },
+        "cold_command_results": [
+          {
+            "command_id": "agentops.dispatch.tests.scanhardening",
+            "command": "python templates/dispatch/tests/test_dispatch_release_scanhardening.py",
+            "exit_code": 1,
+            "stdout_tail": "",
+            "stderr_tail": "^^^^^^^^^^^^^^^^^\nAssertionError: [] is not true : aws_secret_access_key was not detected\n\n======================================================================\nFAIL: test_the_json_separator_is_covered (__main__.ScanHardeningTests.test_the_json_separator_is_covered) (key='api_key')\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-M12-scan-hardening/templates/dispatch/tests/test_dispatch_release_scanhardening.py\", line 150, in test_the_json_separator_is_covered\n    self.assertTrue(\n    ~~~~~~~~~~~~~~~^\n        self.scan(blob), f\"a JSON {key} of 32 characters was not seen\",\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\nAssertionError: [] is not true : a JSON api_key of 32 characters was not seen\n\n======================================================================\nFAIL: test_the_json_separator_is_covered (__main__.ScanHardeningTests.test_the_json_separator_is_covered) (key='apiKey')\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-M12-scan-hardening/templates/dispatch/tests/test_dispatch_release_scanhardening.py\", line 150, in test_the_json_separator_is_covered\n    self.assertTrue(\n    ~~~~~~~~~~~~~~~^\n        self.scan(blob), f\"a JSON {key} of 32 characters was not seen\",\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\nAssertionError: [] is not true : a JSON apiKey of 32 characters was not seen\n\n======================================================================\nFAIL: test_the_json_separator_is_covered (__main__.ScanHardeningTests.test_the_json_separator_is_covered) (key='token')\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-M12-scan-hardening/templates/dispatch/tests/test_dispatch_release_scanhardening.py\", line 150, in test_the_json_separator_is_covered\n    self.assertTrue(\n    ~~~~~~~~~~~~~~~^\n        self.scan(blob), f\"a JSON {key} of 32 characters was not seen\",\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\nAssertionError: [] is not true : a JSON token of 32 characters was not seen\n\n======================================================================\nFAIL: test_the_json_separator_is_covered (__main__.ScanHardeningTests.test_the_json_separator_is_covered) (key='secret')\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-M12-scan-hardening/templates/dispatch/tests/test_dispatch_release_scanhardening.py\", line 150, in test_the_json_separator_is_covered\n    self.assertTrue(\n    ~~~~~~~~~~~~~~~^\n        self.scan(blob), f\"a JSON {key} of 32 characters was not seen\",\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\nAssertionError: [] is not true : a JSON secret of 32 characters was not seen\n\n======================================================================\nFAIL: test_the_json_separator_is_covered (__main__.ScanHardeningTests.test_the_json_separator_is_covered) (key='password')\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V5-M12-scan-hardening/templates/dispatch/tests/test_dispatch_release_scanhardening.py\", line 150, in test_the_json_separator_is_covered\n    self.assertTrue(\n    ~~~~~~~~~~~~~~~^\n        self.scan(blob), f\"a JSON {key} of 32 characters was not seen\",\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\nAssertionError: [] is not true : a JSON password of 32 characters was not seen\n\n----------------------------------------------------------------------\nRan 6 tests in 0.012s\n\nFAILED (failures=20)\n",
+            "expectation": "red"
+          }
+        ],
+        "cold_faults": [],
+        "workspace_reused": false,
+        "cold_gate_assessment": "assessed",
+        "eligible_for_dispatch": true
+      },
+      "failed": false
+    },
+    {
+      "step": "run",
+      "attempt": 1,
+      "started_at": "2026-08-24T17:04:30Z",
+      "finished_at": "2026-08-24T17:07:49Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-24T17:07:49+00:00",
+        "execution_id": "V5-M12-scan-hardening:bf22f0cba59fb7db:attempt-1",
+        "task_id": "V5-M12-scan-hardening",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 6,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:bf22f0cba59fb7dbf8ec381405d320694eb3981effd6e0aa80bfa1508d713d17",
+          "repository_commit": "ffefcd3d5bbc51c9003c3eb8062f48fa2c3e644f",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:d55861ea3829e9de04439db2b3755a805a36047f7fb7ff0dc0709f974949f40d"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 20,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "run",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-M12-scan-hardening",
+        "overlay_sha256": "4637c2758e8aff732b03946ce38fdb73271fe02f748e2dd597bca720b7f06c76",
+        "coordinator_claim": {
+          "claim_id": 6,
+          "work_item_id": 2254,
+          "agent": "workstation-vuoro",
+          "last_activity_at": "2026-08-24T17:04:18Z",
+          "idle_seconds": 13,
+          "checked_at": "2026-08-24T17:04:31+00:00"
+        },
+        "worker": {
+          "argv": [
+            "sudo",
+            "--non-interactive",
+            "--set-home",
+            "--user",
+            "agentworker",
+            "--preserve-env=OPENCODE_CONFIG_CONTENT",
+            "opencode",
+            "run",
+            "'Implement only the attached frozen task packet. Stay inside the writable paths it declares, use only the registered commands, and stop with a structured blocker on any ambiguity, missing context, or scope conflict. Do not use git, do not change sprint state, and do not expand scope. Respect context_churn: stop repeated unchanged reads or mutation-free reasoning at its limits. Do not optimize for cheap cache writes alone. As soon as the candidate and focused registered gate are ready, return the structured handoff instead of continuing self-review.'",
+            "--agent",
+            "ao-mechanical-bulk",
+            "--file",
+            "/tmp/v5-coordinator/docs/evidence/packets/V5-M12-scan-hardening.json",
+            "--format",
+            "json"
+          ],
+          "worker_user": "agentworker",
+          "agent": "ao-mechanical-bulk",
+          "model": "opencode-go/deepseek-v4-flash",
+          "exit_code": 0,
+          "stdout": "<transcript removed; sidecar worker-stdout.txt holds 153159 bytes>",
+          "stderr_tail": "",
+          "session_id": "ses_fcb44e047ffeE2lqCrB1mffTn7",
+          "churn_stop": null
+        },
+        "spend": {
+          "cost_usd": 0.030386,
+          "tokens": 428716,
+          "cost_reported": true,
+          "cap_usd": 3.0,
+          "within_cap": true,
+          "soft_token_ceiling": 1200000,
+          "hard_token_ceiling": 2000000,
+          "soft_token_ceiling_exceeded": false,
+          "within_hard_token_ceiling": true
+        },
+        "containment_override": false,
+        "worker_user": "agentworker",
+        "worker_model": "opencode-go/deepseek-v4-flash",
+        "route_model": "opencode-go/deepseek-v4-flash",
+        "model_override": false,
+        "qualification_eligible": true,
+        "unattended_eligible": true,
+        "override_reason": null,
+        "containment": {
+          "coordinator_tree_untouched": true,
+          "coordinator_tree_changes": [],
+          "recovery": []
+        }
+      },
+      "failed": false
+    },
+    {
+      "step": "gate",
+      "attempt": 1,
+      "started_at": "2026-08-24T17:07:49Z",
+      "finished_at": "2026-08-24T17:07:51Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-24T17:07:51+00:00",
+        "execution_id": "V5-M12-scan-hardening:bf22f0cba59fb7db:attempt-1",
+        "task_id": "V5-M12-scan-hardening",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 6,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:bf22f0cba59fb7dbf8ec381405d320694eb3981effd6e0aa80bfa1508d713d17",
+          "repository_commit": "ffefcd3d5bbc51c9003c3eb8062f48fa2c3e644f",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:d55861ea3829e9de04439db2b3755a805a36047f7fb7ff0dc0709f974949f40d"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 20,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "gate",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-M12-scan-hardening",
+        "overlay_sha256": "4637c2758e8aff732b03946ce38fdb73271fe02f748e2dd597bca720b7f06c76",
+        "coordinator_claim": {
+          "claim_id": 6,
+          "work_item_id": 2254,
+          "agent": "workstation-vuoro",
+          "last_activity_at": "2026-08-24T17:04:18Z",
+          "idle_seconds": 212,
+          "checked_at": "2026-08-24T17:07:50+00:00"
+        },
+        "evidence": {
+          "gates": {
+            "diff-nonempty": true,
+            "diff-scope-respected": true,
+            "protected-paths-untouched": true,
+            "worktree-state-captured": true,
+            "registered-commands-green": true
+          },
+          "passed": true,
+          "touched_paths": [
+            "templates/dispatch/scripts/dispatch_release.py"
+          ],
+          "out_of_scope_paths": [],
+          "protected_path_hits": [],
+          "command_results": [
+            {
+              "command_id": "agentops.dispatch.tests.scanhardening",
+              "command": "python templates/dispatch/tests/test_dispatch_release_scanhardening.py",
+              "exit_code": 0,
+              "stdout_tail": "",
+              "stderr_tail": "......\n----------------------------------------------------------------------\nRan 6 tests in 0.005s\n\nOK\n"
+            }
+          ],
+          "diff": "diff --git a/templates/dispatch/scripts/dispatch_release.py b/templates/dispatch/scripts/dispatch_release.py\nindex fb80c04..94322f5 100644\n--- a/templates/dispatch/scripts/dispatch_release.py\n+++ b/templates/dispatch/scripts/dispatch_release.py\n@@ -89,21 +89,42 @@ DRIVER_ACTOR = \"dispatch-release\"\n \n #: The secret shapes the module-level scan detects, keyed by the stable name a\n #: finding carries. A finding never carries the matched text, so a report that\n-#: embeds the names cannot echo a credential. The groups are what the M-10\n-#: spec row enumerates; each name is what tells one kind from another.\n+#: embeds the names cannot echo a credential. The groups are what the M-10 and\n+#: M-12 spec rows enumerate; each name is what tells one kind from another.\n+#:\n+#: Matching is case-insensitive where case carries no meaning: the JSON keys and\n+#: the ``authorization: bearer`` header are lowercase in the very input this\n+#: scan is fed. The general-purpose assignment accepts ``:`` as well as ``=``,\n+#: a quoted or bare key and value, and a prefixed key such as\n+#: ``aws_secret_access_key``. A value of fewer than twenty characters is not a\n+#: secret, and every pattern stays narrow enough that ordinary prose, hashes,\n+#: store paths, and secret-free JSON return an empty list.\n SCAN_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (\n     (\"github_token\", re.compile(r\"gh[opsu]_[A-Za-z0-9]{8,}|github_pat_[A-Za-z0-9]{8,}\")),\n     (\"aws_access_key_id\", re.compile(r\"AKIA[A-Z0-9]{16}\")),\n     (\"pem_private_key\", re.compile(r\"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----\")),\n     (\"slack_token\", re.compile(r\"xox[abprs]-[A-Za-z0-9-]{8,}\")),\n-    (\"authorization_bearer\", re.compile(r\"Authorization:\\s*Bearer\\s+\\S{20,}\")),\n+    (\"authorization_bearer\", re.compile(r\"Authorization:\\s*Bearer\\s+\\S{20,}\", re.IGNORECASE)),\n     (\n         \"secret_assignment\",\n         re.compile(\n-            r\"\\b(?:api_key|token|secret|password)\\b\\s*=\\s*\"\n-            r\"(?:\\\"[^\\\"\\n]{20,}\\\"|'[^'\\n]{20,}'|\\S{20,})\"\n+            r\"[\\\"']?[A-Za-z0-9_-]*(?:api_?key|secret|password|token)[A-Za-z0-9_-]*[\\\"']?\"\n+            r\"\\s*[:=]\\s*\"\n+            r\"(?:\\\"[^\\\"\\n]{20,}\\\"|'[^'\\n]{20,}'|\\S{20,})\",\n+            re.IGNORECASE,\n         ),\n     ),\n+    (\"openai_key\", re.compile(r\"\\bsk-[A-Za-z0-9]{20,}\")),\n+    (\"anthropic_key\", re.compile(r\"\\bsk-ant-[A-Za-z0-9][A-Za-z0-9_-]{20,}\")),\n+    (\"google_api_key\", re.compile(r\"\\bAIzaSy[A-Za-z0-9_-]{20,}\")),\n+    (\"stripe_key\", re.compile(r\"\\bsk_(?:live|test)_[A-Za-z0-9]{16,}\")),\n+    (\"npm_token\", re.compile(r\"\\bnpm_[A-Za-z0-9]{20,}\")),\n+    (\"pypi_token\", re.compile(r\"\\bpypi-[A-Za-z0-9_-]{20,}\")),\n+    (\"jwt_token\", re.compile(r\"\\beyJ[A-Za-z0-9_-]{5,}\\.[A-Za-z0-9_-]{5,}\\.[A-Za-z0-9_-]{10,}\")),\n+    (\n+        \"url_basic_auth\",\n+        re.compile(r\"\\b[A-Za-z][A-Za-z0-9+.-]*://[^/\\s:@]+:[^/@\\s]{20,}@\"),\n+    ),\n )\n \n \n",
+          "worktree_status": [
+            " M templates/dispatch/scripts/dispatch_release.py"
+          ]
+        },
+        "independent_review": {
+          "mode": "self_candidate",
+          "class": "mechanical_bulk",
+          "basis": "manifest"
+        },
+        "disposition": "candidate"
+      },
+      "disposition": "candidate",
+      "failed": false
+    },
+    {
+      "step": "receipt",
+      "attempt": 1,
+      "started_at": "2026-08-24T17:07:51Z",
+      "finished_at": "2026-08-24T17:07:51Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-24T17:07:51+00:00",
+        "execution_id": "V5-M12-scan-hardening:bf22f0cba59fb7db:attempt-1",
+        "task_id": "V5-M12-scan-hardening",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 6,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:bf22f0cba59fb7dbf8ec381405d320694eb3981effd6e0aa80bfa1508d713d17",
+          "repository_commit": "ffefcd3d5bbc51c9003c3eb8062f48fa2c3e644f",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:d55861ea3829e9de04439db2b3755a805a36047f7fb7ff0dc0709f974949f40d"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 20,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "receipt",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V5-M12-scan-hardening",
+        "overlay_sha256": "4637c2758e8aff732b03946ce38fdb73271fe02f748e2dd597bca720b7f06c76",
+        "dispositions_available": [
+          "candidate",
+          "retry_same_route",
+          "reroute",
+          "task_defect",
+          "human_decision"
+        ],
+        "note": "The coordinator records the disposition and the human accepts, merges, and changes sprint state."
+      },
+      "failed": false
+    }
+  ]
+}

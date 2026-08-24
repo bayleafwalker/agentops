@@ -89,20 +89,41 @@ DRIVER_ACTOR = "dispatch-release"
 
 #: The secret shapes the module-level scan detects, keyed by the stable name a
 #: finding carries. A finding never carries the matched text, so a report that
-#: embeds the names cannot echo a credential. The groups are what the M-10
-#: spec row enumerates; each name is what tells one kind from another.
+#: embeds the names cannot echo a credential. The groups are what the M-10 and
+#: M-12 spec rows enumerate; each name is what tells one kind from another.
+#:
+#: Matching is case-insensitive where case carries no meaning: the JSON keys and
+#: the ``authorization: bearer`` header are lowercase in the very input this
+#: scan is fed. The general-purpose assignment accepts ``:`` as well as ``=``,
+#: a quoted or bare key and value, and a prefixed key such as
+#: ``aws_secret_access_key``. A value of fewer than twenty characters is not a
+#: secret, and every pattern stays narrow enough that ordinary prose, hashes,
+#: store paths, and secret-free JSON return an empty list.
 SCAN_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("github_token", re.compile(r"gh[opsu]_[A-Za-z0-9]{8,}|github_pat_[A-Za-z0-9]{8,}")),
     ("aws_access_key_id", re.compile(r"AKIA[A-Z0-9]{16}")),
     ("pem_private_key", re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----")),
     ("slack_token", re.compile(r"xox[abprs]-[A-Za-z0-9-]{8,}")),
-    ("authorization_bearer", re.compile(r"Authorization:\s*Bearer\s+\S{20,}")),
+    ("authorization_bearer", re.compile(r"Authorization:\s*Bearer\s+\S{20,}", re.IGNORECASE)),
     (
         "secret_assignment",
         re.compile(
-            r"\b(?:api_key|token|secret|password)\b\s*=\s*"
-            r"(?:\"[^\"\n]{20,}\"|'[^'\n]{20,}'|\S{20,})"
+            r"[\"']?[A-Za-z0-9_-]*(?:api_?key|secret|password|token)[A-Za-z0-9_-]*[\"']?"
+            r"\s*[:=]\s*"
+            r"(?:\"[^\"\n]{20,}\"|'[^'\n]{20,}'|\S{20,})",
+            re.IGNORECASE,
         ),
+    ),
+    ("openai_key", re.compile(r"\bsk-[A-Za-z0-9]{20,}")),
+    ("anthropic_key", re.compile(r"\bsk-ant-[A-Za-z0-9][A-Za-z0-9_-]{20,}")),
+    ("google_api_key", re.compile(r"\bAIzaSy[A-Za-z0-9_-]{20,}")),
+    ("stripe_key", re.compile(r"\bsk_(?:live|test)_[A-Za-z0-9]{16,}")),
+    ("npm_token", re.compile(r"\bnpm_[A-Za-z0-9]{20,}")),
+    ("pypi_token", re.compile(r"\bpypi-[A-Za-z0-9_-]{20,}")),
+    ("jwt_token", re.compile(r"\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{10,}")),
+    (
+        "url_basic_auth",
+        re.compile(r"\b[A-Za-z][A-Za-z0-9+.-]*://[^/\s:@]+:[^/@\s]{20,}@"),
     ),
 )
 
