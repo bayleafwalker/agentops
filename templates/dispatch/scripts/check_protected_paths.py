@@ -37,6 +37,20 @@ _spec.loader.exec_module(_dispatch)  # type: ignore[union-attr]
 
 MARKER = "hand-pass:"
 
+#: A hybrid packet PR declares itself with this prefix. It buys exactly one
+#: exemption, checked below, and nothing else.
+PACKET_MARKER = "[hybrid]"
+
+#: The one protected path every packet freeze must touch. Commit 1 of a freeze
+#: branch registers the packet oracle's command id under ``hybrid.commands``,
+#: so without an exemption this gate fails EVERY hybrid packet PR -- and a gate
+#: that is red on every legitimate PR is one people learn to merge over, which
+#: is how it would come to miss the case it was built for (PR #74). The
+#: exemption is therefore as narrow as it can be made: this file only, purely
+#: additive keys under ``hybrid.commands`` only, and only when the title says
+#: the PR is a packet.
+REGISTRATION_PATH = "agentops.dispatch.json"
+
 
 def protected_patterns(manifest_path: Path) -> list[str]:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -49,6 +63,37 @@ def changed_paths(base: str, head: str) -> list[str]:
         capture_output=True, text=True, check=True,
     ).stdout
     return [line for line in out.splitlines() if line.strip()]
+
+
+def _blob(ref: str, path: str) -> str | None:
+    """The file's content at ``ref``, or None when it is not there."""
+    out = subprocess.run(
+        ["git", "show", f"{ref}:{path}"], capture_output=True, text=True,
+    )
+    return out.stdout if out.returncode == 0 else None
+
+
+def registration_only(base: str, head: str, path: str = REGISTRATION_PATH) -> bool:
+    """True when the only change to the manifest is new ``hybrid.commands`` keys.
+
+    Anything else in the document -- a changed route, a flipped
+    ``self_candidate``, a removed command, a re-pointed command id -- is a
+    policy change and must be declared, so any of those makes this False and
+    the gate fails as before.
+    """
+    before, after = _blob(base, path), _blob(head, path)
+    if before is None or after is None:
+        return False
+    try:
+        b, a = json.loads(before), json.loads(after)
+    except json.JSONDecodeError:
+        return False
+    b_cmds = (b.get("hybrid") or {}).pop("commands", None)
+    a_cmds = (a.get("hybrid") or {}).pop("commands", None)
+    if b != a or not isinstance(b_cmds, dict) or not isinstance(a_cmds, dict):
+        return False
+    # Purely additive: every command that existed still exists, unchanged.
+    return all(a_cmds.get(k) == v for k, v in b_cmds.items())
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -66,7 +111,19 @@ def main(argv: list[str] | None = None) -> int:
     if not hits:
         print(f"no protected path touched ({len(touched)} file(s) changed)")
         return 0
-    declared = args.title.strip().lower().startswith(MARKER)
+    title = args.title.strip()
+    if (
+        title.lower().startswith(PACKET_MARKER)
+        and hits == [REGISTRATION_PATH]
+        and registration_only(args.base, args.head)
+    ):
+        print(
+            f"{REGISTRATION_PATH}: new hybrid.commands key(s) only, under a "
+            f"{PACKET_MARKER!r} title -- the packet registration seam; allowed"
+        )
+        return 0
+
+    declared = title.lower().startswith(MARKER)
     for path in hits:
         print(f"protected: {path}")
     if declared:
