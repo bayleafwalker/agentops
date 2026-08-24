@@ -206,7 +206,29 @@ class RealGitCommitTests(_DriverFixture):
         self.assertEqual(report["pr"]["commit"]["sha"], tip)
 
         diff = self._git_ok(worktree, "diff", "--name-only", starting, BRANCH).splitlines()
-        self.assertEqual(sorted(diff), touched, "the branch does not carry what the gate saw")
+        # Every touched path has to be on the branch. The commit may carry more
+        # than the gate saw, but only the receipt capture: M-10c's spec row puts
+        # the receipt and the transcript in the worktree precisely so this
+        # commit picks them up. Asserting equality here pinned a set that the
+        # next specified change necessarily grows -- the same over-specification
+        # M-9's PR_STEP_NAMES fixture had -- and no worker could reconcile it,
+        # because templates/dispatch/tests/** is protected.
+        for path in touched:
+            self.assertIn(path, diff, "the branch does not carry what the gate saw")
+        # The capture is admitted by NAME, not by directory. Permitting anything
+        # under docs/evidence/receipts/ let a driver report the transcript as
+        # withheld and commit the secret beside it in a third file, and the whole
+        # suite still passed -- which defeats the withholding path entirely.
+        # M-10c's spec row names exactly two files; only those two are admitted.
+        captured = {
+            "docs/evidence/receipts/T-DRIVER/receipt.json",
+            "docs/evidence/receipts/T-DRIVER/worker-stdout.txt",
+        }
+        extra = [p for p in diff if p not in touched and p not in captured]
+        self.assertEqual(
+            extra, [],
+            f"the commit carries paths that are neither touched nor the capture: {extra}",
+        )
 
         # Nothing left behind: a leftover dirty worktree means the next reader
         # cannot tell what was handed onward from what was not.

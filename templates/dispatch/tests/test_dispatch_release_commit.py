@@ -191,17 +191,30 @@ class CommitStepTests(_DriverFixture):
         """A fixture that asserts the commit did *not* happen proves nothing
         while there is no commit step at all, so each one pins the behaviour it
         is guarding first."""
-        self.assertEqual(
-            driver.PR_STEP_NAMES[0], "commit", "the PR step has no commit to skip",
+        self.assertIn(
+            "commit", driver.PR_STEP_NAMES, "the PR step has no commit to skip",
         )
 
     # 1. The step vocabulary. M-9 supersedes M-8's three names: a reader of a
     # failed report has to be able to tell "the commit would not be made" from
-    # the three failures M-8 already names, and the tuple order is the contract
-    # the fixtures below assert the driver against.
-    def test_pr_step_names_lead_with_the_commit(self):
+    # the three failures M-8 already names, and the ORDER of those four is the
+    # contract the fixtures below assert the driver against.
+    #
+    # What this must not assert is the whole tuple. M-9's original form pinned
+    # it exactly, which made this oracle fail the moment M-10c inserted
+    # receipt-capture at the head -- a change M-10c's own spec row requires.
+    # An oracle that forbids the next specified change is over-specified, and
+    # because templates/dispatch/tests/** is protected no worker could ever
+    # reconcile the two. M-9's contract is the relative order of its own four
+    # names; what precedes them belongs to whoever adds it.
+    def test_pr_step_names_keep_m9s_four_in_order(self):
+        names = driver.PR_STEP_NAMES
+        for name in ("commit", "remote-add", "push", "pr-create"):
+            self.assertIn(name, names, f"the PR step lost {name}")
         self.assertEqual(
-            driver.PR_STEP_NAMES, ("commit", "remote-add", "push", "pr-create"),
+            [n for n in names if n in {"commit", "remote-add", "push", "pr-create"}],
+            ["commit", "remote-add", "push", "pr-create"],
+            "M-9's four sub-steps are out of order",
         )
 
     # 2. The order is the row: a push before the commit is exactly the bug --
