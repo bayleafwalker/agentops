@@ -622,6 +622,12 @@ class SubStepNameTests(_DriverFixture):
     def _fail(self, failing: str):
         packet = self._packet()
         worktree = self._worktree(packet)
+        # Each case gets a clean worktree: setUp runs once per test method, so
+        # the subTest loop below would otherwise inherit the poisoned docs path
+        # from the receipt-capture case and every later case would fail there.
+        poisoned = worktree / "docs"
+        if poisoned.is_file():
+            poisoned.unlink()
         exits: dict[str, int] = {}
         if failing == "receipt-capture":
             # An unwritable capture path: a file where the directory must go.
