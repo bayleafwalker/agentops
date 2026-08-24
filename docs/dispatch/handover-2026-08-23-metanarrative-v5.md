@@ -156,6 +156,36 @@ that a withheld transcript is noted, so the body depends on the capture. M-10a i
   positional naming, and both halves of the M-9/M-10c collision). That is the trade rule 11
   makes, and it is no longer theoretical.
 
+## 3e. Close of the M-series (2026-08-24)
+
+**The loop reaches an opened PR with no hand step.** V5-M11 (#75): driver exit 0, all five
+sub-steps unattended, a 414-byte generated body, and the captured receipt and text sidecar
+inside the commit. Every earlier candidate died at `pr-create` on `Body is too long`. It took
+M-9 (commit), M-10a (scan), M-10c (capture) and M-10b (bounded body) to get there.
+
+Merged: #71, #72, #73, #74, #75. Main 563 → 590. gitops-nixos #17 and #18 deployed and
+verified by reading the host, not the nix file.
+
+What the evidence says, for whoever picks this up:
+
+- **The merge-preview outperformed the gates, four to nothing.** Every real defect this
+  session was caught by §4.6 and none by a packet gate. Rule 11 narrows a gate to its own
+  oracle, so a green gate is necessary and not sufficient. Do not skip the merge-preview.
+- **Three of those four were coordinator defects at freeze time** — an oracle pinning a shape
+  the next row is specified to change, on a protected path no worker could reconcile. That is
+  rule 13, and it was violated once immediately after being written.
+- **Rule 12 pays immediately.** On M-10b the reference patch found three gate names being read
+  as their own boolean values (`worktree-state-captured` contains "red") before any worker
+  spend. The same defect class, unguarded, cost M-10c a 1.5M-token dispatch.
+- **Worker spend is high-variance, not per-packet-predictable.** One unchanged packet ran at
+  1 509 082 / 1 435 896 / 533 033 tokens. A single constant ceiling sits inside that band and
+  kills runs that had already succeeded. Cost never bound: $0.15 at the worst against $3.00.
+- **The secret scan fires in production.** M-10b's own receipt was withheld because the
+  worker's transcript quoted its oracle's sample credentials. Any packet whose oracle carries
+  secret-shaped fixtures will always withhold its own evidence.
+
+Remaining from this brief: **T-6/T-7** (scorecard script) and **L-5** (release-unit template).
+
 ## 3. Packets to freeze and run, in order
 
 Each row: what the oracle must assert, the writable file, and the spec source. Write the

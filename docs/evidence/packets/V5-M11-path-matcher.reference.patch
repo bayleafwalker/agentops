@@ -1,0 +1,33 @@
+diff --git a/templates/dispatch/scripts/dispatch_release.py b/templates/dispatch/scripts/dispatch_release.py
+index ce1d951..8b6c24f 100644
+--- a/templates/dispatch/scripts/dispatch_release.py
++++ b/templates/dispatch/scripts/dispatch_release.py
+@@ -490,7 +490,27 @@ def _gate_evidence(receipt: dict[str, Any] | None) -> dict[str, Any]:
+ 
+ 
+ def _path_allowed(path: str, patterns: list[str]) -> bool:
+-    return any(fnmatch.fnmatch(path, pattern) for pattern in patterns)
++    """True when ``path`` is covered by any glob or directory-prefix pattern.
++
++    The same question ``hybrid_dispatch._matches_any`` answers at validate time,
++    answered the same way. Manifest scope roots are written as directory
++    prefixes (``docs/``) while packets use globs (``docs/**``); a bare
++    ``fnmatch`` resolves neither, so a packet could validate fit and then have
++    every touched path rejected here as outside the writable set.
++    """
++    for pattern in patterns:
++        if pattern.endswith("/"):
++            if path == pattern.rstrip("/") or path.startswith(pattern):
++                return True
++            continue
++        if fnmatch.fnmatch(path, pattern):
++            return True
++        prefix = pattern[: -len("/**")] if pattern.endswith("/**") else None
++        if prefix is not None and (path == prefix or path.startswith(prefix + "/")):
++            return True
++        if path == pattern:
++            return True
++    return False
+ 
+ 
+ def _post_gate_stop(packet: dict[str, Any], evidence: dict[str, Any]) -> tuple[str, str] | None:

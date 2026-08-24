@@ -1,11 +1,11 @@
 {
  "schema_version": "workflow-scorecard/v0",
  "release": "v5-M",
- "recorded_at": "2026-08-24T11:40:00Z",
+ "recorded_at": "2026-08-24T16:30:00Z",
  "sprint_item": "agentops#2254",
  "mode": "metanarrative (planner -> driver -> cheap implementer), owner-unattended",
  "brief": "docs/dispatch/handover-2026-08-23-metanarrative-v5.md",
- "sequence_outcome": "First sequence stopped at M-2 under section 7. Owner reviewed, amended the handover (rules 9/10, section 3a), authorized a protected-scope coordinator hand-pass, and restarted the readiness test at M-5 then M-8. Both went green first attempt, the class turned on, and M-6 then ran as two packets -- also both green first attempt, and both frozen with no reference patch under rule 10. The brief is complete. Continued 2026-08-24: M-9 landed (#70) after four coordinator-side kills and one fair attempt; its merge-preview caught a real bug the gate could not, which is the trade rule 11 makes and is now demonstrated rather than theoretical. M-10 died once on rule 9's boundary and was split three ways on the seam its oracle already had, with the dependency order corrected to a -> c -> b. gitops-nixos #17 was deployed, so mechanical_bulk.max_attempts is 2 on the host for the first time. M-10a green first attempt (#71); main green at 566.",
+ "sequence_outcome": "First sequence stopped at M-2 under section 7. Owner reviewed, amended the handover (rules 9/10, section 3a), authorized a protected-scope coordinator hand-pass, and restarted the readiness test at M-5 then M-8. Both went green first attempt, the class turned on, and M-6 then ran as two packets -- also both green first attempt, and both frozen with no reference patch under rule 10. The brief is complete. Continued 2026-08-24: M-9 landed (#70) after four coordinator-side kills and one fair attempt; its merge-preview caught a real bug the gate could not, which is the trade rule 11 makes and is now demonstrated rather than theoretical. M-10 died once on rule 9's boundary and was split three ways on the seam its oracle already had, with the dependency order corrected to a -> c -> b. gitops-nixos #17 was deployed, so mechanical_bulk.max_attempts is 2 on the host for the first time. M-10a green first attempt (#71); main green at 566. Closed 2026-08-24: M-10 landed as three packets (a -> c -> b, #71/#73/#74), all green on their fair attempt, and M-11 (#75) followed. M-11 is the first dispatch in the programme to reach an opened PR with no hand step, which was the open question the brief carried. Main 563 -> 590. gitops-nixos #17 and #18 deployed and verified on the host.",
  "readiness_test": {
   "rule": "a class is 'on' when two consecutive packets frozen without coordinator hand-inspection pass validate and go green first attempt",
   "first_attempt": {
@@ -552,6 +552,96 @@
     ],
     "note": "review's own proposed fix for the leak did not close it -- its fixture cannot reach the withholding branch. Established by re-running the exploit, not by argument, and review confirmed the contradiction against itself."
    }
+  },
+  {
+   "packet": "V5-M10b-bounded-body",
+   "handover_row": "M-10b",
+   "spec_row": "Amendment 3 section 3c, split 2026-08-24",
+   "writable": "templates/dispatch/scripts/dispatch_release.py",
+   "oracle": "templates/dispatch/tests/test_dispatch_release_body.py, 4 fixtures, cut from the M-10 oracle then corrected under rule 12",
+   "validate": {
+    "status": "fit",
+    "oracle_attainable": true,
+    "oracle_satisfiable_within_paths": true,
+    "read_trace": true,
+    "oracle_reads_within_paths": true,
+    "reads_outside_declared_paths": {},
+    "red_after_reference": []
+   },
+   "reference_patch": "docs/evidence/packets/V5-M10b-bounded-body.reference.patch",
+   "attempts": 1,
+   "first_attempt_green": true,
+   "disposition": "candidate",
+   "gates": {
+    "diff-nonempty": true,
+    "diff-scope-respected": true,
+    "protected-paths-untouched": true,
+    "worktree-state-captured": true,
+    "registered-commands-green": true
+   },
+   "cost_usd": 0.057082,
+   "tokens": 1385897,
+   "soft_token_ceiling_exceeded": true,
+   "within_hard_token_ceiling": true,
+   "ceiling_note": "over the 1.2M soft ceiling and under the 2M hard one, so the owner-approved raise was load-bearing for this packet",
+   "touched_paths": [
+    "templates/dispatch/scripts/dispatch_release.py"
+   ],
+   "starting_commit": "69118ec740dcfa44583f2378fb118e06ecdf0eec",
+   "pr": 74,
+   "merge_preview": {
+    "tests": 585,
+    "validator": "green",
+    "hooks": "green"
+   },
+   "rule_12_outcome": "The reference patch found a defect in the oracle BEFORE any worker spend, which is the rule's entire purpose. The gate-table fixture grepped the whole rendered row for boolean words, and three of the five gate names contain one: diff-nonempty holds 'no', registered-commands-green holds 'green', and worktree-state-captured holds 'red' (cap-tu-red). Every correct implementation would have failed. Same defect class that cost V5-M10c a 1.5M-token dispatch; caught here for the cost of writing a throwaway solution.",
+   "rule_13_outcome": "Violated, and remediated in the same PR. L-1's REQ-003 pinned body_file == receipt_path, the exact identity this row exists to break, on a protected path no worker could reconcile. Rule 13 had been written earlier the same day and was not applied to the very next freeze.",
+   "production_first": "The secret scan and the withholding path fired for real, outside fixtures: the worker's transcript quoted this oracle's sample credentials, findings were ['aws_access_key_id', 'secret_assignment'], neither file was committed, and the run still passed as a candidate. Consequence worth carrying: any packet whose oracle contains secret-shaped fixtures will always withhold its own evidence.",
+   "carried_unattested": "PR #74 also carries commit 6b7265a, 'preserve worker provider and home', authored by a concurrent agent working the same checkout and touching hybrid_dispatch.py, a protected path. Green under 585 tests but not reviewed by this coordinator; disclosed in the PR body."
+  },
+  {
+   "packet": "V5-M11-path-matcher",
+   "handover_row": "M-11",
+   "spec_row": "Amendment 2 section 3b",
+   "writable": "templates/dispatch/scripts/dispatch_release.py",
+   "oracle": "templates/dispatch/tests/test_dispatch_release_pathmatch.py, 5 fixtures over a pattern table",
+   "oracle_design_note": "The expected answers are deliberately not written down. hybrid_dispatch._matches_any IS the expectation, because the row's whole content is that the driver agrees with it; writing answers by hand would let fixture and implementation drift together and still agree. Four cases assert the matcher does not simply become permissive, since that refusal is what makes the L-2 path-outside-writable stop mean anything.",
+   "validate": {
+    "status": "fit",
+    "oracle_attainable": true,
+    "oracle_satisfiable_within_paths": true,
+    "read_trace": true,
+    "oracle_reads_within_paths": true,
+    "reads_outside_declared_paths": {},
+    "red_after_reference": []
+   },
+   "reference_patch": "docs/evidence/packets/V5-M11-path-matcher.reference.patch",
+   "attempts": 1,
+   "first_attempt_green": true,
+   "disposition": "candidate",
+   "gates": {
+    "diff-nonempty": true,
+    "diff-scope-respected": true,
+    "protected-paths-untouched": true,
+    "worktree-state-captured": true,
+    "registered-commands-green": true
+   },
+   "cost_usd": 0.010377,
+   "tokens": 197682,
+   "soft_token_ceiling_exceeded": false,
+   "touched_paths": [
+    "templates/dispatch/scripts/dispatch_release.py"
+   ],
+   "starting_commit": "6ddd78ced05f8167d01e3927c3dd3bc26e74c794",
+   "pr": 75,
+   "escalations": 0,
+   "merge_preview": {
+    "tests": 590,
+    "validator": "green",
+    "hooks": "green"
+   },
+   "end_to_end": "THE FIRST DISPATCH TO REACH A PR WITH NO HAND STEP. Driver exit 0. receipt-capture, commit, remote-add, push and gh pr create all succeeded unattended. PR #75 was opened by the driver with a 414-byte generated body carrying task, starting_commit, disposition, cost, tokens, the captured receipt path and the gate table. Commit 528e528 carries the worker's diff, receipt.json with worker.stdout removed, and worker-stdout.txt as 43 lines of text rather than a JSON-escaped single line. Every prior candidate this session died at pr-create on GraphQL: Body is too long.",
+   "cheapest_of_the_series": "$0.010377 against V5-M10c attempt 1's $0.149579 for nothing usable."
   }
  ],
  "coordinator_cost": {
@@ -614,6 +704,24 @@
    "from": "V5-M10c review, both rounds",
    "summary": "Twice on this branch a fix was asserted without exercising the path it guarded, and twice re-running the exploit contradicted the assertion. Once by the coordinator (a merge-preview measured before the fix was clobbered, then reported as green) and once by the reviewer (a tightened real-git check whose fixture cannot reach the withholding branch).",
    "proposed": "a fix for a guard is not done until the defect it guards against has been re-injected and observed to fail. The suite being green after a fix proves nothing on its own -- it was green before, with the hole open."
+  },
+  {
+   "id": "the-merge-preview-outperformed-the-gates-all-session",
+   "summary": "Four real defects were caught by the section 4.6 merge-preview and none by the packet gates: M-9's positional sub-step naming, M-9's pinned PR_STEP_NAMES tuple, M-9's pinned commit path set, and L-1's REQ-003 pinning body_file to the receipt. Rule 11 narrows a packet's gate to that packet's own oracle, so a diff can satisfy its gate and still break a contract the oracle never exercises. Three of the four were coordinator defects at freeze time, which is what rule 13 now addresses.",
+   "proposed": "keep the merge-preview mandatory and treat a green gate as necessary but not sufficient; consider the non-starts_red broader guard the M-9 finding already raised."
+  },
+  {
+   "id": "rule-10-as-implemented-makes-rule-12-unverifiable",
+   "from": "holistic review, 2026-08-24",
+   "summary": "Rule 10 says the reference patch is never committed AT starting_commit -- so the worker cannot find the answer in its own checkout. It has been implemented as never committed AT ALL: .git/info/exclude carries docs/evidence/packets/*.reference.patch. The result is that no reference patch for any packet in the programme is on main, so rule 12's green-in-both-directions proof is unverifiable after the fact for every packet, not just the ones that lack one.",
+   "correction_to_review": "The holistic review reported that M-1, M-2, M-5, M-8 and M-10b have their reference patches committed and that V5-M11 was the outlier. Checked against origin/main: NONE are tracked. V5-M11 is not an outlier; the gap is total, which makes the finding larger than reported rather than smaller.",
+   "resolution": "The two rules do not actually conflict -- rule 10 constrains the tree at starting_commit, not the repository forever. A reference patch committed with the merge is not at starting_commit and cannot reach the worker. V5-M10b's and V5-M11's are force-added here; the exclude line should be narrowed or dropped, and the four surviving earlier patches (M-1, M-2, M-5, M-8) committed from the coordinator's working copy before they are lost."
+  },
+  {
+   "id": "full-automation-drops-the-packet-evidence",
+   "from": "V5-M11",
+   "summary": "V5-M11 is the only M-series packet missing from main, and it is missing precisely BECAUSE it was the first fully-automated run. For M-10a, M-10c and M-10b the coordinator opened the PR by hand and added the packet JSON to the branch while doing so. The driver opens the PR without that step, and it does not commit the packet it was given -- so removing the hand step silently removed the evidence the hand step was also carrying.",
+   "proposed": "the receipt-capture step should commit the packet JSON alongside receipt.json and worker-stdout.txt. It is the same directory, the same commit, and the packet is already on disk in the coordinator's checkout."
   }
  ],
  "d8": {
@@ -632,14 +740,16 @@
   "caveat": "D-8 asks for >=5 green first pass with 0 escalations. All five greens carry exactly one escalation each, always the same one: the driver's PR step. None is attributable to the worker -- every gate passed, containment held, and every run was qualification-eligible. Whether a harness escalation spends the D-8 budget is the owner's ruling."
  },
  "end_to_end": {
-  "question": "does M-8's driver fix make a candidate reach a PR without a hand step?",
-  "answer": "No -- but it got two of three steps further, and the report now says exactly where it stopped.",
-  "remote_add": "works",
-  "push": "works: the loop pushed hybrid/v5-m6a-cost-hook-artifacts-root and hybrid/v5-m6b-driver-artifacts-root to origin itself",
-  "pr_create": "fails: GraphQL: Body is too long (maximum is 65536 characters)",
-  "gap_1": "The receipt is the PR body per section 4.5, and V5-M6a's receipt is 165515 bytes -- it carries the worker's full stdout, which is now the only transcript since the hand-pass removed the export path. The body has to become a bounded summary pointing at the receipt.",
-  "gap_2": "The driver never commits the worker's changes. The branch it pushed points at the packet's starting_commit: post_gates reads the diff from the working tree with git diff --name-only <starting_commit>, and nothing commits it between the worker finishing and the push. Even with a short enough body the PR would have been empty.",
-  "both": "additive, unprotected, rule-9 shaped, and neither is in the brief -- so neither was actioned"
+  "achieved": true,
+  "packet": "V5-M11-path-matcher",
+  "pr": 75,
+  "verified_by": [
+   "driver exit 0 with pr.opened true and no failed_step",
+   "PR body 414 bytes, generated, not the receipt",
+   "commit 528e528 carries the worker diff, the stripped receipt and the text sidecar",
+   "merge-preview 590 green, validator green, both hook suites green"
+  ],
+  "what_it_took": "M-9 (commit), M-10a (scan), M-10c (capture), M-10b (bounded body)"
  },
  "reference_patch_cost": {
   "with_a_reference_patch": [
