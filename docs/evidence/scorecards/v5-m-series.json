@@ -722,6 +722,23 @@
    "from": "V5-M11",
    "summary": "V5-M11 is the only M-series packet missing from main, and it is missing precisely BECAUSE it was the first fully-automated run. For M-10a, M-10c and M-10b the coordinator opened the PR by hand and added the packet JSON to the branch while doing so. The driver opens the PR without that step, and it does not commit the packet it was given -- so removing the hand step silently removed the evidence the hand step was also carrying.",
    "proposed": "the receipt-capture step should commit the packet JSON alongside receipt.json and worker-stdout.txt. It is the same directory, the same commit, and the packet is already on disk in the coordinator's checkout."
+  },
+  {
+   "id": "a-protected-path-reached-main-unattested",
+   "from": "commit 6b7265a, PR #74, 2026-08-24",
+   "summary": "A commit modifying templates/dispatch/scripts/hybrid_dispatch.py -- a protected path, coordinator-only, the contract that bounds the worker -- reached main inside PR #74 under the title 'feat(dispatch): a bounded PR body for the driver (M-10b)'. It was authored by a concurrent agent working the same checkout, had zero test coverage, and was never reviewed by the coordinator. Planning found the same edit attempted three times across unmerged branches (630fc31, 0a9138b), one of them carrying a fixture that asserted the wholesale copy -- i.e. asserted the regression.",
+   "why_nothing_caught_it": "The gate asserts protected-paths-untouched over the WORKER's commit, and the worker's commit was clean. Acceptance happens over the merged PR, onto which the coordinator had stacked this commit. PR #74's gate table truthfully read protected-paths-untouched: true while that PR modified a protected path.",
+   "classification": "harness and process, not a tier failure. No worker was involved.",
+   "remediated_by": "this hand-pass: the provider copy is narrowed so no credential can travel, the containment prefix is defined once and shared with the qualification probe, the PR body now names the commit the gate covered and says later commits were not gated, and a CI check fails any PR touching a protected path unless its title declares 'hand-pass:'.",
+   "rejected_alternatives": [
+    "re-running diff-scope-respected over the whole branch diff: would fail every packet, because the coordinator's evidence and oracle-reconciliation commits are legitimately outside writable_patch_paths",
+    "forbidding coordinator commits on packet branches: doubles the PR count for no invariant gained"
+   ]
+  },
+  {
+   "id": "set-home-closes-no-leak-probe-2026-08-24",
+   "summary": "The justification given for --set-home -- that without it the contained worker was reading the coordinator's ~/.ssh, ~/.config/gh and opencode auth store -- does not hold. Probed directly as agentworker: those paths exist but are NOT readable; filesystem permissions already denied them. --set-home points the worker's HOME at its own rather than at one it cannot read. It is hygiene, not a boundary, and the fixtures say so.",
+   "what_the_probe_did_establish": "OPENCODE_CONFIG_CONTENT REPLACES rather than merges -- the worker has no opencode config or auth store anywhere and /home/agentworker does not exist -- so a provider registry must travel in the overlay or a model alias cannot resolve. And the worker completed real inference with no credential file at all, which makes options.apiKey in the overlay the ONLY credential-shaped value that ever crosses the boundary. That is what makes narrowing the copy the whole of the credential story rather than part of it."
   }
  ],
  "d8": {

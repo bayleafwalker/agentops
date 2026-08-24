@@ -504,6 +504,28 @@ def run_fake_probes(profile_path: Path = DEFAULT_PROFILE, config_path: Path = DE
     }
 
 
+#: The containment flags are defined in hybrid_dispatch and loaded here rather
+#: than restated, so the probe cannot drift from the dispatcher again.
+_dispatch = importlib.util.module_from_spec(
+    importlib.util.spec_from_file_location(
+        "_hybrid_dispatch_for_probe", Path(__file__).resolve().parent / "hybrid_dispatch.py",
+    )
+)
+_dispatch.__loader__.exec_module(_dispatch)  # type: ignore[union-attr]
+
+
+def contained_sudo_prefix(worker_user: str) -> list[str]:
+    """The containment prefix, taken from hybrid_dispatch rather than repeated.
+
+    These two drifted once already: ``--set-home`` was added to dispatch and not
+    here, so every profile this probe measured described the CLI running under
+    the coordinator's HOME while production ran under the worker's. A probe that
+    measures a different environment than dispatch uses is not evidence for
+    dispatch, which is the whole point of the profile.
+    """
+    return ["sudo", *_dispatch.CONTAINED_SUDO_FLAGS, "--user", worker_user]
+
+
 def _sudo(
     worker_user: str,
     command: list[str],
@@ -513,7 +535,7 @@ def _sudo(
     timeout: int | None = None,
     preserve_config: bool = False,
 ) -> subprocess.CompletedProcess[str]:
-    sudo_args = ["sudo", "--non-interactive", "--user", worker_user]
+    sudo_args = [*contained_sudo_prefix(worker_user)]
     if preserve_config:
         sudo_args.append("--preserve-env=OPENCODE_CONFIG_CONTENT")
     return subprocess.run(

@@ -242,6 +242,7 @@ def _disposition(final: dict[str, Any]) -> str | None:
 
 def build_pr_body(
     packet: dict[str, Any], final: dict[str, Any], capture: dict[str, Any],
+    commit_sha: str | None = None,
 ) -> str:
     """The bounded PR body: task, commit, disposition, gate table, spend, and
     the captured receipt's path -- or a note that the transcript was withheld.
@@ -273,10 +274,26 @@ def build_pr_body(
         lines.append(f"- receipt: {capture['path']}")
     else:
         lines.append("- receipt: withheld (the transcript was not captured)")
+    if commit_sha:
+        lines.append(f"- worker_commit: {commit_sha}")
     lines.append("")
     lines.append("## Gates")
     for name, value in _gate_table(final).items():
         lines.append(f"- {name}: {'true' if value else 'false'}")
+    if commit_sha:
+        # The gate ran over the worker's commit. Acceptance happens over the
+        # merged pull request, and the coordinator routinely adds commits to
+        # this branch afterwards -- oracle reconciliations, evidence, and on one
+        # occasion a change to a protected path, while the table above still
+        # read protected-paths-untouched: true. Widening the gate to the whole
+        # branch is the wrong fix, because those commits are legitimately
+        # outside the packet's writable paths. Saying what the table covers is
+        # the right one.
+        lines.append("")
+        lines.append(
+            f"The gate table above was computed over `{commit_sha[:12]}` only. "
+            "Commits added to this branch afterwards were not gated."
+        )
     return "\n".join(lines) + "\n"
 
 
@@ -827,13 +844,6 @@ def drive(
         # never the captured copy. It is bounded no matter how large the receipt
         # is, and it carries no part of the worker's transcript. gh pr create
         # points --body-file at it.
-        body_path = worktree.parent / f"{packet['task_id']}.pr-body.md"
-        body_path.write_text(
-            build_pr_body(packet, final, pr["receipt"]), encoding="utf-8",
-        )
-        pr["body_file"] = str(body_path)
-        cmd = pr_command(packet, body_path, base_branch, title, gh_bin)
-        pr["command"] = cmd
         # M-9: the commit is the next thing the PR step hands onward, and it
         # precedes remote resolution so an unresolvable remote still leaves the
         # work committed on the packet branch.
@@ -841,6 +851,23 @@ def drive(
         if commit is None:
             return pr_failed("commit", commit_code, commit_stderr)
         pr["commit"] = commit
+        # M-10b: the PR body is generated to its own file, never the receipt and
+        # never the captured copy. It is bounded no matter how large the receipt
+        # is, and it carries no part of the worker's transcript. gh pr create
+        # points --body-file at it.
+        #
+        # It is written AFTER the commit so it can name the sha the gate ran
+        # over. The body lives in worktree.parent, outside the tree being
+        # committed, so writing it later changes nothing about what the commit
+        # contains -- and the captured receipt still has to precede the commit.
+        body_path = worktree.parent / f"{packet['task_id']}.pr-body.md"
+        body_path.write_text(
+            build_pr_body(packet, final, pr["receipt"], commit.get("sha")),
+            encoding="utf-8",
+        )
+        pr["body_file"] = str(body_path)
+        cmd = pr_command(packet, body_path, base_branch, title, gh_bin)
+        pr["command"] = cmd
         # The remote comes back here, in the driver, after the worker is done:
         # prepare_workspace deliberately removes origin from the worker's clone,
         # so the PR step has to re-add it. Resolution is read-only against the

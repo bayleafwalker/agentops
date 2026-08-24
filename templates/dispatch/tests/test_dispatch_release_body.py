@@ -431,6 +431,28 @@ class BodyTests(_DriverFixture):
                 f"the {name} row renders {not value}: {rows[0]!r}",
             )
 
+    # 18b. The gate runs over the worker's commit; acceptance happens over the
+    # merged PR, and the coordinator routinely adds commits to the branch after
+    # the gate has run -- oracle reconciliations, evidence, and on one occasion
+    # a change to a protected path. PR #74's gate table truthfully reported
+    # protected-paths-untouched while that PR modified a protected path. The
+    # body must therefore name the commit the table was computed over, and say
+    # that later commits were not covered. Widening the gate is the wrong fix:
+    # the coordinator's commits are legitimately outside writable_patch_paths.
+    def test_the_body_names_the_commit_the_gate_covered_and_scopes_it(self):
+        report = self._drive_with_stdout(build_stdout())
+        body = self._body_text(report)
+        self.assertIn(
+            COMMITTED_SHA[:12], body,
+            "the body does not name the worker commit the gate ran over",
+        )
+        lowered = body.lower()
+        self.assertTrue(
+            "not gated" in lowered or "were not covered" in lowered
+            or "not covered" in lowered,
+            "the body does not say that later commits on the branch were not gated",
+        )
+
     # 19. When the scan fires there is no path to point at, so the body says so
     # rather than pointing at a file that was never written -- and it does not
     # become the place the secret leaks instead.

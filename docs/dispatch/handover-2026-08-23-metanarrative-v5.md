@@ -186,6 +186,36 @@ What the evidence says, for whoever picks this up:
 
 Remaining from this brief: **T-6/T-7** (scorecard script) and **L-5** (release-unit template).
 
+## 3f. Hand-pass, 2026-08-24 — containment, and the gate's honest scope
+
+A commit modifying `hybrid_dispatch.py` reached main inside PR #74 under a title about
+something else, unreviewed and untested. The gate did not catch it and could not: it asserts
+`protected-paths-untouched` over the **worker's commit**, while acceptance happens over the
+**merged PR**, onto which the coordinator routinely stacks commits.
+
+- **Rule 14 — a PR that touches a protected path must say so in its title.** Enforced by
+  `.github/workflows/protected-paths.yml`, which fails any PR whose diff against base hits
+  `hybrid.protected_paths` unless the title begins `hand-pass:`. Zero coordinator minutes per
+  packet; it would have caught 6b7265a at PR time. Glob semantics come from
+  `hybrid_dispatch._matches_any`, not a fourth reimplementation.
+- **The PR body now names the commit the gate covered** and states that later commits on the
+  branch were not gated. That is the honest scoping; widening the gate is not.
+- **Rejected, so it is not relitigated:** re-running `diff-scope-respected` over the whole
+  branch (would fail every packet — coordinator evidence commits are legitimately outside
+  `writable_patch_paths`), and forbidding coordinator commits on packet branches (doubles the
+  PR count for no invariant gained).
+- **The worker's provider registry is narrowed**, not copied. Probing established that
+  `OPENCODE_CONFIG_CONTENT` replaces rather than merges, that the worker has no config or auth
+  store at all, and that it infers with no credential file — so `options.apiKey` in the overlay
+  is the only credential-shaped value that can cross. It is now forced to a placeholder and
+  unknown provider keys are dropped.
+- **`--set-home` closes no leak.** The claim that it stopped the worker reading the
+  coordinator's `~/.ssh` and opencode auth store is false: probed, those are already unreadable
+  by permission. Keep it — it points HOME at the worker's own — but do not describe it as a
+  boundary.
+- **The qualification probe and dispatch now share one containment prefix.** They had silently
+  diverged, so every profile measured an environment production no longer used.
+
 ## 3. Packets to freeze and run, in order
 
 Each row: what the oracle must assert, the writable file, and the spec source. Write the
