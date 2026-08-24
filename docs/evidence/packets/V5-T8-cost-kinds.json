@@ -1,0 +1,115 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-T8-cost-kinds",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 25,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "Three oracles decide this together: test_release_scorecard_build.py (the new cost block), test_release_scorecard_worse.py (the detector reading the frontier half), and test_release_scorecard_kinds.py, whose only job is that the two kinds of number never get conflated again -- doubling the frontier figure must not move the billed total.",
+    "starts_red": [
+      "agentops.dispatch.tests.scorecard_build",
+      "agentops.dispatch.tests.scorecard_worse",
+      "agentops.dispatch.tests.scorecard_kinds"
+    ],
+    "reference_patch": "docs/evidence/packets/V5-T8-cost-kinds.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "5be7cbfac83edb0df727944fe3c8cee26c46bdf6",
+  "purpose": "Stop build_scorecard from adding two numbers that are not the same kind. Its cost_usd block currently reports frontier, worker, and a total that is their sum -- but the frontier figure is computed by the Stop hook as tokens multiplied by a hardcoded 2025 list-price table, so nothing meters it and on a subscription plan it is never billed, while the worker figure is OpenCode's own step-finish accounting of real metered API spend that is actually charged. Adding an imputed list price to real money and calling it a total is a category error, and in the live run it read $241.43 of which eleven cents was money. A scorecard that reports that as a total will be read as spend by whoever opens it next, which is the exact failure the two-source design existed to prevent. Replace the block with exactly five keys. worker_billed_usd is the real metered spend that worker_totals reports, and is the only money in the system. frontier_usage_equivalent_usd is the imputed figure that frontier_totals reports, preserved and merely renamed -- the point is to label it, not to hide it. total_billed_usd equals worker_billed_usd, named so that a reader asking what this cost gets the true answer without having to know any of the above; there must be no key anywhere holding frontier plus worker, because that sum is the defect. commensurable is always False, stated in the data rather than only in a docstring so that a consumer can assert on it. total_reliable keeps its meaning, the worker half's cost_reported. Then make detect_worse's turns_flat_cost_up signal read frontier_usage_equivalent_usd rather than the old total: the frontier's own usage figure is what turns flat while cost rises is about, and it is the half that moves with coordinator behaviour, so a worker that costs more must not fire that alarm. Its values entries stay a turns and figure pair. Everything else is settled and must not change: reduce_sessions, frontier_totals, worker_spend_from_receipt, worker_totals, the loaders, the window filter, main and the entry point. Leave no debugging output behind.",
+  "readable_context_paths": [
+    "templates/dispatch/tests/test_release_scorecard_build.py",
+    "templates/dispatch/tests/test_release_scorecard_worse.py",
+    "templates/dispatch/tests/test_release_scorecard_kinds.py",
+    "templates/dispatch/scripts/release_scorecard.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/release_scorecard.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/scripts/release_unit_packet.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "the cost block has exactly the five named keys and no sum of the two halves",
+    "total_billed_usd equals worker_billed_usd, even when the frontier figure is large",
+    "frontier_usage_equivalent_usd still carries frontier_totals' figure unchanged",
+    "commensurable is False for every input including empty ones",
+    "detect_worse reads the frontier usage figure, not a mixed total",
+    "a rising worker figure alone does not fire turns_flat_cost_up",
+    "nothing else in the module changes"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "an imputed figure is never added to real money",
+      "command_id": "agentops.dispatch.tests.scorecard_kinds",
+      "fails_when": "doubling the sink rows' cost moves total_billed_usd, or any key holds frontier plus worker"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "the billed total is the billed total",
+      "command_id": "agentops.dispatch.tests.scorecard_build",
+      "fails_when": "total_billed_usd differs from worker_billed_usd, the key set is not exactly the five names, or commensurable is not False"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "the worse-detector watches the frontier half",
+      "command_id": "agentops.dispatch.tests.scorecard_worse",
+      "fails_when": "turns_flat_cost_up reads a mixed total, or fires when only the worker figure rose"
+    }
+  ],
+  "non_goals": [
+    "the hook's pricing table, which is not this packet's to change",
+    "the loaders, the window filter, main and the entry point",
+    "hiding the frontier figure -- it is renamed and labelled, not removed"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.scorecard_build",
+    "agentops.dispatch.tests.scorecard_worse",
+    "agentops.dispatch.tests.scorecard_kinds"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-t8-cost-kinds",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  }
+}
