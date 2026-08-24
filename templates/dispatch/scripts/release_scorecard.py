@@ -7,8 +7,30 @@ session and ``frontier_totals`` sums over those survivors only.
 
 import json
 import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+_REQUIRED_FLAGS = ("release", "sink", "receipts", "out")
+_KNOWN_FLAGS = frozenset(_REQUIRED_FLAGS + ("since", "until", "escalations"))
+
+_USAGE = """\
+usage: release_scorecard.py --release RELEASE --sink SINK --receipts RECEIPTS --out OUT [--since SINCE] [--until UNTIL] [--escalations ESCALATIONS]
+
+Reduce the Stop-hook sink and packet receipts into a release scorecard.
+
+required:
+  --release RELEASE    release name the scorecard is filed under
+  --sink SINK          JSON-lines Stop-hook sink
+  --receipts RECEIPTS  directory of <task>/receipt.json files
+  --out OUT            scorecard path to write
+
+optional:
+  --since SINCE        lower bound (inclusive) on ts / recorded_at
+  --until UNTIL        upper bound (exclusive) on ts / recorded_at
+  --escalations FILE   JSON-lines escalation records (default: none)
+  --help               show this help and exit
+"""
 
 
 def reduce_sessions(rows):
@@ -305,16 +327,37 @@ def main(argv):
     means an empty list rather than an error. Writes build_scorecard's output
     to --out as indent-2 JSON with a trailing newline, creating the parent
     directory if missing, and returns 0.
+
+    The four required flags are validated before anything is written: a
+    missing one, or an unknown flag, writes an error to stderr and returns
+    non-zero without touching --out. --help prints the flags to stdout and
+    returns 0.
     """
     args = {}
     index = 0
     while index < len(argv):
         flag = argv[index]
-        if flag.startswith("--") and index + 1 < len(argv):
-            args[flag[2:]] = argv[index + 1]
-            index += 2
-        else:
+        if flag == "--help":
+            sys.stdout.write(_USAGE)
+            return 0
+        if not flag.startswith("--"):
             index += 1
+            continue
+        name = flag[2:]
+        if name not in _KNOWN_FLAGS:
+            sys.stderr.write(f"error: unknown flag {flag}\n")
+            return 2
+        if index + 1 >= len(argv):
+            sys.stderr.write(f"error: {flag} requires a value\n")
+            return 2
+        args[name] = argv[index + 1]
+        index += 2
+    missing = [name for name in _REQUIRED_FLAGS if name not in args]
+    if missing:
+        sys.stderr.write(
+            "error: missing required flag(s): "
+            + ", ".join("--" + name for name in missing) + "\n")
+        return 2
     release = args.get("release")
     sink_path = args.get("sink")
     receipts_root = args.get("receipts")
@@ -339,3 +382,7 @@ def main(argv):
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(scorecard, indent=2) + "\n", encoding="utf-8")
     return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
