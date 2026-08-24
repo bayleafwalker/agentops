@@ -19,9 +19,9 @@
     ],
     "reference_patch": "docs/evidence/packets/V5-M12-scan-hardening.reference.patch"
   },
-  "attempt": 1,
-  "starting_commit": "ffefcd3d5bbc51c9003c3eb8062f48fa2c3e644f",
-  "purpose": "Harden scan_for_secrets in templates/dispatch/scripts/dispatch_release.py. It is the only control between worker output and a committed file, and independent review found two compounding gaps. First, every pattern is case-sensitive, so 'Authorization: Bearer' is caught and 'authorization: bearer' is not -- and the lowercase form is what a shell or a JSON dump actually emits. Second, the only general-purpose pattern requires '=', while the scan's own primary input is json.dumps(receipt), where every separator is ':'; on that half of its input the scan degrades to a handful of vendor prefixes. Make matching case-insensitive where case carries no meaning, and make the general-purpose assignment pattern accept ':' as well as '=', a quoted or bare key, a quoted or bare value, and a key that carries a prefix such as aws_secret_access_key. Add the vendor formats the scan does not know: OpenAI sk-, Anthropic sk-ant-, Google AIza, Stripe sk_live_ and sk_test_, npm_, pypi-, JSON Web Tokens, and URL basic auth of the form scheme://user:password@host. Keep every shape M-10a already detects -- a regression there is as bad as a new miss. Findings must still be pattern NAMES and never the matched text or any tail of it, and the names must still tell the kinds apart. Above all do not become permissive: ordinary worker prose, git hashes, nix store paths, sha256- SRI strings, gate JSON with no secrets, prose that merely mentions api_key or password, and long identifiers must all return an empty list. A value of fewer than twenty characters is not a secret. Change nothing else: capture_receipt, the body generator, _path_allowed, PR_STEP_NAMES, the L-2 stop conditions and the L-4 retry all stay exactly as they are. Leave no debugging output behind.",
+  "attempt": 2,
+  "starting_commit": "27eca8c0c216525f89e9c8e6864adf1d3948b507",
+  "purpose": "Harden scan_for_secrets in templates/dispatch/scripts/dispatch_release.py. It is the only control between worker output and a committed file, and independent review found two compounding gaps. First, every pattern is case-sensitive, so 'Authorization: Bearer' is caught and 'authorization: bearer' is not -- and the lowercase form is what a shell or a JSON dump actually emits. Second, the only general-purpose pattern requires '=', while the scan's own primary input is json.dumps(receipt), where every separator is ':'; on that half of its input the scan degrades to a handful of vendor prefixes. Make matching case-insensitive where case carries no meaning, and make the general-purpose assignment pattern accept ':' as well as '=', a quoted or bare key, a quoted or bare value, and a key that carries a prefix such as aws_secret_access_key. Add the vendor formats the scan does not know: OpenAI sk-, Anthropic sk-ant-, Google AIza, Stripe sk_live_ and sk_test_, npm_, pypi-, JSON Web Tokens, and URL basic auth of the form scheme://user:password@host. Keep every shape M-10a already detects -- a regression there is as bad as a new miss. Findings must still be pattern NAMES and never the matched text or any tail of it, and the names must still tell the kinds apart. Above all do not become permissive: ordinary worker prose, git hashes, nix store paths, sha256- SRI strings, gate JSON with no secrets, prose that merely mentions api_key or password, and long identifiers must all return an empty list. A value of fewer than twenty characters is not a secret. Change nothing else: capture_receipt, the body generator, _path_allowed, PR_STEP_NAMES, the L-2 stop conditions and the L-4 retry all stay exactly as they are. The patterns must match in time proportional to the input: a transcript holds minified files, base64 blobs and lines with no whitespace, and a pattern that backtracks catastrophically on one of those hangs the capture step between a finished worker and its evidence. Scanning two hundred thousand unbroken characters must finish in well under a second. Avoid nested or adjacent unbounded quantifiers over the same character class. Leave no debugging output behind.",
   "readable_context_paths": [
     "templates/dispatch/scripts/dispatch_release.py",
     "templates/dispatch/tests/test_dispatch_release_scanhardening.py"
@@ -48,7 +48,8 @@
     "every shape M-10a detected is still detected",
     "findings are pattern names, never the matched text, and still distinguish the kinds",
     "ordinary prose, hashes, store paths, SRI strings and secret-free JSON return an empty list",
-    "nothing else in the driver changes, and no debugging output is left behind"
+    "nothing else in the driver changes, and no debugging output is left behind",
+    "matching is linear in the input: 200 000 unbroken characters scan in well under a second"
   ],
   "acceptance_properties": [
     {
@@ -68,6 +69,12 @@
       "requirement": "the scan does not withhold everything",
       "command_id": "agentops.dispatch.tests.scanhardening",
       "fails_when": "prose, git hashes, nix store paths, SRI strings, secret-free JSON, prose naming the concepts, or long identifiers produce any finding"
+    },
+    {
+      "id": "REQ-004",
+      "requirement": "the scan cannot hang the capture step",
+      "command_id": "agentops.dispatch.tests.scanhardening",
+      "fails_when": "scanning 50 000 or 200 000 unbroken characters does not return within two seconds"
     }
   ],
   "non_goals": [
@@ -103,5 +110,16 @@
       "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
       "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
     ]
+  },
+  "retry_context": {
+    "previous_attempt": 1,
+    "previous_disposition": "candidate",
+    "previous_pr": 77,
+    "previous_spend": {
+      "cost_usd": 0.030386,
+      "tokens": 428716
+    },
+    "cause": "Attempt 1's diff was functionally correct -- every secret shape detected, every silence fixture clean, 596 green, PR opened by the driver with no hand step -- but its patterns backtrack catastrophically: 50 000 unbroken characters do not finish in two seconds. The coordinator's reference patch does 200 000 in 25 milliseconds, so this is the tier's defect and not the spec's -- but the oracle had no fixture feeding a long unbroken token, which is the coordinator's gap.",
+    "changed_for_this_attempt": "one added fixture bounding the scan's work by interrupting it, and one purpose clause requiring linear-time matching. The oracle is otherwise unchanged."
   }
 }
