@@ -529,6 +529,11 @@ class OverlayTests(unittest.TestCase):
             with self.subTest(key=key):
                 self.assertEqual(agent[key], "deny")
 
+    def test_overlay_preserves_the_declared_provider_registry(self) -> None:
+        overlay = self._overlay()
+        self.assertEqual(overlay["provider"], self.base["provider"])
+        self.assertIn("local3090", overlay["provider"])
+
     def test_overlay_hash_is_stable_and_content_addressed(self) -> None:
         first = dispatch.overlay_hash(self._overlay())
         self.assertEqual(first, dispatch.overlay_hash(self._overlay()))

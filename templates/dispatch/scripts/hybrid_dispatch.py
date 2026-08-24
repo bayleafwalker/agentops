@@ -583,6 +583,11 @@ def build_overlay(
     overlay = {
         "$schema": base_config.get("$schema", "https://opencode.ai/config.json"),
         "model": model,
+        # The session overlay replaces the worker's config, so preserve the
+        # route's declared provider registry. Without this, a contained worker
+        # can receive a model alias such as local3090/worker-fast but OpenCode
+        # has no provider definition with which to resolve it.
+        "provider": base_config.get("provider", {}),
         "permission": dict(permission),
         "agent": {
             agent_name: {
