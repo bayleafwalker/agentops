@@ -38,7 +38,8 @@
     },
     "task_id": {
       "type": "string",
-      "pattern": "^[A-Z0-9]+-[A-Za-z0-9._-]+$"
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9.]*-[A-Za-z0-9._-]+$",
+      "description": "Stable id for the packet. It becomes a branch component and a directory name under docs/evidence/receipts/, so it must be safe as a path segment: it starts alphanumeric, carries a hyphen-separated suffix, and admits no whitespace or separators. The first segment accepts lowercase and dots so a release-unit id such as 'v5.2-release-unit' is expressible -- the earlier ^[A-Z0-9]+- form rejected every one of them."
     },
     "repo_id": {
       "type": "string",
@@ -307,6 +308,81 @@
         "references": {
           "type": "array",
           "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "gate_set": {
+      "type": "array",
+      "description": "The ordered gate set for a release-unit packet, from pathway section 5. Order is load-bearing rather than decorative: a cold prepare that runs after the suite proves nothing, because the suite has already written to the tree it was meant to find clean. Produced by release_unit_packet.py so that no two sub-releases disagree about what 'gated' meant.",
+      "items": {
+        "type": "object",
+        "required": [
+          "order",
+          "gate"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "order": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "1-based position in the pathway's gate order."
+          },
+          "gate": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Stable gate identifier a receipt and scorecard refer to later."
+          }
+        }
+      }
+    },
+    "stop_conditions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "The encoded L-2 stop conditions this packet is subject to, as stable identifiers. Carried explicitly on a release-unit packet so the orchestrator does not have to reconstruct them per sub-release."
+    },
+    "debt": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Refactors this packet defers, one line each. Rule 7 of the metanarrative brief requires a packet to carry one whenever it defers work; under owner constraint C-3 that is expected rather than a smell, and the accumulated list feeds the v5.9 refactor pass. In use since V5-M10b and undeclared here until 2026-08-24."
+    },
+    "retry_context": {
+      "type": "object",
+      "description": "Why this packet is being retried, carried into the worker's purpose. L-4 appends the prior gate's stdout_tail and stderr_tail here; the coordinator adds the prior attempts' dispositions, spend and diagnosed cause so a retry is not re-litigated from a transcript. Free-form by design -- the fields differ per failure -- so this object is deliberately not closed."
+    },
+    "amendments": {
+      "type": "array",
+      "description": "Coordinator amendments to a frozen packet, newest last. A packet is frozen at a commit, so a spec row that turns out to contradict another cannot simply be rewritten in place without the change becoming invisible; recording it here keeps the packet's history auditable against its receipt. In use since V5-M9 and undeclared here until 2026-08-24.",
+      "items": {
+        "type": "object",
+        "required": [
+          "date",
+          "amends",
+          "now_reads",
+          "why"
+        ],
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "amends": {
+            "type": "string",
+            "minLength": 1
+          },
+          "now_reads": {
+            "type": "string",
+            "minLength": 1
+          },
+          "why": {
             "type": "string",
             "minLength": 1
           }
