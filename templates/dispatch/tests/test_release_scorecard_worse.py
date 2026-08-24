@@ -8,8 +8,8 @@ those scorecards and says whether the loop is getting worse:
 
 ``scorecards`` arrives in release order, oldest first. The pathway names what
 "worse" looks like so it is recognizable rather than argued about: rework rounds
-up, escalations up, or frontier turns flat while cost rises -- any one of them
-for two consecutive releases. Two consecutive releases means the signal worsened
+up, escalations up, or frontier turns flat while the frontier's own cost rises
+-- any one of them for two consecutive releases. Two consecutive releases means the signal worsened
 across two consecutive TRANSITIONS, so it takes THREE scorecards to fire. One bad
 release is noise; two in a row is a trend, and that shape is what most of the
 tests below exist to hold down.
@@ -25,6 +25,13 @@ Three properties are load-bearing and are asserted directly:
   everywhere gets exactly one of these wrong.
 * "not enough series" is not "not worse". Fewer than three scorecards sets
   ``insufficient_series`` True so a caller cannot read one as the other.
+
+The cost half ``turns_flat_cost_up`` reads is
+``cost_usd["frontier_usage_equivalent_usd"]``, NOT the billed total. The signal
+asks "am I burning more frontier attention-equivalent for the same number of
+turns", and that is the half that moves with coordinator behaviour. A worker
+that costs more money is a different question and must not fire this alarm --
+see ``WorkerHalfIsNotTheSignalTests``.
 
 ``detect_worse`` is pure: no file reads, no writes, no argv.
 
@@ -69,22 +76,30 @@ TOP_LEVEL_KEYS = frozenset({"worse", "signals", "insufficient_series"})
 SIGNAL_ORDER = ("rework", "escalations", "turns_flat_cost_up")
 
 
-def card(release, rework, turns, escalations, cost):
+def card(release, rework, turns, escalations, cost, worker=0.001):
     """Return a minimal scorecard-shaped dict.
 
     Deliberately hand-written rather than produced by ``build_scorecard``: the
     detector must be gradeable on a synthetic series, and coupling the two
     would make this oracle fail for the assembly's reasons instead of its own.
-    Only the five fields the rule actually reads are populated, plus the
+    Only the fields the rule actually reads are populated, plus the
     surrounding shape so a detector that indexes the real scorecard layout
-    finds what it expects.
+    finds what it expects. ``cost`` is the frontier usage-equivalent -- the
+    half the signal is about -- and ``worker`` is the billed money, held at a
+    constant trickle unless a test moves it deliberately.
     """
     return {
         "schema_version": "workflow-scorecard/v1",
         "release": release,
         "frontier": {"rework_rounds": rework, "turns": turns},
         "escalations": {"count": escalations},
-        "cost_usd": {"total": cost},
+        "cost_usd": {
+            "frontier_usage_equivalent_usd": cost,
+            "worker_billed_usd": worker,
+            "total_billed_usd": worker,
+            "commensurable": False,
+            "total_reliable": True,
+        },
     }
 
 
@@ -373,6 +388,54 @@ class ReleasesAndValuesTests(unittest.TestCase):
         entry = result["signals"][0]
         self.assertEqual(entry["signal"], "turns_flat_cost_up")
         self.assertEqual(entry["values"], [[6, 3.0], [6, 4.5], [6, 5.25]])
+
+
+class WorkerHalfIsNotTheSignalTests(unittest.TestCase):
+    """``turns_flat_cost_up`` is about the FRONTIER half, not billed money.
+
+    The two figures are not the same kind of number: the frontier one is an
+    imputed list price that tracks coordinator behaviour, the worker one is
+    real metered spend on a delegated task. A release that delegated more work
+    to a cheap worker is not the "paying more for the same attention" failure
+    this signal names, so it must stay quiet.
+    """
+
+    def test_worker_cost_climbing_with_flat_frontier_does_not_fire(self):
+        # turns held flat at 6 -- the other half of the condition is satisfied
+        # -- while worker_billed_usd climbs 0.01 -> 1.0 -> 90.0 and the
+        # frontier usage-equivalent stays put at 3.0. A detector reading the
+        # billed figure, or a resurrected frontier+worker total, fires here.
+        flat_frontier = [
+            card("r1", 3, 6, 3, 3.0, worker=0.01),
+            card("r2", 2, 6, 2, 3.0, worker=1.0),
+            card("r3", 1, 6, 1, 3.0, worker=90.0),
+        ]
+        result = scorecard.detect_worse(flat_frontier)
+        self.assertIs(
+            result["worse"], False,
+            "a worker whose billed spend climbed fired turns_flat_cost_up; "
+            "the signal reads the frontier usage-equivalent, not money",
+        )
+        self.assertEqual(result["signals"], [])
+        self.assertIs(result["insufficient_series"], False)
+
+    def test_the_frontier_half_still_fires_while_worker_spend_falls(self):
+        # The mirror: billed money drops the whole way, but the frontier
+        # usage-equivalent climbs with flat turns. That IS the alarm.
+        rising_frontier = [
+            card("r1", 3, 6, 3, 3.0, worker=90.0),
+            card("r2", 2, 6, 2, 4.0, worker=1.0),
+            card("r3", 1, 6, 1, 5.0, worker=0.01),
+        ]
+        result = scorecard.detect_worse(rising_frontier)
+        self.assertIs(result["worse"], True)
+        self.assertEqual(
+            [s["signal"] for s in result["signals"]], ["turns_flat_cost_up"]
+        )
+        self.assertEqual(
+            result["signals"][0]["values"], [[6, 3.0], [6, 4.0], [6, 5.0]],
+            "values must carry [turns, frontier_usage_equivalent_usd]",
+        )
 
 
 class PurityTests(unittest.TestCase):
