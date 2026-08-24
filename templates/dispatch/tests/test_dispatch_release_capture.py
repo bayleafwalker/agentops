@@ -492,6 +492,22 @@ class CaptureTests(_DriverFixture):
                 self.assertFalse(
                     (worktree / CAPTURED_STDOUT).exists(), "the sidecar was written anyway",
                 )
+                # Naming the two files is not enough. A driver that reports the
+                # transcript as withheld and writes it to a THIRD file beside
+                # them has leaked the secret into the commit while every other
+                # assertion here still passes -- the withholding path's whole
+                # purpose, defeated, with the suite green. The property is that
+                # a finding writes nothing, not that it skips two known names.
+                # Scoped to the whole worktree, not to the capture directory.
+                # git add -A stages everything in the worktree, so a transcript
+                # written to worktree/leaked.txt, or under another task's
+                # receipts directory, reaches the commit just as surely -- and a
+                # task-scoped scan sees neither. The property is that a finding
+                # writes NOTHING ANYWHERE, not that one directory stays clean.
+                leaked = [q for q in worktree.rglob("*") if q.is_file()]
+                self.assertEqual(
+                    leaked, [], f"a withheld capture left files behind: {leaked}",
+                )
                 self.assertTrue(report["pr"]["opened"], "the PR was not opened")
 
     # 11. The withholding is recorded by name, and the record quotes nothing.
