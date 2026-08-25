@@ -1,0 +1,119 @@
+diff --git a/templates/dispatch/scripts/gate_tiers.py b/templates/dispatch/scripts/gate_tiers.py
+new file mode 100644
+index 0000000..79f5ba1
+--- /dev/null
++++ b/templates/dispatch/scripts/gate_tiers.py
+@@ -0,0 +1,113 @@
++#!/usr/bin/env python3
++"""Stratify a packet's registered gates without reducing what must pass.
++
++``agentops#2046`` asks for "fast attempt falsifiers, focused candidate gates,
++and one full suite" and, in the same breath, that stratification "does not skip
++the final required repository gate".
++
++The two are reconciled by keeping the split strictly about *order*. A plan may
++stop early -- that is the point, a fast falsifier is cheaper than the suite it
++saves -- but ``candidate_ready`` still asks for every granted gate, so stopping
++early can only ever mean "not a candidate yet", never "candidate on less
++evidence".
++
++A packet that declares no ``gate_tiers`` is not stratified and is not an error:
++every granted id lands in ``full``, which is what every packet frozen before
++this row already meant.
++
++No receipt wiring, no CLI, no file I/O.
++"""
++from __future__ import annotations
++
++TIER_ORDER = ("fast", "focused", "full")
++
++
++def stratify(packet):
++    """Return ``{tier: [command_id, ...]}`` for every tier in ``TIER_ORDER``.
++
++    Raises ``ValueError`` when the declaration and the grant disagree. The
++    grant is ``allowed_command_ids``: a tier may only arrange ids the packet
++    was already given, never introduce one, because a new field must not be a
++    way to widen a packet's own authority.
++    """
++    granted = list(packet.get("allowed_command_ids") or [])
++    declared = packet.get("gate_tiers")
++    if declared is None:
++        return {"fast": [], "focused": [], "full": list(granted)}
++
++    unknown = [name for name in declared if name not in TIER_ORDER]
++    if unknown:
++        raise ValueError(
++            f"gate_tiers names unknown tier(s) {sorted(unknown)}; "
++            f"the tiers are {list(TIER_ORDER)}"
++        )
++
++    result = {tier: list(declared.get(tier) or []) for tier in TIER_ORDER}
++
++    seen: set[str] = set()
++    for tier in TIER_ORDER:
++        for command_id in result[tier]:
++            if command_id not in granted:
++                raise ValueError(
++                    f"gate_tiers[{tier!r}] names {command_id!r}, which is not granted "
++                    "by allowed_command_ids"
++                )
++            if command_id in seen:
++                raise ValueError(
++                    f"{command_id!r} appears in more than one tier; a gate that ran in "
++                    "one tier must not be counted as another"
++                )
++            seen.add(command_id)
++
++    missing = [command_id for command_id in granted if command_id not in seen]
++    if missing:
++        raise ValueError(
++            f"granted gate(s) {missing} appear in no tier and would never run"
++        )
++
++    if not result["full"]:
++        raise ValueError(
++            "gate_tiers['full'] is empty; stratification must not remove the final "
++            "required repository gate"
++        )
++    return result
++
++
++def plan(packet):
++    """The run order: ``[(tier, [command_id, ...]), ...]``, empty tiers omitted.
++
++    Cheapest first, the full suite last, so a red fast falsifier is paid for
++    before the suite it would have wasted.
++    """
++    stratified = stratify(packet)
++    return [(tier, stratified[tier]) for tier in TIER_ORDER if stratified[tier]]
++
++
++def _required(packet):
++    """Every granted id, in tier order and then in the order its tier declares."""
++    stratified = stratify(packet)
++    return [command_id for tier in TIER_ORDER for command_id in stratified[tier]]
++
++
++def unmet_for_candidate(packet, results):
++    """The granted gates that have not yet run green, in run order.
++
++    ``results`` is any iterable of ``{"command_id", "exit_code"}``, drained
++    once. A result for an id the packet was not granted is ignored: a worker
++    cannot satisfy a gate by reporting a command nobody registered.
++    """
++    green = {
++        result.get("command_id")
++        for result in results
++        if result.get("exit_code") == 0
++    }
++    return [command_id for command_id in _required(packet) if command_id not in green]
++
++
++def candidate_ready(packet, results):
++    """Whether ``results`` is enough evidence to mint a candidate.
++
++    True exactly when ``unmet_for_candidate`` is empty -- the two are one
++    definition so a later change cannot make one lenient and the other strict.
++    """
++    return unmet_for_candidate(packet, results) == []
