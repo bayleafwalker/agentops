@@ -1,0 +1,88 @@
+diff --git a/templates/dispatch/scripts/command_evidence.py b/templates/dispatch/scripts/command_evidence.py
+new file mode 100644
+index 0000000..50c7aa2
+--- /dev/null
++++ b/templates/dispatch/scripts/command_evidence.py
+@@ -0,0 +1,82 @@
++#!/usr/bin/env python3
++"""What the worker actually executed, read from its own stream (agentops#2046).
++
++The third criterion of the tract is that "exact registered-command execution is
++proven inside the contained worker". The mechanism was already there and
++nothing read it: `build_overlay` hands the worker a bash permission map of
++`{"*": "deny"}` plus one exact-string `allow` per granted command id, so the
++harness refuses any bash call that is not character-for-character a registered
++command.
++
++A configured rule is not a held rule. The proof is in the worker's own stream:
++a foreign call arriving with a non-completed status, and a granted command
++completing with the exact registered string. Both are present on every run
++observed so far, and until now nothing recorded either.
++
++Matching is exact on purpose. A registered command with an extra flag is a
++different command, and counting it as the granted one would report a boundary
++that was never tested.
++
++No receipt wiring, no CLI, no file I/O.
++"""
++from __future__ import annotations
++
++
++def command_evidence(events, packet, commands):
++    """Summarise the bash calls in ``events`` against what ``packet`` granted.
++
++    ``events`` is any iterable of stream events, drained once. ``commands`` is
++    the manifest's ``hybrid.commands`` map from command id to its exact string.
++    """
++    granted_ids = list(packet.get("allowed_command_ids") or [])
++    # Only ids the manifest actually registers can be matched against a stream.
++    # A granted id the manifest does not know is refused at validate; here it
++    # simply never matches, rather than raising on the way to reporting it.
++    by_command = {
++        commands[command_id]: command_id
++        for command_id in granted_ids
++        if command_id in commands
++    }
++
++    bash_calls = 0
++    run: set[str] = set()
++    denied: set[str] = set()
++    ungranted_attempts = 0
++    ungranted_completed = 0
++
++    for event in events:
++        if event.get("type") != "tool_use":
++            continue
++        part = event.get("part") or {}
++        if part.get("tool") != "bash":
++            continue
++        bash_calls += 1
++        state = part.get("state") or {}
++        command = (state.get("input") or {}).get("command")
++        completed = state.get("status") == "completed"
++
++        command_id = by_command.get(command) if isinstance(command, str) else None
++        if command_id is None:
++            # Foreign: not the exact string of any command this packet was
++            # granted -- including commands the manifest registers but the
++            # packet never asked for.
++            ungranted_attempts += 1
++            if completed:
++                ungranted_completed += 1
++            continue
++        if completed:
++            run.add(command_id)
++        else:
++            denied.add(command_id)
++
++    return {
++        "bash_calls": bash_calls,
++        "granted_commands_run": sorted(run),
++        "granted_commands_denied": sorted(denied),
++        "ungranted_attempts": ungranted_attempts,
++        "ungranted_completed": ungranted_completed,
++        # Both halves. One granted command observed running exactly, and no
++        # foreign command that completed. Absence of a violation on its own is
++        # not proof: a stream where nothing ran proves nothing.
++        "exact_execution_proven": bool(run) and ungranted_completed == 0,
++    }
