@@ -32,12 +32,12 @@ availability, so this document speaks to that pair and nothing else.
 |---|---|
 | route | `mechanical_bulk` |
 | harness model | `opencode-go/deepseek-v4-flash` |
-| receipts | 22 |
-| tasks | 22 |
-| first-pass tasks | 21 |
-| **first-pass rate** | **0.9545** |
-| billed | $0.375147 |
-| tokens | 6,642,192 |
+| receipts | 23 |
+| tasks | 23 |
+| first-pass tasks | 22 |
+| **first-pass rate** | **0.9565** |
+| billed | $0.390167 |
+| tokens | 7,016,122 |
 | `cost_reported` | true |
 
 The one non-first-pass row is `V6-E-churn-metrics`, recorded at `attempt: 2`: it produced an empty
@@ -45,7 +45,7 @@ diff on attempt 1 — the worker did nothing — and passed on the L-4 retry.
 
 ## 2. What the corpus still cannot see
 
-**34 packets exist; 22 have a committed receipt. Fifteen do not, and three receipts have no packet.**
+**35 packets exist; 23 have a committed receipt. Fifteen do not, and three receipts have no packet.**
 
 Packets with no receipt — `V5-M1`, `V5-M5`, `V5-M6a`, `V5-M6b`, `V5-M8`, `V5-M9`, `V5-M10a`,
 `V5-M10b`, `V5-M10c`, `V5-M12`, `V5-P1`, `V5-P1a`, `V5-T3`, `V5-T5`, `V6-A-worker-writability-report`.
@@ -73,11 +73,13 @@ and held on **4 of 4**: each ran its granted command with the exact registered s
 the four additionally attempted a foreign `ls` that the harness refused (`ungranted_completed: 0`
 throughout).
 
-That measurement is **still not in the receipts**. The wiring (#129) landed after the last dispatch,
-so `command_evidence` appears in **0 of 22** receipts and `churn_metrics` in **3 of 22**. The
-containment claim therefore rests on transcripts read outside the committed corpus and **does not
-survive a cold audit of this repository alone.** The next dispatched row will be the first receipt
-to carry either by construction.
+**`V6-I-schema-formats` is the first receipt to carry it by construction** — dispatched after the
+wiring landed, it records `exact_execution_proven: true`, `registered_commands_only: true`, and one
+foreign bash call that the harness refused. Coverage is now `command_evidence` in **1 of 23**
+receipts and `churn_metrics` in **4 of 23**.
+
+One row is not a corpus. But the claim is no longer resting entirely on transcripts held outside the
+repository: it is now partly auditable cold, and every further row adds to it automatically.
 
 ## 4. Recommendation
 
@@ -88,8 +90,9 @@ contain it. Three specific gaps:
 1. **Fifteen packets have no receipt.** Three were recoverable and have been backfilled. The rest
    predate receipt capture and are **declared lost here** — that is now stated, which is what the
    first version of this document failed to do.
-2. **No receipt yet carries `command_evidence`,** and only three carry `churn_metrics`. The next
-   dispatched row will be the first to carry both. Three rows are not a corpus.
+2. **Only one receipt carries `command_evidence`** and four carry `churn_metrics`. That is now
+   growing by construction rather than needing a change — but one row is not a corpus, and no
+   admission decision should rest on it yet.
 3. **`frontier` is all zeros** in the generated scorecard — the Stop hook writes per turn, and a
    scorecard generated inside the session it measures has nothing to read. Read it as "not
    measured", never as "free".
