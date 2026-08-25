@@ -184,7 +184,8 @@
       "agentops.dispatch.tests.schema_check_audit": "python templates/dispatch/tests/test_schema_check_audit.py",
       "agentops.dispatch.tests.validate_dispatch_manifest": "python templates/dispatch/tests/test_validate_dispatch_manifest.py",
       "agentops.dispatch.tests.manifest_schema_enums": "python templates/dispatch/tests/test_manifest_schema_enums.py",
-      "agentops.dispatch.tests.churn_metrics": "python templates/dispatch/tests/test_churn_metrics.py"
+      "agentops.dispatch.tests.churn_metrics": "python templates/dispatch/tests/test_churn_metrics.py",
+      "agentops.dispatch.tests.gate_tiers": "python templates/dispatch/tests/test_gate_tiers.py"
     },
     "protected_paths": [
       "templates/dispatch/hybrid/**",
