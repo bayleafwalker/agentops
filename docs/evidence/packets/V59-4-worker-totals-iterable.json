@@ -1,0 +1,108 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V59-4-worker-totals-iterable",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 28,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "test_release_scorecard_iterable.py decides correctness. Nine of its thirteen tests are red at the starting commit with TypeError from len(); the four green ones are list baselines asserting that this row widens what worker_totals accepts and changes no answer it already gives.",
+    "starts_red": [
+      "agentops.dispatch.tests.scorecard_iterable"
+    ],
+    "reference_patch": "docs/evidence/packets/V59-4-worker-totals-iterable.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "6ee4d76e8b98777330816ae22b7a9551f661009e",
+  "purpose": "Make worker_totals accept any iterable of receipts. It reads its argument in a single for loop but then asks for len(receipts) twice -- once for the attempts field and once for the empty-corpus rule behind cost_reported -- so a generator, an iterator, a map object or any other non-sequence iterable raises TypeError before it can answer. Every other function in this module accepts what it is given, and this one is the exception for no reason anybody chose. The same receipts must total identically however they arrive: as a list, a tuple, an iterator or a generator. Two things make this less trivial than it looks and both are pinned by the oracle. First, the argument must be consumed exactly once. A generator cannot be iterated twice, so an implementation that walks it in one place and measures it in another either raises or, far worse, silently sees an empty sequence the second time and reports zeros for a corpus that was not empty. Second, the empty case must keep the answer it was deliberately given: worker_totals with no receipts at all reports cost_reported false, because with nothing measured 'nothing failed to report' reads as a measured zero, and build_scorecard's total_reliable follows it. The empty generator is exactly where a careless materialisation would bring the wrong answer back, so it is tested by name. This is a widening and not a change: for every input worker_totals already accepts, the reported values must be identical to what it reports today, field for field. Do not adjust the aggregation, the rounding, the first-pass rule, the sorted unreported-task list or the reported key names -- the T-10 row settled those names on purpose and the module's other nine oracles hold them. Leave no debugging output behind.",
+  "readable_context_paths": [
+    "templates/dispatch/tests/test_release_scorecard_iterable.py",
+    "templates/dispatch/scripts/release_scorecard.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/release_scorecard.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/scripts/release_unit_packet.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "a generator of receipts totals identically to the same receipts as a list",
+    "an iterator, a tuple and a map object are accepted the same way",
+    "the argument is consumed exactly once",
+    "the empty generator answers exactly as the empty list does, cost_reported included",
+    "every answer for a list input is unchanged",
+    "nothing else in the module changes"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "any iterable of receipts is accepted",
+      "command_id": "agentops.dispatch.tests.scorecard_iterable",
+      "fails_when": "a generator, iterator or map object raises TypeError from len()"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "single consumption, and the same totals however the receipts arrive",
+      "command_id": "agentops.dispatch.tests.scorecard_iterable",
+      "fails_when": "the iterable is walked twice, so the second read sees an exhausted sequence and reports zeros"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "a widening, not a change",
+      "command_id": "agentops.dispatch.tests.scorecard_iterable",
+      "fails_when": "the empty generator reports cost_reported true, or any list answer moves"
+    }
+  ],
+  "non_goals": [
+    "the aggregation, rounding and first-pass rules",
+    "the reported key names settled by T-10",
+    "frontier_totals, build_scorecard, detect_worse, the loaders, the filters and the entry point"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.scorecard_iterable"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v59-4-iterable",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/dispatch/handover-2026-08-25-v5-9-refactor.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  }
+}

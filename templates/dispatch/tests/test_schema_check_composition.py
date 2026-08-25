@@ -959,19 +959,26 @@ class RealManifestSchemaTests(unittest.TestCase):
 
 
 class RealDispatchManifestTests(unittest.TestCase):
-    """The repo's own manifest, checked against its schema for the first time.
+    """The repo's own manifest, checked against its schema.
 
-    ``agentops.dispatch.json`` is NOT clean and this file never claims it is:
-    ``skills.selected`` carries two names the schema's enum does not admit.
-    That drift is the thing this tract set out to find, and a coordinator
-    hand-pass fixes the enum afterwards. What is pinned here is that the
-    validator *reports* it -- with the schema's enum and the manifest's value
-    both asserted directly, so that editing either file fails this test loudly
-    instead of letting it start passing for a reason nobody noticed.
+    Retired and replaced by the coordinator on 2026-08-25, in the open. This
+    class was written while ``agentops.dispatch.json`` was NOT clean --
+    ``skills.selected`` carried ``dispatch-wave`` and ``session-handover``,
+    which the schema's enum did not admit. That drift is what this whole tract
+    set out to find, and pinning it was right while it stood. Its author built
+    it to fail loudly rather than go quiet when the fix landed, with the
+    message "the hand-pass has landed and this test needs retiring, not
+    silence". It did exactly that, which is why this class is being rewritten
+    instead of deleted.
+
+    The hand-pass added the three real skills to the enum, so the historical
+    anchors are now false and worthless. What replaces them is the invariant
+    that made the drift worth finding in the first place, and it is strictly
+    stronger: the enum is a copy of a directory listing, so it must agree with
+    the directory, and the manifest must not select a skill the schema refuses.
+    Those hold forever and fail the next time someone adds a skill and forgets
+    the schema -- which is precisely how this drift happened.
     """
-
-    #: The two selected skills the schema's enum does not admit today.
-    DRIFTED = ("dispatch-wave", "session-handover")
 
     @classmethod
     def setUpClass(cls):
@@ -981,25 +988,11 @@ class RealDispatchManifestTests(unittest.TestCase):
             MANIFEST_SCHEMA_PATH.read_text(encoding="utf-8"))
         cls.manifest = json.loads(
             DISPATCH_MANIFEST_PATH.read_text(encoding="utf-8"))
+        cls.skills_dir = MANIFEST_SCHEMA_PATH.parent / "skills"
 
     def _enum(self):
         return self.schema["properties"]["skills"]["properties"]["selected"][
             "items"]["enum"]
-
-    def test_the_drift_anchors_still_hold(self):
-        selected = self.manifest["skills"]["selected"]
-        enum = self._enum()
-        for name in self.DRIFTED:
-            with self.subTest(skill=name):
-                self.assertIn(
-                    name, selected,
-                    f"agentops.dispatch.json no longer selects {name}; the "
-                    f"drift this test pins has moved and the test below is "
-                    f"measuring nothing")
-                self.assertNotIn(
-                    name, enum,
-                    f"the schema's enum now admits {name}; the hand-pass has "
-                    f"landed and this test needs retiring, not silence")
 
     def test_the_manifest_is_checkable_at_all(self):
         result = validate(self.manifest, self.schema)
@@ -1007,17 +1000,49 @@ class RealDispatchManifestTests(unittest.TestCase):
             result, list,
             "the repo's own manifest must be checkable against its own schema")
 
-    def test_the_validator_reports_the_known_drift(self):
-        # Deliberately NOT an assertion that the file is clean. It is not.
-        errors = validate(self.manifest, self.schema)
-        joined = " | ".join(errors)
-        for name in self.DRIFTED:
+    def test_the_repo_manifest_now_satisfies_its_own_schema(self):
+        self.assertEqual(
+            validate(self.manifest, self.schema), [],
+            "agentops.dispatch.json is read by every dispatch in this repo; it "
+            "must satisfy the schema that describes it")
+
+    def test_the_enum_and_the_skills_directory_agree(self):
+        # The enum duplicates a directory listing, which is why it drifted. A
+        # name on disk and not in the enum makes a legitimate manifest invalid;
+        # a name in the enum and not on disk admits a selection that cannot be
+        # materialised. Both are the same bug and both fail here.
+        on_disk = {entry.name for entry in self.skills_dir.iterdir()
+                   if entry.is_dir()}
+        self.assertTrue(on_disk, f"no skills found under {self.skills_dir}")
+        enum = set(self._enum())
+        self.assertEqual(
+            sorted(on_disk - enum), [],
+            "skills exist on disk that the schema's enum does not admit")
+        self.assertEqual(
+            sorted(enum - on_disk), [],
+            "the schema's enum names skills that do not exist on disk")
+
+    def test_every_selected_skill_is_admitted_and_present(self):
+        selected = self.manifest["skills"]["selected"]
+        self.assertTrue(selected, "the manifest selects no skills at all")
+        enum = set(self._enum())
+        for name in selected:
             with self.subTest(skill=name):
-                self.assertIn(
-                    name, joined,
-                    f"{name} is selected but not in the schema's enum; a "
-                    f"checker that does not report it is the silence this "
-                    f"module exists to end")
+                self.assertIn(name, enum,
+                              f"{name} is selected but the schema refuses it")
+                self.assertTrue(
+                    (self.skills_dir / name).is_dir(),
+                    f"{name} is selected but no such skill exists on disk")
+
+    def test_the_check_is_not_vacuous(self):
+        # If validate answered [] to everything, every assertion above would
+        # pass. One planted violation, on the field that actually drifted.
+        drifted = json.loads(json.dumps(self.manifest))
+        drifted["skills"]["selected"] = ["not-a-real-skill"]
+        self.assertTrue(
+            validate(drifted, self.schema),
+            "a selected skill outside the enum must still be reported")
+
 
 
 class CompositionDiscriminationTests(_RaiseMixin):

@@ -1,0 +1,181 @@
+diff --git a/templates/dispatch/scripts/schema_check.py b/templates/dispatch/scripts/schema_check.py
+index ff0ffe7..9f3d154 100644
+--- a/templates/dispatch/scripts/schema_check.py
++++ b/templates/dispatch/scripts/schema_check.py
+@@ -24,6 +24,12 @@ import re
+ SUPPORTED_KEYWORDS = frozenset({
+     "type", "required", "properties", "additionalProperties", "items",
+     "enum", "const", "pattern", "minLength", "minimum", "uniqueItems",
++    # Composition. The audit follows every one of these into its subschemas:
++    # an unenforceable construct hiding inside a oneOf branch is exactly as
++    # unenforced as one at the top level, and the manifest schema really does
++    # hide one there.
++    "$defs", "$ref", "allOf", "if", "then", "oneOf", "not", "propertyNames",
++    "minItems", "minProperties", "maximum",
+ })
+ 
+ ANNOTATION_KEYWORDS = frozenset({
+@@ -46,8 +52,26 @@ _TYPES = {
+ }
+ 
+ 
+-def _audit_schema(schema, path):
++def _resolve(ref, root, path):
++    """Resolve an internal ``#/...`` pointer against the root schema."""
++    node = root
++    for part in ref.lstrip("#").strip("/").split("/"):
++        if not part:
++            continue
++        if not isinstance(node, dict) or part not in node:
++            raise UnsupportedKeyword(
++                f"{path}: $ref {ref!r} does not resolve; a broken pointer is "
++                "not the same as no constraint")
++        node = node[part]
++    return node
++
++
++def _audit_schema(schema, path, root=None, seen=None):
+     """Walk the whole schema eagerly, raising on anything unenforceable."""
++    if root is None:
++        root = schema
++    if seen is None:
++        seen = set()
+     if isinstance(schema, bool):
+         raise UnsupportedKeyword(f"{path}: boolean schema is not supported")
+     if not isinstance(schema, dict):
+@@ -63,22 +87,59 @@ def _audit_schema(schema, path):
+                 raise UnsupportedKeyword(
+                     f"{path}: type as a union list is not supported")
+         elif keyword == "additionalProperties":
+-            if not isinstance(value, bool):
++            if isinstance(value, dict):
++                _audit_schema(value, f"{path}.additionalProperties", root, seen)
++            elif not isinstance(value, bool):
+                 raise UnsupportedKeyword(
+-                    f"{path}: additionalProperties as a subschema is not supported")
++                    f"{path}: additionalProperties as {type(value).__name__} is "
++                    "not a form this checker can enforce")
+         elif keyword == "items":
+             if isinstance(value, list):
+                 raise UnsupportedKeyword(
+                     f"{path}: items as a positional list is not supported")
+-            _audit_schema(value, f"{path}.items")
++            _audit_schema(value, f"{path}.items", root, seen)
+         elif keyword == "properties":
+             for prop_name, prop_schema in value.items():
+-                _audit_schema(prop_schema, f"{path}.properties.{prop_name}")
++                _audit_schema(prop_schema, f"{path}.properties.{prop_name}", root, seen)
++        elif keyword == "$defs":
++            for def_name, def_schema in value.items():
++                _audit_schema(def_schema, f"{path}.$defs.{def_name}", root, seen)
++        elif keyword == "$ref":
++            if not isinstance(value, str) or not value.startswith("#"):
++                raise UnsupportedKeyword(
++                    f"{path}: external $ref {value!r} cannot be fetched, so it "
++                    "cannot be enforced")
++            if value not in seen:
++                # A recursive schema would otherwise walk forever; auditing a
++                # given pointer once is enough, since the audit is about the
++                # schema and not about any instance.
++                seen.add(value)
++                _audit_schema(_resolve(value, root, path), f"{path} -> {value}",
++                              root, seen)
++        elif keyword in ("allOf", "oneOf"):
++            for index, sub in enumerate(value):
++                _audit_schema(sub, f"{path}.{keyword}[{index}]", root, seen)
++        elif keyword in ("if", "then", "not", "propertyNames"):
++            _audit_schema(value, f"{path}.{keyword}", root, seen)
+ 
+ 
+ def validate(instance, schema, path="$"):
+     """Return a list of human-readable violations, empty when valid."""
+     _audit_schema(schema, path)
++    return _check(instance, schema, path, schema)
++
++
++def _check(instance, schema, path, root):
++    if "$ref" in schema:
++        # A $ref stands in for what it points at. Anything alongside it in the
++        # same object is still applied, which is the 2020-12 reading and the
++        # only one that does not silently drop constraints.
++        target = _resolve(schema["$ref"], root, path)
++        errors = _check(instance, target, path, root)
++        rest = {k: v for k, v in schema.items() if k != "$ref"}
++        if rest:
++            errors.extend(_check(instance, rest, path, root))
++        return errors
+     errors = []
+     expected = schema.get("type")
+     if expected:
+@@ -106,24 +167,68 @@ def validate(instance, schema, path="$"):
+         minimum = schema.get("minimum")
+         if minimum is not None and instance < minimum:
+             errors.append(f"{path}: {instance} below minimum {minimum}")
++        maximum = schema.get("maximum")
++        if maximum is not None and instance > maximum:
++            errors.append(f"{path}: {instance} above maximum {maximum}")
+ 
+     if isinstance(instance, dict):
++        min_properties = schema.get("minProperties")
++        if min_properties is not None and len(instance) < min_properties:
++            errors.append(
++                f"{path}: has {len(instance)} properties, "
++                f"below minProperties {min_properties}")
++        names_schema = schema.get("propertyNames")
++        if isinstance(names_schema, dict):
++            for key in instance:
++                errors.extend(_check(key, names_schema, f"{path}.{key}<name>", root))
+         for key in schema.get("required", []):
+             if key not in instance:
+                 errors.append(f"{path}: missing required property {key!r}")
+         properties = schema.get("properties", {})
++        additional = schema.get("additionalProperties")
+         for key, value in instance.items():
+             if key in properties:
+-                errors.extend(validate(value, properties[key], f"{path}.{key}"))
+-            elif schema.get("additionalProperties") is False:
++                errors.extend(_check(value, properties[key], f"{path}.{key}", root))
++            elif additional is False:
+                 errors.append(f"{path}: additional property {key!r} is not allowed")
++            elif isinstance(additional, dict):
++                # The subschema form constrains the extra properties rather
++                # than forbidding them; the manifest uses it in three places,
++                # one of them only reachable through a oneOf.
++                errors.extend(_check(value, additional, f"{path}.{key}", root))
+     if isinstance(instance, list):
++        min_items = schema.get("minItems")
++        if min_items is not None and len(instance) < min_items:
++            errors.append(
++                f"{path}: has {len(instance)} items, below minItems {min_items}")
+         item_schema = schema.get("items")
+         if item_schema:
+             for index, item in enumerate(instance):
+-                errors.extend(validate(item, item_schema, f"{path}[{index}]"))
++                errors.extend(_check(item, item_schema, f"{path}[{index}]", root))
+         if schema.get("uniqueItems"):
+             hashable = [json.dumps(i, sort_keys=True) for i in instance]
+             if len(set(hashable)) != len(hashable):
+                 errors.append(f"{path}: items are not unique")
++
++    for index, sub in enumerate(schema.get("allOf", [])):
++        errors.extend(_check(instance, sub, f"{path}.allOf[{index}]", root))
++
++    if "oneOf" in schema:
++        matched = [index for index, sub in enumerate(schema["oneOf"])
++                   if not _check(instance, sub, path, root)]
++        if not matched:
++            errors.append(f"{path}: matches none of the oneOf branches")
++        elif len(matched) > 1:
++            errors.append(
++                f"{path}: matches {len(matched)} oneOf branches {matched}, "
++                "and exactly one must match")
++
++    if "not" in schema and not _check(instance, schema["not"], path, root):
++        errors.append(f"{path}: must not satisfy the 'not' subschema")
++
++    if "if" in schema and "then" in schema:
++        # A failing 'if' is a condition that did not apply, never a violation.
++        if not _check(instance, schema["if"], path, root):
++            errors.extend(_check(instance, schema["then"], f"{path}.then", root))
++
+     return errors

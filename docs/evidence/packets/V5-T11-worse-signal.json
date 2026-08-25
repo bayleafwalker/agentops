@@ -1,0 +1,109 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-T11-worse-signal",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 27,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "test_release_scorecard_worse.py decides correctness. Two of its assertions invert: rising turns with rising cost must now stay quiet, and dropping turns with rising cost must now fire. Three guards assert the retired signal name never reappears.",
+    "starts_red": [
+      "agentops.dispatch.tests.scorecard_worse"
+    ],
+    "reference_patch": "docs/evidence/packets/V5-T11-worse-signal.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "1a780314f976c7eab4fe17076284dba5e48602b6",
+  "purpose": "Fix detect_worse's third signal and rename it. It currently tests that frontier turns are greater than or equal to the previous release's while the frontier usage-equivalent rose. The greater-or-equal makes it fire when turns ROSE alongside the cost, which is the ordinary explained case -- a bigger release did more frontier work and spent more -- and a detector that fires on ordinary cases is one people stop reading, which this project already learned once when a CI gate went red on every legitimate packet PR. It is also silent on the case that should alarm: turns DROPPING while the frontier figure rises. Dropping frontier turns is the whole programme's goal, since the v7 falsifier is that frontier turns per release drop at least fivefold against the v5 scorecard, so cost climbing while turns fall means each remaining turn has become dramatically more expensive, and that is invisible today. Change the comparison so the signal fires when turns did not rise and the frontier usage-equivalent strictly rose: flat turns with rising cost still fires, dropping turns with rising cost now fires, and rising turns no longer fires however the cost moved. Rename the signal from turns_flat_cost_up to cost_up_without_more_turns, in the reported signal name and in any identifier that carries it. The name is part of the fix -- the old one described neither the old behaviour nor the new one, and a name that does not say what it means is how the last three defects in this module happened. Everything else about detect_worse is settled and must not change: the two-consecutive-transitions rule, the rework and escalations signals with their strict greater-than semantics, the fixed report order with this signal third, oldest window first within a signal, one entry per window, the return shape, values entries as turns and figure pairs, the insufficient_series answer below three scorecards, and no mutation of the input. Leave no debugging output behind.",
+  "readable_context_paths": [
+    "templates/dispatch/tests/test_release_scorecard_worse.py",
+    "templates/dispatch/scripts/release_scorecard.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/release_scorecard.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/scripts/release_unit_packet.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "rising turns with rising cost no longer fires",
+    "dropping turns with rising cost now fires",
+    "flat turns with rising cost still fires",
+    "the cost half stays strict: equal cost never fires",
+    "the signal is named cost_up_without_more_turns and the old name never appears",
+    "the two-consecutive-transitions rule and the other two signals are unchanged",
+    "nothing else in the module changes"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "the detector stops firing on good news",
+      "command_id": "agentops.dispatch.tests.scorecard_worse",
+      "fails_when": "a series whose turns rise alongside cost sets worse, which is explained spend"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "the detector starts firing on the regression it exists for",
+      "command_id": "agentops.dispatch.tests.scorecard_worse",
+      "fails_when": "turns dropping while the frontier usage-equivalent climbs stays quiet"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "a rename, and everything else held",
+      "command_id": "agentops.dispatch.tests.scorecard_worse",
+      "fails_when": "the retired name appears, the report order changes, or the rework and escalations signals change"
+    }
+  ],
+  "non_goals": [
+    "the rework and escalations signals",
+    "build_scorecard and the settled cost-kind names",
+    "the loaders, the window filter, the project filter and the entry point"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.scorecard_worse"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-t11-worse-signal",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  }
+}

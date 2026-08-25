@@ -1,0 +1,24 @@
+diff --git a/templates/dispatch/scripts/release_scorecard.py b/templates/dispatch/scripts/release_scorecard.py
+index fdd0798..2354107 100644
+--- a/templates/dispatch/scripts/release_scorecard.py
++++ b/templates/dispatch/scripts/release_scorecard.py
+@@ -102,13 +102,18 @@ def worker_spend_from_receipt(receipt):
+ 
+ 
+ def worker_totals(receipts):
+-    """Return the eight aggregate worker fields over a list of receipts.
++    """Return the eight aggregate worker fields over an iterable of receipts.
++
++    The argument is materialised once, up front: the totals are read from it in
++    one pass but ``attempts`` and the empty-corpus rule both need its length, so
++    a generator would otherwise be counted after it had already been consumed.
+ 
+     One silent receipt makes the whole cost total unreliable: ``cost_reported``
+     is True only when every contributing receipt reported, and the silent
+     tasks are named in sorted order. A first pass is an attempt-1 receipt whose
+     gate evidence passed.
+     """
++    receipts = list(receipts)
+     tasks = set()
+     unreported_tasks = set()
+     first_pass_tasks = set()

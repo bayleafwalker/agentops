@@ -4,36 +4,93 @@
   "title": "Agentops dispatch manifest",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "repo_id", "adoption_level", "routing", "skills", "verification", "hooks"],
+  "required": [
+    "schema_version",
+    "repo_id",
+    "adoption_level",
+    "routing",
+    "skills",
+    "verification",
+    "hooks"
+  ],
   "properties": {
-    "schema_version": { "type": "integer", "enum": [1, 2] },
-    "repo_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+    "schema_version": {
+      "type": "integer",
+      "enum": [
+        1,
+        2
+      ]
+    },
+    "repo_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
     "authority_repo_uuid": {
       "type": "string",
       "format": "uuid",
       "description": "Stable repository authority identity for UUID-based command journals; distinct from the human-readable repo_id."
     },
-    "adoption_level": { "type": "string", "enum": ["guidance-only", "observable", "dispatchable"] },
-    "dispatch_group_id": { "type": "string", "minLength": 1 },
+    "adoption_level": {
+      "type": "string",
+      "enum": [
+        "guidance-only",
+        "observable",
+        "dispatchable"
+      ]
+    },
+    "dispatch_group_id": {
+      "type": "string",
+      "minLength": 1
+    },
     "routing": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["default_harness", "default_model_alias", "action_classes"],
+      "required": [
+        "default_harness",
+        "default_model_alias",
+        "action_classes"
+      ],
       "properties": {
-        "default_harness": { "type": "string", "enum": ["claude", "codex", "opencode"] },
-        "default_model_alias": { "type": "string", "minLength": 1 },
+        "default_harness": {
+          "type": "string",
+          "enum": [
+            "claude",
+            "codex",
+            "opencode"
+          ]
+        },
+        "default_model_alias": {
+          "type": "string",
+          "minLength": 1
+        },
         "action_classes": {
           "type": "object",
           "minProperties": 1,
           "additionalProperties": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["enabled"],
+            "required": [
+              "enabled"
+            ],
             "properties": {
-              "enabled": { "type": "boolean" },
-              "harness": { "type": "string", "enum": ["claude", "codex", "opencode"] },
-              "model_alias": { "type": "string", "minLength": 1 },
-              "review_required": { "type": "boolean" },
+              "enabled": {
+                "type": "boolean"
+              },
+              "harness": {
+                "type": "string",
+                "enum": [
+                  "claude",
+                  "codex",
+                  "opencode"
+                ]
+              },
+              "model_alias": {
+                "type": "string",
+                "minLength": 1
+              },
+              "review_required": {
+                "type": "boolean"
+              },
               "self_candidate": {
                 "type": "boolean",
                 "default": false,
@@ -52,9 +109,14 @@
     "skills": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["selected"],
+      "required": [
+        "selected"
+      ],
       "properties": {
-        "template_root": { "type": "string", "default": "/projects/dev/agentops/templates/dispatch/skills" },
+        "template_root": {
+          "type": "string",
+          "default": "/projects/dev/agentops/templates/dispatch/skills"
+        },
         "selected": {
           "type": "array",
           "minItems": 1,
@@ -85,14 +147,20 @@
               "reconcile-project-contracts",
               "golden-child",
               "session-reconciler",
-              "session-scribe"
+              "session-scribe",
+              "dispatch-wave",
+              "friction",
+              "session-handover"
             ]
           }
         },
         "overlays": {
           "type": "array",
           "uniqueItems": true,
-          "items": { "type": "string", "minLength": 1 }
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
@@ -100,8 +168,20 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "allowed_path_roots": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-        "out_of_scope": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        "allowed_path_roots": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "out_of_scope": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
       }
     },
     "risk_surfaces": {
@@ -109,29 +189,54 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "paths", "skills"],
+        "required": [
+          "id",
+          "paths",
+          "skills"
+        ],
         "properties": {
-          "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._-]+$"
+          },
           "paths": {
             "type": "array",
             "minItems": 1,
             "uniqueItems": true,
-            "items": { "type": "string", "minLength": 1 }
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
           },
           "skills": {
             "type": "array",
             "minItems": 1,
             "uniqueItems": true,
-            "items": { "enum": ["verify-state-protocols", "reconcile-project-contracts"] }
+            "items": {
+              "enum": [
+                "verify-state-protocols",
+                "reconcile-project-contracts"
+              ]
+            }
           },
           "context_ids": {
             "type": "array",
             "minItems": 1,
             "uniqueItems": true,
-            "items": { "type": "string", "minLength": 1 }
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
           },
-          "default_depth": { "type": "integer", "minimum": 0, "maximum": 3 },
-          "required_on_change": { "type": "boolean", "default": false }
+          "default_depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3
+          },
+          "required_on_change": {
+            "type": "boolean",
+            "default": false
+          }
         }
       }
     },
@@ -139,64 +244,151 @@
       "type": "object",
       "description": "Supervised hybrid dispatch eligibility. Governed by templates/dispatch/hybrid/hybrid-dispatch.v1.json; absence means the repository is coordinator-only.",
       "additionalProperties": false,
-      "required": ["enabled", "worker_routes", "commands", "protected_paths"],
+      "required": [
+        "enabled",
+        "worker_routes",
+        "commands",
+        "protected_paths"
+      ],
       "properties": {
-        "enabled": { "type": "boolean" },
+        "enabled": {
+          "type": "boolean"
+        },
         "worker_routes": {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "type": "string", "enum": ["mechanical_bulk", "bindery_external_runtime_w0"] }
+          "items": {
+            "type": "string",
+            "enum": [
+              "mechanical_bulk",
+              "bindery_external_runtime_w0"
+            ]
+          }
         },
         "commands": {
           "type": "object",
           "minProperties": 1,
           "description": "Registered command ids a packet may grant. Free-form shell is never granted to a worker.",
-          "additionalProperties": { "type": "string", "minLength": 1 },
-          "propertyNames": { "pattern": "^[A-Za-z0-9._-]+$" }
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          },
+          "propertyNames": {
+            "pattern": "^[A-Za-z0-9._-]+$"
+          }
         },
         "protected_paths": {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "type": "string", "minLength": 1 }
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         },
-        "worktree_root": { "type": "string", "minLength": 1 },
-        "max_timeout_seconds": { "type": "integer", "minimum": 30, "maximum": 5400 },
-        "max_cost_usd": { "type": "number", "minimum": 0 },
-        "soft_token_ceiling": { "type": "integer", "minimum": 1 },
-        "hard_token_ceiling": { "type": "integer", "minimum": 1 },
-        "notes": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        "worktree_root": {
+          "type": "string",
+          "minLength": 1
+        },
+        "max_timeout_seconds": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 5400
+        },
+        "max_cost_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "soft_token_ceiling": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "hard_token_ceiling": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
       }
     },
     "verification": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["command_families"],
+      "required": [
+        "command_families"
+      ],
       "properties": {
         "command_families": {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "type": "string", "enum": ["unit", "integration", "lint", "typecheck", "architecture", "docs", "kustomize", "secrets", "docker", "full-suite"] }
+          "items": {
+            "type": "string",
+            "enum": [
+              "unit",
+              "integration",
+              "lint",
+              "typecheck",
+              "architecture",
+              "docs",
+              "kustomize",
+              "secrets",
+              "docker",
+              "full-suite"
+            ]
+          }
         },
-        "targeted_first": { "type": "boolean", "default": true },
-        "commands": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        "targeted_first": {
+          "type": "boolean",
+          "default": true
+        },
+        "commands": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
       }
     },
     "hooks": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["level", "publishers"],
+      "required": [
+        "level",
+        "publishers"
+      ],
       "properties": {
-        "level": { "type": "string", "enum": ["none", "audit", "session", "cost", "verification", "pr"] },
+        "level": {
+          "type": "string",
+          "enum": [
+            "none",
+            "audit",
+            "session",
+            "cost",
+            "verification",
+            "pr"
+          ]
+        },
         "publishers": {
           "type": "array",
           "uniqueItems": true,
           "items": {
             "type": "string",
             "description": "Legacy actionq-daemon and dispatcher-gate values remain readable only for migration of existing manifests; new or refreshed manifests must not select them.",
-            "enum": ["git", "actionq-daemon", "workspace-cost", "dispatcher-gate", "github"]
+            "enum": [
+              "git",
+              "actionq-daemon",
+              "workspace-cost",
+              "dispatcher-gate",
+              "github"
+            ]
           }
         }
       }
@@ -205,34 +397,86 @@
       "type": "object",
       "description": "Optional v2 source catalog. Discovery remains the native harness's root-to-CWD operation; this catalog records what was inspected and its provenance.",
       "additionalProperties": false,
-      "required": ["schema_version", "discovery", "sources"],
+      "required": [
+        "schema_version",
+        "discovery",
+        "sources"
+      ],
       "properties": {
-        "schema_version": { "type": "integer", "const": 1 },
-        "discovery": { "type": "string", "enum": ["native"] },
+        "schema_version": {
+          "type": "integer",
+          "const": 1
+        },
+        "discovery": {
+          "type": "string",
+          "enum": [
+            "native"
+          ]
+        },
         "applicability": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "paths": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-            "roles": { "type": "array", "items": { "type": "string", "enum": ["planner", "worker", "reviewer"] } }
+            "paths": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "roles": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "planner",
+                  "worker",
+                  "reviewer"
+                ]
+              }
+            }
           }
         },
         "entrypoints": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "architecture": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-            "plan": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-            "runbook": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+            "architecture": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "plan": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "runbook": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
           }
         },
         "role_presets": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "planner": { "$ref": "#/$defs/rolePreset" },
-            "worker": { "$ref": "#/$defs/rolePreset" },
-            "reviewer": { "$ref": "#/$defs/rolePreset" }
+            "planner": {
+              "$ref": "#/$defs/rolePreset"
+            },
+            "worker": {
+              "$ref": "#/$defs/rolePreset"
+            },
+            "reviewer": {
+              "$ref": "#/$defs/rolePreset"
+            }
           }
         },
         "provider_adapters": {
@@ -241,28 +485,78 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["provider", "path"],
+            "required": [
+              "provider",
+              "path"
+            ],
             "properties": {
-              "provider": { "type": "string", "minLength": 1 },
-              "path": { "type": "string", "minLength": 1 },
-              "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+              "provider": {
+                "type": "string",
+                "minLength": 1
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
             }
           }
         },
         "skill_lock": {
           "oneOf": [
-            { "type": "object", "additionalProperties": { "type": "string", "pattern": "^[0-9a-f]{64}$" } },
-            { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["id", "digest"], "properties": { "id": { "type": "string", "minLength": 1 }, "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" } } } }
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "digest"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "digest": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  }
+                }
+              }
+            }
           ]
         },
         "skill_lock_ref": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["path", "digest", "mandatory"],
+          "required": [
+            "path",
+            "digest",
+            "mandatory"
+          ],
           "properties": {
-            "path": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))(?!.*\\\\).+$" },
-            "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-            "mandatory": { "type": "boolean" }
+            "path": {
+              "type": "string",
+              "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))(?!.*\\\\).+$"
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "mandatory": {
+              "type": "boolean"
+            }
           }
         },
         "sources": {
@@ -271,30 +565,89 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["id", "path", "kind", "digest", "source_rev"],
+            "required": [
+              "id",
+              "path",
+              "kind",
+              "digest",
+              "source_rev"
+            ],
             "properties": {
-              "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
-              "path": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))(?!.*\\\\)[^/]+(?:/[^/]+)*$" },
-              "kind": { "type": "string", "enum": ["AGENTS.md", "CLAUDE.md", "overlay", "generated", "other"] },
-              "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-              "source_rev": { "type": "string", "minLength": 1 },
-              "refs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9._-]+$"
+              },
+              "path": {
+                "type": "string",
+                "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))(?!.*\\\\)[^/]+(?:/[^/]+)*$"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "AGENTS.md",
+                  "CLAUDE.md",
+                  "overlay",
+                  "generated",
+                  "other"
+                ]
+              },
+              "digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "source_rev": {
+                "type": "string",
+                "minLength": 1
+              },
+              "refs": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
               "rules": {
                 "type": "array",
                 "uniqueItems": true,
                 "items": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["rule_id", "scope"],
+                  "required": [
+                    "rule_id",
+                    "scope"
+                  ],
                   "properties": {
-                    "rule_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
-                    "scope": { "type": "string", "minLength": 1 },
-                    "kind": { "type": "string", "enum": ["mechanical", "advisory"] }
+                    "rule_id": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9._-]+$"
+                    },
+                    "scope": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "mechanical",
+                        "advisory"
+                      ]
+                    }
                   }
                 }
               },
-              "hooks": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
-              "line_budget": { "type": "integer", "minimum": 1 }
+              "hooks": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "line_budget": {
+                "type": "integer",
+                "minimum": 1
+              }
             }
           }
         }
@@ -305,22 +658,66 @@
     "rolePreset": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["model", "behavior", "tool_mode"],
+      "required": [
+        "model",
+        "behavior",
+        "tool_mode"
+      ],
       "properties": {
-        "model": { "type": "string", "enum": ["Sol", "Luna"] },
-        "behavior": { "type": "string", "enum": ["high", "xhigh"] },
-        "tool_mode": { "type": "string", "enum": ["read-only", "write"] }
+        "model": {
+          "type": "string",
+          "enum": [
+            "Sol",
+            "Luna"
+          ]
+        },
+        "behavior": {
+          "type": "string",
+          "enum": [
+            "high",
+            "xhigh"
+          ]
+        },
+        "tool_mode": {
+          "type": "string",
+          "enum": [
+            "read-only",
+            "write"
+          ]
+        }
       }
     }
   },
   "allOf": [
     {
-      "if": { "properties": { "schema_version": { "const": 2 } } },
-      "then": { "required": ["instruction_set"] }
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": 2
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "instruction_set"
+        ]
+      }
     },
     {
-      "if": { "properties": { "schema_version": { "const": 1 } } },
-      "then": { "not": { "required": ["instruction_set"] } }
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": 1
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "instruction_set"
+          ]
+        }
+      }
     }
   ]
 }
