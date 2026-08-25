@@ -1,0 +1,117 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V6-F-gate-tiers",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 30,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "test_gate_tiers.py decides correctness: 25 tests, red at the starting commit because gate_tiers.py does not exist. A permissive stub that validates nothing and always reports ready fails 14. The stub that matters -- one treating the first fully-green tier as sufficient -- passes every other test and fails 3.",
+    "starts_red": [
+      "agentops.dispatch.tests.gate_tiers"
+    ],
+    "reference_patch": "docs/evidence/packets/V6-F-gate-tiers.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "ff1baf4984f2ca94a6b2cb98ea89bfc0e261c764",
+  "purpose": "Write templates/dispatch/scripts/gate_tiers.py so a packet may stratify its registered gates without shrinking the set that must pass.\n\nagentops#2046 asks for fast attempt falsifiers, focused candidate gates, and one full suite -- and, in the same breath, that stratification does not skip the final required repository gate. Reconcile them by keeping the split strictly about ORDER. A plan may stop early; that is the point, since a cheap falsifier saves the suite it would have wasted. But candidate_ready must still ask for every granted gate, so stopping early can only ever mean 'not a candidate yet' -- never 'candidate on less evidence'.\n\nThe seam is TIER_ORDER = ('fast','focused','full') plus four functions:\n  stratify(packet) -> {tier: [command_id, ...]} for every tier, validated against the packet's allowed_command_ids, which is the grant. A packet declaring no gate_tiers is NOT an error: every granted id lands in 'full', which is what every packet frozen before this row already meant.\n  plan(packet) -> [(tier, [ids]), ...] in TIER_ORDER, empty tiers omitted. This is the run order, cheapest first, full last.\n  unmet_for_candidate(packet, results) -> the granted ids that have not yet run green, in run order. results is any iterable of {'command_id','exit_code'}, drained once.\n  candidate_ready(packet, results) -> bool, true exactly when unmet is empty.\n\nstratify raises ValueError when the declaration and the grant disagree: an unknown tier name, an id not granted by allowed_command_ids, an id in two tiers, a granted id in no tier, or an empty 'full' tier. That last one is the criterion enforced at freeze time rather than at gate time.\n\nThe likeliest wrong implementation treats the first fully-green tier as sufficient. It passes almost everything and fails the falsifier. No receipt wiring, no CLI, no file I/O.",
+  "readable_context_paths": [
+    "templates/dispatch/tests/test_gate_tiers.py",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "agentops.dispatch.json"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/gate_tiers.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/scripts/release_scorecard.py",
+    "templates/dispatch/scripts/schema_check.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "TIER_ORDER is exactly ('fast','focused','full')",
+    "a packet declaring no gate_tiers puts every granted id in 'full' and raises nothing",
+    "stratify returns all three tier keys, empty lists included, and never mutates the packet",
+    "stratify refuses an unknown tier, an ungranted id, an id in two tiers, a granted id in no tier, and an empty 'full'",
+    "plan is TIER_ORDER with empty tiers omitted, and 'full' is always last",
+    "candidate_ready requires every granted gate green, whatever the tiers",
+    "a result for an id the packet was not granted is ignored",
+    "candidate_ready is true exactly when unmet_for_candidate is empty"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "stratification reorders work and never reduces what must pass",
+      "command_id": "agentops.dispatch.tests.gate_tiers",
+      "fails_when": "a fast-tier green alone mints a candidate, or any granted gate is dropped from the requirement"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "a tier arranges the grant, it does not widen it",
+      "command_id": "agentops.dispatch.tests.gate_tiers",
+      "fails_when": "a tier may name an id outside allowed_command_ids, or a granted id may appear in no tier"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "packets frozen before this row keep their meaning",
+      "command_id": "agentops.dispatch.tests.gate_tiers",
+      "fails_when": "an undeclared packet raises, or stops requiring every granted gate"
+    },
+    {
+      "id": "REQ-004",
+      "requirement": "the two candidate predicates are one definition",
+      "command_id": "agentops.dispatch.tests.gate_tiers",
+      "fails_when": "candidate_ready and an empty unmet_for_candidate disagree on any stream"
+    }
+  ],
+  "non_goals": [
+    "wiring the tiers into hybrid_dispatch.py -- it is protected at the manifest level and is a coordinator hand-pass",
+    "changing any existing packet's gate set",
+    "running commands, git, or any subprocess"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.gate_tiers"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v6-f-gate-tiers",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/dispatch/handover-2026-08-25-session-close.md"
+    ]
+  }
+}
