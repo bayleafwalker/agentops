@@ -203,6 +203,37 @@
       },
       "description": "Command ids resolved against the repository hybrid.commands map. Free-form shell is never granted."
     },
+    "gate_tiers": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fast": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "focused": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "full": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "description": "Optional stratification of allowed_command_ids into fast attempt falsifiers, focused candidate gates, and one full suite. Ordering only: stopping early can mean 'not a candidate yet', never 'candidate on less evidence', because every granted gate must still run green. A packet that omits this runs every granted gate as a single full tier, which is what packets frozen before stratification already meant."
+    },
     "limits": {
       "type": "object",
       "additionalProperties": false,
