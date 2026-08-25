@@ -1632,6 +1632,31 @@ def churn_verdict(
     return None
 
 
+def churn_metrics_for(events: list[dict[str, Any]]) -> dict[str, Any]:
+    """Summarise ``events`` with the sibling ``churn_metrics`` module.
+
+    The import is deferred rather than made at module scope because
+    ``churn_metrics.py`` loads *this* file by path to import ``MUTATION_TOOLS``
+    rather than restating it. Importing it from here at import time would
+    re-enter this module before it finished executing; at call time both are
+    complete. This module's body has no side effects beyond definitions, so the
+    second load is cheap and the mutation set still has exactly one definition.
+
+    ``churn_verdict`` says only whether a worker was stopped. These counters say
+    what the run looked like when it was not -- without them a healthy run and a
+    run that stopped one read short of the limit leave the same trace.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "_churn_metrics_for_hybrid_dispatch",
+        Path(__file__).resolve().parent / "churn_metrics.py",
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.churn_metrics(events)
+
+
 def dispatch_worker(
     worktree: Path,
     packet_path: Path,
@@ -1731,6 +1756,7 @@ def dispatch_worker(
         "stderr_tail": (stderr or "")[-4000:],
         "session_id": session_id,
         "churn_stop": None if stop is None else {"reason": stop[0], "detail": stop[1]},
+        "churn_metrics": churn_metrics_for(events),
     }
 
 
