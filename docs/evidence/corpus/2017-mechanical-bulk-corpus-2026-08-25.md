@@ -6,51 +6,63 @@ measured corpus comparison required by the sixth acceptance criterion of `agento
 Measured 2026-08-25 over `docs/evidence/receipts/*/receipt.json` at `main`.
 Machine-readable companion: `docs/evidence/scorecards/v6-hardening.generated.json`.
 
+## 0. Correction, same day
+
+The first version of this document said five dispatched rows were missing and estimated the true
+first-pass rate at 23/24. **Both numbers were wrong**, and it named `V6-A-writability` for a task
+whose id is `V6-A-worker-writability-report`. Corrected counts are below; the measurement was
+re-run, not patched. The conclusion is unchanged and its basis is stronger.
+
+Two things also came out of the re-run:
+
+- **The `#124` fix was incomplete.** A worker transcript is escaped *twice* by the time it reaches
+  the receipt text — once at source, because the worker's stdout is JSON lines whose values are
+  themselves escaped, and again when the payload is serialised. A single decode pass left the false
+  positive standing. Decoding now iterates to a fixed point.
+- **Three receipts were recoverable and are now in the corpus** (`V6-E`, `V6-F`, `V6-G`),
+  reconstructed from the final receipts preserved beside the coordinator worktree and marked with a
+  `backfilled` provenance block. They scan clean under the completed fix.
+
 ## 1. What the corpus says
 
-There is exactly **one** task-class/model pair in the corpus. `#2017`'s rule is that admission is
-per pair and never implied by availability, so this document can speak to that pair and to nothing
-else.
+One task-class/model pair. `#2017`'s rule is that admission is per pair and never implied by
+availability, so this document speaks to that pair and nothing else.
 
 | | |
 |---|---|
 | route | `mechanical_bulk` |
 | harness model | `opencode-go/deepseek-v4-flash` |
-| receipts | 19 |
-| tasks | 19 |
-| first-pass tasks | 19 |
-| **first-pass rate** | **1.0** |
-| billed | $0.318435 |
-| tokens | 5,446,953 |
+| receipts | 22 |
+| tasks | 22 |
+| first-pass tasks | 21 |
+| **first-pass rate** | **0.9545** |
+| billed | $0.375147 |
+| tokens | 6,642,192 |
 | `cost_reported` | true |
 
-## 2. Why that 1.0 must not be used as-is
+The one non-first-pass row is `V6-E-churn-metrics`, recorded at `attempt: 2`: it produced an empty
+diff on attempt 1 — the worker did nothing — and passed on the L-4 retry.
 
-**The corpus is missing five dispatched rows, and the only row that needed a retry is one of them.**
+## 2. What the corpus still cannot see
 
-Withheld receipts were never written at all (the defect closed in #124), so `worker_totals` — which
-reads receipts — cannot count a run that left no file. Absent from `docs/evidence/receipts/`:
+**34 packets exist; 22 have a committed receipt. Fifteen do not, and three receipts have no packet.**
 
-- `V6-A-writability`
-- `V6-D-validate-dispatch-manifest`
-- `V6-E-churn-metrics`
-- `V6-F-gate-tiers`
-- `V6-G-defect-seeds`
+Packets with no receipt — `V5-M1`, `V5-M5`, `V5-M6a`, `V5-M6b`, `V5-M8`, `V5-M9`, `V5-M10a`,
+`V5-M10b`, `V5-M10c`, `V5-M12`, `V5-P1`, `V5-P1a`, `V5-T3`, `V5-T5`, `V6-A-worker-writability-report`.
 
-`V6-E-churn-metrics` went **red on attempt 1** (empty diff — the worker did nothing) and passed on
-the L-4 retry. It is excluded. Every excluded row is excluded for the same reason — a secret-scan
-false positive on JSON-escaped transcript text — and that reason is **uncorrelated with whether the
-row passed**, except that the one failure happens to be inside the excluded set.
+The dominant cause is **not** withholding: `V5-M10c-receipt-capture` is the row that *built* receipt
+capture, so rows at or before it could not have left one. That is a benign, permanent gap, and it
+is not recoverable — the coordinator host no longer holds their driver logs. **It should be declared
+lost rather than left looking like an anomaly.** `V6-A` is the one late row in that list and its
+artifacts are also gone.
 
-So the measured rate is not merely uncertain, it is **biased upward**, and the direction is known:
+Receipts with no packet — `V5-M13`, `V6-B`, `V6-C` — are the documented freeze-branch trap: the
+worker's PR is cut from commit 1 and the packet lives in commit 2, so merging the PR and deleting
+the branch loses the packet.
 
-- measured over the corpus: **19/19 = 1.0**
-- including the five excluded rows, using the dispatch logs: **23/24 ≈ 0.958**
-
-The scorecard nonetheless reports `cost_reported: true` and `total_reliable: true`, because every
-receipt it *can* see reported its cost. **A corpus with a hole in it produces a reliability flag
-that is true and a rate that is wrong.** That is the failure mode recorded as debt and now
-demonstrated on a live artifact rather than predicted.
+**Do not read the 0.9545 as covering the whole programme.** It covers the 22 rows that left a
+receipt. What has changed is that the corpus no longer *hides* a failure: the row that failed is now
+in it, and the reported rate moved from 1.0 to 0.9545 the moment it was.
 
 ## 3. Containment evidence
 
@@ -61,10 +73,11 @@ and held on **4 of 4**: each ran its granted command with the exact registered s
 the four additionally attempted a foreign `ls` that the harness refused (`ungranted_completed: 0`
 throughout).
 
-That measurement is **not yet in the receipts**. The wiring (#129) landed after the last dispatch,
-so `command_evidence` appears in **0 of 19** receipts and `churn_metrics` in **1 of 19**
-(`V6-H-command-evidence`). The containment claim above therefore rests on transcripts held outside
-the committed corpus, and does not survive a cold audit of this repository alone.
+That measurement is **still not in the receipts**. The wiring (#129) landed after the last dispatch,
+so `command_evidence` appears in **0 of 22** receipts and `churn_metrics` in **3 of 22**. The
+containment claim therefore rests on transcripts read outside the committed corpus and **does not
+survive a cold audit of this repository alone.** The next dispatched row will be the first receipt
+to carry either by construction.
 
 ## 4. Recommendation
 
@@ -72,11 +85,11 @@ the committed corpus, and does not survive a cold audit of this repository alone
 explained failure is a good result — but because the artifact that would be audited does not
 contain it. Three specific gaps:
 
-1. **Five rows are missing.** Fixed forward by #124, which writes a stub receipt on a withholding.
-   The five historical rows can be backfilled from the dispatch logs, or declared lost; either is
-   fine, but the corpus must state which.
-2. **No receipt yet carries `command_evidence`.** The next dispatched row will be the first. One
-   row is not a corpus.
+1. **Fifteen packets have no receipt.** Three were recoverable and have been backfilled. The rest
+   predate receipt capture and are **declared lost here** — that is now stated, which is what the
+   first version of this document failed to do.
+2. **No receipt yet carries `command_evidence`,** and only three carry `churn_metrics`. The next
+   dispatched row will be the first to carry both. Three rows are not a corpus.
 3. **`frontier` is all zeros** in the generated scorecard — the Stop hook writes per turn, and a
    scorecard generated inside the session it measures has nothing to read. Read it as "not
    measured", never as "free".
