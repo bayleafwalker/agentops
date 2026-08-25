@@ -4,11 +4,14 @@ Extracted from ``templates/dispatch/tests/test_task_packet_schema.py`` so that
 more than one consumer can reach it without copying it. The public surface is
 exactly four names:
 
-* ``validate(instance, schema, path="$")`` -> a list of human-readable
-  violation strings, empty when the instance satisfies the schema;
+* ``validate(instance, schema, path="$", assert_formats=())`` -> a list of
+  human-readable violation strings, empty when the instance satisfies the
+  schema;
 * ``UnsupportedKeyword``, an Exception;
 * ``SUPPORTED_KEYWORDS`` and ``ANNOTATION_KEYWORDS``, two disjoint non-empty
-  frozensets.
+  frozensets;
+* ``FORMAT_CHECKERS``, a mapping from format name to a predicate over a
+  string, consulted only when a caller opts into asserting formats.
 
 A schema keyword that is neither enforced (``SUPPORTED_KEYWORDS``) nor
 knowingly constraint-free (``ANNOTATION_KEYWORDS``) raises
@@ -37,6 +40,14 @@ Composition is enforced:
   does not name must satisfy that subschema; ``False`` still forbids extras and
   names each one, ``True`` and absent still constrain nothing.
 
+Format assertion is opt-in. ``validate`` takes ``assert_formats``, an
+iterable of format names to enforce for that call; the default is empty and
+behaves exactly as before. A name in ``assert_formats`` with no entry in
+``FORMAT_CHECKERS`` raises ``UnsupportedKeyword`` rather than silently
+certifying what was never checked. ``format`` constrains strings only: a
+non-string instance under a format schema is unaffected, per the
+specification.
+
 The governing rule does not move: a construct the checker cannot enforce raises
 rather than passing.
 """
@@ -60,6 +71,22 @@ ANNOTATION_KEYWORDS = frozenset({
 
 class UnsupportedKeyword(Exception):
     """A schema keyword (or form) this checker does not enforce."""
+
+
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
+
+def _is_uuid(value):
+    """True for the canonical hyphenated UUID spelling, case-insensitively."""
+    return _UUID_RE.match(value) is not None
+
+
+FORMAT_CHECKERS = {
+    "uuid": _is_uuid,
+}
 
 
 _TYPES = {
@@ -191,15 +218,26 @@ def audit_schema(schema, path="$"):
     return _audit_schema(schema, path, schema)
 
 
-def validate(instance, schema, path="$"):
-    """Return a list of human-readable violations, empty when valid."""
+def validate(instance, schema, path="$", assert_formats=()):
+    """Return a list of human-readable violations, empty when valid.
+
+    ``assert_formats`` names the formats to enforce for this call; it accepts
+    any iterable and defaults to empty, which behaves exactly as before. A
+    name with no entry in ``FORMAT_CHECKERS`` raises ``UnsupportedKeyword``
+    rather than silently certifying what was never checked.
+    """
+    assert_formats = frozenset(assert_formats)
+    for name in assert_formats:
+        if name not in FORMAT_CHECKERS:
+            raise UnsupportedKeyword(
+                f"{path}: no checker for asserted format {name!r}")
     defects = _audit_schema(schema, path, schema)
     if defects:
         raise UnsupportedKeyword(defects[0])
-    return _validate(instance, schema, path, schema)
+    return _validate(instance, schema, path, schema, assert_formats)
 
 
-def _validate(instance, schema, path, root):
+def _validate(instance, schema, path, root, assert_formats=()):
     """Recursive validation core; ``root`` anchors internal ``$ref`` pointers."""
     errors = []
 
@@ -209,7 +247,7 @@ def _validate(instance, schema, path, root):
             raise UnsupportedKeyword(
                 f"{path}: $ref {schema['$ref']!r} is not an internal, "
                 f"resolvable pointer")
-        errors.extend(_validate(instance, target, path, root))
+        errors.extend(_validate(instance, target, path, root, assert_formats))
 
     expected = schema.get("type")
     if expected:
@@ -233,6 +271,10 @@ def _validate(instance, schema, path, root):
         min_length = schema.get("minLength")
         if min_length is not None and len(instance) < min_length:
             errors.append(f"{path}: shorter than minLength {min_length}")
+        fmt = schema.get("format")
+        if fmt in assert_formats and not FORMAT_CHECKERS[fmt](instance):
+            errors.append(
+                f"{path}: {instance!r} does not match format {fmt}")
     if isinstance(instance, (int, float)) and not isinstance(instance, bool):
         minimum = schema.get("minimum")
         if minimum is not None and instance < minimum:
@@ -252,19 +294,22 @@ def _validate(instance, schema, path, root):
         if property_names is not None:
             for key in instance:
                 errors.extend(
-                    _validate(key, property_names, f"{path}.{key}", root))
+                    _validate(key, property_names, f"{path}.{key}", root,
+                              assert_formats))
         properties = schema.get("properties", {})
         additional = schema.get("additionalProperties")
         for key, value in instance.items():
             if key in properties:
                 errors.extend(
-                    _validate(value, properties[key], f"{path}.{key}", root))
+                    _validate(value, properties[key], f"{path}.{key}", root,
+                              assert_formats))
             elif additional is False:
                 errors.append(
                     f"{path}: additional property {key!r} is not allowed")
             elif isinstance(additional, dict):
                 errors.extend(
-                    _validate(value, additional, f"{path}.{key}", root))
+                    _validate(value, additional, f"{path}.{key}", root,
+                              assert_formats))
     if isinstance(instance, list):
         min_items = schema.get("minItems")
         if min_items is not None and len(instance) < min_items:
@@ -273,31 +318,35 @@ def _validate(instance, schema, path, root):
         if item_schema:
             for index, item in enumerate(instance):
                 errors.extend(
-                    _validate(item, item_schema, f"{path}[{index}]", root))
+                    _validate(item, item_schema, f"{path}[{index}]", root,
+                              assert_formats))
         if schema.get("uniqueItems"):
             hashable = [json.dumps(i, sort_keys=True) for i in instance]
             if len(set(hashable)) != len(hashable):
                 errors.append(f"{path}: items are not unique")
 
     for branch in schema.get("allOf", []):
-        errors.extend(_validate(instance, branch, path, root))
+        errors.extend(_validate(instance, branch, path, root, assert_formats))
 
-    if "if" in schema and not _validate(instance, schema["if"], path, root):
+    if "if" in schema and not _validate(instance, schema["if"], path, root,
+                                        assert_formats):
         then = schema.get("then")
         if then is not None:
-            errors.extend(_validate(instance, then, path, root))
+            errors.extend(_validate(instance, then, path, root, assert_formats))
 
     one_of = schema.get("oneOf")
     if one_of is not None:
         matches = [branch for branch in one_of
-                   if not _validate(instance, branch, path, root)]
+                   if not _validate(instance, branch, path, root,
+                                    assert_formats)]
         if len(matches) == 0:
             errors.append(f"{path}: matched none of the oneOf branches")
         elif len(matches) > 1:
             errors.append(f"{path}: matched more than one oneOf branch")
 
     not_schema = schema.get("not")
-    if not_schema is not None and not _validate(instance, not_schema, path, root):
+    if not_schema is not None and not _validate(instance, not_schema, path,
+                                                root, assert_formats):
         errors.append(f"{path}: must not satisfy the 'not' subschema")
 
     return errors
