@@ -56,8 +56,10 @@
           "enum": [
             "claude",
             "codex",
-            "opencode"
-          ]
+            "opencode",
+            "caller"
+          ],
+          "description": "'caller' means inherit the trusted calling-session harness and is never passed to a harness registry as an executable adapter name; see docs/plans/agentops/caller-mode-routing-runtime-handover.md, accepted 2026-07-22."
         },
         "default_model_alias": {
           "type": "string",
@@ -340,7 +342,10 @@
               "kustomize",
               "secrets",
               "docker",
-              "full-suite"
+              "full-suite",
+              "security",
+              "process-semantics",
+              "package"
             ]
           }
         },
