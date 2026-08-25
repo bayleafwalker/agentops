@@ -202,3 +202,36 @@ packet was asking for the right thing, and the answer came from a person reading
   committed packet and reads `agentops.dispatch.json`; neither was in `readable_context_paths`, and
   `validate` returned `unfit` twice until both were declared. That is the read-trace doing exactly
   what it was built for.
+
+## 6. Correction, 2026-08-25: why the probe was green here
+
+Recorded because the correction matters more than the finding it corrects.
+
+Bringing devbox's checkout current ran this suite there for the first time, and two tests in
+`RetryWorkspaceReuseTests` failed on devbox while passing on the workstation. The fixture defect
+was real -- a `TemporaryDirectory` is 0700, the worker user cannot traverse it, and the real
+worktree root `/tmp/agentops-hybrid` is 0755 -- and the one-line fix (#104) stands.
+
+**The explanation attached to it did not.** I wrote that the probe is skipped on hosts without an
+`agentworker` user, "which includes the workstation". I had not checked, and both halves were
+false: `agentworker` exists here too, uid 1101, in `agentdispatch`, and `sudo --non-interactive
+--user agentworker` works. The owner asked whether they had not specifically created that user.
+They had.
+
+The real cause is one line: `--worker-user` defaults to `os.environ.get("AGENTOPS_WORKER_USER")`.
+Devbox's agent login shell exports it; the workstation does not set it. With no worker user,
+`worker_can_write` returns `True` immediately -- *"no worker user: writes happen as the
+coordinator"* -- and never reaches the group check or the sudo probe.
+
+So **whether the loop's containment check runs is decided by an environment variable in whatever
+shell invoked the suite.** That is a worse property than the one I claimed. "This host lacks the
+user" is at least discoverable from the host. An unexported variable is invisible in the repo,
+invisible in the test output, and differs between two machines that both have the user and both
+have the sudo rights.
+
+It is also, once more, the §3h shape -- and this time I produced it rather than found it. A
+skipped check and a passed check reported the same thing, I read the green and inferred a cause
+that fit, and the inference went into a commit message, a debt line and a report to the owner
+before anyone tested it. The loop's own answer to this class of problem already exists: L-2b's
+read-trace reports `"skipped:untraced"` and never `true`, precisely so that "did not look" cannot
+be read as "looked and was fine". This probe has no such marker. That is the debt line now.
