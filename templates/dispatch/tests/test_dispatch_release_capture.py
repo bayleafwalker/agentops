@@ -486,9 +486,16 @@ class CaptureTests(_DriverFixture):
                 )
                 code, report = self._drive(packet, runner)
                 self.assertEqual(code, 0, "a withheld transcript is not a failed packet")
-                self.assertFalse(
-                    (worktree / CAPTURED_RECEIPT).exists(), "the receipt was written anyway",
-                )
+                # A withheld transcript now leaves a stub receipt behind, so
+                # the corpus is short VISIBLY: worker_totals reads receipts and
+                # could not count one that was never written, which left
+                # cost_reported true over a corpus with a hole in it. The stub
+                # carries numbers and pattern names only.
+                stub_path = worktree / CAPTURED_RECEIPT
+                self.assertTrue(stub_path.is_file(), "no stub receipt was written")
+                stub = json.loads(stub_path.read_text(encoding="utf-8"))
+                self.assertIs(stub["transcript_withheld"]["captured"], False)
+                self.assertTrue(stub["transcript_withheld"]["findings"])
                 self.assertFalse(
                     (worktree / CAPTURED_STDOUT).exists(), "the sidecar was written anyway",
                 )
@@ -504,10 +511,30 @@ class CaptureTests(_DriverFixture):
                 # receipts directory, reaches the commit just as surely -- and a
                 # task-scoped scan sees neither. The property is that a finding
                 # writes NOTHING ANYWHERE, not that one directory stays clean.
-                leaked = [q for q in worktree.rglob("*") if q.is_file()]
-                self.assertEqual(
-                    leaked, [], f"a withheld capture left files behind: {leaked}",
+                # The property is unchanged in substance and stronger in form:
+                # the secret must reach NO file anywhere in the worktree, not
+                # merely skip two known names. A driver that reports the
+                # transcript as withheld and writes it to a THIRD file has
+                # leaked it into the commit while every other assertion passes.
+                # Scoped to the whole worktree because git add -A stages all of
+                # it, so worktree/leaked.txt or another task's receipts
+                # directory reaches the commit just as surely.
+                written = sorted(
+                    q.relative_to(worktree).as_posix()
+                    for q in worktree.rglob("*")
+                    if q.is_file()
                 )
+                self.assertEqual(
+                    written, [CAPTURED_RECEIPT],
+                    f"a withheld capture wrote something other than the stub: {written}",
+                )
+                for name in written:
+                    body = (worktree / name).read_text(encoding="utf-8")
+                    self.assertNotIn(secret, body, f"{name} quotes the withheld secret")
+                    self.assertEqual(
+                        driver.scan_for_secrets(body), [],
+                        f"{name} still scans dirty after the withholding",
+                    )
                 self.assertTrue(report["pr"]["opened"], "the PR was not opened")
 
     # 11. The withholding is recorded by name, and the record quotes nothing.

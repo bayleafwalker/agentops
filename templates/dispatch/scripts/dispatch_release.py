@@ -123,15 +123,60 @@ SCAN_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 
+#: The two patterns whose value side is bounded only by "twenty non-space
+#: characters". A worker transcript is a stream of JSON, so its text arrives
+#: with the escapes still in it: a newline is the two characters ``\`` and
+#: ``n``, not a line break. Both of these patterns stop at a real newline and
+#: neither stops at an escaped one, so on raw transcript text their value run
+#: crosses line boundaries and reaches twenty characters out of source code
+#: that contains no secret at all. They are matched against decoded text only.
+ESCAPE_SENSITIVE_PATTERNS = frozenset({"secret_assignment", "authorization_bearer"})
+
+#: What a JSON string escape decodes to. Anything else keeps its backslash,
+#: because this is a scanner's best effort at reading the text a human would
+#: see, not a JSON parser.
+_ESCAPES = {"n": "\n", "t": "\t", "r": "\r", '"': '"', "'": "'", "\\": "\\", "/": "/"}
+_ESCAPE_RE = re.compile(r"\\(.)", re.DOTALL)
+
+
+def decode_transcript_escapes(text: str) -> str:
+    """The text a human would see, from text that is still JSON-escaped.
+
+    Decoding before scanning is strictly better in both directions. A secret
+    written plainly has no escapes and is unchanged, so it is still found. A
+    secret that reached the transcript inside a JSON string is decoded and
+    found, where a raw scan would have missed it behind ``\"``. And a value
+    that only looked twenty characters long because the run continued through
+    ``\n`` stops being a match, which is the false positive that withheld
+    three receipts in one session.
+    """
+    return _ESCAPE_RE.sub(lambda m: _ESCAPES.get(m.group(1), m.group(0)), text)
+
+
 def scan_for_secrets(text: str) -> list[str]:
     """Names of the secret patterns that match ``text``; never the text itself.
 
     The names are stable and distinct, so a report that embeds them can tell
     one kind from another without ever echoing the credential. Ordinary prose
     returns an empty list: a scan that fires on prose withholds every
-    transcript, which is the same as never capturing one.
+    transcript, which is the same as never capturing one -- and a withheld
+    receipt is worse than a missing one, because ``worker_totals`` cannot count
+    it while the run still reports ``cost_reported: true``.
+
+    The vendor patterns are anchored on their own prefixes and cannot be
+    lengthened by an escape, so they are matched against both the raw and the
+    decoded text: whichever form the credential arrived in, it is found.
     """
-    return [name for name, pattern in SCAN_PATTERNS if pattern.search(text) is not None]
+    decoded = decode_transcript_escapes(text)
+    found = []
+    for name, pattern in SCAN_PATTERNS:
+        if name in ESCAPE_SENSITIVE_PATTERNS:
+            hit = pattern.search(decoded) is not None
+        else:
+            hit = pattern.search(text) is not None or pattern.search(decoded) is not None
+        if hit:
+            found.append(name)
+    return found
 
 
 def _worker_stdout(payload: dict[str, Any]) -> str:
@@ -198,7 +243,31 @@ def capture_receipt(
     receipt_text = json.dumps(payload, indent=2) + "\n"
     findings = sorted(set(scan_for_secrets(receipt_text) + scan_for_secrets(transcript)))
     if findings:
-        return {"captured": False, "findings": findings}
+        # A withheld transcript must still leave a receipt behind. Writing
+        # nothing made the gap invisible: `worker_totals` reads receipts and
+        # cannot count one that was never written, so a tract with a withheld
+        # receipt was silently short while every receipt it *did* find reported
+        # its cost, leaving `cost_reported: true` over an incomplete corpus.
+        # The stub carries numbers and names only -- never transcript text --
+        # and is re-scanned before it is written.
+        stub = _withheld_receipt_stub(payload, findings)
+        stub_text = json.dumps(stub, indent=2) + "\n"
+        if scan_for_secrets(stub_text):
+            # Unreachable by construction; if the stub itself ever scans dirty,
+            # record the gap and nothing else rather than write a secret.
+            stub = {
+                "task_id": task_id,
+                "transcript_withheld": {"captured": False, "findings": findings},
+            }
+            stub_text = json.dumps(stub, indent=2) + "\n"
+        capture_dir.mkdir(parents=True, exist_ok=True)
+        (capture_dir / "receipt.json").write_text(stub_text, encoding="utf-8")
+        return {
+            "captured": False,
+            "findings": findings,
+            "path": f"{CAPTURE_ROOT}/{task_id}/receipt.json",
+            "stub": True,
+        }
     capture_dir.mkdir(parents=True, exist_ok=True)
     (capture_dir / "receipt.json").write_text(
         json.dumps(_strip_transcript(payload, transcript), indent=2) + "\n",
@@ -206,6 +275,56 @@ def capture_receipt(
     )
     (capture_dir / SIDECAR_NAME).write_text(transcript, encoding="utf-8")
     return {"captured": True, "path": f"{CAPTURE_ROOT}/{task_id}/receipt.json"}
+
+
+def _withheld_receipt_stub(
+    payload: dict[str, Any], findings: list[str]
+) -> dict[str, Any]:
+    """A receipt that records its own gap, safe to write when the scan fires.
+
+    Structured numbers and stable pattern names only: the worker's spend, the
+    gate verdict, and which shapes matched. No transcript, no diff, no command
+    output -- nothing that carried the text the scan objected to.
+
+    It exists so the corpus is short *visibly*. A scorecard can count a run it
+    can see, and `cost_reported` over a corpus with a hole in it is a number
+    nobody should trust.
+    """
+    spend: dict[str, Any] = {}
+    passed = None
+    for entry in payload.get("driver_steps") or []:
+        if not isinstance(entry, dict):
+            continue
+        nested = entry.get("receipt")
+        if not isinstance(nested, dict):
+            continue
+        if entry.get("step") == "run" and isinstance(nested.get("spend"), dict):
+            candidate = nested["spend"]
+            spend = {
+                "cost_usd": candidate.get("cost_usd", 0.0),
+                "tokens": candidate.get("tokens", 0),
+                "cost_reported": bool(candidate.get("cost_reported", False)),
+            }
+        if entry.get("step") == "gate":
+            evidence = nested.get("evidence")
+            if isinstance(evidence, dict):
+                passed = evidence.get("passed")
+    return {
+        "schema_version": payload.get("schema_version"),
+        "task_id": payload.get("task_id"),
+        "attempt": payload.get("attempt"),
+        "starting_commit": payload.get("starting_commit"),
+        "disposition": payload.get("disposition"),
+        # Shaped so worker_totals reads it exactly as it reads a full receipt.
+        # It takes spend from driver_steps and the first-pass verdict from the
+        # top-level gate, so the stub has to carry both.
+        "driver_steps": [
+            {"step": "run", "receipt": {"spend": spend}},
+            {"step": "gate", "receipt": {"evidence": {"passed": passed}}},
+        ],
+        "gate": {"evidence": {"passed": passed}},
+        "transcript_withheld": {"captured": False, "findings": list(findings)},
+    }
 
 
 def _gate_table(final: dict[str, Any]) -> dict[str, Any]:
