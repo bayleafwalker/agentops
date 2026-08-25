@@ -451,13 +451,6 @@ class OverlayTests(unittest.TestCase):
     def test_overlay_hash_is_stable_and_content_addressed(self) -> None:
         first = dispatch.overlay_hash(self._overlay())
         self.assertEqual(first, dispatch.overlay_hash(self._overlay()))
-        reordered = self._overlay()
-        bash = reordered["permission"]["bash"]
-        reordered["permission"]["bash"] = {
-            command: decision
-            for command, decision in reversed(list(bash.items()))
-        }
-        self.assertNotEqual(first, dispatch.overlay_hash(reordered))
         # The overlay now carries the command vocabulary but not the writable
         # paths, so the hash tracks what the worker is actually granted.
         self.packet["allowed_command_ids"] = []

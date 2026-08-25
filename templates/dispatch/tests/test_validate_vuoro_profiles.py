@@ -33,7 +33,7 @@ def test_checked_in_devbox_profile_is_valid() -> None:
     )
     profile = validator.validate_profile(_profile("devbox-agent-vuoro-shared.json"), environment)
 
-    assert profile["source_environment_id"] == "devbox"
+    assert profile["source_environment_id"] == "devbox-vm"
     assert "work:sprint" not in profile["required_authorities"]
 
 

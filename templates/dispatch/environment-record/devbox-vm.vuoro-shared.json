@@ -1,6 +1,6 @@
 {
   "schema_version": "environment-record/v1",
-  "id": "devbox",
+  "id": "devbox-vm",
   "environment_class": "local",
   "revision": 2,
   "roles": ["unattended-agent-host", "vuoro-served-client"],

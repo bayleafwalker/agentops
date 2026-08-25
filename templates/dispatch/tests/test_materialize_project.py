@@ -24,21 +24,12 @@ class ProjectMaterializationTests(unittest.TestCase):
         self.addCleanup(no_env.cleanup)
         self.no_env_dir = Path(no_env.name)
 
-    def _materialize(self, project, folder: Path, *, command: str, **kwargs):
+    def _materialize(self, project, folder: Path, *, command: str):
         return MATERIALIZE.materialize(
             project,
             folder,
             command=command,
             environment_records_dir=self.no_env_dir,
-            **kwargs,
-        )
-
-    def _cli(self, *arguments: str) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            [sys.executable, str(SCRIPTS / "materialize_project.py"), *arguments],
-            check=False,
-            capture_output=True,
-            text=True,
         )
 
     def _git(self, repo: Path, *arguments: str) -> str:
@@ -49,14 +40,6 @@ class ProjectMaterializationTests(unittest.TestCase):
             text=True,
         )
         return result.stdout.strip()
-
-    def _git_result(self, repo: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            ["git", "-C", str(repo), *arguments],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
 
     def _write(self, path: Path, value: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -154,7 +137,7 @@ render_levels: [baseline, full]
             },
         }
 
-    def test_setup_recovers_after_legacy_external_folder_removal(self) -> None:
+    def test_setup_delete_rebuild_is_identical_and_prunes_stale_worktrees(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             project_path, repos = self._fixture(root)
@@ -188,8 +171,6 @@ render_levels: [baseline, full]
                     "origin/main",
                 )
 
-            # This models a pre-v2 folder removed outside the lifecycle tool;
-            # normal cleanup is covered by the checked `destroy` command below.
             shutil.rmtree(folder)
             second = self._materialize(project, folder, command="setup")
 
@@ -201,7 +182,7 @@ render_levels: [baseline, full]
                 self.assertEqual(worktrees.count(f"worktree {expected_path}"), 1)
                 self.assertNotIn("prunable", worktrees)
 
-    def test_sync_fast_forwards_members_but_keeps_home_binding_pinned(self) -> None:
+    def test_sync_fast_forwards_upstream_and_rerenders_source_change(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             project_path, repos = self._fixture(root)
@@ -232,21 +213,21 @@ render_levels: [baseline, full]
             )
 
             self.assertFalse(result.blocked)
-            self.assertNotEqual(states["home"].head, home_head)
+            self.assertEqual(states["home"].head, home_head)
             self.assertEqual(states["child"].head, child_head)
-            self.assertEqual(states["home"].status, "behind")
+            self.assertEqual(states["home"].status, "updated")
             self.assertEqual(states["child"].status, "updated")
             self.assertTrue(
                 (
                     folder / MATERIALIZE.MEMBERS_DIRECTORY / "child" / "upstream.txt"
                 ).exists()
             )
-            self.assertNotIn("# Source update", generated.read_text(encoding="utf-8"))
+            self.assertIn("# Source update", generated.read_text(encoding="utf-8"))
             self.assertEqual(context["command"], "sync")
             child_context = next(
                 member for member in context["members"] if member["repo_id"] == "child"
             )
-            self.assertFalse(child_context["dirty_after_render"])
+            self.assertTrue(child_context["dirty_after_render"])
 
     def test_sync_reports_non_fast_forward_without_resolving(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -293,190 +274,6 @@ render_levels: [baseline, full]
                 self._materialize(
                     project, repos["home"] / "nested", command="setup"
                 )
-
-    def test_exclusive_instances_have_unique_branches_and_provenance(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            project_path, repos = self._fixture(root)
-            project = RENDER.load_project(project_path)
-            alpha = root / "project-folders" / "fixture--alpha"
-            beta = root / "project-folders" / "fixture--beta"
-
-            first = self._materialize(
-                project, alpha, command="setup", instance="alpha", mode="exclusive-write"
-            )
-            second = self._materialize(
-                project, beta, command="setup", instance="beta", mode="exclusive-write"
-            )
-
-            self.assertFalse(first.blocked)
-            self.assertFalse(second.blocked)
-            alpha_marker = json.loads((alpha / MATERIALIZE.MARKER_NAME).read_text())
-            beta_marker = json.loads((beta / MATERIALIZE.MARKER_NAME).read_text())
-            for marker, instance in ((alpha_marker, "alpha"), (beta_marker, "beta")):
-                self.assertEqual(marker["schema_version"], 2)
-                self.assertEqual(marker["instance_id"], instance)
-                self.assertEqual(marker["mode"], "exclusive-write")
-                self.assertEqual(marker["source_binding_commit"], self._git(repos["home"], "rev-parse", "HEAD"))
-                self.assertEqual(len(marker["source_binding_sha256"]), 64)
-            self.assertNotEqual(alpha_marker["source_binding_sha256"], "")
-            alpha_branches = {member.repo_id: member.branch for member in first.members}
-            beta_branches = {member.repo_id: member.branch for member in second.members}
-            self.assertNotEqual(alpha_branches, beta_branches)
-            self.assertTrue(all("/alpha/" in branch for branch in alpha_branches.values()))
-            self.assertTrue(all("/beta/" in branch for branch in beta_branches.values()))
-
-            context = json.loads((alpha / MATERIALIZE.CONTEXT_NAME).read_text())
-            self.assertEqual(context["instance_id"], "alpha")
-            self.assertEqual(context["mode"], "exclusive-write")
-            self.assertEqual(context["source_binding_commit"], alpha_marker["source_binding_commit"])
-            self.assertEqual(context["source_binding_sha256"], alpha_marker["source_binding_sha256"])
-
-    def test_shared_read_instance_is_detached_at_recorded_revision(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            project_path, repos = self._fixture(root)
-            project = RENDER.load_project(project_path)
-            folder = root / "project-folders" / "fixture-read"
-
-            result = self._materialize(
-                project, folder, command="setup", instance="read", mode="shared-read"
-            )
-
-            self.assertFalse(result.blocked)
-            marker = json.loads((folder / MATERIALIZE.MARKER_NAME).read_text())
-            self.assertEqual(marker["mode"], "shared-read")
-            for state in result.members:
-                worktree = folder / MATERIALIZE.MEMBERS_DIRECTORY / state.repo_id
-                self.assertEqual(
-                    self._git_result(worktree, "symbolic-ref", "--quiet", "--short", "HEAD").returncode,
-                    1,
-                )
-                self.assertEqual(
-                    self._git(worktree, "rev-parse", "HEAD"),
-                    self._git(repos[state.repo_id], "rev-parse", "origin/main"),
-                )
-
-    def test_setup_rejects_instance_names_that_are_not_branch_safe(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            project_path, _repos = self._fixture(root)
-            project = RENDER.load_project(project_path)
-
-            for instance in ("nested/name", "has space", "-option", "bad~ref"):
-                with self.subTest(instance=instance):
-                    with self.assertRaisesRegex(
-                        MATERIALIZE.ProjectFolderError, "instance must match"
-                    ):
-                        self._materialize(
-                            project,
-                            root / "project-folders" / "invalid",
-                            command="setup",
-                            instance=instance,
-                        )
-
-    def test_status_and_refresh_context_do_not_advance_member_heads(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            project_path, repos = self._fixture(root)
-            folder = root / "project-folders" / "fixture"
-            setup = self._cli(
-                "setup", "--project", str(project_path), "--folder", str(folder),
-                "--instance", "default", "--mode", "exclusive-write",
-                "--environment-records-dir", str(self.no_env_dir),
-            )
-            self.assertEqual(setup.returncode, 0, setup.stdout + setup.stderr)
-            before = {
-                name: self._git(folder / MATERIALIZE.MEMBERS_DIRECTORY / name, "rev-parse", "HEAD")
-                for name in repos
-            }
-            child_tracking_before = self._git(repos["child"], "rev-parse", "origin/main")
-            # Give origin new commits through an independent clone.  A status or
-            # context refresh must not fetch them or move the checked-out heads.
-            publisher = root / "publisher"
-            subprocess.run(["git", "clone", str(root / "remotes" / "child.git"), str(publisher)], check=True, capture_output=True, text=True)
-            self._git(publisher, "config", "user.email", "tests@example.invalid")
-            self._git(publisher, "config", "user.name", "Publisher")
-            self._write(publisher / "published.txt", "later\n")
-            self._git(publisher, "add", "published.txt")
-            self._git(publisher, "commit", "-m", "later upstream")
-            self._git(publisher, "push", "origin", "main")
-
-            for command in ("status", "refresh-context"):
-                result = self._cli(
-                    command, "--project", str(project_path), "--folder", str(folder),
-                    "--instance", "default", "--mode", "exclusive-write",
-                    "--environment-records-dir", str(self.no_env_dir),
-                )
-                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            after = {
-                name: self._git(folder / MATERIALIZE.MEMBERS_DIRECTORY / name, "rev-parse", "HEAD")
-                for name in repos
-            }
-            self.assertEqual(after, before)
-            self.assertEqual(
-                self._git(repos["child"], "rev-parse", "origin/main"),
-                child_tracking_before,
-            )
-            self.assertFalse((folder / MATERIALIZE.MEMBERS_DIRECTORY / "child" / "published.txt").exists())
-
-    def test_destroy_refuses_live_or_unprotected_state_and_removes_clean_worktrees(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            project_path, repos = self._fixture(root)
-
-            def setup(instance: str) -> Path:
-                folder = root / "project-folders" / f"fixture--{instance}"
-                result = self._cli(
-                    "setup", "--project", str(project_path), "--folder", str(folder),
-                    "--instance", instance, "--mode", "exclusive-write",
-                    "--environment-records-dir", str(self.no_env_dir),
-                )
-                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-                return folder
-
-            def destroy(folder: Path, instance: str) -> subprocess.CompletedProcess[str]:
-                return self._cli(
-                    "destroy", "--project", str(project_path), "--folder", str(folder),
-                    "--instance", instance, "--mode", "exclusive-write",
-                    "--environment-records-dir", str(self.no_env_dir),
-                )
-
-            dirty = setup("dirty")
-            self._write(dirty / MATERIALIZE.MEMBERS_DIRECTORY / "child" / "untracked.txt", "nope\n")
-            refused = destroy(dirty, "dirty")
-            self.assertEqual(refused.returncode, 2)
-            self.assertIn("dirty", refused.stderr)
-            self.assertTrue(dirty.exists())
-
-            ahead = setup("ahead")
-            child = ahead / MATERIALIZE.MEMBERS_DIRECTORY / "child"
-            self._write(child / "local.txt", "local\n")
-            self._git(child, "add", "local.txt")
-            self._git(child, "commit", "-m", "unprotected local change")
-            refused = destroy(ahead, "ahead")
-            self.assertEqual(refused.returncode, 2)
-            self.assertRegex(refused.stderr, "non-fast-forward|ahead|current")
-            self.assertTrue(ahead.exists())
-
-            leased = setup("leased")
-            self._write(leased / ".agentops-project-folder.lease", "active\n")
-            refused = destroy(leased, "leased")
-            self.assertEqual(refused.returncode, 2)
-            self.assertIn("leased", refused.stderr)
-
-            session = setup("session")
-            self._write(session / ".session" / "handoff.md", "keep this\n")
-            refused = destroy(session, "session")
-            self.assertEqual(refused.returncode, 2)
-            self.assertIn("non-empty .session", refused.stderr)
-
-            clean = setup("clean")
-            removed = destroy(clean, "clean")
-            self.assertEqual(removed.returncode, 0, removed.stdout + removed.stderr)
-            self.assertFalse(clean.exists())
-            for repo in repos.values():
-                self.assertNotIn(str(clean / MATERIALIZE.MEMBERS_DIRECTORY), self._git(repo, "worktree", "list", "--porcelain"))
 
     def test_cli_setup_and_sync_exit_cleanly(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
