@@ -1068,34 +1068,86 @@ def prepare_workspace(
     return target
 
 
+def gate_plan(packet: dict[str, Any]) -> list[tuple[str, list[str]]]:
+    """The tiered run order for this packet's registered gates.
+
+    Deferred import for the same reason as :func:`churn_metrics_for`: keeping
+    the tier rules in one module means loading it, and loading it at import
+    time would re-enter this file. A packet that declares no ``gate_tiers``
+    plans a single ``full`` step, which is what every packet frozen before
+    stratification already meant.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "_gate_tiers_for_hybrid_dispatch",
+        Path(__file__).resolve().parent / "gate_tiers.py",
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.plan(packet)
+
+
+def required_gates_complete(packet: dict[str, Any], results: list[dict[str, Any]]) -> bool:
+    """Whether every granted gate has run green, whatever the tiers.
+
+    This is the half of stratification that must not be negotiable. Ordering
+    may stop early; the requirement may not shrink, or a fast falsifier would
+    become a cheaper way to mint a candidate.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "_gate_tiers_for_hybrid_dispatch",
+        Path(__file__).resolve().parent / "gate_tiers.py",
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.candidate_ready(packet, results)
+
+
 def run_registered_commands(
-    worktree: Path, packet: dict[str, Any], manifest: dict[str, Any]
+    worktree: Path,
+    packet: dict[str, Any],
+    manifest: dict[str, Any],
+    stop_early: bool = False,
 ) -> list[dict[str, Any]]:
+    """Run the packet's registered gates in tier order.
+
+    ``stop_early`` abandons the remaining tiers once one has gone red -- the
+    whole point of a fast falsifier is not paying for the suite it rejects.
+    The cold freeze-time run leaves it off, because there every command must be
+    observed red on its own account.
+    """
     commands = manifest["hybrid"]["commands"]
     results: list[dict[str, Any]] = []
-    for command_id in packet["allowed_command_ids"]:
-        command = commands[command_id]
-        completed = subprocess.run(
-            command,
-            shell=True,
-            cwd=worktree,
-            # Registered gate commands are noninteractive too: a prompt here
-            # would stall the cold run rather than fail it.
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            text=True,
-            timeout=packet["limits"]["timeout_seconds"],
-            check=False,
-        )
-        results.append(
-            {
-                "command_id": command_id,
-                "command": command,
-                "exit_code": completed.returncode,
-                "stdout_tail": completed.stdout[-4000:],
-                "stderr_tail": completed.stderr[-4000:],
-            }
-        )
+    for tier, command_ids in gate_plan(packet):
+        for command_id in command_ids:
+            command = commands[command_id]
+            completed = subprocess.run(
+                command,
+                shell=True,
+                cwd=worktree,
+                # Registered gate commands are noninteractive too: a prompt here
+                # would stall the cold run rather than fail it.
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                timeout=packet["limits"]["timeout_seconds"],
+                check=False,
+            )
+            results.append(
+                {
+                    "command_id": command_id,
+                    "command": command,
+                    "tier": tier,
+                    "exit_code": completed.returncode,
+                    "stdout_tail": completed.stdout[-4000:],
+                    "stderr_tail": completed.stderr[-4000:],
+                }
+            )
+        if stop_early and any(r["exit_code"] != 0 for r in results):
+            break
     return results
 
 
@@ -1847,7 +1899,7 @@ def post_gates(
     )
     out_of_scope = [p for p in touched if not _matches_any(p, packet["writable_patch_paths"])]
     protected_hits = [p for p in touched if _matches_any(p, protected)]
-    command_results = run_registered_commands(worktree, packet, manifest)
+    command_results = run_registered_commands(worktree, packet, manifest, stop_early=True)
 
     worktree_status = _git(worktree, "status", "--porcelain").splitlines()
     gates = {
@@ -1856,6 +1908,11 @@ def post_gates(
         "protected-paths-untouched": not protected_hits,
         "worktree-state-captured": True,
         "registered-commands-green": all(r["exit_code"] == 0 for r in command_results),
+        # Stratification may stop early, so "everything that ran was green" is
+        # no longer the same claim as "everything required ran". Without this
+        # the fast tier would be a cheaper way to mint a candidate, which is
+        # exactly what agentops#2046 forbids.
+        "required-gates-complete": required_gates_complete(packet, command_results),
     }
     return {
         "gates": gates,

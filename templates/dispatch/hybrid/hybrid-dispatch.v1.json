@@ -176,6 +176,7 @@
       "protected-paths-untouched",
       "worktree-state-captured",
       "registered-commands-green",
+      "required-gates-complete",
       "coordinator-review-recorded"
     ]
   },
