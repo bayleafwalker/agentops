@@ -1489,6 +1489,146 @@ def resolve_reference_patch(repo_root: Path, packet: dict[str, Any]) -> Path | N
     return repo_root / rel
 
 
+def parsed_defect_seeds(packet: dict[str, Any]) -> list[dict[str, Any]]:
+    """The packet's normalised defect seeds, via the sibling module.
+
+    Deferred import for the same reason as :func:`churn_metrics_for`: the
+    module is loaded by path so the seed rules have exactly one definition.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "_defect_seeds_for_hybrid_dispatch",
+        Path(__file__).resolve().parent / "defect_seeds.py",
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.parse_seeds(packet)
+
+
+def unfalsified_defect_seeds(
+    packet: dict[str, Any], outcomes: dict[str, list[dict[str, Any]]]
+) -> list[str]:
+    """Seed ids that did not falsify, via the sibling module."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "_defect_seeds_for_hybrid_dispatch",
+        Path(__file__).resolve().parent / "defect_seeds.py",
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.unfalsified(packet, outcomes)
+
+
+def resolve_seed_patch(repo_root: Path, seed: dict[str, Any]) -> Path:
+    """Where a seed's patch lives. The same containment rule as the reference."""
+    rel = seed["patch"]
+    if Path(rel).is_absolute() or _pattern_escapes_repo(rel):
+        raise PacketError(
+            f"defect seed {seed['id']!r} patch must be a repo-relative path that stays "
+            "inside the repository"
+        )
+    return repo_root / rel
+
+
+def check_defect_seeds(
+    repo_root: Path, packet: dict[str, Any], manifest: dict[str, Any],
+) -> tuple[list[str], dict[str, Any]]:
+    """Each declared defect seed must turn its named oracle commands RED.
+
+    The reference overlay proves the oracle is satisfiable by the files the
+    worker may write. It cannot prove the oracle would *notice* the defect the
+    packet says it catches -- `acceptance-properties-discriminating` only
+    checks that a `fails_when` string is present. A seed is that missing half:
+    applied on top of the reference, it must break the oracle.
+
+    A seed is applied over the reference on purpose. Applied to the bare
+    starting commit it would be red because the feature is absent, which is
+    the state `starts_red` already established and proves nothing.
+    """
+    empty = {"defect_seeds_falsified": "skipped:none", "unfalsified_seeds": []}
+    try:
+        seeds = parsed_defect_seeds(packet)
+    except ValueError as exc:
+        return [f"oracle.defect_seeds is unusable: {exc}"], {
+            "defect_seeds_falsified": False,
+            "unfalsified_seeds": [],
+        }
+    if not seeds:
+        return [], empty
+
+    reference = resolve_reference_patch(repo_root, packet)
+    if reference is None:
+        return (
+            [
+                "oracle.defect_seeds requires oracle.reference_patch: a seed is applied "
+                "over the reference, because on the bare starting commit it would be red "
+                "for the absence starts_red already proves"
+            ],
+            {"defect_seeds_falsified": False, "unfalsified_seeds": [s["id"] for s in seeds]},
+        )
+
+    commands = manifest["hybrid"]["commands"]
+    faults: list[str] = []
+    outcomes: dict[str, list[dict[str, Any]]] = {}
+    for seed in seeds:
+        patch_path = resolve_seed_patch(repo_root, seed)
+        if not patch_path.is_file():
+            faults.append(f"defect seed {seed['id']!r} patch {seed['patch']!r} is not a file")
+            continue
+        with tempfile.TemporaryDirectory(prefix="agentops-seed-") as tmp:
+            checkout = Path(tmp) / "at-starting-commit"
+            try:
+                _git(repo_root, "clone", "--no-hardlinks", "--quiet", str(repo_root), str(checkout))
+                _git(checkout, "checkout", "--quiet", "--detach", packet["starting_commit"])
+            except Exception as exc:  # noqa: BLE001 - reported, never raised past here
+                faults.append(f"could not check out {packet['starting_commit']} for seed {seed['id']!r}: {exc}")
+                continue
+            staged = []
+            for label, path in (("reference", reference), ("seed", patch_path)):
+                applied = subprocess.run(
+                    ["git", "apply", "--whitespace=nowarn", str(path)],
+                    cwd=checkout, stdin=subprocess.DEVNULL,
+                    capture_output=True, text=True, check=False,
+                )
+                if applied.returncode != 0:
+                    faults.append(
+                        f"defect seed {seed['id']!r}: the {label} patch failed to apply at "
+                        f"{packet['starting_commit'][:12]}: {applied.stderr.strip()[-300:]}"
+                    )
+                    staged = None
+                    break
+                staged.append(label)
+            if staged is None:
+                continue
+            results = []
+            for command_id in seed["expect_red"]:
+                command = commands.get(command_id)
+                if command is None:
+                    continue  # already a fault from check_oracle_attainable
+                completed = subprocess.run(
+                    command, shell=True, cwd=checkout, stdin=subprocess.DEVNULL,
+                    capture_output=True, text=True, check=False,
+                    timeout=packet["limits"]["timeout_seconds"],
+                )
+                results.append({"command_id": command_id, "exit_code": completed.returncode})
+            outcomes[seed["id"]] = results
+
+    unfalsified = unfalsified_defect_seeds(packet, outcomes)
+    for seed_id in unfalsified:
+        if any(seed_id in fault for fault in faults):
+            continue
+        faults.append(
+            f"defect seed {seed_id!r} did not falsify: the oracle stayed green with the "
+            "defect applied, so it does not test what the packet claims it tests"
+        )
+    return faults, {
+        "defect_seeds_falsified": not unfalsified,
+        "unfalsified_seeds": unfalsified,
+    }
+
+
 def check_oracle_reference(
     repo_root: Path, packet: dict[str, Any], manifest: dict[str, Any],
 ) -> tuple[list[str], dict[str, Any]]:
@@ -2111,6 +2251,9 @@ def main(argv: list[str] | None = None) -> int:
             ref_report: dict[str, Any] = {}
             if not faults:
                 faults, ref_report = check_oracle_reference(repo_root, packet, manifest)
+                seed_faults, seed_report = check_defect_seeds(repo_root, packet, manifest)
+                faults = list(faults) + seed_faults
+                ref_report = {**ref_report, **seed_report}
             if faults:
                 _emit({
                     "packet": packet["task_id"],

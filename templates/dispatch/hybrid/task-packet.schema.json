@@ -120,6 +120,43 @@
           "type": "string",
           "minLength": 1,
           "description": "Optional repo-relative path (under docs/evidence/packets/ or similar) to a unified diff that is a reference solution. validate applies it at starting_commit in a throwaway checkout, rejects it if it touches anything outside writable_patch_paths, and requires every starts_red command to go green. Absent, the report records oracle_satisfiable_within_paths as skipped:no-reference, never true. A cheap-tier packet SHOULD carry one; it is mandatory once L-3 self_candidate is on for the class."
+        },
+        "defect_seeds": {
+          "type": "array",
+          "description": "Optional coordinator-authored defect seeds. Each is applied on top of oracle.reference_patch in a throwaway checkout at starting_commit, and every command it names in expect_red must go RED. acceptance-properties-discriminating only checks that a fails_when string is present; a seed is the check that the oracle actually notices the defect the packet claims to catch. A seed that leaves the oracle green makes the packet unfit.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "patch",
+              "expect_red"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9._-]*$"
+              },
+              "patch": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Repo-relative path to a unified diff that introduces the defect."
+              },
+              "expect_red": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": "Command ids, each of which must be one of oracle.starts_red, that this seed must turn red."
+              },
+              "description": {
+                "type": "string"
+              }
+            }
+          }
         }
       }
     },

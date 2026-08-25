@@ -1,0 +1,77 @@
+diff --git a/templates/dispatch/scripts/defect_seeds.py b/templates/dispatch/scripts/defect_seeds.py
+index 99fb463..24b5d23 100644
+--- a/templates/dispatch/scripts/defect_seeds.py
++++ b/templates/dispatch/scripts/defect_seeds.py
+@@ -24,70 +24,9 @@ SEED_ID_RE = re.compile(r"[A-Za-z][A-Za-z0-9._-]*")
+ 
+ 
+ def parse_seeds(packet):
+-    """Return the packet's normalised ``oracle.defect_seeds``.
+-
+-    A packet declaring none returns ``[]`` -- every packet frozen before this
+-    row has none and must keep meaning what it meant. Raises ``ValueError``
+-    when a declaration is present but unusable.
+-    """
++    """Return the packet's declared seeds."""
+     oracle = packet.get("oracle") or {}
+-    declared = oracle.get("defect_seeds")
+-    if declared is None:
+-        return []
+-    if not isinstance(declared, list):
+-        raise ValueError("oracle.defect_seeds must be a list of seed declarations")
+-
+-    starts_red = list(oracle.get("starts_red") or [])
+-    parsed = []
+-    seen = set()
+-    for index, seed in enumerate(declared):
+-        if not isinstance(seed, dict):
+-            raise ValueError(f"defect seed {index} must be an object")
+-
+-        seed_id = seed.get("id")
+-        if not isinstance(seed_id, str) or not SEED_ID_RE.fullmatch(seed_id):
+-            raise ValueError(
+-                f"defect seed {index} must declare an id starting with a letter and "
+-                "using only letters, digits, '.', '_' or '-'"
+-            )
+-        if seed_id in seen:
+-            raise ValueError(
+-                f"defect seed id {seed_id!r} is duplicated; a red result must belong "
+-                "to exactly one named defect"
+-            )
+-        seen.add(seed_id)
+-
+-        patch = seed.get("patch")
+-        if not isinstance(patch, str) or not patch:
+-            raise ValueError(f"defect seed {seed_id!r} must declare a patch path")
+-        if patch.startswith("/") or ".." in patch.split("/"):
+-            raise ValueError(
+-                f"defect seed {seed_id!r} patch must be a repo-relative path that stays "
+-                "inside the repository"
+-            )
+-
+-        expect_red = seed.get("expect_red")
+-        if not isinstance(expect_red, list) or not expect_red:
+-            raise ValueError(
+-                f"defect seed {seed_id!r} must expect at least one command to go red; "
+-                "a seed that expects nothing proves nothing"
+-            )
+-        for command_id in expect_red:
+-            if command_id not in starts_red:
+-                raise ValueError(
+-                    f"defect seed {seed_id!r} expects {command_id!r} to go red, but it is "
+-                    "not one of oracle.starts_red"
+-                )
+-
+-        parsed.append(
+-            {
+-                "id": seed_id,
+-                "patch": patch,
+-                "expect_red": list(expect_red),
+-                "description": seed.get("description") or "",
+-            }
+-        )
+-    return parsed
++    return list(oracle.get("defect_seeds") or [])
+ 
+ 
+ def seed_falsified(seed, results):

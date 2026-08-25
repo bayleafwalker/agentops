@@ -1,0 +1,13 @@
+diff --git a/templates/dispatch/scripts/defect_seeds.py b/templates/dispatch/scripts/defect_seeds.py
+index 99fb463..b9d6eaa 100644
+--- a/templates/dispatch/scripts/defect_seeds.py
++++ b/templates/dispatch/scripts/defect_seeds.py
+@@ -101,7 +101,7 @@ def seed_falsified(seed, results):
+     for result in results:
+         outcome.setdefault(result.get("command_id"), result.get("exit_code"))
+     return all(
+-        outcome.get(command_id) not in (None, 0) for command_id in seed["expect_red"]
++        outcome.get(command_id) != 0 for command_id in seed["expect_red"]
+     )
+ 
+ 
