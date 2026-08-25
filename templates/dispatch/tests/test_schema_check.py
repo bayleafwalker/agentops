@@ -100,6 +100,32 @@ def _handled(keyword: str) -> bool:
             or keyword in schema_check.ANNOTATION_KEYWORDS)
 
 
+def _subschema_form_enforced() -> bool:
+    """True once ``additionalProperties`` as a subschema is actually applied.
+
+    Coordinator amendment, 2026-08-25, recorded rather than quietly made. This
+    file was written when the row above it did not implement the subschema form
+    of ``additionalProperties``, so the tests below pinned it as *raising* --
+    correctly, since a checker that returns ``[]`` for a constraint it never
+    applied is exactly what this module exists to prevent. The V5.9-2 row then
+    implemented that form, because ``manifest.schema.json`` uses it in three
+    places and a manifest that always raises cannot be validated by anything.
+
+    The intent of those tests survives the change unaltered: the subschema form
+    must never be silently ignored. What changes is which of the two acceptable
+    answers is live -- raise while unenforced, enforce once implemented. This
+    probe asks the module which world it is in, so both are pinned and neither
+    can degrade into silence. Nothing was deleted to make a packet pass.
+    """
+    try:
+        return validate(
+            {"extra": 1},
+            {"type": "object", "properties": {},
+             "additionalProperties": {"type": "string"}}) != []
+    except schema_check.UnsupportedKeyword:
+        return False
+
+
 class PublicSurfaceTests(unittest.TestCase):
     """The seam itself: one function and two frozensets, nothing more."""
 
@@ -461,9 +487,6 @@ class UnsupportedKeywordTests(unittest.TestCase):
 #: checker does not enforce. Each must raise, naming the keyword. Keyed by the
 #: keyword the message has to name.
 SHAPE_CASES = {
-    "additionalProperties": (
-        {"type": "object", "additionalProperties": {"type": "string"}},
-        {"anything": "x"}),
     "items": (
         {"type": "array", "items": [{"type": "string"}, {"type": "integer"}]},
         ["x", 1]),
@@ -517,10 +540,16 @@ class ShapeAuditTests(unittest.TestCase):
                 self._assert_raises_naming(keyword, {"present": "x"}, schema)
 
     def test_an_unenforceable_form_raises_inside_items(self):
+        # Exemplified with the union form of `type`, which stays unenforceable.
+        # It was `additionalProperties` as a subschema until V5.9-2 implemented
+        # that form; the guarantee being pinned -- a bad form nested inside a
+        # container still raises -- is unchanged, and is now pinned by a case
+        # that no planned row will implement away.
         self._assert_raises_naming(
-            "additionalProperties", [],
+            "type", [],
             {"type": "array",
-             "items": {"type": "object", "additionalProperties": {"type": "string"}}})
+             "items": {"type": "object",
+                       "properties": {"a": {"type": ["string", "null"]}}}})
 
     def test_the_enforced_forms_still_do_not_raise(self):
         for schema, instance in (
@@ -542,7 +571,25 @@ class ShapeAuditTests(unittest.TestCase):
         # Callers catch one thing, whether the schema named a keyword the
         # checker lacks or used one in a form it cannot enforce.
         with self.assertRaises(UnsupportedKeyword):
-            validate({}, {"type": "object", "additionalProperties": {"type": "string"}})
+            validate([], {"type": "array", "items": [{"type": "string"}]})
+
+    def test_the_subschema_form_is_enforced_or_refused_but_never_ignored(self):
+        # The two acceptable answers for additionalProperties as a subschema,
+        # and the one that is never acceptable. Before V5.9-2 the module
+        # raised; after it, the constraint is applied. Silence -- returning no
+        # violations for an extra property of the wrong type -- is the failure
+        # this module exists to prevent, and it fails here in both worlds.
+        schema = {"type": "object", "properties": {},
+                  "additionalProperties": {"type": "string"}}
+        try:
+            violations = validate({"extra": 1}, schema)
+        except UnsupportedKeyword:
+            return
+        self.assertTrue(
+            violations,
+            "additionalProperties as a subschema was neither refused nor "
+            "enforced: an extra property of the wrong type passed silently")
+        self.assertEqual(validate({"extra": "x"}, schema), [])
 
 
 class RealSchemaTests(unittest.TestCase):
@@ -593,7 +640,7 @@ class RealSchemaTests(unittest.TestCase):
             "manifest.schema.json is expected to constrain action_classes "
             "values with the subschema form of additionalProperties")
 
-    def test_the_manifest_shape_hole_raises_on_its_own(self):
+    def test_the_manifest_shape_hole_is_enforced_or_raises(self):
         # Reason one, isolated: the real node lifted out of the file and
         # wrapped so that the *only* thing wrong is the unenforceable form.
         # This is unconditional. It is not the next row's to silence: until
@@ -603,9 +650,17 @@ class RealSchemaTests(unittest.TestCase):
             "type": "object",
             "additionalProperties": self._action_classes()["additionalProperties"],
         }
-        with self.assertRaises(UnsupportedKeyword) as caught:
-            validate({"mechanical_bulk": {"enabled": True}}, schema)
-        self.assertIn("additionalProperties", str(caught.exception))
+        if not _subschema_form_enforced():
+            with self.assertRaises(UnsupportedKeyword) as caught:
+                validate({"mechanical_bulk": {"enabled": True}}, schema)
+            self.assertIn("additionalProperties", str(caught.exception))
+            return
+        # V5.9-2 implemented the form. The node must now actually constrain the
+        # values it was written to constrain -- which is a stronger statement
+        # than the refusal it replaces, and fails just as loudly on silence.
+        self.assertTrue(
+            validate({"mechanical_bulk": "not an object"}, schema),
+            "the real action_classes subschema accepted a value it constrains")
 
     def test_the_manifest_composition_reason_raises_on_its_own(self):
         # Reason two, isolated: the composition keyword the same node carries,
@@ -618,6 +673,16 @@ class RealSchemaTests(unittest.TestCase):
 
     def test_the_manifest_schema_is_refused_and_says_which_reason_is_live(self):
         manifest = self._schema(MANIFEST_SCHEMA_PATH)
+        if self._composition_is_handled() and _subschema_form_enforced():
+            # Both reasons closed: the manifest is checkable, which is the
+            # whole point of the v5.9 rows. It must yield a verdict, and the
+            # verdict must be a real one -- a checker that answers [] to
+            # everything would pass a weaker assertion than this.
+            self.assertEqual(validate(manifest, {"type": "object"}), [])
+            self.assertTrue(
+                validate({"schema_version": 1}, manifest),
+                "the manifest schema accepted an obviously wrong instance")
+            return
         with self.assertRaises(UnsupportedKeyword) as caught:
             validate({}, manifest)
         if self._composition_is_handled():
