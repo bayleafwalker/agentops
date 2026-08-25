@@ -1,0 +1,41 @@
+{
+  "schema_version": "workflow-scorecard/v1",
+  "release": "v6-visibility",
+  "recorded_at": "2026-08-25T16:22:48Z",
+  "frontier": {
+    "sessions": 0,
+    "turns": 0,
+    "assistant_msgs": 0,
+    "tool_calls": 0,
+    "duration_s": 0,
+    "usage_equivalent_usd": 0.0,
+    "rework_rounds": 0
+  },
+  "worker": {
+    "attempts": 2,
+    "tasks": 2,
+    "billed_usd": 0.052794,
+    "tokens": 1061503,
+    "cost_reported": true,
+    "cost_unreported_tasks": [],
+    "first_pass_tasks": 2,
+    "first_pass_rate": 1.0
+  },
+  "escalations": {
+    "count": 0,
+    "tasks": [],
+    "stop_conditions": []
+  },
+  "cost_usd": {
+    "worker_billed_usd": 0.052794,
+    "frontier_usage_equivalent_usd": 0.0,
+    "total_billed_usd": 0.052794,
+    "commensurable": false,
+    "total_reliable": true
+  },
+  "scope": {
+    "project": "agentops",
+    "since": "2026-08-25T15:30:00Z",
+    "until": null
+  }
+}
