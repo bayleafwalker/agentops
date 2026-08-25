@@ -139,18 +139,40 @@ _ESCAPES = {"n": "\n", "t": "\t", "r": "\r", '"': '"', "'": "'", "\\": "\\", "/"
 _ESCAPE_RE = re.compile(r"\\(.)", re.DOTALL)
 
 
+#: How many decode passes to attempt. A worker transcript is escaped at least
+#: twice by the time it reaches the receipt text -- once at source, because the
+#: worker's stdout is JSON lines whose string values are themselves escaped,
+#: and again when the receipt payload is serialised. One pass leaves ``\n``
+#: still standing as two characters and the false positive intact. Decoding is
+#: contracting, so the loop settles; the bound only stops a pathological input
+#: from spinning.
+_MAX_DECODE_PASSES = 6
+
+
 def decode_transcript_escapes(text: str) -> str:
     """The text a human would see, from text that is still JSON-escaped.
 
-    Decoding before scanning is strictly better in both directions. A secret
-    written plainly has no escapes and is unchanged, so it is still found. A
-    secret that reached the transcript inside a JSON string is decoded and
-    found, where a raw scan would have missed it behind ``\"``. And a value
-    that only looked twenty characters long because the run continued through
-    ``\n`` stops being a match, which is the false positive that withheld
-    three receipts in one session.
+    Applied repeatedly until it stops changing, because the escaping is nested:
+    the first pass turns ``\\n`` into ``\n`` and only the second turns that
+    into a newline.
+
+    Decoding before scanning is better in both directions for the anchored
+    patterns, which are matched against the raw text as well. For the two loose
+    patterns it is a deliberate trade: their value side is bounded by "twenty
+    non-space characters", so on escaped text the run crosses line boundaries
+    and matches source code containing no secret at all -- which withheld every
+    receipt of a session. The cost is that a value whose own characters include
+    a literal backslash-n could be split below twenty and missed. Real
+    credentials in known formats are caught by the anchored patterns on the raw
+    text regardless, so the residue is a heuristic pattern on an unusual value,
+    weighed against a false positive that silently empties the evidence corpus.
     """
-    return _ESCAPE_RE.sub(lambda m: _ESCAPES.get(m.group(1), m.group(0)), text)
+    for _ in range(_MAX_DECODE_PASSES):
+        decoded = _ESCAPE_RE.sub(lambda m: _ESCAPES.get(m.group(1), m.group(0)), text)
+        if decoded == text:
+            return text
+        text = decoded
+    return text
 
 
 def scan_for_secrets(text: str) -> list[str]:

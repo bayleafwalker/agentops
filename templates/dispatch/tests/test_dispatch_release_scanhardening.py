@@ -234,8 +234,15 @@ class EscapedTranscriptTests(unittest.TestCase):
         plain = 'password = "correcthorsebatterystaple123"'
         self.assertEqual(driver.decode_transcript_escapes(plain), plain)
 
-    def test_an_escaped_backslash_does_not_swallow_the_next_character(self):
-        self.assertEqual(driver.decode_transcript_escapes(r"a\\nb"), "a\\nb")
+    def test_a_doubly_escaped_newline_is_read_as_a_newline(self):
+        # Deliberate, and a real loss of information: after two levels of
+        # escaping, "a literal backslash followed by n" and "a newline escaped
+        # twice" are the same characters, and nothing can tell them apart. The
+        # scanner reads them as a newline, because the alternative -- treating
+        # every escaped newline as an opaque token -- is what let a value run
+        # past twenty characters and withhold every receipt of a session.
+        # Only the SCANNED copy is decoded; the stored transcript is untouched.
+        self.assertEqual(driver.decode_transcript_escapes(r"a\\nb"), "a\nb")
 
     def test_an_unknown_escape_keeps_its_backslash(self):
         self.assertEqual(driver.decode_transcript_escapes(r"a\qb"), r"a\qb")
@@ -243,6 +250,30 @@ class EscapedTranscriptTests(unittest.TestCase):
     def test_prose_still_produces_no_findings_after_decoding(self):
         self.assertEqual(
             driver.scan_for_secrets(r"the token is rotated weekly\nand the password too"), []
+        )
+
+    def test_a_doubly_escaped_transcript_is_decoded_all_the_way(self):
+        # The receipt text is escaped twice: once at source, because the
+        # worker's stdout is JSON lines whose values are themselves escaped,
+        # and again when the payload is serialised. A single pass leaves the
+        # false positive standing, which is why the first fix was incomplete.
+        doubled = r'WORKER_PLACEHOLDER_API_KEY = \\\"local-only\\\"\\n631:'
+        self.assertEqual(driver.scan_for_secrets(doubled), [])
+
+    def test_decoding_terminates_and_never_grows(self):
+        # Decoding removes backslashes, so it is contracting and always
+        # terminates. The pass bound means a pathological input may stop short
+        # of its fixed point -- which is the safe direction: less decoding, not
+        # an unbounded loop on a hostile transcript.
+        text = "\\" * 200 + "n"
+        decoded = driver.decode_transcript_escapes(text)
+        self.assertLessEqual(len(decoded), len(text))
+        self.assertLessEqual(len(driver.decode_transcript_escapes(decoded)), len(decoded))
+
+    def test_a_genuinely_long_value_survives_repeated_decoding(self):
+        self.assertIn(
+            "secret_assignment",
+            driver.scan_for_secrets(r'\\"password\\": \\"correcthorsebatterystaple123\\"'),
         )
 
 
