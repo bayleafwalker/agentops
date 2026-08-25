@@ -177,7 +177,8 @@
       "items": {
         "type": "string",
         "minLength": 1
-      }
+      },
+      "description": "Coordinator-authored outcomes, ordered. Addressable by stable INDEX in v0 -- position is the identity, so entries are appended rather than reordered or removed once a packet is frozen. Deliberately NOT promoted to objects with ids: unlike acceptance_properties, nothing downstream joins these to a gate, so an id would be ceremony that has to be kept unique for no consumer. Revisit if a comparison pass ever needs to address one across packets."
     },
     "acceptance_properties": {
       "type": "array",
@@ -190,7 +191,8 @@
       "items": {
         "type": "string",
         "minLength": 1
-      }
+      },
+      "description": "What this packet deliberately does not do, ordered. Addressable by stable INDEX in v0, on the same terms as required_outcomes, and deliberately not promoted to objects with ids for the same reason."
     },
     "allowed_command_ids": {
       "type": "array",
