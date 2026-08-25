@@ -223,9 +223,9 @@ def detect_worse(scorecards):
     def escalations_worsened(a, b):
         return b["escalations"]["count"] > a["escalations"]["count"]
 
-    def turns_flat_cost_up_worsened(a, b):
+    def cost_up_without_more_turns_worsened(a, b):
         return (
-            b["frontier"]["turns"] >= a["frontier"]["turns"]
+            b["frontier"]["turns"] <= a["frontier"]["turns"]
             and b["cost_usd"]["frontier_usage_equivalent_usd"]
             > a["cost_usd"]["frontier_usage_equivalent_usd"]
         )
@@ -236,7 +236,7 @@ def detect_worse(scorecards):
     def escalations_value(card):
         return card["escalations"]["count"]
 
-    def turns_flat_cost_up_value(card):
+    def cost_up_without_more_turns_value(card):
         return [card["frontier"]["turns"],
                 card["cost_usd"]["frontier_usage_equivalent_usd"]]
 
@@ -244,7 +244,8 @@ def detect_worse(scorecards):
     for name, worsened, value_of in (
         ("rework", rework_worsened, rework_value),
         ("escalations", escalations_worsened, escalations_value),
-        ("turns_flat_cost_up", turns_flat_cost_up_worsened, turns_flat_cost_up_value),
+        ("cost_up_without_more_turns", cost_up_without_more_turns_worsened,
+         cost_up_without_more_turns_value),
     ):
         for index in range(len(scorecards) - 2):
             a, b, c = scorecards[index], scorecards[index + 1], scorecards[index + 2]
