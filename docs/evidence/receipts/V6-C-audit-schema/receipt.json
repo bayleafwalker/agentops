@@ -1,0 +1,551 @@
+{
+  "schema_version": "agentops-hybrid-receipt/v1",
+  "recorded_at": "2026-08-25T16:14:03+00:00",
+  "execution_id": "V6-C-audit-schema:3128a692afc1aee5:attempt-1",
+  "task_id": "V6-C-audit-schema",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 29,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "attempt": 1,
+  "inputs": {
+    "packet_hash": "sha256:3128a692afc1aee58947967e5bfb2de91d0d533c91620aab23d5cde4f312ae12",
+    "repository_commit": "1ac0b816c2a550fb88ced0365a87cdaa804794de",
+    "packet_schema_version": "agentops-task/v2",
+    "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+    "gate_set_hash": "sha256:ded30eaaf3bc8df1c06f7f0b44e70c596b32daa7a5d032dfeb970fbe0e542396"
+  },
+  "harness_model": "opencode-go/deepseek-v4-flash",
+  "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+  "qualification_policy": {
+    "mode": "named_pilot",
+    "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+    "repositories": [
+      "agentops",
+      "1deb57d0-af6f-479c-811a-b5b7254841f9",
+      "2be118eb-8e89-433a-8d32-ada157624f95",
+      "kctl",
+      "actionq"
+    ],
+    "routes": [
+      "mechanical_bulk"
+    ],
+    "models": [
+      "opencode-go/deepseek-v4-flash"
+    ],
+    "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+    "default": "unqualified",
+    "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+  },
+  "acceptance_authority": "human",
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "stage": "receipt",
+  "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V6-C-audit-schema",
+  "overlay_sha256": "7fe1dec8876649cd7c3e33d61b8164ca142806b8d5c3ae18ebd3690a3ca31c5c",
+  "dispositions_available": [
+    "candidate",
+    "retry_same_route",
+    "reroute",
+    "task_defect",
+    "human_decision"
+  ],
+  "note": "The coordinator records the disposition and the human accepts, merges, and changes sprint state.",
+  "gate": {
+    "schema_version": "agentops-hybrid-receipt/v1",
+    "recorded_at": "2026-08-25T16:14:03+00:00",
+    "execution_id": "V6-C-audit-schema:3128a692afc1aee5:attempt-1",
+    "task_id": "V6-C-audit-schema",
+    "repo_id": "agentops",
+    "sprint_item": {
+      "ref": "agentops#2254",
+      "claim_id": 29,
+      "claim_actor": "workstation-vuoro"
+    },
+    "route": "mechanical_bulk",
+    "attempt": 1,
+    "inputs": {
+      "packet_hash": "sha256:3128a692afc1aee58947967e5bfb2de91d0d533c91620aab23d5cde4f312ae12",
+      "repository_commit": "1ac0b816c2a550fb88ced0365a87cdaa804794de",
+      "packet_schema_version": "agentops-task/v2",
+      "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+      "gate_set_hash": "sha256:ded30eaaf3bc8df1c06f7f0b44e70c596b32daa7a5d032dfeb970fbe0e542396"
+    },
+    "harness_model": "opencode-go/deepseek-v4-flash",
+    "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+    "qualification_policy": {
+      "mode": "named_pilot",
+      "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+      "repositories": [
+        "agentops",
+        "1deb57d0-af6f-479c-811a-b5b7254841f9",
+        "2be118eb-8e89-433a-8d32-ada157624f95",
+        "kctl",
+        "actionq"
+      ],
+      "routes": [
+        "mechanical_bulk"
+      ],
+      "models": [
+        "opencode-go/deepseek-v4-flash"
+      ],
+      "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+      "default": "unqualified",
+      "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+    },
+    "acceptance_authority": "human",
+    "context_churn": {
+      "max_repeated_reads_per_path": 4,
+      "max_reasoning_steps_without_mutation": 20,
+      "max_identical_context_tokens": 250000,
+      "handoff_when_candidate_ready": true
+    },
+    "stage": "gate",
+    "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V6-C-audit-schema",
+    "overlay_sha256": "7fe1dec8876649cd7c3e33d61b8164ca142806b8d5c3ae18ebd3690a3ca31c5c",
+    "coordinator_claim": {
+      "claim_id": 29,
+      "work_item_id": 2254,
+      "agent": "workstation-vuoro",
+      "last_activity_at": "2026-08-25T15:55:49Z",
+      "idle_seconds": 1094,
+      "checked_at": "2026-08-25T16:14:03+00:00"
+    },
+    "evidence": {
+      "gates": {
+        "diff-nonempty": true,
+        "diff-scope-respected": true,
+        "protected-paths-untouched": true,
+        "worktree-state-captured": true,
+        "registered-commands-green": true
+      },
+      "passed": true,
+      "touched_paths": [
+        "templates/dispatch/scripts/schema_check.py"
+      ],
+      "out_of_scope_paths": [],
+      "protected_path_hits": [],
+      "command_results": [
+        {
+          "command_id": "agentops.dispatch.tests.schema_check_audit",
+          "command": "python templates/dispatch/tests/test_schema_check_audit.py",
+          "exit_code": 0,
+          "stdout_tail": "",
+          "stderr_tail": ".............................\n----------------------------------------------------------------------\nRan 29 tests in 0.026s\n\nOK\n"
+        }
+      ],
+      "diff": "diff --git a/templates/dispatch/scripts/schema_check.py b/templates/dispatch/scripts/schema_check.py\nindex 4714182..1c85647 100644\n--- a/templates/dispatch/scripts/schema_check.py\n+++ b/templates/dispatch/scripts/schema_check.py\n@@ -94,85 +94,108 @@ def _resolve_pointer(document, ref):\n     return node\n \n \n-def _audit_schema(schema, path, root, seen=None):\n-    \"\"\"Walk the whole schema eagerly, raising on anything unenforceable.\n+def _audit_schema(schema, path, root, seen=None, defects=None):\n+    \"\"\"Walk the whole schema eagerly, collecting every unenforceable construct.\n \n     ``root`` is the top-level schema document that internal ``$ref`` pointers\n     resolve against. ``seen`` guards the recursion against a ``$defs``\n     definition that points back at itself; a node already audited is a node\n-    already known to be honest.\n+    already known to be honest, and is reported once, not once per path that\n+    reaches it. ``defects`` is the list being accumulated; each entry carries\n+    the breadcrumb of the offending node and names the offending keyword.\n     \"\"\"\n+    if defects is None:\n+        defects = []\n     if isinstance(schema, bool):\n-        raise UnsupportedKeyword(f\"{path}: boolean schema is not supported\")\n+        defects.append(f\"{path}: boolean schema is not supported\")\n+        return defects\n     if not isinstance(schema, dict):\n-        raise UnsupportedKeyword(\n+        defects.append(\n             f\"{path}: schema must be an object, got {type(schema).__name__}\")\n+        return defects\n     if seen is None:\n         seen = set()\n     marker = id(schema)\n     if marker in seen:\n-        return\n+        return defects\n     seen.add(marker)\n     for keyword, value in schema.items():\n         if keyword in ANNOTATION_KEYWORDS:\n             continue\n         if keyword not in SUPPORTED_KEYWORDS:\n-            raise UnsupportedKeyword(f\"{path}: unsupported keyword {keyword!r}\")\n+            defects.append(f\"{path}: unsupported keyword {keyword!r}\")\n+            continue\n         if keyword == \"type\":\n             if not isinstance(value, str):\n-                raise UnsupportedKeyword(\n-                    f\"{path}: type as a union list is not supported\")\n+                defects.append(f\"{path}: type as a union list is not supported\")\n         elif keyword == \"items\":\n             if isinstance(value, list):\n-                raise UnsupportedKeyword(\n+                defects.append(\n                     f\"{path}: items as a positional list is not supported\")\n-            _audit_schema(value, f\"{path}.items\", root, seen)\n+            else:\n+                _audit_schema(value, f\"{path}.items\", root, seen, defects)\n         elif keyword == \"properties\":\n             for prop_name, prop_schema in value.items():\n                 _audit_schema(prop_schema, f\"{path}.properties.{prop_name}\",\n-                              root, seen)\n+                              root, seen, defects)\n         elif keyword == \"additionalProperties\":\n             if isinstance(value, dict):\n-                _audit_schema(value, f\"{path}.additionalProperties\", root, seen)\n+                _audit_schema(value, f\"{path}.additionalProperties\",\n+                              root, seen, defects)\n             elif not isinstance(value, bool):\n-                raise UnsupportedKeyword(\n+                defects.append(\n                     f\"{path}: additionalProperties must be a boolean or a \"\n                     f\"subschema\")\n         elif keyword == \"$defs\":\n             for name, definition in value.items():\n-                _audit_schema(definition, f\"{path}.$defs.{name}\", root, seen)\n+                _audit_schema(definition, f\"{path}.$defs.{name}\",\n+                              root, seen, defects)\n         elif keyword == \"$ref\":\n             target = _resolve_pointer(root, value)\n             if target is None:\n-                raise UnsupportedKeyword(\n+                defects.append(\n                     f\"{path}: $ref {value!r} is not an internal, resolvable \"\n                     f\"pointer\")\n-            _audit_schema(target, f\"{path}@{value}\", root, seen)\n+            else:\n+                _audit_schema(target, f\"{path}@{value}\", root, seen, defects)\n         elif keyword in (\"allOf\", \"oneOf\"):\n             if not isinstance(value, list):\n-                raise UnsupportedKeyword(\n-                    f\"{path}: {keyword} must be a list of schemas\")\n-            for index, subschema in enumerate(value):\n-                _audit_schema(subschema, f\"{path}.{keyword}[{index}]\",\n-                              root, seen)\n+                defects.append(f\"{path}: {keyword} must be a list of schemas\")\n+            else:\n+                for index, subschema in enumerate(value):\n+                    _audit_schema(subschema, f\"{path}.{keyword}[{index}]\",\n+                                  root, seen, defects)\n         elif keyword == \"not\":\n-            _audit_schema(value, f\"{path}.not\", root, seen)\n+            _audit_schema(value, f\"{path}.not\", root, seen, defects)\n         elif keyword == \"if\":\n-            _audit_schema(value, f\"{path}.if\", root, seen)\n+            _audit_schema(value, f\"{path}.if\", root, seen, defects)\n         elif keyword == \"then\":\n-            _audit_schema(value, f\"{path}.then\", root, seen)\n+            _audit_schema(value, f\"{path}.then\", root, seen, defects)\n         elif keyword == \"propertyNames\":\n-            _audit_schema(value, f\"{path}.propertyNames\", root, seen)\n+            _audit_schema(value, f\"{path}.propertyNames\", root, seen, defects)\n         elif keyword in (\"minItems\", \"minProperties\", \"maximum\"):\n             if (not isinstance(value, (int, float))\n                     or isinstance(value, bool)):\n-                raise UnsupportedKeyword(\n-                    f\"{path}: {keyword} must be a number\")\n+                defects.append(f\"{path}: {keyword} must be a number\")\n+    return defects\n+\n+\n+def audit_schema(schema, path=\"$\"):\n+    \"\"\"Report every construct the checker cannot enforce, one entry each.\n+\n+    Returns a list of human-readable strings, empty when the schema is\n+    enforceable end to end. Never raises: it reports, where ``validate``\n+    refuses. Each entry carries the breadcrumb of the offending node and names\n+    the offending keyword.\n+    \"\"\"\n+    return _audit_schema(schema, path, schema)\n \n \n def validate(instance, schema, path=\"$\"):\n     \"\"\"Return a list of human-readable violations, empty when valid.\"\"\"\n-    _audit_schema(schema, path, schema)\n+    defects = _audit_schema(schema, path, schema)\n+    if defects:\n+        raise UnsupportedKeyword(defects[0])\n     return _validate(instance, schema, path, schema)\n \n \n",
+      "worktree_status": [
+        " M templates/dispatch/scripts/schema_check.py"
+      ]
+    },
+    "independent_review": {
+      "mode": "self_candidate",
+      "class": "mechanical_bulk",
+      "basis": "manifest"
+    },
+    "disposition": "candidate"
+  },
+  "driver_steps": [
+    {
+      "step": "prepare",
+      "attempt": 1,
+      "started_at": "2026-08-25T16:11:21Z",
+      "finished_at": "2026-08-25T16:11:23Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-25T16:11:23+00:00",
+        "execution_id": "V6-C-audit-schema:3128a692afc1aee5:attempt-1",
+        "task_id": "V6-C-audit-schema",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 29,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:3128a692afc1aee58947967e5bfb2de91d0d533c91620aab23d5cde4f312ae12",
+          "repository_commit": "1ac0b816c2a550fb88ced0365a87cdaa804794de",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:ded30eaaf3bc8df1c06f7f0b44e70c596b32daa7a5d032dfeb970fbe0e542396"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 20,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "prepare",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V6-C-audit-schema",
+        "overlay_sha256": "7fe1dec8876649cd7c3e33d61b8164ca142806b8d5c3ae18ebd3690a3ca31c5c",
+        "coordinator_claim": {
+          "claim_id": 29,
+          "work_item_id": 2254,
+          "agent": "workstation-vuoro",
+          "last_activity_at": "2026-08-25T15:55:49Z",
+          "idle_seconds": 933,
+          "checked_at": "2026-08-25T16:11:22+00:00"
+        },
+        "safety": {
+          "ref": "safety/pre-dispatch-V6-C-audit-schema",
+          "commit": "f90336ecde8f76d2ae1722a064f689f1b746e11c",
+          "restore_command": "git -C /tmp/v5-coordinator reset --hard safety/pre-dispatch-V6-C-audit-schema",
+          "uncommitted_paths_at_risk": [
+            "?? .sprintctl"
+          ]
+        },
+        "cold_command_results": [
+          {
+            "command_id": "agentops.dispatch.tests.schema_check_audit",
+            "command": "python templates/dispatch/tests/test_schema_check_audit.py",
+            "exit_code": 1,
+            "stdout_tail": "",
+            "stderr_tail": "emplates/dispatch/tests/test_schema_check_audit.py\", line 116, in _audit\n    raise AssertionError(\n        \"schema_check.audit_schema is missing; this row adds it\")\nAssertionError: schema_check.audit_schema is missing; this row adds it\n\n======================================================================\nFAIL: test_the_oneOf_reachable_node_is_not_the_one_that_gets_dropped (__main__.MultipleDefectTests.test_the_oneOf_reachable_node_is_not_the_one_that_gets_dropped)\n``skill_lock.oneOf[0]`` was the one that took the extra cycle.\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V6-C-audit-schema/templates/dispatch/tests/test_schema_check_audit.py\", line 550, in test_the_oneOf_reachable_node_is_not_the_one_that_gets_dropped\n    entries = _audit(schema)\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V6-C-audit-schema/templates/dispatch/tests/test_schema_check_audit.py\", line 116, in _audit\n    raise AssertionError(\n        \"schema_check.audit_schema is missing; this row adds it\")\nAssertionError: schema_check.audit_schema is missing; this row adds it\n\n======================================================================\nFAIL: test_the_three_real_manifest_nodes_are_all_found_in_one_pass (__main__.MultipleDefectTests.test_the_three_real_manifest_nodes_are_all_found_in_one_pass)\nThe failure that motivated the row: three nodes, one run.\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V6-C-audit-schema/templates/dispatch/tests/test_schema_check_audit.py\", line 534, in test_the_three_real_manifest_nodes_are_all_found_in_one_pass\n    entries = _audit(schema)\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V6-C-audit-schema/templates/dispatch/tests/test_schema_check_audit.py\", line 116, in _audit\n    raise AssertionError(\n        \"schema_check.audit_schema is missing; this row adds it\")\nAssertionError: schema_check.audit_schema is missing; this row adds it\n\n======================================================================\nFAIL: test_both_real_schema_files_are_fully_enforceable_today (__main__.RealSchemaShapeTests.test_both_real_schema_files_are_fully_enforceable_today) (schema='manifest.schema.json')\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V6-C-audit-schema/templates/dispatch/tests/test_schema_check_audit.py\", line 608, in test_both_real_schema_files_are_fully_enforceable_today\n    _audit(schema), [],\n    ~~~~~~^^^^^^^^\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V6-C-audit-schema/templates/dispatch/tests/test_schema_check_audit.py\", line 116, in _audit\n    raise AssertionError(\n        \"schema_check.audit_schema is missing; this row adds it\")\nAssertionError: schema_check.audit_schema is missing; this row adds it\n\n======================================================================\nFAIL: test_both_real_schema_files_are_fully_enforceable_today (__main__.RealSchemaShapeTests.test_both_real_schema_files_are_fully_enforceable_today) (schema='task-packet.schema.json')\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V6-C-audit-schema/templates/dispatch/tests/test_schema_check_audit.py\", line 608, in test_both_real_schema_files_are_fully_enforceable_today\n    _audit(schema), [],\n    ~~~~~~^^^^^^^^\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V6-C-audit-schema/templates/dispatch/tests/test_schema_check_audit.py\", line 116, in _audit\n    raise AssertionError(\n        \"schema_check.audit_schema is missing; this row adds it\")\nAssertionError: schema_check.audit_schema is missing; this row adds it\n\n----------------------------------------------------------------------\nRan 29 tests in 0.210s\n\nFAILED (failures=418)\n",
+            "expectation": "red"
+          }
+        ],
+        "cold_faults": [],
+        "workspace_reused": false,
+        "worker_writability": {
+          "writable": true,
+          "status": "probed",
+          "detail": "agentworker can write /tmp/agentops-hybrid/worktrees/agentops/V6-C-audit-schema (probe ran and succeeded)"
+        },
+        "cold_gate_assessment": "assessed",
+        "eligible_for_dispatch": true
+      },
+      "failed": false
+    },
+    {
+      "step": "run",
+      "attempt": 1,
+      "started_at": "2026-08-25T16:11:23Z",
+      "finished_at": "2026-08-25T16:14:02Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-25T16:14:02+00:00",
+        "execution_id": "V6-C-audit-schema:3128a692afc1aee5:attempt-1",
+        "task_id": "V6-C-audit-schema",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 29,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:3128a692afc1aee58947967e5bfb2de91d0d533c91620aab23d5cde4f312ae12",
+          "repository_commit": "1ac0b816c2a550fb88ced0365a87cdaa804794de",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:ded30eaaf3bc8df1c06f7f0b44e70c596b32daa7a5d032dfeb970fbe0e542396"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 20,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "run",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V6-C-audit-schema",
+        "overlay_sha256": "7fe1dec8876649cd7c3e33d61b8164ca142806b8d5c3ae18ebd3690a3ca31c5c",
+        "coordinator_claim": {
+          "claim_id": 29,
+          "work_item_id": 2254,
+          "agent": "workstation-vuoro",
+          "last_activity_at": "2026-08-25T15:55:49Z",
+          "idle_seconds": 935,
+          "checked_at": "2026-08-25T16:11:24+00:00"
+        },
+        "worker": {
+          "argv": [
+            "sudo",
+            "--non-interactive",
+            "--set-home",
+            "--user",
+            "agentworker",
+            "--preserve-env=OPENCODE_CONFIG_CONTENT",
+            "opencode",
+            "run",
+            "'Implement only the attached frozen task packet. Stay inside the writable paths it declares, use only the registered commands, and stop with a structured blocker on any ambiguity, missing context, or scope conflict. Do not use git, do not change sprint state, and do not expand scope. Respect context_churn: stop repeated unchanged reads or mutation-free reasoning at its limits. Do not optimize for cheap cache writes alone. As soon as the candidate and focused registered gate are ready, return the structured handoff instead of continuing self-review.'",
+            "--agent",
+            "ao-mechanical-bulk",
+            "--file",
+            "/tmp/v5-coordinator/docs/evidence/packets/V6-C-audit-schema.json",
+            "--format",
+            "json"
+          ],
+          "worker_user": "agentworker",
+          "agent": "ao-mechanical-bulk",
+          "model": "opencode-go/deepseek-v4-flash",
+          "exit_code": 0,
+          "stdout": "<transcript removed; sidecar worker-stdout.txt holds 549675 bytes>",
+          "stderr_tail": "",
+          "session_id": "ses_fc64f26bbffe5digPu5lLcGGF7",
+          "churn_stop": null
+        },
+        "spend": {
+          "cost_usd": 0.042271,
+          "tokens": 829246,
+          "cost_reported": true,
+          "cap_usd": 3.0,
+          "within_cap": true,
+          "soft_token_ceiling": 1200000,
+          "hard_token_ceiling": 2000000,
+          "soft_token_ceiling_exceeded": false,
+          "within_hard_token_ceiling": true
+        },
+        "containment_override": false,
+        "worker_user": "agentworker",
+        "worker_model": "opencode-go/deepseek-v4-flash",
+        "route_model": "opencode-go/deepseek-v4-flash",
+        "model_override": false,
+        "qualification_eligible": true,
+        "unattended_eligible": true,
+        "override_reason": null,
+        "containment": {
+          "coordinator_tree_untouched": true,
+          "coordinator_tree_changes": [],
+          "recovery": []
+        }
+      },
+      "failed": false
+    },
+    {
+      "step": "gate",
+      "attempt": 1,
+      "started_at": "2026-08-25T16:14:02Z",
+      "finished_at": "2026-08-25T16:14:03Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-25T16:14:03+00:00",
+        "execution_id": "V6-C-audit-schema:3128a692afc1aee5:attempt-1",
+        "task_id": "V6-C-audit-schema",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 29,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:3128a692afc1aee58947967e5bfb2de91d0d533c91620aab23d5cde4f312ae12",
+          "repository_commit": "1ac0b816c2a550fb88ced0365a87cdaa804794de",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:ded30eaaf3bc8df1c06f7f0b44e70c596b32daa7a5d032dfeb970fbe0e542396"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 20,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "gate",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V6-C-audit-schema",
+        "overlay_sha256": "7fe1dec8876649cd7c3e33d61b8164ca142806b8d5c3ae18ebd3690a3ca31c5c",
+        "coordinator_claim": {
+          "claim_id": 29,
+          "work_item_id": 2254,
+          "agent": "workstation-vuoro",
+          "last_activity_at": "2026-08-25T15:55:49Z",
+          "idle_seconds": 1094,
+          "checked_at": "2026-08-25T16:14:03+00:00"
+        },
+        "evidence": {
+          "gates": {
+            "diff-nonempty": true,
+            "diff-scope-respected": true,
+            "protected-paths-untouched": true,
+            "worktree-state-captured": true,
+            "registered-commands-green": true
+          },
+          "passed": true,
+          "touched_paths": [
+            "templates/dispatch/scripts/schema_check.py"
+          ],
+          "out_of_scope_paths": [],
+          "protected_path_hits": [],
+          "command_results": [
+            {
+              "command_id": "agentops.dispatch.tests.schema_check_audit",
+              "command": "python templates/dispatch/tests/test_schema_check_audit.py",
+              "exit_code": 0,
+              "stdout_tail": "",
+              "stderr_tail": ".............................\n----------------------------------------------------------------------\nRan 29 tests in 0.026s\n\nOK\n"
+            }
+          ],
+          "diff": "diff --git a/templates/dispatch/scripts/schema_check.py b/templates/dispatch/scripts/schema_check.py\nindex 4714182..1c85647 100644\n--- a/templates/dispatch/scripts/schema_check.py\n+++ b/templates/dispatch/scripts/schema_check.py\n@@ -94,85 +94,108 @@ def _resolve_pointer(document, ref):\n     return node\n \n \n-def _audit_schema(schema, path, root, seen=None):\n-    \"\"\"Walk the whole schema eagerly, raising on anything unenforceable.\n+def _audit_schema(schema, path, root, seen=None, defects=None):\n+    \"\"\"Walk the whole schema eagerly, collecting every unenforceable construct.\n \n     ``root`` is the top-level schema document that internal ``$ref`` pointers\n     resolve against. ``seen`` guards the recursion against a ``$defs``\n     definition that points back at itself; a node already audited is a node\n-    already known to be honest.\n+    already known to be honest, and is reported once, not once per path that\n+    reaches it. ``defects`` is the list being accumulated; each entry carries\n+    the breadcrumb of the offending node and names the offending keyword.\n     \"\"\"\n+    if defects is None:\n+        defects = []\n     if isinstance(schema, bool):\n-        raise UnsupportedKeyword(f\"{path}: boolean schema is not supported\")\n+        defects.append(f\"{path}: boolean schema is not supported\")\n+        return defects\n     if not isinstance(schema, dict):\n-        raise UnsupportedKeyword(\n+        defects.append(\n             f\"{path}: schema must be an object, got {type(schema).__name__}\")\n+        return defects\n     if seen is None:\n         seen = set()\n     marker = id(schema)\n     if marker in seen:\n-        return\n+        return defects\n     seen.add(marker)\n     for keyword, value in schema.items():\n         if keyword in ANNOTATION_KEYWORDS:\n             continue\n         if keyword not in SUPPORTED_KEYWORDS:\n-            raise UnsupportedKeyword(f\"{path}: unsupported keyword {keyword!r}\")\n+            defects.append(f\"{path}: unsupported keyword {keyword!r}\")\n+            continue\n         if keyword == \"type\":\n             if not isinstance(value, str):\n-                raise UnsupportedKeyword(\n-                    f\"{path}: type as a union list is not supported\")\n+                defects.append(f\"{path}: type as a union list is not supported\")\n         elif keyword == \"items\":\n             if isinstance(value, list):\n-                raise UnsupportedKeyword(\n+                defects.append(\n                     f\"{path}: items as a positional list is not supported\")\n-            _audit_schema(value, f\"{path}.items\", root, seen)\n+            else:\n+                _audit_schema(value, f\"{path}.items\", root, seen, defects)\n         elif keyword == \"properties\":\n             for prop_name, prop_schema in value.items():\n                 _audit_schema(prop_schema, f\"{path}.properties.{prop_name}\",\n-                              root, seen)\n+                              root, seen, defects)\n         elif keyword == \"additionalProperties\":\n             if isinstance(value, dict):\n-                _audit_schema(value, f\"{path}.additionalProperties\", root, seen)\n+                _audit_schema(value, f\"{path}.additionalProperties\",\n+                              root, seen, defects)\n             elif not isinstance(value, bool):\n-                raise UnsupportedKeyword(\n+                defects.append(\n                     f\"{path}: additionalProperties must be a boolean or a \"\n                     f\"subschema\")\n         elif keyword == \"$defs\":\n             for name, definition in value.items():\n-                _audit_schema(definition, f\"{path}.$defs.{name}\", root, seen)\n+                _audit_schema(definition, f\"{path}.$defs.{name}\",\n+                              root, seen, defects)\n         elif keyword == \"$ref\":\n             target = _resolve_pointer(root, value)\n             if target is None:\n-                raise UnsupportedKeyword(\n+                defects.append(\n                     f\"{path}: $ref {value!r} is not an internal, resolvable \"\n                     f\"pointer\")\n-            _audit_schema(target, f\"{path}@{value}\", root, seen)\n+            else:\n+                _audit_schema(target, f\"{path}@{value}\", root, seen, defects)\n         elif keyword in (\"allOf\", \"oneOf\"):\n             if not isinstance(value, list):\n-                raise UnsupportedKeyword(\n-                    f\"{path}: {keyword} must be a list of schemas\")\n-            for index, subschema in enumerate(value):\n-                _audit_schema(subschema, f\"{path}.{keyword}[{index}]\",\n-                              root, seen)\n+                defects.append(f\"{path}: {keyword} must be a list of schemas\")\n+            else:\n+                for index, subschema in enumerate(value):\n+                    _audit_schema(subschema, f\"{path}.{keyword}[{index}]\",\n+                                  root, seen, defects)\n         elif keyword == \"not\":\n-            _audit_schema(value, f\"{path}.not\", root, seen)\n+            _audit_schema(value, f\"{path}.not\", root, seen, defects)\n         elif keyword == \"if\":\n-            _audit_schema(value, f\"{path}.if\", root, seen)\n+            _audit_schema(value, f\"{path}.if\", root, seen, defects)\n         elif keyword == \"then\":\n-            _audit_schema(value, f\"{path}.then\", root, seen)\n+            _audit_schema(value, f\"{path}.then\", root, seen, defects)\n         elif keyword == \"propertyNames\":\n-            _audit_schema(value, f\"{path}.propertyNames\", root, seen)\n+            _audit_schema(value, f\"{path}.propertyNames\", root, seen, defects)\n         elif keyword in (\"minItems\", \"minProperties\", \"maximum\"):\n             if (not isinstance(value, (int, float))\n                     or isinstance(value, bool)):\n-                raise UnsupportedKeyword(\n-                    f\"{path}: {keyword} must be a number\")\n+                defects.append(f\"{path}: {keyword} must be a number\")\n+    return defects\n+\n+\n+def audit_schema(schema, path=\"$\"):\n+    \"\"\"Report every construct the checker cannot enforce, one entry each.\n+\n+    Returns a list of human-readable strings, empty when the schema is\n+    enforceable end to end. Never raises: it reports, where ``validate``\n+    refuses. Each entry carries the breadcrumb of the offending node and names\n+    the offending keyword.\n+    \"\"\"\n+    return _audit_schema(schema, path, schema)\n \n \n def validate(instance, schema, path=\"$\"):\n     \"\"\"Return a list of human-readable violations, empty when valid.\"\"\"\n-    _audit_schema(schema, path, schema)\n+    defects = _audit_schema(schema, path, schema)\n+    if defects:\n+        raise UnsupportedKeyword(defects[0])\n     return _validate(instance, schema, path, schema)\n \n \n",
+          "worktree_status": [
+            " M templates/dispatch/scripts/schema_check.py"
+          ]
+        },
+        "independent_review": {
+          "mode": "self_candidate",
+          "class": "mechanical_bulk",
+          "basis": "manifest"
+        },
+        "disposition": "candidate"
+      },
+      "disposition": "candidate",
+      "failed": false
+    },
+    {
+      "step": "receipt",
+      "attempt": 1,
+      "started_at": "2026-08-25T16:14:03Z",
+      "finished_at": "2026-08-25T16:14:03Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-25T16:14:03+00:00",
+        "execution_id": "V6-C-audit-schema:3128a692afc1aee5:attempt-1",
+        "task_id": "V6-C-audit-schema",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 29,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:3128a692afc1aee58947967e5bfb2de91d0d533c91620aab23d5cde4f312ae12",
+          "repository_commit": "1ac0b816c2a550fb88ced0365a87cdaa804794de",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:ded30eaaf3bc8df1c06f7f0b44e70c596b32daa7a5d032dfeb970fbe0e542396"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 20,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "receipt",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V6-C-audit-schema",
+        "overlay_sha256": "7fe1dec8876649cd7c3e33d61b8164ca142806b8d5c3ae18ebd3690a3ca31c5c",
+        "dispositions_available": [
+          "candidate",
+          "retry_same_route",
+          "reroute",
+          "task_defect",
+          "human_decision"
+        ],
+        "note": "The coordinator records the disposition and the human accepts, merges, and changes sprint state."
+      },
+      "failed": false
+    }
+  ]
+}

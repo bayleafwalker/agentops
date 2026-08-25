@@ -94,85 +94,108 @@ def _resolve_pointer(document, ref):
     return node
 
 
-def _audit_schema(schema, path, root, seen=None):
-    """Walk the whole schema eagerly, raising on anything unenforceable.
+def _audit_schema(schema, path, root, seen=None, defects=None):
+    """Walk the whole schema eagerly, collecting every unenforceable construct.
 
     ``root`` is the top-level schema document that internal ``$ref`` pointers
     resolve against. ``seen`` guards the recursion against a ``$defs``
     definition that points back at itself; a node already audited is a node
-    already known to be honest.
+    already known to be honest, and is reported once, not once per path that
+    reaches it. ``defects`` is the list being accumulated; each entry carries
+    the breadcrumb of the offending node and names the offending keyword.
     """
+    if defects is None:
+        defects = []
     if isinstance(schema, bool):
-        raise UnsupportedKeyword(f"{path}: boolean schema is not supported")
+        defects.append(f"{path}: boolean schema is not supported")
+        return defects
     if not isinstance(schema, dict):
-        raise UnsupportedKeyword(
+        defects.append(
             f"{path}: schema must be an object, got {type(schema).__name__}")
+        return defects
     if seen is None:
         seen = set()
     marker = id(schema)
     if marker in seen:
-        return
+        return defects
     seen.add(marker)
     for keyword, value in schema.items():
         if keyword in ANNOTATION_KEYWORDS:
             continue
         if keyword not in SUPPORTED_KEYWORDS:
-            raise UnsupportedKeyword(f"{path}: unsupported keyword {keyword!r}")
+            defects.append(f"{path}: unsupported keyword {keyword!r}")
+            continue
         if keyword == "type":
             if not isinstance(value, str):
-                raise UnsupportedKeyword(
-                    f"{path}: type as a union list is not supported")
+                defects.append(f"{path}: type as a union list is not supported")
         elif keyword == "items":
             if isinstance(value, list):
-                raise UnsupportedKeyword(
+                defects.append(
                     f"{path}: items as a positional list is not supported")
-            _audit_schema(value, f"{path}.items", root, seen)
+            else:
+                _audit_schema(value, f"{path}.items", root, seen, defects)
         elif keyword == "properties":
             for prop_name, prop_schema in value.items():
                 _audit_schema(prop_schema, f"{path}.properties.{prop_name}",
-                              root, seen)
+                              root, seen, defects)
         elif keyword == "additionalProperties":
             if isinstance(value, dict):
-                _audit_schema(value, f"{path}.additionalProperties", root, seen)
+                _audit_schema(value, f"{path}.additionalProperties",
+                              root, seen, defects)
             elif not isinstance(value, bool):
-                raise UnsupportedKeyword(
+                defects.append(
                     f"{path}: additionalProperties must be a boolean or a "
                     f"subschema")
         elif keyword == "$defs":
             for name, definition in value.items():
-                _audit_schema(definition, f"{path}.$defs.{name}", root, seen)
+                _audit_schema(definition, f"{path}.$defs.{name}",
+                              root, seen, defects)
         elif keyword == "$ref":
             target = _resolve_pointer(root, value)
             if target is None:
-                raise UnsupportedKeyword(
+                defects.append(
                     f"{path}: $ref {value!r} is not an internal, resolvable "
                     f"pointer")
-            _audit_schema(target, f"{path}@{value}", root, seen)
+            else:
+                _audit_schema(target, f"{path}@{value}", root, seen, defects)
         elif keyword in ("allOf", "oneOf"):
             if not isinstance(value, list):
-                raise UnsupportedKeyword(
-                    f"{path}: {keyword} must be a list of schemas")
-            for index, subschema in enumerate(value):
-                _audit_schema(subschema, f"{path}.{keyword}[{index}]",
-                              root, seen)
+                defects.append(f"{path}: {keyword} must be a list of schemas")
+            else:
+                for index, subschema in enumerate(value):
+                    _audit_schema(subschema, f"{path}.{keyword}[{index}]",
+                                  root, seen, defects)
         elif keyword == "not":
-            _audit_schema(value, f"{path}.not", root, seen)
+            _audit_schema(value, f"{path}.not", root, seen, defects)
         elif keyword == "if":
-            _audit_schema(value, f"{path}.if", root, seen)
+            _audit_schema(value, f"{path}.if", root, seen, defects)
         elif keyword == "then":
-            _audit_schema(value, f"{path}.then", root, seen)
+            _audit_schema(value, f"{path}.then", root, seen, defects)
         elif keyword == "propertyNames":
-            _audit_schema(value, f"{path}.propertyNames", root, seen)
+            _audit_schema(value, f"{path}.propertyNames", root, seen, defects)
         elif keyword in ("minItems", "minProperties", "maximum"):
             if (not isinstance(value, (int, float))
                     or isinstance(value, bool)):
-                raise UnsupportedKeyword(
-                    f"{path}: {keyword} must be a number")
+                defects.append(f"{path}: {keyword} must be a number")
+    return defects
+
+
+def audit_schema(schema, path="$"):
+    """Report every construct the checker cannot enforce, one entry each.
+
+    Returns a list of human-readable strings, empty when the schema is
+    enforceable end to end. Never raises: it reports, where ``validate``
+    refuses. Each entry carries the breadcrumb of the offending node and names
+    the offending keyword.
+    """
+    return _audit_schema(schema, path, schema)
 
 
 def validate(instance, schema, path="$"):
     """Return a list of human-readable violations, empty when valid."""
-    _audit_schema(schema, path, schema)
+    defects = _audit_schema(schema, path, schema)
+    if defects:
+        raise UnsupportedKeyword(defects[0])
     return _validate(instance, schema, path, schema)
 
 
