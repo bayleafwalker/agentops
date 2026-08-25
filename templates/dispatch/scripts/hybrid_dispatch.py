@@ -891,7 +891,30 @@ def share_workspace_with_group(workspace: Path, worker_user: str | None = None) 
             continue
 
 
-def worker_can_write_workspace(workspace: Path, worker_user: str | None) -> tuple[bool, str]:
+#: Every way the writability question can be answered. ``probed`` is reserved
+#: for the one case where the dynamic probe actually ran and succeeded; every
+#: other non-denial names why it did not run. A skipped check that reported the
+#: same as a passed one is what let RetryWorkspaceReuseTests stay green on a
+#: host where the probe never executed, so the distinction is the point.
+WRITABILITY_STATUSES = (
+    "probed",
+    "denied",
+    "static-only",
+    "skipped:no-worker-user",
+    "skipped:probe-unavailable",
+    "skipped:probe-not-permitted",
+)
+
+
+def _writability(writable: bool, status: str, detail: str) -> dict[str, Any]:
+    assert status in WRITABILITY_STATUSES, status
+    assert writable is (status != "denied"), (writable, status)
+    return {"writable": writable, "status": status, "detail": detail}
+
+
+def assess_worker_workspace_write(
+    workspace: Path, worker_user: str | None
+) -> dict[str, Any]:
     """Prove the contained worker can actually write the workspace it is given.
 
     This is the check whose absence cost a whole run. On 2026-08-23 a worker went
@@ -911,45 +934,61 @@ def worker_can_write_workspace(workspace: Path, worker_user: str | None) -> tupl
     the run for a reason that has nothing to do with the workspace.
     """
     if not worker_user:
-        return True, "no worker user: writes happen as the coordinator"
+        return _writability(
+            True, "skipped:no-worker-user",
+            "no worker user: writes happen as the coordinator. --worker-user "
+            "defaults to $AGENTOPS_WORKER_USER, so this is what an unset "
+            "variable looks like, not a workspace that was checked",
+        )
 
     gid = worker_shared_gid(worker_user)
     try:
         info = workspace.lstat()
     except OSError as exc:
-        return False, f"cannot stat {workspace}: {exc}"
+        return _writability(False, "denied", f"cannot stat {workspace}: {exc}")
     if gid is None:
-        return False, (
+        return _writability(False, "denied", (
             f"{worker_user} shares no group with this process, so no mode can make "
             f"{workspace} writable by it"
-        )
+        ))
     if info.st_gid != gid:
-        return False, (
+        return _writability(False, "denied", (
             f"{workspace} is group {info.st_gid}, not {gid}, which is the group "
             f"{worker_user} is in: the group-write bit would be inert"
-        )
+        ))
     if not stat.S_IMODE(info.st_mode) & stat.S_IWGRP:
-        return False, f"{workspace} is not group-writable, so {worker_user} cannot write it"
+        return _writability(False, "denied",
+            f"{workspace} is not group-writable, so {worker_user} cannot write it")
 
     test_bin = shutil.which("test", path=os.defpath) or shutil.which("test")
     if test_bin is None:
-        return True, f"{workspace} is group-writable by {worker_user} (probe unavailable)"
+        return _writability(True, "skipped:probe-unavailable",
+            f"{workspace} is group-writable by {worker_user} (no test binary)")
     try:
         completed = subprocess.run(
             ["sudo", "--non-interactive", "--user", worker_user, test_bin, "-w", str(workspace)],
             capture_output=True, text=True, check=False, timeout=30,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        return True, f"group ownership correct; probe could not run ({exc})"
+        return _writability(True, "skipped:probe-unavailable",
+            f"group ownership correct; probe could not run ({exc})")
     stderr = (completed.stderr or "").strip()
     if completed.returncode != 0 and _probe_was_refused(stderr):
-        return True, f"group ownership correct; probe not permitted ({stderr[-160:]})"
+        return _writability(True, "skipped:probe-not-permitted",
+            f"group ownership correct; probe not permitted ({stderr[-160:]})")
     if completed.returncode != 0:
-        return False, (
+        return _writability(False, "denied", (
             f"{worker_user} cannot write {workspace} despite correct group and mode: "
             f"{stderr[-300:] or completed.returncode}"
-        )
-    return True, f"{worker_user} can write the workspace (probed)"
+        ))
+    return _writability(True, "probed",
+        f"{worker_user} can write {workspace} (probe ran and succeeded)")
+
+
+def worker_can_write_workspace(workspace: Path, worker_user: str | None) -> tuple[bool, str]:
+    """The two-value form, kept for callers that only need the verdict."""
+    assessment = assess_worker_workspace_write(workspace, worker_user)
+    return assessment["writable"], assessment["detail"]
 
 
 def _probe_was_refused(stderr: str) -> bool:
@@ -1022,9 +1061,10 @@ def prepare_workspace(
         _git(target, "remote", "remove", "origin")
     reroot_agent_context(target, repo_root)
     share_workspace_with_group(target, worker_user)
-    writable, detail = worker_can_write_workspace(target, worker_user)
-    if not writable:
-        raise PacketError(f"prepared workspace is not writable by the worker: {detail}")
+    assessment = assess_worker_workspace_write(target, worker_user)
+    if not assessment["writable"]:
+        raise PacketError(
+            f"prepared workspace is not writable by the worker: {assessment['detail']}")
     return target
 
 
@@ -2014,6 +2054,11 @@ def main(argv: list[str] | None = None) -> int:
             safety = safety_ref(repo_root, packet)
             reused = workspace_is_retry_reuse(packet)
             worktree = prepare_workspace(repo_root, packet, args.worker_user)
+            # Re-asked so the verdict reaches the receipt. prepare_workspace
+            # raises on a denial and returns a path, so on the success path its
+            # assessment was thrown away -- which is how a check that never ran
+            # and a check that passed came to leave the same trace: none.
+            writability = assess_worker_workspace_write(worktree, args.worker_user)
             cold = run_registered_commands(worktree, packet, manifest)
             if reused:
                 # A reused workspace holds the previous attempt's edits, so its
@@ -2040,6 +2085,7 @@ def main(argv: list[str] | None = None) -> int:
                     cold_command_results=cold,
                     cold_faults=cold_faults,
                     workspace_reused=reused,
+                    worker_writability=writability,
                     cold_gate_assessment=cold_gate_assessment,
                     eligible_for_dispatch=green,
                 )

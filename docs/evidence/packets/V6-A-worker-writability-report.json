@@ -1,0 +1,108 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V6-A-worker-writability-report",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 29,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "test_worker_writability_report.py decides correctness: 22 tests, red at the starting commit because assess_worker_workspace_write does not exist and the prepare receipt has no worker_writability key.",
+    "starts_red": [
+      "agentops.dispatch.tests.worker_writability"
+    ],
+    "reference_patch": "docs/evidence/packets/V6-A-worker-writability-report.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "77e55ed35208b8900778a3750ad9eb6feec7ecdc",
+  "purpose": "Make a skipped containment check distinguishable from a passed one. worker_can_write_workspace in templates/dispatch/scripts/hybrid_dispatch.py answers whether the contained worker can write the workspace it was given. It exists because on 2026-08-23 a worker went straight for the right three files, was denied on every one, spent 1.07M tokens probing why and hit its token ceiling, while prepare reported a green cold gate and run exited 0 -- nothing in the receipt said the worker could not write, because nothing had asked. It now asks. But it returns a bool and a string, the caller uses the bool to raise or not, and the string is discarded on success, so a check that never ran and a check that passed leave exactly the same trace, which is none. That is not hypothetical. The --worker-user option defaults to the AGENTOPS_WORKER_USER environment variable. The devbox agent login shell exports it; the workstation does not set it at all. So on the workstation worker_user is None, the function returns True on its first line, and it never reaches the group check or the sudo probe. The suite ran green there for two weeks without exercising the probe once, on a host that has the agentworker user and working passwordless sudo to it. Whether the containment check runs is decided by an unexported variable in whichever shell invoked it, and nothing anywhere records that. Add assess_worker_workspace_write(workspace, worker_user) returning a dict with exactly three keys: writable, a bool carrying today's permissive meaning where a check that could not run is never a denial; status, one of probed, denied, static-only, skipped:no-worker-user, skipped:probe-unavailable and skipped:probe-not-permitted; and detail, the human-readable reason, carrying the same information the current second return value does. The rule that is the whole point of the row: status is probed only when the sudo probe actually ran and returned success. Every other non-denial names why it did not run. denied is the only status with writable false, and writable must be false exactly when status is denied. Map the existing branches without changing any verdict: no worker user is skipped:no-worker-user and writable; an unstattable workspace, no shared group, the wrong group and a workspace that is not group-writable are all denied; a missing test binary or a probe that raises OSError or TimeoutExpired is skipped:probe-unavailable and writable; a probe that ran, failed, and was refused according to _probe_was_refused is skipped:probe-not-permitted and writable; a probe that ran and failed otherwise is denied; a probe that ran and succeeded is probed. Ask _probe_was_refused rather than re-deciding what a refusal looks like. static-only need not be reachable, but if it is reported then writable is true and no probe was attempted. The assessment must reach the artifact: the prepare stage receipt carries it under a worker_writability key, so that months later a reader who was not there can tell from the receipt alone whether the containment check ran. Two prepares that differ only in whether the check could run must not produce the same receipt. prepare_workspace keeps its current signature and still raises on a denial -- existing oracles call it and expect a path. worker_can_write_workspace may remain as a thin two-value wrapper or disappear; that is your choice and nothing pins it. Change no verdict, no message that another test depends on, and nothing else in the module. Leave no debugging output behind.",
+  "readable_context_paths": [
+    "templates/dispatch/tests/test_worker_writability_report.py",
+    "templates/dispatch/scripts/hybrid_dispatch.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/hybrid_dispatch.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/scripts/release_scorecard.py",
+    "templates/dispatch/scripts/schema_check.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "assess_worker_workspace_write returns exactly writable, status and detail",
+    "status is probed only when the probe ran and succeeded",
+    "writable is false exactly when status is denied",
+    "every existing branch keeps its verdict and names why it did not probe",
+    "the prepare receipt carries the assessment under worker_writability",
+    "prepare_workspace still returns a path and still raises on a denial"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "a skipped check is never reported as a passed one",
+      "command_id": "agentops.dispatch.tests.worker_writability",
+      "fails_when": "any branch other than a successful probe reports status probed"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "the verdicts do not move",
+      "command_id": "agentops.dispatch.tests.worker_writability",
+      "fails_when": "a branch that denied now permits, or writable disagrees with denied"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "the trace is in the artifact",
+      "command_id": "agentops.dispatch.tests.worker_writability",
+      "fails_when": "the prepare receipt has no worker_writability, so two runs differing only in whether the check ran look identical"
+    }
+  ],
+  "non_goals": [
+    "changing any writability verdict",
+    "prepare_workspace's signature, which existing oracles depend on",
+    "the cold gate assessment and the rest of the prepare receipt",
+    "making the probe run where it currently cannot"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.worker_writability"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v6-a-writability",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/dispatch/handover-2026-08-25-v5-9-refactor.md"
+    ]
+  }
+}
