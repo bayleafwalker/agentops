@@ -102,13 +102,16 @@ def worker_spend_from_receipt(receipt):
 
 
 def worker_totals(receipts):
-    """Return the eight aggregate worker fields over a list of receipts.
+    """Return the eight aggregate worker fields over any iterable of receipts.
 
-    One silent receipt makes the whole cost total unreliable: ``cost_reported``
-    is True only when every contributing receipt reported, and the silent
-    tasks are named in sorted order. A first pass is an attempt-1 receipt whose
-    gate evidence passed.
+    The argument is materialised once up front, so a generator, an iterator or
+    any other one-shot iterable is consumed exactly once and then totalled
+    exactly as a list would be. One silent receipt makes the whole cost total
+    unreliable: ``cost_reported`` is True only when every contributing receipt
+    reported, and the silent tasks are named in sorted order. A first pass is
+    an attempt-1 receipt whose gate evidence passed.
     """
+    receipts = list(receipts)
     tasks = set()
     unreported_tasks = set()
     first_pass_tasks = set()
