@@ -8,8 +8,8 @@ Written for a cold session. Read §1 and §2 first; §6 is the list of traps, an
   deliberate flip-guards in `test_schema_check.py`).
 - Merged this session: **#115 – #124**.
 - All 18 `*.dispatch.json` in `/projects/dev` validate.
-- **A reservation IS held** on `agentops#2254` — claim id **30**, actor `workstation-vuoro`,
-  role `execution`. Release it or reuse it; do not take a second one blindly.
+- **No reservation is held.** Claim id **30** (`workstation-vuoro`, `execution`) was taken for this
+  session's three dispatches and **released at close**. Take a fresh one before any dispatch.
 - Nothing is in flight. No freeze is waiting to dispatch.
 
 ## 2. Where the work stands
