@@ -1,0 +1,115 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V59-1-schema-check",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 28,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "test_schema_check.py decides correctness. The module does not exist at the starting commit, so the whole file is red on the import. It pins the eleven enforced keywords, the breadcrumb form, the unsupported-keyword and unsupported-shape rules, and a discrimination class that a permissive or name-only checker fails.",
+    "starts_red": [
+      "agentops.dispatch.tests.schema_check"
+    ],
+    "reference_patch": "docs/evidence/packets/V59-1-schema-check.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "42eb6c5182693bd5ddc4bbd36668c76dd6af441a",
+  "purpose": "Create templates/dispatch/scripts/schema_check.py: a JSON Schema subset checker in a module a script can import. There is no jsonschema on this host, so the schema files in this repo are enforced by hand or not at all. A checker for the subset they use already exists, but it lives inside templates/dispatch/tests/test_task_packet_schema.py, where only that one test can reach it. A second consumer now needs the same checker, and copying it would leave two implementations of one question -- a mistake this repo already made once with _path_allowed and _matches_any and had to undo. Move it, and fix the thing that is wrong with it on the way. The public surface is exactly four names: validate(instance, schema, path=\"$\") returning a list of human-readable violation strings, empty when the instance satisfies the schema; UnsupportedKeyword, an Exception; and two frozensets, SUPPORTED_KEYWORDS and ANNOTATION_KEYWORDS, which must be disjoint and both non-empty. Eleven keywords are enforced, each able to fail an instance: type, required, properties, additionalProperties, items, enum, const, pattern, minLength, minimum and uniqueItems. Semantics that must not drift: a boolean is not an integer and not a number, and minimum is not applied to one, because Python's bool is an int while the schema means them separately and a flag arriving where a count belongs is a real defect; a failed type check reports once and stops descending, since walking into a value of the wrong shape produces a cascade of confused messages about the first real one; pattern is re.match semantics, anchored at the start and not fullmatch; additionalProperties false names each unexpected key; uniqueItems compares by value and not identity, so two equal dicts whose keys are written in a different order are the same item; every message is prefixed with the breadcrumb of the value it is about, so a violation nested in an array reads like $.skills.selected[1] and a reader can go straight to it; and independent violations are all reported, not just the first. Now the part that is the actual point of the row. The checker being replaced ignores any keyword it does not implement, and its own docstring claims it does not. A constraint the checker ignores is a constraint that does not exist, and nothing says so at runtime, so a reader sees a clean result and believes minItems was enforced when it was never looked at. Make an unimplemented keyword raise UnsupportedKeyword, with the offending keyword named in the message. Keywords that genuinely carry no constraint are skipped by name through ANNOTATION_KEYWORDS -- $schema, $id, $comment, title, description, default, examples, deprecated and format -- and never by a catch-all. Auditing names alone is not enough, and the manifest schema is the proof: it uses additionalProperties in its subschema form, which a name audit waves through and this checker cannot enforce, so the silent skip simply moves one level down. A keyword used in a form that is recognised but unenforced must raise too: additionalProperties as a dict, items as a list, type as a list, and a bare boolean used in schema position. additionalProperties true and additionalProperties absent both constrain nothing, so ignoring them is honest and neither raises. The audit is eager and total: it walks the whole schema, including subschemas no instance ever reaches, because the question it answers is whether the schema is honestly enforced and that has nothing to do with any particular instance. A consequence to accept rather than work around: both real schema files in this repo raise here today, because they use composition keywords this row does not implement. That is the honest report and it is deliberate -- the next row adds those keywords. Do not implement $ref, allOf, if, then, oneOf, not, propertyNames, minItems, minProperties or maximum in this row, and do not weaken the audit to let the real schemas through. Do not add a CLI, a main() or any file I/O; this is a pure function and two constants. Do not modify test_task_packet_schema.py or any other file. Leave no debugging output behind.",
+  "readable_context_paths": [
+    "templates/dispatch/tests/test_schema_check.py",
+    "templates/dispatch/tests/test_task_packet_schema.py",
+    "templates/dispatch/hybrid/task-packet.schema.json",
+    "templates/dispatch/manifest.schema.json"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/schema_check.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/scripts/release_unit_packet.py",
+    "templates/dispatch/scripts/release_scorecard.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "the eleven keywords each accept a satisfying instance and reject a violating one",
+    "a boolean is neither an integer nor a number, and minimum ignores it",
+    "violations carry the breadcrumb of the value they are about, nested paths included",
+    "an unimplemented keyword raises UnsupportedKeyword naming it",
+    "a recognised keyword in an unenforceable form raises too",
+    "annotation keywords are skipped by name and never raise",
+    "the audit is eager: a subschema no instance reaches still raises",
+    "SUPPORTED_KEYWORDS and ANNOTATION_KEYWORDS are disjoint and non-empty",
+    "no CLI, no main(), no file I/O, and no other file is touched"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "the subset is genuinely enforced",
+      "command_id": "agentops.dispatch.tests.schema_check",
+      "fails_when": "a keyword accepts an instance that violates it, or a checker that returns no violations at all passes the suite"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "what is not enforced is never reported as passing",
+      "command_id": "agentops.dispatch.tests.schema_check",
+      "fails_when": "an unimplemented keyword is silently ignored instead of raising"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "the audit reads shapes, not only names",
+      "command_id": "agentops.dispatch.tests.schema_check",
+      "fails_when": "additionalProperties as a subschema passes the audit and is then ignored"
+    }
+  ],
+  "non_goals": [
+    "the composition keywords $ref, allOf, if, then, oneOf, not, propertyNames, minItems, minProperties and maximum",
+    "making the two real schema files checkable, which is the next row",
+    "test_task_packet_schema.py, which switches to this module in a later coordinator pass",
+    "any CLI or manifest validation"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.schema_check"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v59-1-schema-check",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/dispatch/handover-2026-08-25-v5-9-refactor.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  }
+}

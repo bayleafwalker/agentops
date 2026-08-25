@@ -1,0 +1,46 @@
+diff --git a/templates/dispatch/scripts/release_scorecard.py b/templates/dispatch/scripts/release_scorecard.py
+index 6f2ac79..6629d2b 100644
+--- a/templates/dispatch/scripts/release_scorecard.py
++++ b/templates/dispatch/scripts/release_scorecard.py
+@@ -223,9 +223,20 @@ def detect_worse(scorecards):
+     def escalations_worsened(a, b):
+         return b["escalations"]["count"] > a["escalations"]["count"]
+ 
+-    def turns_flat_cost_up_worsened(a, b):
++    def cost_up_without_more_turns_worsened(a, b):
++        """More was spent without more frontier work being done.
++
++        Turns must NOT have risen. Rising turns explain rising spend -- a
++        bigger release did more frontier work -- and a detector that fires
++        there is crying wolf, which is how a signal stops being read.
++
++        Turns *dropping* while the figure rises does fire, and that is the
++        case this signal exists for: dropping frontier turns is the whole
++        programme's goal, so cost climbing anyway means each remaining turn
++        has become dramatically more expensive.
++        """
+         return (
+-            b["frontier"]["turns"] >= a["frontier"]["turns"]
++            b["frontier"]["turns"] <= a["frontier"]["turns"]
+             and b["cost_usd"]["frontier_usage_equivalent_usd"]
+             > a["cost_usd"]["frontier_usage_equivalent_usd"]
+         )
+@@ -236,7 +247,7 @@ def detect_worse(scorecards):
+     def escalations_value(card):
+         return card["escalations"]["count"]
+ 
+-    def turns_flat_cost_up_value(card):
++    def cost_up_without_more_turns_value(card):
+         return [card["frontier"]["turns"],
+                 card["cost_usd"]["frontier_usage_equivalent_usd"]]
+ 
+@@ -244,7 +255,8 @@ def detect_worse(scorecards):
+     for name, worsened, value_of in (
+         ("rework", rework_worsened, rework_value),
+         ("escalations", escalations_worsened, escalations_value),
+-        ("turns_flat_cost_up", turns_flat_cost_up_worsened, turns_flat_cost_up_value),
++        ("cost_up_without_more_turns", cost_up_without_more_turns_worsened,
++         cost_up_without_more_turns_value),
+     ):
+         for index in range(len(scorecards) - 2):
+             a, b, c = scorecards[index], scorecards[index + 1], scorecards[index + 2]

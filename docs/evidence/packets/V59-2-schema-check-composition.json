@@ -1,0 +1,117 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V59-2-schema-check-composition",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 28,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "test_schema_check_composition.py decides correctness: 92 tests, red at the starting commit with UnsupportedKeyword. test_schema_check.py carries a coordinator amendment declared in commit 1 and is green in both worlds, so it is not a starts_red command.",
+    "starts_red": [
+      "agentops.dispatch.tests.schema_check_composition"
+    ],
+    "reference_patch": "docs/evidence/packets/V59-2-schema-check-composition.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "01d85c4fa4679da6d7726cdf694883126b1ed4dd",
+  "purpose": "Implement the composition keywords in templates/dispatch/scripts/schema_check.py so that both real schema files in this repo become checkable. Today the module enforces eleven keywords and honestly raises on everything else, which means manifest.schema.json and task-packet.schema.json both raise and nothing can be validated against either -- the checker is correct and useless. Add $defs and $ref, allOf, if with then, oneOf, not, propertyNames, minItems, minProperties, maximum, and the subschema form of additionalProperties. Semantics that matter: a $ref is internal only, of the form #/..., and an external one must still raise because the checker cannot fetch it and pretending otherwise is the failure this module exists to prevent; a $ref that does not resolve must raise too, since a broken pointer is not the same as no constraint; allOf reports the violations of every branch; a failing if is a condition that did not apply and never a violation, while a satisfied if makes then binding; oneOf requires exactly one branch to hold, and matching none must be distinguishable from matching several; not holds when its subschema does not; propertyNames constrains the keys of an object rather than its values; maximum mirrors minimum, and a boolean is not a number for either; and the subschema form of additionalProperties constrains the properties that properties does not name, rather than forbidding them, while false still forbids and names each one and true and absent still constrain nothing. The governing rule of this module does not move: a construct the checker cannot enforce raises rather than passing. So the eager, total audit must now follow every composition keyword into its subschemas -- an unsupported keyword or an unenforceable form hiding inside an allOf branch, a $defs definition, a not, a propertyNames, or behind a oneOf must raise exactly as it does at the top level. This is not hypothetical: manifest.schema.json carries the subschema form of additionalProperties in three places and one of them, instruction_set.properties.skill_lock.oneOf[0], is only reachable through a oneOf. If the checker does not follow the oneOf into that subschema, branch zero degenerates to 'is an object', a bad value matches exactly one branch, and the checker reports no violations at all -- which is the silence this whole module was built to end. The payoff is what makes the row worth doing and it must hold end to end: every packet in docs/evidence/packets validates against task-packet.schema.json with zero violations, and manifest.schema.json yields a verdict rather than raising. Do not implement else, anyOf, patternProperties, dependentSchemas, contains, exclusiveMinimum, exclusiveMaximum, multipleOf, maxItems or maxLength; they must keep raising. Do not add a CLI, a main() or file I/O. Do not modify any file other than schema_check.py -- in particular not the two oracle files, which are the gate. Leave no debugging output behind.",
+  "readable_context_paths": [
+    "templates/dispatch/tests/test_schema_check_composition.py",
+    "templates/dispatch/tests/test_schema_check.py",
+    "templates/dispatch/scripts/schema_check.py",
+    "templates/dispatch/hybrid/task-packet.schema.json",
+    "templates/dispatch/manifest.schema.json",
+    "docs/evidence/packets/**"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/schema_check.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/scripts/release_unit_packet.py",
+    "templates/dispatch/scripts/release_scorecard.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "each composition keyword accepts a satisfying instance and rejects a violating one",
+    "an internal $ref resolves; an external or dangling one raises",
+    "a failing if is not a violation; a satisfied if makes then binding",
+    "oneOf distinguishes matching none from matching several",
+    "the audit follows composition into every subschema, oneOf included",
+    "the subschema form of additionalProperties is enforced, and false and true keep their meanings",
+    "all committed packets validate against the real packet schema with zero violations",
+    "manifest.schema.json yields a verdict instead of raising",
+    "the out-of-scope keywords still raise"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "the composition keywords are genuinely enforced",
+      "command_id": "agentops.dispatch.tests.schema_check_composition",
+      "fails_when": "a keyword is recognised and enforces nothing, so a violating instance passes"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "the audit follows composition into subschemas",
+      "command_id": "agentops.dispatch.tests.schema_check_composition",
+      "fails_when": "an unenforceable construct behind a oneOf or inside a $defs is not raised on"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "the real files become checkable",
+      "command_id": "agentops.dispatch.tests.schema_check_composition",
+      "fails_when": "a committed packet fails the real schema, or the manifest schema still raises"
+    }
+  ],
+  "non_goals": [
+    "else, anyOf, patternProperties, dependentSchemas, contains, exclusiveMinimum, exclusiveMaximum, multipleOf, maxItems and maxLength, which must keep raising",
+    "the manifest validator CLI, which is the next row",
+    "the drift in agentops.dispatch.json, which a coordinator hand-pass fixes",
+    "any change to the eleven keywords already enforced"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.schema_check_composition"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v59-2-composition",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/dispatch/handover-2026-08-25-v5-9-refactor.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  }
+}
