@@ -1,0 +1,117 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V6-H-command-evidence",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 31,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "test_command_evidence.py decides correctness: 21 tests, red at the starting commit because command_evidence.py does not exist. Substring matching instead of exact fails 3; counting a denied granted command as run fails 1; treating absence of a violation as proof fails 3.",
+    "starts_red": [
+      "agentops.dispatch.tests.command_evidence"
+    ],
+    "reference_patch": "docs/evidence/packets/V6-H-command-evidence.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "c749792f3ebe917df24732ae627aa43627814cea",
+  "purpose": "Write templates/dispatch/scripts/command_evidence.py so the coordinator can read, from the worker's own stream, whether the exact-registered-command boundary actually held.\n\nagentops#2046's third acceptance criterion is that exact registered-command execution is proven inside the contained worker. The mechanism already exists and nothing reads it: build_overlay hands the worker a bash permission map of {'*': 'deny'} plus one exact-string 'allow' per granted command id, so the harness refuses any bash call that is not character-for-character a registered command. A configured rule is not a held rule.\n\nThe seam is one function:\n  command_evidence(events, packet, commands) -> dict\n\nevents is any iterable of stream events, drained ONCE. packet supplies allowed_command_ids. commands is the manifest's hybrid.commands map from command id to its exact command string. Only tool_use events whose part.tool is 'bash' are considered; the command text is at part.state.input.command and the status at part.state.status.\n\nReturns exactly these keys:\n  bash_calls -- every bash tool event, completed or not\n  granted_commands_run -- ids whose EXACT string completed; sorted, no duplicates\n  granted_commands_denied -- ids whose exact string was attempted and did not complete; sorted\n  ungranted_attempts -- bash calls that are not the exact string of a GRANTED id\n  ungranted_completed -- how many of those completed; any nonzero is a containment failure\n  exact_execution_proven -- True iff at least one granted id completed exactly AND ungranted_completed == 0\n\nMatching is EXACT. A registered command with an extra flag, a prefix of one, one with surrounding whitespace, or one with something chained after '&&' is a DIFFERENT command; counting any of them as the granted one would report a boundary that was never tested.\n\nA command the manifest registers but the packet did NOT grant is ungranted -- the grant is allowed_command_ids, not the manifest. A granted id the manifest does not register must never match and must not raise.\n\nThree wrong implementations to avoid: substring matching instead of exact; counting a DENIED granted command as having run (it proves the opposite); and treating the mere absence of a violation as proof, when a stream where nothing ran proves nothing.",
+  "readable_context_paths": [
+    "templates/dispatch/tests/test_command_evidence.py",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "agentops.dispatch.json"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/command_evidence.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/scripts/release_scorecard.py",
+    "templates/dispatch/scripts/schema_check.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "only bash tool_use events are considered; everything else is ignored",
+    "matching against a granted command is exact, never substring, prefix or trimmed",
+    "a command the manifest registers but the packet did not grant counts as ungranted",
+    "a denied granted command is reported as denied and never as run",
+    "a denied foreign command is an ungranted attempt that did not complete, which is the boundary holding",
+    "exact_execution_proven requires a granted command to have run AND no foreign command to have completed",
+    "a granted id the manifest does not register never matches and never raises",
+    "any iterable is accepted and consumed exactly once"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "the boundary is proven, not assumed",
+      "command_id": "agentops.dispatch.tests.command_evidence",
+      "fails_when": "absence of a violation alone is reported as proof, or a denied granted command counts as having run"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "exact means exact",
+      "command_id": "agentops.dispatch.tests.command_evidence",
+      "fails_when": "a registered command with an extra flag, a prefix, surrounding whitespace, or a chained command matches the granted id"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "the grant is the packet, not the manifest",
+      "command_id": "agentops.dispatch.tests.command_evidence",
+      "fails_when": "a registered but ungranted command is not counted as an ungranted attempt"
+    },
+    {
+      "id": "REQ-004",
+      "requirement": "a containment failure is visible",
+      "command_id": "agentops.dispatch.tests.command_evidence",
+      "fails_when": "a foreign command that completed does not raise ungranted_completed or does not break the proof"
+    }
+  ],
+  "non_goals": [
+    "wiring the evidence into the receipt or a gate -- hybrid_dispatch.py is protected at the manifest level and that is a coordinator hand-pass",
+    "changing build_overlay's permission map",
+    "running commands, git, or any subprocess"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.command_evidence"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v6-h-command-evidence",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/dispatch/handover-2026-08-25-session-close.md"
+    ]
+  }
+}
