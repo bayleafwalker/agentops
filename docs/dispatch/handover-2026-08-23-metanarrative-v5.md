@@ -425,6 +425,47 @@ this work was produced by the tool it documents:
 
 Open rows from this brief: **none**.
 
+## 3i. T-11 (2026-08-25) — the detector that fired on good news
+
+The last row of the T-series was frozen at the previous session's checkpoint and dispatched the
+next day. `detect_worse`'s third signal compared `b["frontier"]["turns"] >= a[...]["turns"]`
+while the frontier usage-equivalent rose, and was named `turns_flat_cost_up`.
+
+The `>=` made it fire when turns **rose** alongside cost — the ordinary explained case, a bigger
+release doing more frontier work — and left it silent on turns **dropping** while cost climbed.
+Dropping frontier turns is the whole programme's goal: the v7 falsifier is that frontier turns
+per release fall at least fivefold against the v5 scorecard. So the one series that means "each
+remaining turn has become dramatically more expensive" was the one series the detector could not
+see, and the series it did report on was the one that needs no reporting.
+
+This is the same defect as §3f's, one layer up. A gate red on every legitimate packet PR is one
+people stop reading; a detector that fires on good news is one people stop reading. The project
+had already learned this once, in CI, and shipped it again in the tool that measures the project.
+
+Fixed to `<=` and renamed to `cost_up_without_more_turns` (PR #98). The rename was half the
+packet, not cosmetics: `turns_flat_cost_up` described neither the old behaviour nor the new one,
+and a name that does not say what it means is precisely how T-8, T-9 and T-10 happened.
+
+**And it is the fourth instance of the §3h pattern.** The comparison was arithmetically correct
+Python that had passed 30 tests, a read-trace and a merge preview. Every one of those asked
+whether the predicate does what the packet said. None could ask whether firing on rising turns
+was the right thing to ask for. Four of eleven packets this session were that second question —
+and the loop found none of the four.
+
+Worker green on the first attempt: **$0.008 billed**, 149,621 tokens, zero escalations, zero
+rework. `validate` returned `fit` with `red_after_reference: []` before any spend.
+
+One non-green step, the coordinator's again: `dispatch_release.py` takes its packet
+**positionally**, and the flag form put `--packet` into passthrough, so `prepare` exited 2 on a
+malformed argv before any worker started. $0 spent, but it wrote an escalation record to auditctl
+that is not a real workflow escalation — item 2254's event log carries one entry that means
+"the driver was called wrong", not "the work went wrong".
+
+Session totals across both days: **eleven packets, eleven worker greens on the first attempt,
+$0.159 billed**. Merged: #82–#98. Main at 870 tests, green.
+
+Open rows from this brief: **none**.
+
 ## 3. Packets to freeze and run, in order
 
 Each row: what the oracle must assert, the writable file, and the spec source. Write the
