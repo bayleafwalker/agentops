@@ -1849,6 +1849,46 @@ def churn_metrics_for(events: list[dict[str, Any]]) -> dict[str, Any]:
     return module.churn_metrics(events)
 
 
+def stream_events(stdout: str) -> list[dict[str, Any]]:
+    """The JSON events in a worker transcript, skipping any line that is not one.
+
+    ``dispatch_worker`` parses the stream as it arrives so churn can be
+    enforced while the worker still runs. The gate-side readers need the same
+    events after the fact and have only the captured stdout, so the parse is
+    named once here rather than written twice.
+    """
+    events: list[dict[str, Any]] = []
+    for line in (stdout or "").splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(event, dict):
+            events.append(event)
+    return events
+
+
+def command_evidence_for(
+    events: list[dict[str, Any]], packet: dict[str, Any], manifest: dict[str, Any]
+) -> dict[str, Any]:
+    """Read the exact-registered-command boundary out of the worker's stream.
+
+    ``build_overlay`` already denies every bash call that is not
+    character-for-character a registered command. That the rule is configured
+    is not evidence that it held; this is the evidence. Deferred import for the
+    same reason as :func:`churn_metrics_for`.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "_command_evidence_for_hybrid_dispatch",
+        Path(__file__).resolve().parent / "command_evidence.py",
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.command_evidence(events, packet, manifest["hybrid"]["commands"])
+
+
 def dispatch_worker(
     worktree: Path,
     packet_path: Path,
@@ -2371,7 +2411,19 @@ def main(argv: list[str] | None = None) -> int:
                 worktree, packet_path, packet, overlay, policy, args.opencode_bin,
                 args.worker_user, args.worker_model,
             )
+            # Read the exact-registered-command boundary out of the worker's own
+            # stream. build_overlay denies every bash call that is not
+            # character-for-character a registered command; this records whether
+            # that rule actually held, which is agentops#2046's third criterion.
+            transcript["command_evidence"] = command_evidence_for(
+                stream_events(transcript.get("stdout", "")), packet, manifest
+            )
             breach = sorted(set(coordinator_tree_state(repo_root)) - set(before))
+            # A bash call that is not a registered command is denied by the
+            # overlay. One that COMPLETED means the deny rule did not hold, and
+            # that is an escape from the same boundary a tree write escapes --
+            # not a quality result, and never retryable.
+            ungranted_ran = transcript["command_evidence"]["ungranted_completed"] > 0
             spend = worker_spend(
                 transcript["stdout"],
                 packet["limits"].get("max_cost_usd"),
@@ -2392,6 +2444,13 @@ def main(argv: list[str] | None = None) -> int:
                     containment={
                         "coordinator_tree_untouched": not breach,
                         "coordinator_tree_changes": breach,
+                        # agentops#2046: exact registered-command execution,
+                        # proven from inside the contained worker rather than
+                        # assumed from the overlay that configures it.
+                        "registered_commands_only": not ungranted_ran,
+                        "exact_execution_proven": transcript["command_evidence"][
+                            "exact_execution_proven"
+                        ],
                         # A breach receipt states how to undo itself. An
                         # operator reading this is mid-incident and should not
                         # have to reconstruct the cleanup from the path list.
@@ -2408,7 +2467,7 @@ def main(argv: list[str] | None = None) -> int:
                     },
                     **(
                         {"disposition": "containment_breach"}
-                        if breach
+                        if breach or ungranted_ran
                         else (
                             {}
                             if spend["within_cap"] and spend["within_hard_token_ceiling"]
@@ -2417,10 +2476,11 @@ def main(argv: list[str] | None = None) -> int:
                     ),
                 )
             )
-            # A worker that wrote outside its disposable worktree has escaped the
-            # boundary the packet exists to enforce. That is never a retryable
-            # quality result: it stops the packet for human triage.
-            if breach:
+            # A worker that wrote outside its disposable worktree, or ran a
+            # command the packet never granted, has escaped the boundary the
+            # packet exists to enforce. That is never a retryable quality
+            # result: it stops the packet for human triage.
+            if breach or ungranted_ran:
                 return 3
             # Overspend cannot be prevented after the fact, only stopped from
             # repeating. Exiting non-zero is what keeps a wave from running the
