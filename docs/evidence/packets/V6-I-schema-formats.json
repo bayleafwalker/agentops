@@ -1,0 +1,118 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V6-I-schema-formats",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 32,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "test_schema_check_formats.py decides correctness: 24 tests, red at the starting commit because FORMAT_CHECKERS does not exist and validate takes no assert_formats. Asserting formats by default fails 2; silently ignoring an unknown asserted format fails 2; applying format to non-strings fails 2.",
+    "starts_red": [
+      "agentops.dispatch.tests.schema_check_formats"
+    ],
+    "reference_patch": "docs/evidence/packets/V6-I-schema-formats.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "ca92c9f94c0ba58e4211a1d2fc6a5a6d3e8a4341",
+  "purpose": "Give templates/dispatch/scripts/schema_check.py opt-in format assertion, so a schema that declares a format can have it enforced on request.\n\nschema_check lists 'format' among its ANNOTATION_KEYWORDS. That is correct JSON Schema -- format is an annotation unless a validator opts into asserting it -- but it means manifest.schema.json's \"format\": \"uuid\" on authority_repo_uuid is enforced nowhere, and the checker will certify a non-UUID there while claiming to enforce every construct it accepts.\n\nDo NOT start asserting formats by default. validate() is on the live dispatch path and every manifest in /projects/dev is checked with it, so assertion must be something a caller asks for, never something that arrives with an upgrade. 'format' must also REMAIN in ANNOTATION_KEYWORDS, so a schema naming a format nobody asserts does not become unauditable.\n\nAdd two things:\n  FORMAT_CHECKERS -- a dict from format name to a predicate over a string. It must contain 'uuid'. A caller reads it to discover what can be asserted.\n  validate(instance, schema, path='$', assert_formats=()) -- assert_formats names the formats to enforce for this call, and accepts any iterable. Empty (the default) must behave exactly as today.\n\nTwo rules keep this honest rather than decorative:\n  * a name in assert_formats with no entry in FORMAT_CHECKERS raises UnsupportedKeyword -- even when the schema does not mention that format. Silently ignoring it is exactly the defect being repaired: certifying what was never checked.\n  * format constrains STRINGS ONLY. A number or a null under a format schema is not a violation; the 'type' keyword is what constrains type.\n\nAssertion must reach nested properties and array items, not only the top level, so thread the asserted set through the recursive core.\n\nThe uuid checker accepts the canonical hyphenated form, case-insensitively, and rejects the URN (urn:uuid:...) and braced ({...}) spellings, a wrong length, a non-hex character, and the unhyphenated form. Accepting three spellings for one identifier is how two records of the same thing stop comparing equal.\n\nError text must name the path and the format.",
+  "readable_context_paths": [
+    "templates/dispatch/tests/test_schema_check_formats.py",
+    "templates/dispatch/scripts/schema_check.py",
+    "templates/dispatch/manifest.schema.json"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/schema_check.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/scripts/release_scorecard.py",
+    "templates/dispatch/scripts/schema_check.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "FORMAT_CHECKERS exists, maps names to callables, and contains 'uuid'",
+    "format remains in ANNOTATION_KEYWORDS",
+    "validate with no assert_formats behaves exactly as before, including on the real manifest schema",
+    "assert_formats accepts any iterable",
+    "a name in assert_formats with no checker raises UnsupportedKeyword, schema or no schema",
+    "format applies to strings only",
+    "assertion reaches nested properties and array items",
+    "the uuid checker accepts the canonical form case-insensitively and rejects urn, braced, wrong length, non-hex and unhyphenated",
+    "the error text names the path and the format"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "assertion is opt-in and the live path does not move",
+      "command_id": "agentops.dispatch.tests.schema_check_formats",
+      "fails_when": "a bad value fails validation when no format was asserted, or the real manifest schema stops auditing clean"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "the checker never certifies what it cannot check",
+      "command_id": "agentops.dispatch.tests.schema_check_formats",
+      "fails_when": "an assert_formats name with no registered checker is ignored instead of raising"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "format constrains strings only",
+      "command_id": "agentops.dispatch.tests.schema_check_formats",
+      "fails_when": "a number or null under a format schema is reported as a violation"
+    },
+    {
+      "id": "REQ-004",
+      "requirement": "one identifier has one spelling",
+      "command_id": "agentops.dispatch.tests.schema_check_formats",
+      "fails_when": "the urn, braced or unhyphenated uuid spellings are accepted"
+    }
+  ],
+  "non_goals": [
+    "changing manifest.schema.json, which is protected at the manifest level",
+    "turning assertion on for any existing caller -- that is a separate coordinator decision",
+    "adding checkers for formats beyond uuid"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.schema_check_formats"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v6-i-schema-formats",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/dispatch/handover-2026-08-25-session-close.md"
+    ]
+  }
+}

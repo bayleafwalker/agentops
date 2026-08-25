@@ -1,0 +1,153 @@
+diff --git a/templates/dispatch/scripts/schema_check.py b/templates/dispatch/scripts/schema_check.py
+index 1c85647..42e9543 100644
+--- a/templates/dispatch/scripts/schema_check.py
++++ b/templates/dispatch/scripts/schema_check.py
+@@ -58,6 +58,28 @@ ANNOTATION_KEYWORDS = frozenset({
+ })
+ 
+ 
++_UUID_RE = re.compile(
++    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
++)
++
++
++def _is_uuid(value):
++    """The canonical hyphenated form only.
++
++    The URN and braced spellings are rejected deliberately: this checks the
++    format a manifest is expected to carry, and accepting three spellings for
++    one identifier is how two records of the same thing stop comparing equal.
++    """
++    return _UUID_RE.fullmatch(value) is not None
++
++
++#: Formats this checker can actually assert, by name. A caller reads it to
++#: discover what is available; ``validate`` refuses to assert anything absent
++#: from it, because certifying what was never checked is the defect that made
++#: opt-in assertion necessary in the first place.
++FORMAT_CHECKERS = {"uuid": _is_uuid}
++
++
+ class UnsupportedKeyword(Exception):
+     """A schema keyword (or form) this checker does not enforce."""
+ 
+@@ -191,25 +213,52 @@ def audit_schema(schema, path="$"):
+     return _audit_schema(schema, path, schema)
+ 
+ 
+-def validate(instance, schema, path="$"):
+-    """Return a list of human-readable violations, empty when valid."""
++def validate(instance, schema, path="$", assert_formats=()):
++    """Return a list of human-readable violations, empty when valid.
++
++    ``format`` is an annotation by default, which is correct JSON Schema and
++    means a schema may declare ``"format": "uuid"`` and have it enforced
++    nowhere. ``assert_formats`` names the formats to enforce for this call.
++
++    The default is empty on purpose: ``validate`` is on the live dispatch path
++    and every manifest is checked with it, so assertion must be something a
++    caller asks for rather than something that arrives with an upgrade.
++    """
++    asserted = frozenset(assert_formats)
++    unknown = sorted(name for name in asserted if name not in FORMAT_CHECKERS)
++    if unknown:
++        raise UnsupportedKeyword(
++            f"{path}: cannot assert format(s) {unknown}; no checker is registered "
++            f"for them, and certifying an unchecked format is the defect this "
++            f"argument exists to avoid"
++        )
+     defects = _audit_schema(schema, path, schema)
+     if defects:
+         raise UnsupportedKeyword(defects[0])
+-    return _validate(instance, schema, path, schema)
++    return _validate(instance, schema, path, schema, asserted)
+ 
+ 
+-def _validate(instance, schema, path, root):
+-    """Recursive validation core; ``root`` anchors internal ``$ref`` pointers."""
++def _validate(instance, schema, path, root, asserted=frozenset()):
++    """Recursive validation core; ``root`` anchors internal ``$ref`` pointers.
++
++    ``asserted`` is the set of format names to enforce, threaded down so a
++    nested property is checked on the same terms as a top-level one.
++    """
+     errors = []
+ 
++    fmt = schema.get("format")
++    if fmt in asserted and isinstance(instance, str):
++        # format constrains strings only; `type` is what constrains type.
++        if not FORMAT_CHECKERS[fmt](instance):
++            errors.append(f"{path}: {instance!r} is not a valid {fmt}")
++
+     if "$ref" in schema:
+         target = _resolve_pointer(root, schema["$ref"])
+         if target is None:
+             raise UnsupportedKeyword(
+                 f"{path}: $ref {schema['$ref']!r} is not an internal, "
+                 f"resolvable pointer")
+-        errors.extend(_validate(instance, target, path, root))
++        errors.extend(_validate(instance, target, path, root, asserted))
+ 
+     expected = schema.get("type")
+     if expected:
+@@ -252,19 +301,19 @@ def _validate(instance, schema, path, root):
+         if property_names is not None:
+             for key in instance:
+                 errors.extend(
+-                    _validate(key, property_names, f"{path}.{key}", root))
++                    _validate(key, property_names, f"{path}.{key}", root, asserted))
+         properties = schema.get("properties", {})
+         additional = schema.get("additionalProperties")
+         for key, value in instance.items():
+             if key in properties:
+                 errors.extend(
+-                    _validate(value, properties[key], f"{path}.{key}", root))
++                    _validate(value, properties[key], f"{path}.{key}", root, asserted))
+             elif additional is False:
+                 errors.append(
+                     f"{path}: additional property {key!r} is not allowed")
+             elif isinstance(additional, dict):
+                 errors.extend(
+-                    _validate(value, additional, f"{path}.{key}", root))
++                    _validate(value, additional, f"{path}.{key}", root, asserted))
+     if isinstance(instance, list):
+         min_items = schema.get("minItems")
+         if min_items is not None and len(instance) < min_items:
+@@ -273,31 +322,31 @@ def _validate(instance, schema, path, root):
+         if item_schema:
+             for index, item in enumerate(instance):
+                 errors.extend(
+-                    _validate(item, item_schema, f"{path}[{index}]", root))
++                    _validate(item, item_schema, f"{path}[{index}]", root, asserted))
+         if schema.get("uniqueItems"):
+             hashable = [json.dumps(i, sort_keys=True) for i in instance]
+             if len(set(hashable)) != len(hashable):
+                 errors.append(f"{path}: items are not unique")
+ 
+     for branch in schema.get("allOf", []):
+-        errors.extend(_validate(instance, branch, path, root))
++        errors.extend(_validate(instance, branch, path, root, asserted))
+ 
+-    if "if" in schema and not _validate(instance, schema["if"], path, root):
++    if "if" in schema and not _validate(instance, schema["if"], path, root, asserted):
+         then = schema.get("then")
+         if then is not None:
+-            errors.extend(_validate(instance, then, path, root))
++            errors.extend(_validate(instance, then, path, root, asserted))
+ 
+     one_of = schema.get("oneOf")
+     if one_of is not None:
+         matches = [branch for branch in one_of
+-                   if not _validate(instance, branch, path, root)]
++                   if not _validate(instance, branch, path, root, asserted)]
+         if len(matches) == 0:
+             errors.append(f"{path}: matched none of the oneOf branches")
+         elif len(matches) > 1:
+             errors.append(f"{path}: matched more than one oneOf branch")
+ 
+     not_schema = schema.get("not")
+-    if not_schema is not None and not _validate(instance, not_schema, path, root):
++    if not_schema is not None and not _validate(instance, not_schema, path, root, asserted):
+         errors.append(f"{path}: must not satisfy the 'not' subschema")
+ 
+     return errors
