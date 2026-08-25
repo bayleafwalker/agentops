@@ -176,7 +176,8 @@
       "agentops.dispatch.tests.scorecard_kinds": "python templates/dispatch/tests/test_release_scorecard_kinds.py",
       "agentops.dispatch.tests.scorecard_scope": "python templates/dispatch/tests/test_release_scorecard_scope.py",
       "agentops.dispatch.tests.scorecard_naming": "python templates/dispatch/tests/test_release_scorecard_naming.py",
-      "agentops.dispatch.tests.scorecard_iterable": "python templates/dispatch/tests/test_release_scorecard_iterable.py"
+      "agentops.dispatch.tests.scorecard_iterable": "python templates/dispatch/tests/test_release_scorecard_iterable.py",
+      "agentops.dispatch.tests.schema_check": "python templates/dispatch/tests/test_schema_check.py"
     },
     "protected_paths": [
       "templates/dispatch/hybrid/**",
