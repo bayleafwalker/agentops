@@ -155,9 +155,12 @@ def build_scorecard(release, rows, receipts, escalations, recorded_at,
 
     ``frontier`` delegates to ``frontier_totals`` over the reduced sink rows
     and ``worker`` delegates to ``worker_totals`` over the packet receipts.
-    Neither half substitutes for the other: the hooks never see an OpenCode
-    worker, and the receipts know nothing about frontier turns, so both stay
-    separately visible. The two halves are not the same kind of number -- the
+    ``escalations`` is materialised once up front, so a generator, an iterator
+    or any other one-shot iterable is consumed exactly once and counted
+    exactly as a list would be. Neither half substitutes for the other: the
+    hooks never see an OpenCode worker, and the receipts know nothing about
+    frontier turns, so both stay separately visible. The two halves are not
+    the same kind of number -- the
     frontier figure is an imputed list price that nothing meters, the worker
     figure is real metered spend -- so ``cost_usd`` never adds them.
     ``worker_billed_usd`` is the only money, ``total_billed_usd`` equals it,
@@ -174,6 +177,7 @@ def build_scorecard(release, rows, receipts, escalations, recorded_at,
     """
     frontier = frontier_totals(rows)
     worker = worker_totals(receipts)
+    escalations = list(escalations)
     task_ids = set()
     stop_conditions = set()
     for record in escalations:

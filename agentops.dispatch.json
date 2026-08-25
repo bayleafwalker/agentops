@@ -180,6 +180,7 @@
       "agentops.dispatch.tests.schema_check": "python templates/dispatch/tests/test_schema_check.py",
       "agentops.dispatch.tests.schema_check_composition": "python templates/dispatch/tests/test_schema_check_composition.py",
       "agentops.dispatch.tests.worker_writability": "python templates/dispatch/tests/test_worker_writability_report.py",
+      "agentops.dispatch.tests.scorecard_build_iterable": "python templates/dispatch/tests/test_release_scorecard_build_iterable.py",
       "agentops.dispatch.tests.validate_dispatch_manifest": "python templates/dispatch/tests/test_validate_dispatch_manifest.py"
     },
     "protected_paths": [
