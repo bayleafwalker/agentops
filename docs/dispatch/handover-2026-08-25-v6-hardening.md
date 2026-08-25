@@ -161,3 +161,31 @@ The last two criteria were closed after §4 above was first written, so read §3
 - **`stream_events()`** now names the JSON-lines parse once. `dispatch_worker` parses live so churn
   can stop a circling worker mid-run; gate-side readers have only captured stdout. Two parses of one
   stream is how two readers drift apart.
+
+## 9. Final state of this session
+
+- main at `1c17227` or later, **1368 tests green**, tree clean, no reservation held (claims 30, 31
+  and 32 were all released).
+- **Five worker rows** landed: V6-E, V6-F, V6-G, V6-H, V6-I. Four first-attempt green; V6-E needed
+  one retry.
+- `agentops#2046`: **all six criteria met, awaiting human acceptance.** I did not mark the item done.
+- Corpus: **23 receipts, first-pass 0.9565**, `command_evidence` on 1, `churn_metrics` on 4. Growing
+  by construction now.
+
+### Two corrections this session made to its own earlier work
+
+- The `#124` scan fix was **incomplete**. A transcript is escaped *twice* by the time it reaches the
+  receipt text; one decode pass left the false positive standing. Completed in #133, which also
+  documents the trade it makes — after two levels of escaping, "a literal backslash then n" and "a
+  doubly-escaped newline" are indistinguishable, and the scanner now reads them as a newline.
+- The first corpus document said **five** rows were missing and estimated 23/24. Both wrong: it is
+  fifteen packets without a receipt, three receipts without a packet, and the measured rate moved
+  from 1.0 to 0.9545 once the failing row was returned. Corrected in place with a §0 that says so.
+
+### A trap worth carrying
+
+**A packet's own `protected_paths` can forbid the file it is meant to write.** V6-I failed `validate`
+with "intersects a protected path" even though the manifest does not protect `schema_check.py` — the
+packet's list, inherited by copying an earlier packet, did. Check `protected_paths` against
+`writable_patch_paths` when deriving a packet from another. `templates/dispatch/tests/**` staying
+protected is deliberate and must not be relaxed: it is what stops a worker editing its own oracle.
