@@ -1,0 +1,578 @@
+{
+  "schema_version": "agentops-hybrid-receipt/v1",
+  "recorded_at": "2026-08-25T19:59:45+00:00",
+  "execution_id": "V6-I-schema-formats:1c9b5aff062d3c1b:attempt-1",
+  "task_id": "V6-I-schema-formats",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 32,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "attempt": 1,
+  "inputs": {
+    "packet_hash": "sha256:1c9b5aff062d3c1bdb4e379f773bde21290a88ec973d2483cbd2335d44715009",
+    "repository_commit": "ca92c9f94c0ba58e4211a1d2fc6a5a6d3e8a4341",
+    "packet_schema_version": "agentops-task/v2",
+    "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+    "gate_set_hash": "sha256:7354fe6d9c82c867d0732139b1a8da8a1d7b2bfd23586f1c9e7042a6b302a7b5"
+  },
+  "harness_model": "opencode-go/deepseek-v4-flash",
+  "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+  "qualification_policy": {
+    "mode": "named_pilot",
+    "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+    "repositories": [
+      "agentops",
+      "1deb57d0-af6f-479c-811a-b5b7254841f9",
+      "2be118eb-8e89-433a-8d32-ada157624f95",
+      "kctl",
+      "actionq"
+    ],
+    "routes": [
+      "mechanical_bulk"
+    ],
+    "models": [
+      "opencode-go/deepseek-v4-flash"
+    ],
+    "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+    "default": "unqualified",
+    "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+  },
+  "acceptance_authority": "human",
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "stage": "receipt",
+  "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V6-I-schema-formats",
+  "overlay_sha256": "533cc96dd87216e6c0a86d15077cf54eaa701e39cb67510c6d2cfa87c4ff6e77",
+  "dispositions_available": [
+    "candidate",
+    "retry_same_route",
+    "reroute",
+    "task_defect",
+    "human_decision"
+  ],
+  "note": "The coordinator records the disposition and the human accepts, merges, and changes sprint state.",
+  "gate": {
+    "schema_version": "agentops-hybrid-receipt/v1",
+    "recorded_at": "2026-08-25T19:59:45+00:00",
+    "execution_id": "V6-I-schema-formats:1c9b5aff062d3c1b:attempt-1",
+    "task_id": "V6-I-schema-formats",
+    "repo_id": "agentops",
+    "sprint_item": {
+      "ref": "agentops#2254",
+      "claim_id": 32,
+      "claim_actor": "workstation-vuoro"
+    },
+    "route": "mechanical_bulk",
+    "attempt": 1,
+    "inputs": {
+      "packet_hash": "sha256:1c9b5aff062d3c1bdb4e379f773bde21290a88ec973d2483cbd2335d44715009",
+      "repository_commit": "ca92c9f94c0ba58e4211a1d2fc6a5a6d3e8a4341",
+      "packet_schema_version": "agentops-task/v2",
+      "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+      "gate_set_hash": "sha256:7354fe6d9c82c867d0732139b1a8da8a1d7b2bfd23586f1c9e7042a6b302a7b5"
+    },
+    "harness_model": "opencode-go/deepseek-v4-flash",
+    "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+    "qualification_policy": {
+      "mode": "named_pilot",
+      "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+      "repositories": [
+        "agentops",
+        "1deb57d0-af6f-479c-811a-b5b7254841f9",
+        "2be118eb-8e89-433a-8d32-ada157624f95",
+        "kctl",
+        "actionq"
+      ],
+      "routes": [
+        "mechanical_bulk"
+      ],
+      "models": [
+        "opencode-go/deepseek-v4-flash"
+      ],
+      "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+      "default": "unqualified",
+      "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+    },
+    "acceptance_authority": "human",
+    "context_churn": {
+      "max_repeated_reads_per_path": 4,
+      "max_reasoning_steps_without_mutation": 20,
+      "max_identical_context_tokens": 250000,
+      "handoff_when_candidate_ready": true
+    },
+    "stage": "gate",
+    "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V6-I-schema-formats",
+    "overlay_sha256": "533cc96dd87216e6c0a86d15077cf54eaa701e39cb67510c6d2cfa87c4ff6e77",
+    "coordinator_claim": {
+      "claim_id": 32,
+      "work_item_id": 2254,
+      "agent": "workstation-vuoro",
+      "last_activity_at": "2026-08-25T19:56:38Z",
+      "idle_seconds": 187,
+      "checked_at": "2026-08-25T19:59:45+00:00"
+    },
+    "evidence": {
+      "gates": {
+        "diff-nonempty": true,
+        "diff-scope-respected": true,
+        "protected-paths-untouched": true,
+        "worktree-state-captured": true,
+        "registered-commands-green": true,
+        "required-gates-complete": true
+      },
+      "passed": true,
+      "touched_paths": [
+        "templates/dispatch/scripts/schema_check.py"
+      ],
+      "out_of_scope_paths": [],
+      "protected_path_hits": [],
+      "command_results": [
+        {
+          "command_id": "agentops.dispatch.tests.schema_check_formats",
+          "command": "python templates/dispatch/tests/test_schema_check_formats.py",
+          "tier": "full",
+          "exit_code": 0,
+          "stdout_tail": "",
+          "stderr_tail": "........................\n----------------------------------------------------------------------\nRan 24 tests in 0.002s\n\nOK\n"
+        }
+      ],
+      "diff": "diff --git a/templates/dispatch/scripts/schema_check.py b/templates/dispatch/scripts/schema_check.py\nindex 1c85647..30b4173 100644\n--- a/templates/dispatch/scripts/schema_check.py\n+++ b/templates/dispatch/scripts/schema_check.py\n@@ -4,11 +4,14 @@ Extracted from ``templates/dispatch/tests/test_task_packet_schema.py`` so that\n more than one consumer can reach it without copying it. The public surface is\n exactly four names:\n \n-* ``validate(instance, schema, path=\"$\")`` -> a list of human-readable\n-  violation strings, empty when the instance satisfies the schema;\n+* ``validate(instance, schema, path=\"$\", assert_formats=())`` -> a list of\n+  human-readable violation strings, empty when the instance satisfies the\n+  schema;\n * ``UnsupportedKeyword``, an Exception;\n * ``SUPPORTED_KEYWORDS`` and ``ANNOTATION_KEYWORDS``, two disjoint non-empty\n-  frozensets.\n+  frozensets;\n+* ``FORMAT_CHECKERS``, a mapping from format name to a predicate over a\n+  string, consulted only when a caller opts into asserting formats.\n \n A schema keyword that is neither enforced (``SUPPORTED_KEYWORDS``) nor\n knowingly constraint-free (``ANNOTATION_KEYWORDS``) raises\n@@ -37,6 +40,14 @@ Composition is enforced:\n   does not name must satisfy that subschema; ``False`` still forbids extras and\n   names each one, ``True`` and absent still constrain nothing.\n \n+Format assertion is opt-in. ``validate`` takes ``assert_formats``, an\n+iterable of format names to enforce for that call; the default is empty and\n+behaves exactly as before. A name in ``assert_formats`` with no entry in\n+``FORMAT_CHECKERS`` raises ``UnsupportedKeyword`` rather than silently\n+certifying what was never checked. ``format`` constrains strings only: a\n+non-string instance under a format schema is unaffected, per the\n+specification.\n+\n The governing rule does not move: a construct the checker cannot enforce raises\n rather than passing.\n \"\"\"\n@@ -62,6 +73,22 @@ class UnsupportedKeyword(Exception):\n     \"\"\"A schema keyword (or form) this checker does not enforce.\"\"\"\n \n \n+_UUID_RE = re.compile(\n+    r\"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\n+    re.IGNORECASE,\n+)\n+\n+\n+def _is_uuid(value):\n+    \"\"\"True for the canonical hyphenated UUID spelling, case-insensitively.\"\"\"\n+    return _UUID_RE.match(value) is not None\n+\n+\n+FORMAT_CHECKERS = {\n+    \"uuid\": _is_uuid,\n+}\n+\n+\n _TYPES = {\n     \"object\": dict,\n     \"array\": list,\n@@ -191,15 +218,26 @@ def audit_schema(schema, path=\"$\"):\n     return _audit_schema(schema, path, schema)\n \n \n-def validate(instance, schema, path=\"$\"):\n-    \"\"\"Return a list of human-readable violations, empty when valid.\"\"\"\n+def validate(instance, schema, path=\"$\", assert_formats=()):\n+    \"\"\"Return a list of human-readable violations, empty when valid.\n+\n+    ``assert_formats`` names the formats to enforce for this call; it accepts\n+    any iterable and defaults to empty, which behaves exactly as before. A\n+    name with no entry in ``FORMAT_CHECKERS`` raises ``UnsupportedKeyword``\n+    rather than silently certifying what was never checked.\n+    \"\"\"\n+    assert_formats = frozenset(assert_formats)\n+    for name in assert_formats:\n+        if name not in FORMAT_CHECKERS:\n+            raise UnsupportedKeyword(\n+                f\"{path}: no checker for asserted format {name!r}\")\n     defects = _audit_schema(schema, path, schema)\n     if defects:\n         raise UnsupportedKeyword(defects[0])\n-    return _validate(instance, schema, path, schema)\n+    return _validate(instance, schema, path, schema, assert_formats)\n \n \n-def _validate(instance, schema, path, root):\n+def _validate(instance, schema, path, root, assert_formats=()):\n     \"\"\"Recursive validation core; ``root`` anchors internal ``$ref`` pointers.\"\"\"\n     errors = []\n \n@@ -209,7 +247,7 @@ def _validate(instance, schema, path, root):\n             raise UnsupportedKeyword(\n                 f\"{path}: $ref {schema['$ref']!r} is not an internal, \"\n                 f\"resolvable pointer\")\n-        errors.extend(_validate(instance, target, path, root))\n+        errors.extend(_validate(instance, target, path, root, assert_formats))\n \n     expected = schema.get(\"type\")\n     if expected:\n@@ -233,6 +271,10 @@ def _validate(instance, schema, path, root):\n         min_length = schema.get(\"minLength\")\n         if min_length is not None and len(instance) < min_length:\n             errors.append(f\"{path}: shorter than minLength {min_length}\")\n+        fmt = schema.get(\"format\")\n+        if fmt in assert_formats and not FORMAT_CHECKERS[fmt](instance):\n+            errors.append(\n+                f\"{path}: {instance!r} does not match format {fmt}\")\n     if isinstance(instance, (int, float)) and not isinstance(instance, bool):\n         minimum = schema.get(\"minimum\")\n         if minimum is not None and instance < minimum:\n@@ -252,19 +294,22 @@ def _validate(instance, schema, path, root):\n         if property_names is not None:\n             for key in instance:\n                 errors.extend(\n-                    _validate(key, property_names, f\"{path}.{key}\", root))\n+                    _validate(key, property_names, f\"{path}.{key}\", root,\n+                              assert_formats))\n         properties = schema.get(\"properties\", {})\n         additional = schema.get(\"additionalProperties\")\n         for key, value in instance.items():\n             if key in properties:\n                 errors.extend(\n-                    _validate(value, properties[key], f\"{path}.{key}\", root))\n+                    _validate(value, properties[key], f\"{path}.{key}\", root,\n+                              assert_formats))\n             elif additional is False:\n                 errors.append(\n                     f\"{path}: additional property {key!r} is not allowed\")\n             elif isinstance(additional, dict):\n                 errors.extend(\n-                    _validate(value, additional, f\"{path}.{key}\", root))\n+                    _validate(value, additional, f\"{path}.{key}\", root,\n+                              assert_formats))\n     if isinstance(instance, list):\n         min_items = schema.get(\"minItems\")\n         if min_items is not None and len(instance) < min_items:\n@@ -273,31 +318,35 @@ def _validate(instance, schema, path, root):\n         if item_schema:\n             for index, item in enumerate(instance):\n                 errors.extend(\n-                    _validate(item, item_schema, f\"{path}[{index}]\", root))\n+                    _validate(item, item_schema, f\"{path}[{index}]\", root,\n+                              assert_formats))\n         if schema.get(\"uniqueItems\"):\n             hashable = [json.dumps(i, sort_keys=True) for i in instance]\n             if len(set(hashable)) != len(hashable):\n                 errors.append(f\"{path}: items are not unique\")\n \n     for branch in schema.get(\"allOf\", []):\n-        errors.extend(_validate(instance, branch, path, root))\n+        errors.extend(_validate(instance, branch, path, root, assert_formats))\n \n-    if \"if\" in schema and not _validate(instance, schema[\"if\"], path, root):\n+    if \"if\" in schema and not _validate(instance, schema[\"if\"], path, root,\n+                                        assert_formats):\n         then = schema.get(\"then\")\n         if then is not None:\n-            errors.extend(_validate(instance, then, path, root))\n+            errors.extend(_validate(instance, then, path, root, assert_formats))\n \n     one_of = schema.get(\"oneOf\")\n     if one_of is not None:\n         matches = [branch for branch in one_of\n-                   if not _validate(instance, branch, path, root)]\n+                   if not _validate(instance, branch, path, root,\n+                                    assert_formats)]\n         if len(matches) == 0:\n             errors.append(f\"{path}: matched none of the oneOf branches\")\n         elif len(matches) > 1:\n             errors.append(f\"{path}: matched more than one oneOf branch\")\n \n     not_schema = schema.get(\"not\")\n-    if not_schema is not None and not _validate(instance, not_schema, path, root):\n+    if not_schema is not None and not _validate(instance, not_schema, path,\n+                                                root, assert_formats):\n         errors.append(f\"{path}: must not satisfy the 'not' subschema\")\n \n     return errors\n",
+      "worktree_status": [
+        " M templates/dispatch/scripts/schema_check.py"
+      ]
+    },
+    "independent_review": {
+      "mode": "self_candidate",
+      "class": "mechanical_bulk",
+      "basis": "manifest"
+    },
+    "disposition": "candidate"
+  },
+  "driver_steps": [
+    {
+      "step": "prepare",
+      "attempt": 1,
+      "started_at": "2026-08-25T19:58:26Z",
+      "finished_at": "2026-08-25T19:58:27Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-25T19:58:27+00:00",
+        "execution_id": "V6-I-schema-formats:1c9b5aff062d3c1b:attempt-1",
+        "task_id": "V6-I-schema-formats",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 32,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:1c9b5aff062d3c1bdb4e379f773bde21290a88ec973d2483cbd2335d44715009",
+          "repository_commit": "ca92c9f94c0ba58e4211a1d2fc6a5a6d3e8a4341",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:7354fe6d9c82c867d0732139b1a8da8a1d7b2bfd23586f1c9e7042a6b302a7b5"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 20,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "prepare",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V6-I-schema-formats",
+        "overlay_sha256": "533cc96dd87216e6c0a86d15077cf54eaa701e39cb67510c6d2cfa87c4ff6e77",
+        "coordinator_claim": {
+          "claim_id": 32,
+          "work_item_id": 2254,
+          "agent": "workstation-vuoro",
+          "last_activity_at": "2026-08-25T19:56:38Z",
+          "idle_seconds": 109,
+          "checked_at": "2026-08-25T19:58:27+00:00"
+        },
+        "safety": {
+          "ref": "safety/pre-dispatch-V6-I-schema-formats",
+          "commit": "7571077170c0ee74de5b22dc2b4fb543b9fcd34c",
+          "restore_command": "git -C /tmp/v5-coordinator reset --hard safety/pre-dispatch-V6-I-schema-formats",
+          "uncommitted_paths_at_risk": [
+            "?? .sprintctl"
+          ]
+        },
+        "cold_command_results": [
+          {
+            "command_id": "agentops.dispatch.tests.schema_check_formats",
+            "command": "python templates/dispatch/tests/test_schema_check_formats.py",
+            "tier": "full",
+            "exit_code": 1,
+            "stdout_tail": "",
+            "stderr_tail": "==================================\nERROR: test_a_wrong_length_is_rejected (__main__.UuidCheckerTests.test_a_wrong_length_is_rejected)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V6-I-schema-formats/templates/dispatch/tests/test_schema_check_formats.py\", line 153, in test_a_wrong_length_is_rejected\n    self.assertFalse(checker.FORMAT_CHECKERS[\"uuid\"](GOOD_UUID[:-1]))\n                     ^^^^^^^^^^^^^^^^^^^^^^^\nAttributeError: module 'schema_check_formats_subject' has no attribute 'FORMAT_CHECKERS'\n\n======================================================================\nERROR: test_missing_hyphens_are_rejected (__main__.UuidCheckerTests.test_missing_hyphens_are_rejected)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V6-I-schema-formats/templates/dispatch/tests/test_schema_check_formats.py\", line 159, in test_missing_hyphens_are_rejected\n    self.assertFalse(checker.FORMAT_CHECKERS[\"uuid\"](GOOD_UUID.replace(\"-\", \"\")))\n                     ^^^^^^^^^^^^^^^^^^^^^^^\nAttributeError: module 'schema_check_formats_subject' has no attribute 'FORMAT_CHECKERS'\n\n======================================================================\nERROR: test_the_braced_form_is_rejected (__main__.UuidCheckerTests.test_the_braced_form_is_rejected)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V6-I-schema-formats/templates/dispatch/tests/test_schema_check_formats.py\", line 150, in test_the_braced_form_is_rejected\n    self.assertFalse(checker.FORMAT_CHECKERS[\"uuid\"](\"{\" + GOOD_UUID + \"}\"))\n                     ^^^^^^^^^^^^^^^^^^^^^^^\nAttributeError: module 'schema_check_formats_subject' has no attribute 'FORMAT_CHECKERS'\n\n======================================================================\nERROR: test_the_canonical_form_is_accepted (__main__.UuidCheckerTests.test_the_canonical_form_is_accepted)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V6-I-schema-formats/templates/dispatch/tests/test_schema_check_formats.py\", line 141, in test_the_canonical_form_is_accepted\n    self.assertTrue(checker.FORMAT_CHECKERS[\"uuid\"](GOOD_UUID))\n                    ^^^^^^^^^^^^^^^^^^^^^^^\nAttributeError: module 'schema_check_formats_subject' has no attribute 'FORMAT_CHECKERS'\n\n======================================================================\nERROR: test_the_urn_form_is_rejected (__main__.UuidCheckerTests.test_the_urn_form_is_rejected)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V6-I-schema-formats/templates/dispatch/tests/test_schema_check_formats.py\", line 147, in test_the_urn_form_is_rejected\n    self.assertFalse(checker.FORMAT_CHECKERS[\"uuid\"](\"urn:uuid:\" + GOOD_UUID))\n                     ^^^^^^^^^^^^^^^^^^^^^^^\nAttributeError: module 'schema_check_formats_subject' has no attribute 'FORMAT_CHECKERS'\n\n======================================================================\nERROR: test_uppercase_is_accepted (__main__.UuidCheckerTests.test_uppercase_is_accepted)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/agentops-hybrid/worktrees/agentops/V6-I-schema-formats/templates/dispatch/tests/test_schema_check_formats.py\", line 144, in test_uppercase_is_accepted\n    self.assertTrue(checker.FORMAT_CHECKERS[\"uuid\"](GOOD_UUID.upper()))\n                    ^^^^^^^^^^^^^^^^^^^^^^^\nAttributeError: module 'schema_check_formats_subject' has no attribute 'FORMAT_CHECKERS'\n\n----------------------------------------------------------------------\nRan 24 tests in 0.010s\n\nFAILED (errors=21)\n",
+            "expectation": "red"
+          }
+        ],
+        "cold_faults": [],
+        "workspace_reused": false,
+        "worker_writability": {
+          "writable": true,
+          "status": "probed",
+          "detail": "agentworker can write /tmp/agentops-hybrid/worktrees/agentops/V6-I-schema-formats (probe ran and succeeded)"
+        },
+        "cold_gate_assessment": "assessed",
+        "eligible_for_dispatch": true
+      },
+      "failed": false
+    },
+    {
+      "step": "run",
+      "attempt": 1,
+      "started_at": "2026-08-25T19:58:27Z",
+      "finished_at": "2026-08-25T19:59:44Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-25T19:59:44+00:00",
+        "execution_id": "V6-I-schema-formats:1c9b5aff062d3c1b:attempt-1",
+        "task_id": "V6-I-schema-formats",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 32,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:1c9b5aff062d3c1bdb4e379f773bde21290a88ec973d2483cbd2335d44715009",
+          "repository_commit": "ca92c9f94c0ba58e4211a1d2fc6a5a6d3e8a4341",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:7354fe6d9c82c867d0732139b1a8da8a1d7b2bfd23586f1c9e7042a6b302a7b5"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 20,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "run",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V6-I-schema-formats",
+        "overlay_sha256": "533cc96dd87216e6c0a86d15077cf54eaa701e39cb67510c6d2cfa87c4ff6e77",
+        "coordinator_claim": {
+          "claim_id": 32,
+          "work_item_id": 2254,
+          "agent": "workstation-vuoro",
+          "last_activity_at": "2026-08-25T19:56:38Z",
+          "idle_seconds": 110,
+          "checked_at": "2026-08-25T19:58:28+00:00"
+        },
+        "worker": {
+          "argv": [
+            "sudo",
+            "--non-interactive",
+            "--set-home",
+            "--user",
+            "agentworker",
+            "--preserve-env=OPENCODE_CONFIG_CONTENT",
+            "opencode",
+            "run",
+            "'Implement only the attached frozen task packet. Stay inside the writable paths it declares, use only the registered commands, and stop with a structured blocker on any ambiguity, missing context, or scope conflict. Do not use git, do not change sprint state, and do not expand scope. Respect context_churn: stop repeated unchanged reads or mutation-free reasoning at its limits. Do not optimize for cheap cache writes alone. As soon as the candidate and focused registered gate are ready, return the structured handoff instead of continuing self-review.'",
+            "--agent",
+            "ao-mechanical-bulk",
+            "--file",
+            "/tmp/v5-coordinator/docs/evidence/packets/V6-I-schema-formats.json",
+            "--format",
+            "json"
+          ],
+          "worker_user": "agentworker",
+          "agent": "ao-mechanical-bulk",
+          "model": "opencode-go/deepseek-v4-flash",
+          "exit_code": 0,
+          "stdout": "<transcript removed; sidecar worker-stdout.txt holds 154589 bytes>",
+          "stderr_tail": "",
+          "session_id": "ses_fc57f402fffeC2X7gXDNUHC1ok",
+          "churn_stop": null,
+          "churn_metrics": {
+            "tool_events": 13,
+            "max_steps_without_mutation": 4,
+            "max_repeated_reads": 2,
+            "most_read_path": "/tmp/agentops-hybrid/worktrees/agentops/V6-I-schema-formats/templates/dispatch/scripts/schema_check.py",
+            "distinct_paths_read": 2,
+            "completed_mutations": 7,
+            "failed_mutation_runs": 0,
+            "incomplete_tool_events": 1
+          },
+          "command_evidence": {
+            "bash_calls": 2,
+            "granted_commands_run": [
+              "agentops.dispatch.tests.schema_check_formats"
+            ],
+            "granted_commands_denied": [],
+            "ungranted_attempts": 1,
+            "ungranted_completed": 0,
+            "exact_execution_proven": true
+          }
+        },
+        "spend": {
+          "cost_usd": 0.01502,
+          "tokens": 373930,
+          "cost_reported": true,
+          "cap_usd": 3.0,
+          "within_cap": true,
+          "soft_token_ceiling": 1200000,
+          "hard_token_ceiling": 2000000,
+          "soft_token_ceiling_exceeded": false,
+          "within_hard_token_ceiling": true
+        },
+        "containment_override": false,
+        "worker_user": "agentworker",
+        "worker_model": "opencode-go/deepseek-v4-flash",
+        "route_model": "opencode-go/deepseek-v4-flash",
+        "model_override": false,
+        "qualification_eligible": true,
+        "unattended_eligible": true,
+        "override_reason": null,
+        "containment": {
+          "coordinator_tree_untouched": true,
+          "coordinator_tree_changes": [],
+          "registered_commands_only": true,
+          "exact_execution_proven": true,
+          "recovery": []
+        }
+      },
+      "failed": false
+    },
+    {
+      "step": "gate",
+      "attempt": 1,
+      "started_at": "2026-08-25T19:59:44Z",
+      "finished_at": "2026-08-25T19:59:45Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-25T19:59:45+00:00",
+        "execution_id": "V6-I-schema-formats:1c9b5aff062d3c1b:attempt-1",
+        "task_id": "V6-I-schema-formats",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 32,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:1c9b5aff062d3c1bdb4e379f773bde21290a88ec973d2483cbd2335d44715009",
+          "repository_commit": "ca92c9f94c0ba58e4211a1d2fc6a5a6d3e8a4341",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:7354fe6d9c82c867d0732139b1a8da8a1d7b2bfd23586f1c9e7042a6b302a7b5"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 20,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "gate",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V6-I-schema-formats",
+        "overlay_sha256": "533cc96dd87216e6c0a86d15077cf54eaa701e39cb67510c6d2cfa87c4ff6e77",
+        "coordinator_claim": {
+          "claim_id": 32,
+          "work_item_id": 2254,
+          "agent": "workstation-vuoro",
+          "last_activity_at": "2026-08-25T19:56:38Z",
+          "idle_seconds": 187,
+          "checked_at": "2026-08-25T19:59:45+00:00"
+        },
+        "evidence": {
+          "gates": {
+            "diff-nonempty": true,
+            "diff-scope-respected": true,
+            "protected-paths-untouched": true,
+            "worktree-state-captured": true,
+            "registered-commands-green": true,
+            "required-gates-complete": true
+          },
+          "passed": true,
+          "touched_paths": [
+            "templates/dispatch/scripts/schema_check.py"
+          ],
+          "out_of_scope_paths": [],
+          "protected_path_hits": [],
+          "command_results": [
+            {
+              "command_id": "agentops.dispatch.tests.schema_check_formats",
+              "command": "python templates/dispatch/tests/test_schema_check_formats.py",
+              "tier": "full",
+              "exit_code": 0,
+              "stdout_tail": "",
+              "stderr_tail": "........................\n----------------------------------------------------------------------\nRan 24 tests in 0.002s\n\nOK\n"
+            }
+          ],
+          "diff": "diff --git a/templates/dispatch/scripts/schema_check.py b/templates/dispatch/scripts/schema_check.py\nindex 1c85647..30b4173 100644\n--- a/templates/dispatch/scripts/schema_check.py\n+++ b/templates/dispatch/scripts/schema_check.py\n@@ -4,11 +4,14 @@ Extracted from ``templates/dispatch/tests/test_task_packet_schema.py`` so that\n more than one consumer can reach it without copying it. The public surface is\n exactly four names:\n \n-* ``validate(instance, schema, path=\"$\")`` -> a list of human-readable\n-  violation strings, empty when the instance satisfies the schema;\n+* ``validate(instance, schema, path=\"$\", assert_formats=())`` -> a list of\n+  human-readable violation strings, empty when the instance satisfies the\n+  schema;\n * ``UnsupportedKeyword``, an Exception;\n * ``SUPPORTED_KEYWORDS`` and ``ANNOTATION_KEYWORDS``, two disjoint non-empty\n-  frozensets.\n+  frozensets;\n+* ``FORMAT_CHECKERS``, a mapping from format name to a predicate over a\n+  string, consulted only when a caller opts into asserting formats.\n \n A schema keyword that is neither enforced (``SUPPORTED_KEYWORDS``) nor\n knowingly constraint-free (``ANNOTATION_KEYWORDS``) raises\n@@ -37,6 +40,14 @@ Composition is enforced:\n   does not name must satisfy that subschema; ``False`` still forbids extras and\n   names each one, ``True`` and absent still constrain nothing.\n \n+Format assertion is opt-in. ``validate`` takes ``assert_formats``, an\n+iterable of format names to enforce for that call; the default is empty and\n+behaves exactly as before. A name in ``assert_formats`` with no entry in\n+``FORMAT_CHECKERS`` raises ``UnsupportedKeyword`` rather than silently\n+certifying what was never checked. ``format`` constrains strings only: a\n+non-string instance under a format schema is unaffected, per the\n+specification.\n+\n The governing rule does not move: a construct the checker cannot enforce raises\n rather than passing.\n \"\"\"\n@@ -62,6 +73,22 @@ class UnsupportedKeyword(Exception):\n     \"\"\"A schema keyword (or form) this checker does not enforce.\"\"\"\n \n \n+_UUID_RE = re.compile(\n+    r\"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\n+    re.IGNORECASE,\n+)\n+\n+\n+def _is_uuid(value):\n+    \"\"\"True for the canonical hyphenated UUID spelling, case-insensitively.\"\"\"\n+    return _UUID_RE.match(value) is not None\n+\n+\n+FORMAT_CHECKERS = {\n+    \"uuid\": _is_uuid,\n+}\n+\n+\n _TYPES = {\n     \"object\": dict,\n     \"array\": list,\n@@ -191,15 +218,26 @@ def audit_schema(schema, path=\"$\"):\n     return _audit_schema(schema, path, schema)\n \n \n-def validate(instance, schema, path=\"$\"):\n-    \"\"\"Return a list of human-readable violations, empty when valid.\"\"\"\n+def validate(instance, schema, path=\"$\", assert_formats=()):\n+    \"\"\"Return a list of human-readable violations, empty when valid.\n+\n+    ``assert_formats`` names the formats to enforce for this call; it accepts\n+    any iterable and defaults to empty, which behaves exactly as before. A\n+    name with no entry in ``FORMAT_CHECKERS`` raises ``UnsupportedKeyword``\n+    rather than silently certifying what was never checked.\n+    \"\"\"\n+    assert_formats = frozenset(assert_formats)\n+    for name in assert_formats:\n+        if name not in FORMAT_CHECKERS:\n+            raise UnsupportedKeyword(\n+                f\"{path}: no checker for asserted format {name!r}\")\n     defects = _audit_schema(schema, path, schema)\n     if defects:\n         raise UnsupportedKeyword(defects[0])\n-    return _validate(instance, schema, path, schema)\n+    return _validate(instance, schema, path, schema, assert_formats)\n \n \n-def _validate(instance, schema, path, root):\n+def _validate(instance, schema, path, root, assert_formats=()):\n     \"\"\"Recursive validation core; ``root`` anchors internal ``$ref`` pointers.\"\"\"\n     errors = []\n \n@@ -209,7 +247,7 @@ def _validate(instance, schema, path, root):\n             raise UnsupportedKeyword(\n                 f\"{path}: $ref {schema['$ref']!r} is not an internal, \"\n                 f\"resolvable pointer\")\n-        errors.extend(_validate(instance, target, path, root))\n+        errors.extend(_validate(instance, target, path, root, assert_formats))\n \n     expected = schema.get(\"type\")\n     if expected:\n@@ -233,6 +271,10 @@ def _validate(instance, schema, path, root):\n         min_length = schema.get(\"minLength\")\n         if min_length is not None and len(instance) < min_length:\n             errors.append(f\"{path}: shorter than minLength {min_length}\")\n+        fmt = schema.get(\"format\")\n+        if fmt in assert_formats and not FORMAT_CHECKERS[fmt](instance):\n+            errors.append(\n+                f\"{path}: {instance!r} does not match format {fmt}\")\n     if isinstance(instance, (int, float)) and not isinstance(instance, bool):\n         minimum = schema.get(\"minimum\")\n         if minimum is not None and instance < minimum:\n@@ -252,19 +294,22 @@ def _validate(instance, schema, path, root):\n         if property_names is not None:\n             for key in instance:\n                 errors.extend(\n-                    _validate(key, property_names, f\"{path}.{key}\", root))\n+                    _validate(key, property_names, f\"{path}.{key}\", root,\n+                              assert_formats))\n         properties = schema.get(\"properties\", {})\n         additional = schema.get(\"additionalProperties\")\n         for key, value in instance.items():\n             if key in properties:\n                 errors.extend(\n-                    _validate(value, properties[key], f\"{path}.{key}\", root))\n+                    _validate(value, properties[key], f\"{path}.{key}\", root,\n+                              assert_formats))\n             elif additional is False:\n                 errors.append(\n                     f\"{path}: additional property {key!r} is not allowed\")\n             elif isinstance(additional, dict):\n                 errors.extend(\n-                    _validate(value, additional, f\"{path}.{key}\", root))\n+                    _validate(value, additional, f\"{path}.{key}\", root,\n+                              assert_formats))\n     if isinstance(instance, list):\n         min_items = schema.get(\"minItems\")\n         if min_items is not None and len(instance) < min_items:\n@@ -273,31 +318,35 @@ def _validate(instance, schema, path, root):\n         if item_schema:\n             for index, item in enumerate(instance):\n                 errors.extend(\n-                    _validate(item, item_schema, f\"{path}[{index}]\", root))\n+                    _validate(item, item_schema, f\"{path}[{index}]\", root,\n+                              assert_formats))\n         if schema.get(\"uniqueItems\"):\n             hashable = [json.dumps(i, sort_keys=True) for i in instance]\n             if len(set(hashable)) != len(hashable):\n                 errors.append(f\"{path}: items are not unique\")\n \n     for branch in schema.get(\"allOf\", []):\n-        errors.extend(_validate(instance, branch, path, root))\n+        errors.extend(_validate(instance, branch, path, root, assert_formats))\n \n-    if \"if\" in schema and not _validate(instance, schema[\"if\"], path, root):\n+    if \"if\" in schema and not _validate(instance, schema[\"if\"], path, root,\n+                                        assert_formats):\n         then = schema.get(\"then\")\n         if then is not None:\n-            errors.extend(_validate(instance, then, path, root))\n+            errors.extend(_validate(instance, then, path, root, assert_formats))\n \n     one_of = schema.get(\"oneOf\")\n     if one_of is not None:\n         matches = [branch for branch in one_of\n-                   if not _validate(instance, branch, path, root)]\n+                   if not _validate(instance, branch, path, root,\n+                                    assert_formats)]\n         if len(matches) == 0:\n             errors.append(f\"{path}: matched none of the oneOf branches\")\n         elif len(matches) > 1:\n             errors.append(f\"{path}: matched more than one oneOf branch\")\n \n     not_schema = schema.get(\"not\")\n-    if not_schema is not None and not _validate(instance, not_schema, path, root):\n+    if not_schema is not None and not _validate(instance, not_schema, path,\n+                                                root, assert_formats):\n         errors.append(f\"{path}: must not satisfy the 'not' subschema\")\n \n     return errors\n",
+          "worktree_status": [
+            " M templates/dispatch/scripts/schema_check.py"
+          ]
+        },
+        "independent_review": {
+          "mode": "self_candidate",
+          "class": "mechanical_bulk",
+          "basis": "manifest"
+        },
+        "disposition": "candidate"
+      },
+      "disposition": "candidate",
+      "failed": false
+    },
+    {
+      "step": "receipt",
+      "attempt": 1,
+      "started_at": "2026-08-25T19:59:45Z",
+      "finished_at": "2026-08-25T19:59:45Z",
+      "exit_code": 0,
+      "stderr": "",
+      "receipt": {
+        "schema_version": "agentops-hybrid-receipt/v1",
+        "recorded_at": "2026-08-25T19:59:45+00:00",
+        "execution_id": "V6-I-schema-formats:1c9b5aff062d3c1b:attempt-1",
+        "task_id": "V6-I-schema-formats",
+        "repo_id": "agentops",
+        "sprint_item": {
+          "ref": "agentops#2254",
+          "claim_id": 32,
+          "claim_actor": "workstation-vuoro"
+        },
+        "route": "mechanical_bulk",
+        "attempt": 1,
+        "inputs": {
+          "packet_hash": "sha256:1c9b5aff062d3c1bdb4e379f773bde21290a88ec973d2483cbd2335d44715009",
+          "repository_commit": "ca92c9f94c0ba58e4211a1d2fc6a5a6d3e8a4341",
+          "packet_schema_version": "agentops-task/v2",
+          "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
+          "gate_set_hash": "sha256:7354fe6d9c82c867d0732139b1a8da8a1d7b2bfd23586f1c9e7042a6b302a7b5"
+        },
+        "harness_model": "opencode-go/deepseek-v4-flash",
+        "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+        "qualification_policy": {
+          "mode": "named_pilot",
+          "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+          "repositories": [
+            "agentops",
+            "1deb57d0-af6f-479c-811a-b5b7254841f9",
+            "2be118eb-8e89-433a-8d32-ada157624f95",
+            "kctl",
+            "actionq"
+          ],
+          "routes": [
+            "mechanical_bulk"
+          ],
+          "models": [
+            "opencode-go/deepseek-v4-flash"
+          ],
+          "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+          "default": "unqualified",
+          "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+        },
+        "acceptance_authority": "human",
+        "context_churn": {
+          "max_repeated_reads_per_path": 4,
+          "max_reasoning_steps_without_mutation": 20,
+          "max_identical_context_tokens": 250000,
+          "handoff_when_candidate_ready": true
+        },
+        "stage": "receipt",
+        "worktree": "/tmp/agentops-hybrid/worktrees/agentops/V6-I-schema-formats",
+        "overlay_sha256": "533cc96dd87216e6c0a86d15077cf54eaa701e39cb67510c6d2cfa87c4ff6e77",
+        "dispositions_available": [
+          "candidate",
+          "retry_same_route",
+          "reroute",
+          "task_defect",
+          "human_decision"
+        ],
+        "note": "The coordinator records the disposition and the human accepts, merges, and changes sprint state."
+      },
+      "failed": false
+    }
+  ]
+}
