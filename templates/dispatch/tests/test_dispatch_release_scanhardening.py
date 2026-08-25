@@ -195,5 +195,56 @@ class ScanHardeningTests(unittest.TestCase):
         )
 
 
+class EscapedTranscriptTests(unittest.TestCase):
+    """A worker transcript is a stream of JSON, so its text still carries the
+    escapes: a newline is the two characters ``\\`` and ``n``, not a line
+    break. Three receipts in one session were withheld because of it."""
+
+    #: The exact text that withheld the V6-E, V6-F and V6-G receipts. The value
+    #: is eleven characters; the twenty-character run is made entirely of the
+    #: escapes that follow it.
+    WITHHELD = r'nWORKER_PLACEHOLDER_API_KEY = \"local-only\"\n\n\ndef'
+
+    def test_the_placeholder_that_withheld_three_receipts_is_not_a_finding(self):
+        self.assertEqual(driver.scan_for_secrets(self.WITHHELD), [])
+
+    def test_a_short_value_does_not_become_long_through_its_escapes(self):
+        self.assertEqual(driver.scan_for_secrets(r'token = \"abc\"\n\n\n\n\n\n\ndef f():'), [])
+
+    def test_a_genuinely_long_value_is_still_a_finding(self):
+        self.assertIn(
+            "secret_assignment",
+            driver.scan_for_secrets('password = "correcthorsebatterystaple123"'),
+        )
+
+    def test_a_secret_escaped_inside_a_json_string_is_now_found(self):
+        # The other direction, and the reason decoding beats loosening the
+        # pattern: before decoding, an escaped quote hid the value entirely.
+        self.assertIn(
+            "secret_assignment",
+            driver.scan_for_secrets(r'\"api_key\": \"correcthorsebatterystaple123\"'),
+        )
+
+    def test_a_vendor_token_is_found_in_either_form(self):
+        raw = "ghp_abcdefghijklmnopqrstuvwxyz"
+        self.assertIn("github_token", driver.scan_for_secrets(raw))
+        self.assertIn("github_token", driver.scan_for_secrets(r'\"' + raw + r'\"'))
+
+    def test_decoding_leaves_text_without_escapes_alone(self):
+        plain = 'password = "correcthorsebatterystaple123"'
+        self.assertEqual(driver.decode_transcript_escapes(plain), plain)
+
+    def test_an_escaped_backslash_does_not_swallow_the_next_character(self):
+        self.assertEqual(driver.decode_transcript_escapes(r"a\\nb"), "a\\nb")
+
+    def test_an_unknown_escape_keeps_its_backslash(self):
+        self.assertEqual(driver.decode_transcript_escapes(r"a\qb"), r"a\qb")
+
+    def test_prose_still_produces_no_findings_after_decoding(self):
+        self.assertEqual(
+            driver.scan_for_secrets(r"the token is rotated weekly\nand the password too"), []
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
