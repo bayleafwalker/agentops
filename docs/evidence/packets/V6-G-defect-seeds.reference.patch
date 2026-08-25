@@ -1,0 +1,124 @@
+diff --git a/templates/dispatch/scripts/defect_seeds.py b/templates/dispatch/scripts/defect_seeds.py
+new file mode 100644
+index 0000000..99fb463
+--- /dev/null
++++ b/templates/dispatch/scripts/defect_seeds.py
+@@ -0,0 +1,118 @@
++#!/usr/bin/env python3
++"""Defect seeds: the reference overlay's complement (agentops#2046).
++
++`acceptance-properties-discriminating` is structural. It requires every
++acceptance property to name the behaviour it falsifies and never checks that
++the oracle goes red when that behaviour is present, so a packet may declare a
++falsifying condition its oracle cannot actually detect.
++
++A seed is the check that was missing. The reference patch must turn the oracle
++GREEN; a seed patch must turn it RED. A seeded defect that leaves the oracle
++green proves the oracle does not test what the packet claims.
++
++Ordering, patching and running belong to the coordinator. This module only
++decides what a seed declaration means and whether the evidence satisfies it:
++no git, no subprocess, no file I/O.
++"""
++from __future__ import annotations
++
++import re
++
++#: A seed id names a defect in evidence a human reads later, so it takes the
++#: same shape as an acceptance property id rather than inventing a second rule.
++SEED_ID_RE = re.compile(r"[A-Za-z][A-Za-z0-9._-]*")
++
++
++def parse_seeds(packet):
++    """Return the packet's normalised ``oracle.defect_seeds``.
++
++    A packet declaring none returns ``[]`` -- every packet frozen before this
++    row has none and must keep meaning what it meant. Raises ``ValueError``
++    when a declaration is present but unusable.
++    """
++    oracle = packet.get("oracle") or {}
++    declared = oracle.get("defect_seeds")
++    if declared is None:
++        return []
++    if not isinstance(declared, list):
++        raise ValueError("oracle.defect_seeds must be a list of seed declarations")
++
++    starts_red = list(oracle.get("starts_red") or [])
++    parsed = []
++    seen = set()
++    for index, seed in enumerate(declared):
++        if not isinstance(seed, dict):
++            raise ValueError(f"defect seed {index} must be an object")
++
++        seed_id = seed.get("id")
++        if not isinstance(seed_id, str) or not SEED_ID_RE.fullmatch(seed_id):
++            raise ValueError(
++                f"defect seed {index} must declare an id starting with a letter and "
++                "using only letters, digits, '.', '_' or '-'"
++            )
++        if seed_id in seen:
++            raise ValueError(
++                f"defect seed id {seed_id!r} is duplicated; a red result must belong "
++                "to exactly one named defect"
++            )
++        seen.add(seed_id)
++
++        patch = seed.get("patch")
++        if not isinstance(patch, str) or not patch:
++            raise ValueError(f"defect seed {seed_id!r} must declare a patch path")
++        if patch.startswith("/") or ".." in patch.split("/"):
++            raise ValueError(
++                f"defect seed {seed_id!r} patch must be a repo-relative path that stays "
++                "inside the repository"
++            )
++
++        expect_red = seed.get("expect_red")
++        if not isinstance(expect_red, list) or not expect_red:
++            raise ValueError(
++                f"defect seed {seed_id!r} must expect at least one command to go red; "
++                "a seed that expects nothing proves nothing"
++            )
++        for command_id in expect_red:
++            if command_id not in starts_red:
++                raise ValueError(
++                    f"defect seed {seed_id!r} expects {command_id!r} to go red, but it is "
++                    "not one of oracle.starts_red"
++                )
++
++        parsed.append(
++            {
++                "id": seed_id,
++                "patch": patch,
++                "expect_red": list(expect_red),
++                "description": seed.get("description") or "",
++            }
++        )
++    return parsed
++
++
++def seed_falsified(seed, results):
++    """Whether ``seed`` did its job: every expected command ran, and went red.
++
++    ``results`` is any iterable of ``{"command_id", "exit_code"}``, drained
++    once. A command with no result has not shown anything and is not counted as
++    red -- silence is not evidence.
++    """
++    outcome = {}
++    for result in results:
++        outcome.setdefault(result.get("command_id"), result.get("exit_code"))
++    return all(
++        outcome.get(command_id) not in (None, 0) for command_id in seed["expect_red"]
++    )
++
++
++def unfalsified(packet, outcomes):
++    """Seed ids that did not falsify, in packet order.
++
++    ``outcomes`` maps a seed id to that seed's results. A seed missing from
++    ``outcomes`` is reported: a seed that was never run has not been proven.
++    """
++    return [
++        seed["id"]
++        for seed in parse_seeds(packet)
++        if not seed_falsified(seed, outcomes.get(seed["id"]) or [])
++    ]
