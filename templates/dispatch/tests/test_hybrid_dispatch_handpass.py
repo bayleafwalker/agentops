@@ -362,6 +362,12 @@ class RetryWorkspaceReuseTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         root = Path(os.path.realpath(self.tmp.name))
+        # 0755, matching the real worktree root /tmp/agentops-hybrid. A
+        # TemporaryDirectory is 0700, which the worker user cannot traverse, so
+        # prepare's writability probe fails for a reason the fixture invented.
+        # On a host with no agentworker the probe is skipped and these tests
+        # pass without ever exercising it -- green because unexercised.
+        os.chmod(root, 0o755)
         self.repo = root / "repo"
         (self.repo / "src").mkdir(parents=True)
         (self.repo / "tests").mkdir()
