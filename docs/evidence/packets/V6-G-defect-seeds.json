@@ -1,0 +1,117 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V6-G-defect-seeds",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 30,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "test_defect_seeds.py decides correctness: 28 tests, red at the starting commit because defect_seeds.py does not exist. A permissive stub that parses nothing and always reports falsified fails 17. The stub that matters treats a command with no result as satisfied and fails 3.",
+    "starts_red": [
+      "agentops.dispatch.tests.defect_seeds"
+    ],
+    "reference_patch": "docs/evidence/packets/V6-G-defect-seeds.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "1c33682038474d2f65e68687037eee35293ae6ce",
+  "purpose": "Write templates/dispatch/scripts/defect_seeds.py so a packet can prove its oracle actually detects the defects it claims to detect.\n\nagentops#2046 asks for defect-seeded acceptance cases that fail deterministically. The existing acceptance-properties-discriminating pre-gate is structural only: it requires each acceptance property to name the behaviour it falsifies, and never checks that the oracle goes red when that behaviour is present. So a packet may declare a falsifying condition its own oracle cannot detect, and nothing notices.\n\nA seed is the reference overlay's complement. The reference patch must turn the oracle GREEN; a seed patch must turn it RED. A seeded defect that leaves the oracle green proves the oracle does not test what the packet claims.\n\nOrdering, patching and running belong to the coordinator. This module decides only what a seed declaration MEANS and whether evidence satisfies it. No git, no subprocess, no file I/O.\n\nThe seam is SEED_ID_RE plus three functions:\n  parse_seeds(packet) -> normalised oracle.defect_seeds, each {'id','patch','expect_red','description'} with description defaulting to ''. A packet declaring none returns [] and is NOT an error. Raises ValueError when a declaration is present but unusable: not a list, a non-object entry, a missing or malformed id, a duplicate id, a missing patch, an absolute patch path or one escaping the repository, an empty expect_red, or an expect_red naming a command that is not in oracle.starts_red.\n  seed_falsified(seed, results) -> bool. results is any iterable of {'command_id','exit_code'}, drained once. True iff every command in expect_red has a result AND every one is nonzero.\n  unfalsified(packet, outcomes) -> the seed ids that did not falsify, in packet order. outcomes maps a seed id to that seed's results; a seed missing from outcomes is reported.\n\nSEED_ID_RE takes the same shape as an acceptance property id: starts with a letter, then letters, digits, '.', '_' or '-'.\n\nThe likeliest wrong implementation treats a command with NO result as satisfied -- reading silence as evidence. A command that never ran has shown nothing and must not count as red.",
+  "readable_context_paths": [
+    "templates/dispatch/tests/test_defect_seeds.py",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/hybrid/task-packet.schema.json"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/defect_seeds.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/scripts/release_scorecard.py",
+    "templates/dispatch/scripts/schema_check.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "a packet declaring no defect_seeds returns [] and raises nothing",
+    "parse_seeds normalises each seed to exactly id, patch, expect_red and description",
+    "parse_seeds refuses a duplicate id, an empty expect_red, and an expect_red outside oracle.starts_red",
+    "parse_seeds refuses an absolute patch path and one escaping the repository",
+    "parse_seeds never mutates the packet",
+    "seed_falsified requires every expected command to have run AND to be red",
+    "a command with no result is never counted as red",
+    "unfalsified reports, in packet order, every seed that did not falsify, including seeds with no outcome"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "a seeded defect the oracle does not notice is reported",
+      "command_id": "agentops.dispatch.tests.defect_seeds",
+      "fails_when": "a seed whose expected command stayed green is treated as falsified"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "silence is not evidence",
+      "command_id": "agentops.dispatch.tests.defect_seeds",
+      "fails_when": "a seed with no result for an expected command counts as falsified"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "a seed declaration is unambiguous or refused",
+      "command_id": "agentops.dispatch.tests.defect_seeds",
+      "fails_when": "a duplicate id, an empty expect_red, an expect_red outside starts_red, or a patch path escaping the repository is accepted"
+    },
+    {
+      "id": "REQ-004",
+      "requirement": "packets frozen before this row keep their meaning",
+      "command_id": "agentops.dispatch.tests.defect_seeds",
+      "fails_when": "a packet that declares no defect_seeds raises instead of returning an empty list"
+    }
+  ],
+  "non_goals": [
+    "applying seed patches or running commands -- that is the coordinator hand-pass",
+    "wiring seeds into hybrid_dispatch.py, which is protected at the manifest level",
+    "authoring the seed patches for any particular packet"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.defect_seeds"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v6-g-defect-seeds",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/dispatch/handover-2026-08-25-session-close.md"
+    ]
+  }
+}
