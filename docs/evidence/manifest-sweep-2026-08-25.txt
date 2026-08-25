@@ -1,12 +1,12 @@
 ok /projects/dev/actionq/actionq.dispatch.json
 ok /projects/dev/actionq-dispatcher/actionq-dispatcher.dispatch.json
 ok /projects/dev/agentops/agentops.dispatch.json
-error: /projects/dev/aligned-equity/aligned-equity.dispatch.json: $.routing.default_harness: 'caller' not in enum ['claude', 'codex', 'opencode']
-error: /projects/dev/appservice/appservice.dispatch.json: $.routing.default_harness: 'caller' not in enum ['claude', 'codex', 'opencode']
+ok /projects/dev/aligned-equity/aligned-equity.dispatch.json
+ok /projects/dev/appservice/appservice.dispatch.json
 ok /projects/dev/auditctl/auditctl.dispatch.json
-error: /projects/dev/bindery-core/bindery-core.dispatch.json: $.routing.default_harness: 'caller' not in enum ['claude', 'codex', 'opencode']
+ok /projects/dev/bindery-core/bindery-core.dispatch.json
 ok /projects/dev/frontier-weave/frontier-weave.dispatch.json
-error: /projects/dev/homelab-analytics/homelab-analytics.dispatch.json: $.routing.default_harness: 'caller' not in enum ['claude', 'codex', 'opencode']
+ok /projects/dev/homelab-analytics/homelab-analytics.dispatch.json
 ok /projects/dev/homelab-gitops-template/homelab-gitops-template.dispatch.json
 ok /projects/dev/hostproto/hostproto.dispatch.json
 ok /projects/dev/kctl/kctl.dispatch.json
@@ -24,12 +24,8 @@ error: /projects/dev/local-inference/local-inference.dispatch.json: $: additiona
 error: /projects/dev/local-inference/local-inference.dispatch.json: $: additional property 'host_scope' is not allowed
 error: /projects/dev/local-inference/local-inference.dispatch.json: $: additional property 'declarative_target' is not allowed
 error: /projects/dev/local-inference/local-inference.dispatch.json: $: missing required property 'instruction_set'
-error: /projects/dev/outctl/outctl.dispatch.json: $.verification.command_families[1]: 'security' not in enum ['unit', 'integration', 'lint', 'typecheck', 'architecture', 'docs', 'kustomize', 'secrets', 'docker', 'full-suite']
-error: /projects/dev/outctl/outctl.dispatch.json: $.verification.command_families[2]: 'process-semantics' not in enum ['unit', 'integration', 'lint', 'typecheck', 'architecture', 'docs', 'kustomize', 'secrets', 'docker', 'full-suite']
-error: /projects/dev/outctl/outctl.dispatch.json: $.verification.command_families[3]: 'package' not in enum ['unit', 'integration', 'lint', 'typecheck', 'architecture', 'docs', 'kustomize', 'secrets', 'docker', 'full-suite']
-error: /projects/dev/scribectl/scribectl.dispatch.json: $.routing.default_harness: 'caller' not in enum ['claude', 'codex', 'opencode']
-error: /projects/dev/sprintctl/sprintctl.dispatch.json: $.routing.default_harness: 'caller' not in enum ['claude', 'codex', 'opencode']
-error: /projects/dev/vuoro-bounded-output-starter/outctl.dispatch.json: $.verification.command_families[1]: 'security' not in enum ['unit', 'integration', 'lint', 'typecheck', 'architecture', 'docs', 'kustomize', 'secrets', 'docker', 'full-suite']
-error: /projects/dev/vuoro-bounded-output-starter/outctl.dispatch.json: $.verification.command_families[2]: 'process-semantics' not in enum ['unit', 'integration', 'lint', 'typecheck', 'architecture', 'docs', 'kustomize', 'secrets', 'docker', 'full-suite']
-error: /projects/dev/vuoro-bounded-output-starter/outctl.dispatch.json: $.verification.command_families[3]: 'package' not in enum ['unit', 'integration', 'lint', 'typecheck', 'architecture', 'docs', 'kustomize', 'secrets', 'docker', 'full-suite']
+ok /projects/dev/outctl/outctl.dispatch.json
+ok /projects/dev/scribectl/scribectl.dispatch.json
+ok /projects/dev/sprintctl/sprintctl.dispatch.json
+ok /projects/dev/vuoro-bounded-output-starter/outctl.dispatch.json
 ok /projects/dev/vuoro/vuoro.dispatch.json
