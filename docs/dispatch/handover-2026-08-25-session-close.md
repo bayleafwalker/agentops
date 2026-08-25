@@ -10,9 +10,8 @@ cost time today.
 - **No reservation is held** on `agentops#2254`. Take a fresh one before any dispatch.
 - Merged today: **#98 – #112**.
 - Every `*.dispatch.json` in `/projects/dev` validates — 18 of 18.
-- One agent may still be running: an oracle author for the first row of `agentops#2046`, writing
-  `templates/dispatch/tests/test_churn_metrics.py`. If that file is present and uncommitted, §4
-  says what to do with it. If it is absent, the row was never started and nothing is lost.
+- The first row of `agentops#2046` is **frozen and ready to dispatch** on
+  `freeze/v6-e-churn-metrics` — see §4. Nothing is in flight.
 
 ## 2. Where the work stands
 
@@ -53,7 +52,7 @@ Check these before assuming the tree is clean:
 
 **Filed externally:** `sprintctl#2305` on sprint #539, track `served-catalog` — see §6.
 
-## 4. If `test_churn_metrics.py` exists
+## 4. V6-E is frozen and ready — validate, dispatch, merge
 
 The row: `churn_verdict` stops a circling worker but **records nothing when it does not stop**, so
 `churn_stop: None` on a healthy run is indistinguishable from a worker that hit four reads of one
@@ -68,12 +67,26 @@ mark, not the final value** — that is the most likely wrong implementation),
 `hybrid_dispatch` rather than restating it, and must agree with `churn_verdict` by an iff on the
 threshold crossing.
 
-To resume: read the author's report if you have it, run the file, confirm it is red on the absent
-module, write the reference, freeze, validate, dispatch. `churn_metrics.py` is a **new file**, so
-it is worker-writable — unlike `hybrid_dispatch.py`. Wiring the metrics into the receipt is a
-second, coordinator-only row (§7).
+**It is frozen on `freeze/v6-e-churn-metrics`, pushed**, in the shape T-11 used to survive the
+last session boundary:
 
-If the file is absent, drop it; nothing else depends on it.
+- commit 1 `015dba7` — the oracle and its command id. This **is** the `starting_commit`.
+- commit 2 `15a4aaa` — `docs/evidence/packets/V6-E-churn-metrics.json` and its reference patch.
+
+The oracle is 34 tests; an all-zeros stub fails 54 assertions and a stub reporting the final
+no-mutation run instead of the maximum fails 14 across 10 tests. The coordinator's reference
+passed it 34/34 first run. The author verified their fixture shape against 201 real `tool_use`
+events in the committed receipts rather than trusting the spec.
+
+**The packet's `claim_id` is `0` on purpose — no reservation is held.** To resume:
+
+1. `sprintctl reservation reserve --item-id 2254 --actor workstation-vuoro --role execution`
+2. set `claim_id` in the packet, amend **commit 2 only** so `starting_commit` does not move,
+   force-push
+3. `validate`, then `dispatch_release.py`, then merge
+
+Wiring the metrics into the run receipt is a **separate coordinator pass** — `hybrid_dispatch.py`
+is manifest-protected (§7), which is why this row is a new module the cheap tier may write.
 
 ## 5. The mechanism, unchanged
 
