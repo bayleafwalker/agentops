@@ -1,0 +1,131 @@
+diff --git a/templates/dispatch/scripts/churn_metrics.py b/templates/dispatch/scripts/churn_metrics.py
+new file mode 100644
+index 0000000..8b757df
+--- /dev/null
++++ b/templates/dispatch/scripts/churn_metrics.py
+@@ -0,0 +1,125 @@
++"""What a worker loop did, whether or not it was stopped for doing it.
++
++``churn_verdict`` in :mod:`hybrid_dispatch` stops a worker that has stopped
++making progress -- reading one path over and over, or taking tool steps without
++ever completing a mutation. It exists because a worker once read 1.07M tokens
++without a single completed write and ran to its token ceiling with the limit
++sitting unread in its own packet.
++
++It records nothing when it does not stop. ``churn_stop`` is ``None`` on every
++healthy run, so a worker that read one path four times against a limit of four
++leaves exactly the trace of one that repeated nothing: none. "Close to the
++limit" and "nowhere near it" are the same artifact, and no trend across packets
++can be seen at all. Sprint item agentops#2046 asks for receipts that record
++enough to detect repeated reads and long no-mutation loops; this is that half.
++
++The counting rules here are ``churn_verdict``'s, deliberately and exactly. Two
++functions answering one question differently is a defect this repo has already
++had to undo once, in ``_path_allowed`` versus ``_matches_any``, so
++:data:`MUTATION_TOOLS` is imported rather than restated and the categories below
++partition the same events the verdict walks.
++"""
++from __future__ import annotations
++
++import importlib.util
++from pathlib import Path
++from typing import Any, Iterable
++
++_HYBRID_DISPATCH = Path(__file__).resolve().parent / "hybrid_dispatch.py"
++
++
++def _mutation_tools() -> frozenset[str]:
++    """The verdict's own mutation set, loaded from the module that owns it."""
++    spec = importlib.util.spec_from_file_location(
++        "_hybrid_dispatch_for_churn", _HYBRID_DISPATCH)
++    module = importlib.util.module_from_spec(spec)
++    assert spec.loader is not None
++    spec.loader.exec_module(module)
++    return frozenset(module.MUTATION_TOOLS)
++
++
++MUTATION_TOOLS = _mutation_tools()
++
++
++def churn_metrics(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
++    """Summarise one worker stream on the terms ``churn_verdict`` judges it.
++
++    ``events`` may be any iterable and is consumed exactly once.
++
++    ``max_steps_without_mutation`` is the **high-water mark over the whole
++    stream**, not the run in progress when it ended. The verdict returns at its
++    first breach and therefore stops counting; these metrics see everything, so
++    on a stream that breached, the maximum here may exceed the value the verdict
++    reported. What the two share is the threshold crossing, not the number.
++
++    A failed mutation attempt is not an incomplete tool event: "the worker is
++    being denied inside its own workspace" is a different fact from "the worker
++    is going in circles", and an operator needs to be told which. A non-mutation
++    call that did not complete is neither -- it is the harness failing, and it
++    must not spend the budget meant to catch circling.
++    """
++    tool_events = 0
++    completed_mutations = 0
++    incomplete_tool_events = 0
++    failed_mutation_runs = 0
++    steps_since_mutation = 0
++    max_steps_without_mutation = 0
++    failed_mutations = 0
++    counted_this_run = False
++    reads: dict[str, int] = {}
++
++    for event in events:
++        if event.get("type") != "tool_use":
++            continue
++        part = event.get("part") or {}
++        tool = part.get("tool")
++        state = part.get("state") or {}
++        status = state.get("status")
++
++        if tool in MUTATION_TOOLS:
++            if status == "completed":
++                tool_events += 1
++                completed_mutations += 1
++                steps_since_mutation = 0
++                failed_mutations = 0
++                counted_this_run = False
++                continue
++            failed_mutations += 1
++            # One per maximal run of three or more, which is the condition the
++            # verdict names worker_cannot_write -- not one per failed attempt.
++            if failed_mutations >= 3 and not counted_this_run:
++                failed_mutation_runs += 1
++                counted_this_run = True
++            continue
++
++        if status != "completed":
++            incomplete_tool_events += 1
++            continue
++
++        tool_events += 1
++        steps_since_mutation += 1
++        if steps_since_mutation > max_steps_without_mutation:
++            max_steps_without_mutation = steps_since_mutation
++
++        if tool == "read":
++            path = (state.get("input") or {}).get("filePath")
++            if path:
++                reads[path] = reads.get(path, 0) + 1
++
++    max_repeated_reads = max(reads.values()) if reads else 0
++    most_read_path = None
++    for path, count in reads.items():
++        if count == max_repeated_reads:
++            most_read_path = path
++            break
++
++    return {
++        "tool_events": tool_events,
++        "max_steps_without_mutation": max_steps_without_mutation,
++        "max_repeated_reads": max_repeated_reads,
++        "most_read_path": most_read_path,
++        "distinct_paths_read": len(reads),
++        "completed_mutations": completed_mutations,
++        "failed_mutation_runs": failed_mutation_runs,
++        "incomplete_tool_events": incomplete_tool_events,
++    }

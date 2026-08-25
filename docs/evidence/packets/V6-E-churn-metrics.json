@@ -1,0 +1,111 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V6-E-churn-metrics",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 30,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "test_churn_metrics.py decides correctness: 34 tests, red at the starting commit because churn_metrics.py does not exist. An all-zeros stub fails 54 assertions; a stub reporting the final no-mutation run instead of the maximum fails 14 across 10 tests.",
+    "starts_red": [
+      "agentops.dispatch.tests.churn_metrics"
+    ],
+    "reference_patch": "docs/evidence/packets/V6-E-churn-metrics.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "015dba76892fa1c678e80d067efd1b4e91f53745",
+  "purpose": "Create templates/dispatch/scripts/churn_metrics.py exposing one function, churn_metrics(events), that summarises a worker stream on exactly the terms churn_verdict judges it. churn_verdict in hybrid_dispatch.py stops a worker that has stopped making progress -- reading one path over and over, or taking tool steps without ever completing a mutation -- and it exists because a worker once read 1.07M tokens without a single completed write and ran to its token ceiling with the limit sitting unread in its own packet. But it records nothing when it does not stop. churn_stop is None on every healthy run, so a worker that read one path four times against a limit of four leaves exactly the trace of one that repeated nothing, which is none. Close to the limit and nowhere near it are the same artifact, and no trend across packets can be seen at all. Return a dict with exactly these keys: tool_events, the completed tool events considered; max_steps_without_mutation; max_repeated_reads; most_read_path, or None when no read was counted; distinct_paths_read; completed_mutations; failed_mutation_runs; and incomplete_tool_events. max_steps_without_mutation is the HIGH-WATER MARK over the whole stream, not the run in progress when the stream ended -- reporting the final run is the likeliest wrong implementation and it is silently wrong on exactly the streams that matter. failed_mutation_runs counts one per maximal run of three or more consecutive failed mutation attempts, which is the condition churn_verdict names worker_cannot_write, not one per failed attempt; and consecutive has the verdict's sense, where only a COMPLETED mutation resets the counter, so interleaved reads do not break a run. The counting rules must match churn_verdict exactly, because two functions answering one question differently is a defect this repo has already had to undo once in _path_allowed versus _matches_any. Only type == tool_use events count. Import MUTATION_TOOLS from hybrid_dispatch rather than restating the set, so the two cannot drift. A completed mutation resets the no-mutation run. A mutation attempt that did not complete does not reset it and is counted as a failed mutation, never as an incomplete tool event, because the worker being denied inside its own workspace is a different fact from the worker going in circles and an operator needs to be told which. A non-mutation call that did not complete is skipped entirely: it is the harness failing, not the worker circling, and it must not spend the budget meant to catch circling -- V5-M9 died on this three times. Reads count by part.state.input.filePath and a read with no path is not counted; note a refused read arrives with status error and its input intact, so an incomplete read must not be counted as a read. The argument may be any iterable and must be consumed exactly once. This codebase has fixed that same defect twice already, in worker_totals and build_scorecard; do not let a third in. The metrics must agree with the verdict on the threshold crossing: churn_verdict returns at its first breach and stops counting, so on a stream that breached the maximum here may exceed the value the verdict reported. What the two share is where the line is crossed, not the number. Do not change churn_verdict, do not require any receipt wiring -- that is a later coordinator pass -- and do not add a CLI, a main() or file I/O. Leave no debugging output behind.",
+  "readable_context_paths": [
+    "templates/dispatch/tests/test_churn_metrics.py",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "docs/evidence/receipts/**"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/churn_metrics.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/scripts/release_scorecard.py",
+    "templates/dispatch/scripts/schema_check.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "the eight keys are returned, with most_read_path None when no read was counted",
+    "max_steps_without_mutation is the maximum over the stream, not the final run",
+    "failed_mutation_runs counts maximal runs of three or more, not attempts",
+    "a failed mutation is not an incomplete tool event, and an incomplete non-mutation is not a step",
+    "MUTATION_TOOLS is imported from hybrid_dispatch, not restated",
+    "any iterable is accepted and consumed exactly once",
+    "the metrics cross their thresholds exactly where the verdict fires"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "a healthy run is no longer indistinguishable from a lucky one",
+      "command_id": "agentops.dispatch.tests.churn_metrics",
+      "fails_when": "the metrics are all zero, or report the final no-mutation run instead of the maximum"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "the categories are the verdict's own",
+      "command_id": "agentops.dispatch.tests.churn_metrics",
+      "fails_when": "a failed mutation is counted as an incomplete tool event, or an incomplete non-mutation increments the step run"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "metrics and verdict do not drift apart",
+      "command_id": "agentops.dispatch.tests.churn_metrics",
+      "fails_when": "a stream the verdict stops does not exceed the corresponding metric threshold, or the reverse"
+    }
+  ],
+  "non_goals": [
+    "changing churn_verdict",
+    "wiring the metrics into the run receipt, which is a coordinator pass",
+    "cached-token churn and coordinator overhead, which are separate rows of agentops#2046",
+    "any CLI or file I/O"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.churn_metrics"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v6-e-churn-metrics",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/dispatch/handover-2026-08-25-session-close.md"
+    ]
+  }
+}
