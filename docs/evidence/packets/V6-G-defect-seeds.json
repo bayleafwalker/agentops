@@ -17,7 +17,25 @@
     "starts_red": [
       "agentops.dispatch.tests.defect_seeds"
     ],
-    "reference_patch": "docs/evidence/packets/V6-G-defect-seeds.reference.patch"
+    "reference_patch": "docs/evidence/packets/V6-G-defect-seeds.reference.patch",
+    "defect_seeds": [
+      {
+        "id": "silence-is-evidence",
+        "patch": "docs/evidence/seeds/seed-silence-is-evidence.patch",
+        "expect_red": [
+          "agentops.dispatch.tests.defect_seeds"
+        ],
+        "description": "A command with no result is read as red. The oracle must notice that silence is not evidence."
+      },
+      {
+        "id": "list-only-parse",
+        "patch": "docs/evidence/seeds/seed-list-only-parse.patch",
+        "expect_red": [
+          "agentops.dispatch.tests.defect_seeds"
+        ],
+        "description": "parse_seeds returns the declared list unvalidated -- the empty/list-only assertion shape named in agentops#2046."
+      }
+    ]
   },
   "attempt": 1,
   "starting_commit": "1c33682038474d2f65e68687037eee35293ae6ce",
