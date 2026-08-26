@@ -15,12 +15,20 @@ it authorised is already written down -- but nothing checked it, and on
 * ``V6-G-defect-seeds`` was enriched after its run with the seeds it had just
   built.
 * ``V6-E-churn-metrics`` was retried under L-4, which appends gate output to
-  ``purpose``; the mutated packet lived only in the coordinator workspace.
+  ``purpose``; the mutated packet lived only in the coordinator workspace and was
+  recovered from it on 2026-08-26 as ``V6-E-churn-metrics.attempt-2.json``.
 
-Three were recovered from the object store and re-linked. The fourth is declared
-lost below. This test exists so the fifth never happens quietly: a corpus whose
-packets do not hash to their receipts cannot be audited cold, which is the whole
-claim ``agentops#2017`` rests on.
+All four are re-linked. This test exists so the fifth never happens quietly: a
+corpus whose packets do not hash to their receipts cannot be audited cold, which
+is the whole claim ``agentops#2017`` rests on.
+
+**Retried rows carry a second packet.** ``build_retry_packet`` (dispatch_release.py:757)
+changes exactly three keys -- ``attempt``, ``purpose`` and ``retry_context`` -- so a
+retry is a different artifact with a different hash, and the frozen packet alone can
+never account for its receipt. The driver already writes
+``<task_id>.attempt-<n>.json`` beside the worktree; committing it under the same name
+is what closes the gap. ``_packet_for`` resolves a receipt to the attempt it actually
+ran.
 
 Rule 11: this file reads committed JSON only. It runs no git and no subprocess.
 """
@@ -42,13 +50,7 @@ RECEIPTS = ROOT / "docs/evidence/receipts"
 #: is a declaration that the artifact cannot be recovered -- not a way to silence
 #: a link that merely looks inconvenient. Adding one is a deliberate act and the
 #: reason is part of the record.
-DECLARED_LOST = {
-    "V6-E-churn-metrics": (
-        "attempt 2 was dispatched by the L-4 retry path, which appends the gate "
-        "output to purpose. That mutated packet was never committed and is not "
-        "in the object store. Searched 2026-08-26."
-    ),
-}
+DECLARED_LOST: dict[str, str] = {}
 
 
 def _packet_hash(packet: dict) -> str:
@@ -57,11 +59,29 @@ def _packet_hash(packet: dict) -> str:
     return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
+def _packet_for(task_id: str, attempt: int) -> Path:
+    """The packet a receipt should hash to: the retry's, when there was one.
+
+    Attempt 1 is the frozen packet. Any later attempt was dispatched from a
+    packet the retry path built, which the driver writes as
+    ``<task_id>.attempt-<n>.json``. Falling back to the frozen packet for a
+    later attempt would compare a receipt against an artifact that provably did
+    not produce it.
+    """
+    if attempt > 1:
+        retried = PACKETS / f"{task_id}.attempt-{attempt}.json"
+        if retried.exists():
+            return retried
+    return PACKETS / f"{task_id}.json"
+
+
 def _pairs():
-    for packet_path in sorted(PACKETS.glob("*.json")):
-        task_id = packet_path.stem
-        receipt_path = RECEIPTS / task_id / "receipt.json"
-        if receipt_path.exists():
+    """(task_id, packet, receipt) for every receipt, resolved to its attempt."""
+    for receipt_path in sorted(RECEIPTS.glob("*/receipt.json")):
+        task_id = receipt_path.parent.name
+        receipt = json.loads(receipt_path.read_text())
+        packet_path = _packet_for(task_id, int(receipt.get("attempt", 1)))
+        if packet_path.exists():
             yield task_id, packet_path, receipt_path
 
 
@@ -106,7 +126,15 @@ class IdentityMatchesFilenameTests(unittest.TestCase):
         for packet_path in sorted(PACKETS.glob("*.json")):
             with self.subTest(packet=packet_path.name):
                 packet = json.loads(packet_path.read_text())
-                self.assertEqual(packet.get("task_id"), packet_path.stem)
+                stem = packet_path.stem
+                # A retry packet is <task_id>.attempt-<n>; its task_id is the
+                # stem with that suffix removed, and the suffix must agree with
+                # the attempt the packet declares.
+                base, sep, tail = stem.partition(".attempt-")
+                self.assertEqual(packet.get("task_id"), base)
+                if sep:
+                    self.assertEqual(packet.get("attempt"), int(tail))
+                    self.assertGreater(int(tail), 1)
 
     def test_each_receipt_declares_its_own_directory_as_task_id(self):
         for receipt_path in sorted(RECEIPTS.glob("*/receipt.json")):

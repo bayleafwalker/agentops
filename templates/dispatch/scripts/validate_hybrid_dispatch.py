@@ -9,6 +9,7 @@ the policy's concrete model ids. Availability is never qualification.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import subprocess
 from pathlib import Path
@@ -21,6 +22,51 @@ FINALIZER_TOOLS = (
     "read", "glob", "grep", "list", "todowrite", "todoread", "edit", "write",
     "patch", "bash", "task", "external_directory", "webfetch", "websearch",
 )
+
+
+#: Formats this validator asserts on manifests. ``manifest.schema.json`` has
+#: declared ``"format": "uuid"`` on ``authority_repo_uuid`` since it was written,
+#: but ``format`` is an annotation by default, so until 2026-08-26 the checker
+#: would certify a non-UUID -- the schema made a claim it did not keep. V6-I made
+#: the format checkable; this is the caller that opts in.
+ASSERTED_FORMATS = ("uuid",)
+
+
+def _load_schema_check():
+    """``schema_check``, loaded by path exactly once.
+
+    Loaded at import rather than per call: re-executing the module on every
+    lookup is wasteful, and it also hands out a *different* function object each
+    time, so nothing downstream could assert that the checker in use is the
+    registered one.
+    """
+    spec = importlib.util.spec_from_file_location(
+        "_schema_check_for_validate_hybrid_dispatch",
+        Path(__file__).resolve().parent / "schema_check.py",
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)  # type: ignore[union-attr]
+    return module
+
+
+_SCHEMA_CHECK = _load_schema_check()
+
+
+def _format_checker(name: str):
+    """The checker ``schema_check`` registers for ``name``, never a second copy.
+
+    Restating the pattern here is how two functions answering the same question
+    drift apart -- the defect this repo has already had to undo once, and the
+    reason ``churn_metrics`` imports ``MUTATION_TOOLS`` rather than listing it.
+    An unknown name raises here for the same reason it raises there: certifying
+    what was never checked is the thing being fixed.
+    """
+    try:
+        return _SCHEMA_CHECK.FORMAT_CHECKERS[name]
+    except KeyError:
+        raise ValueError(
+            f"no checker registered for asserted format {name!r}"
+        ) from None
 
 
 def _load(path: Path) -> Any:
@@ -140,7 +186,28 @@ def validate_policy(policy: dict[str, Any], worker_config: dict[str, Any]) -> No
             raise ValueError(f"base config: {key} must be denied")
 
 
+def validate_manifest_identity(manifest: dict[str, Any], path: Path) -> None:
+    """Assert the formats the manifest schema declares but cannot enforce alone.
+
+    ``authority_repo_uuid`` stays **optional** -- ten of eighteen manifests carry
+    none, and requiring one is a separate and larger claim about authority
+    identity across repositories. What changes is that a *present* value must be
+    what the schema says it is. Measured before turning this on: eight manifests
+    carry the field and all eight were already valid, so this rejects nothing
+    that exists and constrains only what is written next.
+    """
+    value = manifest.get("authority_repo_uuid")
+    if value is None:
+        return
+    if not isinstance(value, str) or not _format_checker("uuid")(value):
+        raise ValueError(
+            f"{path}: authority_repo_uuid must match the schema's "
+            f'"format": "uuid", got {value!r}'
+        )
+
+
 def validate_manifest_hybrid(manifest: dict[str, Any], policy: dict[str, Any], path: Path) -> bool:
+    validate_manifest_identity(manifest, path)
     hybrid = manifest.get("hybrid")
     if hybrid is None:
         return False
