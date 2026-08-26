@@ -261,7 +261,7 @@ class CallerInputTests(unittest.TestCase):
                 )
 
     def test_the_schema_version_is_v2(self):
-        self.assertEqual(_build()["schema_version"], "agentops-task/v2")
+        self.assertEqual(_build()["schema_version"], "agentops-task/v3")
 
     def test_caller_fields_are_carried_through_unchanged(self):
         pkt = _build()

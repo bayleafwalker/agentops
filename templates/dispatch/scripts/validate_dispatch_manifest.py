@@ -43,6 +43,9 @@ validate = schema_check.validate
 UnsupportedKeyword = schema_check.UnsupportedKeyword
 
 _SCHEMA_PATH = Path(__file__).resolve().parents[1] / "manifest.schema.json"
+#: Formats asserted when checking a manifest against its schema. Passing this
+#: to validate() is what makes the declared list the enforced list.
+ASSERTED_SCHEMA_FORMATS = ("uuid",)
 _SCHEMA_DOC = json.loads(_SCHEMA_PATH.read_text(encoding="utf-8"))
 
 
@@ -80,7 +83,12 @@ def _check_manifest(path):
     errors = []
     warnings = []
     try:
-        violations = validate(instance, _SCHEMA_DOC)
+        # assert_formats, not bare validate: manifest.schema.json declares
+        # "format": "uuid" and this is the repository's dedicated manifest
+        # schema checker, so leaving format as an annotation here would mean the
+        # residual V6-I identified is closed in one validator and open in the
+        # one most callers actually reach.
+        violations = validate(instance, _SCHEMA_DOC, assert_formats=ASSERTED_SCHEMA_FORMATS)
     except UnsupportedKeyword as exc:
         errors.append(
             f"schema cannot be fully enforced: {exc}")

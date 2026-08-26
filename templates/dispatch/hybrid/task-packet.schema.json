@@ -32,9 +32,10 @@
       "type": "string",
       "enum": [
         "agentops-task/v1",
-        "agentops-task/v2"
+        "agentops-task/v2",
+        "agentops-task/v3"
       ],
-      "description": "v1 packets remain readable for receipt/replay compatibility. New packets use v2, whose acceptance properties have stable ids."
+      "description": "v1 and v2 packets remain readable for receipt/replay compatibility, and in those versions route stands in for an omitted action_class. New packets use v3, which must state action_class explicitly: authority to mint a candidate without human review attaches to a class, not to an execution binding, and the route fallback is a closed compatibility set rather than an open convention."
     },
     "task_id": {
       "type": "string",
@@ -76,7 +77,13 @@
       "enum": [
         "mechanical_bulk",
         "bindery_external_runtime_w0"
-      ]
+      ],
+      "description": "Which execution binding runs this packet: model, agent, mode and the repositories permitted to use it. Transient and chosen per task. It does not confer authority."
+    },
+    "action_class": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The routing.action_classes entry this packet is judged under, deciding whether a green gate may dispose candidate without an independent review record. Durable and granted deliberately. Required from agentops-task/v3; in v1 and v2 an omitted value falls back to route, which is what those packets meant when they were frozen."
     },
     "task_class": {
       "type": "string",
@@ -542,6 +549,27 @@
         }
       },
       "then": {
+        "properties": {
+          "acceptance_properties": {
+            "items": {
+              "$ref": "#/$defs/acceptance_property_v2"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "agentops-task/v3"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "action_class"
+        ],
         "properties": {
           "acceptance_properties": {
             "items": {

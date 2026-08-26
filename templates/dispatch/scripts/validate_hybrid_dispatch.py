@@ -9,8 +9,10 @@ the policy's concrete model ids. Availability is never qualification.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import subprocess
+import uuid as _uuid
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +23,56 @@ FINALIZER_TOOLS = (
     "read", "glob", "grep", "list", "todowrite", "todoread", "edit", "write",
     "patch", "bash", "task", "external_directory", "webfetch", "websearch",
 )
+
+
+#: Manifest fields this validator asserts a format on, as {field: format name}.
+#: A **mapping, not a list**: a bare list of format names declared what was
+#: enforced without enforcing it, so adding a name to it asserted nothing while
+#: still looking like coverage -- the same "certifying what was never checked"
+#: shape this assertion exists to close.
+#:
+#: ``manifest.schema.json`` has declared ``"format": "uuid"`` on
+#: ``authority_repo_uuid`` since it was written, but ``format`` is an annotation
+#: by default, so until 2026-08-26 the checker would certify a non-UUID. V6-I
+#: made the format checkable; this is the caller that opts in.
+ASSERTED_MANIFEST_FORMATS = {"authority_repo_uuid": "uuid"}
+
+
+def _load_schema_check():
+    """``schema_check``, loaded by path exactly once.
+
+    Loaded at import rather than per call: re-executing the module on every
+    lookup is wasteful, and it also hands out a *different* function object each
+    time, so nothing downstream could assert that the checker in use is the
+    registered one.
+    """
+    spec = importlib.util.spec_from_file_location(
+        "_schema_check_for_validate_hybrid_dispatch",
+        Path(__file__).resolve().parent / "schema_check.py",
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)  # type: ignore[union-attr]
+    return module
+
+
+_SCHEMA_CHECK = _load_schema_check()
+
+
+def _format_checker(name: str):
+    """The checker ``schema_check`` registers for ``name``, never a second copy.
+
+    Restating the pattern here is how two functions answering the same question
+    drift apart -- the defect this repo has already had to undo once, and the
+    reason ``churn_metrics`` imports ``MUTATION_TOOLS`` rather than listing it.
+    An unknown name raises here for the same reason it raises there: certifying
+    what was never checked is the thing being fixed.
+    """
+    try:
+        return _SCHEMA_CHECK.FORMAT_CHECKERS[name]
+    except KeyError:
+        raise ValueError(
+            f"no checker registered for asserted format {name!r}"
+        ) from None
 
 
 def _load(path: Path) -> Any:
@@ -140,7 +192,43 @@ def validate_policy(policy: dict[str, Any], worker_config: dict[str, Any]) -> No
             raise ValueError(f"base config: {key} must be denied")
 
 
+def validate_manifest_identity(manifest: dict[str, Any], path: Path) -> None:
+    """Assert the formats the manifest schema declares but cannot enforce alone.
+
+    ``authority_repo_uuid`` stays **optional** -- ten of eighteen manifests carry
+    none, and requiring one is a separate and larger claim about authority
+    identity across repositories. What changes is that a *present* value must be
+    what the schema says it is. Measured before turning this on: eight manifests
+    carry the field and all eight were already valid, so this rejects nothing
+    that exists and constrains only what is written next.
+    """
+    for field, fmt in ASSERTED_MANIFEST_FORMATS.items():
+        value = manifest.get(field)
+        if value is None:
+            continue
+        if not isinstance(value, str) or not _format_checker(fmt)(value):
+            raise ValueError(
+                f"{path}: {field} must match the schema's "
+                f'"format": "{fmt}", got {value!r}'
+            )
+        if fmt == "uuid" and value != str(_uuid.UUID(value)):
+            # Agree with the rule this repository already had.
+            # validate_verification_artifacts.py:172 compares against
+            # str(UUID(v)) and rejects any non-canonical spelling, so accepting
+            # an uppercase value here would mean the same manifest passes one
+            # validator and fails the other -- two functions answering the same
+            # question differently, which is the defect this module's own
+            # docstring warns about. The generic schema_check checker stays
+            # case-insensitive because that is what JSON Schema's uuid format
+            # means; the extra canonicality requirement is this repository's,
+            # and is stated here rather than hidden in the shared checker.
+            raise ValueError(
+                f"{path}: {field} must be a canonical UUID, got {value!r}"
+            )
+
+
 def validate_manifest_hybrid(manifest: dict[str, Any], policy: dict[str, Any], path: Path) -> bool:
+    validate_manifest_identity(manifest, path)
     hybrid = manifest.get("hybrid")
     if hybrid is None:
         return False
@@ -169,8 +257,15 @@ def validate_manifest_hybrid(manifest: dict[str, Any], policy: dict[str, Any], p
             "writable packet paths"
         )
     # L-3 (D-8): self_candidate is a manifest-level grant, so it must be a
-    # literal boolean on an enabled class that is actually a worker route, and
-    # it must carry its provenance -- a flip without a ruling is unreviewable.
+    # literal boolean on an enabled class carrying its provenance -- a flip
+    # without a ruling is unreviewable.
+    #
+    # The class is no longer required to *be* a worker route. It must instead
+    # name the routes its ruling was written about (permitted_routes), each of
+    # which must be an enabled worker route here. That is the decoupling: a
+    # route says who executes and is chosen per task; a class says what may be
+    # minted without human review and is granted deliberately. Requiring the two
+    # to share a name welded a transient binding to a durable authority.
     classes = (manifest.get("routing") or {}).get("action_classes") or {}
     for name, entry in classes.items():
         flag = entry.get("self_candidate", False)
@@ -179,10 +274,18 @@ def validate_manifest_hybrid(manifest: dict[str, Any], policy: dict[str, Any], p
         if flag:
             if not entry.get("enabled", False):
                 raise ValueError(f"{path}: action class {name} is self_candidate but not enabled")
-            if name not in worker_routes:
+            permitted = entry.get("permitted_routes")
+            if not isinstance(permitted, list) or not permitted:
                 raise ValueError(
-                    f"{path}: action class {name} is self_candidate but is not a hybrid worker route"
+                    f"{path}: action class {name} is self_candidate but declares no "
+                    "permitted_routes; the grant must say which routes it covers"
                 )
+            for route in permitted:
+                if route not in worker_routes:
+                    raise ValueError(
+                        f"{path}: action class {name} permits route {route}, which is "
+                        "not an enabled hybrid worker route here"
+                    )
             if not str(entry.get("self_candidate_ruling", "")).strip():
                 raise ValueError(
                     f"{path}: action class {name} is self_candidate without a self_candidate_ruling"
