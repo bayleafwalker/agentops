@@ -45,7 +45,7 @@ diff on attempt 1 — the worker did nothing — and passed on the L-4 retry.
 
 ## 2. What the corpus still cannot see
 
-**35 packets exist; 23 have a committed receipt. Fifteen do not, and three receipts have no packet.**
+**38 packets exist; 23 have a committed receipt. Fifteen do not, and every receipt now has its packet.**
 
 Packets with no receipt — `V5-M1`, `V5-M5`, `V5-M6a`, `V5-M6b`, `V5-M8`, `V5-M9`, `V5-M10a`,
 `V5-M10b`, `V5-M10c`, `V5-M12`, `V5-P1`, `V5-P1a`, `V5-T3`, `V5-T5`, `V6-A-worker-writability-report`.
@@ -56,9 +56,17 @@ is not recoverable — the coordinator host no longer holds their driver logs. *
 lost rather than left looking like an anomaly.** `V6-A` is the one late row in that list and its
 artifacts are also gone.
 
-Receipts with no packet — `V5-M13`, `V6-B`, `V6-C` — are the documented freeze-branch trap: the
-worker's PR is cut from commit 1 and the packet lives in commit 2, so merging the PR and deleting
-the branch loses the packet.
+Receipts with no packet — **none, as of 2026-08-26.** `V5-M13`, `V6-B` and `V6-C` were the
+documented freeze-branch trap: the worker's PR is cut from commit 1 and the packet lives in commit
+2, so merging the PR and deleting the branch loses the packet. All three have been recovered and
+committed — `V5-M13` from `origin/v5-m13-freeze` (`9882638`), `V6-B` and `V6-C` from unreferenced
+objects (`3f6df37`, `f90336e`).
+
+**The recovery is provable, not asserted.** Each restored packet was re-serialised the way
+`_receipt` does it (`hybrid_dispatch.py:2156`, `sort_keys=True`, `separators=(",",":")`) and its
+SHA-256 compared against the `inputs.packet_hash` its receipt already carried. All three match
+byte-for-byte at `attempt: 1`, so each receipt's `execution_id` re-links to the packet it was
+actually dispatched from. These are the dispatched artifacts, not reconstructions of them.
 
 **Do not read the 0.9545 as covering the whole programme.** It covers the 22 rows that left a
 receipt. What has changed is that the corpus no longer *hides* a failure: the row that failed is now

@@ -1,0 +1,107 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V5-M13-retry-branch",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 6,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "templates/dispatch/tests/test_dispatch_release_retrybranch.py decides correctness: four fixtures over the resolved branch name and the two places it is consumed. The third matters most -- the push refspec and gh --head are built separately, so they can disagree, and a PR opened against an empty ref is the failure that would replace the one being fixed.",
+    "starts_red": [
+      "agentops.dispatch.tests.retrybranch"
+    ],
+    "reference_patch": "docs/evidence/packets/V5-M13-retry-branch.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "686c7fb5af1b8c4439863386996425db0c4c680d",
+  "purpose": "Let a retry push, in templates/dispatch/scripts/dispatch_release.py. The PR step pushes git push origin <branch>:<branch> where branch is the packet's worktree.branch, a fixed name. V5-M12 attempt 2 produced a correct diff, passed every gate, and was rejected at the push because attempt 1 had already pushed that branch: 'Updates were rejected because the remote contains work that you do not have locally'. Every retry that reaches the PR step hits this. Add a module-level function that resolves the remote branch an attempt pushes to: the packet's declared branch when packet['attempt'] is 1, absent, or not an integer, and a distinct name derived from it that includes the attempt number for any attempt above 1. Two different retries must not collide with each other, and the packet's branch must still be recognisable in the resolved name. Push the worktree's local branch to that remote branch, and pass the SAME resolved name to gh pr create --head -- they are built in different places and a disagreement opens a pull request against a ref with nothing on it. Record the resolved name in report['pr']['push']['branch']. Do NOT force-push and do not use a + refspec: attempt 1's branch is the evidence the retry was authored against and must be left exactly as it is. Change nothing else: PR_STEP_NAMES, the receipt capture, the commit, remote resolution, the body generator, scan_for_secrets, the L-2 stop conditions and the L-4 retry all stay exactly as they are. Leave no debugging output behind.",
+  "readable_context_paths": [
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/tests/test_dispatch_release_retrybranch.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/dispatch_release.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "a first attempt pushes the packet's declared branch, unchanged",
+    "a retry pushes a distinct branch whose name includes the attempt number",
+    "two retries do not collide with each other",
+    "the push refspec and gh --head name the same remote branch",
+    "report['pr']['push']['branch'] records the resolved name",
+    "no force push and no + refspec: the earlier attempt's branch is untouched",
+    "nothing else in the driver changes, and no debugging output is left behind"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "the resolved name is right for every attempt",
+      "command_id": "agentops.dispatch.tests.retrybranch",
+      "fails_when": "a first attempt's branch changes, a retry reuses it, or two retries collide"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "the push and the pull request agree",
+      "command_id": "agentops.dispatch.tests.retrybranch",
+      "fails_when": "gh --head names a branch other than the one pushed, or the report disagrees with either"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "the earlier attempt is evidence, not a target",
+      "command_id": "agentops.dispatch.tests.retrybranch",
+      "fails_when": "a retry force-pushes, uses a + refspec, or pushes onto attempt 1's branch"
+    }
+  ],
+  "non_goals": [
+    "hybrid_dispatch.py, which is protected",
+    "the L-4 retry policy and max_attempts, which are settled",
+    "anything outside templates/dispatch/scripts/dispatch_release.py"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.retrybranch"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v5-m13-retry-branch",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md",
+      "docs/dispatch/handover-2026-08-23-metanarrative-v5.md"
+    ]
+  }
+}

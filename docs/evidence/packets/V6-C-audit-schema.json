@@ -1,0 +1,113 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V6-C-audit-schema",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 29,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "test_schema_check_audit.py decides correctness: 29 tests, 21 red at the starting commit on the absent audit_schema. The 8 green ones assert validate's raising behaviour is unchanged and must stay green.",
+    "starts_red": [
+      "agentops.dispatch.tests.schema_check_audit"
+    ],
+    "reference_patch": "docs/evidence/packets/V6-C-audit-schema.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "1ac0b816c2a550fb88ced0365a87cdaa804794de",
+  "purpose": "Add audit_schema to templates/dispatch/scripts/schema_check.py: report EVERY construct the checker cannot enforce, raising nothing. The module's governing rule does not move -- a construct it cannot enforce must never be reported as satisfied, because a constraint the checker ignores is a constraint that does not exist -- and validate keeps raising UnsupportedKeyword on the first such construct, unchanged. What is missing is a way to ask the question without being stopped at the first answer. Today the audit raises immediately and tells the caller nothing about where the problem is or what else is wrong. That is right for a gate and close to useless for a person fixing a schema, and it was found the hard way: manifest.schema.json carried the unenforceable subschema form of additionalProperties in three separate nodes -- routing.properties.action_classes, hybrid.properties.commands and instruction_set.properties.skill_lock.oneOf[0], the last only reachable through a oneOf -- and finding all three took repeated raise-and-fix cycles because each run named one and stopped. audit_schema(schema, path=\"$\") returns a list of strings, one per defect, each carrying the breadcrumb of the offending node and naming the offending keyword. An empty list means the schema is enforceable end to end. Use the breadcrumb grammar the module's existing raise messages already build -- $.properties.a, $.allOf[0], $.$defs.name -- rather than inventing a second one, because two grammars for one question is the same mistake this repo already made with its two path matchers. Report a node once, not once per path that reaches it. The property that matters most, and the one that makes the two surfaces trustworthy together: audit_schema returns the empty list if and only if validate does not raise, for every schema. An implementation where one drifts from the other reintroduces exactly the silence this module exists to prevent, in a new place, so the two must be answers to the same question and not two independent walks that happen to agree today. It must find defects wherever the existing eager audit already walks: inside properties, items, $defs, allOf, oneOf, not, if, then, propertyNames and an additionalProperties subschema. It must raise nothing at all -- not on a bare boolean in schema position, not on None or a string or a list where a schema belongs, not on a dangling or external $ref, not on a non-list allOf -- every one of those is an entry, not an exception. A self-referential $defs must terminate rather than recurse forever. And several defects in one schema must all be reported, at different depths, each with a distinct breadcrumb: that is the entire point of the row, and an implementation that reports only the first has changed nothing. Do not change validate, SUPPORTED_KEYWORDS, ANNOTATION_KEYWORDS or any existing enforcement. Do not add a CLI or file I/O. Both existing oracles for this module must stay green. Leave no debugging output behind.",
+  "readable_context_paths": [
+    "templates/dispatch/tests/test_schema_check_audit.py",
+    "templates/dispatch/tests/test_schema_check.py",
+    "templates/dispatch/tests/test_schema_check_composition.py",
+    "templates/dispatch/scripts/schema_check.py",
+    "templates/dispatch/hybrid/task-packet.schema.json",
+    "templates/dispatch/manifest.schema.json"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/schema_check.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/scripts/release_scorecard.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "audit_schema reports every unenforceable construct and raises nothing",
+    "each entry carries the node's breadcrumb and names the keyword",
+    "audit_schema returns [] if and only if validate does not raise",
+    "defects are found behind every composition keyword the audit already walks",
+    "several defects at different depths are all reported with distinct breadcrumbs",
+    "validate, the keyword sets and every existing enforcement are unchanged",
+    "both existing oracles for this module stay green"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "every defect is reported, not just the first",
+      "command_id": "agentops.dispatch.tests.schema_check_audit",
+      "fails_when": "a schema with three defects at three depths yields fewer than three entries"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "the audit never raises",
+      "command_id": "agentops.dispatch.tests.schema_check_audit",
+      "fails_when": "a bare boolean, a dangling $ref or a non-schema value raises instead of being reported"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "the two surfaces answer the same question",
+      "command_id": "agentops.dispatch.tests.schema_check_audit",
+      "fails_when": "audit_schema reports clean for a schema validate refuses, or the reverse"
+    }
+  ],
+  "non_goals": [
+    "validate's raising behaviour, which is unchanged",
+    "implementing any further keyword",
+    "a CLI or any file I/O",
+    "the two existing oracles, which must simply keep passing"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.schema_check_audit"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v6-c-audit-schema",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/dispatch/handover-2026-08-25-v5-9-refactor.md"
+    ]
+  }
+}
