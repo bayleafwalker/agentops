@@ -87,14 +87,31 @@ are task notifications.
 
 ### What it does to D-9
 
+**[CORRECTED 2026-08-26, second pass]** — the first version of this table read:
+
 | | turns | / 11 packets | 5× drop target |
 |---|---|---|---|
 | As recorded | 16 | 1.45 | ≤ 3.2 prompts |
-| Human prompts only | **5** | **0.45** | **≤ 1 prompt** |
+| Human prompts only | 5 | ~~0.45~~ | ~~≤ 1 prompt~~ |
 
-The baseline is inflated ≈3.2×, and the falsifier is correspondingly easy to pass. A challenger
-that cut genuine supervision *not at all* would still clear "≤ 3.2 prompts" on this metric,
-because the metric mostly counts the loop notifying itself.
+**That 0.45 was wrong, and wrong in exactly the way Finding B names.** The `5` is scoped to the
+T-series window; the `11` includes T-11, which landed on 2026-08-25, outside it. Dividing a
+window-scoped numerator by an unscoped denominator is Finding B's defect, committed inside Finding
+A's headline. The two internally consistent readings are:
+
+| Window | turns | human | packets | human/packet | 5× target |
+|---|---|---|---|---|---|
+| Truncated at 2026-08-24T20:02:32Z | 16 | 5 | **10** | 0.50 | ≤ 0.10 |
+| Whole release, to T-11's close | **31** | **15** | 11 | **1.36** | **≤ 0.27** |
+
+They differ by 2.7×, and the published 0.45 was neither. Use **1.36** — pinning the window to the
+release's actual span keeps the denominator honest, because T-11 is part of the T-series by §3i.
+
+The finding itself survives, and its direction is unchanged: the recorded 1.45 counts the loop
+notifying itself, so the baseline is inflated and the falsifier correspondingly easy to pass. But
+the *size* of the inflation is ≈1.07× against the correctly-scoped human figure, not 3.2×. Had the
+0.45 shipped, a v7 challenger would have been graded against ≤0.09 prompts per packet — about one
+human prompt per eleven packets — making the falsifier unfalsifiable in the opposite direction.
 
 **The sharpest form of it:** the metric counts a subagent *finishing* as a human prompt (Finding A)
 while counting none of that subagent's *tokens* as spend (Finding E). It is wrong in both
@@ -115,12 +132,27 @@ real, just not what it was labelled.
 
 ### Measured
 
-The numerator (16 turns) ends at **2026-08-24T20:02:32Z**. The denominator (11 packets) includes
-**T-11, which landed on 2026-08-25** — handover §3i, *"T-11 (2026-08-25) — the detector that fired
-on good news."*
+**[CORRECTED 2026-08-26, second pass — the mechanism below was wrong as first written.]** This
+finding originally said the numerator "ends at 2026-08-24T20:02:32Z". It does not. The scorecard's
+own scope block reads:
 
-So the ratio divides a 24 August numerator by a denominator that includes 25 August work. Either
-the numerator should extend to cover T-11's turns, or the denominator is 10.
+```json
+{"project": "agentops", "since": "2026-08-24T18:00:00Z", "until": null}
+```
+
+**`until` is `null` — the window has no right edge at all.** The numerator is not scoped to
+20:02:32Z; it is scoped to whenever the sink last happened to be written before the generator ran,
+so the scorecard is **not reproducible from its own scope block** and drifts every day. Re-reducing
+the sink today over that same scope gives **5 sessions and 56 turns**, against the committed 1 and 16.
+
+The denominator problem is real as stated: 11 packets includes **T-11, which landed on
+2026-08-25** — handover §3i, *"T-11 (2026-08-25) — the detector that fired on good news."*
+
+So the defect is worse than a window mismatch: it is an unbounded numerator divided by a fixed
+denominator. This is the fifth instance of the §3h pattern, and it sits on the scorecard built by
+T-9 specifically so *"a reader never has to tell 'absent' from 'unbounded'."* T-9 made all three
+scope keys always present; it did not make anyone fill the third one in. A field that is always
+present and always `null` is the same defect as a `format: "uuid"` that never bites.
 
 This is the *scope* error §3h already names — *"an unscoped window overcounting the frontier half
 by 56%"* — recurring on the same scorecard that documents it. Arithmetically correct, means the
@@ -128,8 +160,16 @@ wrong thing, not catchable by a gate.
 
 ### Recommendation
 
-Fix the denominator to match the recorded window (10), or re-derive the numerator to T-11's close.
-Do it in the same pass as A, since both land in §2b.
+Pin the window; do not shrink the denominator. Re-generate `v5-t-series.generated.json` with an
+explicit `--until` at T-11's close (`2026-08-25T18:00:00Z` covers the final snapshot at 17:47:06Z),
+keeping `--project agentops --since 2026-08-24T18:00:00Z`. The denominator stays **11**, which is
+honest: T-11 is part of the T-series by §3i. Then restate §2b and D-9 against **1.36** human
+prompts per packet, with a 5× target of **≤ 0.27**.
+
+Then close the hole rather than the instance: make a scorecard whose `scope.until` is `null` fail
+to generate, or force an explicit `"unbounded (deliberate)"` sentinel. A release scorecard
+describes a closed release; an open right edge is never what was meant. That is one file, one
+outcome, additive, with an attainable red oracle — a `mechanical_bulk` packet, not coordinator work.
 
 ---
 

@@ -22,7 +22,7 @@
       "host": "devbox",
       "worker_user": "agentworker",
       "harness_model": "opencode-go/deepseek-v4-flash",
-      "outcome": "no edits produced; gate diff-nonempty false, registered-commands-green false, passed false",
+      "outcome": "seven attempts, none passed. The worker was NOT the limiting factor in most of them: attempt 4 implemented all four fields correctly and failed on an unstated AGENTOPS_COST_LOG seam; attempt 5 delivered the seam and the fields and died on an over-broad oracle (the whole T-set, failing in gate-log.sh); attempt 6 failed with the oracle absent at starting_commit. Attempts 1-3 were harness-side (stage plumbing, budget ceiling, workspace permissions). Read the per-attempt rows below rather than this line: the earlier value of this field, 'no edits produced; gate diff-nonempty false, registered-commands-green false, passed false', described attempt 1 only and contradicted the six rows beneath it.",
       "runs": [
         {
           "attempt": 1,
