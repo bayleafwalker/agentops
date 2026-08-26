@@ -1,6 +1,53 @@
 # Four open owner decisions — background, options, implications
 
-**Status: analysis and recommendations. NOT rulings. Nothing here has been applied.**
+**Status: RULED AND EXECUTED 2026-08-26. Retained as the record of what was decided and why.**
+
+> ## How this document should have been written
+>
+> The owner's assessment of it: *"zero to one of the four required fresh human judgment... the human
+> was mostly being used as a very expensive Enter key."* That is correct, and the failure is worth
+> keeping in front of the next person who writes one of these.
+>
+> Three distinct things were collapsed into one bucket labelled "owner decision":
+>
+> | | |
+> |---|---|
+> | **Can the answer be derived?** | All four: **yes.** Three had *already been derived* before this document was written — devbox was measured, all 18 manifests' UUIDs were checked, all six `#2046` criteria were verified at file and line. They were then presented as open questions anyway. |
+> | **May the agent perform the action?** | An authorization gate, not a deliberation. `#2046` genuinely required the designated human acceptance event; dropping someone's stashes wanted delegated operational authority. Both are *ratification* — bring a resolved action, not a question. |
+> | **Is a new value choice necessary?** | At most `#2100`, and probably not even that. See below. |
+>
+> **`#2100` was policy application, not policy making.** The governing text was already in the
+> manifest: the 2026-08-23 ruling reads *"a green evidence gate **on this class** disposes
+> candidate"* — class, not route — while `self_candidate_class` looked the entry up by
+> `packet["route"]`. Doctrine was class-scoped and mechanism was route-scoped, and they agreed only
+> because the strings matched. This document argued C-versus-D on a *prediction* ("is a second route
+> coming") when the ruling's own words already settled where authority attaches. Escalation would
+> have been justified only if separating them were **new policy** rather than enforcing existing
+> policy.
+>
+> **The right output** of that pass was an execution packet of three resolved actions plus, at most,
+> one narrowly framed policy question — not a memo presenting four owner decisions. Correct
+> classification: `#2046` *ready for ratification*; `#2100` *policy application, escalate only on
+> conflicting doctrine*; devbox *bounded maintenance*; uuid *review-derived fix*.
+
+## Outcomes
+
+| # | Decision | Ruling | Landed as |
+|---|---|---|---|
+| 1 | Accept `#2046` | **B** — accept, attach criterion 6's negative finding | Notes #2538 (on `#2046`) and #2539 (the control-arm gap, on `#2017`); item `done` |
+| 2 | `#2100` route vs authority | **C on principle** — authority is durable and stated, execution is transient | `action_class` landed; `#2100` closed as written (note #2544); successor `#2306` opened |
+| 3 | devbox checkout | **B** — fast-forward, inspect, dispose | Fast-forwarded; one unique line landed; **two files in the stash would have been a regression** — see below |
+| 4 | `format: "uuid"` | **A** — assert it | `validate_manifest_identity`, 13 regression tests, field stays optional |
+
+**The one place the recommendation was too casual:** decision 3 called the stashes twenty minutes of
+tidying. Inspecting them found that `stash@{1}` would have reverted `overlay_hash` to sorted keys and
+deleted the test pinning the property — against an explicit comment in `main` explaining that sorting
+makes behaviourally different worker sandboxes share a digest. "Old branch, main moved on" is not a
+safe default: an old branch can carry a reversal of a decision made after it.
+
+---
+
+**Original document follows, unchanged apart from this header.**
 
 Prepared 2026-08-26. Every factual claim was re-verified against the code, the tracker or the hosts
 before being written; where the check disagreed with the record, the record is corrected in place and
