@@ -958,6 +958,63 @@ def share_workspace_with_group(workspace: Path, worker_user: str | None = None) 
             continue
 
 
+def staged_packet_path(worktree: Path) -> Path:
+    """Where the frozen packet is placed so a contained worker can read it.
+
+    Inside ``.git`` deliberately. The packet is commit 2 of a freeze and the
+    workspace is a clone at ``starting_commit``, so the packet is never in the
+    tree the worker is given -- and the worker runs as an identity that cannot
+    read the coordinator's checkout, which is the point of the identity. It has
+    to be copied in, and every location in the *working* tree is wrong:
+    ``post_gates`` counts ``git ls-files --others`` as touched, so a staged file
+    there would make ``diff-nonempty`` true and fail ``diff-scope-respected`` on
+    every packet even when the worker wrote nothing, and ``dispatch_release.py``
+    runs ``git add -A``, so it would land in the commit and the PR.
+
+    git never enumerates its own directory, so nothing here reaches a diff, a
+    gate, a commit or a receipt's touched set, and it is disposed with the
+    workspace.
+    """
+    return worktree / ".git" / "agentops" / "packet.json"
+
+
+def stage_packet(worktree: Path, packet: dict[str, Any], worker_user: str | None) -> Path:
+    """Write the packet where the worker can read it, and return that path.
+
+    Canonicalised exactly as ``_receipt`` canonicalises it, so the bytes the
+    worker reads hash to the ``packet_hash`` the receipt attests to. Staged from
+    the in-memory packet at dispatch time rather than copied during ``prepare``:
+    ``prepare`` and ``run`` are separate invocations with a human gap between
+    them, and that gap is where ``claim_id`` is filled in today, so a copy taken
+    at ``prepare`` could differ from the packet ``run`` hashes with nothing to
+    notice.
+    """
+    target = staged_packet_path(worktree)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(json.dumps(packet, sort_keys=True, separators=(",", ":")).encode())
+    # Same group/mode treatment share_workspace_with_group applies to the clone:
+    # the group-write bit is meaningless on a group the worker is not in, and the
+    # newly created directories are owned by the coordinator's primary group.
+    gid = worker_shared_gid(worker_user)
+    for path in (target.parent.parent, target.parent, target):
+        try:
+            mode = path.lstat().st_mode
+            if gid is not None:
+                os.chown(path, -1, gid)
+            path.chmod(stat.S_IMODE(mode) | stat.S_IRGRP | stat.S_IWGRP)
+        except OSError:
+            continue
+    # Directories additionally need the group-execute bit or the worker cannot
+    # traverse into them, which reads identically to the file being absent --
+    # the failure this whole function exists to fix.
+    for path in (target.parent.parent, target.parent):
+        try:
+            path.chmod(stat.S_IMODE(path.lstat().st_mode) | stat.S_IXGRP)
+        except OSError:
+            continue
+    return target
+
+
 #: Every way the writability question can be answered. ``probed`` is reserved
 #: for the one case where the dynamic probe actually ran and succeeded; every
 #: other non-denial names why it did not run. A skipped check that reported the
@@ -2491,8 +2548,13 @@ def main(argv: list[str] | None = None) -> int:
                 "override_reason": args.override_reason if not contained else None,
             }
             before = coordinator_tree_state(repo_root)
+            # The worker cannot read packet_path: it lives in the coordinator's
+            # checkout, which the contained identity is denied by design. Stage a
+            # canonical copy inside the workspace and dispatch against that.
+            staged = stage_packet(worktree, packet, args.worker_user)
+            staged_packet_sha256 = hashlib.sha256(staged.read_bytes()).hexdigest()
             transcript = dispatch_worker(
-                worktree, packet_path, packet, overlay, policy, args.opencode_bin,
+                worktree, staged, packet, overlay, policy, args.opencode_bin,
                 args.worker_user, args.worker_model,
             )
             # Read the exact-registered-command boundary out of the worker's own
@@ -2524,6 +2586,11 @@ def main(argv: list[str] | None = None) -> int:
                     coordinator_claim=claim_evidence,
                     worker=transcript,
                     spend=spend,
+                    # Observed, not inferred: the bytes the worker was actually
+                    # given hash to the same value as the packet this receipt
+                    # attests to. Without it, "the worker read this packet" is a
+                    # claim about a file nobody checked.
+                    staged_packet_sha256=staged_packet_sha256,
                     **containment_override,
                     containment={
                         "coordinator_tree_untouched": not breach,
