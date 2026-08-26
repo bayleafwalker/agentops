@@ -35,7 +35,6 @@
     "templates/dispatch/scripts/hybrid_dispatch.py",
     "templates/dispatch/scripts/dispatch_release.py",
     "templates/dispatch/scripts/release_scorecard.py",
-    "templates/dispatch/scripts/schema_check.py",
     "templates/dispatch/manifest.schema.json",
     "templates/dispatch/model-routing.json",
     "agentops.dispatch.json",

@@ -28,7 +28,8 @@
     "templates/dispatch/scripts/schema_check.py",
     "templates/dispatch/hybrid/task-packet.schema.json",
     "templates/dispatch/manifest.schema.json",
-    "docs/evidence/packets/**"
+    "docs/evidence/packets/**",
+    "agentops.dispatch.json"
   ],
   "writable_patch_paths": [
     "templates/dispatch/scripts/schema_check.py"

@@ -72,38 +72,44 @@ actually dispatched from. These are the dispatched artifacts, not reconstruction
 receipt. What has changed is that the corpus no longer *hides* a failure: the row that failed is now
 in it, and the reported rate moved from 1.0 to 0.9545 the moment it was.
 
-## 2a. The packet/receipt link, audited 2026-08-26 — four of twenty do not hold
+## 2a. The packet/receipt link, audited and repaired 2026-08-26 — 22 of 23 now hold
 
-Recovering the three orphaned packets required checking that a restored packet really was the one
-dispatched, by re-serialising it the way `_receipt` does (`hybrid_dispatch.py:2156`) and comparing
-the SHA-256 against the `inputs.packet_hash` its receipt already carried. Running that same check
-across the **whole** corpus is cheap, and it had never been done.
+Recovering the three orphaned packets required proving a restored packet really was the one
+dispatched: re-serialise it the way `_receipt` does (`hybrid_dispatch.py:2156`) and compare the
+SHA-256 against the `inputs.packet_hash` its receipt already carried. Running that same check across
+the **whole** corpus is four lines, and it had never been done.
 
-**20 packets have a receipt. 16 hash-match it. Four do not.** For those four, the committed packet
-is not the artifact that produced the receipt, and the receipt's `execution_id` — which embeds the
-packet hash — does not resolve to anything in the repository.
+**It did not hold for four of twenty.** For those four the committed packet was not the artifact that
+produced the receipt, so the `execution_id` a reader would quote resolved to nothing in the
+repository. Three were recovered from the object store and are now re-linked:
 
-| Packet | Diagnosis |
-|---|---|
-| `V6-G-defect-seeds` | Matches exactly **without** `oracle.defect_seeds`. It is the row that *built* defect seeds; the seeds were added to the packet after the run. Post-hoc enrichment. |
-| `V6-I-schema-formats` | Matches exactly **without** its writable path in `protected_paths`. The dispatched packet had the trap fixed; the **committed** one is the pre-fix copy — i.e. the version that would fail `validate` today. Commit 2 was made from the unfixed file. |
-| `V6-E-churn-metrics` | Attempt 2, no committed version matches. Consistent with the documented L-4 retry, which appended gate output to `purpose`: that changes the hash and was never committed. |
-| `V59-2-schema-check-composition` | **Unexplained.** Only one version exists in the entire git history and it does not match. |
+| Packet | What had drifted | Now |
+|---|---|---|
+| `V59-2-schema-check-composition` | Reconstructed **by hand** during the lost-packet recovery in #103, losing one `protected_paths` entry (`agentops.dispatch.json`). **The recovery introduced the drift**, because the restored packet was accepted on the strength of its filename. | Restored from blob `05cbd38` |
+| `V6-I-schema-formats` | Committed from the **pre-fix copy** — the version carrying its own writable path in `protected_paths`, which would fail `validate` today. The version that ran had the trap fixed. | Restored from blob `3a0e19a`; the committed packet is now also a *valid* one |
+| `V6-G-defect-seeds` | Enriched after its run with the two seeds it had just built. | Restored from blob `03de51f`. The seeds themselves remain in `docs/evidence/seeds/`, and `V6-J` now carries a declared, `validate`-falsified pair, so nothing is lost |
+| `V6-E-churn-metrics` | Attempt 2 went through the L-4 retry path, which appends gate output to `purpose`. That packet lived only in the coordinator workspace. | **Not in the object store. Declared lost** — the one remaining break |
 
-Three of the four are benign and now explained. None of them is evidence of a bad run — every one of
-these rows passed its gates. **What they are evidence of is that the freeze artifact and the
-dispatched artifact drifted apart without anything noticing**, in three different ways: enrichment
-after the fact, committing the wrong copy, and a retry mutating the packet in the coordinator
-workspace.
+None of this was evidence of a bad run: every one of these rows passed its gates. It was evidence
+that **the freeze artifact and the dispatched artifact drifted apart without anything noticing**, in
+four distinct ways — hand-reconstruction, committing the wrong copy, post-hoc enrichment, and a
+retry mutating the packet in the coordinator workspace.
 
-This matters for `#2017` specifically, and it sharpens the existing recommendation rather than
-changing it. The objection was already "the artifact that would be audited does not contain the
-failure." This is the same objection one level down: for a fifth of the corpus, **the artifact that
-would be audited is not the artifact that ran.** A reader cannot verify a receipt against its packet
-for those four, and until 2026-08-26 nobody could have known which four.
+The first of those is the one worth dwelling on. The previous recovery pass restored packets by
+filename and moved on; that is exactly how `V59-2` acquired a difference nobody saw for a month. **A
+recovered packet is not recovered until it hashes to its receipt.**
 
-**Cheap and worth doing:** the hash check is four lines and needs no new machinery. Run it in the
-closing evidence pass, and have the L-4 retry path commit the packet it actually dispatched.
+**This is now a standing invariant, not an audit.**
+`templates/dispatch/tests/test_packet_receipt_linkage.py` checks every packet-with-receipt pair on
+every run, checks that `execution_id` embeds the same hash rather than being a second drifting copy,
+and requires any exemption in `DECLARED_LOST` to carry a reason *and* to still genuinely fail — so a
+stale exemption cannot hide a regression on a packet that has since been recovered. It also asserts
+the glob matched something, because a vacuously-passing corpus check is the same defect the `V6-J`
+oracle exists to catch on the frontier half.
+
+**What still needs doing:** the L-4 retry path should commit the packet it actually dispatched. Until
+it does, every retried row will break its own link the way `V6-E` did — and `V6-E` is the one row in
+this corpus that failed first time, which is to say the single most interesting receipt in it.
 
 ## 3. Containment evidence
 
