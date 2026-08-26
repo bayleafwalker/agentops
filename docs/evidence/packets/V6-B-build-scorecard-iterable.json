@@ -1,0 +1,108 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V6-B-build-scorecard-iterable",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 29,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "test_release_scorecard_build_iterable.py decides correctness: 28 tests, 16 red at the starting commit with TypeError from len() on a non-sequence. The 12 green ones are the list baselines and the two arguments that already stream.",
+    "starts_red": [
+      "agentops.dispatch.tests.scorecard_build_iterable"
+    ],
+    "reference_patch": "docs/evidence/packets/V6-B-build-scorecard-iterable.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "3eb9d9a829092e137b663f2035b7832f2f37c693",
+  "purpose": "Make build_scorecard accept any iterable for its escalations argument, finishing the widening worker_totals started. worker_totals was widened to materialise its receipts once up front, because it reads them in a single pass but needs the length twice. build_scorecard has the same defect one level up and it was left behind: it loops over escalations to collect task ids and stop conditions, and then asks for len(escalations) when it builds the escalations block. On a generator that raises TypeError -- and it raises after the loop has already drained the argument, so the failure lands at dict-construction time rather than where a reader would look for it. The consequence is that widening worker_totals alone did not deliver the end-to-end capability it appeared to: a caller who wants to stream still has to materialise before calling build_scorecard. The same receipts and the same escalation records must produce the same scorecard however they arrive -- as a list, a tuple, an iterator, a generator or a map object. Two properties make this less trivial than the one-liner it looks like, and both are pinned by the oracle. The argument must be consumed exactly once: a generator cannot be walked twice, so an implementation that iterates in one place and measures in another either raises or, far worse, silently sees an empty sequence the second time and reports a count of zero for a corpus that was not empty. And nothing may be dropped: a next() peek or an islice would satisfy 'consumed once' while losing records, and a lost escalation is a lost signal. Note what the count means, because a careless fix changes it. escalations.count counts RECORDS, not the records the loop found metadata in. One record in the oracle's corpus carries no metadata dict at all and is still worth a full unit of count; an implementation that counts loop iterations reports three where four is right. The other two corpus arguments already stream and must keep streaming: rows reaches reduce_sessions, which walks it once and returns a dict, and receipts goes straight to the already-widened worker_totals. Do not add a len() to either, and do not materialise the one that does not need it. This is a widening and not a change: for every input build_scorecard already accepts, every reported value must be identical to what it reports today, including cost_reported and total_reliable, which report False on an empty corpus on purpose -- with nothing measured, 'nothing failed to report' reads as a measured zero. scope is a scalar and is not widened; it must still ride through verbatim. Leave no debugging output behind.",
+  "readable_context_paths": [
+    "templates/dispatch/tests/test_release_scorecard_build_iterable.py",
+    "templates/dispatch/scripts/release_scorecard.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/release_scorecard.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/scripts/schema_check.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "a generator of escalations gives the same scorecard as the same records as a list",
+    "an iterator, a tuple and a map object are accepted the same way",
+    "the argument is consumed exactly once and nothing is dropped",
+    "escalations.count still counts records, including one with no metadata",
+    "rows and receipts still stream and gain no len()",
+    "every answer for existing inputs is unchanged, empty corpora included"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "escalations may be any iterable",
+      "command_id": "agentops.dispatch.tests.scorecard_build_iterable",
+      "fails_when": "a generator of escalation records raises TypeError from len()"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "single consumption, nothing dropped",
+      "command_id": "agentops.dispatch.tests.scorecard_build_iterable",
+      "fails_when": "the argument is walked twice, so the count reads zero for a corpus that was not empty"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "a widening, not a change",
+      "command_id": "agentops.dispatch.tests.scorecard_build_iterable",
+      "fails_when": "a list answer moves, or the empty corpus stops reporting cost_reported false"
+    }
+  ],
+  "non_goals": [
+    "rows and receipts, which already stream",
+    "detect_worse, which indexes its argument and genuinely needs a sequence",
+    "the loaders, the filters and the entry point",
+    "what any reported value means"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.scorecard_build_iterable"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v6-b-build-iterable",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/dispatch/handover-2026-08-25-v5-9-refactor.md"
+    ]
+  }
+}

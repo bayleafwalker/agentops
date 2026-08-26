@@ -45,7 +45,7 @@ diff on attempt 1 — the worker did nothing — and passed on the L-4 retry.
 
 ## 2. What the corpus still cannot see
 
-**35 packets exist; 23 have a committed receipt. Fifteen do not, and three receipts have no packet.**
+**38 packets exist; 23 have a committed receipt. Fifteen do not, and every receipt now has its packet.**
 
 Packets with no receipt — `V5-M1`, `V5-M5`, `V5-M6a`, `V5-M6b`, `V5-M8`, `V5-M9`, `V5-M10a`,
 `V5-M10b`, `V5-M10c`, `V5-M12`, `V5-P1`, `V5-P1a`, `V5-T3`, `V5-T5`, `V6-A-worker-writability-report`.
@@ -56,13 +56,60 @@ is not recoverable — the coordinator host no longer holds their driver logs. *
 lost rather than left looking like an anomaly.** `V6-A` is the one late row in that list and its
 artifacts are also gone.
 
-Receipts with no packet — `V5-M13`, `V6-B`, `V6-C` — are the documented freeze-branch trap: the
-worker's PR is cut from commit 1 and the packet lives in commit 2, so merging the PR and deleting
-the branch loses the packet.
+Receipts with no packet — **none, as of 2026-08-26.** `V5-M13`, `V6-B` and `V6-C` were the
+documented freeze-branch trap: the worker's PR is cut from commit 1 and the packet lives in commit
+2, so merging the PR and deleting the branch loses the packet. All three have been recovered and
+committed — `V5-M13` from `origin/v5-m13-freeze` (`9882638`), `V6-B` and `V6-C` from unreferenced
+objects (`3f6df37`, `f90336e`).
+
+**The recovery is provable, not asserted.** Each restored packet was re-serialised the way
+`_receipt` does it (`hybrid_dispatch.py:2156`, `sort_keys=True`, `separators=(",",":")`) and its
+SHA-256 compared against the `inputs.packet_hash` its receipt already carried. All three match
+byte-for-byte at `attempt: 1`, so each receipt's `execution_id` re-links to the packet it was
+actually dispatched from. These are the dispatched artifacts, not reconstructions of them.
 
 **Do not read the 0.9545 as covering the whole programme.** It covers the 22 rows that left a
 receipt. What has changed is that the corpus no longer *hides* a failure: the row that failed is now
 in it, and the reported rate moved from 1.0 to 0.9545 the moment it was.
+
+## 2a. The packet/receipt link, audited and repaired 2026-08-26 — 22 of 23 now hold
+
+Recovering the three orphaned packets required proving a restored packet really was the one
+dispatched: re-serialise it the way `_receipt` does (`hybrid_dispatch.py:2156`) and compare the
+SHA-256 against the `inputs.packet_hash` its receipt already carried. Running that same check across
+the **whole** corpus is four lines, and it had never been done.
+
+**It did not hold for four of twenty.** For those four the committed packet was not the artifact that
+produced the receipt, so the `execution_id` a reader would quote resolved to nothing in the
+repository. Three were recovered from the object store and are now re-linked:
+
+| Packet | What had drifted | Now |
+|---|---|---|
+| `V59-2-schema-check-composition` | Reconstructed **by hand** during the lost-packet recovery in #103, losing one `protected_paths` entry (`agentops.dispatch.json`). **The recovery introduced the drift**, because the restored packet was accepted on the strength of its filename. | Restored from blob `05cbd38` |
+| `V6-I-schema-formats` | Committed from the **pre-fix copy** — the version carrying its own writable path in `protected_paths`, which would fail `validate` today. The version that ran had the trap fixed. | Restored from blob `3a0e19a`; the committed packet is now also a *valid* one |
+| `V6-G-defect-seeds` | Enriched after its run with the two seeds it had just built. | Restored from blob `03de51f`. The seeds themselves remain in `docs/evidence/seeds/`, and `V6-J` now carries a declared, `validate`-falsified pair, so nothing is lost |
+| `V6-E-churn-metrics` | Attempt 2 went through the L-4 retry path, which appends gate output to `purpose`. That packet lived only in the coordinator workspace. | **Not in the object store. Declared lost** — the one remaining break |
+
+None of this was evidence of a bad run: every one of these rows passed its gates. It was evidence
+that **the freeze artifact and the dispatched artifact drifted apart without anything noticing**, in
+four distinct ways — hand-reconstruction, committing the wrong copy, post-hoc enrichment, and a
+retry mutating the packet in the coordinator workspace.
+
+The first of those is the one worth dwelling on. The previous recovery pass restored packets by
+filename and moved on; that is exactly how `V59-2` acquired a difference nobody saw for a month. **A
+recovered packet is not recovered until it hashes to its receipt.**
+
+**This is now a standing invariant, not an audit.**
+`templates/dispatch/tests/test_packet_receipt_linkage.py` checks every packet-with-receipt pair on
+every run, checks that `execution_id` embeds the same hash rather than being a second drifting copy,
+and requires any exemption in `DECLARED_LOST` to carry a reason *and* to still genuinely fail — so a
+stale exemption cannot hide a regression on a packet that has since been recovered. It also asserts
+the glob matched something, because a vacuously-passing corpus check is the same defect the `V6-J`
+oracle exists to catch on the frontier half.
+
+**What still needs doing:** the L-4 retry path should commit the packet it actually dispatched. Until
+it does, every retried row will break its own link the way `V6-E` did — and `V6-E` is the one row in
+this corpus that failed first time, which is to say the single most interesting receipt in it.
 
 ## 3. Containment evidence
 

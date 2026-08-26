@@ -136,8 +136,9 @@ The previous handover's §7 all still holds. These are the ones this session pai
   Use `--allow-untraced-oracle` locally (it records `skipped:untraced`, never `true`) or validate on
   devbox, which has it.
 - **Merging the worker's PR still loses the packet.** Commit 2 is not in it. Every row this session
-  cherry-picked commit 2 onto main as a separate PR (#116, #119, #122). Keep doing that, or merge
-  the freeze branch — but deliberately.
+  cherry-picked commit 2 onto main as a separate PR (#116, #119, #122). **Settled 2026-08-26 — see
+  §10. Merge the freeze branch; do not cherry-pick.** The trap is recorded here for why, not as a
+  live choice.
 
 ## 7. Open debt
 
@@ -189,3 +190,42 @@ with "intersects a protected path" even though the manifest does not protect `sc
 packet's list, inherited by copying an earlier packet, did. Check `protected_paths` against
 `writable_patch_paths` when deriving a packet from another. `templates/dispatch/tests/**` staying
 protected is deliberate and must not be relaxed: it is what stops a worker editing its own oracle.
+
+---
+
+## 10. Settled 2026-08-26 — the freeze branch is merged, not cherry-picked
+
+This closes the half of debt #8 that was never a cleanup.
+
+**The decision.** When a worker row lands, **merge its freeze branch.** Do not merge the worker's PR
+alone and cherry-pick commit 2 after it. One merge carries both commits — the oracle at commit 1 and
+the packet plus reference patch at commit 2 — and an orphaned packet becomes structurally impossible
+rather than something a closing evidence pass has to remember.
+
+**Why the old way had to go.** It cost one extra PR per row and it did not actually remove the loss
+mode, only narrowed the window: #116, #119, #122, #128 and #135 were five PRs doing nothing but
+carrying five commit-2s that the merge should have brought with it. Between merging the worker's PR
+and remembering the cherry-pick, the packet is still only reachable from a branch someone is about
+to delete. Three packets were lost in exactly that window.
+
+**The three that were lost are back, and provably the right ones.** `V5-M13-retry-branch` came from
+`origin/v5-m13-freeze` (`9882638`); `V6-B-build-scorecard-iterable` and `V6-C-audit-schema` came from
+unreferenced objects (`3f6df37`, `f90336e`) — `git fsck --lost-found` finds them, they are not gone
+until gc runs.
+
+Do not accept a recovered packet on the strength of its filename. Each one was re-serialised exactly
+the way `_receipt` does it (`hybrid_dispatch.py:2156` — `sort_keys=True`, `separators=(",",":")`) and
+its SHA-256 checked against the `inputs.packet_hash` the receipt already carried. All three matched
+byte-for-byte at `attempt: 1`, so every `execution_id` re-links to the packet it was really
+dispatched from. **That check is the reason to believe the corpus, and it is cheap — do it.**
+
+Every receipt in `docs/evidence/receipts/` now has its packet. The corpus document's §2 no longer
+records an unexplained asymmetry; the fifteen packets with no receipt remain, declared lost, for the
+separate and benign reason that they predate receipt capture.
+
+**Reference patches are gitignored — `git add -f` them.** That trap is what makes a recovery look
+complete when only half of it committed. Note that until 2026-08-26 this advice was only true on
+*this machine*: the rule lived in `.git/info/exclude`, which is clone-local and uncommitted, so a
+fresh clone had no such rule and the instruction would have read as false. It is now in the tracked
+`.gitignore`, with the reason recorded beside it. Already-tracked patches are unaffected — a
+`.gitignore` rule does not untrack anything.

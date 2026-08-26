@@ -17,3 +17,11 @@ __pycache__/
 .sprintctl/
 .auditctl/
 ops/systemd/session-mechanization-projects.conf
+
+# Reference patches are the coordinator's own solution to a frozen packet. They are
+# ignored so a worker's worktree can never pick one up by accident, and committed
+# deliberately with `git add -f` as part of commit 2 of a freeze. This rule lived in
+# .git/info/exclude until 2026-08-26, which made it clone-local: the handover's
+# "reference patches are gitignored -- git add -f them" was true on one machine and
+# false on a fresh clone, with no way for a reader to tell which case they were in.
+docs/evidence/packets/*.reference.patch

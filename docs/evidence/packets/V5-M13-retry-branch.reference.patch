@@ -1,0 +1,62 @@
+diff --git a/templates/dispatch/scripts/dispatch_release.py b/templates/dispatch/scripts/dispatch_release.py
+index b80981a..bec9bf2 100644
+--- a/templates/dispatch/scripts/dispatch_release.py
++++ b/templates/dispatch/scripts/dispatch_release.py
+@@ -423,13 +423,34 @@ def hybrid_cmd(
+     ]
+ 
+ 
++def packet_branch(packet: dict[str, Any]) -> str:
++    """The remote branch this attempt pushes to.
++
++    A first attempt uses the branch the packet declares. A retry gets its own,
++    because attempt 1's branch is already on the remote and a plain push is
++    rejected -- V5-M12 attempt 2 produced a correct diff, passed every gate, and
++    died there. No retry had reached the PR step before, which is why it
++    surfaced only then.
++
++    Force-pushing would be the wrong answer: the earlier branch is the evidence
++    the retry was authored against, and the rejection notice points at it. So
++    the retry moves and the record stays, which is the same shape as the owner's
++    ruling on the attempt counter.
++    """
++    branch = packet["worktree"]["branch"]
++    attempt = packet.get("attempt", 1)
++    if not isinstance(attempt, int) or attempt <= 1:
++        return branch
++    return f"{branch}-attempt-{attempt}"
++
++
+ def pr_command(
+     packet: dict[str, Any], body: Path, base: str, title: str, gh_bin: str,
+ ) -> list[str]:
+     """The single ``gh pr create`` invocation. Body is the generated body file."""
+     return [
+         gh_bin, "pr", "create",
+-        "--head", packet["worktree"]["branch"],
++        "--head", packet_branch(packet),
+         "--base", base,
+         "--title", title,
+         "--body-file", str(body),
+@@ -881,7 +902,11 @@ def drive(
+                 "no PR was opened"
+             )
+         else:
+-            branch = packet["worktree"]["branch"]
++            # The local branch the worktree is on, and the remote branch this
++            # attempt is allowed to push to -- the same for a first attempt,
++            # different for a retry.
++            local_branch = packet["worktree"]["branch"]
++            branch = packet_branch(packet)
+             add_cmd = ["git", "remote", "add", "origin", remote]
+             completed = runner(add_cmd, worktree)
+             if completed.returncode != 0:
+@@ -889,7 +914,7 @@ def drive(
+                     "remote-add", completed.returncode,
+                     (completed.stderr or "").strip()[-2000:],
+                 )
+-            push_cmd = ["git", "push", "origin", f"{branch}:{branch}"]
++            push_cmd = ["git", "push", "origin", f"{local_branch}:{branch}"]
+             completed = runner(push_cmd, worktree)
+             if completed.returncode != 0:
+                 return pr_failed(

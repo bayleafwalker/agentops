@@ -1,0 +1,17 @@
+diff --git a/templates/dispatch/scripts/release_scorecard.py b/templates/dispatch/scripts/release_scorecard.py
+index c48b749..dcb6647 100644
+--- a/templates/dispatch/scripts/release_scorecard.py
++++ b/templates/dispatch/scripts/release_scorecard.py
+@@ -174,6 +174,12 @@ def build_scorecard(release, rows, receipts, escalations, recorded_at,
+     """
+     frontier = frontier_totals(rows)
+     worker = worker_totals(receipts)
++    # Materialised once, for the same reason worker_totals materialises its
++    # receipts: the records are read in one pass but the count is needed again
++    # for the escalations block, and a generator would be counted after it had
++    # already been consumed. ``rows`` needs no such treatment -- it reaches
++    # reduce_sessions, which walks it once and returns a dict.
++    escalations = list(escalations)
+     task_ids = set()
+     stop_conditions = set()
+     for record in escalations:

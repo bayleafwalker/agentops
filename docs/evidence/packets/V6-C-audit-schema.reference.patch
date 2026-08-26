@@ -1,0 +1,147 @@
+diff --git a/templates/dispatch/scripts/schema_check.py b/templates/dispatch/scripts/schema_check.py
+index 4714182..a971ade 100644
+--- a/templates/dispatch/scripts/schema_check.py
++++ b/templates/dispatch/scripts/schema_check.py
+@@ -94,21 +94,54 @@ def _resolve_pointer(document, ref):
+     return node
+ 
+ 
++def audit_schema(schema, path="$"):
++    """Report EVERY construct this checker cannot enforce, raising nothing.
++
++    ``validate`` raises on the first such construct, which is right for a gate
++    and close to useless for a human fixing a schema: one anonymous exception
++    per run. ``manifest.schema.json`` carried the unenforceable subschema form
++    of ``additionalProperties`` in three separate nodes, one of them only
++    reachable through a ``oneOf``, and each run named one and stopped.
++
++    Each entry carries the breadcrumb of the offending node and names the
++    offending keyword. An empty list means the schema is enforceable end to
++    end, which is exactly the condition under which ``validate`` does not
++    raise -- the two answer the same question and must never disagree.
++    """
++    entries = []
++    _audit_entries(schema, path, schema, set(), entries)
++    return entries
++
++
+ def _audit_schema(schema, path, root, seen=None):
+-    """Walk the whole schema eagerly, raising on anything unenforceable.
++    """The raising form: the first unenforceable construct, as an exception."""
++    entries = []
++    _audit_entries(schema, path, root, set() if seen is None else seen, entries)
++    if entries:
++        raise UnsupportedKeyword(entries[0])
++
++
++def _audit_entries(schema, path, root, seen, out):
++    """Walk the whole schema eagerly, appending one entry per defect.
+ 
+     ``root`` is the top-level schema document that internal ``$ref`` pointers
+     resolve against. ``seen`` guards the recursion against a ``$defs``
+     definition that points back at itself; a node already audited is a node
+     already known to be honest.
++
++    Where a defect makes further descent meaningless -- an unresolvable
++    ``$ref``, a node that is not a schema at all -- the walk stops at that node
++    and continues with its siblings. Everywhere else it keeps going, because
++    reporting one defect and abandoning the rest of the document is the
++    behaviour this function exists to replace.
+     """
+     if isinstance(schema, bool):
+-        raise UnsupportedKeyword(f"{path}: boolean schema is not supported")
++        out.append(f"{path}: boolean schema is not supported")
++        return
+     if not isinstance(schema, dict):
+-        raise UnsupportedKeyword(
++        out.append(
+             f"{path}: schema must be an object, got {type(schema).__name__}")
+-    if seen is None:
+-        seen = set()
++        return
+     marker = id(schema)
+     if marker in seen:
+         return
+@@ -117,57 +150,58 @@ def _audit_schema(schema, path, root, seen=None):
+         if keyword in ANNOTATION_KEYWORDS:
+             continue
+         if keyword not in SUPPORTED_KEYWORDS:
+-            raise UnsupportedKeyword(f"{path}: unsupported keyword {keyword!r}")
++            out.append(f"{path}: unsupported keyword {keyword!r}")
++            continue
+         if keyword == "type":
+             if not isinstance(value, str):
+-                raise UnsupportedKeyword(
+-                    f"{path}: type as a union list is not supported")
++                out.append(f"{path}: type as a union list is not supported")
+         elif keyword == "items":
+             if isinstance(value, list):
+-                raise UnsupportedKeyword(
+-                    f"{path}: items as a positional list is not supported")
+-            _audit_schema(value, f"{path}.items", root, seen)
++                out.append(f"{path}: items as a positional list is not supported")
++            else:
++                _audit_entries(value, f"{path}.items", root, seen, out)
+         elif keyword == "properties":
+             for prop_name, prop_schema in value.items():
+-                _audit_schema(prop_schema, f"{path}.properties.{prop_name}",
+-                              root, seen)
++                _audit_entries(prop_schema, f"{path}.properties.{prop_name}",
++                               root, seen, out)
+         elif keyword == "additionalProperties":
+             if isinstance(value, dict):
+-                _audit_schema(value, f"{path}.additionalProperties", root, seen)
++                _audit_entries(value, f"{path}.additionalProperties", root,
++                               seen, out)
+             elif not isinstance(value, bool):
+-                raise UnsupportedKeyword(
++                out.append(
+                     f"{path}: additionalProperties must be a boolean or a "
+                     f"subschema")
+         elif keyword == "$defs":
+             for name, definition in value.items():
+-                _audit_schema(definition, f"{path}.$defs.{name}", root, seen)
++                _audit_entries(definition, f"{path}.$defs.{name}", root, seen, out)
+         elif keyword == "$ref":
+             target = _resolve_pointer(root, value)
+             if target is None:
+-                raise UnsupportedKeyword(
++                out.append(
+                     f"{path}: $ref {value!r} is not an internal, resolvable "
+                     f"pointer")
+-            _audit_schema(target, f"{path}@{value}", root, seen)
++            else:
++                _audit_entries(target, f"{path}@{value}", root, seen, out)
+         elif keyword in ("allOf", "oneOf"):
+             if not isinstance(value, list):
+-                raise UnsupportedKeyword(
+-                    f"{path}: {keyword} must be a list of schemas")
+-            for index, subschema in enumerate(value):
+-                _audit_schema(subschema, f"{path}.{keyword}[{index}]",
+-                              root, seen)
++                out.append(f"{path}: {keyword} must be a list of schemas")
++            else:
++                for index, subschema in enumerate(value):
++                    _audit_entries(subschema, f"{path}.{keyword}[{index}]",
++                                   root, seen, out)
+         elif keyword == "not":
+-            _audit_schema(value, f"{path}.not", root, seen)
++            _audit_entries(value, f"{path}.not", root, seen, out)
+         elif keyword == "if":
+-            _audit_schema(value, f"{path}.if", root, seen)
++            _audit_entries(value, f"{path}.if", root, seen, out)
+         elif keyword == "then":
+-            _audit_schema(value, f"{path}.then", root, seen)
++            _audit_entries(value, f"{path}.then", root, seen, out)
+         elif keyword == "propertyNames":
+-            _audit_schema(value, f"{path}.propertyNames", root, seen)
++            _audit_entries(value, f"{path}.propertyNames", root, seen, out)
+         elif keyword in ("minItems", "minProperties", "maximum"):
+             if (not isinstance(value, (int, float))
+                     or isinstance(value, bool)):
+-                raise UnsupportedKeyword(
+-                    f"{path}: {keyword} must be a number")
++                out.append(f"{path}: {keyword} must be a number")
+ 
+ 
+ def validate(instance, schema, path="$"):
