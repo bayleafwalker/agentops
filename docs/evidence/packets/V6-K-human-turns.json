@@ -1,0 +1,133 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V6-K-human-turns",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": null,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "templates/dispatch/hooks/tests/test-human-turns.sh decides correctness: REQ-001..REQ-006, and nothing outside log-session-cost.sh. Written from docs/evidence/seeds/V6-K-human-turns.spec.md by an independent author with no implementation to look at (Rule 5). The spec is at revision 2, revised after the revision-1 author's ambiguity report caught that the original scope would have shipped a field nothing reads. agentops.hooks.tests.t1 is carried as a non-starts_red guard so the T-1 field contract cannot regress.",
+    "starts_red": [
+      "agentops.hooks.tests.human-turns"
+    ],
+    "reference_patch": "docs/evidence/packets/V6-K-human-turns.reference.patch"
+  },
+  "attempt": 1,
+  "starting_commit": "f40d2ca28998f662c90244553dd5dd0e6798a6dd",
+  "purpose": "Add exactly one field, human_turns, to the JSON object templates/dispatch/hooks/log-session-cost.sh already emits, positioned immediately after turns. The hook already emits turns, computed as the number of transcript rows where .type == \"user\", .isMeta != true, and whose .message.content carries no element with .type == \"tool_result\". That predicate was documented as counting human prompts into the session, and it does not: measured on one real transcript, 16 turns decomposed into 5 genuine human prompts, 9 harness-injected background-task completion notices, 1 slash-command artifact and 1 interruption marker. human_turns counts rows that satisfy the existing turns predicate AND are genuine human input, decided in three steps. (1) Collect the row's text elements: .message.content when it is a string, otherwise the .text value of each array element whose .type == \"text\", in order; any other shape yields no text elements. (2) Discard every text element that, ignoring leading whitespace, begins with any of <task-notification>, <command-name>, <command-message>, <command-args>, <local-command-stdout>, <local-command-caveat>, <system-reminder>, [Request interrupted, or This session is being continued from a previous conversation. (3) The row is human input when what remains, joined, holds at least one non-whitespace character. Discard-then-check rather than testing only the leading element: the harness appends <system-reminder> blocks to genuine human turns, and a leading-element rule would drop a real prompt whenever a marker sorted first. The two rules agree on every transcript measured to date, so this costs nothing now and is correct when it stops agreeing. The field must ALSO be added to the explicit key list emit_record uses to build the auditctl --metadata blob, otherwise the packet ships a field no consumer can read; that key list lives in this same file, so the packet is still one writable file and one outcome. turns is NOT corrected in place and must stay behaviourally identical -- the jq may be restructured freely so long as the value is the same for every transcript -- because existing scorecard rows and the cockpit read it, and silently changing what a published field means is worse than a wrong number with a stable definition. This is an additive change in the sense of Rule 9. Every other field keeps its name, relative order and type, including in the zero record written when no transcript exists, which must also carry human_turns.",
+  "readable_context_paths": [
+    "templates/dispatch/hooks/log-session-cost.sh",
+    "templates/dispatch/hooks/tests/test-human-turns.sh",
+    "templates/dispatch/hooks/tests/test-cost-hook-fields.sh",
+    "docs/evidence/seeds/V6-K-human-turns.spec.md"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/hooks/log-session-cost.sh"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/hooks/tests/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "log-session-cost.sh emits human_turns in every cost-log record it writes, including the zero record written when no transcript exists",
+    "human_turns is positioned immediately after turns",
+    "human_turns counts only rows that satisfy the existing turns predicate and retain non-whitespace text after every marker-led element is discarded",
+    "the auditctl --metadata key list includes human_turns",
+    "turns keeps its current name, relative order, type and value for every transcript",
+    "every other field the hook emits keeps its name, relative order and type",
+    "human_turns never exceeds turns"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "human_turns is present in every emitted record",
+      "command_id": "agentops.hooks.tests.human-turns",
+      "fails_when": "the field is absent from any record the hook writes, including the no-transcript zero record"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "human_turns counts genuine human prompts only",
+      "command_id": "agentops.hooks.tests.human-turns",
+      "fails_when": "a transcript containing harness-injected rows of any listed kind yields a human_turns that includes them"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "turns is unchanged behaviourally",
+      "command_id": "agentops.hooks.tests.human-turns",
+      "fails_when": "turns differs, for any transcript, from the value the current predicate produces (the jq may be restructured; only the value is pinned)"
+    },
+    {
+      "id": "REQ-004",
+      "requirement": "the cost record stays backward compatible and human_turns is positioned immediately after turns",
+      "command_id": "agentops.hooks.tests.human-turns",
+      "fails_when": "any pre-existing field is renamed, removed, reordered or retyped, or human_turns appears anywhere other than immediately after turns"
+    },
+    {
+      "id": "REQ-005",
+      "requirement": "human_turns never exceeds turns",
+      "command_id": "agentops.hooks.tests.human-turns",
+      "fails_when": "a transcript yields human_turns greater than turns"
+    },
+    {
+      "id": "REQ-006",
+      "requirement": "human_turns reaches the audit store, not only the cost log",
+      "command_id": "agentops.hooks.tests.human-turns",
+      "fails_when": "the auditctl --metadata key list omits human_turns"
+    }
+  ],
+  "non_goals": [
+    "changing turns itself",
+    "restating section 2b or the D-9 falsifier against the new field",
+    "the PostToolUse gate hook",
+    "changing how auditctl is invoked -- its --type, --summary line or failure handling; only the metadata key list is in scope",
+    "the /friction skill",
+    "subagent transcripts and any spend accounting for them",
+    "anything outside templates/dispatch/hooks/log-session-cost.sh"
+  ],
+  "allowed_command_ids": [
+    "agentops.hooks.tests.human-turns",
+    "agentops.hooks.tests.t1",
+    "agentops.dispatch.tests"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 500000,
+    "hard_token_ceiling": 1000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 8,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v6-k-human-turns",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/plans/agentops/2026-08-26-measurement-instrument-findings.md",
+      "docs/plans/agentops/2026-08-25-l6-d9-restate-pilot-design.md",
+      "docs/evidence/seeds/V6-K-human-turns.spec.md"
+    ]
+  },
+  "debt": "Finding B is not in this packet: the v5 T-series ratio divides a numerator scoped to 2026-08-24T20:02:32Z by a denominator of 11 packets that includes T-11, which landed 2026-08-25 (handover section 3i). That is arithmetic in 2026-08-25-l6-d9-restate-pilot-design.md section 2b and must land with the D-9 restatement. Finding E of the findings doc -- subagent usage is never counted, while Rule 5 makes every packet's oracle a subagent -- is an open owner decision and is deliberately out of scope. Separately, the revision-1 oracle author found that templates/dispatch/hooks/tests/test-cost-hook-fields.sh does not pin AUDITCTL_ARTIFACTS_ROOT; auditctl is installed on this host, so every run of that oracle writes real workflow.session events into the live audit store. Verified: the file mentions auditctl only in a comment. Fixing it is a protected-path hand-pass under templates/dispatch/hooks/tests/**, not this packet."
+}

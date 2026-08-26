@@ -1,0 +1,67 @@
+diff --git a/templates/dispatch/hooks/log-session-cost.sh b/templates/dispatch/hooks/log-session-cost.sh
+index e781738..49a3a2a 100755
+--- a/templates/dispatch/hooks/log-session-cost.sh
++++ b/templates/dispatch/hooks/log-session-cost.sh
+@@ -71,7 +71,7 @@ emit_record() {
+   summary="$(printf '%s' "$record" | jq -r '"session \(.project): \(.turns) turns, \(.tool_calls) tool calls, $\(.cost_usd * 100 | round / 100)"')"
+   metadata="$(printf '%s' "$record" | jq -c \
+       --argjson gates "$GATES" --argjson rework "${REWORK:-0}" \
+-      '{session, runtime_session_id, turns, assistant_msgs, tool_calls, duration_s, cost_usd,
++      '{session, runtime_session_id, turns, human_turns, assistant_msgs, tool_calls, duration_s, cost_usd,
+         model, project, gates: $gates, rework_rounds: $rework}')"
+   # No --ref: auditctl allows only wi:/ka:/ad:/sha:/pr:/sprint:/capsule: prefixes, so the
+   # session id travels in the metadata instead of being rejected as an invalid ref.
+@@ -86,7 +86,7 @@ if [[ -z "$TRANSCRIPT" || ! -f "$TRANSCRIPT" ]]; then
+     --arg proj "$PROJ" \
+     --arg session "$SESSION" \
+     --arg runtime_session "$RUNTIME_SESSION" \
+-    '{ts:$ts, project:$proj, session:$session, runtime_session_id:($runtime_session // ""), model:"unknown", in:0, cache_write:0, cache_read:0, out:0, cost_usd:0, turns:0, assistant_msgs:0, tool_calls:0, duration_s:0}')"
++    '{ts:$ts, project:$proj, session:$session, runtime_session_id:($runtime_session // ""), model:"unknown", in:0, cache_write:0, cache_read:0, out:0, cost_usd:0, turns:0, human_turns:0, assistant_msgs:0, tool_calls:0, duration_s:0}')"
+   emit_record "$RECORD"
+   exit 0
+ fi
+@@ -113,6 +113,35 @@ RECORD="$(jq -rcs \
+   # better answer on the ones we do not.
+   | ([ $rows[] | select(.type == "user" and (.isMeta != true)
+        and ([ .message.content[]? | select(.type == "tool_result") ] | length) == 0) ] | length) as $turns
++  # human_turns (V6-K): the subset of $turns that is genuine human input. Text elements of a
++  # turn-eligible row are collected with an explicit type guard -- content that is neither a string
++  # nor an array yields none, rather than raising. Every element beginning with a harness marker is
++  # discarded; the row is human if anything non-whitespace survives. Prefix-only and per-element by
++  # design, so this is a LOWER BOUND on human prompts, not a count of them: a real prompt that
++  # legitimately opens with one of these strings is uncounted. See
++  # docs/evidence/seeds/V6-K-human-turns.spec.md.
++  | ([ $rows[]
++       | select(.type == "user" and (.isMeta != true)
++           and ([ .message.content[]? | select(.type == "tool_result") ] | length) == 0)
++       | (.message.content
++          | if type == "string" then [ . ]
++            elif type == "array" then [ .[]? | select(.type == "text") | .text ]
++            else [] end)
++       | [ .[] | select(
++             (sub("^\\s+"; "")) as $t
++             | ($t | startswith("<task-notification>")
++                 or startswith("<command-name>")
++                 or startswith("<command-message>")
++                 or startswith("<command-args>")
++                 or startswith("<local-command-stdout>")
++                 or startswith("<local-command-caveat>")
++                 or startswith("<system-reminder>")
++                 or startswith("[Request interrupted")
++                 or startswith("This session is being continued from a previous conversation"))
++             | not) ]
++       | join(" ")
++       | select(test("\\S"))
++     ] | length) as $human_turns
+   | ([ $rows[] | select(.type == "assistant") ] | length) as $assistant_msgs
+   | ([ $rows[] | select(.type == "assistant") | .message.content[]? | select(.type == "tool_use") ] | length) as $tool_calls
+   | ([ $rows[] | .timestamp // empty | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601? // empty ]) as $stamps
+@@ -134,7 +163,7 @@ RECORD="$(jq -rcs \
+       )
+     }
+   | {ts: $ts, project: $proj, session: $session, runtime_session_id: $runtime_session}
+-    + . + {turns: $turns, assistant_msgs: $assistant_msgs, tool_calls: $tool_calls, duration_s: $duration_s}
++    + . + {turns: $turns, human_turns: $human_turns, assistant_msgs: $assistant_msgs, tool_calls: $tool_calls, duration_s: $duration_s}
+   ' "$TRANSCRIPT")"
+ 
+ emit_record "$RECORD"
