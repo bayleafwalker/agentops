@@ -29,6 +29,14 @@
 > one narrowly framed policy question — not a memo presenting four owner decisions. Correct
 > classification: `#2046` *ready for ratification*; `#2100` *policy application, escalate only on
 > conflicting doctrine*; devbox *bounded maintenance*; uuid *review-derived fix*.
+>
+> **The governing text, since none was cited when this was written.** Rule 4 of
+> `docs/dispatch/handover-2026-08-23-metanarrative-v5.md` enumerates the owner touchpoints — the
+> release boundary, freeze amendments, anything the admission policy names coordinator-only, and the
+> v5.9 refactor pass. None of the four is among them, and that was checkable before the document was
+> written. `#2100`'s scope was likewise already fixed in text: the L-3/D-8 ruling reads *"a green
+> evidence gate **on this class** disposes candidate"* — class, not route. Reconciled with the other
+> four of that day in `2026-08-26-false-escalation-reconciliation.md`.
 
 ## Outcomes
 

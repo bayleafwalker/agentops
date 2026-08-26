@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/decision-request.schema.json",
+  "title": "Agentops decision record",
+  "description": "One outcome of a planning or review cycle, classified before it can be emitted. The owner queue is built from these, not from prose. A derivable outcome is a resolution and never reaches the queue; an authorization gate is its own kind, because a refused tool call is a gate and not a deliberation; only ratification and new-value-choice records are decisions at all.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "kind", "claim", "governing_refs"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["agentops-decision/v1"]
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "description": "Stable id. Becomes a heading anchor and a queue key."
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["resolution", "authorization", "ratification", "new-value-choice"],
+      "description": "The three axes, made into record kinds. 'resolution' is a derived answer and is not a decision; 'authorization' is a permission or acceptance gate and is not a deliberation; 'ratification' brings a resolved action for signature; 'new-value-choice' is the only real escalation."
+    },
+    "claim": {
+      "type": "string",
+      "minLength": 12,
+      "description": "What is being asserted, in one sentence."
+    },
+    "governing_refs": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Where the rule actually is. A remembered scope is not a constraint, so a record cannot be emitted without at least one, and each must state the scope it was read as having -- that is the field the eight escalations of 2026-08-26 would each have had to fill in wrongly, in writing, to survive.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["location", "stated_scope"],
+        "properties": {
+          "location": {
+            "type": "string",
+            "minLength": 3,
+            "description": "file:line, section reference, or numbered rule."
+          },
+          "revision": {
+            "type": "string",
+            "description": "The revision the text was read at, when it is known."
+          },
+          "stated_scope": {
+            "type": "string",
+            "minLength": 6,
+            "description": "What the rule ranges over, in the rule's own terms: a class, a route, a kind, a window, a path."
+          }
+        }
+      }
+    },
+    "unresolved_delta": {
+      "type": "string",
+      "description": "What the governing text does not settle. Required for a new-value-choice: if nothing is left over, the answer was derivable."
+    },
+    "authority_required": {
+      "type": "string",
+      "description": "The authority the action needs. Required for ratification and authorization."
+    },
+    "recommendation": {
+      "type": "string",
+      "description": "The resolved action being brought for signature, or the reading being recommended."
+    },
+    "resolved_action": {
+      "type": "string",
+      "description": "What was done, for a resolution. A derivable outcome is reported as an action taken, not a question asked."
+    },
+    "supersedes": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "description": "Decision ids this record replaces. Corrections append; they never rewrite."
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"kind": {"const": "new-value-choice"}}},
+      "then": {"required": ["unresolved_delta", "recommendation"]}
+    },
+    {
+      "if": {"properties": {"kind": {"const": "ratification"}}},
+      "then": {"required": ["authority_required", "recommendation"]}
+    },
+    {
+      "if": {"properties": {"kind": {"const": "authorization"}}},
+      "then": {"required": ["authority_required"]}
+    },
+    {
+      "if": {"properties": {"kind": {"const": "resolution"}}},
+      "then": {"required": ["resolved_action"]}
+    }
+  ]
+}

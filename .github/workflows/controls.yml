@@ -1,0 +1,39 @@
+name: controls
+
+# The dispatch controls -- the test suite, the decision-brief check, the skill
+# chain and the instruction binding -- were all enforced by whoever remembered
+# to run them. Measured 2026-08-26: .github/workflows carried pages.yml and
+# protected-paths.yml and nothing else, so check_decision_briefs.py landed
+# described as enforcement with nothing on the merge path running it. That is
+# the same defect the checks themselves exist to catch: a control declared
+# present without the production path ever selecting, executing or observing it.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+
+jobs:
+  controls:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: dispatch test suite
+        run: python -m unittest discover -s templates/dispatch/tests
+
+      - name: decision briefs are classified and cited
+        run: python templates/dispatch/scripts/check_decision_briefs.py
+
+      - name: selected skills are canonical and materialized
+        run: python templates/dispatch/scripts/sync_skills.py check --repo .
+
+      - name: instruction binding is validated
+        # main() already exits 1 unless the binding is validated with no
+        # finding above "none", so the check is the command itself.
+        run: python templates/dispatch/scripts/instruction_doctor.py --root .

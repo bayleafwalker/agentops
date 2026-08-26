@@ -110,7 +110,7 @@
   },
   "context_churn": {
     "max_repeated_reads_per_path": 4,
-    "max_reasoning_steps_without_mutation": 8,
+    "max_reasoning_steps_without_mutation": 12,
     "max_identical_context_tokens": 250000,
     "handoff_when_candidate_ready": true
   },

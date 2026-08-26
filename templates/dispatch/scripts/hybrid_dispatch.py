@@ -37,7 +37,18 @@ import time
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
+
+import importlib.util as _importlib_util
+
+# Loaded by path rather than imported by name: these scripts are run directly
+# from a checkout and are not a package. ``packet_schema`` has no side effects
+# and does not load this module back, so there is no re-entry to guard against.
+_packet_schema_spec = _importlib_util.spec_from_file_location(
+    "_hybrid_dispatch_packet_schema", Path(__file__).resolve().parent / "packet_schema.py"
+)
+packet_schema = _importlib_util.module_from_spec(_packet_schema_spec)
+_packet_schema_spec.loader.exec_module(packet_schema)  # type: ignore[union-attr]
 
 POLICY_RELATIVE = Path("templates/dispatch/hybrid/hybrid-dispatch.v1.json")
 WORKER_CONFIG_RELATIVE = Path("templates/dispatch/hybrid/opencode.hybrid.json")
@@ -181,15 +192,217 @@ def _pattern_escapes_repo(pattern: str) -> bool:
     return any(part == ".." for part in Path(pattern).parts)
 
 
+# --------------------------------------------------------------------------
+# Pre-gate evaluation
+#
+# ``validate_packet`` used to end with ``return list(policy["gates"]["pre"])``
+# and ``main`` printed that list verbatim in both the ``fit`` and the ``unfit``
+# payload. It was an echo of the policy file, not an observation of anything.
+# Measured on 2026-08-26: six of the eight configured pre-gate names appeared
+# nowhere in these scripts at all. ``packet-schema-valid`` was reported
+# satisfied while the packet was compared against no schema, which is how V6-K
+# was dispatched twice with ``debt`` as a string.
+#
+# Most of the underlying invariants did exist inside ``validate_packet``. What
+# was missing was any binding between a gate's name and the code that computes
+# it, so the registry below is mostly that binding made explicit -- plus the
+# rule that a gate with no evaluator fails closed rather than being reported as
+# satisfied.
+#
+# Gates carry a phase because "fail closed" cannot mean "validate never
+# returns fit": three of these are not knowable until a workspace exists. A
+# gate due at ``prepare`` is reported ``not_evaluated`` at ``validate``, which
+# makes the phase boundary visible instead of papering over it. A gate with no
+# phase at all has no evaluator and blocks.
+# --------------------------------------------------------------------------
+
+GATE_PASSED = "passed"
+GATE_FAILED = "failed"
+GATE_NOT_EVALUATED = "not_evaluated"
+GATE_ERROR = "error"
+
+VALIDATE_PHASE = "validate"
+PREPARE_PHASE = "prepare"
+
+
+class GateResult(NamedTuple):
+    """One gate, and what was actually observed about it."""
+
+    name: str
+    status: str
+    evaluator: str
+    input_digest: str
+    evidence: tuple[str, ...] = ()
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "status": self.status,
+            "evaluator": self.evaluator,
+            "input_digest": self.input_digest,
+            "evidence": list(self.evidence),
+        }
+
+
+def _gate_packet_schema_valid(packet, manifest, policy):
+    violations = packet_schema.validate_against_packet_schema(packet)
+    if violations:
+        return GATE_FAILED, tuple(violations)
+    return GATE_PASSED, (f"checked against {packet_schema.SCHEMA_PATH.name}",)
+
+
+def _gate_scope_within_manifest(packet, manifest, policy):
+    """Every writable pattern is inside the manifest's declared scope roots.
+
+    ``validate_packet`` raises on the first violation, so by the time this runs
+    the condition already holds. The value here is the binding: the gate name
+    now points at the code that establishes it, and at the roots it was checked
+    against.
+    """
+    roots = manifest.get("scope", {}).get("allowed_path_roots", [])
+    if not roots:
+        return GATE_NOT_EVALUATED, ("manifest declares no scope.allowed_path_roots",)
+    outside = [
+        pattern for pattern in packet["writable_patch_paths"]
+        if _pattern_escapes_repo(pattern) or not _matches_any(pattern, roots)
+    ]
+    if outside:
+        return GATE_FAILED, tuple(f"outside scope: {pattern}" for pattern in outside)
+    return GATE_PASSED, tuple(f"root: {root}" for root in roots)
+
+
+def _gate_protected_paths_untouched(packet, manifest, policy):
+    """No writable pattern intersects a protected path.
+
+    At this phase the claim is about what the packet *may* touch; the post-gate
+    of the same name checks what it did touch.
+    """
+    protected = list(manifest.get("hybrid", {}).get("protected_paths", [])) + list(
+        packet["protected_paths"]
+    )
+    hits = [p for p in packet["writable_patch_paths"] if _matches_any(p, protected)]
+    if hits:
+        return GATE_FAILED, tuple(f"writable pattern is protected: {p}" for p in hits)
+    return GATE_PASSED, (f"{len(protected)} protected patterns, none intersected",)
+
+
+#: name -> (phase, evaluator). ``None`` marks a gate whose evaluation happens
+#: outside ``validate_packet``; the phase still says when it is due, and
+#: ``main`` is responsible for upgrading a validate-phase entry once it has run
+#: the code that establishes it.
+PRE_GATE_EVALUATORS: dict[str, tuple[str, Any]] = {
+    "sprint-item-exists": (PREPARE_PHASE, None),
+    "sprint-item-claimed-by-coordinator": (PREPARE_PHASE, None),
+    "packet-schema-valid": (VALIDATE_PHASE, _gate_packet_schema_valid),
+    "scope-within-manifest": (VALIDATE_PHASE, _gate_scope_within_manifest),
+    "protected-paths-untouched": (VALIDATE_PHASE, _gate_protected_paths_untouched),
+    "worktree-exact-commit": (PREPARE_PHASE, None),
+    "registered-commands-green-cold": (PREPARE_PHASE, None),
+    "acceptance-properties-discriminating": (VALIDATE_PHASE, None),
+}
+
+#: Where a gate with no in-``validate_packet`` evaluator is actually decided.
+GATE_EVALUATOR_NAMES: dict[str, str] = {
+    "sprint-item-exists": "verify_live_coordinator_claim",
+    "sprint-item-claimed-by-coordinator": "verify_live_coordinator_claim",
+    "worktree-exact-commit": "prepare_workspace",
+    "registered-commands-green-cold": "assess_cold_run",
+    "acceptance-properties-discriminating": "check_oracle_attainable+check_defect_seeds",
+}
+
+
+def packet_input_digest(packet: dict[str, Any]) -> str:
+    """The digest of the input every pre-gate evaluator reads."""
+    payload = json.dumps(packet, sort_keys=True, separators=(",", ":")).encode()
+    return f"sha256:{hashlib.sha256(payload).hexdigest()}"
+
+
+def evaluate_pre_gates(
+    packet: dict[str, Any],
+    manifest: dict[str, Any],
+    policy: dict[str, Any],
+) -> list[GateResult]:
+    """Every configured pre-gate, in policy order, with what was observed."""
+    digest = packet_input_digest(packet)
+    results: list[GateResult] = []
+    for name in policy["gates"]["pre"]:
+        registration = PRE_GATE_EVALUATORS.get(name)
+        if registration is None:
+            # Fail closed. A gate configured in policy with nothing to compute
+            # it is the defect this registry exists to make impossible to ship.
+            results.append(GateResult(
+                name, GATE_NOT_EVALUATED, "unregistered", digest,
+                ("no evaluator is registered for this gate",),
+            ))
+            continue
+        phase, evaluator = registration
+        if evaluator is None:
+            where = GATE_EVALUATOR_NAMES.get(name, "elsewhere")
+            results.append(GateResult(
+                name, GATE_NOT_EVALUATED, where, digest,
+                (f"due at {phase}",),
+            ))
+            continue
+        try:
+            status, evidence = evaluator(packet, manifest, policy)
+        except Exception as error:  # noqa: BLE001 - reported, never swallowed
+            results.append(GateResult(
+                name, GATE_ERROR, evaluator.__name__, digest,
+                (f"{type(error).__name__}: {error}",),
+            ))
+            continue
+        results.append(GateResult(name, status, evaluator.__name__, digest, evidence))
+    return results
+
+
+def _record_gate(
+    results: list[GateResult],
+    name: str,
+    status: str,
+    evaluator: str,
+    evidence: tuple[str, ...],
+) -> list[GateResult]:
+    """Replace one gate's result once the code that establishes it has run."""
+    updated: list[GateResult] = []
+    for result in results:
+        if result.name == name:
+            updated.append(GateResult(name, status, evaluator, result.input_digest, evidence))
+        else:
+            updated.append(result)
+    return updated
+
+
+def blocking_pre_gates(results: list[GateResult]) -> list[GateResult]:
+    """Validate-phase gates that did not pass, plus every unregistered gate."""
+    blocking: list[GateResult] = []
+    for result in results:
+        registration = PRE_GATE_EVALUATORS.get(result.name)
+        if registration is None:
+            blocking.append(result)
+            continue
+        if registration[0] == VALIDATE_PHASE and result.status != GATE_PASSED:
+            blocking.append(result)
+    return blocking
+
+
+def satisfied_pre_gates(results: list[GateResult]) -> list[str]:
+    """Only gates that actually passed. Never the policy list."""
+    return [result.name for result in results if result.status == GATE_PASSED]
+
+
 def validate_packet(
     packet: dict[str, Any],
     manifest: dict[str, Any],
     policy: dict[str, Any],
-) -> list[str]:
-    """Return the ordered list of pre-gates this packet satisfies structurally.
+) -> list[GateResult]:
+    """Raise on the first unfitness, then report what each pre-gate observed.
 
     Raises PacketError on the first unfitness. A contradictory packet stops as a
     task defect rather than being softened into a retry.
+
+    The return value used to be ``list(policy["gates"]["pre"])`` -- the policy's
+    own list, echoed back regardless of what had been checked. It is now a
+    ``GateResult`` per configured gate; see the registry above.
     """
     missing = [field for field in REQUIRED_PACKET_FIELDS if field not in packet]
     if missing:
@@ -417,7 +630,7 @@ def validate_packet(
             f"for route {route!r}; reroute or escalate explicitly"
         )
 
-    return list(policy["gates"]["pre"])
+    return evaluate_pre_gates(packet, manifest, policy)
 
 
 def qualification_state(policy: dict[str, Any], packet: dict[str, Any]) -> str:
@@ -2179,11 +2392,30 @@ def worker_spend(
     }
 
 
+#: Post-gates the ``gate`` command cannot decide, and the code that does.
+#: ``coordinator-review-recorded`` is settled at disposition time by
+#: ``load_independent_review`` (or waived for an action class the manifest has
+#: flipped to self-candidate), so ``post_gates`` reports it deferred against its
+#: owner rather than inventing a verdict or leaving it out of the dict entirely.
+POST_GATE_OWNERS: dict[str, str] = {
+    "coordinator-review-recorded": "load_independent_review+self_candidate_class",
+}
+
+
+def policy_post_gates(policy: dict[str, Any] | None) -> list[str]:
+    """The post-gates the policy configures, or an empty list when unknown."""
+    if not isinstance(policy, dict):
+        return []
+    configured = policy.get("gates", {}).get("post")
+    return list(configured) if isinstance(configured, list) else []
+
+
 def post_gates(
     worktree: Path,
     packet: dict[str, Any],
     manifest: dict[str, Any],
     repo_root: Path,
+    policy: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Run the deterministic post-dispatch gates. Worker claims are not evidence."""
     restore_agent_context(worktree, repo_root)
@@ -2218,8 +2450,27 @@ def post_gates(
         # exactly what agentops#2046 forbids.
         "required-gates-complete": required_gates_complete(packet, command_results),
     }
+    # A post-gate configured in policy with no entry above was silently not
+    # evaluated: ``passed`` is ``all(gates.values())``, and a missing key
+    # contributes nothing to an ``all()``. The reconciliation is the same rule
+    # the pre-gate registry applies -- an unevaluated gate fails closed -- and
+    # it is what keeps this dict honest when the policy grows a gate.
+    unevaluated: list[str] = []
+    deferred: dict[str, str] = {}
+    for name in policy_post_gates(policy):
+        if name in gates:
+            continue
+        owner = POST_GATE_OWNERS.get(name)
+        if owner is not None:
+            deferred[name] = owner
+            continue
+        unevaluated.append(name)
+        gates[name] = False
+
     return {
         "gates": gates,
+        "unevaluated_gates": unevaluated,
+        "deferred_gates": deferred,
         "passed": all(gates.values()),
         "touched_paths": touched,
         "out_of_scope_paths": out_of_scope,
@@ -2410,7 +2661,7 @@ def main(argv: list[str] | None = None) -> int:
         packet = _load_json(packet_path)
         manifest = load_manifest(repo_root)
         policy = load_policy(args.agentops_root.resolve())
-        pre_gates = validate_packet(packet, manifest, policy)
+        gate_results = validate_packet(packet, manifest, policy)
 
         if args.command == "validate":
             # L-2(a): a packet is not fit merely because it is well formed. An
@@ -2435,17 +2686,34 @@ def main(argv: list[str] | None = None) -> int:
                 seed_faults, seed_report = check_defect_seeds(repo_root, packet, manifest)
                 faults = list(faults) + seed_faults
                 ref_report = {**ref_report, **seed_report}
-            if faults:
+            # The oracle checks above are what establishes that the acceptance
+            # properties discriminate -- a seeded defect must turn the oracle
+            # red. Until they have run, the gate of that name has been observed
+            # by nothing, so it is upgraded here rather than asserted upstream.
+            gate_results = _record_gate(
+                gate_results,
+                "acceptance-properties-discriminating",
+                GATE_PASSED if not faults else GATE_FAILED,
+                "check_oracle_attainable+check_defect_seeds",
+                tuple(faults[:4]) if faults else ("oracle attainable; seeded defects turn it red",),
+            )
+            blocking = blocking_pre_gates(gate_results)
+            pre_gates = [result.as_dict() for result in gate_results]
+            if faults or blocking:
                 _emit({
                     "packet": packet["task_id"],
                     "status": "unfit",
                     "pre_gates": pre_gates,
+                    "satisfied_pre_gates": satisfied_pre_gates(gate_results),
+                    "blocking_pre_gates": [result.as_dict() for result in blocking],
                     "oracle_faults": faults,
                     **read_report,
                     **ref_report,
                 })
                 return 2
-            _emit({"packet": packet["task_id"], "status": "fit", "pre_gates": pre_gates,
+            _emit({"packet": packet["task_id"], "status": "fit",
+                   "pre_gates": pre_gates,
+                   "satisfied_pre_gates": satisfied_pre_gates(gate_results),
                    "oracle_attainable": True, **read_report, **ref_report})
             return 0
 
@@ -2640,7 +2908,7 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.command == "gate":
             claim_evidence = verify_live_coordinator_claim(repo_root, packet, args.sprintctl_bin)
-            evidence = post_gates(worktree, packet, manifest, repo_root)
+            evidence = post_gates(worktree, packet, manifest, repo_root, policy)
             review = None
             if evidence["passed"] and args.review_record is not None:
                 review = load_independent_review(args.review_record, packet)

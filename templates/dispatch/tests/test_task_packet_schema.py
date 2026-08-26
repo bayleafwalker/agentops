@@ -13,9 +13,13 @@ drifted, exactly as an unchecked document does:
   reading of the schema rejected them as additional properties.
 
 Both were found by an oracle author reading the schema while writing L-5's
-oracle, not by anything that runs. This file is the thing that runs: a small
-checker for the subset of JSON Schema the file actually uses, pointed at every
-packet in ``docs/evidence/packets/`` and at a freshly generated release unit.
+oracle, not by anything that runs. This file is the thing that runs, pointed at every packet in
+``docs/evidence/packets/`` and at a freshly generated release unit.
+
+The checker itself now lives in ``scripts/packet_schema.py``. It was defined
+here, which meant the dispatch path never used it: ``hybrid_dispatch.py``
+reported ``packet-schema-valid`` among its satisfied pre-gates and compared the
+packet with nothing, and V6-K was dispatched twice with ``debt`` as a string.
 """
 from __future__ import annotations
 
@@ -44,77 +48,14 @@ def _load(name: str, path: Path):
 
 release_unit = _load("release_unit_packet_subject", SCRIPTS / "release_unit_packet.py")
 
-_TYPES = {
-    "object": dict,
-    "array": list,
-    "string": str,
-    "integer": int,
-    "number": (int, float),
-    "boolean": bool,
-}
+packet_schema = _load("packet_schema_subject", SCRIPTS / "packet_schema.py")
 
+#: One checker, two callers. It used to be defined here, which is why the
+#: dispatch path could report ``packet-schema-valid`` while comparing the packet
+#: against nothing.
+validate = packet_schema.validate
 
-def validate(instance, schema, path="$"):
-    """Return a list of human-readable violations.
-
-    Covers only the constructs this schema actually uses: type, required,
-    properties, additionalProperties, items, enum, const, pattern, minLength,
-    minimum and uniqueItems. Anything else in the schema is ignored rather than
-    silently passed off as checked -- a checker that quietly skips a keyword is
-    worse than no checker, so keep this list honest as the schema grows.
-    """
-    errors = []
-    expected = schema.get("type")
-    if expected:
-        wanted = _TYPES[expected]
-        # bool is an int in Python; the schema means them separately.
-        if expected == "integer" and isinstance(instance, bool):
-            errors.append(f"{path}: expected integer, got boolean")
-            return errors
-        if not isinstance(instance, wanted):
-            errors.append(
-                f"{path}: expected {expected}, got {type(instance).__name__}")
-            return errors
-
-    if "const" in schema and instance != schema["const"]:
-        errors.append(f"{path}: expected const {schema['const']!r}, got {instance!r}")
-    if "enum" in schema and instance not in schema["enum"]:
-        errors.append(f"{path}: {instance!r} not in enum {schema['enum']}")
-    if isinstance(instance, str):
-        pattern = schema.get("pattern")
-        if pattern and not re.match(pattern, instance):
-            errors.append(f"{path}: {instance!r} does not match {pattern}")
-        min_length = schema.get("minLength")
-        if min_length is not None and len(instance) < min_length:
-            errors.append(f"{path}: shorter than minLength {min_length}")
-    if isinstance(instance, (int, float)) and not isinstance(instance, bool):
-        minimum = schema.get("minimum")
-        if minimum is not None and instance < minimum:
-            errors.append(f"{path}: {instance} below minimum {minimum}")
-
-    if isinstance(instance, dict):
-        for key in schema.get("required", []):
-            if key not in instance:
-                errors.append(f"{path}: missing required property {key!r}")
-        properties = schema.get("properties", {})
-        for key, value in instance.items():
-            if key in properties:
-                errors.extend(validate(value, properties[key], f"{path}.{key}"))
-            elif schema.get("additionalProperties") is False:
-                errors.append(f"{path}: additional property {key!r} is not allowed")
-    if isinstance(instance, list):
-        item_schema = schema.get("items")
-        if item_schema:
-            for index, item in enumerate(instance):
-                errors.extend(validate(item, item_schema, f"{path}[{index}]"))
-        if schema.get("uniqueItems"):
-            hashable = [json.dumps(i, sort_keys=True) for i in instance]
-            if len(set(hashable)) != len(hashable):
-                errors.append(f"{path}: items are not unique")
-    return errors
-
-
-SCHEMA = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+SCHEMA = packet_schema.load_schema(SCHEMA_PATH)
 
 #: A release unit built the way an orchestrator builds one. This is the packet
 #: whose id and two extra fields the schema used to reject outright.
@@ -226,6 +167,59 @@ class CheckerDiscriminationTests(unittest.TestCase):
     def test_a_boolean_is_not_an_integer(self):
         self.assertTrue(validate(
             self._mutated(gate_set=[{"order": True, "gate": "x"}]), SCHEMA))
+
+
+class CheckerCoverageTests(unittest.TestCase):
+    """The checker must refuse to be quietly incomplete.
+
+    Before this guard existed the checker ignored nine keyword sites in the
+    committed schema -- ``minItems`` five times, ``maximum`` three times, and
+    the root ``allOf``. That last one carries the whole v1/v2/v3 discrimination,
+    including v3's ``required: [action_class]`` and the two acceptance-property
+    shapes behind ``$ref``. All of it was declared in the schema and enforced by
+    nothing that reads the schema, and every packet was reported valid against
+    constraints that were never applied.
+    """
+
+    def test_the_committed_schema_uses_no_unimplemented_keyword(self):
+        self.assertEqual([], packet_schema.unsupported_keywords(SCHEMA))
+
+    def test_an_unimplemented_keyword_is_refused_rather_than_ignored(self):
+        with self.assertRaises(packet_schema.SchemaCoverageError):
+            packet_schema.check_schema_is_supported(
+                {"type": "object", "properties": {"x": {"multipleOf": 3}}})
+
+    def test_the_version_conditionals_are_actually_applied(self):
+        """v3 requires action_class; the root allOf is the only place it says so."""
+        packet = json.loads(json.dumps(RELEASE_UNIT))
+        packet["schema_version"] = "agentops-task/v3"
+        packet.pop("action_class", None)
+        errors = validate(packet, SCHEMA)
+        self.assertTrue(
+            any("action_class" in e for e in errors),
+            f"v3 without action_class must fail; got {errors}")
+
+    def test_a_v1_packet_may_not_carry_a_v2_acceptance_id(self):
+        packet = json.loads(json.dumps(RELEASE_UNIT))
+        packet["schema_version"] = "agentops-task/v1"
+        packet["acceptance_properties"] = [{
+            "id": "a-v2-only-id",
+            "command_id": packet["allowed_command_ids"][0],
+            "requirement": "r",
+            "fails_when": "f",
+        }]
+        self.assertTrue(validate(packet, SCHEMA),
+                        "the v1 branch of the root allOf was not applied")
+
+    def test_min_items_is_enforced(self):
+        packet = json.loads(json.dumps(RELEASE_UNIT))
+        packet["writable_patch_paths"] = []
+        self.assertTrue(validate(packet, SCHEMA))
+
+    def test_maximum_is_enforced(self):
+        packet = json.loads(json.dumps(RELEASE_UNIT))
+        packet["context_churn"]["max_repeated_reads_per_path"] = 10**6
+        self.assertTrue(validate(packet, SCHEMA))
 
 
 if __name__ == "__main__":

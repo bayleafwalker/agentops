@@ -103,6 +103,25 @@ Coordinator hand-passes, after the rows land (protected paths, declared under ru
 
 ## 4. Not dispatched, and why
 
+> **Superseded 2026-08-26 — appended, not rewritten.** Two of the three rows below
+> were ruled and executed the following day, and were still reading "Open, owner's
+> call" a day later. They were found by widening
+> `templates/dispatch/scripts/check_decision_briefs.py` to sweep every tracked
+> Markdown file rather than `docs/plans/agentops/` alone, which is the argument for
+> having widened it. The rows keep their original text; this block carries the
+> current state.
+>
+> | Row | Classification | State on 2026-08-26 |
+> |---|---|---|
+> | `mechanical_bulk` is both a route and an action class | **derivable** — policy application, not policy making. The L-3/D-8 ruling already reads *"a green evidence gate **on this class** disposes candidate"*; `self_candidate_class` merely looked it up by `route`. | **Closed.** `action_class` landed (`15d7110`, Option C); `agentops#2100` closed with note #2544; successor `#2306` opened. |
+> | The stale devbox checkout | **derivable**, after re-measurement. The count below is itself stale — the debt claimed 159, then 179; measured on 2026-08-26 it was 29 behind and clean. | **Closed.** Fast-forwarded, inspected, disposed. One unique line landed; `stash@{1}` would have reverted `overlay_hash` to sorted keys and was correctly dropped. |
+> | The four non-agentops lines | not agentops' to classify | Carried forward unchanged. |
+>
+> Neither was a **new value choice**, so neither should have been recorded as the
+> owner's. The full reconciliation of that day's eight escalations is
+> `docs/plans/agentops/2026-08-26-false-escalation-reconciliation.md`; Rule 4 of
+> the v5 brief enumerates the owner touchpoints, and neither row is among them.
+
 - **`mechanical_bulk` is both a hybrid route and an action class.** Renaming either touches
   `agentops.dispatch.json` and `manifest.schema.json` and changes what every existing packet's
   `route` field means. That is a boundary decision, not a refactor; §7 of the v5 brief says stop

@@ -216,8 +216,56 @@ class PacketValidationTests(unittest.TestCase):
     def _validate(self):
         return dispatch.validate_packet(self.packet, self.manifest, self.policy)
 
-    def test_a_fit_packet_reports_the_policy_pre_gates(self) -> None:
-        self.assertEqual(self._validate(), self.policy["gates"]["pre"])
+    #: What ``validate_packet`` alone can observe. The remaining configured
+    #: gates are not knowable without a workspace or an oracle run, and are
+    #: reported ``not_evaluated`` with the evaluator that owns them.
+    OBSERVED_AT_VALIDATE = [
+        "packet-schema-valid",
+        "scope-within-manifest",
+        "protected-paths-untouched",
+    ]
+
+    def test_a_fit_packet_reports_only_the_gates_actually_observed(self) -> None:
+        """It used to return ``policy["gates"]["pre"]`` -- the policy's own list,
+        echoed back whether or not anything had been checked. Six of those eight
+        names were computed by nothing, which is how a schema-invalid packet was
+        dispatched twice under ``packet-schema-valid``."""
+        results = self._validate()
+        self.assertEqual(
+            dispatch.satisfied_pre_gates(results), self.OBSERVED_AT_VALIDATE)
+        self.assertEqual(
+            sorted(r.name for r in results), sorted(self.policy["gates"]["pre"]),
+            "every configured gate must be reported, passed or not")
+        for result in results:
+            self.assertNotEqual(
+                result.evaluator, "unregistered",
+                f"{result.name} has no evaluator and must fail closed")
+
+    def test_an_unregistered_gate_fails_closed(self) -> None:
+        """A gate configured in policy with nothing to compute it blocks."""
+        policy = json.loads(json.dumps(self.policy))
+        policy["gates"]["pre"] = policy["gates"]["pre"] + ["invented-gate"]
+        results = dispatch.validate_packet(self.packet, self.manifest, policy)
+        invented = [r for r in results if r.name == "invented-gate"]
+        self.assertEqual(1, len(invented))
+        self.assertEqual("not_evaluated", invented[0].status)
+        self.assertEqual("unregistered", invented[0].evaluator)
+        self.assertIn(invented[0], dispatch.blocking_pre_gates(results))
+
+    def test_a_schema_invalid_packet_fails_its_own_gate(self) -> None:
+        """V6-K's actual defect: debt frozen as a string, reported fit twice."""
+        packet = json.loads(json.dumps(self.packet))
+        packet["debt"] = "a string, where the schema requires an array"
+        results = dispatch.validate_packet(packet, self.manifest, self.policy)
+        schema_gate = next(r for r in results if r.name == "packet-schema-valid")
+        self.assertEqual("failed", schema_gate.status)
+        self.assertTrue(any("debt" in line for line in schema_gate.evidence))
+        self.assertNotIn("packet-schema-valid", dispatch.satisfied_pre_gates(results))
+
+    def test_every_gate_result_carries_its_input_digest(self) -> None:
+        expected = dispatch.packet_input_digest(self.packet)
+        for result in self._validate():
+            self.assertEqual(expected, result.input_digest)
 
     def test_only_the_named_scope_is_labelled_as_pilot(self) -> None:
         self.assertEqual(dispatch.qualification_state(self.policy, self.packet), "unqualified")
@@ -235,7 +283,10 @@ class PacketValidationTests(unittest.TestCase):
         packet["sprint_item"]["ref"] = f"{core_repo}#42"
         manifest["repo_id"] = core_repo
         manifest["hybrid"]["worker_routes"] = ["bindery_external_runtime_w0"]
-        self.assertEqual(dispatch.validate_packet(packet, manifest, self.policy), self.policy["gates"]["pre"])
+        self.assertEqual(
+            dispatch.satisfied_pre_gates(
+                dispatch.validate_packet(packet, manifest, self.policy)),
+            self.OBSERVED_AT_VALIDATE)
         self.assertEqual(dispatch.qualification_state(self.policy, packet), "unqualified")
 
     def test_project_route_rejects_a_repository_outside_its_scope(self) -> None:
@@ -341,8 +392,9 @@ class PacketValidationTests(unittest.TestCase):
         legacy["schema_version"] = dispatch.LEGACY_PACKET_SCHEMA_VERSION
         del legacy["acceptance_properties"][0]["id"]
         self.assertEqual(
-            dispatch.validate_packet(legacy, self.manifest, self.policy),
-            self.policy["gates"]["pre"],
+            dispatch.satisfied_pre_gates(
+                dispatch.validate_packet(legacy, self.manifest, self.policy)),
+            self.OBSERVED_AT_VALIDATE,
         )
         self.assertEqual(
             dispatch.gate_set_hash_schema_version(legacy),
@@ -465,7 +517,7 @@ class OverlayTests(unittest.TestCase):
     def setUp(self) -> None:
         self.policy = _json(HYBRID / "hybrid-dispatch.v1.json")
         self.base = _json(HYBRID / "opencode.hybrid.json")
-        packet_tests = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+        packet_tests = PacketValidationTests("test_a_fit_packet_reports_only_the_gates_actually_observed")
         packet_tests.setUp()
         self.packet = packet_tests.packet
         self.manifest = packet_tests.manifest
@@ -553,7 +605,7 @@ class OverlayTests(unittest.TestCase):
 
 class IndependentReviewTests(unittest.TestCase):
     def setUp(self) -> None:
-        packet_tests = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+        packet_tests = PacketValidationTests("test_a_fit_packet_reports_only_the_gates_actually_observed")
         packet_tests.setUp()
         self.packet = packet_tests.packet
 
@@ -597,7 +649,7 @@ class SelfCandidateTests(unittest.TestCase):
     from green evidence alone; every other class still needs the record."""
 
     def setUp(self) -> None:
-        packet_tests = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+        packet_tests = PacketValidationTests("test_a_fit_packet_reports_only_the_gates_actually_observed")
         packet_tests.setUp()
         self.packet = packet_tests.packet
         self.manifest = packet_tests.manifest
@@ -724,7 +776,7 @@ class RouteAndActionClassAreIndependentTests(unittest.TestCase):
     """
 
     def setUp(self) -> None:
-        packet_tests = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+        packet_tests = PacketValidationTests("test_a_fit_packet_reports_only_the_gates_actually_observed")
         packet_tests.setUp()
         self.packet = packet_tests.packet
         self.manifest = packet_tests.manifest
@@ -819,7 +871,7 @@ class RouteAndActionClassAreIndependentTests(unittest.TestCase):
 
 class LiveClaimTests(unittest.TestCase):
     def setUp(self) -> None:
-        packet_tests = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+        packet_tests = PacketValidationTests("test_a_fit_packet_reports_only_the_gates_actually_observed")
         packet_tests.setUp()
         self.packet = packet_tests.packet
 
@@ -893,7 +945,7 @@ class ColdRunAssessmentTests(unittest.TestCase):
     precisely because one is red."""
 
     def setUp(self) -> None:
-        packet_tests = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+        packet_tests = PacketValidationTests("test_a_fit_packet_reports_only_the_gates_actually_observed")
         packet_tests.setUp()
         self.packet = packet_tests.packet
         self.manifest = packet_tests.manifest
@@ -1042,7 +1094,7 @@ class OracleAttainabilityTests(unittest.TestCase):
     were that gap."""
 
     def setUp(self) -> None:
-        packet_tests = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+        packet_tests = PacketValidationTests("test_a_fit_packet_reports_only_the_gates_actually_observed")
         packet_tests.setUp()
         self.packet = packet_tests.packet
         self.manifest = packet_tests.manifest
@@ -1105,7 +1157,7 @@ exit 1
 """
 
     def setUp(self) -> None:
-        packet_tests = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+        packet_tests = PacketValidationTests("test_a_fit_packet_reports_only_the_gates_actually_observed")
         packet_tests.setUp()
         self.packet = packet_tests.packet
         self.packet["oracle"]["starts_red"] = ["a"]
@@ -1204,7 +1256,7 @@ exit 1
                 self.packet["allowed_command_ids"] = ["example.tests"]
                 packet_path.write_text(json.dumps(self.packet), encoding="utf-8")
                 manifest_path = Path(tmp) / "example.dispatch.json"
-                manifest = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+                manifest = PacketValidationTests("test_a_fit_packet_reports_only_the_gates_actually_observed")
                 manifest.setUp()
                 manifest_path.write_text(json.dumps(manifest.manifest), encoding="utf-8")
                 out = io.StringIO()
@@ -1226,7 +1278,7 @@ class OracleReferenceOverlayTests(unittest.TestCase):
     seam (defect 3) or covers more than the packet holds (defect 4)."""
 
     def setUp(self) -> None:
-        packet_tests = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+        packet_tests = PacketValidationTests("test_a_fit_packet_reports_only_the_gates_actually_observed")
         packet_tests.setUp()
         self.packet = packet_tests.packet
         self.packet["oracle"]["starts_red"] = ["a"]
@@ -1307,7 +1359,7 @@ class OracleReferenceOverlayTests(unittest.TestCase):
                 self.packet["oracle"]["starts_red"] = ["example.tests"]
                 self.packet["allowed_command_ids"] = ["example.tests"]
                 packet_path.write_text(json.dumps(self.packet), encoding="utf-8")
-                manifest = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+                manifest = PacketValidationTests("test_a_fit_packet_reports_only_the_gates_actually_observed")
                 manifest.setUp()
                 (Path(tmp) / "example.dispatch.json").write_text(json.dumps(manifest.manifest), encoding="utf-8")
                 out, err = io.StringIO(), io.StringIO()

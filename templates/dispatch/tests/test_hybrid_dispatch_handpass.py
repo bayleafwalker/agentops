@@ -295,6 +295,15 @@ class WorkerSessionExportRemovalTests(unittest.TestCase):
         self.assertNotIn("worker_session", json.dumps(receipt))
 
 
+#: The gates ``validate_packet`` can observe on its own; the rest are reported
+#: not_evaluated against the evaluator that owns them.
+OBSERVED_AT_VALIDATE = [
+    "packet-schema-valid",
+    "scope-within-manifest",
+    "protected-paths-untouched",
+]
+
+
 class RetryAttemptAllowanceTests(unittest.TestCase):
     """D: L-4's retry packet carries ``attempt: 2``, and a route capped at one
     attempt made that packet impossible by construction.
@@ -328,8 +337,9 @@ class RetryAttemptAllowanceTests(unittest.TestCase):
             with self.subTest(attempt=attempt):
                 self.packet["attempt"] = attempt
                 self.assertEqual(
-                    dispatch.validate_packet(self.packet, self.manifest, self.policy),
-                    self.policy["gates"]["pre"],
+                    dispatch.satisfied_pre_gates(dispatch.validate_packet(
+                        self.packet, self.manifest, self.policy)),
+                    OBSERVED_AT_VALIDATE,
                 )
         # Bounded, not an open loop: one past the allowance is still refused.
         self.packet["attempt"] = allowance + 1
@@ -337,8 +347,9 @@ class RetryAttemptAllowanceTests(unittest.TestCase):
             dispatch.validate_packet(self.packet, self.manifest, self.policy)
         del self.packet["attempt"]
         self.assertEqual(
-            dispatch.validate_packet(self.packet, self.manifest, self.policy),
-            self.policy["gates"]["pre"],
+            dispatch.satisfied_pre_gates(dispatch.validate_packet(
+                self.packet, self.manifest, self.policy)),
+            OBSERVED_AT_VALIDATE,
         )
 
 

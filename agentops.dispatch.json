@@ -53,7 +53,8 @@
       "model-routing-optimizer",
       "workflow-artifact-capture",
       "reconcile-project-contracts",
-      "session-handover"
+      "session-handover",
+      "escalation-gate"
     ]
   },
   "instruction_set": {
@@ -118,14 +119,15 @@
     "skill_lock": {
       "dispatch-plan": "8da2efaaa4f760a468e5b642d2aa47162df594b52b813138e875189726cf34d6",
       "dispatch-wave": "a85480af99dd4a628a5c55683cd5b79ef483f07771efb0358c3210c233647a7e",
-      "dispatch-build": "f895830df38ea72b79f13864130fd2e3ffca3488b261d38744c86cfc79995a1f",
+      "dispatch-build": "0361ef2545515f387719e3410e8589b043b6b6f0193ebf85cc9785276512aa91",
       "dispatch-review": "0bf4c6f46b30f8ea33c5e226f90f000919291bbe199e0ae14d39cb1c219ea678",
       "code-change-verification": "da8dca1568f93ca1cb7f73ff88d75849c5c58676c4b3274516069a3197fe13a3",
-      "item-done": "441b9b333890d50fc6486f78e60662e8ebbdcefb51c57f34374b44fced32d68d",
+      "item-done": "829334f943da2b2ae5ce58e36ef6b7aeeed3183ffa088c2b189c9aa2f0124f99",
       "model-routing-optimizer": "8863acfbfaf08818272fbc5cfd2f139e4ea61e54e009ba6087406245cfc4c0a9",
       "workflow-artifact-capture": "076fb30a2837cdc7e7a5c0ef3c31b1a52d06fe0d5ad903834bbaa5380a4c811c",
       "reconcile-project-contracts": "3161e7ac4455bfccf20d783a4e9af5ac507c233d4a0afd3acad2857dafccad70",
-      "session-handover": "840bd46a272e2497647431465ef767f27c9348a7fabc31ce7a4dba86b4b2f4f9"
+      "session-handover": "840bd46a272e2497647431465ef767f27c9348a7fabc31ce7a4dba86b4b2f4f9",
+      "escalation-gate": "e30870856ecaf9a67f45dc8828b4ad8c10d808a7c59c085a50902ca558302855"
     }
   },
   "scope": {
@@ -193,7 +195,9 @@
       "agentops.dispatch.tests.defect_seeds": "python templates/dispatch/tests/test_defect_seeds.py",
       "agentops.dispatch.tests.command_evidence": "python templates/dispatch/tests/test_command_evidence.py",
       "agentops.dispatch.tests.schema_check_formats": "python templates/dispatch/tests/test_schema_check_formats.py",
-      "agentops.checks.decision-briefs": "python templates/dispatch/scripts/check_decision_briefs.py"
+      "agentops.checks.decision-briefs": "python templates/dispatch/scripts/check_decision_briefs.py",
+      "agentops.checks.skill-materialization": "python templates/dispatch/tests/test_skill_materialization.py",
+      "agentops.checks.gate-reconciliation": "python templates/dispatch/tests/test_gate_reconciliation.py"
     },
     "protected_paths": [
       "templates/dispatch/hybrid/**",

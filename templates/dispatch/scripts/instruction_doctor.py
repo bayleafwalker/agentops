@@ -173,6 +173,86 @@ def _validate_catalog(manifest: dict[str, Any]) -> list[dict[str, Any]]:
     return findings
 
 
+
+def _check_skill_materialization(
+    root: Path,
+    manifest: dict[str, Any] | None,
+    skill_digests: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Observe that every selected skill is locked, present and undrifted.
+
+    ``skill_lock`` was collected and reported and never compared with anything.
+    Measured on 2026-08-26: two of its ten digests -- ``dispatch-build`` and
+    ``item-done`` -- had been stale since ``5790fc2`` edited their ``SKILL.md``,
+    and nothing noticed, because reporting a digest is not checking it. Two
+    selected skills (``dispatch-wave``, ``session-handover``) had no symlink at
+    all, so they were declared and never materialized.
+
+    A skill that is selected but unlocked, undigestable, missing or drifted is
+    an instruction the worker will not receive. That is a degraded binding, not
+    a cosmetic one, so it is reported rather than passed through.
+    """
+    if not isinstance(manifest, dict):
+        return []
+    skills = manifest.get("skills")
+    if not isinstance(skills, dict):
+        return []
+    selected = skills.get("selected")
+    if not isinstance(selected, list):
+        return []
+
+    template_root = skills.get("template_root")
+    template_path = Path(str(template_root)) if isinstance(template_root, str) else None
+    if template_path is None or not template_path.is_absolute():
+        template_path = root / "templates" / "dispatch" / "skills"
+
+    findings: list[dict[str, Any]] = []
+    if not template_path.is_dir():
+        # A manifest that selects skills, carries a lock, and has no skills tree
+        # is the broken chain in its starkest form, so it is still reported. A
+        # manifest with no lock is not making a materialization claim at all --
+        # that is the guidance-only shape the doctor's own fixtures use -- and
+        # inventing a finding for it would only teach readers to ignore this
+        # code.
+        if skill_digests:
+            findings.append(_finding(
+                "skill-source-missing", "degraded",
+                "manifest locks skills but has no canonical skills tree",
+                path=str(template_path),
+            ))
+        return findings
+
+    for name in selected:
+        if not isinstance(name, str) or not name:
+            continue
+        source = template_path / name / "SKILL.md"
+        if not source.is_file():
+            findings.append(_finding(
+                "skill-source-missing", "degraded",
+                "selected skill has no canonical SKILL.md", path=name,
+            ))
+            continue
+        expected = skill_digests.get(name)
+        if not isinstance(expected, str) or not expected:
+            findings.append(_finding(
+                "skill-unlocked", "degraded",
+                "selected skill has no skill_lock digest", path=name,
+            ))
+        elif hashlib.sha256(source.read_bytes()).hexdigest() != expected:
+            findings.append(_finding(
+                "skill-digest-stale", "degraded",
+                "skill_lock digest does not match the canonical SKILL.md", path=name,
+            ))
+        link = root / ".claude" / "skills" / name
+        if not link.exists():
+            findings.append(_finding(
+                "skill-not-materialized", "degraded",
+                "selected skill is not materialized where a session would load it",
+                path=name,
+            ))
+    return findings
+
+
 def inspect(root: Path, cwd: Path | None = None) -> dict[str, Any]:
     """Produce a deterministic, JSON-safe instruction doctor report."""
     root = root.resolve()
@@ -318,6 +398,8 @@ def inspect(root: Path, cwd: Path | None = None) -> dict[str, Any]:
         skill_digests = {item.get("id"): item.get("digest") for item in skill_digests if isinstance(item, dict) and item.get("id")}
     elif not isinstance(skill_digests, dict):
         skill_digests = {}
+
+    findings.extend(_check_skill_materialization(root, manifest, skill_digests))
 
     fatal = any(item["handling"] == "fatal" for item in findings)
     if fatal:
