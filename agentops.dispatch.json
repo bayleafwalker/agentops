@@ -188,7 +188,8 @@
       "agentops.dispatch.tests.gate_tiers": "python templates/dispatch/tests/test_gate_tiers.py",
       "agentops.dispatch.tests.defect_seeds": "python templates/dispatch/tests/test_defect_seeds.py",
       "agentops.dispatch.tests.command_evidence": "python templates/dispatch/tests/test_command_evidence.py",
-      "agentops.dispatch.tests.schema_check_formats": "python templates/dispatch/tests/test_schema_check_formats.py"
+      "agentops.dispatch.tests.schema_check_formats": "python templates/dispatch/tests/test_schema_check_formats.py",
+      "agentops.dispatch.tests.frontier_reliability": "python templates/dispatch/tests/test_frontier_reliability.py"
     },
     "protected_paths": [
       "templates/dispatch/hybrid/**",
