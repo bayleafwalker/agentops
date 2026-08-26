@@ -1,7 +1,7 @@
 {
   "schema_version": "agentops-hybrid-receipt/v1",
-  "recorded_at": "2026-08-26T19:38:52+00:00",
-  "execution_id": "V6-K-human-turns:2b7fc20668ff790e:attempt-1",
+  "recorded_at": "2026-08-26T18:47:20+00:00",
+  "execution_id": "V6-K-human-turns:5734588600fe7388:attempt-1",
   "task_id": "V6-K-human-turns",
   "repo_id": "agentops",
   "sprint_item": {
@@ -13,7 +13,7 @@
   "action_class": "mechanical_bulk",
   "attempt": 1,
   "inputs": {
-    "packet_hash": "sha256:2b7fc20668ff790edd12fda8770e85c67cc7266833f60d458d1a48a4eaff6464",
+    "packet_hash": "sha256:5734588600fe73881ee3c5b2d4a465141cc776dfcda46a1416433224019a1d8b",
     "repository_commit": "f40d2ca28998f662c90244553dd5dd0e6798a6dd",
     "packet_schema_version": "agentops-task/v2",
     "gate_set_hash_schema_version": "agentops-hybrid-gate-set/v2",
