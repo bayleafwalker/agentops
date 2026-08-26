@@ -182,6 +182,7 @@
               "session-scribe",
               "dispatch-wave",
               "friction",
+              "escalation-gate",
               "session-handover"
             ]
           }
