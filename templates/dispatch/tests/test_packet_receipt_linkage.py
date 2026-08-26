@@ -65,6 +65,56 @@ def _pairs():
             yield task_id, packet_path, receipt_path
 
 
+class ReceiptsHavePacketsTests(unittest.TestCase):
+    """The other direction, which is the failure this file was written for.
+
+    ``_pairs`` walks packets and looks up receipts, so a receipt whose packet
+    went missing -- the freeze-branch trap, verbatim -- simply stops generating
+    a pair and every hash assertion above passes. Deleting
+    ``V6-B-build-scorecard-iterable.json`` left this file green until this class
+    existed. The corpus document and the handover both state "every receipt now
+    has its packet" as a standing guarantee; this is what makes that a claim
+    rather than a hope.
+    """
+
+    def test_every_receipt_has_a_committed_packet(self):
+        orphans = []
+        for receipt_path in sorted(RECEIPTS.glob("*/receipt.json")):
+            task_id = receipt_path.parent.name
+            if not (PACKETS / f"{task_id}.json").exists():
+                orphans.append(task_id)
+        self.assertEqual(
+            orphans, [],
+            "these receipts have no packet -- the freeze-branch trap. Recover "
+            "them from the object store (git cat-file --batch-all-objects) and "
+            "hash-check the result before committing it.",
+        )
+
+    def test_at_least_one_receipt_is_checked(self):
+        self.assertGreater(len(list(RECEIPTS.glob("*/receipt.json"))), 0)
+
+
+class IdentityMatchesFilenameTests(unittest.TestCase):
+    """Pairing is by filename stem, so the stem must not be the only evidence.
+
+    "A restored packet was accepted on the strength of its filename" is the
+    defect this whole file narrates. A packet restored under the wrong name
+    pairs with nothing and would be skipped in silence rather than failing.
+    """
+
+    def test_each_packet_declares_its_own_filename_as_task_id(self):
+        for packet_path in sorted(PACKETS.glob("*.json")):
+            with self.subTest(packet=packet_path.name):
+                packet = json.loads(packet_path.read_text())
+                self.assertEqual(packet.get("task_id"), packet_path.stem)
+
+    def test_each_receipt_declares_its_own_directory_as_task_id(self):
+        for receipt_path in sorted(RECEIPTS.glob("*/receipt.json")):
+            with self.subTest(receipt=receipt_path.parent.name):
+                receipt = json.loads(receipt_path.read_text())
+                self.assertEqual(receipt.get("task_id"), receipt_path.parent.name)
+
+
 class PacketReceiptLinkageTests(unittest.TestCase):
 
     def test_at_least_one_pair_is_checked(self):
@@ -75,9 +125,14 @@ class PacketReceiptLinkageTests(unittest.TestCase):
 
     def test_every_receipt_hashes_to_its_committed_packet(self):
         for task_id, packet_path, receipt_path in _pairs():
-            if task_id in DECLARED_LOST:
-                continue
             with self.subTest(task=task_id):
+                if task_id in DECLARED_LOST:
+                    # Skipped checks must not read like passed ones. This repo
+                    # has diagnosed that shape twice -- read_trace's
+                    # "skipped:untraced" and worker_writability's
+                    # "skipped:no-worker-user" are both reserved statuses for
+                    # exactly this -- so the exemption is announced, not elided.
+                    self.skipTest(f"declared lost: {DECLARED_LOST[task_id]}")
                 packet = json.loads(packet_path.read_text())
                 receipt = json.loads(receipt_path.read_text())
                 self.assertEqual(

@@ -29,25 +29,42 @@ three recovered on 2026-08-26).
 | Field | Value across 38 packets | Would `build_from_spec` differ? |
 |---|---|---|
 | `route` | `mechanical_bulk`, 38/38 | this is the question |
-| `task_class` | `mechanical_implementation`, 38/38 | **no** — and nothing reads it |
-| `risk` | `low`, 38/38 | **no** — and nothing reads it |
+| `task_class` | `mechanical_implementation`, 38/38 | **no — it is not free to differ.** `validate_packet` *requires* this exact value (`hybrid_dispatch.py:224`) |
+| `risk` | `low`, 38/38 | **no — it is not free to differ.** `validate_packet` *requires* `low` (`:226`) |
 | `oracle.ownership` | `externally_defined` | no |
 | `oracle.worker_may_modify` | `false` | no |
 | `oracle.starts_red` | present and non-empty, **38/38** | **no — see §2** |
 | `limits`, `context_churn`, `network_policy`, `worktree`, `review` | task-shaped, not route-shaped | no |
 
-`risk` and `task_class` appear in **no** code path — `grep` finds no read of either in
-`templates/dispatch/scripts/*.py`. They are descriptive.
+> **Correction, 2026-08-26, after review.** The first version of this document said `risk` and
+> `task_class` "appear in no code path — `grep` finds no read of either". **Both halves were wrong,
+> and the grep was the reason:** the pattern matched only bracket access (`packet["risk"]`) and the
+> code uses `packet.get("risk")`. `validate_packet` reads *and enforces* both —
+> `hybrid_dispatch.py:224-227` raises `worker dispatch requires task_class mechanical_implementation`
+> and `worker dispatch requires risk low`. The table's conclusion is unchanged and its basis is
+> stronger: these fields do not differ for a `build_from_spec` packet, not because nothing looks at
+> them, but because **the validator refuses any other value.** That is worth knowing on its own — a
+> `build_from_spec` route could not carry a higher `risk` without editing the validator, so "new
+> behaviour is riskier" is not currently expressible at any price.
 
-**`route` is read in exactly four places**, and this is the whole of what the route decides:
+**`route` is read in more places than the first version of this document claimed**, and the
+difference matters for costing the options, because it is the *cost of minting a second route*:
 
-- `hybrid_dispatch.py:1985`, `:2184`, `:2397` — `policy["routes"][route]["harness_model"]`
-- `hybrid_dispatch.py:1903` — `policy["routes"][route]["agent"]`
-- `hybrid_dispatch.py:2119` — `classes.get(packet["route"])`, the authority lookup, **the collision**
-- `hybrid_dispatch.py:389-390` — the qualification pair `(route, harness_model)`
+- `hybrid_dispatch.py:197-207` — the route must exist in `policy["routes"]`, must carry
+  `mode == "supervised_hybrid"`, **and** must be listed in the repository manifest's
+  `hybrid.worker_routes`
+- `:550` — the permission-overlay agent lookup
+- `:1903` — `policy["routes"][route]["agent"]`
+- `:1985`, `:2184`, `:2397` — `policy["routes"][route]["harness_model"]`
+- `:2119` — `classes.get(packet["route"])`, the authority lookup, **the collision**
+- `:389-390` — the qualification pair `(route, harness_model)`
+- `:2175` — the route recorded into the receipt
 
-So a route means: **which model, which agent** — plus, by the collision, **whether a green gate may
-mint a candidate without a human review record.**
+So a route means: **which model, which agent, under which mode, permitted in which repositories** —
+plus, by the collision, **whether a green gate may mint a candidate without a human review record.**
+Minting a second route is therefore not one `harness_model`/`agent` entry: it needs a
+`model-routing.json` route with the right mode *and* a per-repo manifest allowlist edit, or every
+dispatch on it raises "route is not enabled for this repository".
 
 ## 2. The precondition shape does not change either — it is already enforced
 
@@ -88,6 +105,11 @@ it did.
 **Settled — falsifier 2 of the decision document is answered: NO.** A `build_from_spec` task needs no
 different model, no different agent and no different attempt budget, because four have already run
 on the existing binding. The split does not proceed route-side. There is no second route coming.
+
+The corrected route cost above *strengthens* this rather than weakening it: a second route is not a
+two-line policy entry but a `model-routing.json` route plus a per-repo manifest allowlist edit in
+every repository meant to use it — seven of them opt into `mechanical_bulk` today. The more a route
+costs, the less likely one is minted for a distinction the existing route already expresses.
 
 **Consequence for `#2100` (owner call 4).** Its stated premise is not merely stale, it is
 contradicted by four dispatched rows. The item asks for a capability the route demonstrably has.

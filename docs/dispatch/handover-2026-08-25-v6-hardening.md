@@ -224,4 +224,8 @@ records an unexplained asymmetry; the fifteen packets with no receipt remain, de
 separate and benign reason that they predate receipt capture.
 
 **Reference patches are gitignored — `git add -f` them.** That trap is what makes a recovery look
-complete when only half of it committed.
+complete when only half of it committed. Note that until 2026-08-26 this advice was only true on
+*this machine*: the rule lived in `.git/info/exclude`, which is clone-local and uncommitted, so a
+fresh clone had no such rule and the instruction would have read as false. It is now in the tracked
+`.gitignore`, with the reason recorded beside it. Already-tracked patches are unaffected — a
+`.gitignore` rule does not untrack anything.
