@@ -72,6 +72,39 @@ actually dispatched from. These are the dispatched artifacts, not reconstruction
 receipt. What has changed is that the corpus no longer *hides* a failure: the row that failed is now
 in it, and the reported rate moved from 1.0 to 0.9545 the moment it was.
 
+## 2a. The packet/receipt link, audited 2026-08-26 — four of twenty do not hold
+
+Recovering the three orphaned packets required checking that a restored packet really was the one
+dispatched, by re-serialising it the way `_receipt` does (`hybrid_dispatch.py:2156`) and comparing
+the SHA-256 against the `inputs.packet_hash` its receipt already carried. Running that same check
+across the **whole** corpus is cheap, and it had never been done.
+
+**20 packets have a receipt. 16 hash-match it. Four do not.** For those four, the committed packet
+is not the artifact that produced the receipt, and the receipt's `execution_id` — which embeds the
+packet hash — does not resolve to anything in the repository.
+
+| Packet | Diagnosis |
+|---|---|
+| `V6-G-defect-seeds` | Matches exactly **without** `oracle.defect_seeds`. It is the row that *built* defect seeds; the seeds were added to the packet after the run. Post-hoc enrichment. |
+| `V6-I-schema-formats` | Matches exactly **without** its writable path in `protected_paths`. The dispatched packet had the trap fixed; the **committed** one is the pre-fix copy — i.e. the version that would fail `validate` today. Commit 2 was made from the unfixed file. |
+| `V6-E-churn-metrics` | Attempt 2, no committed version matches. Consistent with the documented L-4 retry, which appended gate output to `purpose`: that changes the hash and was never committed. |
+| `V59-2-schema-check-composition` | **Unexplained.** Only one version exists in the entire git history and it does not match. |
+
+Three of the four are benign and now explained. None of them is evidence of a bad run — every one of
+these rows passed its gates. **What they are evidence of is that the freeze artifact and the
+dispatched artifact drifted apart without anything noticing**, in three different ways: enrichment
+after the fact, committing the wrong copy, and a retry mutating the packet in the coordinator
+workspace.
+
+This matters for `#2017` specifically, and it sharpens the existing recommendation rather than
+changing it. The objection was already "the artifact that would be audited does not contain the
+failure." This is the same objection one level down: for a fifth of the corpus, **the artifact that
+would be audited is not the artifact that ran.** A reader cannot verify a receipt against its packet
+for those four, and until 2026-08-26 nobody could have known which four.
+
+**Cheap and worth doing:** the hash check is four lines and needs no new machinery. Run it in the
+closing evidence pass, and have the L-4 retry path commit the packet it actually dispatched.
+
 ## 3. Containment evidence
 
 New this session, and thin on purpose — it is stated as what it is.
