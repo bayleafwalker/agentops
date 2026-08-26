@@ -113,7 +113,27 @@
                 },
                 "description": "The hybrid worker routes this class's grant covers. Required when self_candidate is true (agentops#2100, Option C): a route says who executes and is chosen per task, a class says what may be minted without human review and is granted deliberately, so the grant must name the routes its ruling was actually written about. A route added later inherits nothing."
               }
-            }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "required": [
+                    "self_candidate"
+                  ],
+                  "properties": {
+                    "self_candidate": {
+                      "const": true
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "permitted_routes",
+                    "self_candidate_ruling"
+                  ]
+                }
+              }
+            ]
           }
         }
       }

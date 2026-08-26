@@ -114,6 +114,26 @@ def _packet() -> dict:
     }
 
 
+def _decode(case, code, out, err, verb):
+    """The receipt, or a failure that actually names the diagnosis.
+
+    Debt entry 12: these helpers parsed stdout as JSON and discarded the exit
+    code and stderr on the way, so a non-zero ``prepare`` surfaced as
+    "JSONDecodeError: Expecting value: line 1 column 1" and the real message --
+    which the command does print -- had to be reproduced by hand to be read. A
+    helper that swallows the diagnosis costs more than it saves.
+    """
+    raw = out.getvalue()
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        case.fail(
+            f"{verb} exited {code} without emitting a receipt.\n"
+            f"stderr: {err.getvalue().strip() or '(empty)'}\n"
+            f"stdout: {raw.strip() or '(empty)'}"
+        )
+
+
 class DirectoryFdReadTraceTests(unittest.TestCase):
     """A: ``openat(fd, "name", ...)`` resolves against that fd, not the cwd.
 
@@ -243,7 +263,8 @@ class WorkerSessionExportRemovalTests(unittest.TestCase):
                 packet_path.write_text(json.dumps(self.packet), encoding="utf-8")
                 (root / "example.dispatch.json").write_text(json.dumps(self.manifest), encoding="utf-8")
                 out = io.StringIO()
-                with contextlib.redirect_stdout(out):
+                err = io.StringIO()
+                with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
                     code = dispatch.main([
                         "--repo-root", tmp, "--packet", str(packet_path),
                         "--agentops-root", str(ROOT),
@@ -252,7 +273,7 @@ class WorkerSessionExportRemovalTests(unittest.TestCase):
                         "--opencode-bin", str(root / "no-such-opencode"),
                         "run",
                     ])
-                return code, json.loads(out.getvalue())
+                return code, _decode(self, code, out, err, "run")
         finally:
             (
                 dispatch.verify_live_coordinator_claim,
@@ -395,12 +416,13 @@ class RetryWorkspaceReuseTests(unittest.TestCase):
             packet_path = self.repo / "p.json"
             packet_path.write_text(json.dumps(self.packet), encoding="utf-8")
             out = io.StringIO()
-            with contextlib.redirect_stdout(out):
+            err = io.StringIO()
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
                 code = dispatch.main([
                     "--repo-root", str(self.repo), "--packet", str(packet_path),
                     "--agentops-root", str(ROOT), "prepare",
                 ])
-            return code, json.loads(out.getvalue())
+            return code, _decode(self, code, out, err, "prepare")
         finally:
             dispatch.verify_live_coordinator_claim = original
 

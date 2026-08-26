@@ -793,6 +793,25 @@ class RouteAndActionClassAreIndependentTests(unittest.TestCase):
                 older.pop("action_class", None)
                 self.assertEqual(dispatch.resolve_action_class(older), older["route"])
 
+    def test_a_class_this_repository_does_not_declare_grants_nothing(self) -> None:
+        # Six repositories opt into the mechanical_bulk ROUTE without declaring
+        # a class of that name, and release_unit_packet stamps action_class
+        # unconditionally. An undeclared class must therefore be "no grant" and
+        # never an error, or release-unit dispatch breaks in all of them.
+        self._classes(something_else={"enabled": True, "self_candidate": True,
+                                      "self_candidate_ruling": "owner",
+                                      "permitted_routes": ["mechanical_bulk"]})
+        packet = dict(self.packet, schema_version="agentops-task/v3",
+                      action_class="mechanical_bulk")
+        self.assertIsNone(dispatch.self_candidate_class(packet, self.manifest))
+
+    def test_a_repository_with_no_action_classes_at_all_still_dispatches(self) -> None:
+        manifest = dict(self.manifest)
+        manifest.pop("routing", None)
+        packet = dict(self.packet, schema_version="agentops-task/v3",
+                      action_class="mechanical_bulk")
+        self.assertIsNone(dispatch.self_candidate_class(packet, manifest))
+
     def test_a_stated_class_beats_the_route_even_at_a_fallback_version(self) -> None:
         older = dict(self.packet, schema_version="agentops-task/v2", action_class="stated")
         self.assertEqual(dispatch.resolve_action_class(older), "stated")

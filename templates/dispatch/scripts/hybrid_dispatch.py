@@ -250,15 +250,19 @@ def validate_packet(
     action_class = resolve_action_class(packet)
     if not isinstance(action_class, str) or not action_class.strip():
         raise PacketError("action_class must be a non-empty string")
-    declared_classes = (manifest.get("routing") or {}).get("action_classes") or {}
-    if packet.get("action_class") is not None and action_class not in declared_classes:
-        # Only checked when stated. A fallback packet naming a route with no
-        # action_classes entry is the six external repos' normal state -- it
-        # simply has no grant -- and must keep dispatching.
-        raise PacketError(
-            f"action_class {action_class!r} is not declared in this repository's "
-            "routing.action_classes"
-        )
+    # An action class this repository does not declare is NOT an error: it is
+    # simply no grant, and self_candidate_class returns None so the independent
+    # review record stays required. That is the fail-safe direction, and it is
+    # the normal state of the six repositories that opt into the mechanical_bulk
+    # *route* without declaring a class of that name -- actionq, hostproto,
+    # outctl, sprintctl, vuoro and bindery-core. Raising here instead broke
+    # release-unit dispatch in every one of them, because release_unit_packet
+    # stamps action_class unconditionally.
+    #
+    # The cost is that a misspelled class silently grants nothing rather than
+    # being caught. That is the acceptable direction: a typo can only ever
+    # require MORE human review, never less. A packet can neither claim
+    # authority for itself nor acquire it by naming a class that does not exist.
     if packet.get("task_class") != "mechanical_implementation":
         raise PacketError("worker dispatch requires task_class mechanical_implementation")
     if packet.get("risk") != "low":
@@ -2245,6 +2249,14 @@ def _receipt(packet: dict[str, Any], policy: dict[str, Any], **extra: Any) -> di
         "repo_id": packet["repo_id"],
         "sprint_item": packet["sprint_item"],
         "route": packet["route"],
+        # Both halves of the decoupling, in the durable artifact. route alone
+        # was enough only while the two were the same string; now that they can
+        # differ, a cold auditor reading this receipt could not otherwise tell
+        # which class the packet was judged under unless the self-candidate path
+        # happened to fire -- so a red gate, or a packet with a review record,
+        # would lose the durable half entirely. agentops#2017 rests on this file
+        # being auditable without the packet in hand.
+        "action_class": resolve_action_class(packet),
         "attempt": packet.get("attempt", 1),
         "inputs": {
             "packet_hash": f"sha256:{packet_hash}",

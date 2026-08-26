@@ -12,6 +12,7 @@ import argparse
 import importlib.util
 import json
 import subprocess
+import uuid as _uuid
 from pathlib import Path
 from typing import Any
 
@@ -24,12 +25,17 @@ FINALIZER_TOOLS = (
 )
 
 
-#: Formats this validator asserts on manifests. ``manifest.schema.json`` has
-#: declared ``"format": "uuid"`` on ``authority_repo_uuid`` since it was written,
-#: but ``format`` is an annotation by default, so until 2026-08-26 the checker
-#: would certify a non-UUID -- the schema made a claim it did not keep. V6-I made
-#: the format checkable; this is the caller that opts in.
-ASSERTED_FORMATS = ("uuid",)
+#: Manifest fields this validator asserts a format on, as {field: format name}.
+#: A **mapping, not a list**: a bare list of format names declared what was
+#: enforced without enforcing it, so adding a name to it asserted nothing while
+#: still looking like coverage -- the same "certifying what was never checked"
+#: shape this assertion exists to close.
+#:
+#: ``manifest.schema.json`` has declared ``"format": "uuid"`` on
+#: ``authority_repo_uuid`` since it was written, but ``format`` is an annotation
+#: by default, so until 2026-08-26 the checker would certify a non-UUID. V6-I
+#: made the format checkable; this is the caller that opts in.
+ASSERTED_MANIFEST_FORMATS = {"authority_repo_uuid": "uuid"}
 
 
 def _load_schema_check():
@@ -196,14 +202,29 @@ def validate_manifest_identity(manifest: dict[str, Any], path: Path) -> None:
     carry the field and all eight were already valid, so this rejects nothing
     that exists and constrains only what is written next.
     """
-    value = manifest.get("authority_repo_uuid")
-    if value is None:
-        return
-    if not isinstance(value, str) or not _format_checker("uuid")(value):
-        raise ValueError(
-            f"{path}: authority_repo_uuid must match the schema's "
-            f'"format": "uuid", got {value!r}'
-        )
+    for field, fmt in ASSERTED_MANIFEST_FORMATS.items():
+        value = manifest.get(field)
+        if value is None:
+            continue
+        if not isinstance(value, str) or not _format_checker(fmt)(value):
+            raise ValueError(
+                f"{path}: {field} must match the schema's "
+                f'"format": "{fmt}", got {value!r}'
+            )
+        if fmt == "uuid" and value != str(_uuid.UUID(value)):
+            # Agree with the rule this repository already had.
+            # validate_verification_artifacts.py:172 compares against
+            # str(UUID(v)) and rejects any non-canonical spelling, so accepting
+            # an uppercase value here would mean the same manifest passes one
+            # validator and fails the other -- two functions answering the same
+            # question differently, which is the defect this module's own
+            # docstring warns about. The generic schema_check checker stays
+            # case-insensitive because that is what JSON Schema's uuid format
+            # means; the extra canonicality requirement is this repository's,
+            # and is stated here rather than hidden in the shared checker.
+            raise ValueError(
+                f"{path}: {field} must be a canonical UUID, got {value!r}"
+            )
 
 
 def validate_manifest_hybrid(manifest: dict[str, Any], policy: dict[str, Any], path: Path) -> bool:

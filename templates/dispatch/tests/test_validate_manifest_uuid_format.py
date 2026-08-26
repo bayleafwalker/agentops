@@ -73,8 +73,15 @@ class AcceptedTests(unittest.TestCase):
         # "require the field".
         _check(None, present=False)
 
-    def test_an_uppercase_uuid_passes(self):
-        _check(VALID.upper())
+    def test_an_uppercase_uuid_is_rejected_as_non_canonical(self):
+        # JSON Schema's uuid format is case-insensitive, and schema_check's
+        # generic checker follows the spec. This repository is stricter:
+        # validate_verification_artifacts.py:172 has always compared against
+        # str(UUID(v)) and rejected any non-canonical spelling. Accepting
+        # uppercase here would let one manifest pass one validator and fail the
+        # other, which is exactly the drift this file's docstring warns about.
+        with self.assertRaisesRegex(ValueError, "canonical"):
+            _check(VALID.upper())
 
 
 class RejectedTests(unittest.TestCase):
@@ -124,7 +131,7 @@ class ProvenanceTests(unittest.TestCase):
         mine = validator._format_checker("uuid")
         theirs = schema_check.FORMAT_CHECKERS["uuid"]
         self.assertEqual(mine.__name__, theirs.__name__)
-        for value in (VALID, VALID.upper(), "not-a-uuid", "",
+        for value in (VALID, "not-a-uuid", "",
                       VALID.replace("-", ""), f"urn:uuid:{VALID}"):
             with self.subTest(value=value):
                 self.assertEqual(mine(value), theirs(value))
@@ -134,11 +141,40 @@ class ProvenanceTests(unittest.TestCase):
             validator._format_checker("definitely-not-a-format")
 
     def test_every_asserted_format_has_a_checker(self):
-        # ASSERTED_FORMATS is the list this validator claims to enforce. A name
-        # on it with no checker would be the original defect wearing a new hat.
-        for name in validator.ASSERTED_FORMATS:
-            with self.subTest(fmt=name):
+        # A mapping of {field: format}, so what is declared is what is checked.
+        # The earlier bare tuple could gain a name that asserted nothing while
+        # this test still passed.
+        self.assertTrue(validator.ASSERTED_MANIFEST_FORMATS)
+        for field, name in validator.ASSERTED_MANIFEST_FORMATS.items():
+            with self.subTest(field=field, fmt=name):
                 self.assertIn(name, schema_check.FORMAT_CHECKERS)
+
+    def test_the_asserted_mapping_is_what_actually_gets_checked(self):
+        # Drives the assertion from the constant: every declared field really is
+        # rejected when malformed.
+        for field in validator.ASSERTED_MANIFEST_FORMATS:
+            with self.subTest(field=field):
+                with self.assertRaises(ValueError):
+                    validator.validate_manifest_identity({field: "not-valid"}, MANIFEST)
+
+    def test_it_agrees_with_the_other_uuid_rule_in_this_repo(self):
+        # validate_verification_artifacts.py:172 is the pre-existing rule. The
+        # two must accept and reject the same spellings, or a manifest passes
+        # one gate and fails the other.
+        import uuid as _uuid
+        for value in (VALID, VALID.upper(), "not-a-uuid", VALID.replace("-", "")):
+            with self.subTest(value=value):
+                try:
+                    canonical = str(_uuid.UUID(value))
+                    theirs_ok = (value == canonical)
+                except Exception:
+                    theirs_ok = False
+                try:
+                    _check(value)
+                    mine_ok = True
+                except ValueError:
+                    mine_ok = False
+                self.assertEqual(mine_ok, theirs_ok)
 
 
 class TheRealManifestsTests(unittest.TestCase):

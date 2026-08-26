@@ -69,9 +69,11 @@ def _packet_for(task_id: str, attempt: int) -> Path:
     not produce it.
     """
     if attempt > 1:
-        retried = PACKETS / f"{task_id}.attempt-{attempt}.json"
-        if retried.exists():
-            return retried
+        # No fallback to the frozen packet here. Falling back would compare the
+        # receipt against an artifact that provably did not produce it, and the
+        # result would surface as a confusing hash mismatch rather than as the
+        # real fault, which is that the retry packet was never committed.
+        return PACKETS / f"{task_id}.attempt-{attempt}.json"
     return PACKETS / f"{task_id}.json"
 
 
@@ -101,13 +103,21 @@ class ReceiptsHavePacketsTests(unittest.TestCase):
         orphans = []
         for receipt_path in sorted(RECEIPTS.glob("*/receipt.json")):
             task_id = receipt_path.parent.name
-            if not (PACKETS / f"{task_id}.json").exists():
-                orphans.append(task_id)
+            receipt = json.loads(receipt_path.read_text())
+            attempt = int(receipt.get("attempt", 1))
+            # Probe the packet this receipt actually needs, not just the frozen
+            # one: a retried row needs its attempt-N packet, and looking only
+            # for <task>.json would report a missing retry packet as present.
+            wanted = _packet_for(task_id, attempt)
+            if not wanted.exists():
+                orphans.append(f"{task_id} (attempt {attempt}) -> {wanted.name}")
         self.assertEqual(
             orphans, [],
-            "these receipts have no packet -- the freeze-branch trap. Recover "
-            "them from the object store (git cat-file --batch-all-objects) and "
-            "hash-check the result before committing it.",
+            "these receipts have no packet -- the freeze-branch trap, or a "
+            "retry whose attempt-N packet was never committed. Recover them "
+            "from the object store (git cat-file --batch-all-objects) or the "
+            "coordinator workspace, and hash-check the result before "
+            "committing it.",
         )
 
     def test_at_least_one_receipt_is_checked(self):
