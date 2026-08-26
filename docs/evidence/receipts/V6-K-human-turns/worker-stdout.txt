@@ -1,0 +1,8 @@
+exit_code: 1
+
+stderr:
+[91m[1mError: [0mFile not found: /projects/dev/agentops/docs/evidence/packets/V6-K-human-turns.json
+
+
+stdout:
+

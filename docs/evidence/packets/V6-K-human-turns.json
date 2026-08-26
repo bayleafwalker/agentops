@@ -4,7 +4,7 @@
   "repo_id": "agentops",
   "sprint_item": {
     "ref": "agentops#2254",
-    "claim_id": null,
+    "claim_id": 33,
     "claim_actor": "workstation-vuoro"
   },
   "route": "mechanical_bulk",
