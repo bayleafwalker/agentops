@@ -1,0 +1,13 @@
+diff --git a/templates/dispatch/scripts/frontier_reliability.py b/templates/dispatch/scripts/frontier_reliability.py
+--- a/templates/dispatch/scripts/frontier_reliability.py
++++ b/templates/dispatch/scripts/frontier_reliability.py
+@@ -37,8 +37,7 @@
+     A bool is not a cost. ``True`` would otherwise be admitted as ``1`` and a
+     malformed row would certify itself.
+     """
+-    cost = row.get("cost_usd")
+-    return isinstance(cost, (int, float)) and not isinstance(cost, bool)
++    return bool(row.get("cost_usd"))
+ 
+ 
+ def frontier_reliability(rows):

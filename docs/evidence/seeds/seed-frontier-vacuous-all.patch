@@ -1,0 +1,12 @@
+diff --git a/templates/dispatch/scripts/frontier_reliability.py b/templates/dispatch/scripts/frontier_reliability.py
+--- a/templates/dispatch/scripts/frontier_reliability.py
++++ b/templates/dispatch/scripts/frontier_reliability.py
+@@ -59,7 +59,7 @@
+         session for session, row in survivors.items() if not _carries_cost(row)
+     )
+     return {
+-        "reported": len(survivors) > 0 and not unreported,
++        "reported": not unreported,
+         "unreported_sessions": unreported,
+         "sessions": len(survivors),
+     }

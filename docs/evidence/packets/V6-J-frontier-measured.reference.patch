@@ -1,0 +1,71 @@
+diff --git a/templates/dispatch/scripts/frontier_reliability.py b/templates/dispatch/scripts/frontier_reliability.py
+new file mode 100644
+index 0000000..cc4a2f8
+--- /dev/null
++++ b/templates/dispatch/scripts/frontier_reliability.py
+@@ -0,0 +1,65 @@
++#!/usr/bin/env python3
++"""Say whether the frontier cost half was measured at all, or merely summed.
++
++``worker_totals`` carries ``cost_reported`` and ``cost_unreported_tasks`` so a
++reader can tell a worker half that measured zero from one that measured nothing.
++``frontier_totals`` carries no such thing, and the Stop hook appends one
++cumulative snapshot per assistant turn -- so a scorecard generated *during* the
++session it measures has no row to read yet and reports ``sessions: 0``,
++``turns: 0``, ``usage_equivalent_usd: 0.0``. That is arithmetically correct and
++reads to any human as *the coordinator cost nothing*.
++
++This module adds the verdict and nothing else: no wiring into
++``build_scorecard``, no CLI, no file I/O.
++
++``reduce_sessions`` is imported from ``release_scorecard`` rather than restated,
++so which snapshot survives cannot drift from what ``frontier_totals`` sums.
++"""
++from __future__ import annotations
++
++import importlib.util
++from pathlib import Path
++
++HERE = Path(__file__).resolve().parent
++
++_spec = importlib.util.spec_from_file_location(
++    "_release_scorecard_for_frontier_reliability", HERE / "release_scorecard.py"
++)
++_scorecard = importlib.util.module_from_spec(_spec)
++_spec.loader.exec_module(_scorecard)  # type: ignore[union-attr]
++
++reduce_sessions = _scorecard.reduce_sessions
++
++
++def _carries_cost(row):
++    """True when the row states a cost figure at all.
++
++    A bool is not a cost. ``True`` would otherwise be admitted as ``1`` and a
++    malformed row would certify itself.
++    """
++    cost = row.get("cost_usd")
++    return isinstance(cost, (int, float)) and not isinstance(cost, bool)
++
++
++def frontier_reliability(rows):
++    """Return the frontier half's reliability verdict over any iterable of rows.
++
++    ``reported`` is True only when at least one session survived the reduction
++    and every survivor stated a cost. An empty sink is **not** reported: a
++    vacuous ``all()`` over no survivors is exactly the certification this
++    function exists to refuse. ``unreported_sessions`` names the silent
++    survivors in sorted order, the way ``worker_totals`` names its silent tasks,
++    because a total you cannot attribute is a total you cannot chase.
++
++    The argument is consumed exactly once, so a generator or any other one-shot
++    iterable is totalled exactly as a list would be.
++    """
++    survivors = reduce_sessions(rows)
++    unreported = sorted(
++        session for session, row in survivors.items() if not _carries_cost(row)
++    )
++    return {
++        "reported": len(survivors) > 0 and not unreported,
++        "unreported_sessions": unreported,
++        "sessions": len(survivors),
++    }

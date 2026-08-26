@@ -1,0 +1,141 @@
+{
+  "schema_version": "agentops-task/v2",
+  "task_id": "V6-J-frontier-measured",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#2254",
+    "claim_id": 0,
+    "claim_actor": "workstation-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "test_frontier_reliability.py decides correctness: 24 tests, red at the starting commit because scripts/frontier_reliability.py does not exist. It is red for a reason other than absence -- the subject is loaded lazily inside a helper, so the command exits 1, not 127. Reporting True unconditionally fails 11 assertions; the natural one-liner whose all() is vacuously true on an empty sink fails 3; treating a zero cost as a missing one fails 6.",
+    "starts_red": [
+      "agentops.dispatch.tests.frontier_reliability"
+    ],
+    "reference_patch": "docs/evidence/packets/V6-J-frontier-measured.reference.patch",
+    "defect_seeds": [
+      {
+        "id": "frontier-vacuous-all",
+        "patch": "docs/evidence/seeds/seed-frontier-vacuous-all.patch",
+        "expect_red": [
+          "agentops.dispatch.tests.frontier_reliability"
+        ],
+        "description": "reported becomes `not unreported`, which is vacuously True over no survivors -- the empty sink certifies itself, which is the defect this row exists to fix."
+      },
+      {
+        "id": "frontier-zero-is-missing",
+        "patch": "docs/evidence/seeds/seed-frontier-zero-is-missing.patch",
+        "expect_red": [
+          "agentops.dispatch.tests.frontier_reliability"
+        ],
+        "description": "a cost of 0 is read as no cost at all, so every genuinely free session is reported unmeasured -- the exact inversion of the distinction being added."
+      }
+    ]
+  },
+  "attempt": 1,
+  "starting_commit": "29fdc618e3cadc738b9168f4728bfb47b1680d3a",
+  "purpose": "Add templates/dispatch/scripts/frontier_reliability.py, exposing frontier_reliability(rows) -> dict, so the scorecard's frontier half can say 'not measured' rather than reporting a zero that reads as 'the coordinator cost nothing'. worker_totals already carries cost_reported and cost_unreported_tasks; frontier_totals carries no equivalent, and a scorecard generated during the session it measures has no Stop-hook row to read yet. Return exactly three keys: reported (bool), unreported_sessions (sorted list) and sessions (int). Import reduce_sessions from release_scorecard by path rather than restating the survivor rule -- churn_metrics.py imports MUTATION_TOOLS from hybrid_dispatch for the same reason, and this repo has already had to undo one pair of functions that answered the same question differently. This row adds the verdict and NOTHING else: no wiring into build_scorecard, no CLI, no file I/O. The wiring is a separate coordinator hand-pass.",
+  "readable_context_paths": [
+    "templates/dispatch/tests/test_frontier_reliability.py",
+    "templates/dispatch/scripts/release_scorecard.py",
+    "templates/dispatch/scripts/churn_metrics.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/frontier_reliability.py"
+  ],
+  "protected_paths": [
+    "templates/dispatch/hybrid/**",
+    "templates/dispatch/scripts/hybrid_dispatch.py",
+    "templates/dispatch/scripts/dispatch_release.py",
+    "templates/dispatch/scripts/release_scorecard.py",
+    "templates/dispatch/scripts/schema_check.py",
+    "templates/dispatch/manifest.schema.json",
+    "templates/dispatch/model-routing.json",
+    "agentops.dispatch.json",
+    "templates/dispatch/tests/**",
+    "templates/dispatch/hooks/**",
+    "docs/**",
+    ".claude/**",
+    "apps/web/**"
+  ],
+  "required_outcomes": [
+    "frontier_reliability(rows) returns exactly the keys reported, unreported_sessions and sessions",
+    "an empty sink, and a sink whose rows all lack a session, report reported False with no named session",
+    "a survivor carrying cost_usd 0 or 0.0 is reported True -- measured zero is not unmeasured",
+    "a survivor whose cost_usd is absent, None, non-numeric or a bool is unreported and named",
+    "unreported_sessions is sorted, and empty when every survivor reported",
+    "sessions equals frontier_totals(rows)['sessions'] on every fixture, via imported reduce_sessions",
+    "any one-shot iterable is accepted and iterated at most once, and the input is not mutated"
+  ],
+  "acceptance_properties": [
+    {
+      "id": "REQ-001",
+      "requirement": "an unmeasured frontier half is never reported as measured",
+      "command_id": "agentops.dispatch.tests.frontier_reliability",
+      "fails_when": "an empty sink, or one reduced to no survivors, returns reported True"
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "a measured zero is distinguishable from an absence",
+      "command_id": "agentops.dispatch.tests.frontier_reliability",
+      "fails_when": "a survivor whose cost_usd is 0 is reported unmeasured, or one whose cost_usd is missing or null is reported measured"
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "the reduction rule is frontier_totals' rule, not a second copy of it",
+      "command_id": "agentops.dispatch.tests.frontier_reliability",
+      "fails_when": "sessions disagrees with frontier_totals on any fixture, or the survivor rule is restated instead of imported"
+    },
+    {
+      "id": "REQ-004",
+      "requirement": "silent sessions are attributable, not merely counted",
+      "command_id": "agentops.dispatch.tests.frontier_reliability",
+      "fails_when": "unreported_sessions is unsorted, or omits a survivor that carried no cost"
+    },
+    {
+      "id": "REQ-005",
+      "requirement": "any iterable, consumed once, unmutated",
+      "command_id": "agentops.dispatch.tests.frontier_reliability",
+      "fails_when": "the argument is asked for a length or iterated twice, or the caller's rows are modified"
+    }
+  ],
+  "non_goals": [
+    "wiring the verdict into build_scorecard or the frontier block -- a separate coordinator hand-pass",
+    "changing release_scorecard.py in any way, including the null-cost TypeError in frontier_totals",
+    "adding a CLI, reading a sink file, or writing anything to disk",
+    "changing cost_usd.total_reliable, which tracks the worker half because worker spend is the only real money"
+  ],
+  "allowed_command_ids": [
+    "agentops.dispatch.tests.frontier_reliability"
+  ],
+  "limits": {
+    "timeout_seconds": 1800,
+    "max_cost_usd": 3.0,
+    "soft_token_ceiling": 1200000,
+    "hard_token_ceiling": 2000000
+  },
+  "context_churn": {
+    "max_repeated_reads_per_path": 4,
+    "max_reasoning_steps_without_mutation": 20,
+    "max_identical_context_tokens": 250000,
+    "handoff_when_candidate_ready": true
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/v6-j-frontier-measured",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": [
+      "docs/dispatch/handover-2026-08-25-v6-hardening.md"
+    ]
+  }
+}
