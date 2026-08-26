@@ -605,6 +605,7 @@ class SelfCandidateTests(unittest.TestCase):
             "default_harness": "opencode", "default_model_alias": "fast-build",
             "action_classes": {"mechanical_bulk": {
                 "enabled": True, "self_candidate": True, "self_candidate_ruling": "owner 2026-08-23",
+                "permitted_routes": ["mechanical_bulk"],
             }},
         }
 
@@ -670,20 +671,131 @@ class SelfCandidateTests(unittest.TestCase):
         manifest = _json(ROOT / "agentops.dispatch.json")
         entry = manifest["routing"]["action_classes"]["mechanical_bulk"]
         self.assertIs(entry["self_candidate"], True)
+        # The 2026-08-26 reissue (agentops#2100, Option C) keys the grant to the
+        # action class and names the routes it covers. It must still carry the
+        # 2026-08-23 ruling it descends from: reissuing is not discarding.
+        self.assertIn("2026-08-26", entry["self_candidate_ruling"])
         self.assertIn("2026-08-23", entry["self_candidate_ruling"])
+        self.assertEqual(entry["permitted_routes"], ["mechanical_bulk"])
         policy = _json(HYBRID / "hybrid-dispatch.v1.json")
         self.assertTrue(validator.validate_manifest_hybrid(manifest, policy, Path("agentops.dispatch.json")))
 
-    def test_validator_rejects_a_flip_without_a_ruling_or_outside_worker_routes(self) -> None:
+    def test_validator_rejects_a_flip_without_a_ruling(self) -> None:
         policy = _json(HYBRID / "hybrid-dispatch.v1.json")
         manifest = _json(ROOT / "agentops.dispatch.json")
         manifest["routing"]["action_classes"]["mechanical_bulk"].pop("self_candidate_ruling")
         with self.assertRaisesRegex(ValueError, "without a self_candidate_ruling"):
             validator.validate_manifest_hybrid(manifest, policy, Path("m"))
+
+    def test_validator_rejects_a_grant_that_names_no_routes(self) -> None:
+        # Replaces the old "the class must BE a worker route" rule. A grant that
+        # does not say which routes it covers is the inheritance-by-name defect
+        # in a new spelling, so it is refused rather than defaulted.
+        policy = _json(HYBRID / "hybrid-dispatch.v1.json")
         manifest = _json(ROOT / "agentops.dispatch.json")
         manifest["routing"]["action_classes"]["build"]["self_candidate"] = True
-        with self.assertRaisesRegex(ValueError, "not a hybrid worker route"):
+        with self.assertRaisesRegex(ValueError, "declares no permitted_routes"):
             validator.validate_manifest_hybrid(manifest, policy, Path("m"))
+
+    def test_validator_rejects_a_grant_over_a_route_this_repo_does_not_run(self) -> None:
+        policy = _json(HYBRID / "hybrid-dispatch.v1.json")
+        manifest = _json(ROOT / "agentops.dispatch.json")
+        manifest["routing"]["action_classes"]["build"].update(
+            {"self_candidate": True, "self_candidate_ruling": "owner",
+             "permitted_routes": ["bindery_external_runtime_w0"]})
+        with self.assertRaisesRegex(ValueError, "not an enabled hybrid worker route"):
+            validator.validate_manifest_hybrid(manifest, policy, Path("m"))
+
+    def test_a_grant_does_not_cover_a_route_it_does_not_name(self) -> None:
+        # The decoupling's whole point: authority is granted for named routes.
+        # Same class, a route the ruling was not written about -> no authority.
+        self.manifest["routing"]["action_classes"]["mechanical_bulk"][
+            "permitted_routes"] = ["bindery_external_runtime_w0"]
+        self.assertIsNone(dispatch.self_candidate_class(self.packet, self.manifest))
+
+
+class RouteAndActionClassAreIndependentTests(unittest.TestCase):
+    """agentops#2100 Option C: route selects execution, action_class carries
+    authority, and neither implies the other.
+
+    Both directions are pinned, because a decoupling that only works one way is
+    still a welding. These operate on ``self_candidate_class`` directly: it is
+    the single function in which the two concepts used to be the same string.
+    """
+
+    def setUp(self) -> None:
+        packet_tests = PacketValidationTests("test_a_fit_packet_reports_the_policy_pre_gates")
+        packet_tests.setUp()
+        self.packet = packet_tests.packet
+        self.manifest = packet_tests.manifest
+
+    def _classes(self, **classes) -> None:
+        self.manifest["routing"] = {
+            "default_harness": "opencode", "default_model_alias": "fast-build",
+            "action_classes": classes,
+        }
+
+    def test_one_route_can_carry_different_action_classes(self) -> None:
+        # Same execution binding, two packets, different authority.
+        self._classes(
+            trusted={"enabled": True, "self_candidate": True,
+                     "self_candidate_ruling": "owner", "permitted_routes": ["mechanical_bulk"]},
+            probationary={"enabled": True, "self_candidate": False,
+                          "permitted_routes": ["mechanical_bulk"]},
+        )
+        trusted = dict(self.packet, schema_version="agentops-task/v3", action_class="trusted")
+        probationary = dict(self.packet, schema_version="agentops-task/v3", action_class="probationary")
+        self.assertEqual(trusted["route"], probationary["route"])
+        self.assertEqual(dispatch.self_candidate_class(trusted, self.manifest), "trusted")
+        self.assertIsNone(dispatch.self_candidate_class(probationary, self.manifest))
+
+    def test_one_action_class_can_span_different_routes(self) -> None:
+        # Same authority, two execution bindings. The grant names both.
+        self._classes(
+            mechanical={"enabled": True, "self_candidate": True,
+                        "self_candidate_ruling": "owner",
+                        "permitted_routes": ["mechanical_bulk", "bindery_external_runtime_w0"]},
+        )
+        here = dict(self.packet, schema_version="agentops-task/v3",
+                    action_class="mechanical", route="mechanical_bulk")
+        elsewhere = dict(self.packet, schema_version="agentops-task/v3",
+                         action_class="mechanical", route="bindery_external_runtime_w0")
+        self.assertNotEqual(here["route"], elsewhere["route"])
+        self.assertEqual(dispatch.self_candidate_class(here, self.manifest), "mechanical")
+        self.assertEqual(dispatch.self_candidate_class(elsewhere, self.manifest), "mechanical")
+
+    def test_a_frozen_packet_falls_back_to_its_route_and_keeps_its_hash(self) -> None:
+        # The compatibility half. A v2 packet has no action_class and must be
+        # judged exactly as it was when frozen -- and its bytes must not move,
+        # because packet_hash is what links it to its receipt.
+        self._classes(mechanical_bulk={
+            "enabled": True, "self_candidate": True, "self_candidate_ruling": "owner",
+            "permitted_routes": ["mechanical_bulk"]})
+        frozen = dict(self.packet, schema_version="agentops-task/v2")
+        frozen.pop("action_class", None)
+        before = json.dumps(frozen, sort_keys=True, separators=(",", ":"))
+        self.assertEqual(dispatch.self_candidate_class(frozen, self.manifest), "mechanical_bulk")
+        self.assertEqual(
+            json.dumps(frozen, sort_keys=True, separators=(",", ":")), before,
+            "resolving the class must not mutate the packet")
+
+    def test_the_route_fallback_is_closed_at_v3(self) -> None:
+        # Not an indefinite optional convention: a new packet must say which
+        # class it is claiming, and omitting it is an error rather than a
+        # silent inheritance.
+        newer = dict(self.packet, schema_version="agentops-task/v3")
+        newer.pop("action_class", None)
+        with self.assertRaisesRegex(dispatch.PacketError, "must declare action_class"):
+            dispatch.resolve_action_class(newer)
+        for version in ("agentops-task/v1", "agentops-task/v2"):
+            with self.subTest(version=version):
+                older = dict(self.packet, schema_version=version)
+                older.pop("action_class", None)
+                self.assertEqual(dispatch.resolve_action_class(older), older["route"])
+
+    def test_a_stated_class_beats_the_route_even_at_a_fallback_version(self) -> None:
+        older = dict(self.packet, schema_version="agentops-task/v2", action_class="stated")
+        self.assertEqual(dispatch.resolve_action_class(older), "stated")
 
 
 class LiveClaimTests(unittest.TestCase):
@@ -1459,7 +1571,7 @@ class ExamplePacketTests(unittest.TestCase):
         )
         self.assertEqual(
             schema["properties"]["schema_version"]["enum"],
-            ["agentops-task/v1", "agentops-task/v2"],
+            ["agentops-task/v1", "agentops-task/v2", "agentops-task/v3"],
         )
         self.assertEqual(example["network_policy"], "disabled")
 

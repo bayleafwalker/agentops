@@ -349,7 +349,7 @@ class ReleaseBoundarySchemaTests(unittest.TestCase):
         self.assertEqual(self.schema["required"], self.REQUIRED)
         self.assertEqual(
             self.schema["properties"]["schema_version"]["enum"],
-            ["agentops-task/v1", "agentops-task/v2"],
+            ["agentops-task/v1", "agentops-task/v2", "agentops-task/v3"],
         )
 
 

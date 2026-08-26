@@ -34,7 +34,10 @@
         "harness": "opencode",
         "model_alias": "fast-build",
         "self_candidate": true,
-        "self_candidate_ruling": "Owner ruling 2026-08-23 (L-3 / D-8): human approval is perpendicular to the loop -- review happens at release, architecture and style boundaries, not per mechanical packet. A green evidence gate on this class disposes candidate without a per-packet independent review record; D-8's >=5-green-first-pass-with-0-escalations rule governs which classes qualify."
+        "permitted_routes": [
+          "mechanical_bulk"
+        ],
+        "self_candidate_ruling": "Owner ruling 2026-08-26 (agentops#2100, Option C), REISSUED and keyed to this action class rather than inherited from a route of the same name. Route selects execution and is transient; authority to mint a candidate without a human review record is a separate, durable decision and must be stated deliberately. This grant is made for the action class mechanical_bulk, and covers exactly the routes named in permitted_routes -- a route added later inherits nothing. It carries forward, unchanged in substance, the owner ruling of 2026-08-23 (L-3 / D-8): human approval is perpendicular to the loop -- review happens at release, architecture and style boundaries, not per mechanical packet. A green evidence gate on this class disposes candidate without a per-packet independent review record; D-8's >=5-green-first-pass-with-0-escalations rule governs which classes qualify. Reissued rather than edited so that the act of granting is visible in the record: the 2026-08-23 ruling was written about a class and applied through a route, and this closes that gap."
       }
     }
   },

@@ -236,8 +236,15 @@ def validate_manifest_hybrid(manifest: dict[str, Any], policy: dict[str, Any], p
             "writable packet paths"
         )
     # L-3 (D-8): self_candidate is a manifest-level grant, so it must be a
-    # literal boolean on an enabled class that is actually a worker route, and
-    # it must carry its provenance -- a flip without a ruling is unreviewable.
+    # literal boolean on an enabled class carrying its provenance -- a flip
+    # without a ruling is unreviewable.
+    #
+    # The class is no longer required to *be* a worker route. It must instead
+    # name the routes its ruling was written about (permitted_routes), each of
+    # which must be an enabled worker route here. That is the decoupling: a
+    # route says who executes and is chosen per task; a class says what may be
+    # minted without human review and is granted deliberately. Requiring the two
+    # to share a name welded a transient binding to a durable authority.
     classes = (manifest.get("routing") or {}).get("action_classes") or {}
     for name, entry in classes.items():
         flag = entry.get("self_candidate", False)
@@ -246,10 +253,18 @@ def validate_manifest_hybrid(manifest: dict[str, Any], policy: dict[str, Any], p
         if flag:
             if not entry.get("enabled", False):
                 raise ValueError(f"{path}: action class {name} is self_candidate but not enabled")
-            if name not in worker_routes:
+            permitted = entry.get("permitted_routes")
+            if not isinstance(permitted, list) or not permitted:
                 raise ValueError(
-                    f"{path}: action class {name} is self_candidate but is not a hybrid worker route"
+                    f"{path}: action class {name} is self_candidate but declares no "
+                    "permitted_routes; the grant must say which routes it covers"
                 )
+            for route in permitted:
+                if route not in worker_routes:
+                    raise ValueError(
+                        f"{path}: action class {name} permits route {route}, which is "
+                        "not an enabled hybrid worker route here"
+                    )
             if not str(entry.get("self_candidate_ruling", "")).strip():
                 raise ValueError(
                     f"{path}: action class {name} is self_candidate without a self_candidate_ruling"

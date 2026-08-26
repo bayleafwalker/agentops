@@ -42,13 +42,36 @@ from typing import Any
 POLICY_RELATIVE = Path("templates/dispatch/hybrid/hybrid-dispatch.v1.json")
 WORKER_CONFIG_RELATIVE = Path("templates/dispatch/hybrid/opencode.hybrid.json")
 LEGACY_PACKET_SCHEMA_VERSION = "agentops-task/v1"
-PACKET_SCHEMA_VERSION = "agentops-task/v2"
+FALLBACK_PACKET_SCHEMA_VERSION = "agentops-task/v2"
+PACKET_SCHEMA_VERSION = "agentops-task/v3"
 SUPPORTED_PACKET_SCHEMA_VERSIONS = (
     LEGACY_PACKET_SCHEMA_VERSION,
+    FALLBACK_PACKET_SCHEMA_VERSION,
+    PACKET_SCHEMA_VERSION,
+)
+#: Versions in which ``action_class`` may be omitted and ``route`` stands in for
+#: it. This is a **closed set, not an open convention**: every packet frozen
+#: before 2026-08-26 is v1 or v2 and keeps its hash untouched, and no new packet
+#: may be written at those versions. v3 requires the class to be stated.
+ACTION_CLASS_FALLBACK_VERSIONS = (
+    LEGACY_PACKET_SCHEMA_VERSION,
+    FALLBACK_PACKET_SCHEMA_VERSION,
+)
+#: Versions whose acceptance properties carry stable requirement ids. Membership,
+#: not equality with "the newest version": comparing against
+#: ``PACKET_SCHEMA_VERSION`` silently reclassified every v2 packet as v1 the
+#: moment that constant was repointed at v3.
+STABLE_ACCEPTANCE_ID_VERSIONS = (
+    FALLBACK_PACKET_SCHEMA_VERSION,
     PACKET_SCHEMA_VERSION,
 )
 GATE_SET_HASH_SCHEMA_VERSIONS = {
     LEGACY_PACKET_SCHEMA_VERSION: "agentops-hybrid-gate-set/v1",
+    FALLBACK_PACKET_SCHEMA_VERSION: "agentops-hybrid-gate-set/v2",
+    # v3 adds action_class, which is not part of the gate set: the gate set is
+    # allowed_command_ids plus acceptance_properties, and neither moves. Sharing
+    # v2's gate-set version is what lets a v3 packet's receipt be compared with
+    # a v2 one's on equal terms.
     PACKET_SCHEMA_VERSION: "agentops-hybrid-gate-set/v2",
 }
 ACCEPTANCE_PROPERTY_ID_RE = re.compile(r"[A-Za-z][A-Za-z0-9._-]*\Z")
@@ -222,6 +245,20 @@ def validate_packet(
                 f"route {route!r} is scoped to a different project repository"
             )
 
+    # action_class: stated from v3 on, route-derived for the closed set of
+    # earlier versions. resolve_action_class raises if a new packet omits it.
+    action_class = resolve_action_class(packet)
+    if not isinstance(action_class, str) or not action_class.strip():
+        raise PacketError("action_class must be a non-empty string")
+    declared_classes = (manifest.get("routing") or {}).get("action_classes") or {}
+    if packet.get("action_class") is not None and action_class not in declared_classes:
+        # Only checked when stated. A fallback packet naming a route with no
+        # action_classes entry is the six external repos' normal state -- it
+        # simply has no grant -- and must keep dispatching.
+        raise PacketError(
+            f"action_class {action_class!r} is not declared in this repository's "
+            "routing.action_classes"
+        )
     if packet.get("task_class") != "mechanical_implementation":
         raise PacketError("worker dispatch requires task_class mechanical_implementation")
     if packet.get("risk") != "low":
@@ -301,7 +338,7 @@ def validate_packet(
             raise PacketError(
                 "each acceptance property must name its requirement and the incorrect behaviour it falsifies"
             )
-        if packet_schema_version == PACKET_SCHEMA_VERSION:
+        if packet_schema_version in STABLE_ACCEPTANCE_ID_VERSIONS:
             requirement_id = acceptance.get("id")
             if not isinstance(requirement_id, str) or not requirement_id:
                 raise PacketError("each v2 acceptance property must declare a stable id")
@@ -717,6 +754,32 @@ def context_churn_limits(packet: dict[str, Any]) -> dict[str, Any]:
         "max_identical_context_tokens": 250000,
         "handoff_when_candidate_ready": True,
     }
+
+
+def resolve_action_class(packet: dict[str, Any]) -> str:
+    """The action class this packet is judged under.
+
+    Authority to mint a candidate without a human review record attaches to an
+    **action class**, not to an execution binding. The L-3/D-8 ruling was always
+    written that way -- "a green evidence gate *on this class*" -- but the
+    lookup keyed off ``route``, so the two were the same string and the
+    distinction existed only in prose.
+
+    A packet at a fallback version may omit ``action_class``, and then its
+    ``route`` stands in, which is exactly what those packets meant when they
+    were frozen. Their bytes are never touched and their hashes never move.
+    ``agentops-task/v3`` onwards must say which class it is claiming.
+    """
+    stated = packet.get("action_class")
+    if stated is not None:
+        return stated
+    if packet.get("schema_version") in ACTION_CLASS_FALLBACK_VERSIONS:
+        return packet["route"]
+    raise PacketError(
+        f"packets at {packet.get('schema_version')!r} must declare action_class; "
+        "the route fallback is closed to "
+        f"{', '.join(ACTION_CLASS_FALLBACK_VERSIONS)}"
+    )
 
 
 def gate_set_hash_schema_version(packet: dict[str, Any]) -> str:
@@ -2110,16 +2173,25 @@ def self_candidate_class(packet: dict[str, Any], manifest: dict[str, Any]) -> st
     """The action class that lets this packet mint a candidate without a review
     record, or None.
 
-    L-3 (D-8): ``routing.action_classes[<route>].self_candidate`` is the only
+    L-3 (D-8): ``routing.action_classes[<class>].self_candidate`` is the only
     place that authority lives. The packet cannot claim it for itself, the
     policy does not grant it per route, and a class that has not been flipped
     in the manifest keeps the review-record requirement exactly as before.
+
+    Two conditions, not one. The class must hold the grant, **and** the packet's
+    route must be one the grant covers (``permitted_routes``). Authority is
+    durable and stated; the execution binding is transient and chosen per task.
+    A class that has never been flipped, or a route the ruling was not written
+    about, both return ``None`` and keep the review record required.
     """
     classes = (manifest.get("routing") or {}).get("action_classes") or {}
-    entry = classes.get(packet["route"]) or {}
-    if entry.get("enabled", False) and entry.get("self_candidate", False) is True:
-        return packet["route"]
-    return None
+    name = resolve_action_class(packet)
+    entry = classes.get(name) or {}
+    if not (entry.get("enabled", False) and entry.get("self_candidate", False) is True):
+        return None
+    if packet["route"] not in (entry.get("permitted_routes") or []):
+        return None
+    return name
 
 
 def load_independent_review(path: Path, packet: dict[str, Any]) -> dict[str, Any]:
