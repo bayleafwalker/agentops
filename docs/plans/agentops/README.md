@@ -23,6 +23,13 @@ These files live in the `/projects/dev/agentops` repo. Treat this repo as the co
   the orchestration-planning session; the pathway itself is still draft for
   owner ratification and authorizes nothing.
 
+## Current advisory cross-session pilot (2026-08-27, draft)
+
+- `2026-08-27-imperative-effect-correlation-pilot.md` - wrapper-derived
+  resource intersection and effect-intent projection for the Talos/application
+  concurrency case. It is an advisory, falsifiable pilot and authorizes no
+  production change or new target-side fencing.
+
 ## Current supporting mapping
 
 - `volatile-context-native-runtime-integration-mapping-2026-08-20.md` - current
