@@ -1,19 +1,19 @@
-# Cross-repo dogfood plan — 2026-08-28 (rev. 2, owner-amended)
+# Cross-repo dogfood plan — 2026-08-28 (rev. 4, evidence-corrected and partly implemented)
 
-Status: **thesis, narrowed ownership model, non-goals, vuoro `#1245`, hostproto adapter repair and cred-broker hygiene are approved.** Everything past R0 is authorized gate-by-gate, not by calendar. This revision incorporates the owner ruling of 2026-08-28; see §7 for what changed and why.
+Status: **thesis, narrowed ownership model, non-goals, vuoro `#1245`, hostproto adapter repair and cred-broker hygiene are approved.** Everything past R0 is authorized gate-by-gate, not by calendar. Rev. 2 incorporated the owner ruling of 2026-08-28 (§8). Rev. 3 corrects three claims that the R0 sample session falsified the same day (§9).
 Scope: vuoro, agentops, sprintctl, actionq, auditctl, kctl, cred-broker, hostproto, scribectl, appservice/gitops-nixos as deployment hosts.
 
 ## 1. Where things actually stand
 
 | Repo | State (evidence) | What blocks it cross-repo |
 |---|---|---|
-| vuoro | Direction doc (08-22/24) = "distribution/control projection", still a *freeze candidate*. Takeover experiment 08-20 adjudicated **NARROW**: surviving boundary is a read-only reconciliation/export adapter. | `#1245` `work_store.repo_id` hardcoded → 7 of 8 repos cannot use served mode. Three `vuoro-service` deployments on three digests (`vuoro-dev`, `vuoro-shared`, `agent-cockpit`). |
+| vuoro | Direction doc (08-22/24) = "distribution/control projection", still a *freeze candidate*. Takeover experiment 08-20 adjudicated **NARROW**: surviving boundary is a read-only reconciliation/export adapter. | **P0:** served `next-work` and `next-work --explain` return `adapter-result-invalid` for *every* repo scope (measured: agentops, sprintctl, vuoro, hostproto). Three `vuoro-service` deployments on three digests (`vuoro-dev`, `vuoro-shared`, `agent-cockpit`). `#1245` is narrower than recorded — see §9. |
 | sprintctl 0.3.2 | Served-mode hub; the only repo everything else already talks to. | Served-mode gaps (#1982–#1985) gated behind `#1164` split-backend retirement. |
 | actionq 0.1.28 | Execution plane retired; federation is a *target*. | Federation schema uninitialized cluster-wide; 5.3 is the first GitOps mutation. W7 not authorized (D-10). |
-| auditctl 0.1.2 | Shared Vuoro adapter contract landed. | `#1201` central ingest → `#1202` observation/receipt adapter. Nothing publishes into it yet except sprintctl hooks. |
+| auditctl 0.1.2 | Shared Vuoro adapter contract landed. | **D3 fails today:** the agentops index holds 493 events, its shards 468; 25 index-only events (`workflow.session` from `claude-hook`, 2026-08-26) and `rebuild` reports success anyway. `#1201` → `#1202`. |
 | kctl 0.1.3 | Read-only over sprintctl. | `#1199` → `#1200`, mirrors auditctl's pair. Demand-gated: dormant unless a consumer's friction calls for it. |
 | cred-broker | Passes 1–4 done, pass 5 mid-flight; all live canaries green on 08-11. **Dormant since.** | No dispatch manifest. Unattended-agent gate closed. Forgejo JWT integration not commissioned. Container build hand-overlaid. |
-| hostproto | W1-01 landed 08-22, Wave 1 open. | Served `next-work` returns `adapter-result-invalid` (vuoro bug). No git remote. OQ-007 (evidence → auditctl or kctl?) undecided. Separate `hostproto-semantics` lineage. |
+| hostproto | W1-01 landed 08-22, Wave 1 open. | Blocked by the cross-repo `adapter-result-invalid` P0, not a hostproto-specific one. No git remote. OQ-007 (evidence → auditctl or kctl?) undecided. Separate `hostproto-semantics` lineage. |
 | scribectl 0.1.0 | Sprint 19/19 done, Phase C live in real vault. `observable` manifest. | Nothing — it is a pure substrate consumer and the best canary. `scribedispatch` never touches the substrate; keep it that way. |
 | agentops | 18 dispatch manifests, mix of schema v1/v2; 13 are `guidance-only`. | Manifests describe routing that nothing executes end-to-end (`hybrid_dispatch.py:995` needs human review JSON; no `prepare → run → gate → receipt` driver). |
 
@@ -30,9 +30,9 @@ Conclusion: the substrate is over-designed relative to its consumers. The next u
 
 Seams below are described as capabilities. None of them is authorized as a subsystem project; each is built only as far as the consumer packet in §5 requires.
 
-**S1 — Served mode proven by two independent non-sprintctl repos.** Fix vuoro `#1245` (repo_id per request, not per process) and reproduce/fix `adapter-result-invalid` under the `hostproto` scope. Success is scribectl and hostproto running served sprints — *not* eight repos enabled. Pre-emptively enabling every repo is the same over-build the thesis rejects.
+**S1 — Served mode proven by two independent non-sprintctl repos.** The blocking defect is `adapter-result-invalid` on the `next-work` read path, which fails in every repo scope and therefore blocks R1 and R2 alike; it is the P0. `#1245` is a narrower follow-up: scope resolution and writes already land under the correct `repo_id` in every repo tested, and the reservation path already rejects a mismatched actor (`actor-mismatch: reservation actor must match the authenticated identity`), so that work is an audit of which served operations bind the principal — not an unblocking fix. Success is scribectl and hostproto running served sprints — *not* eight repos enabled.
 
-*Authority model (amendment 2).* `repo_id` and `authority_repo_uuid` collapse into **one immutable authority UUID**; repository names and slugs are display metadata over it. Served authorization binds the **authenticated principal** to that UUID. A caller-supplied repo id is a routing hint, never an isolation boundary — accepting one as authorization is the bug `#1245` must not be re-introduced as.
+*Authority model (amendment 2).* `repo_id` and `authority_repo_uuid` collapse into **one immutable authority UUID**; repository names and slugs are display metadata over it. Served authorization binds the **authenticated principal** to that UUID. A caller-supplied repo id is a routing hint, never an isolation boundary. The audit must enumerate every served operation and state, per operation, whether it binds the principal (reservations do) or trusts the caller's scope (unverified elsewhere).
 
 *Deployment.* Converge the three `vuoro-service` deployments onto **one immutable image digest**. "Named roles" stay deployment configuration; no role abstraction until a consumer requires one.
 
@@ -41,6 +41,8 @@ Seams below are described as capabilities. None of them is authorized as a subsy
 - auditctl owns the envelope, integrity rules, the rebuildable index and the query surface.
 - `canon.ratified` (scribectl), `capability.decision` (cred-broker), `harness.gate` (dispatch gates) and hostproto verification remain **domain-owned payload schemas**.
 - Cockpit reads auditctl's rebuildable index/API — not raw shards, not a Vuoro evidence projection. NARROW rejected takeover-through-projection because it added glue without operator benefit; it did not reject disposable read projections in general.
+
+*Shard authority is not yet true.* The rule above — shards authoritative, index derived — is currently inverted by at least one publisher: `claude-hook` writes `workflow.session` events into the sqlite index without appending them to the shard, and `auditctl rebuild` neither detects nor reports the difference. Repairing both is a **prerequisite for R1**, because D3 cannot pass while a rebuild silently drops events.
 
 *OQ-007 closes here, by ratification:* **hostproto publishes its own verification schema inside `evidence-ref/v1`; auditctl owns storage and provenance mechanics, not verification meaning.**
 
@@ -65,7 +67,7 @@ D1. The repo's sprint state lives in served sprintctl under its own authority UU
 
 D2. **Gating verification runs** emit an exact-revision receipt into auditctl (not every local test invocation). A receipt carries: exact commit/head and clean-source state; toolchain and policy version; input/configuration digest; producer identity; outcome and evidence reference; explicit lossy/sanitized markers.
 
-D3. **Rebuild gate.** Delete the derived index, rebuild it without rerunning any work, compare canonical receipt digests, and detect duplicate, missing and corrupt shards.
+D3. **Rebuild gate.** Delete the derived index, rebuild it without rerunning any work, compare canonical receipt digests, and detect duplicate, missing and corrupt shards. *Measured 2026-08-28: fails.* A count-only rebuild reported success over shards missing 25 of 493 events; comparing canonical digests rather than counts is the fix.
 
 D4. Agent writes (commit/push/PR) go through `credctl exec`; no long-lived provider tokens on devbox-agent.
 
@@ -101,7 +103,9 @@ Week figures are forecasts. **The gates, not the calendar, are the authorization
 - *Gate:* baseline recorded; manifest classification committed; direction ratified.
 
 **R1 — scribectl vertical slice (first consumer).**
-- Fix vuoro `#1245` plus served authorization/isolation on the authority UUID.
+- Fix the `adapter-result-invalid` P0 on the served `next-work` path — this alone unblocks both R1 and R2.
+- Make shards authoritative in fact: the publisher appends to the shard before indexing, and `rebuild` fails on index-only, duplicate or corrupt events.
+- Audit principal binding per served operation (`#1245`), narrowed by the evidence in §9.
 - Pin the same service artifact digest across all three deployments.
 - Run `next-work`, **interrupt it**, resume from a fresh shell.
 - Publish one repo-local receipt; rebuild the auditctl index from shards.
@@ -109,8 +113,7 @@ Week figures are forecasts. **The gates, not the calendar, are the authorization
 - *Gate:* D1, D2, D3, D6(interrupt) hold for scribectl.
 
 **R2 — hostproto generalization test (does the seam generalize?).**
-- Fix `adapter-result-invalid`.
-- Close OQ-007 using the already-established evidence envelope (§2/S2).
+- Close OQ-007 using the already-established evidence envelope (§2/S2). (The adapter P0 is fixed in R1; if it were still open here, R2 could not start.)
 - Repeat the interrupted run and the index rebuild.
 - *Gate:* **no new repo-specific branch in Vuoro, sprintctl or auditctl core.** Repo-owned config and publishing code only. Failing this gate means R1 produced a special case, not a seam — stop and reallocate.
 
@@ -151,6 +154,31 @@ Returned and now amended:
 4. **Standing policy replaces the human-review absolute.** Three tiers (autonomous / human judgment / denied); cross-repo orchestration policy in `agentops.toml`, repo acceptance policy stays repo-owned.
 5. **Speculative work off the critical path.** Direction ratified at R0 instead of T3; federation conditional on an observed unresolvable conflict; kctl demand-gated; Beads/Gas Town time-boxed or deleted; one image digest with no role abstraction; Forgejo-runner commissioning separated from broker enforcement.
 
-## 9. Known gaps in the inputs
+## 9. Evidence corrections (R0 sample session, 2026-08-28)
+
+A sample session ran the real loop from the workstation against `https://vuoro-shared.apps.kotona.app` before any R0 work started. It falsified three claims in rev. 2. Receipts: `ad:01M14P0HSX9S6VY7BHN8DKEAXK`, `ad:01M14P2MJ78BK9M8DZCCY0N3AM`.
+
+- **`adapter-result-invalid` is cross-repo, not hostproto-scoped.** `next-work` and `next-work --explain` fail in the agentops, sprintctl, vuoro and hostproto scopes. `sprint list`, `item list`, `sprint create`, `item add`, `handoff` and `reservation reserve`/`release` all succeed against the same endpoint. It is one operation's result schema — and it is the operation the dogfood loop is built on. Filed as vuoro #2313.
+- **`#1245` does not lock 7 of 8 repos out of served mode.** Every repo resolved its own scope from its marker, and writes landed under the correct `repo_id`: five sprints and eighteen items were created through served mode during the session. Reservations already bind the actor to the authenticated identity. `#1245` is therefore an audit, not the gate. Filed as vuoro #2312.
+- **D3 fails today, before anything depends on it.** agentops: 493 events in the index, 468 in shards, 25 index-only, 0 shard-only; `rebuild --dry-run` reported "Validated 7 shard(s): 468 event(s)". The batch validation cannot see this by construction — it only inspects ids the incoming batch names. Filed as auditctl #2315, **fixed**: `rebuild` now refuses and names the count, sources and dates, with `--allow-index-only` as the explicit override.
+- **A participating repo can leave the authority silently.** cred-broker had no `.sprintctl/backend.json` and no `.envrc`, so sprintctl resolved `backend=local` from cwd and wrote a sprint and four items to `~/.sprintctl/sprintctl.db` while appearing to succeed. This is the isolation question from the other side: not a caller reaching another scope, but a repo quietly leaving the shared one. Filed as cred-broker #2323; marker and `.envrc` added for auditctl, kctl and cred-broker, and the work re-created served.
+
+Two environment defects also surfaced: three participating repos had no `.envrc` at all, so sprintctl fell back to local and `auditctl` writes failed with `AUDITCTL_ARTIFACTS_ROOT is required for audit writes` (auditctl #2317, fixed locally — `.envrc` is gitignored, so this does not propagate to devbox-agent and must be repeated there). A served rejection also escapes as an unhandled traceback rather than a CLI error (sprintctl #2318).
+
+**Corrections to this section.** An earlier receipt attributed the 25 index-only events to the `claude-hook` publisher writing the index without appending. That is wrong: `auditctl add` appends inside the sqlite transaction and rolls back if the append fails. All 25 ids are present in `.auditctl/archive/auditctl-retired-2026-08-26.db`, so they entered the index through that day's ledger retirement without their shard lines. Correcting receipt: `ad:01M14Q2RBJ8R0V1CH66CWJSRJA`. The D3 finding itself is unchanged.
+
+**Method note.** This is the loop the plan asks for: run the thing, let the friction generate the requirements. One session moved the P0 before a week of R1 work was allocated against the wrong blocker — and produced a correction to its own first receipt, which is what D2 evidence is for.
+
+## 9a. Implemented from these findings (unmerged, unreleased)
+
+| Repo | Branch | Change |
+|---|---|---|
+| sprintctl | `fix/served-next-work-result-schema` | `work.read.next-work` result schema admits the three advisory dispatch fields the handler emits; `work.read.next-work-explain` const bumped `1`→`2` to match the served aggregate. New `tests/test_served_result_schema_conformance.py` validates every argument-free served read against its own published schema — the class guard the surface test says it cannot provide. Verified by reverting each fix and reproducing the exact production failure. |
+| auditctl | `fix/rebuild-detects-index-only-events` | `rebuild` refuses when the index holds events no shard carries, naming count, sources and dates; `--allow-index-only` accepts the loss explicitly. Two regression tests. |
+| workstation | n/a (gitignored) | `.envrc` for auditctl, kctl and cred-broker; served backend marker for cred-broker. |
+
+Nothing here is merged, released or deployed. The served P0 fix reaches the running service only through a sprintctl release and a `vuoro-service` redeploy, which is an R1 deployment step, not a workstation one.
+
+## 10. Known gaps in the inputs
 
 State above is drawn from workstation clones and docs as of 2026-08-28. Devbox-agent and cluster reality were **not** verified — in particular whether the three `vuoro-service` digests are still three. R0 begins with that check.
