@@ -1,5 +1,33 @@
 # Are the shards authoritative in fact? — 2026-08-29
 
+> **Correction, 2026-08-29 (same day).** Two of this assessment's supporting
+> measurements are wrong, and both were wrong in the direction that made the problem
+> look larger. The conclusion — that the durable column describes an intention while
+> the semi-ephemeral column describes the filesystem — survives; the numbers under it
+> do not. Superseded by
+> `docs/plans/agentops/operative-position-durability-2026-08-29.md`.
+>
+> 1. **"10,575 events across 43 scopes" is wrong. It is ~966**, in 46 files across 15
+>    scopes. The other 9,612 lines are outctl *terminal capture streams*
+>    (`{"length":69,"monotonic_ns":…,"stream":"stderr"}`), not audit events — **no
+>    `outctl-*` directory has an `audit/` subdirectory at all.** I counted every
+>    `.ndjson` under `_artifacts/` as an audit shard. Re-measured: 968 lines under a
+>    `<scope>/audit/` path, 9,612 elsewhere.
+> 2. **"The served-audit substrate is deployed nowhere" is wrong. It is deployed and
+>    migrated.** The `vuoro` database on `vuoro-postgres-1` carries an `audit` schema
+>    with `ingest_observation`, `ingest_receipt`, `ingest_stream`, `schema_migration`
+>    and `schema_principal` — migrated, principals provisioned, backed up daily to
+>    Hetzner S3 with a restore drill five days ago — and **zero rows**. My query
+>    grepped deployment *names* for "audit"; the substrate is schemas inside the vuoro
+>    database served by `vuoro-service`, so the query could not have found it, and I
+>    read its empty result as absence. That is the "empty is not absent" defect this
+>    same session had already recorded twice.
+>
+> The consequence is not cosmetic. The real gap is a **client**, not a deployment:
+> `auditctl`'s CLI is `add/list/rebuild/render` with no submit path, `vuoro_adapter.py`
+> is server-side, and there is no `vuoro-client` dependency. And the migration is a
+> two-commit job on ~1.5 MB, not a project on ten thousand events.
+
 **Sequence:** cross-repo dogfood plan §5, R1 bullet 2 — *"Make shards authoritative in
 fact: the publisher appends to the shard before indexing, and `rebuild` fails on
 index-only, duplicate or corrupt events."*
