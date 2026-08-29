@@ -1,6 +1,7 @@
 # Resolution pathway: silent sandbox failures, credential discovery, approval friction
 
-**Date:** 2026-08-29 · **Status:** Waves 1 and 2 implemented and landed; Wave 3 dispatched
+**Date:** 2026-08-29 · **Status:** Waves 1 and 2 implemented and landed; both
+structural propagation defects closed (c7b6625); Wave 3 dispatched
 
 ## Implementation record
 
@@ -205,16 +206,35 @@ removes the confound making them expensive.
 ## Propagation
 
 Unversioned guidance cannot propagate, so two structural defects come first.
+**Both are closed as of 2026-08-29 (c7b6625).**
 
-1. **The false versioned source.** `/projects/dev/AGENTS.md:127` claims its
+1. **The false versioned source.** ~~`/projects/dev/AGENTS.md:127` claims its
    source is `templates/workspace/AGENTS.agentops.md`. That template lacks every
    Forgejo/`fj`/credential fact and holds a `git fetch origin` rule the live file
-   lost. No renderer exists. Make the claim true: port the content, add the forge
-   block, add a render step.
+   lost. No renderer exists.~~ **Resolved.** Wave 2 ported the forge block, but
+   made the claim true in one direction only: the template held five sections
+   against the live file's twenty-six, so content added to the live file still
+   did not flow back. The template is now the *whole* document, so the
+   environment content — devbox vs workstation, PATH, direnv, cluster access,
+   telemetry, evidence and durability, bootstrap — is versioned for the first
+   time, and `templates/dispatch/scripts/render_workspace_agents.py` is the
+   render step.
 2. **`/projects/dev` is not a git repo** — verified: `.git` contains only an
-   empty `info/`. Stop treating its `AGENTS.md` as a source of truth; it becomes
-   a rendered artifact of agentops, and durable content lives in
-   `~/.claude/CLAUDE.md`, versioned via `gitops-nixos/modules/users`.
+   empty `info/`. ~~Stop treating its `AGENTS.md` as a source of truth~~
+   **Resolved.** It is now a rendered artifact carrying a header that names its
+   source and that source's sha256, so a reader sees that editing it in place is
+   pointless before spending a paragraph doing it. `--check` plus a test enforce
+   no drift on any host that has the file, and *skip* where it is absent, because
+   "not present here" and "drifted" are different facts. Durable universal content
+   still belongs in `~/.claude/CLAUDE.md`, versioned via `gitops-nixos/modules/users`
+   — that half remains open.
+
+   Rendering also delivered three corrections the live file had never received:
+   its sandbox rule still named only `gh` and only the Codex sandbox and still
+   described the call as "failing" rather than returning exit 0 with empty output
+   — the exact drafting defect Wave 2 fixed in the template. Which is the point:
+   a fix that lands only in an unrendered source is not deployed, in prose no less
+   than in code.
 
 Targets: `~/.claude/settings.json` and `~/.claude/CLAUDE.md` (version both in
 gitops-nixos — currently unmanaged home state); `AGENTS.agentops.md`; the six
