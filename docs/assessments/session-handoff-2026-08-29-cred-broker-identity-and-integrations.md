@@ -313,12 +313,69 @@ it is no longer root-equivalent, and — added 2026-08-29 — the `kv/*` and
 not spend the quorum on less than all of it. Not recommended now; recorded so the cost of the current
 constraint is visible.
 
-### Goal C — make an un-run ceremony visible
+### Goal C — make an un-run ceremony visible — BUILT (`appservice` `ab72b700`)
 
-External Secrets was committed and never run, and nothing said so. The cheapest
-mechanism that would surface it is the one already built for audiences: a check
-that compares declared intent against live state and can fail. Extending
-`cred-broker-check-audiences.py` toward OpenBao objects is the natural path.
+External Secrets was committed and never run, and nothing said so. That is now
+mechanised rather than remembered.
+
+`docs/openbao-declared-objects.json` records 18 objects — for each, what
+creates it, what uses it, **what renews it**, and whether it is expected to
+exist now. `renewed_by` is Goal A's test written into the schema: the checker
+rejects an entry that omits it, and `null` is a legal answer only alongside a
+note saying why. Three entries carry `null` today, and they are the honest
+inventory of Goal A's remaining debt: the sole operator identity, the devbox
+PKI role, and the snapshot role that `openbao-operations.md` has required since
+commissioning and which nothing has ever implemented — a fourth instance of the
+same shape, found by writing the declaration.
+
+`docs/scripts/openbao-check-declared-objects.py` compares it against live
+OpenBao and fails in **both** directions: declared present and missing;
+declared absent and present, so the file cannot rot when a gap is quietly
+closed; and a policy or mount that exists in OpenBao and is declared nowhere —
+the drift direction the audiences checker states it cannot cover for Forgejo.
+
+**The design turns on one rule.** `operator-admin` reads are glob-scoped, so a
+refused read is *could not check* — a different fact from *absent*. Every probe
+resolves to present / absent / denied and denied is never counted as either;
+the classifier is the one already proven in
+`openbao-commission-host-enrollment.sh`. Two consequences follow, and they are
+what stop this from becoming another check that cannot fail: a run that
+resolves nothing exits 2, never 0; and `--declaration-only` prints that no
+OpenBao state was consulted, so a green CI badge cannot be read as a green
+vault.
+
+**Fault-tested, not merely exercised.** 22 Python cases and 17 shell cases,
+each asserting a rule *fires* on an injected fault. Verified by mutation:
+collapsing 403 into 404 fails 3 shell cases; treating denied as absent fails 4
+Python cases. The shell suite drives the in-pod script against a stub `bao`
+rather than the real vault, deliberately — `userpass bayleaf` is the only
+operator identity, OpenBao's default lockout trips after a few bad attempts,
+and there is no second operator to unlock it, so testing the login-failure path
+for real could cause the outage it exists to detect.
+
+All offline halves run as `mise run cred-broker-checks`, now a dependency of
+`validate`. Confirmed on the CI runner, not just locally (run `33272111942`,
+`success`): all 39 fault cases executed there and the "NO OPENBAO STATE WAS
+CONSULTED" line is in the log. That task also gave
+`cred-broker-check-audiences.py` its first caller — it was referenced by no
+task, workflow or runbook, one step from being an un-run ceremony itself.
+
+**Outstanding, and it is the same shape as the defect: the live comparison has
+not been run.** It needs the operator password from a terminal, so no agent and
+no schedule can run it. One command, and its first run is the interesting one
+because it is the first time anything has asked the vault what it contains:
+
+```sh
+export KUBECONFIG=/projects/dev/appservice/clusters/.kube/config
+python3 docs/scripts/openbao-check-declared-objects.py
+```
+
+Read `could_not_check=N` and the `absent, as declared` notes, not just
+`result=`. Two predictions worth checking against the output, since a wrong one
+is more informative than a right one: `policy-operator-admin` should come back
+**denied** rather than present, because `operator-admin` holds no grant on its
+own policy; and the four `expect: absent` entries should hold, with
+`role-openbao-snapshot` meaningless either way until its real name is known.
 
 ### Goal D — a host should not need `kubectl exec` into the vault
 
