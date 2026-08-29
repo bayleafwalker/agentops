@@ -13,8 +13,8 @@
 #
 # The decoy is an ELF, because that is what makes the live collision undetectable: the
 # kernel audit tool answers to the name, exits 0, and prints to stderr, so a call ending in
-# `|| true` drops the record without a trace. /bin/true stands in for it -- same shape
-# (compiled, exits 0, writes nothing), no dependency on the `audit` package being installed.
+# `|| true` drops the record without a trace. A compiled `true` stands in for it -- same
+# shape (compiled, exits 0, writes nothing), no dependency on the `audit` package.
 set -uo pipefail
 
 here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -48,8 +48,20 @@ STUB
 }
 
 # The colliding binary: compiled, named auditctl, exits 0, publishes nothing.
+# Any ELF that exits 0 will do, and the fixture must find one on a host without /bin/true
+# -- devbox is NixOS, where /bin holds only sh. Naming candidates rather than one path
+# keeps this test runnable on exactly the hosts a downgrade would hurt most.
 decoy_dir="$tmp/decoy"; mkdir -p "$decoy_dir"
-cp /bin/true "$decoy_dir/auditctl"
+decoy_src=""
+for candidate in /bin/true /usr/bin/true "$(command -v true 2>/dev/null || true)" \
+                 "$(command -v env 2>/dev/null || true)"; do
+  [[ -n "$candidate" && -f "$candidate" && -x "$candidate" ]] || continue
+  [[ "$(head -c 4 -- "$candidate" 2>/dev/null)" == $'\x7fELF' ]] || continue
+  decoy_src="$candidate"; break
+done
+[[ -n "$decoy_src" ]] \
+  || fail "fixture: no compiled executable found to stand in for the kernel audit tool"
+cp "$decoy_src" "$decoy_dir/auditctl"
 [[ "$(head -c 4 -- "$decoy_dir/auditctl")" == $'\x7fELF' ]] \
   || fail "fixture: the decoy must be a compiled executable, or it tests nothing"
 
