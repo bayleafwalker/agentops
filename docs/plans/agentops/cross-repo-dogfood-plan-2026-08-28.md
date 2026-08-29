@@ -1,5 +1,11 @@
 # Cross-repo dogfood plan — 2026-08-28 (rev. 4, evidence-corrected and partly implemented)
 
+> **Superseded 2026-08-29 by [`meta-narrative-plan-2026-08-29.md`](meta-narrative-plan-2026-08-29.md).**
+> The findings and the §9 evidence corrections stand and are still cited. The
+> shape does not: this plan governed ten of about fifty repositories, hand-wrote
+> gates D1–D8 that the workspace already had machinery to derive, and promoted on
+> a `dispatchable` label. See the successor's §0 and §2.
+
 Status: **thesis, narrowed ownership model, non-goals, vuoro `#1245`, hostproto adapter repair and cred-broker hygiene are approved.** Everything past R0 is authorized gate-by-gate, not by calendar. Rev. 2 incorporated the owner ruling of 2026-08-28 (§8). Rev. 3 corrects three claims that the R0 sample session falsified the same day (§9).
 Scope: vuoro, agentops, sprintctl, actionq, auditctl, kctl, cred-broker, hostproto, scribectl, appservice/gitops-nixos as deployment hosts.
 
