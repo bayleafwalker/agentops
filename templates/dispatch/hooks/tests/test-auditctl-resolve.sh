@@ -93,7 +93,34 @@ run_subagent() { # $1 = PATH, rest = extra env assignments
   cat "$AUDITCTL_CALL_LOG"
 }
 
-base_path="/usr/bin:/bin"     # jq, bash, coreutils -- but no auditctl of any kind
+# A PATH that has the ordinary tools (jq, bash, coreutils) and no auditctl of any kind.
+#
+# It cannot be written as /usr/bin:/bin -- on NixOS those hold almost nothing, and the
+# fixture then fails for want of bash instead of testing resolution. It also cannot be the
+# caller's PATH with auditctl-holding directories dropped: on this workstation the kernel
+# audit tool *is* /usr/bin/auditctl, so dropping that directory takes jq and coreutils with
+# it, and REQ-023 ("no publisher anywhere") would pass for the wrong reason.
+#
+# So shadow it: one directory of symlinks to every executable the caller can reach, minus
+# anything named auditctl. Same tools, one name missing, on any host.
+shadow="$tmp/shadow"; mkdir -p "$shadow"
+while IFS= read -r -d: dir || [[ -n "$dir" ]]; do
+  [[ -n "$dir" && -d "$dir" ]] || continue
+  for entry in "$dir"/*; do
+    [[ -x "$entry" && ! -d "$entry" ]] || continue
+    name="${entry##*/}"
+    [[ "$name" == "auditctl" ]] && continue
+    [[ -e "$shadow/$name" ]] && continue   # first on PATH wins, as it would have
+    ln -s "$entry" "$shadow/$name" 2>/dev/null || true
+  done
+done < <(printf '%s:' "$PATH")
+base_path="$shadow"
+[[ -e "$shadow/auditctl" ]] \
+  && fail "fixture: the auditctl-free PATH still holds an auditctl"
+for tool in jq bash; do
+  PATH="$base_path" command -v "$tool" >/dev/null 2>&1 \
+    || fail "fixture: $tool is not reachable on the auditctl-free PATH"
+done
 
 # --- REQ-020: PATH holds only the decoy; ours is at ~/.local/bin ------------------------
 mk_publisher "$home_dir/.local/bin" "home"
