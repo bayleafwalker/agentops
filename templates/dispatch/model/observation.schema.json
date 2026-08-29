@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/observation.schema.json",
+  "title": "Observation",
+  "description": "Evidence bearing on a claim. Observations do not change a claim's state: a claim may be `current` and contradicted at the same time, and that discrepancy is reconciliation work rather than a reason to silently rewrite either the record or the policy.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "subject", "stance", "observed_at", "evidence_ref"],
+  "properties": {
+    "schema_version": { "const": "observation/v1" },
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+    "subject": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "description": "The claim this observation bears on."
+    },
+    "stance": { "enum": ["corroborates", "contradicts"] },
+    "observed_at": { "type": "string", "format": "date-time" },
+    "evidence_ref": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "note": { "type": "string", "minLength": 1, "pattern": "\\S" }
+  }
+}

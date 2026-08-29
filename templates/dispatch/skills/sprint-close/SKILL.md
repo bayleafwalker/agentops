@@ -62,9 +62,10 @@ Encode the full sprint close-out sequence so steps are not repeated ad-hoc acros
    `sprint-close-boundary` event from step 4 as its boundary ref. The skill
    writes an unpublished workspace draft, validates it, and records only its
    project, project-prefixed id, path, and SHA-256 digest in sprint state. It
-   stops before an operator-directed procedural ratification assertion or
-   publication. Validator success does not authenticate a person or prove
-   human action.
+   stops before establishment or publication -- not because a human must sign
+   it off, but because a close-out has not yet determined the authority basis
+   under which the delta is established. Validator success authenticates
+   nothing about the actor.
 
    A routine sprint may legitimately contain no capability delta. Record that
    decision without manufacturing a receipt:
@@ -101,9 +102,9 @@ Encode the full sprint close-out sequence so steps are not repeated ad-hoc acros
 - Sprint status and the local `sprint-close-boundary` event commit atomically.
 - The close records either a validated capability-receipt draft or an explicit
   decision that the sprint was not a capability boundary.
-- Any drafted receipt remains pending an operator-directed procedural
-  ratification assertion and private unless the operator separately changes
-  those states. Validator success is not identity proof.
+- Any drafted receipt stays `draft` and private until it is established with a
+  recorded `established_by` and `authority_basis`. Validator success is not
+  identity proof.
 - Final snapshot committed.
 - All knowledge candidates reviewed (approved or rejected).
 - Sprint status is `closed` in `sprintctl`.
@@ -113,6 +114,8 @@ Encode the full sprint close-out sequence so steps are not repeated ad-hoc acros
 - Do not skip the close gate.
 - Do not draft a sprint-close receipt before the close boundary event exists.
 - Do not treat task completion or sprint closure as proof of capability.
-- Do not ratify or publish a capability receipt on the operator's behalf.
+- Do not establish or publish a capability receipt under an authority basis you
+  do not hold. Establishing one under delegated authority is ordinary work; an
+  `owner-reserved` change is not.
 - Do not close the sprint with `candidate` knowledge entries still unreviewed.
 - Do not carry implementation work into close-out commits.

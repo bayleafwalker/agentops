@@ -55,3 +55,12 @@ summary="$(printf '%s' "$report" | jq -r '
 
 jq -nc --arg summary "$summary" \
   '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $summary}}'
+
+# Metanarrative model status. The model is only worth having if it shows up in
+# ordinary work, so this runs where the operator already looks. It is read-only,
+# prints nothing when there are no records, and must never fail the session.
+META="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/../scripts/metanarrative.py"
+if [[ -x "$META" ]]; then
+  python3 "$META" --scope "$(basename "$PWD")" status 2>/dev/null \
+    | grep -vE '^\(no model records yet\)$' || true
+fi

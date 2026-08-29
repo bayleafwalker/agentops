@@ -1,4 +1,10 @@
-# Capability receipt v1
+# Capability receipt
+
+> **Lifecycle changed 2026-08-29 (v2).** `draft -> current -> superseded`; the
+> `ratification` block is replaced by `established_by` (provenance and authority
+> basis) plus `validity`. Establishing a receipt is not an approval step and no
+> `actor_type` gates it. See `../model/README.md`, which is authoritative, and
+> the v1 compatibility note there. v1 files still validate. v1
 
 A capability receipt records a before/after capability delta at a natural
 project boundary. It is not a work log, a numerical score, a project
@@ -95,14 +101,15 @@ prompt to manufacture certainty.
 4. Record only `receipt_id`, `receipt_path`, and the validator's
    `receipt_sha256` in the owning sprint event. Never copy a private receipt
    body into sprint state.
-5. Present the delta and evidence to the operator. Only an explicit human
-   decision recorded outside the receipt may create a `ratified` or
-   `superseded` successor. Its `ratification` must declare `authority: human`,
-   the ratifier, time, and an immutable `decision_ref` to that external
-   decision record. The ratifier string is procedural attribution; neither the
-   format nor the validator authenticates identity, authority, or the external
-   record's existence. These fields are procedural assertions, and successful
-   validation is not proof that the named person acted or had authority.
+5. Establish the successor under whatever authority actually applies. A
+   `current` or `superseded` receipt carries `established_by` with the actor,
+   the `actor_type` that acted (`human`, `agent` or `automation`), the time, an
+   `authority_basis`, and an immutable `decision_ref` to the decision record.
+   An `authority_basis` of `owner-reserved` marks a change only the owner may
+   make -- that is a property of the change, not a queue the receipt waits in.
+   All of these are declared assertions: neither the format nor the validator
+   authenticates identity, authority, or the referenced record's existence, and
+   successful validation is not proof that the named actor acted.
 6. Give every successor a new receipt id and path. Create that path with
    exclusive, non-overwriting semantics and fail if it already exists. Never
    truncate an existing receipt or rename a file over it. This is a required
@@ -120,14 +127,14 @@ validation input. The validator resolves its id, checks the digest against the
 predecessor's exact bytes, requires the same project, rejects duplicate ids and
 lineage cycles, and emits no partial success output.
 
-Ratification does not by itself authorize publication. Both `candidate` and
-`published` require a `ratified` or `superseded` successor containing the
+Establishment does not by itself authorize publication. Both `candidate` and
+`published` require a `current` or `superseded` successor containing the
 procedural human-attestation assertions, an external `decision_ref`, and a
 resolved `supersedes` link. Validator success proves only that those assertions
 and links satisfy the contract; it is not identity proof. Corrections and
 lifecycle changes are append-only too: write a new file and point its
 `supersedes` reference at the exact prior id and digest. A corrected private
-draft may use the link without a ratification assertion; it remains ineligible
+draft may use the link without a establishment assertion; it remains ineligible
 for publication.
 
 Do not add numerical scores. Precision belongs in exact evidence with explicit

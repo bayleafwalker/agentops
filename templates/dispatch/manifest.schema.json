@@ -182,7 +182,8 @@
               "session-scribe",
               "dispatch-wave",
               "friction",
-              "session-handover"
+              "session-handover",
+              "realign"
             ]
           }
         },

@@ -22,11 +22,41 @@ VALIDATOR = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(VALIDATOR)
 
 
-def _human_attestation() -> dict[str, object]:
+AT = "2026-07-13T17:00:00+03:00"
+
+
+def _established_by(actor_type: str = "human") -> dict[str, object]:
+    """Provenance for an established receipt.
+
+    `actor_type` records who did it. It is not an approval and no value of it is a
+    workflow stage -- an agent-established receipt is as current as a human one.
+    """
+
+    return {
+        "actor": "example-operator",
+        "actor_type": actor_type,
+        "at": AT,
+        "authority_basis": "delegated",
+        "decision_ref": {
+            "kind": "sprint-event",
+            "source": "sprintctl:example:sprint:17",
+            "revision": "event:83",
+        },
+    }
+
+
+def _validity(status: str) -> dict[str, object]:
+    validity: dict[str, object] = {"effective_from": AT}
+    if status == "superseded":
+        validity["effective_to"] = "2026-08-29T09:00:00+03:00"
+    return validity
+
+
+def _legacy_ratification() -> dict[str, object]:
     return {
         "authority": "human",
         "ratifier": "example-operator",
-        "at": "2026-07-13T17:00:00+03:00",
+        "at": AT,
         "decision_ref": {
             "kind": "sprint-event",
             "source": "sprintctl:example:sprint:17",
@@ -44,7 +74,7 @@ class CapabilityReceiptValidatorTests(unittest.TestCase):
     def _successor(
         self,
         *,
-        status: str = "ratified",
+        status: str = "current",
         publication: str = "private",
         predecessor_id: str | None = None,
         predecessor_digest: str = "a" * 64,
@@ -53,7 +83,8 @@ class CapabilityReceiptValidatorTests(unittest.TestCase):
         receipt["id"] = f"example.2026-07-13.{status}.{publication}"
         receipt["status"] = status
         receipt["publication"] = publication
-        receipt["ratification"] = _human_attestation()
+        receipt["established_by"] = _established_by()
+        receipt["validity"] = _validity(status)
         receipt["supersedes"] = {
             "id": predecessor_id or self.receipt["id"],
             "sha256": predecessor_digest,
@@ -71,7 +102,7 @@ class CapabilityReceiptValidatorTests(unittest.TestCase):
         self.assertEqual(self.receipt["status"], "draft")
         self.assertEqual(self.receipt["publication"], "private")
         self.assertTrue(self.receipt["id"].startswith(f"{self.receipt['project']}."))
-        self.assertNotIn("ratification", self.receipt)
+        self.assertNotIn("established_by", self.receipt)
 
     def test_receipt_id_must_use_the_exact_project_prefix(self) -> None:
         receipt_id_pattern = self.schema["$defs"]["receiptIdentifier"]["allOf"][1][
@@ -103,7 +134,8 @@ class CapabilityReceiptValidatorTests(unittest.TestCase):
             (properties["boundary"], VALIDATOR.BOUNDARY_REQUIRED_FIELDS),
             (properties["evidence"]["items"], VALIDATOR.EVIDENCE_REQUIRED_FIELDS),
             (properties["unknowns"]["items"], VALIDATOR.UNKNOWN_REQUIRED_FIELDS),
-            (properties["ratification"], VALIDATOR.RATIFICATION_REQUIRED_FIELDS),
+            (properties["established_by"], VALIDATOR.ESTABLISHED_BY_REQUIRED_FIELDS),
+            (properties["validity"], VALIDATOR.VALIDITY_REQUIRED_FIELDS),
             (self.schema["$defs"]["immutableRef"], VALIDATOR.IMMUTABLE_REF_REQUIRED_FIELDS),
             (self.schema["$defs"]["receiptRef"], VALIDATOR.RECEIPT_REF_REQUIRED_FIELDS),
         )
@@ -116,6 +148,14 @@ class CapabilityReceiptValidatorTests(unittest.TestCase):
             (properties["boundary"]["properties"]["kind"]["enum"], VALIDATOR.BOUNDARY_KINDS),
             (properties["locus"]["enum"], VALIDATOR.LOCI),
             (properties["publication"]["enum"], VALIDATOR.PUBLICATIONS),
+            (
+                properties["established_by"]["properties"]["actor_type"]["enum"],
+                VALIDATOR.ACTOR_TYPES,
+            ),
+            (
+                properties["established_by"]["properties"]["authority_basis"]["enum"],
+                VALIDATOR.AUTHORITY_BASES,
+            ),
             (
                 self.schema["$defs"]["immutableRef"]["properties"]["kind"]["enum"],
                 VALIDATOR.REFERENCE_KINDS,
@@ -141,11 +181,21 @@ class CapabilityReceiptValidatorTests(unittest.TestCase):
             if "status" in condition["if"]["properties"]
         }
         self.assertEqual(set(by_status), VALIDATOR.STATUSES)
-        self.assertEqual(by_status["draft"], {"not": {"required": ["ratification"]}})
-        for status in VALIDATOR.SUCCESSOR_STATUSES:
+        self.assertEqual(
+            by_status["draft"],
+            {
+                "not": {
+                    "anyOf": [
+                        {"required": ["established_by"]},
+                        {"required": ["validity"]},
+                    ]
+                }
+            },
+        )
+        for status in VALIDATOR.ESTABLISHED_STATUSES:
             self.assertEqual(
                 set(by_status[status]["required"]),
-                {"ratification", "supersedes"},
+                {"established_by", "validity", "supersedes"},
             )
 
         publication_condition = next(
@@ -159,11 +209,11 @@ class CapabilityReceiptValidatorTests(unittest.TestCase):
         )
         self.assertEqual(
             set(publication_condition["then"]["properties"]["status"]["enum"]),
-            VALIDATOR.SUCCESSOR_STATUSES,
+            VALIDATOR.ESTABLISHED_STATUSES,
         )
         self.assertEqual(
             set(publication_condition["then"]["required"]),
-            {"ratification", "supersedes"},
+            {"established_by", "validity", "supersedes"},
         )
 
     def test_revision_vectors_match_validator_and_schema_patterns(self) -> None:
@@ -208,33 +258,46 @@ class CapabilityReceiptValidatorTests(unittest.TestCase):
                 self.assertEqual(validator_accepts, expected)
                 self.assertEqual(schema_pattern_accepts, expected)
 
-    def test_ratified_and_superseded_receipts_require_procedural_attestation(self) -> None:
-        for status in VALIDATOR.SUCCESSOR_STATUSES:
+    def test_established_receipts_require_provenance_and_validity(self) -> None:
+        for status in VALIDATOR.ESTABLISHED_STATUSES:
             with self.subTest(status=status):
                 receipt = copy.deepcopy(self.receipt)
                 receipt["status"] = status
-                with self.assertRaisesRegex(ValueError, "ratification is required"):
+                with self.assertRaisesRegex(ValueError, "established_by is required"):
                     VALIDATOR.validate_receipt(receipt, self.path)
 
-                receipt["ratification"] = {
-                    "authority": "human",
-                    "ratifier": "example-operator",
+                receipt["established_by"] = _established_by()
+                with self.assertRaisesRegex(ValueError, "validity is required"):
+                    VALIDATOR.validate_receipt(receipt, self.path)
+
+                # Presence is settled; the rest of the subtest probes shape.
+                receipt["validity"] = _validity(status)
+                receipt["established_by"] = {
+                    "actor": "example-operator",
+                    "actor_type": "human",
                     "at": "2026-07-13T17:00:00Z",
                 }
-                with self.assertRaisesRegex(ValueError, "missing fields: decision_ref"):
+                with self.assertRaisesRegex(
+                    ValueError, "missing fields: authority_basis, decision_ref"
+                ):
                     VALIDATOR.validate_receipt(receipt, self.path)
 
-                receipt["ratification"] = _human_attestation()
-                receipt["ratification"]["authority"] = "model"
-                with self.assertRaisesRegex(ValueError, "procedural assertion human"):
+                receipt["established_by"] = _established_by()
+                receipt["established_by"]["actor_type"] = "committee"
+                with self.assertRaisesRegex(ValueError, "actor_type must be one of"):
                     VALIDATOR.validate_receipt(receipt, self.path)
 
-                receipt["ratification"] = _human_attestation()
-                receipt["ratification"]["decision_ref"]["revision"] = "latest"
+                receipt["established_by"] = _established_by()
+                receipt["established_by"]["authority_basis"] = "approved"
+                with self.assertRaisesRegex(ValueError, "authority_basis must be one of"):
+                    VALIDATOR.validate_receipt(receipt, self.path)
+
+                receipt["established_by"] = _established_by()
+                receipt["established_by"]["decision_ref"]["revision"] = "latest"
                 with self.assertRaisesRegex(ValueError, "event:<positive integer>"):
                     VALIDATOR.validate_receipt(receipt, self.path)
 
-                receipt["ratification"] = _human_attestation()
+                receipt["established_by"] = _established_by()
                 with self.assertRaisesRegex(ValueError, "supersedes is required"):
                     VALIDATOR.validate_receipt(receipt, self.path)
 
@@ -245,6 +308,69 @@ class CapabilityReceiptValidatorTests(unittest.TestCase):
                 }
                 VALIDATOR.validate_receipt(receipt, self.path)
 
+    def test_any_actor_type_can_establish_a_current_receipt(self) -> None:
+        # The point of the v2 model: provenance is recorded, not gated. An agent- or
+        # automation-established receipt is exactly as current as a human-established
+        # one, so no workflow can require a human merely because a human exists.
+        for actor_type in sorted(VALIDATOR.ACTOR_TYPES):
+            with self.subTest(actor_type=actor_type):
+                receipt = self._successor()
+                receipt["established_by"] = _established_by(actor_type)
+                VALIDATOR.validate_receipt(receipt, self.path)
+
+    def test_superseded_requires_a_closed_validity_interval(self) -> None:
+        receipt = self._successor(status="superseded")
+        del receipt["validity"]["effective_to"]
+        with self.assertRaisesRegex(ValueError, "effective_to is required"):
+            VALIDATOR.validate_receipt(receipt, self.path)
+
+        receipt["validity"]["effective_to"] = "2020-01-01T00:00:00Z"
+        with self.assertRaisesRegex(ValueError, "must not precede"):
+            VALIDATOR.validate_receipt(receipt, self.path)
+
+    def test_ratified_is_gone_from_the_lifecycle(self) -> None:
+        self.assertNotIn("ratified", VALIDATOR.STATUSES)
+        self.assertNotIn("ratified", self.schema["properties"]["status"]["enum"])
+        self.assertNotIn("ratification", self.schema["properties"])
+
+        receipt = self._successor()
+        receipt["status"] = "ratified"
+        with self.assertRaisesRegex(ValueError, "status must be one of"):
+            VALIDATOR.validate_receipt(receipt, self.path)
+
+    def test_v1_receipts_still_validate_by_migration(self) -> None:
+        # Compatibility: an unmigrated v1 file on disk keeps validating. `ratified`
+        # maps to `current`, and the literal `authority: human` assertion becomes
+        # `authority_basis: owner-reserved`, which is what it was used to mean.
+        legacy = copy.deepcopy(self.receipt)
+        legacy["schema_version"] = "capability-receipt/v1"
+        legacy["id"] = "example.2026-07-13.legacy"
+        legacy["status"] = "ratified"
+        legacy["ratification"] = _legacy_ratification()
+        legacy["supersedes"] = {"id": self.receipt["id"], "sha256": "a" * 64}
+        VALIDATOR.validate_receipt(legacy, self.path)
+
+        migrated = VALIDATOR.migrate_v1(legacy)
+        self.assertEqual(migrated["schema_version"], "capability-receipt/v2")
+        self.assertEqual(migrated["status"], "current")
+        self.assertNotIn("ratification", migrated)
+        self.assertEqual(migrated["established_by"]["actor"], "example-operator")
+        self.assertEqual(migrated["established_by"]["actor_type"], "human")
+        self.assertEqual(
+            migrated["established_by"]["authority_basis"], "owner-reserved"
+        )
+        self.assertEqual(migrated["validity"]["effective_from"], AT)
+
+    def test_basis_for_is_a_dependency_relation(self) -> None:
+        # Canonicality is what a receipt is the basis for, not a grade of approval.
+        receipt = self._successor()
+        receipt["basis_for"] = ["sprintctl-design", "composition-v4"]
+        VALIDATOR.validate_receipt(receipt, self.path)
+
+        receipt["basis_for"] = ["not a bare identifier"]
+        with self.assertRaises(ValueError):
+            VALIDATOR.validate_receipt(receipt, self.path)
+
     def test_candidate_and_published_require_an_attested_successor(self) -> None:
         for publication in VALIDATOR.PUBLICATION_SUCCESSOR_STATES:
             with self.subTest(publication=publication):
@@ -252,11 +378,11 @@ class CapabilityReceiptValidatorTests(unittest.TestCase):
                 receipt["publication"] = publication
                 with self.assertRaisesRegex(
                     ValueError,
-                    "requires a ratified or superseded procedurally attested successor",
+                    "requires a current or superseded established successor",
                 ):
                     VALIDATOR.validate_receipt(receipt, self.path)
 
-                for status in VALIDATOR.SUCCESSOR_STATUSES:
+                for status in VALIDATOR.ESTABLISHED_STATUSES:
                     VALIDATOR.validate_receipt(
                         self._successor(status=status, publication=publication),
                         self.path,
@@ -324,7 +450,7 @@ class CapabilityReceiptValidatorTests(unittest.TestCase):
             root = Path(tmp)
             predecessor = root / "01-draft.json"
             predecessor_digest = self._write_receipt(predecessor, self.receipt)
-            successor = root / "02-ratified.json"
+            successor = root / "02-current.json"
             successor_receipt = self._successor(predecessor_digest=predecessor_digest)
             successor_digest = self._write_receipt(successor, successor_receipt)
 

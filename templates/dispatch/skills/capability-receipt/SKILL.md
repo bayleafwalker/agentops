@@ -1,6 +1,6 @@
 ---
 name: capability-receipt
-description: Use at a meaningful release, sprint close, killed experiment, or operating change to draft an evidence-linked capability delta for an operator-directed procedural ratification decision.
+description: Use at a meaningful release, sprint close, killed experiment, or operating change to draft an evidence-linked capability delta for an operator-directed procedural establishment decision.
 ---
 
 ## Goal
@@ -8,7 +8,7 @@ description: Use at a meaningful release, sprint close, killed experiment, or op
 Capture what became newly reliable, cheaper, or better governed without turning
 the boundary into an activity log or letting an agent declare its own value.
 The output is a private `capability-receipt/v1` draft bound to source evidence
-and presented to the operator for a separate procedural ratification decision.
+and presented to the operator for a separate procedural establishment decision.
 
 ## Inputs
 
@@ -92,11 +92,11 @@ and presented to the operator for a separate procedural ratification decision.
    sprint state. Sprintctl rejects missing, extra, non-canonical, or malformed
    pointer fields.
 
-8. **Stop at ratification.** Present the proposed delta, evidence, unknowns,
+8. **Stop at establishment.** Present the proposed delta, evidence, unknowns,
    dependencies, and disconfirmation condition to the operator. An agent must
-   not ratify, select for publication, publish, or silently revise the draft.
-   A successor with `status: ratified` or `status: superseded` requires a
-   separately persisted immutable `decision_ref`; `ratifier` is procedural
+   not establish, select for publication, publish, or silently revise the draft.
+   A successor with `status: current` or `status: superseded` requires a
+   separately persisted immutable `decision_ref`; `actor` is procedural
    attribution, not authenticated identity. The attestation fields and decision
    ref are procedural assertions; validator success is not proof that a person
    acted or had authority.
@@ -114,7 +114,7 @@ and presented to the operator for a separate procedural ratification decision.
 - The artifact records a capability delta rather than completed activity.
 - Every material claim is bounded by evidence or an explicit unknown.
 - The validated draft is private and linked by id, path, and exact digest.
-- Drafting, procedural ratification assertion, and publication remain distinct
+- Drafting, procedural establishment assertion, and publication remain distinct
   states.
 - Candidate or published receipts contain the required procedural attestation
   assertions, external decision ref, and validator-resolved predecessor;
@@ -129,4 +129,4 @@ and presented to the operator for a separate procedural ratification decision.
 - Do not reconstruct ex-ante beliefs without labelling the gap.
 - Do not score capability numerically.
 - Do not expose private receipt contents in sprint or audit events.
-- Do not ratify or publish on the operator's behalf.
+- Do not establish or publish on the operator's behalf.

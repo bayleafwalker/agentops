@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/commitment.schema.json",
+  "title": "Commitment",
+  "description": "A provider-consumer dependency on a specific contract revision, under stated compatibility terms. This is what commitment means; a `committed: true` flag hides exactly the part that gives it meaning. An artifact-level `committed` may exist as a projection -- \"has active consumer commitments\" -- but never as the source record.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "provider", "consumer", "effective_from", "compatibility"],
+  "properties": {
+    "schema_version": { "const": "commitment/v1" },
+    "provider": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S",
+      "description": "The contract and revision depended upon, e.g. `session-note/v1`."
+    },
+    "consumer": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "scope": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "effective_from": { "type": "string", "format": "date" },
+    "compatibility": {
+      "enum": ["backward-compatible", "forward-compatible", "exact-revision", "breaking"],
+      "description": "The term under which the consumer depends on the provider. `exact-revision` admits no drift; `breaking` records a commitment already known to require consumer work."
+    },
+    "supersedes": { "type": ["string", "null"] }
+  }
+}

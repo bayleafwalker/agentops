@@ -1,5 +1,18 @@
 #!/usr/bin/env python3
-"""Normative semantic validator for capability-receipt/v1 JSON files."""
+"""Normative semantic validator for capability-receipt JSON files (v1 and v2).
+
+v2 (2026-08-29) removes `ratified` from the document lifecycle and removes
+ratification as a workflow stage.  A receipt is `draft`, `current`, or
+`superseded`.  Who established it, and on what authority, is recorded in
+`established_by` as *provenance* -- an `actor_type` of `human` says a person did
+it, not that a person approved it.  Validity is its own interval, so kind, state,
+provenance/authority and validity stay orthogonal.
+
+v1 files still validate: they are migrated in memory (`migrate_v1`) rather than
+rejected.  `ratified` maps to `current`, and the v1 `ratification` block -- whose
+`authority` was the literal `human` -- maps to `established_by` with
+`authority_basis: owner-reserved`, which is what that assertion meant.
+"""
 
 from __future__ import annotations
 
@@ -13,8 +26,13 @@ import sys
 from typing import Any
 
 
-SCHEMA_VERSION = "capability-receipt/v1"
-STATUSES = {"draft", "ratified", "superseded"}
+SCHEMA_VERSION = "capability-receipt/v2"
+LEGACY_SCHEMA_VERSION = "capability-receipt/v1"
+SCHEMA_VERSIONS = {LEGACY_SCHEMA_VERSION, SCHEMA_VERSION}
+STATUSES = {"draft", "current", "superseded"}
+LEGACY_STATUSES = {"draft", "ratified", "superseded"}
+ACTOR_TYPES = {"human", "agent", "automation"}
+AUTHORITY_BASES = {"delegated", "owner-reserved", "standing-policy"}
 BOUNDARY_KINDS = {
     "release",
     "sprint-close",
@@ -66,16 +84,28 @@ REQUIRED_FIELDS = {
 }
 OPTIONAL_FIELDS = {
     "expectation_ref",
-    "ratification",
+    "established_by",
+    "validity",
+    "basis_for",
     "supersedes",
 }
 BOUNDARY_REQUIRED_FIELDS = {"kind", "ref"}
 IMMUTABLE_REF_REQUIRED_FIELDS = {"kind", "source", "revision"}
 EVIDENCE_REQUIRED_FIELDS = {"ref", "observation"}
 UNKNOWN_REQUIRED_FIELDS = {"field", "reason"}
-RATIFICATION_REQUIRED_FIELDS = {"authority", "ratifier", "at", "decision_ref"}
+ESTABLISHED_BY_REQUIRED_FIELDS = {
+    "actor",
+    "actor_type",
+    "at",
+    "authority_basis",
+    "decision_ref",
+}
+VALIDITY_REQUIRED_FIELDS = {"effective_from"}
+VALIDITY_OPTIONAL_FIELDS = {"effective_to"}
 RECEIPT_REF_REQUIRED_FIELDS = {"id", "sha256"}
-SUCCESSOR_STATUSES = {"ratified", "superseded"}
+# `current` and `superseded` both describe an established claim; only the validity
+# interval distinguishes them.
+ESTABLISHED_STATUSES = {"current", "superseded"}
 PUBLICATION_SUCCESSOR_STATES = {"candidate", "published"}
 
 
@@ -259,35 +289,110 @@ def _validate_unknowns(value: Any, path: Path) -> None:
         seen.add(pair)
 
 
-def _validate_ratification(value: Any, path: Path) -> None:
-    ratification = _object(value, "ratification", path)
+def _validate_established_by(value: Any, path: Path) -> None:
+    established = _object(value, "established_by", path)
     _keys(
-        ratification,
-        "ratification",
+        established,
+        "established_by",
         path,
-        required=RATIFICATION_REQUIRED_FIELDS,
+        required=ESTABLISHED_BY_REQUIRED_FIELDS,
     )
-    if ratification["authority"] != "human":
+    _non_blank(established["actor"], "established_by.actor", path)
+    # actor_type is provenance and nothing else: no value of it grants or withholds
+    # authority, and none of them is a workflow stage.
+    _enum(
+        established["actor_type"],
+        "established_by.actor_type",
+        ACTOR_TYPES,
+        path,
+    )
+    _validate_datetime(established["at"], "established_by.at", path)
+    _enum(
+        established["authority_basis"],
+        "established_by.authority_basis",
+        AUTHORITY_BASES,
+        path,
+    )
+    _validate_immutable_ref(
+        established["decision_ref"],
+        "established_by.decision_ref",
+        path,
+    )
+
+
+def _validate_validity(value: Any, path: Path, *, status: str) -> None:
+    validity = _object(value, "validity", path)
+    _keys(
+        validity,
+        "validity",
+        path,
+        required=VALIDITY_REQUIRED_FIELDS,
+        optional=VALIDITY_OPTIONAL_FIELDS,
+    )
+    _validate_datetime(validity["effective_from"], "validity.effective_from", path)
+    effective_to = validity.get("effective_to")
+    if status == "superseded" and effective_to is None:
         raise _error(
             path,
-            "ratification.authority",
-            "must contain the literal procedural assertion human",
+            "validity.effective_to",
+            "is required while status is superseded",
         )
-    _non_blank(ratification["ratifier"], "ratification.ratifier", path)
-    _validate_datetime(ratification["at"], "ratification.at", path)
-    _validate_immutable_ref(
-        ratification["decision_ref"],
-        "ratification.decision_ref",
-        path,
-    )
+    if effective_to is not None:
+        _validate_datetime(effective_to, "validity.effective_to", path)
+        if effective_to < validity["effective_from"]:
+            raise _error(
+                path,
+                "validity.effective_to",
+                "must not precede validity.effective_from",
+            )
+
+
+def migrate_v1(value: dict[str, Any]) -> dict[str, Any]:
+    """Return a v2-shaped copy of a v1 receipt.
+
+    v1 encoded a human attestation as a lifecycle state. The same facts survive as
+    provenance: the ratifier becomes the actor, `human` becomes the actor_type, and
+    the literal `authority: human` assertion becomes `authority_basis:
+    owner-reserved` -- which is what it was being used to mean.
+    """
+
+    migrated = dict(value)
+    migrated["schema_version"] = SCHEMA_VERSION
+    if migrated.get("status") == "ratified":
+        migrated["status"] = "current"
+    ratification = migrated.pop("ratification", None)
+    if isinstance(ratification, dict):
+        at = ratification.get("at")
+        migrated["established_by"] = {
+            "actor": ratification.get("ratifier"),
+            "actor_type": "human",
+            "at": at,
+            "authority_basis": "owner-reserved",
+            "decision_ref": ratification.get("decision_ref"),
+        }
+        validity: dict[str, Any] = {"effective_from": at}
+        if migrated["status"] == "superseded":
+            validity["effective_to"] = at
+        migrated["validity"] = validity
+    return migrated
 
 
 def validate_receipt(value: dict[str, Any], path: Path) -> None:
     """Validate one decoded capability receipt."""
 
+    declared = value.get("schema_version")
+    if declared not in SCHEMA_VERSIONS:
+        raise _error(
+            path,
+            "schema_version",
+            f"must be one of {', '.join(sorted(SCHEMA_VERSIONS))}",
+        )
+    if declared == LEGACY_SCHEMA_VERSION:
+        legacy_status = value.get("status")
+        if legacy_status is not None and legacy_status not in LEGACY_STATUSES:
+            raise _error(path, "status", f"must be one of {', '.join(sorted(LEGACY_STATUSES))}")
+        value = migrate_v1(value)
     _keys(value, "receipt", path, required=REQUIRED_FIELDS, optional=OPTIONAL_FIELDS)
-    if value["schema_version"] != SCHEMA_VERSION:
-        raise _error(path, "schema_version", f"must be {SCHEMA_VERSION}")
 
     project = _identifier(value["project"], "project", path)
     receipt_id = _identifier(value["id"], "id", path)
@@ -316,24 +421,39 @@ def validate_receipt(value: dict[str, Any], path: Path) -> None:
     _validate_unknowns(value["unknowns"], path)
     publication = _enum(value["publication"], "publication", PUBLICATIONS, path)
 
-    has_ratification = "ratification" in value
-    if status == "draft" and has_ratification:
-        raise _error(path, "ratification", "is not allowed while status is draft")
-    if status in SUCCESSOR_STATUSES and not has_ratification:
-        raise _error(path, "ratification", f"is required while status is {status}")
-    if has_ratification:
-        _validate_ratification(value["ratification"], path)
+    has_established_by = "established_by" in value
+    has_validity = "validity" in value
+    if status == "draft":
+        if has_established_by:
+            raise _error(path, "established_by", "is not allowed while status is draft")
+        if has_validity:
+            raise _error(path, "validity", "is not allowed while status is draft")
+    if status in ESTABLISHED_STATUSES:
+        if not has_established_by:
+            raise _error(path, "established_by", f"is required while status is {status}")
+        if not has_validity:
+            raise _error(path, "validity", f"is required while status is {status}")
+    if has_established_by:
+        _validate_established_by(value["established_by"], path)
+    if has_validity:
+        _validate_validity(value["validity"], path, status=status)
 
-    if status in SUCCESSOR_STATUSES and "supersedes" not in value:
+    if "basis_for" in value:
+        # Canonicality is a dependency relation: what this receipt is the basis for,
+        # and therefore the blast radius of changing it. Not approval or maturity.
+        for entry in _string_array(value["basis_for"], "basis_for", path):
+            _identifier(entry, "basis_for[]", path)
+
+    if status in ESTABLISHED_STATUSES and "supersedes" not in value:
         raise _error(path, "supersedes", f"is required while status is {status}")
     if "supersedes" in value:
         _validate_receipt_ref(value["supersedes"], "supersedes", path, receipt_id)
 
-    if publication in PUBLICATION_SUCCESSOR_STATES and status not in SUCCESSOR_STATUSES:
+    if publication in PUBLICATION_SUCCESSOR_STATES and status not in ESTABLISHED_STATUSES:
         raise _error(
             path,
             "publication",
-            f"{publication} requires a ratified or superseded procedurally attested successor",
+            f"{publication} requires a current or superseded established successor",
         )
 
 

@@ -24,7 +24,7 @@ Use this precedence when sources disagree:
 
 - Every work item that requires governing scope has a document ref or explicit no-doc rationale.
 - Each ref resolves to a stable document ID and immutable revision.
-- Document lifecycle uses `draft`, `ratified`, or `superseded`; execution status remains in sprintctl.
+- Document lifecycle uses `draft`, `current`, or `superseded`; execution status remains in sprintctl.
 - Supersession links are valid and acyclic.
 - Active work has not silently switched to a newer document revision.
 - Completed work records implementation and verification evidence.
@@ -44,4 +44,4 @@ Use this precedence when sources disagree:
 
 Return findings first, ordered by severity. For each finding include the subject, disagreeing sources, exact evidence, authoritative owner, and smallest repair action. End with checked surfaces, skipped surfaces, and residual unknowns.
 
-Never rewrite authored documents, ratify content, mutate sprint state, or update generated projections from reconciliation mode.
+Never rewrite authored documents, establish content, mutate sprint state, or update generated projections from reconciliation mode.

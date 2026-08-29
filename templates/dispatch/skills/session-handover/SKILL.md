@@ -99,7 +99,7 @@ enforcement surface — treat it as load-bearing, not optional, for now.
 
 ## Related documents
 
-- `docs/plans/agentops/session-note-contract-plan.md` — the ratified design
+- `docs/plans/agentops/session-note-contract-plan.md` — the current design
   this skill implements (Phase 1 scope, operator decisions).
 - `docs/dispatch/session-mechanization-contracts.md` — the `session-note/v1`
   field contract.

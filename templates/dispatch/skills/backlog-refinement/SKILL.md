@@ -5,7 +5,7 @@ description: Use when reconciling plans into sprintctl backlog work. Read live s
 
 ## Goal
 
-Turn ratified scope into a non-duplicated, prioritized sprintctl backlog whose items have an execution posture, governing references, dependencies, and testable acceptance criteria.
+Turn current scope into a non-duplicated, prioritized sprintctl backlog whose items have an execution posture, governing references, dependencies, and testable acceptance criteria.
 
 ## Inputs
 
