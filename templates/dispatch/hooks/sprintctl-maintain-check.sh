@@ -53,14 +53,37 @@ summary="$(printf '%s' "$report" | jq -r '
 
 [[ -n "$summary" ]] || exit 0
 
-jq -nc --arg summary "$summary" \
-  '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $summary}}'
-
 # Metanarrative model status. The model is only worth having if it shows up in
 # ordinary work, so this runs where the operator already looks. It is read-only,
 # prints nothing when there are no records, and must never fail the session.
+#
+# The scope is the repository this hook already resolved -- from the payload `cwd`, through
+# git, at the top of this file -- and not `basename "$PWD"`. Those are two different
+# questions: $PWD is the hook *process's* directory, which is whatever the harness happened
+# to leave it at. Pairing a scope derived one way with a store root derived another is the
+# 2026-08-29 misrouting exactly, one tool over, and it had already happened: an empty
+# `agentops/_artifacts/vuoro/model` on this workstation is the fingerprint of scope `vuoro`
+# resolved against root `/projects/dev/agentops`.
 META="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/../scripts/metanarrative.py"
+model_status=""
 if [[ -x "$META" ]]; then
-  python3 "$META" --scope "$(basename "$PWD")" status 2>/dev/null \
-    | grep -vE '^\(no model records yet\)$' || true
+  model_status="$(python3 "$META" --scope "$(basename "$repo_root")" status 2>/dev/null \
+    | grep -vE '^\(no model records yet\)$' || true)"
 fi
+
+# One JSON object, and nothing after it. This block used to `printf` its lines *following*
+# the object below, which makes the hook's whole stdout unparseable -- a SessionStart hook
+# is read as JSON, so appending prose does not add a note beside the context, it discards
+# the context along with the note. The oracle has been failing on exactly that since the
+# block was added ("jq: parse error ... line 2"), which is the defect reporting itself.
+# `if`, not `[[ … ]] && …`. This hook runs under `set -u` alone, so the `&&` form is safe
+# today; it stops being safe the moment anyone adds `set -e`, and the branch it would break
+# is the empty one -- a repository with no model records, which is the common case and the
+# one the oracle never reaches, since its fixture always has claims.
+context="$summary"
+if [[ -n "$model_status" ]]; then
+  context="$context"$'\n\n'"$model_status"
+fi
+
+jq -nc --arg context "$context" \
+  '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $context}}'

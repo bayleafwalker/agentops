@@ -55,14 +55,20 @@ def _store(scope: str) -> Path:
     # Same layout auditctl uses: <root>/_artifacts/<scope>/<kind>. Model records
     # are evidence-adjacent -- every mutation here emits an auditctl event -- so
     # they belong beside the audit shards, not in the repository working tree.
-    path = _artifacts_root() / "_artifacts" / scope / "model"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+    return _artifacts_root() / "_artifacts" / scope / "model"
 
 
 def _load(scope: str, kind: str | None = None) -> list[dict[str, Any]]:
     records = []
-    for file in sorted(_store(scope).glob("*.json")):
+    store = _store(scope)
+    if not store.is_dir():
+        # A read must not create. `_store` used to mkdir unconditionally, so merely asking
+        # "what does scope X know" brought scope X into existence -- which is how an empty
+        # `agentops/_artifacts/vuoro/model` came to sit on this workstation, created by a
+        # status call with a scope and a root that disagreed. An empty directory then reads
+        # as a real-but-empty scope to the next person who looks.
+        return records
+    for file in sorted(store.glob("*.json")):
         try:
             record = json.loads(file.read_text())
         except json.JSONDecodeError:
@@ -73,7 +79,9 @@ def _load(scope: str, kind: str | None = None) -> list[dict[str, Any]]:
 
 
 def _write(scope: str, record: dict[str, Any], name: str) -> Path:
-    path = _store(scope) / f"{name}.json"
+    store = _store(scope)
+    store.mkdir(parents=True, exist_ok=True)  # a write creates; a read does not
+    path = store / f"{name}.json"
     model.validate_record(record, path)
     path.write_text(json.dumps(record, indent=2) + "\n")
     return path
