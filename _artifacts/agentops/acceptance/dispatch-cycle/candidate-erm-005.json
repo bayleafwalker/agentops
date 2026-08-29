@@ -1,0 +1,95 @@
+{
+  "schema_version": "acceptance-lab/candidate-output/v1",
+  "answer": "bindery-core cycle ERM-005-redaction-idempotency: 1 refusal(s), 1 review(s), 1 acceptance(s) across 2 attempt(s), recovered from the audit stream.",
+  "facts": [
+    "cycle: an attempt was refused",
+    "refusal: no mutation was made",
+    "refusal: a revised packet followed it",
+    "cycle: a revised attempt was independently reviewed",
+    "review: the candidate matched the coordinator reference",
+    "cycle: an attempt was accepted and merged",
+    "cycle: the reservation it held was released",
+    "containment: protected paths were untouched",
+    "containment: the coordinator tree was untouched"
+  ],
+  "citations": [
+    {
+      "id": "ad:01M0T19D0V8T1RVEJD55MF8AQ4",
+      "supports": [
+        "cycle: an attempt was refused",
+        "refusal: a revised packet followed it",
+        "refusal: no mutation was made"
+      ]
+    },
+    {
+      "id": "ad:01M0T1H2YB9MSAFNP2VTCWMDGD",
+      "supports": [
+        "cycle: a revised attempt was independently reviewed",
+        "review: the candidate matched the coordinator reference"
+      ]
+    },
+    {
+      "id": "ad:01M0T1KTZC8ER9ZET2C8KV6S5X",
+      "supports": [
+        "cycle: an attempt was accepted and merged",
+        "cycle: the reservation it held was released"
+      ]
+    },
+    {
+      "id": "receipt:docs/orchestration/erm-005-r3.receipt.json",
+      "supports": [
+        "containment: protected paths were untouched",
+        "containment: the coordinator tree was untouched"
+      ]
+    }
+  ],
+  "abstained": false,
+  "trajectory": [
+    {
+      "seq": 1,
+      "tool": "cycle.refused",
+      "action": "dispatch.packet.rejected \u2014 ERM-005-redaction-idempotency-r2: ERM-005 r2 rejected before mutation on absolute-path churn"
+    },
+    {
+      "seq": 2,
+      "tool": "cycle.reviewed",
+      "action": "dispatch.packet.reviewed \u2014 ERM-005-redaction-idempotency-r3: ERM-005 r3 candidate independently reviewed and gated"
+    },
+    {
+      "seq": 3,
+      "tool": "cycle.accepted",
+      "action": "dispatch.packet.accepted \u2014 ERM-005-redaction-idempotency-r3: ERM-005 r3 accepted, merged, and reservation released",
+      "effect": true,
+      "effect_id": "merge-ERM-005-redaction-idempotency-r3",
+      "receipt": "commit:39cf292"
+    }
+  ],
+  "metrics": {
+    "attempts": 2.0,
+    "cycle_events": 3.0,
+    "tokens": 12543.0
+  },
+  "metadata": {
+    "repo": "bindery-core",
+    "cycle": "ERM-005-redaction-idempotency",
+    "attempts": [
+      "ERM-005-redaction-idempotency-r2",
+      "ERM-005-redaction-idempotency-r3"
+    ],
+    "consumer_specific": {
+      "receipt": "docs/orchestration/erm-005-r3.receipt.json",
+      "gates": {
+        "bindery.unit.race": "pass",
+        "bindery.unit.vet": "pass",
+        "bindery.redaction": "pass",
+        "bindery.verification.artifacts": "pass",
+        "diff_scope": "pass",
+        "protected_paths": "pass",
+        "worktree_state": "pass",
+        "registered_commands": "pass"
+      },
+      "harness": "OpenCode",
+      "qualification": "unqualified"
+    }
+  }
+}

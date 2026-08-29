@@ -1,0 +1,94 @@
+{
+  "schema_version": "acceptance-lab/candidate-output/v1",
+  "answer": "bindery-core cycle ERM-WIDE-fixture-wave: 1 refusal(s), 1 review(s), 1 acceptance(s) across 2 attempt(s), recovered from the audit stream.",
+  "facts": [
+    "cycle: an attempt was refused",
+    "refusal: no mutation was made",
+    "refusal: a revised packet followed it",
+    "cycle: a revised attempt was independently reviewed",
+    "cycle: an attempt was accepted and merged",
+    "cycle: the reservation it held was released",
+    "containment: protected paths were untouched",
+    "containment: the coordinator tree was untouched"
+  ],
+  "citations": [
+    {
+      "id": "ad:01M0TE72298GPT4EBZDTD74GVW",
+      "supports": [
+        "cycle: an attempt was refused",
+        "refusal: a revised packet followed it",
+        "refusal: no mutation was made"
+      ]
+    },
+    {
+      "id": "ad:01M0TE724J8VGVS51P0MQWDCMG",
+      "supports": [
+        "cycle: a revised attempt was independently reviewed"
+      ]
+    },
+    {
+      "id": "ad:01M0TE726E94KVRFH7TXF9MHQ7",
+      "supports": [
+        "cycle: an attempt was accepted and merged",
+        "cycle: the reservation it held was released"
+      ]
+    },
+    {
+      "id": "receipt:docs/orchestration/erm-wide-fixture-wave-r3.receipt.json",
+      "supports": [
+        "containment: protected paths were untouched",
+        "containment: the coordinator tree was untouched"
+      ]
+    }
+  ],
+  "abstained": false,
+  "trajectory": [
+    {
+      "seq": 1,
+      "tool": "cycle.refused",
+      "action": "dispatch.preflight_rejected \u2014 ERM-WIDE-fixture-wave-r1: ERM-WIDE fixture wave r1 rejected before inference because vet was red"
+    },
+    {
+      "seq": 2,
+      "tool": "cycle.reviewed",
+      "action": "dispatch.packet.reviewed \u2014 ERM-WIDE-fixture-wave-r3: ERM-WIDE fixture wave r3 candidate independently reviewed and merged"
+    },
+    {
+      "seq": 3,
+      "tool": "cycle.accepted",
+      "action": "dispatch.packet.accepted \u2014 ERM-WIDE-fixture-wave-r3: ERM-WIDE fixture wave r3 accepted after merge and reservation release",
+      "effect": true,
+      "effect_id": "merge-ERM-WIDE-fixture-wave-r3",
+      "receipt": "commit:f2c8432816905e9f7243dd3e96a8f443137ed21a"
+    }
+  ],
+  "metrics": {
+    "attempts": 2.0,
+    "cycle_events": 3.0,
+    "cost_usd": 0.0,
+    "tokens": 280190.0
+  },
+  "metadata": {
+    "repo": "bindery-core",
+    "cycle": "ERM-WIDE-fixture-wave",
+    "attempts": [
+      "ERM-WIDE-fixture-wave-r1",
+      "ERM-WIDE-fixture-wave-r3"
+    ],
+    "consumer_specific": {
+      "receipt": "docs/orchestration/erm-wide-fixture-wave-r3.receipt.json",
+      "gates": {
+        "bindery.unit.race": "pass",
+        "bindery.unit.vet": "pass",
+        "bindery.redaction": "pass",
+        "bindery.verification.artifacts": "pass",
+        "diff_scope": "pass",
+        "protected_paths": "pass",
+        "reference_contract": "pass",
+        "coordinator_cold_exact_commit": "pass"
+      },
+      "harness": "OpenCode",
+      "qualification": "unqualified"
+    }
+  }
+}

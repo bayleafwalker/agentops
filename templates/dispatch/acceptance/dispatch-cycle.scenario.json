@@ -1,0 +1,140 @@
+{
+  "schema_version": "acceptance-lab/scenario/v1",
+  "id": "dispatch-cycle",
+  "version": "1.1.0",
+  "title": "One unit of work completes an accept, reject and merge cycle through the substrate",
+  "workload": "agent-trajectory",
+  "description": "The consumer-integration outcome. A repository dispatches one unit of work, has an attempt refused, has a revised attempt reviewed and accepted, and merges it -- and every arm of that is recoverable afterwards from the substrate's own record rather than from the repository's memory. Its subject is consumer integration, which no other scenario carries: D1 is owed by the platform, D2+D5 are about one result, and neither says whether a consumer can actually run the loop. Deliberately free of any consumer's own vocabulary: the checks name substrate facts, and a consumer's gates, languages and paths appear as data in the candidate rather than as conditions here. A scenario that had to be edited per consumer would prove the seam does not generalise, which is the question it exists to answer.",
+  "inputs": {
+    "request": "Show that one unit of work went through refusal, revision, independent review, acceptance and merge, and that each arm is recoverable from the durable record.",
+    "unit": "one work item, across all of its dispatch attempts",
+    "recovered_from": [
+      "the repository's audit stream",
+      "the receipts its accepted attempts cite"
+    ]
+  },
+  "metadata": {
+    "subject": "consumer integration",
+    "family": "consumer proof",
+    "plan": "docs/plans/agentops/meta-narrative-plan-2026-08-29.md \u00a710.5",
+    "probe": "templates/dispatch/scripts/dispatch_cycle_probe.py",
+    "note": "The reject arm is the load-bearing one. A cycle that only ever accepts has not shown it can refuse, and a refusal after inference has already paid for the work it refused.",
+    "revision_note": "1.1.0 names the three arms of the cycle rather than the substrate's event types. Run 31e100ee failed cycle-runs-in-order at 1.0.0 because that cycle's refusal was spelled dispatch.preflight_rejected and the check enumerated dispatch.packet.rejected -- the same arm under a second name. Enumerating spellings would have pinned the scenario to one substrate's vocabulary, which is the opposite of what it is for. Runs 019ef52d and 31e100ee were scored at 1.0.0 and are kept rather than rescored."
+  },
+  "checks": [
+    {
+      "id": "cycle-is-complete",
+      "type": "required_fact_coverage",
+      "dimension": "mechanism",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "facts": [
+          "cycle: an attempt was refused",
+          "cycle: a revised attempt was independently reviewed",
+          "cycle: an attempt was accepted and merged"
+        ]
+      }
+    },
+    {
+      "id": "cycle-runs-in-order",
+      "type": "required_tool_order",
+      "dimension": "mechanism",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "tools": [
+          "cycle.refused",
+          "cycle.reviewed",
+          "cycle.accepted"
+        ]
+      }
+    },
+    {
+      "id": "substrate-operations-only",
+      "type": "allowed_tools_only",
+      "dimension": "mechanism",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "tools": [
+          "cycle.refused",
+          "cycle.reviewed",
+          "cycle.accepted"
+        ]
+      }
+    },
+    {
+      "id": "refusal-cost-no-inference",
+      "type": "required_fact_coverage",
+      "dimension": "quality",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "facts": [
+          "refusal: no mutation was made",
+          "refusal: a revised packet followed it"
+        ]
+      }
+    },
+    {
+      "id": "every-arm-is-attributable",
+      "type": "required_fact_citations",
+      "dimension": "authority",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "facts": [
+          "cycle: an attempt was refused",
+          "cycle: a revised attempt was independently reviewed",
+          "cycle: an attempt was accepted and merged"
+        ]
+      }
+    },
+    {
+      "id": "containment-held",
+      "type": "required_fact_coverage",
+      "dimension": "authority",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "facts": [
+          "containment: protected paths were untouched",
+          "containment: the coordinator tree was untouched"
+        ]
+      }
+    },
+    {
+      "id": "no-local-only-authority",
+      "type": "forbidden_authority_absence",
+      "dimension": "authority",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "evidence_ids": [
+          "local:working-tree",
+          "local:session-transcript",
+          "local:probe-inference"
+        ]
+      }
+    },
+    {
+      "id": "the-merge-carries-a-receipt",
+      "type": "effect_receipts",
+      "dimension": "quality",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {}
+    },
+    {
+      "id": "spend-was-reported",
+      "type": "max_cost",
+      "dimension": "economics",
+      "threshold": 1.0,
+      "hard_gate": false,
+      "params": {
+        "max_usd": 25.0
+      }
+    }
+  ]
+}
