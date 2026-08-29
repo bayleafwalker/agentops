@@ -360,22 +360,50 @@ CONSULTED" line is in the log. That task also gave
 `cred-broker-check-audiences.py` its first caller — it was referenced by no
 task, workflow or runbook, one step from being an un-run ceremony itself.
 
-**Outstanding, and it is the same shape as the defect: the live comparison has
-not been run.** It needs the operator password from a terminal, so no agent and
-no schedule can run it. One command, and its first run is the interesting one
-because it is the first time anything has asked the vault what it contains:
+**It has now been run, and it found two things** (`appservice` `6a89956e`).
+
+- **`kv/` is mounted**, declared absent. Created by nothing recorded in Git --
+  not by the External Secrets ceremony, whose policy and role are both still
+  absent. So step 2 of that ceremony is a no-op and the only write it still
+  needs root for is the seed: one write, not three. But "mounted" is not
+  "ready" -- the pilot policy grants `kv/data/*` and `kv/metadata/*`, which are
+  KV **v2** paths and grant nothing on a v1 mount, where the policy still
+  writes cleanly and ESO fails at its first refresh days later. The script
+  accepted any pre-existing mount without looking; it now confirms `version:2`
+  or refuses, and refuses equally when the version cannot be read.
+- **Step 7's snapshot role is not unimplemented, and I said it was.** It exists
+  as policy and role `openbao-snapshot`, bound to
+  `openbao/openbao-snapshot-agent` and consumed by the chart's snapshot agent
+  -- and `openbao-operations.md`'s own snapshot gate says so four sections
+  below the line I edited to claim otherwise. The declaration missed it because
+  it was built from `docs/scripts`, and this object was made by hand at
+  commissioning. The **drift check** found it in OpenBao under the name the
+  declaration had guessed wrong.
+
+The second one is the useful result. Comparing declared intent to live state
+found an error in the *declaration*, not in the vault, on the first run -- which
+is the direction that a checker built from the repository alone will keep
+finding, and the reason the drift half is not optional.
+
+The predictions in the previous draft were half right: a refused read did
+appear, but on `userpass-bayleaf`, not `policy-operator-admin`. Policies are
+readable by *listing* (`operator-admin` holds `sys/policies/acl` list) while
+`auth/userpass/*` is granted nowhere at all -- so the substance held (the
+operator cannot read its own authority) and the specific object named was
+wrong.
+
+**Still outstanding: a clean re-run.** It needs the operator password from a terminal, so no agent and no schedule can
+run it:
 
 ```sh
 export KUBECONFIG=/projects/dev/appservice/clusters/.kube/config
 python3 docs/scripts/openbao-check-declared-objects.py
 ```
 
-Read `could_not_check=N` and the `absent, as declared` notes, not just
-`result=`. Two predictions worth checking against the output, since a wrong one
-is more informative than a right one: `policy-operator-admin` should come back
-**denied** rather than present, because `operator-admin` holds no grant on its
-own policy; and the four `expect: absent` entries should hold, with
-`role-openbao-snapshot` meaningless either way until its real name is known.
+Expected now: `result=pass`, three `absent, as declared` notes (both External
+Secrets objects and the devbox PKI role), and `could_not_check=2` --
+`userpass-bayleaf` and `role-openbao-snapshot`, both outside `operator-admin`'s
+globs and both correctly reported as unknown rather than missing.
 
 ### Goal D — a host should not need `kubectl exec` into the vault
 
