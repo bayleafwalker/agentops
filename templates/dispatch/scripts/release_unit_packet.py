@@ -152,11 +152,16 @@ def release_unit_packet(
     after the call, must not reach any other packet.
     """
     return {
-        "schema_version": "agentops-task/v2",
+        "schema_version": "agentops-task/v3",
         "task_id": f"{release}-release-unit",
         "repo_id": repo_id,
         "sprint_item": copy.deepcopy(sprint_item),
         "route": "mechanical_bulk",
+        # Stated, never inherited. v3 closed the route fallback: a generated
+        # packet says which action class it is judged under, so the authority to
+        # dispose candidate without a review record is never acquired by sharing
+        # a name with an execution binding (agentops#2100, Option C).
+        "action_class": "mechanical_bulk",
         "task_class": "mechanical_implementation",
         "risk": "low",
         "oracle": copy.deepcopy(ORACLE),

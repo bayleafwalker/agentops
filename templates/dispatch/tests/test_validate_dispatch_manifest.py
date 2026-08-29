@@ -195,7 +195,10 @@ class _ValidatorCase(unittest.TestCase):
         unsupported = getattr(
             self.validator, "UnsupportedKeyword", schema_check.UnsupportedKeyword)
 
-        def boom(instance, schema, path="$"):
+        # Signature mirrors schema_check.validate, assert_formats included: a
+        # stub narrower than the real function turns a caller's new keyword into
+        # a TypeError that looks like the behaviour under test failing.
+        def boom(instance, schema, path="$", assert_formats=()):
             raise unsupported(message)
 
         target = None

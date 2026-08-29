@@ -612,7 +612,8 @@ class PrepareReceiptTests(unittest.TestCase):
         packet_path = self.repo / "p.json"
         packet_path.write_text(json.dumps(self.packet), encoding="utf-8")
         out = io.StringIO()
-        with contextlib.redirect_stdout(out):
+        err = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             code = dispatch.main(
                 [
                     "--repo-root",
@@ -625,7 +626,20 @@ class PrepareReceiptTests(unittest.TestCase):
                     "prepare",
                 ]
             )
-        return code, json.loads(out.getvalue())
+        # Debt entry 12: this helper used to parse stdout and discard the exit
+        # code and stderr on the way, so a non-zero prepare surfaced as
+        # "JSONDecodeError: Expecting value: line 1 column 1" and the real
+        # message -- which prepare does print -- had to be reproduced by hand to
+        # be read. A helper that swallows the diagnosis costs more than it saves.
+        raw = out.getvalue()
+        try:
+            return code, json.loads(raw)
+        except json.JSONDecodeError:
+            self.fail(
+                f"prepare exited {code} without emitting a receipt.\n"
+                f"stderr: {err.getvalue().strip() or '(empty)'}\n"
+                f"stdout: {raw.strip() or '(empty)'}"
+            )
 
     def _assessment(self, receipt: dict) -> dict:
         self.assertIn(
