@@ -1,0 +1,154 @@
+{
+  "schema_version": "acceptance-lab/scenario/v1",
+  "id": "resume-and-settle",
+  "version": "1.0.1",
+  "title": "Recover a work session from a fresh process through the served backend",
+  "workload": "agent-trajectory",
+  "description": "The walking-skeleton outcome for the resumability half of the intent. A session is interrupted. A new process starts with nothing but the principal's credential and the repository identity -- no local work cache, no working tree, no transcript, no prior bundle on disk -- and must recover session identity, work authority, checkpoint and exact revision through the served backend, then carry a receipt for anything it changed. Its subject is the platform deployment, not any consumer: this is something the platform owes, not a bar a repository must clear.",
+  "inputs": {
+    "request": "From a fresh process holding only its credential and the repository id, recover the interrupted session's identity, authority, checkpoint and exact revision through the served backend.",
+    "interruption": "process loss",
+    "carried_across_the_interruption": [
+      "principal credential",
+      "repository id"
+    ],
+    "deliberately_not_carried": [
+      "local sprintctl database",
+      "git working tree",
+      "handoff bundle on disk",
+      "session transcript",
+      "environment set by direnv"
+    ]
+  },
+  "metadata": {
+    "subject": "platform deployment",
+    "family": "D1 resumability",
+    "plan": "docs/plans/agentops/meta-narrative-plan-2026-08-29.md \u00a710.3",
+    "probe": "templates/dispatch/scripts/resume_probe.py",
+    "note": "Written to fail. A scenario encoded after the fact scores the implementation that produced it; this one was encoded from the outcome the plan names, and run before anything was changed.",
+    "revision_note": "1.0.1 adds the two served write operations an interrupted session performs (work.reservation.reserve, work.handoff.record) to served-surfaces-only. Run 762d7235 was scored against 1.0.0 and failed that gate on the probe's own arrange phase; the finding was in the gate, and the earlier run is kept rather than rescored."
+  },
+  "checks": [
+    {
+      "id": "session-identity-recovered",
+      "type": "required_fact_coverage",
+      "dimension": "mechanism",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "facts": [
+          "session-identity: recovered"
+        ]
+      }
+    },
+    {
+      "id": "work-authority-recovered",
+      "type": "required_fact_coverage",
+      "dimension": "authority",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "facts": [
+          "work-authority: recovered"
+        ]
+      }
+    },
+    {
+      "id": "checkpoint-recovered",
+      "type": "required_fact_coverage",
+      "dimension": "mechanism",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "facts": [
+          "checkpoint: recovered"
+        ]
+      }
+    },
+    {
+      "id": "revision-is-exact",
+      "type": "required_fact_coverage",
+      "dimension": "quality",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "facts": [
+          "exact-revision: recovered",
+          "exact-revision: matches the revision observed before the interruption"
+        ]
+      }
+    },
+    {
+      "id": "recovered-facts-are-cited",
+      "type": "required_fact_citations",
+      "dimension": "authority",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "facts": [
+          "session-identity: recovered",
+          "work-authority: recovered",
+          "checkpoint: recovered",
+          "exact-revision: recovered"
+        ]
+      }
+    },
+    {
+      "id": "no-local-state-as-authority",
+      "type": "forbidden_authority_absence",
+      "dimension": "authority",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "evidence_ids": [
+          "local:sprintctl-db",
+          "local:git-worktree",
+          "local:handoff-bundle-file",
+          "local:session-transcript",
+          "local:arrange-phase-memory"
+        ]
+      }
+    },
+    {
+      "id": "served-surfaces-only",
+      "type": "allowed_tools_only",
+      "dimension": "mechanism",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "tools": [
+          "session.resume",
+          "work.handoff.record",
+          "work.identity.current",
+          "work.read.context",
+          "work.read.context-candidates",
+          "work.read.events",
+          "work.read.handoff",
+          "work.read.next-work-explain",
+          "work.read.records",
+          "work.read.reservation",
+          "work.read.reservations",
+          "work.reservation.reserve"
+        ]
+      }
+    },
+    {
+      "id": "changes-carry-receipts",
+      "type": "effect_receipts",
+      "dimension": "quality",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {}
+    },
+    {
+      "id": "recovery-is-affordable",
+      "type": "max_latency",
+      "dimension": "economics",
+      "threshold": 1.0,
+      "hard_gate": false,
+      "params": {
+        "max_ms": 20000
+      }
+    }
+  ]
+}

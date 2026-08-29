@@ -1,0 +1,63 @@
+{
+  "schema_version": "acceptance-lab/candidate-output/v1",
+  "answer": "Recovered 2 of 4 required elements through the served backend for repo agentops. Unserved and skipped: session.resume, work.read.handoff.",
+  "facts": [
+    "session-identity: recovered",
+    "work-authority: recovered",
+    "session-identity: matches the session interrupted",
+    "work-authority: matches the authority held before the interruption"
+  ],
+  "citations": [
+    {
+      "id": "work.read.reservations",
+      "supports": [
+        "session-identity: matches the session interrupted",
+        "session-identity: recovered",
+        "work-authority: matches the authority held before the interruption",
+        "work-authority: recovered"
+      ]
+    }
+  ],
+  "abstained": false,
+  "trajectory": [
+    {
+      "seq": 1,
+      "tool": "work.read.reservations",
+      "action": "reservation list --all --json"
+    },
+    {
+      "seq": 2,
+      "tool": "work.read.context",
+      "action": "usage --context --json"
+    },
+    {
+      "seq": 3,
+      "tool": "work.read.next-work-explain",
+      "action": "next-work --json --explain"
+    },
+    {
+      "seq": 4,
+      "tool": "work.reservation.reserve",
+      "action": "arrange: work.reservation.reserve",
+      "effect": true,
+      "effect_id": "reservation-42",
+      "receipt": "reservation#42"
+    }
+  ],
+  "metrics": {
+    "latency_ms": 1438.8,
+    "served_surfaces_used": 4.0
+  },
+  "metadata": {
+    "profile": "workstation-vuoro-shared",
+    "probe": "templates/dispatch/scripts/resume_probe.py",
+    "observed_revision": "1b71bfe69c52281ef20cb8c889fbdb0f34ba34df",
+    "recovered_revision": null,
+    "observed_session_id": "resume-probe-078b7b820acb",
+    "recovered_session_id": "resume-probe-078b7b820acb",
+    "unserved_operations": [
+      "session.resume",
+      "work.read.handoff"
+    ]
+  }
+}
