@@ -472,20 +472,6 @@ def worktree_path(packet: dict[str, Any]) -> Path:
     return Path(packet["worktree"]["root"]) / packet["repo_id"] / packet["task_id"]
 
 
-def default_artifacts_root() -> str:
-    """The default AUDITCTL_ARTIFACTS_ROOT, from the data file beside the driver.
-
-    The single source is templates/dispatch/artifacts-root.default, resolved
-    relative to this driver's own file (``HERE``), never to the working
-    directory. A missing or empty data file yields "" rather than raising: an
-    escalation recorded against a wrong root is better than one never recorded.
-    """
-    try:
-        return (HERE.parent / "artifacts-root.default").read_text(encoding="utf-8").strip()
-    except OSError:
-        return ""
-
-
 def write_escalation(
     packet: dict[str, Any],
     step: str,
@@ -527,10 +513,12 @@ def write_escalation(
         "--ref", f"sha:{packet['starting_commit']}",
         "--metadata", json.dumps(metadata, sort_keys=True),
     ]
-    # Same default as templates/dispatch/artifacts-root.default, resolved
-    # relative to this driver: without it every auditctl write fails with
-    # "AUDITCTL_ARTIFACTS_ROOT is required".
-    os.environ.setdefault("AUDITCTL_ARTIFACTS_ROOT", default_artifacts_root())
+    # The root is deliberately not set here. auditctl <= 0.1.3 required it, and the
+    # default this driver supplied named one repository -- for a driver that runs in
+    # whichever repo the packet targets, which is how shards and indexes came to
+    # disagree. Since 0.1.4 the publisher defaults the root to the repository it
+    # resolves itself, so a caller that sets it can only redirect a correct answer to
+    # a wrong one.
     completed = runner(cmd, None)
     record["sink"] = "auditctl" if completed.returncode == 0 else "auditctl_failed"
     if completed.returncode != 0:

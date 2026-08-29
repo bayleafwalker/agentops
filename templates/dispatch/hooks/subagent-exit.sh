@@ -28,7 +28,6 @@ if [[ -r "${_hook_src%/*}/auditctl-resolve.sh" ]]; then
   . "${_hook_src%/*}/auditctl-resolve.sh"
 else
   auditctl_bin() { return 1; }
-  auditctl_export_root() { :; }
 fi
 
 EVENT="$(cat)"
@@ -41,7 +40,6 @@ PROJ="$(printf '%s' "$EVENT" | jq -r '.cwd // ""' | xargs basename 2>/dev/null |
 # the kernel audit tool of the same name, which is how the missing workflow.session events
 # were actually lost. See hooks/auditctl-resolve.sh.
 AUDITCTL="$(auditctl_bin)" || exit 0
-auditctl_export_root "${BASH_SOURCE[0]}"
 
 # terminal_reason from the transcript's own tail. A usage limit is reported to the agent as a
 # localized wall-clock string ("resets 12:30am (Europe/Helsinki)"), never as Retry-After, so

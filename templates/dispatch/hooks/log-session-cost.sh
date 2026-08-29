@@ -28,7 +28,6 @@ if [[ -r "${_hook_src%/*}/auditctl-resolve.sh" ]]; then
   . "${_hook_src%/*}/auditctl-resolve.sh"
 else
   auditctl_bin() { return 1; }
-  auditctl_export_root() { :; }
 fi
 
 LOG="${AGENTOPS_COST_LOG:-/projects/dev/.claude/session-costs.jsonl}"
@@ -70,9 +69,6 @@ emit_record() {
   # to the kernel audit tool -- see hooks/auditctl-resolve.sh for what that cost.
   local auditctl_path
   auditctl_path="$(auditctl_bin)" || return 0
-  # A Stop hook does not inherit direnv, so the artifacts root has to be defaulted here or
-  # every write fails with "AUDITCTL_ARTIFACTS_ROOT is required for audit writes".
-  auditctl_export_root "${BASH_SOURCE[0]}"
   local summary metadata
   summary="$(printf '%s' "$record" | jq -r '"session \(.project): \(.turns) turns, \(.tool_calls) tool calls, $\(.cost_usd * 100 | round / 100)"')"
   metadata="$(printf '%s' "$record" | jq -c \

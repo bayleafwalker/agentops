@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
-# Sourced by every hook that publishes to auditctl. Two jobs, both of which every publisher
-# needs and each of which has silently dropped telemetry when a hook did it on its own:
+# Sourced by every hook that publishes to auditctl. One job, which has silently dropped
+# telemetry when a hook did it on its own:
 #
-#   auditctl_bin         -- resolve *our* publisher, not merely something named `auditctl`
-#   auditctl_export_root -- default AUDITCTL_ARTIFACTS_ROOT from the single source
+#   auditctl_bin -- resolve *our* publisher, not merely something named `auditctl`
+#
+# It used to have a second, `auditctl_export_root`, which mirrored auditctl's own walk in
+# bash to default AUDITCTL_ARTIFACTS_ROOT. auditctl 0.1.4 made the root default to the
+# repository it resolves, and 0.1.5 is what runs on every host that publishes (workstation,
+# devbox, vuoro-shared), so that export can no longer change an outcome -- it can only fail
+# closed when the two walks drift apart. Three resolvers is worse than two: retired here,
+# and the publisher is now the only thing that decides where its own writes land.
 #
 # Why resolution is not `command -v auditctl`:
 #   `auditctl` is also the Linux kernel audit control tool, /usr/bin/auditctl, owned by the
@@ -54,80 +60,4 @@ auditctl_bin() {
     printf '%s\n' "$HOME/.local/bin/auditctl"; return 0
   fi
   return 1
-}
-
-# Exports AUDITCTL_ARTIFACTS_ROOT if unset or empty.
-#
-# The root must be the repository the events are being published *for*, because auditctl
-# resolves the two halves of a write from different places: `resolve_paths` derives the
-# index and the `repo_id` by walking up from the CWD, while `require_artifacts_root` reads
-# only this variable. `shard_path` then joins them --
-# `<root>/_artifacts/<repo_id>/audit/events-<day>.ndjson` -- so a root that disagrees with
-# the CWD writes a correct index and a shard under someone else's repository. The two do not
-# reconcile, and `rebuild` reports the events as index-only, i.e. as data loss.
-#
-# That is not hypothetical. Between 7ae83fb and this change the default below was the literal
-# string `/projects/dev/agentops`, so every session in every repo -- the hooks are symlinked
-# into `/projects/dev/.claude/hooks/` and shared by all of them -- indexed at its own repo and
-# appended under agentops. Measured 2026-08-29: 11 `dev`-scope events in
-# `agentops/_artifacts/dev/audit/`, invisible to their own index.
-#
-# So derive the root by the same rule auditctl uses for the index (auditctl/paths.py:
-# `_find_upward` for `.auditctl/` or `.git`) rather than naming any one repository. The data
-# file remains the floor for a caller that is under neither marker; a repo-specific root
-# belongs in that repo's .envrc, which is per-session and cannot leak into other repos.
-#
-# $1 is the calling hook's ${BASH_SOURCE[0]}, still resolved through symlinks for the
-# fallback lookup, because the link's own directory is the wrong one.
-auditctl_export_root() {
-  [[ -n "${AUDITCTL_ARTIFACTS_ROOT:-}" ]] && return 0
-  local default_root="" line dir
-
-  # Mirror auditctl/paths.py:resolve_paths exactly, in its order. The order is the whole
-  # point: an intermediate directory with a .git but no index (appservice, say) is NOT the
-  # root -- auditctl walks past it to the enclosing .auditctl/auditctl.db, and a resolver
-  # that stops there re-creates this bug one directory higher.
-  #   1. AUDITCTL_DB, when set, decides the root.
-  #   2. else the nearest enclosing .auditctl/auditctl.db  (a full pass)
-  #   3. else the nearest enclosing .git                   (a second full pass)
-  if [[ -n "${AUDITCTL_DB:-}" ]]; then
-    dir="${AUDITCTL_DB%/*}"
-    if [[ "${dir##*/}" == ".auditctl" ]]; then
-      export AUDITCTL_ARTIFACTS_ROOT="${dir%/*}"
-      return 0
-    fi
-    while [[ -n "$dir" && "$dir" != "/" ]]; do
-      if [[ -d "$dir/.auditctl" || -e "$dir/.git" ]]; then
-        export AUDITCTL_ARTIFACTS_ROOT="$dir"; return 0
-      fi
-      dir="${dir%/*}"
-    done
-  fi
-
-  dir="${PWD:-}"
-  while [[ -n "$dir" && "$dir" != "/" ]]; do
-    if [[ -f "$dir/.auditctl/auditctl.db" ]]; then
-      export AUDITCTL_ARTIFACTS_ROOT="$dir"; return 0
-    fi
-    dir="${dir%/*}"
-  done
-
-  dir="${PWD:-}"
-  while [[ -n "$dir" && "$dir" != "/" ]]; do
-    if [[ -e "$dir/.git" ]]; then
-      export AUDITCTL_ARTIFACTS_ROOT="$dir"; return 0
-    fi
-    dir="${dir%/*}"
-  done
-
-  local hook_src="${1:-${BASH_SOURCE[1]}}"
-  if [[ -L "$hook_src" ]] && command -v readlink >/dev/null 2>&1; then
-    hook_src="$(readlink -f -- "$hook_src" 2>/dev/null || printf '%s' "$hook_src")"
-  fi
-  local data="${hook_src%/*}/../artifacts-root.default"
-  if [[ -r "$data" ]]; then
-    read -r line < "$data" 2>/dev/null || line=""
-    default_root="$line"
-  fi
-  export AUDITCTL_ARTIFACTS_ROOT="$default_root"
 }

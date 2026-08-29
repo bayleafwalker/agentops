@@ -1,18 +1,32 @@
-"""Coordinator-authored oracle for spec row M-6b — the driver reads the
-artifacts-root default from templates/dispatch/artifacts-root.default.
+"""Coordinator-authored oracle for spec row M-6b, reduced.
 
-M-6a moved the bash half (hooks/log-session-cost.sh) onto that data file; this
-pins the Python half onto the same file, resolved relative to the driver's own
-location. Written against the M-6b spec only: the driver still carries the
-literal today, so every test here fails.
+M-6b once required this driver to default ``AUDITCTL_ARTIFACTS_ROOT`` from
+``templates/dispatch/artifacts-root.default``, so that the Python half and the
+bash half read one source instead of two literals.
+
+That requirement is retired, not weakened. auditctl 0.1.4 made the root default
+to the repository auditctl itself resolves, and an explicit value may only
+confirm that resolution rather than redirect it; 0.1.5 is what runs on every
+publishing host. A driver that runs in whichever repository the packet targets
+therefore cannot improve on the publisher's answer -- it can only replace a
+correct root with the name of one repository, which is exactly the misrouting
+this row's data file was introduced to contain.
+
+So the property under test is now the opposite one: the driver decides nothing
+about where its evidence lands, and an escalation is still recorded when nobody
+sets a root at all.
+
+  M-6b/1  the driver sets no artifacts root, by any route
+  M-6b/2  no root literal is left in the driver
+  M-6b/3  an escalation is recorded with the variable unset, and unset it stays
+  M-6b/4  an inherited root is passed through untouched -- that is a repo .envrc's
+          business, and confirming it is auditctl's job, not this driver's
 """
 from __future__ import annotations
 
 import importlib.util
 import json
 import os
-import shutil
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -26,7 +40,6 @@ sys.dont_write_bytecode = True
 ROOT = Path(__file__).parents[3]
 SCRIPTS = ROOT / "templates/dispatch/scripts"
 DRIVER_SRC = SCRIPTS / "dispatch_release.py"
-DEFAULT_FILE = ROOT / "templates/dispatch/artifacts-root.default"
 
 ENV_VAR = "AUDITCTL_ARTIFACTS_ROOT"
 
@@ -39,143 +52,104 @@ def _load_module(name: str, path: Path):
     return module
 
 
-driver = _load_module("dispatch_release_artifacts_root_subject", DRIVER_SRC)
+driver = _load_module("dispatch_release_under_test", DRIVER_SRC)
 
 
 class FakeRunner:
-    """Scripted stand-in for subprocess: records every command and its cwd."""
+    """Records the command and the environment the driver handed the publisher."""
 
     def __init__(self, auditctl_bin: str):
         self.auditctl_bin = auditctl_bin
-        self.calls: list[tuple[list[str], Path | None]] = []
+        self.calls: list[tuple[list[str], Path | None, str | None]] = []
 
     def __call__(self, cmd, cwd):
-        self.calls.append((list(cmd), cwd))
-        return subprocess.CompletedProcess(cmd, 0, "", "")
+        self.calls.append((cmd, cwd, os.environ.get(ENV_VAR)))
+
+        class Completed:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        return Completed()
 
 
-class ArtifactsRootDefaultTests(unittest.TestCase):
+class ArtifactsRootIsThePublishersDecision(unittest.TestCase):
     def setUp(self):
-        self._tmp = tempfile.TemporaryDirectory()
-        self.tmp = Path(self._tmp.name)
-        # A path that exists is all write_escalation needs to treat the sink as
-        # reachable; the runner is fake, so nothing is ever executed.
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmpdir.name)
         self.auditctl = self.tmp / "auditctl"
-        self.auditctl.write_text("", encoding="utf-8")
-        # The variable is process-global. Leaking it would let a later fixture
-        # take the "already set" branch and pass for the wrong reason.
-        self._saved_env = os.environ.get(ENV_VAR)
-        self.addCleanup(self._restore_env)
+        self.auditctl.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        self.auditctl.chmod(0o755)
+        self._saved = os.environ.get(ENV_VAR)
         os.environ.pop(ENV_VAR, None)
 
     def tearDown(self):
-        self._tmp.cleanup()
-
-    def _restore_env(self):
-        if self._saved_env is None:
+        if self._saved is None:
             os.environ.pop(ENV_VAR, None)
         else:
-            os.environ[ENV_VAR] = self._saved_env
+            os.environ[ENV_VAR] = self._saved
+        self._tmpdir.cleanup()
 
     def _packet(self) -> dict:
         return {
-            "task_id": "T-DRIVER",
-            "repo_id": "repo-x",
+            "task_id": "t-1",
+            "repo_id": "agentops",
             "starting_commit": "0" * 40,
-            "worktree": {"root": str(self.tmp / "wt"), "branch": "hybrid/t-driver"},
+            "worktree": {"root": str(self.tmp)},
         }
 
-    def _relocated_driver(self, name: str, default_contents: str | None) -> object:
-        """A copy of the driver in a temp dir, so its ``HERE`` is that dir.
-
-        This is how a missing or unusual data file is exercised without editing
-        the repository's own artifacts-root.default, and it is also what makes
-        a sentinel value possible: the real file's contents cannot double as
-        proof that the resolver read the file rather than a literal.
-        """
-        home = self.tmp / name
-        (home / "scripts").mkdir(parents=True)
-        shutil.copy(DRIVER_SRC, home / "scripts" / "dispatch_release.py")
-        if default_contents is not None:
-            (home / "artifacts-root.default").write_text(default_contents, encoding="utf-8")
-        return _load_module(name, home / "scripts" / "dispatch_release.py")
-
-    def _escalate(self, module, runner) -> dict:
-        return module.write_escalation(
+    def _escalate(self, runner) -> dict:
+        return driver.write_escalation(
             self._packet(), "gate", 3, "boom", runner, str(self.auditctl),
         )
 
-    # Fixture 1 — the resolver exists and reads the shipped data file
-    def test_resolver_returns_stripped_contents_of_the_data_file(self):
-        # Compared against the file, never against a hardcoded path: pinning
-        # "/projects/dev" here would re-create in the oracle the very literal
-        # this row removes from the driver, and the two would drift together.
-        expected = DEFAULT_FILE.read_text(encoding="utf-8").strip()
-        self.assertEqual(driver.default_artifacts_root(), expected)
-
-    # Fixture 2 — resolution is relative to the driver, not to $PWD
-    def test_resolver_is_relative_to_the_driver_not_the_working_directory(self):
-        # Run from a temp cwd: a resolver written against a relative path or
-        # Path.cwd() finds nothing there, while HERE-based resolution is
-        # indifferent to where the process happens to stand.
-        program = (
-            "import importlib.util,sys;"
-            "sys.dont_write_bytecode=True;"
-            f"spec=importlib.util.spec_from_file_location('d',{str(DRIVER_SRC)!r});"
-            "m=importlib.util.module_from_spec(spec);"
-            "spec.loader.exec_module(m);"
-            "print(m.default_artifacts_root())"
+    # M-6b/1 — the driver holds no opinion about the root, by any route
+    def test_driver_has_no_artifacts_root_resolver(self):
+        # Named explicitly rather than by a source scan: a resolver that comes
+        # back under a different name is the same defect, and this is the name
+        # a reader of the retired row will look for first.
+        self.assertFalse(
+            hasattr(driver, "default_artifacts_root"),
+            "dispatch_release.py still resolves an artifacts root of its own",
         )
-        completed = subprocess.run(
-            [sys.executable, "-B", "-c", program],
-            cwd=self.tmp, text=True, capture_output=True, check=False,
-        )
-        self.assertEqual(completed.returncode, 0, completed.stderr)
+        source = DRIVER_SRC.read_text(encoding="utf-8")
+        offenders = [
+            line.strip()
+            for line in source.splitlines()
+            if ENV_VAR in line and not line.lstrip().startswith("#")
+        ]
         self.assertEqual(
-            completed.stdout.strip(),
-            DEFAULT_FILE.read_text(encoding="utf-8").strip(),
+            offenders, [], "dispatch_release.py still touches the artifacts root"
         )
 
-    # Fixture 3 — setdefault semantics: an inherited root still wins
-    def test_write_escalation_leaves_an_already_set_root_untouched(self):
-        module = self._relocated_driver("relocated_preset", "/sentinel/root\n")
-        os.environ[ENV_VAR] = "/inherited/root"
-        record = self._escalate(module, FakeRunner(str(self.auditctl)))
-        # The sentinel makes the check discriminating: without it the assertion
-        # would also hold for a driver that resolves nothing at all.
-        self.assertEqual(module.default_artifacts_root(), "/sentinel/root")
-        self.assertEqual(os.environ[ENV_VAR], "/inherited/root")
-        self.assertEqual(record["sink"], "auditctl")
-
-    # Fixture 4 — the resolved value is what fills an absent root
-    def test_write_escalation_fills_an_absent_root_from_the_resolver(self):
-        module = self._relocated_driver("relocated_absent", "/sentinel/root\n")
-        self._escalate(module, FakeRunner(str(self.auditctl)))
-        self.assertEqual(os.environ[ENV_VAR], "/sentinel/root")
-
-    # Fixture 5 — one source of truth, so the literal is gone
-    def test_driver_source_no_longer_carries_the_literal_root(self):
-        # Reported line by line: a whole-source assertion message buries the one
-        # line a reader has to change under the other 594.
+    # M-6b/2 — one source of truth, so no literal is left behind
+    def test_driver_source_carries_no_root_literal(self):
         hits = [
-            line.strip() for line in DRIVER_SRC.read_text(encoding="utf-8").splitlines()
+            line.strip()
+            for line in DRIVER_SRC.read_text(encoding="utf-8").splitlines()
             if "/projects/dev" in line
         ]
-        self.assertEqual(hits, [], "dispatch_release.py still hardcodes the root")
+        self.assertEqual(hits, [], "dispatch_release.py still hardcodes a root")
 
-    # Fixture 6 — a missing or empty data file must not cost an escalation
-    def test_missing_or_empty_data_file_neither_raises_nor_blocks_the_record(self):
-        for name, contents in (("relocated_missing", None), ("relocated_empty", "")):
-            with self.subTest(data_file=name):
-                os.environ.pop(ENV_VAR, None)
-                module = self._relocated_driver(name, contents)
-                # An escalation that cannot be recorded because a defaults file
-                # went missing is worse than one recorded against a wrong root.
-                self.assertIsInstance(module.default_artifacts_root(), str)
-                runner = FakeRunner(str(self.auditctl))
-                record = self._escalate(module, runner)
-                self.assertEqual(record["sink"], "auditctl")
-                self.assertEqual(json.loads(runner.calls[0][0][-1])["step"], "gate")
+    # M-6b/3 — an escalation with no root set is still recorded, and stays unset
+    def test_escalation_is_recorded_without_a_root_and_sets_none(self):
+        runner = FakeRunner(str(self.auditctl))
+        record = self._escalate(runner)
+        self.assertEqual(record["sink"], "auditctl")
+        self.assertEqual(json.loads(runner.calls[0][0][-1])["step"], "gate")
+        # Observed at the moment of the call, not afterwards: a driver that set
+        # the variable and then cleaned it up would still have decided the root.
+        self.assertIsNone(runner.calls[0][2])
+        self.assertNotIn(ENV_VAR, os.environ)
+
+    # M-6b/4 — an inherited root reaches the publisher unchanged
+    def test_inherited_root_is_passed_through_untouched(self):
+        os.environ[ENV_VAR] = "/inherited/root"
+        runner = FakeRunner(str(self.auditctl))
+        record = self._escalate(runner)
+        self.assertEqual(record["sink"], "auditctl")
+        self.assertEqual(runner.calls[0][2], "/inherited/root")
+        self.assertEqual(os.environ[ENV_VAR], "/inherited/root")
 
 
 if __name__ == "__main__":

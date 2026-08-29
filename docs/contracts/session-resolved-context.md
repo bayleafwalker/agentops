@@ -231,13 +231,22 @@ closed. The rest remain open and are **not** addressed by `AuditContext`:
    context without walking the tree. Env vars remain writable by shared-scope code,
    and a Stop/SubagentStop hook shell inherits neither direnv nor a login PATH.
 
-3. **Three resolvers is worse than two.** After a44f01d there is a bash mirror of
-   the walk in `auditctl-resolve.sh`. Once the root defaults to the resolved repo,
-   that export can no longer change an outcome — it can only fail closed when the
-   two walks drift. It should be retired for auditctl consumers rather than
-   maintained, but only after 0.1.4 is deployed everywhere, since 0.1.3 still
-   *requires* the root. The `artifacts-root.default` floor becomes dead in the same
-   step.
+3. **Three resolvers is worse than two — closed 2026-08-29.** After a44f01d there
+   was a bash mirror of the walk in `auditctl-resolve.sh`. auditctl 0.1.5 is now what
+   runs on every host that publishes (workstation, devbox, and vuoro-shared through
+   vuoro-service 0.1.58), so the precondition held and the mirror is retired:
+   `auditctl_export_root` is gone, and with it the root-setting in
+   `dispatch_release.py`, `hybrid_dispatch.py` and `metanarrative.py`. No caller
+   decides the root any more; the publisher does. REQ-025 asserts that no hook or
+   driver assigns `AUDITCTL_ARTIFACTS_ROOT`, and REQ-026 publishes from two
+   repositories with nothing set and checks each event landed under its own — which
+   is also what catches a host downgraded below 0.1.4.
+
+   `artifacts-root.default` survives, narrowed to one consumer that was never
+   auditctl's: `metanarrative.py` uses it as the floor for the *model record* store,
+   a workspace-scoped artifact with no repository of its own. That is a different
+   question from "where do this session's shards go", and conflating the two is what
+   put one file in both roles.
 
 4. **An applier already exists, twice.** `materialize_project.py` implements
    staging, `_atomic_write`, validation, receipt, lease and drift for the workspace

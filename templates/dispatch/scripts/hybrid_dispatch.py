@@ -2355,10 +2355,9 @@ def _publish_arm(arm: str, packet: dict[str, Any], summary: str, metadata: dict[
     binary = _auditctl_bin()
     if binary is None:
         return
-    root = os.environ.get("AUDITCTL_ARTIFACTS_ROOT")
-    if not root:
-        default = Path(__file__).resolve().parents[1] / "artifacts-root.default"
-        root = default.read_text(encoding="utf-8").splitlines()[0] if default.is_file() else ""
+    # No artifacts root is set here on purpose: since auditctl 0.1.4 the publisher
+    # defaults it to the repository it resolves, and a dispatch driver that names one
+    # repository would redirect the shards of every run in every other one.
     try:
         subprocess.run(
             [
@@ -2370,7 +2369,7 @@ def _publish_arm(arm: str, packet: dict[str, Any], summary: str, metadata: dict[
                 "--metadata", json.dumps({"task_id": packet["task_id"],
                                           "repo_id": packet["repo_id"], **metadata}),
             ],
-            env={**os.environ, "AUDITCTL_ARTIFACTS_ROOT": root},
+            env=os.environ,
             capture_output=True,
             timeout=30,
             check=False,

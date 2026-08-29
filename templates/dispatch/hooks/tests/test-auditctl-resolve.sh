@@ -8,6 +8,8 @@
 #   REQ-022 a real publisher on PATH is still used, so a stub or venv install keeps working
 #   REQ-023 no publisher anywhere degrades quietly, with the cost row still written
 #   REQ-024 both publishing hooks resolve through the shared helper, not `command -v`
+#   REQ-025 no caller sets AUDITCTL_ARTIFACTS_ROOT -- the publisher decides its own root
+#   REQ-026 two repos publishing with no root set land under their own repositories
 #
 # The decoy is an ELF, because that is what makes the live collision undetectable: the
 # kernel audit tool answers to the name, exits 0, and prints to stderr, so a call ending in
@@ -125,53 +127,55 @@ for hook in "$stop_hook" "$subagent_hook"; do
     || fail "REQ-024: $(basename "$hook") does not resolve through auditctl_bin"
 done
 
-# --- REQ-025: the artifacts root follows the publishing session, not a named repo -------
-# auditctl derives the index and repo_id by walking up from the CWD, but reads the shard
-# root only from AUDITCTL_ARTIFACTS_ROOT. If the root names one repository, every session in
-# every other repo indexes at its own repo and appends under that one, and `rebuild` reports
-# the events as index-only -- data loss. Measured 2026-08-29: 11 dev-scope events written
-# into agentops/_artifacts/dev/audit/, invisible to their own index.
+# --- REQ-025: no caller sets the artifacts root; the publisher decides it ---------------
+# auditctl <= 0.1.3 read the shard root only from AUDITCTL_ARTIFACTS_ROOT while deriving the
+# index and repo_id by walking up from the CWD, so a caller that named one repository sent
+# every session's shards there while each indexed at its own root -- `rebuild` then reported
+# the events as index-only, which reads as data loss. Measured 2026-08-29: 11 dev-scope
+# events written into agentops/_artifacts/dev/audit/, invisible to their own index.
+#
+# auditctl 0.1.4 removed the precondition: the root defaults to the repository auditctl
+# itself resolves, and an explicit value may only confirm that resolution, never redirect it.
+# So the fix here is not a better walk in bash -- it is no walk in bash. This guard is
+# written against the class rather than against the one hook that had the bug: *any*
+# publishing hook that assigns this variable has taken a decision that is not its to take,
+# whatever value it assigns and however it derived it.
 resolve_sh="$hooks_dir/auditctl-resolve.sh"
 
-root_for() {  # $1 = cwd to publish from
-  ( cd "$1" && unset AUDITCTL_ARTIFACTS_ROOT \
-    && . "$resolve_sh" && auditctl_export_root "$resolve_sh" \
-    && printf '%s' "$AUDITCTL_ARTIFACTS_ROOT" )
-}
-
-marker_repo="$tmp/marker-repo"; mkdir -p "$marker_repo/.git" "$marker_repo/nested/deep"
-other_repo="$tmp/other-repo";  mkdir -p "$other_repo/.auditctl"; : > "$other_repo/.auditctl/auditctl.db"
-
-assert_eq "REQ-025 git marker"      "$(root_for "$marker_repo")"             "$marker_repo"
-assert_eq "REQ-025 from subdir"     "$(root_for "$marker_repo/nested/deep")" "$marker_repo"
-assert_eq "REQ-025 .auditctl marker" "$(root_for "$other_repo")"             "$other_repo"
-
-# The index wins over a nearer .git, because auditctl resolves it in that order. This is
-# the case that bit: a workspace holding .auditctl/auditctl.db contains repos that have a
-# .git and no index of their own. Stopping at the inner .git roots the shard in that repo
-# while auditctl indexes at the workspace -- the same divergence, one directory higher.
-workspace="$tmp/workspace"; mkdir -p "$workspace/.auditctl"; : > "$workspace/.auditctl/auditctl.db"
-inner="$workspace/inner-repo"; mkdir -p "$inner/.git" "$inner/sub"
-assert_eq "REQ-025 index beats nearer git"  "$(root_for "$inner")"     "$workspace"
-assert_eq "REQ-025 index beats it deeply"   "$(root_for "$inner/sub")" "$workspace"
-
-# An explicit AUDITCTL_DB decides the root, as it does for auditctl.
-from_db="$( cd "$inner" && export AUDITCTL_DB="$other_repo/.auditctl/auditctl.db" \
-  && unset AUDITCTL_ARTIFACTS_ROOT \
-  && . "$resolve_sh" && auditctl_export_root "$resolve_sh" && printf '%s' "$AUDITCTL_ARTIFACTS_ROOT" )"
-assert_eq "REQ-025 AUDITCTL_DB decides" "$from_db" "$other_repo"
-
-# Two different repos must never resolve to the same root.
-[ "$(root_for "$marker_repo")" != "$(root_for "$other_repo")" ] \
-  || fail "REQ-025: distinct repos resolved to the same artifacts root"
-
-# An explicit root still wins -- that is how a repo .envrc pins its own evidence.
-pinned="$( cd "$marker_repo" && export AUDITCTL_ARTIFACTS_ROOT=/pinned/root \
-  && . "$resolve_sh" && auditctl_export_root "$resolve_sh" && printf '%s' "$AUDITCTL_ARTIFACTS_ROOT" )"
-assert_eq "REQ-025 explicit wins" "$pinned" "/pinned/root"
-
-# And the resolver must not hardcode a repository path.
+for hook in "$resolve_sh" "$stop_hook" "$subagent_hook"; do
+  code="$(grep -v '^[[:space:]]*#' "$hook")"
+  grep -qE '(export|setdefault)?[[:space:]]*AUDITCTL_ARTIFACTS_ROOT=' <<<"$code" \
+    && fail "REQ-025: $(basename "$hook") sets AUDITCTL_ARTIFACTS_ROOT; the publisher decides its own root"
+  grep -q 'auditctl_export_root' <<<"$code" \
+    && fail "REQ-025: $(basename "$hook") still calls the retired auditctl_export_root"
+done
 grep -v '^[[:space:]]*#' "$resolve_sh" | grep -q '/projects/dev/[a-z]' \
   && fail "REQ-025: auditctl-resolve.sh names a specific repository in code"
 
-printf 'ok: test-auditctl-resolve (REQ-020..REQ-025)\n'
+# --- REQ-026: two repos publishing with no root set land in their own repositories -------
+# The falsifier for the whole arrangement, measured against the installed publisher rather
+# than asserted about it: with AUDITCTL_ARTIFACTS_ROOT unset, an event added from repo A
+# must appear under A and an event added from repo B under B. If auditctl is ever downgraded
+# below 0.1.4 on a host, this is what catches it -- the version that needs the export back
+# fails here rather than silently misrouting a day of shards.
+publisher="$( unset AUDITCTL_BIN; . "$resolve_sh"; auditctl_bin || true )"
+if [[ -n "$publisher" && -x "$publisher" ]]; then
+  for name in alpha beta; do
+    repo="$tmp/scoped-$name"; mkdir -p "$repo/.git" "$repo/sub"
+    ( cd "$repo/sub" && unset AUDITCTL_ARTIFACTS_ROOT AUDITCTL_DB \
+      && "$publisher" add --type workflow.friction --source resolve-test --actor resolve-test \
+         --summary "scope probe $name" >/dev/null 2>&1 ) \
+      || fail "REQ-026: publishing from $repo/sub failed with no artifacts root set"
+    shard="$(find "$repo/_artifacts" -name 'events-*.ndjson' 2>/dev/null | head -1)"
+    [[ -n "$shard" ]] \
+      || fail "REQ-026: no shard under $repo after publishing from it -- the root did not follow the session"
+    grep -q "scope probe $name" "$shard" \
+      || fail "REQ-026: $repo shard does not carry its own event"
+  done
+  [[ -z "$(find "$tmp/scoped-alpha/_artifacts" -name 'events-*.ndjson' -exec grep -l 'scope probe beta' {} + 2>/dev/null)" ]] \
+    || fail "REQ-026: beta's event landed under alpha -- shards are crossing repositories"
+else
+  printf 'skip: REQ-026 needs the auditctl publisher installed\n' >&2
+fi
+
+printf 'ok: test-auditctl-resolve (REQ-020..REQ-026)\n'
