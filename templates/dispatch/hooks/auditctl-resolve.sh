@@ -83,12 +83,39 @@ auditctl_export_root() {
   [[ -n "${AUDITCTL_ARTIFACTS_ROOT:-}" ]] && return 0
   local default_root="" line dir
 
-  # Walk up from the publishing session's directory, matching auditctl's own rule.
+  # Mirror auditctl/paths.py:resolve_paths exactly, in its order. The order is the whole
+  # point: an intermediate directory with a .git but no index (appservice, say) is NOT the
+  # root -- auditctl walks past it to the enclosing .auditctl/auditctl.db, and a resolver
+  # that stops there re-creates this bug one directory higher.
+  #   1. AUDITCTL_DB, when set, decides the root.
+  #   2. else the nearest enclosing .auditctl/auditctl.db  (a full pass)
+  #   3. else the nearest enclosing .git                   (a second full pass)
+  if [[ -n "${AUDITCTL_DB:-}" ]]; then
+    dir="${AUDITCTL_DB%/*}"
+    if [[ "${dir##*/}" == ".auditctl" ]]; then
+      export AUDITCTL_ARTIFACTS_ROOT="${dir%/*}"
+      return 0
+    fi
+    while [[ -n "$dir" && "$dir" != "/" ]]; do
+      if [[ -d "$dir/.auditctl" || -e "$dir/.git" ]]; then
+        export AUDITCTL_ARTIFACTS_ROOT="$dir"; return 0
+      fi
+      dir="${dir%/*}"
+    done
+  fi
+
   dir="${PWD:-}"
   while [[ -n "$dir" && "$dir" != "/" ]]; do
-    if [[ -d "$dir/.auditctl" || -e "$dir/.git" ]]; then
-      export AUDITCTL_ARTIFACTS_ROOT="$dir"
-      return 0
+    if [[ -f "$dir/.auditctl/auditctl.db" ]]; then
+      export AUDITCTL_ARTIFACTS_ROOT="$dir"; return 0
+    fi
+    dir="${dir%/*}"
+  done
+
+  dir="${PWD:-}"
+  while [[ -n "$dir" && "$dir" != "/" ]]; do
+    if [[ -e "$dir/.git" ]]; then
+      export AUDITCTL_ARTIFACTS_ROOT="$dir"; return 0
     fi
     dir="${dir%/*}"
   done

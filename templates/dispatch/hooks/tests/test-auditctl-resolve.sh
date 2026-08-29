@@ -140,11 +140,26 @@ root_for() {  # $1 = cwd to publish from
 }
 
 marker_repo="$tmp/marker-repo"; mkdir -p "$marker_repo/.git" "$marker_repo/nested/deep"
-other_repo="$tmp/other-repo";  mkdir -p "$other_repo/.auditctl"
+other_repo="$tmp/other-repo";  mkdir -p "$other_repo/.auditctl"; : > "$other_repo/.auditctl/auditctl.db"
 
 assert_eq "REQ-025 git marker"      "$(root_for "$marker_repo")"             "$marker_repo"
 assert_eq "REQ-025 from subdir"     "$(root_for "$marker_repo/nested/deep")" "$marker_repo"
 assert_eq "REQ-025 .auditctl marker" "$(root_for "$other_repo")"             "$other_repo"
+
+# The index wins over a nearer .git, because auditctl resolves it in that order. This is
+# the case that bit: a workspace holding .auditctl/auditctl.db contains repos that have a
+# .git and no index of their own. Stopping at the inner .git roots the shard in that repo
+# while auditctl indexes at the workspace -- the same divergence, one directory higher.
+workspace="$tmp/workspace"; mkdir -p "$workspace/.auditctl"; : > "$workspace/.auditctl/auditctl.db"
+inner="$workspace/inner-repo"; mkdir -p "$inner/.git" "$inner/sub"
+assert_eq "REQ-025 index beats nearer git"  "$(root_for "$inner")"     "$workspace"
+assert_eq "REQ-025 index beats it deeply"   "$(root_for "$inner/sub")" "$workspace"
+
+# An explicit AUDITCTL_DB decides the root, as it does for auditctl.
+from_db="$( cd "$inner" && export AUDITCTL_DB="$other_repo/.auditctl/auditctl.db" \
+  && unset AUDITCTL_ARTIFACTS_ROOT \
+  && . "$resolve_sh" && auditctl_export_root "$resolve_sh" && printf '%s' "$AUDITCTL_ARTIFACTS_ROOT" )"
+assert_eq "REQ-025 AUDITCTL_DB decides" "$from_db" "$other_repo"
 
 # Two different repos must never resolve to the same root.
 [ "$(root_for "$marker_repo")" != "$(root_for "$other_repo")" ] \
