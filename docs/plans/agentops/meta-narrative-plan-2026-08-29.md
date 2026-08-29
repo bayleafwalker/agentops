@@ -1,4 +1,4 @@
-# Meta-narrative plan — 2026-08-29
+# Meta-narrative plan — 2026-08-29 (rev. 2, alignment-amended)
 
 **Supersedes** `cross-repo-dogfood-plan-2026-08-28.md` (rev. 4). That plan's
 findings survive; its shape does not.
@@ -61,19 +61,35 @@ yet finished:
 `sprintctl next-work` works in every repo scope — the served result-schema P0 is
 fixed, released and deployed.
 
-`sprintctl session resume` returns:
+**Correction, rev. 2.** Rev. 1 led with `sprintctl session resume` returning
+`served-operation-unavailable` and called it "the gap between intent and system,
+in one line". That was **label treated as proof**, which is the exact error this
+plan diagnoses in others. Two independent reviews caught it, and reading the
+implementation settles it:
 
+```python
+@session.command("resume")
+def session_resume_cmd(...):
+    """Show a combined resume surface (context, next-work explain, and git context)."""
 ```
-served-operation-unavailable: 'session resume' is not available through the
-Vuoro served catalog yet. The combined session-resume contract is not yet served.
-```
 
-The product sentence begins with *resumable*. The one operation named `resume`
-is not served on the backend every repository is now required to use. That is
-the gap between intent and system, in one line, and it needs no gate to justify
-fixing.
+`resume` is a **convenience aggregate**, and all three of its components are
+served today, as are `handoff`, `context-candidates` and `reservation list`. Its
+absence costs six commands, not a capability. An operation named `resume` is not
+evidence that resumption works, and its absence is not evidence that resumption
+is broken.
 
----
+**So the honest statement of the primary product question is:**
+
+> Resumability is **unproven**, not simply broken. Nobody has run the outcome.
+
+The outcome that would settle it: from a **fresh process with no local cache,
+after interruption, through the served backend**, recover session identity, work
+authority, checkpoint, and exact revision. That is a black-box scenario, and it
+is the first move in §10 — write it so it fails, then make it pass. Whether the
+fix is the missing aggregate, a compatibility rollout across mixed service
+versions, or something not yet visible is a question the scenario answers and
+speculation does not.
 
 ## 2. What replaces D1–D8
 
@@ -91,7 +107,31 @@ Vuoro §7.1 already specifies the classification. Applied to rev. 4's gates:
 | D8 NARROW scorecard per packet | not a gate | **Move to telemetry** (§7). A measurement that never blocks anything is an instrument, not a bar. |
 | `dispatchable` promotion | incumbent convenience | **Delete.** |
 
-Five permanent invariants, two relocations, one deletion. Nothing new invented.
+**The arithmetic, stated explicitly.** Six rows are kept (D1–D6). They become
+**five scenario families** only because D2 and D5 combine into one path — receipt
+plus independent evaluation is a single journey, not two bars. Rev. 1 said "five
+permanent invariants" over a six-row table without saying why.
+
+**Every scenario needs an admission subject.** A gate with no subject is a gate
+that applies to everyone, which is how D1 became something consumers were
+expected to clear rather than something the platform owes them:
+
+| Scenario family | Subject |
+|---|---|
+| D1 resumability | platform deployment |
+| D2+D5 receipt → evaluation → settlement | individual workflow result |
+| D3 rebuild | provider release |
+| D4 guarded write | unattended-write mode, once enabled |
+| D6 fault cases | platform deployment |
+
+Consumer integration is a subject too, and no surviving scenario carries it —
+which is a finding, not an omission to paper over: the seam-generalisation
+question needs its own scenario written.
+
+**`CONDITIONAL` must not become D8 wearing a better hat.** A conditional verdict
+carries machine-readable conditions, a named owner, and a re-evaluation trigger
+or expiry, or it is not a verdict. **Applicability is separate from verdict**:
+"not enabled" (D4 today) is not "conditionally accepted".
 
 **The engine.** `acceptance-lab` is the workspace's evaluation organ and it is
 idle — four commits in eight weeks. Its architecture is already the one this
@@ -102,9 +142,26 @@ CI exit codes, zero runtime dependencies. It emits `PASS` / `CONDITIONAL` /
 pass today; only its jsonschema-dependent schema validation fails, on a missing
 dev dependency.
 
-The five surviving invariants become acceptance-lab scenarios. `CONDITIONAL` is
-the outcome hand-written gates could never express, and it is the outcome most
-of this work actually deserves.
+The five scenario families become acceptance-lab scenarios.
+
+**Evaluation is subordinate to settlement.** Rev. 1 said "the score is the
+disposition". That gives acceptance-lab authority it must not have: if a score is
+the decision, changing a scorer silently changes history and the test runner
+becomes king. The durable path is:
+
+```
+gating run → exact-revision receipt → version-pinned EvaluationRecord
+           → authorized SettlementRecord → auditctl
+```
+
+An evaluation **pins scenario and scorer revisions**. A score is *evidence used
+by* settlement, never the authority decision. **Vuoro owns which result counts;
+acceptance-lab is a replaceable evaluator** — and by the build-versus-buy test
+below, that is precisely the split: the evaluator may be replaced, the settlement
+record must survive its replacement.
+
+Correction: acceptance-lab runs **15 passed, 7 skipped** — the jsonschema tests
+skip, they do not fail. Waking it is an install, not a repair.
 
 **The build-versus-buy test**, applied verbatim, and it is the owner's own:
 
@@ -118,20 +175,51 @@ of this work actually deserves.
 
 Roles are claims about value, and each is falsifiable.
 
+**Coverage.** This classifies **37 repository slots**, counting the hostproto
+constellation as seven. Rev. 1's "about fifty repositories" counted directories,
+not classified slots. Twelve git repositories remain unclassified —
+`bindery-ra2-adapter`, `china_traveling_2025`, `cred-broker-public`,
+`datacluster-template`, `fsharp-the-world`, `ha-elisa-kotiakku`,
+`homelab-gitops-template`, `kotona-notes-private`, `outctl`, `reverse-collapse`,
+`sprintctl-bootstrap-template`, `vuoro-bounded-output-starter` — and naming them
+is better than a round number that covers the gap.
+
 **Constituent — inside the intent.** These implement resumability or settlement.
-`vuoro`, `vuoro-cloud`, `sprintctl`, `auditctl`, `actionq`, `hostproto` +6,
-`browser-workbench`.
+`vuoro`, `vuoro-cloud`, `sprintctl`, `auditctl`, `actionq`.
+
+**The hostproto constellation, enumerated and classified separately.** Rev. 1
+promoted all seven to constituent on the strength of recent activity plus one
+ingress edge. Activity is not ratification, and code coupling proves drift and
+integration, not leverage:
+
+| Repo | Role | Basis |
+|---|---|---|
+| `hostproto-semantics` | constituent | owns the ingress semantics `vuoro-evidence` decodes |
+| `hostproto` | constituent | the conformance study and spec lineage |
+| `hostproto-dap-core` | provisional | adapter; producer-side generality shown |
+| `hostproto-dap-debugpy` | provisional | adapter |
+| `hostproto-dap-delve` | provisional | adapter |
+| `hostproto-mcp-playwright` | provisional | adapter |
+| `hostproto-a2a-worker` | provisional | adapter |
+| `browser-workbench` | provisional | the intended consumer, unproven as one |
+
+**Provisional** means: producer-side generality is demonstrated, consumer-side
+leverage is not. It resolves when one measured generic consumer runs — which is
+the consumer-integration scenario §2 says is missing.
 
 Two corrections rev. 4 owes:
 
-- **hostproto and scribectl are constituent, and the evidence is code, not
-  documents.** `vuoro-evidence`'s one live ingress edge is HostProto. Vuoro's planning documents name `hostproto`,
+- **hostproto's coupling to Vuoro is real and lives in code, not documents.**
+  `vuoro-evidence`'s one live ingress edge is HostProto. Vuoro's planning documents name `hostproto`,
   `scribectl` and `browser-workbench` zero times. Both readings were of real
   evidence. They do not contradict each other: the coupling is in code the
   planning documents do not know exists — in a package that was untracked and
   whose sources had been deleted until yesterday. That is one measurement of the
   drift between written intent and built system, and it is the reason this plan
-  exists.
+  exists. **Correction:** rev. 1 extended this to `scribectl` and so listed it as
+  both consumer and constituent. It is a **consumer**, and that is the point of
+  it — its independent worth is what makes it a real test of the seams, not a
+  demotion.
 - **outctl is retired, and the contradiction was mine.** I read an 08-28 commit
   date on `vuoro-evidence/ingress/command_capture.py` as evidence of current work.
   It is old retired work that was published on that date. *Owner ruling
@@ -143,6 +231,19 @@ Two corrections rev. 4 owes:
   commit date is not evidence of intent. I inferred a status from repository
   metadata and stated it as a finding. The classification in §2 exists to stop
   that, and it did not, because I applied it to the gates and not to myself.
+
+  A narrow-retention option was proposed in review — outctl surviving as a
+  replaceable command-evidence ingress adapter owning capture, redaction and
+  local spool. The owner ruling supersedes it: retired and killed fully, unless
+  new evidence suggests a better niche or product direction. The option is
+  recorded here so the next investigator sees it was considered and declined,
+  not overlooked.
+
+  **Open decision:** `vuoro-evidence/ingress/command_capture.py` and its
+  registration are live code for a retired lane. Leaving them invites exactly the
+  inference I made. Deleting them, with git history retaining the work, is the
+  reviewer's recommendation and mine — noting the consequence that the recovered
+  `test_ingress.py` covers that lane and would shrink with it. Owner call.
 
 **Consumer — proves the substrate by using it.** `scribectl`, `bindery-core`,
 `homelab-analytics`, `frontier-weave`, `kotona.app`.
@@ -197,8 +298,13 @@ Three specific answers:
 - **Temporal-class durable workflow** is called for by the plane table as a
   challenger to ActionQ, under §7.2's controls, and by nothing else. It is not
   called for by the dogfood loop.
-- **`agentops.io` is a market sample, not a chosen Vuoro surface.** *Owner
-  clarification 2026-08-29.* It is a comparator in the observability-and-analytics
+- **`AgentOps.io (external market sample)`** — carry it in the challenger
+  landscape under exactly that label, distinct from the local `agentops`
+  repository and from any chosen Vuoro surface. The capability it would own —
+  cross-run observability, cost attribution, evaluation — is already present in
+  the plane table, so the named product is not introduced until requirements show
+  that buying or adapting it beats the existing components. *Owner clarification
+  2026-08-29.* It is a comparator in the observability-and-analytics
   plane — evidence about what that market provides — and it stays a comparator
   unless something material changes in acceptance-lab's evaluation surface. It is
   not a called-for provider and needs no plane-table entry. I had conflated it
@@ -218,13 +324,30 @@ The rollout is small, because most of it already exists and is merely unwired.
    the defect, not the missing files.
 3. **Wake acceptance-lab**: add the `jsonschema` dev dependency so `make
    validate` passes end to end, then encode the five invariants as scenarios.
-4. **Wire `local-inference` as a named execution provider** rather than a
-   workstation convenience.
+4. **Qualify `local3090`** — smaller than rev. 1's "wire it up". A harness
+   profile already exists at `qualification.state: preflight_observed`, blocked
+   on exactly two named probes: `contained-identity` (satisfiable today — the
+   `agentworker` identity exists) and `provider-qualification`, plus a version
+   repin from 1.18.21 to the installed 1.18.23. Its measured envelope is
+   context-disciplined bulk work: no session limit and no per-token cost, but one
+   model in 24 GB with an asymmetric ~100s swap cost, so excursions must be
+   batched, and TTFT degrades 0.74s at 2K to 24.8s at 64K — a large window is not
+   permission to use it.
 5. **Converge the remaining `vuoro-service` digests** (`vuoro-dev`,
    `agent-cockpit`), which now also requires migrating their identity registries
    to `principal_id`.
-6. **Give `hostproto` a git remote.** The most active constellation in the
-   workspace, and its trunk has none.
+6. ~~**Give `hostproto` a git remote.**~~ **Withdrawn — the claim was false.**
+   Verified 2026-08-29: all seven hostproto repositories and `browser-workbench`
+   have reachable remotes and **zero unpushed commits**. Rev. 1 inherited "no git
+   remote" from rev. 4 and did not check it. That is the third inherited claim
+   this plan has had to retract, which is itself the argument for §8's rule.
+
+   The real prerequisite in its place: **inventory the served deployment
+   topology** — deployments, image digests, served catalogs and `principal_id`
+   migration state — *before* touching resumability. With mixed service versions
+   in play, serving a contract is a compatibility rollout, not an endpoint
+   addition, and it should be additive so it can be disabled without disturbing
+   `next-work`.
 
 ---
 
@@ -256,30 +379,95 @@ The items below are therefore a work list, not a verdict on the substrate.
 
 Measured state:
 
-- **Session cost is over-counted 5.4–5.9×**, unbounded, scaling with rows per
-  session — and the error is **inherited by the immutable auditctl store**, so
-  every historical figure is wrong by a varying factor and cannot be corrected
-  in place. Only forward correction plus a documented conversion is available.
+- **Session cost: the over-count is real (reproduced at 5.93×) but it is a
+  *consumer* bug, and it is recomputable.** Rev. 1 said the error was inherited
+  by the immutable store and could only be handled by forward correction plus a
+  published conversion. That is wrong. `log-session-cost.sh` emits one cumulative
+  snapshot per assistant turn *by design*, and `cost-summary.sh` already reduces
+  `group_by(.session) | last` before aggregating. The 5.93× appears only when
+  rows are naively summed. `metadata.session` survives in both the NDJSON shards
+  and `auditctl.db`, so a corrected figure is a `GROUP BY session, MAX(cost_usd)`
+  away.
+
+  This is the store's own architecture working exactly as designed — append-only
+  authoritative log, disposable rebuildable projections — and `auditctl rebuild`
+  already exists. **Rebuild the projection; do not publish a conversion factor
+  for a number that can simply be recomputed.**
 - **69% of `workflow.session` events are test fixtures**, one named
   `sess-poison`. 318 of 473 rows in `_artifacts/agentops/audit/` are fixtures.
   The 2026-08-26 ruling retired the derived index only; the authoritative shards
   still carry them.
-- **Spend does not match plans.** 31% went to `agentops` — the substrate this
-  plan calls over-designed. `scribectl` and `cred-broker`, rev. 4's two named
-  consumer packets, drew 0%. `bindery-core` drew 17% and appears in no plan.
+- **All spend percentages are withdrawn as evidence.** Rev. 1 argued from "31%
+  to agentops" and "17% to bindery-core". Since the error varies by session and
+  row count, those figures are **not decision-grade** and must not vote on
+  priorities. They are struck until recomputed. `bindery-core` still deserves
+  attention — but because it holds the only complete accept/reject/merge cycle on
+  record, which is a fact about what happened, not a number.
 
 Three fixes, in order:
 
-1. Fix the cost computation; publish the conversion for historical figures.
-2. Partition fixtures from real observations at the shard level. A store whose
-   integrity guarantee is meaningful must not silently mix them.
+1. **A published conversion is insufficient for a variable error.** Instead: a
+   versioned `cost_v2` computation; exact per-session replay wherever raw
+   provider usage survives; append-only correction and supersession records where
+   it does not; rebuilt projections defaulting to corrected values; and explicit
+   uncertainty where exact recovery is impossible. Capture whatever raw provider
+   usage signal makes replay possible going forward, so this cannot recur.
+2. **Partition fixtures semantically, not physically.** Stream, namespace and
+   provenance, with enforcement at ingestion. Physical shard separation is one
+   implementation choice and not the requirement. Preserve the historical fixture
+   records and **append** their corrected classification — an append-only store
+   is not repaired by deletion.
 3. Add the qualitative half. Cost and counts cannot answer "was this worth
    doing". Session notes carrying the operator's own assessment are the only
    instrument for that, and D8's scorecard — operator actions after
    interruption, glue lines, state locations — belongs here as an instrument.
 
+### 7a. Dispatched work dies invisibly, and the contract for it already exists
+
+The failure that prompted this: three dispatched sessions died on a provider
+usage limit and the loss was noticed by accident. The mechanical root cause is
+exact — **no `SubagentStop` hook is registered anywhere.** Only `Stop`,
+`PostToolUse` and `SessionStart` exist. Nothing in the harness observes a
+dispatched unit ending.
+
+And the contract for recording it is already built and validated:
+`auditctl/validation.py` defines `ACTIONQ_TERMINAL_REASON_CODES = {completed,
+process-exit, start-failed, cancelled, timeout, usage-limit, crash-inferred}`.
+The validator is live. **It has no producer** — its intended writer was the
+actionq daemon, retired 2026-08-22, and the contract outlived its only writer.
+
+With a `session.start` / `session.exit` pair carrying `terminal_reason`, the loss
+predicate is a **join, not a heuristic**: a start event appearing in no exit
+event's refs. No daemon, one subprocess per event.
+
+*Not* reservations, as first proposed: `sprintctl/reservation.py` opens with "A
+reservation is a detector, not a lease" — no TTL, no heartbeat, nothing reaps
+them (there is a live 59-hour leak on item 2254 now), and `maintain check` /
+`sweep` are unavailable in served mode, which is the mode agentops runs in. A
+unit that dies in three minutes is invisible to a four-hour detector the backend
+cannot run. Reservations remain the right *second* signal for abandoned
+long-horizon work.
+
+**Headroom is worse than missing — it is confidently stale.**
+`.claude-headroom.json` and `.codex-headroom.json` were last written 2026-05-14,
+107 days ago; the poller described in a code comment was never committed. Both
+files self-report `"available": true` with **no timestamp field**, so the cockpit
+renders May's figures as current, and its Refresh button writes a trigger nothing
+reads. The fix is not to revive the scraper: Claude Code's own statusline input
+already carries live `rate_limits.*.used_percentage`, so a hook can write the
+file with a `refreshed_at` field and the cockpit consumes it unchanged.
+
+**Sessions do not fit the reset window.** Measured: median 0.40h, **p90 7.35h**,
+max 71.3h, 40 of 261 sessions over 4h — against a 5-hour reset. The p90 session
+structurally cannot complete inside one window. This is the strongest evidence
+for resumability being the primary product question, and it is an outcome
+measurement rather than an argument from an operation's name.
+
 Telemetry that only measures the substrate's own activity will keep confirming
-the substrate's importance. The signals that matter are consumer-side.
+the substrate's importance. The signals that matter are consumer-side: dispatch
+survival rate, headroom at dispatch and at death, the re-dispatch multiplier
+(already in the harness-profile `receipt_fields`, needing only a producer), and
+**sessions per accepted result** rather than dollars per session.
 
 ---
 
@@ -366,6 +554,41 @@ to make them one:
    participation set.
 3. Then, and only then, is "onboard a repository" one command.
 
+### 9.2a Bootstrap is a reconciliation, not an event
+
+*Owner amendment 2026-08-29.* Onboarding modelled as a one-time act is why
+participation drifts: it is performed once, by hand, and never checked again. The
+same command must serve **initiation, routine realignment, and migration to newer
+schemas and tooling** — cheap enough to run often, ideally on a schedule or in
+CI.
+
+The shape is convergence to a declared desired state:
+
+- The project manifest declares intended participation (§9.1); the command
+  computes the difference against actual and applies it.
+- **Idempotent and safe to rerun.** Converged is a no-op.
+- **Dry-run and diff first**, always available and always cheap.
+- **Versioned schemas, with migrations.** A repository pinned to an older
+  participation schema is realigned by rerunning, not by hand-editing.
+- **Selective**: install only the integrations the manifest selects; reference
+  credentials rather than copying them; be straightforward to remove.
+- **Exit code signals drift**, so an unconverged repository is a detectable
+  condition rather than a surprise.
+
+That last property is the one that pays for the rest. The cred-broker incident —
+a repository silently resolving to a local backend and writing work nobody could
+see — becomes **drift the next alignment run reports**, instead of an incident
+discovered by accident weeks later. Realignment is also the natural carrier for
+rollouts: when a schema or tool version is released, repositories converge to it
+on their next run rather than through a coordinated flag day.
+
+A project may span repositories while repository identity stays explicit. Making
+alignment routine is what finally separates *project*, *workspace* and
+*repository*, which this workspace has treated as interchangeable nouns.
+
+**This is itself a candidate acceptance scenario:** align a drifted repository,
+assert it converges; run again, assert it is a no-op.
+
 `vuoro-bootstrap` is currently release-gated as a Vuoro Cloud external-onboarding
 contract candidate. Internal projectization is a second consumer of the same
 mechanism; if that conflicts with its release gating, the gating is what should
@@ -399,8 +622,52 @@ The interaction-mode axis it names — **unattended / episodically supervised /
 interactive** — is the workflow-mode axis, already written down. A repository's
 declared mode (§9.1) selects which roles may operate in it.
 
-*The concrete role set and the loop mechanics are being designed in a dispatched
-session; §10 records that as open rather than guessing here.*
+**Delivered 2026-08-29.** Seven roles as `AgentProfileRevision` instances —
+coordinator, explorer, planner, executor, verifier, settlement/reconciliation,
+operator — each with objective, inputs, outputs, authority, completion condition
+and hand-off trigger. Two properties are load-bearing:
+
+- **The coordinator holds no write authority at all.** Everything it would write,
+  a settlement role writes as a proposal. Served sprintctl ignores `--actor` in
+  favour of the authenticated server actor, so a served coordinator *physically
+  cannot* write as a subagent — the anti-laundering property is enforced by the
+  substrate, not by discipline.
+- **The verifier is deterministic, not a model.** An LLM verifier produces another
+  claim wearing a verdict's clothes, which is the laundering this mode exists to
+  prevent. Verifier and settlement are separate roles precisely because
+  acceptance-lab is a replaceable evaluator and Vuoro owns which result counts.
+
+**The coordinator is not a state.** Every unit of work lives as an envelope in a
+durable store, in a named state, with its own resume plan. Kill the coordinator
+mid-journey and nothing is lost. That is the replaceability test, passed by
+construction.
+
+### 9.6 The work envelope
+
+One new schema, `work-envelope/v1`, and the case for it being new is specific:
+`session-capsule/v1`, `session-note/v1` and `reconciliation-proposal/v1` exist and
+work, but all three are *retrospective*. None carries grants, provider history,
+wait eligibility or a required acceptance outcome, and none is forward-looking.
+The envelope **embeds them by reference** rather than restating them.
+
+It carries: project and repository identities; work authority with observed and
+current revisions; a checkpoint (`git-commit+evidence`, per Vuoro's rule against
+wrapping Git to manufacture another noun); claims with evidence class, locator
+and rerun command; unfinished actions; provider history; principal and grant
+references with grant state; retry/wait eligibility and portability class;
+required acceptance outcome; and a **resume plan**.
+
+One envelope serves all five hand-off triggers — human reassignment, rate-limit
+recovery, scheduled pickup, process loss, cross-provider continuation. Only the
+trigger and the provider history differ.
+
+**The resume plan is how the compatibility rollout avoids a flag day.**
+`sprintctl session resume` sits first in the plan and is marked *not required*.
+A resumer runs the plan top-down and skips what is unavailable: one call where
+the aggregate is served, five where it is not — verified working today. Mixed
+service versions and catalogs need no feature flag and no version negotiation,
+because unavailability is just a skip. The envelope must never become unreadable
+without `resume`, or the rollout becomes the flag day it was meant to avoid.
 
 ### 9.5 Agent instructions, minimally
 
@@ -414,33 +681,87 @@ maintained by hand in fifty places.
 
 ## 10. First moves
 
-1. Serve `session resume` (§5.1) — the intent's own first word.
-2. Wake acceptance-lab and encode the five surviving invariants (§2).
-3. Fix the cost over-count and publish the historical conversion (§7).
-4. Reconcile outctl to one status (§3).
-5. Ask `bindery-core` what made its dispatch cycle work (§3).
+Reordered, rev. 2. Rev. 1 led with `session resume`; two reviews and a
+verification pass agree that over-ranks a convenience aggregate.
 
-Each is small, each is traceable to the sentence in §1, and none needs a gate to
-justify it.
+1. **Make dispatched death observable.** Register a `SubagentStop` hook and emit
+   `session.exit` carrying `terminal_reason`. The vocabulary, the validator and
+   the storage already exist — `ACTIONQ_TERMINAL_REASON_CODES` includes
+   `usage-limit` — and the contract has had **no producer** since its intended
+   writer was retired on 2026-08-22. The loss predicate becomes a join over
+   start/exit events, not a heuristic. This is a hook file and a settings block,
+   and it converts the failure that commissioned this design from invisible to a
+   one-line query.
 
----
+2. **Fix telemetry capture, then recompute rather than convert.** Export
+   `AUDITCTL_ARTIFACTS_ROOT` so the `Stop` hook's publish stops failing silently
+   at a 36% capture rate; rebuild the cost projection with
+   `GROUP BY session, MAX(cost_usd)`; give the headroom file a `refreshed_at`
+   field fed from Claude Code's own statusline input, so a 107-day-stale file
+   cannot report itself as available. Recompute the workspace distribution before
+   any further allocation claim.
+
+3. **Prove recovery as an outcome.** Encode a failing black-box scenario — fresh
+   process, no local cache, after interruption, through the served backend,
+   recovering session identity, work authority, checkpoint and exact revision —
+   then implement until it passes. Additive rollout, so it can be disabled
+   without disturbing `next-work`. The walking-skeleton scenario
+   (`resume-and-settle`) is drafted with eight hard gates and one soft gate.
+
+4. **Pin scorer revisions in acceptance-lab.** A **present, verified defect**:
+   `EvaluationResult` pins `scenario_version` but `SCORERS` is a bare unversioned
+   dict of thirteen callables. Changing one silently rewrites the meaning of
+   every historical `PASS`. Until fixed, no evaluation record is comparable across
+   time and any settlement citing one cites a moving target. Then join D2+D5 into
+   the receipt → evaluation → settlement path.
+
+5. **Extract the consumer proof.** Not "ask bindery-core what worked": encode the
+   smallest complete accept/reject/merge cycle as a reusable scenario and
+   identify what belongs to the substrate versus to bindery itself. Follow with
+   one non-agent-infrastructure consumer, `homelab-analytics`.
+
+6. **Then run the loop once, manually.** Distinct principals and grants, durable
+   external state, independently checkable claims, interruption and resume, and
+   settlement. Let its measured operator interventions and failure modes generate
+   the mechanics — rather than designing more of them first.
+
+Bootstrap realignment (§9.2a) and telemetry repair (2) can proceed concurrently;
+neither waits on the orchestration design.
 
 ## 11. What is not established
 
 - **Beads / Gas Town**: the comparison lane is unrun. Carried as an open prior.
 - **Restate pilot**: placement decided, nothing built.
-- **`agentops.io`**: no written intent anywhere.
-- **The orchestration loop's own design**, including the §9.4 role set:
-  re-dispatched 2026-08-29 after the first attempt died on a provider limit. §8
-  states the mode and its constraints; the mechanics are in flight.
-- **Provider usage rates and their workflow consequences**: dispatched
-  2026-08-29. The prompting failure is concrete — three subagents died on an HTTP
-  429 session limit and the loss was silent. The question asked is broader than
-  retry policy: if provider limits are a normal condition rather than an
-  exception, what does the workflow have to look like.
-- **`vuoro-evidence` carrier-agnosticism**: asserted by design, unproven by test
-  since the recorded traffic was lost. The `record-session.mts` scripts survive
-  in four adapter repos, so it is re-recordable — an environment task, not a
-  research one.
+- **`credctl` is not installed on this host.** The unattended executor lane is
+  designed but not deployable. Supervised execution is unaffected, and D4 binds
+  only when unattended writes begin — which they cannot yet.
+- **Reservations are not leases.** The CLI help says so outright: "a reservation
+  is a coordination signal, not a lease". Duplicate-execution safety rests on the
+  envelope `dedup_key`, CAS on item status, and exact-revision receipts. Any
+  future step that leans on a reservation for exclusivity is a defect, and this
+  is the most likely place the design gets broken later.
+- **`work-envelope/v1` is designed, not built.**
+- **Half of §11's rev. 1 entry was false.**
+  `agentops/templates/dispatch/session-mechanization/` — four schemas, three
+  scripts, three skills, **24 passing tests** — already implements the
+  park → resume → retain arc, including a shared cursor that makes double
+  processing impossible by construction. It should be embedded, not rebuilt.
 - **Devbox-agent and cluster reality** beyond the vuoro-shared deployment: still
-  unverified, as rev. 4 §10 said.
+  unverified, and now a stated prerequisite (§5).
+
+### Retractions, rev. 2
+
+Four claims this plan asserted and has had to withdraw, kept visible because the
+pattern is the finding:
+
+| Claim | Reality |
+|---|---|
+| "hostproto has no git remote" | All seven repos plus `browser-workbench` have reachable remotes and zero unpushed commits. Inherited from rev. 4, unverified. |
+| "`session resume` unserved = resumability broken" | It is a convenience aggregate over three served surfaces. Label treated as proof. |
+| "the cost error is inherited by the immutable store and cannot be corrected in place" | It is a consumer-side summing bug; `metadata.session` survives and the figure is recomputable. |
+| "the orchestration loop is not designed" | Half of it is built and tested in `session-mechanization/`. |
+
+Every one was an inherited or inferred claim stated without measurement — which
+is exactly what §8's rule exists to prevent, and it caught none of them until a
+reviewer or a subagent re-measured. The rule is right; applying it to my own
+assertions rather than only to the plan's gates is the correction.
