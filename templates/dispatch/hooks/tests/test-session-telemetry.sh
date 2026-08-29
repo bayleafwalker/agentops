@@ -13,6 +13,12 @@ stop_hook="$hooks_dir/log-session-cost.sh"
 gate_hook="$hooks_dir/gate-log.sh"
 
 tmp="$(mktemp -d)"
+# Isolate the audit store: these tests run the real stop hook, which publishes to
+# whatever store resolution finds. Without this they write fixture events into the
+# live agentops index -- 36 such events had accumulated there by 2026-08-29.
+mkdir -p "$tmp/store/.auditctl" && : > "$tmp/store/.auditctl/auditctl.db"
+export AUDITCTL_DB="$tmp/store/.auditctl/auditctl.db"
+export AUDITCTL_ARTIFACTS_ROOT="$tmp/store"
 trap 'rm -rf "$tmp"' EXIT
 
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
@@ -38,7 +44,7 @@ run_stop() {
   event="$(jq -cn --arg t "$transcript" --arg s "$session" \
     '{transcript_path:$t, session_id:$s, cwd:"/projects/dev/agentops", hook_event_name:"Stop"}')"
   if [[ -n "$path_override" ]]; then
-    printf '%s' "$event" | env PATH="$path_override" ${AUDITCTL_BIN+AUDITCTL_BIN="$AUDITCTL_BIN"} AGENTOPS_COST_LOG="$log" AGENTOPS_GATE_LOG_DIR="$gatedir" bash "$stop_hook"
+    printf '%s' "$event" | env PATH="$path_override" ${AUDITCTL_BIN+AUDITCTL_BIN="$AUDITCTL_BIN"} AGENTOPS_COST_LOG="$log" AGENTOPS_GATE_LOG_DIR="$gatedir" AUDITCTL_DB="$tmp/store/.auditctl/auditctl.db" AUDITCTL_ARTIFACTS_ROOT="$tmp/store" bash "$stop_hook"
   else
     printf '%s' "$event" | AGENTOPS_COST_LOG="$log" AGENTOPS_GATE_LOG_DIR="$gatedir" bash "$stop_hook"
   fi

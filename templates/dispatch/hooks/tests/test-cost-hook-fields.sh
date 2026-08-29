@@ -17,6 +17,12 @@ here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 stop_hook="$(cd -- "$here/.." && pwd -P)/log-session-cost.sh"
 
 tmp="$(mktemp -d)"
+# Isolate the audit store: these tests run the real stop hook, which publishes to
+# whatever store resolution finds. Without this they write fixture events into the
+# live agentops index -- 36 such events had accumulated there by 2026-08-29.
+mkdir -p "$tmp/store/.auditctl" && : > "$tmp/store/.auditctl/auditctl.db"
+export AUDITCTL_DB="$tmp/store/.auditctl/auditctl.db"
+export AUDITCTL_ARTIFACTS_ROOT="$tmp/store"
 trap 'rm -rf "$tmp"' EXIT
 
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
@@ -41,7 +47,9 @@ run_stop() {
   jq -cn --arg t "$transcript" --arg s "sess-t1" \
     '{transcript_path:$t, session_id:$s, cwd:"/projects/dev/agentops", hook_event_name:"Stop"}
      + (if $ENV.POISON == "1" then {turns:999, assistant_msgs:999, tool_calls:999, duration_s:999} else {} end)' \
-    | POISON="$extra" AGENTOPS_COST_LOG="$log" bash "$stop_hook"
+    | POISON="$extra" AGENTOPS_COST_LOG="$log" \
+      AUDITCTL_DB="$tmp/store/.auditctl/auditctl.db" AUDITCTL_ARTIFACTS_ROOT="$tmp/store" \
+      bash "$stop_hook"
 }
 
 # --- REQ-003: without the seam the record is unobservable, so it comes first --
