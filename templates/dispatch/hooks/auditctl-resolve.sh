@@ -56,14 +56,44 @@ auditctl_bin() {
   return 1
 }
 
-# Exports AUDITCTL_ARTIFACTS_ROOT if unset or empty, from templates/dispatch/
-# artifacts-root.default. $1 is the calling hook's ${BASH_SOURCE[0]}; it is resolved through
-# symlinks when possible, because the hooks are symlinked into .claude/hooks/ where the
-# link's own directory is the wrong one. A missing or empty data file is not an error: the
-# caller must still do the rest of its work.
+# Exports AUDITCTL_ARTIFACTS_ROOT if unset or empty.
+#
+# The root must be the repository the events are being published *for*, because auditctl
+# resolves the two halves of a write from different places: `resolve_paths` derives the
+# index and the `repo_id` by walking up from the CWD, while `require_artifacts_root` reads
+# only this variable. `shard_path` then joins them --
+# `<root>/_artifacts/<repo_id>/audit/events-<day>.ndjson` -- so a root that disagrees with
+# the CWD writes a correct index and a shard under someone else's repository. The two do not
+# reconcile, and `rebuild` reports the events as index-only, i.e. as data loss.
+#
+# That is not hypothetical. Between 7ae83fb and this change the default below was the literal
+# string `/projects/dev/agentops`, so every session in every repo -- the hooks are symlinked
+# into `/projects/dev/.claude/hooks/` and shared by all of them -- indexed at its own repo and
+# appended under agentops. Measured 2026-08-29: 11 `dev`-scope events in
+# `agentops/_artifacts/dev/audit/`, invisible to their own index.
+#
+# So derive the root by the same rule auditctl uses for the index (auditctl/paths.py:
+# `_find_upward` for `.auditctl/` or `.git`) rather than naming any one repository. The data
+# file remains the floor for a caller that is under neither marker; a repo-specific root
+# belongs in that repo's .envrc, which is per-session and cannot leak into other repos.
+#
+# $1 is the calling hook's ${BASH_SOURCE[0]}, still resolved through symlinks for the
+# fallback lookup, because the link's own directory is the wrong one.
 auditctl_export_root() {
   [[ -n "${AUDITCTL_ARTIFACTS_ROOT:-}" ]] && return 0
-  local hook_src="${1:-${BASH_SOURCE[1]}}" default_root="" line
+  local default_root="" line dir
+
+  # Walk up from the publishing session's directory, matching auditctl's own rule.
+  dir="${PWD:-}"
+  while [[ -n "$dir" && "$dir" != "/" ]]; do
+    if [[ -d "$dir/.auditctl" || -e "$dir/.git" ]]; then
+      export AUDITCTL_ARTIFACTS_ROOT="$dir"
+      return 0
+    fi
+    dir="${dir%/*}"
+  done
+
+  local hook_src="${1:-${BASH_SOURCE[1]}}"
   if [[ -L "$hook_src" ]] && command -v readlink >/dev/null 2>&1; then
     hook_src="$(readlink -f -- "$hook_src" 2>/dev/null || printf '%s' "$hook_src")"
   fi

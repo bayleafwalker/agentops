@@ -125,4 +125,38 @@ for hook in "$stop_hook" "$subagent_hook"; do
     || fail "REQ-024: $(basename "$hook") does not resolve through auditctl_bin"
 done
 
-printf 'ok: test-auditctl-resolve (REQ-020..REQ-024)\n'
+# --- REQ-025: the artifacts root follows the publishing session, not a named repo -------
+# auditctl derives the index and repo_id by walking up from the CWD, but reads the shard
+# root only from AUDITCTL_ARTIFACTS_ROOT. If the root names one repository, every session in
+# every other repo indexes at its own repo and appends under that one, and `rebuild` reports
+# the events as index-only -- data loss. Measured 2026-08-29: 11 dev-scope events written
+# into agentops/_artifacts/dev/audit/, invisible to their own index.
+resolve_sh="$hooks_dir/auditctl-resolve.sh"
+
+root_for() {  # $1 = cwd to publish from
+  ( cd "$1" && unset AUDITCTL_ARTIFACTS_ROOT \
+    && . "$resolve_sh" && auditctl_export_root "$resolve_sh" \
+    && printf '%s' "$AUDITCTL_ARTIFACTS_ROOT" )
+}
+
+marker_repo="$tmp/marker-repo"; mkdir -p "$marker_repo/.git" "$marker_repo/nested/deep"
+other_repo="$tmp/other-repo";  mkdir -p "$other_repo/.auditctl"
+
+assert_eq "REQ-025 git marker"      "$(root_for "$marker_repo")"             "$marker_repo"
+assert_eq "REQ-025 from subdir"     "$(root_for "$marker_repo/nested/deep")" "$marker_repo"
+assert_eq "REQ-025 .auditctl marker" "$(root_for "$other_repo")"             "$other_repo"
+
+# Two different repos must never resolve to the same root.
+[ "$(root_for "$marker_repo")" != "$(root_for "$other_repo")" ] \
+  || fail "REQ-025: distinct repos resolved to the same artifacts root"
+
+# An explicit root still wins -- that is how a repo .envrc pins its own evidence.
+pinned="$( cd "$marker_repo" && export AUDITCTL_ARTIFACTS_ROOT=/pinned/root \
+  && . "$resolve_sh" && auditctl_export_root "$resolve_sh" && printf '%s' "$AUDITCTL_ARTIFACTS_ROOT" )"
+assert_eq "REQ-025 explicit wins" "$pinned" "/pinned/root"
+
+# And the resolver must not hardcode a repository path.
+grep -v '^[[:space:]]*#' "$resolve_sh" | grep -q '/projects/dev/[a-z]' \
+  && fail "REQ-025: auditctl-resolve.sh names a specific repository in code"
+
+printf 'ok: test-auditctl-resolve (REQ-020..REQ-025)\n'
