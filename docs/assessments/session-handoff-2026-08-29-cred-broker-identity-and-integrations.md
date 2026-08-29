@@ -405,7 +405,63 @@ Secrets objects and the devbox PKI role), and `could_not_check=2` --
 `userpass-bayleaf` and `role-openbao-snapshot`, both outside `operator-admin`'s
 globs and both correctly reported as unknown rather than missing.
 
-### Goal D — a host should not need `kubectl exec` into the vault
+### Goal D — a host should not need `kubectl exec` into the vault — DESIGNED, STEPS 1-2 BUILT
+
+Design: `appservice` `docs/migrations/2026-08-29-cred-broker-host-enrollment-service.md`
+(`b3c8b6d8`). Step 1 `cred-broker` `afe5e6b`; step 2 `appservice` `6bdc5c89`.
+
+**The design as recorded below did not work, and the reason is the useful
+part.** TokenReview authenticates a Kubernetes ServiceAccount token. devbox
+cannot obtain one -- no kubeconfig, and the API server outside its egress
+allowlist -- and that is deliberate hardening, not an oversight to correct
+(`hosts/devbox/default.nix`: "the credential-poor headless identity ... no
+kube/aws/age/tailnet state"). A TokenReview-only enroller would have been
+usable by the workstation, which already has a working path, and unusable by
+the host the goal exists for. Right service, wrong door.
+
+So it carries **two authenticators for one endpoint**: TokenReview for the
+workstation, which preserves its most important property -- renewal mints a
+fresh SA token, so it never depends on the certificate it replaces -- and a
+sops-nix-delivered enrollment secret for devbox, which reaches that same
+property by another route. Renewing devbox by mTLS with its current
+certificate was considered and rejected in writing: it would make an expired
+certificate a stuck state needing a person, which is the seventeen-day outage
+rebuilt somewhere new. The cost of the alternative, a long-lived static
+credential on devbox, is stated in the design rather than hidden.
+
+**Two things checked rather than assumed, both of which cut work.** No Nix
+egress change is needed -- the internal Gateway serves `git.apps.kotona.app` at
+the address devbox already allows, so a new HTTPRoute lands on it; probed from
+the host. And devbox already receives Git-committed encrypted secrets through
+sops-nix, which is how `opencode/agentworker/auth` reaches the worker today.
+
+**Built so far.**
+
+- **Step 1, the service** (`cred-broker/src/cred_broker/enrollment.py`, 31
+  tests). Sign, never issue. Host identity resolved from the authenticated
+  caller, never the request -- a `host_id` in the body is checked, not used.
+  The TokenReview audience is required and asserted on the way back, without
+  which any SA token in the cluster enrolls a host. 401 and 403 are kept
+  distinct and a denial stops the authenticator chain rather than being offered
+  the next door; an unreachable API server raises rather than denying. The CSR
+  is bounded before OpenBao is called at all, asserted directly.
+- **Step 2, the devbox PKI role ceremony** (`openbao-create-devbox-pki-role.sh`,
+  16 cases). `operator-admin`-runnable. Mirrors the proven workstation role
+  instead of inventing parameters and stops if it cannot read it. Proves the
+  result by signing, then asks the role to sign a name it must refuse -- a
+  success there is the failure. Its failure paths are exercised against a stub
+  because a ceremony otherwise runs once, by a person, and never executes them.
+
+Both new OpenBao objects are declared `absent` with reasons pointing at the
+build order, so the checker prints the plan's un-run state on every run. All
+three suites gate merges; confirmed on the CI runner (`33273605224`).
+
+**Remaining: steps 3-7** -- manifests, the OpenBao ceremony (needs the operator
+password), the workstation cutover, devbox enrollment, and removing the
+`kubectl exec` path. Only after step 7 is "no host needs OpenBao access" true;
+until then it is a second path, not a replacement.
+
+### Goal D — original note, kept because the correction above is the point
 
 The current design works because the workstation is effectively cluster-admin.
 That does not generalise to devbox and should not — and as of 2026-08-29 this
