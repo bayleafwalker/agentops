@@ -463,6 +463,59 @@ structurally cannot complete inside one window. This is the strongest evidence
 for resumability being the primary product question, and it is an outcome
 measurement rather than an argument from an operation's name.
 
+### 7b. The commissioning incident, reconstructed from disk
+
+The three deaths that prompted this were reconstructed from the surviving
+transcripts, and the reconstruction refutes most of what was assumed about them.
+
+- **One limit event, not three failures.** All three died within **101 seconds**
+  against a single session-scoped quota. Any rule that counts *failures* rather
+  than *limit events* escalates on the first limit and lets fan-out width set the
+  threshold, which is incoherent.
+- **No `Retry-After` reached the dispatching layer.** What arrived was a
+  localized wall-clock string — `resets 12:30am (Europe/Helsinki)` — not a
+  duration and not an instant. A policy row keyed on `Retry-After` would never
+  fire here. It must key on whether a reset instant was successfully *derived*,
+  and record **how**, because a misparsed timezone silently under- or over-waits.
+- **Cascade loss, previously unmeasured.** The orchestration agent had **four
+  completed depth-2 children** that finished minutes before their parent died.
+  Their work was orphaned with it. The loss was three agents *plus* 249 lines of
+  finished child work — and harvesting them is a read of files that already
+  exist.
+- **Parallel fan-out concentrated the burn.** Hedged or parallel re-dispatch
+  within one limit domain converts a single failure into N. It is legitimate only
+  onto a *different* limit domain — which, here, means `local3090`, the only
+  provider without a session limit. This corrects the draft policy I wrote.
+- **"Expire the authority first" names a capability sprintctl does not have.**
+  Reservations have no TTL and nothing reaps them. Only explicit release exists.
+
+**The decisive finding: "silently lost" is imprecise, and the precision
+matters.** The harness *did* report each death as a task notification, and all
+state persisted to disk — subagent transcripts are retained, and an agent is
+resumable with its context intact. What was missing was a durable, queryable
+*outcome*: the sidecar metadata carries `{agentType, description, toolUseId,
+parentAgentId, spawnDepth}` and **no status, no terminal reason, no end time**.
+The reason existed only as the last line of a 207-line transcript.
+
+Measured consequence: **the reset cost about 2h10m. The missing record cost
+roughly eight hours more** — the work was recoverable the whole time and nobody
+knew to look. So the fix is capture and indexing, not detection.
+
+**And Claude Code subagents have no harness profile at all**, which is why their
+real, disk-backed resumability was invisible to every policy that might have used
+it. Writing that profile is a schema instance, not new infrastructure, and it is
+the highest-value single gap in this area.
+
+**One refinement to §7's cost correction.** Session-level recomputation works —
+`cost_usd` is computed at emit time and `MAX` per session recovers it. But cost
+cannot be re-*derived* from the retained token counts, because
+`log-session-cost.sh` collapses the raw usage block and discards the 5-minute /
+1-hour ephemeral cache split, which prices differently. Exact replay is still
+available from the transcripts, which retain the full usage block including
+`request_id` and `service_tier`. Going forward, capture the raw per-request block
+unaggregated, with a `pricing_revision` and a `cost_computation_version`, so a
+recomputation is reproducible rather than merely plausible.
+
 Telemetry that only measures the substrate's own activity will keep confirming
 the substrate's importance. The signals that matter are consumer-side: dispatch
 survival rate, headroom at dispatch and at death, the re-dispatch multiplier
@@ -691,7 +744,8 @@ verification pass agree that over-ranks a convenience aggregate.
    writer was retired on 2026-08-22. The loss predicate becomes a join over
    start/exit events, not a heuristic. This is a hook file and a settings block,
    and it converts the failure that commissioned this design from invisible to a
-   one-line query.
+   one-line query. Include **cascade harvest**: when a dispatched unit dies, read
+   its completed children's results before disposing of the parent.
 
 2. **Fix telemetry capture, then recompute rather than convert.** Export
    `AUDITCTL_ARTIFACTS_ROOT` so the `Stop` hook's publish stops failing silently
@@ -741,6 +795,10 @@ neither waits on the orchestration design.
   future step that leans on a reservation for exclusivity is a defect, and this
   is the most likely place the design gets broken later.
 - **`work-envelope/v1` is designed, not built.**
+- **Claude Code subagents have no harness profile**, so their disk-backed
+  resumability is invisible to policy. Writing one is a schema instance.
+- **Raw-usage replay depends on transcript retention** (`cleanupPeriodDays`).
+  Lower it and the replay window closes silently.
 - **Half of §11's rev. 1 entry was false.**
   `agentops/templates/dispatch/session-mechanization/` — four schemas, three
   scripts, three skills, **24 passing tests** — already implements the
