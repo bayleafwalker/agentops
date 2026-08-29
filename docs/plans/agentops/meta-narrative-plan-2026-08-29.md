@@ -120,25 +120,29 @@ Roles are claims about value, and each is falsifiable.
 
 **Constituent — inside the intent.** These implement resumability or settlement.
 `vuoro`, `vuoro-cloud`, `sprintctl`, `auditctl`, `actionq`, `hostproto` +6,
-`browser-workbench`, `outctl`.
+`browser-workbench`.
 
 Two corrections rev. 4 owes:
 
 - **hostproto and scribectl are constituent, and the evidence is code, not
-  documents.** `vuoro-evidence` registers exactly two ingress edges: HostProto,
-  and outctl-under-auditctl. Vuoro's planning documents name `hostproto`,
+  documents.** `vuoro-evidence`'s one live ingress edge is HostProto. Vuoro's planning documents name `hostproto`,
   `scribectl` and `browser-workbench` zero times. Both readings were of real
   evidence. They do not contradict each other: the coupling is in code the
   planning documents do not know exists — in a package that was untracked and
   whose sources had been deleted until yesterday. That is one measurement of the
   drift between written intent and built system, and it is the reason this plan
   exists.
-- **outctl's three recorded statuses cannot all hold.** Retired from the Vuoro
-  binding (08-20, `[reconciled]`); an owned architectural area (control-plane
-  plan, 08-15); a live ingress lane in `vuoro-evidence/ingress/command_capture.py`,
-  built 08-28. The code is the most recent and the least ambiguous. Treat outctl
-  as a live evidence-acquisition lane and amend the direction document, or delete
-  the lane. Not both.
+- **outctl is retired, and the contradiction was mine.** I read an 08-28 commit
+  date on `vuoro-evidence/ingress/command_capture.py` as evidence of current work.
+  It is old retired work that was published on that date. *Owner ruling
+  2026-08-29: outctl is retired and killed fully, unless new evidence suggests a
+  better niche or product direction.* The command-capture ingress lane is
+  therefore historical, and `vuoro-evidence` has one live ingress edge, not two.
+
+  Worth keeping as a method note, because this plan is about exactly this: a
+  commit date is not evidence of intent. I inferred a status from repository
+  metadata and stated it as a finding. The classification in §2 exists to stop
+  that, and it did not, because I applied it to the gates and not to myself.
 
 **Consumer — proves the substrate by using it.** `scribectl`, `bindery-core`,
 `homelab-analytics`, `frontier-weave`, `kotona.app`.
@@ -193,10 +197,12 @@ Three specific answers:
 - **Temporal-class durable workflow** is called for by the plane table as a
   challenger to ActionQ, under §7.2's controls, and by nothing else. It is not
   called for by the dogfood loop.
-- **`agentops.io` occurs zero times across the workspace.** If it is intended as
-  a called-for provider, that intent exists only in conversation. Name the
-  capability it would own, in the plane table, or drop it. Note the collision:
-  the local `agentops` repo is unrelated.
+- **`agentops.io` is a market sample, not a chosen Vuoro surface.** *Owner
+  clarification 2026-08-29.* It is a comparator in the observability-and-analytics
+  plane — evidence about what that market provides — and it stays a comparator
+  unless something material changes in acceptance-lab's evaluation surface. It is
+  not a called-for provider and needs no plane-table entry. I had conflated it
+  with the local `agentops` repository, which is unrelated to it.
 
 ---
 
@@ -241,6 +247,13 @@ A workflow counts only if removing the project breaks it.
 ## 7. Telemetry, session notes, qualitative assessment
 
 This is the weakest organ and the one the meta-narrative mode depends on most.
+
+**Read these as the loop working, not as an indictment.** *Owner position
+2026-08-29:* finding defects like these is the entire reason for dogfooding.
+These are pre-alpha tools being used for real work; the applications are stronger
+because the defects surfaced against real sessions rather than against fixtures.
+The items below are therefore a work list, not a verdict on the substrate.
+
 Measured state:
 
 - **Session cost is over-counted 5.4–5.9×**, unbounded, scaling with rows per
@@ -300,7 +313,106 @@ theatre.
 
 ---
 
-## 9. First moves
+## 9. Projectized repositories, hand-offs and onboarding
+
+The plan so far says what is true and what must hold. This section is what a
+repository actually *does* to participate — the part that has been improvised per
+repo and is the largest remaining source of friction.
+
+### 9.1 A project is a repository plus a declared participation
+
+"Projectized" means the participation is declared in the repository, versioned
+with it, and readable by a fresh session with no operator present. Today it is
+none of those things. The evidence is the cred-broker incident: no
+`.sprintctl/backend.json`, so sprintctl resolved `backend=local` from the working
+directory and wrote a sprint and four items to a local database **while appearing
+to succeed**. A repository left the shared authority silently, and nothing
+noticed.
+
+The participation set is larger than sprintctl, and should be one declaration:
+
+| Facet | Today | Should be |
+|---|---|---|
+| Work authority | `.sprintctl/backend.json` marker + `SPRINTCTL_VUORO_PROFILE` env var | one declaration |
+| Evidence | `AUDITCTL_ARTIFACTS_ROOT` env var; unset means writes fail | declared, defaulted |
+| Knowledge events | ad hoc | declared |
+| Acceptance | nothing; acceptance-lab is unwired | declared scenario set |
+| Telemetry | session hooks, repo-agnostic | declared, with the repo as a dimension |
+| Workflow mode | implicit in the operator's head | declared |
+| Agent instructions | `AGENTS.md` / `CLAUDE.md`, hand-written per repo | minimal, generated from the above |
+
+### 9.2 The onboarding tool already exists and is disconnected
+
+`vuoro bootstrap <endpoint> --repo-id <id>` writes exactly the three files whose
+absence caused the cred-broker incident: `.vuoro/project.json`,
+`.sprintctl/backend.json`, `.vuoro/profile.json`. The onboarding failure that
+generated a plan finding was a case of not using a tool that exists.
+
+**But it cannot work as-is, and this is verified, not inferred:** `sprintctl`
+resolves its profile from the `SPRINTCTL_VUORO_PROFILE` environment variable and
+never looks for `.vuoro/profile.json`. The bootstrap writes a profile sprintctl
+cannot find. Meanwhile every workstation repo uses a gitignored `.envrc` pointing
+at a shared profile under `agentops/templates/`, which is why the workstation fix
+did not propagate to devbox-agent.
+
+Two onboarding paths exist, neither complete, and they do not meet. The work is
+to make them one:
+
+1. Teach sprintctl to discover `.vuoro/profile.json` from the repository root,
+   with the environment variable as an override rather than the only mechanism.
+   This alone removes `.envrc` from the critical path and makes onboarding
+   propagate with the repository, as it should have from the start.
+2. Widen the bootstrap's scope from work-authority-only to the §9.1
+   participation set.
+3. Then, and only then, is "onboard a repository" one command.
+
+`vuoro-bootstrap` is currently release-gated as a Vuoro Cloud external-onboarding
+contract candidate. Internal projectization is a second consumer of the same
+mechanism; if that conflicts with its release gating, the gating is what should
+give, and the constraint should be recorded.
+
+### 9.3 Hand-offs and work pick-up
+
+Two shapes, both currently manual:
+
+- **Ad-hoc** — an operator or a session hands work to another session mid-flight.
+- **Triggered** — work becomes available and is picked up without anyone watching.
+
+Both need one thing the substrate does not have: a resumable session record. This
+is the same `session resume` gap as §1, seen from the workflow side rather than
+the API side, and it is the reason that item is first in §5. Until it is served,
+every hand-off is the operator carrying context in their head or in a paste.
+
+Work pick-up should follow from what already exists — `next-work` for readiness,
+reservations for claim (they already bind the actor to the authenticated
+identity), receipts for what happened — and should not acquire a new mechanism.
+
+### 9.4 Role definitions and workflow modes
+
+The operator called for meta-narrative role definitions and workflow modes.
+Vuoro's `AgentProfileRevision` (§8) already specifies the schema for exactly
+this — purpose, task classes, inherited skills, hook bindings, required tools,
+effect ceiling, evidence obligations, interaction mode, escalation contract. The
+roles should be instances of it, not a parallel invention.
+
+The interaction-mode axis it names — **unattended / episodically supervised /
+interactive** — is the workflow-mode axis, already written down. A repository's
+declared mode (§9.1) selects which roles may operate in it.
+
+*The concrete role set and the loop mechanics are being designed in a dispatched
+session; §10 records that as open rather than guessing here.*
+
+### 9.5 Agent instructions, minimally
+
+Per-repo `AGENTS.md` and `CLAUDE.md` are hand-written and drift. Once §9.1 is a
+declaration, most of their content is derivable: which authority, where evidence
+goes, which acceptance scenarios apply, which mode is in force. What should stay
+hand-written is what is genuinely repo-specific — domain knowledge, local
+conventions, hazards. Generate the mechanical half; keep the judgment half short.
+The test is that instructions describing available functionality should not be
+maintained by hand in fifty places.
+
+## 10. First moves
 
 1. Serve `session resume` (§5.1) — the intent's own first word.
 2. Wake acceptance-lab and encode the five surviving invariants (§2).
@@ -313,14 +425,19 @@ justify it.
 
 ---
 
-## 10. What is not established
+## 11. What is not established
 
 - **Beads / Gas Town**: the comparison lane is unrun. Carried as an open prior.
 - **Restate pilot**: placement decided, nothing built.
 - **`agentops.io`**: no written intent anywhere.
-- **The orchestration loop's own design**: the agent tasked with it did not
-  finish. §8 states the mode and its constraints; the loop mechanics are not
-  designed.
+- **The orchestration loop's own design**, including the §9.4 role set:
+  re-dispatched 2026-08-29 after the first attempt died on a provider limit. §8
+  states the mode and its constraints; the mechanics are in flight.
+- **Provider usage rates and their workflow consequences**: dispatched
+  2026-08-29. The prompting failure is concrete — three subagents died on an HTTP
+  429 session limit and the loss was silent. The question asked is broader than
+  retry policy: if provider limits are a normal condition rather than an
+  exception, what does the workflow have to look like.
 - **`vuoro-evidence` carrier-agnosticism**: asserted by design, unproven by test
   since the recorded traffic was lost. The `record-session.mts` scripts survive
   in four adapter repos, so it is re-recordable — an environment task, not a
