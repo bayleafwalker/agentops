@@ -188,19 +188,25 @@ at least one case where the contract *rejected* something it should have.
 ## Open, from the pre-build review
 
 An independent review ran against this contract before it was built. Two findings
-changed it (the invariant's lifetime split, and ancestor-or-equal). These remain
-open and are **not** addressed by `AuditContext`:
+changed it (the invariant's lifetime split, and ancestor-or-equal); a third is now
+closed. The rest remain open and are **not** addressed by `AuditContext`:
 
-1. **`repo_id` is a directory basename, so identity is an accident of geography.**
-   Verified live: a session in the agentops worktree at
-   `_projects/vuoro-dispatch-ready/members/agentops` resolves to `repo_id="dev"`,
-   because worktrees have no `.auditctl` and the walk exits at the workspace. A
-   second agentops worktree under `$HOME` resolves to its own basename, and its
-   evidence dies with the checkout. This has already happened —
-   `_artifacts/wt-counter/` and `wt-review/` hold orphaned shards named after
-   transient worktrees. Identity must come from the repository (`project.toml`
-   member `repo_id`, or a declared id), not from the path. `AuditContext` freezes
-   this answer earlier rather than fixing it.
+1. ~~**`repo_id` is a directory basename.**~~ **Closed** in auditctl `89abbf5`,
+   before the applier, because the applier binds identity and would have propagated
+   a basename-derived one into a new layer. Worktrees now resolve to their main
+   repository (`worktree-main`), and a repository may declare a stable identity in a
+   tracked `.auditctl-id` that travels with it — not in `.auditctl/`, which is
+   gitignored, and not in an environment variable, which is the defect class itself.
+   The dispatch manifests were rejected as the source: `repo_id` there is a slug for
+   four repos and a **UUID** for sprintctl and vuoro, so adopting it would rename
+   live shard directories.
+
+   **Residue, undecided:** 86 events in
+   `_artifacts/{wt-counter,wt-review,wt-m10b,l2b,l2b-overlay,V6-K-human-turns,p3-driver}/`
+   are attributed to checkouts that no longer exist. Their metadata mostly names
+   `agentops`, but 14 of the 86 name `tmp`, so bulk re-attribution would be guessing
+   for those. Audit records are not a place to infer attribution; this needs an
+   owner decision, not a script.
 
 2. **A wrong-but-coherent pair still passes.** `AUDITCTL_DB` alone pointing at
    another repo routes both halves there and is internally consistent. The true
