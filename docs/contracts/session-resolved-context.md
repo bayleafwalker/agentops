@@ -251,6 +251,46 @@ closed. The rest remain open and are **not** addressed by `AuditContext`:
    trees with no host field in the shard path. Events carry `runtime_session_id`,
    but the merge story is unstated. This is the next index-only incident if left.
 
+## Fleet state, measured 2026-08-29
+
+Every audit store, paired with **its own** configured root rather than a guessed one.
+The first sweep of this table used `env={}` for all of them and reported five false
+index-only stores — the same pairing error, made a third time, which is why the method
+is now written down: read each repo's `.envrc`, never assume the default.
+
+| repo_id | index | shards | index-only | convention |
+|---|---:|---:|---:|---|
+| agentops | 600 | 600 | 0 | co-rooted |
+| auditctl | 4 | 4 | 0 | pooled |
+| bindery-core | 42 | 42 | 0 | pooled |
+| gitops-nixos | 14 | 14 | 0 | co-rooted |
+| homelab-analytics | 21 | 4 | **17** | co-rooted |
+| scribectl | 53 | 53 | 0 | co-rooted |
+| sprintctl | 46 | 46 | 0 | pooled |
+| dev | 236 | 236 | 0 | co-rooted |
+
+`gitops-nixos` was repaired by co-rooting (`f7405e1`): its 14 events lived at the
+workspace root in no git repository. Declaring the pooled convention in `.envrc` was
+the smaller fix and the wrong one — `.envrc` is gitignored there, so the declaration
+would have been as host-local as the problem it described.
+
+### `homelab-analytics` is irreducible, and nothing is lost
+
+One stream (`2f71604c`) split across two roots by a same-day convention change:
+17 events at the workspace root, 4 in the repository, sequences **interleaved**
+(`[1,2,4,7,9-14]` and `[3,5,6,8]`). Together they are complete; every one of the 21 is
+on disk.
+
+It cannot be reconciled, and the reason generalises: merging requires mid-file
+insertion into a shard that is committed and pushed, which the append-only guard
+refuses; moving the other way is a shard deletion, which it also refuses; and reading
+both roots fails continuity because shards are read in path order, which interleaved
+sequences violate. Rebuilding the index from either half alone would discard real
+events — unlike the agentops case, these are not fixtures.
+
+So it stays split and documented. The gate for this one store reports 17 index-only,
+and that number means *"two roots"*, not *"lost"*.
+
 ## Falsifiers
 
 This contract is wrong if:
