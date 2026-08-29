@@ -19,7 +19,7 @@ Produce an implementation brief that is complete enough for a build worker to ex
 1. Confirm the request needs planning: unclear boundaries, new architecture, ambiguous verification, cross-repo sequencing, or missing acceptance criteria.
 2. Load the repo environment before reading sprint, cluster, or queue state.
 3. Read the dispatch manifest first. Treat model and harness assignment as structured routing data, not prose.
-4. Read the repo overlay for domain constraints, affected paths, verification commands, and escalation rules.
+4. Read the repo overlay for domain constraints, affected paths, verification commands, and gated operations (`.claude/gates.json`; absence of a declaration means routine).
 5. Gather only the sprint/action/doc context needed to decide the scope.
 6. Choose `single` or `wave` mode. Use wave mode only when interfaces and
    acceptance histories are frozen and multiple coherent units can amortize

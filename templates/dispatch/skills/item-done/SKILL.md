@@ -17,7 +17,7 @@ If sprintctl mutation is not allowed in the current session, do not half-complet
 
 ## Steps
 
-1. **Confirm verification is clean.** Run targeted checks for the files changed in this item — blocking, foreground, fast-fail. Use the repo's verification commands from the dispatch packet, manifest, or overlay. For pytest projects, a focused command should normally use `pytest <targeted-tests> -x --tb=short`. Do not proceed if targeted checks fail; use the self-healing loop (diagnose and fix, up to 5 cycles) before escalating.
+1. **Confirm verification is clean.** Run targeted checks for the files changed in this item — blocking, foreground, fast-fail. Use the repo's verification commands from the dispatch packet, manifest, or overlay. For pytest projects, a focused command should normally use `pytest <targeted-tests> -x --tb=short`. Do not proceed if targeted checks fail; use the self-healing loop (diagnose and fix, up to 5 cycles) before an operator handoff.
 
 2. **Reflect — log knowledge events while context is hot.** Before marking done, ask: did any of these happen?
    - A design choice was made between two viable options

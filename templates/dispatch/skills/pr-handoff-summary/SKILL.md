@@ -1,6 +1,6 @@
 ---
 name: pr-handoff-summary
-description: Use when a handoff or PR summary is actually called for -- an escalation, a dispatched review, or a CI check that only runs on a PR. Most completed dispatch work lands instead; see `item-done` step 4.
+description: Use when a handoff or PR summary is actually called for -- an operator handoff, a dispatched review, or a CI check that only runs on a PR. Most completed dispatch work lands instead; see `item-done` step 4.
 ---
 
 ## Goal
@@ -8,7 +8,7 @@ description: Use when a handoff or PR summary is actually called for -- an escal
 Render a compact reviewer-ready summary of what changed, what was verified, and what still needs attention.
 
 **First decide whether a summary is owed at all.** This skill is for work that has a
-named reader: an escalation to human judgement, a dispatched review session, or a PR that
+named reader: an operator handoff to human judgement, a dispatched review session, or a PR that
 exists because the repo's CI runs nowhere else. Completed work with no such reader should
 be landed, not summarised -- writing a reviewer-facing summary for a reader who was never
 named is how a PR becomes a parking spot instead of a request. If you cannot say who reads
@@ -41,4 +41,4 @@ this, land the work and stop.
 - Do not omit failed or skipped verification.
 - Do not substitute this summary for a findings-first review when review is required.
 - Do not bury blockers in a general summary.
-- Do not write a summary for an unnamed reader. If no escalation, dispatched review, or PR-only CI check applies, `item-done` step 4 governs: land it.
+- Do not write a summary for an unnamed reader. If no operator handoff, dispatched review, or PR-only CI check applies, `item-done` step 4 governs: land it.

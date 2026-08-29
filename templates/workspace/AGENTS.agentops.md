@@ -22,14 +22,84 @@ resolve them directly (read both sides, merge the actual intent) rather than
 aborting or force-picking one side; only stop and flag it to the user if a
 conflict can't be resolved confidently.
 
-GitHub CLI access on the workstation is intentionally available outside the
-Codex filesystem/network sandbox. A sandboxed `gh auth status`, `gh repo`,
-`gh pr`, `gh run`, or other GitHub API failure is therefore inconclusive. Retry
-the required `gh` command with sandbox escalation before diagnosing expired
-authentication, unavailable networking, or asking the operator to log in. Do
-not report GitHub as blocked from sandbox-only evidence. If the escalated retry
-fails, report that exact outside-sandbox result. Use the narrowest reusable
-`gh` command prefix appropriate to the requested operation.
+## Forge access, the sandbox, and credentials
+
+**Every network call made through an agent tool is sandboxed unless escalated.**
+This applies to `gh`, `fj`, `curl`, `wget`, `hcloud`, `kubectl` and
+`git push/fetch/pull/clone/ls-remote`, under any harness — not only `gh`, and not
+only Codex. The failure signature is the thing to internalise: such calls do
+**not** error. They return **exit 0 with empty output**, so an unreachable call
+and a genuinely empty result are indistinguishable from the output alone.
+
+Escalate the sandbox on every such call (in Claude Code, the Bash parameter
+`dangerouslyDisableSandbox: true`). **Never conclude absence from a sandboxed
+result.** If a probe could not run, the finding is *could not check*, which is a
+different fact from *none found* and is usually a blocker rather than a result.
+
+Enforcement does not rely on anyone remembering this: `forge-sandbox-detector.sh`
+(PostToolUse) fires after any un-escalated network command, and
+`forge-sandbox-guard.sh` (PreToolUse) refuses it where the harness supports a
+deny. Both live in `templates/dispatch/hooks/`.
+
+### Three words, three meanings
+
+| Term | Meaning | Who acts | Prompts the owner? |
+|---|---|---|---|
+| **sandbox escalation** | Re-run outside the sandbox context | Agent, autonomously | **Never** |
+| **operator handoff** | Stop; a person takes over | Human | Yes — that is the point |
+| **gated operation** | A project explicitly declared this needs approval | Per-repo declaration | Only that operation |
+
+Never write "escalate" unqualified. It has meant both "retry harder without
+asking" and "ask a human", and agents trained on the second reading interrupt the
+owner when they hit an apparent network wall. That ambiguity is a defect, not a
+wording preference.
+
+**Standard workflow does not need permission.** Advancing `main` — commit, push,
+PR create, PR merge, release cut, deploy — is routine, as are minting and
+reviewing. A repo declares exceptions in `.claude/gates.json` with tiers
+`operator-approved` (owner approves, agent then performs) and `operator-actioned`
+(a human performs it; approval alone is insufficient — reserved for destructive
+mutation of live shared infrastructure). **Absence of a declaration means
+routine**, never the reverse. One repo gating its promotions does not make deploys
+gated anywhere else.
+
+### Forges
+
+Forgejo web and API: `https://git.apps.kotona.app` (192.168.20.219).
+`forgejo-ssh.apps.kotona.app:2222` (192.168.20.218) is Git-over-SSH **only** — its
+HTTP ports do not answer. There is **no** `forgejo.apps.kotona.app`; guessing it
+returns `000`, which reads exactly like an outage. Private repos answer
+unauthenticated API calls with "The target couldn't be found" — that is a 401
+wearing a 404's clothes.
+
+`fj` needs `-H git.apps.kotona.app` and an `EDITOR` set. `fj pr search` returns
+`410 Gone` on this instance — that endpoint only, not the CLI. `fj pr merge -M`
+has no fast-forward-only style, so a protected fast-forward-only branch needs the
+REST API with `{"Do":"fast-forward-only"}`.
+
+`origin` is **not** reliably canonical — the convention differs per repo. Each
+repo records the truth in `git config claude.canonicalRemote`, and
+`push-landed-check.sh` verifies against it. A push that succeeded to a replica is
+not landed work.
+
+### Credentials already exist — check before asking for more
+
+- **GitHub**: `gh`. The token is in the **system keyring**, *not* in
+  `~/.config/gh/hosts.yml`. Finding no token in that file is not evidence of
+  being unauthenticated.
+- **Forgejo**: `fj` holds its own OAuth (`fj auth list`); also
+  `~/.config/forgejo/workstation-scope-token` (routine) and `admin-token`
+  (break-glass).
+- **`git push` needs no token handling** — `~/.gitconfig` already wires credential
+  helpers for both forges.
+- **Check a credential's audience before using it.**
+  `~/.config/vuoro/credentials/vuoro-cloud.token` is a vuoro-cloud *application*
+  operator token (`vuo_operator_`); Forgejo rejects it as malformed.
+- Encrypted repo secrets: `~/.config/sops/age/keys.txt`. Clusters:
+  `/projects/dev/appservice/clusters/.kube/config` — a bare `kubectl` hits a local
+  kind cluster.
+
+Use the narrowest reusable command prefix appropriate to the requested operation.
 
 - Repositories opt in with one root `*.dispatch.json` and repository-specific overlays under `.agents/overlays/`.
 - Reusable verification intent belongs in data-only `verification/contexts/*.json`; executable tests and production logic remain in the owning repository.

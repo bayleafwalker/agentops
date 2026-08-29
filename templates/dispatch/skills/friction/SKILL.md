@@ -46,5 +46,5 @@ say one thing.
 - Friction notes are cheap and expected to be numerous; a session that records three is not
   complaining, it is producing the input T-7 uses to detect the workflow getting worse.
 - The paired sink is `workflow.session` (written automatically by the Stop hook), and the
-  paired detector is the "worse" rule: rework rounds up, escalations up, or frontier turns flat
+  paired detector is the "worse" rule: rework rounds up, operator handoffs up, or frontier turns flat
   while cost rises, for two consecutive releases.

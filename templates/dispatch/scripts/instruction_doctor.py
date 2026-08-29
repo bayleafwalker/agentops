@@ -173,6 +173,74 @@ def _validate_catalog(manifest: dict[str, Any]) -> list[dict[str, Any]]:
     return findings
 
 
+
+# Match on the load-bearing FACT, not a heading: a repo may title the section
+# however it likes, but it must tell a session how to escape the sandbox.
+FORGE_MARKERS = ("dangerouslyDisableSandbox", "sandbox escalation")
+
+
+def _check_forge_contract(root: Path) -> list[dict[str, Any]]:
+    """Forge/sandbox guidance must reach a session, and gating must be declared.
+
+    Both are propagation checks rather than style checks. `AGENTS.md` is NOT
+    auto-loaded by Claude Code unless `@`-imported, so guidance living only there
+    reaches a session by luck. And a repo with no gates.json is asserting that
+    everything in it is routine -- which is the correct default, but it should be
+    an explicit statement rather than an accident.
+    """
+    findings: list[dict[str, Any]] = []
+    claude_md = root / "CLAUDE.md"
+    if not claude_md.is_file():
+        findings.append(_finding(
+            "forge-contract-missing",
+            "degraded",
+            "no CLAUDE.md: the auto-loaded surface is absent, so forge/sandbox guidance cannot reach a session",
+        ))
+    else:
+        try:
+            body = claude_md.read_text(encoding="utf-8")
+            if not any(marker in body for marker in FORGE_MARKERS):
+                findings.append(_finding(
+                    "forge-contract-missing",
+                    "degraded",
+                    "CLAUDE.md lacks the forge/sandbox block; sandboxed network calls return exit 0 with empty output and get read as fact",
+                    path="CLAUDE.md",
+                ))
+        except (OSError, UnicodeError) as exc:
+            findings.append(_finding("forge-contract-unreadable", "degraded", str(exc), path="CLAUDE.md"))
+
+    gates = root / ".claude" / "gates.json"
+    if not gates.is_file():
+        findings.append(_finding(
+            "gates-undeclared",
+            "degraded",
+            "no .claude/gates.json: gating is opt-in and absence means routine, but that should be stated rather than assumed",
+        ))
+    else:
+        try:
+            data = json.loads(gates.read_text(encoding="utf-8"))
+            if data.get("default") != "routine":
+                findings.append(_finding(
+                    "gates-default-not-routine",
+                    "repair-only",
+                    "gates.json default must be 'routine' -- standard workflow must not prompt the operator",
+                    path=".claude/gates.json",
+                ))
+            valid = {"operator-approved", "operator-actioned"}
+            for entry in data.get("gated") or []:
+                if not isinstance(entry, dict) or entry.get("tier") not in valid:
+                    findings.append(_finding(
+                        "gates-tier-invalid",
+                        "repair-only",
+                        f"each gated entry needs a tier in {sorted(valid)}",
+                        path=".claude/gates.json",
+                    ))
+                    break
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            findings.append(_finding("gates-invalid", "repair-only", str(exc), path=".claude/gates.json"))
+    return findings
+
+
 def inspect(root: Path, cwd: Path | None = None) -> dict[str, Any]:
     """Produce a deterministic, JSON-safe instruction doctor report."""
     root = root.resolve()
@@ -187,6 +255,8 @@ def inspect(root: Path, cwd: Path | None = None) -> dict[str, Any]:
             findings.extend(_validate_catalog(manifest))
         except (OSError, UnicodeError, json.JSONDecodeError, DoctorError) as exc:
             findings.append(_finding("manifest-invalid", "fatal", str(exc), path=manifest_path.name))
+
+    findings.extend(_check_forge_contract(root))
 
     discovered = discover_native_sources(root, cwd)
     revision = _git_revision(root)
