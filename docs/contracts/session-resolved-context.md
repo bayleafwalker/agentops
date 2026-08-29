@@ -224,12 +224,75 @@ closed. The rest remain open and are **not** addressed by `AuditContext`:
    after plausible-sounding worktrees were read as production residue by two
    independent passes, because nobody opened a row until the third.
 
-2. **A wrong-but-coherent pair still passes.** `AUDITCTL_DB` alone pointing at
-   another repo routes both halves there and is internally consistent. The true
-   class is config *scoping* — a value correct for one context, installed in a
-   shared one — and the contract has no answer yet for how a consumer receives its
-   context without walking the tree. Env vars remain writable by shared-scope code,
-   and a Stop/SubagentStop hook shell inherits neither direnv nor a login PATH.
+2. **A wrong-but-coherent pair still passes — measured 2026-08-29, half answered.**
+   The claim was reasoned; it is now measured, on a page that also carries a retracted
+   finding that was reasoned and wrong. Six writes from one directory, varying only
+   the environment (`docs/evidence/measurements/2026-08-29-coherent-context-redirect.md`):
+
+   | `AUDITCTL_DB` | `AUDITCTL_ARTIFACTS_ROOT` | Outcome |
+   |---|---|---|
+   | unset | unset | correct |
+   | **beta** | unset | **accepted, all under beta** |
+   | beta | beta | accepted, same |
+   | beta | alpha | refused |
+   | unset | beta | refused |
+   | unset | pooled ancestor | accepted; shard moves, `repo_id` does not |
+
+   0.1.4 took the power to redirect away from `AUDITCTL_ARTIFACTS_ROOT`; rows 4 and 5
+   are that fix working. `AUDITCTL_DB` keeps it in full, because it takes the index,
+   derives the repo root from it, derives `repo_id` from that root, and defaults the
+   artifacts root to the same place — four fields from one input, so all four agree
+   and nothing fires. Confirmed in code at `auditctl/paths.py:126-138`.
+
+   **What was missing from this finding:** a coherent redirect is worse than an
+   undetected one. August's misrouting was repairable *because* it was incoherent —
+   the mismatch between index and shard location was itself the evidence of where
+   each event belonged. A coherent one leaves no trace at all: across 1593 events in
+   11 stores, no record carried a working directory, a repository, a host, or a
+   non-null `runtime_session_id`. A receipt written afterwards cannot reconstruct
+   what the write never recorded, which is an ordering constraint on the applier.
+
+   **Half answered.** auditctl now attaches `resolved_context` to every event it
+   writes — `repo_id`, `repo_root`, `artifacts_root`, `published_from`,
+   `resolution_source` — so a redirected write says so in its own record and the
+   misfile is a query rather than an archaeology problem. It is a record and not a
+   check, because writing into another store on purpose is legitimate, and it is the
+   resolver's rather than the publisher's, because a publisher that could supply it
+   could supply the flattering answer.
+
+   **Still open:** the channel itself. Env vars remain writable by shared-scope code,
+   and a Stop/SubagentStop hook shell inherits neither direnv nor a login PATH. The
+   question the record does not answer is the one that matters for the applier — not
+   "do these values agree", which rows 2 and 3 already satisfy, but **"who set this,
+   and what entitled them to"**.
+
+2a. **The same shape, twice more** (survey, 2026-08-29).
+
+   - **sprintctl.** `backend.py:332-348` genuinely cross-checks a flag/env/cwd
+     `repo_id` against the committed `.sprintctl/backend.json`. But `db.py:316-319`
+     reads `SPRINTCTL_DB` with no cross-check against `resolve_repo_identity` at
+     either call site: tenant identity walks up from the CWD while the store path
+     comes only from the environment, and the two are never compared. `SPRINTCTL_DB`
+     is sprintctl's `AUDITCTL_DB`.
+   - **The binary half of "where am I" is still open.** Four resolvers, three
+     policies: `hooks/auditctl-resolve.sh:43-63` and `hybrid_dispatch.py:2304-2326`
+     carry the ELF guard and honour `AUDITCTL_BIN`; `metanarrative.py:84` has
+     neither; `dispatch_release.py:1071` accepts a bare name on `shutil.which()`
+     alone. Both of the latter swallow failure, so a shared-scope
+     `AUDITCTL_BIN=/bin/true` silences telemetry without a trace. This contract
+     closed the *root* half of "every tool rediscovers where am I" and left this one.
+
+   The counter-example worth copying is `AGENTOPS_ROOT`: read with a script-relative
+   default, passed explicitly to children, and `env.pop`'d before spawning a worker
+   (`hybrid_dispatch.py:1987`) precisely so the worker cannot inherit the
+   coordinator's checkout. It is the one channel in the stack with an explicit
+   anti-leak.
+
+2b. **`.auditctl-id` has zero instances.** The tracked identity declaration added to
+   stop identity coming from a directory basename exists in code
+   (`auditctl/paths.py:40,76-103`) and is written nowhere: every `repo_id` in the
+   fleet is still a basename. The mechanism that would make identity travel with a
+   repository is built and unused.
 
 3. **Three resolvers is worse than two — closed 2026-08-29.** After a44f01d there
    was a bash mirror of the walk in `auditctl-resolve.sh`. auditctl 0.1.5 is now what
