@@ -80,9 +80,40 @@ assert_eq "REQ-001 in"    "$(jq -r '.in' <<<"$row")"    "120"
 assert_eq "REQ-001 out"   "$(jq -r '.out' <<<"$row")"   "50"
 jq -e '.cost_usd > 0' <<<"$row" >/dev/null || fail "REQ-001: cost_usd is no longer computed"
 
+# --- REQ-012: the session identity reaches the typed field, not only the untyped one ----
+# Measured 2026-08-29 across 1593 events in 11 stores: `runtime_session_id` was populated
+# ZERO times while the same uuid sat 354 times in `metadata.session` beside it, because
+# this hook wrote "" whenever no external runtime supplied one -- and "" is the shape the
+# session-mechanization validators reject as blank. Asserted on the cost row, which is
+# where the value is observable without a publisher; the audit event takes the same value
+# through the same variable.
+assert_eq "REQ-012 runtime_session_id falls back to this session" \
+  "$(jq -r '.runtime_session_id' <<<"$row")" "sess-t1"
+
+# ...and an external runtime still wins, since that is the id that identifies the run when
+# one exists. Only the empty case changed.
+ext_log="$tmp/costs-ext.jsonl"
+jq -cn --arg t "$transcript" --arg s "sess-t1" \
+  '{transcript_path:$t, session_id:$s, runtime_session_id:"runtime-9", cwd:"/projects/dev/agentops", hook_event_name:"Stop"}' \
+  | AGENTOPS_COST_LOG="$ext_log" \
+    AUDITCTL_DB="$tmp/store/.auditctl/auditctl.db" AUDITCTL_ARTIFACTS_ROOT="$tmp/store" \
+    bash "$stop_hook"
+assert_eq "REQ-012 an external runtime id still wins" \
+  "$(jq -r '.runtime_session_id' <<<"$(tail -1 "$ext_log")")" "runtime-9"
+
+# A placeholder must not reach a typed field: that is the untyped field's disease.
+ph_log="$tmp/costs-ph.jsonl"
+jq -cn --arg t "$transcript" \
+  '{transcript_path:$t, cwd:"/projects/dev/agentops", hook_event_name:"Stop"}' \
+  | AGENTOPS_COST_LOG="$ph_log" \
+    AUDITCTL_DB="$tmp/store/.auditctl/auditctl.db" AUDITCTL_ARTIFACTS_ROOT="$tmp/store" \
+    bash "$stop_hook"
+assert_eq "REQ-012 'unknown' is not promoted into the typed field" \
+  "$(jq -r '.runtime_session_id' <<<"$(tail -1 "$ph_log")")" ""
+
 # The default must survive: a hook that only works under the test env is not the
 # hook the sessions run.
 grep -q 'AGENTOPS_COST_LOG:-/projects/dev/.claude/session-costs.jsonl' "$stop_hook" \
   || fail "REQ-003: the default log path was not preserved"
 
-printf 'cost hook field tests passed\n'
+printf 'cost hook field tests passed (incl. REQ-012 typed session identity)\n'

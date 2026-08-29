@@ -38,6 +38,22 @@ TRANSCRIPT="$(echo "$EVENT" | jq -r '.transcript_path // ""')"
 SESSION="$(echo "$EVENT" | jq -r '.session_id // "unknown"')"
 RUNTIME_SESSION="$(echo "$EVENT" | jq -r '.runtime_session_id // empty')"
 RUNTIME_SESSION="${RUNTIME_SESSION:-${SPRINTCTL_RUNTIME_SESSION_ID:-${CODEX_THREAD_ID:-}}}"
+# Last resort: this session itself. Measured 2026-08-29 across 1593 events in 11 stores --
+# `runtime_session_id` was populated ZERO times, in the schema field and in metadata alike,
+# while the harness session uuid was written 354 times into the untyped `metadata.session`
+# beside it. None of the three sources above has a producer for an interactive session:
+# the payload field arrives empty, and neither SPRINTCTL_RUNTIME_SESSION_ID nor
+# CODEX_THREAD_ID is set by anything in this workspace.
+#
+# So this hook was writing "" into the one field that ties an event to a running session,
+# which is not merely empty -- it is the shape the session-mechanization validators reject
+# as blank. For a Claude Code session there is no separate runtime: the harness session id
+# IS the identity of the run, which is the same equality actionq's own contract asserts
+# when it requires session_id and runtime_session_id to match. `unknown` is excluded
+# because a placeholder in a typed field is what the untyped one already suffers from.
+if [[ -z "$RUNTIME_SESSION" && -n "$SESSION" && "$SESSION" != "unknown" ]]; then
+  RUNTIME_SESSION="$SESSION"
+fi
 PROJ="$(echo "$EVENT" | jq -r '.cwd // ""' | xargs basename 2>/dev/null || basename "$PWD")"
 
 GATE_FILE="$GATE_DIR/gates-$SESSION.jsonl"
