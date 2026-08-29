@@ -69,3 +69,33 @@ All eight branches and five of the six PRs are now resolved. `appservice`
 #1559 remains open by owner decision — it changes CI automerge gating and is
 held for human review, which is a *named* action and therefore a legitimate
 reason for a PR to stay open under this policy.
+
+---
+
+## Addendum: blast radius of the `ci-not-on-main` observation
+
+The practice's "land on `main` and let CI catch issues" has an unmet
+precondition, recorded as observation `ci-not-on-main`. Surveying every
+`.github/workflows/` under `/projects/dev` bounds it: **three workflows, in
+three repos, trigger on `pull_request` only.**
+
+| Workflow | Assessment |
+|---|---|
+| `homelab-analytics/verify.yaml` | **The real gap.** A full verify suite (`verify-fast`) that never runs on `main`. This is the one confirmed empirically — a push of `7894ef8` produced no Verify run. |
+| `agentops/protected-paths.yml` | **Newly load-bearing.** A protected-paths gate that only fires on PRs never fires at all once work lands directly. Under the old PR-default this was adequate; under `land-work-in-main` it is a gate that has stopped gating. |
+| `appservice/placeholder.yaml` | Already addressed by `appservice` #1559, which removes it and gates automerge on Offline Validate. That PR is deliberately held open for human review. |
+
+Everything else already triggers on `push`. Notably `aligned-equity/verify.yaml`
+carries `push: branches: [main]`, which is why landing 23 commits there
+directly on 2026-08-29 did exercise CI rather than bypassing it.
+
+**Sequencing — do not fix this by adding push triggers yet.** The
+`git.apps.kotona.app` runner move comes first. Adding `push` triggers on
+hosted runners pays for the policy in GitHub Actions minutes, which is spend
+that was already decided against. The correct order is: move the runners,
+then add push triggers, then the practice's precondition is met.
+
+Until then the honest statement of the practice is narrower than its wording:
+*land on `main` and let CI catch issues — in the repos where CI actually runs
+on `main`.* Two repos are currently outside that set. The contradiction is
+correctly recorded rather than resolved.
