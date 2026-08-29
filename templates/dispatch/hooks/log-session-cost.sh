@@ -16,6 +16,21 @@
 # consumed — draining it on the first stop would drop every gate from the final snapshot.
 set -euo pipefail
 
+# The publisher resolver lives beside this hook. Sourcing it is best-effort by design:
+# a hook shell can arrive with a PATH that has neither readlink nor dirname on it, and a
+# hook can be copied out of its directory without the helper. Neither may cost the session
+# its record, so an unreachable helper degrades to "do not publish", never to a failed hook.
+_hook_src="${BASH_SOURCE[0]}"
+{ [[ -L "$_hook_src" ]] && command -v readlink >/dev/null 2>&1 &&
+  _hook_src="$(readlink -f -- "$_hook_src" 2>/dev/null || printf '%s' "$_hook_src")"; } || true
+if [[ -r "${_hook_src%/*}/auditctl-resolve.sh" ]]; then
+  # shellcheck source=auditctl-resolve.sh
+  . "${_hook_src%/*}/auditctl-resolve.sh"
+else
+  auditctl_bin() { return 1; }
+  auditctl_export_root() { :; }
+fi
+
 LOG="${AGENTOPS_COST_LOG:-/projects/dev/.claude/session-costs.jsonl}"
 GATE_DIR="${AGENTOPS_GATE_LOG_DIR:-/projects/dev/.claude/state}"
 
@@ -51,22 +66,13 @@ emit_record() {
   printf '%s\n' "$record" >> "$LOG"
 
   # auditctl is optional: a missing publisher must never cost the session its cost row.
-  command -v auditctl >/dev/null 2>&1 || return 0
+  # Resolution goes through the shared helper because the bare name `auditctl` also belongs
+  # to the kernel audit tool -- see hooks/auditctl-resolve.sh for what that cost.
+  local auditctl_path
+  auditctl_path="$(auditctl_bin)" || return 0
   # A Stop hook does not inherit direnv, so the artifacts root has to be defaulted here or
-  # every write fails with "AUDITCTL_ARTIFACTS_ROOT is required for audit writes". The single
-  # source for that default is templates/dispatch/artifacts-root.default, found relative to
-  # this hook's real location: the hooks are symlinked into /projects/dev/.claude/hooks/, so
-  # BASH_SOURCE may be a symlink path and dirname alone would land in the wrong directory.
-  # A missing or empty data file must never fail the caller, so the record is still written.
-  if [[ -z "${AUDITCTL_ARTIFACTS_ROOT:-}" ]]; then
-    local hook_real hook_dir default_root=""
-    hook_real="$(readlink -f -- "${BASH_SOURCE[0]}")"
-    hook_dir="$(dirname -- "$hook_real")"
-    if [[ -f "$hook_dir/../artifacts-root.default" ]]; then
-      default_root="$(head -n1 "$hook_dir/../artifacts-root.default")"
-    fi
-    export AUDITCTL_ARTIFACTS_ROOT="$default_root"
-  fi
+  # every write fails with "AUDITCTL_ARTIFACTS_ROOT is required for audit writes".
+  auditctl_export_root "${BASH_SOURCE[0]}"
   local summary metadata
   summary="$(printf '%s' "$record" | jq -r '"session \(.project): \(.turns) turns, \(.tool_calls) tool calls, $\(.cost_usd * 100 | round / 100)"')"
   metadata="$(printf '%s' "$record" | jq -c \
@@ -75,7 +81,7 @@ emit_record() {
         model, project, gates: $gates, rework_rounds: $rework}')"
   # No --ref: auditctl allows only wi:/ka:/ad:/sha:/pr:/sprint:/capsule: prefixes, so the
   # session id travels in the metadata instead of being rejected as an invalid ref.
-  auditctl add --type workflow.session --source claude-hook --actor claude-hook \
+  "$auditctl_path" add --type workflow.session --source claude-hook --actor claude-hook \
     --summary "$summary" --metadata "$metadata" >/dev/null 2>&1 || true
 }
 

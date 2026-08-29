@@ -16,26 +16,32 @@
 # The loss predicate is then a join, not a heuristic: a dispatch with no exit record.
 set -euo pipefail
 
+# The publisher resolver lives beside this hook. Sourcing it is best-effort by design:
+# a hook shell can arrive with a PATH that has neither readlink nor dirname on it, and a
+# hook can be copied out of its directory without the helper. Neither may cost the session
+# its record, so an unreachable helper degrades to "do not publish", never to a failed hook.
+_hook_src="${BASH_SOURCE[0]}"
+{ [[ -L "$_hook_src" ]] && command -v readlink >/dev/null 2>&1 &&
+  _hook_src="$(readlink -f -- "$_hook_src" 2>/dev/null || printf '%s' "$_hook_src")"; } || true
+if [[ -r "${_hook_src%/*}/auditctl-resolve.sh" ]]; then
+  # shellcheck source=auditctl-resolve.sh
+  . "${_hook_src%/*}/auditctl-resolve.sh"
+else
+  auditctl_bin() { return 1; }
+  auditctl_export_root() { :; }
+fi
+
 EVENT="$(cat)"
 SESSION="$(printf '%s' "$EVENT" | jq -r '.session_id // "unknown"')"
 TRANSCRIPT="$(printf '%s' "$EVENT" | jq -r '.transcript_path // ""')"
 AGENT_ID="$(printf '%s' "$EVENT" | jq -r '.agent_id // .agentId // empty')"
 PROJ="$(printf '%s' "$EVENT" | jq -r '.cwd // ""' | xargs basename 2>/dev/null || basename "$PWD")"
 
-# auditctl lives in ~/.local/bin, which a non-login hook shell does not necessarily have on
-# PATH. `command -v` alone silently drops the record -- the measured cause of most missing
-# workflow.session events -- so fall back to the known location before giving up.
-AUDITCTL="$(command -v auditctl 2>/dev/null || true)"
-[[ -z "$AUDITCTL" && -x "$HOME/.local/bin/auditctl" ]] && AUDITCTL="$HOME/.local/bin/auditctl"
-[[ -z "$AUDITCTL" ]] && exit 0
-
-if [[ -z "${AUDITCTL_ARTIFACTS_ROOT:-}" ]]; then
-  hook_real="$(readlink -f -- "${BASH_SOURCE[0]}")"
-  default_root=""
-  [[ -f "$(dirname -- "$hook_real")/../artifacts-root.default" ]] &&
-    default_root="$(head -n1 "$(dirname -- "$hook_real")/../artifacts-root.default")"
-  export AUDITCTL_ARTIFACTS_ROOT="$default_root"
-fi
+# Resolving the publisher is shared with the Stop hook: `command -v auditctl` can succeed on
+# the kernel audit tool of the same name, which is how the missing workflow.session events
+# were actually lost. See hooks/auditctl-resolve.sh.
+AUDITCTL="$(auditctl_bin)" || exit 0
+auditctl_export_root "${BASH_SOURCE[0]}"
 
 # terminal_reason from the transcript's own tail. A usage limit is reported to the agent as a
 # localized wall-clock string ("resets 12:30am (Europe/Helsinki)"), never as Retry-After, so

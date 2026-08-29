@@ -38,7 +38,7 @@ run_stop() {
   event="$(jq -cn --arg t "$transcript" --arg s "$session" \
     '{transcript_path:$t, session_id:$s, cwd:"/projects/dev/agentops", hook_event_name:"Stop"}')"
   if [[ -n "$path_override" ]]; then
-    printf '%s' "$event" | env PATH="$path_override" AGENTOPS_COST_LOG="$log" AGENTOPS_GATE_LOG_DIR="$gatedir" bash "$stop_hook"
+    printf '%s' "$event" | env PATH="$path_override" ${AUDITCTL_BIN+AUDITCTL_BIN="$AUDITCTL_BIN"} AGENTOPS_COST_LOG="$log" AGENTOPS_GATE_LOG_DIR="$gatedir" bash "$stop_hook"
   else
     printf '%s' "$event" | AGENTOPS_COST_LOG="$log" AGENTOPS_GATE_LOG_DIR="$gatedir" bash "$stop_hook"
   fi
@@ -197,10 +197,15 @@ grep -q 'total=\$9' <<<"$tie_out" || fail "read side: a tied timestamp picked th
 grep -q 'total=\$5' <<<"$out" || fail "read side: superseded rows were summed instead of reduced ($out)"
 
 # --- REQ-005: auditctl absent ----------------------------------------------------------
+# AUDITCTL_BIN="" is how absence is stated since 2026-08-29. Emptying PATH no longer says it:
+# the resolver deliberately falls back to ~/.local/bin, because a hook shell missing that
+# directory from PATH is the normal case and was silently costing every claude-hook event.
+# Without this the fixture would find the real publisher and write into the real audit store.
 stub="$tmp/bin"; mkdir -p "$stub"
 for c in bash jq date basename xargs mktemp rm mkdir cat; do
   src="$(command -v "$c")" && ln -sf "$src" "$stub/$c"
 done
+export AUDITCTL_BIN=""
 log_c="$tmp/costs-c.jsonl"
 if ! run_stop "sess-c" "$log_c" "$gatedir" "$stub"; then
   fail "REQ-005: the Stop hook exited non-zero with auditctl off PATH"
