@@ -2279,6 +2279,106 @@ def _emit(payload: Any) -> None:
     sys.stdout.write("\n")
 
 
+# --- the dispatch cycle's arms -----------------------------------------------------
+#
+# A cycle has three arms: an attempt refused, a candidate reviewed, an attempt accepted
+# and merged. Until now this driver emitted none of them. Every such event in the
+# workspace -- all 23, all in one repository, all on one day -- was typed by hand by a
+# coordinator, which is why sixteen of that repository's own eighteen cycles are
+# incomplete and why no other repository has a single complete one. See
+# docs/assessments/dispatch-cycle-substrate-vs-consumer-2026-08-29.md.
+#
+# Two of the three are already known here and need no judgement. The prepare stage knows
+# whether it refused the packet before starting a worker; the gate stage knows whether
+# the candidate cleared its gates and its review. The third, acceptance, requires a merge
+# commit this process does not have, so it stays a coordinator act -- but a one-flag act
+# rather than free-form prose.
+
+CYCLE_ARMS = {
+    "refused": "dispatch.preflight_rejected",
+    "reviewed": "dispatch.packet.reviewed",
+    "accepted": "dispatch.packet.accepted",
+}
+
+
+def _auditctl_bin() -> str | None:
+    """Resolve *our* auditctl, not merely something with that name.
+
+    `auditctl` is also the Linux kernel audit tool. A shell without ~/.local/bin on PATH
+    resolves the name to that instead, which answers "You must be root" and exits 0 --
+    so a call that tolerates failure loses the record without a trace. The bash version
+    of this guard, and what it cost, is in templates/dispatch/hooks/auditctl-resolve.sh.
+    """
+    override = os.environ.get("AUDITCTL_BIN")
+    if override is not None:
+        return override if override and os.access(override, os.X_OK) else None
+    for directory in os.environ.get("PATH", "").split(os.pathsep):
+        candidate = Path(directory) / "auditctl"
+        if not os.access(candidate, os.X_OK):
+            continue
+        try:
+            if candidate.open("rb").read(4) == b"\x7fELF":
+                continue  # the kernel tool; ours is and has always been a script
+        except OSError:
+            pass
+        return str(candidate)
+    fallback = Path.home() / ".local/bin/auditctl"
+    return str(fallback) if os.access(fallback, os.X_OK) else None
+
+
+def _fault_labels(faults: Any) -> list[str]:
+    """Name the cold faults, whichever shape this path produced them in.
+
+    `assess_cold_run` returns fault records; other paths hand back plain strings. A
+    summary line is not worth an AttributeError that fails a dispatch, so both are read
+    and anything else is skipped rather than guessed at.
+    """
+    labels: list[str] = []
+    for fault in faults or []:
+        if isinstance(fault, dict):
+            label = fault.get("command_id") or fault.get("id") or fault.get("reason")
+        elif isinstance(fault, str):
+            label = fault
+        else:
+            label = None
+        if label:
+            labels.append(str(label))
+    return sorted(set(labels))
+
+
+def _publish_arm(arm: str, packet: dict[str, Any], summary: str, metadata: dict[str, Any]) -> None:
+    """Record one arm of the cycle. Never let this change the run's outcome.
+
+    A missing or broken publisher must not turn a green dispatch red: the arm is
+    evidence about the run, not part of it.
+    """
+    binary = _auditctl_bin()
+    if binary is None:
+        return
+    root = os.environ.get("AUDITCTL_ARTIFACTS_ROOT")
+    if not root:
+        default = Path(__file__).resolve().parents[1] / "artifacts-root.default"
+        root = default.read_text(encoding="utf-8").splitlines()[0] if default.is_file() else ""
+    try:
+        subprocess.run(
+            [
+                binary, "add",
+                "--type", CYCLE_ARMS[arm],
+                "--source", "hybrid-dispatch",
+                "--actor", "hybrid-dispatch",
+                "--summary", summary[:400],
+                "--metadata", json.dumps({"task_id": packet["task_id"],
+                                          "repo_id": packet["repo_id"], **metadata}),
+            ],
+            env={**os.environ, "AUDITCTL_ARTIFACTS_ROOT": root},
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
@@ -2302,6 +2402,24 @@ def main(argv: list[str] | None = None) -> int:
         "--review-record",
         type=Path,
         help="Independent coordinator-review JSON required before gate may emit candidate.",
+    )
+    parser.add_argument(
+        "--accepted",
+        metavar="COMMIT",
+        help=(
+            "The merge commit this packet was accepted as. Closes the cycle by "
+            "publishing the accepted arm, which is the one arm this process cannot "
+            "infer for itself."
+        ),
+    )
+    parser.add_argument(
+        "--no-audit",
+        action="store_true",
+        help=(
+            "Do not publish the cycle's arms to the audit stream. The arms are "
+            "evidence about the run, never part of it: publishing already cannot fail "
+            "the run, and this exists for dry runs and tests rather than for silence."
+        ),
     )
     parser.add_argument(
         "--allow-writable-coordinator",
@@ -2438,8 +2556,26 @@ def main(argv: list[str] | None = None) -> int:
                     worker_writability=writability,
                     cold_gate_assessment=cold_gate_assessment,
                     eligible_for_dispatch=green,
+                    cycle_arm_published=(None if green or args.no_audit else "refused"),
                 )
             )
+            if not green and not args.no_audit:
+                # The refusal arm, and the one that matters most: it is the evidence
+                # that the gate is load-bearing, and it is free -- no worker ran.
+                _publish_arm(
+                    "refused",
+                    packet,
+                    f"{packet['task_id']} refused at preflight: "
+                    + (", ".join(_fault_labels(cold_faults)) or "cold gates red"),
+                    {
+                        "driver_stage": "prepare",
+                        "packet_status": "unfit",
+                        "worker_started": False,
+                        "no_mutation": True,
+                        "starting_commit": packet["starting_commit"],
+                        "cold_faults": _fault_labels(cold_faults),
+                    },
+                )
             return 0 if green else 2
 
         worktree = worktree_path(packet)
@@ -2597,8 +2733,23 @@ def main(argv: list[str] | None = None) -> int:
                     evidence=evidence,
                     independent_review=review,
                     disposition=disposition,
+                    cycle_arm_published=(
+                        "reviewed" if disposition == "candidate" and not args.no_audit else None
+                    ),
                 )
             )
+            if disposition == "candidate" and not args.no_audit:
+                _publish_arm(
+                    "reviewed",
+                    packet,
+                    f"{packet['task_id']} candidate cleared its gates and review",
+                    {
+                        "driver_stage": "gate",
+                        "starting_commit": packet["starting_commit"],
+                        "review_mode": (review or {}).get("mode", "independent-record"),
+                        "merge_approved": True,
+                    },
+                )
             return 0 if disposition == "candidate" else 2
 
         # receipt
@@ -2610,12 +2761,33 @@ def main(argv: list[str] | None = None) -> int:
                 worktree=str(worktree),
                 overlay_sha256=overlay_hash(overlay),
                 dispositions_available=policy["dispositions"],
+                accepted_commit=args.accepted,
+                cycle_arm_published=(
+                    "accepted" if args.accepted and not args.no_audit else None
+                ),
                 note=(
                     "The coordinator records the disposition and the human accepts, "
                     "merges, and changes sprint state."
                 ),
             )
         )
+        if args.accepted and not args.no_audit:
+            # The one arm this process cannot infer: it has no merge commit until a
+            # coordinator produces one. Naming it on the flag makes the closing arm a
+            # command rather than remembered prose, which is the whole difference
+            # between a cycle that is recorded and one that happened to be written down.
+            _publish_arm(
+                "accepted",
+                packet,
+                f"{packet['task_id']} accepted and merged as {args.accepted}",
+                {
+                    "driver_stage": "receipt",
+                    "implementation_commit": args.accepted,
+                    "starting_commit": packet["starting_commit"],
+                    "sprint_item": packet.get("sprint_item"),
+                    "merge_approved": True,
+                },
+            )
         return 0
     except PacketError as exc:
         print(f"hybrid-dispatch: {exc}", file=sys.stderr)

@@ -119,3 +119,26 @@ started.
 Until then, `dispatch-cycle` measures how reliably a coordinator remembered to write
 prose, and reports it as a property of the consumer. That is a fair reading of the
 current record and a poor one of the substrate.
+
+## Done, same day
+
+`hybrid_dispatch.py` now publishes the arms it already knows. The prepare stage emits
+`dispatch.preflight_rejected` when it refuses a packet before starting a worker, with
+`worker_started: false` and `no_mutation: true`; the gate stage emits
+`dispatch.packet.reviewed` when a candidate clears its gates and its review. The third
+arm needs a merge commit the process cannot have, so `--accepted <commit>` publishes it
+— a command rather than remembered prose.
+
+Publishing cannot fail a run: the arm is evidence *about* the dispatch, never part of
+it, and a missing publisher is silence rather than an error. Resolution goes through the
+same guard as the hooks, because `auditctl` is also the Linux kernel audit tool and the
+wrong one exits 0 without writing anything.
+
+Verified end to end: three published arms read back through the probe as one complete
+cycle, and score as one. The two checks that fail on a synthetic cycle are exactly the
+two that read the receipt file — containment and spend — which a real dispatch has and a
+smoke test does not.
+
+What this does not do is retrofit the past. The sixteen incomplete bindery cycles stay
+incomplete, and `dispatch-cycle` will keep reporting them that way, which is correct:
+the record is what it is. The change is that the next cycle records itself.
