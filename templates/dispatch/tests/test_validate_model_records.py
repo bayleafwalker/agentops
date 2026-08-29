@@ -75,6 +75,15 @@ class ModelRecordTests(unittest.TestCase):
             schema = json.loads((MODEL / f"{name}.schema.json").read_text())
             self.assertEqual(schema["properties"]["schema_version"]["const"], version)
 
+    def test_no_authority_basis_is_owner_reserved(self) -> None:
+        # Authority theatre: a basis only the owner may hold makes establishment a
+        # queue. Authority is delegated or carried by standing policy, and nothing else.
+        self.assertEqual(V.AUTHORITY_BASES, {"delegated", "standing-policy"})
+        claim = _claim()
+        claim["established_by"]["authority_basis"] = "owner-reserved"
+        with self.assertRaisesRegex(ValueError, "authority_basis must be one of"):
+            V.validate_claim(claim, PATH)
+
     def test_no_schema_mentions_ratified_or_approval(self) -> None:
         for schema_file in sorted(MODEL.glob("*.schema.json")):
             text = schema_file.read_text().lower()
@@ -226,21 +235,26 @@ class ModelRecordTests(unittest.TestCase):
 
         resolved = _session(state="resolved", resolution="supersede-tenet")
         V.validate_session(resolved, PATH)
-        resolved["attention_request"] = {"reason": "owner-reserved-change", "raised_at": AT}
+        resolved["attention_request"] = {"reason": "missing-delegated-authority", "raised_at": AT}
         with self.assertRaisesRegex(ValueError, "attention is routing, not an outcome"):
             V.validate_session(resolved, PATH)
 
-    def test_attention_reasons_are_the_four_grounds_only(self) -> None:
-        # "a human should look at this" is not a ground.
+    def test_attention_grounds_are_about_authority_not_about_people(self) -> None:
+        # Neither "a human should look at this" nor "an owner must decide" is a
+        # ground. Human judgment is perpendicular to the workstream, not a stage in it.
         self.assertEqual(
             V.ATTENTION_REASONS,
             {
                 "missing-delegated-authority",
                 "unresolved-value-choice",
-                "owner-reserved-change",
                 "conflict-without-precedence",
             },
         )
+        with self.assertRaisesRegex(ValueError, "reason must be one of"):
+            V.validate_session(
+                _session(attention_request={"reason": "owner-reserved-change", "raised_at": AT}),
+                PATH,
+            )
         with self.assertRaisesRegex(ValueError, "reason must be one of"):
             V.validate_session(
                 _session(attention_request={"reason": "needs-human", "raised_at": AT}), PATH

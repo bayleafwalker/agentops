@@ -356,9 +356,9 @@ class CapabilityReceiptValidatorTests(unittest.TestCase):
         self.assertNotIn("ratification", migrated)
         self.assertEqual(migrated["established_by"]["actor"], "example-operator")
         self.assertEqual(migrated["established_by"]["actor_type"], "human")
-        self.assertEqual(
-            migrated["established_by"]["authority_basis"], "owner-reserved"
-        )
+        # The v1 assertion recorded that a person acted, not a basis; no basis is
+        # owner-reserved, so it lands as the ordinary one.
+        self.assertEqual(migrated["established_by"]["authority_basis"], "delegated")
         self.assertEqual(migrated["validity"]["effective_from"], AT)
 
     def test_basis_for_is_a_dependency_relation(self) -> None:

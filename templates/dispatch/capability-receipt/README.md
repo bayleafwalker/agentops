@@ -105,8 +105,8 @@ prompt to manufacture certainty.
    `current` or `superseded` receipt carries `established_by` with the actor,
    the `actor_type` that acted (`human`, `agent` or `automation`), the time, an
    `authority_basis`, and an immutable `decision_ref` to the decision record.
-   An `authority_basis` of `owner-reserved` marks a change only the owner may
-   make -- that is a property of the change, not a queue the receipt waits in.
+   No basis is owner-reserved: authority is `delegated` or carried by
+   `standing-policy`, so a receipt never waits in a queue for a person.
    All of these are declared assertions: neither the format nor the validator
    authenticates identity, authority, or the referenced record's existence, and
    successful validation is not proof that the named actor acted.

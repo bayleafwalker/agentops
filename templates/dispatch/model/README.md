@@ -108,12 +108,35 @@ within delegated authority, the session stays *open* and emits an attention
 request. Asking closes nothing. Divergent work may remain an experiment or a
 branch, but it cannot silently become aligned current work.
 
-Attention has exactly four grounds. "A human should look at this" is not one:
+Attention has three grounds, all of them about the limits of authority or an
+unsettled value. Neither "a human should look at this" nor "an owner must decide"
+is one:
 
 - `missing-delegated-authority`
 - `unresolved-value-choice`
-- `owner-reserved-change`
 - `conflict-without-precedence`
+
+## Human judgment is perpendicular, not a stage
+
+**No authority basis is owner-reserved.** A basis only the owner may hold turns
+establishment into a queue, which is the authority theatre this model exists to
+remove. Authority is `delegated` or carried by `standing-policy`, and that is all.
+
+Human judgment is not absent — it is on a different plane. The regular workstream
+never stops at a person. **Meta-sessions**, run with a human outside the
+workstream, work on the things realignment and review actually scope out:
+
+- differences between **intention and implementation**;
+- **architectural choices** against the current state;
+- **policy choices** and unsettled values;
+- **the workflow's own design**.
+
+That is why an attention request leaves its session open rather than routing it
+somewhere for a signature. It marks work for a plane that operates on intent and
+architecture, not a tray a human empties. A realignment session and a meta-session
+differ in scope, not in seniority: the session asks whether *this work* and *this
+tenet* agree; the meta-session asks whether the tenet, the architecture, or the
+workflow is still the right one.
 
 ## Using it
 
@@ -145,14 +168,11 @@ work rather than in a separate ritual. Records live under
 ## Migration
 
 `capability-receipt/v1` files still validate — they are migrated in memory, with
-`ratified` mapping to `current` and the `ratification` block to `established_by`
-with `authority_basis: owner-reserved`, which is what the literal
-`authority: human` assertion was being used to mean. New receipts must be v2.
+`ratified` mapping to `current` and the `ratification` block to `established_by`.
+The v1 assertion recorded that a person acted, which is now `actor_type: human`;
+it never recorded a basis, so it migrates as `delegated`. New receipts must be v2.
 
-**One deferred migration, and it is deliberate.** kctl's knowledge category check
-constraint (`decision | pattern | lesson | risk | reference`) lives in the
-Postgres central schema, on a federation database that is not initialised
-cluster-wide. Adding `tenet` and `direction` as first-class categories therefore
-needs a live DB migration that cannot be run today. Until then `publish` maps
-every claim to the existing `decision` category and carries `kind` in the body.
-This is a fidelity loss in kctl, not in the record: the JSON keeps the true kind.
+kctl's knowledge categories gained `tenet` and `direction` so a published claim
+keeps its true kind rather than flattening to `decision`. Entries written before
+that migration keep the category they were given; the JSON record was always
+authoritative for `kind`, so nothing is lost that the model relied on.

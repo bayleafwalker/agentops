@@ -9,9 +9,9 @@ it, not that a person approved it.  Validity is its own interval, so kind, state
 provenance/authority and validity stay orthogonal.
 
 v1 files still validate: they are migrated in memory (`migrate_v1`) rather than
-rejected.  `ratified` maps to `current`, and the v1 `ratification` block -- whose
-`authority` was the literal `human` -- maps to `established_by` with
-`authority_basis: owner-reserved`, which is what that assertion meant.
+rejected.  `ratified` maps to `current`.  The v1 `ratification` block recorded
+that a person acted, which is now `actor_type: human`; it never recorded a basis,
+and no basis is owner-reserved, so it migrates as `delegated`.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ SCHEMA_VERSIONS = {LEGACY_SCHEMA_VERSION, SCHEMA_VERSION}
 STATUSES = {"draft", "current", "superseded"}
 LEGACY_STATUSES = {"draft", "ratified", "superseded"}
 ACTOR_TYPES = {"human", "agent", "automation"}
-AUTHORITY_BASES = {"delegated", "owner-reserved", "standing-policy"}
+AUTHORITY_BASES = {"delegated", "standing-policy"}
 BOUNDARY_KINDS = {
     "release",
     "sprint-close",
@@ -351,9 +351,10 @@ def migrate_v1(value: dict[str, Any]) -> dict[str, Any]:
     """Return a v2-shaped copy of a v1 receipt.
 
     v1 encoded a human attestation as a lifecycle state. The same facts survive as
-    provenance: the ratifier becomes the actor, `human` becomes the actor_type, and
-    the literal `authority: human` assertion becomes `authority_basis:
-    owner-reserved` -- which is what it was being used to mean.
+    provenance: the ratifier becomes the actor and `human` becomes the actor_type.
+    The literal `authority: human` assertion carried no authority basis -- it
+    asserted only that a person acted -- so it migrates as `delegated`, the basis
+    every ordinary act of establishment has.
     """
 
     migrated = dict(value)
@@ -367,7 +368,7 @@ def migrate_v1(value: dict[str, Any]) -> dict[str, Any]:
             "actor": ratification.get("ratifier"),
             "actor_type": "human",
             "at": at,
-            "authority_basis": "owner-reserved",
+            "authority_basis": "delegated",
             "decision_ref": ratification.get("decision_ref"),
         }
         validity: dict[str, Any] = {"effective_from": at}

@@ -115,7 +115,9 @@ Encode the full sprint close-out sequence so steps are not repeated ad-hoc acros
 - Do not draft a sprint-close receipt before the close boundary event exists.
 - Do not treat task completion or sprint closure as proof of capability.
 - Do not establish or publish a capability receipt under an authority basis you
-  do not hold. Establishing one under delegated authority is ordinary work; an
-  `owner-reserved` change is not.
+  do not hold. Establishing one under delegated authority is ordinary work; if
+  the delegation genuinely does not cover it, that is
+  `missing-delegated-authority` and belongs in a realignment session, not in a
+  queue for a person.
 - Do not close the sprint with `candidate` knowledge entries still unreviewed.
 - Do not carry implementation work into close-out commits.

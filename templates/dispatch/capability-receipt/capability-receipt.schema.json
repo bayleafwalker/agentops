@@ -229,10 +229,9 @@
         "authority_basis": {
           "enum": [
             "delegated",
-            "owner-reserved",
             "standing-policy"
           ],
-          "description": "On what basis the actor was entitled to establish this. `owner-reserved` marks a change only the owner may make; it is a property of the change, not a queue position."
+          "description": "On what basis the actor was entitled to establish this. No basis is owner-reserved: authority is either delegated or carried by standing policy."
         },
         "decision_ref": {
           "$ref": "#/$defs/immutableRef"

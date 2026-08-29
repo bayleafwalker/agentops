@@ -37,7 +37,7 @@ SESSION_VERSION = "realignment-session/v1"
 CLAIM_KINDS = {"tenet", "direction", "practice", "decision"}
 STATES = {"draft", "current", "superseded"}
 ACTOR_TYPES = {"human", "agent", "automation"}
-AUTHORITY_BASES = {"delegated", "owner-reserved", "standing-policy"}
+AUTHORITY_BASES = {"delegated", "standing-policy"}
 ENFORCEMENT_MODES = {"review", "block"}
 STANCES = {"corroborates", "contradicts"}
 COMPATIBILITY_TERMS = {
@@ -48,10 +48,14 @@ COMPATIBILITY_TERMS = {
 }
 ALIGNMENTS = {"aligned", "extension", "tension", "divergent"}
 RESOLUTIONS = {"realign-work", "supersede-tenet"}
+# Three grounds, all of them about the limits of authority or an unsettled value.
+# There is no "an owner must decide" ground: by its nature no authority basis is
+# owner-reserved, and a human-in-the-loop is a perpendicular plane (meta-sessions
+# realigning intent, architecture and the workflow itself), never a stage the
+# regular workstream stops at.
 ATTENTION_REASONS = {
     "missing-delegated-authority",
     "unresolved-value-choice",
-    "owner-reserved-change",
     "conflict-without-precedence",
 }
 ESTABLISHED_STATES = {"current", "superseded"}

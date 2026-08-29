@@ -229,9 +229,13 @@ def cmd_publish(args: argparse.Namespace) -> int:
     if binary is None:
         print("kctl is not on PATH; claim not published", file=sys.stderr)
         return 1
+    # kctl gained `tenet` and `direction` as categories (kctl migration 8), so a
+    # published claim keeps its kind. `practice` has no category of its own and
+    # publishes as `decision`: a practice is a decision the workspace is living by.
+    category = claim["kind"] if claim["kind"] in {"tenet", "direction", "decision"} else "decision"
     body = f"{claim['statement']}\n\nkind: {claim['kind']}\nscope: {claim['scope']}"
     result = subprocess.run(
-        [binary, "publish", "--title", claim["id"], "--body", body, "--category", "decision"],
+        [binary, "publish", "--title", claim["id"], "--body", body, "--category", category],
         capture_output=True, text=True,
     )
     if result.returncode != 0:

@@ -63,9 +63,16 @@ metanarrative.py resolve <session> --attention unresolved-value-choice \
   --detail "the tenet and the work encode different product positions"
 ```
 
-`missing-delegated-authority` · `unresolved-value-choice` · `owner-reserved-change`
-· `conflict-without-precedence`. If your reason is "a person should decide", it is
-not one of these — find which of the four actually applies, or resolve it.
+`missing-delegated-authority` · `unresolved-value-choice` ·
+`conflict-without-precedence`. If your reason is "a person should decide" or "the
+owner must approve", it is not one of these — find which of the three actually
+applies, or resolve it.
+
+An attention request marks work for a **meta-session**: a session run with a human
+outside the regular workstream, scoping out differences between intention and
+implementation, architectural choices against current state, policy choices, and
+the workflow's own design. It is a different plane, not a higher one, and it is
+why the session stays open rather than being handed off for a signature.
 
 ## Recording an observation
 

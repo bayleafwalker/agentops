@@ -6,73 +6,208 @@
   "$comment": "kind x state x provenance/authority x validity are orthogonal. `state` is the document lifecycle and says nothing about who established the claim; `established_by` is provenance and says nothing about whether the claim is operative; `validity` is the interval and says nothing about either. A claim published to kctl travels as a knowledge entry -- this schema is the shape, kctl is the store.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "id", "kind", "scope", "statement", "state"],
+  "required": [
+    "schema_version",
+    "id",
+    "kind",
+    "scope",
+    "statement",
+    "state"
+  ],
   "properties": {
-    "schema_version": { "const": "claim/v1" },
-    "id": { "$ref": "#/$defs/identifier" },
+    "schema_version": {
+      "const": "claim/v1"
+    },
+    "id": {
+      "$ref": "#/$defs/identifier"
+    },
     "kind": {
-      "enum": ["tenet", "direction", "practice", "decision"],
+      "enum": [
+        "tenet",
+        "direction",
+        "practice",
+        "decision"
+      ],
       "description": "Tenets, directions and practices are all claims. Observations corroborate or contradict them; none of them is a separate object."
     },
-    "scope": { "$ref": "#/$defs/identifier" },
-    "statement": { "$ref": "#/$defs/nonBlank" },
+    "scope": {
+      "$ref": "#/$defs/identifier"
+    },
+    "statement": {
+      "$ref": "#/$defs/nonBlank"
+    },
     "state": {
-      "enum": ["draft", "current", "superseded"],
+      "enum": [
+        "draft",
+        "current",
+        "superseded"
+      ],
       "description": "Document lifecycle. `current` means operative, not approved."
     },
-    "established_by": { "$ref": "#/$defs/establishedBy" },
-    "validity": { "$ref": "#/$defs/validity" },
-    "supersedes": { "$ref": "#/$defs/identifier" },
+    "established_by": {
+      "$ref": "#/$defs/establishedBy"
+    },
+    "validity": {
+      "$ref": "#/$defs/validity"
+    },
+    "supersedes": {
+      "$ref": "#/$defs/identifier"
+    },
     "basis_for": {
       "type": "array",
       "uniqueItems": true,
       "description": "What this claim is the basis for. Presence makes it canonical, and its dependents are the realignment blast radius. Canonicality is a product-dependency relation -- never approval, maturity or permanence -- so it is never inferred from a raw dependent count.",
-      "items": { "$ref": "#/$defs/identifier" }
+      "items": {
+        "$ref": "#/$defs/identifier"
+      }
     },
     "enforcement_mode": {
-      "enum": ["review", "block"],
+      "enum": [
+        "review",
+        "block"
+      ],
       "description": "The tenet/invariant distinction, and the only thing that distinguishes them. `review` (a tenet): divergence opens a realignment session. `block` (an invariant): violation stops the work."
     },
-    "review_trigger": { "enum": ["divergence-finding", "none"] }
+    "review_trigger": {
+      "enum": [
+        "divergence-finding",
+        "none"
+      ]
+    }
   },
   "$defs": {
-    "identifier": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
-    "nonBlank": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "nonBlank": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
     "establishedBy": {
       "type": "object",
       "description": "Provenance and authority basis. Declared, not authenticated. `actor_type` records who acted; it never gates anything.",
       "additionalProperties": false,
-      "required": ["actor", "actor_type", "at", "authority_basis"],
+      "required": [
+        "actor",
+        "actor_type",
+        "at",
+        "authority_basis"
+      ],
       "properties": {
-        "actor": { "$ref": "#/$defs/nonBlank" },
-        "actor_type": { "enum": ["human", "agent", "automation"] },
-        "at": { "type": "string", "format": "date-time" },
-        "authority_basis": { "enum": ["delegated", "owner-reserved", "standing-policy"] },
-        "decision_ref": { "$ref": "#/$defs/nonBlank" }
+        "actor": {
+          "$ref": "#/$defs/nonBlank"
+        },
+        "actor_type": {
+          "enum": [
+            "human",
+            "agent",
+            "automation"
+          ]
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "authority_basis": {
+          "enum": [
+            "delegated",
+            "standing-policy"
+          ]
+        },
+        "decision_ref": {
+          "$ref": "#/$defs/nonBlank"
+        }
       }
     },
     "validity": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["effective_from"],
+      "required": [
+        "effective_from"
+      ],
       "properties": {
-        "effective_from": { "type": "string", "format": "date-time" },
-        "effective_to": { "type": ["string", "null"], "format": "date-time" }
+        "effective_from": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "effective_to": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
       }
     }
   },
   "allOf": [
     {
-      "if": { "properties": { "state": { "const": "draft" } }, "required": ["state"] },
-      "then": { "not": { "anyOf": [{ "required": ["established_by"] }, { "required": ["validity"] }] } }
+      "if": {
+        "properties": {
+          "state": {
+            "const": "draft"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "established_by"
+              ]
+            },
+            {
+              "required": [
+                "validity"
+              ]
+            }
+          ]
+        }
+      }
     },
     {
-      "if": { "properties": { "state": { "enum": ["current", "superseded"] } }, "required": ["state"] },
-      "then": { "required": ["established_by", "validity"] }
+      "if": {
+        "properties": {
+          "state": {
+            "enum": [
+              "current",
+              "superseded"
+            ]
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "required": [
+          "established_by",
+          "validity"
+        ]
+      }
     },
     {
-      "if": { "properties": { "kind": { "const": "tenet" } }, "required": ["kind"] },
-      "then": { "required": ["enforcement_mode"] }
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "tenet"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "enforcement_mode"
+        ]
+      }
     }
   ]
 }

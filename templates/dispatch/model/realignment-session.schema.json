@@ -5,54 +5,133 @@
   "description": "Opened by a divergence finding against a tenet whose enforcement_mode is `review`. Agent-run. It has two substantive resolutions; escalation is routing, not a resolution, and does not close the session.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "id", "tenet", "work_ref", "alignment", "state", "resolution_options"],
+  "required": [
+    "schema_version",
+    "id",
+    "tenet",
+    "work_ref",
+    "alignment",
+    "state",
+    "resolution_options"
+  ],
   "properties": {
-    "schema_version": { "const": "realignment-session/v1" },
-    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
-    "tenet": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
-    "work_ref": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "schema_version": {
+      "const": "realignment-session/v1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "tenet": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "work_ref": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
     "alignment": {
-      "enum": ["aligned", "extension", "tension", "divergent"],
+      "enum": [
+        "aligned",
+        "extension",
+        "tension",
+        "divergent"
+      ],
       "description": "How the work stands against the tenet. Only `divergent` opens a session; `tension` is recorded and watched."
     },
-    "state": { "enum": ["open", "resolved"] },
+    "state": {
+      "enum": [
+        "open",
+        "resolved"
+      ]
+    },
     "resolution_options": {
       "type": "array",
       "minItems": 2,
       "uniqueItems": true,
-      "items": { "enum": ["realign-work", "supersede-tenet"] },
+      "items": {
+        "enum": [
+          "realign-work",
+          "supersede-tenet"
+        ]
+      },
       "description": "The only two substantive resolutions. Neither is an approval step."
     },
-    "resolution": { "enum": ["realign-work", "supersede-tenet"] },
+    "resolution": {
+      "enum": [
+        "realign-work",
+        "supersede-tenet"
+      ]
+    },
     "attention_request": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["reason", "raised_at"],
+      "required": [
+        "reason",
+        "raised_at"
+      ],
       "properties": {
         "reason": {
           "enum": [
             "missing-delegated-authority",
             "unresolved-value-choice",
-            "owner-reserved-change",
             "conflict-without-precedence"
           ],
-          "description": "The only four grounds for attention. None of them is \"a human should look at this\"."
+          "description": "The only grounds for attention, all about the limits of authority or an unsettled value. None of them is \"a human should look at this\", and none is \"an owner must decide\"."
         },
-        "raised_at": { "type": "string", "format": "date-time" },
-        "detail": { "type": "string", "minLength": 1, "pattern": "\\S" }
+        "raised_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "detail": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        }
       }
     }
   },
   "allOf": [
     {
-      "if": { "properties": { "state": { "const": "resolved" } }, "required": ["state"] },
-      "then": { "required": ["resolution"], "not": { "required": ["attention_request"] } }
+      "if": {
+        "properties": {
+          "state": {
+            "const": "resolved"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "required": [
+          "resolution"
+        ],
+        "not": {
+          "required": [
+            "attention_request"
+          ]
+        }
+      }
     },
     {
-      "if": { "required": ["attention_request"] },
+      "if": {
+        "required": [
+          "attention_request"
+        ]
+      },
       "then": {
-        "properties": { "state": { "const": "open" } },
-        "not": { "required": ["resolution"] }
+        "properties": {
+          "state": {
+            "const": "open"
+          }
+        },
+        "not": {
+          "required": [
+            "resolution"
+          ]
+        }
       }
     }
   ]
