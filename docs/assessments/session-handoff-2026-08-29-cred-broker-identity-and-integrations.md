@@ -229,15 +229,35 @@ fetch.**
 
 Use it when the next repository is added, then verify with the canary.
 
-### 4. devbox is entirely un-enrolled
+### 4. devbox is entirely un-enrolled — and the workstation path cannot be copied to it
 
 `policy.hosts` has devbox `active: true`, `development-bounded`, with one
-binding. It has no certificate and no renewal. **Unresolved and load-bearing:
-does devbox hold a kubeconfig?** The workstation path works only because it can
-`kubectl exec` into `openbao-0`, and giving a `development-bounded` host that
-access would trade a 24-hour outage for a permanent boundary breach. Also, its
-`pki-broker` role naming is unknown — `cred-broker-devbox` is *absent*, bare
-`devbox` is *denied, existence unknown*.
+binding. It has no certificate and no renewal.
+
+**The load-bearing question is answered: no, and it could not use one.**
+Measured on the host, not read off the config:
+
+- `~/.kube` does not exist, `KUBECONFIG` unset, `kubectl` present but with
+  nothing to point it at, and `sudo` needs a password the agent user lacks.
+- The egress allowlist is the decisive part.
+  `modules/system/agent-egress.nix` drops everything in private space that is
+  not in `allowedLanHosts`, and `hosts/devbox/default.nix` lists exactly three:
+  Forgejo `192.168.20.219`, `sprintctl-pg` `192.168.20.220`, `actionq-pg`
+  `192.168.20.215`. The Kubernetes API is not among them. Probed from devbox
+  with a positive control alongside: `192.168.20.10:6443` **blocked**,
+  `192.168.20.219:443` **reachable**.
+
+So the workstation ceremony is not portable to devbox by any amount of copying,
+and the choice framed above — enroll it, or breach the boundary — was a false
+one. Enrolling devbox *requires* **Goal D**: the sign-only `cred-broker-enroll`
+workload with a CSR endpoint authenticated by TokenReview. Even then it needs
+that endpoint's address added to `allowedLanHosts` — a reviewable one-line
+change in Nix, which is the shape a `development-bounded` host should have,
+rather than cluster-admin.
+
+Its `pki-broker` role naming is still unknown — `cred-broker-devbox` is
+*absent*, bare `devbox` is *denied, existence unknown*. Nothing to do about
+that until Goal D exists.
 
 Devbox is NixOS: any unit must be declared in
 `gitops-nixos/hosts/devbox/default.nix`, not symlinked by hand.
@@ -303,7 +323,10 @@ that compares declared intent against live state and can fail. Extending
 ### Goal D — a host should not need `kubectl exec` into the vault
 
 The current design works because the workstation is effectively cluster-admin.
-That does not generalise to devbox and should not. The eventual shape is a
+That does not generalise to devbox and should not — and as of 2026-08-29 this
+is no longer a preference but a measured constraint: devbox cannot reach the
+Kubernetes API at all (outstanding item 4). Goal D is the *only* path to
+enrolling it, which promotes this from eventual shape to prerequisite. The eventual shape is a
 separate `cred-broker-enroll` workload holding the sign-only policy and
 exposing a CSR endpoint authenticated by TokenReview — then no host needs
 OpenBao access, the API deployment keeps Transit-only, the enroller keeps
