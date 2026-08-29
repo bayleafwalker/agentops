@@ -38,7 +38,7 @@ Implement approved, bounded work using the repo's dispatch packet, manifest, and
 - Implemented scope with changed paths listed.
 - Verification commands and pass/fail results.
 - Residual risks, skipped checks, or required scope expansions called out.
-- Stable diff ready for review, handoff, or PR prep.
+- Stable diff ready to land, or ready for review, handoff, or PR prep where one of those is actually called for.
 
 ## Do Not
 
@@ -46,3 +46,4 @@ Implement approved, bounded work using the repo's dispatch packet, manifest, and
 - Do not mutate unrelated files or broaden the scope silently.
 - Do not reserve, reassign, release, or interrupt work from a subagent or worker prompt; reservation changes belong to the orchestrating session.
 - Do not mark work complete without reporting verification status.
+- Do not treat "diff is stable" as done. A stable diff still has to land -- see `item-done` step 4. Stopping at PR prep by default is what leaves work stranded on branches nobody is tracking.

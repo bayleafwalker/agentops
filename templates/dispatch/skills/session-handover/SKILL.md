@@ -79,7 +79,14 @@ enforcement surface — treat it as load-bearing, not optional, for now.
    Do not restate what `sprintctl item show` or `git log` already say more
    authoritatively. Never include transcripts or credentials — `privacy` is
    deliberately conservative by default (`raw_transcript_captured: false`).
-5. `/clear` and session-end fire after the conversation can no longer act, so
+5. **State the landing status of every repository you touched**: branch, whether
+   the work is on the target branch or parked, and whether anything is unpushed
+   or uncommitted. `item-done` step 4 says work must land; a handover is where
+   an exception becomes visible instead of becoming someone else's archaeology.
+   Name the reason for anything still parked — a PR awaiting a named reader, an
+   archived or unreachable remote, a checkout deliberately left on a branch. A
+   repo left dirty with no reason given is the defect this line exists to catch.
+6. `/clear` and session-end fire after the conversation can no longer act, so
    writing the note is the **last thing** this skill does in a turn, not
    something deferred.
 
@@ -96,6 +103,9 @@ enforcement surface — treat it as load-bearing, not optional, for now.
   `reconciliation-proposal/v1` path; this skill never mutates sprintctl.
 - Do not write a note through anything other than `session_notes.py` — do not
   call sprintctl authority commands from this skill.
+- Do not hand over unlanded work silently. Parked work that no note names is
+  indistinguishable from work nobody did, and it is how branches accumulate
+  across repositories with no reviewer and no owner.
 
 ## Related documents
 
