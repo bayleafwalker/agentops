@@ -276,24 +276,36 @@ def cmd_recover(args: argparse.Namespace) -> int:
                 found["actor"] = claim["actor"]
                 citations["work-authority: recovered"] = "work.read.reservations"
 
-    # Checkpoint and exact revision: whatever the served surfaces know about where the
-    # interrupted session had got to. `git_context` is the bundle's own field for it.
+    # Checkpoint and exact revision: where the interrupted session had got to.
+    #
+    # Two fields, and reading the wrong one is how this probe first got the answer by
+    # accident. `git_context` is what the CALLING process observes, which for a resumer
+    # with no worktree is null by construction -- asking it where its predecessor was is
+    # asking the wrong process. `last_checkpoint` is what the LAST session recorded, and
+    # it is the field that has to survive the interruption. Prefer it, and fall back to
+    # `git_context` only for a resumer that does happen to hold a worktree.
     if isinstance(handoff, dict):
-        git_context = handoff.get("git_context")
-        if isinstance(git_context, dict) and git_context.get("sha"):
-            found["checkpoint"] = git_context
-            found["revision"] = git_context.get("sha")
-            found["branch"] = git_context.get("branch")
-            citations["checkpoint: recovered"] = "work.read.handoff"
-            citations["exact-revision: recovered"] = "work.read.handoff"
+        for field in ("last_checkpoint", "git_context"):
+            source = handoff.get(field)
+            if isinstance(source, dict) and source.get("sha"):
+                found["checkpoint"] = source
+                found["revision"] = source["sha"]
+                found["branch"] = source.get("branch")
+                citations["checkpoint: recovered"] = "work.read.handoff"
+                citations["exact-revision: recovered"] = "work.read.handoff"
+                break
 
-    # A revision may also have been recorded as an item reference or an evidence locator.
-    # Looking there before concluding it is unrecoverable keeps the finding honest.
+    # Last resort: a revision may have been recorded somewhere else in the bundle -- an
+    # item reference, an evidence locator. Looking before concluding it is unrecoverable
+    # keeps a negative finding honest. It is recorded as an unstructured find, because a
+    # sha scraped out of a blob is weaker evidence than a field that means "checkpoint",
+    # and a probe that cannot tell the two apart will report a lucky grep as a recovery.
     if found["revision"] is None and isinstance(handoff, dict):
         blob = json.dumps(handoff)
         candidates = sorted(set(re.findall(r"\b[0-9a-f]{40}\b", blob)))
         if candidates:
             found["revision"] = candidates[0]
+            found["revision_was_scraped"] = True
             citations["exact-revision: recovered"] = "work.read.handoff"
 
     recovered = {

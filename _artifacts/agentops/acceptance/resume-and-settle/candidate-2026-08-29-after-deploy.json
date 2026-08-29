@@ -1,0 +1,86 @@
+{
+  "schema_version": "acceptance-lab/candidate-output/v1",
+  "answer": "Recovered 4 of 4 required elements through the served backend for repo agentops. Unserved and skipped: session.resume.",
+  "facts": [
+    "session-identity: recovered",
+    "work-authority: recovered",
+    "checkpoint: recovered",
+    "exact-revision: recovered",
+    "session-identity: matches the session interrupted",
+    "work-authority: matches the authority held before the interruption",
+    "exact-revision: matches the revision observed before the interruption"
+  ],
+  "citations": [
+    {
+      "id": "work.read.handoff",
+      "supports": [
+        "checkpoint: recovered",
+        "exact-revision: matches the revision observed before the interruption",
+        "exact-revision: recovered"
+      ]
+    },
+    {
+      "id": "work.read.reservations",
+      "supports": [
+        "session-identity: matches the session interrupted",
+        "session-identity: recovered",
+        "work-authority: matches the authority held before the interruption",
+        "work-authority: recovered"
+      ]
+    }
+  ],
+  "abstained": false,
+  "trajectory": [
+    {
+      "seq": 1,
+      "tool": "work.read.handoff",
+      "action": "handoff --format json --output -"
+    },
+    {
+      "seq": 2,
+      "tool": "work.read.reservations",
+      "action": "reservation list --all --json"
+    },
+    {
+      "seq": 3,
+      "tool": "work.read.context",
+      "action": "usage --context --json"
+    },
+    {
+      "seq": 4,
+      "tool": "work.read.next-work-explain",
+      "action": "next-work --json --explain"
+    },
+    {
+      "seq": 5,
+      "tool": "work.reservation.reserve",
+      "action": "arrange: work.reservation.reserve",
+      "effect": true,
+      "effect_id": "reservation-44",
+      "receipt": "reservation#44"
+    },
+    {
+      "seq": 6,
+      "tool": "work.handoff.record",
+      "action": "arrange: work.handoff.record",
+      "effect": true,
+      "effect_id": "handoff-record",
+      "receipt": "event#2602"
+    }
+  ],
+  "metrics": {
+    "latency_ms": 1350.6,
+    "served_surfaces_used": 6.0
+  },
+  "metadata": {
+    "profile": "workstation-vuoro-shared",
+    "probe": "templates/dispatch/scripts/resume_probe.py",
+    "observed_revision": "3cf980d4a8834c64108c3ee06716560b19893ea7",
+    "recovered_revision": "3cf980d4a8834c64108c3ee06716560b19893ea7",
+    "observed_session_id": "resume-probe-65907b4ac275",
+    "recovered_session_id": "resume-probe-65907b4ac275",
+    "unserved_operations": [
+      "session.resume"
+    ]
+  }
+}
