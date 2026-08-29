@@ -237,14 +237,49 @@ def cmd_publish(args: argparse.Namespace) -> int:
     # publishes as `decision`: a practice is a decision the workspace is living by.
     category = claim["kind"] if claim["kind"] in {"tenet", "direction", "decision"} else "decision"
     body = f"{claim['statement']}\n\nkind: {claim['kind']}\nscope: {claim['scope']}"
+
+    # kctl publishes an *approved candidate*; it does not create an entry from
+    # nothing. A claim has no sprintctl event behind it, so `extract` cannot produce
+    # its candidate -- `kctl adopt` (migration 9) is the door for records whose
+    # origin is not an event. Three steps, because each is a real transition in
+    # kctl's pipeline and collapsing them would hide the review boundary rather
+    # than cross it honestly.
+    established = claim.get("established_by") or {}
+    actor = established.get("actor", "unknown")
+
+    adopt = subprocess.run(
+        [binary, "adopt", "--summary", claim["id"], "--detail", body,
+         "--event-type", f"model.{claim['kind']}", "--origin", "metanarrative",
+         "--actor", actor],
+        capture_output=True, text=True,
+    )
+    if adopt.returncode != 0:
+        print(adopt.stderr.strip() or "kctl adopt failed", file=sys.stderr)
+        return 1
+    # "Adopted candidate #<n> (origin): <summary>"
+    try:
+        candidate_id = adopt.stdout.split("#", 1)[1].split()[0].rstrip(":")
+    except (IndexError, ValueError):
+        print(f"could not read a candidate id from: {adopt.stdout.strip()}", file=sys.stderr)
+        return 1
+
+    approve = subprocess.run(
+        [binary, "review", "approve", "--id", candidate_id, "--reviewer", actor],
+        capture_output=True, text=True,
+    )
+    if approve.returncode != 0:
+        print(approve.stderr.strip() or "kctl review approve failed", file=sys.stderr)
+        return 1
+
     result = subprocess.run(
-        [binary, "publish", "--title", claim["id"], "--body", body, "--category", category],
+        [binary, "publish", "--id", candidate_id, "--title", claim["id"],
+         "--body", body, "--category", category],
         capture_output=True, text=True,
     )
     if result.returncode != 0:
         print(result.stderr.strip() or "kctl publish failed", file=sys.stderr)
         return 1
-    print(f"published {args.id} to kctl")
+    print(f"published {args.id} to kctl (candidate #{candidate_id})")
     return 0
 
 
