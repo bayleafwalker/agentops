@@ -1,0 +1,9 @@
+{
+  "schema_version": "observation/v1",
+  "id": "ci-not-on-main",
+  "subject": "land-work-in-main",
+  "stance": "contradicts",
+  "observed_at": "2026-08-29T10:11:09Z",
+  "evidence_ref": "sha:7894ef8",
+  "note": "homelab-analytics .github/workflows/verify.yaml triggers on pull_request only, so a direct push to main runs no verification -- confirmed by pushing 7894ef8 to main and getting no Verify run (last one on main was d6e3352). The practice's 'let CI on main catch issues' has an unmet precondition here, and the two halves compose into a gap: land directly and nothing checks it; open a PR to get it checked and you do the thing the practice forbids. Fix is a push trigger on main, but that raises GitHub Actions consumption against a standing decision to move CI to git.apps.kotona.app after minutes exhaustion -- so the runner move sequences before this, and the repo-by-repo scope is unsurveyed."
+}

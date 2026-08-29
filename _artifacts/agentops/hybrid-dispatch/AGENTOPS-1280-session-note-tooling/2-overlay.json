@@ -1,0 +1,53 @@
+{
+  "overlay": {
+    "$schema": "https://opencode.ai/config.json",
+    "model": "opencode-go/deepseek-v4-flash",
+    "permission": {
+      "read": "allow",
+      "glob": "allow",
+      "grep": "allow",
+      "list": "allow",
+      "todowrite": "allow",
+      "todoread": "allow",
+      "edit": "allow",
+      "write": "allow",
+      "patch": "allow",
+      "bash": {
+        "*": "deny",
+        "python -m unittest discover -s templates/dispatch/tests -p test_session_notes.py": "allow"
+      },
+      "task": "deny",
+      "external_directory": "deny",
+      "webfetch": "deny",
+      "websearch": "deny"
+    },
+    "agent": {
+      "ao-mechanical-bulk": {
+        "description": "Low-ambiguity mechanical implementation against an externally supplied oracle and discriminating gates.",
+        "mode": "primary",
+        "model": "opencode-go/deepseek-v4-flash",
+        "temperature": 0,
+        "permission": {
+          "task": "deny",
+          "external_directory": "deny",
+          "webfetch": "deny",
+          "websearch": "deny",
+          "read": "allow",
+          "glob": "allow",
+          "grep": "allow",
+          "list": "allow",
+          "todowrite": "allow",
+          "todoread": "allow",
+          "edit": "allow",
+          "write": "allow",
+          "patch": "allow",
+          "bash": {
+            "*": "deny",
+            "python -m unittest discover -s templates/dispatch/tests -p test_session_notes.py": "allow"
+          }
+        }
+      }
+    }
+  },
+  "overlay_sha256": "8ed308ae5ec100e240a01de980f2617ca45cdd8e1035df6cf435df79ff6cae1e"
+}

@@ -1,0 +1,84 @@
+{
+  "schema_version": "agentops-task/v1",
+  "task_id": "AGENTOPS-1280-session-note-tooling",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#1280",
+    "claim_id": 431,
+    "claim_actor": "devbox-agent-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "task_class": "mechanical_implementation",
+  "risk": "low",
+  "oracle": {
+    "ownership": "externally_defined",
+    "worker_may_modify": false,
+    "description": "Coordinator-authored tests in templates/dispatch/tests/test_session_notes.py define correctness for session_notes.py: append/list mechanics, supersedes-chain head resolution (concurrent heads, dangling refs, cycles), and cross-repo latest resolution."
+  },
+  "attempt": 1,
+  "starting_commit": "ab7bc84c20308f4299cd27603083de670c76716d",
+  "purpose": "Implement templates/dispatch/scripts/session_notes.py and templates/dispatch/skills/session-handover/SKILL.md per the ratified session-note-contract-plan.md Phase 1 design, so the frozen coordinator-authored test suite passes. The schema, example, validator discovery, and matrix row already shipped in #1213; this packet implements only the writer/reader script and the skill doc, matching AgentOps backlog item #1280 (bulk-admissible slice: bounded script/skill mechanics).",
+  "readable_context_paths": [
+    "AGENTS.md",
+    "agentops.dispatch.json",
+    "docs/plans/agentops/session-note-contract-plan.md",
+    "docs/dispatch/session-mechanization-contracts.md",
+    "templates/dispatch/session-mechanization/session-note.schema.json",
+    "templates/dispatch/session-mechanization/session-note.example.json",
+    "templates/dispatch/scripts/session_scribe.py",
+    "templates/dispatch/scripts/session_reconciler.py",
+    "templates/dispatch/scripts/validate_session_mechanization_artifacts.py",
+    "templates/dispatch/skills/session-scribe/SKILL.md",
+    "templates/dispatch/skills/session-reconciler/SKILL.md",
+    "templates/dispatch/tests/test_session_notes.py"
+  ],
+  "writable_patch_paths": [
+    "templates/dispatch/scripts/session_notes.py",
+    "templates/dispatch/skills/session-handover/SKILL.md"
+  ],
+  "protected_paths": [
+    "templates/dispatch/tests/test_session_notes.py",
+    "templates/dispatch/session-mechanization/**",
+    "docs/**"
+  ],
+  "required_outcomes": [
+    "session_notes.py exposes new_note(), append(), load_notes(), resolve_latest(), resolve_latest_multi(), and list_notes() importable functions matching the exact behavior asserted by test_session_notes.py",
+    "session_notes.py exposes an argparse CLI with append/latest/list subcommands (cmd_append, cmd_latest, cmd_list) mirroring the sibling session_scribe.py conventions",
+    "every written note validates via the existing validate_session_mechanization_artifacts.VALIDATOR.validate_session_note before being persisted",
+    "the frozen oracle test suite (templates/dispatch/tests/test_session_notes.py) passes unmodified",
+    "the session-handover skill doc explains writing a note at session end/clear and reading `latest` at session start, per session-note-contract-plan.md's Phase 1 skill scope (no hook wiring -- that is #1281)"
+  ],
+  "acceptance_properties": [
+    {
+      "requirement": "session_notes.py implements the frozen oracle's append/list/supersedes-resolution/cross-repo-latest contract",
+      "command_id": "agentops.session-notes.tests",
+      "fails_when": "any function in test_session_notes.py is missing, has the wrong signature, or produces output that does not match the frozen assertions"
+    }
+  ],
+  "non_goals": [
+    "hook wiring, latest --hook, or stop-gate (AgentOps #1281)",
+    "the coverage report command (#1281)",
+    "cross-machine/outbox transport (Phase 2, blocked)",
+    "editing the schema, example, or validator (already shipped in #1213)",
+    "editing docs, the manifest, or any file outside writable_patch_paths",
+    "editing test_session_notes.py itself"
+  ],
+  "allowed_command_ids": ["agentops.session-notes.tests"],
+  "limits": {
+    "timeout_seconds": 1200,
+    "max_cost_usd": 2.0,
+    "soft_token_ceiling": 500000,
+    "hard_token_ceiling": 1000000
+  },
+  "network_policy": "disabled",
+  "worktree": {
+    "root": "/tmp/agentops-hybrid/worktrees",
+    "branch": "hybrid/agentops-1280-session-note-tooling",
+    "cleanup": "retain-for-review"
+  },
+  "review": {
+    "coordinator_context": "independent",
+    "challenger_enabled": false,
+    "references": ["docs/plans/agentops/session-note-contract-plan.md"]
+  }
+}

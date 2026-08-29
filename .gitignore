@@ -2,7 +2,11 @@
 .env
 .env.*
 !.env.example
-.envrc
+# .envrc is the repository's executable environment contract and is tracked:
+# it declares the served backend, the vuoro profile and the artifacts root, and
+# leaving it untracked is why those had to be re-created by hand on every host.
+# Host-specific overrides belong in .envrc.local, which stays ignored.
+.envrc.local
 node_modules/
 dist/
 build/

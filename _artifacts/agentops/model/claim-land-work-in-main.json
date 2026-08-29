@@ -1,0 +1,23 @@
+{
+  "schema_version": "claim/v1",
+  "id": "land-work-in-main",
+  "kind": "practice",
+  "scope": "agentops",
+  "statement": "Land work in main, or in the main dev branch where main is protected; merge or fast-forward and let CI on main catch issues. Open a PR only for a specific named action -- escalation to human review, a directly dispatched review session, or a CI check that must be seen on that exact head. A PR opened as a default 'pending review' park, with no reviewer named and none dispatched, is a defect: nothing arrives to review it and the work becomes cross-repository drift. Releases are pinned separately for deployment, so an open PR is never what holds a change back from production.",
+  "state": "current",
+  "established_by": {
+    "actor": "bayleaf",
+    "actor_type": "human",
+    "at": "2026-08-29T10:10:48Z",
+    "authority_basis": "standing-policy"
+  },
+  "validity": {
+    "effective_from": "2026-08-29T10:10:48Z"
+  },
+  "basis_for": [
+    "item-done",
+    "dispatch-build",
+    "pr-handoff-summary",
+    "session-handover"
+  ]
+}

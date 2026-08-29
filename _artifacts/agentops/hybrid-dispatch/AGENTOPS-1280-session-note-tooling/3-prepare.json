@@ -1,0 +1,70 @@
+{
+  "schema_version": "agentops-hybrid-receipt/v1",
+  "recorded_at": "2026-08-03T14:48:39+00:00",
+  "execution_id": "AGENTOPS-1280-session-note-tooling:1c900dd2ae6d60d1:attempt-1",
+  "task_id": "AGENTOPS-1280-session-note-tooling",
+  "repo_id": "agentops",
+  "sprint_item": {
+    "ref": "agentops#1280",
+    "claim_id": 431,
+    "claim_actor": "devbox-agent-vuoro"
+  },
+  "route": "mechanical_bulk",
+  "attempt": 1,
+  "inputs": {
+    "packet_hash": "sha256:1c900dd2ae6d60d1edd5c429ef50412ac5dff3a70bb83c6ccea437c3be23b0c8",
+    "repository_commit": "ab7bc84c20308f4299cd27603083de670c76716d",
+    "gate_set_hash": "sha256:e39d3e0b9fc60553d6974576b04e6a2cdce663f99c3f4c5f9d3a852f0eb26e7e"
+  },
+  "harness_model": "opencode-go/deepseek-v4-flash",
+  "qualification": "named_pilot:vuoro-tooling-bulk-2026-07-28",
+  "qualification_policy": {
+    "mode": "named_pilot",
+    "pilot_id": "vuoro-tooling-bulk-2026-07-28",
+    "repositories": [
+      "agentops",
+      "1deb57d0-af6f-479c-811a-b5b7254841f9",
+      "2be118eb-8e89-433a-8d32-ada157624f95",
+      "kctl",
+      "actionq"
+    ],
+    "routes": [
+      "mechanical_bulk"
+    ],
+    "models": [
+      "opencode-go/deepseek-v4-flash"
+    ],
+    "evidence_document": "docs/dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md",
+    "default": "unqualified",
+    "admission": "Vuoro ecosystem tooling is admitted only for low-ambiguity mechanical implementation with frozen interfaces, an externally supplied oracle, and executable discriminating gates. Test-oracle design, parity fixtures, cross-layer behavioural proof, and authority/release/compatibility/migration/recovery decisions remain coordinator-only. Every packet still requires a live coordinator claim, captured execution evidence, independent review, and human acceptance."
+  },
+  "acceptance_authority": "human",
+  "stage": "prepare",
+  "worktree": "/tmp/agentops-hybrid/worktrees/agentops/AGENTOPS-1280-session-note-tooling",
+  "overlay_sha256": "8ed308ae5ec100e240a01de980f2617ca45cdd8e1035df6cf435df79ff6cae1e",
+  "coordinator_claim": {
+    "claim_id": 431,
+    "work_item_id": 1280,
+    "agent": "devbox-agent-vuoro",
+    "expires_at": "2026-08-03T15:24:46.002438Z",
+    "checked_at": "2026-08-03T14:48:39+00:00"
+  },
+  "safety": {
+    "ref": "safety/pre-dispatch-AGENTOPS-1280-session-note-tooling",
+    "commit": "ab7bc84c20308f4299cd27603083de670c76716d",
+    "restore_command": "git -C /projects/dev/_projects/vuoro-dispatch-ready/members/agentops reset --hard safety/pre-dispatch-AGENTOPS-1280-session-note-tooling",
+    "uncommitted_paths_at_risk": [
+      "M .agents/environment.generated.md"
+    ]
+  },
+  "cold_command_results": [
+    {
+      "command_id": "agentops.session-notes.tests",
+      "command": "python -m unittest discover -s templates/dispatch/tests -p test_session_notes.py",
+      "exit_code": 1,
+      "stdout_tail": "",
+      "stderr_tail": "E\n======================================================================\nERROR: test_session_notes (unittest.loader._FailedTest.test_session_notes)\n----------------------------------------------------------------------\nImportError: Failed to import test module: test_session_notes\nTraceback (most recent call last):\n  File \"/nix/store/rgnappqqc5vbq60gza5fflyk84sylwl6-python3-3.14.6/lib/python3.14/unittest/loader.py\", line 426, in _find_test_path\n    module = self._get_module_from_name(name)\n  File \"/nix/store/rgnappqqc5vbq60gza5fflyk84sylwl6-python3-3.14.6/lib/python3.14/unittest/loader.py\", line 367, in _get_module_from_name\n    __import__(name)\n    ~~~~~~~~~~^^^^^^\n  File \"/tmp/agentops-hybrid/worktrees/agentops/AGENTOPS-1280-session-note-tooling/templates/dispatch/tests/test_session_notes.py\", line 17, in <module>\n    SPEC.loader.exec_module(NOTES)\n    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^\n  File \"<frozen importlib._bootstrap_external>\", line 755, in exec_module\n  File \"<frozen importlib._bootstrap_external>\", line 892, in get_code\n  File \"<frozen importlib._bootstrap_external>\", line 950, in get_data\nFileNotFoundError: [Errno 2] No such file or directory: '/tmp/agentops-hybrid/worktrees/agentops/AGENTOPS-1280-session-note-tooling/templates/dispatch/scripts/session_notes.py'\n\n\n----------------------------------------------------------------------\nRan 1 test in 0.000s\n\nFAILED (errors=1)\n"
+    }
+  ],
+  "eligible_for_dispatch": false
+}

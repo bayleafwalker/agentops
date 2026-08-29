@@ -1,0 +1,17 @@
+{
+  "schema_version": "claim/v1",
+  "id": "measure-before-writing",
+  "kind": "practice",
+  "scope": "agentops",
+  "statement": "Re-measure an inherited claim before restating it; four claims in the current plan were retracted for want of this",
+  "state": "current",
+  "established_by": {
+    "actor": "bayleaf",
+    "actor_type": "agent",
+    "at": "2026-08-29T06:32:01Z",
+    "authority_basis": "delegated"
+  },
+  "validity": {
+    "effective_from": "2026-08-29T06:32:01Z"
+  }
+}

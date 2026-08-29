@@ -1,0 +1,9 @@
+{
+  "schema_version": "observation/v1",
+  "id": "drift-unlanded-branches",
+  "subject": "land-work-in-main",
+  "stance": "contradicts",
+  "observed_at": "2026-08-29T10:11:09Z",
+  "evidence_ref": "wi:2311",
+  "note": "Survey 2026-08-29 across /projects/dev: zero open PRs anywhere, but eight repos sit ahead of main on unlanded branches with no PR at all -- aligned-equity (23 commits), wizard-valley-world-window (12), bindery-ra2-adapter (5), kctl, flowlab, outctl, actionq-dispatcher, cluster-alignment-mvp (1 each). actionq-dispatcher and cluster-alignment-mvp are unpushed, existing only on workstation-local Btrfs since 2026-08-20, so they are past the edge of the 7-day daily snapshot window. The observed failure is worse than the stated one: work never became visible to anything, so no reviewer could have been named even in principle."
+}

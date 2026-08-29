@@ -1,0 +1,84 @@
+{
+  "schema_version": "capability-receipt/v1",
+  "id": "agentops.2026-07-13.capability-receipt-v1.r1",
+  "project": "agentops",
+  "as_of": "2026-07-13",
+  "boundary": {
+    "kind": "operating-change",
+    "ref": {
+      "kind": "artifact",
+      "source": "repo:agentops/templates/dispatch/capability-receipt/capability-receipt.schema.json",
+      "revision": "sha256:4b5776f09aa79a24b521abfbc80b2ba71c70533453a745f6ea87d81302264e69"
+    }
+  },
+  "status": "draft",
+  "before": "Project boundaries could preserve sprint state, audit facts, and reviewed knowledge, but there was no canonical close-time record of the capability delta itself or of who had authority to ratify that claim.",
+  "after": "A validated governed prototype now lets an intentional close distinguish a proposed capability boundary from routine activity, write an unpublished delta bound to exact evidence and file bytes, and stop at an operator-directed procedural ratification boundary.",
+  "locus": "governed",
+  "evidence": [
+    {
+      "ref": {
+        "kind": "artifact",
+        "source": "repo:agentops/templates/dispatch/capability-receipt/capability-receipt.schema.json",
+        "revision": "sha256:4b5776f09aa79a24b521abfbc80b2ba71c70533453a745f6ea87d81302264e69"
+      },
+      "observation": "The v1 contract separates draft, procedurally attested ratification, supersession, and publication states; it rejects mutable revision aliases, scoring fields, and draft publication without claiming to authenticate a person."
+    },
+    {
+      "ref": {
+        "kind": "artifact",
+        "source": "repo:agentops/templates/dispatch/skills/capability-receipt/SKILL.md",
+        "revision": "sha256:42081d193b8aaec39ca0017e3ecd084705c0f25dfe5087683d073c4f15b0351e"
+      },
+      "observation": "The shared skill requires a sprint-close receipt to bind to an existing database-local close event, then governs evidence collection, unpublished storage, validation, digest-only event linkage, and the operator ratification boundary."
+    },
+    {
+      "ref": {
+        "kind": "artifact",
+        "source": "repo:sprintctl/sprintctl.dispatch.json",
+        "revision": "sha256:886a270d487f3a6d6dce9aab549a267c7e09b05486ca1a48fd682363fca24f4f"
+      },
+      "observation": "Sprintctl selects the shared capability-receipt skill, declares the close-boundary lifecycle as a verification risk surface, and leaves the value judgment outside its database and CLI contracts."
+    },
+    {
+      "ref": {
+        "kind": "artifact",
+        "source": "repo:sprintctl/docs/reference/capability-receipts.md",
+        "revision": "sha256:b4760e4b30533cbf704f9e967177d956d86be7115878ca87abc5d504e06a8821"
+      },
+      "observation": "The consumer contract records only a pointer and digest in sprint history and explicitly excludes maintenance auto-close from eligible receipt boundaries."
+    }
+  ],
+  "counterfactual": "Without this operating change, future capability claims would continue to be reconstructed from repositories, sprint records, and prose after the fact rather than compared with a preserved boundary record.",
+  "transfer": [
+    "Sprintctl now selects the shared close-time receipt workflow and documents its authority and storage boundaries."
+  ],
+  "dependency": [
+    "Repositories must continue to invoke the shared sprint-close path instead of bypassing it.",
+    "The workspace _artifacts tree must be backed up and remain available across environment changes.",
+    "A human operator must review proposed deltas and create append-only ratified successors rather than treating drafts as settled claims.",
+    "The schema, validator, and source-reference conventions must be maintained as tools and providers change."
+  ],
+  "belief_changed": "The existing sprint-close workflow and shared artifact tree were sufficient for the first longitudinal layer; a new database, service, score, or Cockpit write path was not required.",
+  "displaced_alternative": "Unknown: no contemporaneous record identified which specific alternative work this operating change displaced.",
+  "would_disconfirm": "This governed-prototype claim would weaken if intentional closes routinely bypass the receipt decision, if a provider change or six-month pause makes drafts impossible to locate and validate, or if operators accept drafts without inspecting their evidence and unknowns.",
+  "unknowns": [
+    {
+      "field": "expectation_ref",
+      "reason": "No immutable ex-ante expectation record was created before this implementation began."
+    },
+    {
+      "field": "longitudinal_adoption",
+      "reason": "This is the first pilot receipt, so repeated use across projects and seasons has not yet been observed."
+    },
+    {
+      "field": "durability",
+      "reason": "The receipt inherits the workspace artifact backup posture, which was not independently exercised by this implementation task."
+    },
+    {
+      "field": "publication_value",
+      "reason": "No Capability Lab Assessment or public thesis update has yet been derived from ratified receipts."
+    }
+  ],
+  "publication": "private"
+}

@@ -1,0 +1,82 @@
+{
+  "schema_version": "vuoro-pre-appservice-preflight/v1",
+  "observed_at": "2026-08-03T17:50:37Z",
+  "host": "workstation",
+  "candidate": {
+    "image": "ghcr.io/bayleafwalker/vuoro-service",
+    "digest": "sha256:d23387480772a4d6b41f8fdf1c1d0f43a985a1087f76f4c4e80cc4325c53060e",
+    "tag": "vuoro-service-v0.1.35",
+    "qualification_revision": "10cb208b6ee9b34e0158e68f14f831eb4d3ef3da",
+    "verified": true
+  },
+  "gates": {
+    "candidate_identity": "pass",
+    "authority_integrity": "pass",
+    "dispatch_admissibility": "pass",
+    "operation_capability": "warn",
+    "production_baseline": "FAIL",
+    "clock_coherence": "pass"
+  },
+  "findings": {
+    "candidate_identity": {
+      "pull_by_digest": "ok",
+      "provenance": "slsa.dev/provenance/v1 verified; subject d23387480772a4d6b41f8fdf; builder publish-service-image.yaml@refs/tags/vuoro-service-v0.1.35; source bayleafwalker/vuoro@76551a089710",
+      "sbom": "attestation-manifest present in index",
+      "installed_pins": "all five match (sprintctl 0.2.17, actionq 0.1.16, actionq-contracts 0.1.1, kctl 0.1.1, auditctl 0.1.0)",
+      "evidence_digest_match": true,
+      "gates_all_true": 8
+    },
+    "authority_integrity": {
+      "host_repo": "appservice",
+      "authority_stream_id": "b06ecc59-5d16-448a-96dc-46306b1bb2c2",
+      "last_local_sequence": 4,
+      "next_expected_sequence": 5,
+      "outbox_records": 4,
+      "sequence_gaps": "none",
+      "dir_modes": "credentials 700, terminal-decisions 700",
+      "setgid_found": 0,
+      "quarantined_streams": "none in appservice",
+      "reconcile": "3 confirmed, 0 absent, 0 pending, 0 conflicts",
+      "note": "authority status reports 3 pending producer records while reconcile reports them confirmed served-side; local bookkeeping lags served truth in the safe direction (server holds them, local has not marked published). No gap, no conflict."
+    },
+    "operation_capability": {
+      "cli_version": "0.2.13",
+      "cli_path": "/home/bayleaf/.local/share/uv/tools/sprintctl/bin/sprintctl",
+      "warn": "operator CLI is FOUR releases behind the runtime candidate (0.2.17). #2080 operations would be executed with 0.2.13, which predates the #2090 schema-5 bridge and the #2093 database-authoritative transition fix. Upgrade the operator CLI to 0.2.17 before executing #2080.",
+      "extras": "remote=missing served=enabled",
+      "markerless_bypass_used": "read-only diagnosis only, as permitted"
+    },
+    "production_baseline": {
+      "appservice_gitops_head": "af89f781",
+      "known_good_commit_is_ancestor": true,
+      "gitops_image_pin": "sha256:9c1d0e53c47219153a1fbabf313484ce1db3f19bc20abd08d19061a53949ce73",
+      "live_image": "sha256:9c1d0e53c47219153a1fbabf313484ce1db3f19bc20abd08d19061a53949ce73",
+      "pin_matches_live": true,
+      "namespace": "vuoro-shared",
+      "replicas": 1,
+      "ready": 1,
+      "endpoint_addresses": 1,
+      "strategy": "RollingUpdate maxSurge 25% maxUnavailable 25%",
+      "overlap_capable": "yes: at replicas=1 Kubernetes floors maxUnavailable to 0 and ceils maxSurge to 1, giving the required maxUnavailable=0/maxSurge=1 behaviour without a manifest change",
+      "cutover_jobs": "vuoro-execution-migrate-v6 Suspended, vuoro-execution-v6-quiescence Suspended (inert as expected)",
+      "db_server_version": "16.13",
+      "work_schema_version": 5,
+      "work_maintenance_relations": 0,
+      "execution_schema_version": 3,
+      "BLOCKING_FINDING": "Live work ledger is schema 5 with ZERO maintenance relations. The maintenance bridge is NOT staged in production. Every qualification of this candidate built state 1 as 'work 5 PLUS staged maintenance extension'. Tested against production parity (schema 5, bridge not staged) the candidate FAILS to start: CompositionError 'runtime compatibility failed for: work'. States 1 and 2 fail; with the bridge staged they pass. Deploying the candidate against the current live state would crashloop."
+    },
+    "clock_coherence": {
+      "db_statement_timestamp": "2026-08-03T17:50:37.632940Z",
+      "workstation_utc": "2026-08-03T17:50:37.690Z",
+      "offset_ms": 58,
+      "threshold_ms": 2000,
+      "within_threshold": true
+    }
+  },
+  "volatile_observations_expire_at": "2026-08-03T23:50:37Z",
+  "local_evidence": {
+    "host": "workstation",
+    "production_parity_run": "/tmp/nobridge2.json"
+  },
+  "result": "FAIL"
+}

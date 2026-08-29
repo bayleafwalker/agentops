@@ -1,0 +1,9 @@
+{
+  "schema_version": "observation/v1",
+  "id": "survey-empty-is-not-absent",
+  "subject": "land-work-in-main",
+  "stance": "corroborates",
+  "observed_at": "2026-08-29T10:54:12Z",
+  "evidence_ref": "sha:116facc",
+  "note": "Corrects my own observation drift-unlanded-branches. Its 'zero open PRs anywhere' was a measurement artifact: gh queries issued in the -R <derived-name> form returned empty with exit 0 rather than failing, so the query never reached the forge. Re-run from inside each repo it returned six open PRs, four substantive, every one with zero reviewers and no review decision, four parked as drafts and one already decayed into merge conflict. Two of the eight branches were also mis-read as unpushed: actionq-dispatcher and cluster-alignment-mvp had been squash-merged upstream nine days earlier with their remote branches deleted, and a [gone] tracking ref against a stale local main produced a false 'ahead, not pushed'. The claim is strengthened rather than weakened -- both failure modes were running at once, and the PR half is the more exact illustration of what pr-handoff-summary now forbids. Second-order finding, and the one worth keeping: the survey failed the same way the policy exists to catch, a step reporting success while doing nothing. Empty output and an unreachable endpoint are indistinguishable, so state absence only when the channel demonstrably answered."
+}

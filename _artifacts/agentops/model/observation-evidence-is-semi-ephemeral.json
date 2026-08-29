@@ -1,0 +1,9 @@
+{
+  "schema_version": "observation/v1",
+  "id": "evidence-is-semi-ephemeral",
+  "subject": "measure-before-writing",
+  "stance": "corroborates",
+  "observed_at": "2026-08-29T11:28:52Z",
+  "evidence_ref": "sha:df07a44",
+  "note": "auditctl is classified durable-authoritative and served in AGENTS.md, but every add writes host-local sqlite plus an NDJSON shard under /projects/dev/_artifacts/, which is in no git repository and which the same document classifies semi-ephemeral and host-local. The served-audit substrate is built and deployed nowhere -- a cluster-wide query returns no audit workload. 10,575 events across 43 scopes, recovery policy one workstation's Btrfs snapshots. This observation and every claim in this store are themselves in that location, including vuoro's narrow-boundary and vuoro-non-goals recorded today. The design assumed a deployment that has not happened; the durable column is an intention."
+}

@@ -1,0 +1,14 @@
+{
+  "packet": "AGENTOPS-1280-session-note-tooling",
+  "status": "fit",
+  "pre_gates": [
+    "sprint-item-exists",
+    "sprint-item-claimed-by-coordinator",
+    "packet-schema-valid",
+    "scope-within-manifest",
+    "protected-paths-untouched",
+    "worktree-exact-commit",
+    "registered-commands-green-cold",
+    "acceptance-properties-discriminating"
+  ]
+}

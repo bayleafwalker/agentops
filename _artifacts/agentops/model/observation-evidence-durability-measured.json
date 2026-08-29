@@ -1,0 +1,9 @@
+{
+  "schema_version": "observation/v1",
+  "id": "evidence-durability-measured",
+  "subject": "measure-before-writing",
+  "stance": "corroborates",
+  "observed_at": "2026-08-29T11:44:15Z",
+  "evidence_ref": "sha:df07a44",
+  "note": "Supersedes observation-evidence-is-semi-ephemeral, which was written without measurement and got two facts wrong in the direction that made the problem look larger. Corrected: the audit shards are ~966 events in 46 files across 15 scopes, not 10,575 across 43 -- the other 9,612 ndjson lines are outctl terminal capture streams and no outctl directory has an audit/ subdirectory at all. And the served-audit substrate IS deployed and migrated: the vuoro database carries an audit schema with ingest_observation/ingest_receipt/ingest_stream, principals provisioned, daily Hetzner S3 backup, restore drill five days ago, zero rows. The original query grepped deployment names for 'audit' while the substrate is schemas inside the vuoro database, so it could not have found it, and the empty result was read as absence. What survives: the durable column is an intention and the semi-ephemeral column is the filesystem. What changes: the real gap is a client, not a deployment, and the migration is ~1.5 MB. The failure mode reproduced inside the mechanism built to catch it -- an observation corroborating measure-before-writing, written without measuring."
+}
