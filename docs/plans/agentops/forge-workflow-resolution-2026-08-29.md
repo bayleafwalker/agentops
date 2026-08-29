@@ -1,6 +1,51 @@
 # Resolution pathway: silent sandbox failures, credential discovery, approval friction
 
-**Date:** 2026-08-29 · **Status:** drafted, awaiting owner ratification of Wave 1
+**Date:** 2026-08-29 · **Status:** Waves 1 and 2 implemented and landed; Wave 3 dispatched
+
+## Implementation record
+
+**Assumptions, resolved.** Hooks are **not** network-sandboxed — verified by
+probe: a hook process reached `git.apps.kotona.app` and `api.github.com` with 200
+while tool calls needed escalation. So `forge-context.sh` is a genuine capability
+and B1/B3 hold. `PreToolUse` deny/`updatedInput` support remains **unverified**,
+and the reason is itself a finding: **hook config is read at session start**, so a
+running session cannot test its own newly-registered hooks — the probe logged 21
+commands from other sessions and none from its own. The design was changed
+accordingly: `forge-sandbox-detector.sh` on PostToolUse (known to run) is the
+primary defence, and the deny guard is belt-and-braces that nothing depends on.
+
+**Wave 1 — landed.** Six hooks in `templates/dispatch/hooks/`, symlinked into
+`/projects/dev/.claude/hooks/`; `.claude/gates.json` in vuoro-cloud with the
+owner's three tiers; `claude.canonicalRemote` set on **all 46 repos**;
+`~/.claude/CLAUDE.md` filled (it had been 0 bytes since April);
+`~/.claude/settings.json` given `EDITOR`, an `fj` allowlist (previously
+allowlisted nowhere), trusted internal domains, and a statement that forge work
+is standard workflow; `scripts/ff-merge-pr.sh` in vuoro-cloud.
+
+*Acceptance test passed:* vuoro-cloud PR #49 was landed on the protected
+fast-forward-only canonical branch — commit, push, PR, merge, replica refresh —
+with **zero owner prompts**, verified by comparing the PR head against the
+resulting `main` tip rather than trusting the merge response.
+
+A real bug was found and fixed during testing: inside jq's `test(.match)`, `.`
+rebinds to the string under test rather than the gate object, so every gate
+matched nothing. It failed **open** — no gate ever firing — while appearing to work.
+
+**Wave 2 — landed.** All six `escalat*` sites in the dispatch skills rewritten to
+*operator handoff*; the forge/sandbox/credential/gating block ported into
+`templates/workspace/AGENTS.agentops.md` with the sandbox rule's two drafting
+defects fixed (it named only `gh` and only Codex, and described a "failure" when
+the signature is exit 0 with empty output); the lost `git fetch origin` rule
+restored to the live workspace file; `instruction_doctor.py` now fails a repo
+whose auto-loaded `CLAUDE.md` does not say how to escape the sandbox, or that has
+no `gates.json`, or whose gates do not default to routine — matching on the
+load-bearing fact rather than a heading; all three bootstrap templates seeded with
+a `CLAUDE.md` forge block and a deliberately **empty** `gates.json`.
+
+**Caveat carried forward.** Hooks activate for sessions started after
+registration, never for the session that installs them. The real test of Wave 1
+is the owner's next session, not this one.
+
 
 ## The problem
 
