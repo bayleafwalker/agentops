@@ -182,18 +182,37 @@ freshly enabled target looks broken for a cycle.
 
 ## 6. Outstanding, in dependency order
 
-### 1. External Secrets is unrunnable, not merely un-run
+### 1. External Secrets — renamed; still needs root once, for a different reason
 
-`openbao-commission-external-secrets.sh` creates policy `external-secrets` and
-role `external-secrets`. `operator-admin` globs
-`sys/policies/acl/cred-broker-*` and `auth/kubernetes/role/cred-broker*`.
-Neither matches, so **both writes are denied without root** — which is why the
-role does not exist. Rename both to `cred-broker-external-secrets` (and the
-matching `role:` in `system/external-secrets/pilot/cluster-secret-store.yaml`)
-and it becomes runnable with no root and no quorum.
+**Done** (`appservice` `9003002b`). Policy and role are now
+`cred-broker-external-secrets`, inside `operator-admin`'s
+`sys/policies/acl/cred-broker-*` and `auth/kubernetes/role/cred-broker*` globs,
+with the matching `role:` in
+`system/external-secrets/pilot/cluster-secret-store.yaml`. The pilot
+Kustomization stays `suspend: true`, so nothing reconciled from this.
+
+**But the rename does not make the script root-free, and the earlier claim that
+it would was wrong.** Checked against the `operator-admin` policy body in
+`openbao-commission-operator.sh`, step by step:
+
+| Step | Path | Under `operator-admin` |
+|---|---|---|
+| 2. mount `kv/` | `sys/mounts/kv` create | **denied** — it holds `sys/mounts` read/list only |
+| 3. write the policy | `sys/policies/acl/cred-broker-external-secrets` | allowed |
+| 4. write the role | `auth/kubernetes/role/cred-broker-external-secrets` | allowed |
+| 5. seed `kv/appservice/media/recyclarr` | `kv/data/...` create | **denied** — no `kv/*` grant at all |
+
+So the rename removed two of four blockers. Two remain, and
+`operator-admin` holds no grant on its own policy, so it cannot widen itself:
+delegating `kv/*` and a scoped `sys/mounts` create belongs with the rest of the
+root-ceremony content in Goal B. The script's header and the pilot doc now
+state per step which token each write needs, so the next reader does not have to
+re-derive it — the original defect was that nothing recorded the script could
+not be run.
 
 This is the same never-landed shape as the certificate: a committed ceremony
-nobody could run and nothing recorded as missing.
+nobody could run and nothing recorded as missing. Worth noting that the fix for
+that shape is the check in Goal C, not the rename.
 
 ### 2. File the upstream Forgejo issue
 
@@ -268,9 +287,10 @@ by port-forward). But enabling it needs `sys/auth` write — not grantable to
 
 **So this is the designated content of any future root ceremony**, and the
 argument for using the quorum *once*: `auth/oidc` against Authentik, a second
-`operator-admin` userpass, `pki-broker` auto-tidy, and narrowing
-`operator-admin` so it is no longer root-equivalent. Do not spend the quorum on
-less than all four. Not recommended now; recorded so the cost of the current
+`operator-admin` userpass, `pki-broker` auto-tidy, narrowing `operator-admin` so
+it is no longer root-equivalent, and — added 2026-08-29 — the `kv/*` and
+`sys/mounts` grants the External Secrets pilot needs (outstanding item 1). Do
+not spend the quorum on less than all of it. Not recommended now; recorded so the cost of the current
 constraint is visible.
 
 ### Goal C — make an un-run ceremony visible
