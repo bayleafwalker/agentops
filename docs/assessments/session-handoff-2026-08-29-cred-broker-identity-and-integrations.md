@@ -154,7 +154,7 @@ control returns 409, configured repositories still redeem.
 
 ---
 
-## 5. Detection — built, blocked on the host
+## 5. Detection — live
 
 `cred-broker-refresh-identity.sh` writes expiry to
 `~/.local/state/cred-broker/identity.prom` on **every** run including the no-op
@@ -171,48 +171,18 @@ is off overnight; an absent rule would page nightly for a non-event, get
 silenced, and then protect nothing. When the host is off nothing needs the
 credential.
 
-**Blocked:** see §6.
+**Live and verified end to end**, at each link rather than at the config:
+exporter `active`, reachable from the Prometheus pod's network namespace,
+Prometheus target `health: up`, and both rules loaded and `inactive`. The first
+scrape after enablement returned `connection refused` because it predated the
+exporter by three minutes — worth knowing, since with a 5-minute interval a
+freshly enabled target looks broken for a cycle.
 
 ---
 
 ## 6. Outstanding, in dependency order
 
-### 1. btrfs metadata exhaustion on `/` — owner action, blocks two things
-
-```
-Device allocated: 300.00GiB of 300.00GiB     Device unallocated: 1.00MiB
-Metadata,DUP:     20.46GiB used of 20.96GiB  (97.6%)
-```
-
-`df` reports ~27GiB free; that is **data** space, which metadata cannot use.
-`mkdir /var/tmp/...` returns ENOSPC.
-
-Host-wide consequences, both hit this session: **every new systemd unit using
-`PrivateTmp` fails to start** (`Result: resources`), and **container builds
-fail** (`podman build` needs `/var/tmp`; worked around with `TMPDIR=/tmp`).
-
-```bash
-sudo btrfs balance start -dusage=50 /
-btrfs filesystem usage /     # confirm unallocated is no longer ~0
-```
-
-**Do not** fix the exporter by removing `PrivateTmp`. That trades a real
-sandbox for the appearance of working.
-
-### 2. Enable the identity exporter (after 1)
-
-```bash
-ln -sfn /projects/dev/appservice/docs/systemd/user/cred-broker-identity-exporter.service \
-  ~/.config/systemd/user/cred-broker-identity-exporter.service
-systemctl --user daemon-reload
-systemctl --user enable --now cred-broker-identity-exporter.service
-curl -sS http://127.0.0.1:9111/metrics
-```
-
-Until then the alert has no data source, and the seventeen-day silence is
-prevented only by the timer working, not by anything watching it.
-
-### 3. External Secrets is unrunnable, not merely un-run
+### 1. External Secrets is unrunnable, not merely un-run
 
 `openbao-commission-external-secrets.sh` creates policy `external-secrets` and
 role `external-secrets`. `operator-admin` globs
@@ -225,7 +195,7 @@ and it becomes runnable with no root and no quorum.
 This is the same never-landed shape as the certificate: a committed ceremony
 nobody could run and nothing recorded as missing.
 
-### 4. File the upstream Forgejo issue
+### 2. File the upstream Forgejo issue
 
 Draft: `cred-broker/docs/upstream/forgejo-cli-authorized-integration-allowed-domains.md`.
 Hostnames genericised, ready to publish. Conclusion:
@@ -236,11 +206,11 @@ HTTPS issuer is refused. Proven by running the identical command with
 succeeds. **From the CLI, the only issuer that works is the one that skips the
 fetch.**
 
-### 5. Exercise the sync shim's create path
+### 3. Exercise the sync shim's create path
 
 Use it when the next repository is added, then verify with the canary.
 
-### 6. devbox is entirely un-enrolled
+### 4. devbox is entirely un-enrolled
 
 `policy.hosts` has devbox `active: true`, `development-bounded`, with one
 binding. It has no certificate and no renewal. **Unresolved and load-bearing:
