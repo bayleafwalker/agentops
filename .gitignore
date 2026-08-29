@@ -29,3 +29,11 @@ ops/systemd/session-mechanization-projects.conf
 # "reference patches are gitignored -- git add -f them" was true on one machine and
 # false on a fresh clone, with no way for a reader to tell which case they were in.
 docs/evidence/packets/*.reference.patch
+
+# Evidence for scopes this repository does not own. AUDITCTL_ARTIFACTS_ROOT follows
+# the session's working directory, so a publisher writing a different scope -- the
+# Stop hook writes `dev` -- lands it here. Those scopes have no repository to be
+# rooted at (see docs/plans/agentops/operative-position-durability-2026-08-29.md §6),
+# and agentops is not their home. Only _artifacts/agentops/ is tracked.
+/_artifacts/*
+!/_artifacts/agentops/
