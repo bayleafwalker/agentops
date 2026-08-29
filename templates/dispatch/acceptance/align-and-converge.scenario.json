@@ -1,0 +1,168 @@
+{
+  "schema_version": "acceptance-lab/scenario/v1",
+  "id": "align-and-converge",
+  "version": "1.0.0",
+  "title": "Realign a drifted repository to its declared participation, then converge to a no-op",
+  "workload": "agent-trajectory",
+  "description": "The walking-skeleton outcome for bootstrap-as-reconciliation. A repository declares its intended participation; the alignment command computes the difference against what is actually true -- in the repository, in the tool environment, and in per-host state outside any checkout -- reports it as a delta, applies it, and on a second run changes nothing. Its subject is repository participation: something the platform owes a repository, not a bar the repository must clear. Written to fail: nothing implements this today. vuoro-bootstrap is the initiation half only (one-shot external onboarding for Vuoro Cloud, release-gated), and no command performs the routine-realignment or schema-migration halves the plan names.",
+  "inputs": {
+    "request": "Given a repository whose declared participation and actual state disagree, report every difference as a delta, converge the repository to the declaration, and prove the run is idempotent.",
+    "drift_cases_that_must_be_detected": [
+      "A documented setup instruction that is wrong: AGENTS.md directs `sprintctl[remote]`, but the served transport lives in the `served` extra. Following the documented rule leaves `vuoro_client` missing and every served command fails with an unrelated ImportError.",
+      "An absent virtualenv: the Makefile falls back to the system python when `.venv` is missing, so the failure surfaces as `No module named ruff` rather than as missing setup.",
+      "Uninstalled JS dependencies: no target installs `apps/web/frontend` node_modules, so the failure surfaces as `ERR_MODULE_NOT_FOUND openapi-typescript`.",
+      "Per-host state outside every checkout: Playwright browsers cached under `~/.cache/ms-playwright`, which no repository can carry.",
+      "A missing participation field: no `authority_repo_uuid` in the dispatch manifest, so every sprintctl authority command is refused client-side.",
+      "Guidance that instructs a removed command: five repositories' `item-done` skill directed `sprintctl item done-from-claim`, deleted from sprintctl by 0.3.4.",
+      "A silently wrong work authority: a repository with no `.sprintctl/backend.json` resolves `backend=local` and writes work nobody can see, while appearing to succeed."
+    ],
+    "deliberately_not_assumed": [
+      "that the operator is present",
+      "that the repository was ever correctly bootstrapped",
+      "that drift is confined to the repository working tree",
+      "that a declared instruction is a correct instruction"
+    ]
+  },
+  "metadata": {
+    "subject": "repository participation",
+    "family": "§9.2a bootstrap reconciliation",
+    "plan": "docs/plans/agentops/meta-narrative-plan-2026-08-29.md §9.1, §9.2, §9.2a",
+    "claim": "bootstrap-as-drift-reconciliation",
+    "note": "Written to fail, before anything is built. Every drift case above was measured on 2026-08-29, not imagined: five during the §10 item 6 loop run (recorded as workflow.friction ad:01M16CWY219TYRG3023J7EEA55, ad:01M16DP9D58G1855F7Z7K25HKF, ad:01M16DV0EJ81MAVF1B5QEGV2ZY, ad:01M16E57Y784QVQNR1TJ4SJRQH, ad:01M16F0PAW8C4832C17ZPJT37J), one found by a skills sync diff, and one inherited from the cred-broker incident of 2026-08-28.",
+    "why_this_subject": "Plan §2 records that consumer integration is an admission subject carried by no surviving scenario. This is not that scenario, but it is the half that must exist first: a consumer cannot be admitted against a participation nothing can verify."
+  },
+  "checks": [
+    {
+      "id": "drift-reported-as-delta",
+      "type": "required_fact_coverage",
+      "dimension": "mechanism",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "facts": [
+          "drift: reported as a declared-versus-actual delta, naming the facet"
+        ]
+      }
+    },
+    {
+      "id": "wrong-instruction-is-drift",
+      "type": "required_fact_coverage",
+      "dimension": "mechanism",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "facts": [
+          "drift: a documented instruction that no longer works is reported as drift, not propagated"
+        ]
+      }
+    },
+    {
+      "id": "per-host-state-compared",
+      "type": "required_fact_coverage",
+      "dimension": "mechanism",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "facts": [
+          "drift: state outside the repository is compared, not assumed"
+        ]
+      }
+    },
+    {
+      "id": "dry-run-writes-nothing",
+      "type": "required_fact_coverage",
+      "dimension": "authority",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "facts": [
+          "dry-run: diff produced with no file, tool, or credential mutated"
+        ]
+      }
+    },
+    {
+      "id": "converged-after-apply",
+      "type": "required_fact_coverage",
+      "dimension": "mechanism",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "facts": [
+          "apply: actual state matches the declaration for every selected facet"
+        ]
+      }
+    },
+    {
+      "id": "rerun-is-a-no-op",
+      "type": "required_fact_coverage",
+      "dimension": "mechanism",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "facts": [
+          "idempotence: a second run reports converged and changes nothing"
+        ]
+      }
+    },
+    {
+      "id": "exit-code-signals-drift",
+      "type": "required_fact_coverage",
+      "dimension": "authority",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "facts": [
+          "exit code: non-zero while unconverged, so drift is detectable in CI without parsing output"
+        ]
+      }
+    },
+    {
+      "id": "schema-migration-by-rerun",
+      "type": "required_fact_coverage",
+      "dimension": "mechanism",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "facts": [
+          "migration: a repository pinned to an older participation schema realigns by rerunning, not by hand-editing"
+        ]
+      }
+    },
+    {
+      "id": "credentials-referenced-not-copied",
+      "type": "required_fact_coverage",
+      "dimension": "authority",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "facts": [
+          "credentials: referenced by location, never copied into the repository"
+        ]
+      }
+    },
+    {
+      "id": "silent-local-fallback-refused",
+      "type": "required_fact_coverage",
+      "dimension": "authority",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "facts": [
+          "work authority: a repository resolving to an undeclared backend is drift, not a successful run"
+        ]
+      }
+    },
+    {
+      "id": "drift-emitted-as-evidence",
+      "type": "required_fact_coverage",
+      "dimension": "quality",
+      "threshold": 1.0,
+      "hard_gate": false,
+      "params": {
+        "facts": [
+          "evidence: each alignment run emits an auditctl event carrying the delta it found"
+        ]
+      }
+    }
+  ]
+}
