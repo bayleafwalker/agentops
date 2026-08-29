@@ -44,7 +44,10 @@ def _artifacts_root() -> Path:
 
 
 def _store(scope: str) -> Path:
-    path = _artifacts_root() / scope / "model"
+    # Same layout auditctl uses: <root>/_artifacts/<scope>/<kind>. Model records
+    # are evidence-adjacent -- every mutation here emits an auditctl event -- so
+    # they belong beside the audit shards, not in the repository working tree.
+    path = _artifacts_root() / "_artifacts" / scope / "model"
     path.mkdir(parents=True, exist_ok=True)
     return path
 

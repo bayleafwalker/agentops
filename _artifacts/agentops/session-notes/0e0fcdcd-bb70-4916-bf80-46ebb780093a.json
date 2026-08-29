@@ -1,0 +1,22 @@
+{
+  "body": "Session 2026-08-29: metanarrative model realignment, plus the vuoro-evidence recovery.\n\n## What is done and verified\n\n1. vuoro-evidence recovered from bytecode. All nine library modules byte-exact\n   (recompiled output matches the surviving .pyc, line and column table\n   included). test_boundary and test_generic_paths rewritten in full;\n   test_ingress covers the HostProto lane. 16 tests pass. vuoro main.\n2. outctl retired: command_capture decoder and its two tests removed, git\n   history retains them. registered_profiles() is now (\"hostproto\",).\n3. SubagentStop hook registered. Emits dispatch.exit with auditctl's existing\n   terminal_reason vocabulary, which had no producer since actionq-daemon was\n   retired 2026-08-22. Verified writing real events. Includes cascade harvest\n   (sibling transcript paths), because a dying parent orphans finished children.\n4. capability-receipt v2: draft -> current -> superseded; ratification replaced\n   by established_by + authority_basis + validity; basis_for added. v1 files\n   still validate by in-memory migration.\n5. The metanarrative model: claim / observation / commitment /\n   realignment-session schemas, a normative validator with current_claims() and\n   observational_status() projections, and metanarrative.py as the one CLI.\n   status wired into the SessionStart hook. agentops main, 1439 tests pass.\n6. owner-reserved removed from both vocabularies. Human judgment is\n   perpendicular: meta-sessions outside the workstream, never a stage in it.\n7. kctl categories admit tenet and direction. PR #8, not merged.\n\n## Where to start\n\nThe plan is docs/plans/agentops/meta-narrative-plan-2026-08-29.md (rev. 2).\nIts section 10 first moves, in order:\n\n1. DONE - make dispatched death observable (item 3 above).\n2. Fix telemetry capture, then recompute rather than convert. Capture is worse\n   than reported: 12 sessions in the 08-2x shards against 61 in the cost log.\n   The artifacts-root default exists, so that is NOT the cause; the likely cause\n   is `command -v auditctl` failing in a non-login hook shell (auditctl lives in\n   ~/.local/bin). subagent-exit.sh already has the fallback; log-session-cost.sh\n   does not. That is the next concrete fix.\n3. Prove recovery as an outcome: a failing black-box resume scenario, then\n   implement until it passes.\n4. Pin scorer revisions in acceptance-lab. Verified present defect:\n   EvaluationResult pins scenario_version, SCORERS is an unversioned dict of 13\n   callables. Until fixed, no evaluation is comparable across time.\n5. Extract the bindery-core accept/reject/merge cycle as a reusable scenario.\n6. Then run the loop once, manually.\n\n## Do not re-derive these\n\n- session resume is a convenience aggregate over three served surfaces, all\n  served today. Its absence costs six commands, not a capability.\n- All seven hostproto repos and browser-workbench have reachable remotes and\n  zero unpushed commits. The \"no git remote\" claim was false.\n- The cost over-count is a consumer-side summing bug and is recomputable;\n  metadata.session survives. Do not publish a conversion factor.\n- Half the orchestration loop is already built in\n  templates/dispatch/session-mechanization/ with 24 passing tests.\n- Reservations are detectors, not leases. Duplicate-execution safety rests on\n  dedup_key, CAS on item status, and exact-revision receipts.\n\n## Open judgement, not blocked work\n\n- practice publishes to kctl as decision rather than a first-class category.\n- Which changes, if any, warrant standing-policy rather than delegated\n  authority basis is unexercised: every record written so far is delegated.",
+  "capsule_ref": null,
+  "created_at": "2026-08-29T06:31:53Z",
+  "note_id": "0e0fcdcd-bb70-4916-bf80-46ebb780093a",
+  "note_kind": "handover",
+  "origin_stream_id": "708d573a-ea74-4c11-94e4-4a9f9919c9af",
+  "privacy": {
+    "raw_transcript_captured": false,
+    "raw_transcript_ref": null,
+    "retention_days": null
+  },
+  "repo": {
+    "project": "agentops"
+  },
+  "runtime_session_id": null,
+  "schema_version": "session-note/v1",
+  "supersedes": null,
+  "target_refs": [
+    "wi:2311"
+  ]
+}
