@@ -201,12 +201,28 @@ closed. The rest remain open and are **not** addressed by `AuditContext`:
    four repos and a **UUID** for sprintctl and vuoro, so adopting it would rename
    live shard directories.
 
-   **Residue, undecided:** 86 events in
+   **Correction on the residue.** The review and an earlier revision of this section
+   both described the 86 events under
    `_artifacts/{wt-counter,wt-review,wt-m10b,l2b,l2b-overlay,V6-K-human-turns,p3-driver}/`
-   are attributed to checkouts that no longer exist. Their metadata mostly names
-   `agentops`, but 14 of the 86 name `tmp`, so bulk re-attribution would be guessing
-   for those. Audit records are not a place to infer attribution; this needs an
-   owner decision, not a script.
+   as orphaned worktree evidence needing an attribution decision. **That was wrong.**
+   Their `metadata.session` values are `sess-a`, `sess-b`, `sess-poison`,
+   `no-transcript` and `sess-t1` — fixture names from
+   `hooks/tests/test-session-telemetry.sh` and the session reconciler tests. The
+   directory names are test scenarios, not checkouts. They were test-suite output
+   that landed in the live artifacts tree because the tests did not isolate
+   `AUDITCTL_ARTIFACTS_ROOT`.
+
+   So there was no decision to make: 84 `workflow.session` fixtures plus one
+   escalation recorded twice, none claimed by any index (0 of 86), and keeping them
+   was the only real hazard — a future reconcile would ingest 84 cumulative snapshots
+   with fixture session keys and over-count exactly as the telemetry rule warns.
+   Removed 2026-08-29 after archiving. The leak is not currently firing; the trees
+   were last written 2026-08-23..26 and repeated full test runs since produced none.
+
+   The lesson is the one this document already carries: *pair evidence with its own
+   scope before believing what it says about the world.* Seven directories named
+   after plausible-sounding worktrees were read as production residue by two
+   independent passes, because nobody opened a row until the third.
 
 2. **A wrong-but-coherent pair still passes.** `AUDITCTL_DB` alone pointing at
    another repo routes both halves there and is internally consistent. The true
