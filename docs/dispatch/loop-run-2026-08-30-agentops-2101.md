@@ -281,3 +281,51 @@ that leave no record. The largest single gap is the one the design was commissio
 four minutes of work and its termination left a transcript and a binding and no ledger
 row at all — reproduced on the first attempt, inside the loop, after a day spent fixing
 the adjacent case.
+
+## Postscript — two findings the cleanup produced, both larger than the loop
+
+### The test suite writes fixture events into the live audit store
+
+devbox's clone held 16 uncommitted audit events after the run. Twelve of them are
+`dispatch.packet.reviewed` and `dispatch.preflight_rejected` with `repo_id: "example"`,
+`task_id: "EX-1"`, `starting_commit: "aaaa…"` — synthetic rows from
+`templates/dispatch/tests`. Their timestamps are 20:12, 20:14, 20:40 and 20:43: the four
+times the worker ran `python -m unittest discover -s templates/dispatch/tests`, three
+events each.
+
+**This closes the predecessor's open item 9.** Thirty-five `EX-1` events sit in agentops'
+store, and the previous session measured `before=35 after=35` running the suite and
+concluded the named mechanism did not reproduce. It reproduces exactly — on a host
+without the direnv environment that roots `AUDITCTL_ARTIFACTS_ROOT` and `AUDITCTL_DB`
+away from the live store. The workstation has that environment; a headless worker does
+not, and neither does a fresh clone. **The tests do not isolate their own audit root; the
+workstation's `.envrc` was hiding it.**
+
+Those twelve were not committed anywhere.
+
+### Two clones of one repository share an outbox stream and double-assign its sequence
+
+The four real events are worth keeping: two `session.binding` rows and two
+`workflow.session` cost rows from the worker sessions. They cannot be landed.
+
+| | `origin_stream_id` | sequences |
+|---|---|---|
+| workstation shard | `83d0b252-…` | …641, 642, **644** |
+| devbox index | `83d0b252-…` | **643–658** |
+
+Both clones assign from the same stream out of their own index, so seq **644** names two
+different events on two hosts. Appending devbox's rows to the shared shard would put two
+644s in one stream, and `auditctl rebuild` on devbox now answers
+**`rebuild rejected [origin_discontinuity]`** — its own guard refusing, correctly, to
+reconcile a stream that forked.
+
+The contract's open finding 5 says cross-host identity "collides silently" because the
+shard path carries no host field. It is worse than that: **the outbox sequence space
+itself is shared and doubly assigned**, and the collision surfaces not at write time but
+at rebuild, after the events exist. devbox's store is in that state now — its index holds
+16 events its shard cannot carry, and the four real ones survive only in their primary
+logs (`session-bindings/*.json`, `session-costs.jsonl`).
+
+Unverified, and the first thing to check next: whether devbox can still *publish* after
+pulling the workstation's seq-644 event. Reads work; writes after the fork are untested,
+and if they fail, that host's instrumentation is mute.
