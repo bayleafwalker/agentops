@@ -394,6 +394,20 @@ that rewrites, truncates or deletes an existing shard line.
 Rationale and the options not taken:
 `agentops/docs/plans/agentops/operative-position-durability-2026-08-29.md`.
 
+**Before declaring another contract, measure the ones already declared.**
+`agentops templates/dispatch/scripts/check_producers.py` answers, for every
+`*.schema.json` under `templates/dispatch/` and every string vocabulary in
+`auditctl/validation.py`, whether anything ever produced an instance and where. It
+reports four states — `produced`, `examples-only`, `no-instance`, `cannot-determine`
+— and `examples-only` is not a pass: a schema whose only instances are its own
+committed examples has the shape of a producer without one. This mechanizes the
+falsifier at `vuoro/docs/plans/2026-08-22-long-term-direction.md` §13 item 11.
+
+It is an **instrument, not a gate**: it exits 0 whatever it finds. The standing
+inventory has no admission subject, so gating on it would be a bar nobody can clear
+(`meta-narrative-plan-2026-08-29.md` §2). A caller that *does* have a subject — a
+schema added or changed by one change — can pass `--fail-on` and make it one.
+
 `_artifacts/` content can be copied to every host without becoming
 authoritative; a kctl or auditctl record is durable even when no exported
 file has been copied anywhere. Use this vocabulary explicitly in session and
