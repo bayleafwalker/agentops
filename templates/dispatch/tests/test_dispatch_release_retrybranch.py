@@ -89,7 +89,8 @@ class RetryBranchTests(unittest.TestCase):
         self.repo_root = self.tmp / "coordinator"
         self.repo_root.mkdir()
         self.auditctl = self.tmp / "auditctl"
-        self.auditctl.write_text("", encoding="utf-8")
+        self.auditctl.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        self.auditctl.chmod(0o755)
 
     def tearDown(self):
         self._tmp.cleanup()

@@ -258,10 +258,14 @@ class _DriverFixture(unittest.TestCase):
         self.tmp = Path(self._tmp.name)
         self.repo_root = self.tmp / "coordinator"
         self.repo_root.mkdir()
-        # A path that exists is all write_escalation needs to treat the sink as
-        # reachable; the runner is fake, so nothing is ever executed.
+        # An executable script is what write_escalation needs to treat the sink as
+        # reachable: since the resolver was shared with the hooks it applies the
+        # same guard everywhere -- executable, and not a compiled binary, because
+        # the kernel audit tool answers to this name too. The runner is fake, so
+        # nothing is ever executed; the file only has to be the right *shape*.
         self.auditctl = self.tmp / "auditctl"
-        self.auditctl.write_text("", encoding="utf-8")
+        self.auditctl.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        self.auditctl.chmod(0o755)
 
     def tearDown(self):
         self._tmp.cleanup()

@@ -28,6 +28,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import auditctl_resolve  # noqa: E402
 import validate_model_records as model  # noqa: E402
 
 
@@ -88,16 +89,26 @@ def _write(scope: str, record: dict[str, Any], name: str) -> Path:
 
 
 def _auditctl(event_type: str, summary: str, metadata: dict[str, Any]) -> bool:
-    """Emit to auditctl. Never fatal: a missing publisher must not lose the record."""
+    """Emit to auditctl. Never fatal: a missing publisher must not lose the record.
 
-    binary = shutil.which("auditctl") or str(Path.home() / ".local/bin/auditctl")
-    if not Path(binary).exists():
+    Not fatal is not the same as not said. This used to resolve the publisher itself,
+    on existence alone, so the kernel audit tool -- or any `AUDITCTL_BIN` pointing
+    anywhere -- was accepted, ran, published nothing, and returned False into a caller
+    that treats False as "fine". `auditctl_resolve` applies the one policy and writes
+    the reason on stderr; the record itself is already on disk by the time this runs.
+    """
+
+    binary = auditctl_resolve.resolve()
+    if binary is None:
         return False
     # The audit write is not given a root: auditctl 0.1.4+ resolves it from the
     # repository being published for, and _artifacts_root() below answers a different
     # question -- where *this* tool keeps its model records -- which is not auditctl's
     # to be told.
-    env = dict(os.environ)
+    #
+    # AUDITCTL_BIN is popped rather than passed on: this process resolved its own
+    # publisher above, and anything the publisher spawns must resolve its own too.
+    env = auditctl_resolve.child_env()
     result = subprocess.run(
         [binary, "add", "--type", event_type, "--source", "metanarrative",
          "--actor", env.get("USER", "unknown"), "--summary", summary,

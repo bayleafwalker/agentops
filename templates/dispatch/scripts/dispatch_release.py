@@ -28,7 +28,6 @@ import fnmatch
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -37,6 +36,9 @@ from typing import Any, Callable
 
 HERE = Path(__file__).resolve().parent
 HYBRID_DISPATCH = HERE / "hybrid_dispatch.py"
+
+sys.path.insert(0, str(HERE))
+import auditctl_resolve  # noqa: E402
 
 #: Fixed stage order. The PR step is not a hybrid_dispatch stage; it is the
 #: driver's own and runs only after ``receipt`` has been written to disk.
@@ -463,8 +465,15 @@ Runner = Callable[[list[str], Path | None], subprocess.CompletedProcess]
 
 
 def _default_runner(cmd: list[str], cwd: Path | None) -> subprocess.CompletedProcess:
+    # AUDITCTL_BIN is popped from every child's environment, the way
+    # ``hybrid_dispatch`` pops AGENTOPS_ROOT before spawning a worker. This driver
+    # resolves its own publisher once, for itself; a stage is a separate process that
+    # must resolve its own under the same guard. One exported value in a shared scope
+    # is otherwise enough to redirect -- or silence -- every publish in the tree, and
+    # the tree is exactly what nobody is watching while a dispatch runs.
     return subprocess.run(
         cmd, cwd=cwd, text=True, capture_output=True, check=False, stdin=subprocess.DEVNULL,
+        env=auditctl_resolve.child_env(),
     )
 
 
@@ -478,10 +487,18 @@ def write_escalation(
     exit_code: int,
     detail: str,
     runner: Runner,
-    auditctl_bin: str,
+    auditctl_bin: str | None,
     stop_condition: str | None = None,
 ) -> dict[str, Any]:
-    """Record a workflow.escalation event. Degrades quietly without auditctl."""
+    """Record a workflow.escalation event. Degrades without auditctl -- but says so.
+
+    ``auditctl_bin`` names a publisher explicitly; ``None`` asks ``auditctl_resolve``
+    for the one policy shared with the hooks and ``hybrid_dispatch``. Either way the
+    candidate passes the same guard, and a refusal is written to stderr: this used to
+    accept anything ``shutil.which`` answered to, so ``AUDITCTL_BIN=/bin/true`` in a
+    shared scope turned every escalation on this driver into ``sink: unavailable``
+    with nothing anywhere saying why.
+    """
     metadata = {
         "task_id": packet["task_id"],
         "repo_id": packet["repo_id"],
@@ -500,11 +517,15 @@ def write_escalation(
         "metadata": metadata,
         "recorded_at": _now(),
     }
-    if shutil.which(auditctl_bin) is None and not Path(auditctl_bin).exists():
+    publisher = (
+        auditctl_resolve.resolve() if auditctl_bin is None
+        else auditctl_resolve.validate(auditctl_bin, source="--auditctl-bin")
+    )
+    if publisher is None:
         record["sink"] = "unavailable"
         return record
     cmd = [
-        auditctl_bin, "add",
+        publisher, "add",
         "--type", ESCALATION_TYPE,
         "--source", DRIVER_ACTOR,
         "--actor", DRIVER_ACTOR,
@@ -779,7 +800,7 @@ def drive(
     base_branch: str,
     python_bin: str = sys.executable,
     gh_bin: str = "gh",
-    auditctl_bin: str = "auditctl",
+    auditctl_bin: str | None = None,
     passthrough: list[str] | None = None,
     runner: Runner = _default_runner,
     report_path: Path | None = None,
@@ -1068,7 +1089,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true",
                         help="Run every step except gh pr create; report what it would open.")
     parser.add_argument("--gh-bin", default=os.environ.get("GH_BIN", "gh"))
-    parser.add_argument("--auditctl-bin", default=os.environ.get("AUDITCTL_BIN", "auditctl"))
+    parser.add_argument(
+        "--auditctl-bin", default=None,
+        help="Publisher to record escalations with. Defaults to the shared resolution "
+             "in auditctl_resolve, which honours AUDITCTL_BIN and refuses a candidate "
+             "that is demonstrably not our publisher instead of publishing nowhere.",
+    )
     parser.add_argument("--report", type=Path, help="Write the driver report JSON here too.")
     parser.add_argument(
         "--agentops-root", type=Path, default=None,
