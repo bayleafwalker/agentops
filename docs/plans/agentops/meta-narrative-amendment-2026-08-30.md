@@ -527,3 +527,11 @@ worked by running it through `bash`, which hid mode 644. This section's predeces
 verified that `Stop` did not fire by observing that no row was written, which hid a hook
 that fired and was abandoned. Both measured a real thing adjacent to the claim. The
 distinguishing move here was the *control*: same hook, same prompt, one flag changed.
+
+**Landed and proven on the host it was about.** `gitops-nixos` `a730bd4` deployed to
+devbox; the settings file at `/nix/store/aw14smh7…-claude-settings.json` carries no
+`async`, read on the host rather than off the deploy log. Its agentops clone is at
+`c43573e` with both hooks mode 755. A headless `claude -p` run as the `agent` identity
+then wrote `{"project":"tmp","model":"claude-sonnet-5","turns":1,"assistant_msgs":1,
+"cost_usd":0.045387,"duration_s":2}` — the exact case that has recorded nothing since the
+identity was created.
