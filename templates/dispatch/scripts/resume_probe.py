@@ -16,10 +16,13 @@ Three phases, because the interruption has to be real:
             observation file that ONLY the emit phase reads.
   recover   A separate process, whose environment is deliberately impoverished: a
             scratch working directory that is not a git repository, an empty sprintctl
-            database, and the repository id passed explicitly. It carries the
-            principal's credential, because a resuming agent legitimately holds its own
-            principal -- what it must not carry is the interrupted session's state.
-            It never sees the observation file.
+            database, a CONSTRUCTED environment rather than an inherited one (the
+            scenario says direnv's exports are not carried, so they are not), the client
+            profile staged outside the repository tree, and the repository id passed
+            explicitly. It carries the principal's credential, because a resuming agent
+            legitimately holds its own principal -- what it must not carry is the
+            interrupted session's state. It never sees the observation file, and it
+            measures whether it could have -- see `_measure_arrange_state_visible`.
   emit      Joins what recover found with what arrange observed, and writes an
             acceptance-lab candidate output.
 
@@ -70,6 +73,11 @@ COMMAND_OPERATIONS = {
 
 
 def _served_env(*, db: Path, extra: dict[str, str] | None = None) -> dict[str, str]:
+    """The environment of a session that has NOT been interrupted: the normal one.
+
+    Used by arrange and release, which run in the repository as an ordinary session does.
+    The recover phase must not use this -- see `_recover_env`.
+    """
     env = dict(os.environ)
     env.update(
         SPRINTCTL_BACKEND="served",
@@ -80,6 +88,91 @@ def _served_env(*, db: Path, extra: dict[str, str] | None = None) -> dict[str, s
     if extra:
         env.update(extra)
     return env
+
+
+# What the recovering process is allowed to inherit, and why. The scenario says the
+# environment set by direnv is deliberately not carried across the interruption, so the
+# recover phase constructs its environment rather than inheriting one: a copied parent
+# environment carries every direnv export the interrupted session had, which is exactly
+# the state the scenario claims is gone.
+#
+# Each entry is machinery a fresh process on any host would have, not session state:
+RECOVER_ENV_INHERITED = {
+    "PATH": "to find the client binary at all",
+    "HOME": "the principal's credential lives under it (profile credential_ref)",
+    "LANG": "text decoding",
+    "LC_ALL": "text decoding",
+    "TMPDIR": "where a fresh process puts scratch files",
+    "SSL_CERT_FILE": "TLS trust for the served endpoint",
+    "SSL_CERT_DIR": "TLS trust for the served endpoint",
+    "REQUESTS_CA_BUNDLE": "TLS trust for the served endpoint",
+}
+RECOVER_ENV_CONSTRUCTED = ("SPRINTCTL_BACKEND", "SPRINTCTL_VUORO_PROFILE", "SPRINTCTL_DB")
+
+
+def _recover_env(*, db: Path, profile: Path) -> dict[str, str]:
+    """A constructed minimal environment, not an inherited one."""
+    env = {
+        name: os.environ[name] for name in RECOVER_ENV_INHERITED if name in os.environ
+    }
+    env.setdefault("PATH", os.defpath)
+    env.update(
+        SPRINTCTL_BACKEND="served",
+        SPRINTCTL_VUORO_PROFILE=str(profile),
+        SPRINTCTL_DB=str(db),
+    )
+    return env
+
+
+def _measure_env_leak(env: dict[str, str], *, cwd: Path) -> list[str]:
+    """Measure, do not assert: which variables does a child process actually see?
+
+    The probe already measures cwd and SPRINTCTL_DB rather than asserting them. Isolation
+    of the environment gets the same treatment -- run a child under the constructed
+    environment, read back the variable names it observes, and report anything that was
+    not put there deliberately. A wrapper, a shim, or a future edit that reintroduces
+    `dict(os.environ)` shows up here as a named list rather than as silence.
+    """
+    probe = "import json,os,sys; sys.stdout.write(json.dumps(sorted(os.environ)))"
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-c", probe],
+            cwd=str(cwd),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ["<environment measurement did not run>"]
+    seen = _json_or_none(proc.stdout)
+    if not isinstance(seen, list):
+        return ["<environment measurement returned nothing readable>"]
+    return sorted(name for name in seen if name not in env)
+
+
+def _measure_arrange_state_visible(env: dict[str, str], *, cwd: Path) -> list[str]:
+    """Whether anything from the arrange phase is reachable by the recovering process.
+
+    `local:arrange-phase-memory` is a forbidden authority in the scenario, and a forbidden
+    authority that no code path can ever emit is decoration. This is the measurement that
+    can emit it: arrange's memory is the observation file and the session id it minted, so
+    look for either in the environment, in the working directory, and in this process's
+    own argv. Empty is the expected result; non-empty is the finding.
+    """
+    reasons: list[str] = []
+    # The session id arrange mints, by shape rather than by value -- the recovering process
+    # is not told the value, and a detector that needed it would defeat its own purpose.
+    minted = re.compile(r"resume-probe-[0-9a-f]{12}")
+    for name, value in sorted(env.items()):
+        if "RESUME_PROBE" in name.upper() or "observed.json" in value or minted.search(value):
+            reasons.append(f"env:{name}")
+    for entry in sorted(p.name for p in cwd.iterdir()):
+        reasons.append(f"file:{entry}")
+    for arg in sys.argv[1:]:
+        if "observed.json" in arg:
+            reasons.append(f"argv:{arg}")
+    return reasons
 
 
 def _run(args: list[str], *, cwd: Path, env: dict[str, str]) -> tuple[int, str, str, float]:
@@ -207,18 +300,95 @@ def cmd_arrange(args: argparse.Namespace) -> int:
 # --- recover ---------------------------------------------------------------------------
 
 
+def _session_id_from_resume(payload: Any) -> str | None:
+    """The session id the served resume surface names, if it names one.
+
+    This is the only way a resumer can be TOLD which session it is resuming rather than
+    inferring it. `session.resume` is presently unserved on the deployment under test, so
+    this returns None there -- and the inference below then has to defend itself.
+    """
+    if not isinstance(payload, dict):
+        return None
+    for holder in (payload, payload.get("session"), payload.get("identity")):
+        if isinstance(holder, dict):
+            for key in ("session_id", "id"):
+                value = holder.get(key)
+                if isinstance(value, str) and value:
+                    return value
+    return None
+
+
+def _select_claim(
+    reservations: Any, *, resume_session_id: str | None
+) -> tuple[dict[str, Any] | None, str, dict[str, Any]]:
+    """Choose the reservation that belongs to the interrupted session -- or refuse to.
+
+    The previous rule was `active[0]` after a newest-first sort, which is not identity
+    recovery: with two concurrent sessions it returns whichever claim is newer, and the
+    scenario's session-identity gate passes on an arbitrary session. It only ever looked
+    right because arrange had created its claim seconds earlier.
+
+    So: if the served resume surface named a session, take that session's claim -- that is
+    recovery. Otherwise a single active claim identifies its session unambiguously, and
+    more than one does not, because the served surface offers no way to ask "which session
+    was mine": there is no identity surface (`work.identity.current` is in the scenario's
+    allowlist but no client command reaches it) and no per-principal session listing. In
+    that case the honest result is a refusal that names the ambiguity, not a guess.
+
+    Returns (claim, basis, detail). `claim` is None when identity was not established.
+    """
+    if not isinstance(reservations, list):
+        return None, "no-reservation-surface", {"active_claims": 0}
+    active = [r for r in reservations if isinstance(r, dict) and r.get("state") == "active"]
+    sessions = sorted({r["session_id"] for r in active if r.get("session_id")})
+    detail: dict[str, Any] = {
+        "active_claims": len(active),
+        "distinct_active_sessions": sessions,
+    }
+    if resume_session_id:
+        matches = [r for r in active if r.get("session_id") == resume_session_id]
+        detail["resume_surface_session_id"] = resume_session_id
+        if matches:
+            return matches[0], "named-by-session.resume", detail
+        return None, "named-session-has-no-active-claim", detail
+    if not sessions:
+        return None, "no-active-claim-carries-a-session-id", detail
+    if len(sessions) > 1:
+        # Deliberately not a guess. See the docstring.
+        return None, "ambiguous-concurrent-sessions", detail
+    only = [r for r in active if r.get("session_id") == sessions[0]]
+    if len(only) > 1:
+        only.sort(key=lambda r: r.get("created_at") or "", reverse=True)
+    return only[0], "sole-active-session", detail
+
+
 def cmd_recover(args: argparse.Namespace) -> int:
     """Recover through the served backend alone, and report only what came back."""
-    scratch = Path(tempfile.mkdtemp(prefix="resume-probe-recover-"))
+    scratch = Path(tempfile.mkdtemp(prefix="resume-recover-"))
     workdir = scratch / "cwd"
     workdir.mkdir()
     empty_db = scratch / "empty.db"
+
+    # The client profile names the deployment and where the principal's credential lives;
+    # it is part of the credential, which the scenario says IS carried. What is not carried
+    # is the repository working tree -- so the profile is staged into the scratch directory
+    # and read from there. Same bytes, but the recovering process no longer depends on a
+    # path inside the tree it is supposed to be without.
+    staged_profile = scratch / "client-profile.json"
+    profile_staged = False
+    if PROFILE.exists():
+        shutil.copyfile(PROFILE, staged_profile)
+        profile_staged = True
+    else:  # pragma: no cover - a missing profile is a deployment error, not a probe path
+        staged_profile = PROFILE
 
     # `--allow-markerless-nonlocal` exists for exactly this: a served invocation from a
     # directory that carries no repository marker. The repository id is carried across the
     # interruption; nothing else about the repository is.
     base = ["sprintctl", "--repo-id", args.repo_id, "--allow-markerless-nonlocal"]
-    env = _served_env(db=empty_db)
+    env = _recover_env(db=empty_db, profile=staged_profile)
+    env_leak = _measure_env_leak(env, cwd=workdir)
+    arrange_state_visible = _measure_arrange_state_visible(env, cwd=workdir)
 
     steps: list[dict[str, Any]] = []
     total_ms = 0.0
@@ -244,7 +414,7 @@ def cmd_recover(args: argparse.Namespace) -> int:
     # The resume plan, top-down. The aggregate sits first and is not required: a resumer
     # runs the plan and skips what is unavailable, which is what lets a mixed-version
     # rollout happen without a flag day.
-    step("session resume", ["session", "resume", "--json"])
+    resume_payload = step("session resume", ["session", "resume", "--json"])
     handoff = step("handoff", ["handoff", "--format", "json", "--output", "-"])
     reservations = step("reservation list", ["reservation", "list", "--all", "--json"])
     step("usage --context", ["usage", "--context", "--json"])
@@ -262,19 +432,27 @@ def cmd_recover(args: argparse.Namespace) -> int:
 
     # Session identity and work authority: an open reservation is a session's claim on an
     # item, and it carries both the session id that made it and the principal that owns it.
-    if isinstance(reservations, list):
-        active = [r for r in reservations if r.get("state") == "active"]
-        # Newest first; a resumer picks up its own most recent claim.
-        active.sort(key=lambda r: r.get("created_at") or "", reverse=True)
-        if active:
-            claim = active[0]
-            if claim.get("session_id"):
-                found["session_id"] = claim["session_id"]
-                citations["session-identity: recovered"] = "work.read.reservations"
-            if claim.get("work_item_id") is not None and claim.get("actor"):
-                found["item_id"] = claim["work_item_id"]
-                found["actor"] = claim["actor"]
-                citations["work-authority: recovered"] = "work.read.reservations"
+    # Which claim is the interrupted session's is the whole question -- see `_select_claim`.
+    resume_session_id = _session_id_from_resume(resume_payload)
+    claim, identity_basis, identity_detail = _select_claim(
+        reservations, resume_session_id=resume_session_id
+    )
+    found["identity_basis"] = identity_basis
+    found["identity_detail"] = identity_detail
+    if claim is not None:
+        if claim.get("session_id"):
+            found["session_id"] = claim["session_id"]
+            citations["session-identity: recovered"] = (
+                "session.resume" if identity_basis == "named-by-session.resume"
+                else "work.read.reservations"
+            )
+        # Authority is the identified session's authority, or it is nobody's: reading an
+        # item and an actor off a claim that was never tied to this session recovers
+        # somebody's authority, which is not the same as recovering ours.
+        if claim.get("work_item_id") is not None and claim.get("actor"):
+            found["item_id"] = claim["work_item_id"]
+            found["actor"] = claim["actor"]
+            citations["work-authority: recovered"] = "work.read.reservations"
 
     # Checkpoint and exact revision: where the interrupted session had got to.
     #
@@ -291,6 +469,7 @@ def cmd_recover(args: argparse.Namespace) -> int:
                 found["checkpoint"] = source
                 found["revision"] = source["sha"]
                 found["branch"] = source.get("branch")
+                found["revision_provenance"] = f"handoff.{field}"
                 citations["checkpoint: recovered"] = "work.read.handoff"
                 citations["exact-revision: recovered"] = "work.read.handoff"
                 break
@@ -300,13 +479,23 @@ def cmd_recover(args: argparse.Namespace) -> int:
     # keeps a negative finding honest. It is recorded as an unstructured find, because a
     # sha scraped out of a blob is weaker evidence than a field that means "checkpoint",
     # and a probe that cannot tell the two apart will report a lucky grep as a recovery.
+    #
+    # So the find is cited under its own name and NOT under `exact-revision: recovered`.
+    # Provenance that only lives in a flag nothing reads is provenance that never reaches
+    # scoring: the flag `revision_was_scraped` used to be set here and was read nowhere, so
+    # a lucky grep and a checkpoint read produced byte-identical facts.
     if found["revision"] is None and isinstance(handoff, dict):
         blob = json.dumps(handoff)
         candidates = sorted(set(re.findall(r"\b[0-9a-f]{40}\b", blob)))
         if candidates:
             found["revision"] = candidates[0]
-            found["revision_was_scraped"] = True
-            citations["exact-revision: recovered"] = "work.read.handoff"
+            found["revision_provenance"] = "scraped-from-bundle-text"
+            citations["exact-revision: scraped from the handoff bundle text"] = (
+                "work.read.handoff"
+            )
+
+    if found["revision"] is None:
+        found["revision_provenance"] = "not-found"
 
     recovered = {
         "repo_id": args.repo_id,
@@ -316,6 +505,12 @@ def cmd_recover(args: argparse.Namespace) -> int:
         "latency_ms": round(total_ms, 1),
         "workdir_was_a_git_repo": (workdir / ".git").exists(),
         "local_db_bytes": empty_db.stat().st_size if empty_db.exists() else 0,
+        # Isolation, measured rather than asserted.
+        "env_var_names": sorted(env),
+        "env_leak": env_leak,
+        "parent_env_vars_not_carried": sorted(set(os.environ) - set(env)),
+        "arrange_state_visible": arrange_state_visible,
+        "profile_staged_outside_repository": profile_staged,
     }
     Path(args.out).write_text(json.dumps(recovered, indent=2) + "\n")
     shutil.rmtree(scratch, ignore_errors=True)
@@ -323,6 +518,9 @@ def cmd_recover(args: argparse.Namespace) -> int:
     served = [s["operation"] for s in steps if s["available"]]
     print(f"recover: {len(served)}/{len(steps)} surfaces answered; " +
           ", ".join(k.split(':')[0] for k in citations) or "recover: nothing recovered")
+    print(f"recover: identity basis={identity_basis}; "
+          f"revision provenance={found.get('revision_provenance')}; "
+          f"env vars carried={len(env)}, not carried={len(recovered['parent_env_vars_not_carried'])}")
     return 0
 
 
@@ -348,17 +546,57 @@ def cmd_emit(args: argparse.Namespace) -> int:
         claim(fact, source)
 
     # The comparisons the recover phase was not allowed to make.
+    #
+    # These are joins, and they say so. Each one reads one value out of the served
+    # recovery and one out of the arrange phase's observation file, so citing them to
+    # `work.read.reservations` -- as they used to -- claimed the served surface as the
+    # authority for a statement the served surface never made. `join:arrange-observation`
+    # is the honest id: it names both halves, and it is not a forbidden authority, because
+    # what the scenario forbids is RECOVERING from local state, not comparing against it
+    # after the fact. The forbidden id `local:arrange-phase-memory` is left for what it
+    # actually means, and is now emitted from a measurement -- see below.
+    JOIN = "join:arrange-observation"
+
+    # How identity was established, said out loud -- including when it was not. A refusal
+    # that names its reason is a result; a guess dressed as a recovery is not.
+    basis = found.get("identity_basis") or "unknown"
+    detail = found.get("identity_detail") or {}
+    claim(f"session-identity: established by {basis}", None)
+    if not found.get("session_id"):
+        claim(
+            "session-identity: not recovered -- "
+            f"{detail.get('active_claims', 0)} active claim(s), "
+            f"{len(detail.get('distinct_active_sessions') or [])} distinct session(s), and the "
+            "served surface offers no way to ask which session was interrupted",
+            None,
+        )
+
     if found.get("session_id") and found["session_id"] == observed["session_id"]:
-        claim("session-identity: matches the session interrupted", "work.read.reservations")
+        claim("session-identity: matches the session interrupted", JOIN)
     if found.get("item_id") == observed["item_id"] and found.get("actor") == observed.get("actor"):
-        claim("work-authority: matches the authority held before the interruption",
-              "work.read.reservations")
+        claim("work-authority: matches the authority held before the interruption", JOIN)
+
+    # Revision, with its provenance carried into the facts. A value read from a field that
+    # means "checkpoint" and a 40-char string grepped out of the bundle are different
+    # evidence, and the difference has to survive into scoring or `revision-is-exact`
+    # passes on a lucky match.
     revision = found.get("revision")
+    provenance = found.get("revision_provenance") or "unknown"
+    scraped = provenance == "scraped-from-bundle-text"
     if revision and revision == observed["revision"]:
-        claim("exact-revision: matches the revision observed before the interruption",
-              recovered["citations"].get("exact-revision: recovered", "work.read.handoff"))
+        if scraped:
+            claim(
+                "exact-revision: a sha scraped from the bundle text matched the revision "
+                "observed before the interruption, but no field of the bundle declares it "
+                "the checkpoint",
+                JOIN,
+            )
+        else:
+            claim("exact-revision: matches the revision observed before the interruption", JOIN)
     elif revision and not SHA40.match(revision):
         claim("exact-revision: recovered as a symbolic name rather than an exact revision", None)
+    if revision:
+        claim(f"exact-revision: provenance is {provenance}", None)
 
     # Facts that would mean the recovery was not black-box after all. They are emitted from
     # measurements rather than from intent: an assertion of isolation that nothing checks is
@@ -367,6 +605,18 @@ def cmd_emit(args: argparse.Namespace) -> int:
         claim("checkpoint: read from a local working tree", "local:git-worktree")
     if recovered.get("local_db_bytes"):
         claim("work-authority: read from a local work cache", "local:sprintctl-db")
+    if recovered.get("env_leak"):
+        claim(
+            "recovery: the recovering process inherited environment it was not given -- "
+            + ", ".join(recovered["env_leak"]),
+            "local:direnv-environment",
+        )
+    if recovered.get("arrange_state_visible"):
+        claim(
+            "recovery: state from the interrupted session was reachable by the recovering "
+            "process -- " + ", ".join(recovered["arrange_state_visible"]),
+            "local:arrange-phase-memory",
+        )
 
     for source, supports in sorted(by_source.items()):
         citations.append({"id": source, "supports": sorted(set(supports))})
@@ -392,8 +642,17 @@ def cmd_emit(args: argparse.Namespace) -> int:
         )
 
     unavailable = [s["operation"] for s in recovered["steps"] if not s["available"]]
+    # Only the four canonical elements count. A citation under any other key -- the scraped
+    # revision, say -- is a finding, not a recovered element.
+    required_elements = (
+        "session-identity: recovered",
+        "work-authority: recovered",
+        "checkpoint: recovered",
+        "exact-revision: recovered",
+    )
+    recovered_count = sum(1 for key in required_elements if key in recovered["citations"])
     answer = (
-        f"Recovered {len(recovered['citations'])} of 4 required elements through the served "
+        f"Recovered {recovered_count} of 4 required elements through the served "
         f"backend for repo {recovered['repo_id']}."
     )
     if unavailable:
@@ -417,7 +676,23 @@ def cmd_emit(args: argparse.Namespace) -> int:
             "recovered_revision": found.get("revision"),
             "observed_session_id": observed["session_id"],
             "recovered_session_id": found.get("session_id"),
+            "recovered_revision_provenance": provenance,
+            "session_identity_basis": basis,
+            "session_identity_detail": detail,
             "unserved_operations": sorted(set(unavailable)),
+            "isolation": {
+                "env_var_names_carried": recovered.get("env_var_names", []),
+                "env_leak": recovered.get("env_leak", []),
+                "parent_env_vars_not_carried": len(
+                    recovered.get("parent_env_vars_not_carried", [])
+                ),
+                "arrange_state_visible": recovered.get("arrange_state_visible", []),
+                "profile_staged_outside_repository": recovered.get(
+                    "profile_staged_outside_repository"
+                ),
+                "workdir_was_a_git_repo": recovered.get("workdir_was_a_git_repo"),
+                "local_db_bytes": recovered.get("local_db_bytes"),
+            },
         },
     }
     Path(args.out).write_text(json.dumps(candidate, indent=2) + "\n")

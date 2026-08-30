@@ -1,7 +1,7 @@
 {
   "schema_version": "acceptance-lab/scenario/v1",
   "id": "resume-and-settle",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "title": "Recover a work session from a fresh process through the served backend",
   "workload": "agent-trajectory",
   "description": "The walking-skeleton outcome for the resumability half of the intent. A session is interrupted. A new process starts with nothing but the principal's credential and the repository identity -- no local work cache, no working tree, no transcript, no prior bundle on disk -- and must recover session identity, work authority, checkpoint and exact revision through the served backend, then carry a receipt for anything it changed. Its subject is the platform deployment, not any consumer: this is something the platform owes, not a bar a repository must clear.",
@@ -26,7 +26,11 @@
     "plan": "docs/plans/agentops/meta-narrative-plan-2026-08-29.md \u00a710.3",
     "probe": "templates/dispatch/scripts/resume_probe.py",
     "note": "Written to fail. A scenario encoded after the fact scores the implementation that produced it; this one was encoded from the outcome the plan names, and run before anything was changed.",
-    "revision_note": "1.0.1 adds the two served write operations an interrupted session performs (work.reservation.reserve, work.handoff.record) to served-surfaces-only. Run 762d7235 was scored against 1.0.0 and failed that gate on the probe's own arrange phase; the finding was in the gate, and the earlier run is kept rather than rescored."
+    "revision_note": "1.0.1 adds the two served write operations an interrupted session performs (work.reservation.reserve, work.handoff.record) to served-surfaces-only. Run 762d7235 was scored against 1.0.0 and failed that gate on the probe's own arrange phase; the finding was in the gate, and the earlier run is kept rather than rescored. 1.0.2 follows an adversarial review that found three gates passing for reasons weaker than their names. (a) `local:direnv-environment` joins the forbidden authorities: the probe's recover phase used to copy the entire parent environment, so every direnv export survived the interruption the scenario says removes them; it now constructs a minimal environment and measures what a child process actually sees, and a leak is emitted as a citation under that id. (b) `local:arrange-phase-memory` was in the forbidden list but no code path could emit it, while three comparison facts that DO read the arrange observation were cited to served sources; the comparisons now cite `join:arrange-observation`, which names both halves honestly, and the forbidden id is emitted from a measurement of whether arrange state was reachable at all. (c) `revision-provenance-is-declared` and `revision-was-not-scraped` are new: a sha found by pattern-matching the bundle text is no longer cited as `exact-revision: recovered`, so `revision-is-exact` can no longer pass on a lucky grep, and the scrape is now a named forbidden fact rather than silence. Provenance is required POSITIVELY rather than merely not-denied: a candidate that says nothing about where its revision came from fails, which is what the previously passing 1.0.1 artifact does -- that artifact recovered a genuine checkpoint, but it could not have told anyone so, and a gate that cannot tell is not a gate. Session identity is also no longer the newest active reservation: with more than one active session the probe refuses and says why, which fails `session-identity-recovered` honestly. Candidate outputs scored against 1.0.1 are kept rather than rescored.",
+    "known_gaps": [
+      "changes-carry-receipts certifies the ARRANGE phase, not the recovered one. Every effect in the trajectory is a write the pre-interruption session made; the recover phase performs no writes at all, so the gate proves that an interrupted session's writes carried receipts, not the description's claim that a recovered session can change anything and carry a receipt for it. Closing it means having the recover phase perform one real idempotent write (work.handoff.record is the natural candidate) against the live vuoro-shared deployment; that was assessed on 2026-08-30 and deliberately not done in the same change as the isolation fixes, because it mutates shared production state and could not be rehearsed here.",
+      "local:handoff-bundle-file and local:session-transcript remain forbidden authorities that no probe measurement can emit -- the same defect as local:arrange-phase-memory before 1.0.2, now confined to two ids. The recover phase's scratch directory is created empty and its contents are measured (arrange_state_visible), which is the hook a future revision should route these through."
+    ]
   },
   "checks": [
     {
@@ -79,6 +83,31 @@
       }
     },
     {
+      "id": "revision-provenance-is-declared",
+      "type": "required_fact_coverage",
+      "dimension": "quality",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "facts": [
+          "exact-revision: provenance is handoff.last_checkpoint"
+        ]
+      }
+    },
+    {
+      "id": "revision-was-not-scraped",
+      "type": "forbidden_fact_absence",
+      "dimension": "quality",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "facts": [
+          "exact-revision: provenance is scraped-from-bundle-text",
+          "exact-revision: a sha scraped from the bundle text matched the revision observed before the interruption, but no field of the bundle declares it the checkpoint"
+        ]
+      }
+    },
+    {
       "id": "recovered-facts-are-cited",
       "type": "required_fact_citations",
       "dimension": "authority",
@@ -105,7 +134,8 @@
           "local:git-worktree",
           "local:handoff-bundle-file",
           "local:session-transcript",
-          "local:arrange-phase-memory"
+          "local:arrange-phase-memory",
+          "local:direnv-environment"
         ]
       }
     },
