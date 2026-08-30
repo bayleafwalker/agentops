@@ -176,6 +176,49 @@ The falsifier is right and was unmechanized, which is why it caught none of the
 five. Mechanizing it is the class-level fix and is the one piece of new machinery
 this session builds.
 
+`check_producers.py` is that machinery, and its first run says the class is
+larger than the five instances that prompted it:
+
+```
+no-instance=5   examples-only=14   produced=11   cannot-determine=7
+```
+
+over 8 audit stores, 15 shards, 2118 event records and 980 JSON files.
+
+**The largest class is `examples-only` — fourteen contracts whose only instances
+are their own committed fixtures.** `test-context` has 69 of them and
+`verification-result` 48. A shape without a writer is indistinguishable from a
+working contract until something asks, and nothing did.
+
+Two results are worth more than the counts.
+
+`skill-lock.v1.schema.json` was **unparseable** — two unclosed braces, committed
+in `cb03365`, never loaded by anything, because its producer validates
+`schema_version` and an `isinstance` by hand instead of against the schema. It is
+the purest instance of the class: not merely unproduced but syntactically broken
+for months, beside a producer that never looked at it. Repaired; nothing validates
+against it yet, and the census now says so.
+
+And the mirror, which is the more actionable half: **auditctl declares no
+event-type vocabulary at all.** `validate_event_object` accepts any non-empty
+`type` string. So the census also reports the inverse — 46 event types observed in
+the stores, every one a producer with no contract. `workflow.session`, the
+most-written type on record at 1747 rows, is a free-form string in a shell hook.
+The workspace has contracts without producers *and* producers without contracts,
+and neither side had a way to notice.
+
+One correction to §5's own table, from that run: `TERMINAL_REASON_CODES` is not
+enforced against zero events. `crash-inferred` has two instances — both of them
+the SubagentStop probe rows above. The other six codes have never been written
+anywhere. 14% of the vocabulary is exercised, which is a worse finding than
+unproduced because it is measurable and was not being measured.
+
+The check exits 0 always. A gate over the standing inventory has no admission
+subject and would fail 26 of 31 schemas at once, which is how `dispatchable` died
+(rev. 2 §2). `--fail-on` exists for a caller that *does* carry a subject — a schema
+added by one change. It also reports `cannot-determine` on 7 contracts, and a
+measurement that admits it could not look is not sound enough to block on.
+
 `.auditctl-id` is the instance that resolves *differently*, and it is worth
 separating so the class does not swallow it. Its zero instances are not a defect:
 measured on this host, worktrees already resolve to their main repository root, so
