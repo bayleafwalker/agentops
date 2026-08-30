@@ -397,3 +397,73 @@ classifies no evidence artifact at all.
    half of the resolved-context invariant, and the *session-scoped* half has no
    producer. `session-capsule.schema.json` is that producer's schema, and it is
    instance number three in §5's table.
+
+---
+
+## 9. Later the same day: the producer emits the right code for the wrong reason
+
+§8 item 1 said the remaining half of the dispatch-exit work was the vocabulary —
+`usage-limit` had never been written, and a producer that only ever emits `completed`
+has not been tested against the case it exists for. Testing it produced a worse
+finding than a missing code.
+
+**The classifier was reading prose.** `subagent-exit.sh` took the last three assistant
+text blocks and matched `session limit` / `rate limit` / `usage limit`, then `timed
+out` / `timeout`, then `cancelled`. Run unchanged over every subagent transcript on
+this host — 353 of them — it returns **76 non-`completed` verdicts where the records
+carry 19**:
+
+| Verdict | Text match | Records | Spurious |
+|---|---|---|---|
+| `usage-limit` | 33 | 19 | 14 |
+| `timeout` | 38 | 0 | **38** |
+| `cancelled` | 5 | 0 | **5** |
+| `completed` | 277 | 334 | — |
+
+Zero false negatives in either direction. Every spurious verdict came from a subagent
+that **completed** and whose final report discussed rate limiting, timeouts or
+cancellation — a research subagent reporting on a queue design says "retries,
+concurrency/rate limits"; one reporting on a WAF says "rate limiting is
+in-application". Prose about a failure is indistinguishable from the failure, so this
+is structural, not a threshold to tune.
+
+It would have got the commissioning incident right, by coincidence: those three
+transcripts end with text that happens to contain "session limit".
+
+**§7b of the plan is wrong on its second bullet, and the correction is usable.** No
+`Retry-After` arrived — that part holds. But the terminating record is not only prose.
+It carries `isApiErrorMessage: true`, `apiErrorStatus: 429`, `error: "rate_limit"`,
+and since roughly 2026-08 a `quotaLimits` object whose `resetsAt` is an **exact epoch
+second**: `1787952600` on `agent-a5d642b86112f09ec.jsonl`, which is
+`2026-08-29T00:30:00` Europe/Helsinki — precisely what the string rendered. The plan's
+requirement that a policy "key on whether a reset instant was successfully derived, and
+record how" was written believing derivation was impossible. It is not; it is a field
+read.
+
+**What changed.** The hook now classifies from the terminal record and keeps the text
+only as `raw_tail`, for a reader. It selects the last *conversational* record rather
+than the last line, because a parent's `file-history-snapshot` and `queue-operation`
+rows follow the final turn. `reset_at` is published when `quotaLimits.resetsAt` is
+present, with `reset_source` naming the field; the seven older limit deaths on this
+host carry no such field and keep `unparsed-local-string`, which is now an honest
+statement about one transcript rather than a claim about the format.
+
+Re-run end to end over the same 353 transcripts, through the hook itself with a stub
+publisher: **334 `completed`, 19 `usage-limit`, nothing else** — equal to the records,
+with 12 exact reset instants and 7 declared underivable.
+
+**What this says about the vocabulary, which is the part that outlives the fix.** The
+corpus contains exactly two terminal outcomes. `cancelled`, `timeout`, `process-exit`,
+`start-failed` and `crash-inferred` have never occurred on this host — `crash-inferred`
+has been *written*, but only by a probe pointed at a path with no transcript. So the
+honest statement is not "the vocabulary is 14% exercised"; it is that four of seven
+codes have no observed instance and the instrument that appeared to produce three of
+them was producing artifacts of its own reading. **A producer that infers can
+manufacture coverage of a vocabulary that nothing has ever exercised**, which is the
+§5 defect class seen from the other side: there, a contract with no producer; here, a
+producer whose output was not evidence of anything.
+
+The regression that guards it is `tests/test_subagent_exit_terminal_reason.py`. Its
+fixtures are shaped like the real records, and its last case runs the hook against
+every real subagent transcript on the host and requires the verdicts to equal the
+records — skipped, never silently passed, where there is no corpus.

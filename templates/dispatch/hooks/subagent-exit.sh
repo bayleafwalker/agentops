@@ -41,22 +41,71 @@ PROJ="$(printf '%s' "$EVENT" | jq -r '.cwd // ""' | xargs basename 2>/dev/null |
 # were actually lost. See hooks/auditctl-resolve.sh.
 AUDITCTL="$(auditctl_bin)" || exit 0
 
-# terminal_reason from the transcript's own tail. A usage limit is reported to the agent as a
-# localized wall-clock string ("resets 12:30am (Europe/Helsinki)"), never as Retry-After, so
-# match the text and keep the raw line -- a derived reset instant must record how it was
-# derived, and here it cannot be derived at all.
+# terminal_reason from the transcript's own terminal *record*, not from its prose.
+#
+# The first version of this matched the localized wall-clock string a usage limit shows the
+# agent ("You've hit your session limit - resets 12:30am (Europe/Helsinki)") on the last
+# three assistant text blocks, on the stated grounds that no machine-readable form arrives.
+# That is false at the artifact. The terminating record carries `isApiErrorMessage: true`,
+# `apiErrorStatus: 429`, `error: "rate_limit"` and, since ~2026-08, a `quotaLimits` object
+# whose `resetsAt` is the exact epoch second the localized string renders. Verified against
+# ~/.claude/projects/-projects-dev/5f65b838-.../subagents/agent-a5d642b86112f09ec.jsonl:
+# resetsAt 1787952600 == 2026-08-29T00:30:00 Europe/Helsinki == the string it printed.
+#
+# Measured over all 353 subagent transcripts on this host, the text match produced 76
+# non-`completed` verdicts where the records carry 19: every one of its 38 `timeout` and 5
+# `cancelled` verdicts was spurious, and 14 of 33 `usage-limit`. The failure mode is
+# structural, not a tuning problem -- a research subagent that *completes* and reports on
+# rate limiting says "rate limits" in its final block, and prose about a failure is
+# indistinguishable from the failure. Zero false negatives either way, so nothing is lost
+# by reading the record instead.
 REASON="completed"
 RAW=""
+RESET_AT=""
+RESET_SOURCE=""
 if [[ -n "$TRANSCRIPT" && -f "$TRANSCRIPT" ]]; then
-  RAW="$(tail -n 40 "$TRANSCRIPT" 2>/dev/null \
+  # Kept for the record, never for the verdict: the operator-visible text of the ending.
+  RAW="$(tail -n 40 -- "$TRANSCRIPT" 2>/dev/null \
     | jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text' 2>/dev/null \
     | tail -n 3 || true)"
-  shopt -s nocasematch
-  if   [[ "$RAW" == *"session limit"* || "$RAW" == *"rate limit"* || "$RAW" == *"usage limit"* ]]; then REASON="usage-limit"
-  elif [[ "$RAW" == *"timed out"* || "$RAW" == *"timeout"*   ]]; then REASON="timeout"
-  elif [[ "$RAW" == *"cancelled"*  || "$RAW" == *"canceled"* ]]; then REASON="cancelled"
+
+  # The last conversational record is the terminal one. Harness bookkeeping records
+  # (file-history-snapshot, queue-operation, turn_duration summaries) can follow it, so
+  # select by type rather than taking the literal last line.
+  TERM="$(tail -n 12 -- "$TRANSCRIPT" 2>/dev/null \
+    | jq -s -c '[.[] | select(.type == "assistant" or .type == "user")] | last // {}' 2>/dev/null || echo '{}')"
+
+  if [[ "$(printf '%s' "$TERM" | jq -r '.isApiErrorMessage // false')" == "true" ]]; then
+    STATUS="$(printf '%s' "$TERM" | jq -r '.apiErrorStatus // empty')"
+    ERRKIND="$(printf '%s' "$TERM" | jq -r '.error // empty')"
+    QSTATUS="$(printf '%s' "$TERM" | jq -r '.quotaLimits.status // empty')"
+    if [[ "$STATUS" == "429" || "$ERRKIND" == "rate_limit" || "$QSTATUS" == "rejected" ]]; then
+      REASON="usage-limit"
+      # The reset instant is derivable after all, when the field is present. Older
+      # transcripts (pre-2026-08) carry the 429 with no quotaLimits, and those keep the
+      # honest answer: the string was never parsed.
+      EPOCH="$(printf '%s' "$TERM" | jq -r '.quotaLimits.resetsAt // empty')"
+      if [[ -n "$EPOCH" ]]; then
+        RESET_AT="$(date -u -d "@$EPOCH" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || true)"
+        RESET_SOURCE="quotaLimits.resetsAt"
+      else
+        RESET_SOURCE="unparsed-local-string"
+      fi
+    elif [[ "$STATUS" == "408" || "$STATUS" == "504" || "$ERRKIND" == *timeout* ]]; then
+      REASON="timeout"
+    else
+      REASON="process-exit"
+    fi
+  else
+    # A user interrupt is written as its own record whose text is the marker, so this is
+    # still the record and not the prose. No subagent transcript on this host ends this
+    # way, so unlike the three reasons above it has never been observed -- it is here
+    # because the marker is structural, not because a corpus demanded it.
+    TERM_TEXT="$(printf '%s' "$TERM" \
+      | jq -r '.message.content | if type == "string" then . else (.[]? | select(.type == "text") | .text) end' 2>/dev/null \
+      | head -n 1 || true)"
+    if [[ "$TERM_TEXT" == "[Request interrupted by user"* ]]; then REASON="cancelled"; fi
   fi
-  shopt -u nocasematch
 else
   # No transcript at all: the unit ended without producing one.
   REASON="crash-inferred"
@@ -78,10 +127,12 @@ METADATA="$(jq -cn \
   --arg session "$SESSION" --arg agent "$AGENT_ID" --arg project "$PROJ" \
   --arg reason "$REASON" --arg transcript "$TRANSCRIPT" \
   --arg raw "$(printf '%s' "$RAW" | tail -c 400)" \
+  --arg reset_at "$RESET_AT" --arg reset_source "$RESET_SOURCE" \
   --argjson children "$CHILDREN" \
   '{session: $session, agent_id: $agent, project: $project, terminal_reason: $reason,
     transcript_path: $transcript, raw_tail: $raw, sibling_transcripts: $children,
-    reset_source: (if $reason == "usage-limit" then "unparsed-local-string" else null end)}')"
+    reset_at: (if $reset_at == "" then null else $reset_at end),
+    reset_source: (if $reset_source == "" then null else $reset_source end)}')"
 
 "$AUDITCTL" add --type dispatch.exit --source claude-hook --actor claude-hook \
   --summary "subagent ended in $PROJ: $REASON" --metadata "$METADATA" >/dev/null 2>&1 || true
