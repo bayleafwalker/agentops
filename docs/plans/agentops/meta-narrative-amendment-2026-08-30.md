@@ -61,18 +61,46 @@ hooks.** Not the subagent-exit record, not the gate log, not the pre-tool guard,
 not the sprint context. Only the user-scope `Stop` hook, which is user-scope for
 exactly this reason and is the precedent that settles where the fix belongs.
 
-`SubagentStop` is now registered in `~/.claude/settings.json` beside it.
-**This is not yet proven.** The settings watcher had not reloaded within this
-session, and two subagents completed afterwards without producing a record. The
-next session is the test, and the check is one query:
+`SubagentStop` is now registered in `~/.claude/settings.json` beside it, and **the
+registration alone was not the fix.**
 
-```sql
-select ts, json_extract(metadata,'$.session'), json_extract(metadata,'$.terminal_reason')
-from audit_event where type='dispatch.exit' order by ts desc limit 5;
-```
+The script was mode **644**. Invoked by bare path — which is how a settings file names a
+hook — the harness's shell answers `Permission denied` and exits **126**, before the
+script reads a byte of stdin. I verified that script this morning by running
+`bash <path>`, reported "the hook works when invoked", and moved on. Running a script
+through an interpreter is precisely what hides a missing exec bit: it proves the script
+works and says nothing about whether the registration does.
 
-A row whose `session` is not `test-1` or `probe-live-1` is the proof. Until one
-exists, this item is *registered*, not *working*.
+Two things kept it invisible. `core.fileMode` is `false` in agentops, so git never
+recorded that someone had chmod'd the working copies — the workstation's hooks were 755
+on disk and 644 in the index, and that difference never appears in `git status`. And
+devbox's `/projects/dev` is an independent clone, so it received the **tracked** mode for
+every one of them.
+
+That is the entire explanation for devbox recording nothing: not only was nothing
+registered there, nothing registered there could have run. Six hooks named as commands
+were tracked 644, and a seventh was found by the test rather than by inspection —
+`forge-credential.sh` is executed with arguments by `forge-context.sh`, which swallows the
+failure as `PROBE FAILED`, so on every fresh clone the credential probe has been reporting
+a failure that was really a permission error.
+
+### Proven, on both hosts
+
+A live session on each host, spawning a real subagent through the Task tool, in a
+disposable git repository:
+
+| Host | Result |
+|---|---|
+| devbox (`agent`) | `dispatch.exit`, `terminal_reason: completed`, real `agent_id` and transcript path |
+| workstation | `dispatch.exit`, `terminal_reason: completed`, real `agent_id` |
+
+Both carry `completed` rather than `crash-inferred`, which is itself the evidence that a
+real transcript existed and was read — the probes earlier in the day could only ever
+produce `crash-inferred`.
+
+So the contract this session bound in the morning now has a producer that fires, on both
+hosts, measured at the artifact. **Declared, selected, invoked, evidenced.** That is the
+first time any item in §5's table has completed the whole arc.
 
 `materialize_project.py` emits no `.claude/` for the folders it creates, and
 `MANAGED_RUNTIME_PATHS` does not admit one. Whether a project folder should carry
@@ -322,8 +350,11 @@ classifies no evidence artifact at all.
 
 ## 8. Open, in dependency order
 
-1. **Prove the dispatch-exit producer fires**, with the query in §2. Everything
-   about loss observability is downstream of one row.
+1. ~~Prove the dispatch-exit producer fires.~~ **Done**, on both hosts — see §2. The
+   remaining half is the vocabulary: six of the seven terminal reasons have still never
+   been written anywhere, and `usage-limit`, the code the incident that commissioned all
+   this actually needed, is one of them. A producer that only ever emits `completed` has
+   not yet been tested against the case it exists for.
 2. **Declare where evidence objects live** (§7) — direction doc §14, already open.
    Until it is answered, every evidence artifact improvises its own kind and its own
    gate. Nothing is blocked on it today; the next thing that touches a stored record
