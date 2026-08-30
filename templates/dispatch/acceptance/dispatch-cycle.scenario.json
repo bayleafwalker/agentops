@@ -1,7 +1,7 @@
 {
   "schema_version": "acceptance-lab/scenario/v1",
   "id": "dispatch-cycle",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "title": "One unit of work completes an accept, reject and merge cycle through the substrate",
   "workload": "agent-trajectory",
   "description": "The consumer-integration outcome. A repository dispatches one unit of work, has an attempt refused, has a revised attempt reviewed and accepted, and merges it -- and every arm of that is recoverable afterwards from the substrate's own record rather than from the repository's memory. Its subject is consumer integration, which no other scenario carries: D1 is owed by the platform, D2+D5 are about one result, and neither says whether a consumer can actually run the loop. Deliberately free of any consumer's own vocabulary: the checks name substrate facts, and a consumer's gates, languages and paths appear as data in the candidate rather than as conditions here. A scenario that had to be edited per consumer would prove the seam does not generalise, which is the question it exists to answer.",
@@ -19,7 +19,7 @@
     "plan": "docs/plans/agentops/meta-narrative-plan-2026-08-29.md \u00a710.5",
     "probe": "templates/dispatch/scripts/dispatch_cycle_probe.py",
     "note": "The reject arm is the load-bearing one. A cycle that only ever accepts has not shown it can refuse, and a refusal after inference has already paid for the work it refused.",
-    "revision_note": "1.1.0 names the three arms of the cycle rather than the substrate's event types. Run 31e100ee failed cycle-runs-in-order at 1.0.0 because that cycle's refusal was spelled dispatch.preflight_rejected and the check enumerated dispatch.packet.rejected -- the same arm under a second name. Enumerating spellings would have pinned the scenario to one substrate's vocabulary, which is the opposite of what it is for. Runs 019ef52d and 31e100ee were scored at 1.0.0 and are kept rather than rescored."
+    "revision_note": "1.1.0 names the three arms of the cycle rather than the substrate's event types. Run 31e100ee failed cycle-runs-in-order at 1.0.0 because that cycle's refusal was spelled dispatch.preflight_rejected and the check enumerated dispatch.packet.rejected -- the same arm under a second name. Enumerating spellings would have pinned the scenario to one substrate's vocabulary, which is the opposite of what it is for. Runs 019ef52d and 31e100ee were scored at 1.0.0 and are kept rather than rescored. 1.2.0 adds the-refusal-was-paid-for, whose admission subject is the DRIVER rather than the consumer: a consumer cannot make a driver write a record it has no code to write, so a gate that scored the consumer for the driver's silence would be scoring the wrong party. Until 2026-08-30 hybrid_dispatch.py had no event type for a post-inference refusal and no publish at any post-inference stop -- containment breach, budget exceeded, churn stop and red post-gates all returned 2, 3 or 4 and recorded nothing -- so the only refusal it could produce was the preflight one, which is free and proves only that a packet was malformed. cycle-is-complete does not notice, because a preflight refusal fills the refusal arm perfectly well. The new check requires POSITIVELY that a worker ran before the refusal and that the refused attempt produced no candidate, which is the shape of the only refusal that says a guard was worth its cost. Two traps were live here. A check whose subject can be empty scores a vacuous pass -- the one _ratio(0,0) hid until it was fixed -- so the denominator is these two declared facts and is always 2: a candidate with no refusal at all scores 0/2, never 0/0. And a forbidden-shaped gate cannot catch a candidate that says nothing, which is exactly what today's driver produces, so the requirement is positive rather than an absence: forbidding 'refusal: no worker ran' would have passed on the silence it exists to catch. Consequence for the archived candidates: ERM-005 satisfies both facts from its hand-typed record and stays CONDITIONAL; ERM-WIDE, whose only refusal is a preflight one, drops from PASS to FAIL, correctly -- that cycle never showed a refusal it had paid for. Runs 019ef52d, 31e100ee, 10a5bf6a and aad7ff07 are kept rather than rescored."
   },
   "checks": [
     {
@@ -74,6 +74,19 @@
         "facts": [
           "refusal: no mutation was made",
           "refusal: a revised packet followed it"
+        ]
+      }
+    },
+    {
+      "id": "the-refusal-was-paid-for",
+      "type": "required_fact_coverage",
+      "dimension": "mechanism",
+      "threshold": 1.0,
+      "hard_gate": true,
+      "params": {
+        "facts": [
+          "refusal: a worker ran before the attempt was refused",
+          "refusal: the refused attempt produced no candidate"
         ]
       }
     },

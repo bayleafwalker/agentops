@@ -2293,9 +2293,26 @@ def _emit(payload: Any) -> None:
 # the candidate cleared its gates and its review. The third, acceptance, requires a merge
 # commit this process does not have, so it stays a coordinator act -- but a one-flag act
 # rather than free-form prose.
+#
+# The refusal arm is two arms, because a refusal before a worker starts and a refusal
+# after one has run and spent are different facts and a reader must not have to infer
+# which happened. The preflight refusal is free and says only that the packet was
+# malformed; the post-inference refusal is the one that proves a guard earned its cost,
+# and it is the arm this driver could not produce at all -- every post-inference stop
+# returned 2, 3 or 4 and published nothing.
+#
+# Two types rather than one discriminated type, because that is how the only real
+# refusals on record are already spelled: bindery-core's preflight refusals are
+# `dispatch.preflight_rejected` carrying `worker_started`/`packet_status`, its
+# post-inference ones are `dispatch.packet.rejected` carrying `session_id`,
+# `worker_exit_code`, `churn_stop` and `no_mutation`, and the two metadata vocabularies
+# do not overlap in a single key. Collapsing them onto one type would make the reader
+# parse a field to recover a distinction the store already indexes, and would strand
+# the 23 events that made the distinction the other way.
 
 CYCLE_ARMS = {
     "refused": "dispatch.preflight_rejected",
+    "rejected": "dispatch.packet.rejected",
     "reviewed": "dispatch.packet.reviewed",
     "accepted": "dispatch.packet.accepted",
 }
@@ -2376,6 +2393,51 @@ def _publish_arm(arm: str, packet: dict[str, Any], summary: str, metadata: dict[
         )
     except (OSError, subprocess.SubprocessError):
         return
+
+
+def _publish_arm_guarded(arm: str, packet: dict[str, Any], build: Any) -> None:
+    """`_publish_arm`'s promise, extended to the caller's own summary and metadata.
+
+    `_publish_arm` cannot keep that promise alone: both of its arguments are built at
+    the call site, before it is entered. `_fault_labels` exists because the first
+    refusal summary assumed a fault shape and raised `AttributeError` on a retry -- the
+    arm broke the run it was only supposed to describe. The post-inference arms read a
+    worker transcript and a gate report, which are richer and so easier to get wrong,
+    so they are built inside the guard rather than beside it.
+    """
+    try:
+        summary, metadata = build()
+    except Exception:  # noqa: BLE001 - evidence about the run, never part of it
+        return
+    _publish_arm(arm, packet, summary, metadata)
+
+
+def post_inference_stop(
+    breach: list[str],
+    ungranted_ran: bool,
+    spend: dict[str, Any],
+    transcript: dict[str, Any],
+) -> tuple[str, bool] | None:
+    """Name what stopped an attempt after a worker really ran, or None if nothing did.
+
+    Three of these are already exit codes and the fourth is not: a churn stop leaves the
+    run stage at 0, because the guard halting a circling worker is not a failure of the
+    run. All four refuse the attempt, and the churn stop is the one the smallest real
+    cycle on record turns on -- so reading the refusal off the exit code would have
+    missed exactly the case worth recording.
+
+    The bool is whether a revised packet is the answer. For a containment breach it is
+    not: the worker escaped the boundary the packet exists to enforce, which is triage
+    and never retry, and the run stage already says so by exiting 3.
+    """
+    if breach or ungranted_ran:
+        return "containment_breach", False
+    if not spend["within_cap"] or not spend["within_hard_token_ceiling"]:
+        return "budget_exceeded", True
+    stop = transcript.get("churn_stop")
+    if stop:
+        return str(stop.get("reason") or "worker_stopped"), True
+    return None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -2649,6 +2711,7 @@ def main(argv: list[str] | None = None) -> int:
                 packet["limits"].get("soft_token_ceiling"),
                 packet["limits"].get("hard_token_ceiling"),
             )
+            stop = post_inference_stop(breach, ungranted_ran, spend, transcript)
             _emit(
                 _receipt(
                     packet,
@@ -2693,8 +2756,48 @@ def main(argv: list[str] | None = None) -> int:
                             else {"disposition": "budget_exceeded"}
                         )
                     ),
+                    cycle_arm_published=(
+                        "rejected" if stop is not None and not args.no_audit else None
+                    ),
                 )
             )
+            if stop is not None and not args.no_audit:
+                # The arm the cycle could not show. A worker really ran and really
+                # spent, and nothing came of it -- which is the only refusal that
+                # says a guard was worth its cost. Published before the return
+                # rather than after, so a stop that exits 0 (the churn guard does)
+                # is recorded on the same footing as one that exits 3 or 4.
+                reason, retry_required = stop
+                _publish_arm_guarded(
+                    "rejected",
+                    packet,
+                    lambda: (
+                        f"{packet['task_id']} rejected after inference: {reason}",
+                        {
+                            "driver_stage": "run",
+                            "worker_started": True,
+                            "stop_reason": reason,
+                            "retry_required": retry_required,
+                            "candidate_present": False,
+                            "no_mutation": (
+                                transcript["churn_metrics"]["completed_mutations"] == 0
+                            ),
+                            "worker_exit_code": transcript["exit_code"],
+                            "session_id": transcript.get("session_id"),
+                            "churn_stop": transcript.get("churn_stop"),
+                            "coordinator_tree_untouched": not breach,
+                            "registered_commands_only": not ungranted_ran,
+                            "reported_tokens": spend["tokens"],
+                            "reported_cost_usd": (
+                                spend["cost_usd"] if spend["cost_reported"] else None
+                            ),
+                            "qualification_eligible": containment_override[
+                                "qualification_eligible"
+                            ],
+                            "starting_commit": packet["starting_commit"],
+                        },
+                    ),
+                )
             # A worker that wrote outside its disposable worktree, or ran a
             # command the packet never granted, has escaped the boundary the
             # packet exists to enforce. That is never a retryable quality
@@ -2721,6 +2824,13 @@ def main(argv: list[str] | None = None) -> int:
                 "candidate" if evidence["passed"] and review is not None
                 else "coordinator_review_required"
             )
+            # Exit 2 covers two unlike things, and only one of them is a refusal.
+            # Red gates refuse the candidate; green gates with no review record yet
+            # refuse nothing -- the coordinator simply has not looked. Publishing a
+            # rejection for the second would fill the stream with refusals nobody
+            # made, and would let a cycle satisfy "it can refuse" by being invoked
+            # without --review-record.
+            gate_refused = not evidence["passed"]
             _emit(
                 _receipt(
                     packet,
@@ -2733,10 +2843,45 @@ def main(argv: list[str] | None = None) -> int:
                     independent_review=review,
                     disposition=disposition,
                     cycle_arm_published=(
-                        "reviewed" if disposition == "candidate" and not args.no_audit else None
+                        None if args.no_audit
+                        else "reviewed" if disposition == "candidate"
+                        else "rejected" if gate_refused
+                        else None
                     ),
                 )
             )
+            if gate_refused and not args.no_audit:
+                # The second post-inference stop: the worker ran, and what it left
+                # does not clear the gates. The run stage's arm cannot stand in for
+                # this one -- a run can exit 0 and still produce nothing a gate will
+                # take, and that attempt paid for its inference just the same.
+                _publish_arm_guarded(
+                    "rejected",
+                    packet,
+                    lambda: (
+                        f"{packet['task_id']} rejected at the gates: "
+                        + (
+                            ", ".join(
+                                name for name, ok in evidence["gates"].items() if not ok
+                            )
+                            or "post-gates red"
+                        ),
+                        {
+                            "driver_stage": "gate",
+                            "worker_started": True,
+                            "stop_reason": "post_gates_red",
+                            "retry_required": True,
+                            "candidate_present": False,
+                            "no_mutation": not evidence["touched_paths"],
+                            "failed_gates": sorted(
+                                name for name, ok in evidence["gates"].items() if not ok
+                            ),
+                            "out_of_scope_paths": evidence["out_of_scope_paths"],
+                            "protected_path_hits": evidence["protected_path_hits"],
+                            "starting_commit": packet["starting_commit"],
+                        },
+                    ),
+                )
             if disposition == "candidate" and not args.no_audit:
                 _publish_arm(
                     "reviewed",

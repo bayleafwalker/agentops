@@ -35,7 +35,13 @@ ARTIFACTS_ROOT = Path("/projects/dev/_artifacts")
 REPO_ROOT = Path("/projects/dev")
 ATTEMPT_SUFFIX = re.compile(r"-r\d+$")
 
-REFUSAL_TYPES = ("dispatch.packet.rejected", "dispatch.preflight_rejected")
+# A refusal before a worker starts and a refusal after one has run and spent are the
+# same ARM but not the same fact, and the substrate already indexes the difference as
+# two types rather than one discriminated field. Keeping them apart here is what lets
+# the scenario ask whether the refusal it can show was paid for.
+POST_INFERENCE_REFUSAL_TYPES = ("dispatch.packet.rejected",)
+PREFLIGHT_REFUSAL_TYPES = ("dispatch.preflight_rejected",)
+REFUSAL_TYPES = POST_INFERENCE_REFUSAL_TYPES + PREFLIGHT_REFUSAL_TYPES
 REVIEW_TYPES = ("dispatch.packet.reviewed", "dispatch.candidate.review", "dispatch.reviewed")
 ACCEPT_TYPES = ("dispatch.packet.accepted", "coordinator.work.completed")
 
@@ -161,6 +167,29 @@ def build_candidate(repo: str, key: str, events: list[dict[str, Any]], repo_root
         # anything. Both mean the refusal was free.
         if metadata.get("no_mutation") is True or metadata.get("worker_started") is False:
             claim("refusal: no mutation was made", first["id"])
+        # The two halves of "the guard earned its cost", read off the arm rather than
+        # inferred. A preflight refusal satisfies neither: nothing ran, so nothing was
+        # paid, and a cycle whose only refusal is that one has not shown that stopping
+        # a running worker is something the substrate can record at all. Both are
+        # claimed positively, so a cycle that says nothing about them scores zero
+        # rather than passing on silence.
+        paid = next(
+            (event for event in refusals if event["type"] in POST_INFERENCE_REFUSAL_TYPES),
+            None,
+        )
+        if paid is not None:
+            paid_metadata = paid.get("metadata") or {}
+            if (
+                paid_metadata.get("worker_started") is True
+                or paid_metadata.get("session_id")
+                or paid_metadata.get("worker_exit_code") is not None
+            ):
+                claim("refusal: a worker ran before the attempt was refused", paid["id"])
+            if (
+                paid_metadata.get("candidate_present") is False
+                or paid_metadata.get("no_mutation") is True
+            ):
+                claim("refusal: the refused attempt produced no candidate", paid["id"])
         refused_attempt = metadata.get("task_id", "")
         later = [
             event for event in reviews + accepts
