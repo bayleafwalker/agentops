@@ -363,6 +363,60 @@ events — unlike the agentops case, these are not fixtures.
 So it stays split and documented. The gate for this one store reports 17 index-only,
 and that number means *"two roots"*, not *"lost"*.
 
+
+## SessionBinding v0 (2026-08-30)
+
+The session-scoped half has a producer. It records, once per session and never again:
+harness, actor, host, the **resolved environment record with its revision and digest**,
+the workspace and its `project_id`, and — the part this was built for — every settings
+layer in effect by path *and content digest*, present or absent.
+
+That last field is the answer to open finding 2's residue. The question was never "do
+these values agree", which a coherent redirect already satisfies; it was **"who set
+this, and what entitled them to"**. A shared-scope process that changes what a session
+may do changes one of those files, and the digest is what makes the change legible
+afterwards from the record alone.
+
+Three properties are enforced rather than asserted:
+
+- **Atomic** — written to a temp file and `os.replace`d, so a reader sees a whole
+  binding or none.
+- **Fail-closed on contradiction** — `SessionStart` fires again on resume, clear and
+  compact. The first write wins; a later one is compared field by field and, if any
+  immutable field differs, the run exits non-zero naming them and does **not**
+  overwrite what is on record.
+- **Attributed** — `resolution_source` on the environment (`hostname-match` /
+  `unresolved` / `unreadable` / `unparseable`) and on the project (`ancestor-walk` /
+  `undeclared` / `unparseable`). A host with no matching record produces a binding that
+  says `unresolved` and names why, rather than a guess.
+
+**Resolution is borrowed, not re-derived.** The environment record comes from
+`resolve_environment_record` — the same function `render_environment_context` and
+`project_release` use, hostname normalization and `.example` exclusion included.
+Re-implementing that in the hook's shell would have been the defect this document
+exists to end, one layer up.
+
+**It is not `session-capsule/v1`, and two handovers said it was.** The capsule is
+*end*-of-session exhaust — git diff, verification results, an end kind — answering
+"what did this session do". A binding is written at the start and answers "what is this
+session, and what entitled it". Producing capsules would have satisfied the plan item
+while leaving the entitlement question exactly as open as it was; that is the third
+instance this week of verifying the thing next to the thing.
+
+**What v0 does not do.** No applier — sequencing step 3's second half is untouched, and
+`materialize_project.py` plus NixOS activation remain the two appliers that a third must
+absorb rather than duplicate (open finding 4). Nothing consumes the binding yet, so the
+first falsifier — *a tool can consume the resolved context and still need to walk the
+tree itself* — is not yet under test. Cross-host collision (finding 5) is unaddressed:
+two hosts produce bindings with the same shape and no host field in the path, though the
+binding itself now carries `host.hostname`, which is one input the shard path never had.
+
+**First real instance**, from a headless session on the workstation:
+`environment.resolution_source: hostname-match` → `workstation-linux` revision 3;
+`workspace.project.resolution_source: undeclared`, honestly, because that session
+started outside any project; four settings layers, one present. The schema had 81 test
+functions and zero instances for a week. It has instances now.
+
 ## Falsifiers
 
 This contract is wrong if:
@@ -379,7 +433,10 @@ This contract is wrong if:
 
 1. `AuditContext` in auditctl: atomic, fail-closed, attributed. ✅ this change
 2. Contradictory-override tests, unrepresentable in the current shape.
-3. File-backed `SessionBinding` v0 + transactional applier.
+3. File-backed `SessionBinding` v0 + transactional applier. **v0 landed 2026-08-30**
+   (`templates/dispatch/scripts/session_binding.py`, `session-binding.schema.json`,
+   registered as a `SessionStart` hook on both hosts). The applier is not part of it.
+   See §"SessionBinding v0" below.
 4. NixOS and Arch/systemd triggers generated from one definition.
 5. Test on workstation, devbox, one clean disposable executor.
 6. Promote only proven projections.

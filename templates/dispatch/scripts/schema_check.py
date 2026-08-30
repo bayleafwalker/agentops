@@ -96,6 +96,12 @@ _TYPES = {
     "integer": int,
     "number": (int, float),
     "boolean": bool,
+    # `{"type": "null"}` audits clean -- `type` is a supported keyword -- and then
+    # raised KeyError here the first time an instance reached it, which is a checker
+    # that accepts a schema it cannot check. Added 2026-08-30 while writing
+    # session-binding/v0, whose nullable branches are expressed the way this checker
+    # requires: `oneOf` with an explicit null branch, never a union type list.
+    "null": type(None),
 }
 
 

@@ -42,6 +42,7 @@ EXECUTED_HOOKS = (
     "gate-log.sh",
     "log-session-cost.sh",
     "push-landed-check.sh",
+    "session-binding.sh",
     "sprintctl-maintain-check.sh",
     "subagent-exit.sh",
 )
