@@ -1,7 +1,9 @@
 # Handover — the instrument that was reading prose, and the flag that dropped the record
 
 Continues `handover-2026-08-30-the-producer-that-never-ran.md` (`24d997a`). Its next
-steps 1–4 are done. Step 5 — run the loop once, manually — is not started.
+steps 1–4 are done. Step 5 — run the loop once, manually — was not started when this
+was written, and ran later the same session. **Superseded by
+`handover-2026-08-31-the-loop-that-rejected-itself-twice.md`**, which is the pickup point.
 
 ## Landing status
 
