@@ -467,3 +467,63 @@ The regression that guards it is `tests/test_subagent_exit_terminal_reason.py`. 
 fixtures are shaped like the real records, and its last case runs the hook against
 every real subagent transcript on the host and requires the verdicts to equal the
 records — skipped, never silently passed, where there is no corpus.
+
+---
+
+## 10. `Stop` does fire headlessly. It was never awaited.
+
+§2 measured that `SubagentStop` fires for `claude -p` and `Stop` does not, and §8 item 3
+built on it: every unattended session missing by construction, no publisher fix able to
+recover it. That is wrong, and the correction is one key.
+
+Four headless runs of `claude -p "Reply with exactly: OK"`, same directory, same prompt:
+
+| Registration | `session-costs.jsonl` |
+|---|---|
+| `--settings` naming `log-session-cost.sh`, synchronous | **row written** |
+| the same file with `"async": true` added | no row |
+| no `--settings`, user settings carrying `"async": true` | no row |
+| no `--settings`, after removing `async` from user settings | **row written** |
+
+The only variable is the flag. An async hook is not awaited; a headless process exits the
+moment the turn ends, and the write loses the race. An interactive session outlives its
+own hook and always wins it — which is the entire explanation for 83 rows a day from
+sessions a person was sitting in front of and none from either headless host. `Stop`
+fired every time. Nothing waited for it.
+
+`SubagentStop` survives the same flag only because a subagent ends *mid*-session, with a
+parent still running. That is luck, not design, and the last subagent of a headless run
+does not have it. Both are synchronous now, in the user settings here and in the
+NixOS-declared settings devbox deploys. `PostToolUse` keeps `async`: it fires mid-session
+with the process guaranteed to outlive it, which is the one place the flag buys
+something.
+
+**The cost of synchrony, measured rather than assumed.** `log-session-cost.sh` takes
+134 ms against the largest transcript on this host (8.8 MB); `subagent-exit.sh` takes
+38 ms. That is the price of the record, per turn, in the worst case here.
+
+**Making it synchronous exposed the other half of the same defect.** At `Stop` the
+assistant turn is not on disk yet — measured at 109 ms behind the hook. The first four
+synchronous runs wrote `assistant_msgs: 0, in: 0, out: 0, cost_usd: 0`. A row that exists
+and says nothing is the async loss wearing the opposite mask, and it is *worse*, because a
+missing row is visibly missing while a zero row aggregates as a free session. The hook now
+waits, bounded, for the last conversational record to be a closed assistant turn; the
+verified headless row carries `assistant_msgs: 1`, its tokens, its cost and its model.
+
+**What this does to the capture rate, which §8 item 3 asked for.** The rate cannot be
+re-derived from the old figure *or* from §2's, because both were computed against a cause
+that was not the cause. What is now known: headless capture was 0%, it was never a
+property of the harness, and both hosts capture from the next session onward. The number
+worth having is a forward one, and it needs a day of headless runs before it means
+anything.
+
+The guard is `tests/test_session_end_hooks_are_awaited.py`: no `Stop`, `SubagentStop` or
+`SessionEnd` hook in any settings file this workspace declares may carry `async: true`,
+and the cost row must carry a turn that lands after the hook starts. It was confirmed to
+fail on both counts before it was made to pass.
+
+**Method note, since this is the third instance in two days.** §2 verified that the hook
+worked by running it through `bash`, which hid mode 644. This section's predecessor
+verified that `Stop` did not fire by observing that no row was written, which hid a hook
+that fired and was abandoned. Both measured a real thing adjacent to the claim. The
+distinguishing move here was the *control*: same hook, same prompt, one flag changed.

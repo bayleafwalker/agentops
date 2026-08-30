@@ -97,6 +97,35 @@ emit_record() {
     --summary "$summary" --metadata "$metadata" >/dev/null 2>&1 || true
 }
 
+# Wait for the turn now ending to reach the transcript before reading it.
+#
+# Measured 2026-08-30: this hook was registered `async: true`, and an async hook is not
+# awaited -- a headless `claude -p` exits before it completes and the row is simply lost.
+# Every unattended session on this host recorded nothing for that reason, and it was
+# invisible because an interactive session outlives its own hook and always wins the race.
+# Registering it synchronously fixes that and exposes the second half: at Stop the
+# assistant turn is not on disk yet. The first four synchronous runs wrote
+# `assistant_msgs: 0, in: 0, out: 0, cost_usd: 0` -- a row that exists and says nothing,
+# which is the same defect wearing the opposite mask.
+#
+# The record landed 109 ms after Stop in the measured run, so a bounded wait closes it.
+# The predicate is that the last conversational record is an assistant message carrying
+# usage -- the shape of a *closed* turn. Counting assistant messages instead would be
+# satisfied by turn 1 while turn 7 is still in flight.
+if [[ -n "$TRANSCRIPT" && -f "$TRANSCRIPT" ]]; then
+  # Builtins only for the loop itself: a hook shell can arrive without `seq`, and under
+  # `set -e` an empty `$(seq ...)` silently degrades the wait to nothing. `sleep` is
+  # external too, so its absence breaks the loop rather than spinning it.
+  for ((_i = 0; _i < 30; _i++)); do
+    closed="$(tail -n 12 -- "$TRANSCRIPT" 2>/dev/null \
+      | jq -s -r '[.[] | select(.type == "assistant" or .type == "user")] | last
+                  | if (.type == "assistant" and .message.usage != null) then "yes" else "no" end' \
+      2>/dev/null || echo no)"
+    [[ "$closed" == "yes" ]] && break
+    sleep 0.05 2>/dev/null || break
+  done
+fi
+
 if [[ -z "$TRANSCRIPT" || ! -f "$TRANSCRIPT" ]]; then
   # No transcript — log a zero entry so the session is still recorded
   RECORD="$(jq -cn \
