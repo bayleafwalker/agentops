@@ -102,6 +102,26 @@ So the contract this session bound in the morning now has a producer that fires,
 hosts, measured at the artifact. **Declared, selected, invoked, evidenced.** That is the
 first time any item in §5's table has completed the whole arc.
 
+### And the control that ran beside it found a larger gap
+
+`SubagentStop` fires for a headless (`claude -p`) session. **`Stop` does not** — measured
+on both hosts, with the workstation as its own control: 83 `session-costs.jsonl` entries
+today from interactive sessions, and **zero** from either headless run. Not a threshold
+effect; the devbox run made tool calls and still produced nothing.
+
+That inverts a recommendation taken today. `log-session-cost.sh` was registered for the
+devbox `agent` identity on the reasoning that devbox is where the spend happens and
+records none. The premise is right and the fix does not reach it: that identity exists
+*precisely* to run headless — its own deployed `$comment` says so — so the hook it now
+carries will not fire for the work it was registered to measure. Harmless, and it will
+fire if someone works interactively there, but the gap it was meant to close is still
+open.
+
+**Dispatched and headless work records no cost anywhere.** That is a candidate cause for
+the capture-rate figure in §3 that is worth more than the one already retired there, and
+it is measurable rather than inferred: every `workflow.session` row on record comes from
+a session a human was sitting in front of.
+
 `materialize_project.py` emits no `.claude/` for the folders it creates, and
 `MANAGED_RUNTIME_PATHS` does not admit one. Whether a project folder should carry
 its own hook registration, or whether hook scope should simply never have been
@@ -360,7 +380,9 @@ classifies no evidence artifact at all.
    gate. Nothing is blocked on it today; the next thing that touches a stored record
    will be.
 3. **Re-derive the capture rate** from scratch (§3), rather than adjusting a figure
-   whose stated cause has been retired.
+   whose stated cause has been retired. Start from the measured fact in §2: `Stop` does
+   not fire headlessly, so every session that was never sat in front of is missing by
+   construction, and no amount of fixing the publisher recovers it.
 4. **Extract the consumer proof from `bindery-core`** — unchanged from rev. 2 §10.5,
    and now the highest-value item nobody has opened. 17% of measured spend, the only
    complete accept/reject/merge cycle on record, absent from every plan.
