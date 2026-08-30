@@ -246,6 +246,7 @@ Stated in the same form rev. 2 used, because the pattern is the finding.
 | "the scorer-pinning defect is present" | Fixed before the plan was written: versioned `ScorerSpec`, a lock file, a digest and a drift test. The plan measured a defect it had already closed. |
 | "the fix for capture is a settings `env` block" | The requirement it served had been removed two releases earlier. I reasoned to a fix for a problem that no longer existed, which is the same error one layer down. |
 | "the event-type mismatch is the reason no records exist" | True and not the cause. The hook was in the wrong settings scope; it would have written nothing under either type. I found the smaller defect first and would have shipped it as the fix. |
+| "the restamp question is an owner call" | Derivable, and derived in §7 from a rule auditctl already states about itself. Escalating it was the 2026-08-26 memo's own failure -- a resolved action presented as an open question. The owner call is one level up and was already written down. |
 
 The last one is the one to keep. A correct diagnosis that is not the *operative*
 one is more expensive than no diagnosis, because it closes the investigation.
@@ -266,28 +267,56 @@ one is more expensive than no diagnosis, because it closes the investigation.
 
 All verified at the canonical remote, not at the push output.
 
-**auditctl 0.1.7 is cut and then reverted, deliberately.** The version bump
-requires re-running the central verification, which was run — 144 passed with
-PostgreSQL realized through `nix shell` — and then requires restamping
-`implementation_sha` inside
-`verification/results/central-observation-ingest-item-1201.json`.
+**auditctl 0.1.7 is released** — `af96357`, verified at the installed artifact.
 
-That file is not a digest. It is a narrative record of one verification run,
-carrying its own history count, its findings, and a description of a timezone bug
-found in "the first adapter read-path run". Restamping its implementation digest
-makes that narrative appear to describe a tree it was never run against. The
-previous release did exactly that, so the 0.1.6 packet already carries the problem.
+It was blocked for part of the session, and the block was mine: I raised *"does a
+version bump restamp the existing verification result, or produce a new one?"* as
+an owner call. It is not one. auditctl's own boundary rule settles it — a ledger
+**records what was observed and never states what should be** — so an observation
+is never rewritten, and the answer is to record a new one. Presenting a derivable
+question as a decision is the failure the 2026-08-26 decisions memo diagnoses, and
+this is another instance of it.
 
-The release is therefore blocked on an owner decision, not on a failure: **does a
-version bump restamp the existing verification result, or produce a new one?** The
-tree is clean at `fb8ee82` and the release is a single step once that is answered.
+The root cause was measurable and is now fixed. `pyproject.toml` is inside
+`CENTRAL_IMPLEMENTATION_PATHS`, so a version bump changes the digest of an
+implementation that did not change — `git diff 5f45f12..HEAD` over all seven
+digested paths is empty, and the sole difference is the version literal. The digest
+assertion named **one** packet, so the only route back to green was to falsify it.
+It now requires that *some* result for the context was observed against the packaged
+tree: the guarantee that what ships is verified is kept, the singularity is dropped,
+and observations accumulate instead of overwriting each other.
 
-The same question has a second instance today. `acceptance-lab`'s `campaigns/`
-artifacts must byte-match a fresh run of the current build, so a legitimate scorer
-revision bump forces their `scorer_revision` integers to be rewritten. Regenerating
-is right for a fixture and wrong for a record settlement cites. The README now says
-which these are — and that **no store for the latter exists yet**, which is the
-gap under the plan's `receipt → evaluation → settlement` path.
+`central-observation-ingest-item-2329.json` records this run and deliberately does
+not restate item-1201's fault enumeration or history count, which this run did not
+instrument. `item-1201` is left untouched — including its restamped
+`implementation_sha` from the 0.1.6 release, because correcting that would be the
+same act again.
+
+Evidence taken at the artifact rather than the report: installed `__version__`
+0.1.7; `validate_dispatch_exit_metadata` present in the installed tree and
+`require_artifacts_root` absent from it; and the installed CLI, run in a disposable
+repository, rejects `terminal_reason: "ran-out-of-vibes"` with the seven safe codes,
+rejects a `dispatch.exit` carrying no reason at all, and accepts `usage-limit`.
+Declared is not invoked and invoked is not evidenced, so all three were run.
+
+Commissioned by `agentops#2329`, closed with note `#2629`. auditctl has no local
+sprintctl; its items are tracked in agentops scope, per the `#2063` precedent —
+which also revealed that the item ids named by three of the four result filenames
+(1201, 1202, 1207) resolve in no repo scope reachable today. Only 2063 does. Left
+as found.
+
+**The genuinely upstream question is already on record** and is the one to put to
+the owner: the vuoro direction doc §14 lists, under open architecture decisions,
+*where each ledger object is canonically stored — which bound provider owns
+`EvidenceSet` and `Decision`.* `verification/results/` and acceptance-lab's
+`campaigns/` are both standing in for a durable evidence record that has no declared
+home, which is why each improvises whether it is a **record** or a **build output**,
+and why the gate guarding each improvises to match.
+
+That is the same defect as §5, one level up. Declared-versus-produced is contracts
+with no writer; stored-versus-derived is artifacts with no declared kind. The
+four-objects contract classifies Project, Workspace, Environment and Session — and
+classifies no evidence artifact at all.
 
 ---
 
@@ -295,8 +324,10 @@ gap under the plan's `receipt → evaluation → settlement` path.
 
 1. **Prove the dispatch-exit producer fires**, with the query in §2. Everything
    about loss observability is downstream of one row.
-2. **Answer the restamp question** (§7). It blocks one release today and it is the
-   same question as where a durable `EvaluationRecord` lives.
+2. **Declare where evidence objects live** (§7) — direction doc §14, already open.
+   Until it is answered, every evidence artifact improvises its own kind and its own
+   gate. Nothing is blocked on it today; the next thing that touches a stored record
+   will be.
 3. **Re-derive the capture rate** from scratch (§3), rather than adjusting a figure
    whose stated cause has been retired.
 4. **Extract the consumer proof from `bindery-core`** — unchanged from rev. 2 §10.5,
