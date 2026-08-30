@@ -445,6 +445,46 @@ def locus_tier(path):
     return "committed"
 
 
+def runtime_concentration(events):
+    """How narrow the runtime evidence for a contract is, as counts rather than a verdict.
+
+    ``produced`` says an instance exists in a production locus. It cannot say the
+    instance came from real work, and this module refuses to guess at that from session
+    names -- a guess dressed as a measurement is worse than a measurement with a stated
+    limit. But the limit does not have to be left to prose.
+
+    Every ``dispatch.*`` event in the agentops store is one ``task_id`` (``EX-1``, the
+    fixture in ``tests/test_hybrid_dispatch.py``), one source, one day. Read as a bare
+    count -- 24 reviewed, 11 preflight-rejected -- that looks like a working producer.
+    Read with its spread, it does not. So report the spread and let the reader judge;
+    that is measurement, and the verdict stays theirs.
+
+    ``narrow`` is a description, not a failure: a genuinely young contract looks the
+    same as a fixture, and this cannot and should not tell them apart.
+    """
+    if not events:
+        return None
+    sources, actors, days, subjects = set(), set(), set(), set()
+    for event in events:
+        sources.add(str(event.get("source") or "?"))
+        actors.add(str(event.get("actor") or "?"))
+        days.add(str(event.get("ts") or "")[:10] or "?")
+        metadata = event.get("metadata")
+        if isinstance(metadata, dict):
+            for key in ("task_id", "session", "session_id", "repo_id"):
+                if metadata.get(key) is not None:
+                    subjects.add(f"{key}={metadata[key]}")
+                    break
+    return {
+        "events": len(events),
+        "sources": sorted(sources),
+        "actors": sorted(actors),
+        "days": sorted(days),
+        "subjects": sorted(subjects),
+        "narrow": len(sources) == 1 and len(days) == 1 and len(subjects) <= 1,
+    }
+
+
 def collect_json_files(roots):
     """Every candidate JSON document under the roots, excluding the schemas themselves."""
     seen = set()
@@ -752,18 +792,29 @@ NO_DECLARED_EVENT_TYPE_VOCABULARY = (
 
 
 def _event_type_census(runtime_events, auditctl_source):
-    """Count the event types actually written, since none are declared anywhere."""
+    """Count the event types actually written, since none are declared anywhere.
+
+    Each type carries its spread as well as its count, because a count alone reads a
+    fixture as a producer. Every ``dispatch.*`` event in the agentops store is one
+    ``task_id`` -- ``EX-1``, the packet fixture in ``tests/test_hybrid_dispatch.py`` --
+    written on one day from one source. As "24 reviewed, 11 preflight-rejected" that
+    looks like a working dispatch cycle. With its spread beside it, it does not.
+    """
     counts = {}
+    by_type = {}
     for _, event in runtime_events:
         event_type = event.get("type") or event.get("event_type")
         if isinstance(event_type, str) and event_type:
             counts[event_type] = counts.get(event_type, 0) + 1
+            by_type.setdefault(event_type, []).append(event)
+    ordered = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
     return {
         "declared_vocabulary": None,
         "declaration_note": NO_DECLARED_EVENT_TYPE_VOCABULARY
         if auditctl_source
         else "auditctl source not found; the declaration could not be checked either way",
-        "observed": dict(sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))),
+        "observed": dict(ordered),
+        "spread": {name: runtime_concentration(by_type[name]) for name, _ in ordered},
     }
 
 
@@ -779,11 +830,13 @@ def _finding_for_schema(contract, checker, runtime_events, file_documents, probe
                 "instances": [], "tiers": {}}
 
     instances = []
+    matched_events = []
     for locus, event in runtime_events:
         for document in candidate_documents(event):
             how = matches(document, contract, checker)
             if how:
                 instances.append({"locus": locus, "tier": "runtime", "via": how})
+                matched_events.append(event)
                 break
     for locus, tier, document in file_documents:
         how = matches(document, contract, checker)
@@ -798,7 +851,8 @@ def _finding_for_schema(contract, checker, runtime_events, file_documents, probe
         state = "examples-only"
     else:
         state = "no-instance"
-    return {**base, "state": state, "instances": _condense(instances), "tiers": tiers}
+    return {**base, "state": state, "instances": _condense(instances), "tiers": tiers,
+            "concentration": runtime_concentration(matched_events)}
 
 
 def _finding_for_vocabulary(contract, runtime_events, vocab_error):
@@ -815,8 +869,12 @@ def _finding_for_vocabulary(contract, runtime_events, vocab_error):
                 "instances": [], "tiers": {}, "observed": [], "unobserved": list(contract.members)}
 
     observed = {}
+    matched_events = []
     for locus, event in runtime_events:
-        for token in vocabulary_hits(event, contract.members):
+        hits = vocabulary_hits(event, contract.members)
+        if hits:
+            matched_events.append(event)
+        for token in hits:
             observed.setdefault(token, set()).add(locus)
 
     instances = [
@@ -832,6 +890,7 @@ def _finding_for_vocabulary(contract, runtime_events, vocab_error):
         "tiers": {"runtime": len(instances)} if instances else {},
         "observed": sorted(observed),
         "unobserved": unobserved,
+        "concentration": runtime_concentration(matched_events),
     }
 
 
@@ -901,6 +960,21 @@ def render(result):
                 )
                 if unobserved:
                     lines.append(f"      never observed: {', '.join(unobserved)}")
+            spread = finding.get("concentration")
+            if spread:
+                detail = (
+                    f"{spread['events']} event(s), "
+                    f"{len(spread['sources'])} source(s), {len(spread['days'])} day(s)"
+                )
+                if spread["subjects"]:
+                    detail += f", subject(s): {', '.join(spread['subjects'][:3])}"
+                lines.append(f"      spread: {detail}")
+                if spread["narrow"]:
+                    lines.append(
+                        "      NARROW -- one source, one day, one subject. Consistent with a "
+                        "fixture or a single rehearsal as much as with a working producer; "
+                        "this check does not guess which."
+                    )
             for instance in finding["instances"][:5]:
                 if not instance.get("tier"):
                     lines.append(f"      {instance['locus']}")
@@ -915,8 +989,19 @@ def render(result):
     census = result["event_types"]
     lines.append(f"EVENT TYPES OBSERVED  ({len(census['observed'])})")
     lines.append(f"  {census['declaration_note']}")
+    spreads = census.get("spread") or {}
     for event_type, count in census["observed"].items():
-        lines.append(f"      {count:>6}  {event_type}")
+        spread = spreads.get(event_type)
+        note = ""
+        if spread:
+            note = (
+                f"   [{len(spread['sources'])} src, {len(spread['days'])} day, "
+                f"{len(spread['subjects'])} subj]"
+            )
+            if spread["narrow"]:
+                subject = spread["subjects"][0] if spread["subjects"] else "one subject"
+                note = f"   [NARROW: 1 src, 1 day, {subject}]"
+        lines.append(f"      {count:>6}  {event_type}{note}")
     lines.append("")
     return "\n".join(lines)
 

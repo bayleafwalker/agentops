@@ -517,3 +517,55 @@ def test_on_the_live_workspace_session_capsule_is_not_produced_and_something_is(
     assert result["event_types"]["observed"].get("workflow.session", 0) > 100
     assert result["summary"]["produced"] > 0
     assert result["summary"]["no-instance"] > 0
+
+
+# --------------------------------------------------------------------------- #
+# Runtime spread: a count alone reads a fixture as a producer
+# --------------------------------------------------------------------------- #
+
+
+def _spread_event(source, ts, subject, event_type="x"):
+    return {"type": event_type, "source": source, "actor": source, "ts": ts,
+            "metadata": {"task_id": subject}}
+
+
+def test_one_source_one_day_one_subject_is_narrow():
+    """Every `dispatch.*` event in the agentops store is this shape.
+
+    All carry `task_id` `EX-1`, the packet fixture from `test_hybrid_dispatch.py`, on one
+    day from one source. Read as "24 reviewed, 11 preflight-rejected" that is a working
+    dispatch cycle; read with its spread beside it, it is one rehearsal. The check still
+    refuses to *call* it a test -- a young contract and a fixture look identical from
+    here -- so it reports the shape and leaves the verdict with the reader.
+    """
+    events = [_spread_event("hybrid-dispatch", f"2026-08-29T10:0{i}:00Z", "EX-1") for i in range(5)]
+    spread = producers.runtime_concentration(events)
+    assert spread["narrow"] is True
+    assert spread["events"] == 5
+    assert spread["subjects"] == ["task_id=EX-1"]
+
+
+def test_many_subjects_over_many_days_is_not_narrow():
+    events = [_spread_event("claude-hook", f"2026-08-2{i}T10:00:00Z", f"task-{i}") for i in range(5)]
+    spread = producers.runtime_concentration(events)
+    assert spread["narrow"] is False
+    assert len(spread["days"]) == 5
+
+
+def test_no_events_yields_no_spread():
+    """A contract with only committed instances has no runtime shape to report.
+
+    A zeroed spread would read as "measured, and narrow" for something never measured at
+    all -- the distinction this whole check exists to keep.
+    """
+    assert producers.runtime_concentration([]) is None
+
+
+def test_spread_is_an_instrument_and_does_not_change_the_state():
+    """Narrow must not silently demote `produced`.
+
+    A reader decides what a narrow producer means, exactly as with `cannot-determine`.
+    """
+    narrow = [_spread_event("hybrid-dispatch", "2026-08-29T10:00:00Z", "EX-1")]
+    assert producers.runtime_concentration(narrow)["narrow"] is True
+    assert producers.STATES == ("no-instance", "examples-only", "produced", "cannot-determine")
