@@ -55,6 +55,10 @@ if [[ -z "$RUNTIME_SESSION" && -n "$SESSION" && "$SESSION" != "unknown" ]]; then
   RUNTIME_SESSION="$SESSION"
 fi
 PROJ="$(echo "$EVENT" | jq -r '.cwd // ""' | xargs basename 2>/dev/null || basename "$PWD")"
+# This log has more than one writer -- the workstation and the devbox both wire this
+# hook -- and until now nothing recorded which. Rows written before this stay
+# host-unknown; they cannot be attributed after the fact.
+HOST="${AGENTOPS_HOST:-$(hostname 2>/dev/null || echo unknown)}"
 
 GATE_FILE="$GATE_DIR/gates-$SESSION.jsonl"
 
@@ -133,20 +137,26 @@ if [[ -z "$TRANSCRIPT" || ! -f "$TRANSCRIPT" ]]; then
     --arg proj "$PROJ" \
     --arg session "$SESSION" \
     --arg runtime_session "$RUNTIME_SESSION" \
-    '{ts:$ts, project:$proj, session:$session, runtime_session_id:($runtime_session // ""), model:"unknown", in:0, cache_write:0, cache_read:0, out:0, cost_usd:0, turns:0, assistant_msgs:0, tool_calls:0, duration_s:0}')"
+    --arg host "$HOST" \
+    '{ts:$ts, project:$proj, session:$session, runtime_session_id:($runtime_session // ""), host:$host, model:"unknown", in:0, cache_write:0, cache_read:0, out:0, cost_usd:0, turns:0, assistant_msgs:0, tool_calls:0, duration_s:0}')"
   emit_record "$RECORD"
   exit 0
 fi
 
-# Pricing per million tokens (approximate, 2025 rates):
-#   opus:   $15 input / $75 output / $18.75 cache_write / $1.50 cache_read
-#   haiku:  $0.80 input / $4 output / $1.00 cache_write / $0.08 cache_read
-#   sonnet: $3 input / $15 output / $3.75 cache_write / $0.30 cache_read
+# Pricing per million tokens, as [input, cache_write, cache_read, output]:
+#   opus-5, opus-4-8, opus-4-7, opus-4-6:  5 / 6.25 / 0.50 / 25
+#   fable, mythos:                        10 / 12.5 / 1.00 / 50
+#   sonnet-5:                              2 / 2.50 / 0.20 / 10
+#   sonnet-4-6:                            3 / 3.75 / 0.30 / 15
+#   haiku:                                 1 / 1.25 / 0.10 / 5
+# An unmatched model prices to null, not to a guess. Silently applying Sonnet
+# rates to everything unrecognised is what made the old ladder overstate spend.
 RECORD="$(jq -rcs \
   --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --arg proj "$PROJ" \
   --arg session "$SESSION" \
   --arg runtime_session "$RUNTIME_SESSION" \
+  --arg host "$HOST" \
   '
   . as $rows
   # Counters are derived from the transcript: the Stop payload carries none of them.
@@ -172,15 +182,23 @@ RECORD="$(jq -rcs \
       cache_read:  ([ .[].message.usage.cache_read_input_tokens       // 0 ] | add // 0),
       out:         ([ .[].message.usage.output_tokens                 // 0 ] | add // 0)
     }
+  | (if   .model | test("opus-5|opus-4-8|opus-4-7|opus-4-6") then [5,  6.25, 0.50, 25]
+     elif .model | test("fable|mythos")                      then [10, 12.5, 1.00, 50]
+     elif .model | test("sonnet-5")                          then [2,  2.50, 0.20, 10]
+     elif .model | test("sonnet-4-6")                        then [3,  3.75, 0.30, 15]
+     elif .model | test("haiku")                             then [1,  1.25, 0.10, 5]
+     else null end) as $price
   | . + {
       cost_usd: (
-        (.in          / 1000000 * (if .model | test("opus")  then 15   elif .model | test("haiku") then 0.80 else 3    end)) +
-        (.cache_write / 1000000 * (if .model | test("opus")  then 18.75 elif .model | test("haiku") then 1.00 else 3.75 end)) +
-        (.cache_read  / 1000000 * (if .model | test("opus")  then 1.50  elif .model | test("haiku") then 0.08 else 0.30 end)) +
-        (.out         / 1000000 * (if .model | test("opus")  then 75   elif .model | test("haiku") then 4    else 15   end))
+        if $price == null then null else
+          (.in          / 1000000 * $price[0]) +
+          (.cache_write / 1000000 * $price[1]) +
+          (.cache_read  / 1000000 * $price[2]) +
+          (.out         / 1000000 * $price[3])
+        end
       )
     }
-  | {ts: $ts, project: $proj, session: $session, runtime_session_id: $runtime_session}
+  | {ts: $ts, project: $proj, session: $session, runtime_session_id: $runtime_session, host: $host}
     + . + {turns: $turns, assistant_msgs: $assistant_msgs, tool_calls: $tool_calls, duration_s: $duration_s}
   ' "$TRANSCRIPT")"
 
