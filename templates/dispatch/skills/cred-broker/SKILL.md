@@ -19,9 +19,12 @@ sentence.
 
 - `KUBECONFIG=/projects/dev/appservice/clusters/.kube/config` (a bare `kubectl`
   hits a local kind cluster).
-- `credctl` on PATH. It is not packaged in the host flake yet; it lives at
-  `/projects/dev/cred-broker/.venv/bin/credctl`. Prepend that rather than
-  concluding the broker is unavailable.
+- `credctl` on PATH, from the system profile
+  (`/run/current-system/sw/bin/credctl`, packaged in `gitops-nixos`
+  `pkgs/credctl.nix`). If it is absent, the host needs a rebuild. Do not reach
+  for `/projects/dev/cred-broker/.venv/bin/credctl` — that copy tracks an
+  uncommitted working tree, and using it puts two clients on different code
+  against one broker.
 - A live host identity in `~/.config/cred-broker/workstation/`.
 
 ## Steps

@@ -25,11 +25,13 @@ case "${1:-status}" in
       printf 'fj OAuth login present for git.apps.kotona.app\n'
     else
       printf 'no fj OAuth token; '
+      # Deliberately no venv fallback. credctl is packaged and on PATH from
+      # the system profile; probing a venv copy that consumers cannot see
+      # would report "brokered path OK" while ff-merge-pr.sh's bare
+      # `command -v credctl` still exits 1 -- a probe answering about
+      # something other than what a caller would actually run.
       cb=""
-      if command -v credctl >/dev/null 2>&1; then cb=credctl
-      elif [ -x /projects/dev/cred-broker/.venv/bin/credctl ]; then
-        cb=/projects/dev/cred-broker/.venv/bin/credctl
-      fi
+      if command -v credctl >/dev/null 2>&1; then cb=credctl; fi
       if [ -z "$cb" ]; then
         printf 'and credctl is not installed -- no forge API path. See AGENTS.md "Credential broker".\n'
       else
