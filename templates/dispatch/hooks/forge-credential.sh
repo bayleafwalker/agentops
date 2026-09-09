@@ -20,21 +20,61 @@ case "${1:-status}" in
     else printf 'PROBE FAILED\n'; fi
     ;;
   inventory)
-    cat <<'INV'
-github        gh (token in system KEYRING, NOT ~/.config/gh/hosts.yml) + ~/.ssh/github-agent-auth
-forgejo       fj OAuth (~/.local/share/forgejo-cli/keys.json)
-              ~/.config/forgejo/workstation-scope-token   [routine use]
-              ~/.config/forgejo/admin-token               [break-glass]
-git push      ALREADY WIRED -- ~/.gitconfig credential helpers cover both forges.
-              No token handling needed. Just run git push.
-vuoro-shared  ~/.config/vuoro/credentials/vuoro-shared-workstation  (via SPRINTCTL_VUORO_PROFILE)
-vuoro-cloud   ~/.config/vuoro/credentials/vuoro-cloud.token
-              AUDIENCE: vuoro-cloud APPLICATION operator API. vuo_operator_ prefix.
-              NOT A FORGEJO CREDENTIAL -- Forgejo rejects it as malformed.
-clusters      /projects/dev/appservice/clusters/.kube/config   (bare kubectl hits local kind!)
-repo secrets  ~/.config/sops/age/keys.txt  (4 identities; decrypts appservice, vuoro-cloud, gitops-nixos)
-hetzner       ~/.config/hcloud/cli.toml
-INV
+    # PROBED, not asserted. This block used to be a static heredoc, and on
+    # 2026-09-09 every forgejo line in it was false: it named three token files
+    # that do not exist and a ~/.gitconfig that does not exist either (git
+    # config is XDG, at ~/.config/git/config). A session read it, believed it,
+    # and spent its opening moves reasoning from credentials it did not have.
+    # An inventory that cannot observe what it lists is the same defect this
+    # hook exists to prevent, so every line below is a live check.
+    ex() { if [ -e "$1" ]; then printf 'EXISTS'; else printf 'MISSING'; fi; }
+    have() { command -v "$1" >/dev/null 2>&1 && printf 'on PATH' || printf 'NOT on PATH'; }
+    cb_dir="${HOME}/.config/cred-broker/workstation"
+
+    printf 'github        gh: %s   ~/.ssh/github-agent-auth: %s\n' \
+      "$(have gh)" "$(ex "${HOME}/.ssh/github-agent-auth")"
+    printf 'forgejo API   fj OAuth keys.json: %s\n' \
+      "$(ex "${HOME}/.local/share/forgejo-cli/keys.json")"
+    printf '              workstation-scope-token: %s   admin-token: %s\n' \
+      "$(ex "${HOME}/.config/forgejo/workstation-scope-token")" \
+      "$(ex "${HOME}/.config/forgejo/admin-token")"
+    printf 'git config    ~/.gitconfig: %s   ~/.config/git/config: %s  (XDG is the real one)\n' \
+      "$(ex "${HOME}/.gitconfig")" "$(ex "${HOME}/.config/git/config")"
+    printf 'git push      github https: gh helper. forgejo ssh: forgejo-ssh...:2222 (works).\n'
+    printf '              forgejo https: git-credential-fj needs keys.json above -- if that\n'
+    printf '              says MISSING, plain https push to the forge CANNOT work. Use ssh,\n'
+    printf '              or the broker helper below. Do not conclude "no forge access".\n'
+    printf 'cred-broker   credctl: %s\n' "$(have credctl)"
+    printf '              client.crt: %s  session.json: %s  server-ca.crt: %s\n' \
+      "$(ex "${cb_dir}/client.crt")" "$(ex "${cb_dir}/session.json")" \
+      "$(ex "${cb_dir}/server-ca.crt")"
+    if [ -r "${cb_dir}/client.crt" ] && command -v openssl >/dev/null 2>&1; then
+      if openssl x509 -in "${cb_dir}/client.crt" -noout -checkend 0 >/dev/null 2>&1; then
+        printf '              client certificate: VALID until %s\n' \
+          "$(openssl x509 -in "${cb_dir}/client.crt" -noout -enddate 2>/dev/null | cut -d= -f2-)"
+      else
+        printf '              client certificate: EXPIRED -- run cred-broker-refresh-identity.sh\n'
+      fi
+    fi
+    printf '              renewal timer: %s\n' \
+      "$(systemctl --user is-enabled cred-broker-identity.timer 2>/dev/null || echo 'NOT INSTALLED')"
+    printf '              HOW: credctl exec <capability> --repository forgejo:<owner>/<repo> -- <cmd>\n'
+    printf '              (FJ_TOKEN is injected into the child). For git over https add BOTH\n'
+    printf '              -c credential.useHttpPath=true and\n'
+    printf '              -c "credential.helper=!credctl git-credential --capability repo.write"\n'
+    printf '              -- without useHttpPath git sends no repo path and the helper returns\n'
+    printf '              nothing, which surfaces as "could not read Username", not as an error.\n'
+    printf '              Capabilities: repo.read repo.write pr.merge (forgejo), + pr.manage (github).\n'
+    printf '              SETUP if missing / BROKEN: appservice/docs/runbooks/cred-broker-host-identity.md\n'
+    printf '              PROVE a forge integration: appservice/docs/scripts/cred-broker-forgejo-canary.sh\n'
+    printf 'vuoro-shared  %s  (via SPRINTCTL_VUORO_PROFILE)\n' \
+      "$(ex "${HOME}/.config/vuoro/credentials/vuoro-shared-workstation")"
+    printf 'vuoro-cloud   %s  -- APPLICATION operator API (vuo_operator_), NOT a forgejo credential\n' \
+      "$(ex "${HOME}/.config/vuoro/credentials/vuoro-cloud.token")"
+    printf 'clusters      /projects/dev/appservice/clusters/.kube/config: %s  (bare kubectl hits local kind!)\n' \
+      "$(ex /projects/dev/appservice/clusters/.kube/config)"
+    printf 'repo secrets  ~/.config/sops/age/keys.txt: %s\n' "$(ex "${HOME}/.config/sops/age/keys.txt")"
+    printf 'hetzner       ~/.config/hcloud/cli.toml: %s\n' "$(ex "${HOME}/.config/hcloud/cli.toml")"
     ;;
 esac
 exit 0
