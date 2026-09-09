@@ -14,10 +14,41 @@ case "${1:-status}" in
       printf 'authenticated as %s (token in SYSTEM KEYRING, not hosts.yml)\n' \
         "$(gh api user --jq .login 2>/dev/null || echo '?')"
     else printf 'PROBE FAILED\n'; fi
+    # Forgejo has two possible paths and they fail differently. Reporting only
+    # the fj one produced a bare "forgejo: PROBE FAILED" at session start, which
+    # reads as an outage; on 2026-09-09 it meant "no OAuth token on this host",
+    # while the forge was live and the brokered path worked. Report both, and
+    # keep PROBE FAILED for the case where neither could be checked -- that is
+    # still "could not check", which is not "no access".
     printf 'forgejo: '
     if fj -H git.apps.kotona.app whoami >/dev/null 2>&1; then
       printf 'fj OAuth login present for git.apps.kotona.app\n'
-    else printf 'PROBE FAILED\n'; fi
+    else
+      printf 'no fj OAuth token; '
+      cb=""
+      if command -v credctl >/dev/null 2>&1; then cb=credctl
+      elif [ -x /projects/dev/cred-broker/.venv/bin/credctl ]; then
+        cb=/projects/dev/cred-broker/.venv/bin/credctl
+      fi
+      if [ -z "$cb" ]; then
+        printf 'and credctl is not installed -- no forge API path. See AGENTS.md "Credential broker".\n'
+      else
+        # explain evaluates policy WITHOUT minting, so a session start costs no
+        # credential. KUBECONFIG is not needed for this call.
+        out="$(timeout 8 "$cb" explain repo.read \
+          --repository forgejo:bayleaf/cred-broker 2>&1)"
+        case "$out" in
+          *'"decision": "allow"'*)
+            printf 'cred-broker BROKERED path OK (explain repo.read = allow).\n' ;;
+          *'server CA bundle is not readable'*)
+            printf 'cred-broker present but server-ca.crt missing -- run cred-broker-refresh-identity.sh\n' ;;
+          *'certificate'*|*'expired'*|*'session'*)
+            printf 'cred-broker identity stale -- run cred-broker-refresh-identity.sh\n' ;;
+          *)
+            printf 'cred-broker PROBE FAILED (could not check, not "no access").\n' ;;
+        esac
+      fi
+    fi
     ;;
   inventory)
     # PROBED, not asserted. This block used to be a static heredoc, and on
