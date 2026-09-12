@@ -37,3 +37,4 @@ docs/evidence/packets/*.reference.patch
 # and agentops is not their home. Only _artifacts/agentops/ is tracked.
 /_artifacts/*
 !/_artifacts/agentops/
+.claude/settings.local.json
