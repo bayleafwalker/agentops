@@ -74,6 +74,12 @@ were dropped, not that `vscode-shell` itself is misconfigured.
 
 ---
 
+## Bash output filtering — snip (workstation)
+
+The workstation runs [snip](https://github.com/edouard-claude/snip) as a Claude Code `PreToolUse` hook: it re-runs matched Bash commands through declarative YAML filters and returns condensed output, which is where most of the Bash share of a session's context goes. Filters live in `~/.config/snip/filters` (deployed from `gitops-nixos/modules/system/snip/filters`, workstation identity only for now) and cover `flux get`, `talosctl`, `journalctl`, `nix build`/`nix eval` and `sops` on top of the 132 bundled ones. They are written never to drop an error, warning, non-Ready row or terminal status line, but they are still filters — when the full untouched output is what you need (a log you are bisecting, a decrypted file, output you intend to diff byte for byte), prefix the command with the bypass: `snip proxy -- <cmd>` runs it with no filtering at all. `snip -v <cmd>` shows which filter matched, and `snip gain` reports what has been saved.
+
+---
+
 ## direnv
 
 `.envrc` files at project roots load automatically on `cd` when direnv is active. The first time entering a project, run `direnv allow` — this state persists on the PVC.
