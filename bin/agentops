@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Thin `agentops <topic> ...` front end over templates/dispatch/scripts/<topic>.py.
+#
+# agentops has no packaged CLI: every capability is a standalone argparse script
+# under templates/dispatch/scripts/, invoked by path. The context-economy plan
+# spells the handoff commands `agentops handoff create|validate|prompt|ack`, and
+# a successor prompt that names a path to a script inside a repository it has not
+# read yet is worse than one that names a command. This supplies the spelling
+# without inventing a packaging story: it resolves the topic to the sibling
+# script and execs it, so `--help`, exit codes and stdio are the script's own.
+#
+# Put this directory on PATH (or symlink this file into ~/.local/bin).
+set -euo pipefail
+
+self="${BASH_SOURCE[0]}"
+if [[ -L "$self" ]] && command -v readlink >/dev/null 2>&1; then
+  self="$(readlink -f -- "$self")"
+fi
+root="$(cd -- "$(dirname -- "$self")/.." && pwd)"
+
+if [[ $# -lt 1 ]]; then
+  printf 'usage: agentops <topic> [args...]\n\ntopics:\n' >&2
+  for s in "$root"/templates/dispatch/scripts/*.py; do
+    printf '  %s\n' "$(basename "${s%.py}" | tr '_' '-')" >&2
+  done
+  exit 2
+fi
+
+topic="$1"; shift
+script="$root/templates/dispatch/scripts/${topic//-/_}.py"
+if [[ ! -r "$script" ]]; then
+  printf 'agentops: no such topic %q (looked for %s)\n' "$topic" "$script" >&2
+  exit 2
+fi
+
+PY=""
+for candidate in python3 /usr/bin/python3 "$HOME/.local/bin/python3"; do
+  if command -v "$candidate" >/dev/null 2>&1; then PY="$candidate"; break; fi
+done
+if [[ -z "$PY" ]]; then
+  printf 'agentops: no python3 on PATH\n' >&2
+  exit 127
+fi
+
+exec "$PY" "$script" "$@"

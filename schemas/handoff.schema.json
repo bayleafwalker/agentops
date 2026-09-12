@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/handoff.schema.json",
+  "title": "handoff/v1",
+  "description": "Session-memory handoff written by a predecessor agent session for its successor. Canonical form is this JSON; the rendered .md beside it is for humans and is never read by the ack guard. Nullable fields use oneOf with an explicit null branch, never a union type list, because the repository's schema_check subset refuses union types.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "handoff_id",
+    "version",
+    "predecessor",
+    "objective",
+    "constraints",
+    "decisions",
+    "rejected",
+    "state",
+    "unresolved",
+    "evidence",
+    "sprintctl_bundle_ref",
+    "next_action",
+    "successor"
+  ],
+  "properties": {
+    "schema_version": {"const": "handoff/v1"},
+    "handoff_id": {
+      "type": "string",
+      "description": "<date>-<slug>.v<N>, matching the file stem.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9][a-z0-9-]*\\.v[0-9]+$"
+    },
+    "version": {"type": "integer", "minimum": 1},
+    "created_at": {"type": "string", "minLength": 1},
+    "predecessor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["harness", "session_id", "transcript_path", "model", "context_used_pct"],
+      "properties": {
+        "harness": {"type": "string", "minLength": 1},
+        "session_id": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "transcript_path": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "model": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "context_used_pct": {"oneOf": [{"type": "number", "minimum": 0, "maximum": 100}, {"type": "null"}]}
+      }
+    },
+    "objective": {"type": "string", "minLength": 1},
+    "constraints": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["what", "why"],
+        "properties": {
+          "what": {"type": "string", "minLength": 1},
+          "why": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "rejected": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["what", "why"],
+        "properties": {
+          "what": {"type": "string", "minLength": 1},
+          "why": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repos", "running"],
+      "properties": {
+        "repos": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "head", "branch", "dirty", "diff_sha256", "unpushed"],
+            "properties": {
+              "path": {"type": "string", "minLength": 1},
+              "head": {"type": "string", "pattern": "^[0-9a-f]{7,40}$"},
+              "branch": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+              "dirty": {"type": "boolean"},
+              "diff_sha256": {
+                "type": "string",
+                "description": "sha256 over the bytes of `git diff HEAD` followed immediately by the bytes of `git status --porcelain`, both run in path with no extra separator.",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "unpushed": {"type": "integer", "minimum": 0}
+            }
+          }
+        },
+        "running": {
+          "type": "array",
+          "description": "Long-lived processes, background jobs or watchers the successor inherits or must not restart.",
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "unresolved": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "ref"],
+        "properties": {
+          "kind": {"enum": ["session", "artifact", "auditctl", "sprintctl"]},
+          "ref": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "sprintctl_bundle_ref": {
+      "description": "Reference to a sprintctl handoff bundle written beside this file; never the bundle itself.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": {"type": "string", "minLength": 1},
+            "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "generated_at": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}]}
+          }
+        },
+        {"type": "null"}
+      ]
+    },
+    "next_action": {
+      "type": "string",
+      "description": "Exact text of the one action the successor executes first.",
+      "minLength": 1
+    },
+    "successor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["session_id", "acknowledged_at"],
+      "properties": {
+        "session_id": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "acknowledged_at": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}]}
+      }
+    }
+  }
+}
