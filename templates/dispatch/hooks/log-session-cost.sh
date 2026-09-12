@@ -80,6 +80,30 @@ REWORK="$(printf '%s' "$GATES" | jq '
       | select([ $rows[($i + 1):][] | select(.cmd == $rows[$i].cmd) ] | length > 0)
     ] | length' 2>/dev/null || echo 0)"
 
+# --- Transfer: did this session hand its work to a successor? -------------------------
+# A handoff under docs/dispatch/handoffs records `predecessor.session_id` at create time and
+# gains `successor.session_id` when the successor acks. If the session now stopping is some
+# handoff's acked predecessor, the stop is the end of a *transfer*, not the end of the work,
+# and the event should say where the work went -- otherwise the successor's session looks
+# like an unrelated run that happened to touch the same repos.
+#
+# `handed_off_to` rides in --metadata, which auditctl documents as "JSON object with
+# publisher metadata" and does not schema-restrict; the typed slots are --type/--actor/
+# --summary/--detail/--ref, and --ref rejects anything outside its wi:/ka:/ad:/sha:/pr:/
+# sprint:/capsule: prefixes, which is already why the session id travels in metadata (below).
+# The key is omitted entirely when there is no successor, so an un-handed-off session's
+# event is byte-identical to what it was before this change.
+#
+# Read-only and best-effort: a missing directory, unreadable file or absent jq must not cost
+# the session its record. Newest match wins if several -- files sort by <date>-<slug>.v<N>.
+HANDOFF_DIR="${AGENTOPS_HANDOFF_DIR:-/projects/dev/agentops/docs/dispatch/handoffs}"
+HANDED_OFF_TO=""
+if [[ -d "$HANDOFF_DIR" && -n "$SESSION" && "$SESSION" != "unknown" ]]; then
+  HANDED_OFF_TO="$(jq -r --arg s "$SESSION" \
+    'select(.predecessor.session_id == $s and (.successor.session_id // "") != "")
+     | .successor.session_id' "$HANDOFF_DIR"/*.json 2>/dev/null | tail -n 1 || true)"
+fi
+
 emit_record() {
   local record="$1"
   printf '%s\n' "$record" >> "$LOG"
@@ -93,8 +117,10 @@ emit_record() {
   summary="$(printf '%s' "$record" | jq -r '"session \(.project): \(.turns) turns, \(.tool_calls) tool calls, $\(.cost_usd * 100 | round / 100)"')"
   metadata="$(printf '%s' "$record" | jq -c \
       --argjson gates "$GATES" --argjson rework "${REWORK:-0}" \
+      --arg handed "$HANDED_OFF_TO" \
       '{session, runtime_session_id, turns, assistant_msgs, tool_calls, duration_s, cost_usd,
-        model, project, gates: $gates, rework_rounds: $rework}')"
+        model, project, gates: $gates, rework_rounds: $rework}
+       + (if $handed == "" then {} else {handed_off_to: $handed} end)')"
   # No --ref: auditctl allows only wi:/ka:/ad:/sha:/pr:/sprint:/capsule: prefixes, so the
   # session id travels in the metadata instead of being rejected as an invalid ref.
   "$auditctl_path" add --type workflow.session --source claude-hook --actor claude-hook \
