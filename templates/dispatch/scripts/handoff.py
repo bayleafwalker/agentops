@@ -12,11 +12,23 @@ read back -- the ack guard, the validator and the SessionStart injection all rea
 the JSON. That is the owner decision recorded in the plan; a prose file cannot be
 rename-acked without a parser nobody wants to own.
 
-`diff_sha256` is sha256 over the bytes of `git diff HEAD` followed immediately by
-the bytes of `git status --porcelain`, both run in the repo path, no separator.
-It covers uncommitted work *and* untracked/staged bookkeeping, so a successor
-that recomputes it is asserting "the working tree is byte-identical to the one
-described here", not merely "HEAD matches".
+`diff_sha256` has two definitions, distinguished by `state.digest_version`:
+
+    v1 (default when the field is absent): sha256 over the bytes of
+       `git diff HEAD` followed immediately by the bytes of
+       `git status --porcelain`, both run in the repo path, no separator.
+    v2 (what `create` writes): v1's two inputs, then, for each untracked
+       non-ignored file (`git ls-files --others --exclude-standard`, sorted by
+       path bytes), the record `NUL <path bytes> NUL <content sha256 hex>`.
+
+v1 is blind to *content* changes in untracked files: `git status --porcelain`
+names an untracked path but never its bytes, so editing an untracked file left
+the digest unmoved (phase-4 acceptance finding). v2 closes that. Old handoffs
+keep validating under v1 because the file declares which definition it used;
+`validate` computes the definition the file declares, never the newest one.
+
+Either way a successor that recomputes the digest is asserting "the working tree
+is the one described here", not merely "HEAD matches".
 
 No third-party dependencies (PyYAML is used only if a draft is YAML and only if
 it happens to be importable; JSON drafts never need it). Schema validation reuses
@@ -32,6 +44,13 @@ Subcommands
     prompt    render the successor's first prompt on stdout
     ack       set successor.session_id atomically; refuse if already set, naming
               the live successor. The single-active-successor guard
+
+Two hosts, one guard. When the handoff is carried to another host (scp to the
+successor's box -- workstation and devbox-vm share no filesystem mount), the
+guard would otherwise become two files and two independent claims. So `create`
+stamps `origin_host`/`origin_path`, and `ack` on any other host performs the
+authoritative atomic ack on the origin's copy over ssh *first*, updating the
+local copy only if that succeeded. The predecessor keeps the copy that decides.
 """
 
 from __future__ import annotations
@@ -42,6 +61,7 @@ import importlib.util
 import json
 import os
 import re
+import socket
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -81,11 +101,59 @@ def _git(repo: Path, *args: str, check: bool = True) -> str:
     return proc.stdout
 
 
-def diff_sha256(repo: Path) -> str:
-    """sha256 over `git diff HEAD` bytes then `git status --porcelain` bytes."""
+def _git_bytes(repo: Path, *args: str) -> bytes:
+    proc = subprocess.run(
+        ["git", "-C", str(repo), *args], capture_output=True)
+    if proc.returncode != 0:
+        raise HandoffError(
+            f"git {' '.join(args)} failed in {repo}: "
+            f"{proc.stderr.decode(errors='replace').strip()}")
+    return proc.stdout
+
+
+def untracked_records(repo: Path) -> list[bytes]:
+    """`NUL <path> NUL <sha256 of contents>` per untracked non-ignored file.
+
+    Sorted by raw path bytes, so the sequence is a function of the tree and not
+    of the locale or of git's output order. Contents are hashed as *bytes*: an
+    untracked PNG must hash as cleanly as an untracked .md. A path git lists but
+    that cannot be read (a dangling symlink, a file removed between the listing
+    and the read) records the literal marker `unreadable` instead of a digest --
+    that state is itself part of what the successor is asserting about.
+    """
+    listing = _git_bytes(repo, "ls-files", "--others", "--exclude-standard", "-z")
+    records = []
+    for raw in sorted(p for p in listing.split(b"\0") if p):
+        target = repo / os.fsdecode(raw)
+        try:
+            content = hashlib.sha256(target.read_bytes()).hexdigest().encode()
+        except OSError:
+            content = b"unreadable"
+        records.append(b"\0" + raw + b"\0" + content)
+    return records
+
+
+DIGEST_VERSION_DEFAULT = 1   # what a handoff without state.digest_version means
+DIGEST_VERSION_CURRENT = 2   # what `create` writes
+
+
+def diff_sha256(repo: Path, digest_version: int = DIGEST_VERSION_CURRENT) -> str:
+    """The recorded working-tree digest, under the definition asked for.
+
+    v1: `git diff HEAD` bytes then `git status --porcelain` bytes.
+    v2: v1, then one `NUL <path> NUL <content sha256>` record per untracked
+        non-ignored file, sorted by path bytes.
+    """
+    if digest_version not in (1, 2):
+        raise HandoffError(
+            f"unknown state.digest_version {digest_version!r}: this build "
+            f"understands 1 and 2. A newer handoff needs a newer agentops.")
     digest = hashlib.sha256()
     digest.update(_git(repo, "diff", "HEAD").encode())
     digest.update(_git(repo, "status", "--porcelain").encode())
+    if digest_version >= 2:
+        for record in untracked_records(repo):
+            digest.update(record)
     return digest.hexdigest()
 
 
@@ -109,7 +177,8 @@ def _unpushed(repo: Path) -> int:
     return int(proc.stdout.strip() or 0)
 
 
-def repo_state(path: Path) -> dict[str, Any]:
+def repo_state(path: Path,
+               digest_version: int = DIGEST_VERSION_CURRENT) -> dict[str, Any]:
     repo = Path(path).expanduser().resolve()
     if not repo.is_dir():
         raise HandoffError(f"repo path does not exist: {repo}")
@@ -121,7 +190,7 @@ def repo_state(path: Path) -> dict[str, Any]:
         "head": head,
         "branch": None if branch == "HEAD" else branch,
         "dirty": bool(porcelain.strip()),
-        "diff_sha256": diff_sha256(repo),
+        "diff_sha256": diff_sha256(repo, digest_version),
         "unpushed": _unpushed(repo),
     }
 
@@ -260,18 +329,27 @@ def build(
     running: list[str],
     predecessor: dict[str, Any],
     bundle_ref: dict[str, Any] | None,
+    digest_version: int = DIGEST_VERSION_CURRENT,
+    origin_host: str | None = None,
+    origin_path: str | None = None,
 ) -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
         "handoff_id": f"{date}-{slug}.v{version}",
         "version": version,
         "created_at": _now_iso(),
+        "origin_host": origin_host,
+        "origin_path": origin_path,
         "predecessor": predecessor,
         "objective": objective,
         "constraints": constraints,
         "decisions": decisions,
         "rejected": rejected,
-        "state": {"repos": repos, "running": running},
+        "state": {
+            "repos": repos,
+            "running": running,
+            "digest_version": digest_version,
+        },
         "unresolved": unresolved,
         "evidence": evidence,
         "sprintctl_bundle_ref": bundle_ref,
@@ -299,6 +377,9 @@ def render_markdown(handoff: dict[str, Any]) -> str:
         f"- model: {pred['model'] or 'unknown'}",
         f"- context used: {pred['context_used_pct'] if pred['context_used_pct'] is not None else 'unknown'}%",
         f"- transcript: {pred['transcript_path'] or 'unknown'}",
+        (f"- origin: `{handoff['origin_host']}:{handoff.get('origin_path') or '?'}`"
+         " (authoritative copy; an ack from another host goes through it)"
+         if handoff.get("origin_host") else "- origin: (not recorded)"),
         "",
         "Read-only after transfer: once a successor acks, the predecessor makes no",
         "edits and takes no external actions. It stays consultable.",
@@ -312,6 +393,10 @@ def render_markdown(handoff: dict[str, Any]) -> str:
     lines += ["", "## Rejected", ""]
     lines += [f"- **{r['what']}** — {r['why']}" for r in handoff["rejected"]] or ["- (none recorded)"]
     lines += ["", "## Repo state", "",
+              f"Digest definition: v"
+              f"{handoff['state'].get('digest_version', DIGEST_VERSION_DEFAULT)}"
+              " (see the handoffs README).",
+              "",
               "| path | branch | head | dirty | unpushed | diff_sha256 |",
               "|---|---|---|---|---|---|"]
     for repo in handoff["state"]["repos"]:
@@ -362,9 +447,11 @@ def render_prompt(handoff: dict[str, Any], path: Path) -> str:
         "",
         "VERIFY REPO STATE before any change. Run:",
         f"  agentops handoff validate {path}",
-        "It recomputes diff_sha256 (sha256 of `git diff HEAD` then",
-        "`git status --porcelain`) for each repo below and refuses if the tree",
-        "has moved. If it refuses, STOP and report; do not adapt to the drift.",
+        "It recomputes diff_sha256 under the definition this handoff declares",
+        f"(v{handoff['state'].get('digest_version', DIGEST_VERSION_DEFAULT)}: "
+        "`git diff HEAD`, `git status --porcelain`, and under v2 the sha256 of",
+        "each untracked file's contents) for each repo below and refuses if the",
+        "tree has moved. If it refuses, STOP and report; do not adapt to the drift.",
     ]
     for repo in repos:
         lines.append(
@@ -417,6 +504,12 @@ def validate_handoff(handoff: dict[str, Any], *, check_tree: bool = True) -> lis
         return problems
     if not handoff["next_action"].strip():
         problems.append("next_action is empty")
+    # The file declares which digest definition it was written under; recompute
+    # that one. Recomputing the newest definition against a v1 handoff would
+    # refuse every handoff written before v2 existed, which is exactly the
+    # breakage the version field exists to avoid.
+    digest_version = handoff["state"].get(
+        "digest_version", DIGEST_VERSION_DEFAULT)
     for repo in handoff["state"]["repos"]:
         path = Path(repo["path"])
         if not path.is_dir():
@@ -431,10 +524,15 @@ def validate_handoff(handoff: dict[str, Any], *, check_tree: bool = True) -> lis
             continue
         if not check_tree:
             continue
-        now = diff_sha256(path)
+        try:
+            now = diff_sha256(path, digest_version)
+        except HandoffError as exc:
+            problems.append(f"{path}: {exc}")
+            continue
         if now != repo["diff_sha256"]:
             problems.append(
-                f"{path}: stale diff_sha256 — recorded {repo['diff_sha256'][:16]}, "
+                f"{path}: stale diff_sha256 (v{digest_version}) — recorded "
+                f"{repo['diff_sha256'][:16]}, "
                 f"working tree is now {now[:16]}. The tree is not the one the "
                 f"predecessor left; refusing.")
     return problems
@@ -465,7 +563,75 @@ def write_atomic(path: Path, payload: str) -> None:
     os.replace(tmp, path)
 
 
-def ack(path: Path, session_id: str) -> dict[str, Any]:
+class SSHTransport:
+    """`ssh <host> <argv...>`, the only transport used in production.
+
+    Injectable so the two-host guard is testable without a second machine: the
+    tests substitute a recorder that returns a chosen exit status, which is the
+    only thing the guard branches on.
+    """
+
+    def __init__(self, ssh: str = "ssh", timeout: int = 60) -> None:
+        self.ssh = ssh
+        self.timeout = timeout
+
+    def run(self, host: str, argv: list[str]) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [self.ssh, host, *argv],
+            capture_output=True, text=True, timeout=self.timeout)
+
+
+def local_hostname() -> str:
+    """This host's name, overridable so tests can pretend to be elsewhere."""
+    return os.environ.get("AGENTOPS_HOSTNAME") or socket.gethostname()
+
+
+def _remote_ack_argv(origin_path: str, session_id: str,
+                     *, fallback: bool) -> list[str]:
+    """The command run on the origin host to take the authoritative ack.
+
+    `agentops` first because that is what the origin is documented to install;
+    the `python3 <script>` form is the fallback for an origin where the wrapper
+    is not on a non-interactive PATH (ssh runs a non-login shell). The script
+    path is this file's own path, which holds because both hosts check out the
+    same repository at the same location -- if that stops being true the origin
+    needs an explicit `origin_script` and this is where it would go.
+    """
+    tail = ["handoff", "ack", origin_path, "--session-id", session_id]
+    if fallback:
+        return ["python3", str(_HERE / "handoff.py"), *tail[1:]]
+    return ["agentops", *tail]
+
+
+def remote_ack(origin_host: str, origin_path: str, session_id: str,
+               transport: Any) -> subprocess.CompletedProcess:
+    """Take the ack on the origin host. Returns the *successful* result."""
+    result = transport.run(
+        origin_host, _remote_ack_argv(origin_path, session_id, fallback=False))
+    if result.returncode == 127:  # no `agentops` on the origin's ssh PATH
+        result = transport.run(
+            origin_host,
+            _remote_ack_argv(origin_path, session_id, fallback=True))
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()
+        raise HandoffError(
+            f"origin host {origin_host} refused the ack of {origin_path} "
+            f"(exit {result.returncode}): {detail or 'no output'}. The origin "
+            f"copy is the authoritative one; the local copy is unchanged.")
+    return result
+
+
+def ack(path: Path, session_id: str, *,
+        transport: Any | None = None,
+        hostname: str | None = None) -> dict[str, Any]:
+    """Claim a handoff as its single successor.
+
+    On the origin host this is the local atomic ack. On any other host the
+    authoritative ack is taken on the origin first, over the injected transport,
+    and the local copy is updated only once that succeeded -- so a handoff that
+    was scp'd to two successor hosts still admits exactly one claim, because
+    both of them are claiming the same file on the predecessor's machine.
+    """
     handoff = read_handoff(path)
     live = handoff.get("successor", {}).get("session_id")
     if live:
@@ -474,6 +640,16 @@ def ack(path: Path, session_id: str) -> dict[str, Any]:
             f"successor: {live} (acknowledged {handoff['successor'].get('acknowledged_at')}). "
             f"Refusing: exactly one successor may be active. Consult or stop that "
             f"session, or create a new handoff.")
+
+    origin_host = handoff.get("origin_host")
+    origin_path = handoff.get("origin_path")
+    here = hostname or local_hostname()
+    if origin_host and origin_path and origin_host != here:
+        # Authoritative first, local second. If this raises, nothing below runs
+        # and the local file is byte-identical to what it was.
+        remote_ack(origin_host, origin_path, session_id,
+                   transport or SSHTransport())
+
     handoff["successor"] = {
         "session_id": session_id,
         "acknowledged_at": _now_iso(),
@@ -505,7 +681,7 @@ def cmd_create(args: argparse.Namespace) -> int:
         raise HandoffError("next_action is required and must be non-empty")
 
     repo_paths = [Path(p) for p in (args.repo or draft.get("repos") or [Path.cwd()])]
-    repos = [repo_state(Path(p)) for p in repo_paths]
+    repos = [repo_state(Path(p), DIGEST_VERSION_CURRENT) for p in repo_paths]
 
     slug = args.slug or draft.get("slug")
     if not slug:
@@ -519,6 +695,8 @@ def cmd_create(args: argparse.Namespace) -> int:
     date = args.date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
     version = next_version(out_dir, date, slug)
     stem = f"{date}-{slug}.v{version}"
+    json_path = out_dir / f"{stem}.json"
+    md_path = out_dir / f"{stem}.md"
 
     bundle_ref = None
     if not args.no_sprintctl:
@@ -549,6 +727,13 @@ def cmd_create(args: argparse.Namespace) -> int:
         running=list(pick("running", args.running, []) or []),
         predecessor=predecessor,
         bundle_ref=bundle_ref,
+        digest_version=DIGEST_VERSION_CURRENT,
+        # Stamped now, while this host still is the origin. After an scp the
+        # copy on the successor's host has no other way to know where the
+        # authoritative file lives.
+        origin_host=(args.origin_host or draft.get("origin_host")
+                     or local_hostname()),
+        origin_path=str(json_path.resolve()),
     )
 
     problems = schema_errors(handoff)
@@ -557,8 +742,6 @@ def cmd_create(args: argparse.Namespace) -> int:
             "refusing to write a handoff that does not satisfy the schema:\n  "
             + "\n  ".join(problems))
 
-    json_path = out_dir / f"{stem}.json"
-    md_path = out_dir / f"{stem}.md"
     write_atomic(json_path, json.dumps(handoff, indent=2) + "\n")
     write_atomic(md_path, render_markdown(handoff))
     print(json_path)
@@ -586,9 +769,13 @@ def cmd_prompt(args: argparse.Namespace) -> int:
 
 
 def cmd_ack(args: argparse.Namespace) -> int:
-    handoff = ack(Path(args.file), args.session_id)
+    path = Path(args.file)
+    handoff = ack(path, args.session_id)
+    origin = handoff.get("origin_host")
+    where = ("" if not origin or origin == local_hostname()
+             else f" (authoritative ack taken on {origin})")
     print(f"acknowledged {handoff['handoff_id']} as successor "
-          f"{handoff['successor']['session_id']}")
+          f"{handoff['successor']['session_id']}{where}")
     return 0
 
 
@@ -625,6 +812,10 @@ def main(argv: list[str] | None = None) -> int:
     create.add_argument("--transcript-path", dest="transcript_path")
     create.add_argument("--model")
     create.add_argument("--context-used-pct", dest="context_used_pct", type=float)
+    create.add_argument("--origin-host", dest="origin_host",
+                        help="host that keeps the authoritative copy; defaults "
+                             "to this host's name. A successor on any other "
+                             "host acks through it over ssh")
     create.add_argument("--out-dir", dest="out_dir")
     create.add_argument("--date", help="override the date component (testing)")
     create.add_argument("--no-sprintctl", action="store_true",

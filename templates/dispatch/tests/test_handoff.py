@@ -10,7 +10,15 @@ Three properties carry the design; the rest of `handoff.py` is rendering.
    byte-identical -- a guard that refuses but half-writes is not a guard.
 3. **A stale tree is refused.** `diff_sha256` exists so a successor can prove the
    working tree is the one the predecessor left. If validation passed on a moved
-   tree the field would be decoration.
+   tree the field would be decoration. Digest v2 extends that to the *contents*
+   of untracked files, which v1 could not see; both definitions are pinned here,
+   because `validate` must compute the one the file declares or every handoff
+   written before v2 would start refusing.
+4. **One guard, two hosts.** Once the file is scp'd to the successor's machine
+   there are two copies. The ack off-origin must go through the origin's copy,
+   so a remote refusal leaves the local file untouched and a remote acceptance
+   updates both. Tested against an injected transport: a second machine is not
+   available in CI and the guard branches only on the transport's exit status.
 
 The subject is `templates/dispatch/scripts/handoff.py`. Real git repositories are
 built in tmp_path rather than mocked: the digest is defined in terms of `git diff
@@ -126,6 +134,23 @@ class TestSchema(unittest.TestCase):
 
     def test_evidence_kind_is_closed(self) -> None:
         self.valid["evidence"] = [{"kind": "slack", "ref": "x"}]
+        self.assertNotEqual(handoff.schema_errors(self.valid), [])
+
+    def test_digest_version_is_optional_and_must_be_an_integer(self) -> None:
+        self.assertEqual(handoff.schema_errors(self.valid), [])   # absent: v1
+        self.valid["state"]["digest_version"] = 2
+        self.assertEqual(handoff.schema_errors(self.valid), [])
+        self.valid["state"]["digest_version"] = "2"
+        self.assertNotEqual(handoff.schema_errors(self.valid), [])
+
+    def test_origin_fields_are_optional_and_nullable(self) -> None:
+        self.valid["origin_host"] = "workstation"
+        self.valid["origin_path"] = "/projects/dev/agentops/x.json"
+        self.assertEqual(handoff.schema_errors(self.valid), [])
+        self.valid["origin_host"] = None
+        self.valid["origin_path"] = None
+        self.assertEqual(handoff.schema_errors(self.valid), [])
+        self.valid["origin_host"] = ""
         self.assertNotEqual(handoff.schema_errors(self.valid), [])
 
     def test_successor_may_be_set(self) -> None:
@@ -344,14 +369,268 @@ class TestDigestDefinition(unittest.TestCase):
         (self.repo / "file.txt").write_text("changed\n")
         self.assertNotEqual(before, handoff.diff_sha256(self.repo))
 
-    def test_digest_matches_the_documented_definition(self) -> None:
+    def test_v1_matches_the_documented_definition(self) -> None:
         import hashlib
         (self.repo / "file.txt").write_text("changed\n")
         (self.repo / "new.txt").write_text("new\n")
         expected = hashlib.sha256()
         expected.update(_git(self.repo, "diff", "HEAD").encode())
         expected.update(_git(self.repo, "status", "--porcelain").encode())
-        self.assertEqual(handoff.diff_sha256(self.repo), expected.hexdigest())
+        self.assertEqual(handoff.diff_sha256(self.repo, 1), expected.hexdigest())
+
+    def test_v2_matches_the_documented_definition(self) -> None:
+        import hashlib
+        (self.repo / "file.txt").write_text("changed\n")
+        (self.repo / "b.txt").write_text("bee\n")
+        (self.repo / "a.txt").write_text("ay\n")
+        expected = hashlib.sha256()
+        expected.update(_git(self.repo, "diff", "HEAD").encode())
+        expected.update(_git(self.repo, "status", "--porcelain").encode())
+        for name in ("a.txt", "b.txt"):   # sorted by path bytes
+            content = hashlib.sha256((self.repo / name).read_bytes()).hexdigest()
+            expected.update(b"\0" + name.encode() + b"\0" + content.encode())
+        self.assertEqual(handoff.diff_sha256(self.repo, 2), expected.hexdigest())
+
+    def test_v1_is_blind_to_an_untracked_content_change(self) -> None:
+        # The defect v2 exists to fix, asserted rather than described: `git
+        # status --porcelain` names the path and never its bytes.
+        (self.repo / "notes.txt").write_text("first\n")
+        before = handoff.diff_sha256(self.repo, 1)
+        (self.repo / "notes.txt").write_text("second\n")
+        self.assertEqual(before, handoff.diff_sha256(self.repo, 1))
+
+    def test_v2_detects_an_untracked_content_change(self) -> None:
+        (self.repo / "notes.txt").write_text("first\n")
+        before = handoff.diff_sha256(self.repo, 2)
+        (self.repo / "notes.txt").write_text("second\n")
+        self.assertNotEqual(before, handoff.diff_sha256(self.repo, 2))
+
+    def test_v2_still_detects_a_tracked_edit_and_a_new_untracked_file(self) -> None:
+        base = handoff.diff_sha256(self.repo, 2)
+        (self.repo / "file.txt").write_text("changed\n")
+        edited = handoff.diff_sha256(self.repo, 2)
+        self.assertNotEqual(base, edited)
+        (self.repo / "new.txt").write_text("new\n")
+        self.assertNotEqual(edited, handoff.diff_sha256(self.repo, 2))
+
+    def test_v2_is_stable_across_calls(self) -> None:
+        (self.repo / "notes.txt").write_text("first\n")
+        self.assertEqual(handoff.diff_sha256(self.repo, 2),
+                         handoff.diff_sha256(self.repo, 2))
+
+    def test_v2_hashes_a_binary_untracked_file_without_error(self) -> None:
+        # Bytes, not text: a decode step here would raise on the first PNG a
+        # session left in the tree, and the digest would be unusable exactly
+        # when a successor most needs it.
+        blob = bytes(range(256)) + b"\x00\xff\xfe" * 32
+        (self.repo / "image.bin").write_bytes(blob)
+        first = handoff.diff_sha256(self.repo, 2)
+        self.assertRegex(first, r"^[0-9a-f]{64}$")
+        (self.repo / "image.bin").write_bytes(blob + b"\x01")
+        self.assertNotEqual(first, handoff.diff_sha256(self.repo, 2))
+
+    def test_v2_ignores_gitignored_files(self) -> None:
+        (self.repo / ".gitignore").write_text("junk/\n")
+        _git(self.repo, "add", ".gitignore")
+        _git(self.repo, "commit", "-q", "-m", "ignore junk")
+        before = handoff.diff_sha256(self.repo, 2)
+        (self.repo / "junk").mkdir()
+        (self.repo / "junk" / "x.tmp").write_text("noise\n")
+        self.assertEqual(before, handoff.diff_sha256(self.repo, 2))
+
+    def test_an_unknown_digest_version_is_refused_not_guessed(self) -> None:
+        with self.assertRaises(handoff.HandoffError):
+            handoff.diff_sha256(self.repo, 99)
+
+
+class TestDigestVersionCompatibility(unittest.TestCase):
+    """The version field exists so old handoffs keep validating."""
+
+    def setUp(self) -> None:
+        import tempfile
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.repo = _make_repo(self.tmp / "repo")
+        self.out = self.tmp / "handoffs"
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def _create(self, slug: str) -> Path:
+        handoff.main([
+            "create", "--slug", slug, "--repo", str(self.repo),
+            "--objective", "o", "--next-action", "n", "--no-sprintctl",
+            "--out-dir", str(self.out), "--date", "2026-09-12",
+        ])
+        return self.out / f"2026-09-12-{slug}.v1.json"
+
+    def test_create_writes_version_2(self) -> None:
+        data = json.loads(self._create("fresh").read_text())
+        self.assertEqual(data["state"]["digest_version"], 2)
+
+    def test_a_v1_handoff_without_the_field_still_validates(self) -> None:
+        # Exactly the shape of the four evidence handoffs already committed
+        # under docs/dispatch/handoffs: no state.digest_version at all.
+        path = self._create("legacy")
+        data = json.loads(path.read_text())
+        del data["state"]["digest_version"]
+        data["state"]["repos"][0]["diff_sha256"] = handoff.diff_sha256(self.repo, 1)
+        path.write_text(json.dumps(data, indent=2) + "\n")
+        self.assertEqual(handoff.validate_handoff(json.loads(path.read_text())), [])
+
+    def test_the_committed_evidence_handoffs_declare_no_digest_version(self) -> None:
+        # If a later change starts stamping the field into these, the
+        # compatibility path above stops being exercised by anything real.
+        committed = sorted(
+            (ROOT / "docs/dispatch/handoffs").glob("*.v*.json"))
+        self.assertTrue(committed, "no committed handoffs to check")
+        for path in committed:
+            if path.name.endswith("sprintctl-bundle.json"):
+                continue
+            with self.subTest(path.name):
+                data = json.loads(path.read_text())
+                self.assertNotIn("digest_version", data["state"])
+                self.assertEqual(handoff.schema_errors(data), [])
+
+    def test_a_v2_handoff_is_refused_when_an_untracked_file_changes(self) -> None:
+        (self.repo / "scratch.txt").write_text("before\n")
+        path = self._create("guarded")
+        self.assertEqual(handoff.validate_handoff(json.loads(path.read_text())), [])
+        (self.repo / "scratch.txt").write_text("after\n")
+        problems = handoff.validate_handoff(json.loads(path.read_text()))
+        self.assertTrue(any("stale diff_sha256" in p for p in problems), problems)
+
+
+class _RecordingTransport:
+    """Stands in for ssh. Records calls, returns a scripted exit status."""
+
+    def __init__(self, *results) -> None:
+        self.results = list(results)
+        self.calls: list[tuple[str, list[str]]] = []
+
+    def run(self, host: str, argv: list[str]):
+        self.calls.append((host, argv))
+        returncode, stdout, stderr = self.results.pop(0)
+        return subprocess.CompletedProcess(
+            [host, *argv], returncode, stdout, stderr)
+
+
+class TestTwoHostAck(unittest.TestCase):
+    """One guard when the file lives on two hosts.
+
+    The handoff is scp'd to the successor's host, so the guard would become two
+    files and two independent claims. `ack` off-origin must take the
+    authoritative ack on the origin first and touch the local copy only if that
+    succeeded.
+    """
+
+    def setUp(self) -> None:
+        import tempfile
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.repo = _make_repo(self.tmp / "repo")
+        self.out = self.tmp / "handoffs"
+        handoff.main([
+            "create", "--slug", "crosshost", "--repo", str(self.repo),
+            "--objective", "o", "--next-action", "n", "--no-sprintctl",
+            "--out-dir", str(self.out), "--date", "2026-09-12",
+            "--origin-host", "workstation",
+        ])
+        self.path = self.out / "2026-09-12-crosshost.v1.json"
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def test_create_records_the_origin_host_and_path(self) -> None:
+        data = json.loads(self.path.read_text())
+        self.assertEqual(data["origin_host"], "workstation")
+        self.assertEqual(data["origin_path"], str(self.path.resolve()))
+        self.assertEqual(handoff.schema_errors(data), [])
+
+    def test_on_the_origin_host_no_transport_is_used(self) -> None:
+        transport = _RecordingTransport()
+        handoff.ack(self.path, "sess-local",
+                    transport=transport, hostname="workstation")
+        self.assertEqual(transport.calls, [])
+        self.assertEqual(
+            json.loads(self.path.read_text())["successor"]["session_id"],
+            "sess-local")
+
+    def test_a_remote_refusal_leaves_the_local_file_untouched(self) -> None:
+        before = self.path.read_bytes()
+        transport = _RecordingTransport(
+            (1, "", "handoff: already has a live successor: sess-other"))
+        with self.assertRaises(handoff.HandoffError) as caught:
+            handoff.ack(self.path, "sess-second",
+                        transport=transport, hostname="devbox")
+        self.assertIn("sess-other", str(caught.exception))
+        self.assertIn("workstation", str(caught.exception))
+        self.assertEqual(self.path.read_bytes(), before)
+
+    def test_a_remote_acceptance_updates_both_copies(self) -> None:
+        transport = _RecordingTransport((0, "acknowledged\n", ""))
+        handoff.ack(self.path, "sess-first",
+                    transport=transport, hostname="devbox")
+        host, argv = transport.calls[0]
+        self.assertEqual(host, "workstation")          # the origin's copy
+        self.assertEqual(argv[:3], ["agentops", "handoff", "ack"])
+        self.assertIn(str(self.path.resolve()), argv)  # the origin's path
+        self.assertIn("sess-first", argv)
+        local = json.loads(self.path.read_text())      # and then the local one
+        self.assertEqual(local["successor"]["session_id"], "sess-first")
+        self.assertIsNotNone(local["successor"]["acknowledged_at"])
+        self.assertEqual(handoff.schema_errors(local), [])
+
+    def test_a_missing_agentops_on_the_origin_falls_back_to_python3(self) -> None:
+        transport = _RecordingTransport(
+            (127, "", "bash: agentops: command not found"),
+            (0, "acknowledged\n", ""))
+        handoff.ack(self.path, "sess-first",
+                    transport=transport, hostname="devbox")
+        self.assertEqual(len(transport.calls), 2)
+        _, argv = transport.calls[1]
+        self.assertEqual(argv[0], "python3")
+        self.assertTrue(argv[1].endswith("handoff.py"))
+        self.assertEqual(
+            json.loads(self.path.read_text())["successor"]["session_id"],
+            "sess-first")
+
+    def test_a_locally_acked_handoff_refuses_before_reaching_the_origin(self) -> None:
+        handoff.ack(self.path, "sess-first",
+                    transport=_RecordingTransport((0, "", "")),
+                    hostname="devbox")
+        transport = _RecordingTransport()
+        with self.assertRaises(handoff.HandoffError):
+            handoff.ack(self.path, "sess-second",
+                        transport=transport, hostname="devbox")
+        self.assertEqual(transport.calls, [])
+
+    def test_a_handoff_without_an_origin_acks_locally_anywhere(self) -> None:
+        # Handoffs written before the two-host guard existed have no origin_host
+        # and must keep working, on any host, without an ssh attempt.
+        data = json.loads(self.path.read_text())
+        data.pop("origin_host")
+        data.pop("origin_path")
+        self.path.write_text(json.dumps(data, indent=2) + "\n")
+        transport = _RecordingTransport()
+        handoff.ack(self.path, "sess-first",
+                    transport=transport, hostname="somewhere-else")
+        self.assertEqual(transport.calls, [])
+        self.assertEqual(
+            json.loads(self.path.read_text())["successor"]["session_id"],
+            "sess-first")
+
+    def test_local_hostname_is_overridable_by_the_environment(self) -> None:
+        import os
+        previous = os.environ.get("AGENTOPS_HOSTNAME")
+        os.environ["AGENTOPS_HOSTNAME"] = "pretend-host"
+        try:
+            self.assertEqual(handoff.local_hostname(), "pretend-host")
+        finally:
+            if previous is None:
+                del os.environ["AGENTOPS_HOSTNAME"]
+            else:
+                os.environ["AGENTOPS_HOSTNAME"] = previous
 
 
 if __name__ == "__main__":

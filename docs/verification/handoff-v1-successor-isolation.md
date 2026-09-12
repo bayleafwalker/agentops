@@ -5,7 +5,11 @@ pass; Codex Run C (fresh) and Run D (stale diff, untracked-file half) pass.
 See "Runs" at the end of this file. Isolation was **simulated, not enforced**,
 on all four runs; that caveat is recorded there, and the procedure for the
 enforced run is written up under "Enforced isolation (pending devbox
-rollout)". Owner: agentops (schema, CLI, skill). Gate for phases 3 and 4 of
+rollout)". Both findings the runs produced about the mechanism itself — the
+digest's blindness to untracked *content*, and the ack guard becoming two files
+once two hosts are in play — were fixed on this branch (`state.digest_version`
+2, and an origin-host ack over ssh); each is written up where it was found.
+Owner: agentops (schema, CLI, skill). Gate for phases 3 and 4 of
 `outctl/docs/CONTEXT_ECONOMY_PLAN_2026-09-12.md`.
 
 ## What is being verified
@@ -256,8 +260,20 @@ detects the appearance and disappearance of untracked files, not changes to
 their contents.** For a repo whose work in progress is untracked — which
 `/projects/dev/outctl` is right now — the digest is much weaker than it looks.
 Hashing the contents of untracked non-ignored files, or at least recording
-their sizes and mtimes, would close it. Not fixed on this branch; it changes
-the digest definition and therefore invalidates every handoff already written.
+their sizes and mtimes, would close it.
+
+**Fixed, 2026-09-12** — `state.digest_version`. The objection above ("it
+invalidates every handoff already written") was the reason to leave it; a
+version field removes it. Absent or `1` means the old definition; `2`, what
+`create` now writes, appends one `NUL <path> NUL <sha256 of contents>` record
+per untracked non-ignored file (`git ls-files --others --exclude-standard`,
+sorted by raw path bytes, contents hashed as bytes so binaries are covered).
+`validate` computes **the definition the file declares**, so the four handoffs
+already in `docs/dispatch/handoffs/` keep validating unchanged. Pinned by
+`TestDigestDefinition` (both definitions, an untracked content change seen by
+v2 and provably missed by v1, a binary file, gitignored files) and
+`TestDigestVersionCompatibility` (create writes 2; a v1 handoff still
+validates; the committed evidence handoffs declare no version).
 
 ### `read` and `consult`, exercised
 
@@ -342,8 +358,12 @@ cd /projects/dev/outctl && git fetch origin   # the repo under test, its own clo
 ```
 
 The repo under test must be brought to the exact state the handoff records —
-including its dirty tree, since `diff_sha256` covers `git diff HEAD` and
-`git status --porcelain`. Reproducing an uncommitted tree across hosts is the
+including its dirty tree, since `diff_sha256` covers `git diff HEAD`,
+`git status --porcelain` and — under digest v2, which `create` now writes — the
+*contents* of every untracked non-ignored file. That last part makes the
+reproduction stricter than it was when this section was written: copying the
+untracked files across is no longer optional bookkeeping, it is part of the
+digest. Reproducing an uncommitted tree across hosts is the
 hard part of this procedure, and it is where a first attempt will most likely
 fail: a `git diff HEAD > patch` plus a copy of the untracked files, applied on
 devbox before the handoff is created, is the workable route. Create the handoff
@@ -378,21 +398,70 @@ ssh devbox-agent 'cd /projects/dev/outctl && \
 | Cannot reach back into the workstation tree | devbox-vm's `/projects/dev` is its own zvol clone | `git -C /projects/dev/outctl rev-parse HEAD` on devbox is answered from devbox's clone |
 | Egress is not a hole | devbox-vm's egress is allowlisted at the host (nftables `agent-egress`) and at OPNsense; Codex launches with `networkAccess: false` in the sandbox policy on top | a denial during the run is policy, not an outage — record it, do not work around it |
 
-**Ack write-back.** The ack is written to devbox's copy of the handoff file, so
-the workstation's copy stays `successor.session_id: null` until someone copies
-it back (`scp devbox-agent:…/<id>.json .`). That is a real gap in the
-single-active-successor guard the moment two hosts are in play: the guard is a
-file, and there are now two files. Either the handoff lives in one place both
-hosts read (a git branch, a shared path), or the guard is per-host and the
-claim "exactly one successor may be active" is weaker than it reads. **This is
-the open design question the enforced run exists to force**, and it should be
-settled before the run rather than discovered during it.
+**Ack write-back — settled, 2026-09-12.** The gap was real: the ack was written
+to devbox's copy, the workstation's copy stayed `successor.session_id: null`,
+and the guard is a file of which there were now two. Three options were on the
+table:
+
+| Option | Why not / why |
+|---|---|
+| (a) one file both hosts read — a shared mount | **impossible here.** The workstation and devbox-vm share no filesystem mount at all (`AGENTS.md`, "Shared workspace": devbox-vm's `/projects/dev` is an independent zvol clone). There is nothing to point both hosts at |
+| (b) the origin keeps the authoritative copy; a remote ack goes through it | **chosen** |
+| (c) the handoff lives on a git branch both hosts fetch | rejected: it makes the payload readable from git history, which muddies exactly what the isolation run tests (see the transfer table above), and a push/fetch race is a worse guard than an atomic file write |
+
+**The decision (b).** `create` stamps `origin_host` and `origin_path` into the
+handoff while the predecessor's host still is the origin. The file is then
+transferred once, by `scp`, in one direction. `agentops handoff ack` on a host
+that is not the origin does **not** claim locally: it runs the atomic ack on the
+origin's copy first —
+
+```
+ssh <origin_host> agentops handoff ack <origin_path> --session-id <id>
+```
+
+falling back to `python3 …/templates/dispatch/scripts/handoff.py ack …` when the
+`agentops` wrapper is not on the origin's non-interactive PATH (exit 127) — and
+updates the local copy only once that returned zero. A remote refusal raises,
+naming the origin, and leaves the local file byte-identical. So the authoritative
+copy stays with the predecessor, and two successor hosts holding two scp'd copies
+are still contending for one file on one machine: "exactly one successor may be
+active" holds across hosts, not just within one.
+
+The transport is injected (`handoff.ack(..., transport=...)`, default
+`SSHTransport`), so the cross-host guard is pinned by `TestTwoHostAck` against a
+mock rather than requiring a second machine in CI: remote refusal leaves the
+local file untouched, remote acceptance updates both, the 127 fallback fires, and
+a handoff with no `origin_host` (everything written before this) still acks
+locally on any host.
+
+**Assumption this run must satisfy.** `ssh` from the devbox agent back to the
+workstation as `bayleaf` must exist and be non-interactive. What is configured
+today, from `/home/bayleaf/.ssh/config`, is the *outbound* direction only:
+
+| Host alias | Target | User |
+|---|---|---|
+| `devbox-vm` | 192.168.20.108 | `dev` |
+| `devbox-agent` | 192.168.20.108 | `agent` |
+| `devbox-deploy` | 192.168.20.108 | `dev` (`IdentitiesOnly yes`) |
+| `cluster-devbox` | shell.apps.kotona.app | `dev` (the legacy pod) |
+
+All four are workstation → devbox, all on `~/.ssh/id_ed25519_remote`. **There is
+no reverse entry**: nothing on the workstation's side configures or evidences
+`agent@devbox → bayleaf@workstation`, and devbox-vm's egress is allowlisted at
+the host (nftables `agent-egress`) and at OPNsense, so the reverse hop is a
+policy question as well as a key question. No keys were created for this — that
+is a deliberate non-action, and it is the one prerequisite the enforced run must
+land before it can exercise the cross-host ack. Until it does, the enforced run
+can still be executed with the ack taken on the origin by hand; the guard is
+then documented rather than demonstrated.
 
 **Prerequisite not yet met**: `sudo nixos-rebuild switch` on the workstation for
 the snip half of phase 4, and a `hosts/devbox/` change extending the snip module
 to the `agent` identity. Neither is in scope for the branch that wrote this
 section, and neither blocks the isolation run — snip and isolation are
-independent halves of phase 4.
+independent halves of phase 4. The ack decision above adds a third: a
+non-interactive `agent@devbox → bayleaf@workstation` ssh path, which blocks the
+cross-host ack and nothing else in the run.
 
 ### Findings from the runs, not covered by the pass criteria
 
