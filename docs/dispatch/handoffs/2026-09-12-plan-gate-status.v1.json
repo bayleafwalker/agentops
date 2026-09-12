@@ -1,0 +1,51 @@
+{
+  "schema_version": "handoff/v1",
+  "handoff_id": "2026-09-12-plan-gate-status.v1",
+  "version": 1,
+  "created_at": "2026-09-12T10:09:12Z",
+  "predecessor": {
+    "harness": "claude-code",
+    "session_id": "75f65a35-f426-49bc-9638-b09003838075",
+    "transcript_path": "/home/bayleaf/.claude/projects/-projects-dev/UNREADABLE-predecessor-transcript.jsonl",
+    "model": "claude-opus-5",
+    "context_used_pct": 41.0
+  },
+  "objective": "Record in outctl's context-economy plan that phases 0, 2 and 3 are implemented, so the rollout table's prose summary in section 5 is not contradicted by the per-phase Gate column.",
+  "constraints": [
+    "Edit only docs/CONTEXT_ECONOMY_PLAN_2026-09-12.md in /projects/dev/outctl; touch no other file in any repo.",
+    "Do not commit, stage, or push anything."
+  ],
+  "decisions": [
+    {
+      "what": "Put the Gate status line in section 5 prose, immediately after the rollout table, rather than adding a column to the table.",
+      "why": "The table's Gate column already carries per-phase detail and is near its width limit; a one-line prose summary is readable and does not reflow the table."
+    }
+  ],
+  "rejected": [
+    {
+      "what": "Rewriting each phase row's When column to 'done'.",
+      "why": "Phases 2 and 3 are implemented but their gates are still being measured; 'done' would assert a gate pass that has not happened and is exactly the overstatement the plan is trying to avoid."
+    }
+  ],
+  "state": {
+    "repos": [
+      {
+        "path": "/projects/dev/outctl",
+        "head": "a9392a0be0b27cab01930bcf1743f42ea80a9ce6",
+        "branch": "release/2026-08-11",
+        "dirty": true,
+        "diff_sha256": "42ab277d03b0b6c7cc9a7ed5fc07d7e0630bedeb513308f75aefcfb7b23ac139",
+        "unpushed": 3
+      }
+    ],
+    "running": []
+  },
+  "unresolved": [],
+  "evidence": [],
+  "sprintctl_bundle_ref": null,
+  "next_action": "In /projects/dev/outctl/docs/CONTEXT_ECONOMY_PLAN_2026-09-12.md, section 5 (\"## 5. Rollout\"), append a line reading exactly: `Gate status: phases 0, 2 and 3 are implemented as of 2026-09-12.` immediately after the rollout table and before the \"**Try first this week:**\" paragraph. Change nothing else.",
+  "successor": {
+    "session_id": "75868138-15fc-4f9d-bd3e-a6977c30f8c2",
+    "acknowledged_at": "2026-09-12T10:10:52Z"
+  }
+}
