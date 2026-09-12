@@ -35,6 +35,8 @@ EXECUTED_HOOKS = (
     "bounded-read-guard.sh",
     "handoff-context-threshold.sh",
     "handoff-session-start.sh",
+    # Phase 1: wraps `snip hook`, registered by bare path in `~/.claude/settings.json`.
+    "snip-hook-defer.sh",
     # Not registered as a hook: a CLI report, and `forge-context.sh` runs this one with
     # arguments and swallows the failure as "PROBE FAILED". Both are executed, so both
     # need the bit -- the seam is how a file is *used*, not whether a settings file
