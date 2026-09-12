@@ -1,9 +1,11 @@
 # Verification: handoff/v1 successor isolation and stale-tree refusal
 
-Status: executed 2026-09-12 — Run A (fresh) and Run B (stale diff) both pass.
-See "Runs" at the end of this file. Isolation was **simulated, not enforced**;
-that caveat is recorded there and is the one thing a re-run should tighten.
-Owner: agentops (schema, CLI, skill). Gate for phase 3 of
+Status: executed 2026-09-12 — Claude Code Run A (fresh) and Run B (stale diff)
+pass; Codex Run C (fresh) and Run D (stale diff, untracked-file half) pass.
+See "Runs" at the end of this file. Isolation was **simulated, not enforced**,
+on all four runs; that caveat is recorded there, and the procedure for the
+enforced run is written up under "Enforced isolation (pending devbox
+rollout)". Owner: agentops (schema, CLI, skill). Gate for phases 3 and 4 of
 `outctl/docs/CONTEXT_ECONOMY_PLAN_2026-09-12.md`.
 
 ## What is being verified
@@ -91,7 +93,10 @@ this run even though the tree checks out afterwards.
 - Schema enforcement and the digest definition likewise:
   `TestSchema`, `TestDigestDefinition`.
 - The Codex path (`thread/start` + `turn/start`) is phase 4. Same file, same ack,
-  no SessionStart equivalent — Codex hooks are deny-only.
+  no SessionStart equivalent — Codex hooks are deny-only. Executed as Runs C and
+  D below; the request construction is pinned by
+  `templates/dispatch/tests/test_handoff_codex.py` against a mocked transport,
+  so a protocol rename fails in CI rather than halfway through a launch.
 
 ## Recording the result
 
@@ -153,6 +158,119 @@ restored with `git checkout -- README.md` after the run; validate passes again.
 The untracked-file repetition of Run B (the `git status --porcelain` half of the
 digest) is **not** covered by this run and remains outstanding.
 
+### The Codex launch path (phase 4) — how Runs C and D were driven
+
+`templates/dispatch/scripts/handoff_codex.py`, over `codex app-server --stdio`
+(codex-cli 0.153.4), newline-delimited JSON-RPC 2.0 in a subprocess. **No
+daemon is needed**: `--listen stdio://` is the default, so `app-server daemon`
+was never started and nothing had to be torn down. Methods actually used:
+
+| Method | Used for | Behaved as documented |
+|---|---|---|
+| `initialize` + `initialized` notification | handshake | yes; answers `{userAgent, codexHome, platformFamily, platformOs}` |
+| `thread/start` | new successor thread | yes; answers `{thread:{id, path, cwd, model, status, turns:[]}, …}`. The rollout file path in `thread.path` is the transcript |
+| `turn/start` | the rendered handoff as the first user message | **partly** — it returns as soon as the turn is *created* (`{"turn":{"status":"inProgress","items":[]}}`), not when it finishes. Completion arrives as a `turn/completed` notification; output arrives as `item/completed`. A client that treats the response as the answer sees an empty turn |
+| `thread/read` | successor transcript access without resuming | **no, not as the plan assumed** — see below |
+| `thread/resume` | `consult` | yes, immediately followed by a `turn/start` |
+
+**`thread/read` does not return history on 0.153.4.** `includeTurns: true`
+answers `-32601 list_turns is not supported yet`; so do both documented
+replacements, `thread/turns/list` and `thread/items/list`
+(`-32601 … is not supported yet`). A metadata-only `thread/read` succeeds and
+returns `thread.turns: []` and `thread.status.type: "notLoaded"`. So `read`
+takes the rollout `.jsonl` path out of the metadata and parses it. That is
+still "without resuming" in the sense the plan cares about — no model call, no
+context billed, the thread stays `notLoaded` — but it reads a file rather than
+asking the server, and it will need revisiting when the paginated APIs land.
+The plan's sentence "`thread/read` for transcript access without resuming"
+should be read as an intent, not a working call.
+
+Sandboxing: `thread/start` takes a `sandbox` mode string; the per-turn
+`sandboxPolicy` object is what carries `writableRoots`, and the launcher sets
+them to the handoff's repos **plus the handoff file's own directory** — the
+successor's mandated first action writes an ack to a file outside the repo it
+is editing. `approvalPolicy: "never"` throughout; a server-initiated approval
+request is answered with an error rather than awaited, so a launch cannot hang
+on an approval nobody is present to grant.
+
+### 2026-09-12 — Run C (fresh successor, Codex) — **PASS**
+
+Handoff: `docs/dispatch/handoffs/2026-09-12-codex-acceptance-fresh.v1.json`
+Predecessor session: `75f65a35-f426-49bc-9638-b09003838075` (claude-opus-5)
+Successor thread: `01a09576-febc-7e82-9997-3b14132b342d` (codex, `gpt-6-astra`)
+Rollout: `~/.codex/sessions/2026/09/12/rollout-2026-09-12T14-53-18-01a09576-febc-7e82-9997-3b14132b342d.jsonl`
+Repo under test: `/projects/dev/outctl` @ `a9392a0` (dirty, 3 unpushed)
+
+```bash
+python3 templates/dispatch/scripts/handoff_codex.py launch \
+  docs/dispatch/handoffs/2026-09-12-codex-acceptance-fresh.v1.json --timeout 600
+```
+
+| Check | Verdict | Evidence |
+|---|---|---|
+| It acked first | pass | `successor.session_id` == the launched thread id; the ack is command **1 of 4**, before any read and before the edit |
+| It restated the constraints | pass | its opening message covers all three (no push/commit, only the plan file and not the index, bounded reads), in its own words, inventing none |
+| Repo state verified | pass | `agentops handoff validate` is command 3, before the file change |
+| `next_action` landed | pass | line 185 of the plan reads `Codex acceptance: 2026-09-12.`, immediately after the Gate status line; `git status --porcelain` unchanged, index empty |
+
+The launcher then stamped `successor.harness = "codex"`. Total: four shell
+commands, none of them an unbounded read — the bounded-read constraint carried
+across harnesses without a hook enforcing it (Codex hooks are deny-only and
+none was installed).
+
+Worth recording: **the ack cost one command, not five.** Claude-run finding 3
+was that a successor cannot cheaply learn its own session id. On Codex the
+launcher knows the thread id before the first turn exists, so `codex_prompt`
+appends it verbatim to the rendered prompt. That is a harness advantage, not a
+design fix — the Claude path still needs `ack --session-id auto` or a launch
+that passes the uuid into the prompt.
+
+### 2026-09-12 — Run D (stale diff refusal, Codex) — **PASS**
+
+Handoff: `docs/dispatch/handoffs/2026-09-12-codex-acceptance-stale.v1.json`
+Successor thread: `01a09578-1fb9-71d1-bbbf-6408a160b748`
+Drift introduced: `touch /projects/dev/outctl/CODEX-DRIFT-PROBE.txt` — an
+**untracked** file, so the drift is invisible to `git diff HEAD` and is caught
+only by the `git status --porcelain` half of the digest. This is the repetition
+Run B left outstanding. Removed after the run; `validate` passes again.
+
+Launched with `--no-verify` on purpose: the launcher refuses a stale handoff
+before it spends a thread, so proving the *successor* refuses requires letting
+it meet the stale handoff itself.
+
+| Check | Verdict | Evidence |
+|---|---|---|
+| `validate` exits nonzero, naming the repo | pass | exit 1, `/projects/dev/outctl: stale diff_sha256 — recorded 42ab277d03b0b6c7, working tree is now eb00822c6fcab905. The tree is not the one the predecessor left; refusing.` |
+| Successor stops and reports | pass | "Repository validation **refused** because `diff_sha256` differs … Stopped as instructed." Three commands total: ack, read the handoff, validate. No fourth |
+| It did not adapt to the drift | pass | no re-derivation, no edit to the handoff's digest, no attempt at `next_action`; it explicitly noted the handoff was changed only by the required ack |
+| Plan file unchanged | pass | md5 `253b7d83bf3cb85cc8b55c6ba2697dec` before and after |
+
+The digest's `git status --porcelain` half is therefore load-bearing and proven.
+
+**Finding from Run D, not a pass criterion.** The recorded digest for the Run D
+handoff was byte-identical to Run A's (`42ab277d03b0b6c7`) *even though Run C
+had just edited the plan file in between*. The plan file is untracked, so
+`git diff HEAD` never sees it and `git status --porcelain` reports only the
+unchanging line `?? docs/CONTEXT_ECONOMY_PLAN_2026-09-12.md`. **`diff_sha256`
+detects the appearance and disappearance of untracked files, not changes to
+their contents.** For a repo whose work in progress is untracked — which
+`/projects/dev/outctl` is right now — the digest is much weaker than it looks.
+Hashing the contents of untracked non-ignored files, or at least recording
+their sizes and mtimes, would close it. Not fixed on this branch; it changes
+the digest definition and therefore invalidates every handoff already written.
+
+### `read` and `consult`, exercised
+
+`read 01a09578-1fb9-71d1-bbbf-6408a160b748 --limit 3` printed the thread
+metadata and the last three rollout records (the launch prompt, the ack, the
+refusal) and left `status: notLoaded` — the thread was not woken.
+
+`consult 01a09576-febc-7e82-9997-3b14132b342d "…what exactly did you insert
+…and did you commit?"` resumed the Run C thread and answered correctly from its
+own memory. It prints the cost warning to stderr first: the answer is produced
+against the parked session's full context and billed against it. That is the
+intended cost shape, and it is why `read` exists.
+
 ### What was simulated rather than enforced
 
 The procedure's step 2 calls for `chmod 000` on the predecessor's session
@@ -169,7 +287,112 @@ inherits the same read rights. Isolation was simulated by construction instead:
 
 So these runs show the successor **did not need** predecessor access, not that
 it **could not have obtained** it. Enforcing that needs a second uid (or the
-devbox `agent` identity) and is the right shape for the phase-4 Codex run.
+devbox `agent` identity).
+
+**Runs C and D are simulated in exactly the same way, and the Codex harness
+does not change that.** The Codex successor ran as `bayleaf` on the
+workstation, with the same read rights over `~/.claude/projects/` and
+`~/.codex/sessions/` as the predecessor. The only additional isolation Codex
+supplies is negative: it has no `SendMessage`/`ListAgents`, so the "predecessor
+is unreachable" half is structural there rather than a matter of an omitted
+tool allowlist. The transcript half is not enforced: a Codex thread launched
+with `sandbox: workspace-write` still has **full read access to the whole
+filesystem** — `writableRoots` bounds writes, not reads. `sandbox: read-only`
+would not help either; it is reads that need bounding. Nothing short of a
+second uid closes it.
+
+### Enforced isolation (pending devbox rollout)
+
+The procedure below has **not been run**. It is written now so the phase-4
+record says what "enforced" would mean rather than leaving it as an intention.
+
+Shape: the predecessor stays where the work happened — `bayleaf` on the
+workstation. The successor runs as `agent` on devbox-vm
+(`ssh devbox-agent`, 192.168.20.108), a different uid on a different host, with
+no route to the workstation's `~/.claude/projects/` or `~/.codex/sessions/` and
+no mount of the workstation's `/projects`. The one thing that crosses is the
+handoff file.
+
+**Why devbox-vm and not a second local uid.** A second uid on the workstation
+would enforce the transcript half (mode `0700` on `~/.claude`) but leaves the
+successor sharing a filesystem, a process table and a `SendMessage` bus with
+the predecessor. devbox-vm has none of those, and it is the identity phase 4
+was going to have to reach anyway for the snip half. The cost is that
+devbox-vm's `/projects/dev` is an **independent zvol clone**, not the
+workstation's Btrfs tree (see `AGENTS.md`, "Shared workspace"): nothing
+propagates without a deliberate git operation, which is precisely what makes
+the isolation real and precisely what makes the setup below necessary.
+
+**What must be pushed from the workstation first**
+
+| Thing | State today | Needed because |
+|---|---|---|
+| `gitops-nixos` `03b2363` (snip from nixpkgs, filters under `modules/system/snip/filters/`) | **already on `origin/main`** — no push needed | devbox-vm's NixOS config must carry it before snip exists there. Note the module is workstation-identity-only today; extending it to the `agent` identity in `hosts/devbox/` is a separate commit that does not exist yet |
+| `agentops` branch `handoff-v1` (this branch: schema, `handoff.py`, `handoff_codex.py`, `bin/agentops`, tests) | **not pushed** — the task that produced it forbids pushing | devbox-vm needs `agentops handoff ack`/`validate` locally; it cannot read the workstation's copy |
+| the handoff `.json` itself | untracked, under `agentops/docs/dispatch/handoffs/` | it is the payload. It must **not** ride along in the branch — a handoff committed to a branch the successor clones is a handoff the successor could have read from git history instead of from the file, which muddies what is being tested |
+
+**Setup on devbox-vm, once, as `agent`** (no sudo there; NixOS config changes
+go through the infra path, not this procedure):
+
+```bash
+ssh devbox-agent
+cd /projects/dev/agentops && git fetch origin && git checkout handoff-v1
+mkdir -p ~/.local/bin && ln -sf /projects/dev/agentops/bin/agentops ~/.local/bin/agentops
+cd /projects/dev/outctl && git fetch origin   # the repo under test, its own clone
+```
+
+The repo under test must be brought to the exact state the handoff records —
+including its dirty tree, since `diff_sha256` covers `git diff HEAD` and
+`git status --porcelain`. Reproducing an uncommitted tree across hosts is the
+hard part of this procedure, and it is where a first attempt will most likely
+fail: a `git diff HEAD > patch` plus a copy of the untracked files, applied on
+devbox before the handoff is created, is the workable route. Create the handoff
+**on devbox against devbox's tree** and hand it back if reproducing the
+workstation tree proves unreliable — the test is about successor isolation, not
+about cross-host tree replication.
+
+**Transfer** — one file, one direction, no shell back:
+
+```bash
+scp docs/dispatch/handoffs/<id>.json devbox-agent:/projects/dev/agentops/docs/dispatch/handoffs/
+```
+
+Nothing else is copied: not the `.md`, not the transcript, not the predecessor's
+session id beyond the string already inside the JSON.
+
+**Run**, from the workstation, non-interactively so the predecessor never has a
+turn open:
+
+```bash
+ssh devbox-agent 'cd /projects/dev/outctl && \
+  python3 /projects/dev/agentops/templates/dispatch/scripts/handoff_codex.py \
+    launch /projects/dev/agentops/docs/dispatch/handoffs/<id>.json --timeout 600'
+```
+
+**What makes it enforced, and how each is checked**
+
+| Property | Enforced by | Check |
+|---|---|---|
+| Cannot read the predecessor's transcript | different uid on a different host; the workstation's `~/.claude` is not exported and devbox-vm has no NFS mount of it | on devbox, `ls /home/bayleaf` fails; the handoff's `transcript_path` resolves to nothing |
+| Cannot reach the predecessor | no `SendMessage` on Codex, and no agent bus between hosts | structural |
+| Cannot reach back into the workstation tree | devbox-vm's `/projects/dev` is its own zvol clone | `git -C /projects/dev/outctl rev-parse HEAD` on devbox is answered from devbox's clone |
+| Egress is not a hole | devbox-vm's egress is allowlisted at the host (nftables `agent-egress`) and at OPNsense; Codex launches with `networkAccess: false` in the sandbox policy on top | a denial during the run is policy, not an outage — record it, do not work around it |
+
+**Ack write-back.** The ack is written to devbox's copy of the handoff file, so
+the workstation's copy stays `successor.session_id: null` until someone copies
+it back (`scp devbox-agent:…/<id>.json .`). That is a real gap in the
+single-active-successor guard the moment two hosts are in play: the guard is a
+file, and there are now two files. Either the handoff lives in one place both
+hosts read (a git branch, a shared path), or the guard is per-host and the
+claim "exactly one successor may be active" is weaker than it reads. **This is
+the open design question the enforced run exists to force**, and it should be
+settled before the run rather than discovered during it.
+
+**Prerequisite not yet met**: `sudo nixos-rebuild switch` on the workstation for
+the snip half of phase 4, and a `hosts/devbox/` change extending the snip module
+to the `agent` identity. Neither is in scope for the branch that wrote this
+section, and neither blocks the isolation run — snip and isolation are
+independent halves of phase 4.
 
 ### Findings from the runs, not covered by the pass criteria
 

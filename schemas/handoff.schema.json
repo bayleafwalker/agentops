@@ -140,7 +140,12 @@
       "required": ["session_id", "acknowledged_at"],
       "properties": {
         "session_id": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
-        "acknowledged_at": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}]}
+        "acknowledged_at": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "harness": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional. Which harness the successor runs on ('claude-code', 'codex'). Stamped by the launcher after the ack, because ack writes this object wholesale and only a claimed handoff has a harness worth recording. Absent on handoffs acked before the Codex path existed."
+        }
       }
     }
   }

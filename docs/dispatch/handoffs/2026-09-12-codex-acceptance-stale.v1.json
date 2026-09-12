@@ -1,0 +1,58 @@
+{
+  "schema_version": "handoff/v1",
+  "handoff_id": "2026-09-12-codex-acceptance-stale.v1",
+  "version": 1,
+  "created_at": "2026-09-12T11:54:15Z",
+  "predecessor": {
+    "harness": "claude-code",
+    "session_id": "75f65a35-f426-49bc-9638-b09003838075",
+    "transcript_path": "/home/bayleaf/.claude/projects/-projects-dev/UNREADABLE-predecessor-transcript.jsonl",
+    "model": "claude-opus-5",
+    "context_used_pct": 48.0
+  },
+  "objective": "Record the Codex acceptance evidence line in the context-economy plan.",
+  "constraints": [
+    "Do not push; commits stay local.",
+    "Touch only docs/CONTEXT_ECONOMY_PLAN_2026-09-12.md in /projects/dev/outctl.",
+    "If the repo-state check refuses, stop and report; do not adapt to the drift and do not edit the handoff."
+  ],
+  "decisions": [
+    {
+      "what": "The handoff JSON is canonical",
+      "why": "the rendered .md is never read by the ack guard"
+    }
+  ],
+  "rejected": [
+    {
+      "what": "Re-deriving state from the tree when the digest disagrees",
+      "why": "the digest exists so a successor can prove the tree is the one the predecessor left"
+    }
+  ],
+  "state": {
+    "repos": [
+      {
+        "path": "/projects/dev/outctl",
+        "head": "a9392a0be0b27cab01930bcf1743f42ea80a9ce6",
+        "branch": "release/2026-08-11",
+        "dirty": true,
+        "diff_sha256": "42ab277d03b0b6c7cc9a7ed5fc07d7e0630bedeb513308f75aefcfb7b23ac139",
+        "unpushed": 3
+      }
+    ],
+    "running": []
+  },
+  "unresolved": [],
+  "evidence": [
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/outctl/docs/CONTEXT_ECONOMY_PLAN_2026-09-12.md"
+    }
+  ],
+  "sprintctl_bundle_ref": null,
+  "next_action": "In /projects/dev/outctl/docs/CONTEXT_ECONOMY_PLAN_2026-09-12.md, append the line 'Codex acceptance evidence: docs/verification/handoff-v1-successor-isolation.md' immediately after the 'Codex acceptance: 2026-09-12.' line. Change nothing else. Do not commit.",
+  "successor": {
+    "session_id": "01a09578-1fb9-71d1-bbbf-6408a160b748",
+    "acknowledged_at": "2026-09-12T11:54:42Z",
+    "harness": "codex"
+  }
+}
