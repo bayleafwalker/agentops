@@ -8,12 +8,20 @@ description: Use when a task needs Forgejo or GitHub API access, a git push to g
 Obtain a scoped, short-lived credential from cred-broker for exactly one
 repository and one capability, instead of reading a long-lived token from disk.
 
-On the workstation this is not a preference. There is no Forgejo API token on
-that machine — `~/.local/share/forgejo-cli/keys.json`,
+On the workstation the broker is the preferred path, not the only one. This
+paragraph previously claimed the machine had no Forgejo API token at all —
+that `~/.local/share/forgejo-cli/keys.json`,
 `~/.config/forgejo/workstation-scope-token` and `~/.config/forgejo/admin-token`
-are all absent — so for anything past git-over-SSH the broker is the only path.
-Confirm with the session-start hook's probed inventory rather than with this
-sentence.
+were all absent. Re-probed on 2026-09-12: all three exist (created 2026-08-11
+to 2026-08-13, so they predated the claim), and the scope token answers
+`GET /api/v1/user` with 200. The claim was a sandboxed probe's empty output
+read as absence — the exact failure mode this workspace documents elsewhere.
+
+Prefer the broker anyway: its credentials are short-lived and scoped to one
+repository and one capability, where the token files are long-lived and broad,
+and `admin-token` is break-glass. But do not plan around "no token exists".
+Confirm current state with the session-start hook's probed inventory rather
+than with this paragraph.
 
 ## Inputs
 
