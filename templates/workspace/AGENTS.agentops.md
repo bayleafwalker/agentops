@@ -365,7 +365,7 @@ system merely because it starts with `/projects`.
 | Storage/channel | Purpose | Durability | Cross-host expectation |
 |---|---|---:|---:|
 | Git | maintained source, specs, runbooks, project guidance | Durable | Replicated through Git |
-| kctl | curated knowledge, decisions, reusable findings | Durable **only where rendered and committed** | **Not served** — local sqlite per repo |
+| kctl | curated knowledge, decisions, reusable findings | Durable **only where rendered and committed** | **Served** for candidate intake/review; publication Git-owned |
 | auditctl | immutable operational observations, receipts, evidence events | Durable **where the artifacts root is a repository**, otherwise host-persistent | **Not served today** — schemas deployed, no client writes to them |
 | sprintctl | work state, dependencies, claims, refs to evidence | Durable workflow state | Served |
 | `<repo>/_artifacts/` (rooted at a repository) | audit shards, metanarrative model records | Durable, replicated by Git | Replicated through Git |
@@ -375,11 +375,11 @@ system merely because it starts with `/projects`.
 **Two of these rows were false until 2026-08-29 and are corrected above; the
 correction is the useful part, so it is recorded rather than quietly edited.**
 
-- **kctl is not served.** Its own README says so — *"Local-first: SQLite on disk,
-  convergence through committed markdown"*, *"Not a hosted service or remote
-  knowledge store"*. Measured: five per-repo `.kctl/kctl.db` files, nothing served.
-  Its real durability path is `kctl render` into a committed
-  `docs/knowledge/knowledge-base.md`, which two repos already do.
+- **kctl is served for candidate intake and review.** `vuoro.py` registers
+  `knowledge.candidate.{intake,list,show,approve,reject}`, vuoro pins the adapter to
+  kctl 0.1.3, and `served_knowledge.py` calls them from `cli.py`. `publish`, `render`
+  and `export` stay `unavailable` in served mode, so publication is Git- and
+  local-owned and the `knowledge.publication-reference.*` writes have no caller.
 - **auditctl was not durable anywhere.** Every `add` wrote a host-local sqlite index
   plus an NDJSON shard under `/projects/dev/_artifacts/`, which is in no git
   repository — so the "Durable, authoritative" row and the "Semi-ephemeral,
