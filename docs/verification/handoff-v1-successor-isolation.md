@@ -463,6 +463,18 @@ land before it can exercise the cross-host ack. Until it does, the enforced run
 can still be executed with the ack taken on the origin by hand; the guard is
 then documented rather than demonstrated.
 
+**Decision, 2026-09-12: no reverse path is opened.** The devbox egress
+allowlist is a deliberate boundary, and a key that lets the agent identity
+reach the owner's workstation account would widen it for one feature. The
+convention instead: a handoff bound for another host is created with
+`--origin-host <successor host>`, so the authoritative copy travels once with
+the file and the ack is local to the successor, exactly as Runs E and F did.
+The cost is that the predecessor's Stop hook cannot see `handed_off_to` for a
+cross-host handoff; the predecessor is parked by then, so nothing acts on that
+field. The ssh write-back stays in the code, pinned by `TestTwoHostAck`, for
+hosts that do share a trust path. Revisit only if a same-trust-domain pair
+needs the predecessor host to stay authoritative.
+
 **Prerequisite not yet met**: `sudo nixos-rebuild switch` on the workstation for
 the snip half of phase 4, and a `hosts/devbox/` change extending the snip module
 to the `agent` identity. Neither is in scope for the branch that wrote this
