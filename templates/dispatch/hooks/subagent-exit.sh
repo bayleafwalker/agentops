@@ -34,7 +34,34 @@ EVENT="$(cat)"
 SESSION="$(printf '%s' "$EVENT" | jq -r '.session_id // "unknown"')"
 TRANSCRIPT="$(printf '%s' "$EVENT" | jq -r '.transcript_path // ""')"
 AGENT_ID="$(printf '%s' "$EVENT" | jq -r '.agent_id // .agentId // empty')"
+HARNESS_AGENT_TRANSCRIPT="$(printf '%s' "$EVENT" | jq -r '.agent_transcript_path // empty')"
 PROJ="$(printf '%s' "$EVENT" | jq -r '.cwd // ""' | xargs basename 2>/dev/null || basename "$PWD")"
+
+# `transcript_path` on a SubagentStop event is the PARENT session's transcript, not the
+# subagent's own -- verified 2026-09-14 against agent ae70fc0a294de1cb0, whose event carried
+# the parent session file while the agent's own turns live at
+# `<parent dir>/subagents/agent-<agent_id>.jsonl` (confirmed present on disk). The Claude
+# Code hooks reference (code.claude.com/docs/en/hooks.md, fetched 2026-09-14) documents
+# `transcript_path` as one of the common fields shared by every hook event and lists no
+# subagent-specific transcript field for SubagentStop, so nothing here can be assumed absent
+# a future harness change. `agent_transcript_path` is read defensively above in case such a
+# field ever ships; today it is always empty and the path below is derived instead.
+#
+# `transcript_path` in the published metadata is left as-is for compatibility (see below);
+# this is purely about which file the terminal-reason parser reads from.
+AGENT_TRANSCRIPT=""
+if [[ -n "$HARNESS_AGENT_TRANSCRIPT" && -f "$HARNESS_AGENT_TRANSCRIPT" ]]; then
+  AGENT_TRANSCRIPT="$HARNESS_AGENT_TRANSCRIPT"
+elif [[ -n "$TRANSCRIPT" && -n "$AGENT_ID" ]]; then
+  _agent_cand="$(dirname -- "$TRANSCRIPT")/subagents/agent-${AGENT_ID}.jsonl"
+  [[ -f "$_agent_cand" ]] && AGENT_TRANSCRIPT="$_agent_cand"
+fi
+
+# The record actually read for terminal-reason parsing: the subagent's own transcript when
+# it is resolvable, else the event's transcript_path (old behaviour, preserved as a
+# fallback -- e.g. no agent_id on the event, or the subagent's file not yet on disk).
+READ_TRANSCRIPT="$TRANSCRIPT"
+[[ -n "$AGENT_TRANSCRIPT" ]] && READ_TRANSCRIPT="$AGENT_TRANSCRIPT"
 
 # Resolving the publisher is shared with the Stop hook: `command -v auditctl` can succeed on
 # the kernel audit tool of the same name, which is how the missing workflow.session events
@@ -63,16 +90,16 @@ REASON="completed"
 RAW=""
 RESET_AT=""
 RESET_SOURCE=""
-if [[ -n "$TRANSCRIPT" && -f "$TRANSCRIPT" ]]; then
+if [[ -n "$READ_TRANSCRIPT" && -f "$READ_TRANSCRIPT" ]]; then
   # Kept for the record, never for the verdict: the operator-visible text of the ending.
-  RAW="$(tail -n 40 -- "$TRANSCRIPT" 2>/dev/null \
+  RAW="$(tail -n 40 -- "$READ_TRANSCRIPT" 2>/dev/null \
     | jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text' 2>/dev/null \
     | tail -n 3 || true)"
 
   # The last conversational record is the terminal one. Harness bookkeeping records
   # (file-history-snapshot, queue-operation, turn_duration summaries) can follow it, so
   # select by type rather than taking the literal last line.
-  TERM="$(tail -n 12 -- "$TRANSCRIPT" 2>/dev/null \
+  TERM="$(tail -n 12 -- "$READ_TRANSCRIPT" 2>/dev/null \
     | jq -s -c '[.[] | select(.type == "assistant" or .type == "user")] | last // {}' 2>/dev/null || echo '{}')"
 
   if [[ "$(printf '%s' "$TERM" | jq -r '.isApiErrorMessage // false')" == "true" ]]; then
@@ -125,12 +152,14 @@ fi
 
 METADATA="$(jq -cn \
   --arg session "$SESSION" --arg agent "$AGENT_ID" --arg project "$PROJ" \
-  --arg reason "$REASON" --arg transcript "$TRANSCRIPT" \
+  --arg reason "$REASON" --arg transcript "$TRANSCRIPT" --arg agent_transcript "$AGENT_TRANSCRIPT" \
   --arg raw "$(printf '%s' "$RAW" | tail -c 400)" \
   --arg reset_at "$RESET_AT" --arg reset_source "$RESET_SOURCE" \
   --argjson children "$CHILDREN" \
   '{session: $session, agent_id: $agent, project: $project, terminal_reason: $reason,
-    transcript_path: $transcript, raw_tail: $raw, sibling_transcripts: $children,
+    transcript_path: $transcript,
+    agent_transcript_path: (if $agent_transcript == "" then null else $agent_transcript end),
+    raw_tail: $raw, sibling_transcripts: $children,
     reset_at: (if $reset_at == "" then null else $reset_at end),
     reset_source: (if $reset_source == "" then null else $reset_source end)}')"
 

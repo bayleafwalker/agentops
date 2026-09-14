@@ -95,6 +95,30 @@ class SubagentExitTerminalReason(unittest.TestCase):
         self.assertEqual(len(rows), 1, "the hook must publish exactly one row")
         return json.loads(rows[0])
 
+    def _run_with_agent_id(self, agent_id: str, *, parent_lines: list[str] | None,
+                            agent_lines: list[str] | None) -> dict:
+        """Lay out `<parent>.jsonl` plus `subagents/agent-<id>.jsonl`, the real shape.
+
+        `transcript_path` on the event is the parent's file, exactly as verified against
+        agent ae70fc0a294de1cb0 on 2026-09-14 -- the subagent's own turns live at
+        `<parent dir>/subagents/agent-<agent_id>.jsonl`.
+        """
+        parent = self.tmp / "parent.jsonl"
+        parent.write_text("\n".join(parent_lines or []) + "\n", encoding="utf-8")
+        subdir = self.tmp / "subagents"
+        subdir.mkdir(exist_ok=True)
+        if agent_lines is not None:
+            (subdir / f"agent-{agent_id}.jsonl").write_text(
+                "\n".join(agent_lines) + "\n", encoding="utf-8")
+        env = dict(os.environ, AUDITCTL_BIN=str(self.stub), CAPTURE=str(self.capture))
+        event = json.dumps({"session_id": "probe", "transcript_path": str(parent),
+                            "agent_id": agent_id, "cwd": "/projects/dev/agentops"})
+        subprocess.run(["bash", str(HOOK)], input=event, text=True, env=env, check=True,
+                       capture_output=True)
+        rows = self.capture.read_text(encoding="utf-8").splitlines()
+        self.assertEqual(len(rows), 1, "the hook must publish exactly one row")
+        return json.loads(rows[0]), parent, subdir / f"agent-{agent_id}.jsonl"
+
     # -- the case the producer exists for -------------------------------------------
 
     def test_quota_rejection_is_usage_limit_and_carries_the_reset_instant(self):
@@ -168,6 +192,50 @@ class SubagentExitTerminalReason(unittest.TestCase):
     def test_missing_transcript_is_crash_inferred(self):
         row = self._run(None, transcript_present=False)
         self.assertEqual(row["terminal_reason"], "crash-inferred")
+
+    # -- agent_transcript_path: the subagent's own transcript, not the parent's ----------
+
+    def test_agent_transcript_path_is_derived_and_used_for_the_reason(self):
+        """`transcript_path` is the PARENT's file; the reason must come from the child's.
+
+        The parent transcript here ends completed (no error record at all), while the
+        subagent's own transcript ends in a quota rejection. If the hook read the parent
+        (the pre-fix behaviour) this would come back `completed`; reading the resolved
+        `subagents/agent-<id>.jsonl` gives the true answer.
+        """
+        row, parent, agent_path = self._run_with_agent_id(
+            "a5d642b86112f09ec",
+            parent_lines=[_assistant("Dispatch loop moving on to the next item.")],
+            agent_lines=[
+                _assistant("Working on the manifest survey."),
+                _quota_death(
+                    "You've hit your session limit · resets 12:30am (Europe/Helsinki)",
+                    {"status": "rejected", "resetsAt": RESETS_AT_EPOCH},
+                ),
+            ],
+        )
+        self.assertEqual(row["terminal_reason"], "usage-limit")
+        self.assertEqual(row["reset_at"], RESETS_AT_ISO)
+        self.assertEqual(row["agent_transcript_path"], str(agent_path))
+        # transcript_path in the published record stays the parent's, unchanged, for
+        # compatibility with whatever already reads that field.
+        self.assertEqual(row["transcript_path"], str(parent))
+
+    def test_agent_transcript_path_is_null_when_the_subagents_file_is_missing(self):
+        """No `subagents/agent-<id>.jsonl` on disk -> the field is null, not guessed.
+
+        The reason parser falls back to the parent's own transcript (old behaviour) rather
+        than failing, since a missing per-agent file is not itself proof of a crash.
+        """
+        row, parent, agent_path = self._run_with_agent_id(
+            "no-such-agent",
+            parent_lines=[_assistant("Parent carries on; the child file never landed.")],
+            agent_lines=None,
+        )
+        self.assertFalse(agent_path.exists())
+        self.assertIsNone(row["agent_transcript_path"])
+        self.assertEqual(row["terminal_reason"], "completed")
+        self.assertEqual(row["transcript_path"], str(parent))
 
     def test_harness_bookkeeping_after_the_terminal_record_does_not_hide_it(self):
         """A parent's file-history-snapshot / queue-operation rows follow the last turn.
