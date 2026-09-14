@@ -160,6 +160,7 @@
               "dispatch-build",
               "dispatch-review",
               "code-change-verification",
+              "cred-broker",
               "backlog-refinement",
               "sprint-maintenance",
               "task-pickup",
