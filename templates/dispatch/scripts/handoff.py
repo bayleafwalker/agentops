@@ -277,14 +277,24 @@ def _now_iso() -> str:
 def resolve_session_id(explicit: str | None) -> str | None:
     """The predecessor's own session id, best effort.
 
-    Claude Code exposes `CLAUDE_PROJECT_DIR` to hooks and skills but *not* a
-    session-id variable (checked against the hooks reference, 2026-09-12), so
-    `$CLAUDE_SESSION_ID` is honoured when something in the environment sets it
-    and the session-binding record written by the SessionStart hook is the
-    fallback: it is keyed by exactly the id the harness reports.
+    Precedence: an explicit `--session-id` (or draft `session_id`) always
+    wins. Next, `$HANDOFF_SESSION_ID` — the env var a dispatcher or `claude
+    -p` invocation sets to pin the predecessor's own id, so a caller that
+    dispatched (and therefore knows) another session's id cannot have it
+    silently overridden by whatever `$CLAUDE_SESSION_ID` or the newest
+    session-binding record happen to say. An empty string is treated as
+    unset. Claude Code exposes `CLAUDE_PROJECT_DIR` to hooks and skills but
+    *not* a session-id variable (checked against the hooks reference,
+    2026-09-12), so `$CLAUDE_SESSION_ID` is honoured next when something in
+    the environment sets it, and the session-binding record written by the
+    SessionStart hook is the final fallback: it is keyed by exactly the id
+    the harness reports.
     """
     if explicit:
         return explicit
+    env = os.environ.get("HANDOFF_SESSION_ID")
+    if env:
+        return env
     env = os.environ.get("CLAUDE_SESSION_ID")
     if env:
         return env
@@ -690,7 +700,9 @@ def cmd_create(args: argparse.Namespace) -> int:
         raise HandoffError(
             f"slug {slug!r} must be lowercase alphanumeric with hyphens")
 
-    out_dir = Path(args.out_dir) if args.out_dir else HANDOFF_DIR
+    out_dir = Path(args.out_dir) if args.out_dir else (
+        Path(os.environ["AGENTOPS_HANDOFF_DIR"])
+        if os.environ.get("AGENTOPS_HANDOFF_DIR") else HANDOFF_DIR)
     out_dir.mkdir(parents=True, exist_ok=True)
     date = args.date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
     version = next_version(out_dir, date, slug)
