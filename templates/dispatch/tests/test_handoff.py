@@ -287,6 +287,129 @@ class TestCreateAndValidate(unittest.TestCase):
         self.assertIn("ack", text)
 
 
+class TestSessionIdPrecedence(unittest.TestCase):
+    """flag > HANDOFF_SESSION_ID > CLAUDE_SESSION_ID > bindings fallback.
+
+    A `claude -p` or dispatched worker can set `$CLAUDE_SESSION_ID` to
+    another session's id (or run somewhere that leaves a stale binding
+    record); `HANDOFF_SESSION_ID` is the dispatcher-controlled override that
+    must win over both without requiring `--session-id` on every call.
+    """
+
+    ENV_KEYS = ("HANDOFF_SESSION_ID", "CLAUDE_SESSION_ID",
+                "AGENTOPS_SESSION_BINDINGS_DIR")
+
+    def setUp(self) -> None:
+        import os
+        import tempfile
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self._saved = {k: os.environ.get(k) for k in self.ENV_KEYS}
+        for k in self.ENV_KEYS:
+            os.environ.pop(k, None)
+        # Point the bindings fallback somewhere with no records unless a
+        # test populates it, so it never accidentally sees this machine's
+        # real session-bindings directory.
+        os.environ["AGENTOPS_SESSION_BINDINGS_DIR"] = str(self.tmp / "bindings")
+
+    def tearDown(self) -> None:
+        import os
+        for k, v in self._saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        self._tmp.cleanup()
+
+    def _binding(self, session_id: str) -> None:
+        bindings = Path(self.tmp / "bindings")
+        bindings.mkdir(parents=True, exist_ok=True)
+        (bindings / f"{session_id}.json").write_text("{}")
+
+    def test_explicit_flag_wins_over_everything(self) -> None:
+        import os
+        os.environ["HANDOFF_SESSION_ID"] = "env-session"
+        os.environ["CLAUDE_SESSION_ID"] = "claude-session"
+        self._binding("binding-session")
+        self.assertEqual(handoff.resolve_session_id("flag-session"), "flag-session")
+
+    def test_handoff_session_id_wins_over_claude_session_id_and_bindings(self) -> None:
+        import os
+        os.environ["HANDOFF_SESSION_ID"] = "env-session"
+        os.environ["CLAUDE_SESSION_ID"] = "claude-session"
+        self._binding("binding-session")
+        self.assertEqual(handoff.resolve_session_id(None), "env-session")
+
+    def test_unset_handoff_session_id_keeps_todays_behaviour(self) -> None:
+        import os
+        os.environ["CLAUDE_SESSION_ID"] = "claude-session"
+        self._binding("binding-session")
+        self.assertEqual(handoff.resolve_session_id(None), "claude-session")
+
+    def test_falls_back_to_newest_binding_when_nothing_else_is_set(self) -> None:
+        self._binding("binding-session")
+        self.assertEqual(handoff.resolve_session_id(None), "binding-session")
+
+    def test_empty_string_handoff_session_id_is_treated_as_unset(self) -> None:
+        import os
+        os.environ["HANDOFF_SESSION_ID"] = ""
+        os.environ["CLAUDE_SESSION_ID"] = "claude-session"
+        self.assertEqual(handoff.resolve_session_id(None), "claude-session")
+
+    def test_empty_string_claude_session_id_is_treated_as_unset(self) -> None:
+        import os
+        os.environ["CLAUDE_SESSION_ID"] = ""
+        self._binding("binding-session")
+        self.assertEqual(handoff.resolve_session_id(None), "binding-session")
+
+
+class TestOutDirEnv(unittest.TestCase):
+    """--out-dir > AGENTOPS_HANDOFF_DIR > the repo-relative default."""
+
+    def setUp(self) -> None:
+        import os
+        import tempfile
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.repo = _make_repo(self.tmp / "repo")
+        self._saved = os.environ.get("AGENTOPS_HANDOFF_DIR")
+        os.environ.pop("AGENTOPS_HANDOFF_DIR", None)
+
+    def tearDown(self) -> None:
+        import os
+        if self._saved is None:
+            os.environ.pop("AGENTOPS_HANDOFF_DIR", None)
+        else:
+            os.environ["AGENTOPS_HANDOFF_DIR"] = self._saved
+        self._tmp.cleanup()
+
+    def test_explicit_out_dir_flag_wins_over_env(self) -> None:
+        import os
+        env_dir = self.tmp / "env-handoffs"
+        flag_dir = self.tmp / "flag-handoffs"
+        os.environ["AGENTOPS_HANDOFF_DIR"] = str(env_dir)
+        rc = handoff.main([
+            "create", "--slug", "flagged", "--repo", str(self.repo),
+            "--objective", "o", "--next-action", "n", "--no-sprintctl",
+            "--out-dir", str(flag_dir), "--date", "2026-09-12",
+        ])
+        self.assertEqual(rc, 0)
+        self.assertTrue((flag_dir / "2026-09-12-flagged.v1.json").exists())
+        self.assertFalse(env_dir.exists())
+
+    def test_env_out_dir_is_honoured_when_no_flag_is_given(self) -> None:
+        import os
+        env_dir = self.tmp / "env-handoffs"
+        os.environ["AGENTOPS_HANDOFF_DIR"] = str(env_dir)
+        rc = handoff.main([
+            "create", "--slug", "envd", "--repo", str(self.repo),
+            "--objective", "o", "--next-action", "n", "--no-sprintctl",
+            "--date", "2026-09-12",
+        ])
+        self.assertEqual(rc, 0)
+        self.assertTrue((env_dir / "2026-09-12-envd.v1.json").exists())
+
+
 class TestAckGuard(unittest.TestCase):
     """Exactly one successor, and a refusal that changes nothing."""
 
