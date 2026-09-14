@@ -35,6 +35,12 @@ def read_policy(config: str | None):
         return UNDETERMINED
 
 
+def recall(result: dict) -> dict:
+    """Nightly recall invariant (§6.4 board falsifier 2): every boundary maps to a move or quiet, or is a miss."""
+    return {"boundary_commits": len(result["boundaries"]), "mapped": len(result["boundaries"]) - len(result["misses"]),
+            "misses": result["misses"]}
+
+
 class Replay:
     def __init__(self, registry: dict, git: GitSource, tags: ImageTags):
         self.sources = registry["sources"]
@@ -110,8 +116,11 @@ class Replay:
         state = self.snapshot(base, {}) if base else {v: {} for v in VOCABULARIES}
         moves: list[Move] = []
         quiet: list[str] = []
+        misses: list[str] = []
         diverged: list[dict] = []
-        for sha, when in self.boundaries(start, end):
+        boundaries = self.boundaries(start, end)
+        for sha, when in boundaries:
+            pending = len(self.undetermined)
             after = self.snapshot(sha, state)
             found = [
                 Move(v, member, cls, sha, when.isoformat(), self._detail(v, after.get(v, {}).get(member)))
@@ -119,7 +128,10 @@ class Replay:
                 for member, cls in classify(v, state.get(v, {}), after.get(v, {}))
             ]
             moves += found
-            if not found:
+            # An undetermined evaluation can hide a move, so its boundary is a recall miss, never quiet.
+            if len(self.undetermined) > pending:
+                misses.append(sha)
+            elif not found:
                 quiet.append(sha)
             deployment = self.read(sha, "shared_deployment") or ""
             label, digest = RELEASE_LABEL.search(deployment), DIGEST.search(deployment)
@@ -127,7 +139,8 @@ class Replay:
             if label and served and label.group(1) != served:
                 diverged.append({"boundary": sha[:8], "label": label.group(1), "digest_release": served})
             state = after
-        return {"base": base, "moves": moves, "quiet": quiet, "diverged": diverged, "final": state}
+        return {"base": base, "moves": moves, "quiet": quiet, "misses": misses, "boundaries": [sha for sha, _ in boundaries],
+                "diverged": diverged, "final": state}
 
     def _detail(self, vocabulary: str, row: Row | None) -> str | None:
         if row is None:

@@ -199,7 +199,7 @@ def render(meta: dict, result: dict, scored: dict, gate: dict, registry: dict) -
         if carried else "- sprintctl 0.3.0: no roll in the window carried it."
     )
 
-    boundaries = len({m.boundary for m in moves}) + len(result["quiet"])
+    boundaries = len(result["boundaries"])
     final = result["final"]
     unreachable_classes = [c for c, row in final["audit.record_class"].items() if not row.passed]
     unusable_bindings = sorted(b for b, row in final["credbroker.binding"].items() if not row.passed)
