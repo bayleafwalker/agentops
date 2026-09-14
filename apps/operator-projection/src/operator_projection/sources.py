@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
 import concurrent.futures
 import json
 import re
 import urllib.request
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import datetime, timezone
-from typing import Protocol
+from pathlib import Path
+from typing import Any, Protocol
 
 import httpx
 
@@ -99,6 +101,60 @@ class GitHubRest:
             return found["sha"] if found else None
         found = self.get(f"{self.repo(repo)}/commits", {"sha": ref, "until": stamp(before), "per_page": 1})
         return found[0]["sha"] if found else None
+
+
+READ_OPS = frozenset({"work.project.context", "work.read.handoff", "work.read.context-candidates"})
+
+
+class ReadRefused(PermissionError):
+    """The generator never sends an operation outside the read allowlist (§6.4, §11.5)."""
+
+
+class AuthorityClient(Protocol):
+    async def handshake(self) -> dict: ...
+
+    async def catalog(self, *, force_refresh: bool = False) -> dict: ...
+
+    async def invoke(self, operation_name: str, arguments: Any) -> Any: ...
+
+
+class Authority:
+    """The only path to the vuoro authority: handshake, catalog, and allowlisted read-semantics operations."""
+
+    def __init__(self, client: AuthorityClient, has_credential: Callable[[], bool]):
+        self.client, self.has_credential = client, has_credential
+        self.loop = asyncio.new_event_loop()
+        self.served: dict | None = None
+
+    def handshake(self) -> dict:
+        return self.loop.run_until_complete(self.client.handshake())
+
+    def catalog(self) -> dict:
+        self.served = self.loop.run_until_complete(self.client.catalog())
+        return self.served
+
+    def read(self, operation: str, arguments: dict) -> Any:
+        if operation not in READ_OPS:
+            raise ReadRefused(f"{operation} is not on the read allowlist")
+        served = next((o for o in (self.served or {}).get("operations", []) if o["name"] == operation), None)
+        if served is None or served.get("execution_semantics") != "read":
+            raise ReadRefused(f"{operation} is not read-semantics in the catalog fetched this generation")
+        if not self.has_credential():
+            raise SourceUnavailable("no generator credential (work:read, work:project-read)")
+        return self.loop.run_until_complete(self.client.invoke(operation, arguments))
+
+
+def open_authority(profile: dict) -> Authority:
+    """Build the vuoro-client transport from the profile ConfigMap; the credential is read only on invoke."""
+    from vuoro_client import AsyncVuoroClient, Profile  # absent on Python 3.11: the caller renders BLIND
+
+    reference = profile["credential_ref"]
+    path = Path(reference.removeprefix("file:")).expanduser()
+    client = AsyncVuoroClient(
+        Profile(name="operator-projection", endpoint=profile["authority_url"], credential_ref=reference),
+        lambda _ref: path.read_text().strip(),
+    )
+    return Authority(client, lambda: reference.startswith("file:") and path.is_file())
 
 
 class ImageTags:

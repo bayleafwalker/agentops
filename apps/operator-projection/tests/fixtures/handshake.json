@@ -1,0 +1,40 @@
+{
+ "schema_version": "handshake/v1",
+ "environment": {
+  "name": "synthetic-env",
+  "environment_class": "production",
+  "constraints": [],
+  "runbook_refs": []
+ },
+ "service_version": "9.9.1",
+ "client_protocol": {
+  "minimum": 1,
+  "maximum": 1
+ },
+ "catalog_revision": "synthetic-catalog-0001",
+ "compatibility": {
+  "state": "compatible",
+  "domains": {
+   "work": {
+    "state": "compatible",
+    "reason": null
+   },
+   "execution": {
+    "state": "compatible",
+    "reason": null
+   },
+   "knowledge": {
+    "state": "compatible",
+    "reason": null
+   },
+   "audit": {
+    "state": "compatible",
+    "reason": null
+   }
+  }
+ },
+ "service_release": {
+  "distribution": "vuoro-service",
+  "version": "9.9.1"
+ }
+}

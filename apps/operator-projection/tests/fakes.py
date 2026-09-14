@@ -13,6 +13,31 @@ def fixture(name: str):
     return json.loads((FIXTURES / name).read_text())
 
 
+class FakeAuthorityClient:
+    """Stands in for vuoro_client.AsyncVuoroClient over the recorded synthetic fixtures."""
+
+    def __init__(self, results: dict | None = None, down: bool = False):
+        self.results, self.down, self.invoked = results or {}, down, []
+        self.semantics = {o["name"]: o["execution_semantics"] for o in fixture("catalog.json")["operations"]}
+
+    async def handshake(self) -> dict:
+        if self.down:
+            raise ConnectionError("authority unreachable")
+        return fixture("handshake.json")
+
+    async def catalog(self, *, force_refresh: bool = False) -> dict:
+        if self.down:
+            raise ConnectionError("authority unreachable")
+        served = fixture("catalog.json")
+        for operation in served["operations"]:
+            operation["execution_semantics"] = self.semantics[operation["name"]]
+        return served
+
+    async def invoke(self, operation_name: str, arguments) -> dict:
+        self.invoked.append((operation_name, arguments))
+        return self.results[operation_name]
+
+
 class MemoryGit:
     """files[repo][commit][path] holds full snapshots; history[repo] lists (sha, iso date) oldest first."""
 

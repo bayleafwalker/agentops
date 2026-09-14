@@ -1,0 +1,112 @@
+{
+ "schema_version": "operation-catalog/v1",
+ "revision": "synthetic-catalog-0001",
+ "operations": [
+  {
+   "name": "work.project.context",
+   "owning_domain": "work",
+   "input_schema": {
+    "type": "object"
+   },
+   "result_schema": {
+    "type": "object"
+   },
+   "required_authority": "work:project-read",
+   "execution_semantics": "read",
+   "idempotency": "none",
+   "repo_scoped": false,
+   "deprecation": null,
+   "required_client_schema_features": []
+  },
+  {
+   "name": "work.read.handoff",
+   "owning_domain": "work",
+   "input_schema": {
+    "type": "object"
+   },
+   "result_schema": {
+    "type": "object"
+   },
+   "required_authority": "work:read",
+   "execution_semantics": "read",
+   "idempotency": "none",
+   "repo_scoped": false,
+   "deprecation": null,
+   "required_client_schema_features": []
+  },
+  {
+   "name": "work.read.context-candidates",
+   "owning_domain": "work",
+   "input_schema": {
+    "type": "object"
+   },
+   "result_schema": {
+    "type": "object"
+   },
+   "required_authority": "work:read",
+   "execution_semantics": "read",
+   "idempotency": "none",
+   "repo_scoped": false,
+   "deprecation": null,
+   "required_client_schema_features": []
+  },
+  {
+   "name": "work.read.events",
+   "owning_domain": "work",
+   "input_schema": {
+    "type": "object"
+   },
+   "result_schema": {
+    "type": "object"
+   },
+   "required_authority": "work:read",
+   "execution_semantics": "read",
+   "idempotency": "none",
+   "repo_scoped": false,
+   "deprecation": null,
+   "required_client_schema_features": []
+  },
+  {
+   "name": "work.item.claim-lifecycle",
+   "owning_domain": "work",
+   "input_schema": {
+    "type": "object"
+   },
+   "result_schema": {
+    "type": "object"
+   },
+   "required_authority": "work:lifecycle",
+   "execution_semantics": "write",
+   "idempotency": "none",
+   "repo_scoped": false,
+   "deprecation": null,
+   "required_client_schema_features": []
+  },
+  {
+   "name": "audit.observation.submit",
+   "owning_domain": "audit",
+   "input_schema": {
+    "type": "object",
+    "properties": {
+     "observation": {
+      "type": "object",
+      "properties": {
+       "record_class": {
+        "const": "observation"
+       }
+      }
+     }
+    }
+   },
+   "result_schema": {
+    "type": "object"
+   },
+   "required_authority": "audit.observation.submit",
+   "execution_semantics": "write",
+   "idempotency": "none",
+   "repo_scoped": false,
+   "deprecation": null,
+   "required_client_schema_features": []
+  }
+ ]
+}
