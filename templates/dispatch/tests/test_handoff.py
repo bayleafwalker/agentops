@@ -604,16 +604,32 @@ class TestDigestVersionCompatibility(unittest.TestCase):
     def test_the_committed_evidence_handoffs_declare_no_digest_version(self) -> None:
         # If a later change starts stamping the field into these, the
         # compatibility path above stops being exercised by anything real.
+        # Committed handoffs are append-only; old-format ones (no digest_version)
+        # exercise the compatibility path; new-format ones (digest_version: 2,
+        # created via commit 9974beb) exercise the v2 path.
         committed = sorted(
             (ROOT / "docs/dispatch/handoffs").glob("*.v*.json"))
         self.assertTrue(committed, "no committed handoffs to check")
+        legacy_checked = 0
         for path in committed:
             if path.name.endswith("sprintctl-bundle.json"):
                 continue
             with self.subTest(path.name):
                 data = json.loads(path.read_text())
-                self.assertNotIn("digest_version", data["state"])
+                # All committed handoffs must validate against the schema,
+                # whether legacy or v2.
                 self.assertEqual(handoff.schema_errors(data), [])
+                # Legacy handoffs (created before digest_version was added) must
+                # not declare the field; v2 handoffs (created via the new
+                # `handoff create` path) legitimately declare digest_version: 2.
+                if data["state"].get("digest_version") != 2:
+                    self.assertNotIn("digest_version", data["state"])
+                    legacy_checked += 1
+        # At least one legacy handoff must exist to ensure the compatibility
+        # path is exercised by real committed evidence, not just tests.
+        self.assertGreater(legacy_checked, 0,
+                           "no committed legacy handoff left to exercise "
+                           "the compatibility path")
 
     def test_a_v2_handoff_is_refused_when_an_untracked_file_changes(self) -> None:
         (self.repo / "scratch.txt").write_text("before\n")
