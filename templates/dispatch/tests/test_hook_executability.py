@@ -53,6 +53,11 @@ EXECUTED_HOOKS = (
     "session-binding.sh",
     "sprintctl-maintain-check.sh",
     "subagent-exit.sh",
+    # Not registered as a hook (deliberately not wired): a stdin tee meant to run as
+    # the first stage of a pipe ahead of the existing statusline command
+    # (`statusline-headroom-tee.sh | <existing statusline jq>`). A pipe stage is
+    # executed, so it needs the bit the same as any other executed hook here.
+    "statusline-headroom-tee.sh",
 )
 
 SOURCED_NOT_EXECUTED = ("auditctl-resolve.sh",)

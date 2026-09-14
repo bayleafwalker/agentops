@@ -342,6 +342,31 @@ class TeeScriptTests(unittest.TestCase):
             self.assertTrue(written.is_file())
             self.assertEqual(written.read_text(), payload)
 
+    def test_trailing_newline_survives_byte_exact(self):
+        with _tmp_home() as home:
+            state_dir = home / "headroom-state"
+            payload = json.dumps({"hello": "world"}) + "\n\n"
+            env = dict(os.environ)
+            env["HEADROOM_STATE_DIR"] = str(state_dir)
+
+            result = subprocess.run(
+                ["bash", str(TEE_SCRIPT)],
+                input=payload,
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=10,
+            )
+
+            self.assertEqual(result.returncode, 0)
+            # Byte-exact passthrough: `input="$(cat)"` + `printf '%s'` would
+            # have silently dropped both trailing newlines here.
+            self.assertEqual(result.stdout, payload)
+            self.assertTrue(result.stdout.endswith("\n\n"))
+
+            written = state_dir / "claude-statusline.json"
+            self.assertEqual(written.read_text(), payload)
+
     def test_still_passes_through_when_state_dir_unwritable(self):
         with _tmp_home() as home:
             unwritable_parent = home / "locked"
