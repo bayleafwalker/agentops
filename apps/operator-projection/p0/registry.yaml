@@ -1,0 +1,86 @@
+# Vocabulary registry v1, P0 slice (DOSSIER-front-page-design.md §6.2).
+#
+# The only hand-edited input to the replay. It holds the vocabularies whose membership and
+# predicates can be evaluated from git history at a named commit; live-catalog vocabularies
+# are listed under not_replayable and printed as coverage gaps.
+registry: operator-projection/registry/v1-p0
+
+# appservice paths on the Flux-watched branch (origin/main). A commit touching any of them is
+# a deployment-boundary candidate; one that moves no enumerated member is counted, not hidden.
+sources:
+  shared_deployment: clusters/main/kubernetes/apps/vuoro-shared/app/deployment.yaml
+  shared_ks: clusters/main/kubernetes/apps/vuoro-shared/ks.yaml
+  broker_config: clusters/main/kubernetes/apps/cred-broker/app/config.yaml
+  broker_pvc: clusters/main/kubernetes/apps/cred-broker/app/state-pvc.yaml
+  cockpit_pvc: clusters/main/kubernetes/apps/agent-cockpit/app/state-pvc.yaml
+
+external:
+  pins: {repo: vuoro, path: packages/vuoro-service/composition/adapter-pins.json}
+  record_classes: {repo: auditctl, path: auditctl/validation.py}
+  image_tags: {kind: unauthenticated-http-get, repository: bayleafwalker/vuoro-service}
+
+vocabularies:
+  - id: authority.service_release
+    ledger: can-do
+    member_source: vuoro-shared deployment.yaml exists (git read)
+    reachable_evaluator: replicas > 0 and ks.yaml is not `suspend: true` (git read)
+    authorized_evaluator: "requested-only: service identities are sops-encrypted and not read"
+    exercise_evaluator: "unobservable: handshake answers are not stored"
+    value: deployed image digest; named by the image tag map (http get)
+
+  - id: composition.release_lock
+    ledger: can-do
+    member_source: >-
+      adapter-pins.json at the vuoro commit the deployed digest was built from (ghcr `sha-<commit>` tag);
+      v1 `adapters[].domain` X is lock `X-adapter`
+    reachable_evaluator: the lock is in the deployed composition (boundary = the vuoro-shared roll)
+    authorized_evaluator: n/a (release locks are not granted)
+    exercise_evaluator: unobservable
+    value: source_revision
+
+  - id: audit.record_class
+    ledger: can-do
+    member_source: auditctl origin/main RECORD_CLASSES
+    reachable_evaluator: >-
+      admitted by validation.py at the deployed audit-adapter source_revision: RECORD_CLASSES when
+      present, otherwise the single class named by `record_class must be <class>`
+    authorized_evaluator: "requested-only: audit grants are not in git"
+    exercise_evaluator: "unobservable: audit.observation.list answers 403"
+
+  - id: credbroker.capability_rule
+    ledger: can-do
+    member_source: production.json policy.capabilities keys
+    reachable_evaluator: present in the deployed ConfigMap (APPLY-UNOBSERVED)
+    authorized_evaluator: n/a
+    exercise_evaluator: "unobservable: needs capability.receipt.list"
+    value: canonical JSON of the rule
+
+  - id: credbroker.repository
+    ledger: can-do
+    member_source: production.json repositories[].repository_id
+    reachable_evaluator: present in the deployed ConfigMap (APPLY-UNOBSERVED)
+    authorized_evaluator: n/a
+    exercise_evaluator: "unobservable: needs capability.receipt.list"
+
+  - id: credbroker.binding
+    ledger: can-do
+    member_source: production.json policy.bindings as host|repository|capability
+    reachable_evaluator: the binding's host is listed and active
+    authorized_evaluator: >-
+      the repository's provider is configured with no placeholder; for forgejo the audience for the
+      capability (per repository when repository_audiences exists, else the provider-wide audiences)
+      is set and not a placeholder
+    exercise_evaluator: "unobservable: needs capability.receipt.list"
+
+  - id: durability.store
+    ledger: durable
+    member_source: declared below
+    members:
+      cockpit.reconciliation-state: "D2 when agent-cockpit state-pvc.yaml exists, else D0"
+      credbroker.receipts: "D2 when production.json sets receipt_path and cred-broker state-pvc.yaml exists, else D0"
+    reachable_evaluator: rung from deployed configuration (§6.2.1)
+    exercise_evaluator: "unobservable: no moving watermark is readable from git"
+
+not_replayable:
+  - {id: catalog.operation, reason: "membership is the live catalog; no catalog history is stored (composition history is D0)"}
+  - {id: catalog.authority, reason: "derived from the live catalog's required_authority values"}
