@@ -12,170 +12,39 @@ source (the image tag map), cached with the time it was evaluated.
 from __future__ import annotations
 
 import argparse
-import concurrent.futures
 import json
-import re
 import subprocess
 import sys
-import urllib.request
 from collections import defaultdict
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE.parent / "src"))
+
+from operator_projection.evaluators import (  # noqa: E402,F401  (re-exported for test_replay.py)
+    Move,
+    Row,
+    audience_configured,
+    authorized,
+    broker_rows,
+    classify,
+    configured,
+    durability_rows,
+    lock_rows,
+    record_classes,
+    service_rows,
+)
+from operator_projection.replay import VOCABULARIES, Replay  # noqa: E402,F401
+from operator_projection.sources import ImageTags, fetch_image_tags  # noqa: E402
+
 DEV = HERE.parents[3]
-UNDETERMINED = object()
-RUNGS = {"D0": 0, "D1": 1, "D2": 2, "D3": 3, "D4": 4}
-PLACEHOLDER = re.compile(r"replace|placeholder|changeme|todo", re.IGNORECASE)
-DIGEST = re.compile(r"vuoro-service@(sha256:[0-9a-f]{64})")
-RELEASE_LABEL = re.compile(r"release:\s*(vuoro-service-v[0-9.]+)")
-VOCABULARIES = [
-    "authority.service_release",
-    "composition.release_lock",
-    "audit.record_class",
-    "credbroker.capability_rule",
-    "credbroker.repository",
-    "credbroker.binding",
-    "durability.store",
-]
 
 
-@dataclass(frozen=True)
-class Row:
-    passed: bool
-    value: str | None = None
-    detail: str | None = None
-
-
-@dataclass(frozen=True)
-class Move:
-    vocabulary: str
-    member: str
-    cls: str
-    boundary: str
-    boundary_at: str
-    detail: str | None = None
-
-
-# ── evaluators: pure functions over the text read at one commit ─────────────────
-
-
-def service_rows(deployment: str | None, ks: str | None) -> dict[str, Row]:
-    if deployment is None:
-        return {}
-    digest = DIGEST.search(deployment)
-    replicas = re.search(r"^\s*replicas:\s*(\d+)", deployment, re.MULTILINE)
-    suspended = bool(ks and re.search(r"^\s*suspend:\s*true\b", ks, re.MULTILINE))
-    reachable = (replicas is None or int(replicas.group(1)) > 0) and not suspended
-    return {"vuoro-shared": Row(reachable, digest.group(1) if digest else None)}
-
-
-def lock_rows(pins: dict) -> dict[str, Row]:
-    if "adapters" in pins:  # vuoro-composition/v1 named each lock by its domain
-        entries = [{**a, "lock_id": f"{a['domain']}-adapter"} for a in pins["adapters"]]
-    else:
-        entries = pins["release_locks"]
-    return {e["lock_id"]: Row(True, e["source_revision"], e.get("distribution_version")) for e in entries}
-
-
-def record_classes(validation: str) -> set[str]:
-    declared = re.search(r"^RECORD_CLASSES\s*=\s*\(([^)]*)\)", validation, re.MULTILINE)
-    if declared:
-        return set(re.findall(r"[\"']([^\"']+)[\"']", declared.group(1)))
-    # Before RECORD_CLASSES existed the validator admitted exactly one literal class.
-    return set(re.findall(r"record_class must be (\w+)", validation))
-
-
-def configured(value) -> bool:
-    return isinstance(value, str) and value.strip() != "" and not PLACEHOLDER.search(value)
-
-
-def audience_configured(value) -> bool:
-    # An all-caps token (SOME_AUDIENCE_TO_FILL) is a placeholder's shape, never a real audience.
-    # Provider settings elsewhere legitimately hold all-caps enumerations, so this is audience-only.
-    return configured(value) and not re.fullmatch(r"[A-Z0-9_]+", value)
-
-
-def authorized(
-    policy: dict,
-    provider: str | None,
-    capability: str,
-    repository: str,
-    wide_scope: dict[str, frozenset[str]] | None = None,
-) -> bool:
-    settings = policy.get("providers", {}).get(provider)
-    if not settings:
-        return False
-    if provider == "forgejo":
-        per_repository = settings.get("repository_audiences")
-        if per_repository is not None:
-            return audience_configured(per_repository.get(capability, {}).get(repository))
-        # A provider-wide audience names the repositories registered when its value was set,
-        # not every repository registered later.
-        in_scope = wide_scope is None or repository in wide_scope.get(capability, frozenset())
-        return in_scope and audience_configured(settings.get("audiences", {}).get(capability))
-    return all(configured(v) for v in settings.values() if isinstance(v, str))
-
-
-def broker_rows(policy: dict | None, wide_scope: dict[str, frozenset[str]] | None = None) -> dict[str, dict[str, Row]]:
-    if policy is None:
-        return {"credbroker.capability_rule": {}, "credbroker.repository": {}, "credbroker.binding": {}}
-    rules = policy.get("policy", {})
-    providers = {r["repository_id"]: r.get("provider") for r in policy.get("repositories", [])}
-    active = {h["host_id"]: h.get("active", True) for h in rules.get("hosts", [])}
-    bindings = {}
-    for binding in rules.get("bindings", []):
-        host, repository = binding["host_id"], binding["repository_id"]
-        for capability in binding.get("capabilities", []):
-            provider = providers.get(repository)
-            usable = active.get(host, False) and authorized(policy, provider, capability, repository, wide_scope)
-            bindings[f"{host}|{repository}|{capability}"] = Row(usable)
-    return {
-        "credbroker.capability_rule": {
-            k: Row(True, json.dumps(v, sort_keys=True)) for k, v in rules.get("capabilities", {}).items()
-        },
-        "credbroker.repository": {r: Row(True) for r in providers},
-        "credbroker.binding": bindings,
-    }
-
-
-def durability_rows(cockpit_pvc: bool, policy: dict | None, broker_pvc: bool) -> dict[str, Row]:
-    receipts = bool(policy and policy.get("receipt_path")) and broker_pvc
-    return {
-        "cockpit.reconciliation-state": Row(True, "D2" if cockpit_pvc else "D0"),
-        "credbroker.receipts": Row(True, "D2" if receipts else "D0"),
-    }
-
-
-# ── classification (§6.3) ───────────────────────────────────────────────────────
-
-
-def classify(vocabulary: str, before: dict[str, Row], after: dict[str, Row]) -> list[tuple[str, str]]:
-    moves = []
-    for member in sorted(before.keys() | after.keys()):
-        b, a = before.get(member), after.get(member)
-        if vocabulary == "durability.store":
-            if b and a and b.value != a.value:
-                up = RUNGS[a.value] > RUNGS[b.value]
-                moves.append((member, "DURABILITY-UP" if up else "DURABILITY-DOWN"))
-        elif b is None:
-            if a.passed:
-                moves.append((member, "GAINED"))
-        elif a is None:
-            if b.passed:
-                moves.append((member, "FORECLOSED"))
-        else:
-            if b.passed != a.passed:
-                moves.append((member, "GAINED" if a.passed else "REGRESSED"))
-            if b.value != a.value and (a.passed or b.passed):
-                moves.append((member, "CONTRACT-CHANGE"))
-    return moves
-
-
-# ── sources ─────────────────────────────────────────────────────────────────────
+# ── local git: a dev-only GitSource; the packaged generator never runs a subprocess ────
 
 
 class Git:
@@ -197,169 +66,26 @@ class Git:
         return self._shown[key]
 
 
-class ImageTags:
-    def __init__(self, document: dict):
-        self.document = document
-        self.by_digest: dict[str, list[str]] = defaultdict(list)
-        for tag, digest in document["tags"].items():
-            self.by_digest[digest].append(tag)
+class LocalGit:
+    """GitSource over local clones, reading each repository's origin/main for the branch `main`."""
 
-    def source_commit(self, digest: str) -> str | None:
-        return next((t[4:] for t in self.by_digest.get(digest, []) if t.startswith("sha-")), None)
+    def __init__(self, repos: dict[str, Path]):
+        self.repos = {name: Git(path) for name, path in repos.items()}
 
-    def release(self, digest: str | None) -> str | None:
-        tags = sorted(self.by_digest.get(digest or "", []))
-        return next((t for t in tags if t.startswith("vuoro-service-v")), None)
+    @staticmethod
+    def ref(ref: str) -> str:
+        return "origin/main" if ref == "main" else ref
 
+    def show(self, repo: str, commit: str, path: str) -> str | None:
+        return self.repos[repo].show(self.ref(commit), path)
 
-def fetch_image_tags(repository: str) -> dict:
-    """Unauthenticated GET: anonymous pull token, tag list, then one manifest HEAD per tag."""
-    accept = ", ".join([
-        "application/vnd.oci.image.index.v1+json",
-        "application/vnd.docker.distribution.manifest.list.v2+json",
-        "application/vnd.oci.image.manifest.v1+json",
-        "application/vnd.docker.distribution.manifest.v2+json",
-    ])
-    token_url = f"https://ghcr.io/token?scope=repository:{repository}:pull&service=ghcr.io"
-    token = json.load(urllib.request.urlopen(token_url, timeout=30))["token"]
+    def log(self, repo: str, ref: str, paths, since=None, until=None) -> list[tuple[str, datetime]]:
+        log = self.repos[repo].out("log", "--format=%H %cI", self.ref(ref), "--", *paths)
+        return [(sha, datetime.fromisoformat(when)) for sha, when in (line.split() for line in log.splitlines())]
 
-    def request(url: str, method: str = "GET"):
-        headers = {"Authorization": f"Bearer {token}", "Accept": accept}
-        return urllib.request.urlopen(urllib.request.Request(url, method=method, headers=headers), timeout=30)
-
-    tags, url = [], f"https://ghcr.io/v2/{repository}/tags/list?n=1000"
-    while url:
-        response = request(url)
-        tags += json.load(response)["tags"]
-        link = response.headers.get("Link")
-        url = "https://ghcr.io" + link.split(";")[0].strip("<>") if link else None
-
-    def digest(tag: str) -> tuple[str, str]:
-        manifest = request(f"https://ghcr.io/v2/{repository}/manifests/{tag}", "HEAD")
-        return tag, manifest.headers["Docker-Content-Digest"]
-
-    with concurrent.futures.ThreadPoolExecutor(8) as pool:
-        resolved = dict(pool.map(digest, tags))
-    return {
-        "source": f"ghcr.io/v2/{repository}",
-        "evaluator": "unauthenticated HTTP GET (anonymous pull token)",
-        "evaluated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "tags": dict(sorted(resolved.items())),
-    }
-
-
-# ── replay ──────────────────────────────────────────────────────────────────────
-
-
-class Replay:
-    def __init__(self, registry: dict, appservice: Git, vuoro: Git, auditctl: Git, tags: ImageTags):
-        self.sources = registry["sources"]
-        self.pins_path = registry["external"]["pins"]["path"]
-        self.validation_path = registry["external"]["record_classes"]["path"]
-        self.appservice, self.vuoro, self.auditctl, self.tags = appservice, vuoro, auditctl, tags
-        self.declared_classes = record_classes(auditctl.show("origin/main", self.validation_path) or "")
-        self.undetermined: list[tuple[str, str]] = []
-        # (capability, provider-wide audience value) -> forgejo repositories when that value first appeared
-        self._audience_scopes: dict[tuple[str, str], frozenset[str]] = {}
-
-    def snapshot(self, commit: str, previous: dict) -> dict:
-        read = lambda key: self.appservice.show(commit, self.sources[key])  # noqa: E731
-        deployment, config = read("shared_deployment"), read("broker_config")
-        locks = self._locks(deployment)
-        policy = self._policy(config)
-        state = {
-            "authority.service_release": service_rows(deployment, read("shared_ks")),
-            "composition.release_lock": locks,
-            "audit.record_class": self._record_classes(locks, deployment),
-        }
-        if policy is UNDETERMINED:
-            state |= {v: UNDETERMINED for v in VOCABULARIES if v.startswith("credbroker.")}
-            state["durability.store"] = UNDETERMINED
-        else:
-            state |= broker_rows(policy, self._wide_scope(policy))
-            state["durability.store"] = durability_rows(
-                read("cockpit_pvc") is not None, policy, read("broker_pvc") is not None
-            )
-        for vocabulary in VOCABULARIES:
-            if state[vocabulary] is UNDETERMINED:
-                self.undetermined.append((commit, vocabulary))
-                state[vocabulary] = previous.get(vocabulary, {})
-        return state
-
-    def _locks(self, deployment: str | None):
-        if deployment is None:
-            return {}
-        digest = DIGEST.search(deployment)
-        source = digest and self.tags.source_commit(digest.group(1))
-        pins = source and self.vuoro.show(source, self.pins_path)
-        return lock_rows(json.loads(pins)) if pins else UNDETERMINED
-
-    def _record_classes(self, locks, deployment: str | None):
-        if locks is UNDETERMINED:
-            return UNDETERMINED
-        reachable: set[str] = set()
-        audit = locks.get("audit-adapter")
-        if deployment is not None and audit:
-            validation = self.auditctl.show(audit.value, self.validation_path)
-            if validation is None:
-                return UNDETERMINED
-            reachable = record_classes(validation)
-        return {c: Row(c in reachable) for c in sorted(self.declared_classes)}
-
-    def _wide_scope(self, policy: dict | None) -> dict[str, frozenset[str]] | None:
-        audiences = ((policy or {}).get("providers", {}).get("forgejo") or {}).get("audiences")
-        if not audiences:
-            return None
-        forgejo = frozenset(r["repository_id"] for r in policy.get("repositories", []) if r.get("provider") == "forgejo")
-        return {
-            capability: self._audience_scopes.setdefault((capability, value), forgejo)
-            for capability, value in audiences.items()
-            if isinstance(value, str)
-        }
-
-    def _policy(self, config: str | None):
-        if config is None:
-            return None
-        try:
-            return json.loads(yaml.safe_load(config)["data"]["production.json"])
-        except (KeyError, TypeError, ValueError, yaml.YAMLError):
-            return UNDETERMINED
-
-    def boundaries(self, start: datetime, end: datetime) -> list[tuple[str, datetime]]:
-        log = self.appservice.out("log", "--format=%H %cI", "origin/main", "--", *self.sources.values())
-        commits = [(sha, datetime.fromisoformat(when)) for sha, when in (line.split() for line in log.splitlines())]
-        return [(sha, when) for sha, when in reversed(commits) if start <= when < end]
-
-    def run(self, start: datetime, end: datetime) -> dict:
-        base = self.appservice.out("rev-list", "-1", f"--before={start.isoformat()}", "origin/main").strip()
-        state = self.snapshot(base, {}) if base else {v: {} for v in VOCABULARIES}
-        moves: list[Move] = []
-        quiet: list[str] = []
-        diverged: list[dict] = []
-        for sha, when in self.boundaries(start, end):
-            after = self.snapshot(sha, state)
-            found = [
-                Move(v, member, cls, sha, when.isoformat(), self._detail(v, after.get(v, {}).get(member)))
-                for v in VOCABULARIES
-                for member, cls in classify(v, state.get(v, {}), after.get(v, {}))
-            ]
-            moves += found
-            if not found:
-                quiet.append(sha)
-            deployment = self.appservice.show(sha, self.sources["shared_deployment"]) or ""
-            label, digest = RELEASE_LABEL.search(deployment), DIGEST.search(deployment)
-            served = self.tags.release(digest.group(1) if digest else None)
-            if label and served and label.group(1) != served:
-                diverged.append({"boundary": sha[:8], "label": label.group(1), "digest_release": served})
-            state = after
-        return {"base": base, "moves": moves, "quiet": quiet, "diverged": diverged, "final": state}
-
-    def _detail(self, vocabulary: str, row: Row | None) -> str | None:
-        if row is None:
-            return None
-        if vocabulary == "authority.service_release":
-            return self.tags.release(row.value)
-        return row.detail or (row.value if vocabulary == "durability.store" else None)
+    def resolve(self, repo: str, ref: str, before: datetime | None = None) -> str | None:
+        window = [f"--before={before.isoformat()}"] if before else []
+        return self.repos[repo].out("rev-list", "-1", *window, self.ref(ref)).strip() or None
 
 
 # ── scoring ─────────────────────────────────────────────────────────────────────
@@ -526,8 +252,9 @@ def main(argv: list[str] | None = None) -> int:
         tags_path.write_text(json.dumps(fetch_image_tags(registry["external"]["image_tags"]["repository"]), indent=1) + "\n")
     tags = ImageTags(json.loads(tags_path.read_text()))
 
-    appservice = Git(args.appservice)
-    replay = Replay(registry, appservice, Git(args.vuoro), Git(args.auditctl), tags)
+    git = LocalGit({"appservice": args.appservice, "vuoro": args.vuoro, "auditctl": args.auditctl})
+    appservice = git.repos["appservice"]
+    replay = Replay(registry, git, tags)
     start = datetime.fromisoformat(truth["window"]["start"])
     end = datetime.fromisoformat(truth["window"]["end"])
     result = replay.run(start, end)
