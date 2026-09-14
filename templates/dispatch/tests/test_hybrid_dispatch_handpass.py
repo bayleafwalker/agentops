@@ -24,6 +24,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).parents[3]
@@ -380,6 +381,16 @@ class RetryWorkspaceReuseTests(unittest.TestCase):
     what made V5-M2 the packet that could not unblock its own retry."""
 
     def setUp(self) -> None:
+        # These tests assert repo-policy behaviour (attempt allowance, reuse
+        # gating) through dispatch.main's own load_policy() call. A host that
+        # sets AGENTOPS_HYBRID_POLICY to pin a deployed copy (e.g. one with a
+        # different mechanical_bulk.max_attempts) would otherwise make this
+        # test's outcome depend on host configuration instead of the repo's
+        # checked-in policy. Force the repo policy deterministically.
+        patcher = mock.patch.dict(os.environ, {}, clear=False)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        os.environ.pop("AGENTOPS_HYBRID_POLICY", None)
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         root = Path(os.path.realpath(self.tmp.name))

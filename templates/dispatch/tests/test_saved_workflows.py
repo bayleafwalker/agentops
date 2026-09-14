@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import textwrap
 import unittest
 
 
 ROOT = Path(__file__).parents[3]
+
+NODE_REQUIRED_REASON = "node is not on PATH; required to run the saved-workflow JS harness"
+requires_node = unittest.skipUnless(shutil.which("node") is not None, NODE_REQUIRED_REASON)
 BUILD_WORKFLOW = ROOT / ".claude" / "workflows" / "vuoro-dispatch-build.js"
 VERIFY_WORKFLOW = ROOT / ".claude" / "workflows" / "vuoro-dispatch-verify.js"
 MODEL_ROUTING = ROOT / "templates" / "dispatch" / "model-routing.json"
@@ -134,6 +138,7 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertEqual(aliases["frontier-plan"]["codex"]["model"], "gpt-5.6-sol")
         self.assertEqual(aliases["frontier-review"]["codex"]["model"], "gpt-5.6-sol")
 
+    @requires_node
     def test_build_uses_sequential_reasoning_units_and_one_repo_closeout(self) -> None:
         output = run_workflow(
             BUILD_WORKFLOW,
@@ -159,6 +164,7 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertTrue(all(item["closed"] for item in output["result"]["results"]))
         self.assertNotIn("claim_token", json.dumps(output["result"]))
 
+    @requires_node
     def test_requested_push_is_withheld_and_close_fails_closed_on_mixed_verdicts(self) -> None:
         output = run_workflow(
             BUILD_WORKFLOW,
@@ -183,6 +189,7 @@ class SavedWorkflowTests(unittest.TestCase):
             {"issues_found", "inconclusive"},
         )
 
+    @requires_node
     def test_standalone_audit_verifies_units_sequentially_and_only_records_notes(self) -> None:
         output = run_workflow(
             VERIFY_WORKFLOW,
@@ -201,6 +208,7 @@ class SavedWorkflowTests(unittest.TestCase):
         )
         self.assertTrue(all(not item["closed"] and item["action"] == "noted" for item in output["result"]["results"]))
 
+    @requires_node
     def test_confirmation_without_command_evidence_fails_closed(self) -> None:
         output = run_workflow(
             BUILD_WORKFLOW,
@@ -211,6 +219,7 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertEqual(output["result"]["results"][0]["verdict"], "inconclusive")
         self.assertFalse(output["result"]["results"][0]["closed"])
 
+    @requires_node
     def test_invalid_repo_is_rejected_before_dispatch(self) -> None:
         result = subprocess.run(
             [
@@ -230,6 +239,7 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("safe repository directory name", result.stderr)
 
+    @requires_node
     def test_workflows_compile_as_async_functions(self) -> None:
         script = textwrap.dedent(
             """

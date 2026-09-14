@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 from pathlib import Path
 
 import pytest
@@ -81,13 +82,48 @@ def test_forge_facts_survive_the_render(fact: str) -> None:
 
 
 def test_live_workspace_file_has_not_drifted_from_the_source() -> None:
-    """Enforce on any host that actually has the workspace file.
+    """Enforce on any host that actually has the workspace file, when run from
+    the checkout that owns rendering into it -- with an explicit opt-in.
 
-    Skipped rather than failed where `/projects/dev/AGENTS.md` does not exist (CI,
-    a fresh devbox-vm), because "not present here" and "drifted" are different
-    facts and collapsing them is the exact reporting error this whole change
-    exists to stop.
+    `DEFAULT_TARGET` (`/projects/dev/AGENTS.md`) is outside every git checkout
+    and reflects whichever checkout on this host last ran
+    `render_workspace_agents.py --apply`. Any checkout other than the
+    canonical `/projects/dev/agentops` -- a worktree included -- has no reason
+    to expect its own `SOURCE` to match a file some other checkout rendered,
+    so this only runs at all when `renderer.REPO_ROOT` (derived from this
+    module's own `__file__`, i.e. wherever the currently-executing test file
+    actually lives) resolves to that canonical checkout.
+
+    Even there, the live file is not kept in lockstep with every commit -- it
+    reflects whenever `--apply` was last run, which is a deploy/operator
+    action, not part of `pytest`. The renderer's header records only a
+    content digest of `SOURCE`, not a commit marker, so there is no cheaper
+    way to distinguish "stale, needs --apply" from "actually wrong" than the
+    full comparison this test makes -- which is exactly the noisy, ambient
+    environment failure being guarded against. So the comparison additionally
+    requires an explicit opt-in
+    (`AGENTOPS_LIVE_WORKSPACE_RENDER_CHECK=1`), for a caller who has just run
+    `--apply` (or is deliberately checking for drift) to prove it by hand;
+    everyone else is skipped, not failed, because "not opted in here" and
+    "drifted" are different facts and collapsing them is the exact reporting
+    error this whole change exists to stop.
     """
+    owning_root = Path("/projects/dev/agentops")
+    if renderer.REPO_ROOT.resolve() != owning_root.resolve():
+        pytest.skip(
+            f"renderer.REPO_ROOT ({renderer.REPO_ROOT}) is not the canonical "
+            f"{owning_root} checkout that owns rendering into "
+            f"{renderer.DEFAULT_TARGET}; this checkout's source has no claim on "
+            "that file's current content"
+        )
+    if os.environ.get("AGENTOPS_LIVE_WORKSPACE_RENDER_CHECK") != "1":
+        pytest.skip(
+            "set AGENTOPS_LIVE_WORKSPACE_RENDER_CHECK=1 to compare "
+            f"{renderer.DEFAULT_TARGET} against {SOURCE}; unset by default because "
+            "the live file reflects whichever checkout last ran --apply, not "
+            "necessarily the state of this test run"
+        )
+
     target = renderer.DEFAULT_TARGET
     if not target.is_file():
         pytest.skip(f"{target} is not present on this host")

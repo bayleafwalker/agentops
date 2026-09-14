@@ -14,9 +14,12 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).parents[3]
@@ -24,6 +27,34 @@ SCRIPT = ROOT / "templates/dispatch/scripts/resume_probe.py"
 SCENARIO = ROOT / "templates/dispatch/acceptance/resume-and-settle.scenario.json"
 
 SHA_A = "3cf980d4a8834c64108c3ee06716560b19893ea7"
+
+
+def _leaked_ignoring_nix_usersite_shim(env: dict, *, cwd: Path) -> list[str]:
+    """`probe._measure_env_leak`, with the Nix-wrapped `python3` shim allowlisted.
+
+    On this host, Nix-wrapped `python3` injects ``PYTHONNOUSERSITE=true`` into
+    every child it spawns regardless of an explicit ``env=`` (confirmed by
+    inspecting the wrapper script). That is not a leak `_recover_env`'s
+    construction is responsible for, so it is allowlisted here -- narrowly:
+    only the name ``PYTHONNOUSERSITE`` AND only when its observed value is
+    exactly ``"true"``, the value the wrapper sets. Any other leaked
+    variable, or any other value for this one, still fails.
+    """
+    leaked = probe._measure_env_leak(env, cwd=cwd)
+    if "PYTHONNOUSERSITE" not in leaked:
+        return leaked
+    value_probe = "import os,sys; sys.stdout.write(os.environ.get('PYTHONNOUSERSITE') or '')"
+    proc = subprocess.run(
+        [sys.executable, "-c", value_probe],
+        cwd=str(cwd),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if proc.stdout != "true":
+        return leaked
+    return [name for name in leaked if name != "PYTHONNOUSERSITE"]
 
 
 def _load_module():
@@ -249,11 +280,38 @@ class RecoverEnvironmentTests(unittest.TestCase):
         try:
             env = probe._recover_env(db=Path("/tmp/e.db"), profile=Path("/tmp/p.json"))
             self.assertNotIn(marker, env)
-            # And the measurement agrees: the child really does not see it.
+            # And the measurement agrees: the child really does not see it. The
+            # Nix-wrapped python3 on this host injects PYTHONNOUSERSITE=true
+            # into every child regardless of env=, so that one name is
+            # allowlisted (see _leaked_ignoring_nix_usersite_shim) -- anything
+            # else reported here would still fail this assertion.
             with tempfile.TemporaryDirectory() as tmp:
-                self.assertEqual(probe._measure_env_leak(env, cwd=Path(tmp)), [])
+                self.assertEqual(
+                    _leaked_ignoring_nix_usersite_shim(env, cwd=Path(tmp)), []
+                )
         finally:
             os.environ.pop(marker, None)
+
+    def test_environment_leak_still_detects_a_non_wrapper_injected_variable(self) -> None:
+        """The allowlist must not swallow an unrelated leak that happens to
+        arrive alongside the Nix shim's PYTHONNOUSERSITE=true."""
+
+        def fake_run(cmd, *, cwd, env, capture_output, text, timeout):
+            script = cmd[-1]
+            result = mock.Mock()
+            if "sorted(os.environ)" in script:
+                seen = sorted(set(env) | {"PYTHONNOUSERSITE", "SOME_OTHER_INJECTED_VAR"})
+                result.stdout = json.dumps(seen)
+            else:
+                result.stdout = "true"
+            return result
+
+        env = {"PATH": "/usr/bin"}
+        with mock.patch.object(probe.subprocess, "run", side_effect=fake_run):
+            with tempfile.TemporaryDirectory() as tmp:
+                leaked = _leaked_ignoring_nix_usersite_shim(env, cwd=Path(tmp))
+
+        self.assertEqual(leaked, ["SOME_OTHER_INJECTED_VAR"])
 
     def test_arrange_state_measurement_notices_a_leak(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
