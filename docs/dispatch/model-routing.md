@@ -41,7 +41,7 @@ Worker routes define mechanically specified implementation workers for supervise
 |---|---|---|---|
 | `local_workstation` | `local3090/worker-fast` | Workstation-only, unqualified | Local llama-swap access (Qwen 3.6-35B) via provider `local3090` (baseURL http://127.0.0.1:8020/v1). Alternative model on the same provider is `devstral` (Devstral-Small-2 24B, ctx 24576). **Availability is not qualification**; qualification would require evidence from the local-inference/acceptance-lab scorecard. |
 
-Workers in this table are not production routes and carry no implicit qualification. `verified: false` and `qualified: false` mean the provider and model are not confirmed against external documentation or an acceptance lab.
+Workers in this table carry no production authority. In `model-routing.json` notes: `verified` indicates the concrete provider ID is confirmed as accessible; `qualified` indicates the model has been through qualification or acceptance-lab testing (see AGENTS.md: "Availability is not qualification"). Both flags remain false until their respective evidence is available.
 
 ## Resolution
 
