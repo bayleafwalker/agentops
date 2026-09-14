@@ -97,6 +97,10 @@ A worker that fails an item twice at one tier escalates one tier with a
      --git-branch <branch> --git-worktree <path> --actor coordinator:<session>
    ```
 
+   In served mode sprintctl ignores `--actor` and records the authenticated
+   identity (e.g. `workstation-vuoro`), so attribution that matters for
+   metrics (tier, model, harness, `agent:<id>`) must be in `--tags`.
+
    Worktrees go under `/projects/dev/_wt/<repo>-<slug>` from the repository's
    `origin/<default>`; the brief carries the item text verbatim plus the
    attribution lines. OpenCode packets use `hybrid_dispatch.py` as documented.
