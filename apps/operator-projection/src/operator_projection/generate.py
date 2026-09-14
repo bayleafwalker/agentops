@@ -322,3 +322,74 @@ def may_do(run: Run) -> dict:
         return panel | {"policy": run.declared(value, APPSERVICE, commit)}
     except SourceUnavailable as error:
         return panel | {"policy": run.blind(str(error))}
+
+
+# ── panel 2: pick up here ───────────────────────────────────────────────────────
+
+CLASSES = {"NEEDS YOU": ("conflicts", "blocked_items"), "STALE HOLD": ("stale_items",),
+           "ACTIVE, NO HOLDER": ("active_unreserved_items",), "READY": ("next_actions",)}
+COUNTS = dict(zip(CLASSES, ("needs_you", "stale_holds", "active_no_holder", "ready")))
+UNCONTRACTED = "touch time: not contracted"
+
+
+def boundary(run: Run, item: dict) -> str:
+    """HANDOFF when the sprint has a checkpoint, CONTEXT when the item has context candidates, else NONE."""
+    if not item.get("sprint_id"):
+        return "NONE"
+    read = lambda op, args: run.guard("authority.work", "vuoro-invoke", lambda: run.authority.read(op, args))  # noqa: E731
+    try:
+        if read("work.read.handoff", {"sprint_id": item["sprint_id"], "events_limit": 1}).get("last_checkpoint"):
+            return "HANDOFF"
+        found = read("work.read.context-candidates", {"sprint_id": item["sprint_id"], "item_id": item.get("item_id"), "limit": 1})
+        return "CONTEXT" if found.get("candidates") else "NONE"
+    except SourceUnavailable:
+        return "UNDETERMINED"
+
+
+def pickup(run: Run, found: list[Move]) -> tuple[dict, list[str] | None]:
+    operation, limit = run.registry["pickup"]["operation"], run.registry["pickup"]["rows"]
+    try:
+        if run.catalog is None:
+            raise SourceUnavailable(run.degraded("authority.catalog") or "catalog unread")
+        context = run.guard("authority.work", "vuoro-invoke", lambda: run.authority.read(operation, {}))
+    except SourceUnavailable as error:
+        return run.blind(str(error), "vuoro-invoke"), None
+    revision, order = f"catalog:{run.catalog['revision']}", list(CLASSES)
+    run.sources["authority.work"] |= {"ref": operation, "revision": revision}
+    observed = lambda value: cell("OBSERVED", value, f"vuoro-invoke {operation}", revision, run.at)  # noqa: E731
+    candidates = [(cls, item) for cls, keys in CLASSES.items() for key in keys for item in context.get(key) or []]
+    candidates.sort(key=lambda c: (order.index(c[0]), c[1].get("updated_at") or "~"))
+    rows = []
+    for cls, item in candidates[:limit]:
+        touched = item.get("updated_at")
+        ref = f"{item.get('repo_id')}#{item.get('item_id', item.get('id'))}"
+        rows.append({"ref": ref, "class": cls, "next_action": item.get("next_action") or item.get("title"), "holder": item.get("holder") or "no holder",
+                     "age": days_since(touched, run.now) if touched else UNCONTRACTED, "boundary": boundary(run, item),
+                     "moved_since_touch": sum(datetime.fromisoformat(m.boundary_at) > datetime.fromisoformat(touched) for m in found) if touched else UNCONTRACTED,
+                     "evidence": observed(ref)})
+    rows.sort(key=lambda r: (order.index(r["class"]), r["boundary"] != "NONE"))
+    counts = observed({COUNTS[cls]: sum(c == cls for c, _ in candidates) for cls in CLASSES})
+    return {"counts": counts, "rows": rows, "overflow": max(0, len(candidates) - limit)}, [r.get("repo_id") or r.get("id") for r in context.get("repositories") or []]
+
+
+# ── panel 7: blind spots ────────────────────────────────────────────────────────
+
+
+def blind_spots(run: Run, repositories: list[str] | None, pickup_panel: dict) -> dict:
+    registry = run.registry
+    stated = lambda value: cell("DECLARED", value, "registry", registry.get("commit") or "uncommitted", run.at)  # noqa: E731
+    try:
+        head = run.head("agentops")
+        members = [m["repo_id"] for m in tomllib.loads(run.show("agentops", head, "project.toml") or "").get("members", [])]
+        declared = run.declared(members, "agentops", head)
+    except SourceUnavailable as error:
+        members, declared = [], run.blind(str(error))
+    if repositories is None:
+        served = run.blind(f"scope: {pickup_panel['reason']}", "vuoro-invoke")
+    else:
+        served = cell("OBSERVED", {"repositories": repositories, "undeclared": sorted(set(repositories) - set(members)),
+                                   "not_served": sorted(set(members) - set(repositories))},
+                      "vuoro-invoke work.project.context", pickup_panel["counts"]["prov"]["record_revision"], run.at)
+    return {"scope": {"served": served, "declared": declared, "other": stated("other scopes not enumerable: repo list unavailable in served mode")},
+            "coverage_s1": stated(registry["coverage_s1"]),
+            "not_seen": stated({"not_seen": registry["not_seen"], "blind": registry["blind"], "later_panels": registry["later_panels"]})}

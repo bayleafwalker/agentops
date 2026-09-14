@@ -35,7 +35,8 @@ class FakeAuthorityClient:
 
     async def invoke(self, operation_name: str, arguments) -> dict:
         self.invoked.append((operation_name, arguments))
-        return self.results[operation_name]
+        result = self.results[operation_name]
+        return result(arguments) if callable(result) else result
 
 
 class MemoryGit:
