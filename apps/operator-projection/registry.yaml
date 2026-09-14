@@ -1,0 +1,108 @@
+# Vocabulary registry v1 (DOSSIER-front-page-design.md §6.2), baked into the operator-projection image.
+#
+# The only hand-edited input to the generator. The P0 slice (sources, external, the git-readable
+# vocabularies) is carried unchanged from p0/registry.yaml; v1 adds the live catalog vocabularies,
+# the consumer set, declared validity, the divergence subjects and the static BLIND inventory.
+registry: operator-projection/registry/v1
+id: operator-projection/registry/v1
+cadence_s: 900
+stale_after_s: 1800
+window_days: 30
+
+# Declared state is read from git remotes at named commits, never a mounted workspace (§11.2).
+repos:
+  appservice: bayleafwalker/appservice
+  vuoro: bayleafwalker/vuoro
+  auditctl: bayleafwalker/auditctl
+  sprintctl: bayleafwalker/sprintctl
+  agentops: bayleafwalker/agentops
+
+sources:
+  shared_deployment: clusters/main/kubernetes/apps/vuoro-shared/app/deployment.yaml
+  shared_ks: clusters/main/kubernetes/apps/vuoro-shared/ks.yaml
+  broker_config: clusters/main/kubernetes/apps/cred-broker/app/config.yaml
+  broker_pvc: clusters/main/kubernetes/apps/cred-broker/app/state-pvc.yaml
+  cockpit_pvc: clusters/main/kubernetes/apps/agent-cockpit/app/state-pvc.yaml
+
+external:
+  pins: {repo: vuoro, path: packages/vuoro-service/composition/adapter-pins.json}
+  record_classes: {repo: auditctl, path: auditctl/validation.py}
+  image_tags: {kind: unauthenticated-http-get, repository: bayleafwalker/vuoro-service}
+
+vocabularies:
+  - {id: authority.service_release, ledger: can-do, source: git}
+  - {id: composition.release_lock, ledger: can-do, source: git}
+  - {id: audit.record_class, ledger: can-do, source: git}
+  - {id: credbroker.capability_rule, ledger: can-do, source: git}
+  - {id: credbroker.repository, ledger: can-do, source: git}
+  - {id: credbroker.binding, ledger: can-do, source: git}
+  - {id: durability.store, ledger: durable, source: git}
+  - {id: catalog.operation, ledger: can-do, source: "live catalog operations (GET /api/catalog/v1)"}
+  - {id: catalog.authority, ledger: can-do, source: "required_authority values of the live catalog"}
+
+# HEAD leg of GROUND tools: the adapter repository's pyproject version on its default branch.
+adapters:
+  audit-adapter: {repo: auditctl, pyproject: pyproject.toml}
+  work-adapter: {repo: sprintctl, pyproject: pyproject.toml}
+
+# Who relies on a requested authority: client profiles (requested) and consumer code (called).
+consumer_set:
+  profiles:
+    - templates/dispatch/environment-record/profiles/workstation-vuoro-shared.json
+    - templates/dispatch/environment-record/profiles/devbox-agent-vuoro-shared.json
+  code:
+    - {consumer: agent-cockpit, repo: agentops, path: apps/web/lib/cockpit/sprintctl.js}
+  verbs:
+    "work:claim": claim
+    "work:pilot-read": pilot
+
+# Declared history for a requested authority: listed means FORECLOSED, unlisted means ORPHAN (history undetermined).
+validity:
+  "work:claim": {since: "2026-08-15", by: "claim relation dropped sprintctl 9e99625"}
+
+divergence:
+  - subject: vuoro-service image
+    manifests:
+      vuoro-shared: clusters/main/kubernetes/apps/vuoro-shared/app/deployment.yaml
+      agent-cockpit sidecar: clusters/main/kubernetes/apps/agent-cockpit/app/deployment.yaml
+    consumers: [agent-cockpit (retiring)]
+    lookback_days: 90
+
+pickup:
+  operation: work.project.context
+  rows: 5
+
+blind:
+  - {id: installed, reason: "installed versions need a host report"}
+  - {id: running, reason: "RUNNING needs a mediated infra read (panel 14)"}
+  - {id: grants, reason: "live grants, leases and refusals need capability.receipt.list (panel 11)"}
+  - {id: admitted_policy_revision, reason: "the admitted policy_revision is not echoed by any read"}
+  - {id: epochs, reason: "observed epochs need composition.baseline observations (panel 10)"}
+  - {id: spend, reason: "spend and sessions: no host push (panel 13)"}
+  - {id: execution_knowledge_audit, reason: "execution, knowledge and audit reads: no read authority"}
+  - {id: vuoro_cloud, reason: "vuoro-cloud live: Cloudflare 403"}
+
+later_panels:
+  - {panel: 10, name: "MOVES: observed epochs and catalog operation deltas", producer: "composition.baseline via audit.observation.list"}
+  - {panel: 11, name: "live grants, leases, refusals; capability exercise", producer: "cred-broker capability.receipt.list"}
+  - {panel: 12, name: "acceptance and attribution on moves", producer: "auditctl record_class=decision (unreachable at pinned 0.1.6)"}
+  - {panel: 13, name: "accounted-not-governed plane and spend", producer: "execution.session-completion.list after host cost push"}
+  - {panel: 14, name: "infra RUNNING and APPLIED", producer: "a mediated infra read operation (none exists)"}
+
+coverage_s1:
+  - {id: released, state: partial, reason: "items, not releases"}
+  - {id: authority, state: partial, reason: "posture only"}
+  - {id: role/skills, state: none, reason: "no served read"}
+  - {id: provider, state: none, reason: "no served read"}
+  - {id: evidence, state: none, reason: "no audit read authority"}
+  - {id: decisions, state: partial, reason: "work ledger; 0 auditctl Decisions"}
+  - {id: composition, state: partial, reason: "git-dated; observed history ephemeral"}
+  - {id: recovery, state: partial, reason: "sprint-granular"}
+
+not_seen:
+  - "execution/knowledge/audit (no read authority)"
+  - "spend+sessions (no host push)"
+  - "cluster runtime (no mediated read)"
+  - "vuoro-cloud live (Cloudflare 403)"
+
+not_replayable: []

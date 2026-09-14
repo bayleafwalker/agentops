@@ -1,0 +1,2034 @@
+{
+ "meta": {
+  "ground_truth_commit": "a7d3e2cb",
+  "replay_commit": "1abb92bb",
+  "note": "run 2: evaluator fixed after run 1 (all-caps audience placeholders; a provider-wide Forgejo audience covers only the repositories registered when its value was set). Post-hoc for the credbroker.binding belief rows, so not independent evidence for them; ground truth unchanged since a7d3e2c.",
+  "window": {
+   "start": "2026-07-15T00:00:00Z",
+   "end": "2026-09-14T00:00:00Z"
+  },
+  "appservice_head": "db97f32c",
+  "image_tags_source": "ghcr.io/v2/bayleafwalker/vuoro-service",
+  "image_tags_evaluated_at": "2026-09-14T14:34:20+00:00",
+  "replayed_at": "2026-09-14T14:39:54+00:00",
+  "undetermined": []
+ },
+ "score": {
+  "expected": 139,
+  "produced": 137,
+  "recall": 0.9856115107913669,
+  "precision": 1.0,
+  "misses": [
+   [
+    "credbroker.binding",
+    "8feff32e",
+    "REGRESSED"
+   ],
+   [
+    "credbroker.binding",
+    "d2dbccac",
+    "GAINED"
+   ]
+  ],
+  "false_positives": [],
+  "member_mismatches": [],
+  "per_vocabulary": {
+   "audit.record_class": {
+    "expected": 1,
+    "produced": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "authority.service_release": {
+    "expected": 59,
+    "produced": 59,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "composition.release_lock": {
+    "expected": 48,
+    "produced": 48,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "credbroker.binding": {
+    "expected": 18,
+    "produced": 16,
+    "recall": 0.8888888888888888,
+    "precision": 1.0
+   },
+   "credbroker.capability_rule": {
+    "expected": 5,
+    "produced": 5,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "credbroker.repository": {
+    "expected": 6,
+    "produced": 6,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "durability.store": {
+    "expected": 2,
+    "produced": 2,
+    "recall": 1.0,
+    "precision": 1.0
+   }
+  }
+ },
+ "moves": [
+  {
+   "vocabulary": "durability.store",
+   "member": "cockpit.reconciliation-state",
+   "cls": "DURABILITY-UP",
+   "boundary": "8908ef4355fa435d9f0e9a2795cfbeb1650dbddc",
+   "boundary_at": "2026-07-19T12:22:04+03:00",
+   "detail": "D2"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "GAINED",
+   "boundary": "6095929f9797b3a840c311c06cad753aef2f3c67",
+   "boundary_at": "2026-07-22T21:03:56+03:00",
+   "detail": "vuoro-service-v0.1.0"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "audit-adapter",
+   "cls": "GAINED",
+   "boundary": "6095929f9797b3a840c311c06cad753aef2f3c67",
+   "boundary_at": "2026-07-22T21:03:56+03:00",
+   "detail": "0.1.0"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "execution-adapter",
+   "cls": "GAINED",
+   "boundary": "6095929f9797b3a840c311c06cad753aef2f3c67",
+   "boundary_at": "2026-07-22T21:03:56+03:00",
+   "detail": "0.1.1"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "knowledge-adapter",
+   "cls": "GAINED",
+   "boundary": "6095929f9797b3a840c311c06cad753aef2f3c67",
+   "boundary_at": "2026-07-22T21:03:56+03:00",
+   "detail": "0.1.0"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "GAINED",
+   "boundary": "6095929f9797b3a840c311c06cad753aef2f3c67",
+   "boundary_at": "2026-07-22T21:03:56+03:00",
+   "detail": "0.2.0"
+  },
+  {
+   "vocabulary": "audit.record_class",
+   "member": "observation",
+   "cls": "GAINED",
+   "boundary": "6095929f9797b3a840c311c06cad753aef2f3c67",
+   "boundary_at": "2026-07-22T21:03:56+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "3904377b30c64651cc10269ba96a652794df0680",
+   "boundary_at": "2026-07-22T21:31:15+03:00",
+   "detail": "vuoro-service-v0.1.1"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "266842590c46f73a4c77e84bc58e030bf1713369",
+   "boundary_at": "2026-07-24T14:13:35+03:00",
+   "detail": "vuoro-service-v0.1.2"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "266842590c46f73a4c77e84bc58e030bf1713369",
+   "boundary_at": "2026-07-24T14:13:35+03:00",
+   "detail": "0.2.0"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "b388b7a325c9286fd99b7462bdb420694c1dff9c",
+   "boundary_at": "2026-07-24T19:20:09+03:00",
+   "detail": "vuoro-service-v0.1.4"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "b388b7a325c9286fd99b7462bdb420694c1dff9c",
+   "boundary_at": "2026-07-24T19:20:09+03:00",
+   "detail": "0.2.0"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "ba841bd5bf4c2fc0bd1312f9ff988fa249dda9a2",
+   "boundary_at": "2026-07-26T11:16:03+03:00",
+   "detail": "vuoro-service-v0.1.5"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "ba841bd5bf4c2fc0bd1312f9ff988fa249dda9a2",
+   "boundary_at": "2026-07-26T11:16:03+03:00",
+   "detail": "0.2.0"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "386393629720ad79f2d7334d6ad5f0a01addd4e9",
+   "boundary_at": "2026-07-26T14:44:28+03:00",
+   "detail": "vuoro-service-v0.1.6"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "knowledge-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "386393629720ad79f2d7334d6ad5f0a01addd4e9",
+   "boundary_at": "2026-07-26T14:44:28+03:00",
+   "detail": "0.1.0"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "386393629720ad79f2d7334d6ad5f0a01addd4e9",
+   "boundary_at": "2026-07-26T14:44:28+03:00",
+   "detail": "0.2.0"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "b8bdae08496f5167ba908f992fdefe34b2431ec9",
+   "boundary_at": "2026-07-26T14:54:23+03:00",
+   "detail": "vuoro-service-v0.1.7"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "b8bdae08496f5167ba908f992fdefe34b2431ec9",
+   "boundary_at": "2026-07-26T14:54:23+03:00",
+   "detail": "0.2.0"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "a3658bbdfdbe4d80761726027f0e5c53bba419a8",
+   "boundary_at": "2026-07-26T15:01:10+03:00",
+   "detail": "vuoro-service-v0.1.8"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "a3658bbdfdbe4d80761726027f0e5c53bba419a8",
+   "boundary_at": "2026-07-26T15:01:10+03:00",
+   "detail": "0.2.0"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "8e4d00a70eb2152051a7c9bb75667fe2fefe56ee",
+   "boundary_at": "2026-07-26T15:21:13+03:00",
+   "detail": "vuoro-service-v0.1.9"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "6269a2fc3be22ab5f5672e17c99da0f7a81de8f6",
+   "boundary_at": "2026-07-26T18:06:07+03:00",
+   "detail": "vuoro-service-v0.1.10"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "execution-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "6269a2fc3be22ab5f5672e17c99da0f7a81de8f6",
+   "boundary_at": "2026-07-26T18:06:07+03:00",
+   "detail": "0.1.1"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "6bb6261b109e6dafd0f2a61e69e6ed960682c58f",
+   "boundary_at": "2026-07-26T19:22:14+03:00",
+   "detail": "vuoro-service-v0.1.11"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "execution-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "6bb6261b109e6dafd0f2a61e69e6ed960682c58f",
+   "boundary_at": "2026-07-26T19:22:14+03:00",
+   "detail": "0.1.1"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "74a283c83c0179804dbd69d44ec11b1d5edbb153",
+   "boundary_at": "2026-07-26T20:56:10+03:00",
+   "detail": "vuoro-service-v0.1.12"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "74a283c83c0179804dbd69d44ec11b1d5edbb153",
+   "boundary_at": "2026-07-26T20:56:10+03:00",
+   "detail": "0.2.1"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "7090a1ea532020d2a9a363bb7b462ed7793bf245",
+   "boundary_at": "2026-07-26T21:14:59+03:00",
+   "detail": "vuoro-service-v0.1.13"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "7090a1ea532020d2a9a363bb7b462ed7793bf245",
+   "boundary_at": "2026-07-26T21:14:59+03:00",
+   "detail": "0.2.2"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "a020dfcbbbe44a5bf61b61695f36a0981b44aaaa",
+   "boundary_at": "2026-07-26T22:03:11+03:00",
+   "detail": "vuoro-service-v0.1.14"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "execution-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "a020dfcbbbe44a5bf61b61695f36a0981b44aaaa",
+   "boundary_at": "2026-07-26T22:03:11+03:00",
+   "detail": "0.1.2"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "1030186b67eeb33e32551c22e88058508a59649c",
+   "boundary_at": "2026-07-26T23:46:26+03:00",
+   "detail": "vuoro-service-v0.1.15"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "1030186b67eeb33e32551c22e88058508a59649c",
+   "boundary_at": "2026-07-26T23:46:26+03:00",
+   "detail": "0.2.2"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "718e568ce3097423b6dc9ba3209c1fc8aa8945d0",
+   "boundary_at": "2026-07-26T23:57:59+03:00",
+   "detail": "vuoro-service-v0.1.16"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "718e568ce3097423b6dc9ba3209c1fc8aa8945d0",
+   "boundary_at": "2026-07-26T23:57:59+03:00",
+   "detail": "0.2.2"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "ebded55a461b4c55a209f0f5f291a2fd783892d6",
+   "boundary_at": "2026-07-27T00:02:56+03:00",
+   "detail": "vuoro-service-v0.1.17"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "ebded55a461b4c55a209f0f5f291a2fd783892d6",
+   "boundary_at": "2026-07-27T00:02:56+03:00",
+   "detail": "0.2.2"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "cf973c58bae4f072a16846da1022a6218f1886ff",
+   "boundary_at": "2026-07-28T11:05:23+03:00",
+   "detail": "vuoro-service-v0.1.18"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "cf973c58bae4f072a16846da1022a6218f1886ff",
+   "boundary_at": "2026-07-28T11:05:23+03:00",
+   "detail": "0.2.3"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "f31735024a8308c593478b0f753bdcc57d10d445",
+   "boundary_at": "2026-07-28T12:03:11+03:00",
+   "detail": "vuoro-service-v0.1.19"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "f31735024a8308c593478b0f753bdcc57d10d445",
+   "boundary_at": "2026-07-28T12:03:11+03:00",
+   "detail": "0.2.4"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "0a1de38eab8d74c970234a28f67a14c0714f8f26",
+   "boundary_at": "2026-07-28T12:25:56+03:00",
+   "detail": "vuoro-service-v0.1.20"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "0a1de38eab8d74c970234a28f67a14c0714f8f26",
+   "boundary_at": "2026-07-28T12:25:56+03:00",
+   "detail": "0.2.5"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "14182a5327585ff9b12184b8a141791c7b11024e",
+   "boundary_at": "2026-07-28T12:40:26+03:00",
+   "detail": "vuoro-service-v0.1.21"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "14182a5327585ff9b12184b8a141791c7b11024e",
+   "boundary_at": "2026-07-28T12:40:26+03:00",
+   "detail": "0.2.6"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "d4f66e8067a8c7179d4e9ac0c6e3547831dd26a4",
+   "boundary_at": "2026-07-28T18:11:20+03:00",
+   "detail": "vuoro-service-v0.1.22"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "d4f66e8067a8c7179d4e9ac0c6e3547831dd26a4",
+   "boundary_at": "2026-07-28T18:11:20+03:00",
+   "detail": "0.2.10"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "c96c47a012bf943abf16f4beef31fc089a87c3b2",
+   "boundary_at": "2026-07-29T09:30:07+03:00",
+   "detail": "vuoro-service-v0.1.23"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "execution-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "c96c47a012bf943abf16f4beef31fc089a87c3b2",
+   "boundary_at": "2026-07-29T09:30:07+03:00",
+   "detail": "0.1.3"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "fc095c73bc7f1345ce5bc59a7354e00c3cad3301",
+   "boundary_at": "2026-07-29T09:44:52+03:00",
+   "detail": "vuoro-service-v0.1.24"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "knowledge-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "fc095c73bc7f1345ce5bc59a7354e00c3cad3301",
+   "boundary_at": "2026-07-29T09:44:52+03:00",
+   "detail": "0.1.1"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "3d37cc71c9572cac0915167b6dcf1de629f8023d",
+   "boundary_at": "2026-07-29T11:16:47+03:00",
+   "detail": "vuoro-service-v0.1.25"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "execution-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "3d37cc71c9572cac0915167b6dcf1de629f8023d",
+   "boundary_at": "2026-07-29T11:16:47+03:00",
+   "detail": "0.1.4"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "ccf5107fddb1f8b57a244d67ae26c052fbe485ae",
+   "boundary_at": "2026-07-29T19:04:30+03:00",
+   "detail": "vuoro-service-v0.1.26"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "execution-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "ccf5107fddb1f8b57a244d67ae26c052fbe485ae",
+   "boundary_at": "2026-07-29T19:04:30+03:00",
+   "detail": "0.1.6"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "4e19d094e5e02238670db6af4f6df8973dec870d",
+   "boundary_at": "2026-07-30T08:43:09+03:00",
+   "detail": "vuoro-service-v0.1.28"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "execution-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "4e19d094e5e02238670db6af4f6df8973dec870d",
+   "boundary_at": "2026-07-30T08:43:09+03:00",
+   "detail": "0.1.7"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "4e19d094e5e02238670db6af4f6df8973dec870d",
+   "boundary_at": "2026-07-30T08:43:09+03:00",
+   "detail": "0.2.11"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "620da5238604ffb3e91e5f6c2b5cbf4248f97e84",
+   "boundary_at": "2026-07-30T14:34:16+03:00",
+   "detail": "vuoro-service-v0.1.29"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "620da5238604ffb3e91e5f6c2b5cbf4248f97e84",
+   "boundary_at": "2026-07-30T14:34:16+03:00",
+   "detail": "0.2.11"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "d24a087bd5b6c98e5fd1f8af38862d73776e8d6b",
+   "boundary_at": "2026-07-30T16:48:51+03:00",
+   "detail": "vuoro-service-v0.1.30"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "d24a087bd5b6c98e5fd1f8af38862d73776e8d6b",
+   "boundary_at": "2026-07-30T16:48:51+03:00",
+   "detail": "0.2.11"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "b78796c5f5a8b057e3815138882dce049e0bbb84",
+   "boundary_at": "2026-08-02T15:24:02+03:00",
+   "detail": "vuoro-service-v0.1.31"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "execution-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "b78796c5f5a8b057e3815138882dce049e0bbb84",
+   "boundary_at": "2026-08-02T15:24:02+03:00",
+   "detail": "0.1.14"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "b78796c5f5a8b057e3815138882dce049e0bbb84",
+   "boundary_at": "2026-08-02T15:24:02+03:00",
+   "detail": "0.2.12"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "747d9b9b1916076eb84405689b2de0d85e6f0be9",
+   "boundary_at": "2026-08-02T15:38:34+03:00",
+   "detail": "vuoro-service-v0.1.30"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "execution-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "747d9b9b1916076eb84405689b2de0d85e6f0be9",
+   "boundary_at": "2026-08-02T15:38:34+03:00",
+   "detail": "0.1.7"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "747d9b9b1916076eb84405689b2de0d85e6f0be9",
+   "boundary_at": "2026-08-02T15:38:34+03:00",
+   "detail": "0.2.11"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "REGRESSED",
+   "boundary": "172bc7405e45ed2743934b19ac7f812a51a27a9f",
+   "boundary_at": "2026-08-02T21:12:11+03:00",
+   "detail": "vuoro-service-v0.1.30"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "GAINED",
+   "boundary": "2265f0d558b63ef0055377407901d9f60989093e",
+   "boundary_at": "2026-08-02T21:38:52+03:00",
+   "detail": "vuoro-service-v0.1.30"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "59ce886eea68f26bcf25b6c26a294a6dfa206c65",
+   "boundary_at": "2026-08-03T01:34:28+03:00",
+   "detail": "vuoro-service-v0.1.33"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "execution-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "59ce886eea68f26bcf25b6c26a294a6dfa206c65",
+   "boundary_at": "2026-08-03T01:34:28+03:00",
+   "detail": "0.1.14"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "59ce886eea68f26bcf25b6c26a294a6dfa206c65",
+   "boundary_at": "2026-08-03T01:34:28+03:00",
+   "detail": "0.2.15"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "9fa861b753c142fd5a3caf0e77f4b64fcb045053",
+   "boundary_at": "2026-08-03T01:41:22+03:00",
+   "detail": "vuoro-service-v0.1.30"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "execution-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "9fa861b753c142fd5a3caf0e77f4b64fcb045053",
+   "boundary_at": "2026-08-03T01:41:22+03:00",
+   "detail": "0.1.7"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "9fa861b753c142fd5a3caf0e77f4b64fcb045053",
+   "boundary_at": "2026-08-03T01:41:22+03:00",
+   "detail": "0.2.11"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "f03a48e2432b7a1eaf2881220fca35c565a3cd8a",
+   "boundary_at": "2026-08-04T13:39:55+03:00",
+   "detail": "vuoro-service-v0.1.35"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "execution-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "f03a48e2432b7a1eaf2881220fca35c565a3cd8a",
+   "boundary_at": "2026-08-04T13:39:55+03:00",
+   "detail": "0.1.16"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "f03a48e2432b7a1eaf2881220fca35c565a3cd8a",
+   "boundary_at": "2026-08-04T13:39:55+03:00",
+   "detail": "0.2.17"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "REGRESSED",
+   "boundary": "6287d20f0b612e8d36e2ddd64c100f016959732c",
+   "boundary_at": "2026-08-08T15:27:24+03:00",
+   "detail": "vuoro-service-v0.1.35"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "GAINED",
+   "boundary": "1722c61ade7442077107263b18e005b799e57b07",
+   "boundary_at": "2026-08-08T19:47:57+03:00",
+   "detail": "vuoro-service-v0.1.35"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "REGRESSED",
+   "boundary": "b761d24e0937fe4f88b45d0d6251fbf7deb43c97",
+   "boundary_at": "2026-08-08T23:16:03+03:00",
+   "detail": "vuoro-service-v0.1.40"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "b761d24e0937fe4f88b45d0d6251fbf7deb43c97",
+   "boundary_at": "2026-08-08T23:16:03+03:00",
+   "detail": "vuoro-service-v0.1.40"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "execution-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "b761d24e0937fe4f88b45d0d6251fbf7deb43c97",
+   "boundary_at": "2026-08-08T23:16:03+03:00",
+   "detail": "0.1.18"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "execution-contracts",
+   "cls": "GAINED",
+   "boundary": "b761d24e0937fe4f88b45d0d6251fbf7deb43c97",
+   "boundary_at": "2026-08-08T23:16:03+03:00",
+   "detail": "0.1.1"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "b761d24e0937fe4f88b45d0d6251fbf7deb43c97",
+   "boundary_at": "2026-08-08T23:16:03+03:00",
+   "detail": "0.2.21"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "GAINED",
+   "boundary": "83325c39db392bd6d0eea75080fe88916d88b54e",
+   "boundary_at": "2026-08-09T10:23:52+03:00",
+   "detail": "vuoro-service-v0.1.40"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "REGRESSED",
+   "boundary": "16258d586b10f0e70a0a13947cde9562955ad9ad",
+   "boundary_at": "2026-08-09T12:26:36+03:00",
+   "detail": "vuoro-service-v0.1.40"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "GAINED",
+   "boundary": "1f7618f4accfc7dd1a1b0566e04f32824e0ef639",
+   "boundary_at": "2026-08-09T13:23:19+03:00",
+   "detail": "vuoro-service-v0.1.40"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "0863591bd71910d834d34042dc060fc1160ed1c2",
+   "boundary_at": "2026-08-11T16:17:18+03:00",
+   "detail": "vuoro-service-v0.1.41"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "audit-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "0863591bd71910d834d34042dc060fc1160ed1c2",
+   "boundary_at": "2026-08-11T16:17:18+03:00",
+   "detail": "0.1.0"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "execution-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "0863591bd71910d834d34042dc060fc1160ed1c2",
+   "boundary_at": "2026-08-11T16:17:18+03:00",
+   "detail": "0.1.19"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "execution-contracts",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "0863591bd71910d834d34042dc060fc1160ed1c2",
+   "boundary_at": "2026-08-11T16:17:18+03:00",
+   "detail": "0.1.1"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "0863591bd71910d834d34042dc060fc1160ed1c2",
+   "boundary_at": "2026-08-11T16:17:18+03:00",
+   "detail": "0.2.22"
+  },
+  {
+   "vocabulary": "credbroker.capability_rule",
+   "member": "repo.read",
+   "cls": "GAINED",
+   "boundary": "d295387fad26be92c39a8e06bec181080fb97958",
+   "boundary_at": "2026-08-11T17:52:09+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_cred_broker",
+   "cls": "GAINED",
+   "boundary": "d295387fad26be92c39a8e06bec181080fb97958",
+   "boundary_at": "2026-08-11T17:52:09+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "durability.store",
+   "member": "credbroker.receipts",
+   "cls": "DURABILITY-UP",
+   "boundary": "d295387fad26be92c39a8e06bec181080fb97958",
+   "boundary_at": "2026-08-11T17:52:09+03:00",
+   "detail": "D2"
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_cred_broker_github",
+   "cls": "GAINED",
+   "boundary": "a4180bb6a29372e4902839c664109e52e157cd15",
+   "boundary_at": "2026-08-11T20:34:37+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "devbox|repo_cred_broker_github|repo.read",
+   "cls": "GAINED",
+   "boundary": "a4180bb6a29372e4902839c664109e52e157cd15",
+   "boundary_at": "2026-08-11T20:34:37+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_cred_broker_github",
+   "cls": "FORECLOSED",
+   "boundary": "faa226f888a65526e672b087568882ff69e8d927",
+   "boundary_at": "2026-08-11T20:37:23+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "devbox|repo_cred_broker_github|repo.read",
+   "cls": "FORECLOSED",
+   "boundary": "faa226f888a65526e672b087568882ff69e8d927",
+   "boundary_at": "2026-08-11T20:37:23+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_cred_broker_github",
+   "cls": "GAINED",
+   "boundary": "fd4d53bdef56a5e8fc5672b29f964e14fc3c5f13",
+   "boundary_at": "2026-08-11T20:43:46+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "devbox|repo_cred_broker_github|repo.read",
+   "cls": "GAINED",
+   "boundary": "fd4d53bdef56a5e8fc5672b29f964e14fc3c5f13",
+   "boundary_at": "2026-08-11T20:43:46+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.capability_rule",
+   "member": "repo.write",
+   "cls": "GAINED",
+   "boundary": "a746760a44c0ba5d16140dc06eb84fd33b114516",
+   "boundary_at": "2026-08-11T21:15:46+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "devbox|repo_cred_broker_github|repo.write",
+   "cls": "GAINED",
+   "boundary": "a746760a44c0ba5d16140dc06eb84fd33b114516",
+   "boundary_at": "2026-08-11T21:15:46+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.capability_rule",
+   "member": "pr.manage",
+   "cls": "GAINED",
+   "boundary": "33267e48e9aab7b5aec1c192e827861753a824b8",
+   "boundary_at": "2026-08-11T21:24:28+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "devbox|repo_cred_broker_github|pr.manage",
+   "cls": "GAINED",
+   "boundary": "33267e48e9aab7b5aec1c192e827861753a824b8",
+   "boundary_at": "2026-08-11T21:24:28+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_cred_broker_github|pr.manage",
+   "cls": "GAINED",
+   "boundary": "d984d3648e16d3d1ab2f32b22aef0d5d909e08e5",
+   "boundary_at": "2026-08-11T22:12:32+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_cred_broker_github|repo.read",
+   "cls": "GAINED",
+   "boundary": "d984d3648e16d3d1ab2f32b22aef0d5d909e08e5",
+   "boundary_at": "2026-08-11T22:12:32+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_cred_broker_github|repo.write",
+   "cls": "GAINED",
+   "boundary": "d984d3648e16d3d1ab2f32b22aef0d5d909e08e5",
+   "boundary_at": "2026-08-11T22:12:32+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "devbox|repo_cred_broker|repo.read",
+   "cls": "GAINED",
+   "boundary": "34fffc5cd0c85b9ce52ffa1cf753336ff3938975",
+   "boundary_at": "2026-08-11T23:08:26+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.capability_rule",
+   "member": "repo.write",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "bce702547d32f8689826082811745748eaabdc82",
+   "boundary_at": "2026-08-11T23:18:31+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "devbox|repo_cred_broker|repo.read",
+   "cls": "FORECLOSED",
+   "boundary": "bce702547d32f8689826082811745748eaabdc82",
+   "boundary_at": "2026-08-11T23:18:31+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_cred_broker|repo.read",
+   "cls": "GAINED",
+   "boundary": "bce702547d32f8689826082811745748eaabdc82",
+   "boundary_at": "2026-08-11T23:18:31+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_cred_broker|repo.write",
+   "cls": "GAINED",
+   "boundary": "bce702547d32f8689826082811745748eaabdc82",
+   "boundary_at": "2026-08-11T23:18:31+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_cred_broker_github|pr.manage",
+   "cls": "REGRESSED",
+   "boundary": "1cc1659b3298efbacfdad55c8284e065ce7b9877",
+   "boundary_at": "2026-08-11T23:40:02+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_cred_broker_github|repo.read",
+   "cls": "REGRESSED",
+   "boundary": "1cc1659b3298efbacfdad55c8284e065ce7b9877",
+   "boundary_at": "2026-08-11T23:40:02+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_cred_broker_github|repo.write",
+   "cls": "REGRESSED",
+   "boundary": "1cc1659b3298efbacfdad55c8284e065ce7b9877",
+   "boundary_at": "2026-08-11T23:40:02+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_cred_broker|repo.read",
+   "cls": "REGRESSED",
+   "boundary": "1cc1659b3298efbacfdad55c8284e065ce7b9877",
+   "boundary_at": "2026-08-11T23:40:02+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_cred_broker|repo.write",
+   "cls": "REGRESSED",
+   "boundary": "1cc1659b3298efbacfdad55c8284e065ce7b9877",
+   "boundary_at": "2026-08-11T23:40:02+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_cred_broker_github|pr.manage",
+   "cls": "GAINED",
+   "boundary": "80f63ef5d370de8b345e571864023112fbb6a7c3",
+   "boundary_at": "2026-08-11T23:42:28+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_cred_broker_github|repo.read",
+   "cls": "GAINED",
+   "boundary": "80f63ef5d370de8b345e571864023112fbb6a7c3",
+   "boundary_at": "2026-08-11T23:42:28+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_cred_broker_github|repo.write",
+   "cls": "GAINED",
+   "boundary": "80f63ef5d370de8b345e571864023112fbb6a7c3",
+   "boundary_at": "2026-08-11T23:42:28+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_cred_broker|repo.read",
+   "cls": "GAINED",
+   "boundary": "80f63ef5d370de8b345e571864023112fbb6a7c3",
+   "boundary_at": "2026-08-11T23:42:28+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_cred_broker|repo.write",
+   "cls": "GAINED",
+   "boundary": "80f63ef5d370de8b345e571864023112fbb6a7c3",
+   "boundary_at": "2026-08-11T23:42:28+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "a9b08b39d586b6354a6cd1df1e584359cd1e6544",
+   "boundary_at": "2026-08-13T15:24:33+03:00",
+   "detail": "vuoro-service-v0.1.44"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "knowledge-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "a9b08b39d586b6354a6cd1df1e584359cd1e6544",
+   "boundary_at": "2026-08-13T15:24:33+03:00",
+   "detail": "0.1.2"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "vuoro-adapter-kit",
+   "cls": "GAINED",
+   "boundary": "a9b08b39d586b6354a6cd1df1e584359cd1e6544",
+   "boundary_at": "2026-08-13T15:24:33+03:00",
+   "detail": "0.1.0"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "REGRESSED",
+   "boundary": "2d8d8688d0cafec6613ba65a676c8bb251e81855",
+   "boundary_at": "2026-08-13T21:23:07+03:00",
+   "detail": "vuoro-service-v0.1.44"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "GAINED",
+   "boundary": "e9511adf004ae5b4b5c37a67722e5b8b79b08720",
+   "boundary_at": "2026-08-13T21:54:47+03:00",
+   "detail": "vuoro-service-v0.1.45"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "e9511adf004ae5b4b5c37a67722e5b8b79b08720",
+   "boundary_at": "2026-08-13T21:54:47+03:00",
+   "detail": "vuoro-service-v0.1.45"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "audit-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "e9511adf004ae5b4b5c37a67722e5b8b79b08720",
+   "boundary_at": "2026-08-13T21:54:47+03:00",
+   "detail": "0.1.1"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "execution-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "e9511adf004ae5b4b5c37a67722e5b8b79b08720",
+   "boundary_at": "2026-08-13T21:54:47+03:00",
+   "detail": "0.1.21"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "e9511adf004ae5b4b5c37a67722e5b8b79b08720",
+   "boundary_at": "2026-08-13T21:54:47+03:00",
+   "detail": "0.2.24"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "352b32f2e2d0a4093cd24a4c9a836e5100bea0ec",
+   "boundary_at": "2026-08-14T08:03:06+03:00",
+   "detail": "vuoro-service-v0.1.46"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "audit-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "352b32f2e2d0a4093cd24a4c9a836e5100bea0ec",
+   "boundary_at": "2026-08-14T08:03:06+03:00",
+   "detail": "0.1.2"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "execution-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "352b32f2e2d0a4093cd24a4c9a836e5100bea0ec",
+   "boundary_at": "2026-08-14T08:03:06+03:00",
+   "detail": "0.1.22"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "knowledge-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "352b32f2e2d0a4093cd24a4c9a836e5100bea0ec",
+   "boundary_at": "2026-08-14T08:03:06+03:00",
+   "detail": "0.1.3"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "vuoro-schema-runtime",
+   "cls": "GAINED",
+   "boundary": "352b32f2e2d0a4093cd24a4c9a836e5100bea0ec",
+   "boundary_at": "2026-08-14T08:03:06+03:00",
+   "detail": "0.1.0"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "e8ede5e8abdc8a462eb6cbad10c00d63e2e9ae4d",
+   "boundary_at": "2026-08-15T15:44:36+03:00",
+   "detail": "vuoro-service-v0.1.51"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "execution-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "e8ede5e8abdc8a462eb6cbad10c00d63e2e9ae4d",
+   "boundary_at": "2026-08-15T15:44:36+03:00",
+   "detail": "0.1.26"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "32e40991196e5b8d8be5eb0ff21dfdf781a77a71",
+   "boundary_at": "2026-08-15T23:36:44+03:00",
+   "detail": "vuoro-service-v0.1.52"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "32e40991196e5b8d8be5eb0ff21dfdf781a77a71",
+   "boundary_at": "2026-08-15T23:36:44+03:00",
+   "detail": "0.3.0"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "5bbfe68a8b945a18151b5550c9c2403ace7d6aba",
+   "boundary_at": "2026-08-28T21:32:56+03:00",
+   "detail": "vuoro-service-v0.1.54"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "execution-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "5bbfe68a8b945a18151b5550c9c2403ace7d6aba",
+   "boundary_at": "2026-08-28T21:32:56+03:00",
+   "detail": "0.1.27"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "vuoro-adapter-kit",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "5bbfe68a8b945a18151b5550c9c2403ace7d6aba",
+   "boundary_at": "2026-08-28T21:32:56+03:00",
+   "detail": "0.1.1"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "5bbfe68a8b945a18151b5550c9c2403ace7d6aba",
+   "boundary_at": "2026-08-28T21:32:56+03:00",
+   "detail": "0.3.3"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "b5aa7870bcb96d3d1294643471a47b6ac3056c90",
+   "boundary_at": "2026-08-29T10:27:25+03:00",
+   "detail": "vuoro-service-v0.1.55"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "b5aa7870bcb96d3d1294643471a47b6ac3056c90",
+   "boundary_at": "2026-08-29T10:27:25+03:00",
+   "detail": "0.3.4"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "8f534f938e958fb0a1bfa869d3eff8ad94cc1f14",
+   "boundary_at": "2026-08-29T14:58:21+03:00",
+   "detail": "vuoro-service-v0.1.56"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "work-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "8f534f938e958fb0a1bfa869d3eff8ad94cc1f14",
+   "boundary_at": "2026-08-29T14:58:21+03:00",
+   "detail": "0.3.5"
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_acceptance_lab_github",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_actionq_github",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_agentops_github",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_aligned_equity_github",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_appservice_github",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_auditctl_github",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_bindery_ra2_adapter_github",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_homelab_analytics_github",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_hostproto_a2a_worker_github",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_hostproto_semantics_github",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_kctl_github",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_scribectl_github",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_sprintctl_github",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_vuoro_cloud_github",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_vuoro_github",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_acceptance_lab_github|pr.manage",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_acceptance_lab_github|repo.read",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_acceptance_lab_github|repo.write",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_actionq_github|pr.manage",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_actionq_github|repo.read",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_actionq_github|repo.write",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_agentops_github|pr.manage",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_agentops_github|repo.read",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_agentops_github|repo.write",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_aligned_equity_github|pr.manage",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_aligned_equity_github|repo.read",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_aligned_equity_github|repo.write",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_appservice_github|pr.manage",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_appservice_github|repo.read",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_appservice_github|repo.write",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_auditctl_github|pr.manage",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_auditctl_github|repo.read",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_auditctl_github|repo.write",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_bindery_ra2_adapter_github|pr.manage",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_bindery_ra2_adapter_github|repo.read",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_bindery_ra2_adapter_github|repo.write",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_homelab_analytics_github|pr.manage",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_homelab_analytics_github|repo.read",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_homelab_analytics_github|repo.write",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_hostproto_a2a_worker_github|pr.manage",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_hostproto_a2a_worker_github|repo.read",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_hostproto_a2a_worker_github|repo.write",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_hostproto_semantics_github|pr.manage",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_hostproto_semantics_github|repo.read",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_hostproto_semantics_github|repo.write",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_kctl_github|pr.manage",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_kctl_github|repo.read",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_kctl_github|repo.write",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_scribectl_github|pr.manage",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_scribectl_github|repo.read",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_scribectl_github|repo.write",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_sprintctl_github|pr.manage",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_sprintctl_github|repo.read",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_sprintctl_github|repo.write",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_vuoro_cloud_github|pr.manage",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_vuoro_cloud_github|repo.read",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_vuoro_cloud_github|repo.write",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_vuoro_github|pr.manage",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_vuoro_github|repo.read",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_vuoro_github|repo.write",
+   "cls": "GAINED",
+   "boundary": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+   "boundary_at": "2026-08-29T15:51:57+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_frontier_weave_forgejo",
+   "cls": "GAINED",
+   "boundary": "722ddf609d9b9ae8137a6f17a1fb1edf8762ee89",
+   "boundary_at": "2026-08-29T18:00:53+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_gitops_nixos_forgejo",
+   "cls": "GAINED",
+   "boundary": "722ddf609d9b9ae8137a6f17a1fb1edf8762ee89",
+   "boundary_at": "2026-08-29T18:00:53+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_knowledge_base_forgejo",
+   "cls": "GAINED",
+   "boundary": "722ddf609d9b9ae8137a6f17a1fb1edf8762ee89",
+   "boundary_at": "2026-08-29T18:00:53+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_litany_forgejo",
+   "cls": "GAINED",
+   "boundary": "722ddf609d9b9ae8137a6f17a1fb1edf8762ee89",
+   "boundary_at": "2026-08-29T18:00:53+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_render_fabric_forgejo",
+   "cls": "GAINED",
+   "boundary": "722ddf609d9b9ae8137a6f17a1fb1edf8762ee89",
+   "boundary_at": "2026-08-29T18:00:53+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_vuoro_cloud_forgejo",
+   "cls": "GAINED",
+   "boundary": "722ddf609d9b9ae8137a6f17a1fb1edf8762ee89",
+   "boundary_at": "2026-08-29T18:00:53+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_wizard_valley_world_window_forgejo",
+   "cls": "GAINED",
+   "boundary": "722ddf609d9b9ae8137a6f17a1fb1edf8762ee89",
+   "boundary_at": "2026-08-29T18:00:53+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.repository",
+   "member": "repo_worldwindow_kernel_forgejo",
+   "cls": "GAINED",
+   "boundary": "722ddf609d9b9ae8137a6f17a1fb1edf8762ee89",
+   "boundary_at": "2026-08-29T18:00:53+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "1e47ede42202151dca70079c51b4dd03989746e8",
+   "boundary_at": "2026-08-29T18:12:32+03:00",
+   "detail": "vuoro-service-v0.1.57"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "audit-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "1e47ede42202151dca70079c51b4dd03989746e8",
+   "boundary_at": "2026-08-29T18:12:32+03:00",
+   "detail": "0.1.3"
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_vuoro_cloud_forgejo|repo.read",
+   "cls": "GAINED",
+   "boundary": "457699ffb5d95109cb7d7fb2418e45f32f04dcec",
+   "boundary_at": "2026-08-29T20:22:11+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_vuoro_cloud_forgejo|repo.write",
+   "cls": "GAINED",
+   "boundary": "457699ffb5d95109cb7d7fb2418e45f32f04dcec",
+   "boundary_at": "2026-08-29T20:22:11+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_gitops_nixos_forgejo|repo.read",
+   "cls": "GAINED",
+   "boundary": "e6467e544506eb0c36782a009284751ff1847c03",
+   "boundary_at": "2026-08-29T20:28:59+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_gitops_nixos_forgejo|repo.write",
+   "cls": "GAINED",
+   "boundary": "e6467e544506eb0c36782a009284751ff1847c03",
+   "boundary_at": "2026-08-29T20:28:59+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_frontier_weave_forgejo|repo.read",
+   "cls": "GAINED",
+   "boundary": "5f6f4c7480f9a027ac11281f4c512c0c8c6024fb",
+   "boundary_at": "2026-08-29T21:46:08+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_frontier_weave_forgejo|repo.write",
+   "cls": "GAINED",
+   "boundary": "5f6f4c7480f9a027ac11281f4c512c0c8c6024fb",
+   "boundary_at": "2026-08-29T21:46:08+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_knowledge_base_forgejo|repo.read",
+   "cls": "GAINED",
+   "boundary": "5f6f4c7480f9a027ac11281f4c512c0c8c6024fb",
+   "boundary_at": "2026-08-29T21:46:08+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_knowledge_base_forgejo|repo.write",
+   "cls": "GAINED",
+   "boundary": "5f6f4c7480f9a027ac11281f4c512c0c8c6024fb",
+   "boundary_at": "2026-08-29T21:46:08+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_litany_forgejo|repo.read",
+   "cls": "GAINED",
+   "boundary": "5f6f4c7480f9a027ac11281f4c512c0c8c6024fb",
+   "boundary_at": "2026-08-29T21:46:08+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_litany_forgejo|repo.write",
+   "cls": "GAINED",
+   "boundary": "5f6f4c7480f9a027ac11281f4c512c0c8c6024fb",
+   "boundary_at": "2026-08-29T21:46:08+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_render_fabric_forgejo|repo.read",
+   "cls": "GAINED",
+   "boundary": "5f6f4c7480f9a027ac11281f4c512c0c8c6024fb",
+   "boundary_at": "2026-08-29T21:46:08+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_render_fabric_forgejo|repo.write",
+   "cls": "GAINED",
+   "boundary": "5f6f4c7480f9a027ac11281f4c512c0c8c6024fb",
+   "boundary_at": "2026-08-29T21:46:08+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_worldwindow_kernel_forgejo|repo.read",
+   "cls": "GAINED",
+   "boundary": "5f6f4c7480f9a027ac11281f4c512c0c8c6024fb",
+   "boundary_at": "2026-08-29T21:46:08+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_worldwindow_kernel_forgejo|repo.write",
+   "cls": "GAINED",
+   "boundary": "5f6f4c7480f9a027ac11281f4c512c0c8c6024fb",
+   "boundary_at": "2026-08-29T21:46:08+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "d60643494a09d73d852213b94f139831ec45568e",
+   "boundary_at": "2026-08-29T22:25:16+03:00",
+   "detail": "vuoro-service-v0.1.58"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "audit-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "d60643494a09d73d852213b94f139831ec45568e",
+   "boundary_at": "2026-08-29T22:25:16+03:00",
+   "detail": "0.1.5"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "93fe0bb1a1c2704e93a16046c857bd8f8c0e14ec",
+   "boundary_at": "2026-08-29T23:12:03+03:00",
+   "detail": "vuoro-service-v0.1.59"
+  },
+  {
+   "vocabulary": "composition.release_lock",
+   "member": "audit-adapter",
+   "cls": "CONTRACT-CHANGE",
+   "boundary": "93fe0bb1a1c2704e93a16046c857bd8f8c0e14ec",
+   "boundary_at": "2026-08-29T23:12:03+03:00",
+   "detail": "0.1.6"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "REGRESSED",
+   "boundary": "dba71e9e365dc1dc33b1487faf8687d4755c5526",
+   "boundary_at": "2026-09-02T22:00:59+03:00",
+   "detail": "vuoro-service-v0.1.59"
+  },
+  {
+   "vocabulary": "authority.service_release",
+   "member": "vuoro-shared",
+   "cls": "GAINED",
+   "boundary": "bf6b0c5bda857b5fc9e24532fb36a768eee3522c",
+   "boundary_at": "2026-09-02T23:07:07+03:00",
+   "detail": "vuoro-service-v0.1.59"
+  },
+  {
+   "vocabulary": "credbroker.capability_rule",
+   "member": "pr.merge",
+   "cls": "GAINED",
+   "boundary": "5f7082089e133099b82d0efd5810da1002325f4b",
+   "boundary_at": "2026-09-09T10:06:04+03:00",
+   "detail": null
+  },
+  {
+   "vocabulary": "credbroker.binding",
+   "member": "workstation|repo_vuoro_cloud_forgejo|pr.merge",
+   "cls": "GAINED",
+   "boundary": "8feff32e09b5fe08b20fa28ba4f4484774a4f706",
+   "boundary_at": "2026-09-09T10:26:24+03:00",
+   "detail": null
+  }
+ ]
+}

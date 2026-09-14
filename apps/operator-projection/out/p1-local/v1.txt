@@ -1,0 +1,34 @@
+OPERATOR PROJECTION v1 · DERIVED — not a record · generated 2026-09-14T15:15:07Z (1m ago, cadence 15m)
+authority vuoro-service 0.1.59 (vuoro-shared) · catalog e9be144c (88 operations, 27 authorities) · work compatible · execution compatible · knowledge compatible · audit compatible
+registry operator-projection/registry/v1 @ 20af1efd · 9 sources · degraded: authority.work
+
+PICK UP HERE   BLIND(authority.work: no generator credential (work:read, work:project-read))
+
+HAZARDS   4 open · oldest 32d
+ FORECLOSED   work:claim · requested by 2 client profiles · no live operation requires it (27 authorities) · claim relation dropped sprintctl 9e99625 · consumers: agent-cockpit apps/web/lib/cockpit/sprintctl.js:199 · since 2026-08-15
+ ORPHAN       work:pilot-read · requested by 2 client profiles · no live operation requires it (27 authorities) · history undetermined
+ UNREACHABLE  audit record_class=decision · HEAD auditctl admits · pinned 0.1.6 rejects · since 2026-09-01
+ DIVERGED     vuoro-service image · vuoro-shared 9d3f1797 (0.1.59) vs agent-cockpit sidecar d35c6b84 (0.1.41) · diverged at appservice a9b08b39 · consumers: agent-cockpit (retiring) · since 2026-08-13
+
+MOVES  2026-08-15 → 2026-09-14 · 102 moves (85 gained · 0 foreclosed · 1 regressed · 0 durability) · attributed 0/102 · exercise observable 0/102
+ 2026-09-02 REGRESSED       authority.service_release vuoro-shared (vuoro-service-v0.1.59) · appservice dba71e9e
+ 2026-09-09 GAINED          credbroker.capability_rule pr.merge · appservice 5f708208
+ 2026-09-09 GAINED          credbroker.binding workstation|repo_vuoro_cloud_forgejo|pr.merge · appservice 8feff32e
+ 2026-09-02 GAINED          authority.service_release vuoro-shared (vuoro-service-v0.1.59) · appservice bf6b0c5b
+ 2026-08-29 GAINED          credbroker.repository repo_acceptance_lab_github, repo_actionq_github, repo_agentops_github, +12 more · appservice efcc21db
+ +19 more below
+ recall   23 boundary commits · 23 mapped · 0 misses
+
+GROUND
+ tools    authority 0.1.59 agrees with appservice label vuoro-service-v0.1.59 as of 74ec611d (digest is vuoro-service-v0.1.59) · domains work compatible · execution compatible · knowledge compatible · audit compatible
+          · adapters HEAD/pinned/deployed: audit-adapter 0.1.7/0.1.6/0.1.6 · work-adapter 0.3.5/0.3.5/0.3.5 · installed: BLIND(installed versions need a host report)
+ may do   cred-broker policy declared @ 8feff32e 2026-09-09 · policy_revision sha256:f2e693bdf523 · receipts D2
+          · devbox (development-bounded) 1 repos (repo.read 1 · repo.write 1 · pr.manage 1) · workstation (operator-elevated) 25 repos (repo.read 25 · repo.write 25 · pr.manage 16 · pr.merge 1), 2 unusable
+          · live grants/refusals: BLIND(live grants, leases and refusals need capability.receipt.list (panel 11)) · admitted policy revision: BLIND(the admitted policy_revision is not echoed by any read)
+
+BLIND SPOTS
+ scope    served: BLIND(scope: authority.work: no generator credential (work:read, work:project-read)) · project.toml declares 7 members · other scopes not enumerable: repo list unavailable in served mode
+ §1       released: partial (items, not releases) · authority: partial (posture only) · role/skills: none (no served read) · provider: none (no served read) · evidence: none (no audit read authority) · decisions: partial (work ledger; 0 auditctl Decisions) · composition: partial (git-dated; observed history ephemeral) · recovery: partial (sprint-granular)
+ not seen execution/knowledge/audit (no read authority) · spend+sessions (no host push) · cluster runtime (no mediated read) · vuoro-cloud live (Cloudflare 403)
+          · always BLIND: installed versions need a host report · RUNNING needs a mediated infra read (panel 14) · live grants, leases and refusals need capability.receipt.list (panel 11) · the admitted policy_revision is not echoed by any read · observed epochs need composition.baseline observations (panel 10) · spend and sessions: no host push (panel 13) · execution, knowledge and audit reads: no read authority · vuoro-cloud live: Cloudflare 403
+          · panel 10 BLIND(composition.baseline via audit.observation.list) · panel 11 BLIND(cred-broker capability.receipt.list) · panel 12 BLIND(auditctl record_class=decision (unreachable at pinned 0.1.6)) · panel 13 BLIND(execution.session-completion.list after host cost push) · panel 14 BLIND(a mediated infra read operation (none exists))

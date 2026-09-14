@@ -1,0 +1,91 @@
+{
+ "contract_version": "project-1",
+ "project": {
+  "id": "synthetic-project"
+ },
+ "summary": {
+  "items": 9
+ },
+ "sprints": [
+  {
+   "id": 11,
+   "repo_id": "repo-alpha"
+  }
+ ],
+ "conflicts": [
+  {
+   "repo_id": "repo-alpha",
+   "item_id": 101,
+   "sprint_id": 11,
+   "title": "resolve conflicting reservations",
+   "holder": "agent-one",
+   "updated_at": "2026-09-10T00:00:00Z"
+  }
+ ],
+ "blocked_items": [
+  {
+   "repo_id": "repo-beta",
+   "item_id": 202,
+   "sprint_id": 12,
+   "title": "unblock the fixture",
+   "updated_at": "2026-09-12T00:00:00Z"
+  }
+ ],
+ "stale_items": [
+  {
+   "repo_id": "repo-alpha",
+   "item_id": 103,
+   "sprint_id": 11,
+   "title": "stale reservation",
+   "holder": "agent-two"
+  }
+ ],
+ "active_reservations": [],
+ "active_unreserved_items": [
+  {
+   "repo_id": "repo-alpha",
+   "item_id": 104,
+   "sprint_id": 11,
+   "title": "active with nobody on it"
+  },
+  {
+   "repo_id": "repo-gamma",
+   "item_id": 305,
+   "sprint_id": null,
+   "title": "orphaned work"
+  }
+ ],
+ "ready_items": [],
+ "recent_decisions": [],
+ "next_actions": [
+  {
+   "repo_id": "repo-alpha",
+   "item_id": 106,
+   "sprint_id": 11,
+   "title": "ready one"
+  },
+  {
+   "repo_id": "repo-beta",
+   "item_id": 207,
+   "sprint_id": 12,
+   "title": "ready two"
+  },
+  {
+   "repo_id": "repo-beta",
+   "item_id": 208,
+   "sprint_id": 12,
+   "title": "ready three"
+  }
+ ],
+ "repositories": [
+  {
+   "repo_id": "agentops"
+  },
+  {
+   "repo_id": "vuoro"
+  },
+  {
+   "repo_id": "kctl"
+  }
+ ]
+}

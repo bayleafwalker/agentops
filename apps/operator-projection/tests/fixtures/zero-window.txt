@@ -1,0 +1,7 @@
+MOVES  2026-08-15 → 2026-09-14 · 0 moves (0 gained · 0 foreclosed · 0 regressed · 0 durability)
+ while   1 deployment-boundary commits touched agent-plane manifests and registry sources
+         · spend: BLIND(spend and sessions: no host push (panel 13))
+ still   1 rows DECLARED-UNREACHABLE (oldest 13d: audit record_class=decision)
+         · 2 hazards unrepaired (oldest 30d: work:claim) · decayed: BLIND(no exercise is observable)
+ note    0 moves means no member of the 7 enumerated vocabularies moved at the deployment
+         boundary. It does not mean nothing changed: unenumerated vocabularies are invisible here.

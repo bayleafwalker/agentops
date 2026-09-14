@@ -1,0 +1,204 @@
+# P0 ground truth — operator-projection retrospective replay
+#
+# Pre-registered: this file is committed BEFORE any replay code exists
+# (DOSSIER-front-page-design.md §6.4 board falsifier 1, §12 P0). Its commit must
+# precede the commit that adds replay.py; `git log --format=%h -- <path>` proves it.
+#
+# How it was written (so a reader can judge independence):
+# - Source of roll attribution: session-notes/2026-09-13-external-jobs/p0-move-list/MOVES.md
+#   (an external model's list), with the corrections from its 2026-09-14 spot-check:
+#   two missing pins commits (26dc781, 80ec1d2) and V40 (9ac12f4 deployed at 0863591b).
+# - Facts the author looked at directly: per-commit member diffs of adapter-pins.json and of
+#   cred-broker production.json (keys only, audience values redacted), the vuoro-shared
+#   deployment/ks history, and the ghcr tag→digest map. That map corrects MOVES.md again:
+#   6269a2fc rolled v0.1.10 (V09 said "never rolled separately").
+# - Classes are the dossier's mechanical ones (§6.3), not MOVES.md's: a repin is
+#   CONTRACT-CHANGE, never GAINED; a restore after a REGRESSED is GAINED.
+# - Where the author's belief about meaning differs from what a literal reading of the config
+#   shape would give, the belief is recorded and marked `belief:`. Those rows are the test.
+# - The author did not run any replay before committing this file.
+#
+# Scoring (pre-registered):
+# - A move GROUP is (vocabulary, boundary, class). Primary metric: group recall and precision
+#   over scored vocabularies. Gate: recall >= 0.9 and precision >= 0.8.
+# - Secondary: member agreement per matched group (exact member set, or count where `members: "*"`).
+# - boundary = appservice commit on origin/main (the Flux-watched branch), 8-hex prefix.
+# - Window: committer date 2026-07-15T00:00Z <= t < 2026-09-14T00:00Z. State at window start is
+#   evaluated at the last appservice commit before it.
+# - Member identity for locks: vuoro-composition/v1 `adapters[].domain` X == v2/v3 `lock_id` "X-adapter".
+# - Rows with `scored: false` are printed as coverage gaps or expected hazards and never counted.
+
+window: {start: "2026-07-15T00:00:00Z", end: "2026-09-14T00:00:00Z"}
+gate: {recall: 0.9, precision: 0.8}
+
+moves:
+  # ── authority.service_release (member: vuoro-shared) ─────────────────────────────
+  # Service created with the release it first served.
+  - {v: authority.service_release, at: 6095929f, class: GAINED, members: [vuoro-shared]}
+  # Every deployed digest change is a release change.
+  - {v: authority.service_release, at: 3904377b, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: "26684259", class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: b388b7a3, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: ba841bd5, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: "38639362", class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: b8bdae08, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: a3658bbd, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: 8e4d00a7, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: 6269a2fc, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: 6bb6261b, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: 74a283c8, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: 7090a1ea, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: a020dfcb, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: 1030186b, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: 718e568c, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: ebded55a, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: cf973c58, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: f3173502, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: 0a1de38e, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: 14182a53, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: d4f66e80, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: c96c47a0, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: fc095c73, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: 3d37cc71, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: ccf5107f, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: 4e19d094, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: 620da523, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: d24a087b, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: b78796c5, class: CONTRACT-CHANGE, members: [vuoro-shared]}   # v0.1.31
+  - {v: authority.service_release, at: 747d9b9b, class: CONTRACT-CHANGE, members: [vuoro-shared]}   # rolled back to v0.1.30
+  - {v: authority.service_release, at: 59ce886e, class: CONTRACT-CHANGE, members: [vuoro-shared]}   # v0.1.33
+  - {v: authority.service_release, at: 9fa861b7, class: CONTRACT-CHANGE, members: [vuoro-shared]}   # rolled back to v0.1.30
+  - {v: authority.service_release, at: f03a48e2, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: b761d24e, class: CONTRACT-CHANGE, members: [vuoro-shared]}   # v0.1.40, staged at replicas 0
+  - {v: authority.service_release, at: 0863591b, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: a9b08b39, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: e9511adf, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: 352b32f2, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: e8ede5e8, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: 32e40991, class: CONTRACT-CHANGE, members: [vuoro-shared]}   # carried sprintctl 0.3.0
+  - {v: authority.service_release, at: 5bbfe68a, class: CONTRACT-CHANGE, members: [vuoro-shared]}   # v0.1.54; label still says v0.1.52
+  - {v: authority.service_release, at: b5aa7870, class: CONTRACT-CHANGE, members: [vuoro-shared]}   # v0.1.55; label still says v0.1.52
+  - {v: authority.service_release, at: 8f534f93, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: 1e47ede4, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: d6064349, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  - {v: authority.service_release, at: 93fe0bb1, class: CONTRACT-CHANGE, members: [vuoro-shared]}
+  # Reachability: replicas 0 and Flux ks suspend are REGRESSED; restores are GAINED.
+  - {v: authority.service_release, at: 172bc740, class: REGRESSED, members: [vuoro-shared]}
+  - {v: authority.service_release, at: 2265f0d5, class: GAINED, members: [vuoro-shared]}
+  - {v: authority.service_release, at: 6287d20f, class: REGRESSED, members: [vuoro-shared]}
+  - {v: authority.service_release, at: 1722c61a, class: GAINED, members: [vuoro-shared]}
+  - {v: authority.service_release, at: b761d24e, class: REGRESSED, members: [vuoro-shared]}
+  - {v: authority.service_release, at: 83325c39, class: GAINED, members: [vuoro-shared]}
+  - {v: authority.service_release, at: 16258d58, class: REGRESSED, members: [vuoro-shared]}
+  - {v: authority.service_release, at: 1f7618f4, class: GAINED, members: [vuoro-shared]}
+  - {v: authority.service_release, at: 2d8d8688, class: REGRESSED, members: [vuoro-shared]}
+  - {v: authority.service_release, at: e9511adf, class: GAINED, members: [vuoro-shared]}
+  - {v: authority.service_release, at: dba71e9e, class: REGRESSED, members: [vuoro-shared]}   # cluster rebuild suspend
+  - {v: authority.service_release, at: bf6b0c5b, class: GAINED, members: [vuoro-shared]}
+
+  # ── composition.release_lock (members: lock ids; boundary: the vuoro-shared roll) ──
+  - {v: composition.release_lock, at: 6095929f, class: GAINED, members: [audit-adapter, execution-adapter, knowledge-adapter, work-adapter]}
+  - {v: composition.release_lock, at: "26684259", class: CONTRACT-CHANGE, members: [work-adapter]}
+  - {v: composition.release_lock, at: b388b7a3, class: CONTRACT-CHANGE, members: [work-adapter]}
+  - {v: composition.release_lock, at: ba841bd5, class: CONTRACT-CHANGE, members: [work-adapter]}
+  - {v: composition.release_lock, at: "38639362", class: CONTRACT-CHANGE, members: [knowledge-adapter, work-adapter]}
+  - {v: composition.release_lock, at: b8bdae08, class: CONTRACT-CHANGE, members: [work-adapter]}
+  - {v: composition.release_lock, at: a3658bbd, class: CONTRACT-CHANGE, members: [work-adapter]}
+  - {v: composition.release_lock, at: 6269a2fc, class: CONTRACT-CHANGE, members: [execution-adapter]}
+  - {v: composition.release_lock, at: 6bb6261b, class: CONTRACT-CHANGE, members: [execution-adapter]}
+  - {v: composition.release_lock, at: 74a283c8, class: CONTRACT-CHANGE, members: [work-adapter]}
+  - {v: composition.release_lock, at: 7090a1ea, class: CONTRACT-CHANGE, members: [work-adapter]}
+  - {v: composition.release_lock, at: a020dfcb, class: CONTRACT-CHANGE, members: [execution-adapter]}
+  - {v: composition.release_lock, at: 1030186b, class: CONTRACT-CHANGE, members: [work-adapter]}
+  - {v: composition.release_lock, at: 718e568c, class: CONTRACT-CHANGE, members: [work-adapter]}
+  - {v: composition.release_lock, at: ebded55a, class: CONTRACT-CHANGE, members: [work-adapter]}
+  - {v: composition.release_lock, at: cf973c58, class: CONTRACT-CHANGE, members: [work-adapter]}
+  - {v: composition.release_lock, at: f3173502, class: CONTRACT-CHANGE, members: [work-adapter]}
+  - {v: composition.release_lock, at: 0a1de38e, class: CONTRACT-CHANGE, members: [work-adapter]}
+  - {v: composition.release_lock, at: 14182a53, class: CONTRACT-CHANGE, members: [work-adapter]}
+  - {v: composition.release_lock, at: d4f66e80, class: CONTRACT-CHANGE, members: [work-adapter]}
+  - {v: composition.release_lock, at: c96c47a0, class: CONTRACT-CHANGE, members: [execution-adapter]}
+  - {v: composition.release_lock, at: fc095c73, class: CONTRACT-CHANGE, members: [knowledge-adapter]}
+  - {v: composition.release_lock, at: 3d37cc71, class: CONTRACT-CHANGE, members: [execution-adapter]}
+  - {v: composition.release_lock, at: ccf5107f, class: CONTRACT-CHANGE, members: [execution-adapter]}
+  - {v: composition.release_lock, at: 4e19d094, class: CONTRACT-CHANGE, members: [execution-adapter, work-adapter]}   # dde53dd + 26dc781 (missing from MOVES.md)
+  - {v: composition.release_lock, at: 620da523, class: CONTRACT-CHANGE, members: [work-adapter]}
+  - {v: composition.release_lock, at: d24a087b, class: CONTRACT-CHANGE, members: [work-adapter]}
+  - {v: composition.release_lock, at: b78796c5, class: CONTRACT-CHANGE, members: [execution-adapter, work-adapter]}   # 80ec1d2 (missing from MOVES.md) + a098d1a
+  - {v: composition.release_lock, at: 747d9b9b, class: CONTRACT-CHANGE, members: [execution-adapter, work-adapter]}   # rollback
+  - {v: composition.release_lock, at: 59ce886e, class: CONTRACT-CHANGE, members: [execution-adapter, work-adapter]}
+  - {v: composition.release_lock, at: 9fa861b7, class: CONTRACT-CHANGE, members: [execution-adapter, work-adapter]}   # rollback
+  - {v: composition.release_lock, at: f03a48e2, class: CONTRACT-CHANGE, members: [execution-adapter, work-adapter]}
+  - {v: composition.release_lock, at: b761d24e, class: CONTRACT-CHANGE, members: [execution-adapter, work-adapter]}
+  - {v: composition.release_lock, at: b761d24e, class: GAINED, members: [execution-contracts]}   # first explicit lock at composition v2
+  - {v: composition.release_lock, at: 0863591b, class: CONTRACT-CHANGE, members: [audit-adapter, execution-adapter, execution-contracts, work-adapter]}   # includes 9ac12f4 (V40 correction)
+  - {v: composition.release_lock, at: a9b08b39, class: CONTRACT-CHANGE, members: [knowledge-adapter]}
+  - {v: composition.release_lock, at: a9b08b39, class: GAINED, members: [vuoro-adapter-kit]}
+  - {v: composition.release_lock, at: e9511adf, class: CONTRACT-CHANGE, members: [audit-adapter, execution-adapter, work-adapter]}
+  - {v: composition.release_lock, at: 352b32f2, class: CONTRACT-CHANGE, members: [audit-adapter, execution-adapter, knowledge-adapter]}
+  - {v: composition.release_lock, at: 352b32f2, class: GAINED, members: [vuoro-schema-runtime]}
+  - {v: composition.release_lock, at: e8ede5e8, class: CONTRACT-CHANGE, members: [execution-adapter]}
+  - {v: composition.release_lock, at: 32e40991, class: CONTRACT-CHANGE, members: [work-adapter]}   # sprintctl 0.3.0 reservation model
+  - {v: composition.release_lock, at: 5bbfe68a, class: CONTRACT-CHANGE, members: [execution-adapter, vuoro-adapter-kit, work-adapter]}
+  - {v: composition.release_lock, at: b5aa7870, class: CONTRACT-CHANGE, members: [work-adapter]}
+  - {v: composition.release_lock, at: 8f534f93, class: CONTRACT-CHANGE, members: [work-adapter]}
+  - {v: composition.release_lock, at: 1e47ede4, class: CONTRACT-CHANGE, members: [audit-adapter]}   # auditctl 0.1.3
+  - {v: composition.release_lock, at: d6064349, class: CONTRACT-CHANGE, members: [audit-adapter]}   # auditctl 0.1.5
+  - {v: composition.release_lock, at: 93fe0bb1, class: CONTRACT-CHANGE, members: [audit-adapter]}   # auditctl 0.1.6
+
+  # ── audit.record_class (members: auditctl RECORD_CLASSES at origin/main) ──────────
+  # observation became submittable when the service first served the audit adapter;
+  # decision (cba8850) is in no pinned revision, so it never moves in the window.
+  - {v: audit.record_class, at: 6095929f, class: GAINED, members: [observation]}
+
+  # ── credbroker.capability_rule (members: policy.capabilities keys) ────────────────
+  - {v: credbroker.capability_rule, at: d295387f, class: GAINED, members: [repo.read]}
+  - {v: credbroker.capability_rule, at: a746760a, class: GAINED, members: [repo.write]}
+  - {v: credbroker.capability_rule, at: 33267e48, class: GAINED, members: [pr.manage]}
+  - {v: credbroker.capability_rule, at: bce70254, class: CONTRACT-CHANGE, members: [repo.write]}
+  - {v: credbroker.capability_rule, at: 5f708208, class: GAINED, members: [pr.merge]}   # pr.merge staged
+
+  # ── credbroker.repository (members: repositories[].repository_id) ────────────────
+  - {v: credbroker.repository, at: d295387f, class: GAINED, members: [repo_cred_broker]}
+  - {v: credbroker.repository, at: a4180bb6, class: GAINED, members: [repo_cred_broker_github]}
+  - {v: credbroker.repository, at: faa226f8, class: FORECLOSED, members: [repo_cred_broker_github]}   # revert 3 min later
+  - {v: credbroker.repository, at: fd4d53bd, class: GAINED, members: [repo_cred_broker_github]}
+  - {v: credbroker.repository, at: efcc21db, class: GAINED, members: "*", count: 15}   # GitHub App coverage registered
+  - {v: credbroker.repository, at: 722ddf60, class: GAINED, members: "*", count: 8}    # Forgejo-canonical repositories
+
+  # ── credbroker.binding (members: host|repository|capability; passes when present,
+  #    host active, and the provider audience for it is configured and not a placeholder) ──
+  - {v: credbroker.binding, at: a4180bb6, class: GAINED, members: ["devbox|repo_cred_broker_github|repo.read"]}
+  - {v: credbroker.binding, at: faa226f8, class: FORECLOSED, members: ["devbox|repo_cred_broker_github|repo.read"]}
+  - {v: credbroker.binding, at: fd4d53bd, class: GAINED, members: ["devbox|repo_cred_broker_github|repo.read"]}
+  - {v: credbroker.binding, at: a746760a, class: GAINED, members: ["devbox|repo_cred_broker_github|repo.write"]}
+  - {v: credbroker.binding, at: 33267e48, class: GAINED, members: ["devbox|repo_cred_broker_github|pr.manage"]}
+  - {v: credbroker.binding, at: d984d364, class: GAINED, members: ["workstation|repo_cred_broker_github|pr.manage", "workstation|repo_cred_broker_github|repo.read", "workstation|repo_cred_broker_github|repo.write"]}
+  # belief: the first Forgejo binding (declared at d295387f, fail-closed) became usable when its audience was commissioned.
+  - {v: credbroker.binding, at: 34fffc5c, class: GAINED, members: ["devbox|repo_cred_broker|repo.read"]}
+  - {v: credbroker.binding, at: bce70254, class: GAINED, members: ["workstation|repo_cred_broker|repo.read", "workstation|repo_cred_broker|repo.write"]}
+  - {v: credbroker.binding, at: bce70254, class: FORECLOSED, members: ["devbox|repo_cred_broker|repo.read"]}
+  - {v: credbroker.binding, at: 1cc1659b, class: REGRESSED, members: "*", count: 5}   # workstation host suspended
+  - {v: credbroker.binding, at: 80f63ef5, class: GAINED, members: "*", count: 5}      # restored 2 min later; net wash
+  - {v: credbroker.binding, at: efcc21db, class: GAINED, members: "*", count: 45}
+  # belief: registering Forgejo repositories (722ddf60) does not make their bindings usable; a
+  # Forgejo audience is per repository, so each became usable when its own audience was configured.
+  - {v: credbroker.binding, at: 457699ff, class: GAINED, members: ["workstation|repo_vuoro_cloud_forgejo|repo.read", "workstation|repo_vuoro_cloud_forgejo|repo.write"]}
+  - {v: credbroker.binding, at: e6467e54, class: GAINED, members: ["workstation|repo_gitops_nixos_forgejo|repo.read", "workstation|repo_gitops_nixos_forgejo|repo.write"]}
+  - {v: credbroker.binding, at: 5f6f4c74, class: GAINED, members: "*", count: 10}
+  # Negative-control churn on 09-09: an audience added then removed again.
+  - {v: credbroker.binding, at: d2dbccac, class: GAINED, members: "*", count: 2}
+  - {v: credbroker.binding, at: 8feff32e, class: REGRESSED, members: "*", count: 2}
+  # pr.merge landed: the audience placeholder staged at 5f708208 was replaced by the real one.
+  - {v: credbroker.binding, at: 8feff32e, class: GAINED, members: ["workstation|repo_vuoro_cloud_forgejo|pr.merge"]}
+
+  # ── durability.store ─────────────────────────────────────────────────────────────
+  - {v: durability.store, at: 8908ef43, class: DURABILITY-UP, members: [cockpit.reconciliation-state]}   # D0 -> D2
+  - {v: durability.store, at: d295387f, class: DURABILITY-UP, members: [credbroker.receipts]}            # D0 -> D2, receipts persisted
+
+  # ── not replayable from git (printed, never scored) ──────────────────────────────
+  - {v: catalog.operation, at: 32e40991, class: FORECLOSED, members: "*", scored: false, note: "claim operations dropped with the reservation model; needs a live or archived catalog"}
+
+expected_hazards:   # present-state at window end; printed for comparison, never scored
+  - {kind: DECLARED-UNREACHABLE, v: audit.record_class, member: decision, note: "RECORD_CLASSES has it at cba8850; pinned auditctl 0.1.6 (5f45f12) refuses it at validation.py:289-290"}
+  - {kind: DIVERGED, subject: vuoro-shared release label, note: "5bbfe68a..2ffa40b2 label vuoro-service-v0.1.52 while the digest is v0.1.54 (b5aa7870: v0.1.55)"}
