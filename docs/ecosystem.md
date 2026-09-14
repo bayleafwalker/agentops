@@ -33,7 +33,7 @@ Vuoro process composes all domain adapters.
 | Repo-local audit and event ledger | `auditctl` | [bayleafwalker/auditctl](https://github.com/bayleafwalker/auditctl) |
 | Federated work/execution references, relations, assurance, acceptance and reconciliation (target) | `actionq` | [bayleafwalker/actionq](https://github.com/bayleafwalker/actionq) |
 | Native agent execution and session lifecycle | selected first-party harness/runtime | external integration boundary |
-| Native harness telemetry and raw evidence | OpenTelemetry plus selected Langfuse or Phoenix/object storage | deployment-selected, non-authoritative |
+| Native harness telemetry and raw evidence | OpenTelemetry plus Langfuse (selected 2026-09-14)/object storage | deployment-selected, non-authoritative |
 | Operator UI and cross-repo plans | `agentops` | [bayleafwalker/agentops](https://github.com/bayleafwalker/agentops) |
 | Kubernetes deployment | `appservice` | private — internal operations only |
 
@@ -95,7 +95,7 @@ dependency-free validator from the consumer root before dispatch or publication.
 `outctl` was retired from active Vuoro scope on 2026-08-16. Its repository is a
 frozen discovery artifact, not an adjacent live component or project member.
 New harness-evidence work belongs at the native runtime boundary and targets
-standard OpenTelemetry plus the operator-selected Langfuse or Phoenix and
+standard OpenTelemetry plus Langfuse (selected 2026-09-14) and the
 object-storage path. Those observations remain non-authoritative and require
 explicit redaction and retention policy.
 

@@ -37,8 +37,8 @@ work domain  │ Sprintctl         │  │ ActionQ federation       │
 execution    coordinator ──► selected native harness/runtime
 edge                         │
                              ├── immutable Git/PR/evidence references
-                             └── OpenTelemetry ──► selected
-                                 Langfuse or Phoenix + object storage
+                             └── OpenTelemetry ──► Langfuse
+                                 (selected 2026-09-14) + object storage
 ```
 
 The ActionQ federation box is a **target**, not a claim that federation
@@ -116,7 +116,7 @@ There is no automatic parent-action re-claim or fan-out replay loop.
 | Shared contracts, dispatch guidance, project binding, cockpit source | Agentops |
 | Client/service transport and released adapter composition | Vuoro |
 | Deployment, credentials, telemetry routing | Appservice |
-| Raw/native harness observations | OpenTelemetry plus the operator-selected Langfuse or Phoenix/object-storage path; non-authoritative |
+| Raw/native harness observations | OpenTelemetry plus Langfuse (selected 2026-09-14)/object-storage path; non-authoritative |
 
 Outctl is not an active member. Its repository is a frozen discovery artifact;
 no plan may assign it scheduling, capture, projection, retention, or evidence

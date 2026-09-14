@@ -47,6 +47,10 @@ Deferred: OTel receiver on the existing Alloy release + `CLAUDE_CODE_ENABLE_TELE
 when a Grafana consumer exists (pathway E4.4). Cross-host fragmentation of the jsonl/auditctl
 sinks is accepted for v4.1; `sync-devbox.sh` dedups cost rows already.
 
+**Note (2026-09-14):** the proposed consumer that would lift this deferral is Langfuse (G2,
+see `docs/plans/agentops/native-runtime-federation-realignment-2026-08-20.md` "Harness-evidence
+backend decision"), pending operator acceptance. The gate above is not yet lifted.
+
 ## Track L — unattended hand-off loop (v7, L-1 early)
 
 | # | Item | Gate |

@@ -146,6 +146,10 @@ These are genuine choices, not documentation gaps:
 3. Select Langfuse or Phoenix and the object-storage/retention policy for
    native-runtime evidence. Outctl retirement does not make either backend an
    authority by default.
+   **Superseded 2026-09-14 (operator, G1):** the backend choice is decided —
+   Langfuse. Object-storage and retention specifics (G5, G7) remain proposed,
+   pending operator acceptance; see "Harness-evidence defaults (proposed,
+   2026-09-14)" below. The original choice above is kept for history.
 4. Record the Sprintctl disposition of `_orchestration#1366` in active sprint
    `_orchestration#437`. This plan recommends supersession, but only the
    tracker owner may make that state change.
@@ -153,3 +157,26 @@ These are genuine choices, not documentation gaps:
 The ActionQ branch additionally defers lease/claim extraction until the
 deployment and daemon gates are decided. Agentops must not invent a migration
 answer for that owner-local schema work.
+
+## Harness-evidence backend decision (2026-09-14)
+
+- **ACCEPTED (operator, 2026-09-14): G1** — the harness-evidence backend is
+  **Langfuse**. This closes the "Langfuse or Phoenix" choice in remaining
+  operator choice #3 above.
+
+The following are **PROPOSED, pending operator acceptance** — not yet
+authoritative. Each names its owner:
+
+| # | Proposal | Owner | Status |
+|---|---|---|---|
+| G2 | Langfuse is the consumer that lifts the E4.4 deferral ("OTel receiver on the existing Alloy release + `CLAUDE_CODE_ENABLE_TELEMETRY` — only when a Grafana consumer exists"; see `docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md`) | agentops | proposed |
+| G3 | Routing: one Alloy OTLP receiver; redaction processor before any exporter; metrics → Prometheus, log events → Loki, traces → Langfuse OTLP endpoint | appservice | proposed |
+| G4 | If native exporters don't emit traces, a thin hook adapter emits one span per session/subagent (GenAI semconv). Being verified by WP3 | agentops | proposed |
+| G5 | Langfuse storage: CNPG Postgres (vuoro-shared-db pattern) + Hetzner S3 prefix `langfuse/` + chart-bundled ClickHouse/Redis on Longhorn (ClickHouse is a new stateful component and needs acknowledgement) | appservice | proposed |
+| G6 | Redaction: prompt logging and tool details off in Claude Code and Codex; no transcript bodies exported; digests + host path/URI only; usage and rate-limit numbers allowed | agentops policy (WP2) | proposed |
+| G7 | Retention: Langfuse traces 30d (ClickHouse TTL/Langfuse retention + S3 lifecycle on `langfuse/`); Prometheus unchanged 15d; opt-in raw transcripts host-local under `retention_days` | appservice + agentops | proposed |
+| G8 | Off-cluster OTLP auth: internal ingress for Alloy OTLP with per-host header credential in OpenBao delivered via cred-broker host enrollment; never literals in repo settings | appservice/operator | proposed |
+| G9 | Subscription rate-limit windows emitted as OTel gauges from `headroom_writer.py` normalizers | agentops | proposed |
+
+None of G2-G9 are enabled or deployed by this note. They record the proposed
+defaults for operator review.
