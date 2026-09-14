@@ -57,7 +57,8 @@ def pickup(doc: dict, now: datetime) -> list[Line]:
     lines = [("head", f"PICK UP HERE   {counts}")]
     for r in p["rows"]:
         touch = f"{r['age']}d · ground moved since touch: {r['moved_since_touch']}" if isinstance(r["age"], int) else r["age"]
-        lines.append(("row", f" {r['ref']}  {r['class']}  {r['next_action']} · {r['holder']} · {r['boundary']} · {touch}"))
+        detail = f" · {r['detail']}" if r.get("detail") else ""
+        lines.append(("row", f" {r['ref']}  {r['class']}  {r['next_action']}{detail} · {r['holder']} · {r['boundary']} · {touch}"))
     return lines + overflow(p["overflow"])
 
 
