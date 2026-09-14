@@ -1,6 +1,6 @@
 # Harness evidence redaction and retention policy
 
-**Status:** Proposed — pending operator acceptance (2026-09-14); backend Langfuse is operator-selected.
+**Status:** Accepted (operator-delegated, 2026-09-14; decision G6/G7 in `docs/plans/agentops/native-runtime-federation-realignment-2026-08-20.md`, note on sprintctl #2376). Backend Langfuse is operator-selected (G1).
 
 This policy governs everything the native-harness telemetry path is allowed to
 emit and how long any of it may live. It exists because
@@ -94,6 +94,11 @@ name:
 - File contents of any kind.
 - Environment variables.
 - Credentials, tokens, API keys, or `Authorization`/cookie header values.
+- Account identity: `user.email`, `user.account_id`, `user.account_uuid`,
+  `organization.id`. Claude Code and Codex attach these to nearly every
+  signal by default (`docs/evidence/spikes/2376-native-otel-signals.json`), so
+  the collector's redaction processor must delete them before any exporter —
+  exclusion from the allowlist alone is not enough.
 - Absolute host paths used as bind mounts, working directories, or any other
   binding — per the mapping document's write-path inventory (~36): "Treat
   absolute worktree paths as host-local observations, never durable bindings
@@ -121,20 +126,27 @@ itself ever having carried the content. This is the same shape as
 `raw_transcript_captured` fields (~200–209) and `immutableRef`-typed
 references elsewhere in that schema — evidence is addressed, not embedded.
 
-## Per-sink retention (proposed)
+## Per-sink retention
 
-| Sink | Data | Proposed retention | Mechanism |
+| Sink | Data | Retention | Mechanism |
 |---|---|---|---|
 | Langfuse (traces/spans) | Allowlisted attributes only | 30 days | ClickHouse TTL on the traces/observations tables, paired with an S3 lifecycle rule on the `langfuse/` prefix for any associated blob storage |
 | Loki | Structured log events (identifiers, result classes) | 720h (existing deployment retention, unchanged) | Existing Loki retention config |
 | Prometheus | Metrics, rate-limit gauges | 15d (existing deployment retention, unchanged) | Existing Prometheus retention config |
-| Host-local transcript store | Raw transcripts (opt-in) | `retention_days` per session, default proposal 30 days | Host-local cleanup job keyed off `session-capsule.schema.json`'s `privacy.retention_days` (~209, nullable — `null` means "no automatic expiry," which requires explicit operator opt-in per session, not a default) |
+| Host-local transcript store | Raw transcripts (opt-in) | `retention_days` per session, default 30 days | Host-local cleanup job keyed off `session-capsule.schema.json`'s `privacy.retention_days` (~209, nullable — `null` means "no automatic expiry," which requires explicit operator opt-in per session, not a default) |
 
 Loki and Prometheus values are the deployment's existing configured
 retention and are listed for completeness, not proposed as new. Langfuse and
 host-local transcript retention are new and are exactly the "explicit
 redaction and retention policy" `docs/ecosystem.md` requires before this
 path may be treated as anything more than deployment-selected instrumentation.
+
+**S3 lifecycle rule (G7, #2407).** Bucket lifecycle on prefix `langfuse/`:
+expire current object versions 30 days after creation, and abort incomplete
+multipart uploads 7 days after initiation. There is no S3 admin tooling on the
+workstation, so the operator applies the rule in the Hetzner console; the
+enablement gate below requires it to be visible in the bucket lifecycle
+configuration.
 
 ## Fail-open posture
 
@@ -197,13 +209,10 @@ turned on for any session:
 
 ## Open items needing operator acceptance
 
-- Confirm 30 days as the Langfuse trace retention and default
-  `retention_days` for host-local transcripts (this document proposes 30d;
-  no operator value is recorded yet).
-- Confirm Langfuse (over Phoenix/object storage) as the accepted backend for
-  production use, not just the currently selected one — `docs/ecosystem.md`
-  (~96–100) records the selection but this document treats acceptance of
-  *this redaction/retention policy* as the separate, still-open gate.
+Settled 2026-09-14 (operator-delegated): 30 days for Langfuse traces and the
+default host-local `retention_days`; Langfuse as the accepted backend and this
+policy as accepted. Still open:
+
 - Decide whether host-local transcript storage needs an upper disk-usage
   bound in addition to a time-based `retention_days`, since `retention_days:
   null` is schema-legal and defers expiry indefinitely per session.
