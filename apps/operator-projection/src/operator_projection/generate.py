@@ -374,6 +374,7 @@ def entries(key: str, raw: dict) -> list[dict]:
     return [{"origin_repo": repo, "id": i, "ref": f"{repo}#{i}" if i is not None else f"{repo}:{kind or key}",
              "text": raw.get("title") or raw.get("summary"), "idle_seconds": raw.get("idle_seconds"), "severity": severity,
              "detail": f"{kind} · {len(raw.get('item_ids') or [])} items" if conflict else None,
+             "group": (repo, kind, tuple(raw.get("item_ids") or ())) if conflict else (repo, key, i),
              "holder": "no holder" if key == "active_unreserved_items" else "not contracted"} for i in idents]
 
 
@@ -400,8 +401,9 @@ def pickup(run: Run, found: list[Move]) -> tuple[dict, list[str] | None]:
     observed = lambda value: cell("OBSERVED", value, f"vuoro-invoke {operation}", revision, run.at)  # noqa: E731
     candidates = candidates_of(context)
     rank = {item["ref"]: (order.index(cls), item["severity"]) for cls, item in candidates}
-    rows = []
-    for cls, item in candidates[:limit]:
+    rows, groups = [], set()  # one row per conflict before a conflict's further items, so one wide conflict cannot hide the rest
+    leads = [c for c in candidates if not (c[1]["group"] in groups or groups.add(c[1]["group"]))]
+    for cls, item in (leads + [c for c in candidates if c not in leads])[:limit]:
         idle = item["idle_seconds"]
         touched = run.now - timedelta(seconds=idle) if idle is not None else None
         rows.append({"ref": item["ref"], "class": cls, "next_action": item["text"], "detail": item["detail"], "holder": item["holder"],

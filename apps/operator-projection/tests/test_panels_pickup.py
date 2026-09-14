@@ -30,17 +30,17 @@ def test_pickup_ranks_by_class_then_boundary_none_then_age():
     client, current = run()
     panel, repositories = pickup(current, MOVED)
     assert panel["counts"]["value"] == {"needs_you": 4, "stale_holds": 2, "active_no_holder": 1, "ready": 2}
-    assert panel["overflow"] == 4  # 9 counted items - 5 rows
+    assert panel["overflow"] == 4  # 9 counted items - 5 rows; repo-beta#202 shares repo-beta#201's conflict and yields its row
     assert [(r["ref"], r["class"], r["boundary"]) for r in panel["rows"]] == [
-        ("repo-beta#201", "NEEDS YOU", "NONE"), ("repo-beta#202", "NEEDS YOU", "NONE"), ("repo-alpha#104", "NEEDS YOU", "HANDOFF"),
-        ("repo-beta#203", "NEEDS YOU", "CONTEXT"), ("repo-alpha#103", "STALE HOLD", "HANDOFF")]
+        ("repo-beta#201", "NEEDS YOU", "NONE"), ("repo-alpha#104", "NEEDS YOU", "HANDOFF"), ("repo-beta#203", "NEEDS YOU", "CONTEXT"),
+        ("repo-gamma#305", "STALE HOLD", "NONE"), ("repo-alpha#103", "STALE HOLD", "HANDOFF")]
     conflict, stale = panel["rows"][0], panel["rows"][4]
     assert (conflict["next_action"], conflict["detail"], conflict["holder"], conflict["age"], conflict["moved_since_touch"]) == (
         "waits on an open dependency", "dependency-blocked · 2 items", "not contracted", UNCONTRACTED, UNCONTRACTED)
     assert panel["rows"][3]["detail"] is None
     assert (stale["next_action"], stale["age"], stale["moved_since_touch"], stale["holder"]) == ("stale alpha work", 4, 1, "not contracted")
     assert repositories == ["agentops", "vuoro", "kctl"]
-    assert {op for op, _ in client.invoked} <= READ_OPS and len(client.invoked) == 9
+    assert {op for op, _ in client.invoked} <= READ_OPS and len(client.invoked) == 7
 
 
 def test_project_context_is_read_without_repo_id_and_boundary_reads_carry_the_rows_repo():
@@ -51,7 +51,7 @@ def test_project_context_is_read_without_repo_id_and_boundary_reads_carry_the_ro
     assert all(op != "work.project.context" for (op, _), _ in scoped)
     beta = [("work.read.handoff", 12, "repo-beta"), ("work.read.context-candidates", 12, "repo-beta")]
     assert [(op, args["sprint_id"], repo) for (op, args), repo in scoped] == [
-        *beta, *beta, ("work.read.handoff", 11, "repo-alpha"), *beta, ("work.read.handoff", 11, "repo-alpha")]
+        *beta, ("work.read.handoff", 11, "repo-alpha"), *beta, ("work.read.handoff", 11, "repo-alpha")]  # repo-gamma: no active sprint
 
 
 def test_mapping_uses_only_contracted_fields():
@@ -85,7 +85,7 @@ def test_degradation_reasons_are_never_empty():
 def test_after_one_boundary_timeout_no_further_boundary_reads_are_sent():
     client, current = run(**{"work.read.handoff": timeout})
     panel, _ = pickup(current, [])
-    assert [r["boundary"] for r in panel["rows"]] == ["UNDETERMINED"] * 5
+    assert [r["boundary"] for r in panel["rows"]] == ["UNDETERMINED"] * 3 + ["NONE", "UNDETERMINED"]  # repo-gamma needs no read
     assert len(client.invoked) == 2
 
 
@@ -132,8 +132,10 @@ def test_every_item_a_conflict_names_is_counted_once_at_its_highest_class():
     panel, _ = pickup(current, [])
     assert panel["counts"]["value"] == {"needs_you": 14, "stale_holds": 0, "active_no_holder": 0, "ready": 1}
     assert len(panel["rows"]) == 5 and panel["overflow"] == 15 - 5
-    assert [(r["ref"], r["detail"], r["boundary"]) for r in panel["rows"]] == [
-        (f"repo-a#{n}", "dependency-blocked · 6 items", "NONE") for n in range(1, 6)]
+    # One row per conflict before a conflict's further items: the 6-item conflict no longer fills every row.
+    assert [(r["ref"], r["detail"]) for r in panel["rows"]] == [
+        ("repo-a#1", "dependency-blocked · 6 items"), ("repo-b#11", "dependency-blocked · 6 items"), ("repo-b#17", "stale-work · 3 items"),
+        ("repo-b#50", "unreserved-active-work · 1 items"), ("repo-c#7", None)]
     assert len(client.invoked) == 1  # no active sprint anywhere: no boundary reads
     text = render_text.render(generate(estate(), Authority(FakeAuthorityClient(results=RESULTS | {"work.project.context": MULTI}), lambda: True),
                                        REGISTRY, NOW, tags=lambda: TAGS), NOW)
