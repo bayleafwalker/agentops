@@ -276,12 +276,14 @@ class TierModelAggregationTests(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         row = rows[0]
         self.assertEqual((row["tier"], row["model"]), ("fast-build", "claude-sonnet-5"))
+        self.assertEqual(row["items"], 2)
         self.assertEqual(row["attempts"], 2)
-        self.assertAlmostEqual(row["first_pass_acceptance_rate"], 0.5)
-        self.assertAlmostEqual(row["rework_rate"], 0.5)
-        self.assertEqual(row["rejected_rate"], 0.0)
-        self.assertEqual(row["blocked_rate"], 0.0)
+        self.assertAlmostEqual(row["first_pass_item_rate"], 0.5)
+        self.assertAlmostEqual(row["rework_item_rate"], 0.5)
+        self.assertEqual(row["rejected_item_rate"], 0.0)
+        self.assertEqual(row["blocked_item_rate"], 0.0)
         self.assertEqual(row["accepted_items"], [2377])
+        self.assertAlmostEqual(row["attempts_per_accepted_item"], 1.0)
 
     def test_dispatch_without_review_contributes_no_attempt(self):
         # Real shape of a not-yet-reviewed item (2372 before its first review landed):
@@ -342,11 +344,14 @@ class TierModelAggregationTests(unittest.TestCase):
         rows = mlr.aggregate_tier_model(records)
         self.assertEqual(len(rows), 1)
         row = rows[0]
+        self.assertEqual(row["items"], 1)
         self.assertEqual(row["attempts"], 2)
         self.assertEqual(row["accepted_items"], [2374])
-        self.assertAlmostEqual(row["rework_rate"], 0.5)
-        # Not first-pass: the accepted review is attempt 2, not tagged first-pass.
-        self.assertEqual(row["first_pass_acceptance_rate"], 0.0)
+        # One item, and it did carry a rework verdict at some point -> 100% of items.
+        self.assertAlmostEqual(row["rework_item_rate"], 1.0)
+        # Not first-pass: the item's earliest review verdict is rework, not accepted.
+        self.assertEqual(row["first_pass_item_rate"], 0.0)
+        self.assertAlmostEqual(row["attempts_per_accepted_item"], 2.0)
 
     def test_multi_model_dispatch_tags_form_combined_bucket_when_review_lacks_model(self):
         # Real shape of item 2375: dispatch carries two model tags; the review that
@@ -375,9 +380,11 @@ class TierModelAggregationTests(unittest.TestCase):
         row = rows[0]
         self.assertEqual(row["tier"], "local")
         self.assertEqual(row["model"], "local3090/devstral+local3090/worker-fast")
+        self.assertEqual(row["items"], 1)
         self.assertEqual(row["attempts"], 1)
-        self.assertAlmostEqual(row["blocked_rate"], 1.0)
+        self.assertAlmostEqual(row["blocked_item_rate"], 1.0)
         self.assertEqual(row["accepted_items"], [])
+        self.assertIsNone(row["attempts_per_accepted_item"])
 
     def test_blocked_verdict_has_its_own_rate_and_does_not_vanish(self):
         item = _item(2375, "E", "blocked", "2026-09-14T18:53:47Z", "2026-09-14T19:02:25Z")
@@ -399,13 +406,102 @@ class TierModelAggregationTests(unittest.TestCase):
         ]
         records = mlr.build_item_records([item], {2375: events})
         row = mlr.aggregate_tier_model(records)[0]
+        self.assertEqual(row["items"], 1)
         self.assertEqual(row["attempts"], 1)
-        self.assertAlmostEqual(row["blocked_rate"], 1.0)
-        self.assertEqual(row["first_pass_acceptance_rate"], 0.0)
+        self.assertAlmostEqual(row["blocked_item_rate"], 1.0)
+        self.assertEqual(row["first_pass_item_rate"], 0.0)
         self.assertEqual(row["accepted_items"], [])
 
     def test_empty_items_yields_no_rows(self):
         self.assertEqual(mlr.aggregate_tier_model([]), [])
+
+    def test_blocked_then_recovered_and_accepted_is_not_counted_blocked(self):
+        # An item blocked on one attempt (e.g. transient backend failure) but reworked and
+        # accepted afterward should not still read as "blocked" -- blocked_item_rate looks
+        # only at the item's LATEST verdict, unlike rework/rejected/escalated which count
+        # an item if the verdict appears on *any* attempt.
+        item = _item(2400, "F", "done", "2026-09-14T18:00:00Z", "2026-09-14T18:20:00Z")
+        events = [
+            _event(
+                "lane.review",
+                "coordinator",
+                {"tags": ["lane", "verdict:blocked", "tier:fast-build", "model:claude-sonnet-5"], "summary": "blocked: backend broken"},
+                "2026-09-14T18:05:00Z",
+                1,
+            ),
+            _event(
+                "lane.review",
+                "coordinator",
+                {"tags": ["lane", "verdict:accepted", "tier:fast-build", "model:claude-sonnet-5"], "summary": "accepted: backend recovered"},
+                "2026-09-14T18:20:00Z",
+                2,
+            ),
+        ]
+        records = mlr.build_item_records([item], {2400: events})
+        row = mlr.aggregate_tier_model(records)[0]
+        self.assertEqual(row["items"], 1)
+        self.assertEqual(row["attempts"], 2)
+        self.assertEqual(row["blocked_item_rate"], 0.0)
+        self.assertEqual(row["first_pass_item_rate"], 0.0)
+        self.assertEqual(row["accepted_items"], [2400])
+        self.assertAlmostEqual(row["attempts_per_accepted_item"], 2.0)
+
+    def test_accepted_first_try_is_full_first_pass_rate(self):
+        item = _item(2383, "G", "done", "2026-09-14T18:00:00Z", "2026-09-14T18:05:00Z")
+        events = [
+            _event(
+                "lane.review",
+                "coordinator",
+                {"tags": ["lane", "verdict:accepted", "first-pass", "tier:fast-build", "model:claude-haiku-4-5"], "summary": "Accepted"},
+                "2026-09-14T18:05:00Z",
+                1,
+            ),
+        ]
+        records = mlr.build_item_records([item], {2383: events})
+        row = mlr.aggregate_tier_model(records)[0]
+        self.assertEqual(row["items"], 1)
+        self.assertEqual(row["attempts"], 1)
+        self.assertAlmostEqual(row["first_pass_item_rate"], 1.0)
+        self.assertEqual(row["rework_item_rate"], 0.0)
+        self.assertEqual(row["accepted_items"], [2383])
+        self.assertAlmostEqual(row["attempts_per_accepted_item"], 1.0)
+
+    def test_live_sprint_559_fast_build_item_rates_match_expected(self):
+        # Regression for agentops#2385: rates keyed to reviewed ATTEMPTS instead of items
+        # showed 33.3% first-pass for both fast-build models on live sprint 559 (2026-09-14)
+        # even though each model resolved one item first-try and one item after rework --
+        # the correct per-item first-pass and rework rates are 50%/50%.
+        items = [
+            _item(2374, "haiku rework-then-accept", "done", "2026-09-14T18:53:47Z", "2026-09-14T19:03:20Z"),
+            _item(2383, "haiku accepted first", "done", "2026-09-14T19:10:00Z", "2026-09-14T19:15:00Z"),
+            _item(2373, "sonnet accepted first", "done", "2026-09-14T18:50:00Z", "2026-09-14T18:55:00Z"),
+            _item(2372, "sonnet rework-then-accept", "done", "2026-09-14T18:53:46Z", "2026-09-14T19:10:00Z"),
+        ]
+        notes = {
+            2374: [
+                _event("lane.review", "coordinator", {"tags": ["lane", "verdict:rework", "tier:fast-build", "model:claude-haiku-4-5"], "summary": "rework: fix needed"}, "2026-09-14T19:01:27Z", 1),
+                _event("lane.review", "coordinator", {"tags": ["lane", "verdict:accepted", "tier:fast-build", "model:claude-haiku-4-5"], "summary": "accepted"}, "2026-09-14T19:03:20Z", 2),
+            ],
+            2383: [
+                _event("lane.review", "coordinator", {"tags": ["lane", "verdict:accepted", "first-pass", "tier:fast-build", "model:claude-haiku-4-5"], "summary": "accepted"}, "2026-09-14T19:15:00Z", 3),
+            ],
+            2373: [
+                _event("lane.review", "coordinator", {"tags": ["lane", "verdict:accepted", "first-pass", "tier:fast-build", "model:claude-sonnet-5"], "summary": "accepted"}, "2026-09-14T18:55:00Z", 4),
+            ],
+            2372: [
+                _event("lane.review", "coordinator", {"tags": ["lane", "verdict:rework", "tier:fast-build", "model:claude-sonnet-5"], "summary": "rework: needs another pass"}, "2026-09-14T19:05:00Z", 5),
+                _event("lane.review", "coordinator", {"tags": ["lane", "verdict:accepted", "tier:fast-build", "model:claude-sonnet-5"], "summary": "accepted"}, "2026-09-14T19:10:00Z", 6),
+            ],
+        }
+        records = mlr.build_item_records(items, notes)
+        rows = {row["model"]: row for row in mlr.aggregate_tier_model(records)}
+        self.assertEqual(set(rows), {"claude-haiku-4-5", "claude-sonnet-5"})
+        for model in ("claude-haiku-4-5", "claude-sonnet-5"):
+            row = rows[model]
+            self.assertEqual(row["tier"], "fast-build")
+            self.assertEqual(row["items"], 2)
+            self.assertAlmostEqual(row["first_pass_item_rate"], 0.5)
+            self.assertAlmostEqual(row["rework_item_rate"], 0.5)
 
 
 # --------------------------------------------------------------------------

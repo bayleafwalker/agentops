@@ -266,11 +266,11 @@ def build_item_records(items: list[dict], notes_by_id: dict[Any, list[dict]]) ->
         events = notes_by_id.get(item_id, [])
         dispatches = sorted(
             (e for e in events if e.get("event_type") == "lane.dispatch"),
-            key=lambda e: e.get("created_at") or "",
+            key=lambda e: (e.get("created_at") or "", e.get("id") or 0),
         )
         reviews = sorted(
             (e for e in events if e.get("event_type") == "lane.review"),
-            key=lambda e: e.get("created_at") or "",
+            key=lambda e: (e.get("created_at") or "", e.get("id") or 0),
         )
 
         attempts = []
@@ -325,47 +325,87 @@ def _rate(numerator: int, denominator: int) -> float | None:
 
 
 def aggregate_tier_model(records: list[dict]) -> list[dict]:
-    """Per (tier, model) rates. Denominator is attempts, i.e. lane.review notes."""
+    """Per (tier, model) rates, one item at a time.
+
+    ``attempts`` stays a count of ``lane.review`` notes (reviews), but every rate is now
+    computed per distinct work item rather than per reviewed attempt -- an item reworked
+    twice before acceptance no longer drags the tier/model's first-pass rate down for every
+    intermediate review. Reviews for an item are consulted in event order (created_at, then
+    event id as a tiebreak): the item's earliest review verdict decides first-pass, and its
+    latest review verdict decides whether it currently reads as blocked. The item's bucket
+    (tier, model) is taken from its earliest review/dispatch attempt.
+
+    ``rework_rate`` / ``rejected_rate`` / ``escalated_rate`` count an item once if *any* of
+    its reviews carries that verdict. ``blocked_rate`` counts an item only if its *latest*
+    review verdict is blocked (an item blocked once but later recovered and accepted is not
+    still "blocked"). ``accepted_items`` is the set of items with at least one accepted
+    review. ``attempts_per_accepted_item`` is reviews spent on accepted items divided by the
+    count of accepted items -- a measure of review overhead per completed item.
+    """
     buckets: dict[tuple[str, str], dict] = defaultdict(
         lambda: {
+            "items": 0,
             "attempts": 0,
-            "first_pass_accepted": 0,
-            "accepted": 0,
-            "rework": 0,
-            "rejected": 0,
-            "escalated": 0,
-            "blocked": 0,
+            "first_pass_items": 0,
+            "rework_items": 0,
+            "rejected_items": 0,
+            "escalated_items": 0,
+            "blocked_items": 0,
             "accepted_items": set(),
+            "attempts_on_accepted_items": 0,
         }
     )
     for record in records:
+        attempts = record["attempts"]
+        if not attempts:
+            continue
         item_id = record["item"].get("id")
-        for attempt in record["attempts"]:
-            bucket = buckets[(attempt["tier"], attempt["model"])]
-            bucket["attempts"] += 1
-            verdict = attempt["verdict"]
-            if verdict == "accepted":
-                bucket["accepted"] += 1
-                bucket["accepted_items"].add(item_id)
-                if attempt["first_pass"]:
-                    bucket["first_pass_accepted"] += 1
-            elif verdict in ("rework", "rejected", "escalated", "blocked"):
-                bucket[verdict] += 1
+        tier = attempts[0]["tier"]
+        model = attempts[0]["model"]
+        bucket = buckets[(tier, model)]
+
+        verdicts = [attempt["verdict"] for attempt in attempts]
+        earliest_verdict = verdicts[0]
+        latest_verdict = verdicts[-1]
+
+        bucket["items"] += 1
+        bucket["attempts"] += len(attempts)
+        if earliest_verdict == "accepted":
+            bucket["first_pass_items"] += 1
+        if "rework" in verdicts:
+            bucket["rework_items"] += 1
+        if "rejected" in verdicts:
+            bucket["rejected_items"] += 1
+        if "escalated" in verdicts:
+            bucket["escalated_items"] += 1
+        if latest_verdict == "blocked":
+            bucket["blocked_items"] += 1
+        if "accepted" in verdicts:
+            bucket["accepted_items"].add(item_id)
+            bucket["attempts_on_accepted_items"] += len(attempts)
 
     rows = []
     for (tier, model), bucket in sorted(buckets.items()):
-        attempts = bucket["attempts"]
+        items = bucket["items"]
+        accepted_items = sorted(bucket["accepted_items"])
         rows.append(
             {
                 "tier": tier,
                 "model": model,
-                "attempts": attempts,
-                "first_pass_acceptance_rate": _rate(bucket["first_pass_accepted"], attempts),
-                "rework_rate": _rate(bucket["rework"], attempts),
-                "rejected_rate": _rate(bucket["rejected"], attempts),
-                "escalated_rate": _rate(bucket["escalated"], attempts),
-                "blocked_rate": _rate(bucket["blocked"], attempts),
-                "accepted_items": sorted(bucket["accepted_items"]),
+                "items": items,
+                "attempts": bucket["attempts"],
+                # NOTE: these four rate keys changed denominator from attempts to items in
+                # this change and were renamed accordingly (old *_rate keys computed the
+                # same outcome per reviewed attempt, not per distinct item).
+                "first_pass_item_rate": _rate(bucket["first_pass_items"], items),
+                "rework_item_rate": _rate(bucket["rework_items"], items),
+                "rejected_item_rate": _rate(bucket["rejected_items"], items),
+                "escalated_item_rate": _rate(bucket["escalated_items"], items),
+                "blocked_item_rate": _rate(bucket["blocked_items"], items),
+                "accepted_items": accepted_items,
+                "attempts_per_accepted_item": _rate(
+                    bucket["attempts_on_accepted_items"], len(accepted_items)
+                ),
             }
         )
     return rows
@@ -864,22 +904,25 @@ def render_markdown(report: dict) -> str:
         lines.append("_no lane attempts in window_")
     else:
         lines.append(
-            "| tier | model | attempts | first-pass | rework | rejected | escalated | blocked | "
-            "accepted items |"
+            "| tier | model | items | attempts | first-pass | rework | rejected | escalated | "
+            "blocked | accepted items | attempts per accepted item |"
         )
-        lines.append("|---|---|---|---|---|---|---|---|---|")
+        lines.append("|---|---|---|---|---|---|---|---|---|---|---|")
         for row in tm["rows"]:
             lines.append(
-                "| {tier} | {model} | {attempts} | {fp} | {rw} | {rj} | {esc} | {blk} | {accepted} |".format(
+                "| {tier} | {model} | {items} | {attempts} | {fp} | {rw} | {rj} | {esc} | {blk} "
+                "| {accepted} | {apa} |".format(
                     tier=row["tier"],
                     model=row["model"],
+                    items=row["items"],
                     attempts=row["attempts"],
-                    fp=_fmt_rate(row["first_pass_acceptance_rate"]),
-                    rw=_fmt_rate(row["rework_rate"]),
-                    rj=_fmt_rate(row["rejected_rate"]),
-                    esc=_fmt_rate(row["escalated_rate"]),
-                    blk=_fmt_rate(row["blocked_rate"]),
+                    fp=_fmt_rate(row["first_pass_item_rate"]),
+                    rw=_fmt_rate(row["rework_item_rate"]),
+                    rj=_fmt_rate(row["rejected_item_rate"]),
+                    esc=_fmt_rate(row["escalated_item_rate"]),
+                    blk=_fmt_rate(row["blocked_item_rate"]),
                     accepted=len(row["accepted_items"]),
+                    apa=_fmt_num(row["attempts_per_accepted_item"]),
                 )
             )
     lines.append("")
