@@ -362,26 +362,29 @@ def boundary(run: Run, item: dict, sprints: list[dict]) -> str:
         return "UNDETERMINED"
 
 
-def normalized(key: str, raw: dict) -> dict:
-    """The project-1 lists in one row shape. Only idle_seconds is a contracted age; no list carries a holder."""
-    ident = (raw.get("item_ids") or [None])[0] if key == "conflicts" else raw.get("item_id") if key == "next_actions" else raw.get("id")
-    repo = raw.get("origin_repo")
-    return {"origin_repo": repo, "id": ident, "ref": f"{repo}#{ident}" if ident is not None else str(repo),
-            "text": raw.get("title") or raw.get("summary"), "idle_seconds": raw.get("idle_seconds"),
-            "holder": "no holder" if key == "active_unreserved_items" else "not contracted"}
+SEVERITY = ("critical", "high", "error", "warning", "medium", "low", "info")  # unknown next; non-conflict entries last
+
+
+def entries(key: str, raw: dict) -> list[dict]:
+    """One entry per item a list names: a conflict names every item in item_ids, or itself (repo:kind) when it names none.
+    Only idle_seconds is a contracted age; no list carries a holder."""
+    repo, kind, conflict = raw.get("origin_repo"), raw.get("kind"), key == "conflicts"
+    idents = (raw.get("item_ids") or [None]) if conflict else [raw.get("item_id") if key == "next_actions" else raw.get("id")]
+    severity = SEVERITY.index(raw["severity"]) if raw.get("severity") in SEVERITY else len(SEVERITY) + (not conflict)
+    return [{"origin_repo": repo, "id": i, "ref": f"{repo}#{i}" if i is not None else f"{repo}:{kind or key}",
+             "text": raw.get("title") or raw.get("summary"), "idle_seconds": raw.get("idle_seconds"), "severity": severity,
+             "detail": f"{kind} · {len(raw.get('item_ids') or [])} items" if conflict else None,
+             "holder": "no holder" if key == "active_unreserved_items" else "not contracted"} for i in idents]
 
 
 def candidates_of(context: dict) -> list[tuple[str, dict]]:
-    """Class order, one row per item (its highest class); a next action of kind no-action is not ready work."""
-    seen, found = set(), []
-    for cls, keys in CLASSES.items():
-        for key in keys:
-            for raw in context.get(key) or []:
-                item = normalized(key, raw)
-                if (key != "next_actions" or raw.get("kind") != "no-action") and (item["id"] is None or item["ref"] not in seen):
-                    seen.add(item["ref"])
-                    found.append((cls, item))
-    return found
+    """Every item once, at its highest class, then most severe conflict, oldest, ref; a no-action next action is not ready work."""
+    order, seen = list(CLASSES), set()
+    found = [(cls, item) for cls, keys in CLASSES.items() for key in keys for raw in context.get(key) or []
+             if key != "next_actions" or raw.get("kind") != "no-action" for item in entries(key, raw)]
+    found.sort(key=lambda c: (order.index(c[0]), c[1]["severity"], -(c[1]["idle_seconds"] or 0),
+                              str(c[1]["origin_repo"]), c[1]["id"] is None, c[1]["id"] or 0, c[1]["ref"]))
+    return [c for c in found if not (c[1]["ref"] in seen or seen.add(c[1]["ref"]))]
 
 
 def pickup(run: Run, found: list[Move]) -> tuple[dict, list[str] | None]:
@@ -396,18 +399,18 @@ def pickup(run: Run, found: list[Move]) -> tuple[dict, list[str] | None]:
     run.sources["authority.work"] |= {"ref": operation, "revision": revision}
     observed = lambda value: cell("OBSERVED", value, f"vuoro-invoke {operation}", revision, run.at)  # noqa: E731
     candidates = candidates_of(context)
-    candidates.sort(key=lambda c: (order.index(c[0]), -(c[1]["idle_seconds"] or 0)))
+    rank = {item["ref"]: (order.index(cls), item["severity"]) for cls, item in candidates}
     rows = []
     for cls, item in candidates[:limit]:
         idle = item["idle_seconds"]
         touched = run.now - timedelta(seconds=idle) if idle is not None else None
-        rows.append({"ref": item["ref"], "class": cls, "next_action": item["text"], "holder": item["holder"],
+        rows.append({"ref": item["ref"], "class": cls, "next_action": item["text"], "detail": item["detail"], "holder": item["holder"],
                      "age": idle // 86400 if touched else UNCONTRACTED, "boundary": boundary(run, item, context.get("sprints") or []),
                      "moved_since_touch": sum(datetime.fromisoformat(m.boundary_at) > touched for m in found) if touched else UNCONTRACTED,
                      "evidence": observed(item["ref"])})
-    rows.sort(key=lambda r: (order.index(r["class"]), r["boundary"] != "NONE"))
+    rows.sort(key=lambda r: (*rank[r["ref"]], r["boundary"] != "NONE"))  # stable: within a severity, boundary NONE first
     counts = observed({COUNTS[cls]: sum(c == cls for c, _ in candidates) for cls in CLASSES})
-    return {"counts": counts, "rows": rows, "overflow": max(0, len(candidates) - limit)}, [r.get("origin_repo") for r in context.get("repositories") or []]
+    return {"counts": counts, "rows": rows, "overflow": len(candidates) - len(rows)},[r.get("origin_repo") for r in context.get("repositories") or []]
 
 
 # ── panel 7: blind spots ────────────────────────────────────────────────────────

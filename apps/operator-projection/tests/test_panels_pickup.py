@@ -5,7 +5,7 @@ import httpx
 from fakes import FakeAuthorityClient, fixture
 from operator_projection import render_text
 from operator_projection.evaluators import Move
-from operator_projection.generate import UNCONTRACTED, Run, blind_spots, candidates_of, describe, generate, normalized, pickup
+from operator_projection.generate import UNCONTRACTED, Run, blind_spots, candidates_of, describe, entries, generate, pickup
 from operator_projection.sources import READ_OPS, Authority, SourceUnavailable
 from world import NOW, REGISTRY, TAGS, estate
 
@@ -29,17 +29,18 @@ def run(credential: bool = True, **overrides):
 def test_pickup_ranks_by_class_then_boundary_none_then_age():
     client, current = run()
     panel, repositories = pickup(current, MOVED)
-    assert panel["counts"]["value"] == {"needs_you": 3, "stale_holds": 2, "active_no_holder": 1, "ready": 3}
-    assert panel["overflow"] == 4
+    assert panel["counts"]["value"] == {"needs_you": 4, "stale_holds": 2, "active_no_holder": 1, "ready": 2}
+    assert panel["overflow"] == 4  # 9 counted items - 5 rows
     assert [(r["ref"], r["class"], r["boundary"]) for r in panel["rows"]] == [
-        ("repo-beta#202", "NEEDS YOU", "NONE"), ("repo-alpha#104", "NEEDS YOU", "HANDOFF"), ("repo-beta#203", "NEEDS YOU", "CONTEXT"),
-        ("repo-gamma#305", "STALE HOLD", "NONE"), ("repo-alpha#103", "STALE HOLD", "HANDOFF")]
+        ("repo-beta#201", "NEEDS YOU", "NONE"), ("repo-beta#202", "NEEDS YOU", "NONE"), ("repo-alpha#104", "NEEDS YOU", "HANDOFF"),
+        ("repo-beta#203", "NEEDS YOU", "CONTEXT"), ("repo-alpha#103", "STALE HOLD", "HANDOFF")]
     conflict, stale = panel["rows"][0], panel["rows"][4]
-    assert (conflict["next_action"], conflict["holder"], conflict["age"], conflict["moved_since_touch"]) == (
-        "waits on an open dependency", "not contracted", UNCONTRACTED, UNCONTRACTED)
+    assert (conflict["next_action"], conflict["detail"], conflict["holder"], conflict["age"], conflict["moved_since_touch"]) == (
+        "waits on an open dependency", "dependency-blocked · 2 items", "not contracted", UNCONTRACTED, UNCONTRACTED)
+    assert panel["rows"][3]["detail"] is None
     assert (stale["next_action"], stale["age"], stale["moved_since_touch"], stale["holder"]) == ("stale alpha work", 4, 1, "not contracted")
     assert repositories == ["agentops", "vuoro", "kctl"]
-    assert {op for op, _ in client.invoked} <= READ_OPS and len(client.invoked) == 7
+    assert {op for op, _ in client.invoked} <= READ_OPS and len(client.invoked) == 9
 
 
 def test_project_context_is_read_without_repo_id_and_boundary_reads_carry_the_rows_repo():
@@ -48,21 +49,22 @@ def test_project_context_is_read_without_repo_id_and_boundary_reads_carry_the_ro
     assert client.invoked[0] == ("work.project.context", {}) and client.repo_ids[0] is None
     scoped = list(zip(client.invoked[1:], client.repo_ids[1:]))
     assert all(op != "work.project.context" for (op, _), _ in scoped)
+    beta = [("work.read.handoff", 12, "repo-beta"), ("work.read.context-candidates", 12, "repo-beta")]
     assert [(op, args["sprint_id"], repo) for (op, args), repo in scoped] == [
-        ("work.read.handoff", 11, "repo-alpha"),
-        ("work.read.handoff", 12, "repo-beta"), ("work.read.context-candidates", 12, "repo-beta"),
-        ("work.read.handoff", 12, "repo-beta"), ("work.read.context-candidates", 12, "repo-beta"),
-        ("work.read.handoff", 11, "repo-alpha")]  # repo-gamma has no active sprint: NONE, nothing sent
+        *beta, *beta, ("work.read.handoff", 11, "repo-alpha"), *beta, ("work.read.handoff", 11, "repo-alpha")]
 
 
 def test_mapping_uses_only_contracted_fields():
     found = dict((item["ref"], (cls, item)) for cls, item in candidates_of(fixture("project-context.json")))
     assert found["repo-gamma#306"][0] == "ACTIVE, NO HOLDER" and found["repo-gamma#306"][1]["holder"] == "no holder"
     assert found["repo-alpha#104"][0] == "NEEDS YOU"  # one row per item, at its highest class
-    assert [ref for ref, (cls, _) in found.items() if cls == "READY"] == ["repo-alpha#106", "repo-beta#207", "repo-beta#201"]
+    assert found["repo-beta#201"][0] == "NEEDS YOU"  # the second item of a conflict is counted, not only item_ids[0]
+    assert [ref for ref, (cls, _) in found.items() if cls == "READY"] == ["repo-alpha#106", "repo-beta#207"]
     assert "repo-beta#208" not in found  # kind no-action is not ready work
-    bare = normalized("conflicts", {"kind": "stale-work", "summary": "no item named", "item_ids": [], "origin_repo": "repo-x"})
-    assert (bare["ref"], bare["id"], bare["text"], bare["idle_seconds"]) == ("repo-x", None, "no item named", None)
+    [bare] = entries("conflicts", {"kind": "stale-work", "severity": "warning", "summary": "no item named", "item_ids": [], "origin_repo": "repo-x"})
+    assert (bare["ref"], bare["id"], bare["text"], bare["detail"], bare["idle_seconds"]) == ("repo-x:stale-work", None, "no item named", "stale-work · 0 items", None)
+    context = {"conflicts": [{"kind": k, "severity": "warning", "summary": k, "item_ids": [], "origin_repo": "repo-x"} for k in ("stale-work", "blocked-work")]}
+    assert [(cls, item["ref"]) for cls, item in candidates_of(context)] == [("NEEDS YOU", "repo-x:blocked-work"), ("NEEDS YOU", "repo-x:stale-work")]
 
 
 def test_a_client_timeout_renders_blind_with_the_exception_type_named():
@@ -83,8 +85,7 @@ def test_degradation_reasons_are_never_empty():
 def test_after_one_boundary_timeout_no_further_boundary_reads_are_sent():
     client, current = run(**{"work.read.handoff": timeout})
     panel, _ = pickup(current, [])
-    assert {r["ref"]: r["boundary"] for r in panel["rows"]}["repo-gamma#305"] == "NONE"
-    assert [r["boundary"] for r in panel["rows"] if r["ref"] != "repo-gamma#305"] == ["UNDETERMINED"] * 4
+    assert [r["boundary"] for r in panel["rows"]] == ["UNDETERMINED"] * 5
     assert len(client.invoked) == 2
 
 
@@ -104,3 +105,37 @@ def test_scope_names_drift_between_served_and_declared():
     panel, repositories = pickup(current, [])
     scope = blind_spots(current, repositories, panel)["scope"]["served"]["value"]
     assert scope["undeclared"] == ["kctl"] and scope["not_served"] == ["sprintctl"]
+
+
+def conflict(kind, severity, repo, ids):
+    return {"kind": kind, "reason_code": None, "severity": severity, "summary": f"synthetic {kind}", "item_ids": ids, "origin_repo": repo}
+
+
+# The production undercount, synthetic: four conflicts name 14 distinct items; two of them share repo-b#50, which is also
+# the only stale, active-unreserved and resume item. Taking item_ids[0] and de-duplicating showed needs_you 3.
+MULTI = {"contract_version": "project-1", "sprints": [], "blocked_items": [], "active_reservations": [], "ready_items": [],
+         "conflicts": [conflict("unreserved-active-work", "warning", "repo-b", [50]),
+                       conflict("dependency-blocked", "error", "repo-a", [1, 2, 3, 4, 5, 6]),
+                       conflict("dependency-blocked", "error", "repo-b", [11, 12, 13, 14, 15, 16]),
+                       conflict("stale-work", "warning", "repo-b", [50, 16, 17])],
+         "stale_items": [{"id": 50, "title": "stale", "status": "active", "track": "t", "idle_seconds": 90000, "origin_repo": "repo-b"}],
+         "active_unreserved_items": [{"id": 50, "title": "unheld", "track": "t", "origin_repo": "repo-b"}],
+         "next_actions": [{"kind": "resume-unreserved-active-item", "summary": "resume", "item_id": 50, "reason": "r", "origin_repo": "repo-b"},
+                          {"kind": "start-ready-item", "summary": "start", "item_id": 7, "reason": "r", "origin_repo": "repo-c"},
+                          {"kind": "unblock-dependent-work", "summary": "unblock", "item_id": 1, "reason": "r", "origin_repo": "repo-a"},
+                          {"kind": "no-action", "summary": "nothing", "item_id": None, "reason": "r", "origin_repo": "repo-c"}],
+         "repositories": [{"origin_repo": r, "status": "available", "context": {}} for r in ("repo-a", "repo-b", "repo-c")]}
+
+
+def test_every_item_a_conflict_names_is_counted_once_at_its_highest_class():
+    client, current = run(**{"work.project.context": MULTI})
+    panel, _ = pickup(current, [])
+    assert panel["counts"]["value"] == {"needs_you": 14, "stale_holds": 0, "active_no_holder": 0, "ready": 1}
+    assert len(panel["rows"]) == 5 and panel["overflow"] == 15 - 5
+    assert [(r["ref"], r["detail"], r["boundary"]) for r in panel["rows"]] == [
+        (f"repo-a#{n}", "dependency-blocked · 6 items", "NONE") for n in range(1, 6)]
+    assert len(client.invoked) == 1  # no active sprint anywhere: no boundary reads
+    text = render_text.render(generate(estate(), Authority(FakeAuthorityClient(results=RESULTS | {"work.project.context": MULTI}), lambda: True),
+                                       REGISTRY, NOW, tags=lambda: TAGS), NOW)
+    assert "needs you 14 · stale holds 0 · active, no holder 0 · ready 1" in text
+    assert " repo-a#1  NEEDS YOU  synthetic dependency-blocked · dependency-blocked · 6 items · not contracted · NONE" in text
