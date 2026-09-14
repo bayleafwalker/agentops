@@ -199,7 +199,11 @@ def test_live_workspace_file_has_not_drifted_from_the_source() -> None:
     if not target.is_file():
         pytest.skip(f"{target} is not present on this host")
 
-    assert target.read_text(encoding="utf-8") == renderer.render(SOURCE), (
+    # Compare content only, as --check does: the recorded source commit is
+    # history, not drift.
+    assert renderer.strip_source_git_sha(
+        target.read_text(encoding="utf-8")
+    ) == renderer.strip_source_git_sha(renderer.render(SOURCE)), (
         f"{target} has drifted from {SOURCE}. It is a rendered artifact: move the "
         "change into the source and re-run render_workspace_agents.py --apply."
     )
