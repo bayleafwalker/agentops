@@ -121,8 +121,8 @@ class AuthorityClient(Protocol):
 class Authority:
     """The only path to the vuoro authority: handshake, catalog, and allowlisted read-semantics operations."""
 
-    def __init__(self, client: AuthorityClient, has_credential: Callable[[], bool]):
-        self.client, self.has_credential = client, has_credential
+    def __init__(self, client: AuthorityClient, has_credential: Callable[[], bool], allow: frozenset[str] = READ_OPS):
+        self.client, self.has_credential, self.allow = client, has_credential, allow
         self.loop = asyncio.new_event_loop()
         self.served: dict | None = None
 
@@ -134,7 +134,7 @@ class Authority:
         return self.served
 
     def read(self, operation: str, arguments: dict) -> Any:
-        if operation not in READ_OPS:
+        if operation not in self.allow:
             raise ReadRefused(f"{operation} is not on the read allowlist")
         served = next((o for o in (self.served or {}).get("operations", []) if o["name"] == operation), None)
         if served is None or served.get("execution_semantics") != "read":
@@ -144,7 +144,7 @@ class Authority:
         return self.loop.run_until_complete(self.client.invoke(operation, arguments))
 
 
-def open_authority(profile: dict) -> Authority:
+def open_authority(profile: dict, allow: frozenset[str] = READ_OPS) -> Authority:
     """Build the vuoro-client transport from the profile ConfigMap; the credential is read only on invoke."""
     from vuoro_client import AsyncVuoroClient, Profile  # absent on Python 3.11: the caller renders BLIND
 
@@ -154,7 +154,7 @@ def open_authority(profile: dict) -> Authority:
         Profile(name="operator-projection", endpoint=profile["authority_url"], credential_ref=reference),
         lambda _ref: path.read_text().strip(),
     )
-    return Authority(client, lambda: reference.startswith("file:") and path.is_file())
+    return Authority(client, lambda: reference.startswith("file:") and path.is_file(), allow)
 
 
 class ImageTags:
