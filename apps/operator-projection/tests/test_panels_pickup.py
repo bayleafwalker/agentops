@@ -135,7 +135,10 @@ def test_every_item_a_conflict_names_is_counted_once_at_its_highest_class():
     # One row per conflict before a conflict's further items: the 6-item conflict no longer fills every row.
     assert [(r["ref"], r["detail"]) for r in panel["rows"]] == [
         ("repo-a#1", "dependency-blocked · 6 items"), ("repo-b#11", "dependency-blocked · 6 items"), ("repo-b#17", "stale-work · 3 items"),
-        ("repo-b#50", "unreserved-active-work · 1 items"), ("repo-c#7", None)]
+        ("repo-b#50", "unreserved-active-work · 1 items; stale-work · 3 items"), ("repo-c#7", None)]
+    # repo-b#16 is in the repo-b dependency-blocked and stale-work conflicts; the row names both, most severe first.
+    shared = dict((item["ref"], item["detail"]) for _, item in candidates_of(MULTI))
+    assert shared["repo-b#16"] == "dependency-blocked · 6 items; stale-work · 3 items" and shared["repo-b#17"] == "stale-work · 3 items"
     assert len(client.invoked) == 1  # no active sprint anywhere: no boundary reads
     text = render_text.render(generate(estate(), Authority(FakeAuthorityClient(results=RESULTS | {"work.project.context": MULTI}), lambda: True),
                                        REGISTRY, NOW, tags=lambda: TAGS), NOW)

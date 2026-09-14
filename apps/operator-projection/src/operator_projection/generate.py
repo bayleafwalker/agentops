@@ -379,13 +379,16 @@ def entries(key: str, raw: dict) -> list[dict]:
 
 
 def candidates_of(context: dict) -> list[tuple[str, dict]]:
-    """Every item once, at its highest class, then most severe conflict, oldest, ref; a no-action next action is not ready work."""
+    """Every item once, at its highest class, naming all its conflicts, then most severe conflict, oldest, ref; a no-action next action is not ready work."""
     order, seen = list(CLASSES), set()
     found = [(cls, item) for cls, keys in CLASSES.items() for key in keys for raw in context.get(key) or []
              if key != "next_actions" or raw.get("kind") != "no-action" for item in entries(key, raw)]
     found.sort(key=lambda c: (order.index(c[0]), c[1]["severity"], -(c[1]["idle_seconds"] or 0),
                               str(c[1]["origin_repo"]), c[1]["id"] is None, c[1]["id"] or 0, c[1]["ref"]))
-    return [c for c in found if not (c[1]["ref"] in seen or seen.add(c[1]["ref"]))]
+    named: dict[str, list[str]] = {}  # a row names every conflict that names its item, most severe first
+    for _, item in found:
+        named.setdefault(item["ref"], []).extend([item["detail"]] if item["detail"] else [])
+    return [(cls, item | {"detail": "; ".join(named[item["ref"]]) or None}) for cls, item in found if not (item["ref"] in seen or seen.add(item["ref"]))]
 
 
 def pickup(run: Run, found: list[Move]) -> tuple[dict, list[str] | None]:
