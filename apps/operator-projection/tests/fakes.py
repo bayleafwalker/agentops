@@ -17,7 +17,7 @@ class FakeAuthorityClient:
     """Stands in for vuoro_client.AsyncVuoroClient over the recorded synthetic fixtures."""
 
     def __init__(self, results: dict | None = None, down: bool = False):
-        self.results, self.down, self.invoked = results or {}, down, []
+        self.results, self.down, self.invoked, self.repo_ids = results or {}, down, [], []
         self.semantics = {o["name"]: o["execution_semantics"] for o in fixture("catalog.json")["operations"]}
 
     async def handshake(self) -> dict:
@@ -33,8 +33,9 @@ class FakeAuthorityClient:
             operation["execution_semantics"] = self.semantics[operation["name"]]
         return served
 
-    async def invoke(self, operation_name: str, arguments) -> dict:
+    async def invoke(self, operation_name: str, arguments, *, repo_id: str | None = None) -> dict:
         self.invoked.append((operation_name, arguments))
+        self.repo_ids.append(repo_id)
         result = self.results[operation_name]
         return result(arguments) if callable(result) else result
 

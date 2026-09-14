@@ -4,3 +4,5 @@
 authority_url: https://vuoro-shared.apps.kotona.app
 required_authorities: [work:read, work:project-read]
 credential_ref: file:/run/vuoro/credentials/generator
+# Seconds each authority request may take (httpx connect/read/write/pool). Default 30; httpx alone would give 5.
+read_timeout_s: 30

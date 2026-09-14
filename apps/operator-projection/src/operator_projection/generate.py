@@ -22,6 +22,12 @@ def unavailable(message: str):
     raise SourceUnavailable(message)
 
 
+def describe(error: Exception) -> str:
+    """Never an empty reason: str(httpx.ReadTimeout()) is '', so anything but a worded SourceUnavailable is named by type."""
+    named = f"{type(error).__name__}: {error}".removesuffix(": ")
+    return str(error) if isinstance(error, SourceUnavailable) and str(error) else named
+
+
 class Run:
     """One generation: its sources, their degraded envelopes, and the reads shared between panels."""
 
@@ -38,8 +44,8 @@ class Run:
         try:
             return fetch()
         except Exception as error:  # a missing source never crashes a generation; it is carried as degraded
-            entry["degraded"] = entry["degraded"] or {"message": f"{source} unavailable", "source": source, "detail": f"{type(error).__name__}: {error}"}
-            raise SourceUnavailable(f"{source}: {error}") from error
+            entry["degraded"] = entry["degraded"] or {"message": f"{source} unavailable", "source": source, "detail": f"{type(error).__name__}: {error}".removesuffix(": ")}
+            raise SourceUnavailable(f"{source}: {describe(error)}") from error
 
     def quietly(self, source: str, transport: str, fetch: Callable[[], Any]) -> Any:
         try:
@@ -336,18 +342,46 @@ COUNTS = dict(zip(CLASSES, ("needs_you", "stale_holds", "active_no_holder", "rea
 UNCONTRACTED = "touch time: not contracted"
 
 
-def boundary(run: Run, item: dict) -> str:
-    """HANDOFF when the sprint has a checkpoint, CONTEXT when the item has context candidates, else NONE."""
-    if not item.get("sprint_id"):
+def boundary(run: Run, item: dict, sprints: list[dict]) -> str:
+    """A row carries no sprint: its repo's active sprint has a checkpoint (HANDOFF), the item has candidates (CONTEXT), else NONE."""
+    repo = item["origin_repo"]
+    sprint = next((s["id"] for s in sprints if s.get("origin_repo") == repo and s.get("status") == "active"), None)
+    if sprint is None:
         return "NONE"
-    read = lambda op, args: run.guard("authority.work", "vuoro-invoke", lambda: run.authority.read(op, args))  # noqa: E731
+    if run.degraded("authority.work"):
+        return "UNDETERMINED"  # one timeout already spent this generation; do not queue more behind it
+    read = lambda op, args: run.guard("authority.work", "vuoro-invoke", lambda: run.authority.read(op, args, repo_id=repo))  # noqa: E731
     try:
-        if read("work.read.handoff", {"sprint_id": item["sprint_id"], "events_limit": 1}).get("last_checkpoint"):
+        if read("work.read.handoff", {"sprint_id": sprint, "events_limit": 1}).get("last_checkpoint"):
             return "HANDOFF"
-        found = read("work.read.context-candidates", {"sprint_id": item["sprint_id"], "item_id": item.get("item_id"), "limit": 1})
+        if item["id"] is None:
+            return "NONE"
+        found = read("work.read.context-candidates", {"sprint_id": sprint, "item_id": item["id"], "limit": 1})
         return "CONTEXT" if found.get("candidates") else "NONE"
     except SourceUnavailable:
         return "UNDETERMINED"
+
+
+def normalized(key: str, raw: dict) -> dict:
+    """The project-1 lists in one row shape. Only idle_seconds is a contracted age; no list carries a holder."""
+    ident = (raw.get("item_ids") or [None])[0] if key == "conflicts" else raw.get("item_id") if key == "next_actions" else raw.get("id")
+    repo = raw.get("origin_repo")
+    return {"origin_repo": repo, "id": ident, "ref": f"{repo}#{ident}" if ident is not None else str(repo),
+            "text": raw.get("title") or raw.get("summary"), "idle_seconds": raw.get("idle_seconds"),
+            "holder": "no holder" if key == "active_unreserved_items" else "not contracted"}
+
+
+def candidates_of(context: dict) -> list[tuple[str, dict]]:
+    """Class order, one row per item (its highest class); a next action of kind no-action is not ready work."""
+    seen, found = set(), []
+    for cls, keys in CLASSES.items():
+        for key in keys:
+            for raw in context.get(key) or []:
+                item = normalized(key, raw)
+                if (key != "next_actions" or raw.get("kind") != "no-action") and (item["id"] is None or item["ref"] not in seen):
+                    seen.add(item["ref"])
+                    found.append((cls, item))
+    return found
 
 
 def pickup(run: Run, found: list[Move]) -> tuple[dict, list[str] | None]:
@@ -361,19 +395,19 @@ def pickup(run: Run, found: list[Move]) -> tuple[dict, list[str] | None]:
     revision, order = f"catalog:{run.catalog['revision']}", list(CLASSES)
     run.sources["authority.work"] |= {"ref": operation, "revision": revision}
     observed = lambda value: cell("OBSERVED", value, f"vuoro-invoke {operation}", revision, run.at)  # noqa: E731
-    candidates = [(cls, item) for cls, keys in CLASSES.items() for key in keys for item in context.get(key) or []]
-    candidates.sort(key=lambda c: (order.index(c[0]), c[1].get("updated_at") or "~"))
+    candidates = candidates_of(context)
+    candidates.sort(key=lambda c: (order.index(c[0]), -(c[1]["idle_seconds"] or 0)))
     rows = []
     for cls, item in candidates[:limit]:
-        touched = item.get("updated_at")
-        ref = f"{item.get('repo_id')}#{item.get('item_id', item.get('id'))}"
-        rows.append({"ref": ref, "class": cls, "next_action": item.get("next_action") or item.get("title"), "holder": item.get("holder") or "no holder",
-                     "age": days_since(touched, run.now) if touched else UNCONTRACTED, "boundary": boundary(run, item),
-                     "moved_since_touch": sum(datetime.fromisoformat(m.boundary_at) > datetime.fromisoformat(touched) for m in found) if touched else UNCONTRACTED,
-                     "evidence": observed(ref)})
+        idle = item["idle_seconds"]
+        touched = run.now - timedelta(seconds=idle) if idle is not None else None
+        rows.append({"ref": item["ref"], "class": cls, "next_action": item["text"], "holder": item["holder"],
+                     "age": idle // 86400 if touched else UNCONTRACTED, "boundary": boundary(run, item, context.get("sprints") or []),
+                     "moved_since_touch": sum(datetime.fromisoformat(m.boundary_at) > touched for m in found) if touched else UNCONTRACTED,
+                     "evidence": observed(item["ref"])})
     rows.sort(key=lambda r: (order.index(r["class"]), r["boundary"] != "NONE"))
     counts = observed({COUNTS[cls]: sum(c == cls for c, _ in candidates) for cls in CLASSES})
-    return {"counts": counts, "rows": rows, "overflow": max(0, len(candidates) - limit)}, [r.get("repo_id") or r.get("id") for r in context.get("repositories") or []]
+    return {"counts": counts, "rows": rows, "overflow": max(0, len(candidates) - limit)}, [r.get("origin_repo") for r in context.get("repositories") or []]
 
 
 # ── panel 7: blind spots ────────────────────────────────────────────────────────

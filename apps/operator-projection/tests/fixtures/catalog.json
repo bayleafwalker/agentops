@@ -30,7 +30,7 @@
    "required_authority": "work:read",
    "execution_semantics": "read",
    "idempotency": "none",
-   "repo_scoped": false,
+   "repo_scoped": true,
    "deprecation": null,
    "required_client_schema_features": []
   },
@@ -46,7 +46,7 @@
    "required_authority": "work:read",
    "execution_semantics": "read",
    "idempotency": "none",
-   "repo_scoped": false,
+   "repo_scoped": true,
    "deprecation": null,
    "required_client_schema_features": []
   },
@@ -62,7 +62,7 @@
    "required_authority": "work:read",
    "execution_semantics": "read",
    "idempotency": "none",
-   "repo_scoped": false,
+   "repo_scoped": true,
    "deprecation": null,
    "required_client_schema_features": []
   },

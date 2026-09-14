@@ -1,91 +1,49 @@
 {
  "contract_version": "project-1",
- "project": {
-  "id": "synthetic-project"
- },
- "summary": {
-  "items": 9
- },
+ "project": {"project_id": "synthetic-project", "home_repo": "agentops", "backlog_repos": ["repo-alpha", "repo-beta", "repo-gamma"],
+             "source_repository": "synthetic/agentops", "source_revision": "0000000000000000000000000000000000000000",
+             "source_path": "project.toml", "source_sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+ "summary": {"items": 9},
  "sprints": [
-  {
-   "id": 11,
-   "repo_id": "repo-alpha"
-  }
+  {"id": 10, "name": "synthetic closed", "goal": "synthetic", "status": "closed", "start_date": "2026-08-01", "end_date": "2026-08-14", "origin_repo": "repo-alpha"},
+  {"id": 11, "name": "synthetic alpha", "goal": "synthetic", "status": "active", "start_date": "2026-09-01", "end_date": "2026-09-30", "origin_repo": "repo-alpha"},
+  {"id": 12, "name": "synthetic beta", "goal": "synthetic", "status": "active", "start_date": "2026-09-01", "end_date": "2026-09-30", "origin_repo": "repo-beta"},
+  {"id": 30, "name": "synthetic gamma", "goal": "synthetic", "status": "closed", "start_date": "2026-07-01", "end_date": "2026-07-14", "origin_repo": "repo-gamma"}
  ],
  "conflicts": [
-  {
-   "repo_id": "repo-alpha",
-   "item_id": 101,
-   "sprint_id": 11,
-   "title": "resolve conflicting reservations",
-   "holder": "agent-one",
-   "updated_at": "2026-09-10T00:00:00Z"
-  }
+  {"kind": "unreserved-active-work", "reason_code": null, "severity": "warning", "summary": "active work nobody holds", "item_ids": [104], "origin_repo": "repo-alpha"},
+  {"kind": "dependency-blocked", "reason_code": "dependency-open", "severity": "error", "summary": "waits on an open dependency", "item_ids": [202, 201], "origin_repo": "repo-beta"}
  ],
  "blocked_items": [
-  {
-   "repo_id": "repo-beta",
-   "item_id": 202,
-   "sprint_id": 12,
-   "title": "unblock the fixture",
-   "updated_at": "2026-09-12T00:00:00Z"
-  }
+  {"id": 202, "title": "unblock the fixture", "track": "synthetic", "origin_repo": "repo-beta"},
+  {"id": 203, "title": "blocked on review", "track": "synthetic", "origin_repo": "repo-beta"}
  ],
  "stale_items": [
-  {
-   "repo_id": "repo-alpha",
-   "item_id": 103,
-   "sprint_id": 11,
-   "title": "stale reservation",
-   "holder": "agent-two"
-  }
+  {"id": 305, "title": "stale gamma work", "status": "active", "track": "synthetic", "idle_seconds": 172800, "origin_repo": "repo-gamma"},
+  {"id": 103, "title": "stale alpha work", "status": "active", "track": "synthetic", "idle_seconds": 345605, "origin_repo": "repo-alpha"}
  ],
  "active_reservations": [],
  "active_unreserved_items": [
-  {
-   "repo_id": "repo-alpha",
-   "item_id": 104,
-   "sprint_id": 11,
-   "title": "active with nobody on it"
-  },
-  {
-   "repo_id": "repo-gamma",
-   "item_id": 305,
-   "sprint_id": null,
-   "title": "orphaned work"
-  }
+  {"id": 104, "title": "active with nobody on it", "track": "synthetic", "origin_repo": "repo-alpha"},
+  {"id": 306, "title": "orphaned work", "track": "synthetic", "origin_repo": "repo-gamma"}
  ],
- "ready_items": [],
- "recent_decisions": [],
+ "ready_items": [
+  {"id": 106, "title": "ready one", "track": "synthetic", "origin_repo": "repo-alpha"}
+ ],
  "next_actions": [
-  {
-   "repo_id": "repo-alpha",
-   "item_id": 106,
-   "sprint_id": 11,
-   "title": "ready one"
-  },
-  {
-   "repo_id": "repo-beta",
-   "item_id": 207,
-   "sprint_id": 12,
-   "title": "ready two"
-  },
-  {
-   "repo_id": "repo-beta",
-   "item_id": 208,
-   "sprint_id": 12,
-   "title": "ready three"
-  }
+  {"kind": "resume-unreserved-active-item", "summary": "resume item 104", "item_id": 104, "reason": "active and unreserved", "origin_repo": "repo-alpha"},
+  {"kind": "start-ready-item", "summary": "start item 106", "item_id": 106, "reason": "ready", "origin_repo": "repo-alpha"},
+  {"kind": "start-ready-item", "summary": "start item 207", "item_id": 207, "reason": "ready", "origin_repo": "repo-beta"},
+  {"kind": "unblock-dependent-work", "summary": "finish item 201", "item_id": 201, "reason": "202 depends on it", "origin_repo": "repo-beta"},
+  {"kind": "no-action", "summary": "nothing to do for item 208", "item_id": 208, "reason": "synthetic", "origin_repo": "repo-beta"}
+ ],
+ "recent_decisions": [
+  {"id": 1, "event_id": 1, "event_type": "decision", "created_at": "2026-09-13T00:00:00Z", "actor": "synthetic-actor", "work_item_id": 106,
+   "summary": "synthetic decision", "detail": "synthetic", "tags": [], "origin_repo": "repo-alpha"}
  ],
  "repositories": [
-  {
-   "repo_id": "agentops"
-  },
-  {
-   "repo_id": "vuoro"
-  },
-  {
-   "repo_id": "kctl"
-  }
+  {"origin_repo": "agentops", "status": "available", "context": {}},
+  {"origin_repo": "vuoro", "status": "available", "context": {}},
+  {"origin_repo": "kctl", "status": "available", "context": {}}
  ]
 }

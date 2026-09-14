@@ -115,7 +115,7 @@ class AuthorityClient(Protocol):
 
     async def catalog(self, *, force_refresh: bool = False) -> dict: ...
 
-    async def invoke(self, operation_name: str, arguments: Any) -> Any: ...
+    async def invoke(self, operation_name: str, arguments: Any, *, repo_id: str | None = None) -> Any: ...
 
 
 class Authority:
@@ -133,15 +133,35 @@ class Authority:
         self.served = self.loop.run_until_complete(self.client.catalog())
         return self.served
 
-    def read(self, operation: str, arguments: dict) -> Any:
+    def read(self, operation: str, arguments: dict, repo_id: str | None = None) -> Any:
         if operation not in self.allow:
             raise ReadRefused(f"{operation} is not on the read allowlist")
         served = next((o for o in (self.served or {}).get("operations", []) if o["name"] == operation), None)
         if served is None or served.get("execution_semantics") != "read":
             raise ReadRefused(f"{operation} is not read-semantics in the catalog fetched this generation")
+        if served.get("repo_scoped") and not repo_id:
+            raise ReadRefused(f"{operation} is repo-scoped in the served catalog and no repo_id was given")
         if not self.has_credential():
             raise SourceUnavailable("no generator credential (work:read, work:project-read)")
-        return self.loop.run_until_complete(self.client.invoke(operation, arguments))
+        return self.loop.run_until_complete(self.client.invoke(operation, arguments, repo_id=repo_id))
+
+
+# work.project.context measured 2.3s cold / 0.2s warm on 2026-09-14; generation runs off the /healthz thread, cadence 900s.
+READ_TIMEOUT_S = 30.0
+
+
+class TimedTransport(httpx.AsyncBaseTransport):
+    """AsyncVuoroClient builds its httpx client with httpx's 5s default; its transport is the only public hook to change that."""
+
+    def __init__(self, seconds: float, inner: httpx.AsyncBaseTransport | None = None):
+        self.seconds, self.inner = seconds, inner or httpx.AsyncHTTPTransport()
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        request.extensions["timeout"] = httpx.Timeout(self.seconds).as_dict()
+        return await self.inner.handle_async_request(request)
+
+    async def aclose(self) -> None:
+        await self.inner.aclose()
 
 
 def open_authority(profile: dict, allow: frozenset[str] = READ_OPS) -> Authority:
@@ -153,6 +173,7 @@ def open_authority(profile: dict, allow: frozenset[str] = READ_OPS) -> Authority
     client = AsyncVuoroClient(
         Profile(name="operator-projection", endpoint=profile["authority_url"], credential_ref=reference),
         lambda _ref: path.read_text().strip(),
+        transport=TimedTransport(float(profile.get("read_timeout_s") or READ_TIMEOUT_S)),
     )
     return Authority(client, lambda: reference.startswith("file:") and path.is_file(), allow)
 
