@@ -104,6 +104,10 @@ def durability_rows(cockpit_pvc: bool, policy: dict | None, broker_pvc: bool) ->
     }
 
 
+def orphan_authorities(requested: dict[str, int], served: set[str]) -> dict[str, int]:
+    return {a: n for a, n in sorted(requested.items()) if a not in served}
+
+
 def classify(vocabulary: str, before: dict[str, Row], after: dict[str, Row]) -> list[tuple[str, str]]:
     moves = []
     for member in sorted(before.keys() | after.keys()):

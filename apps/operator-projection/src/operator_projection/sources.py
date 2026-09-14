@@ -38,6 +38,8 @@ def stamp(when: datetime) -> str:
 class GitHubRest:
     """GitSource over api.github.com. Revalidates with ETags; content at a full sha is cached for good."""
 
+    transport = "github-rest"
+
     def __init__(self, repos: dict[str, str], token: str | None = None, client: httpx.Client | None = None):
         self.repos = repos  # repo id -> "owner/name"
         self.http = client or httpx.Client(base_url="https://api.github.com", timeout=30)
