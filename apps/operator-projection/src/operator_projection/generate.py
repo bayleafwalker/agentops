@@ -5,14 +5,16 @@ from __future__ import annotations
 import json
 import tomllib
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from functools import cached_property
 from typing import Any
 
 from .cell import blind, cell
-from .evaluators import DIGEST, lock_rows, orphan_authorities, record_classes
-from .replay import APPSERVICE, BRANCH, RELEASE_LABEL
+from .evaluators import DIGEST, Move, broker_rows, durability_rows, lock_rows, orphan_authorities, policy_revision, record_classes
+from .replay import APPSERVICE, BRANCH, RELEASE_LABEL, VOCABULARIES, Replay, read_policy, recall
 from .sources import Authority, GitSource, ImageTags, SourceUnavailable, stamp
+
+RANK = ["FORECLOSED", "REGRESSED", "DURABILITY-DOWN", "DURABILITY-UP", "GAINED", "CONTRACT-CHANGE"]
 
 
 def unavailable(message: str):
@@ -45,6 +47,12 @@ class Run:
 
     def show(self, repo: str, commit: str, path: str) -> str | None:
         return self.guard(f"git.{repo}", self.transport, lambda: self.git.show(repo, commit, path))
+
+    def log(self, repo: str, ref: str, paths, since: datetime | None = None, until: datetime | None = None) -> list[tuple[str, datetime]]:
+        return self.guard(f"git.{repo}", self.transport, lambda: self.git.log(repo, ref, paths, since, until))
+
+    def resolve(self, repo: str, ref: str, before: datetime | None = None) -> str | None:
+        return self.guard(f"git.{repo}", self.transport, lambda: self.git.resolve(repo, ref, before))
 
     def head(self, repo: str) -> str:
         sha = self.guard(f"git.{repo}", self.transport, lambda: self.git.resolve(repo, BRANCH))
@@ -104,7 +112,7 @@ class Run:
 
 
 def days_since(when: str | None, now: datetime) -> int | None:
-    return (now - datetime.fromisoformat(when.replace("Z", "+00:00"))).days if when else None
+    return (now.date() - date.fromisoformat(when[:10])).days if when else None
 
 
 def row(kind: str, subject: str, detail: str, evidence: dict, consumers=(), since=None, falsifier="", sources=(), flags=()) -> dict:
@@ -171,7 +179,7 @@ def unreachable_hazards(run: Run) -> list[dict]:
     admitted = record_classes(run.show(repo, audit.value, path) or "") if audit else set()
     submit = next((o for o in (run.catalog or {}).get("operations", []) if o["name"] == "audit.observation.submit"), None)
     consts = schema_consts(submit["input_schema"], "record_class") if submit else set()
-    changed = run.guard(f"git.{repo}", run.transport, lambda: run.git.log(repo, BRANCH, [path]))
+    changed = run.log(repo, BRANCH, [path])
     since = stamp(changed[0][1])[:10] if changed else None
     return [
         row("UNREACHABLE", f"audit record_class={c}",
@@ -198,7 +206,7 @@ def diverged_hazards(run: Run) -> list[dict]:
             continue
         since = None
         lookback = run.now - timedelta(days=subject.get("lookback_days", 90))
-        for sha, when in run.guard("git.appservice", run.transport, lambda: run.git.log(APPSERVICE, BRANCH, list(subject["manifests"].values()), lookback)):
+        for sha, when in run.log(APPSERVICE, BRANCH, list(subject["manifests"].values()), lookback):
             if len(set(digests(sha).values())) < 2:
                 break
             since = (sha, stamp(when)[:10])
@@ -245,3 +253,72 @@ def ground_tools(run: Run) -> dict:
     return panel
 
 
+
+
+# ── panel 4: moves ──────────────────────────────────────────────────────────────
+
+
+def blind_reason(run: Run, key: str) -> str:
+    return next(b["reason"] for b in run.registry["blind"] if b["id"] == key)
+
+
+def debt(rows: list[dict], now: datetime) -> dict:
+    oldest = max(rows, key=lambda r: days_since(r["since"], now) or -1, default=None)
+    return {"count": len(rows), "oldest_days": oldest and days_since(oldest["since"], now), "subject": oldest and oldest["subject"]}
+
+
+def moves(run: Run, hazard_rows: list[dict], limit: int = 5) -> dict:
+    start = run.now - timedelta(days=run.registry["window_days"])
+    panel: dict = {"window": {"start": stamp(start), "end": run.at}, "zero": None, "overflow": 0}
+    try:
+        result, head = Replay(run.registry, run, run.tags).run(start, run.now), run.head(APPSERVICE)
+    except SourceUnavailable as error:
+        return panel | {k: run.blind(str(error)) for k in ("counts", "attributed", "exercise_observable", "recall")} | {"rows": []}
+    found: list[Move] = result["moves"]
+    groups: dict[tuple[str, str, str], list[Move]] = {}
+    for m in found:
+        groups.setdefault((m.boundary, m.vocabulary, m.cls), []).append(m)
+    rows = [{"at": b, "date": ms[0].boundary_at[:10], "class": cls, "vocabulary": v,
+             "members": [m.member + (f" ({m.detail})" if m.detail else "") for m in ms], "evidence": run.declared(len(ms), APPSERVICE, b)}
+            for (b, v, cls), ms in groups.items()]
+    rows.sort(key=lambda r: r["date"], reverse=True)
+    rows.sort(key=lambda r: RANK.index(r["class"]))
+    n = len(found)
+    panel |= {"counts": run.declared({cls: sum(m.cls == cls for m in found) for cls in RANK}, APPSERVICE, head),
+              "attributed": run.declared(f"0/{n}", APPSERVICE, head), "exercise_observable": run.declared(f"0/{n}", APPSERVICE, head),
+              "rows": rows[:limit], "overflow": max(0, len(rows) - limit), "recall": run.declared(recall(result), APPSERVICE, head)}
+    if n == 0:
+        counted = [r for r in hazard_rows if not r["flags"]]
+        panel["zero"] = {"boundary_commits": len(result["boundaries"]), "vocabularies": len(VOCABULARIES),
+                         "spend": run.blind(blind_reason(run, "spend")), "decayed": run.blind("no exercise is observable"),
+                         "unreachable": debt([r for r in counted if r["kind"] == "UNREACHABLE"], run.now),
+                         "unrepaired": debt([r for r in counted if r["kind"] != "UNREACHABLE"], run.now)}
+    return panel
+
+
+# ── panel 6: ground · may do ────────────────────────────────────────────────────
+
+
+def may_do(run: Run) -> dict:
+    panel = {k: run.blind(blind_reason(run, k)) for k in ("grants", "admitted_policy_revision")}
+    try:
+        path = run.registry["sources"]["broker_config"]
+        changed = run.log(APPSERVICE, BRANCH, [path]) or unavailable("git.appservice: no cred-broker ConfigMap")
+        commit, when = changed[0]
+        policy = read_policy(run.show(APPSERVICE, commit, path))
+        if not isinstance(policy, dict):
+            raise SourceUnavailable("the cred-broker ConfigMap has no readable production.json")
+        hosts = {h["host_id"]: {"trust_profile": h.get("trust_profile"), "repositories": set(), "capabilities": {}, "unusable": 0}
+                 for h in policy.get("policy", {}).get("hosts", [])}
+        for key, binding in broker_rows(policy)["credbroker.binding"].items():
+            host, repository, capability = key.split("|")
+            entry = hosts.setdefault(host, {"trust_profile": None, "repositories": set(), "capabilities": {}, "unusable": 0})
+            entry["repositories"].add(repository)
+            entry["capabilities"][capability] = entry["capabilities"].get(capability, 0) + 1
+            entry["unusable"] += not binding.passed
+        pvc = run.show(APPSERVICE, run.head(APPSERVICE), run.registry["sources"]["broker_pvc"]) is not None
+        value = {"commit": commit, "date": stamp(when)[:10], "receipts": durability_rows(False, policy, pvc)["credbroker.receipts"].value,
+                 "policy_revision": policy_revision(policy), "hosts": {h: e | {"repositories": len(e["repositories"])} for h, e in hosts.items()}}
+        return panel | {"policy": run.declared(value, APPSERVICE, commit)}
+    except SourceUnavailable as error:
+        return panel | {"policy": run.blind(str(error))}

@@ -104,6 +104,11 @@ def durability_rows(cockpit_pvc: bool, policy: dict | None, broker_pvc: bool) ->
     }
 
 
+def policy_revision(policy: dict) -> str:
+    """cred-broker's own algorithm (config.py:241, policy.py:58-59): sha256 over the canonical `policy` object only."""
+    return "sha256:" + hashlib.sha256(json.dumps(policy["policy"], sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
 def orphan_authorities(requested: dict[str, int], served: set[str]) -> dict[str, int]:
     return {a: n for a, n in sorted(requested.items()) if a not in served}
 
