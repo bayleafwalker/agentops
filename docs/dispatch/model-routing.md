@@ -33,6 +33,16 @@ is executable until concrete model IDs and a harness adapter are verified.
 Multi-provider harnesses need an explicit runtime provider mapping; a
 dispatcher must not guess from the harness name.
 
+## Worker Routes
+
+Worker routes define mechanically specified implementation workers for supervised hybrid dispatch mode. Unlike aliases, which resolve model defaults per harness family, worker routes describe unqualified or experimental workers available to coordinators who choose them for specific bounded tasks.
+
+| Route | Model | Status | Notes |
+|---|---|---|---|
+| `local_workstation` | `local3090/worker-fast` | Workstation-only, unqualified | Local llama-swap access (Qwen 3.6-35B) via provider `local3090` (baseURL http://127.0.0.1:8020/v1). Alternative model on the same provider is `devstral` (Devstral-Small-2 24B, ctx 24576). **Availability is not qualification**; qualification would require evidence from the local-inference/acceptance-lab scorecard. |
+
+Workers in this table carry no production authority. In `model-routing.json` notes: `verified` indicates the concrete provider ID is confirmed as accessible; `qualified` indicates the model has been through qualification or acceptance-lab testing (see AGENTS.md: "Availability is not qualification"). Both flags remain false until their respective evidence is available.
+
 ## Resolution
 
 Dispatch routing resolves harness, model, and optional reasoning in this order:

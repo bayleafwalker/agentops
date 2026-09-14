@@ -47,6 +47,15 @@
         "production_authority": false,
         "note": "Benchmark-only until a specific repository-scale semantic-integration hypothesis is approved."
       }
+    },
+    "local_workstation": {
+      "opencode": {
+        "model": "local3090/worker-fast",
+        "verified": false,
+        "qualified": false,
+        "production_authority": false,
+        "note": "Workstation-only local llama-swap access via provider local3090 (baseURL http://127.0.0.1:8020/v1). Devstral (24B AWQ, ctx 24576) is an alternative on the same provider. Availability is not qualification; qualification would require local-inference/acceptance-lab scorecard evidence."
+      }
     }
   },
   "aliases": {
