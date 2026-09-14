@@ -1,0 +1,729 @@
+{
+ "schema": "operator-projection/v1",
+ "derived": "DERIVED — not a record",
+ "generated_at": "2026-09-14T15:15:07Z",
+ "cadence_s": 900,
+ "stale_after_s": 1800,
+ "registry": {
+  "id": "operator-projection/registry/v1",
+  "commit": "20af1efde30720767109c1cebf22ab5ecdecd918"
+ },
+ "sources": [
+  {
+   "id": "authority.handshake",
+   "transport": "http-get",
+   "ref": "/api/meta/v1/handshake",
+   "revision": "e9be144cfc36ac0859a709347fbf761cd49c7fc7b4cf70bef18a6534a5bdd5f9",
+   "observed_at": "2026-09-14T15:15:07Z",
+   "watermark": null,
+   "degraded": null
+  },
+  {
+   "id": "authority.catalog",
+   "transport": "http-get",
+   "ref": "/api/catalog/v1",
+   "revision": "e9be144cfc36ac0859a709347fbf761cd49c7fc7b4cf70bef18a6534a5bdd5f9",
+   "observed_at": "2026-09-14T15:15:07Z",
+   "watermark": null,
+   "degraded": null
+  },
+  {
+   "id": "git.agentops",
+   "transport": "github-rest",
+   "ref": "main",
+   "revision": "591c4c1b892e7143fe25928f5556f9d4c9e666f4",
+   "observed_at": "2026-09-14T15:15:07Z",
+   "watermark": null,
+   "degraded": null
+  },
+  {
+   "id": "git.auditctl",
+   "transport": "github-rest",
+   "ref": "main",
+   "revision": "cba88508863233bf38d09d29c0e85f44a03472e4",
+   "observed_at": "2026-09-14T15:15:07Z",
+   "watermark": null,
+   "degraded": null
+  },
+  {
+   "id": "git.appservice",
+   "transport": "github-rest",
+   "ref": "main",
+   "revision": "74ec611d544b3d20e5fd120d7e0506188eb4f56f",
+   "observed_at": "2026-09-14T15:15:07Z",
+   "watermark": null,
+   "degraded": null
+  },
+  {
+   "id": "ghcr.image-tags",
+   "transport": "http-get",
+   "ref": "ghcr.io/v2/bayleafwalker/vuoro-service",
+   "revision": "144 tags",
+   "observed_at": "2026-09-14T15:15:07Z",
+   "watermark": "2026-09-14T15:15:15+00:00",
+   "degraded": null
+  },
+  {
+   "id": "git.vuoro",
+   "transport": "github-rest",
+   "ref": "main",
+   "revision": "a3ad39810f2308b85beae48ed14fd76f132c2317",
+   "observed_at": "2026-09-14T15:15:07Z",
+   "watermark": null,
+   "degraded": null
+  },
+  {
+   "id": "authority.work",
+   "transport": "vuoro-invoke",
+   "ref": null,
+   "revision": null,
+   "observed_at": "2026-09-14T15:15:07Z",
+   "watermark": null,
+   "degraded": {
+    "message": "authority.work unavailable",
+    "source": "authority.work",
+    "detail": "SourceUnavailable: no generator credential (work:read, work:project-read)"
+   }
+  },
+  {
+   "id": "git.sprintctl",
+   "transport": "github-rest",
+   "ref": "main",
+   "revision": "03963a8dcb0820be9127238cd67f1c98c0467a17",
+   "observed_at": "2026-09-14T15:15:07Z",
+   "watermark": null,
+   "degraded": null
+  }
+ ],
+ "panels": {
+  "provenance": {
+   "authority": {
+    "kind": "OBSERVED",
+    "value": {
+     "release": "0.1.59",
+     "environment": "vuoro-shared"
+    },
+    "prov": {
+     "transport": "http-get /api/meta/v1/handshake",
+     "record_revision": "e9be144cfc36ac0859a709347fbf761cd49c7fc7b4cf70bef18a6534a5bdd5f9",
+     "observed_at": "2026-09-14T15:15:07Z"
+    }
+   },
+   "catalog": {
+    "kind": "OBSERVED",
+    "value": {
+     "revision": "e9be144cfc36ac0859a709347fbf761cd49c7fc7b4cf70bef18a6534a5bdd5f9",
+     "operations": 88,
+     "authorities": 27
+    },
+    "prov": {
+     "transport": "http-get /api/catalog/v1",
+     "record_revision": "e9be144cfc36ac0859a709347fbf761cd49c7fc7b4cf70bef18a6534a5bdd5f9",
+     "observed_at": "2026-09-14T15:15:07Z"
+    }
+   },
+   "compatibility": {
+    "kind": "OBSERVED",
+    "value": {
+     "work": "compatible",
+     "execution": "compatible",
+     "knowledge": "compatible",
+     "audit": "compatible"
+    },
+    "prov": {
+     "transport": "http-get /api/meta/v1/handshake",
+     "record_revision": "e9be144cfc36ac0859a709347fbf761cd49c7fc7b4cf70bef18a6534a5bdd5f9",
+     "observed_at": "2026-09-14T15:15:07Z"
+    }
+   }
+  },
+  "pickup": {
+   "kind": "BLIND",
+   "value": null,
+   "prov": {
+    "transport": "vuoro-invoke",
+    "record_revision": "none",
+    "observed_at": "2026-09-14T15:15:07Z"
+   },
+   "reason": "authority.work: no generator credential (work:read, work:project-read)"
+  },
+  "hazards": {
+   "open": {
+    "kind": "DECLARED",
+    "value": 4,
+    "prov": {
+     "transport": "derived hazards",
+     "record_revision": "20af1efde30720767109c1cebf22ab5ecdecd918",
+     "observed_at": "2026-09-14T15:15:07Z"
+    }
+   },
+   "oldest_days": {
+    "kind": "DECLARED",
+    "value": 32,
+    "prov": {
+     "transport": "derived hazards",
+     "record_revision": "20af1efde30720767109c1cebf22ab5ecdecd918",
+     "observed_at": "2026-09-14T15:15:07Z"
+    }
+   },
+   "rows": [
+    {
+     "kind": "FORECLOSED",
+     "subject": "work:claim",
+     "detail": "requested by 2 client profiles · no live operation requires it (27 authorities) · claim relation dropped sprintctl 9e99625",
+     "consumers": [
+      "agent-cockpit apps/web/lib/cockpit/sprintctl.js:199"
+     ],
+     "since": "2026-08-15",
+     "falsifier": {
+      "check": "catalog required_authority values contain work:claim",
+      "sources": [
+       "git.agentops",
+       "authority.catalog"
+      ]
+     },
+     "flags": [],
+     "evidence": {
+      "kind": "DECLARED",
+      "value": "work:claim",
+      "prov": {
+       "transport": "github-rest agentops",
+       "record_revision": "591c4c1b892e7143fe25928f5556f9d4c9e666f4",
+       "observed_at": "2026-09-14T15:15:07Z"
+      }
+     }
+    },
+    {
+     "kind": "ORPHAN",
+     "subject": "work:pilot-read",
+     "detail": "requested by 2 client profiles · no live operation requires it (27 authorities) · history undetermined",
+     "consumers": [],
+     "since": null,
+     "falsifier": {
+      "check": "catalog required_authority values contain work:pilot-read",
+      "sources": [
+       "git.agentops",
+       "authority.catalog"
+      ]
+     },
+     "flags": [],
+     "evidence": {
+      "kind": "DECLARED",
+      "value": "work:pilot-read",
+      "prov": {
+       "transport": "github-rest agentops",
+       "record_revision": "591c4c1b892e7143fe25928f5556f9d4c9e666f4",
+       "observed_at": "2026-09-14T15:15:07Z"
+      }
+     }
+    },
+    {
+     "kind": "UNREACHABLE",
+     "subject": "audit record_class=decision",
+     "detail": "HEAD auditctl admits · pinned 0.1.6 rejects",
+     "consumers": [],
+     "since": "2026-09-01",
+     "falsifier": {
+      "check": "git show cba88508:auditctl/validation.py | grep RECORD_CLASSES; git show 5f45f120:auditctl/validation.py; catalog audit.observation.submit record_class const",
+      "sources": [
+       "git.auditctl",
+       "git.appservice",
+       "ghcr.image-tags",
+       "authority.catalog"
+      ]
+     },
+     "flags": [],
+     "evidence": {
+      "kind": "DECLARED",
+      "value": "decision",
+      "prov": {
+       "transport": "github-rest auditctl",
+       "record_revision": "cba88508863233bf38d09d29c0e85f44a03472e4",
+       "observed_at": "2026-09-14T15:15:07Z"
+      }
+     },
+     "served_const": [
+      "observation"
+     ]
+    },
+    {
+     "kind": "DIVERGED",
+     "subject": "vuoro-service image",
+     "detail": "vuoro-shared 9d3f1797 (0.1.59) vs agent-cockpit sidecar d35c6b84 (0.1.41) · diverged at appservice a9b08b39",
+     "consumers": [
+      "agent-cockpit (retiring)"
+     ],
+     "since": "2026-08-13",
+     "falsifier": {
+      "check": "digests equal across vuoro-shared, agent-cockpit sidecar",
+      "sources": [
+       "git.appservice",
+       "ghcr.image-tags"
+      ]
+     },
+     "flags": [],
+     "evidence": {
+      "kind": "DECLARED",
+      "value": {
+       "vuoro-shared": "sha256:9d3f1797f2073af184b66a00d4773256f4312964350bcea10065d5266e0caca0",
+       "agent-cockpit sidecar": "sha256:d35c6b845b210a3ff9f562d66f7cffac6f4643b3f5c386c072bcaa7439579014"
+      },
+      "prov": {
+       "transport": "github-rest appservice",
+       "record_revision": "74ec611d544b3d20e5fd120d7e0506188eb4f56f",
+       "observed_at": "2026-09-14T15:15:07Z"
+      }
+     }
+    }
+   ]
+  },
+  "moves": {
+   "window": {
+    "start": "2026-08-15T15:15:07Z",
+    "end": "2026-09-14T15:15:07Z"
+   },
+   "zero": null,
+   "overflow": 19,
+   "counts": {
+    "kind": "DECLARED",
+    "value": {
+     "FORECLOSED": 0,
+     "REGRESSED": 1,
+     "DURABILITY-DOWN": 0,
+     "DURABILITY-UP": 0,
+     "GAINED": 85,
+     "CONTRACT-CHANGE": 16
+    },
+    "prov": {
+     "transport": "github-rest appservice",
+     "record_revision": "74ec611d544b3d20e5fd120d7e0506188eb4f56f",
+     "observed_at": "2026-09-14T15:15:07Z"
+    }
+   },
+   "attributed": {
+    "kind": "DECLARED",
+    "value": "0/102",
+    "prov": {
+     "transport": "github-rest appservice",
+     "record_revision": "74ec611d544b3d20e5fd120d7e0506188eb4f56f",
+     "observed_at": "2026-09-14T15:15:07Z"
+    }
+   },
+   "exercise_observable": {
+    "kind": "DECLARED",
+    "value": "0/102",
+    "prov": {
+     "transport": "github-rest appservice",
+     "record_revision": "74ec611d544b3d20e5fd120d7e0506188eb4f56f",
+     "observed_at": "2026-09-14T15:15:07Z"
+    }
+   },
+   "rows": [
+    {
+     "at": "dba71e9e365dc1dc33b1487faf8687d4755c5526",
+     "date": "2026-09-02",
+     "class": "REGRESSED",
+     "vocabulary": "authority.service_release",
+     "members": [
+      "vuoro-shared (vuoro-service-v0.1.59)"
+     ],
+     "evidence": {
+      "kind": "DECLARED",
+      "value": 1,
+      "prov": {
+       "transport": "github-rest appservice",
+       "record_revision": "dba71e9e365dc1dc33b1487faf8687d4755c5526",
+       "observed_at": "2026-09-14T15:15:07Z"
+      }
+     }
+    },
+    {
+     "at": "5f7082089e133099b82d0efd5810da1002325f4b",
+     "date": "2026-09-09",
+     "class": "GAINED",
+     "vocabulary": "credbroker.capability_rule",
+     "members": [
+      "pr.merge"
+     ],
+     "evidence": {
+      "kind": "DECLARED",
+      "value": 1,
+      "prov": {
+       "transport": "github-rest appservice",
+       "record_revision": "5f7082089e133099b82d0efd5810da1002325f4b",
+       "observed_at": "2026-09-14T15:15:07Z"
+      }
+     }
+    },
+    {
+     "at": "8feff32e09b5fe08b20fa28ba4f4484774a4f706",
+     "date": "2026-09-09",
+     "class": "GAINED",
+     "vocabulary": "credbroker.binding",
+     "members": [
+      "workstation|repo_vuoro_cloud_forgejo|pr.merge"
+     ],
+     "evidence": {
+      "kind": "DECLARED",
+      "value": 1,
+      "prov": {
+       "transport": "github-rest appservice",
+       "record_revision": "8feff32e09b5fe08b20fa28ba4f4484774a4f706",
+       "observed_at": "2026-09-14T15:15:07Z"
+      }
+     }
+    },
+    {
+     "at": "bf6b0c5bda857b5fc9e24532fb36a768eee3522c",
+     "date": "2026-09-02",
+     "class": "GAINED",
+     "vocabulary": "authority.service_release",
+     "members": [
+      "vuoro-shared (vuoro-service-v0.1.59)"
+     ],
+     "evidence": {
+      "kind": "DECLARED",
+      "value": 1,
+      "prov": {
+       "transport": "github-rest appservice",
+       "record_revision": "bf6b0c5bda857b5fc9e24532fb36a768eee3522c",
+       "observed_at": "2026-09-14T15:15:07Z"
+      }
+     }
+    },
+    {
+     "at": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+     "date": "2026-08-29",
+     "class": "GAINED",
+     "vocabulary": "credbroker.repository",
+     "members": [
+      "repo_acceptance_lab_github",
+      "repo_actionq_github",
+      "repo_agentops_github",
+      "repo_aligned_equity_github",
+      "repo_appservice_github",
+      "repo_auditctl_github",
+      "repo_bindery_ra2_adapter_github",
+      "repo_homelab_analytics_github",
+      "repo_hostproto_a2a_worker_github",
+      "repo_hostproto_semantics_github",
+      "repo_kctl_github",
+      "repo_scribectl_github",
+      "repo_sprintctl_github",
+      "repo_vuoro_cloud_github",
+      "repo_vuoro_github"
+     ],
+     "evidence": {
+      "kind": "DECLARED",
+      "value": 15,
+      "prov": {
+       "transport": "github-rest appservice",
+       "record_revision": "efcc21db6f81f7c2310655d09f8e12a422013a74",
+       "observed_at": "2026-09-14T15:15:07Z"
+      }
+     }
+    }
+   ],
+   "recall": {
+    "kind": "DECLARED",
+    "value": {
+     "boundary_commits": 23,
+     "mapped": 23,
+     "misses": []
+    },
+    "prov": {
+     "transport": "github-rest appservice",
+     "record_revision": "74ec611d544b3d20e5fd120d7e0506188eb4f56f",
+     "observed_at": "2026-09-14T15:15:07Z"
+    }
+   }
+  },
+  "ground_tools": {
+   "installed": {
+    "kind": "BLIND",
+    "value": null,
+    "prov": {
+     "transport": "none",
+     "record_revision": "none",
+     "observed_at": "2026-09-14T15:15:07Z"
+    },
+    "reason": "installed versions need a host report"
+   },
+   "authority": {
+    "kind": "DECLARED",
+    "value": {
+     "served": "0.1.59",
+     "label": "vuoro-service-v0.1.59",
+     "digest_release": "vuoro-service-v0.1.59",
+     "agrees": true,
+     "as_of": "74ec611d544b3d20e5fd120d7e0506188eb4f56f"
+    },
+    "prov": {
+     "transport": "github-rest appservice",
+     "record_revision": "74ec611d544b3d20e5fd120d7e0506188eb4f56f",
+     "observed_at": "2026-09-14T15:15:07Z"
+    }
+   },
+   "adapters": {
+    "kind": "DECLARED",
+    "value": {
+     "audit-adapter": {
+      "head": "0.1.7",
+      "pinned": "0.1.6",
+      "deployed": "0.1.6"
+     },
+     "work-adapter": {
+      "head": "0.3.5",
+      "pinned": "0.3.5",
+      "deployed": "0.3.5"
+     }
+    },
+    "prov": {
+     "transport": "github-rest appservice+vuoro",
+     "record_revision": "74ec611d544b3d20e5fd120d7e0506188eb4f56f+5e51ce9afb42b0ed9d881bb34ada956a62adad2a",
+     "observed_at": "2026-09-14T15:15:07Z"
+    }
+   },
+   "domains": {
+    "kind": "OBSERVED",
+    "value": {
+     "work": "compatible",
+     "execution": "compatible",
+     "knowledge": "compatible",
+     "audit": "compatible"
+    },
+    "prov": {
+     "transport": "http-get /api/meta/v1/handshake",
+     "record_revision": "e9be144cfc36ac0859a709347fbf761cd49c7fc7b4cf70bef18a6534a5bdd5f9",
+     "observed_at": "2026-09-14T15:15:07Z"
+    }
+   }
+  },
+  "may_do": {
+   "grants": {
+    "kind": "BLIND",
+    "value": null,
+    "prov": {
+     "transport": "none",
+     "record_revision": "none",
+     "observed_at": "2026-09-14T15:15:07Z"
+    },
+    "reason": "live grants, leases and refusals need capability.receipt.list (panel 11)"
+   },
+   "admitted_policy_revision": {
+    "kind": "BLIND",
+    "value": null,
+    "prov": {
+     "transport": "none",
+     "record_revision": "none",
+     "observed_at": "2026-09-14T15:15:07Z"
+    },
+    "reason": "the admitted policy_revision is not echoed by any read"
+   },
+   "policy": {
+    "kind": "DECLARED",
+    "value": {
+     "commit": "8feff32e09b5fe08b20fa28ba4f4484774a4f706",
+     "date": "2026-09-09",
+     "receipts": "D2",
+     "policy_revision": "sha256:f2e693bdf523f17b3973c0ac37cca400aa373eb3a1882174df0781925bd9327d",
+     "hosts": {
+      "devbox": {
+       "trust_profile": "development-bounded",
+       "repositories": 1,
+       "capabilities": {
+        "repo.read": 1,
+        "repo.write": 1,
+        "pr.manage": 1
+       },
+       "unusable": 0
+      },
+      "workstation": {
+       "trust_profile": "operator-elevated",
+       "repositories": 25,
+       "capabilities": {
+        "repo.read": 25,
+        "repo.write": 25,
+        "pr.manage": 16,
+        "pr.merge": 1
+       },
+       "unusable": 2
+      }
+     }
+    },
+    "prov": {
+     "transport": "github-rest appservice",
+     "record_revision": "8feff32e09b5fe08b20fa28ba4f4484774a4f706",
+     "observed_at": "2026-09-14T15:15:07Z"
+    }
+   }
+  },
+  "blind_spots": {
+   "scope": {
+    "served": {
+     "kind": "BLIND",
+     "value": null,
+     "prov": {
+      "transport": "vuoro-invoke",
+      "record_revision": "none",
+      "observed_at": "2026-09-14T15:15:07Z"
+     },
+     "reason": "scope: authority.work: no generator credential (work:read, work:project-read)"
+    },
+    "declared": {
+     "kind": "DECLARED",
+     "value": [
+      "agentops",
+      "vuoro",
+      "sprintctl",
+      "kctl",
+      "auditctl",
+      "actionq",
+      "actionq-dispatcher"
+     ],
+     "prov": {
+      "transport": "github-rest agentops",
+      "record_revision": "591c4c1b892e7143fe25928f5556f9d4c9e666f4",
+      "observed_at": "2026-09-14T15:15:07Z"
+     }
+    },
+    "other": {
+     "kind": "DECLARED",
+     "value": "other scopes not enumerable: repo list unavailable in served mode",
+     "prov": {
+      "transport": "registry",
+      "record_revision": "20af1efde30720767109c1cebf22ab5ecdecd918",
+      "observed_at": "2026-09-14T15:15:07Z"
+     }
+    }
+   },
+   "coverage_s1": {
+    "kind": "DECLARED",
+    "value": [
+     {
+      "id": "released",
+      "state": "partial",
+      "reason": "items, not releases"
+     },
+     {
+      "id": "authority",
+      "state": "partial",
+      "reason": "posture only"
+     },
+     {
+      "id": "role/skills",
+      "state": "none",
+      "reason": "no served read"
+     },
+     {
+      "id": "provider",
+      "state": "none",
+      "reason": "no served read"
+     },
+     {
+      "id": "evidence",
+      "state": "none",
+      "reason": "no audit read authority"
+     },
+     {
+      "id": "decisions",
+      "state": "partial",
+      "reason": "work ledger; 0 auditctl Decisions"
+     },
+     {
+      "id": "composition",
+      "state": "partial",
+      "reason": "git-dated; observed history ephemeral"
+     },
+     {
+      "id": "recovery",
+      "state": "partial",
+      "reason": "sprint-granular"
+     }
+    ],
+    "prov": {
+     "transport": "registry",
+     "record_revision": "20af1efde30720767109c1cebf22ab5ecdecd918",
+     "observed_at": "2026-09-14T15:15:07Z"
+    }
+   },
+   "not_seen": {
+    "kind": "DECLARED",
+    "value": {
+     "not_seen": [
+      "execution/knowledge/audit (no read authority)",
+      "spend+sessions (no host push)",
+      "cluster runtime (no mediated read)",
+      "vuoro-cloud live (Cloudflare 403)"
+     ],
+     "blind": [
+      {
+       "id": "installed",
+       "reason": "installed versions need a host report"
+      },
+      {
+       "id": "running",
+       "reason": "RUNNING needs a mediated infra read (panel 14)"
+      },
+      {
+       "id": "grants",
+       "reason": "live grants, leases and refusals need capability.receipt.list (panel 11)"
+      },
+      {
+       "id": "admitted_policy_revision",
+       "reason": "the admitted policy_revision is not echoed by any read"
+      },
+      {
+       "id": "epochs",
+       "reason": "observed epochs need composition.baseline observations (panel 10)"
+      },
+      {
+       "id": "spend",
+       "reason": "spend and sessions: no host push (panel 13)"
+      },
+      {
+       "id": "execution_knowledge_audit",
+       "reason": "execution, knowledge and audit reads: no read authority"
+      },
+      {
+       "id": "vuoro_cloud",
+       "reason": "vuoro-cloud live: Cloudflare 403"
+      }
+     ],
+     "later_panels": [
+      {
+       "panel": 10,
+       "name": "MOVES: observed epochs and catalog operation deltas",
+       "producer": "composition.baseline via audit.observation.list"
+      },
+      {
+       "panel": 11,
+       "name": "live grants, leases, refusals; capability exercise",
+       "producer": "cred-broker capability.receipt.list"
+      },
+      {
+       "panel": 12,
+       "name": "acceptance and attribution on moves",
+       "producer": "auditctl record_class=decision (unreachable at pinned 0.1.6)"
+      },
+      {
+       "panel": 13,
+       "name": "accounted-not-governed plane and spend",
+       "producer": "execution.session-completion.list after host cost push"
+      },
+      {
+       "panel": 14,
+       "name": "infra RUNNING and APPLIED",
+       "producer": "a mediated infra read operation (none exists)"
+      }
+     ]
+    },
+    "prov": {
+     "transport": "registry",
+     "record_revision": "20af1efde30720767109c1cebf22ab5ecdecd918",
+     "observed_at": "2026-09-14T15:15:07Z"
+    }
+   }
+  }
+ }
+}

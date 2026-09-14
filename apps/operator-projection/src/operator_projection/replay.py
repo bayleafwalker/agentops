@@ -14,15 +14,8 @@ from .sources import GitSource, ImageTags
 UNDETERMINED = object()
 APPSERVICE, BRANCH = "appservice", "main"
 RELEASE_LABEL = re.compile(r"release:\s*(vuoro-service-v[0-9.]+)")
-VOCABULARIES = [
-    "authority.service_release",
-    "composition.release_lock",
-    "audit.record_class",
-    "credbroker.capability_rule",
-    "credbroker.repository",
-    "credbroker.binding",
-    "durability.store",
-]
+VOCABULARIES = ["authority.service_release", "composition.release_lock", "audit.record_class", "credbroker.capability_rule",
+                "credbroker.repository", "credbroker.binding", "durability.store"]
 
 
 def read_policy(config: str | None):

@@ -1,0 +1,6 @@
+# The profile ConfigMap's shape (§0), mounted at OPERATOR_PROJECTION_PROFILE. It holds no token:
+# credential_ref names a file the init container fills from the optional Secret. A missing file renders
+# the authenticated panels BLIND. authority_url is a plain https URL; no port is assumed.
+authority_url: https://vuoro-shared.apps.kotona.app
+required_authorities: [work:read, work:project-read]
+credential_ref: file:/run/vuoro/credentials/generator
