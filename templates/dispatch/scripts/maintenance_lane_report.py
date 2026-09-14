@@ -8,9 +8,13 @@ Joins the four sources the maintenance-lane runbook names
    tier, model, harness, verdict, attempt.
 2. auditctl ``dispatch.exit`` events (NDJSON shards under an artifacts root)
    -- agent id, terminal reason, transcript path.
-3. subagent transcripts (JSONL, named by ``dispatch.exit``'s
-   ``transcript_path``) -- per-message token usage, de-duplicated by
-   ``message.id`` since one message can span several stream records.
+3. subagent transcripts (JSONL) -- per-message token usage, de-duplicated by
+   ``message.id`` (max per usage field across a message's records, since one
+   message can span several stream records with usage growing at different
+   rates per field). ``dispatch.exit``'s ``metadata.transcript_path`` names
+   the PARENT session's transcript, not the subagent's own; this resolves
+   ``<parent-without-.jsonl>/subagents/agent-<agent_id>.jsonl`` first and
+   falls back to the parent only when that file cannot be found.
 4. the local-inference scorecard CSV -- local-model attempts.
 
 Every input is optional. A source that is missing, empty, unreadable, or
@@ -41,7 +45,7 @@ DEFAULT_SPRINTCTL_PROFILE = (
     "profiles/workstation-vuoro-shared.json"
 )
 
-VERDICTS = ("accepted", "rework", "rejected", "escalated")
+VERDICTS = ("accepted", "rework", "rejected", "escalated", "blocked")
 
 CAVEATS = [
     "Token and cost figures derived from transcripts are list price, not subscription spend.",
@@ -198,8 +202,64 @@ def _verdict_of(review_payload: dict, review_tags_kv: dict[str, str]) -> str | N
     return None
 
 
+def _multi_tag_values(tags: list, key: str) -> list[str]:
+    """Return every value for a repeated 'key:value' tag, in the order given.
+
+    A lane.dispatch note can carry more than one 'model:' tag (a coordinator running
+    several local models under one dispatch) -- ``_parse_tags`` keeps only the last of
+    a repeated key, which silently drops the others.
+    """
+    values = []
+    for tag in tags or []:
+        if not isinstance(tag, str) or ":" not in tag:
+            continue
+        k, _, v = tag.partition(":")
+        if k == key:
+            values.append(v)
+    return values
+
+
+def _model_key(tags: list) -> str | None:
+    """Combine every 'model:' tag into one sorted, '+'-joined bucket key, or None."""
+    values = sorted(set(_multi_tag_values(tags, "model")))
+    if not values:
+        return None
+    return "+".join(values)
+
+
+def _dispatch_tags_for(dispatches: list[dict], agent_id: str | None, before_ts: str | None) -> list:
+    """Best-effort fallback source of tier/model tags for a review that omits them.
+
+    Prefer a lane.dispatch note tagged with the same agent id; among those (or, absent an
+    agent match, among all dispatch notes) prefer the latest one at or before the review's
+    own timestamp; fall back to the very last dispatch note if nothing sorts before it.
+    """
+    if not dispatches:
+        return []
+    candidates = dispatches
+    if agent_id:
+        matching = [
+            d for d in dispatches if _parse_tags(_payload(d).get("tags", []))[0].get("agent") == agent_id
+        ]
+        if matching:
+            candidates = matching
+    if before_ts:
+        prior = [d for d in candidates if (d.get("created_at") or "") <= before_ts]
+        if prior:
+            return _payload(prior[-1]).get("tags", [])
+    return _payload(candidates[-1]).get("tags", [])
+
+
 def build_item_records(items: list[dict], notes_by_id: dict[Any, list[dict]]) -> list[dict]:
-    """Attach dispatch/review events to each item and pair them into attempts in order."""
+    """Attach dispatch/review events to each item.
+
+    An "attempt" is exactly one ``lane.review`` note -- not a dispatch/review pairing by
+    position. Resumed agents can leave several ``lane.dispatch`` notes for one attempt (an
+    initial dispatch before the agent id is known, then a follow-up note once it is), so
+    dispatch notes are consulted only as a fallback source of tier/model/agent tags when a
+    review note omits them (the runbook's own template puts tier/model/agent on both note
+    types, so this fallback is rarely exercised against real data).
+    """
     records = []
     for item in items:
         item_id = item.get("id")
@@ -212,10 +272,37 @@ def build_item_records(items: list[dict], notes_by_id: dict[Any, list[dict]]) ->
             (e for e in events if e.get("event_type") == "lane.review"),
             key=lambda e: e.get("created_at") or "",
         )
+
         attempts = []
-        for i, dispatch in enumerate(dispatches):
-            review = reviews[i] if i < len(reviews) else None
-            attempts.append({"dispatch": dispatch, "review": review})
+        for review in reviews:
+            review_payload = _payload(review)
+            review_tags = review_payload.get("tags", [])
+            review_kv, review_flags = _parse_tags(review_tags)
+            tier = review_kv.get("tier")
+            model_key = _model_key(review_tags)
+            agent_id = review_kv.get("agent")
+
+            if tier is None or model_key is None:
+                fallback_tags = _dispatch_tags_for(dispatches, agent_id, review.get("created_at"))
+                fallback_kv, _flags = _parse_tags(fallback_tags)
+                if tier is None:
+                    tier = fallback_kv.get("tier")
+                if model_key is None:
+                    model_key = _model_key(fallback_tags)
+                if agent_id is None:
+                    agent_id = fallback_kv.get("agent")
+
+            attempts.append(
+                {
+                    "review": review,
+                    "tier": tier or "unknown",
+                    "model": model_key or "unknown",
+                    "agent_id": agent_id,
+                    "verdict": _verdict_of(review_payload, review_kv),
+                    "first_pass": "first-pass" in review_flags,
+                }
+            )
+
         records.append(
             {
                 "item": item,
@@ -238,6 +325,7 @@ def _rate(numerator: int, denominator: int) -> float | None:
 
 
 def aggregate_tier_model(records: list[dict]) -> list[dict]:
+    """Per (tier, model) rates. Denominator is attempts, i.e. lane.review notes."""
     buckets: dict[tuple[str, str], dict] = defaultdict(
         lambda: {
             "attempts": 0,
@@ -246,31 +334,22 @@ def aggregate_tier_model(records: list[dict]) -> list[dict]:
             "rework": 0,
             "rejected": 0,
             "escalated": 0,
+            "blocked": 0,
             "accepted_items": set(),
         }
     )
     for record in records:
         item_id = record["item"].get("id")
         for attempt in record["attempts"]:
-            dispatch_payload = _payload(attempt["dispatch"])
-            kv, _flags = _parse_tags(dispatch_payload.get("tags", []))
-            tier = kv.get("tier", "unknown")
-            model = kv.get("model", "unknown")
-            bucket = buckets[(tier, model)]
+            bucket = buckets[(attempt["tier"], attempt["model"])]
             bucket["attempts"] += 1
-
-            review = attempt["review"]
-            if review is None:
-                continue
-            review_payload = _payload(review)
-            review_kv, review_flags = _parse_tags(review_payload.get("tags", []))
-            verdict = _verdict_of(review_payload, review_kv)
+            verdict = attempt["verdict"]
             if verdict == "accepted":
                 bucket["accepted"] += 1
                 bucket["accepted_items"].add(item_id)
-                if "first-pass" in review_flags:
+                if attempt["first_pass"]:
                     bucket["first_pass_accepted"] += 1
-            elif verdict in ("rework", "rejected", "escalated"):
+            elif verdict in ("rework", "rejected", "escalated", "blocked"):
                 bucket[verdict] += 1
 
     rows = []
@@ -285,6 +364,7 @@ def aggregate_tier_model(records: list[dict]) -> list[dict]:
                 "rework_rate": _rate(bucket["rework"], attempts),
                 "rejected_rate": _rate(bucket["rejected"], attempts),
                 "escalated_rate": _rate(bucket["escalated"], attempts),
+                "blocked_rate": _rate(bucket["blocked"], attempts),
                 "accepted_items": sorted(bucket["accepted_items"]),
             }
         )
@@ -370,21 +450,61 @@ def load_dispatch_exit_events(root: Path, since: datetime | None) -> list[dict]:
     return events
 
 
-def summarize_transcript(path: Path) -> dict | None:
+USAGE_FIELDS = (
+    "input_tokens",
+    "cache_read_input_tokens",
+    "cache_creation_input_tokens",
+    "output_tokens",
+)
+
+
+def resolve_subagent_transcript(transcript_path: str | None, agent_id: str | None) -> tuple[Path | None, bool]:
+    """Resolve a dispatch.exit's *own* subagent transcript.
+
+    ``dispatch.exit``'s ``metadata.transcript_path`` names the PARENT session's transcript,
+    not the subagent's -- the parent transcript interleaves every subagent that session ran,
+    so summing it attributes every sibling subagent's tokens to each one. A subagent's own
+    records live at ``<parent-transcript-without-.jsonl>/subagents/agent-<agent_id>.jsonl``.
+
+    Returns ``(path, used_fallback)``. ``used_fallback`` is True whenever the subagent-specific
+    file could not be resolved (no agent id, or the file does not exist) and this fell back to
+    the parent transcript -- which is only actually correct for a session with exactly one
+    subagent, and over-counts otherwise. Callers should count fallbacks and surface them.
+    """
+    if not transcript_path:
+        return None, False
+    parent = Path(transcript_path)
+    if agent_id:
+        session_dir = parent.parent / parent.stem
+        candidate = session_dir / "subagents" / f"agent-{agent_id}.jsonl"
+        try:
+            exists = candidate.exists()
+        except OSError:
+            exists = False
+        if exists:
+            return candidate, False
+    return parent, True
+
+
+def summarize_transcript(path: Path | str | None) -> dict | None:
     """Stream a transcript JSONL and summarize assistant usage, de-duplicated by message.id.
 
-    A single logical message can appear across several stream records (usage grows as the
-    message streams); the last record seen for a given message.id carries the final usage.
+    A single logical message can appear across several stream records as it streams, with
+    usage fields growing at different rates per field (not necessarily in lockstep) -- so
+    each usage field is reduced with MAX across a message.id's records, not by keeping
+    whichever record happened to be seen first or last, and never by summing every record.
     """
     if not path:
         return None
+    path = Path(path)
     try:
         if not path.exists():
             return None
     except OSError:
         return None
 
-    last_by_id: dict[str, dict] = {}
+    max_usage_by_id: dict[str, dict[str, int]] = {}
+    model_by_id: dict[str, str] = {}
     order: list[str] = []
     timestamps: list[datetime] = []
 
@@ -404,12 +524,18 @@ def summarize_transcript(path: Path) -> dict | None:
                 mid = message.get("id")
                 if not mid:
                     continue
-                if mid not in last_by_id:
+                usage = message.get("usage") or {}
+                if mid not in max_usage_by_id:
                     order.append(mid)
-                last_by_id[mid] = {
-                    "model": message.get("model"),
-                    "usage": message.get("usage") or {},
-                }
+                    max_usage_by_id[mid] = {field: 0 for field in USAGE_FIELDS}
+                current = max_usage_by_id[mid]
+                for field in USAGE_FIELDS:
+                    value = usage.get(field) or 0
+                    if value > current[field]:
+                        current[field] = value
+                model = message.get("model")
+                if model and model != "<synthetic>" and mid not in model_by_id:
+                    model_by_id[mid] = model
                 ts = _parse_ts(rec.get("timestamp"))
                 if ts is not None:
                     timestamps.append(ts)
@@ -431,20 +557,16 @@ def summarize_transcript(path: Path) -> dict | None:
     peak_context = 0
     model_votes: dict[str, int] = defaultdict(int)
     for mid in order:
-        entry = last_by_id[mid]
-        usage = entry["usage"]
+        usage = max_usage_by_id[mid]
         message_input = (
-            (usage.get("input_tokens") or 0)
-            + (usage.get("cache_read_input_tokens") or 0)
-            + (usage.get("cache_creation_input_tokens") or 0)
+            usage["input_tokens"] + usage["cache_read_input_tokens"] + usage["cache_creation_input_tokens"]
         )
-        message_output = usage.get("output_tokens") or 0
         input_total += message_input
-        output_total += message_output
+        output_total += usage["output_tokens"]
         if message_input > peak_context:
             peak_context = message_input
-        model = entry["model"]
-        if model and model != "<synthetic>":
+        model = model_by_id.get(mid)
+        if model:
             model_votes[model] += 1
 
     model = max(model_votes, key=model_votes.get) if model_votes else None
@@ -466,10 +588,31 @@ def summarize_transcript(path: Path) -> dict | None:
 # Section (c): worker usage per model, and item-token join
 # --------------------------------------------------------------------------
 
-def summarize_worker_usage(dispatch_events: list[dict]) -> tuple[list[dict], dict[str, dict], dict[str, dict]]:
-    """Return (rows_per_model, transcript_cache_by_path, transcript_by_agent_id)."""
+def summarize_worker_usage(
+    dispatch_events: list[dict],
+) -> tuple[list[dict], dict[str, dict], dict[str, dict], int]:
+    """Return (rows_per_model, transcript_cache_by_resolved_path, transcript_by_agent_id, fallback_count).
+
+    A resumed agent (e.g. a coordinator SendMessage rework loop) can produce several
+    dispatch.exit events sharing one agent_id -- those are grouped into a single session
+    here, keyed by agent_id, so tokens are not double-counted and 'sessions' reflects
+    distinct workers rather than raw exit-event volume. An event with no agent_id (should
+    not happen for this hook, but tolerated) is treated as its own ungrouped session.
+    """
+    groups: dict[tuple[str, Any], list[dict]] = {}
+    ungrouped = 0
+    for event in dispatch_events:
+        agent_id = (event.get("metadata") or {}).get("agent_id")
+        if agent_id:
+            key = ("agent", agent_id)
+        else:
+            ungrouped += 1
+            key = ("event", ungrouped)
+        groups.setdefault(key, []).append(event)
+
     transcript_cache: dict[str, dict | None] = {}
     transcript_by_agent: dict[str, dict] = {}
+    fallback_count = 0
     per_model: dict[str, dict] = defaultdict(
         lambda: {
             "sessions": 0,
@@ -482,23 +625,30 @@ def summarize_worker_usage(dispatch_events: list[dict]) -> tuple[list[dict], dic
         }
     )
 
-    for event in dispatch_events:
-        metadata = event.get("metadata") or {}
-        transcript_path = metadata.get("transcript_path")
-        summary = None
-        if transcript_path:
-            if transcript_path not in transcript_cache:
-                transcript_cache[transcript_path] = summarize_transcript(Path(transcript_path))
-            summary = transcript_cache[transcript_path]
+    for events in groups.values():
+        events_sorted = sorted(events, key=lambda e: e.get("created_at") or "")
+        last_metadata = events_sorted[-1].get("metadata") or {}
+        agent_id = last_metadata.get("agent_id")
+        transcript_path = last_metadata.get("transcript_path")
 
-        agent_id = metadata.get("agent_id")
+        resolved_path, used_fallback = resolve_subagent_transcript(transcript_path, agent_id)
+        if used_fallback and transcript_path:
+            fallback_count += 1
+
+        summary = None
+        if resolved_path:
+            cache_key = str(resolved_path)
+            if cache_key not in transcript_cache:
+                transcript_cache[cache_key] = summarize_transcript(resolved_path)
+            summary = transcript_cache[cache_key]
+
         if agent_id and summary:
             transcript_by_agent[agent_id] = summary
 
         model = (summary or {}).get("model") or "unknown"
         bucket = per_model[model]
         bucket["total"] += 1
-        if metadata.get("terminal_reason") != "completed":
+        if last_metadata.get("terminal_reason") != "completed":
             bucket["abnormal"] += 1
         if summary:
             bucket["sessions"] += 1
@@ -526,41 +676,32 @@ def summarize_worker_usage(dispatch_events: list[dict]) -> tuple[list[dict], dic
                 "abnormal_exit_rate": _rate(bucket["abnormal"], bucket["total"]),
             }
         )
-    return rows, transcript_cache, transcript_by_agent
+    return rows, transcript_cache, transcript_by_agent, fallback_count
 
 
 def join_tokens_per_accepted_item(
     records: list[dict], transcript_by_agent: dict[str, dict]
 ) -> list[dict]:
-    """A lane.dispatch note may carry the worker's agent id as tag 'agent:<id>'.
+    """A lane.review note carries the worker's agent id as tag 'agent:<id>'.
 
-    Where present and joinable to a dispatch.exit/transcript, attach that attempt's
-    transcript usage to accepted items, per model.
+    Where present and joinable to a dispatch.exit/transcript, attach that accepted
+    attempt's transcript usage to the item, per model.
     """
     per_model: dict[str, dict] = defaultdict(
         lambda: {"accepted_items_joined": 0, "input_tokens": 0, "output_tokens": 0}
     )
     for record in records:
         for attempt in record["attempts"]:
-            review = attempt["review"]
-            if review is None:
+            if attempt["verdict"] != "accepted":
                 continue
-            review_payload = _payload(review)
-            review_kv, _flags = _parse_tags(review_payload.get("tags", []))
-            if _verdict_of(review_payload, review_kv) != "accepted":
-                continue
-
-            dispatch_payload = _payload(attempt["dispatch"])
-            dispatch_kv, _dflags = _parse_tags(dispatch_payload.get("tags", []))
-            agent_id = dispatch_kv.get("agent") or dispatch_payload.get("agent_id")
+            agent_id = attempt["agent_id"]
             if not agent_id:
                 continue
             summary = transcript_by_agent.get(agent_id)
             if not summary:
                 continue
 
-            model = dispatch_kv.get("model", "unknown")
-            bucket = per_model[model]
+            bucket = per_model[attempt["model"]]
             bucket["accepted_items_joined"] += 1
             bucket["input_tokens"] += summary["input_tokens"]
             bucket["output_tokens"] += summary["output_tokens"]
@@ -643,8 +784,8 @@ def build_report(args: argparse.Namespace) -> dict:
     audit_available = artifacts_root.exists()
     dispatch_events = load_dispatch_exit_events(artifacts_root, since) if audit_available else []
 
-    worker_rows, _transcript_cache, transcript_by_agent = (
-        summarize_worker_usage(dispatch_events) if audit_available else ([], {}, {})
+    worker_rows, _transcript_cache, transcript_by_agent, fallback_count = (
+        summarize_worker_usage(dispatch_events) if audit_available else ([], {}, {}, 0)
     )
 
     scorecard_path = Path(args.scorecard) if args.scorecard else None
@@ -669,6 +810,7 @@ def build_report(args: argparse.Namespace) -> dict:
         "worker_usage": {
             "available": audit_available,
             "rows": worker_rows,
+            "resolution_fallbacks": fallback_count,
             "tokens_per_accepted_item": (
                 join_tokens_per_accepted_item(records, transcript_by_agent)
                 if items_available and audit_available
@@ -679,9 +821,21 @@ def build_report(args: argparse.Namespace) -> dict:
             "available": scorecard_available,
             "rows": scorecard_rows,
         },
-        "caveats": list(CAVEATS),
+        "caveats": _caveats(fallback_count),
     }
     return report
+
+
+def _caveats(fallback_count: int) -> list[str]:
+    caveats = list(CAVEATS)
+    if fallback_count:
+        caveats.append(
+            f"{fallback_count} dispatch.exit event group(s) could not resolve a subagent-specific "
+            "transcript (missing agent id, or the subagents/agent-<id>.jsonl file does not exist) "
+            "and fell back to the parent session transcript, which over-counts usage whenever that "
+            "session ran more than one subagent."
+        )
+    return caveats
 
 
 def _fmt_rate(value: float | None) -> str:
@@ -710,12 +864,13 @@ def render_markdown(report: dict) -> str:
         lines.append("_no lane attempts in window_")
     else:
         lines.append(
-            "| tier | model | attempts | first-pass | rework | rejected | escalated | accepted items |"
+            "| tier | model | attempts | first-pass | rework | rejected | escalated | blocked | "
+            "accepted items |"
         )
-        lines.append("|---|---|---|---|---|---|---|---|")
+        lines.append("|---|---|---|---|---|---|---|---|---|")
         for row in tm["rows"]:
             lines.append(
-                "| {tier} | {model} | {attempts} | {fp} | {rw} | {rj} | {esc} | {accepted} |".format(
+                "| {tier} | {model} | {attempts} | {fp} | {rw} | {rj} | {esc} | {blk} | {accepted} |".format(
                     tier=row["tier"],
                     model=row["model"],
                     attempts=row["attempts"],
@@ -723,6 +878,7 @@ def render_markdown(report: dict) -> str:
                     rw=_fmt_rate(row["rework_rate"]),
                     rj=_fmt_rate(row["rejected_rate"]),
                     esc=_fmt_rate(row["escalated_rate"]),
+                    blk=_fmt_rate(row["blocked_rate"]),
                     accepted=len(row["accepted_items"]),
                 )
             )
@@ -765,9 +921,15 @@ def render_markdown(report: dict) -> str:
                     abn=_fmt_rate(row["abnormal_exit_rate"]),
                 )
             )
+        if wu["resolution_fallbacks"]:
+            lines.append("")
+            lines.append(
+                f"_{wu['resolution_fallbacks']} session(s) fell back to the parent transcript "
+                "(no subagent-specific transcript resolved)._"
+            )
         if wu["tokens_per_accepted_item"]:
             lines.append("")
-            lines.append("Tokens per accepted item (joined via lane.dispatch `agent:<id>` tag):")
+            lines.append("Tokens per accepted item (joined via lane.review `agent:<id>` tag):")
             lines.append("| model | accepted items joined | input tokens/item | output tokens/item |")
             lines.append("|---|---|---|---|")
             for row in wu["tokens_per_accepted_item"]:

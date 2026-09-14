@@ -10,14 +10,33 @@ Fixtures below mirror the real JSON shapes observed live against sprint 559
 ``agentops``, ``SPRINTCTL_BACKEND=served``): ``item show`` returns
 ``{"item": {...}, "events": [...]}`` where each event's ``payload`` is a *JSON string*
 (not an object) carrying ``tags``/``summary``/``detail``/``git_branch``/``git_worktree``.
-Item 2377 in that sprint carries exactly the accepted/first-pass ``lane.dispatch`` +
-``lane.review`` pair used as the "known good" shape here; item 2372 carries a
-``lane.dispatch`` with no matching review, which is the real shape of a stale item.
 
-The transcript dedup fixture mirrors a real streamed assistant message (three JSONL
-records, same ``message.id``, growing ``output_tokens`` across records) pulled from a
-live subagent transcript -- the point being that summing all three records would
-triple-count tokens; the report must keep only the final one per id.
+This file pins the coordinator's attempt-2 review corrections (34e8274 was REWORK), each
+verified against live sprint 559 / a live subagent transcript before being encoded here:
+
+1. **Transcript resolution.** ``dispatch.exit``'s ``metadata.transcript_path`` for a
+   SUBAGENT exit is the PARENT session's transcript, not the subagent's own -- verified
+   live: agent ``ae70fc0a294de1cb0``'s dispatch.exit metadata pointed at
+   ``.../279bc82d-d705-42ba-bd8c-a51dbee6538e.jsonl`` (the coordinator session), while its
+   own records live at
+   ``.../279bc82d-d705-42ba-bd8c-a51dbee6538e/subagents/agent-ae70fc0a294de1cb0.jsonl``
+   (confirmed to exist on disk). Using the parent file attributes every sibling subagent's
+   tokens to each one.
+2. **Usage dedup is MAX per field, not last-record-wins and not summed.** Verified against
+   that same live subagent transcript: 81 assistant records collapse to 36 distinct
+   ``message.id``s; the correct dedup gives ~1,760,415 input tokens (input + cache_read +
+   cache_creation, summed across the 36 deduped messages) and a peak single-message context
+   of 61,742.
+3. **An attempt is one lane.review note, not a dispatch/review position-pairing.** Verified
+   on item 2374 (sprint 559): it carries two ``lane.dispatch`` notes for the same resumed
+   agent (the first before the agent id was known, the second after) but exactly two
+   ``lane.review`` notes (rework, then accepted) -- rates are computed over review notes.
+4. **Multiple ``model:`` tags on one note combine into one bucket key.** Verified on item
+   2375's dispatch note: ``tags`` carries both ``model:local3090/worker-fast`` and
+   ``model:local3090/devstral``; naive ``dict``-based tag parsing (last key wins) silently
+   drops one.
+5. **``verdict:blocked`` is its own outcome, not dropped.** Verified on item 2375's review
+   note: ``verdict:blocked`` with a llama-swap GPU-runtime failure as the reason.
 """
 from __future__ import annotations
 
@@ -25,6 +44,7 @@ import csv
 import importlib.util
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -43,6 +63,16 @@ def _load_module(name: str, path: Path):
 
 
 mlr = _load_module("maintenance_lane_report_subject", SCRIPTS / "maintenance_lane_report.py")
+
+
+class _TempDir:
+    def __enter__(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        return Path(self._tmp.name)
+
+    def __exit__(self, exc_type, exc, tb):
+        self._tmp.cleanup()
+        return False
 
 
 # --------------------------------------------------------------------------
@@ -177,6 +207,11 @@ class TagParsingTests(unittest.TestCase):
         kv, _flags = mlr._parse_tags(payload["tags"])
         self.assertEqual(mlr._verdict_of(payload, kv), "rejected")
 
+    def test_blocked_is_a_recognized_verdict(self):
+        payload = {"summary": "blocked: llama-swap GPU runtime failure", "tags": ["lane", "verdict:blocked"]}
+        kv, _flags = mlr._parse_tags(payload["tags"])
+        self.assertEqual(mlr._verdict_of(payload, kv), "blocked")
+
     def test_payload_string_is_parsed(self):
         event = {"payload": json.dumps({"tags": ["lane"], "summary": "x"})}
         self.assertEqual(mlr._payload(event), {"tags": ["lane"], "summary": "x"})
@@ -185,6 +220,16 @@ class TagParsingTests(unittest.TestCase):
         event = {"payload": "{not json"}
         self.assertEqual(mlr._payload(event), {})
 
+    def test_multi_model_tags_combine_sorted_and_joined(self):
+        tags = ["lane", "model:local3090/worker-fast", "model:local3090/devstral"]
+        self.assertEqual(mlr._model_key(tags), "local3090/devstral+local3090/worker-fast")
+
+    def test_single_model_tag_key_is_unjoined(self):
+        self.assertEqual(mlr._model_key(["model:claude-sonnet-5"]), "claude-sonnet-5")
+
+    def test_no_model_tag_yields_none(self):
+        self.assertIsNone(mlr._model_key(["lane", "tier:fast-build"]))
+
 
 # --------------------------------------------------------------------------
 # Per tier / model aggregation (section a)
@@ -192,31 +237,23 @@ class TagParsingTests(unittest.TestCase):
 
 class TierModelAggregationTests(unittest.TestCase):
     def test_accepted_first_pass_and_rework_rates(self):
-        # Item A: dispatched fast-build/sonnet, accepted first-pass.
         item_a = _item(2377, "A", "done", "2026-09-14T18:53:48Z", "2026-09-14T18:58:25Z")
         events_a = [
             _event(
                 "lane.dispatch",
                 "coordinator",
-                {
-                    "tags": ["lane", "tier:fast-build", "model:claude-sonnet-5", "harness:claude-subagent"],
-                    "summary": "Dispatched to worker",
-                },
+                {"tags": ["lane", "tier:fast-build", "model:claude-sonnet-5", "harness:claude-subagent"], "summary": "Dispatched"},
                 "2026-09-14T18:53:49Z",
                 1,
             ),
             _event(
                 "lane.review",
                 "coordinator",
-                {
-                    "tags": ["lane", "verdict:accepted", "first-pass", "tier:fast-build", "model:claude-sonnet-5"],
-                    "summary": "Accepted: meets acceptance criteria",
-                },
+                {"tags": ["lane", "verdict:accepted", "first-pass", "tier:fast-build", "model:claude-sonnet-5"], "summary": "Accepted"},
                 "2026-09-14T18:58:24Z",
                 2,
             ),
         ]
-        # Item B: dispatched fast-build/sonnet, reworked (not first-pass).
         item_b = _item(2378, "B", "active", "2026-09-14T19:00:00Z", "2026-09-14T19:05:00Z")
         events_b = [
             _event(
@@ -234,9 +271,7 @@ class TierModelAggregationTests(unittest.TestCase):
                 4,
             ),
         ]
-        items = [item_a, item_b]
-        notes = {2377: events_a, 2378: events_b}
-        records = mlr.build_item_records(items, notes)
+        records = mlr.build_item_records([item_a, item_b], {2377: events_a, 2378: events_b})
         rows = mlr.aggregate_tier_model(records)
         self.assertEqual(len(rows), 1)
         row = rows[0]
@@ -245,9 +280,12 @@ class TierModelAggregationTests(unittest.TestCase):
         self.assertAlmostEqual(row["first_pass_acceptance_rate"], 0.5)
         self.assertAlmostEqual(row["rework_rate"], 0.5)
         self.assertEqual(row["rejected_rate"], 0.0)
+        self.assertEqual(row["blocked_rate"], 0.0)
         self.assertEqual(row["accepted_items"], [2377])
 
-    def test_dispatch_without_review_counts_as_attempt_with_no_verdict(self):
+    def test_dispatch_without_review_contributes_no_attempt(self):
+        # Real shape of a not-yet-reviewed item (2372 before its first review landed):
+        # attempts are counted from lane.review notes only.
         item = _item(2372, "C", "active", "2026-09-14T18:53:46Z", "2026-09-14T18:55:44Z")
         events = [
             _event(
@@ -264,10 +302,107 @@ class TierModelAggregationTests(unittest.TestCase):
             )
         ]
         records = mlr.build_item_records([item], {2372: events})
+        self.assertEqual(mlr.aggregate_tier_model(records), [])
+
+    def test_two_dispatch_notes_one_resumed_agent_two_reviews_is_two_attempts_one_item(self):
+        # Real shape of item 2374: an initial dispatch (no agent id yet), a follow-up
+        # dispatch once the agent id is known, then rework -> accepted.
+        item = _item(2374, "D", "active", "2026-09-14T18:53:47Z", "2026-09-14T19:03:20Z")
+        events = [
+            _event(
+                "lane.dispatch",
+                "coordinator",
+                {"tags": ["lane", "tier:fast-build", "model:claude-haiku-4-5", "harness:claude-subagent"], "summary": "Dispatched"},
+                "2026-09-14T18:58:23Z",
+                1,
+            ),
+            _event(
+                "lane.dispatch",
+                "coordinator",
+                {"tags": ["lane", "tier:fast-build", "model:claude-haiku-4-5", "harness:claude-subagent", "agent:ae70fc0a294de1cb0"], "summary": "Dispatched"},
+                "2026-09-14T19:00:38Z",
+                2,
+            ),
+            _event(
+                "lane.review",
+                "coordinator",
+                {"tags": ["lane", "verdict:rework", "attempt:1", "tier:fast-build", "model:claude-haiku-4-5", "agent:ae70fc0a294de1cb0"], "summary": "rework: fix needed"},
+                "2026-09-14T19:01:27Z",
+                3,
+            ),
+            _event(
+                "lane.review",
+                "coordinator",
+                {"tags": ["lane", "verdict:accepted", "attempt:2", "tier:fast-build", "model:claude-haiku-4-5", "agent:ae70fc0a294de1cb0"], "summary": "accepted: matches criteria"},
+                "2026-09-14T19:03:20Z",
+                4,
+            ),
+        ]
+        records = mlr.build_item_records([item], {2374: events})
         rows = mlr.aggregate_tier_model(records)
-        self.assertEqual(rows[0]["attempts"], 1)
-        self.assertEqual(rows[0]["first_pass_acceptance_rate"], 0.0)
-        self.assertEqual(rows[0]["accepted_items"], [])
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertEqual(row["attempts"], 2)
+        self.assertEqual(row["accepted_items"], [2374])
+        self.assertAlmostEqual(row["rework_rate"], 0.5)
+        # Not first-pass: the accepted review is attempt 2, not tagged first-pass.
+        self.assertEqual(row["first_pass_acceptance_rate"], 0.0)
+
+    def test_multi_model_dispatch_tags_form_combined_bucket_when_review_lacks_model(self):
+        # Real shape of item 2375: dispatch carries two model tags; the review that
+        # follows carries only one of them (the model actually run for that attempt) --
+        # exercise the fallback path by omitting the model tag on the review entirely.
+        item = _item(2375, "E", "blocked", "2026-09-14T18:53:47Z", "2026-09-14T19:02:25Z")
+        events = [
+            _event(
+                "lane.dispatch",
+                "coordinator",
+                {"tags": ["lane", "tier:local", "model:local3090/worker-fast", "model:local3090/devstral", "harness:opencode"], "summary": "Dispatched"},
+                "2026-09-14T18:58:24Z",
+                1,
+            ),
+            _event(
+                "lane.review",
+                "coordinator",
+                {"tags": ["lane", "verdict:blocked", "attempt:1", "tier:local", "agent:aad7a6fbf0e3d21d8"], "summary": "blocked: llama-swap GPU runtime failure"},
+                "2026-09-14T19:02:25Z",
+                2,
+            ),
+        ]
+        records = mlr.build_item_records([item], {2375: events})
+        rows = mlr.aggregate_tier_model(records)
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertEqual(row["tier"], "local")
+        self.assertEqual(row["model"], "local3090/devstral+local3090/worker-fast")
+        self.assertEqual(row["attempts"], 1)
+        self.assertAlmostEqual(row["blocked_rate"], 1.0)
+        self.assertEqual(row["accepted_items"], [])
+
+    def test_blocked_verdict_has_its_own_rate_and_does_not_vanish(self):
+        item = _item(2375, "E", "blocked", "2026-09-14T18:53:47Z", "2026-09-14T19:02:25Z")
+        events = [
+            _event(
+                "lane.dispatch",
+                "coordinator",
+                {"tags": ["lane", "tier:local", "model:local3090/worker-fast"], "summary": "Dispatched"},
+                "2026-09-14T18:58:24Z",
+                1,
+            ),
+            _event(
+                "lane.review",
+                "coordinator",
+                {"tags": ["lane", "verdict:blocked", "attempt:1", "tier:local", "model:local3090/worker-fast", "agent:aad7a6fbf0e3d21d8"], "summary": "blocked: backend broken"},
+                "2026-09-14T19:02:25Z",
+                2,
+            ),
+        ]
+        records = mlr.build_item_records([item], {2375: events})
+        row = mlr.aggregate_tier_model(records)[0]
+        self.assertEqual(row["attempts"], 1)
+        self.assertAlmostEqual(row["blocked_rate"], 1.0)
+        self.assertEqual(row["first_pass_acceptance_rate"], 0.0)
+        self.assertEqual(row["accepted_items"], [])
 
     def test_empty_items_yields_no_rows(self):
         self.assertEqual(mlr.aggregate_tier_model([]), [])
@@ -282,13 +417,7 @@ class StaleItemsTests(unittest.TestCase):
         now = mlr._parse_ts("2026-09-15T20:00:00Z")
         item = _item(2372, "C", "active", "2026-09-14T18:53:46Z", "2026-09-14T18:55:44Z")
         events = [
-            _event(
-                "lane.dispatch",
-                "coordinator",
-                {"tags": ["lane", "tier:fast-build", "model:claude-sonnet-5"], "summary": "Dispatched"},
-                "2026-09-14T18:58:23Z",
-                1,
-            )
+            _event("lane.dispatch", "coordinator", {"tags": ["lane", "tier:fast-build", "model:claude-sonnet-5"], "summary": "Dispatched"}, "2026-09-14T18:58:23Z", 1)
         ]
         records = mlr.build_item_records([item], {2372: events})
         stale = mlr.find_stale_items(records, stale_hours=24.0, now=now)
@@ -299,13 +428,7 @@ class StaleItemsTests(unittest.TestCase):
         now = mlr._parse_ts("2026-09-14T20:00:00Z")
         item = _item(2372, "C", "active", "2026-09-14T18:53:46Z", "2026-09-14T18:55:44Z")
         events = [
-            _event(
-                "lane.dispatch",
-                "coordinator",
-                {"tags": ["lane", "tier:fast-build", "model:claude-sonnet-5"], "summary": "Dispatched"},
-                "2026-09-14T18:58:23Z",
-                1,
-            )
+            _event("lane.dispatch", "coordinator", {"tags": ["lane", "tier:fast-build", "model:claude-sonnet-5"], "summary": "Dispatched"}, "2026-09-14T18:58:23Z", 1)
         ]
         records = mlr.build_item_records([item], {2372: events})
         stale = mlr.find_stale_items(records, stale_hours=24.0, now=now)
@@ -316,13 +439,7 @@ class StaleItemsTests(unittest.TestCase):
         item = _item(2377, "A", "done", "2026-09-14T18:53:48Z", "2026-09-14T18:58:25Z")
         events = [
             _event("lane.dispatch", "coordinator", {"tags": ["lane"], "summary": "Dispatched"}, "2026-09-14T18:53:49Z", 1),
-            _event(
-                "lane.review",
-                "coordinator",
-                {"tags": ["lane", "verdict:accepted", "first-pass"], "summary": "Accepted"},
-                "2026-09-14T18:58:24Z",
-                2,
-            ),
+            _event("lane.review", "coordinator", {"tags": ["lane", "verdict:accepted", "first-pass"], "summary": "Accepted"}, "2026-09-14T18:58:24Z", 2),
         ]
         records = mlr.build_item_records([item], {2377: events})
         stale = mlr.find_stale_items(records, stale_hours=24.0, now=now)
@@ -342,39 +459,17 @@ class StaleItemsTests(unittest.TestCase):
 
 class AuditShardTests(unittest.TestCase):
     def test_finds_shard_and_filters_by_since(self):
-        with _TempDir() as tmp:
-            root = Path(tmp)
-            _audit_shard(
-                root,
-                "agentops",
-                "2026-09-01",
-                [_dispatch_exit("a1", "agentops", "completed", None, "2026-09-01T00:00:00Z")],
-            )
-            _audit_shard(
-                root,
-                "agentops",
-                "2026-09-10",
-                [_dispatch_exit("a2", "agentops", "completed", None, "2026-09-10T00:00:00Z")],
-            )
+        with _TempDir() as root:
+            _audit_shard(root, "agentops", "2026-09-01", [_dispatch_exit("a1", "agentops", "completed", None, "2026-09-01T00:00:00Z")])
+            _audit_shard(root, "agentops", "2026-09-10", [_dispatch_exit("a2", "agentops", "completed", None, "2026-09-10T00:00:00Z")])
             events = mlr.load_dispatch_exit_events(root, since=mlr._parse_ts("2026-09-05T00:00:00Z"))
             self.assertEqual(len(events), 1)
             self.assertEqual(events[0]["metadata"]["agent_id"], "a2")
 
     def test_skips_wt_and_projects_directories(self):
-        with _TempDir() as tmp:
-            root = Path(tmp)
-            _audit_shard(
-                root / "_wt" / "some-worktree",
-                "agentops",
-                "2026-09-10",
-                [_dispatch_exit("skip-me", "agentops", "completed", None, "2026-09-10T00:00:00Z")],
-            )
-            _audit_shard(
-                root,
-                "agentops",
-                "2026-09-10",
-                [_dispatch_exit("keep-me", "agentops", "completed", None, "2026-09-10T00:00:00Z")],
-            )
+        with _TempDir() as root:
+            _audit_shard(root / "_wt" / "some-worktree", "agentops", "2026-09-10", [_dispatch_exit("skip-me", "agentops", "completed", None, "2026-09-10T00:00:00Z")])
+            _audit_shard(root, "agentops", "2026-09-10", [_dispatch_exit("keep-me", "agentops", "completed", None, "2026-09-10T00:00:00Z")])
             events = mlr.load_dispatch_exit_events(root, since=None)
             agent_ids = {e["metadata"]["agent_id"] for e in events}
             self.assertEqual(agent_ids, {"keep-me"})
@@ -384,8 +479,7 @@ class AuditShardTests(unittest.TestCase):
         self.assertEqual(events, [])
 
     def test_ignores_non_ndjson_and_malformed_lines(self):
-        with _TempDir() as tmp:
-            root = Path(tmp)
+        with _TempDir() as root:
             shard_dir = root / "_artifacts" / "agentops" / "audit"
             shard_dir.mkdir(parents=True)
             shard = shard_dir / "events-2026-09-10.ndjson"
@@ -402,15 +496,55 @@ class AuditShardTests(unittest.TestCase):
 
 
 # --------------------------------------------------------------------------
-# Transcript summarization: de-duplication by message.id
+# Subagent transcript resolution (fix #1: parent vs. subagent transcript)
+# --------------------------------------------------------------------------
+
+class TranscriptResolutionTests(unittest.TestCase):
+    def test_resolves_subagent_specific_file_over_parent(self):
+        with _TempDir() as root:
+            session_id = "279bc82d-d705-42ba-bd8c-a51dbee6538e"
+            parent = root / f"{session_id}.jsonl"
+            parent.write_text("")  # parent transcript exists too, but must not be chosen
+            subagent_path = root / session_id / "subagents" / "agent-ae70fc0a294de1cb0.jsonl"
+            subagent_path.parent.mkdir(parents=True)
+            subagent_path.write_text("")
+
+            resolved, used_fallback = mlr.resolve_subagent_transcript(str(parent), "ae70fc0a294de1cb0")
+            self.assertEqual(resolved, subagent_path)
+            self.assertFalse(used_fallback)
+
+    def test_falls_back_to_parent_when_subagent_file_missing_and_flags_it(self):
+        with _TempDir() as root:
+            session_id = "some-session"
+            parent = root / f"{session_id}.jsonl"
+            parent.write_text("")
+            # No subagents/ directory at all.
+            resolved, used_fallback = mlr.resolve_subagent_transcript(str(parent), "missing-agent")
+            self.assertEqual(resolved, parent)
+            self.assertTrue(used_fallback)
+
+    def test_no_agent_id_falls_back_to_parent(self):
+        with _TempDir() as root:
+            parent = root / "s.jsonl"
+            parent.write_text("")
+            resolved, used_fallback = mlr.resolve_subagent_transcript(str(parent), None)
+            self.assertEqual(resolved, parent)
+            self.assertTrue(used_fallback)
+
+    def test_no_transcript_path_is_not_a_fallback(self):
+        resolved, used_fallback = mlr.resolve_subagent_transcript(None, "some-agent")
+        self.assertIsNone(resolved)
+        self.assertFalse(used_fallback)
+
+
+# --------------------------------------------------------------------------
+# Transcript summarization: MAX-per-field de-duplication by message.id
 # --------------------------------------------------------------------------
 
 class TranscriptDedupTests(unittest.TestCase):
-    def test_multi_record_message_is_deduplicated_not_summed(self):
+    def test_multi_record_message_is_deduplicated_by_max_not_summed(self):
         with _TempDir() as tmp:
-            path = Path(tmp) / "transcript.jsonl"
-            # Mirrors a real streamed message: three records share message.id, usage
-            # grows monotonically (the API streams partial usage, then final usage).
+            path = tmp / "transcript.jsonl"
             records = [
                 _assistant_record("msg_1", "claude-opus-5", "2026-09-12T17:30:05Z", 2, 24750, 9884, 1),
                 _assistant_record("msg_1", "claude-opus-5", "2026-09-12T17:30:07Z", 2, 24750, 9884, 1),
@@ -421,22 +555,35 @@ class TranscriptDedupTests(unittest.TestCase):
             _write_transcript(path, records)
             summary = mlr.summarize_transcript(path)
             self.assertEqual(summary["messages"], 2)
-            # Only the final record per message id should contribute output tokens.
             self.assertEqual(summary["output_tokens"], 340 + 333)
-            # Input total = sum over messages of (input + cache_read + cache_creation)
-            # using each message's own final record.
             expected_input = (2 + 24750 + 9884) + (2 + 34634 + 1960)
             self.assertEqual(summary["input_tokens"], expected_input)
             self.assertEqual(summary["peak_context"], max(2 + 24750 + 9884, 2 + 34634 + 1960))
             self.assertEqual(summary["model"], "claude-opus-5")
             self.assertAlmostEqual(summary["wall_seconds"], 10.0)
 
+    def test_max_is_not_the_last_record_when_a_field_shrinks(self):
+        # A pathological but real-possible stream where an earlier record carries a
+        # HIGHER cache_creation value than the final record for the same message.id:
+        # keeping "last wins" would under-count; MAX per field must not.
+        with _TempDir() as tmp:
+            path = tmp / "t.jsonl"
+            records = [
+                _assistant_record("m1", "claude-sonnet-5", "2026-09-14T18:00:00Z", 5, 100, 9000, 1),
+                _assistant_record("m1", "claude-sonnet-5", "2026-09-14T18:00:01Z", 5, 100, 500, 250),
+            ]
+            _write_transcript(path, records)
+            summary = mlr.summarize_transcript(path)
+            # cache_creation max(9000, 500) = 9000; output max(1, 250) = 250.
+            self.assertEqual(summary["input_tokens"], 5 + 100 + 9000)
+            self.assertEqual(summary["output_tokens"], 250)
+
     def test_missing_transcript_returns_none(self):
         self.assertIsNone(mlr.summarize_transcript(Path("/no/such/transcript.jsonl")))
 
     def test_empty_transcript_returns_zeroed_summary(self):
         with _TempDir() as tmp:
-            path = Path(tmp) / "empty.jsonl"
+            path = tmp / "empty.jsonl"
             path.write_text("")
             summary = mlr.summarize_transcript(path)
             self.assertEqual(summary["messages"], 0)
@@ -444,7 +591,7 @@ class TranscriptDedupTests(unittest.TestCase):
 
     def test_synthetic_model_excluded_from_model_vote(self):
         with _TempDir() as tmp:
-            path = Path(tmp) / "t.jsonl"
+            path = tmp / "t.jsonl"
             records = [
                 _assistant_record("m1", "<synthetic>", "2026-09-12T17:30:05Z", 0, 0, 0, 0),
                 _assistant_record("m2", "claude-sonnet-5", "2026-09-12T17:30:06Z", 5, 5, 5, 5),
@@ -459,18 +606,19 @@ class TranscriptDedupTests(unittest.TestCase):
 # --------------------------------------------------------------------------
 
 class WorkerUsageTests(unittest.TestCase):
-    def test_sessions_tokens_and_abnormal_rate_per_model(self):
-        with _TempDir() as tmp:
-            tpath = Path(tmp) / "t1.jsonl"
-            _write_transcript(
-                tpath,
-                [_assistant_record("m1", "claude-sonnet-5", "2026-09-14T18:00:00Z", 10, 0, 0, 20)],
-            )
+    def test_sessions_tokens_and_abnormal_rate_per_model_using_subagent_transcript(self):
+        with _TempDir() as root:
+            session_id = "sess-1"
+            parent = root / f"{session_id}.jsonl"
+            parent.write_text("")  # exists, but must not be summed
+            subagent_path = root / session_id / "subagents" / "agent-w1.jsonl"
+            _write_transcript(subagent_path, [_assistant_record("m1", "claude-sonnet-5", "2026-09-14T18:00:00Z", 10, 0, 0, 20)])
+
             events = [
-                _dispatch_exit("agent-1", "agentops", "completed", tpath, "2026-09-14T18:00:01Z"),
+                _dispatch_exit("w1", "agentops", "completed", parent, "2026-09-14T18:00:01Z"),
                 _dispatch_exit("agent-2", "agentops", "error", None, "2026-09-14T18:05:00Z"),
             ]
-            rows, _cache, by_agent = mlr.summarize_worker_usage(events)
+            rows, _cache, by_agent, fallback_count = mlr.summarize_worker_usage(events)
             by_model = {row["model"]: row for row in rows}
             self.assertIn("claude-sonnet-5", by_model)
             self.assertEqual(by_model["claude-sonnet-5"]["sessions"], 1)
@@ -479,39 +627,80 @@ class WorkerUsageTests(unittest.TestCase):
             self.assertEqual(by_model["claude-sonnet-5"]["abnormal_exit_rate"], 0.0)
             self.assertIn("unknown", by_model)
             self.assertEqual(by_model["unknown"]["abnormal_exit_rate"], 1.0)
-            self.assertIn("agent-1", by_agent)
+            self.assertIn("w1", by_agent)
+            # agent-2 has no transcript_path at all -> not a resolvable fallback (nothing to fall back to).
+            self.assertEqual(fallback_count, 0)
+
+    def test_falls_back_and_counts_when_subagent_file_absent(self):
+        with _TempDir() as root:
+            session_id = "sess-2"
+            parent = root / f"{session_id}.jsonl"
+            _write_transcript(parent, [_assistant_record("m1", "claude-opus-5", "2026-09-14T18:00:00Z", 1, 1, 1, 1)])
+            # No subagents/ directory at all for this agent.
+            events = [_dispatch_exit("w-missing", "agentops", "completed", parent, "2026-09-14T18:00:01Z")]
+            rows, _cache, by_agent, fallback_count = mlr.summarize_worker_usage(events)
+            self.assertEqual(fallback_count, 1)
+            self.assertIn("w-missing", by_agent)
+
+    def test_two_exits_for_one_resumed_agent_are_one_session_not_two(self):
+        # Real shape: item 2374's agent ae70fc0a294de1cb0 exits once per rework cycle,
+        # but it is one worker -- 'sessions' must count it once, and tokens must not
+        # be double-counted across the two exit records.
+        with _TempDir() as root:
+            session_id = "sess-3"
+            parent = root / f"{session_id}.jsonl"
+            parent.write_text("")
+            subagent_path = root / session_id / "subagents" / "agent-ae70fc0a294de1cb0.jsonl"
+            _write_transcript(
+                subagent_path,
+                [_assistant_record("m1", "claude-haiku-4-5", "2026-09-14T19:00:00Z", 100, 0, 0, 50)],
+            )
+            events = [
+                _dispatch_exit("ae70fc0a294de1cb0", "agentops", "completed", parent, "2026-09-14T19:01:00Z"),
+                _dispatch_exit("ae70fc0a294de1cb0", "agentops", "completed", parent, "2026-09-14T19:03:00Z"),
+            ]
+            rows, _cache, by_agent, fallback_count = mlr.summarize_worker_usage(events)
+            by_model = {row["model"]: row for row in rows}
+            self.assertEqual(by_model["claude-haiku-4-5"]["sessions"], 1)
+            self.assertEqual(by_model["claude-haiku-4-5"]["input_tokens"], 100)
+            self.assertEqual(by_model["claude-haiku-4-5"]["output_tokens"], 50)
+            self.assertEqual(fallback_count, 0)
+
+    def test_abnormal_rate_uses_last_exit_for_grouped_agent(self):
+        with _TempDir() as root:
+            session_id = "sess-4"
+            parent = root / f"{session_id}.jsonl"
+            parent.write_text("")
+            subagent_path = root / session_id / "subagents" / "agent-flaky.jsonl"
+            _write_transcript(subagent_path, [_assistant_record("m1", "claude-sonnet-5", "2026-09-14T19:00:00Z", 1, 0, 0, 1)])
+            events = [
+                _dispatch_exit("flaky", "agentops", "error", parent, "2026-09-14T19:00:00Z"),
+                _dispatch_exit("flaky", "agentops", "completed", parent, "2026-09-14T19:05:00Z"),
+            ]
+            rows, _cache, _by_agent, _fb = mlr.summarize_worker_usage(events)
+            row = next(r for r in rows if r["model"] == "claude-sonnet-5")
+            self.assertEqual(row["abnormal_exit_rate"], 0.0)
 
     def test_no_events_yields_no_rows(self):
-        rows, _cache, by_agent = mlr.summarize_worker_usage([])
+        rows, _cache, by_agent, fallback_count = mlr.summarize_worker_usage([])
         self.assertEqual(rows, [])
         self.assertEqual(by_agent, {})
+        self.assertEqual(fallback_count, 0)
 
-    def test_tokens_per_accepted_item_join_via_agent_tag(self):
-        with _TempDir() as tmp:
-            tpath = Path(tmp) / "t.jsonl"
-            _write_transcript(
-                tpath,
-                [_assistant_record("m1", "claude-sonnet-5", "2026-09-14T18:00:00Z", 100, 0, 0, 50)],
-            )
-            dispatch_events = [_dispatch_exit("agent-xyz", "agentops", "completed", tpath, "2026-09-14T18:00:01Z")]
-            _rows, _cache, by_agent = mlr.summarize_worker_usage(dispatch_events)
+    def test_tokens_per_accepted_item_join_via_review_agent_tag(self):
+        with _TempDir() as root:
+            session_id = "sess-5"
+            parent = root / f"{session_id}.jsonl"
+            parent.write_text("")
+            subagent_path = root / session_id / "subagents" / "agent-xyz.jsonl"
+            _write_transcript(subagent_path, [_assistant_record("m1", "claude-sonnet-5", "2026-09-14T18:00:00Z", 100, 0, 0, 50)])
+            dispatch_events = [_dispatch_exit("xyz", "agentops", "completed", parent, "2026-09-14T18:00:01Z")]
+            _rows, _cache, by_agent, _fb = mlr.summarize_worker_usage(dispatch_events)
 
             item = _item(2377, "A", "done", "2026-09-14T18:53:48Z", "2026-09-14T18:58:25Z")
             events = [
-                _event(
-                    "lane.dispatch",
-                    "coordinator",
-                    {"tags": ["lane", "tier:fast-build", "model:claude-sonnet-5", "agent:agent-xyz"], "summary": "Dispatched"},
-                    "2026-09-14T18:53:49Z",
-                    1,
-                ),
-                _event(
-                    "lane.review",
-                    "coordinator",
-                    {"tags": ["lane", "verdict:accepted", "first-pass"], "summary": "Accepted"},
-                    "2026-09-14T18:58:24Z",
-                    2,
-                ),
+                _event("lane.dispatch", "coordinator", {"tags": ["lane", "tier:fast-build", "model:claude-sonnet-5"], "summary": "Dispatched"}, "2026-09-14T18:53:49Z", 1),
+                _event("lane.review", "coordinator", {"tags": ["lane", "verdict:accepted", "first-pass", "tier:fast-build", "model:claude-sonnet-5", "agent:xyz"], "summary": "Accepted"}, "2026-09-14T18:58:24Z", 2),
             ]
             records = mlr.build_item_records([item], {2377: events})
             joined = mlr.join_tokens_per_accepted_item(records, by_agent)
@@ -525,13 +714,7 @@ class WorkerUsageTests(unittest.TestCase):
         item = _item(2377, "A", "done", "2026-09-14T18:53:48Z", "2026-09-14T18:58:25Z")
         events = [
             _event("lane.dispatch", "coordinator", {"tags": ["lane", "model:claude-sonnet-5"], "summary": "Dispatched"}, "2026-09-14T18:53:49Z", 1),
-            _event(
-                "lane.review",
-                "coordinator",
-                {"tags": ["lane", "verdict:accepted", "first-pass"], "summary": "Accepted"},
-                "2026-09-14T18:58:24Z",
-                2,
-            ),
+            _event("lane.review", "coordinator", {"tags": ["lane", "verdict:accepted", "first-pass", "model:claude-sonnet-5"], "summary": "Accepted"}, "2026-09-14T18:58:24Z", 2),
         ]
         records = mlr.build_item_records([item], {2377: events})
         joined = mlr.join_tokens_per_accepted_item(records, {})
@@ -571,7 +754,7 @@ def _scorecard_row(**overrides):
 class ScorecardTests(unittest.TestCase):
     def test_attempts_pass_and_accept_rates_per_model(self):
         with _TempDir() as tmp:
-            path = Path(tmp) / "scorecard.csv"
+            path = tmp / "scorecard.csv"
             with path.open("w", newline="") as handle:
                 writer = csv.DictWriter(handle, fieldnames=SCORECARD_HEADER)
                 writer.writeheader()
@@ -588,7 +771,7 @@ class ScorecardTests(unittest.TestCase):
 
     def test_header_only_csv_yields_no_rows(self):
         with _TempDir() as tmp:
-            path = Path(tmp) / "scorecard.csv"
+            path = tmp / "scorecard.csv"
             with path.open("w", newline="") as handle:
                 writer = csv.DictWriter(handle, fieldnames=SCORECARD_HEADER)
                 writer.writeheader()
@@ -620,9 +803,9 @@ class BuildReportTests(unittest.TestCase):
                 sprint_id=None,
                 items_json=None,
                 notes_json=None,
-                artifacts_root=Path(tmp) / "no-artifacts-here",
+                artifacts_root=tmp / "no-artifacts-here",
                 since=None,
-                scorecard=Path(tmp) / "no-scorecard.csv",
+                scorecard=tmp / "no-scorecard.csv",
                 stale_hours=24.0,
             )
             report = mlr.build_report(args)
@@ -632,37 +815,19 @@ class BuildReportTests(unittest.TestCase):
             self.assertFalse(report["scorecard"]["available"])
             self.assertEqual(report["tier_model"]["rows"], [])
             self.assertEqual(report["worker_usage"]["rows"], [])
+            self.assertEqual(report["worker_usage"]["resolution_fallbacks"], 0)
 
     def test_offline_items_and_notes_json_round_trip(self):
         with _TempDir() as tmp:
-            tmp_path = Path(tmp)
             item = _item(2377, "A", "done", "2026-09-14T18:53:48Z", "2026-09-14T18:58:25Z")
-            items_json = tmp_path / "items.json"
+            items_json = tmp / "items.json"
             _write_json(items_json, [item])
             events = [
-                _event(
-                    "lane.dispatch",
-                    "coordinator",
-                    {"tags": ["lane", "tier:fast-build", "model:claude-sonnet-5"], "summary": "Dispatched"},
-                    "2026-09-14T18:53:49Z",
-                    1,
-                ),
-                _event(
-                    "lane.review",
-                    "coordinator",
-                    {"tags": ["lane", "verdict:accepted", "first-pass"], "summary": "Accepted"},
-                    "2026-09-14T18:58:24Z",
-                    2,
-                ),
+                _event("lane.dispatch", "coordinator", {"tags": ["lane", "tier:fast-build", "model:claude-sonnet-5"], "summary": "Dispatched"}, "2026-09-14T18:53:49Z", 1),
+                _event("lane.review", "coordinator", {"tags": ["lane", "verdict:accepted", "first-pass", "tier:fast-build", "model:claude-sonnet-5"], "summary": "Accepted"}, "2026-09-14T18:58:24Z", 2),
             ]
-            notes_dir = _write_notes_dir(tmp_path, {2377: events})
-            args = _Args(
-                items_json=items_json,
-                notes_json=notes_dir,
-                artifacts_root=tmp_path / "no-artifacts",
-                scorecard=tmp_path / "no-scorecard.csv",
-                stale_hours=24.0,
-            )
+            notes_dir = _write_notes_dir(tmp, {2377: events})
+            args = _Args(items_json=items_json, notes_json=notes_dir, artifacts_root=tmp / "no-artifacts", scorecard=tmp / "no-scorecard.csv", stale_hours=24.0)
             report = mlr.build_report(args)
             self.assertTrue(report["tier_model"]["available"])
             self.assertEqual(len(report["tier_model"]["rows"]), 1)
@@ -670,81 +835,45 @@ class BuildReportTests(unittest.TestCase):
 
     def test_markdown_and_json_both_render_without_error(self):
         with _TempDir() as tmp:
-            tmp_path = Path(tmp)
             item = _item(2377, "A", "done", "2026-09-14T18:53:48Z", "2026-09-14T18:58:25Z")
-            items_json = tmp_path / "items.json"
+            items_json = tmp / "items.json"
             _write_json(items_json, [item])
             events = [
-                _event(
-                    "lane.dispatch",
-                    "coordinator",
-                    {"tags": ["lane", "tier:fast-build", "model:claude-sonnet-5"], "summary": "Dispatched"},
-                    "2026-09-14T18:53:49Z",
-                    1,
-                ),
-                _event(
-                    "lane.review",
-                    "coordinator",
-                    {"tags": ["lane", "verdict:accepted", "first-pass"], "summary": "Accepted"},
-                    "2026-09-14T18:58:24Z",
-                    2,
-                ),
+                _event("lane.dispatch", "coordinator", {"tags": ["lane", "tier:fast-build", "model:claude-sonnet-5"], "summary": "Dispatched"}, "2026-09-14T18:53:49Z", 1),
+                _event("lane.review", "coordinator", {"tags": ["lane", "verdict:accepted", "first-pass", "tier:fast-build", "model:claude-sonnet-5"], "summary": "Accepted"}, "2026-09-14T18:58:24Z", 2),
             ]
-            notes_dir = _write_notes_dir(tmp_path, {2377: events})
-            args = _Args(
-                items_json=items_json,
-                notes_json=notes_dir,
-                artifacts_root=tmp_path / "no-artifacts",
-                scorecard=tmp_path / "no-scorecard.csv",
-                stale_hours=24.0,
-            )
+            notes_dir = _write_notes_dir(tmp, {2377: events})
+            args = _Args(items_json=items_json, notes_json=notes_dir, artifacts_root=tmp / "no-artifacts", scorecard=tmp / "no-scorecard.csv", stale_hours=24.0)
             report = mlr.build_report(args)
             markdown = mlr.render_markdown(report)
             self.assertIn("# Maintenance-lane report", markdown)
             self.assertIn("claude-sonnet-5", markdown)
+            self.assertIn("blocked", markdown)
             rendered_json = mlr.render_json(report)
             parsed = json.loads(rendered_json)
             self.assertEqual(parsed["tier_model"]["rows"][0]["model"], "claude-sonnet-5")
 
     def test_main_cli_smoke_markdown(self):
         with _TempDir() as tmp:
-            tmp_path = Path(tmp)
-            items_json = tmp_path / "items.json"
+            items_json = tmp / "items.json"
             _write_json(items_json, [])
-            notes_dir = tmp_path / "notes"
+            notes_dir = tmp / "notes"
             notes_dir.mkdir()
             argv = [
                 "--items-json", str(items_json),
                 "--notes-json", str(notes_dir),
-                "--artifacts-root", str(tmp_path / "no-artifacts"),
-                "--scorecard", str(tmp_path / "no-scorecard.csv"),
+                "--artifacts-root", str(tmp / "no-artifacts"),
+                "--scorecard", str(tmp / "no-scorecard.csv"),
                 "--format", "markdown",
             ]
-            import io
             import contextlib
+            import io
 
             buf = io.StringIO()
             with contextlib.redirect_stdout(buf):
                 rc = mlr.main(argv)
             self.assertEqual(rc, 0)
             self.assertIn("Maintenance-lane report", buf.getvalue())
-
-
-# --------------------------------------------------------------------------
-# tempfile helper (avoids importing tempfile at module scope purely for typing clarity)
-# --------------------------------------------------------------------------
-
-import tempfile
-
-
-class _TempDir:
-    def __enter__(self):
-        self._tmp = tempfile.TemporaryDirectory()
-        return self._tmp.name
-
-    def __exit__(self, exc_type, exc, tb):
-        self._tmp.cleanup()
-        return False
 
 
 if __name__ == "__main__":
