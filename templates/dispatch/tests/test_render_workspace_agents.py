@@ -52,6 +52,77 @@ def test_check_fails_on_drift_and_passes_after_apply(tmp_path: Path) -> None:
     assert target.read_text(encoding="utf-8") == renderer.render(SOURCE)
 
 
+def test_header_carries_an_injected_source_git_sha() -> None:
+    rendered = renderer.render(SOURCE, source_git_sha="abc1234")
+
+    assert "source_git_sha: abc1234" in rendered
+    assert renderer.extract_source_git_sha(rendered) == "abc1234"
+
+
+def test_header_omits_source_git_sha_line_without_git() -> None:
+    rendered = renderer.render(SOURCE, source_git_sha=None)
+
+    assert "source_git_sha:" not in rendered
+    assert renderer.extract_source_git_sha(rendered) is None
+    # The rest of the header is unaffected by the omission.
+    assert renderer.TOOL in rendered
+
+
+def test_lookup_source_git_sha_returns_none_outside_a_git_checkout(
+    tmp_path: Path,
+) -> None:
+    stray = tmp_path / "not-a-repo" / "AGENTS.agentops.md"
+    stray.parent.mkdir(parents=True)
+    stray.write_text("body\n", encoding="utf-8")
+
+    assert renderer.lookup_source_git_sha(stray, repo_root=stray.parent) is None
+
+
+def test_check_passes_when_only_the_source_git_sha_line_differs(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "AGENTS.md"
+    target.write_text(renderer.render(SOURCE, source_git_sha="old0000"), encoding="utf-8")
+    expected = renderer.render(SOURCE, source_git_sha="new1111")
+
+    assert target.read_text(encoding="utf-8") != expected  # sha lines differ
+    assert renderer.strip_source_git_sha(
+        target.read_text(encoding="utf-8")
+    ) == renderer.strip_source_git_sha(expected)
+
+
+def test_check_fails_on_content_drift_and_reports_both_shas(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import sys as _sys
+
+    target = tmp_path / "AGENTS.md"
+    target.write_text(renderer.render(SOURCE, source_git_sha="old0000"), encoding="utf-8")
+    stale = target.read_text(encoding="utf-8") + "\nhand-edited line\n"
+    target.write_text(stale, encoding="utf-8")
+
+    argv = [
+        "render_workspace_agents.py",
+        "--source",
+        str(SOURCE),
+        "--target",
+        str(target),
+        "--check",
+    ]
+    old_argv = _sys.argv
+    try:
+        _sys.argv = argv
+        exit_code = renderer.main()
+    finally:
+        _sys.argv = old_argv
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "has drifted" in captured.err
+    assert "old0000" in captured.err
+    assert "stale: rendered from old0000, source now at" in captured.err
+
+
 def test_workspace_source_carries_the_forge_rules_that_the_live_file_lost() -> None:
     """The port exists because the live file's sandbox rule named the wrong tool
     and the wrong symptom. Guard the corrected facts, not the heading."""
