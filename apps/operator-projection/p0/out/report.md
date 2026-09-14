@@ -3,33 +3,31 @@
 - Window: 2026-07-15T00:00:00Z → 2026-09-14T00:00:00Z (appservice origin/main db97f32c)
 - Registry: `operator-projection/registry/v1-p0`; ground truth committed at `a7d3e2cb`, replay code at `1abb92bb`
 - Image tag map: ghcr.io/v2/bayleafwalker/vuoro-service, evaluated 2026-09-14T14:34:20+00:00
-- Replayed at 2026-09-14T14:34:21+00:00; window base commit `723e5ae2`
+- Replayed at 2026-09-14T14:39:54+00:00; window base commit `723e5ae2`
+- Run note: run 2: evaluator fixed after run 1 (all-caps audience placeholders; a provider-wide Forgejo audience covers only the repositories registered when its value was set). Post-hoc for the credbroker.binding belief rows, so not independent evidence for them; ground truth unchanged since a7d3e2c.
 
 ## Gate: PASS
 
-Recall **0.978** (gate 0.9), precision **0.978** (gate 0.8) over 139 expected and 139 produced move groups.
+Recall **0.986** (gate 0.9), precision **1.000** (gate 0.8) over 139 expected and 137 produced move groups.
 
 | vocabulary | expected | produced | recall | precision |
 |---|---|---|---|---|
 | audit.record_class | 1 | 1 | 1.00 | 1.00 |
 | authority.service_release | 59 | 59 | 1.00 | 1.00 |
 | composition.release_lock | 48 | 48 | 1.00 | 1.00 |
-| credbroker.binding | 18 | 18 | 0.83 | 0.83 |
+| credbroker.binding | 18 | 16 | 0.89 | 1.00 |
 | credbroker.capability_rule | 5 | 5 | 1.00 | 1.00 |
 | credbroker.repository | 6 | 6 | 1.00 | 1.00 |
 | durability.store | 2 | 2 | 1.00 | 1.00 |
 
-### Misses: expected, not produced (3)
+### Misses: expected, not produced (2)
 
-- `34fffc5c` credbroker.binding GAINED
 - `8feff32e` credbroker.binding REGRESSED
 - `d2dbccac` credbroker.binding GAINED
 
-### False positives: produced, not expected (3)
+### False positives: produced, not expected (0)
 
-- `722ddf60` credbroker.binding GAINED
-- `cd8a25bd` credbroker.binding REGRESSED
-- `d295387f` credbroker.binding GAINED
+- none
 
 ### Member disagreements in matched groups (0)
 
@@ -58,7 +56,7 @@ Recall **0.978** (gate 0.9), precision **0.978** (gate 0.8) over 139 expected an
 - `catalog.operation`: membership is the live catalog; no catalog history is stored (composition history is D0)
 - `catalog.authority`: derived from the live catalog's required_authority values
 
-## Move list (276 member moves)
+## Move list (244 member moves)
 
 | boundary | date | vocabulary | class | members |
 |---|---|---|---|---|
@@ -145,7 +143,6 @@ Recall **0.978** (gate 0.9), precision **0.978** (gate 0.8) over 139 expected an
 | `0863591b` | 2026-08-11T16:17 | composition.release_lock | CONTRACT-CHANGE | audit-adapter (0.1.0), execution-adapter (0.1.19), execution-contracts (0.1.1), work-adapter (0.2.22) |
 | `d295387f` | 2026-08-11T17:52 | credbroker.capability_rule | GAINED | repo.read |
 | `d295387f` | 2026-08-11T17:52 | credbroker.repository | GAINED | repo_cred_broker |
-| `d295387f` | 2026-08-11T17:52 | credbroker.binding | GAINED | devbox|repo_cred_broker|repo.read |
 | `d295387f` | 2026-08-11T17:52 | durability.store | DURABILITY-UP | credbroker.receipts (D2) |
 | `a4180bb6` | 2026-08-11T20:34 | credbroker.repository | GAINED | repo_cred_broker_github |
 | `a4180bb6` | 2026-08-11T20:34 | credbroker.binding | GAINED | devbox|repo_cred_broker_github|repo.read |
@@ -158,6 +155,7 @@ Recall **0.978** (gate 0.9), precision **0.978** (gate 0.8) over 139 expected an
 | `33267e48` | 2026-08-11T21:24 | credbroker.capability_rule | GAINED | pr.manage |
 | `33267e48` | 2026-08-11T21:24 | credbroker.binding | GAINED | devbox|repo_cred_broker_github|pr.manage |
 | `d984d364` | 2026-08-11T22:12 | credbroker.binding | GAINED | workstation|repo_cred_broker_github|pr.manage, workstation|repo_cred_broker_github|repo.read, workstation|repo_cred_broker_github|repo.write |
+| `34fffc5c` | 2026-08-11T23:08 | credbroker.binding | GAINED | devbox|repo_cred_broker|repo.read |
 | `bce70254` | 2026-08-11T23:18 | credbroker.capability_rule | CONTRACT-CHANGE | repo.write |
 | `bce70254` | 2026-08-11T23:18 | credbroker.binding | FORECLOSED | devbox|repo_cred_broker|repo.read |
 | `bce70254` | 2026-08-11T23:18 | credbroker.binding | GAINED | workstation|repo_cred_broker|repo.read, workstation|repo_cred_broker|repo.write |
@@ -186,10 +184,8 @@ Recall **0.978** (gate 0.9), precision **0.978** (gate 0.8) over 139 expected an
 | `efcc21db` | 2026-08-29T15:51 | credbroker.repository | GAINED | repo_acceptance_lab_github, repo_actionq_github, repo_agentops_github, repo_aligned_equity_github, +11 more |
 | `efcc21db` | 2026-08-29T15:51 | credbroker.binding | GAINED | workstation|repo_acceptance_lab_github|pr.manage, workstation|repo_acceptance_lab_github|repo.read, workstation|repo_acceptance_lab_github|repo.write, workstation|repo_actionq_github|pr.manage, +41 more |
 | `722ddf60` | 2026-08-29T18:00 | credbroker.repository | GAINED | repo_frontier_weave_forgejo, repo_gitops_nixos_forgejo, repo_knowledge_base_forgejo, repo_litany_forgejo, +4 more |
-| `722ddf60` | 2026-08-29T18:00 | credbroker.binding | GAINED | workstation|repo_frontier_weave_forgejo|repo.read, workstation|repo_frontier_weave_forgejo|repo.write, workstation|repo_gitops_nixos_forgejo|repo.read, workstation|repo_gitops_nixos_forgejo|repo.write, +12 more |
 | `1e47ede4` | 2026-08-29T18:12 | authority.service_release | CONTRACT-CHANGE | vuoro-shared (vuoro-service-v0.1.57) |
 | `1e47ede4` | 2026-08-29T18:12 | composition.release_lock | CONTRACT-CHANGE | audit-adapter (0.1.3) |
-| `cd8a25bd` | 2026-08-29T20:10 | credbroker.binding | REGRESSED | workstation|repo_frontier_weave_forgejo|repo.read, workstation|repo_frontier_weave_forgejo|repo.write, workstation|repo_gitops_nixos_forgejo|repo.read, workstation|repo_gitops_nixos_forgejo|repo.write, +12 more |
 | `457699ff` | 2026-08-29T20:22 | credbroker.binding | GAINED | workstation|repo_vuoro_cloud_forgejo|repo.read, workstation|repo_vuoro_cloud_forgejo|repo.write |
 | `e6467e54` | 2026-08-29T20:28 | credbroker.binding | GAINED | workstation|repo_gitops_nixos_forgejo|repo.read, workstation|repo_gitops_nixos_forgejo|repo.write |
 | `5f6f4c74` | 2026-08-29T21:46 | credbroker.binding | GAINED | workstation|repo_frontier_weave_forgejo|repo.read, workstation|repo_frontier_weave_forgejo|repo.write, workstation|repo_knowledge_base_forgejo|repo.read, workstation|repo_knowledge_base_forgejo|repo.write, +6 more |

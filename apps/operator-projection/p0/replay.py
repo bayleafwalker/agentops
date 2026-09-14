@@ -93,19 +93,34 @@ def configured(value) -> bool:
     return isinstance(value, str) and value.strip() != "" and not PLACEHOLDER.search(value)
 
 
-def authorized(policy: dict, provider: str | None, capability: str, repository: str) -> bool:
+def audience_configured(value) -> bool:
+    # An all-caps token (SOME_AUDIENCE_TO_FILL) is a placeholder's shape, never a real audience.
+    # Provider settings elsewhere legitimately hold all-caps enumerations, so this is audience-only.
+    return configured(value) and not re.fullmatch(r"[A-Z0-9_]+", value)
+
+
+def authorized(
+    policy: dict,
+    provider: str | None,
+    capability: str,
+    repository: str,
+    wide_scope: dict[str, frozenset[str]] | None = None,
+) -> bool:
     settings = policy.get("providers", {}).get(provider)
     if not settings:
         return False
     if provider == "forgejo":
         per_repository = settings.get("repository_audiences")
         if per_repository is not None:
-            return configured(per_repository.get(capability, {}).get(repository))
-        return configured(settings.get("audiences", {}).get(capability))
+            return audience_configured(per_repository.get(capability, {}).get(repository))
+        # A provider-wide audience names the repositories registered when its value was set,
+        # not every repository registered later.
+        in_scope = wide_scope is None or repository in wide_scope.get(capability, frozenset())
+        return in_scope and audience_configured(settings.get("audiences", {}).get(capability))
     return all(configured(v) for v in settings.values() if isinstance(v, str))
 
 
-def broker_rows(policy: dict | None) -> dict[str, dict[str, Row]]:
+def broker_rows(policy: dict | None, wide_scope: dict[str, frozenset[str]] | None = None) -> dict[str, dict[str, Row]]:
     if policy is None:
         return {"credbroker.capability_rule": {}, "credbroker.repository": {}, "credbroker.binding": {}}
     rules = policy.get("policy", {})
@@ -115,7 +130,8 @@ def broker_rows(policy: dict | None) -> dict[str, dict[str, Row]]:
     for binding in rules.get("bindings", []):
         host, repository = binding["host_id"], binding["repository_id"]
         for capability in binding.get("capabilities", []):
-            usable = active.get(host, False) and authorized(policy, providers.get(repository), capability, repository)
+            provider = providers.get(repository)
+            usable = active.get(host, False) and authorized(policy, provider, capability, repository, wide_scope)
             bindings[f"{host}|{repository}|{capability}"] = Row(usable)
     return {
         "credbroker.capability_rule": {
@@ -243,6 +259,8 @@ class Replay:
         self.appservice, self.vuoro, self.auditctl, self.tags = appservice, vuoro, auditctl, tags
         self.declared_classes = record_classes(auditctl.show("origin/main", self.validation_path) or "")
         self.undetermined: list[tuple[str, str]] = []
+        # (capability, provider-wide audience value) -> forgejo repositories when that value first appeared
+        self._audience_scopes: dict[tuple[str, str], frozenset[str]] = {}
 
     def snapshot(self, commit: str, previous: dict) -> dict:
         read = lambda key: self.appservice.show(commit, self.sources[key])  # noqa: E731
@@ -258,7 +276,7 @@ class Replay:
             state |= {v: UNDETERMINED for v in VOCABULARIES if v.startswith("credbroker.")}
             state["durability.store"] = UNDETERMINED
         else:
-            state |= broker_rows(policy)
+            state |= broker_rows(policy, self._wide_scope(policy))
             state["durability.store"] = durability_rows(
                 read("cockpit_pvc") is not None, policy, read("broker_pvc") is not None
             )
@@ -287,6 +305,17 @@ class Replay:
                 return UNDETERMINED
             reachable = record_classes(validation)
         return {c: Row(c in reachable) for c in sorted(self.declared_classes)}
+
+    def _wide_scope(self, policy: dict | None) -> dict[str, frozenset[str]] | None:
+        audiences = ((policy or {}).get("providers", {}).get("forgejo") or {}).get("audiences")
+        if not audiences:
+            return None
+        forgejo = frozenset(r["repository_id"] for r in policy.get("repositories", []) if r.get("provider") == "forgejo")
+        return {
+            capability: self._audience_scopes.setdefault((capability, value), forgejo)
+            for capability, value in audiences.items()
+            if isinstance(value, str)
+        }
 
     def _policy(self, config: str | None):
         if config is None:
@@ -419,6 +448,8 @@ def render(meta: dict, result: dict, scored: dict, gate: dict, registry: dict) -
         "| vocabulary | expected | produced | recall | precision |",
         "|---|---|---|---|---|",
     ]
+    if meta.get("note"):
+        lines.insert(6, f"- Run note: {meta['note']}")
     for vocabulary, s in scored["per_vocabulary"].items():
         lines.append(f"| {vocabulary} | {s['expected']} | {s['produced']} | {s['recall']:.2f} | {s['precision']:.2f} |")
 
@@ -480,6 +511,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--auditctl", type=Path, default=DEV / "auditctl")
     parser.add_argument("--out", type=Path, default=HERE / "out")
     parser.add_argument("--refresh-image-tags", action="store_true", help="re-fetch the ghcr tag map")
+    parser.add_argument("--note", help="printed in the report header, e.g. why this run exists")
     args = parser.parse_args(argv)
 
     registry = yaml.safe_load((HERE / "registry.yaml").read_text())
@@ -502,6 +534,7 @@ def main(argv: list[str] | None = None) -> int:
     scored = score(truth, result["moves"])
     meta = {
         **registration,
+        "note": args.note,
         "window": truth["window"],
         "appservice_head": appservice.out("rev-parse", "--short=8", "origin/main").strip(),
         "image_tags_source": tags.document["source"],

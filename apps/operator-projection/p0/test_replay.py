@@ -8,9 +8,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from replay import (  # noqa: E402
     Move,
     Row,
+    audience_configured,
     authorized,
     broker_rows,
     classify,
+    configured,
     durability_rows,
     lock_rows,
     record_classes,
@@ -60,6 +62,18 @@ def test_forgejo_binding_needs_a_real_audience_and_an_active_host():
     assert not broker_rows(forgejo_policy(real, active=False))["credbroker.binding"]["h|r|pr.merge"].passed
     assert authorized(forgejo_policy({"pr.merge": "aud"}, per_repository=False), "forgejo", "pr.merge", "other")
     assert not authorized(forgejo_policy(real), None, "pr.merge", "r")
+
+
+def test_all_caps_token_is_a_placeholder_only_for_audiences():
+    assert not audience_configured("FORGEJO_AUDIENCE_TO_COMMISSION_XYZ")
+    assert audience_configured("0123456789abcdef0123456789abcdef01234567")
+    assert configured("GITHUB_APP")  # enumerations in provider settings are real values
+
+
+def test_provider_wide_audience_covers_only_its_scope():
+    policy = forgejo_policy({"pr.merge": "aud"}, per_repository=False)
+    assert broker_rows(policy, {"pr.merge": frozenset({"r"})})["credbroker.binding"]["h|r|pr.merge"].passed
+    assert not broker_rows(policy, {"pr.merge": frozenset({"other"})})["credbroker.binding"]["h|r|pr.merge"].passed
 
 
 def test_durability_needs_both_the_path_and_the_volume():
