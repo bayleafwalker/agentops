@@ -23,7 +23,7 @@ vocabularies:
   - id: authority.service_release
     ledger: can-do
     member_source: vuoro-shared deployment.yaml exists (git read)
-    reachable_evaluator: replicas > 0 and ks.yaml is not `suspend: true` (git read)
+    reachable_evaluator: "replicas > 0 and ks.yaml is not `suspend: true` (git read)"
     authorized_evaluator: "requested-only: service identities are sops-encrypted and not read"
     exercise_evaluator: "unobservable: handshake answers are not stored"
     value: deployed image digest; named by the image tag map (http get)
