@@ -6,7 +6,8 @@ PACKAGE = Path(__file__).resolve().parents[1] / "src" / "operator_projection"
 SKIP = {tokenize.COMMENT, tokenize.NL, tokenize.NEWLINE, tokenize.INDENT, tokenize.DEDENT, tokenize.ENCODING, tokenize.ENDMARKER}
 RENDERERS = {"render_html.py", "render_text.py"}
 EVALUATORS = {"evaluators.py"}
-BUDGET = {"generator": 800, "renderers": 300, "evaluators": 100}
+# generator 800 -> 840 (v0.1.1): the project-1 pick-up mapping, repo-scoped boundary reads and the authority read timeout.
+BUDGET = {"generator": 840, "renderers": 300, "evaluators": 100}
 
 
 def code_lines(path: Path) -> int:
