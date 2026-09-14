@@ -26,7 +26,8 @@ test("dispatcher pause route reads and toggles the pause file", async () => {
       readDispatcherPause: () => readDispatcherPause(config, env)
     });
     const POST = createPostHandler({
-      setDispatcherPause: (paused) => setDispatcherPause(paused, config, env)
+      setDispatcherPause: (paused) => setDispatcherPause(paused, config, env),
+      requireConfiguredWriteAuth: () => null
     });
 
     const initial = await (await GET(new Request("http://localhost/cockpit/api/dispatcher/pause"))).json();
@@ -51,7 +52,8 @@ test("dispatcher pause route rejects invalid payload", async () => {
   const POST = createPostHandler({
     setDispatcherPause: async () => {
       throw new Error("should not write");
-    }
+    },
+    requireConfiguredWriteAuth: () => null
   });
   const response = await POST(jsonRequest("http://localhost/cockpit/api/dispatcher/pause", { paused: "yes" }));
   const payload = await response.json();

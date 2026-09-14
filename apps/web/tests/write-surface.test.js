@@ -62,7 +62,7 @@ test("activate route passes actor and returns sprint shape", async () => {
       received = { repoId, sprintId, ...opts };
       return { id: sprintId, repo_id: repoId, status: "active", kind: "active_sprint", event_id: 7 };
     },
-    requireWriteAuth: () => null
+    requireConfiguredWriteAuth: () => null
   });
   const response = await POST(jsonRequest("http://localhost/cockpit/api/sprints/activate", { repo_id: "alpha", sprint_id: 3, actor: "operator:test" }));
   const payload = await response.json();
@@ -74,13 +74,13 @@ test("activate route passes actor and returns sprint shape", async () => {
 test("activate route maps not-found to 404 and invalid transition to 409", async () => {
   const notFound = createActivateHandler({
     activateSprint: async () => { throw new SprintNotFoundError("Sprint 9 not found for repo alpha"); },
-    requireWriteAuth: () => null
+    requireConfiguredWriteAuth: () => null
   });
   assert.equal((await notFound(jsonRequest("http://localhost/x", { repo_id: "alpha", sprint_id: 9 }))).status, 404);
 
   const conflict = createActivateHandler({
     activateSprint: async () => { throw new SprintTransitionError("cannot transition sprint closed -> active. Allowed: planned -> active"); },
-    requireWriteAuth: () => null
+    requireConfiguredWriteAuth: () => null
   });
   const response = await conflict(jsonRequest("http://localhost/x", { repo_id: "alpha", sprint_id: 9 }));
   assert.equal(response.status, 409);
@@ -88,8 +88,8 @@ test("activate route maps not-found to 404 and invalid transition to 409", async
 });
 
 test("write routes deny unauthenticated requests when a token is configured", async () => {
-  const checkAuth = (request, source) => requireWriteAuth(request, source, TOKEN_ENV);
-  const activate = createActivateHandler({ activateSprint: async () => ({}), requireWriteAuth: checkAuth });
+  const checkAuth = (request, source) => requireConfiguredWriteAuth(request, source, TOKEN_ENV);
+  const activate = createActivateHandler({ activateSprint: async () => ({}), requireConfiguredWriteAuth: checkAuth });
   assert.equal((await activate(jsonRequest("http://localhost/x", { repo_id: "a", sprint_id: 1 }))).status, 401);
 
   const dispatch = createDispatchHandler({
@@ -97,12 +97,30 @@ test("write routes deny unauthenticated requests when a token is configured", as
     getDispatchOperator: () => "operator:test",
     dispatchViaActionctl: async () => ({}),
     forwardDispatchToActionqServer: async () => ({}),
-    requireWriteAuth: checkAuth
+    requireConfiguredWriteAuth: checkAuth
   });
   assert.equal((await dispatch(jsonRequest("http://localhost/x", {}))).status, 401);
 
-  const pause = createPauseHandler({ setDispatcherPause: async () => ({}), requireWriteAuth: checkAuth });
+  const pause = createPauseHandler({ setDispatcherPause: async () => ({}), requireConfiguredWriteAuth: checkAuth });
   assert.equal((await pause(jsonRequest("http://localhost/x", { paused: true }))).status, 401);
+});
+
+test("write routes fail closed when no token is configured", async () => {
+  const closed = (request, source) => requireConfiguredWriteAuth(request, source, EMPTY_ENV);
+  const activate = createActivateHandler({ activateSprint: async () => ({}), requireConfiguredWriteAuth: closed });
+  assert.equal((await activate(jsonRequest("http://localhost/x", { repo_id: "a", sprint_id: 1 }))).status, 503);
+
+  const dispatch = createDispatchHandler({
+    getDispatchGate: () => ({ enabled: true, method: "server", source: "actionq://dispatch" }),
+    getDispatchOperator: () => "operator:test",
+    dispatchViaActionctl: async () => ({}),
+    forwardDispatchToActionqServer: async () => ({}),
+    requireConfiguredWriteAuth: closed
+  });
+  assert.equal((await dispatch(jsonRequest("http://localhost/x", {}))).status, 503);
+
+  const pause = createPauseHandler({ setDispatcherPause: async () => ({}), requireConfiguredWriteAuth: closed });
+  assert.equal((await pause(jsonRequest("http://localhost/x", { paused: true }))).status, 503);
 });
 
 let mcpDispatched = null;
