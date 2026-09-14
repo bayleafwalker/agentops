@@ -49,6 +49,7 @@ EXECUTED_HOOKS = (
     "gate-check.sh",
     "gate-log.sh",
     "log-session-cost.sh",
+    "nfs-workspace-guard.sh",
     "push-landed-check.sh",
     "session-binding.sh",
     "sprintctl-maintain-check.sh",
