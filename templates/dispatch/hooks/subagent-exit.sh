@@ -39,13 +39,17 @@ PROJ="$(printf '%s' "$EVENT" | jq -r '.cwd // ""' | xargs basename 2>/dev/null |
 
 # `transcript_path` on a SubagentStop event is the PARENT session's transcript, not the
 # subagent's own -- verified 2026-09-14 against agent ae70fc0a294de1cb0, whose event carried
-# the parent session file while the agent's own turns live at
-# `<parent dir>/subagents/agent-<agent_id>.jsonl` (confirmed present on disk). The Claude
-# Code hooks reference (code.claude.com/docs/en/hooks.md, fetched 2026-09-14) documents
-# `transcript_path` as one of the common fields shared by every hook event and lists no
-# subagent-specific transcript field for SubagentStop, so nothing here can be assumed absent
-# a future harness change. `agent_transcript_path` is read defensively above in case such a
-# field ever ships; today it is always empty and the path below is derived instead.
+# the parent session file while the agent's own turns live under that session's own
+# directory: for parent `.../-projects-dev/279bc82d-....jsonl` the child is
+# `.../-projects-dev/279bc82d-.../subagents/agent-<agent_id>.jsonl` -- the parent path with
+# `.jsonl` stripped, NOT `dirname` of it (dirname gives `.../-projects-dev/`, which holds no
+# `subagents/` of its own; confirmed present on disk at the stripped-suffix location). The
+# Claude Code hooks reference (code.claude.com/docs/en/hooks.md, fetched 2026-09-14)
+# documents `transcript_path` as one of the common fields shared by every hook event and
+# lists no subagent-specific transcript field for SubagentStop, so nothing here can be
+# assumed absent a future harness change. `agent_transcript_path` is read defensively above
+# in case such a field ever ships; today it is always empty and the path below is derived
+# instead.
 #
 # `transcript_path` in the published metadata is left as-is for compatibility (see below);
 # this is purely about which file the terminal-reason parser reads from.
@@ -53,7 +57,7 @@ AGENT_TRANSCRIPT=""
 if [[ -n "$HARNESS_AGENT_TRANSCRIPT" && -f "$HARNESS_AGENT_TRANSCRIPT" ]]; then
   AGENT_TRANSCRIPT="$HARNESS_AGENT_TRANSCRIPT"
 elif [[ -n "$TRANSCRIPT" && -n "$AGENT_ID" ]]; then
-  _agent_cand="$(dirname -- "$TRANSCRIPT")/subagents/agent-${AGENT_ID}.jsonl"
+  _agent_cand="${TRANSCRIPT%.jsonl}/subagents/agent-${AGENT_ID}.jsonl"
   [[ -f "$_agent_cand" ]] && AGENT_TRANSCRIPT="$_agent_cand"
 fi
 
@@ -141,9 +145,17 @@ fi
 # Cascade harvest. A dying parent orphans children that already finished -- measured on
 # 2026-08-28: four completed depth-2 children, 249 lines, lost with their parent. Their
 # transcripts are siblings on disk, so name them here and the work stays recoverable.
+#
+# Siblings live at `${TRANSCRIPT%.jsonl}/subagents/agent-*.jsonl` (the same session
+# directory derived for AGENT_TRANSCRIPT above), not `dirname(TRANSCRIPT)/agent-*.jsonl`.
+# That was the same dirname-vs-stripped-suffix mistake as AGENT_TRANSCRIPT's original
+# derivation: verified 2026-09-14 on this host, `dirname "$TRANSCRIPT"` (the shared
+# `-projects-dev` sessions directory) holds zero `agent-*.jsonl` files directly, while 60
+# exist under `*/subagents/agent-*.jsonl` -- so this block always published an empty
+# sibling list in production, never actually harvesting anything.
 CHILDREN="[]"
 if [[ -n "$TRANSCRIPT" ]]; then
-  subdir="$(dirname -- "$TRANSCRIPT")"
+  subdir="${TRANSCRIPT%.jsonl}/subagents"
   if [[ -d "$subdir" ]]; then
     CHILDREN="$(find "$subdir" -maxdepth 1 -name 'agent-*.jsonl' -newermt '-6 hours' 2>/dev/null \
       | head -n 50 | jq -R -s -c 'split("\n") | map(select(length > 0))' 2>/dev/null || echo '[]')"

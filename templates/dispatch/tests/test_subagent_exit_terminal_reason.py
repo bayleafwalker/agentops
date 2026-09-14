@@ -96,22 +96,32 @@ class SubagentExitTerminalReason(unittest.TestCase):
         return json.loads(rows[0])
 
     def _run_with_agent_id(self, agent_id: str, *, parent_lines: list[str] | None,
-                            agent_lines: list[str] | None) -> dict:
-        """Lay out `<parent>.jsonl` plus `subagents/agent-<id>.jsonl`, the real shape.
+                            agent_lines: list[str] | None,
+                            also_write_dirname_decoy: bool = False) -> dict:
+        """Lay out `<session>.jsonl` plus `<session>/subagents/agent-<id>.jsonl`.
 
-        `transcript_path` on the event is the parent's file, exactly as verified against
-        agent ae70fc0a294de1cb0 on 2026-09-14 -- the subagent's own turns live at
-        `<parent dir>/subagents/agent-<agent_id>.jsonl`.
+        This is the real shape, verified 2026-09-14 against agent ae70fc0a294de1cb0: for
+        parent transcript `.../-projects-dev/<session>.jsonl`, the subagent's own turns live
+        at `.../-projects-dev/<session>/subagents/agent-<agent_id>.jsonl` -- the parent path
+        with `.jsonl` stripped, not `dirname` of it. `dirname` of the parent
+        (`.../-projects-dev/`) holds no `subagents/` of its own; it is the *sibling*
+        directory that many *other* sessions' transcripts also live in.
         """
-        parent = self.tmp / "parent.jsonl"
+        session = "probe-session"
+        parent = self.tmp / f"{session}.jsonl"
         parent.write_text("\n".join(parent_lines or []) + "\n", encoding="utf-8")
-        subdir = self.tmp / "subagents"
-        subdir.mkdir(exist_ok=True)
+        subdir = self.tmp / session / "subagents"
+        subdir.mkdir(parents=True, exist_ok=True)
         if agent_lines is not None:
             (subdir / f"agent-{agent_id}.jsonl").write_text(
                 "\n".join(agent_lines) + "\n", encoding="utf-8")
+        if also_write_dirname_decoy:
+            decoy_dir = self.tmp / "subagents"
+            decoy_dir.mkdir(exist_ok=True)
+            (decoy_dir / f"agent-{agent_id}.jsonl").write_text(
+                "\n".join(agent_lines or []) + "\n", encoding="utf-8")
         env = dict(os.environ, AUDITCTL_BIN=str(self.stub), CAPTURE=str(self.capture))
-        event = json.dumps({"session_id": "probe", "transcript_path": str(parent),
+        event = json.dumps({"session_id": session, "transcript_path": str(parent),
                             "agent_id": agent_id, "cwd": "/projects/dev/agentops"})
         subprocess.run(["bash", str(HOOK)], input=event, text=True, env=env, check=True,
                        capture_output=True)
@@ -236,6 +246,60 @@ class SubagentExitTerminalReason(unittest.TestCase):
         self.assertIsNone(row["agent_transcript_path"])
         self.assertEqual(row["terminal_reason"], "completed")
         self.assertEqual(row["transcript_path"], str(parent))
+
+    def test_dirname_of_parent_is_not_where_the_agent_transcript_is_looked_up(self):
+        """A file at `dirname(transcript_path)/subagents/agent-<id>.jsonl` must NOT be used.
+
+        That directory is the sessions directory shared by every session on the host, not
+        this session's own directory, so a file placed there is a decoy: if the hook still
+        finds it, the derivation regressed to `dirname` instead of stripping `.jsonl`.
+        """
+        row, parent, agent_path = self._run_with_agent_id(
+            "decoy-agent",
+            parent_lines=[_assistant("Parent transcript, unremarkable.")],
+            agent_lines=[
+                _quota_death(
+                    "You've hit your session limit · resets 12:30am (Europe/Helsinki)",
+                    {"status": "rejected", "resetsAt": RESETS_AT_EPOCH},
+                ),
+            ],
+            also_write_dirname_decoy=True,
+        )
+        decoy_path = self.tmp / "subagents" / "agent-decoy-agent.jsonl"
+        self.assertTrue(decoy_path.exists(), "test setup: decoy must actually be on disk")
+        # The correctly-derived path -- <session>/subagents/agent-<id>.jsonl -- was also
+        # written by the helper, so this asserts the hook resolved *that* one.
+        self.assertEqual(row["agent_transcript_path"], str(agent_path))
+        self.assertNotEqual(row["agent_transcript_path"], str(decoy_path))
+        self.assertEqual(row["terminal_reason"], "usage-limit")
+
+    def test_sibling_transcripts_are_found_under_the_session_directory_not_dirname(self):
+        """Cascade harvest had the same dirname-vs-stripped-suffix bug as the reason lookup.
+
+        `dirname(transcript_path)` is the shared sessions directory and never holds
+        `agent-*.jsonl` directly; siblings live at
+        `<session>/subagents/agent-*.jsonl`, i.e. under the correctly-derived AGENT_TRANSCRIPT
+        directory. Verified 2026-09-14 on this host: 0 matches directly under
+        `~/.claude/projects/-projects-dev/`, 60 under `*/subagents/`.
+        """
+        row, parent, agent_path = self._run_with_agent_id(
+            "probe-agent",
+            parent_lines=[_assistant("Parent still running.")],
+            agent_lines=[_assistant("This agent finished cleanly.")],
+        )
+        sibling = agent_path.parent / "agent-sibling.jsonl"
+        sibling.write_text(_assistant("A completed sibling, orphaned if the parent dies.")
+                            + "\n", encoding="utf-8")
+        # Re-run now that the sibling exists alongside agent_path.
+        env = dict(os.environ, AUDITCTL_BIN=str(self.stub), CAPTURE=str(self.capture))
+        event = json.dumps({"session_id": "probe-session", "transcript_path": str(parent),
+                            "agent_id": "probe-agent", "cwd": "/projects/dev/agentops"})
+        self.capture.write_text("", encoding="utf-8")
+        subprocess.run(["bash", str(HOOK)], input=event, text=True, env=env, check=True,
+                       capture_output=True)
+        row = json.loads(self.capture.read_text(encoding="utf-8").splitlines()[0])
+        self.assertIn(str(agent_path), row["sibling_transcripts"])
+        self.assertIn(str(sibling), row["sibling_transcripts"])
 
     def test_harness_bookkeeping_after_the_terminal_record_does_not_hide_it(self):
         """A parent's file-history-snapshot / queue-operation rows follow the last turn.
