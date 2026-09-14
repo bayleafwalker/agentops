@@ -1,6 +1,6 @@
 import { errorPayload, ok } from "../../../../../lib/cockpit/http.js";
 import { readDispatcherPause, setDispatcherPause } from "../../../../../lib/cockpit/dispatcher-pause.js";
-import { requireWriteAuth } from "../../../../../lib/cockpit/auth.js";
+import { requireConfiguredWriteAuth } from "../../../../../lib/cockpit/auth.js";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +28,7 @@ export function createGetHandler(deps = { readDispatcherPause }) {
 }
 
 export function createPostHandler(deps = { setDispatcherPause }) {
-  const checkAuth = deps.requireWriteAuth ?? requireWriteAuth;
+  const checkAuth = deps.requireConfiguredWriteAuth ?? requireConfiguredWriteAuth;
   return async function POST(request) {
     const denied = checkAuth(request, "fs://dispatcher-pause");
     if (denied) {

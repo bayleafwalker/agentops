@@ -1,12 +1,12 @@
 import { errorPayload, ok } from "../../../../../lib/cockpit/http.js";
 import { activateSprint, SprintNotFoundError, SprintTransitionError } from "../../../../../lib/cockpit/sprintctl.js";
-import { requireWriteAuth } from "../../../../../lib/cockpit/auth.js";
+import { requireConfiguredWriteAuth } from "../../../../../lib/cockpit/auth.js";
 import { getConfig } from "../../../../../lib/cockpit/env.js";
 
 export const dynamic = "force-dynamic";
 
 export function createPostHandler(deps = { activateSprint }) {
-  const checkAuth = deps.requireWriteAuth ?? requireWriteAuth;
+  const checkAuth = deps.requireConfiguredWriteAuth ?? requireConfiguredWriteAuth;
   return async function POST(request) {
     const denied = checkAuth(request, "served://vuoro/work");
     if (denied) {

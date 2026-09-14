@@ -219,7 +219,8 @@ test("dispatch route stays gated without actionq-server contract", async () => {
     getDispatchOperator: () => "operator:test",
     forwardDispatchToActionqServer: async () => {
       throw new Error("should not forward");
-    }
+    },
+    requireConfiguredWriteAuth: () => null
   });
   const response = await POST(jsonRequest("http://localhost/cockpit/api/dispatch", {
     repo_id: "alpha",
@@ -245,7 +246,8 @@ test("dispatch route forwards validated payload when gate is enabled", async () 
         action_id: "aq:12", status: "pending", request_ref: "req:12",
         request_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       };
-    }
+    },
+    requireConfiguredWriteAuth: () => null
   });
   const response = await POST(jsonRequest("http://localhost/cockpit/api/dispatch", {
     contract_version: "v2",
@@ -295,7 +297,8 @@ test("dispatch route accepts no-sprint refinement payload", async () => {
         action_id: 13, status: "pending", request_ref: "req:13",
         request_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       };
-    }
+    },
+    requireConfiguredWriteAuth: () => null
   });
   const response = await POST(jsonRequest("http://localhost/cockpit/api/dispatch", {
     contract_version: "v2",
@@ -354,7 +357,8 @@ test("dispatch route rejects v2 kind and normalizes an explicit v1 alias", async
   const POST = createDispatchHandler({
     getDispatchGate: () => ({ enabled: true, source: "actionq-server" }),
     getDispatchOperator: () => "operator:test",
-    forwardDispatchToActionqServer: async (payload) => payload
+    forwardDispatchToActionqServer: async (payload) => payload,
+    requireConfiguredWriteAuth: () => null
   });
   const rejected = await POST(jsonRequest("http://localhost/cockpit/api/dispatch", {
     contract_version: "v2", action_type: "scope-iterate", repo_id: "alpha", sprint_id: null,
@@ -379,7 +383,8 @@ test("dispatch route rejects omitted v2 fields instead of applying v1 defaults",
   const POST = createDispatchHandler({
     getDispatchGate: () => ({ enabled: true, source: "actionq-server" }),
     getDispatchOperator: () => "operator:test",
-    forwardDispatchToActionqServer: async () => ({})
+    forwardDispatchToActionqServer: async () => ({}),
+    requireConfiguredWriteAuth: () => null
   });
   const response = await POST(jsonRequest("http://localhost/cockpit/api/dispatch", {
     contract_version: "v2", action_type: "scope-iterate", output_expectation: "plan",
@@ -464,7 +469,8 @@ test("dispatch route uses actionctl when gate method is actionctl", async () => 
     },
     forwardDispatchToActionqServer: async () => {
       throw new Error("should not forward to server");
-    }
+    },
+    requireConfiguredWriteAuth: () => null
   });
   const response = await POST(jsonRequest("http://localhost/cockpit/api/dispatch", {
     repo_id: "alpha",
