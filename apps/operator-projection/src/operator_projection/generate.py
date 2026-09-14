@@ -9,10 +9,11 @@ from datetime import date, datetime, timedelta
 from functools import cached_property
 from typing import Any
 
-from .cell import blind, cell
+from . import SCHEMA
+from .cell import blind, cell, demote
 from .evaluators import DIGEST, Move, broker_rows, durability_rows, lock_rows, orphan_authorities, policy_revision, record_classes
 from .replay import APPSERVICE, BRANCH, RELEASE_LABEL, VOCABULARIES, Replay, read_policy, recall
-from .sources import Authority, GitSource, ImageTags, SourceUnavailable, stamp
+from .sources import Authority, GitSource, ImageTags, SourceUnavailable, fetch_image_tags, stamp
 
 RANK = ["FORECLOSED", "REGRESSED", "DURABILITY-DOWN", "DURABILITY-UP", "GAINED", "CONTRACT-CHANGE"]
 
@@ -28,6 +29,7 @@ class Run:
         self.git, self.authority, self.registry, self.now, self.at = git, authority, registry, now, stamp(now)
         self.transport = getattr(git, "transport", "git")
         self.sources: dict[str, dict] = {}
+        self.moved: list[Move] = []
         self._tags = tags
 
     def guard(self, source: str, transport: str, fetch: Callable[[], Any]) -> Any:
@@ -196,7 +198,8 @@ def diverged_hazards(run: Run) -> list[dict]:
     deployed = run.deployed
     if deployed["label"] and deployed["release"] and deployed["label"] != deployed["release"]:
         rows.append(row("DIVERGED", "vuoro-shared release label", f"label {deployed['label']} vs digest {deployed['release']}",
-                        run.declared(deployed["label"], APPSERVICE, head), sources=["git.appservice", "ghcr.image-tags"]))
+                        run.declared(deployed["label"], APPSERVICE, head), falsifier=f"ghcr tag {deployed['label']} resolves to {deployed['digest']}",
+                        sources=["git.appservice", "ghcr.image-tags"]))
     for subject in run.registry.get("divergence", []):
         def digests(commit: str) -> dict[str, str | None]:
             texts = {name: run.show(APPSERVICE, commit, path) or "" for name, path in subject["manifests"].items()}
@@ -275,6 +278,7 @@ def moves(run: Run, hazard_rows: list[dict], limit: int = 5) -> dict:
     except SourceUnavailable as error:
         return panel | {k: run.blind(str(error)) for k in ("counts", "attributed", "exercise_observable", "recall")} | {"rows": []}
     found: list[Move] = result["moves"]
+    run.moved = found
     groups: dict[tuple[str, str, str], list[Move]] = {}
     for m in found:
         groups.setdefault((m.boundary, m.vocabulary, m.cls), []).append(m)
@@ -289,7 +293,7 @@ def moves(run: Run, hazard_rows: list[dict], limit: int = 5) -> dict:
               "rows": rows[:limit], "overflow": max(0, len(rows) - limit), "recall": run.declared(recall(result), APPSERVICE, head)}
     if n == 0:
         counted = [r for r in hazard_rows if not r["flags"]]
-        panel["zero"] = {"boundary_commits": len(result["boundaries"]), "vocabularies": len(VOCABULARIES),
+        panel["zero"] = {"boundary_commits": len(result["boundaries"]), "vocabularies": len(VOCABULARIES), "evidence": panel["recall"],
                          "spend": run.blind(blind_reason(run, "spend")), "decayed": run.blind("no exercise is observable"),
                          "unreachable": debt([r for r in counted if r["kind"] == "UNREACHABLE"], run.now),
                          "unrepaired": debt([r for r in counted if r["kind"] != "UNREACHABLE"], run.now)}
@@ -393,3 +397,34 @@ def blind_spots(run: Run, repositories: list[str] | None, pickup_panel: dict) ->
     return {"scope": {"served": served, "declared": declared, "other": stated("other scopes not enumerable: repo list unavailable in served mode")},
             "coverage_s1": stated(registry["coverage_s1"]),
             "not_seen": stated({"not_seen": registry["not_seen"], "blind": registry["blind"], "later_panels": registry["later_panels"]})}
+
+
+# ── the document ────────────────────────────────────────────────────────────────
+
+
+def attest(run: Run, rows: list[dict]) -> list[dict]:
+    """§6.4 build-time auto-demotion: a row whose falsifier does not resolve this generation is CLAIMED-UNATTESTED."""
+    for r in rows:
+        missing = [s for s in r["falsifier"]["sources"] if s not in run.sources or run.degraded(s)]
+        if not r["flags"] and (missing or not r["falsifier"]["check"]):
+            r["flags"].append("CLAIMED-UNATTESTED")
+            r["evidence"] = demote(r["evidence"], "falsifier did not resolve: " + (", ".join(missing) or "no check"))
+    return rows
+
+
+def generate(git: GitSource, authority: Authority | None, registry: dict, now: datetime, tags: Callable[[], dict] | None = None) -> dict:
+    run = Run(git, authority, registry, now, tags or (lambda: fetch_image_tags(registry["external"]["image_tags"]["repository"])))
+    panels = {"provenance": provenance(run)}
+    rows = attest(run, hazards(run)["rows"])
+    counted = [r for r in rows if not r["flags"]]
+    derived = lambda value: cell("DECLARED", value, "derived hazards", registry.get("commit") or "uncommitted", run.at)  # noqa: E731
+    moved = moves(run, rows)
+    pickup_panel, repositories = pickup(run, run.moved)
+    panels |= {"pickup": pickup_panel, "moves": moved, "ground_tools": ground_tools(run), "may_do": may_do(run),
+               "hazards": {"open": derived(len(counted)), "oldest_days": derived(max((days_since(r["since"], now) for r in counted if r["since"]), default=None)),
+                           "rows": rows},
+               "blind_spots": blind_spots(run, repositories, pickup_panel)}
+    order = ["provenance", "pickup", "hazards", "moves", "ground_tools", "may_do", "blind_spots"]
+    return {"schema": SCHEMA, "derived": "DERIVED — not a record", "generated_at": run.at, "cadence_s": registry["cadence_s"],
+            "stale_after_s": registry["stale_after_s"], "registry": {"id": registry["id"], "commit": registry.get("commit") or "uncommitted"},
+            "sources": list(run.sources.values()), "panels": {name: panels[name] for name in order}}
