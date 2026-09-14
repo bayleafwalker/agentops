@@ -214,7 +214,7 @@ def diverged_hazards(run: Run) -> list[dict]:
                 break
             since = (sha, stamp(when)[:10])
         detail = " vs ".join(f"{name} {(d or 'none')[7:15]} ({(run.tags.release(d) or 'untagged').removeprefix('vuoro-service-v')})" for name, d in now.items())
-        rows.append(row("DIVERGED", subject["subject"], detail + (f" · since {since[0][:8]}" if since else ""), run.declared(now, APPSERVICE, head),
+        rows.append(row("DIVERGED", subject["subject"], detail + (f" · diverged at appservice {since[0][:8]}" if since else ""), run.declared(now, APPSERVICE, head),
                         subject.get("consumers", []), since and since[1], "digests equal across " + ", ".join(subject["manifests"]),
                         ["git.appservice", "ghcr.image-tags"]))
     return rows
