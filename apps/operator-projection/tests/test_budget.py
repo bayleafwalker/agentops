@@ -7,9 +7,8 @@ SKIP = {tokenize.COMMENT, tokenize.NL, tokenize.NEWLINE, tokenize.INDENT, tokeni
 RENDERERS = {"render_html.py", "render_text.py"}
 EVALUATORS = {"evaluators.py"}
 # generator 800 -> 840 (v0.1.1): the project-1 pick-up mapping, repo-scoped boundary reads and the authority read timeout.
-# generator 840 -> 880 (v0.2.0): /freshz, the redacted remote listener and the document archive (P2).
-REDACTION = {"redact.py"}
-BUDGET = {"generator": 880, "renderers": 300, "evaluators": 100, "redaction": 120}
+# generator 840 -> 880 (v0.2.0): /freshz and the document archive (P2); the redacted remote leg was withdrawn in v0.2.1.
+BUDGET = {"generator": 880, "renderers": 300, "evaluators": 100}
 
 
 def code_lines(path: Path) -> int:
@@ -22,7 +21,7 @@ def code_lines(path: Path) -> int:
 
 
 def group(name: str) -> str:
-    return "renderers" if name in RENDERERS else "evaluators" if name in EVALUATORS else "redaction" if name in REDACTION else "generator"
+    return "renderers" if name in RENDERERS else "evaluators" if name in EVALUATORS else "generator"
 
 
 def counts() -> dict[str, int]:

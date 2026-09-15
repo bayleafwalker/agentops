@@ -1,7 +1,4 @@
-"""operator-projection serve: GET-only HTTP over the last document, regenerated in-process every cadence (§0).
-
-Two listeners over one document: the LAN port serves it whole; the remote port, behind Access, serves only redact(doc) (§16.1).
-"""
+"""operator-projection serve: GET-only HTTP over the last document, regenerated in-process every cadence (§0)."""
 
 from __future__ import annotations
 
@@ -14,7 +11,7 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import contract, redact, render_html, render_text  # noqa: F401  (contract asserts renderer and redaction coverage on import)
+from . import contract, render_html, render_text  # noqa: F401  (contract asserts renderer coverage on import)
 
 ROUTES = {
     "/": ("text/html; charset=utf-8", render_html.render),
@@ -46,7 +43,7 @@ class Latest:
     document: dict | None = None
 
 
-def handler(latest: Latest, view: Callable[[dict], dict] = lambda doc: doc) -> type[BaseHTTPRequestHandler]:
+def handler(latest: Latest) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
         def reply(self, status: int, kind: str, body: bytes) -> None:
             self.send_response(status)
@@ -68,7 +65,7 @@ def handler(latest: Latest, view: Callable[[dict], dict] = lambda doc: doc) -> t
             if path not in ROUTES:
                 return self.reply(404, "text/plain", b"not found\n")
             kind, render = ROUTES[path]
-            self.reply(200, kind, render(view(doc)).encode())
+            self.reply(200, kind, render(doc).encode())
 
         def refuse(self) -> None:
             self.reply(405, "text/plain", b"GET only\n")
@@ -92,10 +89,7 @@ def loop(latest: Latest, produce: Callable[[], dict], cadence_s: int, stop: thre
         stop.wait(cadence_s)
 
 
-def serve(produce: Callable[[], dict], cadence_s: int, host: str = "0.0.0.0", port: int = 8080, remote_port: int = 8081,
-          archive_dir: Path | None = None) -> None:
+def serve(produce: Callable[[], dict], cadence_s: int, host: str = "0.0.0.0", port: int = 8080, archive_dir: Path | None = None) -> None:
     latest, stop = Latest(), threading.Event()
     threading.Thread(target=loop, args=(latest, produce, cadence_s, stop, archive_dir), daemon=True).start()
-    remote = ThreadingHTTPServer((host, remote_port), handler(latest, redact.redact))
-    threading.Thread(target=remote.serve_forever, daemon=True).start()
     ThreadingHTTPServer((host, port), handler(latest)).serve_forever()
