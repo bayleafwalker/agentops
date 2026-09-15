@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import threading
 from collections.abc import Callable
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import contract, render_html, render_text  # noqa: F401  (contract asserts renderer coverage on import)
@@ -14,6 +15,11 @@ ROUTES = {
     "/v1.json": ("application/json", lambda doc: json.dumps(doc, indent=1, ensure_ascii=False) + "\n"),
     "/v1.txt": ("text/plain; charset=utf-8", render_text.render),
 }
+
+
+def fresh(doc: dict | None, now: datetime) -> bool:
+    """Gatus checks the page itself on freshness (§8), not /healthz: a stale document must not restart the pod."""
+    return doc is not None and (now - datetime.fromisoformat(doc["generated_at"])).total_seconds() <= doc["stale_after_s"]
 
 
 class Latest:
@@ -36,6 +42,9 @@ def handler(latest: Latest) -> type[BaseHTTPRequestHandler]:
 
         def do_GET(self) -> None:  # noqa: N802
             path, doc = self.path.split("?", 1)[0], latest.document
+            if path == "/fresh":
+                ok = fresh(doc, datetime.now(timezone.utc))
+                return self.reply(200 if ok else 503, "text/plain", b"fresh\n" if ok else b"stale\n")
             if path == "/healthz" or (path in ROUTES and doc is None):
                 return self.reply(200 if doc else 503, "text/plain", b"ok\n" if doc else b"no document yet\n")
             if path not in ROUTES:

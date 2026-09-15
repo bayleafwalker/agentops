@@ -3,6 +3,7 @@
 import http.client
 import json
 import threading
+from datetime import datetime, timedelta, timezone
 from http.server import ThreadingHTTPServer
 
 import pytest
@@ -11,7 +12,7 @@ from fakes import FakeAuthorityClient
 from operator_projection import cli
 from operator_projection.generate import generate
 from operator_projection.serve import Latest, handler, loop
-from operator_projection.sources import Authority
+from operator_projection.sources import Authority, stamp
 from world import NOW, REGISTRY, TAGS, estate
 
 
@@ -46,6 +47,17 @@ def test_healthz_is_503_until_a_document_exists_then_routes_serve_it(server):
     assert "OPERATOR PROJECTION v1" in request(port, "GET", "/v1.txt")[2]
     assert "<section>" in request(port, "GET", "/")[2]
     assert request(port, "GET", "/other")[0] == 404
+
+
+def test_fresh_is_503_without_a_document_and_once_past_stale_after(server):
+    latest, port = server
+    assert request(port, "GET", "/fresh")[0] == 503
+    now = datetime.now(timezone.utc)
+    latest.document = {**document(), "generated_at": stamp(now)}
+    assert request(port, "GET", "/fresh")[0] == 200
+    latest.document["generated_at"] = stamp(now - timedelta(seconds=latest.document["stale_after_s"] + 60))
+    assert request(port, "GET", "/fresh")[0] == 503
+    assert request(port, "GET", "/healthz")[0] == 200
 
 
 @pytest.mark.parametrize("method", ["POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"])

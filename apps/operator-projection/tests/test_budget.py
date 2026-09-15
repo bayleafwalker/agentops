@@ -7,7 +7,8 @@ SKIP = {tokenize.COMMENT, tokenize.NL, tokenize.NEWLINE, tokenize.INDENT, tokeni
 RENDERERS = {"render_html.py", "render_text.py"}
 EVALUATORS = {"evaluators.py"}
 # generator 800 -> 840 (v0.1.1): the project-1 pick-up mapping, repo-scoped boundary reads and the authority read timeout.
-BUDGET = {"generator": 840, "renderers": 300, "evaluators": 100}
+# generator 840 -> 850 (v0.1.5): /fresh, the Gatus freshness check on the document itself.
+BUDGET = {"generator": 850, "renderers": 300, "evaluators": 100}
 
 
 def code_lines(path: Path) -> int:
