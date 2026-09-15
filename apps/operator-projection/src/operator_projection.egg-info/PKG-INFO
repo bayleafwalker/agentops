@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: operator-projection
+Version: 0.2.0
+Summary: operator-projection/v1: a derived, read-only operator front page
+Requires-Python: >=3.11
+Requires-Dist: httpx<1,>=0.27
+Requires-Dist: pyyaml>=6
+Requires-Dist: vuoro-client @ https://github.com/bayleafwalker/vuoro/releases/download/vuoro-client-v0.1.0/vuoro_client-0.1.0-py3-none-any.whl#sha256=d94c35002d94dec2ac86c75a2693934c67d2c72c8d27b2048836ed4e1d1c71db ; python_version >= "3.12"
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"

@@ -1,0 +1,2 @@
+[console_scripts]
+operator-projection = operator_projection.cli:main
