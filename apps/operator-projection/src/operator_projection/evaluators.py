@@ -85,13 +85,15 @@ def broker_rows(policy: dict | None, wide_scope: Scope | None = None) -> dict[st
     rules = policy.get("policy", {})
     providers = {r["repository_id"]: r.get("provider") for r in policy.get("repositories", [])}
     active = {h["host_id"]: h.get("active", True) for h in rules.get("hosts", [])}
+    # A binding names a repository, or a non-repository target (kubernetes.edit) whose provider is its capability's prefix.
+    subject = lambda b: b.get("repository_id") or b["target"]  # noqa: E731
     usable = lambda b, c: active.get(b["host_id"], False) and authorized(  # noqa: E731
-        policy, providers.get(b["repository_id"]), c, b["repository_id"], wide_scope)
+        policy, providers.get(b["repository_id"]) if "repository_id" in b else c.split(".")[0], c, subject(b), wide_scope)
     return {
         "credbroker.capability_rule": {k: Row(True, json.dumps(v, sort_keys=True)) for k, v in rules.get("capabilities", {}).items()},
         "credbroker.repository": {r: Row(True) for r in providers},
         "credbroker.binding": {
-            f"{b['host_id']}|{b['repository_id']}|{c}": Row(usable(b, c)) for b in rules.get("bindings", []) for c in b.get("capabilities", [])
+            f"{b['host_id']}|{subject(b)}|{c}": Row(usable(b, c)) for b in rules.get("bindings", []) for c in b.get("capabilities", [])
         },
     }
 

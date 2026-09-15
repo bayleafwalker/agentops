@@ -8,7 +8,8 @@ RENDERERS = {"render_html.py", "render_text.py"}
 EVALUATORS = {"evaluators.py"}
 # generator 800 -> 840 (v0.1.1): the project-1 pick-up mapping, repo-scoped boundary reads and the authority read timeout.
 # generator 840 -> 880 (v0.2.0): /freshz and the document archive (P2); the redacted remote leg was withdrawn in v0.2.1.
-BUDGET = {"generator": 880, "renderers": 300, "evaluators": 100}
+# evaluators 100 -> 110 (v0.2.2): bindings that name a non-repository target (D9 kubernetes.edit).
+BUDGET = {"generator": 880, "renderers": 300, "evaluators": 110}
 
 
 def code_lines(path: Path) -> int:

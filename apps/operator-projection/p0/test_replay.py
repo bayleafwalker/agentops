@@ -76,6 +76,14 @@ def test_provider_wide_audience_covers_only_its_scope():
     assert not broker_rows(policy, {"pr.merge": frozenset({"other"})})["credbroker.binding"]["h|r|pr.merge"].passed
 
 
+
+def test_a_target_binding_is_keyed_by_its_target_and_judged_by_its_capability_provider():
+    policy = {"repositories": [], "providers": {"kubernetes": {"api_server": "https://192.168.87.20:6443"}},
+              "policy": {"hosts": [{"host_id": "h"}], "capabilities": {},
+                         "bindings": [{"host_id": "h", "target": "appservice", "capabilities": ["kubernetes.edit"]}]}}
+    assert broker_rows(policy)["credbroker.binding"] == {"h|appservice|kubernetes.edit": Row(True)}
+    assert not broker_rows({**policy, "providers": {}})["credbroker.binding"]["h|appservice|kubernetes.edit"].passed
+
 def test_durability_needs_both_the_path_and_the_volume():
     assert durability_rows(True, {"receipt_path": "/x"}, True) == {
         "cockpit.reconciliation-state": Row(True, "D2"),

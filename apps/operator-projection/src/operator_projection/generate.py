@@ -320,10 +320,11 @@ def may_do(run: Run) -> dict:
             raise SourceUnavailable("the cred-broker ConfigMap has no readable production.json")
         hosts = {h["host_id"]: {"trust_profile": h.get("trust_profile"), "repositories": set(), "capabilities": {}, "unusable": 0}
                  for h in policy.get("policy", {}).get("hosts", [])}
+        registered = {r["repository_id"] for r in policy.get("repositories", [])}
         for key, binding in broker_rows(policy)["credbroker.binding"].items():
-            host, repository, capability = key.split("|")
+            host, subject, capability = key.split("|")
             entry = hosts.setdefault(host, {"trust_profile": None, "repositories": set(), "capabilities": {}, "unusable": 0})
-            entry["repositories"].add(repository)
+            entry["repositories"] |= {subject} & registered  # a target binding grants a capability, not a repository
             entry["capabilities"][capability] = entry["capabilities"].get(capability, 0) + 1
             entry["unusable"] += not binding.passed
         pvc = run.show(APPSERVICE, run.head(APPSERVICE), run.registry["sources"]["broker_pvc"]) is not None
