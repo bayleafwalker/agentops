@@ -12,7 +12,7 @@ import { createGetHandler as createHeadroomGetHandler, createPostHandler as crea
 import { createGetHandler as createDispatchManifestsHandler } from "../app/cockpit/api/dispatch-manifests/route.js";
 import { createGetHandler as createCompletionAlertsHandler, createPostHandler as createCompletionAlertAckHandler } from "../app/cockpit/api/completion-alerts/route.js";
 import { createPostHandler as createDispatchHandler } from "../app/cockpit/api/dispatch/route.js";
-import { dispatchViaActionctl, forwardDispatchToActionqServer, normalizeDispatchPayload } from "../lib/cockpit/dispatch.js";
+import { getDispatchGate, normalizeDispatchPayload } from "../lib/cockpit/dispatch.js";
 
 function request(url) {
   return new Request(url);
@@ -213,12 +213,13 @@ test("dispatch manifests route returns expected shape", async () => {
   assert.equal(payload.degraded, null);
 });
 
-test("dispatch route stays gated without actionq-server contract", async () => {
+test("dispatch route is retired: returns 410, names the retirement, and makes no outbound call", async () => {
+  let forwardCalled = false;
   const POST = createDispatchHandler({
-    getDispatchGate: () => ({ enabled: false, source: "actionq-server", reason: "Dispatch disabled: no contract." }),
-    getDispatchOperator: () => "operator:test",
+    getDispatchGate,
     forwardDispatchToActionqServer: async () => {
-      throw new Error("should not forward");
+      forwardCalled = true;
+      throw new Error("should never be called: dispatch write path is retired");
     },
     requireConfiguredWriteAuth: () => null
   });
@@ -230,168 +231,44 @@ test("dispatch route stays gated without actionq-server contract", async () => {
     harness: "codex"
   }));
   const payload = await response.json();
-  assert.equal(response.status, 503);
+  assert.equal(response.status, 410);
   assert.equal(payload.accepted, false);
-  assert.equal(payload.source, "actionq-server");
+  assert.equal(payload.action, null);
+  assert.match(payload.degraded.message, /retired/i);
+  assert.match(payload.degraded.message, /actionq-server/);
+  assert.match(payload.degraded.message, /maintenance-lane\.md/);
+  assert.equal(payload.degraded.retired, true);
+  assert.equal(forwardCalled, false);
 });
 
-test("dispatch route forwards validated payload when gate is enabled", async () => {
-  let forwarded = null;
-  const POST = createDispatchHandler({
-    getDispatchGate: () => ({ enabled: true, source: "actionq-server" }),
-    getDispatchOperator: () => "operator:test",
-    forwardDispatchToActionqServer: async (payload) => {
-      forwarded = payload;
-      return {
-        action_id: "aq:12", status: "pending", request_ref: "req:12",
-        request_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-      };
-    },
-    requireConfiguredWriteAuth: () => null
-  });
-  const response = await POST(jsonRequest("http://localhost/cockpit/api/dispatch", {
-    contract_version: "v2",
-    action_type: "scope-iterate",
-    repo_id: "alpha",
-    sprint_id: 12,
-    work_item_id: "abc123",
-    output_expectation: "implementation",
-    title: "Build alpha",
-    prompt: "Do the work",
-    harness: "codex",
-    model: "gpt-5.3-codex",
-    priority: "high",
-    refs: ["wi:abc123", "sprint:12"],
-    dispatch_group_id: null
-  }));
-  const payload = await response.json();
-  assert.equal(response.status, 200);
-  assert.equal(payload.accepted, true);
-  assert.equal(payload.action.action_id, "aq:12");
-  assert.deepEqual(forwarded, {
-    contract_version: "v2",
-    action_type: "scope-iterate",
-    repo_id: "alpha",
-    sprint_id: 12,
-    work_item_id: "abc123",
-    output_expectation: "implementation",
-    title: "Build alpha",
-    prompt: "Do the work",
-    harness: "codex",
-    model: "gpt-5.3-codex",
-    priority: "high",
-    refs: ["wi:abc123", "sprint:12"],
-    dispatch_group_id: null,
-    requested_by: "operator:test"
-  });
+test("dispatch gate is unconditionally disabled regardless of actionq-server config", () => {
+  const gate = getDispatchGate();
+  assert.equal(gate.enabled, false);
+  assert.match(gate.reason, /actionq-server was removed/);
 });
 
-test("dispatch route accepts no-sprint refinement payload", async () => {
-  let forwarded = null;
-  const POST = createDispatchHandler({
-    getDispatchGate: () => ({ enabled: true, source: "actionq-server" }),
-    getDispatchOperator: () => "operator:test",
-    forwardDispatchToActionqServer: async (payload) => {
-      forwarded = payload;
-      return {
-        action_id: 13, status: "pending", request_ref: "req:13",
-        request_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-      };
-    },
-    requireConfiguredWriteAuth: () => null
-  });
-  const response = await POST(jsonRequest("http://localhost/cockpit/api/dispatch", {
-    contract_version: "v2",
-    action_type: "scope-iterate",
-    repo_id: "alpha",
-    sprint_id: null,
-    work_item_id: null,
-    output_expectation: "sprint-proposal",
-    title: "Refine backlog",
-    prompt: "",
-    harness: "codex",
-    model: null,
-    priority: "normal",
-    refs: [],
-    dispatch_group_id: "dg:refine"
-  }));
-  const payload = await response.json();
-  assert.equal(response.status, 200);
-  assert.equal(payload.accepted, true);
-  assert.equal(forwarded.sprint_id, null);
-  assert.equal(forwarded.output_expectation, "sprint-proposal");
-  assert.equal(forwarded.dispatch_group_id, "dg:refine");
-});
-
-test("dispatch forwarder preserves upstream status for non-json failures", async () => {
-  await assert.rejects(
-    () => forwardDispatchToActionqServer(
-      {
-        contract_version: "v2",
-        action_type: "scope-iterate",
-        repo_id: "alpha",
-        sprint_id: 12,
-        work_item_id: null,
-        output_expectation: "implementation",
-        title: "Build alpha",
-        prompt: "",
-        harness: "codex",
-        model: null,
-        priority: "normal",
-        refs: [],
-        requested_by: "operator:test"
-      },
-      {
-        config: {
-          actionqServerUrl: "http://actionq-server",
-          actionqDispatchContract: "v2"
-        },
-        fetchImpl: async () => new Response("bad gateway", { status: 502 })
-      }
-    ),
-    /actionq-server dispatch failed with 502/
-  );
-});
-
-test("dispatch route rejects v2 kind and normalizes an explicit v1 alias", async () => {
-  const POST = createDispatchHandler({
-    getDispatchGate: () => ({ enabled: true, source: "actionq-server" }),
-    getDispatchOperator: () => "operator:test",
-    forwardDispatchToActionqServer: async (payload) => payload,
-    requireConfiguredWriteAuth: () => null
-  });
-  const rejected = await POST(jsonRequest("http://localhost/cockpit/api/dispatch", {
+test("dispatch route rejects v2 kind and normalizes an explicit v1 alias", () => {
+  assert.throws(() => normalizeDispatchPayload({
     contract_version: "v2", action_type: "scope-iterate", repo_id: "alpha", sprint_id: null,
     work_item_id: null, kind: "implement", output_expectation: "implementation", title: "t",
     prompt: "", harness: "codex", model: null, priority: "normal", refs: [], dispatch_group_id: null
-  }));
-  assert.equal(rejected.status, 400);
+  }, { requestedBy: "operator:test" }), /unknown v2 dispatch field/);
 
-  const accepted = await POST(jsonRequest("http://localhost/cockpit/api/dispatch", {
+  const normalized = normalizeDispatchPayload({
     contract_version: "v1", repo_id: "alpha", kind: "review", title: "t", prompt: "",
     harness: "codex", priority: "normal", refs: []
-  }));
-  const body = await accepted.json();
-  assert.equal(accepted.status, 200);
-  assert.equal(body.action.contract_version, "v2");
-  assert.equal(body.action.action_type, "scope-iterate");
-  assert.equal(body.action.output_expectation, "review");
-  assert.equal(Object.hasOwn(body.action, "kind"), false);
+  }, { requestedBy: "operator:test" });
+  assert.equal(normalized.contract_version, "v2");
+  assert.equal(normalized.action_type, "scope-iterate");
+  assert.equal(normalized.output_expectation, "review");
+  assert.equal(Object.hasOwn(normalized, "kind"), false);
 });
 
-test("dispatch route rejects omitted v2 fields instead of applying v1 defaults", async () => {
-  const POST = createDispatchHandler({
-    getDispatchGate: () => ({ enabled: true, source: "actionq-server" }),
-    getDispatchOperator: () => "operator:test",
-    forwardDispatchToActionqServer: async () => ({}),
-    requireConfiguredWriteAuth: () => null
-  });
-  const response = await POST(jsonRequest("http://localhost/cockpit/api/dispatch", {
+test("dispatch route rejects omitted v2 fields instead of applying v1 defaults", () => {
+  assert.throws(() => normalizeDispatchPayload({
     contract_version: "v2", action_type: "scope-iterate", output_expectation: "plan",
     repo_id: "alpha", title: "Incomplete", prompt: "", harness: "codex", priority: "normal"
-  }));
-  assert.equal(response.status, 400);
-  assert.match((await response.json()).degraded.detail, /sprint_id is required/);
+  }, { requestedBy: "operator:test" }), /sprint_id is required/);
 });
 
 test("v2 normalizer rejects unknown fields, wrong types, and blank nullable values", () => {
@@ -416,77 +293,4 @@ test("v2 normalizer rejects unknown fields, wrong types, and blank nullable valu
   ]) {
     assert.throws(() => normalizeDispatchPayload({ ...valid, [field]: value }, { requestedBy: "operator:test" }), message);
   }
-});
-
-test("dispatch forwarder requires the exact ActionQ enqueue result schema on success", async () => {
-  const payload = {
-    contract_version: "v2", action_type: "scope-iterate", output_expectation: "plan", repo_id: "alpha",
-    sprint_id: null, work_item_id: null, title: "t", prompt: "", harness: "codex", model: null,
-    priority: "normal", refs: [], dispatch_group_id: null, requested_by: "operator:test"
-  };
-  const validResult = {
-    action_id: "aq:1", status: "pending", request_ref: "req:opaque",
-    request_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-  };
-  const options = {
-    config: { actionqServerUrl: "http://actionq-server", actionqDispatchContract: "v2" },
-    fetchImpl: async () => Response.json({ action_id: "aq:1", status: "pending" })
-  };
-  await assert.rejects(() => forwardDispatchToActionqServer(payload, options), /missing request_ref/);
-  await assert.rejects(() => forwardDispatchToActionqServer(payload, {
-    ...options, fetchImpl: async () => Response.json({ ...validResult, status: "completed" })
-  }), /must have status pending/);
-  await assert.rejects(() => forwardDispatchToActionqServer(payload, {
-    ...options, fetchImpl: async () => Response.json({ ...validResult, action_id: "" })
-  }), /valid action_id/);
-  await assert.rejects(() => forwardDispatchToActionqServer(payload, {
-    ...options,
-    fetchImpl: async () => {
-      const { action_id, ...withoutActionId } = validResult;
-      return Response.json(withoutActionId);
-    }
-  }), /missing action_id/);
-  await assert.rejects(() => forwardDispatchToActionqServer(payload, {
-    ...options, fetchImpl: async () => Response.json({ ...validResult, extra: true })
-  }), /unknown field/);
-  const accepted = await forwardDispatchToActionqServer(payload, {
-    ...options,
-    fetchImpl: async () => Response.json(validResult)
-  });
-  assert.equal(accepted.request_ref, "req:opaque");
-});
-
-test("dispatch route uses actionctl when gate method is actionctl", async () => {
-  let dispatchedPayload = null;
-  let dispatchedBin = null;
-  const POST = createDispatchHandler({
-    getDispatchGate: () => ({ enabled: true, source: "actionctl", method: "actionctl", bin: "/usr/local/bin/actionctl" }),
-    getDispatchOperator: () => "operator:test",
-    dispatchViaActionctl: async (payload, bin) => {
-      dispatchedPayload = payload;
-      dispatchedBin = bin;
-      return { id: 42, type: "scope-iterate", status: "pending" };
-    },
-    forwardDispatchToActionqServer: async () => {
-      throw new Error("should not forward to server");
-    },
-    requireConfiguredWriteAuth: () => null
-  });
-  const response = await POST(jsonRequest("http://localhost/cockpit/api/dispatch", {
-    repo_id: "alpha",
-    sprint_id: 12,
-    work_item_id: "wi:42",
-    kind: "implement",
-    title: "Build alpha",
-    harness: "claude",
-    priority: "high"
-  }));
-  const payload = await response.json();
-  assert.equal(response.status, 200);
-  assert.equal(payload.accepted, true);
-  assert.equal(payload.source, "actionctl");
-  assert.equal(payload.action.id, 42);
-  assert.equal(dispatchedPayload.repo_id, "alpha");
-  assert.equal(dispatchedPayload.priority, "high");
-  assert.equal(dispatchedBin, "/usr/local/bin/actionctl");
 });

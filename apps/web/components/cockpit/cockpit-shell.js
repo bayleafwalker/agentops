@@ -1111,13 +1111,7 @@ export function CockpitShell() {
               onTogglePause={toggleDispatcherPause}
               onDispatched={() => setRefreshKey((k) => k + 1)}
               externalWorkItemId={dispatchWorkItemId}
-              disabledReason={
-                selectedRepo === "ALL"
-                  ? "Dispatch remains scoped to one concrete repo; ALL is browse-only."
-                  : effectiveSprintMode === "history"
-                    ? "History is read-only; use Active or Backlog for dispatch."
-                  : null
-              }
+              disabledReason="Dispatch is retired (agentops#2409): actionq-server was removed from the cluster on 2026-09-01. Dispatch is done by native harness sessions coordinated through sprintctl; see docs/runbooks/maintenance-lane.md."
             />
           </section>
 

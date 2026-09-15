@@ -1,11 +1,5 @@
 import { requireConfiguredWriteAuth } from "../../../../lib/cockpit/auth.js";
-import {
-  dispatchViaActionctl,
-  forwardDispatchToActionqServer,
-  getDispatchGate,
-  getDispatchOperator,
-  normalizeDispatchPayload
-} from "../../../../lib/cockpit/dispatch.js";
+import { getDispatchGate } from "../../../../lib/cockpit/dispatch.js";
 import {
   activateSprint,
   listClaims,
@@ -156,17 +150,10 @@ async function callTool(name, args, deps) {
     return toolText(await deps.activateSprint(args.repo_id, Number(args.sprint_id), { actor }));
   }
   if (name === "dispatch_action") {
+    // Retired with the dispatch write path (agentops#2409 / D17): always
+    // disabled, no outbound call. See docs/runbooks/maintenance-lane.md.
     const gate = deps.getDispatchGate();
-    if (!gate.enabled) {
-      return toolError(`Dispatch disabled: ${gate.reason}`);
-    }
-    const payload = deps.normalizeDispatchPayload(args, {
-      requestedBy: deps.getDispatchOperator()
-    });
-    const action = gate.method === "actionctl"
-      ? await deps.dispatchViaActionctl(payload, gate.bin)
-      : await deps.forwardDispatchToActionqServer(payload);
-    return toolText({ accepted: true, source: gate.source, action });
+    return toolError(`Dispatch disabled: ${gate.reason}`);
   }
   return null;
 }
@@ -177,11 +164,7 @@ export function createPostHandler(deps = {
   listEvents,
   listClaims,
   activateSprint,
-  getDispatchGate,
-  getDispatchOperator,
-  normalizeDispatchPayload,
-  dispatchViaActionctl,
-  forwardDispatchToActionqServer
+  getDispatchGate
 }) {
   const checkAuth = deps.requireConfiguredWriteAuth ?? requireConfiguredWriteAuth;
   return async function POST(request) {

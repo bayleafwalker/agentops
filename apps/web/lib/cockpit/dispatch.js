@@ -1,10 +1,18 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { getConfig } from "./env.js";
 
-const execFileAsync = promisify(execFile);
-
 export const DISPATCH_CONTRACT_VERSION = "v2";
+
+// actionq-server was deleted from the cluster on 2026-09-01 (see
+// actionq/docs/plans/2026-08-20-execution-plane-deletion-order.md). There is
+// no owner-source server behind either the actionq-server forwarding path or
+// the actionctl CLI path any more, so the dispatch write surface is retired
+// outright rather than gated on configuration. Dispatch is done by native
+// harness sessions coordinated through sprintctl; see
+// docs/runbooks/maintenance-lane.md for the current path.
+export const DISPATCH_RETIRED_REASON =
+  "Dispatch write path retired: actionq-server was removed from the cluster on 2026-09-01 " +
+  "and no queue worker replaces it. Dispatch is done by native harness sessions coordinated " +
+  "through sprintctl; see docs/runbooks/maintenance-lane.md.";
 const DISPATCH_KINDS = new Set(["implement", "review", "test", "investigate", "document", "custom"]);
 const DISPATCH_HARNESSES = new Set(["claude", "codex", "copilot-cli", "codestral"]);
 const DISPATCH_PRIORITIES = new Set(["normal", "high"]);
@@ -22,28 +30,12 @@ const V2_PRODUCER_FIELDS = [
   "title", "prompt", "harness", "model", "priority", "refs", "dispatch_group_id"
 ];
 const V2_PRODUCER_FIELD_SET = new Set(V2_PRODUCER_FIELDS);
-const V2_ENQUEUE_RESULT_FIELDS = new Set(["action_id", "status", "request_ref", "request_sha256"]);
 
-export function getDispatchGate(config = getConfig()) {
-  if (config.actionqServerUrl) {
-    if (config.actionqDispatchContract !== DISPATCH_CONTRACT_VERSION) {
-      return {
-        enabled: false,
-        source: "actionq-server",
-        reason: `Dispatch disabled: actionq-server dispatch contract must be ${DISPATCH_CONTRACT_VERSION}.`
-      };
-    }
-    return {
-      enabled: true,
-      source: "actionq-server",
-      method: "server",
-      url: config.actionqServerUrl.replace(/\/+$/, "")
-    };
-  }
+export function getDispatchGate() {
   return {
     enabled: false,
-    source: "actionctl",
-    reason: "Dispatch disabled: actionctl cannot yet persist the v2 immutable request snapshot, request_ref, and request_sha256."
+    source: "cockpit-dispatch-retired",
+    reason: DISPATCH_RETIRED_REASON
   };
 }
 
@@ -214,83 +206,8 @@ export function normalizeDispatchPayload(payload, { requestedBy = getDispatchOpe
   };
 }
 
-export async function dispatchViaActionctl(payload, bin = "actionctl") {
-  const type = payload.action_type;
-  const priority = payload.priority === "high" ? 50 : 100;
-  const args = ["add", "--type", type, "--project", payload.repo_id, "--created-by", payload.requested_by || "operator:cockpit", "--priority", String(priority)];
-  if (payload.work_item_id) {
-    args.push("--target", payload.work_item_id);
-  }
-  if (payload.sprint_id != null) {
-    args.push("--source", `sprint:${payload.sprint_id}`);
-  }
-  const { stdout } = await execFileAsync(bin, args, { encoding: "utf8", timeout: 10000 });
-  return JSON.parse(stdout || "{}");
-}
-
-async function parseJsonResponse(response) {
-  const text = await response.text();
-  if (!text) {
-    return null;
-  }
-  try {
-    return JSON.parse(text);
-  } catch (error) {
-    if (!response.ok) {
-      return null;
-    }
-    throw new Error("actionq-server returned invalid JSON");
-  }
-}
-
-function validateEnqueuePersistence(body) {
-  if (!body || typeof body !== "object" || Array.isArray(body)) {
-    throw new Error("actionq-server v2 dispatch response must be an object");
-  }
-  for (const field of V2_ENQUEUE_RESULT_FIELDS) {
-    if (!Object.hasOwn(body, field)) {
-      throw new Error(`actionq-server v2 dispatch response is missing ${field}`);
-    }
-  }
-  for (const field of Object.keys(body)) {
-    if (!V2_ENQUEUE_RESULT_FIELDS.has(field)) {
-      throw new Error(`actionq-server v2 dispatch response has unknown field: ${field}`);
-    }
-  }
-  if (!(Number.isInteger(body.action_id) || (typeof body.action_id === "string" && body.action_id.trim()))) {
-    throw new Error("actionq-server v2 dispatch response is missing a valid action_id");
-  }
-  if (body.status !== "pending") {
-    throw new Error("actionq-server v2 dispatch response must have status pending");
-  }
-  if (typeof body.request_ref !== "string" || !body.request_ref.trim()) {
-    throw new Error("actionq-server v2 dispatch response is missing a valid request_ref");
-  }
-  if (typeof body.request_sha256 !== "string" || !/^[a-f0-9]{64}$/.test(body.request_sha256)) {
-    throw new Error("actionq-server v2 dispatch response is missing a valid request_sha256");
-  }
-  return body;
-}
-
-export async function forwardDispatchToActionqServer(payload, { config = getConfig(), fetchImpl = fetch } = {}) {
-  const gate = getDispatchGate(config);
-  if (!gate.enabled) {
-    throw new Error(gate.reason);
-  }
-  const response = await fetchImpl(`${gate.url}/dispatch`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-actionq-dispatch-contract": DISPATCH_CONTRACT_VERSION
-    },
-    body: JSON.stringify({
-      contract_version: DISPATCH_CONTRACT_VERSION,
-      ...payload
-    })
-  });
-  const body = await parseJsonResponse(response);
-  if (!response.ok) {
-    throw new Error(body?.error || body?.message || `actionq-server dispatch failed with ${response.status}`);
-  }
-  return validateEnqueuePersistence(body);
-}
+// dispatchViaActionctl and forwardDispatchToActionqServer were removed with
+// the dispatch write path retirement (agentops#2409 / D17). Neither
+// owner-source (actionctl v2 persistence, actionq-server) exists any more, so
+// the outbound call capability itself is gone, not merely gated off. See
+// getDispatchGate above and docs/runbooks/maintenance-lane.md.
