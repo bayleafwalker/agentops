@@ -141,7 +141,9 @@ host-local transcript retention are new and are exactly the "explicit
 redaction and retention policy" `docs/ecosystem.md` requires before this
 path may be treated as anything more than deployment-selected instrumentation.
 
-**S3 lifecycle rule (G7, #2407).** Bucket lifecycle on prefix `langfuse/`:
+**Enforcement status (2026-09-15).** Self-hosted Langfuse keeps trace data indefinitely unless a retention mechanism is configured, and its built-in retention management is not available on the self-hosted free tier; a ClickHouse TTL alone does not prove deletion across Postgres, object storage and media. Until deletion is enforced and verified end to end, no continuous real-data export is allowed; a disposable pilot uses complete teardown as its retention boundary and its own restricted object-store credential and target.
+
+**S3 lifecycle rule (G7, #2407; on hold for a dedicated pilot target).** Bucket lifecycle on prefix `langfuse/`:
 expire current object versions 30 days after creation, and abort incomplete
 multipart uploads 7 days after initiation. There is no S3 admin tooling on the
 workstation, so the operator applies the rule in the Hetzner console; the
