@@ -47,9 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--profile", default=os.environ.get("OPERATOR_PROJECTION_PROFILE"))
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("generate").add_argument("--out", type=Path, help="write v1.json and v1.txt here instead of JSON to stdout")
-    served = commands.add_parser("serve")
-    served.add_argument("--port", type=int, default=8080)
-    served.add_argument("--remote-port", type=int, default=8081, help="the redacted listener behind Access (§16.1)")
+    commands.add_parser("serve").add_argument("--port", type=int, default=8080)
     source = commands.add_parser("text").add_mutually_exclusive_group(required=True)
     source.add_argument("--url", help="a served projection, e.g. https://ops.example")
     source.add_argument("--file", type=Path)
@@ -62,7 +60,7 @@ def main(argv: list[str] | None = None) -> int:
     produce = build(args.registry, args.profile)
     if args.command == "serve":
         archive = os.environ.get("OPERATOR_PROJECTION_ARCHIVE_DIR")
-        serve(produce, int(os.environ.get("OPERATOR_PROJECTION_CADENCE_S", "900")), port=args.port, remote_port=args.remote_port,
+        serve(produce, int(os.environ.get("OPERATOR_PROJECTION_CADENCE_S", "900")), port=args.port,
               archive_dir=Path(archive) if archive else None)
         return 0
     doc = produce()

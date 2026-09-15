@@ -1,6 +1,6 @@
-"""Two renderers and the remote redaction, one contract (§11.6, §16.1): each must cover every document field, asserted at import."""
+"""Two renderers, one contract (§11.6): both must cover every document field, asserted at import."""
 
-from . import redact, render_html, render_text
+from . import render_html, render_text
 
 FIELDS = frozenset(
     {"schema", "derived", "generated_at", "cadence_s", "stale_after_s", "registry", "sources"}
@@ -15,4 +15,3 @@ FIELDS = frozenset(
 
 for _renderer in (render_html, render_text):
     assert _renderer.COVERS == FIELDS, f"{_renderer.__name__} coverage differs: {sorted(_renderer.COVERS ^ FIELDS)}"
-assert redact.REMOTE.keys() == FIELDS, f"redaction coverage differs: {sorted(redact.REMOTE.keys() ^ FIELDS)}"
