@@ -11,7 +11,7 @@ import pytest
 from fakes import FakeAuthorityClient
 from operator_projection import cli
 from operator_projection.generate import generate
-from operator_projection.serve import Latest, handler, loop
+from operator_projection.serve import ARCHIVE_KEEP_S, Latest, archive, handler, loop
 from operator_projection.sources import Authority, stamp
 from world import NOW, REGISTRY, TAGS, estate
 
@@ -49,14 +49,14 @@ def test_healthz_is_503_until_a_document_exists_then_routes_serve_it(server):
     assert request(port, "GET", "/other")[0] == 404
 
 
-def test_fresh_is_503_without_a_document_and_once_past_stale_after(server):
+def test_freshz_is_503_without_a_document_and_once_past_stale_after(server):
     latest, port = server
-    assert request(port, "GET", "/fresh")[0] == 503
+    assert request(port, "GET", "/freshz")[0] == 503
     now = datetime.now(timezone.utc)
     latest.document = {**document(), "generated_at": stamp(now)}
-    assert request(port, "GET", "/fresh")[0] == 200
+    assert request(port, "GET", "/freshz")[0] == 200
     latest.document["generated_at"] = stamp(now - timedelta(seconds=latest.document["stale_after_s"] + 60))
-    assert request(port, "GET", "/fresh")[0] == 503
+    assert request(port, "GET", "/freshz")[0] == 503
     assert request(port, "GET", "/healthz")[0] == 200
 
 
@@ -79,6 +79,17 @@ def test_loop_keeps_the_last_document_when_a_generation_fails():
 
     loop(latest, produce, 0, stop)
     assert latest.document == {"schema": "x"} and len(calls) == 2
+
+
+def test_archive_writes_one_gzip_per_generation_and_prunes_past_the_horizon(tmp_path):
+    import gzip, os, time
+    stale = tmp_path / "v1-2026-01-01T000000Z.json.gz"
+    stale.write_bytes(b"")
+    os.utime(stale, (time.time() - ARCHIVE_KEEP_S - 60,) * 2)
+    archive(tmp_path, {"generated_at": "2026-09-15T08:00:00Z", "schema": "x"})
+    kept = sorted(tmp_path.iterdir())
+    assert [f.name for f in kept] == ["v1-2026-09-15T080000Z.json.gz"]
+    assert json.loads(gzip.open(kept[0], "rt").read())["schema"] == "x"
 
 
 def test_cli_text_renders_a_recorded_document(tmp_path, capsys):

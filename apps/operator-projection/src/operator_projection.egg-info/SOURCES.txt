@@ -5,6 +5,7 @@ src/operator_projection/cli.py
 src/operator_projection/contract.py
 src/operator_projection/evaluators.py
 src/operator_projection/generate.py
+src/operator_projection/redact.py
 src/operator_projection/render_html.py
 src/operator_projection/render_text.py
 src/operator_projection/replay.py
@@ -26,6 +27,7 @@ tests/test_p0_regression.py
 tests/test_panels_ground.py
 tests/test_panels_moves.py
 tests/test_panels_pickup.py
+tests/test_redact.py
 tests/test_render.py
 tests/test_serve.py
 tests/test_sources_github.py
