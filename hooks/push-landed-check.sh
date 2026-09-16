@@ -9,9 +9,25 @@ EVENT="$(cat 2>/dev/null || true)"
 command -v jq >/dev/null 2>&1 || exit 0
 CMD="$(printf '%s' "$EVENT" | jq -r '.tool_input.command // ""' 2>/dev/null)"
 CWD="$(printf '%s' "$EVENT" | jq -r '.cwd // ""' 2>/dev/null)"
-printf '%s' "$CMD" | grep -qE '(^|[ \t]|[|&;])git([ \t]+-[^ \t]+)*[ \t]+push([ \t]|$)' || exit 0
+PUSH_RE='(^|[[:blank:]]|[|&;])git([[:blank:]]+(-C[[:blank:]]+[^[:blank:]]+|-[^[:blank:]]+))*[[:blank:]]+push([[:blank:]]|$)'
+printf '%s' "$CMD" | grep -qE "$PUSH_RE" || exit 0
 
-R="$(git -C "${CWD:-.}" rev-parse --show-toplevel 2>/dev/null)" || exit 0
+# Resolve the PUSHED repository, not the session's: a push from a worktree
+# (`git -C DIR push`, or `cd DIR && git push`) must be checked against DIR.
+unquote() { local d="$1"; d="${d#[\"\']}"; d="${d%[\"\']}"; case "$d" in \~|\~/*) d="$HOME${d#\~}";; esac; printf '%s' "$d"; }
+BASE="${CWD:-.}"
+CD_DIR="$(printf '%s' "$CMD" | sed -nE 's/^[[:space:]]*cd[[:space:]]+("[^"]*"|'"'"'[^'"'"']*'"'"'|[^[:space:];&|]+)[[:space:]]*(&&|;).*/\1/p' | head -n1)"
+if [ -n "$CD_DIR" ]; then
+  CD_DIR="$(unquote "$CD_DIR")"
+  case "$CD_DIR" in /*) BASE="$CD_DIR";; *) BASE="$BASE/$CD_DIR";; esac
+fi
+C_DIR="$(printf '%s' "$CMD" | grep -oE "$PUSH_RE" | head -n1 | sed -nE 's/.*[[:space:]]-C[[:space:]]+([^[:space:]]+).*/\1/p')"
+if [ -n "$C_DIR" ]; then
+  C_DIR="$(unquote "$C_DIR")"
+  case "$C_DIR" in /*) BASE="$C_DIR";; *) BASE="$BASE/$C_DIR";; esac
+fi
+
+R="$(git -C "$BASE" rev-parse --show-toplevel 2>/dev/null)" || exit 0
 CANON="$(git -C "$R" config claude.canonicalRemote 2>/dev/null || true)"
 if [ -z "$CANON" ] && [ -d "$R/.forgejo/workflows" ]; then
   CANON="$(git -C "$R" remote -v 2>/dev/null | awk '/kotona\.app/ {print $1; exit}')"
@@ -21,8 +37,11 @@ git -C "$R" remote get-url "$CANON" >/dev/null 2>&1 || exit 0
 
 BR="$(git -C "$R" rev-parse --abbrev-ref HEAD 2>/dev/null)"
 LOCAL="$(git -C "$R" rev-parse HEAD 2>/dev/null)"
-REMOTE="$(git -C "$R" ls-remote "$CANON" "refs/heads/$BR" 2>/dev/null | awk '{print $1}')"
-[ "$LOCAL" = "$REMOTE" ] && exit 0
+HEADS="$(git -C "$R" ls-remote --heads "$CANON" 2>/dev/null)"
+# Landed = HEAD is the tip of ANY canonical branch (covers `push origin HEAD:main`
+# from a worktree branch whose own name does not exist on the remote).
+[ -n "$LOCAL" ] && printf '%s\n' "$HEADS" | awk '{print $1}' | grep -qx "$LOCAL" && exit 0
+REMOTE="$(printf '%s\n' "$HEADS" | awk -v r="refs/heads/$BR" '$2==r {print $1}')"
 
 jq -n --arg c "$CANON" --arg b "$BR" --arg l "${LOCAL:0:8}" --arg r "${REMOTE:0:8}" \
   '{hookSpecificOutput:{hookEventName:"PostToolUse",
