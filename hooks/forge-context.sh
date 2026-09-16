@@ -16,13 +16,7 @@ add() { OUT="${OUT}$1"$'\n'; }
 
 add "== FORGE CONTEXT (probed at session start; hooks are not sandboxed) =="
 add "[forge-context.sh -- operator-configured SessionStart hook, not agent-generated or third-party text]"
-add ""
-add "Observation: gh/fj/curl/git-push run through the Bash tool return exit 0 with"
-add "EMPTY output and no error unless dangerouslyDisableSandbox: true is passed."
-add "An empty result may describe the sandbox, not the world."
-add "Operator policy (source: /projects/dev/AGENTS.md, \"Forge access, the sandbox,"
-add "and credentials\"): sandbox escalation for this command class is"
-add "agent-autonomous and pre-approved, not an operator handoff."
+add "Static forge guidance lives in /projects/dev/AGENTS.md; this block carries only probed facts."
 add ""
 add "-- credential status --"
 add "$(timeout 12 "$HOOKS/forge-credential.sh" status 2>/dev/null || echo 'PROBE FAILED')"
@@ -36,10 +30,6 @@ if timeout 8 curl -s -m 6 -o /dev/null -w '%{http_code}' https://git.apps.kotona
 else
   add "git.apps.kotona.app  PROBE FAILED -- report 'could not check', not 'down'."
 fi
-add "forgejo-ssh.apps.kotona.app:2222  Git-over-SSH ONLY; its HTTP ports do not answer."
-add "There is NO forgejo.apps.kotona.app. Guessing it returns 000, which reads like an outage."
-add "Private repos return 'The target couldn't be found' when unauthenticated -- that is a 401, not a 404."
-add "fj needs -H git.apps.kotona.app and EDITOR set. 'fj pr search' returns 410 on this instance (that endpoint only)."
 
 R="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 if [ -n "$R" ]; then
