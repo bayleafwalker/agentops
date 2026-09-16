@@ -88,8 +88,9 @@ directories, checkpoint files, or health files.
 
 ## Runtime boundary
 
-`npm run completion-alert-consumer` runs the bounded always-on poller. The
-checked-in systemd unit is only a source-level operator template; runtime
+Historical: `npm run completion-alert-consumer` in `apps/web` ran the bounded
+always-on poller. That source and its systemd unit were deleted with the
+agent-cockpit retirement (2026-09). The unit was only a source-level operator template; runtime
 credentials, persistence, network policy, and enablement remain Appservice's
 separately authorized responsibility. No unit in this repository performs
 deployment or cluster reconciliation.

@@ -26,28 +26,12 @@ Outctl is retired from active Vuoro scope and retained only as a frozen
 discovery artifact. See the
 [2026-08-20 native-runtime/federation realignment](docs/plans/agentops/native-runtime-federation-realignment-2026-08-20.md).
 
-This repo owns cross-repo substrate plans now and is the intended home for the future agent-cockpit UI:
+This repo owns cross-repo substrate plans:
 
 ```text
 docs/plans/agentops/   # cross-repo plans
-apps/web/              # agent-cockpit frontend (live)
 site/index.html         # interactive map of the wider AgentOps ecosystem
 ```
 
-## Agent Cockpit
-
-A read-only sprint and session cockpit deployed at `cockpit.kotona.app`. Backed by sprintctl postgres, actionctl session reads, and audit shard artifacts.
-
-### Screenshots
-
-**Home**
-
-![Agent Cockpit home screen](docs/screenshots/home.png)
-
-**Sprint Overview** — live homelab-analytics backlog, active tasks, claims, and dispatch feed
-
-![Cockpit sprint overview](docs/screenshots/cockpit-main.png)
-
-**Command Palette** — repo and sprint switcher (Ctrl+K)
-
-![Cockpit command palette](docs/screenshots/cockpit-command-palette.png)
+The agent-cockpit UI (`apps/web/`) was retired from the cluster (appservice #1647) and its
+source deleted in 2026-09; recover it from git history if needed.

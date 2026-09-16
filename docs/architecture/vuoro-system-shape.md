@@ -113,7 +113,7 @@ There is no automatic parent-action re-claim or fan-out replay loop.
 | Federated work/execution identity, relations, assurance, evidence requirements, acceptance and reconciliation | ActionQ target federation layer |
 | Knowledge extraction, review, publication | Kctl |
 | Audit index and portable evidence records | Auditctl |
-| Shared contracts, dispatch guidance, project binding, cockpit source | Agentops |
+| Shared contracts, dispatch guidance, project binding | Agentops |
 | Client/service transport and released adapter composition | Vuoro |
 | Deployment, credentials, telemetry routing | Appservice |
 | Raw/native harness observations | OpenTelemetry plus Langfuse (selected 2026-09-14)/object-storage path; non-authoritative |

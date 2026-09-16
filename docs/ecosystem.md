@@ -60,6 +60,10 @@ These are siblings under `/projects/dev/`, not nested inside each other. `_artif
 
 ## Cockpit Architecture (staged rollout boundary)
 
+> **Retired 2026-09-16:** the agent cockpit was removed from the cluster
+> (appservice #1647) and `agentops/apps/web` was deleted. This section is
+> historical; recover the source from git history.
+
 The cockpit is a Next.js app in `agentops/apps/web`. The browser talks only to
 `/cockpit/api/*` routes served by the same pod; those routes are the gateway for
 PostgreSQL, actionq-server, workspace artifacts, and the shared cost log.
@@ -339,6 +343,10 @@ Historical implementation remains in Git history and the
 ---
 
 ## The Agent Cockpit (deployed compatibility and migration target)
+
+> **Retired 2026-09-16:** the agent cockpit was removed from the cluster
+> (appservice #1647) and `agentops/apps/web` was deleted. This section is
+> historical; recover the source from git history.
 
 The agent cockpit (`agentops/apps/web`) is a read-only operator surface. It displays sprint state, active sessions, and audit history from three independent data sources in a single UI. It does not own any state itself.
 
