@@ -1,0 +1,32 @@
+# Dev environments: per-host setup
+
+On-demand reference moved out of the always-read workspace `AGENTS.md`. Read it when you
+are setting up or repairing a host, not at session start. The legacy vscode-shell pod was retired
+(appservice d66d397f, 2026-07-30); its setup notes are in git history.
+
+## devbox-vm
+
+- Plain NixOS VM; `/home/agent` and `/projects/dev` persist. System packages come from
+  `gitops-nixos/hosts/devbox/` (no sudo; deploy through the infra path).
+- Python tools: `uv tool install 'name[extras] @ /projects/dev/<repo>/'` as `agent`
+  (lands in `~/.local/bin`). sprintctl needs the `remote` extra, or it fails with
+  "psycopg is not installed".
+- No cluster tools and no Talos/TrueNAS reach. Its auto-loaded guidance is
+  `templates/workspace/CLAUDE.devbox.md`.
+- Shared agent assets: `/projects/dev/.claude/scripts/sync-devbox.sh --dry-run`, then
+  `--apply`. It never syncs Git state, source, `.envrc` state, secrets, worktrees or tool
+  installs, and never deletes remote files.
+
+## Session telemetry
+
+`log-session-cost.sh` (Stop) appends cumulative per-session snapshots to
+`/projects/dev/.claude/session-costs.jsonl`, and `gate-log.sh` (PostToolUse) records gate
+commands. Rows supersede: reduce to the newest row per `session` before aggregating.
+Summary: `agentops/templates/dispatch/hooks/cost-summary.sh [project]`.
+
+## Evidence and durability background
+
+Rationale for the durability table in the workspace `AGENTS.md`:
+`docs/plans/agentops/operative-position-durability-2026-08-29.md`. Shard append-only check:
+`templates/dispatch/scripts/check_append_only_shards.py`. Producer inventory (an instrument,
+not a gate): `templates/dispatch/scripts/check_producers.py`.
