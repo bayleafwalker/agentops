@@ -16,8 +16,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).parents[3]
-SCRIPTS = ROOT / "templates/dispatch/scripts"
+ROOT = Path(__file__).parents[2]
+SCRIPTS = ROOT / "scripts"
 
 
 def _load(name: str, path: Path):
@@ -110,5 +110,5 @@ class ProtectedPathCheckTests(unittest.TestCase):
         self.assertEqual(
             self._run("docs: evidence"), 1,
             "a glob-protected path was not matched; the checker is not using "
-            "hybrid_dispatch._matches_any",
+            "its _matches_any",
         )

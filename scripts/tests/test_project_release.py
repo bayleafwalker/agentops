@@ -9,7 +9,7 @@ import sys
 import tempfile
 import unittest
 
-SCRIPTS = Path(__file__).parents[1] / "scripts"
+SCRIPTS = Path(__file__).parents[1]
 sys.path.insert(0, str(SCRIPTS))
 import project_release as RELEASE  # noqa: E402
 import render_project as RENDER  # noqa: E402

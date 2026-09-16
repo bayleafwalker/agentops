@@ -52,7 +52,7 @@ member worktrees.
 
 ## Implemented v2 foundation
 
-`templates/dispatch/scripts/materialize_project.py` creates an identified local
+`scripts/materialize_project.py` creates an identified local
 instance for a multi-repository work window:
 
 ```text
@@ -65,7 +65,7 @@ instance for a multi-repository work window:
 ```
 
 ```bash
-python templates/dispatch/scripts/materialize_project.py setup \
+python scripts/materialize_project.py setup \
   --project /projects/dev/<home-repo>/project.toml \
   --folder <derived-folder> \
   --instance <instance-id> \
@@ -86,7 +86,7 @@ active project definition requires an explicit owner-reviewed Git update and a
 new or deliberately refreshed instance.
 
 ```bash
-python templates/dispatch/scripts/materialize_project.py sync \
+python scripts/materialize_project.py sync \
   --project /projects/dev/<home-repo>/project.toml \
   --folder <derived-folder>
 ```

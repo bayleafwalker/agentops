@@ -23,8 +23,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).parents[3]
-SCRIPTS = ROOT / "templates/dispatch/scripts"
+ROOT = Path(__file__).parents[2]
+SCRIPTS = ROOT / "scripts"
 
 
 def _load(name: str, path: Path):
