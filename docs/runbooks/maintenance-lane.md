@@ -63,7 +63,7 @@ Blocked-on: <decision or item, if any>
 |---|---|---|
 | `clerical` | Claude Haiku (`clerical` alias) | Read-only triage, formatting, mechanical edits with a literal spec |
 | `fast-build` | Claude Sonnet via `worker` agent, or Codex Spark | Bounded implementation with tests |
-| `local` | `local3090/worker-fast` or `local3090/devstral` via OpenCode | Experiments and corpus runs; unqualified, results go to the local-inference scorecard |
+| `local` | `local3090/worker-fast` or `local3090/devstral` via OpenCode | **Sandbox/advisory only** — `supervised-experiment` and `corpus-run` task classes as defined in [`model-routing.md`](../dispatch/model-routing.md#unqualified-local-models-sandboxadvisory-allowlist); unqualified, results go to the local-inference scorecard; see [Local model qualification](#local-model-qualification) below |
 | `expert` | Claude Sonnet via `expert` agent | Read-only analysis of current behaviour |
 | `frontier-plan` / `operator` | Frontier coordinator / human | Design, enforcement boundaries, anything needing approval |
 
@@ -156,6 +156,62 @@ Weekly, or after every ten lane attempts, the coordinator:
    item when a tier's first-pass acceptance falls below the level the operator
    has accepted for it.
 
-Thresholds for "a tier is good enough for an item class" are **not set yet**.
-Propose them from at least ten reviewed attempts per tier; the operator accepts
-them.
+Thresholds for "a tier is good enough for an item class" are **not set yet**
+for `clerical`, `fast-build`, and `expert`. Propose them from at least ten
+reviewed attempts per tier; the operator accepts them. The `local` tier does
+not use this flat count — see below.
+
+## Local model qualification
+
+This section is the qualification standard referenced from
+[`model-routing.md`'s sandbox/advisory allowlist](../dispatch/model-routing.md#unqualified-local-models-sandboxadvisory-allowlist).
+It replaces a flat "≥10 attempts" threshold for the `local` tier with a
+per-task-class sampling floor, class-specific pass criteria, and a
+zero-critical-failure rule. It governs only `local_workstation` routes
+(`local3090/worker-fast`, `local3090/devstral`); it does not change the
+generic tier threshold above for `clerical`, `fast-build`, or `expert`.
+
+**Task classes.** An unqualified local route is dispatched only as one of:
+
+- `supervised-experiment` — one bounded implementation attempt in a disposable
+  worktree, reviewed by the coordinator or `expert` before any part of it is
+  reused.
+- `corpus-run` — a batch generation or transformation over an existing corpus,
+  scored in `local-inference/benchmarks/scorecard.csv`.
+
+**Sampling floor — proposed, operator to confirm.** At least **20 reviewed
+attempts per task class per model** (e.g. 20 `supervised-experiment` attempts
+and, separately, 20 `corpus-run` attempts for `local3090/worker-fast`, and the
+same again for `devstral` before it qualifies independently), each recorded
+in the scorecard with tier, model, task class, and verdict. This floor is
+double the prior generic ten-attempt count and is per class rather than
+pooled, because a route qualifying on `corpus-run` volume says nothing about
+its `supervised-experiment` judgment, and vice versa. It does not take effect
+until the operator confirms it.
+
+**Class-specific pass criteria**, evaluated once the sampling floor for that
+class is met:
+
+- `supervised-experiment`: first-pass acceptance rate over the sampled window
+  meets or exceeds the level the operator has accepted for the class, the
+  diff in every sampled attempt touched only the item's declared `Writable`
+  paths, and no sampled attempt required more than one rework cycle before
+  acceptance.
+- `corpus-run`: a coordinator-reviewed sample of run output (size
+  proportional to run volume, never smaller than the sampling floor) meets or
+  exceeds the operator-accepted accuracy level for the class, with no
+  fabricated or hallucinated corpus entries in the reviewed sample.
+
+**Zero-critical-failure rule.** A **critical failure** is any of:
+
+- a write to a protected path;
+- a merge, or a push to a shared or tracked branch;
+- use of a production credential;
+- a cluster mutation;
+- exposure of sensitive or production data.
+
+One critical failure anywhere in the sampled window fails qualification for
+that task class outright, regardless of the rest of the sample's pass rate.
+It requires a `lane.review` note describing the failure and blocks further
+`local`-tier dispatch in that task class until the coordinator records a
+remediation and the sampling floor is met again from a clean window.

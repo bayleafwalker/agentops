@@ -39,9 +39,47 @@ Worker routes define mechanically specified implementation workers for supervise
 
 | Route | Model | Status | Notes |
 |---|---|---|---|
-| `local_workstation` | `local3090/worker-fast` | Workstation-only, unqualified | Local llama-swap access (Qwen 3.6-35B) via provider `local3090` (baseURL http://127.0.0.1:8020/v1). Alternative model on the same provider is `devstral` (Devstral-Small-2 24B, ctx 24576). **Availability is not qualification**; qualification would require evidence from the local-inference/acceptance-lab scorecard. |
+| `local_workstation` | `local3090/worker-fast` | Workstation-only, unqualified, **sandbox/advisory** | Local llama-swap access (Qwen 3.6-35B) via provider `local3090` (baseURL http://127.0.0.1:8020/v1). Alternative model on the same provider is `devstral` (Devstral-Small-2 24B, ctx 24576). **Availability is not qualification**; qualification would require evidence from the local-inference/acceptance-lab scorecard. |
 
 Workers in this table carry no production authority. In `model-routing.json` notes: `verified` indicates the concrete provider ID is confirmed as accessible; `qualified` indicates the model has been through qualification or acceptance-lab testing (see AGENTS.md: "Availability is not qualification"). Both flags remain false until their respective evidence is available.
+
+### Unqualified local models: sandbox/advisory allowlist
+
+Until a route earns `qualified: true` evidence, it is **sandbox/advisory only**:
+its output is a suggestion for a human or a qualified worker to review and
+re-do the writing, never a change applied on its own authority. This section
+is the allowlist; the maintenance-lane runbook's qualification standard
+(below) is what moves a route off it.
+
+**Allowed task classes** (an unqualified local route may be dispatched only
+for one of these; anything else routes to a qualified tier):
+
+| Task class | What it covers | Output disposition |
+|---|---|---|
+| `supervised-experiment` | One bounded implementation attempt in a disposable worktree, immediately reviewed by the coordinator or `expert` agent. | Reviewed diff either discarded or hand-applied by the coordinator; the local model's own commit is never merged or pushed. |
+| `corpus-run` | Batch generation or transformation over an existing corpus (docs, fixtures, benchmark inputs), scored against `local-inference/benchmarks/scorecard.csv`. | Sampled and reviewed before any output leaves the scorecard/experiment area; nothing is applied to a target repository directly from the run. |
+
+**Explicit prohibitions**, regardless of task class — an unqualified local
+route must never:
+
+- write to a protected path (as declared in the target repository's
+  `hybrid.protected_paths` / enforced by `check_protected_paths.py`);
+- merge, push to a shared or tracked branch, or close a sprintctl item;
+- use or handle a production credential (forge tokens, `~/.config/actionq-env`,
+  cluster kubeconfigs, sops-encrypted material, or any secret);
+- touch sensitive data (production data, audit records, customer data, or
+  anything a coordinator has flagged as confidential);
+- perform a cluster mutation (`kubectl`, `flux`, `talosctl`, or any other
+  cluster-state-changing action, direct or indirect).
+
+These prohibitions apply on top of, not instead of, the item's declared
+`Writable` scope and the repository's normal protected-path enforcement.
+
+**Qualification standard** (replaces the flat "≥10 attempts" rule): see
+[`maintenance-lane.md`](../runbooks/maintenance-lane.md#local-model-qualification)
+for the per-task-class sampling floor and the zero-critical-failure rule that
+together decide when a route may move from this allowlist to a qualified
+tier.
 
 ## Resolution
 
