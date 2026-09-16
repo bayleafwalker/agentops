@@ -15,7 +15,7 @@ from .evaluators import DIGEST, Move, broker_rows, durability_rows, lock_rows, o
 from .replay import APPSERVICE, BRANCH, RELEASE_LABEL, VOCABULARIES, Replay, read_policy, recall
 from .sources import Authority, GitSource, ImageTags, SourceUnavailable, fetch_image_tags, stamp
 
-RANK = ["FORECLOSED", "REGRESSED", "DURABILITY-DOWN", "DURABILITY-UP", "GAINED", "CONTRACT-CHANGE"]
+RANK = ["FORECLOSED", "REGRESSED", "DURABILITY-DOWN", "DURABILITY-UP", "RETIRED", "GAINED", "CONTRACT-CHANGE"]
 
 
 def unavailable(message: str):
@@ -208,8 +208,9 @@ def diverged_hazards(run: Run) -> list[dict]:
                         sources=["git.appservice", "ghcr.image-tags"]))
     for subject in run.registry.get("divergence", []):
         def digests(commit: str) -> dict[str, str | None]:
-            texts = {name: run.show(APPSERVICE, commit, path) or "" for name, path in subject["manifests"].items()}
-            return {name: m.group(1) if (m := DIGEST.search(text)) else None for name, text in texts.items()}
+            texts = {name: run.show(APPSERVICE, commit, path) for name, path in subject["manifests"].items()}
+            # A deleted manifest is a retired declarer, not a second value; a present manifest without a digest still diverges.
+            return {name: m.group(1) if (m := DIGEST.search(text)) else None for name, text in texts.items() if text is not None}
         now = digests(head)
         if len(set(now.values())) < 2:
             continue
@@ -219,7 +220,7 @@ def diverged_hazards(run: Run) -> list[dict]:
             if len(set(digests(sha).values())) < 2:
                 break
             since = (sha, stamp(when)[:10])
-        detail = " vs ".join(f"{name} {(d or 'none')[7:15]} ({(run.tags.release(d) or 'untagged').removeprefix('vuoro-service-v')})" for name, d in now.items())
+        detail = " vs ".join(f"{name} {d[7:15] if d else 'none'} ({(run.tags.release(d) or 'untagged').removeprefix('vuoro-service-v')})" for name, d in now.items())
         rows.append(row("DIVERGED", subject["subject"], detail + (f" · diverged at appservice {since[0][:8]}" if since else ""), run.declared(now, APPSERVICE, head),
                         subject.get("consumers", []), since and since[1], "digests equal across " + ", ".join(subject["manifests"]),
                         ["git.appservice", "ghcr.image-tags"]))

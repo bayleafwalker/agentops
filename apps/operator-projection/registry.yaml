@@ -24,6 +24,10 @@ sources:
   broker_pvc: clusters/main/kubernetes/apps/cred-broker/app/state-pvc.yaml
   cockpit_pvc: clusters/main/kubernetes/apps/agent-cockpit/app/state-pvc.yaml
 
+# A store's owning component. Once its manifest is deleted from appservice the store is RETIRED (a move), never D0 (P4, appservice #1647).
+owners:
+  cockpit_pvc: clusters/main/kubernetes/apps/agent-cockpit/app/deployment.yaml
+
 external:
   pins: {repo: vuoro, path: packages/vuoro-service/composition/adapter-pins.json}
   record_classes: {repo: auditctl, path: auditctl/validation.py}

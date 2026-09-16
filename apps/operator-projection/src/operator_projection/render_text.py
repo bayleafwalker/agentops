@@ -87,7 +87,7 @@ def moves(doc: dict, now: datetime) -> list[Line]:
         return [("blind", f"MOVES  {span} · {show(m['counts'])}")]
     c = m["counts"]["value"]
     tally = (f"{sum(c.values())} moves ({c['GAINED']} gained · {c['FORECLOSED']} foreclosed · {c['REGRESSED']} regressed"
-             f" · {c['DURABILITY-UP'] + c['DURABILITY-DOWN']} durability)")
+             f" · {c['DURABILITY-UP'] + c['DURABILITY-DOWN']} durability" + (f" · {c['RETIRED']} retired)" if c.get("RETIRED") else ")"))
     if z := m["zero"]:
         return [
             ("head", f"MOVES  {span} · {tally}"),

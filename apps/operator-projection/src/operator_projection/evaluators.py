@@ -98,12 +98,11 @@ def broker_rows(policy: dict | None, wide_scope: Scope | None = None) -> dict[st
     }
 
 
-def durability_rows(cockpit_pvc: bool, policy: dict | None, broker_pvc: bool) -> dict[str, Row]:
+def durability_rows(cockpit_pvc: bool | None, policy: dict | None, broker_pvc: bool) -> dict[str, Row]:
+    """cockpit_pvc None: the owning component's manifest is gone, so the store is no member at all (RETIRED, never D0)."""
     receipts = bool(policy and policy.get("receipt_path")) and broker_pvc
-    return {
-        "cockpit.reconciliation-state": Row(True, "D2" if cockpit_pvc else "D0"),
-        "credbroker.receipts": Row(True, "D2" if receipts else "D0"),
-    }
+    cockpit = {} if cockpit_pvc is None else {"cockpit.reconciliation-state": Row(True, "D2" if cockpit_pvc else "D0")}
+    return cockpit | {"credbroker.receipts": Row(True, "D2" if receipts else "D0")}
 
 
 def policy_revision(policy: dict) -> str:
@@ -122,6 +121,8 @@ def classify(vocabulary: str, before: dict[str, Row], after: dict[str, Row]) -> 
         if vocabulary == "durability.store":
             if b and a and b.value != a.value:
                 moves.append((member, "DURABILITY-UP" if RUNGS[a.value] > RUNGS[b.value] else "DURABILITY-DOWN"))
+            elif b and a is None:
+                moves.append((member, "RETIRED"))
         elif b is None:
             moves += [(member, "GAINED")] if a.passed else []
         elif a is None:
