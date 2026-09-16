@@ -28,7 +28,7 @@ human accepts and merges.
 
 ```text
 coordinator (claude-code | codex-cli)
-  → sprintctl item + claim
+  → sprintctl item + reservation
   → frozen agentops-task/v1 packet at an exact commit
   → disposable worktree, cold registered-command run
   → one bounded worker loop (opencode-go, session permission overlay)
@@ -56,8 +56,9 @@ its own orchestrator.
 | Acceptance and merge | no (human) | denied |
 
 `sprintctl_authority: coordinator_only` is a hard contract line. A worker never
-claims, advances, or closes an item, and the packet records which coordinator
-actor holds the claim.
+reserves, advances, or closes an item, and the packet records which coordinator
+actor holds the reservation (in the legacy-named `sprint_item.claim_id` and
+`claim_actor` fields).
 
 ## Repository eligibility
 
@@ -114,14 +115,30 @@ Only a human accepts, merges, and moves the sprintctl item.
 sprintctl is the work-state authority; the packet only references it.
 
 1. `sprintctl next-work` — pick a ready item whose architecture is already settled.
-2. `sprintctl claim acquire` — the **coordinator** takes the claim and records
-   its actor in `sprint_item.claim_actor`.
+2. `sprintctl reservation reserve --item-id N --actor <authenticated actor>` —
+   the **coordinator** reserves the item and records the reservation id and
+   actor in `sprint_item.claim_id` / `sprint_item.claim_actor`. `sprintctl claim`
+   was removed on 2026-08-23; the packet fields keep their old names. In served
+   mode the actor must equal the authenticated identity of the profile
+   (e.g. `devbox-agent-vuoro` on devbox), otherwise the service answers
+   `actor-mismatch`. `prepare` re-verifies the reservation is active, covers the
+   item, is held by that actor and was touched within 4 hours
+   (`sprintctl reservation touch --id R`).
 3. Freeze the packet at `git rev-parse HEAD` and dispatch as above.
 4. On a candidate: the coordinator commits on the packet branch, the human
    reviews and merges, then the item advances (`item-done` skill).
-5. On any other disposition: release or hold the claim explicitly and record a
-   sprintctl event. Never leave a claim held by a finished worker loop — the
+5. On any other disposition: release (`sprintctl reservation release`) or hold
+   the reservation explicitly and record a sprintctl event. Never leave a
+   reservation held by a finished worker loop — the
    worker never held it in the first place.
+
+Run every driver phase with the served backend explicit, e.g.
+`SPRINTCTL_BACKEND=served SPRINTCTL_VUORO_PROFILE=<profile> python
+templates/dispatch/scripts/hybrid_dispatch.py ... prepare`. The driver's
+reservation check inherits the shell's environment, and a stray
+`SPRINTCTL_BACKEND=local` makes `prepare` fail before workspace creation with
+`SPRINTCTL_BACKEND=local cannot be used in repo '<repo>'; repo marker requires
+served.` even when direct `sprintctl` calls from `.envrc` shells work.
 
 Routes that must go back to the coordinator instead of a worker: unresolved
 architecture or ownership, cross-repository sequencing, contradictory acceptance

@@ -49,6 +49,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 sys.dont_write_bytecode = True
@@ -660,7 +661,13 @@ class PrepareReceiptTests(unittest.TestCase):
         """No AGENTOPS_WORKER_USER, so no worker user, so no containment check.
         This is the run that was green for two weeks without probing once. The
         receipt now says which of the two it was."""
-        code, receipt = self._prepare_receipt()
+        # --worker-user defaults to $AGENTOPS_WORKER_USER. On devbox that is set
+        # to the real worker, so the probe ran and this test failed with
+        # 'probed' != 'skipped:no-worker-user' (dogfood 2026-09-16). The
+        # workstation case is "unset", so make it unset rather than inherit it.
+        with mock.patch.dict(os.environ):
+            os.environ.pop("AGENTOPS_WORKER_USER", None)
+            code, receipt = self._prepare_receipt()
 
         self.assertEqual(code, 0, receipt)
         self.assertEqual(receipt["stage"], "prepare")

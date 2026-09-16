@@ -14,7 +14,16 @@ import json
 import subprocess
 from pathlib import Path
 
-import pytest
+try:
+    import pytest
+except ImportError as exc:  # pragma: no cover - depends on the host interpreter
+    # These are pytest-style tests (fixtures/parametrize). The registered
+    # full-suite command is `python -m unittest discover`, which cannot run
+    # them and must stay cold-green on a host without pytest: report a skip
+    # instead of an import error. Run them with `python -m pytest`.
+    import unittest
+
+    raise unittest.SkipTest(f"pytest-style module needs pytest: {exc}") from exc
 
 ROOT = Path(__file__).resolve().parents[3]
 HOOK = ROOT / "templates" / "dispatch" / "hooks" / "nfs-workspace-guard.sh"
