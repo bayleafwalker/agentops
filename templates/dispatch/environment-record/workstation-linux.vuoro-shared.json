@@ -1,6 +1,6 @@
 {
   "schema_version": "environment-record/v1",
-  "id": "workstation-linux",
+  "id": "workstation",
   "environment_class": "local",
   "revision": 3,
   "roles": ["shared-development-host", "vuoro-served-client"],

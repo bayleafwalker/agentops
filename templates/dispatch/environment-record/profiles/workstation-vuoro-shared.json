@@ -2,7 +2,7 @@
   "schema_version": "vuoro-client-profile/v1",
   "id": "workstation-vuoro-shared",
   "revision": 3,
-  "source_environment_id": "workstation-linux",
+  "source_environment_id": "workstation",
   "target": {
     "environment_id": "vuoro-shared",
     "environment_class": "production",

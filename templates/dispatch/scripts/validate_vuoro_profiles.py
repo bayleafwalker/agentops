@@ -114,7 +114,7 @@ def validate_profile(path: Path, environment: dict[str, object]) -> dict[str, ob
     authorities = set(_strings(value["required_authorities"], "required_authorities", path, AUTHORITY))
     expected_authorities = (
         WORKSTATION_OPERATOR_AUTHORITIES
-        if environment["id"] == "workstation-linux"
+        if environment["id"] == "workstation"
         else WORK_AUTHORITIES
     )
     missing = expected_authorities - authorities

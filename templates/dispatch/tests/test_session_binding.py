@@ -39,7 +39,7 @@ sys.path.insert(0, str(ROOT / "templates/dispatch/scripts"))
 import schema_check  # noqa: E402
 
 
-def _run(event: dict, bindings: Path, *, hostname: str = "WorkstationLinux"):
+def _run(event: dict, bindings: Path, *, hostname: str = "workstation"):
     return subprocess.run(
         [sys.executable, str(SCRIPT), "--bindings-dir", str(bindings),
          "--records-dir", str(RECORDS), "--hostname", hostname, "--no-publish"],
@@ -69,7 +69,7 @@ class SessionBindingV0(unittest.TestCase):
 
         self.assertEqual(binding["schema_version"], "session-binding/v0")
         self.assertEqual(binding["environment"]["resolution_source"], "hostname-match")
-        self.assertEqual(binding["environment"]["record"]["id"], "workstation-linux")
+        self.assertEqual(binding["environment"]["record"]["id"], "workstation")
         self.assertEqual(binding["workspace"]["project"]["resolution_source"],
                          "ancestor-walk")
         self.assertEqual(binding["workspace"]["project"]["project_id"],

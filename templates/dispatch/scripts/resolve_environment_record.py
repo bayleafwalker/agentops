@@ -34,9 +34,9 @@ class EnvironmentResolutionError(ValueError):
 def normalize_hostname(hostname: str) -> str:
     """Normalize a raw hostname into an environment-record/v1 `id` token.
 
-    Hostnames observed on this project's hosts are PascalCase (e.g. the
-    `hostname` field sprintctl records for claims is `WorkstationLinux`)
-    while environment-record ids are kebab-case (`workstation-linux`), so a
+    Hostnames may be PascalCase (e.g. `WorkstationLinux`, which sprintctl
+    claim records showed before the workstation's NixOS migration) while
+    environment-record ids are kebab-case, so a
     case-boundary split runs before lower-casing -- a plain `.lower()` would
     silently fail to match any record.
     """

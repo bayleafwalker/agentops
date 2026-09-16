@@ -51,19 +51,20 @@ class ResolveEnvironmentRecordTests(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
 
     def test_normalize_hostname_matches_existing_record_id_convention(self) -> None:
-        # sprintctl's own claim records show this host's real hostname as
-        # PascalCase ("WorkstationLinux"); the environment-record id is
-        # kebab-case ("workstation-linux") -- normalization must bridge that.
+        # Hostnames may be PascalCase ("WorkstationLinux", this host's name
+        # before the NixOS migration) while environment-record ids are
+        # kebab-case -- normalization must bridge that.
         self.assertEqual(resolver.normalize_hostname("WorkstationLinux"), "workstation-linux")
         self.assertEqual(resolver.normalize_hostname("devbox-vm"), "devbox-vm")
         self.assertEqual(resolver.normalize_hostname("Some_Host.local"), "some_host.local")
 
     def test_resolves_this_hosts_real_hostname_without_override(self) -> None:
-        # Regression guard: a naive .lower() on "WorkstationLinux" produces
-        # "workstationlinux", which matches no real record id.
+        # Regression guard: since the NixOS migration this host's real hostname
+        # is "workstation"; the record id must match it, or rendering reports
+        # the environment as not-applicable and strips the environment pointer.
         records_dir = ROOT / "dispatch/environment-record"
         resolved = resolver.resolve_environment_record(
-            records_dir, hostname="WorkstationLinux"
+            records_dir, hostname="workstation"
         )
         self.assertEqual(resolved.name, "workstation-linux.vuoro-shared.json")
 
@@ -91,7 +92,7 @@ class ResolveEnvironmentRecordTests(unittest.TestCase):
     def test_real_records_dir_resolves_for_known_hosts(self) -> None:
         records_dir = ROOT / "dispatch/environment-record"
         resolved = resolver.resolve_environment_record(
-            records_dir, hostname="workstation-linux"
+            records_dir, hostname="workstation"
         )
         self.assertEqual(resolved.name, "workstation-linux.vuoro-shared.json")
         resolved = resolver.resolve_environment_record(records_dir, hostname="devbox")
