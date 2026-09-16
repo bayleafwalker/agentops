@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "dispatch/scripts/render_environment_context.py"
+SCRIPT = ROOT / "scripts/render_environment_context.py"
 SPEC = importlib.util.spec_from_file_location("render_environment_context", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 renderer = importlib.util.module_from_spec(SPEC)
@@ -15,7 +15,7 @@ SPEC.loader.exec_module(renderer)
 
 def test_renders_bounded_block_for_checked_in_production_record() -> None:
     block = renderer.render_environment_context(
-        ROOT / "dispatch/environment-record/vuoro-shared.production.json"
+        ROOT / "environment-record/vuoro-shared.production.json"
     )
 
     assert renderer.START_MARKER in block
@@ -28,11 +28,11 @@ def test_renders_bounded_block_for_checked_in_production_record() -> None:
 
 def test_never_renders_roles_capabilities_or_identity_bindings() -> None:
     block = renderer.render_environment_context(
-        ROOT / "dispatch/environment-record/vuoro-shared.production.json"
+        ROOT / "environment-record/vuoro-shared.production.json"
     )
 
     raw = json.loads(
-        (ROOT / "dispatch/environment-record/vuoro-shared.production.json").read_text()
+        (ROOT / "environment-record/vuoro-shared.production.json").read_text()
     )
     for role in raw["roles"]:
         assert role not in block
@@ -44,7 +44,7 @@ def test_never_renders_roles_capabilities_or_identity_bindings() -> None:
 
 def test_renders_checked_in_devbox_record() -> None:
     block = renderer.render_environment_context(
-        ROOT / "dispatch/environment-record/devbox-vm.vuoro-shared.json"
+        ROOT / "environment-record/devbox-vm.vuoro-shared.json"
     )
 
     assert "devbox-vm" in block

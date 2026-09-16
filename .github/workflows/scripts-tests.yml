@@ -1,7 +1,8 @@
 name: scripts tests
 
 # scripts/ holds the agentops CLI topics that outlive templates/dispatch (handoff,
-# metanarrative, session-binding and their imports) plus the data they read. Run their
+# metanarrative, session-binding, sync-skills, render-project, the session-mechanization
+# producers and their imports) plus the data they read; skills/ is the canonical skill tree. Run their
 # oracles and the CLI front end whenever any of it changes.
 on:
   pull_request:
@@ -11,6 +12,9 @@ on:
       - "environment-record/**"
       - "model/**"
       - "schemas/**"
+      - "templates/workspace/**"
+      - "skills/**"
+      - "session-mechanization/**"
       - "artifacts-root.default"
       - ".github/workflows/scripts-tests.yml"
   push:
@@ -21,6 +25,9 @@ on:
       - "environment-record/**"
       - "model/**"
       - "schemas/**"
+      - "templates/workspace/**"
+      - "skills/**"
+      - "session-mechanization/**"
       - "artifacts-root.default"
       - ".github/workflows/scripts-tests.yml"
 
@@ -35,8 +42,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: dependencies
+        # pytest loads scripts/tests/conftest.py (audit-store isolation), which unittest
+        # discovery never does; render_disposition_fragment imports yaml.
+        run: python -m pip install pyyaml pytest
       - name: unit tests
-        run: python -m unittest discover -s scripts/tests
+        run: python -m pytest -q scripts/tests
       - name: every CLI topic answers --help
         run: |
           status=0

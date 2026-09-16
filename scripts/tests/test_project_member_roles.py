@@ -8,8 +8,8 @@ import tempfile
 import unittest
 
 
-ROOT = Path(__file__).parents[3]
-SCRIPT = ROOT / "templates" / "dispatch" / "scripts" / "render_project.py"
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPT = ROOT / "scripts" / "render_project.py"
 SCHEMA = ROOT / "docs" / "project" / "schemas" / "project.schema.json"
 SPEC = importlib.util.spec_from_file_location("project_member_roles_render", SCRIPT)
 assert SPEC and SPEC.loader

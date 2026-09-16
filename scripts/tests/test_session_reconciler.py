@@ -10,7 +10,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-SCRIPT = Path(__file__).parents[1] / "scripts" / "session_reconciler.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "session_reconciler.py"
 SPEC = importlib.util.spec_from_file_location("session_reconciler", SCRIPT)
 assert SPEC and SPEC.loader
 RECONCILER = importlib.util.module_from_spec(SPEC)
@@ -18,7 +18,7 @@ SPEC.loader.exec_module(RECONCILER)
 
 SCRIBE = RECONCILER.SCRIBE
 
-EXAMPLES_DIR = Path(__file__).parents[1] / "session-mechanization"
+EXAMPLES_DIR = Path(__file__).resolve().parents[2] / "session-mechanization"
 BASE_CAPSULE = json.loads((EXAMPLES_DIR / "session-capsule.example.json").read_text(encoding="utf-8"))
 
 CAPSULE_A = "0f1e2d3c-4b5a-4978-8b6c-1a2b3c4d5e6f"
