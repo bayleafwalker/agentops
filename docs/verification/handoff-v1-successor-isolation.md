@@ -54,7 +54,7 @@ The plan's gate is "acceptance test passes twice (fresh, stale-diff refusal)".
 3. Launch:
 
    ```bash
-   claude --bg --session-id <fresh-uuid> -p "$(agentops handoff prompt <file>)"
+   claude --bg --session-id <fresh-uuid> "$(agentops handoff prompt <file>)"
    ```
 
 4. Observe, without intervening.

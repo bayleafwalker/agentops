@@ -5,7 +5,7 @@
 # This is the interactive half of the plan's launch step. `initialUserMessage`
 # only applies to `claude -p`, so an interactive successor has no first message
 # to carry the handoff; a SessionStart injection is the only seam. The
-# background path (`claude --bg -p "$(agentops handoff prompt <file>)"`) does not
+# background path (`claude --bg "$(agentops handoff prompt <file>)"`) does not
 # need this and is unaffected: acking is still the successor's first action, and
 # the ack guard, not this hook, is what prevents two live successors.
 #
