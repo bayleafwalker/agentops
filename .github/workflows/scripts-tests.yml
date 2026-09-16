@@ -1,0 +1,50 @@
+name: scripts tests
+
+# scripts/ holds the agentops CLI topics that outlive templates/dispatch (handoff,
+# metanarrative, session-binding and their imports) plus the data they read. Run their
+# oracles and the CLI front end whenever any of it changes.
+on:
+  pull_request:
+    paths:
+      - "scripts/**"
+      - "bin/**"
+      - "environment-record/**"
+      - "model/**"
+      - "schemas/**"
+      - "artifacts-root.default"
+      - ".github/workflows/scripts-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/**"
+      - "bin/**"
+      - "environment-record/**"
+      - "model/**"
+      - "schemas/**"
+      - "artifacts-root.default"
+      - ".github/workflows/scripts-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  scripts-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: unit tests
+        run: python -m unittest discover -s scripts/tests
+      - name: every CLI topic answers --help
+        run: |
+          status=0
+          for s in scripts/*.py; do
+            topic="$(basename "${s%.py}" | tr '_' '-')"
+            if ! bin/agentops "$topic" --help >/dev/null; then
+              printf '::error file=%s::agentops %s --help failed\n' "$s" "$topic"
+              status=1
+            fi
+          done
+          exit "$status"

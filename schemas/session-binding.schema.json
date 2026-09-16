@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/session-binding.schema.json",
+  "title": "Session binding",
+  "description": "The session-scoped half of the resolved-context invariant (docs/contracts/session-resolved-context.md): identity, harness, actor, environment and workspace, plus the settings layers that entitled them, resolved once at session creation and immutable thereafter. Distinct from session-capsule/v1, which is end-of-session exhaust describing what a session did.",
+  "$comment": "v0 is file-backed and deliberately not promoted into a served schema. templates/dispatch/scripts/session_binding.py is normative, including the immutable/per-entry field split; this file mirrors structure for editor support and for a consumer that only reads instances.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "binding_id", "runtime_session_id", "resolved_at", "harness", "created_at_entry", "actor", "host", "environment", "workspace", "entitlement"],
+  "properties": {
+    "schema_version": {"const": "session-binding/v0"},
+    "binding_id": {"$ref": "#/$defs/uuid"},
+    "runtime_session_id": {"$ref": "#/$defs/nonBlank"},
+    "resolved_at": {"type": "string", "format": "date-time"},
+    "harness": {
+      "type": "object", "additionalProperties": false, "required": ["name"],
+      "properties": {"name": {"$ref": "#/$defs/nonBlank"}}
+    },
+    "created_at_entry": {
+      "type": "object", "additionalProperties": false, "required": ["source"],
+      "description": "The entry that created the binding. Recorded, never compared: a resume is a new entry into the same session, not a different session.",
+      "properties": {"source": {"$ref": "#/$defs/nonBlank"}}
+    },
+    "actor": {
+      "type": "object", "additionalProperties": false, "required": ["os_user", "uid"],
+      "properties": {"os_user": {"$ref": "#/$defs/nonBlank"}, "uid": {"type": "integer", "minimum": 0}}
+    },
+    "host": {
+      "type": "object", "additionalProperties": false, "required": ["hostname"],
+      "properties": {"hostname": {"$ref": "#/$defs/nonBlank"}}
+    },
+    "environment": {
+      "type": "object", "additionalProperties": false, "required": ["record", "resolution_source"],
+      "properties": {
+        "record": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object", "additionalProperties": false,
+              "required": ["id", "environment_class", "revision", "path", "sha256"],
+              "properties": {
+                "id": {"$ref": "#/$defs/nonBlank"},
+                "environment_class": {"$ref": "#/$defs/nonBlank"},
+                "revision": {"type": "integer", "minimum": 1},
+                "path": {"$ref": "#/$defs/nonBlank"},
+                "sha256": {"$ref": "#/$defs/sha256"}
+              }
+            }
+          ]
+        },
+        "resolution_source": {"enum": ["hostname-match", "unresolved", "unreadable", "unparseable"]},
+        "detail": {"oneOf": [{"type": "null"}, {"type": "string"}]}
+      }
+    },
+    "workspace": {
+      "type": "object", "additionalProperties": false, "required": ["cwd", "project"],
+      "properties": {
+        "cwd": {"$ref": "#/$defs/nonBlank"},
+        "project": {
+          "type": "object", "additionalProperties": false,
+          "required": ["project_id", "path", "sha256", "resolution_source"],
+          "properties": {
+            "project_id": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/uuid"}]},
+            "display_name": {"type": "string"},
+            "home_repo": {"type": "string"},
+            "path": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/nonBlank"}]},
+            "sha256": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/sha256"}]},
+            "resolution_source": {"enum": ["ancestor-walk", "undeclared", "unparseable"]},
+            "detail": {"oneOf": [{"type": "null"}, {"type": "string"}]}
+          }
+        }
+      }
+    },
+    "entitlement": {
+      "type": "object", "additionalProperties": false,
+      "required": ["settings_sources", "resolution_source"],
+      "description": "Answers the contract's open question -- not whether values agree, but who set them and what entitled them. Every declared layer is listed whether or not it exists: an absent file is part of the answer, and a layer that appears later is a change.",
+      "properties": {
+        "settings_sources": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["scope", "path", "present", "sha256"],
+            "properties": {
+              "scope": {"enum": ["managed", "user", "project", "local"]},
+              "path": {"$ref": "#/$defs/nonBlank"},
+              "present": {"type": "boolean"},
+              "sha256": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/sha256"}]}
+            }
+          }
+        },
+        "resolution_source": {"const": "declared-layers"}
+      }
+    }
+  },
+  "$defs": {
+    "uuid": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "nonBlank": {"type": "string", "minLength": 1, "pattern": "\\S"}
+  }
+}

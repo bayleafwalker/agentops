@@ -74,6 +74,7 @@
     ],
     "applicability": {
       "paths": [
+        "scripts/",
         "templates/dispatch/",
         "docs/"
       ],
@@ -151,6 +152,7 @@
     ],
     "commands": {
       "agentops.dispatch.tests": "python -m unittest discover -s templates/dispatch/tests",
+      "agentops.scripts.tests": "python -m unittest discover -s scripts/tests",
       "agentops.dispatch.tests.l1": "python templates/dispatch/tests/test_dispatch_release.py",
       "agentops.dispatch.tests.l2": "python templates/dispatch/tests/test_dispatch_release_stops.py",
       "agentops.dispatch.tests.driver": "python -m unittest discover -s templates/dispatch/tests -p 'test_dispatch_release*.py'",
@@ -218,6 +220,7 @@
     ],
     "targeted_first": true,
     "commands": [
+      "python -m unittest discover -s scripts/tests",
       "python -m unittest discover -s templates/dispatch/tests",
       "bash hooks/tests/test-session-telemetry.sh"
     ]
