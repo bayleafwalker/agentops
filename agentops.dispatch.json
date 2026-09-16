@@ -42,7 +42,7 @@
     }
   },
   "skills": {
-    "template_root": "/projects/dev/agentops/templates/dispatch/skills",
+    "template_root": "/projects/dev/agentops/skills",
     "selected": [
       "dispatch-plan",
       "dispatch-wave",
@@ -75,6 +75,8 @@
     "applicability": {
       "paths": [
         "scripts/",
+        "skills/",
+        "session-mechanization/",
         "templates/dispatch/",
         "docs/"
       ],
@@ -90,7 +92,7 @@
       ],
       "plan": [
         "docs/plans/",
-        "templates/dispatch/skills/dispatch-plan/SKILL.md"
+        "skills/dispatch-plan/SKILL.md"
       ],
       "runbook": [
         "docs/runbooks/",
@@ -152,7 +154,7 @@
     ],
     "commands": {
       "agentops.dispatch.tests": "python -m unittest discover -s templates/dispatch/tests",
-      "agentops.scripts.tests": "python -m unittest discover -s scripts/tests",
+      "agentops.scripts.tests": "uv run --no-project --with pytest python -m pytest -q scripts/tests",
       "agentops.dispatch.tests.l1": "python templates/dispatch/tests/test_dispatch_release.py",
       "agentops.dispatch.tests.l2": "python templates/dispatch/tests/test_dispatch_release_stops.py",
       "agentops.dispatch.tests.driver": "python -m unittest discover -s templates/dispatch/tests -p 'test_dispatch_release*.py'",
@@ -220,7 +222,7 @@
     ],
     "targeted_first": true,
     "commands": [
-      "python -m unittest discover -s scripts/tests",
+      "uv run --no-project --with pytest python -m pytest -q scripts/tests",
       "python -m unittest discover -s templates/dispatch/tests",
       "bash hooks/tests/test-session-telemetry.sh"
     ]

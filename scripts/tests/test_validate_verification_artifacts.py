@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 
-SCRIPT = Path(__file__).parents[1] / "scripts" / "validate_verification_artifacts.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "validate_verification_artifacts.py"
 SPEC = importlib.util.spec_from_file_location("contract_validator", SCRIPT)
 assert SPEC and SPEC.loader
 VALIDATOR = importlib.util.module_from_spec(SPEC)

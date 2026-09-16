@@ -245,7 +245,14 @@ def discover_schema_contracts(templates_root, checker):
     would report the workspace as cleaner than it is.
     """
     contracts = []
-    for path in sorted(templates_root.rglob("*.schema.json")):
+    # Follow symlinks: contracts that moved to the top level (environment-record/,
+    # session-mechanization/) stay reachable here through their compat symlinks.
+    try:
+        found = templates_root.rglob("*.schema.json", recurse_symlinks=True)
+    except TypeError:  # Python < 3.13
+        import glob
+        found = (Path(p) for p in glob.glob(str(templates_root / "**" / "*.schema.json"), recursive=True))
+    for path in sorted(found):
         if _skipped(path):
             continue
         contract_id = path.stem.removesuffix(".schema").removesuffix(".v1").removesuffix(".v2")

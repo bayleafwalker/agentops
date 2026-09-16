@@ -22,7 +22,7 @@ while read -r pair; do
   [[ -z "$pair" || "$pair" == \#* ]] && continue
   project="${pair%%:*}"
   root="${pair#*:}"
-  python3 "$AGENTOPS_ROOT/templates/dispatch/scripts/session_mechanization_trigger.py" \
+  python3 "$AGENTOPS_ROOT/scripts/session_mechanization_trigger.py" \
     "$MODE" --project "$project" --root "$root" || status=1
 done < "$CONF"
 

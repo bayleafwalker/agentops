@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 
-SCRIPT = Path(__file__).parents[1] / "scripts" / "render_project.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "render_project.py"
 SPEC = importlib.util.spec_from_file_location("project_render", SCRIPT)
 assert SPEC and SPEC.loader
 RENDER = importlib.util.module_from_spec(SPEC)

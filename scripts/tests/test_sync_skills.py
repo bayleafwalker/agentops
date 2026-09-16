@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 
-SCRIPT = Path(__file__).parents[1] / "scripts" / "sync_skills.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "sync_skills.py"
 SPEC = importlib.util.spec_from_file_location("skill_sync", SCRIPT)
 assert SPEC and SPEC.loader
 SYNC = importlib.util.module_from_spec(SPEC)

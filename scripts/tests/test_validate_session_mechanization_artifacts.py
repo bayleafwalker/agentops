@@ -9,13 +9,13 @@ import unittest
 from unittest import mock
 
 
-SCRIPT = Path(__file__).parents[1] / "scripts" / "validate_session_mechanization_artifacts.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "validate_session_mechanization_artifacts.py"
 SPEC = importlib.util.spec_from_file_location("session_mechanization_validator", SCRIPT)
 assert SPEC and SPEC.loader
 VALIDATOR = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(VALIDATOR)
 
-EXAMPLES_DIR = Path(__file__).parents[1] / "session-mechanization"
+EXAMPLES_DIR = Path(__file__).resolve().parents[2] / "session-mechanization"
 
 
 def _load_example(name: str) -> dict:

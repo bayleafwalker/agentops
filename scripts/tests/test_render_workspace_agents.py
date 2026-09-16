@@ -17,8 +17,8 @@ except ImportError as exc:  # pragma: no cover - depends on the host interpreter
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "dispatch/scripts/render_workspace_agents.py"
-SOURCE = ROOT / "workspace/AGENTS.agentops.md"
+SCRIPT = ROOT / "scripts/render_workspace_agents.py"
+SOURCE = ROOT / "templates/workspace/AGENTS.agentops.md"
 SPEC = importlib.util.spec_from_file_location("render_workspace_agents", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 renderer = importlib.util.module_from_spec(SPEC)

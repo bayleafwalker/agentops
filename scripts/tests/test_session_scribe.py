@@ -10,13 +10,13 @@ from pathlib import Path
 import tempfile
 import unittest
 
-SCRIPT = Path(__file__).parents[1] / "scripts" / "session_scribe.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "session_scribe.py"
 SPEC = importlib.util.spec_from_file_location("session_scribe", SCRIPT)
 assert SPEC and SPEC.loader
 SCRIBE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(SCRIBE)
 
-EXAMPLES_DIR = Path(__file__).parents[1] / "session-mechanization"
+EXAMPLES_DIR = Path(__file__).resolve().parents[2] / "session-mechanization"
 BASE_CAPSULE = json.loads((EXAMPLES_DIR / "session-capsule.example.json").read_text(encoding="utf-8"))
 
 
