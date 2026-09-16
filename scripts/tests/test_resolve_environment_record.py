@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "dispatch/scripts/resolve_environment_record.py"
+SCRIPT = ROOT / "scripts/resolve_environment_record.py"
 SPEC = importlib.util.spec_from_file_location("resolve_environment_record", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 resolver = importlib.util.module_from_spec(SPEC)
@@ -62,7 +62,7 @@ class ResolveEnvironmentRecordTests(unittest.TestCase):
         # Regression guard: since the NixOS migration this host's real hostname
         # is "workstation"; the record id must match it, or rendering reports
         # the environment as not-applicable and strips the environment pointer.
-        records_dir = ROOT / "dispatch/environment-record"
+        records_dir = ROOT / "environment-record"
         resolved = resolver.resolve_environment_record(
             records_dir, hostname="workstation"
         )
@@ -90,7 +90,7 @@ class ResolveEnvironmentRecordTests(unittest.TestCase):
             resolver.resolve_environment_record(self.tmp_path, hostname="myhost")
 
     def test_real_records_dir_resolves_for_known_hosts(self) -> None:
-        records_dir = ROOT / "dispatch/environment-record"
+        records_dir = ROOT / "environment-record"
         resolved = resolver.resolve_environment_record(
             records_dir, hostname="workstation"
         )

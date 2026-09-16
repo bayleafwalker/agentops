@@ -20,7 +20,7 @@ Three properties carry the design; the rest of `handoff.py` is rendering.
    updates both. Tested against an injected transport: a second machine is not
    available in CI and the guard branches only on the transport's exit status.
 
-The subject is `templates/dispatch/scripts/handoff.py`. Real git repositories are
+The subject is `scripts/handoff.py`. Real git repositories are
 built in tmp_path rather than mocked: the digest is defined in terms of `git diff
 HEAD` and `git status --porcelain`, and a fake that returns fixed strings would
 prove nothing about that definition.
@@ -36,8 +36,8 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-ROOT = Path(__file__).parents[3]
-SCRIPTS = ROOT / "templates/dispatch/scripts"
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPTS = ROOT / "scripts"
 
 
 def _load_module(name: str, path: Path):

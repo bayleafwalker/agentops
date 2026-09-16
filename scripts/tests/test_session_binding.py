@@ -30,12 +30,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).parents[3]
-SCRIPT = ROOT / "templates/dispatch/scripts/session_binding.py"
-SCHEMA = ROOT / "templates/dispatch/session-mechanization/session-binding.schema.json"
-RECORDS = ROOT / "templates/dispatch/environment-record"
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPT = ROOT / "scripts/session_binding.py"
+SCHEMA = ROOT / "schemas/session-binding.schema.json"
+RECORDS = ROOT / "environment-record"
 
-sys.path.insert(0, str(ROOT / "templates/dispatch/scripts"))
+sys.path.insert(0, str(ROOT / "scripts"))
 import schema_check  # noqa: E402
 
 
