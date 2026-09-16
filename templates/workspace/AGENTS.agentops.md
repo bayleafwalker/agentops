@@ -57,6 +57,11 @@ work there.
 
 - A plan or memo the operator submits is a directive: execute it and report. Do not ask for
   acceptance or signatures; ask only when options are genuinely open.
+- Decide, don't queue: nothing waits on the operator unless the blocker is verified (you ran
+  the check and it failed). Report the exact denied command; never improvise with personal or
+  admin tokens.
+- Homelab standing decisions (ephemeral pools, media backup policy) arrive in the session-start
+  HOMELAB STANDING FACTS block. They are decisions, not findings.
 - When an action needs the operator, give a runnable block: directory, exact command, the
   verified precondition, expected result, and what to send back.
 

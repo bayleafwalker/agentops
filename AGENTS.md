@@ -15,7 +15,7 @@ queue, knowledge, audit or Kubernetes state; `appservice` deploys the cockpit.
 python templates/dispatch/scripts/sync_skills.py check --repo <repo> [--apply]    # --apply refuses dirty skill paths
 python /projects/dev/agentops/templates/dispatch/scripts/validate_verification_artifacts.py --root .
 python templates/dispatch/scripts/render_project.py check --project <home-repo>/project.toml [--apply]
-python templates/dispatch/scripts/materialize_project.py setup|sync --project <home-repo>/project.toml --folder <dir>
+python templates/dispatch/scripts/materialize_project.py setup|sync --project <home-repo>/project.toml --folder <dir>  # dir outside every member repo
 cd apps/web && npm test && npm run build
 ```
 
