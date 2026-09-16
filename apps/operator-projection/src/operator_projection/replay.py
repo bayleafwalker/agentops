@@ -36,7 +36,7 @@ def recall(result: dict) -> dict:
 
 class Replay:
     def __init__(self, registry: dict, git: GitSource, tags: ImageTags):
-        self.sources = registry["sources"]
+        self.sources, self.owners = registry["sources"], registry.get("owners", {})
         self.pins, self.validation = registry["external"]["pins"], registry["external"]["record_classes"]
         self.git, self.tags = git, tags
         self.declared_classes = record_classes(git.show(self.validation["repo"], BRANCH, self.validation["path"]) or "")
@@ -60,9 +60,9 @@ class Replay:
             state["durability.store"] = UNDETERMINED
         else:
             state |= broker_rows(policy, self._wide_scope(policy))
-            state["durability.store"] = durability_rows(
-                self.read(commit, "cockpit_pvc") is not None, policy, self.read(commit, "broker_pvc") is not None
-            )
+            owner = self.owners.get("cockpit_pvc")
+            cockpit = None if owner and self.git.show(APPSERVICE, commit, owner) is None else self.read(commit, "cockpit_pvc") is not None
+            state["durability.store"] = durability_rows(cockpit, policy, self.read(commit, "broker_pvc") is not None)
         for vocabulary in VOCABULARIES:
             if state[vocabulary] is UNDETERMINED:
                 self.undetermined.append((commit, vocabulary))

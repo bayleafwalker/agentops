@@ -38,14 +38,17 @@ def deployment(digest: str, label: str) -> str:
 BINDINGS = [{"host_id": "workstation", "repository_id": "repo_a", "capabilities": ["repo.read", "repo.write"]}]
 
 
-def estate(moves: bool = True) -> MemoryGit:
+def estate(moves: bool = True, retired: bool = False) -> MemoryGit:
     base = {S["shared_deployment"]: deployment(D_OLD, "vuoro-service-v9.8.0"), COCKPIT: deployment(D_OLD, "x"),
-            S["broker_config"]: config(policy(BINDINGS)), S["broker_pvc"]: "kind: PersistentVolumeClaim\n",
+            S["broker_config"]: config(policy(BINDINGS)), S["broker_pvc"]: "kind: PersistentVolumeClaim\n", S["cockpit_pvc"]: "kind: PersistentVolumeClaim\n",
             "clusters/main/kubernetes/apps/cred-broker/config/production.json": json.dumps(policy([]))}
     rolled = base | {S["shared_deployment"]: deployment(D_SHARED, "vuoro-service-v9.9.1")}
     granted = rolled | {S["broker_config"]: config(policy(BINDINGS + [{"host_id": "devbox", "repository_id": "repo_b", "capabilities": ["repo.read"]}]))}
     history = [("c0", "2026-08-01T00:00:00+00:00"), ("c1", "2026-09-01T00:00:00+00:00"), ("c2", "2026-09-10T00:00:00+00:00")]
     files = {"appservice": {"c0": base, "c1": rolled if moves else base, "c2": granted if moves else base}}
+    if retired:  # P4 (appservice #1647): the agent-cockpit component is deleted, sidecar manifest and state PVC together
+        history.append(("c3", "2026-09-12T00:00:00+00:00"))
+        files["appservice"]["c3"] = {p: t for p, t in granted.items() if p not in (COCKPIT, S["cockpit_pvc"])}
     if not moves:
         history = [("c0", "2026-08-01T00:00:00+00:00"), ("c1", "2026-09-01T00:00:00+00:00")]
         files["appservice"] = {"c0": base, "c1": base}

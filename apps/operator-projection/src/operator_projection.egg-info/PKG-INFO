@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: operator-projection
-Version: 0.2.2
+Version: 0.2.3
 Summary: operator-projection/v1: a derived, read-only operator front page
 Requires-Python: >=3.11
 Requires-Dist: httpx<1,>=0.27
