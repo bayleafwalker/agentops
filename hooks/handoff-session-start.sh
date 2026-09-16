@@ -46,9 +46,16 @@ done
 
 [[ -n "$MATCH" ]] || exit 0
 
+# `agentops` on PATH, else the CLI in this hook's own repository (hooks/../bin/agentops), so a host
+# that never linked the CLI into PATH (devbox) still runs this hook instead of skipping it.
+_hook_src="${BASH_SOURCE[0]}"
+{ [[ -L "$_hook_src" ]] && command -v readlink >/dev/null 2>&1 &&
+  _hook_src="$(readlink -f -- "$_hook_src" 2>/dev/null || printf '%s' "$_hook_src")"; } || true
+AGENTOPS="$(command -v agentops 2>/dev/null || true)"
+[[ -n "$AGENTOPS" || ! -x "${_hook_src%/*}/../bin/agentops" ]] || AGENTOPS="${_hook_src%/*}/../bin/agentops"
 PROMPT=""
-if command -v agentops >/dev/null 2>&1; then
-  PROMPT="$(timeout 15 agentops handoff prompt "$MATCH" 2>/dev/null || true)"
+if [[ -n "$AGENTOPS" ]]; then
+  PROMPT="$(timeout 15 "$AGENTOPS" handoff prompt "$MATCH" 2>/dev/null || true)"
 fi
 if [[ -z "$PROMPT" ]]; then
   printf '== HANDOFF WAITING ==\nAn unacknowledged handoff names this directory: %s\nIt could not be rendered here (no agentops handoff on PATH). Read the file.\n' "$MATCH"
