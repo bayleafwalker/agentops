@@ -1,0 +1,44 @@
+name: hooks tests
+
+# The top-level hooks/ set is what settings files register by path. Lint it and run its
+# oracles whenever a hook, a hook test, or this workflow changes.
+on:
+  pull_request:
+    paths:
+      - "hooks/**"
+      - ".github/workflows/hooks-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "hooks/**"
+      - ".github/workflows/hooks-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  hooks-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: shellcheck -x -P SCRIPTDIR hooks/*.sh
+      - name: tracked modes
+        run: bash hooks/tests/test-hook-executability.sh
+      - name: workspace root fixture
+        # sprintctl-maintain-check.sh only reports for repositories under /projects/dev, so
+        # its oracle builds its fixture there (under /projects/dev/.claude).
+        run: sudo install -d -o "$(id -u)" -g "$(id -g)" /projects/dev/.claude
+      - name: hook tests
+        run: |
+          status=0
+          for t in hooks/tests/*.sh; do
+            printf '::group::%s\n' "$t"
+            if bash "$t"; then
+              printf '::endgroup::\n'
+            else
+              printf '::endgroup::\n::error file=%s::failed\n' "$t"
+              status=1
+            fi
+          done
+          exit "$status"

@@ -164,10 +164,10 @@
       "agentops.dispatch.tests.retrybranch": "python templates/dispatch/tests/test_dispatch_release_retrybranch.py",
       "agentops.hybrid.validate": "python templates/dispatch/scripts/validate_hybrid_dispatch.py --agentops-root . --manifest agentops.dispatch.json",
       "agentops.session-notes.tests": "python -m unittest discover -s templates/dispatch/tests -p test_session_notes.py",
-      "agentops.hooks.tests": "bash templates/dispatch/hooks/tests/test-session-telemetry.sh && bash templates/dispatch/hooks/tests/test-sprintctl-maintain-check.sh",
-      "agentops.hooks.tests.t1": "bash templates/dispatch/hooks/tests/test-cost-hook-fields.sh",
-      "agentops.hooks.tests.artifacts-root": "bash templates/dispatch/hooks/tests/test-artifacts-root.sh",
-      "agentops.hooks.tests.t3": "bash templates/dispatch/hooks/tests/test-gate-log.sh",
+      "agentops.hooks.tests": "bash hooks/tests/test-session-telemetry.sh && bash hooks/tests/test-sprintctl-maintain-check.sh",
+      "agentops.hooks.tests.t1": "bash hooks/tests/test-cost-hook-fields.sh",
+      "agentops.hooks.tests.artifacts-root": "bash hooks/tests/test-artifacts-root.sh",
+      "agentops.hooks.tests.t3": "bash hooks/tests/test-gate-log.sh",
       "agentops.hooks.tests.t5": "bash templates/dispatch/hooks/tests/test-friction-skill.sh",
       "agentops.dispatch.tests.scorecard_reduce": "python templates/dispatch/tests/test_release_scorecard_reduce.py",
       "agentops.dispatch.tests.scorecard_worker": "python templates/dispatch/tests/test_release_scorecard_worker.py",
@@ -222,7 +222,7 @@
       "python -m unittest discover -s templates/dispatch/tests",
       "npm --prefix apps/web test",
       "npm --prefix apps/web run build",
-      "bash templates/dispatch/hooks/tests/test-session-telemetry.sh"
+      "bash hooks/tests/test-session-telemetry.sh"
     ]
   },
   "hooks": {
