@@ -5,8 +5,8 @@ Shared environment guidance: `/projects/dev/AGENTS.md`. agentops is a **public**
 ## Ownership
 
 Canonical source for dispatch skills, manifest/verification schemas, sync utilities,
-cross-repo guidance (`docs/`) and the cockpit app (`apps/web/`). It does not own sprint,
-queue, knowledge, audit or Kubernetes state; `appservice` deploys the cockpit.
+and cross-repo guidance (`docs/`). It does not own sprint, queue, knowledge, audit or
+Kubernetes state. The agent-cockpit app (`apps/web/`) was retired and deleted in 2026-09.
 `actionq-dispatcher` is only a tombstone.
 
 ## Commands
@@ -16,7 +16,6 @@ python templates/dispatch/scripts/sync_skills.py check --repo <repo> [--apply]  
 python /projects/dev/agentops/templates/dispatch/scripts/validate_verification_artifacts.py --root .
 python templates/dispatch/scripts/render_project.py check --project <home-repo>/project.toml [--apply]
 python templates/dispatch/scripts/materialize_project.py setup|sync --project <home-repo>/project.toml --folder <dir>  # dir outside every member repo
-cd apps/web && npm test && npm run build
 ```
 
 - Consumers opt in with one root `*.dispatch.json` plus `.agents/overlays/`; express

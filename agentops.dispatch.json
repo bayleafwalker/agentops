@@ -75,7 +75,6 @@
     "applicability": {
       "paths": [
         "templates/dispatch/",
-        "apps/web/",
         "docs/"
       ],
       "roles": [
@@ -220,8 +219,6 @@
     "targeted_first": true,
     "commands": [
       "python -m unittest discover -s templates/dispatch/tests",
-      "npm --prefix apps/web test",
-      "npm --prefix apps/web run build",
       "bash hooks/tests/test-session-telemetry.sh"
     ]
   },

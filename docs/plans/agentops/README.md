@@ -55,7 +55,7 @@ successor above controls the cross-repository direction.
 - `boundary-resolutions.md` - historical 2026-08-12 ratification; R1, R2, and
   R5 were superseded on 2026-08-20 while R3 and R4 remain current.
 - `auditctl-workstream-d-plan.md` - standalone auditctl tool plan.
-- `agent-cockpit-workstream-e-plan.md` - agent-cockpit frontend plan for the future cockpit surface inside this repo.
+- `agent-cockpit-workstream-e-plan.md` - historical: agent-cockpit frontend plan (cockpit retired and `apps/web` deleted 2026-09).
 - `cockpit-agentops-readiness-2026-04-28.md` - readiness and sequencing assessment for cockpit and substrate rollout.
 - `meta-sprint-cross-repo-dispatch-plan.md` - superseded historical
   dispatcher-meta proposal; do not use as an implementation backlog.
@@ -146,10 +146,6 @@ Current compatibility implementations referenced by these plans:
 - `/projects/dev/actionq-dispatcher` - inactive 0.2.0 retirement tombstone;
   existing installations may upgrade once for a clear failure, then remove it.
 - `/projects/dev/appservice` - existing GitOps source of truth; current actionq CNPG lives under `clusters/main/kubernetes/apps/actionq-db/`.
-
-Future in-repo implementation target:
-
-- `/projects/dev/agentops/apps/web` - planned agent-cockpit operator frontend.
 
 Pilot consumer:
 
