@@ -54,7 +54,23 @@
         "verified": false,
         "qualified": false,
         "production_authority": false,
-        "note": "Workstation-only local llama-swap access via provider local3090 (baseURL http://127.0.0.1:8020/v1). Devstral (24B AWQ, ctx 24576) is an alternative on the same provider. Availability is not qualification; qualification would require local-inference/acceptance-lab scorecard evidence."
+        "note": "Workstation-only local llama-swap access via provider local3090 (baseURL http://127.0.0.1:8020/v1). Devstral (24B AWQ, ctx 24576) is an alternative on the same provider. Availability is not qualification; qualification would require local-inference/acceptance-lab scorecard evidence.",
+        "task_classes": [
+          "supervised-experiment",
+          "corpus-run"
+        ],
+        "prohibited": [
+          "protected_path_write",
+          "merge_or_push_shared_branch",
+          "credential_use",
+          "cluster_mutation",
+          "sensitive_data_exposure"
+        ],
+        "qualification": {
+          "sample_floor_per_class": 20,
+          "sample_floor_status": "proposed_pending_operator_confirmation",
+          "critical_failure_policy": "zero_tolerance"
+        }
       }
     }
   },
@@ -130,7 +146,11 @@
         "fallback": "gpt-5.6-luna",
         "verified": true,
         "transport": "chatgpt",
-        "surfaces": ["codex-cli", "codex-app", "vscode-extension"],
+        "surfaces": [
+          "codex-cli",
+          "codex-app",
+          "vscode-extension"
+        ],
         "note": "2026-07-22: Spark is the preferred bounded fast-build model when the caller is an authenticated Codex surface. It has a separate preview usage limit and is not generally API-accessible; API-key workers and exhausted/unavailable Spark sessions fall back to gpt-5.6-luna."
       }
     },
