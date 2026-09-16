@@ -8,7 +8,7 @@ import sys
 import tempfile
 import unittest
 
-SCRIPTS = Path(__file__).parents[1] / "scripts"
+SCRIPTS = Path(__file__).parents[1]
 sys.path.insert(0, str(SCRIPTS))
 sys.path.insert(0, str(Path(__file__).parent))
 import materialize_project as MATERIALIZE  # noqa: E402

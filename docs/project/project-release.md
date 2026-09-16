@@ -27,7 +27,7 @@ hashes, and descriptor/topology digests are checked before verification is
 reported.
 
 The dependency-free entry point is
-`templates/dispatch/scripts/project_release.py`.  Its commands are
+`scripts/project_release.py`.  Its commands are
 `create`, `verify` (also accepted as `verify-remote`), `pack`,
 `verify-package`, and `rebuild-plan`; every file-producing command requires an
 explicit output path and refuses to overwrite it.
