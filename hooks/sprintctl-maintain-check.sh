@@ -67,9 +67,16 @@ summary="$(printf '%s' "$report" | jq -r '
 # resolved against root `/projects/dev/agentops`.
 # Through the `agentops` CLI, not a path relative to this file: the hook set no longer
 # lives beside the scripts. No CLI on PATH means no status line, never a failure.
+# `agentops` on PATH, else the CLI in this hook's own repository (hooks/../bin/agentops), so a host
+# that never linked the CLI into PATH (devbox) still runs this hook instead of skipping it.
+_hook_src="${BASH_SOURCE[0]}"
+{ [[ -L "$_hook_src" ]] && command -v readlink >/dev/null 2>&1 &&
+  _hook_src="$(readlink -f -- "$_hook_src" 2>/dev/null || printf '%s' "$_hook_src")"; } || true
+AGENTOPS="$(command -v agentops 2>/dev/null || true)"
+[[ -n "$AGENTOPS" || ! -x "${_hook_src%/*}/../bin/agentops" ]] || AGENTOPS="${_hook_src%/*}/../bin/agentops"
 model_status=""
-if command -v agentops >/dev/null 2>&1; then
-  model_status="$(agentops metanarrative --scope "$(basename "$repo_root")" status 2>/dev/null \
+if [[ -n "$AGENTOPS" ]]; then
+  model_status="$("$AGENTOPS" metanarrative --scope "$(basename "$repo_root")" status 2>/dev/null \
     | grep -vE '^\(no model records yet\)$' || true)"
 fi
 
