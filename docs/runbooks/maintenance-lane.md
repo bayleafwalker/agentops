@@ -138,6 +138,14 @@ cannot measure worker tiers. Costs derived from transcripts are **list price**,
 not subscription spend. A `completed` terminal reason means the process ended
 normally, not that the work was right; only `lane.review` says that.
 
+`scripts/maintenance_lane_report.py` joins these sources and renders the
+metrics below (per tier, per model, and the abnormal-exit rate) from a served
+sprintctl backend; it is the TS-7 interim report (a derived query, not a
+settlement writer) kept until S6 folds cost and profile comparison into the
+session binding. It defaults `SPRINTCTL_VUORO_PROFILE` to
+`environment-record/profiles/workstation-vuoro-shared.json`, the same profile
+used above, unless the environment already sets one.
+
 ### Metrics, per tier and per model
 
 - first-pass acceptance rate (`verdict:accepted` with `first-pass`);

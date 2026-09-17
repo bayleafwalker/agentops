@@ -12,6 +12,14 @@ Schema:
 /projects/dev/agentops/schemas/dispatch-manifest.schema.json
 ```
 
+Checker: `scripts/validate_dispatch_manifest.py <manifest.dispatch.json> [...]`.
+It was deleted 2026-09-17 (S2 item 6) with `templates/dispatch/scripts` and
+restored the same day per TS-11 (goal-state target claim: manifests and their
+schema stay, and a kept schema must have its checker, until S3 contracts and
+S6 digests replace their remaining inputs). It is exercised by
+`scripts/tests/test_validate_dispatch_manifest.py` and
+`test_manifest_schema_enums.py` in CI (`.github/workflows/scripts-tests.yml`).
+
 The worked `templates/dispatch/examples/*.dispatch.json` fixtures were retired
 2026-09-17 (S2 item 6) with the rest of `templates/dispatch`. For a real
 manifest, read a member repo's own `agentops.dispatch.json` directly, e.g.
