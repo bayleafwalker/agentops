@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/project-release.v1.schema.json",
+  "title": "AgentOps project release descriptor v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "project_id", "binding", "topology_digest", "members"],
+  "properties": {
+    "schema": { "const": "project-release/v1" },
+    "project_id": { "type": "string", "format": "uuid" },
+    "binding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["repository", "commit", "path", "raw_sha256"],
+      "properties": {
+        "repository": { "type": "string", "pattern": "^https://[^/@?#]+(?:/[^/?#]+)+$" },
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "path": { "type": "string", "minLength": 1 },
+        "raw_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "topology_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "members": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["repo_id", "backlog", "render", "relationship", "access", "repository", "commit", "branch", "default_ref", "documents", "durability"],
+        "properties": {
+          "repo_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+          "backlog": { "type": "boolean" },
+          "render": { "enum": ["full", "baseline", "none"] },
+          "relationship": { "type": "string" },
+          "access": { "enum": ["write", "reference"] },
+          "repository": { "type": "string", "pattern": "^https://[^/@?#]+(?:/[^/?#]+)+$" },
+          "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+          "branch": { "type": ["string", "null"] },
+          "default_ref": { "type": "string", "pattern": "^refs/heads/[A-Za-z0-9._/-]+$" },
+          "documents": {
+            "type": "object", "additionalProperties": false,
+            "required": ["required", "optional", "forbidden", "files", "bundle_sha256"],
+            "properties": {
+              "required": { "type": "array", "items": { "type": "string" } },
+              "optional": { "type": "array", "items": { "type": "string" } },
+              "forbidden": { "type": "array", "items": { "type": "string" } },
+              "files": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["path", "sha256", "bytes", "commit"], "properties": { "path": { "type": "string" }, "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }, "bytes": { "type": "integer", "minimum": 0 }, "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" } } } },
+              "bundle_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+            }
+          },
+          "durability": {
+            "type": "object", "additionalProperties": false,
+            "required": ["kind", "ref", "target", "verified"],
+            "properties": {
+              "kind": { "enum": ["remote-ref", "bundle"] },
+              "ref": { "type": "string" },
+              "target": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+              "verified": { "const": true }
+            }
+          }
+        }
+      }
+    }
+  }
+}

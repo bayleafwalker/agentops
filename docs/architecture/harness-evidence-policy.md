@@ -58,14 +58,15 @@ own."
 
 ## Attribute allowlist
 
-`harness-evidence-attributes.schema.json` was the machine source of truth: an
-`additionalProperties: false` JSON Schema (draft 2020-12) where any key an
-exporter attempts to attach that is not explicitly listed is a schema
-violation, not a permissive pass-through. **The schema file and its CI check
-(`test_harness_evidence_attributes.py`) were deleted 2026-09-17 (S2 item 6)
-with `templates/dispatch` and have no top-level successor; the checklist item
-below is currently unenforced pending a decision on where this check should
-live.**
+`schemas/harness-evidence-attributes.schema.json` is the machine source of
+truth: an `additionalProperties: false` JSON Schema (draft 2020-12) where any
+key an exporter attempts to attach that is not explicitly listed is a schema
+violation, not a permissive pass-through. It was deleted 2026-09-17 (S2 item
+6) with `templates/dispatch` and restored the same day per TS-15 (goal-state
+target claim: the allowlist must exist and be checked in CI before the
+exporter is enabled); the checker is `scripts/tests/test_harness_evidence_attributes.py`,
+run by `.github/workflows/scripts-tests.yml` on every change under `schemas/**`
+or `scripts/**`.
 The allowlisted keys, summarized:
 
 - **Correlation:** `session_id`, `agent_id`, `subagent_id`, `trace_id`,
@@ -199,9 +200,9 @@ enablement"). None of the following may be skipped before this pipeline is
 turned on for any session:
 
 - [ ] This policy is operator-accepted (see Open items below).
-- [ ] `harness-evidence-attributes.json` schema check passes in CI (currently
-      unenforced — the schema and its test were deleted 2026-09-17 with
-      `templates/dispatch`; see note above).
+- [ ] `harness-evidence-attributes.json` schema check passes in CI
+      (`scripts/tests/test_harness_evidence_attributes.py`, restored
+      2026-09-17 per TS-15; see note above).
 - [ ] A redaction test demonstrates that prompt/completion text, tool
       arguments/outputs, and credential-shaped values are rejected by the
       allowlist (the negative fixtures in the test file above).

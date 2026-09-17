@@ -26,6 +26,13 @@ source host when emitting a receipt; package members, bundle heads, document
 hashes, and descriptor/topology digests are checked before verification is
 reported.
 
+Schemas: `schemas/project-release/project-release.v1.schema.json`,
+`project-evidence-package.v1.schema.json`, and
+`project-replication-receipt.v1.schema.json`. They are a reference for the
+`project-release/v1`, `project-evidence-package/v1`, and
+`project-replication-receipt/v1` shapes the producer below validates
+structurally in code; nothing loads them at runtime.
+
 The dependency-free entry point is
 `scripts/project_release.py`.  Its commands are
 `create`, `verify` (also accepted as `verify-remote`), `pack`,

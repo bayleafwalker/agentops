@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/harness-evidence-attributes.schema.json",
+  "title": "Harness evidence attribute allowlist",
+  "description": "Machine source of truth for docs/architecture/harness-evidence-policy.md. Every attribute a native-harness telemetry exporter (OTel metric, log event, span, rate-limit gauge) may carry. additionalProperties is false: an unlisted key -- prompt text, tool arguments, environment variables, credential material -- is rejected outright rather than passed through unredacted. Fields that are not themselves evidence references (session_id, agent_id, runtime, harness, model, environment) use an identifier pattern that rejects path separators and whitespace, so neither a filesystem path nor a header-shaped secret (\"Authorization: Bearer ...\") can be smuggled through a field that was never meant to carry one. The two fields that may legitimately reference raw evidence -- evidence_uri and transcript_sha256 -- are coupled: evidence_uri is never accepted alone.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version"],
+  "properties": {
+    "schema_version": { "const": "harness-evidence-attributes/v1" },
+    "session_id": { "$ref": "#/$defs/identifier" },
+    "agent_id": { "$ref": "#/$defs/identifier" },
+    "subagent_id": { "$ref": "#/$defs/identifier" },
+    "runtime": { "$ref": "#/$defs/identifier" },
+    "harness": { "$ref": "#/$defs/identifier" },
+    "model": { "$ref": "#/$defs/identifier" },
+    "environment": { "$ref": "#/$defs/identifier" },
+    "trace_id": { "pattern": "^[0-9a-f]{32}$" },
+    "span_id": { "pattern": "^[0-9a-f]{16}$" },
+    "input_tokens": { "type": "integer", "minimum": 0 },
+    "output_tokens": { "type": "integer", "minimum": 0 },
+    "context_tokens": { "type": "integer", "minimum": 0 },
+    "cost_usd_list": {
+      "type": "array",
+      "items": { "type": "number", "minimum": 0 }
+    },
+    "durations": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "wall_seconds": { "type": "number", "minimum": 0 },
+        "queue_seconds": { "type": "number", "minimum": 0 },
+        "tool_seconds": { "type": "number", "minimum": 0 }
+      }
+    },
+    "result_class": {
+      "enum": [
+        "success",
+        "failure",
+        "partial",
+        "timeout",
+        "cancelled",
+        "error",
+        "unknown"
+      ]
+    },
+    "terminal_reason": {
+      "enum": [
+        "completed",
+        "process-exit",
+        "start-failed",
+        "cancelled",
+        "timeout",
+        "usage-limit",
+        "crash-inferred"
+      ]
+    },
+    "rate_limit": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "window": { "$ref": "#/$defs/identifier" },
+        "used_percent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "resets_at": { "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?Z$" }
+      }
+    },
+    "transcript_sha256": { "pattern": "^[0-9a-f]{64}$" },
+    "evidence_uri": { "$ref": "#/$defs/evidenceUri" }
+  },
+  "if": {
+    "required": ["evidence_uri"]
+  },
+  "then": {
+    "required": ["transcript_sha256"]
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._:-]{0,126}[A-Za-z0-9])?$"
+    },
+    "evidenceUri": {
+      "type": "string",
+      "pattern": "^(https|s3|file|langfuse)://[^\\s]{1,2048}$"
+    }
+  }
+}
