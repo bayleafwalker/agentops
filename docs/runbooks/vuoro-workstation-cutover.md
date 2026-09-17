@@ -210,10 +210,18 @@ the full black-box Sprintctl parity suite against `vuoro-shared`. Run the
    with this repository's data (see sprintctl #1223); do not roll `.envrc` or
    the marker forward workstation-wide until that promotion evidence exists.
 
-   The final static check was `validate_vuoro_workstation_cutover.py`; it was
-   retired 2026-09-17 (S2 item 6) with `templates/dispatch` and has no
-   top-level successor. Use `scripts/validate_vuoro_profiles.py` (above)
-   as the closest remaining static check until this gap is decided.
+   The final static check was `validate_vuoro_workstation_cutover.py`, retired
+   2026-09-17 (S2 item 6) with `templates/dispatch`. Its DIRECT_PATTERNS scan
+   (TS-10, the interim fence: no `.envrc` or shared profile selects a direct
+   PostgreSQL backend) is restored in `scripts/validate_vuoro_profiles.py`.
+   Run it per repository:
+
+   ```
+   scripts/validate_vuoro_profiles.py --check-dsn-fence <repo>/.envrc
+   ```
+
+   This is the interim mechanism only; it retires at S5 when the fence
+   becomes structural (`docs/plans/2026-09-17-target-state.md` TS-10).
 
 ## Devbox-vm
 

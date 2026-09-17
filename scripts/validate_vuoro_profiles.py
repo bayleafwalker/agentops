@@ -16,6 +16,19 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
+#: TS-10 interim fence: legacy direct-DSN writers are fenced by mechanism at
+#: S5 (`docs/plans/2026-09-17-target-state.md`); until then this pattern set
+#: is the check that no shared profile or `.envrc` selects a direct
+#: PostgreSQL backend. Retire this constant and `dsn_fence_violations` when
+#: S5 lands.
+DIRECT_PATTERNS = (
+    re.compile(r"\bSPRINTCTL_URL\b"),
+    re.compile(r"sprintctl-cnpg-main-app"),
+    re.compile(r"\bsprintctl-pg\b"),
+    re.compile(r"SPRINTCTL_BACKEND\s*=\s*(?:\"|')?remote\b"),
+    re.compile(r"postgres(?:ql)?://", re.IGNORECASE),
+)
+
 TOKEN = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 AUTHORITY = re.compile(r"^[a-z0-9][a-z0-9._-]*:[a-z0-9][a-z0-9._-]*$")
 WORK_AUTHORITIES = {
@@ -126,19 +139,101 @@ def validate_profile(path: Path, environment: dict[str, object]) -> dict[str, ob
     return value
 
 
+def _executable_shell_text(text: str) -> str:
+    """Return shell text with comments removed.
+
+    The DSN fence audits the configuration an interactive shell can execute.
+    A ``#`` inside a quoted value is data, not a comment, so a line-oriented
+    ``startswith('#')`` filter is insufficient here.
+    """
+    lines: list[str] = []
+    for line in text.splitlines():
+        quote: str | None = None
+        escaped = False
+        kept: list[str] = []
+        for character in line:
+            if escaped:
+                kept.append(character)
+                escaped = False
+                continue
+            if character == "\\" and quote != "'":
+                kept.append(character)
+                escaped = True
+                continue
+            if character in {"'", '"'}:
+                if quote is None:
+                    quote = character
+                elif quote == character:
+                    quote = None
+                kept.append(character)
+                continue
+            if character == "#" and quote is None:
+                break
+            kept.append(character)
+        lines.append("".join(kept))
+    return "\n".join(lines)
+
+
+def dsn_fence_violations(path: Path) -> list[str]:
+    """Errors when ``path`` selects a direct PostgreSQL backend (TS-10 interim fence).
+
+    Scans a repo's ``.envrc`` or a shared profile file for ``SPRINTCTL_URL``, a
+    direct ``postgres(ql)://`` DSN, or the cnpg/backend selectors that point at
+    one, so a served-mode workstation cannot quietly regress to a direct
+    writer. ``unset SPRINTCTL_URL`` is prescribed served-mode cleanup, not
+    direct-backend wiring, and is excluded from the scan.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return [f"{path}: cannot read: {exc}"]
+    scannable = text if path.suffix == ".json" else _executable_shell_text(text)
+    scan_text = "\n".join(
+        line
+        for line in scannable.splitlines()
+        if not re.match(r"\s*unset\s+SPRINTCTL_URL\s*$", line)
+    )
+    errors: list[str] = []
+    for pattern in DIRECT_PATTERNS:
+        if pattern.search(scan_text):
+            errors.append(f"{path}: contains prohibited direct-backend wiring matching {pattern.pattern!r}")
+    return errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--environment", required=True, type=Path)
-    parser.add_argument("--profile", required=True, action="append", type=Path)
+    parser.add_argument("--environment", type=Path)
+    parser.add_argument("--profile", action="append", type=Path, default=[])
+    parser.add_argument(
+        "--check-dsn-fence",
+        dest="dsn_fence_paths",
+        action="append",
+        type=Path,
+        default=[],
+        help="a .envrc or shared profile file to scan for direct-backend DSN wiring (TS-10 interim fence); repeatable",
+    )
     args = parser.parse_args()
+    if not args.environment and not args.dsn_fence_paths:
+        parser.error("at least one of --environment or --check-dsn-fence is required")
+    errors: list[str] = []
     try:
-        environment = validate_environment(args.environment)
-        for profile_path in args.profile:
-            profile = validate_profile(profile_path, environment)
-            print(f"ok {profile_path} -> {profile['target']['environment_id']} as {profile['id']}")
-        print(f"ok {args.environment}")
+        if args.environment:
+            environment = validate_environment(args.environment)
+            for profile_path in args.profile:
+                profile = validate_profile(profile_path, environment)
+                print(f"ok {profile_path} -> {profile['target']['environment_id']} as {profile['id']}")
+            print(f"ok {args.environment}")
     except ProfileError as exc:
         print(f"error: {exc}", file=sys.stderr)
+        return 1
+    for fence_path in args.dsn_fence_paths:
+        violations = dsn_fence_violations(fence_path)
+        errors.extend(violations)
+        if not violations:
+            print(f"ok {fence_path}: no direct-backend wiring")
+    if errors:
+        print("DSN fence violations:", file=sys.stderr)
+        print("\n".join(f"- {error}" for error in errors), file=sys.stderr)
         return 1
     return 0
 
