@@ -1,1 +1,0 @@
-../../../scripts/render_workspace_agents.py

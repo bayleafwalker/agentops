@@ -2428,7 +2428,7 @@ def main(argv: list[str] | None = None) -> int:
             "--environment-records-dir",
             type=Path,
             default=render_project.ENVIRONMENT_RECORDS_DIR,
-            help="directory to search for environment-record/v1 files (default: templates/dispatch/environment-record)",
+            help="directory to search for environment-record/v1 files (default: environment-record)",
         )
         if name == "destroy":
             command.add_argument("--check", action="store_true", help="validate destruction without removing the instance")

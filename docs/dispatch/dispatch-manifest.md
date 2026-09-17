@@ -9,17 +9,13 @@ the per-dispatch payload value is the authoritative grouping key for lifecycle r
 Schema:
 
 ```text
-/projects/dev/agentops/templates/dispatch/manifest.schema.json
+/projects/dev/agentops/schemas/dispatch-manifest.schema.json
 ```
 
-Examples:
-
-```text
-/projects/dev/agentops/templates/dispatch/examples/homelab-analytics.dispatch.json
-/projects/dev/agentops/templates/dispatch/examples/appservice.dispatch.json
-/projects/dev/agentops/templates/dispatch/examples/actionq.dispatch.json
-/projects/dev/agentops/templates/dispatch/examples/scribectl.dispatch.json
-```
+The worked `templates/dispatch/examples/*.dispatch.json` fixtures were retired
+2026-09-17 (S2 item 6) with the rest of `templates/dispatch`. For a real
+manifest, read a member repo's own `agentops.dispatch.json` directly, e.g.
+`/projects/dev/agentops/agentops.dispatch.json`.
 
 ## v2 instruction provenance
 
@@ -29,11 +25,9 @@ instruction sources (`AGENTS.md` and `CLAUDE.md`) with exact digests, source
 revisions, refs, mechanical rule ids, hooks, and optional line budgets. It is
 an inspection record; it does not redefine provider precedence.
 
-Run the dependency-free measurement doctor from a repository root:
-
-```text
-python templates/dispatch/scripts/instruction_doctor.py --root . --json
-```
+A dependency-free measurement doctor (`instruction_doctor.py`) used to run
+this check from a repository root; it was retired 2026-09-17 (S2 item 6) with
+`templates/dispatch` and has no top-level successor.
 
 Reports distinguish `validated`, `degraded`, and `unbound`. A report is
 managed-eligible only when its status is `validated` and handling is `none`.
@@ -53,7 +47,7 @@ Dispatchers must resolve `harness` and `model` in this order:
 The manifest may use logical `model_alias` values. Provider-specific model IDs belong in
 dispatcher runtime config so repos can keep stable policy while providers change model names.
 The canonical alias-to-provider mapping is
-`templates/dispatch/model-routing.json`; see [Model Routing](model-routing.md)
+`model-routing.json`; see [Model Routing](model-routing.md)
 for availability, fallbacks, and reasoning-control rules.
 
 ## Adoption Levels
@@ -68,7 +62,7 @@ for availability, fallbacks, and reasoning-control rules.
 Shared skill templates live under:
 
 ```text
-/projects/dev/agentops/templates/dispatch/skills/
+/projects/dev/agentops/skills/
 ```
 
 Repos should select shared skills in the manifest and commit only overlay fragments for local
@@ -79,7 +73,7 @@ repo has a real behavioral fork.
 `sync_skills.py` materializes a consumer's selected canonical skill bodies under
 `.agents/skills/` and exposes them to Claude through `.claude/skills/` symlinks. When the template
 root is inside the repository being synchronized (the canonical `agentops` repository), it links
-`.claude/skills/` directly to `templates/dispatch/skills/` instead of creating a redundant self-copy.
+`.claude/skills/` directly to `skills/` instead of creating a redundant self-copy.
 Saved cross-repository workflows must still carry a complete action contract in their prompts:
 project-scoped skill discovery is fixed when an agent starts and is not a reliable runtime
 dependency after merely changing shell cwd.
@@ -132,11 +126,8 @@ The cockpit reads manifests through:
 /cockpit/api/dispatch-manifests?repo_id=<repo>
 ```
 
-The manifest directory defaults to:
-
-```text
-/projects/dev/agentops/templates/dispatch/examples
-```
-
-Override it with `COCKPIT_DISPATCH_MANIFEST_ROOT` when repos begin committing their own
-`*.dispatch.json` files or when generated manifests are staged in `_artifacts`.
+The manifest directory used to default to `templates/dispatch/examples`, which
+was retired 2026-09-17 (S2 item 6); that default no longer resolves to
+anything. Set `COCKPIT_DISPATCH_MANIFEST_ROOT` explicitly to a directory of
+real `*.dispatch.json` files (each member repo's own, or generated manifests
+staged in `_artifacts`).

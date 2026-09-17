@@ -3,7 +3,7 @@
   "$id": "https://agentops.local/schemas/reconciliation-proposal.schema.json",
   "title": "Reconciliation proposal",
   "description": "A reviewable proposal produced by the canonical periodic scribe (agentops-owned, NOT the scribectl repo) or a fresh post-session reconciler. Never mutates authoritative state itself; acceptance executes as normal sprintctl authority commands.",
-  "$comment": "This schema mirrors structure for editor support. templates/dispatch/scripts/validate_session_mechanization_artifacts.py is normative for cross-field rules.",
+  "$comment": "This schema mirrors structure for editor support. scripts/validate_session_mechanization_artifacts.py is normative for cross-field rules.",
   "type": "object",
   "additionalProperties": false,
   "required": [

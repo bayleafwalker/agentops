@@ -129,11 +129,13 @@ backend repository identity explicit.
 
 ## Preflight evidence
 
-Run the read-only preflight before materializing from canonical sources and
-again against a completed instance:
+A read-only preflight (`validate_project_workspace.py`) used to run before
+materializing from canonical sources and again against a completed instance;
+it was retired 2026-09-17 (S2 item 6) with `templates/dispatch` and has no
+top-level successor. Its invocation looked like:
 
 ```bash
-python templates/dispatch/scripts/validate_project_workspace.py \
+python validate_project_workspace.py \
   --project /projects/dev/<home-repo>/project.toml \
   --folder /projects/dev/_projects/<instance> \
   --projects-root /projects/dev/_projects \

@@ -1,6 +1,6 @@
 # Deterministic project rendering
 
-`templates/dispatch/scripts/render_project.py` materializes the project-binding
+`scripts/render_project.py` materializes the project-binding
 contract without adding a runtime project service or changing standalone
 repositories. It acts only when given a canonical `project.toml`.
 
@@ -33,10 +33,10 @@ render. Timestamps and filesystem paths are excluded.
 From the agentops repository, or with the script's absolute path:
 
 ```bash
-python templates/dispatch/scripts/render_project.py check \
+python scripts/render_project.py check \
   --project /projects/dev/<home-repo>/project.toml
 
-python templates/dispatch/scripts/render_project.py check \
+python scripts/render_project.py check \
   --project /projects/dev/<home-repo>/project.toml \
   --apply
 ```

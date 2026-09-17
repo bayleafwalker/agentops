@@ -5,13 +5,13 @@ description: Check work against current tenets and directions, record observatio
 
 # Realign
 
-The metanarrative model in `templates/dispatch/model/README.md` is authoritative.
+The metanarrative model in `model/README.md` is authoritative.
 Read it if anything below is ambiguous.
 
 ## Start here, always
 
 ```bash
-templates/dispatch/scripts/metanarrative.py --scope <repo> status
+scripts/metanarrative.py --scope <repo> status
 ```
 
 Cheap, safe when no records exist, and it answers three questions at once: what is

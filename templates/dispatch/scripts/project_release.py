@@ -1,1 +1,0 @@
-../../../scripts/project_release.py

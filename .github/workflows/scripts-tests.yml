@@ -1,8 +1,8 @@
 name: scripts tests
 
-# scripts/ holds the agentops CLI topics that outlive templates/dispatch (handoff,
-# metanarrative, session-binding, sync-skills, render-project, the session-mechanization
-# producers and their imports) plus the data they read; skills/ is the canonical skill tree. Run their
+# scripts/ holds the agentops CLI topics (handoff, metanarrative, session-binding,
+# sync-skills, render-project, the session-mechanization producers and their imports)
+# plus the data they read; skills/ is the canonical skill tree. Run their
 # oracles and the CLI front end whenever any of it changes.
 on:
   pull_request:

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "operator-projection"
-version = "0.2.3"
+version = "0.2.4"
 description = "operator-projection/v1: a derived, read-only operator front page"
 requires-python = ">=3.11"
 dependencies = [

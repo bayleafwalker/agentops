@@ -1,1 +1,0 @@
-../../../scripts/render_environment_context.py

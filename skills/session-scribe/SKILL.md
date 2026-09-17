@@ -15,7 +15,7 @@ substitute for it.
 This skill supplies the *judgment* half of the scribe — reading capsules and
 classifying what they mean. The *mechanism* half (durable-cursor bookkeeping,
 capsule discovery/grouping, schema-validated artifact writing) is
-`templates/dispatch/scripts/session_scribe.py`. Use the script for every
+`scripts/session_scribe.py`. Use the script for every
 mechanical step below; do not hand-roll cursor math or hand-write proposal
 JSON from scratch.
 
@@ -38,7 +38,7 @@ confuse it with, that repository.
 ## Steps
 
 1. **Plan.** Run
-   `python templates/dispatch/scripts/session_scribe.py plan --root _artifacts/<repo>`.
+   `python scripts/session_scribe.py plan --root _artifacts/<repo>`.
    This prints every capsule not yet past the durable cursor, grouped by
    `target.ref` (capsules sharing an explicit or candidate target are grouped
    together; untargeted capsules are singleton groups keyed by
@@ -139,5 +139,5 @@ confuse it with, that repository.
   classification and ownership.
 - `docs/plans/agentops/write-surface-policy.md` — which surfaces may execute
   the sprintctl authority commands a proposal names.
-- `templates/dispatch/scripts/session_scribe.py` — the mechanical half this
+- `scripts/session_scribe.py` — the mechanical half this
   skill drives.

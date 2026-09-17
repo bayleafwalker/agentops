@@ -1,5 +1,8 @@
 # Supervised hybrid dispatch
 
+> Retired 2026-09-17 (S2 item 6): the tooling was deleted with
+> `templates/dispatch`; kept as a historical record.
+
 Status: operational as a workflow. The sole qualification is the
 [`vuoro` `mechanical_bulk` named pilot](../dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md)
 on devbox with `opencode-go/deepseek-v4-flash`. Every other worker

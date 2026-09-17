@@ -1,5 +1,8 @@
 # OpenCode admission check
 
+> Retired 2026-09-17 (S2 item 6): the tooling was deleted with
+> `templates/dispatch`; kept as a historical record.
+
 Status: a repeatable sanity check, not an attestation framework. There is no
 promotion, no "qualified" state, and no one-shot ceremony. Rerun it any time.
 

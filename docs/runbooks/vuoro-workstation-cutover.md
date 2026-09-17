@@ -20,20 +20,20 @@ must not be used as evidence for retiring the shared database path. The
 
 The current canonical non-secret inputs for normal shared work are:
 
-- `templates/dispatch/environment-record/workstation-linux.vuoro-shared.json`;
-- `templates/dispatch/environment-record/devbox-vm.vuoro-shared.json`; and
-- the matching files under `templates/dispatch/environment-record/profiles/`.
+- `environment-record/workstation-linux.vuoro-shared.json`;
+- `environment-record/devbox-vm.vuoro-shared.json`; and
+- the matching files under `environment-record/profiles/`.
 
 Validate them before selecting the shared authority:
 
 ```bash
-python templates/dispatch/scripts/validate_vuoro_profiles.py \
-  --environment templates/dispatch/environment-record/workstation-linux.vuoro-shared.json \
-  --profile templates/dispatch/environment-record/profiles/workstation-vuoro-shared.json
+python scripts/validate_vuoro_profiles.py \
+  --environment environment-record/workstation-linux.vuoro-shared.json \
+  --profile environment-record/profiles/workstation-vuoro-shared.json
 
-python templates/dispatch/scripts/validate_vuoro_profiles.py \
-  --environment templates/dispatch/environment-record/devbox-vm.vuoro-shared.json \
-  --profile templates/dispatch/environment-record/profiles/devbox-agent-vuoro-shared.json
+python scripts/validate_vuoro_profiles.py \
+  --environment environment-record/devbox-vm.vuoro-shared.json \
+  --profile environment-record/profiles/devbox-agent-vuoro-shared.json
 ```
 
 The validator rejects a production target, a non-HTTPS endpoint, token-bearing
@@ -172,7 +172,7 @@ the full black-box Sprintctl parity suite against `vuoro-shared`. Run the
 
    `<operator-issued-vuoro-shared-profile>` is the path to the profile JSON
    itself (e.g.
-   `templates/dispatch/environment-record/profiles/workstation-vuoro-shared.json`),
+   `environment-record/profiles/workstation-vuoro-shared.json`),
    **not** the path the profile's own `credential_ref` points at — those are
    two different files.
 
@@ -210,13 +210,10 @@ the full black-box Sprintctl parity suite against `vuoro-shared`. Run the
    with this repository's data (see sprintctl #1223); do not roll `.envrc` or
    the marker forward workstation-wide until that promotion evidence exists.
 
-   The final static check is:
-
-   ```bash
-   python /projects/dev/agentops/templates/dispatch/scripts/validate_vuoro_workstation_cutover.py \
-     --root /projects/dev \
-     --profile <operator-issued-vuoro-shared-profile>
-   ```
+   The final static check was `validate_vuoro_workstation_cutover.py`; it was
+   retired 2026-09-17 (S2 item 6) with `templates/dispatch` and has no
+   top-level successor. Use `scripts/validate_vuoro_profiles.py` (above)
+   as the closest remaining static check until this gap is decided.
 
 ## Devbox-vm
 

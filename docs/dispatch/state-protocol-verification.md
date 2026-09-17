@@ -40,12 +40,12 @@ The overlay closes the generic skill over repository-specific subjects, implemen
 
 ## Data-only evidence
 
-Reusable intent belongs in `verification/contexts/*.json` and validates against `templates/dispatch/schemas/test-context.schema.json`. Results belong in CI artifacts by default, or in `verification/results/*.json` when intentionally committed, and validate against `verification-result.schema.json`.
+Reusable intent belongs in `verification/contexts/*.json` and validates as `test-context/v1`. Results belong in CI artifacts by default, or in `verification/results/*.json` when intentionally committed, and validate as `verification-result/v1`. `scripts/validate_verification_artifacts.py` is normative for both; its former JSON Schema mirrors under `templates/dispatch/schemas/` were retired 2026-09-17 (S2 item 6).
 
 Run the dependency-free minimum validator from the repository root:
 
 ```bash
-python /projects/dev/agentops/templates/dispatch/scripts/validate_verification_artifacts.py --root .
+python /projects/dev/agentops/scripts/validate_verification_artifacts.py --root .
 ```
 
 The same command validates a root `*.dispatch.json`, verifies that overlays and
@@ -53,7 +53,7 @@ referenced context ids exist, and reports risk surfaces selected by changed
 paths:
 
 ```bash
-python /projects/dev/agentops/templates/dispatch/scripts/validate_verification_artifacts.py \
+python /projects/dev/agentops/scripts/validate_verification_artifacts.py \
   --root . \
   --changed-path src/claims/store.py
 ```

@@ -1,6 +1,6 @@
 """A hand-rolled JSON Schema subset checker, importable by scripts.
 
-Extracted from ``templates/dispatch/tests/test_task_packet_schema.py`` so that
+Extracted from the dispatch template's task-packet schema test so that
 more than one consumer can reach it without copying it. The public surface is
 exactly four names:
 

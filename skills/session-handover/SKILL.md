@@ -15,7 +15,7 @@ captures *what it means to pick up here*, in the agent's own words.
 This skill supplies the judgment half — deciding what belongs in the note and
 which kind it is. The mechanism half (schema-valid writing, supersedes-chain
 resolution, cross-repo lookup) is
-`templates/dispatch/scripts/session_notes.py`. Use the script for every
+`scripts/session_notes.py`. Use the script for every
 mechanical step; do not hand-write note JSON.
 
 **Known tension, named deliberately**: recording a note here is still an
@@ -36,7 +36,7 @@ enforcement surface — treat it as load-bearing, not optional, for now.
    a fallback.
 3. If nothing was injected, run:
    ```
-   python templates/dispatch/scripts/session_notes.py latest \
+   python scripts/session_notes.py latest \
      --root _artifacts/<repo> --kind handover
    ```
    If nothing comes back, there is no prior handover — proceed normally. If
@@ -62,7 +62,7 @@ enforcement surface — treat it as load-bearing, not optional, for now.
    reads this next be a different conversation?" Yes → `handover`.
 2. Write the note **instead of** pasting the summary forward as prompt text:
    ```
-   python templates/dispatch/scripts/session_notes.py append \
+   python scripts/session_notes.py append \
      --root _artifacts/<repo> --repo <repo> --kind <handover|summary|outcome> \
      --body "<markdown, under 16 KiB>" \
      [--target-refs wi:<id> ...] \
@@ -113,8 +113,8 @@ enforcement surface — treat it as load-bearing, not optional, for now.
   this skill implements (Phase 1 scope, operator decisions).
 - `docs/dispatch/session-mechanization-contracts.md` — the `session-note/v1`
   field contract.
-- `templates/dispatch/scripts/session_notes.py` — the mechanical half this
+- `scripts/session_notes.py` — the mechanical half this
   skill drives.
-- `templates/dispatch/skills/session-scribe/SKILL.md`,
-  `templates/dispatch/skills/session-reconciler/SKILL.md` — the adjacent
+- `skills/session-scribe/SKILL.md`,
+  `skills/session-reconciler/SKILL.md` — the adjacent
   capsule-reconciliation paths this contract deliberately does not duplicate.

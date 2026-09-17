@@ -32,12 +32,10 @@ python scripts/materialize_project.py setup|sync --project <home-repo>/project.t
 - The saved `.claude/workflows/vuoro-dispatch-*.js` still assume ActionQ transport: do not
   use them for new work until migrated
   (`docs/plans/agentops/native-runtime-federation-realignment-2026-08-20.md`).
-- Hybrid mode (cheap worker, coordinator keeps decisions): `docs/runbooks/hybrid-dispatch.md`
-  and `templates/dispatch/hybrid/hybrid-dispatch.v1.json`. Only for decided, oracle-gated,
-  mechanical work; never for tests-as-deliverable, architecture, security, credentials,
-  migrations or cross-repo sequencing. The dispatch policy files are protected paths
-  (enforced by `.github/workflows/protected-paths.yml`).
-- Model IDs and qualification are data in `templates/dispatch/model-routing.json`.
+- Hybrid mode (cheap worker, coordinator keeps decisions) is retired as of S2 item 6
+  (2026-09-17); its policy and driver were deleted with `templates/dispatch`. See
+  `docs/runbooks/hybrid-dispatch.md` for the historical record.
+- Model IDs and qualification are data in `model-routing.json`.
 
 ## Documentation
 

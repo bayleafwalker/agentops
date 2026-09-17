@@ -16,24 +16,24 @@ silently discarded for a stale basis revision.
 This document defines the contract only. It does not implement the Tier-0
 wrapper — that remains the actionq-owned wrapper mechanism. Both consumers
 are implemented: the canonical periodic scribe (item #1107,
-`templates/dispatch/skills/session-scribe/SKILL.md` +
-`templates/dispatch/scripts/session_scribe.py`) and the fresh post-session
+`skills/session-scribe/SKILL.md` +
+`scripts/session_scribe.py`) and the fresh post-session
 reconciler (item #1108,
-`templates/dispatch/skills/session-reconciler/SKILL.md` +
-`templates/dispatch/scripts/session_reconciler.py`), which share one
+`skills/session-reconciler/SKILL.md` +
+`scripts/session_reconciler.py`), which share one
 durable cursor so neither path double-processes a capsule.
 
 ## Canonical schemas
 
-- `templates/dispatch/session-mechanization/session-capsule.schema.json`
-- `templates/dispatch/session-mechanization/reconciliation-proposal.schema.json`
-- `templates/dispatch/session-mechanization/session-note.schema.json`
+- `session-mechanization/session-capsule.schema.json`
+- `session-mechanization/reconciliation-proposal.schema.json`
+- `session-mechanization/session-note.schema.json`
 
 All four mirror structure for editor support only. The dependency-free
 semantic validator is normative:
 
 ```bash
-python /projects/dev/agentops/templates/dispatch/scripts/validate_session_mechanization_artifacts.py --root .
+python /projects/dev/agentops/scripts/validate_session_mechanization_artifacts.py --root .
 ```
 
 Run against explicit paths, or let it discover `session-capsules/*.json`,
@@ -51,8 +51,8 @@ and served log.
 
 Canonical files:
 
-- `templates/dispatch/session-mechanization/session-completion-observed.schema.json`
-- `templates/dispatch/session-mechanization/session-completion-observed.example.json`
+- `session-mechanization/session-completion-observed.schema.json`
+- `session-mechanization/session-completion-observed.example.json`
 
 The stable idempotency identity is `event_id`. Retries and replay retain it.
 `origin_stream_id` is installation-scoped and durable, and
@@ -224,8 +224,8 @@ counterpart to `session-capsule/v1`'s no-cooperation mechanical exhaust. The
 contract, matrix row, and validator discovery shipped with #1213. **Writer/
 reader tooling and the session-handover skill shipped with #1280** (tracked
 as #1214 in the original plan numbering) —
-`templates/dispatch/scripts/session_notes.py` and
-`templates/dispatch/skills/session-handover/SKILL.md`. Hook wiring and
+`scripts/session_notes.py` and
+`skills/session-handover/SKILL.md`. Hook wiring and
 coverage automation remain #1281 (#1215 in the original plan numbering).
 
 | Field | Rule |
@@ -260,4 +260,4 @@ observation is a *note*.
 - [`state-event-command-matrix.md`](../plans/agentops/state-event-command-matrix.md) — per-event classification and ownership.
 - `sprintctl/docs/plans/adr-outbox-sync-model.md` — outbox, identity, and cursor model these artifacts ride on.
 - [`dispatch-manifest.md`](dispatch-manifest.md) — the `wi:`/`sprint:`/`sha:`/`pr:` ref vocabulary reused in `target.ref`.
-- `templates/dispatch/capability-receipt/` — the sibling artifact-plus-validator convention this contract follows.
+- `capability-receipt/v1` (retired 2026-09-17 with `templates/dispatch`; superseded by the metanarrative model, `model/README.md`) — the sibling artifact-plus-validator convention this contract followed.

@@ -1,1 +1,0 @@
-../../../scripts/resolve_environment_record.py

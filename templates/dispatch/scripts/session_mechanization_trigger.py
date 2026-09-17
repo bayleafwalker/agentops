@@ -1,1 +1,0 @@
-../../../scripts/session_mechanization_trigger.py

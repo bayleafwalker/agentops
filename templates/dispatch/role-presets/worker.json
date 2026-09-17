@@ -1,6 +1,0 @@
-{
-  "role": "worker",
-  "model": "Luna",
-  "behavior": "high",
-  "tool_mode": "write"
-}

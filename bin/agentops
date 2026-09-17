@@ -9,9 +9,7 @@
 # resolves the topic to a script and execs it, so `--help`, exit codes and stdio are
 # the script's own.
 #
-# Scripts that outlive templates/dispatch live in scripts/ and win. Until that tree is
-# deleted, a topic found only in templates/dispatch/scripts/ still resolves there; the
-# fallback goes away with the tree, with no change needed here.
+# All scripts live in scripts/. templates/dispatch was deleted in S2 item 6.
 #
 # Put this directory on PATH (or symlink this file into ~/.local/bin).
 set -euo pipefail
@@ -24,7 +22,7 @@ root="$(cd -- "$(dirname -- "$self")/.." && pwd)"
 
 if [[ $# -lt 1 ]]; then
   printf 'usage: agentops <topic> [args...]\n\ntopics:\n' >&2
-  for s in "$root"/scripts/*.py "$root"/templates/dispatch/scripts/*.py; do
+  for s in "$root"/scripts/*.py; do
     if [[ -r "$s" ]]; then basename "${s%.py}" | tr '_' '-'; fi
   done | sort -u | sed 's/^/  /' >&2
   exit 2
@@ -32,11 +30,10 @@ fi
 
 topic="$1"; shift
 script=""
-for dir in "$root/scripts" "$root/templates/dispatch/scripts"; do
-  if [[ -r "$dir/${topic//-/_}.py" ]]; then script="$dir/${topic//-/_}.py"; break; fi
-done
+dir="$root/scripts"
+if [[ -r "$dir/${topic//-/_}.py" ]]; then script="$dir/${topic//-/_}.py"; fi
 if [[ -z "$script" ]]; then
-  printf 'agentops: no such topic %q (looked in %s/scripts and %s/templates/dispatch/scripts)\n' "$topic" "$root" "$root" >&2
+  printf 'agentops: no such topic %q (looked in %s/scripts)\n' "$topic" "$root" >&2
   exit 2
 fi
 

@@ -22,3 +22,13 @@ jobs:
             --base "origin/${{ github.event.pull_request.base.ref }}" \
             --head "${{ github.event.pull_request.head.sha }}" \
             --title "$PR_TITLE"
+
+  templates-dispatch-allowlist:
+    # S2 item 6: templates/dispatch was deleted except hooks/ (PR-B territory).
+    # This fails a PR that grows a fresh reference to the deleted tree outside
+    # the allowlist in scripts/templates_dispatch_allowlist.txt.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: check
+        run: python3 scripts/check_templates_dispatch_allowlist.py

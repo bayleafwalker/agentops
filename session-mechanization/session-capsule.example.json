@@ -42,12 +42,12 @@
     },
     "touched_paths": [
       "docs/dispatch/session-mechanization-contracts.md",
-      "templates/dispatch/session-mechanization/session-capsule.schema.json"
+      "session-mechanization/session-capsule.schema.json"
     ]
   },
   "verification": [
     {
-      "command": "python templates/dispatch/scripts/validate_session_mechanization_artifacts.py --root .",
+      "command": "python scripts/validate_session_mechanization_artifacts.py --root .",
       "result": "pass",
       "evidence_ref": null
     }

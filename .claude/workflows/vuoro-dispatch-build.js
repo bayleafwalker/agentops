@@ -12,7 +12,7 @@ export const meta = {
 }
 
 // Provider-specific realization of the canonical clerical / fast-build /
-// standard-build / hard-build policy in templates/dispatch/model-routing.json.
+// standard-build / hard-build policy in model-routing.json.
 // Claude has no Luna-equivalent implementation tier, so Sonnet owns all
 // code-bearing work at different effort levels. Haiku is limited to read-only
 // triage and deterministic publication/closeout bookkeeping.

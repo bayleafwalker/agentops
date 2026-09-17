@@ -1,1 +1,0 @@
-../../../scripts/check_protected_paths.py

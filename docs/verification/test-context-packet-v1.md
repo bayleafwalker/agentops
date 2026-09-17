@@ -14,13 +14,15 @@ test consumer.
 
 ## Canonical schema
 
-`templates/dispatch/schemas/test-context.schema.json` is the sole normative
-machine-readable schema. Every packet uses `schema_version = test-context/v1`.
-The dependency-free repository gate validates its stable minimum without
-requiring a JSON Schema package:
+`scripts/validate_verification_artifacts.py` is the sole normative
+machine-readable check (a hand-rolled validator, not a JSON Schema file; the
+former `templates/dispatch/schemas/test-context.schema.json` mirror was
+retired 2026-09-17 with `templates/dispatch`). Every packet uses
+`schema_version = test-context/v1`. The dependency-free repository gate
+validates its stable minimum without requiring a JSON Schema package:
 
 ```bash
-python /projects/dev/agentops/templates/dispatch/scripts/validate_verification_artifacts.py --root .
+python /projects/dev/agentops/scripts/validate_verification_artifacts.py --root .
 ```
 
 The v0 draft has been retired. New repositories and migrations must not create

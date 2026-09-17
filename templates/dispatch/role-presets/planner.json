@@ -1,6 +1,0 @@
-{
-  "role": "planner",
-  "model": "Sol",
-  "behavior": "xhigh",
-  "tool_mode": "read-only"
-}
