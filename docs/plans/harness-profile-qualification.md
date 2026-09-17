@@ -1,6 +1,13 @@
 # Harness implementation profiles
 
-## Current decision
+**SUPERSEDED-BY:** the S6 observed profile digest
+(`docs/plans/2026-09-17-target-state.md` TS-3; seed `scripts/session_binding.py`).
+Role and skills are observed at session start, not compiled: this plan's
+`harness-profiles` schema, qualification receipt and `templates/dispatch/`
+validator are not built. The Vuoro/OpenCode dispatch path this profile scheme
+served also retired with S2 item 6 (TS-2).
+
+## Current decision (historical)
 
 OpenCode is not built from source on every host. A harness is a stable
 semantic contract, while each host package channel supplies a separately

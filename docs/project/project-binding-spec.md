@@ -106,6 +106,11 @@ Per-member fields:
 | `access` | enum, optional | Materialization boundary: `write` or `reference`. Defaults to `write`. `reference` uses a detached, filesystem-read-only worktree and receives no render writes. |
 | `path_notes` | array of strings, optional | Free-text agent guidance for this specific binding. Read directly from `project.toml`, never rendered into a file. |
 
+**Retired, no successor** (`docs/plans/2026-09-17-target-state.md` TS-3): role
+and skills are observed at session start, not compiled, so a compiled
+`role_presets` table has no place in the target state. The description below
+is historical.
+
 An optional `role_presets` table provides project-scoped model/behavior defaults
 for `planner`, `worker`, and `reviewer`. The preset vocabulary is deliberately
 small (`Sol`/`Luna`, `xhigh`/`high`, and `read-only`/`write`); it is descriptive

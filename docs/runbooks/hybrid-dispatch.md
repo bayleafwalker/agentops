@@ -1,7 +1,10 @@
 # Supervised hybrid dispatch
 
 > Retired 2026-09-17 (S2 item 6): the tooling was deleted with
-> `templates/dispatch`; kept as a historical record.
+> `templates/dispatch`; kept as a historical record. Per
+> `docs/plans/2026-09-17-target-state.md` TS-2, execution, sandboxing and
+> model choice stay native to the harness (Claude Code, Codex); hybrid
+> dispatch and OpenCode worker routing are excluded from Vuoro and agentops.
 
 Status: operational as a workflow. The sole qualification is the
 [`vuoro` `mechanical_bulk` named pilot](../dispatch/hybrid-vuoro-bulk-pilot-2026-07-28.md)

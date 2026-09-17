@@ -1,5 +1,10 @@
 # Reviewed maintenance envelopes
 
+**SUPERSEDED-BY:** the sprintctl outbox quarantine and recovery record. This
+`maintenance-envelope/v1` design is stale and not the live mechanism; treat
+sprintctl's outbox quarantine/recovery record as current guidance for
+controlled maintenance that removes normal served authority.
+
 ## Decision
 
 For controlled maintenance that temporarily removes the normal served

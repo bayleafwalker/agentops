@@ -29,6 +29,10 @@ python scripts/materialize_project.py setup|sync --project <home-repo>/project.t
 
 ## Dispatch
 
+- `docs/plans/2026-09-17-target-state.md` is the current agent-tooling and
+  Vuoro direction: the target claims (TS-1..TS-15) that decide deployment,
+  deprecation and retirement for this repo and its dispatch tooling. Read it
+  before changing dispatch, model-routing, or project-workspace behaviour.
 - The saved `.claude/workflows/vuoro-dispatch-*.js` still assume ActionQ transport: do not
   use them for new work until migrated
   (`docs/plans/agentops/native-runtime-federation-realignment-2026-08-20.md`).

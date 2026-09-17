@@ -6,13 +6,20 @@ These files live in the `/projects/dev/agentops` repo. Treat this repo as the co
 
 ## Live cross-repository architecture successor
 
+- `docs/plans/2026-09-17-target-state.md` (repo root) is the **current live
+  successor** for the agent-tooling estate's execution and ownership
+  direction: it carries the accepted far-future walk (owner decision D1,
+  2026-09-14) and the target claims (TS-1..TS-15) that decide deployment,
+  deprecation and retirement. Read it first.
 - `native-runtime-federation-realignment-2026-08-20.md` - current execution,
   advisory-reservation, federation, cross-repository handoff, and retired
-  Outctl boundary. This is the **sole live successor** for the execution and
+  Outctl boundary. It was the prior sole live successor for the execution and
   ownership direction covered by the older substrate, simplification,
-  dispatcher-meta, and waved-dispatch plans. Its ActionQ deletion milestone is
-  now implemented in owner source (`actionq` 0.1.26); the operator rollout and
-  federation extraction remain incomplete and separately gated.
+  dispatcher-meta, and waved-dispatch plans; it remains a live reference for
+  those areas, subordinate to the target-state file above where the two
+  differ. Its ActionQ deletion milestone is now implemented in owner source
+  (`actionq` 0.1.26); the operator rollout and federation extraction remain
+  incomplete and separately gated.
 
 ## Current hand-off backlogs (2026-08-23, draft)
 

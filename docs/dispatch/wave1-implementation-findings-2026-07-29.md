@@ -1,5 +1,10 @@
 # Wave 1 implementation findings — 2026-07-29
 
+**SUPERSEDED-BY:** the `dispatch-request` v2 contract described below is
+superseded by the S3 Release object (not yet built;
+`docs/plans/2026-09-17-target-state.md` TS-5, TS-11). This file is a
+historical findings record, not current guidance.
+
 ## Status
 
 The Wave 1 human decisions were ratified. Implementation proceeded in
