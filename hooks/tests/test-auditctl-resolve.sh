@@ -197,22 +197,59 @@ grep -v '^[[:space:]]*#' "$resolve_sh" | grep -q '/projects/dev/[a-z]' \
 # must appear under A and an event added from repo B under B. If auditctl is ever downgraded
 # below 0.1.4 on a host, this is what catches it -- the version that needs the export back
 # fails here rather than silently misrouting a day of shards.
+#
+# Hermetic by construction, not by care. The contract under test is a real filesystem walk
+# with no caller-supplied boundary -- that is what REQ-025 requires -- so any pre-existing
+# `.git` or `.auditctl/auditctl.db` between the scoped repos below and the filesystem root
+# makes this section write into a real, shared store. That store is append-only, so a wrong
+# write here cannot be undone by rerunning the test. Not hypothetical: on this workstation a
+# stray `/tmp/.git` + `/tmp/.auditctl` pair (unrelated prior pollution, itself shaped like
+# this defect one level up) captured every publish this section made, landing
+# `workflow.friction` "scope probe" events in a store no test of this repository owns.
+# Scoping the two repos under `$tmp` is not enough to prevent that -- the ancestor chain
+# above `$tmp` is outside this test's control. So this section runs inside a private mount
+# namespace with a freshly mounted, empty tmpfs at `/tmp`: nothing can pre-exist there. If
+# an unprivileged user+mount namespace cannot be created -- expected on hardened CI, which
+# also has no installed publisher and skips this section on that grounds already -- the
+# section is skipped rather than run unisolated. The property this gate protects is "never
+# touches a real store", not "always runs".
 publisher="$( unset AUDITCTL_BIN; . "$resolve_sh"; auditctl_bin || true )"
 if [[ -n "$publisher" && -x "$publisher" ]]; then
-  for name in alpha beta; do
-    repo="$tmp/scoped-$name"; mkdir -p "$repo/.git" "$repo/sub"
-    ( cd "$repo/sub" && unset AUDITCTL_ARTIFACTS_ROOT AUDITCTL_DB \
-      && "$publisher" add --type workflow.friction --source resolve-test --actor resolve-test \
-         --summary "scope probe $name" >/dev/null 2>&1 ) \
-      || fail "REQ-026: publishing from $repo/sub failed with no artifacts root set"
-    shard="$(find "$repo/_artifacts" -name 'events-*.ndjson' 2>/dev/null | head -1)"
-    [[ -n "$shard" ]] \
-      || fail "REQ-026: no shard under $repo after publishing from it -- the root did not follow the session"
-    grep -q "scope probe $name" "$shard" \
-      || fail "REQ-026: $repo shard does not carry its own event"
-  done
-  [[ -z "$(find "$tmp/scoped-alpha/_artifacts" -name 'events-*.ndjson' -exec grep -l 'scope probe beta' {} + 2>/dev/null)" ]] \
-    || fail "REQ-026: beta's event landed under alpha -- shards are crossing repositories"
+  if unshare --mount --user --map-root-user true 2>/dev/null; then
+    req026_probe() {
+      local publisher="$1" name repo shard
+      # A pooled ancestor, deliberately, inside the isolated tmpfs only: /projects/dev is
+      # itself a git repository with its own `.auditctl/auditctl.db`, so any repo nested
+      # under it that has not yet written a local index of its own resolves with that
+      # ancestor as a live candidate. Without one here, a fresh, unpolluted /tmp gives
+      # every scoped repo below the nearest (and only) marker by default regardless of
+      # resolution order, and this section would pass even against the regression it
+      # exists to catch. Reproducing the ancestor is what keeps it a falsifier.
+      mkdir -p /tmp/.git /tmp/.auditctl
+      : > /tmp/.auditctl/auditctl.db
+      for name in alpha beta; do
+        repo="/tmp/scoped-$name"; mkdir -p "$repo/.git" "$repo/sub"
+        ( cd "$repo/sub" && unset AUDITCTL_ARTIFACTS_ROOT AUDITCTL_DB \
+          && "$publisher" add --type workflow.friction --source resolve-test --actor resolve-test \
+             --summary "scope probe $name" >/dev/null 2>&1 ) \
+          || fail "REQ-026: publishing from $repo/sub failed with no artifacts root set"
+        shard="$(find "$repo/_artifacts" -name 'events-*.ndjson' 2>/dev/null | head -1)"
+        [[ -n "$shard" ]] \
+          || fail "REQ-026: no shard under $repo after publishing from it -- the root did not follow the session"
+        grep -q "scope probe $name" "$shard" \
+          || fail "REQ-026: $repo shard does not carry its own event"
+      done
+      [[ -z "$(find "/tmp/scoped-alpha/_artifacts" -name 'events-*.ndjson' -exec grep -l 'scope probe beta' {} + 2>/dev/null)" ]] \
+        || fail "REQ-026: beta's event landed under alpha -- shards are crossing repositories"
+    }
+    export -f req026_probe fail
+    export publisher
+    unshare --mount --user --map-root-user bash -c \
+      'set -uo pipefail; mount -t tmpfs tmpfs /tmp && req026_probe "$publisher"' \
+      || exit 1
+  else
+    printf 'skip: REQ-026 needs an unprivileged mount namespace for hermetic isolation (unavailable here)\n' >&2
+  fi
 else
   printf 'skip: REQ-026 needs the auditctl publisher installed\n' >&2
 fi
