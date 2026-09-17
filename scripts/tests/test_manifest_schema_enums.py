@@ -20,9 +20,9 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 
 ROOT = Path(__file__).parents[2]
-SCHEMA_PATH = ROOT / "schemas/dispatch-manifest.schema.json"
+SCHEMA_PATH = ROOT / "schemas" / "dispatch-manifest.schema.json"
 CALLER_MODE_DOC = ROOT / "docs/plans/agentops/caller-mode-routing-runtime-handover.md"
-VERIFICATION_VALIDATOR = ROOT / "scripts/validate_verification_artifacts.py"
+VERIFICATION_VALIDATOR = ROOT / "scripts" / "validate_verification_artifacts.py"
 
 SCHEMA = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
 
