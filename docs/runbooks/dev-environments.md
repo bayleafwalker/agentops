@@ -22,7 +22,7 @@ are setting up or repairing a host, not at session start. The legacy vscode-shel
 `log-session-cost.sh` (Stop) appends cumulative per-session snapshots to
 `/projects/dev/.claude/session-costs.jsonl`, and `gate-log.sh` (PostToolUse) records gate
 commands. Rows supersede: reduce to the newest row per `session` before aggregating.
-Summary: `agentops/templates/dispatch/hooks/cost-summary.sh [project]`.
+Summary: `agentops/hooks/cost-summary.sh [project]`.
 
 ## Evidence and durability background
 

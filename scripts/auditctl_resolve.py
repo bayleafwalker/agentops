@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """One resolver for *our* auditctl publisher, shared by every Python caller.
 
-This is the Python half of ``templates/dispatch/hooks/auditctl-resolve.sh``, which
+This is the Python half of ``hooks/auditctl-resolve.sh``, which
 remains the reference for the policy. It exists because the policy had been written
 three times and only two of them were right:
 
