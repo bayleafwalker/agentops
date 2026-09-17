@@ -35,8 +35,28 @@ fi
 [ -n "$CANON" ] || exit 0
 git -C "$R" remote get-url "$CANON" >/dev/null 2>&1 || exit 0
 
-BR="$(git -C "$R" rev-parse --abbrev-ref HEAD 2>/dev/null)"
-LOCAL="$(git -C "$R" rev-parse HEAD 2>/dev/null)"
+# Judge the PUSHED ref, not whatever the resolved checkout has checked out: the
+# event cwd can be a stale main checkout while the push named a worktree branch.
+# `git push [opts] <remote> <src>[:<dst>]` -> src; no refspec -> HEAD.
+ARGS="$(printf '%s' "$CMD" | grep -oE "$PUSH_RE"'[^;&|]*' | head -n1 | sed -E 's/.*[[:blank:]]push([[:blank:]]|$)//')"
+REFSPEC="" NONOPT=0
+for a in $ARGS; do
+  case "$a" in
+    --delete|-d|--tags|--all|--mirror|--prune) exit 0 ;;
+    -*) ;;
+    *) NONOPT=$((NONOPT + 1)); [ "$NONOPT" -eq 2 ] && { REFSPEC="$a"; break; } ;;
+  esac
+done
+SRC="${REFSPEC#+}"; SRC="${SRC%%:*}"
+[ -n "$REFSPEC" ] && [ -z "$SRC" ] && exit 0   # `:branch` deletes
+if [ -n "$SRC" ] && [ "$SRC" != HEAD ]; then
+  # A ref this repo does not have means the resolved repo is not the pushed one.
+  LOCAL="$(git -C "$R" rev-parse --verify -q "$SRC^{commit}" 2>/dev/null)" || exit 0
+  BR="$SRC"
+else
+  BR="$(git -C "$R" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+  LOCAL="$(git -C "$R" rev-parse HEAD 2>/dev/null)"
+fi
 HEADS="$(git -C "$R" ls-remote --heads "$CANON" 2>/dev/null)"
 # Landed = HEAD is the tip of ANY canonical branch (covers `push origin HEAD:main`
 # from a worktree branch whose own name does not exist on the remote).
