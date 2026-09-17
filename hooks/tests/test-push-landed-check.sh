@@ -6,6 +6,7 @@
 #   REQ-003 a genuinely unlanded push still warns
 #   REQ-004 session cwd in a different (unlanded) repo does not override the pushed repo
 #   REQ-005 `git -C <dir> push` from an unlanded repo warns (resolution is not a blanket pass)
+#   REQ-006 a push naming a branch judges that branch, not a stale checked-out main in the event cwd
 set -euo pipefail
 
 here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -56,6 +57,18 @@ assert_warns "$tmp/other" "git push origin handoff" REQ-003
 assert_warns "$tmp" "cd $tmp/other && git push origin handoff" REQ-003-cd
 assert_quiet "$tmp/other" "git -C $tmp/wt push" REQ-004
 assert_warns "$tmp/wt" "git -C $tmp/other push origin handoff" REQ-005
+# stale: main checkout behind canon (another clone advanced it); the push names a
+# worktree branch this checkout does not have, or a landed branch it does have.
+mkrepo stale
+git clone -q -b main "$tmp/stale.git" "$tmp/stale-clone"
+git -C "$tmp/stale-clone" commit -q --allow-empty -m ahead
+git -C "$tmp/stale-clone" push -q origin main
+git -C "$tmp/stale" fetch -q canon
+git -C "$tmp/stale" branch -q feat canon/main
+assert_quiet "$tmp/stale" "git push -u origin s2/not-here" REQ-006-foreign-ref
+assert_quiet "$tmp/stale" "git push --force-with-lease canon feat" REQ-006-landed-ref
+assert_warns "$tmp/stale" "git push canon main" REQ-006-stale-main
+assert_quiet "$tmp/stale" "git push origin --delete feat" REQ-006-delete
 # Non-push commands never trigger.
 assert_quiet "$tmp/other" "git -C $tmp/other status" non-push
 
