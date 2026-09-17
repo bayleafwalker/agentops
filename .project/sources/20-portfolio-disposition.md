@@ -5,7 +5,7 @@ render_levels: [baseline, full]
 ## Portfolio disposition
 
 Generated from `vuoro:docs/direction/disposition-register.yaml` by
-`agentops:templates/dispatch/scripts/render_disposition_fragment.py`. Do not edit
+`agentops:scripts/render_disposition_fragment.py`. Do not edit
 here; change the register and re-render.
 
 The register records status separately from intention: intention is what a plan
