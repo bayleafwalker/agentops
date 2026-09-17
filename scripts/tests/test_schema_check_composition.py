@@ -72,7 +72,6 @@ cannot satisfy them.
 """
 from __future__ import annotations
 
-import copy
 import importlib.util
 import json
 import sys
@@ -83,13 +82,8 @@ sys.dont_write_bytecode = True
 
 ROOT = Path(__file__).parents[2]
 SCRIPTS = ROOT / "scripts"
-# The task-packet schema was deleted with the old dispatch template tree (PR #165)
-# and has no successor; RealTaskPacketSchemaTests below is skipped rather than
-# restored, since restoring a test for a deleted subject is out of scope here.
-TASK_PACKET_SCHEMA_PATH = ROOT / "hybrid" / "task-packet.schema.json"
 MANIFEST_SCHEMA_PATH = ROOT / "schemas" / "dispatch-manifest.schema.json"
 DISPATCH_MANIFEST_PATH = ROOT / "agentops.dispatch.json"
-PACKET_DIR = ROOT / "docs/evidence/packets"
 
 
 def _load(name: str, path: Path):
@@ -743,116 +737,8 @@ class AuditFollowsCompositionTests(_RaiseMixin):
         self.assertEqual(validate({"a": "x"}, schema), [])
 
 
-class RealTaskPacketSchemaTests(unittest.TestCase):
-    """Payoff, part one: the packet schema becomes enforceable, end to end.
-
-    ``task-packet.schema.json`` uses ``$defs``, ``$ref``, ``allOf``,
-    ``if``/``then``, ``minItems`` and ``maximum``. Before this row the checker
-    refused it outright, so nothing in this repo could actually be validated
-    against the schema it declares. After this row it must return a verdict --
-    and the verdict on every committed packet must be clean.
-    """
-
-    @classmethod
-    def setUpClass(cls):
-        if not TASK_PACKET_SCHEMA_PATH.is_file():
-            raise unittest.SkipTest(
-                f"{TASK_PACKET_SCHEMA_PATH} was deleted with the old dispatch "
-                "template tree (PR #165); awaits a goal-state verdict")
-        cls.schema = json.loads(
-            TASK_PACKET_SCHEMA_PATH.read_text(encoding="utf-8"))
-        cls.packet_paths = sorted(PACKET_DIR.glob("*.json"))
-
-    def test_there_are_packets_to_check(self):
-        # Guards the whole class against passing vacuously if the directory
-        # moves or the glob stops matching.
-        self.assertTrue(
-            self.packet_paths,
-            f"no packets found under {PACKET_DIR}; the end-to-end proof below "
-            f"would pass by matching nothing")
-
-    def test_the_schema_still_uses_the_composition_keywords(self):
-        # The anchor for this class. If the schema is ever rewritten without
-        # composition, the tests below stop proving anything -- and this one
-        # says so out loud instead of passing quietly.
-        self.assertIn("$defs", self.schema)
-        self.assertIsInstance(self.schema["allOf"], list)
-        self.assertTrue(self.schema["allOf"])
-        first = self.schema["allOf"][0]
-        self.assertIn("if", first)
-        self.assertIn("then", first)
-        self.assertIn(
-            "$ref", json.dumps(first["then"]),
-            "the conditional branch is expected to reach a $defs definition")
-
-    def test_the_schema_returns_a_verdict_instead_of_raising(self):
-        result = validate({}, self.schema)
-        self.assertIsInstance(
-            result, list,
-            "the packet schema must be checkable after this row; refusing it "
-            "is what made the checker useless")
-
-    def test_every_committed_packet_validates_with_zero_violations(self):
-        for packet_path in self.packet_paths:
-            with self.subTest(packet=packet_path.name):
-                packet = json.loads(packet_path.read_text(encoding="utf-8"))
-                self.assertEqual(
-                    validate(packet, self.schema), [],
-                    f"{packet_path.name} does not satisfy "
-                    f"task-packet.schema.json")
-
-    def _a_real_packet(self):
-        return copy.deepcopy(
-            json.loads(self.packet_paths[0].read_text(encoding="utf-8")))
-
-    def test_the_conditional_defs_branch_actually_bites(self):
-        # allOf -> if -> then -> $ref, exercised against the real file. Every
-        # committed packet is schema_version v2, whose acceptance properties
-        # must carry a stable `id`. Remove it and the v2 branch must object.
-        packet = self._a_real_packet()
-        self.assertEqual(packet["schema_version"], "agentops-task/v2")
-        self.assertTrue(packet["acceptance_properties"])
-        removed = packet["acceptance_properties"][0].pop("id", None)
-        self.assertIsNotNone(
-            removed, "the anchor: a v2 acceptance property carries an id")
-        self.assertTrue(
-            validate(packet, self.schema),
-            "the v2 branch of the schema's allOf/if/then/$ref requires an id "
-            "on every acceptance property; a checker that reports [] here has "
-            "walked past the whole composition")
-
-    def test_the_other_conditional_branch_selects_differently(self):
-        # Same packet, relabelled v1. The v1 definition is closed and has no
-        # `id`, so the *other* branch must now object -- which is only possible
-        # if `if` really is discriminating on schema_version.
-        packet = self._a_real_packet()
-        packet["schema_version"] = "agentops-task/v1"
-        self.assertTrue(
-            validate(packet, self.schema),
-            "a v2-shaped acceptance property under the v1 label must be "
-            "rejected by the v1 definition")
-
-    def test_a_real_maximum_in_the_schema_bites(self):
-        packet = self._a_real_packet()
-        ceiling = self.schema["properties"]["limits"]["properties"][
-            "timeout_seconds"]["maximum"]
-        packet["limits"]["timeout_seconds"] = ceiling + 1
-        self.assertTrue(
-            validate(packet, self.schema),
-            "timeout_seconds carries a maximum in the real schema")
-
-    def test_a_real_min_items_in_the_schema_bites(self):
-        packet = self._a_real_packet()
-        self.assertEqual(
-            self.schema["properties"]["readable_context_paths"]["minItems"], 1)
-        packet["readable_context_paths"] = []
-        self.assertTrue(
-            validate(packet, self.schema),
-            "readable_context_paths carries minItems 1 in the real schema")
-
-
 class RealManifestSchemaTests(unittest.TestCase):
-    """Payoff, part two: ``manifest.schema.json`` becomes checkable too.
+    """Payoff: ``manifest.schema.json`` becomes checkable end to end.
 
     It carries the subschema form of ``additionalProperties`` in three nodes.
     Two are plain ``properties`` descents; the third
@@ -1012,12 +898,6 @@ class RealDispatchManifestTests(unittest.TestCase):
             "agentops.dispatch.json is read by every dispatch in this repo; it "
             "must satisfy the schema that describes it")
 
-    @unittest.expectedFailure  # schemas/dispatch-manifest.schema.json's
-    # skills.selected enum still admits "capability-receipt", a skill PR-E
-    # removed (skills/capability-receipt deleted in the same commit); a known
-    # regression, reported rather than fixed here (the schema is not the kept
-    # script this restoration covers), left as xfail so it stays visible
-    # without failing the build.
     def test_the_enum_and_the_skills_directory_agree(self):
         # The enum duplicates a directory listing, which is why it drifted. A
         # name on disk and not in the enum makes a legitimate manifest invalid;

@@ -52,10 +52,6 @@ sys.dont_write_bytecode = True
 
 ROOT = Path(__file__).parents[2]
 SCRIPTS = ROOT / "scripts"
-# The task-packet schema was deleted with the old dispatch template tree (PR #165)
-# and has no successor; tests that need it are skipped rather than restored, since
-# restoring a test for a deleted subject is out of scope here.
-TASK_PACKET_SCHEMA_PATH = ROOT / "hybrid" / "task-packet.schema.json"
 MANIFEST_SCHEMA_PATH = ROOT / "schemas" / "dispatch-manifest.schema.json"
 
 
@@ -596,12 +592,15 @@ class ShapeAuditTests(unittest.TestCase):
 
 
 class RealSchemaTests(unittest.TestCase):
-    """The two schemas in the repo, which are why this row exists.
+    """The manifest schema in the repo, which is why this row exists.
 
-    Both already use keywords this row does not implement. That is the point:
-    the checker must say so out loud rather than validate them and report an
+    It already uses keywords this row does not implement. That is the point:
+    the checker must say so out loud rather than validate it and report an
     empty list it has no right to. When a later row implements those keywords,
     these tests follow it into the enforced branch.
+
+    The task-packet schema this class used to cover alongside it was retired
+    with hybrid dispatch (TS-2, docs/plans/2026-09-17-target-state.md).
     """
 
     def _schema(self, path):
@@ -625,13 +624,6 @@ class RealSchemaTests(unittest.TestCase):
                     msg="this schema uses keywords the checker does not "
                         "implement; returning a verdict on it would be a lie"):
                 validate(instance, schema)
-
-    @unittest.expectedFailure  # hybrid/task-packet.schema.json was deleted with the
-    # old dispatch template tree (PR #165) with no successor; a known regression,
-    # reported rather than fixed (restoring a test for a deleted subject is out of
-    # scope), left as xfail so it stays visible without failing the build.
-    def test_the_task_packet_schema_is_handled_or_refused(self):
-        self._assert_honest(self._schema(TASK_PACKET_SCHEMA_PATH), {})
 
     def _action_classes(self):
         """The real node in manifest.schema.json that carries the shape hole."""

@@ -22,10 +22,8 @@ from __future__ import annotations
 
 import importlib.util
 import io
-import json
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -47,17 +45,6 @@ def _load(name: str, path: Path):
 
 resolver = _load("auditctl_resolve_subject", SCRIPTS / "auditctl_resolve.py")
 meta = _load("metanarrative_resolve_subject", SCRIPTS / "metanarrative.py")
-
-# dispatch_release.py was deleted with the rest of the old dispatch template tree (agentops PR #165, S2 item
-# 6); its call-site tests below are skipped rather than restored, since restoring a
-# test for a deleted subject is out of scope here (awaits a goal-state verdict).
-_RELEASE_SCRIPT = SCRIPTS / "dispatch_release.py"
-release = _load("dispatch_release_resolve_subject", _RELEASE_SCRIPT) if _RELEASE_SCRIPT.is_file() else None
-_requires_release = unittest.skipIf(
-    release is None,
-    "dispatch_release.py was deleted with the old dispatch template tree (PR #165); awaits a "
-    "goal-state verdict before its call-site tests can be restored",
-)
 
 
 def _publisher(directory: Path, tag: str = "ours") -> Path:
@@ -242,44 +229,25 @@ class ChildEnvTests(_EnvFixture):
         self.assertEqual(os.environ.get("AUDITCTL_BIN"), "/bin/true",
                          "the caller's own environment is left alone")
 
-    @_requires_release
-    def test_the_release_driver_spawns_children_without_it(self) -> None:
-        """Proven through the real runner, not by reading the code."""
-        os.environ["AUDITCTL_BIN"] = "/bin/true"
-        probe = self.tmp / "probe.py"
-        probe.write_text(
-            "import json, os, sys\n"
-            "json.dump({'seen': os.environ.get('AUDITCTL_BIN')}, sys.stdout)\n",
-            encoding="utf-8",
-        )
-
-        completed = release._default_runner([sys.executable, str(probe)], None)
-
-        self.assertEqual(completed.returncode, 0, completed.stderr)
-        self.assertIsNone(json.loads(completed.stdout)["seen"])
-
 
 class CallSiteTests(_EnvFixture):
-    """Both former offenders now go through the shared resolver."""
+    """The former offender now goes through the shared resolver.
 
-    def test_neither_call_site_resolves_the_publisher_on_its_own(self) -> None:
-        """The REQ-024 property, in Python: one policy, not three copies of two.
+    dispatch_release.py, the other former offender, was retired with hybrid
+    dispatch (TS-2, docs/plans/2026-09-17-target-state.md) and its call-site
+    tests were retired with it.
+    """
+
+    def test_the_call_site_does_not_resolve_the_publisher_on_its_own(self) -> None:
+        """The REQ-024 property, in Python: one policy, not a local copy.
 
         A regrown local `shutil.which("auditctl")` is the exact shape of the defect --
-        it is what both of these files did, and neither looked wrong on its own.
-
-        dispatch_release.py is no longer checked here: it was deleted with
-        the old dispatch template tree (PR #165) and awaits a goal-state verdict.
+        it is what this file did, and it did not look wrong on its own.
         """
-        paths = [SCRIPTS / "metanarrative.py"]
-        if _RELEASE_SCRIPT.is_file():
-            paths.append(_RELEASE_SCRIPT)
-        for path in paths:
-            source = path.read_text(encoding="utf-8")
-            with self.subTest(script=path.name):
-                self.assertIn("auditctl_resolve", source)
-                self.assertNotIn('which("auditctl")', source)
-                self.assertNotIn(".local/bin/auditctl", source)
+        source = (SCRIPTS / "metanarrative.py").read_text(encoding="utf-8")
+        self.assertIn("auditctl_resolve", source)
+        self.assertNotIn('which("auditctl")', source)
+        self.assertNotIn(".local/bin/auditctl", source)
 
     def test_metanarrative_refuses_a_compiled_override_without_losing_the_record(self) -> None:
         decoy = _decoy(self.tmp / "decoy")
@@ -302,56 +270,6 @@ class CallSiteTests(_EnvFixture):
 
         self.assertTrue(meta._auditctl("model.claim", "a claim", {"id": "X"}))
         self.assertIn("model.claim", log.read_text(encoding="utf-8"))
-
-    @_requires_release
-    def test_the_release_driver_refuses_a_compiled_publisher_loudly(self) -> None:
-        decoy = _decoy(self.tmp / "decoy")
-        packet = {
-            "task_id": "T-RESOLVE",
-            "repo_id": "repo-x",
-            "starting_commit": "0" * 40,
-        }
-        calls: list[list[str]] = []
-
-        def runner(cmd, cwd):
-            calls.append(cmd)
-            return subprocess.CompletedProcess(cmd, 0, "", "")
-
-        stderr = io.StringIO()
-        with redirect_stderr(stderr):
-            record = release.write_escalation(
-                packet, "run", 1, "detail", runner, str(decoy),
-            )
-
-        self.assertEqual(record["sink"], "unavailable")
-        self.assertEqual(calls, [], "the decoy is never executed")
-        self.assertIn("compiled", stderr.getvalue())
-
-    @_requires_release
-    def test_the_release_driver_resolves_for_itself_when_none_is_named(self) -> None:
-        """`--auditctl-bin` unset no longer means the bare name `auditctl`.
-
-        It used to default to `os.environ.get("AUDITCTL_BIN", "auditctl")` and accept
-        whatever answered, so on a host where the kernel tool is first on PATH the
-        driver published every escalation into a program that discards it.
-        """
-        ours = _publisher(self.tmp / "bin")
-        os.environ["PATH"] = str(ours.parent)
-        packet = {
-            "task_id": "T-RESOLVE",
-            "repo_id": "repo-x",
-            "starting_commit": "0" * 40,
-        }
-        calls: list[list[str]] = []
-
-        def runner(cmd, cwd):
-            calls.append(cmd)
-            return subprocess.CompletedProcess(cmd, 0, "", "")
-
-        record = release.write_escalation(packet, "run", 1, "detail", runner, None)
-
-        self.assertEqual(record["sink"], "auditctl")
-        self.assertEqual(calls[0][0], str(ours))
 
 
 if __name__ == "__main__":

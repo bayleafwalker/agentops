@@ -83,10 +83,6 @@ sys.dont_write_bytecode = True
 ROOT = Path(__file__).parents[2]
 SCRIPTS = ROOT / "scripts"
 MANIFEST_SCHEMA_PATH = ROOT / "schemas" / "dispatch-manifest.schema.json"
-# The task-packet schema was deleted with the old dispatch template tree (PR #165)
-# and has no successor; the tests below that need it are skipped rather than
-# restored, since restoring a test for a deleted subject is out of scope here.
-TASK_PACKET_SCHEMA_PATH = ROOT / "hybrid" / "task-packet.schema.json"
 
 
 def _load(name: str, path: Path):
@@ -134,10 +130,6 @@ def _validate_raises(instance, schema) -> bool:
 # --------------------------------------------------------------------------
 
 MANIFEST_SCHEMA = json.loads(MANIFEST_SCHEMA_PATH.read_text())
-try:
-    TASK_PACKET_SCHEMA = json.loads(TASK_PACKET_SCHEMA_PATH.read_text())
-except FileNotFoundError:
-    TASK_PACKET_SCHEMA = None
 
 #: The three nodes of ``manifest.schema.json`` that cost repeated raise-and-fix
 #: cycles, lifted from the real file. ``RealSchemaShapeTests`` asserts each one
@@ -221,8 +213,6 @@ CLEAN_SCHEMAS = {
     },
     "the three real manifest nodes, unmodified": _real_node_schema(),
     "manifest.schema.json": MANIFEST_SCHEMA,
-    **({"hybrid/task-packet.schema.json": TASK_PACKET_SCHEMA}
-       if TASK_PACKET_SCHEMA is not None else {}),
 }
 
 #: name -> (schema, breadcrumb, keyword-or-None, conditional-on-this-keyword)
@@ -568,14 +558,9 @@ class RealSchemaShapeTests(unittest.TestCase):
     injecting defects into nodes that no longer exist.
     """
 
-    def test_the_real_schema_files_are_readable_objects(self):
-        for name, schema in (("manifest.schema.json", MANIFEST_SCHEMA),
-                             ("task-packet.schema.json", TASK_PACKET_SCHEMA)):
-            if schema is None:
-                continue  # deleted with the old dispatch template tree (PR #165)
-            with self.subTest(schema=name):
-                self.assertIsInstance(schema, dict)
-                self.assertIn("properties", schema)
+    def test_the_real_schema_file_is_a_readable_object(self):
+        self.assertIsInstance(MANIFEST_SCHEMA, dict)
+        self.assertIn("properties", MANIFEST_SCHEMA)
 
     def test_action_classes_still_has_the_shape_this_file_relies_on(self):
         node = _real_node("action_classes")
@@ -609,16 +594,11 @@ class RealSchemaShapeTests(unittest.TestCase):
             "the injection site $...skill_lock.oneOf[0].additionalProperties "
             "must exist")
 
-    def test_both_real_schema_files_are_fully_enforceable_today(self):
-        for name, schema in (("manifest.schema.json", MANIFEST_SCHEMA),
-                             ("task-packet.schema.json", TASK_PACKET_SCHEMA)):
-            if schema is None:
-                continue  # deleted with the old dispatch template tree (PR #165)
-            with self.subTest(schema=name):
-                self.assertEqual(
-                    _audit(schema), [],
-                    f"{name} audits clean today; an audit that reports "
-                    f"anything here is crying wolf on a shipped schema")
+    def test_the_real_schema_file_is_fully_enforceable_today(self):
+        self.assertEqual(
+            _audit(MANIFEST_SCHEMA), [],
+            "manifest.schema.json audits clean today; an audit that reports "
+            "anything here is crying wolf on a shipped schema")
 
 
 class ValidateIsUnchangedTests(unittest.TestCase):
