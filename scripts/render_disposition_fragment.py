@@ -14,13 +14,57 @@ forty-nine rows would spend a member's whole line budget saying nothing.
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
 import yaml
 
 #: Statuses an agent must not silently work against, in the order they are rendered.
-CONSTRAINING = ("retired", "frozen", "deferred", "spec-only", "hold", "promote", "unknown")
+CONSTRAINING = (
+    "retired",
+    "retiring",
+    "frozen",
+    "deferred",
+    "spec-only",
+    "hold",
+    "promote",
+    "open",
+    "unknown",
+)
+
+#: Verbs that mark a `goal_state.note` sentence as naming the retirement action itself,
+#: as opposed to background on why the row retires.
+_RETIRE_VERBS = re.compile(
+    r"\b(retire[sd]?|retiring|drop(?:s|ped)?|archiv(?:e|es|ed)|import(?:s|ed)?|absorb(?:s|ed)?)\b",
+    re.IGNORECASE,
+)
+#: A named stage in the walk (S1, S2, ... ), the register's unit for "when".
+_STAGE_MARKER = re.compile(r"\bS\d+\b")
+
+
+def _sentences(text: str) -> list[str]:
+    return [s.strip() for s in re.split(r"(?<=\.)\s+", text.strip()) if s.strip()]
+
+
+def _retire_step(item: dict, limit: int = 150) -> str:
+    """The sentence of `goal_state.note` that names the retire step, if any.
+
+    Prefers a sentence naming both a stage and the retirement action; falls back to
+    a stage-only sentence, then to the note's first sentence. Never fabricates a step
+    a row's note does not state.
+    """
+    note = str(item.get("goal_state", {}).get("note") or "").strip()
+    if not note:
+        return ""
+    sentences = _sentences(note)
+    for s in sentences:
+        if _STAGE_MARKER.search(s) and _RETIRE_VERBS.search(s):
+            return _clause(s, limit)
+    for s in sentences:
+        if _STAGE_MARKER.search(s):
+            return _clause(s, limit)
+    return _clause(sentences[0], limit)
 
 HEADER = """---
 render_levels: [baseline, full]
@@ -64,7 +108,16 @@ def render(register: dict) -> str:
             continue
         out.append(f"### {status}\n")
         for item in items:
-            out.append(f"- `{item['key']}` — {_clause(item.get('role', ''))}")
+            line = f"- `{item['key']}` — {_clause(item.get('role', ''))}"
+            if status == "retiring":
+                step = _retire_step(item)
+                if step:
+                    line += f" Retires: {step}"
+            elif status == "open":
+                question = item.get("goal_state", {}).get("open_question")
+                if question:
+                    line += f" Open question: {_clause(str(question), 150)}"
+            out.append(line)
         out.append("")
 
     claims = register.get("open_claims", [])
