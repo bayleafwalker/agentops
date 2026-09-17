@@ -270,9 +270,12 @@ def build(event: dict, *, records_dir: Path, hostname: str | None = None) -> dic
 #: Fields whose value is a property of the *session*, not of the moment it was written.
 #: A second SessionStart -- resume, clear, compact -- must agree on every one of these.
 IMMUTABLE_FIELDS = ("runtime_session_id", "harness", "actor", "host", "environment",
-                    "workspace", "entitlement", "instructions")
+                    "workspace", "entitlement")
 #: Recorded, deliberately not compared. See `created_at_entry` in `build`.
-PER_ENTRY_FIELDS = ("binding_id", "resolved_at", "created_at_entry")
+#: `instructions` is an observation of the entry, not a property of the session: an
+#: AGENTS.md/CLAUDE.md edit between resumes is legitimate, and a binding written before
+#: the field existed has none -- comparing it would fail every resume closed.
+PER_ENTRY_FIELDS = ("binding_id", "resolved_at", "created_at_entry", "instructions")
 
 
 def contradictions(existing: dict, candidate: dict) -> list[str]:

@@ -107,8 +107,12 @@ class SessionBindingV0(unittest.TestCase):
         # never invented.
         self.assertEqual(instructions["skills"], [])
 
-    def test_a_changed_instruction_file_is_a_contradiction(self):
-        """A shared-scope edit to AGENTS.md/CLAUDE.md must be visible, like entitlement."""
+    def test_instructions_are_recorded_per_entry_not_compared(self):
+        """Instruction digests observe the entry; they must not fail a resume closed.
+
+        Agents edit AGENTS.md/CLAUDE.md as ordinary work, and bindings written before
+        the field existed carry none -- either would otherwise read as a contradiction.
+        """
         workspace = self.tmp / "instructed"
         workspace.mkdir()
         (workspace / "AGENTS.md").write_text("first\n")
@@ -117,8 +121,16 @@ class SessionBindingV0(unittest.TestCase):
         (workspace / "AGENTS.md").write_text("changed\n")
         result = _run({"session_id": "s9", "cwd": str(workspace), "source": "resume"},
                       self.bindings)
-        self.assertEqual(result.returncode, 1, result.stdout)
-        self.assertIn("instructions", result.stderr)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+        path = next(self.bindings.glob("*s9*"), None) or next(
+            p for p in self.bindings.rglob("*.json") if "s9" in p.read_text())
+        legacy = json.loads(path.read_text())
+        legacy.pop("instructions", None)
+        path.write_text(json.dumps(legacy))
+        result = _run({"session_id": "s9", "cwd": str(workspace), "source": "resume"},
+                      self.bindings)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_instance_satisfies_the_schema(self):
         _run({"session_id": "s2", "cwd": str(ROOT), "source": "startup"}, self.bindings)
