@@ -28,6 +28,10 @@ Summary: `agentops/templates/dispatch/hooks/cost-summary.sh [project]`.
 
 Rationale for the durability table in the workspace `AGENTS.md`:
 `docs/plans/agentops/operative-position-durability-2026-08-29.md`. The shard append-only
-check (`check_append_only_shards.py`) and the producer inventory instrument
-(`check_producers.py`) were retired 2026-09-17 (S2 item 6) with
-`templates/dispatch` and have no top-level successor.
+check (`check_append_only_shards.py`) was retired 2026-09-17 (S2 item 6) with
+`templates/dispatch` and has no top-level successor. The producer inventory instrument
+(`check_producers.py`) is restored at `scripts/check_producers.py` per TS-12 of
+`docs/plans/2026-09-17-target-state.md`: it now scans the top-level contract
+directories (`schemas/`, `model/`, `session-mechanization/`, `environment-record/`,
+and any other top-level directory holding a `*.schema.json` file) and stays until
+the S5 catalog query replaces it.

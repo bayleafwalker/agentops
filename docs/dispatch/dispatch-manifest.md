@@ -35,7 +35,13 @@ an inspection record; it does not redefine provider precedence.
 
 A dependency-free measurement doctor (`instruction_doctor.py`) used to run
 this check from a repository root; it was retired 2026-09-17 (S2 item 6) with
-`templates/dispatch` and has no top-level successor.
+`templates/dispatch`. Its observation half -- the native root-to-CWD walk,
+recorded as path plus content digest -- is restored as the `instructions`
+field of `scripts/session_binding.py`'s output (TS-3,
+`docs/plans/2026-09-17-target-state.md`). It does not compare the walk
+against this manifest's `instruction_set` catalog, gates.json or a skill
+lock: TS-3 keeps role and skills observed, not compiled, so that comparison
+has no successor here.
 
 Reports distinguish `validated`, `degraded`, and `unbound`. A report is
 managed-eligible only when its status is `validated` and handling is `none`.

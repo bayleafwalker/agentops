@@ -91,6 +91,39 @@
         },
         "resolution_source": {"const": "declared-layers"}
       }
+    },
+    "instructions": {
+      "type": "object", "additionalProperties": false,
+      "required": ["root", "root_source", "sources", "skills"],
+      "description": "TS-3: role and skills are observed, not compiled. The native root-to-CWD AGENTS.md/CLAUDE.md instruction walk, recorded as path plus content digest -- the observation half of the retired instruction_doctor.py. Never compared against a manifest, gates.json or skill lock: that comparison is the compiled profile TS-3 rejects.",
+      "properties": {
+        "root": {"$ref": "#/$defs/nonBlank"},
+        "root_source": {"enum": ["project-root", "git-toplevel", "cwd"]},
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["path", "name", "sha256"],
+            "properties": {
+              "path": {"$ref": "#/$defs/nonBlank"},
+              "name": {"enum": ["AGENTS.md", "CLAUDE.md"]},
+              "sha256": {"$ref": "#/$defs/sha256"}
+            }
+          }
+        },
+        "skills": {
+          "type": "array",
+          "description": "Loaded skill files, when determinable. Empty at SessionStart, since skill loading has not happened yet; not evidence that no skill was used.",
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["path", "sha256"],
+            "properties": {
+              "path": {"$ref": "#/$defs/nonBlank"},
+              "sha256": {"$ref": "#/$defs/sha256"}
+            }
+          }
+        }
+      }
     }
   },
   "$defs": {

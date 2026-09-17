@@ -70,3 +70,64 @@ def test_credential_value_or_url_is_rejected(tmp_path: Path) -> None:
         assert "credential_ref" in str(exc)
     else:
         raise AssertionError("expected credential rejection")
+
+
+# --------------------------------------------------------------------------- #
+# TS-10 interim DSN fence: no .envrc or shared profile selects a direct
+# PostgreSQL backend. Ported from the retired
+# validate_vuoro_workstation_cutover.py (39cf66a); retires at S5.
+# --------------------------------------------------------------------------- #
+
+
+def test_served_envrc_has_no_dsn_fence_violation(tmp_path: Path) -> None:
+    path = tmp_path / ".envrc"
+    path.write_text(
+        "export SPRINTCTL_BACKEND=served\n"
+        "export SPRINTCTL_VUORO_PROFILE=/some/profile.json\n"
+        "unset SPRINTCTL_URL\n"
+    )
+
+    assert validator.dsn_fence_violations(path) == []
+
+
+def test_direct_postgres_wiring_is_rejected(tmp_path: Path) -> None:
+    path = tmp_path / ".envrc"
+    path.write_text(
+        "export SPRINTCTL_BACKEND=remote\n"
+        "export SPRINTCTL_URL=postgresql://example.invalid/sprintctl\n"
+    )
+
+    errors = validator.dsn_fence_violations(path)
+
+    assert any("direct-backend" in error for error in errors)
+
+
+def test_commented_direct_backend_wiring_is_ignored(tmp_path: Path) -> None:
+    """`unset SPRINTCTL_URL` is prescribed cleanup and must not itself trip the fence."""
+    path = tmp_path / ".envrc"
+    path.write_text(
+        "export SPRINTCTL_BACKEND=served # default\n"
+        "unset SPRINTCTL_URL\n"
+        "# export SPRINTCTL_BACKEND=remote\n"
+        "# export SPRINTCTL_URL=postgresql://example.invalid/sprintctl\n"
+    )
+
+    assert validator.dsn_fence_violations(path) == []
+
+
+def test_hash_in_quoted_value_is_not_treated_as_comment(tmp_path: Path) -> None:
+    path = tmp_path / ".envrc"
+    path.write_text(
+        "export SPRINTCTL_BACKEND=served\n"
+        'export SPRINTCTL_URL="postgresql://example.invalid/sprintctl#fragment"\n'
+    )
+
+    assert any("direct-backend" in error for error in validator.dsn_fence_violations(path))
+
+
+def test_shared_profile_json_is_scanned_for_direct_dsn(tmp_path: Path) -> None:
+    """A shared profile JSON has no shell comment syntax; it is scanned as-is."""
+    path = tmp_path / "shared-profile.json"
+    path.write_text(json.dumps({"note": "postgresql://example.invalid/sprintctl"}))
+
+    assert any("direct-backend" in error for error in validator.dsn_fence_violations(path))
