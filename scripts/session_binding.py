@@ -163,6 +163,77 @@ def _project(cwd: Path) -> dict:
             "resolution_source": "undeclared", "detail": None}
 
 
+def _native_instruction_root(cwd: Path) -> tuple[Path, str]:
+    """The directory the native root-to-CWD instruction walk starts from.
+
+    A session binding has no operator-supplied ``--root`` the way the retired
+    ``instruction_doctor.py`` did, so one is derived: the directory holding
+    the workspace's ``project.toml`` (the same ancestor walk ``_project``
+    already does) when one is declared, else the enclosing Git worktree, else
+    ``cwd`` itself -- a walk of one directory, which is still an honest
+    observation and not a guess.
+    """
+    for candidate in [cwd, *cwd.parents]:
+        if (candidate / "project.toml").is_file():
+            return candidate, "project-root"
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(cwd), "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, timeout=2, check=False,
+        )
+        top = result.stdout.strip()
+        if result.returncode == 0 and top:
+            return Path(top), "git-toplevel"
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return cwd, "cwd"
+
+
+def _instructions(cwd: Path) -> dict:
+    """The observed native instruction chain: root-to-CWD ``AGENTS.md``/``CLAUDE.md``.
+
+    TS-3 (``docs/plans/2026-09-17-target-state.md``): role and skills are
+    *observed*, not compiled. This is the observation half of the retired
+    ``instruction_doctor.py`` (39cf66a) -- the native root-to-CWD source walk,
+    recorded as path plus content digest -- and stops there. It deliberately
+    does **not** port that doctor's other half: comparing the walk against a
+    v2 dispatch manifest's source catalog, gates.json or a skill lock. That
+    comparison is the *compiled* profile TS-3 says this estate does not keep.
+
+    ``skills`` is a placeholder for loaded skill files. A ``SessionStart``
+    hook fires before any skill is loaded in the turn, so which skills a
+    session will use is not yet determinable at binding time; the field
+    stays empty here and is not read as "no skills were used".
+    """
+    root, root_source = _native_instruction_root(cwd)
+    root = root.resolve()
+    directories = [root]
+    current = root
+    try:
+        relative_parts = cwd.resolve().relative_to(root).parts
+    except ValueError:
+        relative_parts = ()  # cwd is not under root (e.g. a one-directory walk)
+    for part in relative_parts:
+        current = current / part
+        directories.append(current)
+    sources = []
+    for directory in directories:
+        for name in ("AGENTS.md", "CLAUDE.md"):
+            path = directory / name
+            if path.is_file() and not path.is_symlink():
+                sources.append({
+                    "path": str(path),
+                    "name": name,
+                    "sha256": _digest(path),
+                })
+    return {
+        "root": str(root),
+        "root_source": root_source,
+        "sources": sources,
+        "skills": [],
+    }
+
+
 def build(event: dict, *, records_dir: Path, hostname: str | None = None) -> dict:
     session_id = (event.get("session_id") or "").strip()
     if not session_id:
@@ -192,13 +263,14 @@ def build(event: dict, *, records_dir: Path, hostname: str | None = None) -> dic
             "settings_sources": _settings_sources(cwd),
             "resolution_source": "declared-layers",
         },
+        "instructions": _instructions(cwd),
     }
 
 
 #: Fields whose value is a property of the *session*, not of the moment it was written.
 #: A second SessionStart -- resume, clear, compact -- must agree on every one of these.
 IMMUTABLE_FIELDS = ("runtime_session_id", "harness", "actor", "host", "environment",
-                    "workspace", "entitlement")
+                    "workspace", "entitlement", "instructions")
 #: Recorded, deliberately not compared. See `created_at_entry` in `build`.
 PER_ENTRY_FIELDS = ("binding_id", "resolved_at", "created_at_entry")
 

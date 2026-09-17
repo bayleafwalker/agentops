@@ -23,6 +23,7 @@ per-entry fields is therefore asserted here in both directions.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -81,6 +82,43 @@ class SessionBindingV0(unittest.TestCase):
             # An absent layer is part of the answer, and a present one is pinned by
             # content: that pairing is what makes "who set this" answerable later.
             self.assertEqual(source["present"], source["sha256"] is not None, source)
+
+    def test_binding_records_the_native_instruction_walk(self):
+        """TS-3: role and skills are observed, not compiled.
+
+        The observation half of the retired `instruction_doctor.py` -- path plus
+        content digest for the native root-to-CWD AGENTS.md/CLAUDE.md chain --
+        lives here now. Nothing beyond the walk: no manifest, gates.json or skill
+        lock comparison.
+        """
+        result = _run({"session_id": "s8", "cwd": str(ROOT), "source": "startup"},
+                      self.bindings)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        instructions = self._binding("s8")["instructions"]
+
+        self.assertEqual(instructions["root_source"], "project-root")
+        paths = {source["path"]: source for source in instructions["sources"]}
+        self.assertIn(str(ROOT / "AGENTS.md"), paths)
+        self.assertEqual(
+            paths[str(ROOT / "AGENTS.md")]["sha256"],
+            hashlib.sha256((ROOT / "AGENTS.md").read_bytes()).hexdigest(),
+        )
+        # Skills are not yet determinable at SessionStart: recorded as empty,
+        # never invented.
+        self.assertEqual(instructions["skills"], [])
+
+    def test_a_changed_instruction_file_is_a_contradiction(self):
+        """A shared-scope edit to AGENTS.md/CLAUDE.md must be visible, like entitlement."""
+        workspace = self.tmp / "instructed"
+        workspace.mkdir()
+        (workspace / "AGENTS.md").write_text("first\n")
+        _run({"session_id": "s9", "cwd": str(workspace), "source": "startup"},
+             self.bindings)
+        (workspace / "AGENTS.md").write_text("changed\n")
+        result = _run({"session_id": "s9", "cwd": str(workspace), "source": "resume"},
+                      self.bindings)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("instructions", result.stderr)
 
     def test_instance_satisfies_the_schema(self):
         _run({"session_id": "s2", "cwd": str(ROOT), "source": "startup"}, self.bindings)
