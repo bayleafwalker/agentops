@@ -16,6 +16,7 @@
 scripts/templates_dispatch_allowlist.txt
 scripts/check_templates_dispatch_allowlist.py
 scripts/tests/test_check_templates_dispatch_allowlist.py
+.github/workflows/protected-paths.yml
 
 # Historical / evidence / point-in-time records: never edited for currency.
 _artifacts/
