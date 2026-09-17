@@ -2,6 +2,9 @@
 
 > Retired 2026-09-17 (S2 item 6): the tooling was deleted with
 > `templates/dispatch`; kept as a historical record.
+>
+> **SUPERSEDED-BY:** the served catalog revision / ops page (partial — that
+> successor does not yet cover every view this record composed).
 
 Status: current release-gate contract.
 

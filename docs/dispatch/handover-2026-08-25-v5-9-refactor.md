@@ -1,5 +1,10 @@
 # v5.9 — the refactor pass, built from the accumulated `debt:` lines (C-3)
 
+> **SUPERSEDED-BY:** `release_scorecard.py` (discussed below) is REIMPLEMENTED
+> as the S6 cost-per-release served query
+> (`docs/plans/2026-09-17-target-state.md` TS-7; reference commit `39cf66a`).
+> This handover is a historical record of the retired script.
+
 Pathway: vuoro `docs/plans/2026-08-23-requirements-pathway-v5-v7.md` §4 — "**v5.9 refactor/
 architecture pass (C-3, from the accumulated `debt:` lines)**". Implementation plan
 `docs/plans/2026-08-23-v5-implementation-plan.md` §"Phase D": "Every packet above carries a

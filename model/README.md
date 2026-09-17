@@ -168,6 +168,13 @@ work rather than in a separate ritual. Records live under
 
 ## Migration
 
+**SUPERSEDED-BY:** capability receipts (v1 and v2) are superseded by the metanarrative
+claim schema now, and by the S3 Decision / S4 evidence record later (target-state
+`docs/plans/2026-09-17-target-state.md` TS-5). The sprintctl receipt code is frozen —
+no writers since sprintctl #52 — and its record types are removed in the S3 forward
+migration. The history below describes the frozen v1/v2 behaviour and is no longer
+current guidance.
+
 `capability-receipt/v1` files still validate — they are migrated in memory, with
 `ratified` mapping to `current` and the `ratification` block to `established_by`.
 The v1 assertion recorded that a person acted, which is now `actor_type: human`;

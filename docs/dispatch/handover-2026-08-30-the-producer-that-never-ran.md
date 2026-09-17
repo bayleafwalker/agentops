@@ -1,5 +1,10 @@
 # Handover — the producer that never ran, and the class it belongs to
 
+> **SUPERSEDED-BY:** `resume_probe`/the acceptance resume-and-settle check
+> discussed below is REIMPLEMENTED as the S8 rehearsal check
+> (`docs/plans/2026-09-17-target-state.md` TS-9). This handover is a
+> historical record.
+
 ## Landing status
 
 | Repo | HEAD | State |

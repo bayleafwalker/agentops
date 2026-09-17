@@ -131,8 +131,15 @@ backend repository identity explicit.
 
 A read-only preflight (`validate_project_workspace.py`) used to run before
 materializing from canonical sources and again against a completed instance;
-it was retired 2026-09-17 (S2 item 6) with `templates/dispatch` and has no
-top-level successor. Its invocation looked like:
+it was retired 2026-09-17 (S2 item 6) with `templates/dispatch`.
+
+**SUPERSEDED-BY:** `scripts/materialize_project.py status`. That successor does
+not cover this preflight's canonical-sources-clean check or its
+projects-root-exclusion-policy check; those two checks have no replacement
+yet (`docs/plans/2026-09-17-target-state.md` TS-14 keeps
+`materialize_project.py` keep-narrow until S6 ledger checkpoints cover
+cross-host resume, then re-decides it against trigger 7). Its invocation
+looked like:
 
 ```bash
 python validate_project_workspace.py \
