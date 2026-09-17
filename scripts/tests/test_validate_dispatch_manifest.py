@@ -250,10 +250,18 @@ class RepositoryManifestTests(_ValidatorCase):
     def test_the_manifest_and_schema_are_where_this_oracle_expects(self):
         self.assertTrue(MANIFEST.is_file(), f"{MANIFEST} moved or vanished")
         self.assertTrue(SCHEMA.is_file(), f"{SCHEMA} moved or vanished")
+        # The schema's default is the absolute production path
+        # (/projects/dev/agentops/skills). A checkout elsewhere -- a CI
+        # runner's /home/runner/work/... workspace, another developer's
+        # clone -- has the same directory at ROOT/skills instead, and the
+        # tool's own missing-root handling (test_a_missing_root_is_a_warning_
+        # not_a_violation below) is exactly for the case where neither
+        # exists. This is a sanity check on the checkout that just ran the
+        # suite, not on the absolute path string, so it accepts either.
         self.assertTrue(
-            Path(SCHEMA_DEFAULT_ROOT).is_dir(),
-            f"the schema's default skills root {SCHEMA_DEFAULT_ROOT} is not a "
-            f"directory on this machine",
+            Path(SCHEMA_DEFAULT_ROOT).is_dir() or (ROOT / "skills").is_dir(),
+            f"neither the schema's default skills root {SCHEMA_DEFAULT_ROOT} "
+            f"nor {ROOT / 'skills'} is a directory on this machine",
         )
 
     def test_agentops_own_manifest_validates_clean(self):
