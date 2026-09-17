@@ -74,6 +74,18 @@ class CommandFamilyTests(unittest.TestCase):
             with self.subTest(family=family):
                 self.assertIn(family, _family_enum())
 
+    def test_the_families_the_2026_09_17_hand_pass_admitted_are_admitted(self):
+        # evidence is counterfactual-ops's append-only evidence-history check
+        # (scripts/check_evidence.py --history, run in CI). lockfiles and image
+        # are cred-broker's own CI job names (.forgejo/workflows/ci.yaml: the
+        # `lockfiles` job checks uv.lock/requirements.lock agreement, the
+        # `image` job builds, pushes and smoke-tests the container image).
+        # Both repos' command_families were refused for values their own CI
+        # already runs under those exact names.
+        for family in ("evidence", "lockfiles", "image"):
+            with self.subTest(family=family):
+                self.assertIn(family, _family_enum())
+
     def test_the_original_families_survive(self):
         for family in ("unit", "integration", "lint", "typecheck", "architecture",
                        "docs", "kustomize", "secrets", "docker", "full-suite"):

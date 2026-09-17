@@ -376,7 +376,10 @@
               "full-suite",
               "security",
               "process-semantics",
-              "package"
+              "package",
+              "evidence",
+              "lockfiles",
+              "image"
             ]
           }
         },
