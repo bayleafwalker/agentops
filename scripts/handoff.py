@@ -111,7 +111,13 @@ def _git_bytes(repo: Path, *args: str) -> bytes:
     return proc.stdout
 
 
-def untracked_records(repo: Path) -> list[bytes]:
+def _is_excluded(repo: Path, raw: bytes, exclude: frozenset[str]) -> bool:
+    """Is this repo-relative path one of the handoff's own output files?"""
+    return os.fsdecode(raw) in exclude
+
+
+def untracked_records(repo: Path,
+                      exclude: frozenset[str] = frozenset()) -> list[bytes]:
     """`NUL <path> NUL <sha256 of contents>` per untracked non-ignored file.
 
     Sorted by raw path bytes, so the sequence is a function of the tree and not
@@ -124,6 +130,8 @@ def untracked_records(repo: Path) -> list[bytes]:
     listing = _git_bytes(repo, "ls-files", "--others", "--exclude-standard", "-z")
     records = []
     for raw in sorted(p for p in listing.split(b"\0") if p):
+        if _is_excluded(repo, raw, exclude):
+            continue
         target = repo / os.fsdecode(raw)
         try:
             content = hashlib.sha256(target.read_bytes()).hexdigest().encode()
@@ -137,12 +145,20 @@ DIGEST_VERSION_DEFAULT = 1   # what a handoff without state.digest_version means
 DIGEST_VERSION_CURRENT = 2   # what `create` writes
 
 
-def diff_sha256(repo: Path, digest_version: int = DIGEST_VERSION_CURRENT) -> str:
+def diff_sha256(repo: Path, digest_version: int = DIGEST_VERSION_CURRENT,
+                exclude: frozenset[str] = frozenset()) -> str:
     """The recorded working-tree digest, under the definition asked for.
 
     v1: `git diff HEAD` bytes then `git status --porcelain` bytes.
     v2: v1, then one `NUL <path> NUL <content sha256>` record per untracked
         non-ignored file, sorted by path bytes.
+
+    `exclude` holds repo-relative paths the handoff writes about *itself* (its
+    own .json, .md and sprintctl bundle). A handoff stored inside a repo it
+    records would otherwise never validate: `create` computes the digest before
+    writing those files, so the tree it recorded stops existing the moment it
+    is written. `status --porcelain` lines naming them are dropped for the same
+    reason.
     """
     if digest_version not in (1, 2):
         raise HandoffError(
@@ -150,9 +166,14 @@ def diff_sha256(repo: Path, digest_version: int = DIGEST_VERSION_CURRENT) -> str
             f"understands 1 and 2. A newer handoff needs a newer agentops.")
     digest = hashlib.sha256()
     digest.update(_git(repo, "diff", "HEAD").encode())
-    digest.update(_git(repo, "status", "--porcelain").encode())
+    porcelain = _git(repo, "status", "--porcelain")
+    if exclude:
+        porcelain = "".join(
+            line + "\n" for line in porcelain.splitlines()
+            if line[3:].strip('"') not in exclude)
+    digest.update(porcelain.encode())
     if digest_version >= 2:
-        for record in untracked_records(repo):
+        for record in untracked_records(repo, exclude):
             digest.update(record)
     return digest.hexdigest()
 
@@ -177,8 +198,21 @@ def _unpushed(repo: Path) -> int:
     return int(proc.stdout.strip() or 0)
 
 
+def self_paths(repo: Path, outputs: list[Path]) -> frozenset[str]:
+    """`outputs` that live inside `repo`, as repo-relative paths."""
+    repo = Path(repo).expanduser().resolve()
+    rel = set()
+    for out in outputs:
+        try:
+            rel.add(str(Path(out).resolve().relative_to(repo)))
+        except ValueError:
+            continue
+    return frozenset(rel)
+
+
 def repo_state(path: Path,
-               digest_version: int = DIGEST_VERSION_CURRENT) -> dict[str, Any]:
+               digest_version: int = DIGEST_VERSION_CURRENT,
+               exclude: frozenset[str] = frozenset()) -> dict[str, Any]:
     repo = Path(path).expanduser().resolve()
     if not repo.is_dir():
         raise HandoffError(f"repo path does not exist: {repo}")
@@ -190,7 +224,7 @@ def repo_state(path: Path,
         "head": head,
         "branch": None if branch == "HEAD" else branch,
         "dirty": bool(porcelain.strip()),
-        "diff_sha256": diff_sha256(repo, digest_version),
+        "diff_sha256": diff_sha256(repo, digest_version, exclude),
         "unpushed": _unpushed(repo),
     }
 
@@ -507,8 +541,25 @@ def schema_errors(handoff: Any) -> list[str]:
     return SCHEMA_CHECK.validate(handoff, schema)
 
 
-def validate_handoff(handoff: dict[str, Any], *, check_tree: bool = True) -> list[str]:
+def handoff_outputs(file: Path | str | None) -> list[Path]:
+    """A handoff's own files: `<stem>.json`, `.md` and its sprintctl bundle.
+
+    Excluded from the tree digest, because they land inside a repo the handoff
+    records. Without this a handoff kept in `agentops/docs/dispatch/handoffs/`
+    could never validate: writing it changes the tree it just recorded.
+    """
+    if file is None:
+        return []
+    path = Path(file).expanduser().resolve()
+    stem = path.name[:-len(".json")] if path.name.endswith(".json") else path.stem
+    return [path.parent / f"{stem}{suffix}"
+            for suffix in (".json", ".md", ".sprintctl-bundle.json")]
+
+
+def validate_handoff(handoff: dict[str, Any], *, check_tree: bool = True,
+                     file: Path | str | None = None) -> list[str]:
     """Return refusal messages, empty when the handoff is usable right now."""
+    self_outputs = handoff_outputs(file)
     problems = [f"schema: {e}" for e in schema_errors(handoff)]
     if problems:
         return problems
@@ -535,7 +586,8 @@ def validate_handoff(handoff: dict[str, Any], *, check_tree: bool = True) -> lis
         if not check_tree:
             continue
         try:
-            now = diff_sha256(path, digest_version)
+            now = diff_sha256(path, digest_version,
+                              self_paths(path, self_outputs))
         except HandoffError as exc:
             problems.append(f"{path}: {exc}")
             continue
@@ -691,8 +743,6 @@ def cmd_create(args: argparse.Namespace) -> int:
         raise HandoffError("next_action is required and must be non-empty")
 
     repo_paths = [Path(p) for p in (args.repo or draft.get("repos") or [Path.cwd()])]
-    repos = [repo_state(Path(p), DIGEST_VERSION_CURRENT) for p in repo_paths]
-
     slug = args.slug or draft.get("slug")
     if not slug:
         raise HandoffError("--slug is required (or a draft `slug` key)")
@@ -709,6 +759,15 @@ def cmd_create(args: argparse.Namespace) -> int:
     stem = f"{date}-{slug}.v{version}"
     json_path = out_dir / f"{stem}.json"
     md_path = out_dir / f"{stem}.md"
+
+    # State is recorded with this handoff's own outputs excluded: they do not
+    # exist yet here, and they land inside a recorded repo a moment later.
+    outputs = [json_path, md_path, out_dir / f"{stem}.sprintctl-bundle.json"]
+    repos = [
+        repo_state(Path(p), DIGEST_VERSION_CURRENT,
+                   self_paths(Path(p), outputs))
+        for p in repo_paths
+    ]
 
     bundle_ref = None
     if not args.no_sprintctl:
@@ -763,7 +822,8 @@ def cmd_create(args: argparse.Namespace) -> int:
 
 def cmd_validate(args: argparse.Namespace) -> int:
     handoff = read_handoff(args.file)
-    problems = validate_handoff(handoff, check_tree=not args.no_tree_check)
+    problems = validate_handoff(handoff, check_tree=not args.no_tree_check,
+                                file=args.file)
     if problems:
         print(f"handoff {args.file}: REFUSED", file=sys.stderr)
         for problem in problems:

@@ -527,7 +527,8 @@ def cmd_launch(args: argparse.Namespace) -> int:
     path = Path(args.handoff).resolve()
     data = handoff_mod.read_handoff(path)
 
-    errors = handoff_mod.validate_handoff(data, check_tree=not args.no_verify)
+    errors = handoff_mod.validate_handoff(data, check_tree=not args.no_verify,
+                                          file=path)
     if errors:
         for err in errors:
             print(f"handoff invalid: {err}", file=sys.stderr)

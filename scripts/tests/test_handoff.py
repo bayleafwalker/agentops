@@ -744,6 +744,30 @@ class TestTwoHostAck(unittest.TestCase):
                         transport=transport, hostname="devbox")
         self.assertEqual(transport.calls, [])
 
+    def test_a_handoff_inside_a_repo_it_records_still_validates(self) -> None:
+        """`create` writes its own .json/.md into a repo it just digested.
+
+        Those files are untracked, so a v2 digest that counted them would be
+        stale the instant the handoff existed: the handoff could never validate
+        where handoffs are actually kept (agentops/docs/dispatch/handoffs/).
+        """
+        outputs = handoff.handoff_outputs(self.path)
+        self.assertEqual(
+            [p.name for p in outputs],
+            [self.path.name,
+             self.path.name[:-len(".json")] + ".md",
+             self.path.name[:-len(".json")] + ".sprintctl-bundle.json"])
+
+        repo = Path(json.loads(self.path.read_text())["state"]["repos"][0]["path"])
+        excluded = handoff.self_paths(repo, outputs)
+        sibling = self.path.parent / (self.path.name[:-len(".json")] + ".md")
+        if sibling.resolve().is_relative_to(repo.resolve()):
+            self.assertTrue(excluded)
+            before = handoff.diff_sha256(repo, 2, excluded)
+            sibling.write_text(sibling.read_text() + "\nrewritten\n")
+            self.assertEqual(handoff.diff_sha256(repo, 2, excluded), before)
+            self.assertNotEqual(handoff.diff_sha256(repo, 2), before)
+
     def test_a_handoff_without_an_origin_acks_locally_anywhere(self) -> None:
         # Handoffs written before the two-host guard existed have no origin_host
         # and must keep working, on any host, without an ssh attempt.
