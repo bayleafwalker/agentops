@@ -27,6 +27,7 @@ Summary: `agentops/templates/dispatch/hooks/cost-summary.sh [project]`.
 ## Evidence and durability background
 
 Rationale for the durability table in the workspace `AGENTS.md`:
-`docs/plans/agentops/operative-position-durability-2026-08-29.md`. Shard append-only check:
-`templates/dispatch/scripts/check_append_only_shards.py`. Producer inventory (an instrument,
-not a gate): `templates/dispatch/scripts/check_producers.py`.
+`docs/plans/agentops/operative-position-durability-2026-08-29.md`. The shard append-only
+check (`check_append_only_shards.py`) and the producer inventory instrument
+(`check_producers.py`) were retired 2026-09-17 (S2 item 6) with
+`templates/dispatch` and have no top-level successor.

@@ -15,7 +15,7 @@ this path as load-bearing for correctness.
 This skill supplies the *judgment* half — classifying what one capsule means.
 The *mechanism* half (idempotence guards, single-capsule scope enforcement,
 shared-cursor bookkeeping, schema-validated artifact writing) is
-`templates/dispatch/scripts/session_reconciler.py`, which delegates to
+`scripts/session_reconciler.py`, which delegates to
 `session_scribe.py` under the hood. Use the script for every mechanical step;
 do not hand-roll cursor math or proposal JSON.
 
@@ -45,7 +45,7 @@ do not hand-roll cursor math or proposal JSON.
 ## Steps
 
 1. **Assemble context.** Run
-   `python templates/dispatch/scripts/session_reconciler.py context --root _artifacts/<repo> --project <repo> --capsule-id <id>`.
+   `python scripts/session_reconciler.py context --root _artifacts/<repo> --project <repo> --capsule-id <id>`.
    - `status: already-consumed` → **stop**. The scribe or a prior reconciler
      run already accounted for this capsule; a re-trigger is a clean no-op.
    - `status: ready` → the packet contains the capsule's target, reservation, git
@@ -128,9 +128,9 @@ do not hand-roll cursor math or proposal JSON.
   scribe-as-correctness-path posture this skill implements.
 - `docs/dispatch/session-mechanization-contracts.md` — `session-capsule/v1`
   and `reconciliation-proposal/v1` field contracts.
-- `templates/dispatch/skills/session-scribe/SKILL.md` — the periodic
+- `skills/session-scribe/SKILL.md` — the periodic
   correctness path; shares the six-outcome judgment standard.
-- `templates/dispatch/scripts/session_reconciler.py` — the mechanical half
+- `scripts/session_reconciler.py` — the mechanical half
   this skill drives.
 - `docs/plans/agentops/write-surface-policy.md` — which surfaces may execute
   the sprintctl authority commands a proposal names.

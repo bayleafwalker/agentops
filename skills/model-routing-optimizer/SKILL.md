@@ -9,7 +9,7 @@ Keep configured model aliases, concrete IDs, fallbacks, and reasoning settings a
 
 ## Inputs
 
-- `agentops/templates/dispatch/model-routing.json` and its companion policy documentation.
+- `agentops/model-routing.json` and its companion policy documentation.
 - The repository list and configuration surfaces to audit.
 - Access to provider CLI help or official documentation needed to verify a concrete model or reasoning flag.
 

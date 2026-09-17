@@ -52,8 +52,8 @@ adapters:
 # Who relies on a requested authority: client profiles (requested) and consumer code (called).
 consumer_set:
   profiles:
-    - templates/dispatch/environment-record/profiles/workstation-vuoro-shared.json
-    - templates/dispatch/environment-record/profiles/devbox-agent-vuoro-shared.json
+    - environment-record/profiles/workstation-vuoro-shared.json
+    - environment-record/profiles/devbox-agent-vuoro-shared.json
   code:
     - {consumer: agent-cockpit, repo: agentops, path: apps/web/lib/cockpit/sprintctl.js}
   verbs:

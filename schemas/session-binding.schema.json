@@ -3,7 +3,7 @@
   "$id": "https://agentops.local/schemas/session-binding.schema.json",
   "title": "Session binding",
   "description": "The session-scoped half of the resolved-context invariant (docs/contracts/session-resolved-context.md): identity, harness, actor, environment and workspace, plus the settings layers that entitled them, resolved once at session creation and immutable thereafter. Distinct from session-capsule/v1, which is end-of-session exhaust describing what a session did.",
-  "$comment": "v0 is file-backed and deliberately not promoted into a served schema. templates/dispatch/scripts/session_binding.py is normative, including the immutable/per-entry field split; this file mirrors structure for editor support and for a consumer that only reads instances.",
+  "$comment": "v0 is file-backed and deliberately not promoted into a served schema. scripts/session_binding.py is normative, including the immutable/per-entry field split; this file mirrors structure for editor support and for a consumer that only reads instances.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "binding_id", "runtime_session_id", "resolved_at", "harness", "created_at_entry", "actor", "host", "environment", "workspace", "entitlement"],

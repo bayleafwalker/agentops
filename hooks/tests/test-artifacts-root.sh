@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Gate for M-6a, reduced. This oracle used to require the cost hook to default
-# AUDITCTL_ARTIFACTS_ROOT from `templates/dispatch/artifacts-root.default`. auditctl 0.1.4
+# AUDITCTL_ARTIFACTS_ROOT from the template's `artifacts-root.default` compat file. auditctl 0.1.4
 # made that default the publisher's own job -- the root is the repository auditctl resolves,
 # and an explicit value may only confirm it -- and 0.1.5 is what runs on every publishing
 # host, so the hook now sets nothing at all.

@@ -45,7 +45,7 @@ MANIFEST = {
     "hybrid": {
         "protected_paths": [
             "agentops.dispatch.json",
-            "templates/dispatch/scripts/hybrid_dispatch.py",
+            "hybrid/scripts/hybrid_dispatch.py",
         ],
         "commands": {"agentops.dispatch.tests": "python -m unittest discover"},
         "worker_routes": ["mechanical_bulk"],
@@ -64,7 +64,7 @@ class RegistrationSeamTests(unittest.TestCase):
         self._git("config", "user.email", "t@t.invalid")
         self._git("config", "user.name", "t")
         self._write_manifest(MANIFEST)
-        driver = self.repo / "templates/dispatch/scripts/hybrid_dispatch.py"
+        driver = self.repo / "hybrid/scripts/hybrid_dispatch.py"
         driver.parent.mkdir(parents=True, exist_ok=True)
         driver.write_text("base\n", encoding="utf-8")
         self._git("add", "-A")
@@ -93,7 +93,7 @@ class RegistrationSeamTests(unittest.TestCase):
         """What commit 1 of a freeze branch actually does, and nothing else."""
         manifest = copy.deepcopy(MANIFEST)
         manifest["hybrid"]["commands"]["agentops.dispatch.tests.scorecard_reduce"] = (
-            "python templates/dispatch/tests/test_release_scorecard_reduce.py"
+            "python hybrid/tests/test_release_scorecard_reduce.py"
         )
         return manifest
 
@@ -129,7 +129,7 @@ class RegistrationSeamTests(unittest.TestCase):
 
     def test_a_second_protected_path_defeats_the_exemption(self):
         self._write_manifest(self._with_extra_command())
-        (self.repo / "templates/dispatch/scripts/hybrid_dispatch.py").write_text(
+        (self.repo / "hybrid/scripts/hybrid_dispatch.py").write_text(
             "changed\n", encoding="utf-8"
         )
         self._git("add", "-A")
@@ -166,7 +166,7 @@ class RegistrationSeamTests(unittest.TestCase):
         )
 
     def test_a_protected_path_that_is_not_the_manifest_is_unaffected(self):
-        (self.repo / "templates/dispatch/scripts/hybrid_dispatch.py").write_text(
+        (self.repo / "hybrid/scripts/hybrid_dispatch.py").write_text(
             "changed\n", encoding="utf-8"
         )
         self._git("add", "-A")

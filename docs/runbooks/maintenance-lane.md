@@ -18,7 +18,7 @@ One served sprintctl backlog in this repository:
 | Field | Value |
 |---|---|
 | Sprint | `559` `maintenance-lane` (`kind: backlog`, `status: active`) |
-| Backend | served, profile `templates/dispatch/environment-record/profiles/workstation-vuoro-shared.json` |
+| Backend | served, profile `environment-record/profiles/workstation-vuoro-shared.json` |
 
 Items name their **target repository** in the description; the sprint lives
 here because routing policy and the dispatch practice live here. Use the
@@ -26,7 +26,7 @@ repository's `.envrc`, or export the two non-secret variables explicitly:
 
 ```bash
 export SPRINTCTL_BACKEND=served
-export SPRINTCTL_VUORO_PROFILE=/projects/dev/agentops/templates/dispatch/environment-record/profiles/workstation-vuoro-shared.json
+export SPRINTCTL_VUORO_PROFILE=/projects/dev/agentops/environment-record/profiles/workstation-vuoro-shared.json
 sprintctl item list --sprint-id 559 --json
 ```
 

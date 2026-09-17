@@ -33,7 +33,7 @@ which is why the vocabulary is worth fixing before more is built on it.
 |---|---|---|
 | **Project** | Durable logical work scope, may span repositories | `agentops/project.toml` — immutable `project_id`, `role_presets`, `[[members]]` |
 | **Workspace** | One materialized project instance on a host | `/projects/dev/_projects/<name>/`, described by `project.context.json` |
-| **Environment** | Host identity, capabilities, executor baseline | `templates/dispatch/environment-record/*.json` |
+| **Environment** | Host identity, capabilities, executor baseline | `environment-record/*.json` |
 | **Session** | An agent/harness/role binding within a workspace | **nothing** |
 
 `project.context.json` already does more than it is credited for: it pins
@@ -48,7 +48,7 @@ contract must extend it, not duplicate it.
 **Session is the object that is never *produced*.** Fragments of it already exist —
 `materialize_project.py:_lease_identity` records host, pid and `runtime_session_id`;
 every audit event already carries `runtime_session_id`; and
-`templates/dispatch/session-mechanization/session-capsule.schema.json` already binds
+`session-mechanization/session-capsule.schema.json` already binds
 repo, harness, model, actor and target. That schema has never emitted an instance.
 
 So the gap is production and consumption, not conception. Nothing binds
@@ -434,7 +434,7 @@ This contract is wrong if:
 1. `AuditContext` in auditctl: atomic, fail-closed, attributed. ✅ this change
 2. Contradictory-override tests, unrepresentable in the current shape.
 3. File-backed `SessionBinding` v0 + transactional applier. **v0 landed 2026-08-30**
-   (`templates/dispatch/scripts/session_binding.py`, `session-binding.schema.json`,
+   (`scripts/session_binding.py`, `session-binding.schema.json`,
    registered as a `SessionStart` hook on both hosts). The applier is not part of it.
    See §"SessionBinding v0" below.
 4. NixOS and Arch/systemd triggers generated from one definition.

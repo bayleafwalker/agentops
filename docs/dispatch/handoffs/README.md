@@ -22,7 +22,7 @@ successor.
 | `agentops handoff render <file>` | regenerate the `.md` |
 
 Schema: `../../../schemas/handoff.schema.json`.
-Implementation: `../../../templates/dispatch/scripts/handoff.py`.
+Implementation: `../../../scripts/handoff.py`.
 Skill: `/projects/dev/.claude/skills/handoff/SKILL.md`.
 Acceptance procedure: `../../verification/handoff-v1-successor-isolation.md`.
 

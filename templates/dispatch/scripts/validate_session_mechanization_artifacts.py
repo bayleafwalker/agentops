@@ -1,1 +1,0 @@
-../../../scripts/validate_session_mechanization_artifacts.py

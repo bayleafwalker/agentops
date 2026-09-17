@@ -40,14 +40,14 @@ class ProtectedPathCheckTests(unittest.TestCase):
         self._git("config", "user.name", "t")
         (self.repo / "agentops.dispatch.json").write_text(
             json.dumps({"hybrid": {"protected_paths": [
-                "templates/dispatch/scripts/hybrid_dispatch.py",
-                "templates/dispatch/hybrid/**",
+                "hybrid/scripts/hybrid_dispatch.py",
+                "hybrid/state/**",
                 "docs/**",
             ]}}),
             encoding="utf-8",
         )
-        for rel in ("templates/dispatch/scripts/hybrid_dispatch.py",
-                    "templates/dispatch/scripts/dispatch_release.py",
+        for rel in ("hybrid/scripts/hybrid_dispatch.py",
+                    "hybrid/scripts/dispatch_release.py",
                     "docs/x.md"):
             path = self.repo / rel
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -82,18 +82,18 @@ class ProtectedPathCheckTests(unittest.TestCase):
             os.chdir(cwd)
 
     def test_a_protected_path_without_the_marker_fails(self):
-        self._touch_and_commit("templates/dispatch/scripts/hybrid_dispatch.py")
+        self._touch_and_commit("hybrid/scripts/hybrid_dispatch.py")
         self.assertEqual(
             self._run("feat(dispatch): a bounded PR body for the driver"), 1,
             "a protected path changed under an unrelated title was allowed",
         )
 
     def test_a_protected_path_with_the_marker_passes(self):
-        self._touch_and_commit("templates/dispatch/scripts/hybrid_dispatch.py")
+        self._touch_and_commit("hybrid/scripts/hybrid_dispatch.py")
         self.assertEqual(self._run("hand-pass: narrow the provider registry"), 0)
 
     def test_the_marker_is_matched_case_insensitively_and_only_as_a_prefix(self):
-        self._touch_and_commit("templates/dispatch/scripts/hybrid_dispatch.py")
+        self._touch_and_commit("hybrid/scripts/hybrid_dispatch.py")
         self.assertEqual(self._run("Hand-Pass: shout"), 0)
         self.assertEqual(
             self._run("feat: mentions hand-pass: in the middle"), 1,
@@ -101,7 +101,7 @@ class ProtectedPathCheckTests(unittest.TestCase):
         )
 
     def test_an_unprotected_path_passes_either_way(self):
-        self._touch_and_commit("templates/dispatch/scripts/dispatch_release.py")
+        self._touch_and_commit("hybrid/scripts/dispatch_release.py")
         self.assertEqual(self._run("feat: the driver"), 0)
 
     def test_a_glob_protected_path_is_caught(self):

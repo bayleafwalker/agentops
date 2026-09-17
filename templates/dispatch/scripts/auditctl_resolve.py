@@ -1,1 +1,0 @@
-../../../scripts/auditctl_resolve.py

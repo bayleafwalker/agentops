@@ -1,5 +1,8 @@
 # Composed artifact assurance
 
+> Retired 2026-09-17 (S2 item 6): the tooling was deleted with
+> `templates/dispatch`; kept as a historical record.
+
 Status: current release-gate contract.
 
 `composed-artifact/v1` is the release evidence that connects a command the

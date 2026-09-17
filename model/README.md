@@ -1,7 +1,8 @@
 # The metanarrative model
 
-Authoritative. Supersedes the document lifecycle in
-`../capability-receipt/README.md` and every workflow that had a ratification step.
+Authoritative. Supersedes the retired `capability-receipt/v1` document lifecycle
+(the skill and schema were deleted 2026-09-17 with `templates/dispatch`; see
+below for the v1 migration note) and every workflow that had a ratification step.
 
 > **Governing rule.** Current claims describe the operative position; observations
 > test them; dependencies determine change consequence; delegated authority

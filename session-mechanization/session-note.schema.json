@@ -3,7 +3,7 @@
   "$id": "https://agentops.local/schemas/session-note.schema.json",
   "title": "Session note",
   "description": "Agent-authored semantic handover/summary/outcome note bound to a repo, project, and optional work-item refs. The cooperative counterpart to session-capsule/v1's no-cooperation mechanical exhaust.",
-  "$comment": "This schema mirrors structure for editor support. templates/dispatch/scripts/validate_session_mechanization_artifacts.py is normative for cross-field rules.",
+  "$comment": "This schema mirrors structure for editor support. scripts/validate_session_mechanization_artifacts.py is normative for cross-field rules.",
   "type": "object",
   "additionalProperties": false,
   "required": [

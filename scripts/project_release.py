@@ -740,7 +740,7 @@ def _verify_renderer_semantics(
         project = render_project.load_project(project_path, workspace_root=workspace)
         _require_renderer_semantics(
             project,
-            workspace / home_id / "templates" / "dispatch" / "environment-record",
+            workspace / home_id / "environment-record",
         )
 
 

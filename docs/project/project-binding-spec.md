@@ -114,7 +114,7 @@ deployment authority. The Vuoro binding uses Sol/xhigh read-only for planning
 and review, and Luna/high for workers.
 
 `schema_version` and the `repo_id` pattern (`^[A-Za-z0-9._-]+$`) reuse
-`templates/dispatch/manifest.schema.json`'s conventions directly, so a repo_id is guaranteed to
+`schemas/dispatch-manifest.schema.json`'s conventions directly, so a repo_id is guaranteed to
 mean the same thing in a dispatch manifest and in a project binding.
 
 ### 1a. UUID discipline: `agentops.toml`
@@ -315,7 +315,7 @@ Two distinct kinds, both are "drift," both fail the Tier 0 hook:
   carries its own hash check). Mismatch = hand-edited.
 
 Wire the check into the same hook surface the golden-child skill's `sync_skills.py` currently
-occupies (`templates/dispatch/scripts/sync_skills.py` — `check`/`--apply`, dirty-worktree
+occupies (`scripts/sync_skills.py` — `check`/`--apply`, dirty-worktree
 refusal, hash comparison). render-command (item 3) supersedes `sync_skills.py`'s mechanical
 sync function for anything expressible as a project render; `sync_skills.py` itself is unrelated
 tooling (shared *skill* trees, not project instruction content) and is untouched by this spec.

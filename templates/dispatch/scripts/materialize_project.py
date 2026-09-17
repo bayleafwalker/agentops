@@ -1,1 +1,0 @@
-../../../scripts/materialize_project.py

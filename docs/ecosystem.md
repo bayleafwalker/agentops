@@ -80,7 +80,7 @@ Pre-retirement data paths:
 | Repos, sprints, work items, historical claims/current reservations, takeup, sprint events | Sprintctl owner adapter (legacy deployment may still label this `pg://sprintctl`) |
 | Sessions and dispatch lifecycle rows | `actionq-server` (`/sessions`, `/dispatches`, `/dispatch`) |
 | Audit outcome feed | `/projects/dev/_artifacts/<repo-id>/audit/*.ndjson` read-only |
-| Dispatch manifest summary | `agentops/templates/dispatch/examples/*.dispatch.json` by default |
+| Dispatch manifest summary | `agentops/agentops.dispatch.json (per member repo)` by default |
 | Status-bar cost token | `/projects/dev/.claude/session-costs.jsonl` |
 | Model headroom | Configured JSON refresh commands cached by `/cockpit/api/headroom` |
 
@@ -90,11 +90,11 @@ to `actionq-server` only when `COCKPIT_ACTIONQ_SERVER_URL` and
 binding; it is intentionally not replaced by a queue worker. Sprintctl and the
 workspace artifact mount remain read-only from the cockpit.
 
-New repository adoption starts from
-`agentops/templates/dispatch/repository-baseline/`. The baseline keeps shared
-skills and schemas in agentops while the consumer owns its overlay, semantic
-document, context packets, executable tests, and evidence. Run the shared
-dependency-free validator from the consumer root before dispatch or publication.
+New repository adoption previously started from
+`agentops/templates/dispatch/repository-baseline/`, retired 2026-09-17
+(S2 item 6) with the rest of `templates/dispatch`; no successor baseline has
+been published yet. Until one lands, follow `agentops/AGENTS.md` and the
+skills a member repo selects directly.
 
 `outctl` was retired from active Vuoro scope on 2026-08-16. Its repository is a
 frozen discovery artifact, not an adjacent live component or project member.

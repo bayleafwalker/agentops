@@ -169,8 +169,8 @@ def inspect_skills(
         if not template.is_dir():
             statuses.append(SkillStatus(name, "repo-local", "not-applicable"))
             continue
-        # A canonical entry may itself be a symlink (capability-receipt still lives in
-        # templates/dispatch/skills); compare the tree it names, not the link.
+        # A canonical entry may itself be a symlink; compare the tree it
+        # names, not the link.
         template = template.resolve()
         if canonical_source:
             statuses.append(SkillStatus(name, "canonical", _symlink_status(repo_root, name, template_root)))

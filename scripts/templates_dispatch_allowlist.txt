@@ -1,0 +1,56 @@
+# Paths allowed to still mention "templates/dispatch" after S2 item 6 PR-E
+# (which deleted templates/dispatch except templates/dispatch/hooks/, held
+# back for PR-B, time-gated to after 2026-09-17T18:00Z).
+#
+# Checked by scripts/check_templates_dispatch_allowlist.py. A line ending in
+# "/" matches every path under that directory. A line containing "*" is an
+# fnmatch glob. Anything else must match a path exactly.
+#
+# PR-B deletes templates/dispatch/hooks/ and carries the rest of the tree's
+# history forward at the top level; the entries below that exist only because
+# templates/dispatch/hooks/ is still real (the directory prefix, and the live
+# code that points into it) go away with it. Everything else here is a
+# permanent historical record and stays.
+
+# This guard's own files (they name the deleted tree by necessity).
+scripts/templates_dispatch_allowlist.txt
+scripts/check_templates_dispatch_allowlist.py
+scripts/tests/test_check_templates_dispatch_allowlist.py
+
+# Historical / evidence / point-in-time records: never edited for currency.
+_artifacts/
+docs/assessments/
+docs/evidence/
+docs/plans/
+docs/dispatch/handover-*
+docs/dispatch/loop-run-*
+.agents/sessions/
+docs/training/2026-07-21-vuoro-next-wave-dispatch.md
+docs/verification/handoff-v1-successor-isolation.md
+
+# templates/dispatch/hooks/ itself, and live code that correctly still points
+# into it (PR-B territory; shrinks when hooks/ moves out).
+templates/dispatch/hooks/
+agentops.dispatch.json
+AGENTS.md
+bin/agentops
+hooks/tests/test-gate-log.sh
+hooks/tests/test-hook-executability.sh
+scripts/auditctl_resolve.py
+schemas/dispatch-manifest.schema.json
+
+# Docs that keep a short "Retired 2026-09-17 (S2 item 6)" note naming the
+# deleted templates/dispatch path for context, rather than being rewritten.
+docs/architecture/harness-evidence-policy.md
+docs/dispatch/composed-artifact-assurance.md
+docs/dispatch/dispatch-manifest.md
+docs/dispatch/opencode-provider-qualification-corpus.md
+docs/dispatch/session-mechanization-contracts.md
+docs/dispatch/state-protocol-verification.md
+docs/ecosystem.md
+docs/project/project-folder.md
+docs/runbooks/dev-environments.md
+docs/runbooks/hybrid-dispatch.md
+docs/runbooks/vuoro-workstation-cutover.md
+docs/verification/test-context-packet-v1.md
+model/README.md

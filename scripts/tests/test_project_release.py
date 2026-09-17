@@ -128,7 +128,7 @@ default_ref = "refs/heads/main"
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             project_path, repos = self._fixture(root)
-            records = repos["home"] / "templates" / "dispatch" / "environment-record"
+            records = repos["home"] / "environment-record"
             records.mkdir(parents=True)
             environment_id = normalize_hostname(socket.gethostname())
             (records / f"{environment_id}.json").write_text(

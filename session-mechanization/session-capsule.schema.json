@@ -3,7 +3,7 @@
   "$id": "https://agentops.local/schemas/session-capsule.schema.json",
   "title": "Session capsule",
   "description": "Tier-0 mechanical session exhaust: what a harness-neutral session wrapper recorded with no agent cooperation required. Produced once, at session end (clean or inferred). Not a work log and not proof that any backlog state should change.",
-  "$comment": "This schema mirrors structure for editor support. templates/dispatch/scripts/validate_session_mechanization_artifacts.py is normative for cross-field rules.",
+  "$comment": "This schema mirrors structure for editor support. scripts/validate_session_mechanization_artifacts.py is normative for cross-field rules.",
   "type": "object",
   "additionalProperties": false,
   "required": [
