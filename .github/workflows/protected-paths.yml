@@ -24,9 +24,10 @@ jobs:
             --title "$PR_TITLE"
 
   templates-dispatch-allowlist:
-    # S2 item 6: templates/dispatch was deleted except hooks/ (PR-B territory).
-    # This fails a PR that grows a fresh reference to the deleted tree outside
-    # the allowlist in scripts/templates_dispatch_allowlist.txt.
+    # S2 item 6: templates/dispatch was deleted in full (PR-E, then PR-B for
+    # the held-back hooks/ subtree). This fails a PR that grows a fresh
+    # reference to the deleted tree outside the allowlist in
+    # scripts/templates_dispatch_allowlist.txt.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -175,10 +175,33 @@ meta2="$(sed -n 's/.*--metadata //p' <<<"$(tail -1 "$AUDITCTL_STUB_LOG")")"
 assert_eq "REQ-003 the newest snapshot is complete" "$(jq -r '.gates | length' <<<"$meta2")" "2"
 assert_eq "REQ-003 rework survives to the newest snapshot" "$(jq -r '.rework_rounds' <<<"$meta2")" "1"
 
-# --- the read side (cost-summary.sh) ---------------------------------------------------
-# cost-summary.sh is a CLI report, not a hook, and was not carved out into hooks/. Its
-# newest-row-per-session and tied-timestamp oracles stay with it, in
-# the dispatch template's own copy of this test.
+# --- the read side must reduce to the newest row per session ----------------------------
+# Summing every row over-counts roughly quadratically, since each row is a cumulative
+# snapshot. cost-summary.sh is the consumer that has to know this. Carved into hooks/
+# alongside the rest of the tree (S2 item 6 PR-B); its oracles moved here with it.
+summary_log="$tmp/summary.jsonl"
+cat > "$summary_log" <<'ROWS'
+{"ts":"2026-08-23T10:00:00Z","project":"p","session":"s1","model":"opus","in":1,"cache_write":0,"cache_read":0,"out":1,"cost_usd":1.0}
+{"ts":"2026-08-23T10:05:00Z","project":"p","session":"s1","model":"opus","in":2,"cache_write":0,"cache_read":0,"out":2,"cost_usd":3.0}
+{"ts":"2026-08-23T10:06:00Z","project":"p","session":"s2","model":"opus","in":1,"cache_write":0,"cache_read":0,"out":1,"cost_usd":2.0}
+ROWS
+summary_script="$tmp/cost-summary.sh"
+sed "s|^LOG=.*|LOG=\"$summary_log\"|" "$hooks_dir/cost-summary.sh" > "$summary_script"
+out="$(bash "$summary_script")"
+grep -q "sessions=2" <<<"$out" || fail "read side: rows were counted as sessions ($out)"
+
+# `ts` has one-second resolution, so two stops can tie. The snapshots are monotonic, so the
+# largest is the latest; picking by input order would under-report the session.
+tie_log="$tmp/tie.jsonl"
+cat > "$tie_log" <<'ROWS'
+{"ts":"2026-08-23T10:00:00Z","project":"p","session":"t1","model":"opus","in":9,"cache_write":0,"cache_read":0,"out":9,"cost_usd":9.0}
+{"ts":"2026-08-23T10:00:00Z","project":"p","session":"t1","model":"opus","in":1,"cache_write":0,"cache_read":0,"out":1,"cost_usd":1.0}
+ROWS
+tie_script="$tmp/tie-summary.sh"
+sed "s|^LOG=.*|LOG=\"$tie_log\"|" "$hooks_dir/cost-summary.sh" > "$tie_script"
+tie_out="$(bash "$tie_script")"
+grep -q 'total=\$9' <<<"$tie_out" || fail "read side: a tied timestamp picked the smaller snapshot ($tie_out)"
+grep -q 'total=\$5' <<<"$out" || fail "read side: superseded rows were summed instead of reduced ($out)"
 
 # --- REQ-005: auditctl absent ----------------------------------------------------------
 # AUDITCTL_BIN="" is how absence is stated since 2026-08-29. Emptying PATH no longer says it:
