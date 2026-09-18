@@ -87,8 +87,8 @@ record the finding and the rejection; never widen your own authority to finish.
   install, invoke or schedule it, and do not claim running systems are retired without rollout
   evidence.
 - Normal sprintctl work uses the served `vuoro-shared` API through a validated Vuoro profile.
-  Never export `SPRINTCTL_URL` or a PostgreSQL URI for normal work; `vuoro-dev` is for
-  development-build tests only. Profile changes follow
+  Never export `SPRINTCTL_URL` or a PostgreSQL URI for normal work. `vuoro-dev` and its
+  database were removed in S2 (items 5 and 7); do not target them. Profile changes follow
   `agentops/docs/runbooks/vuoro-workstation-cutover.md`.
 - Dispatch contracts (skills, schemas, `*.dispatch.json`, verification contexts): see
   `agentops/AGENTS.md`.
