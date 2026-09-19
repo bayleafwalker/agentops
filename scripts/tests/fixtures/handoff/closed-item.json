@@ -1,0 +1,50 @@
+{
+  "schema_version": "handoff/v1",
+  "handoff_id": "2026-09-19-fixture-closed-item.v1",
+  "version": 1,
+  "created_at": "2026-09-19T00:00:00Z",
+  "origin_host": null,
+  "origin_path": null,
+  "origin_cwd": null,
+  "track": "2026-09-19-fixture-closed-item",
+  "predecessor": {
+    "harness": "claude-code",
+    "session_id": null,
+    "transcript_path": null,
+    "model": null,
+    "context_used_pct": null
+  },
+  "objective": "demonstrate agentops#2101's live-tracker-precedence checks",
+  "constraints": [],
+  "decisions": [],
+  "rejected": [],
+  "state": {
+    "repos": [
+      {
+        "path": "/projects/dev/_wt/agentops-handoff-tracker-precedence",
+        "head": "39f1bd31740f1634634734e3ceffdbb48c455637",
+        "branch": "lane/2101-handoff-tracker-precedence",
+        "dirty": true,
+        "diff_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "unpushed": 0
+      }
+    ],
+    "running": [],
+    "digest_version": 3,
+    "tracker_watermark": [
+      {
+        "item_id": "9999",
+        "status": "open",
+        "status_revision": 1
+      }
+    ]
+  },
+  "unresolved": [],
+  "evidence": [],
+  "sprintctl_bundle_ref": null,
+  "next_action": "resolve item 9999 next",
+  "successor": {
+    "session_id": null,
+    "acknowledged_at": null
+  }
+}

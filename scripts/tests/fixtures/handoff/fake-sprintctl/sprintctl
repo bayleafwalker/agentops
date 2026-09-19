@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Minimal stub of `sprintctl item show --id <id> --json`, used only to
+# demonstrate `handoff validate` refusing scripts/tests/fixtures/handoff/
+# closed-item.json from the command line (see the fixtures README). It
+# answers exactly one shape and nothing else -- this is not a sprintctl
+# fake for general use.
+set -euo pipefail
+
+if [[ "${1:-}" == "item" && "${2:-}" == "show" ]]; then
+    shift 2
+    id=""
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --id) id="$2"; shift 2 ;;
+            --json) shift ;;
+            *) shift ;;
+        esac
+    done
+    case "$id" in
+        9999)
+            echo '{"id": "9999", "status": "done", "status_revision": 7}'
+            ;;
+        *)
+            echo '{"id": "'"$id"'", "status": "open", "status_revision": 1}'
+            ;;
+    esac
+    exit 0
+fi
+
+echo "fake-sprintctl: unsupported invocation: $*" >&2
+exit 1

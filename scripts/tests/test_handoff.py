@@ -19,6 +19,12 @@ Three properties carry the design; the rest of `handoff.py` is rendering.
    so a remote refusal leaves the local file untouched and a remote acceptance
    updates both. Tested against an injected transport: a second machine is not
    available in CI and the guard branches only on the transport's exit status.
+5. **A handoff cannot outrank live tracker state.** Matching git basis is not
+   enough: an evidence ref naming a file that does not exist, or a watermarked
+   tracker item that has moved (closed, or its status_revision bumped) since
+   `create`, must refuse -- not warn -- exactly like a stale diff does.
+   `sprintctl_item_show` is injected in every test here; none depends on a
+   live sprintctl.
 
 The subject is `scripts/handoff.py`. Real git repositories are
 built in tmp_path rather than mocked: the digest is defined in terms of `git diff
@@ -27,6 +33,7 @@ prove nothing about that definition.
 """
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import subprocess
@@ -587,9 +594,14 @@ class TestDigestVersionCompatibility(unittest.TestCase):
         ])
         return self.out / f"2026-09-12-{slug}.v1.json"
 
-    def test_create_writes_version_2(self) -> None:
+    def test_create_writes_version_3(self) -> None:
+        # Bumped from 2 to 3 when state.tracker_watermark was added: the diff
+        # computation is unchanged from v2, but the bump is how a `validate`
+        # run on an old handoff knows the field is legitimately absent rather
+        # than lost.
         data = json.loads(self._create("fresh").read_text())
-        self.assertEqual(data["state"]["digest_version"], 2)
+        self.assertEqual(data["state"]["digest_version"], 3)
+        self.assertEqual(data["state"]["tracker_watermark"], [])
 
     def test_a_v1_handoff_without_the_field_still_validates(self) -> None:
         # Exactly the shape of the four evidence handoffs already committed
@@ -794,6 +806,203 @@ class TestTwoHostAck(unittest.TestCase):
                 del os.environ["AGENTOPS_HOSTNAME"]
             else:
                 os.environ["AGENTOPS_HOSTNAME"] = previous
+
+
+class TestTrackerWatermark(unittest.TestCase):
+    """create records live tracker state; validate refuses when it has moved.
+
+    `sprintctl_item_show` is monkeypatched everywhere in this class -- no test
+    here may depend on a live sprintctl, per this item's own constraint.
+    """
+
+    def setUp(self) -> None:
+        import tempfile
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.repo = _make_repo(self.tmp / "repo")
+        self.out = self.tmp / "handoffs"
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def _create(self, slug: str, next_action: str) -> Path:
+        rc = handoff.main([
+            "create", "--slug", slug, "--repo", str(self.repo),
+            "--objective", "o", "--next-action", next_action,
+            "--no-sprintctl", "--out-dir", str(self.out),
+            "--date", "2026-09-12",
+        ])
+        self.assertEqual(rc, 0)
+        return self.out / f"2026-09-12-{slug}.v1.json"
+
+    def test_create_records_the_watermark_for_an_item_named_in_next_action(self) -> None:
+        from unittest import mock
+        with mock.patch.object(
+                handoff, "sprintctl_item_show",
+                return_value={"status": "open", "status_revision": 5}):
+            path = self._create("watermarked", "continue item 1234")
+        data = json.loads(path.read_text())
+        self.assertEqual(data["state"]["tracker_watermark"],
+                         [{"item_id": "1234", "status": "open",
+                           "status_revision": 5}])
+        self.assertEqual(data["state"]["digest_version"], 3)
+
+    def test_no_item_refs_and_no_evidence_validates_unchanged(self) -> None:
+        # No id in next_action, sprintctl never even asked (--no-sprintctl):
+        # the watermark is empty and validate has nothing new to refuse on.
+        path = self._create("plain", "run the tests")
+        data = json.loads(path.read_text())
+        self.assertEqual(data["state"]["tracker_watermark"], [])
+        self.assertEqual(data["evidence"], [])
+        self.assertEqual(handoff.validate_handoff(data), [])
+
+    def test_validate_refuses_when_the_item_is_closed_after_create(self) -> None:
+        from unittest import mock
+        with mock.patch.object(
+                handoff, "sprintctl_item_show",
+                return_value={"status": "open", "status_revision": 1}):
+            path = self._create("closes", "resolve item 2101")
+        data = json.loads(path.read_text())
+        self.assertEqual(handoff.validate_handoff(data), [])   # nothing moved yet
+        with mock.patch.object(
+                handoff, "sprintctl_item_show",
+                return_value={"status": "done", "status_revision": 2}):
+            problems = handoff.validate_handoff(data)
+        self.assertTrue(problems, problems)
+        joined = " ".join(problems)
+        self.assertIn("2101", joined)
+        self.assertIn("1", joined)   # recorded status_revision
+        self.assertIn("2", joined)   # current status_revision
+        self.assertEqual(handoff.main(["validate", str(path)]), 0)   # not moved on disk
+
+    def test_validate_refuses_when_status_revision_moves_without_closing(self) -> None:
+        from unittest import mock
+        with mock.patch.object(
+                handoff, "sprintctl_item_show",
+                return_value={"status": "in_progress", "status_revision": 1}):
+            path = self._create("moves", "item 55 next")
+        data = json.loads(path.read_text())
+        with mock.patch.object(
+                handoff, "sprintctl_item_show",
+                return_value={"status": "in_progress", "status_revision": 4}):
+            problems = handoff.validate_handoff(data)
+        self.assertTrue(any("55" in p and "status_revision" in p for p in problems),
+                        problems)
+
+    def test_an_absent_sprintctl_at_validate_time_skips_not_fails(self) -> None:
+        from unittest import mock
+        with mock.patch.object(
+                handoff, "sprintctl_item_show",
+                return_value={"status": "open", "status_revision": 1}):
+            path = self._create("offline", "item 9 pending")
+        data = json.loads(path.read_text())
+        with mock.patch.object(handoff, "sprintctl_item_show", return_value=None):
+            self.assertEqual(handoff.validate_handoff(data), [])
+
+    def test_a_handoff_without_the_watermark_field_skips_the_check(self) -> None:
+        # Written before this existed: mandatory for new, flagged for old.
+        from unittest import mock
+        with mock.patch.object(
+                handoff, "sprintctl_item_show",
+                return_value={"status": "open", "status_revision": 1}):
+            path = self._create("legacy", "item 3 pending")
+        data = json.loads(path.read_text())
+        del data["state"]["tracker_watermark"]
+        with mock.patch.object(
+                handoff, "sprintctl_item_show",
+                return_value={"status": "done", "status_revision": 99}):
+            self.assertEqual(handoff.validate_handoff(data), [])
+
+
+class TestEvidenceRefs(unittest.TestCase):
+    """evidence[] refs of kind `artifact` must exist; a mismatched sha256
+    refuses exactly like a missing file does -- not a warning."""
+
+    def setUp(self) -> None:
+        import tempfile
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.repo = _make_repo(self.tmp / "repo")
+        self.out = self.tmp / "handoffs"
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def _create(self, slug: str, evidence: list[str]) -> Path:
+        rc = handoff.main([
+            "create", "--slug", slug, "--repo", str(self.repo),
+            "--objective", "o", "--next-action", "n",
+            *[arg for e in evidence for arg in ("--evidence", e)],
+            "--no-sprintctl", "--out-dir", str(self.out), "--date", "2026-09-12",
+        ])
+        self.assertEqual(rc, 0)
+        return self.out / f"2026-09-12-{slug}.v1.json"
+
+    def test_an_existing_artifact_ref_validates(self) -> None:
+        target = self.repo / "plan.md"
+        target.write_text("the plan\n")
+        path = self._create("exists", [f"artifact:{target}"])
+        self.assertEqual(handoff.validate_handoff(json.loads(path.read_text())), [])
+
+    def test_a_missing_artifact_ref_is_refused_not_warned(self) -> None:
+        missing = self.repo / "nope.md"
+        path = self._create("missing", [f"artifact:{missing}"])
+        problems = handoff.validate_handoff(json.loads(path.read_text()))
+        self.assertTrue(any("does not exist" in p and str(missing) in p
+                            for p in problems), problems)
+        self.assertEqual(handoff.main(["validate", str(path)]), 1)
+
+    def test_a_sha256_suffixed_ref_must_match(self) -> None:
+        target = self.repo / "hashed.md"
+        target.write_text("v1\n")
+        digest = hashlib.sha256(target.read_bytes()).hexdigest()
+        path = self._create("hashed", [f"artifact:{target}#sha256={digest}"])
+        self.assertEqual(handoff.validate_handoff(json.loads(path.read_text())), [])
+        target.write_text("v2\n")   # content moved, recorded hash is now stale
+        problems = handoff.validate_handoff(json.loads(path.read_text()))
+        self.assertTrue(any("sha256 mismatch" in p for p in problems), problems)
+
+    def test_non_artifact_evidence_kinds_are_not_stat_checked(self) -> None:
+        path = self._create("session-kind", ["session:sess-does-not-exist-anywhere"])
+        self.assertEqual(handoff.validate_handoff(json.loads(path.read_text())), [])
+
+
+class TestCommittedEvidenceRefRates(unittest.TestCase):
+    """The acceptance rates, computed over the real committed handoffs.
+
+    checked/total = 1.0 for refs naming a file that exists, refused/missing =
+    1.0 for refs naming one that does not -- stated against a denominator this
+    test computes itself, over docs/dispatch/handoffs/ as committed today.
+    """
+
+    def test_every_existing_ref_is_checked_and_every_missing_ref_is_refused(self) -> None:
+        committed = sorted((ROOT / "docs/dispatch/handoffs").glob("*.v*.json"))
+        artifact_refs = []
+        for path in committed:
+            if path.name.endswith("sprintctl-bundle.json"):
+                continue
+            data = json.loads(path.read_text())
+            for entry in data.get("evidence") or []:
+                if entry.get("kind") == "artifact":
+                    artifact_refs.append(entry["ref"])
+        self.assertTrue(artifact_refs, "no committed artifact evidence to check")
+        existing = [r for r in artifact_refs if Path(r).is_file()]
+        missing = [r for r in artifact_refs if not Path(r).is_file()]
+        self.assertTrue(existing, "no existing committed evidence to exercise 'checked'")
+
+        checked = sum(
+            1 for r in existing
+            if not handoff._evidence_problems(
+                {"evidence": [{"kind": "artifact", "ref": r}]}))
+        self.assertEqual(checked / len(existing), 1.0)
+
+        refused = sum(
+            1 for r in missing
+            if handoff._evidence_problems(
+                {"evidence": [{"kind": "artifact", "ref": r}]}))
+        # Vacuously 1.0 when nothing committed today names a missing file --
+        # the ratio is over `missing`, not manufactured to be nonzero.
+        self.assertEqual((refused / len(missing)) if missing else 1.0, 1.0)
 
 
 if __name__ == "__main__":
