@@ -99,6 +99,43 @@ Risk is the collision risk if the document remains current-looking, not a
 license to rewrite it. “Owner review” in validation is mandatory for semantic,
 authority, compatibility, security, migration, retention, or archival claims.
 
+## Refreeze (2026-09-19)
+
+This section re-marks every row in both portfolio-ledger tables below against
+newer authorities. It does not replace the 2026-08-02 freeze above: the
+original `Class` column, evidence cells, and packet table are preserved
+unchanged as historical record. Per the item's 2026-08-09 decision this
+refreeze was owed after the 2026-08-02 freeze and had not been done (agentops
+PR #19 shipped only the freeze); this pass closes that gap for the ledger
+rows. Owner-local correction waves (mechanical per-repository edits: dead
+links, retired commands, supersession pointers) are explicitly **out of
+scope for this pass** and are tracked as a follow-up, one PR per member
+repository.
+
+- **Refrozen:** 2026-09-19.
+- **Authorities:** [`docs/plans/2026-09-17-target-state.md`](../2026-09-17-target-state.md)
+  (TS-1..TS-15 and the S-numbered path steps) and
+  [`docs/assessments/2026-09-19-backlog-reconciliation.md`](../../assessments/2026-09-19-backlog-reconciliation.md)
+  (RETIRE/DONE/KEEP groups, with per-row deleting commits).
+- **Status vocabulary for this refreeze** (distinct from the 2026-08-02
+  `Class` vocabulary above — `current-governing` / `active-plan` /
+  `completed-history/evidence` / `superseded` / `draft/proposal`):
+  - `current`: still governs, or accurately describes a still-live state, as
+    of 2026-09-19.
+  - `superseded`: replaced or partially replaced; the evidence cell names the
+    successor or the deleting commit.
+  - `historical`: retained as provenance only; not consulted for current
+    behaviour.
+  - `orphaned`: subject no longer exists and has no named successor.
+  - Rows whose subject was deleted under S2 item 6 (TS-2 path step "Now
+    (S2 remainder)") become `superseded`, evidence = the deleting commit sha.
+  - Each refrozen row keeps its 2026-08-02 `Class` visible in the `2026-08-02
+    class` column so the original marking is never silently overwritten.
+- The four S2 deletion commits the tracker item names are
+  `0baa680`, `31a2e3f`, `aa555d6`, `174268b`; this pass verified which of
+  these (or which repository-local commit) actually removed or amended each
+  row's subject rather than assuming — see the `Evidence` cells below.
+
 ## Portfolio ledger — Agentops
 
 | Assessed document or family | Class | Owner | Evidence and required action | Risk | Validation |
@@ -130,6 +167,41 @@ authority, compatibility, security, migration, retention, or archival claims.
 | [`execution-scope-declaration-pilot.md`](execution-scope-declaration-pilot.md) | draft/proposal | Agentops | Advisory pilot renamed from a non-existent local legacy doc ID. Normalize rename metadata only after the registry convention is decided. | Medium | Owner decision on `supersedes`; advisory/no-gate language retained. |
 | Tracked records under [`.agents/sessions/`](../../../.agents/sessions/) | completed-history/evidence | Agentops/session coordinators | Four tracked dated journals/handoffs are operational evidence. An index may improve discovery, but must exclude or separately handle canonical-clone untracked handovers. | Medium | `git ls-files .agents/sessions`; dates/outcomes indexed without body rewrites. |
 
+## Refreeze ledger — Agentops (2026-09-19)
+
+Same row order as the 2026-08-02 table above. `test -e`, resolved from this
+file's directory (`docs/plans/agentops/`), confirmed every relative-link
+subject in this table still exists at 2026-09-19 unless noted otherwise.
+
+| Assessed document or family | 2026-08-02 class | Owner | Status | Action | Evidence |
+|---|---|---|---|---|---|
+| [`README.md`](../../../README.md) | current-governing | Agentops | current | None for this pass; the 2026-08-02 `actionq-dispatch` reconciliation complaint is already resolved. | `README.md:21-22` already calls `actionq-dispatch` 0.2.0 an "inactive tombstone" whose `dispatcher-once` "fails closed" — matches TS-2. |
+| [`docs/ecosystem.md`](../../ecosystem.md) | superseded | Agentops | superseded | None here; owner pointer chain is one hop stale (see Unresolved semantic conflicts). | File still exists; its banner (line 4) points to `native-runtime-federation-realignment-2026-08-20.md` as "current target architecture," not yet to `docs/plans/2026-09-17-target-state.md`. |
+| [`docs/architecture/vuoro-system-shape.md`](../../architecture/vuoro-system-shape.md) | current-governing | Agentops, with cited domain owners | current | None here; reserved for owner review per the 2026-08-02 freeze, unchanged this pass. | File exists; "Current target boundary (2026-08-20)" section names the same federation doc as ecosystem.md (see Unresolved semantic conflicts). |
+| [`project.toml`](../../../project.toml) | current-governing | Agentops | current | None. | `project.toml:108` still references `actionq-dispatch.git` as a reference-only binding; consistent with the row's own 2026-08-02 marking. |
+| [`docs/project/project-binding-spec.md`](../../project/project-binding-spec.md) | draft/proposal | Agentops | superseded (partial) | None here; header still literally reads draft — owner acceptance decision (2026-08-02 unresolved question 2) remains open. | agentops commit `174268b` added a "Retired, no successor" note to the `role_presets` section citing TS-3 (role/skills observed, not compiled). Only that section is superseded; the rest of the draft body is unaffected. |
+| [`docs/project/project-folder.md`](../../project/project-folder.md) | active-plan | Agentops | current | None. | agentops commit `174268b` added a `SUPERSEDED-BY` note for the retired `validate_project_workspace.py` preflight, naming `scripts/materialize_project.py status` as successor and citing TS-14 (`materialize_project.py` stays keep-narrow until S6, gap noted for two checks with no replacement). Rest of the plan is unchanged and still active. |
+| [`docs/project/project-render.md`](../../project/project-render.md) | current-governing | Agentops | current | None. | File unchanged this pass; TS does not address rendering contracts. |
+| [`docs/runbooks/vuoro-unattended-promotion.md`](../../runbooks/vuoro-unattended-promotion.md) | current-governing | Agentops coordinator; ActionQ, launcher, Vuoro, Appservice for owned steps | current | None. | `docs/runbooks/vuoro-unattended-promotion.md:42` still accurately describes `actionq-dispatch` as supplying only `dispatcher-once`, consistent with TS-2 and the current actionq-dispatch README tombstone framing. |
+| [`docs/runbooks/hybrid-dispatch.md`](../../runbooks/hybrid-dispatch.md) | current-governing | Agentops | superseded | None. | agentops commit `0baa680` (S2 item 6 PR-E, 2026-09-17) added a "Retired 2026-09-17... tooling was deleted with `templates/dispatch`" header; agentops commit `174268b` then added a TS-2 citation ("execution, sandboxing and model choice stay native to the harness... hybrid dispatch and OpenCode worker routing are excluded from Vuoro and agentops"). |
+| [`docs/plans/agentops/README.md`](README.md) | current-governing | Agentops | current | None. | agentops commit `174268b` added `docs/plans/2026-09-17-target-state.md` as the "current live successor," keeping `native-runtime-federation-realignment-2026-08-20.md` as a subordinate live reference. Row's 2026-08-02 pointer/index concern is addressed. |
+| [`agent-ops-substrate-plan.md`](agent-ops-substrate-plan.md) | superseded | Agentops with domain owners | superseded | None. | Unchanged this pass; already superseded per 2026-08-02 freeze, consistent with TS-1/TS-2 direction. |
+| [`state-event-command-matrix.md`](state-event-command-matrix.md) | current-governing | Agentops plus named state owners | current | None. | `state-event-command-matrix.md:131` still describes `actionq-dispatch` as retaining the wrapper role; unchanged, no TS conflict found. |
+| [`vuoro-substrate-simplification-refactoring-assessment-2026-07-26.md`](../../assessments/vuoro-substrate-simplification-refactoring-assessment-2026-07-26.md) | completed-history/evidence | Agentops assessment; named repository decision owners | historical | None. | Unchanged; historical record, not superseded, TS does not name it. |
+| [`portable-runtime-challenger-assessment-2026-08-01.md`](../../assessments/portable-runtime-challenger-assessment-2026-08-01.md) | completed-history/evidence | Agentops | historical | None. | Unchanged. |
+| [`vuoro-pre-clean-room/README.md`](../../assessments/vuoro-pre-clean-room/README.md) | completed-history/evidence | Agentops assessment | historical | None. | Unchanged. |
+| [`decision-readout.md`](../../assessments/vuoro-clean-room-comparison/outputs/decision-readout.md) | current-governing | Agentops assessment/human decision owners | current | None. | Unchanged; TS-1/TS-9 do not contradict the recorded no-migration gate result. |
+| Clean-room run corpus under [`docs/assessments/vuoro-clean-room-comparison/`](../../assessments/vuoro-clean-room-comparison/) | completed-history/evidence | Agentops assessment | historical | None. | Directory unchanged. |
+| [`next-session-handover.md`](../../assessments/vuoro-clean-room-comparison/outputs/next-session-handover.md) | superseded | Agentops assessment | superseded | None. | Unchanged; original 2026-08-02 marking stands. |
+| [`handover-2026-07-27-worker-routes.md`](../../dispatch/handover-2026-07-27-worker-routes.md) | superseded | Agentops | superseded | None. | Unchanged; original marking stands. |
+| [`handover-2026-07-28-contained-run.md`](../../dispatch/handover-2026-07-28-contained-run.md) | completed-history/evidence | Agentops | historical | None. | Unchanged. |
+| [`handover-2026-07-28-served-recovery-rollout.md`](../../dispatch/handover-2026-07-28-served-recovery-rollout.md) | completed-history/evidence | Agentops and Sprintctl for owned facts | historical | None. | Unchanged. |
+| [`wave1-implementation-findings-2026-07-29.md`](../../dispatch/wave1-implementation-findings-2026-07-29.md) | completed-history/evidence | Agentops with named implementation owners | historical | None. | agentops commit `174268b` added a `SUPERSEDED-BY` note: the `dispatch-request` v2 contract described in this file is superseded by the not-yet-built S3 Release object, citing TS-5/TS-11. Body remains historical record. |
+| [`post-cockpit-waved-dispatch-program.md`](post-cockpit-waved-dispatch-program.md) | active-plan | Agentops | superseded | This pass marks wave W1-A1 (#2039) retired directly in the file (header note plus table-row annotation). | Reconciliation report RETIRE row #2039: "Cockpit deleted (aa555d6), not converged; note post-cockpit W1-A1 wave doc still points here" — local: close retired, flag wave doc. Already `superseded` at the document's own front matter since 2026-08-20; this pass adds the #2039-specific retirement. |
+| [`docs/plans/next-session-dispatch.md`](../next-session-dispatch.md) | completed-history/evidence | Agentops | historical | None. | Unchanged; already carries a historical banner and forward pointer per the 2026-08-02 freeze. |
+| [`execution-scope-declaration-pilot.md`](execution-scope-declaration-pilot.md) | draft/proposal | Agentops | current | None. | File unchanged; 2026-08-02 unresolved question 2's registry-convention decision is still open. TS-14 touches adjacent project-instance-folder scope but does not settle this pilot's own status. |
+| Tracked records under [`.agents/sessions/`](../../../.agents/sessions/) | completed-history/evidence | Agentops/session coordinators | historical | None. | `.agents/sessions/` still present and tracked; unchanged. |
+
 ## Portfolio ledger — owner repositories
 
 | Assessed document or family | Class | Owner | Evidence and required action | Risk | Validation |
@@ -149,6 +221,32 @@ authority, compatibility, security, migration, retention, or archival claims.
 | Vuoro [`README.md`](https://github.com/bayleafwalker/vuoro/blob/08f83013b1b9f9042598b5468e8655aa7ba72d09/README.md) | current-governing | Vuoro | Good boundary summary but lacks a local client/service/Compose start path and owner-facing links; “devbox dispatcher” wording can collide with the launcher boundary. | High | Vuoro owner and domain owners review; local links; package tests for runnable examples. |
 | Kctl [`README.md`](https://github.com/bayleafwalker/kctl/blob/3b355de41358da74542170a80b8b5fa15d692ff1/README.md) | current-governing | Kctl | Contradicts its implemented `--coordination` publication/render surface and leaves local/remote/served selection implicit. Owner must settle intended wording; do not infer lifecycle semantics from the flag alone. | High | Installed help, focused tests, Kctl owner lifecycle review, links resolve. |
 | Auditctl [`README.md`](https://github.com/bayleafwalker/auditctl/blob/df73a4e5ad96873cfa6768d1af573b1e0d98608e/README.md) | current-governing | Auditctl | Uses the former public substrate label and lacks a first-run read/write plus local/served path. Naming edits must not change durability, rebuild, ingest, or credential claims. | Medium | Auditctl owner review; CLI help/tests; protocol links and examples resolve. |
+
+## Refreeze ledger — owner repositories (2026-09-19)
+
+These rows cite immutable GitHub blob URLs pinned to the 2026-08-02 frozen
+member commits (unchanged from the table above). Evidence below was checked
+against each member repository's local clone at `/projects/dev/<repo>`
+(current HEAD, not the frozen pin) to see what has moved since the freeze;
+none of these repositories were written to by this pass.
+
+| Assessed document or family | 2026-08-02 class | Owner | Status | Action | Evidence |
+|---|---|---|---|---|---|
+| ActionQ [`README.md`](https://github.com/bayleafwalker/actionq/blob/1b92f7ce5f8be3050cd8c5725d53e015dae4302f/README.md) | current-governing | ActionQ | superseded | None here (owner-local correction wave, out of scope). | actionq `README.md` at current HEAD is a full rewrite (banner: "Repository state (2026-08-20): `main` no longer contains an ActionQ daemon/server execution plane, and `actionq-dispatcher` is retired"), superseding the frozen row's proof-stdin quick-start complaint. Underlying deletion: actionq commit `9dccf4e` ("Delete the ActionQ execution plane and HTTP server (tranches 1-3)", PR #30). Consistent with TS-1/TS-2. |
+| ActionQ [`actionq-server-daemon-workstream-c-plan.md`](https://github.com/bayleafwalker/actionq/blob/1b92f7ce5f8be3050cd8c5725d53e015dae4302f/docs/plans/actionq-server-daemon-workstream-c-plan.md) | active-plan | ActionQ | superseded | None here. Answers 2026-08-02 unresolved question 4 ("does the workstream-C plan remain active"): no. | File's own front matter at current HEAD: `status: superseded`, `superseded_on: 2026-08-20`, `superseded_by: docs/plans/2026-08-20-execution-plane-deletion-order.md`. Body carries a "Historical plan — superseded 2026-08-20" banner. ActionQ decided this itself, predating this refreeze. |
+| Compatibility launcher [`README.md`](https://github.com/bayleafwalker/actionq-dispatch/blob/9acf07185ca900adf92bd424dadf47d588a625f3/README.md) | current-governing | actionq-dispatcher | current | None here. | actionq-dispatch `README.md` at current HEAD is rewritten as a "retirement tombstone": every invocation "exits nonzero without resolving an executable, starting a process, reading configuration, or accessing a queue." The frozen row's missing-runbook-link complaint is moot; content matches TS-2. |
+| Sprintctl [`docs/guides/start-here.md`](https://github.com/bayleafwalker/sprintctl/blob/73b9ae5cebe510bfedb775424de1e243e06abf81/docs/guides/start-here.md) | current-governing | Sprintctl | current | None here (owner-local, out of scope). | File exists at sprintctl current HEAD; neither TS nor the reconciliation report addresses it. |
+| Sprintctl [`docs/guides/project-integration.md`](https://github.com/bayleafwalker/sprintctl/blob/73b9ae5cebe510bfedb775424de1e243e06abf81/docs/guides/project-integration.md) | current-governing | Sprintctl | current | None here (mechanical five-link repair remains an owner-local correction-wave candidate). | File exists at sprintctl current HEAD; the 2026-08-02 five-broken-link finding is not addressed by TS/reconciliation and was not re-verified against current HEAD in this pass (out of scope: no sprintctl repo write access in this slice). |
+| Sprintctl [`docs/guides/remote-mode.md`](https://github.com/bayleafwalker/sprintctl/blob/73b9ae5cebe510bfedb775424de1e243e06abf81/docs/guides/remote-mode.md) | current-governing | Sprintctl | current | None here. | File exists at sprintctl current HEAD. TS-10 (legacy direct-DSN writers fenced by mechanism at S5; interim check only until then) confirms this file's transitional direct-PostgreSQL-plus-served framing is still accurate, not yet superseded. |
+| Sprintctl [`docs/reference/knowledge-review-flow.md`](https://github.com/bayleafwalker/sprintctl/blob/73b9ae5cebe510bfedb775424de1e243e06abf81/docs/reference/knowledge-review-flow.md) | current-governing | Sprintctl for events; Kctl for review/publish | current | None here. | File exists at sprintctl current HEAD; the stale `sprintctl events` spelling is unchanged, not addressed by TS/reconciliation. |
+| Sprintctl [`docs/reference/cutover-dogfood.md`](https://github.com/bayleafwalker/sprintctl/blob/73b9ae5cebe510bfedb775424de1e243e06abf81/docs/reference/cutover-dogfood.md) | completed-history/evidence | Sprintctl | orphaned | None here (evidence only; no successor doc to point to). | File deleted from sprintctl at current HEAD (`git log --diff-filter=D` shows sprintctl commit `21b6984`, "refactor: remove the orphaned pilot command surface," 2026-08-15: the `pilot`/`cutover` CLI surface this doc documented was already dead code, unregistered and unreachable, and was deleted along with the doc). Not one of the four agentops S2 commits; this is a sprintctl-local deletion the item's commit list does not name. The frozen row's blob URL remains resolvable (pinned to history) but the live document no longer exists. |
+| Sprintctl [`docs/archive/README.md`](https://github.com/bayleafwalker/sprintctl/blob/73b9ae5cebe510bfedb775424de1e243e06abf81/docs/archive/README.md) and listed archive files | completed-history/evidence | Sprintctl | historical | None. | File exists at sprintctl current HEAD; explicitly historical per its own 2026-08-02 marking. |
+| Sprintctl [`docs/plans/README.md`](https://github.com/bayleafwalker/sprintctl/blob/73b9ae5cebe510bfedb775424de1e243e06abf81/docs/plans/README.md) | current-governing | Sprintctl | current | None. | File exists at sprintctl current HEAD; not addressed by TS/reconciliation. |
+| Sprintctl [`adr-outbox-sync-model.md`](https://github.com/bayleafwalker/sprintctl/blob/73b9ae5cebe510bfedb775424de1e243e06abf81/docs/plans/adr-outbox-sync-model.md) | current-governing | Sprintctl | current | None. | File exists at sprintctl current HEAD; TS-6 (evidence has one home at S4; auditctl shards authoritative until then) does not conflict with this ratified protocol ADR. |
+| Sprintctl `docs/sprint-snapshots/` family | completed-history/evidence | Sprintctl | historical | None. | Directory still present at sprintctl current HEAD (`architecture-backlog.txt`, `phase10-...txt`, `phase11-...txt` observed); explicitly archival per plans index, unchanged. |
+| Vuoro [`README.md`](https://github.com/bayleafwalker/vuoro/blob/08f83013b1b9f9042598b5468e8655aa7ba72d09/README.md) | current-governing | Vuoro | current | None here (owner-local, out of scope). | File exists at vuoro current HEAD. TS-1 ("Vuoro owns release, evidence and decision semantics inside sprintctl's served authority; not a runner, queue, model router or worker supervisor") is the applicable current authority; the frozen row's missing-local-start-path complaint is a mechanical correction-wave candidate, not a status change. |
+| Kctl [`README.md`](https://github.com/bayleafwalker/kctl/blob/3b355de41358da74542170a80b8b5fa15d692ff1/README.md) | current-governing | Kctl | current | None here. | File exists at kctl current HEAD. TS-13 (kctl's metanarrative data becomes Evidence kinds at S4; `agentops metanarrative` stays until then) confirms Kctl has not yet retired; the row's coordination-publication wording question is still open and unaddressed by TS. |
+| Auditctl [`README.md`](https://github.com/bayleafwalker/auditctl/blob/df73a4e5ad96873cfa6768d1af573b1e0d98608e/README.md) | current-governing | Auditctl | current | None here. | File exists at auditctl current HEAD. TS-6 reinforces this row directly: "Until the S4 import, auditctl shards committed in repos are authoritative evidence and must not be rewritten" — naming/labeling correction remains permitted (mechanical, scope 2) but no rebuild/ingest/retention semantics may change ahead of S4. |
 
 ## Frozen repository-local execution packets
 
@@ -233,3 +331,28 @@ after both owner-local candidates pass independent review.
 - Sibling worktrees, canonical-clone untracked handovers, #2062 files,
   architecture files, Git history, Sprintctl state, and deployment state must
   show no mutation from this pass.
+
+## Unresolved semantic conflicts (2026-09-19 refreeze)
+
+Listed, not resolved, per the item's acceptance criterion.
+
+1. **Which document is the current architecture entry point.**
+   `docs/plans/agentops/README.md` was updated (agentops commit `174268b`) to
+   name `docs/plans/2026-09-17-target-state.md` as the current live successor
+   for the agent-tooling estate, with `native-runtime-federation-realignment-2026-08-20.md`
+   demoted to a subordinate live reference "where the two differ." Neither
+   `docs/ecosystem.md` nor `docs/architecture/vuoro-system-shape.md` were
+   updated in the same pass: both still name the 2026-08-20 federation
+   realignment doc, alone, as the "current target architecture." Reading
+   order into the portfolio now differs by entry point. Not resolved here;
+   both files are reserved for owner/domain-owner review per the 2026-08-02
+   freeze and are architecture files this ledger does not edit.
+2. **`docs/project/project-binding-spec.md`'s own status header versus its
+   partial supersession.** The file's front matter still reads a draft
+   status (2026-08-02 unresolved question 2 — "should this remain a draft
+   despite shipped binding behavior" — is still open, unanswered by TS-1..15
+   or the reconciliation report). Agentops commit `174268b` nonetheless added
+   a TS-3-sourced "Retired, no successor" note to the file's `role_presets`
+   section. A single document is simultaneously an unaccepted draft in one
+   section and target-state-superseded in another. Not resolved here; needs
+   an explicit owner acceptance decision on the whole document's status.

@@ -14,6 +14,16 @@ superseded_by: native-runtime-federation-realignment-2026-08-20.md
 > reconciliation and wave design. It does not override live Sprintctl state and
 > is no longer a dispatch recipe. The current execution boundary is
 > [`native-runtime-federation-realignment-2026-08-20.md`](native-runtime-federation-realignment-2026-08-20.md).
+>
+> **Wave W1-A1 (AgentOps #2039) is retired, 2026-09-19.** The cockpit
+> (`apps/web`) that W1-A1 was converging was deleted outright
+> (`agentops@aa555d6`, "chore(p4): delete apps/web agent-cockpit source"),
+> not converged onto owner-mediated Vuoro. Per
+> `docs/assessments/2026-09-19-backlog-reconciliation.md` (RETIRE row #2039):
+> "Cockpit deleted (aa555d6), not converged; note post-cockpit W1-A1 wave doc
+> still points here" — local: close retired, flag wave doc. This note is that
+> flag. The W1-A1 row below is historical record of a train that never ran to
+> completion; do not dispatch it.
 
 ## 2026-08-20 migration disposition
 
@@ -138,7 +148,7 @@ Maximum cross-repository concurrency: 3. AgentOps units integrate sequentially.
 
 | Unit | Repository/item | Posture | Entry | Exit gate |
 |---|---|---|---|---|
-| W1-A1 | AgentOps #2039 | coordinator train | W0-S1 done; exact Sprintctl removal and ActionQ/Vuoro catalog revisions pinned | old/new fixtures cover allowed and rejected writes, tenant/auth isolation, pagination and degradation; `npm test`; `npm run build`; consumer search proves no fallback; clean-install and historical-config review |
+| W1-A1 | AgentOps #2039 — **retired 2026-09-19**, cockpit deleted `aa555d6`, never dispatched | coordinator train | W0-S1 done; exact Sprintctl removal and ActionQ/Vuoro catalog revisions pinned | old/new fixtures cover allowed and rejected writes, tenant/auth isolation, pagination and degradation; `npm test`; `npm run build`; consumer search proves no fallback; clean-install and historical-config review |
 | W1-S1 | Sprintctl #1235 | coordinator mutation/concurrency semantics | current revision vocabulary pinned | stale CAS has no row/event effect on both backends; matching CAS applies once; two-connection Postgres race has one winner; full suite |
 | W1-V1 | Vuoro #2042 | coordinator decision only | all recovery producers, consumers, retention, and evidence refs inventoried | explicit retain-local/remove-service or durable-owner route; independent review rejects in-memory authority |
 
