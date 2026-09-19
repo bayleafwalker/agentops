@@ -11,6 +11,18 @@ raised -- an exporter on this path must never change a hook's exit code.
 even construct a `urllib.request.Request`. That is the behaviour
 `test_harness_evidence_export.py` monkeypatches `urllib.request.urlopen` to
 verify.
+
+`spans.build_session_span()` and `metrics.build_rate_limit_gauges()` each
+return a dict carrying its OTLP envelope (`resourceSpans` /
+`resourceMetrics`) *plus* `dropped_attribute_count` /
+`dropped_attribute_keys` -- a library-level summary for callers such as the
+`--dry-run` CLI, not OTLP fields. A protojson-based OTLP/HTTP receiver (the
+Collector's default) rejects unknown top-level fields outright, and more to
+the point, `dropped_attribute_keys` names exactly the content the allowlist
+refused to let off this host -- posting the refusal list would re-open a
+narrow version of the channel the allowlist exists to close. `_post` is
+therefore given only the OTLP envelope, built fresh from `resourceSpans` /
+`resourceMetrics`, never the dict as a whole.
 """
 from __future__ import annotations
 
@@ -65,6 +77,7 @@ def export(batch: dict[str, Any], *, timeout: float = _DEFAULT_TIMEOUT_SECONDS) 
     headers = _headers_from_env(os.environ.get("OTEL_EXPORTER_OTLP_HEADERS", ""))
 
     for span_batch in batch.get("spans") or []:
-        _post(f"{endpoint}/v1/traces", span_batch, headers, timeout)
+        # Only the OTLP envelope travels on the wire -- see module docstring.
+        _post(f"{endpoint}/v1/traces", {"resourceSpans": span_batch["resourceSpans"]}, headers, timeout)
     for metric_batch in batch.get("metrics") or []:
-        _post(f"{endpoint}/v1/metrics", metric_batch, headers, timeout)
+        _post(f"{endpoint}/v1/metrics", {"resourceMetrics": metric_batch["resourceMetrics"]}, headers, timeout)

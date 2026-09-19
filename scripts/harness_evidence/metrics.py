@@ -13,7 +13,11 @@ Each window becomes one gauge data point carrying a `rate_limit` attribute
 `spans.py` uses), filtered through the same
 `schemas/harness-evidence-attributes.schema.json` allowlist as spans: an
 unlisted key on `payload`, or an unlisted key nested under one window's
-entry, is dropped and counted rather than emitted.
+entry, is dropped and counted rather than emitted. The per-point count is
+carried on the wire as the data point's own OTLP `droppedAttributesCount`
+field; the aggregate `dropped_attribute_count` / `dropped_attribute_keys` on
+the *returned dict* are for callers only (`--dry-run`, tests) and are not
+OTLP fields -- `export()` posts `resourceMetrics` alone.
 """
 from __future__ import annotations
 
@@ -49,6 +53,7 @@ def build_rate_limit_gauges(payload: dict[str, Any]) -> dict[str, Any]:
                 "attributes": kv_list(point_result.attributes),
                 "asDouble": float(used_percent) if used_percent is not None else 0.0,
                 "timeUnixNano": "0",
+                "droppedAttributesCount": point_result.dropped_count,
             }
         )
 
@@ -61,7 +66,10 @@ def build_rate_limit_gauges(payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "resourceMetrics": [
             {
-                "resource": {"attributes": kv_list(resource_attrs)},
+                "resource": {
+                    "attributes": kv_list(resource_attrs),
+                    "droppedAttributesCount": base_result.dropped_count,
+                },
                 "scopeMetrics": [
                     {
                         "scope": {"name": "agentops.harness_evidence", "version": "1"},

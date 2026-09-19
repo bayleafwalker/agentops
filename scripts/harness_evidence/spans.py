@@ -22,9 +22,14 @@ strips before anything reaches the allowlist filter:
 
 Every other key that is not in the allowlist schema (a raw prompt, tool
 output, `gates`, `rework_rounds`, anything shaped like a credential) is
-dropped by `attributes.filter_attributes` and counted in
-`dropped_attribute_count` / `dropped_attribute_keys` on the returned batch --
-it never reaches an OTLP attribute.
+dropped by `attributes.filter_attributes` and counted -- it never reaches an
+OTLP attribute. The count travels two ways: `droppedAttributesCount` is a
+real OTLP/JSON span/resource field (spec-legal, safe to post) set on each
+span and on the resource; `dropped_attribute_count` / `dropped_attribute_keys`
+on the *returned dict* are this library's own summary for callers (the
+`--dry-run` CLI, tests) and are **not** OTLP fields -- `export()` must never
+serialise them onto the wire, since the key names it lists are exactly what
+the allowlist refused to let leave the host.
 """
 from __future__ import annotations
 
@@ -55,6 +60,7 @@ def _span(
     parent_span_id: str | None,
     name: str,
     filtered_attributes: dict[str, Any],
+    dropped_count: int,
 ) -> dict[str, Any]:
     span: dict[str, Any] = {
         "traceId": trace_id,
@@ -62,6 +68,10 @@ def _span(
         "name": name,
         "kind": "SPAN_KIND_INTERNAL",
         "attributes": kv_list(filtered_attributes),
+        # OTLP/JSON's own field for "N attributes were recorded but not carried on this
+        # span" -- spec-legal and safe to post, unlike the dropped *key names* this
+        # library also tracks for its own callers (see module docstring).
+        "droppedAttributesCount": dropped_count,
     }
     durations = filtered_attributes.get("durations") or {}
     wall_seconds = durations.get("wall_seconds")
@@ -85,7 +95,9 @@ def build_session_span(payload: dict[str, Any]) -> dict[str, Any]:
     session_id = str(payload.get("session_id") or payload.get("session") or "session")
     trace_id = session_result.attributes.get("trace_id") or _hex_id(session_id, length=32)
     root_span_id = _hex_id(session_id, "root", length=16)
-    root_span = _span(trace_id, root_span_id, None, "claude_code.session", session_result.attributes)
+    root_span = _span(
+        trace_id, root_span_id, None, "claude_code.session", session_result.attributes, session_result.dropped_count
+    )
 
     dropped_keys = list(session_result.dropped_keys)
     spans = [root_span]
@@ -104,7 +116,14 @@ def build_session_span(payload: dict[str, Any]) -> dict[str, Any]:
         )
         sub_span_id = _hex_id(session_id, sub_id, length=16)
         spans.append(
-            _span(trace_id, sub_span_id, parent_span_id, "claude_code.subagent", sub_result.attributes)
+            _span(
+                trace_id,
+                sub_span_id,
+                parent_span_id,
+                "claude_code.subagent",
+                sub_result.attributes,
+                sub_result.dropped_count,
+            )
         )
 
     resource_attrs = {
@@ -116,7 +135,10 @@ def build_session_span(payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "resourceSpans": [
             {
-                "resource": {"attributes": kv_list(resource_attrs)},
+                "resource": {
+                    "attributes": kv_list(resource_attrs),
+                    "droppedAttributesCount": session_result.dropped_count,
+                },
                 "scopeSpans": [
                     {
                         "scope": {"name": "agentops.harness_evidence", "version": "1"},
@@ -125,6 +147,9 @@ def build_session_span(payload: dict[str, Any]) -> dict[str, Any]:
                 ],
             }
         ],
+        # Library-level summary for callers only (--dry-run, tests) -- never OTLP
+        # fields, and export() must build its POST body from resourceSpans alone so
+        # these two keys (and the refused key *names* below) never reach the wire.
         "dropped_attribute_count": len(dropped_keys),
         "dropped_attribute_keys": dropped_keys,
     }

@@ -323,6 +323,60 @@ class ExportPostsWhenEndpointIsSet(unittest.TestCase):
             self.assertEqual(request.get_header("X-api-key"), "secret-value")
             self.assertEqual(request.get_header("X-team"), "agentops")
 
+    def test_wire_body_carries_only_the_otlp_envelope_never_the_drop_summary(self) -> None:
+        # dropped_attribute_count / dropped_attribute_keys are this library's own
+        # summary for callers (--dry-run, tests), not OTLP fields: a protojson
+        # receiver rejects unknown top-level fields, and dropped_attribute_keys
+        # names exactly the content the allowlist refused to let off this host.
+        # Asserted on the serialised bytes actually handed to urlopen, not on the
+        # dict passed into export() -- a body built from a stray reference to that
+        # dict, rather than a fresh resourceSpans-only envelope, would still pass a
+        # same-object check but fail this one.
+        import os
+
+        requests_seen = []
+
+        class _FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        def _fake_urlopen(request, timeout=None):
+            requests_seen.append(request)
+            return _FakeResponse()
+
+        orig_urlopen = export_module.urllib.request.urlopen
+        export_module.urllib.request.urlopen = _fake_urlopen
+        os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "https://collector.example/otlp"
+        try:
+            payload = _load_fixture("session_negative.json")
+            span_batch = build_session_span(payload)
+            gauge_batch = build_rate_limit_gauges(payload)
+            self.assertGreater(span_batch["dropped_attribute_count"], 0)
+            self.assertGreater(gauge_batch["dropped_attribute_count"], 0)
+            export_module.export({"spans": [span_batch], "metrics": [gauge_batch]})
+        finally:
+            export_module.urllib.request.urlopen = orig_urlopen
+            del os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"]
+
+        self.assertEqual(len(requests_seen), 2)
+        for request in requests_seen:
+            raw = request.data
+            self.assertIsInstance(raw, bytes)
+            decoded = json.loads(raw.decode("utf-8"))
+            self.assertIn(set(decoded.keys()), ({"resourceSpans"}, {"resourceMetrics"}))
+            self.assertNotIn("dropped_attribute_count", decoded)
+            self.assertNotIn("dropped_attribute_keys", decoded)
+            # Belt and braces: the forbidden key *names* this fixture drops must not
+            # appear anywhere in the serialised bytes, not just absent from the two
+            # top-level fields checked above.
+            self.assertNotIn(b"dropped_attribute", raw)
+            self.assertNotIn(b"prompt", raw)
+            self.assertNotIn(b"tool_output", raw)
+            self.assertNotIn(b"authorization", raw)
+
 
 if __name__ == "__main__":
     unittest.main()
