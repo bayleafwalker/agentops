@@ -113,7 +113,11 @@ Two conventions back interrupted-item handoff between sessions: the
 
    Worktrees go under `/projects/dev/_wt/<repo>-<slug>` from the repository's
    `origin/<default>`; the brief carries the item text verbatim plus the
-   attribution lines. OpenCode packets use `hybrid_dispatch.py` as documented.
+   attribution lines. The `.sprintctl` repository marker is gitignored and
+   absent from worktrees, so every sprintctl command (coordinator or worker
+   read) runs from the primary checkout, for example
+   `cd /projects/dev/agentops && sprintctl ...`, never from the worktree.
+   OpenCode packets use `hybrid_dispatch.py` as documented.
 3. **Review.** The coordinator, not the worker, decides acceptance:
    - the diff touches only `Writable` paths;
    - the validation commands pass when re-run by the coordinator in the worktree;
@@ -213,7 +217,10 @@ sprintctl backend; it is the TS-7 interim report (a derived query, not a
 settlement writer) kept until S6 folds cost and profile comparison into the
 session binding. It defaults `SPRINTCTL_VUORO_PROFILE` to
 `environment-record/profiles/workstation-vuoro-shared.json`, the same profile
-used above, unless the environment already sets one.
+used above, unless the environment already sets one. `--artifacts-root`
+defaults to `/projects/dev` and must stay there on a live host;
+`agentops/_artifacts` holds only the retired shard tree
+(`audit-retired-2026-08-26`) and yields an empty worker-usage table.
 
 ### Metrics, per tier and per model
 
