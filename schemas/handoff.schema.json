@@ -37,6 +37,14 @@
       "description": "Optional. Absolute path of this file on origin_host. Meaningless without origin_host; ack requires both before it will go remote.",
       "oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}]
     },
+    "origin_cwd": {
+      "description": "Optional. The predecessor process's working directory at create time (default: os.getcwd()). `agentops handoff open` uses this as the launch cwd; files written before this existed fall back to the first recorded repo path.",
+      "oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}]
+    },
+    "track": {
+      "description": "Optional. Identifies a continuation thread across create calls, independent of slug or date, so `agentops handoff open` can collapse multiple versions of the same track to the newest. Defaults to the slug (parsed from handoff_id) when absent, which is exactly the behaviour for files written before this existed.",
+      "oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}]
+    },
     "predecessor": {
       "type": "object",
       "additionalProperties": false,

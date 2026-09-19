@@ -64,6 +64,7 @@ import re
 import socket
 import subprocess
 import sys
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -376,6 +377,8 @@ def build(
     digest_version: int = DIGEST_VERSION_CURRENT,
     origin_host: str | None = None,
     origin_path: str | None = None,
+    origin_cwd: str | None = None,
+    track: str | None = None,
 ) -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
@@ -384,6 +387,8 @@ def build(
         "created_at": _now_iso(),
         "origin_host": origin_host,
         "origin_path": origin_path,
+        "origin_cwd": origin_cwd,
+        "track": track or slug,
         "predecessor": predecessor,
         "objective": objective,
         "constraints": constraints,
@@ -805,6 +810,9 @@ def cmd_create(args: argparse.Namespace) -> int:
         origin_host=(args.origin_host or draft.get("origin_host")
                      or local_hostname()),
         origin_path=str(json_path.resolve()),
+        origin_cwd=(args.origin_cwd or draft.get("origin_cwd")
+                    or str(Path.cwd())),
+        track=(args.track or draft.get("track") or slug),
     )
 
     problems = schema_errors(handoff)
@@ -859,6 +867,189 @@ def cmd_render(args: argparse.Namespace) -> int:
     return 0
 
 
+# --------------------------------------------------------------------------
+# open: the unacked-handoffs list
+
+HANDOFF_FILENAME_RE = re.compile(
+    r"^(?P<date>[0-9]{4}-[0-9]{2}-[0-9]{2})-(?P<slug>[a-z0-9][a-z0-9-]*)"
+    r"\.v(?P<version>[0-9]+)\.json$")
+
+
+def _slug_from_handoff_id(handoff_id: str) -> str:
+    """The slug component of `<date>-<slug>.v<N>`, or the id itself if it
+    does not match -- callers use this only as a fallback key, never to
+    reject a file."""
+    match = re.match(
+        r"^[0-9]{4}-[0-9]{2}-[0-9]{2}-(?P<slug>[a-z0-9][a-z0-9-]*)"
+        r"\.v[0-9]+$", handoff_id)
+    return match.group("slug") if match else handoff_id
+
+
+def track_of(handoff: dict[str, Any]) -> str:
+    """`track` when the file recorded one, else the slug parsed from its id.
+
+    Files written before `track` existed carry no such field; falling back to
+    the slug is what lets `open` collapse their versions too.
+    """
+    return handoff.get("track") or _slug_from_handoff_id(handoff["handoff_id"])
+
+
+def launch_cwd(handoff: dict[str, Any]) -> str:
+    """The recorded predecessor cwd, or the first repo path for old files
+    that predate `origin_cwd`."""
+    cwd = handoff.get("origin_cwd")
+    if cwd:
+        return cwd
+    repos = handoff.get("state", {}).get("repos") or []
+    return repos[0]["path"] if repos else "?"
+
+
+def open_handoffs(directory: Path) -> list[dict[str, Any]]:
+    """Unacked handoffs under `directory`, newest version per track.
+
+    "Newest" is the highest `version` field within a track, breaking ties
+    first by the date component of `handoff_id` and then by `created_at`
+    (ISO 8601, so lexical order is chronological order). A file that is not
+    valid JSON is skipped rather than aborting the whole listing -- one
+    damaged file should not hide every other track's live handoff.
+    """
+    best: dict[str, tuple[tuple[int, str, str], dict[str, Any], Path]] = {}
+    if not directory.is_dir():
+        return []
+    for path in sorted(directory.glob("*.json")):
+        if not HANDOFF_FILENAME_RE.match(path.name):
+            continue
+        try:
+            handoff = json.loads(path.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        successor = handoff.get("successor") or {}
+        if successor.get("session_id"):
+            continue
+        track = track_of(handoff)
+        version = handoff.get("version", 0)
+        date = handoff.get("handoff_id", "")[:10]
+        created_at = handoff.get("created_at") or ""
+        key = (version, date, created_at)
+        current = best.get(track)
+        if current is None or key > current[0]:
+            best[track] = (key, handoff, path)
+    rows = []
+    for track, (_key, handoff, path) in best.items():
+        rows.append({
+            "track": track,
+            "handoff_id": handoff["handoff_id"],
+            "file": str(path),
+            "date": handoff["handoff_id"][:10],
+            "repos": [{"path": r["path"], "dirty": r["dirty"]}
+                     for r in handoff.get("state", {}).get("repos", [])],
+            "cwd": launch_cwd(handoff),
+            "next_action": handoff.get("next_action", ""),
+        })
+    rows.sort(key=lambda r: (r["date"], r["track"]))
+    return rows
+
+
+def launch_line(row: dict[str, Any]) -> str:
+    """`cd <cwd> && claude --bg --session-id <fresh uuid> "$(agentops handoff
+    prompt <file>)"`. The uuid is minted fresh every render; nothing reads it
+    back, so nothing depends on its value."""
+    return (f'cd {row["cwd"]} && claude --bg --session-id {uuid.uuid4()} '
+           f'"$(agentops handoff prompt {row["file"]})"')
+
+
+def cmd_open(args: argparse.Namespace) -> int:
+    directory = Path(args.dir) if args.dir else (
+        Path(os.environ["AGENTOPS_HANDOFF_DIR"])
+        if os.environ.get("AGENTOPS_HANDOFF_DIR") else HANDOFF_DIR)
+    rows = open_handoffs(directory)
+    if args.json:
+        payload = [dict(row, launch=launch_line(row)) for row in rows]
+        print(json.dumps(payload, indent=2))
+        return 0
+    if not rows:
+        print("no unacked handoffs")
+        return 0
+    for row in rows:
+        print(f"== {row['track']} ({row['date']}) -- {row['handoff_id']} ==")
+        print(f"  cwd: {row['cwd']}")
+        for repo in row["repos"]:
+            print(f"  repo: {repo['path']} ({'dirty' if repo['dirty'] else 'clean'})")
+        print(f"  next: {row['next_action']}")
+        print(f"  launch: {launch_line(row)}")
+        print()
+    return 0
+
+
+# --------------------------------------------------------------------------
+# continue-entry: the operator-scratchpad section
+
+def render_continue_entry(handoff: dict[str, Any], file: Path) -> str:
+    """This handoff's delimited section for the operator's `~/continue`.
+
+    Bounded by `<!-- handoff:<track> -->` / `<!-- /handoff:<track> -->` so
+    `upsert_continue_section` can replace exactly this span and nothing else.
+    """
+    track = track_of(handoff)
+    row = {
+        "cwd": launch_cwd(handoff),
+        "file": str(file),
+    }
+    lines = [
+        f"<!-- handoff:{track} -->",
+        f"### {handoff['handoff_id']}",
+        "",
+        launch_line(row),
+        "",
+        f"**Objective.** {handoff['objective']}",
+        f"**Next action.** {handoff['next_action']}",
+        "",
+        "Repos:",
+    ]
+    repos = handoff.get("state", {}).get("repos") or []
+    lines += [f"- `{repo['path']}` ({'dirty' if repo['dirty'] else 'clean'})"
+             for repo in repos] or ["- (none recorded)"]
+    lines += ["", f"<!-- /handoff:{track} -->"]
+    return "\n".join(lines) + "\n"
+
+
+def upsert_continue_section(path: Path, track: str, section: str) -> None:
+    """Replace exactly `<!-- handoff:<track> -->`..`<!-- /handoff:<track> -->`
+    in `path` with `section`, appending it if the marker pair is absent.
+    Every other byte of `path` -- operator prose, other tracks' sections -- is
+    left untouched. Written atomically; creates `path` (and its parent) if it
+    does not exist yet. Re-running with the same `section` is a no-op change
+    to the file's bytes.
+    """
+    if not section.endswith("\n"):
+        section += "\n"
+    text = path.read_text() if path.exists() else ""
+    pattern = re.compile(
+        re.escape(f"<!-- handoff:{track} -->") + r".*?"
+        + re.escape(f"<!-- /handoff:{track} -->") + r"\n?",
+        re.DOTALL)
+    if pattern.search(text):
+        new_text = pattern.sub(lambda _m: section, text, count=1)
+    else:
+        if text and not text.endswith("\n"):
+            text += "\n"
+        new_text = text + section
+    path.parent.mkdir(parents=True, exist_ok=True)
+    write_atomic(path, new_text)
+
+
+def cmd_continue_entry(args: argparse.Namespace) -> int:
+    handoff = read_handoff(args.file)
+    section = render_continue_entry(handoff, Path(args.file).resolve())
+    if args.into:
+        into_path = Path(args.into).expanduser()
+        upsert_continue_section(into_path, track_of(handoff), section)
+        print(into_path)
+    else:
+        print(section, end="")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="agentops handoff", description=__doc__,
@@ -888,6 +1079,15 @@ def main(argv: list[str] | None = None) -> int:
                         help="host that keeps the authoritative copy; defaults "
                              "to this host's name. A successor on any other "
                              "host acks through it over ssh")
+    create.add_argument("--origin-cwd", dest="origin_cwd",
+                        help="predecessor's working directory; defaults to "
+                             "the process cwd. `handoff open` uses this as "
+                             "the launch cwd")
+    create.add_argument("--track",
+                        help="identifies this continuation thread across "
+                             "create calls, independent of slug or date; "
+                             "defaults to the slug. `handoff open` collapses "
+                             "to the newest version per track")
     create.add_argument("--out-dir", dest="out_dir")
     create.add_argument("--date", help="override the date component (testing)")
     create.add_argument("--no-sprintctl", action="store_true",
@@ -912,6 +1112,22 @@ def main(argv: list[str] | None = None) -> int:
     render = sub.add_parser("render", help="Regenerate the .md beside a handoff")
     render.add_argument("file", type=Path)
     render.set_defaults(func=cmd_render)
+
+    open_parser = sub.add_parser(
+        "open", help="List unacked handoffs, newest version per track")
+    open_parser.add_argument("--json", action="store_true",
+                             help="emit the rows as JSON, launch line included")
+    open_parser.add_argument("--dir", help="override the handoffs directory (testing)")
+    open_parser.set_defaults(func=cmd_open)
+
+    continue_entry = sub.add_parser(
+        "continue-entry",
+        help="Render this handoff's entry for the operator's scratchpad")
+    continue_entry.add_argument("file", type=Path)
+    continue_entry.add_argument(
+        "--into", help="upsert only this track's section into PATH; "
+                       "every other byte of PATH is left untouched")
+    continue_entry.set_defaults(func=cmd_continue_entry)
 
     args = parser.parse_args(argv)
     try:
