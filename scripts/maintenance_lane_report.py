@@ -338,25 +338,26 @@ def _rate(numerator: int, denominator: int) -> float | None:
     return numerator / denominator
 
 
-def aggregate_tier_model(records: list[dict]) -> list[dict]:
-    """Per (tier, model) rates, one item at a time.
+def _accumulate_item_buckets(records: list[dict], key_of) -> dict:
+    """Shared per-item verdict accumulation behind ``aggregate_tier_model`` and
+    ``aggregate_tier``.
 
-    ``attempts`` stays a count of ``lane.review`` notes (reviews), but every rate is now
-    computed per distinct work item rather than per reviewed attempt -- an item reworked
-    twice before acceptance no longer drags the tier/model's first-pass rate down for every
-    intermediate review. Reviews for an item are consulted in event order (created_at, then
-    event id as a tiebreak): the item's earliest review verdict decides first-pass, and its
-    latest review verdict decides whether it currently reads as blocked. The item's bucket
-    (tier, model) is taken from its earliest review/dispatch attempt.
+    Every rate the two public functions report is computed per distinct work item rather
+    than per reviewed attempt -- an item reworked twice before acceptance does not drag a
+    bucket's first-pass rate down for every intermediate review. Reviews for an item are
+    consulted in event order (created_at, then event id as a tiebreak): the item's earliest
+    review verdict decides first-pass, and its latest review verdict decides whether it
+    currently reads as blocked. ``key_of(attempt)`` is applied to the item's *earliest*
+    review/dispatch attempt to pick the item's bucket -- ``(tier, model)`` for
+    ``aggregate_tier_model``, ``tier`` alone for ``aggregate_tier``.
 
-    ``rework_rate`` / ``rejected_rate`` / ``escalated_rate`` count an item once if *any* of
-    its reviews carries that verdict. ``blocked_rate`` counts an item only if its *latest*
-    review verdict is blocked (an item blocked once but later recovered and accepted is not
-    still "blocked"). ``accepted_items`` is the set of items with at least one accepted
-    review. ``attempts_per_accepted_item`` is reviews spent on accepted items divided by the
-    count of accepted items -- a measure of review overhead per completed item.
+    A bucket's ``rework_items`` / ``rejected_items`` / ``escalated_items`` count an item
+    once if *any* of its reviews carries that verdict. ``blocked_items`` counts an item only
+    if its *latest* review verdict is blocked (an item blocked once but later recovered and
+    accepted is not still "blocked"). ``accepted_items`` is the set of items with at least
+    one accepted review; ``attempts_on_accepted_items`` is reviews spent on those items.
     """
-    buckets: dict[tuple[str, str], dict] = defaultdict(
+    buckets: dict = defaultdict(
         lambda: {
             "items": 0,
             "attempts": 0,
@@ -374,9 +375,7 @@ def aggregate_tier_model(records: list[dict]) -> list[dict]:
         if not attempts:
             continue
         item_id = record["item"].get("id")
-        tier = attempts[0]["tier"]
-        model = attempts[0]["model"]
-        bucket = buckets[(tier, model)]
+        bucket = buckets[key_of(attempts[0])]
 
         verdicts = [attempt["verdict"] for attempt in attempts]
         earliest_verdict = verdicts[0]
@@ -398,30 +397,45 @@ def aggregate_tier_model(records: list[dict]) -> list[dict]:
             bucket["accepted_items"].add(item_id)
             bucket["attempts_on_accepted_items"] += len(attempts)
 
+    return buckets
+
+
+def _bucket_rates(bucket: dict) -> dict:
+    """Turn one accumulated bucket into the rate keys shared by every aggregate_* row."""
+    items = bucket["items"]
+    accepted_items = sorted(bucket["accepted_items"])
+    return {
+        "items": items,
+        "attempts": bucket["attempts"],
+        # NOTE: these four rate keys changed denominator from attempts to items in
+        # this change and were renamed accordingly (old *_rate keys computed the
+        # same outcome per reviewed attempt, not per distinct item).
+        "first_pass_item_rate": _rate(bucket["first_pass_items"], items),
+        "rework_item_rate": _rate(bucket["rework_items"], items),
+        "rejected_item_rate": _rate(bucket["rejected_items"], items),
+        "escalated_item_rate": _rate(bucket["escalated_items"], items),
+        "blocked_item_rate": _rate(bucket["blocked_items"], items),
+        "accepted_items": accepted_items,
+        "attempts_per_accepted_item": _rate(
+            bucket["attempts_on_accepted_items"], len(accepted_items)
+        ),
+    }
+
+
+def aggregate_tier_model(records: list[dict]) -> list[dict]:
+    """Per (tier, model) rates, one item at a time.
+
+    ``attempts`` stays a count of ``lane.review`` notes (reviews), but every rate is
+    computed per distinct work item rather than per reviewed attempt (see
+    ``_accumulate_item_buckets``). The item's bucket (tier, model) is taken from its
+    earliest review/dispatch attempt.
+    """
+    buckets = _accumulate_item_buckets(
+        records, key_of=lambda attempt: (attempt["tier"], attempt["model"])
+    )
     rows = []
     for (tier, model), bucket in sorted(buckets.items()):
-        items = bucket["items"]
-        accepted_items = sorted(bucket["accepted_items"])
-        rows.append(
-            {
-                "tier": tier,
-                "model": model,
-                "items": items,
-                "attempts": bucket["attempts"],
-                # NOTE: these four rate keys changed denominator from attempts to items in
-                # this change and were renamed accordingly (old *_rate keys computed the
-                # same outcome per reviewed attempt, not per distinct item).
-                "first_pass_item_rate": _rate(bucket["first_pass_items"], items),
-                "rework_item_rate": _rate(bucket["rework_items"], items),
-                "rejected_item_rate": _rate(bucket["rejected_items"], items),
-                "escalated_item_rate": _rate(bucket["escalated_items"], items),
-                "blocked_item_rate": _rate(bucket["blocked_items"], items),
-                "accepted_items": accepted_items,
-                "attempts_per_accepted_item": _rate(
-                    bucket["attempts_on_accepted_items"], len(accepted_items)
-                ),
-            }
-        )
+        rows.append({"tier": tier, "model": model, **_bucket_rates(bucket)})
     return rows
 
 
@@ -432,69 +446,13 @@ def aggregate_tier(records: list[dict]) -> list[dict]:
     without summing ``aggregate_tier_model`` rows by hand.
 
     Rows carry the same keys as ``aggregate_tier_model`` rows minus ``model``, computed from the
-    same per-item records rather than by averaging the per-model rows.
+    same per-item records (via the shared ``_accumulate_item_buckets`` helper) rather than by
+    averaging the per-model rows.
     """
-    buckets: dict[str, dict] = defaultdict(
-        lambda: {
-            "items": 0,
-            "attempts": 0,
-            "first_pass_items": 0,
-            "rework_items": 0,
-            "rejected_items": 0,
-            "escalated_items": 0,
-            "blocked_items": 0,
-            "accepted_items": set(),
-            "attempts_on_accepted_items": 0,
-        }
-    )
-    for record in records:
-        attempts = record["attempts"]
-        if not attempts:
-            continue
-        item_id = record["item"].get("id")
-        tier = attempts[0]["tier"]
-        bucket = buckets[tier]
-
-        verdicts = [attempt["verdict"] for attempt in attempts]
-        earliest_verdict = verdicts[0]
-        latest_verdict = verdicts[-1]
-
-        bucket["items"] += 1
-        bucket["attempts"] += len(attempts)
-        if earliest_verdict == "accepted":
-            bucket["first_pass_items"] += 1
-        if "rework" in verdicts:
-            bucket["rework_items"] += 1
-        if "rejected" in verdicts:
-            bucket["rejected_items"] += 1
-        if "escalated" in verdicts:
-            bucket["escalated_items"] += 1
-        if latest_verdict == "blocked":
-            bucket["blocked_items"] += 1
-        if "accepted" in verdicts:
-            bucket["accepted_items"].add(item_id)
-            bucket["attempts_on_accepted_items"] += len(attempts)
-
+    buckets = _accumulate_item_buckets(records, key_of=lambda attempt: attempt["tier"])
     rows = []
     for tier, bucket in sorted(buckets.items()):
-        items = bucket["items"]
-        accepted_items = sorted(bucket["accepted_items"])
-        rows.append(
-            {
-                "tier": tier,
-                "items": items,
-                "attempts": bucket["attempts"],
-                "first_pass_item_rate": _rate(bucket["first_pass_items"], items),
-                "rework_item_rate": _rate(bucket["rework_items"], items),
-                "rejected_item_rate": _rate(bucket["rejected_items"], items),
-                "escalated_item_rate": _rate(bucket["escalated_items"], items),
-                "blocked_item_rate": _rate(bucket["blocked_items"], items),
-                "accepted_items": accepted_items,
-                "attempts_per_accepted_item": _rate(
-                    bucket["attempts_on_accepted_items"], len(accepted_items)
-                ),
-            }
-        )
+        rows.append({"tier": tier, **_bucket_rates(bucket)})
     return rows
 
 
