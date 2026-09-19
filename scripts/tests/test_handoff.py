@@ -973,36 +973,69 @@ class TestCommittedEvidenceRefRates(unittest.TestCase):
     checked/total = 1.0 for refs naming a file that exists, refused/missing =
     1.0 for refs naming one that does not -- stated against a denominator this
     test computes itself, over docs/dispatch/handoffs/ as committed today.
+
+    Both partitions are host-dependent and neither is guaranteed non-empty:
+    the committed refs are absolute paths under /projects/dev, which resolve on
+    a workstation or devbox checkout and on no CI runner. So the corpus arms
+    assert the rate over whichever partition this host actually has, and
+    `test_mechanism_holds_on_every_host` carries the falsifier that must hold
+    everywhere -- an existing ref is checked and a missing one is refused, over
+    a corpus built here rather than found. A ratio over an empty partition is
+    reported as 1.0 and proves nothing; that is what the mechanism test is for.
     """
 
-    def test_every_existing_ref_is_checked_and_every_missing_ref_is_refused(self) -> None:
-        committed = sorted((ROOT / "docs/dispatch/handoffs").glob("*.v*.json"))
-        artifact_refs = []
-        for path in committed:
+    def _committed_artifact_refs(self) -> list[str]:
+        refs = []
+        for path in sorted((ROOT / "docs/dispatch/handoffs").glob("*.v*.json")):
             if path.name.endswith("sprintctl-bundle.json"):
                 continue
             data = json.loads(path.read_text())
             for entry in data.get("evidence") or []:
                 if entry.get("kind") == "artifact":
-                    artifact_refs.append(entry["ref"])
-        self.assertTrue(artifact_refs, "no committed artifact evidence to check")
-        existing = [r for r in artifact_refs if Path(r).is_file()]
-        missing = [r for r in artifact_refs if not Path(r).is_file()]
-        self.assertTrue(existing, "no existing committed evidence to exercise 'checked'")
+                    refs.append(entry["ref"])
+        return refs
 
-        checked = sum(
-            1 for r in existing
-            if not handoff._evidence_problems(
-                {"evidence": [{"kind": "artifact", "ref": r}]}))
+    @staticmethod
+    def _refused(ref: str) -> bool:
+        return bool(handoff._evidence_problems(
+            {"evidence": [{"kind": "artifact", "ref": ref}]}))
+
+    def test_every_existing_committed_ref_is_checked(self) -> None:
+        existing = [r for r in self._committed_artifact_refs() if Path(r).is_file()]
+        if not existing:
+            self.skipTest(
+                "no committed artifact ref resolves on this host; the rate has "
+                "an empty denominator here (see test_mechanism_holds_on_every_host)")
+        checked = sum(1 for r in existing if not self._refused(r))
         self.assertEqual(checked / len(existing), 1.0)
 
-        refused = sum(
-            1 for r in missing
-            if handoff._evidence_problems(
-                {"evidence": [{"kind": "artifact", "ref": r}]}))
-        # Vacuously 1.0 when nothing committed today names a missing file --
-        # the ratio is over `missing`, not manufactured to be nonzero.
-        self.assertEqual((refused / len(missing)) if missing else 1.0, 1.0)
+    def test_every_missing_committed_ref_is_refused(self) -> None:
+        missing = [r for r in self._committed_artifact_refs() if not Path(r).is_file()]
+        if not missing:
+            self.skipTest(
+                "no committed artifact ref is missing on this host; the rate has "
+                "an empty denominator here (see test_mechanism_holds_on_every_host)")
+        refused = sum(1 for r in missing if self._refused(r))
+        self.assertEqual(refused / len(missing), 1.0)
+
+    def test_mechanism_holds_on_every_host(self) -> None:
+        """Host-independent: both partitions non-empty, built not found.
+
+        Each committed handoff's own evidence ref is repointed twice -- once at
+        a file that certainly exists (this test file), once at one that
+        certainly does not -- so the corpus size still comes from what is
+        committed, while neither rate can go vacuous on a runner.
+        """
+        committed = self._committed_artifact_refs()
+        self.assertTrue(committed, "no committed artifact evidence to size the corpus")
+        here = Path(__file__).resolve()
+        existing = [str(here)] * len(committed)
+        missing = [str(here.parent / f"does-not-exist-{i}.md") for i in range(len(committed))]
+
+        checked = sum(1 for r in existing if not self._refused(r))
+        self.assertEqual(checked / len(existing), 1.0)
+        refused = sum(1 for r in missing if self._refused(r))
+        self.assertEqual(refused / len(missing), 1.0)
 
 
 if __name__ == "__main__":
