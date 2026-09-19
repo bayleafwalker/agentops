@@ -41,6 +41,23 @@ python scripts/materialize_project.py setup|sync --project <home-repo>/project.t
   `docs/runbooks/hybrid-dispatch.md` for the historical record.
 - Model IDs and qualification are data in `model-routing.json`.
 
+## Landing
+
+- `gh pr merge --delete-branch` reports four independent outcomes as one exit
+  status: `merge_result`, `remote_branch_cleanup`, `local_branch_cleanup`,
+  `worktree_cleanup`. A failure message names one of them; it does not mean
+  the merge failed.
+- After any `gh pr merge` error, query PR state first
+  (`gh pr view <n> --json state,mergedAt,mergeCommit`) and only retry the
+  merge if the PR is still open. Retrying a merge that already succeeded is
+  the actual failure mode this rule prevents.
+- Local cleanup fails routinely when `main` is checked out in another
+  worktree (`git worktree list`); that is a cleanup outcome, not a merge
+  outcome. Clean up separately: `git worktree remove <path>`, then
+  `git branch -d <branch>`.
+- If you cannot separate the outcomes at the call site, use
+  `--delete-branch=false` and do the cleanup explicitly.
+
 ## Documentation
 
 Keep policy, current implementation, history and plans distinct; mark superseded decisions
