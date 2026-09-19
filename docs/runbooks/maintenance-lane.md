@@ -119,6 +119,17 @@ Two conventions back interrupted-item handoff between sessions: the
    - the validation commands pass when re-run by the coordinator in the worktree;
    - the acceptance criteria are met; tests that encoded old behaviour were
      replaced only where the item made them wrong.
+
+   After the worker reports, run
+   `scripts/check_trajectory_flags.py --gate-file <session gate log> --base <default-branch-sha> --head <worktree-sha>`
+   for trajectory signals the checks above don't see: a test or gate file
+   weakened in the diff (a removed or loosened assert, a skip marker added,
+   a numeric threshold relaxed) or rework churn (`rework_rounds >= 3`, or
+   the same gate command failing three or more times). It always exits 0,
+   including when the gate log is missing, and is purely advisory — never a
+   reject, no CI job, no Opus escalation, no `sprintctl` write. On any flag
+   in its `flags` list, run one additional review-synthesis pass at Sonnet
+   before recording the verdict.
 4. **Record the verdict** on the item:
 
    ```bash
