@@ -19,6 +19,12 @@ argparse CLI is added so the module supports `--help`, `--root`, `--days`,
 and `--out` (write a JSON scorecard instead of printing the diagnostic
 report). The classification and byte-counting logic is unchanged from the
 outctl original.
+
+Extended for agentops#2437 (context-economy Phase 1 arm b, the quote
+verifier): `scan_file` now also retains, per session, the Bash tool-result
+bytes broken down by `classes.cls()` command class, under the new
+`bash_by_class` key. This is additive: existing keys keep their prior
+meaning and existing tests are unaffected. See verify.py for the consumer.
 """
 from __future__ import annotations
 
@@ -26,6 +32,7 @@ import argparse
 import collections
 import datetime
 import glob
+import importlib.util
 import json
 import os
 import re
@@ -38,6 +45,16 @@ ONLYYOU = 'Only you see that command'
 
 GATE_BASH_SHARE = 0.28
 GATE_FILE_READ_SHARE = 0.45
+
+# Load classes.py by path rather than `import classes`: this directory has no
+# __init__.py (matching the sibling modules' convention, see test_measure.py),
+# so it is not an importable package from an arbitrary working directory.
+_classes_spec = importlib.util.spec_from_file_location(
+    'context_economy_classes', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'classes.py')
+)
+_classes = importlib.util.module_from_spec(_classes_spec)
+assert _classes_spec.loader is not None
+_classes_spec.loader.exec_module(_classes)
 
 
 def find_transcripts(root: str, days: int | None = None) -> list[str]:
@@ -59,6 +76,7 @@ def scan_file(path: str, root: str) -> dict:
     n_by_tool = collections.Counter()
     text_chars = 0
     n_bash = n_bash_bounded = n_trunc = n_onlyyou = 0
+    bash_by_class = collections.Counter()
     compactions = 0
     last_usage = None
     first_ts = None
@@ -118,6 +136,7 @@ def scan_file(path: str, root: str) -> dict:
                         n_trunc += 1
                     if ONLYYOU in s:
                         n_onlyyou += 1
+                    bash_by_class[_classes.cls(cmd_of.get(b.get('tool_use_id'), '') or '')] += L
     tool_total = sum(tot_by_tool.values())
     return dict(
         f=os.path.relpath(path, root), sub=is_sub, date=first_ts, msgs=n_msgs, text=text_chars, tools=tool_total,
@@ -125,6 +144,7 @@ def scan_file(path: str, root: str) -> dict:
         onlyyou=n_onlyyou, comp=compactions,
         ctx=(last_usage or {}).get('input_tokens', 0) + (last_usage or {}).get('cache_read_input_tokens', 0) + (last_usage or {}).get('cache_creation_input_tokens', 0),
         bytool=dict(tot_by_tool),
+        bash_by_class=dict(bash_by_class),
     )
 
 
