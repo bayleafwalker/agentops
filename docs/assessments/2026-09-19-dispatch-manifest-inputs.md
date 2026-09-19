@@ -58,12 +58,18 @@ under "Discrepancies with the item text" below):
 | actionq | actionq.dispatch.json | 7 | 1 | unit, integration, docs, full-suite |
 | sprintctl | sprintctl.dispatch.json | 15 | 1 | unit, integration, docs, full-suite |
 | homelab-gitops-template | homelab-gitops-template.dispatch.json | 6 | 1 | kustomize, secrets, docs |
+| aligned-equity | aligned-equity.dispatch.json | 14 | 1 | unit, lint, typecheck, architecture, full-suite, docs |
 
 `actionq-dispatch/actionq-dispatcher.dispatch.json` and
 `actionq-dispatcher/actionq-dispatcher.dispatch.json` are byte-identical
 (`diff` empty) — two directories on devbox carrying the same repo's manifest. Not
 in scope to resolve here; noted so the coordinator doesn't double-count it as two
 repos.
+
+`aligned-equity` is not one of the seven repos the item's step (3) grep scope names
+(agentops, sprintctl, vuoro, auditctl, kctl, actionq, scribectl), so it was not searched
+for consumers in §2/§3 below and contributes no rows to either consumer table; its
+`skills`/`verification` values are inventoried above and nothing else.
 
 ### Not measured on devbox
 
