@@ -100,10 +100,12 @@ artifact (schema and field contract:
 [`session-mechanization-contracts.md`](../../dispatch/session-mechanization-contracts.md))
 and enqueues reconciliation.
 
+Supersession: `templates/dispatch/` was deleted under TS-2 (0baa680, 31a2e3f); the paths below are historical and no longer resolve.
+
 **Implemented (item #1108):**
-[`session-reconciler/SKILL.md`](../../../templates/dispatch/skills/session-reconciler/SKILL.md)
+`templates/dispatch/skills/session-reconciler/SKILL.md`
 is the judgment procedure the fresh dispatched session follows;
-[`session_reconciler.py`](../../../templates/dispatch/scripts/session_reconciler.py)
+`templates/dispatch/scripts/session_reconciler.py`
 is the mechanical half (single-capsule context assembly, idempotence
 guards, single-capsule scope enforcement). It shares the scribe's durable
 cursor, so a capsule reconciled on this path is invisible to the scribe
@@ -142,9 +144,9 @@ reconciliation (Tier 2 above) is only a latency optimization — if it never
 runs, the scribe still converges the record.
 
 **Implemented (item #1107):**
-[`session-scribe/SKILL.md`](../../../templates/dispatch/skills/session-scribe/SKILL.md)
+`templates/dispatch/skills/session-scribe/SKILL.md`
 is the judgment procedure a fresh dispatched session follows;
-[`session_scribe.py`](../../../templates/dispatch/scripts/session_scribe.py)
+`templates/dispatch/scripts/session_scribe.py`
 is the mechanical half (durable cursor, capsule discovery/grouping,
 schema-validated artifact writing). The split follows this plan's own
 product direction: mechanism in code, genuine judgment in a fresh session at
@@ -273,8 +275,8 @@ authority commands. See the matrix for the full assignment.
 - [`session-mechanization-contracts.md`](../../dispatch/session-mechanization-contracts.md)
   — `session-capsule/v1` and `reconciliation-proposal/v1` schemas and field
   contracts (item #1106).
-- [`session-scribe/SKILL.md`](../../../templates/dispatch/skills/session-scribe/SKILL.md)
-  and [`session_scribe.py`](../../../templates/dispatch/scripts/session_scribe.py)
+- `templates/dispatch/skills/session-scribe/SKILL.md`
+  and `templates/dispatch/scripts/session_scribe.py`
   — the canonical periodic scribe implementation (item #1107).
 - `sprintctl/docs/ops-upgrade-plan.md` — ratified product direction (sections 5, 6).
 - `sprintctl/docs/plans/adr-outbox-sync-model.md` — canonical protocol text:

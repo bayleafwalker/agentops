@@ -14,10 +14,10 @@ supersedes: []
 
 References:
 
-- [Findings dossier](/projects/dev/agentops/docs/assessments/vuoro-architecture-findings-2026-07-25.md)
-- [Simplification assessment](/projects/dev/agentops/docs/assessments/vuoro-substrate-simplification-refactoring-assessment-2026-07-26.md)
-- [Operator packet](/projects/dev/agentops/docs/assessments/vuoro-architecture-operator-packet-2026-07-25.md)
-- [Preflight checklist](/projects/dev/agentops/docs/assessments/vuoro-architecture-preflight-checklist-2026-07-25.md)
+- [Findings dossier](vuoro-architecture-findings-2026-07-25.md)
+- [Simplification assessment](vuoro-substrate-simplification-refactoring-assessment-2026-07-26.md)
+- [Operator packet](vuoro-architecture-operator-packet-2026-07-25.md)
+- [Preflight checklist](vuoro-architecture-preflight-checklist-2026-07-25.md)
 
 ## Reconciliation checkpoint (2026-07-28)
 

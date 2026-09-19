@@ -204,7 +204,8 @@ provided databases and secrets and does not require CNPG.
 ## Environment records
 
 The normative shape is
-[`environment-record.schema.json`](../../../templates/dispatch/environment-record/environment-record.schema.json).
+[`environment-record.schema.json`](../../../environment-record/environment-record.schema.json)
+(moved out of `templates/dispatch/`, which was deleted under TS-2; 0baa680, 31a2e3f).
 Records declare environment class, roles, constraints, capabilities, runbook
 references, revision, and identity bindings. They never contain credentials.
 The initial records cover workstation Linux, devbox-vm, `vuoro-dev`, and

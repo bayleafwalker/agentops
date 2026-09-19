@@ -118,16 +118,18 @@ Implemented dispatch contracts:
 
 Semantic-verification contract:
 
+Supersession: `templates/dispatch/` was deleted under TS-2 (0baa680, 31a2e3f); the paths below are historical and no longer resolve.
+
 - [`docs/verification/test-context-packet-v1.md`](../../verification/test-context-packet-v1.md) - data-only packet contract and ownership rules.
-- [`templates/dispatch/schemas/test-context.schema.json`](../../../templates/dispatch/schemas/test-context.schema.json) - sole normative JSON schema.
-- [`templates/dispatch/repository-baseline/`](../../../templates/dispatch/repository-baseline/) - copyable consumer baseline and CI example.
+- `templates/dispatch/schemas/test-context.schema.json` - sole normative JSON schema.
+- `templates/dispatch/repository-baseline/` - copyable consumer baseline and CI example.
 
 Session mechanization contracts:
 
 - [`docs/dispatch/session-mechanization-contracts.md`](../../dispatch/session-mechanization-contracts.md) - `session-capsule/v1` and `reconciliation-proposal/v1` schemas and field contracts.
-- [`templates/dispatch/session-mechanization/`](../../../templates/dispatch/session-mechanization/) - schemas and examples.
-- [`templates/dispatch/skills/session-scribe/SKILL.md`](../../../templates/dispatch/skills/session-scribe/SKILL.md) - the canonical periodic scribe (item #1107): judgment procedure for a fresh dispatched session.
-- [`templates/dispatch/scripts/session_scribe.py`](../../../templates/dispatch/scripts/session_scribe.py) - the scribe's mechanical half: durable cursor, capsule discovery/grouping, validated artifact writing.
+- `templates/dispatch/session-mechanization/` - schemas and examples.
+- `templates/dispatch/skills/session-scribe/SKILL.md` - the canonical periodic scribe (item #1107): judgment procedure for a fresh dispatched session.
+- `templates/dispatch/scripts/session_scribe.py` - the scribe's mechanical half: durable cursor, capsule discovery/grouping, validated artifact writing.
 
 Advisory experiments (delete-by-default; no gate authority):
 
