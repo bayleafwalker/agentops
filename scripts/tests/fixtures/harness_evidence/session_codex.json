@@ -1,0 +1,16 @@
+{
+  "session_id": "sess-2443-codex",
+  "transcript_path": "/home/agent/.codex/sessions/sess-2443-codex.jsonl",
+  "runtime": "codex",
+  "harness": "vuoro",
+  "environment": "prod",
+  "model": "gpt-5-codex",
+  "input_tokens": 5000,
+  "output_tokens": 1200,
+  "context_tokens": 7000,
+  "cost_usd_list": [0.02],
+  "durations": {"wall_seconds": 190.0},
+  "result_class": "success",
+  "terminal_reason": "completed",
+  "codex_trace_id": "4bf92f3577b34da6a3ce929d0e0e4736"
+}

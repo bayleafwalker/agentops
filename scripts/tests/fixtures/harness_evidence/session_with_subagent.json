@@ -1,0 +1,43 @@
+{
+  "session_id": "sess-2443-parent",
+  "transcript_path": "/home/agent/.claude/projects/-projects-dev/sess-2443-parent.jsonl",
+  "runtime": "claude-code",
+  "harness": "vuoro",
+  "environment": "prod",
+  "model": "claude-sonnet-5",
+  "input_tokens": 40000,
+  "output_tokens": 9800,
+  "context_tokens": 61000,
+  "cost_usd_list": [0.31],
+  "durations": {"wall_seconds": 2600.0},
+  "result_class": "success",
+  "terminal_reason": "completed",
+  "gates": [],
+  "rework_rounds": 1,
+  "subagents": [
+    {
+      "subagent_id": "agent-a5d642b86112f09ec",
+      "parent_transcript_path": "/home/agent/.claude/projects/-projects-dev/sess-2443-parent.jsonl",
+      "runtime": "claude-code",
+      "harness": "vuoro",
+      "model": "claude-sonnet-5",
+      "input_tokens": 9000,
+      "output_tokens": 2100,
+      "durations": {"wall_seconds": 340.0},
+      "result_class": "success",
+      "terminal_reason": "completed"
+    },
+    {
+      "subagent_id": "agent-b1c2d3e4f5061708",
+      "parent_transcript_path": "/home/agent/.claude/projects/-projects-dev/some-unrelated-session.jsonl",
+      "runtime": "claude-code",
+      "harness": "vuoro",
+      "model": "claude-sonnet-5",
+      "input_tokens": 500,
+      "output_tokens": 90,
+      "durations": {"wall_seconds": 12.0},
+      "result_class": "cancelled",
+      "terminal_reason": "cancelled"
+    }
+  ]
+}

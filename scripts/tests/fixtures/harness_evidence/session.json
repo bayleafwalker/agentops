@@ -1,0 +1,21 @@
+{
+  "session_id": "sess-2443-interactive",
+  "transcript_path": "/home/agent/.claude/projects/-projects-dev/sess-2443-interactive.jsonl",
+  "runtime": "claude-code",
+  "harness": "vuoro",
+  "environment": "prod",
+  "model": "claude-sonnet-5",
+  "input_tokens": 12000,
+  "output_tokens": 3400,
+  "context_tokens": 18000,
+  "cost_usd_list": [0.045],
+  "durations": {"wall_seconds": 812.5, "queue_seconds": 1.2},
+  "result_class": "success",
+  "terminal_reason": "completed",
+  "gates": [{"cmd": "pytest scripts/tests", "ok": true}],
+  "rework_rounds": 0,
+  "windows": {
+    "5h": {"used_percent": 42.5, "resets_at": "2026-09-19T18:00:00Z"},
+    "7d": {"used_percent": 11.0, "resets_at": "2026-09-25T00:00:00Z"}
+  }
+}
