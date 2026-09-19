@@ -456,6 +456,14 @@ The cockpit pod runs in the `appservice` namespace. It requires:
 
 Auth is network-identity-based (cluster-internal or Tailscale). No per-user login in the single-operator homelab configuration.
 
+**Cockpit inputs against the NFS tree** (recorded in the #2380 WP1 planner
+report; manifests not present on this host to re-verify mount specs against):
+
+- `COCKPIT_ARTIFACTS_ROOT=/projects/dev` audit feed.
+- Runner workspace `/runner-workspace/agentops`, as of 2026-07-22.
+- Read-write `.cockpit-triggers` subPath mount.
+- Headroom files.
+
 ### Artifact Root
 
 `_artifacts/` is a sibling directory of the project repos under `/projects/dev`.
@@ -477,6 +485,37 @@ the owning served systems.
 ```
 
 The cockpit pod mounts this as a read-only NFS volume.
+
+### NFS Workspace Status and Consumer Inventory (pre-retirement)
+
+The TrueNAS NFS copy at `/mnt/truenas/storage_layer/projects/dev` is a legacy
+workspace: per the workstation Btrfs migration decision, it is the migration
+source and an emergency-recovery location, "not a writable Git workspace after
+cutover" (gitops-nixos `docs/runbooks/workstation-projects-btrfs-migration.md:3-8`).
+The headroom timer is its intended writer.
+
+The cockpit's read-only mount (documented above) is one consumer among
+several. This is the full inventory of what reads or writes that tree,
+recorded here so an eventual export restriction has a denominator to check
+against:
+
+| Consumer | Access | Note |
+| --- | --- | --- |
+| code-server | RW, uid 568 | Read-write access at this uid was never recorded as a decision anywhere; this inventory is where that gap is now named. No rationale is recorded, and none is supplied here — naming the gap is the deliverable, not resolving it. |
+| cockpit | RO, plus RW `.cockpit-triggers` subPath | RO mount per "Cockpit Pod" above; the `.cockpit-triggers` subPath is separately read-write. |
+| workspace-backup | RO, plus an authority contract | Authority contract not re-verified against a manifest on this host. |
+| workstation writers | — | Recorded in the #2380 WP1 planner report; not independently confirmed against a manifest on this host. |
+| TrueNAS B2 task | — | Recorded in the #2380 WP1 planner report; not independently confirmed against a manifest on this host. |
+
+Only the "legacy workspace" and "headroom timer" claims are verified against
+a file on this host. Every row of the table above, and every item in the
+cockpit-inputs list, is sourced from the #2380 WP1 planner report (2026-09-14)
+and has not been re-verified against a manifest here.
+
+Any restriction on NFS exports is sequenced strictly after this consumer
+inventory exists — named as a requirement in the appservice
+`cluster-health-remediation-2026-07-30-vscode-shell-retirement.md` doc (not
+read on this host; cited as a named source only, not quoted).
 
 ---
 
