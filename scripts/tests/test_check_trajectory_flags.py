@@ -209,6 +209,88 @@ class ReworkGateLogTests(unittest.TestCase):
         self.assertEqual(result["flags"], [])
         self.assertEqual(result["review_passes"], 0)
 
+    def test_invalid_utf8_row_is_skipped_not_fatal(self):
+        """A gate log accumulates raw command text and scraped stdout, so a
+        stray non-UTF-8 byte is plausible (agentops#2440 rework round 1,
+        defect 1). It must degrade like a missing file: the bad line is
+        dropped, valid rows around it still count, exit is still 0."""
+        gate_file = Path(self._tmp.name) / "bad-utf8.jsonl"
+        gate_file.write_bytes(
+            b'{"cmd": "pytest -q", "ok": false}\n'
+            b'\xff\xfe not valid utf-8 junk\n'
+            b'{"cmd": "pytest -q", "ok": false}\n'
+            b'{"cmd": "pytest -q", "ok": false}\n'
+            b'{"cmd": "pytest -q", "ok": true}\n'
+        )
+        code, result = self._run(gate_file)
+        self.assertEqual(code, 0)
+        self.assertTrue(any(f["kind"] == "rework" for f in result["flags"]), result)
+        rows = checker.load_gate_rows(str(gate_file))
+        self.assertEqual(len(rows), 4)
+
+
+class WeakeningScanPerformanceTests(unittest.TestCase):
+    """The weakening scan must not be O(removed x added) per file
+    (agentops#2440 rework round 1, defect 2): a wholesale rewrite of a
+    several-thousand-line test file used to hang."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.repo = Path(self._tmp.name)
+        self._git("init", "-q", "-b", "main")
+        self._git("config", "user.email", "t@t.invalid")
+        self._git("config", "user.name", "t")
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _git(self, *args: str) -> str:
+        return subprocess.run(
+            ["git", *args], cwd=self.repo, capture_output=True, text=True, check=True,
+        ).stdout
+
+    def _write(self, rel: str, content: str) -> None:
+        path = self.repo / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+
+    def _commit(self, message: str) -> str:
+        self._git("add", "-A")
+        self._git("commit", "-qm", message)
+        return self._git("rev-parse", "HEAD").strip()
+
+    def test_large_wholesale_rewrite_completes_quickly(self):
+        import os
+        import time
+
+        n = 4000
+        self._write(
+            "tests/test_big.py",
+            "".join(f"def test_{i}():\n    assert value_{i} == {i}\n"
+                    for i in range(n)),
+        )
+        base = self._commit("base")
+        self._write(
+            "tests/test_big.py",
+            "".join(f"def test_{i}():\n    assert value_{i} == {i + 1}\n"
+                    for i in range(n)),
+        )
+        head = self._commit("wholesale rewrite")
+
+        cwd = os.getcwd()
+        os.chdir(self.repo)
+        try:
+            started = time.monotonic()
+            flags = checker.find_weakenings(base, head)
+            elapsed = time.monotonic() - started
+        finally:
+            os.chdir(cwd)
+
+        # A generous bound: the point is "not quadratic", not a tight budget.
+        self.assertLess(elapsed, 15.0,
+                         f"weakening scan took {elapsed:.1f}s over {n} changed lines")
+        self.assertTrue(flags)
+
 
 if __name__ == "__main__":
     unittest.main()

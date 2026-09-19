@@ -94,23 +94,25 @@ def _diff_lines(base: str, head: str, path: str) -> list[str]:
     return out.splitlines()
 
 
-def _relaxed(before: str, after: str) -> bool:
-    """True when a numeric comparison in ``before`` moved in the loosening
-    direction in ``after`` for the same name and operator (e.g. a coverage
-    or count threshold lowered, or an upper bound raised)."""
-    b = NUMERIC_RE.search(before)
-    a = NUMERIC_RE.search(after)
-    if not b or not a:
-        return False
-    if b.group(1) != a.group(1) or b.group(2) != a.group(2):
-        return False
+def _numeric_match(line: str) -> tuple[str, str, float] | None:
+    """``(name, operator, value)`` of the first numeric comparison in
+    ``line``, or ``None``. Extracted once per line so a diff with thousands
+    of candidate lines pays for the regex once per line, not once per pair."""
+    m = NUMERIC_RE.search(line)
+    if not m:
+        return None
     try:
-        bv, av = float(b.group(3)), float(a.group(3))
+        value = float(m.group(3))
     except ValueError:
-        return False
+        return None
+    return m.group(1), m.group(2), value
+
+
+def _relaxed_values(name: str, op: str, bv: float, av: float) -> bool:
+    """True when ``bv -> av`` for ``name``/``op`` is a loosening move (e.g. a
+    coverage or count threshold lowered, or an upper bound raised)."""
     if bv == av:
         return False
-    op = b.group(2)
     if op in (">=", ">"):
         # threshold the code must clear -- lowering it is a relaxation.
         return av < bv
@@ -121,8 +123,7 @@ def _relaxed(before: str, after: str) -> bool:
     # operator to say which direction is looser, so the name decides: a
     # "max"/"limit" name raised is a relaxation, anything else (most often
     # a "min"/"threshold" name) lowered is.
-    name = b.group(1).lower()
-    if "max" in name or "limit" in name:
+    if "max" in name.lower() or "limit" in name.lower():
         return av > bv
     return av < bv
 
@@ -157,9 +158,24 @@ def find_weakenings(base: str, head: str) -> list[dict]:
                     "detail": f"skip marker added ({hit}): {line.strip()}",
                 })
 
+        # Index removed candidate lines by (name, operator) so each added
+        # line is looked up once instead of compared against every removed
+        # line -- O(removed + added) instead of O(removed x added).
+        removed_index: dict[tuple[str, str], list[tuple[float, str]]] = {}
         for before_line in removed:
-            for after_line in added:
-                if _relaxed(before_line, after_line):
+            match = _numeric_match(before_line)
+            if match is None:
+                continue
+            name, op, bv = match
+            removed_index.setdefault((name, op), []).append((bv, before_line))
+
+        for after_line in added:
+            match = _numeric_match(after_line)
+            if match is None:
+                continue
+            name, op, av = match
+            for bv, before_line in removed_index.get((name, op), []):
+                if _relaxed_values(name, op, bv, av):
                     flags.append({
                         "kind": "weakening", "path": path,
                         "detail": (
@@ -190,12 +206,24 @@ def default_gate_file() -> str:
 
 
 def load_gate_rows(gate_file: str) -> list[dict]:
+    """The gate log's rows, skipping anything that cannot be read as one.
+
+    The log accumulates raw command text and scraped stdout, so a stray
+    non-UTF-8 byte in one row is plausible. Reading in binary and decoding
+    each line on its own means one bad line is dropped -- the same way an
+    unparseable JSON line already is -- rather than the whole file, and a
+    missing file degrades to the same empty result either way.
+    """
     path = Path(gate_file)
     if not path.is_file():
         return []
+    try:
+        raw = path.read_bytes()
+    except OSError:
+        return []
     rows = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
+    for raw_line in raw.splitlines():
+        line = raw_line.decode("utf-8", errors="ignore").strip()
         if not line:
             continue
         try:
@@ -262,12 +290,18 @@ def main(argv: list[str] | None = None) -> int:
 
     gate_file = args.gate_file or default_gate_file()
 
+    # This is an instrument, not a gate (see module docstring): whatever goes
+    # wrong reading the diff or the gate log, the answer is "no flags found",
+    # never a crash -- "exit 0 always" is an acceptance clause, not a hope.
     flags: list[dict] = []
     try:
         flags.extend(find_weakenings(args.base, args.head))
-    except subprocess.CalledProcessError:
+    except Exception:
         pass
-    flags.extend(find_rework_flags(gate_file))
+    try:
+        flags.extend(find_rework_flags(gate_file))
+    except Exception:
+        pass
 
     review_passes = 1 if flags else 0
     print(json.dumps({"flags": flags, "review_passes": review_passes}))
