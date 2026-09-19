@@ -1,0 +1,40 @@
+{
+  "bash_share": {
+    "denominator_chars": 1877174,
+    "gate": "below 28 percent of context",
+    "gate_threshold": 0.28,
+    "numerator_chars": 1095814,
+    "pass": false,
+    "value": 0.5837572862185392
+  },
+  "caveats": {
+    "corpus_is_live": "The measured corpus includes the transcript of the session doing the measuring, so it grows during the run. A re-run minutes later over the same 44 transcripts read denominator 1909299 and bash_share 0.58465. This is a snapshot, not a value reproducible to the digit; the gate verdicts are stable.",
+    "read_share_counts_the_Read_tool_only": "file_read_share is Read-tool result bytes over context, the direct analogue of the outctl study's bash share. File reads performed through Bash (cat, sed -n, head) are classified as Bash, not as file reads. This host's CLAUDE.md instructs Bash-first file reading while bypass-permissions mode is active, so the two shares here are not comparable to a host that reads through the Read tool: some of the Bash numerator is file reading. Both gate verdicts hold regardless, being far from their thresholds."
+  },
+  "file_read_share": {
+    "denominator_chars": 1877174,
+    "gate": "below 45 percent of context",
+    "gate_threshold": 0.45,
+    "numerator_chars": 94642,
+    "pass": true,
+    "value": 0.05041727618217597
+  },
+  "provenance": {
+    "host": "devbox",
+    "measured_at_utc": "2026-09-19T12:36:51.328902+00:00",
+    "outctl_commit": "94840d7",
+    "source_path": "studies/context-economy/{measure.py,classes.py,waste.py}",
+    "source_repo": "outctl (retired)"
+  },
+  "study": "context-economy-phase1",
+  "transcripts": {
+    "count": 44,
+    "date_range_utc": {
+      "end": "2026-09-19",
+      "inclusive": true,
+      "start": "2026-08-30"
+    },
+    "days_filter": 30,
+    "root": "/home/agent/.claude/projects"
+  }
+}
