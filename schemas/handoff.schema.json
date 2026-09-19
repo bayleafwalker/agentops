@@ -91,7 +91,27 @@
         "digest_version": {
           "type": "integer",
           "minimum": 1,
-          "description": "Which definition of diff_sha256 every repo in this handoff was recorded under. Absent means 1. 1 = sha256 over `git diff HEAD` bytes then `git status --porcelain` bytes. 2 = that, then one `NUL <path> NUL <sha256 of contents>` record per untracked non-ignored file (`git ls-files --others --exclude-standard`), sorted by path bytes, contents hashed as bytes so binaries are covered. v1 is blind to content changes in untracked files, which is why v2 exists; validate recomputes the definition the file declares, so v1 handoffs keep validating."
+          "description": "Which definition of diff_sha256 every repo in this handoff was recorded under. Absent means 1. 1 = sha256 over `git diff HEAD` bytes then `git status --porcelain` bytes. 2 = that, then one `NUL <path> NUL <sha256 of contents>` record per untracked non-ignored file (`git ls-files --others --exclude-standard`), sorted by path bytes, contents hashed as bytes so binaries are covered. 3 = identical diff computation to 2; the bump instead marks that state.tracker_watermark is populated by this build's create, so its absence unambiguously means written before the live-tracker re-check existed. v1 is blind to content changes in untracked files, which is why v2 exists; validate recomputes the definition the file declares, so v1 and v2 handoffs keep validating."
+        },
+        "tracker_watermark": {
+          "type": "array",
+          "description": "Optional. Live sprintctl status/status_revision, recorded at create time, for every item id named in next_action or the sprintctl bundle. Absent on handoffs written before this existed -- validate then skips the live-tracker re-check entirely (mandatory for new, flagged for old). Present but empty means create found no item ids to watermark, which validates the same as absent.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["item_id", "status", "status_revision"],
+            "properties": {
+              "item_id": {"type": "string", "minLength": 1},
+              "status": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+              "status_revision": {
+                "oneOf": [
+                  {"type": "integer"},
+                  {"type": "string", "minLength": 1},
+                  {"type": "null"}
+                ]
+              }
+            }
+          }
         },
         "repos": {
           "type": "array",

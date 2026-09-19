@@ -12,23 +12,38 @@ read back -- the ack guard, the validator and the SessionStart injection all rea
 the JSON. That is the owner decision recorded in the plan; a prose file cannot be
 rename-acked without a parser nobody wants to own.
 
-`diff_sha256` has two definitions, distinguished by `state.digest_version`:
+`diff_sha256` has three definitions, distinguished by `state.digest_version`:
 
     v1 (default when the field is absent): sha256 over the bytes of
        `git diff HEAD` followed immediately by the bytes of
        `git status --porcelain`, both run in the repo path, no separator.
-    v2 (what `create` writes): v1's two inputs, then, for each untracked
-       non-ignored file (`git ls-files --others --exclude-standard`, sorted by
-       path bytes), the record `NUL <path bytes> NUL <content sha256 hex>`.
+    v2: v1's two inputs, then, for each untracked non-ignored file
+       (`git ls-files --others --exclude-standard`, sorted by path bytes),
+       the record `NUL <path bytes> NUL <content sha256 hex>`.
+    v3 (what `create` writes): v2's diff computation, unchanged -- the bump
+       marks a different thing, that `state.tracker_watermark` (below) is
+       only ever populated by a `create` that writes v3, so its absence
+       unambiguously means "written before the live-tracker re-check
+       existed" and `validate` skips that re-check rather than refusing
+       every handoff written before it.
 
 v1 is blind to *content* changes in untracked files: `git status --porcelain`
 names an untracked path but never its bytes, so editing an untracked file left
 the digest unmoved (phase-4 acceptance finding). v2 closes that. Old handoffs
-keep validating under v1 because the file declares which definition it used;
-`validate` computes the definition the file declares, never the newest one.
+keep validating under v1 (or v2) because the file declares which definition it
+used; `validate` computes the definition the file declares, never the newest
+one.
 
 Either way a successor that recomputes the digest is asserting "the working tree
-is the one described here", not merely "HEAD matches".
+is the one described here", not merely "HEAD matches". That is a claim about
+the git basis only -- it says nothing about whether the tracker items this
+handoff names are still in the state it recorded. `state.tracker_watermark`
+closes that gap: at `create`, each item id named in the sprintctl bundle or in
+`next_action` is looked up live and its status/status_revision recorded; at
+`validate`, the same items are looked up again and a handoff is refused if an
+item is now done or its status_revision has moved. An absent or failing
+sprintctl skips the lookup at both ends -- same meaning as `--no-tree-check`,
+skip not fail -- so this build never blocks on a tracker that is not there.
 
 No third-party dependencies (PyYAML is used only if a draft is YAML and only if
 it happens to be importable; JSON drafts never need it). Schema validation reuses
@@ -39,8 +54,12 @@ Subcommands
     create    gather repo state, embed the sprintctl bundle by reference, write
               docs/dispatch/handoffs/<date>-<slug>.v<N>.json plus a rendered .md
     validate  schema, repo paths exist, head resolves, diff_sha256 matches *now*,
-              next_action non-empty. Nonzero exit and a plain message on a stale
-              diff -- that refusal is the point of the field
+              next_action non-empty, evidence refs of kind `artifact` exist (and
+              match their recorded sha256, if any), and live tracker state for
+              every watermarked item still matches what `create` recorded.
+              Nonzero exit and a plain message on a stale diff, a missing or
+              mismatched evidence ref, or a moved tracker item -- those
+              refusals are the point of the fields
     prompt    render the successor's first prompt on stdout
     ack       set successor.session_id atomically; refuse if already set, naming
               the live successor. The single-active-successor guard
@@ -143,7 +162,7 @@ def untracked_records(repo: Path,
 
 
 DIGEST_VERSION_DEFAULT = 1   # what a handoff without state.digest_version means
-DIGEST_VERSION_CURRENT = 2   # what `create` writes
+DIGEST_VERSION_CURRENT = 3   # what `create` writes
 
 
 def diff_sha256(repo: Path, digest_version: int = DIGEST_VERSION_CURRENT,
@@ -161,10 +180,10 @@ def diff_sha256(repo: Path, digest_version: int = DIGEST_VERSION_CURRENT,
     is written. `status --porcelain` lines naming them are dropped for the same
     reason.
     """
-    if digest_version not in (1, 2):
+    if digest_version not in (1, 2, 3):
         raise HandoffError(
             f"unknown state.digest_version {digest_version!r}: this build "
-            f"understands 1 and 2. A newer handoff needs a newer agentops.")
+            f"understands 1, 2 and 3. A newer handoff needs a newer agentops.")
     digest = hashlib.sha256()
     digest.update(_git(repo, "diff", "HEAD").encode())
     porcelain = _git(repo, "status", "--porcelain")
@@ -260,6 +279,108 @@ def sprintctl_bundle(repo: Path, out_path: Path) -> dict[str, Any] | None:
         "sha256": hashlib.sha256(payload.encode()).hexdigest(),
         "generated_at": bundle.get("generated_at"),
     }
+
+
+# --------------------------------------------------------------------------
+# tracker watermark: live sprintctl item state, re-checked at validate
+
+# Deliberately narrow: this finds the item ids a handoff *names*, it does not
+# parse a dispatch loop's claims or build a general extractor -- two prior
+# attempts at this item did that and were dropped for it. `next_action` names
+# an item either as `item <id>` or `#<id>`; both forms are already in real use
+# (see docs/assessments/2026-09-19-backlog-reconciliation.items.json).
+_ITEM_ID_RE = re.compile(r"\bitem\s+#?(\d+)\b|#(\d+)\b", re.IGNORECASE)
+
+
+def _item_ids_in_text(text: str) -> list[str]:
+    ids = []
+    for match in _ITEM_ID_RE.finditer(text or ""):
+        ids.append(match.group(1) or match.group(2))
+    return ids
+
+
+def _item_ids_in_bundle(bundle: dict[str, Any] | None) -> list[str]:
+    """Item ids the sprintctl bundle itself names, best effort.
+
+    The bundle is sprintctl's own JSON, carried by this file only as a path
+    plus digest (`sprintctl_bundle`, above); its shape is sprintctl's to
+    change. This reads the two shapes sprintctl is known to emit -- a
+    top-level `items` list and/or a single `item` object, each keyed by `id`
+    -- and ignores everything else rather than guessing at a schema this file
+    does not own.
+    """
+    ids: list[str] = []
+    if not isinstance(bundle, dict):
+        return ids
+    for item in bundle.get("items") or []:
+        if isinstance(item, dict) and item.get("id") is not None:
+            ids.append(str(item["id"]))
+        elif isinstance(item, (str, int)):
+            ids.append(str(item))
+    single = bundle.get("item")
+    if isinstance(single, dict) and single.get("id") is not None:
+        ids.append(str(single["id"]))
+    return ids
+
+
+def _referenced_item_ids(next_action: str,
+                         bundle: dict[str, Any] | None) -> list[str]:
+    """Every item id named in `next_action` or the sprintctl bundle, deduped."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for item_id in [*_item_ids_in_text(next_action), *_item_ids_in_bundle(bundle)]:
+        if item_id not in seen:
+            seen.add(item_id)
+            out.append(item_id)
+    return out
+
+
+def sprintctl_item_show(repo: Path, item_id: str) -> dict[str, Any] | None:
+    """Live `sprintctl item show` state for one item, or None.
+
+    None means "could not ask" -- sprintctl missing, offline, erroring or
+    answering with something other than JSON -- and is not itself a refusal:
+    exactly `sprintctl_bundle`'s meaning for an absent or failing sprintctl.
+    A module-level function so tests inject a fake by monkeypatching
+    `handoff.sprintctl_item_show`, the same shape as `SSHTransport` standing
+    in for `ssh` -- no test may depend on a live sprintctl.
+    """
+    try:
+        proc = subprocess.run(
+            ["sprintctl", "item", "show", "--id", str(item_id), "--json"],
+            cwd=str(repo), capture_output=True, text=True)
+    except OSError:
+        return None
+    if proc.returncode != 0 or not proc.stdout.strip():
+        return None
+    try:
+        record = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return None
+    return record if isinstance(record, dict) else None
+
+
+def tracker_watermark(repo: Path, next_action: str,
+                      bundle: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """The live status/status_revision of every item this handoff names.
+
+    Recorded once, at `create` time, so `validate` has something to compare
+    live state against later. An item sprintctl cannot be asked about right
+    now (absent or failing sprintctl) is simply left out -- not recorded as
+    unknown, not a refusal -- so a handoff created without sprintctl carries
+    an empty watermark rather than a partially-guessed one.
+    """
+    watermark = []
+    for item_id in _referenced_item_ids(next_action, bundle):
+        record = sprintctl_item_show(repo, item_id)
+        if record is None:
+            continue
+        watermark.append({
+            "item_id": item_id,
+            "status": record.get("status"),
+            "status_revision": record.get("status_revision"),
+        })
+    return watermark
 
 
 # --------------------------------------------------------------------------
@@ -375,6 +496,7 @@ def build(
     predecessor: dict[str, Any],
     bundle_ref: dict[str, Any] | None,
     digest_version: int = DIGEST_VERSION_CURRENT,
+    tracker_watermark: list[dict[str, Any]] | None = None,
     origin_host: str | None = None,
     origin_path: str | None = None,
     origin_cwd: str | None = None,
@@ -398,6 +520,7 @@ def build(
             "repos": repos,
             "running": running,
             "digest_version": digest_version,
+            "tracker_watermark": tracker_watermark or [],
         },
         "unresolved": unresolved,
         "evidence": evidence,
@@ -561,6 +684,88 @@ def handoff_outputs(file: Path | str | None) -> list[Path]:
             for suffix in (".json", ".md", ".sprintctl-bundle.json")]
 
 
+_EVIDENCE_REF_SHA_RE = re.compile(r"^(?P<ref>.+)#sha256=(?P<sha>[0-9a-f]{64})$")
+
+
+def _evidence_problems(handoff: dict[str, Any]) -> list[str]:
+    """Refuse a handoff whose `evidence[]` outranks reality.
+
+    Only `kind: artifact` refs name a file or path -- the other three kinds
+    (`session`, `auditctl`, `sprintctl`) name things this file has no business
+    stat'ing. A ref may carry its recorded content hash as a `#sha256=<hex>`
+    suffix; when it does, a mismatch is refused exactly like a missing file
+    is, not merely warned about -- that is the defect this item names: a
+    handoff citing a plan path that did not exist was discovered by an
+    operator, not by validate.
+    """
+    problems = []
+    for entry in handoff.get("evidence") or []:
+        if entry.get("kind") != "artifact":
+            continue
+        raw_ref = entry.get("ref", "")
+        match = _EVIDENCE_REF_SHA_RE.match(raw_ref)
+        ref, expected_sha = (match.group("ref"), match.group("sha")) if match else (raw_ref, None)
+        path = Path(ref)
+        if not path.is_absolute():
+            path = REPO_ROOT / path
+        if not path.is_file():
+            problems.append(
+                f"evidence: artifact {raw_ref!r} does not exist ({path}); refusing")
+            continue
+        if expected_sha:
+            actual_sha = hashlib.sha256(path.read_bytes()).hexdigest()
+            if actual_sha != expected_sha:
+                problems.append(
+                    f"evidence: artifact {raw_ref!r} sha256 mismatch — recorded "
+                    f"{expected_sha}, file is now {actual_sha}; refusing")
+    return problems
+
+
+def _tracker_problems(handoff: dict[str, Any]) -> list[str]:
+    """Refuse a handoff whose watermarked tracker items have moved.
+
+    `state.tracker_watermark` is absent on every handoff written before this
+    check existed -- mandatory for new, flagged for old, exactly like
+    `state.digest_version`'s own rollout -- so absence skips this entirely
+    rather than refusing every handoff ever written. An empty watermark (no
+    item ids were named) also has nothing to check: that is the "no item refs
+    ... validates unchanged" case, not a special case here. sprintctl being
+    absent or failing skips the item it could not ask about, same meaning as
+    everywhere else sprintctl is optional in this file; not gated behind
+    `--no-tree-check`, which is about the git basis only.
+    """
+    watermark = handoff["state"].get("tracker_watermark")
+    if not watermark:
+        return []
+    repos = handoff["state"].get("repos") or []
+    if not repos:
+        return []
+    repo = Path(repos[0]["path"])
+    if not repo.is_dir():
+        return []
+    problems = []
+    for recorded in watermark:
+        item_id = recorded["item_id"]
+        live = sprintctl_item_show(repo, item_id)
+        if live is None:
+            continue
+        live_status = live.get("status")
+        live_revision = live.get("status_revision")
+        recorded_revision = recorded.get("status_revision")
+        if live_status == "done":
+            problems.append(
+                f"tracker: item {item_id} is done (recorded status_revision "
+                f"{recorded_revision!r}, current {live_revision!r}); this "
+                "handoff's tracker claim is stale, refusing")
+        elif live_revision != recorded_revision:
+            problems.append(
+                f"tracker: item {item_id} status_revision has moved (recorded "
+                f"{recorded_revision!r}, current {live_revision!r}); live "
+                "tracker state has changed since this handoff was created, "
+                "refusing")
+    return problems
+
+
 def validate_handoff(handoff: dict[str, Any], *, check_tree: bool = True,
                      file: Path | str | None = None) -> list[str]:
     """Return refusal messages, empty when the handoff is usable right now."""
@@ -602,6 +807,11 @@ def validate_handoff(handoff: dict[str, Any], *, check_tree: bool = True,
                 f"{repo['diff_sha256'][:16]}, "
                 f"working tree is now {now[:16]}. The tree is not the one the "
                 f"predecessor left; refusing.")
+    # Live tracker precedence: the git basis matching is not enough, a handoff
+    # must not be able to outrank tracker state it cites. Neither check below
+    # is gated by `check_tree` -- that flag is about the diff comparison only.
+    problems += _evidence_problems(handoff)
+    problems += _tracker_problems(handoff)
     return problems
 
 
@@ -775,9 +985,19 @@ def cmd_create(args: argparse.Namespace) -> int:
     ]
 
     bundle_ref = None
+    bundle_json = None
     if not args.no_sprintctl:
         bundle_ref = sprintctl_bundle(
             Path(repos[0]["path"]), out_dir / f"{stem}.sprintctl-bundle.json")
+        if bundle_ref:
+            try:
+                bundle_json = json.loads(
+                    (out_dir / f"{stem}.sprintctl-bundle.json").read_text())
+            except (OSError, json.JSONDecodeError):
+                bundle_json = None
+
+    watermark = tracker_watermark(
+        Path(repos[0]["path"]), str(next_action).strip(), bundle_json)
 
     predecessor = {
         "harness": args.harness or draft.get("harness") or "claude-code",
@@ -804,6 +1024,7 @@ def cmd_create(args: argparse.Namespace) -> int:
         predecessor=predecessor,
         bundle_ref=bundle_ref,
         digest_version=DIGEST_VERSION_CURRENT,
+        tracker_watermark=watermark,
         # Stamped now, while this host still is the origin. After an scp the
         # copy on the successor's host has no other way to know where the
         # authoritative file lives.

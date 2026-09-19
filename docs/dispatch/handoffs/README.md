@@ -29,7 +29,7 @@ Acceptance procedure: `../../verification/handoff-v1-successor-isolation.md`.
 ## `diff_sha256` and `state.digest_version`
 
 `diff_sha256` is what lets a successor prove the working tree is the one the
-predecessor left; a mismatch is a refusal, never a warning. It has two
+predecessor left; a mismatch is a refusal, never a warning. It has three
 definitions, and `state.digest_version` says which one a given handoff used.
 `validate` recomputes **the definition the file declares**, so nothing written
 under the old one starts refusing.
@@ -37,7 +37,8 @@ under the old one starts refusing.
 | `state.digest_version` | Definition |
 |---|---|
 | absent, or `1` | sha256 over the bytes of `git diff HEAD` followed by the bytes of `git status --porcelain`, both run in the repo path, no separator |
-| `2` — what `create` writes today | v1's two inputs, then, for each untracked non-ignored file (`git ls-files --others --exclude-standard`, sorted by raw path bytes), the record `NUL <path bytes> NUL <sha256 of contents, lowercase hex>` |
+| `2` | v1's two inputs, then, for each untracked non-ignored file (`git ls-files --others --exclude-standard`, sorted by raw path bytes), the record `NUL <path bytes> NUL <sha256 of contents, lowercase hex>` |
+| `3` — what `create` writes today | the same digest computation as v2. The bump marks instead that `state.tracker_watermark` is populated by this build's `create`, so its absence unambiguously means "written before the live-tracker re-check existed" and `validate` skips that re-check rather than refusing every older handoff |
 
 v2 exists because v1 was blind to *content* changes in untracked files:
 `git status --porcelain` names an untracked path but never its bytes, so editing
