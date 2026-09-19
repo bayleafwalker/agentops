@@ -7,9 +7,9 @@ This is the operator entrypoint for the assessment. It coordinates repository-ow
 
 ## Documents
 
-1. [Findings dossier](/projects/dev/agentops/docs/assessments/vuoro-architecture-findings-2026-07-25.md) - corrected evidence and status.
-2. [Implementation plan](/projects/dev/agentops/docs/assessments/vuoro-architecture-implementation-plan-2026-07-25.md) - dependency-aware reasoning units and review gates.
-3. [Preflight checklist](/projects/dev/agentops/docs/assessments/vuoro-architecture-preflight-checklist-2026-07-25.md) - authorization, evidence, and safety checks.
+1. [Findings dossier](vuoro-architecture-findings-2026-07-25.md) - corrected evidence and status.
+2. [Implementation plan](vuoro-architecture-implementation-plan-2026-07-25.md) - dependency-aware reasoning units and review gates.
+3. [Preflight checklist](vuoro-architecture-preflight-checklist-2026-07-25.md) - authorization, evidence, and safety checks.
 
 ## Corrected execution order
 

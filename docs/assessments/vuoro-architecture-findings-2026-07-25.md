@@ -181,4 +181,4 @@ For each command choose `implemented`, `intentionally unavailable`, or `owner CL
 - `H1`: F6 handoff portability contract, independent.
 - `O1/O2`: F8 authority decision then truthful/implemented CLI surface.
 
-The executable plan is [vuoro-architecture-implementation-plan-2026-07-25.md](/projects/dev/agentops/docs/assessments/vuoro-architecture-implementation-plan-2026-07-25.md).
+The executable plan is [vuoro-architecture-implementation-plan-2026-07-25.md](vuoro-architecture-implementation-plan-2026-07-25.md).

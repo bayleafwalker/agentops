@@ -99,7 +99,8 @@ This establishes the source-inspection prerequisite; deployment verification
 and usable client credentials remain separate gates.
 
 Agentops now provides ephemeral validation inputs in
-[`templates/dispatch/environment-record/`](../../../templates/dispatch/environment-record/):
+[`environment-record/`](../../../environment-record/) (moved out of
+`templates/dispatch/`, which was deleted under TS-2; 0baa680, 31a2e3f):
 
 - validated workstation and devbox-vm environment records;
 - separate `vuoro-shared` profiles with file credential references and the
