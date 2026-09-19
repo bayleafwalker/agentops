@@ -230,6 +230,21 @@ class TagParsingTests(unittest.TestCase):
     def test_no_model_tag_yields_none(self):
         self.assertIsNone(mlr._model_key(["lane", "tier:fast-build"]))
 
+    def test_short_label_is_aliased_to_harness_model_id(self):
+        self.assertEqual(mlr._model_key(["model:sonnet"]), "claude-sonnet-5")
+        self.assertEqual(mlr._model_key(["model:opus"]), "claude-opus-5")
+        self.assertEqual(mlr._model_key(["model:haiku"]), "claude-haiku-4-5")
+
+    def test_alias_and_canonical_label_collapse_to_one_key(self):
+        self.assertEqual(mlr._model_key(["model:sonnet"]), mlr._model_key(["model:claude-sonnet-5"]))
+
+    def test_multi_model_tags_are_aliased_before_sorted_join(self):
+        tags = ["lane", "model:opus", "model:sonnet"]
+        self.assertEqual(mlr._model_key(tags), "claude-opus-5+claude-sonnet-5")
+
+    def test_unknown_model_label_passes_through_unchanged(self):
+        self.assertEqual(mlr._model_key(["model:local3090/devstral"]), "local3090/devstral")
+
 
 # --------------------------------------------------------------------------
 # Per tier / model aggregation (section a)
@@ -502,6 +517,94 @@ class TierModelAggregationTests(unittest.TestCase):
             self.assertEqual(row["items"], 2)
             self.assertAlmostEqual(row["first_pass_item_rate"], 0.5)
             self.assertAlmostEqual(row["rework_item_rate"], 0.5)
+
+
+class TierAggregationTests(unittest.TestCase):
+    def test_sonnet_and_claude_sonnet_5_items_collapse_into_one_tier_row(self):
+        # agentops#2455: coordinators wrote the same model under two labels
+        # ("sonnet" and "claude-sonnet-5"); aggregate_tier must not need the caller to
+        # sum aggregate_tier_model rows by hand to see both under one tier.
+        item_a = _item(2377, "A", "done", "2026-09-14T18:53:48Z", "2026-09-14T18:58:25Z")
+        events_a = [
+            _event(
+                "lane.review",
+                "coordinator",
+                {"tags": ["lane", "verdict:accepted", "first-pass", "tier:fast-build", "model:sonnet"], "summary": "Accepted"},
+                "2026-09-14T18:58:24Z",
+                1,
+            ),
+        ]
+        item_b = _item(2378, "B", "active", "2026-09-14T19:00:00Z", "2026-09-14T19:05:00Z")
+        events_b = [
+            _event(
+                "lane.review",
+                "coordinator",
+                {"tags": ["lane", "verdict:rework", "tier:fast-build", "model:claude-sonnet-5"], "summary": "rework: wrong path touched"},
+                "2026-09-14T19:04:00Z",
+                2,
+            ),
+        ]
+        records = mlr.build_item_records([item_a, item_b], {2377: events_a, 2378: events_b})
+
+        model_rows = mlr.aggregate_tier_model(records)
+        self.assertEqual(len(model_rows), 1)
+        self.assertEqual(model_rows[0]["model"], "claude-sonnet-5")
+
+        rows = mlr.aggregate_tier(records)
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertNotIn("model", row)
+        self.assertEqual(row["tier"], "fast-build")
+        self.assertEqual(row["items"], 2)
+        self.assertEqual(row["attempts"], 2)
+        self.assertAlmostEqual(row["first_pass_item_rate"], 0.5)
+        self.assertAlmostEqual(row["rework_item_rate"], 0.5)
+        self.assertEqual(row["accepted_items"], [2377])
+        self.assertAlmostEqual(row["attempts_per_accepted_item"], 1.0)
+
+    def test_per_tier_row_matches_hand_computed_value_across_models(self):
+        # Same fixture as test_live_sprint_559_fast_build_item_rates_match_expected, summed
+        # across the two fast-build models (haiku, sonnet) by hand: 4 items, 6 attempts,
+        # 2 first-pass items out of 4 (50%), 2 rework items out of 4 (50%), 4 accepted items,
+        # 6 attempts / 4 accepted items = 1.5 attempts per accepted item.
+        items = [
+            _item(2374, "haiku rework-then-accept", "done", "2026-09-14T18:53:47Z", "2026-09-14T19:03:20Z"),
+            _item(2383, "haiku accepted first", "done", "2026-09-14T19:10:00Z", "2026-09-14T19:15:00Z"),
+            _item(2373, "sonnet accepted first", "done", "2026-09-14T18:50:00Z", "2026-09-14T18:55:00Z"),
+            _item(2372, "sonnet rework-then-accept", "done", "2026-09-14T18:53:46Z", "2026-09-14T19:10:00Z"),
+        ]
+        notes = {
+            2374: [
+                _event("lane.review", "coordinator", {"tags": ["lane", "verdict:rework", "tier:fast-build", "model:claude-haiku-4-5"], "summary": "rework: fix needed"}, "2026-09-14T19:01:27Z", 1),
+                _event("lane.review", "coordinator", {"tags": ["lane", "verdict:accepted", "tier:fast-build", "model:claude-haiku-4-5"], "summary": "accepted"}, "2026-09-14T19:03:20Z", 2),
+            ],
+            2383: [
+                _event("lane.review", "coordinator", {"tags": ["lane", "verdict:accepted", "first-pass", "tier:fast-build", "model:claude-haiku-4-5"], "summary": "accepted"}, "2026-09-14T19:15:00Z", 3),
+            ],
+            2373: [
+                _event("lane.review", "coordinator", {"tags": ["lane", "verdict:accepted", "first-pass", "tier:fast-build", "model:claude-sonnet-5"], "summary": "accepted"}, "2026-09-14T18:55:00Z", 4),
+            ],
+            2372: [
+                _event("lane.review", "coordinator", {"tags": ["lane", "verdict:rework", "tier:fast-build", "model:claude-sonnet-5"], "summary": "rework: needs another pass"}, "2026-09-14T19:05:00Z", 5),
+                _event("lane.review", "coordinator", {"tags": ["lane", "verdict:accepted", "tier:fast-build", "model:claude-sonnet-5"], "summary": "accepted"}, "2026-09-14T19:10:00Z", 6),
+            ],
+        }
+        records = mlr.build_item_records(items, notes)
+        rows = mlr.aggregate_tier(records)
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertEqual(row["tier"], "fast-build")
+        self.assertEqual(row["items"], 4)
+        self.assertEqual(row["attempts"], 6)
+        self.assertAlmostEqual(row["first_pass_item_rate"], 0.5)
+        self.assertAlmostEqual(row["rework_item_rate"], 0.5)
+        self.assertEqual(row["rejected_item_rate"], 0.0)
+        self.assertEqual(row["blocked_item_rate"], 0.0)
+        self.assertEqual(len(row["accepted_items"]), 4)
+        self.assertAlmostEqual(row["attempts_per_accepted_item"], 1.5)
+
+    def test_empty_records_yields_no_rows(self):
+        self.assertEqual(mlr.aggregate_tier([]), [])
 
 
 # --------------------------------------------------------------------------
@@ -906,10 +1009,12 @@ class BuildReportTests(unittest.TestCase):
             )
             report = mlr.build_report(args)
             self.assertFalse(report["tier_model"]["available"])
+            self.assertFalse(report["tier"]["available"])
             self.assertFalse(report["stale_items"]["available"])
             self.assertFalse(report["worker_usage"]["available"])
             self.assertFalse(report["scorecard"]["available"])
             self.assertEqual(report["tier_model"]["rows"], [])
+            self.assertEqual(report["tier"]["rows"], [])
             self.assertEqual(report["worker_usage"]["rows"], [])
             self.assertEqual(report["worker_usage"]["resolution_fallbacks"], 0)
 
@@ -945,9 +1050,11 @@ class BuildReportTests(unittest.TestCase):
             self.assertIn("# Maintenance-lane report", markdown)
             self.assertIn("claude-sonnet-5", markdown)
             self.assertIn("blocked", markdown)
+            self.assertIn("## Per tier", markdown)
             rendered_json = mlr.render_json(report)
             parsed = json.loads(rendered_json)
             self.assertEqual(parsed["tier_model"]["rows"][0]["model"], "claude-sonnet-5")
+            self.assertEqual(parsed["tier"]["rows"][0]["tier"], "fast-build")
 
     def test_main_cli_smoke_markdown(self):
         with _TempDir() as tmp:
