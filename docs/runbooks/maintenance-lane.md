@@ -83,10 +83,20 @@ A worker that fails an item twice at one tier escalates one tier with a
 - **Oracle** (`.claude/agents/oracle.md`): keeps the lane pointed at recorded
   target state; proposes adding or retiring items.
 
+Two conventions back interrupted-item handoff between sessions: the
+`lane.checkpoint` note (alongside `lane.dispatch` and `lane.review`) and the
+`handoff/v1` file written by `handoff.py` when available — see
+[Interrupted items: checkpoint and pickup](#interrupted-items-checkpoint-and-pickup).
+
 ## The loop
 
 1. **Select.** Highest priority `pending` item whose `Tier` matches available
-   capacity and whose `Blocked-on` is clear.
+   capacity and whose `Blocked-on` is clear. Skip an item with a
+   `lane.dispatch` note in the last 6 hours unless a later `lane.review` or
+   `lane.checkpoint` note from that dispatch's session exists; a
+   `lane.checkpoint` note clears the skip exactly as a `lane.review` note
+   does (see [Interrupted items: checkpoint and pickup](#interrupted-items-checkpoint-and-pickup)
+   below).
 2. **Dispatch.** Mark it active and record the attempt:
 
    ```bash
@@ -117,6 +127,54 @@ A worker that fails an item twice at one tier escalates one tier with a
      --tags "lane,verdict:<verdict>,<first-pass|attempt:N>,tier:<tier>,model:<model>" \
      --git-sha <commit> --actor coordinator:<session>
    ```
+
+### Interrupted items: checkpoint and pickup
+
+This is the interim rule decided in the decision note on item #2430 (refine
+tick 2026-09-19, `agent:lane-loop-refine`). First live case: item #2431,
+whose implement tick ended at 16:34 UTC on 2026-09-19 waiting for a worker,
+leaving the item `active` with an uncommitted worktree; the refine tick
+preserved it as checkpoint commit `89dc1d5` on
+`lane/2431-item-release-to-pending`.
+
+1. **Checkpoint on stop.** A session that must stop with a claimed item
+   unfinished (timeout, usage cap, session cap, scope) commits the worktree
+   as-is on the item branch with subject `wip(<item>): checkpoint,
+   unreviewed`, pushes the branch, and writes a `lane.checkpoint` note on
+   the item with `--git-branch`, `--git-sha`, `--git-worktree` and a detail
+   listing what was validated, what was rejected, and `next_action`:
+
+   ```bash
+   sprintctl item note --id <id> --type lane.checkpoint \
+     --summary "Checkpoint: <one line>" \
+     --git-branch <branch> --git-sha <sha> --git-worktree <path> \
+     --tags "lane,tier:<tier>,model:<model>" \
+     --detail "validated: <...>; rejected: <...>; next_action: <...>" \
+     --actor coordinator:<session>
+   ```
+
+   When `handoff.py` is available it also writes a `handoff/v1` file with
+   `track` set to the item id, and the note cites that file's path. The
+   commit is the checkpoint; the note is the pointer.
+2. **Orphan definition.** Status `active`; newest `lane.dispatch` older than
+   60 minutes (the loop's longest observed tick is 46 minutes) with no later
+   `lane.review` or `lane.checkpoint` from the same session; no live
+   reservation.
+3. **Pickup.** A later session takes an orphaned or checkpointed item by
+   writing its own `lane.dispatch` note citing the predecessor note id: that
+   is the ack and the claim (the `handoff/v1` single-live-successor guard is
+   the same claim when a file exists). It fetches the branch, verifies the
+   recorded sha is the branch head, and continues from `next_action`. It
+   does not re-set status (already `active`) and does not restart from
+   `origin/main` unless stale.
+4. **Staleness.** A checkpoint older than 24 hours, or whose sha is not on
+   the recorded branch, or whose branch is gone, means restart from
+   `origin/main` and say why in the new `lane.dispatch` note.
+5. **S6, one sentence.** At S6 the same fields become a ledger checkpoint
+   bound to the item and its Release (see the sprintctl item "2430-S3").
+6. **Harness-neutral.** Everything above is readable from `sprintctl item
+   show --id N` and `git fetch`, so a Codex or OpenCode session resumes from
+   the prompt alone (TS-8).
 
 5. **Integrate** per the owning repository's convention (pull request from the
    worktree branch in PR repositories; human merge). Mark the item `done` when
