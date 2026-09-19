@@ -7,6 +7,10 @@
     "pass": false,
     "value": 0.5837572862185392
   },
+  "caveats": {
+    "corpus_is_live": "The measured corpus includes the transcript of the session doing the measuring, so it grows during the run. A re-run minutes later over the same 44 transcripts read denominator 1909299 and bash_share 0.58465. This is a snapshot, not a value reproducible to the digit; the gate verdicts are stable.",
+    "read_share_counts_the_Read_tool_only": "file_read_share is Read-tool result bytes over context, the direct analogue of the outctl study's bash share. File reads performed through Bash (cat, sed -n, head) are classified as Bash, not as file reads. This host's CLAUDE.md instructs Bash-first file reading while bypass-permissions mode is active, so the two shares here are not comparable to a host that reads through the Read tool: some of the Bash numerator is file reading. Both gate verdicts hold regardless, being far from their thresholds."
+  },
   "file_read_share": {
     "denominator_chars": 1877174,
     "gate": "below 45 percent of context",
