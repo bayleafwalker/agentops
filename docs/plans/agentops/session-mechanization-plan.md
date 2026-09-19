@@ -100,7 +100,7 @@ artifact (schema and field contract:
 [`session-mechanization-contracts.md`](../../dispatch/session-mechanization-contracts.md))
 and enqueues reconciliation.
 
-Supersession: `templates/dispatch/` was deleted under TS-2 (0baa680, 31a2e3f); the paths below are historical and no longer resolve.
+Supersession: `templates/dispatch/` was deleted under TS-2 (0baa680, 31a2e3f); the `templates/dispatch/` paths below are historical and no longer resolve. Other links below still resolve.
 
 **Implemented (item #1108):**
 `templates/dispatch/skills/session-reconciler/SKILL.md`

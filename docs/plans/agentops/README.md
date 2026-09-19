@@ -118,7 +118,7 @@ Implemented dispatch contracts:
 
 Semantic-verification contract:
 
-Supersession: `templates/dispatch/` was deleted under TS-2 (0baa680, 31a2e3f); the paths below are historical and no longer resolve.
+Supersession: `templates/dispatch/` was deleted under TS-2 (0baa680, 31a2e3f); the `templates/dispatch/` paths below are historical and no longer resolve. Other links below still resolve.
 
 - [`docs/verification/test-context-packet-v1.md`](../../verification/test-context-packet-v1.md) - data-only packet contract and ownership rules.
 - `templates/dispatch/schemas/test-context.schema.json` - sole normative JSON schema.
