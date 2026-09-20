@@ -26,7 +26,7 @@ covered database.
 | Offsite second copy — database dumps | explicitly out of scope by design | absent | n/a | n/a |
 | Offsite restore-drill cadence | proposed | not yet a recurring mechanism | untested | none |
 | Canonical content + VM rebuild records | accepted | deployed | restore-tested (content); 2 of 4 rebuild-time estimates unmeasured | bounded production |
-| Promotion/authority control | accepted | deployed | observed (no negative test artifact found) | bounded production |
+| Promotion/authority control | signature/approval gates on merges deliberately set aside outside one repository; automated pre-merge checks are the control | deployed as those checks | observed (no negative-test artifact found showing a check blocking a change) | bounded production |
 | Runner risk acceptance | accepted (narrow, existing) | deployed | observed | bounded production |
 | Orphan-resource retirement control | accepted | deployed | restore-tested (one drill) | bounded production |
 | Stale internal dispatch path | accepted | **retired** | restore-tested | none |
