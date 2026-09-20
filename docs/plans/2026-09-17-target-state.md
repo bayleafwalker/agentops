@@ -45,15 +45,14 @@ surface carries read, coordinate, record and propose, and no execution. | accept
 | TS-15 | Native harness telemetry is emit-only observation (OTel to Langfuse under the accepted harness-evidence policy). Its attribute allowlist must exist and be checked in CI before the exporter is enabled. | accepted-delegated (policy 2026-09-14) | `agentops/docs/architecture/harness-evidence-policy.md:3,196-210`; dossier §5 telemetry DEPEND emit-only |
 | TS-16 | The record covers automated activity wherever it runs, not only inside the perimeter. The control question is what proportion of automated activity is reconstructable; for hosted runtimes today it is zero. Two reachability paths are in the target state: a narrow **public** MCP surface for interactive runtimes (Cowork, claude.ai, mobile, Routines, cloud sessions, OpenAI Responses), and the Managed Agents self-hosted worker for unattended runs. The boundary is binding: intent, coordination and evidence may cross to a runtime the operator does not host; effects and credentials may not. Every tool on the published surface classifies as read, coordinate, record or propose, and there is deliberately no effect-apply scope — that absence is a design decision, written down here so a later session does not helpfully add one. A hosted runtime's maximum achievable outcome is an unmergeable branch and a queued intent: the homelab-side reconciler signs, not the cloud session, so the property obtained is a verifiable chain from a signed commit back to a run record naming runtime, model and profile revision. That is recorded and reconstructable, **not** attested, and must not be described as attestation. | accepted-operator (both paths, public surface first; boundary; no effect-apply scope); proposed (tool set, auth mode, E0-E4 shape) | operator DECISION 1, 2026-09-20; edge doc §3 boundary, §5 EffectGrant scope, §7 signing, §8 worker option |
 
-**TS-16's source, and its dependency risk.** The edge doc is `Vuoro at the Edge` (2026-09-19). As of
-2026-09-20 it is not in any repository — it sits in `~/Downloads`, which is why this realignment
-exists; a reader who needs it must be given the file. Its E0-E4 sequence depends on phases of
-*the first-principles rebuild* (Phase 0-6, ADR-02, ADR-05), and that document is a chat artifact,
-not in the repo as of 2026-09-20 — do not cite it as something a reader can open. No E step can
-be built from those phases until they are written down somewhere; treat that as a live dependency
-risk, not a formality. The edge doc reverses the rebuild's own §15 "park vuoro.cloud" verdict, on
-the ground that the hosted variant serves runtimes the operator does not host rather than external
-users.
+**TS-16's source, and its dependency risk.** The edge doc is `Vuoro at the Edge` (2026-09-19). It
+landed as `vuoro docs/plans/2026-09-20-vuoro-at-the-edge.md` (merge c4740f6b); a reader who needs
+it can open that file. Its E0-E4 sequence depends on phases of *the first-principles rebuild*
+(Phase 0-6, ADR-02, ADR-05), which landed as
+`vuoro docs/plans/2026-09-19-agentic-pipeline-first-principles-rebuild.md` — a reader can cite and
+open it. That dependency is discharged as of 2026-09-20; no E step is blocked on it being recorded
+any longer. The edge doc reverses the rebuild's own §15 "park vuoro.cloud" verdict, on the ground
+that the hosted variant serves runtimes the operator does not host rather than external users.
 
 ## Path (agent-tooling moves only)
 
@@ -71,8 +70,9 @@ users.
    their schema and `sync_skills.py`.
 6. **S8.** Rehearsed export and import, reusing the resume probe's scenario.
 7. **E0-E4 (reachability, TS-16).** Runs alongside S3-S8, not after it. Each step names the
-   rebuild phases it depends on; those phases are a chat artifact (see above), so any E step is
-   blocked on them being recorded first.
+   rebuild phases it depends on; those phases are recorded in
+   `vuoro docs/plans/2026-09-19-agentic-pipeline-first-principles-rebuild.md` (see above), so no
+   E step is blocked on them any longer.
    - **E0.** Harden before exposing anything: evidence chaining, lease expiry with heartbeat,
      rate limiting, endpoint monitoring. *Depends on rebuild Phase 0 and 2.*
    - **E1.** Read-only surface (`list_ready_work`, `describe_work`), one static bearer, dual-era
