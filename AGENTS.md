@@ -58,6 +58,14 @@ python scripts/materialize_project.py setup|sync --project <home-repo>/project.t
 - If you cannot separate the outcomes at the call site, use
   `--delete-branch=false` and do the cleanup explicitly.
 
+## Cloud routines
+
+Writing or editing a prompt for a claude.ai Routine (scheduled/run-once cloud
+session, `RemoteTrigger`/`schedule` skill)? Read
+`docs/runbooks/cloud-routine-authoring.md` first: a routine whose job is a
+judgement must end by opening a GitHub PR carrying it, even when there is
+nothing to report, and must never be given a forge or served credential.
+
 ## Documentation
 
 Keep policy, current implementation, history and plans distinct; mark superseded decisions
