@@ -9,6 +9,7 @@
 set -uo pipefail
 EVENT="$(cat 2>/dev/null || true)"
 _lib="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/lib/emit-decision.sh"
+# shellcheck source=lib/emit-decision.sh
 [ -r "$_lib" ] && . "$_lib"
 command -v jq >/dev/null 2>&1 || exit 0
 

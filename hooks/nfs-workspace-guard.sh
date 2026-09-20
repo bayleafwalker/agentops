@@ -42,6 +42,7 @@ command -v python3 >/dev/null 2>&1 || exit 0
 # either way.
 EVENT="$(cat)"
 _lib="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/lib/emit-decision.sh"
+# shellcheck source=lib/emit-decision.sh
 [ -r "$_lib" ] && . "$_lib"
 
 # The script is fed on fd 3 so stdin (piped in below) stays the hook event JSON.
