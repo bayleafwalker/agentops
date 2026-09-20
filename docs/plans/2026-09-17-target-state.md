@@ -57,6 +57,16 @@ verdict recorded in the rebuild's build-versus-buy ledger row for vuoro.cloud, w
 it is reversed on the ground that the hosted variant serves runtimes the operator does not host
 rather than external users.
 
+**A concrete TS-16 gap and its fix (agentops#2471, 2026-09-20).** A read-only Routine
+(claude.ai cloud session on a schedule) produced verdicts that existed only in its cloud
+transcript — no PR, issue or comment anywhere the perimeter could read, indistinguishable
+from the routine never having fired. Practical guidance for avoiding this in any cloud
+routine now lives in
+[`../runbooks/cloud-routine-authoring.md`](../runbooks/cloud-routine-authoring.md): a
+routine whose output is a judgement must end by opening a GitHub PR carrying it (the
+sanctioned crossing this row's boundary describes), never by being handed a forge or
+served credential.
+
 ## Path (agent-tooling moves only)
 
 1. **Now (S2 remainder).**
