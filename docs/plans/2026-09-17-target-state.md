@@ -120,7 +120,7 @@ rather than external users.
   this file).
 - **A month of E1 without the substrate being reached from a hosted runtime.** The need TS-16
   claims is not there; E2-E4 are not built, and the read surface is deleted rather than kept
-  warm (edge doc §10 stop condition).
+  warm (edge doc §9 stop condition).
 - **A concrete case within six months that genuinely requires an effect-apply scope.** Then the
   "name the imperative class explicitly" clause was hiding a real gap rather than an empty one,
   and TS-16's boundary needs re-deciding rather than reasserting.
