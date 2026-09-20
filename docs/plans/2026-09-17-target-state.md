@@ -27,9 +27,8 @@ state that decides the agent tooling, in a repository.
 
 | id | Claim | Status | Source |
 |---|---|---|---|
-| TS-1 | Vuoro owns release, evidence and decision semantics inside sprintctl's served authority. It is not a runner, queue, model router or worker supervisor. | accepted-delegated | owner-decisions D1; dossier §3, §5 |
-| TS-2 | Execution, sandboxing and model choice stay native to the harness (Claude Code, Codex, OpenCode) and are excluded from Vuoro and agentops. Vuoro records only the observed profile digest. TS-16 does not change this: the published
-surface carries read, coordinate, record and propose, and no execution. | accepted-delegated | dossier §5 Externalizes "EXCLUDE"; §13 kills PLAN T8 (both dispatch paths retire) |
+| TS-1 | Vuoro owns release, evidence and decision semantics inside sprintctl's served authority. It is not a runner, queue, model router or worker supervisor. TS-16 does not change this, and the two E steps that look closest to it are reconciled here rather than left to a reader. **E3 is not a queue.** An `EffectIntent` is a record of a proposed change that a single homelab-side consumer polls and executes — the same shape as a commit Flux reconciles. Vuoro stores it, serves it on read, and does nothing else: it never assigns an intent to a consumer, never schedules, never retries, never times one out and never supervises the consumer. That is strictly less queue-like than `claim_work`, which TS-1 already permits, because no lease and no dispatch attach to an intent at all. If any of assignment, retry, scheduling or supervision is ever added, the exclusion bites and the added behaviour belongs outside Vuoro. **E4 does not route.** On a rate-limit denial Vuoro records the `rate_limit_event` as evidence, releases the lease, parks the claim, and records which model family a subsequent attempt used. Choosing the next family is the harness's or the dispatcher's act; the substrate observes the choice and never makes it. | accepted-delegated | owner-decisions D1; dossier §3, §5; E3/E4 reconciliation operator 2026-09-20 |
+| TS-2 | Execution, sandboxing and model choice stay native to the harness (Claude Code, Codex, OpenCode) and are excluded from Vuoro and agentops. Vuoro records only the observed profile digest. TS-16 does not change this: the published surface carries read, coordinate, record and propose, and no execution. Nor does E4 change the model-choice half: the substrate records a family denial and parks the claim, and the harness or the dispatcher picks what runs next. Vuoro records which family a subsequent attempt used; it does not select it. | accepted-delegated | dossier §5 Externalizes "EXCLUDE"; §13 kills PLAN T8 (both dispatch paths retire) |
 | TS-3 | Role and skills are observed, not compiled: instruction and skill digests are recorded at session start (S6). No compiled profile, skill lock or role preset. | accepted-delegated | dossier §3 table "observed profile digest", §5 "instruction digests are observed, not compiled", §11 S6 |
 | TS-4 | Two harness hooks carry Vuoro semantics: session start (binding plus profile digest) and stop (cost snapshot). Local guard hooks (sandbox, NFS, bounded read, forge credential) stay as operator enforcement. All hooks live outside `templates/dispatch`. | accepted-delegated (Vuoro hooks); proposed (guard hooks) | dossier §5 Owns, §10 L2 |
 | TS-5 | Accept, reject, withdraw, supersede and revise are one Decision object, bound to a Release digest and evidence digests. It is the only writer of terminal status (S3). No parallel acceptance records. | accepted-delegated | dossier §4 Decision row; §11 S3 |
@@ -79,15 +78,22 @@ that the hosted variant serves runtimes the operator does not host rather than e
      protocol support. A day of work, and reversible by deleting the connector. Dual-era support
      is kept because the client protocol-version matrix is third-party and dated July 2026;
      re-check it before dropping `initialize`. Scheduled-task connector bugs have no vendor fix
-     confirmation, so Routines is not assumed to work.
+     confirmation, so Routines is not assumed to work. *Depends on E0* — nothing is
+     exposed before the hardening lands.
    - **E2.** Claims and evidence: `claim_work`, `heartbeat`, `append_evidence`,
      `write_session_note`, `complete_work`, with lease handles, idempotency throughout and
      `(handle, auth_context)` validated per call. *Depends on E0 and rebuild Phase 1.*
    - **E3.** `propose_effect` plus the homelab reconciler, diff-shaped intents only.
      *Depends on E2.*
-   - **E4.** Reactive quota failover: `rate_limit_event` as evidence, parked claims on plan
-     limits, re-dispatch across families on family limits. *Depends on E2 and rebuild Phase 3
-     and 6.*
+   - **E4.** Reactive quota failover, recording only: `rate_limit_event` as evidence, and on
+     a denial release the lease, park the claim, and record which model family a subsequent
+     attempt used. Choosing the next family is the harness's or the dispatcher's act, not the
+     substrate's — TS-1 excludes model routing and TS-2 keeps model choice native to the
+     harness. The value is that a lost afternoon becomes an event in the record.
+     There is no supported programmatic read of plan consumption on either vendor, so
+     predictive or headroom balancing — "send this to whichever pool has headroom" — is not
+     buildable and must not be built toward; "quota failover" here means reaction to an
+     observed denial, never balancing. *Depends on E2 and rebuild Phase 3 and 6.*
    - No step adds runtimes for coverage. Codex cloud's lack of MCP support is inferred from
      documentation silence rather than stated, so it is not planned for; if it changes, E1's
      surface works unmodified.
