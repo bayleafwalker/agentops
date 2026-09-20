@@ -67,11 +67,21 @@ GATE_FILE="$GATE_DIR/gates-$SESSION.jsonl"
 # could not be attributed (ok null, a compound command) are skipped rather than counted either
 # way: `.ok == false` is false for null, which is the behaviour wanted here.
 # The log is read, never consumed: each snapshot must carry every gate the session has run.
+#
+# WL-D1: the same file also carries `kind == "decision"` rows -- guard-hook deny/ask
+# emits, appended by hooks/lib/emit-decision.sh -- interleaved with the gate rows above.
+# Those have no `cmd`/`ok` and must never enter `gates` or the rework count: a decision
+# row is not a gate outcome, and letting one in would silently perturb both. This mirrors
+# scripts/check_trajectory_flags.py's rework_findings, which already skips kind ==
+# "decision" rows (landed 87c7697, PR #197) -- lane.review 3152 recorded the two sides'
+# disagreement as the expected state until this item lands.
 if [[ -s "$GATE_FILE" ]]; then
-  GATES="$(jq -cs '.' "$GATE_FILE" 2>/dev/null || echo '[]')"
+  ALL_ROWS="$(jq -cs '.' "$GATE_FILE" 2>/dev/null || echo '[]')"
 else
-  GATES='[]'
+  ALL_ROWS='[]'
 fi
+GATES="$(printf '%s' "$ALL_ROWS" | jq -c '[ .[] | select(.kind != "decision") ]' 2>/dev/null || echo '[]')"
+DECISIONS="$(printf '%s' "$ALL_ROWS" | jq -c '[ .[] | select(.kind == "decision") ]' 2>/dev/null || echo '[]')"
 REWORK="$(printf '%s' "$GATES" | jq '
   . as $rows
   | [ range(0; ($rows | length))
@@ -117,9 +127,10 @@ emit_record() {
   summary="$(printf '%s' "$record" | jq -r '"session \(.project): \(.turns) turns, \(.tool_calls) tool calls, $\(.cost_usd * 100 | round / 100)"')"
   metadata="$(printf '%s' "$record" | jq -c \
       --argjson gates "$GATES" --argjson rework "${REWORK:-0}" \
+      --argjson decisions "${DECISIONS:-[]}" \
       --arg handed "$HANDED_OFF_TO" \
       '{session, runtime_session_id, turns, assistant_msgs, tool_calls, duration_s, cost_usd,
-        model, project, gates: $gates, rework_rounds: $rework}
+        model, project, gates: $gates, rework_rounds: $rework, decisions: $decisions}
        + (if $handed == "" then {} else {handed_off_to: $handed} end)')"
   # No --ref: auditctl allows only wi:/ka:/ad:/sha:/pr:/sprint:/capsule: prefixes, so the
   # session id travels in the metadata instead of being rejected as an invalid ref.

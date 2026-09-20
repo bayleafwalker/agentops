@@ -116,4 +116,36 @@ assert_eq "REQ-012 'unknown' is not promoted into the typed field" \
 grep -q 'AGENTOPS_COST_LOG:-/projects/dev/.claude/session-costs.jsonl' "$stop_hook" \
   || fail "REQ-003: the default log path was not preserved"
 
-printf 'cost hook field tests passed (incl. REQ-012 typed session identity)\n'
+# --- REQ-013 (WL-D1, agentops#2434): the published payload carries `decisions` -----
+# beside `gates`, and a decision row never perturbs `gates` or `rework_rounds`.
+pubdir13="$tmp/pub13"; mkdir -p "$pubdir13"
+cat > "$pubdir13/auditctl" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$AUDITCTL_STUB_LOG13"
+STUB
+chmod +x "$pubdir13/auditctl"
+export AUDITCTL_STUB_LOG13="$tmp/auditctl-calls-13.log"
+
+gatedir13="$tmp/gates13"; mkdir -p "$gatedir13"
+gatefile13="$gatedir13/gates-sess-t13.jsonl"
+cat > "$gatefile13" <<'JSONL'
+{"cmd":"pytest -q","ok":false,"signal":"heuristic"}
+{"kind":"decision","ts":"2026-09-20T10:00:00Z","hook":"gate-check.sh","rule_id":"operator-actioned","tool":"Bash","policy_decision":"deny"}
+{"cmd":"pytest -q","ok":true,"signal":"exit_code"}
+JSONL
+
+jq -cn --arg t "$transcript" --arg s "sess-t13" \
+  '{transcript_path:$t, session_id:$s, cwd:"/projects/dev/agentops", hook_event_name:"Stop"}' \
+  | env PATH="$pubdir13:$PATH" AGENTOPS_COST_LOG="$tmp/costs-13.jsonl" AGENTOPS_GATE_LOG_DIR="$gatedir13" \
+        AUDITCTL_DB="$tmp/store/.auditctl/auditctl.db" AUDITCTL_ARTIFACTS_ROOT="$tmp/store" \
+        bash "$stop_hook" || fail "REQ-013: Stop hook exited non-zero"
+
+[[ -s "$AUDITCTL_STUB_LOG13" ]] || fail "REQ-013: nothing was published to auditctl"
+meta13="$(sed -n 's/.*--metadata //p' <<<"$(tail -1 "$AUDITCTL_STUB_LOG13")")"
+jq -e 'has("decisions")' <<<"$meta13" >/dev/null || fail "REQ-013: published payload has no 'decisions' key"
+assert_eq "REQ-013 decisions count"          "$(jq '.decisions | length' <<<"$meta13")" "1"
+assert_eq "REQ-013 decisions[0].policy_decision" "$(jq -r '.decisions[0].policy_decision' <<<"$meta13")" "deny"
+assert_eq "REQ-013 gates unaffected by the decision row"  "$(jq '.gates | length' <<<"$meta13")" "2"
+assert_eq "REQ-013 rework_rounds unaffected by the decision row" "$(jq -r '.rework_rounds' <<<"$meta13")" "1"
+
+printf 'cost hook field tests passed (incl. REQ-012 typed session identity, REQ-013 decisions key)\n'

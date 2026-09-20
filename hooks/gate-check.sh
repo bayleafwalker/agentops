@@ -11,6 +11,9 @@
 #   operator-actioned  -- a HUMAN performs it; the agent must not
 set -uo pipefail
 EVENT="$(cat 2>/dev/null || true)"
+_lib="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/lib/emit-decision.sh"
+# shellcheck source=lib/emit-decision.sh
+[ -r "$_lib" ] && . "$_lib"
 command -v jq >/dev/null 2>&1 || exit 0
 
 CMD="$(printf '%s' "$EVENT" | jq -r '.tool_input.command // ""' 2>/dev/null)"
@@ -29,9 +32,11 @@ REASON="${MATCHED#* }"
 case "$TIER" in
   operator-actioned)
     jq -n --arg r "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",
-      permissionDecisionReason:("OPERATOR-ACTIONED: a human performs this, not the agent.\n\nReason: " + $r + "\n\nApproval alone is not sufficient at this tier. Stop, and tell the owner exactly what needs running and why. Do not re-issue this command.")}}' ;;
+      permissionDecisionReason:("OPERATOR-ACTIONED: a human performs this, not the agent.\n\nReason: " + $r + "\n\nApproval alone is not sufficient at this tier. Stop, and tell the owner exactly what needs running and why. Do not re-issue this command.")}}'
+    command -v emit_decision >/dev/null 2>&1 && emit_decision "gate-check.sh" "$TIER" "Bash" "deny" ;;
   operator-approved)
     jq -n --arg r "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",
-      permissionDecisionReason:("OPERATOR-APPROVED: this project gates this operation.\n\nReason: " + $r + "\n\nYou may perform it once the owner approves.")}}' ;;
+      permissionDecisionReason:("OPERATOR-APPROVED: this project gates this operation.\n\nReason: " + $r + "\n\nYou may perform it once the owner approves.")}}'
+    command -v emit_decision >/dev/null 2>&1 && emit_decision "gate-check.sh" "$TIER" "Bash" "ask" ;;
 esac
 exit 0
