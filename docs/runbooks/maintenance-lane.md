@@ -63,6 +63,7 @@ Blocked-on: <decision or item, if any>
 |---|---|---|
 | `clerical` | Claude Haiku (`clerical` alias) | Read-only triage, formatting, mechanical edits with a literal spec |
 | `fast-build` | Claude Sonnet via `worker` agent, or Codex Spark | Bounded implementation with tests |
+| `worker` | Claude Opus 5 or Sonnet 5 dispatched as a generic subagent (`tier:worker` tag), rather than through the `fast-build`/`expert`/`clerical` agent configs | Item classes not routed to a more specific tier; see [Check-up](#check-up) for its measured first-pass rate |
 | `local` | `local3090/worker-fast` or `local3090/devstral` via OpenCode | **Sandbox/advisory only** — `supervised-experiment` and `corpus-run` task classes as defined in [`model-routing.md`](../dispatch/model-routing.md#unqualified-local-models-sandboxadvisory-allowlist); unqualified, results go to the local-inference scorecard; see [Local model qualification](#local-model-qualification) below |
 | `expert` | Claude Sonnet via `expert` agent | Read-only analysis of current behaviour |
 | `frontier-plan` / `operator` | Frontier coordinator / human | Design, enforcement boundaries, anything needing approval |
@@ -246,10 +247,15 @@ Weekly, or after every ten lane attempts, the coordinator:
    item when a tier's first-pass acceptance falls below the level the operator
    has accepted for it.
 
-Thresholds for "a tier is good enough for an item class" are **not set yet**
-for `clerical`, `fast-build`, and `expert`. Propose them from at least ten
-reviewed attempts per tier; the operator accepts them. The `local` tier does
-not use this flat count — see below.
+Thresholds for "a tier is good enough for an item class", accepted
+2026-09-20 from the proposal in the 2026-09-19 check-up
+(`docs/assessments/lane-loop/checkup-2026-09-19.md`, "Proposed thresholds"),
+each a first-pass acceptance rate over the trailing ten or more reviewed
+attempts: `clerical` 90% (11 attempts), `expert` 75% (14 attempts),
+`fast-build` 70% (38 attempts), `worker` 75% (10 attempts). `frontier-plan`
+(2 attempts) and `local` (2 attempts) are under the ten-attempt floor and
+remain unset pending more attempts. The `local` tier does not use this flat
+count — see below.
 
 ## Local model qualification
 
