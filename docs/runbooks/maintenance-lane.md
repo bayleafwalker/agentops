@@ -57,6 +57,20 @@ Writable: <paths the worker may modify>
 Blocked-on: <decision or item, if any>
 ```
 
+A Validation line names the targeted tests first (the files the change
+touches, under two minutes) and the full suite second. When the full suite is
+known to take longer than eight minutes, the line says so with the measured
+time and tells the worker to run it with `run_in_background true` and wait
+for the completion notification, or to split it into foreground halves; it
+never tells the worker to report a running suite as a result.
+
+Measured full-suite times, where known:
+
+| Repo | Full-suite command | Measured time | Source |
+|---|---|---|---|
+| sprintctl | `uv run --extra dev pytest -q -x --ignore=tests/pg --ignore=tests/test_perf.py` | ~11 min (1489 passed, 647 s) | note 3445 |
+| others | — | not measured | — |
+
 ## Tiers
 
 | Tier | Who works it | Use for |
@@ -139,6 +153,12 @@ Two conventions back interrupted-item handoff between sessions: the
    - the validation commands pass when re-run by the coordinator in the worktree;
    - the acceptance criteria are met; tests that encoded old behaviour were
      replaced only where the item made them wrong.
+
+   A worker report whose validation is still running is not a report; the
+   coordinator either waits for the run or checkpoints the item
+   ([Interrupted items](#interrupted-items-checkpoint-and-pickup) section)
+   before the tick ends, and never leaves the item active without a
+   `lane.checkpoint` note.
 
    After the worker reports, run
    `scripts/check_trajectory_flags.py --gate-file <session gate log> --base <default-branch-sha> --head <worktree-sha>`
