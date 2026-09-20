@@ -30,11 +30,28 @@ else
   auditctl_bin() { return 1; }
 fi
 
+# Repo root, for the harness_evidence call below (agentops#2445, WP7b) -- best-effort like
+# everything else this hook resolves relative to itself. An unresolvable root just means
+# that call degrades to a no-op (see emit_harness_evidence). Overridable so a test can point
+# it at a fixture root (e.g. one with no scripts/harness_evidence, or a stub that raises)
+# without needing to relocate the hook itself -- the same seam AGENTOPS_COST_LOG etc. use.
+_HARNESS_EVIDENCE_ROOT="${AGENTOPS_HARNESS_EVIDENCE_ROOT:-}"
+if [[ -z "$_HARNESS_EVIDENCE_ROOT" ]]; then
+  _HARNESS_EVIDENCE_ROOT="$(cd -- "${_hook_src%/*}/.." 2>/dev/null && pwd -P)" || _HARNESS_EVIDENCE_ROOT=""
+fi
+
 LOG="${AGENTOPS_COST_LOG:-/projects/dev/.claude/session-costs.jsonl}"
 GATE_DIR="${AGENTOPS_GATE_LOG_DIR:-/projects/dev/.claude/state}"
 
 EVENT="$(cat)"
 TRANSCRIPT="$(echo "$EVENT" | jq -r '.transcript_path // ""')"
+# Optional passthrough for the harness_evidence rate-limit gauges (agentops#2445, WP7b):
+# this hook has no producer of its own for the 5h/7d utilisation windows
+# `metrics.build_rate_limit_gauges` expects (`.claude-headroom.json` is documented
+# elsewhere as stale with no live writer, and wiring one is out of this item's scope) --
+# but a caller (a future harness version, or a test) that already has the shape can hand
+# it straight through on the Stop event itself. Absent, this is simply omitted below.
+WINDOWS="$(echo "$EVENT" | jq -c '.windows // empty')"
 SESSION="$(echo "$EVENT" | jq -r '.session_id // "unknown"')"
 RUNTIME_SESSION="$(echo "$EVENT" | jq -r '.runtime_session_id // empty')"
 RUNTIME_SESSION="${RUNTIME_SESSION:-${SPRINTCTL_RUNTIME_SESSION_ID:-${CODEX_THREAD_ID:-}}}"
@@ -114,9 +131,78 @@ if [[ -d "$HANDOFF_DIR" && -n "$SESSION" && "$SESSION" != "unknown" ]]; then
      | .successor.session_id' "$HANDOFF_DIR"/*.json 2>/dev/null | tail -n 1 || true)"
 fi
 
+# --- WP7b (agentops#2445): guarded call into the harness_evidence exporter (#2443) -----
+# ENFORCEMENT BOUNDARY: this call must never change this hook's exit code, its stdout, or
+# the log/auditctl writes emit_record already performs -- it is purely additive telemetry,
+# and every failure mode (python3 absent, the module absent or raising, export() itself
+# failing) degrades the same way: silently, to "no telemetry for this row". In production
+# OTEL_EXPORTER_OTLP_ENDPOINT stays unset until #2397/#2398 land, and export() performs zero
+# network I/O when it is unset (docs/architecture/harness-evidence-policy.md "Fail-open
+# posture"), so this call is inert today regardless of what it builds.
+#
+# `record` is the same cost row emit_record's caller already assembled (the one written to
+# $LOG and folded into the auditctl --metadata above); this maps its fields onto the
+# harness_evidence payload shape (`schemas/harness-evidence-attributes.schema.json`) rather
+# than passing it through verbatim, since the two schemas do not share key names
+# (`session` vs `session_id`, `in`/`out` vs `input_tokens`/`output_tokens`, ...) and an
+# unrecognised key is silently dropped by the library's own allowlist filter regardless.
+emit_harness_evidence() {
+  local record="$1"
+  command -v python3 >/dev/null 2>&1 || return 0
+  [[ -n "$_HARNESS_EVIDENCE_ROOT" && -d "$_HARNESS_EVIDENCE_ROOT/scripts/harness_evidence" ]] || return 0
+
+  local payload
+  payload="$(printf '%s' "$record" | jq -c \
+    --arg transcript "$TRANSCRIPT" \
+    --argjson windows "${WINDOWS:-null}" \
+    '{
+       schema_version: "harness-evidence-attributes/v1",
+       session_id: (.session // "unknown"),
+       transcript_path: $transcript,
+       runtime: "claude-code",
+       harness: "vuoro",
+       environment: "prod",
+       model: (.model // "unknown"),
+       input_tokens: (.in // 0),
+       output_tokens: (.out // 0),
+       durations: {wall_seconds: (.duration_s // 0)},
+       result_class: "success",
+       terminal_reason: "completed"
+     } + (if (.cost_usd // null) == null then {} else {cost_usd_list: [.cost_usd]} end)
+       + (if $windows == null then {} else {windows: $windows} end)' \
+    2>/dev/null)" || return 0
+  [[ -n "$payload" && "$payload" != "null" ]] || return 0
+
+  # Everything past this point runs with stdout/stderr discarded and its exit status
+  # ignored by the caller (`|| true` below): a broken collector, a raised exception while
+  # building the batch, or a non-zero interpreter exit must never surface here.
+  PYTHONPATH="$_HARNESS_EVIDENCE_ROOT${PYTHONPATH:+:$PYTHONPATH}" python3 - "$payload" \
+    >/dev/null 2>&1 <<'PY' || true
+import json
+import sys
+
+try:
+    from scripts.harness_evidence import build_rate_limit_gauges, build_session_span, export_batch
+
+    payload = json.loads(sys.argv[1])
+    batch = {"spans": [build_session_span(payload)]}
+    if payload.get("windows"):
+        batch["metrics"] = [build_rate_limit_gauges(payload)]
+    export_batch(batch)
+except Exception:
+    # Fail-open: this path never raises through to the hook.
+    pass
+PY
+  return 0
+}
+
 emit_record() {
   local record="$1"
   printf '%s\n' "$record" >> "$LOG"
+
+  # Best-effort and independent of auditctl below: must run (and must stay inert) whether
+  # or not a publisher is on PATH. See emit_harness_evidence's own comment for the guard.
+  emit_harness_evidence "$record" || true
 
   # auditctl is optional: a missing publisher must never cost the session its cost row.
   # Resolution goes through the shared helper because the bare name `auditctl` also belongs
