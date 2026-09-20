@@ -12,8 +12,8 @@ This review pushed no commit to `vuoro`, `sprintctl`, `auditctl`, `actionq` or
 
 ## Summary
 
-**0 `claude/wl-*` branches found, in any of the six repos. 1 weekly-lanes code PR
-reviewed (found under a different branch prefix). 4 findings, none of them a
+**0 `claude/wl-*` branches found, in any of the six repos. 2 weekly-lanes PRs
+reviewed (both found under a different branch prefix). 6 findings, none of them a
 correctness bug.**
 
 The branch-naming assumption in this review's own brief did not hold, so the
@@ -24,11 +24,18 @@ result is stated two ways:
   `auditctl`, `actionq` or `kctl`. All six remotes fetch `+refs/heads/*`, so this
   is a real absence, not a refspec artifact. There are also **zero open PRs** in
   any of the six repos.
-- **Actual target set — weekly-lanes work landed this morning: one PR.**
-  agentops **#219**, *"hooks: record guard-hook deny/ask decisions into the gate
-  log (WL-D1)"*, from branch **`wl-d1-decision-row-2434`** — a `wl-*` prefix
-  without `claude/`, which is why the literal search missed it. The branch was
-  deleted on merge; the work is on `agentops main` as `74267d7`.
+- **Actual target set — weekly-lanes work landed today: two PRs.** Both in
+  agentops, both from a `wl-*` prefix without `claude/`, which is why the literal
+  search missed them:
+  - **#219**, *"hooks: record guard-hook deny/ask decisions into the gate log
+    (WL-D1)"*, from `wl-d1-decision-row-2434` (branch deleted; on `main` as
+    `74267d7`).
+  - **#224**, *"ExperimentRecord for weekly-lanes C1 outcome-collateral rescore
+    (#2436)"*, from `wl-c1-2436-experiment-record` (on `main` as `ab75806`).
+    Opened 12:16:39Z and merged 12:17:11Z — **32 seconds** — which is one minute
+    after this review's own org-wide PR search ran. It did not exist to be found;
+    it is reviewed below because it belongs to the target class, and a reader of
+    this report would otherwise never learn it landed.
 
 The scheduled implementation run itself opened **no branches and changed no
 code**, and said so: its report (vuoro #101, `docs/evidence/2026-09-19-weekly-lanes/implementation-report.md`)
@@ -41,7 +48,7 @@ agentops #219 is **not** the scheduled run's work. It was created at 11:23 UTC,
 `Co-authored-by: dev <semper425@gmail.com>` with no `Claude-Session:` trailer —
 the signature of an attended workstation session, not the unattended cloud run.
 
-## PR review: agentops #219 — WL-D1
+## PR review 1 of 2: agentops #219 — WL-D1
 
 | | |
 |---|---|
@@ -200,7 +207,126 @@ no-`session_id` deny in my differential produced correct stdout and no row.
 whatever documents the `decisions` key, so a later reader does not read an empty
 `decisions` array as "no denials occurred" when it means "no session id".
 
-## Goal-state check
+## PR review 2 of 2: agentops #224 — WL-C1
+
+| | |
+|---|---|
+| **Repo / branch** | `bayleafwalker/agentops`, `wl-c1-2436-experiment-record` (merged as `ab75806`) |
+| **Plan item** | WL-C1, *local-inference outcome-class rescore*, host item agentops#2436, lane W1-3, size S — **the plan's designated first experiment slice** |
+| **Diff** | 1 file, +157 (`_projects/exp-2026-09-local-inference-outcome-collateral/README.md`) |
+| **State** | Created 2026-09-20T12:16:39Z, **merged 12:17:11Z** (32 seconds), 0 reviews |
+| **Verdict** | **fix-then-land** — the record is good work, but it is landed as `status: implemented` on evidence no one else can reach. Already merged, so F5 is now follow-up. |
+
+### What it does
+
+Lands the ExperimentRecord for agentops#2436: hypothesis, baseline, challenger,
+task sample, measures, falsifier evaluation, limitations, rollback and evidence
+for splitting local-inference's run outcome into `{completed,
+completed_with_collateral_change, incomplete}` instead of
+`accepted = tests_pass(dest)`.
+
+This item is why the earlier implementation run stood down — it recorded WL-C1 as
+*"skipped: repo out of scope"*, `local-inference` being unavailable to it. That
+disposition is now partly overtaken: the **record** is in agentops, while the
+**code** it describes is not in any repository at all (F5).
+
+### What I could and could not verify
+
+**The falsifier evaluation is internally sound — I checked the logic.** The stated
+falsifier is *"retire the outcome field if the rescore surfaces zero
+`completed_with_collateral_change` rows, **or** if per-arm rankings are unchanged
+**and** no row was previously invisible under the TAMPER convention."* Against the
+record's own numbers: 2 collateral rows surfaced, so the first disjunct is false;
+per-arm rankings are unchanged (all three arms 6/6 `completed`), but the two rows
+*were* previously invisible to `scorecard.csv`, so the second disjunct's
+conjunction is false. Neither disjunct holds, so "keep the field" follows. The
+reasoning is valid and the record does not overclaim — it says plainly that the
+outcome field and the TAMPER note agree 100% wherever both are computable, and
+that the value added is surfacing rows that never reached the TAMPER-bearing
+pipeline at all.
+
+**The Limitations section is unusually honest** and I found nothing to add to it:
+two positive rows called a smoke signal rather than a rate; `arm=profile` flagged
+as a naming choice rather than a fact recovered from a log; the
+`--add-outcome-column` reconstruction flagged as lossy in the general case.
+
+**But I could verify none of the underlying numbers**, and neither can anyone
+else. See F5.
+
+### Findings
+
+**F5 — The record is landed as `implemented` on evidence that exists in no
+repository. Severity: high.**
+The Evidence section cites local-inference commit
+`4d06fb006be14443fae63797eb43ba179d566332` on branch `wl-c1-rescore-2436`, made
+*"in a fresh worktree/clone off `master` … the branch exists in a separate clone,
+not yet fast-forwarded onto local-inference's real `master`."* I confirmed the
+surrounding claim independently: `local-inference` is **not among the 50
+repositories on this account** (`list_repos`), so it has no GitHub remote and the
+cited sha is unreachable from anywhere but the disk that made it. Every number in
+Measures, the 14 passing tests, and the `scorecard.csv` byte-equality check
+therefore rest on an artifact that cannot be fetched, re-run, or audited — and
+that disappears with that working copy. The record's own header already says
+`status: implemented`, which reads as stronger than the evidence supports.
+
+To be fair to it: the record is candid about exactly this, names note #3286 as the
+reason, and calls the remaining step mechanical rather than a design decision. The
+problem is not concealment — it is that an ExperimentRecord is change memory, and
+this one currently remembers a commit nobody can open.
+
+**Fix:** fast-forward `wl-c1-rescore-2436` onto local-inference `master` on the
+workstation, then amend the record's Evidence section with the resulting `master`
+sha. Until that happens, the header should read `implemented (workstation-local;
+evidence not yet reachable)` rather than plain `implemented`, so a later reader is
+not misled by a status line into thinking the slice is closed. If local-inference
+is meant to stay remote-less, then the record should carry the artifact it needs
+to survive independently — at minimum the `derive_outcome` function body and the
+rescore counts as committed text in agentops, not only a pointer.
+
+**F6 — Merged in 32 seconds with no review, on the plan's designated first
+experiment slice. Severity: medium. Same pattern as F1.**
+Opened 12:16:39Z, merged 12:17:11Z, zero reviews. It is documentation only, which
+lowers the blast radius — but the content is a **falsifier evaluation that keeps a
+contract alive**: "Decision: keep the outcome field and the enum", explicitly so
+WL-C2 (`#2433`) can reuse it. A retire/keep call on the first experiment slice is
+the single decision in this plan most worth a second reader, and it got none. Two
+of the two weekly-lanes PRs that landed today were merged within 8 minutes and 32
+seconds of opening, neither reviewed; that is a pattern, not two coincidences.
+
+**Fix:** as F1 — if the gate should bind mechanically, it is branch protection,
+not convention. At minimum, a falsifier evaluation that concludes "keep" should
+not merge unreviewed.
+
+### Goal-state check for #224
+
+- **`_projects` as a store — raised and dismissed.** TS-14
+  (`docs/plans/2026-09-17-target-state.md:43`) says project-instance folders
+  `_projects/*` are *"derived work folders, never a store"*, and an
+  ExperimentRecord is a §5.1 core ledger object, so landing one into `_projects/`
+  looks at first like a contract violation. It is not: the weekly-lanes plan
+  explicitly assigns *"`_projects` ExperimentRecords"* to agentops in its
+  `repositoryOwnership` block, and WL-C4 is literally *"`_projects`
+  ExperimentRecord over Delivery unit F"*. The plan sanctions this pattern by
+  name. Recording the tension because it is real and a future reader will hit it,
+  not as a finding against this PR.
+- **§1.2 non-goals, §5 contracts — clean.** No new execution machinery, no new
+  noun: `ExperimentRecord` is an existing §5.1 object and the outcome enum is a
+  field on an existing results row.
+- **Scope creep — none.** One file, and the record declines to widen: granularity
+  beyond a `tests/`-only boolean is explicitly deferred to WL-C2.
+
+### One correction to the earlier run's scope claim
+
+The implementation report states that `appservice` and `local-inference` were both
+outside its access scope. For `local-inference` that holds — it is on no remote at
+all. For **`appservice` it does not**: `bayleafwalker/appservice` exists as a
+private repository on this account and is attachable. WL-C3 (Delivery unit F,
+appservice-owned) was set aside as out-of-scope-by-access when it was really
+out-of-scope-by-size (`M`, not `S`) — the size reason was also given and is the
+sound one. Worth correcting so a future run does not skip appservice work on a
+false access premise.
+
+## Goal-state check for #219
 
 Against `vuoro docs/plans/2026-08-22-long-term-direction.md` §1.2 and §5, and
 `agentops docs/plans/2026-09-17-target-state.md`:
@@ -260,7 +386,7 @@ to review. I checked the two that carry the most weight.
 | Repo | `claude/wl-*` branches | Open PRs | Weekly-lanes PRs reviewed |
 |---|---|---|---|
 | `vuoro` | 0 | 0 | — (docs-only: #101 report, spot-checked above) |
-| `agentops` | 0 | 0 | **#219 (WL-D1)** |
+| `agentops` | 0 | 0 | **#219 (WL-D1)**, **#224 (WL-C1)** |
 | `sprintctl` | 0 | 0 | — (WL-A1/A2b landed pre-run via the lane loop) |
 | `auditctl` | 0 | 0 | — |
 | `actionq` | 0 | 0 | — |
@@ -272,11 +398,32 @@ per repo (all six confirmed fetching `+refs/heads/*:refs/remotes/origin/*`),
 `search_pull_requests` for `WL-` over `created:2026-09-19..2026-09-21`, which is
 what surfaced #219 despite its non-matching branch name.
 
+A caveat on that coverage: #224 opened at 12:16:39Z, about ten minutes *after*
+that search ran, and merged 32 seconds later. It was caught only because this
+report's own PR was still open and a later check-in re-read the base branch. A
+one-shot review is structurally blind to whatever lands while it is writing — a
+second reason to key the next run to merged PRs in a date window, and to re-check
+that window once before closing out.
+
 ## Recommendation
 
-One note for whoever picks this up: the branch-naming premise this review runs on
-is wrong, and will silently return "0 branches" every week until it is fixed.
-The implementation work uses a bare `wl-*` prefix and deletes branches on merge,
-so a scheduled review keyed to live `claude/wl-*` branches finds nothing even on
-a week when work landed. Key the search to merged PRs in a date window instead —
-that is how #219 was found.
+Two notes for whoever picks this up.
+
+**The branch-naming premise this review runs on is wrong**, and will silently
+return "0 branches" every week until it is fixed. The implementation work uses a
+bare `wl-*` prefix and deletes branches on merge, so a scheduled review keyed to
+live `claude/wl-*` branches finds nothing even on a week when work landed. Key the
+search to merged PRs in a date window instead — that is how both #219 and #224
+were found.
+
+**Weekly-lanes PRs are merging unreviewed, fast.** Both of today's landed within
+8 minutes and 32 seconds of opening with zero reviews — one against its own
+written "Do not merge", the other carrying a keep/retire call on the plan's first
+experiment slice (F1, F6). Neither turned out to contain a correctness bug; I
+looked hard at #219 in particular. So this is not a plea to slow down on the
+merits. It is that the review step is currently producing no signal at all, which
+means the next PR that *does* carry a bug lands exactly the same way. If these are
+meant to be reviewed, branch protection on `hooks/` and `_projects/` is the
+mechanism. If they are meant to merge unreviewed, the item tiering that says
+otherwise should be retired, so the record stops claiming a gate that is not
+operating.
