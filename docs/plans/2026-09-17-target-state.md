@@ -27,7 +27,7 @@ state that decides the agent tooling, in a repository.
 
 | id | Claim | Status | Source |
 |---|---|---|---|
-| TS-1 | Vuoro owns release, evidence and decision semantics inside sprintctl's served authority. It is not a runner, queue, model router or worker supervisor. TS-16 does not change this, and the two E steps that look closest to it are reconciled here rather than left to a reader. **E3 is not a queue.** An `EffectIntent` is a record of a proposed change that a single homelab-side consumer polls and executes — the same shape as a commit Flux reconciles. Vuoro stores it, serves it on read, and does nothing else: it never assigns an intent to a consumer, never schedules, never retries, never times one out and never supervises the consumer. That is strictly less queue-like than `claim_work`, which TS-1 already permits, because no lease and no dispatch attach to an intent at all. If any of assignment, retry, scheduling or supervision is ever added, the exclusion bites and the added behaviour belongs outside Vuoro. **E4 does not route.** On a rate-limit denial Vuoro records the `rate_limit_event` as evidence, releases the lease, parks the claim, and records which model family a subsequent attempt used. Choosing the next family is the harness's or the dispatcher's act; the substrate observes the choice and never makes it. | accepted-delegated | owner-decisions D1; dossier §3, §5; E3/E4 reconciliation operator 2026-09-20 |
+| TS-1 | Vuoro owns release, evidence and decision semantics inside sprintctl's served authority. It is not a runner, queue, model router or worker supervisor. TS-16 does not change this, and the two E steps that look closest to it are reconciled here rather than left to a reader. **E3 is not a queue.** An `EffectIntent` is a record of a proposed change that a single homelab-side consumer polls and executes — the same shape as a commit Flux reconciles. Vuoro stores it, serves it on read, and does nothing else: Vuoro never assigns, schedules, retries, supervises or expires an intent — any one of those five verbs voids this resolution. That is strictly less queue-like than `claim_work`, which TS-1 already permits, because no lease and no dispatch attach to an intent at all. If any of assignment, scheduling, retry, supervision or expiry is ever added, the exclusion bites and the added behaviour belongs outside Vuoro. **E4 does not route.** On a rate-limit denial Vuoro records the `rate_limit_event` as evidence, releases the lease, parks the claim, and records which model family a subsequent attempt used. Choosing the next family is the harness's or the dispatcher's act; the substrate observes the choice and never makes it. | accepted-delegated | owner-decisions D1; dossier §3, §5; E3 not-a-queue reading session-asserted 2026-09-20, reversible; E4 does-not-route reading session-asserted 2026-09-20, reversible |
 | TS-2 | Execution, sandboxing and model choice stay native to the harness (Claude Code, Codex, OpenCode) and are excluded from Vuoro and agentops. Vuoro records only the observed profile digest. TS-16 does not change this: the published surface carries read, coordinate, record and propose, and no execution. Nor does E4 change the model-choice half: the substrate records a family denial and parks the claim, and the harness or the dispatcher picks what runs next. Vuoro records which family a subsequent attempt used; it does not select it. | accepted-delegated | dossier §5 Externalizes "EXCLUDE"; §13 kills PLAN T8 (both dispatch paths retire) |
 | TS-3 | Role and skills are observed, not compiled: instruction and skill digests are recorded at session start (S6). No compiled profile, skill lock or role preset. | accepted-delegated | dossier §3 table "observed profile digest", §5 "instruction digests are observed, not compiled", §11 S6 |
 | TS-4 | Two harness hooks carry Vuoro semantics: session start (binding plus profile digest) and stop (cost snapshot). Local guard hooks (sandbox, NFS, bounded read, forge credential) stay as operator enforcement. All hooks live outside `templates/dispatch`. | accepted-delegated (Vuoro hooks); proposed (guard hooks) | dossier §5 Owns, §10 L2 |
@@ -50,8 +50,12 @@ it can open that file. Its E0-E4 sequence depends on phases of *the first-princi
 (Phase 0-6, ADR-02, ADR-05), which landed as
 `vuoro docs/plans/2026-09-19-agentic-pipeline-first-principles-rebuild.md` — a reader can cite and
 open it. That dependency is discharged as of 2026-09-20; no E step is blocked on it being recorded
-any longer. The edge doc reverses the rebuild's own §15 "park vuoro.cloud" verdict, on the ground
-that the hosted variant serves runtimes the operator does not host rather than external users.
+any longer. The rebuild's headings are unnumbered — there is no §15 to cite. The edge doc reverses the
+verdict recorded in the rebuild's build-versus-buy ledger row for vuoro.cloud, which reads
+"Revisit. superseded — see the companion doc Vuoro at the Edge", together with its open question
+"Does vuoro.cloud stay up?" The verdict being reversed was "park" (vuoro.cloud serves no user);
+it is reversed on the ground that the hosted variant serves runtimes the operator does not host
+rather than external users.
 
 ## Path (agent-tooling moves only)
 
@@ -116,7 +120,7 @@ that the hosted variant serves runtimes the operator does not host rather than e
   this file).
 - **A month of E1 without the substrate being reached from a hosted runtime.** The need TS-16
   claims is not there; E2-E4 are not built, and the read surface is deleted rather than kept
-  warm (edge doc §9 stop condition).
+  warm (edge doc §10 stop condition).
 - **A concrete case within six months that genuinely requires an effect-apply scope.** Then the
   "name the imperative class explicitly" clause was hiding a real gap rather than an empty one,
   and TS-16's boundary needs re-deciding rather than reasserting.
