@@ -26,8 +26,18 @@ set -uo pipefail
 
 command -v python3 >/dev/null 2>&1 || exit 0
 
-# The script is fed on fd 3 so that fd 0 stays the hook event JSON.
-exec python3 /dev/fd/3 3<<'PYEOF'
+# WL-D1: the event is captured here, rather than left for python to read
+# directly off fd 0, so it survives after python exits and emit_decision
+# (sourced below) can read .session_id from it for the gate log. The
+# heredoc script is unchanged; it takes the same bytes over a pipe instead
+# of inheriting fd 0 directly, and its own stdin-reading is identical
+# either way.
+EVENT="$(cat)"
+_lib="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/lib/emit-decision.sh"
+[ -r "$_lib" ] && . "$_lib"
+
+# The script is fed on fd 3 so stdin (piped in below) stays the hook event JSON.
+OUT="$(printf '%s' "$EVENT" | python3 /dev/fd/3 3<<'PYEOF'
 import json, os, re, sys
 
 try:
@@ -299,3 +309,10 @@ for seg in segments:
 
 sys.exit(0)
 PYEOF
+)"
+RC=$?
+[ -n "$OUT" ] && printf '%s\n' "$OUT"
+if [ -n "$OUT" ] && printf '%s' "$OUT" | grep -q '"permissionDecision": "deny"' && command -v emit_decision >/dev/null 2>&1; then
+  emit_decision "bounded-read-guard.sh" "bounded-read" "Bash" "deny"
+fi
+exit "$RC"
