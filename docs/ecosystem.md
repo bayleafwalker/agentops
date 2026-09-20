@@ -64,8 +64,9 @@ These are siblings under `/projects/dev/`, not nested inside each other. `_artif
 > (appservice #1647) and `agentops/apps/web` was deleted. This section is
 > historical; recover the source from git history.
 
-The cockpit is a Next.js app in `agentops/apps/web`. The browser talks only to
-`/cockpit/api/*` routes served by the same pod; those routes are the gateway for
+The cockpit was a Next.js app in `agentops/apps/web` (source deleted by `aa555d6`,
+"chore(p4): delete apps/web agent-cockpit source"). The browser talked only to
+`/cockpit/api/*` routes served by the same pod; those routes were the gateway for
 PostgreSQL, actionq-server, workspace artifacts, and the shared cost log.
 
 The table below describes the pre-retirement deployment shape. It may remain
@@ -103,11 +104,11 @@ standard OpenTelemetry plus Langfuse (selected 2026-09-14) and the
 object-storage path. Those observations remain non-authoritative and require
 explicit redaction and retention policy.
 
-The deployed Dispatches pane still renders historical/current compatibility
-ActionQ queue rows. The target cockpit instead shows federated native execution
-references and their assurance/acceptance/reconciliation state. There is no
-dispatcher-meta UI backlog: the underlying fan-out engine is retired, not
-deferred.
+Before retirement (`aa555d6`), the deployed Dispatches pane rendered
+historical/current compatibility ActionQ queue rows. The target cockpit
+instead shows federated native execution references and their
+assurance/acceptance/reconciliation state. There is no dispatcher-meta UI
+backlog: the underlying fan-out engine is retired, not deferred.
 
 Model headroom is intentionally a soft signal. Codex `/status` and Claude Code
 `/usage` are slash-command/TUI surfaces today, so the cockpit does not scrape
