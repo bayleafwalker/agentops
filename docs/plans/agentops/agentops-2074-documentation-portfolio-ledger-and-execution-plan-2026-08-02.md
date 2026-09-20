@@ -271,6 +271,41 @@ rows are one portfolio unit but two repository-local packets. Agentops
 architecture wording and Vuoro repository wording likewise integrate only
 after both owner-local candidates pass independent review.
 
+### Packet disposition (2026-09-20)
+
+The frozen table above is left unrewritten — it is a freeze record, not a
+running status field. This subsection carries dispositions recorded after
+that freeze, without touching any existing row in the frozen table or in
+either refreeze ledger table above.
+
+ACTIONQ-LAUNCHER-LINK is superseded — no work owed. The "Refreeze ledger —
+owner repositories (2026-09-19)" table already carries the applicable row:
+Compatibility launcher `README.md`, owner actionq-dispatcher, status
+`current`, action "None here.", evidence noting that "the frozen row's
+missing-runbook-link complaint is moot; content matches TS-2." Re-checked
+directly against `actionq-dispatch` at `origin/main` `7bceb1c`: `README.md`
+(46 lines) is the "ActionQ Dispatcher 0.2.0 retirement tombstone"; line 38
+already reads "See the retirement runbook (linked to `docs/runbook.md`) for
+the consumer inventory and ..."; `docs/runbook.md` exists in that repository
+(not in this one — the path is actionq-dispatch-relative).
+The packet's other request — "retain transparent one-shot wording" — is
+superseded because ActionQ 0.1.26 removed the daemon execution plane
+(actionq commit `9dccf4e`, PR #30) under TS-2, so there is no daemon
+behavior left for one-shot wording to describe.
+
+| Packet | Disposition | Evidence |
+|---|---|---|
+| ACTIONQ-LAUNCHER-LINK | superseded — no work owed | Refreeze ledger "Compatibility launcher `README.md`" row (status `current`, action "None here."); actionq-dispatch `origin/main` `7bceb1c`, `README.md` line 38 (runbook link present); `docs/runbook.md` exists; actionq commit `9dccf4e` (PR #30) removed the daemon execution plane under TS-2. |
+
+Consequence for "Execution order and collision control" step 5: the
+VUORO-UTILIZATION-ARCHITECTURE precondition ("only after ActionQ/launcher
+terminology is accepted") is satisfied. ACTIONQ-UTILIZER's subject was
+superseded by the actionq README rewrite (refreeze ledger row for ActionQ
+`README.md`, citing the actionq HEAD banner dated 2026-08-20), and
+ACTIONQ-LAUNCHER-LINK is superseded as recorded above. Both ActionQ-side
+preconditions to step 5 are therefore resolved as "superseded," not as
+completed edits.
+
 ## Execution order and collision control
 
 1. Owners first ratify the vocabulary crosswalk and the default-beta workflow;
@@ -284,7 +319,8 @@ after both owner-local candidates pass independent review.
    be integrated separately from mode/command semantics.
 5. Run VUORO-UTILIZATION-ARCHITECTURE only after ActionQ/launcher terminology
    is accepted. Agentops architecture text remains a separate Agentops-owned
-   change even when reviewed in the same reasoning unit.
+   change even when reviewed in the same reasoning unit. Precondition
+   satisfied 2026-09-20; see Packet disposition (2026-09-20) above.
 6. KCTL-NARROW and AUDITCTL-NARROW may proceed concurrently in separate task
    instances after their owners answer the lifecycle questions below.
 7. Run AO-TAXONOMY last so the portfolio entry points link only to accepted
