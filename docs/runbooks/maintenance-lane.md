@@ -192,8 +192,14 @@ preserved it as checkpoint commit `89dc1d5` on
    the prompt alone (TS-8).
 
 5. **Integrate** per the owning repository's convention (pull request from the
-   worktree branch in PR repositories; human merge). Mark the item `done` when
-   the change has landed, or back to `pending` with a `rework` note.
+   worktree branch in PR repositories; human merge). Mark the item `done`
+   through its Decision when the change has landed; otherwise return it with
+   `sprintctl item status --id N --status pending --reason rework|partial|abandoned`
+   (`rework`: the review sent it back; `partial`: some of the scope landed
+   and the rest is re-queued; `abandoned`: nothing usable landed), which
+   releases the live reservation and records an item-released event. The
+   served authority accepts this only once it runs the sprintctl 0.7.0
+   work adapter (vuoro-service 0.1.69 or later; see #2444).
 
 ## Telemetry
 
