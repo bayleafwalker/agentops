@@ -50,8 +50,8 @@ it can open that file. Its E0-E4 sequence depends on phases of *the first-princi
 (Phase 0-6, ADR-02, ADR-05), which landed as
 `vuoro docs/plans/2026-09-19-agentic-pipeline-first-principles-rebuild.md` — a reader can cite and
 open it. That dependency is discharged as of 2026-09-20; no E step is blocked on it being recorded
-any longer. The rebuild's headings are unnumbered — there is no §15 to cite. The edge doc reverses the
-verdict recorded in the rebuild's build-versus-buy ledger row for vuoro.cloud, which reads
+any longer. The rebuild's `##` sections are numbered 1-18 (vuoro PR #108), the numbering its own prose already used, so §15 cites literally: §15 Reconciliation, whose vuoro.cloud row carries the verdict. Not §14 Build-vs-buy ledger, which is keyed by plane and has no vuoro.cloud row. The edge doc reverses the
+verdict recorded in the vuoro.cloud row of the rebuild's §15 Reconciliation table, which reads
 "Revisit. superseded — see the companion doc Vuoro at the Edge", together with its open question
 "Does vuoro.cloud stay up?" The verdict being reversed was "park" (vuoro.cloud serves no user);
 it is reversed on the ground that the hosted variant serves runtimes the operator does not host
