@@ -113,14 +113,28 @@
         },
         "skills": {
           "type": "array",
-          "description": "Loaded skill files, when determinable. Empty at SessionStart, since skill loading has not happened yet; not evidence that no skill was used.",
+          "description": "Loaded skill entries, appended after SessionStart by record_skill (#2509) as skills are observed. Empty at SessionStart, since skill loading has not happened yet; not evidence that no skill was used.",
           "items": {
             "type": "object", "additionalProperties": false,
-            "required": ["path", "sha256"],
+            "required": ["name", "path", "sha256", "resolution", "loaded_at"],
+            "description": "path and sha256 are null exactly together: an unresolved or plugin-form skill name (no filesystem form to resolve against) carries both as null, and a resolved skill carries both populated.",
             "properties": {
-              "path": {"$ref": "#/$defs/nonBlank"},
-              "sha256": {"$ref": "#/$defs/sha256"}
-            }
+              "name": {"$ref": "#/$defs/nonBlank"},
+              "path": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/nonBlank"}]},
+              "sha256": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/sha256"}]},
+              "resolution": {"enum": ["cwd", "root", "user", "unresolved"]},
+              "loaded_at": {"type": "string", "format": "date-time"}
+            },
+            "allOf": [
+              {
+                "if": {"properties": {"path": {"type": "null"}}},
+                "then": {"properties": {"sha256": {"type": "null"}}}
+              },
+              {
+                "if": {"properties": {"sha256": {"type": "null"}}},
+                "then": {"properties": {"path": {"type": "null"}}}
+              }
+            ]
           }
         }
       }
