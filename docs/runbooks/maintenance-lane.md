@@ -60,15 +60,19 @@ Blocked-on: <decision or item, if any>
 A Validation line names the targeted tests first (the files the change
 touches, under two minutes) and the full suite second. When the full suite is
 known to take longer than eight minutes, the line says so with the measured
-time and tells the worker to run it with `run_in_background true` and wait
-for the completion notification, or to split it into foreground halves; it
-never tells the worker to report a running suite as a result.
+time and prefers foreground halves: each half runs inside one Bash call with
+timeout 600000, and the item's Validation line gives the two commands. The
+`run_in_background true` form is only for sessions that can stay alive to
+wait for the completion notification — an attended session, or a coordinator
+that blocks on TaskOutput. In neither form does the line tell the worker to
+report a running suite as a result.
 
 Measured full-suite times, where known:
 
 | Repo | Full-suite command | Measured time | Source |
 |---|---|---|---|
 | sprintctl | `uv run --extra dev pytest -q -x --ignore=tests/pg --ignore=tests/test_perf.py` | ~11 min (1489 passed, 647 s) | note 3445 |
+| sprintctl | halves: `tests/test_[a-m]*.py` (885 passed, 2 skipped, 422 s) + `tests/test_[n-z]*.py` minus `test_perf.py` (625 passed, 42 skipped, 216 s), same file set as the full command | ~10.6 min (1510 passed, 44 skipped, 638 s) | note 3499; re-measured 2026-09-21 |
 | others | — | not measured | — |
 
 ## Tiers
@@ -158,7 +162,10 @@ Two conventions back interrupted-item handoff between sessions: the
    coordinator either waits for the run or checkpoints the item
    ([Interrupted items](#interrupted-items-checkpoint-and-pickup) section)
    before the tick ends, and never leaves the item active without a
-   `lane.checkpoint` note.
+   `lane.checkpoint` note. In a headless session (the lane loop's `claude -p`
+   ticks) ending the turn ends the session and kills background runs and
+   subagents, so "wait" means a foreground block (TaskOutput block=true,
+   repeated) or the foreground halves, never ending the turn.
 
    After the worker reports, run
    `scripts/check_trajectory_flags.py --gate-file <session gate log> --base <default-branch-sha> --head <worktree-sha>`
