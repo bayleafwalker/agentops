@@ -281,6 +281,17 @@ defaults to `/projects/dev` and must stay there on a live host;
 
 ### Check-up
 
+`scripts/cost_per_release.py --events-json <sprintctl event list --json output>` answers
+TS-7 (cost per Release) as a derived, read-only query -- no settlement writer, nothing
+cached. Join: ledger session (a ticks.jsonl `"decision": "done"` row; window
+`[ts - minutes, ts]`) -> items whose `lane.dispatch`/`lane.review` notes (actor
+`devbox-agent-vuoro`, tag `lane`) fall in that window -> Release via the item's accept
+Decision `release_digest` when non-null, else the item id with `released=false`. A
+multi-item tick apportions cost by wall time from dispatch to review per item, splitting
+time outside every span equally; it reports the apportioned and whole-tick figures, the
+newest `session-costs.jsonl` row per session, and a `binding_found` flag that surfaces
+rather than drops a missing `session-bindings` record.
+
 Weekly, or after every ten lane attempts, the coordinator:
 
 1. lists items `active` for more than a day without a `lane.review` note;
