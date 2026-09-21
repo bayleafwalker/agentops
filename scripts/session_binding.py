@@ -200,10 +200,13 @@ def _instructions(cwd: Path) -> dict:
     v2 dispatch manifest's source catalog, gates.json or a skill lock. That
     comparison is the *compiled* profile TS-3 says this estate does not keep.
 
-    ``skills`` is a placeholder for loaded skill files. A ``SessionStart``
-    hook fires before any skill is loaded in the turn, so which skills a
-    session will use is not yet determinable at binding time; the field
-    stays empty here and is not read as "no skills were used".
+    ``skills`` is empty here at ``SessionStart``: the hook fires before any skill is
+    loaded in the turn, so which skills a session will use is not yet determinable at
+    binding time. It is appended to afterward by ``record_skill``/``--record-skill``,
+    called from a ``PostToolUse`` hook keyed on the ``Skill`` tool (#2481), which is
+    the seam that has the digest at invocation time. A session whose hook is not
+    registered simply keeps an empty list here, which is still not read as "no skills
+    were used".
     """
     root, root_source = _native_instruction_root(cwd)
     root = root.resolve()
@@ -232,6 +235,73 @@ def _instructions(cwd: Path) -> dict:
         "sources": sources,
         "skills": [],
     }
+
+
+def _resolve_skill(name: str, cwd: Path) -> dict:
+    """Locate a skill's ``SKILL.md`` the way the harness would have loaded it.
+
+    A ``plugin:skill`` name has no filesystem form here to resolve against, so it is
+    left unresolved rather than guessed at. Otherwise the first existing of the cwd's
+    own skills directory, the native instruction root's, and the user's is taken --
+    the same three places a session's instructions are rooted in.
+    """
+    if ":" in name:
+        return {"name": name, "path": None, "sha256": None, "resolution": "unresolved"}
+    root, _ = _native_instruction_root(cwd)
+    candidates = (
+        (cwd.resolve() / ".claude" / "skills" / name / "SKILL.md", "cwd"),
+        (root.resolve() / ".claude" / "skills" / name / "SKILL.md", "root"),
+        (Path.home() / ".claude" / "skills" / name / "SKILL.md", "user"),
+    )
+    for path, resolution in candidates:
+        if path.is_file():
+            return {"name": name, "path": str(path), "sha256": _digest(path),
+                     "resolution": resolution}
+    return {"name": name, "path": None, "sha256": None, "resolution": "unresolved"}
+
+
+def record_skill(bindings_dir: Path, session_id: str, name: str, *, cwd: Path,
+                  loaded_at: str | None = None) -> dict | None:
+    """Append an observed skill digest to a binding already on disk.
+
+    Called from a ``PostToolUse`` hook on the ``Skill`` tool (#2481) -- the seam
+    decided for this because the acceptance needs the digest at invocation time, and a
+    ``Stop``-time reconstruction would have to parse the harness transcript instead.
+    Idempotent on ``(path, sha256)``: recording an unchanged skill a second time adds
+    no second entry, so a hook that fires more than once for the same load is safe.
+    Unresolved names carry ``path: null, sha256: null`` by construction, so the name
+    is folded into that comparison for them too -- otherwise every unresolved skill
+    would collide on the same null pair and only the first name would ever appear.
+    Never raises -- a hook must not cost the session -- so a missing or unreadable
+    binding is reported to stderr and answered with ``None``.
+    """
+    path = bindings_dir / f"{session_id}.json"
+    try:
+        binding = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"session_binding: cannot record skill for session {session_id}: {exc}",
+              file=sys.stderr)
+        return None
+
+    entry = _resolve_skill(name, cwd)
+    entry["loaded_at"] = loaded_at or _now()
+
+    skills = binding.setdefault("instructions", {}).setdefault("skills", [])
+    key = (entry["path"], entry["sha256"])
+    duplicate_key = key if key != (None, None) else (entry["name"], *key)
+
+    def _key(existing: dict) -> tuple:
+        existing_key = (existing.get("path"), existing.get("sha256"))
+        return existing_key if existing_key != (None, None) \
+            else (existing.get("name"), *existing_key)
+
+    if not any(_key(existing) == duplicate_key for existing in skills):
+        skills.append(entry)
+
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(binding, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    os.replace(tmp, path)  # atomic: a whole binding or none
+    return binding
 
 
 def build(event: dict, *, records_dir: Path, hostname: str | None = None) -> dict:
@@ -325,7 +395,28 @@ def main(argv: list[str] | None = None) -> int:
                         / "environment-record")
     parser.add_argument("--hostname", help="override the detected hostname (for testing)")
     parser.add_argument("--no-publish", action="store_true")
+    parser.add_argument("--record-skill", action="store_true",
+                        help="PostToolUse mode: append an observed skill digest to "
+                             "an existing binding, from a payload keyed on the "
+                             "Skill tool")
     args = parser.parse_args(argv)
+
+    if args.record_skill:
+        try:
+            event = json.loads(sys.stdin.read() or "{}")
+        except json.JSONDecodeError as exc:
+            print(f"session_binding: unreadable PostToolUse payload: {exc}",
+                  file=sys.stderr)
+            return 0  # a hook must not cost the session
+        if event.get("tool_name") != "Skill":
+            return 0
+        session_id = (event.get("session_id") or "").strip()
+        skill_name = (event.get("tool_input") or {}).get("skill")
+        if not session_id or not skill_name:
+            return 0
+        cwd = Path(event.get("cwd") or os.getcwd())
+        record_skill(args.bindings_dir, session_id, skill_name, cwd=cwd)
+        return 0
 
     try:
         event = json.loads(sys.stdin.read() or "{}")

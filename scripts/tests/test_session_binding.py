@@ -38,6 +38,7 @@ RECORDS = ROOT / "environment-record"
 
 sys.path.insert(0, str(ROOT / "scripts"))
 import schema_check  # noqa: E402
+import session_binding  # noqa: E402
 
 
 def _run(event: dict, bindings: Path, *, hostname: str = "workstation"):
@@ -206,6 +207,103 @@ class SessionBindingV0(unittest.TestCase):
                 )
                 self.assertEqual(result.returncode, 0)
                 self.assertTrue(result.stderr.strip(), "silence is the defect")
+
+    # -- record_skill: skills appended after SessionStart, observed not compiled ----
+
+    def _record_payload(self, *, session_id: str, cwd: Path, skill: str,
+                        tool_name: str = "Skill") -> str:
+        return json.dumps({"session_id": session_id, "cwd": str(cwd),
+                           "tool_name": tool_name, "tool_input": {"skill": skill}})
+
+    def _run_record_skill(self, payload: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, str(SCRIPT), "--record-skill",
+             "--bindings-dir", str(self.bindings)],
+            input=payload, text=True, capture_output=True,
+        )
+
+    def test_record_skill_resolves_from_cwd_and_records_its_digest(self):
+        workspace = self.tmp / "ws-skill"
+        skill_dir = workspace / ".claude" / "skills" / "my-skill"
+        skill_dir.mkdir(parents=True)
+        skill_file = skill_dir / "SKILL.md"
+        skill_file.write_text("---\nname: my-skill\n---\nBody.\n")
+        _run({"session_id": "sk1", "cwd": str(workspace), "source": "startup"},
+             self.bindings)
+
+        binding = session_binding.record_skill(
+            self.bindings, "sk1", "my-skill", cwd=workspace)
+
+        self.assertIsNotNone(binding)
+        skills = self._binding("sk1")["instructions"]["skills"]
+        self.assertEqual(len(skills), 1)
+        entry = skills[0]
+        self.assertEqual(entry["name"], "my-skill")
+        self.assertEqual(entry["path"], str(skill_file))
+        self.assertEqual(entry["resolution"], "cwd")
+        self.assertEqual(entry["sha256"],
+                         hashlib.sha256(skill_file.read_bytes()).hexdigest())
+        self.assertIsNotNone(entry["loaded_at"])
+
+    def test_record_skill_distinguishes_unresolved_and_plugin_form_names(self):
+        workspace = self.tmp / "ws-unresolved"
+        workspace.mkdir()
+        _run({"session_id": "sk2", "cwd": str(workspace), "source": "startup"},
+             self.bindings)
+
+        session_binding.record_skill(self.bindings, "sk2", "no-such-skill",
+                                     cwd=workspace)
+        session_binding.record_skill(self.bindings, "sk2", "some-plugin:its-skill",
+                                     cwd=workspace)
+
+        skills = self._binding("sk2")["instructions"]["skills"]
+        by_name = {entry["name"]: entry for entry in skills}
+        for name in ("no-such-skill", "some-plugin:its-skill"):
+            entry = by_name[name]
+            self.assertIsNone(entry["path"])
+            self.assertIsNone(entry["sha256"])
+            self.assertEqual(entry["resolution"], "unresolved")
+
+    def test_record_skill_is_idempotent_on_path_and_sha256(self):
+        workspace = self.tmp / "ws-idempotent"
+        skill_dir = workspace / ".claude" / "skills" / "repeatable"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("Body.\n")
+        _run({"session_id": "sk3", "cwd": str(workspace), "source": "startup"},
+             self.bindings)
+
+        session_binding.record_skill(self.bindings, "sk3", "repeatable",
+                                     cwd=workspace)
+        session_binding.record_skill(self.bindings, "sk3", "repeatable",
+                                     cwd=workspace)
+
+        skills = self._binding("sk3")["instructions"]["skills"]
+        self.assertEqual(len(skills), 1,
+                         "a repeat invocation of an unchanged skill must not double")
+
+    def test_a_non_skill_tool_payload_is_a_no_op(self):
+        workspace = self.tmp / "ws-other-tool"
+        workspace.mkdir()
+        _run({"session_id": "sk4", "cwd": str(workspace), "source": "startup"},
+             self.bindings)
+        before = self._binding("sk4")
+
+        payload = self._record_payload(session_id="sk4", cwd=workspace,
+                                        skill="unused", tool_name="Bash")
+        result = self._run_record_skill(payload)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self._binding("sk4"), before)
+
+    def test_a_missing_binding_returns_none_and_the_cli_still_exits_zero(self):
+        self.assertIsNone(
+            session_binding.record_skill(self.bindings, "no-such-session", "any",
+                                         cwd=self.tmp))
+
+        payload = self._record_payload(session_id="no-such-session", cwd=self.tmp,
+                                        skill="any")
+        result = self._run_record_skill(payload)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__ == "__main__":
