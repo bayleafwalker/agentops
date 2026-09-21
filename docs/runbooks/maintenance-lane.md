@@ -64,15 +64,15 @@ time and prefers foreground halves: each half runs inside one Bash call with
 timeout 600000, and the item's Validation line gives the two commands. The
 `run_in_background true` form is only for sessions that can stay alive to
 wait for the completion notification — an attended session, or a coordinator
-that blocks on TaskOutput; it never tells the worker to report a running
-suite as a result.
+that blocks on TaskOutput. In neither form does the line tell the worker to
+report a running suite as a result.
 
 Measured full-suite times, where known:
 
 | Repo | Full-suite command | Measured time | Source |
 |---|---|---|---|
 | sprintctl | `uv run --extra dev pytest -q -x --ignore=tests/pg --ignore=tests/test_perf.py` | ~11 min (1489 passed, 647 s) | note 3445 |
-| sprintctl | halves: `tests/test_[a-m]*.py` (885 passed, 2 skipped, 422 s) + `tests/test_[n-z]*.py` minus `test_perf.py` (625 passed, 42 skipped, 216 s), same file set as the full command | 1510 passed, 44 skipped | note 3499; re-measured 2026-09-21 |
+| sprintctl | halves: `tests/test_[a-m]*.py` (885 passed, 2 skipped, 422 s) + `tests/test_[n-z]*.py` minus `test_perf.py` (625 passed, 42 skipped, 216 s), same file set as the full command | ~10.6 min (1510 passed, 44 skipped, 638 s) | note 3499; re-measured 2026-09-21 |
 | others | — | not measured | — |
 
 ## Tiers
