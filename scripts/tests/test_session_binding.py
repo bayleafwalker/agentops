@@ -264,6 +264,48 @@ class SessionBindingV0(unittest.TestCase):
             self.assertIsNone(entry["sha256"])
             self.assertEqual(entry["resolution"], "unresolved")
 
+    def test_recorded_skill_entries_satisfy_the_schema(self):
+        """The recorded shape is the contracted shape (TS-3).
+
+        A binding holding a resolved cwd skill, an unresolved name and a
+        plugin-form name -- all three shapes ``record_skill`` emits -- must
+        validate against ``session-binding.schema.json``: nothing validates a
+        binding at runtime today, but #2481's acceptance session will.
+        """
+        workspace = self.tmp / "ws-schema"
+        skill_dir = workspace / ".claude" / "skills" / "my-skill"
+        skill_dir.mkdir(parents=True)
+        skill_file = skill_dir / "SKILL.md"
+        skill_file.write_text("---\nname: my-skill\n---\nBody.\n")
+        _run({"session_id": "sk5", "cwd": str(workspace), "source": "startup"},
+             self.bindings)
+
+        session_binding.record_skill(self.bindings, "sk5", "my-skill", cwd=workspace)
+        session_binding.record_skill(self.bindings, "sk5", "no-such-skill",
+                                     cwd=workspace)
+        session_binding.record_skill(self.bindings, "sk5", "some-plugin:its-skill",
+                                     cwd=workspace)
+
+        binding = self._binding("sk5")
+        self.assertEqual(len(binding["instructions"]["skills"]), 3)
+        schema = json.loads(SCHEMA.read_text())
+        self.assertEqual(schema_check.audit_schema(schema), [])
+        self.assertEqual(schema_check.validate(binding, schema), [])
+
+    def test_a_skill_entry_missing_loaded_at_is_rejected(self):
+        workspace = self.tmp / "ws-schema-negative"
+        workspace.mkdir()
+        _run({"session_id": "sk6", "cwd": str(workspace), "source": "startup"},
+             self.bindings)
+        session_binding.record_skill(self.bindings, "sk6", "no-such-skill",
+                                     cwd=workspace)
+        binding = self._binding("sk6")
+        del binding["instructions"]["skills"][0]["loaded_at"]
+
+        schema = json.loads(SCHEMA.read_text())
+        errors = schema_check.validate(binding, schema)
+        self.assertTrue(errors, "a skill entry missing loaded_at must be rejected")
+
     def test_record_skill_is_idempotent_on_path_and_sha256(self):
         workspace = self.tmp / "ws-idempotent"
         skill_dir = workspace / ".claude" / "skills" / "repeatable"
