@@ -402,16 +402,21 @@ by whether E2-E4 can be added without redoing anything, which is why sections
 
 ### 11.2 Changes to the baseline that follow from the product intention
 
-1. **Ship one `record`-class tool in the first release.** TS-16's tool set and
-   E0-E4 shape are marked "proposed", not operator-decided, so this is open.
-   The smallest tool that moves the control metric is `write_session_note`
-   (append-only, workspace-scoped, records runtime, model and profile
-   revision as the edge doc §7 chain requires). With it, the first hosted
-   session leaves a reconstructable trace; without it, "reached from a hosted
-   runtime" is provable only from gateway logs, which is the S14 failure
-   shape again. Scope `vuoro:evidence.record` therefore ships at launch next
-   to `vuoro:work.read`. Append-only writes carry no effect and no
-   credential, so the TS-16 boundary holds.
+1. **Make E2 a tool addition and nothing else.** (Revised 2026-09-22 after
+   dev-38's objection; the earlier text pulled `write_session_note` into
+   E1, which moved a tool between two operator-authorized items that sprint
+   559 event #3328 sequenced in dependency order, and contradicted point 4,
+   since a runtime-authored note is a real record in a workspace that must
+   hold none before the restore drill passes. The tool stays in E2, #2466.)
+   What survives is a constraint on E1's authorization model: the AS scope
+   registry carries `vuoro:evidence.record` and `vuoro:work.claim` as
+   known-but-not-granted at launch and refuses them for every client until
+   E2 flips the grant; the `/mcp` scope check is table-driven so a new tool
+   is one row; the assertion minting intersects membership authorities with
+   token scopes from day one, so a write scope later needs no gateway
+   change. The S14 concern (reach provable only from gateway logs) is
+   answered by acceptance instead: #2514 closes on a first-use trace that
+   ends in a PR in an operator repo carrying the runtime's verdict.
 2. **The projection must expose freshness and unavailability, not just
    fields.** The positioning doc's authority model requires a composed view
    to expose field authority, freshness, and unknown/unavailable/stale
@@ -443,9 +448,9 @@ by whether E2-E4 can be added without redoing anything, which is why sections
    back inside the perimeter. agentops#2471 already fixed the shape: a
    Routine whose output is a judgement ends by opening a PR. Acceptance line:
    a claude.ai Routine authenticates via OAuth, calls `list_ready_work` and
-   `describe_work`, writes a session note through `write_session_note`, and
-   opens a PR in an operator repo carrying its verdict. That one run proves
-   auth, read, record and the boundary in a single trace.
+   `describe_work`, and opens a PR in an operator repo carrying its verdict.
+   That one run proves auth, read and the boundary in a single trace; record
+   joins the trace at E2.
 6. **Maturity label.** Every Vuoro-owned option must carry one. E1 ships as
    "Internal operational proof". No onboarding, invitation, or self-serve
    affordance is built for it, and the connector is registered by the
