@@ -88,12 +88,22 @@ served credential.
    E step is blocked on them any longer.
    - **E0.** Harden before exposing anything: evidence chaining, lease expiry with heartbeat,
      rate limiting, endpoint monitoring. *Depends on rebuild Phase 0 and 2.*
-   - **E1.** Read-only surface (`list_ready_work`, `describe_work`), one static bearer, dual-era
-     protocol support. A day of work, and reversible by deleting the connector. Dual-era support
+   - **E1.** Read-only surface (`list_ready_work`, `describe_work`), ~~one static bearer~~
+     **OAuth 2.1** (short-lived, audience-bound, workspace-scoped tokens), dual-era protocol
+     support. ~~A day of work, and reversible by deleting the connector.~~ Dual-era support
      is kept because the client protocol-version matrix is third-party and dated July 2026;
      re-check it before dropping `initialize`. Scheduled-task connector bugs have no vendor fix
      confirmation, so Routines is not assumed to work. *Depends on E0* — nothing is
      exposed before the hardening lands.
+
+     **Revised 2026-09-22.** The static bearer is superseded (supersedes the acceptance of
+     agentops#2470): it has no expiry, no revocation semantics, no client identity, and is
+     replayable against the surface if stolen. The claude.ai connector dialog supports all three
+     OAuth client paths, so the client side is not the obstacle. The estate has no MCP
+     authorization server and no protected-resource metadata endpoint today, so this is a real
+     build and no longer "a day of work" — scope it before committing to a date. "Reversible by
+     deleting the connector" is struck for the same reason the month-long tripwire is: it is a
+     disposal-shaped justification, and the operator has directed that plans assume use.
    - **E2.** Claims and evidence: `claim_work`, `heartbeat`, `append_evidence`,
      `write_session_note`, `complete_work`, with lease handles, idempotency throughout and
      `(handle, auth_context)` validated per call. *Depends on E0 and rebuild Phase 1.*
@@ -128,9 +138,22 @@ served credential.
   checkpoint alone.** TS-8 is unmet.
 - **Six months with zero hits from a restored interim tool.** Delete it (trigger 7 applied to
   this file).
-- **A month of E1 without the substrate being reached from a hosted runtime.** The need TS-16
+- ~~**A month of E1 without the substrate being reached from a hosted runtime.** The need TS-16
   claims is not there; E2-E4 are not built, and the read surface is deleted rather than kept
-  warm (edge doc §9 stop condition).
+  warm (edge doc §9 stop condition).~~ **SUPERSEDED 2026-09-22 by operator direction:** "Building
+  in deprecation at this point is excessively wasteful. Plans should always aim for assumption of
+  use." The month-long clock is demoted to at most a post-launch prioritisation review, and it
+  must not shape the deployment, the telemetry or the auth design. Struck through rather than
+  deleted because the reasoning is still the honest record of what was believed on 2026-09-17,
+  and because a tripwire that simply vanishes reads as one that was met.
+
+  What replaces it is a tripwire on the same underlying question — is the need real? — that does
+  not build a deletion into the design: **E1 in use with no E2-E4 follow-on, and no session that
+  produced a reconstructable record.** A read-only surface moves TS-16's control metric (what
+  proportion of automated activity is reconstructable) by exactly zero on its own; its whole value
+  is the foundation it lays. If the foundation is laid and nothing is ever built on it, TS-16's
+  claimed need was not there — but the response is to stop investing, not to delete a working
+  capability. Ordinary GitOps rollback is sufficient reversibility.
 - **A concrete case within six months that genuinely requires an effect-apply scope.** Then the
   "name the imperative class explicitly" clause was hiding a real gap rather than an empty one,
   and TS-16's boundary needs re-deciding rather than reasserting.
