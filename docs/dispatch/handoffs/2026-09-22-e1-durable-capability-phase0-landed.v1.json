@@ -1,0 +1,189 @@
+{
+  "schema_version": "handoff/v1",
+  "handoff_id": "2026-09-22-e1-durable-capability-phase0-landed.v1",
+  "version": 1,
+  "created_at": "2026-09-22T19:55:01Z",
+  "origin_host": "workstation",
+  "origin_path": "/projects/dev/agentops/docs/dispatch/handoffs/2026-09-22-e1-durable-capability-phase0-landed.v1.json",
+  "origin_cwd": "/projects/dev/agentops",
+  "track": "e1-durable-edge-capability",
+  "predecessor": {
+    "harness": "claude-code",
+    "session_id": "78606be2-b5ac-4efe-8339-f0e1862e0757",
+    "transcript_path": null,
+    "model": "claude-opus-5[1m]",
+    "context_used_pct": null
+  },
+  "objective": "Build E1 as a durable, OAuth-2.1-authenticated read capability served as a route on the existing vuoro.cloud public gateway, over a workspace-scoped public-work contract owned by sprintctl. Phase 0 (the independent supply-chain fix) is landed; the next build step is the sprintctl work.public.* contract.",
+  "constraints": [
+    "DESIGN FOR USE, NOT DISPOSAL. Operator directive 2026-09-22: 'Building in deprecation at this point is excessively wasteful. Plans should always aim for assumption of use.' Do not reintroduce trial counters, a phase clock, a deletion-shaped deployment, or reversibility as the dominant architecture goal. Ordinary GitOps rollback is sufficient reversibility.",
+    "MCP is a standard route on the EXISTING public gateway (vuoro-cloud src/vuoro_cloud/gateway.py), declared before the /api/{path} catch-all at gateway.py:693. Not a separate namespace, tunnel, stack or image.",
+    "OAuth 2.1 with short-lived, audience-bound, workspace-scoped tokens. The static bearer is superseded (superseding the acceptance of agentops#2470) and must not be reinstated.",
+    "The permanent absence of an effect-apply scope is binding. Under the new design the authorization server must REFUSE vuoro:effect.apply, with a test that proves the refusal.",
+    "Every tool on the published surface classifies as read, coordinate, record or propose. E1 ships read only; write_session_note stays in E2 (#2466 names it) -- see note 3587 on #2514 for why that was decided and not silently moved.",
+    "Do not parse objective/acceptance or any other prose out of a work item's description field. The disclosure audit found description carries internal hostnames, eight absolute paths, six runnable command lines and an unremediated security finding stated as an exploit.",
+    "Do not vendor vuoro's MCP code into vuoro-cloud (13-REPO-OWNERSHIP-AND-CHANGE-MATRIX puts sprintctl work semantics on that repo's does-not-own list). Hosting vuoro's own image unchanged is in bounds; copying the module is not.",
+    "Nothing in vuoro_service.app.create_app may reference the MCP surface -- its own docstring forbids it.",
+    "The homelab (appservice) is NOT where this is exposed. Operator-closed; do not re-derive.",
+    "Deploying to vuoro.cloud needs two hardware YubiKey touches via scripts/promote-release.sh. There is no software fallback. Connector registration is the operator's exposure step.",
+    "Every guard must be forced into its failure case before it is trusted: break the code it covers, capture the failure, revert. A reasoned account that a check 'would fail' is not evidence.",
+    "Do NOT use isolation:'worktree' for implementation subagents -- the guard in this environment refuses every git invocation inside an agent worktree. Create worktrees from the main session and forbid agents from running git."
+  ],
+  "decisions": [
+    {
+      "what": "agentops#2465 superseded by #2514 rather than revised in place",
+      "why": "Three of its four acceptance lines no longer described the work. Revising would have left the title and the whole event history asserting an abandoned design. Used sprintctl's purpose-built supersede decision kind (decision 142, resolution 'superseded', superseded_by 2514), not a status change. #2466 rewired to depend on #2514 (dep #922)."
+    },
+    {
+      "what": "The authorization server is the vuoro.cloud control service; the gateway /mcp route is the resource server",
+      "why": "The control service already owns GitHub sign-in, PKCE oauth_transactions, browser sessions, memberships and JWT signing. Rejected: an external AS (workspace binding must come from vuoro-cloud memberships, and a second mapping is a second authority for the one fact the token must get right), and AS-in-gateway (reverses the stateless-proxy boundary)."
+    },
+    {
+      "what": "The public-work view is an application contract at the data owner, NOT a database view",
+      "why": "vuoro-cloud's 11 migrations hold no work-item table and no CREATE VIEW; work items live in the sprintctl-owned tenant runtime. A DB view would be a sprintctl migration at schema 17 on a tenant at 7, in a third repo, with no least-privilege read-only role to own or read it. sprintctl registers work.public.list/v1 and work.public.item/v1 through vuoro-adapter-kit with strict additionalProperties:false response schemas -- the one field-level enforcement the substrate already tests in the release gate."
+    },
+    {
+      "what": "The v1 field set, decided against the live served record rather than inferred",
+      "why": "list item: work_id, title (cap 160), priority (nullable), status, blocked (boolean derived by the sprintctl handler from the structured deps collection), updated_at. item: those plus created_at, resolution (nullable), blocked_by (array of work_id). Never: description, assignee, repo_id, sprint_id, track_id, aggregate_uuid, legacy, terminal_decision_id, revision counters, provenance, tier, prior_attempts -- each named in the schema test as must-be-absent. objective and acceptance are NOT emitted in v1; they cannot be derived and join a v2 only when sprintctl adds them as deliberately authored columns, sequenced with E2."
+    },
+    {
+      "what": "Pre-registered OAuth client first, DCR only on demonstrated need",
+      "why": "The only client is the operator's own connector. claude.ai redirect is https://claude.ai/api/mcp/auth_callback, with https://claude.com/api/mcp/auth_callback also allowlisted for a future move, plus loopback for Claude Code; client id and secret go under 'Advanced settings' in the connector dialog. Omit registration_endpoint from RFC 8414 metadata until needed."
+    },
+    {
+      "what": "No streaming change to the gateway",
+      "why": "MCP Streamable HTTP permits a plain JSON response to POST and a 405 to the client's GET stream. Read and record tools return immediately, so mcp-serve runs JSON-response mode and the existing buffered proxy at gateway.py:346-348 suffices. The SSE-through-tunnel question does not arise. CORS is moot: connector calls originate server-side at Anthropic."
+    },
+    {
+      "what": "First USE closes #2514, not first deployment",
+      "why": "One trace in which a hosted client authenticates over OAuth, calls both read tools, and ends in a PULL REQUEST in an operator repo carrying that runtime's verdict (the agentops#2471 shape). The original wording 'a result the operator acts on' was operator-attested testimony, which is the S14 shape -- with a single credential labelled 'hosted', the operator's own probes satisfied the stop condition the design existed to test. A PR is a durable artifact outside the gateway's own logs."
+    }
+  ],
+  "rejected": [
+    {
+      "what": "Using appservice's Authentik as the authorization server",
+      "why": "It is real and was seriously evaluated -- Authentik is published at auth.kotona.app with a live oauth2provider blueprint for a third-party AI vendor (clusters/main/kubernetes/apps/authentik/app/helm-release.yaml:120-166), so 'the homelab is LAN-only' is FALSE and the brief that said so was wrong. It still loses on four independent grounds: it re-enters the homelab IdP into the public path; cached JWKS keeps validation alive when the house is down but /authorize and /token do not, so every refresh fails and the connector dies with the house; workspace binding must come from vuoro-cloud memberships; and its audience is static per provider with no RFC 8707 resource handling. Keep as a lesson source: issue refresh tokens by default rather than an offline_access dance, keep the consent leg free of IP allowlists and Cloudflare Access, pin both callback hosts strictly."
+    },
+    {
+      "what": "Shipping write_session_note (a record-class tool) at E1 launch",
+      "why": "Proposed and declined; the proposer concurred. It is a scope transfer between two operator-authorized items -- #2466's scope names the tool and sprint 559 event #3328 authorized the E-chain in dependency order -- and it contradicts the restore-drill gate, since a runtime-authored note is a real record in a workspace that must hold none until the drill passes. What survives is scope item (7) on #2514: E2 must be a tool addition and nothing else."
+    },
+    {
+      "what": "PR'ing commit 92afde2 as the handoff instructed",
+      "why": "Not executable as written. Cherry-picked onto main it gives 4 failed, 105 passed, 49 skipped -- four of its tests glob apps/mcp and platform/mcp-trial, which exist only in the superseded 490d7be. Half the commit (scripts/preflight-cluster.py and its tests) was MCP-trial secret checking, and it added an 'mcp': MCP_IMAGE entry pre-authorizing the abandoned separate-image design. It was reduced to the durable fix and landed as PR #74."
+    },
+    {
+      "what": "Adding --metadata-file to auditctl",
+      "why": "Implemented and REVERTED as a dead option. argv (MAX_ARG_STRLEN, 128 KiB) was never the binding constraint: auditctl refuses any event whose canonical NDJSON line exceeds 16384 bytes, an order of magnitude lower. Do not re-propose it. Its error message advertises an 'immutableRef kind=artifact under _artifacts/<repo_id>/' which DOES NOT EXIST -- no artifact: prefix in VALID_REF_PREFIXES, no command that registers a blob, and that directory is auditctl's own NDJSON store root."
+    },
+    {
+      "what": "Trusting the handoff's claim that the .claude/hooks directory is unversioned",
+      "why": "False. It is a symlink farm into agentops/hooks/, and the log-session-cost.sh fix was tracked-but-uncommitted. The real instance of that problem was secret-read-guard.sh, a live wired-in PreToolUse hook in no repository at all; now versioned at agentops 58a78fe."
+    },
+    {
+      "what": "Trusting that ruff format is not run by vuoro-cloud CI",
+      "why": "A prior pass recorded this and it cost a red CI run. The focused job runs `make check-fast`, whose first target is `format`, which runs both `ruff format --check` and `ruff check`. Verify against the Makefile target, not the workflow file alone."
+    },
+    {
+      "what": "Attribution by network origin, imperative-stripping/fencing/denylists as injection defences, and emitting tier or prior_attempts",
+      "why": "All measured against the real corpus and rejected before this session; carried forward unchanged. See the v2 handoff and docs/design/e1/ for the measurements."
+    }
+  ],
+  "state": {
+    "repos": [
+      {
+        "path": "/projects/dev/agentops",
+        "head": "5940d89fe348804387a1c79c0c0432ca86c1fb6e",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "674938f7637a715c70a2bdf225b39e0375ea2224d8a3bb66e49b96d8f6d62202",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/vuoro",
+        "head": "100082231f82e8904cb95380c15083dcf753a316",
+        "branch": "e1-call-journal",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 1
+      },
+      {
+        "path": "/projects/dev/vuoro-cloud",
+        "head": "f6d2c4217db79ce7243606d8e76784a3bbc26630",
+        "branch": "docs/record-generation-33",
+        "dirty": true,
+        "diff_sha256": "b2dd4ad127dd174e6f61cc31ef9a51fc038b0931248129d6773206fe9ae6802a",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/sprintctl",
+        "head": "4e4adf9ece4fc20a219f857710ca5372f857a572",
+        "branch": "main",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/appservice",
+        "head": "a318f6ee074bedcd3aa200f0eba3a65c9900fa75",
+        "branch": "main",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      }
+    ],
+    "running": [
+      "Nothing running. No background jobs, no timers armed by this session.",
+      "vuoro-cloud PR #74 is MERGED fast-forward; main is 86abb32 and the fix/digest-pin-allowlist branch is deleted locally-remote. The worktree /projects/dev/_wt/e1-cloud is still checked out on that merged branch and can be removed.",
+      "Worktrees /projects/dev/_wt/e1-surface (e1-surface-wiring) and /projects/dev/_wt/e1-edge (e1-mcp-edge) hold the superseded-framing work. Safe to remove the worktrees; the branches hold the commits, but the branches are UNPUSHED.",
+      "Another Claude session (dev-5f) worked this design concurrently and reports its side complete. It landed vuoro-cloud PR #73 (D-043/D-044) and revised /projects/dev/_artifacts/vuoro/e1-stronger-baseline-design-2026-09-22.md, which is mirrored into agentops docs/design/e1/. If that file changes again, re-copy it -- _artifacts is not a git repository."
+    ],
+    "digest_version": 3,
+    "tracker_watermark": []
+  },
+  "unresolved": [
+    "The OAuth 2.1 authorization server does not exist. vuoro-cloud has browser-session cookies (aud vuoro-control), a 10-minute vuoro-admission cookie, GitHub relying-party sign-in, opaque vuo_pat_/vuo_enr_/vuo_con_ tokens, and a 30-second gateway->runtime assertion (aud vuoro-service). There is NO /authorize, /token, JWKS, client store, refresh, DCR, RFC 9728 or RFC 8414 endpoint. This is the largest remaining build.",
+    "Which cloud workspace and repo_id the pilot slice lives in. Proposed defaults, not operator-confirmed: slug kotona-pilot, repo_id vuoro, a NEW workspace and runtime with no history import so IDs cannot collide by construction, authorship restricted to operator principals.",
+    "repo_id is two namespaces in one text column -- a slug ('agentops') and a UUID ('1308d624-...'). Assessed as a sprintctl data-hygiene defect rather than a token blocker (the token binds workspace_id only), but it has not been fixed and will confuse anyone reading the data.",
+    "vuoro-cloud's own acceptance gates: tenant isolation gates the MCP route and the restore drill gates a cloud workspace holding real work (recorded as D-044 in 17-DECISION-LOG). External onboarding, home-unavailable Forgejo recovery and the synthetic canary are re-sequenced behind E2 -- re-sequenced, not deleted, and still blocking their own phases.",
+    "Whether the auditctl session metadata should carry the gates array at all is still the operator's call. The hook now bounds it so the row is never lost, but the question of what belongs in it is untouched. AGENTOPS_AUDIT_METADATA_MAX_BYTES (default 12288) tunes it without a code change.",
+    "agentops#2515: the digest-pin validator audits literal manifests, but what reaches the cluster is `kustomize build` output. A kustomize images: override at clusters/vuoro-cloud-poc-apps/kustomization.yaml, or an inline patch: string, changes the deployed image with every check green. Three options and five forced-failure acceptance lines are on the item; recommendation is to validate the built output.",
+    "The E1 work branches (e1-surface-wiring 3ac68b5, e1-mcp-edge 28155c0, e1-cloud-manifests 490d7be) hold ~2400 lines of committed but UNPUSHED work shaped by the abandoned framing. They exist on one disk only. Pushing them would publish superseded architecture to the forge; discarding them loses the tested parts. Not resolved -- flagged for the operator."
+  ],
+  "evidence": [
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/docs/design/e1/README.md (reading order; the implementation synthesis is largely SUPERSEDED)"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/docs/design/e1/e1-stronger-baseline-design-2026-09-22.md (most current; sections 4, 5, 9, 11, 12)"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/docs/plans/2026-09-17-target-state.md (TS-16; E1 step and tripwire annotated as superseded)"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/vuoro/docs/plans/2026-09-20-vuoro-at-the-edge.md (5 passages annotated SUPERSEDED at vuoro main 97adcca)"
+    },
+    {
+      "kind": "sprintctl",
+      "ref": "agentops#2514 (the item), notes 3587 (E2 boundary), 3589 (field names verified; supersedes truncated 3588)"
+    },
+    {
+      "kind": "sprintctl",
+      "ref": "agentops#2465 decision 142 (superseded by 2514); #2515 (kustomize gap), note 3590"
+    },
+    {
+      "kind": "artifact",
+      "ref": "vuoro-cloud docs/17-DECISION-LOG.md D-043 and D-044 (hosted-runtime reframe, gate sequencing), main 801778b"
+    }
+  ],
+  "sprintctl_bundle_ref": null,
+  "next_action": "Build the sprintctl public-work contract (build-order step 2), in /projects/dev/sprintctl on main (4e4adf9, clean). Register work.public.list/v1 and work.public.item/v1 through vuoro-adapter-kit with strict additionalProperties:false response schemas, using the field set decided in agentops#2514 and section 5 of docs/design/e1/e1-stronger-baseline-design-2026-09-22.md -- list: work_id, title (cap 160), priority nullable, status, blocked, updated_at; item: those plus created_at, resolution nullable, blocked_by. Derive `blocked`/`blocked_by` in the handler from the structured deps collection, NEVER by parsing description. Envelope {authority:'sprintctl', as_of, state: ok|unavailable, items|item}; state 'unavailable' must surface as a tool error, never as an empty list. First read note 3589 on agentops#2514: three of the six field names the existing vuoro-mcp-edge work_source.py uses do not exist on a served work item, so do not copy those constants. Prove the schema is real by forcing it to fail: a response carrying `description` must fail the schema gate, and each never-emit field must be named in a must-be-absent test.",
+  "successor": {
+    "session_id": null,
+    "acknowledged_at": null
+  }
+}
