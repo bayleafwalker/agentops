@@ -160,6 +160,60 @@ class TestOpen(unittest.TestCase):
         self.assertEqual(
             rows[0]["handoff_id"], json.loads(second.read_text())["handoff_id"])
 
+    def test_a_newer_slug_in_a_track_beats_an_older_slug_with_a_higher_version(self) -> None:
+        """Version numbers are per-slug, so they cannot order a track.
+
+        A track accumulates slugs over time, each with its own version counter.
+        Ordering by version first meant a brand-new second-slug v1 lost to a
+        stale first-slug v4 written earlier the same day, and `open` advertised
+        the superseded one -- the same failure as acking v2 not retiring v1,
+        arriving from the other direction. Observed 2026-09-22 on the
+        e1-durable-edge-capability track, where the handoff a successor was
+        about to be launched from was the one being replaced.
+        """
+        def _stamp(path: Path, when: str) -> Path:
+            # `create` stamps created_at to the second, and this test writes
+            # every file inside one second, so the fixture sets the times the
+            # way a real track accrues them: versions minutes apart, the next
+            # slug later still. Same-second ties are left to version, which is
+            # the honest answer when nothing else separates two files.
+            data = json.loads(path.read_text())
+            data["created_at"] = when
+            path.write_text(json.dumps(data, indent=2) + "\n")
+            return path
+
+        for n in range(1, 5):
+            made = self._create("phase-one", track="echain", date="2026-09-22")
+            _stamp(made, f"2026-09-22T09:0{n}:00Z")
+        fourth = sorted(self.out.glob("2026-09-22-phase-one.v*.json"))[-1]
+        self.assertTrue(json.loads(fourth.read_text())["handoff_id"].endswith(".v4"))
+        # A different slug on the same track, written later, starting at v1.
+        newer = _stamp(
+            self._create("phase-two", track="echain", date="2026-09-22"),
+            "2026-09-22T17:30:00Z")
+        self.assertTrue(json.loads(newer.read_text())["handoff_id"].endswith(".v1"))
+
+        rows = handoff.open_handoffs(self.out)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(
+            rows[0]["handoff_id"], json.loads(newer.read_text())["handoff_id"],
+            "a v1 written later must beat a v4 written earlier in the same track")
+
+    def test_version_still_decides_between_two_versions_of_one_slug(self) -> None:
+        """The complement: demoting version must not break same-slug ordering.
+
+        Two versions of one slug share a date and are usually written inside
+        the same second, so `created_at` alone cannot separate them and version
+        has to be the tiebreak. Stated here because a fix that ordered purely
+        by time would silently start advertising v1 over v2.
+        """
+        self._create("weekly", track="lanes", date="2026-09-22")
+        second = self._create("weekly", track="lanes", date="2026-09-22")
+        rows = handoff.open_handoffs(self.out)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["handoff_id"], json.loads(second.read_text())["handoff_id"])
+        self.assertTrue(rows[0]["handoff_id"].endswith(".v2"))
+
     def test_cwd_uses_the_recorded_origin_cwd(self) -> None:
         self._create("s6", cwd="/somewhere/predecessor/was")
         rows = handoff.open_handoffs(self.out)

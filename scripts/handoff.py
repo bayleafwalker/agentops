@@ -1126,13 +1126,22 @@ def launch_cwd(handoff: dict[str, Any]) -> str:
 
 
 def open_handoffs(directory: Path) -> list[dict[str, Any]]:
-    """Unacked handoffs under `directory`, newest version per track.
+    """Unacked handoffs under `directory`, newest per track.
 
-    "Newest" is the highest `version` field within a track, breaking ties
-    first by the date component of `handoff_id` and then by `created_at`
-    (ISO 8601, so lexical order is chronological order). A file that is not
-    valid JSON is skipped rather than aborting the whole listing -- one
-    damaged file should not hide every other track's live handoff.
+    "Newest" is the latest `handoff_id` date, then `created_at` (ISO 8601, so
+    lexical order is chronological), then `version`. A file that is not valid
+    JSON is skipped rather than aborting the whole listing -- one damaged file
+    should not hide every other track's live handoff.
+
+    Version is the LAST key, not the first. Version numbers are allocated per
+    SLUG, not per track, so two different slugs in one track carry independent
+    counters and comparing them is meaningless. Ordering by version first meant
+    a brand-new `<track>/<new-slug>.v1` lost to a stale `<track>/<old-slug>.v4`
+    from earlier the same day, and `open` advertised the superseded one --
+    observed 2026-09-22, the same failure as acking-v2-not-retiring-v1 arriving
+    from the other direction. Version still decides within a slug, because two
+    versions of one slug share a date and are often written inside the same
+    second, so `created_at` alone cannot separate them.
 
     The newest version of a track decides the whole track, acked or not. This
     used to skip acked files *before* grouping, which meant acking v2 did not
@@ -1156,7 +1165,7 @@ def open_handoffs(directory: Path) -> list[dict[str, Any]]:
         version = handoff.get("version", 0)
         date = handoff.get("handoff_id", "")[:10]
         created_at = handoff.get("created_at") or ""
-        key = (version, date, created_at)
+        key = (date, created_at, version)
         current = best.get(track)
         if current is None or key > current[0]:
             best[track] = (key, handoff, path)
