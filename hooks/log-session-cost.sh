@@ -235,69 +235,70 @@ emit_record() {
         model, project, gates: $gates[0], rework_rounds: $rework, decisions: $decisions[0]}
        + (if $handed == "" then {} else {handed_off_to: $handed} end)')"
 
-  # The event must always FIT, or it is not recorded at all.
+  # The arrays NEVER travel in the row. OPERATOR DECISION 2026-09-22, delegated.
   #
-  # argv was never the binding constraint: auditctl refuses any event whose whole
-  # canonical NDJSON line exceeds MAX_EVENT_LINE_BYTES = 16 KiB
-  # (auditctl/auditctl/ndjson.py), and that line covers the envelope, summary,
-  # detail and refs as well as this metadata -- ~1.3 KiB of non-metadata overhead
-  # measured against a live row. So the metadata itself gets a deliberately
-  # conservative budget below the hard limit. Measured 2026-09-22 across the ten
-  # live gate logs on this host, NINE of ten serialised `gates` arrays were over
-  # 16 KiB (largest 169603 bytes; a single `cmd` value reached 15067 bytes), and
-  # the audit store confirms the consequence: 630 workflow.session rows against
-  # 2047 cost rows since 2026-08-23, with sessions going permanently dark part-way
-  # through, always right after their gate log crossed the threshold.
+  # The earlier fix carried gates and decisions inline when they happened to fit
+  # and bounded them when they did not. That was the wrong shape, for three
+  # reasons, and the threshold it rested on was a number nobody could defend.
   #
-  # When the full form would not fit, the row is still published in a BOUNDED
-  # form: every scalar field kept, the unbounded arrays replaced by their counts
-  # plus an explicit truncation marker, and the full arrays written to a plain
-  # file beside the cost log so nothing is lost. A truncated row beats no row.
+  # 1. The "fits" case is the exception, not the rule. Measured across the ten
+  #    live gate logs on this host, NINE of ten serialised `gates` arrays exceed
+  #    auditctl's whole-event limit of 16384 bytes on their own (largest 169603;
+  #    a single `cmd` value reached 15067, because gate rows carry whole shell
+  #    commands including heredocs of prose). Optimising for the tenth case
+  #    bought nothing and cost a branch.
+  # 2. Nothing reads them here. `scripts/check_trajectory_flags.py` recomputes
+  #    rework from the gate-log FILE directly (:191, :205, :239-257), and
+  #    `scripts/harness_evidence/` drops `gates` and `rework_rounds` as
+  #    non-allowlisted, asserted at scripts/tests/test_harness_evidence_export.py
+  #    :133-135. The audit row was the only consumer, and it never read them back.
+  # 3. A row shape that varies with payload size is its own trap. Two rows of the
+  #    same type, one with `gates` populated and one with it empty and a
+  #    `truncated` flag, differ in a way that is invisible unless you already know
+  #    to look -- so a query written against a short session's row returns wrong
+  #    answers on a long one, silently. Uniform beats conditionally-richer.
   #
-  # The full arrays do NOT go to an auditctl artifact ref: the error string
-  # advertises an `immutableRef kind=artifact under _artifacts/<repo_id>/`, but no
-  # such mechanism exists in auditctl (no `artifact:` ref prefix in
-  # validation.py's VALID_REF_PREFIXES, no command that registers a blob, and
-  # _artifacts/<repo_id>/ is auditctl's own NDJSON store root, not a blob store).
-  # A sidecar file is the only mechanism actually available to this publisher.
-  # Every helper below is guarded: this hook runs under `set -euo pipefail` and
-  # sometimes with a minimal PATH, and a missing `wc` or `date` must not cost the
-  # session its row. ${#var} counts characters rather than bytes, which is close
-  # enough for a budget with this much slack.
-  local meta_bytes meta_budget
+  # So: every row carries the counts and the derived scalar, and the full arrays
+  # always go to a sidecar file beside the cost log. Nothing is lost, every row
+  # fits by construction, and there is no threshold to tune or defend. What this
+  # gives up is reading a short session's gates straight out of the audit row;
+  # that is a real loss and it is accepted, because the alternative lost entire
+  # rows -- 1417 of them between 2026-08-23 and 2026-09-22.
+  #
+  # The sidecar is NOT an auditctl artifact ref: auditctl's own error advertises
+  # an `immutableRef kind=artifact under _artifacts/<repo_id>/`, and no such
+  # mechanism exists (no `artifact:` prefix in validation.py's
+  # VALID_REF_PREFIXES, no command that registers a blob, and that directory is
+  # auditctl's NDJSON store root, not a blob store). A plain file is the only
+  # mechanism available to this publisher.
+  #
+  # Every helper is guarded: this hook runs under `set -euo pipefail`, sometimes
+  # with a minimal PATH, and a missing `mkdir`, `jq` or `date` must not cost the
+  # session its row.
+  local overflow_dir overflow_file
+  overflow_dir="$(dirname "$LOG")/session-gates"
+  overflow_file="$overflow_dir/gates-${SESSION:-unknown}.json"
+  # Stable per-session name: the hook republishes a fresh snapshot on every Stop,
+  # so the newest write is the complete array for that session.
+  if mkdir -p "$overflow_dir" 2>/dev/null && jq -n \
+      --slurpfile gates "$gates_file" --slurpfile decisions "$decisions_file" \
+      --arg s "${SESSION:-unknown}" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || true)" \
+      '{session: $s, written_at: $ts, gates: $gates[0], decisions: $decisions[0]}' \
+      > "$overflow_file" 2>/dev/null; then
+    :
+  else
+    overflow_file=""
+  fi
+  metadata="$(printf '%s' "$metadata" | jq -c --arg path "$overflow_file" \
+    '. as $m
+     | del(.gates, .decisions)
+     + {gates_count: ($m.gates | length),
+        decisions_count: ($m.decisions | length)}
+     + (if $path == "" then {gates_unavailable: "sidecar could not be written"}
+        else {gates_path: $path} end)')"
+  local meta_bytes
   meta_bytes="$(printf '%s' "$metadata" | wc -c 2>/dev/null || true)"
   [[ "$meta_bytes" =~ ^[0-9]+$ ]] || meta_bytes="${#metadata}"
-  meta_budget="${AGENTOPS_AUDIT_METADATA_MAX_BYTES:-12288}"
-  if (( meta_bytes > meta_budget )); then
-    local overflow_dir overflow_file
-    overflow_dir="$(dirname "$LOG")/session-gates"
-    overflow_file="$overflow_dir/gates-${SESSION:-unknown}.json"
-    # Stable per-session name: the hook republishes a fresh snapshot on every
-    # Stop, so the newest write is the complete array for that session.
-    if mkdir -p "$overflow_dir" 2>/dev/null && jq -n \
-        --slurpfile gates "$gates_file" --slurpfile decisions "$decisions_file" \
-        --arg s "${SESSION:-unknown}" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || true)" \
-        '{session: $s, written_at: $ts, gates: $gates[0], decisions: $decisions[0]}' \
-        > "$overflow_file" 2>/dev/null; then
-      :
-    else
-      overflow_file=""
-    fi
-    metadata="$(printf '%s' "$metadata" | jq -c --arg path "$overflow_file" \
-      '. as $m
-       | del(.gates, .decisions)
-       + {gates: [], decisions: [],
-          gates_count: ($m.gates | length),
-          decisions_count: ($m.decisions | length),
-          truncated: true,
-          truncated_reason: "gates/decisions omitted: full metadata exceeded the auditctl 16384-byte canonical event limit",
-          truncated_bytes: '"$meta_bytes"'}
-       + (if $path == "" then {} else {full_payload_path: $path} end)')"
-    # Re-measure, so the failure log below reports what was actually published.
-    meta_bytes="$(printf '%s' "$metadata" | wc -c 2>/dev/null || true)"
-    [[ "$meta_bytes" =~ ^[0-9]+$ ]] || meta_bytes="${#metadata}"
-  fi
-
   rm -f "$gates_file" "$decisions_file"
   # No --ref: auditctl allows only wi:/ka:/ad:/sha:/pr:/sprint:/capsule:/baseline:
   # prefixes, so the session id travels in the metadata instead of being rejected

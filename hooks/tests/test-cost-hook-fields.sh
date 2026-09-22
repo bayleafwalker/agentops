@@ -142,10 +142,23 @@ jq -cn --arg t "$transcript" --arg s "sess-t13" \
 
 [[ -s "$AUDITCTL_STUB_LOG13" ]] || fail "REQ-013: nothing was published to auditctl"
 meta13="$(sed -n 's/.*--metadata //p' <<<"$(tail -1 "$AUDITCTL_STUB_LOG13")")"
-jq -e 'has("decisions")' <<<"$meta13" >/dev/null || fail "REQ-013: published payload has no 'decisions' key"
-assert_eq "REQ-013 decisions count"          "$(jq '.decisions | length' <<<"$meta13")" "1"
-assert_eq "REQ-013 decisions[0].policy_decision" "$(jq -r '.decisions[0].policy_decision' <<<"$meta13")" "deny"
-assert_eq "REQ-013 gates unaffected by the decision row"  "$(jq '.gates | length' <<<"$meta13")" "2"
+# The arrays no longer travel in the row (operator decision 2026-09-22): the
+# published metadata carries counts and the derived scalar, and the full arrays
+# go to a sidecar beside the cost log. REQ-013's subject is unchanged -- a
+# decision row must be counted as a decision, must not enter `gates`, and must
+# not perturb `rework_rounds` -- so the assertions move to where each fact now
+# lives rather than being dropped.
+jq -e 'has("decisions_count")' <<<"$meta13" >/dev/null || fail "REQ-013: published payload has no 'decisions_count' key"
+assert_eq "REQ-013 decisions count"          "$(jq '.decisions_count' <<<"$meta13")" "1"
+assert_eq "REQ-013 gates count unaffected by the decision row" "$(jq '.gates_count' <<<"$meta13")" "2"
 assert_eq "REQ-013 rework_rounds unaffected by the decision row" "$(jq -r '.rework_rounds' <<<"$meta13")" "1"
+jq -e 'has("gates") or has("decisions") | not' <<<"$meta13" >/dev/null \
+  || fail "REQ-013: the arrays are back in the row; they must never travel there"
+
+sidecar13="$(jq -r '.gates_path' <<<"$meta13")"
+[[ -s "$sidecar13" ]] || fail "REQ-013: gates_path '$sidecar13' does not exist, so the arrays went nowhere"
+assert_eq "REQ-013 sidecar decisions count"  "$(jq '.decisions | length' "$sidecar13")" "1"
+assert_eq "REQ-013 sidecar decisions[0].policy_decision" "$(jq -r '.decisions[0].policy_decision' "$sidecar13")" "deny"
+assert_eq "REQ-013 sidecar gates count"      "$(jq '.gates | length' "$sidecar13")" "2"
 
 printf 'cost hook field tests passed (incl. REQ-012 typed session identity, REQ-013 decisions key)\n'

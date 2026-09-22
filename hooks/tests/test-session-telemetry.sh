@@ -165,15 +165,27 @@ if grep -q -- "--ref " <<<"$call"; then fail "REQ-003: --ref is rejected by audi
 meta="$(sed -n 's/.*--metadata //p' <<<"$call")"
 assert_eq "REQ-003 session id in metadata" "$(jq -r '.session' <<<"$meta")" "sess-d"
 assert_eq "REQ-004 published rework_rounds" "$(jq -r '.rework_rounds' <<<"$meta")" "1"
-assert_eq "REQ-003 published gate count" "$(jq -r '.gates | length' <<<"$meta")" "2"
+# Operator decision 2026-09-22: the gate array never travels in the audit row --
+# nine of ten live gate logs exceed auditctl's whole-event limit on their own, so
+# the row carries counts and the derived scalar and the array goes to a sidecar.
+# REQ-003's subject is unchanged: the gate outcomes must REACH THE SINK and must
+# survive every stop in the session. Both halves are still asserted, against the
+# count in the row and the array in the sidecar.
+assert_eq "REQ-003 published gate count" "$(jq -r '.gates_count' <<<"$meta")" "2"
+sidecar="$(jq -r '.gates_path' <<<"$meta")"
+[[ -s "$sidecar" ]] || fail "REQ-003: gates_path '$sidecar' does not exist, so the gates reached no sink"
+assert_eq "REQ-003 the gates reached the sidecar" "$(jq -r '.gates | length' "$sidecar")" "2"
 
 # A later stop in the same session must publish a snapshot that still carries both gates,
 # because consumers reduce to the newest event per session.
 run_stop "sess-d" "$tmp/costs-d.jsonl" "$gatedir" "$pubdir:$PATH"
 assert_eq "REQ-003 two stops, two publications" "$(wc -l < "$AUDITCTL_STUB_LOG")" "2"
 meta2="$(sed -n 's/.*--metadata //p' <<<"$(tail -1 "$AUDITCTL_STUB_LOG")")"
-assert_eq "REQ-003 the newest snapshot is complete" "$(jq -r '.gates | length' <<<"$meta2")" "2"
+assert_eq "REQ-003 the newest snapshot is complete" "$(jq -r '.gates_count' <<<"$meta2")" "2"
 assert_eq "REQ-003 rework survives to the newest snapshot" "$(jq -r '.rework_rounds' <<<"$meta2")" "1"
+# The sidecar is rewritten on every stop, so the newest write is the whole array.
+assert_eq "REQ-003 the newest sidecar is complete" \
+  "$(jq -r '.gates | length' "$(jq -r '.gates_path' <<<"$meta2")")" "2"
 
 # --- the read side must reduce to the newest row per session ----------------------------
 # Summing every row over-counts roughly quadratically, since each row is a cumulative

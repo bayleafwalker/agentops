@@ -152,14 +152,28 @@ printf '%s' "$stop_event" \
 call="$(tail -1 "$AUDITCTL_STUB_LOG")"
 meta="$(sed -n 's/.*--metadata //p' <<<"$call")"
 
-jq -e 'has("decisions")' <<<"$meta" >/dev/null || fail "REQ-004: published payload has no 'decisions' key"
-assert_eq "REQ-004 published decisions count" "$(jq '.decisions | length' <<<"$meta")" "3"
-assert_eq "REQ-004 published gates count unaffected" "$(jq '.gates | length' <<<"$meta")" "2"
+# Operator decision 2026-09-22: the arrays never travel in the audit row. The
+# row carries counts and the derived scalar; the full arrays go to a sidecar
+# beside the cost log. WL-D1's subject is untouched -- a decision row must be
+# counted as a decision, must not enter `gates`, and must not perturb
+# `rework_rounds` -- so every assertion below still holds it, at the place the
+# fact now lives. The byte-for-byte comparison against the gate log moves to the
+# sidecar, where it is actually stronger: it now proves the arrays survive the
+# extra hop to disk rather than only that they were formatted into an argument.
+jq -e 'has("decisions_count")' <<<"$meta" >/dev/null || fail "REQ-004: published payload has no 'decisions_count' key"
+assert_eq "REQ-004 published decisions count" "$(jq '.decisions_count' <<<"$meta")" "3"
+assert_eq "REQ-004 published gates count unaffected" "$(jq '.gates_count' <<<"$meta")" "2"
 assert_eq "REQ-004 published rework_rounds unaffected" "$(jq -r '.rework_rounds' <<<"$meta")" "1"
-assert_eq "REQ-004 published decisions match the log" \
-  "$(jq -Sc '.decisions | sort' <<<"$meta")" "$(jq -Sc 'sort' <<<"$decisions")"
+jq -e 'has("gates") or has("decisions") | not' <<<"$meta" >/dev/null \
+  || fail "REQ-004: an array is back in the published row; it must never travel there"
+
+sidecar="$(jq -r '.gates_path' <<<"$meta")"
+[[ -s "$sidecar" ]] || fail "REQ-004: gates_path '$sidecar' does not exist, so the arrays went nowhere"
+assert_eq "REQ-004 sidecar decisions match the log" \
+  "$(jq -Sc '.decisions | sort' "$sidecar")" "$(jq -Sc 'sort' <<<"$decisions")"
+assert_eq "REQ-004 sidecar gates count unaffected" "$(jq '.gates | length' "$sidecar")" "2"
 
 # --- gate log is preserved (read, not drained), matching gate-log.sh's own contract ----
 assert_eq "gate file rows survive publication" "$(wc -l < "$gatefile")" "5"
 
-printf 'PASS: decision-row oracle (WL-D1): 3 decision rows, 2 gate rows unchanged, rework_rounds=1 before and after, decisions published beside gates\n'
+printf 'PASS: decision-row oracle (WL-D1): 3 decision rows, 2 gate rows unchanged, rework_rounds=1 before and after, decisions preserved in the sidecar beside gates\n'
