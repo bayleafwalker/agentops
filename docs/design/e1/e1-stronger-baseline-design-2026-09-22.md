@@ -372,3 +372,204 @@ with the failure captured, then reverted.
   CIMD).
 - SSE survival through the tunnel.
 - The `work.read.*` operation names on a live catalog.
+
+## 11. Product-level review (added after reading the positioning and direction records)
+
+Sources: `vuoro-cloud/00-EXECUTIVE-DECISION.md`, `19-PRODUCT-POSITIONING-AND-PROOF.md`,
+`01-SCOPE-AND-SUCCESS-CRITERIA.md`, `agentops/docs/plans/2026-09-17-target-state.md`
+(TS-1, TS-6, TS-16 and the tripwires), `vuoro/docs/plans/2026-09-20-vuoro-at-the-edge.md` §1-2,
+`vuoro/docs/notes/2026-09-19-the-substrate-grows-a-public-face.md`.
+
+### 11.1 What the product actually is, and what E1 is for
+
+The product promise is "keep long-running agent work resumable and know which
+result actually counts"; the category is an operational state and settlement
+layer; the boundary is "coordinate the work, keep control of where it runs".
+vuoro.cloud was reframed on 2026-09-19/20 (edge doc §1, TS-16): it is not a
+hosted product looking for users, it is the substrate's network-reachable
+edge, justified because runtimes the operator does not host (claude.ai,
+Cowork, Routines, cloud sessions) currently produce no claim, no run record
+and no evidence. The control question is the proportion of automated
+activity that is reconstructable; for hosted runtimes it is zero.
+
+Measured against that, a read-only E1 closes none of the hole. Listing and
+describing ready work from claude.ai creates no record. E1's durable value is
+entirely in what it lays down for E2-E4: the route, the authorization model,
+the workspace binding and the disclosure contract. The two read tools are a
+smoke test of that foundation, not the deliverable. The design must be judged
+by whether E2-E4 can be added without redoing anything, which is why sections
+3-5 keep scopes, the route and the projection generic.
+
+### 11.2 Changes to the baseline that follow from the product intention
+
+1. **Ship one `record`-class tool in the first release.** TS-16's tool set and
+   E0-E4 shape are marked "proposed", not operator-decided, so this is open.
+   The smallest tool that moves the control metric is `write_session_note`
+   (append-only, workspace-scoped, records runtime, model and profile
+   revision as the edge doc §7 chain requires). With it, the first hosted
+   session leaves a reconstructable trace; without it, "reached from a hosted
+   runtime" is provable only from gateway logs, which is the S14 failure
+   shape again. Scope `vuoro:evidence.record` therefore ships at launch next
+   to `vuoro:work.read`. Append-only writes carry no effect and no
+   credential, so the TS-16 boundary holds.
+2. **The projection must expose freshness and unavailability, not just
+   fields.** The positioning doc's authority model requires a composed view
+   to expose field authority, freshness, and unknown/unavailable/stale
+   state, and must not imply certainty while an authority is unavailable.
+   An empty list on a runtime outage is a silent hole, the exact failure the
+   "demand is an invocation, not a success" decision guards against. So
+   `work.public.list/v1` returns an envelope: `authority: "sprintctl"`,
+   `as_of` (server time of the read), `state: ok|unavailable`, and `items`.
+   The MCP server surfaces `unavailable` as a tool error, never as `[]`.
+3. **Pre-registered client first, DCR only if the connector cannot do it.**
+   Under the reframe the only client is the operator's own connector
+   registration, which the edge doc §2 says supports "own client". An
+   unauthenticated public `/oauth/register` endpoint serves no product need
+   and adds attack surface to an estate whose maturity label is at best
+   "Internal operational proof". Reverse of section 4.3: build
+   pre-registered clients, verify the connector dialog accepts them, and add
+   DCR only on a demonstrated need. The RFC 8414 metadata simply omits
+   `registration_endpoint` until then.
+4. **The restore drill is the product promise, not a release formality.**
+   "Know which result counts" and "resumable" are void for a record that
+   can be lost. Making the pilot workspace authoritative for real work
+   before a proven single-workspace restore contradicts the core claim.
+   Section 2.3 stands and is now grounded in the product, not in
+   vuoro-cloud's checklist. Tenant isolation stays as the route gate because
+   the estate is multi-workspace-shaped and public whatever the current user
+   count.
+5. **Define first use, not first deployment.** "Design for use" means the
+   release is done when a hosted runtime has used it and its output crossed
+   back inside the perimeter. agentops#2471 already fixed the shape: a
+   Routine whose output is a judgement ends by opening a PR. Acceptance line:
+   a claude.ai Routine authenticates via OAuth, calls `list_ready_work` and
+   `describe_work`, writes a session note through `write_session_note`, and
+   opens a PR in an operator repo carrying its verdict. That one run proves
+   auth, read, record and the boundary in a single trace.
+6. **Maturity label.** Every Vuoro-owned option must carry one. E1 ships as
+   "Internal operational proof". No onboarding, invitation, or self-serve
+   affordance is built for it, and the connector is registered by the
+   operator only.
+
+### 11.3 Drift to record so two framings do not coexist
+
+- `agentops/docs/plans/2026-09-17-target-state.md` tripwire "A month of E1
+  without the substrate being reached... the read surface is deleted" is
+  superseded by the operator's 2026-09-22 direction (stop condition demoted
+  to a post-launch prioritisation review). Update the tripwire in the same
+  change that supersedes #2465, or the target state will re-derive the trial
+  design.
+- `vuoro-cloud/IMPLEMENTATION-STATUS.md` and `01-SCOPE` still frame the
+  open acceptance gates around external-user onboarding. The reframe makes
+  external onboarding a non-goal for now. Record in
+  `vuoro-cloud/17-DECISION-LOG.md` that the estate's near-term purpose is
+  the operator's own hosted runtimes, that isolation and restore remain
+  binding, and that onboarding, Forgejo recovery and canary are re-sequenced
+  behind E2. Do not delete those gates; re-sequence them explicitly.
+- The edge doc still recommends a static bearer at §4 and in its decided
+  item. Annotate it as superseded by the 2026-09-22 OAuth direction rather
+  than editing history.
+
+### 11.4 What the product intention does not change
+
+Placement on vuoro.cloud, no effect-apply scope, no vendoring, sprintctl
+owning the projection (it owns readiness and visible work in the authority
+table), and the MCP server living in the vuoro-service composition (Vuoro
+owns composition and correlation; Cloud only operates it) are all
+consistent with TS-1 and the authority model. Nothing in sections 2-10 is
+withdrawn except 4.3 as amended above.
+
+## 12. Reply to dev-38's challenge (Authentik, streaming, corrections)
+
+### 12.1 Facts settled this session
+
+- **claude.ai redirect URI**: `https://claude.ai/api/mcp/auth_callback`, with
+  Anthropic's connector docs asking servers to also allowlist
+  `https://claude.com/api/mcp/auth_callback` for a future move; Claude Code
+  uses loopback redirects. Pre-registered client ID and secret are entered
+  under "Advanced settings" in the connector dialog (Anthropic support article
+  11175166 and claude.com/docs/connectors/building/authentication).
+- **Authentik and RFC 8707**: the OAuth2 provider documentation never
+  mentions the `resource` parameter or RFC 8707; the token audience comes
+  from provider configuration, so audience binding to a per-request resource
+  is not available. Authentik does support DCR (scope
+  `goauthentik.io/oidc/dcr`), contrary to the brief, but that does not
+  change the decision.
+- **Gateway buffering confirmed**: `gateway.py:346-348` reads the whole
+  request body and wraps `upstream.content` in a plain `Response`. There is
+  no streaming path. CORS is pinned to `cfg.public_web_url`
+  (`gateway.py:134-135`).
+- **Audiences**: three exist, none a typo. `vuoro-control` is the browser
+  session cookie audience (`control.py:217,1144`), `vuoro-admission` is the
+  10-minute invitation-redeem audience (`control.py:347`), `vuoro-service`
+  is the gateway-to-runtime assertion audience (`config.py:22`). Finding 1.3
+  is withdrawn as stated; the handoff was right about the cookie audience
+  and only omitted that it is a cookie, not a delegable grant.
+- **`mcp_surface.py` is on `vuoro` main** (PR #112, commit 672fecc). The
+  unmerged parts are the payload narrowing and the edge adapter. Nothing in
+  this document should be read as "the surface does not exist".
+- **Operation names are asserted statically in sprintctl**
+  (`cli_runtime.py:289,297`, `served_routes.py:91`). The remaining unknown is
+  the result field names, so build-order step 2 narrows to: confirm the
+  `items`/`item` result keys and field names against one served response.
+
+### 12.2 Decision: the authorization server stays in the control service
+
+Authentik at `auth.kotona.app` is proof that publishing an OAuth provider to
+an AI vendor works and that its failure modes are known (strict redirect
+matching, refresh dead-letter without `offline_access`, hourly re-auth
+colliding with Cloudflare Access OTP). Reuse those lessons. Do not reuse the
+server, for four reasons that each suffice:
+
+1. **It re-enters the homelab into the public path.** The placement decision
+   put the surface on vuoro.cloud because the homelab co-hosts the IdP, the
+   forge and the password manager. Routing every E1 login and every hourly
+   refresh through that IdP's public route is the same exposure by another
+   door. The operator's reasoning applies to auth as much as to the route.
+2. **Availability coupling.** Cached JWKS would keep token validation alive
+   when the house is down, but `/authorize` and `/token` would not, so every
+   refresh fails and the connector dies with the house. vuoro.cloud exists
+   because hosted runtimes cannot reach the house; making the house a
+   dependency of the only public path inverts that.
+3. **Two sources of truth for identity.** Workspace binding must come from
+   vuoro-cloud's `memberships`. Authentik has its own user directory; a
+   property mapping from Authentik user to vuoro workspace is a second
+   authority for the one fact the token must get right.
+4. **No per-request audience.** Section 4 makes `aud` load-bearing. On
+   Authentik the audience is static per provider, which is a recorded
+   deviation for no gain.
+
+What the Authentik blueprint changes in section 4: refresh tokens are issued
+by default for the connector client (no `offline_access` scope dance), the
+consent leg on vuoro.cloud has no IP allowlist and no Cloudflare Access in
+front of it (verified: no Access policy in the repo; the browser leg is the
+operator's ordinary GitHub sign-in), and both claude.ai callback hosts plus
+Claude Code loopback are the pre-registered redirect set, strict match.
+
+### 12.3 Streaming: do not add it to the gateway
+
+MCP Streamable HTTP lets the server answer a POST with a plain JSON body and
+return 405 to the client's GET for a server-initiated stream. The read and
+record tools return immediately. So `mcp-serve` runs JSON-response mode, the
+gateway's existing buffered proxy is sufficient, and the SSE-through-tunnel
+question disappears. Add streaming only when a tool needs progress
+notifications, and then as an explicit `StreamingResponse` path for `/mcp`
+only. CORS is irrelevant for claude.ai, whose connector calls originate
+server-side (edge doc §1); a browser-origin client such as the MCP inspector
+is a development convenience, not a product need.
+
+### 12.4 Smaller corrections
+
+- The operator bearer at `control.py:171-182` is a live static bearer with a
+  CIDR allowlist. The tracker item must say "no static bearer on the MCP
+  surface", not "no static bearers in the estate".
+- `repo_id` carrying both slugs and UUIDs is a data-hygiene defect in
+  sprintctl's domain, not a blocker for the access token: the token binds
+  `workspace_id` (a UUID) only, and `repo_ids` flow from membership into
+  the assertion exactly as they do for PATs today. The projection filters by
+  workspace through the identity resolver, never by `repo_id`. Record the
+  two-namespace defect against sprintctl separately.
+- The DB-view chain (sprintctl migration to schema 17 on a tenant at 7, in a
+  third repo, with no read-only role) is the strongest argument for section
+  2.2's answer: the projection is an operation with a strict schema, and no
+  view, migration or new database role is required for E1.
