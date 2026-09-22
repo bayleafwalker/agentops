@@ -211,17 +211,129 @@ emit_record() {
   auditctl_path="$(auditctl_bin)" || return 0
   local summary metadata
   summary="$(printf '%s' "$record" | jq -r '"session \(.project): \(.turns) turns, \(.tool_calls) tool calls, $\(.cost_usd * 100 | round / 100)"')"
+  # `gates` and `decisions` travel through FILES, not argv.
+  #
+  # Linux caps a single argv string at MAX_ARG_STRLEN (32 * page size = 128 KiB),
+  # independently of ARG_MAX. `--argjson gates "$GATES"` passes the whole
+  # accumulated gate array as one argument, so a long session silently crosses
+  # that ceiling and execve fails E2BIG -- "Argument list too long" -- losing the
+  # auditctl row while the cost row itself still lands. Measured 2026-09-22:
+  # GATES was 169602 bytes against a 131072-byte per-argument cap, on a host
+  # whose ARG_MAX is 2 MiB, which is why the total was never the constraint.
+  # --slurpfile reads the file and binds an array of the JSON values it holds;
+  # each file holds exactly one array, hence the [0].
+  local gates_file decisions_file
+  gates_file="$(mktemp)" || return 0
+  decisions_file="$(mktemp)" || { rm -f "$gates_file"; return 0; }
+  printf '%s' "${GATES:-[]}" > "$gates_file"
+  printf '%s' "${DECISIONS:-[]}" > "$decisions_file"
   metadata="$(printf '%s' "$record" | jq -c \
-      --argjson gates "$GATES" --argjson rework "${REWORK:-0}" \
-      --argjson decisions "${DECISIONS:-[]}" \
+      --slurpfile gates "$gates_file" --argjson rework "${REWORK:-0}" \
+      --slurpfile decisions "$decisions_file" \
       --arg handed "$HANDED_OFF_TO" \
       '{session, runtime_session_id, turns, assistant_msgs, tool_calls, duration_s, cost_usd,
-        model, project, gates: $gates, rework_rounds: $rework, decisions: $decisions}
+        model, project, gates: $gates[0], rework_rounds: $rework, decisions: $decisions[0]}
        + (if $handed == "" then {} else {handed_off_to: $handed} end)')"
-  # No --ref: auditctl allows only wi:/ka:/ad:/sha:/pr:/sprint:/capsule: prefixes, so the
-  # session id travels in the metadata instead of being rejected as an invalid ref.
-  "$auditctl_path" add --type workflow.session --source claude-hook --actor claude-hook \
-    --summary "$summary" --metadata "$metadata" >/dev/null 2>&1 || true
+
+  # The event must always FIT, or it is not recorded at all.
+  #
+  # argv was never the binding constraint: auditctl refuses any event whose whole
+  # canonical NDJSON line exceeds MAX_EVENT_LINE_BYTES = 16 KiB
+  # (auditctl/auditctl/ndjson.py), and that line covers the envelope, summary,
+  # detail and refs as well as this metadata -- ~1.3 KiB of non-metadata overhead
+  # measured against a live row. So the metadata itself gets a deliberately
+  # conservative budget below the hard limit. Measured 2026-09-22 across the ten
+  # live gate logs on this host, NINE of ten serialised `gates` arrays were over
+  # 16 KiB (largest 169603 bytes; a single `cmd` value reached 15067 bytes), and
+  # the audit store confirms the consequence: 630 workflow.session rows against
+  # 2047 cost rows since 2026-08-23, with sessions going permanently dark part-way
+  # through, always right after their gate log crossed the threshold.
+  #
+  # When the full form would not fit, the row is still published in a BOUNDED
+  # form: every scalar field kept, the unbounded arrays replaced by their counts
+  # plus an explicit truncation marker, and the full arrays written to a plain
+  # file beside the cost log so nothing is lost. A truncated row beats no row.
+  #
+  # The full arrays do NOT go to an auditctl artifact ref: the error string
+  # advertises an `immutableRef kind=artifact under _artifacts/<repo_id>/`, but no
+  # such mechanism exists in auditctl (no `artifact:` ref prefix in
+  # validation.py's VALID_REF_PREFIXES, no command that registers a blob, and
+  # _artifacts/<repo_id>/ is auditctl's own NDJSON store root, not a blob store).
+  # A sidecar file is the only mechanism actually available to this publisher.
+  # Every helper below is guarded: this hook runs under `set -euo pipefail` and
+  # sometimes with a minimal PATH, and a missing `wc` or `date` must not cost the
+  # session its row. ${#var} counts characters rather than bytes, which is close
+  # enough for a budget with this much slack.
+  local meta_bytes meta_budget
+  meta_bytes="$(printf '%s' "$metadata" | wc -c 2>/dev/null || true)"
+  [[ "$meta_bytes" =~ ^[0-9]+$ ]] || meta_bytes="${#metadata}"
+  meta_budget="${AGENTOPS_AUDIT_METADATA_MAX_BYTES:-12288}"
+  if (( meta_bytes > meta_budget )); then
+    local overflow_dir overflow_file
+    overflow_dir="$(dirname "$LOG")/session-gates"
+    overflow_file="$overflow_dir/gates-${SESSION:-unknown}.json"
+    # Stable per-session name: the hook republishes a fresh snapshot on every
+    # Stop, so the newest write is the complete array for that session.
+    if mkdir -p "$overflow_dir" 2>/dev/null && jq -n \
+        --slurpfile gates "$gates_file" --slurpfile decisions "$decisions_file" \
+        --arg s "${SESSION:-unknown}" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || true)" \
+        '{session: $s, written_at: $ts, gates: $gates[0], decisions: $decisions[0]}' \
+        > "$overflow_file" 2>/dev/null; then
+      :
+    else
+      overflow_file=""
+    fi
+    metadata="$(printf '%s' "$metadata" | jq -c --arg path "$overflow_file" \
+      '. as $m
+       | del(.gates, .decisions)
+       + {gates: [], decisions: [],
+          gates_count: ($m.gates | length),
+          decisions_count: ($m.decisions | length),
+          truncated: true,
+          truncated_reason: "gates/decisions omitted: full metadata exceeded the auditctl 16384-byte canonical event limit",
+          truncated_bytes: '"$meta_bytes"'}
+       + (if $path == "" then {} else {full_payload_path: $path} end)')"
+    # Re-measure, so the failure log below reports what was actually published.
+    meta_bytes="$(printf '%s' "$metadata" | wc -c 2>/dev/null || true)"
+    [[ "$meta_bytes" =~ ^[0-9]+$ ]] || meta_bytes="${#metadata}"
+  fi
+
+  rm -f "$gates_file" "$decisions_file"
+  # No --ref: auditctl allows only wi:/ka:/ad:/sha:/pr:/sprint:/capsule:/baseline:
+  # prefixes, so the session id travels in the metadata instead of being rejected
+  # as an invalid ref.
+  #
+  # The publish stays NON-FATAL -- a hook must never cost the session its turn --
+  # but it is no longer SILENT. The previous `>/dev/null 2>&1 || true` is exactly
+  # how the size rejection above went unnoticed for a month: auditctl printed a
+  # precise error and the hook threw it away. stderr and the exit status now land
+  # in a durable failure log beside the cost log, so a failed publish is findable
+  # after the fact.
+  local audit_err audit_rc
+  audit_err="$(mktemp)" || audit_err=""
+  audit_rc=0
+  if [[ -n "$audit_err" ]]; then
+    "$auditctl_path" add --type workflow.session --source claude-hook --actor claude-hook \
+      --summary "$summary" --metadata "$metadata" >/dev/null 2>"$audit_err" || audit_rc=$?
+  else
+    "$auditctl_path" add --type workflow.session --source claude-hook --actor claude-hook \
+      --summary "$summary" --metadata "$metadata" >/dev/null 2>&1 || audit_rc=$?
+  fi
+  if (( audit_rc != 0 )); then
+    local fail_log
+    fail_log="${AGENTOPS_AUDIT_FAILURE_LOG:-$(dirname "$LOG")/auditctl-publish-failures.jsonl}"
+    mkdir -p "$(dirname "$fail_log")" 2>/dev/null || true
+    local err_text
+    err_text="$( [[ -n "$audit_err" ]] && head -c 2000 "$audit_err" 2>/dev/null || true )"
+    [[ -n "$err_text" ]] || err_text="stderr not captured"
+    jq -cn --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || true)" --arg s "${SESSION:-unknown}" \
+      --argjson rc "$audit_rc" --argjson bytes "$meta_bytes" \
+      --arg err "$err_text" \
+      '{ts:$ts, session:$s, event:"auditctl-publish-failed", exit_status:$rc, metadata_bytes:$bytes, stderr:$err}' \
+      >> "$fail_log" 2>/dev/null || true
+  fi
+  [[ -n "$audit_err" ]] && rm -f "$audit_err"
+  return 0
 }
 
 # Wait for the turn now ending to reach the transcript before reading it.
