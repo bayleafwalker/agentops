@@ -1133,6 +1133,14 @@ def open_handoffs(directory: Path) -> list[dict[str, Any]]:
     (ISO 8601, so lexical order is chronological order). A file that is not
     valid JSON is skipped rather than aborting the whole listing -- one
     damaged file should not hide every other track's live handoff.
+
+    The newest version of a track decides the whole track, acked or not. This
+    used to skip acked files *before* grouping, which meant acking v2 did not
+    retire v1: the track kept listing its superseded predecessor, and a
+    successor reading `open` was sent backwards to a next-action that a later
+    version had already replaced. Observed 2026-09-22 on the
+    sprint559-echain-and-lane-fixes track, whose acked v2 left v1 open with a
+    stale instruction to redo work that was done.
     """
     best: dict[str, tuple[tuple[int, str, str], dict[str, Any], Path]] = {}
     if not directory.is_dir():
@@ -1144,9 +1152,6 @@ def open_handoffs(directory: Path) -> list[dict[str, Any]]:
             handoff = json.loads(path.read_text())
         except (json.JSONDecodeError, OSError):
             continue
-        successor = handoff.get("successor") or {}
-        if successor.get("session_id"):
-            continue
         track = track_of(handoff)
         version = handoff.get("version", 0)
         date = handoff.get("handoff_id", "")[:10]
@@ -1157,6 +1162,9 @@ def open_handoffs(directory: Path) -> list[dict[str, Any]]:
             best[track] = (key, handoff, path)
     rows = []
     for track, (_key, handoff, path) in best.items():
+        successor = handoff.get("successor") or {}
+        if successor.get("session_id"):
+            continue
         rows.append({
             "track": track,
             "handoff_id": handoff["handoff_id"],

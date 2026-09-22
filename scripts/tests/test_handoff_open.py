@@ -126,6 +126,40 @@ class TestOpen(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["handoff_id"], json.loads(second.read_text())["handoff_id"])
 
+    def test_acking_the_newest_version_retires_its_superseded_predecessor(self) -> None:
+        """The failure this subcommand exists to prevent, in its own output.
+
+        Acking v2 must close the track. Skipping acked files before grouping
+        left v1 standing as "the newest unacked version", so `open` kept
+        advertising a superseded handoff -- and a successor launched from it
+        would have been sent backwards to a next-action v2 already replaced.
+        Observed on sprint559-echain-and-lane-fixes on 2026-09-22.
+        """
+        first = self._create("echain-and-lane-fixes")
+        second = self._create("echain-and-lane-fixes")  # same date+slug -> v2
+        handoff.ack(second, "sess-successor")
+        rows = handoff.open_handoffs(self.out)
+        self.assertEqual(rows, [], "acked v2 must retire v1, not expose it")
+        # And the predecessor really is the unacked file, so this is not
+        # passing because nothing was written.
+        self.assertIsNone(
+            (json.loads(first.read_text()).get("successor") or {}).get("session_id"))
+
+    def test_a_newer_unacked_version_still_stands_over_an_acked_predecessor(self) -> None:
+        """The opposite polarity: retiring a track must not swallow real work.
+
+        v1 acked and v2 written afterwards is the ordinary supersede-forward
+        case, and v2 must still be listed. Stated here because a fix that
+        closes the track on *any* ack would hide every live continuation.
+        """
+        first = self._create("codex-acceptance")
+        second = self._create("codex-acceptance")
+        handoff.ack(first, "sess-1")
+        rows = handoff.open_handoffs(self.out)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(
+            rows[0]["handoff_id"], json.loads(second.read_text())["handoff_id"])
+
     def test_cwd_uses_the_recorded_origin_cwd(self) -> None:
         self._create("s6", cwd="/somewhere/predecessor/was")
         rows = handoff.open_handoffs(self.out)
@@ -380,18 +414,35 @@ class TestTrackAndOriginCwdOnCreate(unittest.TestCase):
         data.pop("origin_cwd")
         self.assertEqual(handoff.schema_errors(data), [])
 
-    def test_the_committed_evidence_handoffs_have_no_track_or_origin_cwd_and_still_validate(self) -> None:
+    def test_the_committed_legacy_handoffs_still_validate_without_track_or_origin_cwd(self) -> None:
         # Pinning backward compatibility against the real files committed in
         # docs/dispatch/handoffs/, same spirit as
         # TestDigestVersionCompatibility.test_the_committed_evidence_handoffs_declare_no_digest_version.
+        #
+        # This asserted that NO committed handoff carries `track` or
+        # `origin_cwd`, which was true only until `create` started emitting
+        # both. Every handoff written since has failed it, so the test went
+        # permanently red and stayed red -- and a permanently-red test asserts
+        # nothing, because no regression inside it can change the result.
+        # What backward compatibility actually needs is that the files
+        # predating the fields still validate; newer files legitimately carry
+        # them and are checked for validity alongside.
         handoffs_dir = ROOT / "docs" / "dispatch" / "handoffs"
         files = sorted(handoffs_dir.glob("*.json"))
         self.assertTrue(files)
+        legacy = 0
         for path in files:
             data = json.loads(path.read_text())
-            self.assertNotIn("track", data)
-            self.assertNotIn("origin_cwd", data)
             self.assertEqual(handoff.schema_errors(data), [], path)
+            if "track" not in data and "origin_cwd" not in data:
+                legacy += 1
+        # The legacy shape must still be represented, or this has quietly
+        # stopped exercising the compatibility path it exists for.
+        self.assertGreater(
+            legacy, 0,
+            "no committed handoff predates track/origin_cwd any more; this "
+            "test no longer proves backward compatibility -- replace it with "
+            "a checked-in legacy fixture rather than deleting it")
 
 
 if __name__ == "__main__":
