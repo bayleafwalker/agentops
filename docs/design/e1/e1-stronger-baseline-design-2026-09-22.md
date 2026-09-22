@@ -287,18 +287,45 @@ storage.
 
 - Operations: `work.public.list/v1` and `work.public.item/v1`, registered
   through `vuoro-adapter-kit` with strict response schemas.
-- Approved fields, list: `work_id`, `title`, `priority` (nullable). Item:
-  `work_id`, `title`, `objective`, `acceptance`. Caps as already measured in
-  the synthesis (title 160, objective 500, acceptance 5 by 200). Nothing
-  else, `additionalProperties: false`. `description`, `repo_id`,
-  `provenance`, `tier`, `prior_attempts` are named in the schema test as
-  fields that must be absent.
+- Approved fields, decided 2026-09-22 against the live served item record
+  (keys: aggregate_uuid, assignee, created_at, description, edit_revision,
+  id, legacy, priority, repo_id, resolution, sprint_id, status,
+  status_revision, terminal_decision_id, title, track_id, updated_at; dev-38,
+  agentops#2514 note 3589). `objective`, `acceptance` and
+  `unresolved_blockers` from `work_source.py:67-72` do not exist on the
+  record; the first two are prose sections inside `description`, which the
+  surface may not parse, so they cannot be derived and are not emitted.
+  - list item: `work_id`, `title` (cap 160), `priority` (nullable),
+    `status`, `blocked` (boolean, derived by the sprintctl handler from the
+    structured `deps` collection returned beside the item: true when any
+    dependency is unresolved), `updated_at`.
+  - item: the list fields plus `created_at`, `resolution` (nullable) and
+    `blocked_by` (array of `work_id` of unresolved dependencies).
+  - never: `description`, `assignee`, `repo_id`, `sprint_id`, `track_id`,
+    `aggregate_uuid`, `legacy`, `terminal_decision_id`, the revision
+    counters, `provenance`, `tier`, `prior_attempts`. Each is named in the
+    schema test as a field that must be absent.
+  - `objective` and `acceptance` join a `v2` only when sprintctl adds them as
+    first-class, deliberately authored columns subject to the pilot
+    workspace's authorship policy. That is a sprintctl item sequenced with
+    E2, not an E1 blocker. Until then the title is the only prose that
+    leaves the perimeter, and the authorship policy says so: an item in the
+    pilot workspace is written knowing its title is its public sentence.
+  - `additionalProperties: false` on every object; the strict schema turns a
+    field the handler cannot fill into a release-gate failure, which is why
+    the set is decided here and not discovered at step 2.
+- Result envelope: `work.public.list/v1` and `work.public.item/v1` are new
+  operations, so their envelope is defined by their schema, not inherited:
+  `{authority: "sprintctl", as_of, state: ok|unavailable, items: [...]}` and
+  `{authority, as_of, state, item}`. The doubt about `work.read.next-work`
+  returning a bare list is moot because the MCP server never calls it.
 - Workspace scoping is by the identity assertion, as with every other
   operation; the handler takes workspace from the resolver, never from the
   request body.
-- Confirm the operation names live with `GET /api/catalog/v1` on the pilot
-  runtime before the MCP server's constants are frozen. This is the cheapest
-  item in the plan and kills the "inferred" caveat.
+- Operation names for the existing read path are asserted statically in
+  sprintctl (`served_routes.py:91,109`, `cli_runtime.py:289,297`); no live
+  catalog call is needed. The new `work.public.*` names are defined by this
+  contract.
 - MCP tools: `list_ready_work` maps to `work.public.list/v1`, `describe_work`
   to `work.public.item/v1`. Both classified `read`.
 
