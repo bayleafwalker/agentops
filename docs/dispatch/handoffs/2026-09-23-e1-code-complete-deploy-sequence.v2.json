@@ -185,7 +185,7 @@
   "sprintctl_bundle_ref": null,
   "next_action": "cd /projects/dev/vuoro-cloud && git fetch origin && git worktree add -b e1-runtime-pin-0.1.73 /projects/dev/_wt/vuoro-cloud-runtime-pin origin/main && cd /projects/dev/_wt/vuoro-cloud-runtime-pin && read docs/runbooks/operator-actions.md 'Verify the tenant runtime pin' and config/compatibility.json, then compare its tenant_schema / generation / client_protocol sets against vuoro main 483f972 (vuoro-service 0.1.73: packages/vuoro-service/pyproject.toml and its compatibility declarations) and list every difference on agentops#2514 as a note BEFORE editing. If compatible: set packages.vuoro-service to vuoro-service-v0.1.73@sha256:f5d656b51fb4674851a0976d684f7c2543896c5fe33df7d080b199871ed4e724 in config/compatibility.json and apps/runtime-config/compatibility.json, re-materialise the controller Secret per scripts/materialize-kubernetes-secrets.py, run make verify-runtime-pin with the age identity in the environment and nix develop -c make check-fast, open the Forgejo PR, land it fast-forward. Then hand the operator note 3597's steps 2-6 as explicit commands (promote-release, clients Secret, flag flip on gateway AND tenant-controller, D-044 proofs, connector).",
   "successor": {
-    "session_id": null,
-    "acknowledged_at": null
+    "session_id": "b2bee73e-4813-422f-b4c9-a9ed0b3cb894",
+    "acknowledged_at": "2026-09-23T10:31:47Z"
   }
 }
