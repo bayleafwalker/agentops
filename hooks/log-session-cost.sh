@@ -325,7 +325,8 @@ emit_record() {
     fail_log="${AGENTOPS_AUDIT_FAILURE_LOG:-$(dirname "$LOG")/auditctl-publish-failures.jsonl}"
     mkdir -p "$(dirname "$fail_log")" 2>/dev/null || true
     local err_text
-    err_text="$( [[ -n "$audit_err" ]] && head -c 2000 "$audit_err" 2>/dev/null || true )"
+    err_text=""
+    if [[ -n "$audit_err" ]]; then err_text="$(head -c 2000 "$audit_err" 2>/dev/null || true)"; fi
     [[ -n "$err_text" ]] || err_text="stderr not captured"
     jq -cn --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || true)" --arg s "${SESSION:-unknown}" \
       --argjson rc "$audit_rc" --argjson bytes "$meta_bytes" \

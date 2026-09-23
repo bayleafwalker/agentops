@@ -49,3 +49,7 @@ docs/runbooks/hybrid-dispatch.md
 docs/runbooks/vuoro-workstation-cutover.md
 docs/verification/test-context-packet-v1.md
 model/README.md
+docs/dispatch/handoffs/2026-09-17-s2-item6-done-item7-drop-pending.v1.json
+docs/dispatch/handoffs/2026-09-17-s2-item6-done-item7-drop-pending.v1.md
+docs/dispatch/handoffs/2026-09-19-weekly-lanes-and-lane-loop.v1.json
+docs/dispatch/handoffs/2026-09-19-weekly-lanes-and-lane-loop.v1.md
