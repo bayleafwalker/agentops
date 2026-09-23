@@ -195,7 +195,7 @@
   "sprintctl_bundle_ref": null,
   "next_action": "Build the sprintctl public-work contract (build-order step 2), in /projects/dev/sprintctl on main (4e4adf9, clean). Register work.public.list/v1 and work.public.item/v1 through vuoro-adapter-kit with strict additionalProperties:false response schemas, using the field set decided in agentops#2514 and section 5 of docs/design/e1/e1-stronger-baseline-design-2026-09-22.md -- list: work_id, title (cap 160), priority nullable, status, blocked, updated_at; item: those plus created_at, resolution nullable, blocked_by. Derive `blocked`/`blocked_by` in the handler from the structured deps collection, NEVER by parsing description. Envelope {authority:'sprintctl', as_of, state: ok|unavailable, items|item}; state 'unavailable' must surface as a tool error, never as an empty list. First read note 3589 on agentops#2514: three of the six field names the existing vuoro-mcp-edge work_source.py uses do not exist on a served work item, so do not copy those constants. Prove the schema is real by forcing it to fail: a response carrying `description` must fail the schema gate, and each never-emit field must be named in a must-be-absent test.",
   "successor": {
-    "session_id": null,
-    "acknowledged_at": null
+    "session_id": "9189d96f-2b13-4ff6-88aa-b24f3272eb2f",
+    "acknowledged_at": "2026-09-23T07:05:14Z"
   }
 }
