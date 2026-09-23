@@ -26,6 +26,11 @@ python scripts/materialize_project.py setup|sync --project <home-repo>/project.t
   projection, publication, reconciliation or backend-parity paths. `full` is a sequence,
   not repair authority.
 - Cockpit writes go through the documented API; no raw database writes.
+- This repo's work items are on served sprintctl (maintenance lane: sprint 559). The repo marker
+  refuses the local backend, so run from here with `SPRINTCTL_BACKEND=served
+  SPRINTCTL_VUORO_PROFILE=/projects/dev/agentops/environment-record/profiles/workstation-vuoro-shared.json`.
+  Served mode ignores `--actor`: put attribution in tags (`agent:`, `model:`, `attempt:N`). The
+  `.envrc` is direnv-blocked on purpose; do not `direnv allow` it.
 
 ## Dispatch
 
