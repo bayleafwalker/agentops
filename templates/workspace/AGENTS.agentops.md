@@ -45,7 +45,9 @@ work there.
   `-H git.apps.kotona.app` and `EDITOR`; `fj pr search` returns 410 Gone here; a fast-forward-only
   merge needs the REST API with `{"Do":"fast-forward-only"}`.
 - Forgejo merges go through the broker: `credctl merge --repository forgejo:<owner>/<repo> --pr N
-  --head-sha <sha> --style fast-forward-only` (CI-gated, token stays in-process). Poll
+  --head-sha <full 40-char sha> --style fast-forward-only --forgejo-url https://git.apps.kotona.app`
+  (CI-gated, token stays in-process; without `--forgejo-url` or `$CREDCTL_FORGEJO_URL` it fails
+  "forgejo url must be an https origin"). Poll
   `fj pr status N` until no line says Pending; the first job finishes minutes before the rest.
 - Forgejo Actions job logs are API-only: `/api/v1/repos/<o>/<r>/actions/runs?limit=N` (run `id`,
   not `run_number`), then `/actions/runs/{id}/jobs` (a bare list), then
