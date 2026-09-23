@@ -44,6 +44,15 @@ work there.
   repo answers "The target couldn't be found": that is a 401. `fj` needs
   `-H git.apps.kotona.app` and `EDITOR`; `fj pr search` returns 410 Gone here; a fast-forward-only
   merge needs the REST API with `{"Do":"fast-forward-only"}`.
+- Forgejo merges go through the broker: `credctl merge --repository forgejo:<owner>/<repo> --pr N
+  --head-sha <sha> --style fast-forward-only` (CI-gated, token stays in-process). Poll
+  `fj pr status N` until no line says Pending; the first job finishes minutes before the rest.
+- Forgejo Actions job logs are API-only: `/api/v1/repos/<o>/<r>/actions/runs?limit=N` (run `id`,
+  not `run_number`), then `/actions/runs/{id}/jobs` (a bare list), then
+  `/actions/jobs/{job_id}/logs`. Task ids and the web `/actions/runs/{n}/jobs/{i}/logs` route 404.
+  vuoro-cloud release-evidence reasons are in the `vuoro-cloud-release-gate` artifact zip.
+- The workstation secret hook matches command text, so a tracker note whose prose mentions a
+  decryption command is blocked. Write long note bodies to a file and pass them by path.
 - `origin` is not reliably canonical; `git config claude.canonicalRemote` records it. A push
   to a replica is not landed work.
 - `git fetch` before trusting local state: a stale `main` plus a `[gone]` ref looks like
@@ -64,6 +73,21 @@ work there.
   HOMELAB STANDING FACTS block. They are decisions, not findings.
 - When an action needs the operator, give a runnable block: directory, exact command, the
   verified precondition, expected result, and what to send back.
+
+## Engineering practice
+
+- Force every check, guard or probe into its failure case and watch it fail before trusting it.
+  A reasoned "it would fail" is not evidence; a check that cannot fail manufactures confidence.
+- Keep, retire or implement is decided from the written target state, not from whether
+  something has consumers today. A consumer sweep says what breaks, not what should exist.
+- A design review ends with a pass against the product intention records (vuoro-cloud
+  `19-PRODUCT-POSITIONING-AND-PROOF.md`, `00-EXECUTIVE-DECISION.md`, agentops target-state
+  plans), and that pass may change the design.
+- A document cited as binding must resolve in git. Export claude.ai artifacts into a repo before
+  citing them (`Artifact` list with scope `all` finds ones a disk search misses).
+- Every branch lands on `main` or is retired; checkouts and worktrees track the remote. Finish
+  work by landing it and removing its worktree. Retire a stale branch whose content is already
+  on main, rather than routing around it.
 
 ## Durability
 

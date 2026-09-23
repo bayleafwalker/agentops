@@ -632,9 +632,9 @@ class TestDigestVersionCompatibility(unittest.TestCase):
                 # whether legacy or v2.
                 self.assertEqual(handoff.schema_errors(data), [])
                 # Legacy handoffs (created before digest_version was added) must
-                # not declare the field; v2 handoffs (created via the new
-                # `handoff create` path) legitimately declare digest_version: 2.
-                if data["state"].get("digest_version") != 2:
+                # not declare the field; handoffs from `handoff create` declare
+                # the version it wrote (2, or 3 since the tracker watermark).
+                if data["state"].get("digest_version") not in (2, 3):
                     self.assertNotIn("digest_version", data["state"])
                     legacy_checked += 1
         # At least one legacy handoff must exist to ensure the compatibility
