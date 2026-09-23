@@ -594,13 +594,12 @@ class TestDigestVersionCompatibility(unittest.TestCase):
         ])
         return self.out / f"2026-09-12-{slug}.v1.json"
 
-    def test_create_writes_version_3(self) -> None:
-        # Bumped from 2 to 3 when state.tracker_watermark was added: the diff
-        # computation is unchanged from v2, but the bump is how a `validate`
-        # run on an old handoff knows the field is legitimately absent rather
-        # than lost.
+    def test_create_writes_version_4(self) -> None:
+        # 3 marked state.tracker_watermark (diff computation unchanged from
+        # v2); 4 excludes self-paths and audit shards from every digest input
+        # (TestDigestSurvivesItsOwnLifecycle).
         data = json.loads(self._create("fresh").read_text())
-        self.assertEqual(data["state"]["digest_version"], 3)
+        self.assertEqual(data["state"]["digest_version"], 4)
         self.assertEqual(data["state"]["tracker_watermark"], [])
 
     def test_a_v1_handoff_without_the_field_still_validates(self) -> None:
@@ -633,8 +632,9 @@ class TestDigestVersionCompatibility(unittest.TestCase):
                 self.assertEqual(handoff.schema_errors(data), [])
                 # Legacy handoffs (created before digest_version was added) must
                 # not declare the field; handoffs from `handoff create` declare
-                # the version it wrote (2, or 3 since the tracker watermark).
-                if data["state"].get("digest_version") not in (2, 3):
+                # the version it wrote (2; 3 since the tracker watermark; 4
+                # since self-paths and audit shards left the digest).
+                if data["state"].get("digest_version") not in (2, 3, 4):
                     self.assertNotIn("digest_version", data["state"])
                     legacy_checked += 1
         # At least one legacy handoff must exist to ensure the compatibility
@@ -650,6 +650,90 @@ class TestDigestVersionCompatibility(unittest.TestCase):
         (self.repo / "scratch.txt").write_text("after\n")
         problems = handoff.validate_handoff(json.loads(path.read_text()))
         self.assertTrue(any("stale diff_sha256" in p for p in problems), problems)
+
+
+class TestDigestSurvivesItsOwnLifecycle(unittest.TestCase):
+    """A handoff must still validate after the things that always happen to it.
+
+    Two did not (2026-09-23): the handoff committed and then acked (the ack
+    rewrites a now-tracked file, which `git diff HEAD` counted even though
+    `status --porcelain` did not), and a hook appending to a tracked audit
+    shard, which happens on every session. Each is paired with its guard's
+    failure case, so the exclusion is proven not to hide a real edit.
+    """
+
+    SHARD = "_artifacts/agentops/audit/events-2026-09-23.ndjson"
+
+    def setUp(self) -> None:
+        import tempfile
+        self._tmp = tempfile.TemporaryDirectory()
+        self.repo = _make_repo(Path(self._tmp.name) / "repo")
+        shard = self.repo / self.SHARD
+        shard.parent.mkdir(parents=True)
+        shard.write_text('{"event": "one"}\n')
+        (self.repo / "_artifacts/agentops/counts.sql").write_text("select 1;\n")
+        _git(self.repo, "add", "-A")
+        _git(self.repo, "commit", "-q", "-m", "shard")
+        self.out = self.repo / "docs/dispatch/handoffs"
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def _create(self) -> Path:
+        handoff.main([
+            "create", "--slug", "life", "--repo", str(self.repo),
+            "--objective", "o", "--next-action", "n", "--no-sprintctl",
+            "--out-dir", str(self.out), "--date", "2026-09-23",
+        ])
+        return self.out / "2026-09-23-life.v1.json"
+
+    def _problems(self, path: Path) -> list[str]:
+        return handoff.validate_handoff(json.loads(path.read_text()), file=path)
+
+    def _commit_and_ack(self) -> Path:
+        path = self._create()
+        _git(self.repo, "add", "-A")
+        _git(self.repo, "commit", "-q", "-m", "handoff")
+        handoff.ack(path, "sess-successor")
+        return path
+
+    def test_a_committed_then_acked_handoff_still_validates(self) -> None:
+        path = self._commit_and_ack()
+        self.assertIn(path.relative_to(self.repo).as_posix(),
+                      _git(self.repo, "diff", "HEAD", "--name-only"))
+        self.assertEqual(self._problems(path), [])
+
+    def test_a_tracked_edit_beside_an_acked_handoff_is_still_refused(self) -> None:
+        path = self._commit_and_ack()
+        (self.repo / "file.txt").write_text("moved\n")
+        problems = self._problems(path)
+        self.assertTrue(any("stale diff_sha256" in p for p in problems), problems)
+
+    def test_a_hook_appended_audit_shard_does_not_stale_the_handoff(self) -> None:
+        path = self._create()
+        with (self.repo / self.SHARD).open("a") as fh:
+            fh.write('{"event": "two"}\n')
+        self.assertEqual(self._problems(path), [])
+
+    def test_a_new_days_untracked_audit_shard_does_not_stale_the_handoff(self) -> None:
+        path = self._create()
+        (self.repo / self.SHARD.replace("09-23", "09-24")).write_text("{}\n")
+        self.assertEqual(self._problems(path), [])
+
+    def test_a_non_shard_artifact_edit_is_still_refused(self) -> None:
+        path = self._create()
+        (self.repo / "_artifacts/agentops/counts.sql").write_text("select 2;\n")
+        problems = self._problems(path)
+        self.assertTrue(any("stale diff_sha256" in p for p in problems), problems)
+
+    def test_v3_still_counts_audit_shards_so_old_handoffs_keep_their_meaning(self) -> None:
+        # A v3 handoff recorded with a dirty shard hashed the shard's bytes;
+        # dropping them under v3 would refuse it for no reason.
+        v3, v4 = handoff.diff_sha256(self.repo, 3), handoff.diff_sha256(self.repo, 4)
+        with (self.repo / self.SHARD).open("a") as fh:
+            fh.write('{"event": "two"}\n')
+        self.assertNotEqual(handoff.diff_sha256(self.repo, 3), v3)
+        self.assertEqual(handoff.diff_sha256(self.repo, 4), v4)
 
 
 class _RecordingTransport:
@@ -845,7 +929,7 @@ class TestTrackerWatermark(unittest.TestCase):
         self.assertEqual(data["state"]["tracker_watermark"],
                          [{"item_id": "1234", "status": "open",
                            "status_revision": 5}])
-        self.assertEqual(data["state"]["digest_version"], 3)
+        self.assertEqual(data["state"]["digest_version"], 4)
 
     def test_no_item_refs_and_no_evidence_validates_unchanged(self) -> None:
         # No id in next_action, sprintctl never even asked (--no-sprintctl):
