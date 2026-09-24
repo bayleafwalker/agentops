@@ -10,9 +10,11 @@
 # the ack guard, not this hook, is what prevents two live successors.
 #
 # Selection is deliberately narrow: successor.session_id must be null (an acked
-# handoff belongs to someone else) and one of state.repos[].path must be this
-# cwd or an ancestor of it. Newest handoff_id wins when several match, and the
-# hook says so rather than picking silently.
+# handoff belongs to someone else), one of state.repos[].path must be this cwd or
+# an ancestor of it, no newer version of the same slug may exist, and it must be
+# newer (created_at) than every acked handoff for this cwd. Newest created_at wins
+# when several match, and the hook says so rather than picking silently.
+# Registered globally in ~/.claude/settings.json so it fires from any directory.
 #
 # Env:
 #   AGENTOPS_HANDOFF_DIR  where handoffs live; default agentops/docs/dispatch/handoffs
@@ -28,22 +30,35 @@ CWD="${CWD%/}"
 DIR="${AGENTOPS_HANDOFF_DIR:-/projects/dev/agentops/docs/dispatch/handoffs}"
 [[ -d "$DIR" ]] || exit 0
 
-MATCH=""
+MATCH=""; MATCH_AT=""; ACKED_AT=""
 for f in "$DIR"/*.json; do
   [[ -r "$f" ]] || continue
   case "$f" in *.sprintctl-bundle.json) continue ;; esac
-  jq -e --arg cwd "$CWD" '
-    (.successor.session_id == null)
-    and ([ .state.repos[]?.path
-           | rtrimstr("/")
-           | select(. == $cwd or ($cwd | startswith(. + "/")))
-         ] | length > 0)
-  ' "$f" >/dev/null 2>&1 || continue
-  # Newest by filename: the stem is <date>-<slug>.v<N>, so lexical order is
-  # chronological within a day and version order within a slug.
-  [[ -z "$MATCH" || "$f" > "$MATCH" ]] && MATCH="$f"
+  # "<created_at> <acked|open>" when a state.repos path is this cwd or an ancestor of it.
+  _row="$(jq -er --arg cwd "$CWD" '
+    select([ .state.repos[]?.path
+             | rtrimstr("/")
+             | select(. as $p | $cwd == $p or ($cwd | startswith($p + "/")))
+           ] | length > 0)
+    | "\(.created_at // "") \(if .successor.session_id == null then "open" else "acked" end)"
+  ' "$f" 2>/dev/null)" || continue
+  _at="${_row% *}"
+  if [[ "${_row##* }" == acked ]]; then
+    [[ "$_at" > "$ACKED_AT" ]] && ACKED_AT="$_at"
+    continue
+  fi
+  # A chain supersedes its older links: once a newer file of the same slug exists
+  # (any date, any version), an older unacked one is stale, not an open handoff.
+  _stem="${f##*/}"; _stem="${_stem%.json}"; _slug="${_stem#[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-}"; _slug="${_slug%.v[0-9]*}"
+  _head="$(printf '%s\n' "$DIR"/*-"$_slug".v*.json | sort -V | tail -n 1)"
+  [[ "$_head" == "$f" ]] || continue
+  # Newest by created_at.
+  [[ -z "$MATCH" || "$_at" > "$MATCH_AT" ]] && { MATCH="$f"; MATCH_AT="$_at"; }
 done
 
+# A handoff for this directory that some successor already took is newer than
+# every open one: those were abandoned, not waiting.
+[[ -z "$MATCH" || "$MATCH_AT" > "$ACKED_AT" ]] || MATCH=""
 [[ -n "$MATCH" ]] || exit 0
 
 # `agentops` on PATH, else the CLI in this hook's own repository (hooks/../bin/agentops), so a host
