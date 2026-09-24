@@ -36,8 +36,10 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import os
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -1120,6 +1122,39 @@ class TestCommittedEvidenceRefRates(unittest.TestCase):
         self.assertEqual(checked / len(existing), 1.0)
         refused = sum(1 for r in missing if self._refused(r))
         self.assertEqual(refused / len(missing), 1.0)
+
+
+class TestSprintctlBundle(unittest.TestCase):
+    """The bundle comes from sprintctl's stdout and leaves nothing in the repo.
+
+    The stand-in `sprintctl` behaves like 0.7.3: without `--output -` it writes
+    handoff-<sprint>.json into its cwd and prints nothing.
+    """
+
+    def test_bundle_is_read_from_stdout_and_writes_nothing_into_the_repo(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bindir, repo, out = root / "bin", root / "repo", root / "out"
+            bindir.mkdir()
+            repo.mkdir()
+            fake = bindir / "sprintctl"
+            fake.write_text(
+                "#!/usr/bin/env bash\n"
+                'bundle=\'{"bundle_type": "handoff", "generated_at": "2026-09-24T00:00:00Z"}\'\n'
+                'for a in "$@"; do [[ "$a" == "-" ]] && { echo "$bundle"; exit 0; }; done\n'
+                'echo "$bundle" > handoff-551.json\n'
+            )
+            fake.chmod(0o755)
+            env_path = os.environ["PATH"]
+            os.environ["PATH"] = f"{bindir}{os.pathsep}{env_path}"
+            try:
+                ref = handoff.sprintctl_bundle(repo, out / "x.sprintctl-bundle.json")
+            finally:
+                os.environ["PATH"] = env_path
+            self.assertIsNotNone(ref)
+            self.assertEqual(ref["generated_at"], "2026-09-24T00:00:00Z")
+            self.assertTrue((out / "x.sprintctl-bundle.json").is_file())
+            self.assertEqual(list(repo.iterdir()), [])
 
 
 if __name__ == "__main__":
