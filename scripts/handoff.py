@@ -299,8 +299,11 @@ def sprintctl_bundle(repo: Path, out_path: Path) -> dict[str, Any] | None:
     An absent or failing sprintctl is not an error: the handoff is still valid
     without a sprint bundle.
     """
+    # `--output -`: sprintctl 0.7.3 otherwise writes handoff-<sprint>.json into
+    # the repo and prints nothing, so no bundle was recorded and the stray file
+    # made this handoff's own diff_sha256 stale the moment it was written.
     proc = subprocess.run(
-        ["sprintctl", "handoff", "--format", "json"],
+        ["sprintctl", "handoff", "--format", "json", "--output", "-"],
         cwd=str(repo), capture_output=True, text=True)
     if proc.returncode != 0 or not proc.stdout.strip():
         return None
