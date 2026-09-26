@@ -2,7 +2,6 @@
   "permissions": {
     "allow": [
       "Bash(kubectl get *)",
-      "Bash(kubectl -n * get *)",
       "Bash(uv run pytest *)",
       "Bash(gh run list *)",
       "Bash(npm run check*)",
