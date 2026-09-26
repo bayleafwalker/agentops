@@ -4,7 +4,7 @@ Status: adopted by the operator 2026-09-26 (session d5ca23ce), except where a
 line says it waits on review.
 Inputs:
 - [options memo](2026-09-26-cloud-environments-options-memo.md), Codex gpt-5.6-sol, read-only;
-- [trusted-service boundary design](2026-09-26-trusted-service-boundary-design.md), Claude, read-only. Codex's adversarial review of it is still pending.
+- [trusted-service boundary design](2026-09-26-trusted-service-boundary-design.md), Claude, read-only. Codex's adversarial review of it rejected the design (1 critical, 8 high, 4 medium); see decision 7.
 
 ## Where things stand
 
@@ -25,8 +25,38 @@ These follow from the architecture and are fixed for the work below.
 7. **Trusted-service boundary.** Taken from the operator's proposal, with details from the design memo.
    - An in-cluster effects service is the only holder of provider credentials, and it reaches providers only through an allowlisting egress proxy.
    - Cloud agents ask it for effects over MCP and never receive credentials.
-   - The design's open questions are resolved as follows. Effects serve operator workspaces only. Merges approved through `request_merge` are executed by the operator locally, using a pre-checked `credctl merge` command. Slice 1 uses a static, comment-only bot token rotated every 30 days. TS-16 is amended to allow reversible, non-authoritative effects.
-   - These are adopted, but slice 1 starts only after the Codex review returns and any critical or high findings are resolved. A decision-log entry (D-048) and the TS-1/TS-16 amendments follow with slice 1.
+   - The design's open questions are resolved as follows. Effects serve operator workspaces only. Merges approved through `request_merge` are executed by the operator locally, using a pre-checked `credctl merge` command. Slice 1 uses a static, comment-only bot token rotated every 30 days.
+   - **Superseded in part (operator, 2026-09-26, after the review): TS-16 is not amended.** The review rejected the design (1 critical, 8 high, 4 medium). C1: an `effect.propose` that performs the effect in the same call is apply authority, which TS-16 forbids. What holds instead is below, under "Effects: queued intents and acceptance". Slice 1 does not start until every item under "Required before slice 1" is closed.
+
+## Effects: queued intents and acceptance (operator, 2026-09-26)
+
+TS-16 stays as written. A cloud caller never applies an effect; it queues one.
+
+- **Propose queues.** `propose_effect` records a run-bound intent in state `proposed` and returns. Nothing is carried out during the call.
+- **Acceptance happens on the trusted side.** Only a separately authenticated trusted-side actor moves an intent from `proposed` to `accepted`. The proposing caller never does, and no cloud-reachable tool or MCP surface can. By default the operator accepts in an interactive session (credctl side). The trusted-side consumer carries out accepted intents later.
+- **Auto-accept is opt-in.** A profile or config switch, scoped to a workspace and/or repository and optionally to an effect kind, lets the trusted-side consumer accept queued intents without the operator. It stays within TS-16 only while all of the following hold:
+  - it is off by default;
+  - it is set only from the trusted side (operator config or credctl), never through a cloud-callable tool;
+  - the trusted-side consumer evaluates it asynchronously, and the edge never does;
+  - every auto-acceptance records the policy (id, version, scope) as the acceptor in the audit and evidence trail, so the decision can be reconstructed.
+- **First proof** is the review's simpler conforming alternative: a queued `propose_effect` after E2, carried out on the operator side through credctl.
+
+## Required before slice 1
+
+From the Codex adversarial review of the trusted-service design (2026-09-26). Item 1 is closed by the decision above.
+
+1. ~~Record the operator decision: retain TS-16's queued-intent boundary or explicitly amend it.~~ Retained, 2026-09-26.
+2. Land E2's server-minted run identity and append-only evidence first.
+3. Bind effects grants to exact repository subsets; stay canary-only until then.
+4. Choose the authoritative lifecycle owner from day one; no temporary Vuoro execution state machine.
+5. Freeze a multi-resource authorization spec (client, resource, scope, principal and role policy, with `g.resource` rechecks).
+6. Replace bearer forwarding with a one-use, body-bound internal proof.
+7. Close the cred-broker prerequisites: workload auth, comment capability, service release and live isolation.
+8. Specify crash-safe, concurrent idempotency, and make the provider marker recoverable without the ledger.
+9. Remove recursive DNS from the executor, and close the CONNECT/SNI, metadata, API, node-local and IPv6 test gaps.
+10. Define insert-only, tamper-evident audit storage and strict non-secret output schemas.
+11. Pin and verify the proxy and executor image supply chain.
+12. Scope slice 1 explicitly to k3s. Talos claims no conformance until its CNI and workload composition are fixed.
 
 ## Waves
 
@@ -56,7 +86,7 @@ Acceptance for the wave:
   - no effect scope and no broad `work:write`.
 - **Close the existing gap in control's egress.** Control may reach any host on 443 today (vuoro-cloud `platform/policies/network-policies.yaml:66-72`).
 
-### Wave C: trusted-service boundary (after the review)
+### Wave C: trusted-service boundary (after "Required before slice 1")
 
 - **Slice 1: `forge_comment_pr`,** end to end. Acceptance is in the design memo, §7.
 - **Egress enforcement.** k3s's bundled kube-router enforces only standard NetworkPolicy, so the host allowlist lives in the proxy.
