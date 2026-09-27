@@ -52,7 +52,7 @@ Each milestone below lists: objective, included items (existing ids plus new sub
 | M1-5 | Minimal cross-harness continuation: successor run linked to its predecessor | H3-4 minimal proof per review point 5 | pairs with #2484 (S8 cross-harness leg) |
 | M1-0 | Tracker hygiene: close or re-scope #2502 and #2479 with evidence; H1-9 is now R4 lease semantics 6 (normative) | H1-10, H1-9 | #2502, #2479, #2520 |
 
-H1-9 (principal in the shared `IdempotencyLedger` protocol) is not a separate item: the contract's §5 amendment already requires each ledger to fold the principal, sprintctl#97's ledger already keys on it, and #2520 builds the next ledger consumer. The filing proposal (Appendix A) asks that #2520's description name the protocol change as part of its scope. **Revised 2026-09-27:** #2520 has shipped and the operator made the shared ledger protocol normative (R4, lease semantics 6). The conformance analysis found the key and digest conform but not the typed `begin` shape or one shared suite; H1-9 is now filed as **#2542** (R4, conformance note).
+H1-9 (principal in the shared `IdempotencyLedger` protocol) was originally not a separate item: the contract's §5 amendment already requires each ledger to fold the principal, sprintctl#97's ledger already keys on it, and #2520 builds the next ledger consumer. The filing proposal (Appendix A) asks that #2520's description name the protocol change as part of its scope. **Revised 2026-09-27:** #2520 has shipped and the operator made the shared ledger protocol normative (R4, lease semantics 6). The conformance analysis found the key and digest conform but not the typed `begin` shape or one shared suite; H1-9 is now filed as **#2542** (R4, conformance note).
 
 **What a finished M1 demonstrates (the checks).**
 
@@ -265,13 +265,13 @@ They are not a simple strictest-wins ordering unless every stronger profile genu
 - **Shared ledger protocol (H1-9).** Contract (semantics 6): a typed `begin(workspace_id, principal_id, tool, key, request_digest) -> LedgerEntry` with `IDEMPOTENCY_KEY_REUSED`, one behaviour suite across run registration, claim acquisition, effect proposal and (where appropriate) effect acceptance. Assessed: the ledger key and digest conform; the typed `begin` shape and one shared suite do not yet, and the published wire code stays `idempotency-conflict` (documented as `IDEMPOTENCY_KEY_REUSED`).
 
 The conformance analysis (2026-09-27) found lease safety holds in the sprintctl runtime (INV-L1 and INV-L2 conform: a late or superseded report is retained and never settles; idempotency never restores superseded authority). vuoro's in-memory `lease.py` reference spec still discards a stale completion, contrary to INV-L1; it is corrected under #2540. The analysis also found one gap outside the list above: **verification profiles stricter than `checked` are accepted but not enforced**, so any `work:write` decision can settle an item whose contract names `role-separated`, `identity-separated` or `human-authorized`. Tracked as:
-- **#2539** (priority 1): verification profiles as enforced capability sets; folds in #2528 and #2529.
+- **#2539** (priority 1): verification profiles as enforced capability sets; folds in #2528 (awaiting-verification protection) and #2529's self-reported-settles-with-failed-checks case only.
 - **#2540** (priority 2): align the lease with semantics 1–5 before `vuoro:work.claim` is granted (no client consumes the names yet, so no migration).
 - **#2541** (priority 2): M2-1, sprintctl-owned effect intents with `work.effect.*` capabilities and digest-bound, immutable acceptance (INV-E1).
 - **#2542** (priority 3): the shared ledger protocol (H1-9).
 - **#2543** (priority 3): the work-level `parked` disposition (M3-7).
 
-Two related agentops follow-ups, both folded into #2539, were filed earlier: **#2528** (an awaiting-verification report does not protect the item, and the report never receives the verifier's decision) and **#2529** (releasing an item to pending leaves its lease active; heartbeat versus maintenance activation race).
+Two related agentops follow-ups were filed earlier (#2528 is folded into #2539; of #2529 only the self-reported case is, and the parts below stay with #2529): **#2528** (an awaiting-verification report does not protect the item, and the report never receives the verifier's decision) and **#2529** (releasing an item to pending leaves its lease active; heartbeat versus maintenance activation race).
 
 ---
 
