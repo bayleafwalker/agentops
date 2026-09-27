@@ -56,7 +56,7 @@ Rows are evaluated top to bottom; the first matching row decides. Transport rows
 | M2 | any | R-admin, TCP peer not an enrolled `/32` (the operator's; slice 6 adds the appservice peer's), or a `cf-*` header present | anything | any | **Refuse** 403 `admin-source-denied`, counted, not DB-audited (no principal yet) (unit 1.3) |
 | M3 | any | any | `vuoro:effect.apply` | any | **Refuse**, audited `oauth.scope.rejected_requested` (live) |
 | M4 | any | R-mcp | any `vuoro:control.*` or `vuoro:admin.*` | any | **Refuse** `invalid_scope`, audited `oauth.scope.rejected_requested` (unit 1.3) |
-| M5 | any | R-mcp | `vuoro:work.claim` or `vuoro:effect.propose` | any | **Refuse** `invalid_scope` while reserved (live); for minted tokens also by name (M13, M15) |
+| M5 | any | R-mcp | `vuoro:work.claim` or `vuoro:effect.propose` | any | **Refuse** `invalid_scope` while reserved (live); for minted tokens also by name (M12, M15) |
 | M6 | ≠ `vuoro-cli-admin`, ≠ `vuoro-cli-service` | R-admin | anything | any | **Refuse** `invalid_client` (unit 1.3) |
 | M7 | `vuoro-cli-service` | R-admin | ⊆ {`admin.read`, `admin.audit.read`, `admin.backup`} | service (JWT-bearer, pinned issuer) | Grant, 5 min, no refresh (slice 6); anything else **Refuse** |
 | M8 | `vuoro-cli-admin` | R-admin | anything | admin inactive, `adm_epoch` stale, credential disabled or unknown, assertion without UV | **Refuse** 401, audited `admin.login.refused` / `admin.token.refused` with the reason code (unit 1.3) |
@@ -65,24 +65,24 @@ Rows are evaluated top to bottom; the first matching row decides. Transport rows
 | M11 | `vuoro-cli-admin` | R-admin | anything | any non-admin (no WebAuthn credential exists for it) | **Refuse** (structural) |
 | M12 | `vuoro-test-harness` or `vuoro-agent-delegate` (admin mint or delegated exchange) | R-mcp | names `vuoro:work.claim` or `vuoro:effect.propose` | any | **Refuse** by name, independently of M5 (slices 4, 7) |
 | M13 | `vuoro-test-harness` | R-mcp | ⊆ {`vuoro:work.read`, `vuoro:evidence.record`} | test, not expired, member of a test workspace | Grant by admin mint only, ≤ min(24 h, expiry), no refresh (slice 4); other kinds **Refuse** |
-| M14 | `vuoro-agent-delegate` | R-mcp | ⊆ delegation ceiling ⊆ {`work.read`, `evidence.record`}, workspace ∈ delegation workspaces, repos ⊆ delegation repos | agent, not expired, active membership with role ≤ `member` in that workspace | Grant ≤ 15 min, no refresh, `act` claim. The exchange records an `oauth_grants`-shaped row (grant id in the token) so the gateway's per-request grant, membership, workspace and epoch check (`gateway.py:823-841`) applies unchanged; disabling the delegation revokes that row (slice 7, gated on plan item 7) |
+| M14 | `vuoro-agent-delegate` | R-mcp | ⊆ delegation ceiling ⊆ {`work.read`, `evidence.record`}, workspace ∈ delegation workspaces, repos ⊆ delegation repos | agent, not expired, active membership with role ≤ `member` in that workspace | Grant ≤ 15 min, no refresh, `act` claim. The exchange inserts a row **in `oauth_grants`** carrying the delegation's `repo_ids` (grant id in the token), so the gateway's per-request grant, membership, workspace and epoch check (`gateway.py:823-841`) applies; slice 7 also makes the gateway intersect the repositories it forwards (today every repository in the workspace, `gateway.py:147-148`, `:983`) with the grant's `repo_ids`. Disabling the delegation revokes that row (slice 7, gated on plan item 7) |
 | M15 | `vuoro-agent-delegate` | R-mcp | anything else, including a reserved scope in the ceiling | any | **Refuse** (slice 7) |
-| M16a | `vuoro-cli-admin`, `vuoro-cli-service`, `vuoro-test-harness` (at `/oauth/authorize` or `/oauth/token`) | R-mcp | anything | any | **Refuse** `unauthorized_client`: these clients never use the authorization-code path; unit 1.3 refuses them by id there, with a conformance case (M1-M6 ordering keeps this ahead of M16) |
+| M16a | `vuoro-cli-admin`, `vuoro-cli-service` (and `vuoro-test-harness` requests not already decided by M12-M13) on `/oauth/authorize` or `/oauth/token` | R-mcp | anything | any | **Refuse** `unauthorized_client`: these clients never use the authorization-code path; unit 1.3 refuses them by id there, with a conformance case |
+| M16b | `vuoro-cli` | R-mcp | anything | any | **Refuse** `invalid_target`: the CLI never holds work-plane tokens (unit 3.1; placed here so no later grant row can match it) |
 | M16 | `claude-connector` | R-mcp | `vuoro:work.read`, `vuoro:evidence.record`, or none (default = both) | human (GitHub login), or test via a single-use test-login code (slice 4) | Grant, bound to one workspace the principal is an active member of (live for human) |
 | M17 | other registered client | R-mcp | `vuoro:evidence.record` | any | **Refuse** `invalid_scope`; dropped silently from a scope-less default (live) |
-| M17a | any other registered client (none is registered today besides `claude-connector`) | R-mcp | `vuoro:work.read` or none | human | Grant, bound to one workspace (live: `evaluate_scopes` grants it to any registered client) |
+| M17a | any registered client not named in M6-M17 (today none is registered besides `claude-connector`; `vuoro-cli`, `vuoro-cli-admin`, `vuoro-cli-service`, `vuoro-test-harness`, `vuoro-agent-delegate` are decided above) | R-mcp | `vuoro:work.read` or none | human, active member of the workspace | Grant, bound to that one workspace (live: `evaluate_scopes` grants it to any registered client; `grant_usable` checks membership) |
 | M18 | ≠ `vuoro-cli` | R-control | anything | any | **Refuse** `invalid_target` (unit 3.1) |
 | M19 | `vuoro-cli` | R-control | anything outside `CONTROL_SCOPES` | any | **Refuse** `invalid_scope` (unit 3.1) |
 | M20 | `vuoro-cli` | R-control | ⊆ `CONTROL_SCOPES` | not human, or subject fails `^github:[0-9]+$` | **Refuse** `access_denied` at authorize; `invalid_grant` at refresh (unit 3.1) |
 | M21 | `vuoro-cli` | R-control | ⊆ `CONTROL_SCOPES` (none = read only) | human | Grant; every request still checks `administrative_membership` for the target workspace (unit 3.1) |
-| M22 | `vuoro-cli` | R-mcp | anything | any | **Refuse** `invalid_target`: the CLI never holds work-plane tokens (unit 3.1) |
-| M23 | any | any | none of the above | any | **Refuse** |
+| M22 | any | any | none of the above | any | **Refuse** |
 
 ## 5. Reserved authorities
 
 - `vuoro:effect.propose` stays reserved until a durable intent store exists **and** every tenant runtime serves the propose tools.
 - `vuoro:work.claim` stays reserved until an exclusive, durable lease exists **and** every tenant runtime serves the claim tools.
-- No row above grants either. A reservation lifts only when the scope gains a row in `SCOPE_TO_AUTHORITIES` (`RESERVED_SCOPES` is derived from it, `oauth_scopes.py:34-37`). Delegation ceilings and admin mints refuse them by name (M13, M15), so adding that row alone still does not open them to minted tokens. Lifting a reservation is its own reviewed change and must show both conditions.
+- No row above grants either. A reservation lifts only when the scope gains a row in `SCOPE_TO_AUTHORITIES` (`RESERVED_SCOPES` is derived from it, `oauth_scopes.py:34-37`). Delegation ceilings and admin mints refuse them by name (M12, M15), so adding that row alone still does not open them to minted tokens. Lifting a reservation is its own reviewed change and must show both conditions.
 - TS-16 is unamended: a cloud caller queues effects and never applies them; acceptance is trusted-side.
 
 ## 6. Rechecks
@@ -94,8 +94,13 @@ Rows are evaluated top to bottom; the first matching row decides. Transport rows
 | R-control refresh (unit 3.1) | client is `vuoro-cli`, principal kind human and subject pattern, principal epoch |
 | R-control request (unit 3.1) | `aud`, `typ=at+jwt`, principal epoch, scope, `administrative_membership` for the target workspace; any session cookie on the request → 400 |
 | R-admin refresh (unit 1.3) | token hash matches an unused member of a live family, absolute expiry, admin active, `adm_epoch`, credential not disabled; reuse revokes the family |
-| R-admin request (unit 1.3) | TCP peer is an enrolled operator `/32`, no `cf-*` header, `aud`, `typ=at+jwt`, admin active, `adm_epoch`, scope |
+| R-admin request (unit 1.3) | TCP peer is an enrolled `/32` (the operator's; slice 6 adds the appservice peer's), no `cf-*` header, `aud`, `typ=at+jwt`, admin active, `adm_epoch`, scope |
+| Delegated agent request (slice 7) | the gateway's grant query plus: forwarded repositories ⊆ the grant's `repo_ids`; a request naming a repository outside them is refused (403), with a slice-7 conformance case |
 
 ## 7. Conformance
 
-Unit 1.3 adds `tests/test_scope_matrix.py` to vuoro-cloud. It encodes the rows of §4 that exist at that point (M1-M6, M8-M11, M16-M17) as table-driven cases against the real `evaluate_scopes`, the admin token endpoint and the gateway, so a code change that contradicts this addendum fails CI. Later units extend the same table for their rows.
+Unit 1.3 adds `tests/test_scope_matrix.py` to vuoro-cloud. It encodes the rows of §4 that exist at that point (M1-M6, M8-M11, M16, M16a, M17, M17a) as table-driven cases against the real `evaluate_scopes`, the admin token endpoint and the gateway, so a code change that contradicts this addendum fails CI. Later units extend the same table for their rows.
+
+## 8. Not yet covered
+
+The public, Authentik-backed operator identity decided on agentops#255 (Q2) adds a fourth resource (`/control/operator`, client `vuoro-operator`, scopes `vuoro:operator.read`, `vuoro:operator.freeze`). Its rows are added with design units O.1-O.2 (design memo §8), not in this addendum.

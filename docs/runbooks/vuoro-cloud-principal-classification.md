@@ -36,7 +36,8 @@ SELECT 'invalid-subject' AS finding, u.id AS user_id, u.external_subject,
           AND s.revoked_at IS NULL AND s.expires_at > now()) AS live_web_sessions,
        (SELECT max(s.last_used_at) FROM web_sessions s WHERE s.user_id = u.id) AS last_session_use,
        (SELECT count(*) FROM oauth_grants g WHERE g.user_id = u.id
-          AND g.revoked_at IS NULL AND g.expires_at > now()) AS live_oauth_grants,
+          AND g.revoked_at IS NULL AND g.expires_at > now()
+          AND g.last_used_at > now() - interval '7 days') AS live_oauth_grants,
        (SELECT count(*) FROM oauth_grants g WHERE g.user_id = u.id) AS all_oauth_grants,
        EXISTS (SELECT 1 FROM principal_subjects ps WHERE ps.subject = u.id) AS has_epoch_row
 FROM users u
@@ -75,6 +76,7 @@ WHERE u.external_subject !~ '^github:[0-9]+$'
 UNION ALL
 SELECT 'violator-attachment', u.id, 'api-token', t.workspace_id,
        'revoked=' || (t.revoked_at IS NOT NULL)
+         || ' expired=' || coalesce(t.expires_at <= now(), false)
 FROM users u JOIN api_tokens t ON t.actor = u.external_subject
 WHERE u.external_subject !~ '^github:[0-9]+$'
 UNION ALL
@@ -89,8 +91,17 @@ FROM users u JOIN connector_enrollments ce ON ce.created_by = u.id
 WHERE u.external_subject !~ '^github:[0-9]+$'
 UNION ALL
 SELECT 'violator-attachment', u.id, 'membership-invitation', mi.workspace_id,
-       'invited_by' AS detail
+       'invited_by expired=' || (mi.expires_at <= now())
 FROM users u JOIN membership_invitations mi ON mi.invited_by = u.id
+WHERE u.external_subject !~ '^github:[0-9]+$'
+UNION ALL
+SELECT 'violator-attachment', u.id, 'membership-invitation-accepted', mi.workspace_id,
+       'accepted_by'
+FROM users u JOIN membership_invitations mi ON mi.accepted_by = u.id
+WHERE u.external_subject !~ '^github:[0-9]+$'
+UNION ALL
+SELECT 'violator-attachment', u.id, 'admission-invitation', i.id, 'redeemed_by'
+FROM users u JOIN invitations i ON i.redeemed_by = u.id
 WHERE u.external_subject !~ '^github:[0-9]+$'
 UNION ALL
 SELECT 'violator-attachment', u.id, 'principal-subject', ps.kind,
@@ -126,7 +137,7 @@ ROLLBACK;
 
 ## Reading the result
 
-- **Checked** on 2026-09-27 against a scratch PostgreSQL 18 with vuoro-cloud migrations `001`-`013` at `332faa4` and seeded rows (one valid owner, one non-numeric `github:` owner, one ownerless workspace): each section returned exactly the seeded violators, and the transaction ended in `ROLLBACK`.
+- **Checked** (this version) on 2026-09-27 against a scratch PostgreSQL 18 with vuoro-cloud migrations `001`-`013` at `332faa4` and seeded rows (valid owner, non-numeric `github:` owner with a connector, sessions and invitations, an owner without a `principal_subjects` row, an unattributed connector): each section returned the seeded rows, and the transaction ended in `ROLLBACK`. `live_oauth_grants` applies the refresh idle limit of 7 days (`oauth_server.py:38`, checked at `control.py:1181-1186`).
 
 - **Expected at vuoro-cloud `332faa4`:** section 1 lists the blocker12 owner (`01M14W25EYSZ…`, a non-numeric `github:` subject) and nothing else; section 2 lists `blocker12-canary` (`01M14W25EYKC…`) and nothing else. Anything else in sections 1-2 is unexplained and blocks generation B until it is classified.
 - **Section 3** decides the reclassify disposition: every credential listed here must be revoked explicitly: an epoch bump alone does not revoke refresh grants, PATs or web sessions at vuoro-cloud `332faa4` (refresh and PAT paths stamp the epoch without comparing it; sessions are keyed by user id), and connectors authenticate as themselves. The admin reclassify and disable operations (unit 2.2) revoke them in the same transaction; until then, list each in the handoff. Every workspace the violator owns goes into the retire plan; section 3b's connectors need a human decision.
