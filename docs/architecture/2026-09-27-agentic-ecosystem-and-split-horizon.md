@@ -246,7 +246,7 @@ flowchart TB
     P6[signing/promotion remains hardware/protected]
   end
 
-  P1 -. "reconciler polls proposals, outbound (untrusted input)" .-> C2
+  P1 -. "poll proposals, outbound (untrusted input)" .-> C2
 ```
 
 As in §1.3, the poll arrow points from the side that opens the connection
@@ -446,9 +446,10 @@ not an outage epoch; it is the pre-cutover arrangement. The rule during it:
 each record family has exactly one named authoritative store and is never
 written to both. Local work changes: `vuoro-shared` (or local SQLite). Local
 evidence: auditctl shards (TS-6). Hosted and interactive runs, their evidence
-and notes: vuoro.cloud. Whether the pilot workspace's work catalog on
-vuoro.cloud currently duplicates `vuoro-shared` is not verified here
-**[INF]**; if it does, the cutover names which copy is authoritative.
+and notes: vuoro.cloud. No hosted MCP tool writes work items
+(§1.2: `list_ready_work`, `describe_work`, and from gen 47 run, evidence and
+note tools), so `vuoro-shared` is authoritative for work items until the
+cutover and any vuoro.cloud work catalog is a read-only copy.
 Nothing is dual-written. NORMAL begins at the Q1(b) cutover
 (after the Authorization-header fix and E2), when local harnesses move to
 vuoro.cloud and `vuoro-shared` drops to protected services + fallback.
@@ -462,7 +463,7 @@ reserved until a durable intent store (for propose) and an exclusive lease
 (for claim) exist **and** every tenant runtime serves the tools; the edge
 refuses assertions carrying authorities with no tools
 (`vuoro-cloud:src/vuoro_cloud/oauth_scopes.py:22-36`;
-`vuoro-cloud:docs/design/e1/e1-stronger-baseline-design-2026-09-22.md:241-245,438-441`).
+`agentops:docs/design/e1/e1-stronger-baseline-design-2026-09-22.md:241-245,438-441`).
 
 | TS-16 clause | Split-horizon Vuoro |
 |---|---|
@@ -527,8 +528,9 @@ before the two sides can corroborate each other.
 
 ## 6. Decisions (operator, 2026-09-27)
 
-The former open questions, with the options as posed (Q1-Q4; Q5-Q7 had a
-single recommended option) and the operator's decision and amendments.
+The former open questions, with the options as posed (abbreviated for Q5-Q7,
+where the operator chose (a) each time) and the operator's decision and
+amendments.
 
 **Q1. Primary endpoint for local harnesses: vuoro.cloud or vuoro-shared?**
 Options were: (a) local CLIs keep `vuoro-shared` as their served backend and
@@ -613,7 +615,7 @@ the governing records. Architecture corrections do not go into release notes.
 - **Local harness move to vuoro.cloud after E2 (Q1):** transitional PAT, then
   a proper local Vuoro identity/token flow; no dual-write.
 - **Digest-bound `credctl accept` (Q4):** canonical hash over intent type,
-  exact parameters, source run and evidence refs; reconciler executes only the
+  exact parameters, source run and immutable evidence refs; reconciler executes only the
   accepted object.
 - **Q1(b) cutover (§3.3 Transition):** one named cutover from the
   pre-cutover arrangement to NORMAL, with the record family → store mapping
