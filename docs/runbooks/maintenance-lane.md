@@ -296,9 +296,23 @@ Weekly, or after every ten lane attempts, the coordinator:
 
 1. lists items `active` for more than a day without a `lane.review` note;
 2. computes the metrics above for the window;
-3. records a `lane.checkup` note on the sprint's oldest open item, or opens an
+3. runs the reconstructability funnel (TS-16) for the same window and quotes
+   its output verbatim in the check-up note or report (see below);
+4. records a `lane.checkup` note on the sprint's oldest open item, or opens an
    item when a tier's first-pass acceptance falls below the level the operator
    has accepted for it.
+
+The funnel counts the cohort in `docs/reconstructability/cohort.yaml` (every
+Routine's schedule; dispatched cloud sessions via `--sessions`) through
+expected -> observed -> evidence-bearing -> fully resolvable, and lists
+`unknown` invocations (expected, never registered a run) with their scheduled
+times. It reads the run-records export (`agentops vuoro-run-records --sql`) and
+Routine PRs through `gh`, and writes nothing:
+
+```sh
+agentops reconstructability-coverage --since <window start> \
+  --records-cmd "<bounded psql over the private Kubernetes API>" [--sessions sessions.jsonl]
+```
 
 Thresholds for "a tier is good enough for an item class", accepted
 2026-09-20 from the proposal in the 2026-09-19 check-up

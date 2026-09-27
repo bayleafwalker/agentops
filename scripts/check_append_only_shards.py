@@ -40,17 +40,17 @@ import sys
 SHARD_GLOB = "*_artifacts/*/audit/*.ndjson"
 
 
-def _git(*args: str) -> str:
+def _git(*args: str, cwd: str | None = None) -> str:
     result = subprocess.run(
-        ["git", *args], capture_output=True, text=True, check=False
+        ["git", *args], capture_output=True, text=True, check=False, cwd=cwd
     )
     if result.returncode != 0:
         raise RuntimeError(f"git {' '.join(args)}: {result.stderr.strip()}")
     return result.stdout
 
 
-def _changed_shards(base: str, head: str) -> list[str]:
-    out = _git("diff", "--name-only", f"{base}..{head}")
+def _changed_shards(base: str, head: str, cwd: str | None = None) -> list[str]:
+    out = _git("diff", "--name-only", f"{base}..{head}", cwd=cwd)
     return [
         path
         for path in out.splitlines()
@@ -58,28 +58,32 @@ def _changed_shards(base: str, head: str) -> list[str]:
     ]
 
 
-def _lines_at(revision: str, path: str) -> list[str] | None:
+def _lines_at(revision: str, path: str, cwd: str | None = None) -> list[str] | None:
     """Return the file's lines at ``revision``, or None when it does not exist."""
     result = subprocess.run(
         ["git", "show", f"{revision}:{path}"],
         capture_output=True,
         text=True,
         check=False,
+        cwd=cwd,
     )
     if result.returncode != 0:
         return None
     return result.stdout.splitlines()
 
 
-def check(base: str, head: str) -> list[str]:
-    """Return a list of violation messages; empty means append-only."""
+def check(base: str, head: str, cwd: str | None = None) -> list[str]:
+    """Return a list of violation messages; empty means append-only.
+
+    ``cwd`` is the repository to run git in (default: the current directory).
+    """
     violations: list[str] = []
-    for path in _changed_shards(base, head):
-        before = _lines_at(base, path)
+    for path in _changed_shards(base, head, cwd):
+        before = _lines_at(base, path, cwd)
         if before is None:
             # A new shard. Nothing was rewritten because nothing was there.
             continue
-        after = _lines_at(head, path)
+        after = _lines_at(head, path, cwd)
         if after is None:
             violations.append(f"{path}: shard deleted ({len(before)} line(s) lost)")
             continue
