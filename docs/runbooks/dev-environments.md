@@ -47,7 +47,7 @@ default branch.
 `scripts/commit_audit_shards.py` does this unattended and **replaces the Stop hook**
 that used to commit "chore(audit): append today's shard" (it never fired in headless
 runs, and shards were committed by hand from 2026-08-30). A systemd user timer on the
-workstation runs it hourly and shortly after boot (gitops-nixos
+workstation runs it 10 minutes after login and hourly after that (gitops-nixos
 `modules/home/bayleaf/audit-shards.nix`, unit `audit-shards-commit`). Per checkout it
 commits only shard paths (`git commit --only`), inside the checkout the hooks write into,
 and only on the default branch; it fast-forwards first, pushes without force, and retries
@@ -57,7 +57,8 @@ fast-forward, carries unpushed non-shard commits, or holds a rewritten shard.
 Where to look: `journalctl --user -u audit-shards-commit` (one JSON line per repo) and
 `~/.local/state/agentops/audit-shards/last-run.json`. A skip that leaves shards
 uncommitted fails the unit, so it appears in the failed-user-unit notification and the
-shell's `failed user units:` line. Commit by hand only for a skipped checkout, in that
+shell's `failed user units:` line. A checkout parked on a feature branch while its hooks
+write shards keeps the unit failed on every run until it returns to the default branch. Commit by hand only for a skipped checkout, in that
 checkout, with `git commit --only -- <shard paths>`: a shard committed from another
 clone or worktree leaves an untracked twin that makes the next `git pull --ff-only`
 abort. Dry run: `python3 scripts/commit_audit_shards.py --dry-run`.

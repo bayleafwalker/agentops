@@ -171,20 +171,39 @@ def default_branch(repo: Repo) -> str:
     return "main"
 
 
-def check_append_only(repo: Repo, paths: list[str]) -> list[str]:
-    """Return the paths safe to commit; raise on a rewritten shard."""
-    ready = []
+def _blob(repo: Repo, rev: str, path: str) -> bytes | None:
+    proc = subprocess.run(["git", "show", f"{rev}:{path}"], cwd=repo.path, env=repo.env,
+                          capture_output=True, check=False, timeout=GIT_TIMEOUT)
+    return proc.stdout if proc.returncode == 0 else None
+
+
+def check_append_only(repo: Repo, upstream: str, paths: list[str]) -> tuple[list[str], list[str]]:
+    """Return (paths safe to commit, paths waiting on a partial line).
+
+    Every comparison is against ``upstream``, not HEAD, so a local shard-only
+    commit that rewrote a shard is caught before it is pushed, not by CI after.
+    """
+    for path in _shard_paths_in(repo, f"{upstream}..HEAD"):
+        base, head = _blob(repo, upstream, path), _blob(repo, "HEAD", path)
+        if base is not None and (head is None or not head.startswith(base)):
+            raise Skip("shard-rewritten", f"{path}: an unpushed commit rewrites it")
+    ready, partial = [], []
     for path in paths:
         data = (repo.path / path).read_bytes()
         if data and not data.endswith(b"\n"):
-            continue  # an append in flight; the next run takes it
-        proc = subprocess.run(["git", "show", f"HEAD:{path}"], cwd=repo.path,
-                              env=repo.env, capture_output=True, check=False)
-        if proc.returncode == 0 and not data.startswith(proc.stdout):
+            partial.append(path)  # an append in flight; the next run takes it
+            continue
+        base = _blob(repo, upstream, path)
+        if base is not None and not data.startswith(base):
             raise Skip("shard-rewritten",
                        f"{path}: committed content is not a prefix of the working copy")
         ready.append(path)
-    return ready
+    return ready, partial
+
+
+def _shard_paths_in(repo: Repo, rev_range: str) -> list[str]:
+    out = repo.out("diff", "--name-only", rev_range)
+    return [p for p in out.splitlines() if p and is_shard(p)]
 
 
 def through_date(paths: list[str]) -> str:
@@ -206,12 +225,18 @@ def sync(repo: Repo, upstream: str) -> None:
     if foreign:
         raise Skip("unpushed-work",
                    f"{len(foreign)} unpushed commit(s) touch non-shard files, e.g. {foreign[0][:12]}")
+    orig = None
     if ahead and repo.commits(f"HEAD..{upstream}"):
+        orig = repo.out("rev-parse", "HEAD")
         base = repo.out("merge-base", "HEAD", upstream)
         repo.run("reset", "--quiet", "--soft", base)
     if repo.commits(f"HEAD..{upstream}"):
         proc = repo.run("merge", "--ff-only", "--quiet", upstream, check=False)
         if proc.returncode != 0:
+            if orig:
+                # A skip leaves the checkout as it found it: put the local
+                # shard commit(s) back.
+                repo.run("reset", "--quiet", "--soft", orig)
             raise Skip("cannot-fast-forward", (proc.stderr or proc.stdout).strip())
 
 
@@ -227,9 +252,9 @@ def process(path: Path, *, remote: str, retries: int, dry_run: bool) -> Result |
     unpushed = False
     if branch == default and repo.run("rev-parse", "--verify", "--quiet", upstream,
                                       check=False).returncode == 0:
-        unpushed = bool(repo.commits(f"{upstream}..HEAD"))
-        # Only shard-only commits make this repo ours to push.
-        unpushed = unpushed and all(repo.shard_only(c) for c in repo.commits(f"{upstream}..HEAD"))
+        # Any unpushed commit carrying shards makes the repo a candidate; sync()
+        # then refuses (and reports) it if other work rides along.
+        unpushed = bool(_shard_paths_in(repo, f"{upstream}..HEAD"))
     if not changed and not unpushed:
         return None  # nothing pending: not even listed
 
@@ -277,8 +302,10 @@ def commit_and_push(repo: Repo, result: Result, *, upstream: str, default: str,
     for attempt in range(retries + 1):
         sync(repo, upstream)
         changed, _ = repo.pending_shards()
-        ready = check_append_only(repo, changed)
+        ready, partial = check_append_only(repo, upstream, changed)
         result.shards = ready
+        if partial:
+            result.detail = f"waiting on a partial last line: {', '.join(partial)}"
         if ready:
             repo.run("add", "--", *ready)
             repo.run("commit", "--quiet", "-m", MESSAGE.format(date=through_date(ready)),
@@ -290,10 +317,13 @@ def commit_and_push(repo: Repo, result: Result, *, upstream: str, default: str,
         push = repo.run("push", "--quiet", repo.remote, f"HEAD:refs/heads/{default}", check=False)
         if push.returncode == 0:
             result.action, result.commit = "pushed", head
-            result.detail = f"after {attempt} retry(ies)" if attempt else ""
+            if attempt:
+                result.detail = f"after {attempt} retry(ies)"
             return
         err = (push.stderr or push.stdout).strip()
-        rejected = "non-fast-forward" in err or "fetch first" in err or "rejected" in err
+        # Only a lost race is retried; "[remote rejected]" (a hook or branch
+        # protection) is not a race and is reported at once.
+        rejected = "non-fast-forward" in err or "fetch first" in err or "[rejected]" in err
         if not rejected or attempt == retries:
             result.commit = head
             raise Skip("push-failed", err)
@@ -342,6 +372,8 @@ def main(argv: list[str] | None = None) -> int:
             res = Result(repo=path.name, action="error", reason=skip.reason, detail=skip.detail)
         except OSError as exc:
             res = Result(repo=path.name, action="error", reason="os-error", detail=str(exc))
+        except subprocess.TimeoutExpired as exc:
+            res = Result(repo=path.name, action="error", reason="timeout", detail=str(exc))
         if res is not None:
             results.append(res)
             print(json.dumps(asdict(res), sort_keys=True), flush=True)

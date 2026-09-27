@@ -358,3 +358,82 @@ def test_dry_run_changes_nothing(env):
     assert rc == 0 and results[0]["action"] == "would-commit"
     assert remote_head(env) == head
     assert git(env["work"], "log", "-1", "--format=%s") == "seed"
+
+
+# --- review follow-ups -------------------------------------------------------
+
+
+def test_race_keeps_other_staged_and_unstaged_changes(env, monkeypatch):
+    work = env["work"]
+    write(work, "staged.txt", "staged\n")
+    git(work, "add", "staged.txt")
+    write(work, "README.md", "dirty\n", append=True)
+    _race(monkeypatch, env, times=1)
+    write(work, SHARD2, '{"n":2}\n')
+    rc, results, _ = run(env)
+    assert rc == 0 and results[0]["action"] == "pushed"
+    assert remote_files(env) == [SHARD2]
+    assert git(work, "diff", "--cached", "--name-only") == "staged.txt"
+    assert (work / "README.md").read_text() == "seed\ndirty\n"
+
+
+def test_divergent_same_shard_skip_restores_local_commit(env):
+    work = env["work"]
+    write(work, SHARD, '{"local":1}\n', append=True)
+    local = commit_all(work, "chore(audit): by hand")
+    other_pushes(env, SHARD, '{"remote":1}\n')
+    rc, results, _ = run(env)
+    assert rc == 1 and results[0]["reason"] == "cannot-fast-forward"
+    assert git(work, "rev-parse", "HEAD") == local  # the skip mutated nothing
+    assert git(work, "status", "--porcelain") == ""
+
+
+def test_unpushed_commit_rewriting_a_shard_is_refused(env):
+    work = env["work"]
+    write(work, SHARD, '{"n":"edited"}\n')
+    commit_all(work, "chore(audit): rewrite")
+    head = remote_head(env)
+    rc, results, _ = run(env)
+    assert rc == 1 and results[0]["reason"] == "shard-rewritten"
+    assert remote_head(env) == head
+
+
+def test_shard_commit_under_wip_commit_is_reported(env):
+    work = env["work"]
+    write(work, SHARD2, '{"n":2}\n')
+    commit_all(work, "chore(audit): by hand")
+    write(work, "wip.py", "wip\n")
+    commit_all(work, "wip")
+    rc, results, _ = run(env)
+    assert rc == 1 and results[0]["reason"] == "unpushed-work"
+
+
+def test_remote_hook_rejection_is_not_retried(env, monkeypatch):
+    hook = env["remote"] / "hooks" / "pre-receive"
+    hook.write_text("#!/bin/sh\necho denied >&2\nexit 1\n")
+    hook.chmod(0o755)
+    git(env["remote"], "config", "core.hooksPath", str(hook.parent))  # global is /dev/null
+    pushes = []
+    original = cas.Repo.run
+
+    def counting(self, *args, check=True):
+        if args and args[0] == "push":
+            pushes.append(args)
+        return original(self, *args, check=check)
+
+    monkeypatch.setattr(cas.Repo, "run", counting)
+    write(env["work"], SHARD2, '{"n":2}\n')
+    rc, results, _ = run(env)
+    assert rc == 1 and results[0]["reason"] == "push-failed"
+    assert len(pushes) == 1
+
+
+def test_timeout_is_reported_not_fatal(env, monkeypatch):
+    write(env["work"], SHARD2, '{"n":2}\n')
+
+    def slow(self, *args, check=True):
+        raise subprocess.TimeoutExpired(["git", *args], 1)
+
+    monkeypatch.setattr(cas.Repo, "run", slow)
+    rc, results, _ = run(env)
+    assert rc == 1 and results[0]["reason"] == "timeout"
