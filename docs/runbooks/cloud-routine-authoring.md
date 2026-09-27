@@ -73,7 +73,9 @@ the tools appear as `mcp__Vuoro__register_run` and so on.
 1. **At start, before any other work, call `register_run`** with the
    RunManifest fields:
    - `harness_id`: `claude-code`.
-   - `harness_build`: the output of `claude --version` in the session.
+   - `harness_build`: the output of `claude --version` in the session, or
+     `unavailable` if the command is not on PATH. The check accepts that
+     value, and the record says honestly that the build is unknown.
    - `model_id`: the model id the session runs as.
    - `recipe_id`: `<owner>/<repo>:<prompt path>@<blob>`, where `<blob>` is
      `git rev-parse HEAD:<prompt path>`. Keep the routine's real instructions
@@ -82,11 +84,13 @@ the tools appear as `mcp__Vuoro__register_run` and so on.
      stub that says to follow that file.
    - `observed_profile`: `{"instruction_digest": "sha256:<sha256sum of the
      prompt file>", "skill_digests": []}`.
-   - `idempotency_key`: `routine.<slug>.<YYYYMMDDTHH>`, where the timestamp is
-     the UTC hour in which the session started (`date -u +%Y%m%dT%H`). A
-     retry within the same hour reuses the key and gets the same `run_id`
-     back, so one fire stays one run. The coverage funnel counts retries once
-     per expected invocation either way.
+   - `idempotency_key`: `routine.<slug>.<YYYYMMDDTHHMMSSZ>`, where the
+     timestamp is the session's start time (`date -u +%Y%m%dT%H%M%SZ`, taken
+     once and reused). Each session gets its own run: a manual fire in the
+     same hour as a scheduled one does not merge into it. Retrying the
+     `register_run` call itself inside the session, with the same arguments,
+     returns the same `run_id`. The coverage funnel counts several sessions
+     for one expected invocation once.
 
    Keep the returned `run_id` for the rest of the session.
 2. **For each finding, call `append_evidence`** with `kind: "finding"`,
@@ -98,8 +102,8 @@ the tools appear as `mcp__Vuoro__register_run` and so on.
 3. **After writing the report file and before committing it, call
    `append_evidence` for the report itself** with `kind: "report"`,
    `ref: "<report path>"` (repository-relative, with no `#fragment`),
-   `digest: "sha256:<sha256sum of the file>"` and
-   `idempotency_key: "<run key>.report"`. Do not edit the file after this
+   `digest: "sha256:<sha256sum of the file>"`, the same `collector` and
+   `validity` as step 2, and `idempotency_key: "<run key>.report"`. Do not edit the file after this
    call: the coverage funnel checks the digest against the file in the PR.
 4. **End the PR body with the line `Vuoro-Run: <run_id>`** on a line of its
    own. Do not wrap the key in bold; backticks around the value are
@@ -107,12 +111,14 @@ the tools appear as `mcp__Vuoro__register_run` and so on.
 5. **After opening the PR, call `write_session_note`** with a short summary
    of the verdict, the PR URL and the same `Vuoro-Run: <run_id>` line
    (`idempotency_key: "<run key>.note"`).
-6. **If a record tool is missing or refused** (the connector was not
-   re-authorized after the grant widened, or a tool returned an error), still
-   open the PR required above. Write `Vuoro-Run: unavailable (<error code or
-   "tools not listed">)` in the PR body and in the report. The conformance
-   check then fails with that reason instead of the run going silently
-   unrecorded.
+6. **If `register_run` is missing or refused** (the connector was not
+   re-authorized after the grant widened, or the call returned an error),
+   still open the PR required above. Write `Vuoro-Run: unavailable (<error
+   code or "tools not listed">)` in the PR body and in the report. The
+   conformance check then fails with that reason instead of the run going
+   silently unrecorded. If the run was registered and a later record call
+   fails, keep the real `run_id` in the trailer and name the failure in the
+   report. The check then reports what is missing, such as no evidence.
 
 **Check a routine PR** from the trusted side:
 

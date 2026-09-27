@@ -120,7 +120,6 @@ def test_every_trailer_must_pass():
 
 
 def test_trailer_tolerates_markdown_decoration():
-    assert vrr.trailer_run_ids(f"- **Vuoro-Run:** `{RUN}`") == []  # bold colon breaks the key
     assert vrr.trailer_run_ids(f"> Vuoro-Run: `{RUN}`  ") == [RUN]
     assert vrr.trailer_run_ids(f"Vuoro-Run: {RUN}\nVuoro-Run: {RUN}") == [RUN]
     assert vrr.trailer_run_ids("mentions Vuoro-Run: inline only") == []
@@ -170,3 +169,16 @@ def test_file_evidence_and_digest_helpers():
     assert [i["item_id"] for i in vrr.file_evidence(record)] == ["a"]
     assert vrr.normalize_digest("SHA256:" + "C" * 64) == "c" * 64
     assert vrr.normalize_digest("md5:abc") is None
+
+
+def test_crlf_body_is_conformant():
+    verdict = conf.check_pr(_pr(f"Verdict: yes\r\n\r\nVuoro-Run: {RUN}\r\n"), _runs(_run()))
+    assert verdict["conformant"], verdict["failures"]
+
+
+def test_unavailable_trailer_reports_its_reason():
+    verdict = conf.check_pr(_pr("Vuoro-Run: unavailable (tools not listed)"), _runs(_run()))
+    assert not verdict["conformant"]
+    assert verdict["failures"] == [
+        "unavailable (tools not listed): the Routine reported its run unavailable: tools not listed"
+    ]

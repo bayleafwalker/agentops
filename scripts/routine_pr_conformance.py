@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -50,7 +51,12 @@ def check_pr(pr: dict[str, Any], runs: dict[str, vrr.RunRecord]) -> dict[str, An
         entry: dict[str, Any] = {"run_id": value, "failures": []}
         checked.append(entry)
         if not vrr.RUN_ID_RE.fullmatch(value):
-            entry["failures"].append(f"trailer value {value!r} is not a run_<ULID> handle")
+            unavailable = re.fullmatch(r"unavailable\s*(?:\((.*)\))?", value, re.IGNORECASE)
+            if unavailable:
+                reason = (unavailable.group(1) or "no reason given").strip()
+                entry["failures"].append(f"the Routine reported its run unavailable: {reason}")
+            else:
+                entry["failures"].append(f"trailer value {value!r} is not a run_<ULID> handle")
             continue
         record = runs.get(value)
         if record is None:
@@ -62,6 +68,7 @@ def check_pr(pr: dict[str, Any], runs: dict[str, vrr.RunRecord]) -> dict[str, An
         if not record.evidence:
             entry["failures"].append("run has no evidence")
         entry.update(
+            repo_id=record.get("repo_id"),
             client_id=record.get("client_id"),
             grant_id=record.get("grant_id"),
             recipe_id=record.get("recipe_id"),
@@ -107,10 +114,10 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(verdict, indent=2, sort_keys=True))
     else:
         label = "CONFORMANT" if verdict["conformant"] else "NOT CONFORMANT"
-        print(f"{args.repo}#{args.pr}: {label}")
+        print(f"{args.repo}#{verdict['pr'] or args.pr}: {label}")
         for entry in verdict["runs"]:
             if "evidence" in entry:
-                print(f"  {entry['run_id']}: client={entry['client_id']} grant={entry['grant_id']} "
+                print(f"  {entry['run_id']}: repo={entry['repo_id']} client={entry['client_id']} grant={entry['grant_id']} "
                       f"recipe={entry['recipe_id']} evidence={entry['evidence']} "
                       f"session_notes={entry['session_notes']}")
         for failure in verdict["failures"]:

@@ -52,12 +52,13 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 #: sprintctl's run handle: ``run_`` + a Crockford-base32 ULID (pg.py CHECK).
 RUN_ID_RE = re.compile(r"run_[0-9A-HJKMNP-TV-Z]{26}")
 
 #: The PR-body / session-note trailer linking an outcome to its run.
-TRAILER_RE = re.compile(r"^[ \t>*_-]*Vuoro-Run:[ \t]*`?(\S+?)`?[ \t]*$", re.MULTILINE)
+TRAILER_RE = re.compile(r"^[ \t>*_-]*Vuoro-Run:[ \t]*(.*?)[ \t]*$", re.MULTILINE)
 
 #: The RunManifest fields register_run requires (vuoro_mcp_edge.record_tools).
 MANIFEST_FIELDS = ("harness_id", "harness_build", "model_id", "recipe_id", "observed_profile")
@@ -177,9 +178,12 @@ def trailer_run_ids(text: str | None) -> list[str]:
     so a malformed trailer is reported rather than silently ignored.
     """
     seen: list[str] = []
-    for match in TRAILER_RE.finditer(text or ""):
-        value = match.group(1)
-        if value not in seen:
+    normalized = (text or "").replace("\r\n", "\n").replace("\r", "\n")
+    for match in TRAILER_RE.finditer(normalized):
+        value = match.group(1).strip()
+        if len(value) >= 2 and value[0] == value[-1] == "`":
+            value = value[1:-1].strip()
+        if value and value not in seen:
             seen.append(value)
     return seen
 
@@ -207,7 +211,7 @@ def fetch_file(repo: str, path: str, ref: str) -> bytes | None:
     """A file's bytes at ``ref`` through ``gh api``; None when it does not exist there."""
     proc = subprocess.run(
         ["gh", "api", "-H", "Accept: application/vnd.github.raw",
-         f"repos/{repo}/contents/{path}?ref={ref}"],
+         f"repos/{repo}/contents/{quote(path)}?ref={quote(ref, safe='')}"],
         capture_output=True, timeout=60.0, check=False,
     )
     if proc.returncode != 0:
