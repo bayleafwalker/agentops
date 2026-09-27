@@ -207,6 +207,14 @@ def fetch_pr(repo: str, number: int) -> dict[str, Any]:
     return json.loads(_gh(["pr", "view", str(number), "--repo", repo, "--json", _PR_FIELDS]))
 
 
+def list_trailer_prs(repo: str, since_date: str, limit: int = 500) -> list[dict[str, Any]]:
+    """PRs (any state) created on or after ``since_date`` whose body mentions Vuoro-Run."""
+    return json.loads(_gh([
+        "pr", "list", "--repo", repo, "--state", "all", "--limit", str(limit),
+        "--search", f"Vuoro-Run in:body created:>={since_date}", "--json", _PR_FIELDS,
+    ]))
+
+
 def fetch_file(repo: str, path: str, ref: str) -> bytes | None:
     """A file's bytes at ``ref`` through ``gh api``; None when it does not exist there."""
     proc = subprocess.run(

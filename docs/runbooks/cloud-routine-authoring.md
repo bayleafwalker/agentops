@@ -140,6 +140,14 @@ resolves a run only for the exact binding that registered it. A workstation
 identity is not the Routine's binding, and no cross-binding `describe_run`
 operation exists yet.
 
+**Add the routine to the coverage cohort.** When you create, reschedule or
+delete a routine, update `docs/reconstructability/cohort.yaml` (slug,
+trigger id, cron schedule in UTC or its one-off fire times, client, report
+repo). `agentops reconstructability-coverage --since <date> --records ...`
+counts every expected fire from that file, so a routine that never calls
+`register_run` shows up as `unknown` at its scheduled time instead of not at
+all. A routine missing from the file is invisible to the metric.
+
 ## What must never be added to close this gap
 
 **Do not give a cloud routine a forge or served credential.** The cloud can

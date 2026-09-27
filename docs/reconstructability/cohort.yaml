@@ -1,0 +1,65 @@
+# Reconstructability cohort: the automated activity TS-16's coverage metric expects.
+#
+# Read by scripts/reconstructability_coverage.py (agentops#2523). The funnel's
+# denominator is what this file says should have happened, so an invocation
+# that never contacted Vuoro still counts (as `unknown`). Keep it current:
+# add a Routine here when you create it, set `active_until` when you delete or
+# pause it, and record a changed schedule as a new entry rather than editing
+# the old one's cron (the file is the history of what was expected).
+#
+# Routine fields:
+#   slug          the <slug> of its idempotency key `routine.<slug>.<YYYYMMDDTHH>`
+#                 and of docs/routines/<slug>.md in the report repo
+#   trigger_id    RemoteTrigger id (trig_...), or null when not known
+#   schedule      5-field cron in UTC (minute hour day-of-month month day-of-week)
+#     or once     list of UTC fire times, for run-once Routines
+#   active_from / active_until   optional UTC bounds for a cron schedule
+#   client_id     OAuth client the run must be bound to (the claude.ai connector)
+#   grant_ids     grants that count; empty = any grant of that client
+#   report_repo   GitHub repo where its PR (with the Vuoro-Run trailer) lands
+#
+# Dispatched cloud sessions (`claude --cloud`) are expected invocations too.
+# No dispatcher log is written yet, so `sessions_file` is null and the check-up
+# passes `--sessions FILE` (JSONL or a JSON array of
+# {session_id, dispatched_at, client_id, grant_ids?, slug?, report_repo?}).
+schema: reconstructability-cohort/v1
+version: 1
+default_client_id: claude-connector
+default_report_repo: bayleafwalker/vuoro
+sessions_file: null
+routines:
+  # Run-once Routines dispatched 2026-09-26 (program handoff
+  # docs/dispatch/handoffs/2026-09-26-program-long-goal-handler.v1.md). They
+  # predate the record tools (generation 47), so they are expected to show as
+  # unknown. Fire times are approximate: the trigger was fired right after it
+  # was created, and the minute recorded here is the creation minute.
+  - slug: e1-first-use
+    trigger_id: null  # session cse_01Vfxn4vCX59bhcZtmQe3YLs; first MCP call 07:45:38Z
+    once: ["2026-09-26T07:40:00Z"]
+    client_id: claude-connector
+    grant_ids: []
+    report_repo: bayleafwalker/vuoro
+  - slug: e2-build
+    trigger_id: trig_015KsriQReYAdwUAL87EY9fy  # session cse_01J9NF1dudeHUhY8z3FCQ2qx
+    once: ["2026-09-26T11:36:00Z"]
+    client_id: claude-connector
+    grant_ids: []
+    report_repo: bayleafwalker/vuoro
+  - slug: e3-build
+    trigger_id: trig_01BpYaRyUrvS3oEy4mMA1QcM  # session cse_01WeXX4betVYvLQUjwQiyUoH
+    once: ["2026-09-26T11:36:00Z"]
+    client_id: claude-connector
+    grant_ids: []
+    report_repo: bayleafwalker/vuoro
+  - slug: agentops-2516
+    trigger_id: trig_0113z7eQiRjmDhKoqUBP67WY  # session cse_01DGzbMAxdKfm1fBkTthzLCE
+    once: ["2026-09-26T11:37:00Z"]
+    client_id: claude-connector
+    grant_ids: []
+    report_repo: bayleafwalker/sprintctl
+  - slug: agentops-2515
+    trigger_id: trig_01CMfMzbs3YSzk4RiQwfVScN  # session cse_01BxzokrQcaWchWQ5fBPddMn
+    once: ["2026-09-26T11:37:00Z"]
+    client_id: claude-connector
+    grant_ids: []
+    report_repo: bayleafwalker/vuoro-cloud
