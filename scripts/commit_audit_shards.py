@@ -37,6 +37,10 @@ local shard-only commits that have not been pushed):
    If a later step then fails (a rewrite, a commit hook), that shard content
    stays staged in the index rather than committed; nothing is lost and the
    next run commits it.
+9. when the default branch is protected (the push is refused with a
+   protected-branch message, or the checkout is named with ``--protected``),
+   land the commit through a pull request instead -- see "Protected default
+   branches" below.
 
 It never force-pushes, never deletes a file, never changes shard content, and
 does nothing at all when nothing is pending.
@@ -49,6 +53,34 @@ progress); exit 1 when any checkout was left with shards it could not commit
 notification; exit 2 on a usage error. There is no operator-action inbox yet
 (docs/plans/2026-09-27-telemetry-audit-and-operator-actions.md, B2); the
 summary file and the failed unit stand in for it.
+
+Protected default branches
+--------------------------
+
+Forgejo and GitHub refuse a direct push to a protected branch. The shard commit
+then stays on the local default branch (as before) and goes in by pull request:
+
+a. push it, without force, to the head branch of the open ``audit/shards-*``
+   PR for the default branch when that branch is an ancestor of it (a
+   fast-forward), otherwise to a new ``audit/shards-<today>`` branch (with a
+   ``-<sha>`` suffix when that name is taken by an unrelated commit); an open
+   shard PR the new one replaces is closed with a pointer to it;
+b. open the PR if none is open (Forgejo ``fj pr create``, GitHub
+   ``gh pr create``; platform and owner/repo come from the remote URL);
+c. verify that ``<default>...HEAD`` touches only shard files and only appends
+   to them (the ``check_append_only_shards.py`` logic); otherwise stop with
+   ``needs-operator``;
+d. wait up to ``--ci-wait`` seconds for the checks on the PR head; if they are
+   still running, leave the PR open (``pr-open``) and let the next run carry
+   on; merge only when every check succeeded (or was skipped);
+e. merge pinned to the exact head commit: Forgejo through ``credctl merge
+   --style fast-forward-only``, GitHub through ``gh pr merge
+   --match-head-commit`` with a merge style the repository allows; then
+   fetch and fast-forward the local checkout.
+
+A refused merge, a failed check, a push the forge refuses, or a PR diff that is
+not shard appends is reported as ``needs-operator`` with the PR URL. Branch
+protection is never bypassed.
 
 Usage::
 
@@ -66,6 +98,9 @@ import os
 import re
 import subprocess
 import sys
+import time
+import urllib.error
+import urllib.request
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -89,6 +124,21 @@ TRANSIENT = {"locked", "operation-in-progress"}
 STALE_PARTIAL_AGE = 2 * 3600
 STALE_PARTIAL = "stale-partial-line"
 
+#: Head branches of shard PRs: ``audit/shards-<YYYY-MM-DD>[-<sha>]``.
+PR_BRANCH_PREFIX = "audit/shards-"
+#: A push refused because the target branch is protected (Forgejo's pre-receive
+#: message, GitHub's GH006 protected-branch and GH013 ruleset rejections).
+PROTECTED_RE = re.compile(r"protected branch|GH006|GH013|protected_branch", re.IGNORECASE)
+NEEDS_OPERATOR = "needs-operator"
+#: A shard PR whose checks have not finished after this long (seconds) is
+#: stuck, not slow; it needs a person.
+PR_STALE_AGE = 24 * 3600
+CI_POLL = 20
+TOOL_TIMEOUT = 120
+
+#: The append-only comparison CI runs, reused for the PR diff.
+_CHECKER = Path(__file__).with_name("check_append_only_shards.py")
+
 
 class Skip(Exception):
     def __init__(self, reason: str, detail: str = "") -> None:
@@ -100,15 +150,18 @@ class Skip(Exception):
 @dataclass
 class Result:
     repo: str
-    action: str  # committed | pushed | noop | skipped | error | would-commit
+    action: str  # pushed | merged | pr-open | noop | skipped | error | would-commit
     reason: str = ""
     commit: str = ""
     shards: list[str] = field(default_factory=list)
     detail: str = ""
+    pr_url: str = ""
+    #: opened | updated | open | merged | "" (no PR involved)
+    pr_state: str = ""
 
     @property
     def attention(self) -> bool:
-        if self.reason == STALE_PARTIAL:
+        if self.reason in {STALE_PARTIAL, "pr-stale"}:
             return True
         return self.action in {"skipped", "error"} and self.reason not in TRANSIENT
 
@@ -249,7 +302,8 @@ def sync(repo: Repo, upstream: str) -> None:
             raise Skip("cannot-fast-forward", (proc.stderr or proc.stdout).strip())
 
 
-def process(path: Path, *, remote: str, retries: int, dry_run: bool) -> Result | None:
+def process(path: Path, *, remote: str, retries: int, dry_run: bool,
+            protected: bool = False, ci_wait: float = 0) -> Result | None:
     repo = Repo(path, remote)
     name = path.name
     if repo.run("rev-parse", "--is-inside-work-tree", check=False).returncode != 0:
@@ -296,7 +350,8 @@ def process(path: Path, *, remote: str, retries: int, dry_run: bool) -> Result |
                 if deleted:
                     result.detail = f"deleted shards left alone: {', '.join(deleted)}"
                 return result
-            commit_and_push(repo, result, upstream=upstream, default=default, retries=retries)
+            commit_and_push(repo, result, upstream=upstream, default=default, retries=retries,
+                            protected=protected, ci_wait=ci_wait)
             if deleted:
                 result.detail = (result.detail + "; " if result.detail else "") + \
                     f"deleted shards left alone: {', '.join(deleted)}"
@@ -309,7 +364,7 @@ def process(path: Path, *, remote: str, retries: int, dry_run: bool) -> Result |
 
 
 def commit_and_push(repo: Repo, result: Result, *, upstream: str, default: str,
-                    retries: int) -> None:
+                    retries: int, protected: bool = False, ci_wait: float = 0) -> None:
     for attempt in range(retries + 1):
         sync(repo, upstream)
         changed, _ = repo.pending_shards()
@@ -329,6 +384,9 @@ def commit_and_push(repo: Repo, result: Result, *, upstream: str, default: str,
             result.action = "noop"
             return
         head = repo.out("rev-parse", "HEAD")
+        if protected:
+            land_via_pr(repo, result, upstream=upstream, default=default, ci_wait=ci_wait)
+            return
         push = repo.run("push", "--quiet", repo.remote, f"HEAD:refs/heads/{default}", check=False)
         if push.returncode == 0:
             result.action, result.commit = "pushed", head
@@ -337,6 +395,9 @@ def commit_and_push(repo: Repo, result: Result, *, upstream: str, default: str,
                 result.detail = f"{result.detail}; {note}" if result.detail else note
             return
         err = (push.stderr or push.stdout).strip()
+        if PROTECTED_RE.search(err):
+            land_via_pr(repo, result, upstream=upstream, default=default, ci_wait=ci_wait)
+            return
         # Only a lost race is retried; "[remote rejected]" (a hook or branch
         # protection) is not a race and is reported at once.
         rejected = "non-fast-forward" in err or "fetch first" in err or "[rejected]" in err
@@ -345,6 +406,278 @@ def commit_and_push(repo: Repo, result: Result, *, upstream: str, default: str,
             raise Skip("push-failed", err)
         # Lost a race: the next pass fetches, undoes the local shard commit
         # (reset --soft), fast-forwards and commits again.
+
+
+# --- protected default branch: land the shard commit through a PR -------------
+
+
+@dataclass
+class PR:
+    number: int
+    url: str
+    branch: str
+    head: str
+    created: str = ""
+
+
+def _tool(repo: Repo, *cmd: str) -> subprocess.CompletedProcess:
+    try:
+        return subprocess.run(list(cmd), cwd=repo.path, env=repo.env, capture_output=True,
+                              text=True, check=False, timeout=TOOL_TIMEOUT)
+    except FileNotFoundError:
+        raise Skip(NEEDS_OPERATOR, f"{cmd[0]} is not on PATH") from None
+
+
+def _tool_out(proc: subprocess.CompletedProcess) -> str:
+    return (proc.stderr.strip() + " " + proc.stdout.strip()).strip()[:2000]
+
+
+class Forge:
+    """The forge behind a remote URL: ``github`` (gh) or ``forgejo`` (fj, credctl).
+
+    Forgejo has no machine-readable ``fj`` output, so reads go to its REST API
+    (anonymously, or with ``$FORGEJO_TOKEN`` when set); writes go through
+    ``fj`` and ``credctl`` with the user's own credentials.
+    """
+
+    def __init__(self, platform: str, host: str, slug: str) -> None:
+        self.platform, self.host, self.slug = platform, host, slug
+        self.web = f"https://{host}"
+
+    @classmethod
+    def from_url(cls, url: str) -> "Forge | None":
+        m = re.match(r"^(?:https?|ssh|git)://(?:[^@/]+@)?([^/:]+)(?::\d+)?/(.+?)(?:\.git)?/?$", url) \
+            or re.match(r"^(?:[^@/]+@)?([^/:]+):(?!\d+/)(.+?)(?:\.git)?/?$", url)
+        if not m or m.group(2).count("/") != 1:
+            return None
+        host, slug = m.group(1).lower(), m.group(2)
+        return cls("github" if host == "github.com" else "forgejo", host, slug)
+
+    # -- reads --
+
+    def _api(self, path: str):
+        req = urllib.request.Request(f"{self.web}/api/v1/repos/{self.slug}/{path}",
+                                     headers={"Accept": "application/json"})
+        token = os.environ.get("FORGEJO_TOKEN")
+        if token:
+            req.add_header("Authorization", f"token {token}")
+        try:
+            with urllib.request.urlopen(req, timeout=TOOL_TIMEOUT) as resp:
+                return json.load(resp)
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            raise Skip(NEEDS_OPERATOR, f"cannot read {self.web} API {path}: {exc}") from None
+
+    def open_prs(self, repo: Repo, base: str) -> list[PR]:
+        if self.platform == "github":
+            proc = _tool(repo, "gh", "pr", "list", "--repo", self.slug, "--state", "open",
+                         "--base", base, "--json", "number,url,headRefName,headRefOid,createdAt")
+            if proc.returncode != 0:
+                raise Skip(NEEDS_OPERATOR, f"gh pr list: {_tool_out(proc)}")
+            rows = json.loads(proc.stdout or "[]")
+            return [PR(r["number"], r["url"], r["headRefName"], r["headRefOid"],
+                       r.get("createdAt", "")) for r in rows]
+        rows = self._api("pulls?state=open&limit=50")
+        return [PR(r["number"], r["html_url"], r["head"]["ref"], r["head"]["sha"],
+                   r.get("created_at", ""))
+                for r in rows if r.get("base", {}).get("ref") == base]
+
+    def checks(self, repo: Repo, pr: PR) -> tuple[str, str]:
+        """Return ("success" | "pending" | "failure", detail) for the PR head."""
+        if self.platform == "github":
+            proc = _tool(repo, "gh", "pr", "checks", str(pr.number), "--repo", self.slug,
+                         "--json", "name,bucket")
+            try:
+                rows = [(r["name"], r["bucket"]) for r in json.loads(proc.stdout or "[]")]
+            except ValueError:
+                rows = []
+            ok, running = {"pass", "skipping"}, {"pending"}
+        else:
+            data = self._api(f"commits/{pr.head}/status")
+            rows = [(s.get("context", "?"), s.get("status") or s.get("state") or "")
+                    for s in data.get("statuses") or []]
+            ok, running = {"success", "skipped"}, {"pending", "running", "queued", "waiting", ""}
+        if not rows:
+            return "pending", "no checks reported yet"
+        bad = [f"{n}={st}" for n, st in rows if st not in ok and st not in running]
+        if bad:
+            return "failure", ", ".join(bad)
+        waiting = [n for n, st in rows if st in running]
+        if waiting:
+            return "pending", f"waiting on {', '.join(waiting)}"
+        return "success", f"{len(rows)} check(s) passed"
+
+    # -- writes --
+
+    def create_pr(self, repo: Repo, base: str, branch: str, title: str, body: str) -> None:
+        if self.platform == "github":
+            cmd = ["gh", "pr", "create", "--repo", self.slug, "--base", base, "--head", branch,
+                   "--title", title, "--body", body]
+        else:
+            cmd = ["fj", "pr", "create", "--repo", self.slug, "--base", base, "--head", branch,
+                   "--body", body, title]
+        proc = _tool(repo, *cmd)
+        if proc.returncode != 0:
+            raise Skip(NEEDS_OPERATOR, f"{cmd[0]} pr create: {_tool_out(proc)}")
+
+    def close(self, repo: Repo, pr: PR, message: str) -> bool:
+        if self.platform == "github":
+            cmd = ["gh", "pr", "close", str(pr.number), "--repo", self.slug, "--comment", message]
+        else:
+            cmd = ["fj", "pr", "close", f"{self.slug}#{pr.number}", "--with-msg", message]
+        return _tool(repo, *cmd).returncode == 0
+
+    def merge(self, repo: Repo, pr: PR) -> tuple[bool, str]:
+        if self.platform == "github":
+            proc = _tool(repo, "gh", "repo", "view", self.slug, "--json",
+                         "rebaseMergeAllowed,squashMergeAllowed,mergeCommitAllowed")
+            try:
+                allowed = json.loads(proc.stdout)
+            except ValueError:
+                return False, f"gh repo view: {_tool_out(proc)}"
+            style = next((flag for key, flag in (("rebaseMergeAllowed", "--rebase"),
+                                                  ("squashMergeAllowed", "--squash"),
+                                                  ("mergeCommitAllowed", "--merge"))
+                          if allowed.get(key)), None)
+            if style is None:
+                return False, "the repository allows no merge style"
+            proc = _tool(repo, "gh", "pr", "merge", str(pr.number), "--repo", self.slug,
+                         "--match-head-commit", pr.head, style)
+            return proc.returncode == 0, _tool_out(proc)
+        proc = _tool(repo, "credctl", "merge", "--repository", f"forgejo:{self.slug}",
+                     "--pr", str(pr.number), "--head-sha", pr.head,
+                     "--style", "fast-forward-only", "--forgejo-url", self.web)
+        try:
+            merged = proc.returncode == 0 and json.loads(proc.stdout).get("merged") is True
+        except ValueError:
+            merged = False
+        return merged, _tool_out(proc)
+
+
+def forge_for(repo: Repo) -> Forge | None:
+    return Forge.from_url(repo.out("remote", "get-url", repo.remote))
+
+
+def _load_checker():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("check_append_only_shards", _CHECKER)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+def verify_pr_diff(repo: Repo, upstream: str, head: str) -> None:
+    """Refuse (needs-operator) unless ``upstream...head`` is shard appends only."""
+    base = repo.out("merge-base", upstream, head)
+    out = repo.out("diff", "--no-renames", "--name-status", f"{base}..{head}")
+    rows = [line.split("\t") for line in out.splitlines() if line]
+    other = [rest[-1] for status, *rest in rows if status[0] not in "AM" or not is_shard(rest[-1])]
+    if not rows:
+        raise Skip(NEEDS_OPERATOR, "the PR diff is empty")
+    if other:
+        raise Skip(NEEDS_OPERATOR, f"the PR changes non-shard paths or deletes: {', '.join(other)}")
+    try:
+        violations = _load_checker().check(base, head, cwd=str(repo.path))
+    except RuntimeError as exc:
+        raise Skip(NEEDS_OPERATOR, f"append-only check: {exc}") from None
+    if violations:
+        raise Skip(NEEDS_OPERATOR, "the PR rewrites shards: " + "; ".join(violations))
+
+
+def _is_ancestor(repo: Repo, old: str, new: str) -> bool:
+    return repo.run("merge-base", "--is-ancestor", old, new, check=False).returncode == 0
+
+
+def _pr_age(pr: PR) -> float:
+    try:
+        created = dt.datetime.fromisoformat(pr.created.replace("Z", "+00:00"))
+    except ValueError:
+        return 0
+    return (dt.datetime.now(dt.timezone.utc) - created).total_seconds()
+
+
+def land_via_pr(repo: Repo, result: Result, *, upstream: str, default: str,
+                ci_wait: float) -> None:
+    """Land the local shard commit(s) on a protected ``default`` through a PR."""
+    head = repo.out("rev-parse", "HEAD")
+    result.commit = head
+    forge = forge_for(repo)
+    if forge is None:
+        raise Skip(NEEDS_OPERATOR, f"{default} is protected and the remote is not a GitHub or "
+                                   "Forgejo URL")
+    prs = [p for p in forge.open_prs(repo, default) if p.branch.startswith(PR_BRANCH_PREFIX)]
+    for p in prs:  # make each PR head known locally for the ancestry test
+        repo.run("fetch", "--quiet", repo.remote, f"refs/heads/{p.branch}", check=False)
+    pr = next((p for p in prs if _is_ancestor(repo, p.head, head)), None)
+    if pr:
+        branch = pr.branch
+    else:
+        branch = PR_BRANCH_PREFIX + dt.datetime.now(dt.timezone.utc).date().isoformat()
+        taken = repo.run("ls-remote", "--heads", repo.remote, f"refs/heads/{branch}",
+                         check=False).stdout.split()
+        if taken:
+            repo.run("fetch", "--quiet", repo.remote, f"refs/heads/{branch}", check=False)
+            if not _is_ancestor(repo, taken[0], head):
+                branch = f"{branch}-{head[:7]}"
+    push = repo.run("push", "--quiet", repo.remote, f"HEAD:refs/heads/{branch}", check=False)
+    if push.returncode != 0:
+        if pr:
+            result.pr_url = pr.url
+        raise Skip(NEEDS_OPERATOR, f"push to {branch}: {(push.stderr or push.stdout).strip()}")
+    if pr:
+        result.pr_state = "updated" if pr.head != head else "open"
+    else:
+        subject = repo.out("log", "-1", "--format=%s", "HEAD")
+        forge.create_pr(repo, default, branch, subject,
+                        "Audit shards committed by agentops scripts/commit_audit_shards.py. "
+                        f"{default} is protected, so they land by pull request. Shard files "
+                        "only: append-only NDJSON, no code.")
+        pr = next((p for p in forge.open_prs(repo, default) if p.branch == branch), None)
+        if pr is None:
+            raise Skip(NEEDS_OPERATOR, f"created a PR from {branch} but cannot find it open")
+        result.pr_state = "opened"
+    result.pr_url = pr.url
+    superseded = [p for p in prs if p.number != pr.number]
+    for old in superseded:
+        if not forge.close(repo, old, f"Superseded by {pr.url} (the base moved; no force-push)."):
+            result.detail = _join(result.detail, f"could not close superseded {old.url}")
+
+    verify_pr_diff(repo, upstream, head)
+
+    deadline = time.monotonic() + ci_wait
+    while True:
+        current = next((p for p in forge.open_prs(repo, default) if p.number == pr.number), None)
+        if current is None:
+            raise Skip(NEEDS_OPERATOR, "the PR is no longer open")
+        if current.head != head:
+            state, detail = "pending", f"PR head is {current.head[:12]}, pushed {head[:12]}"
+        else:
+            state, detail = forge.checks(repo, current)
+        if state == "success":
+            break
+        if state == "failure":
+            raise Skip(NEEDS_OPERATOR, f"checks failed: {detail}")
+        if time.monotonic() >= deadline:
+            result.action, result.reason = "pr-open", "ci-pending"
+            if _pr_age(pr) > PR_STALE_AGE:
+                result.reason = "pr-stale"
+            result.detail = _join(result.detail, detail)
+            return
+        time.sleep(min(CI_POLL, max(0.0, deadline - time.monotonic())))
+
+    merged, output = forge.merge(repo, current)
+    if not merged:
+        raise Skip(NEEDS_OPERATOR, f"merge refused: {output}")
+    result.pr_state = "merged"
+    sync(repo, upstream)
+    if repo.commits(f"{upstream}..HEAD"):
+        raise Skip(NEEDS_OPERATOR, f"merged, but the local {default} is still ahead of {upstream}")
+    result.action, result.reason = "merged", ""
+    result.commit = repo.out("rev-parse", "HEAD")
+
+
+def _join(a: str, b: str) -> str:
+    return f"{a}; {b}" if a else b
 
 
 def discover(root: Path, only: list[str]) -> list[Path]:
@@ -371,6 +704,13 @@ def main(argv: list[str] | None = None) -> int:
                         help="push retries after a non-fast-forward rejection (default 3)")
     parser.add_argument("--summary", type=Path, default=None,
                         help="summary JSON path (default $XDG_STATE_HOME/agentops/audit-shards/last-run.json)")
+    parser.add_argument("--protected", action="append", default=[], metavar="NAME",
+                        help="checkout whose default branch is protected: land shards by PR "
+                             "without trying a direct push first (repeatable; a protected-branch "
+                             "rejection is detected without it)")
+    parser.add_argument("--ci-wait", type=float, default=300,
+                        help="seconds to wait for a shard PR's checks before leaving it for "
+                             "the next run (default 300)")
     parser.add_argument("--dry-run", action="store_true",
                         help="report what would be committed; no fetch, commit or push")
     args = parser.parse_args(argv)
@@ -383,7 +723,8 @@ def main(argv: list[str] | None = None) -> int:
     results: list[Result] = []
     for path in discover(root, args.only):
         try:
-            res = process(path, remote=args.remote, retries=args.retries, dry_run=args.dry_run)
+            res = process(path, remote=args.remote, retries=args.retries, dry_run=args.dry_run,
+                          protected=path.name in args.protected, ci_wait=args.ci_wait)
         except Skip as skip:
             res = Result(repo=path.name, action="error", reason=skip.reason, detail=skip.detail)
         except OSError as exc:
@@ -400,6 +741,9 @@ def main(argv: list[str] | None = None) -> int:
         "root": str(root),
         "dry_run": args.dry_run,
         "attention": [r.repo for r in attention],
+        "prs": [{"repo": r.repo, "url": r.pr_url, "state": r.pr_state,
+                 "action": r.action, "reason": r.reason}
+                for r in results if r.pr_url or r.pr_state],
         "results": [asdict(r) for r in results],
     }
     target = args.summary or state_file()

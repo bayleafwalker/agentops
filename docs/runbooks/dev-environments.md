@@ -54,6 +54,18 @@ and only on the default branch; it fast-forwards first, pushes without force, an
 a lost push race. It skips and reports a checkout that is on a feature branch, cannot
 fast-forward, carries unpushed non-shard commits, or holds a rewritten shard.
 
+When the default branch is protected (the push is refused with a protected-branch
+message, as on Forgejo `bayleaf/cred-broker`), the commit lands by pull request: it is
+pushed without force to `audit/shards-<date>` (or fast-forwards the open shard PR's
+branch), a PR is opened with `fj pr create` or `gh pr create`, the PR diff is checked to
+be shard appends only, and once every check has passed it is merged at the exact head
+(`credctl merge --style fast-forward-only` on Forgejo, `gh pr merge --match-head-commit`
+on GitHub) and the checkout is fast-forwarded. Checks still running after `--ci-wait`
+(300 s) leave the PR open (`pr-open`) for the next hourly run; a failed check, a refused
+merge or a non-shard diff is reported as `needs-operator` with the PR URL, and so is a
+PR still waiting after a day (`pr-stale`). Forgejo PR and status reads use the REST API
+anonymously (`$FORGEJO_TOKEN` if set). `--protected <checkout>` skips the direct push.
+
 Where to look: `journalctl --user -u audit-shards-commit` (one JSON line per repo) and
 `~/.local/state/agentops/audit-shards/last-run.json`. A skip that leaves shards
 uncommitted fails the unit, so it appears in the failed-user-unit notification and the
