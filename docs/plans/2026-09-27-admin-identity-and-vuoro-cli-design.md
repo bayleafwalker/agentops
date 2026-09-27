@@ -1,6 +1,6 @@
 # Design memo: separated admin identity and `vuoro-cli` for vuoro.cloud
 
-Date: 2026-09-27. Status: **decided, revision 4.** The operator's answers to the open questions are recorded in §7. Revision 2 addressed the first independent review on agentops#262 (6 major, 8 minor, 2 nit) and split; revision 3 addressed the re-review (4 major, 10 minor, 5 nit); revision 4 addresses the third review (1 blocker, 2 major, 8 minor, 5 nit). The memo splits the work into implementable units (§5, unit table). This memo changes no code; the units in §5 do.
+Date: 2026-09-27. Status: **decided, revision 5.** The operator's answers to the open questions are recorded in §7. Revision 2 addressed the first independent review on agentops#262 (6 major, 8 minor, 2 nit) and split; revision 3 addressed the re-review (4 major, 10 minor, 5 nit); revision 4 addressed the third review (1 blocker, 2 major, 8 minor, 5 nit); revision 5 reconciles the design with the operator's later answers on agentops#255 (§8). The memo splits the work into implementable units (§5, unit table). This memo changes no code; the units in §5 do.
 
 ## Verification status (read first)
 
@@ -310,12 +310,12 @@ They exist so that work done by a delegate is attributable to the delegate rathe
 | `admin backup list`, `admin rollout status`, `admin invitations list`, `admin service-controls show`, `admin analytics`, `admin migration status` (read twins of operator routes) | admin | `vuoro:admin.read` | — | 2 |
 | `admin workspace create/roll/drain`, `admin migration plan/start/retry` | admin | `vuoro:admin.workspace.lifecycle` | touch | 2 |
 | `admin workspace retire/transfer`, `admin principal disable`, `admin principal reclassify` | admin | `vuoro:admin.workspace.lifecycle` / `vuoro:admin.principal` | touch + PIN | 2 |
-| `admin principal epoch-bump`, `admin invitations create`, `admin invite-requests update`, `admin service-controls set` (write twins of operator routes) | admin | `vuoro:admin.principal` / `vuoro:admin.workspace.lifecycle` | touch | 2 |
+| `admin principal epoch-bump`, `admin invitations create`, `admin invite-requests update`, `admin service-controls set` (write twins of operator routes) | admin | `vuoro:admin.principal` / `vuoro:admin.workspace.lifecycle` | touch (epoch bump: touch + PIN, a credential change) | 2 |
 | `admin test-principal create/retire`, `admin test-login-code` | admin | `vuoro:admin.principal` | touch | 4 |
 | `admin token mint`, `admin delegation set/disable` | admin | `vuoro:admin.token.mint` | touch + PIN | 4 (test), 7 (agent) |
 | `admin backup create`, `admin restore-drill run` | admin | `vuoro:admin.backup` | touch | 5 |
 | `admin restore` | admin | `vuoro:admin.restore` | touch + PIN | 5 |
-| `intent list/accept/reject`, `auto-accept set/show` (TS-16 reconciler, once E3 exists) | trusted side (the E3 lifecycle owner's API, item 4) | owned by that spec | accept: touch; policy change: touch + PIN | — |
+| intent acceptance (TS-16 reconciler, once E3 exists) | **protected horizon only**: `credctl accept <intent-digest>` on the workstation (#255 Q4), not `vuoro-cli` and not the vuoro.cloud admin plane | owned by the E3 lifecycle spec (item 4) | the acceptance binds the canonical intent digest (§8), never the intent id | — |
 
 **Protocol.**
 
@@ -766,7 +766,7 @@ Those items gate the **effects** slice. This design is mostly independent of the
 
 The operator took the memo's recommended option for each question, with Q5 replaced by the full reserved-authority condition.
 
-1. **Admin plane reachability: (a) WireGuard tunnel only, plus WebAuthn.** Delivered by unit 1.3 (admin listener, hostIP on the tunnel address, NetworkPolicy, TCP-peer check) and unit 1.2 (gateway deny). Cost: no admin access from the phone.
+1. **Admin plane reachability: (a) WireGuard tunnel only, plus WebAuthn.** Delivered by unit 1.3 (admin process, hostIP on the tunnel address, NetworkPolicy, TCP-peer check) and unit 1.2 (gateway deny). Cost: no admin access from the phone. **Amended by the later #255 Q2 answer (§8):** the tunnel-only WebAuthn plane is the *protected* operator plane; read-only operator views and freeze/unfreeze additionally get a public, Authentik-OIDC operator identity. That is a change to this decision, recorded in §8, not a silent reinterpretation.
 2. **blocker12-canary: (a) parked until slice 2 retires it through the admin API.** No kubectl-plus-SQL one-off, no bypass of membership checks. If it blocks a fleet-wide roll first, the existing operator drain and migration routes may be used with the reason written into the handoff.
 3. **Admin session renewal: (a) a rotating admin refresh token with a 1-hour absolute lifetime.** Reuse revokes the family.
 4. **Offsite encrypted copy: (a) a second provider's bucket.**
@@ -775,3 +775,48 @@ The operator took the memo's recommended option for each question, with Q5 repla
 7. **Tenant visibility of admin actions: (a) members see admin operations on their workspace** (actor, reason, time). Today's workspace audit view is limited to owner/admin members (`control.py:3425-3435`), so unit 2.2 adds a member-readable view of admin rows (every active member, any role) and its CLI twin.
 8. **Notification channel: (a) ntfy or a push service to the operator's phone** (slice 2).
 9. **Agent principal granularity: (a) one agent principal per perimeter host,** with repo narrowing in the delegation.
+
+---
+
+## 8. Reconciliation with the operator's answers on agentops#255 (2026-09-27)
+
+The operator's answers on the split-horizon architecture (#255) postdate §7 and bind this design. #255 is being revised separately; this section records how this design follows it and where the two conflicted.
+
+### 8.1 What #255 decides that applies here
+
+- **Q2, modified (c): a separate Authentik-backed operator identity**, with its own client, audience and scopes, separate from the connector identity. Operations are classified:
+  - **OIDC anywhere:** read status, inspect tenants, inspect audit/health.
+  - **OIDC plus explicit operator step-up:** `mutations_frozen` freeze/unfreeze. "Reversible" is not enough; freeze is a powerful availability action.
+  - **Protected only:** effect acceptance, credential/policy change, promotion, key rotation, recovery operations.
+- **Q4:** `credctl accept` binds the **canonical intent digest**, not the intent id.
+- **Principle:** nothing originating in the coordination plane becomes an effect merely because the coordination plane says it should. Proposals are untrusted input; protected acceptance is digest-bound.
+- **Q1:** long-lived PATs are transitional; the long-term plan is a proper local identity/token flow.
+- **Q5:** there is no service path from the public Vuoro horizon into the protected horizon.
+
+### 8.2 Conflicts, stated explicitly
+
+| # | This design (§7) said | #255 says | Resolution in this memo |
+|---|---|---|---|
+| C1 | Q1: the admin plane is reachable **only** over the WireGuard tunnel, including reads (slice 1 admin reads). | Reads of status, tenants, audit and health are "OIDC anywhere" through a separate Authentik operator identity. | **Two operator planes.** The tunnel-only WebAuthn plane (units 1.1-1.5, slice 2) stays as the **protected** plane: it may also serve reads, and slice 1 ships only reads, which the #255 classification permits there. A new **public operator plane** (units O.1-O.2 below) serves the "OIDC anywhere" reads and step-up freeze. §7 Q1 is amended accordingly. The operator should confirm that the protected plane keeps its reads (it costs nothing and gives the operator a view that does not depend on Authentik). |
+| C2 | Slice 2 put `admin service-controls set` (freeze) on the tunnel plane with a touch. | Freeze/unfreeze is OIDC plus explicit step-up (so reachable publicly). | Freeze/unfreeze moves to the public operator plane with step-up (O.2). The tunnel-plane twin stays as the protected fallback when Authentik is unavailable. |
+| C3 | Several slice-2 lifecycle mutations (create, roll, drain, migration plan/start/retry, invitations, invite requests) are touch-only on the tunnel plane. | #255 names only freeze as a public mutation; everything it lists as protected (acceptance, credential/policy change, promotion, key rotation, recovery) is protected only. It does not classify workspace lifecycle. | **Unclassified mutations default to protected-only** (tunnel plane), which is the conservative reading. Retire, restore, transfer, principal disable/reclassify, token mint, delegation set, credential enrol/disable, epoch bump and break-glass are credential/policy change or recovery, and are protected only by #255 itself. **Operator to confirm** whether any workspace lifecycle mutation (e.g. `roll`) should become "OIDC plus step-up"; until then none does. |
+| C4 | D1: "GitHub is never a factor" in admin login; the design has no IdP besides GitHub (user plane) and WebAuthn (admin). | Operator identity is Authentik-backed. | Compatible if Authentik's operator login does not federate from GitHub. **Requirement for O.1:** the Authentik operator flow must use a non-GitHub source with a phishing-resistant factor (WebAuthn in Authentik), or a GitHub compromise would again yield operator reads and freeze. |
+| C5 | D4: `intent accept/reject` lived in `vuoro-cli`, with the E3 lifecycle owner's API. | Acceptance is `credctl accept` on the protected side, bound to the canonical intent digest. | `vuoro-cli` and the vuoro.cloud admin plane never accept intents (D4 row changed). Acceptance is protected-horizon only, via credctl, digest-bound. |
+| C6 | D3/slice 7: control (public horizon) mints agent tokens on a cred-broker (protected) exchange carrying a one-use decision proof. | Don't elevate one-use proofs into the cross-horizon security primitive; no service path from public into protected. | Compatible in direction: cred-broker calls control (protected → public), control never calls into the protected horizon, and the minted token carries work-plane authority only (no acceptance). The decision proof is an authentication of cred-broker to control, not an effect authorization. Slice 7 stays gated; it is re-checked against #255's revised §3.2 before it starts. |
+| C7 | D4 user face: `token pat create/list/revoke` as a first-class CLI command. | Long-lived PATs are transitional. | `vuoro-cli login` (PKCE loopback, short access token + rotating refresh) is the intended local identity/token flow. `token pat …` stays for existing integrations and is marked transitional; slice 3 adds no new long-lived credential type. |
+
+### 8.3 Digest binding and untrusted proposals in this design
+
+- **Admin operation assertions (slice 2)** already bind `H(op_kind ‖ target ‖ params_digest ‖ reason ‖ nonce)`. Following #255's principle, the **CLI computes `params_digest` itself** from the canonical parameters the operator typed and refuses a challenge from control that does not commit to that digest. Control's rendering of an operation (plan, target description) is shown as untrusted context; the assertion is over the locally computed digest. A compromised control can therefore refuse or misreport, but cannot get a touch over parameters the operator did not enter.
+- **Retire plans** (`retire --plan` → `--apply <digest>`): the plan is produced by control and is untrusted input. The digest the operator applies is the CLI's hash of the canonical plan it displayed; control must execute exactly that plan or fail.
+- **Intent acceptance** is not in this design (C5); when E3 lands, `credctl accept` hashes the canonical proposal (intent type, exact parameters, source run, immutable evidence refs) on the protected side, and any change is a new intent and a new digest.
+
+### 8.4 New units
+
+| Unit | Repo | Owns | Depends on | Parallel with |
+|---|---|---|---|---|
+| **O.1** public operator identity (Authentik OIDC): resource `https://api.vuoro.cloud/control/operator`, client `vuoro-operator` (separate from `claude-connector` and `vuoro-cli`), scopes `vuoro:operator.read` and `vuoro:operator.freeze`, JWKS **pinned in Git-reviewed config** (control never fetches from the protected horizon, #255 Q5), read routes for status, tenants, audit and health | vuoro-cloud (+ Authentik config in the homelab gitops repo) | new `operator_oidc.py`, routes on the public control process, migration for operator principals | 1.1 (audit), 0.1 addendum row update | 1.3-1.5, 3.x |
+| **O.2** freeze/unfreeze with explicit step-up: requires an OIDC token whose `auth_time` is ≤ 5 min old and whose `acr`/`amr` shows the phishing-resistant factor; each call audited with reason | vuoro-cloud | `operator_oidc.py`, service-controls route twin | O.1 | — |
+
+The authorization addendum (unit 0.1) gains rows for R-operator in the same pass as O.1. Neither O unit is in the current implementation batch (slices 0, 1, 3); both wait for the operator to confirm C1 and C3.
+
