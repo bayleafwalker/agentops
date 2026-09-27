@@ -34,6 +34,9 @@ local shard-only commits that have not been pushed):
 8. ``git push`` (never ``--force``). On a non-fast-forward rejection it undoes
    its own unpushed commit with ``reset --soft`` (index and working tree are
    left alone), fetches, fast-forwards and commits again, up to ``--retries``.
+   If a later step then fails (a rewrite, a commit hook), that shard content
+   stays staged in the index rather than committed; nothing is lost and the
+   next run commits it.
 
 It never force-pushes, never deletes a file, never changes shard content, and
 does nothing at all when nothing is pending.
@@ -81,6 +84,10 @@ GIT_TIMEOUT = 300
 
 #: Skips that clear on their own; they do not fail the run.
 TRANSIENT = {"locked", "operation-in-progress"}
+#: A shard whose last line has stayed unterminated this long (seconds) is not
+#: an append in flight but a crashed writer; it needs a person.
+STALE_PARTIAL_AGE = 2 * 3600
+STALE_PARTIAL = "stale-partial-line"
 
 
 class Skip(Exception):
@@ -101,6 +108,8 @@ class Result:
 
     @property
     def attention(self) -> bool:
+        if self.reason == STALE_PARTIAL:
+            return True
         return self.action in {"skipped", "error"} and self.reason not in TRANSIENT
 
 
@@ -254,7 +263,9 @@ def process(path: Path, *, remote: str, retries: int, dry_run: bool) -> Result |
                                       check=False).returncode == 0:
         # Any unpushed commit carrying shards makes the repo a candidate; sync()
         # then refuses (and reports) it if other work rides along.
-        unpushed = bool(_shard_paths_in(repo, f"{upstream}..HEAD"))
+        # Three dots: only what the local commits changed, not upstream-only
+        # shard changes this checkout has not pulled yet.
+        unpushed = bool(_shard_paths_in(repo, f"{upstream}...HEAD"))
     if not changed and not unpushed:
         return None  # nothing pending: not even listed
 
@@ -304,21 +315,26 @@ def commit_and_push(repo: Repo, result: Result, *, upstream: str, default: str,
         changed, _ = repo.pending_shards()
         ready, partial = check_append_only(repo, upstream, changed)
         result.shards = ready
+        result.detail = ""
         if partial:
             result.detail = f"waiting on a partial last line: {', '.join(partial)}"
+            now = dt.datetime.now().timestamp()
+            if any(now - (repo.path / p).stat().st_mtime > STALE_PARTIAL_AGE for p in partial):
+                result.reason = STALE_PARTIAL
         if ready:
             repo.run("add", "--", *ready)
             repo.run("commit", "--quiet", "-m", MESSAGE.format(date=through_date(ready)),
                      "--only", "--", *ready)
         if not repo.commits(f"{upstream}..HEAD"):
-            result.action, result.reason = "noop", ""
+            result.action = "noop"
             return
         head = repo.out("rev-parse", "HEAD")
         push = repo.run("push", "--quiet", repo.remote, f"HEAD:refs/heads/{default}", check=False)
         if push.returncode == 0:
             result.action, result.commit = "pushed", head
             if attempt:
-                result.detail = f"after {attempt} retry(ies)"
+                note = f"after {attempt} retry(ies)"
+                result.detail = f"{result.detail}; {note}" if result.detail else note
             return
         err = (push.stderr or push.stdout).strip()
         # Only a lost race is retried; "[remote rejected]" (a hook or branch

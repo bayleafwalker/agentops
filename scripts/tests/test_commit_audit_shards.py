@@ -437,3 +437,26 @@ def test_timeout_is_reported_not_fatal(env, monkeypatch):
     monkeypatch.setattr(cas.Repo, "run", slow)
     rc, results, _ = run(env)
     assert rc == 1 and results[0]["reason"] == "timeout"
+
+
+def test_upstream_only_shard_change_is_not_a_candidate(env):
+    work = env["work"]
+    other_pushes(env, SHARD2, '{"remote":1}\n')
+    git(work, "fetch", "-q")  # origin/main ahead, local not pulled
+    write(work, "README.md", "dirty\n", append=True)
+    before = git(work, "rev-parse", "HEAD")
+    rc, results, _ = run(env)
+    assert rc == 0 and results == []
+    assert git(work, "rev-parse", "HEAD") == before  # not fast-forwarded behind the operator's back
+
+
+def test_stale_partial_line_needs_attention(env):
+    import os
+    import time
+    path = env["work"] / SHARD2
+    write(env["work"], SHARD2, '{"n":2')
+    old = time.time() - 3 * 3600
+    os.utime(path, (old, old))
+    rc, results, data = run(env)
+    assert rc == 1 and results[0]["reason"] == "stale-partial-line"
+    assert data["attention"] == ["work"]
