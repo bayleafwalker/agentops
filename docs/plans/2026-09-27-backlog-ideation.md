@@ -265,13 +265,13 @@ They are not a simple strictest-wins ordering unless every stronger profile genu
 - **Shared ledger protocol (H1-9).** Contract (semantics 6): a typed `begin(workspace_id, principal_id, tool, key, request_digest) -> LedgerEntry` with `IDEMPOTENCY_KEY_REUSED`, one behaviour suite across run registration, claim acquisition, effect proposal and (where appropriate) effect acceptance. Assessed: the ledger key and digest conform; the typed `begin` shape and one shared suite do not yet, and the published wire code stays `idempotency-conflict` (documented as `IDEMPOTENCY_KEY_REUSED`).
 
 The conformance analysis (2026-09-27) found lease safety holds in the sprintctl runtime (INV-L1 and INV-L2 conform: a late or superseded report is retained and never settles; idempotency never restores superseded authority). vuoro's in-memory `lease.py` reference spec still discards a stale completion, contrary to INV-L1; it is corrected under #2540. The analysis also found one gap outside the list above: **verification profiles stricter than `checked` are accepted but not enforced**, so any `work:write` decision can settle an item whose contract names `role-separated`, `identity-separated` or `human-authorized`. Tracked as:
-- **#2539** (priority 1): verification profiles as enforced capability sets; folds in #2528 (awaiting-verification protection) and #2529's self-reported-settles-with-failed-checks case only.
+- **#2539** (priority 1): verification profiles as enforced capability sets; folds in all of #2528 (awaiting-verification protection and the verifier-decision stamp) and only #2529's self-reported-settles-with-failed-checks case.
 - **#2540** (priority 2): align the lease with semantics 1–5 before `vuoro:work.claim` is granted (no client consumes the names yet, so no migration).
 - **#2541** (priority 2): M2-1, sprintctl-owned effect intents with `work.effect.*` capabilities and digest-bound, immutable acceptance (INV-E1).
 - **#2542** (priority 3): the shared ledger protocol (H1-9).
 - **#2543** (priority 3): the work-level `parked` disposition (M3-7).
 
-Two related agentops follow-ups were filed earlier (#2528 is folded into #2539; of #2529 only the self-reported case is, and the parts below stay with #2529): **#2528** (an awaiting-verification report does not protect the item, and the report never receives the verifier's decision) and **#2529** (releasing an item to pending leaves its lease active; heartbeat versus maintenance activation race).
+Two related agentops follow-ups were filed earlier. **#2528** (an awaiting-verification report does not protect the item, and the report never receives the verifier's decision) is folded into #2539 in full. **#2529** is split: its self-reported-settles-with-failed-checks case is folded into #2539, while releasing an item to pending leaving its lease active, the heartbeat versus maintenance activation race and the schema-18 index-shape check stay with #2529.
 
 ---
 
