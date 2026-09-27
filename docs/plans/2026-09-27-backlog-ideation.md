@@ -262,9 +262,16 @@ They are not a simple strictest-wins ordering unless every stronger profile genu
 - **Stale-completion code.** Shipped: `lease-superseded` (HTTP 409), without generations in the response. Contract (semantics 3): `CLAIM_SUPERSEDED` with `claim_id`, `current_generation`, `reported_generation`.
 - **Operation naming.** Shipped: `work.lease.complete-v1` (surfaced as `complete_work`). Contract (semantics 4): `report_outcome`.
 - **Verification profile model.** Shipped: a "strictest-wins" ordering of profiles. Contract (Decision 2): capabilities, not a numeric ladder; unknown identifiers rejected.
-- **Shared ledger protocol (H1-9).** Contract (semantics 6): a typed `begin(workspace_id, principal_id, tool, key, request_digest) -> LedgerEntry` with `IDEMPOTENCY_KEY_REUSED`, one behaviour suite across run registration, claim acquisition, effect proposal and (where appropriate) effect acceptance. Whether 0.9.0 conforms is not assessed here; it is part of the conformance analysis.
+- **Shared ledger protocol (H1-9).** Contract (semantics 6): a typed `begin(workspace_id, principal_id, tool, key, request_digest) -> LedgerEntry` with `IDEMPOTENCY_KEY_REUSED`, one behaviour suite across run registration, claim acquisition, effect proposal and (where appropriate) effect acceptance. Assessed: the ledger key and digest conform; the typed `begin` shape and one shared suite do not yet, and the published wire code stays `idempotency-conflict` (documented as `IDEMPOTENCY_KEY_REUSED`).
 
-The full deviation list is tracked in sprintctl items from a separate read-only conformance analysis. Two related agentops follow-ups are already filed: **#2528** (an awaiting-verification report does not protect the item, and the report never receives the verifier's decision) and **#2529** (releasing an item to pending leaves its lease active; heartbeat versus maintenance activation race).
+The conformance analysis (2026-09-27) found lease safety holds (INV-L1 and INV-L2 conform: a late or superseded report is retained and never settles; idempotency never restores superseded authority) and one gap outside the list above: **verification profiles stricter than `checked` are accepted but not enforced**, so any `work:write` decision can settle an item whose contract names `role-separated`, `identity-separated` or `human-authorized`. Tracked as:
+- **#2539** (priority 1): verification profiles as enforced capability sets; folds in #2528 and #2529.
+- **#2540** (priority 2): align the lease with semantics 1–5 before `vuoro:work.claim` is granted (no client consumes the names yet, so no migration).
+- **#2541** (priority 2): M2-1, sprintctl-owned effect intents with `work.effect.*` capabilities and digest-bound, immutable acceptance (INV-E1).
+- **#2542** (priority 3): the shared ledger protocol (H1-9).
+- **#2543** (priority 3): the work-level `parked` disposition (M3-7).
+
+Two related agentops follow-ups are already filed: **#2528** (an awaiting-verification report does not protect the item, and the report never receives the verifier's decision) and **#2529** (releasing an item to pending leaves its lease active; heartbeat versus maintenance activation race).
 
 ---
 
