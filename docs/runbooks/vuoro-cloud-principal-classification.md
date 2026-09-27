@@ -34,13 +34,17 @@ SELECT 'invalid-subject' AS finding, u.id AS user_id, u.external_subject,
        u.display_name, u.created_at,
        (SELECT count(*) FROM web_sessions s WHERE s.user_id = u.id) AS web_sessions,
        (SELECT max(s.last_used_at) FROM web_sessions s WHERE s.user_id = u.id) AS last_session_use,
-       (SELECT count(*) FROM oauth_grants g WHERE g.user_id = u.id) AS oauth_grants
+       (SELECT count(*) FROM oauth_grants g WHERE g.user_id = u.id
+          AND g.revoked_at IS NULL) AS live_oauth_grants,
+       (SELECT count(*) FROM oauth_grants g WHERE g.user_id = u.id) AS all_oauth_grants,
+       EXISTS (SELECT 1 FROM principal_subjects ps WHERE ps.subject = u.id) AS has_epoch_row
 FROM users u
 WHERE u.external_subject !~ '^github:[0-9]+$'
 ORDER BY u.created_at;
 
 -- 2. Workspaces with no authenticable owner: no active owner membership whose
---    user has a valid human subject. Deleted and retained workspaces are listed
+--    user has a valid human subject and a principal_subjects row (without one,
+--    authentication fails closed, principal.py). Deleted and retained workspaces are listed
 --    too (state column), because retire has not existed.
 SELECT 'orphaned-workspace' AS finding, w.id AS workspace_id, w.slug, w.state,
        w.desired_state, w.runtime_version, w.tenant_schema_version, w.created_at,
@@ -52,7 +56,8 @@ GROUP BY w.id
 HAVING NOT bool_or(
   m.role = 'owner' AND m.state = 'active'
   AND EXISTS (SELECT 1 FROM users u WHERE u.id = m.user_id
-              AND u.external_subject ~ '^github:[0-9]+$')
+              AND u.external_subject ~ '^github:[0-9]+$'
+              AND EXISTS (SELECT 1 FROM principal_subjects ps WHERE ps.subject = u.id))
 ) IS TRUE
 ORDER BY w.created_at;
 
@@ -70,6 +75,16 @@ UNION ALL
 SELECT 'violator-attachment', u.id, 'api-token', t.workspace_id,
        'revoked=' || (t.revoked_at IS NOT NULL)
 FROM users u JOIN api_tokens t ON t.actor = u.external_subject
+WHERE u.external_subject !~ '^github:[0-9]+$'
+UNION ALL
+SELECT 'violator-attachment', u.id, 'connector', c.workspace_id,
+       c.name || ' state=' || c.state
+FROM users u JOIN connectors c ON c.enrolled_by = u.id
+WHERE u.external_subject !~ '^github:[0-9]+$'
+UNION ALL
+SELECT 'violator-attachment', u.id, 'connector-enrollment', ce.workspace_id,
+       'exchanged=' || (ce.exchanged_at IS NOT NULL)
+FROM users u JOIN connector_enrollments ce ON ce.created_by = u.id
 WHERE u.external_subject !~ '^github:[0-9]+$'
 UNION ALL
 SELECT 'violator-attachment', u.id, 'principal-subject', ps.kind,
@@ -97,6 +112,6 @@ ROLLBACK;
 - **Checked** on 2026-09-27 against a scratch PostgreSQL 18 with vuoro-cloud migrations `001`-`013` at `332faa4` and seeded rows (one valid owner, one non-numeric `github:` owner, one ownerless workspace): each section returned exactly the seeded violators, and the transaction ended in `ROLLBACK`.
 
 - **Expected at vuoro-cloud `332faa4`:** section 1 lists the blocker12 owner (`01M14W25EYSZ…`, a non-numeric `github:` subject) and nothing else; section 2 lists `blocker12-canary` (`01M14W25EYKC…`) and nothing else. Anything else in sections 1-2 is unexplained and blocks generation B until it is classified.
-- **Section 3** decides the reclassify disposition: a violator that holds live grants or tokens has them revoked by the reclassify (epoch bump), and every workspace it owns is listed in the retire plan.
+- **Section 3** decides the reclassify disposition: a violator that holds live grants or tokens has them revoked by the reclassify (epoch bump), and every workspace it owns is listed in the retire plan. Connectors it enrolled authenticate as themselves and survive the epoch bump: list each one for revocation in the same handoff.
 - **Section 4** is advisory.
 - **Done-check for generation B:** the production run after reclassification returns zero rows in section 1.
