@@ -28,6 +28,7 @@ Usage::
 
     check_append_only_shards.py --base origin/main --head HEAD
     check_append_only_shards.py            # defaults to @{upstream}..HEAD
+    check_append_only_shards.py --direct --base <before> --head <after>   # a push
 
 Exit 0 when every shard is append-only (including when none changed), 1 when a
 shard was rewritten, 2 on a usage or git error.
@@ -55,7 +56,9 @@ def _git(*args: str, cwd: str | None = None) -> str:
 
 
 def _changed_shards(base: str, head: str, cwd: str | None = None) -> list[str]:
-    out = _git("diff", "--name-only", f"{base}..{head}", cwd=cwd)
+    # --no-renames: rename detection would list only the new path, so a shard
+    # moved out of (or within, then truncated) the audit tree went unchecked.
+    out = _git("diff", "--name-only", "--no-renames", f"{base}..{head}", cwd=cwd)
     return [
         path
         for path in out.splitlines()
@@ -77,13 +80,16 @@ def _lines_at(revision: str, path: str, cwd: str | None = None) -> list[str] | N
     return result.stdout.splitlines()
 
 
-def check(base: str, head: str, cwd: str | None = None) -> list[str]:
+def check(
+    base: str, head: str, cwd: str | None = None, *, direct: bool = False
+) -> list[str]:
     """Return a list of violation messages; empty means append-only.
 
     ``cwd`` is the repository to run git in (default: the current directory).
     """
     violations: list[str] = []
-    base = _git("merge-base", base, head, cwd=cwd).strip()
+    if not direct:
+        base = _git("merge-base", base, head, cwd=cwd).strip()
     for path in _changed_shards(base, head, cwd):
         before = _lines_at(base, path, cwd)
         if before is None:
@@ -113,6 +119,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base", help="revision to compare from (default @{upstream})")
     parser.add_argument("--head", default="HEAD", help="revision to compare to")
+    parser.add_argument(
+        "--direct",
+        action="store_true",
+        help="compare from --base itself, not its merge-base with --head "
+        "(for a push: after a force-push the merge-base is older than the "
+        "previous tip, and lines added since would go unchecked)",
+    )
     args = parser.parse_args(argv)
 
     base = args.base
@@ -127,7 +140,7 @@ def main(argv: list[str] | None = None) -> int:
             return 2
 
     try:
-        violations = check(base, args.head)
+        violations = check(base, args.head, direct=args.direct)
     except RuntimeError as exc:
         print(str(exc), file=sys.stderr)
         return 2

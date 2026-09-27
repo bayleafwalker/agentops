@@ -152,3 +152,50 @@ def test_a_branch_behind_base_still_cannot_rewrite(repo: Path) -> None:
 
     violations = guard.check("main", "topic")
     assert len(violations) == 1 and "line 1 rewritten" in violations[0]
+
+
+def test_renaming_a_shard_out_of_the_audit_tree_is_a_deletion(repo: Path) -> None:
+    (repo / "moved.ndjson").write_text((repo / SHARD).read_text())
+    (repo / SHARD).unlink()
+    _commit(repo, "move the shard away")
+
+    violations = guard.check("HEAD~1", "HEAD")
+    assert len(violations) == 1 and "shard deleted" in violations[0]
+
+
+def test_renaming_within_the_tree_and_truncating_is_caught(repo: Path) -> None:
+    # Twenty lines, so dropping one leaves the files similar enough for git's
+    # rename detection to pair them (R094): without --no-renames only the new
+    # path is listed, and the truncation of the old one goes unseen.
+    lines = [f'{{"id":"ad:{i}","summary":"event {i}"}}' for i in range(1, 21)]
+    (repo / SHARD).write_text("\n".join(lines) + "\n")
+    _commit(repo, "twenty events")
+    other = repo / "_artifacts/demo/audit/events-2026-08-31.ndjson"
+    other.write_text("\n".join(lines[:-1]) + "\n")
+    (repo / SHARD).unlink()
+    _commit(repo, "rename and truncate")
+    status = subprocess.run(
+        ["git", "diff", "--name-status", "HEAD~1", "HEAD"],
+        cwd=repo, check=True, capture_output=True, text=True,
+    ).stdout
+    assert status.startswith("R"), status  # the premise: git sees a rename
+
+    violations = guard.check("HEAD~1", "HEAD")
+    assert any("shard deleted" in v for v in violations)
+
+
+def test_direct_mode_checks_a_force_push_against_the_previous_tip(repo: Path) -> None:
+    # main had LINE_TWO appended; a force-push replaces that commit with one
+    # that rewrites it. The merge-base is the older commit, where LINE_TWO did
+    # not exist yet, so only a direct comparison sees the rewrite.
+    (repo / SHARD).write_text(LINE_ONE + "\n" + LINE_TWO + "\n")
+    _commit(repo, "append")
+    before = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=repo, check=True, capture_output=True, text=True
+    ).stdout.strip()
+    _run(repo, "reset", "-q", "--hard", "HEAD~1")
+    (repo / SHARD).write_text(LINE_ONE + "\n" + '{"id":"ad:2","summary":"FORGED"}\n')
+    _commit(repo, "forced replacement")
+
+    assert guard.check(before, "HEAD") == []
+    assert len(guard.check(before, "HEAD", direct=True)) == 1
