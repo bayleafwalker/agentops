@@ -32,7 +32,7 @@ Until unit 2.1 adds `users.kind`, every `users` row is treated as `human` by R-m
 | Scope | Registry | Resource | Grantable? |
 |---|---|---|---|
 | `vuoro:work.read` | `SCOPE_TO_AUTHORITIES` (`oauth_scopes.py:19-30`) | R-mcp | yes |
-| `vuoro:evidence.record` | `SCOPE_TO_AUTHORITIES`, restricted to `claude-connector` (`:49-51`) | R-mcp | yes, `claude-connector` only |
+| `vuoro:evidence.record` | `SCOPE_TO_AUTHORITIES`, restricted to `claude-connector` (`:49-51`) | R-mcp | yes, `claude-connector` only today; slices 4 and 7 widen the restriction to `vuoro-test-harness` and `vuoro-agent-delegate` |
 | `vuoro:work.claim` | `RESERVED_SCOPES` (`:34-37`) | R-mcp | **no — reserved** (see §5) |
 | `vuoro:effect.propose` | `RESERVED_SCOPES` | R-mcp | **no — reserved** (see §5) |
 | `vuoro:effect.apply` | `REJECTED_SCOPES` (`:40`) | — | **never** |
@@ -53,7 +53,7 @@ Rows are evaluated top to bottom; the first matching row decides. Transport rows
 | # | Client | Resource | Requested scope | Principal kind | Decision |
 |---|---|---|---|---|---|
 | M1 | any | R-admin path on the public listener or through the gateway | anything | any | **Not routable** (404): no admin route exists on control's public process, and the gateway refuses `/api/control/v1/admin/*` (units 1.2, 1.3) |
-| M2 | any | R-admin, TCP peer not an enrolled operator `/32`, or a `cf-*` header present | anything | any | **Refuse** 403 `admin-source-denied`, counted, not DB-audited (no principal yet) (unit 1.3) |
+| M2 | any | R-admin, TCP peer not an enrolled `/32` (the operator's; slice 6 adds the appservice peer's), or a `cf-*` header present | anything | any | **Refuse** 403 `admin-source-denied`, counted, not DB-audited (no principal yet) (unit 1.3) |
 | M3 | any | any | `vuoro:effect.apply` | any | **Refuse**, audited `oauth.scope.rejected_requested` (live) |
 | M4 | any | R-mcp | any `vuoro:control.*` or `vuoro:admin.*` | any | **Refuse** `invalid_scope`, audited `oauth.scope.rejected_requested` (unit 1.3) |
 | M5 | any | R-mcp | `vuoro:work.claim` or `vuoro:effect.propose` | any | **Refuse** `invalid_scope` while reserved (live); for minted tokens also by name (M13, M15) |
@@ -63,12 +63,14 @@ Rows are evaluated top to bottom; the first matching row decides. Transport rows
 | M9 | `vuoro-cli-admin` | R-admin | anything outside the shipped `ADMIN_SCOPES` | admin | **Refuse** `invalid_scope` (unit 1.3) |
 | M10 | `vuoro-cli-admin` | R-admin | ⊆ shipped `ADMIN_SCOPES` (none = `vuoro:admin.read vuoro:admin.audit.read`) | admin, active, `adm_epoch` current, WebAuthn assertion with UV from an enrolled, enabled credential listed in `allowCredentials` | Grant: access 5 min, refresh rotating ≤ 1 h absolute (unit 1.3) |
 | M11 | `vuoro-cli-admin` | R-admin | anything | any non-admin (no WebAuthn credential exists for it) | **Refuse** (structural) |
-| M12 | `vuoro-test-harness` | R-mcp | ⊆ granted work-plane scopes, never reserved | test, not expired, member of a test workspace | Grant by admin mint only, ≤ min(24 h, expiry), no refresh (slice 4); other kinds **Refuse** |
-| M13 | admin mint (`vuoro-test-harness` or `vuoro-agent-delegate`) | R-mcp | names `vuoro:work.claim` or `vuoro:effect.propose` | any | **Refuse** by name, independently of M5 (slices 4, 7) |
-| M14 | `vuoro-agent-delegate` | R-mcp | ⊆ delegation ceiling ⊆ {`work.read`, `evidence.record`}, workspace ∈ delegation workspaces, repos ⊆ delegation repos | agent, not expired, active membership with role ≤ `member` in that workspace (rechecked at mint) | Grant ≤ 15 min, no refresh, `act` claim (slice 7, gated on plan item 7) |
+| M12 | `vuoro-test-harness` or `vuoro-agent-delegate` (admin mint or delegated exchange) | R-mcp | names `vuoro:work.claim` or `vuoro:effect.propose` | any | **Refuse** by name, independently of M5 (slices 4, 7) |
+| M13 | `vuoro-test-harness` | R-mcp | ⊆ {`vuoro:work.read`, `vuoro:evidence.record`} | test, not expired, member of a test workspace | Grant by admin mint only, ≤ min(24 h, expiry), no refresh (slice 4); other kinds **Refuse** |
+| M14 | `vuoro-agent-delegate` | R-mcp | ⊆ delegation ceiling ⊆ {`work.read`, `evidence.record`}, workspace ∈ delegation workspaces, repos ⊆ delegation repos | agent, not expired, active membership with role ≤ `member` in that workspace | Grant ≤ 15 min, no refresh, `act` claim. The exchange records an `oauth_grants`-shaped row (grant id in the token) so the gateway's per-request grant, membership, workspace and epoch check (`gateway.py:823-841`) applies unchanged; disabling the delegation revokes that row (slice 7, gated on plan item 7) |
 | M15 | `vuoro-agent-delegate` | R-mcp | anything else, including a reserved scope in the ceiling | any | **Refuse** (slice 7) |
+| M16a | `vuoro-cli-admin`, `vuoro-cli-service`, `vuoro-test-harness` (at `/oauth/authorize` or `/oauth/token`) | R-mcp | anything | any | **Refuse** `unauthorized_client`: these clients never use the authorization-code path; unit 1.3 refuses them by id there, with a conformance case (M1-M6 ordering keeps this ahead of M16) |
 | M16 | `claude-connector` | R-mcp | `vuoro:work.read`, `vuoro:evidence.record`, or none (default = both) | human (GitHub login), or test via a single-use test-login code (slice 4) | Grant, bound to one workspace the principal is an active member of (live for human) |
 | M17 | other registered client | R-mcp | `vuoro:evidence.record` | any | **Refuse** `invalid_scope`; dropped silently from a scope-less default (live) |
+| M17a | any other registered client (none is registered today besides `claude-connector`) | R-mcp | `vuoro:work.read` or none | human | Grant, bound to one workspace (live: `evaluate_scopes` grants it to any registered client) |
 | M18 | ≠ `vuoro-cli` | R-control | anything | any | **Refuse** `invalid_target` (unit 3.1) |
 | M19 | `vuoro-cli` | R-control | anything outside `CONTROL_SCOPES` | any | **Refuse** `invalid_scope` (unit 3.1) |
 | M20 | `vuoro-cli` | R-control | ⊆ `CONTROL_SCOPES` | not human, or subject fails `^github:[0-9]+$` | **Refuse** `access_denied` at authorize; `invalid_grant` at refresh (unit 3.1) |
@@ -87,7 +89,7 @@ Rows are evaluated top to bottom; the first matching row decides. Transport rows
 
 | When | What is rechecked |
 |---|---|
-| R-mcp refresh (live) | the request's `resource` parameter, if given, equals the configured MCP resource (`control.py:1142`); grant not revoked or idle-expired; principal epoch; scope narrowing through `evaluate_scopes(..., client_id=...)` (`:1189`) and still grantable (`:1197`); membership and workspace still active via `grant_usable` (`:1201`, `:657-660`). **Not** rechecked today: the grant's stored `resource`; `aud` is the MCP resource constant (`mint_access_token`, `:736-755`). This is correct only while every grant is an R-mcp grant. |
+| R-mcp refresh (live) | the request's `resource` parameter, if given, equals the configured MCP resource (`control.py:1142`); `client_id` matches the grant (`control.py:1154`); grant not revoked, idle-expired or past absolute expiry (`:1181`); the new token is stamped with the current principal epoch (not compared; the gateway compares it per request, `gateway.py:840`); scope narrowing through `evaluate_scopes(..., client_id=...)` (`:1189`) and still grantable (`:1197`); membership and workspace still active via `grant_usable` (`:1201`, `:657-660`). **Not** rechecked today: the grant's stored `resource`; `aud` is the MCP resource constant (`mint_access_token`, `:736-755`). This is correct only while every grant is an R-mcp grant. |
 | R-mcp and R-control refresh (unit 3.1 obligation) | the grant's stored `resource` (`g.resource`) equals the resource being refreshed and the client's registered resource; `aud` of the minted token is taken from `g.resource`, never a constant; an R-control grant presented at the R-mcp token path is `invalid_grant` by name, not by accident. Unit 3.1 adds conformance cases for both directions. |
 | R-control refresh (unit 3.1) | client is `vuoro-cli`, principal kind human and subject pattern, principal epoch |
 | R-control request (unit 3.1) | `aud`, `typ=at+jwt`, principal epoch, scope, `administrative_membership` for the target workspace; any session cookie on the request → 400 |

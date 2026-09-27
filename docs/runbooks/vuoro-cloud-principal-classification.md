@@ -32,10 +32,11 @@ BEGIN TRANSACTION READ ONLY;
 --    unit 2.1 adds users.kind; afterwards, filter on kind='human'.
 SELECT 'invalid-subject' AS finding, u.id AS user_id, u.external_subject,
        u.display_name, u.created_at,
-       (SELECT count(*) FROM web_sessions s WHERE s.user_id = u.id) AS web_sessions,
+       (SELECT count(*) FROM web_sessions s WHERE s.user_id = u.id
+          AND s.revoked_at IS NULL AND s.expires_at > now()) AS live_web_sessions,
        (SELECT max(s.last_used_at) FROM web_sessions s WHERE s.user_id = u.id) AS last_session_use,
        (SELECT count(*) FROM oauth_grants g WHERE g.user_id = u.id
-          AND g.revoked_at IS NULL) AS live_oauth_grants,
+          AND g.revoked_at IS NULL AND g.expires_at > now()) AS live_oauth_grants,
        (SELECT count(*) FROM oauth_grants g WHERE g.user_id = u.id) AS all_oauth_grants,
        EXISTS (SELECT 1 FROM principal_subjects ps WHERE ps.subject = u.id) AS has_epoch_row
 FROM users u
@@ -87,11 +88,27 @@ SELECT 'violator-attachment', u.id, 'connector-enrollment', ce.workspace_id,
 FROM users u JOIN connector_enrollments ce ON ce.created_by = u.id
 WHERE u.external_subject !~ '^github:[0-9]+$'
 UNION ALL
+SELECT 'violator-attachment', u.id, 'membership-invitation', mi.workspace_id,
+       'invited_by' AS detail
+FROM users u JOIN membership_invitations mi ON mi.invited_by = u.id
+WHERE u.external_subject !~ '^github:[0-9]+$'
+UNION ALL
 SELECT 'violator-attachment', u.id, 'principal-subject', ps.kind,
        'epoch=' || ps.epoch
 FROM users u JOIN principal_subjects ps ON ps.subject = u.id
 WHERE u.external_subject !~ '^github:[0-9]+$'
 ORDER BY 2, 3;
+
+-- 3b. Connectors with no recorded enroller (enrolled before migration 011) in
+--     workspaces a violator belongs to: attribution unknown, list for review.
+SELECT 'unattributed-connector' AS finding, c.workspace_id, c.id AS connector_id,
+       c.name, c.state
+FROM connectors c
+WHERE c.enrolled_by IS NULL
+  AND EXISTS (SELECT 1 FROM memberships m JOIN users u ON u.id = m.user_id
+              WHERE m.workspace_id = c.workspace_id
+                AND u.external_subject !~ '^github:[0-9]+$')
+ORDER BY c.workspace_id;
 
 -- 4. Likely test data outside test workspaces (heuristic; every hit needs a
 --    human decision, none is acted on automatically).
@@ -112,6 +129,6 @@ ROLLBACK;
 - **Checked** on 2026-09-27 against a scratch PostgreSQL 18 with vuoro-cloud migrations `001`-`013` at `332faa4` and seeded rows (one valid owner, one non-numeric `github:` owner, one ownerless workspace): each section returned exactly the seeded violators, and the transaction ended in `ROLLBACK`.
 
 - **Expected at vuoro-cloud `332faa4`:** section 1 lists the blocker12 owner (`01M14W25EYSZ…`, a non-numeric `github:` subject) and nothing else; section 2 lists `blocker12-canary` (`01M14W25EYKC…`) and nothing else. Anything else in sections 1-2 is unexplained and blocks generation B until it is classified.
-- **Section 3** decides the reclassify disposition: a violator that holds live grants or tokens has them revoked by the reclassify (epoch bump), and every workspace it owns is listed in the retire plan. Connectors it enrolled authenticate as themselves and survive the epoch bump: list each one for revocation in the same handoff.
+- **Section 3** decides the reclassify disposition: every credential listed here must be revoked explicitly: an epoch bump alone does not revoke refresh grants, PATs or web sessions at vuoro-cloud `332faa4` (refresh and PAT paths stamp the epoch without comparing it; sessions are keyed by user id), and connectors authenticate as themselves. The admin reclassify and disable operations (unit 2.2) revoke them in the same transaction; until then, list each in the handoff. Every workspace the violator owns goes into the retire plan; section 3b's connectors need a human decision.
 - **Section 4** is advisory.
 - **Done-check for generation B:** the production run after reclassification returns zero rows in section 1.
