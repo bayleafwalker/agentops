@@ -123,3 +123,32 @@ def test_exit_code_signals_the_violation(repo: Path) -> None:
     assert guard.main(["--base", "HEAD~1", "--head", "HEAD"]) == 1
     # Positive control: the same invocation over an untouched range passes.
     assert guard.main(["--base", "HEAD", "--head", "HEAD"]) == 0
+
+
+def test_a_branch_behind_base_is_not_a_deletion(repo: Path) -> None:
+    # main gains a shard and a line after the branch forks; the branch touches
+    # neither. Two-dot against main's tip saw both as "deleted" by the branch.
+    _run(repo, "checkout", "-q", "-b", "topic")
+    (repo / "notes.md").write_text("docs only\n")
+    _commit(repo, "topic change")
+    _run(repo, "checkout", "-q", "main")
+    (repo / SHARD).write_text(LINE_ONE + "\n" + LINE_TWO + "\n")
+    newer = repo / "_artifacts/demo/audit/events-2026-08-30.ndjson"
+    newer.write_text(LINE_ONE + "\n")
+    _commit(repo, "main appends")
+
+    assert guard.check("main", "topic") == []
+
+
+def test_a_branch_behind_base_still_cannot_rewrite(repo: Path) -> None:
+    # The merge-base comparison must not excuse a rewrite of a line that
+    # existed when the branch forked.
+    _run(repo, "checkout", "-q", "-b", "topic")
+    (repo / SHARD).write_text('{"id":"ad:1","summary":"REWRITTEN"}\n')
+    _commit(repo, "topic rewrites")
+    _run(repo, "checkout", "-q", "main")
+    (repo / "notes.md").write_text("main moves on\n")
+    _commit(repo, "main moves")
+
+    violations = guard.check("main", "topic")
+    assert len(violations) == 1 and "line 1 rewritten" in violations[0]
