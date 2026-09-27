@@ -1,0 +1,28 @@
+name: append-only shards (push)
+
+# The pull_request job in protected-paths.yml does not see a direct push to
+# main. This compares each push with the tip it replaced, directly rather than
+# from the merge-base: after a force-push the merge-base is older than the
+# previous tip, and lines appended since then would otherwise go unchecked.
+on:
+  push:
+    branches: [main]
+
+jobs:
+  append-only-shards:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: fetch the replaced tip
+        # A force-push leaves the previous tip unreachable from main; fetch it
+        # explicitly (GitHub keeps it for a while). Skip a branch creation.
+        if: github.event.before != '0000000000000000000000000000000000000000'
+        run: git fetch --no-tags origin "${{ github.event.before }}" || true
+      - name: check
+        if: github.event.before != '0000000000000000000000000000000000000000'
+        run: |
+          python3 scripts/check_append_only_shards.py --direct \
+            --base "${{ github.event.before }}" \
+            --head "${{ github.sha }}"
