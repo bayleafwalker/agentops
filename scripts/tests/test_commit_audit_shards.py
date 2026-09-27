@@ -10,6 +10,7 @@ from __future__ import annotations
 import fcntl
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -460,3 +461,425 @@ def test_stale_partial_line_needs_attention(env):
     rc, results, data = run(env)
     assert rc == 1 and results[0]["reason"] == "stale-partial-line"
     assert data["attention"] == ["work"]
+
+
+# --- protected default branch: landing through a PR ---------------------------
+#
+# The bare remote gets a pre-receive hook that refuses main with Forgejo's
+# message. fj, gh and credctl are PATH stubs (one script, dispatching on its
+# name) sharing a JSON state file with the fake Forgejo API: open PRs, the CI
+# state of every head and whether a merge is refused. A merge fast-forwards the
+# bare remote's main with update-ref, the way the forge would.
+
+STUB = r'''#!/usr/bin/env python3
+import json, os, subprocess, sys
+state_path, remote = os.environ["FAKE_FORGE"], os.environ["FAKE_REMOTE"]
+tool, args = os.path.basename(sys.argv[0]), sys.argv[1:]
+with open(os.environ["FAKE_FORGE_LOG"], "a") as log:
+    log.write(json.dumps([tool, *args]) + "\n")
+state = json.load(open(state_path))
+def save(): json.dump(state, open(state_path, "w"))
+def opt(name): return args[args.index(name) + 1]
+def ref(branch):
+    return subprocess.run(["git", "-C", remote, "rev-parse", "refs/heads/" + branch],
+                          capture_output=True, text=True).stdout.strip()
+def find(num): return next(p for p in state["prs"] if p["number"] == int(num))
+def do_merge(pr, sha):
+    if state.get("merge") == "refuse" or ref(pr["branch"]) != sha:
+        return False
+    main = ref("main")
+    if subprocess.run(["git", "-C", remote, "merge-base", "--is-ancestor", main, sha]).returncode:
+        return False
+    subprocess.run(["git", "-C", remote, "update-ref", "refs/heads/main", sha, main], check=True)
+    pr["state"] = "merged"; save(); return True
+if args[:2] == ["pr", "create"]:
+    num = len(state["prs"]) + 1
+    state["prs"].append({"number": num, "branch": opt("--head"), "base": opt("--base"),
+                         "state": "open", "created": state.get("created", "2026-09-27T00:00:00Z"),
+                         "url": f"https://forge.test/owner/work/pulls/{num}"})
+    save(); print(state["prs"][-1]["url"]); sys.exit(0)
+if args[:2] == ["pr", "close"]:
+    find(args[2].split("#")[-1])["state"] = "closed"; save(); sys.exit(0)
+if tool == "credctl" and args[0] == "merge":
+    ok = do_merge(find(opt("--pr")), opt("--head-sha"))
+    print(json.dumps({"merged": ok, "reason": "" if ok else "refused"}))
+    sys.exit(0 if ok else 4)
+if tool == "gh":
+    if args[:2] == ["pr", "list"]:
+        print(json.dumps([{"number": p["number"], "url": p["url"], "headRefName": p["branch"],
+                           "headRefOid": ref(p["branch"]), "createdAt": p["created"]}
+                          for p in state["prs"] if p["state"] == "open"])); sys.exit(0)
+    if args[:2] == ["pr", "checks"]:
+        if state["ci"] == "broken":
+            sys.exit("HTTP 401: Bad credentials")
+        bucket = {"success": "pass", "pending": "pending", "failure": "fail"}[state["ci"]]
+        print(json.dumps([{"name": "test", "bucket": bucket}])); sys.exit(0)
+    if args[:2] == ["repo", "view"]:
+        print(json.dumps({"rebaseMergeAllowed": True})); sys.exit(0)
+    if args[:2] == ["pr", "merge"]:
+        pr, sha = find(args[2]), opt("--match-head-commit")
+        if state.get("merge") == "refuse" or ref(pr["branch"]) != sha:
+            sys.exit(1)
+        # A rebase merge: the same tree under a new commit, as GitHub does it.
+        main = ref("main")
+        git = lambda *a: subprocess.run(["git", "-C", remote, *a], capture_output=True,
+                                        text=True, check=True).stdout.strip()
+        tree = git("merge-tree", "--write-tree", main, sha).splitlines()[0]
+        new = git("commit-tree", tree, "-p", main, "-m", "rebased")
+        git("update-ref", "refs/heads/main", new, main)
+        pr["state"] = "merged"; save(); sys.exit(0)
+sys.exit(f"stub: unhandled {tool} {args}")
+'''
+
+
+@pytest.fixture
+def forge(env, monkeypatch):
+    tmp = env["tmp"]
+    hooks = tmp / "remote-hooks"
+    hooks.mkdir()
+    (hooks / "pre-receive").write_text(
+        "#!/bin/sh\nwhile read old new ref; do\n"
+        "  if [ \"$ref\" = refs/heads/main ]; then\n"
+        "    echo 'remote: Forgejo: Not allowed to push to protected branch main' >&2\n"
+        "    exit 1\n  fi\ndone\n")
+    (hooks / "pre-receive").chmod(0o755)
+    git(env["remote"], "config", "core.hooksPath", str(hooks))
+    bindir = tmp / "bin"
+    bindir.mkdir()
+    (bindir / "stub").write_text(STUB)
+    (bindir / "stub").chmod(0o755)
+    for name in ("fj", "gh", "credctl"):
+        (bindir / name).symlink_to(bindir / "stub")
+    state = tmp / "forge.json"
+    state.write_text(json.dumps({"prs": [], "ci": "pending"}))
+    log = tmp / "forge.log"
+    log.write_text("")
+    monkeypatch.setenv("PATH", f"{bindir}:{os.environ['PATH']}")
+    monkeypatch.setenv("FAKE_FORGE", str(state))
+    monkeypatch.setenv("FAKE_REMOTE", str(env["remote"]))
+    monkeypatch.setenv("FAKE_FORGE_LOG", str(log))
+
+    def branch_head(branch):
+        return git(env["remote"], "rev-parse", f"refs/heads/{branch}", check=False)
+
+    def api(self, path):
+        data = json.loads(state.read_text())
+        if path.startswith("pulls?"):
+            return [{"number": p["number"], "html_url": p["url"], "created_at": p["created"],
+                     "head": {"ref": p["branch"], "sha": branch_head(p["branch"])},
+                     "base": {"ref": p["base"]}}
+                    for p in data["prs"] if p["state"] == "open"]
+        assert path.startswith("commits/") and path.endswith("/status")
+        if data["ci"] == "none":
+            return {"statuses": None}
+        return {"statuses": [{"context": "ci / test", "status": data["ci"]},
+                             {"context": "ci / image", "status": "skipped"}]}
+
+    platform = {"name": "forgejo"}
+    monkeypatch.setattr(cas.Forge, "_api", api)
+    monkeypatch.setattr(cas, "forge_for",
+                        lambda repo: cas.Forge(platform["name"], "forge.test", "owner/work"))
+
+    class F:
+        def set(self, **kw):
+            data = json.loads(state.read_text())
+            data.update(kw)
+            state.write_text(json.dumps(data))
+
+        def prs(self):
+            return json.loads(state.read_text())["prs"]
+
+        def calls(self, tool=None):
+            rows = [json.loads(line) for line in log.read_text().splitlines()]
+            return [r for r in rows if tool is None or r[0] == tool]
+
+        branch = staticmethod(branch_head)
+
+        def github(self):
+            platform["name"] = "github"
+
+    return F()
+
+
+TODAY_BRANCH = "audit/shards-" + __import__("datetime").datetime.now(
+    __import__("datetime").timezone.utc).date().isoformat()
+
+
+def local_ahead(env) -> list[str]:
+    return git(env["work"], "rev-list", "origin/main..HEAD").split()
+
+
+def test_protected_rejection_pushes_branch_and_opens_pr(env, forge):
+    write(env["work"], SHARD2, '{"n":2}\n')
+    main_before = remote_head(env)
+    rc, results, summary = run(env, "--ci-wait", "0")
+    res = results[0]
+    assert rc == 0, res  # CI still running is not an attention state
+    assert (res["action"], res["reason"], res["pr_state"]) == ("pr-open", "ci-pending", "opened")
+    assert res["pr_url"] == "https://forge.test/owner/work/pulls/1"
+    head = git(env["work"], "rev-parse", "HEAD")
+    assert forge.branch(TODAY_BRANCH) == head == res["commit"]
+    assert remote_head(env) == main_before  # nothing bypassed protection
+    create = forge.calls("fj")[0]
+    assert create[:6] == ["fj", "pr", "create", "--repo", "owner/work", "--base"]
+    assert "--head" in create and TODAY_BRANCH in create
+    assert forge.calls("credctl") == []
+    assert summary["prs"] == [{"repo": "work", "url": res["pr_url"], "state": "opened",
+                               "action": "pr-open", "reason": "ci-pending"}]
+
+
+def test_protected_ci_pending_leaves_pr_then_green_merges_and_fast_forwards(env, forge):
+    write(env["work"], SHARD2, '{"n":2}\n')
+    run(env, "--ci-wait", "0")
+    rc, results, _ = run(env, "--ci-wait", "0")  # still pending: left alone, not reopened
+    assert rc == 0 and results[0]["action"] == "pr-open" and results[0]["pr_state"] == "open"
+    assert len([c for c in forge.calls("fj") if c[1:3] == ["pr", "create"]]) == 1
+    forge.set(ci="success")
+    head = git(env["work"], "rev-parse", "HEAD")
+    rc, results, _ = run(env, "--ci-wait", "0")
+    res = results[0]
+    assert rc == 0, res
+    assert (res["action"], res["pr_state"], res["commit"]) == ("merged", "merged", head)
+    assert forge.calls("credctl") == [[
+        "credctl", "merge", "--repository", "forgejo:owner/work", "--pr", "1",
+        "--head-sha", head, "--style", "fast-forward-only", "--forgejo-url", "https://forge.test"]]
+    assert remote_head(env) == head
+    assert local_ahead(env) == [] and git(env["work"], "status", "--porcelain") == ""
+    assert run(env)[1] == []  # nothing left pending
+
+
+def test_protected_pending_pr_is_not_pushed_onto(env, forge):
+    # Pushing each hour's appends onto a PR restarts its CI; on a busy repo it
+    # would never merge. The open PR is carried as it is.
+    write(env["work"], SHARD2, '{"n":2}\n')
+    run(env, "--ci-wait", "0")
+    first = forge.branch(TODAY_BRANCH)
+    write(env["work"], SHARD2, '{"n":3}\n', append=True)
+    rc, results, _ = run(env, "--ci-wait", "0")
+    assert rc == 0 and results[0]["action"] == "pr-open" and results[0]["pr_state"] == "open"
+    assert forge.branch(TODAY_BRANCH) == first
+    assert "1 newer local commit(s)" in results[0]["detail"]
+
+
+def test_protected_existing_pr_merged_then_branch_reused_fast_forward(env, forge):
+    write(env["work"], SHARD2, '{"n":2}\n')
+    run(env, "--ci-wait", "0")
+    first = forge.branch(TODAY_BRANCH)
+    write(env["work"], SHARD2, '{"n":3}\n', append=True)
+    forge.set(ci="success")
+    rc, results, _ = run(env, "--ci-wait", "0")  # merges the open PR's head first
+    res = results[0]
+    assert rc == 0 and res["action"] == "merged" and res["commit"] == first, res
+    assert remote_head(env) == first and len(local_ahead(env)) == 1
+    rc, results, _ = run(env, "--ci-wait", "0")  # the newer commit, same branch, new PR
+    res = results[0]
+    head = git(env["work"], "rev-parse", "HEAD")
+    assert rc == 0 and res["action"] == "merged", res
+    assert git(env["work"], "rev-parse", "HEAD~1") == first  # stacked, never rewritten
+    assert forge.branch(TODAY_BRANCH) == head == remote_head(env)
+    assert [p["state"] for p in forge.prs()] == ["merged", "merged"]
+    assert [p["branch"] for p in forge.prs()] == [TODAY_BRANCH, TODAY_BRANCH]
+    assert local_ahead(env) == [] and git(env["work"], "status", "--porcelain") == ""
+
+
+def test_protected_base_moved_opens_new_branch_and_closes_old_pr(env, forge):
+    write(env["work"], SHARD2, '{"n":2}\n')
+    run(env, "--ci-wait", "0")
+    old = forge.branch(TODAY_BRANCH)
+    # main moves under the open PR (a merge of other work, landed as the forge would)
+    git(env["remote"], "config", "core.hooksPath", "/dev/null")
+    other_pushes(env)
+    git(env["remote"], "config", "core.hooksPath", str(env["tmp"] / "remote-hooks"))
+    rc, results, _ = run(env, "--ci-wait", "0")
+    res = results[0]
+    head = git(env["work"], "rev-parse", "HEAD")
+    assert rc == 0 and res["pr_state"] == "opened", res
+    assert forge.branch(TODAY_BRANCH) == old  # never force-pushed
+    assert forge.branch(f"{TODAY_BRANCH}-{head[:7]}") == head
+    assert [p["state"] for p in forge.prs()] == ["closed", "open"]
+
+
+def test_protected_non_shard_diff_needs_operator(env, forge, monkeypatch):
+    # Forced failure: disable the earlier guard (unpushed non-shard work is
+    # normally refused by sync) so the PR diff guard is what has to catch it.
+    monkeypatch.setattr(cas.Repo, "shard_only", lambda self, commit: True)
+    write(env["work"], "code.py", "x = 1\n")
+    write(env["work"], SHARD2, '{"n":2}\n')
+    commit_all(env["work"], "wip")
+    forge.set(ci="success")
+    rc, results, summary = run(env, "--ci-wait", "0")
+    res = results[0]
+    assert rc == 1 and res["reason"] == "needs-operator", res
+    assert "code.py" in res["detail"] and res["pr_url"]
+    assert forge.calls("credctl") == []
+    assert summary["attention"] == ["work"]
+
+
+def test_protected_rewritten_shard_in_pr_needs_operator(env, forge, monkeypatch):
+    # Forced failure: skip the local prefix check so only the PR guard stands.
+    monkeypatch.setattr(cas, "check_append_only", lambda repo, upstream, paths: (paths, []))
+    write(env["work"], SHARD, '{"n":"rewritten"}\n')
+    forge.set(ci="success")
+    rc, results, _ = run(env, "--ci-wait", "0")
+    res = results[0]
+    assert rc == 1 and res["reason"] == "needs-operator", res
+    assert "rewritten" in res["detail"] or "line 1" in res["detail"]
+    assert forge.calls("credctl") == []
+
+
+def test_protected_merge_refused_needs_operator(env, forge):
+    write(env["work"], SHARD2, '{"n":2}\n')
+    forge.set(ci="success", merge="refuse")
+    main_before = remote_head(env)
+    rc, results, _ = run(env, "--ci-wait", "0")
+    res = results[0]
+    assert rc == 1 and res["reason"] == "needs-operator", res
+    assert res["pr_url"] == "https://forge.test/owner/work/pulls/1"
+    assert "merge refused" in res["detail"]
+    assert remote_head(env) == main_before and len(local_ahead(env)) == 1
+
+
+def test_protected_ci_failure_needs_operator(env, forge):
+    write(env["work"], SHARD2, '{"n":2}\n')
+    forge.set(ci="failure")
+    rc, results, _ = run(env, "--ci-wait", "0")
+    assert rc == 1 and results[0]["reason"] == "needs-operator"
+    assert "ci / test=failure" in results[0]["detail"]
+    assert forge.calls("credctl") == []
+
+
+def test_protected_pr_pending_for_a_day_needs_attention(env, forge):
+    forge.set(created="2026-01-01T00:00:00Z")
+    write(env["work"], SHARD2, '{"n":2}\n')
+    rc, results, _ = run(env, "--ci-wait", "0")
+    assert rc == 1 and results[0]["reason"] == "pr-stale"
+
+
+def test_configured_protected_skips_the_direct_push(env, forge, monkeypatch):
+    pushes = []
+    original = cas.Repo.run
+
+    def counting(self, *args, check=True):
+        if args and args[0] == "push":
+            pushes.append(args[-1])
+        return original(self, *args, check=check)
+
+    monkeypatch.setattr(cas.Repo, "run", counting)
+    write(env["work"], SHARD2, '{"n":2}\n')
+    rc, results, _ = run(env, "--ci-wait", "0", "--protected", "work")
+    assert rc == 0 and results[0]["action"] == "pr-open"
+    assert pushes == [f"HEAD:refs/heads/{TODAY_BRANCH}"]
+
+
+def test_protected_github_merges_with_match_head_commit(env, forge):
+    forge.github()
+    forge.set(ci="success")
+    write(env["work"], SHARD2, '{"n":2}\n')
+    rc, results, _ = run(env, "--ci-wait", "0")
+    res = results[0]
+    head = forge.branch(TODAY_BRANCH)  # the PR head; main gets a rebased copy
+    assert rc == 0 and res["action"] == "merged", res
+    gh = [c for c in forge.calls("gh") if c[1:3] in (["pr", "create"], ["pr", "merge"])]
+    assert gh[0][:5] == ["gh", "pr", "create", "--repo", "owner/work"]
+    assert gh[1] == ["gh", "pr", "merge", "1", "--repo", "owner/work",
+                     "--match-head-commit", head, "--rebase"]
+    assert remote_head(env) != head  # rewritten by the rebase merge
+    assert git(env["remote"], "rev-parse", "main^{tree}") == git(env["work"], "rev-parse", "HEAD^{tree}")
+    assert git(env["work"], "rev-parse", "HEAD") == remote_head(env)
+    assert git(env["work"], "status", "--porcelain") == ""
+
+
+def test_protected_github_rebase_merge_keeps_newer_appends_staged(env, forge):
+    forge.github()
+    write(env["work"], SHARD2, '{"n":2}\n')
+    run(env, "--ci-wait", "0")
+    write(env["work"], SHARD2, '{"n":3}\n', append=True)
+    forge.set(ci="success")
+    rc, results, _ = run(env, "--ci-wait", "0")
+    assert rc == 0 and results[0]["action"] == "merged", results[0]
+    assert git(env["work"], "rev-parse", "HEAD") == remote_head(env)
+    assert (env["work"] / SHARD2).read_text() == '{"n":2}\n{"n":3}\n'
+    rc, results, _ = run(env, "--ci-wait", "0")  # the newer append goes in next
+    assert rc == 0 and results[0]["action"] == "merged", results[0]
+    assert git(env["remote"], "show", f"main:{SHARD2}") == '{"n":2}\n{"n":3}'
+    assert git(env["work"], "status", "--porcelain") == "" and local_ahead(env) == []
+
+
+def test_protected_no_checks_after_an_hour_needs_operator(env, forge):
+    forge.set(ci="none", created="2026-01-01T00:00:00Z")
+    write(env["work"], SHARD2, '{"n":2}\n')
+    rc, results, _ = run(env, "--ci-wait", "0")
+    assert rc == 1 and results[0]["reason"] == "needs-operator"
+    assert "no checks reported" in results[0]["detail"]
+
+
+def test_protected_gh_checks_error_needs_operator(env, forge):
+    forge.github()
+    forge.set(ci="broken")
+    write(env["work"], SHARD2, '{"n":2}\n')
+    rc, results, _ = run(env, "--ci-wait", "0")
+    assert rc == 1 and results[0]["reason"] == "needs-operator"
+    assert "gh pr checks" in results[0]["detail"]
+
+
+def test_protected_malformed_api_response_is_reported_not_fatal(env, forge, monkeypatch):
+    monkeypatch.setattr(cas.Forge, "_api", lambda self, path: {"message": "not a list"})
+    write(env["work"], SHARD2, '{"n":2}\n')
+    rc, results, summary = run(env, "--ci-wait", "0")
+    assert rc == 1 and results[0]["reason"] == "needs-operator"
+    assert "unexpected response" in results[0]["detail"]
+
+
+def test_protected_base_moved_during_wait_is_not_attention(env, forge, monkeypatch):
+    write(env["work"], SHARD2, '{"n":2}\n')
+    forge.set(ci="success")
+    original = cas.Forge.merge
+
+    def moving(self, repo, pr):
+        git(env["remote"], "config", "core.hooksPath", "/dev/null")
+        other_pushes(env)
+        return original(self, repo, pr)
+
+    monkeypatch.setattr(cas.Forge, "merge", moving)
+    rc, results, _ = run(env, "--ci-wait", "0")
+    assert rc == 0 and (results[0]["action"], results[0]["reason"]) == ("pr-open", "base-moved")
+
+
+@pytest.mark.parametrize("url,expected", [
+    ("https://git.apps.kotona.app/bayleaf/cred-broker.git",
+     ("forgejo", "git.apps.kotona.app", "bayleaf/cred-broker")),
+    ("ssh://git@git.apps.kotona.app:2222/bayleaf/cred-broker.git",
+     ("forgejo", "git.apps.kotona.app", "bayleaf/cred-broker")),
+    ("git@github.com:bayleafwalker/agentops.git", ("github", "github.com", "bayleafwalker/agentops")),
+    ("https://github.com/bayleafwalker/agentops", ("github", "github.com", "bayleafwalker/agentops")),
+])
+def test_forge_from_remote_url(url, expected):
+    forge = cas.Forge.from_url(url)
+    assert (forge.platform, forge.host, forge.slug) == expected
+
+
+def test_forge_from_local_path_is_none():
+    assert cas.Forge.from_url("/tmp/remote.git") is None
+
+
+def test_protected_github_rebase_onto_moved_base_is_merged_and_settles(env, forge, monkeypatch):
+    forge.github()
+    forge.set(ci="success")
+    write(env["work"], SHARD2, '{"n":2}\n')
+    original = cas.Forge.merge
+
+    def moving(self, repo, pr):
+        git(env["remote"], "config", "core.hooksPath", "/dev/null")
+        other_pushes(env)
+        git(env["remote"], "config", "core.hooksPath", str(env["tmp"] / "remote-hooks"))
+        return original(self, repo, pr)
+
+    monkeypatch.setattr(cas.Forge, "merge", moving)
+    rc, results, _ = run(env, "--ci-wait", "0")
+    assert rc == 0 and results[0]["action"] == "merged", results[0]
+    assert "moved base" in results[0]["detail"]
+    monkeypatch.setattr(cas.Forge, "merge", original)
+    rc, results, _ = run(env, "--ci-wait", "0")
+    assert rc == 0 and [r["action"] for r in results] in ([], ["noop"]), results
+    assert git(env["work"], "rev-parse", "HEAD") == remote_head(env)
+    assert git(env["work"], "status", "--porcelain") == ""
