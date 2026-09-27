@@ -82,7 +82,7 @@ interaction, not only to hosted runtimes.
 | **Forgejo** | homelab | appservice (`apps/forgejo`) | `git.apps.kotona.app`, SSH `:2222` | Canonical forge and promotion authority for vuoro-cloud; registration disabled; Authentik login | `fj` OAuth, workstation token; admin token break-glass | brokered short-lived JWT via credctl; `credctl merge` |
 | **cred-broker** | homelab | cred-broker (private) / cred-broker-public | appservice, mTLS API `cred-broker-api.apps.kotona.app:8443` | Capability → short-lived provider credential (Forgejo v16 Authorized Integration JWT, GitHub App installation token); receipts; step-up approval (implemented, not enabled) | enrollment ceremony (OpenBao PKI), `credctl approve` (YubiKey) | `credctl explain|exec|git-credential|merge` with 24 h host cert renewed by timer |
 | **OpenBao** | homelab | appservice **[INF]** manifests not under `apps/` | ns `openbao` | Transit signing keys for cred-broker (never exported), PKI for host identities | ceremonies | none |
-| **Authentik** | homelab (+public OIDC) | appservice | `auth.apps.kotona.app`, `auth.kotona.app` | IdP; Forgejo login source; proposed admin OIDC for vuoro.cloud (PR #253 H2-8) | browser | none |
+| **Authentik** | homelab (+public OIDC) | appservice | `auth.apps.kotona.app`, `auth.kotona.app` | IdP; Forgejo login source; admin OIDC for vuoro.cloud decided (Q2; design in flight, agentops PR #263) | browser | none |
 | **Langfuse, Prometheus, Loki** | homelab | appservice | cluster | Non-authoritative harness telemetry (TS-15); Langfuse 30 d TTL verified (`agentops:docs/dispatch/handoffs/2026-09-23-program-long-goal-handler.v4.md:38`) | browser | OTel emit-only |
 | **operator-projection** | homelab | agentops (`apps/operator-projection`) | `ops.apps.kotona.app` | Derived operator view ("DERIVED — not a record"); effectively the cockpit's successor **[INF]** | browser | none |
 | **homelab-analytics** | homelab | homelab-analytics | `analytics.apps.kotona.app` | Household operating platform; pilot consumer of the substrate. Not an agent-telemetry dashboard | browser | none |
@@ -106,7 +106,7 @@ flowchart LR
   subgraph TP[Third-party clouds]
     CAI[claude.ai / mobile / Cowork]
     RT[Routines]
-    CS[claude --cloud sessions]
+    CS["claude --cloud sessions"]
     GH[GitHub + GHCR<br/>replica of Forgejo-authoritative repos]
     MA[Anthropic Managed Agents API]
   end
@@ -152,8 +152,10 @@ flowchart LR
   VW -. poll queue, outbound .-> MA
 ```
 
-Arrows point from the side that opens the connection; for the two dashed poll
-arrows, data (proposals, queued work) flows back against the arrow. No arrow
+Connection arrows point from the side that opens the connection; for the two
+dashed poll arrows, data (proposals, queued work) flows back against the arrow.
+`CB -- short-lived JWT --> FJ` is an issuance relation (the credential is used
+by the credctl caller), not a connection. No arrow
 runs from PUB into HOME. The protected side reaches the public horizon and the
 Managed Agents API outbound only (reconciler and vuoro-worker polling, operator
 WireGuard admin from the workstation), and Flux inside PUB pulls from GitHub,
@@ -176,7 +178,7 @@ into the protected horizon" property in §3.2.
 | Routines | GitHub | Claude GitHub App | app installation | PR carrying verdict, `Vuoro-Run:` trailer (H1-3) |
 | `claude --cloud` sessions | GitHub | Claude GitHub App | session repository sources only; push 403 otherwise (memory note) | PR + run log; commits authored locally afterwards need independent review |
 | Codex | local repo, Forgejo via credctl | JSON-RPC app-server | same host identity as the launching user | handoff files; no SendMessage bus |
-| Reconciler (planned) | vuoro.cloud intents | HTTPS poll (outbound) | homelab identity; accepts via credctl | intent row + receipt + signed commit chain (TS-16 "reconstructable, not attested") |
+| Reconciler (planned) | vuoro.cloud intents | HTTPS poll (outbound) | homelab identity; executes only intents the operator (`credctl accept`) or a trusted-side policy accepted by digest | intent row + receipt + signed commit chain (TS-16 "reconstructable, not attested") |
 
 ## 2. Trust horizons today: what crosses each boundary
 
@@ -218,7 +220,7 @@ still describes `SPRINTCTL_URL` injection; `vuoro-cloud:README.md` header says
 disagree on whether Flux's verification Secret holds an SSH key or the OpenPGP
 promoter key; `agentops:AGENTS.md:38` says TS-1..TS-15.
 
-## 3. Split-horizon Vuoro: the adopted architecture
+## 3. Split-horizon Vuoro: the coordination / authority split
 
 ### 3.0 The boundary model (frozen 2026-09-27)
 
@@ -244,11 +246,12 @@ flowchart TB
     P6[signing/promotion remains hardware/protected]
   end
 
-  P1 -. "poll proposals, outbound (untrusted input)" .-> C2
+  P1 -. "reconciler polls proposals, outbound (untrusted input)" .-> C2
 ```
 
 As in §1.3, the poll arrow points from the side that opens the connection
-(the protected side); proposals flow back against it as data.
+(the reconciler, on the protected side); proposals flow back against it as
+data.
 
 **Critical invariant.** *Nothing originating in the coordination plane
 becomes an effect merely because the coordination plane says it should.*
@@ -286,7 +289,7 @@ Capabilities that stay horizon-protected, and why:
 | Promotion signing | workstation YubiKey | No off-card key; Flux verifies `TagAndHEAD`; runners never promote |
 | Merges | workstation/devbox via `credctl merge` | Token in-process only; Forgejo branch protection is the real gate (Q2 of the boundary design) |
 | Protected-only operator acts: effect acceptance, credential/policy change, promotion, key rotation, recovery operations | workstation, infra VM, WireGuard | Operator material "lives only on the workstation"; never reachable through public sign-in, not even with step-up (Q2) |
-| High-sensitivity interactive processes (step-up approvals, break-glass, restore drills, Talos/etcd) | workstation, infra VM, WireGuard | Requires hardware presence (YubiKey touch) or cluster-reaching credentials |
+| High-sensitivity interactive processes (cred-broker step-up approvals, break-glass, restore drills, Talos/etcd) | workstation, infra VM, WireGuard | Requires hardware presence (YubiKey touch) or cluster-reaching credentials |
 | Raw transcripts and host-local artifacts | local hosts | Referenced by digest only (harness-evidence-policy) |
 
 Public admin sign-in (Q2) is Authentik OIDC with its own client, audience and
@@ -321,8 +324,9 @@ instruction. The claim this architecture makes is:
    listener reachable from the public horizon. What the reconciler retrieves
    is an untrusted proposed object: it canonicalizes it and computes its hash
    on the protected side, and trusts nothing the public horizon asserts about
-   it. The public horizon's maximum achievable *effect* stays "an unmergeable
-   branch and a queued intent" (TS-16); its maximum achievable *harm* includes
+   it. TS-16 bounds a hosted runtime's maximum achievable outcome at "an
+   unmergeable branch and a queued intent"; the same effect ceiling holds for
+   a compromised public horizon, while its maximum achievable *harm* includes
    poisoned proposals and records (§3.1 threat model), which the acceptance
    step exists to catch.
 2. **Digest-bound protected acceptance.** Only a separately authenticated
@@ -342,7 +346,8 @@ instruction. The claim this architecture makes is:
    ```
 
    The operator accepts with `credctl accept`, which binds this canonical
-   intent digest, not merely the intent ID (Q4). Opt-in auto-accept policies
+   intent digest, not merely the intent ID (Q4), and shows the operator the
+   protected-side canonical object it hashes, not a vuoro.cloud view of it. Opt-in auto-accept policies
    are off by default, set only from the trusted side, evaluated by the
    consumer asynchronously and never by the edge, and approve the same digest.
    Every acceptance records the acceptor (person, or policy id + version +
@@ -350,7 +355,7 @@ instruction. The claim this architecture makes is:
 3. **Effect on exactly what was accepted.** After acceptance the public side
    cannot alter what was accepted: the reconciler executes the protected-side
    copy of the accepted object, and any change to type, parameters, source run
-   or evidence refs yields a new hash and therefore a new intent that needs its
+   or immutable evidence refs yields a new hash and therefore a new intent that needs its
    own acceptance. cred-broker authorizes the capability, the reconciler
    executes, and Forgejo records the effect.
 4. **Receipts, one reconstructable chain.** cred-broker issues a non-secret
@@ -434,14 +439,30 @@ failover. The state machine is part of the architecture now; its
 implementation (epoch tagging, import, conflict surfacing) may come later
 (§7).
 
+**Transition (until Q1(b) lands).** Today local sprintctl, kctl and auditctl
+writes go to `vuoro-shared` (and auditctl shards), while hosted and
+interactive runs write to vuoro.cloud. That is not the NORMAL state above and
+not an outage epoch; it is the pre-cutover arrangement. The rule during it:
+each record family has exactly one named authoritative store and is never
+written to both. Local work changes: `vuoro-shared` (or local SQLite). Local
+evidence: auditctl shards (TS-6). Hosted and interactive runs, their evidence
+and notes: vuoro.cloud. Whether the pilot workspace's work catalog on
+vuoro.cloud currently duplicates `vuoro-shared` is not verified here
+**[INF]**; if it does, the cutover names which copy is authoritative.
+Nothing is dual-written. NORMAL begins at the Q1(b) cutover
+(after the Authorization-header fix and E2), when local harnesses move to
+vuoro.cloud and `vuoro-shared` drops to protected services + fallback.
+
 ### 3.4 TS-16 compliance
 
-TS-16 is unamended (cloud-enablement plan, 2026-09-26): cloud callers only
-queue effects, and acceptance is trusted-side (interactive, or opt-in
+TS-16 is unamended (cloud-enablement plan, 2026-09-26, :31-42): cloud callers
+only queue effects, and acceptance is trusted-side (interactive, or opt-in
 trusted-side auto-accept). `vuoro:effect.propose` and `vuoro:work.claim` stay
 reserved until a durable intent store (for propose) and an exclusive lease
 (for claim) exist **and** every tenant runtime serves the tools; the edge
-refuses assertions carrying authorities with no tools.
+refuses assertions carrying authorities with no tools
+(`vuoro-cloud:src/vuoro_cloud/oauth_scopes.py:22-36`;
+`vuoro-cloud:docs/design/e1/e1-stronger-baseline-design-2026-09-22.md:241-245,438-441`).
 
 | TS-16 clause | Split-horizon Vuoro |
 |---|---|
@@ -506,8 +527,8 @@ before the two sides can corroborate each other.
 
 ## 6. Decisions (operator, 2026-09-27)
 
-The former open questions, with the options as posed and the operator's
-decision and amendments.
+The former open questions, with the options as posed (Q1-Q4; Q5-Q7 had a
+single recommended option) and the operator's decision and amendments.
 
 **Q1. Primary endpoint for local harnesses: vuoro.cloud or vuoro-shared?**
 Options were: (a) local CLIs keep `vuoro-shared` as their served backend and
@@ -564,7 +585,7 @@ the canonical intent digest (§3.2), not merely the intent ID. Then allow
 trusted-side auto-accept for deliberately boring effect classes once the audit
 prerequisite (#10, tamper-evident audit) exists; `forge_comment_pr` is the
 first auto-accept canary. No devbox step-up acceptance: it adds another
-authority-bearing actor without buying much.
+authority-bearing actor without buying much initially.
 
 **Q5. Close the WireGuard residue.** **Decision: (a), immediately:** restrict
 the VPS peer's AllowedIPs to the operator's tunnel address and add an nft rule
@@ -594,6 +615,9 @@ the governing records. Architecture corrections do not go into release notes.
 - **Digest-bound `credctl accept` (Q4):** canonical hash over intent type,
   exact parameters, source run and evidence refs; reconciler executes only the
   accepted object.
+- **Q1(b) cutover (§3.3 Transition):** one named cutover from the
+  pre-cutover arrangement to NORMAL, with the record family → store mapping
+  checked before and after.
 - **Outage-epoch state machine implementation (§3.3):** operator-entered
   DEGRADED LOCAL, epoch-tagged local records, RECOVERY import with conflicts
   surfaced.
