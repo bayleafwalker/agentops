@@ -63,3 +63,16 @@ routines:
     client_id: claude-connector
     grant_ids: []
     report_repo: bayleafwalker/vuoro-cloud
+  # The "Vuoro connector validation" Routine, re-prompted with
+  # docs/routines/e1-review.md (vuoro#136) for #2521. Fired by hand on
+  # 2026-09-27: 08:31:53Z (session cse_01PQL3W4L52XZYkzA5iomf6R; register_run
+  # refused, because the connector grant was still read-only; PR vuoro#139)
+  # and 08:36:58Z (session cse_01ED1UPDKnzFSLNHBTV6nvsq, after a fresh
+  # authorization; run_M3ZZS6FM0WRW90GNMWX35649PJ; PR vuoro#140). It is
+  # disabled between manual fires.
+  - slug: e1-review
+    trigger_id: trig_011h9rgNW69ZiNzbnmmp1n2G
+    once: ["2026-09-27T08:31:53Z", "2026-09-27T08:36:58Z"]
+    client_id: claude-connector
+    grant_ids: []
+    report_repo: bayleafwalker/vuoro
