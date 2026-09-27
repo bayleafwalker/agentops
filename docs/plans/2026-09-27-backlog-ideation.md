@@ -1,8 +1,241 @@
 # vuoro.cloud backlog ideation (2026-09-27)
 
-Status: proposal from a read-only Fable planning pass, not yet adopted. H1 items are candidates for sprintctl; H2 and H3 await operator review.
+Status: Revised after operator review 2026-09-27; milestone structure proposed for adoption; M1 items proposed for sprintctl filing.
 
 Read-only planning pass. Sources: agentops plans (target state, cloud enablement plan, trusted-service design, options memo), vuoro `origin/main` (758e081, vuoro-service 0.1.76 / mcp-edge 0.1.3), vuoro-cloud `origin/main` (b013e29, generation 47 candidate), sprintctl and cred-broker-public READMEs, and `sprintctl item list --sprint-id 559` (149 items, 27 pending). Nothing was edited or committed.
+
+---
+
+## Revision after operator review (2026-09-27)
+
+This section is the adopted-candidate plan. The operator reviewed PR #253 at 6867424 and directed: retain the proposal, adopt its architectural direction, and replace "the next 10 dispatches" (§4) with three evidence-based milestones before promoting anything into sprintctl. Sections 1-5 below this one are kept unchanged as the record of the ideation pass, except for two in-place annotations (H1-4, H3-3). Where this section and §3-§4 disagree, this section wins.
+
+The operator's second direction shapes how the criteria are written: acceptance criteria say what a *finished* milestone demonstrates and which check we would actually run; they are not entry gates. Work starts, we learn, we adjust. A hard ordering constraint is kept only where skipping it breaks something real, and each such constraint names what it protects (a security invariant, TS-16, or a deploy-ordering break). Every criterion is a test, a command, or an artifact somebody can look at; anything that could not be assessed cheaply was dropped or softened.
+
+Sources verified for this revision (exact quotes cited by line): vuoro-cloud `origin/main` 22cb93f `19-PRODUCT-POSITIONING-AND-PROOF.md` and `00-EXECUTIVE-DECISION.md`; agentops `docs/plans/2026-09-17-target-state.md` (TS-8 L37, TS-16 L45, tripwire L150-155) and `docs/plans/2026-09-26-cloud-enablement-plan.md` (effects L33-42, required-before-slice-1 L50-55); vuoro `origin/main` 3d91256 `docs/plans/2026-09-26-e2-e3-shared-contract.md` and `packages/vuoro-reconciler/README.md`; sprintctl item #2520 (read-only, `item show`).
+
+### R1. Three milestones
+
+| Milestone | Objective | Proves |
+|---|---|---|
+| **M1 Record and resume real work** | Hosted activity leaves a reconstructable record, and interrupted work is taken over and settled correctly. | TS-16's control metric moves off zero for a *defined* cohort; the product proof contract's differentiated scenario (19-PRODUCT L46-53) runs end to end over the public surface; TS-8's second route exists in minimal form. |
+| **M2 Apply one bounded effect reliably** | One diff-shaped intent travels proposed → accepted → applied with a chosen lifecycle owner, survives crashes, and its provenance chain resolves. | TS-16's promised property: "a verifiable chain from a signed commit back to a run record" (target-state L45), produced and resolved, not attested. |
+| **M3 Widen proven use** | Effects and access widen only on top of M1/M2 evidence: repository subsets, a narrow auto-accept policy, full external onboarding, then comments and richer operator views. | The executive decision's external-user list (00-EXECUTIVE L7-14) holds without operator assistance; blast radius is bounded by exact repository grants. |
+
+Each milestone below lists: objective, included items (existing ids plus new sub-items, prefixed M1-x/M2-x/M3-x), what a finished milestone demonstrates (the checks we would run), and the ordering constraints that are real.
+
+---
+
+### M1. Record and resume real work
+
+**Objective.** Every hosted run in a known cohort produces a record that can be reconstructed, and work interrupted mid-flight is taken over, verified and settled by the authority, with the stale result kept as evidence. This is "the central investment": prove that work survives interruption and settles correctly before effects and broader access build on it.
+
+**Included items.**
+
+| Id | Item | Origin | Existing tracker ids |
+|---|---|---|---|
+| M1-1 | Evidence-emitting Routine and Routine-PR conformance check | H1-3 | none (new) |
+| M1-2 | Strict-client MCP conformance in vuoro PR CI | H1-5, minus the image build, which shipped in vuoro#135 (merged 2026-09-27) | none (new) |
+| M1-3 | Reconstructability coverage metric over a defined cohort | H1-4, corrected per review point 4 | pairs with #2486 |
+| M1-4 | Settlement takeover proof with verification and resume | H2-2 promoted per review point 1 | depends on #2520 (E2b lease) |
+| M1-5 | Minimal cross-harness continuation: successor run linked to its predecessor | H3-4 minimal proof per review point 5 | pairs with #2484 (S8 cross-harness leg) |
+| M1-0 | Tracker hygiene: close or re-scope #2502 and #2479 with evidence; H1-9 folded into #2520's scope | H1-10, H1-9 | #2502, #2479, #2520 |
+
+H1-9 (principal in the shared `IdempotencyLedger` protocol) is not a separate item: the contract's §5 amendment already requires each ledger to fold the principal, sprintctl#97's ledger already keys on it, and #2520 builds the next ledger consumer. The filing proposal (Appendix A) asks that #2520's description name the protocol change as part of its scope.
+
+**What a finished M1 demonstrates (the checks).**
+
+*Record (M1-1, M1-2).*
+- A Routine PR in `bayleafwalker/vuoro` carries `Vuoro-Run: <run_id>` in its body, and `describe_run`/`work.read` resolves that id to a run record whose RunManifest fields (`harness_id`, `harness_build`, `model_id`, `recipe_id`, `observed_profile`) are non-null and whose evidence count is ≥ 1. Check: the agentops conformance script run against the PR number exits 0.
+- `docs/runbooks/cloud-routine-authoring.md` requires `register_run` at start, `append_evidence` for findings, `write_session_note` at end, and the `Vuoro-Run` trailer; the E1 review Routine follows it. Check: read the runbook diff and one Routine PR.
+- vuoro CI fails a PR that changes any MCP envelope field (`resultType`, `cacheScope`, error shape, `tools/list` schema) away from MCP 2026-07-28. Check: a deliberate one-line regression on a throwaway branch turns the `mcp-strict-client` job red; the D-044 isolation test runs in the same job against the image vuoro#135 builds.
+
+*Coverage metric (M1-3).*
+- The metric is a funnel over a **defined cohort**, not an inference from MCP exchanges or PRs: **expected invocations** (the Routine schedule and any dispatched cloud sessions, enumerated from the schedule definition and the dispatcher log) → **observed runs** (run records whose binding names the cohort's client and grant) → **evidence-bearing runs** (≥ 1 evidence entry) → **fully resolvable outcomes** (a PR or session note whose `Vuoro-Run` trailer resolves and whose evidence digests match). Each stage reports a count and the ids that dropped out.
+- **Unknown coverage is reported explicitly**: invocations expected but never observed (silent failures, sessions that never contacted Vuoro) appear as `unknown: N` with their scheduled times, never as absent. Retries are counted once per expected invocation, so request counts do not inflate the numerator.
+- Check: `scripts/reconstructability_coverage.py --since <date>` prints the four stages plus `unknown`; run it once with a Routine deliberately configured to skip `register_run` and confirm that invocation lands in `unknown`, not in `observed`. The weekly lane check-up quotes the funnel.
+
+*Settlement (M1-4).* Two hosted callers, A and B, on the kotona workspace, over the public surface, against #2520's lease. The finished proof is an evidence packet in vuoro `docs/evidence/` showing, with tool-call transcripts and the authority's records:
+- A claims work item X and heartbeats; A stops (process killed, not gracefully ended).
+- B takes X over through the lease (stale heartbeat, or operator reassignment, whichever #2520 decides; see R4).
+- A's late `complete_work` is **rejected with the dead-lease code**, and **A's result is retained as evidence** on X (visible through `work.read`/`describe_work` evidence list). **A cannot settle**: X's status did not change on A's call.
+- **B's result satisfies a named verification profile** from 19-PRODUCT L133-139 (proposed default: `checked`, "configured checks passed"; see R4 for why not `self-reported`), and the settlement record names it ("accepted under verification profile checked", never "proved correct", per L141-143).
+- **The authoritative decision settles X**: the work owner, evaluating the current lease and configured verification at settlement time (L55-62), not the caller's self-report.
+- **The dependent item Y becomes ready**: `next-work --explain` lists Y under `ready_items` after settlement and not before.
+- **Restart/resume**: a third case in which A is killed and *A itself* restarts under the same principal and idempotency key, re-acquires or resumes its own lease, and completes normally, so a crashed-and-restarted worker does not look like a takeover. Check: the same run id, one settlement, no stale-result rejection.
+- Check: the six cases above are a scripted run (two `--cloud` sessions or Routines plus one kill), re-runnable, with the resulting records quoted in the packet. The landing page's proof section may cite the packet only after it exists.
+
+*Continuation (M1-5).*
+- `register_run` accepts an optional `predecessor_run_id`. The edge records the link on the successor run and refuses it unless the caller's binding may read the predecessor (same workspace and repository; grant carries `work:read`), because the contract resolves runs only to "the exact same binding" (contract §4 L79) and a successor is a *new* run, not a resolution of the old one.
+- A successor run may read the predecessor's evidence and session notes (its checkpoint) through the read tools; the predecessor is not modified.
+- Check: Claude Routine run R1 writes a session note and stops; a session on a different client identity (a second pre-registered OAuth client if one exists by then, otherwise a second principal on the same client) registers R2 with `predecessor_run_id = R1`, reads R1's note, appends evidence to R2, and `describe_run R2` shows the link. A negative case: a caller outside R1's workspace gets `run-not-found`. This is the minimal TS-8 second route; registering an OAuth client alone does not count (review point 5).
+
+**Ordering constraints that are real.**
+- M1-4 cannot start its live cases before #2520 ships and `vuoro:work.claim` is granted: without an exclusive durable lease there is nothing to take over (operator decision in the cloud-enablement plan; #2520's own precondition that every tenant runtime serves the claim tools before the grant, because the edge refuses assertions carrying `work:claim` without tools). The harness, prompts and the restart case can be written first against a local backend.
+- M1-1 needs generation 47 promoted for a non-zero result; writing the runbook and conformance script does not.
+- Nothing else in M1 is ordered. M1-2, M1-3 and M1-5 can start now in parallel.
+
+---
+
+### M2. Apply one bounded effect reliably
+
+**Objective.** One diff-shaped `EffectIntent` on one canary repository travels `proposed → accepted → applied` through a chosen lifecycle owner, the deployed homelab reconciler, and a signed commit whose provenance chain resolves; it survives a crash at every step; acceptance of the *proposal* is never confused with settlement of the *work*.
+
+**Included items.**
+
+| Id | Item | Origin | Existing tracker ids |
+|---|---|---|---|
+| M2-1 | Lifecycle owner decided and the durable intent store built in it, served on read | H1-1, reframed as a lifecycle and recovery contract (review point 2) | #2480, #2482 consumed as inputs |
+| M2-2 | Reconciler deployed on the homelab; one intent applied on the canary; authenticated acceptance | H1-2 | none |
+| M2-3 | Crash recovery and concurrency cases for the deployed path | new, split out of H1-1/H1-2 | none |
+| M2-4 | Minimal provenance resolver: signature check and commit → intent → run → evidence chain | H3-2 minimal, pulled in (review point 3) | none |
+| M2-5 | Pending intents visible in `next-work`/`session resume` | H2-3, shipped with the first consumer | #2474's bucket pattern |
+| M2-6 | Cloud build lane, reproducible setup | H2-5, brought forward enough to support M1/M2 cloud work | none |
+
+**What a finished M2 demonstrates (the checks).**
+
+*Lifecycle contract (M2-1, M2-2).*
+- **The owner was decided before the store was built** (R4, decision 1). One authority holds intent state; there is no second table elsewhere that can disagree with it. Check: the ADR/decision note is cited from the store's PR.
+- **Effect-proposal acceptance is separate from work settlement.** Accepting an intent changes only the intent's state (`proposed → accepted`); it never changes the work item's status, and settling a work item never accepts an intent. Check: accept an intent on an item that is still claimed and confirm the item status is unchanged; complete the item and confirm a `proposed` intent on it is still `proposed`. The intent record names its acceptor (`{kind: operator, subject}` or `{kind: policy, ...}`), and the reconciler's own re-validation still refuses an intent accepted by its proposer (README L93-95).
+- **Acceptance is authenticated on the trusted side.** The store's `accept`/`reject`/`mark-applied` operations require a served-shell identity that cloud assertions cannot carry (TS-16: no cloud-reachable path to acceptance). The `--operator` subject stays self-asserted for attribution in M2 (README L33-39), and the identity work that authenticates it is H2-8 in M3; M2 records this residual rather than pretending otherwise.
+- One canary repository, one accepted docs diff, one PR opened by the reconciler with a commit signed by the reconciler's key and carrying `Vuoro-Run`, `Vuoro-Intent`, `Vuoro-Accepted-By` trailers (README L104-108). Check: `git verify-commit` succeeds against the reconciler's public key, and the PR body names the intent.
+
+*Crash recovery and concurrency (M2-3).* Each case is a scripted kill of the reconciler at a named point, then a restart; the expected outcome is one branch, at most one PR, and one terminal intent state:
+- **Crash after push, before PR creation**: restart finds `vuoro-effect/<intent_id>` already carrying the change and opens exactly one PR (extends README L111-112's re-run rule).
+- **Crash after PR creation, before recording `applied`**: restart finds the open PR, does not open a second one, records `applied` once.
+- **Crash before recording success** (after PR, provider call returned, process died before the `IntentSource` write): same outcome as above; the provider marker (branch + PR) is the recovery key, so the outcome is recoverable "without the ledger" (cloud-enablement plan L55, item 8).
+- **Concurrent consumers**: two reconciler processes against the same `IntentSource` and the same accepted intent produce one branch and one PR; the loser records nothing or a harmless duplicate-detected outcome.
+- **Credential revocation**: revoke the provider token (or the workspace token) mid-run; the intent ends `failed` with the reason recorded, no partial branch is left on the default branch, and other intents continue (README L113-115).
+- Check: a pytest module with one test per case against a fake provider plus one live run of the after-push case on the canary. Cheap to assess: each is a red/green test with an artifact (branch, PR, intent state) to inspect.
+
+*Provenance (M2-4).*
+- `vuoro provenance <sha>` (or an agentops script; the polished command is M3) verifies the commit signature against the reconciler's key, reads the trailers, and resolves intent → run → RunManifest → evidence digests through the public read operations, printing one document that says "reconstructable", never "attested".
+- Failure cases each produce a distinct, named failure: **wrong-repository reference** (the intent's repository is not the commit's repository), **missing evidence** (a run with no evidence entries, or a referenced evidence id that does not resolve), **mismatched digests** (evidence digest in the record differs from the recomputed digest), and **signature verification failure** (unsigned, or signed by a key that is not the reconciler's).
+- Check: four fixture commits, one per failure, plus the canary's real commit; the resolver exits non-zero with the named failure for each fixture and 0 for the real one.
+
+*Visibility (M2-5).* `next-work --explain` and `session resume` show a `proposed_intents` bucket (intent id, run, repository, title, proposer, age, the exact accept command). Check: propose one intent and see it listed; accept it and see it leave.
+
+*Cloud lane (M2-6).* `scripts/cloud-setup.sh` builds the same environment twice from a clean checkout with identical lockfile digests; any claimed network restriction is enforced by the setup, not asserted (a test tries an outbound request after setup and it fails). Check: two runs, diffed; one denied request in the log.
+
+**Ordering constraints that are real.**
+- **Decision 1 (lifecycle owner) precedes M2-1's implementation.** Building the store in the wrong owner creates a second lifecycle authority (the review's "second settlement authority" risk) and rework of the served operations, scope rows and reconciler `IntentSource`; this is a design-invariant break, not a process gate. Everything else in M2 can be prototyped against an in-memory `IntentSource`.
+- **M2-2's canary allowlist is one repository until H2-1 (M3) lands**: "stay canary-only until then" (cloud-enablement plan L50). This protects the TS-16 blast radius.
+- M2-3 and M2-4 do not block M2-2's first live intent; they are what makes M2 *reliable*, and can land in the same or the next dispatch.
+
+---
+
+### M3. Widen proven use
+
+**Objective.** Widen effects and access only on top of M1/M2 evidence, in this order: exact repository subsets, one narrow auto-accept policy, the full external onboarding contract, then comment intents and richer operator views.
+
+**Included items.**
+
+| Id | Item | Origin | Existing tracker ids |
+|---|---|---|---|
+| M3-1 | Exact-subset repository grants, including grant narrowing, revocation and existing-run behaviour | H2-1 | #2518 (edge half) |
+| M3-2 | First auto-accept policy (docs-only diffs), measured on failures and operator effort as well as latency | H2-4 | none |
+| M3-3 | External onboarding: the full executive-decision list, without operator assistance | H2-6 widened (review point 6) | #2428 (backups) as a stated precondition per 00-EXECUTIVE L98 |
+| M3-4 | Comment and review intents through the reconciler | H3-1 | none |
+| M3-5 | Settlement view: exceptions, pending intents, evidence links, freshness | H3-5 narrowed | none |
+| M3-6 | Admin identity (OIDC) that authenticates the reconciler's acceptor | H2-8, following the identity design | #2482 |
+| M3-7 | Activity and denial report (observational) | H3-3 narrowed | folds into #2472 |
+| M3-8 | Polished `vuoro provenance`, second-harness registration, Managed Agents proof | H3-2 rest, H3-4 rest, H3-7 | #2469 |
+
+**What a finished M3 demonstrates (the checks).**
+
+*Repository subsets (M3-1).* A grant names a subset of the workspace's repositories; every tool call names one repository from it; a call naming a sibling fails with the same not-found shape as an unknown repository. Narrowing a grant while a run is live: the run's next call outside the new subset fails, the run's record is unchanged. Revoking a grant: all calls fail, existing evidence remains readable to the workspace. Check: three tests in vuoro-cloud, one live consent-screen screenshot.
+
+*Auto-accept (M3-2).* One policy `{workspace: kotona, repository: <canary>, effect_kinds: [unified_diff], path_globs: ["docs/**"]}`, off by default, switched on from the trusted side, every acceptance recording `{kind: policy, id, version, config_digest}`. Measured over two weeks: proposal → PR latency, number of failed applies, number of operator interventions (reverts, rejections after the fact). Check: a table with those three columns for policy vs operator acceptance; a proposed diff outside `docs/**` stays `proposed`.
+
+*External onboarding (M3-3).* One invited external user, without operator assistance, does all six of 00-EXECUTIVE L9-14: creates an account and workspace; commissions a repository from a terminal; receives a scoped identity and client profile; runs `sprintctl doctor` successfully in served mode; creates, reads and updates sprint work through the public API; rotates and revokes credentials. **Connector evidence access and terminal work authority stay separate paths**: the MCP connector grant reaches `work:read`/`work:evidence` only; work creation/update/settlement authority is the terminal identity, and the evidence packet shows the two identities and their scope rows. Check: a screen recording or transcript per step, the `doctor` output, the credential rotation event in the audit log, and the second tenant visible in the drift report (H1-7).
+
+*Comments (M3-4).* `forge_comment` intents pass provider authorization (the reconciler's token is scoped to the allowlisted repositories and comment permission), replay recovery (the after-push analogue: a crash after posting does not double-post), and output policy (mention and URL allowlist per trusted-service design §3). Check: tests for the three, one live comment on the canary. This is not "free" Forgejo support; Forgejo goes on the allowlist only after the same three pass against it.
+
+*Operator views and reports (M3-5, M3-7).* The settlement view starts with exceptions (stale leases, rejected completions), pending intents and evidence links, and shows freshness (age of the newest record) and an explicit "authority unavailable" state when the served backend does not answer. The activity and denial report lists, per runtime and per model family, observed calls and recorded denials (`rate_limit_event` evidence) for a week; it does **not** claim to measure vendor quota consumption. Parking semantics are added only once #2520's lease contract says what a parked lease is. Check: the view renders against a workspace with one stale lease and one pending intent; the report runs weekly and its header says what it does not measure.
+
+*Identity (M3-6).* After the admin OIDC path exists, `vuoro-reconciler accept` records an acceptor the control plane authenticated, not a self-asserted string. Check: an accept with a forged `--operator` is refused or recorded as unauthenticated.
+
+**Ordering constraints that are real.**
+- **M3-1 before effects expand beyond the canary** (cloud-enablement plan L50): a security invariant, not a process gate. Everything in M3-1 can be built while M2 is finishing.
+- **M3-2 after M2-3 and M2-4**: enabling a policy that accepts without an operator before recovery and provenance exist means a failure is silent and unresolvable. Ordering protects TS-16's "every auto-acceptance ... can be reconstructed" (plan L41).
+- **M3-3 after #2428-style backups and revocation exist** (00-EXECUTIVE L98: "hard quotas, token revocation, backup and selective restore procedures before onboarding anybody external"). This is the executive decision's own precondition, not a new gate.
+- Everything else in M3 is unordered.
+
+---
+
+### R2. H2/H3 disposition, reconciled item by item
+
+The review's table, with each row placed against the original item and the milestone it now belongs to.
+
+| Original item | Review recommendation | Disposition in this revision |
+|---|---|---|
+| H2-1 repository subsets | Keep high priority after E2 proof; require before effects expand beyond the canary; include grant narrowing, revocation, existing-run behaviour. | **M3-1**, first item of M3; the three behaviours added to its acceptance. #2518 stays its edge half. Hard constraint: before effects widen (security invariant). |
+| H2-2 settlement proof | Promote into the first milestone, with verification and resume added. | **M1-4.** The original outcome lacked the verification profile and a restart case; both added. |
+| H2-3 pending intents | Ship visibility with the first consumer. | **M2-5**, shipped alongside M2-2's first live consumer. |
+| H2-4 auto-accept | Enable the narrow policy after recovery and provenance work; measure failures and operator effort as well as latency. | **M3-2.** Measurement widened from latency alone to failures and operator interventions. Ordered after M2-3/M2-4. |
+| H2-5 cloud build lane | Bring forward enough to support early cloud work; prove reproducible setup and enforce any claimed network restriction. | **M2-6**, may start during M1. Reproducibility check (two builds, identical digests) and an enforced-not-asserted network test added. |
+| H2-6 external tenant | Keep as a distinct product milestone with the full onboarding contract. | **M3-3**, widened from an evidence-only connector pilot to all six items of 00-EXECUTIVE L9-14, with connector evidence access and terminal work authority as explicit separate paths. |
+| H2-7 Routine firing | Defer until the manual flow works reliably; keep the dispatcher outside the substrate; specify duplicate-fire handling and bounded dispatch. | **Deferred past M3.** When revived, its acceptance includes a duplicate fire producing one run and a cap on concurrent fires; TS-2 keeps the dispatcher on the homelab. |
+| H2-8 admin OIDC | Follow the identity design; browser sign-in alone does not authenticate the reconciler's `--operator`. | **M3-6.** Rewritten so the deliverable is an authenticated acceptor for the reconciler, not a login page. M2 records the self-asserted residual explicitly. |
+| H3-1 comment intents | A sensible later extension, not "free" Forgejo support; require provider authorization, replay recovery, output-policy tests. | **M3-4** with those three tests; Forgejo enters the allowlist only after they pass against it. |
+| H3-2 provenance | Promote the minimal proof; postpone broader tooling. | **M2-4** (signature check, chain resolution, four failure cases); the polished command and GitHub check move to **M3-8**. |
+| H3-4 second harness | Promote the minimal proof; postpone broader tooling. | **M1-5** (successor run linked to predecessor, with the permission rule); OAuth client registration for Codex/Responses moves to **M3-8** and is explicitly not the proof of TS-8. |
+| H3-3 denial reporting | Keep narrow and observational; add parking semantics only with the lease owner's contract. | **M3-7**, renamed "activity and denial report"; consumption accounting removed; parking waits for #2520's contract. H3-3 annotated in place below. |
+| H3-5 settlement dashboard | Start with exceptions, pending intents, evidence links; show freshness and unavailable-authority states. | **M3-5**, narrowed to those and the two states; ready-item and last-20-runs panels dropped from the first cut. |
+| H3-6 workspace-as-code | Defer; separate ordinary settings from policies that grant authority; a reconciler signature alone must not authorize widening its own permissions. | **Deferred past M3.** Kept in §3 as an idea with the operator's constraint recorded: authority-granting policies need an authenticated admin actor (M3-6) and a second signature, never the reconciler's alone. |
+| H3-7 Managed Agents proof | Preserve as a bounded proof of the accepted second reachability path; define its trust model rather than calling it categorically safer. | **M3-8.** The "strictly safer than the public surface" claim in H3-7 is withdrawn; the item must state what the poller trusts (vendor task payloads, internal MCP server, devbox host). |
+| H3-8 ablation | Defer until outcomes are dependable; ten cases establish feasibility, not a ranking. | **Deferred past M3.** When revived, it is a feasibility run and its Decision says so. |
+
+H1 items not in a milestone: **H1-6** (control egress closure) and **H1-7** (fleet drift report) remain vuoro-cloud platform hygiene, dispatched when a Forgejo session is open; H1-7 is a stated input to M3-3. **H1-8** (status docs) is a `reconcile-project-contracts` pass to run after generation 47 promotes. None of the three is ordered against a milestone.
+
+---
+
+### R3. In-place corrections to H1-4 and H3-3
+
+Both original items are annotated below where they stand (marked **Revised 2026-09-27**). In summary:
+- **H1-4** no longer infers hosted sessions from `mcp_exchange` counts or Routine PRs. It counts a defined cohort: expected invocations → observed runs → evidence-bearing runs → fully resolvable outcomes, and reports unknown coverage explicitly. Retries count once per expected invocation.
+- **H3-3** becomes an **activity and denial report**: observed calls and recorded denials per runtime and model family. It does not measure vendor quota consumption, and it adds no parked state until #2520's lease contract defines one.
+
+---
+
+### R4. Open decisions for the operator
+
+Only the first is a hard ordering constraint (it blocks M2-1's implementation). The others have a recommended default; work proceeds on the default and adjusts if the operator decides otherwise.
+
+**Decision 1 (blocks M2-1): the authoritative lifecycle owner for effect intents.** The cloud-enablement plan leaves it open ("Choose the authoritative lifecycle owner from day one; no temporary Vuoro execution state machine", L51) and H1-1 hedged ("sprintctl ... or a vuoro-service intents adapter").
+
+| Option | What it means | Outcome |
+|---|---|---|
+| **A. sprintctl, the work owner** (served-shell operations `work.effect.propose/get/list-proposed/accept/reject/mark-applied`, one `effect_intent` table) | Intents live beside the work, runs, claims and the ledger they refer to. The reconciler's `IntentSource` is a served-shell client. | One authority for work state and intent state, so proposal acceptance and work settlement cannot drift apart; the idempotency ledger already keyed by `(workspace, principal, tool, key)` (sprintctl#97) is reused; the served-shell identity already exists for trusted-side calls, so `accept` needs no new auth path. Cost: a sprintctl schema change and release, and the served authority must roll before the edge can list the tools. |
+| **B. vuoro-service adapter with its own table** | Faster to ship inside vuoro; no sprintctl release. | A second lifecycle authority next to the work owner: acceptance auth must be invented, intents can reference work items the authority does not know settled, and the contract's "each item's ledger lives with its record owner" (§5 L98) is bent. Rework later if A is chosen after all. |
+| **C. Homelab-held intents (file or Git)** | Nothing new served. | Fails TS-1's "stores and serves": the cloud cannot `get_effect`, so proposers never learn the outcome. Rejected. |
+
+**Recommendation: A.** The record owner already holds runs and claims, the edge's effect toolset was written to wait for "ActionQ's intent-lifecycle operation" (vuoro `effect_tools.py` L880-886), and A is the only option in which "accept an effect proposal" and "settle the work" are two operations on one authority, which is the review's central concern. Decide this, then M2-1 starts.
+
+**Decision 2 (M1-4 default: `checked`): the verification profile B must satisfy.** 19-PRODUCT L133-139 names five: self-reported, checked, role-separated, identity-separated, human-authorized. `self-reported` would make step 7 of the scenario indistinguishable from A's rejected self-report; `role-separated` needs a separate verifier identity, which M1-5's second identity could provide later. Default `checked` (configured checks passed); the settlement record names the profile either way.
+
+**Decision 3 (M1-5 default: same workspace and repository, `work:read`): who may register a successor run.** Default: the successor's binding must share the predecessor's workspace and repository and carry `work:read`; a different principal, client or grant is allowed. The stricter alternative (same grant) would make cross-harness continuation impossible by construction and fail TS-8's second route.
+
+**Decision 4 (M2-2, operator-only): canary repository and signing-key custody.** Default: a dedicated `vuoro-e3-canary` repository, and a reconciler SSH signing key generated on the host that runs the unit, never exported.
+
+**What #2520's lease design must decide** (it is the foundation M1-4 and M3-7 stand on; the item is filed but its description does not yet fix these):
+1. **Expiry and who evaluates it.** TS-1 forbids Vuoro assigning, scheduling, retrying, supervising or expiring; the workable reading is that the *work owner* evaluates lease validity at claim, heartbeat and settlement time ("the owning authority evaluating the current reservation and configured verification at settlement time", 19-PRODUCT L61-62), not a background sweeper in the edge. Decide the heartbeat TTL and whether it is per workspace.
+2. **Takeover semantics.** Whether B takes over by claiming a stale lease (heartbeat older than TTL) or only by an explicit operator reassignment, and what the takeover record looks like.
+3. **Stale-completion outcome.** The exact error code A receives, and that A's payload is retained as evidence on the item (not discarded), which M1-4 asserts.
+4. **Settlement versus outcome report.** Whether `complete_work` settles directly or reports an outcome the authority settles after evaluating lease and verification; the second keeps the authority authoritative and is what the proof needs. Which verification profile identifiers the owner recognises (Decision 2).
+5. **Resume by the same principal.** Whether a restarted worker with the same principal and idempotency key re-acquires its own lease (M1-4's restart case). The contract's rule "the same idempotency key under the same binding returns the same run" (§4 L76) suggests yes.
+6. **Ledger protocol.** Taking on H1-9: the shared `IdempotencyLedger` protocol takes `(workspace_id, principal_id, tool, key)` so the lease ledger and the intent-store ledger share one behaviour test.
+7. **Parked state.** Whether a lease can be marked `parked` on a recorded denial (M3-7), or whether parking is a session note and not a lease state. Not needed for M1; decide it here so M3-7 does not invent it.
+
+---
+
+### R5. Costs and counting, corrected
+
+- **The 2-4-week horizon and the USD 250 estimate are provisional.** They were sized for the original ten dispatches and are kept only as the order of magnitude to revisit after M1.
+- **Dispatch counting.** §4 counted ten rows as ten dispatches while §3 sized several of them as multiple dispatches (L = 4-6, M = 2-3). Re-counting §4 with §3's own mid-points: H1-10 (1) + H1-9 (1) + H1-3 (1) + H1-1 (5) + H1-5 (2-3) + H1-4 (1-2) + H1-2 (2-3) + H1-8 and H1-6 (1 + 2-3) + H2-2 (2-3) + H2-3 and H2-4 (1-2 + 1) is roughly **20-25 dispatches, not 10**.
+- **M1 alone**, as filed in Appendix A: M1-0 (0.5) + M1-1 (1) + M1-2 (2) + M1-3 (1-2) + M1-4 (2-3, plus #2520's own 4-6) + M1-5 (2) is about **9-11 dispatches excluding #2520, 13-17 including it**. Roughly half are cloud-suitable.
+- **What the tick cost does not cover.** The USD 2-3 per lane-loop tick (#2504) prices a bounded implementation tick. It does not price integration (two repos changing together, e.g. sprintctl release then edge composition then vuoro-cloud scope rows), retries (a failed cloud run is paid for and repeated), or releases (vuoro-service versions, generation promotions, served rolls, which are local and operator time, not credit). Treat the cloud-credit number as a floor.
+- **Measure, then re-estimate.** M1-3's funnel and the lane check-up record the actual per-item cost; the M2 estimate is written after M1's numbers exist.
 
 ---
 
@@ -88,11 +321,13 @@ Sizes: S ≤ 1 dispatch, M 2-3, L 4-6, XL a wave. "Cloud" means suitable for `cl
 - **Problem.** TS-16 defines the control question as "what proportion of automated activity is reconstructable; for hosted runtimes today it is zero" and nothing computes it.
 - **Outcome.** A derived read-only query (agentops `scripts/`, beside `cost_per_release.py`) that joins gateway `mcp_exchange` counts / Routine PRs (GitHub API) against run records, and reports: hosted sessions observed, sessions with a run record, runs with ≥1 evidence entry, PRs with a resolvable `Vuoro-Run` trailer. Weekly number in the lane check-up.
 - **Repos.** agentops. **Depends.** H1-3 for a non-zero result. **Size.** S-M. **TS-16.** Read-only. **Track.** 1568 target-state-path (pairs with #2486). **Dispatch.** Cloud (GitHub reads + served `work.read`), or Local if gateway logs are needed.
+- **Revised 2026-09-27 (operator review, point 4).** The outcome above is superseded: joining `mcp_exchange` counts and Routine PRs cannot infer hosted sessions (silent failures and sessions that never contact Vuoro are absent; retries inflate request counts). The metric is a funnel over a **defined cohort**: expected invocations → observed runs → evidence-bearing runs → fully resolvable outcomes, with **unknown coverage reported explicitly** and retries counted once per expected invocation. Filed as M1-3 (Appendix A.3).
 
 #### H1-5. Strict-client MCP conformance in vuoro PR CI, and build the image on PR
 - **Problem.** The `resultType`/`cacheScope` regression reached production because claude.ai is lenient and Claude Code strict (cloud-enablement-plan "Why the 2026-09-25 verdict was no"). `ci.yml` builds wheels only; the image workflow is release-time.
 - **Outcome.** A CI job that (a) builds the `Dockerfile` image, (b) starts `vuoro-service mcp-serve` with a test assertion signer, and (c) runs a strict MCP 2026-07-28 client (schema-validated `tools/list`, `tools/call` envelopes, error shape) plus the D-044 isolation test against the container. Fail on any envelope deviation.
 - **Repos.** vuoro. **Depends.** none. **Size.** M. **TS-16.** n/a (test-only). **Track.** 1466 tests. **Dispatch.** Cloud.
+- **Note 2026-09-27.** Part (a), the image build on PR, shipped in vuoro#135 (merged 2026-09-27); M1-2 covers (b) and (c).
 
 #### H1-6. Close control's 443-anywhere egress and add policy deny-tests
 - **Problem.** `platform/policies/network-policies.yaml:66-72` lets control reach any host on 443 (Wave B item, unowned in the tracker). Required-before-slice-1 item 9 asks for the CONNECT/SNI, metadata, node-local and IPv6 deny-test gaps to be closed.
@@ -177,6 +412,7 @@ Sizes: S ≤ 1 dispatch, M 2-3, L 4-6, XL a wave. "Cloud" means suitable for `cl
 - **Opportunity.** "Your MCP server sees every claim and completion from every runtime. It is the one vantage point you control that spans them all" (edge doc §6). No vendor exposes plan consumption programmatically; E4 (#2472) is parked for lack of signal.
 - **Outcome.** Derive per-run, per-runtime, per-model-family activity from `mcp_exchange` logs + run records + `rate_limit_event` evidence appended by callers; a weekly "which runtime did what, and where did denials happen" report; a `parked` marker on a claim when a caller records a family denial (records and parks, never re-dispatches; TS-1). This is the minimal E4 that #2472 says is meaningful only with RunManifest and leases, both of which now exist or are in flight.
 - **Repos.** agentops (derived query), vuoro (evidence kind `rate_limit_event`), sprintctl (parked state on the lease). **Depends.** #2520, H1-3. **Size.** M-L. **TS-1/TS-2.** Observe, never route. **Track.** 1551 (folds into #2472). **Dispatch.** Cloud for queries; Local for logs.
+- **Revised 2026-09-27 (operator review, point 4 and disposition table).** Renamed **activity and denial report**. Observed calls do not measure vendor quota consumption, so "consumption ledger" is withdrawn: the report lists observed calls and recorded denials per runtime and model family, observationally, and its header says what it does not measure. The `parked` marker is added only once #2520's lease contract defines a parked lease (R4). Placed in M3-7.
 
 #### H3-4. Second hosted harness on the same connector (OpenAI Responses / Codex cloud)
 - **Opportunity.** TS-16 lists OpenAI Responses as a target runtime; TS-8 requires cross-harness continuation; Codex is already in daily use (71 sessions in the first half of September). The OAuth connector is harness-neutral by design.
@@ -206,6 +442,8 @@ Sizes: S ≤ 1 dispatch, M 2-3, L 4-6, XL a wave. "Cloud" means suitable for `cl
 ---
 
 ## 4. Sequencing: the next 10 dispatches
+
+> **Superseded 2026-09-27** by the three milestones in "Revision after operator review" (R1) and the corrected counting in R5. Kept as the record of the original sequencing.
 
 | # | Item | Why now | Mode |
 |---|---|---|---|
@@ -240,3 +478,61 @@ Credit note: dispatches 2, 3, 5, 6 and the code half of 4 are cloud-suitable and
 - **Deleting E1 if E2-E4 stall.** Superseded 2026-09-22: "assumption of use"; the response to a met tripwire is to stop investing, not to delete.
 - **Replacing GitHub OAuth for users.** H2-8 adds a second provider for the *admin* identity only; user sign-in stays invitation-gated GitHub until an external tenant asks otherwise.
 - **A browser-side write path in the dashboard (H3-5 with buttons).** Every mutation of work or effects stays behind an authenticated CLI or served operation with idempotency keys; the dashboard shows the command, it does not run it.
+
+
+---
+
+## Appendix A. M1 sprintctl filing proposal (not filed)
+
+Proposed for sprint 559. Nothing here has been written to sprintctl; the operator (or a served session the operator authorises) files it. Track names are the existing ones from `sprintctl item list --sprint-id 559`: `vuoro-edge` (1551), `tests` (1466), `target-state-path` (1568), `handoff` (1460), `process` (1469). Priority follows the sprint's convention (1 is highest; #2479 sits at 1, #2480 at 2). The list is deliberately lean: five items, each a whole deliverable with a pragmatic definition of done, rather than one item per sub-step.
+
+### A.0 Stale items to close or re-scope first
+
+Both verified on 2026-09-27 against what shipped.
+
+**#2502 (track `sprintctl-lifecycle`, priority 3) — roll served vuoro-shared to vuoro-service 0.1.71, then upgrade the CLIs to 0.7.2.** Superseded. Evidence: the served authority now runs generation 46 (sprintctl 0.8.0-era vuoro-service, per #2520's description: "run/evidence half shipped (vuoro#131, sprintctl#97 / 0.8.0, generation 46)") and vuoro `origin/main` is at 0.1.76 (release PR vuoro#133); the item's own step-6 acceptance probe passes today: `sprintctl next-work --sprint-id 559 --explain --json` returns a `checkpointed_unacked` bucket (measured 2026-09-27 from the agentops marker repo, served backend); `sprintctl --version` prints 0.7.4 on this host, past the 0.7.2 target. **Action:** close as superseded with a note citing vuoro#133 and the probe output; re-check the devbox CLI version in the note (only the workstation was measured). #2502 blocks #2484 (edge 917); closing it unblocks S8, which pairs with A.5.
+
+**#2479 (track `pipeline-rebuild`, priority 1) — RunManifest as a first-class object, emitted at session start and referenced from every evidence record.** Partly shipped. Evidence: vuoro#122 "feat(evidence): RunManifest as a first-class object (agentops#2479)" merged 2026-09-23 (`packages/vuoro-evidence/src/vuoro_evidence/run.py:100`, with `tests/test_run_manifest.py`); the E2 edge's `register_run` constructs a `RunManifest` as the run record (`packages/vuoro-mcp-edge/src/vuoro_mcp_edge/record_tools.py:270-274`), which is the emission point for hosted runs. Not shipped: scope items (2) and (3) for the *local* actionq-dispatcher path (one RunManifest at dispatcher session start; a reference on every EvidenceItem it produces). **Action:** re-scope, not close: rewrite the description to the residual (dispatcher emission and entry reference, hosted path done via E2), cite vuoro#122 and vuoro#131 in a note, and keep the dependency edge to #2487. If the operator prefers, close it and file the residual as a smaller item; either way #2487 stays blocked until the residual exists.
+
+**#2520 (track `vuoro-edge`, no priority) — E2b claims behind an exclusive durable lease.** Not stale, but its description should grow two things before A.4 depends on it: the seven lease decisions in R4 ("What #2520's lease design must decide") as its design checklist, and H1-9 (the `IdempotencyLedger` protocol taking `(workspace_id, principal_id, tool, key)`) as in-scope. Suggested priority 1.
+
+### A.1 Evidence-emitting Routine and Routine-PR conformance check
+
+- **Track:** `vuoro-edge` (1551). **Priority:** 2. **Size:** S (1 dispatch, cloud).
+- **Title:** M1-1: the E1 review Routine registers a run, appends evidence and links its PR to the run; conformance check for Routine PRs
+- **Description:** Repos: agentops (runbook, `scripts/`), vuoro (Routine prompt). Problem: generation 47 grants the record tools but no caller uses them; the target-state tripwire is "no session that produced a reconstructable record" (target-state L150-155). Scope: (1) `docs/runbooks/cloud-routine-authoring.md` requires `register_run` at start (RunManifest fields), `append_evidence` per finding, `write_session_note` at end, and `Vuoro-Run: <run_id>` in the PR body; (2) convert the existing E1 review Routine to this shape; (3) `scripts/routine_pr_conformance.py <pr-number>` resolves the trailer through the public read operations and exits non-zero if the run is missing, has null RunManifest fields, or has no evidence. Acceptance: one real Routine PR in `bayleafwalker/vuoro` passes the script; the script fails on a PR without the trailer. Definition of done: the runbook diff merged, one passing Routine PR linked from a note on this item.
+- **Depends on:** generation 47 promoted for the live run (writing the runbook and script does not wait). No tracker edge.
+
+### A.2 Strict-client MCP conformance in vuoro PR CI
+
+- **Track:** `tests` (1466). **Priority:** 3. **Size:** M (2 dispatches, cloud).
+- **Title:** M1-2: strict MCP 2026-07-28 client conformance job against the service image on every vuoro PR
+- **Description:** Repo: vuoro. Problem: the `resultType`/`cacheScope` regression reached production because claude.ai is lenient and Claude Code strict (cloud-enablement plan L12). vuoro#135 now builds the image on every PR; this item adds the client. Scope: a CI job that starts `vuoro-service mcp-serve` from the vuoro#135 image with a test assertion signer, runs a strict client (schema-validated `tools/list`, `tools/call` envelopes, error shape, `resultType` and `cacheScope` values) and the D-044 isolation test against it, and fails on any deviation. Acceptance: a deliberate one-line envelope regression on a throwaway branch turns the job red; main is green. Definition of done: the job runs on PRs and the red/green demonstration is linked from a note.
+- **Depends on:** nothing.
+
+### A.3 Reconstructability coverage funnel over a defined cohort
+
+- **Track:** `target-state-path` (1568). **Priority:** 3. **Size:** S-M (1-2 dispatches, cloud for the script; local if gateway logs are needed).
+- **Title:** M1-3: TS-16 coverage metric as a cohort funnel (expected → observed → evidence-bearing → resolvable), with unknown coverage reported
+- **Description:** Repo: agentops (`scripts/`, beside `cost_per_release.py`). Problem: TS-16's control question ("what proportion of automated activity is reconstructable", target-state L45) has no computation, and the original H1-4 design (infer sessions from `mcp_exchange` counts and PRs) cannot see silent failures or sessions that never contacted Vuoro, and retries inflate it. Scope: `scripts/reconstructability_coverage.py --since <date>` takes a cohort definition (the Routine schedule and any dispatched cloud sessions) and prints four stages with counts and dropped ids: expected invocations, observed runs (run records bound to the cohort's client and grant), evidence-bearing runs (≥ 1 evidence entry), fully resolvable outcomes (PR or session note whose `Vuoro-Run` trailer resolves and whose evidence digests match), plus `unknown: N` for expected invocations never observed. Retries count once per expected invocation. Acceptance: with one Routine deliberately skipping `register_run`, that invocation appears under `unknown`, not `observed`; the weekly lane check-up quotes the funnel. Pairs with #2486 (S6/TS-7 derived queries): same join through the session binding, different question.
+- **Depends on:** A.1 for a non-zero result; runnable before it. No tracker edge.
+
+### A.4 Settlement takeover proof with verification and resume
+
+- **Track:** `vuoro-edge` (1551). **Priority:** 1. **Size:** M (2-3 dispatches: cloud for callers and harness, local to grant `vuoro:work.claim`).
+- **Title:** M1-4: the differentiated settlement scenario over the public surface: takeover, stale-result rejection with evidence retained, named verification profile, authoritative settlement, dependent ready, and a restart/resume case
+- **Description:** Repos: vuoro (harness, `docs/evidence/` packet), agentops (Routine or `--cloud` prompts). Problem: the product proof contract's scenario (vuoro-cloud 19-PRODUCT L46-53) "is a target conformance scenario, not a claim" (L64); #2520 delivers the lease and nothing proves the scenario end to end. Scope: a re-runnable scripted run of two hosted callers A and B on the kotona workspace: A claims item X and heartbeats, A is killed; B takes over through the lease; A's late `complete_work` is rejected with the dead-lease code and A's payload is retained as evidence on X; B's result is settled by the authority under the named verification profile `checked` (default per R4 Decision 2), recorded as "accepted under verification profile checked"; dependent item Y appears in `next-work` `ready_items` only after settlement. Restart case: A killed and restarted under the same principal and idempotency key resumes its own lease and completes normally (same run id, one settlement, no rejection). Acceptance: the evidence packet quotes the tool-call transcripts and the authority's records for all cases; the script re-runs green. Definition of done: packet merged in vuoro `docs/evidence/`, note on this item, and only then may the landing page cite it.
+- **Depends on:** #2520 (tracker edge: blocked-by #2520). The harness, prompts and restart case can be built against a local backend before #2520 ships.
+
+### A.5 Minimal cross-harness continuation: successor run linked to its predecessor
+
+- **Track:** `handoff` (1460). **Priority:** 3. **Size:** M (2 dispatches, cloud; operator only if a second OAuth client is registered).
+- **Title:** M1-5: `register_run` accepts `predecessor_run_id`; a successor on a different identity reads the predecessor's checkpoint and evidence (TS-8 second route, minimal)
+- **Description:** Repos: vuoro (mcp-edge `record_tools.py`, `runs.py`, contract §4 amendment), agentops (runbook). Problem: TS-8 requires continuation across harnesses; the shared contract resolves a run only to "the exact same binding" (§4 L79), so another identity cannot continue a run by resolving it, and registering another OAuth client alone proves nothing. Scope: (1) `register_run` takes an optional `predecessor_run_id`; the edge records the link and refuses it unless the caller's binding shares the predecessor's workspace and repository and carries `work:read` (default per R4 Decision 3); (2) the successor reads the predecessor's session notes and evidence through the existing read tools, the predecessor unchanged; (3) `describe_run` shows the link; (4) amend contract §4 with the successor rule. Acceptance: Routine run R1 writes a session note and stops; a session on a different client identity (second pre-registered client if available, else a second principal) registers R2 with predecessor R1, reads the note, appends evidence, and `describe_run R2` shows the link; a caller outside R1's workspace gets `run-not-found`. Definition of done: tests for both cases in mcp-edge plus one live transcript linked from a note. Pairs with #2484 (S8 cross-harness leg): S8 rehearses the checkpoint route, this proves the ledger route.
+- **Depends on:** nothing hard (E2 run handles shipped in vuoro#131). No tracker edge.
+
+### A.6 Not filed in M1
+
+- H1-9 folds into #2520 (A.0). H1-10 is A.0 itself and needs no item.
+- H1-6, H1-7, H1-8 (vuoro-cloud egress, drift, status docs) are platform hygiene outside the milestones; file them when a Forgejo session is scheduled, under `vuoro-edge` or a new `vuoro-cloud-platform` track.
+- Everything in M2 waits for R4 Decision 1 to be recorded before M2-1 is filed; M2-3 to M2-6 can be filed alongside it.
