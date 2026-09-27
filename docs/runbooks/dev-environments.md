@@ -28,10 +28,37 @@ Summary: `agentops/hooks/cost-summary.sh [project]`.
 
 Rationale for the durability table in the workspace `AGENTS.md`:
 `docs/plans/agentops/operative-position-durability-2026-08-29.md`. The shard append-only
-check (`check_append_only_shards.py`) was retired 2026-09-17 (S2 item 6) with
-`templates/dispatch` and has no top-level successor. The producer inventory instrument
+check was retired with `templates/dispatch` on 2026-09-17 (S2 item 6) and restored
+under TS-6 at `scripts/check_append_only_shards.py`, run by
+`.github/workflows/protected-paths.yml`. The producer inventory instrument
 (`check_producers.py`) is restored at `scripts/check_producers.py` per TS-12 of
 `docs/plans/2026-09-17-target-state.md`: it now scans the top-level contract
 directories (`schemas/`, `model/`, `session-mechanization/`, `environment-record/`,
 and any other top-level directory holding a `*.schema.json` file) and stays until
 the S5 catalog query replaces it.
+
+## Committing audit shards
+
+auditctl hooks append NDJSON shards at `_artifacts/<repo>/audit/events-YYYY-MM-DD.ndjson`
+inside each checkout under `/projects/dev`. Under TS-6 the committed shards are the
+authoritative evidence until the S4 import, so they must reach each repository's
+default branch.
+
+`scripts/commit_audit_shards.py` does this unattended and **replaces the Stop hook**
+that used to commit "chore(audit): append today's shard" (it never fired in headless
+runs, and shards were committed by hand from 2026-08-30). A systemd user timer on the
+workstation runs it 10 minutes after login and hourly after that (gitops-nixos
+`modules/home/bayleaf/audit-shards.nix`, unit `audit-shards-commit`). Per checkout it
+commits only shard paths (`git commit --only`), inside the checkout the hooks write into,
+and only on the default branch; it fast-forwards first, pushes without force, and retries
+a lost push race. It skips and reports a checkout that is on a feature branch, cannot
+fast-forward, carries unpushed non-shard commits, or holds a rewritten shard.
+
+Where to look: `journalctl --user -u audit-shards-commit` (one JSON line per repo) and
+`~/.local/state/agentops/audit-shards/last-run.json`. A skip that leaves shards
+uncommitted fails the unit, so it appears in the failed-user-unit notification and the
+shell's `failed user units:` line. A checkout parked on a feature branch while its hooks
+write shards keeps the unit failed on every run until it returns to the default branch. Commit by hand only for a skipped checkout, in that
+checkout, with `git commit --only -- <shard paths>`: a shard committed from another
+clone or worktree leaves an untracked twin that makes the next `git pull --ff-only`
+abort. Dry run: `python3 scripts/commit_audit_shards.py --dry-run`.
