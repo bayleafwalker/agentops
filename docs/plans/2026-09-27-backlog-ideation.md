@@ -52,7 +52,7 @@ Each milestone below lists: objective, included items (existing ids plus new sub
 | M1-5 | Minimal cross-harness continuation: successor run linked to its predecessor | H3-4 minimal proof per review point 5 | pairs with #2484 (S8 cross-harness leg) |
 | M1-0 | Tracker hygiene: close or re-scope #2502 and #2479 with evidence; H1-9 is now R4 lease semantics 6 (normative) | H1-10, H1-9 | #2502, #2479, #2520 |
 
-H1-9 (principal in the shared `IdempotencyLedger` protocol) is not a separate item: the contract's §5 amendment already requires each ledger to fold the principal, sprintctl#97's ledger already keys on it, and #2520 builds the next ledger consumer. The filing proposal (Appendix A) asks that #2520's description name the protocol change as part of its scope. **Revised 2026-09-27:** #2520 has shipped and the operator made the shared ledger protocol normative (R4, lease semantics 6). Whether 0.9.0 conforms to it is part of the lease conformance follow-up (R4, conformance note), which is where H1-9 now lives.
+H1-9 (principal in the shared `IdempotencyLedger` protocol) is not a separate item: the contract's §5 amendment already requires each ledger to fold the principal, sprintctl#97's ledger already keys on it, and #2520 builds the next ledger consumer. The filing proposal (Appendix A) asks that #2520's description name the protocol change as part of its scope. **Revised 2026-09-27:** #2520 has shipped and the operator made the shared ledger protocol normative (R4, lease semantics 6). The conformance analysis found the key and digest conform but not the typed `begin` shape or one shared suite; H1-9 is now filed as **#2542** (R4, conformance note).
 
 **What a finished M1 demonstrates (the checks).**
 
@@ -69,7 +69,7 @@ H1-9 (principal in the shared `IdempotencyLedger` protocol) is not a separate it
 *Settlement (M1-4).* Two hosted callers, A and B, on the kotona workspace, over the public surface, against #2520's lease. The finished proof is an evidence packet in vuoro `docs/evidence/` showing, with tool-call transcripts and the authority's records:
 - A claims work item X and heartbeats; A stops (process killed, not gracefully ended).
 - B takes X over by claiming the stale lease on demand; the authority evaluates A's lease as stale and transitions ownership in one CAS (lease semantics 2 in R4). There is no operator reassignment in M1.
-- A's late outcome report (`report_outcome`; the shipped operation is `work.lease.complete-v1`) is **rejected as superseded**. Normatively the code is `CLAIM_SUPERSEDED` carrying `claim_id`, `current_generation` and `reported_generation` (lease semantics 3). The shipped 0.9.0 lease returns `lease-superseded` (409) without generations, so on 0.9.0 the check asserts that code, and it asserts `CLAIM_SUPERSEDED` with generations once the conformance follow-up lands (R4, conformance note). **A's result is retained as evidence** (disposition `stale`, settlement effect none) on X (visible through `work.read`/`describe_work` evidence list). **A cannot settle**: X's status did not change on A's call.
+- A's late outcome report (`report_outcome`; the shipped operation is `work.lease.complete-v1`) is **rejected as superseded**. Normatively the code is `CLAIM_SUPERSEDED` carrying `claim_id`, `current_generation` and `reported_generation` (lease semantics 3). The shipped 0.9.0 lease returns `lease-superseded` (409) without generations, so on 0.9.0 the check asserts that code, and it asserts `CLAIM_SUPERSEDED` with generations once the conformance follow-up **#2540** lands (R4, conformance note). **A's result is retained as evidence** (disposition `stale`, settlement effect none) on X (visible through `work.read`/`describe_work` evidence list). **A cannot settle**: X's status did not change on A's call.
 - **B's result satisfies a named verification profile** from 19-PRODUCT L133-139 (decided: `checked`, "configured checks passed"; R4 Decision 2), and the settlement record names it ("accepted under verification profile checked", never "proved correct", per L141-143).
 - **The authoritative decision settles X**: the work owner, evaluating the current lease and configured verification at settlement time (L55-62), not the caller's self-report.
 - **The dependent item Y becomes ready**: `next-work --explain` lists Y under `ready_items` after settlement and not before.
@@ -82,7 +82,7 @@ H1-9 (principal in the shared `IdempotencyLedger` protocol) is not a separate it
 - Check: Claude Routine run R1 writes a session note and stops; a session on a different client identity (a second pre-registered OAuth client if one exists by then, otherwise a second principal on the same client) registers R2 with `predecessor_run_id = R1`, reads R1's note, appends evidence to R2, and `describe_run R2` shows the link. A negative case: a caller outside R1's workspace gets `run-not-found`. This is the minimal TS-8 second route; registering an OAuth client alone does not count (review point 5).
 
 **Ordering constraints that are real.**
-- M1-4 cannot start its live cases before `vuoro:work.claim` is granted (#2520 itself shipped 2026-09-27 in sprintctl 0.9.0 / vuoro-service 0.1.77; #2528 must land before the proof relies on non-self-settling profiles): without an exclusive durable lease there is nothing to take over (operator decision in the cloud-enablement plan; #2520's own precondition that every tenant runtime serves the claim tools before the grant, because the edge refuses assertions carrying `work:claim` without tools). The harness, prompts and the restart case can be written first against a local backend.
+- M1-4 cannot start its live cases before `vuoro:work.claim` is granted (#2520 itself shipped 2026-09-27 in sprintctl 0.9.0 / vuoro-service 0.1.77; #2528, folded into #2539, must land before the proof relies on non-self-settling profiles): without an exclusive durable lease there is nothing to take over (operator decision in the cloud-enablement plan; #2520's own precondition that every tenant runtime serves the claim tools before the grant, because the edge refuses assertions carrying `work:claim` without tools). The harness, prompts and the restart case can be written first against a local backend.
 - M1-1 needs generation 47 promoted for a non-zero result; writing the runbook and conformance script does not.
 - Nothing else in M1 is ordered. M1-2, M1-3 and M1-5 can start now in parallel.
 
@@ -264,14 +264,14 @@ They are not a simple strictest-wins ordering unless every stronger profile genu
 - **Verification profile model.** Shipped: a "strictest-wins" ordering of profiles. Contract (Decision 2): capabilities, not a numeric ladder; unknown identifiers rejected.
 - **Shared ledger protocol (H1-9).** Contract (semantics 6): a typed `begin(workspace_id, principal_id, tool, key, request_digest) -> LedgerEntry` with `IDEMPOTENCY_KEY_REUSED`, one behaviour suite across run registration, claim acquisition, effect proposal and (where appropriate) effect acceptance. Assessed: the ledger key and digest conform; the typed `begin` shape and one shared suite do not yet, and the published wire code stays `idempotency-conflict` (documented as `IDEMPOTENCY_KEY_REUSED`).
 
-The conformance analysis (2026-09-27) found lease safety holds (INV-L1 and INV-L2 conform: a late or superseded report is retained and never settles; idempotency never restores superseded authority) and one gap outside the list above: **verification profiles stricter than `checked` are accepted but not enforced**, so any `work:write` decision can settle an item whose contract names `role-separated`, `identity-separated` or `human-authorized`. Tracked as:
+The conformance analysis (2026-09-27) found lease safety holds in the sprintctl runtime (INV-L1 and INV-L2 conform; vuoro's in-memory `lease.py` reference spec still discards a stale completion, contrary to INV-L1, and is corrected under #2540: a late or superseded report is retained and never settles; idempotency never restores superseded authority) and one gap outside the list above: **verification profiles stricter than `checked` are accepted but not enforced**, so any `work:write` decision can settle an item whose contract names `role-separated`, `identity-separated` or `human-authorized`. Tracked as:
 - **#2539** (priority 1): verification profiles as enforced capability sets; folds in #2528 and #2529.
 - **#2540** (priority 2): align the lease with semantics 1–5 before `vuoro:work.claim` is granted (no client consumes the names yet, so no migration).
 - **#2541** (priority 2): M2-1, sprintctl-owned effect intents with `work.effect.*` capabilities and digest-bound, immutable acceptance (INV-E1).
 - **#2542** (priority 3): the shared ledger protocol (H1-9).
 - **#2543** (priority 3): the work-level `parked` disposition (M3-7).
 
-Two related agentops follow-ups are already filed: **#2528** (an awaiting-verification report does not protect the item, and the report never receives the verifier's decision) and **#2529** (releasing an item to pending leaves its lease active; heartbeat versus maintenance activation race).
+Two related agentops follow-ups, both folded into #2539, were filed earlier: **#2528** (an awaiting-verification report does not protect the item, and the report never receives the verifier's decision) and **#2529** (releasing an item to pending leaves its lease active; heartbeat versus maintenance activation race).
 
 ---
 
@@ -579,6 +579,6 @@ Both verified on 2026-09-27 against what shipped.
 
 ### A.6 Not filed in M1
 
-- H1-9 is R4 lease semantics 6; its conformance is part of the lease conformance follow-up (A.0). H1-10 is A.0 itself and needs no item.
+- H1-9 is R4 lease semantics 6; filed 2026-09-27 as **#2542**. H1-10 is A.0 itself and needs no item.
 - H1-6, H1-7, H1-8 (vuoro-cloud egress, drift, status docs) are platform hygiene outside the milestones; file them when a Forgejo session is scheduled, under `vuoro-edge` or a new `vuoro-cloud-platform` track.
-- Everything in M2 waits for R4 Decision 1 to be recorded before M2-1 is filed; M2-3 to M2-6 can be filed alongside it. **Decision 1 was recorded 2026-09-27 (A), so M2-1 can be filed.**
+- Everything in M2 waits for R4 Decision 1 to be recorded before M2-1 is filed; M2-3 to M2-6 can be filed alongside it. **Decision 1 was recorded 2026-09-27 (A); M2-1 is filed as #2541.**
