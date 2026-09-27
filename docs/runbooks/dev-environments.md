@@ -56,14 +56,14 @@ fast-forward, carries unpushed non-shard commits, or holds a rewritten shard.
 
 When the default branch is protected (the push is refused with a protected-branch
 message, as on Forgejo `bayleaf/cred-broker`), the commit lands by pull request: it is
-pushed without force to `audit/shards-<date>` (or fast-forwards the open shard PR's
-branch), a PR is opened with `fj pr create` or `gh pr create`, the PR diff is checked to
+pushed without force to `audit/shards-<date>` (an open shard PR is carried as it is, and
+newer commits follow in the next PR on the same branch), a PR is opened with `fj pr create` or `gh pr create`, the PR diff is checked to
 be shard appends only, and once every check has passed it is merged at the exact head
 (`credctl merge --style fast-forward-only` on Forgejo, `gh pr merge --match-head-commit`
 on GitHub) and the checkout is fast-forwarded. Checks still running after `--ci-wait`
 (300 s) leave the PR open (`pr-open`) for the next hourly run; a failed check, a refused
 merge or a non-shard diff is reported as `needs-operator` with the PR URL, and so is a
-PR still waiting after a day (`pr-stale`). Forgejo PR and status reads use the REST API
+PR still waiting after a day (`pr-stale`) or with no checks at all after an hour. Forgejo PR and status reads use the REST API
 anonymously (`$FORGEJO_TOKEN` if set). `--protected <checkout>` skips the direct push.
 
 Where to look: `journalctl --user -u audit-shards-commit` (one JSON line per repo) and
