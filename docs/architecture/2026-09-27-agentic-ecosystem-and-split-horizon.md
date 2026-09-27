@@ -507,7 +507,7 @@ Where each action is recorded today:
 | Action | Record | Store | Gap |
 |---|---|---|---|
 | Work item change | sprintctl event log (idempotent by key) | vuoro-shared `work` schema or local SQLite | Served mode ignores `--actor`; attribution goes in tags |
-| Local session start/stop, subagent exit | `workflow.session`, `dispatch.exit` via hooks | `/projects/dev/.claude/session-costs.jsonl`, auditctl shards | Newest agentops shard is 2026-08-29: capture may have stopped or moved **[INF]**; no retention policy (`auditctl prune` proposed). Q6: repair capture, then "last successful authoritative event age" is a hard health metric |
+| Local session start/stop, subagent exit | `workflow.session`, `dispatch.exit` via hooks | `/projects/dev/.claude/session-costs.jsonl`, auditctl shards | Capture moved from the workspace-root shard directory (last shard 2026-08-29) into the repo at `7ae83fb` (2026-08-29); in-repo shards (24 files, 3,511 lines) have gaps 08-31..09-11 and 09-21 (agentops PR #256 §1, §3.6); no retention policy (`auditctl prune` proposed). Q6: repair capture, then "last successful authoritative event age" is a hard health metric |
 | Harness telemetry | OTel spans/metrics/logs | Langfuse (30 d), Prometheus (15 d), Loki (720 h) | Non-authoritative by design; allowlist CI check required before continuous export |
 | Credential decisions and issuance | receipts | cred-broker SQLite on PVC | Receipts are non-secret but unsigned; retention unstated |
 | Merge | `credctl merge` receipt + Forgejo merge pinned to head SHA | cred-broker + Forgejo | "Courtesy gate"; Forgejo branch protection is the enforcement |
@@ -595,10 +595,14 @@ on the workstation dropping VPS-originated connections, so the packet-level
 property agrees with "no service path from the public Vuoro horizon into the
 protected horizon" instead of relying on the absence of a listening workload.
 
-**Q6. Audit capture health.** The newest local audit shard is 2026-08-29.
-**Decision: (a), emphatically:** verify the hook → auditctl path and restart
-capture. With TS-6 keeping auditctl shards authoritative until S4, a stale
-shard is a failed invariant, not an observability curiosity. Afterwards
+**Q6. Audit capture health.** The 2026-08-29 date first recorded here belongs
+to the workspace-root shard directory: capture moved into the agentops
+repository at `7ae83fb` (2026-08-29). The in-repo shards (24 files, 3,511
+lines) continue but have gaps 08-31..09-11 and 09-21 (agentops PR #256 §1,
+§3.6, B16). **Decision: (a), emphatically:** verify the hook → auditctl path
+end to end and close the gaps. With TS-6 keeping auditctl shards authoritative
+until S4, missing authoritative capture is a failed invariant, not an
+observability curiosity. Afterwards
 **"last successful authoritative event age"** is a hard health metric.
 
 **Q7. Doc drift listed in §2.** **Decision: (a):** one cleanup PR per owning
@@ -609,8 +613,9 @@ the governing records. Architecture corrections do not go into release notes.
 
 - **WireGuard packet-level rule (Q5):** AllowedIPs restriction on the VPS peer
   and workstation nft drop of VPS-originated connections.
-- **Audit capture repair and event-age health metric (Q6):** restore the hook →
-  auditctl path; alert on "last successful authoritative event age".
+- **Audit capture repair and event-age health metric (Q6):** verify the hook →
+  auditctl path end to end and close the capture gaps (PR #256 B16);
+  alert on "last successful authoritative event age".
 - **Per-repo doc-drift PRs (Q7):** one per owning repo for the drift in §2.
 - **Local harness move to vuoro.cloud after E2 (Q1):** transitional PAT, then
   a proper local Vuoro identity/token flow; no dual-write.
