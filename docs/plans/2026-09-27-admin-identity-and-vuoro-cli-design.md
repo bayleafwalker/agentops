@@ -1,6 +1,6 @@
 # Design memo: separated admin identity and `vuoro-cli` for vuoro.cloud
 
-Date: 2026-09-27. Status: **decided, revision 2.** The operator's answers to the open questions are recorded in §7. Revision 2 addresses the independent review on agentops#262 (6 major, 8 minor, 2 nit) and splits the work into implementable units (§5, unit table). This memo changes no code; the units in §5 do.
+Date: 2026-09-27. Status: **decided, revision 3.** The operator's answers to the open questions are recorded in §7. Revision 2 addressed the first independent review on agentops#262 (6 major, 8 minor, 2 nit) and split; revision 3 addresses the re-review (4 major, 10 minor, 5 nit) and splits the work into implementable units (§5, unit table). This memo changes no code; the units in §5 do.
 
 ## Verification status (read first)
 
@@ -20,7 +20,7 @@ Date: 2026-09-27. Status: **decided, revision 2.** The operator's answers to the
 |---|---|
 | Workspace PATCH is browser-only: cookie, CSRF, `administrative_membership` | **Confirmed.** `control.py:3270-3283` (`Depends(browser)`); the CSRF double-submit check is at `control.py:271-300`. |
 | `operator()` is a hash-checked static bearer with a CIDR allow-list | **Confirmed, with a correction.** The CIDR check reads the **`cf-connecting-ip` header** (`control.py:217-241`). Operator calls therefore arrive **through Cloudflare / cloudflared on `api.vuoro.cloud`** (`platform/cloudflared/deployment.yaml:33-36`), not over the WireGuard tunnel. Whoever can send traffic to control without passing through Cloudflare (a compromised cloudflared or any in-cluster pod with a route to control) can set that header. The audited actor is the literal string `"operator"` (`control.py:242`). |
-| Admin routes would not be edge-reachable | **Wrong by default.** cloudflared sends `api.vuoro.cloud` to `vuoro-gateway`, and the gateway proxies every `/api/control/{path:path}` to control (`gateway.py:682-698`). Any new `/api/control/v1/admin/*` route on control's public listener would be publicly routable. Control's only ingress is from gateway pods and the observability namespace (`platform/policies/network-policies.yaml:18-24`, `:95-101`); nothing reaches control from the WireGuard interface today. This memo therefore adds an explicit gateway deny, a separate admin listener and a tunnel ingress (D1, unit 1.3). |
+| Admin routes would not be edge-reachable | **Wrong by default.** cloudflared sends `api.vuoro.cloud` to `vuoro-gateway`, and the gateway proxies every `/api/control/{path:path}` to control (`gateway.py:682-698`). Any new `/api/control/v1/admin/*` route on control's public listener would be publicly routable. Control's only ingress is from gateway pods and the observability namespace (`platform/policies/network-policies.yaml:18-24`, `:95-101`); no NetworkPolicy admits the WireGuard interface today, although `kubectl port-forward` over the tunnel (API server at `10.44.0.1:6443`) bypasses NetworkPolicy and reaches `:8080`, and `scripts/record_backup_observation.py:199-225` uses exactly that with a hand-set `CF-Connecting-IP`. This memo therefore adds an explicit gateway deny, a separate admin process and a tunnel ingress (D1, unit 1.3), and retires the header-trusting operator token (unit R). |
 | Operator routes: rollout status, epoch bump, drain, backup observations, invitations, invite requests, service controls, analytics | **Confirmed, and there are more:** operator **tenant-migration** routes `…/migration/plan`, `start`, `retry` and `status` also exist, and require the workspace to be `DRAINING` (`control.py:1405-1650`). |
 | No route to retire, delete, transfer or create principals | **Partly wrong.** The member-only PATCH accepts `desired_state=DELETED`. It sets `DELETION_REQUESTED` (`control.py:3292`), and the controller then scales the runtime to 0 and marks the workspace **`RETAINED`** (`controller.py:145-168`). Nothing ever tears down the namespace, database or roles. There is **no operator route** for this, and no route at all for transfer or principal creation. |
 | users table `(id, external_subject, display_name, created_at)` | **Confirmed.** `migrations/001_control.sql:3-8`, no `CHECK` on `external_subject`. Principals are also registered in `principal_subjects(subject, kind IN ('user','connector'), actor, epoch)` (`migrations/008_principal_epoch.sql:6-13`); `subject` is CHECKed colon-free (`:7`), and migration 009 backfilled `kind='user'` rows keyed on `users.id`. |
@@ -45,7 +45,7 @@ Date: 2026-09-27. Status: **decided, revision 2.** The operator's answers to the
 ## Recommendation in one paragraph
 
 - **Admin is a separate kind of principal.** It lives in its own table, uses the actor namespace `admin:<ulid>`, authenticates with WebAuthn only (YubiKey, PIN-verified), and has no membership rows. GitHub is never a factor.
-- **The admin plane is a separate listener on control**, reachable only over the operator WireGuard tunnel: a hostIP-bound port on the tunnel address, admitted by NetworkPolicy from the tunnel CIDR, and checked again in control against the TCP peer address. The gateway refuses `/api/control/v1/admin/*` explicitly. Every mutation carries a WebAuthn assertion over the operation's digest; that assertion is the record that the key was touched for exactly those parameters.
+- **The admin plane is a separate control process** (`vuoro-control-admin`, same image and database), reachable only over the operator WireGuard tunnel: a hostIP-bound port on the tunnel address, admitted by NetworkPolicy from the operator's tunnel `/32` only, and checked again in the app against the TCP peer address. The gateway refuses `/api/control/v1/admin/*` explicitly. Every mutation carries a WebAuthn assertion over the operation's digest; that assertion is the record that the key was touched for exactly those parameters.
 - **The user plane gains a bearer path** (a second resource, membership still checked). `vuoro-cli` can then do what browser-console `fetch()` does today, without touching the cookie/CSRF routes.
 - **Test principals** are a separate kind of principal (`test:<ulid>`). They are admin-minted, bound to test workspaces, expire, and are retired automatically. The "never `github:`" rule becomes a database constraint, landed in two generations so blocker12's owner can be reclassified through the admin API first.
 - **Minted tokens for agents are allowed in one narrow shape only:**
@@ -79,7 +79,7 @@ Date: 2026-09-27. Status: **decided, revision 2.** The operator's answers to the
   - Ownership transfer or recovery.
   - Principal creation.
 - **The orphan incident.**
-  - Workspace `blocker12-canary` (`01M14W25EYKC…`) is owned only by `01M14W25EYSZ…`. That user's subject is `github:`-prefixed but non-numeric; it is a synthetic identity from a 2026-08-28 test run **[U]**.
+  - Workspace `blocker12-canary` (`01M14W25EYKC…`) is owned only by `01M14W25EYSZ…`. That user's subject is `github:`-prefixed but non-numeric; it is a synthetic identity from the supervised canary trial of 2026-08-29 (`IMPLEMENTATION-STATUS.md:532-541` records workspace `01M14W25EYKCEX0BTYK1WHJAAK` and that trial, at work schema 7). The owner's id and subject and the current schema 12 remain **[U]**.
   - Nobody can sign in as that user. The workspace cannot be rolled, drained by its owner or retired, and it sits on an old runtime at work schema 12 **[U]**.
   - Two defects produced it:
     1. nothing stops a non-OAuth writer from creating a `github:` subject;
@@ -115,6 +115,7 @@ Date: 2026-09-27. Status: **decided, revision 2.** The operator's answers to the
 | **Compromised edge** (cloudflared, gateway) | Gateway assertion key, public ingress | **Today:** operator routes are served on `api.vuoro.cloud` through cloudflared. The CIDR check trusts `cf-connecting-ip`, so a compromised cloudflared can pass it and needs only the static token. | Admin routes exist only on the admin listener. The gateway refuses `/api/control/v1/admin/*` (404) before proxying, and its upstream is the public listener, which has no admin routes. NetworkPolicy admits the admin port from the tunnel CIDR only; control checks the TCP peer (not a header) against the tunnel CIDR and refuses any request carrying `cf-*` headers. The static operator token is retired after slices 2 and 3 (§5). | Same as today for the work plane, and for operator routes until the token retires |
 | **In-cluster pod with a route to control** | Pod network | Sets `cf-connecting-ip` and uses a leaked operator token | Admin listener: NetworkPolicy has no pod or namespace selector for the admin port, and the peer check refuses pod-network sources. | Operator routes until the token retires |
 | **Compromised operator laptop** | CLI credential store: user tokens, admin refresh token (≤ 1 h), a plugged-in YubiKey | Static operator token on disk equals administration indefinitely | No long-lived admin secret on disk. Mutations need a touch, destructive ones need touch plus PIN. Notifications. Teardown hold. | ≤ 1 h of admin reads. Malware can prompt touches while the key is plugged in and can render a misleading confirmation page: the YubiKey has no display, so the operator cannot see what the key signs. The phone notification (which shows control's own record of the operation) and the 24 h hold are the backstop. |
+| **Tenant controller** (holds the CNPG superuser, `platform/cnpg/repository.yaml:7-9`) | Superuser on the control database | Could insert an admin credential or rewrite audit | Out of this design's reach; listed so it is not mistaken for covered. The off-cluster audit mirror detects rewrites; a future unit narrows the controller to a tenant-provisioning role. | As compromised control |
 | **Compromised control** (AS plus DB, or the control DB role) | Everything | Total | Off-cluster audit mirror and chain verification by the appservice service. WebAuthn assertions are verifiable offline. | Total; detected after the fact. Until the owner/runtime role split lands, the control role can also disable the insert-only trigger; the hash chain plus the off-cluster mirror detect a rewrite. |
 
 ---
@@ -140,9 +141,9 @@ Date: 2026-09-27. Status: **decided, revision 2.** The operator's answers to the
 
 **Authentication.** WebAuthn/FIDO2 on the YubiKey the operator already uses for promotion.
 
-- `userVerification=required` (PIN) on every ceremony; attestation format `packed` only, verified to a pinned Yubico root, and the authenticator AAGUID checked against an allow-list. `none` attestation is refused.
+- `userVerification=required` (PIN) for enrolment, login and destructive operations; touch-only mutations request `preferred` and control checks UV server-side against the operation class. Attestation format `packed` only, verified to a pinned Yubico root, and the authenticator AAGUID checked against an allow-list. `none` attestation is refused.
 - Enrol two keys: daily and safe.
-- **RP ID and origin.** The admin listener is tunnel-only and has no public TLS name, and a browser only runs WebAuthn in a secure context. The CLI therefore serves the ceremony page itself on `http://localhost:<ephemeral>` (a secure context) and relays challenge and response to control over the tunnel. The RP ID is `localhost`; control accepts only an origin matching `^http://localhost:[0-9]{1,5}$`, and the challenge is always server-issued and single-use. **[A]:** a native libfido2 path can replace the page later without protocol change, because control checks the same challenge, RP ID hash and origin.
+- **RP ID and origin.** The admin listener is tunnel-only and has no public TLS name, and a browser only runs WebAuthn in a secure context. The CLI therefore serves the ceremony page itself on `http://localhost:<ephemeral>` (a secure context) and relays challenge and response to control over the tunnel. The RP ID is `localhost`; control accepts only an origin matching `^http://localhost:[0-9]{1,5}$`, and the challenge is always server-issued and single-use. The RP ID and origin rule add nothing against malware on the laptop, and every localhost page shares the RP ID; phishing resistance comes from the tunnel plus the server-issued challenge. Login therefore names the admin (`admin login --handle <h>`) and control sends `allowCredentials` with that admin's enrolled credential ids, so other localhost tooling registered on the key cannot be confused with, or used to enumerate, admin credentials. **[A]:** a native libfido2 path can replace the page later without protocol change, because control checks the same challenge, RP ID hash and origin.
 - **OpenPGP card** (the signing applet) is not used for login. Using it would need a bespoke signed-request protocol, and it would couple release-signing key custody with admin login. Keep the two applets' roles separate.
 - **GitHub is never a factor** in admin login, recovery or step-up. A GitHub compromise or outage must neither grant admin access nor block it.
 
@@ -159,20 +160,20 @@ The operation assertion (`authenticatorData`, `clientDataJSON`, signature, crede
 **Break-glass and recovery.**
 
 - **Primary:** the second enrolled YubiKey.
-- **Break-glass (both keys lost or control's admin tables damaged):** run `kubectl -n vuoro-system create job admin-enrol-<n> --from=cronjob/admin-enrol-template` over the WireGuard tunnel with the operator's kubeconfig, then edit the Job's args to `--break-glass` if needed. The one-shot job:
+- **Break-glass (both keys lost or control's admin tables damaged):** run `kubectl -n vuoro-system create job admin-enrol-<n> --from=cronjob/admin-enrol-break-glass-template` over the WireGuard tunnel with the operator's kubeconfig (a Job's pod template is immutable, so the two modes are two suspended CronJob templates: `admin-enrol-template` for enrolling another key and `admin-enrol-break-glass-template`). The one-shot job:
   - prints a single-use enrolment token, valid 10 minutes, for a new credential;
   - with `--break-glass`: disables every existing admin credential, **bumps `adm_epoch`** (so every outstanding admin access and refresh token dies), and revokes every admin refresh-token family;
   - writes an audit row with `actor_kind=break-glass`.
-- **Precondition to verify, not assume:** only the operator can create Jobs in `vuoro-system`. Unit 1.3 records `kubectl auth can-i create jobs -n vuoro-system --as=system:serviceaccount:<ns>:<sa>` for every ServiceAccount in the cluster in its PR (control and the tenant controller must answer `no`); the template CronJob is `suspend: true`, so it never runs on a schedule. Cluster admin already implies total control, so with that verified this adds no new root.
+- **Precondition to verify, not assume:** only the operator can create Jobs in `vuoro-system`. Unit 1.3 records `kubectl auth can-i create jobs -n vuoro-system --as=system:serviceaccount:<ns>:<sa>` for every ServiceAccount in the cluster in its PR (control and the tenant controller must answer `no`); both template CronJobs are `suspend: true`, so it never runs on a schedule. Cluster admin already implies total control, so with that verified this adds no new root.
 - **No recovery codes.** They would be a factor weaker than the hardware and would become the real attack target.
 
 **Admin ingress (unit 1.3; §7 Q1).**
 
-- Control runs a **second listener** (`VUORO_CLOUD_ADMIN_LISTEN_PORT`, 8443) serving only the admin app. The public listener (8080), which is the gateway's upstream, has no admin routes. The admin app has no user, cookie, OAuth-authorize or gateway-assertion routes.
-- The pod binds the admin port with `hostPort` on `hostIP: 10.44.0.1`, the node's WireGuard address (`CLAUDE.md` "Reaching the live PoC cluster") **[A]**: k3s's portmap plugin DNATs without SNAT for non-hairpin traffic, so control sees the operator's tunnel address as the TCP peer. The first deploy records the peer address control observes on a live tunnel request. If k3s SNATs it to a node address, the peer check is set to that address plus the NetworkPolicy, and the handoff says so; no header is trusted in either case.
-- NetworkPolicy `allow-admin-tunnel` admits TCP 8443 on `vuoro-control` from `ipBlock: 10.44.0.0/24` only; there is no pod or namespace selector on that port.
-- Control's admin app refuses any request whose TCP peer (`request.client.host`, uvicorn runs with `proxy_headers=False`, `access_log.py:106`) is outside `VUORO_CLOUD_ADMIN_SOURCE_CIDRS` (default `10.44.0.0/24`), and any request carrying `cf-connecting-ip` or `cf-ray`. No header is ever trusted for source identity.
-- **Gateway deny (unit 1.2):** the gateway refuses `/api/control/v1/admin/*` (and its percent-encoded and dot-segment variants, which `_unsafe_path` already rejects) with 404 before `forward_to_control`, and counts it as `unexpected_route`. This is defence in depth: the public listener has no admin routes either.
+- The admin app runs as a **separate process and Deployment**, `vuoro-control-admin` (same image, console script `vuoro-control-admin`, port `VUORO_CLOUD_ADMIN_LISTEN_PORT`, 8443, `proxy_headers=False`), sharing control's database and AS signing key. The public control process (8080), which is the gateway's upstream, has no admin routes. The admin app has no user, cookie, OAuth-authorize or gateway-assertion routes. A separate Deployment gives the admin pod its own NetworkPolicy selector and keeps `access_log.serve` (`access_log.py:101-110`, one app on 8080) unchanged for control.
+- The admin pod binds 8443 with `hostPort` on `hostIP: 10.44.0.1`, the node's WireGuard address (`CLAUDE.md` "Reaching the live PoC cluster"). The Deployment uses `strategy: Recreate` with one replica: a hostPort on a single node cannot surge, so RollingUpdate would hang every roll. **[A]:** k3s's portmap plugin DNATs without SNAT for non-hairpin traffic, so the admin app sees the operator's tunnel address as the TCP peer. The first deploy records the peer address observed on a live tunnel request. **If it is SNATed, the admin plane fails closed** (every request refused) and the unit is reworked; there is no fallback to a node address or a header.
+- NetworkPolicy `allow-admin-tunnel` admits TCP 8443 on `vuoro-control-admin` only from the enrolled operator peer addresses as `/32`s (today `10.44.0.2/32`); there is no pod or namespace selector, and the node's own tunnel address `10.44.0.1` (`cloud-init.yaml.tftpl:23`) is never admitted. A future appservice-cluster peer gets its own `/32` in slice 6, not a range.
+- Control's admin app refuses any request whose TCP peer (`request.client.host`, uvicorn runs with `proxy_headers=False`, `access_log.py:106`) is not one of `VUORO_CLOUD_ADMIN_SOURCE_CIDRS` (default `10.44.0.2/32`; a configured network that contains `10.44.0.1` or a loopback address is refused at startup), and any request carrying `cf-connecting-ip` or `cf-ray`. No header is ever trusted for source identity. This also refuses `kubectl port-forward` to the admin pod (peer is loopback) and connections originating on the node.
+- **Gateway deny (unit 1.2):** the gateway refuses `/api/control/v1/admin/*` with 404 before `forward_to_control`, matching on normalised path segments (case-folded, empty segments collapsed, so `/api/control/v1//admin/x` is caught; percent-encoded and dot-segment variants are already rejected by `_unsafe_path`), and counts it as `unexpected_route`. The Cloudflare edge rule script (`scripts/apply-cloudflare-edge-rules.py:91`, which already guards `/api/control/v1/operator/`) also blocks `/api/control/v1/admin/` unconditionally. This is defence in depth: the public control process has no admin routes either.
 - **Talos:** no claim (plan item 12). The tunnel address and port mapping are k3s-PoC facts.
 
 **Admin is not a member.**
@@ -214,14 +215,14 @@ membership trigger: kind='test' ⇒ workspace.is_test;  workspace.is_test ⇒ me
 **Reclassify is narrow.** It exists to repair pattern violators, not to relabel people.
 
 - Only a principal whose `external_subject` fails the pattern for its current kind can be reclassified. A subject matching `^github:[0-9]+$` is refused (`reclassify-valid-human`), whatever the reason text says.
-- Target kind `test` only. It sets `legacy_subject`, a fresh `test:<ulid>` subject, `expires_at` (≤ 30 days; `now` allowed), and `created_by_admin`.
+- Target kind `test` only. It sets `legacy_subject`, a fresh `test:<ulid>` subject, `expires_at` (≤ 30 days; `now` allowed), and `created_by_admin`, bumps the principal epoch, and updates `principal_subjects.actor` to the new subject (the `008` trigger forbids a subject change, not an actor change).
 - Touch + PIN; it is in the D4 command table and the destructive-operations list.
 - Workspaces owned by the principal become `is_test` **but keep the human teardown hold**: the operation records `prior_kind`, and retire honours the 24 h hold and takes the dump for any workspace whose owner was reclassified from a prior kind of `human` (every reclassify does, today). A reclassify therefore never shortens the path to teardown.
 
 **Lifecycle.**
 
 - `vuoro-cli admin test-principal create --ttl 7d [--workspace new|<test ws>]`. The default TTL is 7 days and the maximum 30.
-- The **reaper** (slice 4) runs inside control as a scheduled task with actor `policy:test-expiry@v1`. When a principal expires, it retires that principal's test workspaces through the same retire operation (D5), with backup skipped unless `--keep-backup` was set at creation, and then disables the principal.
+- The **reaper** (slice 4) runs inside control as a scheduled task with actor `policy:test-expiry@v1`. When a principal expires, it retires that principal's test workspaces through the same retire operation (D5), and then disables the principal. It calls retire, so it inherits retire's rules: the dump is skipped only for a test workspace whose owner was never reclassified from `human` and that was not created with `--keep-backup`.
 - The reaper is platform lifecycle, not Vuoro intent handling. TS-1's "never expires" rule is about `EffectIntent` and does not apply here.
 
 **MCP gateway tokens for test principals.** Two needs, two mechanisms.
@@ -232,7 +233,7 @@ membership trigger: kind='test' ⇒ workspace.is_test;  workspace.is_test ⇒ me
   - no refresh token.
 - **(b) Exercising the real Claude connector path:**
   - The admin mints a **test-login code**: single use, 15-minute TTL, bound to one test principal, shown once. It carries 128 bits from the CSPRNG (26 Crockford base32 characters); control stores only its keyed hash.
-  - The AS authorization page gets a "test login" method, next to GitHub, that accepts only such codes and only for `kind='test'`. Attempts are limited by the existing pre-auth limiter per connecting IP, plus a global budget of 20 failed code attempts per hour; exceeding it disables test login until an admin re-enables it (audited). A failed attempt never reveals whether a code exists.
+  - The AS authorization page gets a "test login" method, next to GitHub, that accepts only such codes and only for `kind='test'`. Attempts are limited by the existing pre-auth limiter per connecting IP, plus a global budget of 20 failed code attempts per hour; exceeding it disables test login until an admin re-enables it (audited). A failed attempt never reveals whether a code exists. The budget is an unauthenticated off-switch for test login; that is acceptable because test login exists only for testing.
   - The operator adds the connector in Claude and uses the code at the consent screen. The full authorize → code → token → refresh flow then runs with a test principal as resource owner.
   - Tokens carry `tst=true`. The gateway rejects `tst=true` on a non-test workspace as defence in depth; the constraint already makes it impossible.
 
@@ -338,7 +339,7 @@ They exist so that work done by a delegate is attributable to the delegate rathe
 
 - **Namespace refusal on the `/mcp` path.** Any `vuoro:control.*` or `vuoro:admin.*` scope in an `/oauth/authorize` or `/oauth/token` request for the `/mcp` resource is `invalid_scope`, for every client, audited as `oauth.scope.rejected_requested`. These scopes never enter `SCOPE_TO_AUTHORITIES` (which is the `/mcp` authority table), so no default grant can include them.
 - **Admin scopes** (`vuoro:admin.read`, `vuoro:admin.audit.read` in slice 1; `.workspace.lifecycle`, `.principal`, `.token.mint`, `.backup`, `.restore` later) live in a separate `ADMIN_SCOPES` registry and are issued only by the admin listener, only to client `vuoro-cli-admin` (and a subset to `vuoro-cli-service` in slice 6), and only when the authenticated subject is an active admin principal.
-- **Control scopes** (`vuoro:control.workspace.read`, `.workspace.write`, `vuoro:control.token.manage`) live in a `CONTROL_SCOPES` registry, are issued only on the `/control` resource, only to client `vuoro-cli`, and only for `users.kind='human'` (checked at authorize and at every refresh).
+- **Control scopes** (`vuoro:control.workspace.read`, `.workspace.write`, `vuoro:control.token.manage`) live in a `CONTROL_SCOPES` registry, are issued only on the `/control` resource, only to client `vuoro-cli`, and only for human principals (checked at authorize and at every refresh). Until unit 2.1 adds `users.kind`, "human" means the subject matches `^github:[0-9]+$`; 2.1 switches the check to `kind='human'` plus the pattern.
 - **Refusal by principal kind:** the AS checks the principal kind as well as the client: admin scopes for admin principals only, control scopes for human principals only.
 - **Reserved `/mcp` authorities stay reserved:** nothing here edits `RESERVED_SCOPES`.
 - **A single umbrella `vuoro:control.admin` is rejected.** Narrow scopes let the service hold observe and backup without lifecycle.
@@ -384,7 +385,7 @@ Control executes operations and the tenant controller performs the cluster steps
 | **repo bind** | user (owner/admin member) | today's browser-only `POST …/projects/current/repositories` (`control.py:2324-2390`, inserts `repositories(git_remote, commit_sha)`) gets a bearer twin; provider reachability check **[A]** | Effects allowlists stay Git-reviewed (trusted-service design §T4). A CLI binding never widens effects. |
 | **roll** | user (own) or admin | PATCH READY → watch `vuoro-migrate-<gen>` → Deployment ready; from slice 5, a pre-roll backup first when the target image's migration set changes the schema | Migrations are forward-only (the controller's migrate Job precedes the Deployment, `controller.py:200-246`). Until slice 5, `roll --wait` prints the latest completed backup as the restore point before rolling and exits non-zero on migrate failure. |
 | **drain** | admin | existing operator drain (`control.py:1369-1403`, `READY → DRAINING`) and tenant migration plan/start (`control.py:1405+`), given admin twins | touch |
-| **retire** | admin | Builds on today's `DELETED → RETAINED` path (`controller.py:145-168`), which scales to 0 and stops there. `retire --plan` prints plan and digest → `retire --apply <digest>` (touch + PIN) → per-workspace logical dump, age-encrypted (D6), **unless** the workspace is `is_test`, its owner was never reclassified from `human`, and `--keep-backup` was not given → drain → revoke all grants and PATs scoped to the workspace → scale to zero → **24 h hold** (unless `is_test` with no reclassified-human owner; cancellable) → delete namespace, DB, roles, secrets → workspace row becomes `retired` tombstone (id never reused) → audit | Plan digest binds the assertion. **When a dump is taken**, teardown refuses unless it is verified (restorable header and digest recorded). A cluster base backup newer than the drain with `status=completed` is required in every case. |
+| **retire** | admin | Builds on today's `DELETED → RETAINED` path (`controller.py:145-168`), which scales to 0 and stops there. `retire --plan` prints plan and digest → `retire --apply <digest>` (touch + PIN) → per-workspace logical dump, age-encrypted (D6), **unless** the workspace is `is_test`, its owner was never reclassified from `human`, and `--keep-backup` was not given → drain → revoke all grants and PATs scoped to the workspace → scale to zero → **24 h hold** (unless `is_test` with no reclassified-human owner; cancellable) → delete namespace, DB, roles, secrets → workspace row becomes a `RETIRED` tombstone (new `workspace_state` value and tombstone columns, migration `019`; id never reused) → audit | Plan digest binds the assertion. **When a dump is taken**, teardown refuses unless it is verified (restorable header and digest recorded). A cluster base backup newer than the drain with `status=completed` is required in every case. |
 | **transfer ownership** | admin | add new owner → remove or downgrade old owner, in one transaction | touch + PIN. The new owner must be able to authenticate. |
 | **principal disable** | admin | epoch bump → revoke grants → for each workspace where the principal is the sole owner, **refuse** unless `--disposition <ws>=transfer:<p>|retire` is given for each | touch + PIN. Makes new orphans impossible through the admin path. |
 | **principal reclassify** | admin | pattern-violator check → `kind=test`, `legacy_subject`, new `test:<ulid>`, `expires_at`, `created_by_admin` → owned workspaces `is_test`, `prior_kind` recorded | touch + PIN. Only subjects that fail their kind's pattern; never a valid `github:<digits>`. Keeps the teardown hold and dump for workspaces whose owner's prior kind was `human` (D2). |
@@ -399,7 +400,7 @@ Control executes operations and the tenant controller performs the cluster steps
 
    ```
    vuoro-cli admin principal reclassify 01M14W25EYSZ… --as test --expire now \
-       --reason "synthetic github: subject seeded by 2026-08-28 test run; blocker12 orphan"
+       --reason "synthetic github: subject seeded by 2026-08-29 test run; blocker12 orphan"
    ```
 
    Touch + PIN. The subject becomes `test:<ulid>`, `legacy_subject` is kept, `prior_kind=human` is recorded, and the workspace is marked `is_test`. The report is re-run and lists no pattern violator.
@@ -414,7 +415,7 @@ Control executes operations and the tenant controller performs the cluster steps
    6. teardown and tombstone.
 6. `vuoro-cli admin principal disable <principal> --reason "blocker12 orphan owner, workspace retired"` (touch + PIN). This is explicit in slice 2; the reaper (slice 4) is not needed.
 7. **Generation B** (unit 2.4) lands: the CHECK makes a repeat fail at insert time.
-8. **Root cause.** Find the 2026-08-28 seeding test and move it to `admin test-principal create` (slice 4).
+8. **Root cause.** Find the 2026-08-29 seeding test and move it to `admin test-principal create` (slice 4).
 
 **Interim.** Two things are true today, verified at `332faa4`:
 
@@ -486,7 +487,7 @@ The canary stays parked (§7 Q2), unless the stale schema blocks a fleet-wide ro
 - **One global chain, serialized.** A `BEFORE INSERT` trigger (`SECURITY DEFINER`, fixed `search_path`) locks the single row of `audit_chain_head` `FOR UPDATE`, assigns `chain_seq = head + 1`, builds `chain_payload` (the row's fields as a canonical JSON text, timestamps in UTC microseconds) and sets `row_hash = sha256(prev_hash ‖ '\n' ‖ chain_payload)`. Concurrent inserts from control and the gateway therefore serialize on the head row and cannot fork the chain. The migration chains existing rows in `(created_at, id)` order from a fixed genesis hash. Workspace views filter the global chain; a per-workspace chain is not needed, because verification is over the whole table.
 - **Insert only, in two layers.**
   1. **Trigger (unit 1.1):** `BEFORE UPDATE OR DELETE` (row) and `BEFORE TRUNCATE` (statement) triggers raise on `audit_events` and `audit_chain_head` (the head row can only move forward through the insert trigger). This stops any application path and any SQL issued by the runtime role that does not first `ALTER TABLE … DISABLE TRIGGER`.
-  2. **Role split (unit 1.5, operator-applied):** the runtime role is today also the table owner (§ verification table), and an owner can disable triggers. The migration Job moves to a separate owner role (`vuoro_control_owner`, new SOPS secret `vuoro-control-migrate`), and the runtime role keeps `SELECT, INSERT` on `audit_events` only. Until 1.5 lands, the insert-only property holds against application bugs and injected DML but **not** against a compromised control role; the hash chain plus the off-cluster mirror (slice 6) are what detect a rewrite.
+  2. **Role split (unit 1.5, operator-applied):** the runtime role `vuoro_control` is today the owner of the whole database and of every object (`platform/cnpg/repository.yaml:14-16`), and an owner can disable triggers. A grants migration run by a new non-owner role would silently do nothing, so the order is: (i) the operator, as the CNPG superuser over the tunnel, creates `vuoro_control_owner`, runs `REASSIGN OWNED BY vuoro_control TO vuoro_control_owner` in the control database, `ALTER DATABASE … OWNER TO vuoro_control_owner`, grants `vuoro_control` `CONNECT`, `USAGE` on the schema, DML on the tables it writes, `SELECT, INSERT` only on `audit_events`, and sets `ALTER DEFAULT PRIVILEGES FOR ROLE vuoro_control_owner` to the same; (ii) the migration Job switches to a new SOPS secret `vuoro-control-migrate` for the owner role; (iii) migration `016` asserts the grants (it fails if `vuoro_control` can UPDATE `audit_events` or owns any object), so a missed step fails loudly. The chain trigger functions become owned by `vuoro_control_owner` in step (i). Until 1.5 lands, the insert-only property holds against application bugs and injected DML but **not** against a compromised control role; the hash chain plus the off-cluster mirror (slice 6) are what detect a rewrite.
 - **Row (new columns):**
   - `actor_kind` (admin, user, test, agent, service, policy, break-glass, anonymous), `actor_id`;
   - `credential` (client_id, token jti, webauthn credential id, operation-assertion blob);
@@ -502,7 +503,7 @@ The canary stays parked (§7 Q2), unless the stale schema blocks a fleet-wide ro
 - **What the operator sees:**
   - `admin audit tail|verify [--since]` (slice 1), `admin audit show <op>` (slice 2);
   - a push notification for every admin mutation and break-glass event (§7 Q8: ntfy to the operator's phone; slice 2);
-  - each workspace's members see admin operations on their workspace, with actor, reason and time.
+  - each workspace's administrative members (owner and admin roles, who can read the workspace audit view, `control.py:3425-3435`) see admin operations on their workspace, with actor, reason and time; unit 2.2 adds a CLI twin of that view.
 
 ---
 
@@ -519,12 +520,12 @@ The canary stays parked (§7 Q2), unless the stale schema blocks a fleet-wide ro
  │    localhost), aud=/control/admin
  │  creds: user file │ admin file│
  └──────┬────────────────┬───────┘
-        │ public HTTPS   │ WireGuard tunnel only: 10.44.0.1:8443 (hostIP) ─ NetworkPolicy ipBlock 10.44.0.0/24
+        │ public HTTPS   │ WireGuard tunnel only: 10.44.0.1:8443 (hostIP) ─ NetworkPolicy ipBlock 10.44.0.2/32
         v                v
  ┌──────────────────────── vuoro-system : vuoro-control (AS + control API) ───────────────────────┐
  │ :8080 public listener  resources /mcp (existing), /control (new, user)                          │
  │   browser (cookie+CSRF+membership, unchanged); /v1/cli/* bearer aud=/control, human, membership │
- │ :8443 admin listener   resource /control/admin; TCP-peer check (no headers), cf-* refused      │
+ │ vuoro-control-admin :8443  resource /control/admin; TCP-peer /32 check, cf-* refused          │
  │   /v1/admin/* bearer aud=/control/admin, admin sub, epoch, scope (+ op-assertion from slice 2)  │
  │ tables:  users(kind human|test|agent, CHECK subject in gen B), admin_principals,                │
  │          admin_credentials, delegations, operations, audit_events (insert-only, hash-chained)   │
@@ -554,23 +555,23 @@ No slice changes the `/mcp` behaviour, the browser routes or promotion signing. 
 
 ### Unit table
 
-Migration numbers are reserved here, in expected landing order, so parallel units cannot collide; `013` is the last on `main` at `332faa4`. The runner applies files in name order and skips applied ones (`scripts/migrate.py`), so a fresh database and an upgraded one must see the same order: a unit that lands out of the expected order renumbers to the next free number at rebase, and a reserved number that is not needed stays a gap.
+Migration numbers are reserved here, in expected landing order, so parallel units cannot collide; `013` is the last on `main` at `332faa4`. The runner applies files in name order and skips applied ones (`scripts/migrate.py`), so an upgraded database silently applies a late, earlier-sorting file out of order. Rule: a unit whose migration would sort before a migration already on `main` renumbers at rebase to max(highest on `main`, highest reserved) + 1; a reserved number that is not needed stays a gap. Unit 1.3 adds a CI check that every migration added by a branch sorts after every migration on the merge base.
 
 | Unit | Repo | Owns (files / migrations) | Depends on | Parallel with |
 |---|---|---|---|---|
 | **0.1** multi-resource authorization addendum + classification report | agentops | `docs/contracts/vuoro-cloud-multi-resource-authorization.md`, `docs/runbooks/vuoro-cloud-principal-classification.md` | — | 1.1, 1.2 |
-| **1.1** audit hash chain + insert-only trigger | vuoro-cloud | `migrations/014_audit_chain.sql`, `src/vuoro_cloud/audit_chain.py`, `tests/test_audit_chain*.py` | — | 0.1, 1.2 |
+| **1.1** audit hash chain + insert-only trigger | vuoro-cloud | `migrations/014_audit_chain.sql`, `src/vuoro_cloud/audit_chain.py`, `tests/test_audit_chain*.py`, `tests/conftest.py` (audit reset fixture), `control.py` (explicit columns in the member audit view) | — | 0.1, 1.2 |
 | **1.2** gateway deny for `/api/control/v1/admin/*` | vuoro-cloud | `src/vuoro_cloud/gateway.py` (deny only), `tests/test_gateway_admin_deny.py` | — | 0.1, 1.1 |
-| **1.3** admin principal, WebAuthn, admin listener, read-only admin routes, tunnel ingress | vuoro-cloud | `migrations/015_admin_identity.sql`; `src/vuoro_cloud/{webauthn,admin,cbor}.py`; `oauth_scopes.py` (namespace refusal, `ADMIN_SCOPES`); `control.py` (namespace refusal wiring, `main()` second listener); `config.py`; `pyproject.toml` (`vuoro-admin-enrol` script); `apps/control/{deployment.yaml,admin-enrol-cronjob.yaml,kustomization.yaml}`; `platform/policies/network-policies.yaml`; `tests/test_admin*.py`, `tests/test_webauthn.py` | 1.1 (chained audit columns), 0.1 (matrix, merged or in review) | 1.2 |
+| **1.3** admin principal, WebAuthn, admin listener, read-only admin routes, tunnel ingress | vuoro-cloud | `migrations/015_admin_identity.sql`; `src/vuoro_cloud/{webauthn,admin,cbor}.py`; `oauth_scopes.py` (namespace refusal, `ADMIN_SCOPES`); `control.py` (namespace refusal wiring); `config.py`; `pyproject.toml` (`vuoro-control-admin`, `vuoro-admin-enrol` scripts); `apps/control-admin/` (Deployment with `Recreate`, two suspended CronJob templates, WebAuthn ConfigMap); `clusters/vuoro-cloud-poc-apps/kustomization.yaml`; `platform/policies/network-policies.yaml`; `scripts/validate-deployment-distribution.py`; `scripts/apply-cloudflare-edge-rules.py` (admin path block); a migration-order CI check; `tests/test_admin*.py`, `tests/test_webauthn.py`, `tests/test_scope_matrix.py` | 1.1 (chained audit columns, `control.py`), 0.1 (matrix, merged or in review) | 1.2 |
 | **1.4** CLI package, admin face (`admin enrol/login/logout/whoami/workspace list/show/audit tail/verify`) | vuoro-cloud | `src/vuoro_cloud_cli/`, `pyproject.toml` (`vuoro-cli` script, wheel packages), `tests/test_cli_admin.py` | 1.3 (API contract) | — (same `pyproject.toml` as 1.3) |
 | **1.5** control owner/runtime DB role split | vuoro-cloud | `apps/control/migration-job.yaml`, `migrations/016_audit_grants.sql`; SOPS secret `vuoro-control-migrate` (the operator creates the owner role and the secret) | 1.1 | 1.3, 1.4 |
-| **2.1** operations, operation assertions, users/workspace columns (generation A, no CHECK) | vuoro-cloud | `migrations/018_principal_kinds.sql`, `019_operations.sql`; `admin.py` (assertion dependency); `webauthn.py` (UV-required assertions) | 1.3 | 3.1 only if it avoids `admin.py` |
+| **2.1** operations, operation assertions, users/workspace columns (generation A, no CHECK) | vuoro-cloud | `migrations/018_principal_kinds.sql`, `019_operations.sql` (also the `RETIRED` workspace state and tombstone columns); `admin.py` (assertion dependency); `webauthn.py` (UV-required assertions) | 1.3 | 3.1 only if it avoids `admin.py` |
 | **2.2** admin twins of operator routes; `principal disable/reclassify`; `workspace create/drain/transfer`; ntfy notifier | vuoro-cloud | `admin.py`, `control.py` (shared service functions), CLI admin commands | 2.1 | — |
 | **2.3** retire pipeline (plan/apply, dump, hold, teardown, tombstone) | vuoro-cloud | `controller.py`, `admin.py`, controller RBAC | 2.2 | — |
 | **2.4** subject CHECK + membership triggers (generation B) | vuoro-cloud | `migrations/020_principal_subject_check.sql` | 2.2 **deployed** and blocker12's owner reclassified in production | — |
 | **3.1** `/control` resource, `vuoro-cli` client, `CONTROL_SCOPES`, `/v1/cli/*` bearer routers | vuoro-cloud | `src/vuoro_cloud/cli_routes.py`; `control.py` (authorize/token accept `/control` for `vuoro-cli`, router include); `oauth_scopes.py`; `tests/test_cli_routes*.py`; `migrations/017_control_grants.sql` (`oauth_grants.workspace_id` is `NOT NULL`, `012_oauth_authorization_server.sql:53`; a `/control` grant spans the principal's memberships, so it gets `workspace_id` nullable only when `resource` is `/control`) | 1.3 (shares `oauth_scopes.py`, `control.py`) | 2.1-2.3 (different files except `control.py`: 3.1 lands first) |
 | **3.2** CLI user face (`login/logout/whoami/workspace list/status/roll --wait/repo bind/list/token/grant`) | vuoro-cloud | `src/vuoro_cloud_cli/` (user commands), `tests/test_cli_user.py` | 1.4, 3.1 | 2.x |
-| **R** retire the static `operator()` token and its routes | vuoro-cloud | `control.py`, `config.py`, gateway operator-path counters, runbooks | 2.2 and 3.1 (every operator route has an admin or CLI twin, served for one generation) | 4, 5 |
+| **R** retire the static `operator()` token and its routes | vuoro-cloud | `control.py`, `config.py`, gateway operator-path counters, `scripts/record_backup_observation.py`, `scripts/rotate-operator-token.py`, `scripts/apply-cloudflare-edge-rules.py`, runbooks | 2.2 and 3.1 (every operator route has an admin or CLI twin, served for one generation) | 4, 5 |
 | **4** test principals, reaper, harness client, test-login codes, `tst` gateway check | vuoro-cloud | `admin.py`, `control.py` (authorize page), `gateway.py`, migration `021` | 2.4 | 5 |
 | **5a** backup create/list, restore, drills (control side) | vuoro-cloud | `admin.py`, controller RBAC, `platform/cnpg/`, migration `022` | 2.1 | 4 |
 | **5b** primary bucket object lock + no-delete credentials; offsite bucket | bucket provider config (Terraform in vuoro-cloud `terraform/`, second provider account) | `terraform/…` | — (probe first) | everything |
@@ -590,7 +591,7 @@ Migration numbers are reserved here, in expected landing order, so parallel unit
 - Deliver:
   - the insert-only hash-chained audit table (1.1);
   - the gateway deny (1.2);
-  - `admin_principals`, `admin_credentials`, the `vuoro-admin-enrol` bootstrap/break-glass command and its suspended CronJob template, the admin listener with the tunnel ingress, the `vuoro-cli-admin` client and the `/control/admin` resource, and admin routes `auth/*`, `whoami`, `workspaces` (list/show), `audit` (tail/verify) (1.3);
+  - `admin_principals`, `admin_credentials`, the `vuoro-admin-enrol` bootstrap/break-glass command and its two suspended CronJob templates, the `vuoro-control-admin` process with the tunnel ingress, the `vuoro-cli-admin` client and the `/control/admin` resource, and admin routes `auth/*`, `whoami`, `workspaces` (list/show), `audit` (tail/verify) (1.3);
   - `vuoro-cli admin enrol/login/logout/whoami/workspace list/show/audit tail/verify` (1.4);
   - the DB role split (1.5, operator-applied).
 - Accept:
@@ -606,7 +607,8 @@ Migration numbers are reserved here, in expected landing order, so parallel unit
   - any client requesting `vuoro:control.*` or `vuoro:admin.*` on `/oauth/authorize` or `/oauth/token` (`invalid_scope`);
   - a non-allow-listed AAGUID, a `none` attestation, or an attestation not chaining to the pinned root at enrolment;
   - an assertion without UV, with a wrong RP ID hash, a foreign origin, a replayed challenge, or a non-increasing sign count;
-  - a request whose TCP peer is outside the tunnel CIDR, and one carrying `cf-connecting-ip`;
+  - a request whose TCP peer is not an enrolled operator `/32`, including one from the node's own tunnel address `10.44.0.1`, one through `kubectl port-forward` (loopback peer), and one carrying `cf-connecting-ip`;
+  - an admin-source configuration containing `10.44.0.1` or a loopback network (refused at startup);
   - an admin token after an `adm_epoch` bump, and a reused refresh token (family revoked);
   - `UPDATE`/`DELETE`/`TRUNCATE audit_events` as control's role;
   - a hand-edited row (trigger disabled by the owner in the test) detected by `audit verify`.
@@ -656,7 +658,7 @@ Migration numbers are reserved here, in expected landing order, so parallel unit
 ### Unit R: retire the static operator token
 
 - Deliver: removal of `operator()`, its routes and `VUORO_CLOUD_OPERATOR_TOKEN_HASH`; runbooks switched to `vuoro-cli admin …`.
-- Precondition (checked, not gated on anything else): each operator route has had an admin twin (or CLI twin) served for one generation, and the gateway's `operator_path_rejected` counter shows no legitimate use after the switch.
+- Precondition (checked, not gated on anything else): each operator route has had an admin twin (or CLI twin) served for one generation, and control's audit shows no successful operator-route call (rows with actor `operator`) during that generation. (The gateway's `operator_path_rejected` counter counts only 401/403 and cannot show legitimate use.)
 - Forced failure: the old operator token on any former operator route (404 / 401).
 
 ### Slice 4: test principals
@@ -756,6 +758,6 @@ The operator took the memo's recommended option for each question, with Q5 repla
 4. **Offsite encrypted copy: (a) a second provider's bucket.**
 5. **`vuoro:effect.propose` in agent delegations: not until the reserved-authority condition holds.** `vuoro:effect.propose` (and likewise `vuoro:work.claim`) stays out of every delegation ceiling and mint until a durable intent store (respectively an exclusive, durable lease) exists **and** every tenant runtime serves the corresponding tools. "Once E3's queued path is proven" is not sufficient. Lifting it is a separate, reviewed change to `oauth_scopes.py` and the delegation refusal.
 6. **CLI packaging: (a) in vuoro-cloud** (package `vuoro_cloud_cli`, command `vuoro-cli`).
-7. **Tenant visibility of admin actions: (a) members see admin operations on their workspace** (actor, reason, time).
+7. **Tenant visibility of admin actions: (a) administrative members see admin operations on their workspace** (actor, reason, time), in the existing workspace audit view.
 8. **Notification channel: (a) ntfy or a push service to the operator's phone** (slice 2).
 9. **Agent principal granularity: (a) one agent principal per perimeter host,** with repo narrowing in the delegation.
