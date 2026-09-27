@@ -89,7 +89,7 @@ def _no_fetch(repo, path, ref):  # every fixture PR carries its files
 def _funnel(runs, prs=(), sessions=(), cohort=COHORT):
     invocations = cov.expected_invocations(cohort, list(sessions), SINCE, UNTIL)
     records = vrr.parse_records({"runs": list(runs)})
-    return cov.funnel(invocations, records, {REPO: list(prs)}, _no_fetch, WINDOW)
+    return cov.funnel(invocations, records, {REPO: list(prs)}, _no_fetch, WINDOW, SINCE, UNTIL)
 
 
 def _counts(result):
@@ -182,7 +182,7 @@ def test_unavailable_trailer_does_not_resolve():
 # -- matching ---------------------------------------------------------------
 
 def test_time_window_fallback_and_unexpected_runs():
-    keyless = _run(key="manual-probe", created="2026-09-27T06:40:00Z")
+    keyless = _run(key="", created="2026-09-27T06:40:00Z")
     off_schedule = _run(RUN_X, key="routine.daily-review.20260927T110000Z",
                         created="2026-09-27T11:00:01Z")
     result = _funnel([keyless, off_schedule], [_pr()])
@@ -194,9 +194,73 @@ def test_time_window_fallback_and_unexpected_runs():
 def test_overlapping_windows_without_key_are_ambiguous_not_guessed():
     cohort = dict(COHORT, routines=[dict(COHORT["routines"][0]),
                                     dict(COHORT["routines"][1], schedule="0 6 * * *")])
-    result = _funnel([_run(key="no-convention")], [_pr()], cohort=cohort)
+    result = _funnel([_run(key="")], [_pr()], cohort=cohort)
     assert result["stages"][1]["count"] == 0
     assert "ambiguous" in result["unexpected"][0]["reason"]
+
+
+def test_unrelated_runs_near_a_skipped_fire_do_not_make_it_observed():
+    # Review finding: runs bound to the cohort client at 09:01 whose keys are not
+    # skip-register's must not be time-matched into observed.
+    foreign = _run(RUN_X, key="probe.manual.0001", created="2026-09-27T09:01:00Z")
+    other_slug = _run(RUN_A2, key="routine.not-in-cohort.20260927T090100Z",
+                      created="2026-09-27T09:01:00Z")
+    result = _funnel([_run(), foreign, other_slug], [_pr()])
+    assert _counts(result) == [2, 1, 1, 1]
+    assert result["unknown"]["count"] == 1
+    reasons = {u["run_id"]: u["reason"] for u in result["unexpected"]}
+    assert "follows no cohort convention" in reasons[RUN_X]
+    assert "not in the cohort" in reasons[RUN_A2]
+
+
+def test_session_id_must_be_a_whole_key_token():
+    sessions = [{"session_id": "cse_01AB", "dispatched_at": "2026-09-27T10:00:00Z"}]
+    run = _run(RUN_X, key="session.cse_01ABC", created="2026-09-27T10:03:00Z", grant="grt_9")
+    result = _funnel([run], sessions=sessions)
+    assert _row(result, "session:cse_01AB")["runs"] == []
+    assert result["unexpected"][0]["run_id"] == RUN_X
+
+
+def test_runs_before_since_are_ignored_and_after_until_only_count_when_matched():
+    early = _run(RUN_X, key="", created="2026-09-26T23:00:00Z")
+    late = _run(RUN_A2, key="probe.late.0001", created="2026-09-27T12:30:00Z")
+    result = _funnel([_run(), early, late], [_pr()])
+    assert result["unexpected"] == [] and result["other_bindings"] == []
+
+
+def test_pr_without_head_commit_does_not_resolve():
+    pr = _pr()
+    del pr["files"]
+    pr["headRefOid"] = ""
+    result = _funnel([_run()], [pr])
+    assert "no head commit" in result["stages"][3]["dropped"][0]["reason"]
+
+
+def test_trailer_pr_listing_refuses_a_truncated_result(monkeypatch):
+    calls = []
+
+    def fake_gh(args, timeout=60.0):
+        calls.append(args)
+        return json.dumps([{"number": n} for n in range(3)])
+
+    monkeypatch.setattr(vrr, "_gh", fake_gh)
+    with pytest.raises(RuntimeError, match="hit the limit"):
+        vrr.list_trailer_prs("o/r", "2026-09-27", limit=3)
+    assert len(vrr.list_trailer_prs("o/r", "2026-09-27", limit=4)) == 3
+    assert '"Vuoro-Run" in:body created:>=2026-09-27' in calls[-1]
+
+
+def test_cohort_validation_of_once_and_unquoted_dates(tmp_path):
+    bad = dict(COHORT, routines=[{"slug": "x", "once": "2026-09-27T04:30:00Z"}])
+    path = tmp_path / "bad.yaml"
+    path.write_text(yaml.safe_dump(bad), encoding="utf-8")
+    with pytest.raises(ValueError, match="once must be a list"):
+        cov.load_cohort(path)
+    path.write_text("schema: reconstructability-cohort/v1\nroutines:\n"
+                    "  - {slug: d, once: [2026-09-27], client_id: c}\n", encoding="utf-8")
+    cohort = cov.load_cohort(path)
+    ids = [i.inv_id for i in cov.expected_invocations(cohort, [], SINCE, UNTIL)]
+    assert ids == ["d@2026-09-27T00:00Z"]
 
 
 def test_dispatched_session_matches_by_session_id_in_key():
@@ -246,6 +310,9 @@ def test_cron_day_rules():
     assert _cron("0 6 1 * 0", "2026-09-27", "2026-10-05") == [
         "2026-09-27T06:00Z", "2026-10-01T06:00Z", "2026-10-04T06:00Z"]
     assert _cron("0 6 1 10 *", "2026-09-01", "2026-12-31") == ["2026-10-01T06:00Z"]
+    # Vixie cron: a "*/n" day field is unrestricted, so dom and dow combine with AND.
+    assert _cron("0 6 */2 * 0", "2026-09-21", "2026-10-12") == [
+        "2026-09-27T06:00Z", "2026-10-11T06:00Z"]
 
 
 @pytest.mark.parametrize("expr", ["0 6 * *", "60 6 * * *", "0 24 * * *", "*/0 * * * *",

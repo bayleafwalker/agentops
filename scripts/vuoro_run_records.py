@@ -209,10 +209,14 @@ def fetch_pr(repo: str, number: int) -> dict[str, Any]:
 
 def list_trailer_prs(repo: str, since_date: str, limit: int = 500) -> list[dict[str, Any]]:
     """PRs (any state) created on or after ``since_date`` whose body mentions Vuoro-Run."""
-    return json.loads(_gh([
+    prs = json.loads(_gh([
         "pr", "list", "--repo", repo, "--state", "all", "--limit", str(limit),
-        "--search", f"Vuoro-Run in:body created:>={since_date}", "--json", _PR_FIELDS,
+        "--search", f'"Vuoro-Run" in:body created:>={since_date}', "--json", _PR_FIELDS,
     ]))
+    if len(prs) >= limit:
+        raise RuntimeError(f"gh pr list for {repo} hit the limit of {limit} PRs; "
+                           "narrow --since so the listing is complete")
+    return prs
 
 
 def fetch_file(repo: str, path: str, ref: str) -> bytes | None:

@@ -34,12 +34,16 @@ The script is a derived, read-only query: it writes nothing.
    ``routine.<slug>.<YYYYMMDDTHHMMSSZ>`` (the session's UTC start time, per
    ``docs/runbooks/cloud-routine-authoring.md``): the invocation of that slug
    whose ``[scheduled, scheduled + window)`` holds the start time (the latest
-   such one). A key that contains a dispatched session's id matches that
-   session. Otherwise a run
-   matches by time: ``created_at`` in ``[scheduled, scheduled + window)``;
-   when those windows belong to more than one Routine or session the run is
-   reported as ambiguous rather than guessed. Runs bound to a cohort client
-   that match nothing are listed as ``unexpected`` and are not counted. Runs
+   such one). A key with a dispatched session's id as one of its
+   ``.``/``:``/``/``-separated tokens matches that session. Only a run with
+   no idempotency key at all is matched by time: ``created_at`` in
+   ``[scheduled, scheduled + window)``; when those windows belong to more than
+   one Routine or session the run is reported as ambiguous rather than
+   guessed. A run whose key follows neither convention (or names a routine
+   slug not in the cohort) is never matched by time, so an unrelated run
+   near a skipped fire cannot make it look observed. Runs bound to a cohort
+   client that match nothing are listed as ``unexpected`` and are not
+   counted; runs created before ``since`` are ignored. Runs
    bound to any other client or grant are not observed. Expected invocations
    with no run are ``unknown``.
 3. *Evidence-bearing*: some matched run has at least one evidence item.
@@ -74,7 +78,7 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -89,6 +93,8 @@ DEFAULT_COHORT = REPO_ROOT / "docs" / "reconstructability" / "cohort.yaml"
 COHORT_SCHEMA = "reconstructability-cohort/v1"
 DEFAULT_WINDOW_MINUTES = 120
 
+#: Separators of an idempotency key; a session id must be a whole token.
+KEY_TOKEN_RE = re.compile(r"[.:/]")
 ROUTINE_KEY_RE = re.compile(r"^routine\.(?P<slug>.+)\.(?P<start>\d{8}T\d{6}Z)$")
 
 FileFetcher = Callable[[str, str, str], "bytes | None"]
@@ -101,7 +107,10 @@ FileFetcher = Callable[[str, str, str], "bytes | None"]
 def parse_ts(value: Any) -> datetime | None:
     """ISO date or timestamp -> aware UTC datetime (a bare date is midnight UTC)."""
     if isinstance(value, datetime):
-        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        return (value if value.tzinfo else value.replace(tzinfo=timezone.utc)).astimezone(
+            timezone.utc)
+    if isinstance(value, date):  # an unquoted YAML date: midnight UTC
+        return datetime(value.year, value.month, value.day, tzinfo=timezone.utc)
     if not isinstance(value, str) or not value.strip():
         return None
     text = value.strip().replace(" ", "T", 1)
@@ -155,7 +164,8 @@ def parse_cron(expr: str) -> tuple[list[set[int]], bool, bool]:
         raise ValueError(f"bad cron {expr!r}: {exc}") from None
     if 7 in sets[4]:
         sets[4] = (sets[4] - {7}) | {0}
-    return sets, fields[2] != "*", fields[4] != "*"
+    # Vixie cron: a day field starting with "*" (e.g. "*/2") counts as unrestricted.
+    return sets, not fields[2].startswith("*"), not fields[4].startswith("*")
 
 
 def cron_times(expr: str, start: datetime, end: datetime) -> list[datetime]:
@@ -221,6 +231,8 @@ def load_cohort(path: Path) -> dict[str, Any]:
         if has_cron:
             parse_cron(entry["schedule"])
         else:
+            if not isinstance(entry["once"], list):
+                raise ValueError(f"{entry['slug']}: once must be a list of UTC fire times")
             for value in entry["once"]:
                 if parse_ts(value) is None:
                     raise ValueError(f"{entry['slug']}: bad fire time {value!r}")
@@ -289,26 +301,35 @@ def expected_invocations(
 # --------------------------------------------------------------------------
 
 def match_runs(
-    invocations: list[Invocation], runs: dict[str, vrr.RunRecord], window: timedelta
+    invocations: list[Invocation], runs: dict[str, vrr.RunRecord], window: timedelta,
+    since: datetime | None = None, until: datetime | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
     """Attach runs to invocations (mutates ``Invocation.runs``).
 
     Returns ``(unexpected, other_bindings)``: runs bound to a cohort client
     that match no invocation (with the reason), and runs bound elsewhere.
+    Runs created before ``since`` are outside the period and ignored; a run
+    created at or after ``until`` counts only if it matches an invocation
+    (its schedule's window reaches past ``until``).
     """
     unexpected: list[dict[str, Any]] = []
     other: list[str] = []
     slugs = {inv.slug for inv in invocations if inv.slug}
     for record in sorted(runs.values(), key=lambda r: (str(r.get("created_at")), r.run_id)):
+        created = parse_ts(record.get("created_at"))
+        if since is not None and created is not None and created < since:
+            continue
+        after_period = until is not None and created is not None and created >= until
         bound = [inv for inv in invocations if inv.binds(record)]
         if not bound:
-            other.append(record.run_id)
+            if not after_period:
+                other.append(record.run_id)
             continue
-        created = parse_ts(record.get("created_at"))
-        key = str(record.get("idempotency_key") or "")
+        key = str(record.get("idempotency_key") or "").strip()
+        tokens = set(KEY_TOKEN_RE.split(key)) if key else set()
         chosen: Invocation | None = None
         reason = ""
-        by_session = [inv for inv in bound if inv.session_id and inv.session_id in key]
+        by_session = [inv for inv in bound if inv.session_id and inv.session_id in tokens]
         key_match = ROUTINE_KEY_RE.match(key)
         if by_session:
             chosen = by_session[0]
@@ -325,18 +346,27 @@ def match_runs(
             else:
                 reason = (f"idempotency key {key} names no expected invocation of "
                           f"{key_match.group('slug')} (manual or off-schedule fire?)")
+        elif key_match:
+            reason = f"idempotency key {key} names routine {key_match.group('slug')!r}, " \
+                     "which is not in the cohort"
+        elif key:
+            reason = (f"idempotency key {key!r} follows no cohort convention "
+                      "(routine.<slug>.<YYYYMMDDTHHMMSSZ> or a dispatched session id)")
         elif created is None:
-            reason = "no created_at and no matching idempotency key"
+            reason = "no idempotency key and no created_at"
         else:
+            # Only a run with no key at all is matched by time.
             fits = [inv for inv in bound if inv.scheduled <= created < inv.scheduled + window]
             owners = sorted({inv.owner for inv in fits})
             if len(owners) == 1:
                 chosen = max(fits, key=lambda inv: inv.scheduled)
             elif owners:
-                reason = ("ambiguous: created within the window of " + ", ".join(owners)
-                          + " and its idempotency key names none of them")
+                reason = ("ambiguous: no idempotency key and created within the window of "
+                          + ", ".join(owners))
             else:
-                reason = "no expected invocation within the window before created_at"
+                reason = "no idempotency key and no expected invocation within the window"
+        if chosen is None and after_period:
+            continue
         if chosen is not None:
             chosen.runs.append(record.run_id)
         else:
@@ -356,7 +386,7 @@ def pr_file_fetcher(fetch: FileFetcher) -> Callable[[str, dict[str, Any], str], 
         if isinstance(files, dict):
             value = files.get(path)
             return value.encode("utf-8") if isinstance(value, str) else value
-        return fetch(repo, path, str(pr.get("headRefOid") or ""))
+        return fetch(repo, path, str(pr["headRefOid"]))
     return read
 
 
@@ -369,6 +399,8 @@ def check_pr_digests(
     label = f"{repo}#{pr.get('number')}"
     if not items:
         return [f"{label} names the run but the run has no file evidence item to check"]
+    if not isinstance(pr.get("files"), dict) and not pr.get("headRefOid"):
+        return [f"{label} has no head commit (headRefOid) to check the evidence against"]
     problems = []
     for item in items:
         path = item["ref"]
@@ -418,9 +450,11 @@ def funnel(
     prs_by_repo: dict[str, list[dict[str, Any]]],
     fetch: FileFetcher,
     window: timedelta,
+    since: datetime | None = None,
+    until: datetime | None = None,
 ) -> dict[str, Any]:
     """The four stages over the cohort. Pure apart from ``fetch``."""
-    unexpected, other = match_runs(invocations, runs, window)
+    unexpected, other = match_runs(invocations, runs, window, since, until)
     read = pr_file_fetcher(fetch)
     dropped: dict[str, list[dict[str, Any]]] = {"observed": [], "evidence": [], "resolvable": []}
     counts = {"expected": len(invocations), "observed": 0, "evidence": 0, "resolvable": 0}
@@ -579,7 +613,7 @@ def main(argv: list[str] | None = None, fetch: FileFetcher | None = None) -> int
 
     try:
         result = funnel(invocations, runs, prs_by_repo, fetch or vrr.fetch_file,
-                        timedelta(minutes=args.window_minutes))
+                        timedelta(minutes=args.window_minutes), since, until)
     except (RuntimeError, subprocess.TimeoutExpired) as exc:
         print(f"reconstructability-coverage: cannot read a PR file: {exc}", file=sys.stderr)
         return 2

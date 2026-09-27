@@ -8,7 +8,7 @@
 # the old one's cron (the file is the history of what was expected).
 #
 # Routine fields:
-#   slug          the <slug> of its idempotency key `routine.<slug>.<YYYYMMDDTHH>`
+#   slug          the <slug> of its idempotency key `routine.<slug>.<YYYYMMDDTHHMMSSZ>`
 #                 and of docs/routines/<slug>.md in the report repo
 #   trigger_id    RemoteTrigger id (trig_...), or null when not known
 #   schedule      5-field cron in UTC (minute hour day-of-month month day-of-week)
