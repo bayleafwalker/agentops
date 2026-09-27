@@ -14,6 +14,11 @@ This is the guard for the second. For every ``*.ndjson`` under a
 content must be a **line-wise prefix** of the newer one. Appending is fine and
 expected. Editing an existing line, reordering, or deleting one is not.
 
+The comparison starts at the merge-base of the two revisions, not at ``base``
+itself: a branch that is merely behind ``base`` did not delete the shards that
+``base`` gained since it forked, and a two-dot comparison against the moving
+tip of ``main`` reported exactly that for every branch behind it.
+
 Deliberately not a content check: it says nothing about hash chains, schemas or
 ids. It answers one question -- was anything that was already written changed --
 and that question is answerable from git alone, on any host, without auditctl
@@ -78,6 +83,7 @@ def check(base: str, head: str, cwd: str | None = None) -> list[str]:
     ``cwd`` is the repository to run git in (default: the current directory).
     """
     violations: list[str] = []
+    base = _git("merge-base", base, head, cwd=cwd).strip()
     for path in _changed_shards(base, head, cwd):
         before = _lines_at(base, path, cwd)
         if before is None:
