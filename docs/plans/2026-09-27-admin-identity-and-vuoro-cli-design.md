@@ -4,13 +4,39 @@ Date: 2026-09-27. Status: **proposed**. This is a design pass and changes no cod
 
 ## Verification status (read first)
 
-- **bayleafwalker/vuoro-cloud was not attached to this session.** The clone has no remote and no forge CLI. Every statement below about vuoro-cloud code (`control.py`, `oauth_scopes.py`, the users table, `operator()`, CNPG, the tenant controller) comes from the operator's 2026-09-27 brief. Each one is marked **[U]** (unverified in code). Line numbers are the brief's, not mine.
-- The same **[U]** applies to vuoro-client (bayleafwalker/vuoro) and to cred-broker internals. The cred-broker **public README** was read on 2026-09-27. It says production use requires "verified mTLS and server-side session state", and that "provider adapters are disabled until an operator supplies dedicated provider identities, a protected signing/key substrate, enrolled client certificates, and live positive and negative canary evidence."
+- **Checked against:** vuoro-cloud's GitHub mirror, `main` at `96684ad` ("Release v0.1.0-poc.46 promotion candidate", 2026-09-27), plus the unmerged mirror branch `e2/attribution-and-scopes-9xavjv` (`2e35256`).
+  - vuoro-cloud is Forgejo-authoritative (cloud-enablement plan, decision 1), so the mirror may lag Forgejo `main`.
+  - Paths cited as `vuoro-cloud:<file>:<line>` were read at `96684ad`.
+- **[U]** marks a claim that is still unverified in code: it comes from the operator's brief and was not found or not checked.
+- **vuoro-client** (bayleafwalker/vuoro) and **cred-broker internals** were not attached, so claims about them stay **[U]**. The cred-broker **public README** was read on 2026-09-27. It says production use requires "verified mTLS and server-side session state", and that "provider adapters are disabled until an operator supplies dedicated provider identities, a protected signing/key substrate, enrolled client certificates, and live positive and negative canary evidence."
 - **[A]** marks an inference or assumption: a claim about third-party behaviour (barman-cloud, S3 providers, WebAuthn clients) that this pass did not test.
 - **Verified in this repo:**
   - TS-1 and TS-16 (`docs/plans/2026-09-17-target-state.md:30`, `:45`);
   - the effects decision and the "Required before slice 1" list (`docs/plans/2026-09-26-cloud-enablement-plan.md:31-59`);
   - the trusted-service design and its threat model (`docs/plans/2026-09-26-trusted-service-boundary-design.md`).
+
+### What the code check confirmed and corrected
+
+| Brief claim | Result at `96684ad` |
+|---|---|
+| Workspace PATCH is browser-only: cookie, CSRF, `administrative_membership` | **Confirmed.** `control.py:3270-3283` (`Depends(browser)`); the CSRF double-submit check is at `control.py:271-300`. |
+| `operator()` is a hash-checked static bearer with a CIDR allow-list | **Confirmed, with a correction.** The CIDR check reads the **`cf-connecting-ip` header** (`control.py:217-241`). Operator calls therefore arrive **through Cloudflare / cloudflared on `api.vuoro.cloud`** (`platform/cloudflared/deployment.yaml:33-35`), not over the WireGuard tunnel. Whoever can send traffic to control without passing through Cloudflare (a compromised cloudflared or any in-cluster pod with a route to control) can set that header. The audited actor is the literal string `"operator"` (`control.py:242`). |
+| Operator routes: rollout status, epoch bump, drain, backup observations, invitations, invite requests, service controls, analytics | **Confirmed, and there are more:** operator **tenant-migration** routes `…/migration/plan`, `start`, `retry` and `status` also exist, and require the workspace to be `DRAINING` (`control.py:1405-1650`). |
+| No route to retire, delete, transfer or create principals | **Partly wrong.** The member-only PATCH accepts `desired_state=DELETED`. It sets `DELETION_REQUESTED` (`control.py:3292`), and the controller then scales the runtime to 0 and marks the workspace **`RETAINED`** (`controller.py:145-168`). Nothing ever tears down the namespace, database or roles. There is **no operator route** for this, and no route at all for transfer or principal creation. |
+| users table `(id, external_subject, display_name, created_at)` | **Confirmed.** `migrations/001_control.sql:3-8`, no `CHECK` on `external_subject`. Principals are also registered in `principal_subjects(subject, kind IN ('user','connector'), actor, epoch)` (`migrations/008_principal_epoch.sql:6-13`). |
+| The only sign-in path is GitHub OAuth, subject `github:<numeric id>` | **Confirmed** for the callback (`oauth.py:94`, `f"github:{value['id']}"`). Invitation redemption checks only `subject.startswith("github:")` (`control.py:1896`). |
+| `SCOPE_CLIENT_RESTRICTIONS` and the `claude-connector` client | **Not on `main`.** They exist only on the unmerged E2 branch (`2e35256`, `oauth_scopes.py:55-59`: `vuoro:evidence.record → {claude-connector}`). There, a restriction silently drops the scope from other clients' default grants; it does not refuse it. On `main` the only grantable scope is `vuoro:work.read`. `work.claim`, `evidence.record` and `effect.propose` are reserved, and `effect.apply` is rejected (`oauth_scopes.py:19-35`). Forgejo `main` may differ. |
+| Access token 15 min | **Confirmed.** `oauth_server.py:35` (`ACCESS_TOKEN_TTL_SECONDS = 900`). |
+| `audit_events` exists | **Confirmed, and weak.** `(id, workspace_id, actor text, action, target, request_id, details jsonb, created_at)` (`migrations/001_control.sql:173-182`). No hash chain, no insert-only guard, no credential or reason fields. |
+| CNPG with barman to `s3://vuoro-cloud-poc-cnpg-backups`, daily | **Confirmed, and unencrypted.** `platform/cnpg/repository.yaml:23-43`: endpoint `https://hel1.your-objectstorage.com` (Hetzner Object Storage), `retentionPolicy: 14d`, gzip, daily `ScheduledBackup` at 02:15. There is **no `encryption` key** on `wal` or `data`. |
+| blocker12-canary origin | **Consistent.** `IMPLEMENTATION-STATUS.md:265, 395-405` describe the "blocker-12 canary" as the first live provisioning trial: generations 1-2 failed, and 3-5 reconciled to `READY` at observed generation 5. The owner's IDs, subject and schema-12 state are **[U]**: they are live database contents. |
+
+**How the corrections change the design:**
+
+- **The operator token is edge-reachable.** This strengthens the case for a tunnel-only admin plane (open question 1). It also means today's operator surface is exposed to a compromised edge, which the threat model now lists.
+- **Operator drain and tenant migration already exist.** blocker12's schema lag could be fixed today without its owner. Retirement still cannot be done.
+- **`DELETED` only retains.** "Retire" in this design is new teardown work on top of the existing `RETAINED` state.
+- **`SCOPE_CLIENT_RESTRICTIONS` is not yet on the verified `main`,** and on the E2 branch it only drops scopes rather than refusing them. The hard refusals this design needs are new.
 
 ## Recommendation in one paragraph
 
@@ -38,12 +64,16 @@ Date: 2026-09-27. Status: **proposed**. This is a design pass and changes no cod
 
 ### Why now
 
-- **One human, one account.** Sign-in is GitHub OAuth only (`github:<numeric id>`) **[U]**. The operator has one GitHub account, so the person who owns kotona is also the only possible administrator. Administration then either happens as a tenant member, or through a shared static secret.
+- **One human, one account.** Sign-in is GitHub OAuth only (`github:<numeric id>`, `vuoro-cloud:src/vuoro_cloud/oauth.py:94`). The operator has one GitHub account, so the person who owns kotona is also the only possible administrator. Administration then either happens as a tenant member, or through a shared static secret.
 - **Administration today is a shared secret plus copy-paste.**
-  - The `operator()` bearer is a hash-checked static token with a CIDR allow-list and no per-person attribution **[U]**.
-  - Workspace PATCH accepts only a browser cookie, CSRF and `administrative_membership` **[U]**. Operators paste `fetch()` calls into a browser console.
-  - Backups are `kubectl` over the WireGuard tunnel **[U]**.
-- **There is no sanctioned route to retire a workspace, transfer or recover ownership, or create a principal** **[U]**.
+  - The `operator()` bearer is a hash-checked static token. Its CIDR allow-list is evaluated on Cloudflare's `cf-connecting-ip` header, and the audit actor is the literal `"operator"` (`control.py:217-242`).
+  - Workspace PATCH accepts only a browser cookie, CSRF and `administrative_membership` (`control.py:3270-3283`). Operators paste `fetch()` calls into a browser console.
+  - Backups are `kubectl` over the WireGuard tunnel **[U]** (operator practice; the tunnel is described in `08-K3S-POC-DEPLOYMENT.md:27-45`).
+- **What is missing:**
+  - Teardown: `desired_state=DELETED` only reaches `RETAINED` (`controller.py:145-168`).
+  - Any operator or admin deletion path.
+  - Ownership transfer or recovery.
+  - Principal creation.
 - **The orphan incident.**
   - Workspace `blocker12-canary` (`01M14W25EYKC…`) is owned only by `01M14W25EYSZ…`. That user's subject is `github:`-prefixed but non-numeric; it is a synthetic identity from a 2026-08-28 test run **[U]**.
   - Nobody can sign in as that user. The workspace cannot be rolled, drained by its owner or retired, and it sits on an old runtime at work schema 12 **[U]**.
@@ -75,7 +105,7 @@ Date: 2026-09-27. Status: **proposed**. This is a design pass and changes no cod
 | **Test principals** | Admin-minted test-login codes or tokens | Synthetic `github:` owners create orphans (today's incident) | `test:` namespace enforced by a CHECK constraint. Test workspaces only. Expiry and reaper. | Test workspaces, until expiry |
 | **Claude connector / cloud agents** | claude-connector access and refresh tokens (aud `/mcp`) | Scope creep into control through a default grant | Control and admin scopes sit in `SCOPE_CLIENT_RESTRICTIONS` for CLI clients only and are hard-refused for claude-connector. Admin routes are unreachable from the edge. | As today (TS-16 surface) |
 | **Appservice-cluster workloads** (vuoro-cli service, cred-broker) | Workload identity to control | A static operator token in a pod equals administration | The service holds observe, backup-trigger and drill scopes only; no step-up is possible without a YubiKey. cred-broker can mint only within the control-side delegation ceiling. | Backup and drill noise. Work-plane read or record tokens for agent principals, ≤ 15 min each. |
-| **Compromised edge** (cloudflared, gateway) | Gateway assertion key, public ingress | Reaches any operator route whose CIDR check it can satisfy | Admin resource is not routed through cloudflared; the ingress rule admits tunnel CIDRs only. Admin routes reject gateway assertions and cookies. | Same as today for the work plane |
+| **Compromised edge** (cloudflared, gateway) | Gateway assertion key, public ingress | **Today:** operator routes are served on `api.vuoro.cloud` through cloudflared. The CIDR check trusts `cf-connecting-ip`, so a compromised cloudflared can pass it and needs only the static token. | Admin resource is not routed through cloudflared; the ingress rule admits tunnel CIDRs only. Admin routes reject gateway assertions and cookies. | Same as today for the work plane |
 | **Compromised operator laptop** | CLI keyring: user tokens, admin refresh token (≤ 1 h), a plugged-in YubiKey | Static operator token on disk equals administration indefinitely | No long-lived admin secret on disk. Mutations need a touch, destructive ones need touch plus PIN. Notifications. Teardown hold. | ≤ 1 h of admin reads. Malware can prompt touches while the key is plugged in, so the displayed-digest check and the phone notification are the backstop. |
 | **Compromised control** (AS plus DB) | Everything | Total | Off-cluster audit mirror and chain verification by the appservice service. WebAuthn assertions are verifiable offline. | Total; detected after the fact |
 
@@ -138,7 +168,12 @@ The operation assertion — `authenticatorData`, `clientDataJSON`, signature, cr
 
 ### D2. Test principals
 
-**Model.** Add `kind` to users: `human | test | agent`. Agent principals are introduced in D3.
+**Model.**
+
+- Add `kind` to `users`: `human | test | agent`. Agent principals are introduced in D3.
+- Widen `principal_subjects.kind` (today `user | connector`, `migrations/008_principal_epoch.sql:8`) to `human | test | agent | connector`, keeping it equal to `users.kind`.
+- Admin principals get their own rows in `principal_subjects` with kind `admin`. Epoch handling is then shared, while membership (keyed on `users`) still cannot see admins.
+- The namespace rule applies to `users.external_subject`, which is the actor string. The opaque `users.id` stays colon-free as today.
 
 Enforced by database constraint, not by application code:
 
@@ -151,7 +186,8 @@ workspaces.is_test boolean NOT NULL DEFAULT false
 membership trigger: kind='test' ⇒ workspace.is_test;  workspace.is_test ⇒ member.kind IN ('test','agent')
 ```
 
-- Only the GitHub OAuth callback inserts `kind='human'`. The test harness gets a DB role or API path that can create `test` only **[A]** (depends on how the test harness seeds data today, which is **[U]**).
+- Only the GitHub OAuth callback (`oauth.py:94`) inserts `kind='human'`. The test harness gets a DB role or API path that can create `test` only **[A]**. How the blocker-12 trial seeded its owner is **[U]**; `IMPLEMENTATION-STATUS.md:265` records only that the canary ran.
+- Invitation redemption's `startswith("github:")` check (`control.py:1896`) is tightened to the same pattern.
 - **Migration.** The constraint cannot be added while blocker12's owner row violates it. Slice 0 first runs a read-only classification query. Violators are rewritten to `kind='test'`, subject `test:<new ulid>` with the original preserved in `legacy_subject`, `expires_at=now()`, and `created_by_admin=<bootstrap admin>` — through the admin API in slice 2, never by hand. After that, the constraint lands.
 
 **Lifecycle.**
@@ -187,7 +223,7 @@ membership trigger: kind='test' ⇒ workspace.is_test;  workspace.is_test ⇒ me
 | admin principal | — | **never minted**, only obtained by WebAuthn login | — | — | — |
 
 - **No impersonation.** An admin minting tokens *as* the operator's user identity, or any human, would undo the separation. Humans mint their own PATs through the user plane (D4).
-- **Epochs.** The principal epoch bump exists today **[U]**. Add epochs per agent principal, per delegation and per admin principal.
+- **Epochs.** The principal epoch bump exists today (`control.py:1331`, monotonic by trigger in `migrations/008_principal_epoch.sql:15-30`). Add epochs per agent principal, per delegation and per admin principal.
 
 **Agent principals** (`agent:<ulid>`):
 
@@ -269,7 +305,7 @@ They exist so that work done by a delegate is attributable to the delegate rathe
   - Access tokens last 5 minutes, with no refresh token.
 - **Scopes:** `vuoro:admin.read`, `vuoro:admin.audit.read`, `vuoro:admin.backup` (on-demand plus drill namespace only). It can never produce an operation assertion, so no destructive route is reachable from it by construction.
 
-**Scopes and client restrictions** (additions to `oauth_scopes.py` **[U]**):
+**Scopes and client restrictions.** These are additions to `oauth_scopes.py`. `SCOPE_CLIENT_RESTRICTIONS` exists only on the unmerged E2 branch (`2e35256`, `oauth_scopes.py:55-59`), where it *silently drops* a scope from other clients' default grants. Land it first, then add the hard per-client rejection below:
 
 - `vuoro:control.workspace.read`, `vuoro:control.workspace.write` and `vuoro:control.token.manage` are restricted to `vuoro-cli`.
 - `vuoro:admin.*` is restricted to `vuoro-cli-admin`. A subset (`read`, `audit.read`, `backup`) is also restricted to `vuoro-cli-service`.
@@ -280,7 +316,7 @@ They exist so that work done by a delegate is attributable to the delegate rathe
 
 **Bearer path next to the browser session.**
 
-- **Keep every existing cookie route as is.** Cookie plus CSRF plus `administrative_membership`, `Depends(browser)` **[U]**.
+- **Keep every existing cookie route as is.** Cookie plus CSRF plus `administrative_membership`, `Depends(browser)` (`control.py:268-300`, `:3270-3283`).
 - **Add separate routers:**
   - `/api/control/v1/cli/...` uses `Depends(control_bearer(scope))`: bearer only, `aud=/control`, human subject, `administrative_membership(workspace, token.sub)` still required.
   - `/api/control/v1/admin/...` uses `Depends(admin(scope, op_assertion=…))`.
@@ -309,22 +345,22 @@ They exist so that work done by a delegate is attributable to the delegate rathe
 - `state requested→running→succeeded|failed|cancelled`;
 - `steps[]` with timestamps.
 
-Control executes operations and the tenant controller performs the cluster steps, as rollouts do today **[U]**. This is platform lifecycle. It is **not** an effects state machine, so item 4 ("no temporary Vuoro execution state machine") does not apply to it.
+Control executes operations and the tenant controller performs the cluster steps, as rollouts do today (outbox claim and reconcile, `controller.py:79-200`). This is platform lifecycle. It is **not** an effects state machine, so item 4 ("no temporary Vuoro execution state machine") does not apply to it.
 
 | Operation | Actor | Steps | Guards |
 |---|---|---|---|
 | **create / onboard** | admin (or a user via invitation, as today) | create workspace row → owner membership → desired_state READY → controller provisions | Owner must be `kind=human` with a valid subject, or `test` for `is_test`. Workspace creation and owner membership happen in one transaction, so a workspace with no owner cannot exist. |
-| **repo bind** | user (owner/admin member) | record binding → verify provider reachability **[U]**: current binding mechanics unknown | Effects allowlists stay Git-reviewed (trusted-service design §T4). A CLI binding never widens effects. |
-| **roll** | user (own) or admin | if the target image's migration set changes the schema: on-demand backup, wait for completion → PATCH READY → watch `vuoro-migrate-<gen>` → Deployment ready | Migrations are forward-only **[U]**, so a pre-roll backup is mandatory when schema changes. `--wait` exits non-zero on migrate failure and prints the restore point. |
-| **drain** | admin | existing maintenance drain **[U]** | touch |
-| **retire** | admin | `retire --plan` prints plan and digest → `retire --apply <digest>` (touch + PIN) → backup (skipped for test unless kept) → drain → revoke all grants and PATs scoped to the workspace → scale to zero → **24 h hold** (non-test; cancellable) → delete namespace, DB, roles, secrets → workspace row becomes `retired` tombstone (id never reused) → audit | Plan digest binds the assertion. Teardown refuses unless the backup's `status=completed` and WAL is archived past the drain LSN. |
+| **repo bind** | user (owner/admin member) | today's browser-only `POST …/projects/current/repositories` (`control.py:2324-2390`, inserts `repositories(git_remote, commit_sha)`) gets a bearer twin; provider reachability check **[A]** | Effects allowlists stay Git-reviewed (trusted-service design §T4). A CLI binding never widens effects. |
+| **roll** | user (own) or admin | if the target image's migration set changes the schema: on-demand backup, wait for completion → PATCH READY → watch `vuoro-migrate-<gen>` → Deployment ready | Migrations are forward-only (operator brief; the controller's migrate Job precedes the Deployment, `controller.py:200-246`), so a pre-roll backup is mandatory when schema changes. `--wait` exits non-zero on migrate failure and prints the restore point. |
+| **drain** | admin | existing operator drain (`control.py:1369-1403`, `READY → DRAINING`) and tenant migration plan/start (`control.py:1405+`), moved to admin scope | touch |
+| **retire** | admin | Builds on today's `DELETED → RETAINED` path (`controller.py:145-168`), which scales to 0 and stops there. `retire --plan` prints plan and digest → `retire --apply <digest>` (touch + PIN) → per-workspace logical dump, age-encrypted (D6; skipped for test unless kept) → drain → revoke all grants and PATs scoped to the workspace → scale to zero → **24 h hold** (non-test; cancellable) → delete namespace, DB, roles, secrets → workspace row becomes `retired` tombstone (id never reused) → audit | Plan digest binds the assertion. Teardown refuses unless the dump is verified (restorable header and digest recorded) and a cluster base backup newer than the drain has `status=completed`. |
 | **transfer ownership** | admin | add new owner → remove or downgrade old owner, in one transaction | touch + PIN. The new owner must be able to authenticate. |
 | **principal disable** | admin | epoch bump → revoke grants → for each workspace where the principal is the sole owner, **refuse** unless `--disposition <ws>=transfer:<p>|retire` is given for each | Makes new orphans impossible through the admin path. |
 | **orphan recovery** | admin | `admin workspace list --orphaned` (owner kind invalid, disabled, expired, or no authenticable owner) → transfer or retire | — |
 
 **Invariant, checked by a trigger plus a nightly report:** every non-retired workspace has at least one owner who is (a) human with a valid subject and not disabled, or (b) test, not expired, in a test workspace. Because the admin plane never needs membership, a violated invariant is always recoverable.
 
-**Worked example: `blocker12-canary`.** All identifiers **[U]**.
+**Worked example: `blocker12-canary`.** The identifiers, owner subject and schema version are live data, **[U]**.
 
 1. **Slice 0 report.** `01M14W25EYSZ…` fails the subject pattern, and `01M14W25EYKC…` has no authenticable owner. Also check whether that principal owns or belongs to anything else.
 2. **Slice 2 prerequisite:**
@@ -347,21 +383,30 @@ Control executes operations and the tenant controller performs the cluster steps
 6. The expired test principal is disabled by the reaper, with actor `policy:test-expiry@v1` and the linked operation.
 7. **Root cause.** Find the 2026-08-28 seeding test and move it to `admin test-principal create`. The CHECK constraint makes a repeat fail at insert time.
 
-**Interim:** leave the canary parked (see open question 2).
+**Interim.** Two things are true today, verified at `96684ad`:
+
+- the static operator token can already drain the canary and run a tenant migration on it (`control.py:1369-1650`), so the schema-12 lag can be fixed without its owner;
+- no route can retire it.
+
+Leave the canary parked (open question 2), unless the stale schema blocks a fleet-wide roll. In that case, use the existing operator drain and migration routes, with the reason written into the handoff, because the static token records no reason.
 
 ### D6. Encrypted backups
 
-**Facts [U]:**
+**Facts:**
 
-- CNPG with barman-cloud writes to `s3://vuoro-cloud-poc-cnpg-backups`;
-- backups are daily plus on-demand Backup CRs created with kubectl over the tunnel;
-- the S3 provider and any current encryption setting are unknown.
+- **Verified** (`vuoro-cloud:platform/cnpg/repository.yaml:1-43`):
+  - one CNPG `Cluster`, `vuoro-postgres`, in `vuoro-data`;
+  - barman-cloud writes to `s3://vuoro-cloud-poc-cnpg-backups/vuoro-cloud-poc` on **Hetzner Object Storage** (`hel1.your-objectstorage.com`);
+  - `retentionPolicy: 14d`, gzip, a daily `ScheduledBackup` at 02:15;
+  - **no `encryption` setting on `wal` or `data`.**
+- **[A]:** tenant databases live in the same cluster. It is the only `Cluster` manifest, and the controller provisions through `tenant_database_admin_url` (`config.py:27`), whose value is SOPS-encrypted. If so, a CNPG backup is **cluster-wide**: restoring one workspace means a point-in-time recovery of the whole cluster into a new cluster, followed by extracting that workspace's database. That is why retire (D5) takes a **per-workspace logical dump** as well.
+- **[U]:** on-demand Backup CRs are created with kubectl over the tunnel (operator practice).
 
 **Encryption options.**
 
 | | Mechanism | Protects against | Verdict |
 |---|---|---|---|
-| a | Provider server-side encryption (barman-cloud `encryption: AES256` / `aws:kms` **[A]**, if the provider supports it) | Provider media theft only. Anyone with bucket credentials reads plaintext. | Turn on if supported; it costs nothing, but it is **not** the control. |
+| a | Provider server-side encryption (barman-cloud `encryption: AES256` / `aws:kms` **[A]**; whether Hetzner Object Storage honours SSE headers is **[A]**, unverified) | Provider media theft only. Anyone with bucket credentials reads plaintext. | Turn on if supported; it costs nothing, but it is **not** the control. |
 | b | Client-side encryption in the primary backup path | Bucket-credential or provider compromise | **[A]:** barman-cloud, as CNPG drives it, has no client-side encryption. It would mean a CNPG plugin or a switch away from barman. Defer. |
 | c | **Immutable primary plus client-side-encrypted offsite copy** | Credential compromise (ciphertext only in the copy), cluster compromise destroying backups (object lock), provider loss (second provider) | **Recommend.** |
 
@@ -369,7 +414,7 @@ Control executes operations and the tenant controller performs the cluster steps
 
 - **Primary bucket:**
   - SSE if available;
-  - versioning plus object lock (compliance mode, 35-day retention) **[A: provider support]**;
+  - versioning plus object lock (compliance mode), with retention ≥ the 14-day barman retention plus margin, e.g. 21 days. Hetzner support for object lock and delete-denying key policies is **[A]** and has to be probed first.
   - cluster credentials that can put and get but **not** delete. Lifecycle expiry does the deleting.
 
   A compromised cluster can then read backups (it can read the database anyway) but cannot destroy them.
@@ -401,7 +446,10 @@ Control executes operations and the tenant controller performs the cluster steps
 
 ### D7. Audit and non-repudiation
 
-- **Store:** an `audit_events` table (it exists **[U]**; the trusted-service design references it).
+- **Store:** extend `audit_events`.
+  - Today it is `(id, workspace_id, actor text, action, target, request_id, details jsonb, created_at)` with no integrity protection (`migrations/001_control.sql:173-182`).
+  - The static-token routes write `actor="operator"` (`control.py:242`).
+  - Add the columns below.
   - **Insert only:** control's DB role has INSERT but not UPDATE or DELETE, and a trigger rejects both.
   - Each row carries `prev_hash`, `row_hash = H(prev_hash ‖ canonical_json(row))`.
   - This closes item 10's "insert-only, tamper-evident" requirement for the admin plane.
@@ -623,7 +671,9 @@ Those items gate the **effects** slice. This design is mostly independent of the
    - (b) Public behind WebAuthn only.
    - (c) Public behind Cloudflare Access plus WebAuthn.
 
-   **Recommend (a).** The tunnel already gates kubectl and the operator token, and it keeps a compromised edge out of the admin plane entirely. The cost is no admin access from the phone.
+   **Recommend (a).** The tunnel already gates kubectl, and it keeps a compromised edge out of the admin plane entirely. The cost is no admin access from the phone.
+
+   Today's operator token is **not** tunnel-gated. It is served through cloudflared, and its CIDR check trusts `cf-connecting-ip` (`control.py:217-241`). Option (a) therefore needs a new ingress path to control from the WireGuard interface, and control must reject admin-resource requests that arrived through cloudflared.
 2. **blocker12-canary before slice 2.**
    - (a) Leave it parked until slice 2 retires it through the API.
    - (b) An audited one-off now: kubectl plus SQL over the tunnel, with a written runbook.
