@@ -61,6 +61,93 @@ wrote or edited by checking `gh pr list --state all --search <marker>` (or
 the repo-appropriate equivalent) after its next fire, not by reading its
 transcript at `claude.ai/code`.
 
+## Record the run through the Vuoro connector
+
+The PR shows that the routine ran and what it concluded. It does not show what
+produced the verdict or which evidence it rests on. Since generation 47 the
+Vuoro connector grants the record tools (`vuoro:evidence.record`:
+`register_run`, `append_evidence`, `write_session_note`), so every routine
+also leaves a run record, and its PR names that record. In a routine session
+the tools appear as `mcp__Vuoro__register_run` and so on.
+
+1. **At start, before any other work, call `register_run`** with the
+   RunManifest fields:
+   - `harness_id`: `claude-code`.
+   - `harness_build`: the output of `claude --version` in the session, or
+     `unavailable` if the command is not on PATH. The check accepts that
+     value, and the record says honestly that the build is unknown.
+   - `model_id`: the model id the session runs as.
+   - `recipe_id`: `<owner>/<repo>:<prompt path>@<blob>`, where `<blob>` is
+     `git rev-parse HEAD:<prompt path>`. Keep the routine's real instructions
+     in a versioned file in the report repository (`docs/routines/<slug>.md`
+     in `bayleafwalker/vuoro`). The prompt stored in the Routine is a short
+     stub that says to follow that file.
+   - `observed_profile`: `{"instruction_digest": "sha256:<sha256sum of the
+     prompt file>", "skill_digests": []}`.
+   - `idempotency_key`: `routine.<slug>.<YYYYMMDDTHHMMSSZ>`, where the
+     timestamp is the session's start time (`date -u +%Y%m%dT%H%M%SZ`, taken
+     once and reused). Each session gets its own run: a manual fire in the
+     same hour as a scheduled one does not merge into it. Retrying the
+     `register_run` call itself inside the session, with the same arguments,
+     returns the same `run_id`. The coverage funnel counts several sessions
+     for one expected invocation once.
+
+   Keep the returned `run_id` for the rest of the session.
+2. **For each finding, call `append_evidence`** with `kind: "finding"`,
+   `ref: "<report path>#<finding id>"`, `digest: "sha256:<hex>"` of the
+   finding's text, `collector: "<slug>"`, `validity: {"basis":
+   "until_inputs_change", "valid_from": "<now, ISO 8601>"}` and
+   `idempotency_key: "<run key>.f<n>"`. A run that finds nothing records no
+   findings, but it still records step 3.
+3. **After writing the report file and before committing it, call
+   `append_evidence` for the report itself** with `kind: "report"`,
+   `ref: "<report path>"` (repository-relative, with no `#fragment`),
+   `digest: "sha256:<sha256sum of the file>"`, the same `collector` and
+   `validity` as step 2, and `idempotency_key: "<run key>.report"`. Do not edit the file after this
+   call: the coverage funnel checks the digest against the file in the PR.
+4. **End the PR body with the line `Vuoro-Run: <run_id>`** on a line of its
+   own. Do not wrap the key in bold; backticks around the value are
+   tolerated.
+5. **After opening the PR, call `write_session_note`** with a short summary
+   of the verdict, the PR URL and the same `Vuoro-Run: <run_id>` line
+   (`idempotency_key: "<run key>.note"`).
+6. **If `register_run` is missing or refused** (the connector was not
+   re-authorized after the grant widened, or the call returned an error),
+   still open the PR required above. Write `Vuoro-Run: unavailable (<error
+   code or "tools not listed">)` in the PR body and in the report. The
+   conformance check then fails with that reason instead of the run going
+   silently unrecorded. If the run was registered and a later record call
+   fails, keep the real `run_id` in the trailer and name the failure in the
+   report. The check then reports what is missing, such as no evidence.
+
+**Check a routine PR** from the trusted side:
+
+```sh
+agentops routine-pr-conformance <pr-number> --records <export.json>
+```
+
+The command exits 0 only if the PR's `Vuoro-Run` trailer resolves to a run
+whose RunManifest fields are non-empty and which has at least one evidence
+item. It exits 1 for a non-conformant PR, including a PR with no trailer, and
+2 when its inputs cannot be read. The records export is JSON produced by
+`agentops vuoro-run-records --sql [--since <date>]`, run against the tenant
+runtime's database through the operator's backend-inspection path (a bounded
+`psql` over the private Kubernetes API; vuoro-cloud
+`docs/runbooks/operator-access.md`). To run the query directly, pass
+`--records-cmd "<that psql command>"` instead of `--records`: the SQL goes to
+the command on stdin. The export is needed because the served read path
+resolves a run only for the exact binding that registered it. A workstation
+identity is not the Routine's binding, and no cross-binding `describe_run`
+operation exists yet.
+
+**Add the routine to the coverage cohort.** When you create, reschedule or
+delete a routine, update `docs/reconstructability/cohort.yaml` (slug,
+trigger id, cron schedule in UTC or its one-off fire times, client, report
+repo). `agentops reconstructability-coverage --since <date> --records ...`
+counts every expected fire from that file, so a routine that never calls
+`register_run` shows up as `unknown` at its scheduled time instead of not at
+all. A routine missing from the file is invisible to the metric.
+
 ## What must never be added to close this gap
 
 **Do not give a cloud routine a forge or served credential.** The cloud can
@@ -75,11 +162,21 @@ report file) to "solve" reachability would cross that boundary instead of
 using the sanctioned crossing point, and must not be done even as a
 convenience.
 
+The Vuoro connector's record tools are not an exception to this rule. They
+carry evidence and coordination, which TS-16 lets cross: the operator
+consents to the connector's OAuth grant in claude.ai, and the grant is bound
+to one client, principal and workspace. The routine never holds a token it
+could reuse elsewhere, and a run record is not an effect.
+
 ## Editing an existing routine's prompt
 
 Cloud routine definitions are edited with `RemoteTrigger` (`action: "get"`
 then `action: "update"`, `trigger_id: "trig_..."`) — see the `schedule`
-skill. They are not stored in this repo. If you cannot reach or edit a
+skill. They are not stored in this repo. A routine that follows the record section
+above keeps its real instructions in the report repository
+(`docs/routines/<slug>.md`), so changing the file changes the next fire, and
+the run's `recipe_id` and `instruction_digest` show which revision ran. The
+Routine's own prompt stays a stub that points to that file. If you cannot reach or edit a
 routine's cloud-side definition in a given session (no `RemoteTrigger`
 access, or the update call is refused), say so explicitly rather than
 reporting the routine as fixed; a change to this guidance document alone does
