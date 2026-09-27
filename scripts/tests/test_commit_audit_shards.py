@@ -524,7 +524,8 @@ if tool == "gh":
         main = ref("main")
         git = lambda *a: subprocess.run(["git", "-C", remote, *a], capture_output=True,
                                         text=True, check=True).stdout.strip()
-        new = git("commit-tree", sha + "^{tree}", "-p", main, "-m", "rebased")
+        tree = git("merge-tree", "--write-tree", main, sha).splitlines()[0]
+        new = git("commit-tree", tree, "-p", main, "-m", "rebased")
         git("update-ref", "refs/heads/main", new, main)
         pr["state"] = "merged"; save(); sys.exit(0)
 sys.exit(f"stub: unhandled {tool} {args}")
@@ -859,3 +860,26 @@ def test_forge_from_remote_url(url, expected):
 
 def test_forge_from_local_path_is_none():
     assert cas.Forge.from_url("/tmp/remote.git") is None
+
+
+def test_protected_github_rebase_onto_moved_base_is_merged_and_settles(env, forge, monkeypatch):
+    forge.github()
+    forge.set(ci="success")
+    write(env["work"], SHARD2, '{"n":2}\n')
+    original = cas.Forge.merge
+
+    def moving(self, repo, pr):
+        git(env["remote"], "config", "core.hooksPath", "/dev/null")
+        other_pushes(env)
+        git(env["remote"], "config", "core.hooksPath", str(env["tmp"] / "remote-hooks"))
+        return original(self, repo, pr)
+
+    monkeypatch.setattr(cas.Forge, "merge", moving)
+    rc, results, _ = run(env, "--ci-wait", "0")
+    assert rc == 0 and results[0]["action"] == "merged", results[0]
+    assert "moved base" in results[0]["detail"]
+    monkeypatch.setattr(cas.Forge, "merge", original)
+    rc, results, _ = run(env, "--ci-wait", "0")
+    assert rc == 0 and [r["action"] for r in results] in ([], ["noop"]), results
+    assert git(env["work"], "rev-parse", "HEAD") == remote_head(env)
+    assert git(env["work"], "status", "--porcelain") == ""

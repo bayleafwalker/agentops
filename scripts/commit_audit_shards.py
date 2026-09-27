@@ -704,8 +704,14 @@ def land_via_pr(repo: Repo, result: Result, *, upstream: str, default: str,
             result.action, result.reason = "pr-open", "base-moved"
             result.detail = _join(result.detail, f"merge refused: {output}")
             return
-        raise Skip(NEEDS_OPERATOR, f"merge refused: {output}" if not merged else
-                   f"merge reported success but {target[:12]} is not on {upstream}")
+        if not merged:
+            raise Skip(NEEDS_OPERATOR, f"merge refused: {output}")
+        # Merged, but rewritten onto a base that moved meanwhile (a GitHub
+        # rebase or squash): the next run's sync settles the checkout.
+        result.pr_state, result.action, result.reason = "merged", "merged", ""
+        result.detail = _join(result.detail, "merged onto a moved base; the next run "
+                                             "fast-forwards the checkout")
+        return
     if not _is_ancestor(repo, target, upstream):
         # Rebase or squash merge: the same tree under a new commit. Move onto
         # it; any newer local shard commits stay staged for the next run.
