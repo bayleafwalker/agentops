@@ -74,7 +74,7 @@ def protected_patterns(manifest_path: Path) -> list[str]:
 
 def changed_paths(base: str, head: str) -> list[str]:
     out = subprocess.run(
-        ["git", "diff", "--name-only", f"{base}...{head}"],
+        ["git", "diff", "--name-only", "--no-renames", f"{base}...{head}"],
         capture_output=True, text=True, check=True,
     ).stdout
     return [line for line in out.splitlines() if line.strip()]

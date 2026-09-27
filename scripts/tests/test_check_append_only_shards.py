@@ -164,12 +164,21 @@ def test_renaming_a_shard_out_of_the_audit_tree_is_a_deletion(repo: Path) -> Non
 
 
 def test_renaming_within_the_tree_and_truncating_is_caught(repo: Path) -> None:
-    (repo / SHARD).write_text(LINE_ONE + "\n" + LINE_TWO + "\n")
-    _commit(repo, "append")
+    # Twenty lines, so dropping one leaves the files similar enough for git's
+    # rename detection to pair them (R094): without --no-renames only the new
+    # path is listed, and the truncation of the old one goes unseen.
+    lines = [f'{{"id":"ad:{i}","summary":"event {i}"}}' for i in range(1, 21)]
+    (repo / SHARD).write_text("\n".join(lines) + "\n")
+    _commit(repo, "twenty events")
     other = repo / "_artifacts/demo/audit/events-2026-08-31.ndjson"
-    other.write_text(LINE_ONE + "\n")
+    other.write_text("\n".join(lines[:-1]) + "\n")
     (repo / SHARD).unlink()
     _commit(repo, "rename and truncate")
+    status = subprocess.run(
+        ["git", "diff", "--name-status", "HEAD~1", "HEAD"],
+        cwd=repo, check=True, capture_output=True, text=True,
+    ).stdout
+    assert status.startswith("R"), status  # the premise: git sees a rename
 
     violations = guard.check("HEAD~1", "HEAD")
     assert any("shard deleted" in v for v in violations)
