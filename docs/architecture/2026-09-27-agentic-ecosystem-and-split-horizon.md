@@ -1,9 +1,24 @@
-# The agentic ecosystem and the split-horizon direction for vuoro.cloud
+# Coordination without custody: the agentic ecosystem and split-horizon Vuoro
 
-Status: proposal (architecture documentation pass, 2026-09-27). Read-only
-evidence pass; nothing here changes an accepted decision. Where a statement is
-inferred rather than read from a file it is marked **[INF]**. Citations are
-`repo:path[:line]` with repos under `/projects/dev`.
+Status: **adopted direction (operator decision, 2026-09-27).** The boundary
+model (§3: what is coordination and what is authority, the frozen figure and
+its invariant, digest-bound acceptance, the outage state machine) is frozen.
+Component choices (which service hosts what, tool sets, auth mechanisms,
+storage) are not frozen and may change without amending this document. The
+operator's decisions on the former open questions are recorded in §6.
+Where a statement is inferred rather than read from a file it is marked
+**[INF]**. Citations are `repo:path[:line]` with repos under `/projects/dev`.
+
+Names used throughout:
+
+| Level | Name |
+|---|---|
+| Product principle | **coordination without custody** |
+| Authority model | **coordination / authority split** |
+| Deployment | **split-horizon Vuoro** |
+
+"Split horizon" is used only as the deployment term; it carries networking/DNS
+meaning that the principle does not need.
 
 Companion passes (same day): backlog ideation (agentops PR #253,
 `docs/plans/2026-09-27-backlog-ideation.md`), and a separate telemetry/audit
@@ -25,15 +40,20 @@ endpoint through which the operator interacts with the whole agentic
 workflow.** Supplemental endpoints (`vuoro-shared` on the homelab today; a
 `vuoro-self-hosted` deployment in general) coordinate with **horizon-protected
 services**: secured, high-sensitivity interactive processes and internal secret
-services such as cred-broker. This document names that shape "split horizon",
-maps the ecosystem it has to sit on, compares it with fully self-hosted and
-fully hosted alternatives, and lists the open questions.
+services such as cred-broker. This document maps the ecosystem that
+split-horizon Vuoro has to sit on, states the boundary model, compares it with
+fully self-hosted and fully hosted alternatives, and records the operator's
+decisions.
+
+The kernel: **vuoro.cloud is the primary coordination surface; the protected
+horizon owns authority.** The meaningful boundary is coordination / record /
+proposal versus custody / acceptance / effect, not "cloud versus homelab".
 
 The direction is consistent with TS-16 as written: "intent, coordination and
 evidence may cross to a runtime the operator does not host; effects and
 credentials may not" (`agentops:docs/plans/2026-09-17-target-state.md:45`).
-Split horizon is TS-16 applied to the operator's *own* interaction, not only to
-hosted runtimes.
+Coordination without custody is TS-16 applied to the operator's *own*
+interaction, not only to hosted runtimes.
 
 ## 1. Ecosystem map
 
@@ -77,7 +97,7 @@ hosted runtimes.
 | **claude.ai + Vuoro connector** | third-party | vuoro-cloud (`config/oauth-clients.example.json`, client `claude-connector`) | Anthropic | Interactive MCP: read (+record from gen 47); actor = `external_subject` | chat, mobile, Cowork **[INF]** reachable, not evidenced in use | same |
 | **Codex** | local (+third-party model) | agentops `model-routing.json` | workstation/devbox | Reviewer/planner (wrote the options memo; adversarial review of the boundary design); JSON-RPC app-server, deny-only hooks, no SendMessage | interactive | native |
 | **vuoro-worker** | homelab (planned) | vuoro (`packages/vuoro-worker`, `deploy/poller`) | homelab host | Managed Agents queue poller with loopback-only internal MCP (8 tools); outbound-only | provisions Managed Agents token | n/a |
-| **Reconciler (E3)** | homelab (planned) | product-native, not actionq-dispatcher (options memo :229-259) | homelab | Polls `EffectIntent` rows, executes accepted ones, signs commits | accepts via credctl; auto-accept policy opt-in | proposes only |
+| **Reconciler (E3)** | homelab (planned) | product-native, not actionq-dispatcher (options memo :229-259) | homelab | Polls proposed `EffectIntent` rows as untrusted input, canonicalizes and hashes them, executes only intents accepted by digest on the protected side, signs commits | `credctl accept` binding the canonical intent digest (§3.2); trusted-side auto-accept policy opt-in, later | proposes only |
 
 ### 1.3 System diagram
 
@@ -108,6 +128,7 @@ flowchart LR
     OBS[Langfuse / Prom / Loki]
     OP[operator-projection]
     RC[reconciler E3 planned]
+    VW[vuoro-worker planned]
   end
 
   subgraph LOCAL[Local hosts]
@@ -126,14 +147,18 @@ flowchart LR
   WS & DB -- sprintctl served --> VS
   WS & DB -- credctl --> CB
   CB -- short-lived JWT --> FJ
-  RC -. poll intents .-> PG
+  RC -. poll proposals, outbound HTTPS .-> CF
   RC -- signed commit --> FJ
-  MA -.poll.-> HOME
+  VW -. poll queue, outbound .-> MA
 ```
 
-No arrow runs from PUB into HOME. The homelab reaches the public horizon
-outbound only (reconciler polling, operator WireGuard admin, Flux pulling from
-GitHub). This is the "no inbound path" property in §3.
+Arrows point from the side that opens the connection; for the two dashed poll
+arrows, data (proposals, queued work) flows back against the arrow. No arrow
+runs from PUB into HOME. The protected side reaches the public horizon and the
+Managed Agents API outbound only (reconciler and vuoro-worker polling, operator
+WireGuard admin from the workstation), and Flux inside PUB pulls from GitHub,
+never from HOME. This is the "no service path from the public Vuoro horizon
+into the protected horizon" property in §3.2.
 
 ### 1.4 Interaction matrix
 
@@ -193,91 +218,237 @@ still describes `SPRINTCTL_URL` injection; `vuoro-cloud:README.md` header says
 disagree on whether Flux's verification Secret holds an SSH key or the OpenPGP
 promoter key; `agentops:AGENTS.md:38` says TS-1..TS-15.
 
-## 3. Proposed split-horizon architecture
+## 3. Split-horizon Vuoro: the adopted architecture
+
+### 3.0 The boundary model (frozen 2026-09-27)
+
+This figure and the invariant under it are the frozen part of the
+architecture. The boxes list responsibilities, not components; which service
+carries each line is a component choice and is not frozen.
+
+```mermaid
+flowchart TB
+  subgraph CP["vuoro.cloud: PRIMARY COORDINATION PLANE"]
+    C1[work / runs / evidence / notes]
+    C2[effect proposals]
+    C3[derived views]
+    C4[public MCP / local client API]
+    CX["cannot accept<br/>cannot hold provider authority<br/>cannot apply"]
+  end
+
+  subgraph AP["PROTECTED AUTHORITY PLANE"]
+    P1[canonicalize + hash proposal] --> P2[operator/policy accepts exact hash]
+    P2 --> P3[cred-broker authorizes]
+    P3 --> P4[reconciler executes]
+    P4 --> P5[Forgejo records effect]
+    P6[signing/promotion remains hardware/protected]
+  end
+
+  P1 -. "poll proposals, outbound (untrusted input)" .-> C2
+```
+
+As in §1.3, the poll arrow points from the side that opens the connection
+(the protected side); proposals flow back against it as data.
+
+**Critical invariant.** *Nothing originating in the coordination plane
+becomes an effect merely because the coordination plane says it should.*
+This is stronger than "credentials don't cross": it also covers a public
+horizon that holds no credentials but tries to steer the protected side.
 
 ### 3.1 Shape
 
 Two horizons, one product surface:
 
-- **Public interaction horizon** (`vuoro.cloud`): the operator's primary
-  endpoint for the agentic workflow. Everything interactive that is not
-  high-sensitivity lands here: reading and shaping work (sprintctl work
-  catalog), run registration and evidence, session notes, proposing effects,
-  reviewing derived views. Reachable from every runtime the operator uses
-  (claude.ai, mobile, Cowork, Routines, cloud sessions, Codex via a second
-  OAuth client per PR #253 H3-4) and from local harnesses via vuoro-client.
-- **Protected horizon** (`vuoro-shared` today; generically `vuoro-self-hosted`
-  plus the homelab services): the trusted side that holds credentials and
-  performs effects. It **coordinates with** the public horizon by polling; it
-  never accepts a call from it.
+- **Public coordination horizon** (`vuoro.cloud`): the operator's primary
+  endpoint for the agentic workflow and the **primary coordination ledger**.
+  Everything interactive that is not high-sensitivity lands here: reading and
+  shaping work (sprintctl work catalog), run registration and evidence,
+  session notes, proposing effects, reviewing derived views. Reachable from
+  every runtime the operator uses (claude.ai, mobile, Cowork, Routines, cloud
+  sessions, Codex via a second OAuth client per PR #253 H3-4) and from local
+  harnesses via vuoro-client (Q1). It is not "the single record": the system's
+  full provenance is deliberately distributed across public records, protected
+  receipts and signed repository history.
+- **Protected horizon** (`vuoro-shared` plus the homelab services today;
+  generically `vuoro-self-hosted`): the trusted side that holds credentials,
+  accepts and performs effects. It **coordinates with** the public horizon by
+  polling; it never accepts a call from it. `vuoro-shared` is a **protected
+  substrate + emergency coordination island** (Q3), not a peer production
+  backend: during normal operation it is not a second sprintctl server that
+  the public horizon's records compete with (§3.3).
 
 Capabilities that stay horizon-protected, and why:
 
 | Capability | Stays on | Reason |
 |---|---|---|
 | cred-broker, OpenBao, SOPS keys, `.sops.yaml` | homelab | Credential custody; INV-001..010 (`cred-broker-public:docs/threat-model.md`); plan decision 6 |
-| Effect acceptance (`proposed → accepted`) and the reconciler | homelab | Only a separately authenticated trusted-side actor may accept (plan :33-42); apply authority is forbidden on the public surface (TS-16, C1) |
+| Effect acceptance (`proposed → accepted`) and the reconciler | homelab | Only a separately authenticated trusted-side actor may accept (plan :33-42); apply authority is forbidden on the public surface (TS-16, C1); acceptance binds the canonical intent digest (§3.2) |
 | Promotion signing | workstation YubiKey | No off-card key; Flux verifies `TagAndHEAD`; runners never promote |
 | Merges | workstation/devbox via `credctl merge` | Token in-process only; Forgejo branch protection is the real gate (Q2 of the boundary design) |
-| Admin identity for the platform operator | protected, via WireGuard and operator API token; later Authentik OIDC (H2-8) | Operator material "lives only on the workstation"; admin must not be reachable through the same OAuth client the connector uses |
-| High-sensitivity interactive processes (step-up approvals, break-glass, restore drills, Talos/etcd, `mutations_frozen`) | workstation, infra VM, WireGuard | Requires hardware presence (YubiKey touch), cluster-reaching credentials, or the ability to freeze the public horizon itself |
+| Protected-only operator acts: effect acceptance, credential/policy change, promotion, key rotation, recovery operations | workstation, infra VM, WireGuard | Operator material "lives only on the workstation"; never reachable through public sign-in, not even with step-up (Q2) |
+| High-sensitivity interactive processes (step-up approvals, break-glass, restore drills, Talos/etcd) | workstation, infra VM, WireGuard | Requires hardware presence (YubiKey touch) or cluster-reaching credentials |
 | Raw transcripts and host-local artifacts | local hosts | Referenced by digest only (harness-evidence-policy) |
+
+Public admin sign-in (Q2) is Authentik OIDC with its own client, audience and
+scopes, separate from the connector identity. It carries read status, tenant
+inspection and audit/health inspection; `mutations_frozen` / unfreeze
+additionally requires explicit operator step-up, because freezing is a
+powerful availability action even though it is reversible.
 
 Everything else (work catalog reads and writes, run identity, append-only
 evidence, notes, intents, derived projections, telemetry summaries) can live on
 the public horizon because it is coordination and record, not effect.
 
-### 3.2 How the two horizons coordinate safely
+**Threat model for a compromised public horizon.** The public horizon owns
+work state, run/evidence records, notes, intents and derived projections. A
+compromised public tier cannot execute an effect, but it **can poison the
+information on which the operator or protected-side policy makes decisions**:
+fabricate or corrupt proposals, work items and evidence. That is a different
+threat from credential theft, but still a threat, so the protected side treats
+every proposed effect as **untrusted input**, never as an authenticated
+instruction. The claim this architecture makes is:
 
-1. **Queued intents, pull-only.** `propose_effect` writes a run-bound
-   `EffectIntent` in state `proposed` and returns; nothing executes in the call.
-   The homelab reconciler polls; Vuoro "never assigns, schedules, retries,
-   supervises or expires an intent" (TS-1). Because the homelab polls, no
-   listener and no inbound route exist on the protected side. The public
-   horizon's maximum achievable outcome stays "an unmergeable branch and a
-   queued intent" (TS-16).
-2. **Acceptance from the trusted side only.** The operator accepts through
-   credctl; opt-in auto-accept policies are configured on the trusted side and
-   evaluated by the consumer, never the edge; every acceptance records the
-   acceptor (person or policy id + version). This is also where the identity
-   split bites: an accept is an admin/operator act, never a connector-subject act.
-3. **Signed receipts, one chain.** cred-broker issues a non-secret decision
-   receipt per authorization and per credential issuance; the reconciler's
-   commit carries trailers naming the intent and run (`Vuoro-Run:`); Flux
-   verifies the promotion signature. The result is a chain from signed commit →
-   intent → receipt → run record naming runtime, model and profile revision.
-   Per TS-16 this is described as *reconstructable*, never as attestation.
-4. **One-use, body-bound proofs instead of bearer forwarding.** The rejected
-   boundary design forwarded the caller's OAuth access token alongside a 30 s
-   gateway assertion (`trusted-service-boundary-design.md:40,48`); the review's
-   finding (referenced by the cloud-enablement plan as "Required before slice 1"
-   item 6, and the H2-style finding the operator direction points at **[INF]**:
-   the review document itself is not in agentops) requires replacing that with a
-   one-use internal proof bound to the request body digest. vuoro PR #134
-   (gateway assertion replay protection) is the first step: it measured one
-   assertion being verified up to three times per tool call. The split-horizon
-   rule generalizes it: **no credential that arrived on the public horizon is
-   ever forwarded across a horizon**; anything the protected side needs is a
-   fresh, single-use proof it can verify without trusting the edge.
-5. **No inbound path from public to protected.** Node firewall on the VPS admits
-   UDP 51820 only; nothing in the cluster references homelab endpoints
+> Compromise of the public horizon can fabricate or corrupt proposals, but
+> cannot alter an accepted effect or exercise protected authority.
+
+### 3.2 How the two horizons coordinate: untrusted proposal → digest-bound protected acceptance → effect
+
+1. **Untrusted proposal, pull-only.** A cloud caller never applies an effect;
+   it queues one. `propose_effect` writes a run-bound `EffectIntent` in state
+   `proposed` and returns; nothing executes in the call. The homelab
+   reconciler polls; Vuoro "never assigns, schedules, retries, supervises or
+   expires an intent" (TS-1). Because the protected side polls, it runs no
+   listener reachable from the public horizon. What the reconciler retrieves
+   is an untrusted proposed object: it canonicalizes it and computes its hash
+   on the protected side, and trusts nothing the public horizon asserts about
+   it. The public horizon's maximum achievable *effect* stays "an unmergeable
+   branch and a queued intent" (TS-16); its maximum achievable *harm* includes
+   poisoned proposals and records (§3.1 threat model), which the acceptance
+   step exists to catch.
+2. **Digest-bound protected acceptance.** Only a separately authenticated
+   trusted-side actor moves an intent from `proposed` to `accepted`; the
+   proposing caller never does, and no cloud-reachable tool or MCP surface
+   can. The acceptance invariant:
+
+   ```text
+   acceptance = protected-side approval(
+       canonical_hash(
+           intent type
+           exact parameters
+           source run
+           relevant immutable evidence refs
+       )
+   )
+   ```
+
+   The operator accepts with `credctl accept`, which binds this canonical
+   intent digest, not merely the intent ID (Q4). Opt-in auto-accept policies
+   are off by default, set only from the trusted side, evaluated by the
+   consumer asynchronously and never by the edge, and approve the same digest.
+   Every acceptance records the acceptor (person, or policy id + version +
+   scope). An accept is an operator/policy act, never a connector-subject act.
+3. **Effect on exactly what was accepted.** After acceptance the public side
+   cannot alter what was accepted: the reconciler executes the protected-side
+   copy of the accepted object, and any change to type, parameters, source run
+   or evidence refs yields a new hash and therefore a new intent that needs its
+   own acceptance. cred-broker authorizes the capability, the reconciler
+   executes, and Forgejo records the effect.
+4. **Receipts, one reconstructable chain.** cred-broker issues a non-secret
+   decision receipt per authorization and per credential issuance (unsigned
+   today, §5); the reconciler's commit carries trailers naming the intent and
+   run (`Vuoro-Run:`); Flux verifies the promotion signature. The result is a
+   chain from signed commit → accepted digest → intent → receipt → run record
+   naming runtime, model and profile revision. Per TS-16 this is described as
+   *reconstructable*, never as attestation.
+5. **Three separate mechanisms, not one proof.** The rejected boundary design
+   forwarded the caller's OAuth access token alongside a 30 s gateway
+   assertion (`trusted-service-boundary-design.md:40,48`); the review's
+   finding (referenced by the cloud-enablement plan as "Required before slice
+   1" item 6 **[INF]**: the review document itself is not in agentops)
+   requires replacing that with a one-use internal proof bound to the request
+   body digest. That proof is scoped to calls *inside* the public horizon and
+   is not the cross-horizon security primitive: a proof minted on the public
+   horizon would require the protected side to trust an authority on that
+   horizon, and a gateway signature does not survive a compromised gateway.
+   Effect authorization does not need it, because the protected side creates
+   its own acceptance. The three mechanisms are:
+
+   ```text
+   Public internal calls
+   gateway → tenant runtime
+       body-bound / one-use assertion
+       useful against replay / confused deputy
+
+   Cross-horizon
+   public intent → protected reconciler
+       untrusted proposed object
+
+   Protected acceptance
+   operator/policy → exact intent digest
+       authoritative
+   ```
+
+   vuoro PR #134 (gateway assertion replay protection, which measured one
+   assertion being verified up to three times per tool call) implements the
+   first. The standing rule remains: **no credential that arrived on the
+   public horizon is ever forwarded across a horizon.**
+6. **No service path from the public Vuoro horizon into the protected
+   horizon.** The homelab does deliberately expose some services publicly
+   (Authentik, CV Studio via cloudflared) and WireGuard exists, so the claim is
+   deliberately this narrow one. Node firewall on the VPS admits UDP 51820
+   only; nothing in the cluster references homelab endpoints
    (`vuoro-cloud:platform/registry-credentials/secret.yaml` comment aside);
-   WireGuard is operator → VPS. The only technical residue is the WireGuard
-   peer's AllowedIPs while the tunnel is up **[INF]**; the recommendation in §6
-   is to make that explicit.
-6. **Availability decoupling.** GitHub/GHCR mirrors exist so "home availability
-   is not a restart or recovery dependency" for the public horizon; conversely
-   the homelab must keep working when vuoro.cloud is down, which is why
-   sprintctl retains a local backend and the reconciler is a poller.
+   WireGuard is operator → VPS. The residue is the WireGuard peer's AllowedIPs
+   while the tunnel is up **[INF]**; Q5 decides to close it at the packet
+   level rather than rely on the absence of a listening workload.
+7. **Availability decoupling.** GitHub/GHCR mirrors exist so "home
+   availability is not a restart or recovery dependency" for the public
+   horizon; conversely the homelab must keep working when vuoro.cloud is down,
+   which is why sprintctl retains a local backend and the reconciler is a
+   poller. Writing while vuoro.cloud is down is governed by §3.3.
 
-### 3.3 TS-16 compliance
+### 3.3 Outage semantics: NORMAL / DEGRADED LOCAL / RECOVERY
 
-| TS-16 clause | Split horizon |
+vuoro.cloud is the primary endpoint *and* homelab operation must continue
+when it is unavailable. Once the fallback can write there are two histories
+unless recovery is defined. **Active-active dual writing is rejected.** The
+state machine:
+
+```text
+NORMAL
+  vuoro.cloud = coordination authority
+  vuoro-shared = protected services + cached/local fallback
+
+DEGRADED LOCAL
+  operator deliberately enters local-island mode
+  local records receive a distinct outage epoch
+
+RECOVERY
+  import/reconcile outage epoch into vuoro.cloud
+  conflicts surfaced, never silently merged
+  return authority to public horizon
+```
+
+Entering DEGRADED LOCAL is an explicit operator act, not an automatic
+failover. The state machine is part of the architecture now; its
+implementation (epoch tagging, import, conflict surfacing) may come later
+(§7).
+
+### 3.4 TS-16 compliance
+
+TS-16 is unamended (cloud-enablement plan, 2026-09-26): cloud callers only
+queue effects, and acceptance is trusted-side (interactive, or opt-in
+trusted-side auto-accept). `vuoro:effect.propose` and `vuoro:work.claim` stay
+reserved until a durable intent store (for propose) and an exclusive lease
+(for claim) exist **and** every tenant runtime serves the tools; the edge
+refuses assertions carrying authorities with no tools.
+
+| TS-16 clause | Split-horizon Vuoro |
 |---|---|
-| Record covers automated activity wherever it runs | Public horizon is the single record for hosted and interactive runs (register_run, evidence); local runs still land in auditctl until S4 (TS-6) |
+| Record covers automated activity wherever it runs | Public horizon is the primary coordination ledger for hosted and interactive runs (register_run, evidence); local runs still land in auditctl until S4 (TS-6); full provenance also spans protected receipts and signed repo history |
 | Two reachability paths: public MCP surface; Managed Agents self-hosted worker | Unchanged: `/mcp` on vuoro.cloud; vuoro-worker on the homelab, outbound-only |
-| Intent, coordination, evidence may cross; effects and credentials may not | The protected-capability table above is exactly the "may not" set |
-| Every tool classifies read/coordinate/record/propose; no effect-apply scope | Kept; the acceptance and reconcile tools are not MCP tools and not on the public surface (PR #253 H1-1) |
+| Intent, coordination, evidence may cross; effects and credentials may not | The protected-capability table above is exactly the "may not" set; crossing intents are untrusted input |
+| Every tool classifies read/coordinate/record/propose; no effect-apply scope | Kept; the acceptance and reconcile tools are not MCP tools and not on the public surface (PR #253 H1-1); propose/claim scopes reserved as above |
 | Homelab-side reconciler signs, not the cloud session | Kept; extended so the *operator's* interactive session on vuoro.cloud also does not sign |
 | Reconstructable, not attested | Kept in wording of receipts and `vuoro provenance` (H3-2) |
 
@@ -286,26 +457,26 @@ the reconciler is homelab-side and product-native, not actionq-dispatcher.
 
 ## 4. Alternatives and trade-offs
 
-| Criterion | (a) Fully self-hosted | (b) Fully hosted | (c) Split horizon (proposed) | (d) Variant: split horizon + hosted protected tier |
+| Criterion | (a) Fully self-hosted | (b) Fully hosted | (c) Split-horizon Vuoro (adopted) | (d) Variant: split-horizon Vuoro + hosted protected tier |
 |---|---|---|---|---|
-| Shape | Everything on kotona.app; interactive runtimes reach it through cloudflared public routes or a tailnet | vuoro.cloud holds work, evidence, credentials and performs effects (the rejected Decision 7 shape: in-cluster effects service behind an egress proxy) | vuoro.cloud = interaction and record; homelab = credentials and effects; pull-only coordination | As (c) but the protected tier is a second, operator-only vuoro.cloud namespace/cluster instead of the homelab |
-| Security | Smallest public surface but the homelab must expose an OAuth endpoint to Anthropic; a breach lands next to Forgejo, cred-broker, OpenBao | Worst: credential custody on an internet-facing single VPS; violates TS-16 and cred-broker INV-001 ("devbox compromise cannot reach forge-admin root" would have no analogue) | Public compromise yields queued intents and a replica branch, nothing more; protected side has no listener | Better availability than (c) but credentials leave operator custody; requires HSM-class key handling on the VPS; reintroduces the rejected design's threat model (T5 compromised edge) |
+| Shape | Everything on kotona.app; interactive runtimes reach it through cloudflared public routes or a tailnet | vuoro.cloud holds work, evidence, credentials and performs effects (the rejected Decision 7 shape: in-cluster effects service behind an egress proxy) | vuoro.cloud = primary coordination ledger; homelab = credentials, acceptance and effects; pull-only coordination | As (c) but the protected tier is a second, operator-only vuoro.cloud namespace/cluster instead of the homelab |
+| Security | Smallest public surface but the homelab must expose an OAuth endpoint to Anthropic; a breach lands next to Forgejo, cred-broker, OpenBao | Worst: credential custody on an internet-facing single VPS; violates TS-16 and cred-broker INV-001 ("devbox compromise cannot reach forge-admin root" would have no analogue) | Public compromise can fabricate or corrupt proposals and the records decisions rest on, but cannot alter an accepted effect or exercise protected authority (digest-bound acceptance, §3.2); protected side has no listener reachable from the public horizon | Better availability than (c) but credentials leave operator custody; requires HSM-class key handling on the VPS; reintroduces the rejected design's threat model (T5 compromised edge) |
 | Operability | Home availability becomes the availability of the product; every runtime outage = homelab outage; tailnet was decommissioned 2026-09-04 | Simplest to operate; one cluster | Two deployments to keep compatible (`config/compatibility.json` and adapter pins already exist); reconciler is a new component | Three tiers; more Flux/SOPS overlays |
 | Cost | No VPS; Cloudflare tunnel already present | One VPS (cx33) | One VPS + homelab (both already exist) | Two public environments |
 | Third-party dependency | Cloudflare, Anthropic, GitHub for replica only | Hetzner, Cloudflare, GitHub, GHCR, Anthropic | Same as (b) for the public tier; homelab keeps working offline (local sprintctl, Forgejo) | Higher |
-| Evidence / audit quality | Single store, but hosted runtimes' evidence would still be "absent rather than late" unless the homelab is public | Single store, but the acceptor and the signer are the same horizon, so the chain proves less | Best: two independent horizons corroborate each other (public run/intent rows vs homelab receipts and signed commits) | Similar to (c) but corroboration is weaker because both tiers share the VPS provider |
+| Evidence / audit quality | Single store, but hosted runtimes' evidence would still be "absent rather than late" unless the homelab is public | Single store, but the acceptor and the signer are the same horizon, so the chain proves less | Potentially strongest: independent public and protected records permit corroboration once protected receipts and cross-horizon audit records are tamper-evident. | Similar to (c) but corroboration is weaker because both tiers share the VPS provider |
 | Product fit | Not a product; only the operator's estate | Full SaaS, but "coordination without custody" (`vuoro-cloud:docs/19-PRODUCT-POSITIONING.md:81`) is exactly what it would break | Matches positioning: vuoro.cloud coordinates; customers keep execution, repos and credentials (BYO S3, outbound workers) | Possible later tier for customers who want a hosted reconciler; not for the operator |
 
-**Recommendation: (c).** It is the only option that satisfies TS-16 and the
+**Decision: (c), adopted 2026-09-27 (operator).** It is the only option that satisfies TS-16 and the
 cred-broker invariants while giving the operator one primary endpoint. (a) is
 the fallback if vuoro.cloud is parked again, and remains available because
 sprintctl local mode, vuoro-shared and Forgejo do not depend on the public
 horizon. (b) is rejected on the record (plan :29, C1). (d) is worth keeping as a
 *customer* tier idea, not as the operator's architecture.
 
-Variant worth noting inside (c): whether `vuoro-shared` should remain a
-separately served sprintctl backend once vuoro.cloud is primary, or shrink to
-the protected services only (cred-broker, reconciler, Forgejo, signing). See §6 Q3.
+Variant inside (c), decided: `vuoro-shared` stays, but as a protected
+substrate + emergency coordination island, not a peer production backend
+(§3.1, §3.3, §6 Q3).
 
 ## 5. Auditability across the ecosystem
 
@@ -314,7 +485,7 @@ Where each action is recorded today:
 | Action | Record | Store | Gap |
 |---|---|---|---|
 | Work item change | sprintctl event log (idempotent by key) | vuoro-shared `work` schema or local SQLite | Served mode ignores `--actor`; attribution goes in tags |
-| Local session start/stop, subagent exit | `workflow.session`, `dispatch.exit` via hooks | `/projects/dev/.claude/session-costs.jsonl`, auditctl shards | Newest agentops shard is 2026-08-29: capture may have stopped or moved **[INF]**; no retention policy (`auditctl prune` proposed) |
+| Local session start/stop, subagent exit | `workflow.session`, `dispatch.exit` via hooks | `/projects/dev/.claude/session-costs.jsonl`, auditctl shards | Newest agentops shard is 2026-08-29: capture may have stopped or moved **[INF]**; no retention policy (`auditctl prune` proposed). Q6: repair capture, then "last successful authoritative event age" is a hard health metric |
 | Harness telemetry | OTel spans/metrics/logs | Langfuse (30 d), Prometheus (15 d), Loki (720 h) | Non-authoritative by design; allowlist CI check required before continuous export |
 | Credential decisions and issuance | receipts | cred-broker SQLite on PVC | Receipts are non-secret but unsigned; retention unstated |
 | Merge | `credctl merge` receipt + Forgejo merge pinned to head SHA | cred-broker + Forgejo | "Courtesy gate"; Forgejo branch protection is the enforcement |
@@ -323,59 +494,106 @@ Where each action is recorded today:
 | Routine verdict | GitHub PR | GitHub | Transcript unreachable; PR is the crossing |
 | Cloud session work | PR + run log | GitHub/Anthropic | Same |
 | Tenant drift, admin acts on vuoro.cloud | control DB, k8s | vuoro.cloud | No audit event per drifted tenant yet (H1-7); operator API acts not surfaced |
-| Intent acceptance (planned) | intent row + acceptor + receipt | vuoro.cloud + cred-broker | Not built (E3); insert-only tamper-evident storage is prerequisite #10 |
+| Intent acceptance (planned) | intent row; accepted canonical digest + acceptor + receipt | vuoro.cloud (proposal); protected side (acceptance, receipt) | Not built (E3); insert-only tamper-evident storage is prerequisite #10 |
 
 The separate telemetry/audit planning pass owns the metric design
 (reconstructability metric, PR #253 H1-4), storage choice for insert-only audit,
 and the retention answers. This document only asks that its outputs satisfy the
-corroboration property in §4: an action that crosses horizons must be recorded
-independently on both sides.
+corroboration property in §4, which is a target, not a present advantage: an
+action that crosses horizons must be recorded independently on both sides, and
+the protected receipts and cross-horizon audit records must be tamper-evident
+before the two sides can corroborate each other.
 
-## 6. Open questions for the operator
+## 6. Decisions (operator, 2026-09-27)
+
+The former open questions, with the options as posed and the operator's
+decision and amendments.
 
 **Q1. Primary endpoint for local harnesses: vuoro.cloud or vuoro-shared?**
-Options: (a) local CLIs keep `vuoro-shared` as their served backend and only
-hosted runtimes use vuoro.cloud; (b) local CLIs move to vuoro.cloud via PAT
-once the vuoro-client Authorization bug is fixed, vuoro-shared becomes
-protected-only; (c) dual-write. Recommendation: (b), staged after E2, because
-"one primary endpoint" is the stated direction and (c) creates two records.
-Precondition: the Authorization-header fix and a workstation Vuoro profile with
+Options were: (a) local CLIs keep `vuoro-shared` as their served backend and
+only hosted runtimes use vuoro.cloud; (b) local CLIs move to vuoro.cloud once
+the vuoro-client Authorization bug is fixed, vuoro-shared becomes
+protected-only; (c) dual-write. **Decision: (b)**, staged after the
+Authorization-header fix and E2. **No dual-write.** Amendment: a long-lived
+PAT is transitional plumbing only, not the end state; longer term local hosts
+use a proper local Vuoro identity/token flow, because "one primary endpoint"
+must not mean scattering durable bearer tokens across agent hosts.
+Precondition stays: a workstation Vuoro profile with
 `production_endpoint_denied` semantics reviewed.
 
-**Q2. Admin identity on the public horizon.** Options: (a) Authentik OIDC for
-admin sign-in on vuoro.cloud (H2-8), keeping GitHub OAuth for users; (b) admin
-never signs in on the public horizon; all admin is WireGuard + operator token;
-(c) both, with admin OIDC limited to read and to freezing mutations.
-Recommendation: (c). It keeps the reversible acts (freeze, read) reachable from
-anywhere and the irreversible ones (accept, promote, rotate) hardware-bound.
-Note: the in-flight admin/user identity design and the vuoro-cli design were
-not visible as an agentops PR at the time of this pass (only #253 open;
-vuoro #134 is the related identity change).
+**Q2. Admin identity on the public horizon.** Options were: (a) Authentik OIDC
+for admin sign-in on vuoro.cloud (H2-8), keeping GitHub OAuth for users;
+(b) admin never signs in on the public horizon; (c) both, with admin OIDC
+limited. **Decision: modified (c).** Separate Authentik-backed operator
+identity, with operations classified:
 
-**Q3. What remains on vuoro-shared after Q1(b)?** Options: (a) retire it and run
-the served sprintctl adapter only on vuoro.cloud; (b) keep it as the offline
-fallback and as the reconciler's local read model. Recommendation: (b), because
-(a) makes home operations depend on the public horizon, which §4 lists as the
-main weakness of a fully hosted model.
+```text
+OIDC anywhere:
+  read status
+  inspect tenants
+  inspect audit / health
 
-**Q4. Reconciler acceptance UX.** Options: (a) `credctl accept <intent>` from the
-workstation only; (b) also from devbox as `agent` via the broker with step-up;
-(c) auto-accept policies for the canary effect classes (`forge_comment_pr`).
-Recommendation: (a) first, (c) for comment-class effects once #10 (tamper-evident
-audit) lands; (b) only with step-up enabled in production, which it is not yet.
+OIDC + explicit operator step-up:
+  mutations_frozen / unfreeze
 
-**Q5. Close the WireGuard residue.** Options: (a) restrict the VPS peer's
-AllowedIPs to the operator's tunnel address and add an nft rule on the
-workstation dropping VPS-originated connections; (b) leave as is. Recommendation:
-(a); it is cheap and makes "no inbound path" true at the packet level rather than
-by absence of workloads.
+Protected only:
+  effect acceptance
+  credential/policy change
+  promotion
+  key rotation
+  recovery operations
+```
+
+"Freeze is reversible" is not enough; freezing is still a powerful
+availability action. The admin OIDC client, audience and scopes are separate
+from the connector identity (`claude-connector`). The admin/user identity
+design is in flight separately (agentops PR #263, open at this revision).
+
+**Q3. What remains on vuoro-shared after Q1(b)?** Options were: (a) retire it;
+(b) keep it as the offline fallback and the reconciler's local read model.
+**Decision: (b), reframed** as **protected substrate + emergency coordination
+island**, not a peer production backend and not a "second sprintctl server"
+during normal operation. This preserves the fallback without creating
+multi-master Vuoro; its write role is confined to DEGRADED LOCAL (§3.3).
+
+**Q4. Reconciler acceptance UX.** Options were: (a) `credctl accept <intent>`
+from the workstation only; (b) also from devbox as `agent` via the broker with
+step-up; (c) auto-accept policies for canary effect classes. **Decision: (a),
+then (c).** Start with `credctl accept` from the workstation; `accept` binds
+the canonical intent digest (§3.2), not merely the intent ID. Then allow
+trusted-side auto-accept for deliberately boring effect classes once the audit
+prerequisite (#10, tamper-evident audit) exists; `forge_comment_pr` is the
+first auto-accept canary. No devbox step-up acceptance: it adds another
+authority-bearing actor without buying much.
+
+**Q5. Close the WireGuard residue.** **Decision: (a), immediately:** restrict
+the VPS peer's AllowedIPs to the operator's tunnel address and add an nft rule
+on the workstation dropping VPS-originated connections, so the packet-level
+property agrees with "no service path from the public Vuoro horizon into the
+protected horizon" instead of relying on the absence of a listening workload.
 
 **Q6. Audit capture health.** The newest local audit shard is 2026-08-29.
-Options: (a) verify the hook → auditctl path and restart capture; (b) declare
-session-costs.jsonl plus Langfuse sufficient until S4. Recommendation: (a),
-because TS-6 keeps auditctl shards authoritative until S4 and the telemetry pass
-needs a live producer to measure.
+**Decision: (a), emphatically:** verify the hook → auditctl path and restart
+capture. With TS-6 keeping auditctl shards authoritative until S4, a stale
+shard is a failed invariant, not an observability curiosity. Afterwards
+**"last successful authoritative event age"** is a hard health metric.
 
-**Q7. Doc drift listed in §2.** Options: (a) one clean-up PR per repo; (b) fold
-into the next generation's release notes. Recommendation: (a), small and
-mechanical.
+**Q7. Doc drift listed in §2.** **Decision: (a):** one cleanup PR per owning
+repo, mechanical enough that one agent makes it and another reviews it against
+the governing records. Architecture corrections do not go into release notes.
+
+## 7. Follow-up work
+
+- **WireGuard packet-level rule (Q5):** AllowedIPs restriction on the VPS peer
+  and workstation nft drop of VPS-originated connections.
+- **Audit capture repair and event-age health metric (Q6):** restore the hook →
+  auditctl path; alert on "last successful authoritative event age".
+- **Per-repo doc-drift PRs (Q7):** one per owning repo for the drift in §2.
+- **Local harness move to vuoro.cloud after E2 (Q1):** transitional PAT, then
+  a proper local Vuoro identity/token flow; no dual-write.
+- **Digest-bound `credctl accept` (Q4):** canonical hash over intent type,
+  exact parameters, source run and evidence refs; reconciler executes only the
+  accepted object.
+- **Outage-epoch state machine implementation (§3.3):** operator-entered
+  DEGRADED LOCAL, epoch-tagged local records, RECOVERY import with conflicts
+  surfaced.
