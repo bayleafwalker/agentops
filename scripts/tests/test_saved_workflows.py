@@ -294,7 +294,10 @@ class SavedWorkflowTests(unittest.TestCase):
         build = call(output, "build:example:api")["prompt"]
         self.assertIn("Never narrow an item silently", build)
         self.assertIn('--summary "build: scope moved to #<new id>"', build)
-        self.assertIn("A part that is neither delivered nor moved is an issue", call(output, "verify:example:api")["prompt"])
+        verify = call(output, "verify:example:api")["prompt"]
+        self.assertIn("A part that is neither delivered nor moved is an issue", verify)
+        self.assertIn("re-check the cited evidence yourself", verify)
+        self.assertIn("Moving work that an agent could do in this repository is an issue", verify)
 
     @requires_node
     def test_decided_unit_without_a_check_gets_an_oracle_without_refinement(self) -> None:
