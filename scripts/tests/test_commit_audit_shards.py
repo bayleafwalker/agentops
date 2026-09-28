@@ -495,7 +495,7 @@ def do_merge(pr, sha):
 if args[:2] == ["pr", "create"]:
     num = len(state["prs"]) + 1
     state["prs"].append({"number": num, "branch": opt("--head"), "base": opt("--base"),
-                         "state": "open", "created": state.get("created", "2026-09-27T00:00:00Z"),
+                         "state": "open", "created": state.get("created", __import__("datetime").datetime.now(__import__("datetime").timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")),
                          "url": f"https://forge.test/owner/work/pulls/{num}"})
     save(); print(state["prs"][-1]["url"]); sys.exit(0)
 if args[:2] == ["pr", "close"]:

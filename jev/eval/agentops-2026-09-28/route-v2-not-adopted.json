@@ -1,0 +1,52 @@
+{
+  "bundle_id": "route-v2",
+  "model": "jev-latest",
+  "description": "Not adopted (inconclusive); see README.md. Not a live bundle.",
+  "questions": {
+    "tier": {
+      "type": "choice",
+      "instructions": "Classify the implementation difficulty of the reasoning unit described by `items` in repository `repo`, using `manifest.risk_surfaces` for the repository's declared risk areas. A tidy scope statement (owner, scope, non-scope, acceptance) says the work is well described, not that it is easy: judge how much design and integration the work itself needs.",
+      "criteria": {
+        "bounded": "An existing pattern can be followed almost mechanically: a similar change already exists or the edit is local, and a deterministic check will reject a wrong result. Examples: add a flag or field mirroring existing ones, fix a named bug with a known cause, update docs or config to match already-decided behavior.",
+        "standard": "The destination is decided but getting there takes real design within that decision: defining a new schema or interface, building a new component or view that integrates several existing ones, choosing between several reasonable implementations, or gathering and judging evidence rather than executing a recipe.",
+        "hard": "State-protocol, authority, concurrency, migration, backend-parity, or lifecycle work where a subtle mistake silently corrupts state or grants the wrong authority, and whose architecture is already decided.",
+        "needs_planning": "Someone must still decide something before implementation is safe: the text leans on an owner decision, experiment outcome, or cross-repository sequencing that has not happened; it is framed as an experiment, assessment, or cutover whose goal could still change; or it is coordinated from a repository that does not own the change.",
+        "insufficient_evidence": "The item text does not say enough about scope or acceptance to judge the difficulty at all."
+      }
+    },
+    "alias": {
+      "type": "choice",
+      "instructions": "Choose the work route that best fits the reasoning unit described by `items` in repository `repo`.",
+      "criteria": {
+        "clerical": "Bookkeeping or read-only work: notes, status changes, publication, or deterministic closeout with no code change.",
+        "fast-build": "Scope and acceptance criteria are concrete, the pattern is known, and deterministic checks can reject a bad result.",
+        "standard-build": "Locating the change is part of the problem, a behavioral contract must be inferred, multiple implementations are plausible, or test failures require interpretation.",
+        "hard-build": "State-machine, authority, parity, migration, or similarly subtle implementation whose architecture is already decided.",
+        "frontier-plan": "Unresolved architecture, ownership, cross-repository sequencing, compatibility boundaries, or backlog realignment.",
+        "frontier-review": "Primarily a final validation task where a subtle semantic miss has unusually high consequence.",
+        "needs_clarification": "None of the routes fits because the request itself is unclear or contradictory."
+      }
+    },
+    "needs_architecture_judgment": {
+      "type": "noul",
+      "instructions": "Does implementing the reasoning unit described by `items` require an architecture or ownership decision that the item text has not already made?",
+      "criteria": {
+        "true": "A design, ownership, sequencing, or compatibility decision is still open.",
+        "false": "The design is decided; what remains is implementation, however difficult."
+      }
+    },
+    "operator_review_warranted": {
+      "type": "noul",
+      "instructions": "Would a careful maintainer want a human operator to review this reasoning unit's result before it is published, because it touches credentials, authorization, irreversible data changes, production infrastructure, or one of the `manifest.risk_surfaces` marked required_on_change?",
+      "criteria": {
+        "true": "The change touches an authority, credential, irreversible, or declared high-risk surface.",
+        "false": "Ordinary independent verification is enough."
+      }
+    }
+  },
+  "thresholds": {
+    "note": "Recorded for measurement only. Nothing reads these to change dispatch.",
+    "choice_confidence_high": 0.8,
+    "noul_true": 0.7
+  }
+}

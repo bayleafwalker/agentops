@@ -82,6 +82,47 @@ build tiers rather than pretending its tiers are equivalent to Codex tiers.
 
 Validation does not have to use a more expensive model to be independent. Fresh context, direct diff inspection, cold checks, and authority to reject are the minimum contract. Use `review-synthesis` for ordinary independent verification and reserve `frontier-review` for high-consequence semantic risk, not every patch.
 
+## Routing Decision Records
+
+`vuoro-dispatch-build` records every unit it routes as a `dispatch.route.decision` auditctl
+event (flow: `docs/dispatch/workflow-topology.md`). One clerical step at the end of the run calls
+`scripts/jev_shadow.py record`, and each unit's event holds:
+
+- **Route:** the lane (`build`, `oracle` or `refine`), the tier, and the source (`explicit`,
+  `haiku-route`, `explicit+haiku-route` or `route-missing`).
+- **Refinement:** the outcome (`refined`, `retired` or `deferred`).
+- **Oracle:** its kind (`tests`, `checklist` or `none`).
+- **Verification:** the number of repair rounds, the per-item verify verdicts and the
+  check-outcome counts.
+- **Outcome:** the unit's final state (`confirmed`, `parked`, `unverified`, `retired`,
+  `deferred`, `not_built` or `halted`), plus the tier it finally built at.
+
+Every field is an identifier, an enum or a count. The recorder relays no prose, makes no network
+call, and always exits 0. Pass `record_decisions: false` to skip it. These records are the labels
+any routing comparison needs, and they measure the flow itself: how often refinement happens, how
+often oracles are written, how many repairs are needed, and what gets parked.
+
+**Offline Jev scoring.** `jev_shadow.py score` reads recorded decisions back from the
+audit shards and rebuilds each unit's item text from sprintctl. It then asks TypeSafe
+Jev the pinned `jev/bundles/route-v1.json` questions. `jev_shadow_report.py` measures
+agreement with the recorded decision.
+
+- **What is sent:** item title and description, and the manifest's risk-surface ids and paths. `route_state` is the only code that builds it.
+- **Key:** the operator's 0600 file named by `TYPESAFE_API_KEY_FILE`. Without it, scoring runs in `fake` mode.
+- **Before any decisions exist:** `corpus` and `replay` build and score an item corpus.
+
+Jev is not in the dispatch path. The 2026-09-28 evaluation
+(`jev/eval/agentops-2026-09-28/README.md`) found no router reliably better than Haiku, measured
+when a "not ready" answer blocked work. Routing now picks a lane rather than a gate, so over-routing
+to refinement costs a refinement pass instead of a blocked unit. That makes a cheaper router
+easier to justify; recorded decisions and their outcomes are the measure.
+
+Moving any router judgment into dispatch is an operator decision. It needs measured
+agreement against recorded decisions and hindsight labels, using a pinned bundle and
+model. Never use Jev for credential or effect authorization, for judging an
+irreversible operation safe, for arithmetic or date logic, or for any decision whose
+facts are not in the state it is sent.
+
 ## Reasoning Controls
 
 Reasoning controls are applied by the frontier coordinator through the selected
