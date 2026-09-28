@@ -84,20 +84,23 @@ Validation does not have to use a more expensive model to be independent. Fresh 
 
 ## Routing Decision Records
 
-`vuoro-dispatch-build` records every routing decision it makes as a
-`dispatch.route.decision` auditctl event. One clerical step at the end of the run
-calls `scripts/jev_shadow.py record`, and each unit's event holds:
+`vuoro-dispatch-build` records every unit it routes as a `dispatch.route.decision` auditctl
+event (flow: `docs/dispatch/workflow-topology.md`). One clerical step at the end of the run calls
+`scripts/jev_shadow.py record`, and each unit's event holds:
 
-- the tier dispatch used;
-- its source: `explicit`, `haiku-triage`, `explicit+haiku-triage` or `triage-missing`;
-- whether triage let it dispatch;
-- the per-item verify verdicts, with check-outcome counts.
+- **Route:** the lane (`build`, `oracle` or `refine`), the tier, and the source (`explicit`,
+  `haiku-route`, `explicit+haiku-route` or `route-missing`).
+- **Refinement:** the outcome (`refined`, `retired` or `deferred`).
+- **Oracle:** its kind (`tests`, `checklist` or `none`).
+- **Verification:** the number of repair rounds, the per-item verify verdicts and the
+  check-outcome counts.
+- **Outcome:** the unit's final state (`confirmed`, `parked`, `retired`, `deferred`, `not_built`
+  or `halted`).
 
-Every field is an identifier, an enum or a count. The recorder relays no prose, makes
-no network call, and always exits 0. Pass `record_decisions: false` to skip it.
-
-These records are the labels any routing comparison needs. Before them, triage
-decisions were not persisted at all.
+Every field is an identifier, an enum or a count. The recorder relays no prose, makes no network
+call, and always exits 0. Pass `record_decisions: false` to skip it. These records are the labels
+any routing comparison needs, and they measure the flow itself: how often refinement happens, how
+often oracles are written, how many repairs are needed, and what gets parked.
 
 **Offline Jev scoring.** `jev_shadow.py score` reads recorded decisions back from the
 audit shards and rebuilds each unit's item text from sprintctl. It then asks TypeSafe
@@ -109,9 +112,10 @@ agreement with the recorded decision.
 - **Before any decisions exist:** `corpus` and `replay` build and score an item corpus.
 
 Jev is not in the dispatch path. The 2026-09-28 evaluation
-(`jev/eval/agentops-2026-09-28/README.md`) found no router reliably better than the
-existing Haiku triage against two hindsight judges, though the two fail in different
-directions.
+(`jev/eval/agentops-2026-09-28/README.md`) found no router reliably better than Haiku, measured
+when a "not ready" answer blocked work. Routing now picks a lane rather than a gate, so over-routing
+to refinement costs a refinement pass instead of a blocked unit. That makes a cheaper router
+easier to justify; recorded decisions and their outcomes are the measure.
 
 Moving any router judgment into dispatch is an operator decision. It needs measured
 agreement against recorded decisions and hindsight labels, using a pinned bundle and

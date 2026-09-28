@@ -95,6 +95,14 @@ def _metadata(argv):
 # -- record ---------------------------------------------------------------------------
 
 
+def test_value_routing_fields_are_kept():
+    unit = {**DECISION, "source": "haiku-route", "lane": "refine", "refine": "refined", "oracle": "tests", "repairs": 1, "outcome": "parked"}
+    decision = jev_shadow.validate_decision(unit)
+    assert {key: decision[key] for key in ("lane", "refine", "oracle", "repairs", "outcome")} == {
+        "lane": "refine", "refine": "refined", "oracle": "tests", "repairs": 1, "outcome": "parked",
+    }
+
+
 def test_validate_decision_keeps_only_allowed_fields():
     decision = jev_shadow.validate_decision({**DECISION, "rationale": "prose", "item_ids": [7]})
     assert decision == {**DECISION, "item_ids": ["7"]}
@@ -116,6 +124,12 @@ def test_validate_decision_keeps_only_allowed_fields():
         {"verify": {"verdicts": {}, "checks": {"passed": -1}, "full_suite": "passed"}},
         {"verify": {"verdicts": {}, "checks": {"passed": True}, "full_suite": "passed"}},
         {"verify": {"verdicts": {}, "checks": {}, "full_suite": "maybe"}},
+        {"lane": "skip"},
+        {"refine": "escalated"},
+        {"oracle": "vibes"},
+        {"outcome": "blocked"},
+        {"repairs": -1},
+        {"repairs": True},
     ],
 )
 def test_validate_decision_rejects(change):
@@ -188,6 +202,9 @@ def test_long_text_is_truncated():
         ({"tier": "hard", "dispatch_ready": False}, "needs_planning"),
         ({"tier": "bounded", "dispatch_ready": False, "source": "triage-missing"}, None),
         ({"tier": "bogus", "dispatch_ready": True}, None),
+        ({"tier": "hard", "dispatch_ready": False, "lane": "refine"}, "needs_planning"),
+        ({"tier": "hard", "dispatch_ready": False, "lane": "oracle"}, "hard"),
+        ({"tier": "bounded", "dispatch_ready": False, "lane": "refine", "source": "route-missing"}, None),
     ],
 )
 def test_route_baseline_label(baseline, label):

@@ -14,23 +14,64 @@ criteria, do not negotiate a shared interface, and can be verified without relyi
 worker's uncommitted state.
 
 Backlog items remain the evidence and closure units. They are not automatically agent boundaries.
-Conversely, a large backlog item can require planning to create several implementation units before
-dispatch. If that decomposition is still uncertain, the item is not build-ready.
+Conversely, a large backlog item can need refinement into several implementation units. The build
+workflow does that refinement itself when routing finds the decomposition still open; the first
+coherent slice builds in the same run and the rest becomes new backlog items.
 
 ## Execution Shape
 
-The saved vuoro build workflow uses these rules:
+The saved vuoro build workflow routes every unit to the step that adds the most value next.
+Routing and readiness never park work on the operator by default. Every lane moves the unit
+forward in the same run.
 
 1. Repositories run in parallel when independent.
 2. Reasoning units in one repository run sequentially, each in a fresh accountable implementation
-   context. This preserves a shared main worktree without forcing unrelated work into the hardest
+   context. Each unit is verified, and repaired if needed, before the next unit builds on top of
+   it. This preserves a shared main worktree without forcing unrelated work into the hardest
    unit's model tier.
-3. Items inside one reasoning unit remain with one implementation owner.
-4. Verification uses a fresh context and an isolated worktree once per reasoning unit. It inspects
-   every item diff, runs targeted checks first, and runs a broader gate once when required.
-5. A separate clerical stage applies sprintctl state transitions from the verifier's verdict.
-6. Publication is optional and occurs only after every built unit in that repository clears the
-   gate. The workflow never force-pushes or repairs unexpected Git state.
+3. **Route.** A clerical router picks a lane and an implementation tier. A unit whose items all
+   carry a caller-supplied tier has been planned and goes straight to build.
+   - `build`: the approach is decided and an oracle exists, meaning concrete acceptance criteria
+     with a deterministic check.
+   - `oracle`: the approach is decided but nothing deterministic pins down "correct".
+   - `refine`: architecture, ownership, sequencing, scope or acceptance is still open.
+4. **Refine** (frontier model). The refiner decides open questions from the repository's
+   documented direction:
+   - first, decisions already recorded;
+   - then the operator's stated direction;
+   - then established patterns;
+   - otherwise, the option that is cheapest to change later.
+
+   It records each decision on the item, rewrites the item with acceptance criteria, and splits
+   off follow-up items. It never writes code.
+
+   A unit is retired when the documented direction shows it is obsolete. It is deferred only when
+   no agent can progress this run: it depends on unfinished work, or it needs an action only the
+   operator can take (operator-held credentials, spending money, irreversible destructive
+   operations on production data). An operator-only action comes back with exact steps, a
+   verified precondition and the expected result. Uncertainty and preference are never deferral
+   reasons.
+5. **Oracle** (frontier model, a separate author from the builder). The oracle author writes
+   failing-first acceptance checks in the repository's test layout and commits them, or writes a
+   concrete review checklist when the work cannot be checked by code. The builder must satisfy
+   the oracle and may not modify it. The verifier confirms that the oracle paths are unchanged;
+   a modified oracle is never confirmed.
+6. **Build.** Items inside one reasoning unit remain with one implementation owner. Smaller
+   decisions the items did not settle are decided in line with the recorded direction and noted.
+7. **Verify.** Verification uses a fresh context and an isolated worktree once per reasoning unit.
+   It inspects every unit commit, runs targeted checks and the oracle first, and runs a broader
+   gate once when required.
+8. **Repair.** A unit that is not confirmed gets up to two repair rounds with the verifier's
+   findings. The first round runs at the same tier and the second escalates one tier. Each round
+   is re-verified from scratch.
+9. **Park.** A unit that still fails is reverted with `git revert`, never a history rewrite. Its
+   claims are released with a note that hands the findings to the next refinement pass. Later
+   units continue. The only stop is a revert that does not apply cleanly, because later units
+   would then build on unverified commits.
+10. A separate clerical stage applies sprintctl state transitions from the verifier's verdict.
+11. **Publish.** Publication is optional. It pushes the verified work together with the reverts
+    of parked units, so main only ever gains verified net changes. The workflow never
+    force-pushes or repairs unexpected Git state.
 
 Claim proof never enters workflow results or verifier prompts. A build worker captures it in an
 exact mode-0600 workflow credential record for the authorized close stage, which validates the
@@ -40,10 +81,8 @@ Proof records must never be printed for inspection. Secret-bearing fields may be
 only top-level token keys is not redaction; validation must extract only explicitly safe scalar
 fields or use a tested recursive redactor.
 
-This is deliberately flat. Build workers do not recursively create planners, coders, reviewers, or
-summarizers. If a worker discovers an unresolved shared architecture, ownership boundary,
-cross-repository dependency, or interface negotiation, it reports the constraint and trips the
-same-repository circuit breaker. The tract owner then consolidates or replans the remaining wave.
+This is deliberately flat. Workers do not recursively create planners, coders, reviewers, or
+summarizers. Each stage is one agent with one job, and the workflow script owns sequencing.
 
 ## Routing And Escalation
 
@@ -53,18 +92,20 @@ same-repository circuit breaker. The tract owner then consolidates or replans th
   interpretation of failures.
 - `hard`: subtle lifecycle, authority, migration, parity, or state-machine implementation after the
   relevant decisions are settled.
-- planning/frontier: unresolved architecture, ownership, compatibility policy, cross-repository
-  sequencing, or tract/backlog realignment.
+- Refinement (frontier): unresolved architecture, ownership, compatibility policy,
+  cross-repository sequencing, or tract/backlog realignment. The workflow resolves these itself;
+  they are a lane, not a stop.
 
-Escalate from observed uncertainty rather than prestige. A failed deterministic check usually
-returns to the same build tier with a precise defect packet. Escalate when the attempt reveals an
-unknown contract, unexpected coupling, or a decision the worker lacks authority to make.
+Escalate from observed uncertainty rather than prestige. A failed deterministic check first
+returns to the same build tier with a precise defect packet; a second failure escalates one tier.
+A routing mistake is cheap by design: routing a ready unit to refinement costs one refinement pass
+that sharpens the item, and building an under-specified unit meets its oracle and the verifier.
 
 Provider ladders remain asymmetric. Codex can use Luna for bounded implementation, Terra for
 uncertain and semantically hard implementation, and Sol for decisions. Claude uses Sonnet at
-different effort levels for code-bearing work; Haiku is reserved for read-only triage and
-deterministic bookkeeping. The same topology does not require pretending the providers have the
-same worker economics.
+different effort levels for code-bearing work, Opus for refinement and oracle authorship, and Haiku
+for routing and deterministic bookkeeping. The same topology does not require pretending the
+providers have the same worker economics.
 
 ## Independent Verification
 
@@ -81,6 +122,8 @@ execution plus polling. Audit mode records findings but does not repair already 
 
 Compare topology by accepted scope per capacity consumed, not by agent count or generated lines.
 For comparable units, record wall time, model/capacity use, accepted closures, verifier defects,
-reopens, duplicated discovery, integration repairs, and human interventions. Include the unit's
+reopens, duplicated discovery, integration repairs, and human interventions. The build workflow's
+`dispatch.route.decision` events already carry each unit's lane, refinement outcome, oracle kind,
+repair rounds, and final outcome. Include the unit's
 coupling classification; without it, aggregate one-owner versus dispatched results are not
 actionable.

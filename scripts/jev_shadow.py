@@ -50,7 +50,15 @@ SOURCE = "jev-shadow"
 DECISION_EVENT = "dispatch.route.decision"
 DEFAULT_BUNDLE = "route-v1"
 TIERS = ("bounded", "standard", "hard")
-SOURCES = ("explicit", "haiku-triage", "explicit+haiku-triage", "triage-missing")
+SOURCES = (
+    "explicit", "haiku-route", "explicit+haiku-route", "route-missing",
+    # recorded before the value-routing workflow; still readable
+    "haiku-triage", "explicit+haiku-triage", "triage-missing",
+)
+LANES = ("build", "oracle", "refine")
+REFINE_OUTCOMES = ("refined", "retired", "deferred")
+ORACLE_KINDS = ("tests", "checklist", "none")
+UNIT_OUTCOMES = ("confirmed", "parked", "retired", "deferred", "not_built", "halted")
 VERDICTS = ("confirmed", "issues_found", "inconclusive")
 CHECK_OUTCOMES = ("passed", "failed", "timed_out")
 SUITE_OUTCOMES = ("passed", "failed", "timed_out", "not_required", "not_available")
@@ -99,6 +107,14 @@ def validate_decision(unit: Any) -> dict[str, Any]:
         "dispatch_ready": unit["dispatch_ready"],
         "source": unit["source"],
     }
+    for field, allowed in (("lane", LANES), ("refine", REFINE_OUTCOMES), ("oracle", ORACLE_KINDS), ("outcome", UNIT_OUTCOMES)):
+        if unit.get(field) is not None:
+            _need(unit[field] in allowed, f"{field} must be one of {allowed}")
+            decision[field] = unit[field]
+    if unit.get("repairs") is not None:
+        repairs = unit["repairs"]
+        _need(isinstance(repairs, int) and not isinstance(repairs, bool) and 0 <= repairs <= 10, "repairs must be a small count")
+        decision["repairs"] = repairs
     verify = unit.get("verify")
     if verify is not None:
         _need(isinstance(verify, dict), "verify must be an object")
@@ -128,10 +144,10 @@ def validate_decision(unit: Any) -> dict[str, Any]:
 
 def route_baseline_label(decision: dict[str, Any] | None) -> str | None:
     """The decision dispatch took, on the ``tier`` question's scale."""
-    if not decision or decision.get("source") == "triage-missing":
-        # A triage failure is not a planning decision; it has no label to compare.
+    if not decision or decision.get("source") in ("triage-missing", "route-missing"):
+        # A routing failure is not a planning decision; it has no label to compare.
         return None
-    if decision.get("dispatch_ready") is False:
+    if decision.get("lane") == "refine" or (decision.get("lane") is None and decision.get("dispatch_ready") is False):
         return "needs_planning"
     tier = "bounded" if decision.get("tier") == "mechanical" else decision.get("tier")
     return tier if tier in TIERS else None
