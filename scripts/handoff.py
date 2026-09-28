@@ -12,7 +12,7 @@ read back -- the ack guard, the validator and the SessionStart injection all rea
 the JSON. That is the owner decision recorded in the plan; a prose file cannot be
 rename-acked without a parser nobody wants to own.
 
-`diff_sha256` has three definitions, distinguished by `state.digest_version`:
+`diff_sha256` has five definitions, distinguished by `state.digest_version`:
 
     v1 (default when the field is absent): sha256 over the bytes of
        `git diff HEAD` followed immediately by the bytes of
@@ -36,6 +36,14 @@ rename-acked without a parser nobody wants to own.
        file by file and an excluded file inside it can actually be excluded.
        The self-path drop from `git diff HEAD` applies under every version,
        because no recorded digest ever contained those bytes.
+    v5 (what `create` writes): v4, with every handoff-record file under
+       `HANDOFF_DIR` (`docs/dispatch/handoffs/*.json`, `*.md`,
+       `*.sprintctl-bundle.json`) dropped from all three inputs too, not only
+       this handoff's own outputs (already excluded since v1) but every peer
+       and sibling record. A superseded sibling handoff being rewritten (e.g.
+       acked) is handoff bookkeeping, never work-product, so it must never
+       stale a peer's digest -- the same reasoning `AUDIT_SHARD_GLOB` already
+       applies to hook-written shards.
 
 v1 is blind to *content* changes in untracked files: `git status --porcelain`
 names an untracked path but never its bytes, so editing an untracked file left
@@ -148,19 +156,35 @@ def _git_bytes(repo: Path, *args: str) -> bytes:
 #: guards nothing. Their integrity is the append-only shard check's job.
 AUDIT_SHARD_GLOB = "*_artifacts/*/audit/*.ndjson"
 
+#: Handoff-record files under the handoffs directory: this handoff's own
+#: outputs (already excluded via `exclude` since v1) plus every peer and
+#: sibling record. From v5 the digest skips all of them, mirroring the
+#: audit-shard exclusion: a superseded sibling being rewritten (e.g. acked)
+#: is handoff bookkeeping, never work-product. Anchored at the repo-relative
+#: default location (`HANDOFF_DIR`'s path under `REPO_ROOT`); a record kept
+#: via `AGENTOPS_HANDOFF_DIR` elsewhere is out of scope for this exclusion.
+HANDOFF_RECORD_GLOBS = (
+    "docs/dispatch/handoffs/*.json",
+    "docs/dispatch/handoffs/*.md",
+)
+
 
 def _is_excluded(repo: Path, raw: bytes, exclude: frozenset[str],
-                 skip_shards: bool = False) -> bool:
+                 skip_shards: bool = False,
+                 skip_handoff_records: bool = False) -> bool:
     """Is this repo-relative path one of the handoff's own output files, or
-    (from v4) a hook-written audit shard?"""
+    (from v4) a hook-written audit shard, or (from v5) any handoff record?"""
     path = os.fsdecode(raw)
     return path in exclude or (
-        skip_shards and fnmatch.fnmatch(path, AUDIT_SHARD_GLOB))
+        skip_shards and fnmatch.fnmatch(path, AUDIT_SHARD_GLOB)) or (
+        skip_handoff_records and any(
+            fnmatch.fnmatch(path, glob) for glob in HANDOFF_RECORD_GLOBS))
 
 
 def untracked_records(repo: Path,
                       exclude: frozenset[str] = frozenset(),
-                      skip_shards: bool = False) -> list[bytes]:
+                      skip_shards: bool = False,
+                      skip_handoff_records: bool = False) -> list[bytes]:
     """`NUL <path> NUL <sha256 of contents>` per untracked non-ignored file.
 
     Sorted by raw path bytes, so the sequence is a function of the tree and not
@@ -173,7 +197,7 @@ def untracked_records(repo: Path,
     listing = _git_bytes(repo, "ls-files", "--others", "--exclude-standard", "-z")
     records = []
     for raw in sorted(p for p in listing.split(b"\0") if p):
-        if _is_excluded(repo, raw, exclude, skip_shards):
+        if _is_excluded(repo, raw, exclude, skip_shards, skip_handoff_records):
             continue
         target = repo / os.fsdecode(raw)
         try:
@@ -185,7 +209,7 @@ def untracked_records(repo: Path,
 
 
 DIGEST_VERSION_DEFAULT = 1   # what a handoff without state.digest_version means
-DIGEST_VERSION_CURRENT = 4   # what `create` writes
+DIGEST_VERSION_CURRENT = 5   # what `create` writes
 
 
 def diff_sha256(repo: Path, digest_version: int = DIGEST_VERSION_CURRENT,
@@ -203,17 +227,22 @@ def diff_sha256(repo: Path, digest_version: int = DIGEST_VERSION_CURRENT,
     is written. `status --porcelain` lines naming them are dropped for the same
     reason.
     """
-    if digest_version not in (1, 2, 3, 4):
+    if digest_version not in (1, 2, 3, 4, 5):
         raise HandoffError(
             f"unknown state.digest_version {digest_version!r}: this build "
-            f"understands 1, 2, 3 and 4. A newer handoff needs a newer agentops.")
+            f"understands 1, 2, 3, 4 and 5. A newer handoff needs a newer "
+            f"agentops.")
     skip_shards = digest_version >= 4
+    skip_handoff_records = digest_version >= 5
     # Pathspecs only when something is excluded, so the common case stays the
     # literal `git diff HEAD` every recorded v1-v3 digest was computed from.
     pathspecs = [f":(exclude,literal){p}" for p in sorted(exclude)]
     if skip_shards:
         pathspecs.append(f":(exclude,glob)**/{AUDIT_SHARD_GLOB.lstrip('*')}")
         pathspecs.append(f":(exclude,glob){AUDIT_SHARD_GLOB.lstrip('*')}")
+    if skip_handoff_records:
+        for glob in HANDOFF_RECORD_GLOBS:
+            pathspecs.append(f":(exclude,glob){glob}")
     diff_args = ["diff", "HEAD"] + (["--", ".", *pathspecs] if pathspecs else [])
     digest = hashlib.sha256()
     digest.update(_git(repo, *diff_args).encode())
@@ -222,15 +251,17 @@ def diff_sha256(repo: Path, digest_version: int = DIGEST_VERSION_CURRENT,
     # handoff written into a fresh directory of a repo it records never
     # validated. v1-v3 keep the collapsed form their digests were taken over.
     porcelain = _git(repo, "status", "--porcelain",
-                     *(["--untracked-files=all"] if skip_shards else []))
-    if exclude or skip_shards:
+                     *(["--untracked-files=all"]
+                       if skip_shards or skip_handoff_records else []))
+    if exclude or skip_shards or skip_handoff_records:
         porcelain = "".join(
             line + "\n" for line in porcelain.splitlines()
             if not _is_excluded(repo, os.fsencode(line[3:].strip('"')),
-                                exclude, skip_shards))
+                                exclude, skip_shards, skip_handoff_records))
     digest.update(porcelain.encode())
     if digest_version >= 2:
-        for record in untracked_records(repo, exclude, skip_shards):
+        for record in untracked_records(repo, exclude, skip_shards,
+                                        skip_handoff_records):
             digest.update(record)
     return digest.hexdigest()
 
