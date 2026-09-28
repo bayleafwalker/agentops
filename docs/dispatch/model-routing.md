@@ -94,8 +94,8 @@ event (flow: `docs/dispatch/workflow-topology.md`). One clerical step at the end
 - **Oracle:** its kind (`tests`, `checklist` or `none`).
 - **Verification:** the number of repair rounds, the per-item verify verdicts and the
   check-outcome counts.
-- **Outcome:** the unit's final state (`confirmed`, `parked`, `retired`, `deferred`, `not_built`
-  or `halted`).
+- **Outcome:** the unit's final state (`confirmed`, `parked`, `unverified`, `retired`,
+  `deferred`, `not_built` or `halted`), plus the tier it finally built at.
 
 Every field is an identifier, an enum or a count. The recorder relays no prose, makes no network
 call, and always exits 0. Pass `record_decisions: false` to skip it. These records are the labels

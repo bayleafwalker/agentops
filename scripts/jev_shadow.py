@@ -58,7 +58,7 @@ SOURCES = (
 LANES = ("build", "oracle", "refine")
 REFINE_OUTCOMES = ("refined", "retired", "deferred")
 ORACLE_KINDS = ("tests", "checklist", "none")
-UNIT_OUTCOMES = ("confirmed", "parked", "retired", "deferred", "not_built", "halted")
+UNIT_OUTCOMES = ("confirmed", "parked", "unverified", "retired", "deferred", "not_built", "halted")
 VERDICTS = ("confirmed", "issues_found", "inconclusive")
 CHECK_OUTCOMES = ("passed", "failed", "timed_out")
 SUITE_OUTCOMES = ("passed", "failed", "timed_out", "not_required", "not_available")
@@ -107,7 +107,9 @@ def validate_decision(unit: Any) -> dict[str, Any]:
         "dispatch_ready": unit["dispatch_ready"],
         "source": unit["source"],
     }
-    for field, allowed in (("lane", LANES), ("refine", REFINE_OUTCOMES), ("oracle", ORACLE_KINDS), ("outcome", UNIT_OUTCOMES)):
+    for field, allowed in (
+        ("lane", LANES), ("refine", REFINE_OUTCOMES), ("oracle", ORACLE_KINDS), ("outcome", UNIT_OUTCOMES), ("build_tier", TIERS),
+    ):
         if unit.get(field) is not None:
             _need(unit[field] in allowed, f"{field} must be one of {allowed}")
             decision[field] = unit[field]

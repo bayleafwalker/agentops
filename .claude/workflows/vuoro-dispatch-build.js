@@ -65,13 +65,6 @@ const ROUTE_SCHEMA = {
     tier: { type: 'string', enum: ['bounded', 'standard', 'hard'] },
     rationale: { type: 'string' },
     open_questions: { type: 'array', items: { type: 'string' } },
-    oracle: {
-      type: 'object',
-      properties: {
-        command: { type: 'string' },
-        paths: { type: 'array', items: { type: 'string' } },
-      },
-    },
   },
 }
 
@@ -104,6 +97,7 @@ const ORACLE_SCHEMA = {
   properties: {
     repo: { type: 'string' },
     unit: { type: 'string' },
+    base_sha: { type: 'string', pattern: '^[0-9a-f]{7,64}$' },
     kind: { type: 'string', enum: ORACLE_KINDS },
     commit_sha: { type: 'string', pattern: '^[0-9a-f]{7,64}$' },
     paths: { type: 'array', items: { type: 'string' } },
@@ -132,6 +126,7 @@ const PARK_SCHEMA = {
     repo: { type: 'string' },
     unit: { type: 'string' },
     reverted: { type: 'boolean' },
+    reverted_commits: { type: 'array', items: { type: 'string', pattern: '^[0-9a-f]{7,64}$' } },
     revert_commits: { type: 'array', items: { type: 'string', pattern: '^[0-9a-f]{7,64}$' } },
     error: { type: 'string' },
   },
@@ -157,6 +152,7 @@ const BUILD_SCHEMA = {
         },
       },
     },
+    base_sha: { type: 'string', pattern: '^[0-9a-f]{7,64}$' },
     blocked: { type: 'string' },
     shared_constraints: { type: 'array', items: { type: 'string' } },
   },
@@ -357,7 +353,7 @@ Reasoning unit: ${unit.unit}
 ${itemDataLines(unit.items)}
 
 Lanes:
-- "build": the approach is decided AND an oracle exists: concrete acceptance criteria with a deterministic check already in the repository or spelled out in the item (put the command and test paths in oracle).
+- "build": the approach is decided AND an oracle exists: concrete acceptance criteria with a deterministic check already in the repository or spelled out in the item.
 - "oracle": the approach is decided but no deterministic check pins down "correct". A separate oracle author will write failing-first acceptance checks, then the unit builds against them.
 - "refine": architecture, ownership, sequencing, scope boundary, or acceptance is still open. A frontier refiner will decide it from the repository's documented direction, rewrite the items, and the unit continues in this run. List the open questions.
 
@@ -366,7 +362,7 @@ Implementation tier (for the build that follows):
 - "standard": repository navigation, contract inference, several plausible implementations, hidden dependencies, or interpreting failures are part of the work.
 - "hard": state-protocol, authority, migration, backend-parity, lifecycle, or similarly subtle implementation.
 
-Return {repo, unit, lane, tier, rationale, open_questions, oracle?: {command, paths}}.`
+Return {repo, unit, lane, tier, rationale, open_questions}.`
 }
 
 async function resolveRoute(unit) {
@@ -407,9 +403,6 @@ async function resolveRoute(unit) {
     tier: maxTier([...explicit, normalizeTier(routed.tier)]),
     rationale: limitedText(routed.rationale, 2000),
     open_questions: Array.isArray(routed.open_questions) ? routed.open_questions.map(value => limitedText(value, 1000)) : [],
-    oracle: routed.oracle && typeof routed.oracle.command === 'string' && routed.oracle.command.trim()
-      ? { kind: 'existing', command: limitedText(routed.oracle.command, 1000), paths: Array.isArray(routed.oracle.paths) ? routed.oracle.paths.map(String) : [] }
-      : undefined,
     source: explicit.length ? 'explicit+haiku-route' : 'haiku-route',
   }
 }
@@ -432,7 +425,7 @@ ${untrusted(JSON.stringify({ rationale: route.rationale, open_questions: route.o
 
 Outcomes:
 - "refined": decisions recorded and items rewritten. Return the implementation tier for the refined scope.
-- "retired": the documented direction shows the scope is obsolete or already delivered. Record sprintctl item decide --id <id> --kind withdraw --rationale "<basis>" (or --kind supersede --superseded-by <id>) and explain in reason.
+- "retired": the documented direction shows the scope is obsolete: a recorded decision dropped it, or another item supersedes it. Record sprintctl item decide --id <id> --kind withdraw --rationale "<basis citing the decision>" (or --kind supersede --superseded-by <id>) and explain in reason. Work that looks already delivered is not retired: return "refined", say where it was delivered in reason, and let the builder and verifier confirm it.
 - "deferred": only when no agent can make progress in this run: the unit depends on another item that is not done (name it in reason), or it needs an action only the operator can take (credentials only the operator holds, spending money, an irreversible destructive operation on production data). Uncertainty, missing acceptance criteria, design choices, and preference questions are never deferral reasons; decide them. For an operator-only action, put the exact steps, the verified precondition, and the expected result in operator_action, and add them as an item note.
 
 Return {repo: "${unit.repo}", unit: "${unit.unit}", outcome, tier, decisions: [{question, decision, basis}], acceptance, follow_up_item_ids?, reason?, operator_action?}.`
@@ -468,14 +461,19 @@ ${refinement ? `\nRefinement just recorded (data):\n${untrusted(JSON.stringify({
 1. Read AGENTS.md, the dispatch manifest (verification commands, test layout, risk_surfaces), and each live item with sprintctl item show --id <id> --json. The acceptance criteria are the specification.
 2. Encode each criterion as a deterministic check in the repository's existing test framework and layout, following neighbouring tests. Test observable behaviour and contracts, not implementation details. Give every criterion at least one failure condition. Do not mark anything skip or expected-failure.
 3. Run the new checks foreground with timeout --foreground ${verifyTimeoutSeconds}s. They must fail now because the behaviour is missing, and must not break unrelated tests.
-4. Inspect git status first and never stage pre-existing changes. Commit only the oracle files: "test(oracle): <item ids> <short summary>". Do not push and do not claim items.
+4. Before any change, record git rev-parse HEAD as base_sha. Inspect git status and never stage pre-existing changes. Commit only the oracle files: "test(oracle): <item ids> <short summary>". Do not push and do not claim items.
 5. Add one note per item: sprintctl item note --id <id> --summary "oracle: <commit>" --detail "<paths; command>".
 If the work cannot be checked by code (documentation, configuration reviewed by people, runbooks), do not force tests: return kind "checklist" with concrete, verifiable review checks (file F section S states X; command C outputs Y). Use kind "none" only if even a checklist is impossible, and say why in notes.
 
-Return {repo: "${unit.repo}", unit: "${unit.unit}", kind, commit_sha?, paths, command?, checklist?, fails_before, notes}.`
+Return {repo: "${unit.repo}", unit: "${unit.unit}", base_sha, kind, commit_sha?, paths, command?, checklist?, fails_before, notes}.`
 }
 
 function normalizeOracle(raw) {
+  const base = raw && SAFE_COMMIT.test(String(raw.base_sha || '')) ? String(raw.base_sha) : undefined
+  return { ...oracleFields(raw), base_sha: base }
+}
+
+function oracleFields(raw) {
   if (!raw || !ORACLE_KINDS.includes(raw.kind)) return { kind: 'none', paths: [], checklist: [], notes: 'oracle author returned no structured result' }
   if (raw.kind === 'tests' && !(SAFE_COMMIT.test(String(raw.commit_sha || '')) && typeof raw.command === 'string' && raw.command.trim())) {
     return { kind: 'none', paths: [], checklist: [], notes: 'oracle author reported tests without a commit and command' }
@@ -564,19 +562,19 @@ Reasoning unit: ${unit.unit}
 ${itemDataLines(unit.items)}
 ${oracleBlock(oracle, 'build')}
 Keep one accountable implementation context for this unit and process its items in dependency order. Do not create subagents. Before changing anything:
-1. Inspect git status and record pre-existing changes. Preserve them. If they overlap this unit or prevent an isolated commit, stop and report blocked rather than staging or rewriting someone else's work.
+1. Record git rev-parse HEAD as base_sha before any change. Inspect git status and record pre-existing changes. Preserve them. If they overlap this unit or prevent an isolated commit, stop and report blocked rather than staging or rewriting someone else's work.
 2. Confirm the items share the invariant or subsystem boundary declared by the unit. When implementation exposes a smaller decision the items did not settle, decide it in line with the recorded item decisions and the repository's documented direction, and note it in verification_summary. Return blocked only when pre-existing working-tree changes prevent an isolated commit or an item depends on unfinished work in another item.
 
 For each item that is ready:
 1. Run sprintctl claim start --item-id <id> --actor ${tierConfig.actor} --ttl ${claimTtlSeconds} --branch main --json while capturing its JSON without echoing it. Immediately create /tmp/vuoro-dispatch-claims with mode 0700 and persist the claim JSON at /tmp/vuoro-dispatch-claims/${unit.repo}-<claim_id>.json with exclusive creation and mode 0600. Refuse a symlink, wrong owner/mode, or pre-existing proof file rather than overwriting it. This workflow-private proof record is required because sprintctl's built-in recovery records exist only in local backend mode. Treat claim_token as a secret: never put it in your response, verification summary, commit message, note, or another agent prompt. Return claim_id as a string only.
-2. Implement only the accepted unit scope. Do not redesign the tract from build mode.
+2. Implement only the accepted unit scope. Do not redesign the tract from build mode. If an item's acceptance is already satisfied by existing commits, make no new commit and return the commit that delivered it; the verifier will confirm it.
 3. Run the real targeted checks selected by the manifest and changed surfaces. Every gating command must run foreground and blocking with a ${verifyTimeoutSeconds}-second bound (for example, timeout --foreground ${verifyTimeoutSeconds}s <command>). Never background, detach, or poll a test command.
 4. Make one commit per reviewable scope, not mechanically per item. Stage only this unit's paths, inspect the staged diff, and never include pre-existing changes. Associate every completed item with the commit SHA that contains its acceptance work; related items may legitimately share a commit.
 5. Do not push. Publication occurs only after independent verification. Do not mark any item done and leave completed claims active for the gate.
 
 If you claimed an item but cannot complete it, use its exact workflow-private proof record (or sprintctl claim recover in local mode), release that incomplete claim, remove the exact workflow proof file after successful release, and do not return it as completed. Finish earlier completed work, set blocked to the precise reason, and stop; the unfinished items return to the backlog with your reason and later units still run.
 
-Return {repo: "${unit.repo}", unit: "${unit.unit}", items: [{item_id as a string, claim_id as a string, commit_sha, files_changed, verification_summary}], blocked?, shared_constraints?}. Never return a claim_token.`
+Return {repo: "${unit.repo}", unit: "${unit.unit}", base_sha, items: [{item_id as a string, claim_id as a string, commit_sha, files_changed, verification_summary}], blocked?, shared_constraints?}. Never return a claim_token.`
 }
 
 function normalizeBuildResult(unit, result) {
@@ -606,6 +604,7 @@ function normalizeBuildResult(unit, result) {
   return {
     repo: unit.repo,
     unit: unit.unit,
+    base_sha: SAFE_COMMIT.test(String(result.base_sha || '')) ? String(result.base_sha) : undefined,
     items: normalized,
     blocked: blocked ? String(blocked) : undefined,
     shared_constraints: Array.isArray(result.shared_constraints) ? result.shared_constraints.map(value => limitedText(value)) : [],
@@ -622,6 +621,7 @@ Reasoning unit: ${unit.unit}
 Committed items:
 ${itemLines}
 All unit commits, oldest first (oracle, build, repairs): ${commits.join(' ')}
+Unit range: ${builtUnit.base}..${latestCommit}. Every commit in git rev-list ${builtUnit.base}..${latestCommit} must be one of the listed unit commits; an unlisted commit in the range is an issue (issues_found), because it would otherwise be published unverified.
 ${oracleBlock(oracle, 'verify')}
 For the unit as a whole:
 1. Read AGENTS.md, the root dispatch manifest, overlays, risk_surfaces, and each live sprint item. Verify that these items really form one coherent unit and that every acceptance criterion is represented.
@@ -722,17 +722,18 @@ ${untrusted(JSON.stringify(findings, null, 2))}
 Return {repo: "${unit.repo}", unit: "${unit.unit}", commits: [<new commit shas, oldest first>], summary}.`
 }
 
-function parkPrompt(unit, commits) {
+function parkPrompt(unit, base) {
   return `Park one reasoning unit in ${repoPath(unit.repo)} whose work did not pass independent verification. cd there first. This is deterministic git bookkeeping; do not edit files by hand, rebase, reset, amend, or push.
 
 Unit: ${unit.unit}
-Commits to revert, oldest first (data): ${commits.join(' ')}
+Unit base (data): ${base}
 
-1. Confirm the current branch is main, the working tree has no staged changes, and every listed commit is an ancestor of HEAD.
-2. Revert the listed commits newest first with git revert --no-edit <sha>, one at a time.
-3. If a revert conflicts, run git revert --abort, stop, and return reverted=false with the conflicting sha in error.
+1. Confirm the current branch is main, the working tree has no staged changes, and ${base} is an ancestor of HEAD.
+2. List the unit's commits with git rev-list ${base}..HEAD. If the list is empty, return reverted=true with empty lists.
+3. Revert them newest first with git revert --no-edit <sha>, one at a time.
+4. If a revert conflicts, run git revert --abort, stop, and return reverted=false with the conflicting sha in error.
 
-Return {repo: "${unit.repo}", unit: "${unit.unit}", reverted, revert_commits: [<revert shas in the order created>], error?}.`
+Return {repo: "${unit.repo}", unit: "${unit.unit}", reverted, reverted_commits: [<original shas, newest first>], revert_commits: [<revert shas in the order created>], error?}.`
 }
 
 function unitConfirmed(verifyResult) {
@@ -741,12 +742,16 @@ function unitConfirmed(verifyResult) {
 
 async function verifyUnit(builtUnit, tier, round, verifyTimeoutSeconds) {
   const raw = await agent(verifyPrompt(builtUnit, verifyTimeoutSeconds), {
-    label: `verify:${builtUnit.unit.repo}:${builtUnit.unit.unit}${round ? `:r${round}` : ''}`,
+    label: `verify:${builtUnit.unit.repo}:${builtUnit.unit.unit}${round ? `:${round}` : ''}`,
     phase: 'Verify',
     schema: VERIFY_SCHEMA,
     ...MODEL_TIERS[tier].verify,
   })
   return normalizeVerifyResult(builtUnit, raw)
+}
+
+function hasIssues(verifyResult) {
+  return verifyResult.results.some(result => result.verdict === 'issues_found')
 }
 
 async function repairUnit(builtUnit, verifyResult, tier, round, verifyTimeoutSeconds) {
@@ -761,30 +766,49 @@ async function repairUnit(builtUnit, verifyResult, tier, round, verifyTimeoutSec
   const latest = added[added.length - 1]
   return {
     ...builtUnit,
-    commits: [...builtUnit.commits, ...added],
+    commits: [...new Set([...builtUnit.commits, ...added])],
     // Every item's acceptance now lives at the repaired head.
     buildResult: { ...builtUnit.buildResult, items: builtUnit.buildResult.items.map(item => ({ ...item, commit_sha: latest })) },
   }
 }
 
-async function parkUnit(unit, commits) {
-  const raw = await agent(parkPrompt(unit, commits), {
+async function parkUnit(unit, base) {
+  const raw = await agent(parkPrompt(unit, base), {
     label: `park:${unit.repo}:${unit.unit}`,
     phase: 'Repair',
     schema: PARK_SCHEMA,
     ...CLERICAL_MODEL,
   })
-  const revertCommits = raw && Array.isArray(raw.revert_commits) ? raw.revert_commits.map(String).filter(sha => SAFE_COMMIT.test(sha)) : []
-  return raw && raw.reverted === true && revertCommits.length === commits.length
-    ? { reverted: true, revert_commits: revertCommits }
-    : { reverted: false, revert_commits: revertCommits, error: limitedText((raw && raw.error) || 'park agent did not confirm a clean revert', 1000) }
+  const shas = key => (raw && Array.isArray(raw[key]) ? raw[key].map(String).filter(sha => SAFE_COMMIT.test(sha)) : [])
+  const reverted = shas('reverted_commits')
+  const reverts = shas('revert_commits')
+  return raw && raw.reverted === true && reverted.length === reverts.length
+    ? { reverted: true, reverted_commits: reverted, revert_commits: reverts }
+    : { reverted: false, reverted_commits: reverted, revert_commits: reverts, error: limitedText((raw && raw.error) || 'park agent did not confirm a clean revert', 1000) }
+}
+
+function withoutSuppliedDescriptions(unit) {
+  // After refinement the live item is the specification; the caller's text is stale.
+  return { ...unit, items: unit.items.map(item => ({ ...item, description: undefined })) }
+}
+
+function syntheticVerify(unit, items, summary) {
+  return {
+    repo: unit.repo,
+    unit: unit.unit,
+    results: items.map(item => ({ item_id: item.item_id, commit_sha: item.commit_sha, verdict: 'inconclusive', summary, concerns: [summary] })),
+    checks_run: [],
+    full_suite: { outcome: 'not_available', reason: summary },
+  }
 }
 
 // Same-repo units run in order, and each is verified (and repaired) before the
 // next one builds on top of it. A unit that cannot be finished is refined,
-// deferred, or reverted and handed back to the backlog; later units still run.
-// The only stop is a revert that did not apply cleanly, because every later
-// unit would then build on unverified commits.
+// deferred, reverted back to the backlog, or left unverified; later units still
+// run. Everything a unit commits is tracked as the range from its recorded base,
+// so park reverts all of it and publish can refuse any commit it did not expect.
+// The repo stops only when a unit's base is unknown or a revert does not apply,
+// because later units would then build on commits nobody can account for.
 async function processRepo(group, verifyTimeoutSeconds, claimTtlSeconds) {
   const state = {
     repo: group.repo,
@@ -793,10 +817,30 @@ async function processRepo(group, verifyTimeoutSeconds, claimTtlSeconds) {
     retired: [],
     deferred: [],
     parked: [],
+    unverified: [],
     operatorActions: [],
     publishCommits: [],
     halted: undefined,
   }
+  const halt = (decision, reason) => {
+    decision.outcome = 'halted'
+    state.halted = reason
+  }
+  const park = async (decision, workUnit, base, builtUnit, summary) => {
+    const parked = await parkUnit(workUnit, base)
+    if (!parked.reverted) {
+      halt(decision, `${workUnit.unit}: revert did not apply cleanly (${parked.error}); later units in this repo were not started`)
+    } else {
+      decision.outcome = 'parked'
+      state.publishCommits.push(...parked.reverted_commits, ...parked.revert_commits)
+      state.parked.push({ unit: workUnit.unit, item_ids: workUnit.items.map(item => item.item_id), revert_commits: parked.revert_commits })
+    }
+    if (builtUnit) {
+      const verifyResult = builtUnit.verifyResult || syntheticVerify(workUnit, builtUnit.buildResult.items, summary)
+      state.verifiedUnits.push({ ...builtUnit, verifyResult, parked: parked.reverted })
+    }
+  }
+
   for (const unit of group.units) {
     const itemIds = unit.items.map(item => item.item_id)
     if (state.halted) {
@@ -806,6 +850,7 @@ async function processRepo(group, verifyTimeoutSeconds, claimTtlSeconds) {
     const route = await resolveRoute(unit)
     const decision = recordRoute(unit, route)
     let tier = route.tier
+    let workUnit = unit
     let refinement
     log(`${group.repo}/${unit.unit}: route=${route.lane} tier=${tier} (${route.source}) — ${route.rationale}`)
 
@@ -828,11 +873,12 @@ async function processRepo(group, verifyTimeoutSeconds, claimTtlSeconds) {
       }
       state.refined.push({ unit: unit.unit, item_ids: itemIds, decisions: refinement.decisions.length, follow_up_item_ids: refinement.follow_up_item_ids })
       tier = maxTier([tier, refinement.tier])
+      workUnit = withoutSuppliedDescriptions(unit)
     }
 
-    let oracle = route.oracle
+    let oracle
     if (route.lane !== 'build') {
-      const raw = await agent(oraclePrompt(unit, refinement, verifyTimeoutSeconds), {
+      const raw = await agent(oraclePrompt(workUnit, refinement, verifyTimeoutSeconds), {
         label: `oracle:${unit.repo}:${unit.unit}`,
         phase: 'Oracle',
         schema: ORACLE_SCHEMA,
@@ -841,42 +887,60 @@ async function processRepo(group, verifyTimeoutSeconds, claimTtlSeconds) {
       oracle = normalizeOracle(raw)
       decision.oracle = oracle.kind
     }
-    const oracleCommits = oracle && oracle.commit_sha ? [oracle.commit_sha] : []
 
     const tierConfig = MODEL_TIERS[tier]
-    const raw = await agent(buildPrompt(unit, tierConfig, verifyTimeoutSeconds, claimTtlSeconds, oracle), {
+    decision.build_tier = tier
+    const raw = await agent(buildPrompt(workUnit, tierConfig, verifyTimeoutSeconds, claimTtlSeconds, oracle), {
       label: `build:${group.repo}:${unit.unit}`,
       phase: 'Build',
       schema: BUILD_SCHEMA,
       ...tierConfig.build,
     })
-    const buildResult = normalizeBuildResult(unit, raw)
+    const buildResult = normalizeBuildResult(workUnit, raw)
+    const base = (oracle && oracle.base_sha) || buildResult.base_sha
     const builtIds = new Set(buildResult.items.map(item => item.item_id))
     const unbuilt = itemIds.filter(id => !builtIds.has(id))
     if (unbuilt.length) {
       state.deferred.push({ unit: unit.unit, item_ids: unbuilt, reason: `build: ${buildResult.blocked || 'not completed'}` })
     }
-    if (!buildResult.items.length) {
-      decision.outcome = 'not_built'
-      if (oracleCommits.length) {
-        // Keep main green: a lone failing oracle is reverted; its commit stays in history for the next run.
-        const park = await parkUnit(unit, oracleCommits)
-        if (park.reverted) state.publishCommits.push(...oracleCommits, ...park.revert_commits)
-        else state.halted = `${unit.unit}: ${park.error}`
+    if (!base) {
+      halt(decision, `${unit.unit}: no base commit was reported, so this unit's commits cannot be accounted for; later units in this repo were not started`)
+      if (buildResult.items.length) {
+        state.verifiedUnits.push({ unit: workUnit, tierInfo: { tier }, buildResult, oracle, commits: [], verifyResult: syntheticVerify(workUnit, buildResult.items, 'unit base unknown; not verified') , unverified: true })
       }
       continue
     }
-
+    if (!buildResult.items.length) {
+      decision.outcome = 'not_built'
+      await park(decision, workUnit, base)
+      continue
+    }
     let builtUnit = {
-      unit,
+      unit: workUnit,
       tierInfo: { tier },
       buildResult,
       oracle,
-      commits: [...new Set([...oracleCommits, ...buildResult.items.map(item => item.commit_sha)])],
+      base,
+      commits: [...new Set([...(oracle && oracle.commit_sha ? [oracle.commit_sha] : []), ...buildResult.items.map(item => item.commit_sha)])],
     }
+    if (unbuilt.length && oracle && oracle.kind === 'tests') {
+      // The oracle covers the whole unit, so a partial build cannot pass it.
+      await park(decision, workUnit, base, builtUnit, 'unit parked: its oracle covers items that were not built')
+      continue
+    }
+
     let verifyResult = await verifyUnit(builtUnit, tier, 0, verifyTimeoutSeconds)
     let rounds = 0
-    while (!unitConfirmed(verifyResult) && rounds < MAX_REPAIR_ROUNDS) {
+    let reverified = false
+    while (!unitConfirmed(verifyResult)) {
+      if (!hasIssues(verifyResult)) {
+        // Nothing concrete to repair (missing evidence, timeouts, no verifier answer): ask once more.
+        if (reverified) break
+        reverified = true
+        verifyResult = await verifyUnit(builtUnit, tier, 'again', verifyTimeoutSeconds)
+        continue
+      }
+      if (rounds >= MAX_REPAIR_ROUNDS) break
       rounds += 1
       // A precise defect packet goes back to the same tier first; a second
       // failure is observed uncertainty, so the last round escalates.
@@ -884,27 +948,26 @@ async function processRepo(group, verifyTimeoutSeconds, claimTtlSeconds) {
       const repaired = await repairUnit(builtUnit, verifyResult, tier, rounds, verifyTimeoutSeconds)
       if (!repaired) break
       builtUnit = { ...repaired, tierInfo: { tier } }
-      verifyResult = await verifyUnit(builtUnit, tier, rounds, verifyTimeoutSeconds)
+      verifyResult = await verifyUnit(builtUnit, tier, `r${rounds}`, verifyTimeoutSeconds)
     }
     decision.repairs = rounds
+    decision.build_tier = tier
     recordVerify(decision, verifyResult)
+    builtUnit = { ...builtUnit, verifyResult }
 
     if (unitConfirmed(verifyResult)) {
       decision.outcome = 'confirmed'
       state.publishCommits.push(...builtUnit.commits)
-      state.verifiedUnits.push({ ...builtUnit, verifyResult })
-      continue
-    }
-    const park = await parkUnit(unit, builtUnit.commits)
-    if (park.reverted) {
-      decision.outcome = 'parked'
-      state.publishCommits.push(...builtUnit.commits, ...park.revert_commits)
-      state.parked.push({ unit: unit.unit, item_ids: builtUnit.buildResult.items.map(item => item.item_id), revert_commits: park.revert_commits })
+      state.verifiedUnits.push(builtUnit)
+    } else if (hasIssues(verifyResult)) {
+      await park(decision, workUnit, base, builtUnit)
     } else {
-      decision.outcome = 'halted'
-      state.halted = `${unit.unit}: revert did not apply cleanly (${park.error}); later units in this repo were not started`
+      // Verification could not reach a verdict. The work is not reverted -- it may be
+      // good -- but it is not published or closed; claims are released for a rerun.
+      decision.outcome = 'unverified'
+      state.unverified.push({ unit: unit.unit, item_ids: builtUnit.buildResult.items.map(item => item.item_id), base })
+      state.verifiedUnits.push({ ...builtUnit, unverified: true })
     }
-    state.verifiedUnits.push({ ...builtUnit, verifyResult, parked: park.reverted })
   }
   return state
 }
@@ -923,13 +986,16 @@ function publishPrompt(repo, commits) {
 Expected commit SHAs (data):
 ${commits.map(commit => `- ${commit}`).join('\n')}
 
-This is deterministic publication only; do not edit, amend, rebase, merge, pull, or force-push. Confirm every expected SHA is an ancestor of the current local main HEAD, confirm git status has no workflow-created uncommitted changes, and run git push origin main exactly once. If ancestry, branch, status, remote, authentication, or non-fast-forward state is unexpected, stop without changing history and return published=false with the error. Return {repo: "${repo}", published, action, head_sha?, error?}.`
+This is deterministic publication only; do not edit, amend, rebase, merge, pull, or force-push. Run git fetch origin main, then confirm: every expected SHA is an ancestor of the current local main HEAD (some may already be on origin/main); every commit in git rev-list origin/main..HEAD is one of the expected SHAs, so nothing unverified is published; and git status has no workflow-created uncommitted changes. Then run git push origin main exactly once. If any commit in origin/main..HEAD is not expected, do not push; return published=false and list the unexpected SHAs in error. If ancestry, branch, status, remote, authentication, or non-fast-forward state is unexpected, stop without changing history and return published=false with the error. Return {repo: "${repo}", published, action, head_sha?, error?}.`
 }
 
 async function publishRepo(state, push) {
   if (!push) return { ...state, publication: { repo: state.repo, published: false, action: 'not-requested' } }
   if (state.halted) {
     return { ...state, publication: { repo: state.repo, published: false, action: 'withheld-unverified-commits-on-main', error: state.halted } }
+  }
+  if (state.unverified.length) {
+    return { ...state, publication: { repo: state.repo, published: false, action: 'withheld-unverified-units', error: state.unverified.map(entry => entry.unit).join(', ') } }
   }
   const commits = [...new Set(state.publishCommits)]
   if (!commits.length) return { ...state, publication: { repo: state.repo, published: false, action: 'nothing-to-publish' } }
@@ -947,6 +1013,19 @@ async function publishRepo(state, push) {
 
 function effectiveClosePairs(state, push) {
   return allVerificationResults(state).map(pair => {
+    const unit = pair.builtUnit
+    if (pair.result.verdict === 'confirmed' && (unit.parked || unit.unverified || !unitConfirmed(unit.verifyResult))) {
+      // Items share their unit's commits: an item is only done when its whole unit is.
+      return {
+        ...pair,
+        result: {
+          ...pair.result,
+          verdict: 'inconclusive',
+          summary: `Item checks passed, but its unit was ${unit.parked ? 'parked and reverted' : 'not confirmed as a whole'}; hand back to refinement. ${pair.result.summary}`,
+          concerns: [...(pair.result.concerns || []), 'unit not confirmed as a whole'],
+        },
+      }
+    }
     if (!push || state.publication.published || pair.result.verdict !== 'confirmed') return pair
     return {
       ...pair,
@@ -1076,10 +1155,11 @@ const refined = collect('refined')
 const retired = collect('retired')
 const deferred = collect('deferred')
 const parked = collect('parked')
+const unverified = collect('unverified')
 const operator_actions = collect('operatorActions')
 const halted = states.filter(state => state.halted).map(state => ({ repo: state.repo, reason: state.halted }))
 const publication = states.map(state => state.publication)
-log(`Dispatched ${groups.length} repo(s): ${results.filter(result => result.closed).length} item(s) closed, ${refined.length} unit(s) refined, ${retired.length} retired, ${parked.length} parked back to backlog, ${deferred.length} deferred, ${operator_actions.length} operator-only action(s).`)
-log(push ? 'Publication carried verified work and the reverts of parked units.' : 'Commits remain local because push was not requested.')
+log(`Dispatched ${groups.length} repo(s): ${results.filter(result => result.closed).length} item(s) closed, ${refined.length} unit(s) refined, ${retired.length} retired, ${parked.length} parked back to backlog, ${unverified.length} left unverified, ${deferred.length} deferred, ${operator_actions.length} operator-only action(s).`)
+log(push ? 'Publication carries only verified work and the reverts of parked units, and is withheld while any unit is unverified.' : 'Commits remain local because push was not requested.')
 
-return { results, issues, inconclusive, refined, retired, deferred, parked, operator_actions, halted, publication }
+return { results, issues, inconclusive, refined, retired, deferred, parked, unverified, operator_actions, halted, publication }

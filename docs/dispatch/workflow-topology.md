@@ -61,17 +61,29 @@ forward in the same run.
 7. **Verify.** Verification uses a fresh context and an isolated worktree once per reasoning unit.
    It inspects every unit commit, runs targeted checks and the oracle first, and runs a broader
    gate once when required.
-8. **Repair.** A unit that is not confirmed gets up to two repair rounds with the verifier's
-   findings. The first round runs at the same tier and the second escalates one tier. Each round
-   is re-verified from scratch.
-9. **Park.** A unit that still fails is reverted with `git revert`, never a history rewrite. Its
-   claims are released with a note that hands the findings to the next refinement pass. Later
-   units continue. The only stop is a revert that does not apply cleanly, because later units
-   would then build on unverified commits.
+8. **Repair.** A unit with concrete findings (`issues_found`) gets up to two repair rounds. The
+   first round runs at the same tier and the second escalates one tier. Each round is re-verified
+   from scratch. A unit without a verdict (missing evidence, timeouts, no verifier answer) is
+   re-verified once instead, because there is nothing concrete to repair.
+9. **Park.** Every unit records its base commit, and everything committed after it (the oracle,
+   the build, repairs, and anything unreported) is the unit's range. The verifier rejects
+   unlisted commits in the range.
+
+   A unit that still has issues is parked: its whole range is reverted with `git revert`, never
+   a history rewrite. Its claims are released with a note that hands the findings to the next
+   refinement pass, and later units continue. An item is closed only when its whole unit is
+   confirmed.
+
+   A unit that ends without a verdict is left **unverified**. It is not reverted, because the
+   work may be good, but its claims are released and the repository's push is withheld.
+
+   The repository stops only when a unit's base is unknown or a revert does not apply cleanly,
+   because later units would then build on commits nobody can account for.
 10. A separate clerical stage applies sprintctl state transitions from the verifier's verdict.
 11. **Publish.** Publication is optional. It pushes the verified work together with the reverts
-    of parked units, so main only ever gains verified net changes. The workflow never
-    force-pushes or repairs unexpected Git state.
+    of parked units, and refuses if `origin/main..HEAD` holds any commit it did not expect. So main
+    gains only verified net changes. It is withheld while any unit is unverified or the repository
+    halted. The workflow never force-pushes or repairs unexpected Git state.
 
 Claim proof never enters workflow results or verifier prompts. A build worker captures it in an
 exact mode-0600 workflow credential record for the authorized close stage, which validates the
