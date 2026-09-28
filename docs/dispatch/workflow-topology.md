@@ -45,12 +45,21 @@ forward in the same run.
    It records each decision on the item, rewrites the item with acceptance criteria, and splits
    off follow-up items. It never writes code.
 
+   The refiner has genuine oversight: the router's lane and questions are advisory, and it may
+   say they are wrong. Before rewriting, it records each item's original intent. It may move
+   scope into follow-ups but never drop it, and the verifier checks that the intent survived.
+
    A unit is retired when the documented direction shows it is obsolete. It is deferred only when
    no agent can progress this run: it depends on unfinished work, or it needs an action only the
    operator can take (operator-held credentials, spending money, irreversible destructive
-   operations on production data). An operator-only action comes back with exact steps, a
-   verified precondition and the expected result. Uncertainty and preference are never deferral
-   reasons.
+   operations on production data), or the product intention is entirely missing. An
+   operator-only action comes back with exact steps, a verified precondition and the expected
+   result. Missing intention comes back as one concrete question in an item note.
+
+   Uncertainty, preference and intention that is merely thin are never deferral reasons. The
+   operator shapes product intention through the repository's documents. Where a later change
+   of intention diverges from what was built, the work is reworked then. By design, nothing
+   tracks or counts escalations, so there is no metric for agents to optimise.
 5. **Oracle** (frontier model, a separate author from the builder). The oracle author writes
    failing-first acceptance checks in the repository's test layout and commits them, or writes a
    concrete review checklist when the work cannot be checked by code. The builder must satisfy

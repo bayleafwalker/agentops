@@ -275,6 +275,17 @@ class SavedWorkflowTests(unittest.TestCase):
         )
 
     @requires_node
+    def test_refinement_records_original_intent_and_the_verifier_checks_it_survived(self) -> None:
+        output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 3, "unit": "plan-store"}]})
+        refine = call(output, "refine:example:plan-store")["prompt"]
+        self.assertIn('--summary "refinement: original intent"', refine)
+        self.assertIn("every part of the original intent stays in this unit or moves to a named follow-up item", refine)
+        self.assertIn("the router's lane and questions below are advisory", refine)
+        verify = call(output, "verify:example:plan-store")["prompt"]
+        self.assertIn('"refinement: original intent" note', verify)
+        self.assertIn("intent that was dropped rather than moved is an issue", verify)
+
+    @requires_node
     def test_decided_unit_without_a_check_gets_an_oracle_without_refinement(self) -> None:
         output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 4, "unit": "spec-parser"}]})
         self.assertEqual(
