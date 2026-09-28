@@ -413,6 +413,9 @@ class SavedWorkflowTests(unittest.TestCase):
         )
         prompt = call(output, "publish:example")["prompt"]
         self.assertIn("every commit in git rev-list origin/main..HEAD is one of the expected SHAs", prompt)
+        # A shared checkout carries other work's uncommitted files; they are not published and must not stop a push.
+        self.assertIn("do not treat them as a reason to stop", prompt)
+        self.assertNotIn("git status has no", prompt)
         base = "ba5e0000"
         for sha in (f"c1{base}", f"c0{base}", "ee0617069", "ee1617069", "b2636c69"):
             self.assertIn(sha, prompt)
