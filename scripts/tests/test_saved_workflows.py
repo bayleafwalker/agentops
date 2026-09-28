@@ -283,9 +283,18 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertIn("the router's lane and questions below are advisory", refine)
         verify = call(output, "verify:example:plan-store")["prompt"]
         self.assertIn('"refinement: original intent" note', verify)
-        self.assertIn("intent that was dropped rather than moved is an issue", verify)
+        self.assertIn('any "refinement: original intent" note, must be delivered', verify)
         self.assertIn('"refinement: intent moved"', refine)
-        self.assertIn('"refinement: intent moved" note', verify)
+        self.assertIn('"refinement: intent moved" or "build: scope moved" note', verify)
+        self.assertIn("even when the reason given for dropping it is plausible", verify)
+
+    @requires_node
+    def test_build_lane_units_cannot_narrow_items_silently(self) -> None:
+        output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]})
+        build = call(output, "build:example:api")["prompt"]
+        self.assertIn("Never narrow an item silently", build)
+        self.assertIn('--summary "build: scope moved to #<new id>"', build)
+        self.assertIn("A part that is neither delivered nor moved is an issue", call(output, "verify:example:api")["prompt"])
 
     @requires_node
     def test_decided_unit_without_a_check_gets_an_oracle_without_refinement(self) -> None:
