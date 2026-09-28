@@ -27,12 +27,22 @@ store on stderr.
 
 Usage::
 
-    audit_freshness.py --root DIR [--now ISO8601Z] --window-seconds N
+    audit_freshness.py --root DIR [--now ISO8601Z] --window-seconds N [--git-activity]
+
+With ``--git-activity`` (agentops#2545) a stale store is compared against the
+git history of the repository that holds it: newest commit within the window
+(measured from ``--now``) -> active -> a *capture failure* (alert); older ->
+*inactive* (reported, not an alert); no git repository to compare against ->
+still an alert (silence without evidence of inactivity is a failed invariant).
+Activity comes from commit dates, never file-system times. The scheduled run
+uses ``--root <estate> --window-seconds 172800 --git-activity``.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -122,6 +132,35 @@ def discover_stores(root: Path) -> dict[str, list[Path]]:
     return stores
 
 
+def discover_store_dirs(root: Path) -> dict[str, Path]:
+    """Map scope to one of its audit directories (used to locate the holding repository)."""
+    dirs: dict[str, Path] = {}
+    for audit_dir in sorted(root.glob(STORE_GLOB)):
+        if audit_dir.is_dir():
+            dirs.setdefault(audit_dir.parent.name, audit_dir)
+    return dirs
+
+
+def newest_commit(store_dir: Path) -> datetime | None:
+    """Committer time of the newest commit of the repository holding ``store_dir``.
+
+    None when the store is not in a git work tree, or the repository has no commits.
+    """
+    env = dict(os.environ, GIT_OPTIONAL_LOCKS="0")
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(store_dir), "log", "-1", "--format=%ct", "HEAD"],
+            capture_output=True, text=True, timeout=60, env=env)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    try:
+        return datetime.fromtimestamp(int(proc.stdout.strip()), UTC)
+    except ValueError:
+        return None
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Report the last-authoritative-event-age hard health metric per audit store.")
@@ -131,6 +170,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="reference \"now\" (UTC, trailing Z); defaults to the wall clock")
     parser.add_argument("--window-seconds", required=True, type=float,
                         help="a store whose newest durable event is older than this is stale")
+    parser.add_argument("--git-activity", action="store_true",
+                        help="classify a stale store as a capture failure (repository active "
+                             "within the window) or inactive (no commits within the window)")
     args = parser.parse_args(argv)
 
     if args.now is not None:
@@ -152,6 +194,7 @@ def main(argv: list[str] | None = None) -> int:
               file=sys.stderr)
         return 1
 
+    store_dirs = discover_store_dirs(root) if args.git_activity else {}
     alerts: list[str] = []
     for scope in sorted(stores):
         newest = None
@@ -166,7 +209,23 @@ def main(argv: list[str] | None = None) -> int:
             continue
         age = max(0.0, (now - newest).total_seconds())
         print(f'{METRIC}{{repo="{scope}"}} {age:.3f}')
-        if age > args.window_seconds:
+        if age > args.window_seconds and args.git_activity:
+            commit = newest_commit(store_dirs[scope]) if scope in store_dirs else None
+            if commit is None:
+                alerts.append(scope)
+                print(f"audit-freshness: {scope}: stale, last durable event {age:.0f}s ago "
+                      f"(window {args.window_seconds:.0f}s); no git history to compare against",
+                      file=sys.stderr)
+            elif (now - commit).total_seconds() <= args.window_seconds:
+                alerts.append(scope)
+                print(f"audit-freshness: {scope}: capture failure, last durable event "
+                      f"{age:.0f}s ago but repository committed "
+                      f"{max(0.0, (now - commit).total_seconds()):.0f}s ago "
+                      f"(window {args.window_seconds:.0f}s)", file=sys.stderr)
+            else:
+                print(f"audit-freshness: {scope}: inactive, stale store but no commits within "
+                      f"window {args.window_seconds:.0f}s (not an alert)", file=sys.stderr)
+        elif age > args.window_seconds:
             alerts.append(scope)
             print(f"audit-freshness: {scope}: stale, last durable event {age:.0f}s ago "
                   f"(window {args.window_seconds:.0f}s)", file=sys.stderr)
