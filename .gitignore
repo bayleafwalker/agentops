@@ -37,4 +37,7 @@ docs/evidence/packets/*.reference.patch
 # and agentops is not their home. Only _artifacts/agentops/ is tracked.
 /_artifacts/*
 !/_artifacts/agentops/
+# Jev shadow replay output: local measurement runs, reproducible from a corpus.
+# Online shadow judgments are durable as auditctl events instead.
+/_artifacts/agentops/jev-shadow/
 .claude/settings.local.json

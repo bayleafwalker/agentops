@@ -1,0 +1,30 @@
+{
+  "bundle_id": "verify-v1",
+  "model": "jev-latest",
+  "description": "Shadow completion-gate judgments over one verified reasoning unit's structured evidence. Compared with the verdict vuoro-dispatch-* already computed and clamped in code. Logged only; never consumed by closeout.",
+  "questions": {
+    "evidence_supports": {
+      "type": "choice",
+      "instructions": "Given the verifier's structured evidence for one work item -- `item.summary`, `item.concerns`, `checks_run` (command and outcome) and `full_suite` -- which verdict does the evidence itself support? Ignore how confident the summary sounds; judge only what the recorded checks and concerns show.",
+      "criteria": {
+        "confirmed": "Relevant checks ran and passed, the full suite passed or was credibly not required, and no concrete concern remains open.",
+        "issues_found": "A check or the full suite failed, or a concern names a concrete defect or skipped acceptance criterion.",
+        "inconclusive": "Checks were missing, timed out, or unavailable, so neither confirmation nor a concrete defect is established.",
+        "insufficient_evidence": "The evidence record is too thin to judge at all."
+      }
+    },
+    "claims_exceed_evidence": {
+      "type": "noul",
+      "instructions": "Does `item.summary` claim more than `checks_run` and `full_suite` actually demonstrate -- for example, asserting that behavior works or criteria are met when no recorded check exercises it?",
+      "criteria": {
+        "true": "The summary asserts results that no recorded check supports.",
+        "false": "Every material claim in the summary is backed by a recorded check or is explicitly hedged."
+      }
+    }
+  },
+  "thresholds": {
+    "note": "Recorded for measurement only. Nothing reads these to change closeout.",
+    "choice_confidence_high": 0.8,
+    "noul_true": 0.7
+  }
+}
