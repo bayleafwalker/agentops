@@ -17,7 +17,7 @@ requires_node = unittest.skipUnless(shutil.which("node") is not None, NODE_REQUI
 BUILD_WORKFLOW = ROOT / ".claude" / "workflows" / "vuoro-dispatch-build.js"
 VERIFY_WORKFLOW = ROOT / ".claude" / "workflows" / "vuoro-dispatch-verify.js"
 MODEL_ROUTING = ROOT / "model-routing.json"
-FRONTIER = "claude-opus-4-8"
+FRONTIER = "claude-opus-5-5"
 CLERICAL = "claude-haiku-4-5-20251001"
 
 
@@ -210,7 +210,7 @@ class SavedWorkflowTests(unittest.TestCase):
         aliases = json.loads(MODEL_ROUTING.read_text(encoding="utf-8"))["aliases"]
 
         self.assertEqual(aliases["clerical"]["anthropic"]["model"], "claude-haiku-4-5-20251001")
-        self.assertEqual(aliases["fast-build"]["anthropic"]["model"], "claude-sonnet-5")
+        self.assertEqual(aliases["fast-build"]["anthropic"]["model"], "claude-sonnet-5-5")
         self.assertEqual(aliases["fast-build"]["codex"]["model"], "gpt-5.3-codex-spark")
         self.assertEqual(aliases["fast-build"]["codex"]["fallback"], "gpt-5.6-luna")
         self.assertEqual(aliases["standard-build"]["codex"]["model"], "gpt-5.6-terra")
@@ -262,7 +262,7 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertEqual(call(output, "refine:example:plan-store")["model"], FRONTIER)
         self.assertEqual(call(output, "oracle:example:plan-store")["model"], FRONTIER)
         # The refiner's tier (standard) wins over the router's (bounded) for the build.
-        self.assertEqual(call(output, "build:example:plan-store")["model"], "claude-sonnet-5")
+        self.assertEqual(call(output, "build:example:plan-store")["model"], "claude-sonnet-5-5")
         self.assertIn("pytest tests/test_oracle.py", call(output, "build:example:plan-store")["prompt"])
         self.assertIn("Do not modify, delete, skip, or weaken any oracle path", call(output, "build:example:plan-store")["prompt"])
         self.assertIn("oracle_intact=true only if git diff 0c", call(output, "verify:example:plan-store")["prompt"])

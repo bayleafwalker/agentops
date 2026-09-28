@@ -11,9 +11,9 @@ export const meta = {
 // Mirrors the provider-specific realization in vuoro-dispatch-build.js.
 // Haiku performs note/claim bookkeeping only; Sonnet owns code verification.
 const VERIFY_TIERS = {
-  bounded: { model: 'claude-sonnet-5', effort: 'low' },
-  standard: { model: 'claude-sonnet-5', effort: 'medium' },
-  hard: { model: 'claude-sonnet-5', effort: 'high' },
+  bounded: { model: 'claude-sonnet-5-5', effort: 'low' },
+  standard: { model: 'claude-sonnet-5-5', effort: 'medium' },
+  hard: { model: 'claude-sonnet-5-5', effort: 'high' },
 }
 const CLERICAL_MODEL = { model: 'claude-haiku-4-5-20251001', effort: 'low' }
 const TIER_ORDER = ['bounded', 'standard', 'hard']

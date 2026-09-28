@@ -21,18 +21,18 @@ export const meta = {
 // triage and deterministic publication/closeout bookkeeping.
 const MODEL_TIERS = {
   bounded: {
-    build: { model: 'claude-sonnet-5', effort: 'low' },
-    verify: { model: 'claude-sonnet-5', effort: 'low' },
+    build: { model: 'claude-sonnet-5-5', effort: 'low' },
+    verify: { model: 'claude-sonnet-5-5', effort: 'low' },
     actor: 'claude-sonnet-devbox',
   },
   standard: {
-    build: { model: 'claude-sonnet-5', effort: 'medium' },
-    verify: { model: 'claude-sonnet-5', effort: 'medium' },
+    build: { model: 'claude-sonnet-5-5', effort: 'medium' },
+    verify: { model: 'claude-sonnet-5-5', effort: 'medium' },
     actor: 'claude-sonnet-devbox',
   },
   hard: {
-    build: { model: 'claude-sonnet-5', effort: 'high' },
-    verify: { model: 'claude-sonnet-5', effort: 'high' },
+    build: { model: 'claude-sonnet-5-5', effort: 'high' },
+    verify: { model: 'claude-sonnet-5-5', effort: 'high' },
     actor: 'claude-sonnet-devbox',
   },
 }
@@ -44,7 +44,7 @@ const TIER_ORDER = ['bounded', 'standard', 'hard']
 // frontier-plan in model-routing.json. Refinement and oracle authorship decide
 // what the work is and what correct means, so they sit above the builder that
 // has to satisfy them and are never the same agent.
-const FRONTIER_MODEL = { model: 'claude-opus-4-8', effort: 'high' }
+const FRONTIER_MODEL = { model: 'claude-opus-5-5', effort: 'high' }
 const LANES = ['build', 'oracle', 'refine']
 const REFINE_OUTCOMES = ['refined', 'retired', 'deferred']
 const ORACLE_KINDS = ['tests', 'checklist', 'none']
