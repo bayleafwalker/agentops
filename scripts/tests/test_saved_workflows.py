@@ -648,6 +648,15 @@ class SavedWorkflowTests(unittest.TestCase):
                 self.assertNotIn(retired, source)
 
     @requires_node
+    def test_verifiers_run_the_full_suite_unless_nothing_executable_changed(self) -> None:
+        output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]})
+        audit = run_workflow(VERIFY_WORKFLOW, {"mode": "audit", "items": [{"repo": "example", "item_id": 1, "commit_sha": "abcdef1", "tier": "bounded"}]})
+        for prompt in (call(output, "verify:example:api")["prompt"], call(audit, "verify:example:repo-batch")["prompt"]):
+            self.assertIn("full test suite", prompt)
+            self.assertIn("changes no executable code and no tests", prompt)
+            self.assertNotIn("when the manifest, risk surface, item, or normal review path requires it", prompt)
+
+    @requires_node
     def test_verify_gate_needs_a_reservation_and_accepts_the_claim_id_alias(self) -> None:
         missing = run_failing(VERIFY_WORKFLOW, {"mode": "gate", "items": [{"repo": "example", "item_id": 1, "commit_sha": "abcdef1", "tier": "bounded"}]})
         self.assertNotEqual(missing.returncode, 0)
