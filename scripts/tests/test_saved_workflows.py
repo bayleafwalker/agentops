@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -90,7 +91,7 @@ async function agent(prompt, options) {
       head_sha: head,
       items: built.map(itemId => ({
         item_id: itemId,
-        claim_id: String(1000 + Number(itemId)),
+        reservation_id: String(1000 + Number(itemId)),
         commit_sha: `b${itemId}${hex(unit)}`,
         files_changed: [`src/${itemId}.py`],
         verification_summary: 'stubbed targeted pass',
@@ -145,7 +146,7 @@ async function agent(prompt, options) {
       results: evidence.map(item => ({
         item_id: item.item_id,
         closed: !audit && item.verdict === 'confirmed',
-        action: audit ? 'noted' : (item.verdict === 'confirmed' ? 'done-from-claim' : 'released'),
+        action: audit ? 'noted' : (item.verdict === 'confirmed' ? 'status-done' : 'released'),
       })),
     }
   }
@@ -633,6 +634,43 @@ class SavedWorkflowTests(unittest.TestCase):
             """
         )
         subprocess.run(["node", "-e", script, str(BUILD_WORKFLOW), str(VERIFY_WORKFLOW)], cwd=ROOT, check=True)
+
+    @requires_node
+    def test_workflows_use_the_sprintctl_reservation_protocol(self) -> None:
+        output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]})
+        build = call(output, "build:example:api")["prompt"]
+        close = call(output, "close:example")["prompt"]
+        self.assertIn("sprintctl reservation reserve --item-id <id>", build)
+        self.assertIn("--status done --actor workflow-independent-verify-gate --expected-revision", close)
+        self.assertIn("sprintctl reservation release --id <reservation_id>", close)
+        self.assertIn('"reservation_id": "1001"', close)
+        # sprintctl 0.10.0 requires --reason for every transition to pending.
+        self.assertIn("--status pending --reason rework", close)
+        self.assertIn("--status pending --reason partial", build)
+        verify_source = VERIFY_WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("--status pending --reason rework", verify_source)
+        for source in (BUILD_WORKFLOW.read_text(encoding="utf-8"), verify_source):
+            self.assertIsNone(re.search(r"--status pending (?!--reason)", source))
+        for source in (BUILD_WORKFLOW.read_text(encoding="utf-8"), VERIFY_WORKFLOW.read_text(encoding="utf-8")):
+            for retired in ("done-from-claim", "claim start", "claim release", "claim recover", "claim_token", "vuoro-dispatch-claims"):
+                self.assertNotIn(retired, source)
+
+    @requires_node
+    def test_verifiers_run_the_full_suite_unless_nothing_executable_changed(self) -> None:
+        output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]})
+        audit = run_workflow(VERIFY_WORKFLOW, {"mode": "audit", "items": [{"repo": "example", "item_id": 1, "commit_sha": "abcdef1", "tier": "bounded"}]})
+        for prompt in (call(output, "verify:example:api")["prompt"], call(audit, "verify:example:repo-batch")["prompt"]):
+            self.assertIn("full test suite", prompt)
+            self.assertIn("changes no executable code and no tests", prompt)
+            self.assertNotIn("when the manifest, risk surface, item, or normal review path requires it", prompt)
+
+    @requires_node
+    def test_verify_gate_needs_a_reservation_and_accepts_the_claim_id_alias(self) -> None:
+        missing = run_failing(VERIFY_WORKFLOW, {"mode": "gate", "items": [{"repo": "example", "item_id": 1, "commit_sha": "abcdef1", "tier": "bounded"}]})
+        self.assertNotEqual(missing.returncode, 0)
+        self.assertIn("reservation_id is required in gate mode", missing.stderr)
+        output = run_workflow(VERIFY_WORKFLOW, {"mode": "gate", "items": [{"repo": "example", "item_id": 1, "commit_sha": "abcdef1", "claim_id": 77, "tier": "bounded"}]})
+        self.assertIn('"reservation_id": "77"', call(output, "close:example")["prompt"])
 
     def test_workflows_expose_focused_orchestration_services(self) -> None:
         build_source = BUILD_WORKFLOW.read_text(encoding="utf-8")
