@@ -1,0 +1,66 @@
+{
+ "bundle_id": "lattice-v0",
+ "model": "jev-latest",
+ "description": "Experimental acceptance-lattice probes (offline evaluation only). Atomic yes/no judgments over one work unit; code, not Jev, combines them.",
+ "questions": {
+  "decisions_closed": {
+   "type": "noul",
+   "instructions": "Are all design, ownership, sequencing and compatibility decisions needed to implement the work in `items` already made, either in the item text or by reference to a recorded decision?",
+   "criteria": {
+    "true": "Every decision the implementation depends on is stated as made.",
+    "false": "At least one such decision is still open, deferred to someone, or conditional on an outcome that has not happened."
+   }
+  },
+  "acceptance_observable": {
+   "type": "noul",
+   "instructions": "Does the item text state acceptance criteria that an independent checker could observe and test (a command, output, behaviour, or artifact), rather than intentions or qualities?",
+   "criteria": {
+    "true": "Acceptance is stated as observable, checkable outcomes.",
+    "false": "Acceptance is missing, vague, or only describes intent."
+   }
+  },
+  "oracle_viable": {
+   "type": "noul",
+   "instructions": "Could a deterministic check (test, command, validator) be written today that would reject an incorrect implementation of this work?",
+   "criteria": {
+    "true": "A rejecting check is clearly writable from what is stated.",
+    "false": "Correctness depends on judgment, future evidence, or information not stated."
+   }
+  },
+  "single_context": {
+   "type": "noul",
+   "instructions": "Is this work small and coherent enough for one engineer to implement in one focused session without splitting it into separate pieces of work?",
+   "criteria": {
+    "true": "One coherent change.",
+    "false": "It bundles several independent pieces, or spans several systems or repositories."
+   }
+  },
+  "information_missing": {
+   "type": "noul",
+   "instructions": "Is information that an implementer would need missing from the item text and not obtainable from a named reference (for example: which system, which interface, which data, what outcome)?",
+   "criteria": {
+    "true": "Needed information is missing.",
+    "false": "Everything needed is stated or referenced."
+   }
+  },
+  "authority_boundary": {
+   "type": "noul",
+   "instructions": "Does the work require an action only a human owner could take: using their personal credentials, spending money, or an irreversible destructive change to production data?",
+   "criteria": {
+    "true": "It needs such an owner-only action.",
+    "false": "Agents can carry it out entirely."
+   }
+  },
+  "is_experiment": {
+   "type": "noul",
+   "instructions": "Is the work framed as an experiment, assessment, observation window, or cutover whose goal or continuation depends on what it finds?",
+   "criteria": {
+    "true": "Its outcome decides whether or how the work continues.",
+    "false": "It is a defined change with a fixed goal."
+   }
+  }
+ },
+ "thresholds": {
+  "note": "none; offline evaluation only"
+ }
+}

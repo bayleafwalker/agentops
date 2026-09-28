@@ -62,3 +62,26 @@ Values are exact agreement. Kappa and the error directions are in the `compare.p
 - **Kept:** `vuoro-dispatch-build` records each unit's routing decision as a `dispatch.route.decision` event. Before this, triage decisions were not persisted at all, and they are the labels any future comparison needs.
 - **Not kept:** an online Jev call in the dispatch path. Jev scoring stays offline (`jev_shadow.py score`) until recorded decisions support a clear result.
 - **Not adopted:** `route-v2`. Its effect depends on the judge and the evidence is inconclusive, so `route-v1` remains the pinned bundle.
+
+## Follow-up: acceptance-lattice probes (lattice-v0)
+
+Can narrow yes/no questions detect planning need better than one routing question?
+`lattice-v0.json` asks seven Noul questions per item; answers are in `jev-lattice-v0.jsonl`.
+
+AUC for detecting hindsight `needs_planning`:
+
+| Signal | Opus (100) | Sonnet (50) | Consensus (35) |
+|---|---|---|---|
+| P(decision open) | 0.68 | 0.66 | 0.69 |
+| P(oracle not viable) | 0.68 | 0.69 | 0.73 |
+| P(not one context) | 0.66 | 0.71 | 0.72 |
+| P(framed as experiment) | 0.64 | 0.78 | **0.82** |
+| P(acceptance not observable) | 0.49 | 0.50 | 0.46 |
+| P(information missing) | 0.47 | 0.55 | 0.51 |
+| max(open, experiment, oracle not viable) | 0.69 | 0.72 | 0.74 |
+| Haiku not-ready (binary) | 0.68 | 0.65 | 0.77 |
+
+- **The probes match Haiku; they don't beat it.** Their value is diagnostic: they say which dimension failed.
+- **Two probes carried no signal** on these item texts: acceptance observability and missing information.
+- **Combining failures with an uncalibrated OR over-flags.** At 0.7 it flags 77 of 100 items, with precision 0.38. Haiku flags 58, with precision 0.48. Per-dimension thresholds need outcome labels before a combined score can decide anything.
+- **The relational questions were not testable here.** Those are whether a child preserves its parent's intent, whether a decomposition is complete, and whether sibling units are coupled. These items are flat, with no plan graph.
