@@ -119,9 +119,11 @@ class TestOpen(unittest.TestCase):
         self.assertEqual(rows[0]["handoff_id"], "2026-09-13-s6-b.v1")
 
     def test_ack_on_one_version_still_lets_another_version_of_the_same_slug_stand(self) -> None:
+        # v1 is acked before v2 exists: acking a version that already has a newer
+        # sibling is refused (#2544), which is the mis-step these tests must not model.
         first = self._create("codex-acceptance")
-        second = self._create("codex-acceptance")
         handoff.ack(first, "sess-1")
+        second = self._create("codex-acceptance")
         rows = handoff.open_handoffs(self.out)
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["handoff_id"], json.loads(second.read_text())["handoff_id"])
@@ -152,9 +154,11 @@ class TestOpen(unittest.TestCase):
         case, and v2 must still be listed. Stated here because a fix that
         closes the track on *any* ack would hide every live continuation.
         """
+        # v1 is acked before v2 exists: acking a version that already has a newer
+        # sibling is refused (#2544), which is the mis-step these tests must not model.
         first = self._create("codex-acceptance")
-        second = self._create("codex-acceptance")
         handoff.ack(first, "sess-1")
+        second = self._create("codex-acceptance")
         rows = handoff.open_handoffs(self.out)
         self.assertEqual(len(rows), 1)
         self.assertEqual(
