@@ -100,13 +100,11 @@ forward in the same run.
     gains only verified net changes. It is withheld while any unit is unverified or the repository
     halted. The workflow never force-pushes or repairs unexpected Git state.
 
-Claim proof never enters workflow results or verifier prompts. A build worker captures it in an
-exact mode-0600 workflow credential record for the authorized close stage, which validates the
-record identity and removes only that file after a successful close or release. This is necessary
-for remote sprintctl backends, where sprintctl's built-in local recovery record is unavailable.
-Proof records must never be printed for inspection. Secret-bearing fields may be nested, so deleting
-only top-level token keys is not redaction; validation must extract only explicitly safe scalar
-fields or use a tested recursive redactor.
+Items are held with sprintctl's advisory reservations (`sprintctl agent-protocol`). A reservation
+carries no secret, so nothing sensitive travels between stages. The builder reserves each item
+and marks it active. The clerical close stage then either marks it done, against the item's
+current status revision, and releases the reservation, or returns it to pending and releases the
+reservation.
 
 This is deliberately flat. Workers do not recursively create planners, coders, reviewers, or
 summarizers. Each stage is one agent with one job, and the workflow script owns sequencing.
