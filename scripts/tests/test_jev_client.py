@@ -133,7 +133,7 @@ def test_response_without_answers_is_rejected():
         jev_client.system_one({}, QUESTIONS, model="m", key=KEY, opener=_opener({"model": "m"}))
 
 
-@pytest.mark.parametrize("name", ["route-v1", "verify-v1"])
+@pytest.mark.parametrize("name", ["route-v1"])
 def test_committed_bundles_load_with_a_stable_hash(name):
     first = jev_client.load_bundle(name)
     second = jev_client.load_bundle(name)
@@ -142,7 +142,7 @@ def test_committed_bundles_load_with_a_stable_hash(name):
     assert first["bundle_sha256"] == second["bundle_sha256"]
 
 
-@pytest.mark.parametrize("name", ["route-v1", "verify-v1"])
+@pytest.mark.parametrize("name", ["route-v1"])
 def test_every_choice_offers_a_no_match_answer(name):
     bundle = jev_client.load_bundle(name)
     no_match = {"needs_planning", "insufficient_evidence", "needs_clarification"}

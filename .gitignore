@@ -38,6 +38,6 @@ docs/evidence/packets/*.reference.patch
 /_artifacts/*
 !/_artifacts/agentops/
 # Jev shadow replay output: local measurement runs, reproducible from a corpus.
-# Online shadow judgments are durable as auditctl events instead.
+# Recorded routing decisions are durable as dispatch.route.decision events.
 /_artifacts/agentops/jev-shadow/
 .claude/settings.local.json

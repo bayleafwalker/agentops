@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Measure Jev shadow judgments against the decisions dispatch actually took.
+"""Measure Jev routing judgments against the decisions dispatch actually took.
 
-Reads ``dispatch.route.shadow`` / ``dispatch.verify.shadow`` events from the audit
-shards and any replay JSONL, and reports per gate: agreement, a confusion matrix of
+Reads the JSONL written by ``jev_shadow.py score``/``replay`` and reports: agreement
+(overall, by baseline source, and excluding no-match answers), a confusion matrix of
 baseline label against Jev label, agreement by Jev confidence band, how often Jev
 chose a no-match option, latency and token usage. The disagreement set is written as
 JSONL for operator labelling.
@@ -20,34 +20,14 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Iterable
 
-ROOT = Path(__file__).resolve().parents[1]
-EVENT_TYPES = {"dispatch.route.shadow": "route", "dispatch.verify.shadow": "verify"}
-GATE_QUESTION = {"route": "tier", "verify": "evidence_supports"}
+GATE_QUESTION = {"route": "tier"}
 NO_MATCH = {"needs_planning", "insufficient_evidence", "needs_clarification"}
 BANDS = ((0.0, 0.5), (0.5, 0.7), (0.7, 0.8), (0.8, 0.9), (0.9, 1.01))
 
 
-def _event_record(event: dict[str, Any]) -> dict[str, Any] | None:
-    event_type = event.get("event_type") or event.get("type")
-    if event_type not in EVENT_TYPES:
-        return None
-    metadata = event.get("metadata")
-    if not isinstance(metadata, dict):
-        metadata = (event.get("payload") or {}).get("metadata")
-    return metadata if isinstance(metadata, dict) else None
-
-
-def load_records(shard_paths: Iterable[Path], replay_paths: Iterable[Path]) -> list[dict[str, Any]]:
+def load_records(paths: Iterable[Path]) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
-    for path in shard_paths:
-        for line in path.read_text(encoding="utf-8").splitlines():
-            try:
-                record = _event_record(json.loads(line))
-            except json.JSONDecodeError:
-                continue
-            if record is not None:
-                records.append(record)
-    for path in replay_paths:
+    for path in paths:
         for line in path.read_text(encoding="utf-8").splitlines():
             if line.strip():
                 records.append(json.loads(line))
@@ -137,14 +117,11 @@ def summarize(records: list[dict[str, Any]]) -> tuple[dict[str, Any], list[dict[
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--shards", default=str(ROOT / "_artifacts" / "agentops" / "audit"), help="audit shard directory")
-    parser.add_argument("--replay", action="append", default=[], help="replay JSONL (repeatable)")
+    parser.add_argument("records", nargs="+", help="JSONL from jev_shadow.py score or replay")
     parser.add_argument("--disagreements-out", help="write the disagreement set as JSONL")
     args = parser.parse_args(argv)
 
-    shard_dir = Path(args.shards)
-    shards = sorted(shard_dir.glob("*.ndjson")) if shard_dir.is_dir() else []
-    records = load_records(shards, [Path(path) for path in args.replay])
+    records = load_records(Path(path) for path in args.records)
     report, disagreements = summarize(records)
     if args.disagreements_out:
         out = Path(args.disagreements_out)

@@ -24,9 +24,9 @@ const workflowPath = process.argv[1]
 const workflowArgs = JSON.parse(process.argv[2])
 const failUnit = process.argv[3] || ''
 const evidenceMode = process.argv[4] || ''
-const shadowMode = process.argv[5] || ''
+const recordMode = process.argv[5] || ''
 const events = []
-const shadows = []
+const records = []
 
 const idsFromBuildPrompt = prompt => [...new Set([...prompt.matchAll(/^- item_id=([0-9]+)/gm)].map(match => match[1]))]
 const itemsFromVerifyPrompt = prompt => [...prompt.matchAll(/^- item_id=([0-9]+).*commit_sha=([0-9a-f]+)/gm)]
@@ -38,15 +38,15 @@ const closeEvidence = prompt => {
 async function agent(prompt, options) {
   events.push(options.label)
   const parts = options.label.split(':')
-  if (parts[0].startsWith('shadow-')) {
-    const match = prompt.match(/--input-b64 ([A-Za-z0-9+\/=]+)\n/)
-    const document = JSON.parse(Buffer.from(match[1], 'base64').toString('utf8'))
-    shadows.push({label: options.label, model: options.model, document})
-    if (shadowMode === 'throw') throw new Error('stubbed shadow failure')
-    return shadowMode === 'null' ? null : {ran: true, output: '[]'}
+  if (parts[0] === 'record-decisions') {
+    const match = prompt.match(/--input-json '([^']*)'\n/)
+    records.push({model: options.model, document: JSON.parse(match[1])})
+    if (recordMode === 'throw') throw new Error('stubbed recorder failure')
+    return recordMode === 'null' ? null : {ran: true, output: '{}'}
   }
   if (parts[0] === 'triage') {
-    return {repo: parts[1], unit: parts[2], tier: 'bounded', dispatch_ready: true, rationale: 'stub', concerns: []}
+    const ready = parts[2] !== 'undecided'
+    return {repo: parts[1], unit: parts[2], tier: 'bounded', dispatch_ready: ready, rationale: "stub's rationale", concerns: []}
   }
   if (parts[0] === 'build') {
     const ids = idsFromBuildPrompt(prompt)
@@ -115,7 +115,7 @@ async function parallel(tasks) {
 const source = fs.readFileSync(workflowPath, 'utf8').replace(/^export const meta =/m, 'const meta =')
 const run = new AsyncFunction('args', 'agent', 'pipeline', 'parallel', 'log', 'phase', source)
 run(workflowArgs, agent, pipeline, parallel, () => {}, () => {})
-  .then(result => process.stdout.write(JSON.stringify({result, events, shadows})))
+  .then(result => process.stdout.write(JSON.stringify({result, events, records})))
   .catch(error => {
     process.stderr.write(error.stack)
     process.exitCode = 1
@@ -124,19 +124,17 @@ run(workflowArgs, agent, pipeline, parallel, () => {}, () => {})
 
 
 def run_workflow(
-    path: Path, args: dict, *, fail_unit: str = "", evidence_mode: str = "", shadow_mode: str = ""
+    path: Path, args: dict, *, fail_unit: str = "", evidence_mode: str = "", record_mode: str = ""
 ) -> dict:
     result = subprocess.run(
-        ["node", "-e", NODE_HARNESS, str(path), json.dumps(args), fail_unit, evidence_mode, shadow_mode],
+        ["node", "-e", NODE_HARNESS, str(path), json.dumps(args), fail_unit, evidence_mode, record_mode],
         cwd=ROOT,
         check=True,
         capture_output=True,
         text=True,
     )
     output = json.loads(result.stdout)
-    # Jev shadow steps run concurrently beside the real work, so their position in
-    # the event stream is not part of the contract. The dispatch order is.
-    output["dispatch_events"] = [label for label in output["events"] if not label.startswith("shadow-")]
+    output["dispatch_events"] = [label for label in output["events"] if label != "record-decisions"]
     return output
 
 
@@ -218,7 +216,7 @@ class SavedWorkflowTests(unittest.TestCase):
         )
 
         self.assertEqual(
-            output["dispatch_events"],
+            output["events"],
             ["verify:example:api", "verify:example:storage", "close:example"],
         )
         self.assertTrue(all(not item["closed"] and item["action"] == "noted" for item in output["result"]["results"]))
@@ -274,117 +272,68 @@ class SavedWorkflowTests(unittest.TestCase):
         )
 
     @requires_node
-    def test_build_shadows_triage_and_verify_without_changing_results(self) -> None:
+    def test_build_records_decisions_once_without_changing_results(self) -> None:
         args = {
             "items": [
                 {"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"},
                 {"repo": "example", "item_id": 2, "unit": "storage"},
+                {"repo": "example", "item_id": 3, "unit": "mixed", "tier": "standard"},
+                {"repo": "example", "item_id": 4, "unit": "mixed"},
             ]
         }
-        shadowed = run_workflow(BUILD_WORKFLOW, args)
-        plain = run_workflow(BUILD_WORKFLOW, {**args, "jev_shadow": False})
+        recorded = run_workflow(BUILD_WORKFLOW, args, fail_unit="storage")
+        plain = run_workflow(BUILD_WORKFLOW, {**args, "record_decisions": False}, fail_unit="storage")
 
-        self.assertEqual(shadowed["result"], plain["result"])
-        self.assertEqual(shadowed["dispatch_events"], plain["dispatch_events"])
-        self.assertEqual(plain["shadows"], [])
-        by_label = {shadow["label"]: shadow for shadow in shadowed["shadows"]}
-        self.assertEqual(
-            sorted(by_label),
-            [
-                "shadow-route:example:api",
-                "shadow-route:example:storage",
-                "shadow-verify:example:api",
-                "shadow-verify:example:storage",
-            ],
-        )
-        self.assertTrue(all(shadow["model"] == "claude-haiku-4-5-20251001" for shadow in shadowed["shadows"]))
-        api = by_label["shadow-route:example:api"]["document"]
-        self.assertEqual(api["items"], [{"item_id": "1"}])
-        self.assertEqual(api["baseline"]["source"], "explicit")
-        self.assertEqual(by_label["shadow-route:example:storage"]["document"]["baseline"]["source"], "haiku-triage")
-        verify = by_label["shadow-verify:example:api"]["document"]
-        self.assertEqual(verify["mode"], "build")
-        self.assertEqual(verify["results"][0]["verdict"], "confirmed")
-        self.assertEqual(verify["checks_run"], [{"command": "stub-test", "outcome": "passed"}])
+        self.assertEqual(recorded["result"], plain["result"])
+        self.assertEqual(recorded["dispatch_events"], plain["dispatch_events"])
+        self.assertEqual(plain["records"], [])
+        self.assertEqual(recorded["events"][-1], "record-decisions")
+        self.assertEqual(len(recorded["records"]), 1)
+        self.assertEqual(recorded["records"][0]["model"], "claude-haiku-4-5-20251001")
+        document = recorded["records"][0]["document"]
+        self.assertEqual(document["workflow"], "vuoro-dispatch-build")
+        units = {unit["unit"]: unit for unit in document["units"]}
+        self.assertEqual(units["api"]["source"], "explicit")
+        self.assertEqual(units["storage"]["source"], "haiku-triage")
+        self.assertEqual(units["mixed"]["source"], "explicit+haiku-triage")
+        self.assertEqual(units["mixed"]["item_ids"], ["3", "4"])
+        self.assertEqual(units["api"]["verify"], {
+            "verdicts": {"1": "confirmed"},
+            "checks": {"passed": 1, "failed": 0, "timed_out": 0},
+            "full_suite": "passed",
+        })
+        self.assertEqual(units["storage"]["verify"]["verdicts"], {"2": "issues_found"})
+        # Prose never travels: the triage rationale contains a quote and is not recorded.
+        self.assertNotIn("rationale", json.dumps(document))
 
     @requires_node
-    def test_failing_shadow_never_changes_dispatch(self) -> None:
+    def test_blocked_triage_is_recorded(self) -> None:
+        output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "undecided"}]})
+        self.assertEqual(output["result"]["blocked"], [{"repo": "example", "reason": "undecided: stub's rationale"}])
+        [unit] = output["records"][0]["document"]["units"]
+        self.assertEqual((unit["dispatch_ready"], unit["source"]), (False, "haiku-triage"))
+        self.assertNotIn("verify", unit)
+
+    @requires_node
+    def test_failing_recorder_never_changes_dispatch(self) -> None:
         args = {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}
-        plain = run_workflow(BUILD_WORKFLOW, {**args, "jev_shadow": False})
+        plain = run_workflow(BUILD_WORKFLOW, {**args, "record_decisions": False})
         for mode in ("throw", "null"):
             with self.subTest(mode=mode):
-                output = run_workflow(BUILD_WORKFLOW, args, shadow_mode=mode)
-                self.assertEqual(output["result"], plain["result"])
-                self.assertEqual(len(output["shadows"]), 2)
+                self.assertEqual(run_workflow(BUILD_WORKFLOW, args, record_mode=mode)["result"], plain["result"])
 
     @requires_node
-    def test_verify_workflow_shadows_final_verdicts(self) -> None:
-        args = {
-            "mode": "audit",
-            "items": [{"repo": "example", "item_id": 1, "commit_sha": "abcdef1", "unit": "api", "tier": "bounded"}],
-        }
-        output = run_workflow(VERIFY_WORKFLOW, args, fail_unit="api")
-        plain = run_workflow(VERIFY_WORKFLOW, {**args, "jev_shadow": False}, fail_unit="api")
-
-        self.assertEqual(output["result"], plain["result"])
-        self.assertEqual([shadow["label"] for shadow in output["shadows"]], ["shadow-verify:example:api"])
-        document = output["shadows"][0]["document"]
-        self.assertEqual(document["mode"], "audit")
-        self.assertEqual(document["results"][0]["verdict"], "issues_found")
-
-    @requires_node
-    def test_non_boolean_jev_shadow_is_rejected(self) -> None:
-        for workflow in (BUILD_WORKFLOW, VERIFY_WORKFLOW):
-            with self.subTest(workflow=workflow.name):
-                result = subprocess.run(
-                    [
-                        "node",
-                        "-e",
-                        NODE_HARNESS,
-                        str(workflow),
-                        json.dumps({"jev_shadow": "yes", "items": [{"repo": "example", "item_id": 1, "commit_sha": "abcdef1", "tier": "bounded"}]}),
-                        "",
-                        "",
-                        "",
-                    ],
-                    cwd=ROOT,
-                    capture_output=True,
-                    text=True,
-                )
-                self.assertNotEqual(result.returncode, 0)
-                self.assertIn("jev_shadow must be boolean", result.stderr)
-
-    @requires_node
-    def test_shadow_base64_matches_node_for_unicode(self) -> None:
-        script = textwrap.dedent(
-            r"""
-            const fs = require('fs')
-            const source = fs.readFileSync(process.argv[1], 'utf8')
-            const start = source.indexOf("const BASE64_ALPHABET")
-            const end = source.indexOf("function shadowPrompt")
-            const base64Utf8 = new Function(source.slice(start, end) + '\nreturn base64Utf8')()
-            for (const text of ['', 'a', 'ab', 'abc', 'ä ö', '漢字', '🙂 emoji', JSON.stringify({s: 'x\ny"z'})]) {
-              if (base64Utf8(text) !== Buffer.from(text, 'utf8').toString('base64')) {
-                throw new Error('mismatch for ' + JSON.stringify(text))
-              }
-            }
-            """
+    def test_non_boolean_record_decisions_is_rejected(self) -> None:
+        result = subprocess.run(
+            ["node", "-e", NODE_HARNESS, str(BUILD_WORKFLOW),
+             json.dumps({"record_decisions": "yes", "items": [{"repo": "example", "item_id": 1, "tier": "bounded"}]}),
+             "", "", ""],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
         )
-        for workflow in (BUILD_WORKFLOW, VERIFY_WORKFLOW):
-            with self.subTest(workflow=workflow.name):
-                subprocess.run(["node", "-e", script, str(workflow)], cwd=ROOT, check=True)
-
-    @requires_node
-    def test_mixed_explicit_and_inferred_tiers_are_labelled_as_such(self) -> None:
-        output = run_workflow(
-            BUILD_WORKFLOW,
-            {"items": [
-                {"repo": "example", "item_id": 1, "unit": "api", "tier": "standard"},
-                {"repo": "example", "item_id": 2, "unit": "api"},
-            ]},
-        )
-        route = [shadow for shadow in output["shadows"] if shadow["label"].startswith("shadow-route")]
-        self.assertEqual(route[0]["document"]["baseline"]["source"], "explicit+haiku-triage")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("record_decisions must be boolean", result.stderr)
 
     def test_workflows_expose_focused_orchestration_services(self) -> None:
         build_source = BUILD_WORKFLOW.read_text(encoding="utf-8")

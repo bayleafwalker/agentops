@@ -1,7 +1,7 @@
 export const meta = {
   name: 'vuoro-dispatch-verify',
   description: 'Independent, evidence-bearing verification over declared reasoning units. Fresh agents inspect diffs and cold-run bounded foreground checks in isolated worktrees before a separate clerical closeout pass.',
-  whenToUse: 'Use as a pre-close gate (mode: "gate", requires claim_id and either /tmp/vuoro-dispatch-claims/<repo>-<claim_id>.json or a local-backend sprintctl recovery record for each item) or as a retroactive audit (mode: "audit", default). Invoke with Workflow({scriptPath: "/projects/dev/agentops/.claude/workflows/vuoro-dispatch-verify.js"}, {args: {mode, items: [{repo, item_id, commit_sha?, claim_id?, unit?, tier?: "bounded"|"standard"|"hard"}], verify_timeout_seconds?: number, jev_shadow?: boolean}}). Give items from one coherent change the same unit. Omitted unit verifies one repo batch. "mechanical" remains a deprecated alias for "bounded". Audit mode records findings and never repairs or rewrites shipped work. jev_shadow (default true) logs Jev shadow judgments beside each final verdict without changing it.',
+  whenToUse: 'Use as a pre-close gate (mode: "gate", requires claim_id and either /tmp/vuoro-dispatch-claims/<repo>-<claim_id>.json or a local-backend sprintctl recovery record for each item) or as a retroactive audit (mode: "audit", default). Invoke with Workflow({scriptPath: "/projects/dev/agentops/.claude/workflows/vuoro-dispatch-verify.js"}, {args: {mode, items: [{repo, item_id, commit_sha?, claim_id?, unit?, tier?: "bounded"|"standard"|"hard"}], verify_timeout_seconds?: number}}). Give items from one coherent change the same unit. Omitted unit verifies one repo batch. "mechanical" remains a deprecated alias for "bounded". Audit mode records findings and never repairs or rewrites shipped work.',
   phases: [
     { title: 'Verify' },
     { title: 'Close' },
@@ -16,8 +16,6 @@ const VERIFY_TIERS = {
   hard: { model: 'claude-sonnet-5', effort: 'high' },
 }
 const CLERICAL_MODEL = { model: 'claude-haiku-4-5-20251001', effort: 'low' }
-// Shadow-only Jev judgments; mirrors vuoro-dispatch-build.js.
-const JEV_SHADOW_SCRIPT = '/projects/dev/agentops/scripts/jev_shadow.py'
 const TIER_ORDER = ['bounded', 'standard', 'hard']
 const SAFE_REPO = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
 const SAFE_UNIT = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
@@ -64,15 +62,6 @@ const VERIFY_SCHEMA = {
         reason: { type: 'string' },
       },
     },
-  },
-}
-
-const SHADOW_SCHEMA = {
-  type: 'object',
-  required: ['ran'],
-  properties: {
-    ran: { type: 'boolean' },
-    output: { type: 'string' },
   },
 }
 
@@ -273,73 +262,6 @@ function normalizeVerifyResult(unit, raw) {
   }
 }
 
-// UTF-8 base64 without btoa/Buffer, which the workflow host does not promise.
-// JSON.stringify never emits lone surrogates, so every code point is encodable.
-const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-
-function base64Utf8(text) {
-  const bytes = []
-  for (const char of text) {
-    const code = char.codePointAt(0)
-    if (code < 0x80) bytes.push(code)
-    else if (code < 0x800) bytes.push(0xc0 | (code >> 6), 0x80 | (code & 63))
-    else if (code < 0x10000) bytes.push(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 63), 0x80 | (code & 63))
-    else bytes.push(0xf0 | (code >> 18), 0x80 | ((code >> 12) & 63), 0x80 | ((code >> 6) & 63), 0x80 | (code & 63))
-  }
-  let out = ''
-  for (let index = 0; index < bytes.length; index += 3) {
-    const [a, b, c] = [bytes[index], bytes[index + 1], bytes[index + 2]]
-    const word = (a << 16) | ((b || 0) << 8) | (c || 0)
-    out += BASE64_ALPHABET[(word >> 18) & 63] + BASE64_ALPHABET[(word >> 12) & 63]
-      + (b === undefined ? '=' : BASE64_ALPHABET[(word >> 6) & 63])
-      + (c === undefined ? '=' : BASE64_ALPHABET[word & 63])
-  }
-  return out
-}
-
-function shadowPrompt(gate, document) {
-  return `Run exactly one shell command, with a command timeout of 300 seconds, and report what it printed. This is shadow telemetry: it never changes dispatch, verification, or closeout, and nothing reads its result to make a decision. The final argument is an opaque base64 token. Copy it character for character; do not decode, shorten, or reformat it.
-
-python3 ${JEV_SHADOW_SCRIPT} ${gate} --input-b64 ${base64Utf8(JSON.stringify(document))}
-
-Do not retry, run any other command, or modify files. Return {ran, output} where ran says whether the command executed and output is its stdout (at most 2000 characters).`
-}
-
-const shadowRuns = []
-
-// Fire-and-collect: awaited once before the workflow returns; a failed or
-// missing shadow is dropped.
-function shadowVerify(verifyResult, mode) {
-  if (!jevShadow) return
-  const document = {
-    repo: verifyResult.repo,
-    unit: verifyResult.unit,
-    mode,
-    source: 'code-clamped-verifier',
-    results: verifyResult.results.map(result => ({
-      item_id: result.item_id,
-      verdict: result.verdict,
-      summary: limitedText(result.summary, 800),
-      concerns: result.concerns.slice(0, 5).map(concern => limitedText(concern, 300)),
-    })),
-    checks_run: verifyResult.checks_run.slice(0, 12).map(check => ({
-      command: limitedText(check.command, 300),
-      outcome: check.outcome,
-    })),
-    full_suite: { outcome: verifyResult.full_suite.outcome, reason: limitedText(verifyResult.full_suite.reason, 300) },
-  }
-  shadowRuns.push(
-    Promise.resolve()
-      .then(() => agent(shadowPrompt('verify', document), {
-        label: `shadow-verify:${verifyResult.repo}:${verifyResult.unit}`,
-        phase: 'Verify',
-        schema: SHADOW_SCHEMA,
-        ...CLERICAL_MODEL,
-      }))
-      .catch(() => null),
-  )
-}
-
 async function verifyRepo(mode, group, verifyTimeoutSeconds) {
   const verifiedUnits = []
   for (const unit of group.units) {
@@ -350,9 +272,7 @@ async function verifyRepo(mode, group, verifyTimeoutSeconds) {
       schema: VERIFY_SCHEMA,
       ...VERIFY_TIERS[tier],
     })
-    const verifyResult = normalizeVerifyResult(unit, raw)
-    shadowVerify(verifyResult, mode)
-    verifiedUnits.push({ unit, tier, verifyResult })
+    verifiedUnits.push({ unit, tier, verifyResult: normalizeVerifyResult(unit, raw) })
   }
   return { repo: group.repo, verifiedUnits }
 }
@@ -441,7 +361,6 @@ const verifyInputService = Object.freeze({
 })
 const verificationService = Object.freeze({
   verifyRepo,
-  shadowVerify,
   verificationPairs,
 })
 const verificationCloseoutService = Object.freeze({
@@ -456,12 +375,7 @@ if (parsedArgs.mode != null && !['audit', 'gate'].includes(parsedArgs.mode)) {
   throw new Error('mode must be "audit" or "gate" when supplied')
 }
 
-if (parsedArgs.jev_shadow != null && typeof parsedArgs.jev_shadow !== 'boolean') {
-  throw new Error('jev_shadow must be boolean when supplied')
-}
-
 const mode = parsedArgs.mode || 'audit'
-const jevShadow = parsedArgs.jev_shadow !== false
 const items = verifyInputService.cleanInputItems(parsedArgs.items, mode)
 const verifyTimeoutSeconds = verifyInputService.boundedInteger(parsedArgs.verify_timeout_seconds, 900, 60, 3600, 'verify_timeout_seconds')
 const groups = verifyInputService.groupByRepo(items)
@@ -471,8 +385,6 @@ const perRepo = await pipeline(
   group => verificationService.verifyRepo(mode, group, verifyTimeoutSeconds),
   verifyState => verificationCloseoutService.closeRepo(mode, verifyState),
 )
-
-await Promise.all(shadowRuns)
 
 const results = perRepo.filter(Boolean).flatMap(state => state.closeResults || [])
 const issues = results.filter(result => result.verdict === 'issues_found')

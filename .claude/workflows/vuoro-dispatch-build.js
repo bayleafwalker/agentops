@@ -1,7 +1,7 @@
 export const meta = {
   name: 'vuoro-dispatch-build',
   description: 'Adaptive claim -> build -> independent verify -> optional publish -> close pipeline. Work is owned per declared reasoning unit, same-repo units stay sequential, and independent repos run in parallel.',
-  whenToUse: 'Dispatch/execution phase after planning has selected chain-head items and decided their real reasoning boundaries. Invoke with Workflow({scriptPath: "/projects/dev/agentops/.claude/workflows/vuoro-dispatch-build.js"}, {args: {items: [{repo, item_id, description?, unit?, tier?: "bounded"|"standard"|"hard"}], push?: boolean, verify_timeout_seconds?: number, claim_ttl_seconds?: number, jev_shadow?: boolean}}). Give related items the same unit; give independent same-repo scopes different units. Omitted unit preserves the legacy one-owner-per-repo behavior. "mechanical" remains accepted as a deprecated alias for "bounded". Push, when requested, happens only after every built unit in that repo independently verifies. Claim proofs stay in mode-0600 workflow records and never enter agent results. jev_shadow (default true) logs Jev shadow judgments beside triage and verify decisions without changing them.',
+  whenToUse: 'Dispatch/execution phase after planning has selected chain-head items and decided their real reasoning boundaries. Invoke with Workflow({scriptPath: "/projects/dev/agentops/.claude/workflows/vuoro-dispatch-build.js"}, {args: {items: [{repo, item_id, description?, unit?, tier?: "bounded"|"standard"|"hard"}], push?: boolean, verify_timeout_seconds?: number, claim_ttl_seconds?: number, record_decisions?: boolean}}). Give related items the same unit; give independent same-repo scopes different units. Omitted unit preserves the legacy one-owner-per-repo behavior. "mechanical" remains accepted as a deprecated alias for "bounded". Push, when requested, happens only after every built unit in that repo independently verifies. Claim proofs stay in mode-0600 workflow records and never enter agent results. record_decisions (default true) records the tier, triage source and verdicts of each unit as dispatch.route.decision events in one clerical step at the end; it never changes dispatch.',
   phases: [
     { title: 'Triage' },
     { title: 'Build' },
@@ -34,10 +34,9 @@ const MODEL_TIERS = {
   },
 }
 const CLERICAL_MODEL = { model: 'claude-haiku-4-5-20251001', effort: 'low' }
-// Shadow-only Jev judgments (docs/dispatch/model-routing.md, "Jev shadow
-// judgments"). The script logs to auditctl and always exits 0; its result is
-// never read by any dispatch decision.
-const JEV_SHADOW_SCRIPT = '/projects/dev/agentops/scripts/jev_shadow.py'
+// Records routing decisions for offline measurement (docs/dispatch/model-routing.md,
+// "Routing decision records"). No network call and no effect on dispatch.
+const DECISION_RECORDER = '/projects/dev/agentops/scripts/jev_shadow.py'
 const TIER_ORDER = ['bounded', 'standard', 'hard']
 const SAFE_REPO = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
 const SAFE_UNIT = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
@@ -137,7 +136,7 @@ const PUBLISH_SCHEMA = {
   },
 }
 
-const SHADOW_SCHEMA = {
+const RECORD_SCHEMA = {
   type: 'object',
   required: ['ran'],
   properties: {
@@ -317,88 +316,53 @@ async function resolveTier(unit) {
   }
 }
 
-// UTF-8 base64 without btoa/Buffer, which the workflow host does not promise.
-// JSON.stringify never emits lone surrogates, so every code point is encodable.
-const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+// One entry per triaged unit: identifiers, enums and counts only, so recording
+// never relays prose that an item author or verifier wrote.
+const decisions = []
 
-function base64Utf8(text) {
-  const bytes = []
-  for (const char of text) {
-    const code = char.codePointAt(0)
-    if (code < 0x80) bytes.push(code)
-    else if (code < 0x800) bytes.push(0xc0 | (code >> 6), 0x80 | (code & 63))
-    else if (code < 0x10000) bytes.push(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 63), 0x80 | (code & 63))
-    else bytes.push(0xf0 | (code >> 18), 0x80 | ((code >> 12) & 63), 0x80 | ((code >> 6) & 63), 0x80 | (code & 63))
-  }
-  let out = ''
-  for (let index = 0; index < bytes.length; index += 3) {
-    const [a, b, c] = [bytes[index], bytes[index + 1], bytes[index + 2]]
-    const word = (a << 16) | ((b || 0) << 8) | (c || 0)
-    out += BASE64_ALPHABET[(word >> 18) & 63] + BASE64_ALPHABET[(word >> 12) & 63]
-      + (b === undefined ? '=' : BASE64_ALPHABET[(word >> 6) & 63])
-      + (c === undefined ? '=' : BASE64_ALPHABET[word & 63])
-  }
-  return out
-}
-
-function shadowPrompt(gate, document) {
-  return `Run exactly one shell command, with a command timeout of 300 seconds, and report what it printed. This is shadow telemetry: it never changes dispatch, verification, or closeout, and nothing reads its result to make a decision. The final argument is an opaque base64 token. Copy it character for character; do not decode, shorten, or reformat it.
-
-python3 ${JEV_SHADOW_SCRIPT} ${gate} --input-b64 ${base64Utf8(JSON.stringify(document))}
-
-Do not retry, run any other command, or modify files. Return {ran, output} where ran says whether the command executed and output is its stdout (at most 2000 characters).`
-}
-
-const shadowRuns = []
-
-// Fire-and-collect: the shadow runs beside the real work and is awaited only
-// once, before the workflow returns. A failed or missing shadow is dropped.
-function startShadow(gate, repo, unit, document, phaseTitle) {
-  if (!jevShadow) return
-  shadowRuns.push(
-    Promise.resolve()
-      .then(() => agent(shadowPrompt(gate, document), {
-        label: `shadow-${gate}:${repo}:${unit}`,
-        phase: phaseTitle,
-        schema: SHADOW_SCHEMA,
-        ...CLERICAL_MODEL,
-      }))
-      .catch(() => null),
-  )
-}
-
-function shadowRoute(unit, tierInfo) {
-  startShadow('route', unit.repo, unit.unit, {
+function recordTriage(unit, tierInfo) {
+  decisions.push({
     repo: unit.repo,
     unit: unit.unit,
-    items: unit.items.map(item => ({ item_id: item.item_id })),
-    baseline: {
-      tier: tierInfo.tier,
-      dispatch_ready: tierInfo.dispatch_ready,
-      source: tierInfo.source,
-      rationale: limitedText(tierInfo.rationale, 300),
-    },
-  }, 'Triage')
+    item_ids: unit.items.map(item => item.item_id),
+    tier: TIER_ORDER.includes(tierInfo.tier) ? tierInfo.tier : 'bounded',
+    dispatch_ready: tierInfo.dispatch_ready === true,
+    source: tierInfo.source,
+  })
 }
 
-function shadowVerify(verifyResult, mode) {
-  startShadow('verify', verifyResult.repo, verifyResult.unit, {
-    repo: verifyResult.repo,
-    unit: verifyResult.unit,
-    mode,
-    source: 'code-clamped-verifier',
-    results: verifyResult.results.map(result => ({
-      item_id: result.item_id,
-      verdict: result.verdict,
-      summary: limitedText(result.summary, 800),
-      concerns: result.concerns.slice(0, 5).map(concern => limitedText(concern, 300)),
-    })),
-    checks_run: verifyResult.checks_run.slice(0, 12).map(check => ({
-      command: limitedText(check.command, 300),
-      outcome: check.outcome,
-    })),
-    full_suite: { outcome: verifyResult.full_suite.outcome, reason: limitedText(verifyResult.full_suite.reason, 300) },
-  }, 'Verify')
+function recordVerify(verifyResult) {
+  const decision = decisions.find(entry => entry.repo === verifyResult.repo && entry.unit === verifyResult.unit)
+  if (!decision) return
+  const checks = { passed: 0, failed: 0, timed_out: 0 }
+  for (const check of verifyResult.checks_run) checks[check.outcome] += 1
+  decision.verify = {
+    verdicts: Object.fromEntries(verifyResult.results.map(result => [result.item_id, result.verdict])),
+    checks,
+    full_suite: verifyResult.full_suite.outcome,
+  }
+}
+
+async function recordDecisions() {
+  if (!recordDecisionsEnabled || !decisions.length) return
+  const payload = JSON.stringify({ workflow: 'vuoro-dispatch-build', units: decisions })
+  // Every field is validated upstream (safe names, numeric ids, enums, counts), so the
+  // payload cannot hold a quote; refuse rather than quote it if that ever changes.
+  if (payload.includes("'")) return
+  try {
+    await agent(`Run exactly one shell command and report what it printed. It records routing decisions for later measurement and changes nothing about dispatch.
+
+python3 ${DECISION_RECORDER} record --input-json '${payload}'
+
+Do not retry, run any other command, or modify files. Return {ran, output} where ran says whether the command executed and output is its stdout (at most 2000 characters).`, {
+      label: 'record-decisions',
+      phase: 'Close',
+      schema: RECORD_SCHEMA,
+      ...CLERICAL_MODEL,
+    })
+  } catch (_error) {
+    // Recording is evidence about the run, not part of it.
+  }
 }
 
 function buildPrompt(unit, tierConfig, verifyTimeoutSeconds, claimTtlSeconds) {
@@ -463,7 +427,7 @@ async function buildRepo(group, verifyTimeoutSeconds, claimTtlSeconds) {
   for (let index = 0; index < group.units.length; index += 1) {
     const unit = group.units[index]
     const tierInfo = await resolveTier(unit)
-    shadowRoute(unit, tierInfo)
+    recordTriage(unit, tierInfo)
     if (!tierInfo.dispatch_ready) {
       blocked = `${unit.unit}: ${tierInfo.rationale}`
       unattempted.push(...group.units.slice(index).flatMap(candidate => candidate.items.map(item => item.item_id)))
@@ -581,7 +545,7 @@ async function verifyRepo(buildState, verifyTimeoutSeconds) {
       ...tierConfig.verify,
     })
     const verifyResult = normalizeVerifyResult(builtUnit, raw)
-    shadowVerify(verifyResult, 'build')
+    recordVerify(verifyResult)
     verifiedUnits.push({ ...builtUnit, verifyResult })
   }
   return { ...buildState, verifiedUnits }
@@ -716,7 +680,6 @@ const buildInputService = Object.freeze({
 })
 const buildExecutionService = Object.freeze({
   resolveTier,
-  startShadow,
   buildRepo,
   verifyRepo,
 })
@@ -730,8 +693,10 @@ if (!parsedArgs || !Array.isArray(parsedArgs.items) || !parsedArgs.items.length)
   throw new Error('vuoro-dispatch-build requires args = { items: [{repo, item_id, description?, unit?, tier?}], push?: boolean, verify_timeout_seconds?: number, claim_ttl_seconds?: number }, got: ' + JSON.stringify(args))
 }
 if (parsedArgs.push != null && typeof parsedArgs.push !== 'boolean') throw new Error('push must be boolean when supplied')
-if (parsedArgs.jev_shadow != null && typeof parsedArgs.jev_shadow !== 'boolean') throw new Error('jev_shadow must be boolean when supplied')
-const jevShadow = parsedArgs.jev_shadow !== false
+if (parsedArgs.record_decisions != null && typeof parsedArgs.record_decisions !== 'boolean') {
+  throw new Error('record_decisions must be boolean when supplied')
+}
+const recordDecisionsEnabled = parsedArgs.record_decisions !== false
 
 const items = buildInputService.cleanInputItems(parsedArgs.items)
 const push = parsedArgs.push === true
@@ -747,7 +712,7 @@ const perRepo = await pipeline(
   publishState => buildPublicationService.closeRepo(publishState, push),
 )
 
-await Promise.all(shadowRuns)
+await recordDecisions()
 
 const results = perRepo.filter(Boolean).flatMap(state => state.closeResults || [])
 const issues = results.filter(result => result.verdict === 'issues_found')

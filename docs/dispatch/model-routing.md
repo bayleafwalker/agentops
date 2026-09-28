@@ -82,45 +82,42 @@ build tiers rather than pretending its tiers are equivalent to Codex tiers.
 
 Validation does not have to use a more expensive model to be independent. Fresh context, direct diff inspection, cold checks, and authority to reject are the minimum contract. Use `review-synthesis` for ordinary independent verification and reserve `frontier-review` for high-consequence semantic risk, not every patch.
 
-## Jev Shadow Judgments
+## Routing Decision Records
 
-`vuoro-dispatch-build` and `vuoro-dispatch-verify` ask TypeSafe's Jev
-(System One) a pinned set of bounded questions next to decisions they have
-already made, and log both. **Shadow only:** nothing reads Jev's answers to
-route, verify, close, publish or authorize anything.
+`vuoro-dispatch-build` records every routing decision it makes as a
+`dispatch.route.decision` auditctl event. One clerical step at the end of the run
+calls `scripts/jev_shadow.py record`, and each unit's event holds:
 
-- **Where it runs.**
-  - After each unit's tier decision, whether an explicit planner tier or Haiku triage, the build workflow runs `scripts/jev_shadow.py route`, which logs `dispatch.route.shadow`.
-  - After each code-clamped verify verdict, both workflows run `scripts/jev_shadow.py verify`, which logs `dispatch.verify.shadow`.
-  - Each call is a Haiku step that runs beside the real work and is awaited once before the workflow returns. The script always exits 0.
-  - Pass `jev_shadow: false` to skip it.
-- **What is asked.** The questions live in `jev/bundles/route-v1.json` and `jev/bundles/verify-v1.json`.
-  - Every Choice question includes a no-match answer (`needs_planning`, `insufficient_evidence`, `needs_clarification`).
-  - Each event records the bundle's `bundle_sha256` and the model ID Jev reports, so every answer names the exact question set and model that produced it.
-  - Changing a question means adding a new bundle file, not editing a committed one.
-- **What leaves the host.**
-  - Route questions send item title and description plus the manifest's risk-surface ids and paths.
-  - Verify questions send the verifier's item summary and concerns, plus the checks it ran and their outcomes.
-  - Transcripts, diffs, environment, claim proofs and credentials are never sent. `route_state` and `verify_state` in `scripts/jev_shadow.py` are the only code that builds what is sent.
-- **Credential.**
-  - The key is the operator's 0600 file named by `TYPESAFE_API_KEY_FILE` (default `~/.config/typesafe/api-key`).
-  - Without it, calls run in `fake` mode and still record the baseline decision.
-- **Measuring.**
-  - `scripts/jev_shadow_report.py` reports:
-    - agreement, and a confusion matrix of the baseline label against Jev's answer;
-    - agreement by Jev confidence band;
-    - the no-match rate, latency and token usage.
-  - The report also writes the disagreement set for labelling.
-  - For offline runs, `jev_shadow.py corpus` and `replay` produce the same records into `_artifacts/agentops/jev-shadow/`, which is untracked.
-  - Historical items carry no dispatch tier, so replay measures Jev's answer distribution only. Labelled rows come from the online shadow.
+- the tier dispatch used;
+- its source: `explicit`, `haiku-triage`, `explicit+haiku-triage` or `triage-missing`;
+- whether triage let it dispatch;
+- the per-item verify verdicts, with check-outcome counts.
 
-Never use Jev for credential or effect authorization, for judging an
-irreversible operation safe, for arithmetic or date logic, or for any decision
-whose facts are not in the state it is sent.
+Every field is an identifier, an enum or a count. The recorder relays no prose, makes
+no network call, and always exits 0. Pass `record_decisions: false` to skip it.
 
-Moving any confidence region out of shadow is an operator decision. It should
-rest on measured agreement over a labelled disagreement set, using a pinned
-bundle and model.
+These records are the labels any routing comparison needs. Before them, triage
+decisions were not persisted at all.
+
+**Offline Jev scoring.** `jev_shadow.py score` reads recorded decisions back from the
+audit shards and rebuilds each unit's item text from sprintctl. It then asks TypeSafe
+Jev the pinned `jev/bundles/route-v1.json` questions. `jev_shadow_report.py` measures
+agreement with the recorded decision.
+
+- **What is sent:** item title and description, and the manifest's risk-surface ids and paths. `route_state` is the only code that builds it.
+- **Key:** the operator's 0600 file named by `TYPESAFE_API_KEY_FILE`. Without it, scoring runs in `fake` mode.
+- **Before any decisions exist:** `corpus` and `replay` build and score an item corpus.
+
+Jev is not in the dispatch path. The 2026-09-28 evaluation
+(`jev/eval/agentops-2026-09-28/README.md`) found no router reliably better than the
+existing Haiku triage against two hindsight judges, though the two fail in different
+directions.
+
+Moving any router judgment into dispatch is an operator decision. It needs measured
+agreement against recorded decisions and hindsight labels, using a pinned bundle and
+model. Never use Jev for credential or effect authorization, for judging an
+irreversible operation safe, for arithmetic or date logic, or for any decision whose
+facts are not in the state it is sent.
 
 ## Reasoning Controls
 
