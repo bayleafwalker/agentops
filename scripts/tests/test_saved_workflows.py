@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -643,6 +644,13 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertIn("--status done --actor workflow-independent-verify-gate --expected-revision", close)
         self.assertIn("sprintctl reservation release --id <reservation_id>", close)
         self.assertIn('"reservation_id": "1001"', close)
+        # sprintctl 0.10.0 requires --reason for every transition to pending.
+        self.assertIn("--status pending --reason rework", close)
+        self.assertIn("--status pending --reason partial", build)
+        verify_source = VERIFY_WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("--status pending --reason rework", verify_source)
+        for source in (BUILD_WORKFLOW.read_text(encoding="utf-8"), verify_source):
+            self.assertIsNone(re.search(r"--status pending (?!--reason)", source))
         for source in (BUILD_WORKFLOW.read_text(encoding="utf-8"), VERIFY_WORKFLOW.read_text(encoding="utf-8")):
             for retired in ("done-from-claim", "claim start", "claim release", "claim recover", "claim_token", "vuoro-dispatch-claims"):
                 self.assertNotIn(retired, source)
