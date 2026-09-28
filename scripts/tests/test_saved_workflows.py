@@ -39,8 +39,9 @@ async function agent(prompt, options) {
   events.push(options.label)
   const parts = options.label.split(':')
   if (parts[0].startsWith('shadow-')) {
-    const match = prompt.match(/<<'JEV_SHADOW_EOF'\n(.*)\nJEV_SHADOW_EOF/)
-    shadows.push({label: options.label, model: options.model, document: JSON.parse(match[1])})
+    const match = prompt.match(/--input-b64 ([A-Za-z0-9+\/=]+)\n/)
+    const document = JSON.parse(Buffer.from(match[1], 'base64').toString('utf8'))
+    shadows.push({label: options.label, model: options.model, document})
     if (shadowMode === 'throw') throw new Error('stubbed shadow failure')
     return shadowMode === 'null' ? null : {ran: true, output: '[]'}
   }
@@ -352,6 +353,38 @@ class SavedWorkflowTests(unittest.TestCase):
                 )
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("jev_shadow must be boolean", result.stderr)
+
+    @requires_node
+    def test_shadow_base64_matches_node_for_unicode(self) -> None:
+        script = textwrap.dedent(
+            r"""
+            const fs = require('fs')
+            const source = fs.readFileSync(process.argv[1], 'utf8')
+            const start = source.indexOf("const BASE64_ALPHABET")
+            const end = source.indexOf("function shadowPrompt")
+            const base64Utf8 = new Function(source.slice(start, end) + '\nreturn base64Utf8')()
+            for (const text of ['', 'a', 'ab', 'abc', 'ä ö', '漢字', '🙂 emoji', JSON.stringify({s: 'x\ny"z'})]) {
+              if (base64Utf8(text) !== Buffer.from(text, 'utf8').toString('base64')) {
+                throw new Error('mismatch for ' + JSON.stringify(text))
+              }
+            }
+            """
+        )
+        for workflow in (BUILD_WORKFLOW, VERIFY_WORKFLOW):
+            with self.subTest(workflow=workflow.name):
+                subprocess.run(["node", "-e", script, str(workflow)], cwd=ROOT, check=True)
+
+    @requires_node
+    def test_mixed_explicit_and_inferred_tiers_are_labelled_as_such(self) -> None:
+        output = run_workflow(
+            BUILD_WORKFLOW,
+            {"items": [
+                {"repo": "example", "item_id": 1, "unit": "api", "tier": "standard"},
+                {"repo": "example", "item_id": 2, "unit": "api"},
+            ]},
+        )
+        route = [shadow for shadow in output["shadows"] if shadow["label"].startswith("shadow-route")]
+        self.assertEqual(route[0]["document"]["baseline"]["source"], "explicit+haiku-triage")
 
     def test_workflows_expose_focused_orchestration_services(self) -> None:
         build_source = BUILD_WORKFLOW.read_text(encoding="utf-8")

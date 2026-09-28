@@ -58,6 +58,7 @@ def test_summary_counts_agreement_confusion_and_bands(tmp_path):
     assert route["jev_modes"] == {"live": 4, "error": 1}
     assert route["labelled"] == 3
     assert route["agreement"] == round(1 / 3, 3)
+    assert route["agreement_excluding_no_match"] == 0.5
     assert route["confusion"] == {"bounded": {"bounded": 1, "standard": 1}, "hard": {"needs_planning": 1}}
     assert route["agreement_by_confidence"]["0.9-1.0"] == {"agree": 1, "rate": 1.0}
     assert route["agreement_by_confidence"]["0.5-0.7"] == {"disagree": 1, "rate": 0.0}
@@ -77,3 +78,9 @@ def test_main_writes_disagreements(tmp_path, capsys):
     printed = json.loads(capsys.readouterr().out)
     assert printed["route"]["labelled"] == 1
     assert len(out.read_text().splitlines()) == 1
+
+
+def test_non_numeric_confidence_is_banded_as_unknown():
+    record = _record("route", "bounded", "bounded", "high")
+    summary, _ = report.summarize([record])
+    assert summary["route"]["agreement_by_confidence"] == {"unknown": {"agree": 1, "rate": 1.0}}

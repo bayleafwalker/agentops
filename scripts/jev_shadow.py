@@ -16,8 +16,10 @@ Subcommands
             auditctl.
 ``corpus``  build a ``route`` replay corpus from a repository's sprintctl items.
 
-Input for ``route``/``verify`` is one JSON document on ``--input`` (a path, or ``-``
-for stdin) so that workflow agents never have to quote free text into argv.
+Input for ``route``/``verify`` is one JSON document, either on ``--input`` (a path, or
+``-`` for stdin) or as ``--input-b64``. The workflows use base64: the relaying agent
+then copies an opaque token rather than retyping verifier prose, which could otherwise
+steer it, and no free text is ever quoted into shell syntax.
 
 Data minimisation
 -----------------
@@ -30,10 +32,13 @@ transcript, diff, environment, claim or credential material is ever included.
 from __future__ import annotations
 
 import argparse
+import base64
 import getpass
 import json
+import re
 import subprocess
 import sys
+import time
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
@@ -51,6 +56,11 @@ VERIFY_EVENT = "dispatch.verify.shadow"
 TIERS = ("bounded", "standard", "hard")
 VERDICTS = ("confirmed", "issues_found", "inconclusive")
 MAX_TEXT = 4000
+SAFE_REPO = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+#: Overall budget for one ``verify`` run. The relaying agent's shell has its own
+#: timeout; items not judged within this budget are recorded as skipped rather than
+#: letting a kill discard every record.
+VERIFY_DEADLINE_SECONDS = 75.0
 
 ItemLoader = Callable[[str, str], dict[str, Any]]
 
@@ -67,11 +77,19 @@ def _text(value: Any, maximum: int = MAX_TEXT) -> str:
 # -- state builders: the only code that decides what leaves this host ---------------
 
 
+def _repo_dir(repo: str) -> Path:
+    if not SAFE_REPO.fullmatch(repo):
+        raise ValueError(f"unsafe repository name {repo[:80]!r}")
+    return DEV_ROOT / repo
+
+
 def load_item(repo: str, item_id: str) -> dict[str, Any]:
     """``sprintctl item show`` for one item, run from the owning repository."""
+    if not str(item_id).isdigit():
+        raise ValueError(f"item id must be numeric, got {str(item_id)[:40]!r}")
     result = subprocess.run(
         ["sprintctl", "item", "show", "--id", str(item_id), "--json"],
-        cwd=DEV_ROOT / repo,
+        cwd=_repo_dir(repo),
         capture_output=True,
         text=True,
         timeout=30,
@@ -83,7 +101,7 @@ def load_item(repo: str, item_id: str) -> dict[str, Any]:
 
 
 def load_risk_surfaces(repo: str) -> list[dict[str, Any]]:
-    manifests = sorted((DEV_ROOT / repo).glob("*.dispatch.json"))
+    manifests = sorted(_repo_dir(repo).glob("*.dispatch.json"))
     if not manifests:
         return []
     manifest = json.loads(manifests[0].read_text(encoding="utf-8"))
@@ -143,7 +161,8 @@ def verify_state(repo: str, unit: str, result: dict[str, Any], evidence: dict[st
 
 def route_baseline_label(baseline: dict[str, Any] | None) -> str | None:
     """The decision the workflow took, on the ``tier`` question's scale."""
-    if not baseline:
+    if not baseline or baseline.get("source") == "triage-missing":
+        # A triage failure is not a planning decision; it has no label to compare.
         return None
     if baseline.get("dispatch_ready") is False:
         return "needs_planning"
@@ -209,17 +228,28 @@ def judge_verify(
     document: dict[str, Any],
     *,
     bundle: dict[str, Any],
+    deadline: float | None = None,
     **ask_kwargs: Any,
-) -> list[dict[str, Any]]:
+):
+    """Yield one record per item, so a caller can publish each as it completes."""
     repo = str(document["repo"])
     unit = str(document.get("unit") or repo)
-    records = []
     for result in document.get("results") or []:
+        if deadline is not None and time.monotonic() > deadline:
+            yield {
+                **error_record("verify", document, TimeoutError("verify deadline reached before this item")),
+                "item_ids": [str(result.get("item_id"))],
+            }
+            continue
         state = verify_state(repo, unit, result, document)
-        answer = jev_client.ask(bundle, state, **ask_kwargs)
+        call_kwargs = dict(ask_kwargs)
+        if deadline is not None:
+            remaining = max(1.0, deadline - time.monotonic())
+            call_kwargs["timeout"] = min(call_kwargs.get("timeout", remaining), remaining)
+        answer = jev_client.ask(bundle, state, **call_kwargs)
         verdict = result.get("verdict") if result.get("verdict") in VERDICTS else None
         jev_verdict = _choice(answer["answers"], "evidence_supports")
-        records.append({
+        yield {
             "gate": "verify",
             "repo": repo,
             "unit": unit,
@@ -230,8 +260,7 @@ def judge_verify(
             "jev_label": jev_verdict,
             "agree": None if verdict is None or jev_verdict is None else verdict == jev_verdict,
             **_result_fields(answer),
-        })
-    return records
+        }
 
 
 def _result_fields(result: dict[str, Any]) -> dict[str, Any]:
@@ -292,9 +321,17 @@ def publish(event_type: str, record: dict[str, Any]) -> bool:
     return result.returncode == 0
 
 
-def _read_document(source: str) -> Any:
-    text = sys.stdin.read() if source == "-" else Path(source).read_text(encoding="utf-8")
-    return json.loads(text)
+def _read_document(args: argparse.Namespace) -> Any:
+    if args.input_b64 is not None:
+        text = base64.b64decode("".join(args.input_b64.split()), validate=True).decode("utf-8")
+    elif args.input == "-":
+        text = sys.stdin.read()
+    else:
+        text = Path(args.input).read_text(encoding="utf-8")
+    document = json.loads(text)
+    if not isinstance(document, dict):
+        raise ValueError("input must be a JSON object")
+    return document
 
 
 def _emit(records: list[dict[str, Any]]) -> None:
@@ -311,8 +348,8 @@ def _emit(records: list[dict[str, Any]]) -> None:
 def cmd_route(args: argparse.Namespace) -> int:
     document: Any = None
     try:
-        document = _read_document(args.input)
-        records = [judge_route(document, bundle=jev_client.load_bundle(args.bundle))]
+        document = _read_document(args)
+        records = [judge_route(document, bundle=jev_client.load_bundle(args.bundle), timeout=args.timeout)]
     except Exception as error:  # noqa: BLE001 - a shadow must not fail its host
         records = [error_record("route", document, error)]
     for record in records:
@@ -323,13 +360,17 @@ def cmd_route(args: argparse.Namespace) -> int:
 
 def cmd_verify(args: argparse.Namespace) -> int:
     document: Any = None
+    records: list[dict[str, Any]] = []
     try:
-        document = _read_document(args.input)
-        records = judge_verify(document, bundle=jev_client.load_bundle(args.bundle))
+        document = _read_document(args)
+        deadline = time.monotonic() + args.deadline
+        for record in judge_verify(document, bundle=jev_client.load_bundle(args.bundle), deadline=deadline, timeout=args.timeout):
+            publish(VERIFY_EVENT, record)
+            records.append(record)
     except Exception as error:  # noqa: BLE001 - a shadow must not fail its host
-        records = [error_record("verify", document, error)]
-    for record in records:
+        record = error_record("verify", document, error)
         publish(VERIFY_EVENT, record)
+        records.append(record)
     _emit(records)
     return 0
 
@@ -351,7 +392,7 @@ def cmd_replay(args: argparse.Namespace) -> int:
                 if args.gate == "route":
                     records = [judge_route(document, bundle=bundle)]
                 else:
-                    records = judge_verify(document, bundle=bundle)
+                    records = list(judge_verify(document, bundle=bundle))
             except Exception as error:  # noqa: BLE001 - one bad row must not end a replay
                 records = [error_record(args.gate, document, error)]
                 counts["errors"] += 1
@@ -396,14 +437,19 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     route = sub.add_parser("route", help="shadow one reasoning unit's routing decision")
-    route.add_argument("--input", required=True, help="JSON document path, or - for stdin")
     route.add_argument("--bundle", default="route-v1")
     route.set_defaults(func=cmd_route)
 
     verify = sub.add_parser("verify", help="shadow one verified unit's final verdicts")
-    verify.add_argument("--input", required=True, help="JSON document path, or - for stdin")
     verify.add_argument("--bundle", default="verify-v1")
+    verify.add_argument("--deadline", type=float, default=VERIFY_DEADLINE_SECONDS, help="overall seconds budget")
     verify.set_defaults(func=cmd_verify)
+
+    for command in (route, verify):
+        source = command.add_mutually_exclusive_group(required=True)
+        source.add_argument("--input", help="JSON document path, or - for stdin")
+        source.add_argument("--input-b64", help="base64 of the JSON document")
+        command.add_argument("--timeout", type=float, default=30.0, help="per-request seconds")
 
     replay = sub.add_parser("replay", help="run a gate over a JSONL corpus into a JSONL file")
     replay.add_argument("--gate", choices=("route", "verify"), required=True)
@@ -422,7 +468,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    argv = sys.argv[1:] if argv is None else argv
+    shadow_command = bool(argv) and argv[0] in ("route", "verify")
+    try:
+        args = build_parser().parse_args(argv)
+    except SystemExit as exit_:
+        # A mangled relay must not fail the host either; argparse has said why on stderr.
+        return 0 if shadow_command and exit_.code else int(exit_.code or 0)
     try:
         return args.func(args)
     except Exception:  # noqa: BLE001 - last line of defence for route/verify

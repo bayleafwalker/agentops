@@ -160,3 +160,23 @@ def test_bundle_hash_changes_with_the_questions(tmp_path):
     changed = tmp_path / "b.json"
     changed.write_text(json.dumps(bundle), encoding="utf-8")
     assert jev_client.load_bundle(original)["bundle_sha256"] != jev_client.load_bundle(changed)["bundle_sha256"]
+
+
+@pytest.mark.parametrize("content", [f"{KEY}\r\nsecond-line", f"{KEY} # comment", f"{KEY}\x00", "ключ"])
+def test_malformed_key_file_falls_back_to_fake_mode(tmp_path, monkeypatch, content, capsys):
+    key_file = tmp_path / "api-key"
+    key_file.write_text(content, encoding="utf-8")
+    monkeypatch.setenv(jev_client.KEY_FILE_ENV, str(key_file))
+    assert jev_client.load_key() is None
+    assert KEY not in capsys.readouterr().err
+
+
+def test_unexpected_request_errors_never_quote_the_key():
+    def opener(request, timeout):
+        raise ValueError(f"Invalid header value b'Bearer {KEY}'")
+
+    with pytest.raises(jev_client.JevError) as raised:
+        jev_client.system_one({}, QUESTIONS, model="m", key=KEY, opener=opener)
+    assert KEY not in str(raised.value)
+    assert raised.value.__cause__ is None
+    assert raised.value.__suppress_context__

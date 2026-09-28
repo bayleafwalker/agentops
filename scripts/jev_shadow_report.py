@@ -61,13 +61,20 @@ def _percentile(values: list[float], fraction: float) -> float | None:
     return ordered[min(len(ordered) - 1, int(round(fraction * (len(ordered) - 1))))]
 
 
-def _band(confidence: float | None) -> str:
-    if confidence is None:
+def _band(confidence: Any) -> str:
+    if not isinstance(confidence, (int, float)) or isinstance(confidence, bool):
         return "unknown"
     for low, high in BANDS:
         if low <= confidence < high:
             return f"{low:.1f}-{min(high, 1.0):.1f}"
     return "unknown"
+
+
+def _by_source(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        grouped[str((row.get("baseline") or {}).get("source"))].append(row)
+    return dict(sorted(grouped.items()))
 
 
 def summarize(records: list[dict[str, Any]]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -80,6 +87,10 @@ def summarize(records: list[dict[str, Any]]) -> tuple[dict[str, Any], list[dict[
         modes = Counter(row.get("jev_mode") for row in rows)
         answered = [row for row in rows if row.get("jev_mode") == "live"]
         labelled = [row for row in answered if row.get("agree") is not None]
+        # A no-match answer ("needs_planning", "insufficient_evidence", ...) counts as a
+        # disagreement in ``agreement``; ``agreement_excluding_no_match`` sets them aside
+        # so abstentions and outright contradictions can be told apart.
+        committed = [row for row in labelled if row.get("jev_label") not in NO_MATCH]
         question = GATE_QUESTION.get(gate)
         confusion: dict[str, Counter] = defaultdict(Counter)
         bands: dict[str, Counter] = defaultdict(Counter)
@@ -99,6 +110,13 @@ def summarize(records: list[dict[str, Any]]) -> tuple[dict[str, Any], list[dict[
             "live_answered": len(answered),
             "labelled": len(labelled),
             "agreement": round(sum(row["agree"] for row in labelled) / len(labelled), 3) if labelled else None,
+            "agreement_excluding_no_match": (
+                round(sum(row["agree"] for row in committed) / len(committed), 3) if committed else None
+            ),
+            "agreement_by_source": {
+                source: round(sum(row["agree"] for row in rows_) / len(rows_), 3)
+                for source, rows_ in _by_source(labelled).items()
+            },
             "confusion": {str(base): dict(counts) for base, counts in confusion.items()},
             "agreement_by_confidence": {
                 band: {**counts, "rate": round(counts["agree"] / (counts["agree"] + counts["disagree"]), 3)}

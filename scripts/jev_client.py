@@ -21,6 +21,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -33,6 +35,9 @@ DEFAULT_KEY_FILE = Path.home() / ".config" / "typesafe" / "api-key"
 RETRYABLE = (429, 529)
 MAX_ATTEMPTS = 3
 BUNDLE_DIR = Path(__file__).resolve().parents[1] / "jev" / "bundles"
+# A key is one printable token. Anything else would reach http.client, whose header
+# validation error quotes the whole header value -- key included.
+KEY_SHAPE = re.compile(r"[\x21-\x7e]+")
 
 
 class JevError(RuntimeError):
@@ -49,12 +54,17 @@ def key_path() -> Path:
 
 
 def load_key() -> str | None:
-    """The API key, or ``None`` (fake mode) when the key file is absent or empty."""
+    """The API key, or ``None`` (fake mode) when the key file is absent, empty or malformed."""
     try:
         key = key_path().read_text(encoding="utf-8").strip()
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         return None
-    return key or None
+    if not key:
+        return None
+    if not KEY_SHAPE.fullmatch(key):
+        print("jev_client: key file does not hold a single printable token; using fake mode", file=sys.stderr)
+        return None
+    return key
 
 
 def canonical_json(value: Any) -> str:
@@ -162,6 +172,8 @@ def system_one(
             raise JevError(f"System One unreachable: {type(error).__name__}") from None
         except json.JSONDecodeError:
             raise JevError("System One returned a non-JSON body") from None
+        except Exception as error:  # noqa: BLE001 - e.g. http.client header errors quote the key
+            raise JevError(f"System One request failed: {type(error).__name__}") from None
         if not isinstance(payload, dict) or not isinstance(payload.get("answers"), dict):
             raise JevError("System One response has no answers map")
         return {

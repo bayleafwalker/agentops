@@ -143,7 +143,7 @@ def test_judge_route_records_baseline_answers_and_bundle():
 
 
 def test_judge_verify_emits_one_record_per_item():
-    records = jev_shadow.judge_verify(
+    records = list(jev_shadow.judge_verify(
         {
             "repo": "example",
             "unit": "api",
@@ -156,7 +156,7 @@ def test_judge_verify_emits_one_record_per_item():
             "full_suite": {"outcome": "passed", "reason": ""},
         },
         bundle=jev_client.load_bundle("verify-v1"),
-    )
+    ))
     assert [record["item_ids"] for record in records] == [["1"], ["2"]]
     assert [record["agree"] for record in records] == [True, False]
     assert all(record["verify_mode"] == "gate" for record in records)
@@ -231,3 +231,51 @@ def test_replay_writes_jsonl_and_never_publishes(auditctl_stub, monkeypatch, tmp
     assert rows[0]["agree"] is None
     assert auditctl_stub() == []
     assert json.loads(capsys.readouterr().out)["records"] == 2
+
+
+def test_triage_failure_is_not_a_planning_label():
+    baseline = {"tier": "bounded", "dispatch_ready": False, "source": "triage-missing"}
+    assert jev_shadow.route_baseline_label(baseline) is None
+
+
+def test_base64_input(auditctl_stub, monkeypatch):
+    import base64
+
+    monkeypatch.setattr(jev_shadow, "load_item", lambda repo, item_id: FULL_ITEM)
+    monkeypatch.setattr(jev_shadow, "load_risk_surfaces", lambda repo: [])
+    token = base64.b64encode(json.dumps({"repo": "example", "unit": "ä-unit", "items": ["7"]}).encode("utf-8")).decode()
+    assert jev_shadow.main(["route", "--input-b64", token]) == 0
+    assert _metadata(auditctl_stub()[0])["unit"] == "ä-unit"
+
+
+def test_corrupted_base64_is_recorded_not_raised(auditctl_stub):
+    assert jev_shadow.main(["verify", "--input-b64", "not*base64"]) == 0
+    assert _metadata(auditctl_stub()[0])["jev_mode"] == "error"
+
+
+@pytest.mark.parametrize("argv", [["route"], ["verify", "--input", "a", "--input-b64", "b"], ["route", "--bogus"]])
+def test_mangled_relay_arguments_exit_zero(argv):
+    assert jev_shadow.main(argv) == 0
+
+
+def test_unsafe_repo_and_item_ids_are_refused():
+    with pytest.raises(ValueError):
+        jev_shadow.load_risk_surfaces("../etc")
+    with pytest.raises(ValueError):
+        jev_shadow.load_item("example", "7; rm -rf /")
+
+
+def test_verify_publishes_each_item_and_records_items_past_the_deadline(auditctl_stub, tmp_path):
+    document = tmp_path / "in.json"
+    document.write_text(json.dumps({
+        "repo": "example",
+        "unit": "api",
+        "results": [
+            {"item_id": "1", "verdict": "confirmed", "summary": "s", "concerns": []},
+            {"item_id": "2", "verdict": "confirmed", "summary": "s", "concerns": []},
+        ],
+    }))
+    assert jev_shadow.main(["verify", "--input", str(document), "--deadline", "-1"]) == 0
+    records = [_metadata(call) for call in auditctl_stub()]
+    assert [record["item_ids"] for record in records] == [["1"], ["2"]]
+    assert all(record["jev_mode"] == "error" and "deadline" in record["error"] for record in records)
