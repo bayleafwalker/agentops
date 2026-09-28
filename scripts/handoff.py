@@ -969,6 +969,25 @@ def remote_ack(origin_host: str, origin_path: str, session_id: str,
     return result
 
 
+_VERSIONED_NAME = re.compile(r"^(?P<stem>.+)\.v(?P<n>[0-9]+)\.json$")
+
+
+def newer_sibling(path: Path) -> Path | None:
+    """The newest sibling version of the same <date>-<track> if newer than path."""
+    match = _VERSIONED_NAME.match(path.name)
+    if not match:
+        return None
+    mine = int(match.group("n"))
+    best: tuple[int, Path] | None = None
+    for cand in path.parent.glob(f"{match.group('stem')}.v*.json"):
+        m = _VERSIONED_NAME.match(cand.name)
+        if m and m.group("stem") == match.group("stem"):
+            n = int(m.group("n"))
+            if n > mine and (best is None or n > best[0]):
+                best = (n, cand)
+    return best[1] if best else None
+
+
 def ack(path: Path, session_id: str, *,
         transport: Any | None = None,
         hostname: str | None = None) -> dict[str, Any]:
@@ -988,6 +1007,13 @@ def ack(path: Path, session_id: str, *,
             f"successor: {live} (acknowledged {handoff['successor'].get('acknowledged_at')}). "
             f"Refusing: exactly one successor may be active. Consult or stop that "
             f"session, or create a new handoff.")
+
+    newer = newer_sibling(path)
+    if newer is not None:
+        raise HandoffError(
+            f"handoff {handoff.get('handoff_id', path.name)} is superseded by "
+            f"a newer version on disk: {newer}. Refusing: acking a stale "
+            f"version claims the wrong continuation point. Ack {newer} instead.")
 
     origin_host = handoff.get("origin_host")
     origin_path = handoff.get("origin_path")

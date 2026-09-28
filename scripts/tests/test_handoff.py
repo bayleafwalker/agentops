@@ -464,6 +464,33 @@ class TestAckGuard(unittest.TestCase):
         self.assertEqual(
             handoff.main(["ack", str(self.path), "--session-id", "sess-second"]), 1)
 
+    def _make_v2(self) -> Path:
+        handoff.main([
+            "create", "--slug", "acked", "--repo", str(self.repo),
+            "--objective", "o", "--next-action", "n", "--no-sprintctl",
+            "--out-dir", str(self.out), "--date", "2026-09-12",
+        ])
+        return self.out / "2026-09-12-acked.v2.json"
+
+    def test_ack_of_a_superseded_version_is_refused_naming_the_newest(self) -> None:
+        v2 = self._make_v2()
+        before = self.path.read_bytes()
+        with self.assertRaises(handoff.HandoffError) as caught:
+            handoff.ack(self.path, "sess-stale")
+        self.assertIn(v2.name, str(caught.exception))
+        self.assertEqual(self.path.read_bytes(), before)
+
+    def test_ack_of_the_newest_version_succeeds(self) -> None:
+        v2 = self._make_v2()
+        handoff.ack(v2, "sess-new")
+        self.assertEqual(json.loads(v2.read_text())["successor"]["session_id"],
+                         "sess-new")
+
+    def test_cli_ack_of_a_superseded_version_exits_nonzero(self) -> None:
+        self._make_v2()
+        self.assertEqual(
+            handoff.main(["ack", str(self.path), "--session-id", "s"]), 1)
+
     def test_ack_leaves_no_temp_file_behind(self) -> None:
         handoff.ack(self.path, "sess-first")
         self.assertEqual(list(self.out.glob(".*tmp")), [])
@@ -794,6 +821,17 @@ class TestV5ExcludesPeerHandoffRecords(unittest.TestCase):
 
     # -- criterion 2: the incident, reproduced end to end through validate ---
 
+    @staticmethod
+    def _rewrite_as_acked(v1: Path) -> None:
+        # ack() now refuses a superseded version, so simulate the historical
+        # mis-step (the successor block written into v1 and the .md refreshed)
+        # by rewriting the sibling's bytes directly.
+        data = json.loads(v1.read_text())
+        data["successor"] = {"session_id": "sess-successor",
+                             "acknowledged_at": "2026-09-27T00:00:00Z"}
+        v1.write_text(json.dumps(data, indent=2) + "\n")
+        v1.with_suffix(".md").write_text("# acked by sess-successor\n")
+
     def test_acking_a_superseded_sibling_does_not_stale_the_peer_under_v5(self) -> None:
         # v1 then v2 of the same track; v2 is the live handoff. create writes v5.
         v1 = self._create("program-long-goal-handler")
@@ -803,7 +841,7 @@ class TestV5ExcludesPeerHandoffRecords(unittest.TestCase):
         self.assertEqual(handoff.validate_handoff(data2, file=v2), [])
         # A successor acks the superseded v1 while v2 is live; the ack rewrites
         # v1.json and refreshes v1.md, both untracked siblings of v2.
-        handoff.ack(v1, "sess-successor")
+        self._rewrite_as_acked(v1)
         self.assertEqual(
             handoff.validate_handoff(json.loads(v2.read_text()), file=v2), [],
             "acking a superseded sibling must not stale the peer's v5 digest")
@@ -822,7 +860,7 @@ class TestV5ExcludesPeerHandoffRecords(unittest.TestCase):
         v2.write_text(json.dumps(data2, indent=2) + "\n")
         self.assertEqual(
             handoff.validate_handoff(json.loads(v2.read_text()), file=v2), [])
-        handoff.ack(v1, "sess-successor")
+        self._rewrite_as_acked(v1)
         problems = handoff.validate_handoff(json.loads(v2.read_text()), file=v2)
         self.assertTrue(any("stale diff_sha256" in p for p in problems), problems)
 
@@ -836,7 +874,7 @@ class TestV5ExcludesPeerHandoffRecords(unittest.TestCase):
         exclude = handoff.self_paths(self.repo, handoff.handoff_outputs(v2))
         v4_before = handoff.diff_sha256(self.repo, 4, exclude)
         v5_before = handoff.diff_sha256(self.repo, 5, exclude)
-        handoff.ack(v1, "sess-successor")
+        self._rewrite_as_acked(v1)
         self.assertNotEqual(
             v4_before, handoff.diff_sha256(self.repo, 4, exclude),
             "v4 must keep counting a rewritten sibling handoff (grandfathered)")
