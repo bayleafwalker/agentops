@@ -22,7 +22,7 @@ kubectl -n <namespace> exec -i "$pod" -c postgres -- \
   psql -X -v ON_ERROR_STOP=1 -d vuoro_control -f - < classify.sql > classification-$(date -u +%F).txt
 ```
 
-Record the output file's sha256 and the database it ran against in the handoff. The report contains user ids and subjects: keep it in the private vuoro-cloud evidence area, not in this public repo.
+Record the output file's sha256 and the database it ran against in the handoff. The report contains user ids and subjects: keep it in the private vuoro-cloud evidence area, not in this public repo. No row is written to `audit_events` for the run (decided 2026-09-28, addendum §8.1 Nit 6): a hand-written superuser `INSERT` would be self-attested and is a kubectl-plus-SQL write; the recorded sha256, database and time are the evidence.
 
 ## The query (`classify.sql`)
 
