@@ -39,6 +39,8 @@ const scenario = JSON.parse(process.argv[3] || '{}')
 const events = []
 const calls = []
 const records = []
+// A linear history: every committing stub moves HEAD, as git would.
+let head = 'ba5e0000'
 
 const hex = text => [...text].map(char => char.charCodeAt(0).toString(16)).join('').slice(0, 10)
 const idsFromPrompt = prompt => [...new Set([...prompt.matchAll(/^- item_id=([0-9]+)/gm)].map(match => match[1]))]
@@ -71,16 +73,21 @@ async function agent(prompt, options) {
     return {repo, unit, outcome: 'refined', tier: 'standard', decisions: [{question: 'which store?', decision: 'sqlite', basis: 'docs/plan.md'}], acceptance: ['stores rows']}
   }
   if (kind === 'oracle') {
-    return {repo, unit, base_sha: `ba5e${hex(unit)}`, kind: 'tests', commit_sha: `0c${hex(unit)}`, paths: ['tests/test_oracle.py'], command: 'pytest tests/test_oracle.py', fails_before: true}
+    const base = head
+    head = `0c${hex(unit)}`
+    return {repo, unit, base_sha: base, kind: 'tests', commit_sha: head, paths: ['tests/test_oracle.py'], command: 'pytest tests/test_oracle.py', fails_before: true}
   }
   if (kind === 'build') {
     const ids = idsFromPrompt(prompt)
     const built = scenario.build === 'partial' ? ids.slice(0, -1) : ids
     if (scenario.build === 'null') return null
+    const base = scenario.wrongBase === unit ? 'dead0000' : head
+    if (built.length) head = `b${built[built.length - 1]}${hex(unit)}`
     return {
       repo,
       unit,
-      base_sha: `ba5e${hex(unit)}`,
+      base_sha: base,
+      head_sha: head,
       items: built.map(itemId => ({
         item_id: itemId,
         claim_id: String(1000 + Number(itemId)),
@@ -92,7 +99,8 @@ async function agent(prompt, options) {
     }
   }
   if (kind === 'repair') {
-    return {repo, unit, commits: [`fa${parts[3]}${hex(unit)}`], summary: 'stubbed fix'}
+    head = `fa${parts[3]}${hex(unit)}`
+    return {repo, unit, commits: [head], summary: 'stubbed fix'}
   }
   if (kind === 'verify') {
     const round = parts[3] || ''
@@ -123,7 +131,8 @@ async function agent(prompt, options) {
     const base = prompt.match(/Unit base \(data\): ([0-9a-f]+)\n/)[1]
     if (scenario.park === 'fail') return {repo, unit, reverted: false, error: 'conflict in src/x.py'}
     // Two commits in the range: stand-ins for everything since the base.
-    return {repo, unit, reverted: true, reverted_commits: [`c1${base}`, `c0${base}`], revert_commits: [`ee0${hex(unit)}`, `ee1${hex(unit)}`]}
+    head = `ee1${hex(unit)}`
+    return {repo, unit, reverted: true, reverted_commits: [`c1${base}`, `c0${base}`], revert_commits: [`ee0${hex(unit)}`, head]}
   }
   if (kind === 'publish') {
     return {repo, published: true, action: 'pushed', head_sha: 'abcdef1'}
@@ -391,10 +400,12 @@ class SavedWorkflowTests(unittest.TestCase):
         )
         prompt = call(output, "publish:example")["prompt"]
         self.assertIn("every commit in git rev-list origin/main..HEAD is one of the expected SHAs", prompt)
-        base = "ba5e617069"
+        base = "ba5e0000"
         for sha in (f"c1{base}", f"c0{base}", "ee0617069", "ee1617069", "b2636c69"):
             self.assertIn(sha, prompt)
-        self.assertIn("git rev-list ba5e617069..HEAD", call(output, "park:example:api")["prompt"])
+        self.assertIn("git rev-list ba5e0000..HEAD", call(output, "park:example:api")["prompt"])
+        # The next unit starts from the parked unit's last revert.
+        self.assertIn("Unit range: ee1617069..b2636c69", call(output, "verify:example:cli")["prompt"])
 
     @requires_node
     def test_verifier_outage_leaves_work_unverified_without_reverting_or_publishing(self) -> None:
@@ -455,6 +466,32 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertNotIn("OLD TEXT", refined_build)
         self.assertIn("(none supplied; read the live item)", refined_build)
         self.assertIn("OLD TEXT", call(output, "refine:example:plan-store")["prompt"])
+
+    @requires_node
+    def test_a_base_that_is_not_the_previous_head_halts_before_verifying(self) -> None:
+        output = run_workflow(
+            BUILD_WORKFLOW,
+            {"push": True, "items": [
+                {"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"},
+                {"repo": "example", "item_id": 2, "unit": "cli", "tier": "bounded"},
+                {"repo": "example", "item_id": 3, "unit": "docs", "tier": "bounded"},
+            ]},
+            wrongBase="cli",
+        )
+        self.assertNotIn("verify:example:cli", output["events"])
+        self.assertNotIn("park:example:cli", output["events"])
+        self.assertNotIn("build:example:docs", output["events"])
+        self.assertNotIn("publish:example", output["events"])
+        self.assertIn("is not the head b1617069 left by the previous unit", output["result"]["halted"][0]["reason"])
+        by_item = {item["item_id"]: item for item in output["result"]["results"]}
+        # The earlier confirmed unit is intact on main but was not pushed, so it is not closed either.
+        self.assertFalse(by_item["1"]["closed"])
+
+    @requires_node
+    def test_verification_runs_at_the_head_the_builder_left(self) -> None:
+        output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}, fail={"api": "once"})
+        self.assertIn("Unit range: ba5e0000..b1617069", call(output, "verify:example:api")["prompt"])
+        self.assertIn("Unit range: ba5e0000..fa1617069", call(output, "verify:example:api:r1")["prompt"])
 
     @requires_node
     def test_confirmation_without_command_evidence_is_never_closed(self) -> None:

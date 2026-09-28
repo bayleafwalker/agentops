@@ -66,8 +66,10 @@ forward in the same run.
    from scratch. A unit without a verdict (missing evidence, timeouts, no verifier answer) is
    re-verified once instead, because there is nothing concrete to repair.
 9. **Park.** Every unit records its base commit, and everything committed after it (the oracle,
-   the build, repairs, and anything unreported) is the unit's range. The verifier rejects
-   unlisted commits in the range.
+   the build, repairs, and anything unreported) is the unit's range. The workflow tracks main's
+   head itself: a unit's base must be the head the previous unit left, or the repository halts.
+   So no agent-reported base can reach back into an earlier unit. The verifier works at the tip
+   the builder or last repair left, and rejects unlisted commits in the range.
 
    A unit that still has issues is parked: its whole range is reverted with `git revert`, never
    a history rewrite. Its claims are released with a note that hands the findings to the next
