@@ -52,7 +52,7 @@ Date: 2026-09-27. Status: **decided, revision 13.** The operator's answers to th
 - **Minted tokens for agents are allowed in one narrow shape only:**
   - access tokens (no refresh token);
   - ≤ 15 minutes;
-  - `aud=/mcp`, work-plane scopes only, and never a reserved authority (`vuoro:effect.propose`, `vuoro:work.claim`) while it is reserved;
+  - `aud=/mcp`, work-plane scopes only, and never `vuoro:effect.propose` or `vuoro:work.claim`, both refused by name for minted and agent tokens;
   - for a non-admin **agent principal**;
   - issued by control under an admin-authored delegation ceiling;
   - delivered by cred-broker to **perimeter** workloads that pass its mTLS workload auth.
@@ -93,7 +93,7 @@ Date: 2026-09-27. Status: **decided, revision 13.** The operator's answers to th
 |---|---|---|
 | A cloud caller queues effects and never applies them. Acceptance happens on the trusted side; auto-accept is opt-in, off by default, trusted-side-set, asynchronous and recorded as the acceptor. | TS-16 (`2026-09-17-target-state.md:45`), unamended; cloud-enablement plan §"Effects" | The admin plane is trusted-side only. `vuoro-cli` is where the operator's interactive accept/reject lives, and where auto-accept policy is set. Nothing in this design gives a cloud caller a control-plane or admin audience. |
 | C1: a synchronous propose is apply authority. | plan, decision 7 | Minted agent tokens carry no scope that performs an effect during the call. |
-| **Reserved authorities.** `vuoro:effect.propose` stays reserved until a durable intent store exists **and** every tenant runtime serves the propose tools. `vuoro:work.claim` stays reserved until an exclusive, durable lease exists **and** every tenant runtime serves the claim tools. | operator decisions 2026-09-26; `oauth_scopes.py:22-29`, `:34-37` | No unit in this memo grants either scope to any client, principal kind or delegation. Delegation ceilings refuse them by name (D3), and slice 7's forced failures test both. A later change that ungates either one edits `oauth_scopes.py` under its own review, not this design. |
+| **Reserved authorities.** `vuoro:effect.propose` stays reserved until a durable intent store exists **and** every tenant runtime serves the propose tools. `vuoro:work.claim` was reserved until an exclusive, durable lease existed **and** every tenant runtime served the claim tools; both held on 2026-09-28 (generation 51), and it is granted by vuoro-cloud #149, live from generation 52 (v0.1.0-poc.52), to `claude-connector` only. | operator decisions 2026-09-26; `oauth_scopes.py:22-29`, `:34-37`; vuoro-cloud #149 | No unit in this memo grants either scope to any other client, principal kind or delegation. Delegation ceilings refuse them by name (D3), and slice 7's forced failures test both. A later change that ungates either one edits `oauth_scopes.py` under its own review, not this design. |
 | H1: multi-resource authorization is a spec, not "one audience plus one table". | plan item 5 | The two new resources defined here (`/control`, `/control/admin`) are inputs to that spec (slice 0). They are not added ad hoc. |
 | H2: no bearer forwarding. Use one-use, body-bound internal proofs. | plan item 6 | No component forwards a caller's bearer. The CLI service and cred-broker authenticate as themselves. |
 | H8: cred-broker workload auth is not deployment-ready. | plan item 7; README | Minting through cred-broker is gated on item 7. Nothing earlier depends on it. |
@@ -250,13 +250,13 @@ membership trigger: kind='test' ⇒ workspace.is_test;  workspace.is_test ⇒ me
 |---|---|---|---|---|---|
 | test principal | `vuoro-test-harness` | `/mcp`, granted work-plane scopes | trusted-side harness only | ≤ min(24 h, principal expiry) | principal epoch bump; expiry |
 | test principal | `claude-connector` | via test-login code only (D2b) | normal connector rules | normal | grant revoke; epoch; expiry |
-| agent principal | `vuoro-agent-delegate` (cred-broker) | `/mcp`; `vuoro:work.read` and `vuoro:evidence.record` (granted today); **never** `vuoro:effect.propose` or `vuoro:work.claim` while reserved | **never** | ≤ 15 min | agent epoch; delegation disable; grant revoke |
+| agent principal | `vuoro-agent-delegate` (cred-broker) | `/mcp`; `vuoro:work.read` and `vuoro:evidence.record` (granted today); **never** `vuoro:effect.propose` or `vuoro:work.claim` (refused by name for agent tokens) | **never** | ≤ 15 min | agent epoch; delegation disable; grant revoke |
 | human principal | — | **not mintable by admin** | — | — | — |
 | admin principal | — | **never minted**, only obtained by WebAuthn login | — | — | — |
 
 - **No impersonation.** An admin minting tokens *as* the operator's user identity, or any human, would undo the separation. Humans mint their own PATs through the user plane (D4).
 - **Epochs.** The principal epoch bump exists today (`control.py:1331`, monotonic by trigger in `migrations/008_principal_epoch.sql:15-30`). Add epochs per agent principal, per delegation and per admin principal.
-- **Reserved authorities are refused by name.** A delegation whose ceiling names `vuoro:effect.propose` or `vuoro:work.claim` is refused when it is set, and a mint request naming either is refused, independently of `oauth_scopes.RESERVED_SCOPES`. Removing that refusal is a separate change that must show both reserved-authority conditions (§1) hold.
+- **Reserved authorities are refused by name.** A delegation whose ceiling names `vuoro:effect.propose` or `vuoro:work.claim` is refused when it is set, and a mint request naming either is refused, independently of `oauth_scopes.RESERVED_SCOPES`. Removing that refusal is a separate change that must show both reserved-authority conditions (§1) hold. For `vuoro:work.claim` the refusal must list the scope by name, since it is no longer in `RESERVED_SCOPES` (granted by vuoro-cloud #149, live from generation 52 (v0.1.0-poc.52)).
 
 **Agent principals** (`agent:<ulid>`, §7 Q9: one per perimeter host):
 
@@ -289,7 +289,7 @@ They exist so that work done by a delegate is attributable to the delegate rathe
 
 **Why this passes the constraints.**
 
-- **TS-16:** a minted work-plane token confers read and evidence recording at most. It cannot propose, claim or apply: propose and claim are reserved and refused by name, and no apply exists.
+- **TS-16:** a minted work-plane token confers read and evidence recording at most. It cannot propose, claim or apply: propose is reserved, claim is granted to `claude-connector` only (granted by vuoro-cloud #149, live from generation 52 (v0.1.0-poc.52)), both are refused by name for minted tokens, and no apply exists.
 - **C1:** no scope in the ceiling performs an effect in-call.
 - **H2:** nothing forwards a bearer; the proof is one-use and body-bound.
 - **H8:** step 2 needs cred-broker's mTLS workload auth and key substrate, so this is the last slice and gated on item 7.
@@ -758,7 +758,7 @@ Migration numbers are reserved here, in expected landing order, so parallel unit
   - a caller without an enrolled mTLS certificate (the cloud-session case);
   - a disabled delegation;
   - a delegation ceiling or mint request naming `vuoro:effect.propose` (refused while reserved);
-  - a delegation ceiling or mint request naming `vuoro:work.claim` (refused while reserved).
+  - a delegation ceiling or mint request naming `vuoro:work.claim` (refused by name; the scope is granted by vuoro-cloud #149, live from generation 52 (v0.1.0-poc.52), to `claude-connector` only).
 
 ---
 
@@ -791,7 +791,7 @@ The operator took the memo's recommended option for each question, with Q5 repla
 2. **blocker12-canary: (a) parked until slice 2 retires it through the admin API.** No kubectl-plus-SQL one-off, no bypass of membership checks. If it blocks a fleet-wide roll first, the existing operator drain and migration routes may be used with the reason written into the handoff.
 3. **Admin session renewal: (a) a rotating admin refresh token with a 1-hour absolute lifetime.** Reuse revokes the family.
 4. **Offsite encrypted copy: (a) a second provider's bucket.**
-5. **`vuoro:effect.propose` in agent delegations: not until the reserved-authority condition holds.** `vuoro:effect.propose` (and likewise `vuoro:work.claim`) stays out of every delegation ceiling and mint until a durable intent store (respectively an exclusive, durable lease) exists **and** every tenant runtime serves the corresponding tools. "Once E3's queued path is proven" is not sufficient. Lifting it is a separate, reviewed change to `oauth_scopes.py` and the delegation refusal.
+5. **`vuoro:effect.propose` in agent delegations: not until the reserved-authority condition holds.** `vuoro:effect.propose` stays out of every delegation ceiling and mint until a durable intent store exists **and** every tenant runtime serves the propose tools. "Once E3's queued path is proven" is not sufficient. `vuoro:work.claim` met its condition (exclusive, durable lease; claim tools in every tenant runtime from generation 51) and it is granted by vuoro-cloud #149, live from generation 52 (v0.1.0-poc.52), to `claude-connector` only; it stays out of delegation ceilings and mints, refused by name, until its own reviewed change opens it. Lifting it is a separate, reviewed change to `oauth_scopes.py` and the delegation refusal.
 6. **CLI packaging: (a) in vuoro-cloud** (package `vuoro_cloud_cli`, command `vuoro-cli`).
 7. **Tenant visibility of admin actions: (a) members see admin operations on their workspace** (actor, reason, time). Today's workspace audit view is limited to owner/admin members (`control.py:3425-3435`), so unit 2.2 adds a member-readable view of admin rows (every active member, any role) and its CLI twin.
 8. **Notification channel: (a) ntfy or a push service to the operator's phone** (slice 2).

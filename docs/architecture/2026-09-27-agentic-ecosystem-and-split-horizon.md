@@ -458,9 +458,12 @@ vuoro.cloud and `vuoro-shared` drops to protected services + fallback.
 
 TS-16 is unamended (cloud-enablement plan, 2026-09-26, :31-42): cloud callers
 only queue effects, and acceptance is trusted-side (interactive, or opt-in
-trusted-side auto-accept). `vuoro:effect.propose` and `vuoro:work.claim` stay
-reserved until a durable intent store (for propose) and an exclusive lease
-(for claim) exist **and** every tenant runtime serves the tools; the edge
+trusted-side auto-accept). `vuoro:effect.propose` stays reserved until a durable
+intent store exists **and** every tenant runtime serves the propose tools.
+`vuoro:work.claim` met its condition (exclusive, durable lease; claim tools in
+every tenant runtime from generation 51) and is granted by vuoro-cloud #149,
+live from generation 52 (v0.1.0-poc.52), to `claude-connector` only; minted
+and agent tokens still refuse it by name. The edge
 refuses assertions carrying authorities with no tools
 (`vuoro-cloud:src/vuoro_cloud/oauth_scopes.py:22-36`;
 `agentops:docs/design/e1/e1-stronger-baseline-design-2026-09-22.md:241-245,438-441`).
@@ -470,7 +473,7 @@ refuses assertions carrying authorities with no tools
 | Record covers automated activity wherever it runs | Public horizon is the primary coordination ledger for hosted and interactive runs (register_run, evidence); local runs still land in auditctl until S4 (TS-6); full provenance also spans protected receipts and signed repo history |
 | Two reachability paths: public MCP surface; Managed Agents self-hosted worker | Unchanged: `/mcp` on vuoro.cloud; vuoro-worker on the homelab, outbound-only |
 | Intent, coordination, evidence may cross; effects and credentials may not | The protected-capability table above is exactly the "may not" set; crossing intents are untrusted input |
-| Every tool classifies read/coordinate/record/propose; no effect-apply scope | Kept; the acceptance and reconcile tools are not MCP tools and not on the public surface (PR #253 H1-1); propose/claim scopes reserved as above |
+| Every tool classifies read/coordinate/record/propose; no effect-apply scope | Kept; the acceptance and reconcile tools are not MCP tools and not on the public surface (PR #253 H1-1); propose scope reserved and claim scope connector-only, as above |
 | Homelab-side reconciler signs, not the cloud session | Kept; extended so the *operator's* interactive session on vuoro.cloud also does not sign |
 | Reconstructable, not attested | Kept in wording of receipts and `vuoro provenance` (H3-2) |
 
