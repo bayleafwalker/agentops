@@ -21,18 +21,18 @@ export const meta = {
 // triage and deterministic publication/closeout bookkeeping.
 const MODEL_TIERS = {
   bounded: {
-    build: { model: 'claude-sonnet-5', effort: 'low' },
-    verify: { model: 'claude-sonnet-5', effort: 'low' },
+    build: { model: 'claude-sonnet-5-5', effort: 'low' },
+    verify: { model: 'claude-sonnet-5-5', effort: 'low' },
     actor: 'claude-sonnet-devbox',
   },
   standard: {
-    build: { model: 'claude-sonnet-5', effort: 'medium' },
-    verify: { model: 'claude-sonnet-5', effort: 'medium' },
+    build: { model: 'claude-sonnet-5-5', effort: 'medium' },
+    verify: { model: 'claude-sonnet-5-5', effort: 'medium' },
     actor: 'claude-sonnet-devbox',
   },
   hard: {
-    build: { model: 'claude-sonnet-5', effort: 'high' },
-    verify: { model: 'claude-sonnet-5', effort: 'high' },
+    build: { model: 'claude-sonnet-5-5', effort: 'high' },
+    verify: { model: 'claude-sonnet-5-5', effort: 'high' },
     actor: 'claude-sonnet-devbox',
   },
 }
@@ -44,7 +44,7 @@ const TIER_ORDER = ['bounded', 'standard', 'hard']
 // frontier-plan in model-routing.json. Refinement and oracle authorship decide
 // what the work is and what correct means, so they sit above the builder that
 // has to satisfy them and are never the same agent.
-const FRONTIER_MODEL = { model: 'claude-opus-4-8', effort: 'high' }
+const FRONTIER_MODEL = { model: 'claude-opus-5-5', effort: 'high' }
 const LANES = ['build', 'oracle', 'refine']
 const REFINE_OUTCOMES = ['refined', 'retired', 'deferred']
 const ORACLE_KINDS = ['tests', 'checklist', 'none']
@@ -569,7 +569,7 @@ Keep one accountable implementation context for this unit and process its items 
 
 For each item that is ready:
 1. Run sprintctl claim start --item-id <id> --actor ${tierConfig.actor} --ttl ${claimTtlSeconds} --branch main --json while capturing its JSON without echoing it. Immediately create /tmp/vuoro-dispatch-claims with mode 0700 and persist the claim JSON at /tmp/vuoro-dispatch-claims/${unit.repo}-<claim_id>.json with exclusive creation and mode 0600. Refuse a symlink, wrong owner/mode, or pre-existing proof file rather than overwriting it. This workflow-private proof record is required because sprintctl's built-in recovery records exist only in local backend mode. Treat claim_token as a secret: never put it in your response, verification summary, commit message, note, or another agent prompt. Return claim_id as a string only.
-2. Implement only the accepted unit scope. Do not redesign the tract from build mode. If an item's acceptance is already satisfied by existing commits, make no new commit and return the commit that delivered it; the verifier will confirm it.
+2. Implement only the accepted unit scope. Do not redesign the tract from build mode. If an item's acceptance is already satisfied by existing commits, make no new commit and return the commit that delivered it; the verifier will confirm it. Deliver every part of each item. Never narrow an item silently: if a part cannot be done in this unit (it belongs to another repository, needs a setting only the operator can change, or is moot), add a follow-up item for exactly that part with sprintctl item add on the same sprint and track (for an operator-only setting, write the exact steps, the verified precondition, and the expected result into it; for a moot part, say why and cite the evidence), then add a note on the original item: --summary "build: scope moved to #<new id>".
 3. Run the real targeted checks selected by the manifest and changed surfaces. Every gating command must run foreground and blocking with a ${verifyTimeoutSeconds}-second bound (for example, timeout --foreground ${verifyTimeoutSeconds}s <command>). Never background, detach, or poll a test command.
 4. Make one commit per reviewable scope, not mechanically per item. Stage only this unit's paths, inspect the staged diff, and never include pre-existing changes. Associate every completed item with the commit SHA that contains its acceptance work; related items may legitimately share a commit.
 5. Do not push. Publication occurs only after independent verification. Do not mark any item done and leave completed claims active for the gate.
@@ -627,7 +627,7 @@ All unit commits (oracle, build, repairs): ${commits.join(' ')}
 Unit range: ${builtUnit.base}..${latestCommit}. Every commit in git rev-list ${builtUnit.base}..${latestCommit} must be one of the listed unit commits; an unlisted commit in the range is an issue (issues_found), because it would otherwise be published unverified.
 ${oracleBlock(oracle, 'verify')}
 For the unit as a whole:
-1. Read AGENTS.md, the root dispatch manifest, overlays, risk_surfaces, and each live sprint item. Verify that these items really form one coherent unit and that every acceptance criterion is represented. Read each item's notes with sprintctl item show --id <id> --json (events[].summary and detail). When an item has a "refinement: original intent" note, confirm that the delivered change plus the follow-up items named in any "refinement: intent moved" note still cover that intent; intent that was dropped rather than moved is an issue.
+1. Read AGENTS.md, the root dispatch manifest, overlays, risk_surfaces, and each live sprint item. Verify that these items really form one coherent unit and that every acceptance criterion is represented. Read each item's notes with sprintctl item show --id <id> --json (events[].summary and detail). Every part of each item's description, and of any "refinement: original intent" note, must be delivered by the unit commits or named in a "refinement: intent moved" or "build: scope moved" note that points at a follow-up item. A part that is neither delivered nor moved is an issue (issues_found), even when the reason given for dropping it is plausible. A move must also hold up: confirm with sprintctl item show that each follow-up item exists and names that exact part, and accept only three reasons: another repository owns it; only the operator can do it (check that no agent-reachable route exists, such as credentials or tools already available to agents); or it is moot (re-check the cited evidence yourself). Moving work that an agent could do in this repository is an issue.
 2. Create one collision-resistant detached worktree at the latest unit commit (${latestCommit}): make a directory with mktemp -d using a /tmp/verify-${unit.repo}-${unit.unit}-XXXXXX template, then git worktree add --detach <that-directory> ${latestCommit}. Never touch the shared working tree.
 3. Inspect every listed commit with git show and the combined unit diff. Reject unrelated changes, accidental inclusion of pre-existing work, silent scope expansion, and skipped criteria.
 4. In the isolated worktree, cold-run the smallest deterministic checks first. Then run the broader regression/full-suite gate once for this unit when the manifest, risk surface, item, or normal review path requires it. Every command must stay foreground and blocking and use timeout --foreground ${verifyTimeoutSeconds}s (or an equally strict foreground timeout if coreutils timeout is unavailable). Never use &, nohup, a background tool mode, detached execution, or polling. A timeout is evidence of an incomplete gate, not permission to wait indefinitely.

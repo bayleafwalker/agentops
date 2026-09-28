@@ -7,14 +7,14 @@
 | Alias | Anthropic model | Codex model | Fallback / status |
 |---|---|---|---|
 | `clerical` | `claude-haiku-4-5-20251001` | `gpt-5.6-luna` | Read-only triage, polling, formatting, and deterministic closeout; not the default implementation tier. |
-| `frontier-default` | `claude-fable-5` | `gpt-5.6-sol` | Claude falls back to `claude-opus-4-8` when Fable is unavailable. |
-| `frontier-plan` | `claude-opus-4-8` | `gpt-5.6-sol` | Verified: GPT-5.6 GA 2026-07-09; ID confirmed via OpenAI docs. |
-| `frontier-review` | `claude-opus-4-8` | `gpt-5.6-sol` | Explicit high-consequence semantic validation; not the default review tier. |
-| `review-synthesis` | `claude-sonnet-5` | `gpt-5.6-terra` | Verified: GPT-5.6 GA 2026-07-09; ID confirmed via OpenAI docs. |
-| `release-ops` | `claude-sonnet-5` | `gpt-5.6-terra` | Strong general model within the calling provider family. |
-| `fast-build` | `claude-sonnet-5` | `gpt-5.3-codex-spark` | Bounded implementation; Codex falls back to `gpt-5.6-luna` when Spark is unavailable or exhausted. |
-| `standard-build` | `claude-sonnet-5` | `gpt-5.6-terra` | Implementation requiring repository discovery, contract inference, or interpretation of non-obvious failures. |
-| `hard-build` | `claude-sonnet-5` (fallback `claude-opus-4-8`) | `gpt-5.6-terra` | Semantically hard implementation after decisions are settled; unresolved architecture routes to `frontier-plan`. |
+| `frontier-default` | `claude-fable-5` | `gpt-5.6-sol` | Claude falls back to `claude-opus-5-5` when Fable is unavailable. |
+| `frontier-plan` | `claude-opus-5-5` | `gpt-5.6-sol` | Verified: GPT-5.6 GA 2026-07-09; ID confirmed via OpenAI docs. |
+| `frontier-review` | `claude-opus-5-5` | `gpt-5.6-sol` | Explicit high-consequence semantic validation; not the default review tier. |
+| `review-synthesis` | `claude-sonnet-5-5` | `gpt-5.6-terra` | Verified: GPT-5.6 GA 2026-07-09; ID confirmed via OpenAI docs. |
+| `release-ops` | `claude-sonnet-5-5` | `gpt-5.6-terra` | Strong general model within the calling provider family. |
+| `fast-build` | `claude-sonnet-5-5` | `gpt-5.3-codex-spark` | Bounded implementation; Codex falls back to `gpt-5.6-luna` when Spark is unavailable or exhausted. |
+| `standard-build` | `claude-sonnet-5-5` | `gpt-5.6-terra` | Implementation requiring repository discovery, contract inference, or interpretation of non-obvious failures. |
+| `hard-build` | `claude-sonnet-5-5` (fallback `claude-opus-5-5`) | `gpt-5.6-terra` | Semantically hard implementation after decisions are settled; unresolved architecture routes to `frontier-plan`. |
 
 The `verified` field belongs to the concrete provider ID, not the alias. The gpt-5.6 tier IDs (`-sol`/`-terra`/`-luna`) were confirmed against OpenAI's GA announcement and Codex model docs on 2026-07-18; recent Codex CLI releases ship them in the built-in catalog, but tier access depends on the authenticated plan (free/Go accounts get Terra only) and older CLI builds (e.g. 0.144.x) may predate the catalog entries. An unverified ID must not become a required default until its provider CLI or official documentation confirms availability.
 
@@ -140,6 +140,15 @@ retired `actionq-dispatcher` supplies no routing or reasoning behavior.
 The shared `model-routing-optimizer` skill carries the repeatable audit workflow.
 
 ## Historical Exceptions
+
+- 2026-09-28 move to Sonnet 5.5 / Opus 5.5: the older IDs `claude-sonnet-5` and `claude-opus-4-8` remain only in historical material:
+  - dated history notes in `model-routing.json`;
+  - lane-loop assessments and plans;
+  - harness-evidence and maintenance-lane test fixtures, which record the models that actually ran;
+  - `scripts/maintenance_lane_report.py` `MODEL_ALIASES`, which buckets past session tags written as `sonnet`;
+  - `session-mechanization/session-capsule.example.json`.
+
+  None of these is live routing.
 
 The dated appservice training records
 `docs/training/health-checks/cluster-health-check-2026-03-29.md` and

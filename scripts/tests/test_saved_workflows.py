@@ -17,7 +17,7 @@ requires_node = unittest.skipUnless(shutil.which("node") is not None, NODE_REQUI
 BUILD_WORKFLOW = ROOT / ".claude" / "workflows" / "vuoro-dispatch-build.js"
 VERIFY_WORKFLOW = ROOT / ".claude" / "workflows" / "vuoro-dispatch-verify.js"
 MODEL_ROUTING = ROOT / "model-routing.json"
-FRONTIER = "claude-opus-4-8"
+FRONTIER = "claude-opus-5-5"
 CLERICAL = "claude-haiku-4-5-20251001"
 
 
@@ -210,7 +210,7 @@ class SavedWorkflowTests(unittest.TestCase):
         aliases = json.loads(MODEL_ROUTING.read_text(encoding="utf-8"))["aliases"]
 
         self.assertEqual(aliases["clerical"]["anthropic"]["model"], "claude-haiku-4-5-20251001")
-        self.assertEqual(aliases["fast-build"]["anthropic"]["model"], "claude-sonnet-5")
+        self.assertEqual(aliases["fast-build"]["anthropic"]["model"], "claude-sonnet-5-5")
         self.assertEqual(aliases["fast-build"]["codex"]["model"], "gpt-5.3-codex-spark")
         self.assertEqual(aliases["fast-build"]["codex"]["fallback"], "gpt-5.6-luna")
         self.assertEqual(aliases["standard-build"]["codex"]["model"], "gpt-5.6-terra")
@@ -262,7 +262,7 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertEqual(call(output, "refine:example:plan-store")["model"], FRONTIER)
         self.assertEqual(call(output, "oracle:example:plan-store")["model"], FRONTIER)
         # The refiner's tier (standard) wins over the router's (bounded) for the build.
-        self.assertEqual(call(output, "build:example:plan-store")["model"], "claude-sonnet-5")
+        self.assertEqual(call(output, "build:example:plan-store")["model"], "claude-sonnet-5-5")
         self.assertIn("pytest tests/test_oracle.py", call(output, "build:example:plan-store")["prompt"])
         self.assertIn("Do not modify, delete, skip, or weaken any oracle path", call(output, "build:example:plan-store")["prompt"])
         self.assertIn("oracle_intact=true only if git diff 0c", call(output, "verify:example:plan-store")["prompt"])
@@ -283,9 +283,21 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertIn("the router's lane and questions below are advisory", refine)
         verify = call(output, "verify:example:plan-store")["prompt"]
         self.assertIn('"refinement: original intent" note', verify)
-        self.assertIn("intent that was dropped rather than moved is an issue", verify)
+        self.assertIn('any "refinement: original intent" note, must be delivered', verify)
         self.assertIn('"refinement: intent moved"', refine)
-        self.assertIn('"refinement: intent moved" note', verify)
+        self.assertIn('"refinement: intent moved" or "build: scope moved" note', verify)
+        self.assertIn("even when the reason given for dropping it is plausible", verify)
+
+    @requires_node
+    def test_build_lane_units_cannot_narrow_items_silently(self) -> None:
+        output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]})
+        build = call(output, "build:example:api")["prompt"]
+        self.assertIn("Never narrow an item silently", build)
+        self.assertIn('--summary "build: scope moved to #<new id>"', build)
+        verify = call(output, "verify:example:api")["prompt"]
+        self.assertIn("A part that is neither delivered nor moved is an issue", verify)
+        self.assertIn("re-check the cited evidence yourself", verify)
+        self.assertIn("Moving work that an agent could do in this repository is an issue", verify)
 
     @requires_node
     def test_decided_unit_without_a_check_gets_an_oracle_without_refinement(self) -> None:

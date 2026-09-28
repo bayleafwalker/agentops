@@ -67,6 +67,10 @@ forward in the same run.
    a modified oracle is never confirmed.
 6. **Build.** Items inside one reasoning unit remain with one implementation owner. Smaller
    decisions the items did not settle are decided in line with the recorded direction and noted.
+   A builder never narrows an item silently. A part it cannot deliver (another repository, an
+   operator-only setting, or moot) becomes a follow-up item: with exact steps for an
+   operator-only setting, or cited evidence for a moot part. The verifier treats any part that is
+   neither delivered nor moved as an issue, in every lane.
 7. **Verify.** Verification uses a fresh context and an isolated worktree once per reasoning unit.
    It inspects every unit commit, runs targeted checks and the oracle first, and runs a broader
    gate once when required.
