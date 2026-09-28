@@ -284,6 +284,8 @@ class SavedWorkflowTests(unittest.TestCase):
         verify = call(output, "verify:example:plan-store")["prompt"]
         self.assertIn('"refinement: original intent" note', verify)
         self.assertIn("intent that was dropped rather than moved is an issue", verify)
+        self.assertIn('"refinement: intent moved"', refine)
+        self.assertIn('"refinement: intent moved" note', verify)
 
     @requires_node
     def test_decided_unit_without_a_check_gets_an_oracle_without_refinement(self) -> None:

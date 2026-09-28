@@ -59,7 +59,7 @@ forward in the same run.
    Uncertainty, preference and intention that is merely thin are never deferral reasons. The
    operator shapes product intention through the repository's documents. Where a later change
    of intention diverges from what was built, the work is reworked then. By design, nothing
-   tracks or counts escalations, so there is no metric for agents to optimise.
+   tracks or counts escalations as their own category, so there is no escalation metric for agents to optimise.
 5. **Oracle** (frontier model, a separate author from the builder). The oracle author writes
    failing-first acceptance checks in the repository's test layout and commits them, or writes a
    concrete review checklist when the work cannot be checked by code. The builder must satisfy
