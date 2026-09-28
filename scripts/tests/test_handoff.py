@@ -596,12 +596,14 @@ class TestDigestVersionCompatibility(unittest.TestCase):
         ])
         return self.out / f"2026-09-12-{slug}.v1.json"
 
-    def test_create_writes_version_4(self) -> None:
+    def test_create_writes_version_5(self) -> None:
         # 3 marked state.tracker_watermark (diff computation unchanged from
         # v2); 4 excludes self-paths and audit shards from every digest input
-        # (TestDigestSurvivesItsOwnLifecycle).
+        # (TestDigestSurvivesItsOwnLifecycle); 5 excludes every peer handoff
+        # record so a superseded sibling cannot stale a live handoff
+        # (TestV5ExcludesPeerHandoffRecords).
         data = json.loads(self._create("fresh").read_text())
-        self.assertEqual(data["state"]["digest_version"], 4)
+        self.assertEqual(data["state"]["digest_version"], 5)
         self.assertEqual(data["state"]["tracker_watermark"], [])
 
     def test_a_v1_handoff_without_the_field_still_validates(self) -> None:
@@ -635,8 +637,9 @@ class TestDigestVersionCompatibility(unittest.TestCase):
                 # Legacy handoffs (created before digest_version was added) must
                 # not declare the field; handoffs from `handoff create` declare
                 # the version it wrote (2; 3 since the tracker watermark; 4
-                # since self-paths and audit shards left the digest).
-                if data["state"].get("digest_version") not in (2, 3, 4):
+                # since self-paths and audit shards left the digest; 5 since
+                # peer handoff records left the digest).
+                if data["state"].get("digest_version") not in (2, 3, 4, 5):
                     self.assertNotIn("digest_version", data["state"])
                     legacy_checked += 1
         # At least one legacy handoff must exist to ensure the compatibility
@@ -736,6 +739,167 @@ class TestDigestSurvivesItsOwnLifecycle(unittest.TestCase):
             fh.write('{"event": "two"}\n')
         self.assertNotEqual(handoff.diff_sha256(self.repo, 3), v3)
         self.assertEqual(handoff.diff_sha256(self.repo, 4), v4)
+
+
+class TestV5ExcludesPeerHandoffRecords(unittest.TestCase):
+    """A superseded sibling handoff must never stale a peer's tree digest.
+
+    Proven 2026-09-27 (program-long-goal-handler takeover): a successor acked v1
+    while v2 was the live handoff. The ack rewrites v1.json/.md, and under digest
+    v4 the digest excludes only the record's *own* outputs, so the untracked v1
+    files sat inside v2's diff_sha256 and validate refused v2 with 'stale
+    diff_sha256' -- though nothing the predecessor did actually moved (the tree
+    minus v1's files hashed to v1's recorded digest). Digest v5 closes this by
+    excluding every handoff-record file under the handoffs directory
+    (``*.json``, ``*.md``, ``*.sprintctl-bundle.json``) from all digest inputs,
+    the same category as the self-outputs (already excluded) and the audit shards
+    (excluded since v4). It is additive and version-gated: v1-v4 handoffs recompute
+    exactly as before, so the change is a grandfather, not a migration.
+
+    Each exclusion is paired with a work-product change that still moves the
+    digest, so v5 is proven to drop handoff bookkeeping and nothing else.
+    """
+
+    def setUp(self) -> None:
+        import tempfile
+        self._tmp = tempfile.TemporaryDirectory()
+        self.repo = _make_repo(Path(self._tmp.name) / "repo")
+        self.out = self.repo / "docs" / "dispatch" / "handoffs"
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def _create(self, slug: str, date: str = "2026-09-27") -> Path:
+        version = handoff.next_version(self.out, date, slug)
+        handoff.main([
+            "create", "--slug", slug, "--repo", str(self.repo),
+            "--objective", "o", "--next-action", "n", "--no-sprintctl",
+            "--out-dir", str(self.out), "--date", date,
+        ])
+        return self.out / f"{date}-{slug}.v{version}.json"
+
+    # -- criterion 1: the version constant, guard, and what create writes ----
+
+    def test_digest_version_current_is_5(self) -> None:
+        self.assertEqual(handoff.DIGEST_VERSION_CURRENT, 5)
+
+    def test_v5_is_accepted_and_v6_is_refused(self) -> None:
+        self.assertRegex(handoff.diff_sha256(self.repo, 5), r"^[0-9a-f]{64}$")
+        with self.assertRaises(handoff.HandoffError):
+            handoff.diff_sha256(self.repo, 6)
+
+    def test_create_writes_digest_version_5(self) -> None:
+        data = json.loads(self._create("fresh").read_text())
+        self.assertEqual(data["state"]["digest_version"], 5)
+
+    # -- criterion 2: the incident, reproduced end to end through validate ---
+
+    def test_acking_a_superseded_sibling_does_not_stale_the_peer_under_v5(self) -> None:
+        # v1 then v2 of the same track; v2 is the live handoff. create writes v5.
+        v1 = self._create("program-long-goal-handler")
+        v2 = self._create("program-long-goal-handler")
+        data2 = json.loads(v2.read_text())
+        self.assertEqual(data2["state"]["digest_version"], 5)
+        self.assertEqual(handoff.validate_handoff(data2, file=v2), [])
+        # A successor acks the superseded v1 while v2 is live; the ack rewrites
+        # v1.json and refreshes v1.md, both untracked siblings of v2.
+        handoff.ack(v1, "sess-successor")
+        self.assertEqual(
+            handoff.validate_handoff(json.loads(v2.read_text()), file=v2), [],
+            "acking a superseded sibling must not stale the peer's v5 digest")
+
+    def test_the_same_scenario_under_v4_still_reports_stale(self) -> None:
+        # The bug is preserved for handoffs that declared v4: grandfather, not
+        # migration. v2 is re-recorded under v4 at the pre-ack tree, then v1 is
+        # acked, and validate refuses v2 exactly as it did before this change.
+        v1 = self._create("program-long-goal-handler")
+        v2 = self._create("program-long-goal-handler")
+        data2 = json.loads(v2.read_text())
+        data2["state"]["digest_version"] = 4
+        exclude = handoff.self_paths(self.repo, handoff.handoff_outputs(v2))
+        data2["state"]["repos"][0]["diff_sha256"] = handoff.diff_sha256(
+            self.repo, 4, exclude)
+        v2.write_text(json.dumps(data2, indent=2) + "\n")
+        self.assertEqual(
+            handoff.validate_handoff(json.loads(v2.read_text()), file=v2), [])
+        handoff.ack(v1, "sess-successor")
+        problems = handoff.validate_handoff(json.loads(v2.read_text()), file=v2)
+        self.assertTrue(any("stale diff_sha256" in p for p in problems), problems)
+
+    def test_v4_counts_the_sibling_bytes_that_v5_excludes(self) -> None:
+        # The two definitions, side by side, over one ack of a superseded sibling:
+        # v4 keeps counting the rewritten v1 bytes (its recorded meaning is
+        # unchanged), v5 excludes them. This is the grandfather guarantee and the
+        # new behaviour proven against the same tree mutation.
+        v1 = self._create("program-long-goal-handler")
+        v2 = self._create("program-long-goal-handler")
+        exclude = handoff.self_paths(self.repo, handoff.handoff_outputs(v2))
+        v4_before = handoff.diff_sha256(self.repo, 4, exclude)
+        v5_before = handoff.diff_sha256(self.repo, 5, exclude)
+        handoff.ack(v1, "sess-successor")
+        self.assertNotEqual(
+            v4_before, handoff.diff_sha256(self.repo, 4, exclude),
+            "v4 must keep counting a rewritten sibling handoff (grandfathered)")
+        self.assertEqual(
+            v5_before, handoff.diff_sha256(self.repo, 5, exclude),
+            "v5 must exclude the rewritten sibling handoff record")
+
+    # -- criterion 3: any handoff record under the dir, both untracked forms --
+
+    def test_v5_excludes_a_rewritten_peer_record_nested_in_a_tracked_dir(self) -> None:
+        # Nested form: the handoffs directory is already tracked, and a different
+        # track's record is added and then rewritten inside it.
+        self.out.mkdir(parents=True, exist_ok=True)
+        (self.out / "2026-09-01-seed.v1.json").write_text("{}\n")
+        _git(self.repo, "add", "-A")
+        _git(self.repo, "commit", "-q", "-m", "seed handoffs dir")
+        peer = self.out / "2026-09-27-other-track.v1.json"
+        peer.write_text('{"handoff_id": "other-track.v1"}\n')
+        before = handoff.diff_sha256(self.repo, 5)
+        peer.write_text('{"handoff_id": "other-track.v1", "acked": true}\n')
+        self.assertEqual(before, handoff.diff_sha256(self.repo, 5),
+                         "a rewritten peer .json must not move the v5 digest")
+        (self.out / "2026-09-27-other-track.v1.md").write_text("# other track\n")
+        (self.out / "2026-09-27-other-track.v1.sprintctl-bundle.json").write_text(
+            '{"items": []}\n')
+        self.assertEqual(before, handoff.diff_sha256(self.repo, 5),
+                         "peer .md and .sprintctl-bundle.json must be excluded too")
+
+    def test_v5_excludes_records_in_a_fresh_untracked_handoffs_dir(self) -> None:
+        # Collapsed-new-dir form: docs/dispatch/handoffs does not exist at HEAD.
+        # A brand-new directory of handoff records must not move the digest.
+        baseline = handoff.diff_sha256(self.repo, 5)
+        self.out.mkdir(parents=True, exist_ok=True)
+        (self.out / "2026-09-27-fresh.v1.json").write_text('{"handoff_id": "fresh"}\n')
+        (self.out / "2026-09-27-fresh.v1.md").write_text("# fresh\n")
+        (self.out / "2026-09-27-fresh.v1.sprintctl-bundle.json").write_text("{}\n")
+        self.assertEqual(baseline, handoff.diff_sha256(self.repo, 5),
+                         "a fresh untracked handoffs directory must be excluded")
+
+    def test_v5_still_counts_a_non_handoff_work_file(self) -> None:
+        # The exclusion is scoped to handoff records under the handoffs dir, not
+        # to every file: a real work file (even a .json elsewhere) still moves it.
+        self.out.mkdir(parents=True, exist_ok=True)
+        (self.out / "2026-09-27-fresh.v1.json").write_text("{}\n")
+        before = handoff.diff_sha256(self.repo, 5)
+        (self.repo / "config.json").write_text('{"real": "work"}\n')
+        self.assertNotEqual(before, handoff.diff_sha256(self.repo, 5),
+                            "v5 must not exclude work-product outside the handoffs dir")
+
+    # -- criterion 4: existing v4 handoffs are grandfathered, not migrated ----
+
+    def test_a_v4_handoff_recorded_before_this_change_still_validates(self) -> None:
+        # A v4 handoff with no sibling records recomputes to its recorded digest:
+        # the v4 definition is untouched by adding v5.
+        path = self._create("solo")
+        data = json.loads(path.read_text())
+        data["state"]["digest_version"] = 4
+        exclude = handoff.self_paths(self.repo, handoff.handoff_outputs(path))
+        data["state"]["repos"][0]["diff_sha256"] = handoff.diff_sha256(
+            self.repo, 4, exclude)
+        path.write_text(json.dumps(data, indent=2) + "\n")
+        self.assertEqual(
+            handoff.validate_handoff(json.loads(path.read_text()), file=path), [])
 
 
 class _RecordingTransport:
@@ -931,7 +1095,7 @@ class TestTrackerWatermark(unittest.TestCase):
         self.assertEqual(data["state"]["tracker_watermark"],
                          [{"item_id": "1234", "status": "open",
                            "status_revision": 5}])
-        self.assertEqual(data["state"]["digest_version"], 4)
+        self.assertEqual(data["state"]["digest_version"], 5)
 
     def test_no_item_refs_and_no_evidence_validates_unchanged(self) -> None:
         # No id in next_action, sprintctl never even asked (--no-sprintctl):
