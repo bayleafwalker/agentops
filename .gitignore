@@ -37,7 +37,7 @@ docs/evidence/packets/*.reference.patch
 # and agentops is not their home. Only _artifacts/agentops/ is tracked.
 /_artifacts/*
 !/_artifacts/agentops/
-# Jev shadow replay output: local measurement runs, reproducible from a corpus.
+# Jev score/replay output: derived from recorded decisions or a corpus, reproducible.
 # Recorded routing decisions are durable as dispatch.route.decision events.
 /_artifacts/agentops/jev-shadow/
 .claude/settings.local.json

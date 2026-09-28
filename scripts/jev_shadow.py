@@ -111,7 +111,10 @@ def validate_decision(unit: Any) -> dict[str, Any]:
         checks = verify.get("checks") or {}
         _need(
             isinstance(checks, dict)
-            and all(key in CHECK_OUTCOMES and isinstance(value, int) and value >= 0 for key, value in checks.items()),
+            and all(
+                key in CHECK_OUTCOMES and isinstance(value, int) and not isinstance(value, bool) and value >= 0
+                for key, value in checks.items()
+            ),
             "verify.checks must count passed/failed/timed_out",
         )
         _need(verify.get("full_suite") in SUITE_OUTCOMES, "verify.full_suite must be a known outcome")
@@ -294,14 +297,16 @@ def recorded_decisions(shard_dir: Path, since: str | None = None) -> list[dict[s
                 event = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if (event.get("event_type") or event.get("type")) != DECISION_EVENT:
+            if (event.get("event_type") or event.get("type")) != DECISION_EVENT or event.get("source") != SOURCE:
                 continue
             occurred = str(event.get("occurred_at") or event.get("ts") or "")
             if since and occurred < since:
                 continue
-            metadata = event.get("metadata")
-            if isinstance(metadata, dict) and metadata.get("repo"):
-                decisions.append({**metadata, "event_id": event.get("event_id"), "occurred_at": occurred})
+            try:
+                decision = validate_decision(event.get("metadata"))
+            except ValueError:
+                continue
+            decisions.append({**decision, "event_id": event.get("event_id"), "occurred_at": occurred})
     return decisions
 
 

@@ -46,7 +46,8 @@ def test_summary_counts_agreement_confusion_and_bands(tmp_path):
     assert route["jev_modes"] == {"live": 4, "error": 1}
     assert route["labelled"] == 3
     assert route["agreement"] == round(1 / 3, 3)
-    assert route["agreement_excluding_no_match"] == 0.5
+    # needs_planning is a real label, not an abstention, so it stays in the denominator.
+    assert route["agreement_excluding_no_match"] == round(1 / 3, 3)
     assert route["agreement_by_source"] == {"explicit": 1.0, "haiku-triage": 0.0}
     assert route["confusion"] == {"bounded": {"bounded": 1, "standard": 1}, "hard": {"needs_planning": 1}}
     assert route["agreement_by_confidence"]["0.9-1.0"] == {"agree": 1, "rate": 1.0}

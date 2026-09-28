@@ -22,6 +22,7 @@ from typing import Any, Iterable
 
 GATE_QUESTION = {"route": "tier"}
 NO_MATCH = {"needs_planning", "insufficient_evidence", "needs_clarification"}
+ABSTAIN = {"insufficient_evidence", "needs_clarification"}
 BANDS = ((0.0, 0.5), (0.5, 0.7), (0.7, 0.8), (0.8, 0.9), (0.9, 1.01))
 
 
@@ -67,10 +68,11 @@ def summarize(records: list[dict[str, Any]]) -> tuple[dict[str, Any], list[dict[
         modes = Counter(row.get("jev_mode") for row in rows)
         answered = [row for row in rows if row.get("jev_mode") == "live"]
         labelled = [row for row in answered if row.get("agree") is not None]
-        # A no-match answer ("needs_planning", "insufficient_evidence", ...) counts as a
-        # disagreement in ``agreement``; ``agreement_excluding_no_match`` sets them aside
-        # so abstentions and outright contradictions can be told apart.
-        committed = [row for row in labelled if row.get("jev_label") not in NO_MATCH]
+        # An abstention ("insufficient_evidence", "needs_clarification") counts as a
+        # disagreement in ``agreement``; ``agreement_excluding_no_match`` sets abstentions
+        # aside. ``needs_planning`` is a real label -- dispatch records it when triage
+        # blocks a unit -- so it stays in.
+        committed = [row for row in labelled if row.get("jev_label") not in ABSTAIN]
         question = GATE_QUESTION.get(gate)
         confusion: dict[str, Counter] = defaultdict(Counter)
         bands: dict[str, Counter] = defaultdict(Counter)

@@ -114,6 +114,7 @@ def test_validate_decision_keeps_only_allowed_fields():
         {"verify": {"verdicts": {"7": "great"}, "checks": {}, "full_suite": "passed"}},
         {"verify": {"verdicts": {}, "checks": {"skipped": 1}, "full_suite": "passed"}},
         {"verify": {"verdicts": {}, "checks": {"passed": -1}, "full_suite": "passed"}},
+        {"verify": {"verdicts": {}, "checks": {"passed": True}, "full_suite": "passed"}},
         {"verify": {"verdicts": {}, "checks": {}, "full_suite": "maybe"}},
     ],
 )
@@ -214,8 +215,14 @@ def test_judge_route_uses_a_recorded_decision_as_baseline(stub_loaders):
     assert set(record["answer_summary"]) == set(bundle["questions"])
 
 
-def _decision_event(decision, occurred_at, event_type=jev_shadow.DECISION_EVENT):
-    return json.dumps({"event_id": f"ev-{occurred_at}", "event_type": event_type, "occurred_at": occurred_at, "metadata": decision})
+def _decision_event(decision, occurred_at, event_type=jev_shadow.DECISION_EVENT, source=jev_shadow.SOURCE):
+    return json.dumps({
+        "event_id": f"ev-{occurred_at}",
+        "event_type": event_type,
+        "source": source,
+        "occurred_at": occurred_at,
+        "metadata": decision,
+    })
 
 
 def test_score_reads_recorded_decisions_from_shards(stub_loaders, tmp_path, capsys):
@@ -225,6 +232,8 @@ def test_score_reads_recorded_decisions_from_shards(stub_loaders, tmp_path, caps
         _decision_event(DECISION, "2026-09-27T10:00:00Z"),
         _decision_event({**DECISION, "unit": "later", "dispatch_ready": False}, "2026-09-28T10:00:00Z"),
         _decision_event(DECISION, "2026-09-28T11:00:00Z", event_type="dispatch.exit"),
+        _decision_event(DECISION, "2026-09-28T12:00:00Z", source="someone-else"),
+        _decision_event({**DECISION, "repo": "../etc"}, "2026-09-28T13:00:00Z"),
         "not json",
     ]) + "\n")
     out = tmp_path / "score.jsonl"
