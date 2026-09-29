@@ -523,6 +523,21 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertIn("OLD TEXT", call(output, "refine:example:plan-store")["prompt"])
 
     @requires_node
+    def test_committing_agents_never_merge_origin_and_park_refuses_a_merge(self) -> None:
+        # wf_e879ba4c-a3f: an oracle author merged origin/main into main, and park then reverted
+        # the merge, which would have rolled back upstream work on the next push.
+        output = run_workflow(
+            BUILD_WORKFLOW,
+            {"items": [{"repo": "example", "item_id": 1, "unit": "spec-api"}]},
+            fail={"spec-api": "always"},
+        )
+        for label in ("oracle:example:spec-api", "build:example:spec-api", "repair:example:spec-api:1"):
+            self.assertIn("Never merge, pull, rebase onto, or cherry-pick from origin", call(output, label)["prompt"])
+        park = call(output, "park:example:spec-api")["prompt"]
+        self.assertIn("git rev-list --merges", park)
+        self.assertIn("merge commit in unit range", park)
+
+    @requires_node
     def test_a_full_sha_for_the_previous_head_is_the_same_base(self) -> None:
         # wf_8d573d73-4bc halted on base 6aa1b0d038dd... against head 6aa1b0d0.
         output = run_workflow(
