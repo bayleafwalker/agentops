@@ -6,6 +6,13 @@ its invariant, digest-bound acceptance, the outage state machine) is frozen.
 Component choices (which service hosts what, tool sets, auth mechanisms,
 storage) are not frozen and may change without amending this document. The
 operator's decisions on the former open questions are recorded in §6.
+Amended 2026-09-29 (F-3) for decisions C8 and C9 of
+`agentops:docs/plans/2026-09-27-admin-identity-and-vuoro-cli-design.md` §8.5:
+the `WireGuard wg0` row of the §1.2 component table, a `vuoro-ops` row in the
+§1.4 interaction matrix, the restore-drill row of §3.1, the WireGuard sentence
+of §3.2 item 6, and Q5 in §6 (with a correction of its AllowedIPs sentence).
+Each amended passage is marked; the original text is kept where it still
+holds.
 Where a statement is inferred rather than read from a file it is marked
 **[INF]**. Citations are `repo:path[:line]` with repos under `/projects/dev`.
 
@@ -77,7 +84,7 @@ interaction, not only to hosted runtimes.
 | **CNPG `vuoro-postgres`** | public | vuoro-cloud (`platform/cnpg`) | k3s `vuoro-data` | Control DB + one DB per workspace; daily backup to Hetzner Object Storage | restore drill D-044 | none |
 | **kube-prometheus-stack, alerts** | public | vuoro-cloud (`clusters/operators`, `platform/observability`) | k3s | Metrics, SMTP alerting | receives alerts | none |
 | **Flux (signed promotion)** | public | vuoro-cloud (`clusters/bootstrap/poc/resources.yaml`) | k3s | Pulls GitHub replica, `verify: TagAndHEAD` against `vuoro-cloud-promotion-keys`; applies operators → platform (SOPS age) → apps | promotes via `scripts/promote-release.sh` (YubiKey touch ×2) | none; hosted runtimes cannot promote |
-| **WireGuard `wg0`** | public↔local | vuoro-cloud (`terraform/environments/poc/cloud-init.yaml.tftpl`) | VPS | Operator-only admin path (kubectl, trust Secret, break-glass); direction operator→VPS | NetworkManager profile `vuoro-cloud-operator` | none |
+| **WireGuard `wg0`** | public↔local | vuoro-cloud (`terraform/environments/poc/cloud-init.yaml.tftpl`) | VPS | Operator-only admin path (kubectl, trust Secret, break-glass); direction operator→VPS. *Amended 2026-09-29 (F-3; C9):* plus a pull-only appservice peer (`vuoro-ops`, bound to `vuoro-cli-service`); direction protected → VPS for both peers | NetworkManager profile `vuoro-cloud-operator` | none |
 | **vuoro-shared** | homelab | vuoro (image) + appservice (`apps/vuoro-shared`) | appservice Talos, `vuoro-shared.apps.kotona.app` | Served sprintctl backend (work + audit schemas) with a static bearer identity registry (SOPS `vuoro-identities`) | sprintctl CLI via Vuoro profile | sprintctl/kctl/auditctl CLIs via `SPRINTCTL_BACKEND=served` + profile; served mode ignores `--actor` |
 | **Forgejo** | homelab | appservice (`apps/forgejo`) | `git.apps.kotona.app`, SSH `:2222` | Canonical forge and promotion authority for vuoro-cloud; registration disabled; Authentik login | `fj` OAuth, workstation token; admin token break-glass | brokered short-lived JWT via credctl; `credctl merge` |
 | **cred-broker** | homelab | cred-broker (private) / cred-broker-public | appservice, mTLS API `cred-broker-api.apps.kotona.app:8443` | Capability → short-lived provider credential (Forgejo v16 Authorized Integration JWT, GitHub App installation token); receipts; step-up approval (implemented, not enabled) | enrollment ceremony (OpenBao PKI), `credctl approve` (YubiKey) | `credctl explain|exec|git-credential|merge` with 24 h host cert renewed by timer |
@@ -178,6 +185,7 @@ into the protected horizon" property in §3.2.
 | Routines | GitHub | Claude GitHub App | app installation | PR carrying verdict, `Vuoro-Run:` trailer (H1-3) |
 | `claude --cloud` sessions | GitHub | Claude GitHub App | session repository sources only; push 403 otherwise (memory note) | PR + run log; commits authored locally afterwards need independent review |
 | Codex | local repo, Forgejo via credctl | JSON-RPC app-server | same host identity as the launching user | handoff files; no SendMessage bus |
+| `vuoro-ops` (appservice) *(amended 2026-09-29, F-3; C9)* | vuoro.cloud control admin | WireGuard, own `/32`, protected → VPS only | `vuoro-cli-service` JWT-bearer token | chained admin audit |
 | Reconciler (planned) | vuoro.cloud intents | HTTPS poll (outbound) | homelab identity; executes only intents the operator (`credctl accept`) or a trusted-side policy accepted by digest | intent row + receipt + signed commit chain (TS-16 "reconstructable, not attested") |
 
 ## 2. Trust horizons today: what crosses each boundary
@@ -289,7 +297,8 @@ Capabilities that stay horizon-protected, and why:
 | Promotion signing | workstation YubiKey | No off-card key; Flux verifies `TagAndHEAD`; runners never promote |
 | Merges | workstation/devbox via `credctl merge` | Token in-process only; Forgejo branch protection is the real gate (Q2 of the boundary design) |
 | Protected-only operator acts: effect acceptance, credential/policy change, promotion, key rotation, recovery operations | workstation, infra VM, WireGuard | Operator material "lives only on the workstation"; never reachable through public sign-in, not even with step-up (Q2) |
-| High-sensitivity interactive processes (cred-broker step-up approvals, break-glass, restore drills, Talos/etcd) | workstation, infra VM, WireGuard | Requires hardware presence (YubiKey touch) or cluster-reaching credentials |
+| High-sensitivity interactive processes (cred-broker step-up approvals, break-glass, ~~restore drills~~, Talos/etcd) | workstation, infra VM, WireGuard | Requires hardware presence (YubiKey touch) or cluster-reaching credentials |
+| Restore drills, automated (amended 2026-09-29, F-3) | appservice cluster (`vuoro-ops` workload identity), WireGuard | Protected-side workload identity; the drill route enforces the C8 invariant server-side, so a drill changes no production state and cannot starve it |
 | Raw transcripts and host-local artifacts | local hosts | Referenced by digest only (harness-evidence-policy) |
 
 Public admin sign-in (Q2) is Authentik OIDC with its own client, audience and
@@ -297,6 +306,21 @@ scopes, separate from the connector identity. It carries read status, tenant
 inspection and audit/health inspection; `mutations_frozen` / unfreeze
 additionally requires explicit operator step-up, because freezing is a
 powerful availability action even though it is reversible.
+
+**Amended 2026-09-29 (F-3; design memo §8.5 C8).** Restore drills leave the
+interactive row above: they are automated and run by the protected-side
+`vuoro-ops` workload identity (scope `vuoro:admin.backup`) through a narrow
+drill route that is exempt from the operation assertion the design memo (D1)
+otherwise requires on every admin mutation. It is the single named exception,
+and it holds only
+because the route enforces its invariant server-side: the target namespace is
+fixed to `vuoro-restore-drill` and any other target is refused; at most one
+drill per 24 h; a `ResourceQuota` (storage, memory, CPU) and a default-deny
+NetworkPolicy on that namespace; a free-disk headroom check before the drill
+starts; the drill Cluster has no `backup` section and restores with read-only
+credentials to the primary bucket; the drill is deleted by TTL; each run is
+audited. The first drill through the route is run by the operator; after
+that the drills are scheduled.
 
 Everything else (work catalog reads and writes, run identity, append-only
 evidence, notes, intents, derived projections, telemetry summaries) can live on
@@ -406,6 +430,10 @@ instruction. The claim this architecture makes is:
    WireGuard is operator → VPS. The residue is the WireGuard peer's AllowedIPs
    while the tunnel is up **[INF]**; Q5 decides to close it at the packet
    level rather than rely on the absence of a listening workload.
+   *Amended 2026-09-29 (F-3; design memo §8.5 C9):* WireGuard has a second
+   protected peer, the appservice cluster (`vuoro-ops`), which is pull-only:
+   protected → VPS, never VPS → protected. Q5's packet-level rules apply to it
+   as they do to the operator's peer.
 7. **Availability decoupling.** GitHub/GHCR mirrors exist so "home
    availability is not a restart or recovery dependency" for the public
    horizon; conversely the homelab must keep working when vuoro.cloud is down,
@@ -598,6 +626,33 @@ on the workstation dropping VPS-originated connections, so the packet-level
 property agrees with "no service path from the public Vuoro horizon into the
 protected horizon" instead of relying on the absence of a listening workload.
 
+*Corrected 2026-09-29 (F-3):* "the operator's tunnel address" above is
+imprecise and is superseded by this paragraph. The entry narrowed is each
+protected peer's entry for the VPS, and its AllowedIPs become the VPS node's
+tunnel address `10.44.0.1/32` (today `10.44.0.0/24`). An AllowedIPs list names
+the addresses a host accepts from, and routes to, that peer, so it must name
+the VPS's address; setting it to the operator's own address `10.44.0.2` would
+drop every packet from `10.44.0.1` and break the tunnel. The operator's tunnel
+address `10.44.0.2/32` is the VPS side's AllowedIPs entry for the operator
+peer, and it is also the operator's entry in the admin NetworkPolicy and
+`VUORO_CLOUD_ADMIN_SOURCE_CIDRS`. The decision (packet-level closure with the
+nft drop) is unchanged.
+
+*Amended 2026-09-29 (F-3; design memo §8.5 C9).* Both rules apply per
+protected peer: the operator's workstation and the appservice cluster. On
+each protected peer, the VPS peer's AllowedIPs are `10.44.0.1/32` (the VPS
+node's tunnel address), and an nft rule drops connections initiated from the
+VPS side. On the VPS side, each protected peer has its own `/32`, which is
+that peer's AllowedIPs in the VPS's `wg0` config and its entry in the admin
+NetworkPolicy and in `VUORO_CLOUD_ADMIN_SOURCE_CIDRS`; each `/32` is bound
+to one client: the appservice peer's `/32` to `vuoro-cli-service` (only the
+JWT-bearer token endpoint and `vuoro-cli-service` tokens are accepted from it;
+an admin WebAuthn login from it is refused), and the operator's `/32` to
+`vuoro-cli-admin`. If no appservice host can hold a dedicated WireGuard key
+with UDP egress to the VPS through OPNsense's egress allowlist, there is no
+appservice peer and `vuoro-ops` runs on the operator workstation instead,
+with attended checks.
+
 **Q6. Audit capture health.** The 2026-08-29 date first recorded here belongs
 to the workspace-root shard directory: capture moved into the agentops
 repository at `7ae83fb` (2026-08-29). The in-repo shards (24 files, 3,511
@@ -615,7 +670,8 @@ the governing records. Architecture corrections do not go into release notes.
 ## 7. Follow-up work
 
 - **WireGuard packet-level rule (Q5):** AllowedIPs restriction on the VPS peer
-  and workstation nft drop of VPS-originated connections.
+  and workstation nft drop of VPS-originated connections; the same two rules
+  on the appservice peer (amended 2026-09-29, F-3).
 - **Audit capture repair and event-age health metric (Q6):** verify the hook →
   auditctl path end to end and close the capture gaps (PR #256 B16);
   alert on "last successful authoritative event age".
