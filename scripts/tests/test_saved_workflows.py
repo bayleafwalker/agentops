@@ -33,6 +33,7 @@ CLERICAL = "claude-haiku-4-5-20251001"
 #   evidence: "empty"                            verifier returns no command evidence
 #   evidence: "environment" | "partial-environment"  checks that could not run as written
 #   delivered: true                              the builder makes no new commit (work already on main)
+#   adoptedOracle: <unit> | "junk"                the builder declares adopted_oracle_commits 240ab790 (or malformed values)
 #   record: "throw" | "null"                     decision recorder failure
 #   park: "fail"                                 reverts do not apply
 #   publish: "fail"                              git push is rejected
@@ -105,6 +106,8 @@ async function agent(prompt, options) {
       base_sha: base,
       head_sha: head,
       ...(scenario.extraCommit === unit ? {commits: ['a0c0ffee', head]} : {}),
+      ...(scenario.adoptedOracle === unit ? {adopted_oracle_commits: ['240ab790']} : {}),
+      ...(scenario.adoptedOracle === 'junk' ? {adopted_oracle_commits: ['not-a-sha', 'HEAD~1', '$(reboot)']} : {}),
       items: built.map(itemId => ({
         item_id: itemId,
         reservation_id: String(1000 + Number(itemId)),
@@ -1160,15 +1163,18 @@ class SavedWorkflowTests(unittest.TestCase):
             ]},
         )
         labels = [entry["label"] for entry in output["calls"]]
-        for label in ("build:engine:api", "verify:engine:api", "publish:engine", "close:engine:example", "build:example:docs", "close:example"):
+        for label in ("build:engine:api", "verify:engine:api", "publish:engine", "build:example:docs", "close:example"):
             self.assertIn(label, labels)
+        # Both code repositories feed the example tracker: one closeout agent takes both items.
+        self.assertEqual(labels.count("close:example"), 1)
+        self.assertEqual(sorted(item["item_id"] for item in close_evidence(call(output, "close:example"))), ["1", "2"])
         for label in ("build:engine:api", "verify:engine:api", "route:engine:api"):
             prompt = call(output, label)["prompt"]
             self.assertIn("/projects/dev/engine", prompt)
             self.assertIn("tracked in example", prompt)
             self.assertIn("cd /projects/dev/example && sprintctl", prompt)
         self.assertNotIn("tracked in", call(output, "build:example:docs")["prompt"])
-        self.assertIn("/projects/dev/example", call(output, "close:engine:example")["prompt"])
+        self.assertIn("/projects/dev/example", call(output, "close:example")["prompt"])
         by_item = {item["item_id"]: item for item in output["result"]["results"]}
         self.assertEqual((by_item["1"]["repo"], by_item["1"]["code_repo"], by_item["1"]["closed"]), ("example", "engine", True))
         self.assertEqual((by_item["2"]["repo"], by_item["2"]["closed"]), ("example", True))
@@ -1187,14 +1193,97 @@ class SavedWorkflowTests(unittest.TestCase):
         ]})
         labels = [entry["label"] for entry in output["calls"]]
         self.assertIn("build:engine:repo-batch-example", labels)
-        self.assertIn("close:engine:example", labels)
+        self.assertIn("close:example", labels)
         self.assertIn("close:engine", labels)
         self.assertEqual(labels.count("publish:engine"), 1)
-        self.assertEqual([item["item_id"] for item in close_evidence(call(output, "close:engine:example"))], ["1"])
+        self.assertEqual([item["item_id"] for item in close_evidence(call(output, "close:example"))], ["1"])
         self.assertEqual([item["item_id"] for item in close_evidence(call(output, "close:engine"))], ["2"])
         by_item = {item["item_id"]: item for item in output["result"]["results"]}
         self.assertEqual((by_item["1"]["repo"], by_item["1"]["code_repo"], by_item["1"]["closed"]), ("example", "engine", True))
         self.assertEqual((by_item["2"]["repo"], by_item["2"]["closed"]), ("engine", True))
+
+    @requires_node
+    def test_one_closeout_agent_per_tracker_across_code_repositories(self) -> None:
+        # #2560: closeout used to run once per (code-repo group, tracker), so a tracker feeding two code repos got two agents.
+        output = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [
+            {"repo": "tracker", "code_repo": "engine", "item_id": 1, "unit": "api", "tier": "bounded"},
+            {"repo": "tracker", "code_repo": "web", "item_id": 2, "unit": "webui", "tier": "bounded"},
+            {"repo": "tracker", "item_id": 3, "unit": "docs", "tier": "bounded"},
+            {"repo": "other", "item_id": 4, "unit": "sitework", "tier": "bounded"},
+        ]})
+        closes = [label for label in output["events"] if label.startswith("close:")]
+        self.assertEqual(sorted(closes), ["close:other", "close:tracker"])
+        self.assertEqual(sorted(item["item_id"] for item in close_evidence(call(output, "close:tracker"))), ["1", "2", "3"])
+        self.assertEqual([item["item_id"] for item in close_evidence(call(output, "close:other"))], ["4"])
+        # Each item's delivery check still names the code repository that published its commits.
+        checks = {item["item_id"]: item["delivery_check"]["code_repo"] for item in close_evidence(call(output, "close:tracker"))}
+        self.assertEqual(checks, {"1": "engine", "2": "web", "3": "tracker"})
+        by_item = {item["item_id"]: item for item in output["result"]["results"]}
+        self.assertEqual({item_id: entry.get("code_repo") for item_id, entry in by_item.items()}, {"1": "engine", "2": "web", "3": None, "4": None})
+        self.assertTrue(all(entry["closed"] for entry in by_item.values()))
+        # Closeout still waits for publication: it runs after every code repository has published.
+        last_publish = max(index for index, label in enumerate(output["events"]) if label.startswith("publish:"))
+        self.assertTrue(all(output["events"].index(label) > last_publish for label in closes))
+
+    @requires_node
+    def test_two_trackers_sharing_one_code_repo_without_an_explicit_unit(self) -> None:
+        # #2560: no unit on any item; each tracker gets its own default unit in the shared code repo.
+        output = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [
+            {"repo": "alpha", "code_repo": "engine", "item_id": 1, "tier": "bounded"},
+            {"repo": "beta", "code_repo": "engine", "item_id": 2, "tier": "bounded"},
+            {"repo": "engine", "item_id": 3, "tier": "bounded"},
+        ]})
+        labels = output["events"]
+        for label in ("build:engine:repo-batch-alpha", "build:engine:repo-batch-beta", "build:engine:repo-batch"):
+            self.assertEqual(labels.count(label), 1)
+        # Units of one code repository build and verify one after another, on one published main.
+        builds = [label for label in labels if label.startswith("build:")]
+        self.assertEqual(builds, ["build:engine:repo-batch-alpha", "build:engine:repo-batch-beta", "build:engine:repo-batch"])
+        self.assertEqual(labels.count("publish:engine"), 1)
+        for tracker, item_id in (("alpha", "1"), ("beta", "2"), ("engine", "3")):
+            self.assertEqual([item["item_id"] for item in close_evidence(call(output, f"close:{tracker}"))], [item_id])
+        self.assertEqual(sorted(label for label in labels if label.startswith("close:")), ["close:alpha", "close:beta", "close:engine"])
+        by_item = {item["item_id"]: item for item in output["result"]["results"]}
+        self.assertEqual({item_id: (entry["repo"], entry.get("code_repo"), entry["closed"]) for item_id, entry in by_item.items()}, {
+            "1": ("alpha", "engine", True),
+            "2": ("beta", "engine", True),
+            "3": ("engine", None, True),
+        })
+
+    @requires_node
+    def test_an_adopted_oracle_commit_is_declared_as_a_unit_commit(self) -> None:
+        # #2560 (wf_9e863b5e-e5f, wf_a1a1421d-7b8): an oracle commit from an earlier run was on main but not a listed unit commit.
+        output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}, adoptedOracle="api")
+        build_prompt = call(output, "build:example:api")["prompt"]
+        self.assertIn('"oracle: <commit>"', build_prompt)
+        self.assertIn("adopted_oracle_commits", build_prompt)
+        self.assertIn("do not cherry-pick it", build_prompt)
+        verify_prompt = call(output, "verify:example:api")["prompt"]
+        self.assertIn("All unit commits (oracle, build, repairs): 240ab790 b1617069", verify_prompt)
+        self.assertIn("Adopted oracle commit(s) from an earlier run", verify_prompt)
+        self.assertIn("240ab790", verify_prompt.split("Adopted oracle commit(s)")[1].split("\n")[0])
+        self.assertIn("frozen", verify_prompt)
+        # The unit's commits, adopted oracle included, are the ones a close checks against origin/main.
+        check = close_evidence(call(output, "close:example"))[0]
+        self.assertEqual(check["verdict"], "confirmed")
+        # A builder that adopts nothing adds no adopted-oracle line.
+        plain = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]})
+        self.assertNotIn("Adopted oracle commit(s)", call(plain, "verify:example:api")["prompt"])
+        # Only well-formed SHAs are declared.
+        junk = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}, adoptedOracle="junk")
+        self.assertNotIn("Adopted oracle commit(s)", call(junk, "verify:example:api")["prompt"])
+        self.assertIn("All unit commits (oracle, build, repairs): b1617069\n", call(junk, "verify:example:api")["prompt"])
+
+    @requires_node
+    def test_an_adopted_oracle_commit_is_published_and_delivered_with_the_unit(self) -> None:
+        output = run_workflow(
+            BUILD_WORKFLOW,
+            {"push": True, "items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]},
+            adoptedOracle="api",
+        )
+        self.assertIn("- 240ab790", call(output, "publish:example")["prompt"])
+        self.assertIn("240ab790", close_evidence(call(output, "close:example"))[0]["delivery_check"]["commits"])
+        self.assertEqual(output["result"]["publication"][0]["published"], True)
 
     @requires_node
     def test_a_failed_push_of_the_code_repo_keeps_cross_tracker_items_open(self) -> None:
@@ -1206,7 +1295,7 @@ class SavedWorkflowTests(unittest.TestCase):
         result = output["result"]["results"][0]
         # Verified work stays open, named as undelivered, rather than being sent back to rework.
         self.assertEqual((result["repo"], result["verdict"], result["closed"], result["action"]), ("example", "confirmed", False, "verified-undelivered"))
-        check = close_evidence(call(output, "close:engine:example"))[0]["delivery_check"]
+        check = close_evidence(call(output, "close:example"))[0]["delivery_check"]
         self.assertEqual((check["code_repo"], check["publication"]), ("engine", "push-rejected"))
 
     @requires_node

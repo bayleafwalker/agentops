@@ -155,6 +155,7 @@ const BUILD_SCHEMA = {
     base_sha: { type: 'string', pattern: '^[0-9a-f]{7,64}$' },
     head_sha: { type: 'string', pattern: '^[0-9a-f]{7,64}$' },
     commits: { type: 'array', items: { type: 'string', pattern: '^[0-9a-f]{7,64}$' } },
+    adopted_oracle_commits: { type: 'array', items: { type: 'string', pattern: '^[0-9a-f]{7,64}$' } },
     blocked: { type: 'string' },
     shared_constraints: { type: 'array', items: { type: 'string' } },
   },
@@ -600,6 +601,7 @@ Reasoning unit: ${unit.unit}
 ${itemDataLines(unit.items)}
 ${oracleBlock(oracle, 'build')}
 Keep one accountable implementation context for this unit and process its items in dependency order. Do not create subagents. Before changing anything:
+0. Read each item's notes (sprintctl item show --id <id> --json, events[].summary and detail). A note whose summary is "oracle: <commit>" names an oracle commit an earlier run wrote for this item. If that commit is already an ancestor of HEAD (git merge-base --is-ancestor <sha> HEAD), do not cherry-pick it: list it in adopted_oracle_commits, so it is accounted for as a unit commit and frozen like an oracle written in this run. If it is not an ancestor of HEAD or origin/main, it is unpublished work: adopt it by cherry-picking it, and list the new commit in commits.
 1. Record git rev-parse HEAD as base_sha before any change. Inspect git status and record pre-existing changes. Preserve them. If they overlap this unit or prevent an isolated commit, stop and report blocked rather than staging or rewriting someone else's work.
 2. Confirm the items share the invariant or subsystem boundary declared by the unit. When implementation exposes a smaller decision the items did not settle, decide it in line with the recorded item decisions and the repository's documented direction, and note it in verification_summary. Return blocked only when pre-existing working-tree changes prevent an isolated commit or an item depends on unfinished work in another item.
 
@@ -612,7 +614,7 @@ For each item that is ready:
 
 If you reserved an item but cannot complete it, return it to pending (sprintctl item status --id <id> --status pending --reason partial --actor ${tierConfig.actor} --expected-revision <current status_revision>), release its reservation (sprintctl reservation release --id <reservation_id> --actor ${tierConfig.actor}), and do not return it as completed. Finish earlier completed work, set blocked to the precise reason, and stop; the unfinished items return to the backlog with your reason and later units still run.
 
-Return {repo: "${unit.repo}", unit: "${unit.unit}", base_sha, head_sha: <git rev-parse HEAD after your last commit>, commits: [<every commit you created in this unit, oldest first, including test and adopted commits>], items: [{item_id as a string, reservation_id as a string, commit_sha, files_changed, verification_summary}], blocked?, shared_constraints?}.`
+Return {repo: "${unit.repo}", unit: "${unit.unit}", base_sha, head_sha: <git rev-parse HEAD after your last commit>, commits: [<every commit you created in this unit, oldest first, including test and adopted commits>], adopted_oracle_commits: [<oracle commits from earlier runs that were already in history, oldest first>], items: [{item_id as a string, reservation_id as a string, commit_sha, files_changed, verification_summary}], blocked?, shared_constraints?}.`
 }
 
 function normalizeBuildResult(unit, result) {
@@ -645,10 +647,18 @@ function normalizeBuildResult(unit, result) {
     base_sha: SAFE_COMMIT.test(String(result.base_sha || '')) ? String(result.base_sha) : undefined,
     head_sha: SAFE_COMMIT.test(String(result.head_sha || '')) ? String(result.head_sha) : undefined,
     commits: Array.isArray(result.commits) ? result.commits.map(String).filter(commit => SAFE_COMMIT.test(commit)) : [],
+    adopted_oracle_commits: Array.isArray(result.adopted_oracle_commits) ? [...new Set(result.adopted_oracle_commits.map(String).filter(commit => SAFE_COMMIT.test(commit)))] : [],
     items: normalized,
     blocked: blocked ? String(blocked) : undefined,
     shared_constraints: Array.isArray(result.shared_constraints) ? result.shared_constraints.map(value => limitedText(value)) : [],
   }
+}
+
+// An oracle commit adopted from an earlier run is already in history; it is still a unit commit, and frozen.
+function adoptedOracleLine(buildResult) {
+  const adopted = (buildResult && buildResult.adopted_oracle_commits) || []
+  if (!adopted.length) return ''
+  return `Adopted oracle commit(s) from an earlier run, already in history and declared by the builder (data): ${adopted.join(' ')}. Confirm from the item notes ("oracle: <commit>") that each one is the item's oracle, and treat the paths it added as frozen: a later unit commit that modifies, deletes, skips, or weakens them is an issue (issues_found).\n`
 }
 
 function verifyPrompt(builtUnit, verifyTimeoutSeconds) {
@@ -661,7 +671,7 @@ Reasoning unit: ${unit.unit}
 Committed items:
 ${itemLines}
 All unit commits (oracle, build, repairs): ${commits.join(' ')}
-Unit range: ${builtUnit.base}..${latestCommit}. Every commit in git rev-list ${builtUnit.base}..${latestCommit} must be one of the listed unit commits; an unlisted commit in the range is an issue (issues_found), because it would otherwise be published unverified.
+${adoptedOracleLine(buildResult)}Unit range: ${builtUnit.base}..${latestCommit}. Every commit in git rev-list ${builtUnit.base}..${latestCommit} must be one of the listed unit commits; an unlisted commit in the range is an issue (issues_found), because it would otherwise be published unverified.
 ${sameCommit(latestCommit, builtUnit.base) ? `The unit range is empty: this run made no new commits because the work was already delivered, so the range check above proves nothing. Instead, confirm that every listed commit is an ancestor of ${latestCommit}, and run git log --oneline <listed commit>..${latestCommit} -- <paths that commit touches> for each listed commit. Inspect every later commit it lists: verification runs at ${latestCommit}, so later changes to the same paths are part of what you confirm. A later commit that reverts or breaks a listed commit's behaviour is an issue (issues_found).` : `Conversely, every listed commit must be in that range or already an ancestor of origin/main (check with git merge-base --is-ancestor <sha> origin/main after git fetch origin main); a listed commit that is neither is an issue (issues_found), because publication would push it as expected work.`}
 ${oracleBlock(oracle, 'verify')}
 For the unit as a whole:
@@ -1000,7 +1010,7 @@ async function processRepo(group, verifyTimeoutSeconds) {
       oracle,
       base,
       tip,
-      commits: [...new Set([...(oracle && oracle.commit_sha ? [oracle.commit_sha] : []), ...(buildResult.commits || []), ...buildResult.items.map(item => item.commit_sha)])],
+      commits: [...new Set([...(oracle && oracle.commit_sha ? [oracle.commit_sha] : []), ...(buildResult.adopted_oracle_commits || []), ...(buildResult.commits || []), ...buildResult.items.map(item => item.commit_sha)])],
     }
     if (unbuilt.length && oracle && oracle.kind === 'tests') {
       // The oracle covers the whole unit, so a partial build cannot pass it.
@@ -1222,7 +1232,7 @@ For each item, using only the item_id, reservation_id, verdict, and delivery_che
 Return exactly one result per item: {repo: "${repo}", results: [{item_id, closed, action, note?}]}.`
 }
 
-function normalizeCloseResults(repo, codeRepo, pairs, raw) {
+function normalizeCloseResults(repo, pairs, raw) {
   const returned = new Map()
   for (const result of raw && Array.isArray(raw.results) ? raw.results : []) {
     const itemId = String(result && result.item_id)
@@ -1241,7 +1251,7 @@ function normalizeCloseResults(repo, codeRepo, pairs, raw) {
       action: 'close-agent-omitted-item',
     }),
     repo,
-    ...(codeRepo !== repo ? { code_repo: codeRepo } : {}),
+    ...(pair.codeRepo !== repo ? { code_repo: pair.codeRepo } : {}),
     unit: pair.builtUnit.unit.unit,
     commit_sha: pair.item.commit_sha,
     verdict: pair.result.verdict,
@@ -1250,27 +1260,32 @@ function normalizeCloseResults(repo, codeRepo, pairs, raw) {
   }))
 }
 
-async function closeRepo(state, push) {
-  const pairs = effectiveClosePairs(state, push)
-  if (!pairs.length) return { ...state, closeResults: [] }
-  // Items are closed in the tracker that holds them, one closeout per tracker.
+// Items are closed in the tracker that holds them, and a tracker gets exactly one
+// closeout agent however many code repositories fed it (two concurrent agents on
+// one tracker are safe through expected-revision but wasteful). So closeout runs
+// once after every code repository has been published, not inside each one's pipeline.
+async function closeTrackers(states, push) {
   const byTracker = new Map()
-  for (const pair of pairs) {
-    const tracker = pair.builtUnit.unit.tracker || state.repo
-    if (!byTracker.has(tracker)) byTracker.set(tracker, [])
-    byTracker.get(tracker).push(pair)
-  }
-  const closeResults = []
-  for (const [tracker, trackerPairs] of byTracker) {
+  states.forEach((state, index) => {
+    for (const pair of effectiveClosePairs(state, push)) {
+      const tracker = pair.builtUnit.unit.tracker || state.repo
+      if (!byTracker.has(tracker)) byTracker.set(tracker, [])
+      byTracker.get(tracker).push({ ...pair, codeRepo: state.repo, stateIndex: index })
+    }
+  })
+  const closeResults = states.map(() => [])
+  await Promise.all([...byTracker].map(async ([tracker, trackerPairs]) => {
     const raw = await agent(closePrompt(tracker, trackerPairs), {
-      label: tracker === state.repo ? `close:${state.repo}` : `close:${state.repo}:${tracker}`,
+      label: `close:${tracker}`,
       phase: 'Close',
       schema: CLOSE_SCHEMA,
       ...CLERICAL_MODEL,
     })
-    closeResults.push(...normalizeCloseResults(tracker, state.repo, trackerPairs, raw))
-  }
-  return { ...state, closeResults }
+    normalizeCloseResults(tracker, trackerPairs, raw).forEach((result, index) => {
+      closeResults[trackerPairs[index].stateIndex].push(result)
+    })
+  }))
+  return states.map((state, index) => ({ ...state, closeResults: closeResults[index] }))
 }
 
 // Keep the workflow entrypoint loader-compatible (it evaluates one script as
@@ -1290,7 +1305,7 @@ const buildExecutionService = Object.freeze({
 })
 const buildPublicationService = Object.freeze({
   publishRepo,
-  closeRepo,
+  closeTrackers,
 })
 
 const parsedArgs = buildInputService.parseArgs(args)
@@ -1317,12 +1332,12 @@ const verifyTimeoutSeconds = buildInputService.boundedInteger(parsedArgs.verify_
 buildInputService.boundedInteger(parsedArgs.claim_ttl_seconds, 7200, 600, 21600, 'claim_ttl_seconds')
 const groups = buildInputService.groupByRepo(items)
 
-const perRepo = await pipeline(
+const published = await pipeline(
   groups,
   group => buildExecutionService.processRepo(group, verifyTimeoutSeconds),
   verifiedState => buildPublicationService.publishRepo(verifiedState, push),
-  publishState => buildPublicationService.closeRepo(publishState, push),
 )
+const perRepo = await buildPublicationService.closeTrackers(published.filter(Boolean), push)
 
 await recordDecisions()
 
