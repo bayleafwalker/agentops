@@ -83,7 +83,8 @@ async function agent(prompt, options) {
     const built = scenario.build === 'partial' ? ids.slice(0, -1) : ids
     if (scenario.build === 'null') return null
     const base = scenario.wrongBase === unit ? 'dead0000' : head
-    if (built.length) head = `b${built[built.length - 1]}${hex(unit)}`
+    // 'delivered': the work is already on main, so the builder leaves HEAD at the base.
+    if (built.length && !scenario.delivered) head = `b${built[built.length - 1]}${hex(unit)}`
     return {
       repo,
       unit,
@@ -121,8 +122,11 @@ async function agent(prompt, options) {
         summary: itemFailed(index) ? 'stubbed defect' : 'stubbed independent pass',
         concerns: itemFailed(index) ? ['stubbed concern'] : [],
       })),
-      checks_run: scenario.evidence === 'empty' ? [] : [{command: 'stub-test', outcome: failed ? 'failed' : 'passed'}],
-      full_suite: scenario.evidence === 'empty'
+      checks_run: scenario.evidence === 'empty' ? []
+        : scenario.evidence === 'environment' ? [{command: 'stub-test', outcome: 'not_available'}]
+        : scenario.evidence === 'partial-environment' ? [{command: 'stub-test', outcome: 'passed'}, {command: 'stub-lint', outcome: 'not_available'}]
+        : [{command: 'stub-test', outcome: failed ? 'failed' : 'passed'}],
+      full_suite: ['empty', 'environment'].includes(scenario.evidence)
         ? {outcome: 'not_available', reason: 'stubbed missing evidence'}
         : {outcome: failed ? 'failed' : 'passed', reason: 'stub'},
       oracle_intact: mode !== 'tamper',
@@ -527,6 +531,40 @@ class SavedWorkflowTests(unittest.TestCase):
         output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "tier": "bounded"}]}, evidence="empty")
         self.assertEqual(output["result"]["results"][0]["verdict"], "inconclusive")
         self.assertFalse(output["result"]["results"][0]["closed"])
+
+    @requires_node
+    def test_environment_failures_are_inconclusive_and_never_repaired(self) -> None:
+        output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}, evidence="environment")
+        result = output["result"]["results"][0]
+        self.assertEqual(result["verdict"], "inconclusive")
+        self.assertFalse(result["closed"])
+        labels = [entry["label"] for entry in output["calls"]]
+        self.assertIn("verify:example:api:again", labels)
+        self.assertFalse([label for label in labels if label.startswith(("repair:", "park:"))])
+        audit = run_workflow(VERIFY_WORKFLOW, {"mode": "audit", "items": [{"repo": "example", "item_id": 1, "commit_sha": "abcdef1", "tier": "bounded"}]})
+        for prompt in (call(output, "verify:example:api")["prompt"], call(audit, "verify:example:repo-batch")["prompt"]):
+            self.assertIn("not_available means the check could not run as written", prompt)
+            self.assertIn("do not report issues_found", prompt)
+
+    @requires_node
+    def test_a_check_that_could_not_run_blocks_confirmation_even_with_a_passing_suite(self) -> None:
+        build = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}, evidence="partial-environment")
+        self.assertEqual(build["result"]["results"][0]["verdict"], "inconclusive")
+        self.assertFalse(build["result"]["results"][0]["closed"])
+        audit = run_workflow(VERIFY_WORKFLOW, {"mode": "audit", "items": [{"repo": "example", "item_id": 1, "commit_sha": "abcdef1", "tier": "bounded"}]}, evidence="partial-environment")
+        close_prompt = call(audit, "close:example")["prompt"]
+        self.assertIn('"verdict": "inconclusive"', close_prompt)
+        self.assertNotIn('"verdict": "confirmed"', close_prompt)
+
+    @requires_node
+    def test_already_delivered_unit_is_checked_by_ancestry_not_the_empty_range(self) -> None:
+        delivered = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}, delivered=True)
+        prompt = call(delivered, "verify:example:api")["prompt"]
+        self.assertIn("Unit range: ba5e0000..ba5e0000", prompt)
+        self.assertIn("keeping the original not_available check", prompt)
+        self.assertIn("the range check above proves nothing", prompt)
+        built = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]})
+        self.assertNotIn("the range check above proves nothing", call(built, "verify:example:api")["prompt"])
 
     @requires_node
     def test_standalone_audit_verifies_units_sequentially_and_only_records_notes(self) -> None:
