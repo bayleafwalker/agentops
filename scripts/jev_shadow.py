@@ -60,7 +60,7 @@ REFINE_OUTCOMES = ("refined", "retired", "deferred")
 ORACLE_KINDS = ("tests", "checklist", "none")
 UNIT_OUTCOMES = ("confirmed", "parked", "unverified", "retired", "deferred", "not_built", "halted")
 VERDICTS = ("confirmed", "issues_found", "inconclusive")
-CHECK_OUTCOMES = ("passed", "failed", "timed_out")
+CHECK_OUTCOMES = ("passed", "failed", "timed_out", "not_available")
 SUITE_OUTCOMES = ("passed", "failed", "timed_out", "not_required", "not_available")
 MAX_TEXT = 4000
 SAFE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
@@ -107,6 +107,10 @@ def validate_decision(unit: Any) -> dict[str, Any]:
         "dispatch_ready": unit["dispatch_ready"],
         "source": unit["source"],
     }
+    code_repo = unit.get("code_repo")
+    if code_repo is not None:
+        _need(isinstance(code_repo, str) and bool(SAFE_NAME.fullmatch(code_repo)), "code_repo must be a safe name")
+        decision["code_repo"] = code_repo
     for field, allowed in (
         ("lane", LANES), ("refine", REFINE_OUTCOMES), ("oracle", ORACLE_KINDS), ("outcome", UNIT_OUTCOMES), ("build_tier", TIERS),
     ):
@@ -133,7 +137,7 @@ def validate_decision(unit: Any) -> dict[str, Any]:
                 key in CHECK_OUTCOMES and isinstance(value, int) and not isinstance(value, bool) and value >= 0
                 for key, value in checks.items()
             ),
-            "verify.checks must count passed/failed/timed_out",
+            "verify.checks must count passed/failed/timed_out/not_available",
         )
         _need(verify.get("full_suite") in SUITE_OUTCOMES, "verify.full_suite must be a known outcome")
         decision["verify"] = {
