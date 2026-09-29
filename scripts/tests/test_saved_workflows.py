@@ -941,6 +941,14 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertIn("every listed commit must be in that range or already an ancestor of origin/main", call(output, "verify:example:api")["prompt"])
 
     @requires_node
+    def test_verify_prompts_keep_worktree_in_a_variable_and_run_the_suite_first(self) -> None:
+        for path in (BUILD_WORKFLOW, VERIFY_WORKFLOW):
+            source = path.read_text(encoding="utf-8")
+            self.assertIn("Keep that directory path in a shell variable", source)
+            self.assertIn("never write it or any other state to a shared scratch or temp file outside that directory", source)
+            self.assertIn("Run the manifest's verification suite command verbatim before any other test command", source)
+
+    @requires_node
     def test_a_failed_check_under_an_inconclusive_verdict_is_repaired(self) -> None:
         # agentops#2548: only confirmed verdicts were clamped, so this never reached repair.
         output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}, fail={"api": "inconclusive-failed"})
