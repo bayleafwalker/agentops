@@ -549,6 +549,8 @@ class SavedWorkflowTests(unittest.TestCase):
         close = call(local, "close:example")["prompt"]
         self.assertIn("git merge-base --is-ancestor <sha> origin/main", close)
         self.assertIn("verified, undelivered", close)
+        # The item returns to pending so the next run can reserve and publish it.
+        self.assertIn("--status pending --reason partial", close.split("verified, undelivered", 1)[1].split("\n", 1)[0])
         check = close_evidence(call(local, "close:example"))[0]["delivery_check"]
         self.assertEqual((check["commits"], check["publication"]), (["b1617069"], "not-requested"))
         delivered = run_workflow(BUILD_WORKFLOW, args, onOrigin=True)
@@ -564,6 +566,8 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertIn("return published=true with action 'already-on-origin'", prompt)
         self.assertIn("hybrid.protected_paths", prompt)
         self.assertIn("'needs-hand-pass-pr'", prompt)
+        self.assertIn("git log --name-only --format= origin/main..HEAD", prompt)
+        self.assertIn("an entry ending in /** or / covers everything under that directory", prompt)
 
     @requires_node
     def test_every_commit_the_builder_reports_is_a_unit_commit(self) -> None:
@@ -571,6 +575,8 @@ class SavedWorkflowTests(unittest.TestCase):
         output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}, extraCommit="api")
         self.assertIn("every commit you created in this unit", call(output, "build:example:api")["prompt"])
         self.assertIn("All unit commits (oracle, build, repairs): a0c0ffee b1617069", call(output, "verify:example:api")["prompt"])
+        # A listed commit outside the range must already be published.
+        self.assertIn("every listed commit must be in that range or already an ancestor of origin/main", call(output, "verify:example:api")["prompt"])
 
     @requires_node
     def test_a_failed_check_under_an_inconclusive_verdict_is_repaired(self) -> None:
