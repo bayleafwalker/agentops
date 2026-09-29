@@ -124,6 +124,7 @@ async function agent(prompt, options) {
       })),
       checks_run: scenario.evidence === 'empty' ? []
         : scenario.evidence === 'environment' ? [{command: 'stub-test', outcome: 'not_available'}]
+        : scenario.evidence === 'partial-environment' ? [{command: 'stub-test', outcome: 'passed'}, {command: 'stub-lint', outcome: 'not_available'}]
         : [{command: 'stub-test', outcome: failed ? 'failed' : 'passed'}],
       full_suite: ['empty', 'environment'].includes(scenario.evidence)
         ? {outcome: 'not_available', reason: 'stubbed missing evidence'}
@@ -546,10 +547,21 @@ class SavedWorkflowTests(unittest.TestCase):
             self.assertIn("do not report issues_found", prompt)
 
     @requires_node
+    def test_a_check_that_could_not_run_blocks_confirmation_even_with_a_passing_suite(self) -> None:
+        build = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}, evidence="partial-environment")
+        self.assertEqual(build["result"]["results"][0]["verdict"], "inconclusive")
+        self.assertFalse(build["result"]["results"][0]["closed"])
+        audit = run_workflow(VERIFY_WORKFLOW, {"mode": "audit", "items": [{"repo": "example", "item_id": 1, "commit_sha": "abcdef1", "tier": "bounded"}]}, evidence="partial-environment")
+        close_prompt = call(audit, "close:example")["prompt"]
+        self.assertIn('"verdict": "inconclusive"', close_prompt)
+        self.assertNotIn('"verdict": "confirmed"', close_prompt)
+
+    @requires_node
     def test_already_delivered_unit_is_checked_by_ancestry_not_the_empty_range(self) -> None:
         delivered = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}, delivered=True)
         prompt = call(delivered, "verify:example:api")["prompt"]
         self.assertIn("Unit range: ba5e0000..ba5e0000", prompt)
+        self.assertIn("keeping the original not_available check", prompt)
         self.assertIn("the range check above proves nothing", prompt)
         built = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]})
         self.assertNotIn("the range check above proves nothing", call(built, "verify:example:api")["prompt"])
