@@ -161,4 +161,31 @@ assert_eq "REQ-013 sidecar decisions count"  "$(jq '.decisions | length' "$sidec
 assert_eq "REQ-013 sidecar decisions[0].policy_decision" "$(jq -r '.decisions[0].policy_decision' "$sidecar13")" "deny"
 assert_eq "REQ-013 sidecar gates count"      "$(jq '.gates | length' "$sidecar13")" "2"
 
+# An unpriced Claude model has cost_usd:null by design; its audit summary
+# must remain publishable without presenting a made-up dollar amount.
+unpriced_transcript="$tmp/unpriced-transcript.jsonl"
+printf '%s\n' '{"type":"assistant","timestamp":"2026-09-29T18:00:00Z","message":{"role":"assistant","model":"claude-future","usage":{"input_tokens":1,"output_tokens":1},"content":[]}}' > "$unpriced_transcript"
+unpriced_log="$tmp/unpriced-costs.jsonl"
+unpriced_audit="$tmp/unpriced-audit.log"
+jq -cn --arg t "$unpriced_transcript" \
+  '{transcript_path:$t, session_id:"unpriced-session", cwd:"/projects/dev/agentops", hook_event_name:"Stop"}' \
+  | env AUDITCTL_BIN="$pubdir13/auditctl" AUDITCTL_STUB_LOG13="$unpriced_audit" \
+      AGENTOPS_COST_LOG="$unpriced_log" AGENTOPS_GATE_LOG_DIR="$tmp" \
+      bash "$stop_hook" || fail "null-cost Stop hook exited non-zero"
+jq -e '.cost_usd == null' "$unpriced_log" >/dev/null || fail "unpriced cost was changed"
+grep -q 'cost unknown' "$unpriced_audit" || fail "null-cost audit summary was not published"
+
+# Codex's stable Stop input includes turn_id. Its transcript is not a Claude
+# transcript, so this hook must not append a false zero-usage row for it.
+codex_transcript="$tmp/codex-transcript.jsonl"
+printf '%s\n' '{"type":"session_meta","timestamp":"2026-09-29T18:00:00Z","payload":{"id":"codex-session"}}' > "$codex_transcript"
+codex_log="$tmp/codex-costs.jsonl"
+codex_audit="$tmp/codex-audit.log"
+jq -cn --arg t "$codex_transcript" \
+  '{transcript_path:$t, session_id:"codex-session", turn_id:"turn-1", cwd:"/projects/dev/agentops", hook_event_name:"Stop"}' \
+  | env AUDITCTL_BIN="$pubdir13/auditctl" AUDITCTL_STUB_LOG13="$codex_audit" \
+      AGENTOPS_COST_LOG="$codex_log" AGENTOPS_GATE_LOG_DIR="$tmp" \
+      bash "$stop_hook" || fail "Codex Stop hook exited non-zero"
+[[ ! -e "$codex_log" && ! -e "$codex_audit" ]] || fail "Codex produced false Claude cost evidence"
+
 printf 'cost hook field tests passed (incl. REQ-012 typed session identity, REQ-013 decisions key)\n'

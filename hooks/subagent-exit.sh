@@ -31,6 +31,11 @@ else
 fi
 
 EVENT="$(cat)"
+# Codex SubagentStop carries turn_id. The terminal-reason parser below only
+# understands Claude transcript records, so leave Codex's native event alone.
+if printf '%s' "$EVENT" | jq -e 'has("turn_id")' >/dev/null 2>&1; then
+  exit 0
+fi
 SESSION="$(printf '%s' "$EVENT" | jq -r '.session_id // "unknown"')"
 TRANSCRIPT="$(printf '%s' "$EVENT" | jq -r '.transcript_path // ""')"
 AGENT_ID="$(printf '%s' "$EVENT" | jq -r '.agent_id // .agentId // empty')"

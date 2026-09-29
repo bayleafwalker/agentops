@@ -153,6 +153,15 @@ assert_eq "REQ-023 cost row"  "$(jq -r '.session' < "$tmp/costs.jsonl" | tail -1
 run_subagent "$decoy_dir:$base_path" >/dev/null
 assert_eq "REQ-023 subagent exit" "$?" "0"
 
+# Codex's turn_id identifies a native SubagentStop event. This parser reads
+# Claude transcript records and must not publish a guessed Codex exit reason.
+: > "$AUDITCTL_CALL_LOG"
+jq -cn --arg t "$transcript" \
+  '{transcript_path:$t, session_id:"codex-session", turn_id:"turn-1", agent_id:"agent-1", cwd:"/projects/dev/agentops", hook_event_name:"SubagentStop"}' \
+  | env AUDITCTL_BIN="$tmp/explicit/auditctl" AUDITCTL_CALL_LOG="$AUDITCTL_CALL_LOG" \
+      bash "$subagent_hook" || fail "Codex SubagentStop hook exited non-zero"
+[[ ! -s "$AUDITCTL_CALL_LOG" ]] || fail "Codex produced false Claude subagent evidence"
+
 # --- REQ-024: neither hook resolves the publisher on its own ----------------------------
 # A hook that grows its own `command -v auditctl` back is the exact regression this gate
 # exists for, and it would pass every fixture above while failing in a real hook shell.
