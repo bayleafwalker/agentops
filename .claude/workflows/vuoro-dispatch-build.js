@@ -1044,7 +1044,7 @@ function allVerificationResults(state) {
 }
 
 function publishPrompt(repo, commits) {
-  return `Publish a dispatch batch for ${repoPath(repo)}: independently verified work plus the reverts of any parked unit. cd there first. First run git remote get-url origin: if the origin repository is named appservice (any host or owner), do not push; return published=false with error 'origin is appservice: pushing its main deploys it'.
+  return `Publish a dispatch batch for ${repoPath(repo)}: independently verified work plus the reverts of any parked unit. cd there first. First run git remote get-url origin and git remote get-url --push origin: if either the fetch or the push URL names the appservice repository (any host or owner), do not push; return published=false with error 'origin is appservice: pushing its main deploys it'.
 
 Expected commit SHAs (data):
 ${commits.map(commit => `- ${commit}`).join('\n')}
@@ -1210,7 +1210,7 @@ const push = parsedArgs.push === true
 // refused here, and publication also checks the origin remote before pushing.
 const APPSERVICE_NAME = /^appservice([._-]|$)/
 if (push && items.some(item => APPSERVICE_NAME.test(item.code_repo) || APPSERVICE_NAME.test(item.repo))) {
-  throw new Error('push is refused for items whose code is in appservice: pushing appservice main deploys it; dispatch without push')
+  throw new Error('push is refused when an item is tracked in or its code is in appservice: pushing appservice main deploys it; dispatch without push')
 }
 const verifyTimeoutSeconds = buildInputService.boundedInteger(parsedArgs.verify_timeout_seconds, 900, 60, 3600, 'verify_timeout_seconds')
 // claim_ttl_seconds is accepted for old callers and ignored: sprintctl reservations have no TTL.
