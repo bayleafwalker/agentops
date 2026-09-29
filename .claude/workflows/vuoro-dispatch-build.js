@@ -186,7 +186,7 @@ const VERIFY_SCHEMA = {
         required: ['command', 'outcome'],
         properties: {
           command: { type: 'string' },
-          outcome: { type: 'string', enum: ['passed', 'failed', 'timed_out'] },
+          outcome: { type: 'string', enum: ['passed', 'failed', 'timed_out', 'not_available'] },
         },
       },
     },
@@ -625,13 +625,14 @@ Committed items:
 ${itemLines}
 All unit commits (oracle, build, repairs): ${commits.join(' ')}
 Unit range: ${builtUnit.base}..${latestCommit}. Every commit in git rev-list ${builtUnit.base}..${latestCommit} must be one of the listed unit commits; an unlisted commit in the range is an issue (issues_found), because it would otherwise be published unverified.
+${builtUnit.base === latestCommit ? `The unit range is empty: this run made no new commits because the work was already delivered, so the range check above proves nothing. Instead, confirm that every listed commit is an ancestor of ${latestCommit}, and run git log --oneline <listed commit>..${latestCommit} -- <paths that commit touches> for each listed commit. Inspect every later commit it lists: verification runs at ${latestCommit}, so later changes to the same paths are part of what you confirm. A later commit that reverts or breaks a listed commit's behaviour is an issue (issues_found).` : ''}
 ${oracleBlock(oracle, 'verify')}
 For the unit as a whole:
 1. Read AGENTS.md, the root dispatch manifest, overlays, risk_surfaces, and each live sprint item. Verify that these items really form one coherent unit and that every acceptance criterion is represented. Read each item's notes with sprintctl item show --id <id> --json (events[].summary and detail). Every part of each item's description, and of any "refinement: original intent" note, must be delivered by the unit commits or named in a "refinement: intent moved" or "build: scope moved" note that points at a follow-up item. A part that is neither delivered nor moved is an issue (issues_found), even when the reason given for dropping it is plausible. A move must also hold up: confirm with sprintctl item show that each follow-up item exists and names that exact part, and accept only three reasons: another repository owns it; only the operator can do it (check that no agent-reachable route exists, such as credentials or tools already available to agents); or it is moot (re-check the cited evidence yourself). Moving work that an agent could do in this repository is an issue.
 2. Create one collision-resistant detached worktree at the latest unit commit (${latestCommit}): make a directory with mktemp -d using a /tmp/verify-${unit.repo}-${unit.unit}-XXXXXX template, then git worktree add --detach <that-directory> ${latestCommit}. Never touch the shared working tree.
 3. Inspect every listed commit with git show and the combined unit diff. Reject unrelated changes, accidental inclusion of pre-existing work, silent scope expansion, and skipped criteria.
 4. In the isolated worktree, cold-run the smallest deterministic checks first. Then run the repository's full test suite (the manifest's full-suite command, or the repository's standard test command) once for this unit: a change can break tests far from the files it touches. Every command must stay foreground and blocking and use timeout --foreground ${verifyTimeoutSeconds}s (or an equally strict foreground timeout if coreutils timeout is unavailable). Never use &, nohup, a background tool mode, detached execution, or polling. A timeout is evidence of an incomplete gate, not permission to wait indefinitely.
-5. Record exact redacted commands and outcomes in checks_run. Record the broader gate separately in full_suite. A required gate that failed, timed out, or could not run prevents confirmation. full_suite may be not_required only when the unit changes no executable code and no tests (documentation or data only), and the reason must say so.
+5. Record exact redacted commands and outcomes in checks_run. Record the broader gate separately in full_suite. Classify an outcome by what failed, not by the exit code. failed means the code under test is wrong: an assertion, an error raised by repository code, an import of a repository module, or a build or type error in changed code. not_available means the check could not run as written, independent of this change: a third-party dependency the command does not install (for example ModuleNotFoundError for a package that CI installs), a missing tool or interpreter, a network or package-index failure, a harness or runner crash before tests execute, or a permission error on infrastructure. When the only failures are not_available, do not report issues_found: record them as not_available, say what was missing in the reason, and give the verdict inconclusive. If the repository's CI configuration installs the missing dependency, you may re-run the command once with that dependency added (the CI-equivalent environment) and record that run as its own check; name the command gap in full_suite.reason so it can be fixed. A required gate that failed, timed out, or could not run prevents confirmation. full_suite may be not_required only when the unit changes no executable code and no tests (documentation or data only), and the reason must say so.
 6. Remove the exact worktree with git worktree remove even after a failed check. Do not delete or clean any broader /tmp path.
 
 Return exactly one result for every listed item. "confirmed" requires matching scope and your own sufficient cold checks; "issues_found" requires concrete defects or failures; "inconclusive" covers missing infrastructure, unavailable required checks, or timeouts that prevent a reliable verdict. Return {repo: "${unit.repo}", unit: "${unit.unit}", results: [{item_id, commit_sha, verdict, summary, concerns}], checks_run: [{command, outcome}], full_suite: {outcome, reason}, oracle_intact?}.`
@@ -661,7 +662,7 @@ function normalizeVerifyResult(builtUnit, raw) {
   })
   const checksRun = raw && Array.isArray(raw.checks_run)
     ? raw.checks_run
-      .filter(check => check && typeof check.command === 'string' && ['passed', 'failed', 'timed_out'].includes(check.outcome))
+      .filter(check => check && typeof check.command === 'string' && ['passed', 'failed', 'timed_out', 'not_available'].includes(check.outcome))
       .map(check => ({ command: limitedText(check.command, 1000), outcome: check.outcome }))
     : []
   const allowedFullSuiteOutcomes = ['passed', 'failed', 'timed_out', 'not_required', 'not_available']
@@ -674,7 +675,7 @@ function normalizeVerifyResult(builtUnit, raw) {
   }
   const failedEvidence = checksRun.some(check => check.outcome === 'failed') || fullSuite.outcome === 'failed'
   const incompleteEvidence = checksRun.length === 0
-    || checksRun.some(check => check.outcome === 'timed_out')
+    || checksRun.some(check => ['timed_out', 'not_available'].includes(check.outcome))
     || ['timed_out', 'not_available'].includes(fullSuite.outcome)
   const oracleTampered = Boolean(builtUnit.oracle && builtUnit.oracle.kind === 'tests') && !(raw && raw.oracle_intact === true)
   for (const result of results) {

@@ -50,7 +50,7 @@ const VERIFY_SCHEMA = {
         required: ['command', 'outcome'],
         properties: {
           command: { type: 'string' },
-          outcome: { type: 'string', enum: ['passed', 'failed', 'timed_out'] },
+          outcome: { type: 'string', enum: ['passed', 'failed', 'timed_out', 'not_available'] },
         },
       },
     },
@@ -196,7 +196,7 @@ ${itemLines}
 2. Resolve each missing commit SHA from sprintctl item evidence and Git history. Never guess. If the commits form one linear unit, create one collision-resistant detached worktree at the newest commit using mktemp -d with a /tmp/verify-${unit.repo}-${unit.unit}-XXXXXX template and git worktree add --detach. If they are not one linear history, verify them sequentially in separate detached worktrees and say so.
 3. Inspect every item's full diff and the combined unit diff. Reject unrelated files, hidden scope expansion, accidental inclusion of another person's work, and silently skipped criteria.
 4. Cold-run the smallest deterministic checks first, then the repository's full test suite (the manifest's full-suite command, or the repository's standard test command) once per coherent worktree: a change can break tests far from the files it touches. Run every gate foreground and blocking with timeout --foreground ${verifyTimeoutSeconds}s (or an equally strict foreground timeout if coreutils timeout is unavailable). Never use &, nohup, a background tool mode, detached execution, or polling. A timeout is evidence of an incomplete gate.
-5. Record exact redacted commands and outcomes in checks_run and the broader gate in full_suite. A required gate that failed, timed out, or could not run prevents confirmation. Use not_required only when the unit changes no executable code and no tests (documentation or data only), and say so in the reason.
+5. Record exact redacted commands and outcomes in checks_run and the broader gate in full_suite. Classify an outcome by what failed, not by the exit code. failed means the code under test is wrong: an assertion, an error raised by repository code, an import of a repository module, or a build or type error in changed code. not_available means the check could not run as written, independent of this change: a third-party dependency the command does not install (for example ModuleNotFoundError for a package that CI installs), a missing tool or interpreter, a network or package-index failure, a harness or runner crash before tests execute, or a permission error on infrastructure. When the only failures are not_available, do not report issues_found: record them as not_available, say what was missing in the reason, and give the verdict inconclusive. If the repository's CI configuration installs the missing dependency, you may re-run the command once with that dependency added (the CI-equivalent environment) and record that run as its own check; name the command gap in full_suite.reason so it can be fixed. A required gate that failed, timed out, or could not run prevents confirmation. Use not_required only when the unit changes no executable code and no tests (documentation or data only), and say so in the reason.
 6. Remove each exact worktree with git worktree remove even when checks fail. Do not delete or clean a broader /tmp path.
 
 Return exactly one result per requested item. confirmed requires matching scope and sufficient cold evidence; issues_found requires concrete defects or failures; inconclusive covers missing infrastructure, unresolved commits, unavailable required checks, or gating timeouts. Return {repo: "${unit.repo}", unit: "${unit.unit}", results: [{item_id, commit_sha?, verdict, summary, concerns}], checks_run: [{command, outcome}], full_suite: {outcome, reason}}. In audit mode, do not repair, revert, amend, or otherwise mutate shipped code.`
@@ -227,7 +227,7 @@ function normalizeVerifyResult(unit, raw) {
   })
   const checksRun = raw && Array.isArray(raw.checks_run)
     ? raw.checks_run
-      .filter(check => check && typeof check.command === 'string' && ['passed', 'failed', 'timed_out'].includes(check.outcome))
+      .filter(check => check && typeof check.command === 'string' && ['passed', 'failed', 'timed_out', 'not_available'].includes(check.outcome))
       .map(check => ({ command: limitedText(check.command, 1000), outcome: check.outcome }))
     : []
   const allowedFullSuiteOutcomes = ['passed', 'failed', 'timed_out', 'not_required', 'not_available']
@@ -240,7 +240,7 @@ function normalizeVerifyResult(unit, raw) {
   }
   const failedEvidence = checksRun.some(check => check.outcome === 'failed') || fullSuite.outcome === 'failed'
   const incompleteEvidence = checksRun.length === 0
-    || checksRun.some(check => check.outcome === 'timed_out')
+    || checksRun.some(check => ['timed_out', 'not_available'].includes(check.outcome))
     || ['timed_out', 'not_available'].includes(fullSuite.outcome)
   for (const result of results) {
     if (result.verdict !== 'confirmed') continue
