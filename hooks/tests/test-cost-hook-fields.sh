@@ -161,4 +161,19 @@ assert_eq "REQ-013 sidecar decisions count"  "$(jq '.decisions | length' "$sidec
 assert_eq "REQ-013 sidecar decisions[0].policy_decision" "$(jq -r '.decisions[0].policy_decision' "$sidecar13")" "deny"
 assert_eq "REQ-013 sidecar gates count"      "$(jq '.gates | length' "$sidecar13")" "2"
 
+# An unpriced model has cost_usd:null by design. Codex transcripts currently
+# reach this Claude-format hook too; their null cost must not make jq exit 5
+# after the cost row has already been appended.
+codex_transcript="$tmp/codex-transcript.jsonl"
+printf '%s\n' '{"type":"session_meta","timestamp":"2026-09-29T18:00:00Z","payload":{"id":"codex-session"}}' > "$codex_transcript"
+codex_log="$tmp/codex-costs.jsonl"
+codex_audit="$tmp/codex-audit.log"
+jq -cn --arg t "$codex_transcript" \
+  '{transcript_path:$t, session_id:"codex-session", cwd:"/projects/dev/agentops", hook_event_name:"Stop"}' \
+  | env AUDITCTL_BIN="$pubdir13/auditctl" AUDITCTL_STUB_LOG13="$codex_audit" \
+      AGENTOPS_COST_LOG="$codex_log" AGENTOPS_GATE_LOG_DIR="$tmp" \
+      bash "$stop_hook" || fail "null-cost Stop hook exited non-zero"
+jq -e '.cost_usd == null' "$codex_log" >/dev/null || fail "unpriced cost was changed"
+grep -q 'cost unknown' "$codex_audit" || fail "null-cost audit summary was not published"
+
 printf 'cost hook field tests passed (incl. REQ-012 typed session identity, REQ-013 decisions key)\n'

@@ -210,7 +210,10 @@ emit_record() {
   local auditctl_path
   auditctl_path="$(auditctl_bin)" || return 0
   local summary metadata
-  summary="$(printf '%s' "$record" | jq -r '"session \(.project): \(.turns) turns, \(.tool_calls) tool calls, $\(.cost_usd * 100 | round / 100)"')"
+  summary="$(printf '%s' "$record" | jq -r '
+    "session \(.project): \(.turns) turns, \(.tool_calls) tool calls, "
+    + (if .cost_usd == null then "cost unknown"
+       else "$\(.cost_usd * 100 | round / 100)" end)')"
   # `gates` and `decisions` travel through FILES, not argv.
   #
   # Linux caps a single argv string at MAX_ARG_STRLEN (32 * page size = 128 KiB),
