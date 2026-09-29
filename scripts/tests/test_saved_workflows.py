@@ -94,6 +94,7 @@ async function agent(prompt, options) {
       unit,
       base_sha: base,
       head_sha: head,
+      ...(scenario.extraCommit === unit ? {commits: ['a0c0ffee', head]} : {}),
       items: built.map(itemId => ({
         item_id: itemId,
         reservation_id: String(1000 + Number(itemId)),
@@ -112,6 +113,14 @@ async function agent(prompt, options) {
     const round = parts[3] || ''
     const mode = (scenario.fail || {})[unit]
     if (mode === 'outage') return null
+    if (mode === 'inconclusive-failed' && !round) {
+      return {
+        repo, unit,
+        results: itemsFromVerifyPrompt(prompt).map(match => ({item_id: match[1], commit_sha: match[2], verdict: 'inconclusive', summary: 'stub unsure', concerns: []})),
+        checks_run: [{command: 'stub-test', outcome: 'failed'}],
+        full_suite: {outcome: 'passed', reason: 'stub'},
+      }
+    }
     const failed = mode === 'always' || (mode === 'once' && !round)
     const items = itemsFromVerifyPrompt(prompt)
     // 'partial': the first item fails, the rest pass.
@@ -152,11 +161,15 @@ async function agent(prompt, options) {
     const audit = prompt.includes('deterministic audit closeout')
     return {
       repo,
-      results: evidence.map(item => ({
-        item_id: item.item_id,
-        closed: !audit && item.verdict === 'confirmed',
-        action: audit ? 'noted' : (item.verdict === 'confirmed' ? 'status-done' : 'released'),
-      })),
+      // 'onOrigin': unpublished work is already on origin/main, so a delivery check passes.
+      results: evidence.map(item => {
+        const undelivered = item.delivery_check && !scenario.onOrigin
+        return {
+          item_id: item.item_id,
+          closed: !audit && item.verdict === 'confirmed' && !undelivered,
+          action: audit ? 'noted' : (item.verdict !== 'confirmed' ? 'released' : undelivered ? 'verified-undelivered' : 'status-done'),
+        }
+      }),
     }
   }
   throw new Error(`unexpected agent label ${options.label}`)
@@ -260,6 +273,7 @@ class SavedWorkflowTests(unittest.TestCase):
                     {"repo": "example", "item_id": 2, "unit": "storage", "tier": "standard"},
                 ]
             },
+            onOrigin=True,
         )
 
         self.assertEqual(
@@ -272,7 +286,7 @@ class SavedWorkflowTests(unittest.TestCase):
 
     @requires_node
     def test_undecided_unit_is_refined_then_gets_an_oracle_then_builds(self) -> None:
-        output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 3, "unit": "plan-store"}]})
+        output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 3, "unit": "plan-store"}]}, onOrigin=True)
 
         self.assertEqual(
             output["dispatch_events"],
@@ -346,6 +360,7 @@ class SavedWorkflowTests(unittest.TestCase):
                     {"repo": "example", "item_id": 7, "unit": "api", "tier": "bounded"},
                 ]
             },
+            onOrigin=True,
         )
         self.assertNotIn("build:example:plan-retire", output["events"])
         self.assertNotIn("build:example:plan-defer", output["events"])
@@ -525,6 +540,53 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertIn("OLD TEXT", call(output, "refine:example:plan-store")["prompt"])
 
     @requires_node
+    def test_unpublished_confirmed_items_close_only_when_their_commits_are_on_origin(self) -> None:
+        # wf_7e4cde77-8dc closed #2395 with push off while its commits existed only on local main.
+        args = {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}
+        local = run_workflow(BUILD_WORKFLOW, args)
+        result = local["result"]["results"][0]
+        self.assertEqual((result["verdict"], result["closed"], result["action"]), ("confirmed", False, "verified-undelivered"))
+        close = call(local, "close:example")["prompt"]
+        self.assertIn("git merge-base --is-ancestor <sha> origin/main", close)
+        self.assertIn("verified, undelivered", close)
+        # The item returns to pending so the next run can reserve and publish it.
+        self.assertIn("--status pending --reason partial", close.split("verified, undelivered", 1)[1].split("\n", 1)[0])
+        check = close_evidence(call(local, "close:example"))[0]["delivery_check"]
+        self.assertEqual((check["commits"], check["publication"]), (["b1617069"], "not-requested"))
+        delivered = run_workflow(BUILD_WORKFLOW, args, onOrigin=True)
+        self.assertTrue(delivered["result"]["results"][0]["closed"])
+        pushed = run_workflow(BUILD_WORKFLOW, {**args, "push": True})
+        self.assertNotIn("delivery_check", close_evidence(call(pushed, "close:example"))[0])
+        self.assertTrue(pushed["result"]["results"][0]["closed"])
+
+    @requires_node
+    def test_publish_is_a_no_op_when_delivered_and_refuses_protected_paths(self) -> None:
+        output = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [{"repo": "example", "item_id": 1, "tier": "bounded"}]})
+        prompt = call(output, "publish:example")["prompt"]
+        self.assertIn("return published=true with action 'already-on-origin'", prompt)
+        self.assertIn("hybrid.protected_paths", prompt)
+        self.assertIn("'needs-hand-pass-pr'", prompt)
+        self.assertIn("git log --name-only --format= origin/main..HEAD", prompt)
+        self.assertIn("an entry ending in /** or / covers everything under that directory", prompt)
+
+    @requires_node
+    def test_every_commit_the_builder_reports_is_a_unit_commit(self) -> None:
+        # wf_7e4cde77-8dc: the builder made a test commit and a docs commit but listed only the last.
+        output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}, extraCommit="api")
+        self.assertIn("every commit you created in this unit", call(output, "build:example:api")["prompt"])
+        self.assertIn("All unit commits (oracle, build, repairs): a0c0ffee b1617069", call(output, "verify:example:api")["prompt"])
+        # A listed commit outside the range must already be published.
+        self.assertIn("every listed commit must be in that range or already an ancestor of origin/main", call(output, "verify:example:api")["prompt"])
+
+    @requires_node
+    def test_a_failed_check_under_an_inconclusive_verdict_is_repaired(self) -> None:
+        # agentops#2548: only confirmed verdicts were clamped, so this never reached repair.
+        output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}, fail={"api": "inconclusive-failed"})
+        labels = [entry["label"] for entry in output["calls"]]
+        self.assertIn("repair:example:api:1", labels)
+        self.assertNotIn("verify:example:api:again", labels)
+
+    @requires_node
     def test_committing_agents_never_merge_origin_and_park_refuses_a_merge(self) -> None:
         # wf_e879ba4c-a3f: an oracle author merged origin/main into main, and park then reverted
         # the merge, which would have rolled back upstream work on the next push.
@@ -622,6 +684,8 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertIn("Unit range: ba5e0000..ba5e0000", prompt)
         self.assertIn("keeping the original not_available check", prompt)
         self.assertIn("the range check above proves nothing", prompt)
+        # A re-run of verified-but-undelivered work lists a commit outside the (empty) range.
+        self.assertNotIn("every listed commit must be in that range", prompt)
         built = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]})
         self.assertNotIn("the range check above proves nothing", call(built, "verify:example:api")["prompt"])
 
@@ -701,8 +765,10 @@ class SavedWorkflowTests(unittest.TestCase):
             publish="fail",
         )
         result = output["result"]["results"][0]
-        self.assertEqual((result["repo"], result["verdict"], result["closed"]), ("example", "inconclusive", False))
-        self.assertIn("publication did not complete", result["summary"])
+        # Verified work stays open, named as undelivered, rather than being sent back to rework.
+        self.assertEqual((result["repo"], result["verdict"], result["closed"], result["action"]), ("example", "confirmed", False, "verified-undelivered"))
+        check = close_evidence(call(output, "close:engine:example"))[0]["delivery_check"]
+        self.assertEqual((check["code_repo"], check["publication"]), ("engine", "push-rejected"))
 
     @requires_node
     def test_refine_and_oracle_agents_use_the_tracker_for_sprintctl(self) -> None:

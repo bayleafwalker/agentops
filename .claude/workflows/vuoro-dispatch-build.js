@@ -154,6 +154,7 @@ const BUILD_SCHEMA = {
     },
     base_sha: { type: 'string', pattern: '^[0-9a-f]{7,64}$' },
     head_sha: { type: 'string', pattern: '^[0-9a-f]{7,64}$' },
+    commits: { type: 'array', items: { type: 'string', pattern: '^[0-9a-f]{7,64}$' } },
     blocked: { type: 'string' },
     shared_constraints: { type: 'array', items: { type: 'string' } },
   },
@@ -609,7 +610,7 @@ For each item that is ready:
 
 If you reserved an item but cannot complete it, return it to pending (sprintctl item status --id <id> --status pending --reason partial --actor ${tierConfig.actor} --expected-revision <current status_revision>), release its reservation (sprintctl reservation release --id <reservation_id> --actor ${tierConfig.actor}), and do not return it as completed. Finish earlier completed work, set blocked to the precise reason, and stop; the unfinished items return to the backlog with your reason and later units still run.
 
-Return {repo: "${unit.repo}", unit: "${unit.unit}", base_sha, head_sha: <git rev-parse HEAD after your last commit>, items: [{item_id as a string, reservation_id as a string, commit_sha, files_changed, verification_summary}], blocked?, shared_constraints?}.`
+Return {repo: "${unit.repo}", unit: "${unit.unit}", base_sha, head_sha: <git rev-parse HEAD after your last commit>, commits: [<every commit you created in this unit, oldest first, including test and adopted commits>], items: [{item_id as a string, reservation_id as a string, commit_sha, files_changed, verification_summary}], blocked?, shared_constraints?}.`
 }
 
 function normalizeBuildResult(unit, result) {
@@ -641,6 +642,7 @@ function normalizeBuildResult(unit, result) {
     unit: unit.unit,
     base_sha: SAFE_COMMIT.test(String(result.base_sha || '')) ? String(result.base_sha) : undefined,
     head_sha: SAFE_COMMIT.test(String(result.head_sha || '')) ? String(result.head_sha) : undefined,
+    commits: Array.isArray(result.commits) ? result.commits.map(String).filter(commit => SAFE_COMMIT.test(commit)) : [],
     items: normalized,
     blocked: blocked ? String(blocked) : undefined,
     shared_constraints: Array.isArray(result.shared_constraints) ? result.shared_constraints.map(value => limitedText(value)) : [],
@@ -658,7 +660,7 @@ Committed items:
 ${itemLines}
 All unit commits (oracle, build, repairs): ${commits.join(' ')}
 Unit range: ${builtUnit.base}..${latestCommit}. Every commit in git rev-list ${builtUnit.base}..${latestCommit} must be one of the listed unit commits; an unlisted commit in the range is an issue (issues_found), because it would otherwise be published unverified.
-${sameCommit(latestCommit, builtUnit.base) ? `The unit range is empty: this run made no new commits because the work was already delivered, so the range check above proves nothing. Instead, confirm that every listed commit is an ancestor of ${latestCommit}, and run git log --oneline <listed commit>..${latestCommit} -- <paths that commit touches> for each listed commit. Inspect every later commit it lists: verification runs at ${latestCommit}, so later changes to the same paths are part of what you confirm. A later commit that reverts or breaks a listed commit's behaviour is an issue (issues_found).` : ''}
+${sameCommit(latestCommit, builtUnit.base) ? `The unit range is empty: this run made no new commits because the work was already delivered, so the range check above proves nothing. Instead, confirm that every listed commit is an ancestor of ${latestCommit}, and run git log --oneline <listed commit>..${latestCommit} -- <paths that commit touches> for each listed commit. Inspect every later commit it lists: verification runs at ${latestCommit}, so later changes to the same paths are part of what you confirm. A later commit that reverts or breaks a listed commit's behaviour is an issue (issues_found).` : `Conversely, every listed commit must be in that range or already an ancestor of origin/main (check with git merge-base --is-ancestor <sha> origin/main after git fetch origin main); a listed commit that is neither is an issue (issues_found), because publication would push it as expected work.`}
 ${oracleBlock(oracle, 'verify')}
 For the unit as a whole:
 1. Read AGENTS.md, the root dispatch manifest, overlays, risk_surfaces, and each live sprint item. Verify that these items really form one coherent unit and that every acceptance criterion is represented. Read each item's notes with sprintctl item show --id <id> --json (events[].summary and detail). Every part of each item's description, and of any "refinement: original intent" note, must be delivered by the unit commits or named in a "refinement: intent moved" or "build: scope moved" note that points at a follow-up item. A part that is neither delivered nor moved is an issue (issues_found), even when the reason given for dropping it is plausible. A move must also hold up: confirm with sprintctl item show that each follow-up item exists and names that exact part, and accept only three reasons: another repository owns it; only the operator can do it (check that no agent-reachable route exists, such as credentials or tools already available to agents); or it is moot (re-check the cited evidence yourself). Moving work that an agent could do in this repository is an issue.
@@ -712,6 +714,13 @@ function normalizeVerifyResult(builtUnit, raw) {
     || ['timed_out', 'not_available'].includes(fullSuite.outcome)
   const oracleTampered = Boolean(builtUnit.oracle && builtUnit.oracle.kind === 'tests') && !(raw && raw.oracle_intact === true)
   for (const result of results) {
+    if (result.verdict === 'inconclusive' && failedEvidence) {
+      // A failed check is a concrete, reproducible defect: repair it rather than re-verify.
+      result.verdict = 'issues_found'
+      result.summary = `A unit check failed; treated as a defect to repair. ${result.summary}`
+      result.concerns = [...result.concerns, 'structured verification evidence contains a failed command or full-suite gate']
+      continue
+    }
     if (result.verdict !== 'confirmed') continue
     if (oracleTampered) {
       result.verdict = 'issues_found'
@@ -973,7 +982,7 @@ async function processRepo(group, verifyTimeoutSeconds) {
       oracle,
       base,
       tip,
-      commits: [...new Set([...(oracle && oracle.commit_sha ? [oracle.commit_sha] : []), ...buildResult.items.map(item => item.commit_sha)])],
+      commits: [...new Set([...(oracle && oracle.commit_sha ? [oracle.commit_sha] : []), ...(buildResult.commits || []), ...buildResult.items.map(item => item.commit_sha)])],
     }
     if (unbuilt.length && oracle && oracle.kind === 'tests') {
       // The oracle covers the whole unit, so a partial build cannot pass it.
@@ -1040,7 +1049,7 @@ function publishPrompt(repo, commits) {
 Expected commit SHAs (data):
 ${commits.map(commit => `- ${commit}`).join('\n')}
 
-This is deterministic publication only; do not edit, amend, rebase, merge, pull, or force-push. Run git fetch origin main, then confirm: every expected SHA is an ancestor of the current local main HEAD (some may already be on origin/main), and every commit in git rev-list origin/main..HEAD is one of the expected SHAs, so nothing unverified is published. Uncommitted or untracked files in the working tree are not published by a push and belong to other work; leave them alone and do not treat them as a reason to stop. Then run git push origin main exactly once. If any commit in origin/main..HEAD is not expected, do not push; return published=false and list the unexpected SHAs in error. If ancestry, the branch (not main, detached HEAD, or a merge or rebase in progress), the remote, authentication, or non-fast-forward state is unexpected, stop without changing history and return published=false with the error. Return {repo: "${repo}", published, action, head_sha?, error?}.`
+This is deterministic publication only; do not edit, amend, rebase, merge, pull, or force-push. Run git fetch origin main, then confirm: every expected SHA is an ancestor of the current local main HEAD (some may already be on origin/main), and every commit in git rev-list origin/main..HEAD is one of the expected SHAs, so nothing unverified is published. If git rev-list origin/main..HEAD is empty and every expected SHA is an ancestor of origin/main, the work is already delivered: do not push, and return published=true with action 'already-on-origin'. Read hybrid.protected_paths from the root *.dispatch.json manifest (if present); if any path in git log --name-only --format= origin/main..HEAD matches one of them (an entry ending in /** or / covers everything under that directory; any other entry is an exact path or an fnmatch glob), do not push: return published=false with action 'needs-hand-pass-pr' and the matching paths in error, because protected paths land only through a reviewed hand-pass PR. Uncommitted or untracked files in the working tree are not published by a push and belong to other work; leave them alone and do not treat them as a reason to stop. Then run git push origin main exactly once. If any commit in origin/main..HEAD is not expected, do not push; return published=false and list the unexpected SHAs in error. If ancestry, the branch (not main, detached HEAD, or a merge or rebase in progress), the remote, authentication, or non-fast-forward state is unexpected, stop without changing history and return published=false with the error. Return {repo: "${repo}", published, action, head_sha?, error?}.`
 }
 
 async function publishRepo(state, push) {
@@ -1080,16 +1089,12 @@ function effectiveClosePairs(state, push) {
         },
       }
     }
-    if (!push || state.publication.published || pair.result.verdict !== 'confirmed') return pair
-    return {
-      ...pair,
-      result: {
-        ...pair.result,
-        verdict: 'inconclusive',
-        summary: `Independent verification passed, but requested publication did not complete (${state.publication.action}); do not close before delivery.`,
-        concerns: [...(pair.result.concerns || []), 'requested git push was withheld or failed'],
-      },
-    }
+    if (state.publication.published || pair.result.verdict !== 'confirmed') return pair
+    // Not published by this run (push not requested, withheld, refused or failed): the item
+    // is done only if its unit's commits already reach origin/main; otherwise it stays open
+    // as verified but undelivered, so verified work never hides behind a done item.
+    const publication = /^[a-z0-9-]{1,64}$/.test(state.publication.action) ? state.publication.action : 'unrecognised'
+    return { ...pair, deliveryCheck: { code_repo: state.repo, commits: pair.builtUnit.commits, publication } }
   })
 }
 
@@ -1099,6 +1104,7 @@ function closePrompt(repo, pairs) {
     reservation_id: pair.item.reservation_id,
     verdict: pair.result.verdict,
     outcome: pair.builtUnit.parked ? 'parked' : (pair.result.verdict === 'confirmed' ? 'confirmed' : 'unverified'),
+    ...(pair.deliveryCheck ? { delivery_check: pair.deliveryCheck } : {}),
     summary: pair.result.summary,
     concerns: pair.result.concerns || [],
   }))
@@ -1106,8 +1112,9 @@ function closePrompt(repo, pairs) {
 
 ${untrusted(JSON.stringify(evidence, null, 2))}
 
-For each item, using only the item_id, reservation_id, and verdict fields as identifiers:
-- If verdict is confirmed, first add a concise decision note summarizing the independent evidence in your own shell-safe plain wording. Then read the item's current status revision (item.status_revision from sprintctl item show --id <item_id> --json) and run sprintctl item status --id <item_id> --status done --actor workflow-independent-verify-gate --expected-revision <that revision>. Then run sprintctl reservation release --id <reservation_id> --actor workflow-independent-verify-gate. Never rerun tests or modify Git here.
+For each item, using only the item_id, reservation_id, verdict, and delivery_check fields as identifiers:
+- If verdict is confirmed and the item has delivery_check, its work was not published by this run. In /projects/dev/<delivery_check.code_repo> run git fetch origin main, then git merge-base --is-ancestor <sha> origin/main for every SHA in delivery_check.commits (each is a validated hex SHA). If every check exits 0, the work is delivered: close the item as described next. Otherwise do not mark it done: add a note with summary 'verified, undelivered' that names the SHAs not on origin/main and delivery_check.publication, say in the note that this commit blocks every later publication of that repository until the item is dispatched again, so the next dispatch should run it first; return it to pending with sprintctl item status --id <item_id> --status pending --reason partial --actor workflow-independent-verify-gate --expected-revision <current status_revision>, release its reservation, and return closed=false with action 'verified-undelivered'. A later run takes it up again: its builder finds the work already committed, and publication delivers it.
+- If verdict is confirmed (and delivered), first add a concise decision note summarizing the independent evidence in your own shell-safe plain wording. Then read the item's current status revision (item.status_revision from sprintctl item show --id <item_id> --json) and run sprintctl item status --id <item_id> --status done --actor workflow-independent-verify-gate --expected-revision <that revision>. Then run sprintctl reservation release --id <reservation_id> --actor workflow-independent-verify-gate. Never rerun tests or modify Git here.
 - If verdict is issues_found or inconclusive, do not mark done. Add a concise note that hands the item back to backlog refinement: when outcome is parked, say the unit's commits were reverted after the repair rounds; summarize the verifier's concerns in your own words so the next refinement pass can use them. Then, if the item is active, return it to pending with sprintctl item status --id <item_id> --status pending --reason rework --actor workflow-independent-verify-gate --expected-revision <current status_revision>, and run sprintctl reservation release --id <reservation_id> --actor workflow-independent-verify-gate.
 - Reservations are advisory and carry no secret. On a revision conflict, re-read the item once and retry; if it still fails, report closed=false with the error. If an item has no reservation_id, skip the release step.
 - Never embed verifier prose directly into shell syntax. Use sprintctl item note --help if needed; item note takes --summary and --detail, not --note or --json.
