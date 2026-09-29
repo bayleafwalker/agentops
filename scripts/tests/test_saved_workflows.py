@@ -85,7 +85,8 @@ async function agent(prompt, options) {
     const ids = idsFromPrompt(prompt)
     const built = scenario.build === 'partial' ? ids.slice(0, -1) : ids
     if (scenario.build === 'null') return null
-    const base = scenario.wrongBase === unit ? 'dead0000' : head
+    // 'longBase': the builder spells the previous head as a longer SHA of the same commit.
+    const base = scenario.wrongBase === unit ? 'dead0000' : scenario.longBase === unit ? `${head}c0ffee` : head
     // 'delivered': the work is already on main, so the builder leaves HEAD at the base.
     if (built.length && !scenario.delivered) head = `b${built[built.length - 1]}${hex(unit)}`
     return {
@@ -520,6 +521,21 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertNotIn("OLD TEXT", refined_build)
         self.assertIn("(none supplied; read the live item)", refined_build)
         self.assertIn("OLD TEXT", call(output, "refine:example:plan-store")["prompt"])
+
+    @requires_node
+    def test_a_full_sha_for_the_previous_head_is_the_same_base(self) -> None:
+        # wf_8d573d73-4bc halted on base 6aa1b0d038dd... against head 6aa1b0d0.
+        output = run_workflow(
+            BUILD_WORKFLOW,
+            {"push": True, "items": [
+                {"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"},
+                {"repo": "example", "item_id": 2, "unit": "cli", "tier": "bounded"},
+            ]},
+            longBase="cli",
+        )
+        self.assertEqual(output["result"]["halted"], [])
+        self.assertIn("verify:example:cli", output["events"])
+        self.assertTrue(all(item["closed"] for item in output["result"]["results"]))
 
     @requires_node
     def test_a_base_that_is_not_the_previous_head_halts_before_verifying(self) -> None:
