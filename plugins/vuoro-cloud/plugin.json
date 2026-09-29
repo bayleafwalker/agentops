@@ -1,0 +1,27 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "vuoro-cloud",
+  "version": "0.1.0",
+  "description": "Inspect work in Vuoro Cloud and reconstruct the known state of a work item.",
+  "author": {
+    "name": "Vuoro"
+  },
+  "repository": "https://github.com/bayleafwalker/agentops",
+  "keywords": ["vuoro", "work", "continuation"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Vuoro Cloud",
+        "shortDescription": "Inspect Vuoro work",
+        "longDescription": "Find ready work and inspect a known work item in Vuoro Cloud.",
+        "developerName": "Vuoro",
+        "category": "Productivity",
+        "capabilities": ["Read"],
+        "defaultPrompt": [
+          "Show me ready work in Vuoro.",
+          "Inspect Vuoro work item 42 and tell me what is known."
+        ]
+      }
+    }
+  }
+}
