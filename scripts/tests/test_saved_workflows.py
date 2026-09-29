@@ -33,11 +33,16 @@ CLERICAL = "claude-haiku-4-5-20251001"
 #   evidence: "empty"                            verifier returns no command evidence
 #   evidence: "environment" | "partial-environment"  checks that could not run as written
 #   delivered: true                              the builder makes no new commit (work already on main)
+#   adoptedOracle: <unit> | "junk"                the builder declares adopted_oracle_commits 240ab790 (or malformed values)
 #   record: "throw" | "null"                     decision recorder failure
 #   park: "fail"                                 reverts do not apply
 #   publish: "fail"                              git push is rejected
 #   publish: "pr" | "hand-pass"                 main refused the push (or protected paths): a PR was opened
 #   prUrl: <any JSON value>                      the pr_url the publish agent reports (default: a valid github.com pull URL)
+#   originUrl: <any JSON value> | null           the origin_url the publish agent reports (default: https://github.com/bayleafwalker/<repo>.git;
+#                                                null omits the field)
+# The record-verified:<repo> clerical agent (refs/dispatch/verified) answers {ran: true}. The close stub treats a
+# delivery_check whose publication is pushed or already-on-origin as on origin/main (#2558).
 NODE_HARNESS = r"""
 const fs = require('fs')
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
@@ -47,6 +52,7 @@ const scenario = JSON.parse(process.argv[3] || '{}')
 const events = []
 const calls = []
 const records = []
+const logs = []
 // A linear history: every committing stub moves HEAD, as git would.
 let head = 'ba5e0000'
 
@@ -69,6 +75,7 @@ async function agent(prompt, options) {
     if (scenario.record === 'throw') throw new Error('stubbed recorder failure')
     return scenario.record === 'null' ? null : {ran: true, output: '{}'}
   }
+  if (kind === 'record-verified') return {ran: true, output: ''}
   if (kind === 'route') {
     const lane = unit.startsWith('plan') ? 'refine' : unit.startsWith('spec') ? 'oracle' : 'build'
     return {repo, unit, lane, tier: 'bounded', rationale: "stub's rationale", open_questions: lane === 'refine' ? ['which store?'] : []}
@@ -99,6 +106,8 @@ async function agent(prompt, options) {
       base_sha: base,
       head_sha: head,
       ...(scenario.extraCommit === unit ? {commits: ['a0c0ffee', head]} : {}),
+      ...(scenario.adoptedOracle === unit ? {adopted_oracle_commits: ['240ab790']} : {}),
+      ...(scenario.adoptedOracle === 'junk' ? {adopted_oracle_commits: ['not-a-sha', 'HEAD~1', '$(reboot)']} : {}),
       items: built.map(itemId => ({
         item_id: itemId,
         reservation_id: String(1000 + Number(itemId)),
@@ -159,7 +168,8 @@ async function agent(prompt, options) {
     return {repo, unit, reverted: true, reverted_commits: [`c1${base}`, `c0${base}`], revert_commits: [`ee0${hex(unit)}`, head]}
   }
   if (kind === 'publish') {
-    if (scenario.publish === 'fail') return {repo, published: false, action: 'push-rejected', error: 'stubbed non-fast-forward'}
+    const origin = scenario.originUrl === null ? {} : {origin_url: 'originUrl' in scenario ? scenario.originUrl : `https://github.com/bayleafwalker/${repo}.git`}
+    if (scenario.publish === 'fail') return {repo, published: false, action: 'push-rejected', error: 'stubbed non-fast-forward', ...origin}
     if (scenario.publish === 'pr' || scenario.publish === 'hand-pass') {
       const handPass = scenario.publish === 'hand-pass'
       return {
@@ -168,10 +178,11 @@ async function agent(prompt, options) {
         action: handPass ? 'needs-hand-pass-pr' : 'pr-opened',
         pr_url: 'prUrl' in scenario ? scenario.prUrl : `https://github.com/bayleafwalker/${repo}/pull/7`,
         head_sha: head,
+        ...origin,
         ...(handPass ? {error: '.claude/workflows/example.js'} : {}),
       }
     }
-    return {repo, published: true, action: 'pushed', head_sha: 'abcdef1'}
+    return {repo, published: true, action: 'pushed', head_sha: 'abcdef1', ...origin}
   }
   if (kind === 'close') {
     const evidence = closeEvidence(prompt)
@@ -180,7 +191,9 @@ async function agent(prompt, options) {
       repo,
       // 'onOrigin': unpublished work is already on origin/main, so a delivery check passes.
       results: evidence.map(item => {
-        const undelivered = item.delivery_check && !scenario.onOrigin
+        // A direct push (or work already on origin) puts the SHAs on origin/main, so the ancestry check passes.
+        const reachedOrigin = item.delivery_check && ['pushed', 'already-on-origin'].includes(item.delivery_check.publication)
+        const undelivered = item.delivery_check && !scenario.onOrigin && !reachedOrigin
         return {
           item_id: item.item_id,
           closed: !audit && item.verdict === 'confirmed' && !undelivered,
@@ -206,8 +219,8 @@ async function parallel(tasks) {
 
 const source = fs.readFileSync(workflowPath, 'utf8').replace(/^export const meta =/m, 'const meta =')
 const run = new AsyncFunction('args', 'agent', 'pipeline', 'parallel', 'log', 'phase', source)
-run(workflowArgs, agent, pipeline, parallel, () => {}, () => {})
-  .then(result => process.stdout.write(JSON.stringify({result, events, calls, records})))
+run(workflowArgs, agent, pipeline, parallel, message => logs.push(String(message)), () => {})
+  .then(result => process.stdout.write(JSON.stringify({result, events, calls, records, logs})))
   .catch(error => {
     process.stderr.write(error.stack)
     process.exitCode = 1
@@ -224,7 +237,9 @@ def run_workflow(path: Path, args: dict, **scenario) -> dict:
         text=True,
     )
     output = json.loads(result.stdout)
-    output["dispatch_events"] = [label for label in output["events"] if label != "record-decisions"]
+    output["dispatch_events"] = [
+        label for label in output["events"] if label != "record-decisions" and not label.startswith("record-verified:")
+    ]
     return output
 
 
@@ -260,6 +275,27 @@ def call(output: dict, label: str) -> dict:
 
 def units(output: dict) -> dict:
     return {unit["unit"]: unit for unit in output["records"][0]["document"]["units"]}
+
+
+def names_tip(prompt: str, sha: str) -> bool:
+    """The publish prompt names ``sha`` as its publication tip TIP (#2558)."""
+    return any(re.search(r"\bTIP\b", line) and re.search(rf"(?<![0-9a-f]){sha}(?![0-9a-f])", line) for line in prompt.splitlines())
+
+
+def verified_refs(output: dict, repo: str = "example") -> set:
+    """The (base, tip) ranges the record-verified clerical agent is told to record under refs/dispatch/verified."""
+    prompt = call(output, f"record-verified:{repo}")["prompt"]
+    refs = set()
+    for base, tip, target in re.findall(r"update-ref refs/dispatch/verified/([0-9a-f]+)-([0-9a-f]+) ([0-9a-f]+)", prompt):
+        assert tip == target, f"refs/dispatch/verified/{base}-{tip} must point at its tip, not {target}"
+        refs.add((base, tip))
+    return refs
+
+
+def withheld_behind(entry: dict) -> list:
+    """withheld_behind may sit in the delivery_check or beside it in the close evidence."""
+    value = entry.get("delivery_check", {}).get("withheld_behind", entry.get("withheld_behind"))
+    return [str(item_id) for item_id in value] if isinstance(value, list) else value
 
 
 class SavedWorkflowTests(unittest.TestCase):
@@ -485,7 +521,11 @@ class SavedWorkflowTests(unittest.TestCase):
             fail={"api": "always"},
         )
         prompt = call(output, "publish:example")["prompt"]
-        self.assertIn("every commit in git rev-list origin/main..HEAD is one of the expected SHAs", prompt)
+        # #2558: publication works on TIP, not local HEAD, which may carry unverified commits.
+        self.assertIn("git rev-list origin/main..TIP", prompt)
+        self.assertNotIn("origin/main..HEAD", prompt)
+        self.assertIn("expected SHA", prompt)
+        self.assertTrue(names_tip(prompt, "b2636c69"), "TIP is the last confirmed unit's tip")
         # A shared checkout carries other work's uncommitted files; they are not published and must not stop a push.
         self.assertIn("do not treat them as a reason to stop", prompt)
         self.assertNotIn("git status has no", prompt)
@@ -498,14 +538,62 @@ class SavedWorkflowTests(unittest.TestCase):
 
     @requires_node
     def test_verifier_outage_leaves_work_unverified_without_reverting_or_publishing(self) -> None:
+        # #2558: an unverified unit withholds only itself and what was built on it; the verified
+        # prefix before it (api) is still published at its own tip.
         output = run_workflow(
             BUILD_WORKFLOW,
-            {"push": True, "items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}, {"repo": "example", "item_id": 2, "unit": "cli", "tier": "bounded"}]},
+            {"push": True, "items": [
+                {"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"},
+                {"repo": "example", "item_id": 2, "unit": "cli", "tier": "bounded"},
+                {"repo": "example", "item_id": 3, "unit": "web", "tier": "bounded"},
+            ]},
+            fail={"cli": "outage"},
+        )
+        events = output["events"]
+        self.assertIn("verify:example:cli:again", events)
+        self.assertNotIn("repair:example:cli:1", events)
+        self.assertNotIn("park:example:cli", events)
+        self.assertIn("build:example:web", events)
+        self.assertEqual(output["result"]["unverified"][0]["unit"], "cli")
+        self.assertEqual(units(output)["cli"]["outcome"], "unverified")
+        # Publication carries the verified prefix: TIP is api's tip and only api's commits are expected.
+        self.assertIn("publish:example", events)
+        prompt = call(output, "publish:example")["prompt"]
+        self.assertTrue(names_tip(prompt, "b1617069"), "the publish prompt names api's tip as TIP")
+        self.assertIn("b1617069", prompt)
+        self.assertNotIn("b2636c69", prompt, "the unverified unit's commits are never offered for publication")
+        self.assertNotIn("b3776562", prompt, "a unit built on unverified commits is not published by this run")
+        self.assertEqual(output["result"]["publication"][0]["action"], "pushed")
+        by_item = {item["item_id"]: item for item in output["result"]["results"]}
+        self.assertTrue(by_item["1"]["closed"])
+        self.assertFalse(by_item["2"]["closed"])
+        # Verified work behind the unverified unit is not closed as delivered: it is verified-undelivered
+        # and names the unit it waits behind.
+        self.assertEqual((by_item["3"]["verdict"], by_item["3"]["closed"], by_item["3"]["action"]), ("confirmed", False, "verified-undelivered"))
+        close_call = call(output, "close:example")
+        evidence = {entry["item_id"]: entry for entry in close_evidence(close_call)}
+        self.assertEqual(evidence["3"]["delivery_check"]["publication"], "withheld-behind-unverified")
+        self.assertEqual(evidence["3"]["delivery_check"]["commits"], ["b3776562"])
+        self.assertEqual(withheld_behind(evidence["3"]), ["2"])
+        self.assertNotIn("b2636c69", json.dumps(evidence["1"]))
+        # The close note tells the next run to dispatch the blocking items first, and no longer claims
+        # that a verified commit blocks every later publication.
+        self.assertIn("withheld_behind", close_call["prompt"])
+        self.assertIn("withheld-behind-unverified", close_call["prompt"])
+        self.assertNotIn("blocks every later publication", close_call["prompt"])
+
+    @requires_node
+    def test_an_unverified_first_unit_withholds_publication(self) -> None:
+        output = run_workflow(
+            BUILD_WORKFLOW,
+            {"push": True, "items": [
+                {"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"},
+                {"repo": "example", "item_id": 2, "unit": "cli", "tier": "bounded"},
+            ]},
             fail={"api": "outage"},
         )
         events = output["events"]
         self.assertIn("verify:example:api:again", events)
-        self.assertNotIn("repair:example:api:1", events)
         self.assertNotIn("park:example:api", events)
         self.assertIn("build:example:cli", events)
         self.assertNotIn("publish:example", events)
@@ -513,9 +601,44 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertEqual(output["result"]["unverified"][0]["unit"], "api")
         by_item = {item["item_id"]: item for item in output["result"]["results"]}
         self.assertFalse(by_item["1"]["closed"])
-        # Verified work is not closed as delivered while its push is withheld.
-        self.assertFalse(by_item["2"]["closed"])
+        self.assertEqual((by_item["2"]["closed"], by_item["2"]["action"]), (False, "verified-undelivered"))
+        evidence = {entry["item_id"]: entry for entry in close_evidence(call(output, "close:example"))}
+        self.assertEqual(evidence["2"]["delivery_check"]["publication"], "withheld-behind-unverified")
+        self.assertEqual(withheld_behind(evidence["2"]), ["1"])
         self.assertEqual(units(output)["api"]["outcome"], "unverified")
+
+    @requires_node
+    def test_verified_ranges_are_recorded_under_refs_dispatch_verified_with_and_without_push(self) -> None:
+        items = [
+            {"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"},
+            {"repo": "example", "item_id": 2, "unit": "cli", "tier": "bounded"},
+            {"repo": "example", "item_id": 3, "unit": "web", "tier": "bounded"},
+        ]
+        for push in (False, True):
+            with self.subTest(push=push):
+                confirmed = run_workflow(BUILD_WORKFLOW, {"push": push, "items": items[:2]})
+                record = call(confirmed, "record-verified:example")
+                self.assertEqual(record["model"], CLERICAL)
+                self.assertIn("/projects/dev/example", record["prompt"])
+                self.assertEqual(verified_refs(confirmed), {("ba5e0000", "b1617069"), ("b1617069", "b2636c69")})
+                events = confirmed["events"]
+                self.assertEqual(events.count("record-verified:example"), 1)
+                self.assertLess(events.index("verify:example:cli"), events.index("record-verified:example"))
+                if push:
+                    self.assertLess(events.index("record-verified:example"), events.index("publish:example"))
+                # A parked unit's range runs from its base to its last revert commit.
+                parked = run_workflow(BUILD_WORKFLOW, {"push": push, "items": items[:2]}, fail={"api": "always"})
+                self.assertEqual(verified_refs(parked), {("ba5e0000", "ee1617069"), ("ee1617069", "b2636c69")})
+                # An unverified unit never gets a ref; confirmed units on either side of it do.
+                unverified = run_workflow(BUILD_WORKFLOW, {"push": push, "items": items}, fail={"cli": "outage"})
+                self.assertEqual(verified_refs(unverified), {("ba5e0000", "b1617069"), ("b2636c69", "b3776562")})
+                self.assertIsNone(re.search(r"refs/dispatch/verified/[0-9a-f]+-b2636c69(?![0-9a-f])", call(unverified, "record-verified:example")["prompt"]))
+                # A halted unit never gets a ref either.
+                halted = run_workflow(BUILD_WORKFLOW, {"push": push, "items": items}, wrongBase="cli")
+                self.assertEqual(verified_refs(halted), {("ba5e0000", "b1617069")})
+                # Nothing new was committed (the work is already on main): no ref and no call.
+                delivered = run_workflow(BUILD_WORKFLOW, {"push": push, "items": items[:1]}, delivered=True)
+                self.assertFalse([label for label in delivered["events"] if label.startswith("record-verified:")])
 
     @requires_node
     def test_partial_build_against_an_oracle_is_parked_without_verification(self) -> None:
@@ -573,7 +696,9 @@ class SavedWorkflowTests(unittest.TestCase):
         delivered = run_workflow(BUILD_WORKFLOW, args, onOrigin=True)
         self.assertTrue(delivered["result"]["results"][0]["closed"])
         pushed = run_workflow(BUILD_WORKFLOW, {**args, "push": True})
-        self.assertNotIn("delivery_check", close_evidence(call(pushed, "close:example"))[0])
+        # #2558 (event 3921 finding 1): a reported push is checked against origin/main too.
+        check = close_evidence(call(pushed, "close:example"))[0]["delivery_check"]
+        self.assertEqual((check["commits"], check["publication"]), (["b1617069"], "pushed"))
         self.assertTrue(pushed["result"]["results"][0]["closed"])
 
     @requires_node
@@ -583,7 +708,7 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertIn("return published=true with action 'already-on-origin'", prompt)
         self.assertIn("hybrid.protected_paths", prompt)
         self.assertIn("'needs-hand-pass-pr'", prompt)
-        self.assertIn("git log --name-only --format= origin/main..HEAD", prompt)
+        self.assertIn("git log --name-only --format= origin/main..TIP", prompt)
         self.assertIn("an entry ending in /** or / covers everything under that directory", prompt)
         # #2553: protected paths are no longer stranded on local main. The branch is pushed and a PR
         # opened, but the hand-pass: title marker is left to the human reviewer.
@@ -608,14 +733,16 @@ class SavedWorkflowTests(unittest.TestCase):
         # wf_25eacc4d-174 origin/main moved during the run (non-fast-forward). Both strand verified work.
         output = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [{"repo": "example", "item_id": 4242, "unit": "api", "tier": "bounded"}]})
         prompt = call(output, "publish:example")["prompt"]
-        # Unprotected repos keep the single direct push.
-        self.assertIn("git push origin main", prompt)
+        # Unprotected repos keep the single direct push, of TIP rather than local HEAD (#2558).
+        self.assertIn("git push origin TIP:refs/heads/main", prompt)
+        self.assertNotIn("git push origin main", prompt)
+        self.assertNotIn("HEAD:refs/heads/", prompt)
         # The refusal is recognised from the push output, for both causes.
         for marker in ("GH006", "GH013", "protected branch", "non-fast-forward", "fetch first"):
             self.assertIn(marker, prompt)
         self.assertIsNotNone(re.search(r"(do not|never) retry", prompt, re.I), "the refused push is not retried")
         # The fallback: a branch named after the verified head, pushed without force, and a PR to main.
-        self.assertIsNotNone(re.search(r"dispatch/publish-<[^>]*12[^>]*>", prompt), "branch dispatch/publish-<12 hex of HEAD>")
+        self.assertIsNotNone(re.search(r"dispatch/publish-<[^>]*12[^>]*TIP[^>]*>", prompt), "branch dispatch/publish-<12 hex of TIP>")
         self.assertIsNotNone(re.search(r"without (--)?force", prompt, re.I), "the branch push never forces")
         self.assertIn("gh pr create --base main", prompt)
         self.assertIn("'pr-opened'", prompt)
@@ -625,7 +752,8 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertIn("b4242617069", prompt)
         self.assertIsNotNone(re.search(r"(?<![0-9a-f])4242(?![0-9a-f])", prompt), "the item id is given to the publisher for the PR body")
         self.assertIsNotNone(re.search(r"merge commit", prompt, re.I))
-        self.assertIsNotNone(re.search(r"not squash|squash", prompt, re.I))
+        # Event 3921 finding 5: 'squash' alone would also match "squash it".
+        self.assertIn("merge commit, not squash", prompt)
         # The workflow never merges its own PR.
         self.assertIsNotNone(
             re.search(r"(never|do not|must not)\b[^.]*\bmerge\b[^.]*\b(PR|pull request)", prompt, re.I),
@@ -663,7 +791,7 @@ class SavedWorkflowTests(unittest.TestCase):
         args = {"push": True, "items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}
         # Control: a well-formed github.com pull URL (owner and repo may carry . _ -) is kept.
         good = "https://github.com/bayleaf-walker/agent_ops.v2/pull/1234"
-        kept = run_workflow(BUILD_WORKFLOW, args, publish="pr", prUrl=good)
+        kept = run_workflow(BUILD_WORKFLOW, args, publish="pr", prUrl=good, originUrl="git@github.com:bayleaf-walker/agent_ops.v2.git")
         self.assertEqual(kept["result"]["publication"][0].get("pr_url"), good)
         self.assertEqual(close_evidence(call(kept, "close:example"))[0]["delivery_check"].get("pr_url"), good)
         for bad in (
@@ -692,6 +820,121 @@ class SavedWorkflowTests(unittest.TestCase):
                 self.assertEqual((result["closed"], result["action"]), (False, "verified-undelivered"))
 
     @requires_node
+    def test_publish_accepts_recorded_verified_ranges_and_names_contained_prs(self) -> None:
+        # #2558: verified commits an earlier run stranded (on local main or an open PR branch) no longer
+        # block every later publication.
+        output = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]})
+        prompt = call(output, "publish:example")["prompt"]
+        # TIP is published, not local HEAD, after checking it descends into local HEAD.
+        self.assertTrue(names_tip(prompt, "b1617069"))
+        self.assertIn("git push origin TIP:refs/heads/main", prompt)
+        self.assertIsNotNone(re.search(r"TIP[^.]*ancestor of[^.]*HEAD", prompt), "TIP must be an ancestor of local HEAD")
+        self.assertIsNotNone(re.search(r"dispatch/publish-<[^>]*TIP[^>]*>", prompt), "the PR branch is named from TIP")
+        self.assertNotIn("origin/main..HEAD", prompt)
+        # Coverage rule: a commit outside the expected SHAs is publishable only inside a recorded verified range.
+        ref = r"refs/dispatch/verified/<?(b|base)>?-<?(t|tip)>?"
+        self.assertIsNotNone(re.search(ref, prompt), "names refs/dispatch/verified/<b>-<t>")
+        self.assertIsNotNone(re.search(r"git rev-list <?(b|base)>?\.\.<?(t|tip)>?", prompt), "coverage is git rev-list <b>..<t>")
+        self.assertIsNotNone(re.search(r"<?(t|tip)>?[^.]*ancestor of TIP", prompt), "a range counts only when its tip is an ancestor of TIP")
+        self.assertIsNotNone(re.search(r"(not expected|unexpected)[^.]*(refuse|do not push)|(refuse|do not push)[^.]*(not expected|unexpected)", prompt, re.I))
+        # Cleanup after git fetch: refs whose tip already reached origin/main are deleted.
+        cleanup = [sentence for sentence in re.split(r"(?<=\.)\s+", prompt) if "update-ref -d" in sentence]
+        self.assertTrue(cleanup, "the publisher deletes delivered refs with git update-ref -d")
+        self.assertTrue(any("ancestor of origin/main" in sentence for sentence in cleanup), cleanup)
+        # Earlier open publish PRs contained in TIP are named in the new PR body; none is touched.
+        self.assertIn("gh pr list", prompt)
+        self.assertIn("dispatch/publish-*", prompt)
+        self.assertIsNotNone(re.search(r"contain", prompt, re.I))
+        self.assertIsNotNone(
+            re.search(r"(never|do not|must not)\b[^.]*\bclose\b[^.]*\b(PR|pull request)", prompt, re.I),
+            "the workflow never closes an earlier PR",
+        )
+        self.assertIsNotNone(re.search(r"do not[^.]*rebase[^.]*force-push", prompt))
+        self.assertIsNotNone(re.search(r"(never|do not|must not)\b[^.]*\bmerge\b[^.]*\b(PR|pull request)", prompt, re.I))
+        self.assertIn("auto-merge", prompt)
+        # The publisher reports the origin it pushed to, so a PR URL can be checked against it.
+        self.assertIn("origin_url", prompt)
+        # Event 3921 finding 3: the closing stop sentence covers pre-push state only; a refused push is
+        # handed back as a PR, never a stop.
+        body = prompt[: prompt.rindex("Return {")]
+        sentences = [sentence for sentence in re.split(r"(?<=\.)\s+", body) if sentence.strip()]
+        stop_index = max(index for index, sentence in enumerate(sentences) if re.search(r"\bstop\b", sentence))
+        stop = sentences[stop_index]
+        self.assertNotIn("non-fast-forward", stop)
+        self.assertIsNotNone(re.search(r"before[^.]*push|pre-push", stop, re.I), stop)
+        self.assertIn("TIP", stop)
+        self.assertIsNotNone(re.search(r"hand-back", " ".join(sentences[stop_index:]), re.I), "a refused push goes to the PR hand-back")
+
+    @requires_node
+    def test_a_reported_push_is_still_checked_against_origin_at_close(self) -> None:
+        output = run_workflow(
+            BUILD_WORKFLOW,
+            {"push": True, "items": [
+                {"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"},
+                {"repo": "example", "item_id": 2, "unit": "cli", "tier": "bounded"},
+            ]},
+        )
+        self.assertEqual(output["result"]["publication"][0]["action"], "pushed")
+        close_call = call(output, "close:example")
+        evidence = {entry["item_id"]: entry for entry in close_evidence(close_call)}
+        self.assertEqual(set(evidence), {"1", "2"})
+        for item_id, commits in (("1", ["b1617069"]), ("2", ["b2636c69"])):
+            check = evidence[item_id]["delivery_check"]
+            self.assertEqual((check["code_repo"], check["commits"], check["publication"]), ("example", commits, "pushed"))
+        bullet = next(line for line in close_call["prompt"].splitlines() if "git merge-base --is-ancestor <sha> origin/main" in line)
+        self.assertNotIn("not published by this run", bullet, "the ancestry check runs for every delivery_check, pushed or not")
+        self.assertTrue(all(item["closed"] for item in output["result"]["results"]))
+
+    @requires_node
+    def test_a_pr_url_is_kept_only_when_it_names_the_origin_repository(self) -> None:
+        # Event 3921 finding 4: a well-formed pull URL of another repository is not evidence.
+        args = {"push": True, "items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}
+        url = "https://github.com/bayleafwalker/example/pull/7"
+        for origin in (
+            "https://github.com/bayleafwalker/example.git",
+            "https://github.com/bayleafwalker/example",
+            "git@github.com:bayleafwalker/example.git",
+            "git@github.com:bayleafwalker/example",
+            "git@github.com:BayleafWalker/Example.git",
+        ):
+            with self.subTest(kept=origin):
+                output = run_workflow(BUILD_WORKFLOW, args, publish="pr", prUrl=url, originUrl=origin)
+                self.assertEqual(output["result"]["publication"][0].get("pr_url"), url)
+                self.assertEqual(close_evidence(call(output, "close:example"))[0]["delivery_check"].get("pr_url"), url)
+        # The directory name is not the repository: actionq-dispatcher's origin is actionq-dispatch.
+        renamed = run_workflow(
+            BUILD_WORKFLOW,
+            {"push": True, "items": [{"repo": "actionq-dispatcher", "item_id": 1, "unit": "api", "tier": "bounded"}]},
+            publish="pr",
+            prUrl="https://github.com/bayleafwalker/actionq-dispatch/pull/3",
+            originUrl="https://github.com/bayleafwalker/actionq-dispatch.git",
+        )
+        self.assertEqual(renamed["result"]["publication"][0].get("pr_url"), "https://github.com/bayleafwalker/actionq-dispatch/pull/3")
+        dropped = (
+            ("https://github.com/someone-else/example/pull/7", "https://github.com/bayleafwalker/example.git"),
+            ("https://github.com/bayleafwalker/other/pull/7", "https://github.com/bayleafwalker/example.git"),
+            ("https://github.com/bayleafwalker/example/pull/7", "https://evil.example/bayleafwalker/example.git"),
+            ("https://github.com/bayleafwalker/example/pull/7", None),
+            ("https://github.com/bayleafwalker/example/pull/7", ""),
+            ("https://github.com/bayleafwalker/example/pull/7", 7),
+            ("https://github.com/../example/pull/7", "https://github.com/../example.git"),
+            ("https://github.com/bayleafwalker/../pull/7", "git@github.com:bayleafwalker/...git"),
+            ("https://github.com/bayleafwalker/./pull/7", "git@github.com:bayleafwalker/.git"),
+            ("https://github.com/./example/pull/7", "https://github.com/./example"),
+        )
+        for pr_url, origin in dropped:
+            with self.subTest(pr_url=pr_url, origin_url=origin):
+                output = run_workflow(BUILD_WORKFLOW, args, publish="pr", prUrl=pr_url, originUrl=origin)
+                publication = output["result"]["publication"][0]
+                self.assertEqual((publication["published"], publication["action"]), (False, "pr-opened"))
+                self.assertNotIn("pr_url", publication)
+                check = close_evidence(call(output, "close:example"))[0]["delivery_check"]
+                self.assertEqual(check["publication"], "pr-opened")
+                self.assertNotIn("pr_url", check)
+                result = output["result"]["results"][0]
+                self.assertEqual((result["closed"], result["action"]), (False, "verified-undelivered"))
+
+    @requires_node
     def test_every_commit_the_builder_reports_is_a_unit_commit(self) -> None:
         # wf_7e4cde77-8dc: the builder made a test commit and a docs commit but listed only the last.
         output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}, extraCommit="api")
@@ -699,6 +942,14 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertIn("All unit commits (oracle, build, repairs): a0c0ffee b1617069", call(output, "verify:example:api")["prompt"])
         # A listed commit outside the range must already be published.
         self.assertIn("every listed commit must be in that range or already an ancestor of origin/main", call(output, "verify:example:api")["prompt"])
+
+    @requires_node
+    def test_verify_prompts_keep_worktree_in_a_variable_and_run_the_suite_first(self) -> None:
+        for path in (BUILD_WORKFLOW, VERIFY_WORKFLOW):
+            source = path.read_text(encoding="utf-8")
+            self.assertIn("Keep that directory path in a shell variable", source)
+            self.assertIn("never write it or any other state to a shared scratch or temp file outside that directory", source)
+            self.assertIn("Run the manifest's verification suite command verbatim before any other test command", source)
 
     @requires_node
     def test_a_failed_check_under_an_inconclusive_verdict_is_repaired(self) -> None:
@@ -801,11 +1052,36 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertNotIn("verify:example:cli", output["events"])
         self.assertNotIn("park:example:cli", output["events"])
         self.assertNotIn("build:example:docs", output["events"])
-        self.assertNotIn("publish:example", output["events"])
         self.assertIn("is not the head b1617069 left by the previous unit", output["result"]["halted"][0]["reason"])
+        # #2558: the halt is the publication boundary. The confirmed unit before it is published at its
+        # own tip; the halted unit's commits are not offered.
+        self.assertIn("publish:example", output["events"])
+        prompt = call(output, "publish:example")["prompt"]
+        self.assertTrue(names_tip(prompt, "b1617069"), "TIP is the last unit accounted for before the halt")
+        self.assertNotIn("b2636c69", prompt)
         by_item = {item["item_id"]: item for item in output["result"]["results"]}
-        # The earlier confirmed unit is intact on main but was not pushed, so it is not closed either.
-        self.assertFalse(by_item["1"]["closed"])
+        self.assertTrue(by_item["1"]["closed"])
+        self.assertFalse(by_item["2"]["closed"])
+
+    @requires_node
+    def test_a_halt_after_a_confirmed_unit_publishes_the_prefix_and_a_halt_on_the_first_withholds(self) -> None:
+        items = [
+            {"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"},
+            {"repo": "example", "item_id": 2, "unit": "cli", "tier": "bounded"},
+        ]
+        # A revert that does not apply halts on the second unit: api is still published at its tip.
+        second = run_workflow(BUILD_WORKFLOW, {"push": True, "items": items}, fail={"cli": "always"}, park="fail")
+        self.assertEqual(second["result"]["halted"][0]["repo"], "example")
+        self.assertIn("publish:example", second["events"])
+        prompt = call(second, "publish:example")["prompt"]
+        self.assertTrue(names_tip(prompt, "b1617069"))
+        for sha in ("b2636c69", "fa1636c69", "fa2636c69"):
+            self.assertNotIn(sha, prompt)
+        self.assertTrue({item["item_id"]: item for item in second["result"]["results"]}["1"]["closed"])
+        # A halt on the first unit leaves nothing accounted for: nothing is published.
+        first = run_workflow(BUILD_WORKFLOW, {"push": True, "items": items}, fail={"api": "always"}, park="fail")
+        self.assertNotIn("publish:example", first["events"])
+        self.assertEqual(first["result"]["publication"][0]["action"], "withheld-unverified-commits-on-main")
 
     @requires_node
     def test_verification_runs_at_the_head_the_builder_left(self) -> None:
@@ -887,15 +1163,18 @@ class SavedWorkflowTests(unittest.TestCase):
             ]},
         )
         labels = [entry["label"] for entry in output["calls"]]
-        for label in ("build:engine:api", "verify:engine:api", "publish:engine", "close:engine:example", "build:example:docs", "close:example"):
+        for label in ("build:engine:api", "verify:engine:api", "publish:engine", "build:example:docs", "close:example"):
             self.assertIn(label, labels)
+        # Both code repositories feed the example tracker: one closeout agent takes both items.
+        self.assertEqual(labels.count("close:example"), 1)
+        self.assertEqual(sorted(item["item_id"] for item in close_evidence(call(output, "close:example"))), ["1", "2"])
         for label in ("build:engine:api", "verify:engine:api", "route:engine:api"):
             prompt = call(output, label)["prompt"]
             self.assertIn("/projects/dev/engine", prompt)
             self.assertIn("tracked in example", prompt)
             self.assertIn("cd /projects/dev/example && sprintctl", prompt)
         self.assertNotIn("tracked in", call(output, "build:example:docs")["prompt"])
-        self.assertIn("/projects/dev/example", call(output, "close:engine:example")["prompt"])
+        self.assertIn("/projects/dev/example", call(output, "close:example")["prompt"])
         by_item = {item["item_id"]: item for item in output["result"]["results"]}
         self.assertEqual((by_item["1"]["repo"], by_item["1"]["code_repo"], by_item["1"]["closed"]), ("example", "engine", True))
         self.assertEqual((by_item["2"]["repo"], by_item["2"]["closed"]), ("example", True))
@@ -914,14 +1193,97 @@ class SavedWorkflowTests(unittest.TestCase):
         ]})
         labels = [entry["label"] for entry in output["calls"]]
         self.assertIn("build:engine:repo-batch-example", labels)
-        self.assertIn("close:engine:example", labels)
+        self.assertIn("close:example", labels)
         self.assertIn("close:engine", labels)
         self.assertEqual(labels.count("publish:engine"), 1)
-        self.assertEqual([item["item_id"] for item in close_evidence(call(output, "close:engine:example"))], ["1"])
+        self.assertEqual([item["item_id"] for item in close_evidence(call(output, "close:example"))], ["1"])
         self.assertEqual([item["item_id"] for item in close_evidence(call(output, "close:engine"))], ["2"])
         by_item = {item["item_id"]: item for item in output["result"]["results"]}
         self.assertEqual((by_item["1"]["repo"], by_item["1"]["code_repo"], by_item["1"]["closed"]), ("example", "engine", True))
         self.assertEqual((by_item["2"]["repo"], by_item["2"]["closed"]), ("engine", True))
+
+    @requires_node
+    def test_one_closeout_agent_per_tracker_across_code_repositories(self) -> None:
+        # #2560: closeout used to run once per (code-repo group, tracker), so a tracker feeding two code repos got two agents.
+        output = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [
+            {"repo": "tracker", "code_repo": "engine", "item_id": 1, "unit": "api", "tier": "bounded"},
+            {"repo": "tracker", "code_repo": "web", "item_id": 2, "unit": "webui", "tier": "bounded"},
+            {"repo": "tracker", "item_id": 3, "unit": "docs", "tier": "bounded"},
+            {"repo": "other", "item_id": 4, "unit": "sitework", "tier": "bounded"},
+        ]})
+        closes = [label for label in output["events"] if label.startswith("close:")]
+        self.assertEqual(sorted(closes), ["close:other", "close:tracker"])
+        self.assertEqual(sorted(item["item_id"] for item in close_evidence(call(output, "close:tracker"))), ["1", "2", "3"])
+        self.assertEqual([item["item_id"] for item in close_evidence(call(output, "close:other"))], ["4"])
+        # Each item's delivery check still names the code repository that published its commits.
+        checks = {item["item_id"]: item["delivery_check"]["code_repo"] for item in close_evidence(call(output, "close:tracker"))}
+        self.assertEqual(checks, {"1": "engine", "2": "web", "3": "tracker"})
+        by_item = {item["item_id"]: item for item in output["result"]["results"]}
+        self.assertEqual({item_id: entry.get("code_repo") for item_id, entry in by_item.items()}, {"1": "engine", "2": "web", "3": None, "4": None})
+        self.assertTrue(all(entry["closed"] for entry in by_item.values()))
+        # Closeout still waits for publication: it runs after every code repository has published.
+        last_publish = max(index for index, label in enumerate(output["events"]) if label.startswith("publish:"))
+        self.assertTrue(all(output["events"].index(label) > last_publish for label in closes))
+
+    @requires_node
+    def test_two_trackers_sharing_one_code_repo_without_an_explicit_unit(self) -> None:
+        # #2560: no unit on any item; each tracker gets its own default unit in the shared code repo.
+        output = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [
+            {"repo": "alpha", "code_repo": "engine", "item_id": 1, "tier": "bounded"},
+            {"repo": "beta", "code_repo": "engine", "item_id": 2, "tier": "bounded"},
+            {"repo": "engine", "item_id": 3, "tier": "bounded"},
+        ]})
+        labels = output["events"]
+        for label in ("build:engine:repo-batch-alpha", "build:engine:repo-batch-beta", "build:engine:repo-batch"):
+            self.assertEqual(labels.count(label), 1)
+        # Units of one code repository build and verify one after another, on one published main.
+        builds = [label for label in labels if label.startswith("build:")]
+        self.assertEqual(builds, ["build:engine:repo-batch-alpha", "build:engine:repo-batch-beta", "build:engine:repo-batch"])
+        self.assertEqual(labels.count("publish:engine"), 1)
+        for tracker, item_id in (("alpha", "1"), ("beta", "2"), ("engine", "3")):
+            self.assertEqual([item["item_id"] for item in close_evidence(call(output, f"close:{tracker}"))], [item_id])
+        self.assertEqual(sorted(label for label in labels if label.startswith("close:")), ["close:alpha", "close:beta", "close:engine"])
+        by_item = {item["item_id"]: item for item in output["result"]["results"]}
+        self.assertEqual({item_id: (entry["repo"], entry.get("code_repo"), entry["closed"]) for item_id, entry in by_item.items()}, {
+            "1": ("alpha", "engine", True),
+            "2": ("beta", "engine", True),
+            "3": ("engine", None, True),
+        })
+
+    @requires_node
+    def test_an_adopted_oracle_commit_is_declared_as_a_unit_commit(self) -> None:
+        # #2560 (wf_9e863b5e-e5f, wf_a1a1421d-7b8): an oracle commit from an earlier run was on main but not a listed unit commit.
+        output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}, adoptedOracle="api")
+        build_prompt = call(output, "build:example:api")["prompt"]
+        self.assertIn('"oracle: <commit>"', build_prompt)
+        self.assertIn("adopted_oracle_commits", build_prompt)
+        self.assertIn("do not cherry-pick it", build_prompt)
+        verify_prompt = call(output, "verify:example:api")["prompt"]
+        self.assertIn("All unit commits (oracle, build, repairs): 240ab790 b1617069", verify_prompt)
+        self.assertIn("Adopted oracle commit(s) from an earlier run", verify_prompt)
+        self.assertIn("240ab790", verify_prompt.split("Adopted oracle commit(s)")[1].split("\n")[0])
+        self.assertIn("frozen", verify_prompt)
+        # The unit's commits, adopted oracle included, are the ones a close checks against origin/main.
+        check = close_evidence(call(output, "close:example"))[0]
+        self.assertEqual(check["verdict"], "confirmed")
+        # A builder that adopts nothing adds no adopted-oracle line.
+        plain = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]})
+        self.assertNotIn("Adopted oracle commit(s)", call(plain, "verify:example:api")["prompt"])
+        # Only well-formed SHAs are declared.
+        junk = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}, adoptedOracle="junk")
+        self.assertNotIn("Adopted oracle commit(s)", call(junk, "verify:example:api")["prompt"])
+        self.assertIn("All unit commits (oracle, build, repairs): b1617069\n", call(junk, "verify:example:api")["prompt"])
+
+    @requires_node
+    def test_an_adopted_oracle_commit_is_published_and_delivered_with_the_unit(self) -> None:
+        output = run_workflow(
+            BUILD_WORKFLOW,
+            {"push": True, "items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]},
+            adoptedOracle="api",
+        )
+        self.assertIn("- 240ab790", call(output, "publish:example")["prompt"])
+        self.assertIn("240ab790", close_evidence(call(output, "close:example"))[0]["delivery_check"]["commits"])
+        self.assertEqual(output["result"]["publication"][0]["published"], True)
 
     @requires_node
     def test_a_failed_push_of_the_code_repo_keeps_cross_tracker_items_open(self) -> None:
@@ -933,7 +1295,7 @@ class SavedWorkflowTests(unittest.TestCase):
         result = output["result"]["results"][0]
         # Verified work stays open, named as undelivered, rather than being sent back to rework.
         self.assertEqual((result["repo"], result["verdict"], result["closed"], result["action"]), ("example", "confirmed", False, "verified-undelivered"))
-        check = close_evidence(call(output, "close:engine:example"))[0]["delivery_check"]
+        check = close_evidence(call(output, "close:example"))[0]["delivery_check"]
         self.assertEqual((check["code_repo"], check["publication"]), ("engine", "push-rejected"))
 
     @requires_node
@@ -1170,6 +1532,21 @@ class SavedWorkflowTests(unittest.TestCase):
         # A protected or diverged main gets a PR hand-back instead of stranding verified work.
         self.assertIsNotNone(re.search(r"\bPR\b|pull request", when), "whenToUse mentions the PR hand-back")
         self.assertIn("protected", when)
+
+    @requires_node
+    def test_build_when_to_use_and_final_log_describe_the_verified_prefix(self) -> None:
+        source = BUILD_WORKFLOW.read_text(encoding="utf-8")
+        match = re.search(r"whenToUse: '((?:[^'\\]|\\.)*)'", source)
+        self.assertIsNotNone(match, "the build workflow declares meta.whenToUse")
+        when = match.group(1)
+        self.assertIn("verified prefix", when)
+        self.assertIn("refs/dispatch/verified", when)
+        self.assertNotIn("withheld while any unit is unverified", when)
+        output = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]})
+        logs = "\n".join(output["logs"])
+        self.assertIn("verified prefix", logs)
+        self.assertIn("refs/dispatch/verified", logs)
+        self.assertNotIn("withheld while any unit is unverified", logs)
 
     def test_workflows_expose_focused_orchestration_services(self) -> None:
         build_source = BUILD_WORKFLOW.read_text(encoding="utf-8")

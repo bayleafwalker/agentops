@@ -1,7 +1,7 @@
 export const meta = {
   name: 'vuoro-dispatch-build',
   description: 'Value-routing build pipeline: route -> refine or write an oracle when that is what the unit needs -> build against the oracle -> independent verify -> bounded repair -> park what still fails -> publish verified work -> close. Nothing is escalated to the operator by default; units that cannot be finished become refined backlog, not blockers.',
-  whenToUse: 'Dispatch/execution for sprint items. Invoke with Workflow({scriptPath: "/projects/dev/agentops/.claude/workflows/vuoro-dispatch-build.js"}, {args: {items: [{repo, code_repo?, item_id, description?, unit?, tier?: "bounded"|"standard"|"hard"}], push?: boolean, verify_timeout_seconds?: number, record_decisions?: boolean}}). Give related items the same unit; give independent same-repo scopes different units. repo is the tracker that holds the item; code_repo (default: repo) is where its code is built, verified and published, so an item tracked in one repository can change another. push is refused when any item\'s tracker repo or code_repo is appservice. Items do not need to be pre-planned: the router sends undecided units to a frontier refiner and units without a deterministic check to an oracle author before building. A caller-supplied tier on every item of a unit means planning is done and the unit goes straight to build. Same-repo units run sequentially and each is verified (with up to two repair rounds) before the next builds on it; a unit that still fails is reverted and handed back to the backlog with its findings while later units continue. Push, when requested, publishes all verified work and the reverts; when main is protected or has diverged (a refused push) or the work touches protected paths, the verified head is pushed to a dispatch/publish-<sha> branch and handed back as an open PR (to merge with a merge commit; the workflow never merges it) instead of being stranded. record_decisions (default true) records each unit route and outcome as dispatch.route.decision events.',
+  whenToUse: 'Dispatch/execution for sprint items. Invoke with Workflow({scriptPath: "/projects/dev/agentops/.claude/workflows/vuoro-dispatch-build.js"}, {args: {items: [{repo, code_repo?, item_id, description?, unit?, tier?: "bounded"|"standard"|"hard"}], push?: boolean, verify_timeout_seconds?: number, record_decisions?: boolean}}). Give related items the same unit; give independent same-repo scopes different units. repo is the tracker that holds the item; code_repo (default: repo) is where its code is built, verified and published, so an item tracked in one repository can change another. push is refused when any item\'s tracker repo or code_repo is appservice. Items do not need to be pre-planned: the router sends undecided units to a frontier refiner and units without a deterministic check to an oracle author before building. A caller-supplied tier on every item of a unit means planning is done and the unit goes straight to build. Same-repo units run sequentially and each is verified (with up to two repair rounds) before the next builds on it; a unit that still fails is reverted and handed back to the backlog with its findings while later units continue. Push, when requested, publishes the verified prefix: the confirmed and parked units up to the first unverified or halted unit, at that unit\'s starting tip, with the reverts of parked units; verified ranges are recorded under refs/dispatch/verified so a later run publishes commits an earlier run stranded; when main is protected or has diverged (a refused push) or the work touches protected paths, the verified head is pushed to a dispatch/publish-<sha> branch and handed back as an open PR (to merge with a merge commit; the workflow never merges it) instead of being stranded. record_decisions (default true) records each unit route and outcome as dispatch.route.decision events.',
   phases: [
     { title: 'Route' },
     { title: 'Refine' },
@@ -155,6 +155,7 @@ const BUILD_SCHEMA = {
     base_sha: { type: 'string', pattern: '^[0-9a-f]{7,64}$' },
     head_sha: { type: 'string', pattern: '^[0-9a-f]{7,64}$' },
     commits: { type: 'array', items: { type: 'string', pattern: '^[0-9a-f]{7,64}$' } },
+    adopted_oracle_commits: { type: 'array', items: { type: 'string', pattern: '^[0-9a-f]{7,64}$' } },
     blocked: { type: 'string' },
     shared_constraints: { type: 'array', items: { type: 'string' } },
   },
@@ -212,6 +213,7 @@ const PUBLISH_SCHEMA = {
     action: { type: 'string' },
     head_sha: { type: 'string' },
     pr_url: { type: 'string' },
+    origin_url: { type: 'string' },
     error: { type: 'string' },
   },
 }
@@ -599,6 +601,7 @@ Reasoning unit: ${unit.unit}
 ${itemDataLines(unit.items)}
 ${oracleBlock(oracle, 'build')}
 Keep one accountable implementation context for this unit and process its items in dependency order. Do not create subagents. Before changing anything:
+0. Read each item's notes (sprintctl item show --id <id> --json, events[].summary and detail). A note whose summary is "oracle: <commit>" names an oracle commit an earlier run wrote for this item. If that commit is already an ancestor of HEAD (git merge-base --is-ancestor <sha> HEAD), do not cherry-pick it: list it in adopted_oracle_commits, so it is accounted for as a unit commit and frozen like an oracle written in this run. If it is not an ancestor of HEAD or origin/main, it is unpublished work: adopt it by cherry-picking it, and list the new commit in commits.
 1. Record git rev-parse HEAD as base_sha before any change. Inspect git status and record pre-existing changes. Preserve them. If they overlap this unit or prevent an isolated commit, stop and report blocked rather than staging or rewriting someone else's work.
 2. Confirm the items share the invariant or subsystem boundary declared by the unit. When implementation exposes a smaller decision the items did not settle, decide it in line with the recorded item decisions and the repository's documented direction, and note it in verification_summary. Return blocked only when pre-existing working-tree changes prevent an isolated commit or an item depends on unfinished work in another item.
 
@@ -611,7 +614,7 @@ For each item that is ready:
 
 If you reserved an item but cannot complete it, return it to pending (sprintctl item status --id <id> --status pending --reason partial --actor ${tierConfig.actor} --expected-revision <current status_revision>), release its reservation (sprintctl reservation release --id <reservation_id> --actor ${tierConfig.actor}), and do not return it as completed. Finish earlier completed work, set blocked to the precise reason, and stop; the unfinished items return to the backlog with your reason and later units still run.
 
-Return {repo: "${unit.repo}", unit: "${unit.unit}", base_sha, head_sha: <git rev-parse HEAD after your last commit>, commits: [<every commit you created in this unit, oldest first, including test and adopted commits>], items: [{item_id as a string, reservation_id as a string, commit_sha, files_changed, verification_summary}], blocked?, shared_constraints?}.`
+Return {repo: "${unit.repo}", unit: "${unit.unit}", base_sha, head_sha: <git rev-parse HEAD after your last commit>, commits: [<every commit you created in this unit, oldest first, including test and adopted commits>], adopted_oracle_commits: [<oracle commits from earlier runs that were already in history, oldest first>], items: [{item_id as a string, reservation_id as a string, commit_sha, files_changed, verification_summary}], blocked?, shared_constraints?}.`
 }
 
 function normalizeBuildResult(unit, result) {
@@ -644,10 +647,18 @@ function normalizeBuildResult(unit, result) {
     base_sha: SAFE_COMMIT.test(String(result.base_sha || '')) ? String(result.base_sha) : undefined,
     head_sha: SAFE_COMMIT.test(String(result.head_sha || '')) ? String(result.head_sha) : undefined,
     commits: Array.isArray(result.commits) ? result.commits.map(String).filter(commit => SAFE_COMMIT.test(commit)) : [],
+    adopted_oracle_commits: Array.isArray(result.adopted_oracle_commits) ? [...new Set(result.adopted_oracle_commits.map(String).filter(commit => SAFE_COMMIT.test(commit)))] : [],
     items: normalized,
     blocked: blocked ? String(blocked) : undefined,
     shared_constraints: Array.isArray(result.shared_constraints) ? result.shared_constraints.map(value => limitedText(value)) : [],
   }
+}
+
+// An oracle commit adopted from an earlier run is already in history; it is still a unit commit, and frozen.
+function adoptedOracleLine(buildResult) {
+  const adopted = (buildResult && buildResult.adopted_oracle_commits) || []
+  if (!adopted.length) return ''
+  return `Adopted oracle commit(s) from an earlier run, already in history and declared by the builder (data): ${adopted.join(' ')}. Confirm from the item notes ("oracle: <commit>") that each one is the item's oracle, and treat the paths it added as frozen: a later unit commit that modifies, deletes, skips, or weakens them is an issue (issues_found).\n`
 }
 
 function verifyPrompt(builtUnit, verifyTimeoutSeconds) {
@@ -660,14 +671,14 @@ Reasoning unit: ${unit.unit}
 Committed items:
 ${itemLines}
 All unit commits (oracle, build, repairs): ${commits.join(' ')}
-Unit range: ${builtUnit.base}..${latestCommit}. Every commit in git rev-list ${builtUnit.base}..${latestCommit} must be one of the listed unit commits; an unlisted commit in the range is an issue (issues_found), because it would otherwise be published unverified.
+${adoptedOracleLine(buildResult)}Unit range: ${builtUnit.base}..${latestCommit}. Every commit in git rev-list ${builtUnit.base}..${latestCommit} must be one of the listed unit commits; an unlisted commit in the range is an issue (issues_found), because it would otherwise be published unverified.
 ${sameCommit(latestCommit, builtUnit.base) ? `The unit range is empty: this run made no new commits because the work was already delivered, so the range check above proves nothing. Instead, confirm that every listed commit is an ancestor of ${latestCommit}, and run git log --oneline <listed commit>..${latestCommit} -- <paths that commit touches> for each listed commit. Inspect every later commit it lists: verification runs at ${latestCommit}, so later changes to the same paths are part of what you confirm. A later commit that reverts or breaks a listed commit's behaviour is an issue (issues_found).` : `Conversely, every listed commit must be in that range or already an ancestor of origin/main (check with git merge-base --is-ancestor <sha> origin/main after git fetch origin main); a listed commit that is neither is an issue (issues_found), because publication would push it as expected work.`}
 ${oracleBlock(oracle, 'verify')}
 For the unit as a whole:
 1. Read AGENTS.md, the root dispatch manifest, overlays, risk_surfaces, and each live sprint item. Verify that these items really form one coherent unit and that every acceptance criterion is represented. Read each item's notes with sprintctl item show --id <id> --json (events[].summary and detail). Every part of each item's description, and of any "refinement: original intent" note, must be delivered by the unit commits or named in a "refinement: intent moved" or "build: scope moved" note that points at a follow-up item. A part that is neither delivered nor moved is an issue (issues_found), even when the reason given for dropping it is plausible. A move must also hold up: confirm with sprintctl item show that each follow-up item exists and names that exact part, and accept only three reasons: another repository owns it; only the operator can do it (check that no agent-reachable route exists, such as credentials or tools already available to agents); or it is moot (re-check the cited evidence yourself). Moving work that an agent could do in this repository is an issue.
-2. Create one collision-resistant detached worktree at the latest unit commit (${latestCommit}): make a directory with mktemp -d using a /tmp/verify-${unit.repo}-${unit.unit}-XXXXXX template, then git worktree add --detach <that-directory> ${latestCommit}. Never touch the shared working tree.
+2. Create one collision-resistant detached worktree at the latest unit commit (${latestCommit}): make a directory with mktemp -d using a /tmp/verify-${unit.repo}-${unit.unit}-XXXXXX template, then git worktree add --detach <that-directory> ${latestCommit}. Never touch the shared working tree. Keep that directory path in a shell variable (for example WT=$(mktemp -d ...)) and pass it by value; never write it or any other state to a shared scratch or temp file outside that directory, and never run a command in a worktree you did not create.
 3. Inspect every listed commit with git show and the combined unit diff. Reject unrelated changes, accidental inclusion of pre-existing work, silent scope expansion, and skipped criteria.
-4. In the isolated worktree, cold-run the smallest deterministic checks first. Then run the repository's full test suite (the manifest's full-suite command, or the repository's standard test command) once for this unit: a change can break tests far from the files it touches. Every command must stay foreground and blocking and use timeout --foreground ${verifyTimeoutSeconds}s (or an equally strict foreground timeout if coreutils timeout is unavailable). Never use &, nohup, a background tool mode, detached execution, or polling. A timeout is evidence of an incomplete gate, not permission to wait indefinitely.
+4. In the isolated worktree, Run the manifest's verification suite command verbatim before any other test command: never start with a bare pytest or a tool from outside the manifest's environment (for example node from /nix/store instead of the manifest's nix shell). Then cold-run the smallest deterministic checks first. Then run the repository's full test suite (the manifest's full-suite command, or the repository's standard test command) once for this unit: a change can break tests far from the files it touches. Every command must stay foreground and blocking and use timeout --foreground ${verifyTimeoutSeconds}s (or an equally strict foreground timeout if coreutils timeout is unavailable). Never use &, nohup, a background tool mode, detached execution, or polling. A timeout is evidence of an incomplete gate, not permission to wait indefinitely.
 5. Record exact redacted commands and outcomes in checks_run. Record the broader gate separately in full_suite. Classify an outcome by what failed, not by the exit code. failed means the code under test is wrong: an assertion, an error raised by repository code, an import of a repository module, or a build or type error in changed code. not_available means the check could not run as written, independent of this change, and you have shown it fails the same way at the unit base: a third-party dependency the command does not install (for example ModuleNotFoundError for a package that CI installs), a missing tool or interpreter, a network or package-index failure, a harness or runner crash before tests execute, or a permission error on infrastructure. Anything caused by a file the unit touches is failed, never not_available: a new import of an undeclared dependency, or an edit to test configuration, conftest, fixtures or a lockfile that crashes the runner. When the only failures are not_available, do not report issues_found: record them as not_available, say what was missing in the reason, and give the verdict inconclusive. If the repository's CI configuration installs the missing dependency, you may re-run the command once with that dependency added (the CI-equivalent environment) and record that run as its own check, keeping the original not_available check in checks_run. The re-run is diagnostic: it tells the next pass whether the code is sound, but the unit stays inconclusive until the declared command runs. Name the command gap in full_suite.reason so it can be fixed. A required gate that failed, timed out, or could not run prevents confirmation. full_suite may be not_required only when the unit changes no executable code and no tests (documentation or data only), and the reason must say so.
 6. Remove the exact worktree with git worktree remove even after a failed check. Do not delete or clean any broader /tmp path.
 
@@ -870,24 +881,40 @@ async function processRepo(group, verifyTimeoutSeconds) {
     unverified: [],
     operatorActions: [],
     publishCommits: [],
+    verifiedRanges: [],
+    // Set when the first unit ends unverified or halts: the head just before it, and its item ids.
+    boundary: undefined,
     halted: undefined,
   }
   // The workflow's own record of where main is. Each unit must start from it,
   // so a wrong base reported by an agent can never reach back into an earlier
   // unit's commits. Unknown until the first unit reports it.
   let head
-  const halt = (decision, reason) => {
+  // Publication carries the verified prefix: everything accounted for before the
+  // first unverified or halted unit. Later units build on that unit's commits, so
+  // they cannot be published without rebasing.
+  const markBoundary = itemIds => {
+    if (!state.boundary) state.boundary = { tip: head, item_ids: itemIds }
+  }
+  const recordRange = (rangeBase, rangeTip) => {
+    if (rangeBase && rangeTip && SAFE_COMMIT.test(rangeBase) && SAFE_COMMIT.test(rangeTip) && !sameCommit(rangeBase, rangeTip)) {
+      state.verifiedRanges.push({ base: rangeBase, tip: rangeTip })
+    }
+  }
+  const halt = (decision, reason, itemIds) => {
+    markBoundary(itemIds)
     decision.outcome = 'halted'
     state.halted = reason
   }
   const park = async (decision, workUnit, base, builtUnit, summary) => {
     const parked = await parkUnit(workUnit, base)
     if (!parked.reverted) {
-      halt(decision, `${workUnit.unit}: park did not revert the unit (${parked.error}); later units in this repo were not started. To set the unit aside, run git branch parked/${workUnit.unit} HEAD && git reset --keep ${base}; this moves only local main and leaves origin untouched.`)
+      halt(decision, `${workUnit.unit}: park did not revert the unit (${parked.error}); later units in this repo were not started. To set the unit aside, run git branch parked/${workUnit.unit} HEAD && git reset --keep ${base}; this moves only local main and leaves origin untouched.`, workUnit.items.map(item => item.item_id))
     } else {
       head = parked.revert_commits.length ? parked.revert_commits[parked.revert_commits.length - 1] : base
       decision.outcome = 'parked'
-      state.publishCommits.push(...parked.reverted_commits, ...parked.revert_commits)
+      recordRange(base, head)
+      if (!state.boundary) state.publishCommits.push(...parked.reverted_commits, ...parked.revert_commits)
       state.parked.push({ unit: workUnit.unit, item_ids: workUnit.items.map(item => item.item_id), revert_commits: parked.revert_commits })
     }
     if (builtUnit) {
@@ -962,7 +989,7 @@ async function processRepo(group, verifyTimeoutSeconds) {
       ? 'no base commit was reported'
       : (head && !sameCommit(base, head) ? `reported base ${base} is not the head ${head} left by the previous unit` : undefined)
     if (baseProblem) {
-      halt(decision, `${unit.unit}: ${baseProblem}, so this unit's commits cannot be accounted for; later units in this repo were not started`)
+      halt(decision, `${unit.unit}: ${baseProblem}, so this unit's commits cannot be accounted for; later units in this repo were not started`, workUnit.items.map(item => item.item_id))
       if (buildResult.items.length) {
         state.verifiedUnits.push({ unit: workUnit, tierInfo: { tier }, buildResult, oracle, commits: [], verifyResult: syntheticVerify(workUnit, buildResult.items, 'unit base unknown; not verified') , unverified: true })
       }
@@ -983,7 +1010,7 @@ async function processRepo(group, verifyTimeoutSeconds) {
       oracle,
       base,
       tip,
-      commits: [...new Set([...(oracle && oracle.commit_sha ? [oracle.commit_sha] : []), ...(buildResult.commits || []), ...buildResult.items.map(item => item.commit_sha)])],
+      commits: [...new Set([...(oracle && oracle.commit_sha ? [oracle.commit_sha] : []), ...(buildResult.adopted_oracle_commits || []), ...(buildResult.commits || []), ...buildResult.items.map(item => item.commit_sha)])],
     }
     if (unbuilt.length && oracle && oracle.kind === 'tests') {
       // The oracle covers the whole unit, so a partial build cannot pass it.
@@ -1020,19 +1047,24 @@ async function processRepo(group, verifyTimeoutSeconds) {
     if (unitConfirmed(verifyResult)) {
       decision.outcome = 'confirmed'
       head = builtUnit.tip
-      state.publishCommits.push(...builtUnit.commits)
-      state.verifiedUnits.push(builtUnit)
+      recordRange(builtUnit.base, builtUnit.tip)
+      if (!state.boundary) state.publishCommits.push(...builtUnit.commits)
+      state.verifiedUnits.push(state.boundary ? { ...builtUnit, withheldBehind: state.boundary.item_ids } : builtUnit)
     } else if (hasIssues(verifyResult)) {
       await park(decision, workUnit, base, builtUnit)
     } else {
       // Verification could not reach a verdict. The work is not reverted -- it may be
       // good -- but it is not published or closed; reservations are released for a rerun.
       decision.outcome = 'unverified'
+      const unverifiedIds = builtUnit.buildResult.items.map(item => item.item_id)
+      markBoundary(unverifiedIds)
       head = builtUnit.tip
-      state.unverified.push({ unit: unit.unit, item_ids: builtUnit.buildResult.items.map(item => item.item_id), base })
+      state.unverified.push({ unit: unit.unit, item_ids: unverifiedIds, base })
       state.verifiedUnits.push({ ...builtUnit, unverified: true })
     }
   }
+  // With no boundary the whole head is verified; otherwise publication stops at the boundary.
+  state.publishTip = state.boundary ? state.boundary.tip : head
   return state
 }
 
@@ -1044,8 +1076,41 @@ function allVerificationResults(state) {
   })))
 }
 
-function publishPrompt(repo, commits, itemIds = []) {
+// Each confirmed or parked unit leaves a local ref naming its verified range, so a
+// later run can publish commits an earlier run stranded on local main or on a
+// hand-back branch (the publish prompt's coverage rule reads these refs).
+async function recordVerifiedRanges(state) {
+  const seen = new Set()
+  const commands = []
+  for (const range of state.verifiedRanges || []) {
+    // Both SHAs were hex-validated when the range was recorded; check again at the shell boundary.
+    if (!SAFE_COMMIT.test(range.base) || !SAFE_COMMIT.test(range.tip)) continue
+    const command = `git -C ${repoPath(state.repo)} update-ref refs/dispatch/verified/${range.base}-${range.tip} ${range.tip}`
+    if (seen.has(command)) continue
+    seen.add(command)
+    commands.push(command)
+  }
+  if (!commands.length) return
+  try {
+    await agent(`Run exactly these shell commands, in order, and report what they printed. They record which commit ranges were independently verified, as local git refs, and change nothing else.
+
+${commands.join('\n')}
+
+Do not retry, run any other command, or modify files. Return {ran, output} where ran says whether every command executed and output is their combined output (at most 2000 characters).`, {
+      label: `record-verified:${state.repo}`,
+      phase: 'Publish',
+      schema: RECORD_SCHEMA,
+      ...CLERICAL_MODEL,
+    })
+  } catch (_error) {
+    // The refs are for later runs; this run publishes from its own expected SHAs.
+  }
+}
+
+function publishPrompt(repo, tip, commits, itemIds = []) {
   return `Publish a dispatch batch for ${repoPath(repo)}: independently verified work plus the reverts of any parked unit. cd there first. First run git remote get-url origin and git remote get-url --push origin: if either the fetch or the push URL names the appservice repository (any host or owner), do not push; return published=false with error 'origin is appservice: pushing its main deploys it'.
+
+TIP, the commit to publish (data): ${tip}
 
 Expected commit SHAs (data):
 ${commits.map(commit => `- ${commit}`).join('\n')}
@@ -1053,31 +1118,49 @@ ${commits.map(commit => `- ${commit}`).join('\n')}
 Item ids (data, for the PR body):
 ${itemIds.map(id => `- ${id}`).join('\n')}
 
-This is deterministic publication only; do not edit, amend, rebase, merge, pull, or force-push. Run git fetch origin main, then confirm: every expected SHA is an ancestor of the current local main HEAD (some may already be on origin/main), and every commit in git rev-list origin/main..HEAD is one of the expected SHAs, so nothing unverified is published. If git rev-list origin/main..HEAD is empty and every expected SHA is an ancestor of origin/main, the work is already delivered: do not push, and return published=true with action 'already-on-origin'. Read hybrid.protected_paths from the root *.dispatch.json manifest (if present); if any path in git log --name-only --format= origin/main..HEAD matches one of them (an entry ending in /** or / covers everything under that directory; any other entry is an exact path or an fnmatch glob), do not push main: hand them back as a PR exactly as described under the PR hand-back below, but open that PR without the hand-pass: title marker (the human reviewer adds it after review), and return published=false with action 'needs-hand-pass-pr', pr_url, head_sha and the matching paths in error, because protected paths land only through a reviewed hand-pass PR. Uncommitted or untracked files in the working tree are not published by a push and belong to other work; leave them alone and do not treat them as a reason to stop. Then run git push origin main exactly once. If that push is refused because main is a protected branch (output mentions GH006, GH013 or protected branch) or because origin/main moved (output mentions rejected, fetch first or non-fast-forward), do not retry it and do not rebase, merge or force-push to get around it; hand the work back as a PR instead (PR hand-back). PR hand-back: let BRANCH be dispatch/publish-<first 12 hex of HEAD>. Push local HEAD to BRANCH without force (git push origin HEAD:refs/heads/BRANCH); if BRANCH already exists on origin at HEAD reuse it, and if it exists at any other tip that is an error: return published=false with the error. Then run gh pr list --head BRANCH --state open --json url and reuse an open PR for that head, otherwise create one with gh pr create --base main --head BRANCH. The PR body lists the expected SHAs and the item ids above and says to merge it with a merge commit, not squash or rebase, because the workflow checks those exact SHAs on origin/main afterwards. Never merge the PR, never enable auto-merge, never approve it. Return published=false, action 'pr-opened', pr_url (the PR's https://github.com URL) and head_sha. If any commit in origin/main..HEAD is not expected, do not push; return published=false and list the unexpected SHAs in error. If ancestry, the branch (not main, detached HEAD, or a merge or rebase in progress), the remote, authentication, or non-fast-forward state is unexpected, stop without changing history and return published=false with the error. Return {repo: "${repo}", published, action, head_sha?, pr_url?, error?}.`
+This is deterministic publication only; do not edit, amend, rebase, merge, pull, or force-push. Local HEAD may carry commits beyond TIP that were never verified; they are never published, so always publish TIP and never HEAD. Run git fetch origin main, then confirm TIP is an ancestor of the current local HEAD, every expected SHA is an ancestor of TIP (some may already be on origin/main), and every commit in git rev-list origin/main..TIP is either one of the expected SHAs or covered by a recorded verified range, so nothing unverified is published. A commit X is covered by a verified range when, for some ref refs/dispatch/verified/<b>-<t> (list them with git for-each-ref refs/dispatch/verified), <t> is an ancestor of TIP and X is listed by git rev-list <b>..<t>. Once fetched, delete each verified ref whose tip is an ancestor of origin/main with git update-ref -d refs/dispatch/verified/<b>-<t>. If any commit in origin/main..TIP is neither an expected SHA nor covered by a verified range, it is unexpected: do not push; return published=false and list the unexpected SHAs in error. If git rev-list origin/main..TIP is empty and every expected SHA is an ancestor of origin/main, the work is already delivered: do not push, and return published=true with action 'already-on-origin'. Read hybrid.protected_paths from the root *.dispatch.json manifest (if present); if any path in git log --name-only --format= origin/main..TIP matches one of them (an entry ending in /** or / covers everything under that directory; any other entry is an exact path or an fnmatch glob), do not push main: hand them back as a PR exactly as described under the PR hand-back below, but open that PR without the hand-pass: title marker (the human reviewer adds it after review), and return published=false with action 'needs-hand-pass-pr', pr_url, head_sha and the matching paths in error, because protected paths land only through a reviewed hand-pass PR. Uncommitted or untracked files in the working tree are not published by a push and belong to other work; leave them alone and do not treat them as a reason to stop. Then run git push origin TIP:refs/heads/main exactly once. If that push is refused because main is a protected branch (output mentions GH006, GH013 or protected branch) or because origin/main moved (output mentions rejected, fetch first or non-fast-forward), do not retry it and do not rebase, merge or force-push to get around it; hand the work back as a PR instead (PR hand-back). PR hand-back: let BRANCH be dispatch/publish-<first 12 hex of TIP>. Push TIP to BRANCH without force (git push origin TIP:refs/heads/BRANCH); if BRANCH already exists on origin at TIP reuse it, and if it exists at any other tip that is an error: return published=false with the error. Then run gh pr list --state open --json headRefName,headRefOid,url and note every open PR whose headRefName matches dispatch/publish-* and whose headRefOid is an ancestor of TIP (git merge-base --is-ancestor): this PR contains it. Run gh pr list --head BRANCH --state open --json url and reuse an open PR for that head, otherwise create one with gh pr create --base main --head BRANCH. The PR body lists the expected SHAs and the item ids above, names each contained earlier dispatch/publish-* PR by its URL as contained in this PR, and says to merge it with a merge commit, not squash or rebase, because the workflow checks those exact SHAs on origin/main afterwards. Never merge the PR, never close or edit an earlier PR, never enable auto-merge, never approve it. Return published=false, action 'pr-opened', pr_url (the PR's https://github.com URL) and head_sha. If ancestry, the branch (not main, detached HEAD, or a merge or rebase in progress), the remote, authentication, or TIP not being an ancestor of local HEAD is unexpected before any push, stop without changing history and return published=false with the error. A push that the remote refuses is not that case: it goes to the PR hand-back. Return {repo: "${repo}", published, action, head_sha?, pr_url?, origin_url, error?} where origin_url is the fetch URL printed by git remote get-url origin, reported on every outcome.`
 }
 
 // A PR hand-back is trusted only in this exact shape: it reaches close prompts and notes.
-const PR_URL = /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/pull\/[0-9]+$/
+const PR_URL = /^https:\/\/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)\/pull\/[0-9]+$/
+const ORIGIN_URL = /^(?:https:\/\/github\.com\/|git@github\.com:)([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?\/?$/
+
+// The PR must belong to the repository this checkout pushes to, not merely look like a PR.
+function prUrlMatchesOrigin(prUrl, originUrl) {
+  if (typeof prUrl !== 'string' || typeof originUrl !== 'string') return false
+  const pr = PR_URL.exec(prUrl)
+  const origin = ORIGIN_URL.exec(originUrl.trim())
+  if (!pr || !origin) return false
+  const segments = [pr[1], pr[2], origin[1], origin[2]]
+  if (segments.some(segment => segment === '.' || segment === '..')) return false
+  return pr[1].toLowerCase() === origin[1].toLowerCase() && pr[2].toLowerCase() === origin[2].toLowerCase()
+}
 
 async function publishRepo(state, push) {
+  await recordVerifiedRanges(state)
   if (!push) return { ...state, publication: { repo: state.repo, published: false, action: 'not-requested' } }
-  if (state.halted) {
-    return { ...state, publication: { repo: state.repo, published: false, action: 'withheld-unverified-commits-on-main', error: state.halted } }
-  }
-  if (state.unverified.length) {
-    return { ...state, publication: { repo: state.repo, published: false, action: 'withheld-unverified-units', error: state.unverified.map(entry => entry.unit).join(', ') } }
-  }
   const commits = [...new Set(state.publishCommits)]
-  if (!commits.length) return { ...state, publication: { repo: state.repo, published: false, action: 'nothing-to-publish' } }
-  const itemIds = [...new Set(state.verifiedUnits.flatMap(unit => (unit.buildResult && unit.buildResult.items || []).map(item => String(item.item_id))))]
+  const tip = state.publishTip
+  if (!commits.length || !tip || !SAFE_COMMIT.test(tip)) {
+    // Nothing accounted for before the first unverified or halted unit, so there is no tip to publish.
+    if (state.halted) {
+      return { ...state, publication: { repo: state.repo, published: false, action: 'withheld-unverified-commits-on-main', error: state.halted } }
+    }
+    if (state.unverified.length) {
+      return { ...state, publication: { repo: state.repo, published: false, action: 'withheld-unverified-units', error: state.unverified.map(entry => entry.unit).join(', ') } }
+    }
+    return { ...state, publication: { repo: state.repo, published: false, action: 'nothing-to-publish' } }
+  }
+  // Units behind the boundary and the unit that formed it are not part of this publication.
+  const itemIds = [...new Set(state.verifiedUnits.filter(unit => !unit.unverified && !unit.withheldBehind).flatMap(unit => (unit.buildResult && unit.buildResult.items || []).map(item => String(item.item_id))))]
     .filter(id => /^[0-9]{1,12}$/.test(id))
-  const raw = await agent(publishPrompt(state.repo, commits, itemIds), {
+  const raw = await agent(publishPrompt(state.repo, tip, commits, itemIds), {
     label: `publish:${state.repo}`,
     phase: 'Publish',
     schema: PUBLISH_SCHEMA,
     ...CLERICAL_MODEL,
   })
-  const prUrl = raw && typeof raw.pr_url === 'string' && PR_URL.test(raw.pr_url) ? raw.pr_url : undefined
+  const prUrl = raw && prUrlMatchesOrigin(raw.pr_url, raw.origin_url) ? raw.pr_url : undefined
   const publication = raw && raw.published
     ? { repo: state.repo, published: true, action: String(raw.action), head_sha: String(raw.head_sha || '') }
     : {
@@ -1105,12 +1188,23 @@ function effectiveClosePairs(state, push) {
         },
       }
     }
-    if (state.publication.published || pair.result.verdict !== 'confirmed') return pair
-    // Not published by this run (push not requested, withheld, refused or failed): the item
-    // is done only if its unit's commits already reach origin/main; otherwise it stays open
-    // as verified but undelivered, so verified work never hides behind a done item.
-    const publication = /^[a-z0-9-]{1,64}$/.test(state.publication.action) ? state.publication.action : 'unrecognised'
-    return { ...pair, deliveryCheck: { code_repo: state.repo, commits: pair.builtUnit.commits, publication, ...(state.publication.pr_url ? { pr_url: state.publication.pr_url } : {}) } }
+    if (pair.result.verdict !== 'confirmed') return pair
+    // Every confirmed item is checked against origin/main at close, whatever publication
+    // reported: a false claim of publication must leave the item verified but undelivered.
+    const behind = unit.withheldBehind && state.publication.action !== 'not-requested'
+      ? unit.withheldBehind.filter(id => SAFE_ITEM_ID.test(id))
+      : undefined
+    const action = /^[a-z0-9-]{1,64}$/.test(state.publication.action) ? state.publication.action : 'unrecognised'
+    return {
+      ...pair,
+      deliveryCheck: {
+        code_repo: state.repo,
+        commits: unit.commits,
+        publication: behind ? 'withheld-behind-unverified' : action,
+        ...(behind ? { withheld_behind: behind } : {}),
+        ...(!behind && state.publication.pr_url ? { pr_url: state.publication.pr_url } : {}),
+      },
+    }
   })
 }
 
@@ -1129,7 +1223,7 @@ function closePrompt(repo, pairs) {
 ${untrusted(JSON.stringify(evidence, null, 2))}
 
 For each item, using only the item_id, reservation_id, verdict, and delivery_check fields as identifiers:
-- If verdict is confirmed and the item has delivery_check, its work was not published by this run. In /projects/dev/<delivery_check.code_repo> run git fetch origin main, then git merge-base --is-ancestor <sha> origin/main for every SHA in delivery_check.commits (each is a validated hex SHA). If every check exits 0, the work is delivered: close the item as described next. Otherwise do not mark it done: add a note with summary 'verified, undelivered' that names the SHAs not on origin/main and delivery_check.publication, name delivery_check.pr_url in the note when it is present and say the next dispatch of the item closes it once that PR is merged (publication then returns already-on-origin), say in the note that this commit blocks every later publication of that repository until the item is dispatched again, so the next dispatch should run it first; return it to pending with sprintctl item status --id <item_id> --status pending --reason partial --actor workflow-independent-verify-gate --expected-revision <current status_revision>, release its reservation, and return closed=false with action 'verified-undelivered'. A later run takes it up again: its builder finds the work already committed, and publication delivers it.
+- If verdict is confirmed and the item has delivery_check, check its work against origin/main whatever this run's publication reported. In /projects/dev/<delivery_check.code_repo> run git fetch origin main, then git merge-base --is-ancestor <sha> origin/main for every SHA in delivery_check.commits (each is a validated hex SHA). If every check exits 0, the work is delivered: close the item as described next. Otherwise do not mark it done: add a note with summary 'verified, undelivered' that names the SHAs not on origin/main and delivery_check.publication, and name delivery_check.pr_url in the note when it is present and say the next dispatch of the item closes it once that PR is merged (publication then returns already-on-origin). When delivery_check.publication is withheld-behind-unverified, the unit was verified but sits behind an unverified unit: name the items in delivery_check.withheld_behind, say those items should be dispatched first, and say this unit's commits are recorded as verified under refs/dispatch/verified so it needs no rework and a later publication carries it. Return it to pending with sprintctl item status --id <item_id> --status pending --reason partial --actor workflow-independent-verify-gate --expected-revision <current status_revision>, release its reservation, and return closed=false with action 'verified-undelivered'. A later run takes it up again: its builder finds the work already committed, and publication delivers it.
 - If verdict is confirmed (and delivered), first add a concise decision note summarizing the independent evidence in your own shell-safe plain wording. Then read the item's current status revision (item.status_revision from sprintctl item show --id <item_id> --json) and run sprintctl item status --id <item_id> --status done --actor workflow-independent-verify-gate --expected-revision <that revision>. Then run sprintctl reservation release --id <reservation_id> --actor workflow-independent-verify-gate. Never rerun tests or modify Git here.
 - If verdict is issues_found or inconclusive, do not mark done. Add a concise note that hands the item back to backlog refinement: when outcome is parked, say the unit's commits were reverted after the repair rounds; summarize the verifier's concerns in your own words so the next refinement pass can use them. Then, if the item is active, return it to pending with sprintctl item status --id <item_id> --status pending --reason rework --actor workflow-independent-verify-gate --expected-revision <current status_revision>, and run sprintctl reservation release --id <reservation_id> --actor workflow-independent-verify-gate.
 - Reservations are advisory and carry no secret. On a revision conflict, re-read the item once and retry; if it still fails, report closed=false with the error. If an item has no reservation_id, skip the release step.
@@ -1138,7 +1232,7 @@ For each item, using only the item_id, reservation_id, verdict, and delivery_che
 Return exactly one result per item: {repo: "${repo}", results: [{item_id, closed, action, note?}]}.`
 }
 
-function normalizeCloseResults(repo, codeRepo, pairs, raw) {
+function normalizeCloseResults(repo, pairs, raw) {
   const returned = new Map()
   for (const result of raw && Array.isArray(raw.results) ? raw.results : []) {
     const itemId = String(result && result.item_id)
@@ -1157,7 +1251,7 @@ function normalizeCloseResults(repo, codeRepo, pairs, raw) {
       action: 'close-agent-omitted-item',
     }),
     repo,
-    ...(codeRepo !== repo ? { code_repo: codeRepo } : {}),
+    ...(pair.codeRepo !== repo ? { code_repo: pair.codeRepo } : {}),
     unit: pair.builtUnit.unit.unit,
     commit_sha: pair.item.commit_sha,
     verdict: pair.result.verdict,
@@ -1166,27 +1260,32 @@ function normalizeCloseResults(repo, codeRepo, pairs, raw) {
   }))
 }
 
-async function closeRepo(state, push) {
-  const pairs = effectiveClosePairs(state, push)
-  if (!pairs.length) return { ...state, closeResults: [] }
-  // Items are closed in the tracker that holds them, one closeout per tracker.
+// Items are closed in the tracker that holds them, and a tracker gets exactly one
+// closeout agent however many code repositories fed it (two concurrent agents on
+// one tracker are safe through expected-revision but wasteful). So closeout runs
+// once after every code repository has been published, not inside each one's pipeline.
+async function closeTrackers(states, push) {
   const byTracker = new Map()
-  for (const pair of pairs) {
-    const tracker = pair.builtUnit.unit.tracker || state.repo
-    if (!byTracker.has(tracker)) byTracker.set(tracker, [])
-    byTracker.get(tracker).push(pair)
-  }
-  const closeResults = []
-  for (const [tracker, trackerPairs] of byTracker) {
+  states.forEach((state, index) => {
+    for (const pair of effectiveClosePairs(state, push)) {
+      const tracker = pair.builtUnit.unit.tracker || state.repo
+      if (!byTracker.has(tracker)) byTracker.set(tracker, [])
+      byTracker.get(tracker).push({ ...pair, codeRepo: state.repo, stateIndex: index })
+    }
+  })
+  const closeResults = states.map(() => [])
+  await Promise.all([...byTracker].map(async ([tracker, trackerPairs]) => {
     const raw = await agent(closePrompt(tracker, trackerPairs), {
-      label: tracker === state.repo ? `close:${state.repo}` : `close:${state.repo}:${tracker}`,
+      label: `close:${tracker}`,
       phase: 'Close',
       schema: CLOSE_SCHEMA,
       ...CLERICAL_MODEL,
     })
-    closeResults.push(...normalizeCloseResults(tracker, state.repo, trackerPairs, raw))
-  }
-  return { ...state, closeResults }
+    normalizeCloseResults(tracker, trackerPairs, raw).forEach((result, index) => {
+      closeResults[trackerPairs[index].stateIndex].push(result)
+    })
+  }))
+  return states.map((state, index) => ({ ...state, closeResults: closeResults[index] }))
 }
 
 // Keep the workflow entrypoint loader-compatible (it evaluates one script as
@@ -1206,7 +1305,7 @@ const buildExecutionService = Object.freeze({
 })
 const buildPublicationService = Object.freeze({
   publishRepo,
-  closeRepo,
+  closeTrackers,
 })
 
 const parsedArgs = buildInputService.parseArgs(args)
@@ -1233,12 +1332,12 @@ const verifyTimeoutSeconds = buildInputService.boundedInteger(parsedArgs.verify_
 buildInputService.boundedInteger(parsedArgs.claim_ttl_seconds, 7200, 600, 21600, 'claim_ttl_seconds')
 const groups = buildInputService.groupByRepo(items)
 
-const perRepo = await pipeline(
+const published = await pipeline(
   groups,
   group => buildExecutionService.processRepo(group, verifyTimeoutSeconds),
   verifiedState => buildPublicationService.publishRepo(verifiedState, push),
-  publishState => buildPublicationService.closeRepo(publishState, push),
 )
+const perRepo = await buildPublicationService.closeTrackers(published.filter(Boolean), push)
 
 await recordDecisions()
 
@@ -1261,6 +1360,6 @@ const operator_actions = collect('operatorActions')
 const halted = states.filter(state => state.halted).map(state => ({ repo: state.repo, reason: state.halted }))
 const publication = states.map(state => state.publication)
 log(`Dispatched ${groups.length} repo(s): ${results.filter(result => result.closed).length} item(s) closed, ${refined.length} unit(s) refined, ${retired.length} retired, ${parked.length} parked back to backlog, ${unverified.length} left unverified, ${deferred.length} deferred.`)
-log(push ? 'Publication carries only verified work and the reverts of parked units, and is withheld while any unit is unverified; a protected or diverged main, or protected paths, get an open PR hand-back (merge it with a merge commit) instead of a push.' : 'Commits remain local because push was not requested.')
+log(push ? 'Publication carries the verified prefix (the confirmed and parked units up to the first unverified or halted unit, with the reverts of parked units); later runs publish verified ranges recorded under refs/dispatch/verified; a protected or diverged main, or protected paths, get an open PR hand-back (merge it with a merge commit) instead of a push.' : 'Commits remain local because push was not requested.')
 
 return { results, issues, inconclusive, refined, retired, deferred, parked, unverified, operator_actions, halted, publication }
