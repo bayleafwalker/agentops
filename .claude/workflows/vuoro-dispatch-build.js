@@ -299,7 +299,7 @@ function sprintctlScope(unit) {
 // The workflow tracks main's head itself, and park reverts everything after a unit's
 // base. A merge of origin inside a unit would be reverted with it, rolling back
 // upstream work, so agents that commit never bring other history into main.
-const HISTORY_RULE = 'Never merge, pull, rebase onto, or cherry-pick from origin or any other branch into main during this unit: commit only your own changes on top of the current HEAD. If main looks behind origin, say so in your result instead of syncing it. '
+const HISTORY_RULE = 'Never merge, pull, rebase, or fetch-and-reset main during this unit, and never cherry-pick a commit that is already on origin/main: build only on top of the current HEAD. You may adopt unpublished work that an item points to (for example a preserved wip branch) by cherry-picking it; it becomes one of your unit commits and must be reported as such. If main looks behind origin, say so in your result instead of syncing it. '
 
 // Agents report commits as short or full SHAs; two spellings of one commit are the same commit.
 function sameCommit(a, b) {
@@ -760,13 +760,13 @@ Return {repo: "${unit.repo}", unit: "${unit.unit}", commits: [<new commit shas, 
 }
 
 function parkPrompt(unit, base) {
-  return `Park one reasoning unit in ${repoPath(unit.repo)} whose work did not pass independent verification. cd there first. This is deterministic git bookkeeping; do not edit files by hand, rebase, reset, amend, or push.
+  return `Park one reasoning unit in ${repoPath(unit.repo)} whose work did not pass independent verification. cd there first. This is deterministic git bookkeeping; do not edit files by hand, merge, pull, rebase, reset, amend, or push.
 
 Unit: ${unit.unit}
 Unit base (data): ${base}
 
 1. Confirm the current branch is main, the working tree has no staged changes, and ${base} is an ancestor of HEAD.
-2. List the unit's commits with git rev-list ${base}..HEAD. If the list is empty, return reverted=true with empty lists. Then run git rev-list --merges ${base}..HEAD: if it lists any commit, revert nothing and return reverted=false with error 'merge commit in unit range: <sha>'. Reverting a merge would roll back the other side's history (for example upstream work merged from origin), so a merge in the range stops the repository instead.
+2. List the unit's commits with git rev-list ${base}..HEAD. If the list is empty, return reverted=true with empty lists. Then run git fetch origin main and check the range holds only unpublished work: git rev-list --merges ${base}..HEAD must be empty, and git rev-list ${base}..HEAD ^origin/main must list exactly the same commits as git rev-list ${base}..HEAD. If either check fails, revert nothing and return reverted=false with error 'unit range holds published or merged history: <sha>'. A merge, a fast-forward or rebase from origin, or a cherry-pick of an origin commit would otherwise be reverted and pushed as a rollback of upstream work.
 3. Revert them newest first with git revert --no-edit <sha>, one at a time.
 4. If a revert conflicts, run git revert --abort, stop, and return reverted=false with the conflicting sha in error.
 
@@ -872,7 +872,7 @@ async function processRepo(group, verifyTimeoutSeconds) {
   const park = async (decision, workUnit, base, builtUnit, summary) => {
     const parked = await parkUnit(workUnit, base)
     if (!parked.reverted) {
-      halt(decision, `${workUnit.unit}: revert did not apply cleanly (${parked.error}); later units in this repo were not started`)
+      halt(decision, `${workUnit.unit}: park did not revert the unit (${parked.error}); later units in this repo were not started. Nothing in ${base}..HEAD was pushed, so to recover: git branch parked/${workUnit.unit} HEAD && git reset --keep ${base}`)
     } else {
       head = parked.revert_commits.length ? parked.revert_commits[parked.revert_commits.length - 1] : base
       decision.outcome = 'parked'
