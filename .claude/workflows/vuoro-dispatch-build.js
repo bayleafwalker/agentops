@@ -766,7 +766,7 @@ Unit: ${unit.unit}
 Unit base (data): ${base}
 
 1. Confirm the current branch is main, the working tree has no staged changes, and ${base} is an ancestor of HEAD.
-2. List the unit's commits with git rev-list ${base}..HEAD. If the list is empty, return reverted=true with empty lists. Then run git fetch origin main and check the range holds only unpublished work: git rev-list --merges ${base}..HEAD must be empty, and git rev-list ${base}..HEAD ^origin/main must list exactly the same commits as git rev-list ${base}..HEAD. If either check fails, revert nothing and return reverted=false with error 'unit range holds published or merged history: <sha>'. A merge, a fast-forward or rebase from origin, or a cherry-pick of an origin commit would otherwise be reverted and pushed as a rollback of upstream work.
+2. List the unit's commits with git rev-list ${base}..HEAD. If the list is empty, return reverted=true with empty lists. Then run git fetch origin main (if the fetch fails, note it in error and check against the existing origin/main ref) and check the range holds only unpublished work: git rev-list --merges ${base}..HEAD must be empty, and git rev-list ${base}..HEAD ^origin/main must list exactly the same commits as git rev-list ${base}..HEAD. If either check fails, revert nothing and return reverted=false with error 'unit range holds published or merged history: <sha>'. A merge, a fast-forward or rebase from origin, or a cherry-pick of an origin commit would otherwise be reverted and pushed as a rollback of upstream work.
 3. Revert them newest first with git revert --no-edit <sha>, one at a time.
 4. If a revert conflicts, run git revert --abort, stop, and return reverted=false with the conflicting sha in error.
 
@@ -845,7 +845,8 @@ function syntheticVerify(unit, items, summary) {
 // deferred, reverted back to the backlog, or left unverified; later units still
 // run. Everything a unit commits is tracked as the range from its recorded base,
 // so park reverts all of it and publish can refuse any commit it did not expect.
-// The repo stops only when a unit's base is unknown or a revert does not apply,
+// The repo stops only when a unit's base is unknown or park cannot revert the unit
+// (a conflict, or published or merged history in its range),
 // because later units would then build on commits nobody can account for.
 async function processRepo(group, verifyTimeoutSeconds) {
   const state = {
@@ -872,7 +873,7 @@ async function processRepo(group, verifyTimeoutSeconds) {
   const park = async (decision, workUnit, base, builtUnit, summary) => {
     const parked = await parkUnit(workUnit, base)
     if (!parked.reverted) {
-      halt(decision, `${workUnit.unit}: park did not revert the unit (${parked.error}); later units in this repo were not started. Nothing in ${base}..HEAD was pushed, so to recover: git branch parked/${workUnit.unit} HEAD && git reset --keep ${base}`)
+      halt(decision, `${workUnit.unit}: park did not revert the unit (${parked.error}); later units in this repo were not started. To set the unit aside, run git branch parked/${workUnit.unit} HEAD && git reset --keep ${base}; this moves only local main and leaves origin untouched.`)
     } else {
       head = parked.revert_commits.length ? parked.revert_commits[parked.revert_commits.length - 1] : base
       decision.outcome = 'parked'

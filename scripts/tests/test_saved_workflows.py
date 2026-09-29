@@ -420,8 +420,8 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertEqual(output["result"]["publication"][0]["action"], "withheld-unverified-commits-on-main")
         self.assertEqual(output["result"]["halted"][0]["repo"], "example")
         self.assertIn("not started", output["result"]["deferred"][0]["reason"])
-        # The halt names the recovery: nothing in the range was pushed, so it can be set aside.
-        self.assertIn("git branch parked/api HEAD && git reset --keep ba5e0000", output["result"]["halted"][0]["reason"])
+        # The halt names a recovery that moves only local main.
+        self.assertIn("git branch parked/api HEAD && git reset --keep ba5e0000; this moves only local main", output["result"]["halted"][0]["reason"])
 
     @requires_node
     def test_modified_oracle_is_never_confirmed(self) -> None:
