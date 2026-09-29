@@ -29,8 +29,11 @@ CLERICAL = "claude-haiku-4-5-20251001"
 # ``scenario`` (argv[3], JSON) adds failures:
 #   fail: {unit: "always" | "once" | "tamper"}   verifier outcome per unit
 #   evidence: "empty"                            verifier returns no command evidence
+#   evidence: "environment" | "partial-environment"  checks that could not run as written
+#   delivered: true                              the builder makes no new commit (work already on main)
 #   record: "throw" | "null"                     decision recorder failure
 #   park: "fail"                                 reverts do not apply
+#   publish: "fail"                              git push is rejected
 NODE_HARNESS = r"""
 const fs = require('fs')
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
@@ -140,6 +143,7 @@ async function agent(prompt, options) {
     return {repo, unit, reverted: true, reverted_commits: [`c1${base}`, `c0${base}`], revert_commits: [`ee0${hex(unit)}`, head]}
   }
   if (kind === 'publish') {
+    if (scenario.publish === 'fail') return {repo, published: false, action: 'push-rejected', error: 'stubbed non-fast-forward'}
     return {repo, published: true, action: 'pushed', head_sha: 'abcdef1'}
   }
   if (kind === 'close') {
@@ -200,6 +204,23 @@ def run_failing(path: Path, args: dict) -> subprocess.CompletedProcess:
         capture_output=True,
         text=True,
     )
+
+
+def close_evidence(entry: dict) -> list:
+    match = re.search(r"<<<UNTRUSTED-DATA\n([\s\S]*?)\nUNTRUSTED-DATA>>>", entry["prompt"])
+    return json.loads(match.group(1)) if match else []
+
+
+def record_with_real_recorder(output: dict) -> dict:
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "jev_shadow.py"), "record", "--input-json", json.dumps(output["records"][0]["document"])],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        env={**os.environ, "AUDITCTL_BIN": ""},
+        check=True,
+    )
+    return json.loads(result.stdout)
 
 
 def call(output: dict, label: str) -> dict:
@@ -589,6 +610,119 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertIn("safe repository directory name", result.stderr)
 
     @requires_node
+    def test_cross_repo_unit_builds_in_the_code_repo_and_closes_in_the_tracker(self) -> None:
+        output = run_workflow(
+            BUILD_WORKFLOW,
+            {"push": True, "items": [
+                {"repo": "example", "code_repo": "engine", "item_id": 1, "unit": "api"},
+                {"repo": "example", "item_id": 2, "unit": "docs", "tier": "bounded"},
+            ]},
+        )
+        labels = [entry["label"] for entry in output["calls"]]
+        for label in ("build:engine:api", "verify:engine:api", "publish:engine", "close:engine:example", "build:example:docs", "close:example"):
+            self.assertIn(label, labels)
+        for label in ("build:engine:api", "verify:engine:api", "route:engine:api"):
+            prompt = call(output, label)["prompt"]
+            self.assertIn("/projects/dev/engine", prompt)
+            self.assertIn("tracked in example", prompt)
+            self.assertIn("cd /projects/dev/example && sprintctl", prompt)
+        self.assertNotIn("tracked in", call(output, "build:example:docs")["prompt"])
+        self.assertIn("/projects/dev/example", call(output, "close:engine:example")["prompt"])
+        by_item = {item["item_id"]: item for item in output["result"]["results"]}
+        self.assertEqual((by_item["1"]["repo"], by_item["1"]["code_repo"], by_item["1"]["closed"]), ("example", "engine", True))
+        self.assertEqual((by_item["2"]["repo"], by_item["2"]["closed"]), ("example", True))
+        self.assertNotIn("code_repo", by_item["2"])
+        self.assertEqual({entry["repo"] for entry in output["result"]["publication"]}, {"engine", "example"})
+        recorded = {unit["unit"]: unit for unit in output["records"][0]["document"]["units"]}
+        self.assertEqual((recorded["api"]["repo"], recorded["api"]["code_repo"]), ("example", "engine"))
+        self.assertNotIn("code_repo", recorded["docs"])
+        self.assertEqual(record_with_real_recorder(output)["rejected"], [])
+
+    @requires_node
+    def test_two_trackers_feeding_one_code_repo_close_in_their_own_trackers(self) -> None:
+        output = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [
+            {"repo": "example", "code_repo": "engine", "item_id": 1},
+            {"repo": "engine", "item_id": 2, "unit": "core", "tier": "bounded"},
+        ]})
+        labels = [entry["label"] for entry in output["calls"]]
+        self.assertIn("build:engine:repo-batch-example", labels)
+        self.assertIn("close:engine:example", labels)
+        self.assertIn("close:engine", labels)
+        self.assertEqual(labels.count("publish:engine"), 1)
+        self.assertEqual([item["item_id"] for item in close_evidence(call(output, "close:engine:example"))], ["1"])
+        self.assertEqual([item["item_id"] for item in close_evidence(call(output, "close:engine"))], ["2"])
+        by_item = {item["item_id"]: item for item in output["result"]["results"]}
+        self.assertEqual((by_item["1"]["repo"], by_item["1"]["code_repo"], by_item["1"]["closed"]), ("example", "engine", True))
+        self.assertEqual((by_item["2"]["repo"], by_item["2"]["closed"]), ("engine", True))
+
+    @requires_node
+    def test_a_failed_push_of_the_code_repo_keeps_cross_tracker_items_open(self) -> None:
+        output = run_workflow(
+            BUILD_WORKFLOW,
+            {"push": True, "items": [{"repo": "example", "code_repo": "engine", "item_id": 1, "unit": "api", "tier": "bounded"}]},
+            publish="fail",
+        )
+        result = output["result"]["results"][0]
+        self.assertEqual((result["repo"], result["verdict"], result["closed"]), ("example", "inconclusive", False))
+        self.assertIn("publication did not complete", result["summary"])
+
+    @requires_node
+    def test_refine_and_oracle_agents_use_the_tracker_for_sprintctl(self) -> None:
+        output = run_workflow(BUILD_WORKFLOW, {"items": [
+            {"repo": "example", "code_repo": "engine", "item_id": 1, "unit": "plan-store"},
+            {"repo": "example", "code_repo": "engine", "item_id": 2, "unit": "spec-api"},
+        ]})
+        for label in ("refine:engine:plan-store", "oracle:engine:spec-api", "build:engine:plan-store", "build:engine:spec-api"):
+            prompt = call(output, label)["prompt"]
+            self.assertIn("cd /projects/dev/example && sprintctl", prompt)
+            self.assertNotIn("sprintctl scopes by cwd", prompt)
+        same_repo = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]})
+        self.assertIn("sprintctl scopes by cwd", call(same_repo, "build:example:api")["prompt"])
+
+    @requires_node
+    def test_unit_level_results_name_the_tracker_as_repo(self) -> None:
+        output = run_workflow(
+            BUILD_WORKFLOW,
+            {"items": [{"repo": "example", "code_repo": "engine", "item_id": 1, "unit": "api", "tier": "bounded"}]},
+            fail={"api": "always"},
+        )
+        parked = output["result"]["parked"][0]
+        self.assertEqual((parked["repo"], parked["code_repo"], parked["item_ids"]), ("example", "engine", ["1"]))
+
+    @requires_node
+    def test_recorded_not_available_checks_pass_the_real_recorder(self) -> None:
+        output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}, evidence="partial-environment")
+        self.assertEqual(units(output)["api"]["verify"]["checks"], {"passed": 1, "failed": 0, "timed_out": 0, "not_available": 1})
+        self.assertEqual(record_with_real_recorder(output)["rejected"], [])
+
+    @requires_node
+    def test_a_unit_cannot_mix_items_from_two_trackers(self) -> None:
+        result = run_failing(BUILD_WORKFLOW, {"items": [
+            {"repo": "example", "code_repo": "engine", "item_id": 1, "unit": "api", "tier": "bounded"},
+            {"repo": "engine", "item_id": 2, "unit": "api", "tier": "bounded"},
+        ]})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("mixes items from trackers", result.stderr)
+
+    @requires_node
+    def test_code_in_appservice_is_never_pushed(self) -> None:
+        for item in ({"repo": "example", "code_repo": "appservice"}, {"repo": "appservice"}, {"repo": "example", "code_repo": "appservice-recovery"}, {"repo": "appservice.old"}):
+            result = run_failing(BUILD_WORKFLOW, {"push": True, "items": [{**item, "item_id": 1, "tier": "bounded"}]})
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("appservice", result.stderr)
+        output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "code_repo": "appservice", "item_id": 1, "tier": "bounded"}]})
+        self.assertEqual(output["result"]["publication"][0]["action"], "not-requested")
+        # Whatever the directory is called, publication refuses an appservice origin.
+        pushed = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [{"repo": "example", "item_id": 1, "tier": "bounded"}]})
+        self.assertIn("git remote get-url origin: if the origin repository is named appservice", call(pushed, "publish:example")["prompt"])
+
+    @requires_node
+    def test_invalid_code_repo_is_rejected_before_dispatch(self) -> None:
+        result = run_failing(BUILD_WORKFLOW, {"items": [{"repo": "example", "code_repo": "../escape", "item_id": 1, "tier": "bounded"}]})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("code_repo must be a safe repository directory name", result.stderr)
+
+    @requires_node
     def test_decisions_are_recorded_once_without_changing_results(self) -> None:
         args = {
             "items": [
@@ -613,7 +747,7 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertEqual(recorded_units["mixed"]["item_ids"], ["3", "4"])
         self.assertEqual(recorded_units["api"]["verify"], {
             "verdicts": {"1": "confirmed"},
-            "checks": {"passed": 1, "failed": 0, "timed_out": 0},
+            "checks": {"passed": 1, "failed": 0, "timed_out": 0, "not_available": 0},
             "full_suite": "passed",
         })
         # Prose never travels: the router rationale contains a quote and is not recorded.
