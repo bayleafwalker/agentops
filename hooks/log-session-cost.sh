@@ -44,6 +44,12 @@ LOG="${AGENTOPS_COST_LOG:-/projects/dev/.claude/session-costs.jsonl}"
 GATE_DIR="${AGENTOPS_GATE_LOG_DIR:-/projects/dev/.claude/state}"
 
 EVENT="$(cat)"
+# Codex Stop events carry turn_id. Its transcript is a different format and
+# native Codex telemetry handles its usage; parsing it here emits false zero
+# Claude cost rows and audit evidence.
+if printf '%s' "$EVENT" | jq -e 'has("turn_id")' >/dev/null 2>&1; then
+  exit 0
+fi
 TRANSCRIPT="$(echo "$EVENT" | jq -r '.transcript_path // ""')"
 # Optional passthrough for the harness_evidence rate-limit gauges (agentops#2445, WP7b):
 # this hook has no producer of its own for the 5h/7d utilisation windows
