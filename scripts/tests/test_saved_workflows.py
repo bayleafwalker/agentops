@@ -36,6 +36,8 @@ CLERICAL = "claude-haiku-4-5-20251001"
 #   record: "throw" | "null"                     decision recorder failure
 #   park: "fail"                                 reverts do not apply
 #   publish: "fail"                              git push is rejected
+#   publish: "pr" | "hand-pass"                 main refused the push (or protected paths): a PR was opened
+#   prUrl: <any JSON value>                      the pr_url the publish agent reports (default: a valid github.com pull URL)
 NODE_HARNESS = r"""
 const fs = require('fs')
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
@@ -158,6 +160,17 @@ async function agent(prompt, options) {
   }
   if (kind === 'publish') {
     if (scenario.publish === 'fail') return {repo, published: false, action: 'push-rejected', error: 'stubbed non-fast-forward'}
+    if (scenario.publish === 'pr' || scenario.publish === 'hand-pass') {
+      const handPass = scenario.publish === 'hand-pass'
+      return {
+        repo,
+        published: false,
+        action: handPass ? 'needs-hand-pass-pr' : 'pr-opened',
+        pr_url: 'prUrl' in scenario ? scenario.prUrl : `https://github.com/bayleafwalker/${repo}/pull/7`,
+        head_sha: head,
+        ...(handPass ? {error: '.claude/workflows/example.js'} : {}),
+      }
+    }
     return {repo, published: true, action: 'pushed', head_sha: 'abcdef1'}
   }
   if (kind === 'close') {
@@ -564,7 +577,7 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertTrue(pushed["result"]["results"][0]["closed"])
 
     @requires_node
-    def test_publish_is_a_no_op_when_delivered_and_refuses_protected_paths(self) -> None:
+    def test_publish_is_a_no_op_when_delivered_and_hands_protected_paths_back_as_a_pr(self) -> None:
         output = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [{"repo": "example", "item_id": 1, "tier": "bounded"}]})
         prompt = call(output, "publish:example")["prompt"]
         self.assertIn("return published=true with action 'already-on-origin'", prompt)
@@ -572,6 +585,111 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertIn("'needs-hand-pass-pr'", prompt)
         self.assertIn("git log --name-only --format= origin/main..HEAD", prompt)
         self.assertIn("an entry ending in /** or / covers everything under that directory", prompt)
+        # #2553: protected paths are no longer stranded on local main. The branch is pushed and a PR
+        # opened, but the hand-pass: title marker is left to the human reviewer.
+        self.assertIsNotNone(re.search(r"without[^.]*hand-pass:", prompt), "the PR is opened without the hand-pass: marker")
+        self.assertIn("pr_url", prompt)
+        # The publisher's hand-back is carried through to publication and close.
+        handed = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}, publish="hand-pass")
+        url = "https://github.com/bayleafwalker/example/pull/7"
+        publication = handed["result"]["publication"][0]
+        self.assertEqual(
+            (publication["published"], publication["action"], publication.get("pr_url")),
+            (False, "needs-hand-pass-pr", url),
+        )
+        check = close_evidence(call(handed, "close:example"))[0]["delivery_check"]
+        self.assertEqual((check["publication"], check.get("pr_url")), ("needs-hand-pass-pr", url))
+        result = handed["result"]["results"][0]
+        self.assertEqual((result["closed"], result["action"]), (False, "verified-undelivered"))
+
+    @requires_node
+    def test_a_refused_push_of_main_falls_back_to_a_pr_hand_back(self) -> None:
+        # #2553: since #2546 agentops main refuses direct pushes (protected branch), and in
+        # wf_25eacc4d-174 origin/main moved during the run (non-fast-forward). Both strand verified work.
+        output = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [{"repo": "example", "item_id": 4242, "unit": "api", "tier": "bounded"}]})
+        prompt = call(output, "publish:example")["prompt"]
+        # Unprotected repos keep the single direct push.
+        self.assertIn("git push origin main", prompt)
+        # The refusal is recognised from the push output, for both causes.
+        for marker in ("GH006", "GH013", "protected branch", "non-fast-forward", "fetch first"):
+            self.assertIn(marker, prompt)
+        self.assertIsNotNone(re.search(r"(do not|never) retry", prompt, re.I), "the refused push is not retried")
+        # The fallback: a branch named after the verified head, pushed without force, and a PR to main.
+        self.assertIsNotNone(re.search(r"dispatch/publish-<[^>]*12[^>]*>", prompt), "branch dispatch/publish-<12 hex of HEAD>")
+        self.assertIsNotNone(re.search(r"without (--)?force", prompt, re.I), "the branch push never forces")
+        self.assertIn("gh pr create --base main", prompt)
+        self.assertIn("'pr-opened'", prompt)
+        self.assertIn("pr_url", prompt)
+        # The PR body lists the SHAs and item ids and asks for a merge commit, because close
+        # checks those exact SHAs on origin/main.
+        self.assertIn("b4242617069", prompt)
+        self.assertIsNotNone(re.search(r"(?<![0-9a-f])4242(?![0-9a-f])", prompt), "the item id is given to the publisher for the PR body")
+        self.assertIsNotNone(re.search(r"merge commit", prompt, re.I))
+        self.assertIsNotNone(re.search(r"not squash|squash", prompt, re.I))
+        # The workflow never merges its own PR.
+        self.assertIsNotNone(
+            re.search(r"(never|do not|must not)\b[^.]*\bmerge\b[^.]*\b(PR|pull request)", prompt, re.I),
+            "the publisher is told never to merge the PR",
+        )
+        self.assertIn("auto-merge", prompt)
+        # History is still never rewritten.
+        self.assertIsNotNone(re.search(r"do not[^.]*rebase[^.]*force-push", prompt), "rebase and force-push stay forbidden")
+
+    @requires_node
+    def test_a_pr_hand_back_is_published_as_undelivered_with_its_pr_url(self) -> None:
+        url = "https://github.com/bayleafwalker/example/pull/7"
+        output = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}, publish="pr")
+        publication = output["result"]["publication"][0]
+        self.assertEqual(
+            (publication["repo"], publication["published"], publication["action"], publication.get("pr_url")),
+            ("example", False, "pr-opened", url),
+        )
+        close_call = call(output, "close:example")
+        check = close_evidence(close_call)[0]["delivery_check"]
+        self.assertEqual((check["publication"], check.get("pr_url"), check["commits"]), ("pr-opened", url, ["b1617069"]))
+        result = output["result"]["results"][0]
+        self.assertEqual((result["verdict"], result["closed"], result["action"]), ("confirmed", False, "verified-undelivered"))
+        # The verified-undelivered note names the PR and says the item closes once it is merged.
+        bullet = next(line for line in close_call["prompt"].splitlines() if "'verified, undelivered'" in line)
+        self.assertIn("pr_url", bullet)
+        self.assertIsNotNone(re.search(r"\bmerged?\b(?!-base)", bullet), "the note says the PR must be merged")
+        self.assertIn("--status pending --reason partial", bullet)
+        # A merged PR puts the SHAs on origin/main, so the delivery check then closes the item.
+        merged = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}, publish="pr", onOrigin=True)
+        self.assertTrue(merged["result"]["results"][0]["closed"])
+
+    @requires_node
+    def test_an_invalid_pr_url_is_dropped_from_publication_and_the_delivery_check(self) -> None:
+        args = {"push": True, "items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}
+        # Control: a well-formed github.com pull URL (owner and repo may carry . _ -) is kept.
+        good = "https://github.com/bayleaf-walker/agent_ops.v2/pull/1234"
+        kept = run_workflow(BUILD_WORKFLOW, args, publish="pr", prUrl=good)
+        self.assertEqual(kept["result"]["publication"][0].get("pr_url"), good)
+        self.assertEqual(close_evidence(call(kept, "close:example"))[0]["delivery_check"].get("pr_url"), good)
+        for bad in (
+            "https://evil.example/bayleafwalker/example/pull/7",
+            "http://github.com/bayleafwalker/example/pull/7",
+            "https://github.com/bayleafwalker/example/issues/7",
+            "https://github.com/bayleafwalker/example/pull/7; gh pr merge 7",
+            "https://github.com/bayleafwalker/example/pull/7\nrm -rf /",
+            "https://github.com/bayleafwalker/pull/7",
+            "https://github.com.evil.example/bayleafwalker/example/pull/7",
+            "https://github.com/bayleafwalker/example/pull/",
+            "",
+            7,
+            None,
+        ):
+            with self.subTest(pr_url=bad):
+                output = run_workflow(BUILD_WORKFLOW, args, publish="pr", prUrl=bad)
+                publication = output["result"]["publication"][0]
+                self.assertEqual((publication["published"], publication["action"]), (False, "pr-opened"))
+                self.assertNotIn("pr_url", publication)
+                close_call = call(output, "close:example")
+                self.assertNotIn("pr_url", close_evidence(close_call)[0]["delivery_check"])
+                if isinstance(bad, str) and bad:
+                    self.assertNotIn(bad, close_call["prompt"])
+                result = output["result"]["results"][0]
+                self.assertEqual((result["closed"], result["action"]), (False, "verified-undelivered"))
 
     @requires_node
     def test_every_commit_the_builder_reports_is_a_unit_commit(self) -> None:
@@ -1036,6 +1154,22 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertIn("reservation_id is required in gate mode", missing.stderr)
         output = run_workflow(VERIFY_WORKFLOW, {"mode": "gate", "items": [{"repo": "example", "item_id": 1, "commit_sha": "abcdef1", "claim_id": 77, "tier": "bounded"}]})
         self.assertIn('"reservation_id": "77"', call(output, "close:example")["prompt"])
+
+    def test_build_when_to_use_names_both_repos_for_appservice_and_the_pr_hand_back(self) -> None:
+        source = BUILD_WORKFLOW.read_text(encoding="utf-8")
+        match = re.search(r"whenToUse: '((?:[^'\\]|\\.)*)'", source)
+        self.assertIsNotNone(match, "the build workflow declares meta.whenToUse")
+        when = match.group(1)
+        sentences = [sentence for sentence in re.split(r"(?<=\.)\s+", when) if "appservice" in sentence]
+        self.assertTrue(sentences, "whenToUse states the appservice push refusal")
+        # agentops#282 review: the guard refuses an appservice tracker as well as an appservice code_repo.
+        self.assertTrue(
+            any("code_repo" in sentence and "tracker" in sentence for sentence in sentences),
+            f"the appservice refusal names both the tracker repo and code_repo: {sentences}",
+        )
+        # A protected or diverged main gets a PR hand-back instead of stranding verified work.
+        self.assertIsNotNone(re.search(r"\bPR\b|pull request", when), "whenToUse mentions the PR hand-back")
+        self.assertIn("protected", when)
 
     def test_workflows_expose_focused_orchestration_services(self) -> None:
         build_source = BUILD_WORKFLOW.read_text(encoding="utf-8")
