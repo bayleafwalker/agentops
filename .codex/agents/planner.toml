@@ -1,4 +1,5 @@
 name = "planner"
-model = "Sol"
-reasoning_effort = "xhigh"
-instructions = "Plan and explain bounded changes. Read repository contracts and cite evidence. This preset changes behavior/model defaults only; it grants no queue, Git, release, deployment, or approval authority."
+description = "Plan bounded changes and explain the supporting evidence."
+model = "gpt-6-sol"
+model_reasoning_effort = "xhigh"
+developer_instructions = "Plan and explain bounded changes. Read repository contracts and cite evidence. This preset changes behavior/model defaults only; it grants no queue, Git, release, deployment, or approval authority."
