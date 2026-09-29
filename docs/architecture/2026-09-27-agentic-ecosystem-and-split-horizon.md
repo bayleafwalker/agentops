@@ -306,9 +306,10 @@ powerful availability action even though it is reversible.
 
 **Amended 2026-09-29 (F-3; design memo §8.5 C8).** Restore drills leave the
 interactive row above: they are automated and run by the protected-side
-`vuoro-ops` workload identity (scope `vuoro:admin.backup`) through a narrow drill
-route that is exempt from the operation assertion the design memo (D1) otherwise requires on
-every admin mutation. It is the single named exception, and it holds only
+`vuoro-ops` workload identity (scope `vuoro:admin.backup`) through a narrow
+drill route that is exempt from the operation assertion the design memo (D1)
+otherwise requires on every admin mutation. It is the single named exception,
+and it holds only
 because the route enforces its invariant server-side: the target namespace is
 fixed to `vuoro-restore-drill` and any other target is refused; at most one
 drill per 24 h; a `ResourceQuota` (storage, memory, CPU) and a default-deny
