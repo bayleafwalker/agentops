@@ -16,6 +16,8 @@ const VERIFY_TIERS = {
   hard: { model: 'claude-sonnet-5-5', effort: 'high' },
 }
 const CLERICAL_MODEL = { model: 'claude-haiku-4-5-20251001', effort: 'low' }
+// Non-writing stages run as this registered subagent type (.claude/agents/dispatch-readonly.md): no Edit/Write.
+const READONLY_AGENT = { agentType: 'dispatch-readonly' }
 const TIER_ORDER = ['bounded', 'standard', 'hard']
 const SAFE_REPO = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
 const SAFE_UNIT = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
@@ -292,6 +294,7 @@ async function verifyRepo(mode, group, verifyTimeoutSeconds) {
     const tier = maxTier(unit.items.map(item => item.tier))
     const raw = await agent(verifyPrompt(mode, unit, verifyTimeoutSeconds), {
       label: `verify:${group.repo}:${unit.unit}`,
+      ...READONLY_AGENT,
       phase: 'Verify',
       schema: VERIFY_SCHEMA,
       ...VERIFY_TIERS[tier],
@@ -376,6 +379,7 @@ async function closeRepo(mode, state) {
   for (const [tracker, trackerPairs] of byTracker) {
     const raw = await agent(closePrompt(mode, tracker, trackerPairs), {
       label: tracker === state.repo ? `close:${state.repo}` : `close:${state.repo}:${tracker}`,
+      ...READONLY_AGENT,
       phase: 'Close',
       schema: CLOSE_SCHEMA,
       ...CLERICAL_MODEL,

@@ -66,7 +66,7 @@ const closeEvidence = prompt => {
 
 async function agent(prompt, options) {
   events.push(options.label)
-  calls.push({label: options.label, model: options.model, prompt})
+  calls.push({label: options.label, model: options.model, agentType: options.agentType, prompt})
   const parts = options.label.split(':')
   const [kind, repo, unit] = parts
   if (kind === 'record-decisions') {
@@ -310,6 +310,37 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertEqual(aliases["hard-build"]["codex"]["model"], "gpt-5.6-terra")
         self.assertEqual(aliases["frontier-plan"]["codex"]["model"], "gpt-5.6-sol")
         self.assertEqual(aliases["frontier-review"]["codex"]["model"], "gpt-5.6-sol")
+
+    @requires_node
+    def test_non_writing_stages_use_readonly_agent_type(self) -> None:
+        agent_def = (ROOT / ".claude" / "agents" / "dispatch-readonly.md").read_text(encoding="utf-8")
+        tools = re.search(r"^tools:\s*(.+)$", agent_def, re.M).group(1)
+        self.assertEqual([t.strip() for t in tools.split(",")], ["Read", "Grep", "Glob", "Bash"])
+        writers = ("build:", "repair:", "oracle:", "park:", "refine:", "publish:")
+        for path, args in (
+            (BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "impl-a"}]}),
+            (VERIFY_WORKFLOW, {"mode": "audit", "items": [{"repo": "example", "item_id": 1, "commit_sha": "abc1234", "unit": "impl-a"}]}),
+        ):
+            output = run_workflow(path, args)
+            seen = set()
+            for entry in output["calls"]:
+                label = entry["label"]
+                if label.startswith(writers):
+                    self.assertNotEqual(entry.get("agentType"), "dispatch-readonly", label)
+                    continue
+                kind = label.split(":")[0]
+                if kind in ("route", "record-decisions", "record-verified", "verify", "close"):
+                    seen.add(kind)
+                    self.assertEqual(entry.get("agentType"), "dispatch-readonly", label)
+            self.assertIn("verify", seen)
+            self.assertIn("close", seen)
+            if path == BUILD_WORKFLOW:
+                self.assertIn("route", seen)
+                self.assertIn("record-decisions", seen)
+                self.assertIn("record-verified", seen)
+        # Commands the read-only stages are told to run must be allowed by the definition.
+        for allowed in ("sprintctl", "jev_shadow.py", "git fetch origin", "git update-ref", "refs/dispatch/verified/", "verification worktree"):
+            self.assertIn(allowed, agent_def)
 
     def test_build_workflow_frontier_model_matches_canonical_routing(self) -> None:
         aliases = json.loads(MODEL_ROUTING.read_text(encoding="utf-8"))["aliases"]
