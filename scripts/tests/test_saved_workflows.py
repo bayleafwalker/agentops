@@ -420,6 +420,8 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertEqual(output["result"]["publication"][0]["action"], "withheld-unverified-commits-on-main")
         self.assertEqual(output["result"]["halted"][0]["repo"], "example")
         self.assertIn("not started", output["result"]["deferred"][0]["reason"])
+        # The halt names a recovery that moves only local main.
+        self.assertIn("git branch parked/api HEAD && git reset --keep ba5e0000; this moves only local main", output["result"]["halted"][0]["reason"])
 
     @requires_node
     def test_modified_oracle_is_never_confirmed(self) -> None:
@@ -521,6 +523,26 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertNotIn("OLD TEXT", refined_build)
         self.assertIn("(none supplied; read the live item)", refined_build)
         self.assertIn("OLD TEXT", call(output, "refine:example:plan-store")["prompt"])
+
+    @requires_node
+    def test_committing_agents_never_merge_origin_and_park_refuses_a_merge(self) -> None:
+        # wf_e879ba4c-a3f: an oracle author merged origin/main into main, and park then reverted
+        # the merge, which would have rolled back upstream work on the next push.
+        output = run_workflow(
+            BUILD_WORKFLOW,
+            {"items": [{"repo": "example", "item_id": 1, "unit": "spec-api"}]},
+            fail={"spec-api": "always"},
+        )
+        for label in ("oracle:example:spec-api", "build:example:spec-api", "repair:example:spec-api:1"):
+            prompt = call(output, label)["prompt"]
+            self.assertIn("Never merge, pull, rebase, or fetch-and-reset main", prompt)
+            self.assertIn("never cherry-pick a commit that is already on origin/main", prompt)
+            self.assertIn("You may adopt unpublished work that an item points to", prompt)
+        park = call(output, "park:example:spec-api")["prompt"]
+        self.assertIn("git rev-list --merges", park)
+        # Fast-forward and rebase syncs add no merge commit; published commits are refused too.
+        self.assertIn("^origin/main", park)
+        self.assertIn("unit range holds published or merged history", park)
 
     @requires_node
     def test_a_full_sha_for_the_previous_head_is_the_same_base(self) -> None:
