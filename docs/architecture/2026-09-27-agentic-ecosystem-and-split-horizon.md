@@ -6,6 +6,11 @@ its invariant, digest-bound acceptance, the outage state machine) is frozen.
 Component choices (which service hosts what, tool sets, auth mechanisms,
 storage) are not frozen and may change without amending this document. The
 operator's decisions on the former open questions are recorded in §6.
+Amended 2026-09-29 (F-3) for decisions C8 and C9 of
+`agentops:docs/plans/2026-09-27-admin-identity-and-vuoro-cli-design.md` §8.5:
+the restore-drill row of §3.1, the WireGuard sentence of §3.2 item 6 and Q5 in
+§6. Each amended passage is marked; the original text is kept where it still
+holds.
 Where a statement is inferred rather than read from a file it is marked
 **[INF]**. Citations are `repo:path[:line]` with repos under `/projects/dev`.
 
@@ -289,7 +294,8 @@ Capabilities that stay horizon-protected, and why:
 | Promotion signing | workstation YubiKey | No off-card key; Flux verifies `TagAndHEAD`; runners never promote |
 | Merges | workstation/devbox via `credctl merge` | Token in-process only; Forgejo branch protection is the real gate (Q2 of the boundary design) |
 | Protected-only operator acts: effect acceptance, credential/policy change, promotion, key rotation, recovery operations | workstation, infra VM, WireGuard | Operator material "lives only on the workstation"; never reachable through public sign-in, not even with step-up (Q2) |
-| High-sensitivity interactive processes (cred-broker step-up approvals, break-glass, restore drills, Talos/etcd) | workstation, infra VM, WireGuard | Requires hardware presence (YubiKey touch) or cluster-reaching credentials |
+| High-sensitivity interactive processes (cred-broker step-up approvals, break-glass, ~~restore drills~~, Talos/etcd) | workstation, infra VM, WireGuard | Requires hardware presence (YubiKey touch) or cluster-reaching credentials |
+| Restore drills, automated (amended 2026-09-29, F-3) | appservice cluster (`vuoro-ops` workload identity), WireGuard | Protected-side workload identity; the drill route enforces the C8 invariant server-side, so a drill changes no production state and cannot starve it |
 | Raw transcripts and host-local artifacts | local hosts | Referenced by digest only (harness-evidence-policy) |
 
 Public admin sign-in (Q2) is Authentik OIDC with its own client, audience and
@@ -297,6 +303,20 @@ scopes, separate from the connector identity. It carries read status, tenant
 inspection and audit/health inspection; `mutations_frozen` / unfreeze
 additionally requires explicit operator step-up, because freezing is a
 powerful availability action even though it is reversible.
+
+**Amended 2026-09-29 (F-3; design memo §8.5 C8).** Restore drills leave the
+interactive row above: they are automated and run by the protected-side
+`vuoro-ops` workload identity (scope `vuoro:admin.backup`) through a narrow drill
+route that is exempt from the operation assertion the design memo (D1) otherwise requires on
+every admin mutation. It is the single named exception, and it holds only
+because the route enforces its invariant server-side: the target namespace is
+fixed to `vuoro-restore-drill` and any other target is refused; at most one
+drill per 24 h; a `ResourceQuota` (storage, memory, CPU) and a default-deny
+NetworkPolicy on that namespace; a free-disk headroom check before the drill
+starts; the drill Cluster has no `backup` section and restores with read-only
+credentials to the primary bucket; the drill is deleted by TTL; each run is
+audited. The first drill through the route is run by the operator; after
+that the drills are scheduled.
 
 Everything else (work catalog reads and writes, run identity, append-only
 evidence, notes, intents, derived projections, telemetry summaries) can live on
@@ -406,6 +426,10 @@ instruction. The claim this architecture makes is:
    WireGuard is operator → VPS. The residue is the WireGuard peer's AllowedIPs
    while the tunnel is up **[INF]**; Q5 decides to close it at the packet
    level rather than rely on the absence of a listening workload.
+   *Amended 2026-09-29 (F-3; design memo §8.5 C9):* WireGuard has a second
+   protected peer, the appservice cluster (`vuoro-ops`), which is pull-only:
+   protected → VPS, never VPS → protected. Q5's packet-level rules apply to it
+   as they do to the operator's peer.
 7. **Availability decoupling.** GitHub/GHCR mirrors exist so "home
    availability is not a restart or recovery dependency" for the public
    horizon; conversely the homelab must keep working when vuoro.cloud is down,
@@ -598,6 +622,20 @@ on the workstation dropping VPS-originated connections, so the packet-level
 property agrees with "no service path from the public Vuoro horizon into the
 protected horizon" instead of relying on the absence of a listening workload.
 
+*Amended 2026-09-29 (F-3; design memo §8.5 C9).* Both rules apply per
+protected peer: the operator's workstation and the appservice cluster. On
+each protected peer, the VPS peer's AllowedIPs are `10.44.0.1/32` (the VPS
+node's tunnel address), and an nft rule drops connections initiated from the
+VPS side. On the VPS side, each protected peer has its own `/32` in the admin
+NetworkPolicy and in `VUORO_CLOUD_ADMIN_SOURCE_CIDRS`, and each `/32` is bound
+to one client: the appservice peer's `/32` to `vuoro-cli-service` (only the
+JWT-bearer token endpoint and `vuoro-cli-service` tokens are accepted from it;
+an admin WebAuthn login from it is refused), and the operator's `/32` to
+`vuoro-cli-admin`. If no appservice host can hold a dedicated WireGuard key
+with UDP egress to the VPS through the egress allowlist, there is no
+appservice peer and `vuoro-ops` runs on the operator workstation instead,
+with attended checks.
+
 **Q6. Audit capture health.** The 2026-08-29 date first recorded here belongs
 to the workspace-root shard directory: capture moved into the agentops
 repository at `7ae83fb` (2026-08-29). The in-repo shards (24 files, 3,511
@@ -615,7 +653,8 @@ the governing records. Architecture corrections do not go into release notes.
 ## 7. Follow-up work
 
 - **WireGuard packet-level rule (Q5):** AllowedIPs restriction on the VPS peer
-  and workstation nft drop of VPS-originated connections.
+  and workstation nft drop of VPS-originated connections; the same two rules
+  on the appservice peer (amended 2026-09-29, F-3).
 - **Audit capture repair and event-age health metric (Q6):** verify the hook →
   auditctl path end to end and close the capture gaps (PR #256 B16);
   alert on "last successful authoritative event age".
