@@ -28,7 +28,8 @@ forward in the same run.
    sprint item lives) and, when the code lives elsewhere, its `code_repo`. Units are grouped,
    built, verified and published by code repository. Agents run sprintctl from the tracker, and
    closeout happens there. Units are separate if their items come from different trackers.
-   Push is refused when a unit's code is in appservice, because pushing appservice main deploys it.
+   Push is refused for appservice and its clones (by name, and by origin at publication),
+   because pushing appservice main deploys it.
 2. Reasoning units in one repository run sequentially, each in a fresh accountable implementation
    context. Each unit is verified, and repaired if needed, before the next unit builds on top of
    it. This preserves a shared main worktree without forcing unrelated work into the hardest

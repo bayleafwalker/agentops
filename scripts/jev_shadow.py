@@ -253,7 +253,8 @@ def judge_route(
     repo = str(document["repo"])
     unit = str(document.get("unit") or repo)
     item_ids = [str(item.get("item_id", item) if isinstance(item, dict) else item) for item in document.get("item_ids") or document["items"]]
-    state = route_state(repo, unit, [item_loader(repo, item_id) for item_id in item_ids], risk_loader(repo))
+    # Items live in the tracker; risk surfaces belong to the repository whose code the unit changes.
+    state = route_state(repo, unit, [item_loader(repo, item_id) for item_id in item_ids], risk_loader(str(document.get("code_repo") or repo)))
     result = jev_client.ask(bundle, state, **ask_kwargs)
     baseline = document.get("baseline", document if "tier" in document else None)
     label = route_baseline_label(baseline)

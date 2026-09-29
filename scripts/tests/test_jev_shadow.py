@@ -232,6 +232,19 @@ def test_judge_route_uses_a_recorded_decision_as_baseline(stub_loaders):
     assert set(record["answer_summary"]) == set(bundle["questions"])
 
 
+def test_judge_route_reads_items_from_the_tracker_and_risk_from_the_code_repo():
+    bundle = jev_client.load_bundle("route-v1")
+    item_repos, risk_repos = [], []
+    jev_shadow.judge_route(
+        {**DECISION, "tier": "bounded", "code_repo": "engine"},
+        bundle=bundle,
+        item_loader=lambda repo, item_id: item_repos.append(repo) or {**FULL_ITEM, "id": item_id},
+        risk_loader=lambda repo: risk_repos.append(repo) or [],
+    )
+    assert set(item_repos) == {DECISION["repo"]}
+    assert risk_repos == ["engine"]
+
+
 def _decision_event(decision, occurred_at, event_type=jev_shadow.DECISION_EVENT, source=jev_shadow.SOURCE):
     return json.dumps({
         "event_id": f"ev-{occurred_at}",
