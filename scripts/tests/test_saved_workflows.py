@@ -337,6 +337,10 @@ class SavedWorkflowTests(unittest.TestCase):
             if path == BUILD_WORKFLOW:
                 self.assertIn("route", seen)
                 self.assertIn("record-decisions", seen)
+                self.assertIn("record-verified", seen)
+        # Commands the read-only stages are told to run must be allowed by the definition.
+        for allowed in ("sprintctl", "jev_shadow.py", "git fetch origin", "git update-ref", "refs/dispatch/verified/", "verification worktree"):
+            self.assertIn(allowed, agent_def)
 
     def test_build_workflow_frontier_model_matches_canonical_routing(self) -> None:
         aliases = json.loads(MODEL_ROUTING.read_text(encoding="utf-8"))["aliases"]

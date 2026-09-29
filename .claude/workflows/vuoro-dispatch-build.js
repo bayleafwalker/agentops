@@ -588,7 +588,7 @@ python3 ${DECISION_RECORDER} record --input-json '${payload}'
 
 Do not retry, run any other command, or modify files. Return {ran, output} where ran says whether the command executed and output is its stdout (at most 2000 characters).`, {
       label: 'record-decisions',
-    ...READONLY_AGENT,
+      ...READONLY_AGENT,
       phase: 'Close',
       schema: RECORD_SCHEMA,
       ...CLERICAL_MODEL,
@@ -1103,7 +1103,7 @@ ${commands.join('\n')}
 
 Do not retry, run any other command, or modify files. Return {ran, output} where ran says whether every command executed and output is their combined output (at most 2000 characters).`, {
       label: `record-verified:${state.repo}`,
-    ...READONLY_AGENT,
+      ...READONLY_AGENT,
       phase: 'Publish',
       schema: RECORD_SCHEMA,
       ...CLERICAL_MODEL,
@@ -1283,7 +1283,7 @@ async function closeTrackers(states, push) {
   await Promise.all([...byTracker].map(async ([tracker, trackerPairs]) => {
     const raw = await agent(closePrompt(tracker, trackerPairs), {
       label: `close:${tracker}`,
-    ...READONLY_AGENT,
+      ...READONLY_AGENT,
       phase: 'Close',
       schema: CLOSE_SCHEMA,
       ...CLERICAL_MODEL,
