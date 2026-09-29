@@ -684,6 +684,8 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertIn("Unit range: ba5e0000..ba5e0000", prompt)
         self.assertIn("keeping the original not_available check", prompt)
         self.assertIn("the range check above proves nothing", prompt)
+        # A re-run of verified-but-undelivered work lists a commit outside the (empty) range.
+        self.assertNotIn("every listed commit must be in that range", prompt)
         built = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]})
         self.assertNotIn("the range check above proves nothing", call(built, "verify:example:api")["prompt"])
 
