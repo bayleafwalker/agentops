@@ -28,6 +28,8 @@ CLERICAL = "claude-haiku-4-5-20251001"
 #   anything else -> routed to build
 # ``scenario`` (argv[3], JSON) adds failures:
 #   fail: {unit: "always" | "once" | "tamper"}   verifier outcome per unit
+#   fail: {unit: "inconclusive-failed" | "inconclusive-suite-failed"}  first verify says inconclusive
+#         beside a failed check, or beside passing checks and a failed full suite
 #   evidence: "empty"                            verifier returns no command evidence
 #   evidence: "environment" | "partial-environment"  checks that could not run as written
 #   delivered: true                              the builder makes no new commit (work already on main)
@@ -113,12 +115,14 @@ async function agent(prompt, options) {
     const round = parts[3] || ''
     const mode = (scenario.fail || {})[unit]
     if (mode === 'outage') return null
-    if (mode === 'inconclusive-failed' && !round) {
+    if ((mode === 'inconclusive-failed' || mode === 'inconclusive-suite-failed') && !round) {
+      const suiteOnly = mode === 'inconclusive-suite-failed'
       return {
         repo, unit,
         results: itemsFromVerifyPrompt(prompt).map(match => ({item_id: match[1], commit_sha: match[2], verdict: 'inconclusive', summary: 'stub unsure', concerns: []})),
-        checks_run: [{command: 'stub-test', outcome: 'failed'}],
-        full_suite: {outcome: 'passed', reason: 'stub'},
+        checks_run: [{command: 'stub-test', outcome: suiteOnly ? 'passed' : 'failed'}],
+        full_suite: {outcome: suiteOnly ? 'failed' : 'passed', reason: 'stub'},
+        oracle_intact: true,
       }
     }
     const failed = mode === 'always' || (mode === 'once' && !round)
@@ -585,6 +589,50 @@ class SavedWorkflowTests(unittest.TestCase):
         labels = [entry["label"] for entry in output["calls"]]
         self.assertIn("repair:example:api:1", labels)
         self.assertNotIn("verify:example:api:again", labels)
+
+    @requires_node
+    def test_a_failed_full_suite_under_an_inconclusive_verdict_is_repaired(self) -> None:
+        # agentops#2548: full_suite.outcome=failed is failed evidence just like a failed check.
+        output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}, fail={"api": "inconclusive-suite-failed"})
+        labels = [entry["label"] for entry in output["calls"]]
+        self.assertIn("repair:example:api:1", labels)
+        self.assertNotIn("verify:example:api:again", labels)
+        repair_prompt = call(output, "repair:example:api:1")["prompt"]
+        self.assertIn('"verdict": "issues_found"', repair_prompt)
+        self.assertNotIn('"verdict": "inconclusive"', repair_prompt)
+
+    @requires_node
+    def test_verify_workflow_treats_failed_evidence_under_an_inconclusive_verdict_as_issues_found(self) -> None:
+        # agentops#2548: vuoro-dispatch-verify shares the verdict normalization, so a verifier that
+        # says inconclusive beside a failed check or a failed full suite reports a concrete defect.
+        for mode in ("gate", "audit"):
+            for scenario in ("inconclusive-failed", "inconclusive-suite-failed"):
+                with self.subTest(mode=mode, scenario=scenario):
+                    item = {"repo": "example", "item_id": 1, "commit_sha": "abcdef1", "tier": "bounded"}
+                    if mode == "gate":
+                        item["reservation_id"] = 77
+                    output = run_workflow(VERIFY_WORKFLOW, {"mode": mode, "items": [item]}, fail={"repo-batch": scenario})
+                    result = output["result"]
+                    self.assertEqual([entry["verdict"] for entry in result["results"]], ["issues_found"])
+                    self.assertEqual([entry["item_id"] for entry in result["issues"]], ["1"])
+                    self.assertEqual(result["inconclusive"], [])
+                    self.assertFalse(result["results"][0]["closed"])
+                    self.assertTrue(result["results"][0]["concerns"], "the raised verdict must carry a concern naming the failed evidence")
+                    close_prompt = call(output, "close:example")["prompt"]
+                    self.assertIn('"verdict": "issues_found"', close_prompt)
+                    self.assertNotIn('"verdict": "inconclusive"', close_prompt)
+
+    @requires_node
+    def test_verify_workflow_keeps_inconclusive_when_nothing_failed(self) -> None:
+        # The raise applies only to failed evidence: checks that could not run stay inconclusive.
+        for mode in ("gate", "audit"):
+            with self.subTest(mode=mode):
+                item = {"repo": "example", "item_id": 1, "commit_sha": "abcdef1", "tier": "bounded"}
+                if mode == "gate":
+                    item["reservation_id"] = 77
+                output = run_workflow(VERIFY_WORKFLOW, {"mode": mode, "items": [item]}, evidence="environment")
+                self.assertEqual([entry["verdict"] for entry in output["result"]["results"]], ["inconclusive"])
+                self.assertEqual(output["result"]["issues"], [])
 
     @requires_node
     def test_committing_agents_never_merge_origin_and_park_refuses_a_merge(self) -> None:
