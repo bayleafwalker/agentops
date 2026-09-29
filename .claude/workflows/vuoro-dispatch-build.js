@@ -296,6 +296,11 @@ function sprintctlScope(unit) {
   return trackerScope(unit) || 'sprintctl scopes by cwd. '
 }
 
+// Agents report commits as short or full SHAs; two spellings of one commit are the same commit.
+function sameCommit(a, b) {
+  return Boolean(a && b) && (a.startsWith(b) || b.startsWith(a))
+}
+
 function trackerScope(unit) {
   if (!unit.tracker || unit.tracker === unit.repo) return ''
   return `The sprint items are tracked in ${unit.tracker}, not in this repository: run every sprintctl command from ${repoPath(unit.tracker)} in the same shell command (cd ${repoPath(unit.tracker)} && sprintctl ...), and do all git and file work in ${repoPath(unit.repo)}. `
@@ -648,7 +653,7 @@ Committed items:
 ${itemLines}
 All unit commits (oracle, build, repairs): ${commits.join(' ')}
 Unit range: ${builtUnit.base}..${latestCommit}. Every commit in git rev-list ${builtUnit.base}..${latestCommit} must be one of the listed unit commits; an unlisted commit in the range is an issue (issues_found), because it would otherwise be published unverified.
-${(latestCommit.startsWith(builtUnit.base) || builtUnit.base.startsWith(latestCommit)) ? `The unit range is empty: this run made no new commits because the work was already delivered, so the range check above proves nothing. Instead, confirm that every listed commit is an ancestor of ${latestCommit}, and run git log --oneline <listed commit>..${latestCommit} -- <paths that commit touches> for each listed commit. Inspect every later commit it lists: verification runs at ${latestCommit}, so later changes to the same paths are part of what you confirm. A later commit that reverts or breaks a listed commit's behaviour is an issue (issues_found).` : ''}
+${sameCommit(latestCommit, builtUnit.base) ? `The unit range is empty: this run made no new commits because the work was already delivered, so the range check above proves nothing. Instead, confirm that every listed commit is an ancestor of ${latestCommit}, and run git log --oneline <listed commit>..${latestCommit} -- <paths that commit touches> for each listed commit. Inspect every later commit it lists: verification runs at ${latestCommit}, so later changes to the same paths are part of what you confirm. A later commit that reverts or breaks a listed commit's behaviour is an issue (issues_found).` : ''}
 ${oracleBlock(oracle, 'verify')}
 For the unit as a whole:
 1. Read AGENTS.md, the root dispatch manifest, overlays, risk_surfaces, and each live sprint item. Verify that these items really form one coherent unit and that every acceptance criterion is represented. Read each item's notes with sprintctl item show --id <id> --json (events[].summary and detail). Every part of each item's description, and of any "refinement: original intent" note, must be delivered by the unit commits or named in a "refinement: intent moved" or "build: scope moved" note that points at a follow-up item. A part that is neither delivered nor moved is an issue (issues_found), even when the reason given for dropping it is plausible. A move must also hold up: confirm with sprintctl item show that each follow-up item exists and names that exact part, and accept only three reasons: another repository owns it; only the operator can do it (check that no agent-reachable route exists, such as credentials or tools already available to agents); or it is moot (re-check the cited evidence yourself). Moving work that an agent could do in this repository is an issue.
@@ -939,7 +944,7 @@ async function processRepo(group, verifyTimeoutSeconds) {
     }
     const baseProblem = !base
       ? 'no base commit was reported'
-      : (head && base !== head ? `reported base ${base} is not the head ${head} left by the previous unit` : undefined)
+      : (head && !sameCommit(base, head) ? `reported base ${base} is not the head ${head} left by the previous unit` : undefined)
     if (baseProblem) {
       halt(decision, `${unit.unit}: ${baseProblem}, so this unit's commits cannot be accounted for; later units in this repo were not started`)
       if (buildResult.items.length) {
