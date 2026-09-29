@@ -866,7 +866,48 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertEqual(output["result"]["publication"][0]["action"], "not-requested")
         # Whatever the directory is called, publication refuses an appservice origin.
         pushed = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [{"repo": "example", "item_id": 1, "tier": "bounded"}]})
-        self.assertIn("git remote get-url origin: if the origin repository is named appservice", call(pushed, "publish:example")["prompt"])
+        publish = call(pushed, "publish:example")["prompt"]
+        self.assertIn("git remote get-url origin and git remote get-url --push origin", publish)
+        self.assertIn("names the appservice repository", publish)
+
+    @requires_node
+    def test_verify_workflow_verifies_in_the_code_repo_and_closes_in_the_tracker(self) -> None:
+        for mode in ("gate", "audit"):
+            with self.subTest(mode=mode):
+                def item(**extra):
+                    base = {"commit_sha": "abcdef1", "tier": "bounded", **extra}
+                    if mode == "gate":
+                        base["reservation_id"] = 77
+                    return base
+                output = run_workflow(VERIFY_WORKFLOW, {"mode": mode, "items": [
+                    item(repo="example", code_repo="engine", item_id=1, unit="api"),
+                    item(repo="example", item_id=2, unit="docs"),
+                ]})
+                labels = [entry["label"] for entry in output["calls"]]
+                for label in ("verify:engine:api", "close:engine:example", "verify:example:docs", "close:example"):
+                    self.assertIn(label, labels)
+                prompt = call(output, "verify:engine:api")["prompt"]
+                self.assertIn("/projects/dev/engine", prompt)
+                self.assertIn("tracked in example", prompt)
+                self.assertIn("cd /projects/dev/example && sprintctl", prompt)
+                self.assertNotIn("tracked in", call(output, "verify:example:docs")["prompt"])
+                self.assertIn("/projects/dev/example", call(output, "close:engine:example")["prompt"])
+                by_item = {entry["item_id"]: entry for entry in output["result"]["results"]}
+                self.assertEqual((by_item["1"]["repo"], by_item["1"]["code_repo"]), ("example", "engine"))
+                self.assertEqual(by_item["2"]["repo"], "example")
+                self.assertNotIn("code_repo", by_item["2"])
+
+    @requires_node
+    def test_verify_workflow_rejects_a_unit_that_mixes_trackers_and_an_unsafe_code_repo(self) -> None:
+        result = run_failing(VERIFY_WORKFLOW, {"items": [
+            {"repo": "example", "code_repo": "engine", "item_id": 1, "unit": "api"},
+            {"repo": "other", "code_repo": "engine", "item_id": 2, "unit": "api"},
+        ]})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("mixes items from trackers", result.stderr)
+        result = run_failing(VERIFY_WORKFLOW, {"items": [{"repo": "example", "code_repo": "../escape", "item_id": 1}]})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("code_repo must be a safe repository directory name", result.stderr)
 
     @requires_node
     def test_invalid_code_repo_is_rejected_before_dispatch(self) -> None:
