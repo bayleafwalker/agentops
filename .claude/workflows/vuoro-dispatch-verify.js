@@ -243,6 +243,13 @@ function normalizeVerifyResult(unit, raw) {
     || checksRun.some(check => ['timed_out', 'not_available'].includes(check.outcome))
     || ['timed_out', 'not_available'].includes(fullSuite.outcome)
   for (const result of results) {
+    if (result.verdict === 'inconclusive' && failedEvidence) {
+      // A failed check is a concrete, reproducible defect, whatever verdict the verifier chose.
+      result.verdict = 'issues_found'
+      result.summary = `A unit check failed; treated as a defect. ${result.summary}`
+      result.concerns = [...result.concerns, 'structured verification evidence contains a failed command or full-suite gate']
+      continue
+    }
     if (result.verdict !== 'confirmed') continue
     if (failedEvidence) {
       result.verdict = 'issues_found'
