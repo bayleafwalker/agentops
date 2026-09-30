@@ -41,14 +41,8 @@ CLERICAL = "claude-haiku-4-5-20251001"
 #   prUrl: <any JSON value>                      the pr_url the publish agent reports (default: a valid github.com pull URL)
 #   originUrl: <any JSON value> | null           the origin_url the publish agent reports (default: https://github.com/bayleafwalker/<repo>.git;
 #                                                null omits the field)
-#   workspace: {repo: "null" | "error" | "bad-path" | "traversal" | "bad-branch" | "main-branch" | "bad-base"}
-#                                                the workspace:<repo> stage fails or answers out-of-pattern values (#2563)
-#   workspaceBase: {repo: <sha>}                 the base_sha the workspace:<repo> stage reports (default: the repo head)
 # The record-verified:<repo> clerical agent (refs/dispatch/verified) answers {ran: true}. The close stub treats a
 # delivery_check whose publication is pushed or already-on-origin as on origin/main (#2558).
-# workspace:<repo> answers a run worktree /projects/dev/_wt/dispatch-<repo>-Wk<6 hex> on branch dispatch/run-Wk<6 hex>
-# cut at the repo head; cleanup:<repo> answers {removed: true, branch_kept: true}. Each code repo keeps its own linear
-# history (heads), so repos processed side by side never see each other's commits (#2563).
 NODE_HARNESS = r"""
 const fs = require('fs')
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
@@ -59,8 +53,7 @@ const events = []
 const calls = []
 const records = []
 const logs = []
-// A linear history per code repo: every committing stub moves that repo's HEAD, as git would.
-const heads = {}
+// A linear history: every committing stub moves HEAD, as git would.
 let head = 'ba5e0000'
 
 const hex = text => [...text].map(char => char.charCodeAt(0).toString(16)).join('').slice(0, 10)
@@ -71,23 +64,7 @@ const closeEvidence = prompt => {
   return match ? JSON.parse(match[1]) : []
 }
 
-// The run worktree the workspace:<repo> stub cuts (#2563).
-const runSuffix = repo => `Wk${hex(repo).slice(0, 6)}`
-const runWorktree = repo => `/projects/dev/_wt/dispatch-${repo}-${runSuffix(repo)}`
-const runBranch = repo => `dispatch/run-${runSuffix(repo)}`
-
-// answer() is synchronous so the per-repo head swap below cannot interleave with another repo's call.
 async function agent(prompt, options) {
-  const repo = options.label.split(':')[1]
-  head = heads[repo] || 'ba5e0000'
-  try {
-    return answer(prompt, options)
-  } finally {
-    heads[repo] = head
-  }
-}
-
-function answer(prompt, options) {
   events.push(options.label)
   calls.push({label: options.label, model: options.model, agentType: options.agentType, prompt})
   const parts = options.label.split(':')
@@ -99,23 +76,6 @@ function answer(prompt, options) {
     return scenario.record === 'null' ? null : {ran: true, output: '{}'}
   }
   if (kind === 'record-verified') return {ran: true, output: ''}
-  if (kind === 'workspace') {
-    const mode = (scenario.workspace || {})[repo]
-    if (mode === 'null') return null
-    if (mode === 'error') return {repo, error: 'stub: git worktree add failed'}
-    const baseSha = (scenario.workspaceBase || {})[repo] || head
-    return {
-      repo,
-      worktree: mode === 'bad-path' ? `/projects/dev/${repo}`
-        : mode === 'traversal' ? `${runWorktree(repo)}/../../${repo}`
-        : runWorktree(repo),
-      branch: mode === 'bad-branch' ? 'dispatch/run-Zz999999' : mode === 'main-branch' ? 'main' : runBranch(repo),
-      base_sha: mode === 'bad-base' ? 'HEAD~1' : baseSha,
-    }
-  }
-  if (kind === 'cleanup') {
-    return {repo, worktree: runWorktree(repo), branch: runBranch(repo), removed: true, branch_kept: true, head_sha: head}
-  }
   if (kind === 'route') {
     const lane = unit.startsWith('plan') ? 'refine' : unit.startsWith('spec') ? 'oracle' : 'build'
     return {repo, unit, lane, tier: 'bounded', rationale: "stub's rationale", open_questions: lane === 'refine' ? ['which store?'] : []}
@@ -278,9 +238,7 @@ def run_workflow(path: Path, args: dict, **scenario) -> dict:
     )
     output = json.loads(result.stdout)
     output["dispatch_events"] = [
-        label
-        for label in output["events"]
-        if label != "record-decisions" and not label.startswith(("record-verified:", "workspace:", "cleanup:"))
+        label for label in output["events"] if label != "record-decisions" and not label.startswith("record-verified:")
     ]
     return output
 
@@ -338,32 +296,6 @@ def withheld_behind(entry: dict) -> list:
     """withheld_behind may sit in the delivery_check or beside it in the close evidence."""
     value = entry.get("delivery_check", {}).get("withheld_behind", entry.get("withheld_behind"))
     return [str(item_id) for item_id in value] if isinstance(value, list) else value
-
-
-def run_suffix(repo: str) -> str:
-    """The mktemp suffix the workspace:<repo> stub reports (Wk + the first 6 hex of the repo name's char codes)."""
-    return "Wk" + "".join(format(ord(char), "x") for char in repo)[:6]
-
-
-def run_worktree(repo: str) -> str:
-    return f"/projects/dev/_wt/dispatch-{repo}-{run_suffix(repo)}"
-
-
-def run_branch(repo: str) -> str:
-    return f"dispatch/run-{run_suffix(repo)}"
-
-
-def labels_for(output: dict, repo: str, kinds: tuple) -> list:
-    """Every called label ``<kind>:<repo>[:...]`` for the given kinds, in call order."""
-    return [
-        entry["label"]
-        for entry in output["calls"]
-        if entry["label"].split(":")[0] in kinds and entry["label"].split(":")[1:2] == [repo]
-    ]
-
-
-def publication_for(output: dict, repo: str) -> dict:
-    return next(entry for entry in output["result"]["publication"] if entry["repo"] == repo)
 
 
 class SavedWorkflowTests(unittest.TestCase):
@@ -591,11 +523,8 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertEqual(output["result"]["publication"][0]["action"], "withheld-unverified-commits-on-main")
         self.assertEqual(output["result"]["halted"][0]["repo"], "example")
         self.assertIn("not started", output["result"]["deferred"][0]["reason"])
-        # The halt names a recovery that moves only the run branch, never the shared checkout's main (#2563).
-        reason = output["result"]["halted"][0]["reason"]
-        self.assertIn("git branch parked/api HEAD && git reset --keep ba5e0000", reason)
-        self.assertIn(run_branch("example"), reason)
-        self.assertNotIn("local main", reason)
+        # The halt names a recovery that moves only local main.
+        self.assertIn("git branch parked/api HEAD && git reset --keep ba5e0000; this moves only local main", output["result"]["halted"][0]["reason"])
 
     @requires_node
     def test_modified_oracle_is_never_confirmed(self) -> None:
@@ -1414,11 +1343,8 @@ class SavedWorkflowTests(unittest.TestCase):
             prompt = call(output, label)["prompt"]
             self.assertIn("cd /projects/dev/example && sprintctl", prompt)
             self.assertNotIn("sprintctl scopes by cwd", prompt)
-        # #2563: git work moves into a run worktree, which lacks the sprintctl marker, so same-repo units
-        # also run sprintctl from the tracker's primary checkout.
         same_repo = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]})
-        self.assertIn("cd /projects/dev/example && sprintctl", call(same_repo, "build:example:api")["prompt"])
-        self.assertNotIn("sprintctl scopes by cwd", call(same_repo, "build:example:api")["prompt"])
+        self.assertIn("sprintctl scopes by cwd", call(same_repo, "build:example:api")["prompt"])
 
     @requires_node
     def test_unit_level_results_name_the_tracker_as_repo(self) -> None:
@@ -1666,216 +1592,6 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertIn("const verifyInputService = Object.freeze", verify_source)
         self.assertIn("const verificationService = Object.freeze", verify_source)
         self.assertIn("const verificationCloseoutService = Object.freeze", verify_source)
-
-
-    # --- #2563: build on a run-owned branch, not the shared local main -------------------------------
-
-    @requires_node
-    def test_each_repo_builds_in_a_run_worktree_cut_from_origin_main(self) -> None:
-        # A1. One workspace:<repo> per code repo, before that repo is routed, shared by its sequential units.
-        output = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [
-            {"repo": "example", "item_id": 1, "unit": "spec-parser"},
-            {"repo": "example", "item_id": 2, "unit": "api", "tier": "bounded"},
-            {"repo": "example", "item_id": 3, "unit": "cli", "tier": "bounded"},
-            {"repo": "alpha", "code_repo": "example", "item_id": 4, "unit": "webui", "tier": "bounded"},
-            {"repo": "other", "item_id": 5, "unit": "sitework", "tier": "bounded"},
-        ]}, fail={"api": "once", "cli": "always"})
-        events = output["events"]
-        for repo in ("example", "other"):
-            with self.subTest(repo=repo):
-                self.assertEqual(events.count(f"workspace:{repo}"), 1, "exactly one run worktree per code repo")
-                routes = [index for index, label in enumerate(events) if label.startswith(f"route:{repo}:")]
-                self.assertTrue(routes)
-                self.assertLess(events.index(f"workspace:{repo}"), min(routes), "the workspace is cut before the first route")
-                workspace = call(output, f"workspace:{repo}")
-                self.assertIn("git worktree add -b dispatch/run-", workspace["prompt"])
-                self.assertIn("origin/main", workspace["prompt"])
-                self.assertIn(f"/projects/dev/_wt/dispatch-{repo}-", workspace["prompt"])
-                self.assertIn(f"/projects/dev/{repo}", workspace["prompt"].replace(f"/projects/dev/_wt/dispatch-{repo}-", ""))
-                # A writing clerical stage: the read-only agent type cannot run git worktree add.
-                self.assertEqual(workspace["model"], CLERICAL)
-                self.assertNotEqual(workspace.get("agentType"), "dispatch-readonly")
-        self.assertNotIn("workspace:alpha", events, "a tracker that is not a code repo gets no worktree")
-        # Every writing stage of the repo works in the run worktree the workspace stage returned.
-        kinds = ("oracle", "build", "repair", "park", "publish")
-        seen = {label.split(":")[0] for label in labels_for(output, "example", kinds)}
-        self.assertEqual(seen, set(kinds), "the scenario exercises every writing stage")
-        for label in labels_for(output, "example", kinds) + labels_for(output, "other", kinds):
-            repo = label.split(":")[1]
-            with self.subTest(label=label):
-                self.assertIn(run_worktree(repo), call(output, label)["prompt"])
-        # The park stage names the run branch, not main, as the branch it must be on.
-        park = call(output, "park:example:cli")["prompt"]
-        self.assertIn(run_branch("example"), park)
-        self.assertNotIn("current branch is main", park)
-
-    @requires_node
-    def test_failed_or_invalid_workspace_defers_the_repo(self) -> None:
-        # A2. No fallback to the shared checkout: the repo's units are deferred and other repos continue.
-        items = [
-            {"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"},
-            {"repo": "example", "item_id": 2, "unit": "spec-cli"},
-            {"repo": "other", "item_id": 3, "unit": "sitework", "tier": "bounded"},
-        ]
-        for mode in ("null", "error", "bad-path", "traversal", "bad-branch", "main-branch", "bad-base"):
-            with self.subTest(mode=mode):
-                output = run_workflow(BUILD_WORKFLOW, {"push": True, "items": items}, workspace={"example": mode})
-                writing = labels_for(output, "example", ("oracle", "build", "repair", "park", "publish"))
-                self.assertEqual(writing, [], "nothing builds, parks or publishes without a valid run worktree")
-                deferred = [entry for entry in output["result"]["deferred"] if {str(i) for i in entry["item_ids"]} & {"1", "2"}]
-                self.assertEqual(sorted(str(i) for entry in deferred for i in entry["item_ids"]), ["1", "2"])
-                for entry in deferred:
-                    self.assertTrue(entry["reason"].startswith("workspace:"), entry["reason"])
-                if mode == "error":
-                    self.assertTrue(any("stub: git worktree add failed" in entry["reason"] for entry in deferred))
-                self.assertEqual(publication_for(output, "example")["action"], "no-workspace")
-                self.assertFalse(publication_for(output, "example").get("published"))
-                # The other repo is untouched by the failure.
-                self.assertIn("build:other:sitework", output["events"])
-                self.assertEqual(publication_for(output, "other")["action"], "pushed")
-                self.assertIn("3", {str(entry["item_id"]) for entry in output["result"]["results"] if entry["closed"]})
-
-    @requires_node
-    def test_first_unit_base_is_checked_against_the_workspace_base(self) -> None:
-        # A3. Head tracking starts at the workspace base_sha, so the first unit's base is checked too.
-        items = [
-            {"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"},
-            {"repo": "example", "item_id": 2, "unit": "cli", "tier": "bounded"},
-        ]
-        control = run_workflow(BUILD_WORKFLOW, {"push": True, "items": items})
-        self.assertEqual(control["result"]["halted"], [])
-        self.assertIn("build:example:cli", control["events"])
-        oracle_items = [{"repo": "example", "item_id": 1, "unit": "spec-api"}, items[1]]
-        for name, run_items, scenario in (
-            ("workspace-base-differs", items, {"workspaceBase": {"example": "feed0000"}}),
-            ("builder-reports-other-base", items, {"wrongBase": "api"}),
-            ("oracle-first-unit", oracle_items, {"workspaceBase": {"example": "feed0000"}}),
-        ):
-            with self.subTest(name):
-                output = run_workflow(BUILD_WORKFLOW, {"push": True, "items": run_items}, **scenario)
-                self.assertEqual([entry["repo"] for entry in output["result"]["halted"]], ["example"])
-                self.assertNotIn("build:example:cli", output["events"], "later units are not started")
-                self.assertTrue(any("2" in [str(i) for i in entry["item_ids"]] and "not started" in entry["reason"] for entry in output["result"]["deferred"]))
-                self.assertNotIn("publish:example", output["events"])
-
-    @requires_node
-    def test_cleanup_runs_for_every_workspace_outcome(self) -> None:
-        # A4. cleanup:<repo> runs once per workspace, after publication, whatever happened to the units.
-        items = [
-            {"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"},
-            {"repo": "example", "item_id": 2, "unit": "cli", "tier": "bounded"},
-        ]
-        scenarios = {
-            "confirmed": ({"push": True}, {}),
-            "parked": ({"push": True}, {"fail": {"api": "always"}}),
-            "unverified": ({"push": True}, {"fail": {"api": "outage"}}),
-            "halted": ({"push": True}, {"wrongBase": "cli"}),
-            "halted-park-failed": ({"push": True}, {"fail": {"api": "always"}, "park": "fail"}),
-            "nothing-built": ({"push": True}, {"build": "null"}),
-            "push-false": ({"push": False}, {}),
-        }
-        for name, (args, scenario) in scenarios.items():
-            with self.subTest(name):
-                output = run_workflow(BUILD_WORKFLOW, {**args, "items": items}, **scenario)
-                events = output["events"]
-                self.assertEqual(events.count("cleanup:example"), 1)
-                cleanup_at = events.index("cleanup:example")
-                work = [index for index, label in enumerate(events)
-                        if label.split(":")[0] in ("route", "refine", "oracle", "build", "verify", "repair", "park", "publish", "record-verified")
-                        and label.split(":")[1:2] == ["example"]]
-                self.assertTrue(work)
-                self.assertGreater(cleanup_at, max(work), "cleanup runs after every stage that uses the worktree, publish included")
-                if args["push"] and name == "confirmed":
-                    self.assertLess(events.index("publish:example"), cleanup_at)
-                entry = call(output, "cleanup:example")
-                prompt = entry["prompt"]
-                self.assertIn("git worktree remove", prompt)
-                self.assertIn(run_worktree("example"), prompt)
-                self.assertIn(run_branch("example"), prompt)
-                self.assertIn("merge-base --is-ancestor", prompt)
-                self.assertIn("git branch -D", prompt)
-                self.assertLess(prompt.index("merge-base --is-ancestor"), prompt.index("git branch -D"))
-                self.assertNotIn("--force", prompt)
-                self.assertEqual(entry["model"], CLERICAL)
-                self.assertNotEqual(entry.get("agentType"), "dispatch-readonly")
-                workspaces = output["result"]["workspaces"]
-                self.assertEqual(len(workspaces), 1)
-                self.assertEqual(
-                    (workspaces[0]["repo"], workspaces[0]["worktree"], workspaces[0]["branch"]),
-                    ("example", run_worktree("example"), run_branch("example")),
-                )
-        # Two code repos: one cleanup each, each naming its own worktree.
-        output = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [items[0], {"repo": "other", "item_id": 3, "unit": "sitework", "tier": "bounded"}]})
-        for repo in ("example", "other"):
-            self.assertEqual(output["events"].count(f"cleanup:{repo}"), 1)
-            self.assertIn(run_worktree(repo), call(output, f"cleanup:{repo}")["prompt"])
-        self.assertEqual(sorted(entry["repo"] for entry in output["result"]["workspaces"]), ["example", "other"])
-
-    @requires_node
-    def test_publish_works_on_the_run_branch(self) -> None:
-        # A5. Same publication model; the publisher works in the run worktree on the run branch.
-        output = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]})
-        prompt = call(output, "publish:example")["prompt"]
-        self.assertIn(run_worktree("example"), prompt)
-        self.assertIn(run_branch("example"), prompt)
-        self.assertIn("git push origin TIP:refs/heads/main", prompt)
-        self.assertIn("dispatch/publish-", prompt)
-        self.assertIn("gh pr create", prompt)
-        self.assertNotIn("not main", prompt, "the publisher no longer requires the current branch to be main")
-        self.assertNotIn("branch is main", prompt)
-        self.assertEqual(publication_for(output, "example")["action"], "pushed")
-
-    @requires_node
-    def test_sprintctl_runs_from_the_tracker_checkout(self) -> None:
-        # A6. Every refine, oracle, build and repair prompt runs sprintctl from the tracker checkout.
-        for tracker, code_repo in (("example", "example"), ("example", "engine")):
-            with self.subTest(code_repo=code_repo):
-                output = run_workflow(BUILD_WORKFLOW, {"items": [
-                    {"repo": tracker, "code_repo": code_repo, "item_id": 1, "unit": "plan-store"},
-                    {"repo": tracker, "code_repo": code_repo, "item_id": 2, "unit": "spec-api"},
-                    {"repo": tracker, "code_repo": code_repo, "item_id": 3, "unit": "cli", "tier": "bounded"},
-                ]}, fail={"cli": "once"})
-                labels = labels_for(output, code_repo, ("refine", "oracle", "build", "repair"))
-                self.assertEqual({label.split(":")[0] for label in labels}, {"refine", "oracle", "build", "repair"})
-                for label in labels:
-                    prompt = call(output, label)["prompt"]
-                    self.assertIn(f"cd /projects/dev/{tracker} && sprintctl", prompt, label)
-                    self.assertNotIn("sprintctl scopes by cwd", prompt, label)
-
-    @requires_node
-    def test_build_adopts_run_branch_work_and_waits_on_open_pr(self) -> None:
-        # A7. Adoption by cherry-pick from dispatch/run-* notes; an open PR is waited on, not cherry-picked.
-        output = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [
-            {"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"},
-            {"repo": "example", "item_id": 2, "unit": "cli", "tier": "bounded"},
-            {"repo": "example", "item_id": 3, "unit": "web", "tier": "bounded"},
-        ]}, fail={"cli": "outage"})
-        build_prompt = call(output, "build:example:api")["prompt"]
-        self.assertIn("dispatch/run-", build_prompt)
-        self.assertIn("cherry-pick", build_prompt)
-        self.assertIn("awaiting PR", build_prompt)
-        # Withheld-behind-unverified: the close wording names the run branch that keeps the commits.
-        close_prompt = call(output, "close:example")["prompt"]
-        evidence = {entry["item_id"]: entry for entry in close_evidence(call(output, "close:example"))}
-        self.assertEqual(evidence["3"]["delivery_check"]["publication"], "withheld-behind-unverified")
-        self.assertIn(run_branch("example"), close_prompt)
-        self.assertIn("adopt", close_prompt)
-        self.assertNotIn("needs no rework", close_prompt)
-        # Verified-undelivered after a refused publication: same wording.
-        rejected = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}, publish="fail")
-        self.assertEqual(rejected["result"]["results"][0]["action"], "verified-undelivered")
-        close_prompt = call(rejected, "close:example")["prompt"]
-        self.assertIn(run_branch("example"), close_prompt)
-        self.assertNotIn("needs no rework", close_prompt)
-
-    def test_docs_and_when_to_use_describe_the_run_branch(self) -> None:
-        # A9. The topology doc and whenToUse describe dispatch/run-* branches; the shared-main wording is gone.
-        topology = (ROOT / "docs" / "dispatch" / "workflow-topology.md").read_text(encoding="utf-8")
-        self.assertIn("dispatch/run-", topology)
-        self.assertNotIn("preserves a shared main worktree", topology)
-        match = re.search(r"whenToUse: '((?:[^'\\]|\\.)*)'", BUILD_WORKFLOW.read_text(encoding="utf-8"))
-        self.assertIsNotNone(match, "the build workflow declares meta.whenToUse")
-        self.assertIn("dispatch/run-", match.group(1))
 
 
 if __name__ == "__main__":
