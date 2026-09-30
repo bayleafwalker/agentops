@@ -43,6 +43,15 @@ CLERICAL = "claude-haiku-4-5-20251001"
 #                                                null omits the field)
 # The record-verified:<repo> clerical agent (refs/dispatch/verified) answers {ran: true}. The close stub treats a
 # delivery_check whose publication is pushed or already-on-origin as on origin/main (#2558).
+# #2562: publish-preflight:<repo> and publish-confirm:<repo> are exact-command clerical agents that run
+# scripts/dispatch_publish_check.py and answer {ran, output} with the script's JSON stdout. The preflight stub
+# reads --tip and every --expected from the command and reports them as the whole range, all expected:
+#   preflight: {<field>: <value>, ...}             overrides report fields (range, expected, covered, unexpected,
+#                                                  missing_expected, invalid_refs, protected_hits, origin_url)
+#   preflight: "fail" | "throw" | "garbage" | "not-ran"   the preflight agent returns null, throws, prints
+#                                                  something that is not JSON, or says the command did not run
+#   preflightOrigin: <any JSON value>              the origin_url git reports (default: as originUrl)
+#   confirm: false | "fail"                        the confirmation reports confirmed=false, or its agent returns null
 NODE_HARNESS = r"""
 const fs = require('fs')
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
@@ -76,6 +85,35 @@ async function agent(prompt, options) {
     return scenario.record === 'null' ? null : {ran: true, output: '{}'}
   }
   if (kind === 'record-verified') return {ran: true, output: ''}
+  if (kind === 'publish-preflight') {
+    const mode = scenario.preflight
+    if (mode === 'fail') return null
+    if (mode === 'throw') throw new Error('stubbed preflight failure')
+    if (mode === 'garbage') return {ran: true, output: 'Traceback (most recent call last): not json'}
+    if (mode === 'not-ran') return {ran: false, output: ''}
+    const tipMatch = prompt.match(/--tip ([0-9a-f]+)/)
+    const expected = [...new Set([...prompt.matchAll(/--expected ([0-9a-f]+)/g)].map(match => match[1]))]
+    const originValue = 'preflightOrigin' in scenario ? scenario.preflightOrigin
+      : 'originUrl' in scenario ? scenario.originUrl : `https://github.com/bayleafwalker/${repo}.git`
+    const report = {
+      tip: tipMatch ? tipMatch[1] : null,
+      range: expected,
+      expected,
+      covered: [],
+      unexpected: [],
+      missing_expected: [],
+      invalid_refs: [],
+      protected_hits: [],
+      ...(originValue === null || originValue === undefined ? {} : {origin_url: originValue}),
+      ...(mode && typeof mode === 'object' ? mode : {}),
+    }
+    return {ran: true, output: JSON.stringify(report)}
+  }
+  if (kind === 'publish-confirm') {
+    if (scenario.confirm === 'fail') return null
+    const action = (prompt.match(/--action ([a-z-]+)/) || [])[1] || null
+    return {ran: true, output: JSON.stringify({confirmed: scenario.confirm !== false, action})}
+  }
   if (kind === 'route') {
     const lane = unit.startsWith('plan') ? 'refine' : unit.startsWith('spec') ? 'oracle' : 'build'
     return {repo, unit, lane, tier: 'bounded', rationale: "stub's rationale", open_questions: lane === 'refine' ? ['which store?'] : []}
@@ -237,8 +275,10 @@ def run_workflow(path: Path, args: dict, **scenario) -> dict:
         text=True,
     )
     output = json.loads(result.stdout)
+    # Clerical exact-command agents (records, and the #2562 publication checks) are not dispatch stages.
+    clerical = ("record-verified:", "publish-preflight:", "publish-confirm:")
     output["dispatch_events"] = [
-        label for label in output["events"] if label != "record-decisions" and not label.startswith("record-verified:")
+        label for label in output["events"] if label != "record-decisions" and not label.startswith(clerical)
     ]
     return output
 
@@ -738,19 +778,18 @@ class SavedWorkflowTests(unittest.TestCase):
 
     @requires_node
     def test_publish_is_a_no_op_when_delivered_and_hands_protected_paths_back_as_a_pr(self) -> None:
-        output = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [{"repo": "example", "item_id": 1, "tier": "bounded"}]})
-        prompt = call(output, "publish:example")["prompt"]
-        self.assertIn("return published=true with action 'already-on-origin'", prompt)
-        self.assertIn("hybrid.protected_paths", prompt)
+        # #2562: protected-path hits and delivered work are computed by scripts/dispatch_publish_check.py,
+        # not by the publish agent (event 4049 finding 1: it tested "*.dispatch.json" as a literal file).
+        hits = {"protected_hits": [".claude/workflows/example.js"]}
+        protected = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [{"repo": "example", "item_id": 1, "tier": "bounded"}]}, preflight=hits, publish="hand-pass")
+        prompt = call(protected, "publish:example")["prompt"]
         self.assertIn("'needs-hand-pass-pr'", prompt)
-        self.assertIn("git log --name-only --format= origin/main..TIP", prompt)
-        self.assertIn("an entry ending in /** or / covers everything under that directory", prompt)
         # #2553: protected paths are no longer stranded on local main. The branch is pushed and a PR
         # opened, but the hand-pass: title marker is left to the human reviewer.
         self.assertIsNotNone(re.search(r"without[^.]*hand-pass:", prompt), "the PR is opened without the hand-pass: marker")
         self.assertIn("pr_url", prompt)
         # The publisher's hand-back is carried through to publication and close.
-        handed = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}, publish="hand-pass")
+        handed = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}, preflight=hits, publish="hand-pass")
         url = "https://github.com/bayleafwalker/example/pull/7"
         publication = handed["result"]["publication"][0]
         self.assertEqual(
@@ -1592,6 +1631,275 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertIn("const verifyInputService = Object.freeze", verify_source)
         self.assertIn("const verificationService = Object.freeze", verify_source)
         self.assertIn("const verificationCloseoutService = Object.freeze", verify_source)
+
+
+PUBLISH_ARGS = {"push": True, "items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}
+# The only unit's head in the stub, and so the publication tip.
+PUBLISH_TIP = "b1617069"
+PUBLISHED_ACTIONS = ("pushed", "already-on-origin", "pr-opened", "needs-hand-pass-pr")
+PUBLISH_CHECK = "/projects/dev/agentops/scripts/dispatch_publish_check.py"
+ORACLE_BLOCK_HARNESS = r"""
+const fs = require('fs')
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
+const source = fs.readFileSync(process.argv[1], 'utf8').replace(/^export const meta =/m, 'const meta =')
+// oracleBlock is a hoisted function declaration; the workflow then fails on empty args, after its constants exist.
+const run = new AsyncFunction('args', 'agent', 'pipeline', 'parallel', 'log', 'phase', 'globalThis.__oracleBlock = oracleBlock;\n' + source)
+const fail = async () => { throw new Error('no agent in this harness') }
+run({}, fail, fail, fail, () => {}, () => {}).catch(() => {}).then(() => {
+  const oracle = {kind: 'tests', commit_sha: '0c1234abcd', command: 'pytest tests/test_x.py', paths: ['tests/test_x.py']}
+  const attempt = (role, head) => {
+    try {
+      return {ok: true, text: globalThis.__oracleBlock(oracle, role, head)}
+    } catch (error) {
+      return {ok: false, error: String(error && error.message || error)}
+    }
+  }
+  process.stdout.write(JSON.stringify({
+    verify_valid: attempt('verify', 'abcdef1'),
+    verify_missing: attempt('verify', undefined),
+    verify_empty: attempt('verify', ''),
+    verify_unsafe: attempt('verify', 'HEAD; rm -rf /'),
+    build_missing: attempt('build', undefined),
+  }))
+})
+"""
+
+
+def publication(output: dict) -> dict:
+    return output["result"]["publication"][0]
+
+
+def call_with_prefix(output: dict, prefix: str) -> list:
+    return [entry for entry in output["calls"] if entry["label"].startswith(prefix)]
+
+
+class PublicationPreflightTests(unittest.TestCase):
+    """#2562: publication facts are computed by scripts/dispatch_publish_check.py and decided in workflow code."""
+
+    @requires_node
+    def test_preflight_runs_the_script_through_an_exact_command_clerical_agent_before_publish(self) -> None:
+        output = run_workflow(BUILD_WORKFLOW, PUBLISH_ARGS)
+        labels = output["events"]
+        self.assertIn("publish-preflight:example", labels)
+        self.assertLess(labels.index("publish-preflight:example"), labels.index("publish:example"))
+        preflight = call(output, "publish-preflight:example")
+        self.assertEqual(preflight["model"], CLERICAL)
+        self.assertEqual(preflight.get("agentType"), "dispatch-readonly")
+        prompt = preflight["prompt"]
+        self.assertRegex(prompt, rf"python3? {re.escape(PUBLISH_CHECK)} preflight\b")
+        self.assertIn("--repo /projects/dev/example", prompt)
+        self.assertRegex(prompt, rf"--tip {PUBLISH_TIP}(?![0-9a-f])")
+        self.assertRegex(prompt, rf"--expected {PUBLISH_TIP}(?![0-9a-f])")
+        self.assertTrue(names_tip(call(output, "publish:example")["prompt"], PUBLISH_TIP))
+        self.assertEqual((publication(output)["published"], publication(output)["action"]), (True, "pushed"))
+
+    @requires_node
+    def test_preflight_names_every_expected_sha_and_the_code_repository(self) -> None:
+        output = run_workflow(
+            BUILD_WORKFLOW,
+            {"push": True, "items": [
+                {"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"},
+                {"repo": "example", "item_id": 2, "unit": "cli", "tier": "bounded"},
+            ]},
+        )
+        prompt = call(output, "publish-preflight:example")["prompt"]
+        for sha in ("b1617069", "b2636c69"):
+            self.assertRegex(prompt, rf"--expected {sha}(?![0-9a-f])")
+        self.assertRegex(prompt, r"--tip b2636c69(?![0-9a-f])")
+        cross = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [{"repo": "example", "code_repo": "engine", "item_id": 1, "unit": "api", "tier": "bounded"}]})
+        prompt = call(cross, "publish-preflight:engine")["prompt"]
+        self.assertIn("--repo /projects/dev/engine", prompt)
+        self.assertNotIn("--repo /projects/dev/example", prompt)
+
+    @requires_node
+    def test_protected_hits_hand_back_a_pr_and_a_reported_push_of_main_is_not_believed(self) -> None:
+        hits = {"protected_hits": [".claude/workflows/example.js"]}
+        handed = run_workflow(BUILD_WORKFLOW, PUBLISH_ARGS, preflight=hits, publish="hand-pass")
+        prompt = call(handed, "publish:example")["prompt"]
+        # Workflow code decided: the publish agent is not given a direct push of main to choose.
+        self.assertNotIn("TIP:refs/heads/main", prompt)
+        self.assertIsNone(re.search(r"git push origin \S*refs/heads/main\b", prompt), "no direct push of main is offered")
+        self.assertIn(".claude/workflows/example.js", prompt)
+        self.assertIn("gh pr create --base main", prompt)
+        self.assertIn("dispatch/publish-", prompt)
+        self.assertEqual((publication(handed)["published"], publication(handed)["action"]), (False, "needs-hand-pass-pr"))
+        # The run in wf_bd22b93c-f7e: the agent pushes main anyway and reports it. That report is refused.
+        disobeyed = run_workflow(BUILD_WORKFLOW, PUBLISH_ARGS, preflight=hits)
+        self.assertFalse(publication(disobeyed)["published"])
+        self.assertNotEqual(publication(disobeyed)["action"], "pushed")
+        result = disobeyed["result"]["results"][0]
+        self.assertEqual((result["closed"], result["action"]), (False, "verified-undelivered"))
+
+    @requires_node
+    def test_unexpected_commits_are_refused_in_code_without_a_publish_agent(self) -> None:
+        output = run_workflow(BUILD_WORKFLOW, PUBLISH_ARGS, preflight={"unexpected": ["dead0000beef"]})
+        self.assertNotIn("publish:example", output["events"])
+        pub = publication(output)
+        self.assertFalse(pub["published"])
+        self.assertNotIn(pub["action"], PUBLISHED_ACTIONS)
+        self.assertIn("dead0000beef", pub.get("error", ""))
+        self.assertFalse(output["result"]["results"][0]["closed"])
+
+    @requires_node
+    def test_an_expected_sha_outside_the_tip_is_refused_in_code(self) -> None:
+        output = run_workflow(BUILD_WORKFLOW, PUBLISH_ARGS, preflight={"missing_expected": [PUBLISH_TIP]})
+        self.assertNotIn("publish:example", output["events"])
+        pub = publication(output)
+        self.assertFalse(pub["published"])
+        self.assertNotIn(pub["action"], PUBLISHED_ACTIONS)
+        self.assertIn(PUBLISH_TIP, pub.get("error", ""))
+        self.assertFalse(output["result"]["results"][0]["closed"])
+
+    @requires_node
+    def test_an_empty_range_is_already_on_origin_without_a_publish_agent(self) -> None:
+        output = run_workflow(BUILD_WORKFLOW, PUBLISH_ARGS, preflight={"range": [], "expected": []})
+        self.assertNotIn("publish:example", output["events"])
+        self.assertEqual((publication(output)["published"], publication(output)["action"]), (True, "already-on-origin"))
+        self.assertTrue(output["result"]["results"][0]["closed"])
+
+    @requires_node
+    def test_a_failed_preflight_fails_safe(self) -> None:
+        for mode in ("fail", "throw", "garbage", "not-ran"):
+            with self.subTest(preflight=mode):
+                output = run_workflow(BUILD_WORKFLOW, PUBLISH_ARGS, preflight=mode)
+                self.assertNotIn("publish:example", output["events"])
+                pub = publication(output)
+                self.assertFalse(pub["published"])
+                self.assertNotIn(pub["action"], PUBLISHED_ACTIONS)
+                result = output["result"]["results"][0]
+                self.assertEqual((result["closed"], result["action"]), (False, "verified-undelivered"))
+
+    @requires_node
+    def test_a_reported_push_is_confirmed_against_git_with_the_same_script(self) -> None:
+        output = run_workflow(BUILD_WORKFLOW, PUBLISH_ARGS)
+        labels = output["events"]
+        self.assertIn("publish-confirm:example", labels)
+        self.assertLess(labels.index("publish:example"), labels.index("publish-confirm:example"))
+        confirm = call(output, "publish-confirm:example")
+        self.assertEqual(confirm["model"], CLERICAL)
+        self.assertEqual(confirm.get("agentType"), "dispatch-readonly")
+        prompt = confirm["prompt"]
+        self.assertRegex(prompt, rf"python3? {re.escape(PUBLISH_CHECK)} confirm\b")
+        self.assertIn("--repo /projects/dev/example", prompt)
+        self.assertRegex(prompt, rf"--tip {PUBLISH_TIP}(?![0-9a-f])")
+        self.assertRegex(prompt, r"--action pushed\b")
+        self.assertEqual((publication(output)["published"], publication(output)["action"]), (True, "pushed"))
+        for confirm_mode in (False, "fail"):
+            with self.subTest(confirm=confirm_mode):
+                refuted = run_workflow(BUILD_WORKFLOW, PUBLISH_ARGS, confirm=confirm_mode)
+                pub = publication(refuted)
+                self.assertFalse(pub["published"])
+                self.assertNotEqual(pub["action"], "pushed")
+                result = refuted["result"]["results"][0]
+                self.assertEqual((result["closed"], result["action"]), (False, "verified-undelivered"))
+
+    @requires_node
+    def test_a_reported_pr_hand_back_is_confirmed_against_the_publish_branch(self) -> None:
+        url = "https://github.com/bayleafwalker/example/pull/7"
+        output = run_workflow(BUILD_WORKFLOW, PUBLISH_ARGS, publish="pr")
+        prompt = call(output, "publish-confirm:example")["prompt"]
+        self.assertRegex(prompt, r"--action pr-opened\b")
+        self.assertRegex(prompt, rf"--tip {PUBLISH_TIP}(?![0-9a-f])")
+        self.assertEqual((publication(output)["action"], publication(output).get("pr_url")), ("pr-opened", url))
+        refuted = run_workflow(BUILD_WORKFLOW, PUBLISH_ARGS, publish="pr", confirm=False)
+        pub = publication(refuted)
+        self.assertFalse(pub["published"])
+        self.assertNotEqual(pub["action"], "pr-opened")
+        self.assertNotIn("pr_url", pub)
+        self.assertNotIn("pr_url", close_evidence(call(refuted, "close:example"))[0]["delivery_check"])
+
+    @requires_node
+    def test_the_origin_for_pr_url_checks_is_computed_in_code(self) -> None:
+        # Event 3950 finding 4: origin_url was self-reported by the publish agent, and ssh:// origins never matched.
+        url = "https://github.com/bayleafwalker/example/pull/7"
+        kept = run_workflow(
+            BUILD_WORKFLOW, PUBLISH_ARGS, publish="pr", prUrl=url,
+            originUrl="https://github.com/someone-else/other.git",
+            preflightOrigin="ssh://git@github.com/bayleafwalker/example.git",
+        )
+        self.assertEqual(publication(kept).get("pr_url"), url)
+        self.assertEqual(close_evidence(call(kept, "close:example"))[0]["delivery_check"].get("pr_url"), url)
+        dropped = run_workflow(
+            BUILD_WORKFLOW, PUBLISH_ARGS, publish="pr", prUrl=url,
+            originUrl="https://github.com/bayleafwalker/example.git",
+            preflightOrigin="https://github.com/someone-else/other.git",
+        )
+        self.assertNotIn("pr_url", publication(dropped))
+
+
+class DispatchPromptFindingTests(unittest.TestCase):
+    """Fold-in findings on #2562 (events 3950 and 4049)."""
+
+    @requires_node
+    def test_builder_and_verifier_read_items_with_the_exact_tracker_command(self) -> None:
+        # Event 4049 finding 2: verifiers failed to read items from a worktree or without --id.
+        output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]})
+        command = "cd /projects/dev/example && direnv exec . sprintctl item show --id"
+        for label in ("build:example:api", "verify:example:api"):
+            with self.subTest(label=label):
+                self.assertIn(command, call(output, label)["prompt"])
+        cross = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "code_repo": "engine", "item_id": 1, "unit": "api", "tier": "bounded"}]})
+        for prefix in ("build:", "verify:"):
+            prompts = [entry["prompt"] for entry in call_with_prefix(cross, prefix)]
+            self.assertTrue(prompts, prefix)
+            for prompt in prompts:
+                self.assertIn(command, prompt)
+                self.assertNotIn("cd /projects/dev/engine && direnv exec . sprintctl", prompt)
+        audit = run_workflow(VERIFY_WORKFLOW, {"mode": "audit", "items": [{"repo": "example", "item_id": 1, "commit_sha": "abcdef1", "tier": "bounded"}]})
+        self.assertIn(command, call(audit, "verify:example:repo-batch")["prompt"])
+
+    @requires_node
+    def test_status_guidance_fits_served_sprintctl(self) -> None:
+        # sprintctl 0.10 in served mode rejects --expected-revision on item status ("a direct-backend CAS
+        # option"); the agentops tracker is served. Direct trackers still need it, and on a conflict the
+        # retry uses the re-read revision (event 3950 finding 5).
+        build = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]})
+        gate = run_workflow(VERIFY_WORKFLOW, {"mode": "gate", "items": [{"repo": "example", "item_id": 1, "commit_sha": "abcdef1", "reservation_id": "77", "tier": "bounded"}]})
+        omit = r"(omit|without|drop|leave out|never pass|do not pass|not pass|no)\b"
+        served = rf"served[^\n]*\b{omit}[^\n]*--expected-revision|\b{omit}[^\n]*--expected-revision[^\n]*served"
+        retry = r"(new|fresh|re-?read)[^\n]*status_revision[^\n]*retry|retry[^\n]*\b(new|fresh|re-?read)\b[^\n]*revision"
+        prompts = {
+            "build": call(build, "build:example:api")["prompt"],
+            "build-close": call(build, "close:example")["prompt"],
+            "verify-close": call(gate, "close:example")["prompt"],
+        }
+        for name, prompt in prompts.items():
+            with self.subTest(prompt=name):
+                self.assertIn("sprintctl item status", prompt)
+                self.assertRegex(prompt, served)
+                if name != "build":
+                    self.assertRegex(prompt, retry)
+
+    @requires_node
+    def test_oracle_block_refuses_a_missing_verify_head(self) -> None:
+        # Event 4049 finding 4: the verify role fell back silently to '<latest commit>'.
+        result = subprocess.run(["node", "-e", ORACLE_BLOCK_HARNESS, str(BUILD_WORKFLOW)], cwd=ROOT, check=True, capture_output=True, text=True)
+        outcome = json.loads(result.stdout)
+        self.assertTrue(outcome["verify_valid"]["ok"], outcome["verify_valid"])
+        self.assertIn("git diff 0c1234abcd abcdef1", outcome["verify_valid"]["text"])
+        for case in ("verify_missing", "verify_empty", "verify_unsafe"):
+            with self.subTest(case=case):
+                self.assertFalse(outcome[case]["ok"], outcome[case])
+        self.assertTrue(outcome["build_missing"]["ok"], outcome["build_missing"])
+        self.assertNotIn("<latest commit>", BUILD_WORKFLOW.read_text(encoding="utf-8"))
+
+    @requires_node
+    def test_an_ancestor_oracle_commit_is_adopted_only_while_its_paths_exist(self) -> None:
+        # Event 3950 finding 1: a park reverts an adopted oracle commit, which stays an ancestor.
+        output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]})
+        prompt = call(output, "build:example:api")["prompt"]
+        step = next(line for line in prompt.splitlines() if line.startswith("0. ") and "oracle: <commit>" in line)
+        self.assertRegex(step, r"\b(exist|exists|present)\b[^.]*\b(at|in) HEAD\b")
+        self.assertRegex(step, r"revert")
+        self.assertRegex(step, r"cherry-pick")
+
+    @requires_node
+    def test_verify_prompt_step_wording(self) -> None:
+        # Event 3950 finding 6.
+        output = run_workflow(BUILD_WORKFLOW, {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]})
+        prompt = call(output, "verify:example:api")["prompt"]
+        self.assertNotIn("isolated worktree, Run", prompt)
+        self.assertIn("isolated worktree", prompt)
 
 
 if __name__ == "__main__":
