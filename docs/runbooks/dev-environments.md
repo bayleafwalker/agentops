@@ -42,7 +42,10 @@ the S5 catalog query replaces it.
 auditctl hooks append NDJSON shards at `_artifacts/<repo>/audit/events-YYYY-MM-DD.ndjson`
 inside each checkout under `/projects/dev`. Under TS-6 the committed shards are the
 authoritative evidence until the S4 import, so they must reach each repository's
-default branch.
+default branch. The Stop hook publishes into the repository the session is working in
+(the event's `cwd`, a worktree mapping to its main checkout), not the one it was launched
+in: when that differs, it drops the launch checkout's direnv `AUDITCTL_DB` /
+`AUDITCTL_ARTIFACTS_ROOT` pins for the publish (agentops#2547).
 
 `scripts/commit_audit_shards.py` does this unattended and **replaces the Stop hook**
 that used to commit "chore(audit): append today's shard" (it never fired in headless
