@@ -195,8 +195,10 @@ function groupByRepo(items) {
 // Git and file work happen in unit.repo; sprintctl must run from the tracker, because run
 // from the code repo it would address that repo's own tracker.
 function trackerScope(unit) {
-  if (!unit.tracker || unit.tracker === unit.repo) return ''
-  return `The sprint items are tracked in ${unit.tracker}, not in this repository: run every sprintctl command from ${repoPath(unit.tracker)} in the same shell command (cd ${repoPath(unit.tracker)} && sprintctl ...), and do all git and file work in ${repoPath(unit.repo)}. `
+  // Verifiers could not read items when sprintctl ran from a worktree or without --id (event 4049).
+  const read = `Read an item with exactly \`cd ${repoPath(unit.tracker || unit.repo)} && direnv exec . sprintctl item show --id <id>\` (note --id; run it from the tracker repository, never from a worktree). `
+  if (!unit.tracker || unit.tracker === unit.repo) return `sprintctl scopes by cwd. ${read}`
+  return `The sprint items are tracked in ${unit.tracker}, not in this repository: run every sprintctl command from ${repoPath(unit.tracker)} in the same shell command (cd ${repoPath(unit.tracker)} && sprintctl ...), and do all git and file work in ${repoPath(unit.repo)}. ${read}`
 }
 
 function verifyPrompt(mode, unit, verifyTimeoutSeconds) {
@@ -324,7 +326,8 @@ function closePrompt(mode, repo, pairs) {
   const gateInstructions = `For each item:
 - If verdict is confirmed, first add a concise decision note summarizing the independent evidence in your own shell-safe plain wording. Then read the item's current status revision (item.status_revision from sprintctl item show --id <item_id> --json) and run sprintctl item status --id <item_id> --status done --actor workflow-independent-verify-gate --expected-revision <that revision>. Then run sprintctl reservation release --id <reservation_id> --actor workflow-independent-verify-gate. Never rerun tests or modify Git here.
 - For issues_found or inconclusive, do not mark done. Add a concise triage note. Then, if the item is active, return it to pending with sprintctl item status --id <item_id> --status pending --reason rework --actor workflow-independent-verify-gate --expected-revision <current status_revision>, and run sprintctl reservation release --id <reservation_id> --actor workflow-independent-verify-gate.
-- Reservations are advisory and carry no secret. On a revision conflict, re-read the item once and retry; if it still fails, report closed=false with the error. If an item has no reservation_id, skip the release step.`
+- In served mode (sprintctl item show reports backend served) omit --expected-revision from sprintctl item status: served sprintctl rejects it as a direct-backend CAS option. On a direct backend pass --expected-revision <item.status_revision>. On a revision conflict, re-read the item, take the new status_revision, and retry once with it; never retry with the old revision.
+- Reservations are advisory and carry no secret. If the retry still fails, report closed=false with the error. If an item has no reservation_id, skip the release step.`
   const auditInstructions = `These items were already completed. Do not touch reservations, item status, commits, or working-tree files.
 - For confirmed, add one lightweight sprintctl item note recording the post-hoc confirmation.
 - For issues_found or inconclusive, add one explicit triage note with the missing evidence or concrete concerns. Do not repair, revert, or hotfix from audit mode.`

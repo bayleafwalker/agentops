@@ -31,3 +31,22 @@ def _isolate_audit_store(tmp_path_factory, monkeypatch) -> None:
     (index / "auditctl.db").touch()
     monkeypatch.setenv("AUDITCTL_DB", str(index / "auditctl.db"))
     monkeypatch.setenv("AUDITCTL_ARTIFACTS_ROOT", str(store))
+
+
+# The saved-workflow harness tests (test_saved_workflows.py) need node. A skip is reported as success by
+# pytest, so a verifier running the suite outside the manifest's nix shell would report a pass over tests
+# that never ran (#2562, event 4049 finding 3). A skip whose reason is the node requirement is a failure.
+_NODE_SKIP_MARKER = "node"
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    outcome = yield
+    report = outcome.get_result()
+    if not report.skipped or call.when not in ("setup", "call"):
+        return
+    longrepr = report.longrepr
+    reason = str(longrepr[2]) if isinstance(longrepr, tuple) and len(longrepr) == 3 else str(longrepr)
+    if item.module.__name__.endswith("test_saved_workflows") and _NODE_SKIP_MARKER in reason.lower():
+        report.outcome = "failed"
+        report.longrepr = f"node is required to run the saved-workflow harness tests and was not found on PATH ({reason}); run them inside the manifest's nix shell"

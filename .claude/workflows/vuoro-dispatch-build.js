@@ -299,8 +299,17 @@ function repoPath(repo) {
 // sprint items. Git and file work happen in unit.repo; sprintctl must run from the
 // tracker, because run from the code repo it would address that repo's own tracker.
 function sprintctlScope(unit) {
-  return trackerScope(unit) || 'sprintctl scopes by cwd. '
+  return trackerScope(unit)
 }
+
+// Verifiers could not read items when sprintctl ran from a worktree or without --id (event 4049).
+function itemReadCommand(unit) {
+  return `cd ${repoPath(unit.tracker || unit.repo)} && direnv exec . sprintctl item show --id`
+}
+
+// sprintctl 0.10 in served mode rejects --expected-revision on item status ("a direct-backend
+// CAS option"); a direct backend still needs it. The retry uses the re-read revision, never the old one.
+const STATUS_REVISION_RULE = 'In served mode (sprintctl item show reports backend served) omit --expected-revision from sprintctl item status: served sprintctl rejects it as a direct-backend CAS option. On a direct backend pass --expected-revision <item.status_revision>. On a revision conflict, re-read the item, take the new status_revision, and retry once with it; never retry with the old revision.'
 
 // The workflow tracks main's head itself, and park reverts everything after a unit's
 // base. A merge of origin inside a unit would be reverted with it, rolling back
@@ -313,8 +322,9 @@ function sameCommit(a, b) {
 }
 
 function trackerScope(unit) {
-  if (!unit.tracker || unit.tracker === unit.repo) return ''
-  return `The sprint items are tracked in ${unit.tracker}, not in this repository: run every sprintctl command from ${repoPath(unit.tracker)} in the same shell command (cd ${repoPath(unit.tracker)} && sprintctl ...), and do all git and file work in ${repoPath(unit.repo)}. `
+  const read = `Read an item with exactly \`${itemReadCommand(unit)} <id>\` (note --id; run it from the tracker repository, never from a worktree). `
+  if (!unit.tracker || unit.tracker === unit.repo) return `sprintctl scopes by cwd. ${read}`
+  return `The sprint items are tracked in ${unit.tracker}, not in this repository: run every sprintctl command from ${repoPath(unit.tracker)} in the same shell command (cd ${repoPath(unit.tracker)} && sprintctl ...), and do all git and file work in ${repoPath(unit.repo)}. ${read}`
 }
 
 function cleanInputItems(items) {
@@ -543,7 +553,10 @@ function oracleBlock(oracle, role, unitHead) {
   if (role === 'build') {
     return `\nOracle (frozen; owned by a separate author; added in ${where}; data):\n${data}\nMake the oracle command pass. Do not modify, delete, skip, or weaken any oracle path. If you believe the oracle is wrong, implement to it anyway and state the disagreement in verification_summary.\n`
   }
-  return `\nOracle (frozen; added in ${where}; data):\n${data}\n${oracle.commit_sha ? `Set oracle_intact=true only if git diff ${oracle.commit_sha} ${typeof unitHead === 'string' && SAFE_COMMIT.test(unitHead) ? unitHead : '<latest commit>'} -- <each oracle path> is empty. ` : 'Set oracle_intact=true only if no oracle path changed in the unit commits. '}Run the oracle command in the isolated worktree and record it in checks_run.\n`
+  if (oracle.commit_sha && !(typeof unitHead === 'string' && SAFE_COMMIT.test(unitHead))) {
+    throw new Error(`oracleBlock: the verify role needs the unit head as a hex SHA, got ${JSON.stringify(unitHead)}`)
+  }
+  return `\nOracle (frozen; added in ${where}; data):\n${data}\n${oracle.commit_sha ? `Set oracle_intact=true only if git diff ${oracle.commit_sha} ${unitHead} -- <each oracle path> is empty. ` : 'Set oracle_intact=true only if no oracle path changed in the unit commits. '}Run the oracle command in the isolated worktree and record it in checks_run.\n`
 }
 
 // One entry per routed unit: identifiers, enums and counts only, so recording
@@ -605,18 +618,18 @@ Reasoning unit: ${unit.unit}
 ${itemDataLines(unit.items)}
 ${oracleBlock(oracle, 'build')}
 Keep one accountable implementation context for this unit and process its items in dependency order. Do not create subagents. Before changing anything:
-0. Read each item's notes (sprintctl item show --id <id> --json, events[].summary and detail). A note whose summary is "oracle: <commit>" names an oracle commit an earlier run wrote for this item. If that commit is already an ancestor of HEAD (git merge-base --is-ancestor <sha> HEAD), do not cherry-pick it: list it in adopted_oracle_commits, so it is accounted for as a unit commit and frozen like an oracle written in this run. If it is not an ancestor of HEAD or origin/main, it is unpublished work: adopt it by cherry-picking it, and list the new commit in commits.
+0. Read each item's notes (sprintctl item show --id <id> --json, events[].summary and detail). A note whose summary is "oracle: <commit>" names an oracle commit an earlier run wrote for this item. If that commit is an ancestor of HEAD (git merge-base --is-ancestor <sha> HEAD) and its oracle paths exist at HEAD (git diff-tree --no-commit-id --name-only -r <sha> lists them; a park reverts an adopted oracle commit but the commit stays an ancestor, so check the files are present, not just the ancestry), do not cherry-pick it: list it in adopted_oracle_commits, so it is accounted for as a unit commit and frozen like an oracle written in this run. If it is an ancestor but its oracle paths no longer exist at HEAD (a revert removed them), cherry-pick it again and list the new commit in commits. If it is not an ancestor of HEAD or origin/main, it is unpublished work: adopt it by cherry-picking it, and list the new commit in commits.
 1. Record git rev-parse HEAD as base_sha before any change. Inspect git status and record pre-existing changes. Preserve them. If they overlap this unit or prevent an isolated commit, stop and report blocked rather than staging or rewriting someone else's work.
 2. Confirm the items share the invariant or subsystem boundary declared by the unit. When implementation exposes a smaller decision the items did not settle, decide it in line with the recorded item decisions and the repository's documented direction, and note it in verification_summary. Return blocked only when pre-existing working-tree changes prevent an isolated commit or an item depends on unfinished work in another item.
 
 For each item that is ready:
-1. Reserve the item: sprintctl reservation reserve --item-id <id> --actor ${tierConfig.actor} --json, and keep its reservation_id (reservations are advisory and carry no secret). Then mark it active: read item.status_revision from sprintctl item show --id <id> --json and run sprintctl item status --id <id> --status active --actor ${tierConfig.actor} --expected-revision <that revision>.
+1. Reserve the item: sprintctl reservation reserve --item-id <id> --actor ${tierConfig.actor} --json, and keep its reservation_id (reservations are advisory and carry no secret). Then mark it active: read item.status_revision from sprintctl item show --id <id> --json and run sprintctl item status --id <id> --status active --actor ${tierConfig.actor} --expected-revision <that revision>. ${STATUS_REVISION_RULE}
 2. Implement only the accepted unit scope. Do not redesign the tract from build mode. If an item's acceptance is already satisfied by existing commits, make no new commit and return the commit that delivered it; the verifier will confirm it. Deliver every part of each item. Never narrow an item silently: if a part cannot be done in this unit (it belongs to another repository, needs a setting only the operator can change, or is moot), add a follow-up item for exactly that part with sprintctl item add on the same sprint and track (for an operator-only setting, write the exact steps, the verified precondition, and the expected result into it; for a moot part, say why and cite the evidence), then add a note on the original item: --summary "build: scope moved to #<new id>".
 3. Run the real targeted checks selected by the manifest and changed surfaces. Every gating command must run foreground and blocking with a ${verifyTimeoutSeconds}-second bound (for example, timeout --foreground ${verifyTimeoutSeconds}s <command>). Never background, detach, or poll a test command.
 4. Make one commit per reviewable scope, not mechanically per item. Stage only this unit's paths, inspect the staged diff, and never include pre-existing changes. Associate every completed item with the commit SHA that contains its acceptance work; related items may legitimately share a commit.
 5. Do not push. Publication occurs only after independent verification. Do not mark any item done; leave completed items active and reserved for the gate.
 
-If you reserved an item but cannot complete it, return it to pending (sprintctl item status --id <id> --status pending --reason partial --actor ${tierConfig.actor} --expected-revision <current status_revision>), release its reservation (sprintctl reservation release --id <reservation_id> --actor ${tierConfig.actor}), and do not return it as completed. Finish earlier completed work, set blocked to the precise reason, and stop; the unfinished items return to the backlog with your reason and later units still run.
+If you reserved an item but cannot complete it, return it to pending (sprintctl item status --id <id> --status pending --reason partial --actor ${tierConfig.actor} --expected-revision <current status_revision>, subject to the served-mode rule in step 1), release its reservation (sprintctl reservation release --id <reservation_id> --actor ${tierConfig.actor}), and do not return it as completed. Finish earlier completed work, set blocked to the precise reason, and stop; the unfinished items return to the backlog with your reason and later units still run.
 
 Return {repo: "${unit.repo}", unit: "${unit.unit}", base_sha, head_sha: <git rev-parse HEAD after your last commit>, commits: [<every commit you created in this unit, oldest first, including test and adopted commits>], adopted_oracle_commits: [<oracle commits from earlier runs that were already in history, oldest first>], items: [{item_id as a string, reservation_id as a string, commit_sha, files_changed, verification_summary}], blocked?, shared_constraints?}.`
 }
@@ -682,7 +695,7 @@ For the unit as a whole:
 1. Read AGENTS.md, the root dispatch manifest, overlays, risk_surfaces, and each live sprint item. Verify that these items really form one coherent unit and that every acceptance criterion is represented. Read each item's notes with sprintctl item show --id <id> --json (events[].summary and detail). Every part of each item's description, and of any "refinement: original intent" note, must be delivered by the unit commits or named in a "refinement: intent moved" or "build: scope moved" note that points at a follow-up item. A part that is neither delivered nor moved is an issue (issues_found), even when the reason given for dropping it is plausible. A move must also hold up: confirm with sprintctl item show that each follow-up item exists and names that exact part, and accept only three reasons: another repository owns it; only the operator can do it (check that no agent-reachable route exists, such as credentials or tools already available to agents); or it is moot (re-check the cited evidence yourself). Moving work that an agent could do in this repository is an issue.
 2. Create one collision-resistant detached worktree at the latest unit commit (${latestCommit}): make a directory with mktemp -d using a /tmp/verify-${unit.repo}-${unit.unit}-XXXXXX template, then git worktree add --detach <that-directory> ${latestCommit}. Never touch the shared working tree. Keep that directory path in a shell variable (for example WT=$(mktemp -d ...)) and pass it by value; never write it or any other state to a shared scratch or temp file outside that directory, and never run a command in a worktree you did not create.
 3. Inspect every listed commit with git show and the combined unit diff. Reject unrelated changes, accidental inclusion of pre-existing work, silent scope expansion, and skipped criteria.
-4. In the isolated worktree, Run the manifest's verification suite command verbatim before any other test command: never start with a bare pytest or a tool from outside the manifest's environment (for example node from /nix/store instead of the manifest's nix shell). Then cold-run the smallest deterministic checks first. Then run the repository's full test suite (the manifest's full-suite command, or the repository's standard test command) once for this unit: a change can break tests far from the files it touches. Every command must stay foreground and blocking and use timeout --foreground ${verifyTimeoutSeconds}s (or an equally strict foreground timeout if coreutils timeout is unavailable). Never use &, nohup, a background tool mode, detached execution, or polling. A timeout is evidence of an incomplete gate, not permission to wait indefinitely.
+4. Work in the isolated worktree. Run the manifest's verification suite command verbatim before any other test command: never start with a bare pytest or a tool from outside the manifest's environment (for example node from /nix/store instead of the manifest's nix shell). Then cold-run the smallest deterministic checks first. Then run the repository's full test suite (the manifest's full-suite command, or the repository's standard test command) once for this unit: a change can break tests far from the files it touches. Every command must stay foreground and blocking and use timeout --foreground ${verifyTimeoutSeconds}s (or an equally strict foreground timeout if coreutils timeout is unavailable). Never use &, nohup, a background tool mode, detached execution, or polling. A timeout is evidence of an incomplete gate, not permission to wait indefinitely.
 5. Record exact redacted commands and outcomes in checks_run. Record the broader gate separately in full_suite. Classify an outcome by what failed, not by the exit code. failed means the code under test is wrong: an assertion, an error raised by repository code, an import of a repository module, or a build or type error in changed code. not_available means the check could not run as written, independent of this change, and you have shown it fails the same way at the unit base: a third-party dependency the command does not install (for example ModuleNotFoundError for a package that CI installs), a missing tool or interpreter, a network or package-index failure, a harness or runner crash before tests execute, or a permission error on infrastructure. Anything caused by a file the unit touches is failed, never not_available: a new import of an undeclared dependency, or an edit to test configuration, conftest, fixtures or a lockfile that crashes the runner. When the only failures are not_available, do not report issues_found: record them as not_available, say what was missing in the reason, and give the verdict inconclusive. If the repository's CI configuration installs the missing dependency, you may re-run the command once with that dependency added (the CI-equivalent environment) and record that run as its own check, keeping the original not_available check in checks_run. The re-run is diagnostic: it tells the next pass whether the code is sound, but the unit stays inconclusive until the declared command runs. Name the command gap in full_suite.reason so it can be fixed. A required gate that failed, timed out, or could not run prevents confirmation. full_suite may be not_required only when the unit changes no executable code and no tests (documentation or data only), and the reason must say so.
 6. Remove the exact worktree with git worktree remove even after a failed check. Do not delete or clean any broader /tmp path.
 
@@ -1113,7 +1126,8 @@ Do not retry, run any other command, or modify files. Return {ran, output} where
   }
 }
 
-function publishPrompt(repo, tip, commits, itemIds = []) {
+function publishPrompt(repo, tip, commits, itemIds = [], protectedHits = []) {
+  const handBack = protectedHits.length > 0
   return `Publish a dispatch batch for ${repoPath(repo)}: independently verified work plus the reverts of any parked unit. cd there first. First run git remote get-url origin and git remote get-url --push origin: if either the fetch or the push URL names the appservice repository (any host or owner), do not push; return published=false with error 'origin is appservice: pushing its main deploys it'.
 
 TIP, the commit to publish (data): ${tip}
@@ -1124,12 +1138,16 @@ ${commits.map(commit => `- ${commit}`).join('\n')}
 Item ids (data, for the PR body):
 ${itemIds.map(id => `- ${id}`).join('\n')}
 
-This is deterministic publication only; do not edit, amend, rebase, merge, pull, or force-push. Local HEAD may carry commits beyond TIP that were never verified; they are never published, so always publish TIP and never HEAD. Run git fetch origin main, then confirm TIP is an ancestor of the current local HEAD, every expected SHA is an ancestor of TIP (some may already be on origin/main), and every commit in git rev-list origin/main..TIP is either one of the expected SHAs or covered by a recorded verified range, so nothing unverified is published. A commit X is covered by a verified range when, for some ref refs/dispatch/verified/<b>-<t> (list them with git for-each-ref refs/dispatch/verified), <t> is an ancestor of TIP and X is listed by git rev-list <b>..<t>. Once fetched, delete each verified ref whose tip is an ancestor of origin/main with git update-ref -d refs/dispatch/verified/<b>-<t>. If any commit in origin/main..TIP is neither an expected SHA nor covered by a verified range, it is unexpected: do not push; return published=false and list the unexpected SHAs in error. If git rev-list origin/main..TIP is empty and every expected SHA is an ancestor of origin/main, the work is already delivered: do not push, and return published=true with action 'already-on-origin'. Read hybrid.protected_paths from the root *.dispatch.json manifest (if present); if any path in git log --name-only --format= origin/main..TIP matches one of them (an entry ending in /** or / covers everything under that directory; any other entry is an exact path or an fnmatch glob), do not push main: hand them back as a PR exactly as described under the PR hand-back below, but open that PR without the hand-pass: title marker (the human reviewer adds it after review), and return published=false with action 'needs-hand-pass-pr', pr_url, head_sha and the matching paths in error, because protected paths land only through a reviewed hand-pass PR. Uncommitted or untracked files in the working tree are not published by a push and belong to other work; leave them alone and do not treat them as a reason to stop. Then run git push origin TIP:refs/heads/main exactly once. If that push is refused because main is a protected branch (output mentions GH006, GH013 or protected branch) or because origin/main moved (output mentions rejected, fetch first or non-fast-forward), do not retry it and do not rebase, merge or force-push to get around it; hand the work back as a PR instead (PR hand-back). PR hand-back: let BRANCH be dispatch/publish-<first 12 hex of TIP>. Push TIP to BRANCH without force (git push origin TIP:refs/heads/BRANCH); if BRANCH already exists on origin at TIP reuse it, and if it exists at any other tip that is an error: return published=false with the error. Then run gh pr list --state open --json headRefName,headRefOid,url and note every open PR whose headRefName matches dispatch/publish-* and whose headRefOid is an ancestor of TIP (git merge-base --is-ancestor): this PR contains it. Run gh pr list --head BRANCH --state open --json url and reuse an open PR for that head, otherwise create one with gh pr create --base main --head BRANCH. The PR body lists the expected SHAs and the item ids above, names each contained earlier dispatch/publish-* PR by its URL as contained in this PR, and says to merge it with a merge commit, not squash or rebase, because the workflow checks those exact SHAs on origin/main afterwards. Never merge the PR, never close or edit an earlier PR, never enable auto-merge, never approve it. Return published=false, action 'pr-opened', pr_url (the PR's https://github.com URL) and head_sha. If ancestry, the branch (not main, detached HEAD, or a merge or rebase in progress), the remote, authentication, or TIP not being an ancestor of local HEAD is unexpected before any push, stop without changing history and return published=false with the error. A push that the remote refuses is not that case: it goes to the PR hand-back. Return {repo: "${repo}", published, action, head_sha?, pr_url?, origin_url, error?} where origin_url is the fetch URL printed by git remote get-url origin, reported on every outcome.`
+This is deterministic publication only; do not edit, amend, rebase, merge, pull, or force-push. Local HEAD may carry commits beyond TIP that were never verified; they are never published, so always publish TIP and never HEAD. Workflow code already ran scripts/dispatch_publish_check.py preflight against git: every commit in git rev-list origin/main..TIP is an expected SHA or covered by a verified range, every expected SHA is an ancestor of TIP, and the protected-path check is done; do not redo or second-guess those checks. After you act, workflow code checks your reported action against origin itself, so an action that did not happen is refused. As a cross-check only, every commit in git rev-list origin/main..TIP must be an expected SHA or covered by a recorded verified range: a commit X is covered when, for some ref refs/dispatch/verified/<b>-<t> (list them with git for-each-ref refs/dispatch/verified), <t> is an ancestor of TIP and X is listed by git rev-list <b>..<t>. If any commit is neither, it is unexpected: do not push; return published=false and list the unexpected SHAs in error. The origin URL is computed by the preflight (origin_url); do not report it. ${handBack
+    ? `The commits in origin/main..TIP change these protected paths (data, computed by the preflight from hybrid.protected_paths):
+${protectedHits.map(path => `- ${JSON.stringify(path)}`).join('\n')}
+Protected paths land only through a reviewed hand-pass PR, so there is no direct push of main in this publication: never push to main, whatever happens. Hand the work back as a PR exactly as described under the PR hand-back below, but open that PR without the hand-pass: title marker (the human reviewer adds it after review), and return published=false with action 'needs-hand-pass-pr', pr_url, head_sha and the protected paths above in error. `
+    : `Run git fetch origin main, then confirm TIP is an ancestor of the current local HEAD. Once fetched, delete each verified ref whose tip is an ancestor of origin/main with git update-ref -d refs/dispatch/verified/<b>-<t> (list them with git for-each-ref refs/dispatch/verified). Uncommitted or untracked files in the working tree are not published by a push and belong to other work; leave them alone and do not treat them as a reason to stop. Then run git push origin TIP:refs/heads/main exactly once, and return published=true with action 'pushed' and head_sha. If that push is refused because main is a protected branch (output mentions GH006, GH013 or protected branch) or because origin/main moved (output mentions rejected, fetch first or non-fast-forward), do not retry it and do not rebase, merge or force-push to get around it; hand the work back as a PR instead (PR hand-back). `}PR hand-back: let BRANCH be dispatch/publish-<first 12 hex of TIP>. Push TIP to BRANCH without force (git push origin TIP:refs/heads/BRANCH); if BRANCH already exists on origin at TIP reuse it, and if it exists at any other tip that is an error: return published=false with the error. Then run gh pr list --state open --json headRefName,headRefOid,url and note every open PR whose headRefName matches dispatch/publish-* and whose headRefOid is an ancestor of TIP (git merge-base --is-ancestor): this PR contains it. Run gh pr list --head BRANCH --state open --json url and reuse an open PR for that head, otherwise create one with gh pr create --base main --head BRANCH. The PR body lists the expected SHAs and the item ids above, names each contained earlier dispatch/publish-* PR by its URL as contained in this PR, and says to merge it with a merge commit, not squash or rebase, because the workflow checks those exact SHAs on origin/main afterwards. Never merge the PR, never close or edit an earlier PR, never enable auto-merge, never approve it. Return published=false, action '${handBack ? 'needs-hand-pass-pr' : 'pr-opened'}', pr_url (the PR's https://github.com URL) and head_sha. If ancestry, the branch (not main, detached HEAD, or a merge or rebase in progress), the remote, authentication, or TIP not being an ancestor of local HEAD is unexpected before any push, stop without changing history and return published=false with the error. A push that the remote refuses is not that case: it goes to the PR hand-back. Return {repo: "${repo}", published, action, head_sha?, pr_url?, error?}.`
 }
 
 // A PR hand-back is trusted only in this exact shape: it reaches close prompts and notes.
 const PR_URL = /^https:\/\/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)\/pull\/[0-9]+$/
-const ORIGIN_URL = /^(?:https:\/\/github\.com\/|git@github\.com:)([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?\/?$/
+const ORIGIN_URL = /^(?:https:\/\/github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?\/?$/
 
 // The PR must belong to the repository this checkout pushes to, not merely look like a PR.
 function prUrlMatchesOrigin(prUrl, originUrl) {
@@ -1160,23 +1178,116 @@ async function publishRepo(state, push) {
   // Units behind the boundary and the unit that formed it are not part of this publication.
   const itemIds = [...new Set(state.verifiedUnits.filter(unit => !unit.unverified && !unit.withheldBehind).flatMap(unit => (unit.buildResult && unit.buildResult.items || []).map(item => String(item.item_id))))]
     .filter(id => /^[0-9]{1,12}$/.test(id))
-  const raw = await agent(publishPrompt(state.repo, tip, commits, itemIds), {
+  const refuse = (action, error) => ({ ...state, publication: { repo: state.repo, published: false, action, error } })
+  // The publication rules are computed in code; the publish agent only acts on the outcome.
+  const facts = await runPublishCheck(state.repo, 'publish-preflight', `preflight --repo ${repoPath(state.repo)} --tip ${tip}${commits.map(sha => ` --expected ${sha}`).join('')}`, 'computes which commits are expected or covered by verified ranges and which changed paths are protected')
+  const preflight = parsePreflight(facts, tip)
+  if (preflight.error) return refuse('preflight-failed', preflight.error)
+  if (preflight.unexpected.length) return refuse('publish-refused-unexpected-commits', `commits in origin/main..${tip} that are neither expected nor covered by a verified range: ${preflight.unexpected.join(' ')}`)
+  if (preflight.missing_expected.length) return refuse('publish-refused-missing-expected', `expected commits that are not ancestors of ${tip}: ${preflight.missing_expected.join(' ')}`)
+  if (!preflight.range.length) {
+    return { ...state, publication: { repo: state.repo, published: true, action: 'already-on-origin', head_sha: tip } }
+  }
+  const protectedHits = preflight.protected_hits
+  const raw = await agent(publishPrompt(state.repo, tip, commits, itemIds, protectedHits), {
     label: `publish:${state.repo}`,
     phase: 'Publish',
     schema: PUBLISH_SCHEMA,
     ...CLERICAL_MODEL,
   })
-  const prUrl = raw && prUrlMatchesOrigin(raw.pr_url, raw.origin_url) ? raw.pr_url : undefined
-  const publication = raw && raw.published
-    ? { repo: state.repo, published: true, action: String(raw.action), head_sha: String(raw.head_sha || '') }
-    : {
-        repo: state.repo,
-        published: false,
-        action: String((raw && raw.action) || 'publish-agent-failed'),
-        ...(prUrl ? { pr_url: prUrl } : {}),
-        error: String((raw && raw.error) || ''),
-      }
-  return { ...state, publication }
+  const action = String((raw && raw.action) || 'publish-agent-failed')
+  if (!raw || (!raw.published && !PUBLISH_CONFIRMED_ACTIONS.has(action))) {
+    return refuse(action, String((raw && raw.error) || ''))
+  }
+  if (!PUBLISH_CONFIRMED_ACTIONS.has(action)) return refuse('publish-unrecognised-action', `the publish agent reported ${action}`)
+  // Protected paths never go out as a direct push of main, whatever the agent reports.
+  if (protectedHits.length && PUSH_ACTIONS.has(action)) {
+    return refuse('publish-refused-protected-paths', `the publish agent reported ${action}, but ${protectedHits.join(', ')} are protected and land only through a reviewed PR`)
+  }
+  // The agent's report is checked against the origin remote with the same script.
+  const confirmation = await runPublishCheck(state.repo, 'publish-confirm', `confirm --repo ${repoPath(state.repo)} --tip ${tip} --action ${action}`, 'checks the reported publication against the origin remote')
+  if (!confirmedPublication(confirmation)) {
+    return refuse('publish-unconfirmed', `the publish agent reported ${action}, but git on origin does not show it`)
+  }
+  // origin_url is computed by the preflight from git remote get-url origin, never self-reported.
+  const prUrl = prUrlMatchesOrigin(raw.pr_url, preflight.origin_url) ? raw.pr_url : undefined
+  if (PUSH_ACTIONS.has(action)) {
+    return { ...state, publication: { repo: state.repo, published: true, action, head_sha: String(raw.head_sha || '') } }
+  }
+  return {
+    ...state,
+    publication: {
+      repo: state.repo,
+      published: false,
+      action,
+      ...(prUrl ? { pr_url: prUrl } : {}),
+      error: String(raw.error || ''),
+    },
+  }
+}
+
+const PUSH_ACTIONS = new Set(['pushed', 'already-on-origin'])
+const PUBLISH_CONFIRMED_ACTIONS = new Set(['pushed', 'already-on-origin', 'pr-opened', 'needs-hand-pass-pr'])
+const HEX_SHA = /^[0-9a-f]{7,64}$/
+const PUBLISH_CHECK_SCRIPT = '/projects/dev/agentops/scripts/dispatch_publish_check.py'
+
+// Runs scripts/dispatch_publish_check.py through an exact-command clerical agent and returns the parsed
+// JSON of its stdout, or {error} when the agent failed, did not run it, or printed something else.
+async function runPublishCheck(repo, label, args, purpose) {
+  let raw
+  try {
+    raw = await agent(`Run exactly this shell command and report what it printed. It ${purpose} and changes nothing in the working tree.
+
+python3 ${PUBLISH_CHECK_SCRIPT} ${args}
+
+Do not retry, run any other command, or modify files. Return {ran, output} where ran says whether the command executed and output is its complete standard output (JSON).`, {
+      label: `${label}:${repo}`,
+      ...READONLY_AGENT,
+      phase: 'Publish',
+      schema: RECORD_SCHEMA,
+      ...CLERICAL_MODEL,
+    })
+  } catch (error) {
+    return { error: `${label} agent failed: ${String(error && error.message || error).slice(0, 200)}` }
+  }
+  if (!raw || raw.ran !== true) return { error: `${label} did not run` }
+  try {
+    const parsed = JSON.parse(String(raw.output))
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return { report: parsed }
+  } catch (_error) {
+    // fall through
+  }
+  return { error: `${label} printed output that is not a JSON object` }
+}
+
+function shaList(value) {
+  if (!Array.isArray(value) || !value.every(sha => typeof sha === 'string' && HEX_SHA.test(sha))) return undefined
+  return value
+}
+
+// Fails closed: a report that lacks a field or has the wrong shape is an error, not an empty list.
+function parsePreflight(result, tip) {
+  if (result.error) return { error: result.error }
+  const report = result.report
+  const range = shaList(report.range)
+  const unexpected = shaList(report.unexpected)
+  const missing = shaList(report.missing_expected)
+  const hits = Array.isArray(report.protected_hits) && report.protected_hits.every(path => typeof path === 'string' && path.length > 0 && path.length < 500)
+    ? report.protected_hits : undefined
+  if (!range || !unexpected || !missing || !hits || typeof report.tip !== 'string' || !sameCommit(report.tip, tip)) {
+    return { error: 'publish-preflight printed a report with missing or malformed fields' }
+  }
+  return {
+    range,
+    unexpected,
+    missing_expected: missing,
+    protected_hits: hits,
+    origin_url: typeof report.origin_url === 'string' ? report.origin_url : undefined,
+  }
+}
+
+function confirmedPublication(result) {
+  return !result.error && result.report.confirmed === true
 }
 
 function effectiveClosePairs(state, push) {
@@ -1232,7 +1343,8 @@ For each item, using only the item_id, reservation_id, verdict, and delivery_che
 - If verdict is confirmed and the item has delivery_check, check its work against origin/main whatever this run's publication reported. In /projects/dev/<delivery_check.code_repo> run git fetch origin main, then git merge-base --is-ancestor <sha> origin/main for every SHA in delivery_check.commits (each is a validated hex SHA). If every check exits 0, the work is delivered: close the item as described next. Otherwise do not mark it done: add a note with summary 'verified, undelivered' that names the SHAs not on origin/main and delivery_check.publication, and name delivery_check.pr_url in the note when it is present and say the next dispatch of the item closes it once that PR is merged (publication then returns already-on-origin). When delivery_check.publication is withheld-behind-unverified, the unit was verified but sits behind an unverified unit: name the items in delivery_check.withheld_behind, say those items should be dispatched first, and say this unit's commits are recorded as verified under refs/dispatch/verified so it needs no rework and a later publication carries it. Return it to pending with sprintctl item status --id <item_id> --status pending --reason partial --actor workflow-independent-verify-gate --expected-revision <current status_revision>, release its reservation, and return closed=false with action 'verified-undelivered'. A later run takes it up again: its builder finds the work already committed, and publication delivers it.
 - If verdict is confirmed (and delivered), first add a concise decision note summarizing the independent evidence in your own shell-safe plain wording. Then read the item's current status revision (item.status_revision from sprintctl item show --id <item_id> --json) and run sprintctl item status --id <item_id> --status done --actor workflow-independent-verify-gate --expected-revision <that revision>. Then run sprintctl reservation release --id <reservation_id> --actor workflow-independent-verify-gate. Never rerun tests or modify Git here.
 - If verdict is issues_found or inconclusive, do not mark done. Add a concise note that hands the item back to backlog refinement: when outcome is parked, say the unit's commits were reverted after the repair rounds; summarize the verifier's concerns in your own words so the next refinement pass can use them. Then, if the item is active, return it to pending with sprintctl item status --id <item_id> --status pending --reason rework --actor workflow-independent-verify-gate --expected-revision <current status_revision>, and run sprintctl reservation release --id <reservation_id> --actor workflow-independent-verify-gate.
-- Reservations are advisory and carry no secret. On a revision conflict, re-read the item once and retry; if it still fails, report closed=false with the error. If an item has no reservation_id, skip the release step.
+- Reservations are advisory and carry no secret. If the retry with the re-read revision still fails, report closed=false with the error. If an item has no reservation_id, skip the release step.
+- ${STATUS_REVISION_RULE} This applies to every sprintctl item status command above, and its "retry" means retry with the re-read revision.
 - Never embed verifier prose directly into shell syntax. Use sprintctl item note --help if needed; item note takes --summary and --detail, not --note or --json.
 
 Return exactly one result per item: {repo: "${repo}", results: [{item_id, closed, action, note?}]}.`
