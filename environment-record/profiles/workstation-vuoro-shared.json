@@ -11,7 +11,6 @@
   "credential_ref": "file:~/.config/vuoro/credentials/vuoro-shared-workstation",
   "required_authorities": [
     "work:read",
-    "work:claim",
     "work:lifecycle",
     "work:evidence",
     "work:batch",

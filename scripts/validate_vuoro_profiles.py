@@ -33,7 +33,6 @@ TOKEN = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 AUTHORITY = re.compile(r"^[a-z0-9][a-z0-9._-]*:[a-z0-9][a-z0-9._-]*$")
 WORK_AUTHORITIES = {
     "work:read",
-    "work:claim",
     "work:lifecycle",
     "work:evidence",
     "work:batch",

@@ -37,6 +37,14 @@ def test_checked_in_devbox_profile_is_valid() -> None:
     assert "work:sprint" not in profile["required_authorities"]
 
 
+def test_shared_profiles_hold_no_claim_authority() -> None:
+    # #2556(d): claim authority belongs to hosted/connector paths, not vuoro-shared.
+    assert "work:claim" not in validator.WORK_AUTHORITIES
+    for name in ("workstation-vuoro-shared.json", "devbox-agent-vuoro-shared.json"):
+        profile = json.loads(_profile(name).read_text())
+        assert "work:claim" not in profile["required_authorities"]
+
+
 def test_production_target_is_rejected(tmp_path: Path) -> None:
     environment = validator.validate_environment(
         ROOT / "environment-record/workstation-linux.vuoro-shared.json"
