@@ -32,6 +32,8 @@ from check_protected_paths import _matches_any  # noqa: E402
 VERIFIED_PREFIX = "refs/dispatch/verified/"
 PUSHED_ACTIONS = {"pushed", "already-on-origin"}
 PR_ACTIONS = {"pr-opened", "needs-hand-pass-pr"}
+# Protection floor: applies even with no manifest, in addition to hybrid.protected_paths.
+FLOOR_PATTERNS = [".claude/**", "**/*.dispatch.json", "*.dispatch.json"]
 
 
 def git(repo: str, *args: str, check: bool = True) -> subprocess.CompletedProcess:
@@ -55,7 +57,7 @@ def rev_list(repo: str, spec: str) -> list[str]:
 
 def protected_patterns(repo: str, tip: str) -> list[str]:
     """Globs from root manifests as on origin/main and at the tip, so a tip cannot loosen its own rules."""
-    patterns: list[str] = []
+    patterns: list[str] = list(FLOOR_PATTERNS)
     for rev in ("origin/main", tip):
         listing = git(repo, "ls-tree", "--name-only", rev, check=False)
         if listing.returncode != 0:
@@ -108,8 +110,13 @@ def preflight(repo: str, tip_arg: str, expected_args: list[str]) -> dict:
             covered.update(range_set & set(rev_list(repo, f"{base}..{head}")))
 
     patterns = protected_patterns(repo, tip)
-    names = git(repo, "log", "--name-only", "--format=", "--no-renames", f"origin/main..{tip}").stdout.splitlines()
-    hits = sorted({n for n in names if n.strip() and _matches_any(n, patterns)})
+    # -z and core.quotePath=false keep non-ASCII paths literal; merge commits list no files in
+    # git log, so the net diff against origin/main is unioned in.
+    logged = git(repo, "-c", "core.quotePath=false", "log", "-z", "--name-only", "--format=", "--no-renames",
+                 f"origin/main..{tip}").stdout.split("\0")
+    net = git(repo, "-c", "core.quotePath=false", "diff", "--name-only", "-z", "--no-renames",
+              "origin/main", tip, check=False).stdout.split("\0")
+    hits = sorted({n for n in logged + net if n.strip() and _matches_any(n, patterns)})
 
     origin = git(repo, "remote", "get-url", "origin", check=False).stdout.strip()
     expected_in_range = expected_full & range_set
@@ -157,7 +164,11 @@ def confirm(repo: str, tip_arg: str, action: str) -> dict:
     elif sha is None:
         pass
     elif action in PR_ACTIONS:
-        report["confirmed"] = sha == tip
+        main_sha, _ = remote_ref(repo, "refs/heads/main")
+        if main_sha and (main_sha == tip or is_ancestor(repo, tip, main_sha)):
+            report["error"] = "tip is already on remote main; not a PR hand-back"
+        else:
+            report["confirmed"] = sha == tip
     else:
         if sha != tip and git(repo, "cat-file", "-e", f"{sha}^{{commit}}", check=False).returncode != 0:
             git(repo, "fetch", "--quiet", "origin", ref, check=False)
