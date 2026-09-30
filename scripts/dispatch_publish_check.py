@@ -32,8 +32,7 @@ from check_protected_paths import _matches_any  # noqa: E402
 VERIFIED_PREFIX = "refs/dispatch/verified/"
 PUSHED_ACTIONS = {"pushed", "already-on-origin"}
 PR_ACTIONS = {"pr-opened", "needs-hand-pass-pr"}
-# Protection floor: added to hybrid.protected_paths whenever a root manifest declares any; a repo
-# without a manifest has no protected paths (oracle: test_a_repo_without_a_manifest_has_no_protected_hits).
+# Protection floor: always added to hybrid.protected_paths, for every code repo, manifest or not.
 FLOOR_PATTERNS = [".claude/**", "**/*.dispatch.json", "*.dispatch.json"]
 
 
@@ -74,8 +73,7 @@ def protected_patterns(repo: str, tip: str) -> list[str]:
             except (ValueError, KeyError, TypeError):
                 continue
             patterns.extend(p for p in found if isinstance(p, str) and p not in patterns)
-    if patterns:
-        patterns.extend(p for p in FLOOR_PATTERNS if p not in patterns)
+    patterns.extend(p for p in FLOOR_PATTERNS if p not in patterns)
     return patterns
 
 

@@ -277,10 +277,10 @@ class PreflightProtectedPathTests(PublishCheckCase):
 class PreflightWithoutManifestTests(PublishCheckCase):
     manifest = None
 
-    def test_a_repo_without_a_manifest_has_no_protected_hits(self) -> None:
-        c = self.repos.commit("c", ".claude/workflows/x.js")
+    def test_a_repo_without_a_manifest_still_gets_the_protection_floor(self) -> None:
+        c = self.repos.commit("c", ".claude/workflows/x.js", "src/ok.py")
         report = self.preflight(c, c)
-        self.assertEqual(report["protected_hits"], [])
+        self.assertEqual(report["protected_hits"], [".claude/workflows/x.js"])
         self.assertSameSet(report["expected"], [c])
 
 
