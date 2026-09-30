@@ -78,6 +78,70 @@ if [[ -z "$RUNTIME_SESSION" && -n "$SESSION" && "$SESSION" != "unknown" ]]; then
   RUNTIME_SESSION="$SESSION"
 fi
 PROJ="$(echo "$EVENT" | jq -r '.cwd // ""' | xargs basename 2>/dev/null || basename "$PWD")"
+
+# Where the session is working, which is not where this hook process runs (agentops#2547).
+#
+# The harness runs this hook in the directory the session was LAUNCHED in, with that
+# directory's environment -- including what direnv exported there -- while the event's
+# `.cwd` is where the session works now. agentops/.envrc exports
+# AUDITCTL_DB=<agentops>/.auditctl/auditctl.db (and AUDITCTL_ARTIFACTS_ROOT), and auditctl
+# honours an explicit AUDITCTL_DB before it looks at its CWD at all (source
+# "explicit-db"). So a session launched in /projects/dev/agentops that moved into
+# vuoro-cloud or one of its worktrees filed every workflow.session event into agentops's
+# store. Measured 2026-09-30: agentops's shards for 09-28..09-30 hold 294/315/59
+# claude-hook events with `project: vuoro-cloud` (more for vuoro-cloud-* worktrees and
+# vuoro), while /projects/dev/vuoro-cloud's own store had nothing after
+# 2026-09-28T07:30Z -- which audit_freshness --git-activity reports as a capture failure.
+#
+# Rule: when the event's `.cwd` is inside a git work tree OTHER than the one the hook
+# process runs in, and any AUDITCTL_DB / AUDITCTL_ARTIFACTS_ROOT pin points into the
+# launch work tree (so it came from that tree's .envrc), the publisher runs from `.cwd`
+# with both pins removed and auditctl resolves the store itself (a worktree's `.git`
+# file maps to its main checkout). In every other case -- same work tree (a deliberate
+# pooling export keeps working), a pin pointing elsewhere (an explicit override), no
+# `.cwd`, a relative or vanished path, a scratchpad outside any git work tree -- nothing
+# changes: a misfiled event is recoverable, a lost one is not.
+# Only `.git` counts as a marker: a bare `.auditctl/auditctl.db` is not enough (this host
+# has a stray /tmp/.auditctl index that nothing commits). Builtins only: this hook's PATH
+# cannot be trusted.
+_git_top() {
+  local p="$1"
+  [[ "$p" == /* ]] || return 1  # "${p%/*}" never shortens a relative path: no loop
+  while :; do
+    [[ -e "$p/.git" ]] && { printf '%s' "$p"; return 0; }
+    [[ "$p" == "/" || -z "$p" ]] && return 1
+    p="${p%/*}"; [[ -n "$p" ]] || p="/"
+  done
+}
+# A pin is dropped only when it is unset or describes the launch work tree -- what a
+# direnv export there looks like. A pin pointing anywhere else is a deliberate override
+# (an operator, a test fixture) and is honoured as before, cwd included.
+_pin_is_launch() {
+  local v="$1" t
+  [[ -z "$v" ]] && return 0
+  for t in "$_proc_top" "$_proc_top_l"; do
+    [[ -n "$t" && ( "$v" == "$t" || "$v" == "$t"/* ) ]] && return 0
+  done
+  return 1
+}
+AUDIT_CWD=""
+_event_cwd="$(printf '%s' "$EVENT" | jq -r '.cwd // ""' 2>/dev/null || true)"
+if [[ "$_event_cwd" == /* && -d "$_event_cwd" ]]; then
+  # Physical paths on both sides, so a symlinked mount cannot make one tree look like two.
+  _event_cwd="$(cd -- "$_event_cwd" 2>/dev/null && pwd -P)" || _event_cwd=""
+else
+  _event_cwd=""
+fi
+if [[ -n "$_event_cwd" ]]; then
+  _event_top="$(_git_top "$_event_cwd")" || _event_top=""
+  _proc_top="$(_git_top "$(pwd -P 2>/dev/null || printf '%s' "$PWD")")" || _proc_top=""
+  _proc_top_l="$(_git_top "$PWD")" || _proc_top_l=""
+  if [[ -n "$_event_top" && -n "$_proc_top" && "$_event_top" != "$_proc_top" ]] &&
+     _pin_is_launch "${AUDITCTL_DB-}" && _pin_is_launch "${AUDITCTL_ARTIFACTS_ROOT-}"; then
+    AUDIT_CWD="$_event_cwd"
+  fi
+fi
+unset _event_cwd _event_top _proc_top _proc_top_l
 # This log has more than one writer -- the workstation and the devbox both wire this
 # hook -- and until now nothing recorded which. Rows written before this stay
 # host-unknown; they cannot be attributed after the fact.
@@ -322,12 +386,15 @@ emit_record() {
   local audit_err audit_rc
   audit_err="$(mktemp)" || audit_err=""
   audit_rc=0
+  # Subshell so the cd and unset (see AUDIT_CWD above) never leak into the rest of the hook.
   if [[ -n "$audit_err" ]]; then
-    "$auditctl_path" add --type workflow.session --source claude-hook --actor claude-hook \
-      --summary "$summary" --metadata "$metadata" >/dev/null 2>"$audit_err" || audit_rc=$?
+    ( if [[ -n "$AUDIT_CWD" ]]; then cd -- "$AUDIT_CWD" || exit 97; unset AUDITCTL_DB AUDITCTL_ARTIFACTS_ROOT; fi
+      "$auditctl_path" add --type workflow.session --source claude-hook --actor claude-hook \
+        --summary "$summary" --metadata "$metadata" ) >/dev/null 2>"$audit_err" || audit_rc=$?
   else
-    "$auditctl_path" add --type workflow.session --source claude-hook --actor claude-hook \
-      --summary "$summary" --metadata "$metadata" >/dev/null 2>&1 || audit_rc=$?
+    ( if [[ -n "$AUDIT_CWD" ]]; then cd -- "$AUDIT_CWD" || exit 97; unset AUDITCTL_DB AUDITCTL_ARTIFACTS_ROOT; fi
+      "$auditctl_path" add --type workflow.session --source claude-hook --actor claude-hook \
+        --summary "$summary" --metadata "$metadata" ) >/dev/null 2>&1 || audit_rc=$?
   fi
   if (( audit_rc != 0 )); then
     local fail_log
