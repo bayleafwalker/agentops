@@ -30,10 +30,25 @@ forward in the same run.
    closeout happens there. Units are separate if their items come from different trackers.
    Push is refused for appservice and its clones (by name, and by origin at publication),
    because pushing appservice main deploys it.
+
+   **Run workspace.** Before a code repository's first unit is routed, a clerical `workspace`
+   stage fetches `origin/main` and cuts one worktree and one branch from it:
+   `/projects/dev/_wt/dispatch-<repo>-<suffix>` on `dispatch/run-<suffix>`, where the suffix is
+   the random part of the `mktemp` name. The workflow checks the reported worktree, branch and
+   base commit against that exact shape. All of the repository's units share the worktree. Route,
+   refine, oracle, build, repair, park and publish work there, and sprintctl always runs from
+   the tracker's primary checkout, because worktrees lack the sprintctl marker. The shared
+   checkout's `main` is never checked out, reset, committed to or published from, so another
+   session's unpushed commits on it are neither built on, published nor lost. There is no
+   fallback: when the workspace cannot be made, every unit of that repository is deferred with a
+   `workspace:` reason and its publication is `no-workspace`, while other repositories continue.
+   Verification still makes its own detached worktree at the unit's tip, and the
+   `refs/dispatch/verified` refs are recorded in the repository itself, because refs are shared
+   by all of its worktrees.
 2. Reasoning units in one repository run sequentially, each in a fresh accountable implementation
    context. Each unit is verified, and repaired if needed, before the next unit builds on top of
-   it. This preserves a shared main worktree without forcing unrelated work into the hardest
-   unit's model tier.
+   it. They all build on the repository's one run branch, so unrelated work still does not force
+   the hardest unit's model tier.
 3. **Route.** A clerical router picks a lane and an implementation tier. A unit whose items all
    carry a caller-supplied tier has been planned and goes straight to build.
    - `build`: the approach is decided and an oracle exists, meaning concrete acceptance criteria
@@ -84,8 +99,9 @@ forward in the same run.
    from scratch. A unit without a verdict (missing evidence, timeouts, no verifier answer) is
    re-verified once instead, because there is nothing concrete to repair.
 9. **Park.** Every unit records its base commit, and everything committed after it (the oracle,
-   the build, repairs, and anything unreported) is the unit's range. The workflow tracks main's
-   head itself: a unit's base must be the head the previous unit left, or the repository halts.
+   the build, repairs, and anything unreported) is the unit's range. The workflow tracks the run
+   branch's head itself, starting at the workspace base: a unit's base must be the head the
+   previous unit left (for the first unit, the workspace base), or the repository halts.
    So no agent-reported base can reach back into an earlier unit. The verifier works at the tip
    the builder or last repair left, and rejects unlisted commits in the range.
 
@@ -97,13 +113,27 @@ forward in the same run.
    A unit that ends without a verdict is left **unverified**. It is not reverted, because the
    work may be good, but its claims are released and the repository's push is withheld.
 
-   The repository stops only when a unit's base is unknown or a revert does not apply cleanly,
-   because later units would then build on commits nobody can account for.
+   The repository stops only when a unit's base is unknown or does not match the tracked head, or
+   a revert does not apply cleanly, because later units would then build on commits nobody can
+   account for.
 10. A separate clerical stage applies sprintctl state transitions from the verifier's verdict.
-11. **Publish.** Publication is optional. It pushes the verified work together with the reverts
-    of parked units, and refuses if `origin/main..HEAD` holds any commit it did not expect. So main
-    gains only verified net changes. It is withheld while any unit is unverified or the repository
-    halted. The workflow never force-pushes or repairs unexpected Git state.
+11. **Publish.** Publication is optional. The publisher works in the run worktree. It pushes the
+    verified tip (`TIP:refs/heads/main`) together with the reverts of parked units, and refuses if
+    `origin/main..TIP` holds any commit it did not expect. So main gains only verified net
+    changes. When main is protected or has moved, or protected paths are touched, the tip goes to a
+    `dispatch/publish-<sha>` branch and is handed back as an open PR. Publication is withheld while
+    any unit is unverified or the repository halted. The workflow never force-pushes or repairs
+    unexpected Git state.
+12. **Cleanup.** After publication, whatever happened (including `push` off, a halt, or nothing
+    built), a clerical `cleanup` stage removes that run's worktree, never with force, and deletes
+    the `dispatch/run-*` branch only when its tip is already an ancestor of `origin/main`. A branch
+    that still holds commits `origin/main` lacks is kept. The stage never lists or touches other
+    worktrees or branches, because concurrent runs may be live. The workflow result reports one
+    entry per workspace (`repo`, `worktree`, `branch`, `removed`, `branch_kept`, `head_sha`). A
+    kept run branch is where verified but undelivered commits live: the closeout note names it, and
+    the next run's builder adopts those commits by cherry-pick and verifies them again. If the note
+    names a PR that is still open, the builder waits (`awaiting PR`) instead. Retiring run branches
+    and worktrees left by crashed runs is separate work.
 
 Items are held with sprintctl's advisory reservations (`sprintctl agent-protocol`). A reservation
 carries no secret, so nothing sensitive travels between stages. The builder reserves each item
