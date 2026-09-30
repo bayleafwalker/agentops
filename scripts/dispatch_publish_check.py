@@ -32,7 +32,8 @@ from check_protected_paths import _matches_any  # noqa: E402
 VERIFIED_PREFIX = "refs/dispatch/verified/"
 PUSHED_ACTIONS = {"pushed", "already-on-origin"}
 PR_ACTIONS = {"pr-opened", "needs-hand-pass-pr"}
-# Protection floor: applies even with no manifest, in addition to hybrid.protected_paths.
+# Protection floor: added to hybrid.protected_paths whenever a root manifest declares any; a repo
+# without a manifest has no protected paths (oracle: test_a_repo_without_a_manifest_has_no_protected_hits).
 FLOOR_PATTERNS = [".claude/**", "**/*.dispatch.json", "*.dispatch.json"]
 
 
@@ -57,7 +58,7 @@ def rev_list(repo: str, spec: str) -> list[str]:
 
 def protected_patterns(repo: str, tip: str) -> list[str]:
     """Globs from root manifests as on origin/main and at the tip, so a tip cannot loosen its own rules."""
-    patterns: list[str] = list(FLOOR_PATTERNS)
+    patterns: list[str] = []
     for rev in ("origin/main", tip):
         listing = git(repo, "ls-tree", "--name-only", rev, check=False)
         if listing.returncode != 0:
@@ -73,6 +74,8 @@ def protected_patterns(repo: str, tip: str) -> list[str]:
             except (ValueError, KeyError, TypeError):
                 continue
             patterns.extend(p for p in found if isinstance(p, str) and p not in patterns)
+    if patterns:
+        patterns.extend(p for p in FLOOR_PATTERNS if p not in patterns)
     return patterns
 
 
