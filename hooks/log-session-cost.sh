@@ -104,18 +104,32 @@ PROJ="$(echo "$EVENT" | jq -r '.cwd // ""' | xargs basename 2>/dev/null || basen
 # Only `.git` counts as a marker: a bare `.auditctl/auditctl.db` is not enough (this host
 # has a stray /tmp/.auditctl index that nothing commits). Builtins only: this hook's PATH
 # cannot be trusted.
+#
+# `_git_top <dir> [strict]`: nearest ancestor-or-self carrying `.git`. The launch side uses
+# the loose test (any `.git`), matching what auditctl's own walk accepts. The EVENT side is
+# strict -- a `.git` file (a linked worktree) or a `.git/HEAD` (a real repository) -- because
+# /projects/dev itself carries an EMPTY `.git` directory: loosely, an event cwd of
+# /projects/dev or a non-repo subdirectory of it would count as "another work tree", drop
+# the launch pins, and be filed under /projects/dev/_artifacts/dev.
 _git_top() {
-  local p="$1"
+  local p="$1" strict="${2:-}"
   [[ "$p" == /* ]] || return 1  # "${p%/*}" never shortens a relative path: no loop
   while :; do
-    [[ -e "$p/.git" ]] && { printf '%s' "$p"; return 0; }
+    if [[ -n "$strict" ]]; then
+      [[ -f "$p/.git" || -f "$p/.git/HEAD" ]] && { printf '%s' "$p"; return 0; }
+    else
+      [[ -e "$p/.git" ]] && { printf '%s' "$p"; return 0; }
+    fi
     [[ "$p" == "/" || -z "$p" ]] && return 1
     p="${p%/*}"; [[ -n "$p" ]] || p="/"
   done
 }
 # A pin is dropped only when it is unset or describes the launch work tree -- what a
 # direnv export there looks like. A pin pointing anywhere else is a deliberate override
-# (an operator, a test fixture) and is honoured as before, cwd included.
+# (an operator, a test fixture) and is honoured as before, cwd included. The match is a
+# plain PATH PREFIX on the pin string against the launch tree's physical and logical
+# roots -- no canonicalisation of the pin itself, so a pin spelled through a different
+# symlink than both roots counts as "elsewhere" and is kept (the safe direction).
 _pin_is_launch() {
   local v="$1" t
   [[ -z "$v" ]] && return 0
@@ -133,7 +147,7 @@ else
   _event_cwd=""
 fi
 if [[ -n "$_event_cwd" ]]; then
-  _event_top="$(_git_top "$_event_cwd")" || _event_top=""
+  _event_top="$(_git_top "$_event_cwd" strict)" || _event_top=""
   _proc_top="$(_git_top "$(pwd -P 2>/dev/null || printf '%s' "$PWD")")" || _proc_top=""
   _proc_top_l="$(_git_top "$PWD")" || _proc_top_l=""
   if [[ -n "$_event_top" && -n "$_proc_top" && "$_event_top" != "$_proc_top" ]] &&
@@ -388,11 +402,15 @@ emit_record() {
   audit_rc=0
   # Subshell so the cd and unset (see AUDIT_CWD above) never leak into the rest of the hook.
   if [[ -n "$audit_err" ]]; then
-    ( if [[ -n "$AUDIT_CWD" ]]; then cd -- "$AUDIT_CWD" || exit 97; unset AUDITCTL_DB AUDITCTL_ARTIFACTS_ROOT; fi
+    ( if [[ -n "$AUDIT_CWD" ]] && cd -- "$AUDIT_CWD" 2>/dev/null; then
+        unset AUDITCTL_DB AUDITCTL_ARTIFACTS_ROOT
+      fi  # cd failed (dir vanished since): publish from the launch dir, pins kept
       "$auditctl_path" add --type workflow.session --source claude-hook --actor claude-hook \
         --summary "$summary" --metadata "$metadata" ) >/dev/null 2>"$audit_err" || audit_rc=$?
   else
-    ( if [[ -n "$AUDIT_CWD" ]]; then cd -- "$AUDIT_CWD" || exit 97; unset AUDITCTL_DB AUDITCTL_ARTIFACTS_ROOT; fi
+    ( if [[ -n "$AUDIT_CWD" ]] && cd -- "$AUDIT_CWD" 2>/dev/null; then
+        unset AUDITCTL_DB AUDITCTL_ARTIFACTS_ROOT
+      fi  # cd failed (dir vanished since): publish from the launch dir, pins kept
       "$auditctl_path" add --type workflow.session --source claude-hook --actor claude-hook \
         --summary "$summary" --metadata "$metadata" ) >/dev/null 2>&1 || audit_rc=$?
   fi

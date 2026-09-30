@@ -17,7 +17,8 @@
 #   REQ-2547-6 a pin pointing OUTSIDE the launch work tree is an explicit override (an
 #              operator, every other hook test's fixture store) -> nothing changes
 #   REQ-2547-3 event `.cwd` outside any git work tree (even under a bare `.auditctl`
-#              index), missing, relative or absent -> the process CWD (the pre-fix
+#              index, or under a parent with an EMPTY `.git` directory, as /projects/dev
+#              has), missing, relative or absent -> the process CWD (the pre-fix
 #              behaviour: a misfiled event is recoverable, a lost one is not)
 #   REQ-2547-4 end to end with the real auditctl, when installed, with AUDITCTL_DB pinned to
 #              the launch repo as agentops/.envrc does: an event whose `.cwd` is a linked
@@ -60,6 +61,10 @@ target="$tmp/target"; git_init "$target"          # where it works now
 mkdir -p "$target/sub/dir"
 git -C "$target" worktree add -q -b wt "$tmp/target-wt" 2>/dev/null || fail "setup: worktree"
 plain="$tmp/not-a-repo"; mkdir -p "$plain"
+# /projects/dev's geometry: an empty `.git` directory at the workspace root, a real
+# repository nested inside it.
+fakews="$tmp/workspace"; mkdir -p "$fakews/.git" "$fakews/not-a-repo"
+git_init "$fakews/nested"
 indexonly="$tmp/index-only"; mkdir -p "$indexonly/.auditctl" "$indexonly/work"
 : > "$indexonly/.auditctl/auditctl.db"
 
@@ -102,6 +107,10 @@ assert_eq "REQ-2547-6 override root pin" \
   "$(run_hook "$target" "" "$launch/.auditctl/auditctl.db" "$tmp/fixture-store")" \
   "$launch|$launch/.auditctl/auditctl.db|$tmp/fixture-store"
 assert_eq "REQ-2547-3 non-repo cwd"    "$(run_hook "$plain")"           "$pinned"
+assert_eq "REQ-2547-3 empty .git root" "$(run_hook "$fakews")"          "$pinned"
+assert_eq "REQ-2547-3 empty .git sub"  "$(run_hook "$fakews/not-a-repo")" "$pinned"
+assert_eq "REQ-2547-1 repo in empty .git root" "$(run_hook "$fakews/nested")" \
+  "$fakews/nested|<unset>|<unset>"
 assert_eq "REQ-2547-3 bare index"      "$(run_hook "$indexonly/work")"  "$pinned"
 assert_eq "REQ-2547-3 missing cwd"     "$(run_hook "$tmp/gone")"        "$pinned"
 assert_eq "REQ-2547-3 relative cwd"    "$(run_hook "relative/path")"   "$pinned"
@@ -109,6 +118,9 @@ assert_eq "REQ-2547-3 absent cwd"      "$(run_hook __absent__)"         "$pinned
 [[ -s "$tmp/costs.jsonl" ]] || fail "the cost row was not written"
 
 # --- REQ-2547-4: the real publisher, when this host has it --------------------------------
+# Every path it can reach is under $tmp: the launch pins point at $tmp/launch and the event
+# cwd is a worktree of $tmp/target, so no real store can be written. CI (HOME in a temp
+# dir) skips this unless AUDITCTL_REAL_BIN is given.
 real=""
 for c in "${AUDITCTL_REAL_BIN:-}" "$HOME/.local/bin/auditctl"; do
   [[ -n "$c" && -x "$c" ]] && ! head -c4 "$c" 2>/dev/null | grep -q $'\x7fELF' && { real="$c"; break; }
