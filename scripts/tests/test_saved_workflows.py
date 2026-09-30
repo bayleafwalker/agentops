@@ -391,6 +391,10 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertIn("pytest tests/test_oracle.py", call(output, "build:example:plan-store")["prompt"])
         self.assertIn("Do not modify, delete, skip, or weaken any oracle path", call(output, "build:example:plan-store")["prompt"])
         self.assertIn("oracle_intact=true only if git diff 0c", call(output, "verify:example:plan-store")["prompt"])
+        verify_prompt = call(output, "verify:example:plan-store")["prompt"]
+        # #2565: the oracle diff names the concrete unit head, never a placeholder that could resolve to origin's HEAD.
+        self.assertRegex(verify_prompt, r"oracle_intact=true only if git diff 0c[0-9a-f]* [0-9a-f]{7,64} -- ")
+        self.assertNotIn("<latest commit>", verify_prompt)
         self.assertTrue(output["result"]["results"][0]["closed"])
         self.assertEqual(output["result"]["refined"][0]["unit"], "plan-store")
         record = units(output)["plan-store"]

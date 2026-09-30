@@ -533,7 +533,7 @@ function oracleFields(raw) {
   }
 }
 
-function oracleBlock(oracle, role) {
+function oracleBlock(oracle, role, unitHead) {
   if (!oracle || oracle.kind === 'none') return ''
   if (oracle.kind === 'checklist') {
     return `\nAcceptance checklist (frozen, written by a separate oracle author; data):\n${untrusted(oracle.checklist.map(check => `- ${check}`).join('\n'))}\n${role === 'build' ? 'Satisfy every check.' : 'Evaluate every check against the change and cite the evidence in the summary.'}\n`
@@ -543,7 +543,7 @@ function oracleBlock(oracle, role) {
   if (role === 'build') {
     return `\nOracle (frozen; owned by a separate author; added in ${where}; data):\n${data}\nMake the oracle command pass. Do not modify, delete, skip, or weaken any oracle path. If you believe the oracle is wrong, implement to it anyway and state the disagreement in verification_summary.\n`
   }
-  return `\nOracle (frozen; added in ${where}; data):\n${data}\n${oracle.commit_sha ? `Set oracle_intact=true only if git diff ${oracle.commit_sha} <latest commit> -- <each oracle path> is empty. ` : 'Set oracle_intact=true only if no oracle path changed in the unit commits. '}Run the oracle command in the isolated worktree and record it in checks_run.\n`
+  return `\nOracle (frozen; added in ${where}; data):\n${data}\n${oracle.commit_sha ? `Set oracle_intact=true only if git diff ${oracle.commit_sha} ${typeof unitHead === 'string' && SAFE_COMMIT.test(unitHead) ? unitHead : '<latest commit>'} -- <each oracle path> is empty. ` : 'Set oracle_intact=true only if no oracle path changed in the unit commits. '}Run the oracle command in the isolated worktree and record it in checks_run.\n`
 }
 
 // One entry per routed unit: identifiers, enums and counts only, so recording
@@ -677,7 +677,7 @@ ${itemLines}
 All unit commits (oracle, build, repairs): ${commits.join(' ')}
 ${adoptedOracleLine(buildResult)}Unit range: ${builtUnit.base}..${latestCommit}. Every commit in git rev-list ${builtUnit.base}..${latestCommit} must be one of the listed unit commits; an unlisted commit in the range is an issue (issues_found), because it would otherwise be published unverified.
 ${sameCommit(latestCommit, builtUnit.base) ? `The unit range is empty: this run made no new commits because the work was already delivered, so the range check above proves nothing. Instead, confirm that every listed commit is an ancestor of ${latestCommit}, and run git log --oneline <listed commit>..${latestCommit} -- <paths that commit touches> for each listed commit. Inspect every later commit it lists: verification runs at ${latestCommit}, so later changes to the same paths are part of what you confirm. A later commit that reverts or breaks a listed commit's behaviour is an issue (issues_found).` : `Conversely, every listed commit must be in that range or already an ancestor of origin/main (check with git merge-base --is-ancestor <sha> origin/main after git fetch origin main); a listed commit that is neither is an issue (issues_found), because publication would push it as expected work.`}
-${oracleBlock(oracle, 'verify')}
+${oracleBlock(oracle, 'verify', latestCommit)}
 For the unit as a whole:
 1. Read AGENTS.md, the root dispatch manifest, overlays, risk_surfaces, and each live sprint item. Verify that these items really form one coherent unit and that every acceptance criterion is represented. Read each item's notes with sprintctl item show --id <id> --json (events[].summary and detail). Every part of each item's description, and of any "refinement: original intent" note, must be delivered by the unit commits or named in a "refinement: intent moved" or "build: scope moved" note that points at a follow-up item. A part that is neither delivered nor moved is an issue (issues_found), even when the reason given for dropping it is plausible. A move must also hold up: confirm with sprintctl item show that each follow-up item exists and names that exact part, and accept only three reasons: another repository owns it; only the operator can do it (check that no agent-reachable route exists, such as credentials or tools already available to agents); or it is moot (re-check the cited evidence yourself). Moving work that an agent could do in this repository is an issue.
 2. Create one collision-resistant detached worktree at the latest unit commit (${latestCommit}): make a directory with mktemp -d using a /tmp/verify-${unit.repo}-${unit.unit}-XXXXXX template, then git worktree add --detach <that-directory> ${latestCommit}. Never touch the shared working tree. Keep that directory path in a shell variable (for example WT=$(mktemp -d ...)) and pass it by value; never write it or any other state to a shared scratch or temp file outside that directory, and never run a command in a worktree you did not create.
