@@ -18,6 +18,22 @@ const VERIFY_TIERS = {
 const CLERICAL_MODEL = { model: 'claude-haiku-4-5-20251001', effort: 'low' }
 // Non-writing stages run as this registered subagent type (.claude/agents/dispatch-readonly.md): no Edit/Write.
 const READONLY_AGENT = { agentType: 'dispatch-readonly' }
+// Resolve the registered readonly agent before a workspace or item can be touched.
+async function requireReadonlyAgent() {
+  let result
+  try {
+    result = await agent('Registry probe only: do not run tools or modify files. Return exactly {available: true}.', {
+      label: 'readonly-probe', ...READONLY_AGENT, ...CLERICAL_MODEL,
+      schema: { type: 'object', required: ['available'], properties: { available: { type: 'boolean' } }, additionalProperties: false },
+    })
+  } catch (_error) {
+    result = undefined
+  }
+  if (!result || result.available !== true) {
+    throw new Error('dispatch-readonly is unavailable in the launching session; launch this workflow from a session rooted in /projects/dev/agentops')
+  }
+}
+
 const TIER_ORDER = ['bounded', 'standard', 'hard']
 const SAFE_REPO = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
 const SAFE_UNIT = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
@@ -421,6 +437,7 @@ if (parsedArgs.mode != null && !['audit', 'gate'].includes(parsedArgs.mode)) {
 const mode = parsedArgs.mode || 'audit'
 const items = verifyInputService.cleanInputItems(parsedArgs.items, mode)
 const verifyTimeoutSeconds = verifyInputService.boundedInteger(parsedArgs.verify_timeout_seconds, 900, 60, 3600, 'verify_timeout_seconds')
+await requireReadonlyAgent()
 const groups = verifyInputService.groupByRepo(items)
 
 const perRepo = await pipeline(
