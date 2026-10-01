@@ -124,7 +124,16 @@ forward in the same run.
     `dispatch/publish-<sha>` branch and is handed back as an open PR. Publication is withheld while
     any unit is unverified or the repository halted. The workflow never force-pushes or repairs
     unexpected Git state.
-12. **Cleanup.** After publication, whatever happened (including `push` off, a halt, or nothing
+
+    The native shell runs `scripts/dispatch_publish.py` once. That process independently reads
+    Git, checks expected commits and protected paths, performs the push or PR hand-back, and
+    confirms the remote result. Agent-relayed preflight JSON can refuse work but cannot authorize
+    an effect. Returned status remains agent-relayed: the installed workflow VM has no trusted
+    subprocess-output API. The command resolves the full tip before computing
+    `dispatch/publish-<first 12 hex>`; it skips a net-zero range only when no expected commit
+    remains outside origin/main. Missing remote main, lookup/fetch errors and unknown ancestry
+    fail closed. Closeout checks expected SHAs on origin/main independently before acceptance.
+12. **Cleanup.** After publication, whatever happened (including a thrown stage error, `push` off, a halt, or nothing
     built), a clerical `cleanup` stage removes that run's worktree, never with force, and deletes
     the `dispatch/run-*` branch only when its tip is already an ancestor of `origin/main`. A branch
     that still holds commits `origin/main` lacks is kept. The stage never lists or touches other

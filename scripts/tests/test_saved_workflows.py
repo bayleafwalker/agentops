@@ -101,6 +101,7 @@ function answer(prompt, options) {
   calls.push({label: options.label, model: options.model, agentType: options.agentType, prompt})
   const parts = options.label.split(':')
   const [kind, repo, unit] = parts
+  if (scenario.throwStage === kind) throw new Error(`stubbed ${kind} transport failure`)
   if (kind === 'record-decisions') {
     const match = prompt.match(/--input-json '([^']*)'\n/)
     records.push({model: options.model, document: JSON.parse(match[1])})
@@ -1960,6 +1961,26 @@ class PublicationPreflightTests(unittest.TestCase):
     """#2562: publication facts are computed by scripts/dispatch_publish_check.py and decided in workflow code."""
 
     @requires_node
+    def test_transport_errors_still_clean_up_the_run_workspace(self) -> None:
+        for stage in ("build", "verify", "publish"):
+            with self.subTest(stage=stage):
+                output = run_workflow(BUILD_WORKFLOW, PUBLISH_ARGS, throwStage=stage)
+                self.assertEqual(output["events"].count("cleanup:example"), 1)
+                self.assertGreater(output["events"].index("cleanup:example"), output["events"].index(f"{stage}:example" + (":api" if stage != "publish" else "")))
+                self.assertFalse(publication(output)["published"])
+
+    @requires_node
+    def test_publication_effects_belong_to_one_native_command(self) -> None:
+        output = run_workflow(BUILD_WORKFLOW, PUBLISH_ARGS)
+        prompt = call(output, "publish:example")["prompt"]
+        self.assertIn("python3 /projects/dev/agentops/scripts/dispatch_publish.py", prompt)
+        self.assertIn("--repo " + run_worktree("example"), prompt)
+        self.assertIn("--run-branch " + run_branch("example"), prompt)
+        self.assertIn("Run exactly one shell command", prompt)
+        self.assertIn("Do not run any other command", prompt)
+        self.assertIn("no agent-relayed preflight report authorizes", prompt)
+
+    @requires_node
     def test_preflight_runs_the_script_through_an_exact_command_clerical_agent_before_publish(self) -> None:
         output = run_workflow(BUILD_WORKFLOW, PUBLISH_ARGS)
         labels = output["events"]
@@ -1970,7 +1991,7 @@ class PublicationPreflightTests(unittest.TestCase):
         self.assertEqual(preflight.get("agentType"), "dispatch-readonly")
         prompt = preflight["prompt"]
         self.assertRegex(prompt, rf"python3? {re.escape(PUBLISH_CHECK)} preflight\b")
-        self.assertIn("--repo /projects/dev/example", prompt)
+        self.assertIn("--repo " + run_worktree("example"), prompt)
         self.assertRegex(prompt, rf"--tip {PUBLISH_TIP}(?![0-9a-f])")
         self.assertRegex(prompt, rf"--expected {PUBLISH_TIP}(?![0-9a-f])")
         self.assertTrue(names_tip(call(output, "publish:example")["prompt"], PUBLISH_TIP))
@@ -1991,7 +2012,7 @@ class PublicationPreflightTests(unittest.TestCase):
         self.assertRegex(prompt, r"--tip b2636c69(?![0-9a-f])")
         cross = run_workflow(BUILD_WORKFLOW, {"push": True, "items": [{"repo": "example", "code_repo": "engine", "item_id": 1, "unit": "api", "tier": "bounded"}]})
         prompt = call(cross, "publish-preflight:engine")["prompt"]
-        self.assertIn("--repo /projects/dev/engine", prompt)
+        self.assertIn("--repo " + run_worktree("engine"), prompt)
         self.assertNotIn("--repo /projects/dev/example", prompt)
 
     @requires_node
@@ -2034,10 +2055,10 @@ class PublicationPreflightTests(unittest.TestCase):
         self.assertFalse(output["result"]["results"][0]["closed"])
 
     @requires_node
-    def test_an_empty_range_is_already_on_origin_without_a_publish_agent(self) -> None:
+    def test_relayed_empty_range_cannot_bypass_the_native_publisher(self) -> None:
         output = run_workflow(BUILD_WORKFLOW, PUBLISH_ARGS, preflight={"range": [], "expected": []})
-        self.assertNotIn("publish:example", output["events"])
-        self.assertEqual((publication(output)["published"], publication(output)["action"]), (True, "already-on-origin"))
+        self.assertIn("publish:example", output["events"])
+        self.assertEqual((publication(output)["published"], publication(output)["action"]), (True, "pushed"))
         self.assertTrue(output["result"]["results"][0]["closed"])
 
     @requires_node
@@ -2063,7 +2084,7 @@ class PublicationPreflightTests(unittest.TestCase):
         self.assertEqual(confirm.get("agentType"), "dispatch-readonly")
         prompt = confirm["prompt"]
         self.assertRegex(prompt, rf"python3? {re.escape(PUBLISH_CHECK)} confirm\b")
-        self.assertIn("--repo /projects/dev/example", prompt)
+        self.assertIn("--repo " + run_worktree("example"), prompt)
         self.assertRegex(prompt, rf"--tip {PUBLISH_TIP}(?![0-9a-f])")
         self.assertRegex(prompt, r"--action pushed\b")
         self.assertEqual((publication(output)["published"], publication(output)["action"]), (True, "pushed"))

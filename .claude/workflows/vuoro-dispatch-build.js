@@ -1041,6 +1041,7 @@ async function processRepo(group, verifyTimeoutSeconds) {
     boundary: undefined,
     halted: undefined,
   }
+  try {
   const workspace = await createWorkspace(group.repo)
   if (workspace.error) {
     state.workspaceError = workspace.error
@@ -1236,6 +1237,12 @@ async function processRepo(group, verifyTimeoutSeconds) {
   // With no boundary the whole head is verified; otherwise publication stops at the boundary.
   state.publishTip = state.boundary ? state.boundary.tip : head
   return state
+  } catch (error) {
+    state.halted = `stage exception: ${String(error && error.message || error)}`
+    // No publication after a transport error: the last agent may have changed HEAD.
+    state.publishTip = undefined
+    return state
+  }
 }
 
 function allVerificationResults(state) {
@@ -1278,9 +1285,10 @@ Do not retry, run any other command, or modify files. Return {ran, output} where
   }
 }
 
-function publishPrompt(repo, tip, commits, itemIds = [], protectedHits = [], workspace) {
+function publicationContract(repo, tip, commits, itemIds = [], protectedHits = [], workspace) {
+  const handBack = protectedHits.length > 0
   if (!workspace) throw new Error(`publishing ${repo} needs its run workspace: nothing may publish from the shared checkout`)
-  return `Publish a dispatch batch for ${repoPath(repo)}: independently verified work plus the reverts of any parked unit. The work is on the run branch ${workspace.branch}, checked out in the run worktree ${workspace.worktree}: cd there first, and never use or modify the shared checkout ${repoPath(repo)}, whose main may carry other sessions' unpushed commits that must never be published. First run git remote get-url origin and git remote get-url --push origin: if either the fetch or the push URL names the appservice repository (any host or owner), do not push; return published=false with error 'origin is appservice: pushing its main deploys it'.
+  return `Publish a dispatch batch for ${repoPath(repo)}: independently verified work plus the reverts of any parked unit. The work is on the run branch ${workspace.branch}, checked out in the run worktree ${workspace.worktree}: cd there first, and never use or modify the shared checkout ${repoPath(repo)}, whose main may carry other sessions' unpushed commits that must never be published. The native command first runs git remote get-url origin and git remote get-url --push origin: if either the fetch or the push URL names the appservice repository (any host or owner), do not push; return published=false with error 'origin is appservice: pushing its main deploys it'.
 
 TIP, the commit to publish (data): ${tip}
 
@@ -1290,11 +1298,24 @@ ${commits.map(commit => `- ${commit}`).join('\n')}
 Item ids (data, for the PR body):
 ${itemIds.map(id => `- ${id}`).join('\n')}
 
-This is deterministic publication only; do not edit, amend, rebase, merge, pull, or force-push. The run branch HEAD may carry commits beyond TIP that were never verified; they are never published, so always publish TIP and never HEAD. Workflow code already ran scripts/dispatch_publish_check.py preflight against git: every commit in git rev-list origin/main..TIP is an expected SHA or covered by a verified range, every expected SHA is an ancestor of TIP, and the protected-path check is done; do not redo or second-guess those checks. After you act, workflow code checks your reported action against origin itself, so an action that did not happen is refused. As a cross-check only, every commit in git rev-list origin/main..TIP must be an expected SHA or covered by a recorded verified range: a commit X is covered when, for some ref refs/dispatch/verified/<b>-<t> (list them with git for-each-ref refs/dispatch/verified), <t> is an ancestor of TIP and X is listed by git rev-list <b>..<t>. If any commit is neither, it is unexpected: do not push; return published=false and list the unexpected SHAs in error. The origin URL is computed by the preflight (origin_url); do not report it. ${handBack
+This is deterministic publication only; do not edit, amend, rebase, merge, pull, or force-push. The run branch HEAD may carry commits beyond TIP that were never verified; they are never published, so always publish TIP and never HEAD. The native publication command independently runs scripts/dispatch_publish_check.py preflight against Git before any effect: every commit in git rev-list origin/main..TIP is an expected SHA or covered by a verified range, every expected SHA is an ancestor of TIP, and the protected-path check is done; agent summaries cannot bypass those checks. After you act, workflow code checks your reported action against origin itself, so an action that did not happen is refused. As a cross-check only, every commit in git rev-list origin/main..TIP must be an expected SHA or covered by a recorded verified range: a commit X is covered when, for some ref refs/dispatch/verified/<b>-<t> (list them with git for-each-ref refs/dispatch/verified), <t> is an ancestor of TIP and X is listed by git rev-list <b>..<t>. If any commit is neither, it is unexpected: do not push; return published=false and list the unexpected SHAs in error. The origin URL is computed by the preflight (origin_url); do not report it. ${handBack
     ? `The commits in origin/main..TIP change these protected paths (data, computed by the preflight from hybrid.protected_paths):
 ${protectedHits.map(path => `- ${JSON.stringify(path)}`).join('\n')}
 Protected paths land only through a reviewed hand-pass PR, so there is no direct push of main in this publication: never push to main, whatever happens. Hand the work back as a PR exactly as described under the PR hand-back below, but open that PR without the hand-pass: title marker (the human reviewer adds it after review), and return published=false with action 'needs-hand-pass-pr', pr_url, head_sha and the protected paths above in error. `
-    : `Run git fetch origin main, then confirm TIP is an ancestor of the current local HEAD. Once fetched, delete each verified ref whose tip is an ancestor of origin/main with git update-ref -d refs/dispatch/verified/<b>-<t> (list them with git for-each-ref refs/dispatch/verified). Uncommitted or untracked files in the working tree are not published by a push and belong to other work; leave them alone and do not treat them as a reason to stop. Then run git push origin TIP:refs/heads/main exactly once, and return published=true with action 'pushed' and head_sha. If that push is refused because main is a protected branch (output mentions GH006, GH013 or protected branch) or because origin/main moved (output mentions rejected, fetch first or non-fast-forward), do not retry it and do not rebase, merge or force-push to get around it; hand the work back as a PR instead (PR hand-back). `}PR hand-back: let BRANCH be dispatch/publish-<first 12 hex of TIP>. Push TIP to BRANCH without force (git push origin TIP:refs/heads/BRANCH); if BRANCH already exists on origin at TIP reuse it, and if it exists at any other tip that is an error: return published=false with the error. Then run gh pr list --state open --json headRefName,headRefOid,url and note every open PR whose headRefName matches dispatch/publish-* and whose headRefOid is an ancestor of TIP (git merge-base --is-ancestor): this PR contains it. Run gh pr list --head BRANCH --state open --json url and reuse an open PR for that head, otherwise create one with gh pr create --base main --head BRANCH. The PR body lists the expected SHAs and the item ids above, names each contained earlier dispatch/publish-* PR by its URL as contained in this PR, and says to merge it with a merge commit, not squash or rebase, because the workflow checks those exact SHAs on origin/main afterwards. Never merge the PR, never close or edit an earlier PR, never enable auto-merge, never approve it. Return published=false, action '${handBack ? 'needs-hand-pass-pr' : 'pr-opened'}', pr_url (the PR's https://github.com URL) and head_sha. If ancestry, the branch (not main, detached HEAD, or a merge or rebase in progress), the remote, authentication, or TIP not being an ancestor of local HEAD is unexpected before any push, stop without changing history and return published=false with the error. A push that the remote refuses is not that case: it goes to the PR hand-back. Return {repo: "${repo}", published, action, head_sha?, pr_url?, error?}.`
+    : `The native command runs git fetch origin main, then confirms TIP is an ancestor of the current local HEAD. Once fetched, delete each verified ref whose tip is an ancestor of origin/main with git update-ref -d refs/dispatch/verified/<b>-<t> (list them with git for-each-ref refs/dispatch/verified). Uncommitted or untracked files in the working tree are not published by a push and belong to other work; leave them alone and do not treat them as a reason to stop. The native command then runs git push origin TIP:refs/heads/main exactly once, and return published=true with action 'pushed' and head_sha. If that push is refused because main is a protected branch (output mentions GH006, GH013 or protected branch) or because origin/main moved (output mentions rejected, fetch first or non-fast-forward), do not retry it and do not rebase, merge or force-push to get around it; hand the work back as a PR instead (PR hand-back). `}PR hand-back: let BRANCH be dispatch/publish-<first 12 hex of TIP>. The native command pushes TIP to BRANCH without force (git push origin TIP:refs/heads/BRANCH); if BRANCH already exists on origin at TIP reuse it, and if it exists at any other tip that is an error: return published=false with the error. The native command then runs gh pr list --state open --json headRefName,headRefOid,url and note every open PR whose headRefName matches dispatch/publish-* and whose headRefOid is an ancestor of TIP (git merge-base --is-ancestor): this PR contains it. The native command runs gh pr list --head BRANCH --state open --json url and reuse an open PR for that head, otherwise create one with gh pr create --base main --head BRANCH. The PR body lists the expected SHAs and the item ids above, names each contained earlier dispatch/publish-* PR by its URL as contained in this PR, and says to merge it with a merge commit, not squash or rebase, because the workflow checks those exact SHAs on origin/main afterwards. Never merge the PR, never close or edit an earlier PR, never enable auto-merge, never approve it. Return published=false, action '${handBack ? 'needs-hand-pass-pr' : 'pr-opened'}', pr_url (the PR's https://github.com URL) and head_sha. If ancestry, the branch (anything other than the run branch ${workspace.branch}, detached HEAD, or a merge or rebase in progress), the remote, authentication, or TIP not being an ancestor of the run branch HEAD is unexpected before any push, stop without changing history and return published=false with the error. A push that the remote refuses is not that case: it goes to the PR hand-back. Return {repo: "${repo}", published, action, head_sha?, pr_url?, error?}.`
+}
+
+// The native command checks Git and performs publication in the same process.
+// Relayed preflight JSON can refuse work, but can never authorize an unchecked effect.
+function publishPrompt(repo, tip, commits, itemIds = [], protectedHits = [], workspace) {
+  if (!workspace) throw new Error('publication requires a run workspace')
+  const command = `python3 /projects/dev/agentops/scripts/dispatch_publish.py --repo ${workspace.worktree} --run-branch ${workspace.branch} --tip ${tip}${commits.map(sha => ` --expected ${sha}`).join('')}${itemIds.map(id => ` --item-id ${id}`).join('')}`
+  return `Run exactly one shell command through the native shell with network sandbox escalation. Report its JSON fields {published, action, head_sha?, pr_url?, error?}; workflow code adds the repository name. Do not run any other command, retry, or modify files. All Git checks and effects belong to this command; no agent-relayed preflight report authorizes a push or PR. If it fails, report published=false and its error.
+
+${command}
+
+The following documents the command's contract only; it is not an instruction to execute additional commands:
+${publicationContract(repo, tip, commits, itemIds, protectedHits, workspace)}`
 }
 
 // A PR hand-back is trusted only in this exact shape: it reaches close prompts and notes.
@@ -1335,15 +1356,12 @@ async function publishRepo(state, push) {
   const itemIds = [...new Set(state.verifiedUnits.filter(unit => !unit.unverified && !unit.withheldBehind).flatMap(unit => (unit.buildResult && unit.buildResult.items || []).map(item => String(item.item_id))))]
     .filter(id => /^[0-9]{1,12}$/.test(id))
   const refuse = (action, error) => ({ ...state, publication: { repo: state.repo, published: false, action, error } })
-  // The publication rules are computed in code; the publish agent only acts on the outcome.
-  const facts = await runPublishCheck(state.repo, 'publish-preflight', `preflight --repo ${repoPath(state.repo)} --tip ${tip}${commits.map(sha => ` --expected ${sha}`).join('')}`, 'computes which commits are expected or covered by verified ranges and which changed paths are protected')
+  // Relayed facts below are advisory refusal checks; the native publisher repeats every gate before effects.
+  const facts = await runPublishCheck(state.repo, 'publish-preflight', `preflight --repo ${state.workspace.worktree} --tip ${tip}${commits.map(sha => ` --expected ${sha}`).join('')}`, 'computes which commits are expected or covered by verified ranges and which changed paths are protected')
   const preflight = parsePreflight(facts, tip)
   if (preflight.error) return refuse('preflight-failed', preflight.error)
   if (preflight.unexpected.length) return refuse('publish-refused-unexpected-commits', `commits in origin/main..${tip} that are neither expected nor covered by a verified range: ${preflight.unexpected.join(' ')}`)
   if (preflight.missing_expected.length) return refuse('publish-refused-missing-expected', `expected commits that are not ancestors of ${tip}: ${preflight.missing_expected.join(' ')}`)
-  if (!preflight.range.length) {
-    return { ...state, publication: { repo: state.repo, published: true, action: 'already-on-origin', head_sha: tip } }
-  }
   const protectedHits = preflight.protected_hits
   const raw = await agent(publishPrompt(state.repo, tip, commits, itemIds, protectedHits, state.workspace), {
     label: `publish:${state.repo}`,
@@ -1361,7 +1379,7 @@ async function publishRepo(state, push) {
     return refuse('publish-refused-protected-paths', `the publish agent reported ${action}, but ${protectedHits.join(', ')} are protected and land only through a reviewed PR`)
   }
   // The agent's report is checked against the origin remote with the same script.
-  const confirmation = await runPublishCheck(state.repo, 'publish-confirm', `confirm --repo ${repoPath(state.repo)} --tip ${tip} --action ${action}`, 'checks the reported publication against the origin remote')
+  const confirmation = await runPublishCheck(state.repo, 'publish-confirm', `confirm --repo ${state.workspace.worktree} --tip ${tip} --action ${action}`, 'checks the reported publication against the origin remote')
   if (!confirmedPublication(confirmation)) {
     return refuse('publish-unconfirmed', `the publish agent reported ${action}, but git on origin does not show it`)
   }
@@ -1660,9 +1678,18 @@ const groups = buildInputService.groupByRepo(items)
 
 const published = await pipeline(
   groups,
-  group => buildExecutionService.processRepo(group, verifyTimeoutSeconds),
-  verifiedState => buildPublicationService.publishRepo(verifiedState, push),
-  publishedState => buildPublicationService.cleanupRepo(publishedState),
+  async group => {
+    let state = await buildExecutionService.processRepo(group, verifyTimeoutSeconds)
+    try {
+      state = await buildPublicationService.publishRepo(state, push)
+    } catch (error) {
+      state = { ...state, halted: `publication exception: ${String(error && error.message || error)}`,
+        publication: { repo: state.repo, published: false, action: 'publish-failed', error: String(error) } }
+    } finally {
+      state = await buildPublicationService.cleanupRepo(state)
+    }
+    return state
+  },
 )
 const perRepo = await buildPublicationService.closeTrackers(published.filter(Boolean), push)
 
