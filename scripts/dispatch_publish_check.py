@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Deterministic publication preflight and post-publish confirmation (#2562).
 
-vuoro-dispatch-build runs this through exact-command clerical agents and decides in
-workflow code what the publish agent may do, instead of leaving the rules to a prompt.
+The native dispatch_publish.py command uses these checks before publication effects.
+vuoro-dispatch-build also requests advisory reports through clerical agents, whose
+relayed JSON is not trusted to authorize a push or PR.
 
     dispatch_publish_check.py preflight --repo R --tip T [--expected SHA ...]
     dispatch_publish_check.py confirm   --repo R --tip T --action A
