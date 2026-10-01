@@ -46,7 +46,7 @@ class RunBranchTests(PublishCheckCase):
         tip = self.repos.commit("new work", "src/new.py")
         original = module.git
         def git(repo, *args):
-            if args[:2] == ("update-ref", "-d"):
+            if "branch" in args and "-d" in args:
                 self.repos.git("update-ref", "refs/heads/dispatch/run-old", tip)
             return original(repo, *args)
         with patch.object(module, "git", side_effect=git):
@@ -54,6 +54,37 @@ class RunBranchTests(PublishCheckCase):
         self.assertFalse(row["deleted"])
         self.assertIn("error", row)
         self.assertEqual(self.repos.git("rev-parse", "dispatch/run-old"), tip)
+
+    def test_concurrent_checkout_is_preserved_by_git_at_deletion(self):
+        import dispatch_run_branches as module
+        self.repos.git("branch", "dispatch/run-old")
+        original = module.git
+        path = self.repos.root / "new-active"
+        def git(repo, *args):
+            if "branch" in args and "-d" in args:
+                self.repos.git("worktree", "add", str(path), "dispatch/run-old")
+            return original(repo, *args)
+        with patch.object(module, "git", side_effect=git):
+            row = self.inspect(True)["branches"][0]
+        self.assertFalse(row["deleted"])
+        self.assertIn("error", row)
+        self.assertEqual(self.repos.git("rev-parse", "dispatch/run-old"), self.repos.base)
+
+    def test_remote_merged_branch_can_retire_when_shared_main_is_behind(self):
+        tip = self.repos.commit("delivered", "src/new.py")
+        self.repos.git("branch", "dispatch/run-old", tip)
+        self.repos.git("push", "origin", f"{tip}:refs/heads/main")
+        self.repos.git("reset", "--hard", self.repos.base)
+        self.assertTrue(self.inspect(True)["branches"][0]["deleted"])
+
+    def test_other_or_multivalued_upstream_cannot_license_deletion(self):
+        self.repos.git("branch", "dispatch/run-old")
+        self.repos.git("config", "branch.dispatch/run-old.remote", "origin")
+        self.repos.git("config", "--add", "branch.dispatch/run-old.merge", "refs/heads/alternate")
+        self.repos.git("config", "--add", "branch.dispatch/run-old.merge", "refs/heads/main")
+        row = self.inspect(True)["branches"][0]
+        self.assertFalse(row["deleted"])
+        self.assertIn("ambiguous upstream", row["error"])
 
     def test_worktree_removal_cannot_be_implicit_or_outside_run_root(self):
         with self.assertRaisesRegex(ValueError, "requires --apply"):

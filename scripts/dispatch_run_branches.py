@@ -57,9 +57,25 @@ def inspect(repo: str, apply: bool = False, remove_paths: list[str] | None = Non
         merged = ancestry.returncode == 0
         row = {"branch": branch, "tip": tip, "merged": merged, "worktree": held.get(branch), "deleted": False}
         if apply and merged and branch not in worktrees(repo):
+            # branch.merge is multivalued: -c appends rather than replacing it.
+            # Refuse other upstreams so Git cannot validate against the wrong one.
+            configured = {}
+            for key in ("remote", "merge"):
+                probe = subprocess.run(["git", "-C", repo, "config", "--get-all", f"branch.{branch}.{key}"], capture_output=True, text=True)
+                if probe.returncode not in (0, 1):
+                    raise ValueError(probe.stderr.strip() or "could not inspect branch tracking")
+                configured[key] = probe.stdout.splitlines()
+            if any(v != "origin" for v in configured["remote"]) or any(v != "refs/heads/main" for v in configured["merge"]):
+                row["error"] = "non-canonical or ambiguous upstream; branch preserved"
+                rows.append(row)
+                continue
             try:
-                # Expected old value refuses a concurrent branch advance.
-                git(repo, "update-ref", "-d", ref, tip)
+                # Git rechecks worktree occupancy and ancestry, then deletes with
+                # its own old-value check. Command-local tracking selects the
+                # canonical merge target without changing branch configuration.
+                git(repo, "-c", f"branch.{branch}.remote=origin",
+                    "-c", f"branch.{branch}.merge=refs/heads/main",
+                    "branch", "-d", "--", branch)
                 row["deleted"] = True
             except subprocess.CalledProcessError as error:
                 row["error"] = error.stderr.strip()
