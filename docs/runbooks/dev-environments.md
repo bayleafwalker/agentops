@@ -24,6 +24,27 @@ are setting up or repairing a host, not at session start. The legacy vscode-shel
 commands. Rows supersede: reduce to the newest row per `session` before aggregating.
 Summary: `agentops/hooks/cost-summary.sh [project]`.
 
+## Hook wiring
+
+Run `/projects/dev/agentops/bin/agentops check-hook-wiring` to check workspace,
+project and user configurations for Claude and Codex. The scan includes ignored
+settings files, executable hook paths and the relative decision-telemetry library.
+Exit 1 means wiring is incomplete; exit 0 means every inspected command resolves.
+This is a wiring check, not proof that a runtime dispatched a hook.
+
+Run the same command with `--apply` to restore missing aliases to the canonical
+`agentops/hooks/` scripts and their `lib/` directory. It preserves existing custom
+scripts and never changes command text or guard policy. It also removes redundant
+project Stop registrations when the identical cost hook already runs globally.
+The global registration and other project settings stay intact.
+
+Workstation Codex user hooks are a Home Manager out-of-store link to that canonical
+directory. Workspace aliases under `/projects/dev/.codex/hooks/` and
+`/projects/dev/.claude/hooks/` are host-persistent; the scripts and repair tool are
+cross-host-replicated in Git. Repair on each host separately. A configured script
+that is missing can produce exit 127; a present but non-executable script produces
+exit 126. Keep the SessionStart context hooks and their dependencies together.
+
 ## Evidence and durability background
 
 Rationale for the durability table in the workspace `AGENTS.md`:
