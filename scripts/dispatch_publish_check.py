@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Deterministic publication preflight and post-publish confirmation (#2562).
 
-vuoro-dispatch-build runs this through exact-command clerical agents and decides in
-workflow code what the publish agent may do, instead of leaving the rules to a prompt.
+The native dispatch_publish.py command uses these checks before publication effects.
+vuoro-dispatch-build also requests advisory reports through clerical agents, whose
+relayed JSON is not trusted to authorize a push or PR.
 
     dispatch_publish_check.py preflight --repo R --tip T [--expected SHA ...]
     dispatch_publish_check.py confirm   --repo R --tip T --action A
@@ -81,9 +82,8 @@ def preflight(repo: str, tip_arg: str, expected_args: list[str]) -> dict:
     tip = resolve(repo, tip_arg)
     if tip is None:
         raise SystemExit(f"tip does not resolve: {tip_arg}")
-    # Best effort: a stale origin/main would make the range look larger than it is. A failed fetch
-    # (offline) falls back to the existing remote-tracking ref.
-    git(repo, "fetch", "--quiet", "origin", "main", check=False)
+    # Publication must never proceed against a stale remote-tracking ref.
+    git(repo, "fetch", "--quiet", "origin", "refs/heads/main:refs/remotes/origin/main")
     in_range = rev_list(repo, f"origin/main..{tip}")
     range_set = set(in_range)
 
@@ -131,6 +131,9 @@ def preflight(repo: str, tip_arg: str, expected_args: list[str]) -> dict:
         "invalid_refs": sorted(invalid),
         "protected_hits": hits,
         "origin_url": origin,
+        "publish_branch": f"dispatch/publish-{tip[:12]}",
+        "net_zero": git(repo, "rev-parse", "origin/main^{tree}").stdout.strip()
+                    == git(repo, "rev-parse", f"{tip}^{{tree}}").stdout.strip(),
     }
 
 
@@ -165,15 +168,33 @@ def confirm(repo: str, tip_arg: str, action: str) -> dict:
     elif sha is None:
         pass
     elif action in PR_ACTIONS:
-        main_sha, _ = remote_ref(repo, "refs/heads/main")
-        if main_sha and (main_sha == tip or is_ancestor(repo, tip, main_sha)):
+        main_sha, main_error = remote_ref(repo, "refs/heads/main")
+        if main_error or main_sha is None:
+            report["error"] = main_error or "remote main is missing"
+            return report
+        if git(repo, "cat-file", "-e", f"{main_sha}^{{commit}}", check=False).returncode != 0:
+            fetched = git(repo, "fetch", "--quiet", "origin", "refs/heads/main", check=False)
+            if fetched.returncode != 0:
+                report["error"] = fetched.stderr.strip() or "could not fetch remote main"
+                return report
+        ancestry = git(repo, "merge-base", "--is-ancestor", tip, main_sha, check=False)
+        if ancestry.returncode not in (0, 1):
+            report["error"] = ancestry.stderr.strip() or "could not check remote main ancestry"
+        elif main_sha == tip or ancestry.returncode == 0:
             report["error"] = "tip is already on remote main; not a PR hand-back"
         else:
             report["confirmed"] = sha == tip
     else:
         if sha != tip and git(repo, "cat-file", "-e", f"{sha}^{{commit}}", check=False).returncode != 0:
-            git(repo, "fetch", "--quiet", "origin", ref, check=False)
-        report["confirmed"] = sha == tip or is_ancestor(repo, tip, sha)
+            fetched = git(repo, "fetch", "--quiet", "origin", ref, check=False)
+            if fetched.returncode != 0:
+                report["error"] = fetched.stderr.strip() or "could not fetch remote publication ref"
+                return report
+        ancestry = git(repo, "merge-base", "--is-ancestor", tip, sha, check=False)
+        if ancestry.returncode not in (0, 1):
+            report["error"] = ancestry.stderr.strip() or "could not check publication ancestry"
+        else:
+            report["confirmed"] = sha == tip or ancestry.returncode == 0
     return report
 
 
