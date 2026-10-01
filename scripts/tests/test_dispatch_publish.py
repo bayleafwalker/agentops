@@ -45,6 +45,19 @@ class NativePublisherTests(PublishCheckCase):
         with self.assertRaisesRegex(ValueError, "named run branch"):
             self.publish(self.repos.base, [])
 
+    def test_delivered_verified_ref_is_pruned_without_deleting_unpublished_evidence(self):
+        delivered = self.repos.commit("delivered", "src/old.py")
+        old_ref = f"refs/dispatch/verified/{self.repos.base}-{delivered}"
+        self.repos.git("update-ref", old_ref, delivered)
+        self.repos.git("push", "origin", f"{delivered}:refs/heads/main")
+        tip = self.repos.commit("verified", "src/new.py")
+        new_ref = f"refs/dispatch/verified/{delivered}-{tip}"
+        self.repos.git("update-ref", new_ref, tip)
+        self.assertTrue(self.publish(tip, [tip])["published"])
+        refs = self.repos.git("for-each-ref", "--format=%(refname)", "refs/dispatch/verified/")
+        self.assertNotIn(old_ref, refs)
+        self.assertIn(new_ref, refs)
+
     def test_net_zero_range_without_expected_unpublished_commits_is_skipped(self):
         tip = self.repos.commit("empty reverted history")
         self.repos.git("update-ref", f"refs/dispatch/verified/{self.repos.base}-{tip}", tip)

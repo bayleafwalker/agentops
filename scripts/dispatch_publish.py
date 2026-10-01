@@ -51,6 +51,11 @@ def publish(repo: str, tip: str, run_branch: str, expected: list[str], item_ids:
         raise ValueError(error or "remote main missing or changed after fetch")
     if facts["unexpected"] or facts["missing_expected"]:
         raise ValueError("unaccounted or missing commits: " + json.dumps({k: facts[k] for k in ("unexpected", "missing_expected")}))
+    for line in git(repo, "for-each-ref", "--format=%(refname) %(objectname)", "refs/dispatch/verified/").stdout.splitlines():
+        name, _, value = line.partition(" ")
+        if name not in facts["invalid_refs"] and is_ancestor(repo, value, "origin/main"):
+            # Compare the old value so a concurrent writer's new evidence is preserved.
+            git(repo, "update-ref", "-d", name, value)
     report.update(head_sha=full, origin_url=fetch_url)
     if not facts["range"]:
         return {**report, "published": True, "action": "already-on-origin"}
