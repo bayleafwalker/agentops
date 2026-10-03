@@ -32,7 +32,7 @@ state that decides the agent tooling, in a repository.
 | TS-3 | Role and skills are observed, not compiled: instruction and skill digests are recorded at session start (S6). No compiled profile, skill lock or role preset. | accepted-delegated | dossier §3 table "observed profile digest", §5 "instruction digests are observed, not compiled", §11 S6 |
 | TS-4 | Two harness hooks carry Vuoro semantics: session start (binding plus profile digest) and stop (cost snapshot). Local guard hooks (sandbox, NFS, bounded read, forge credential) stay as operator enforcement. All hooks live outside `templates/dispatch`. | accepted-delegated (Vuoro hooks); proposed (guard hooks) | dossier §5 Owns, §10 L2 |
 | TS-5 | Accept, reject, withdraw, supersede and revise are one Decision object, bound to a Release digest and evidence digests. It is the only writer of terminal status (S3). No parallel acceptance records. | accepted-delegated | dossier §4 Decision row; §11 S3 |
-| TS-6 | Evidence is append-only and has one home (S4). Until the S4 import, auditctl shards committed in repos are authoritative evidence and must not be rewritten. A run that cannot reach that home has no path to it today, so TS-6 holds for activity inside the perimeter only; evidence from a hosted runtime is absent rather than late until TS-16's record path exists. | accepted-delegated | dossier §8 Migration row ("auditctl authored rows keep their digests"), §10 L1.4, §11 S4 |
+| TS-6 | Evidence is append-only, converging on one home at S4. New hosted-runtime captures are authoritative in the substrate hash chain; repository exports are projections (agentops#2480, Decision 199, 2026-10-03). Existing committed auditctl shards remain authoritative historical source records until verified S4 import and must not be rewritten. Import preserves authored payloads, original digests and provenance alongside the chain/import reference; an envelope does not replace an original digest. These are target semantics, not a claim of deployed hosted reachability: until TS-16's record path exists, hosted evidence is absent rather than late. | accepted-delegated (S4 home and shard preservation; hosted authority under the coordinator delegation) | dossier §8 Migration row ("auditctl authored rows keep their digests"), §10 L1.4, §11 S4; agentops#2480 Decision 199 (2026-10-03) |
 | TS-7 | Cost per release and profile comparison are derived queries: the newest cumulative snapshot per session, joined through the binding. No settlement writer, no hand deduplication. | accepted-delegated | dossier §4 Derived, §7 capabilities 8-9, §11 S6 |
 | TS-8 | Continuation works across session, host, model and harness through a handoff checkpoint: handoff/v1 files now, ledger evidence from S6. Harnesses without SessionStart (Codex) need an explicit launch path. TS-16's surface is a second route to the same property, not a replacement: a hosted session that can read, claim and record continues from the ledger directly, while the checkpoint stays the route for runtimes that cannot reach a surface at all. | accepted-delegated (checkpoint); proposed (Codex launch path, since Codex is live: 71 sessions 2026-09-01..15) | dossier §8 Recovery row, §11 S6 |
 | TS-9 | Resumability and successor export are proven by rehearsal (S8), not asserted. The rehearsal covers runs that can reach the evidence home; a hosted run cannot, so until TS-16's paths exist S8 proves the property for perimeter runs only and must not be read as covering the estate. | accepted-delegated | dossier §10 L1.7, §11 S8; direction §13 falsifier 1 |
@@ -56,6 +56,15 @@ verdict recorded in the vuoro.cloud row of the rebuild's §15 Reconciliation tab
 "Does vuoro.cloud stay up?" The verdict being reversed was "park" (vuoro.cloud serves no user);
 it is reversed on the ground that the hosted variant serves runtimes the operator does not host
 rather than external users.
+
+**Hosted evidence authority — resolved 2026-10-03 (agentops#2480, Decision 199).**
+New hosted evidence is authoritative in the substrate hash chain, and repository exports are
+projections. E2/#2466 `append_evidence` must commit to the authenticated append-only chain and return
+its evidence identity/digest; projection is not a second acceptance step. S4/#2485 must preserve
+legacy authored shard payloads, original digests and provenance through verified import (TS-6).
+This resolves the authority direction left open in the direction document's §0.2/§14; it does not
+prove implementation, verified import, hosted reachability or reconstructability. TS-16 grants
+no hosted merge rights, signing authority, credentials or effect-apply scope.
 
 **A concrete TS-16 gap and its fix (agentops#2471, 2026-09-20).** A read-only Routine
 (claude.ai cloud session on a schedule) produced verdicts that existed only in its cloud
