@@ -86,9 +86,9 @@ Add append-only historical-source bindings to that same owner:
   explicit alternative binding: `stream_state=uncommitted_tail`, capture host
   and original stream identity, absolute source path, whole-file frozen snapshot
   digest, byte offset/line position and reviewing operator identity. Missing
-  commit/blob fields remain absent; no committed provenance is fabricated;
-  raw-line SHA256 and import-manifest identity; destination evidence id/chain
-  entry reference and verified mapping revision.
+  commit/blob fields remain absent; no committed provenance is fabricated.
+  Both variants also carry raw-line SHA256, import-manifest identity, destination
+  evidence id/chain entry reference and verified mapping revision.
 - `import_receipt`: manifest digest, importer identity/build, source/destination
   watermarks, counts/digest-diff result and reconciliation evidence reference.
 
@@ -116,8 +116,9 @@ hashes are another domain. Identically named `record_sha256` values from
 producer and ingestion envelopes need not match. The future digest-diff tool
 must identify the algorithm/domain it compares, not normalize all records into
 one newly hashed envelope. The new destination content digest must bind the
-complete immutable import representation and its source mapping, including the
-original digest fields. Store it as a distinct digest: this additional integrity
+complete immutable source representation and mapping revision, including the
+original digest fields; it excludes destination ids, chain position and received
+timestamps, which the append request/chain binding protects separately. Store it as a distinct digest: this additional integrity
 binding never overwrites or relabels the original authored digests. Verify it
 again when exporting or comparing imported evidence.
 
@@ -128,8 +129,12 @@ as the same import; conflicting event ids, producer tuples or idempotency keys
 stop the entire affected manifest. New importer stream numbering cannot hide an
 original gap. Tail bytes must still match their whole-file frozen snapshot
 before import; a changed tail stops its manifest. Deterministic import keys bind
-manifest digest and source identity/raw-line fingerprint. Exact retries reuse
-those keys. Source authored order comes from original stream/sequence and line
+manifest digest and stable source identity. A source without a validated stable
+identity fails admission; any separately reviewed identity-free historical input
+must include path/blob or tail-snapshot identity and byte/line position in its
+key. Identical content at different source positions cannot silently collapse.
+The coverage report distinguishes replay from distinct records with reviewer
+sign-off. Exact retries reuse those keys. Source authored order comes from original stream/sequence and line
 bindings; destination chain sequence records import order and does not invent
 historical causal order. Stop also on missing/corrupt files, invalid class, unmatched digest,
 changed source inventory, unauthorized workspace/repo binding, chain break,
@@ -145,7 +150,13 @@ fixtures. Before production import, rehearse the **complete real frozen manifest
 isolated destination, with source-access controls appropriate to its data.
 Require full coverage and zero mismatches in every original digest domain.
 Production must use that exact manifest digest, importer build and mapping
-revision; any source change or result divergence from rehearsal stops import.
+revision. Compare per-record source bindings, original digests, deterministic
+import keys, source content-binding digests, coverage and digest-diff results;
+any source change or divergence in those fields stops import. Destination ids,
+chain sequence/predecessor/entry digest and received timestamps may differ
+between destinations, but each destination's entire chain must independently
+verify against its recorded tail. Those expected differences are not permission
+to ignore source identity, content or effective authority.
 Synthetic edge cases supplement this real-inventory gate, never replace it.
 
 Historical audit `record_class=decision` stays historical evidence;
@@ -208,14 +219,16 @@ note is a test specification, not a claim the sequence ran.
 7. Restart the same isolated authority. Sync the same durable requests through
    its served protocol; harvest the trailer through the existing negotiated
    path. Repeat sync and a lost-response retry without creating duplicates.
-8. Compare canonical **effective** state before/after sync against an equivalent
-   continuously online reference history, using the same recorded requests in
-   their recorded causal order. Declare any ordering-dependent timestamp
-   differences before running the test: Release/item revision, decisions,
-   reservation semantics, evidence identities/digests/tail, proposal binding,
-   uncertainty/expiry results, cursors and unresolved requests. Ignore only
-   declared receipt timestamps/random transport ids; never ignore state or
-   authority differences. Preserve a field-level diff and replay receipts.
+8. Compare canonical **effective** state before/after sync against a continuously
+   online reference history applying the same recorded requests in their
+   recorded causal order: Release/item revision, decisions, reservation
+   semantics, evidence identities/digests/tail, proposal binding, uncertainty/
+   expiry results, cursors and unresolved requests. Before running, pin any
+   ordering-dependent **metadata** timestamp fields that may differ. Ignore
+   only those fields, receipt timestamps and random transport ids; never ignore
+   state, authority, expiry/validity inputs or differences in their derived
+   results. Use a controlled evaluation clock/as-of for semantic comparisons.
+   Preserve a field-level diff and replay receipts.
 9. Inject source digest mutation, stale CAS, a concurrent append, authority crash
    after commit/before reply, crossing expiry and changed inputs while offline,
    plus accepted+used+dead-harness and accepted+missing-use-receipt histories. Require
