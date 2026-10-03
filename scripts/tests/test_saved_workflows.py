@@ -99,6 +99,10 @@ async function agent(prompt, options) {
 function answer(prompt, options) {
   events.push(options.label)
   calls.push({label: options.label, model: options.model, agentType: options.agentType, prompt})
+  if (options.label === 'readonly-probe') {
+    if (scenario.readonlyProbe === 'throw') throw new Error('agentType unavailable')
+    return scenario.readonlyProbe === 'null' ? null : {available: scenario.readonlyProbe !== 'false'}
+  }
   const parts = options.label.split(':')
   const [kind, repo, unit] = parts
   if (scenario.throwStage === kind) throw new Error(`stubbed ${kind} transport failure`)
@@ -301,6 +305,7 @@ const run = new AsyncFunction('args', 'agent', 'pipeline', 'parallel', 'log', 'p
 run(workflowArgs, agent, pipeline, parallel, message => logs.push(String(message)), () => {})
   .then(result => process.stdout.write(JSON.stringify({result, events, calls, records, logs})))
   .catch(error => {
+    process.stderr.write(JSON.stringify({events}) + '\n')
     process.stderr.write(error.stack)
     process.exitCode = 1
   })
@@ -316,8 +321,10 @@ def run_workflow(path: Path, args: dict, **scenario) -> dict:
         text=True,
     )
     output = json.loads(result.stdout)
+    # Registry bookkeeping is separate from the existing repository-stage trace.
+    output["events"] = [label for label in output["events"] if label != "readonly-probe"]
     # Clerical exact-command agents (records, and the #2562 publication checks) are not dispatch stages.
-    clerical = ("record-verified:", "publish-preflight:", "publish-confirm:", "workspace:", "cleanup:")
+    clerical = ("readonly-probe", "record-verified:", "publish-preflight:", "publish-confirm:", "workspace:", "cleanup:")
     output["dispatch_events"] = [
         label for label in output["events"] if label != "record-decisions" and not label.startswith(clerical)
     ]
@@ -406,6 +413,19 @@ def publication_for(output: dict, repo: str) -> dict:
 
 
 class SavedWorkflowTests(unittest.TestCase):
+
+    @requires_node
+    def test_missing_readonly_agent_fails_before_any_repository_stage(self):
+        for workflow in (BUILD_WORKFLOW, VERIFY_WORKFLOW):
+            for mode in ("throw", "null", "false"):
+                with self.subTest(workflow=workflow.name, mode=mode):
+                    with self.assertRaises(subprocess.CalledProcessError) as caught:
+                        run_workflow(workflow, {"items": [{"repo": "example", "item_id": 1}]}, readonlyProbe=mode)
+                    error = caught.exception.stderr
+                    self.assertIn("dispatch-readonly", error)
+                    self.assertIn("launching session", error)
+                    self.assertIn("/projects/dev/agentops", error)
+                    self.assertEqual(json.loads(error.splitlines()[0])["events"], ["readonly-probe"])
     def test_canonical_routing_keeps_provider_ladders_asymmetric(self) -> None:
         aliases = json.loads(MODEL_ROUTING.read_text(encoding="utf-8"))["aliases"]
 

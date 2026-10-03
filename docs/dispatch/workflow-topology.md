@@ -20,6 +20,16 @@ coherent slice builds in the same run and the rest becomes new backlog items.
 
 ## Execution Shape
 
+Both saved workflows probe `dispatch-readonly` before any repository stage. A missing
+agent fails immediately with the remedy: launch from a session rooted in
+`/projects/dev/agentops`. The registered agent remains local to agentops.
+
+Run `python scripts/dispatch_run_branches.py --repo <code-checkout>` to inspect leftover
+run branches and their worktrees. `--apply` retires only tips already on origin/main
+with no worktree. Unpublished and checked-out branches stay in place. Worktree removal
+requires an explicit `--remove-worktree /projects/dev/_wt/dispatch-<name>` with `--apply`;
+dirty worktrees are never forced out. Fetch or ancestry errors refuse retirement.
+
 The saved vuoro build workflow routes every unit to the step that adds the most value next.
 Routing and readiness never park work on the operator by default. Every lane moves the unit
 forward in the same run.

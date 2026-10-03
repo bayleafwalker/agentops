@@ -44,6 +44,22 @@ const CLERICAL_MODEL = { model: 'claude-haiku-4-5-20251001', effort: 'low' }
 // Non-writing stages run as this registered subagent type (.claude/agents/dispatch-readonly.md): no Edit/Write.
 const READONLY_AGENT = { agentType: 'dispatch-readonly' }
 const DECISION_RECORDER = '/projects/dev/agentops/scripts/jev_shadow.py'
+// Resolve the registered readonly agent before a workspace or item can be touched.
+async function requireReadonlyAgent() {
+  let result
+  try {
+    result = await agent('Registry probe only: do not run tools or modify files. Return exactly {available: true}.', {
+      label: 'readonly-probe', ...READONLY_AGENT, ...CLERICAL_MODEL,
+      schema: { type: 'object', required: ['available'], properties: { available: { type: 'boolean' } }, additionalProperties: false },
+    })
+  } catch (_error) {
+    result = undefined
+  }
+  if (!result || result.available !== true) {
+    throw new Error('dispatch-readonly is unavailable in the launching session; launch this workflow from a session rooted in /projects/dev/agentops')
+  }
+}
+
 const TIER_ORDER = ['bounded', 'standard', 'hard']
 // frontier-plan in model-routing.json. Refinement and oracle authorship decide
 // what the work is and what correct means, so they sit above the builder that
@@ -1674,6 +1690,7 @@ if (push && items.some(item => APPSERVICE_NAME.test(item.code_repo) || APPSERVIC
 const verifyTimeoutSeconds = buildInputService.boundedInteger(parsedArgs.verify_timeout_seconds, 900, 60, 3600, 'verify_timeout_seconds')
 // claim_ttl_seconds is accepted for old callers and ignored: sprintctl reservations have no TTL.
 buildInputService.boundedInteger(parsedArgs.claim_ttl_seconds, 7200, 600, 21600, 'claim_ttl_seconds')
+await requireReadonlyAgent()
 const groups = buildInputService.groupByRepo(items)
 
 const published = await pipeline(
