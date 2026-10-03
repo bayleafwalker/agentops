@@ -292,6 +292,20 @@ time outside every span equally; it reports the apportioned and whole-tick figur
 newest `session-costs.jsonl` row per session, and a `binding_found` flag that surfaces
 rather than drops a missing `session-bindings` record.
 
+Export `sprintctl event list --sprint-id 559 --limit 2000 --json > /tmp/events.json`,
+then `python scripts/profile_comparison.py --events-json /tmp/events.json --json`
+compares first-pass and accepted item attempts by the observed instruction/skill
+digest, reusing the same done-tick/item join. Override `--ledger` and
+`--bindings-dir` when reading retained inputs on another host. The digest keeps
+the recorded source order, sorts skills by name, retains unresolved skills and
+excludes loading times; it defines no compiled profile or new store. `no_binding`
+counts missing sessions explicitly; `no_review` counts missing outcomes, and
+first-pass acceptance rate divides by reviewed attempts. An absent ledger fails rather than
+reporting empty history. The September 2026 devbox cohort was expected to produce
+one profile row; record that reading, and evaluate the TS-3 tripwire once skills
+and outcomes can be distinguished. Do not describe missing live inputs as a
+successful comparison.
+
 Weekly, or after every ten lane attempts, the coordinator:
 
 1. lists items `active` for more than a day without a `lane.review` note;

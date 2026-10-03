@@ -154,8 +154,8 @@ def load_events(path: Path) -> list[dict]:
     return data if isinstance(data, list) else []
 
 
-def lane_notes(events: list[dict]) -> list[dict]:
-    """lane.dispatch / lane.review notes from the lane actor, tagged 'lane'."""
+def lane_note_records(events: list[dict]) -> list[dict]:
+    """The existing lane predicate, retaining outcome tags for derived readers."""
     notes = []
     for event in events:
         if event.get("event_type") not in LANE_EVENT_TYPES:
@@ -168,8 +168,23 @@ def lane_notes(events: list[dict]) -> list[dict]:
         ts = _parse_ts(event.get("created_at"))
         if ts is None:
             continue
-        notes.append({"item_id": event.get("work_item_id"), "event_type": event.get("event_type"), "ts": ts})
+        notes.append({"item_id": event.get("work_item_id"), "event_type": event.get("event_type"), "ts": ts,
+                      "tags": tags, "event_id": event.get("id")})
     return notes
+
+
+def lane_notes(events: list[dict]) -> list[dict]:
+    """lane.dispatch / lane.review notes from the lane actor, tagged 'lane'."""
+    return [{key: note[key] for key in ("item_id", "event_type", "ts")}
+            for note in lane_note_records(events)]
+
+
+def tick_window(tick: dict) -> tuple[datetime, datetime] | None:
+    """The existing inclusive tick window, shared by read-only derived queries."""
+    end = _parse_ts(tick.get("ts"))
+    if end is None:
+        return None
+    return end - timedelta(minutes=tick.get("minutes") or 0), end
 
 
 def latest_release_digest(events: list[dict], item_id: Any) -> tuple[str | None, bool]:
@@ -208,13 +223,12 @@ def apportion_tick(tick: dict, notes: list[dict]) -> list[dict]:
     Returns one dict per item: item_id, session_id, cost_usd_ledger (whole tick),
     cost_usd_apportioned.
     """
-    end = _parse_ts(tick.get("ts"))
-    minutes = tick.get("minutes") or 0
     session_id = tick["session_id"]
     cost_usd = tick.get("cost_usd") or 0.0
-    if end is None:
+    window = tick_window(tick)
+    if window is None:
         return []
-    start = end - timedelta(minutes=minutes)
+    start, end = window
     window_seconds = max((end - start).total_seconds(), 0.0)
 
     by_item: dict[Any, list[dict]] = defaultdict(list)
