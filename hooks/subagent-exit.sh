@@ -30,6 +30,15 @@ else
   auditctl_bin() { return 1; }
 fi
 
+# A separately copied hook retains launch routing when this optional library
+# is unavailable; an audit record must not be lost because of helper discovery.
+if [[ -r "${_hook_src%/*}/auditctl-event-cwd.sh" ]]; then
+  # shellcheck source=auditctl-event-cwd.sh
+  . "${_hook_src%/*}/auditctl-event-cwd.sh"
+else
+  auditctl_event_cwd() { return 0; }
+fi
+
 EVENT="$(cat)"
 # Codex SubagentStop carries turn_id. The terminal-reason parser below only
 # understands Claude transcript records, so leave Codex's native event alone.
@@ -41,6 +50,8 @@ TRANSCRIPT="$(printf '%s' "$EVENT" | jq -r '.transcript_path // ""')"
 AGENT_ID="$(printf '%s' "$EVENT" | jq -r '.agent_id // .agentId // empty')"
 HARNESS_AGENT_TRANSCRIPT="$(printf '%s' "$EVENT" | jq -r '.agent_transcript_path // empty')"
 PROJ="$(printf '%s' "$EVENT" | jq -r '.cwd // ""' | xargs basename 2>/dev/null || basename "$PWD")"
+
+AUDIT_CWD="$(auditctl_event_cwd "$EVENT")"
 
 # `transcript_path` on a SubagentStop event is the PARENT session's transcript, not the
 # subagent's own -- verified 2026-09-14 against agent ae70fc0a294de1cb0, whose event carried
@@ -180,5 +191,9 @@ METADATA="$(jq -cn \
     reset_at: (if $reset_at == "" then null else $reset_at end),
     reset_source: (if $reset_source == "" then null else $reset_source end)}')"
 
-"$AUDITCTL" add --type dispatch.exit --source claude-hook --actor claude-hook \
-  --summary "subagent ended in $PROJ: $REASON" --metadata "$METADATA" >/dev/null 2>&1 || true
+# Keep cwd and env changes local; if the directory vanished, retain launch pins.
+( if [[ -n "$AUDIT_CWD" ]] && cd -- "$AUDIT_CWD" 2>/dev/null; then
+    unset AUDITCTL_DB AUDITCTL_ARTIFACTS_ROOT
+  fi
+  "$AUDITCTL" add --type dispatch.exit --source claude-hook --actor claude-hook \
+    --summary "subagent ended in $PROJ: $REASON" --metadata "$METADATA" ) >/dev/null 2>&1 || true

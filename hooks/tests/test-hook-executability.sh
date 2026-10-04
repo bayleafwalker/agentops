@@ -13,7 +13,7 @@ hooks_dir="$(cd -- "$here/.." && pwd -P)"
 root="$(git -C "$hooks_dir" rev-parse --show-toplevel)"
 
 # Sourced by its siblings, never executed: 644 is correct for it.
-sourced_not_executed=" auditctl-resolve.sh "
+sourced_not_executed=" auditctl-resolve.sh auditctl-event-cwd.sh "
 
 fail=0
 seen=0
