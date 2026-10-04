@@ -100,7 +100,12 @@ case "${1:-status}" in
     if [ "$timer_status" -ne 0 ] || [[ "$timer_state" != *'LoadState='* ]]; then
       printf '              renewal timer: PROBE FAILED (could not check user manager)\n'
     elif [[ "$timer_state" == *'LoadState=not-found'* ]]; then
-      printf '              renewal timer: NOT INSTALLED\n'
+      timer_unit="${XDG_CONFIG_HOME:-${HOME}/.config}/systemd/user/cred-broker-identity.timer"
+      if [ -e "$timer_unit" ] || [ -L "$timer_unit" ]; then
+        printf '              renewal timer: PRESENT BUT NOT LOADED (run systemctl --user daemon-reload)\n'
+      else
+        printf '              renewal timer: NOT INSTALLED\n'
+      fi
     else
       printf '              renewal timer: %s\n' "${timer_state//$'\n'/; }"
     fi

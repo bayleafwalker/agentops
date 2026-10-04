@@ -44,8 +44,10 @@ than with this paragraph.
    openssl x509 -in ~/.config/cred-broker/workstation/client.crt -noout -enddate
    /projects/dev/agentops/hooks/forge-credential.sh inventory
    ```
-   Certificates last 24 hours. If it is expired or the timer is absent, go to
-   **Setting it up**.
+   Certificates last 24 hours. For an expired identity, follow **Routine renewal
+   is agent work**. If the timer probe fails, set the user-bus variables below
+   and retry. If a unit is present but not loaded, run `daemon-reload`. Only a
+   verified absent unit needs the runbook's timer installation steps.
 
 2. Mint for one command. The child gets `FJ_TOKEN`; nothing is written to disk:
    ```bash
@@ -108,6 +110,9 @@ first so it probes for the PKI role name rather than guessing.
 
 ## Routine renewal is agent work
 
+This applies to agents on the commissioned workstation. Cloud routines must
+never receive forge or served credentials; they report the limitation instead.
+
 For an already commissioned workstation identity, run the established refresh
 helper yourself when the certificate, API session or server CA needs renewal:
 
@@ -121,7 +126,11 @@ for signing, and keeps credential values inside the child process and identity
 files. Agent execution of this existing renewal path is authorized; do not
 hand routine renewal back to the operator. Use the normal network sandbox
 escalation, check its state-only result, then retry the scoped broker request.
-Never read, print, copy or move the private key or session token yourself.
+Never generate a key outside the helper, or read, print, copy or move the
+private key or session token yourself. The appservice kubeconfig lets the
+existing helper fetch the public broker CA, request the short-lived enrollment
+service-account token and create the commissioned workstation session; it
+supplies no authority for unrelated cluster changes.
 
 Enable the documented user timer after a successful refresh, and verify both
 its next run and the service result. Agent shells may lack the desktop bus:
@@ -129,6 +138,9 @@ its next run and the service result. Agent shells may lack the desktop bus:
 ```bash
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${XDG_RUNTIME_DIR}/bus}"
+# After checking the documented unit links:
+systemctl --user daemon-reload
+systemctl --user enable --now cred-broker-identity.timer
 systemctl --user show cred-broker-identity.timer \
   -p LoadState -p ActiveState -p UnitFileState -p NextElapseUSecRealtime
 systemctl --user show cred-broker-identity.service -p Result -p ExecMainStatus
