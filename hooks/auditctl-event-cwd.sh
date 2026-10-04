@@ -4,6 +4,10 @@
 # unset or point into the launch tree. Explicit external overrides and invalid
 # event paths preserve launch-directory publication. Never changes the caller.
 
+# Event paths require a .git file or .git/HEAD: an empty workspace-level .git
+# directory and a bare .auditctl index are not repositories. Launch detection
+# retains auditctl's looser marker walk for compatibility. Prefer builtins for
+# this path walk because hooks can run with a restricted PATH.
 _auditctl_git_top() {
   local p="$1" strict="${2:-}"
   [[ "$p" == /* ]] || return 1  # "${p%/*}" never shortens a relative path: no loop
@@ -25,8 +29,9 @@ _auditctl_git_top() {
 # symlink than both roots counts as "elsewhere" and is kept (the safe direction).
 _auditctl_pin_is_launch() {
   local v="$1" t
+  shift
   [[ -z "$v" ]] && return 0
-  for t in "$_proc_top" "$_proc_top_l"; do
+  for t in "$@"; do
     [[ -n "$t" && ( "$v" == "$t" || "$v" == "$t"/* ) ]] && return 0
   done
   return 1
@@ -45,7 +50,8 @@ auditctl_event_cwd() {
     _proc_top="$(_auditctl_git_top "$(pwd -P 2>/dev/null || printf '%s' "$PWD")")" || _proc_top=""
     _proc_top_l="$(_auditctl_git_top "$PWD")" || _proc_top_l=""
     if [[ -n "$_event_top" && -n "$_proc_top" && "$_event_top" != "$_proc_top" ]] &&
-       _auditctl_pin_is_launch "${AUDITCTL_DB-}" && _auditctl_pin_is_launch "${AUDITCTL_ARTIFACTS_ROOT-}"; then
+       _auditctl_pin_is_launch "${AUDITCTL_DB-}" "$_proc_top" "$_proc_top_l" &&
+       _auditctl_pin_is_launch "${AUDITCTL_ARTIFACTS_ROOT-}" "$_proc_top" "$_proc_top_l"; then
       printf '%s' "$_event_cwd"
     fi
   fi

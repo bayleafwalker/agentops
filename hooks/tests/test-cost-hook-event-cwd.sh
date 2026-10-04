@@ -32,6 +32,8 @@ here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 hook_name="${AGENTOPS_TEST_EVENT_CWD_HOOK:-log-session-cost.sh}"
 stop_hook="$(cd -- "$here/.." && pwd -P)/$hook_name"
 expected_type="${AGENTOPS_TEST_EVENT_CWD_TYPE:-workflow.session}"
+event_name=Stop; agent_id=""
+if [[ "$hook_name" == subagent-exit.sh ]]; then event_name=SubagentStop; agent_id=fixture-child; fi
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -79,17 +81,17 @@ indexonly="$tmp/index-only"; mkdir -p "$indexonly/.auditctl" "$indexonly/work"
 # The hook always starts in $launch with the launch repo's pins exported, as a session
 # launched there under direnv does.
 run_hook() {
-  local cwd="$1" bindir="${2:-$stub_dir}" event
+  local cwd="$1" bindir="${2:-$stub_dir}" event launch_dir="${5:-$launch}"
   local db="${3:-$launch/.auditctl/auditctl.db}" root="${4:-$launch}"
   if [[ "$cwd" == __absent__ ]]; then
-    event="$(jq -cn --arg t "$transcript" '{transcript_path:$t, session_id:"s-2547", hook_event_name:"Stop"}')"
+    event="$(jq -cn --arg t "$transcript" --arg kind "$event_name" --arg agent "$agent_id" '{transcript_path:$t, session_id:"s-2547", hook_event_name:$kind} + (if $agent == "" then {} else {agent_id:$agent} end)')"
   else
-    event="$(jq -cn --arg t "$transcript" --arg c "$cwd" \
-      '{transcript_path:$t, session_id:"s-2547", cwd:$c, hook_event_name:"Stop"}')"
+    event="$(jq -cn --arg t "$transcript" --arg c "$cwd" --arg kind "$event_name" --arg agent "$agent_id" \
+      '{transcript_path:$t, session_id:"s-2547", cwd:$c, hook_event_name:$kind} + (if $agent == "" then {} else {agent_id:$agent} end)')"
   fi
   : > "$AUDITCTL_PWD_LOG"
   : > "$AUDITCTL_TYPE_LOG"
-  ( cd -- "$launch" && printf '%s' "$event" | env \
+  ( cd -- "$launch_dir" && printf '%s' "$event" | env \
       AUDITCTL_DB="$db" AUDITCTL_ARTIFACTS_ROOT="$root" \
       PATH="$bindir:$PATH" AUDITCTL_BIN="$bindir/auditctl" \
       AGENTOPS_COST_LOG="$tmp/costs.jsonl" AGENTOPS_GATE_LOG_DIR="$gatedir" \
@@ -109,6 +111,10 @@ assert_eq "REQ-2547-2 worktree"        "$(run_hook "$tmp/target-wt")"   "$tmp/ta
 assert_eq "REQ-2547-5 launch repo"     "$(run_hook "$launch")"          "$pinned"
 mkdir -p "$launch/deep"
 assert_eq "REQ-2547-5 launch subdir"   "$(run_hook "$launch/deep")"     "$pinned"
+ln -s "$launch" "$tmp/launch-link"
+assert_eq "logical launch roots preserve correct routing" \
+  "$(run_hook "$target" "" "$tmp/launch-link/.auditctl/auditctl.db" "$tmp/launch-link" "$tmp/launch-link")" \
+  "$target|<unset>|<unset>"
 ln -s "$target" "$tmp/target-link"
 assert_eq "REQ-2547-2 symlinked event" "$(run_hook "$tmp/target-link/sub/dir")" "$target/sub/dir|<unset>|<unset>"
 # String prefixes must respect path boundaries; launch-other is an external override.
