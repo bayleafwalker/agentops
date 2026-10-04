@@ -89,8 +89,21 @@ case "${1:-status}" in
         printf '              client certificate: EXPIRED -- run cred-broker-refresh-identity.sh\n'
       fi
     fi
-    printf '              renewal timer: %s\n' \
-      "$(systemctl --user is-enabled cred-broker-identity.timer 2>/dev/null || echo 'NOT INSTALLED')"
+    # Agent shells often lack the desktop session bus variables. A failed bus
+    # connection is not evidence that the unit is absent.
+    timer_runtime="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+    timer_bus="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${timer_runtime}/bus}"
+    timer_state="$(XDG_RUNTIME_DIR="$timer_runtime" DBUS_SESSION_BUS_ADDRESS="$timer_bus" \
+      systemctl --user show cred-broker-identity.timer \
+        -p LoadState -p ActiveState -p UnitFileState 2>/dev/null)"
+    timer_status=$?
+    if [ "$timer_status" -ne 0 ] || [[ "$timer_state" != *'LoadState='* ]]; then
+      printf '              renewal timer: PROBE FAILED (could not check user manager)\n'
+    elif [[ "$timer_state" == *'LoadState=not-found'* ]]; then
+      printf '              renewal timer: NOT INSTALLED\n'
+    else
+      printf '              renewal timer: %s\n' "${timer_state//$'\n'/; }"
+    fi
     printf '              HOW: credctl exec <capability> --repository forgejo:<owner>/<repo> -- <cmd>\n'
     printf '              (FJ_TOKEN is injected into the child). For git over https add BOTH\n'
     printf '              -c credential.useHttpPath=true and\n'

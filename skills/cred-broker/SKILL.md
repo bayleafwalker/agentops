@@ -42,7 +42,7 @@ than with this paragraph.
    ```bash
    ls ~/.config/cred-broker/workstation/          # client.crt, client.key, session.json, server-ca.crt
    openssl x509 -in ~/.config/cred-broker/workstation/client.crt -noout -enddate
-   systemctl --user is-enabled cred-broker-identity.timer
+   /projects/dev/agentops/hooks/forge-credential.sh inventory
    ```
    Certificates last 24 hours. If it is expired or the timer is absent, go to
    **Setting it up**.
@@ -106,12 +106,47 @@ idempotent; the one-time ceremony is
 `docs/scripts/openbao-commission-host-enrollment.sh`, run it with no argument
 first so it probes for the PKI role name rather than guessing.
 
-Custody of the private key is the operator's. It is generated on the host and
-never transmitted — OpenBao signs a CSR, it does not issue a key. **Do not
-generate, read, copy or move it.** If the ceremony is needed, hand the operator
-the commands; do not run them on their behalf.
+## Routine renewal is agent work
 
-If an agent finds the broker missing or broken, the correct move is to say so
+For an already commissioned workstation identity, run the established refresh
+helper yourself when the certificate, API session or server CA needs renewal:
+
+```bash
+KUBECONFIG=/projects/dev/appservice/clusters/.kube/config \
+  /projects/dev/appservice/docs/scripts/cred-broker-refresh-identity.sh
+```
+
+This idempotent helper performs local key rotation when due, sends only a CSR
+for signing, and keeps credential values inside the child process and identity
+files. Agent execution of this existing renewal path is authorized; do not
+hand routine renewal back to the operator. Use the normal network sandbox
+escalation, check its state-only result, then retry the scoped broker request.
+Never read, print, copy or move the private key or session token yourself.
+
+Enable the documented user timer after a successful refresh, and verify both
+its next run and the service result. Agent shells may lack the desktop bus:
+
+```bash
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${XDG_RUNTIME_DIR}/bus}"
+systemctl --user show cred-broker-identity.timer \
+  -p LoadState -p ActiveState -p UnitFileState -p NextElapseUSecRealtime
+systemctl --user show cred-broker-identity.service -p Result -p ExecMainStatus
+```
+
+A failed connection to the user manager means **could not check**, not that
+the timer is absent. Follow the runbook to register the existing units; do not
+replace a different managed unit blindly. `credctl session --force` is a
+separate host-policy flow and does not replace this workstation helper.
+
+One-time commissioning remains an operator ceremony. Custody of the private
+key remains on the host: OpenBao signs a CSR, it does not issue a key. If a
+new enrollment ceremony is required, give the operator the runbook commands.
+Escalate a renewal failure only after running and diagnosing the helper; report
+the exact failed command and state-only error rather than requesting a refresh
+that the agent has not tried.
+
+If commissioning is missing or renewal remains broken after diagnosis, say so
 and offer the runbook — not to fall back to hunting for a static token. The
 static-token path in `vuoro-cloud/scripts/ff-merge-pr.sh` is deliberately loud
 and gated behind `FF_MERGE_ALLOW_STATIC_TOKEN`, and the file it wants does not
