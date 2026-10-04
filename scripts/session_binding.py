@@ -47,6 +47,7 @@ Nothing is silently preferred.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import os
@@ -276,32 +277,35 @@ def record_skill(bindings_dir: Path, session_id: str, name: str, *, cwd: Path,
     binding is reported to stderr and answered with ``None``.
     """
     path = bindings_dir / f"{session_id}.json"
+    entry = _resolve_skill(name, cwd)
+    entry["loaded_at"] = loaded_at or _now()
     try:
-        binding = json.loads(path.read_text(encoding="utf-8"))
+        # Keep the lock inode stable: unlinking it lets a third writer acquire a
+        # different lock while another process is still waiting on the old one.
+        # Atomic replacement alone does not protect this read-modify-write.
+        with path.with_suffix(".json.lock").open("a") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            binding = json.loads(path.read_text(encoding="utf-8"))
+            skills = binding.setdefault("instructions", {}).setdefault("skills", [])
+            key = (entry["path"], entry["sha256"])
+            duplicate_key = key if key != (None, None) else (entry["name"], *key)
+
+            def _key(existing: dict) -> tuple:
+                existing_key = (existing.get("path"), existing.get("sha256"))
+                return existing_key if existing_key != (None, None) \
+                    else (existing.get("name"), *existing_key)
+
+            if not any(_key(existing) == duplicate_key for existing in skills):
+                skills.append(entry)
+
+            tmp = path.with_suffix(".json.tmp")
+            tmp.write_text(json.dumps(binding, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            os.replace(tmp, path)  # atomic: a whole binding or none
+            return binding
     except (OSError, json.JSONDecodeError) as exc:
         print(f"session_binding: cannot record skill for session {session_id}: {exc}",
               file=sys.stderr)
         return None
-
-    entry = _resolve_skill(name, cwd)
-    entry["loaded_at"] = loaded_at or _now()
-
-    skills = binding.setdefault("instructions", {}).setdefault("skills", [])
-    key = (entry["path"], entry["sha256"])
-    duplicate_key = key if key != (None, None) else (entry["name"], *key)
-
-    def _key(existing: dict) -> tuple:
-        existing_key = (existing.get("path"), existing.get("sha256"))
-        return existing_key if existing_key != (None, None) \
-            else (existing.get("name"), *existing_key)
-
-    if not any(_key(existing) == duplicate_key for existing in skills):
-        skills.append(entry)
-
-    tmp = path.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(binding, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    os.replace(tmp, path)  # atomic: a whole binding or none
-    return binding
 
 
 def build(event: dict, *, records_dir: Path, hostname: str | None = None) -> dict:

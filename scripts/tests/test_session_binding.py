@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from concurrent.futures import ThreadPoolExecutor
 import subprocess
 import sys
 import tempfile
@@ -244,6 +245,25 @@ class SessionBindingV0(unittest.TestCase):
         self.assertEqual(entry["sha256"],
                          hashlib.sha256(skill_file.read_bytes()).hexdigest())
         self.assertIsNotNone(entry["loaded_at"])
+
+    def test_parallel_skill_events_keep_every_entry(self):
+        """Separate hook processes must not replace each other's observations."""
+        workspace = self.tmp / "ws-parallel"
+        workspace.mkdir()
+        _run({"session_id": "sk-parallel", "cwd": str(workspace),
+              "source": "startup"}, self.bindings)
+        names = [f"parallel-skill-{i}" for i in range(24)]
+        payloads = [self._record_payload(session_id="sk-parallel", cwd=workspace,
+                                         skill=name) for name in names]
+        with ThreadPoolExecutor(max_workers=24) as pool:
+            results = list(pool.map(self._run_record_skill, payloads))
+        for result in results:
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, "")
+            self.assertEqual(result.stderr, "")
+        skills = self._binding("sk-parallel")["instructions"]["skills"]
+        self.assertEqual(len(skills), len(names))
+        self.assertEqual({entry["name"] for entry in skills}, set(names))
 
     def test_record_skill_distinguishes_unresolved_and_plugin_form_names(self):
         workspace = self.tmp / "ws-unresolved"
