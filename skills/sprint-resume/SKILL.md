@@ -28,17 +28,20 @@ Resume an already-registered sprint item from live `sprintctl` state without dup
    - A reservation reported `stale` has simply been inactive past the operator's display horizon (default 4 hours); that is a heuristic, not an expiry, and it does not by itself transfer ownership. Only an operator running `sprintctl maintain sweep` interrupts long-idle reservations.
 5. Use a stable `--session-id` per live client or process start (for Codex, `CODEX_THREAD_ID` works well). It identifies the session for coordination and audit; it proves nothing and authorizes nothing. Run `sprintctl agent-protocol --json` for the canonical, machine-readable command shapes -- prefer it over any command written out in this file.
 6. Move the item to `active` before implementation with `sprintctl item status --id <item-id> --status active --expected-revision <revision>`. Read the current revision from `sprintctl item show --id <item-id> --json`; the transition is a compare-and-swap and is durably rejected if the basis is stale.
-7. Record structured `sprintctl` events when design choices, resolved blockers, or reusable lessons occur. Use `decision` or `lesson-learned` types with `summary`, `detail`, `tags`, and `confidence` payload keys. The bar is met when any of these occur:
+7. When the item spans repositories, or follows governing decisions, resolve the knowledge context before editing. This step is optional and skipped when `vuoro-knowledge` is unavailable:
+   `vuoro-knowledge resolve --root <each checkout> --subject <subject> --component <component> --revision <repo>=<commit> --out <artifact>/context.json`.
+   Read `conflicts`, `unresolved`, and `component_states` before `governing`. An approved document is not the intended destination, and neither is evidence that anything was implemented. A `no-authority`, `missing-guidance`, or `transition-not-evidenced` result is a visible open condition: report it, and do not substitute a plausible answer. Bind the manifest to the item with the printed `artifact` evidence ref (`sprintctl event observation add --evidence-ref ...`). On a later resume, and again before step 10, run `vuoro-knowledge recheck <manifest>`. Exit 3 means a governing source changed, so refresh the context before continuing. The manifest records which sources were supplied. It proves nothing about whether they were followed.
+8. Record structured `sprintctl` events when design choices, resolved blockers, or reusable lessons occur. Use `decision` or `lesson-learned` types with `summary`, `detail`, `tags`, and `confidence` payload keys. The bar is met when any of these occur:
    - A design choice was made between two viable options
    - A blocker was resolved by a non-obvious fix
    - A pattern emerged that applies to other items or future sprints
    - A migration or schema decision was made
    - An integration failure revealed a wrong assumption
    Log immediately — context degrades fast, and retroactive logging at sprint close produces thin candidates.
-8. If work pauses or changes hands, use `sprintctl reservation reassign --id <id> --actor <next-actor> --session-id <next-session-id>` to transfer it in place, then `sprintctl handoff --output <path>` when the next session also needs broader sprint context. Keep handoff artifacts local unless a tracked artifact was explicitly requested.
-9. When implementation completes, set the item done and release the reservation:
+9. If work pauses or changes hands, use `sprintctl reservation reassign --id <id> --actor <next-actor> --session-id <next-session-id>` to transfer it in place, then `sprintctl handoff --output <path>` when the next session also needs broader sprint context. Keep handoff artifacts local unless a tracked artifact was explicitly requested.
+10. When implementation completes, set the item done and release the reservation:
    `sprintctl item status --id <item-id> --status done --expected-revision <revision>` then `sprintctl reservation release --id <id> --actor <actor>`. These are two operations rather than one: releasing is a coordination signal, and the transition is guarded by the revision CAS rather than by ownership.
-10. After material sprint-state changes, refresh the shared snapshot with `sprint-snapshot`.
+11. After material sprint-state changes, refresh the shared snapshot with `sprint-snapshot`.
 
 ## Output Contract
 
@@ -53,3 +56,4 @@ Resume an already-registered sprint item from live `sprintctl` state without dup
 - Do not look for ownership proof at all. There is none by design: a reservation records who is working on what so conflicts surface, and no sprintctl mutation checks it.
 - Do not start implementation before the reservation state is clear.
 - Do not wait until sprint close to log a lesson that should become an event now.
+- Do not treat a `ratified` search hit, or the newest document, as the governing answer when a resolved context reports a conflict or an unresolved condition.
