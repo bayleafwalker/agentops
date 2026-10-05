@@ -43,6 +43,10 @@ state that decides the agent tooling, in a repository.
 | TS-14 | Project-instance folders (`_projects/*`) are derived work folders, never a store. `materialize_project.py` stays keep-narrow until S6 ledger checkpoints cover cross-host resume, then gets re-decided against trigger 7. | proposed | dossier §6.3 (local stores 7 to 3), §8 Recovery row; disposition-register `project-instance-runtime-envelope` |
 | TS-15 | Native harness telemetry is emit-only observation (OTel to Langfuse under the accepted harness-evidence policy). Its attribute allowlist must exist and be checked in CI before the exporter is enabled. | accepted-delegated (policy 2026-09-14) | `agentops/docs/architecture/harness-evidence-policy.md:3,196-210`; dossier §5 telemetry DEPEND emit-only |
 | TS-16 | The record covers automated activity wherever it runs, not only inside the perimeter. The control question is what proportion of automated activity is reconstructable; for hosted runtimes today it is zero. Two reachability paths are in the target state: a narrow **public** MCP surface for interactive runtimes (Cowork, claude.ai, mobile, Routines, cloud sessions, OpenAI Responses), and the Managed Agents self-hosted worker for unattended runs. The boundary is binding: intent, coordination and evidence may cross to a runtime the operator does not host; effects and credentials may not. Every tool on the published surface classifies as read, coordinate, record or propose, and there is deliberately no effect-apply scope — that absence is a design decision, written down here so a later session does not helpfully add one. A hosted runtime's maximum achievable outcome is an unmergeable branch and a queued intent: the homelab-side reconciler signs, not the cloud session, so the property obtained is a verifiable chain from a signed commit back to a run record naming runtime, model and profile revision. That is recorded and reconstructable, **not** attested, and must not be described as attestation. | accepted-operator (both paths, public surface first; boundary; no effect-apply scope); proposed (tool set, auth mode, E0-E4 shape) | operator DECISION 1, 2026-09-20; edge doc §3 boundary, §5 EffectGrant scope, §7 signing, §8 worker option |
+| TS-17 | An accepted result is reconstructible from one derived read: released intent and revision, attempts and claims, exact artifact digest, verification evidence, accepting identity or policy revision, effect receipt, and every missing link named explicitly as missing. The reading surface is operator-projection over owner records. It is not a store, not a second acceptance path, and not another activity timeline. | proposed | vuoro `docs/plans/2026-10-05-market-integration-milestone.md` §6 P1 |
+| TS-18 | Provider evaluation and event results (Claude outcome verdicts; GitHub workflow, PR and check results) are imported as Evidence with provider and build, session reference, artifact digest, rubric or check revision, observed instruction digest and assurance level; anything not supplied is recorded `unknown`. A provider verdict is an input to a Decision and never the Decision: it cannot satisfy acceptance for an artifact whose digest is not the release's current one. Provider session IDs are references and never work identity. Integrations are additive and removable without moving authority or rewriting history. TS-3 and TS-15 are unchanged: no compiled profile, no evaluation backend. | proposed | milestone plan §6 P2, §2 |
+| TS-19 | The authority-plane abstraction ActionQ carried is held as a provider-neutral conformance suite in Vuoro (exact-digest acceptance, revision conflicts, replay and idempotency, stale claims, public/protected-boundary refusals) and stays independent of any provider's storage layout. Implementations conform at their respective horizons. Lease/claim stays outside the frozen federation contract (register `actionq`). | proposed | milestone plan §6 P3; register `actionq` goal_state.amended (2026-09-30) |
+| TS-20 | The proportion of relevant runs and effects that can be reconstructed is measured, by failure class (capture failure, unattributed work, inaccessible artifact, missing receipt), with the sample size stated beside every percentage. This is TS-16's control question made measurable; TS-12's measure-before-declaring applies. | proposed | milestone plan §6 P4 |
 
 **TS-16's source, and its dependency risk.** The edge doc is `Vuoro at the Edge` (2026-09-19). It
 landed as `vuoro docs/plans/2026-09-20-vuoro-at-the-edge.md` (merge c4740f6b); a reader who needs
@@ -131,6 +135,17 @@ served credential.
      documentation silence rather than stated, so it is not planned for; if it changes, E1's
      surface works unmodified.
 
+8. **MI-1 (market integration milestone).** Runs alongside S3-S8 and E0-E4 and adds no
+   execution driver. Track A compares the native-harness workflow with GitHub Agentic
+   Workflows on suitable GitHub repositories (operator minutes, accepted-result quality,
+   recovery effort, cost). Track B runs a hosted session, a different native harness
+   continuing from durable records, a protected verifier on the exact artifact, and a
+   receipt chain, with one interruption and one stale proposal. Acceptance: the successor
+   continues without the predecessor's private conversation; a stale or changed artifact
+   cannot reuse approval; another reader can explain why the effect was authorized. TS-17
+   to TS-20 are its deliverables. Detail: vuoro
+   `docs/plans/2026-10-05-market-integration-milestone.md`.
+
 ## Tripwires (evidence that this target is wrong)
 
 - **Increment 0 re-run at 18 or more of 20 answerable.** The kernel is unnecessary and S3-S8
@@ -166,3 +181,10 @@ served credential.
 - **A concrete case within six months that genuinely requires an effect-apply scope.** Then the
   "name the imperative class explicitly" clause was hiding a real gap rather than an empty one,
   and TS-16's boundary needs re-deciding rather than reasserting.
+- **Track A of MI-1 shows GitHub Agentic Workflows matching or beating the native path on
+  operator minutes, accepted-result quality, recovery effort and cost for GitHub-contained
+  work.** Record the decision to use it and build no further dispatch machinery for that
+  work. Vuoro's claim then rests on Track B and the cross-boundary cases.
+- **A reader cannot explain why an accepted effect was authorized from the TS-17 view
+  alone.** The record is insufficient; fix capture (TS-16 E2 onward) before building more
+  views.
