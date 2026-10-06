@@ -27,3 +27,24 @@ The knowledge increment is a local read-only CLI and rebuildable catalog. Actual
 Each source slice runs targeted failure histories, the owner's required suite and exact-head CI before landing. Report source, release and deployment separately. Record material decisions and checkpoints in served state with agent/model/session attribution. Terminal acceptance follows the owner Decision contract; a reviewed preparation PR does not satisfy the entire parent item.
 
 For reconstruction, an absent owner operation, missing receipt or unverifiable binding is visible missing or conflicting evidence. No alias, GitHub approval label or provider verdict grants effect authority. Public clients retain read/coordinate/record/propose only; native harnesses execute and the protected owner authorizes effects.
+
+## First P1 increment and local branch sweep
+
+P1's source increment landed in agentops PR312 (merge
+`a0550f6e4dca9082f50e4360d33422d7e9798dd9`). The explicit reconstruction CLI
+uses four catalog-checked reads, recomputes the frozen effect digest, refuses
+cross-owner captures and renders every missing/conflicting link. Its locked app
+suite passed 135 tests with 15 existing skips and exact-head CI passed. It is
+source, not a deployed projection or accepted Track B result. Missing
+release-to-intent and protected-verifier bindings keep item 2612 open.
+
+The [local branch supplement](../dispatch/branch-integration/2026-10-06-local-branches.json)
+records 40 additional local-only tips found after the remote sweep. Their
+ancestry is joined without changing owner trees. Patch-equivalent work is
+preserved; historical runtime pins and retired execution code are archived.
+Unlanded Auditctl B2 falsifier/coverage proposals and Kctl refactor/vocabulary
+proposals are **not adopted implementations**: the old evidence-home and
+knowledge-lifecycle assumptions require the current TS-6/TS-13 contract. Any
+useful coverage semantics need an explicit current-owner MI1/P4 port. The
+frozen appservice recovery branch remains separate. Branch refs are retained
+while the explicitly requested remote deletion decision is pending.

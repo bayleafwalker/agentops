@@ -1,0 +1,578 @@
+{
+  "schema": "agentops-local-branch-integration/v1",
+  "date": "2026-10-06",
+  "scope": "remaining local-only branch tips after remote integration",
+  "excluded": {
+    "appservice:rebuild/recovery": "explicit frozen composition"
+  },
+  "branches": [
+    {
+      "repo": "agentops",
+      "branch": "backup/local-main-pre-288",
+      "head": "d6b9498ae1208f25e1ad5531ad8d56fbba4506fa",
+      "unmatched": [],
+      "subjects": [],
+      "diffstat": " .codex/agents/planner.toml           |  7 ++++---\n .codex/agents/reviewer.toml          |  7 ++++---\n .codex/agents/worker.toml            |  7 ++++---\n hooks/log-session-cost.sh            | 11 ++++++++++-\n hooks/snip-hook-defer.sh             | 10 +++++++---\n hooks/subagent-exit.sh               |  5 +++++\n hooks/tests/test-auditctl-resolve.sh |  9 +++++++++\n hooks/tests/test-cost-hook-fields.sh | 27 +++++++++++++++++++++++++++\n hooks/tests/test-snip-hook-defer.sh  |  7 ++++++-\n 9 files changed, 76 insertions(+), 14 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Patch-equivalent commits are already on main; preserve original local ancestry."
+    },
+    {
+      "repo": "agentops",
+      "branch": "fix/handoff-hook-superseded",
+      "head": "3696e85b305fec77d41ab08fa0eb9fa05f2f26bb",
+      "unmatched": [],
+      "subjects": [],
+      "diffstat": " hooks/handoff-session-start.sh            | 43 ++++++++++++++++---------\n hooks/tests/test-handoff-session-start.sh | 52 +++++++++++++++++++++++++++++++\n 2 files changed, 81 insertions(+), 14 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Patch-equivalent commits are already on main; preserve original local ancestry."
+    },
+    {
+      "repo": "agentops",
+      "branch": "parked/run-877359d1-2548",
+      "head": "db0638eb8f6b2e85320fe23c5cad9a908f90c5fb",
+      "unmatched": [],
+      "subjects": [],
+      "diffstat": " .claude/workflows/vuoro-dispatch-verify.js |  7 ++++\n scripts/tests/test_saved_workflows.py      | 54 ++++++++++++++++++++++++++++--\n 2 files changed, 58 insertions(+), 3 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Patch-equivalent commits are already on main; preserve original local ancestry."
+    },
+    {
+      "repo": "vuoro",
+      "branch": "ci/build-service-image",
+      "head": "ceb6b2f3c170df52dff8158d3b21ddd13a981375",
+      "unmatched": [
+        "76fbd3856e89f79de1377b836dfd938f2bff48e7",
+        "392fab07e10bbb41dcaca065ab483207674d6ad9",
+        "dfbe004a6f3f620e8e3ed1320cad3fc48b2980c2",
+        "ceb6b2f3c170df52dff8158d3b21ddd13a981375"
+      ],
+      "subjects": [
+        "76fbd38 ci: build the service image on every PR and check what it installed",
+        "392fab0 ci: guard checks every pip install; pin remote wheels to this repo's releases",
+        "dfbe004 ci: name the remote-wheel refusal precisely",
+        "ceb6b2f ci: refuse dot-segment or encoded release-asset paths"
+      ],
+      "diffstat": " .github/workflows/ci.yml          |  30 +++++++\n scripts/validate_service_image.py | 183 ++++++++++++++++++++++++++++++++++++++\n tests/test_release_workflow.py    | 101 +++++++++++++++++++++\n 3 files changed, 314 insertions(+)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Original implementation/release line is superseded by later owner PRs; no branch-only source paths remain. Keep current strict-client, image, E2/E3 and current runtime metadata."
+    },
+    {
+      "repo": "vuoro",
+      "branch": "ci/mcp-strict-client-2522",
+      "head": "98bacafd40bc7d409efdfa1c669804b594ab6d68",
+      "unmatched": [
+        "2dbb2dc985358ad34493c4693e8eda6064d9ba64",
+        "98bacafd40bc7d409efdfa1c669804b594ab6d68"
+      ],
+      "subjects": [
+        "2dbb2dc ci: strict MCP 2026-07-28 client conformance job against the service image (agentops#2522)",
+        "98bacaf ci(mcp-strict-client): known deviations excuse only their exact messages (review of #138)"
+      ],
+      "diffstat": " .github/workflows/ci.yml                  |   28 +\n scripts/mcp_schema/2026-07-28.schema.json | 3963 +++++++++++++++++++++++++++++\n scripts/mcp_strict_client.py              |  958 +++++++\n scripts/mcp_strict_client.sh              |   95 +\n scripts/mcp_strict_upstream_stub.py       |  193 ++\n tests/test_mcp_strict_client.py           |  281 ++\n 6 files changed, 5518 insertions(+)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Original implementation/release line is superseded by later owner PRs; no branch-only source paths remain. Keep current strict-client, image, E2/E3 and current runtime metadata."
+    },
+    {
+      "repo": "vuoro",
+      "branch": "e2/run-evidence-9xavjv",
+      "head": "18b21ec9a401d3ed6b0d2b582e9f7e4819220ab4",
+      "unmatched": [
+        "cd1df53af2508842542acea407606d457b602af4",
+        "1ddf6567e6a7ee0440e26a1ad47d3b3244f2b659",
+        "d110479ebab697ae30ae0cfef41b0708d143f166",
+        "18b21ec9a401d3ed6b0d2b582e9f7e4819220ab4"
+      ],
+      "subjects": [
+        "cd1df53 feat(mcp-edge): run/evidence record bucket (agentops#2466 E2, run+evidence half)",
+        "1ddf656 fix(mcp-edge): derive append_evidence's item_id, don't mint it randomly",
+        "d110479 fix(mcp-edge): amend RunRegistry to take forwarded identity; bind client/grant",
+        "18b21ec composition: pin the work adapter to sprintctl 0.8.0 (schema 17)"
+      ],
+      "diffstat": " docs/plans/2026-09-26-e2-claims-design-note.md     | 116 +++\n docs/plans/2026-09-26-e2-e3-shared-contract.md     |  17 +-\n packages/vuoro-mcp-edge/pyproject.toml             |   2 +\n .../src/vuoro_mcp_edge/composition.py              |   2 +-\n .../src/vuoro_mcp_edge/record_tools.py             | 861 ++++++++++++++++++++-\n packages/vuoro-mcp-edge/src/vuoro_mcp_edge/runs.py |  65 +-\n .../vuoro-mcp-edge/tests/test_edge_composition.py  | 152 +++-\n packages/vuoro-mcp-edge/tests/test_record_tools.py | 821 ++++++++++++++++++++\n packages/vuoro-mcp-edge/tests/test_toolsets.py     |  71 +-\n .../vuoro-service/composition/adapter-pins.json    |   8 +-\n .../src/vuoro_service/gateway_identity.py          |  13 +\n .../vuoro-service/src/vuoro_service/identity.py    |   5 +\n packages/vuoro-service/tests/test_composition.py   |  14 +-\n .../vuoro-service/tests/test_gateway_identity.py   |  28 +\n scripts/validate_released_catalog_composition.py   |   6 +-\n scripts/validate_released_work_adapter.py          |   4 +-\n uv.lock                                            |   2 +\n 17 files changed, 2144 insertions(+), 43 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Original implementation/release line is superseded by later owner PRs; no branch-only source paths remain. Keep current strict-client, image, E2/E3 and current runtime metadata."
+    },
+    {
+      "repo": "vuoro",
+      "branch": "e3/propose-effect-5obqj6",
+      "head": "e3839ccb0ab3c854dd14f736c7e9b33e41e6bd8e",
+      "unmatched": [
+        "8c37d94014e1d287e166f654d41f5aa3ea6fb34f",
+        "17e49013bfec217156a477705905f911eb6bacad",
+        "11e539b0ec4001ccc0aa0705107c18e223a99320",
+        "e5ca2680975b9aea9c4f1c3fe0b8ba0c088433d8",
+        "d498994949965eca3ff5d9f296c2bc89e9eca84c",
+        "e3839ccb0ab3c854dd14f736c7e9b33e41e6bd8e"
+      ],
+      "subjects": [
+        "8c37d94 feat(mcp-edge): propose_effect/get_effect and the trusted-side reconciler (agentops#2467)",
+        "17e4901 fix(e3): trusted-side acceptance, strict diff grammar, atomic propose (agentops#2467)",
+        "11e539b fix(e3): isolate git, refuse git control files, escape operator display (agentops#2467)",
+        "e5ca268 fix(e3): reconciler refuses binary patches; frame the accept view (agentops#2467)",
+        "d498994 fix(e3): scan staged blobs by object id; refuse ':' and '-' paths; allow CRLF (agentops#2467)",
+        "e3839cc fix(e3): rebase onto E2: forwarded run resolve, principal-scoped intents (agentops#2467)"
+      ],
+      "diffstat": " .github/workflows/ci.yml                           |   1 +\n .../src/vuoro_mcp_edge/effect_tools.py             | 866 +++++++++++++++++++-\n packages/vuoro-mcp-edge/tests/test_effect_tools.py | 904 +++++++++++++++++++++\n packages/vuoro-mcp-edge/tests/test_toolsets.py     |  11 +-\n packages/vuoro-reconciler/README.md                | 124 +++\n packages/vuoro-reconciler/pyproject.toml           |  20 +\n .../src/vuoro_reconciler/__init__.py               |  40 +\n .../src/vuoro_reconciler/acceptance.py             | 322 ++++++++\n .../vuoro-reconciler/src/vuoro_reconciler/cli.py   | 170 ++++\n .../src/vuoro_reconciler/diff_policy.py            | 363 +++++++++\n .../src/vuoro_reconciler/git_ops.py                | 202 +++++\n .../src/vuoro_reconciler/gitenv.py                 |  73 ++\n .../src/vuoro_reconciler/intents.py                | 136 ++++\n .../src/vuoro_reconciler/provider.py               |  62 ++\n .../src/vuoro_reconciler/reconciler.py             | 280 +++++++\n .../src/vuoro_reconciler/signing.py                |  93 +++\n packages/vuoro-reconciler/tests/conftest.py        |  90 ++\n packages/vuoro-reconciler/tests/fakes.py           | 112 +++\n packages/vuoro-reconciler/tests/test_acceptance.py | 423 ++++++++++\n packages/vuoro-reconciler/tests/test_binary.py     | 242 ++++++\n packages/vuoro-reconciler/tests/test_end_to_end.py | 206 +++++\n packages/vuoro-reconciler/tests/test_git_ops.py    |  90 ++\n packages/vuoro-reconciler/tests/test_isolation.py  | 460 +++++++++++\n packages/vuoro-reconciler/tests/test_paths.py      | 290 +++++++\n pyproject.toml                                     |   2 +\n uv.lock                                            |  15 +\n 26 files changed, 5589 insertions(+), 8 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Original implementation/release line is superseded by later owner PRs; no branch-only source paths remain. Keep current strict-client, image, E2/E3 and current runtime metadata."
+    },
+    {
+      "repo": "vuoro",
+      "branch": "feat/e1-routine-run-record-2521",
+      "head": "f9bd90d1f3d886c8083a65336473629d7f3298c6",
+      "unmatched": [
+        "743c765ac10793e80af1815f23f3655a25a451a9",
+        "f9bd90d1f3d886c8083a65336473629d7f3298c6"
+      ],
+      "subjects": [
+        "743c765 docs(routines): E1 review Routine records its run and links its PR (agentops#2521)",
+        "f9bd90d fix(routines): E1 review prompt follows the reviewed runbook (agentops#2521)"
+      ],
+      "diffstat": " docs/routines/e1-review.md | 174 +++++++++++++++++++++++++++++++++++++++++++++\n 1 file changed, 174 insertions(+)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Original implementation/release line is superseded by later owner PRs; no branch-only source paths remain. Keep current strict-client, image, E2/E3 and current runtime metadata."
+    },
+    {
+      "repo": "vuoro",
+      "branch": "feat/edge-toolset-seam",
+      "head": "a15d39fb0b9a2c4f25e04113387aa4db76a8c0b7",
+      "unmatched": [],
+      "subjects": [],
+      "diffstat": " docs/plans/2026-09-26-e2-e3-shared-contract.md     | 140 ++++++++++++\n .../src/vuoro_mcp_edge/claim_tools.py              |  15 ++\n .../src/vuoro_mcp_edge/composition.py              |  25 ++-\n .../src/vuoro_mcp_edge/effect_tools.py             |  15 ++\n .../src/vuoro_mcp_edge/idempotency.py              | 118 ++++++++++\n .../src/vuoro_mcp_edge/record_tools.py             |  15 ++\n packages/vuoro-mcp-edge/src/vuoro_mcp_edge/runs.py | 124 +++++++++++\n .../vuoro-mcp-edge/src/vuoro_mcp_edge/server.py    |  82 +++++--\n .../vuoro-mcp-edge/src/vuoro_mcp_edge/toolsets.py  | 143 ++++++++++++\n .../src/vuoro_mcp_edge/work_source.py              |  19 +-\n packages/vuoro-mcp-edge/tests/edge_support.py      |   8 +-\n packages/vuoro-mcp-edge/tests/test_toolsets.py     | 240 +++++++++++++++++++++\n 12 files changed, 916 insertions(+), 28 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Patch-equivalent commits are already on main; preserve original local ancestry."
+    },
+    {
+      "repo": "vuoro",
+      "branch": "fix/e3-no-tools-without-store",
+      "head": "9bfdf9e2730f712dc13821ff9f398f8d3f5b95f8",
+      "unmatched": [],
+      "subjects": [],
+      "diffstat": " .../src/vuoro_mcp_edge/effect_tools.py             | 18 +++++++++++++++-\n packages/vuoro-mcp-edge/tests/test_effect_tools.py | 25 +++++++++++-----------\n packages/vuoro-mcp-edge/tests/test_toolsets.py     | 11 +++++-----\n 3 files changed, 35 insertions(+), 19 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Patch-equivalent commits are already on main; preserve original local ancestry."
+    },
+    {
+      "repo": "vuoro",
+      "branch": "fix/mcp-edge-result-type-complete",
+      "head": "9dee6fc93edccd3889c374786f8e182f3dc61c21",
+      "unmatched": [
+        "a5772748fbd8eaf3c25eada93592cf1ee7de26ad",
+        "9dee6fc93edccd3889c374786f8e182f3dc61c21"
+      ],
+      "subjects": [
+        "a577274 fix(mcp-edge): resultType \"complete\" and a private cacheScope (2026-07-28)",
+        "9dee6fc release: vuoro-service 0.1.74 / vuoro-mcp-edge 0.1.1"
+      ],
+      "diffstat": " CHANGELOG.md                                       |  5 ++++\n ...2026-09-20-e1-read-surface-status-and-design.md |  6 ++--\n packages/vuoro-mcp-edge/pyproject.toml             |  2 +-\n .../vuoro-mcp-edge/src/vuoro_mcp_edge/server.py    | 22 +++++++-------\n .../vuoro-mcp-edge/tests/test_edge_protocol.py     | 35 +++++++++++++++++++---\n packages/vuoro-mcp-edge/tests/test_edge_tools.py   |  2 +-\n packages/vuoro-service/pyproject.toml              |  2 +-\n packages/vuoro-service/tests/test_api_contract.py  |  2 +-\n uv.lock                                            |  4 +--\n 9 files changed, 57 insertions(+), 23 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Original implementation/release line is superseded by later owner PRs; no branch-only source paths remain. Keep current strict-client, image, E2/E3 and current runtime metadata."
+    },
+    {
+      "repo": "vuoro",
+      "branch": "parked/run-877359d1-gateway-ledger-nits",
+      "head": "db6c18813b8c4a318944c976dfe730a0fcdf02e0",
+      "unmatched": [
+        "db6c18813b8c4a318944c976dfe730a0fcdf02e0"
+      ],
+      "subjects": [
+        "db6c188 Revert \"test(service): skip the edge factory test when vuoro-mcp-edge is not installed (agentops#2530)\""
+      ],
+      "diffstat": "",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Original implementation/release line is superseded by later owner PRs; no branch-only source paths remain. Keep current strict-client, image, E2/E3 and current runtime metadata."
+    },
+    {
+      "repo": "vuoro",
+      "branch": "pr127",
+      "head": "6689be61aeeffe2a3555863090bd22593d7792b0",
+      "unmatched": [],
+      "subjects": [],
+      "diffstat": " .../src/vuoro_worker/internal_tools.py             | 13 +++-\n .../vuoro-worker/src/vuoro_worker/mcp_server.py    | 33 +++++++-\n packages/vuoro-worker/tests/test_mcp_server.py     |  3 +-\n .../tests/test_result_type_conformance.py          | 88 ++++++++++++++++++++++\n 4 files changed, 131 insertions(+), 6 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Patch-equivalent commits are already on main; preserve original local ancestry."
+    },
+    {
+      "repo": "vuoro",
+      "branch": "release/client-0.1.1-service-0.1.75",
+      "head": "b013216beaf64f7e87a8c8e220940c19747b433e",
+      "unmatched": [],
+      "subjects": [],
+      "diffstat": " CHANGELOG.md                                       | 12 ++++++++++++\n packages/vuoro-client/pyproject.toml               |  2 +-\n packages/vuoro-client/src/vuoro_client/__init__.py |  2 +-\n packages/vuoro-mcp-edge/pyproject.toml             |  2 +-\n packages/vuoro-service/pyproject.toml              |  2 +-\n packages/vuoro-service/tests/test_api_contract.py  |  2 +-\n uv.lock                                            |  6 +++---\n 7 files changed, 20 insertions(+), 8 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Patch-equivalent commits are already on main; preserve original local ancestry."
+    },
+    {
+      "repo": "vuoro",
+      "branch": "release/vuoro-service-0.1.76",
+      "head": "8044d4a0e57244025480f13f45b3fee2cea3c9b2",
+      "unmatched": [
+        "d715421eaeb77cf34a033a46976f8102c7189c4d",
+        "0685a996c5d2c2d9ae1fd105aa8300c5e1e538af",
+        "8044d4a0e57244025480f13f45b3fee2cea3c9b2"
+      ],
+      "subjects": [
+        "d715421 release: vuoro-service 0.1.76 / vuoro-mcp-edge 0.1.3",
+        "0685a99 image: install vuoro-evidence from the repository; correct the changelog",
+        "8044d4a changelog: record tools are not callable through the hosted gateway until vuoro-cloud grants the scope"
+      ],
+      "diffstat": " CHANGELOG.md                                            | 17 +++++++++++++++++\n Dockerfile                                              |  9 ++++++---\n packages/vuoro-mcp-edge/pyproject.toml                  |  2 +-\n .../vuoro-mcp-edge/src/vuoro_mcp_edge/effect_tools.py   |  7 ++++---\n packages/vuoro-service/pyproject.toml                   |  2 +-\n packages/vuoro-service/tests/test_api_contract.py       |  2 +-\n uv.lock                                                 |  4 ++--\n 7 files changed, 32 insertions(+), 11 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Original implementation/release line is superseded by later owner PRs; no branch-only source paths remain. Keep current strict-client, image, E2/E3 and current runtime metadata."
+    },
+    {
+      "repo": "sprintctl",
+      "branch": "archive/s4-native-evidence-c780a15",
+      "head": "c780a15445718d9c68db5e39dec04b88858383ec",
+      "unmatched": [
+        "c780a15445718d9c68db5e39dec04b88858383ec"
+      ],
+      "subjects": [
+        "c780a15 feat: carry run-bound evidence intent through native intake"
+      ],
+      "diffstat": " .github/workflows/ci.yml                           |   2 +-\n docs/plans/s4-native-evidence-intake-2026-10-04.md | 141 +++++++\n sprintctl/commands/operations.py                   |  68 +++\n sprintctl/evidence_intake.py                       | 469 +++++++++++++++++++++\n sprintctl/served.py                                |   7 +\n sprintctl/served_routes.py                         |   7 +\n tests/pg/test_native_evidence_intake.py            | 345 +++++++++++++++\n tests/test_native_evidence_intake.py               | 442 +++++++++++++++++++\n tests/test_served_authority_sync.py                |   1 +\n .../contexts/s4-native-evidence-intake.json        | 112 +++++\n .../s4-native-evidence-intake-2026-10-04.json      |  99 +++++\n 11 files changed, 1692 insertions(+), 1 deletion(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "All nine native-intake source/test paths match main exactly; only subsequent plan/verification records differ. Keep current evidence records."
+    },
+    {
+      "repo": "sprintctl",
+      "branch": "release/0.7.4",
+      "head": "7d79b4848b9300d4f5759edcc763d95b2b11a7ea",
+      "unmatched": [
+        "7d79b4848b9300d4f5759edcc763d95b2b11a7ea"
+      ],
+      "subjects": [
+        "7d79b48 release: sprintctl 0.7.4"
+      ],
+      "diffstat": " docs/reference/postgres-schema-compatibility.md |  67 ++++-\n pyproject.toml                                  |   2 +-\n sprintctl/__init__.py                           |   2 +-\n sprintctl/application_common.py                 |  24 +-\n sprintctl/pg.py                                 |  33 ++-\n sprintctl/work_application.py                   | 230 +++++++++++-----\n tests/pg/test_runtime_recovery.py               | 338 ++++++++++++++++++++++++\n tests/test_work_application.py                  | 170 +++++++++++-\n tests/test_work_application_pg.py               |  74 ------\n uv.lock                                         |   2 +-\n verification/validate_release_contract.py       |   2 +-\n 11 files changed, 760 insertions(+), 184 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Historical release metadata; retain the newer owner version and its validation contract."
+    },
+    {
+      "repo": "auditctl",
+      "branch": "agent/auditctl-schema-runtime",
+      "head": "7641fa5976214d7315408442977754522116a489",
+      "unmatched": [
+        "7641fa5976214d7315408442977754522116a489"
+      ],
+      "subjects": [
+        "7641fa5 chore(dispatch): adopt instruction manifest v2"
+      ],
+      "diffstat": " .agents/p2.2-schema-runtime-scope.md               |  16 +++\n .github/workflows/release-auditctl.yaml            |   2 +-\n README.md                                          |   2 +-\n auditctl.dispatch.json                             |  36 +++++-\n auditctl/__init__.py                               |   3 +-\n auditctl/central_schema.py                         |  88 ++++++++++-----\n docs/operations/central-schema-migrations.md       |   8 ++\n pyproject.toml                                     |   3 +-\n tests/test_central_contract.py                     |  65 +++++++++++\n tests/test_central_pg_integration.py               |  41 ++++++-\n tests/test_release_contract.py                     |  37 ++++++-\n uv.lock                                            |  16 ++-\n .../central-observation-ingest-item-1201.json      |  16 ++-\n .../results/vuoro-audit-adapter-item-1202.json     |   8 +-\n verification/validate_release_contract.py          | 121 +++++++++++++++------\n 15 files changed, 382 insertions(+), 80 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Superseded generated metadata, owner vocabulary or retired execution-plane proposals; preserve current source and target dispositions."
+    },
+    {
+      "repo": "auditctl",
+      "branch": "b2-audit-evidence-ledger-falsifier",
+      "head": "a2b6fb87b2755f6aff2df2ffc99d2d316165e096",
+      "unmatched": [
+        "a2b6fb87b2755f6aff2df2ffc99d2d316165e096"
+      ],
+      "subjects": [
+        "a2b6fb8 feat(check): make the settled evidence-ledger falsifier runnable"
+      ],
+      "diffstat": " auditctl/cli.py                             |  82 +++++\n auditctl/evidence_falsifier.py              | 443 ++++++++++++++++++++++++++++\n docs/contracts/evidence-ledger-falsifier.md | 127 ++++++++\n docs/contracts/evidence-set-and-decision.md |  11 +\n tests/test_evidence_falsifier.py            | 370 +++++++++++++++++++++++\n 5 files changed, 1033 insertions(+)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Archive the September pre-S4 proposal, not new runtime behavior. Its local-ledger home assumptions need TS-6 reconciliation; any useful coverage semantics must be ported explicitly under MI1 P4, with current owners and tests."
+    },
+    {
+      "repo": "auditctl",
+      "branch": "b2-audit-terminal-reason-coverage",
+      "head": "dcec46ade5322589e1ea0ef99689f0e43b9215b0",
+      "unmatched": [
+        "dcec46ade5322589e1ea0ef99689f0e43b9215b0"
+      ],
+      "subjects": [
+        "dcec46a feat(coverage): count what the terminal-reason vocabulary was actually used for"
+      ],
+      "diffstat": " auditctl/cli.py                             |  80 +++++++\n auditctl/coverage.py                        | 327 ++++++++++++++++++++++++++++\n docs/operations/terminal-reason-coverage.md |  77 +++++++\n tests/test_terminal_reason_coverage.py      | 253 +++++++++++++++++++++\n 4 files changed, 737 insertions(+)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Archive the September pre-S4 proposal, not new runtime behavior. Its local-ledger home assumptions need TS-6 reconciliation; any useful coverage semantics must be ported explicitly under MI1 P4, with current owners and tests."
+    },
+    {
+      "repo": "auditctl",
+      "branch": "chore/render-native-runtime-federation-20260820",
+      "head": "f9cb998d45c5ff3ff84dc9c54cc68ebff3d40a8c",
+      "unmatched": [],
+      "subjects": [],
+      "diffstat": " .agents/project.generated.md | 6 +++++-\n 1 file changed, 5 insertions(+), 1 deletion(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Patch-equivalent commits are already on main; preserve original local ancestry."
+    },
+    {
+      "repo": "auditctl",
+      "branch": "docs/agents-test-runner",
+      "head": "6c498e677a823686a9933defe98a478dfdbd204d",
+      "unmatched": [],
+      "subjects": [],
+      "diffstat": " AGENTS.md | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Patch-equivalent commits are already on main; preserve original local ancestry."
+    },
+    {
+      "repo": "auditctl",
+      "branch": "feat/harness-baseline-event-type",
+      "head": "71721c952d8beaf3b91b31389a2b9d6520d4c4fd",
+      "unmatched": [],
+      "subjects": [],
+      "diffstat": " auditctl/validation.py                 |   2 +-\n docs/contracts/publisher-subprocess.md |  82 ++++++++++-\n tests/test_publisher_contract.py       | 255 ++++++++++++++++++++++++++++++++-\n tests/test_validation.py               |   5 +\n 4 files changed, 339 insertions(+), 5 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Patch-equivalent commits are already on main; preserve original local ancestry."
+    },
+    {
+      "repo": "kctl",
+      "branch": "agent/p2.2-schema-runtime-kctl",
+      "head": "3b35ebe576e3e90feb9c7795e3dca3b9d3adb3ec",
+      "unmatched": [
+        "afd135b2f6499d63d07aa0be534f111620fdb5d5",
+        "a613ec09a0bc1897d4ff7d869097cfc299ff3ca1",
+        "3b35ebe576e3e90feb9c7795e3dca3b9d3adb3ec"
+      ],
+      "subjects": [
+        "afd135b refactor(kctl): split central knowledge services",
+        "a613ec0 chore(dispatch): adopt native instruction catalog",
+        "3b35ebe chore(dispatch): pin instruction source revisions"
+      ],
+      "diffstat": " .agents/p2.2-schema-runtime-scope-expansion.md |  23 +\n AGENTS.md                                      |  20 +-\n CLAUDE.md                                      |  10 +\n kctl.dispatch.json                             |  58 +-\n kctl/application.py                            | 910 +------------------------\n kctl/application_candidates.py                 | 313 +++++++++\n kctl/application_core.py                       | 317 +++++++++\n kctl/application_publications.py               | 301 ++++++++\n kctl/central_schema.py                         |  39 +-\n pyproject.toml                                 |   3 +-\n tests/test_application_structure.py            |  22 +\n tests/test_central_transfer.py                 |  31 +\n tests/test_release_contract.py                 |  30 +-\n uv.lock                                        |  16 +-\n verification/validate_release_contract.py      | 116 +++-\n 15 files changed, 1245 insertions(+), 964 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Archive the unlanded central-knowledge refactor and old instruction metadata. Do not introduce an unrelated lifecycle/refactor during the TS-13 transition; any required behavior needs a separately verified current contract."
+    },
+    {
+      "repo": "kctl",
+      "branch": "b2-kctl-pin-authority-vocabulary",
+      "head": "d4a09da668880da1dbe294c2f9ea59239aae279a",
+      "unmatched": [
+        "d4a09da668880da1dbe294c2f9ea59239aae279a"
+      ],
+      "subjects": [
+        "d4a09da test(vuoro): pin the declared knowledge authority vocabulary"
+      ],
+      "diffstat": " tests/test_authority_vocabulary.py | 159 +++++++++++++++++++++++++++++++++++++\n 1 file changed, 159 insertions(+)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Historical vocabulary assertions for the old candidate/publication model; preserve current owner contracts during TS-13 migration."
+    },
+    {
+      "repo": "kctl",
+      "branch": "chore/render-native-runtime-federation-20260820",
+      "head": "80e3715bf2a0dddd3068869c11af556734a20a01",
+      "unmatched": [
+        "4c61288e807f32f3c92aa9a56e69df6c12767f61",
+        "80e3715bf2a0dddd3068869c11af556734a20a01"
+      ],
+      "subjects": [
+        "4c61288 chore(render): update native runtime federation context",
+        "80e3715 test: update sprintctl compatibility fixture for reservations"
+      ],
+      "diffstat": " .agents/project.generated.md |  6 +++++-\n tests/test_preflight.py      | 36 +++++++++++++++++++++++-------------\n 2 files changed, 28 insertions(+), 14 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Superseded generated metadata, owner vocabulary or retired execution-plane proposals; preserve current source and target dispositions."
+    },
+    {
+      "repo": "actionq",
+      "branch": "agent/p2.2-schema-runtime-actionq",
+      "head": "ab0dfb7655740c83a0b15255277c2acada9819ef",
+      "unmatched": [
+        "ab0dfb7655740c83a0b15255277c2acada9819ef"
+      ],
+      "subjects": [
+        "ab0dfb7 feat(actionq): coordinate dispatch with advisory reservations"
+      ],
+      "diffstat": " actionq/__init__.py                               |   2 +-\n actionq/daemon_claim.py                           |  19 ++--\n actionq/daemon_clients.py                         | 105 ++++++++++++--------\n actionq/daemon_config.py                          |  16 +++-\n actionq/daemon_lifecycle.py                       |  13 ++-\n actionq/daemon_routing.py                         |  74 +++++++--------\n actionq/daemon_runner.py                          | 111 ++++++++++++++--------\n actionq/db.py                                     |   3 +\n packages/actionq-runner/actionq_runner/staging.py |  11 ++-\n packages/actionq-runner/pyproject.toml            |   2 +-\n pyproject.toml                                    |   2 +-\n tests/test_cross_authority_fault_matrix.py        |  91 +++++++++---------\n tests/test_daemon_context.py                      | 101 ++++++++++----------\n tests/test_portable_runner.py                     |   8 +-\n tests/test_release_contract.py                    |   6 +-\n tests/test_sprintctl_reservations.py              |  50 ++++++++++\n uv.lock                                           |   4 +-\n verification/validate_release_contract.py         |   4 +-\n 18 files changed, 380 insertions(+), 242 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Superseded generated metadata, owner vocabulary or retired execution-plane proposals; preserve current source and target dispositions."
+    },
+    {
+      "repo": "actionq",
+      "branch": "chore/render-native-runtime-federation-20260820",
+      "head": "8bf5f981439e5e152a6b98e747195fca4ee33ab8",
+      "unmatched": [
+        "8bf5f981439e5e152a6b98e747195fca4ee33ab8"
+      ],
+      "subjects": [
+        "8bf5f98 chore(render): update native runtime federation context"
+      ],
+      "diffstat": " .agents/project.generated.md | 6 +++++-\n 1 file changed, 5 insertions(+), 1 deletion(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Superseded generated metadata, owner vocabulary or retired execution-plane proposals; preserve current source and target dispositions."
+    },
+    {
+      "repo": "actionq",
+      "branch": "codex/actionq-2027-stagea-owner-proof",
+      "head": "c24707e8756dc129aa97084b5e04394c6f1b31c0",
+      "unmatched": [
+        "570d92a1de02a0412340dee8301ab762c213bfa0",
+        "c24707e8756dc129aa97084b5e04394c6f1b31c0"
+      ],
+      "subjects": [
+        "570d92a feat(dispatch): harden observation recovery semantics",
+        "c24707e fix(schema): align daemon and split-role gate with v7"
+      ],
+      "diffstat": " README.md                                          |   5 +\n actionq/application.py                             |  76 ++++---\n actionq/daemon.py                                  |  56 ++++-\n actionq/db.py                                      |  34 +++\n actionq/harnesses/codex.py                         |  35 ++-\n actionq/harnesses/codex_catalog.py                 | 191 +++++++++++++++++\n .../007_dispatch_observation_watermarks.sql        |  22 ++\n actionq/routing.py                                 |   7 +\n actionq/schema.py                                  |  51 ++++-\n actionq/server.py                                  |  21 +-\n docs/operations/codex-luna-catalog-workaround.md   |  45 ++++\n examples/actionq-daemon.toml                       |   6 +\n tests/test_codex_catalog_workaround.py             | 236 +++++++++++++++++++++\n tests/test_daemon_crash_evidence.py                |  23 ++\n tests/test_daemon_routing.py                       |  70 +++++-\n tests/test_dispatch_v2_contract.py                 | 159 ++++++++++++++\n tests/test_integration_postgres.py                 |  15 +-\n tests/test_routing.py                              |  12 +-\n tests/test_schema.py                               |  72 ++++++-\n 19 files changed, 1056 insertions(+), 80 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Superseded generated metadata, owner vocabulary or retired execution-plane proposals; preserve current source and target dispositions."
+    },
+    {
+      "repo": "actionq",
+      "branch": "delete/session-wrapper-execution-plane",
+      "head": "48da19eead26fe28d0aac44b49938922521cad70",
+      "unmatched": [
+        "277c3fb9714370d861866e21f0b7cd875161d1ef",
+        "27f4215110665a9324b7a6627df6866a0afac85c",
+        "4100a545cc6c874ebc2e4eaa9d3b881c627f1b78",
+        "9b6755b239601e699bd435238452cb312ce0fb23",
+        "8d42934799bdb5706e188ac006a16c0ce8f2514f",
+        "21770b487e273413e54c124bba34857c7f73acf3",
+        "c0bff184a97fa897dca6745b53689228ed5e38e4",
+        "48da19eead26fe28d0aac44b49938922521cad70"
+      ],
+      "subjects": [
+        "277c3fb Delete the session wrapper (970 LOC), step 3 tranche 1",
+        "27f4215 Record the execution-plane deletion order and its two gates",
+        "4100a54 Refresh HANDOFF for the next session",
+        "9b6755b Delete the daemon-only execution plane and the HTTP server (tranches 2-3)",
+        "8d42934 Document the approved rollout order and its two hazards",
+        "21770b4 fix: complete execution-plane retirement contracts",
+        "c0bff18 chore: repair dispatch verification gates",
+        "48da19e docs: historicalize retired execution guidance"
+      ],
+      "diffstat": " .agents/project.generated.md                       |    6 +-\n .dockerignore                                      |   13 -\n .github/workflows/publish-server-image.yaml        |   61 -\n .github/workflows/release-actionq-wheel.yaml       |    5 +-\n AGENTS.md                                          |   12 +-\n Dockerfile                                         |   13 -\n HANDOFF.md                                         |  195 ++-\n README.md                                          |   56 +-\n actionq.dispatch.json                              |   17 +-\n actionq/completion_outbox.py                       |    3 +\n actionq/daemon.py                                  |   80 --\n actionq/daemon_audit.py                            |  105 --\n actionq/daemon_claim.py                            |  102 --\n actionq/daemon_clients.py                          |  432 -------\n actionq/daemon_config.py                           |  374 ------\n actionq/daemon_lifecycle.py                        |  330 -----\n actionq/daemon_routing.py                          |  154 ---\n actionq/daemon_runner.py                           | 1299 --------------------\n actionq/daemon_runtime.py                          |   25 -\n actionq/git_evidence.py                            |  163 ---\n actionq/harness_profiles.py                        |   63 -\n actionq/harnesses/__init__.py                      |   76 --\n actionq/harnesses/base.py                          |  102 --\n actionq/harnesses/claude.py                        |   44 -\n actionq/harnesses/codex.py                         |   69 --\n actionq/harnesses/codex_catalog.py                 |  191 ---\n actionq/harnesses/copilot.py                       |   35 -\n actionq/harnesses/opencode.py                      |   41 -\n actionq/routing.py                                 |  220 ----\n actionq/scope_iterate.py                           |  425 -------\n actionq/server.py                                  |  416 -------\n actionq/session_wrapper.py                         |  970 ---------------\n actionq/usage_limit.py                             |  148 ---\n docs/contracts/action-resource-owner-v1.md         |   23 +-\n docs/contracts/vuoro-execution-adapter.md          |   11 +-\n docs/operations/schema-migrations.md               |   20 +-\n .../2026-08-20-execution-plane-deletion-order.md   |  126 ++\n .../actionq-server-daemon-workstream-c-plan.md     |   10 +-\n .../2026-08-13-schema-runtime-depth-2-survey.md    |    4 +-\n examples/actionq-daemon.toml                       |   60 -\n ops/systemd/actionq-daemon.service                 |   14 -\n pyproject.toml                                     |    4 -\n tests/conftest.py                                  |   37 +-\n tests/test_codex_catalog_workaround.py             |  236 ----\n tests/test_completion_log_integration.py           |  106 --\n tests/test_completion_outbox.py                    |  142 ---\n tests/test_completion_parity.py                    |  401 ------\n tests/test_cross_authority_fault_matrix.py         |  359 ------\n tests/test_daemon.py                               |  538 --------\n tests/test_daemon_audit.py                         |  366 ------\n tests/test_daemon_context.py                       |  506 --------\n tests/test_daemon_crash_evidence.py                |  153 ---\n tests/test_daemon_integration.py                   |  109 --\n tests/test_daemon_oci.py                           |  146 ---\n tests/test_daemon_result_artifacts.py              |  246 ----\n tests/test_daemon_routing.py                       |  352 ------\n tests/test_daemon_structure.py                     |   35 -\n tests/test_daemon_usage_limit.py                   |  135 --\n tests/test_dispatch_v2_contract.py                 |   91 --\n tests/test_git_evidence.py                         |   89 --\n tests/test_harness_profiles.py                     |   43 -\n tests/test_harnesses.py                            |  180 ---\n tests/test_integration_postgres.py                 |  401 +-----\n tests/test_publication_settlement.py               |  328 -----\n tests/test_publish_server_image_workflow.py        |   98 --\n tests/test_release_contract.py                     |   22 +-\n tests/test_release_version.py                      |    5 -\n tests/test_repository_retirement_contract.py       |   76 ++\n tests/test_routing.py                              |  130 --\n tests/test_runner_auth.py                          |   89 --\n tests/test_schema.py                               |   68 +-\n tests/test_scope_iterate_kernel.py                 |  182 ---\n tests/test_session_wrapper.py                      |  396 ------\n tests/test_usage_limit.py                          |   75 --\n tests/test_verification_contracts.py               |   24 +-\n .../contexts/action-resource-owner-v1.json         |   51 +-\n .../contexts/schema-migration-compatibility.json   |    2 +-\n .../legacy-quarantine.json                         |   19 -\n .../action-resource-owner-v1/manifest.json         |    5 +-\n .../required-histories.json                        |    2 -\n verification/history-receipts/bounded-wait.json    |    2 +-\n verification/history-receipts/fencing.json         |    2 +-\n .../history-receipts/legacy-quarantine.json        |    1 -\n verification/history-receipts/non-disclosure.json  |    2 +-\n verification/history-receipts/pruning.json         |    2 +-\n verification/history-receipts/redaction.json       |    2 +-\n verification/history-receipts/response-loss.json   |    2 +-\n verification/history-receipts/snapshot-race.json   |    2 +-\n .../action-resource-owner-bounded-wait.json        |    2 +-\n .../results/action-resource-owner-fencing.json     |    2 +-\n .../action-resource-owner-legacy-quarantine.json   |    1 -\n .../action-resource-owner-non-disclosure.json      |    2 +-\n .../results/action-resource-owner-pruning.json     |    2 +-\n .../results/action-resource-owner-redaction.json   |    2 +-\n .../action-resource-owner-response-loss.json       |    2 +-\n .../action-resource-owner-snapshot-race.json       |    2 +-\n verification/run_action_resource_history.py        |    5 +-\n verification/validate_action_resource_owner_v1.py  |    3 +-\n 98 files changed, 542 insertions(+), 12256 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Superseded generated metadata, owner vocabulary or retired execution-plane proposals; preserve current source and target dispositions."
+    },
+    {
+      "repo": "actionq",
+      "branch": "plan/tranche4-contract-freeze",
+      "head": "2d0e4abdcf673a8831a9e754b32264bde8a6f438",
+      "unmatched": [
+        "aa748bc16e504d53a7c434abc7ebfcd47e646427",
+        "316f321ed8831c28219f4928862c4c29cd55d9c3",
+        "0561685911d71ba32ccac45b961b598b992bb213",
+        "f6750e47edeb9f3a60c23059cd638604ac0d40a4",
+        "2d0e4abdcf673a8831a9e754b32264bde8a6f438"
+      ],
+      "subjects": [
+        "aa748bc docs: freeze tranche 4 storage boundary",
+        "316f321 docs: align oracle with dispatcher retirement",
+        "0561685 docs: adjudicate tranche 4 oracle findings",
+        "f6750e4 docs: make tranche 4 gates executable",
+        "2d0e4ab docs: correct tranche 4 closure dependency"
+      ],
+      "diffstat": " HANDOFF.md                                         |  29 +-\n README.md                                          |  30 +-\n ...-tranche4-federation-storage-contract-freeze.md | 633 +++++++++++++++++++++\n docs/protocols/action-lifecycle.md                 |  10 +\n 4 files changed, 683 insertions(+), 19 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Superseded generated metadata, owner vocabulary or retired execution-plane proposals; preserve current source and target dispositions."
+    },
+    {
+      "repo": "appservice",
+      "branch": "checkback-cluster-identity",
+      "head": "b114bbc7020d7dda08b559cf6b277983c87f8ccc",
+      "unmatched": [],
+      "subjects": [],
+      "diffstat": " bin/upgrade-checkback.sh | 34 ++++++++++++++++++++++++----------\n mise.toml                | 24 +++++++++++++++++++++++-\n 2 files changed, 47 insertions(+), 11 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Patch-equivalent commits are already on main; preserve original local ancestry."
+    },
+    {
+      "repo": "appservice",
+      "branch": "coral-no-cordon-toleration",
+      "head": "8b9b7e6d1bbd43467c3ce996397683e7e4b3d7a2",
+      "unmatched": [],
+      "subjects": [],
+      "diffstat": " .../generic-device-plugin/app/coral-device-plugin.yaml       | 12 +++++++++---\n 1 file changed, 9 insertions(+), 3 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Patch-equivalent commits are already on main; preserve original local ancestry."
+    },
+    {
+      "repo": "appservice",
+      "branch": "guard-apiserver-egress",
+      "head": "5f8cf9947117edcd29dc3800eb5a949087de73f8",
+      "unmatched": [],
+      "subjects": [],
+      "diffstat": " docs/scripts/rebuild/apiserver_egress_guard.py     | 326 +++++++++++++++++++++\n .../scripts/rebuild/test_apiserver_egress_guard.py | 240 +++++++++++++++\n mise.toml                                          |  19 +-\n 3 files changed, 584 insertions(+), 1 deletion(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Patch-equivalent commits are already on main; preserve original local ancestry."
+    },
+    {
+      "repo": "appservice",
+      "branch": "guard-unparseable",
+      "head": "974d05063f09c9f88e0b36c1eb63ade5e85cab30",
+      "unmatched": [],
+      "subjects": [],
+      "diffstat": " docs/scripts/rebuild/apiserver_egress_guard.py     | 96 ++++++++++++++++++----\n .../scripts/rebuild/test_apiserver_egress_guard.py | 33 ++++++++\n 2 files changed, 111 insertions(+), 18 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Patch-equivalent commits are already on main; preserve original local ancestry."
+    },
+    {
+      "repo": "appservice",
+      "branch": "k8s-arm-1-37",
+      "head": "964f18533e99674995766ae312103a0a58a1141c",
+      "unmatched": [],
+      "subjects": [],
+      "diffstat": " clusters/main/kubernetes/flux-system/flux/upgradesettings.yaml | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Patch-equivalent commits are already on main; preserve original local ancestry."
+    },
+    {
+      "repo": "appservice",
+      "branch": "k8s-disarm",
+      "head": "4da23b0d7fd8c281d83665fd9cb17dc1a10e22f5",
+      "unmatched": [],
+      "subjects": [],
+      "diffstat": " clusters/main/kubernetes/flux-system/flux/upgradesettings.yaml | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Patch-equivalent commits are already on main; preserve original local ancestry."
+    },
+    {
+      "repo": "appservice",
+      "branch": "runner-io-isolation",
+      "head": "c47b2381b5b4762674bbae516b054fef5865fe26",
+      "unmatched": [],
+      "subjects": [],
+      "diffstat": " .../forgejo-runner-publish/app/deployment.yaml     | 51 +++++++++++++++++++++-\n .../app/dind-storage-pvc.yaml                      | 12 -----\n .../forgejo-runner-publish/app/kustomization.yaml  |  1 -\n .../system/forgejo-runner/app/deployment.yaml      | 51 +++++++++++++++++++++-\n .../forgejo-runner/app/dind-storage-pvc.yaml       | 12 -----\n .../system/forgejo-runner/app/kustomization.yaml   |  1 -\n docs/scripts/rebuild/backup_coverage_baseline.yaml |  6 ---\n 7 files changed, 98 insertions(+), 36 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Patch-equivalent commits are already on main; preserve original local ancestry."
+    },
+    {
+      "repo": "appservice",
+      "branch": "wip/2395-langfuse-credentials",
+      "head": "8e350b0bd353b2fd957855e76c5383aac50b49f1",
+      "unmatched": [
+        "c273cb9c2f2bc5391e6d48c5da4a8ce04e9e8b1e",
+        "29b0caa009bfa02a44ac0c82740f798f05de5da1",
+        "fd59c09c26b1668dc623b1e42fa429fb58e78333",
+        "6aa1b0d038dd715bc15c5497ad680a12ccf60377"
+      ],
+      "subjects": [
+        "c273cb9c fix: 2394 record langfuse scope deviations (CNPG backup, shared S3 credential, durability) in README",
+        "29b0caa0 fix: 2394 name agentops#2395 as the tracker for the moved D5 dedicated credential",
+        "fd59c09c Revert \"fix: 2394 name agentops#2395 as the tracker for the moved D5 dedicated credential\"",
+        "6aa1b0d0 Revert \"fix: 2394 record langfuse scope deviations (CNPG backup, shared S3 credential, durability) in README\""
+      ],
+      "diffstat": " clusters/main/kubernetes/apps/langfuse/README.md   |  25 ++\n .../kubernetes/system/alloy/app/helm-release.yaml  |  36 +-\n .../kubernetes/system/alloy/app/kustomization.yaml |   1 +\n .../alloy/app/langfuse-egress-networkpolicy.yaml   |  34 ++\n docs/scripts/langfuse-acceptance-test.sh           | 130 +++++++\n docs/scripts/langfuse-acceptance.sh                | 382 +++++++++++++++++++++\n docs/scripts/langfuse-alloy-secret-test.sh         |  61 ++++\n docs/scripts/langfuse-alloy-secret.sh              |  82 +++++\n mise.toml                                          |  21 +-\n 9 files changed, 761 insertions(+), 11 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Patch-equivalent or reverted commissioning/history work. Preserve present deployment pins, credential wiring and frozen recovery separation."
+    },
+    {
+      "repo": "appservice",
+      "branch": "wip/run-e879ba4c-langfuse",
+      "head": "720e42ed0a6a98d0ac2652ae1b56fe6ae48bd64c",
+      "unmatched": [
+        "81997aa187a7fda9b841f2aff14f748aa8c5aa21",
+        "4937e823c87e1fc427a3c27741b1f03bd58f0ff0",
+        "5d46d8c5f9e293536b22b1bfa717d52152c4ca7a",
+        "189ac4012836a73a5922bf8cc7991a48182c9ca1",
+        "720e42ed0a6a98d0ac2652ae1b56fe6ae48bd64c"
+      ],
+      "subjects": [
+        "81997aa1 docs(langfuse): reconcile README with deployed pins, TTL, D4/D5 deviations, gate ledger",
+        "4937e823 Revert \"docs(langfuse): reconcile README with deployed pins, TTL, D4/D5 deviations, gate ledger\"",
+        "5d46d8c5 test(oracle): 2395 langfuse credential wiring slice (Alloy env, egress policy, scripts)",
+        "189ac401 Revert \"Merge origin/main into main (bring oracle base current before 2395)\"",
+        "720e42ed Revert \"test(oracle): 2395 langfuse credential wiring slice (Alloy env, egress policy, scripts)\""
+      ],
+      "diffstat": " clusters/main/kubernetes/apps/vuoro-shared/app/deployment.yaml | 10 +++++-----\n 1 file changed, 5 insertions(+), 5 deletions(-)\n",
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Patch-equivalent or reverted commissioning/history work. Preserve present deployment pins, credential wiring and frozen recovery separation."
+    }
+  ]
+}
