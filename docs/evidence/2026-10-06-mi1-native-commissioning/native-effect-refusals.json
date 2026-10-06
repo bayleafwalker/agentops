@@ -1,0 +1,14 @@
+[
+  {
+    "operation": "work.effect.accept-v1",
+    "code": "authority-required",
+    "http_status": 403,
+    "subject": "valid-shaped uncreated intent; public authority gate refusal"
+  },
+  {
+    "operation": "work.effect.mark-applied-v1",
+    "code": "authority-required",
+    "http_status": 403,
+    "subject": "valid-shaped uncreated intent; public authority gate refusal"
+  }
+]

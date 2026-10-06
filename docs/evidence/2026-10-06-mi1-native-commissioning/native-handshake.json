@@ -1,0 +1,49 @@
+{
+  "schema_version": "handshake/v1",
+  "environment": {
+    "name": "vuoro-shared",
+    "environment_class": "production",
+    "constraints": [],
+    "runbook_refs": []
+  },
+  "service_version": "0.1.85",
+  "api_versions": {
+    "meta": "v1",
+    "catalog": "v1",
+    "invoke": "v1"
+  },
+  "schema_versions": {
+    "handshake": "handshake/v1",
+    "catalog": "operation-catalog/v1",
+    "invocation": "invocation/v1"
+  },
+  "invocation_schema_versions": [
+    "invocation/v1"
+  ],
+  "client_protocol": {
+    "minimum": 1,
+    "maximum": 1
+  },
+  "catalog_revision": "32a1290b1b3b2f4d99344e113b7fb3362e2d0dc5042537093e7241edd382e263",
+  "compatibility": {
+    "state": "compatible",
+    "domains": {
+      "work": {
+        "api_version": "work-api/v1",
+        "schema_version": "sprintctl-work-compatibility/v1",
+        "state": "compatible",
+        "reason": null
+      },
+      "audit": {
+        "api_version": "audit/v1",
+        "schema_version": "audit-schema/v1",
+        "state": "compatible",
+        "reason": null
+      }
+    }
+  },
+  "service_release": {
+    "distribution": "vuoro-service",
+    "version": "0.1.85"
+  }
+}

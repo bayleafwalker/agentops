@@ -1,0 +1,20 @@
+{
+  "schema": "verified-service-publication/v1",
+  "image_subject": {
+    "name": "ghcr.io/bayleafwalker/vuoro-service",
+    "digest": {
+      "sha256": "ee4bc888cd3a8c11c31d5a5f808097f0474c70bc77b8efc979808729ca086ed9"
+    }
+  },
+  "verified_source_revision": "8c5b64f3a9b295a68273cab32fdcd9c9527e36b4",
+  "verified_source_ref": "refs/tags/vuoro-service-v0.1.85",
+  "verified_signer": "https://github.com/bayleafwalker/vuoro/.github/workflows/publish-service-image.yaml@refs/tags/vuoro-service-v0.1.85",
+  "verification_command": "gh attestation verify oci://ghcr.io/bayleafwalker/vuoro-service@sha256:ee4bc888cd3a8c11c31d5a5f808097f0474c70bc77b8efc979808729ca086ed9 --repo bayleafwalker/vuoro --signer-workflow bayleafwalker/vuoro/.github/workflows/publish-service-image.yaml --format json",
+  "image_workflow": "https://github.com/bayleafwalker/vuoro/actions/runs/37496078282",
+  "wheel_workflow": "https://github.com/bayleafwalker/vuoro/actions/runs/37496078333",
+  "installed_owner_versions": {
+    "sprintctl": "0.12.0",
+    "auditctl": "0.1.6"
+  },
+  "runtime_version": "0.1.85"
+}

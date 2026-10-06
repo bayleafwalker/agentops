@@ -1,0 +1,28 @@
+{
+  "schema": "vuoro-provider-observation/v1",
+  "provider": "github",
+  "repository": "bayleafwalker/vuoro",
+  "event": "check_run_response",
+  "delivery_id": "mi1-capture-20261006-71eac1c5fd8ae801fdedf61ee0862d699ba962880a578d13de8b9a8752d8250b",
+  "rubric_or_check_revision": "unknown",
+  "session_reference": "unknown",
+  "observed_instruction_digest": "unknown",
+  "provider_build": "unknown",
+  "artifact_digest": "unknown",
+  "event_reference": "112364306246",
+  "provider_references": {
+    "run_attempt": "unknown",
+    "workflow_id": "unknown",
+    "check_name": "test"
+  },
+  "commit_reference": "ef636fcfa02f00fb8e96488da5b65e31e99c8c5d",
+  "status": "completed",
+  "verdict": "success",
+  "explanation": "unknown",
+  "payload_digest": "sha256:facb8300a68afd5a1daff4155bd77500e338ef1198b19d89204c6fb673d1c178",
+  "assurance": "unverified-supplied-payload",
+  "collector_observations": [],
+  "idempotency_key": "provider-observation:93cdd6f97dcee06fea49d5d2ad2f22bbd19ca2f6a818be80e16eb3d262f5b793",
+  "capture_source": "supplied-rest-get-response",
+  "repository_source": "captured-request-scope"
+}

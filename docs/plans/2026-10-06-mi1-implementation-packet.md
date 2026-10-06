@@ -48,3 +48,33 @@ knowledge-lifecycle assumptions require the current TS-6/TS-13 contract. Any
 useful coverage semantics need an explicit current-owner MI1/P4 port. The
 frozen appservice recovery branch remains separate. Branch refs are retained
 while the explicitly requested remote deletion decision is pending.
+
+## P2 owner proof and native commissioning
+
+Vuoro PR182 lands the additive provider observation decoder; PR183 preserves
+one actual GitHub check REST response with its capture provenance. Unknown
+provider build/session/artifact/check/instruction facts stay unknown and no
+provider verdict grants acceptance. Sprintctl PR125 lands four bounded actual
+owner fault histories: committed reply loss, conflicting same-key content,
+public effect refusal and independent-producer contention. Its disposable
+PostgreSQL suite passed 695 tests; this is synthetic payload/real owner proof,
+not hosted provider delivery or Track B.
+
+The initial actual native run request was refused `identity-unbound`. Served
+item 2618 commissioned a separate issuer-owned standalone native partition:
+Vuoro PR184 source; PR185 immutable service 0.1.85 release with verified image
+provenance; appservice main PR1830 encrypted registry and compatible digest
+repin; agentops PR314 scoped explicit evidence profile. Every old identity
+entry was preserved. Flux and the workload converge at the reviewed Git
+revision; both work and audit compatibility are observed.
+
+The first durable evidence sync then exposed a client scope omission:
+`repo-id-required` at run resolve, before append. Sprintctl PR126 repairs the
+repository envelope and passes all four exact-head CI checks. The unchanged
+pending request now confirms at its owner; exact replay retains the same tail,
+original-byte recapture is duplicate and subsequent sync makes no append
+attempt. The evidence-only credential receives HTTP403 on public accept/apply.
+The [native commissioning receipt set](../evidence/2026-10-06-mi1-native-commissioning/README.md)
+records those separate outcomes and their limits. Full P1/P3 and actual Track B
+remain separate; this real single-session capture does not establish protected
+verification or cross-harness continuation.
