@@ -1,0 +1,447 @@
+{
+  "schema_version": "branch-integration/v1",
+  "date": "2026-10-06",
+  "source": "canonical origin/main after reviewed integration PRs",
+  "branches": [
+    {
+      "repo": "agentops",
+      "branch": "audit/shards-2026-09-29",
+      "head": "a872f31fddd9ecf797d2da0a47ef6f7b487f046a",
+      "branch_only_commits": 1,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Every changed shard is an exact byte prefix already on main; original authored bytes are preserved."
+    },
+    {
+      "repo": "agentops",
+      "branch": "audit/shards-2026-09-29-0cb1fc7",
+      "head": "0cb1fc78a7f300bda90a8d44837430b15e484235",
+      "branch_only_commits": 1,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Every changed shard is an exact byte prefix already on main; original authored bytes are preserved."
+    },
+    {
+      "repo": "agentops",
+      "branch": "audit/shards-2026-09-29-1c62125",
+      "head": "1c621253724ed2e8274c1d096b23c1651a3437c0",
+      "branch_only_commits": 1,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Every changed shard is an exact byte prefix already on main; original authored bytes are preserved."
+    },
+    {
+      "repo": "agentops",
+      "branch": "audit/shards-2026-09-29-614100f",
+      "head": "614100f94a38f9c40eb8c75a4266b1608679728e",
+      "branch_only_commits": 1,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Every changed shard is an exact byte prefix already on main; original authored bytes are preserved."
+    },
+    {
+      "repo": "agentops",
+      "branch": "audit/shards-2026-09-30",
+      "head": "f7cd1f3b10f86ebc1094d2b91d55bacf2147ea5f",
+      "branch_only_commits": 1,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Every changed shard is an exact byte prefix already on main; original authored bytes are preserved."
+    },
+    {
+      "repo": "agentops",
+      "branch": "audit/shards-2026-09-30-20baf3b",
+      "head": "20baf3b578c14364626129ead1040668ab3cfd6f",
+      "branch_only_commits": 1,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Every changed shard is an exact byte prefix already on main; original authored bytes are preserved."
+    },
+    {
+      "repo": "agentops",
+      "branch": "audit/shards-2026-09-30-a3c3ba6",
+      "head": "a3c3ba6b7c30446830ce4a4697469bbf8fc18818",
+      "branch_only_commits": 1,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Every changed shard is an exact byte prefix already on main; original authored bytes are preserved."
+    },
+    {
+      "repo": "agentops",
+      "branch": "ccr-7dbc0f53-t53dfv",
+      "head": "b4fcba37927bed8ac6e59349d8f38809d8f7c982",
+      "branch_only_commits": 1,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Useful changes were reviewed and integrated in the current integration PR; record the original cloud ancestry without replaying its old base."
+    },
+    {
+      "repo": "agentops",
+      "branch": "ccr-ff5980f8-tl3pen",
+      "head": "a9bc6d0e212ebae60ab07d356e0a988bacc2376a",
+      "branch_only_commits": 1,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Useful changes were reviewed and integrated in the current integration PR; record the original cloud ancestry without replaying its old base."
+    },
+    {
+      "repo": "agentops",
+      "branch": "docs/s4-evidence-home",
+      "head": "51e9afe0ae54598b7ea17cd3182499d9e61087f3",
+      "branch_only_commits": 0,
+      "disposition": "already-integrated",
+      "reason": "Head is already reachable from canonical main."
+    },
+    {
+      "repo": "agentops",
+      "branch": "e1-first-use-routine",
+      "head": "6c00889d37379b50b8d177107421cbd95484bf87",
+      "branch_only_commits": 1,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Useful changes were reviewed and integrated in the current integration PR; record the original cloud ancestry without replaying its old base."
+    },
+    {
+      "repo": "agentops",
+      "branch": "feat/audit-reattribution-2592",
+      "head": "7b5c02a14bee88e7c19ed81f4f510800c0160a8c",
+      "branch_only_commits": 0,
+      "disposition": "already-integrated",
+      "reason": "Head is already reachable from canonical main."
+    },
+    {
+      "repo": "agentops",
+      "branch": "feat/vuoro-chatgpt-mcp-review",
+      "head": "286666265b1b3462161e45b4c223ee60460ff493",
+      "branch_only_commits": 0,
+      "disposition": "already-integrated",
+      "reason": "Head is already reachable from canonical main."
+    },
+    {
+      "repo": "vuoro",
+      "branch": "ccr-7dbc0f53-t53dfv",
+      "head": "34d54d1c51e6d0f91bf04b1df3a106a52d100a6b",
+      "branch_only_commits": 1,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Useful changes were reviewed and integrated in the current integration PR; record the original cloud ancestry without replaying its old base."
+    },
+    {
+      "repo": "vuoro",
+      "branch": "ccr-ff5980f8-tl3pen",
+      "head": "8bc7a5454055d1dc7a184a27da57628a05d9931b",
+      "branch_only_commits": 1,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Useful changes were reviewed and integrated in the current integration PR; record the original cloud ancestry without replaying its old base."
+    },
+    {
+      "repo": "vuoro",
+      "branch": "claude/fix-mcp-edge-deviations-ddznbn",
+      "head": "87ae7ce4e6e8a5daae6ecbaeebc7b4578a1569b3",
+      "branch_only_commits": 1,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Useful changes were reviewed and integrated in the current integration PR; record the original cloud ancestry without replaying its old base."
+    },
+    {
+      "repo": "vuoro",
+      "branch": "design/catalog-profile-2604",
+      "head": "4f7dfe5d43998ea793dbb17a23eec0200da9e01a",
+      "branch_only_commits": 2,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "The owner changes or protocol documentation are incorporated through later reviewed/squashed PRs, with newer tests and metadata on main; preserve current behavior and record original ancestry."
+    },
+    {
+      "repo": "vuoro",
+      "branch": "design/resource-source-plan-2603-2604",
+      "head": "03e53c772e99a4f5341709257fa9953ed8104b30",
+      "branch_only_commits": 5,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "The owner changes or protocol documentation are incorporated through later reviewed/squashed PRs, with newer tests and metadata on main; preserve current behavior and record original ancestry."
+    },
+    {
+      "repo": "vuoro",
+      "branch": "docs/changelog-0.1.80-hotfix",
+      "head": "1feb7698068f1bf544211e85b8aa9f21daf7f297",
+      "branch_only_commits": 0,
+      "disposition": "already-integrated",
+      "reason": "Head is already reachable from canonical main."
+    },
+    {
+      "repo": "vuoro",
+      "branch": "feat/adapter-kit-admission-v2",
+      "head": "2ee58b98c147e0bd2d4b8da798747f6ace98f82f",
+      "branch_only_commits": 2,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "The owner changes or protocol documentation are incorporated through later reviewed/squashed PRs, with newer tests and metadata on main; preserve current behavior and record original ancestry."
+    },
+    {
+      "repo": "vuoro",
+      "branch": "fix/kit-v2-root-oneof",
+      "head": "ef044e7da8618abcc8dbc43508f5930892b14fa5",
+      "branch_only_commits": 0,
+      "disposition": "already-integrated",
+      "reason": "Head is already reachable from canonical main."
+    },
+    {
+      "repo": "vuoro",
+      "branch": "fix/rejection-details-2589",
+      "head": "31fc518f86d9dc9c84a0d783d9483a4a0018e42d",
+      "branch_only_commits": 2,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "The owner changes or protocol documentation are incorporated through later reviewed/squashed PRs, with newer tests and metadata on main; preserve current behavior and record original ancestry."
+    },
+    {
+      "repo": "vuoro",
+      "branch": "hotfix/vuoro-service-0.1.72.1",
+      "head": "9a02210f5f0ec019c333263232ac9840c15afbd0",
+      "branch_only_commits": 2,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Historical released maintenance line is superseded by the newer main owner/runtime line. Preserve its commits and existing release tags without downgrading source metadata."
+    },
+    {
+      "repo": "vuoro",
+      "branch": "maint/vuoro-service-0.1.72",
+      "head": "5e1c9fa1803e9d4a21c5adb84016daea919f6a47",
+      "branch_only_commits": 3,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Historical released maintenance line is superseded by the newer main owner/runtime line. Preserve its commits and existing release tags without downgrading source metadata."
+    },
+    {
+      "repo": "sprintctl",
+      "branch": "chore/kit020-compat",
+      "head": "02c91b7e02af761148cae9dea0dffefceea2d317",
+      "branch_only_commits": 2,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "The owner changes or protocol documentation are incorporated through later reviewed/squashed PRs, with newer tests and metadata on main; preserve current behavior and record original ancestry."
+    },
+    {
+      "repo": "sprintctl",
+      "branch": "design/resource-authority-2603",
+      "head": "c57c5059bd31a4adc275e3beff122da82b882bc8",
+      "branch_only_commits": 5,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "The owner changes or protocol documentation are incorporated through later reviewed/squashed PRs, with newer tests and metadata on main; preserve current behavior and record original ancestry."
+    },
+    {
+      "repo": "sprintctl",
+      "branch": "feat/s4-native-evidence-intake",
+      "head": "4d06f3efacdc5c5875b7ecb18e912e43feea1f12",
+      "branch_only_commits": 0,
+      "disposition": "already-integrated",
+      "reason": "Head is already reachable from canonical main."
+    },
+    {
+      "repo": "sprintctl",
+      "branch": "fix/2110-pg-runtime-resilience",
+      "head": "22cad1d35916f678d1c7dd75b27c29f483226558",
+      "branch_only_commits": 0,
+      "disposition": "already-integrated",
+      "reason": "Head is already reachable from canonical main."
+    },
+    {
+      "repo": "sprintctl",
+      "branch": "maint/0.7.x",
+      "head": "fc5bcc0b25f0e4c54701f8efbfd24a405a7c8497",
+      "branch_only_commits": 3,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Historical released maintenance line is superseded by the newer main owner/runtime line. Preserve its commits and existing release tags without downgrading source metadata."
+    },
+    {
+      "repo": "sprintctl",
+      "branch": "plan/s4-reserve-owner-replay",
+      "head": "f7e22258904bc6e04b591f6de01fd683a65ca8ab",
+      "branch_only_commits": 0,
+      "disposition": "already-integrated",
+      "reason": "Head is already reachable from canonical main."
+    },
+    {
+      "repo": "sprintctl",
+      "branch": "release/0.10.0",
+      "head": "030838a768b8a112da0d4b5339420936376c786b",
+      "branch_only_commits": 0,
+      "disposition": "already-integrated",
+      "reason": "Head is already reachable from canonical main."
+    },
+    {
+      "repo": "sprintctl",
+      "branch": "release/0.10.1",
+      "head": "56ac0166413dffc95958b5010e7b414eb38fdb20",
+      "branch_only_commits": 0,
+      "disposition": "already-integrated",
+      "reason": "Head is already reachable from canonical main."
+    },
+    {
+      "repo": "sprintctl",
+      "branch": "release/0.7.5",
+      "head": "b8fa206e1e643e31f1bc4a8bfdccbb32231b6bc8",
+      "branch_only_commits": 2,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Historical released maintenance line is superseded by the newer main owner/runtime line. Preserve its commits and existing release tags without downgrading source metadata."
+    },
+    {
+      "repo": "sprintctl",
+      "branch": "test/s4-absorb-intake-gaps",
+      "head": "35114c4d133332db5c914f5836f4bda1a700c3ed",
+      "branch_only_commits": 0,
+      "disposition": "already-integrated",
+      "reason": "Head is already reachable from canonical main."
+    },
+    {
+      "repo": "auditctl",
+      "branch": "agent/state-protocol-rollout",
+      "head": "2cbbe1ba1f94cdc0875a965ffa241a4de6d03cdd",
+      "branch_only_commits": 2,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "The owner changes or protocol documentation are incorporated through later reviewed/squashed PRs, with newer tests and metadata on main; preserve current behavior and record original ancestry."
+    },
+    {
+      "repo": "auditctl",
+      "branch": "chore/kit020-compat",
+      "head": "368c694cd6c31c05d060ea4c1271a92216bf70e2",
+      "branch_only_commits": 2,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "The owner changes or protocol documentation are incorporated through later reviewed/squashed PRs, with newer tests and metadata on main; preserve current behavior and record original ancestry."
+    },
+    {
+      "repo": "auditctl",
+      "branch": "plan/attribution-list-consumer-2592",
+      "head": "a01f6740a4ffc1664a09b5e771b756c6b73a0705",
+      "branch_only_commits": 0,
+      "disposition": "already-integrated",
+      "reason": "Head is already reachable from canonical main."
+    },
+    {
+      "repo": "auditctl",
+      "branch": "s2/item6-agentops-paths",
+      "head": "261c8dbcc02abd2e1bbfe88f55e7d343b9f744df",
+      "branch_only_commits": 0,
+      "disposition": "already-integrated",
+      "reason": "Head is already reachable from canonical main."
+    },
+    {
+      "repo": "kctl",
+      "branch": "ccr-7dbc0f53-t53dfv",
+      "head": "d055b19e273106b3663bc7cbcd48ff19f892c183",
+      "branch_only_commits": 1,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Useful changes were reviewed and integrated in the current integration PR; record the original cloud ancestry without replaying its old base."
+    },
+    {
+      "repo": "kctl",
+      "branch": "ccr-ff5980f8-tl3pen",
+      "head": "6e1809ba7d4c0a074829d7c804a445e7e95cc98a",
+      "branch_only_commits": 1,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Useful changes were reviewed and integrated in the current integration PR; record the original cloud ancestry without replaying its old base."
+    },
+    {
+      "repo": "kctl",
+      "branch": "feat/claim-knowledge-categories",
+      "head": "d1ee77366a6093bbc14c33fcc4cc63fecc34c116",
+      "branch_only_commits": 0,
+      "disposition": "already-integrated",
+      "reason": "Head is already reachable from canonical main."
+    },
+    {
+      "repo": "kctl",
+      "branch": "s2/item6-agentops-paths",
+      "head": "a74e5150f13174f683efff68f5e05771eb51d7e8",
+      "branch_only_commits": 0,
+      "disposition": "already-integrated",
+      "reason": "Head is already reachable from canonical main."
+    },
+    {
+      "repo": "actionq",
+      "branch": "agent/actionq-v0.1.17",
+      "head": "8a540743c993e9eaf88e28b997b4355b9969af1a",
+      "branch_only_commits": 2,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Branch extends the retired daemon/harness/catalog or controller dispatch lifecycle. Current target excludes execution/model routing; preserve history without resurrecting removed components or release versions."
+    },
+    {
+      "repo": "actionq",
+      "branch": "agent/luna-v2-catalog-workaround-actionq",
+      "head": "0cc297d5530f10e07d706a5434777bdd71dc8c1a",
+      "branch_only_commits": 2,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Branch extends the retired daemon/harness/catalog or controller dispatch lifecycle. Current target excludes execution/model routing; preserve history without resurrecting removed components or release versions."
+    },
+    {
+      "repo": "actionq",
+      "branch": "ccr-ff5980f8-tl3pen",
+      "head": "6f952ffab49505b3e8741be238da0a7b791fa8b4",
+      "branch_only_commits": 1,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Useful changes were reviewed and integrated in the current integration PR; record the original cloud ancestry without replaying its old base."
+    },
+    {
+      "repo": "actionq",
+      "branch": "codex/actionq-2114-bounded-lifecycle",
+      "head": "4038ebc538e87130ab5ad5f17f3a0aa20bbcc5f8",
+      "branch_only_commits": 3,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Branch extends the retired daemon/harness/catalog or controller dispatch lifecycle. Current target excludes execution/model routing; preserve history without resurrecting removed components or release versions."
+    },
+    {
+      "repo": "appservice",
+      "branch": "chore/settings-dedupe-cost-hook",
+      "head": "09119272e18acbd518c63b10d3a0fcd72c7e7a9f",
+      "branch_only_commits": 0,
+      "disposition": "already-integrated",
+      "reason": "Head is already reachable from canonical main."
+    },
+    {
+      "repo": "appservice",
+      "branch": "docs/agents-branch-example",
+      "head": "fadbbb0e218c4797209b652af8011dca082e2bce",
+      "branch_only_commits": 0,
+      "disposition": "already-integrated",
+      "reason": "Head is already reachable from canonical main."
+    },
+    {
+      "repo": "appservice",
+      "branch": "fix/backup-alerts-2026-10-03",
+      "head": "43f901842cf1450bb25284cb89eaa93724f301db",
+      "branch_only_commits": 0,
+      "disposition": "already-integrated",
+      "reason": "Head is already reachable from canonical main."
+    },
+    {
+      "repo": "appservice",
+      "branch": "fix/health-2026-10-03",
+      "head": "83e820cffab318bbcfb2c229cb25d33008dbc022",
+      "branch_only_commits": 0,
+      "disposition": "already-integrated",
+      "reason": "Head is already reachable from canonical main."
+    },
+    {
+      "repo": "appservice",
+      "branch": "fix/policy-audit-cleanup",
+      "head": "01700494dfbc31a8685c6433dbecfc64985625e5",
+      "branch_only_commits": 0,
+      "disposition": "already-integrated",
+      "reason": "Head is already reachable from canonical main."
+    },
+    {
+      "repo": "appservice",
+      "branch": "rebuild/recovery",
+      "head": "d4b6978c0d7669105739cc1d3042d024e3db840f",
+      "branch_only_commits": 16,
+      "disposition": "preserved-separate-frozen-recovery",
+      "reason": "AGENTS.md explicitly preserves a frozen recovery composition; its manifests must not replace steady-state main."
+    },
+    {
+      "repo": "appservice",
+      "branch": "renovate/talosctl-1.14.x",
+      "head": "a3820ffa83b53d65cabb6dc13b1033e321064961",
+      "branch_only_commits": 1,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Tool-only 1.14.2 bump conflicts with the required fleet/tool version alignment at 1.14.1; retire this proposal without performing an unplanned fleet upgrade."
+    },
+    {
+      "repo": "appservice",
+      "branch": "vuoro-shared/roll-0.1.79",
+      "head": "d7fe9df2443e75e212644584509ed1001f8eb59d",
+      "branch_only_commits": 3,
+      "disposition": "history-joined-current-tree-preserved",
+      "reason": "Schema18 rollout and restore guidance are on main; current deployment is schema20/runtime0.1.82. Replaying this branch would downgrade pins or restore older migration manifests."
+    },
+    {
+      "repo": "appservice",
+      "branch": "vuoro-shared/roll-0.1.80",
+      "head": "e2b8d261ff120a439c48c2cab7055a9134842da2",
+      "branch_only_commits": 0,
+      "disposition": "already-integrated",
+      "reason": "Head is already reachable from canonical main."
+    }
+  ]
+}
