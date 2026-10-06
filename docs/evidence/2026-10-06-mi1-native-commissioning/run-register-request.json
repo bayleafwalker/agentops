@@ -1,0 +1,20 @@
+{
+  "harness_id": "codex",
+  "harness_build": "unknown",
+  "model_id": "gpt-6",
+  "recipe_id": "mi1-provider-capture-v1",
+  "observed_profile": {
+    "instruction_digest": "unknown",
+    "skill_digests": [
+      {
+        "skill_id": "verify-state-protocols",
+        "digest": "sha256:34c2a8ade7e70b5b8c9d5ecc8f694e090c265ea548633d91d5806275a21dfb88"
+      },
+      {
+        "skill_id": "reconcile-project-contracts",
+        "digest": "sha256:06b27e0d4bed83bbc25f95d71e37353a6a98178d2d9438664e257915c25032f5"
+      }
+    ]
+  },
+  "idempotency_key": "mi1-provider-native-01a11018-616d-7472-b912-a521ddf640a3"
+}

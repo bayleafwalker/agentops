@@ -1,0 +1,11 @@
+{
+  "source_revision": "main@sha1:a6fe44ffbf00deb635c1501071b54a2e2f6119f5",
+  "kustomization_revision": "main@sha1:a6fe44ffbf00deb635c1501071b54a2e2f6119f5",
+  "kustomization_ready": "True",
+  "image": "ghcr.io/bayleafwalker/vuoro-service@sha256:ee4bc888cd3a8c11c31d5a5f808097f0474c70bc77b8efc979808729ca086ed9",
+  "identity_revision": "10",
+  "observed_generation": 19,
+  "desired_generation": 19,
+  "replicas": 1,
+  "ready_replicas": 1
+}

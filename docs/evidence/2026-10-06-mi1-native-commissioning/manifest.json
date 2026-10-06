@@ -1,0 +1,23 @@
+{
+  "schema": "mi1-native-commissioning-files/v1",
+  "item_id": 2618,
+  "run_id": "run_V5AJJXHR4WJK1SA7B7R98D7A8Z",
+  "files": {
+    "README.md": "49aaa500b839e45ad2e09da9f605921c1476a9a2b8e7907f3b6d89a794fe9621",
+    "native-effect-refusals.json": "ad1828b44131c2f341784f0c9c5a9e1dbff65623e01ec51ff14a431035c9440b",
+    "native-gitops-convergence.json": "6954efe203d1de821e676038f2a2c2e512e41cc13c159b2c0f0d5629191ea008",
+    "native-handshake.json": "d36fcb8f49b01ff1ec8d956ca9730b8bb7af60794cae0c73f491bc7ffd681bfb",
+    "provider-append-request.json": "107f3a88c158bb2445e83c0c47ac9f5e747712488c01ea3de09f6611dae266f0",
+    "provider-exact-retry-receipt.json": "0131a4abe78e874b05ccbd9759f12927cd53be52aa9c4f77d2853a9200bfe8fc",
+    "provider-observation.json": "4fd053cfb49839a7403989ae341894eff9efb2ef40f7eed1f6ca7cb3a033ac85",
+    "provider-owner-tail.json": "a5487ad43b084752a9af204848743bc33c67e9f0851311cb6d3f31711b494ff6",
+    "provider-recapture.json": "cf5a1abaca92aa379a7a2c8254fc31d95bcc6e358032ace7412c2045f5febe90",
+    "provider-sync-confirmed.json": "589f17a7d2a933e7a4458092821e4c2f8c992c7c72f4a773e483df6b735b3eb4",
+    "provider-sync-first.json": "d2f187f10aab830b8bfbe6c7f7e1156adc2d30ae3878b77b2a7d0374c6634980",
+    "provider-sync-repeat.json": "ce916fcfac45b9bf2c66aeeb3aac8e31b8ec637534249b4b50efeea14d6d066a",
+    "publication.json": "3aaaf2c45feafcef5b446ecd0a6b14bc4194c01e6d596e6113e6b1727b988d76",
+    "run-binding.json": "3310358f45a78845b80ba0a4427cc38f553f79b7739be001419c948b4738e9ae",
+    "run-register-receipt.json": "85a0b1ef4104d3b24972f83f6f81235e79379ad5d8c142af34a6dfb407701b07",
+    "run-register-request.json": "ba8a430b37b0fa1f7804a3ed0c12a07a37c0cec6201cea6db0b9c5cd80731e4f"
+  }
+}

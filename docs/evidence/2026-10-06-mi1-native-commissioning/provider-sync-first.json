@@ -1,0 +1,14 @@
+{
+  "confirmed_evidence_request_ids": [],
+  "evidence_attempts": [
+    {
+      "request_id": "9e2ebb17-a6fc-4033-bd49-23d8fef2e970",
+      "phase": "rejected",
+      "code": "repo-id-required",
+      "operation": "work.run.resolve-v1"
+    }
+  ],
+  "pending_evidence_request_ids": [
+    "9e2ebb17-a6fc-4033-bd49-23d8fef2e970"
+  ]
+}

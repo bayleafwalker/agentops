@@ -1,0 +1,31 @@
+{
+  "run": {
+    "run_id": "run_V5AJJXHR4WJK1SA7B7R98D7A8Z",
+    "grant_id": null,
+    "model_id": "gpt-6",
+    "claim_ids": [],
+    "client_id": null,
+    "grant_ids": [],
+    "recipe_id": "mi1-provider-capture-v1",
+    "created_at": "2026-10-06T16:35:51.254258Z",
+    "harness_id": "codex",
+    "principal_id": "vuoro-static:workstation-mi1-native:0",
+    "workspace_id": "vuoro-native:agentops-mi1:0",
+    "harness_build": "unknown",
+    "observed_profile": {
+      "skill_digests": [
+        {
+          "digest": "sha256:34c2a8ade7e70b5b8c9d5ecc8f694e090c265ea548633d91d5806275a21dfb88",
+          "skill_id": "verify-state-protocols"
+        },
+        {
+          "digest": "sha256:06b27e0d4bed83bbc25f95d71e37353a6a98178d2d9438664e257915c25032f5",
+          "skill_id": "reconcile-project-contracts"
+        }
+      ],
+      "instruction_digest": "unknown"
+    },
+    "predecessor_run_id": null
+  },
+  "repo_id": "agentops"
+}
