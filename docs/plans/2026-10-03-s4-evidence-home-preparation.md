@@ -1,3 +1,13 @@
+---
+doc_id: agentops-s4-evidence-home-preparation
+purpose: proposal
+lifecycle: proposed
+effective: 2026-10-03
+applies_to:
+  components: [auditctl, sprintctl, vuoro-core, kctl]
+subjects: [evidence-home, knowledge-resolution]
+---
+
 # S4 evidence home: design preparation and cutover gates
 
 Status: **proposed preparation**, 2026-10-03, for served `agentops#2485`.
