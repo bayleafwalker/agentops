@@ -41,6 +41,9 @@ WORK_AUTHORITIES = {
     "work:pilot-read",
 }
 WORKSTATION_OPERATOR_AUTHORITIES = WORK_AUTHORITIES | {"work:sprint"}
+# This separately commissioned profile is an evidence producer, not an operator.
+NATIVE_EVIDENCE_PROFILE_ID = "workstation-mi1-native-vuoro-shared"
+NATIVE_EVIDENCE_AUTHORITIES = {"work:read", "work:evidence"}
 
 
 class ProfileError(ValueError):
@@ -129,10 +132,14 @@ def validate_profile(path: Path, environment: dict[str, object]) -> dict[str, ob
         if environment["id"] == "workstation"
         else WORK_AUTHORITIES
     )
+    if value["id"] == NATIVE_EVIDENCE_PROFILE_ID:
+        if environment["id"] != "workstation":
+            raise ProfileError(f"{path}: native evidence profile is bound to workstation")
+        expected_authorities = NATIVE_EVIDENCE_AUTHORITIES
     missing = expected_authorities - authorities
     extra = authorities - expected_authorities
     if missing or extra:
-        raise ProfileError(f"{path}: authorities must exactly cover current served work operations; missing={sorted(missing)} extra={sorted(extra)}")
+        raise ProfileError(f"{path}: authorities must exactly match the declared profile purpose; missing={sorted(missing)} extra={sorted(extra)}")
     if value["production_endpoint_denied"] is not False:
         raise ProfileError(f"{path}: production_endpoint_denied must be false for the primary authority")
     return value

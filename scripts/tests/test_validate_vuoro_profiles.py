@@ -139,3 +139,32 @@ def test_shared_profile_json_is_scanned_for_direct_dsn(tmp_path: Path) -> None:
     path.write_text(json.dumps({"note": "postgresql://example.invalid/sprintctl"}))
 
     assert any("direct-backend" in error for error in validator.dsn_fence_violations(path))
+
+
+def test_native_evidence_profile_is_scoped_and_operator_profile_unchanged() -> None:
+    environment = validator.validate_environment(
+        ROOT / "environment-record/workstation-linux.vuoro-shared.json"
+    )
+    native = validator.validate_profile(
+        _profile("workstation-mi1-native-vuoro-shared.json"), environment
+    )
+    assert set(native["required_authorities"]) == {"work:read", "work:evidence"}
+    operator = validator.validate_profile(_profile("workstation-vuoro-shared.json"), environment)
+    assert "work:sprint" in operator["required_authorities"]
+    assert native["credential_ref"] != operator["credential_ref"]
+
+
+def test_native_evidence_profile_cannot_request_effect_authority(tmp_path: Path) -> None:
+    environment = validator.validate_environment(
+        ROOT / "environment-record/workstation-linux.vuoro-shared.json"
+    )
+    value = json.loads(_profile("workstation-mi1-native-vuoro-shared.json").read_text())
+    value["required_authorities"].append("work:effect-apply")
+    path = tmp_path / "widened.json"
+    path.write_text(json.dumps(value))
+    try:
+        validator.validate_profile(path, environment)
+    except validator.ProfileError as exc:
+        assert "extra=['work:effect-apply']" in str(exc)
+    else:
+        raise AssertionError("expected native evidence scope rejection")

@@ -263,3 +263,27 @@ Rollback is limited to restoring the previous `.envrc` from its local backup
 and the approved deployment credential/network policy while the served service
 remains healthy. Do not use a direct PostgreSQL path as an automatic retry or
 silent fallback. Any production rollback follows the appservice owner runbook.
+
+## Separate native evidence profile (MI-1)
+
+`environment-record/profiles/workstation-mi1-native-vuoro-shared.json` is an
+explicit evidence producer profile for served agentops item 2618. Select it only
+for native run registration/resolution and evidence operations. Its required
+scope is exactly `work:read` / `work:evidence`; the normal workstation operator
+profile and `.envrc` selection retain their existing meaning. The profile is a
+credential reference, not proof that commissioning has completed.
+
+Appservice steady-state main owns the SOPS registry identity. The separately
+issued principal is `vuoro-static:workstation-mi1-native:0`; the explicit
+standalone partition is `vuoro-native:agentops-mi1:0`, not a Cloud workspace.
+The credential is installed in a separate mode-0600 file outside Git. Do not
+reuse or rebind the old workstation credential. Commissioning requires the
+compatible immutable service release, GitOps convergence, authenticated native
+run registration and evidence append/retry, and refusal of public effect
+accept/apply. Record those receipts separately from this profile configuration.
+
+The installed CLI may lack native evidence commands. Use the owner repository's
+`.venv/bin/python -m sprintctl` with its source on `PYTHONPATH` when following
+that repository's source fallback guidance. Keep `SPRINTCTL_BACKEND=served` and
+select this explicit profile; do not change the global CLI or use a local work
+backend.
