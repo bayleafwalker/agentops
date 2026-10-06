@@ -1,0 +1,28 @@
+name: operator projection
+
+on:
+  pull_request:
+    paths:
+      - "apps/operator-projection/**"
+      - ".github/workflows/operator-projection.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/operator-projection/**"
+      - ".github/workflows/operator-projection.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v8.3.2
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev --locked
+        working-directory: apps/operator-projection
+      - run: uv run --extra dev pytest -q
+        working-directory: apps/operator-projection

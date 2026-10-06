@@ -1,4 +1,4 @@
-"""operator-projection generate | serve | text [--url | --file]."""
+"""operator-projection generate | serve | text | reconstruct."""
 
 from __future__ import annotations
 
@@ -51,7 +51,16 @@ def main(argv: list[str] | None = None) -> int:
     source = commands.add_parser("text").add_mutually_exclusive_group(required=True)
     source.add_argument("--url", help="a served projection, e.g. https://ops.example")
     source.add_argument("--file", type=Path)
+    reconstruction = commands.add_parser("reconstruct", help="read an effect's owner links and explicit gaps")
+    selection = reconstruction.add_mutually_exclusive_group(required=True)
+    selection.add_argument("--snapshot", type=Path, help="explicit local owner-read capture; provenance remains unauthenticated")
+    selection.add_argument("--intent-id", help="effect intent to read through the configured authority")
+    reconstruction.add_argument("--repo-id", help="owner repository scope (required with --intent-id)")
+    reconstruction.add_argument("--text", action="store_true", help="render every observed or missing link as text")
     args = parser.parse_args(argv)
+    if args.command == "reconstruct":
+        from .reconstruction_cli import run
+        return run(args, parser)
     if args.command == "text":
         url = args.url and (args.url if args.url.endswith(".json") else args.url.rstrip("/") + "/v1.json")
         raw = urllib.request.urlopen(url, timeout=30).read() if url else args.file.read_bytes()
