@@ -1,0 +1,84 @@
+{
+  "schema_version": "verification-result/v1",
+  "context_id": "s4-offline-causal-released-https-v1",
+  "contract_ref": {
+    "doc_id": "docs/plans/2026-10-03-s4-evidence-home-preparation.md",
+    "revision": "git:6e13cea4cbdc15366b943fc78787cacc54350b43"
+  },
+  "implementation_sha": "5ee2be2e0ca159bfcd7d11f23c3f238bab72a793",
+  "depth": 2,
+  "environment": {
+    "service_image": "ghcr.io/bayleafwalker/vuoro-service@sha256:ba0e47ad7fdf1fb9ebcd52b05428ca8889381abb3d6dd42c0869742f4bb42c96",
+    "versions": {
+      "vuoro-service": "0.1.89",
+      "sprintctl": "0.15.1",
+      "auditctl": "0.1.9",
+      "vuoro-adapter-kit": "0.2.0",
+      "vuoro-schema-runtime": "0.1.0",
+      "vuoro-client": "0.1.1"
+    },
+    "runtime": "own disposable PostgreSQL16, verified local HTTPS, released CLI, synthetic identities",
+    "fsync": "off; client/service interruption only"
+  },
+  "execution": {
+    "checks_passed": 342,
+    "histories": "online/offline equivalence, four real upstream commits followed by CLI SIGKILL/response drop/retry, three independent refusal histories",
+    "scripts_tests": "1254 passed,20 skipped,1129 subtests",
+    "context_economy": "29 passed",
+    "session_telemetry": "passed",
+    "independent_review": "Astra approved bounded causal source after import and cleanup corrections",
+    "forced_failures": [
+      "wrong-wheel hash refused before SQL",
+      "cleanup failure exits1 and marks incomplete despite successful histories"
+    ],
+    "receipt": "docs/evidence/2026-10-09-s4-causal-proof/packet/receipt.json"
+  },
+  "claims": [
+    {
+      "property": "Original offline requests have no effective owner state until confirmation",
+      "result": "example-tested"
+    },
+    {
+      "property": "Exact original Release, trailer and evidence causal confirmation",
+      "result": "example-tested"
+    },
+    {
+      "property": "Four committed-response-loss CLI kill/recoveries preserve original receipt and one owner effect per key",
+      "result": "example-tested"
+    },
+    {
+      "property": "Independent context, full revision and evidence-head causal barriers/refusals",
+      "result": "example-tested"
+    },
+    {
+      "property": "Rejected retries preserve full authoritative owner state and original bytes",
+      "result": "example-tested"
+    },
+    {
+      "property": "Wheel/import provenance and cleanup guards refuse forced failures",
+      "result": "example-tested"
+    },
+    {
+      "property": "Full S4 validity/effect-state evaluator and authenticated execution facts",
+      "result": "unknown"
+    },
+    {
+      "property": "Database crash durability",
+      "result": "unknown"
+    },
+    {
+      "property": "Production writer commissioning, full historical import, cutover and soak",
+      "result": "unknown"
+    }
+  ],
+  "counterexamples": [
+    {
+      "scope": "harness input",
+      "observation": "unsupported reference type rejected422 before fault injection; corrected to owner-supported doc"
+    },
+    {
+      "scope": "harness oracle",
+      "observation": "stronger reservation comparison initially retained expected recovered replay history flag; explicitly asserted then normalized only top-level replayed"
+    }
+  ]
+}

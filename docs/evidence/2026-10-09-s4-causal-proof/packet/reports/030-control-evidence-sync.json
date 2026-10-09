@@ -1,0 +1,14 @@
+{
+  "confirmed_evidence_request_ids": [
+    "05ffd68c-55ef-4926-85d6-1c151b7b3d55"
+  ],
+  "evidence_attempts": [
+    {
+      "request_id": "05ffd68c-55ef-4926-85d6-1c151b7b3d55",
+      "phase": "confirmed",
+      "code": null,
+      "operation": "work.evidence.append-v1"
+    }
+  ],
+  "pending_evidence_request_ids": []
+}

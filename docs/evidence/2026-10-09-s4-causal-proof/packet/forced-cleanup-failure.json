@@ -1,0 +1,57 @@
+{
+  "fault": "docker wrapper actually removes own fixture container then reports injected failure",
+  "observed_exit_code": 1,
+  "status": "cleanup or artifact capture incomplete; qualification incomplete",
+  "cleanup_errors": [
+    {
+      "phase": "container-stop",
+      "error_type": "RuntimeError"
+    },
+    {
+      "phase": "container-stop",
+      "error_type": "RuntimeError"
+    },
+    {
+      "phase": "container-stop",
+      "error_type": "RuntimeError"
+    },
+    {
+      "phase": "container-stop",
+      "error_type": "RuntimeError"
+    },
+    {
+      "phase": "container-stop",
+      "error_type": "RuntimeError"
+    },
+    {
+      "phase": "container-stop",
+      "error_type": "RuntimeError"
+    },
+    {
+      "phase": "container-stop",
+      "error_type": "RuntimeError"
+    },
+    {
+      "phase": "container-stop",
+      "error_type": "RuntimeError"
+    },
+    {
+      "phase": "container-stop",
+      "error_type": "RuntimeError"
+    },
+    {
+      "phase": "container-stop",
+      "error_type": "RuntimeError"
+    },
+    {
+      "phase": "container-stop",
+      "error_type": "RuntimeError"
+    },
+    {
+      "phase": "container-stop",
+      "error_type": "RuntimeError"
+    }
+  ],
+  "private_scratch_retained": true,
+  "other_clusters_swept": false
+}

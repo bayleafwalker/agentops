@@ -1,0 +1,17 @@
+{
+  "exit_code": 0,
+  "stderr": "",
+  "report": {
+    "pending_reserve_request_ids": [
+      "5ca313ee-099f-43c6-a4be-2e3a3320f77b"
+    ],
+    "reserve_request_states": [
+      {
+        "request_id": "5ca313ee-099f-43c6-a4be-2e3a3320f77b",
+        "source_sha256": "a7ed51206f39c8c06470ebab0622a47186a07598786720934bdeb12e50caabda",
+        "binding_sha256": "aa54119af0a0ac6330d9b14d1872a09d8692739efc5dce2af302b81599421326",
+        "latest_attempt": null
+      }
+    ]
+  }
+}

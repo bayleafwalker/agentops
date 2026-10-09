@@ -1,0 +1,18 @@
+{
+  "exit_code": 1,
+  "stderr": "Error: native proposal remains pending; inspect exact retry or owner reconciliation\n",
+  "report": {
+    "confirmed_proposal_request_ids": [],
+    "proposal_attempts": [
+      {
+        "request_id": "6770e748-4b22-499f-9647-b70b0287d76c",
+        "phase": "rejected",
+        "operation": "work.effect.propose-bound-v1",
+        "code": "effect-causal-stale-revision"
+      }
+    ],
+    "pending_proposal_request_ids": [
+      "6770e748-4b22-499f-9647-b70b0287d76c"
+    ]
+  }
+}

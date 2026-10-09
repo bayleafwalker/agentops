@@ -1,0 +1,17 @@
+{
+  "exit_code": 0,
+  "stderr": "",
+  "report": {
+    "pending_proposal_request_ids": [
+      "22e64752-c706-4613-8466-b2548ac770f1"
+    ],
+    "proposal_request_states": [
+      {
+        "request_id": "22e64752-c706-4613-8466-b2548ac770f1",
+        "source_sha256": "105ca745c41f56d67ff1ddc0519527ab2a084dc15c41e1c22c6606f766d475a1",
+        "binding_sha256": "aa54119af0a0ac6330d9b14d1872a09d8692739efc5dce2af302b81599421326",
+        "latest_attempt": null
+      }
+    ]
+  }
+}

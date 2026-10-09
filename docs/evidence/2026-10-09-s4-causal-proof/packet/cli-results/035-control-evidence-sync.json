@@ -1,0 +1,9 @@
+{
+  "exit_code": 0,
+  "stderr": "",
+  "report": {
+    "confirmed_evidence_request_ids": [],
+    "evidence_attempts": [],
+    "pending_evidence_request_ids": []
+  }
+}

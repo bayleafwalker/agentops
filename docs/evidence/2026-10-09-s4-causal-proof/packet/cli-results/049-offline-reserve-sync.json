@@ -1,0 +1,9 @@
+{
+  "exit_code": 0,
+  "stderr": "",
+  "report": {
+    "confirmed_reserve_request_ids": [],
+    "reserve_attempts": [],
+    "pending_reserve_request_ids": []
+  }
+}

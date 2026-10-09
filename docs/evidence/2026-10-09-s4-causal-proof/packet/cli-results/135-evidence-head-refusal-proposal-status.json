@@ -1,0 +1,17 @@
+{
+  "exit_code": 0,
+  "stderr": "",
+  "report": {
+    "pending_proposal_request_ids": [
+      "5b39a2ae-e010-4aac-982d-a52ca40af115"
+    ],
+    "proposal_request_states": [
+      {
+        "request_id": "5b39a2ae-e010-4aac-982d-a52ca40af115",
+        "source_sha256": "105ca745c41f56d67ff1ddc0519527ab2a084dc15c41e1c22c6606f766d475a1",
+        "binding_sha256": "aa54119af0a0ac6330d9b14d1872a09d8692739efc5dce2af302b81599421326",
+        "latest_attempt": null
+      }
+    ]
+  }
+}

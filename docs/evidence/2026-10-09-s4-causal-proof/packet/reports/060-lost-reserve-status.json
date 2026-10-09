@@ -1,0 +1,13 @@
+{
+  "pending_reserve_request_ids": [
+    "66461d5e-6ce4-4d54-929b-7f8e1e6ae370"
+  ],
+  "reserve_request_states": [
+    {
+      "request_id": "66461d5e-6ce4-4d54-929b-7f8e1e6ae370",
+      "source_sha256": "a7ed51206f39c8c06470ebab0622a47186a07598786720934bdeb12e50caabda",
+      "binding_sha256": "aa54119af0a0ac6330d9b14d1872a09d8692739efc5dce2af302b81599421326",
+      "latest_attempt": null
+    }
+  ]
+}

@@ -1,0 +1,1710 @@
+{
+  "qualification": "disposable-causal-pipeline; not full S4 effective-state evaluation",
+  "checks": [
+    "installed released distributions",
+    "sprintctl imported owner origin matches verified distribution",
+    "auditctl imported owner origin matches verified distribution",
+    "vuoro-service installed from local immutable wheel",
+    "vuoro-service actual wheel hash matches pin",
+    "vuoro-service installed file vuoro_service/__init__.py",
+    "vuoro-service installed file vuoro_service/app.py",
+    "vuoro-service installed file vuoro_service/catalog.py",
+    "vuoro-service installed file vuoro_service/cli.py",
+    "vuoro-service installed file vuoro_service/composition.py",
+    "vuoro-service installed file vuoro_service/contracts.py",
+    "vuoro-service installed file vuoro_service/edge_proof.py",
+    "vuoro-service installed file vuoro_service/environment_record.py",
+    "vuoro-service installed file vuoro_service/execution_provenance.py",
+    "vuoro-service installed file vuoro_service/gateway_identity.py",
+    "vuoro-service installed file vuoro_service/identity.py",
+    "vuoro-service installed file vuoro_service/lease.py",
+    "vuoro-service installed file vuoro_service/metrics.py",
+    "vuoro-service installed file vuoro_service/project_binding.py",
+    "vuoro-service installed file vuoro_service/rate_limit.py",
+    "vuoro-service installed file vuoro_service/replay.py",
+    "vuoro-service installed file vuoro_service-0.1.89.dist-info/METADATA",
+    "vuoro-service installed file vuoro_service-0.1.89.dist-info/WHEEL",
+    "vuoro-service installed file vuoro_service-0.1.89.dist-info/entry_points.txt",
+    "sprintctl installed from local immutable wheel",
+    "sprintctl actual wheel hash matches pin",
+    "sprintctl installed file sprintctl/__init__.py",
+    "sprintctl installed file sprintctl/__main__.py",
+    "sprintctl installed file sprintctl/application.py",
+    "sprintctl installed file sprintctl/application_common.py",
+    "sprintctl installed file sprintctl/authority.py",
+    "sprintctl installed file sprintctl/authority_config.py",
+    "sprintctl installed file sprintctl/backend.py",
+    "sprintctl installed file sprintctl/calc.py",
+    "sprintctl installed file sprintctl/cli.py",
+    "sprintctl installed file sprintctl/cli_runtime.py",
+    "sprintctl installed file sprintctl/cli_support.py",
+    "sprintctl installed file sprintctl/context_candidates.py",
+    "sprintctl installed file sprintctl/context_contract.py",
+    "sprintctl installed file sprintctl/contracts.py",
+    "sprintctl installed file sprintctl/db.py",
+    "sprintctl installed file sprintctl/decisions.py",
+    "sprintctl installed file sprintctl/depcore.py",
+    "sprintctl installed file sprintctl/doctor.py",
+    "sprintctl installed file sprintctl/effect_causal.py",
+    "sprintctl installed file sprintctl/effect_intent.py",
+    "sprintctl installed file sprintctl/effect_verification.py",
+    "sprintctl installed file sprintctl/eventcore.py",
+    "sprintctl installed file sprintctl/evidence_intake.py",
+    "sprintctl installed file sprintctl/handoff.py",
+    "sprintctl installed file sprintctl/handoff_contract.py",
+    "sprintctl installed file sprintctl/maintain.py",
+    "sprintctl installed file sprintctl/maintenance_capability.py",
+    "sprintctl installed file sprintctl/maintenance_resource.py",
+    "sprintctl installed file sprintctl/observations.py",
+    "sprintctl installed file sprintctl/outbox.py",
+    "sprintctl installed file sprintctl/pg.py",
+    "sprintctl installed file sprintctl/pg_migrations.py",
+    "sprintctl installed file sprintctl/pg_testing.py",
+    "sprintctl installed file sprintctl/project.py",
+    "sprintctl installed file sprintctl/project_application.py",
+    "sprintctl installed file sprintctl/projection.py",
+    "sprintctl installed file sprintctl/projection_reads.py",
+    "sprintctl installed file sprintctl/proposal_intake.py",
+    "sprintctl installed file sprintctl/refcore.py",
+    "sprintctl installed file sprintctl/release_trailers.py",
+    "sprintctl installed file sprintctl/releases.py",
+    "sprintctl installed file sprintctl/render.py",
+    "sprintctl installed file sprintctl/reservation.py",
+    "sprintctl installed file sprintctl/reservation_policy.py",
+    "sprintctl installed file sprintctl/reserve_intake.py",
+    "sprintctl installed file sprintctl/rows.py",
+    "sprintctl installed file sprintctl/served.py",
+    "sprintctl installed file sprintctl/served_routes.py",
+    "sprintctl installed file sprintctl/sprint_detail.py",
+    "sprintctl installed file sprintctl/sprintcore.py",
+    "sprintctl installed file sprintctl/sync.py",
+    "sprintctl installed file sprintctl/trackcore.py",
+    "sprintctl installed file sprintctl/unbound.py",
+    "sprintctl installed file sprintctl/volatile_context.py",
+    "sprintctl installed file sprintctl/volatile_hook.py",
+    "sprintctl installed file sprintctl/vuoro_adapter.py",
+    "sprintctl installed file sprintctl/vuoro_credentials.py",
+    "sprintctl installed file sprintctl/work_application.py",
+    "sprintctl installed file sprintctl/workitemcore.py",
+    "sprintctl installed file sprintctl/commands/__init__.py",
+    "sprintctl installed file sprintctl/commands/db.py",
+    "sprintctl installed file sprintctl/commands/doctor.py",
+    "sprintctl installed file sprintctl/commands/lifecycle.py",
+    "sprintctl installed file sprintctl/commands/operations.py",
+    "sprintctl installed file sprintctl/commands/remote_schema.py",
+    "sprintctl installed file sprintctl/commands/repo.py",
+    "sprintctl installed file sprintctl/commands/reservation.py",
+    "sprintctl installed file sprintctl/commands/session.py",
+    "sprintctl installed file sprintctl/commands/transfer.py",
+    "sprintctl installed file sprintctl/commands/work.py",
+    "sprintctl installed file sprintctl-0.15.1.dist-info/METADATA",
+    "sprintctl installed file sprintctl-0.15.1.dist-info/WHEEL",
+    "sprintctl installed file sprintctl-0.15.1.dist-info/entry_points.txt",
+    "sprintctl installed file sprintctl-0.15.1.dist-info/top_level.txt",
+    "auditctl installed from local immutable wheel",
+    "auditctl actual wheel hash matches pin",
+    "auditctl installed file auditctl/__init__.py",
+    "auditctl installed file auditctl/central.py",
+    "auditctl installed file auditctl/central_schema.py",
+    "auditctl installed file auditctl/cli.py",
+    "auditctl installed file auditctl/db.py",
+    "auditctl installed file auditctl/ids.py",
+    "auditctl installed file auditctl/ndjson.py",
+    "auditctl installed file auditctl/paths.py",
+    "auditctl installed file auditctl/render.py",
+    "auditctl installed file auditctl/validation.py",
+    "auditctl installed file auditctl/vuoro_adapter.py",
+    "auditctl installed file auditctl/central_migrations/__init__.py",
+    "auditctl installed file auditctl/central_migrations/versions/0001_ingest.sql",
+    "auditctl installed file auditctl/central_migrations/versions/0002_receipts_and_reads.sql",
+    "auditctl installed file auditctl/central_migrations/versions/0003_record_class.sql",
+    "auditctl installed file auditctl-0.1.9.dist-info/METADATA",
+    "auditctl installed file auditctl-0.1.9.dist-info/WHEEL",
+    "auditctl installed file auditctl-0.1.9.dist-info/entry_points.txt",
+    "auditctl installed file auditctl-0.1.9.dist-info/top_level.txt",
+    "vuoro-adapter-kit installed from local immutable wheel",
+    "vuoro-adapter-kit actual wheel hash matches pin",
+    "vuoro-adapter-kit installed file vuoro_adapter_kit/__init__.py",
+    "vuoro-adapter-kit installed file vuoro_adapter_kit/admission.py",
+    "vuoro-adapter-kit installed file vuoro_adapter_kit/catalog.py",
+    "vuoro-adapter-kit installed file vuoro_adapter_kit/catalog_v2.py",
+    "vuoro-adapter-kit installed file vuoro_adapter_kit/adapters/__init__.py",
+    "vuoro-adapter-kit installed file vuoro_adapter_kit/adapters/audit.py",
+    "vuoro-adapter-kit installed file vuoro_adapter_kit/adapters/execution.py",
+    "vuoro-adapter-kit installed file vuoro_adapter_kit/adapters/federation.py",
+    "vuoro-adapter-kit installed file vuoro_adapter_kit/adapters/knowledge.py",
+    "vuoro-adapter-kit installed file vuoro_adapter_kit/adapters/work.py",
+    "vuoro-adapter-kit installed file vuoro_adapter_kit-0.2.0.dist-info/METADATA",
+    "vuoro-adapter-kit installed file vuoro_adapter_kit-0.2.0.dist-info/WHEEL",
+    "vuoro-schema-runtime installed from local immutable wheel",
+    "vuoro-schema-runtime actual wheel hash matches pin",
+    "vuoro-schema-runtime installed file vuoro_schema_runtime/__init__.py",
+    "vuoro-schema-runtime installed file vuoro_schema_runtime/runtime.py",
+    "vuoro-schema-runtime installed file vuoro_schema_runtime-0.1.0.dist-info/METADATA",
+    "vuoro-schema-runtime installed file vuoro_schema_runtime-0.1.0.dist-info/WHEEL",
+    "vuoro-client installed from local immutable wheel",
+    "vuoro-client actual wheel hash matches pin",
+    "vuoro-client installed file vuoro_client/__init__.py",
+    "vuoro-client installed file vuoro_client/cli.py",
+    "vuoro-client installed file vuoro_client/client.py",
+    "vuoro-client installed file vuoro_client/discovery.py",
+    "vuoro-client installed file vuoro_client/errors.py",
+    "vuoro-client installed file vuoro_client/profile.py",
+    "vuoro-client installed file vuoro_client/profile.schema.json",
+    "vuoro-client installed file vuoro_client/recovery.py",
+    "vuoro-client installed file vuoro_client/resources.py",
+    "vuoro-client installed file vuoro_client-0.1.1.dist-info/METADATA",
+    "vuoro-client installed file vuoro_client-0.1.1.dist-info/WHEEL",
+    "vuoro-client installed file vuoro_client-0.1.1.dist-info/entry_points.txt",
+    "nonlocal disposable admin configuration refused before connecting",
+    "wrapper-owned disposable socket and database marker verified",
+    "s4_work_runtime runtime DDL denied",
+    "s4_audit_runtime runtime DDL denied",
+    "seed actual composed catalog78",
+    "fixture identity foreign repo refused",
+    "actual nullable client/grant binding retained",
+    "control actual composed catalog78",
+    "offline actual composed catalog78",
+    "offline service unavailable /health/ready",
+    "offline service unavailable /api/catalog/v1",
+    "online control remains available during offline capture",
+    "offline durable pending reserve",
+    "offline durable pending evidence",
+    "offline durable pending proposal",
+    "offline offline capture has no owner native effects",
+    "offline capture has no admitted proposal",
+    "control durable pending reserve",
+    "control durable pending evidence",
+    "control durable pending proposal",
+    "control offline capture has no owner native effects",
+    "control capture has no admitted proposal",
+    "offline actual composed catalog78",
+    "control native reserve confirmed",
+    "control exact previously observed full Release barrier",
+    "control real trailer harvested and uploaded",
+    "control actual Git commit confirmed by owner",
+    "control evidence confirmed",
+    "control exact original evidence tail barrier",
+    "control bound proposal confirmed",
+    "control admission correlated with original basis and authenticated binding",
+    "control exact confirmed repeat reserve",
+    "control exact confirmed repeat evidence",
+    "control exact confirmed repeat proposal",
+    "control trailer cursor exact repeat adds no capture",
+    "control actual owner native reserve retry replays original admission",
+    "control actual owner native proposal retry exact receipt",
+    "control actual shared legacy/bound key collision refused",
+    "control retained original bytes reserve",
+    "control retained original bytes evidence",
+    "control retained original bytes proposal",
+    "control no fabricated terminal Decision and one trailer observation",
+    "control original single trailer stream and exact cursor",
+    "control one effect per native durable key",
+    "offline native reserve confirmed",
+    "offline exact previously observed full Release barrier",
+    "offline real trailer harvested and uploaded",
+    "offline actual Git commit confirmed by owner",
+    "offline evidence confirmed",
+    "offline exact original evidence tail barrier",
+    "offline bound proposal confirmed",
+    "offline admission correlated with original basis and authenticated binding",
+    "offline exact confirmed repeat reserve",
+    "offline exact confirmed repeat evidence",
+    "offline exact confirmed repeat proposal",
+    "offline trailer cursor exact repeat adds no capture",
+    "offline actual owner native reserve retry replays original admission",
+    "offline actual owner native proposal retry exact receipt",
+    "offline actual shared legacy/bound key collision refused",
+    "offline retained original bytes reserve",
+    "offline retained original bytes evidence",
+    "offline retained original bytes proposal",
+    "offline no fabricated terminal Decision and one trailer observation",
+    "offline original single trailer stream and exact cursor",
+    "offline one effect per native durable key",
+    "online/offline full Release equivalent",
+    "online/offline evidence and counts equivalent",
+    "online/offline original admission exactly equivalent",
+    "online/offline proposal content and current state equivalent",
+    "online/offline current reservation and original snapshot equivalent",
+    "online/offline item and Decision state exactly equivalent",
+    "online/offline trailer cursors and stream position equivalent",
+    "authored request bytes never changed",
+    "lost actual composed catalog78",
+    "lost durable pending reserve",
+    "lost durable pending evidence",
+    "lost durable pending proposal",
+    "lost offline capture has no owner native effects",
+    "lost capture has no admitted proposal",
+    "lost actual composed catalog78",
+    "actual CLI killed after committed work.reservation.reserve-v1",
+    "lost native reserve confirmed",
+    "lost exact previously observed full Release barrier",
+    "actual CLI killed after committed work.batch.apply",
+    "lost real trailer harvested and uploaded",
+    "lost actual Git commit confirmed by owner",
+    "actual CLI killed after committed work.evidence.append-v1",
+    "lost evidence confirmed",
+    "lost exact original evidence tail barrier",
+    "actual CLI killed after committed work.effect.propose-bound-v1",
+    "lost bound proposal confirmed",
+    "lost admission correlated with original basis and authenticated binding",
+    "lost exact confirmed repeat reserve",
+    "lost exact confirmed repeat evidence",
+    "lost exact confirmed repeat proposal",
+    "lost trailer cursor exact repeat adds no capture",
+    "lost actual owner native reserve retry replays original admission",
+    "lost actual owner native proposal retry exact receipt",
+    "lost actual shared legacy/bound key collision refused",
+    "lost retained original bytes reserve",
+    "lost retained original bytes evidence",
+    "lost retained original bytes proposal",
+    "lost no fabricated terminal Decision and one trailer observation",
+    "lost original single trailer stream and exact cursor",
+    "lost one effect per native durable key",
+    "control reserve is initial and lost-response reserve is exact replay",
+    "all four committed-response losses actually exercised",
+    "lost proposal receipt recovered byte-for-byte",
+    "lost native reserve retains committed original snapshot",
+    "lost-response history and online control reach same admission",
+    "lost-response current reservation and snapshot equivalent",
+    "lost-response intent, evidence and item state equivalent",
+    "lost-response Decision state and cursors equivalent",
+    "lost CLI preserves started and separate recovered reserve",
+    "lost CLI preserves started and separate recovered evidence",
+    "lost CLI preserves started and separate recovered proposal",
+    "context-refusal actual composed catalog78",
+    "context-refusal durable pending reserve",
+    "context-refusal durable pending evidence",
+    "context-refusal durable pending proposal",
+    "context-refusal offline capture has no owner native effects",
+    "context-refusal capture has no admitted proposal",
+    "context-refusal actual composed catalog78",
+    "context fault applied by separate fixture editor",
+    "context barrier no proposal attempt",
+    "context barrier no evidence attempt",
+    "changed Release includes actual injected doc reference",
+    "context changed Release despite same full revision",
+    "context barrier halts all dependent owner effects",
+    "context dependent request retained pending evidence",
+    "context dependent request retained pending proposal",
+    "refusal original bytes retained reserve",
+    "refusal original bytes retained evidence",
+    "refusal original bytes retained proposal",
+    "description-refusal actual composed catalog78",
+    "description-refusal durable pending reserve",
+    "description-refusal durable pending evidence",
+    "description-refusal durable pending proposal",
+    "description-refusal offline capture has no owner native effects",
+    "description-refusal capture has no admitted proposal",
+    "description-refusal actual composed catalog78",
+    "description-refusal native reserve confirmed",
+    "description-refusal exact previously observed full Release barrier",
+    "description-refusal real trailer harvested and uploaded",
+    "description-refusal actual Git commit confirmed by owner",
+    "description-refusal evidence confirmed",
+    "description-refusal exact original evidence tail barrier",
+    "description fault applied and revision changed",
+    "description-refusal proposal remains pending",
+    "description-refusal exact causal refusal code",
+    "description-refusal proposal remains pending",
+    "description-refusal exact causal refusal code",
+    "description-refusal full owner state unchanged by both refusals",
+    "description-refusal two durable exact HTTP409 refusal receipts",
+    "description-refusal no proposal effects on refusal",
+    "refusal original bytes retained reserve",
+    "refusal original bytes retained evidence",
+    "refusal original bytes retained proposal",
+    "description-refusal original Release remains recorded",
+    "description-refusal earlier reservation receipt unchanged",
+    "evidence-head-refusal actual composed catalog78",
+    "evidence-head-refusal durable pending reserve",
+    "evidence-head-refusal durable pending evidence",
+    "evidence-head-refusal durable pending proposal",
+    "evidence-head-refusal offline capture has no owner native effects",
+    "evidence-head-refusal capture has no admitted proposal",
+    "evidence-head-refusal actual composed catalog78",
+    "evidence-head-refusal native reserve confirmed",
+    "evidence-head-refusal exact previously observed full Release barrier",
+    "evidence-head-refusal real trailer harvested and uploaded",
+    "evidence-head-refusal actual Git commit confirmed by owner",
+    "evidence-head-refusal evidence confirmed",
+    "evidence-head-refusal exact original evidence tail barrier",
+    "competing evidence actually became exact next head",
+    "competing append response equals complete stored tail",
+    "evidence-head-refusal proposal remains pending",
+    "evidence-head-refusal exact causal refusal code",
+    "evidence-head-refusal proposal remains pending",
+    "evidence-head-refusal exact causal refusal code",
+    "evidence-head-refusal full owner state unchanged by both refusals",
+    "evidence-head-refusal two durable exact HTTP409 refusal receipts",
+    "evidence-head-refusal no proposal effects on refusal",
+    "refusal original bytes retained reserve",
+    "refusal original bytes retained evidence",
+    "refusal original bytes retained proposal",
+    "evidence-head-refusal original Release remains recorded",
+    "evidence-head-refusal earlier reservation receipt unchanged"
+  ],
+  "harness_sha256": {
+    "s4-offline-causal-proof.py": "5bcf6493c67bca09a416cf30558ebfbab0bfe739a96e8ab33ad372d0d2494a76",
+    "s4-offline-causal-pg.sh": "439b291ff03abd023fec60db64ed7505db508c296adcf20b9fe024660ef4c6e2",
+    "artifact-pins.json": "0a72656b2d9b42b266880878773255448cd231ecfe954882e5ac1b2235253004"
+  },
+  "versions": {
+    "vuoro-service": "0.1.89",
+    "sprintctl": "0.15.1",
+    "auditctl": "0.1.9",
+    "vuoro-adapter-kit": "0.2.0",
+    "vuoro-schema-runtime": "0.1.0",
+    "vuoro-client": "0.1.1"
+  },
+  "artifact_pins": {
+    "schema_version": "s4-proof-artifact-pins/v1",
+    "image": "ghcr.io/bayleafwalker/vuoro-service@sha256:ba0e47ad7fdf1fb9ebcd52b05428ca8889381abb3d6dd42c0869742f4bb42c96",
+    "catalog_revision": "ea95ae6f785c3af7dadf68743ffa4a4ff493ad7a8971015532dcb63060e0f60f",
+    "catalog_operations": 78,
+    "wheels": {
+      "vuoro-service": {
+        "version": "0.1.89",
+        "wheel": "vuoro_service-0.1.89-py3-none-any.whl",
+        "sha256": "6032a48e859db27417c10cc61db7ce37d5f32c759b84474df050f7f3cd1a86d8"
+      },
+      "sprintctl": {
+        "version": "0.15.1",
+        "wheel": "sprintctl-0.15.1-py3-none-any.whl",
+        "sha256": "519da8901d72f674f5789b0aad6392718bbc791c61cd77e6f53d78625e7928f7"
+      },
+      "auditctl": {
+        "version": "0.1.9",
+        "wheel": "auditctl-0.1.9-py3-none-any.whl",
+        "sha256": "7efb9992bc23e1d2bd747dcb8204ff9452487e3bd6d1b43206ba4976f5a9c5cf"
+      },
+      "vuoro-adapter-kit": {
+        "version": "0.2.0",
+        "wheel": "vuoro_adapter_kit-0.2.0-py3-none-any.whl",
+        "sha256": "4bdf13bd09c8ea0c889f5cfb479327885163413a64ed690a9ba1b8d82dfaa163"
+      },
+      "vuoro-schema-runtime": {
+        "version": "0.1.0",
+        "wheel": "vuoro_schema_runtime-0.1.0-py3-none-any.whl",
+        "sha256": "b66c9357c99aa9e1a7353991ce54105a8621958ecfac47f8c121d80b90b77912"
+      },
+      "vuoro-client": {
+        "version": "0.1.1",
+        "wheel": "vuoro_client-0.1.1-py3-none-any.whl",
+        "sha256": "b5fb6bad174abd00d67504398690bcfb8c3cc3be891e5465983827e5a1740f6d"
+      }
+    }
+  },
+  "original_request_sha256": {
+    "binding": "aa54119af0a0ac6330d9b14d1872a09d8692739efc5dce2af302b81599421326",
+    "reserve": "a7ed51206f39c8c06470ebab0622a47186a07598786720934bdeb12e50caabda",
+    "evidence": "b7bf426b6581564ac7d43115cd492857bfe660df93da6c44c698189b2335efeb",
+    "proposal": "105ca745c41f56d67ff1ddc0519527ab2a084dc15c41e1c22c6606f766d475a1"
+  },
+  "causal_basis": {
+    "expected_revision": "item:91c7e13f-cf66-4ae8-8cdd-675dddcaecdf@description:v0@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855@revise:0",
+    "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+    "reserve_idempotency_key": "s4-proof-offline-reserve",
+    "commit_sha": "323152741db0888b37fbde1dac544245d6986db8",
+    "evidence_tail": {
+      "item_id": "s4-offline-harmless-proof",
+      "chain_seq": 0,
+      "entry_digest": "sha256:fd08f6cf59bc9efb89d109d0d0f582c2ce41341782a4fd9c7370f69b0cea1637"
+    }
+  },
+  "binding": {
+    "repo_id": "s4-fixture",
+    "run_id": "run_8XFMNSJJDWBRBYPKBNGW0AB7VC",
+    "principal_id": "fixture:s4-fixture:0",
+    "workspace_id": "s4-disposable",
+    "client_id": null,
+    "grant_id": null
+  },
+  "original_release": {
+    "repo_id": "s4-fixture",
+    "id": 1,
+    "work_item_id": 1,
+    "item_revision": "item:91c7e13f-cf66-4ae8-8cdd-675dddcaecdf@description:v0@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855@revise:0",
+    "revise_count": 0,
+    "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+    "acceptance_contract": {
+      "review_required": true
+    },
+    "context_refs": [],
+    "created_at": "2026-10-09T16:51:28.849742Z",
+    "actor": "s4-fixture"
+  },
+  "base_commit": "bdf831830cf90136399f4130ee579c2a4bdaf8cc",
+  "commit": "323152741db0888b37fbde1dac544245d6986db8",
+  "results": {
+    "control": {
+      "release": {
+        "repo_id": "s4-fixture",
+        "id": 1,
+        "work_item_id": 1,
+        "item_revision": "item:91c7e13f-cf66-4ae8-8cdd-675dddcaecdf@description:v0@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855@revise:0",
+        "revise_count": 0,
+        "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+        "acceptance_contract": {
+          "review_required": true
+        },
+        "context_refs": [],
+        "created_at": "2026-10-09T16:51:28.849742Z",
+        "actor": "s4-fixture"
+      },
+      "tail": {
+        "item_id": "s4-offline-harmless-proof",
+        "kind": "test",
+        "ref": "local:harmless.txt",
+        "digest": "sha256:7b9a72466d3960eb2aacccfc848939453490db0678bd4725def3f789b891c919",
+        "collector": "s4-fixture",
+        "validity": {
+          "basis": "indefinite",
+          "valid_from": "2026-10-09T00:00:00Z",
+          "valid_until": null,
+          "component_digests": {}
+        },
+        "claims": [],
+        "provenance": {},
+        "chain_seq": 0,
+        "chain_prev_digest": null
+      },
+      "proposal": {
+        "admission": {
+          "causal_basis": {
+            "commit_sha": "323152741db0888b37fbde1dac544245d6986db8",
+            "evidence_tail": {
+              "chain_seq": 0,
+              "entry_digest": "sha256:fd08f6cf59bc9efb89d109d0d0f582c2ce41341782a4fd9c7370f69b0cea1637",
+              "item_id": "s4-offline-harmless-proof"
+            },
+            "expected_revision": "item:91c7e13f-cf66-4ae8-8cdd-675dddcaecdf@description:v0@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855@revise:0",
+            "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+            "reserve_idempotency_key": "s4-proof-offline-reserve"
+          },
+          "reservation_id": 2,
+          "run_binding": {
+            "client_id": null,
+            "grant_id": null,
+            "principal_id": "fixture:s4-fixture:0",
+            "repo_id": "s4-fixture",
+            "run_id": "run_8XFMNSJJDWBRBYPKBNGW0AB7VC",
+            "workspace_id": "s4-disposable"
+          },
+          "schema_version": "sprintctl-bound-proposal-admission/v1"
+        },
+        "intent": {
+          "acceptance": null,
+          "application": null,
+          "base_commit": "bdf831830cf90136399f4130ee579c2a4bdaf8cc",
+          "canonical_intent_digest": "9d54b45a911bb1f6ace885f881792d871d6d476dc9bba82c308a9788dafd28df",
+          "created_at": "2026-10-09T16:51:42.021533Z",
+          "intent_id": "intent_WJ9W81YZQC6WHN4PVMWSMB6G53",
+          "item_id": 1,
+          "proposer_principal": "fixture:s4-fixture:0",
+          "rationale": "Exercise offline causal confirmation",
+          "rejection": null,
+          "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+          "repository": "https://github.com/example/s4-fixture",
+          "revision": 1,
+          "run_id": "run_8XFMNSJJDWBRBYPKBNGW0AB7VC",
+          "state": "proposed",
+          "title": "Harmless fixture change",
+          "unified_diff": "diff --git a/harmless.txt b/harmless.txt\nindex 90be1f3..294186e 100644\n--- a/harmless.txt\n+++ b/harmless.txt\n@@ -1 +1 @@\n-before\n+after\n"
+        },
+        "repo_id": "s4-fixture"
+      },
+      "reservation": {
+        "activity_age_seconds": 0,
+        "actor": "s4-fixture",
+        "admission_snapshot": {
+          "activity_age_seconds": 0,
+          "actor": "s4-fixture",
+          "conflict": false,
+          "conflict_severity": "none",
+          "conflicting_reservations": [],
+          "correlation_ref": null,
+          "created_at": "2026-10-09T16:51:41Z",
+          "id": 2,
+          "interruption_reason": null,
+          "last_activity_at": "2026-10-09T16:51:41Z",
+          "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+          "released_at": null,
+          "repo_id": "s4-fixture",
+          "role": "execution",
+          "session_id": "offline-proof",
+          "stale": false,
+          "state": "active",
+          "work_item_id": 1
+        },
+        "conflict": false,
+        "conflict_severity": "none",
+        "conflicting_reservations": [],
+        "correlation_ref": null,
+        "created_at": "2026-10-09T16:51:41Z",
+        "id": 2,
+        "interruption_reason": null,
+        "last_activity_at": "2026-10-09T16:51:41Z",
+        "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+        "released_at": null,
+        "replayed": false,
+        "repo_id": "s4-fixture",
+        "role": "execution",
+        "session_id": "offline-proof",
+        "stale": false,
+        "state": "active",
+        "work_item_id": 1
+      },
+      "counts": {
+        "reservations": 2,
+        "intents": 1,
+        "evidence": 1,
+        "commits": 1,
+        "reserve_keys": 2,
+        "proposal_keys": 1
+      },
+      "commits": [
+        {
+          "repo_id": "s4-fixture",
+          "id": 1,
+          "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+          "commit_sha": "323152741db0888b37fbde1dac544245d6986db8",
+          "remote_hint": "https://github.com/example/s4-fixture.git",
+          "ref": "refs/heads/main",
+          "observed_at": "2026-10-09T16:51:41.512866Z"
+        }
+      ],
+      "item_state": {
+        "id": 1,
+        "title": "Correct harmless fixture text",
+        "legacy": false,
+        "status": "pending",
+        "repo_id": "s4-fixture",
+        "assignee": null,
+        "priority": null,
+        "track_id": 1,
+        "sprint_id": 1,
+        "created_at": "2026-10-09T19:51:27.387815+03:00",
+        "resolution": null,
+        "updated_at": "2026-10-09T19:51:27.387815+03:00",
+        "description": "",
+        "aggregate_uuid": "91c7e13f-cf66-4ae8-8cdd-675dddcaecdf",
+        "terminal_decision_id": null
+      },
+      "decisions": 0,
+      "trailer_cursor": [
+        [
+          "refs/heads/main",
+          "323152741db0888b37fbde1dac544245d6986db8"
+        ]
+      ],
+      "stream_position": 2
+    },
+    "offline": {
+      "release": {
+        "repo_id": "s4-fixture",
+        "id": 1,
+        "work_item_id": 1,
+        "item_revision": "item:91c7e13f-cf66-4ae8-8cdd-675dddcaecdf@description:v0@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855@revise:0",
+        "revise_count": 0,
+        "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+        "acceptance_contract": {
+          "review_required": true
+        },
+        "context_refs": [],
+        "created_at": "2026-10-09T16:51:28.849742Z",
+        "actor": "s4-fixture"
+      },
+      "tail": {
+        "item_id": "s4-offline-harmless-proof",
+        "kind": "test",
+        "ref": "local:harmless.txt",
+        "digest": "sha256:7b9a72466d3960eb2aacccfc848939453490db0678bd4725def3f789b891c919",
+        "collector": "s4-fixture",
+        "validity": {
+          "basis": "indefinite",
+          "valid_from": "2026-10-09T00:00:00Z",
+          "valid_until": null,
+          "component_digests": {}
+        },
+        "claims": [],
+        "provenance": {},
+        "chain_seq": 0,
+        "chain_prev_digest": null
+      },
+      "proposal": {
+        "admission": {
+          "causal_basis": {
+            "commit_sha": "323152741db0888b37fbde1dac544245d6986db8",
+            "evidence_tail": {
+              "chain_seq": 0,
+              "entry_digest": "sha256:fd08f6cf59bc9efb89d109d0d0f582c2ce41341782a4fd9c7370f69b0cea1637",
+              "item_id": "s4-offline-harmless-proof"
+            },
+            "expected_revision": "item:91c7e13f-cf66-4ae8-8cdd-675dddcaecdf@description:v0@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855@revise:0",
+            "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+            "reserve_idempotency_key": "s4-proof-offline-reserve"
+          },
+          "reservation_id": 2,
+          "run_binding": {
+            "client_id": null,
+            "grant_id": null,
+            "principal_id": "fixture:s4-fixture:0",
+            "repo_id": "s4-fixture",
+            "run_id": "run_8XFMNSJJDWBRBYPKBNGW0AB7VC",
+            "workspace_id": "s4-disposable"
+          },
+          "schema_version": "sprintctl-bound-proposal-admission/v1"
+        },
+        "intent": {
+          "acceptance": null,
+          "application": null,
+          "base_commit": "bdf831830cf90136399f4130ee579c2a4bdaf8cc",
+          "canonical_intent_digest": "9d54b45a911bb1f6ace885f881792d871d6d476dc9bba82c308a9788dafd28df",
+          "created_at": "2026-10-09T16:51:43.878965Z",
+          "intent_id": "intent_PW47QJS5BQQ5PRK0KAHGAK5S85",
+          "item_id": 1,
+          "proposer_principal": "fixture:s4-fixture:0",
+          "rationale": "Exercise offline causal confirmation",
+          "rejection": null,
+          "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+          "repository": "https://github.com/example/s4-fixture",
+          "revision": 1,
+          "run_id": "run_8XFMNSJJDWBRBYPKBNGW0AB7VC",
+          "state": "proposed",
+          "title": "Harmless fixture change",
+          "unified_diff": "diff --git a/harmless.txt b/harmless.txt\nindex 90be1f3..294186e 100644\n--- a/harmless.txt\n+++ b/harmless.txt\n@@ -1 +1 @@\n-before\n+after\n"
+        },
+        "repo_id": "s4-fixture"
+      },
+      "reservation": {
+        "activity_age_seconds": 0,
+        "actor": "s4-fixture",
+        "admission_snapshot": {
+          "activity_age_seconds": 0,
+          "actor": "s4-fixture",
+          "conflict": false,
+          "conflict_severity": "none",
+          "conflicting_reservations": [],
+          "correlation_ref": null,
+          "created_at": "2026-10-09T16:51:43Z",
+          "id": 2,
+          "interruption_reason": null,
+          "last_activity_at": "2026-10-09T16:51:43Z",
+          "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+          "released_at": null,
+          "repo_id": "s4-fixture",
+          "role": "execution",
+          "session_id": "offline-proof",
+          "stale": false,
+          "state": "active",
+          "work_item_id": 1
+        },
+        "conflict": false,
+        "conflict_severity": "none",
+        "conflicting_reservations": [],
+        "correlation_ref": null,
+        "created_at": "2026-10-09T16:51:43Z",
+        "id": 2,
+        "interruption_reason": null,
+        "last_activity_at": "2026-10-09T16:51:43Z",
+        "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+        "released_at": null,
+        "replayed": false,
+        "repo_id": "s4-fixture",
+        "role": "execution",
+        "session_id": "offline-proof",
+        "stale": false,
+        "state": "active",
+        "work_item_id": 1
+      },
+      "counts": {
+        "reservations": 2,
+        "intents": 1,
+        "evidence": 1,
+        "commits": 1,
+        "reserve_keys": 2,
+        "proposal_keys": 1
+      },
+      "commits": [
+        {
+          "repo_id": "s4-fixture",
+          "id": 1,
+          "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+          "commit_sha": "323152741db0888b37fbde1dac544245d6986db8",
+          "remote_hint": "https://github.com/example/s4-fixture.git",
+          "ref": "refs/heads/main",
+          "observed_at": "2026-10-09T16:51:43.374058Z"
+        }
+      ],
+      "item_state": {
+        "id": 1,
+        "title": "Correct harmless fixture text",
+        "legacy": false,
+        "status": "pending",
+        "repo_id": "s4-fixture",
+        "assignee": null,
+        "priority": null,
+        "track_id": 1,
+        "sprint_id": 1,
+        "created_at": "2026-10-09T19:51:27.387815+03:00",
+        "resolution": null,
+        "updated_at": "2026-10-09T19:51:27.387815+03:00",
+        "description": "",
+        "aggregate_uuid": "91c7e13f-cf66-4ae8-8cdd-675dddcaecdf",
+        "terminal_decision_id": null
+      },
+      "decisions": 0,
+      "trailer_cursor": [
+        [
+          "refs/heads/main",
+          "323152741db0888b37fbde1dac544245d6986db8"
+        ]
+      ],
+      "stream_position": 2
+    },
+    "lost_reply": {
+      "release": {
+        "repo_id": "s4-fixture",
+        "id": 1,
+        "work_item_id": 1,
+        "item_revision": "item:91c7e13f-cf66-4ae8-8cdd-675dddcaecdf@description:v0@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855@revise:0",
+        "revise_count": 0,
+        "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+        "acceptance_contract": {
+          "review_required": true
+        },
+        "context_refs": [],
+        "created_at": "2026-10-09T16:51:28.849742Z",
+        "actor": "s4-fixture"
+      },
+      "tail": {
+        "item_id": "s4-offline-harmless-proof",
+        "kind": "test",
+        "ref": "local:harmless.txt",
+        "digest": "sha256:7b9a72466d3960eb2aacccfc848939453490db0678bd4725def3f789b891c919",
+        "collector": "s4-fixture",
+        "validity": {
+          "basis": "indefinite",
+          "valid_from": "2026-10-09T00:00:00Z",
+          "valid_until": null,
+          "component_digests": {}
+        },
+        "claims": [],
+        "provenance": {},
+        "chain_seq": 0,
+        "chain_prev_digest": null
+      },
+      "proposal": {
+        "admission": {
+          "causal_basis": {
+            "commit_sha": "323152741db0888b37fbde1dac544245d6986db8",
+            "evidence_tail": {
+              "chain_seq": 0,
+              "entry_digest": "sha256:fd08f6cf59bc9efb89d109d0d0f582c2ce41341782a4fd9c7370f69b0cea1637",
+              "item_id": "s4-offline-harmless-proof"
+            },
+            "expected_revision": "item:91c7e13f-cf66-4ae8-8cdd-675dddcaecdf@description:v0@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855@revise:0",
+            "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+            "reserve_idempotency_key": "s4-proof-offline-reserve"
+          },
+          "reservation_id": 2,
+          "run_binding": {
+            "client_id": null,
+            "grant_id": null,
+            "principal_id": "fixture:s4-fixture:0",
+            "repo_id": "s4-fixture",
+            "run_id": "run_8XFMNSJJDWBRBYPKBNGW0AB7VC",
+            "workspace_id": "s4-disposable"
+          },
+          "schema_version": "sprintctl-bound-proposal-admission/v1"
+        },
+        "intent": {
+          "acceptance": null,
+          "application": null,
+          "base_commit": "bdf831830cf90136399f4130ee579c2a4bdaf8cc",
+          "canonical_intent_digest": "9d54b45a911bb1f6ace885f881792d871d6d476dc9bba82c308a9788dafd28df",
+          "created_at": "2026-10-09T16:51:53.042715Z",
+          "intent_id": "intent_Q1HRRYDFSNFK8N9Y3AN426DK33",
+          "item_id": 1,
+          "proposer_principal": "fixture:s4-fixture:0",
+          "rationale": "Exercise offline causal confirmation",
+          "rejection": null,
+          "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+          "repository": "https://github.com/example/s4-fixture",
+          "revision": 1,
+          "run_id": "run_8XFMNSJJDWBRBYPKBNGW0AB7VC",
+          "state": "proposed",
+          "title": "Harmless fixture change",
+          "unified_diff": "diff --git a/harmless.txt b/harmless.txt\nindex 90be1f3..294186e 100644\n--- a/harmless.txt\n+++ b/harmless.txt\n@@ -1 +1 @@\n-before\n+after\n"
+        },
+        "repo_id": "s4-fixture"
+      },
+      "reservation": {
+        "activity_age_seconds": 0,
+        "actor": "s4-fixture",
+        "admission_snapshot": {
+          "activity_age_seconds": 0,
+          "actor": "s4-fixture",
+          "conflict": false,
+          "conflict_severity": "none",
+          "conflicting_reservations": [],
+          "correlation_ref": null,
+          "created_at": "2026-10-09T16:51:51Z",
+          "id": 2,
+          "interruption_reason": null,
+          "last_activity_at": "2026-10-09T16:51:51Z",
+          "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+          "released_at": null,
+          "repo_id": "s4-fixture",
+          "role": "execution",
+          "session_id": "offline-proof",
+          "stale": false,
+          "state": "active",
+          "work_item_id": 1
+        },
+        "conflict": false,
+        "conflict_severity": "none",
+        "conflicting_reservations": [],
+        "correlation_ref": null,
+        "created_at": "2026-10-09T16:51:51Z",
+        "id": 2,
+        "interruption_reason": null,
+        "last_activity_at": "2026-10-09T16:51:51Z",
+        "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+        "released_at": null,
+        "replayed": true,
+        "repo_id": "s4-fixture",
+        "role": "execution",
+        "session_id": "offline-proof",
+        "stale": false,
+        "state": "active",
+        "work_item_id": 1
+      },
+      "counts": {
+        "reservations": 2,
+        "intents": 1,
+        "evidence": 1,
+        "commits": 1,
+        "reserve_keys": 2,
+        "proposal_keys": 1
+      },
+      "commits": [
+        {
+          "repo_id": "s4-fixture",
+          "id": 1,
+          "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+          "commit_sha": "323152741db0888b37fbde1dac544245d6986db8",
+          "remote_hint": "https://github.com/example/s4-fixture.git",
+          "ref": "refs/heads/main",
+          "observed_at": "2026-10-09T16:51:52.025906Z"
+        }
+      ],
+      "item_state": {
+        "id": 1,
+        "title": "Correct harmless fixture text",
+        "legacy": false,
+        "status": "pending",
+        "repo_id": "s4-fixture",
+        "assignee": null,
+        "priority": null,
+        "track_id": 1,
+        "sprint_id": 1,
+        "created_at": "2026-10-09T19:51:27.387815+03:00",
+        "resolution": null,
+        "updated_at": "2026-10-09T19:51:27.387815+03:00",
+        "description": "",
+        "aggregate_uuid": "91c7e13f-cf66-4ae8-8cdd-675dddcaecdf",
+        "terminal_decision_id": null
+      },
+      "decisions": 0,
+      "trailer_cursor": [
+        [
+          "refs/heads/main",
+          "323152741db0888b37fbde1dac544245d6986db8"
+        ]
+      ],
+      "stream_position": 2
+    },
+    "context_refusal": {
+      "reservation": {
+        "activity_age_seconds": 0,
+        "actor": "s4-fixture",
+        "admission_snapshot": {
+          "activity_age_seconds": 0,
+          "actor": "s4-fixture",
+          "conflict": false,
+          "conflict_severity": "none",
+          "conflicting_reservations": [],
+          "correlation_ref": null,
+          "created_at": "2026-10-09T16:52:00Z",
+          "id": 2,
+          "interruption_reason": null,
+          "last_activity_at": "2026-10-09T16:52:00Z",
+          "release_digest": "496318bd60ea31833fe4a16b377834fde5442d3b8c7418a005e2eaa72d2002bf",
+          "released_at": null,
+          "repo_id": "s4-fixture",
+          "role": "execution",
+          "session_id": "offline-proof",
+          "stale": false,
+          "state": "active",
+          "work_item_id": 1
+        },
+        "conflict": false,
+        "conflict_severity": "none",
+        "conflicting_reservations": [],
+        "correlation_ref": null,
+        "created_at": "2026-10-09T16:52:00Z",
+        "id": 2,
+        "interruption_reason": null,
+        "last_activity_at": "2026-10-09T16:52:00Z",
+        "release_digest": "496318bd60ea31833fe4a16b377834fde5442d3b8c7418a005e2eaa72d2002bf",
+        "released_at": null,
+        "replayed": false,
+        "repo_id": "s4-fixture",
+        "role": "execution",
+        "session_id": "offline-proof",
+        "stale": false,
+        "state": "active",
+        "work_item_id": 1
+      },
+      "changed_release": {
+        "repo_id": "s4-fixture",
+        "id": 2,
+        "work_item_id": 1,
+        "item_revision": "item:91c7e13f-cf66-4ae8-8cdd-675dddcaecdf@description:v0@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855@revise:0",
+        "revise_count": 0,
+        "release_digest": "496318bd60ea31833fe4a16b377834fde5442d3b8c7418a005e2eaa72d2002bf",
+        "acceptance_contract": {
+          "review_required": true
+        },
+        "context_refs": [
+          {
+            "url": "https://example.invalid/changed-context",
+            "label": "Independent context change",
+            "ref_type": "doc"
+          }
+        ],
+        "created_at": "2026-10-09T16:52:00.834388Z",
+        "actor": "s4-fixture"
+      },
+      "fault_receipt": {
+        "repo_id": "s4-fixture",
+        "item_id": 1,
+        "ref_id": 1
+      },
+      "barrier": "explicit orchestrator full Release comparison; no dependent sync invoked"
+    },
+    "description-refusal": {
+      "reports": [
+        {
+          "confirmed_proposal_request_ids": [],
+          "proposal_attempts": [
+            {
+              "request_id": "6770e748-4b22-499f-9647-b70b0287d76c",
+              "phase": "rejected",
+              "operation": "work.effect.propose-bound-v1",
+              "code": "effect-causal-stale-revision"
+            }
+          ],
+          "pending_proposal_request_ids": [
+            "6770e748-4b22-499f-9647-b70b0287d76c"
+          ]
+        },
+        {
+          "confirmed_proposal_request_ids": [],
+          "proposal_attempts": [
+            {
+              "request_id": "6770e748-4b22-499f-9647-b70b0287d76c",
+              "phase": "rejected",
+              "operation": "work.effect.propose-bound-v1",
+              "code": "effect-causal-stale-revision"
+            }
+          ],
+          "pending_proposal_request_ids": [
+            "6770e748-4b22-499f-9647-b70b0287d76c"
+          ]
+        }
+      ],
+      "before": {
+        "intents": 0,
+        "proposal_keys": 0,
+        "evidence": 1,
+        "commits": 1
+      },
+      "after": {
+        "intents": 0,
+        "proposal_keys": 0,
+        "evidence": 1,
+        "commits": 1
+      },
+      "before_state": {
+        "reservation": [
+          {
+            "id": 1,
+            "role": "execution",
+            "actor": "s4-fixture",
+            "state": "released",
+            "repo_id": "s4-fixture",
+            "created_at": "2026-10-09T19:51:28+03:00",
+            "session_id": "preparation",
+            "released_at": "2026-10-09T19:51:28+03:00",
+            "work_item_id": 1,
+            "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+            "correlation_ref": null,
+            "last_activity_at": "2026-10-09T19:51:28+03:00",
+            "interruption_reason": null
+          },
+          {
+            "id": 2,
+            "role": "execution",
+            "actor": "s4-fixture",
+            "state": "active",
+            "repo_id": "s4-fixture",
+            "created_at": "2026-10-09T19:52:07+03:00",
+            "session_id": "offline-proof",
+            "released_at": null,
+            "work_item_id": 1,
+            "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+            "correlation_ref": null,
+            "last_activity_at": "2026-10-09T19:52:07+03:00",
+            "interruption_reason": null
+          }
+        ],
+        "evidence_item": [
+          {
+            "ref": "local:harmless.txt",
+            "kind": "test",
+            "claims": [],
+            "digest": "sha256:7b9a72466d3960eb2aacccfc848939453490db0678bd4725def3f789b891c919",
+            "run_id": "run_8XFMNSJJDWBRBYPKBNGW0AB7VC",
+            "item_id": "s4-offline-harmless-proof",
+            "repo_id": "s4-fixture",
+            "validity": {
+              "basis": "indefinite",
+              "valid_from": "2026-10-09T00:00:00Z",
+              "valid_until": null,
+              "component_digests": {}
+            },
+            "chain_seq": 0,
+            "collector": "s4-fixture",
+            "created_at": "2026-10-09T19:52:08.444318+03:00",
+            "provenance": {},
+            "request_digest": "1a232359dfbbe960af5c11e34bbb1f422f23a143f114c83ccd5229ab441a38d1",
+            "idempotency_key": "evidence-1",
+            "chain_prev_digest": null
+          }
+        ],
+        "work_item": [
+          {
+            "id": 1,
+            "title": "Correct harmless fixture text",
+            "legacy": false,
+            "status": "pending",
+            "repo_id": "s4-fixture",
+            "assignee": null,
+            "priority": null,
+            "track_id": 1,
+            "sprint_id": 1,
+            "created_at": "2026-10-09T19:51:27.387815+03:00",
+            "resolution": null,
+            "updated_at": "2026-10-09T19:52:08.478378+03:00",
+            "description": "Changed after original prerequisites confirmed",
+            "aggregate_uuid": "91c7e13f-cf66-4ae8-8cdd-675dddcaecdf",
+            "terminal_decision_id": null
+          }
+        ],
+        "work_decision": [],
+        "tail": {
+          "item_id": "s4-offline-harmless-proof",
+          "kind": "test",
+          "ref": "local:harmless.txt",
+          "digest": "sha256:7b9a72466d3960eb2aacccfc848939453490db0678bd4725def3f789b891c919",
+          "collector": "s4-fixture",
+          "validity": {
+            "basis": "indefinite",
+            "valid_from": "2026-10-09T00:00:00Z",
+            "valid_until": null,
+            "component_digests": {}
+          },
+          "claims": [],
+          "provenance": {},
+          "chain_seq": 0,
+          "chain_prev_digest": null
+        }
+      },
+      "after_state": {
+        "reservation": [
+          {
+            "id": 1,
+            "role": "execution",
+            "actor": "s4-fixture",
+            "state": "released",
+            "repo_id": "s4-fixture",
+            "created_at": "2026-10-09T19:51:28+03:00",
+            "session_id": "preparation",
+            "released_at": "2026-10-09T19:51:28+03:00",
+            "work_item_id": 1,
+            "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+            "correlation_ref": null,
+            "last_activity_at": "2026-10-09T19:51:28+03:00",
+            "interruption_reason": null
+          },
+          {
+            "id": 2,
+            "role": "execution",
+            "actor": "s4-fixture",
+            "state": "active",
+            "repo_id": "s4-fixture",
+            "created_at": "2026-10-09T19:52:07+03:00",
+            "session_id": "offline-proof",
+            "released_at": null,
+            "work_item_id": 1,
+            "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+            "correlation_ref": null,
+            "last_activity_at": "2026-10-09T19:52:07+03:00",
+            "interruption_reason": null
+          }
+        ],
+        "evidence_item": [
+          {
+            "ref": "local:harmless.txt",
+            "kind": "test",
+            "claims": [],
+            "digest": "sha256:7b9a72466d3960eb2aacccfc848939453490db0678bd4725def3f789b891c919",
+            "run_id": "run_8XFMNSJJDWBRBYPKBNGW0AB7VC",
+            "item_id": "s4-offline-harmless-proof",
+            "repo_id": "s4-fixture",
+            "validity": {
+              "basis": "indefinite",
+              "valid_from": "2026-10-09T00:00:00Z",
+              "valid_until": null,
+              "component_digests": {}
+            },
+            "chain_seq": 0,
+            "collector": "s4-fixture",
+            "created_at": "2026-10-09T19:52:08.444318+03:00",
+            "provenance": {},
+            "request_digest": "1a232359dfbbe960af5c11e34bbb1f422f23a143f114c83ccd5229ab441a38d1",
+            "idempotency_key": "evidence-1",
+            "chain_prev_digest": null
+          }
+        ],
+        "work_item": [
+          {
+            "id": 1,
+            "title": "Correct harmless fixture text",
+            "legacy": false,
+            "status": "pending",
+            "repo_id": "s4-fixture",
+            "assignee": null,
+            "priority": null,
+            "track_id": 1,
+            "sprint_id": 1,
+            "created_at": "2026-10-09T19:51:27.387815+03:00",
+            "resolution": null,
+            "updated_at": "2026-10-09T19:52:08.478378+03:00",
+            "description": "Changed after original prerequisites confirmed",
+            "aggregate_uuid": "91c7e13f-cf66-4ae8-8cdd-675dddcaecdf",
+            "terminal_decision_id": null
+          }
+        ],
+        "work_decision": [],
+        "tail": {
+          "item_id": "s4-offline-harmless-proof",
+          "kind": "test",
+          "ref": "local:harmless.txt",
+          "digest": "sha256:7b9a72466d3960eb2aacccfc848939453490db0678bd4725def3f789b891c919",
+          "collector": "s4-fixture",
+          "validity": {
+            "basis": "indefinite",
+            "valid_from": "2026-10-09T00:00:00Z",
+            "valid_until": null,
+            "component_digests": {}
+          },
+          "claims": [],
+          "provenance": {},
+          "chain_seq": 0,
+          "chain_prev_digest": null
+        }
+      },
+      "rejected_attempts": [
+        [
+          "work.effect.propose-bound-v1",
+          "effect-causal-stale-revision",
+          409
+        ],
+        [
+          "work.effect.propose-bound-v1",
+          "effect-causal-stale-revision",
+          409
+        ]
+      ],
+      "reservation": {
+        "activity_age_seconds": 0,
+        "actor": "s4-fixture",
+        "admission_snapshot": {
+          "activity_age_seconds": 0,
+          "actor": "s4-fixture",
+          "conflict": false,
+          "conflict_severity": "none",
+          "conflicting_reservations": [],
+          "correlation_ref": null,
+          "created_at": "2026-10-09T16:52:07Z",
+          "id": 2,
+          "interruption_reason": null,
+          "last_activity_at": "2026-10-09T16:52:07Z",
+          "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+          "released_at": null,
+          "repo_id": "s4-fixture",
+          "role": "execution",
+          "session_id": "offline-proof",
+          "stale": false,
+          "state": "active",
+          "work_item_id": 1
+        },
+        "conflict": false,
+        "conflict_severity": "none",
+        "conflicting_reservations": [],
+        "correlation_ref": null,
+        "created_at": "2026-10-09T16:52:07Z",
+        "id": 2,
+        "interruption_reason": null,
+        "last_activity_at": "2026-10-09T16:52:07Z",
+        "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+        "released_at": null,
+        "replayed": false,
+        "repo_id": "s4-fixture",
+        "role": "execution",
+        "session_id": "offline-proof",
+        "stale": false,
+        "state": "active",
+        "work_item_id": 1
+      },
+      "original_tail": {
+        "item_id": "s4-offline-harmless-proof",
+        "kind": "test",
+        "ref": "local:harmless.txt",
+        "digest": "sha256:7b9a72466d3960eb2aacccfc848939453490db0678bd4725def3f789b891c919",
+        "collector": "s4-fixture",
+        "validity": {
+          "basis": "indefinite",
+          "valid_from": "2026-10-09T00:00:00Z",
+          "valid_until": null,
+          "component_digests": {}
+        },
+        "claims": [],
+        "provenance": {},
+        "chain_seq": 0,
+        "chain_prev_digest": null
+      }
+    },
+    "evidence-head-refusal": {
+      "reports": [
+        {
+          "confirmed_proposal_request_ids": [],
+          "proposal_attempts": [
+            {
+              "request_id": "5b39a2ae-e010-4aac-982d-a52ca40af115",
+              "phase": "rejected",
+              "operation": "work.effect.propose-bound-v1",
+              "code": "effect-causal-evidence-head-mismatch"
+            }
+          ],
+          "pending_proposal_request_ids": [
+            "5b39a2ae-e010-4aac-982d-a52ca40af115"
+          ]
+        },
+        {
+          "confirmed_proposal_request_ids": [],
+          "proposal_attempts": [
+            {
+              "request_id": "5b39a2ae-e010-4aac-982d-a52ca40af115",
+              "phase": "rejected",
+              "operation": "work.effect.propose-bound-v1",
+              "code": "effect-causal-evidence-head-mismatch"
+            }
+          ],
+          "pending_proposal_request_ids": [
+            "5b39a2ae-e010-4aac-982d-a52ca40af115"
+          ]
+        }
+      ],
+      "before": {
+        "intents": 0,
+        "proposal_keys": 0,
+        "evidence": 2,
+        "commits": 1
+      },
+      "after": {
+        "intents": 0,
+        "proposal_keys": 0,
+        "evidence": 2,
+        "commits": 1
+      },
+      "before_state": {
+        "reservation": [
+          {
+            "id": 1,
+            "role": "execution",
+            "actor": "s4-fixture",
+            "state": "released",
+            "repo_id": "s4-fixture",
+            "created_at": "2026-10-09T19:51:28+03:00",
+            "session_id": "preparation",
+            "released_at": "2026-10-09T19:51:28+03:00",
+            "work_item_id": 1,
+            "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+            "correlation_ref": null,
+            "last_activity_at": "2026-10-09T19:51:28+03:00",
+            "interruption_reason": null
+          },
+          {
+            "id": 2,
+            "role": "execution",
+            "actor": "s4-fixture",
+            "state": "active",
+            "repo_id": "s4-fixture",
+            "created_at": "2026-10-09T19:52:15+03:00",
+            "session_id": "offline-proof",
+            "released_at": null,
+            "work_item_id": 1,
+            "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+            "correlation_ref": null,
+            "last_activity_at": "2026-10-09T19:52:15+03:00",
+            "interruption_reason": null
+          }
+        ],
+        "evidence_item": [
+          {
+            "ref": "local:harmless.txt",
+            "kind": "test",
+            "claims": [],
+            "digest": "sha256:7b9a72466d3960eb2aacccfc848939453490db0678bd4725def3f789b891c919",
+            "run_id": "run_8XFMNSJJDWBRBYPKBNGW0AB7VC",
+            "item_id": "s4-offline-harmless-proof",
+            "repo_id": "s4-fixture",
+            "validity": {
+              "basis": "indefinite",
+              "valid_from": "2026-10-09T00:00:00Z",
+              "valid_until": null,
+              "component_digests": {}
+            },
+            "chain_seq": 0,
+            "collector": "s4-fixture",
+            "created_at": "2026-10-09T19:52:16.34335+03:00",
+            "provenance": {},
+            "request_digest": "1a232359dfbbe960af5c11e34bbb1f422f23a143f114c83ccd5229ab441a38d1",
+            "idempotency_key": "evidence-1",
+            "chain_prev_digest": null
+          },
+          {
+            "ref": "local:competing.txt",
+            "kind": "test",
+            "claims": [],
+            "digest": "sha256:7b9a72466d3960eb2aacccfc848939453490db0678bd4725def3f789b891c919",
+            "run_id": "run_8XFMNSJJDWBRBYPKBNGW0AB7VC",
+            "item_id": "s4-competing-evidence",
+            "repo_id": "s4-fixture",
+            "validity": {
+              "basis": "indefinite",
+              "valid_from": "2026-10-09T00:00:00Z",
+              "valid_until": null,
+              "component_digests": {}
+            },
+            "chain_seq": 1,
+            "collector": "s4-fixture",
+            "created_at": "2026-10-09T19:52:16.377996+03:00",
+            "provenance": {},
+            "request_digest": "59671d5fa2a6bb9d9fb539d71755a8d2f72800445f0115a69d62bd32d777de84",
+            "idempotency_key": "evidence-2",
+            "chain_prev_digest": "sha256:fd08f6cf59bc9efb89d109d0d0f582c2ce41341782a4fd9c7370f69b0cea1637"
+          }
+        ],
+        "work_item": [
+          {
+            "id": 1,
+            "title": "Correct harmless fixture text",
+            "legacy": false,
+            "status": "pending",
+            "repo_id": "s4-fixture",
+            "assignee": null,
+            "priority": null,
+            "track_id": 1,
+            "sprint_id": 1,
+            "created_at": "2026-10-09T19:51:27.387815+03:00",
+            "resolution": null,
+            "updated_at": "2026-10-09T19:51:27.387815+03:00",
+            "description": "",
+            "aggregate_uuid": "91c7e13f-cf66-4ae8-8cdd-675dddcaecdf",
+            "terminal_decision_id": null
+          }
+        ],
+        "work_decision": [],
+        "tail": {
+          "item_id": "s4-competing-evidence",
+          "kind": "test",
+          "ref": "local:competing.txt",
+          "digest": "sha256:7b9a72466d3960eb2aacccfc848939453490db0678bd4725def3f789b891c919",
+          "collector": "s4-fixture",
+          "validity": {
+            "basis": "indefinite",
+            "valid_from": "2026-10-09T00:00:00Z",
+            "valid_until": null,
+            "component_digests": {}
+          },
+          "claims": [],
+          "provenance": {},
+          "chain_seq": 1,
+          "chain_prev_digest": "sha256:fd08f6cf59bc9efb89d109d0d0f582c2ce41341782a4fd9c7370f69b0cea1637"
+        }
+      },
+      "after_state": {
+        "reservation": [
+          {
+            "id": 1,
+            "role": "execution",
+            "actor": "s4-fixture",
+            "state": "released",
+            "repo_id": "s4-fixture",
+            "created_at": "2026-10-09T19:51:28+03:00",
+            "session_id": "preparation",
+            "released_at": "2026-10-09T19:51:28+03:00",
+            "work_item_id": 1,
+            "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+            "correlation_ref": null,
+            "last_activity_at": "2026-10-09T19:51:28+03:00",
+            "interruption_reason": null
+          },
+          {
+            "id": 2,
+            "role": "execution",
+            "actor": "s4-fixture",
+            "state": "active",
+            "repo_id": "s4-fixture",
+            "created_at": "2026-10-09T19:52:15+03:00",
+            "session_id": "offline-proof",
+            "released_at": null,
+            "work_item_id": 1,
+            "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+            "correlation_ref": null,
+            "last_activity_at": "2026-10-09T19:52:15+03:00",
+            "interruption_reason": null
+          }
+        ],
+        "evidence_item": [
+          {
+            "ref": "local:harmless.txt",
+            "kind": "test",
+            "claims": [],
+            "digest": "sha256:7b9a72466d3960eb2aacccfc848939453490db0678bd4725def3f789b891c919",
+            "run_id": "run_8XFMNSJJDWBRBYPKBNGW0AB7VC",
+            "item_id": "s4-offline-harmless-proof",
+            "repo_id": "s4-fixture",
+            "validity": {
+              "basis": "indefinite",
+              "valid_from": "2026-10-09T00:00:00Z",
+              "valid_until": null,
+              "component_digests": {}
+            },
+            "chain_seq": 0,
+            "collector": "s4-fixture",
+            "created_at": "2026-10-09T19:52:16.34335+03:00",
+            "provenance": {},
+            "request_digest": "1a232359dfbbe960af5c11e34bbb1f422f23a143f114c83ccd5229ab441a38d1",
+            "idempotency_key": "evidence-1",
+            "chain_prev_digest": null
+          },
+          {
+            "ref": "local:competing.txt",
+            "kind": "test",
+            "claims": [],
+            "digest": "sha256:7b9a72466d3960eb2aacccfc848939453490db0678bd4725def3f789b891c919",
+            "run_id": "run_8XFMNSJJDWBRBYPKBNGW0AB7VC",
+            "item_id": "s4-competing-evidence",
+            "repo_id": "s4-fixture",
+            "validity": {
+              "basis": "indefinite",
+              "valid_from": "2026-10-09T00:00:00Z",
+              "valid_until": null,
+              "component_digests": {}
+            },
+            "chain_seq": 1,
+            "collector": "s4-fixture",
+            "created_at": "2026-10-09T19:52:16.377996+03:00",
+            "provenance": {},
+            "request_digest": "59671d5fa2a6bb9d9fb539d71755a8d2f72800445f0115a69d62bd32d777de84",
+            "idempotency_key": "evidence-2",
+            "chain_prev_digest": "sha256:fd08f6cf59bc9efb89d109d0d0f582c2ce41341782a4fd9c7370f69b0cea1637"
+          }
+        ],
+        "work_item": [
+          {
+            "id": 1,
+            "title": "Correct harmless fixture text",
+            "legacy": false,
+            "status": "pending",
+            "repo_id": "s4-fixture",
+            "assignee": null,
+            "priority": null,
+            "track_id": 1,
+            "sprint_id": 1,
+            "created_at": "2026-10-09T19:51:27.387815+03:00",
+            "resolution": null,
+            "updated_at": "2026-10-09T19:51:27.387815+03:00",
+            "description": "",
+            "aggregate_uuid": "91c7e13f-cf66-4ae8-8cdd-675dddcaecdf",
+            "terminal_decision_id": null
+          }
+        ],
+        "work_decision": [],
+        "tail": {
+          "item_id": "s4-competing-evidence",
+          "kind": "test",
+          "ref": "local:competing.txt",
+          "digest": "sha256:7b9a72466d3960eb2aacccfc848939453490db0678bd4725def3f789b891c919",
+          "collector": "s4-fixture",
+          "validity": {
+            "basis": "indefinite",
+            "valid_from": "2026-10-09T00:00:00Z",
+            "valid_until": null,
+            "component_digests": {}
+          },
+          "claims": [],
+          "provenance": {},
+          "chain_seq": 1,
+          "chain_prev_digest": "sha256:fd08f6cf59bc9efb89d109d0d0f582c2ce41341782a4fd9c7370f69b0cea1637"
+        }
+      },
+      "rejected_attempts": [
+        [
+          "work.effect.propose-bound-v1",
+          "effect-causal-evidence-head-mismatch",
+          409
+        ],
+        [
+          "work.effect.propose-bound-v1",
+          "effect-causal-evidence-head-mismatch",
+          409
+        ]
+      ],
+      "reservation": {
+        "activity_age_seconds": 0,
+        "actor": "s4-fixture",
+        "admission_snapshot": {
+          "activity_age_seconds": 0,
+          "actor": "s4-fixture",
+          "conflict": false,
+          "conflict_severity": "none",
+          "conflicting_reservations": [],
+          "correlation_ref": null,
+          "created_at": "2026-10-09T16:52:15Z",
+          "id": 2,
+          "interruption_reason": null,
+          "last_activity_at": "2026-10-09T16:52:15Z",
+          "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+          "released_at": null,
+          "repo_id": "s4-fixture",
+          "role": "execution",
+          "session_id": "offline-proof",
+          "stale": false,
+          "state": "active",
+          "work_item_id": 1
+        },
+        "conflict": false,
+        "conflict_severity": "none",
+        "conflicting_reservations": [],
+        "correlation_ref": null,
+        "created_at": "2026-10-09T16:52:15Z",
+        "id": 2,
+        "interruption_reason": null,
+        "last_activity_at": "2026-10-09T16:52:15Z",
+        "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+        "released_at": null,
+        "replayed": false,
+        "repo_id": "s4-fixture",
+        "role": "execution",
+        "session_id": "offline-proof",
+        "stale": false,
+        "state": "active",
+        "work_item_id": 1
+      },
+      "original_tail": {
+        "item_id": "s4-offline-harmless-proof",
+        "kind": "test",
+        "ref": "local:harmless.txt",
+        "digest": "sha256:7b9a72466d3960eb2aacccfc848939453490db0678bd4725def3f789b891c919",
+        "collector": "s4-fixture",
+        "validity": {
+          "basis": "indefinite",
+          "valid_from": "2026-10-09T00:00:00Z",
+          "valid_until": null,
+          "component_digests": {}
+        },
+        "claims": [],
+        "provenance": {},
+        "chain_seq": 0,
+        "chain_prev_digest": null
+      }
+    }
+  },
+  "normalization": {
+    "intent_id": "one-to-one correspondence through original proposal key",
+    "intent.created_at": "receipt timestamp omitted; every other intent field preserved",
+    "reservation.created_at/last_activity_at/activity_age_seconds": "observational times/age omitted on current and admission snapshot; stale/state/identity/Release retained"
+  },
+  "lost_after_commit_operations": [
+    "work.batch.apply",
+    "work.effect.propose-bound-v1",
+    "work.evidence.append-v1",
+    "work.reservation.reserve-v1"
+  ],
+  "description_fault_receipt": {
+    "repo_id": "s4-fixture",
+    "item_id": 1,
+    "actor": "s4-fixture-editor",
+    "item": {
+      "repo_id": "s4-fixture",
+      "id": 1,
+      "track_id": 1,
+      "sprint_id": 1,
+      "title": "Correct harmless fixture text",
+      "description": "Changed after original prerequisites confirmed",
+      "status": "pending",
+      "assignee": null,
+      "priority": null,
+      "created_at": "2026-10-09T16:51:27.387815Z",
+      "updated_at": "2026-10-09T16:52:08.478378Z",
+      "aggregate_uuid": "91c7e13f-cf66-4ae8-8cdd-675dddcaecdf",
+      "legacy": false,
+      "resolution": null,
+      "terminal_decision_id": null
+    },
+    "event_id": 4,
+    "previous_revision": "item:91c7e13f-cf66-4ae8-8cdd-675dddcaecdf@description:v0@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "revision": "item:91c7e13f-cf66-4ae8-8cdd-675dddcaecdf@description:v1@sha256:b534de24bddfe5bf1fcc14884b65e416cfb55a4cbd9082e228690edacfe50701"
+  },
+  "competing_evidence_fault_receipt": {
+    "item": {
+      "ref": "local:competing.txt",
+      "kind": "test",
+      "claims": [],
+      "digest": "sha256:7b9a72466d3960eb2aacccfc848939453490db0678bd4725def3f789b891c919",
+      "item_id": "s4-competing-evidence",
+      "validity": {
+        "basis": "indefinite",
+        "valid_from": "2026-10-09T00:00:00Z",
+        "valid_until": null,
+        "component_digests": {}
+      },
+      "chain_seq": 1,
+      "collector": "s4-fixture",
+      "provenance": {},
+      "chain_prev_digest": "sha256:fd08f6cf59bc9efb89d109d0d0f582c2ce41341782a4fd9c7370f69b0cea1637"
+    },
+    "run_id": "run_8XFMNSJJDWBRBYPKBNGW0AB7VC",
+    "repo_id": "s4-fixture"
+  },
+  "status": "offline equivalence, four committed-response-loss recoveries and three independent causal refusal histories passed; evaluator and full S4 gates remain",
+  "durability_limit": "PostgreSQL fsync off; client/service interruption proof, not database crash durability. Packet is host-persistent until separately published."
+}
