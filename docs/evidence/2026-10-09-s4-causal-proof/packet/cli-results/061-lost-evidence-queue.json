@@ -1,0 +1,10 @@
+{
+  "exit_code": 0,
+  "stderr": "",
+  "report": {
+    "request_id": "8e0cc460-27a1-44b1-b66d-9066724db4e8",
+    "source_sha256": "b7bf426b6581564ac7d43115cd492857bfe660df93da6c44c698189b2335efeb",
+    "binding_sha256": "aa54119af0a0ac6330d9b14d1872a09d8692739efc5dce2af302b81599421326",
+    "duplicate": false
+  }
+}

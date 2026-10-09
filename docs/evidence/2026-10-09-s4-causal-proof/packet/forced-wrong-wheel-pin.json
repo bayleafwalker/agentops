@@ -1,0 +1,5 @@
+{
+  "forced_wrong_wheel_hash": "refused before any SQL",
+  "exit_code": 1,
+  "failed_check": "vuoro-service actual wheel hash matches pin"
+}

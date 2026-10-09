@@ -1,0 +1,74 @@
+{
+  "schema_version": "test-context/v1",
+  "id": "s4-offline-causal-released-https-v1",
+  "owner_repo": "agentops",
+  "subject": "Cross-owner causal intake, replay and explicit stage barriers",
+  "contract_ref": {
+    "doc_id": "docs/plans/2026-10-03-s4-evidence-home-preparation.md",
+    "revision": "git:6e13cea4cbdc15366b943fc78787cacc54350b43"
+  },
+  "source_of_truth": [
+    "Sprintctl0.15.1 owner rows and immutable intake receipts",
+    "Vuoro0.1.89 actual composed HTTPS service",
+    "original captured bytes and real trailer-bearing Git commit"
+  ],
+  "depth": 2,
+  "backends": [
+    "own disposable PostgreSQL16",
+    "producer SQLite outbox",
+    "verified local HTTPS"
+  ],
+  "actors": [
+    "synthetic fixture proposer",
+    "separate synthetic lifecycle editor",
+    "continuously online reference",
+    "interrupted producer CLI"
+  ],
+  "operations": [
+    "work.reservation.reserve-v1",
+    "work.batch.apply",
+    "work.evidence.append-v1",
+    "work.effect.propose-bound-v1",
+    "work.item.ref.add",
+    "work.item.edit"
+  ],
+  "consistency": {
+    "target": "original causal admission and replay equivalence",
+    "object": "run, Release, native durable keys, reservation, evidence chain and intent"
+  },
+  "invariants": [
+    "Offline local pending requests create no owner effects",
+    "Exact observed full Release and evidence-tail stage barriers",
+    "Original request bytes and durable keys survive interruption",
+    "One owner effect per key with immutable original admission",
+    "Actual HTTP409 refusal commits no proposal or key ledger and preserves full owner state",
+    "Captured source, wheel hashes, installed files and image/catalog pins match"
+  ],
+  "faults": [
+    "Owner unavailable",
+    "Upstream commit then producer SIGKILL and response drop for four operations",
+    "Document context change before reservation",
+    "Description edit after prerequisites",
+    "Competing evidence head",
+    "Wrong wheel hash before SQL",
+    "Container cleanup failure"
+  ],
+  "oracles": [
+    "Full online/offline state and cursor comparison with explicit narrow normalization",
+    "Real normal trailer harvest and HTTP owner confirmation",
+    "Append-only started/rejected/confirmed attempts with persisted HTTP409",
+    "Authoritative before/after reservation/evidence/item/Decision rows and exact tail",
+    "Original byte/hash retention and artifact manifest"
+  ],
+  "implementation_anchors": [
+    "scripts/s4-proof/s4-offline-causal-proof.py",
+    "scripts/s4-proof/s4-offline-causal-pg.sh",
+    "scripts/s4-proof/artifact-pins.json"
+  ],
+  "limits": [
+    "Example histories only; no database-crash durability with fsync off",
+    "Explicit orchestrator barriers are not a carrier dependency graph",
+    "No production writer commissioning or OAuth grant-use proof",
+    "Full S4 evaluator, import/cutover and soak remain open"
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "exit_code": 0,
+  "stderr": "",
+  "report": {
+    "uploaded_observation_count": 1,
+    "decisions": [],
+    "pending_command_event_ids": [],
+    "unsupported_command_event_ids": [],
+    "release_trailers": {
+      "status": "harvested",
+      "ref": "refs/heads/main",
+      "scanned_commits": 0,
+      "enqueued": 0,
+      "already_enqueued": 0,
+      "malformed": 0,
+      "malformed_trailers": [],
+      "cursor": "323152741db0888b37fbde1dac544245d6986db8",
+      "detail": null
+    },
+    "pending_evidence_request_ids": [
+      "8e0cc460-27a1-44b1-b66d-9066724db4e8"
+    ],
+    "pending_reserve_request_ids": [],
+    "pending_proposal_request_ids": [
+      "f74a0b29-407e-4060-994f-b8f954cbd21f"
+    ]
+  }
+}

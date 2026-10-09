@@ -1,0 +1,18 @@
+{
+  "exit_code": 0,
+  "stderr": "",
+  "report": {
+    "confirmed_reserve_request_ids": [
+      "779f1ebd-d5f8-49f9-a8f9-a79eec6d2111"
+    ],
+    "reserve_attempts": [
+      {
+        "request_id": "779f1ebd-d5f8-49f9-a8f9-a79eec6d2111",
+        "phase": "confirmed",
+        "operation": "work.read.release",
+        "code": null
+      }
+    ],
+    "pending_reserve_request_ids": []
+  }
+}

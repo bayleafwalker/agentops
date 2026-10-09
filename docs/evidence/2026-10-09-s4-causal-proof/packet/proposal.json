@@ -1,0 +1,25 @@
+{
+  "schema_version": "native-bound-proposal-request/v1",
+  "operation": "work.effect.propose-bound-v1",
+  "arguments": {
+    "run_id": "run_8XFMNSJJDWBRBYPKBNGW0AB7VC",
+    "item_id": 1,
+    "repository": "https://github.com/example/s4-fixture",
+    "base_commit": "bdf831830cf90136399f4130ee579c2a4bdaf8cc",
+    "title": "Harmless fixture change",
+    "rationale": "Exercise offline causal confirmation",
+    "unified_diff": "diff --git a/harmless.txt b/harmless.txt\nindex 90be1f3..294186e 100644\n--- a/harmless.txt\n+++ b/harmless.txt\n@@ -1 +1 @@\n-before\n+after\n",
+    "idempotency_key": "s4-proof-bound-proposal",
+    "causal_basis": {
+      "expected_revision": "item:91c7e13f-cf66-4ae8-8cdd-675dddcaecdf@description:v0@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855@revise:0",
+      "release_digest": "09ac12c46ad026834d98c84df866e9f8216290348a9d670a73e779a782cb2e6d",
+      "reserve_idempotency_key": "s4-proof-offline-reserve",
+      "commit_sha": "323152741db0888b37fbde1dac544245d6986db8",
+      "evidence_tail": {
+        "item_id": "s4-offline-harmless-proof",
+        "chain_seq": 0,
+        "entry_digest": "sha256:fd08f6cf59bc9efb89d109d0d0f582c2ce41341782a4fd9c7370f69b0cea1637"
+      }
+    }
+  }
+}

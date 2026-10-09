@@ -1,0 +1,14 @@
+{
+  "confirmed_reserve_request_ids": [
+    "31f63752-49ab-4906-84ea-0aa3a55909f0"
+  ],
+  "reserve_attempts": [
+    {
+      "request_id": "31f63752-49ab-4906-84ea-0aa3a55909f0",
+      "phase": "confirmed",
+      "operation": "work.read.release",
+      "code": null
+    }
+  ],
+  "pending_reserve_request_ids": []
+}

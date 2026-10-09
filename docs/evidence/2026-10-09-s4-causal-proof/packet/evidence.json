@@ -1,0 +1,19 @@
+{
+  "run_id": "run_8XFMNSJJDWBRBYPKBNGW0AB7VC",
+  "item_id": "s4-offline-harmless-proof",
+  "kind": "test",
+  "ref": "local:harmless.txt",
+  "digest": "sha256:7b9a72466d3960eb2aacccfc848939453490db0678bd4725def3f789b891c919",
+  "collector": "s4-fixture",
+  "validity": {
+    "basis": "indefinite",
+    "valid_from": "2026-10-09T00:00:00Z",
+    "valid_until": null,
+    "component_digests": {}
+  },
+  "claims": [],
+  "provenance": {},
+  "chain_seq": 0,
+  "chain_prev_digest": null,
+  "idempotency_key": "evidence-1"
+}

@@ -1,0 +1,14 @@
+{
+  "confirmed_reserve_request_ids": [
+    "5ca313ee-099f-43c6-a4be-2e3a3320f77b"
+  ],
+  "reserve_attempts": [
+    {
+      "request_id": "5ca313ee-099f-43c6-a4be-2e3a3320f77b",
+      "phase": "confirmed",
+      "operation": "work.read.release",
+      "code": null
+    }
+  ],
+  "pending_reserve_request_ids": []
+}

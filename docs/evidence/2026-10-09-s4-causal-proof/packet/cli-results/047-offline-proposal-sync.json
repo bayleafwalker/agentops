@@ -1,0 +1,18 @@
+{
+  "exit_code": 0,
+  "stderr": "",
+  "report": {
+    "confirmed_proposal_request_ids": [
+      "22e64752-c706-4613-8466-b2548ac770f1"
+    ],
+    "proposal_attempts": [
+      {
+        "request_id": "22e64752-c706-4613-8466-b2548ac770f1",
+        "phase": "confirmed",
+        "operation": "work.effect.propose-bound-v1",
+        "code": null
+      }
+    ],
+    "pending_proposal_request_ids": []
+  }
+}

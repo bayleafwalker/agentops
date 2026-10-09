@@ -1,0 +1,16 @@
+{
+  "schema_version": "native-reserve-request/v1",
+  "operation": "work.reservation.reserve-v1",
+  "idempotency_key": "s4-proof-offline-reserve",
+  "arguments": {
+    "item_id": 1,
+    "actor": "s4-fixture",
+    "session_id": "offline-proof",
+    "role": "execution",
+    "interrupt_existing": false,
+    "expected_revision": "item:91c7e13f-cf66-4ae8-8cdd-675dddcaecdf@description:v0@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855@revise:0",
+    "acceptance_contract": {
+      "review_required": true
+    }
+  }
+}

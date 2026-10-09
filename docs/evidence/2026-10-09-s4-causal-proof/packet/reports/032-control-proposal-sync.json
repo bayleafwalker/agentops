@@ -1,0 +1,14 @@
+{
+  "confirmed_proposal_request_ids": [
+    "bb712afc-bf9c-41a6-b293-35d2e6f60c24"
+  ],
+  "proposal_attempts": [
+    {
+      "request_id": "bb712afc-bf9c-41a6-b293-35d2e6f60c24",
+      "phase": "confirmed",
+      "operation": "work.effect.propose-bound-v1",
+      "code": null
+    }
+  ],
+  "pending_proposal_request_ids": []
+}

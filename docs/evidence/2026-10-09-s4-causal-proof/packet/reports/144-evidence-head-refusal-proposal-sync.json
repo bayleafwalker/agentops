@@ -1,0 +1,14 @@
+{
+  "confirmed_proposal_request_ids": [],
+  "proposal_attempts": [
+    {
+      "request_id": "5b39a2ae-e010-4aac-982d-a52ca40af115",
+      "phase": "rejected",
+      "operation": "work.effect.propose-bound-v1",
+      "code": "effect-causal-evidence-head-mismatch"
+    }
+  ],
+  "pending_proposal_request_ids": [
+    "5b39a2ae-e010-4aac-982d-a52ca40af115"
+  ]
+}
