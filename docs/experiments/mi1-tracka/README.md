@@ -1,6 +1,23 @@
 # MI-1 Track A: bounded comparison protocol
 
-Status: prepared, not executed (2026-10-09). Served item 2616 remains open.
+Status: frozen preparation snapshot (2026-10-09). Served item 2616 remains open.
+
+Current execution status, checked 2026-10-09: the manual workflow was installed
+by [PR321](https://github.com/bayleafwalker/agentops/pull/321), merge
+`074e5c29c8a539f98f9e018c041675d6f16e4bf3`. Both isolated native cases have
+executed and their report PRs remain open drafts, held outside the default
+branch until the hosted cases finish. No hosted comparison run has started:
+the GitHub Actions secrets API still reports zero repository secrets, so the
+required `ANTHROPIC_API_KEY` is unavailable. These observations do not establish
+comparative quality, operator time, total cost or a kill-rule decision. The
+common task and input protocol stays frozen at
+`5b309b9003327b1cfdf25bf3b702c4abc9e4a75e` for both paths.
+
+The preparation record below describes what was verified before execution;
+its statement that the companion is only a template is historical. The active
+manual workflow now lives at `.github/workflows/mi1-tracka.md` with its compiled
+lock file. Its installation does not schedule or dispatch any session.
+
 This packet supplies common inputs and a rubric for two real repository review
 cases. It contains no comparative results. The companion workflow is a template
 outside `.github/workflows`; committing it does not enable execution.
