@@ -314,3 +314,14 @@ on actual verified import, as #2485 specifies; do not call a design commit an
 import. Do not close #2485 until all its operational Acceptance evidence and
 actual dates exist. #2489's kctl migration and irreversible retirements remain
 separately coordinated follow-ups.
+
+## 2026-10-09 causal intake prerequisite qualification
+
+The [released HTTPS proof](../evidence/2026-10-09-s4-causal-proof/README.md)
+executes original offline reservation, trailer ingestion, evidence and bound
+proposal intake against disposable owner clones, four real committed-response
+loss/CLI-kill recoveries, and independent context/revision/evidence-head refusal
+histories. This advances the causal intake prerequisite only. The controlled
+read-time effective-state comparison (expiry, changed inputs and authenticated
+accepted/use/non-invocation facts), complete real-inventory import, production
+writer qualification, cutover and soak gates above remain required and open.

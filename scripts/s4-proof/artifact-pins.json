@@ -1,0 +1,38 @@
+{
+  "schema_version": "s4-proof-artifact-pins/v1",
+  "image": "ghcr.io/bayleafwalker/vuoro-service@sha256:ba0e47ad7fdf1fb9ebcd52b05428ca8889381abb3d6dd42c0869742f4bb42c96",
+  "catalog_revision": "ea95ae6f785c3af7dadf68743ffa4a4ff493ad7a8971015532dcb63060e0f60f",
+  "catalog_operations": 78,
+  "wheels": {
+    "vuoro-service": {
+      "version": "0.1.89",
+      "wheel": "vuoro_service-0.1.89-py3-none-any.whl",
+      "sha256": "6032a48e859db27417c10cc61db7ce37d5f32c759b84474df050f7f3cd1a86d8"
+    },
+    "sprintctl": {
+      "version": "0.15.1",
+      "wheel": "sprintctl-0.15.1-py3-none-any.whl",
+      "sha256": "519da8901d72f674f5789b0aad6392718bbc791c61cd77e6f53d78625e7928f7"
+    },
+    "auditctl": {
+      "version": "0.1.9",
+      "wheel": "auditctl-0.1.9-py3-none-any.whl",
+      "sha256": "7efb9992bc23e1d2bd747dcb8204ff9452487e3bd6d1b43206ba4976f5a9c5cf"
+    },
+    "vuoro-adapter-kit": {
+      "version": "0.2.0",
+      "wheel": "vuoro_adapter_kit-0.2.0-py3-none-any.whl",
+      "sha256": "4bdf13bd09c8ea0c889f5cfb479327885163413a64ed690a9ba1b8d82dfaa163"
+    },
+    "vuoro-schema-runtime": {
+      "version": "0.1.0",
+      "wheel": "vuoro_schema_runtime-0.1.0-py3-none-any.whl",
+      "sha256": "b66c9357c99aa9e1a7353991ce54105a8621958ecfac47f8c121d80b90b77912"
+    },
+    "vuoro-client": {
+      "version": "0.1.1",
+      "wheel": "vuoro_client-0.1.1-py3-none-any.whl",
+      "sha256": "b5fb6bad174abd00d67504398690bcfb8c3cc3be891e5465983827e5a1740f6d"
+    }
+  }
+}
