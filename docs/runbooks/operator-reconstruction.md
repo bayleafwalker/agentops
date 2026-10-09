@@ -1,6 +1,6 @@
-# Effect reconstruction: first read increment
+# Effect reconstruction
 
-`operator-projection reconstruct` is the first source increment for MI-1/P1
+`operator-projection reconstruct` is the reading surface for MI-1/P1
 (served agentops item 2612; target TS-17). It reads owner records and renders
 every observed, missing or conflicting link. It authorizes no effect, stores no
 work state and changes no owner record or deployment.
@@ -52,14 +52,23 @@ policy revision stays null. Item claim histories are displayed as item histories
 not every attempt is necessarily the effect's run. No advisory reservation is
 promoted to a lease.
 
-## Current owner gaps and acceptance boundary
+## Protected owner bindings and acceptance boundary
 
-The effect owner currently records no work-release digest. Association by item
-ID cannot bind an accepted effect to the current Release. Ordinary work Decision
-references also do not prove that the exact effect artifact passed a protected
-verifier. Both links therefore remain **missing**, even if all four reads return
-records and an application receipt exists. A removed receipt is a separate
-explicit missing link. Partial data never silently fills these gaps.
+Sprintctl 0.13.1 records an explicit work-release digest and an owner-frozen
+protected verification receipt on an accepted intent. Reconstruction compares
+that digest with the current Release and independently validates the receipt's
+intent ID, revision, canonical content digest, raw UTF-8 diff digest, Release,
+verifier/acceptor identity, evidence digest and bounded revisioned passed checks.
+The chain-entry digest is displayed as an owner assertion; the projection does
+not independently fetch or authenticate the original evidence chain entry.
+
+Legacy records without these fields remain **missing**. Item ID association and
+ordinary work Decisions cannot replace them. A changed current Release or
+malformed protected receipt renders verification, acceptance and any application
+receipt as conflicting. A removed application receipt remains an explicit
+missing link. The supplied capture's provenance remains unauthenticated even
+when all links are consistent; `complete` describes the observed record links,
+not independent attestation of check execution or resulting repository bytes.
 
 An owner response with mismatched repository, intent, item or request bindings
 refuses the whole projection. A stale content/acceptance/receipt binding renders
@@ -69,18 +78,27 @@ report, including `incomplete` or `conflict`, and 2 for malformed input or an
 unsupported capture. Consumers must inspect the report status; exit 0 is not
 acceptance.
 
-This first increment does not satisfy full item 2612 or MI-1 Track B. The missing
-release/verifier bindings require an explicit owner contract and evidence;
-resulting-artifact verification and the real cross-harness receipt chain remain
-open. No served website or package deployment is claimed by landing this source.
+Source validation alone does not satisfy full item 2612 or MI-1 Track B.
+Resulting-artifact verification and the real cross-harness receipt chain still
+require runtime evidence. No served website or package deployment is claimed
+by landing this source.
 
-## Verification of this source increment (2026-10-06)
+## Historical first increment (2026-10-06)
+
+The first increment preceded the protected owner contract and always left
+Release/verifier bindings missing. That limitation is superseded by the field
+validation described above; its original runtime probe remains historical.
 
 The app's locked-dependency test command covers adversarial stale-diff,
 cross-repository/item/request, missing-receipt, duplicate-field and catalog-write
-histories. Reconstruction has a separate 240-code-line ceiling; the front-page
+histories. Reconstruction initially had a separate 240-code-line ceiling; the front-page
 generator retains its 880-line ceiling. An authorized read-only probe against
 `vuoro-shared` returned `incomplete` with all eight links missing because its
 effect read was unavailable. This is evidence of the refusal path, not a real
 accepted effect or receipt chain. Probe output is session-local and is not
 promoted into durable execution evidence.
+
+The protected-binding increment raises only the reconstruction ceiling to 300
+code lines to cover receipt validation. Tests recompute outer receipt hashes
+after semantic mutations, so an invalid raw digest, verifier, Release or check
+cannot be rejected merely because its old hash differs.

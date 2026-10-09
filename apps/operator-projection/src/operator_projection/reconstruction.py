@@ -24,6 +24,7 @@ LINKS = ("intent", "work_release", "release_intent_binding", "attempts_and_claim
 CONTENT = ("item_id", "repository", "base_commit", "title", "rationale", "unified_diff")
 HEX = re.compile(r"^[0-9a-f]{64}$")
 COMMIT = re.compile(r"^[0-9a-f]{40}(?:[0-9a-f]{24})?$")
+SHA = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 
 class ReconstructionError(ValueError):
@@ -50,6 +51,46 @@ def _text(value):
 
 def _positive(value):
     return type(value) is int and value > 0
+
+
+def _valid_proof(proof, intent, digest):
+    """Check the frozen owner's assertion; never attest execution of checks."""
+    if type(proof) is not dict or set(proof) != {
+        "run_id", "item_id", "evidence_digest", "entry_digest", "verifier_principal",
+        "workspace_id", "client_id", "grant_id", "receipt",
+    }:
+        return False
+    if (not all(_text(proof[k]) for k in ("run_id", "item_id", "verifier_principal", "workspace_id"))
+            or proof["verifier_principal"] != intent["acceptance"]["acceptor_principal"]
+            or any(proof[k] is not None and not _text(proof[k]) for k in ("client_id", "grant_id"))
+            or not all(type(proof[k]) is str and SHA.fullmatch(proof[k]) for k in ("evidence_digest", "entry_digest"))):
+        return False
+    body = proof["receipt"]
+    if type(body) is not dict or set(body) != {
+        "schema", "intent_id", "intent_revision", "canonical_intent_digest", "release_digest", "artifact", "checks",
+    }:
+        return False
+    if (body["schema"] != "sprintctl-protected-artifact-verification/v1"
+            or body["intent_id"] != intent["intent_id"]
+            or not _positive(body["intent_revision"]) or body["intent_revision"] != intent["revision"]
+            or body["canonical_intent_digest"] != digest
+            or body["release_digest"] != intent.get("release_digest")
+            or not HEX.fullmatch(str(body["release_digest"]))
+            or body["artifact"] != {"domain": "utf8-unified-diff/v1", "digest": "sha256:" +
+                hashlib.sha256(intent["unified_diff"].encode("utf-8")).hexdigest()}):
+        return False
+    checks = body["checks"]
+    if type(checks) is not list or not 1 <= len(checks) <= 64:
+        return False
+    names = set()
+    for check in checks:
+        if (type(check) is not dict or set(check) != {"name", "revision", "status"}
+                or not _text(check["name"]) or len(check["name"]) > 200 or check["name"] in names
+                or type(check["revision"]) is not str or not SHA.fullmatch(check["revision"])
+                or check["status"] != "passed"):
+            return False
+        names.add(check["name"])
+    return proof["evidence_digest"] == "sha256:" + hashlib.sha256(canonical(body)).hexdigest()
 
 
 def collect(authority, repo_id, intent_id):
@@ -175,6 +216,7 @@ def reconstruct(capture, *, live=False):
                 observed("effect_receipt", {k: receipt.get(k) for k in
                                             ("applier_principal", "commit_sha", "pr_url", "applied_at")}, EFFECT)
         item_id = intent["item_id"]
+        release = None
         release_result = result(RELEASE, item_id)
         if release_result is not None:
             release = release_result.get("release")
@@ -199,6 +241,33 @@ def reconstruct(capture, *, live=False):
             observed("attempts_and_claims", {"scope": "owner item history; not every attempt is this intent's run",
                 "intent_run_id": intent["run_id"], **{k: leases.get(k) for k in
                 ("current_lease", "leases", "outcome_reports", "verification", "evaluated_at")}}, LEASES)
+        bound = intent.get("release_digest")
+        binding_conflict = False
+        if bound is not None:
+            if type(bound) is not str or not HEX.fullmatch(bound):
+                binding_conflict = True
+            elif release is None:
+                links["release_intent_binding"]["reason"] = "bound Release was not supplied by the owner read"
+            elif bound != release["release_digest"]:
+                binding_conflict = True
+            else:
+                observed("release_intent_binding", {"release_digest": bound,
+                    "intent_id": intent["intent_id"], "intent_revision": intent["revision"]}, EFFECT)
+        if binding_conflict:
+            conflict("release_intent_binding", "intent binding differs from the current owner Release")
+        proof = acceptance.get("verification") if type(acceptance) is dict else None
+        if proof is not None:
+            if (binding_conflict or links["acceptance"]["status"] != "observed"
+                    or not _valid_proof(proof, intent, digest)):
+                conflict("verification_evidence", "protected receipt does not bind this artifact, Release and acceptor")
+            else:
+                observed("verification_evidence", proof, EFFECT)
+                links["verification_evidence"]["assurance"] = "owner-frozen protected assertion; execution is not independently attested"
+        if binding_conflict or links["verification_evidence"]["status"] == "conflict":
+            if acceptance is not None:
+                conflict("acceptance", "acceptance has a conflicting Release or protected verification binding")
+            if receipt is not None:
+                conflict("effect_receipt", "application receipt has no consistent exact-artifact acceptance")
     report["missing"] = [key for key in LINKS if links[key]["status"] == "missing"]
     report["status"] = "conflict" if report["conflicts"] else "incomplete" if report["missing"] else "complete"
     report["assurance"] = ("observed owner responses" if any(s["status"] == "observed" for s in report["sources"])

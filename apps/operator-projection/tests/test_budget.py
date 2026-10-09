@@ -12,7 +12,9 @@ EVALUATORS = {"evaluators.py"}
 # MI-1/P1: explicit reconstruction is a separate bounded read surface. Keep the
 # existing front-page generator ceiling; count its CLI wiring there as before.
 RECONSTRUCTION = {"reconstruction.py", "reconstruction_cli.py"}
-BUDGET = {"generator": 880, "renderers": 300, "evaluators": 110, "reconstruction": 240}
+# P1 protected owner records: validate frozen raw-artifact receipts, exact
+# Release bindings and verifier identity independently of the authority owner.
+BUDGET = {"generator": 880, "renderers": 300, "evaluators": 110, "reconstruction": 300}
 
 
 def code_lines(path: Path) -> int:
