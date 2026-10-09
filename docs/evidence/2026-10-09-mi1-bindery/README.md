@@ -70,9 +70,11 @@ source-only summary. Public source artifacts are cross-host-replicated Git.
 ## Remaining MI-1 work
 
 [Track A's frozen comparison protocol](../../experiments/mi1-tracka/README.md)
-remains unchanged. Its two native report PRs are held as drafts outside main until
-the two hosted cases finish. The latest GitHub Actions secret probe reports zero
-repository secrets; the required API key is unavailable. Measured operator active
-time and actual total cost remain unknown, and the native CI-diagnosis quality
-failure remains recorded. These gaps prevent a supported comparison or kill-rule
-decision. Hardware gates and unqualified resource-owner horizons remain separate.
+remains unchanged as a historical experiment definition. The operator subsequently
+chose local `claude -p` with the existing subscription instead of paid API inference.
+The installed GitHub workflow remains undispatched; no API secret is requested for
+the local work. A local run is recorded as a local run and cannot establish the
+GitHub vendor comparison or its kill rule. Measured operator active time and actual
+total cost remain unknown, and the original native CI-diagnosis quality failure
+remains recorded. Hardware gates and unqualified resource-owner horizons remain
+separate.

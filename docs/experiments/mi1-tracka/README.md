@@ -2,16 +2,20 @@
 
 Status: frozen preparation snapshot (2026-10-09). Served item 2616 remains open.
 
-Current execution status, checked 2026-10-09: the manual workflow was installed
-by [PR321](https://github.com/bayleafwalker/agentops/pull/321), merge
-`074e5c29c8a539f98f9e018c041675d6f16e4bf3`. Both isolated native cases have
-executed and their report PRs remain open drafts, held outside the default
-branch until the hosted cases finish. No hosted comparison run has started:
-the GitHub Actions secrets API still reports zero repository secrets, so the
-required `ANTHROPIC_API_KEY` is unavailable. These observations do not establish
-comparative quality, operator time, total cost or a kill-rule decision. The
-common task and input protocol stays frozen at
-`5b309b9003327b1cfdf25bf3b702c4abc9e4a75e` for both paths.
+Current direction, updated 2026-10-09: the operator chose local `claude -p`
+with the existing Claude subscription instead of paying for API-key inference.
+No GitHub Agentic Workflows comparison run was dispatched, and no API key is
+needed for the local review. The installed manual workflow from
+[PR321](https://github.com/bayleafwalker/agentops/pull/321) remains unrun.
+
+Both original native cases executed and their draft reports preserve the initial
+outcomes. A further local subscription review uses the same frozen source inputs.
+Local CLI execution cannot establish a GitHub Agentic Workflows comparison or its
+kill-rule decision. Operator active time and actual total cost remain unmeasured;
+CLI list-price estimates are not subscription charges. The task/input protocol
+stays frozen at `5b309b9003327b1cfdf25bf3b702c4abc9e4a75e`. The preparation
+requirements below describe the unexecuted API-backed candidate, not a request
+for the operator to configure it.
 
 The preparation record below describes what was verified before execution;
 its statement that the companion is only a template is historical. The active
