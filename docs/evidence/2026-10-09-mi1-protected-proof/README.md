@@ -1,5 +1,10 @@
 # Actual protected agentops preparation proof
 
+Historical preparation snapshot. For the subsequently accepted different-harness
+case and explicit ordinary sample, see the
+[current bounded proof status](../2026-10-09-mi1-bindery/README.md).
+The preparation observations below remain unchanged.
+
 This packet preserves an executed MI-1/P1/P2 preparation case, not full MI-1
 or Track B acceptance. A hosted Claude session authored public PR317; a separate
 native Claude session continued from that public file and source. The trusted
