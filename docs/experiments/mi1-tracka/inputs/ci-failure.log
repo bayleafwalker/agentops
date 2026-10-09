@@ -1,0 +1,164 @@
+﻿2026-10-01T19:17:04.4282016Z Current runner version: '2.337.0'
+2026-10-01T19:17:04.4301246Z ##[group]Runner Image Provisioner
+2026-10-01T19:17:04.4301900Z Hosted Compute Agent
+2026-10-01T19:17:04.4302404Z Version: 20260901.588
+2026-10-01T19:17:04.4302923Z Commit: f88ec8081b781fac6c440065ac7ff9e710ce3d0b
+2026-10-01T19:17:04.4303428Z Build Date: 2026-09-01T19:56:44Z
+2026-10-01T19:17:04.4303899Z Worker ID: {d6927bd6-6d7b-4da2-8ca7-825862d12474}
+2026-10-01T19:17:04.4304398Z Azure Region: centralus
+2026-10-01T19:17:04.4304796Z ##[endgroup]
+2026-10-01T19:17:04.4305760Z ##[group]Operating System
+2026-10-01T19:17:04.4306177Z Ubuntu
+2026-10-01T19:17:04.4306524Z 24.04.5
+2026-10-01T19:17:04.4306903Z LTS
+2026-10-01T19:17:04.4307255Z ##[endgroup]
+2026-10-01T19:17:04.4307695Z ##[group]Runner Image
+2026-10-01T19:17:04.4308106Z Image: ubuntu-24.04
+2026-10-01T19:17:04.4308646Z Version: 20260927.320.1
+2026-10-01T19:17:04.4309557Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260927.320/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-01T19:17:04.4310635Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260927.320
+2026-10-01T19:17:04.4311355Z ##[endgroup]
+2026-10-01T19:17:04.4312289Z ##[group]GITHUB_TOKEN Permissions
+2026-10-01T19:17:04.4314044Z Contents: read
+2026-10-01T19:17:04.4314488Z Metadata: read
+2026-10-01T19:17:04.4314946Z Packages: read
+2026-10-01T19:17:04.4315334Z ##[endgroup]
+2026-10-01T19:17:04.4316811Z Secret source: Actions
+2026-10-01T19:17:04.4317466Z Cache mode: write
+2026-10-01T19:17:04.4317959Z Prepare workflow directory
+2026-10-01T19:17:04.4546564Z Prepare all required actions
+2026-10-01T19:17:04.4582078Z Getting action download info
+2026-10-01T19:17:04.7017194Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-01T19:17:05.3006391Z Complete job name: protected-paths
+2026-10-01T19:17:05.3521383Z ##[group]Run actions/checkout@v4
+2026-10-01T19:17:05.3522056Z with:
+2026-10-01T19:17:05.3522483Z   fetch-depth: 0
+2026-10-01T19:17:05.3522945Z   repository: bayleafwalker/agentops
+2026-10-01T19:17:05.3526209Z   token: ***
+2026-10-01T19:17:05.3526629Z   ssh-strict: true
+2026-10-01T19:17:05.3527035Z   ssh-user: git
+2026-10-01T19:17:05.3527449Z   persist-credentials: true
+2026-10-01T19:17:05.3527918Z   clean: true
+2026-10-01T19:17:05.3528565Z   sparse-checkout-cone-mode: true
+2026-10-01T19:17:05.3529061Z   fetch-tags: false
+2026-10-01T19:17:05.3529469Z   show-progress: true
+2026-10-01T19:17:05.3529872Z   lfs: false
+2026-10-01T19:17:05.3530341Z   submodules: false
+2026-10-01T19:17:05.3530764Z   set-safe-directory: true
+2026-10-01T19:17:05.3531234Z   allow-unsafe-pr-checkout: false
+2026-10-01T19:17:05.3531859Z ##[endgroup]
+2026-10-01T19:17:05.4284206Z Syncing repository: bayleafwalker/agentops
+2026-10-01T19:17:05.4286446Z ##[group]Getting Git version info
+2026-10-01T19:17:05.4287480Z Working directory is '/home/runner/work/agentops/agentops'
+2026-10-01T19:17:05.4289047Z [command]/usr/bin/git version
+2026-10-01T19:17:05.5285390Z git version 2.55.0
+2026-10-01T19:17:05.5300323Z ##[endgroup]
+2026-10-01T19:17:05.5312950Z Temporarily overriding HOME='/home/runner/work/_temp/f7df0f5f-b3b8-454e-8633-2fe793859cf1' before making global git config changes
+2026-10-01T19:17:05.5314608Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-01T19:17:05.5318514Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/agentops/agentops
+2026-10-01T19:17:05.5361129Z Deleting the contents of '/home/runner/work/agentops/agentops'
+2026-10-01T19:17:05.5366114Z ##[group]Initializing the repository
+2026-10-01T19:17:05.5368611Z [command]/usr/bin/git init /home/runner/work/agentops/agentops
+2026-10-01T19:17:05.7214132Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-01T19:17:05.7215462Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-01T19:17:05.7216662Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-01T19:17:05.7217869Z hint: call:
+2026-10-01T19:17:05.7218462Z hint:
+2026-10-01T19:17:05.7219036Z hint: 	git config --global init.defaultBranch <name>
+2026-10-01T19:17:05.7219689Z hint:
+2026-10-01T19:17:05.7220456Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-01T19:17:05.7221522Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-01T19:17:05.7222186Z hint:
+2026-10-01T19:17:05.7222570Z hint: 	git branch -m <name>
+2026-10-01T19:17:05.7223033Z hint:
+2026-10-01T19:17:05.7223632Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-01T19:17:05.7224469Z Initialized empty Git repository in /home/runner/work/agentops/agentops/.git/
+2026-10-01T19:17:05.7226266Z [command]/usr/bin/git remote add origin https://github.com/bayleafwalker/agentops
+2026-10-01T19:17:05.7474183Z ##[endgroup]
+2026-10-01T19:17:05.7475132Z ##[group]Disabling automatic garbage collection
+2026-10-01T19:17:05.7477140Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-01T19:17:05.7506039Z ##[endgroup]
+2026-10-01T19:17:05.7506840Z ##[group]Setting up auth
+2026-10-01T19:17:05.7510972Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-01T19:17:05.7537529Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-01T19:17:05.9741807Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-01T19:17:05.9769467Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-01T19:17:05.9916994Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-01T19:17:05.9941518Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-01T19:17:06.0086114Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-01T19:17:06.0118818Z ##[endgroup]
+2026-10-01T19:17:06.0120529Z ##[group]Fetching the repository
+2026-10-01T19:17:06.0127851Z [command]/usr/bin/git -c protocol.version=2 fetch --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/* +346dc5836a3ae116c852b095090d31fb532d0c7b:refs/remotes/pull/301/merge
+2026-10-01T19:17:07.5949658Z From https://github.com/bayleafwalker/agentops
+2026-10-01T19:17:07.5950835Z  * [new branch]      audit/shards-2026-09-29                  -> origin/audit/shards-2026-09-29
+2026-10-01T19:17:07.5951723Z  * [new branch]      audit/shards-2026-09-29-0cb1fc7          -> origin/audit/shards-2026-09-29-0cb1fc7
+2026-10-01T19:17:07.5952584Z  * [new branch]      audit/shards-2026-09-29-1c62125          -> origin/audit/shards-2026-09-29-1c62125
+2026-10-01T19:17:07.5953318Z  * [new branch]      audit/shards-2026-09-29-614100f          -> origin/audit/shards-2026-09-29-614100f
+2026-10-01T19:17:07.5954034Z  * [new branch]      audit/shards-2026-09-30                  -> origin/audit/shards-2026-09-30
+2026-10-01T19:17:07.5954743Z  * [new branch]      audit/shards-2026-09-30-20baf3b          -> origin/audit/shards-2026-09-30-20baf3b
+2026-10-01T19:17:07.5955429Z  * [new branch]      audit/shards-2026-09-30-a3c3ba6          -> origin/audit/shards-2026-09-30-a3c3ba6
+2026-10-01T19:17:07.5956172Z  * [new branch]      docs/uiux-workflow-docs-2026-09-27       -> origin/docs/uiux-workflow-docs-2026-09-27
+2026-10-01T19:17:07.5956883Z  * [new branch]      e1-first-use-routine                     -> origin/e1-first-use-routine
+2026-10-01T19:17:07.5957612Z  * [new branch]      feat/vuoro-chatgpt-mcp-review            -> origin/feat/vuoro-chatgpt-mcp-review
+2026-10-01T19:17:07.5958491Z  * [new branch]      fix/pickups-2563-2597                    -> origin/fix/pickups-2563-2597
+2026-10-01T19:17:07.5959420Z  * [new branch]      main                                     -> origin/main
+2026-10-01T19:17:07.5960089Z  * [new ref]         346dc5836a3ae116c852b095090d31fb532d0c7b -> pull/301/merge
+2026-10-01T19:17:07.5962330Z ##[endgroup]
+2026-10-01T19:17:07.5962972Z ##[group]Determining the checkout info
+2026-10-01T19:17:07.5963516Z ##[endgroup]
+2026-10-01T19:17:07.5963838Z [command]/usr/bin/git sparse-checkout disable
+2026-10-01T19:17:07.6018544Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-01T19:17:07.7264620Z ##[group]Checking out the ref
+2026-10-01T19:17:07.7265754Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/301/merge
+2026-10-01T19:17:07.8492981Z Note: switching to 'refs/remotes/pull/301/merge'.
+2026-10-01T19:17:07.8493602Z 
+2026-10-01T19:17:07.8494057Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-01T19:17:07.8494696Z changes and commit them, and you can discard any commits you make in this
+2026-10-01T19:17:07.8495311Z state without impacting any branches by switching back to a branch.
+2026-10-01T19:17:07.8495660Z 
+2026-10-01T19:17:07.8495907Z If you want to create a new branch to retain commits you create, you may
+2026-10-01T19:17:07.8496438Z do so (now or later) by using -c with the switch command. Example:
+2026-10-01T19:17:07.8496823Z 
+2026-10-01T19:17:07.8497038Z   git switch -c <new-branch-name>
+2026-10-01T19:17:07.8497308Z 
+2026-10-01T19:17:07.8497481Z Or undo this operation with:
+2026-10-01T19:17:07.8497698Z 
+2026-10-01T19:17:07.8497863Z   git switch -
+2026-10-01T19:17:07.8498076Z 
+2026-10-01T19:17:07.8498560Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-01T19:17:07.8498930Z 
+2026-10-01T19:17:07.8499613Z HEAD is now at 346dc58 Merge 343bb1bd10e575b90eb36a8cb7bbb0a9d599bbe1 into 582e8efb00fa6e310420e0549415125959872ddb
+2026-10-01T19:17:08.0516902Z ##[endgroup]
+2026-10-01T19:17:08.0518321Z [command]/usr/bin/git log -1 --format=%H
+2026-10-01T19:17:08.0540907Z 346dc5836a3ae116c852b095090d31fb532d0c7b
+2026-10-01T19:17:08.0734621Z ##[group]Run python3 scripts/check_protected_paths.py \
+2026-10-01T19:17:08.0735075Z [36;1mpython3 scripts/check_protected_paths.py \[0m
+2026-10-01T19:17:08.0735369Z [36;1m  --base "origin/main" \[0m
+2026-10-01T19:17:08.0735708Z [36;1m  --head "343bb1bd10e575b90eb36a8cb7bbb0a9d599bbe1" \[0m
+2026-10-01T19:17:08.0736023Z [36;1m  --title "$PR_TITLE"[0m
+2026-10-01T19:17:08.1933796Z shell: /usr/bin/bash -e {0}
+2026-10-01T19:17:08.1934338Z env:
+2026-10-01T19:17:08.1934684Z   PR_TITLE: fix(dispatch): isolate run workspaces and enforce native publication
+2026-10-01T19:17:08.1935026Z ##[endgroup]
+2026-10-01T19:17:08.2268664Z protected: .claude/workflows/vuoro-dispatch-build.js
+2026-10-01T19:17:08.2268986Z 
+2026-10-01T19:17:08.2269365Z This pull request modifies 1 protected path(s) and does not declare itself a hand-pass.
+2026-10-01T19:17:08.2269955Z The dispatch gate only covers the worker's commit, so it cannot catch this.
+2026-10-01T19:17:08.2270509Z If the change is intended, prefix the PR title with 'hand-pass:'.
+2026-10-01T19:17:08.2317301Z ##[error]Process completed with exit code 1.
+2026-10-01T19:17:08.2432597Z Post job cleanup.
+2026-10-01T19:17:08.3083444Z [command]/usr/bin/git version
+2026-10-01T19:17:08.3118116Z git version 2.55.0
+2026-10-01T19:17:08.3150063Z Temporarily overriding HOME='/home/runner/work/_temp/84bdf75d-7199-4dbb-8156-67046c5bd1e0' before making global git config changes
+2026-10-01T19:17:08.3150653Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-01T19:17:08.3154561Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/agentops/agentops
+2026-10-01T19:17:08.3186491Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-01T19:17:08.3212106Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-01T19:17:08.3370464Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-01T19:17:08.3403287Z http.https://github.com/.extraheader
+2026-10-01T19:17:08.3413999Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-10-01T19:17:08.3444360Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-01T19:17:08.3595310Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-01T19:17:08.3621826Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-01T19:17:08.3884132Z Cleaning up orphan processes
+2026-10-01T19:17:08.4058050Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

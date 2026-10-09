@@ -1,0 +1,32 @@
+{
+  "schema": "mi1-tracka-cases/v1",
+  "status": "prepared-not-run",
+  "repository": "github:bayleafwalker/agentops",
+  "input_revision": "1d4a55934f62502fa15e8098fc3f1e6b6b8aac4d",
+  "cases": [
+    {
+      "id": "receipt-audit",
+      "task": "Audit the actual MI-1 public receipt packet. Verify its manifest and reported artifact bindings; distinguish observed owner assertions from independent artifact checks and incomplete milestone bars. Propose a concise review report, including a no-findings result if appropriate.",
+      "inputs": [
+        "docs/evidence/2026-10-09-mi1-protected-proof/",
+        "docs/evidence/2026-10-09-mi1-trackb/result.md",
+        "scripts/evidence_completeness.py",
+        "scripts/tests/test_evidence_completeness.py"
+      ]
+    },
+    {
+      "id": "ci-diagnosis",
+      "task": "Diagnose the actual failed protected-paths CI run from the supplied public job log and the source at its head revision. Explain the minimal legitimate remediation, keeping historical policy separate from current policy. Propose a concise review report; do not edit the historical workflow or apply a bypass.",
+      "run_id": 36913128176,
+      "job_id": 110540455279,
+      "source_revision": "343bb1bd10e575b90eb36a8cb7bbb0a9d599bbe1",
+      "log": "inputs/ci-failure.log",
+      "log_sha256": "edade4ac4e079c4f2eb69bac650bf0af0f34f96efd3c65accc965affe82926c6",
+      "source_url": "https://github.com/bayleafwalker/agentops/actions/runs/36913128176"
+    }
+  ],
+  "result_directory": "docs/experiments/mi1-tracka/results/",
+  "qualifying_results": [],
+  "measurements": ["operator_active_seconds", "accepted_quality", "recovery_active_seconds", "total_cost"],
+  "kill_rule": "If GitHub Agentic Workflows meets the need for these GitHub-contained cases on all four measured dimensions, use it for that scope and add no dispatch machinery. Missing measurements or failed prerequisites cannot establish this decision."
+}

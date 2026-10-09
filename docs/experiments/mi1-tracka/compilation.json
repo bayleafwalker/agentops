@@ -1,0 +1,74 @@
+{
+  "status": "compiled-not-executed",
+  "compiler_version": "v0.89.21",
+  "compiler_source_revision": "c35393777e5604a63721d09512263b1383301d4f",
+  "compiler_binary_sha256": "1c74ff5fc28b1891d32b67f4348a9b7f750946b6d4a721e909187a848868016b",
+  "template_sha256": "7a8cc90ac8e546ec0212b25ef74b015239a8ffa8a3e492858d875297e2ebe02d",
+  "compiled_yaml_sha256": "1d9b2b5917387611e029543b9e71414fae40169413bbf6381cd7e74d1cfd35d1",
+  "compilation_directory": ".mi1-compile",
+  "valid": true,
+  "errors": [],
+  "warnings": [],
+  "jobs": {
+    "activation": {
+      "permissions": {
+        "actions": "read",
+        "contents": "read"
+      },
+      "job_timeout_minutes": null,
+      "step_timeouts": []
+    },
+    "agent": {
+      "permissions": {
+        "contents": "read"
+      },
+      "job_timeout_minutes": 60,
+      "step_timeouts": [
+        {
+          "name": "Execute Claude Code CLI",
+          "minutes": 15
+        }
+      ]
+    },
+    "conclusion": {
+      "permissions": {
+        "actions": "read",
+        "contents": "write",
+        "issues": "write",
+        "pull-requests": "write"
+      },
+      "job_timeout_minutes": null,
+      "step_timeouts": []
+    },
+    "detection": {
+      "permissions": {
+        "contents": "read"
+      },
+      "job_timeout_minutes": 10,
+      "step_timeouts": [
+        {
+          "name": "Execute threat detection with AWF",
+          "minutes": 10
+        }
+      ]
+    },
+    "safe_outputs": {
+      "permissions": {
+        "contents": "write",
+        "issues": "write",
+        "pull-requests": "write"
+      },
+      "job_timeout_minutes": 45,
+      "step_timeouts": []
+    }
+  },
+  "external_actions": [
+    "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+    "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+    "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3",
+    "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+    "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+    "github/gh-aw-actions/setup@924af5fdc64061cfbf66fb584c8b07e2ac230c60"
+  ],
+  "results": []
+}
