@@ -1,5 +1,6 @@
 """Independent missing-link, stale-artifact and read-boundary histories."""
 from copy import deepcopy
+import hashlib
 import json
 
 import pytest
@@ -36,6 +37,94 @@ def capture():
 
 def intent(doc):
     return doc["results"][r.EFFECT]["value"]["intent"]
+
+
+def protected_capture():
+    doc = capture()
+    row = intent(doc)
+    row["release_digest"] = "c" * 64
+    receipt = dict(schema="sprintctl-protected-artifact-verification/v1",
+        intent_id=row["intent_id"], intent_revision=1, canonical_intent_digest=DIGEST,
+        release_digest="c" * 64,
+        artifact=dict(domain="utf8-unified-diff/v1", digest="sha256:" +
+            hashlib.sha256(row["unified_diff"].encode()).hexdigest()),
+        checks=[dict(name="clean-patch-application", revision="sha256:" + "e" * 64, status="passed")])
+    row["acceptance"]["verification"] = dict(run_id="run_verifier", item_id="proof_demo",
+        evidence_digest="sha256:" + hashlib.sha256(json.dumps(receipt, sort_keys=True,
+            separators=(",", ":"), ensure_ascii=False).encode()).hexdigest(),
+        entry_digest="sha256:" + "f" * 64, verifier_principal="issuer:reviewer:0",
+        workspace_id="native:demo:0", client_id=None, grant_id=None, receipt=receipt)
+    doc["results"][r.RELEASE]["value"]["release"]["acceptance_contract"]["effect_verification_required"] = True
+    return doc
+
+
+def test_protected_owner_links_explain_exact_artifact_without_inferred_authority():
+    doc = protected_capture(); before = deepcopy(doc)
+    report = r.reconstruct(doc)
+    assert report["status"] == "complete" and report["missing"] == []
+    proof = report["links"]["verification_evidence"]["value"]
+    assert proof["verifier_principal"] == "issuer:reviewer:0"
+    assert proof["receipt"]["artifact"]["digest"] != "sha256:" + DIGEST
+    assert report["links"]["release_intent_binding"]["value"]["release_digest"] == "c" * 64
+    assert not report["authorizes_effects"] and "not authenticated" in report["assurance"]
+    assert doc == before
+
+
+@pytest.mark.parametrize("change", ["raw-artifact", "receipt-digest", "intent", "revision",
+    "release", "verifier", "failed-check", "empty-checks", "duplicate-checks", "check-revision",
+    "entry-digest", "run", "workspace", "grant", "unknown-field", "proof-type"])
+def test_malformed_or_changed_protected_proof_cannot_explain_an_applied_effect(change):
+    doc = protected_capture(); proof = intent(doc)["acceptance"]["verification"]
+    detail = proof["receipt"]
+    if change == "raw-artifact": detail["artifact"]["digest"] = "sha256:" + "0" * 64
+    if change == "receipt-digest": proof["evidence_digest"] = "sha256:" + "0" * 64
+    if change == "intent": detail["intent_id"] = "another"
+    if change == "revision": detail["intent_revision"] = True
+    if change == "release": detail["release_digest"] = "0" * 64
+    if change == "verifier": proof["verifier_principal"] = "issuer:proposer:0"
+    if change == "failed-check": detail["checks"][0]["status"] = "failed"
+    if change == "empty-checks": detail["checks"] = []
+    if change == "duplicate-checks": detail["checks"] *= 2
+    if change == "check-revision": detail["checks"][0]["revision"] = "unknown"
+    if change == "entry-digest": proof["entry_digest"] = "unknown"
+    if change == "run": proof["run_id"] = ""
+    if change == "workspace": proof["workspace_id"] = ""
+    if change == "grant": proof["grant_id"] = 1
+    if change == "unknown-field": proof["provider_verdict"] = "success"
+    if change == "proof-type": intent(doc)["acceptance"]["verification"] = []
+    # Recompute the outer digest except for the deliberate digest fault, so
+    # semantic counterexamples cannot pass only because their old hash differs.
+    if change != "receipt-digest":
+        proof["evidence_digest"] = "sha256:" + hashlib.sha256(json.dumps(detail,
+            sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+    report = r.reconstruct(doc)
+    assert report["status"] == "conflict"
+    for key in ("verification_evidence", "acceptance", "effect_receipt"):
+        assert report["links"][key]["status"] == "conflict"
+
+
+def test_current_release_change_invalidates_old_binding_and_verification():
+    doc = protected_capture()
+    doc["results"][r.RELEASE]["value"]["release"]["release_digest"] = "0" * 64
+    report = r.reconstruct(doc)
+    for key in ("release_intent_binding", "verification_evidence", "acceptance", "effect_receipt"):
+        assert report["links"][key]["status"] == "conflict"
+
+
+def test_missing_release_or_receipt_stays_missing_even_with_valid_protected_proof():
+    doc = protected_capture(); del doc["results"][r.RELEASE]
+    report = r.reconstruct(doc)
+    assert report["status"] == "incomplete"
+    assert "release_intent_binding" in report["missing"]
+    doc = protected_capture(); intent(doc)["application"] = None
+    assert "effect_receipt" in r.reconstruct(doc)["missing"]
+
+
+def test_work_decisions_do_not_replace_a_missing_required_protected_proof():
+    doc = protected_capture(); del intent(doc)["acceptance"]["verification"]
+    report = r.reconstruct(doc)
+    assert report["links"]["verification_evidence"]["status"] == "missing"
+    assert report["status"] == "incomplete"
 
 
 def test_owner_acceptance_and_receipt_do_not_fabricate_missing_release_or_verifier_binding():
