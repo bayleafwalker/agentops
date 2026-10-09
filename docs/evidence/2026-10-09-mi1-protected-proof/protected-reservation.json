@@ -1,0 +1,33 @@
+{
+  "repo_id": "agentops",
+  "reservation": {
+    "repo_id": "agentops",
+    "id": 224,
+    "work_item_id": 2613,
+    "session_id": "01a11f24-a465-73b2-84a9-f0e895b2f955",
+    "actor": "workstation-vuoro",
+    "role": "execution",
+    "state": "active",
+    "created_at": "2026-10-09T06:21:22Z",
+    "last_activity_at": "2026-10-09T06:21:22Z",
+    "released_at": null,
+    "interruption_reason": null,
+    "correlation_ref": null,
+    "release_digest": "de7af2451948c4ff49e9dc03ad65fcd77e131002ffecf72b296ac37ce89b0ae1",
+    "activity_age_seconds": 0,
+    "stale": false,
+    "conflict": true,
+    "conflicting_reservations": [
+      {
+        "id": 223,
+        "work_item_id": 2613,
+        "actor": "workstation-vuoro",
+        "session_id": "01a11f24-a465-73b2-84a9-f0e895b2f955",
+        "role": "execution",
+        "state": "active",
+        "last_activity_at": "2026-10-09T06:10:12Z"
+      }
+    ],
+    "conflict_severity": "warning"
+  }
+}

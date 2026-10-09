@@ -1,0 +1,24 @@
+import asyncio, dataclasses, json, sys
+from pathlib import Path
+from mi1_native_runtime import applier_runtime, AgentopsProvider, REPO
+
+F=Path('/projects/dev/agentops/_artifacts/agentops/session-notes/2026-10-09-mi1')
+TARGET=json.loads((F/'native-intent.json').read_text())['intent']['intent_id']
+class InterruptAfterPush(AgentopsProvider):
+ async def push_branch(self,repository,branch,*,local_path):
+  await super().push_branch(repository,branch,local_path=local_path)
+  F.joinpath('interruption.json').write_text(json.dumps(dict(stage='after-create-only-signed-branch-before-PR-and-owner-receipt',intent_id=TARGET,branch=branch,owner_state_expected='accepted',interruption='deliberate process exit75, actual published branch retained'),indent=2)+'\n')
+  raise SystemExit(75)
+async def main():
+ runtime=applier_runtime()
+ observed=await runtime.intent_source.poll_accepted()
+ assert [i.intent_id for i in observed]==[TARGET], 'one-shot factory refuses any broader accepted set'
+ if sys.argv[1]=='interrupt':
+  runtime=dataclasses.replace(runtime,provider=InterruptAfterPush())
+ elif sys.argv[1]!='resume':raise ValueError('unknown bounded phase')
+ result=await runtime.run_once()
+ packet=[dataclasses.asdict(o) for o in result]
+ F.joinpath('applier-'+sys.argv[1]+'-outcome.json').write_text(json.dumps(packet,indent=2)+'\n')
+ print(json.dumps(packet))
+ assert len(result)==1 and result[0].state=='applied', 'protected application not confirmed'
+asyncio.run(main())

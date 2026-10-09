@@ -1,0 +1,29 @@
+{
+  "cohort": "mi1-trackb-20261009",
+  "observed_date": "2026-10-09",
+  "vuoro_run_id": null,
+  "vuoro_registration": "not performed; coordinator to register",
+  "harness_build": "claude-code 2.1.289 (claude --version, run after edits began)",
+  "model_stated_by_session": "claude-sonnet-5-5",
+  "model_verified": false,
+  "source_commit": "02408686bf8ba3fa29c15eac6dd293fc9ca3bf3f",
+  "branch": "feat/mi1-trackb-native-20261009",
+  "initial_artifact_sha256": "5ace0fda87c9f125efd634c00f11cc56ee2b8e5bb8a8bc7797c9190de191f5bb",
+  "initial_artifact_sha256_method": "git show HEAD:<path> | sha256sum (committed original; computed after my edits, not a first-read hash)",
+  "final_artifact_sha256": "de6733388e7fbb4b9b89110da336e540487cb686747e3598ccf4233e20d1834b",
+  "final_artifact_path": "docs/evidence/2026-10-09-mi1-trackb/result.md",
+  "native_observation_sha256": null,
+  "native_observation_sha256_note": "a file cannot contain its own digest; coordinator to hash",
+  "tests_executed": [
+    {"command": "uv sync --extra dev --locked --project apps/operator-projection", "result": "installed 24 packages"},
+    {"command": "uv run --project apps/operator-projection --extra dev pytest -q apps/operator-projection", "result": "155 passed, 15 skipped", "runs": 2, "cwd": "repository root, not app dir"}
+  ],
+  "skip_reasons_captured": false,
+  "cli_run": false,
+  "files_changed_in_scope": ["docs/evidence/2026-10-09-mi1-trackb/result.md", "native-observation.json"],
+  "out_of_scope_side_effects": [
+    "apps/operator-projection/src/operator_projection.egg-info/PKG-INFO modified by uv sync; revert denied",
+    "apps/operator-projection/src/operator_projection.egg-info/SOURCES.txt modified by uv sync; revert denied"
+  ],
+  "verdict": "bounded documentation check complete; not MI-1, Track B, P1 or protected-authority proof"
+}
