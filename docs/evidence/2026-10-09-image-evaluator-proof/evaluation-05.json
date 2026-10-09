@@ -1,0 +1,47 @@
+{
+  "request": {
+    "schema_version": "invocation/v1",
+    "request_id": "0afab5f446ac3927fb8e90cea04a625c",
+    "repo_id": "s4-fixture",
+    "catalog_revision": "29c2dd503c4de2347fd1ba481b23a80b5465e791ce64a5ba8e8b37c2f8185090",
+    "operation": "work.evidence.evaluate-v1",
+    "arguments": {
+      "run_id": "run_Y9TBJ055PS3D8SMVE3FX91F4JH",
+      "subject": "effect",
+      "basis": {
+        "item_id": 1,
+        "expected_revision": "item:83b289a5-b8c2-4760-add4-6d16c4eeefaa@description:v0@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855@revise:0",
+        "release_digest": "457f508ad4aea163c06944192f545f2fd775e80dca453dc9c8ec7079e92d8518"
+      },
+      "as_of": "2026-10-09T12:00:00Z",
+      "current_input_digests": {},
+      "expected_tail": null
+    }
+  },
+  "signed_fixture_identity": {
+    "workspace_id": "01K33333333333333333333333",
+    "subject": "s4-fixture",
+    "principal_epoch": 0,
+    "client_id": "fixture-client",
+    "grant_id": "fixture-grant",
+    "authorities": [
+      "work:read",
+      "work:evidence"
+    ]
+  },
+  "http_status": 401,
+  "response": {
+    "schema_version": "invocation-result/v1",
+    "request_id": "0afab5f446ac3927fb8e90cea04a625c",
+    "operation": "work.evidence.evaluate-v1",
+    "catalog_revision": "29c2dd503c4de2347fd1ba481b23a80b5465e791ce64a5ba8e8b37c2f8185090",
+    "status": "rejected",
+    "result": null,
+    "error": {
+      "code": "identity-required",
+      "message": "gateway identity assertion has invalid workspace_id"
+    }
+  },
+  "before_sha256": "0be7a0b8f08ee0b4c3f68427f0539c5e3f6b8678f398d1194624468bbb03c30c",
+  "after_sha256": "0be7a0b8f08ee0b4c3f68427f0539c5e3f6b8678f398d1194624468bbb03c30c"
+}

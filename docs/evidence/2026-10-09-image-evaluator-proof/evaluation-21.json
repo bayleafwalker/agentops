@@ -1,0 +1,175 @@
+{
+  "request": {
+    "schema_version": "invocation/v1",
+    "request_id": "ac21222c93b1a3abd77ca67a25064f3c",
+    "repo_id": "s4-fixture",
+    "catalog_revision": "29c2dd503c4de2347fd1ba481b23a80b5465e791ce64a5ba8e8b37c2f8185090",
+    "operation": "work.evidence.evaluate-v1",
+    "arguments": {
+      "run_id": "run_Y9TBJ055PS3D8SMVE3FX91F4JH",
+      "subject": "effect",
+      "basis": {
+        "item_id": 1,
+        "expected_revision": "item:83b289a5-b8c2-4760-add4-6d16c4eeefaa@description:v1@sha256:0d97a24b955efbbcaf086dab1412c7b09fa8b70f7b80c593464a7402688ba594@revise:0",
+        "release_digest": "457f508ad4aea163c06944192f545f2fd775e80dca453dc9c8ec7079e92d8518"
+      },
+      "as_of": "2026-10-09T12:00:00Z",
+      "current_input_digests": {},
+      "expected_tail": {
+        "item_id": "image-evidence-1",
+        "chain_seq": 0,
+        "entry_digest": "sha256:f1d8d34b1d634c199ae2e7594a398127d5a67e62f271975042293639304e3825"
+      }
+    }
+  },
+  "signed_fixture_identity": {
+    "workspace_id": "01K11111111111111111111111",
+    "subject": "s4-fixture",
+    "principal_epoch": 0,
+    "client_id": "fixture-client",
+    "grant_id": "fixture-grant",
+    "authorities": [
+      "work:read",
+      "work:evidence"
+    ]
+  },
+  "http_status": 200,
+  "response": {
+    "schema_version": "invocation-result/v1",
+    "request_id": "ac21222c93b1a3abd77ca67a25064f3c",
+    "operation": "work.evidence.evaluate-v1",
+    "catalog_revision": "29c2dd503c4de2347fd1ba481b23a80b5465e791ce64a5ba8e8b37c2f8185090",
+    "status": "accepted",
+    "result": {
+      "schema_version": "evidence-evaluation/v1",
+      "evaluator_revision": "s4-evidence-evaluation/v1",
+      "repo_id": "s4-fixture",
+      "run_binding": {
+        "repo_id": "s4-fixture",
+        "run_id": "run_Y9TBJ055PS3D8SMVE3FX91F4JH",
+        "principal_id": "s4-fixture:s4-fixture:0",
+        "workspace_id": "01K11111111111111111111111",
+        "client_id": "fixture-client",
+        "grant_id": "fixture-grant"
+      },
+      "subject": "effect",
+      "as_of": "2026-10-09T12:00:00Z",
+      "observed_at": "2026-10-09T18:11:55.012013Z",
+      "requested_basis": {
+        "item_id": 1,
+        "expected_revision": "item:83b289a5-b8c2-4760-add4-6d16c4eeefaa@description:v1@sha256:0d97a24b955efbbcaf086dab1412c7b09fa8b70f7b80c593464a7402688ba594@revise:0",
+        "release_digest": "457f508ad4aea163c06944192f545f2fd775e80dca453dc9c8ec7079e92d8518"
+      },
+      "current_basis": {
+        "item_id": 1,
+        "expected_revision": "item:83b289a5-b8c2-4760-add4-6d16c4eeefaa@description:v1@sha256:0d97a24b955efbbcaf086dab1412c7b09fa8b70f7b80c593464a7402688ba594@revise:0",
+        "release_digest": "457f508ad4aea163c06944192f545f2fd775e80dca453dc9c8ec7079e92d8518",
+        "release_item_revision": "item:83b289a5-b8c2-4760-add4-6d16c4eeefaa@description:v0@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855@revise:0"
+      },
+      "basis_status": "stale",
+      "evaluated_input_digests": {},
+      "input_assurance": "caller-supplied",
+      "source_watermark": {
+        "evidence_chain": {
+          "tail": {
+            "item_id": "image-evidence-1",
+            "chain_seq": 0,
+            "entry_digest": "sha256:f1d8d34b1d634c199ae2e7594a398127d5a67e62f271975042293639304e3825"
+          },
+          "item_count": 1
+        },
+        "item_release": {
+          "item_id": 1,
+          "expected_revision": "item:83b289a5-b8c2-4760-add4-6d16c4eeefaa@description:v1@sha256:0d97a24b955efbbcaf086dab1412c7b09fa8b70f7b80c593464a7402688ba594@revise:0",
+          "release_digest": "457f508ad4aea163c06944192f545f2fd775e80dca453dc9c8ec7079e92d8518",
+          "release_item_revision": "item:83b289a5-b8c2-4760-add4-6d16c4eeefaa@description:v0@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855@revise:0"
+        },
+        "execution_facts": null
+      },
+      "snapshot_digest": "sha256:6c4896401a6dd21eac42843f400034462455f858bfc218aa4603546e0aa71328",
+      "evidence_validity": [
+        {
+          "item_id": "image-evidence-1",
+          "digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "status": "invalid",
+          "reason_codes": [
+            "invalid-validity"
+          ],
+          "missing_inputs": [],
+          "changed_inputs": []
+        }
+      ],
+      "authored_assertions": [
+        {
+          "evidence_item_id": "image-evidence-1",
+          "claim_index": 0,
+          "assertion": {
+            "detail": {
+              "trusted": true,
+              "grant_used": true,
+              "non_invocation_proven": true
+            },
+            "subject": "effect",
+            "confirms": true,
+            "grant_id": "claimed-grant",
+            "freshness": null,
+            "claim_type": "effect_completed"
+          },
+          "validity_status": "invalid",
+          "authority": "authored-assertion"
+        },
+        {
+          "evidence_item_id": "image-evidence-1",
+          "claim_index": 1,
+          "assertion": {
+            "detail": {
+              "trusted": true,
+              "grant_used": true,
+              "non_invocation_proven": true
+            },
+            "subject": "effect",
+            "confirms": true,
+            "grant_id": "claimed-grant",
+            "freshness": null,
+            "claim_type": "observation"
+          },
+          "validity_status": "invalid",
+          "authority": "authored-assertion"
+        },
+        {
+          "evidence_item_id": "image-evidence-1",
+          "claim_index": 2,
+          "assertion": {
+            "detail": {
+              "trusted": true,
+              "grant_used": true,
+              "non_invocation_proven": true
+            },
+            "subject": "effect",
+            "confirms": true,
+            "grant_id": "claimed-grant",
+            "freshness": null,
+            "claim_type": "effect_not_invoked"
+          },
+          "validity_status": "invalid",
+          "authority": "authored-assertion"
+        }
+      ],
+      "authenticated_execution_facts": [],
+      "authority_coverage": "unsupported",
+      "effect_state": "unknown",
+      "recommendation": "reconcile",
+      "reason_codes": [
+        "execution-authority-unsupported",
+        "release-basis-stale",
+        "evidence-not-currently-sufficient"
+      ],
+      "supporting_ids": [],
+      "conflicting_ids": [],
+      "authorizes_execution": false
+    },
+    "error": null
+  },
+  "before_sha256": "49767bf993bbdecfda5aa92db9c0fee7ad3f41c90d06ca95ec6bbbc557ad0f84",
+  "after_sha256": "49767bf993bbdecfda5aa92db9c0fee7ad3f41c90d06ca95ec6bbbc557ad0f84"
+}
