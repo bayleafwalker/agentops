@@ -23,6 +23,15 @@ state that decides the agent tooling, in a repository.
   2026-09-14 delegation.
 - `superseded`: replaced, with the successor named.
 
+**MI-1 delivery amendment (2026-10-09):** the operator retired the original
+GitHub Agentic Workflows comparison requirement. P1–P4 and the real different-harness
+Track B case have bounded served acceptance evidence; see
+[the delivered proof](../evidence/2026-10-09-mi1-bindery/README.md). The Track A
+comparison text and tripwire below are retained as historical, retired for MI-1;
+no vendor comparison or kill-rule outcome is established. This delivery record
+does not change the status vocabulary or broaden proposed claims into an estate,
+hardware or legacy-import qualification.
+
 ## Target claims
 
 | id | Claim | Status | Source |

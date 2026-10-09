@@ -1,26 +1,28 @@
 # MI-1 Track A: bounded comparison protocol
 
-Status: frozen preparation snapshot (2026-10-09). Served item 2616 remains open.
+Status: **retired from MI-1 by the operator on 2026-10-09**. This is a
+historical comparison protocol, not an open milestone requirement.
 
-Current direction, updated 2026-10-09: the operator chose local `claude -p`
-with the existing Claude subscription instead of paying for API-key inference.
-No GitHub Agentic Workflows comparison run was dispatched, and no API key is
-needed for the local review. The installed manual workflow from
-[PR321](https://github.com/bayleafwalker/agentops/pull/321) remains unrun.
+The operator explicitly instructed: “Retire the comparison requirement from
+MI-1.” The GitHub Agentic Workflows comparison was never dispatched. Its four
+comparative measurements and kill-rule decision remain unestablished; retirement
+is an operator scope decision, not evidence of vendor superiority or inferiority.
+No API key is requested. The unused manual workflow and compiled lock file are
+removed; their installation and compiler receipts remain in Git history.
 
-Both original native cases executed and their draft reports preserve the initial
-outcomes. A further local subscription review uses the same frozen source inputs.
-Local CLI execution cannot establish a GitHub Agentic Workflows comparison or its
-kill-rule decision. Operator active time and actual total cost remain unmeasured;
-CLI list-price estimates are not subscription charges. The task/input protocol
-stays frozen at `5b309b9003327b1cfdf25bf3b702c4abc9e4a75e`. The preparation
-requirements below describe the unexecuted API-backed candidate, not a request
-for the operator to configure it.
+The [original native receipt audit](results/receipt-audit-native.md) passed bounded
+artifact review and landed in [PR322](https://github.com/bayleafwalker/agentops/pull/322).
+The original CI proposal was rejected for an unsupported human-only authority
+condition and [PR323](https://github.com/bayleafwalker/agentops/pull/323) is closed
+without merging. Its original outcome remains in that PR and served evidence.
+The separate [local subscription review](results/local-subscription-review.md)
+landed in [PR327](https://github.com/bayleafwalker/agentops/pull/327); it is local
+`claude -p` execution, not a hosted vendor comparison. Operator active minutes
+and actual total cost remain unknown; CLI list-price estimates are not invoices.
 
-The preparation record below describes what was verified before execution;
-its statement that the companion is only a template is historical. The active
-manual workflow now lives at `.github/workflows/mi1-tracka.md` with its compiled
-lock file. Its installation does not schedule or dispatch any session.
+The original task/input protocol remains addressable at
+`5b309b9003327b1cfdf25bf3b702c4abc9e4a75e`. The preparation record below is
+historical and does not authorize installing or running the retired workflow.
 
 This packet supplies common inputs and a rubric for two real repository review
 cases. It contains no comparative results. The companion workflow is a template

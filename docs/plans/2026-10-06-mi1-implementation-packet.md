@@ -14,6 +14,26 @@ The operator requested integration of open program PRs and branches and continua
 
 P1 and P2 depend on I0; P3 depends on P2; P4 depends on P1; Track B depends on P1, P2 and P3. A source-only increment does not complete a live proof track. P4's final baseline includes Track B and a sampled ordinary-run window.
 
+## 2026-10-09 delivery and operator amendment
+
+P1–P4 and Track B are accepted in the served owner after the real hosted-Claude
+and isolated native-Codex Bindery continuation, exact protected agentops evidence
+publication, interruption/recovery, stale-proof refusals, independent P1 reads and
+explicit Track B plus historical ordinary-run baseline. The
+[current bounded proof](../evidence/2026-10-09-mi1-bindery/README.md) distinguishes
+source, deployed runtime and actual owner assertions, and retains unknown fields.
+
+The operator explicitly instructed on 2026-10-09: “Retire the comparison
+requirement from MI-1.” Track A's original acceptance row and preparation history
+above are retired, not satisfied by substituting a local run. The hosted vendor
+comparison and kill rule remain unestablished. Its served work item closes as
+withdrawn; the unused workflow is removed. The local subscription review and the
+original native pass/failure records remain evidence with their original scopes.
+
+This amendment leaves TS-1, TS-2 and TS-16 intact. It retires no hardware,
+ERH-006, legacy-import or unqualified resource-owner gate, and supports no
+whole-estate coverage claim.
+
 ## Integration evidence and boundaries
 
 The gateway prerequisite is appservice main `8b488d4925f242442f9a15783060a0f2febf08d7`: Cluster traffic policy, restored Cilium announcement lease and served queue access; local validation and exact-commit CI passed. Ordinary owner PRs agentops #309, Vuoro #178, Sprintctl #119 and auditctl #20 were merged at their reviewed, CI-green heads. Companion plan/knowledge integrations are agentops #310, Vuoro #179, kctl #18 and ActionQ #61, also CI-green at their exact heads.

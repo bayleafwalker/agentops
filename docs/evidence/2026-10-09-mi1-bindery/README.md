@@ -2,7 +2,9 @@
 
 Current status checked 2026-10-09: the P1 reconstruction, P2 ingestion,
 P3 named conformance, P4 bounded completeness deliverables and Track B are
-accepted in the served work owner. **MI-1 remains incomplete: Track A is open.**
+accepted in the served work owner. The operator retired the unexecuted Track A
+comparison on 2026-10-09. MI-1 now covers these proved bounded deliverables and
+Track B; retirement establishes no comparative vendor result.
 The earlier [protected preparation packet](../2026-10-09-mi1-protected-proof/README.md)
 is a historical snapshot of a different, same-harness preparation case.
 
@@ -67,14 +69,15 @@ host-persistent on the trusted host, with their hashes and proof references reco
 in durable-authoritative served checkpoints. They are excluded from this public
 source-only summary. Public source artifacts are cross-host-replicated Git.
 
-## Remaining MI-1 work
+## Retired comparison and preserved external gates
 
-[Track A's frozen comparison protocol](../../experiments/mi1-tracka/README.md)
-remains unchanged as a historical experiment definition. The operator subsequently
-chose local `claude -p` with the existing subscription instead of paid API inference.
-The installed GitHub workflow remains undispatched; no API secret is requested for
-the local work. A local run is recorded as a local run and cannot establish the
-GitHub vendor comparison or its kill rule. Measured operator active time and actual
-total cost remain unknown, and the original native CI-diagnosis quality failure
-remains recorded. Hardware gates and unqualified resource-owner horizons remain
-separate.
+[Track A's original protocol](../../experiments/mi1-tracka/README.md) is historical.
+The operator explicitly retired its comparison requirement from MI-1 after choosing
+local `claude -p` with the existing subscription. No GitHub Agentic Workflows
+inference run was dispatched. The unused workflow is removed, and comparative
+operator-time/cost/quality/recovery results and the kill-rule decision remain
+unestablished. The original native quality failure remains preserved.
+
+The accepted MI-1 scope is P1–P4 plus the real Track B proof above. Hardware
+execution, ERH-006, legacy S4 import and unqualified resource-owner horizons remain
+separate open gates; no fixture, source-only result or bounded sample closes them.
