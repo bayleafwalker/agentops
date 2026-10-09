@@ -1,0 +1,13 @@
+[
+  {
+    "intent_id": "intent_83661EESYQFM1X71NP9NPV2V9S",
+    "state": "applied",
+    "commit_sha": "5cc7aa4b95357cbfd15d8c08551280a6226c8069",
+    "pr_url": "https://github.com/bayleafwalker/agentops/pull/318",
+    "reason": null,
+    "acceptor": {
+      "subject": "vuoro-static:workstation-mi1-verifier:0",
+      "kind": "operator"
+    }
+  }
+]

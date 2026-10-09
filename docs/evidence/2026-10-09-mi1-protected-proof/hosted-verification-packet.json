@@ -1,0 +1,83 @@
+{
+  "request": {
+    "chain_prev_digest": null,
+    "chain_seq": 0,
+    "claims": [
+      {
+        "claim_type": "observation",
+        "confirms": null,
+        "detail": {
+          "artifact": {
+            "digest": "sha256:ac81a4b84880420b9baa5101b772d7f79c42e1d47b7869b2a268972a5fa998af",
+            "domain": "utf8-unified-diff/v1"
+          },
+          "canonical_intent_digest": "f11619268fd6a86728e3ce0645c0872276d51d3de6bd793c1a0c53e9e463dd4a",
+          "checks": [
+            {
+              "name": "patch-text-and-path-safety",
+              "revision": "sha256:a721f1e4cb6d0b5acb495529096e83a86732eed38984b87fcff6862371a887e9",
+              "status": "passed"
+            },
+            {
+              "name": "clean-checkout-and-patch-application",
+              "revision": "sha256:a721f1e4cb6d0b5acb495529096e83a86732eed38984b87fcff6862371a887e9",
+              "status": "passed"
+            },
+            {
+              "name": "staged-content-and-diff-policy",
+              "revision": "sha256:a721f1e4cb6d0b5acb495529096e83a86732eed38984b87fcff6862371a887e9",
+              "status": "passed"
+            }
+          ],
+          "intent_id": "intent_151FZ8X3HBE7TBGBF602VHM7DM",
+          "intent_revision": 1,
+          "release_digest": "de7af2451948c4ff49e9dc03ad65fcd77e131002ffecf72b296ac37ce89b0ae1",
+          "schema": "sprintctl-protected-artifact-verification/v1"
+        },
+        "freshness": null,
+        "grant_id": null,
+        "subject": "intent_151FZ8X3HBE7TBGBF602VHM7DM"
+      }
+    ],
+    "collector": "vuoro-reconciler-artifact-checks/v1",
+    "digest": "sha256:437e7509953c53b4be751d89b822723f5d0b3e927abe8340a5761726065c2759",
+    "idempotency_key": "mi1-trackb-hosted-verification-20261009",
+    "item_id": "mi1-trackb-hosted-verification-20261009",
+    "kind": "protected-artifact-verification",
+    "provenance": {
+      "assurance": "trusted-local-check-execution",
+      "check_revision_basis": {
+        "git_version": "git version 2.55.0",
+        "policy": {
+          "path_allowlist": [
+            "docs/evidence/2026-10-09-mi1-trackb/result.md"
+          ],
+          "protected_path_patterns": []
+        },
+        "schema": "vuoro-reconciler-artifact-checks/v1",
+        "sources": {
+          "diff_policy.py": "a60bbbec84f5841ac0ff94d69127c5286b89fe764879e61075e71351bdf26e63",
+          "git_ops.py": "5c4dd99f4ee8b8585c69d07d10e6f5d959cfead787b131e0b86cfe283c973aaa",
+          "gitenv.py": "314619469f6a6d6a3bd3c1bcf4da59e760cfeb09de050129c885d5ee7e669911",
+          "reconciler.py": "17cb0ceeea948f9bc410eaa1cf48e93c90d9dce6cd3b6c7a03bbcd32fe53a232"
+        }
+      }
+    },
+    "ref": "effect-intent:intent_151FZ8X3HBE7TBGBF602VHM7DM",
+    "run_id": "run_M180CP0B8XSZGC5V6KBBM1GM8N",
+    "validity": {
+      "basis": "indefinite",
+      "component_digests": {},
+      "valid_from": "2026-10-09T06:21:42.534458+00:00",
+      "valid_until": null
+    }
+  },
+  "run_binding": {
+    "client_id": null,
+    "grant_id": null,
+    "principal_id": "vuoro-static:workstation-mi1-verifier:0",
+    "repo_id": "agentops",
+    "run_id": "run_M180CP0B8XSZGC5V6KBBM1GM8N",
+    "workspace_id": "vuoro-native:agentops-mi1:0"
+  }
+}

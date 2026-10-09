@@ -1,0 +1,98 @@
+{
+  "schema": "evidence-completeness-report/v1",
+  "repo_id": "agentops",
+  "window": {
+    "since": "2026-10-08T06:00:00Z",
+    "until": "2026-10-09T06:29:13.427172Z",
+    "ordinary_selection": "same repository/window, excluding the two named preparation runs; no independent ordinary expected-invocation ledger supplied"
+  },
+  "sample_size": 4,
+  "groups": {
+    "run:ordinary": {
+      "sample_size": 0,
+      "reconstructible": 0,
+      "percentage": null,
+      "failure_counts": {
+        "capture_failure": 0,
+        "unattributed_work": 0,
+        "inaccessible_artifact": 0,
+        "missing_receipt": 0,
+        "binding_conflict": 0
+      }
+    },
+    "run:preparation": {
+      "sample_size": 3,
+      "reconstructible": 1,
+      "percentage": 33.33,
+      "failure_counts": {
+        "capture_failure": 1,
+        "unattributed_work": 1,
+        "inaccessible_artifact": 0,
+        "missing_receipt": 0,
+        "binding_conflict": 0
+      }
+    },
+    "effect:ordinary": {
+      "sample_size": 0,
+      "reconstructible": 0,
+      "percentage": null,
+      "failure_counts": {
+        "capture_failure": 0,
+        "unattributed_work": 0,
+        "inaccessible_artifact": 0,
+        "missing_receipt": 0,
+        "binding_conflict": 0
+      }
+    },
+    "effect:preparation": {
+      "sample_size": 1,
+      "reconstructible": 1,
+      "percentage": 100.0,
+      "failure_counts": {
+        "capture_failure": 0,
+        "unattributed_work": 0,
+        "inaccessible_artifact": 0,
+        "missing_receipt": 0,
+        "binding_conflict": 0
+      }
+    }
+  },
+  "entries": [
+    {
+      "id": "session_01R4hvT2eirQWqqDxwcjGv3n",
+      "kind": "run",
+      "stratum": "preparation",
+      "reconstructible": false,
+      "failures": [
+        "capture_failure"
+      ]
+    },
+    {
+      "id": "2316500f-ad0e-4e48-8e51-5fdf3f8df69c",
+      "kind": "run",
+      "stratum": "preparation",
+      "reconstructible": true,
+      "failures": []
+    },
+    {
+      "id": "protected-verifier",
+      "kind": "run",
+      "stratum": "preparation",
+      "reconstructible": false,
+      "failures": [
+        "unattributed_work"
+      ]
+    },
+    {
+      "id": "intent_83661EESYQFM1X71NP9NPV2V9S",
+      "kind": "effect",
+      "stratum": "preparation",
+      "reconstructible": true,
+      "failures": []
+    }
+  ],
+  "assurance": "consistency of supplied owner captures and artifact bytes; not authenticated live reads",
+  "scope": "Three expected preparation invocations plus one protected agentops effect. Ordinary captured-run window has zero eligible runs. Not the final Bindery Track B baseline.",
+  "whole_estate_claim": false,
+  "note": "Failure classes overlap. Empty samples have null percentages; absent invocations count once."
+}

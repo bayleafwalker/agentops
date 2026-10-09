@@ -1,0 +1,71 @@
+{
+  "schema": "evidence-completeness-sample/v1",
+  "repo_id": "agentops",
+  "scope": "Three expected preparation invocations plus one protected agentops effect. Ordinary captured-run window has zero eligible runs. Not the final Bindery Track B baseline.",
+  "window": {
+    "since": "2026-10-08T06:00:00Z",
+    "until": "2026-10-09T06:29:13.427172Z",
+    "ordinary_selection": "same repository/window, excluding the two named preparation runs; no independent ordinary expected-invocation ledger supplied"
+  },
+  "strata": [
+    "preparation",
+    "ordinary"
+  ],
+  "entries": [
+    {
+      "id": "session_01R4hvT2eirQWqqDxwcjGv3n",
+      "kind": "run",
+      "stratum": "preparation",
+      "run_id": null,
+      "reason": "Hosted connector tools unavailable; public PR317 remains visible"
+    },
+    {
+      "id": "2316500f-ad0e-4e48-8e51-5fdf3f8df69c",
+      "kind": "run",
+      "stratum": "preparation",
+      "run_id": "run_MJWFTJKGW1CARFBE2NQPQ51TAT",
+      "artifacts": [
+        {
+          "path": "docs/evidence/2026-10-09-mi1-protected-proof/native-resumed-cli-result.json",
+          "digest": "sha256:980ba6b3586bc13004feaf1757c45605129cd342c81f3995b94068393651e2b3"
+        },
+        {
+          "path": "docs/evidence/2026-10-09-mi1-trackb/result.md",
+          "digest": "sha256:de6733388e7fbb4b9b89110da336e540487cb686747e3598ccf4233e20d1834b"
+        }
+      ]
+    },
+    {
+      "id": "protected-verifier",
+      "kind": "run",
+      "stratum": "preparation",
+      "run_id": "run_M180CP0B8XSZGC5V6KBBM1GM8N",
+      "artifacts": [
+        {
+          "path": "docs/evidence/2026-10-09-mi1-protected-proof/native-verification-packet.json",
+          "domain": "canonical-json",
+          "keys": [
+            "request",
+            "claims",
+            0,
+            "detail"
+          ],
+          "digest": "sha256:a8a06146e635de3da1964eec0b6b6891afe158e9aedcdddb43d54005ed2958e8"
+        }
+      ]
+    },
+    {
+      "id": "intent_83661EESYQFM1X71NP9NPV2V9S",
+      "kind": "effect",
+      "stratum": "preparation",
+      "intent_id": "intent_83661EESYQFM1X71NP9NPV2V9S",
+      "capture": "docs/evidence/2026-10-09-mi1-protected-proof/live-owner-reconstruction-capture.json",
+      "artifacts": [
+        {
+          "path": "docs/evidence/2026-10-09-mi1-trackb/result.md",
+          "digest": "sha256:de6733388e7fbb4b9b89110da336e540487cb686747e3598ccf4233e20d1834b"
+        }
+      ]
+    }
+  ]
+}

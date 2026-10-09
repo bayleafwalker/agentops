@@ -1,0 +1,82 @@
+{
+  "exported_at": "2026-10-09T06:29:13.427172+00:00",
+  "since": "2026-10-08T06:00:00Z",
+  "runs": [
+    {
+      "run_id": "run_M180CP0B8XSZGC5V6KBBM1GM8N",
+      "repo_id": "agentops",
+      "principal_id": "vuoro-static:workstation-mi1-verifier:0",
+      "workspace_id": "vuoro-native:agentops-mi1:0",
+      "client_id": null,
+      "grant_id": null,
+      "harness_id": "codex",
+      "harness_build": "unknown",
+      "model_id": "gpt-6",
+      "recipe_id": "agentops:mi1-protected-proof-20261009",
+      "observed_profile": {
+        "skill_digests": [],
+        "instruction_digest": "sha256:3d1265da94c8986401969c1afc396b00a1c408fc3e61bd88856bac0b957e6f98"
+      },
+      "created_at": "2026-10-09T05:50:57.292556+00:00",
+      "evidence": [
+        {
+          "item_id": "mi1-trackb-hosted-verification-20261009",
+          "chain_seq": 0,
+          "kind": "protected-artifact-verification",
+          "ref": "effect-intent:intent_151FZ8X3HBE7TBGBF602VHM7DM",
+          "digest": "sha256:437e7509953c53b4be751d89b822723f5d0b3e927abe8340a5761726065c2759",
+          "collector": "vuoro-reconciler-artifact-checks/v1",
+          "created_at": "2026-10-09T06:22:14.368802+00:00"
+        },
+        {
+          "item_id": "mi1-trackb-native-verification-20261009",
+          "chain_seq": 1,
+          "kind": "protected-artifact-verification",
+          "ref": "effect-intent:intent_83661EESYQFM1X71NP9NPV2V9S",
+          "digest": "sha256:a8a06146e635de3da1964eec0b6b6891afe158e9aedcdddb43d54005ed2958e8",
+          "collector": "vuoro-reconciler-artifact-checks/v1",
+          "created_at": "2026-10-09T06:22:57.047179+00:00"
+        }
+      ],
+      "session_notes": []
+    },
+    {
+      "run_id": "run_MJWFTJKGW1CARFBE2NQPQ51TAT",
+      "repo_id": "agentops",
+      "principal_id": "vuoro-static:workstation-mi1-proposer:0",
+      "workspace_id": "vuoro-native:agentops-mi1:0",
+      "client_id": null,
+      "grant_id": null,
+      "harness_id": "claude-code",
+      "harness_build": "2.1.289",
+      "model_id": "claude-sonnet-5-5",
+      "recipe_id": "agentops:mi1-trackb-native-coordinator-capture:2316500f-ad0e-4e48-8e51-5fdf3f8df69c",
+      "observed_profile": {
+        "skill_digests": [],
+        "instruction_digest": "sha256:82b6fc8878a0e9d1e5e0c8f00b631ada1314bed0c8f65059274f55006cdb69db"
+      },
+      "created_at": "2026-10-09T06:16:08.681869+00:00",
+      "evidence": [
+        {
+          "item_id": "mi1-trackb-native-outcome-20261009",
+          "chain_seq": 0,
+          "kind": "native-session-outcome",
+          "ref": "artifact:sha256:980ba6b3586bc13004feaf1757c45605129cd342c81f3995b94068393651e2b3",
+          "digest": "sha256:980ba6b3586bc13004feaf1757c45605129cd342c81f3995b94068393651e2b3",
+          "collector": "mi1-trusted-coordinator-capture/v1",
+          "created_at": "2026-10-09T06:16:47.252968+00:00"
+        },
+        {
+          "item_id": "mi1-trackb-native-artifact-20261009",
+          "chain_seq": 1,
+          "kind": "report",
+          "ref": "docs/evidence/2026-10-09-mi1-trackb/result.md",
+          "digest": "sha256:de6733388e7fbb4b9b89110da336e540487cb686747e3598ccf4233e20d1834b",
+          "collector": "mi1-trusted-coordinator-capture/v1",
+          "created_at": "2026-10-09T06:26:41.826912+00:00"
+        }
+      ],
+      "session_notes": []
+    }
+  ]
+}

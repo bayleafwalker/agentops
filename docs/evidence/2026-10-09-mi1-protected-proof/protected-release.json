@@ -1,0 +1,25 @@
+{
+  "repo_id": "agentops",
+  "release": {
+    "repo_id": "agentops",
+    "id": 152,
+    "work_item_id": 2613,
+    "item_revision": "item:d63a1871-222f-4ee4-ae4d-11cc55998c6c@description:v0@sha256:d5573c49e93d800e79040ad2f7ab9761f14d09b45b547caed49e876f3e7c956c@revise:0",
+    "revise_count": 0,
+    "release_digest": "de7af2451948c4ff49e9dc03ad65fcd77e131002ffecf72b296ac37ce89b0ae1",
+    "acceptance_contract": {
+      "review_required": true,
+      "effect_verification_required": true
+    },
+    "context_refs": [
+      {
+        "url": "https://github.com/bayleafwalker/vuoro/blob/f9cadd85b35cd28717c5ab3fc24409bcb0f7b98f/docs/plans/2026-10-05-market-integration-milestone.md",
+        "label": "MI1-P2-operator-authorized@git:f9cadd85b35cd28717c5ab3fc24409bcb0f7b98f",
+        "ref_type": "doc"
+      }
+    ],
+    "created_at": "2026-10-09T06:21:22.441267Z",
+    "actor": "workstation-vuoro"
+  },
+  "commits": []
+}

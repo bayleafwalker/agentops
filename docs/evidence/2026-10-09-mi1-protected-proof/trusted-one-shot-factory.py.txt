@@ -1,0 +1,172 @@
+"""One-shot trusted MI-1 factory; no queue, scheduler or automatic acceptance.
+
+Only agentops and its deterministic effect branches are reachable. Credentials
+resolve on the host, through existing role files and the scoped broker.
+"""
+import json
+from pathlib import Path
+import re
+import subprocess
+from urllib.parse import quote, urlencode
+
+from vuoro_client import AsyncVuoroClient, Profile
+from vuoro_reconciler.diff_policy import DiffPolicy
+from vuoro_reconciler.gitenv import run_git
+from vuoro_reconciler.provider import BranchAlreadyExists, PullRequestAlreadyExists, PullRequestResult
+from vuoro_reconciler.reconciler import Reconciler, ReconcilerConfig
+from vuoro_reconciler.signing import SigningKey
+from vuoro_reconciler.sprintctl_source import SprintctlIntentSource
+
+REPO = 'bayleafwalker/agentops'
+WORKSPACE = 'vuoro-native:agentops-mi1:0'
+ENDPOINT = 'https://vuoro-shared.apps.kotona.app'
+RESULT_PATH = 'docs/evidence/2026-10-09-mi1-trackb/result.md'
+BRANCH = re.compile(r'^vuoro-effect/[A-Za-z0-9_][A-Za-z0-9_-]{0,127}$')
+BROKER = '/run/current-system/sw/bin/credctl'
+IDENTITY = str(Path.home()/'.config/cred-broker/workstation')
+
+
+class AgentopsProvider:
+    def _repo(self, repository):
+        if repository != REPO:
+            raise ValueError('repository-not-allowlisted')
+
+    def _branch(self, branch):
+        if not isinstance(branch, str) or not BRANCH.fullmatch(branch):
+            raise ValueError('branch-not-allowlisted')
+
+    def clone_url(self, repository):
+        self._repo(repository)
+        return 'https://github.com/' + REPO + '.git'
+
+    def default_branch(self, repository):
+        self._repo(repository)
+        return 'main'
+
+    def _api(self, suffix, *, payload=None):
+        capability = 'repo.read' if payload is None else 'pr.manage'
+        args = [BROKER, '--identity-dir', IDENTITY, 'exec', capability,
+                '--repository', 'github:' + REPO, '--', 'gh', 'api', '--include',
+                'repos/' + REPO + '/' + suffix]
+        if payload is not None:
+            args += ['--method', 'POST', '--input', '-']
+        result = subprocess.run(args, input=json.dumps(payload) if payload is not None else None,
+            capture_output=True, text=True, timeout=60)
+        # Never relay token-bearing command diagnostics or arbitrary API bodies.
+        header, separator, body = result.stdout.partition('\n\n')
+        try:
+            status = int(header.splitlines()[0].split()[1])
+        except (ValueError, IndexError):
+            raise RuntimeError('provider-response-unavailable') from None
+        if status in (404, 422):
+            return status, None
+        if result.returncode or not 200 <= status < 300 or not separator:
+            raise RuntimeError('provider-request-refused')
+        try:
+            return status, json.loads(body)
+        except ValueError:
+            raise RuntimeError('provider-response-malformed') from None
+
+    async def find_branch(self, repository, branch):
+        self._repo(repository); self._branch(branch)
+        status, value = self._api('git/ref/heads/' + quote(branch, safe=''))
+        if status == 404:
+            return None
+        if type(value) is not dict or value.get('ref') != 'refs/heads/' + branch:
+            raise RuntimeError('provider-ref-mismatch')
+        sha = value.get('object', {}).get('sha')
+        if not isinstance(sha, str) or not re.fullmatch(r'[0-9a-f]{40}', sha):
+            raise RuntimeError('provider-ref-malformed')
+        return sha
+
+    def _pr(self, value, branch):
+        if (type(value) is not dict or value.get('head', {}).get('repo', {}).get('full_name') != REPO
+                or value['head'].get('ref') != branch or value.get('base', {}).get('ref') != 'main'
+                or value['base'].get('repo', {}).get('full_name') != REPO):
+            raise RuntimeError('provider-pr-mismatch')
+        sha = value['head'].get('sha')
+        number = value.get('number')
+        if not isinstance(sha, str) or not re.fullmatch(r'[0-9a-f]{40}', sha) or type(number) is not int or number < 1:
+            raise RuntimeError('provider-pr-malformed')
+        expected_url = f'https://github.com/{REPO}/pull/{number}'
+        if value.get('html_url') != expected_url or value.get('state') not in ('open', 'closed'):
+            raise RuntimeError('provider-pr-malformed')
+        return PullRequestResult(url=expected_url, number=number, base_branch='main', head_sha=sha,
+            state='merged' if value.get('merged_at') else value['state'], head_ref=f'refs/pull/{number}/head')
+
+    async def find_pull_request(self, repository, branch):
+        self._repo(repository); self._branch(branch)
+        _, values = self._api('pulls?' + urlencode(dict(state='all', head='bayleafwalker:' + branch, per_page=100)))
+        if type(values) is not list:
+            raise RuntimeError('provider-pr-list-unavailable')
+        matches = [v for v in values if v.get('head', {}).get('repo', {}).get('full_name') == REPO
+                   and v.get('head', {}).get('ref') == branch]
+        return self._pr(max(matches, key=lambda v: v['number']), branch) if matches else None
+
+    async def push_branch(self, repository, branch, *, local_path):
+        self._repo(repository); self._branch(branch)
+        ref = 'refs/heads/' + branch
+        helper = '!' + BROKER + ' --identity-dir ' + IDENTITY + ' git-credential --capability repo.write'
+        result = run_git('-c', 'credential.useHttpPath=true', '-c', 'credential.helper=' + helper,
+            'push', '--porcelain', '--force-with-lease=' + ref + ':', self.clone_url(repository), 'HEAD:' + ref, cwd=local_path)
+        if result.returncode:
+            if await self.find_branch(repository, branch) is not None:
+                raise BranchAlreadyExists()
+            raise RuntimeError('provider-push-unconfirmed')
+        # An identical existing tip can exit zero despite an empty lease.
+        # Only a porcelain new-ref receipt counts as this caller creating it.
+        if not any(line.startswith('*\t') and line.split('\t')[1] == 'HEAD:' + ref
+                   and '[new branch]' in line for line in result.stdout.splitlines()):
+            if await self.find_branch(repository, branch) is not None:
+                raise BranchAlreadyExists()
+            raise RuntimeError('provider-push-unconfirmed')
+
+    async def open_pull_request(self, request):
+        self._repo(request.repository); self._branch(request.branch)
+        if request.base_branch != 'main':
+            raise ValueError('base-not-allowlisted')
+        status, value = self._api('pulls', payload=dict(title=request.title, body=request.body,
+            head=request.branch, base='main'))
+        if status == 422:
+            if await self.find_pull_request(REPO, request.branch) is not None:
+                raise PullRequestAlreadyExists()
+            raise RuntimeError('provider-pr-creation-refused')
+        return self._pr(value, request.branch)
+
+
+def _source(role):
+    if role not in ('verifier', 'applier'):
+        raise ValueError('role-not-allowlisted')
+    credential = Path.home()/('.config/vuoro/credentials/vuoro-shared-mi1-' + role)
+    async def invoke(operation, arguments):
+        async with AsyncVuoroClient(Profile(name='mi1-' + role, endpoint=ENDPOINT, credential_ref=str(credential)),
+                lambda ref: Path(ref).read_text().strip()) as client:
+            return await client.invoke(operation, arguments, repo_id='agentops')
+    return SprintctlIntentSource(invoke, workspace_id=WORKSPACE,
+        principal_id='vuoro-static:workstation-mi1-' + role + ':0')
+
+
+def verifier_source():
+    return _source('verifier')
+
+
+def applier_source():
+    return _source('applier')
+
+
+def _runtime(role):
+    signing = Path.home()/'.config/vuoro/signing'
+    key = SigningKey(key_format='ssh', signing_key=str(signing/'mi1-applier_ed25519'),
+        allowed_signers_file=str(signing/'mi1-applier-allowed-signers'),
+        committer_name='Vuoro MI-1 applier', committer_email='vuoro-mi1-applier@workstation.invalid')
+    return Reconciler(_source(role), AgentopsProvider(), key, ReconcilerConfig(
+        repository_allowlist=frozenset({REPO}),
+        diff_policies={REPO: DiffPolicy(path_allowlist=frozenset({RESULT_PATH}))}))
+
+
+def verifier_runtime():
+    return _runtime('verifier')
+
+
+def applier_runtime():
+    return _runtime('applier')

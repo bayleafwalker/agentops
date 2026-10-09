@@ -1,0 +1,166 @@
+{
+  "schema": "operator-reconstruction/v1",
+  "derived": true,
+  "authorizes_effects": false,
+  "repo_id": "agentops",
+  "intent_id": "intent_83661EESYQFM1X71NP9NPV2V9S",
+  "source_mode": "supplied-capture",
+  "catalog_revision": "8971b5b432b71c08aabecc6e8a359927bda06dded2fdc576a52515b491c97795",
+  "links": {
+    "intent": {
+      "status": "observed",
+      "value": {
+        "intent_id": "intent_83661EESYQFM1X71NP9NPV2V9S",
+        "revision": 1,
+        "item_id": 2613,
+        "run_id": "run_MJWFTJKGW1CARFBE2NQPQ51TAT",
+        "repository": "bayleafwalker/agentops",
+        "state": "applied"
+      },
+      "operation": "work.effect.get-v1"
+    },
+    "work_release": {
+      "status": "observed",
+      "value": {
+        "release_digest": "de7af2451948c4ff49e9dc03ad65fcd77e131002ffecf72b296ac37ce89b0ae1",
+        "item_revision": "item:d63a1871-222f-4ee4-ae4d-11cc55998c6c@description:v0@sha256:d5573c49e93d800e79040ad2f7ab9761f14d09b45b547caed49e876f3e7c956c@revise:0",
+        "acceptance_contract": {
+          "review_required": true,
+          "effect_verification_required": true
+        },
+        "created_at": "2026-10-09T06:21:22.441267Z"
+      },
+      "operation": "work.read.release"
+    },
+    "release_intent_binding": {
+      "status": "observed",
+      "value": {
+        "release_digest": "de7af2451948c4ff49e9dc03ad65fcd77e131002ffecf72b296ac37ce89b0ae1",
+        "intent_id": "intent_83661EESYQFM1X71NP9NPV2V9S",
+        "intent_revision": 1
+      },
+      "operation": "work.effect.get-v1"
+    },
+    "attempts_and_claims": {
+      "status": "observed",
+      "value": {
+        "scope": "owner item history; not every attempt is this intent's run",
+        "intent_run_id": "run_MJWFTJKGW1CARFBE2NQPQ51TAT",
+        "current_lease": null,
+        "leases": [],
+        "outcome_reports": [],
+        "verification": {
+          "profile": "checked",
+          "requirements": [
+            "checks"
+          ],
+          "required_checks": []
+        },
+        "evaluated_at": "2026-10-09T06:24:49.760869Z"
+      },
+      "operation": "work.lease.read-v1"
+    },
+    "artifact": {
+      "status": "observed",
+      "value": {
+        "digest": "f4f63c281932bd3ffb1a14ccf14d298fb46c1af8b2ecefca6a83775f81bb0f9b",
+        "domain": "sprintctl-effect-intent/v1",
+        "unified_diff_sha256": "8375aa34c97b4bad3b219d5fdd0922fa5db3b2631b944f41c7e49b9539aedf7f",
+        "base_commit": "5b1061c6fdf5eeb9bdec10fd2ef8223426ba3d25",
+        "scope": "proposed intent content; resulting repository bytes not verified"
+      },
+      "operation": "work.effect.get-v1"
+    },
+    "verification_evidence": {
+      "status": "observed",
+      "value": {
+        "run_id": "run_M180CP0B8XSZGC5V6KBBM1GM8N",
+        "item_id": "mi1-trackb-native-verification-20261009",
+        "receipt": {
+          "checks": [
+            {
+              "name": "patch-text-and-path-safety",
+              "status": "passed",
+              "revision": "sha256:a721f1e4cb6d0b5acb495529096e83a86732eed38984b87fcff6862371a887e9"
+            },
+            {
+              "name": "clean-checkout-and-patch-application",
+              "status": "passed",
+              "revision": "sha256:a721f1e4cb6d0b5acb495529096e83a86732eed38984b87fcff6862371a887e9"
+            },
+            {
+              "name": "staged-content-and-diff-policy",
+              "status": "passed",
+              "revision": "sha256:a721f1e4cb6d0b5acb495529096e83a86732eed38984b87fcff6862371a887e9"
+            }
+          ],
+          "schema": "sprintctl-protected-artifact-verification/v1",
+          "artifact": {
+            "digest": "sha256:8375aa34c97b4bad3b219d5fdd0922fa5db3b2631b944f41c7e49b9539aedf7f",
+            "domain": "utf8-unified-diff/v1"
+          },
+          "intent_id": "intent_83661EESYQFM1X71NP9NPV2V9S",
+          "release_digest": "de7af2451948c4ff49e9dc03ad65fcd77e131002ffecf72b296ac37ce89b0ae1",
+          "intent_revision": 1,
+          "canonical_intent_digest": "f4f63c281932bd3ffb1a14ccf14d298fb46c1af8b2ecefca6a83775f81bb0f9b"
+        },
+        "grant_id": null,
+        "client_id": null,
+        "entry_digest": "sha256:82f5656430c3685f831e857c8fbd0a7b8f1fe44126a9add27ffde1ebf2c6b783",
+        "workspace_id": "vuoro-native:agentops-mi1:0",
+        "evidence_digest": "sha256:a8a06146e635de3da1964eec0b6b6891afe158e9aedcdddb43d54005ed2958e8",
+        "verifier_principal": "vuoro-static:workstation-mi1-verifier:0"
+      },
+      "operation": "work.effect.get-v1",
+      "assurance": "owner-frozen protected assertion; execution is not independently attested"
+    },
+    "acceptance": {
+      "status": "observed",
+      "value": {
+        "intent_id": "intent_83661EESYQFM1X71NP9NPV2V9S",
+        "intent_revision": 1,
+        "canonical_intent_digest": "f4f63c281932bd3ffb1a14ccf14d298fb46c1af8b2ecefca6a83775f81bb0f9b",
+        "acceptor_principal": "vuoro-static:workstation-mi1-verifier:0",
+        "acceptor_policy_version": null,
+        "accepted_at": "2026-10-09T06:22:57.428567Z"
+      },
+      "operation": "work.effect.get-v1"
+    },
+    "effect_receipt": {
+      "status": "missing",
+      "reason": "owner link not supplied"
+    }
+  },
+  "sources": [
+    {
+      "operation": "work.effect.get-v1",
+      "status": "observed",
+      "observed_at": "2026-10-09T06:24:49.676343+00:00",
+      "result_digest": "44793a1bfaf37fba15a3b3dccfd014cb504378fce727dbeabbecac822831fcaf"
+    },
+    {
+      "operation": "work.read.release",
+      "status": "observed",
+      "observed_at": "2026-10-09T06:24:49.694107+00:00",
+      "result_digest": "95a62b12c46dd145795c810cda65a1e015f263ca95dd241206fb439f3fc49033"
+    },
+    {
+      "operation": "work.read.item-decisions",
+      "status": "observed",
+      "observed_at": "2026-10-09T06:24:49.710759+00:00",
+      "result_digest": "15a8af47c524e272bf28313100142a034b304521b8e560ce37bf0b19dc6d738d"
+    },
+    {
+      "operation": "work.lease.read-v1",
+      "status": "observed",
+      "observed_at": "2026-10-09T06:24:49.725748+00:00",
+      "result_digest": "e939b1453c99180b56a63a42dfbd48926c8c3f455f1816a8e4d4515de6b4b028"
+    }
+  ],
+  "conflicts": [],
+  "missing": [
+    "effect_receipt"
+  ],
+  "status": "incomplete",
+  "assurance": "supplied capture; owner provenance not authenticated"
+}

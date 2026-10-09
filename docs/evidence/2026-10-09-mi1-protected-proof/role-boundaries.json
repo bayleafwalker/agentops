@@ -1,0 +1,182 @@
+[
+  {
+    "role": "proposer",
+    "operation": "work.effect.accept-v1",
+    "code": "authority-required",
+    "status": 403
+  },
+  {
+    "role": "proposer",
+    "operation": "work.effect.mark-applied-v1",
+    "code": "authority-required",
+    "status": 403
+  },
+  {
+    "role": "proposer",
+    "operation": "work.effect.list-accepted-v1",
+    "code": "authority-required",
+    "status": 403
+  },
+  {
+    "role": "proposer",
+    "operation": "work.effect.list-proposed-v1",
+    "code": "authority-required",
+    "status": 403
+  },
+  {
+    "role": "proposer",
+    "operation": "work.read.item",
+    "status": "observed"
+  },
+  {
+    "role": "verifier",
+    "operation": "work.effect.propose-v1",
+    "code": "authority-required",
+    "status": 403
+  },
+  {
+    "role": "verifier",
+    "operation": "work.effect.mark-applied-v1",
+    "code": "authority-required",
+    "status": 403
+  },
+  {
+    "role": "verifier",
+    "operation": "work.effect.list-accepted-v1",
+    "code": "authority-required",
+    "status": 403
+  },
+  {
+    "role": "verifier",
+    "operation": "work.read.item",
+    "status": "observed"
+  },
+  {
+    "role": "applier",
+    "operation": "work.effect.propose-v1",
+    "code": "authority-required",
+    "status": 403
+  },
+  {
+    "role": "applier",
+    "operation": "work.effect.accept-v1",
+    "code": "authority-required",
+    "status": 403
+  },
+  {
+    "role": "applier",
+    "operation": "work.effect.list-proposed-v1",
+    "code": "authority-required",
+    "status": 403
+  },
+  {
+    "role": "applier",
+    "operation": "work.run.register-v1",
+    "code": "authority-required",
+    "status": 403
+  },
+  {
+    "role": "applier",
+    "operation": "work.read.item",
+    "status": "observed"
+  },
+  {
+    "role": "reader",
+    "operation": "work.effect.propose-v1",
+    "code": "authority-required",
+    "status": 403
+  },
+  {
+    "role": "reader",
+    "operation": "work.effect.accept-v1",
+    "code": "authority-required",
+    "status": 403
+  },
+  {
+    "role": "reader",
+    "operation": "work.effect.mark-applied-v1",
+    "code": "authority-required",
+    "status": 403
+  },
+  {
+    "role": "reader",
+    "operation": "work.effect.list-accepted-v1",
+    "code": "authority-required",
+    "status": 403
+  },
+  {
+    "role": "reader",
+    "operation": "work.effect.list-proposed-v1",
+    "code": "authority-required",
+    "status": 403
+  },
+  {
+    "role": "reader",
+    "operation": "work.run.register-v1",
+    "code": "authority-required",
+    "status": 403
+  },
+  {
+    "role": "reader",
+    "operation": "work.read.item",
+    "status": "observed"
+  },
+  {
+    "role": "native",
+    "operation": "work.effect.propose-v1",
+    "code": "authority-required",
+    "status": 403
+  },
+  {
+    "role": "native",
+    "operation": "work.effect.accept-v1",
+    "code": "authority-required",
+    "status": 403
+  },
+  {
+    "role": "native",
+    "operation": "work.effect.mark-applied-v1",
+    "code": "authority-required",
+    "status": 403
+  },
+  {
+    "role": "native",
+    "operation": "work.effect.list-accepted-v1",
+    "code": "authority-required",
+    "status": 403
+  },
+  {
+    "role": "native",
+    "operation": "work.effect.list-proposed-v1",
+    "code": "authority-required",
+    "status": 403
+  },
+  {
+    "role": "native",
+    "operation": "work.read.item",
+    "status": "observed"
+  },
+  {
+    "role": "workstation",
+    "operation": "work.effect.accept-v1",
+    "code": "authority-required",
+    "status": 403
+  },
+  {
+    "role": "workstation",
+    "operation": "work.effect.mark-applied-v1",
+    "code": "authority-required",
+    "status": 403
+  },
+  {
+    "role": "workstation",
+    "operation": "work.effect.list-accepted-v1",
+    "code": "authority-required",
+    "status": 403
+  },
+  {
+    "role": "workstation",
+    "operation": "work.read.item",
+    "status": "observed"
+  }
+]

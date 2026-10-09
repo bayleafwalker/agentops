@@ -1,0 +1,7 @@
+{
+  "stage": "after-create-only-signed-branch-before-PR-and-owner-receipt",
+  "intent_id": "intent_83661EESYQFM1X71NP9NPV2V9S",
+  "branch": "vuoro-effect/intent_83661EESYQFM1X71NP9NPV2V9S",
+  "owner_state_expected": "accepted",
+  "interruption": "deliberate process exit75, actual published branch retained"
+}
