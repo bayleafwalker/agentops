@@ -5,11 +5,13 @@ on:
     paths:
       - "apps/operator-projection/**"
       - ".github/workflows/operator-projection.yml"
+      - ".github/workflows/publish-operator-projection.yml"
   push:
     branches: [main]
     paths:
       - "apps/operator-projection/**"
       - ".github/workflows/operator-projection.yml"
+      - ".github/workflows/publish-operator-projection.yml"
 
 permissions:
   contents: read
@@ -26,3 +28,12 @@ jobs:
         working-directory: apps/operator-projection
       - run: uv run --extra dev pytest -q
         working-directory: apps/operator-projection
+      - name: Build and validate the candidate distribution
+        shell: bash
+        working-directory: apps/operator-projection
+        run: |
+          set -euo pipefail
+          version="$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          uv build --wheel --out-dir dist/check
+          python3 checks/validate_release.py --tag "operator-projection-v$version" \
+            --wheel "dist/check/operator_projection-${version}-py3-none-any.whl"
