@@ -43,6 +43,7 @@ from typing import Any, Callable, Iterable
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import auditctl_resolve  # noqa: E402
 import jev_client  # noqa: E402
+import run_manifest  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 DEV_ROOT = Path("/projects/dev")
@@ -361,6 +362,22 @@ def publish(event_type: str, summary: str, metadata: dict[str, Any]) -> bool:
 # -- commands -----------------------------------------------------------------------
 
 
+def run_reference(reference: Any) -> dict[str, Any]:
+    """The run this record belongs to, resolved against its RunManifest (agentops#2479).
+
+    Every decision event carries one: ``resolved`` when the cited manifest exists and
+    its digest matches, ``absent`` when the workflow had no manifest to cite (emission
+    failed or predates #2479), otherwise the failure ``run_manifest.resolve_reference``
+    names. A reference that does not resolve is recorded as such, never dropped and
+    never repaired: the decision is still evidence, of an unbound run.
+    """
+    if reference is None:
+        return {"run_id": None, "manifest_digest": None, "status": "absent"}
+    if not isinstance(reference, dict):
+        return {"run_id": None, "manifest_digest": None, "status": "invalid"}
+    return run_manifest.resolve_reference(reference.get("run_id"), reference.get("manifest_digest"))
+
+
 def cmd_record(args: argparse.Namespace) -> int:
     """Publish one decision event per unit. Always exits 0."""
     published, rejected = 0, []
@@ -370,6 +387,7 @@ def cmd_record(args: argparse.Namespace) -> int:
         if not isinstance(units, list):
             raise ValueError("input must be {workflow, units: [...]}")
         workflow = document.get("workflow") if document.get("workflow") in ("vuoro-dispatch-build",) else None
+        run = run_reference(document.get("run"))
         for index, unit in enumerate(units):
             try:
                 decision = validate_decision(unit)
@@ -377,6 +395,7 @@ def cmd_record(args: argparse.Namespace) -> int:
                 rejected.append({"index": index, "error": str(error)})
                 continue
             decision["workflow"] = workflow
+            decision["run"] = run
             summary = (
                 f"dispatch decision {decision['repo']}/{decision['unit']}: tier={decision['tier']} "
                 f"ready={decision['dispatch_ready']} source={decision['source']}"
