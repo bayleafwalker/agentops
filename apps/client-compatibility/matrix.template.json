@@ -1,0 +1,231 @@
+{
+  "schema": "client-compatibility/v1",
+  "as_of": "2026-10-10T06:30:00Z",
+  "endpoint": "https://api.vuoro.cloud/mcp",
+  "clients": [
+    {
+      "surface": "claude_ui",
+      "mode": "ui_oauth",
+      "version": null,
+      "stages": {
+        "call": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "consent": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "discover": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "reconnect": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "refresh": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        }
+      }
+    },
+    {
+      "surface": "claude_api",
+      "mode": "api_bearer",
+      "version": null,
+      "stages": {
+        "call": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "consent": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "discover": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "reconnect": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "refresh": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        }
+      }
+    },
+    {
+      "surface": "claude_code",
+      "mode": "local_cli_oauth",
+      "version": null,
+      "stages": {
+        "call": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "consent": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "discover": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "reconnect": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "refresh": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        }
+      }
+    },
+    {
+      "surface": "chatgpt_ui",
+      "mode": "ui_oauth",
+      "version": null,
+      "stages": {
+        "call": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "consent": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "discover": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "reconnect": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "refresh": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        }
+      }
+    },
+    {
+      "surface": "codex_local",
+      "mode": "local_app",
+      "version": null,
+      "stages": {
+        "call": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "consent": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "discover": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "reconnect": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "refresh": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        }
+      }
+    },
+    {
+      "surface": "codex_local",
+      "mode": "local_cli",
+      "version": null,
+      "stages": {
+        "call": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "consent": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "discover": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "reconnect": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "refresh": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        }
+      }
+    },
+    {
+      "surface": "codex_cloud",
+      "mode": "hosted",
+      "version": null,
+      "stages": {
+        "call": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "consent": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "discover": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "reconnect": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        },
+        "refresh": {
+          "status": "untested",
+          "reason": "not-observed",
+          "receipt": null
+        }
+      }
+    }
+  ]
+}
