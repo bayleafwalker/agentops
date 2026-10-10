@@ -32,14 +32,7 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          [[ "$RELEASE_TAG" =~ ^operator-projection-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || exit 1
-          [[ "$GITHUB_REF" == "refs/tags/$RELEASE_TAG" ]] || exit 1
-          git fetch --no-tags origin main
-          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]] || exit 1
-          [[ "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" == "$GITHUB_SHA" ]] || exit 1
-          [[ "$(git rev-parse refs/remotes/origin/main)" == "$GITHUB_SHA" ]] || {
-            echo "tag does not name current canonical main" >&2; exit 1;
-          }
+          bash apps/operator-projection/checks/require_current_main.sh "$RELEASE_TAG" "$GITHUB_SHA"
           version="$(python3 apps/operator-projection/checks/validate_release.py --tag "$RELEASE_TAG")"
           echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Install the locked distribution and test dependencies
@@ -114,4 +107,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
-        run: gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash apps/operator-projection/checks/require_current_main.sh "$RELEASE_TAG" "$GITHUB_SHA"
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false

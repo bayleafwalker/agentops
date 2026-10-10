@@ -18,6 +18,32 @@ CLIENT_URL = (
     "vuoro-client-v0.1.2/vuoro_client-0.1.2-py3-none-any.whl"
 )
 TAG = re.compile(r"operator-projection-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
+PACKAGE_MEMBERS = frozenset({
+    "operator_projection/__init__.py",
+    "operator_projection/bundle.py",
+    "operator_projection/bundle_cli.py",
+    "operator_projection/cell.py",
+    "operator_projection/cli.py",
+    "operator_projection/comparison.py",
+    "operator_projection/comparison_cli.py",
+    "operator_projection/contract.py",
+    "operator_projection/evaluators.py",
+    "operator_projection/generate.py",
+    "operator_projection/portable_acceptance.py",
+    "operator_projection/reconstruction.py",
+    "operator_projection/reconstruction_cli.py",
+    "operator_projection/render_html.py",
+    "operator_projection/render_text.py",
+    "operator_projection/replay.py",
+    "operator_projection/serve.py",
+    "operator_projection/sources.py",
+})
+DIST_INFO_MEMBERS = frozenset({"METADATA", "WHEEL", "entry_points.txt", "top_level.txt", "RECORD"})
+
+
+def expected_wheel_members(version: str) -> frozenset[str]:
+    """The reviewed distribution file set; additions require explicit review."""
+    return PACKAGE_MEMBERS | {f"operator_projection-{version}.dist-info/{name}" for name in DIST_INFO_MEMBERS}
 
 
 def refuse() -> None:
@@ -60,13 +86,7 @@ def validate(root: Path, tag: str, wheel: Path | None = None) -> str:
     dist_info = f"operator_projection-{version}.dist-info/"
     with ZipFile(wheel) as archive:
         names = archive.namelist()
-        if (len(names) != len(set(names))
-                or any((not name.startswith(("operator_projection/", dist_info))
-                        or "\\" in name or any(part in {"", ".", ".."} for part in name.split("/")))
-                       for name in names)
-                or f"{dist_info}METADATA" not in names
-                or "operator_projection/portable_acceptance.py" not in names
-                or "operator_projection/reconstruction.py" not in names):
+        if len(names) != len(set(names)) or set(names) != expected_wheel_members(version):
             refuse()
         built = BytesParser(policy=policy.default).parsebytes(archive.read(f"{dist_info}METADATA"))
     expected_wheel_pin = f"vuoro-client @ {CLIENT_URL}#sha256={CLIENT_SHA} ; python_version >= \"3.12\""
