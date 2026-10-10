@@ -30,10 +30,10 @@ digest, and arbitrary error/reason strings never enter this DTO or its text.
 The exact canonical intent digest is a deliberate authorized disclosure for
 the requested artifact identity; no additional raw-content hash is emitted.
 
-The text renderer consumes only this DTO and prints fixed labels, the same
-link statuses, safe facts, explicit missing names and the unknown authority
-state. Both functions reject malformed or overlong fields with a generic
-error. Neither output is a bearer token, a current authorization proof, a
+The text function first derives this DTO from the P1 report and prints only
+its fixed labels, link statuses, safe facts, explicit missing names and the
+unknown authority state. Both functions reject malformed or overlong fields
+with a generic error. Neither output is a bearer token, a current authorization proof, a
 complete owner history, independently attested verification, or a resulting
 repository-byte proof. Real Claude/ChatGPT rendering and hosted transport
 remain gated by agentops#2635 and the corresponding authorized deployment.
