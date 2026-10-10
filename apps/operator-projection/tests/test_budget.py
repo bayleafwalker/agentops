@@ -11,10 +11,13 @@ EVALUATORS = {"evaluators.py"}
 # evaluators 100 -> 110 (v0.2.2): bindings that name a non-repository target (D9 kubernetes.edit).
 # MI-1/P1: explicit reconstruction is a separate bounded read surface. Keep the
 # existing front-page generator ceiling; count its CLI wiring there as before.
+# Cross-attempt comparison is a separate P1-derived read with no authority calls.
+# Preserve all existing ceilings and cap this added surface independently.
+COMPARISON = {"comparison.py", "comparison_cli.py"}
 RECONSTRUCTION = {"reconstruction.py", "reconstruction_cli.py"}
 # P1 protected owner records: validate frozen raw-artifact receipts, exact
 # Release bindings and verifier identity independently of the authority owner.
-BUDGET = {"generator": 880, "renderers": 300, "evaluators": 110, "reconstruction": 300}
+BUDGET = {"generator": 880, "renderers": 300, "evaluators": 110, "reconstruction": 300, "comparison": 150}
 
 
 def code_lines(path: Path) -> int:
@@ -27,6 +30,8 @@ def code_lines(path: Path) -> int:
 
 
 def group(name: str) -> str:
+    if name in COMPARISON:
+        return "comparison"
     if name in RECONSTRUCTION:
         return "reconstruction"
     return "renderers" if name in RENDERERS else "evaluators" if name in EVALUATORS else "generator"
