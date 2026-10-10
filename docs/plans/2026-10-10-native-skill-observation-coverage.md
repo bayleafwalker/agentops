@@ -27,15 +27,26 @@ S6 record loaded-skill digests. The mechanism is a PostToolUse hook on the
 - `scripts/session_binding.py:538-553` (`--record-skill`)
 - the hook is registered in user settings with the `Skill` matcher
 
-#2481's acceptance (`_artifacts/agentops/session-notes/2026-10-04-ecosystem/skill2481/acceptance.json:65-69`)
-records three limits:
+#2481's acceptance (the workstation-local acceptance record, not committed
+to this repository) lists three limitations. They are quoted here so the
+evidence does not depend on that file:
 
-- "Direct slash skill … recorded no entry: bypasses Skill tool."
-  The binding `113345bc…` kept `instructions.skills: []` although
-  `/recording-acceptance` was invoked.
-- "Only Skill-tool events observed; preloaded skills not qualified."
-- Codex has no skill hook at all (`~/.codex/hooks.json`: PreToolUse Bash,
-  SessionStart, SubagentStop and Stop).
+> "Direct slash skill113345bc recorded no entry: bypasses Skill tool."
+> "Only Skill-tool events observed; preloaded skills not qualified."
+> "Stable flock assumes local filesystem; preexisting resolver/corrupt-binding
+> shape exception caveats persist."
+
+The served record carries the same finding: sprintctl event #4297 on
+#2488, summary "Skill hook acceptance covers Skill-tool events; slash loads
+still unobserved". Its detail says that a native direct slash in session
+`113345bc-9414-4171-8322-c8e7ec5f9de0` invoked `recording-acceptance`, "but
+emitted no Skill tool PostToolUse and binding instructions.skills stayed
+empty".
+
+One gap is not from #2481. It was observed separately for this document on
+2026-10-10: Codex has no skill hook at all. The registered events in
+`~/.codex/hooks.json` are PreToolUse Bash, SessionStart, SubagentStop and
+Stop.
 
 So an empty `instructions.skills` does not mean "no skill was loaded". The
 schema says as much (`session-binding.schema.json:126`). Retiring the
@@ -48,7 +59,15 @@ A second finding affects #2488's scope. Two of the manifest's fields still
 have live readers:
 
 - `risk_surfaces`: `scripts/jev_shadow.py:188-199` and
-  `scripts/validate_verification_artifacts.py`
+  `scripts/validate_verification_artifacts.py`. That validator also
+  hard-reads the two sections TS-11 names:
+  - `skills.selected` and `skills.overlays` (:186-187)
+  - `value["verification"]` (:192)
+  - it requires `skills` on every risk surface (:203)
+  - it refuses risk-surface skills not in `skills.selected` (:212)
+
+  The schema lists `skills` and `verification` under `required`. The
+  validator is a standard verification command (`AGENTS.md:16`).
 - `hybrid.protected_paths`: `scripts/check_protected_paths.py:67,72`
 
 The workflows also tell agents to read "the dispatch manifest (verification
@@ -80,9 +99,19 @@ The schema as a whole is therefore not reader-free.
    - immediately after it, an `isMeta: true` user record that carries the
      expanded skill body, with no `sourceToolUseID`
 
-   This was measured 2026-10-10 in transcript
-   `-projects-dev--projects-vuoro-dispatch-ready/8d1e42f3…jsonl:355-356`
-   for `/fewer-permission-prompts`. A built-in command such as `/clear` has
+   This was measured 2026-10-10 in a workstation-local Claude Code
+   transcript (session `8d1e42f3…`, records 355-356, not committed) for
+   `/fewer-permission-prompts`. The two records, abbreviated:
+
+   ```text
+   {"type": "user", "message": {"content": "<command-message>fewer-permission-prompts</command-message> <command-name>/fewer-permission-prompts</command-name>"}}
+   {"type": "user", "isMeta": true, "message": {"content": [{"type": "text", "text": "# Fewer Permission Prompts  Look through my transcripts' MCP and bash tool calls, …"}]}}
+   ```
+
+   The second record has no `sourceToolUseID`. A Skill-tool load's
+   expansion record carries one; for example, an appservice session record
+   has `{"isMeta": true, "sourceToolUseID": "toolu_…"}` followed by "Base
+   directory for this skill: …". A built-in command such as `/clear` has
    the first record and no expansion record. The expansion record is
    evidence that a load happened, and its content is what was loaded. The
    recorder reads only that record pair. It never reads the user's
@@ -107,23 +136,41 @@ The schema as a whole is therefore not reader-free.
    `skill_coverage: [{path: "codex", status: "unobserved"}]`. Codex sessions
    do not count toward any TS-3 claim until a Codex-side observation is
    qualified.
-7. **Retirement point for TS-11, narrowed to what has no other reader.**
-   Once paths 2 and 3 are qualified by real-session proofs (§5) and the
-   preload lint is in CI, the following may be retired:
-   - the manifest's `skills` and `verification` sections
-   - `sync_skills.py`'s manifest input
-   - `validate_dispatch_manifest.py`'s checks of those sections
+7. **Retirement: the smaller safe path. Nothing in the manifest is
+   deleted by #2488.**
+   - The `skills` and `verification` sections are coupled to
+     `risk_surfaces` through `validate_verification_artifacts.py`:
+     risk-surface skills must be a subset of `skills.selected`, and
+     `verification` is read unconditionally.
+   - Deleting them before `risk_surfaces` has a new home would break a
+     standard verification command. It would also leave
+     `risk_surfaces[].skills` validated against nothing.
+   - #2488 therefore delivers the observation half of TS-11's
+     precondition:
+     - the coverage contract
+     - the slash scan
+     - the preload lint
+     - the real-session proofs
+   - With those in place, the binding's `instructions.skills` becomes the
+     record of skill *use*, as TS-3 requires.
+   - The manifest's `skills.selected` stays, but it is demoted to
+     distribution and validation configuration. It is read by
+     `sync_skills.py` (which skill trees to copy into `.agents/skills/`)
+     and by the validator. It is no longer described as a record of
+     selection.
 
-   Three things are **not** retired by #2488, because they still have
-   readers:
-   - the manifest file and its `risk_surfaces` / `hybrid` sections
-   - the workflow prompts that read them
-   - `sync_skills.py`'s distribution function (copying canonical skill trees
-     into `.agents/skills/` and repairing `.claude/skills` symlinks, which
-     `skills/golden-child/SKILL.md` routes drift repair to)
+   The deletions TS-11 names move as one coherent change to a single
+   follow-up item:
+   - schema sections and their `required` entries
+   - `validate_dispatch_manifest.py`
+   - `validate_verification_artifacts.py:186-212` and its tests
+   - `sync_skills.py`'s manifest read
+   - `risk_surfaces`, `hybrid.protected_paths` and the workflow prompt
+     readers
 
-   Retiring those needs its own home for `risk_surfaces` and
-   `protected_paths` (a §6 follow-up). It is not decided here.
+   That follow-up must first name the new home for `risk_surfaces`
+   (including the source that validates `risk_surfaces[].skills`) and for
+   `protected_paths`. It is not decided here.
 
 ## 3. Alternatives rejected
 
@@ -133,7 +180,8 @@ The schema as a whole is therefore not reader-free.
 | Record skills from the compile-time profile or agent frontmatter | Compiled-profile inference contradicts TS-3 ("observed, not compiled") and the blocker note. |
 | Stop-time digest of the on-disk `SKILL.md` only | The file can change between load and Stop. The expansion body is what the model actually saw, so it is the primary digest. The file digest is a cross-check. |
 | Retire the whole manifest and schema now, as #2488's scope says | `risk_surfaces` and `hybrid.protected_paths` have live readers (§1). Deleting them would break `jev_shadow`, `check_protected_paths` and the workflow prompts. |
-| Keep the manifest's `skills` section as a declared fallback forever | It is a declared, unobserved record that competes with the observed one. TS-11 retires it once the observed one covers in-use paths. |
+| Retire only the `skills` and `verification` sections now | `validate_verification_artifacts.py:186-212` hard-reads both, and the schema marks them `required`. Removing them breaks that validator, and `risk_surfaces[].skills` would be checked against nothing. Rewriting the validator now would mean designing the `risk_surfaces` home as a side effect. |
+| Keep `skills.selected` as the record of skill selection | It is a declared, unobserved record that competes with the observed one. #2488 demotes it to distribution and validation configuration, and the follow-up deletes it with `risk_surfaces`. |
 | Require operator sign-off on coverage before retirement | An artificial gate. The real-session proofs and the lint are cheap checks of done work, and they decide it. |
 
 ## 4. Contract
@@ -226,11 +274,18 @@ existing behaviour. They write coverage `failed` for the path when:
    `skills:` key in agent definitions under the three agent directories. It
    is wired into `scripts-tests.yml`.
 4. **#2488 re-check** (its scope step 1). Re-run #2453's greps on
-   `origin/main` and confirm `skills.selected` has one selecting reader and
-   `verification` has none. Then confirm the narrowed acceptance. After
-   retirement, `git grep -n 'skills.selected\|"verification"'` over
-   `scripts/` and `schemas/dispatch-manifest.schema.json` returns only
-   retired-doc hits.
+   `origin/main`. Confirm that `skills.selected` has one *selecting*
+   reader (`sync_skills.py:202`) and that `verification` has none. Then
+   record every non-selecting reader for the follow-up:
+   - `validate_verification_artifacts.py:186-212`
+   - `validate_dispatch_manifest.py:100-107`
+   - the schema's `required` list
+
+   For #2488, the check of done work is that AGENTS.md,
+   `docs/project/project-binding-spec.md` and
+   `docs/dispatch/dispatch-manifest.md` no longer describe `skills.selected`
+   as the record of which skills a session used. Each of them points to
+   `instructions.skills` with `skill_coverage`.
 
 ## 6. Migration
 
@@ -243,21 +298,28 @@ existing behaviour. They write coverage `failed` for the path when:
 
    No new hook registration is needed.
 2. **Prove** §5.2 (a)-(c) and record the artifact on #2488.
-3. **Retire (#2488, narrowed):**
-   - the `skills` and `verification` sections of
-     `schemas/dispatch-manifest.schema.json`
-   - their checks in `validate_dispatch_manifest.py` and their tests
-   - `sync_skills.py`'s manifest read: `--skills` becomes required, or a
-     non-manifest list
-   - the AGENTS.md and `docs/project/project-binding-spec.md` lines that
-     tell sessions to maintain `skills`
+3. **Re-describe, do not delete (#2488):**
+   - AGENTS.md, `docs/project/project-binding-spec.md` and
+     `docs/dispatch/dispatch-manifest.md` describe `skills.selected` as
+     distribution and validation configuration. They name
+     `instructions.skills` plus `skill_coverage` as the record of skill use.
+   - No schema, validator, script or CI step changes.
+4. **Amend #2488's acceptance.** Its current acceptance is not achievable
+   without breaking `validate_verification_artifacts.py`:
+   - `git grep -l 'dispatch.manifest\|sync_skills'` returning only retired
+     docs
+   - the three files deleted
 
-   Mark `docs/dispatch/dispatch-manifest.md`'s skills and verification
-   sections retired.
-4. **Amend #2488's acceptance.** The grep
-   `git grep -l 'dispatch.manifest\|sync_skills'` returning only retired
-   docs is not achievable while `risk_surfaces` and `hybrid` have readers.
-   Replace it with the §5.4 check. Deleting the remaining manifest
-   (`risk_surfaces`, `hybrid.protected_paths`, workflow prompt readers) and
-   the distribution role of `sync_skills.py` becomes a follow-up item that
-   names their new home.
+   Replace it with §5.1-§5.4. File one follow-up item covering:
+   - the schema `skills` and `verification` sections and their `required`
+     entries
+   - `validate_dispatch_manifest.py`
+   - `validate_verification_artifacts.py:186-212` and
+     `scripts/tests/test_validate_verification_artifacts.py`
+   - `sync_skills.py`'s manifest read, with its distribution role kept
+     under an explicit skill list
+   - `risk_surfaces`, `hybrid.protected_paths` and the workflow prompt
+     readers
+
+   Its precondition is a named home for `risk_surfaces` and
+   `protected_paths`.
