@@ -15,10 +15,11 @@ EVALUATORS = {"evaluators.py"}
 # Preserve all existing ceilings and cap this added surface independently.
 COMPARISON = {"comparison.py", "comparison_cli.py"}
 BUNDLE = {"bundle.py", "bundle_cli.py"}
+PORTABLE = {"portable_acceptance.py"}
 RECONSTRUCTION = {"reconstruction.py", "reconstruction_cli.py"}
 # P1 protected owner records: validate frozen raw-artifact receipts, exact
 # Release bindings and verifier identity independently of the authority owner.
-BUDGET = {"generator": 880, "renderers": 300, "evaluators": 110, "reconstruction": 300, "comparison": 150, "bundle": 200}
+BUDGET = {"generator": 880, "renderers": 300, "evaluators": 110, "reconstruction": 300, "comparison": 150, "bundle": 200, "portable": 150}
 
 
 def code_lines(path: Path) -> int:
@@ -31,6 +32,8 @@ def code_lines(path: Path) -> int:
 
 
 def group(name: str) -> str:
+    if name in PORTABLE:
+        return "portable"
     if name in BUNDLE:
         return "bundle"
     if name in COMPARISON:
