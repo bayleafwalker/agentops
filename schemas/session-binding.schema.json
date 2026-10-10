@@ -16,6 +16,16 @@
       "type": "object", "additionalProperties": false, "required": ["name"],
       "properties": {"name": {"$ref": "#/$defs/nonBlank"}}
     },
+    "attribution": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source", "actor", "resolution_source"],
+      "description": "Explicit launcher observation; absent on legacy records, never inferred from IDs or event claims.",
+      "properties": {
+        "source": {"$ref": "#/$defs/nonBlank"},
+        "actor": {"$ref": "#/$defs/nonBlank"},
+        "resolution_source": {"enum": ["explicit-launcher", "unobserved"]}
+      }
+    },
     "created_at_entry": {
       "type": "object", "additionalProperties": false, "required": ["source"],
       "description": "The entry that created the binding. Recorded, never compared: a resume is a new entry into the same session, not a different session.",
@@ -77,7 +87,7 @@
       "description": "Answers the contract's open question -- not whether values agree, but who set them and what entitled them. Every declared layer is listed whether or not it exists: an absent file is part of the answer, and a layer that appears later is a change.",
       "properties": {
         "settings_sources": {
-          "type": "array", "minItems": 1,
+          "type": "array",
           "items": {
             "type": "object", "additionalProperties": false,
             "required": ["scope", "path", "present", "sha256"],

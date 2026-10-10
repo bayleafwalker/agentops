@@ -31,6 +31,8 @@ from cost_per_release import (  # noqa: E402
     apportion_tick, lane_notes, lane_note_records, load_done_ticks, load_events, tick_window,
 )
 
+from session_binding import read_attribution
+
 DIGEST_DEFINITION = ("SHA-256 of canonical JSON (sorted keys, no whitespace) of "
     "{root, sources: [{path, sha256}] in recorded order, skills: [{name, path, sha256}] "
     "sorted by name (ties by path then sha256)}; unresolved entries keep null path/sha256; "
@@ -68,6 +70,8 @@ def build_report(ticks: list[dict], events: list[dict], bindings_dir: Path) -> d
 
     groups = {}
     missing = set()
+    no_profile = set()
+    attributions = {}
     bindings = {}
     for tick in ticks:
         session = tick["session_id"]
@@ -82,10 +86,19 @@ def build_report(ticks: list[dict], events: list[dict], bindings_dir: Path) -> d
             continue
         if binding.get("runtime_session_id") != session:
             raise ValueError("binding runtime_session_id does not match its ledger session")
+        attribution = read_attribution(bindings_dir / (session + ".json"), binding)
+        attributions[session] = attribution
+        if "instructions" not in binding:
+            no_profile.add(session)
+            continue  # A legacy binding cannot supply an invented profile.
         profile = observed_profile(binding)
         digest = observed_profile_digest(binding)
-        group = groups.setdefault(digest, {
+        group = groups.setdefault((digest, attribution["harness"], attribution["status"],
+                                   attribution["recorded_harness"], attribution["historical_status"]), {
             "digest": digest[:12], "root": profile["root"],
+            "harness": attribution["harness"], "attribution_status": attribution["status"],
+            "recorded_harness": attribution["recorded_harness"],
+            "historical_attribution_status": attribution["historical_status"],
             "n_sources": len(profile["sources"]), "n_skills": len(profile["skills"]),
             "sessions": set(), "items": 0, "first_pass": 0, "accepted": 0, "no_review": 0,
         })
@@ -109,7 +122,8 @@ def build_report(ticks: list[dict], events: list[dict], bindings_dir: Path) -> d
         group["reworked"] = reviewed - group["accepted"]
         group["first_pass_rate"] = group["first_pass"] / reviewed if reviewed else None
         rows.append(group)
-    return {"rows": rows, "no_binding": len(missing), "done_ticks": len(ticks),
+    return {"rows": rows, "no_binding": len(missing), "no_profile": len(no_profile),
+            "session_attributions": attributions, "done_ticks": len(ticks),
             "digest_definition": DIGEST_DEFINITION}
 
 
@@ -130,12 +144,13 @@ def main() -> int:
     if args.json:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
-        columns = ("digest", "root", "n_sources", "n_skills", "sessions", "items",
+        columns = ("digest", "harness", "attribution_status", "root", "n_sources", "n_skills", "sessions", "items",
                    "first_pass", "accepted", "reworked", "no_review", "first_pass_rate")
         print("\t".join(columns))
         for row in report["rows"]:
             print("\t".join(str(row[column]) for column in columns))
         print("no_binding=" + str(report["no_binding"]))
+        print("no_profile=" + str(report["no_profile"]))
         print("done_ticks=" + str(report["done_ticks"]))
     return 0
 

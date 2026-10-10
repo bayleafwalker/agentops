@@ -51,9 +51,11 @@ import fcntl
 import hashlib
 import json
 import os
+import pwd
 import socket
 import subprocess
 import sys
+import tempfile
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -90,9 +92,23 @@ def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _settings_sources(cwd: Path) -> list[dict]:
+def _settings_sources(cwd: Path, harness: str = "claude") -> list[dict]:
+    # These are declared files, not an assertion that the harness loaded them.
+    # Codex's cloud-managed/profile/CLI overrides are not observable here.
+    if harness == "codex":
+        codex_home = Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex")))
+        layers = (("managed", Path("/etc/codex/config.toml")),
+                  ("managed", Path("/etc/codex/requirements.toml")),
+                  ("user", codex_home / "config.toml"),
+                  ("user", codex_home / "hooks.json"),
+                  ("project", cwd / ".codex" / "config.toml"),
+                  ("project", cwd / ".codex" / "hooks.json"))
+    elif harness == "claude":
+        layers = SETTINGS_LAYERS
+    else:
+        return []  # Unobserved harness: no fabricated Claude entitlement.
     sources = []
-    for scope, fixed in SETTINGS_LAYERS:
+    for scope, fixed in layers:
         if fixed is not None:
             path = fixed
         elif scope == "project":
@@ -308,10 +324,17 @@ def record_skill(bindings_dir: Path, session_id: str, name: str, *, cwd: Path,
         return None
 
 
-def build(event: dict, *, records_dir: Path, hostname: str | None = None) -> dict:
-    session_id = (event.get("session_id") or "").strip()
+def build(event: dict, *, records_dir: Path, hostname: str | None = None,
+          harness: str = "unknown") -> dict:
+    if not isinstance(event, dict) or not isinstance(event.get("session_id"), str):
+        raise ValueError("SessionStart payload carries no string session_id")
+    session_id = event["session_id"].strip()
     if not session_id:
         raise ValueError("SessionStart payload carries no session_id")
+    if Path(session_id).name != session_id or "\\" in session_id or session_id in (".", ".."):
+        raise ValueError("session_id must be a filename, not a path")
+    if harness not in ("claude", "codex", "unknown"):
+        raise ValueError("harness must be an explicit supported launcher or unknown")
     cwd = Path(event.get("cwd") or os.getcwd())
     host = hostname or socket.gethostname()
     return {
@@ -319,7 +342,12 @@ def build(event: dict, *, records_dir: Path, hostname: str | None = None) -> dic
         "binding_id": str(uuid.uuid4()),
         "runtime_session_id": session_id,
         "resolved_at": _now(),
-        "harness": {"name": "claude"},
+        "harness": {"name": harness},
+        "attribution": {
+            "source": f"{harness}-hook" if harness != "unknown" else "unknown-session",
+            "actor": f"{harness}-hook" if harness != "unknown" else "unknown-session",
+            "resolution_source": "explicit-launcher" if harness != "unknown" else "unobserved",
+        },
         # The entry that created the binding, recorded once. `source` is a property of
         # an *entry* (startup, resume, clear, compact), not of the session, so it is
         # excluded from the immutable comparison below -- the first version of this put
@@ -327,14 +355,14 @@ def build(event: dict, *, records_dir: Path, hostname: str | None = None) -> dic
         # fail-closed rule earning its way to being routed around.
         "created_at_entry": {"source": str(event.get("source") or "unknown")},
         "actor": {
-            "os_user": os.environ.get("USER") or os.environ.get("LOGNAME") or "unknown",
+            "os_user": pwd.getpwuid(os.getuid()).pw_name,
             "uid": os.getuid(),
         },
         "host": {"hostname": host},
         "environment": _environment(records_dir, host),
         "workspace": {"cwd": str(cwd), "project": _project(cwd)},
         "entitlement": {
-            "settings_sources": _settings_sources(cwd),
+            "settings_sources": _settings_sources(cwd, harness),
             "resolution_source": "declared-layers",
         },
         "instructions": _instructions(cwd),
@@ -359,6 +387,81 @@ def contradictions(existing: dict, candidate: dict) -> list[str]:
     ]
 
 
+def record_attribution_conflict(path: Path, existing: dict, candidate: dict) -> None:
+    """Preserve the historical binding; append a digest-bound contrary observation.
+
+    This is diagnostic, not an authority to replace the original observation.
+    Multiple launchers remain distinct records and can never silently resolve it.
+    """
+    record = {
+        "schema_version": "session-binding-attribution-conflict/v1",
+        "runtime_session_id": candidate["runtime_session_id"],
+        "binding_sha256": _digest(path),
+        "recorded_harness": existing.get("harness", {}).get("name", "unknown"),
+        "observed_harness": candidate["harness"]["name"],
+        "observed_attribution": candidate["attribution"],
+    }
+    encoded = json.dumps(record, sort_keys=True, separators=(",", ":"))
+    identity = hashlib.sha256(encoded.encode()).hexdigest()
+    directory = path.parent / ".attribution-conflicts" / candidate["runtime_session_id"]
+    directory.mkdir(parents=True, exist_ok=True)
+    target = directory / (identity + ".json")
+    # Exclusive create: an identical reentry adds no record; never rewrite evidence.
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=directory,
+                                     prefix=".pending-", delete=False) as handle:
+        json.dump({**record, "observed_at": _now()}, handle, sort_keys=True, indent=2)
+        handle.write("\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+        temporary = Path(handle.name)
+    try:
+        os.link(temporary, target)  # whole record, exclusive publication
+    except FileExistsError:
+        pass
+    finally:
+        temporary.unlink()
+
+
+def read_attribution(path: Path, binding: dict, *, expected_harness: str | None = None) -> dict:
+    """Derived join guard. Legacy/unobserved/contradictory records stay unknown.
+
+    Persisted launcher attribution is a historical observation, not proof of the
+    current launch. A current claim needs a fresh explicit launcher comparison;
+    without it the harness remains unknown, even when a failed write left no
+    conflict sidecar. No guessed ID shapes, transcript parsing or history rewrite.
+    """
+    if expected_harness not in (None, "claude", "codex"):
+        raise ValueError("fresh launcher comparison must name claude or codex")
+    name = binding.get("harness", {}).get("name", "unknown")
+    attribution = binding.get("attribution", {})
+    verified = (name in ("claude", "codex") and
+                attribution == {"source": f"{name}-hook", "actor": f"{name}-hook",
+                                "resolution_source": "explicit-launcher"})
+    conflicts = []
+    directory = path.parent / ".attribution-conflicts" / path.stem
+    for conflict_path in sorted(directory.glob("*.json")):
+        record = json.loads(conflict_path.read_text())
+        if record.get("runtime_session_id") != binding.get("runtime_session_id"):
+            raise ValueError("attribution conflict session mismatch")
+        conflicts.append({"path": str(conflict_path),
+                          "binding_matches": record.get("binding_sha256") == _digest(path),
+                          "observed_harness": record.get("observed_harness", "unknown")})
+    mismatch = expected_harness is not None and name != expected_harness
+    if conflicts or mismatch:
+        status = "contradicted"
+    elif not verified:
+        status = "unobserved"
+    elif expected_harness is None:
+        status = "comparison-unavailable"
+    else:
+        status = "observed"
+    return {"harness": name if status == "observed" else "unknown",
+            "recorded_harness": name,
+            "historical_status": "observed" if verified else "unobserved",
+            "expected_harness": expected_harness,
+            "status": status, "conflicts": conflicts}
+
+
 def publish(binding: dict, *, quiet: bool = False) -> None:
     """Record the binding as an observation. Never fatal: telemetry is not the run."""
     auditctl = auditctl_resolve.resolve(quiet_when_absent=quiet)
@@ -367,6 +470,8 @@ def publish(binding: dict, *, quiet: bool = False) -> None:
     metadata = json.dumps({
         "binding_id": binding["binding_id"],
         "runtime_session_id": binding["runtime_session_id"],
+        "harness": binding["harness"]["name"],
+        "attribution": binding.get("attribution"),
         "environment_id": (binding["environment"]["record"] or {}).get("id"),
         "environment_resolution": binding["environment"]["resolution_source"],
         "project_id": binding["workspace"]["project"].get("project_id"),
@@ -381,9 +486,10 @@ def publish(binding: dict, *, quiet: bool = False) -> None:
         f"{sum(1 for s in binding['entitlement']['settings_sources'] if s['present'])}"
         " settings layers"
     )
+    attribution = binding.get("attribution") or {"source": "unknown-session", "actor": "unknown-session"}
     subprocess.run(
-        [auditctl, "add", "--type", "session.binding", "--source", "claude-hook",
-         "--actor", "claude-hook", "--summary", summary, "--metadata", metadata],
+        [auditctl, "add", "--type", "session.binding", "--source", attribution["source"],
+         "--actor", attribution["actor"], "--summary", summary, "--metadata", metadata],
         capture_output=True, check=False,
     )
 
@@ -399,11 +505,35 @@ def main(argv: list[str] | None = None) -> int:
                         / "environment-record")
     parser.add_argument("--hostname", help="override the detected hostname (for testing)")
     parser.add_argument("--no-publish", action="store_true")
+    parser.add_argument("--read-attribution", metavar="SESSION",
+                        help="read effective attribution and historical conflict flags without writing")
+    parser.add_argument("--harness", choices=("claude", "codex", "unknown"), default="unknown",
+                        help="trusted launcher attribution; never inferred from event text or IDs")
     parser.add_argument("--record-skill", action="store_true",
                         help="PostToolUse mode: append an observed skill digest to "
                              "an existing binding, from a payload keyed on the "
                              "Skill tool")
     args = parser.parse_args(argv)
+
+    if args.read_attribution is not None:
+        session = args.read_attribution
+        if not session or Path(session).name != session or "\\" in session or session in (".", ".."):
+            parser.error("session_id must be a filename, not a path")
+        path = args.bindings_dir / (session + ".json")
+        if not path.is_file():
+            print(json.dumps({"harness": "unknown", "status": "unobserved", "binding_found": False}))
+        else:
+            try:
+                binding = json.loads(path.read_text())
+                if binding.get("runtime_session_id") != session:
+                    raise ValueError("binding runtime_session_id mismatch")
+                print(json.dumps({**read_attribution(
+                    path, binding, expected_harness=None if args.harness == "unknown" else args.harness),
+                    "binding_found": True}))
+            except (OSError, ValueError, TypeError) as exc:
+                print(f"session_binding: unreadable attribution: {exc}", file=sys.stderr)
+                return 2
+        return 0
 
     if args.record_skill:
         try:
@@ -429,7 +559,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0  # a hook must not cost the session its start
 
     try:
-        binding = build(event, records_dir=args.records_dir, hostname=args.hostname)
+        binding = build(event, records_dir=args.records_dir, hostname=args.hostname,
+                        harness=args.harness)
     except ValueError as exc:
         print(f"session_binding: {exc}", file=sys.stderr)
         return 0
@@ -437,6 +568,13 @@ def main(argv: list[str] | None = None) -> int:
     args.bindings_dir.mkdir(parents=True, exist_ok=True)
     path = args.bindings_dir / f"{binding['runtime_session_id']}.json"
 
+    with path.with_suffix(".json.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        return store_binding(path, binding, no_publish=args.no_publish)
+
+
+def store_binding(path: Path, binding: dict, *, no_publish: bool) -> int:
+    """Caller holds the same stable lock inode used by record_skill."""
     if path.is_file():
         try:
             existing = json.loads(path.read_text(encoding="utf-8"))
@@ -444,6 +582,14 @@ def main(argv: list[str] | None = None) -> int:
             existing = {}
         differing = contradictions(existing, binding)
         if differing:
+            if "harness" in differing:
+                try:
+                    record_attribution_conflict(path, existing, binding)
+                except OSError as exc:
+                    # Telemetry cannot stop the harness. Readers require a fresh
+                    # comparison and never mistake absent sidecars for agreement.
+                    print(f"session_binding: could not persist attribution conflict: {exc}",
+                          file=sys.stderr)
             # Fail closed and say which fields. The contract forbids silently
             # preferring one of two incompatible resolutions; that preference is
             # exactly what wrote correct indexes and misplaced shards in August.
@@ -459,7 +605,7 @@ def main(argv: list[str] | None = None) -> int:
     tmp = path.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(binding, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     os.replace(tmp, path)  # atomic: a whole binding or none
-    if not args.no_publish:
+    if not no_publish:
         publish(binding, quiet=True)
     return 0
 

@@ -45,7 +45,8 @@ import session_binding  # noqa: E402
 def _run(event: dict, bindings: Path, *, hostname: str = "workstation"):
     return subprocess.run(
         [sys.executable, str(SCRIPT), "--bindings-dir", str(bindings),
-         "--records-dir", str(RECORDS), "--hostname", hostname, "--no-publish"],
+         "--records-dir", str(RECORDS), "--hostname", hostname, "--no-publish",
+         "--harness", "claude"],
         input=json.dumps(event), text=True, capture_output=True,
     )
 
@@ -125,7 +126,7 @@ class SessionBindingV0(unittest.TestCase):
                       self.bindings)
         self.assertEqual(result.returncode, 0, result.stderr)
 
-        path = next(self.bindings.glob("*s9*"), None) or next(
+        path = next(self.bindings.glob("*s9*.json"), None) or next(
             p for p in self.bindings.rglob("*.json") if "s9" in p.read_text())
         legacy = json.loads(path.read_text())
         legacy.pop("instructions", None)
