@@ -18,8 +18,9 @@ artifact, verification and receipt bindings, missing links and conflicts, source
 result digests and explicit owner revisions. A content/Release/acceptance conflict
 is shown as a stale or conflicting binding within that capture, never a terminal
 work outcome. Different shared owner source snapshots are reported without
-ranking them by time. Two captures of the same recorded attempt are labeled as
-such. Neither completeness nor a receipt selects a candidate or implies settlement.
+ranking them by time. Intent equality is separate from recorded run identity: two intents can belong
+to one run. The recorded run relation is same, different or unknown; missing
+owner run observations remain unknown and cannot establish an attempt relation. Neither completeness nor a receipt selects a candidate or implies settlement.
 
 This resolves agentops#2621's projection ownership question: existing P1 source
 reads suffice, so agentops extends its operator projection. No additional Vuoro

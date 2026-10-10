@@ -80,13 +80,16 @@ Shared source differences remain unordered, even with different observed times.
             "settlement_owner": "Sprintctl", "settlement_inferred": False,
             "binding_status": "partial" if missing else "exact", "missing_bindings": missing,
             "binding": {k: left["binding"][k] if k not in missing else None for k in left["binding"]},
-            "same_recorded_attempt": left["intent_id"] == right["intent_id"] and left["run_id"] == right["run_id"],
+            "same_recorded_intent": left["intent_id"] == right["intent_id"],
+            "recorded_run_relation": ("unknown" if left["run_id"] is None or right["run_id"] is None
+                                      else "same" if left["run_id"] == right["run_id"] else "different"),
             "candidates": {"left": left, "right": right}, "changed_sources": changed,
             "assurance": "supplied P1 captures; provenance and current authorization not authenticated"}
 
 
 def render_text(report):
     lines = ["ATTEMPT COMPARISON · " + report["binding_status"], report["assurance"]]
+    lines.append(f"intent equality: {report['same_recorded_intent']} · recorded runs: {report['recorded_run_relation']}")
     for side in ("left", "right"):
         c = report["candidates"][side]
         lines.append(f"{side}: {c['intent_id']} · run {c['run_id']} · capture {c['capture_sha256']}")

@@ -16,7 +16,7 @@ def competing_capture():
 
 def test_exact_comparison_never_chooses_or_settles():
     left,right=protected_capture(),competing_capture();before=deepcopy((left,right));report=c.compare(left,right)
-    assert report['binding_status']=='exact' and not report['same_recorded_attempt']
+    assert report['binding_status']=='exact' and not report['same_recorded_intent'] and report['recorded_run_relation']=='different'
     assert report['settlement_owner']=='Sprintctl' and not report['settlement_inferred'] and not report['authorizes_effects']
     assert not {'winner','chosen','terminal_status','decision','ready_to_settle'} & report.keys()
     assert report['candidates']['left']['links']['artifact']['value']['digest']==intent(left)['canonical_intent_digest']
@@ -63,7 +63,7 @@ def test_missing_links_remain_explicit():
 
 def test_same_attempt_and_unavailable_claims_cannot_self_assert_currentness():
     left=protected_capture();right=deepcopy(left);right['source_mode']='live-owner-reads';right['results'][p1.LEASES]={'status':'unavailable','reason':'refused'};report=c.compare(left,right)
-    assert report['same_recorded_attempt'] and 'attempts_and_claims' in report['candidates']['right']['missing']
+    assert report['same_recorded_intent'] and report['recorded_run_relation']=='same' and 'attempts_and_claims' in report['candidates']['right']['missing']
     assert report['candidates']['right']['freshness']['status']=='unknown'
 
 def test_cli_reads_without_file_writes(tmp_path,capsys):
@@ -80,3 +80,27 @@ def test_cli_malformed_refusal_has_no_partial_output(tmp_path,capsys):
     path.write_text(json.dumps(protected_capture()).replace('"intent_revision": 1','"intent_revision": 1, "intent_revision": 2'))
     assert main(['--left',str(path),'--right',str(path)])==2
     output=capsys.readouterr();assert not output.out and 'refused' in output.err
+
+
+def test_same_run_with_two_intents_reports_same_recorded_run():
+    left,right=protected_capture(),competing_capture()
+    intent(right)['run_id']=intent(left)['run_id']
+    report=c.compare(left,right)
+    assert not report['same_recorded_intent']
+    assert report['recorded_run_relation']=='same'
+
+
+def test_missing_owner_intents_do_not_infer_run_equality():
+    left=protected_capture();right=deepcopy(left)
+    for doc in (left,right):
+        doc['results'][p1.EFFECT]={'status':'unavailable','reason':'owner read unavailable'}
+    report=c.compare(left,right)
+    assert report['same_recorded_intent']
+    assert report['recorded_run_relation']=='unknown'
+    assert all(side['run_id'] is None for side in report['candidates'].values())
+
+
+def test_one_missing_owner_run_is_unknown():
+    left,right=protected_capture(),competing_capture()
+    right['results'][p1.EFFECT]={'status':'unavailable','reason':'owner read unavailable'}
+    assert c.compare(left,right)['recorded_run_relation']=='unknown'
