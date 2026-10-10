@@ -96,6 +96,9 @@ event (flow: `docs/dispatch/workflow-topology.md`). One clerical step at the end
   check-outcome counts.
 - **Outcome:** the unit's final state (`confirmed`, `parked`, `unverified`, `retired`,
   `deferred`, `not_built` or `halted`), plus the tier it finally built at.
+- **Run:** `{run_id, manifest_digest, status}`, the RunManifest the run emitted at start
+  (`docs/contracts/local-run-manifest.md`). `status` is `resolved`, or says why the record is
+  unbound (`absent`, `invalid`, `unresolved`, `digest-mismatch`).
 
 Every field is an identifier, an enum or a count. The recorder relays no prose, makes no network
 call, and always exits 0. Pass `record_decisions: false` to skip it. These records are the labels

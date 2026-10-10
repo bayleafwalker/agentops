@@ -31,6 +31,8 @@ def _isolate_audit_store(tmp_path_factory, monkeypatch) -> None:
     (index / "auditctl.db").touch()
     monkeypatch.setenv("AUDITCTL_DB", str(index / "auditctl.db"))
     monkeypatch.setenv("AUDITCTL_ARTIFACTS_ROOT", str(store))
+    # run_manifest.py (#2479) writes and resolves manifests under this directory; never the live one.
+    monkeypatch.setenv("AGENTOPS_RUN_MANIFEST_DIR", str(store / "run-manifests"))
 
 
 # The saved-workflow harness tests (test_saved_workflows.py) need node. A skip is reported as success by

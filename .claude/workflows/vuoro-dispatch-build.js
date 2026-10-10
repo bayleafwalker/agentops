@@ -1,7 +1,7 @@
 export const meta = {
   name: 'vuoro-dispatch-build',
   description: 'Value-routing build pipeline: route -> refine or write an oracle when that is what the unit needs -> build against the oracle -> independent verify -> bounded repair -> park what still fails -> publish verified work -> close. Nothing is escalated to the operator by default; units that cannot be finished become refined backlog, not blockers.',
-  whenToUse: 'Dispatch/execution for sprint items. Invoke with Workflow({scriptPath: "/projects/dev/agentops/.claude/workflows/vuoro-dispatch-build.js"}, {args: {items: [{repo, code_repo?, item_id, description?, unit?, tier?: "bounded"|"standard"|"hard"}], push?: boolean, verify_timeout_seconds?: number, record_decisions?: boolean}}). Give related items the same unit; give independent same-repo scopes different units. repo is the tracker that holds the item; code_repo (default: repo) is where its code is built, verified and published, so an item tracked in one repository can change another. push is refused when any item\'s tracker repo or code_repo is appservice. Items do not need to be pre-planned: the router sends undecided units to a frontier refiner and units without a deterministic check to an oracle author before building. A caller-supplied tier on every item of a unit means planning is done and the unit goes straight to build. Each code repository builds in a run-owned worktree on a dispatch/run-* branch cut from origin/main, never on the shared checkout\'s local main: other sessions\' commits there are neither built on, published nor lost, the worktree is removed after publication, and a run branch that is not yet on origin/main is kept and adopted by the next run. Same-repo units run sequentially and each is verified (with up to two repair rounds) before the next builds on it; a unit that still fails is reverted and handed back to the backlog with its findings while later units continue. Push, when requested, publishes the verified prefix: the confirmed and parked units up to the first unverified or halted unit, at that unit\'s starting tip, with the reverts of parked units; verified ranges are recorded under refs/dispatch/verified so a later run publishes commits an earlier run stranded; when main is protected or has diverged (a refused push) or the work touches protected paths, the verified head is pushed to a dispatch/publish-<sha> branch and handed back as an open PR (to merge with a merge commit; the workflow never merges it) instead of being stranded. record_decisions (default true) records each unit route and outcome as dispatch.route.decision events.',
+  whenToUse: 'Dispatch/execution for sprint items. Invoke with Workflow({scriptPath: "/projects/dev/agentops/.claude/workflows/vuoro-dispatch-build.js"}, {args: {items: [{repo, code_repo?, item_id, description?, unit?, tier?: "bounded"|"standard"|"hard"}], push?: boolean, verify_timeout_seconds?: number, record_decisions?: boolean}}). Give related items the same unit; give independent same-repo scopes different units. repo is the tracker that holds the item; code_repo (default: repo) is where its code is built, verified and published, so an item tracked in one repository can change another. push is refused when any item\'s tracker repo or code_repo is appservice. Items do not need to be pre-planned: the router sends undecided units to a frontier refiner and units without a deterministic check to an oracle author before building. A caller-supplied tier on every item of a unit means planning is done and the unit goes straight to build. Each code repository builds in a run-owned worktree on a dispatch/run-* branch cut from origin/main, never on the shared checkout\'s local main: other sessions\' commits there are neither built on, published nor lost, the worktree is removed after publication, and a run branch that is not yet on origin/main is kept and adopted by the next run. Same-repo units run sequentially and each is verified (with up to two repair rounds) before the next builds on it; a unit that still fails is reverted and handed back to the backlog with its findings while later units continue. Push, when requested, publishes the verified prefix: the confirmed and parked units up to the first unverified or halted unit, at that unit\'s starting tip, with the reverts of parked units; verified ranges are recorded under refs/dispatch/verified so a later run publishes commits an earlier run stranded; when main is protected or has diverged (a refused push) or the work touches protected paths, the verified head is pushed to a dispatch/publish-<sha> branch and handed back as an open PR (to merge with a merge commit; the workflow never merges it) instead of being stranded. record_decisions (default true) records each unit route and outcome as dispatch.route.decision events. Each run emits one RunManifest at start (scripts/run_manifest.py); decision events and closeout notes cite it by run_id and manifest_digest, and a run whose emission failed proceeds with records marked unbound.',
   phases: [
     { title: 'Workspace' },
     { title: 'Route' },
@@ -44,6 +44,11 @@ const CLERICAL_MODEL = { model: 'claude-haiku-4-5-20251001', effort: 'low' }
 // Non-writing stages run as this registered subagent type (.claude/agents/dispatch-readonly.md): no Edit/Write.
 const READONLY_AGENT = { agentType: 'dispatch-readonly' }
 const DECISION_RECORDER = '/projects/dev/agentops/scripts/jev_shadow.py'
+// Emits this run's RunManifest at start (agentops#2479, docs/contracts/local-run-manifest.md);
+// every record the run writes cites it as {run_id, manifest_digest}.
+const RUN_MANIFEST_EMITTER = '/projects/dev/agentops/scripts/run_manifest.py'
+const SAFE_LOCAL_RUN_ID = /^lrun_[0-7][0-9A-HJKMNP-TV-Z]{25}$/
+const SAFE_DIGEST = /^sha256:[0-9a-f]{64}$/
 // Resolve the registered readonly agent before a workspace or item can be touched.
 async function requireReadonlyAgent() {
   let result
@@ -683,9 +688,59 @@ function recordVerify(decision, verifyResult) {
   }
 }
 
+// This run's RunManifest reference, or null when emission failed: the run proceeds either
+// way, and its records then say they are unbound rather than citing a guessed run.
+let runRef = null
+
+function declaredModels() {
+  const models = new Set([CLERICAL_MODEL.model, FRONTIER_MODEL.model])
+  for (const tier of Object.values(MODEL_TIERS)) {
+    models.add(tier.build.model)
+    models.add(tier.verify.model)
+  }
+  return [...models].sort()
+}
+
+async function emitRunManifest() {
+  const payload = JSON.stringify({ workflow: 'vuoro-dispatch-build', harness_id: 'claude-code', model_ids: declaredModels() })
+  if (payload.includes("'")) return null
+  let raw
+  try {
+    raw = await agent(`Run exactly one shell command and report what it printed. It records this dispatch run's composition (RunManifest) and changes nothing about dispatch.
+
+python3 ${RUN_MANIFEST_EMITTER} emit --input-json '${payload}'
+
+Do not retry, run any other command, or modify files. Return {ran, output} where ran says whether the command executed and output is its stdout (at most 2000 characters).`, {
+      label: 'run-manifest',
+      ...READONLY_AGENT,
+      phase: 'Workspace',
+      schema: RECORD_SCHEMA,
+      ...CLERICAL_MODEL,
+    })
+  } catch (_error) {
+    return null
+  }
+  let printed
+  try {
+    printed = JSON.parse(raw && raw.ran === true ? raw.output : '')
+  } catch (_error) {
+    return null
+  }
+  if (!printed || printed.emitted !== true || !SAFE_LOCAL_RUN_ID.test(printed.run_id) || !SAFE_DIGEST.test(printed.manifest_digest)) {
+    return null
+  }
+  return { run_id: printed.run_id, manifest_digest: printed.manifest_digest }
+}
+
+function runRefLine() {
+  return runRef
+    ? `\n- Every note you add here cites this run: include the line "Run-Manifest: ${runRef.run_id} ${runRef.manifest_digest}" (validated identifiers) at the end of its --detail.`
+    : ''
+}
+
 async function recordDecisions() {
   if (!recordDecisionsEnabled || !decisions.length) return
-  const payload = JSON.stringify({ workflow: 'vuoro-dispatch-build', units: decisions })
+  const payload = JSON.stringify({ workflow: 'vuoro-dispatch-build', ...(runRef ? { run: runRef } : {}), units: decisions })
   // Every field is validated upstream (safe names, numeric ids, enums, counts), so the
   // payload cannot hold a quote; refuse rather than quote it if that ever changes.
   if (payload.includes("'")) return
@@ -1585,7 +1640,7 @@ For each item, using only the item_id, reservation_id, verdict, and delivery_che
 - If verdict is issues_found or inconclusive, do not mark done. Add a concise note that hands the item back to backlog refinement: when outcome is parked, say the unit's commits were reverted after the repair rounds; summarize the verifier's concerns in your own words so the next refinement pass can use them. Then, if the item is active, return it to pending with sprintctl item status --id <item_id> --status pending --reason rework --actor workflow-independent-verify-gate --expected-revision <current status_revision>, and run sprintctl reservation release --id <reservation_id> --actor workflow-independent-verify-gate.
 - Reservations are advisory and carry no secret. If the retry with the re-read revision still fails, report closed=false with the error. If an item has no reservation_id, skip the release step.
 - ${STATUS_REVISION_RULE} This applies to every sprintctl item status command above, and its "retry" means retry with the re-read revision.
-- Never embed verifier prose directly into shell syntax. Use sprintctl item note --help if needed; item note takes --summary and --detail, not --note or --json.
+- Never embed verifier prose directly into shell syntax. Use sprintctl item note --help if needed; item note takes --summary and --detail, not --note or --json.${runRefLine()}
 
 Return exactly one result per item: {repo: "${repo}", results: [{item_id, closed, action, note?}]}.`
 }
@@ -1691,6 +1746,7 @@ const verifyTimeoutSeconds = buildInputService.boundedInteger(parsedArgs.verify_
 // claim_ttl_seconds is accepted for old callers and ignored: sprintctl reservations have no TTL.
 buildInputService.boundedInteger(parsedArgs.claim_ttl_seconds, 7200, 600, 21600, 'claim_ttl_seconds')
 await requireReadonlyAgent()
+runRef = await emitRunManifest()
 const groups = buildInputService.groupByRepo(items)
 
 const published = await pipeline(
