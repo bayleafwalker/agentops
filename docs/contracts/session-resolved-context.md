@@ -467,13 +467,22 @@ permission to rewrite the original binding. Start and skill-record writers
 share the same stable lock inode.
 
 `agentops session-binding --read-attribution <session-id>` is a read-only
-view. It returns `unknown` for legacy records without explicit provenance,
-unobserved sessions, and bindings with contrary observations. It reports the
-recorded harness and conflict references, including whether their original
-binding digest still matches. Profile comparison groups by effective harness
-and attribution status alongside the unchanged observed-profile digest, so a
-contradicted Codex session cannot be reported as a Claude cohort. A missing
-OpenCode binding remains unobserved; no launcher or record is invented.
+view. Persisted explicit attribution is labeled a **historical observation**,
+never proof of the current launch. A current claim requires a fresh comparison
+from the trusted caller (`--read-attribution <session-id> --harness codex` for
+the Codex launcher). Without that comparison, current attribution remains
+`unknown` with `comparison-unavailable`; a mismatch is `contradicted` even if
+the conflict sidecar could not be saved. Disk-write failures are reported and
+never stop the harness or turn missing telemetry into agreement.
+
+Legacy records without explicit provenance and unobserved sessions remain
+unknown. The view separately reports the recorded harness, historical status
+and conflict references, including whether their original binding digest still
+matches. Profile comparison has no fresh launcher comparison, so its current
+harness cohorts remain unknown while exposing historical identity separately,
+alongside the unchanged observed-profile digest. A contradicted Codex session
+cannot be reported as a current Claude cohort. A missing OpenCode binding
+remains unobserved; no launcher or record is invented.
 
 On the workstation, gitops-nixos materializes `~/.codex/hooks` as an
 out-of-store symlink to this repository's `hooks/`. The user-level

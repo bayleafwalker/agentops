@@ -93,9 +93,12 @@ def build_report(ticks: list[dict], events: list[dict], bindings_dir: Path) -> d
             continue  # A legacy binding cannot supply an invented profile.
         profile = observed_profile(binding)
         digest = observed_profile_digest(binding)
-        group = groups.setdefault((digest, attribution["harness"], attribution["status"]), {
+        group = groups.setdefault((digest, attribution["harness"], attribution["status"],
+                                   attribution["recorded_harness"], attribution["historical_status"]), {
             "digest": digest[:12], "root": profile["root"],
             "harness": attribution["harness"], "attribution_status": attribution["status"],
+            "recorded_harness": attribution["recorded_harness"],
+            "historical_attribution_status": attribution["historical_status"],
             "n_sources": len(profile["sources"]), "n_skills": len(profile["skills"]),
             "sessions": set(), "items": 0, "first_pass": 0, "accepted": 0, "no_review": 0,
         })

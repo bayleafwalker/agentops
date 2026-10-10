@@ -422,12 +422,16 @@ def record_attribution_conflict(path: Path, existing: dict, candidate: dict) -> 
         temporary.unlink()
 
 
-def read_attribution(path: Path, binding: dict) -> dict:
+def read_attribution(path: Path, binding: dict, *, expected_harness: str | None = None) -> dict:
     """Derived join guard. Legacy/unobserved/contradictory records stay unknown.
 
-    No guessed ID shapes, no transcript parsing, no historical rewrite. A conflict
-    is bound to exact historical bytes; orphaned or changed records are surfaced.
+    Persisted launcher attribution is a historical observation, not proof of the
+    current launch. A current claim needs a fresh explicit launcher comparison;
+    without it the harness remains unknown, even when a failed write left no
+    conflict sidecar. No guessed ID shapes, transcript parsing or history rewrite.
     """
+    if expected_harness not in (None, "claude", "codex"):
+        raise ValueError("fresh launcher comparison must name claude or codex")
     name = binding.get("harness", {}).get("name", "unknown")
     attribution = binding.get("attribution", {})
     verified = (name in ("claude", "codex") and
@@ -442,9 +446,20 @@ def read_attribution(path: Path, binding: dict) -> dict:
         conflicts.append({"path": str(conflict_path),
                           "binding_matches": record.get("binding_sha256") == _digest(path),
                           "observed_harness": record.get("observed_harness", "unknown")})
-    status = "contradicted" if conflicts else ("observed" if verified else "unobserved")
-    return {"harness": name if verified and not conflicts else "unknown",
-            "recorded_harness": name, "status": status, "conflicts": conflicts}
+    mismatch = expected_harness is not None and name != expected_harness
+    if conflicts or mismatch:
+        status = "contradicted"
+    elif not verified:
+        status = "unobserved"
+    elif expected_harness is None:
+        status = "comparison-unavailable"
+    else:
+        status = "observed"
+    return {"harness": name if status == "observed" else "unknown",
+            "recorded_harness": name,
+            "historical_status": "observed" if verified else "unobserved",
+            "expected_harness": expected_harness,
+            "status": status, "conflicts": conflicts}
 
 
 def publish(binding: dict, *, quiet: bool = False) -> None:
@@ -512,7 +527,9 @@ def main(argv: list[str] | None = None) -> int:
                 binding = json.loads(path.read_text())
                 if binding.get("runtime_session_id") != session:
                     raise ValueError("binding runtime_session_id mismatch")
-                print(json.dumps({**read_attribution(path, binding), "binding_found": True}))
+                print(json.dumps({**read_attribution(
+                    path, binding, expected_harness=None if args.harness == "unknown" else args.harness),
+                    "binding_found": True}))
             except (OSError, ValueError, TypeError) as exc:
                 print(f"session_binding: unreadable attribution: {exc}", file=sys.stderr)
                 return 2
@@ -566,7 +583,13 @@ def store_binding(path: Path, binding: dict, *, no_publish: bool) -> int:
         differing = contradictions(existing, binding)
         if differing:
             if "harness" in differing:
-                record_attribution_conflict(path, existing, binding)
+                try:
+                    record_attribution_conflict(path, existing, binding)
+                except OSError as exc:
+                    # Telemetry cannot stop the harness. Readers require a fresh
+                    # comparison and never mistake absent sidecars for agreement.
+                    print(f"session_binding: could not persist attribution conflict: {exc}",
+                          file=sys.stderr)
             # Fail closed and say which fields. The contract forbids silently
             # preferring one of two incompatible resolutions; that preference is
             # exactly what wrote correct indexes and misplaced shards in August.

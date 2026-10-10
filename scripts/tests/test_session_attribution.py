@@ -157,3 +157,54 @@ def test_known_native_legacy_join_reports_missing_profile_and_unobserved_attribu
     assert report['rows'] == [] and report['no_profile'] == 1
     assert report['session_attributions']['native-session']['harness'] == 'unknown'
     assert report['session_attributions']['native-session']['status'] == 'contradicted'
+
+
+def test_current_claim_requires_fresh_launcher_comparison(tmp_path):
+    invoke(tmp_path, 'codex')
+    path = tmp_path/'native-session.json'
+    value = load(tmp_path)
+    historical = subject.read_attribution(path, value)
+    assert historical['historical_status'] == 'observed'
+    assert historical['harness'] == 'unknown'
+    assert historical['status'] == 'comparison-unavailable'
+    fresh = subject.read_attribution(path, value, expected_harness='codex')
+    assert fresh['harness'] == 'codex' and fresh['status'] == 'observed'
+    mismatch = subject.read_attribution(path, value, expected_harness='claude')
+    assert mismatch['harness'] == 'unknown' and mismatch['status'] == 'contradicted'
+
+
+def test_failed_conflict_persistence_cannot_make_a_current_or_derived_claude_claim(tmp_path, capsys):
+    invoke(tmp_path, 'claude')
+    path = tmp_path/'native-session.json'
+    before = path.read_bytes()
+    candidate = subject.build({'session_id': 'native-session', 'cwd': str(ROOT), 'source': 'resume'},
+                              records_dir=ROOT/'environment-record', harness='codex')
+    # Force the disk write failure rather than reasoning about directory permissions.
+    with patch.object(subject.tempfile, 'NamedTemporaryFile', side_effect=PermissionError('read-only directory')):
+        assert subject.store_binding(path, candidate, no_publish=True) == 1
+    assert 'could not persist attribution conflict' in capsys.readouterr().err
+    assert path.read_bytes() == before
+    assert list((tmp_path/'.attribution-conflicts/native-session').glob('*.json')) == []
+    current = subject.read_attribution(path, load(tmp_path), expected_harness='codex')
+    assert current['harness'] == 'unknown' and current['status'] == 'contradicted'
+    without_comparison = subject.read_attribution(path, load(tmp_path))
+    assert without_comparison['harness'] == 'unknown'
+    assert without_comparison['status'] == 'comparison-unavailable'
+    assert without_comparison['historical_status'] == 'observed'
+    report = profile_comparison.build_report([{'session_id': 'native-session',
+                                             'ts': '2026-10-10T06:00:00Z', 'minutes': 10}], [], tmp_path)
+    assert report['rows'][0]['harness'] == 'unknown'
+    assert report['rows'][0]['attribution_status'] == 'comparison-unavailable'
+    assert report['rows'][0]['recorded_harness'] == 'claude'
+
+
+def test_read_cli_performs_fresh_explicit_comparison(tmp_path):
+    invoke(tmp_path, 'claude')
+    args = [sys.executable, str(ROOT/'scripts/session_binding.py'),
+            '--bindings-dir', str(tmp_path), '--read-attribution', 'native-session']
+    historical = json.loads(subprocess.check_output(args, text=True))
+    assert historical['harness'] == 'unknown'
+    mismatch = json.loads(subprocess.check_output(args + ['--harness', 'codex'], text=True))
+    assert mismatch['harness'] == 'unknown' and mismatch['status'] == 'contradicted'
+    match = json.loads(subprocess.check_output(args + ['--harness', 'claude'], text=True))
+    assert match['harness'] == 'claude'
