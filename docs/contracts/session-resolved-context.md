@@ -440,3 +440,49 @@ This contract is wrong if:
 4. NixOS and Arch/systemd triggers generated from one definition.
 5. Test on workstation, devbox, one clean disposable executor.
 6. Promote only proven projections.
+
+### Native launcher attribution (agentops#2640, 2026-10-10)
+
+The SessionStart producer accepts `--harness claude|codex|unknown` from the
+registered launcher. `hooks/session-binding.sh` pins Claude;
+`hooks/codex-session-binding.sh` pins Codex. Direct CLI calls default to
+`unknown`. Neither session ID shape nor payload fields select the harness.
+The binding's optional `attribution` object records the matching audit source,
+audit actor and `explicit-launcher`/`unobserved` resolution. The OS actor is
+resolved from the process UID. This is a launcher observation, not attestation.
+
+Codex records the declared system config/requirements, user config/hooks and
+CWD config/hooks files; Claude retains its declared settings layers. Presence
+and digest do not prove loading: CLI overrides, selected Codex profiles,
+cloud-managed config and project trust can change effective configuration.
+Unknown callers record no fabricated settings sources. The instruction walk
+and empty-at-start skill list retain their existing observational limits.
+
+Historical bindings remain immutable, including mislabeled Codex bindings.
+A reentry carrying a different explicit harness fails the binding check,
+preserves the original bytes and adds an atomic, digest-bound observation
+under `.attribution-conflicts/<session-id>/`. Identical contrary observations
+are deduplicated; different observations remain separate. They do not grant
+permission to rewrite the original binding. Start and skill-record writers
+share the same stable lock inode.
+
+`agentops session-binding --read-attribution <session-id>` is a read-only
+view. It returns `unknown` for legacy records without explicit provenance,
+unobserved sessions, and bindings with contrary observations. It reports the
+recorded harness and conflict references, including whether their original
+binding digest still matches. Profile comparison groups by effective harness
+and attribution status alongside the unchanged observed-profile digest, so a
+contradicted Codex session cannot be reported as a Claude cohort. A missing
+OpenCode binding remains unobserved; no launcher or record is invented.
+
+On the workstation, gitops-nixos materializes `~/.codex/hooks` as an
+out-of-store symlink to this repository's `hooks/`. The user-level
+`~/.codex/hooks.json` registration must point its SessionStart command to
+`~/.codex/hooks/codex-session-binding.sh`; preserve all unrelated registrations
+and retain a backup when changing it. Existing Claude settings continue to
+use `session-binding.sh`. Installing the adapter without changing the Codex
+registration does not fix deployed attribution. Test the registered command
+with an isolated binding directory before observing a fresh native start;
+never fabricate or replace a current session's historical binding as a smoke
+test. Cost/SubagentStop scripts remain Claude transcript parsers and refuse
+Codex events; this change does not invent Codex cost or child telemetry.

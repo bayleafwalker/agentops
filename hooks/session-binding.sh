@@ -27,5 +27,5 @@ AGENTOPS="$(command -v agentops 2>/dev/null || true)"
 # A contradiction is a real finding and belongs on stderr, but a hook that fails the
 # session start converts a diagnostic into an outage. The record is written, the reason
 # is said, and the session proceeds.
-"$AGENTOPS" session-binding || true
+"$AGENTOPS" session-binding --harness "${1:-claude}" || true
 exit 0
