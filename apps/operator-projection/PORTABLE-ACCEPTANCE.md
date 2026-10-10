@@ -19,6 +19,17 @@ P1's source mode but always says authentication and current authorization are
 `unknown`. Source rows contain only the fixed operation, read status and a
 strict UTC observation time or null; a timestamp is not owner event time.
 
+Presentation refuses an internally contradictory P1 report before showing any
+facts. Observed intent and acceptance revisions must agree; observed artifact
+and acceptance canonical digests must agree; observed current Release and
+Release-intent binding digests must agree. A binding's intent ID/revision must
+also match the observed intent. These are consistency checks over P1's already
+selected links, not new owner joins or an acceptance evaluator. The owner
+`work_effect_intent.revision` is a PostgreSQL `integer` (1..2,147,483,647)
+and `work_item_id` is `bigint` (1..9,223,372,036,854,775,807); the projection
+enforces those storage-domain bounds before text/JSON rendering. See
+`sprintctl/pg.py` schema 19 in the Sprintctl owner repository.
+
 Observed link facts are a small allowlist: intent ID/revision/item/state;
 Release digest; exact Release binding digest; the fixed caveat that claim
 history is item-scoped; canonical intent digest and base commit; protected
