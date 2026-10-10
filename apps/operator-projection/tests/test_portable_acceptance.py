@@ -102,3 +102,34 @@ def test_source_time_is_strict_utc_and_not_owner_event_time():
     report["sources"][0]["observed_at"] = "2026-02-30T12:00:00Z"
     with pytest.raises(p1.ReconstructionError):
         portable.present(report)
+
+
+@pytest.mark.parametrize("link,field,value", [
+    ("intent", "revision", 10**1000),
+    ("intent", "revision", portable.OWNER_INT_MAX + 1),
+    ("intent", "item_id", portable.OWNER_BIGINT_MAX + 1),
+    ("acceptance", "intent_revision", 10**1000),
+])
+def test_owner_storage_domain_bounds_refuse_oversized_report_numbers(link, field, value):
+    # These mutate a genuine P1 complete report; a presentation may not render
+    # arbitrary precision numbers that cannot exist in the owner's PG columns.
+    report = p1.reconstruct(protected_capture())
+    report["links"][link]["value"][field] = value
+    assert report["status"] == "complete"
+    with pytest.raises(p1.ReconstructionError, match="^unsupported acceptance presentation input$"):
+        portable.present(report)
+
+
+@pytest.mark.parametrize("link,field,value", [
+    ("acceptance", "intent_revision", 2),
+    ("acceptance", "canonical_intent_digest", "0" * 64),
+    ("release_intent_binding", "release_digest", "0" * 64),
+    ("release_intent_binding", "intent_revision", 2),
+    ("release_intent_binding", "intent_id", "other_intent"),
+])
+def test_safe_observed_facts_cannot_contradict_each_other_in_complete_p1_report(link, field, value):
+    report = p1.reconstruct(protected_capture())
+    report["links"][link]["value"][field] = value
+    assert report["status"] == "complete"
+    with pytest.raises(p1.ReconstructionError, match="^unsupported acceptance presentation input$"):
+        portable.present(report)

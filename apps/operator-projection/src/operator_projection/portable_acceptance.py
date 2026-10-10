@@ -14,6 +14,8 @@ UTC_TIME = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:
 STATES = frozenset({"proposed", "accepted", "rejected", "applied"})
 SOURCE_MODES = frozenset({"live-owner-reads", "supplied-capture"})
 LINK_STATES = frozenset({"observed", "missing", "conflict"})
+OWNER_INT_MAX = 2**31 - 1  # work_effect_intent.revision: PostgreSQL integer
+OWNER_BIGINT_MAX = 2**63 - 1  # work_effect_intent.work_item_id: PostgreSQL bigint
 
 
 def _refuse() -> None:
@@ -26,8 +28,8 @@ def _id(value: object) -> str:
     return value
 
 
-def _positive(value: object) -> int:
-    if type(value) is not int or value <= 0:
+def _positive(value: object, ceiling: int) -> int:
+    if type(value) is not int or not 1 <= value <= ceiling:
         _refuse()
     return value
 
@@ -57,9 +59,14 @@ def _facts(key: str, value: object, intent_id: str) -> dict:
         if (value.get("intent_id") != intent_id or type(value.get("state")) is not str
                 or value["state"] not in STATES):
             _refuse()
-        return {"intent_id": intent_id, "revision": _positive(value.get("revision")),
-                "item_id": _positive(value.get("item_id")), "state": value["state"]}
-    if key in {"work_release", "release_intent_binding"}:
+        return {"intent_id": intent_id, "revision": _positive(value.get("revision"), OWNER_INT_MAX),
+                "item_id": _positive(value.get("item_id"), OWNER_BIGINT_MAX), "state": value["state"]}
+    if key == "work_release":
+        return {"release_digest": _hex(value.get("release_digest"), p1.HEX)}
+    if key == "release_intent_binding":
+        if value.get("intent_id") != intent_id:
+            _refuse()
+        _positive(value.get("intent_revision"), OWNER_INT_MAX)
         return {"release_digest": _hex(value.get("release_digest"), p1.HEX)}
     if key == "attempts_and_claims":
         return {"scope": "owner item history; exact intent attempt join not established"}
@@ -74,7 +81,7 @@ def _facts(key: str, value: object, intent_id: str) -> dict:
     if key == "acceptance":
         if value.get("intent_id") != intent_id:
             _refuse()
-        return {"intent_revision": _positive(value.get("intent_revision")),
+        return {"intent_revision": _positive(value.get("intent_revision"), OWNER_INT_MAX),
                 "canonical_intent_digest": _hex(value.get("canonical_intent_digest"), p1.HEX),
                 "accepting_identity": "unknown", "acceptor_policy_revision": "unknown"}
     if key == "effect_receipt":
@@ -105,6 +112,17 @@ def present(report: dict) -> dict:
     conflict = any(row["status"] == "conflict" for row in links.values())
     status = "conflict" if conflict else "incomplete" if missing else "complete"
     if report.get("missing") != missing or report["status"] != status:
+        _refuse()
+    intent = links["intent"].get("facts")
+    acceptance = links["acceptance"].get("facts")
+    artifact = links["artifact"].get("facts")
+    release = links["work_release"].get("facts")
+    binding = links["release_intent_binding"].get("facts")
+    if (intent and acceptance and intent["revision"] != acceptance["intent_revision"]
+            or artifact and acceptance and artifact["canonical_intent_digest"] != acceptance["canonical_intent_digest"]
+            or release and binding and release["release_digest"] != binding["release_digest"]
+            or intent and binding and
+            report["links"]["release_intent_binding"]["value"]["intent_revision"] != intent["revision"]):
         _refuse()
     sources, seen = [], set()
     for row in report["sources"]:
