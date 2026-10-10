@@ -296,6 +296,7 @@ const CLOSE_SCHEMA = {
           closed: { type: 'boolean' },
           action: { type: 'string' },
           note: { type: 'string' },
+          run_manifest_line: { type: 'string' },
         },
       },
     },
@@ -734,8 +735,21 @@ Do not retry, run any other command, or modify files. Return {ran, output} where
 
 function runRefLine() {
   return runRef
-    ? `\n- Every note you add here cites this run: include the line "Run-Manifest: ${runRef.run_id} ${runRef.manifest_digest}" (validated identifiers) at the end of its --detail.`
+    ? `\n- Every note you add here cites this run: include the line "${runCitationLine()}" (validated identifiers) at the end of its --detail, and return that exact line as run_manifest_line for the item.`
     : ''
+}
+
+function runCitationLine() {
+  return runRef ? `Run-Manifest: ${runRef.run_id} ${runRef.manifest_digest}` : null
+}
+
+// A cheap, non-fatal check that a closeout note cited the run: compared against the
+// expected line, never used to change closure. 'unbound' when the run has no manifest.
+function runCitation(result) {
+  const expected = runCitationLine()
+  if (!expected) return 'unbound'
+  return result && typeof result.run_manifest_line === 'string' && result.run_manifest_line.trim() === expected
+    ? 'cited' : 'not-cited'
 }
 
 async function recordDecisions() {
@@ -1642,7 +1656,7 @@ For each item, using only the item_id, reservation_id, verdict, and delivery_che
 - ${STATUS_REVISION_RULE} This applies to every sprintctl item status command above, and its "retry" means retry with the re-read revision.
 - Never embed verifier prose directly into shell syntax. Use sprintctl item note --help if needed; item note takes --summary and --detail, not --note or --json.${runRefLine()}
 
-Return exactly one result per item: {repo: "${repo}", results: [{item_id, closed, action, note?}]}.`
+Return exactly one result per item: {repo: "${repo}", results: [{item_id, closed, action, note?${runRef ? ', run_manifest_line' : ''}}]}.`
 }
 
 function normalizeCloseResults(repo, pairs, raw) {
@@ -1655,6 +1669,7 @@ function normalizeCloseResults(repo, pairs, raw) {
       closed: result.closed === true,
       action: String(result.action || 'close-agent-returned-no-action'),
       note: result.note == null ? undefined : limitedText(result.note, 1000),
+      run_citation: runCitation(result),
     })
   }
   return pairs.map(pair => ({
@@ -1662,6 +1677,7 @@ function normalizeCloseResults(repo, pairs, raw) {
       item_id: pair.item.item_id,
       closed: false,
       action: 'close-agent-omitted-item',
+      run_citation: runCitation(null),
     }),
     repo,
     ...(pair.codeRepo !== repo ? { code_repo: pair.codeRepo } : {}),
@@ -1800,4 +1816,9 @@ const workspaces = states.filter(state => state.workspace).map(state => ({
 log(`Dispatched ${groups.length} repo(s): ${results.filter(result => result.closed).length} item(s) closed, ${refined.length} unit(s) refined, ${retired.length} retired, ${parked.length} parked back to backlog, ${unverified.length} left unverified, ${deferred.length} deferred.`)
 log(push ? 'Publication carries the verified prefix (the confirmed and parked units up to the first unverified or halted unit, with the reverts of parked units); later runs publish verified ranges recorded under refs/dispatch/verified; a protected or diverged main, or protected paths, get an open PR hand-back (merge it with a merge commit) instead of a push.' : 'Commits remain local because push was not requested.')
 
-return { results, issues, inconclusive, refined, retired, deferred, parked, unverified, operator_actions, halted, publication, workspaces }
+// The run's RunManifest reference (agentops#2479), and closeout results whose note did not cite it.
+const run_manifest = runRef
+const uncited = results.filter(result => result.run_citation === 'not-cited').map(result => result.item_id)
+if (runRef && uncited.length) log(`Closeout notes for ${uncited.length} item(s) did not cite ${runRef.run_id}: ${uncited.join(', ')} (recorded, not fatal).`)
+
+return { results, issues, inconclusive, refined, retired, deferred, parked, unverified, operator_actions, halted, publication, workspaces, run_manifest }

@@ -46,6 +46,7 @@ CLERICAL = "claude-haiku-4-5-20251001"
 #   workspaceBase: {repo: <sha>}                 the base_sha the workspace:<repo> stage reports (default: the repo head)
 #   manifest: "throw" | "null" | "garbage" | "not-emitted" | "unsafe"   run-manifest emitter failure (#2479);
 #                                                otherwise it answers STUB_RUN_ID / STUB_MANIFEST_DIGEST
+#   cite: false | "wrong"                        the close stub omits run_manifest_line, or reports another run's line
 # The record-verified:<repo> clerical agent (refs/dispatch/verified) answers {ran: true}. The close stub treats a
 # delivery_check whose publication is pushed or already-on-origin as on origin/main (#2558).
 # #2562: publish-preflight:<repo> and publish-confirm:<repo> are exact-command clerical agents that run
@@ -285,6 +286,10 @@ function answer(prompt, options) {
   if (kind === 'close') {
     const evidence = closeEvidence(prompt)
     const audit = prompt.includes('deterministic audit closeout')
+    // #2479: the note cites the run when asked to ('cite: false' leaves it out, 'cite: "wrong"' cites another).
+    const citeMatch = prompt.match(/include the line "(Run-Manifest: [^"]+)"/)
+    const citation = !citeMatch || scenario.cite === false ? {}
+      : {run_manifest_line: scenario.cite === 'wrong' ? 'Run-Manifest: lrun_other sha256:0' : citeMatch[1]}
     return {
       repo,
       // 'onOrigin': unpublished work is already on origin/main, so a delivery check passes.
@@ -296,6 +301,7 @@ function answer(prompt, options) {
           item_id: item.item_id,
           closed: !audit && item.verdict === 'confirmed' && !undelivered,
           action: audit ? 'noted' : (item.verdict !== 'confirmed' ? 'released' : undelivered ? 'verified-undelivered' : 'status-done'),
+          ...citation,
         }
       }),
     }
@@ -1672,6 +1678,22 @@ class SavedWorkflowTests(unittest.TestCase):
         self.assertEqual(output["records"][0]["document"]["run"], reference)
         close_prompt = call(output, "close:example")["prompt"]
         self.assertIn(f"Run-Manifest: {reference['run_id']} {reference['manifest_digest']}", close_prompt)
+        self.assertEqual(output["result"]["run_manifest"], reference)
+        self.assertEqual({r["item_id"]: r["run_citation"] for r in output["result"]["results"]},
+                         {"1": "cited", "2": "cited"})
+
+    @requires_node
+    def test_an_uncited_closeout_note_is_recorded_and_never_changes_closure(self) -> None:
+        args = {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}
+        cited = run_workflow(BUILD_WORKFLOW, args)
+        for mode in (False, "wrong"):
+            with self.subTest(cite=mode):
+                output = run_workflow(BUILD_WORKFLOW, args, cite=mode)
+                [result] = output["result"]["results"]
+                self.assertEqual(result["run_citation"], "not-cited")
+                self.assertEqual(result["closed"], cited["result"]["results"][0]["closed"])
+                self.assertEqual(output["dispatch_events"], cited["dispatch_events"])
+                self.assertTrue(any("did not cite" in line for line in output["logs"]))
 
     @requires_node
     def test_a_failed_manifest_emission_never_changes_dispatch_and_records_say_unbound(self) -> None:
@@ -1680,7 +1702,11 @@ class SavedWorkflowTests(unittest.TestCase):
         for mode in ("throw", "null", "garbage", "not-emitted", "unsafe"):
             with self.subTest(mode=mode):
                 output = run_workflow(BUILD_WORKFLOW, args, manifest=mode)
-                self.assertEqual(output["result"], bound["result"])
+                self.assertIsNone(output["result"]["run_manifest"])
+                self.assertEqual([r["run_citation"] for r in output["result"]["results"]], ["unbound"])
+                strip = lambda result: {**result, "run_manifest": None, "results": [
+                    {k: v for k, v in r.items() if k != "run_citation"} for r in result["results"]]}
+                self.assertEqual(strip(output["result"]), strip(bound["result"]))
                 self.assertEqual(output["dispatch_events"], bound["dispatch_events"])
                 self.assertNotIn("run", output["records"][0]["document"])
                 self.assertNotIn("Run-Manifest:", call(output, "close:example")["prompt"])

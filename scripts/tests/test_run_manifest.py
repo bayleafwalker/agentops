@@ -171,6 +171,9 @@ def test_a_published_manifest_is_never_rewritten(tmp_path):
         run_manifest.write_manifest(tmp_path, {**record, "harness_build": "other"})
     assert path.read_bytes() == before
     assert [p.name for p in tmp_path.iterdir()] == [path.name]  # no pending file left behind
+    assert stat.S_IMODE(path.stat().st_mode) == 0o444  # write-once is literal
+    with pytest.raises(PermissionError):
+        path.open("w")
 
 
 def test_references_resolve_only_to_the_exact_record(tmp_path):
@@ -183,10 +186,31 @@ def test_references_resolve_only_to_the_exact_record(tmp_path):
     assert run_manifest.resolve_reference("lrun_$(x)", digest, tmp_path) == {
         "run_id": None, "manifest_digest": None, "status": "invalid"}
     assert run_manifest.resolve_reference(run_id, None, tmp_path)["status"] == "invalid"
-    # A tampered manifest no longer validates, so nothing resolves to it.
+    # A tampered manifest no longer validates: present but invalid, not missing.
     path.chmod(0o644)
     path.write_text(json.dumps({**record, "model_id": "swapped"}))
-    assert run_manifest.resolve_reference(run_id, digest, tmp_path)["status"] == "unresolved"
+    assert run_manifest.resolve_reference(run_id, digest, tmp_path)["status"] == "manifest-invalid"
+    path.write_text("not json")
+    assert run_manifest.resolve_reference(run_id, digest, tmp_path)["status"] == "manifest-invalid"
+
+
+def test_cited_reports_which_notes_carry_the_line(tmp_path, capsys):
+    run_id, digest = "lrun_" + "0" * 26, "sha256:" + "c" * 64
+    line = run_manifest.citation_line(run_id, digest)
+    item = {"events": [
+        {"id": 1, "payload": json.dumps({"summary": "verified", "detail": f"evidence ok\n{line}"})},
+        {"id": 2, "payload": json.dumps({"summary": "other", "detail": "no citation"})},
+        {"id": 3, "payload": {"summary": "x", "detail": f"  {line}  "}},
+        {"id": 4, "payload": "not json"},
+    ]}
+    assert run_manifest.note_citations(item, run_id, digest)["cited_event_ids"] == [1, 3]
+    assert run_manifest.note_citations({"events": []}, run_id, digest)["status"] == "not-cited"
+    path = tmp_path / "item.json"
+    path.write_text(json.dumps(item))
+    assert run_manifest.main(["cited", "--item-json", str(path), "--run-id", run_id, "--digest", digest]) == 0
+    assert json.loads(capsys.readouterr().out)["status"] == "cited"
+    assert run_manifest.main(["cited", "--item-json", str(path), "--run-id", run_id,
+                              "--digest", "sha256:" + "d" * 64]) == 1
 
 
 def test_every_decision_event_cites_the_run(capsys, auditctl_stub, monkeypatch):

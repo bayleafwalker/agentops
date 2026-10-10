@@ -41,6 +41,11 @@ Usage::
 
     agentops run-manifest emit --input-json '{"workflow": "vuoro-dispatch-build", "harness_id": "claude-code", "model_ids": [...]}'
     agentops run-manifest resolve --run-id lrun_... --digest sha256:...
+    agentops run-manifest cited --item-json item.json --run-id lrun_... --digest sha256:...
+
+Instruction-chain and recipe digests are taken from *this* checkout (the
+dispatcher's own, ``ROOT``), never from the build or verify worktrees the run
+later creates: the manifest describes what launched the run.
 """
 from __future__ import annotations
 
@@ -232,6 +237,8 @@ def write_manifest(directory: Path, record: dict[str, Any]) -> Path:
         handle.flush()
         os.fsync(handle.fileno())
         temporary = Path(handle.name)
+    # Read-only before the link, so the published inode is never writable: write-once is literal.
+    temporary.chmod(0o444)
     try:
         os.link(temporary, target)
     except FileExistsError as error:
@@ -246,8 +253,10 @@ def resolve_reference(run_id: Any, digest: Any, directory: Path | None = None) -
 
     ``status`` is ``resolved`` only when the manifest exists, validates and its
     ``manifest_digest`` equals the cited digest; otherwise ``invalid`` (the
-    reference itself is malformed), ``unresolved`` (no readable manifest under
-    that id) or ``digest-mismatch``.
+    reference itself is malformed), ``unresolved`` (no manifest file under that
+    id), ``manifest-invalid`` (a file exists but is not valid JSON, fails
+    validation or names another run, e.g. after tampering) or
+    ``digest-mismatch``.
     """
     if not (isinstance(run_id, str) and RUN_ID_RE.fullmatch(run_id)
             and isinstance(digest, str) and DIGEST_RE.fullmatch(digest)):
@@ -255,14 +264,47 @@ def resolve_reference(run_id: Any, digest: Any, directory: Path | None = None) -
     reference = {"run_id": run_id, "manifest_digest": digest}
     path = (directory or manifest_dir()) / f"{run_id}.json"
     try:
-        record = json.loads(path.read_text(encoding="utf-8"))
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return {**reference, "status": "unresolved"}
+    try:
+        record = json.loads(text)
         validate_record(record)
         if record["run_id"] != run_id:
             raise RunManifestError("run_id does not match its file")
-    except (OSError, ValueError):
-        return {**reference, "status": "unresolved"}
+    except ValueError:
+        # Present but unreadable, malformed or tampered: not the same finding as missing.
+        return {**reference, "status": "manifest-invalid"}
     status = "resolved" if record["manifest_digest"] == digest else "digest-mismatch"
     return {**reference, "status": status}
+
+
+def citation_line(run_id: str, digest: str) -> str:
+    """The line every closeout note of a run carries (docs/contracts/local-run-manifest.md)."""
+    return f"Run-Manifest: {run_id} {digest}"
+
+
+def note_citations(item: Any, run_id: str, digest: str) -> dict[str, Any]:
+    """Which of an item's notes cite the run. ``item`` is ``sprintctl item show --json``.
+
+    A cheap after-the-fact check of done work, never a gate: it reads the note
+    text the tracker holds and reports, it does not repair or reject anything.
+    """
+    line = citation_line(run_id, digest)
+    events = item.get("events") if isinstance(item, dict) else None
+    cited = []
+    for event in events if isinstance(events, list) else []:
+        try:
+            payload = json.loads(event.get("payload") or "{}") if isinstance(event.get("payload"), str) \
+                else (event.get("payload") or {})
+        except (ValueError, AttributeError):
+            continue
+        text = "\n".join(str(payload.get(key) or "") for key in ("summary", "detail")) \
+            if isinstance(payload, dict) else ""
+        if any(candidate.strip() == line for candidate in text.splitlines()):
+            cited.append(event.get("id"))
+    return {"run_id": run_id, "manifest_digest": digest, "cited_event_ids": cited,
+            "status": "cited" if cited else "not-cited"}
 
 
 def publish(record: dict[str, Any]) -> bool:
@@ -307,6 +349,21 @@ def cmd_resolve(args: argparse.Namespace) -> int:
     return 0 if result["status"] == "resolved" else 1
 
 
+def cmd_cited(args: argparse.Namespace) -> int:
+    """Report whether an item's notes cite the run. Exit 0 when cited, 1 otherwise."""
+    if not (RUN_ID_RE.fullmatch(args.run_id) and DIGEST_RE.fullmatch(args.digest)):
+        print(json.dumps({"status": "invalid"}))
+        return 1
+    try:
+        item = json.loads(Path(args.item_json).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        print(json.dumps({"status": "unreadable", "error": type(error).__name__}))
+        return 1
+    result = note_citations(item, args.run_id, args.digest)
+    print(json.dumps(result))
+    return 0 if result["status"] == "cited" else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -319,6 +376,11 @@ def main(argv: list[str] | None = None) -> int:
     resolve.add_argument("--run-id", required=True)
     resolve.add_argument("--digest", required=True)
     resolve.set_defaults(func=cmd_resolve)
+    cited = commands.add_parser("cited", help="check an item's notes for the Run-Manifest line; exit 1 unless cited")
+    cited.add_argument("--item-json", required=True, help="file holding sprintctl item show --id <id> --json output")
+    cited.add_argument("--run-id", required=True)
+    cited.add_argument("--digest", required=True)
+    cited.set_defaults(func=cmd_cited)
     args = parser.parse_args(argv)
     return args.func(args)
 
