@@ -157,7 +157,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.27,<1" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
     { name = "pyyaml", specifier = ">=6" },
-    { name = "vuoro-client", marker = "python_full_version >= '3.12'", url = "https://github.com/bayleafwalker/vuoro/releases/download/vuoro-client-v0.1.0/vuoro_client-0.1.0-py3-none-any.whl" },
+    { name = "vuoro-client", marker = "python_full_version >= '3.12'", url = "https://github.com/bayleafwalker/vuoro/releases/download/vuoro-client-v0.1.2/vuoro_client-0.1.2-py3-none-any.whl" },
 ]
 provides-extras = ["dev"]
 
@@ -536,15 +536,15 @@ wheels = [
 
 [[package]]
 name = "vuoro-client"
-version = "0.1.0"
-source = { url = "https://github.com/bayleafwalker/vuoro/releases/download/vuoro-client-v0.1.0/vuoro_client-0.1.0-py3-none-any.whl" }
+version = "0.1.2"
+source = { url = "https://github.com/bayleafwalker/vuoro/releases/download/vuoro-client-v0.1.2/vuoro_client-0.1.2-py3-none-any.whl" }
 dependencies = [
     { name = "httpx" },
     { name = "jsonschema" },
     { name = "pydantic" },
 ]
 wheels = [
-    { url = "https://github.com/bayleafwalker/vuoro/releases/download/vuoro-client-v0.1.0/vuoro_client-0.1.0-py3-none-any.whl", hash = "sha256:d94c35002d94dec2ac86c75a2693934c67d2c72c8d27b2048836ed4e1d1c71db" },
+    { url = "https://github.com/bayleafwalker/vuoro/releases/download/vuoro-client-v0.1.2/vuoro_client-0.1.2-py3-none-any.whl", hash = "sha256:7a4f32d4e2531a1abc99f5dc017fb8f6f22c4a1ef191079b98808be897081660" },
 ]
 
 [package.metadata]
