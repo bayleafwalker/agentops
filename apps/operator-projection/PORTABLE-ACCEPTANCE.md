@@ -9,10 +9,11 @@ its own current caller, repository, and work-read authorization before invoking
 this projection. A supplied report cannot prove owner provenance or freshness.
 
 The JSON DTO has exactly: schema, source_schema, derived, authorizes_effects,
-repo_id, intent_id, status, provenance, links, missing, and sources. It copies
+repo_id, intent_id, status, status_scope, provenance, links, missing, and sources. It copies
 P1's eight link statuses in P1 order (`observed`, `missing`, `conflict`), its
 aggregate status (`complete`, `incomplete`, `conflict`), and the ordered missing
-link names. It validates these fixed fields and refuses an inconsistent report;
+link names. `status_scope=p1-link-consistency` makes clear that `complete` is
+not a terminal acceptance outcome. It validates these fixed fields and refuses an inconsistent report;
 it does not recompute P1's joins or acceptance decision. `provenance` preserves
 P1's source mode but always says authentication and current authorization are
 `unknown`. Source rows contain only the fixed operation, read status and a
