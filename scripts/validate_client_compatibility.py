@@ -70,7 +70,7 @@ def receipt(reference: object, root: Path) -> dict:
     require(len(blob) <= 1_048_576, "receipt exceeds 1 MiB")
     require(hashlib.sha256(blob).hexdigest() == ref["sha256"], "receipt digest changed")
     row = fields(json.loads(blob, object_pairs_hook=pairs), {"schema", "kind", "surface", "mode", "version", "stage",
-                             "observed_at", "endpoint", "outcome", "tools", "tool",
+                             "recorded_at", "source_observed_at", "endpoint", "outcome", "tools", "tool",
                              "request_sha256", "response_sha256", "error_code", "auth_method",
                              "workspace_id", "repo_id", "consent_scopes"})
     require(row["schema"] == "client-observation/v1", "unsupported receipt schema")
@@ -79,7 +79,9 @@ def receipt(reference: object, root: Path) -> dict:
     require(row["surface"] in SURFACES and row["mode"] in SURFACES[row["surface"]], "invalid client mode")
     require(row["version"] is None or (isinstance(row["version"], str) and bool(NAME.fullmatch(row["version"]))), "invalid version")
     require(row["stage"] in STAGES and row["outcome"] in {"pass", "refused"}, "invalid receipt stage/outcome")
-    stamp(row["observed_at"])
+    recorded = stamp(row["recorded_at"])
+    if row["source_observed_at"] is not None:
+        require(stamp(row["source_observed_at"]) <= recorded, "source event is newer than receipt assembly")
     require(isinstance(row["tools"], list) and all(isinstance(x, str) and NAME.fullmatch(x) for x in row["tools"])
             and len(row["tools"]) == len(set(row["tools"])), "invalid tool inventory")
     for key in ("tool", "error_code"):
@@ -113,7 +115,7 @@ def validate(matrix: object, root: Path) -> dict:
         seen.add(pair)
         require(client["version"] is None or (isinstance(client["version"], str) and bool(NAME.fullmatch(client["version"]))), "invalid version")
         stages = fields(client["stages"], STAGES)
-        verified = []
+        reported = []
         unknown = []
         for stage, value in stages.items():
             observation = fields(value, {"status", "reason", "receipt"})
@@ -130,8 +132,8 @@ def validate(matrix: object, root: Path) -> dict:
             for key, expected in (("surface", surface), ("mode", client["mode"]), ("version", client["version"]),
                                   ("stage", stage), ("endpoint", doc["endpoint"]), ("outcome", status)):
                 require(row[key] == expected, f"receipt {key} mismatch")
-            require(stamp(row["observed_at"]) <= cutoff, "receipt is newer than matrix")
-            require(row["request_sha256"] is not None and row["response_sha256"] is not None, "actual exchange digests required")
+            require(stamp(row["recorded_at"]) <= cutoff, "receipt is newer than matrix")
+            require(row["request_sha256"] is not None and row["response_sha256"] is not None, "self-reported exchange fingerprints required")
             if status == "refused":
                 require(row["error_code"] is not None, "refusal needs observed code")
             else:
@@ -144,13 +146,16 @@ def validate(matrix: object, root: Path) -> dict:
                 require(row["auth_method"] == "oauth", "OAuth stage needs observed authentication")
             if stage == "consent" and status == "pass":
                 require(bool(row["consent_scopes"]), "consent needs observed scopes")
-            verified.append({"stage": stage, "outcome": status, "version_known": client["version"] is not None,
+            reported.append({"stage": stage, "outcome": status, "version_known": client["version"] is not None,
+                             "assurance": "structurally_valid_self_report",
+                             "exchange_fingerprints": "self_reported_not_byte_verified",
+                             "recorded_at": row["recorded_at"], "source_observed_at": row["source_observed_at"],
                              "unknown_bindings": [key for key in ("auth_method", "workspace_id", "repo_id") if row[key] is None]})
-        result.append({"surface": surface, "mode": client["mode"], "observations": verified, "unknown_stages": sorted(unknown)})
+        result.append({"surface": surface, "mode": client["mode"], "observations": reported, "unknown_stages": sorted(unknown)})
     require(seen == {(surface, mode) for surface, modes in SURFACES.items() for mode in modes},
             "every product surface and mode must be explicit")
     return {"schema": "client-compatibility-validation/v1", "valid": True, "as_of": doc["as_of"],
-            "clients": result, "authority": "offline redacted observation validation; no vendor attestation or current availability",
+            "clients": result, "authority": "receipt bytes and reported structure validated; client provenance and exchange bytes unverified",
             "writes": False}
 
 

@@ -27,8 +27,8 @@ def observed(tmp_path, **changes):
     value = matrix()
     client = value["clients"][4]
     row = {"schema": "client-observation/v1", "kind": "client_trace", "surface": client["surface"],
-           "mode": client["mode"], "version": None, "stage": "call", "observed_at": "2026-10-10T06:29:00Z",
-           "endpoint": value["endpoint"], "outcome": "refused", "tools": [], "tool": "describe_work",
+           "mode": client["mode"], "version": None, "stage": "call", "recorded_at": "2026-10-10T06:29:00Z",
+           "source_observed_at": None, "endpoint": value["endpoint"], "outcome": "refused", "tools": [], "tool": "describe_work",
            "request_sha256": "a" * 64, "response_sha256": "b" * 64, "error_code": "item-not-found",
            "auth_method": None, "workspace_id": None, "repo_id": None, "consent_scopes": []}
     row.update(changes)
@@ -48,7 +48,10 @@ def test_unknown_matrix_is_valid_but_qualifies_no_client_stage(tmp_path):
 def test_actual_refusal_preserved_without_claiming_success_or_known_version(tmp_path):
     report = lab.validate(observed(tmp_path), tmp_path)
     assert report["clients"][4]["observations"] == [{"stage": "call", "outcome": "refused", "version_known": False,
-                                                    "unknown_bindings": ["auth_method", "workspace_id", "repo_id"]}]
+                                                    "unknown_bindings": ["auth_method", "workspace_id", "repo_id"],
+                                                    "assurance": "structurally_valid_self_report",
+                                                    "exchange_fingerprints": "self_reported_not_byte_verified",
+                                                    "recorded_at": "2026-10-10T06:29:00Z", "source_observed_at": None}]
 
 
 @pytest.mark.parametrize("kind", ["configuration", "connection_health", "protocol_conformance"])
@@ -62,8 +65,9 @@ def test_nonclient_evidence_cannot_fill_product_gap(tmp_path, kind):
     {"mode": "local_cli"}, {"version": "0.162.1"},
     {"endpoint": "https://other.invalid/mcp"}, {"stage": "refresh"},
     {"outcome": "pass", "error_code": None},
-    {"observed_at": "2026-10-11T00:00:00Z"}, {"observed_at": "2026-10-10T06:00:00"},
+    {"recorded_at": "2026-10-11T00:00:00Z"}, {"recorded_at": "2026-10-10T06:00:00"},
     {"request_sha256": None}, {"response_sha256": "invalid"},
+    {"source_observed_at": "2026-10-10T06:29:01Z"}, {"source_observed_at": "invalid"},
     {"tool": None}, {"error_code": None}, {"tools": ["x", "x"]},
     {"Authorization": "Bearer synthetic-never-print"},
 ])

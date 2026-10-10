@@ -16,12 +16,19 @@ python -m pytest scripts/tests/test_client_compatibility.py -q
 The validator reads inputs and prints a derived report. Exit 2 means malformed,
 unbound or changed evidence. A valid matrix can have every stage unknown. No
 overall supported/unsupported verdict is inferred from partial observations.
-Each pass/refusal is bound to exact surface, mode, observed date, endpoint,
-version (including explicit unknown), stage and receipt bytes. Unknown auth,
+Each reported pass/refusal is checked for matching surface, mode, recording
+date, endpoint, version (including explicit unknown), stage and receipt bytes.
+This validates the report structure, not that the claimed client trace occurred.
+Unknown auth,
 workspace and repository identities remain named unknowns. Input receipts and
 matrix are redacted before storage; headers, tokens, cookies, client secrets,
-raw errors and arbitrary transcript fields are outside the allowlist. Hashes
-bind redacted request/response artifacts; they do not attest who authored them.
+raw errors and arbitrary transcript fields are outside the allowlist. The outer
+receipt hash is verified against the loaded receipt bytes. `request_sha256` and
+`response_sha256` are self-reported fingerprints: only their syntax and presence
+are checked; exchange artifacts are not loaded or byte-verified. The output
+explicitly labels that assurance. Independent review of actual source traces
+is necessary before making a client compatibility claim; `client_trace` alone
+does not authenticate provenance.
 
 ## Product matrix contract
 
@@ -60,7 +67,8 @@ Receipts have exactly these fields:
   "mode": "local_app",
   "version": "0.162.1",
   "stage": "call",
-  "observed_at": "2026-10-10T06:22:00Z",
+  "recorded_at": "2026-10-10T06:22:00Z",
+  "source_observed_at": null,
   "endpoint": "https://api.vuoro.cloud/mcp",
   "outcome": "refused",
   "tools": [],
@@ -75,7 +83,12 @@ Receipts have exactly these fields:
 }
 ```
 
-This example describes a refusal shape, not successful item retrieval. A
+`recorded_at` is receipt assembly/recording time. `source_observed_at` is the
+actual source event timestamp, or null when not captured. Assembly time must
+never be relabeled as event time. A supplied event timestamp cannot follow
+receipt recording; neither value proves current availability.
+
+This example describes a self-reported refusal shape, not successful retrieval. A
 successful discovery needs the actual visible tool inventory; a call needs
 the actual tool name. A refusal needs its observed code. Consent and refresh
 passes need observed OAuth authentication; consent also needs actual scopes.
