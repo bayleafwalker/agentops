@@ -44,9 +44,10 @@ emitted no Skill tool PostToolUse and binding instructions.skills stayed
 empty".
 
 One gap is not from #2481. It was observed separately for this document on
-2026-10-10: Codex has no skill hook at all. The registered events in
+2026-10-10: Codex has no skill observer. The registered events in
 `~/.codex/hooks.json` are PreToolUse Bash, SessionStart, SubagentStop and
-Stop.
+Stop. A generic audit observation emitted at Stop does not observe skill
+loads and does not qualify Codex skill coverage.
 
 So an empty `instructions.skills` does not mean "no skill was loaded". The
 schema says as much (`session-binding.schema.json:126`). Retiring the
@@ -70,10 +71,11 @@ have live readers:
   validator is a standard verification command (`AGENTS.md:16`).
 - `hybrid.protected_paths`: `scripts/check_protected_paths.py:67,72`
 
-The workflows also tell agents to read "the dispatch manifest (verification
-commands, test layout, risk_surfaces)"
+The saved ActionQ workflows also tell agents to read "the dispatch manifest
+(verification commands, test layout, risk_surfaces)"
 (`.claude/workflows/vuoro-dispatch-build.js:564,607,710,790`,
-`vuoro-dispatch-verify.js:231`).
+`vuoro-dispatch-verify.js:231`). They are migration-impact readers; per
+`AGENTS.md`, they remain barred from new work and are slated for retirement.
 
 #2453's measurement still holds for the two fields TS-11 names:
 
@@ -91,8 +93,11 @@ The schema as a whole is therefore not reader-free.
    mechanism. An empty `skills` list then means "no skill loaded" exactly
    when every in-use path is `observed`.
 2. **Skill tool path: already observed (#2481).** Unchanged.
-3. **Native slash path: observed from the harness's own load record, not
-   from prompt text.** When a user invokes a skill as `/<name>`, Claude Code
+3. **Native slash path: observed only after a completed transcript scan, from
+   the harness's own load record, not from prompt text.** At SessionStart this
+   path is `unknown`; SessionStart declares that the harness may offer the
+   path, not that it has been observed. When a user invokes a skill as
+   `/<name>`, Claude Code
    writes two user records to the transcript:
    - a record whose content is `<command-name>/<name></command-name>` with
      `<command-message>`
@@ -118,13 +123,17 @@ The schema as a whole is therefore not reader-free.
    free-text prompt. A slash token that produced no expansion is not a
    skill load and is not recorded.
 4. **Slash observation runs on the existing Stop and SubagentStop hooks.**
-   Both are already registered. Each hook scans the transcript from a cursor
-   kept in the binding and records each new slash expansion through the same
-   flock and idempotency path as `record_skill`. The digest is the sha256 of
-   the expansion body as loaded (`loaded_sha256`). The resolver also records
-   the on-disk `SKILL.md` path and sha256, when it can resolve them, for
-   cross-checking. Observation is turn-granular. That is enough for a
-   session record.
+   Both are already registered. Each successful hook scans the transcript
+   from the last successfully completed checkpoint in the binding and records
+   each new slash expansion through the same flock and idempotency path as
+   `record_skill`. It marks native-slash `observed` only after a complete
+   scan through the captured transcript end and stores a completion marker
+   with the checkpoint. A missed, failed, partial, or unreadable scan leaves
+   coverage `unknown`; it never proves an empty skill list. The digest is the
+   sha256 of the expansion body as loaded (`loaded_sha256`). The resolver
+   also records the on-disk `SKILL.md` path and sha256, when it can resolve
+   them, for cross-checking. Observation is turn-granular. That is enough
+   for a session record.
 5. **Preloaded skills (agent frontmatter `skills:`): unobserved, and kept
    unused by a cheap check.** No agent definition in
    `.claude/agents`, `/projects/dev/.claude/agents` or `~/.claude/agents`
@@ -132,7 +141,7 @@ The schema as a whole is therefore not reader-free.
    harness-emitted record, a lint fails any agent file that declares one.
    Agents are not reconstructed from frontmatter, because that would be the
    compiled-profile inference the blocker forbids.
-6. **Codex: coverage `none`, declared.** Codex bindings record
+6. **Codex: skill coverage remains unobserved.** Codex bindings record
    `skill_coverage: [{path: "codex", status: "unobserved"}]`. Codex sessions
    do not count toward any TS-3 claim until a Codex-side observation is
    qualified.
@@ -142,9 +151,11 @@ The schema as a whole is therefore not reader-free.
      `risk_surfaces` through `validate_verification_artifacts.py`:
      risk-surface skills must be a subset of `skills.selected`, and
      `verification` is read unconditionally.
-   - Deleting them before `risk_surfaces` has a new home would break a
-     standard verification command. It would also leave
-     `risk_surfaces[].skills` validated against nothing.
+   - Deleting them while `risk_surfaces` still depends on the current
+     validator would break a standard verification command and leave
+     `risk_surfaces[].skills` validated against nothing. Its validator must
+     move to a named owner or the policy and validator must be explicitly
+     retired under target-state policy before those sections are removed.
    - #2488 therefore delivers the observation half of TS-11's
      precondition:
      - the coverage contract
@@ -159,18 +170,22 @@ The schema as a whole is therefore not reader-free.
      and by the validator. It is no longer described as a record of
      selection.
 
-   The deletions TS-11 names move as one coherent change to a single
-   follow-up item:
+   The TS-11 policy-retirement work moves to a follow-up item. That item
+   inventories current readers and records the target-state disposition
+   before retiring policy:
    - schema sections and their `required` entries
    - `validate_dispatch_manifest.py`
    - `validate_verification_artifacts.py:186-212` and its tests
    - `sync_skills.py`'s manifest read
-   - `risk_surfaces`, `hybrid.protected_paths` and the workflow prompt
-     readers
-
-   That follow-up must first name the new home for `risk_surfaces`
-   (including the source that validates `risk_surfaces[].skills`) and for
-   `protected_paths`. It is not decided here.
+   - `risk_surfaces` and its validator sequencing remain a live dependency:
+     any removal must first move validation to a named owner or explicitly
+     retire it under target-state policy
+   - the generic protected-path gate needs an explicit target-state decision:
+     retain it under a named owner or retire it. A new home is required only
+     if the gate is retained
+   - saved ActionQ workflow readers are migration impact only and should be
+     retired; they are barred from new work and do not require preservation as
+     active manifest consumers
 
 ## 3. Alternatives rejected
 
@@ -179,8 +194,8 @@ The schema as a whole is therefore not reader-free.
 | Parse `/name` from the UserPromptSubmit `prompt` | That is reconstruction from prompt text, which event #4297 forbids. A typed slash may be a built-in, a typo or a failed load. |
 | Record skills from the compile-time profile or agent frontmatter | Compiled-profile inference contradicts TS-3 ("observed, not compiled") and the blocker note. |
 | Stop-time digest of the on-disk `SKILL.md` only | The file can change between load and Stop. The expansion body is what the model actually saw, so it is the primary digest. The file digest is a cross-check. |
-| Retire the whole manifest and schema now, as #2488's scope says | `risk_surfaces` and `hybrid.protected_paths` have live readers (§1). Deleting them would break `jev_shadow`, `check_protected_paths` and the workflow prompts. |
-| Retire only the `skills` and `verification` sections now | `validate_verification_artifacts.py:186-212` hard-reads both, and the schema marks them `required`. Removing them breaks that validator, and `risk_surfaces[].skills` would be checked against nothing. Rewriting the validator now would mean designing the `risk_surfaces` home as a side effect. |
+| Retire the whole manifest and schema now, as #2488's scope says | `risk_surfaces` and the generic protected-path gate have current readers (§1). Their target-state disposition and validator sequencing must be decided before policy retirement. Saved ActionQ workflow readers are migration impact and are to be retired, not preserved as active consumers. |
+| Retire only the `skills` and `verification` sections now | `validate_verification_artifacts.py:186-212` hard-reads both, and the schema marks them `required`. Removing them breaks that validator, and `risk_surfaces[].skills` would be checked against nothing. Before policy removal, the follow-up must move this validation to a named owner or explicitly retire it under target-state policy. |
 | Keep `skills.selected` as the record of skill selection | It is a declared, unobserved record that competes with the observed one. #2488 demotes it to distribution and validation configuration, and the follow-up deletes it with `risk_surfaces`. |
 | Require operator sign-off on coverage before retirement | An artificial gate. The real-session proofs and the lint are cheap checks of done work, and they decide it. |
 
@@ -191,7 +206,7 @@ The schema as a whole is therefore not reader-free.
 ```json
 "skill_coverage": [
   {"path": "skill-tool",   "status": "observed",   "mechanism": "PostToolUse:Skill",            "qualified_by": "agentops#2481"},
-  {"path": "native-slash", "status": "observed",   "mechanism": "Stop|SubagentStop:transcript-expansion", "qualified_by": "agentops#2488"},
+  {"path": "native-slash", "status": "unknown",    "mechanism": "Stop|SubagentStop:transcript-expansion", "qualified_by": "agentops#2488"},
   {"path": "preloaded",    "status": "unobserved", "mechanism": null, "guard": "lint:no-agent-skills-frontmatter"},
   {"path": "codex",        "status": "unobserved", "mechanism": null}
 ]
@@ -200,15 +215,19 @@ The schema as a whole is therefore not reader-free.
 | Field | Values |
 |---|---|
 | `path` | `skill-tool` \| `native-slash` \| `preloaded` \| `codex` |
-| `status` | `observed` \| `unobserved` \| `failed` (the hook ran and errored this session; set by the recorder) |
+| `status` | `observed` \| `unobserved` \| `unknown` (no successful complete observation yet) \| `failed` (an observer for another path failed; native-slash scan failure stays `unknown`) |
 | `mechanism` | string \| null |
 | `qualified_by` | item reference for the real-session proof \| null |
 | `guard` | for an unobserved path that is kept unused, the check that enforces it |
 
 The SessionStart writer fills `skill_coverage` from the harness that started
 the session: Claude Code (`skill-tool`, `native-slash`, `preloaded`) or
-Codex (`codex`). Reader rule: `skills: []` means "no skill loaded" only if
-every entry is `observed`, or is `unobserved` with a passing `guard`.
+Codex (`codex`). Native-slash starts as `unknown`; only a successful
+Stop/SubagentStop transcript scan through its captured end may change it to
+`observed`. A failed or missed completion leaves it `unknown`. Reader rule:
+`skills: []` means "no skill loaded" only if every in-use path is `observed`
+(including native-slash after its completed scan), or is `unobserved` with a
+passing `guard`. `unknown` never proves an empty list.
 
 ### 4.2 `instructions.skills[]` entry additions
 
@@ -227,8 +246,12 @@ transcript_ref)`.
 ### 4.3 Transcript scan cursor
 
 `instructions.skill_scan`: `{transcript_path_sha256, offset_bytes,
-scanned_at}`. The scan reads from `offset_bytes`. A record pair qualifies
-only if all of the following hold:
+completed_at, completion_marker}`. `offset_bytes` is the end offset of the
+last successfully completed full scan, and `completion_marker` is written
+only after that scan reaches its captured transcript end without errors. A
+missing completion marker means native-slash coverage remains `unknown`.
+The scan reads from `offset_bytes`. A record pair qualifies only if all of
+the following hold:
 
 1. The first record is `type: "user"`, with string content containing
    `<command-name>/<name></command-name>`.
@@ -243,12 +266,11 @@ and a non-null `loaded_sha256`.
 ### 4.4 Errors and failure behaviour
 
 The hooks never block the session. They run with `|| true`, which is
-existing behaviour. They write coverage `failed` for the path when:
-
-- the transcript is unreadable
-- the cursor is beyond EOF (rotation): the scan resets to 0, and
-  idempotency prevents duplicates
-- the binding is corrupt: the existing caveat, with no write
+existing behaviour. A failed, missed, partial, unreadable, or corrupt scan
+does not write native-slash coverage as observed; it remains `unknown`.
+Cursor beyond EOF indicates rotation: restart at 0, use idempotency to avoid
+duplicates, and advance the checkpoint only after a successful complete
+scan. A missed Stop/SubagentStop similarly leaves the path `unknown`.
 
 ## 5. Verification plan
 
@@ -261,15 +283,19 @@ existing behaviour. They write coverage `failed` for the path when:
    - a Skill-tool expansion with `sourceToolUseID` → no duplicate from the
      scan
    - a re-scan → idempotent
-   - cursor past EOF → reset, with no duplicates
+   - cursor past EOF → reset, with no duplicates; do not advance the
+     completion marker until the complete rescan succeeds
+   - partial/read failure or a missed Stop → coverage stays `unknown`
 2. **Real-session proofs**, recorded as an acceptance artifact like #2481's:
-   - (a) direct `/recording-acceptance` in a fresh workstation session: the
-     binding has one `native-slash` entry, and `loaded_sha256` equals the
-     sha256 of the expansion record's content
-   - (b) a no-skill session: `skills: []` with every coverage entry
-     observed or guarded
-   - (c) a Skill-tool session: still recorded, and not duplicated by the
-     scan
+   - (a) direct `/recording-acceptance` in a fresh workstation session,
+     followed by a successful completed Stop/SubagentStop scan: the binding
+     has one `native-slash` entry, the completion marker covers the expansion,
+     and `loaded_sha256` equals the sha256 of the expansion record's content
+   - (b) a no-skill session after a successful complete transcript scan:
+     `skills: []`, native-slash observed with zero entries, and every other
+     in-use coverage entry observed or guarded
+   - (c) a Skill-tool session: still recorded, not duplicated by the scan;
+     native-slash becomes observed only after a successful complete scan
 3. **Lint:** `scripts/check_agent_skills_frontmatter.py` (new) fails on any
    `skills:` key in agent definitions under the three agent directories. It
    is wired into `scripts-tests.yml`.
@@ -318,8 +344,13 @@ existing behaviour. They write coverage `failed` for the path when:
      `scripts/tests/test_validate_verification_artifacts.py`
    - `sync_skills.py`'s manifest read, with its distribution role kept
      under an explicit skill list
-   - `risk_surfaces`, `hybrid.protected_paths` and the workflow prompt
-     readers
+   - current `risk_surfaces` readers and validator sequencing, with a named
+     owner or explicit target-state retirement before policy removal
+   - the generic protected-path gate's explicit retain-under-new-owner or
+     retire disposition before policy removal
+   - saved ActionQ workflow readers as migration impact; retire them rather
+     than requiring an active manifest consumer or new home
 
-   Its precondition is a named home for `risk_surfaces` and
-   `protected_paths`.
+   The follow-up must record these target-state dispositions before retiring
+   the associated policy. A named home is required only for retained
+   functionality.
