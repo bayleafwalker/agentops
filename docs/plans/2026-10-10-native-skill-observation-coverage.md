@@ -128,9 +128,13 @@ The schema as a whole is therefore not reader-free.
    each new slash expansion through the same flock and idempotency path as
    `record_skill`. It marks native-slash `observed` only after a complete
    scan through the captured transcript end and stores a completion marker
-   with the checkpoint. A missed, failed, partial, or unreadable scan leaves
-   coverage `unknown`; it never proves an empty skill list. The digest is the
-   sha256 of the expansion body as loaded (`loaded_sha256`). The resolver
+   with the checkpoint. `observed` is scoped to the completed transcript
+   prefix through that checkpoint, not to the live session as a whole. If a
+   later turn may have added transcript data, coverage for the live boundary
+   is `unknown` until another successful scan covers it. A missed, failed,
+   partial, or unreadable scan leaves coverage `unknown`; it never proves an
+   empty skill list. The digest is the sha256 of the expansion body as loaded
+   (`loaded_sha256`). The resolver
    also records the on-disk `SKILL.md` path and sha256, when it can resolve
    them, for cross-checking. Observation is turn-granular. That is enough
    for a session record.
@@ -222,12 +226,15 @@ The schema as a whole is therefore not reader-free.
 
 The SessionStart writer fills `skill_coverage` from the harness that started
 the session: Claude Code (`skill-tool`, `native-slash`, `preloaded`) or
-Codex (`codex`). Native-slash starts as `unknown`; only a successful
-Stop/SubagentStop transcript scan through its captured end may change it to
-`observed`. A failed or missed completion leaves it `unknown`. Reader rule:
-`skills: []` means "no skill loaded" only if every in-use path is `observed`
-(including native-slash after its completed scan), or is `unobserved` with a
-passing `guard`. `unknown` never proves an empty list.
+Codex (`codex`). Native-slash starts as `unknown`; a successful
+Stop/SubagentStop scan may mark it `observed` only through that scan's
+completed transcript boundary. This is prefix-scoped evidence, not a claim
+about later live-session turns. If the reader's relevant boundary is newer
+than the completion marker, or the marker is absent or mismatched, coverage
+for that boundary is `unknown`. A failed or missed completion leaves it
+`unknown`. Reader rule: `skills: []` means "no skill loaded" only if every
+in-use path is `observed` through the relevant completed boundary, or is
+`unobserved` with a passing `guard`. `unknown` never proves an empty list.
 
 ### 4.2 `instructions.skills[]` entry additions
 
@@ -247,11 +254,13 @@ transcript_ref)`.
 
 `instructions.skill_scan`: `{transcript_path_sha256, offset_bytes,
 completed_at, completion_marker}`. `offset_bytes` is the end offset of the
-last successfully completed full scan, and `completion_marker` is written
-only after that scan reaches its captured transcript end without errors. A
-missing completion marker means native-slash coverage remains `unknown`.
-The scan reads from `offset_bytes`. A record pair qualifies only if all of
-the following hold:
+last successfully completed scan, and `completion_marker` identifies that
+completed boundary. It is written only after the scan reaches its captured
+transcript end without errors. The marker proves coverage only through that
+offset; if the live transcript or requested evidence boundary extends past
+it, native-slash coverage for that boundary is `unknown` until rescanned. A
+missing or mismatched marker also means `unknown`. The scan reads from
+`offset_bytes`. A record pair qualifies only if all of the following hold:
 
 1. The first record is `type: "user"`, with string content containing
    `<command-name>/<name></command-name>`.
@@ -270,7 +279,9 @@ existing behaviour. A failed, missed, partial, unreadable, or corrupt scan
 does not write native-slash coverage as observed; it remains `unknown`.
 Cursor beyond EOF indicates rotation: restart at 0, use idempotency to avoid
 duplicates, and advance the checkpoint only after a successful complete
-scan. A missed Stop/SubagentStop similarly leaves the path `unknown`.
+scan. Any data after the last checkpoint leaves coverage for the newer live
+boundary `unknown` until rescanned. A missed Stop/SubagentStop similarly
+leaves the path `unknown`.
 
 ## 5. Verification plan
 
@@ -286,16 +297,22 @@ scan. A missed Stop/SubagentStop similarly leaves the path `unknown`.
    - cursor past EOF → reset, with no duplicates; do not advance the
      completion marker until the complete rescan succeeds
    - partial/read failure or a missed Stop → coverage stays `unknown`
+   - successful scan followed by a later slash expansion before the next
+     Stop → prior checkpoint covers only the old prefix; the newer boundary
+     remains `unknown` and cannot prove `skills: []`
 2. **Real-session proofs**, recorded as an acceptance artifact like #2481's:
    - (a) direct `/recording-acceptance` in a fresh workstation session,
      followed by a successful completed Stop/SubagentStop scan: the binding
-     has one `native-slash` entry, the completion marker covers the expansion,
+     has one `native-slash` entry, the completion marker covers the expansion
+     through the tested boundary,
      and `loaded_sha256` equals the sha256 of the expansion record's content
-   - (b) a no-skill session after a successful complete transcript scan:
-     `skills: []`, native-slash observed with zero entries, and every other
-     in-use coverage entry observed or guarded
+   - (b) a no-skill session at a captured boundary after a successful
+     complete transcript scan: `skills: []`, native-slash observed with zero
+     entries through that boundary, and every other in-use coverage entry
+     observed or guarded; later unscanned data cannot use this proof
    - (c) a Skill-tool session: still recorded, not duplicated by the scan;
-     native-slash becomes observed only after a successful complete scan
+     native-slash becomes observed only through a successful complete scan
+     boundary; a later live turn is unknown until scanned
 3. **Lint:** `scripts/check_agent_skills_frontmatter.py` (new) fails on any
    `skills:` key in agent definitions under the three agent directories. It
    is wired into `scripts-tests.yml`.
