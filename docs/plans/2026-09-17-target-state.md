@@ -91,6 +91,16 @@ served credential.
 
 ## Path (agent-tooling moves only)
 
+**W39–W41 adoption intake (2026-10-11):**
+[the bounded ecosystem plan](2026-10-11-agent-systems-w39-w41.md) develops
+session-independent work identity, advisory routing measurement, containment
+qualification, skill provenance and upgrade denial tests. It also records
+A2A-first evaluation at independent agent-service boundaries and refines
+existing Cloud onboarding work. These are proposed investigations and review
+rules; they change no target-claim status, execution ownership or deployment
+authority. The report's Agents SDK freeze claim was not established by the
+official pages checked; no migration depends on it.
+
 1. **Now (S2 remainder).**
    - Restore the tools whose target role is live: TS-6, TS-8, TS-10, TS-12, TS-15, and the schemas that kept producers still reference.
    - PR-B deletes `templates/dispatch/hooks`, including `lifecycle-adapters.v1.json`.
