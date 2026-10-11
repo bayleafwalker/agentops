@@ -493,5 +493,7 @@ use `session-binding.sh`. Installing the adapter without changing the Codex
 registration does not fix deployed attribution. Test the registered command
 with an isolated binding directory before observing a fresh native start;
 never fabricate or replace a current session's historical binding as a smoke
-test. Cost/SubagentStop scripts remain Claude transcript parsers and refuse
-Codex events; this change does not invent Codex cost or child telemetry.
+test. The Cost Stop hook continues to refuse Codex transcript and cost parsing,
+but emits the minimal per-turn audit observation defined in
+[the Codex Stop contract](codex-stop-audit-observation.md). SubagentStop remains
+unchanged; this change does not invent Codex cost or child telemetry.
