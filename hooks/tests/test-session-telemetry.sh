@@ -255,4 +255,6 @@ while IFS= read -r ref_file; do
   done < <(grep -v '^[[:space:]]*#' "$ref_file" | grep -oE -- '--ref["'"'"'`,[:space:]]+.{0,14}' || true)
 done < <(grep -rlI -- '--ref' "$hooks_dir" --include='*.sh' --include='*.md' --include='*.py' 2>/dev/null || true)
 
+bash "$here/test-codex-stop-audit-observation.sh"
+
 printf 'session telemetry hook tests passed\n'

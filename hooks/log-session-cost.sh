@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-# Claude Code Stop hook — append a session record to /projects/dev/.claude/session-costs.jsonl
-# and (T-4) publish the same session to auditctl as a workflow.session event.
-#
-# Receives Stop event JSON on stdin: session_id, transcript_path, cwd, hook_event_name.
+# Claude Code and Codex Stop hook: Claude cost snapshots plus per-turn Codex audit observations.
+# Receives native Stop event JSON on stdin; Codex events also carry turn_id.
 #
 # T-1 added turns / assistant_msgs / tool_calls / duration_s to the record. Every field the
 # cockpit already reads (apps/web/lib/cockpit/costs.js) keeps its name, position and type:
@@ -52,11 +50,60 @@ fi
 LOG="${AGENTOPS_COST_LOG:-/projects/dev/.claude/session-costs.jsonl}"
 GATE_DIR="${AGENTOPS_GATE_LOG_DIR:-/projects/dev/.claude/state}"
 
+# Codex Stop fires per assistant turn. Keep its transcript out of the Claude
+# cost parser, but preserve the turn as an audit observation. It is deliberately
+# not a cumulative cost/session snapshot.
+emit_codex_observation() {
+  local session="$1" turn="$2" project="$3" audit_cwd="$4"
+  local auditctl_path metadata summary audit_err audit_rc fail_log err_text meta_bytes
+  auditctl_path="$(auditctl_bin)" || return 0
+  metadata="$(jq -cn --arg session "$session" --arg turn "$turn" --arg project "$project" \
+    '{harness:"codex", session:$session, turn_id:$turn, project:$project}')" || return 0
+  summary="Codex turn $turn in $project"
+  meta_bytes="$(printf '%s' "$metadata" | wc -c 2>/dev/null || true)"
+  [[ "$meta_bytes" =~ ^[0-9]+$ ]] || meta_bytes="${#metadata}"
+  audit_err="$(mktemp 2>/dev/null || true)"
+  audit_rc=0
+  if [[ -n "$audit_err" ]]; then
+    ( if [[ -n "$audit_cwd" ]] && cd -- "$audit_cwd" 2>/dev/null; then
+        unset AUDITCTL_DB AUDITCTL_ARTIFACTS_ROOT
+      fi
+      "$auditctl_path" add --type workflow.session --source codex-hook --actor codex-hook \
+        --summary "$summary" --metadata "$metadata" ) >/dev/null 2>"$audit_err" || audit_rc=$?
+  else
+    ( if [[ -n "$audit_cwd" ]] && cd -- "$audit_cwd" 2>/dev/null; then
+        unset AUDITCTL_DB AUDITCTL_ARTIFACTS_ROOT
+      fi
+      "$auditctl_path" add --type workflow.session --source codex-hook --actor codex-hook \
+        --summary "$summary" --metadata "$metadata" ) >/dev/null 2>&1 || audit_rc=$?
+  fi
+  if (( audit_rc != 0 )); then
+    fail_log="${AGENTOPS_AUDIT_FAILURE_LOG:-$(dirname "$LOG")/auditctl-publish-failures.jsonl}"
+    mkdir -p "$(dirname "$fail_log")" 2>/dev/null || true
+    err_text=""
+    if [[ -n "$audit_err" ]]; then err_text="$(head -c 2000 "$audit_err" 2>/dev/null || true)"; fi
+    [[ -n "$err_text" ]] || err_text="stderr not captured"
+    jq -cn --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || true)" --arg s "$session" \
+      --argjson rc "$audit_rc" --argjson bytes "$meta_bytes" --arg err "$err_text" \
+      '{ts:$ts, session:$s, event:"auditctl-publish-failed", exit_status:$rc, metadata_bytes:$bytes, stderr:$err}' \
+      >> "$fail_log" 2>/dev/null || true
+  fi
+  [[ -n "$audit_err" ]] && rm -f "$audit_err"
+  return 0
+}
+
 EVENT="$(cat)"
-# Codex Stop events carry turn_id. Its transcript is a different format and
-# native Codex telemetry handles its usage; parsing it here emits false zero
-# Claude cost rows and audit evidence.
 if printf '%s' "$EVENT" | jq -e 'has("turn_id")' >/dev/null 2>&1; then
+  CODEX_SESSION="$(printf '%s' "$EVENT" | jq -r 'if (.session_id | type) == "string" then .session_id else "" end')"
+  CODEX_TURN="$(printf '%s' "$EVENT" | jq -r 'if (.turn_id | type) == "string" then .turn_id else "" end')"
+  CODEX_PROJECT="$(printf '%s' "$EVENT" | jq -r '
+    if (.cwd | type) == "string" and .cwd != "" then
+      (.cwd | sub("/+$"; "") | split("/") | last) as $p | if $p == "" then "/" else $p end
+    else "unknown" end')"
+  if [[ -n "$CODEX_SESSION" && -n "$CODEX_TURN" ]]; then
+    CODEX_AUDIT_CWD="$(auditctl_event_cwd "$EVENT")"
+    emit_codex_observation "$CODEX_SESSION" "$CODEX_TURN" "$CODEX_PROJECT" "$CODEX_AUDIT_CWD"
+  fi
   exit 0
 fi
 TRANSCRIPT="$(echo "$EVENT" | jq -r '.transcript_path // ""')"

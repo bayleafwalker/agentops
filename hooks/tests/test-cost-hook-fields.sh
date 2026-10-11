@@ -186,6 +186,10 @@ jq -cn --arg t "$codex_transcript" \
   | env AUDITCTL_BIN="$pubdir13/auditctl" AUDITCTL_STUB_LOG13="$codex_audit" \
       AGENTOPS_COST_LOG="$codex_log" AGENTOPS_GATE_LOG_DIR="$tmp" \
       bash "$stop_hook" || fail "Codex Stop hook exited non-zero"
-[[ ! -e "$codex_log" && ! -e "$codex_audit" ]] || fail "Codex produced false Claude cost evidence"
+[[ ! -e "$codex_log" ]] || fail "Codex produced a Claude cost row"
+grep -q -- '--type workflow.session --source codex-hook --actor codex-hook' "$codex_audit" \
+  || fail "Codex Stop did not publish a per-turn audit observation"
+grep -q '"harness":"codex"' "$codex_audit" \
+  || fail "Codex observation did not identify its harness"
 
 printf 'cost hook field tests passed (incl. REQ-012 typed session identity, REQ-013 decisions key)\n'
