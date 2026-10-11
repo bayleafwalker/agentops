@@ -254,8 +254,10 @@ transcript_ref)`.
 
 `instructions.skill_scan`: `{transcript_path_sha256, offset_bytes,
 completed_at, completion_marker}`. `offset_bytes` is the end offset of the
-last successfully completed scan, and `completion_marker` identifies that
-completed boundary. It is written only after the scan reaches its captured
+last successfully completed scan, and `completion_marker` binds that boundary
+to the transcript identity and SHA-256 of its bytes through `offset_bytes`.
+Path and byte count alone cannot establish a match after transcript replacement.
+It is written only after the scan reaches its captured
 transcript end without errors. The marker proves coverage only through that
 offset; if the live transcript or requested evidence boundary extends past
 it, native-slash coverage for that boundary is `unknown` until rescanned. A
