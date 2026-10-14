@@ -194,13 +194,15 @@ class ReplayedLiveRunTests(unittest.TestCase):
             self.assertEqual(env["running"]["installed_profile"]["value"]["revision"],
                              env["desired"]["client_profile"]["value"]["revision"])
             self.assertEqual(env["gate"]["recovery_class"]["value"]["class"], "image-revert")
-            # Recorded before `holds` reached agentops main: not modelled, so unknown.
-            self.assertEqual(env["held"]["host_holds"]["status"], "unknown")
-            self.assertIn("no `holds` field", env["held"]["host_holds"]["reason"])
-        # The workstation checkout was behind main; devbox was current and stops at holds.
-        self.assertEqual(self.envs["workstation"]["gate"]["next_blocking_gate"]["value"]["gate"],
+            # Recorded after `holds: []` reached agentops main: declared, known, empty.
+            holds = env["held"]["declared_host_holds"]
+            self.assertEqual((holds["status"], holds["value"]), ("known", []))
+            self.assertTrue(holds["evidence"].startswith("declared (from the agentops record):"))
+            self.assertEqual(env["summary"]["unknown"], [])
+        # The workstation was fully current; the devbox checkout was behind agentops main.
+        self.assertEqual(self.envs["workstation"]["gate"]["next_blocking_gate"]["value"]["gate"], "none")
+        self.assertEqual(self.envs["devbox"]["gate"]["next_blocking_gate"]["value"]["gate"],
                          "agentops-current")
-        self.assertIn("'holds'", self.envs["devbox"]["gate"]["next_blocking_gate"]["reason"])
 
     def test_markdown_lists_every_unknown_with_reason(self):
         text = estate.render_markdown(self.report)
@@ -488,8 +490,14 @@ class HostDerivationTests(unittest.TestCase):
         env["running"]["agentops_head"] = k(env["desired"]["agentops_main_sha"]["value"])
         return env
 
-    def test_current_host_stops_at_unobservable_holds(self):
+    def test_current_host_with_declared_empty_holds_is_none(self):
         gate = gate_of(estate.derive_host_gate, self.current())
+        self.assertEqual(gate["value"]["gate"], "none")
+
+    def test_undeclared_holds_stop_the_gate(self):
+        env = self.current()
+        env["held"]["declared_host_holds"] = u("the environment record declares no `holds` field")
+        gate = gate_of(estate.derive_host_gate, env)
         self.assertEqual(gate["status"], "unknown")
         self.assertIn("'holds'", gate["reason"])
 
@@ -506,14 +514,30 @@ class HostDerivationTests(unittest.TestCase):
                 record = json.loads(fixture["stdout"])
                 record["holds"] = holds
                 fixture["stdout"] = json.dumps(record)
-            return by_id(replay_edited(["devbox"], {"devbox.environment_record.json": edit}))["devbox"]
+            return by_id(replay_edited(["workstation"], {"workstation.environment_record.json": edit}))["workstation"]
 
         clear = with_holds([])
-        self.assertEqual(clear["held"]["host_holds"]["value"], [])
+        self.assertEqual(clear["held"]["declared_host_holds"]["value"], [])
         self.assertEqual(clear["gate"]["next_blocking_gate"]["value"]["gate"], "none")
         held = with_holds([{"id": "out-of-dispatch", "reason": "kernel upgrade"}])
-        self.assertEqual(held["held"]["host_holds"]["value"], ["out-of-dispatch"])
+        self.assertEqual(held["held"]["declared_host_holds"]["value"], ["out-of-dispatch"])
         self.assertEqual(held["gate"]["next_blocking_gate"]["value"]["gate"], "holds")
+
+    def test_malformed_holds_are_unknown_not_a_crash(self):
+        for bad in (["x"], [{"id": "a"}], [{"id": "Bad Id", "reason": "r"}], "none", [None]):
+            with self.subTest(holds=bad):
+                def edit(fixture, bad=bad):
+                    record = json.loads(fixture["stdout"])
+                    record["holds"] = bad
+                    fixture["stdout"] = json.dumps(record)
+                report = replay_edited(["workstation"], {"workstation.environment_record.json": edit})
+                self.assertEqual(schema_check.validate(report, SCHEMA), [])
+                env = by_id(report)["workstation"]
+                self.assertEqual(env["held"]["declared_host_holds"]["status"], "unknown")
+                self.assertIn("malformed", env["held"]["declared_host_holds"]["reason"])
+                gate = env["gate"]["next_blocking_gate"]
+                self.assertEqual(gate["status"], "unknown")
+                self.assertIn("'holds'", gate["reason"])
 
     def test_profile_revision_drift_blocks_on_both_hosts(self):
         for host in ("workstation", "devbox"):
@@ -635,6 +659,57 @@ class SafetyAndHelperTests(unittest.TestCase):
         doc = {"credential_ref": "file:~/.config/x", "secretName": "vuoro-identities", "token_file": "/p",
                "credential_resolved": True, "tokens": 3, "authenticated_actor": "workstation-vuoro"}
         self.assertEqual(json.loads(estate.redact(json.dumps(doc))), doc)
+
+    def test_guard_redactions_survive_re_emission(self):
+        first = estate.guard_report({"a": "token Zx9Qw7Lm3Rt8Yp2Kd6Vn4Bh1Jc5Gf0Ts", "b": "ok"})
+        self.assertEqual(first["guard_redactions"], ["$.a"])
+        again = estate.guard_report(json.loads(json.dumps(first)))
+        self.assertEqual(again["guard_redactions"], ["$.a"])
+        again["c"] = "user:hunter22@db.example.com"
+        self.assertEqual(estate.guard_report(again)["guard_redactions"], ["$.a", "$.c"])
+
+    def test_from_preserves_guard_redactions(self):
+        saved = replay(["devbox"])
+        saved["environments"][0]["desired"]["environment_record"]["evidence"] = "Zx9Qw7Lm3Rt8Yp2Kd6Vn4Bh1Jc5Gf0Ts"
+        saved = estate.guard_report(saved)
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+            json.dump(saved, handle)
+        done = subprocess.run([str(ROOT / "bin/agentops"), "estate", "status", "--from", handle.name, "--json"],
+                              capture_output=True, text=True, check=True)
+        Path(handle.name).unlink()
+        report = json.loads(done.stdout)
+        self.assertEqual(report["guard_redactions"], saved["guard_redactions"])
+        self.assertEqual(schema_check.validate(report, SCHEMA), [])
+
+    def _from_json(self, saved, *extra):
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+            json.dump(saved, handle)
+        done = subprocess.run([str(ROOT / "bin/agentops"), "estate", "status", "--from", handle.name,
+                               "--json", *extra], capture_output=True, text=True, check=True)
+        Path(handle.name).unlink()
+        return done.stdout
+
+    def test_untrusted_earlier_redactions_are_never_emitted(self):
+        token = "ghp_" + "ABCDEFGHIJ" + "0123456789" + "abcdefghij" + "0123456789"  # fake, assembled
+        path_shaped_secret = "$.Zx9Qw7Lm3Rt8Yp2Kd6Vn4Bh1Jc5Gf0Ts"
+        saved = replay(["devbox"])
+        saved["guard_redactions"] = ["$.x", token, 5, "$.x", path_shaped_secret, "$.y z", {"p": 1}]
+        out = self._from_json(saved)
+        self.assertNotIn(token, out)
+        self.assertNotIn("Zx9Qw7Lm3Rt8Yp2Kd6Vn4Bh1Jc5Gf0Ts", out)
+        self.assertEqual(json.loads(out)["guard_redactions"], ["$.x"])
+
+    def test_env_filter_remaps_redaction_paths(self):
+        saved = replay()
+        ids = [e["id"] for e in saved["environments"]]
+        devbox = ids.index("devbox")
+        saved["guard_redactions"] = [f"$.environments[{devbox}].desired.a", "$.environments[0].desired.b",
+                                     "$.generator.tool"]
+        report = json.loads(self._from_json(saved, "--env", "devbox"))
+        self.assertEqual([e["id"] for e in report["environments"]], ["devbox"])
+        self.assertEqual(report["guard_redactions"], ["$.environments[0].desired.a", "$.generator.tool"])
+        self.assertEqual(estate.remap_guard_paths(["$.environments[2].x", "$.environments[1]"], [1, 2]),
+                         ["$.environments[1].x", "$.environments[0]"])
 
     def test_emit_guard_fails_closed_per_field(self):
         report = {"a": {"evidence": "token Zx9Qw7Lm3Rt8Yp2Kd6Vn4Bh1Jc5Gf0Ts here", "ok": "sha256:" + "a" * 64},

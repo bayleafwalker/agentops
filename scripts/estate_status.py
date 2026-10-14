@@ -226,11 +226,45 @@ def guard(value: Any, path: str = "$", hits: list[str] | None = None) -> tuple[A
     return value, hits
 
 
+GUARD_PATH = re.compile(r"\$(?:\.[\w-]+|\[\d+\])*")
+
+
+def is_guard_path(value: Any) -> bool:
+    return (isinstance(value, str) and GUARD_PATH.fullmatch(value) is not None
+            and not secret_findings(value))
+
+
+def remap_guard_paths(paths: Any, kept_indexes: list[int]) -> list[str]:
+    """After filtering ``environments`` (``--from --env``), point recorded paths at the
+    environments' new positions and drop paths of environments that were filtered out."""
+    if not isinstance(paths, list):
+        return []
+    new_index = {old: new for new, old in enumerate(kept_indexes)}
+    out = []
+    for path in paths:
+        if not is_guard_path(path):
+            continue
+        match = re.match(r"\$\.environments\[(\d+)\]", path)
+        if match is None:
+            out.append(path)
+        elif int(match.group(1)) in new_index:
+            out.append(f"$.environments[{new_index[int(match.group(1))]}]" + path[match.end():])
+    return out
+
+
 def guard_report(report: dict[str, Any]) -> dict[str, Any]:
-    """The report as it may be emitted: guarded, with the redacted paths listed."""
+    """The report as it may be emitted: guarded, with the redacted paths listed.
+
+    Paths redacted by an earlier emission (a saved report re-emitted with --from) are
+    kept: the placeholder no longer trips the detector, but the record of it must survive.
+    The earlier list is untrusted input too: only path-shaped entries that are themselves
+    clean are kept; anything else is dropped, never emitted."""
+    earlier = report.get("guard_redactions")
+    earlier = [p for p in earlier if is_guard_path(p)] if isinstance(earlier, list) else []
     clean, hits = guard({k: v for k, v in report.items() if k != "guard_redactions"})
-    if hits:
-        clean["guard_redactions"] = hits
+    merged = list(dict.fromkeys(earlier + hits))
+    if merged:
+        clean["guard_redactions"] = merged
     return clean
 
 
@@ -1603,6 +1637,12 @@ def _profile_summary(doc: dict[str, Any]) -> dict[str, Any]:
     return {"id": doc.get("id"), "revision": doc.get("revision"), "target": doc.get("target")}
 
 
+def _well_formed_holds(holds: Any) -> bool:
+    return isinstance(holds, list) and all(
+        isinstance(h, dict) and isinstance(h.get("id"), str) and re.fullmatch(r"[a-z0-9][a-z0-9._-]*", h["id"])
+        and isinstance(h.get("reason"), str) and h["reason"] for h in holds)
+
+
 def collect_host(probe: Probe, host: str, *, agentops_main: dict[str, Any]) -> dict[str, Any]:
     cfg = HOSTS[host]
     local, current, content_at = ref_current(probe, f"{host}.agentops-main", ROOT, "origin/main", agentops_main)
@@ -1676,17 +1716,26 @@ def collect_host(probe: Probe, host: str, *, agentops_main: dict[str, Any]) -> d
             for name in ("sprintctl_version", "installed_profile", "agentops_head"):
                 running[name] = _carry(envelope, "artifact")
             usable["served_doctor"] = _carry(envelope, "live-api")
+    # Host holds are *declared*: they come from the agentops environment record, not from
+    # observing the host, and the fact name and evidence say so.
     record = desired.get("environment_record")
-    if is_known(record) and isinstance(record["value"].get("holds"), list):
-        held = {"host_holds": known([h.get("id") for h in record["value"]["holds"]], "artifact",
-                                    f"{record['evidence']} holds", record["observed_at"])}
+    holds = record["value"].get("holds") if is_known(record) else None
+    if is_known(record) and "holds" in record["value"] and not _well_formed_holds(holds):
+        held = {"declared_host_holds": unknown(
+            "the environment record's `holds` is malformed (it must be an array of objects with a "
+            "token `id` and a non-empty `reason`), so the declared holds cannot be read",
+            "artifact", f"declared (from the agentops record): {record['evidence']}", record["observed_at"])}
+    elif is_known(record) and isinstance(holds, list):
+        held = {"declared_host_holds": known(
+            [h["id"] for h in holds], "artifact",
+            f"declared (from the agentops record): {record['evidence']} holds", record["observed_at"])}
     elif is_known(record):
-        held = {"host_holds": unknown(
+        held = {"declared_host_holds": unknown(
             "the environment record declares no `holds` field, so whether this host is held is not "
             "modelled (an empty `holds: []` would state that nothing is held)", "artifact",
-            record["evidence"], record["observed_at"])}
+            f"declared (from the agentops record): {record['evidence']}", record["observed_at"])}
     else:
-        held = {"host_holds": _carry(record, "artifact")}
+        held = {"declared_host_holds": _carry(record, "artifact")}
     env = {"id": host, "kind": "host", "desired": desired, "running": running, "usable": usable,
            "held": held, "document": {}, "receipts": {}}
     env["gate"] = derive_host_gate(env)
@@ -1725,10 +1774,10 @@ def derive_host_gate(env: dict[str, Any]) -> dict[str, Any]:
                                                             "local agentops origin/main")),
                   ("reachable", reachable), ("agentops-current", agentops_current),
                   ("client-profile", profile), ("served-doctor", doctor),
-                  ("holds", lambda: holds_check(h, ("host_holds",)))],
+                  ("holds", lambda: holds_check(h, ("declared_host_holds",)))],
                  ["desired.record_ref_is_remote_main", "running.reachable", "running.agentops_head",
                   "desired.agentops_main_sha", "running.installed_profile", "desired.client_profile",
-                  "usable.served_doctor", "held.host_holds"])
+                  "usable.served_doctor", "held.declared_host_holds"])
     evidence = "derived from usable.served_doctor (compatible, schema_status)"
     why = _need(u.get("served_doctor"))
     if why:
@@ -1916,7 +1965,10 @@ def main(argv: list[str] | None = None) -> int:
     if ns.from_file:
         report = json.loads(ns.from_file.read_text(encoding="utf-8"))
         if ns.env:
-            report["environments"] = [e for e in report["environments"] if e["id"] in ns.env]
+            kept = [i for i, e in enumerate(report["environments"]) if e["id"] in ns.env]
+            report["environments"] = [report["environments"][i] for i in kept]
+            if "guard_redactions" in report:
+                report["guard_redactions"] = remap_guard_paths(report["guard_redactions"], kept)
     else:
         if ns.record and ns.replay:
             parser.error("--record and --replay are exclusive")

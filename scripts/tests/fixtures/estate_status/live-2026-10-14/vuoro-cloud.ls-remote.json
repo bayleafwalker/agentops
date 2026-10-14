@@ -1,6 +1,6 @@
 {
  "evidence": "git ls-remote https://github.com/bayleafwalker/vuoro-cloud.git refs/heads/main",
- "observed_at": "2026-10-14T15:22:11Z",
+ "observed_at": "2026-10-14T15:45:37Z",
  "ok": true,
  "rc": 0,
  "stderr": "",

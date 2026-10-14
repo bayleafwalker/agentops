@@ -1,8 +1,8 @@
 {
- "evidence": "git -C /projects/dev/agentops/.claude/worktrees/agent-a489aa34e71188b15 show 774d279ff78f321aaff0f3d839475f40b265354f:environment-record/workstation-linux.vuoro-shared.json",
- "observed_at": "2026-10-14T15:22:13Z",
+ "evidence": "git -C /projects/dev/agentops/.claude/worktrees/agent-a489aa34e71188b15 show e1b63f85512534612082313fec827abcd0c3925e:environment-record/workstation-linux.vuoro-shared.json",
+ "observed_at": "2026-10-14T15:45:39Z",
  "ok": true,
  "rc": 0,
  "stderr": "",
- "stdout": "{\n  \"schema_version\": \"environment-record/v1\",\n  \"id\": \"workstation\",\n  \"environment_class\": \"local\",\n  \"revision\": 3,\n  \"roles\": [\"shared-development-host\", \"vuoro-served-client\"],\n  \"constraints\": [\n    \"no-workstation-postgresql-credentials\",\n    \"profile-target-must-be-vuoro-shared\",\n    \"production-endpoint-required\"\n  ],\n  \"capabilities\": [\"git-worktree\", \"vuoro-served-work-client\"],\n  \"runbook_refs\": [\n    \"/projects/dev/agentops/docs/runbooks/vuoro-workstation-cutover.md#workstation\",\n    \"/projects/dev/agentops/docs/runbooks/vuoro-workstation-cutover.md#identity-and-production-boundary\"\n  ],\n  \"identity_bindings\": [\n    {\"principal\": \"environment:workstation-linux\", \"roles\": [\"vuoro-shared-work-client\"]}\n  ]\n}\n"
+ "stdout": "{\n  \"schema_version\": \"environment-record/v1\",\n  \"id\": \"workstation\",\n  \"environment_class\": \"local\",\n  \"revision\": 4,\n  \"roles\": [\"shared-development-host\", \"vuoro-served-client\"],\n  \"constraints\": [\n    \"no-workstation-postgresql-credentials\",\n    \"profile-target-must-be-vuoro-shared\",\n    \"production-endpoint-required\"\n  ],\n  \"capabilities\": [\"git-worktree\", \"vuoro-served-work-client\"],\n  \"runbook_refs\": [\n    \"/projects/dev/agentops/docs/runbooks/vuoro-workstation-cutover.md#workstation\",\n    \"/projects/dev/agentops/docs/runbooks/vuoro-workstation-cutover.md#identity-and-production-boundary\"\n  ],\n  \"holds\": [],\n  \"identity_bindings\": [\n    {\"principal\": \"environment:workstation-linux\", \"roles\": [\"vuoro-shared-work-client\"]}\n  ]\n}\n"
 }
