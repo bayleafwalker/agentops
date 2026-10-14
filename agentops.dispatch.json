@@ -166,8 +166,8 @@
       "agentops.dispatch.json",
       ".claude/**",
       "scripts/check_append_only_shards.py",
-      ".github/workflows/protected-paths.yml",
-      ".github/workflows/append-only-shards-push.yml"
+      "scripts/check_protected_paths.py",
+      ".github/workflows/**"
     ],
     "worktree_root": "/tmp/agentops-hybrid/worktrees",
     "max_timeout_seconds": 1800,
