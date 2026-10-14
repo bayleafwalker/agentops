@@ -69,7 +69,7 @@ class ProtectedPathCheckTests(unittest.TestCase):
         self._git("add", "-A")
         self._git("commit", "-qm", f"touch {rel}")
 
-    def _hp(self, rest: str = "x", n: int = 7) -> str:
+    def _hp(self, rest: str = "x", n: int = 40) -> str:
         return f"hand-pass@{self._git('rev-parse', 'HEAD').strip()[:n]}: {rest}"
 
     def _run(self, title: str, sender: str | None = "operator") -> int:
@@ -111,16 +111,27 @@ class ProtectedPathCheckTests(unittest.TestCase):
 
     def test_a_sha_that_is_not_the_head_fails_even_for_the_operator(self):
         self._touch_and_commit("hybrid/scripts/hybrid_dispatch.py")
-        stale = self.base[:7]  # reviewed an earlier commit; the head moved on
+        stale = self.base  # reviewed an earlier commit; the head moved on
         self.assertEqual(self._run(f"hand-pass@{stale}: stale", sender="operator"), 1)
 
-    def test_a_too_short_sha_fails(self):
+    def test_a_short_matching_prefix_fails(self):
+        # 7 hex is 28 bits: an agent can grind a later commit onto it.
         self._touch_and_commit("hybrid/scripts/hybrid_dispatch.py")
-        self.assertEqual(self._run(self._hp(n=6), sender="operator"), 1)
+        for n in (6, 7, 12, 39):
+            self.assertEqual(
+                self._run(self._hp(n=n), sender="operator"), 1,
+                f"a {n}-hex prefix of the head sha was accepted as a hand-pass",
+            )
 
-    def test_a_longer_matching_sha_passes(self):
+    def test_the_full_matching_sha_passes(self):
         self._touch_and_commit("hybrid/scripts/hybrid_dispatch.py")
         self.assertEqual(self._run(self._hp(n=40), sender="operator"), 0)
+
+    def test_a_full_sha_differing_in_the_last_digit_fails(self):
+        self._touch_and_commit("hybrid/scripts/hybrid_dispatch.py")
+        head = self._git("rev-parse", "HEAD").strip()
+        wrong = head[:39] + ("0" if head[39] != "0" else "1")
+        self.assertEqual(self._run(f"hand-pass@{wrong}: near miss", sender="operator"), 1)
 
     def test_a_missing_sender_cannot_hand_pass(self):
         self._touch_and_commit("hybrid/scripts/hybrid_dispatch.py")

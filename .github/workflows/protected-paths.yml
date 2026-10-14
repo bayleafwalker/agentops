@@ -9,15 +9,8 @@ name: protected paths
 # privileged, NOTHING from the PR head is ever executed: scripts and the
 # protected-path manifest come from the base sha; the head is only fetched as
 # git objects (or checked out into head/ as data to grep).
-#
-# TEMPORARY BOOTSTRAP: the `pull_request` trigger below exists only so the PR
-# that introduces pull_request_target gets meaningful checks (main's old
-# workflow is the one that runs for it). A follow-up PR must delete the
-# `pull_request` trigger and the --sender probe in the protected-paths job.
 on:
   pull_request_target:
-    types: [opened, synchronize, reopened, edited]
-  pull_request:  # TEMPORARY BOOTSTRAP, remove in the follow-up PR
     types: [opened, synchronize, reopened, edited]
 
 permissions:
@@ -43,18 +36,11 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           SENDER: ${{ github.event.sender.login }}
         run: |
-          # a base checker that predates --sender cannot be passed it.
-          # TEMPORARY BOOTSTRAP: the base script is trusted, so this probe cannot
-          # be steered by the PR; remove with the pull_request trigger.
-          sender_args=()
-          if grep -q -- '--sender' scripts/check_protected_paths.py; then
-            sender_args=(--sender "$SENDER")
-          fi
           python3 scripts/check_protected_paths.py \
             --base "${{ github.event.pull_request.base.sha }}" \
             --head "${{ github.event.pull_request.head.sha }}" \
             --title "$PR_TITLE" \
-            "${sender_args[@]}"
+            --sender "$SENDER"
 
   templates-dispatch-allowlist:
     # S2 item 6: templates/dispatch was deleted in full (PR-E, then PR-B for
