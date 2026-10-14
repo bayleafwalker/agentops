@@ -168,3 +168,22 @@ def test_native_evidence_profile_cannot_request_effect_authority(tmp_path: Path)
         assert "extra=['work:effect-apply']" in str(exc)
     else:
         raise AssertionError("expected native evidence scope rejection")
+
+
+def test_inbox_native_profiles_are_evidence_scoped_and_host_bound(tmp_path: Path) -> None:
+    hosts = {
+        "workstation-inbox-native-vuoro-shared.json": "workstation-linux.vuoro-shared.json",
+        "devbox-inbox-native-vuoro-shared.json": "devbox-vm.vuoro-shared.json",
+    }
+    for profile, environment_file in hosts.items():
+        environment = validator.validate_environment(ROOT / "environment-record" / environment_file)
+        value = validator.validate_profile(_profile(profile), environment)
+        assert set(value["required_authorities"]) == {"work:read", "work:evidence"}
+        assert value["credential_ref"].endswith("/vuoro-shared-inbox-native")
+    other = validator.validate_environment(ROOT / "environment-record/workstation-linux.vuoro-shared.json")
+    try:
+        validator.validate_profile(_profile("devbox-inbox-native-vuoro-shared.json"), other)
+    except validator.ProfileError as exc:
+        assert "source_environment_id" in str(exc) or "bound to devbox" in str(exc)
+    else:
+        raise AssertionError("expected host binding rejection")
