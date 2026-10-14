@@ -64,12 +64,19 @@ CHANNEL = "opencode-serve"
 TITLE_PREFIX = "vuoro-msg:"
 _CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 # The successor may use exactly these tools; opencode serve enforces the ruleset
-# server-side for the session (verified against 1.18.33: other commands, chained
-# commands and command substitution inside an allowed command are all denied).
+# server-side for the session, and the last matching rule wins. Probed against
+# opencode 1.18.33: the two allows alone admit redirections (`> file`, `>> file`),
+# `$(< file)` and `${VAR}` inside an allowed command, so the trailing denies refuse
+# any command containing a shell metacharacter. Other commands, newline-separated
+# and `&&`-chained commands are denied by the leading `*` deny. The opencode serve
+# unit (ops/systemd/opencode-serve-inbox.service) is the OS-level containment
+# behind this ruleset.
+SHELL_METACHARACTERS = (">", "<", "$", "`", ";", "&", "|")
 SUCCESSOR_PERMISSION = [
     {"permission": "*", "pattern": "*", "action": "deny"},
     {"permission": "bash", "pattern": "sprintctl run context *", "action": "allow"},
     {"permission": "bash", "pattern": "sprintctl run note *", "action": "allow"},
+    *({"permission": "bash", "pattern": f"*{c}*", "action": "deny"} for c in SHELL_METACHARACTERS),
 ]
 DEFAULT_MAX_RUN_SECONDS = 3600
 # Policy states an operator fixes without the message being at fault: defer, never refuse.
@@ -472,6 +479,8 @@ def build_prompt(envelope: dict, run_id: str, nonce: str) -> str:
         f"1. Run: sprintctl run context --run-id {run_id}",
         f'2. Run: sprintctl run note --run-id {run_id} --note "<one short paragraph on what the context shows>" '
         f"--idempotency-key inbox.{mid}.note",
+        "   The note text must not contain any of these characters: > < $ ` ; & | "
+        "(commands containing them are refused).",
         "3. Stop. Make no other changes to any repository, item or run.",
     ]
     return "\n".join(lines) + "\n"
@@ -914,7 +923,13 @@ class Adapter:
             return False
         # `canceled` only on evidence; otherwise record what actually happened.
         timeout = rec["reason_code"] == "run-timeout"
-        if timeout and (st.error or not st.assistant_completed):
+        if timeout and st.busy:
+            # Aborted, but the harness still reports the session busy: say so.
+            self.state.update(*key, reason_code="run-timeout-abort-unconfirmed",
+                              reason_text=f"{rec['reason_text']}; abort sent, session still busy")
+            rec = self.state.get(*key)
+            outcome = "failed"
+        elif timeout and (st.error or not st.assistant_completed):
             outcome = "failed"
         elif st.error == "MessageAbortedError":
             outcome = "canceled"
@@ -945,7 +960,7 @@ class Adapter:
         fields: dict[str, Any] = {"outcome": rec["outcome"], "summary": rec["summary"] or "",
                                   "evidence_refs": json.loads(rec["evidence"] or "[]")}
         if rec["outcome"] in ("not-started", "abandoned") or (
-                rec["outcome"] == "failed" and rec["reason_code"] == "run-timeout"):
+                rec["outcome"] == "failed" and (rec["reason_code"] or "").startswith("run-timeout")):
             fields["reason"] = {"code": rec["reason_code"], "text": rec["reason_text"] or ""}
         self._receipt(rec, "result-linked", **fields)
         self.state.update(rec["repo_id"], rec["message_id"], closed=1)
@@ -966,9 +981,12 @@ class Adapter:
         what = "an ambiguous launch"
         if rec["state"] == S_LAUNCHED:
             # A stuck run: stop the session first; the abort is idempotent.
-            self.harness.abort(rec["session_id"], self.config.directory)
             evidence.append({"kind": "harness-session", "ref": rec["session_id"]})
-            what = "a launched run (session aborted)"
+            try:
+                self.harness.abort(rec["session_id"], self.config.directory)
+                what = "a launched run (session aborted)"
+            except HarnessError as exc:
+                what = f"a launched run (abort failed: {exc})"[:300]
         self.state.update(rec["repo_id"], message_id, state=S_FINISHED, outcome="abandoned",
                           reason_code="operator-abandoned",
                           reason_text=f"an operator abandoned {what}",

@@ -1,22 +1,53 @@
 [Unit]
-Description=opencode serve on loopback for the Vuoro inbox host adapter
+Description=opencode serve on loopback for the Vuoro inbox host adapter (sandboxed)
 After=network-online.target
 
-# systemd USER unit. The adapter creates each successor session with a server-side
-# permission ruleset (host_adapter.SUCCESSOR_PERMISSION), so this server's global
-# permission defaults do not apply to successor runs.
+# systemd USER unit. Successor sessions run their bash tool inside this service, so the
+# service is the containment boundary behind the per-session permission ruleset
+# (host_adapter.SUCCESSOR_PERMISSION):
+# - Home is an empty tmpfs; only the paths below are bound back in. ~/.ssh, ~/.gnupg,
+#   other credentials and the rest of ~/.config never exist inside the service.
+# - /projects/dev is an empty tmpfs except the agentops checkout, bound read-only.
+# - Writable: only opencode's own data, state and cache directories.
+# - The sprintctl tool environment, the inbox profile and its credential are read-only.
 
 [Service]
 Type=simple
 WorkingDirectory=/projects/dev/agentops
-# The successor's sprintctl calls run under the adapter's identity, in served mode.
 Environment=SPRINTCTL_BACKEND=served
 Environment=SPRINTCTL_VUORO_PROFILE=%h/.config/vuoro/profiles/devbox-inbox-native-vuoro-shared.json
 Environment=PATH=%h/.local/bin:/run/current-system/sw/bin:/usr/bin:/bin
 ExecStart=/run/current-system/sw/bin/opencode serve --hostname 127.0.0.1 --port 4096
 Restart=on-failure
 RestartSec=10
-NoNewPrivileges=true
+
+ProtectSystem=strict
+ProtectHome=tmpfs
+TemporaryFileSystem=/projects/dev:ro
+PrivateTmp=yes
+NoNewPrivileges=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+UMask=0077
+
+BindPaths=%h/.local/share/opencode %h/.local/state/opencode %h/.cache/opencode
+BindReadOnlyPaths=/projects/dev/agentops
+BindReadOnlyPaths=%h/.config/opencode
+BindReadOnlyPaths=%h/.local/bin/sprintctl %h/.local/share/uv/tools/sprintctl %h/.local/share/uv/python
+BindReadOnlyPaths=%h/.config/vuoro/profiles/devbox-inbox-native-vuoro-shared.json
+BindReadOnlyPaths=%h/.config/vuoro/credentials/vuoro-shared-inbox-native
+# Belt and braces: never visible even if a later bind widens home.
+InaccessiblePaths=-%h/.ssh -%h/.gnupg -%h/.config/cred-broker -%h/.config/claude-token.env -%h/.config/git-pat.env
+
+# Network: loopback, the vuoro-shared endpoint, and the public internet for the model
+# provider; the rest of the private LAN is denied. Allow wins over deny in systemd.
+# A USER unit cannot apply IP firewalling (systemd logs "not running as root" and
+# ignores these two lines); the gitops-nixos system unit enforces them.
+IPAddressAllow=localhost 192.168.20.219
+IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16
 
 [Install]
 WantedBy=default.target

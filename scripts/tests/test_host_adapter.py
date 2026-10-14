@@ -1078,3 +1078,46 @@ def test_state_gains_new_columns_in_place(tmp_path):
     cols = {r[1] for r in st.db.execute("PRAGMA table_info(messages)")}
     assert {"launched_at", "model_id"} <= cols
     st.close()
+
+
+# ---------------------------------------------------------------- review round 3
+
+def test_ruleset_denies_shell_metacharacters_after_the_allows():
+    rules = ha.SUCCESSOR_PERMISSION
+    last_allow = max(i for i, r in enumerate(rules) if r["action"] == "allow")
+    denies = [r["pattern"] for r in rules[last_allow + 1:]]
+    assert all(r["action"] == "deny" and r["permission"] == "bash" for r in rules[last_allow + 1:])
+    for c in (">", "<", "$", "`", ";", "&", "|"):
+        assert f"*{c}*" in denies
+
+
+def test_prompt_tells_the_successor_which_characters_are_refused(rig):
+    rig.owner.send()
+    rig.tick(2)
+    assert "must not contain any of these characters: > < $ ` ; & |" in rig.harness.prompts[0][1]
+
+
+def test_resolve_records_a_failed_abort_instead_of_raising(rig):
+    rig.harness.finish_on_poll = False
+    rig.owner.send()
+    rig.tick(2)
+
+    def broken(sid, d):
+        raise ha.HarnessError("POST /abort: connection refused")
+    rig.harness.abort = broken
+    rig.adapter.resolve_abandon("msg_A")
+    result = rig.owner.receipt_of("msg_A", "result-linked")
+    assert result["outcome"] == "abandoned" and "abort failed" in result["reason"]["text"]
+    assert rig.rec()["closed"] == 1
+
+
+def test_timeout_with_session_still_busy_is_recorded_as_unconfirmed(rig):
+    rig.harness.finish_on_poll = False
+    write_policy(rig.policy, max_run_seconds=60)
+    rig.owner.send()
+    rig.tick(2)
+    rig.harness.abort = lambda sid, d: rig.harness.aborts.append(sid)  # abort has no effect
+    rig.now += 61
+    rig.tick(5)
+    result = rig.owner.receipt_of("msg_A", "result-linked")
+    assert result["outcome"] == "failed" and result["reason"]["code"] == "run-timeout-abort-unconfirmed"
