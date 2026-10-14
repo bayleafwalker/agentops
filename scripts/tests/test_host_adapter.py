@@ -327,11 +327,14 @@ def test_observations_carry_valid_for_three_poll_intervals(rig):
 
 
 def test_session_note_is_linked_when_discoverable(rig):
-    rig.harness.note_text = "wrote note_01ABCDEFGH ok"
+    # The live owner prints the written note as JSON with an integer, run-scoped note_id.
+    rig.harness.note_text = ('{"session_notes": [{"note": "pred", "note_id": 1}]}\n'
+                             '{"note": "x", "note_id": 2, "repo_id": "agentops"}')
     rig.owner.send()
     rig.tick(2)
+    rec = rig.rec()
     refs = rig.owner.receipt_of("msg_A", "result-linked")["evidence_refs"]
-    assert {"kind": "session-note", "ref": "note_01ABCDEFGH"} in refs
+    assert {"kind": "session-note", "ref": f"{rec['run_id']}/note/2"} in refs
 
 
 def test_failed_session_records_failed(rig):

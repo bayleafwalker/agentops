@@ -54,7 +54,9 @@ ADAPTER_NAME = "agentops-host-adapter"
 CHANNEL = "opencode-serve"
 TITLE_PREFIX = "vuoro-msg:"
 _CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
-_NOTE_ID = re.compile(r"\bnote_[0-9A-Za-z]{8,40}\b")
+# work.session-note.write-v1 returns an integer note_id scoped to the run; the
+# successor's `sprintctl run note` output carries it as JSON ("note_id": 2).
+_NOTE_ID = re.compile(r'"note_id"\s*:\s*([1-9][0-9]{0,17})\b')
 
 # Local processing-record states (see README of the module docstring).
 S_RECEIVED = "received"
@@ -861,9 +863,11 @@ class Adapter:
         else:
             return False  # prompt accepted, assistant has not started yet
         evidence = [{"kind": "run", "ref": rec["run_id"]}, {"kind": "harness-session", "ref": sid}]
-        note = _NOTE_ID.search(st.text)
-        if note:
-            evidence.append({"kind": "session-note", "ref": note.group(0)})
+        # The context read also prints the predecessor's note ids; the successor's own
+        # `run note` output comes last.
+        notes = _NOTE_ID.findall(st.text)
+        if notes:
+            evidence.append({"kind": "session-note", "ref": f"{rec['run_id']}/note/{notes[-1]}"})
         summary = f"session {sid} ended {outcome}" + (f" ({st.error})" if st.error else "")
         self.state.update(*key, state=S_FINISHED, outcome=outcome, summary=summary,
                           evidence=canonical(evidence))
