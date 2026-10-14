@@ -19,19 +19,22 @@ Glob semantics are ``hybrid_dispatch._matches_any``'s, copied verbatim into
 ``_matches_any`` below so this gate survives hybrid_dispatch.py's deletion
 (S2 item 6). Change the matcher here, not in a new reimplementation.
 
-The ``hand-pass:`` title is honoured only when the GitHub actor who triggered
+The ``hand-pass@<sha>:`` title (sha a >=7-hex prefix of the head sha being
+checked) is honoured only when the GitHub actor who triggered
 the run (``--sender``) is listed in ``hybrid.hand_pass_actors`` of the BASE
 manifest. The workflow runs this script and reads that manifest from the base
 commit, so a PR cannot add itself to the list. An agent token that titles its
-own PR ``hand-pass:`` therefore still fails. The operator authorises a
-hand-pass by opening, editing the title of, or reopening the PR: the run is
-then triggered by the operator and re-checks the current head.
+own PR therefore still fails. The sha binds the authorisation to the commit
+the operator reviewed: after the final push the operator edits the title to
+``hand-pass@<sha7>: ...``; a later push changes the head and the token no
+longer matches.
 """
 from __future__ import annotations
 
 import argparse
 import fnmatch
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -58,7 +61,10 @@ def _matches_any(path: str, patterns: list[str]) -> bool:
     return False
 
 
-MARKER = "hand-pass:"
+#: ``hand-pass@<7-40 hex>:`` at the start of the title. The hex must be a prefix
+#: of the head sha being checked, so an authorisation covers the commit the
+#: operator reviewed and not whatever head a later push produces.
+HAND_PASS_RE = re.compile(r"^hand-pass@([0-9a-f]{7,40}):", re.IGNORECASE)
 
 #: A hybrid packet PR declares itself with this prefix. It buys exactly one
 #: exemption, checked below, and nothing else.
@@ -153,25 +159,38 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
 
-    marked = title.lower().startswith(MARKER)
+    token = HAND_PASS_RE.match(title)
+    marked = title.lower().startswith("hand-pass")
+    head_sha = subprocess.run(
+        ["git", "rev-parse", "--verify", f"{args.head}^{{commit}}"],
+        capture_output=True, text=True,
+    ).stdout.strip().lower()
+    sha_ok = bool(token and head_sha and head_sha.startswith(token.group(1).lower()))
     sender = args.sender.strip()
     actors = hand_pass_actors(args.manifest)
     for path in hits:
         print(f"protected: {path}")
-    if marked and sender and sender in actors:
-        print(f"\ndeclared hand-pass by {sender}: the title begins {MARKER!r}; allowed")
+    if sha_ok and sender and sender in actors:
+        print(f"\ndeclared hand-pass by {sender} for {head_sha[:12]}; allowed")
         return 0
-    if marked:
+    if sha_ok:
         print(
             f"\nhand-pass declared by {sender or '<unknown sender>'}; needs the "
             f"operator to open, edit or reopen the PR on this head"
+        )
+        return 1
+    if marked:
+        print(
+            f"\nhand-pass title does not name this head: expected a title "
+            f"beginning 'hand-pass@{head_sha[:7]}:' (head {head_sha[:12] or '?'}). "
+            f"The operator edits the title after the final push."
         )
         return 1
     print(
         f"\nThis pull request modifies {len(hits)} protected path(s) and does not "
         f"declare itself a hand-pass.\n"
         f"The dispatch gate only covers the worker's commit, so it cannot catch "
-        f"this.\nIf the change is intended, prefix the PR title with {MARKER!r}."
+        f"this.\nIf the change is intended, the operator edits the PR title to begin\n'hand-pass@<first 7+ hex of the head sha>:' after the final push."
     )
     return 1
 

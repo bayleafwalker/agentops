@@ -149,12 +149,18 @@ staged in `_artifacts`).
 ## Hand-pass authorisation
 
 A pull request that touches `hybrid.protected_paths` fails the `protected-paths` CI check unless
-its title begins `hand-pass:` AND the actor that triggered the run is listed in
-`hybrid.hand_pass_actors`. The check runs from the base commit (script and manifest), so a PR cannot
-edit either list or the checker to admit itself, and an agent token that titles its own PR
-`hand-pass:` still fails with "needs the operator to open, edit or reopen the PR on this head".
+its title begins `hand-pass@<sha7>:` AND the actor that triggered the run is listed in
+`hybrid.hand_pass_actors`. `<sha7>` is at least 7 hex characters and must be a prefix of the PR's
+current head sha, so the authorisation covers the commit that was reviewed and nothing pushed
+after it. A plain `hand-pass:` title no longer authorises anything.
 
-Operator procedure: review the final head, then edit the PR title (add or re-save the `hand-pass:`
-prefix), or close and reopen the PR. The `edited`/`reopened` event is sent by you, so the check
-re-runs on the current head with you as the sender. A later push re-runs it with the pusher as
-sender, so re-authorise after any new commit.
+The workflow is `pull_request_target`: it is read from the base branch, and the checker and this
+manifest come from the base commit; the PR head is only ever fetched as data and never executed.
+A PR therefore cannot edit the workflow, the checker or the actor list to admit itself, and an
+agent token that titles its own PR still fails ("needs the operator to open, edit or reopen the PR
+on this head").
+
+Operator procedure, after the final push: read the head sha (`gh pr view <n> --json headRefOid`),
+edit the title to `hand-pass@<first 7 of sha>: <summary>`. The `edited` event is sent by you, so
+the check re-runs on that head with you as sender. If anything is pushed afterwards the token no
+longer matches and the check fails until you edit the title again.
