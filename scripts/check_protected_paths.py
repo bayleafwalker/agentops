@@ -18,6 +18,14 @@ hand-pass. Being forced to say so is the feature.
 Glob semantics are ``hybrid_dispatch._matches_any``'s, copied verbatim into
 ``_matches_any`` below so this gate survives hybrid_dispatch.py's deletion
 (S2 item 6). Change the matcher here, not in a new reimplementation.
+
+The ``hand-pass:`` title is honoured only when the GitHub actor who triggered
+the run (``--sender``) is listed in ``hybrid.hand_pass_actors`` of the BASE
+manifest. The workflow runs this script and reads that manifest from the base
+commit, so a PR cannot add itself to the list. An agent token that titles its
+own PR ``hand-pass:`` therefore still fails. The operator authorises a
+hand-pass by opening, editing the title of, or reopening the PR: the run is
+then triggered by the operator and re-checks the current head.
 """
 from __future__ import annotations
 
@@ -72,6 +80,11 @@ def protected_patterns(manifest_path: Path) -> list[str]:
     return list(manifest["hybrid"]["protected_paths"])
 
 
+def hand_pass_actors(manifest_path: Path) -> list[str]:
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    return list((manifest.get("hybrid") or {}).get("hand_pass_actors") or [])
+
+
 def changed_paths(base: str, head: str) -> list[str]:
     out = subprocess.run(
         ["git", "diff", "--name-only", "--no-renames", f"{base}...{head}"],
@@ -116,6 +129,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--base", required=True)
     parser.add_argument("--head", default="HEAD")
     parser.add_argument("--title", default="")
+    parser.add_argument("--sender", default="",
+                        help="login of the actor that triggered this run")
     parser.add_argument("--manifest", type=Path, default=Path("agentops.dispatch.json"))
     args = parser.parse_args(argv)
 
@@ -138,12 +153,20 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
 
-    declared = title.lower().startswith(MARKER)
+    marked = title.lower().startswith(MARKER)
+    sender = args.sender.strip()
+    actors = hand_pass_actors(args.manifest)
     for path in hits:
         print(f"protected: {path}")
-    if declared:
-        print(f"\ndeclared hand-pass: the title begins {MARKER!r}; allowed")
+    if marked and sender and sender in actors:
+        print(f"\ndeclared hand-pass by {sender}: the title begins {MARKER!r}; allowed")
         return 0
+    if marked:
+        print(
+            f"\nhand-pass declared by {sender or '<unknown sender>'}; needs the "
+            f"operator to open, edit or reopen the PR on this head"
+        )
+        return 1
     print(
         f"\nThis pull request modifies {len(hits)} protected path(s) and does not "
         f"declare itself a hand-pass.\n"

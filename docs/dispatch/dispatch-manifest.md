@@ -145,3 +145,16 @@ was retired 2026-09-17 (S2 item 6); that default no longer resolves to
 anything. Set `COCKPIT_DISPATCH_MANIFEST_ROOT` explicitly to a directory of
 real `*.dispatch.json` files (each member repo's own, or generated manifests
 staged in `_artifacts`).
+
+## Hand-pass authorisation
+
+A pull request that touches `hybrid.protected_paths` fails the `protected-paths` CI check unless
+its title begins `hand-pass:` AND the actor that triggered the run is listed in
+`hybrid.hand_pass_actors`. The check runs from the base commit (script and manifest), so a PR cannot
+edit either list or the checker to admit itself, and an agent token that titles its own PR
+`hand-pass:` still fails with "needs the operator to open, edit or reopen the PR on this head".
+
+Operator procedure: review the final head, then edit the PR title (add or re-save the `hand-pass:`
+prefix), or close and reopen the PR. The `edited`/`reopened` event is sent by you, so the check
+re-runs on the current head with you as the sender. A later push re-runs it with the pusher as
+sender, so re-authorise after any new commit.

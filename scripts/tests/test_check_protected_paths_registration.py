@@ -49,6 +49,7 @@ MANIFEST = {
         ],
         "commands": {"agentops.dispatch.tests": "python -m unittest discover"},
         "worker_routes": ["mechanical_bulk"],
+        "hand_pass_actors": ["operator"],
     },
     "routing": {"action_classes": {"mechanical_bulk": {"self_candidate": True}}},
 }
@@ -104,6 +105,7 @@ class RegistrationSeamTests(unittest.TestCase):
             return checker.main([
                 "--base", self.base, "--head", "HEAD", "--title", title,
                 "--manifest", "agentops.dispatch.json",
+                "--sender", "operator",
             ])
         finally:
             os.chdir(cwd)

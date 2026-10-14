@@ -43,7 +43,7 @@ class ProtectedPathCheckTests(unittest.TestCase):
                 "hybrid/scripts/hybrid_dispatch.py",
                 "hybrid/state/**",
                 "docs/**",
-            ]}}),
+            ], "hand_pass_actors": ["operator"]}}),
             encoding="utf-8",
         )
         for rel in ("hybrid/scripts/hybrid_dispatch.py",
@@ -69,15 +69,18 @@ class ProtectedPathCheckTests(unittest.TestCase):
         self._git("add", "-A")
         self._git("commit", "-qm", f"touch {rel}")
 
-    def _run(self, title: str) -> int:
+    def _run(self, title: str, sender: str | None = "operator") -> int:
         import os
         cwd = os.getcwd()
         os.chdir(self.repo)
         try:
-            return checker.main([
+            argv = [
                 "--base", self.base, "--head", "HEAD", "--title", title,
                 "--manifest", "agentops.dispatch.json",
-            ])
+            ]
+            if sender is not None:
+                argv += ["--sender", sender]
+            return checker.main(argv)
         finally:
             os.chdir(cwd)
 
@@ -91,6 +94,30 @@ class ProtectedPathCheckTests(unittest.TestCase):
     def test_a_protected_path_with_the_marker_passes(self):
         self._touch_and_commit("hybrid/scripts/hybrid_dispatch.py")
         self.assertEqual(self._run("hand-pass: narrow the provider registry"), 0)
+
+    def test_a_bot_sender_cannot_hand_pass_its_own_pr(self):
+        self._touch_and_commit("hybrid/scripts/hybrid_dispatch.py")
+        self.assertEqual(
+            self._run("hand-pass: self-declared", sender="agent-app[bot]"), 1,
+            "a sender outside hybrid.hand_pass_actors was allowed to hand-pass",
+        )
+
+    def test_a_missing_sender_cannot_hand_pass(self):
+        self._touch_and_commit("hybrid/scripts/hybrid_dispatch.py")
+        self.assertEqual(self._run("hand-pass: no sender", sender=None), 1)
+        self.assertEqual(self._run("hand-pass: empty sender", sender=""), 1)
+
+    def test_an_operator_sender_without_the_marker_still_fails(self):
+        self._touch_and_commit("hybrid/scripts/hybrid_dispatch.py")
+        self.assertEqual(self._run("feat: unmarked", sender="operator"), 1)
+
+    def test_no_actor_list_means_nobody_can_hand_pass(self):
+        self._touch_and_commit("hybrid/scripts/hybrid_dispatch.py")
+        (self.repo / "agentops.dispatch.json").write_text(
+            json.dumps({"hybrid": {"protected_paths": ["hybrid/scripts/hybrid_dispatch.py"]}}),
+            encoding="utf-8",
+        )
+        self.assertEqual(self._run("hand-pass: x", sender="operator"), 1)
 
     def test_the_marker_is_matched_case_insensitively_and_only_as_a_prefix(self):
         self._touch_and_commit("hybrid/scripts/hybrid_dispatch.py")
