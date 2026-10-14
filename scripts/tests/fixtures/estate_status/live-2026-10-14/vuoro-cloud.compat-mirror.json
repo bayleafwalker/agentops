@@ -1,6 +1,6 @@
 {
  "evidence": "git -C /projects/dev/vuoro-cloud show refs/tags/v0.1.0-poc.76:apps/runtime-config/compatibility.json",
- "observed_at": "2026-10-14T15:08:55Z",
+ "observed_at": "2026-10-14T15:22:13Z",
  "ok": true,
  "rc": 0,
  "stderr": "",

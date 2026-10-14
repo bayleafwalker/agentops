@@ -56,6 +56,17 @@ def by_id(report):
     return {env["id"]: env for env in report["environments"]}
 
 
+def replay_edited(envs, edits):
+    """Replay with some fixtures edited: ``edits`` maps fixture file name -> fn(fixture dict)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        for path in FIXTURES.iterdir():
+            fixture = json.loads(path.read_text())
+            if path.name in edits:
+                edits[path.name](fixture)
+            (Path(tmp) / path.name).write_text(json.dumps(fixture))
+        return replay(envs, directory=Path(tmp))
+
+
 _ENVS = None
 
 
@@ -163,8 +174,10 @@ class ReplayedLiveRunTests(unittest.TestCase):
         self.assertIs(d["compatibility_mirror_agrees"]["value"], True)
         self.assertEqual(d["release_report_card"]["value"]["schema_version"], "vuoro-release-report-card/v1")
         self.assertIn("vuoro-cloud@v0.1.0-poc.76:src/vuoro_cloud/release.py", d["release_report_card"]["evidence"])
-        self.assertEqual(d["tenant_runtime_pin"]["status"], "unknown")
-        self.assertIn("SOPS", d["tenant_runtime_pin"]["reason"])
+        pin = self.envs["vuoro-cloud"]["running"]["tenant_runtime_pin"]
+        self.assertEqual(pin["status"], "unknown")
+        self.assertIn("SOPS", pin["reason"])
+        self.assertIn("runtime_image", pin["reason"])
 
     def test_no_secret_decryption_probe_was_recorded(self):
         names = {p.name for p in FIXTURES.iterdir()}
@@ -180,10 +193,14 @@ class ReplayedLiveRunTests(unittest.TestCase):
             self.assertEqual(doctor["endpoint"], "https://vuoro-shared.apps.kotona.app")
             self.assertEqual(env["running"]["installed_profile"]["value"]["revision"],
                              env["desired"]["client_profile"]["value"]["revision"])
-            # Both checkouts were behind agentops main when the fixtures were recorded.
-            self.assertEqual(env["gate"]["next_blocking_gate"]["value"]["gate"], "agentops-current")
             self.assertEqual(env["gate"]["recovery_class"]["value"]["class"], "image-revert")
+            # Recorded before `holds` reached agentops main: not modelled, so unknown.
             self.assertEqual(env["held"]["host_holds"]["status"], "unknown")
+            self.assertIn("no `holds` field", env["held"]["host_holds"]["reason"])
+        # The workstation checkout was behind main; devbox was current and stops at holds.
+        self.assertEqual(self.envs["workstation"]["gate"]["next_blocking_gate"]["value"]["gate"],
+                         "agentops-current")
+        self.assertIn("'holds'", self.envs["devbox"]["gate"]["next_blocking_gate"]["reason"])
 
     def test_markdown_lists_every_unknown_with_reason(self):
         text = estate.render_markdown(self.report)
@@ -295,6 +312,9 @@ class VuoroSharedDerivationTests(unittest.TestCase):
                 gate = self.gate()
                 self.assertEqual(gate["status"], "unknown")
                 self.assertIn("desired-current", gate["reason"])
+                recovery = self.recovery()
+                self.assertEqual(recovery["status"], "unknown")
+                self.assertIn("origin/main", recovery["reason"])
 
     def test_unapplied_main_blocks(self):
         self.env["desired"]["deploying_repo_main_sha"] = k("f" * 40)
@@ -337,7 +357,7 @@ def cloud_full_env(**overrides):
     h["suspended_cronjobs"] = k([{"name": "vuoro-admin-enrol", "declared_suspend": True}])
     h["scaled_below_declared"] = k([])
     h["tenants_in_maintenance"] = k([])
-    d["tenant_runtime_pin"] = k("sha256:" + "2" * 64)
+    r["tenant_runtime_pin"] = k(estate.digest_of(d["compatibility"]["value"]["packages"]["vuoro-service"]))
     us["fleet_rollout"]["value"]["converged"] = True
     return env
 
@@ -412,10 +432,54 @@ class VuoroCloudDerivationTests(unittest.TestCase):
 
     def test_unverifiable_tenant_pin_keeps_gate_unknown(self):
         env = cloud_full_env()
-        env["desired"]["tenant_runtime_pin"] = u("SOPS")
+        env["running"]["tenant_runtime_pin"] = u("SOPS")
         gate = gate_of(estate.derive_vuoro_cloud_gate, env)
         self.assertEqual(gate["status"], "unknown")
         self.assertIn("tenant-runtime-pin", gate["reason"])
+
+    def test_pin_mismatch_blocks(self):
+        env = cloud_full_env()
+        env["running"]["tenant_runtime_pin"] = k("sha256:" + "3" * 64)
+        self.assertEqual(gate_of(estate.derive_vuoro_cloud_gate, env)["value"]["gate"], "tenant-runtime-pin")
+
+    def test_requested_rollout_fields_make_both_facts_observable(self):
+        want = None
+
+        def edit(fixture):
+            body = json.loads(fixture["body"])
+            body["maintenance_workspaces"] = [{"id": "ws1", "state": "MAINTENANCE", "maintenance_mode": True}]
+            body["runtime_image"] = {"digest": want, "source": "VUORO_CLOUD_RUNTIME_IMAGE"}
+            fixture["body"] = json.dumps(body)
+
+        base = env_copy("vuoro-cloud")
+        want = estate.digest_of(base["desired"]["compatibility"]["value"]["packages"]["vuoro-service"])
+        env = by_id(replay_edited(["vuoro-cloud"], {"vuoro-cloud.rollout-status.json": edit}))["vuoro-cloud"]
+        self.assertEqual(env["held"]["tenants_in_maintenance"]["value"], ["ws1"])
+        self.assertEqual(env["running"]["tenant_runtime_pin"]["value"], want)
+
+    def test_malformed_runtime_image_is_unknown(self):
+        def edit(fixture):
+            body = json.loads(fixture["body"])
+            body["runtime_image"] = {"digest": "latest"}
+            fixture["body"] = json.dumps(body)
+
+        env = by_id(replay_edited(["vuoro-cloud"], {"vuoro-cloud.rollout-status.json": edit}))["vuoro-cloud"]
+        self.assertIn("malformed", env["running"]["tenant_runtime_pin"]["reason"])
+
+    def test_tag_match_is_anchored(self):
+        sha = "a" * 40
+        self.assertTrue(estate.revision_is(f"v0.1.0-poc.7@sha1:{sha}", "v0.1.0-poc.7", sha))
+        self.assertFalse(estate.revision_is(f"v0.1.0-poc.76@sha1:{'b' * 40}", "v0.1.0-poc.7", sha))
+        self.assertFalse(estate.revision_is(f"v0.1.0-poc.7-rc@sha1:{'b' * 40}", "v0.1.0-poc.7", sha))
+        self.assertTrue(estate.revision_is(f"refs/tags/v0.1.0-poc.7@sha1:{sha}", "v0.1.0-poc.7", sha))
+        self.assertTrue(estate.revision_is(sha, "v0.1.0-poc.7", sha))
+        self.assertFalse(estate.revision_is(f"main@sha1:{sha}xx", "main", sha))
+        self.assertFalse(estate.revision_is(None, "main", sha))
+        env = cloud_full_env()
+        tag = env["desired"]["predicted_release_tag"]["value"]
+        for v in env["running"]["kustomizations"]["value"].values():
+            v["last_applied_revision"] = f"{tag}6@sha1:{'c' * 40}"  # e.g. poc.766, not poc.76
+        self.assertEqual(recovery_of(env)["value"]["class"], "cancel")
 
 
 class HostDerivationTests(unittest.TestCase):
@@ -435,6 +499,21 @@ class HostDerivationTests(unittest.TestCase):
         result = estate.derive_host_gate(env)
         self.assertEqual(result["recovery_class"]["value"]["class"], "forward-fix-or-restore")
         self.assertEqual(result["next_blocking_gate"]["value"]["gate"], "served-doctor")
+
+    def test_declared_holds_make_host_holds_known(self):
+        def with_holds(holds):
+            def edit(fixture):
+                record = json.loads(fixture["stdout"])
+                record["holds"] = holds
+                fixture["stdout"] = json.dumps(record)
+            return by_id(replay_edited(["devbox"], {"devbox.environment_record.json": edit}))["devbox"]
+
+        clear = with_holds([])
+        self.assertEqual(clear["held"]["host_holds"]["value"], [])
+        self.assertEqual(clear["gate"]["next_blocking_gate"]["value"]["gate"], "none")
+        held = with_holds([{"id": "out-of-dispatch", "reason": "kernel upgrade"}])
+        self.assertEqual(held["held"]["host_holds"]["value"], ["out-of-dispatch"])
+        self.assertEqual(held["gate"]["next_blocking_gate"]["value"]["gate"], "holds")
 
     def test_profile_revision_drift_blocks_on_both_hosts(self):
         for host in ("workstation", "devbox"):
@@ -543,6 +622,32 @@ class SafetyAndHelperTests(unittest.TestCase):
                        "pw42", "a" * 30):
             self.assertNotIn(secret, text)
 
+    def test_json_credential_keys_are_redacted(self):
+        doc = {"password": "hunter2", "db_password": "pw", "client_secret": "cs", "access_token": "at",
+               "api_key": "ak", "privateKey": "pk", "Authorization": "Basic xyz", "nested": {"token": "t1"}}
+        text = estate.redact(json.dumps(doc))
+        parsed = json.loads(text)
+        for value in ("hunter2", "\"pw\"", "\"cs\"", "\"at\"", "\"ak\"", "\"pk\"", "Basic xyz", "\"t1\""):
+            self.assertNotIn(value, text)
+        self.assertEqual(parsed["nested"]["token"], "[REDACTED]")
+
+    def test_json_redaction_keeps_references_and_non_strings(self):
+        doc = {"credential_ref": "file:~/.config/x", "secretName": "vuoro-identities", "token_file": "/p",
+               "credential_resolved": True, "tokens": 3, "authenticated_actor": "workstation-vuoro"}
+        self.assertEqual(json.loads(estate.redact(json.dumps(doc))), doc)
+
+    def test_emit_guard_fails_closed_per_field(self):
+        report = {"a": {"evidence": "token Zx9Qw7Lm3Rt8Yp2Kd6Vn4Bh1Jc5Gf0Ts here", "ok": "sha256:" + "a" * 64},
+                  "b": ["fine", "user:hunter22@db.example.com"]}
+        clean = estate.guard_report(report)
+        self.assertEqual(clean["a"]["evidence"], estate.GUARD_PLACEHOLDER)
+        self.assertEqual(clean["a"]["ok"], report["a"]["ok"])
+        self.assertEqual(clean["b"], ["fine", estate.GUARD_PLACEHOLDER])
+        self.assertEqual(clean["guard_redactions"], ["$.a.evidence", "$.b[1]"])
+
+    def test_live_report_needs_no_guard_redaction(self):
+        self.assertNotIn("guard_redactions", estate.guard_report(replay()))
+
     def test_redaction_leaves_code_alone(self):
         for code in ("const token=readToken();", "if (secret=== null) {}", "let password=input.value"):
             with self.subTest(code=code):
@@ -603,6 +708,19 @@ class CliTests(unittest.TestCase):
         Path(handle.name).unlink()
         self.assertIn("## vuoro-shared (cluster)", rendered)
         self.assertIn("rendered from a saved report", rendered)
+
+    def test_from_json_carries_its_age(self):
+        saved = self.run_cli("estate", "status", "--replay", str(FIXTURES), "--json", "--env", "devbox").stdout
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+            handle.write(saved)
+        done = self.run_cli("estate", "status", "--from", handle.name, "--json")
+        Path(handle.name).unlink()
+        report = json.loads(done.stdout)
+        self.assertEqual(schema_check.validate(report, SCHEMA), [])
+        age = report["saved_report_age"]
+        self.assertGreater(age["age_seconds"], 0)
+        self.assertIn("saved report", age["warning"])
+        self.assertNotIn("saved_report_age", json.loads(saved))
 
     def test_two_word_resolution_is_allowlisted(self):
         done = self.run_cli("render", "project", "--help")  # scripts/render_project.py exists

@@ -50,8 +50,10 @@ TOOL = {
         "what is desired, running, usable and held, the next blocking gate and the recovery "
         "class (cancel / image-revert / forward-fix-or-restore). Every fact has a value, "
         "source, observed_at and evidence. 'unknown' is a valid result and carries a reason. "
-        "Probes run kubectl get, HTTP GET, git ls-remote/show, and sprintctl doctor; nothing "
-        "is mutated. A full run takes about 10 seconds."),
+        "Probes run kubectl get, HTTP GET, git ls-remote/show, and sprintctl doctor; no cluster, "
+        "host or service is mutated. With fetch:true it also runs `git fetch`, which updates "
+        "remote-tracking refs and FETCH_HEAD in the local clones (never a working tree); that is "
+        "the only local write, and why readOnlyHint is false. A full run takes about 10 seconds."),
     "inputSchema": {
         "type": "object",
         "properties": {
@@ -65,13 +67,16 @@ TOOL = {
             },
             "fetch": {
                 "type": "boolean", "default": False,
-                "description": "git fetch the deploying repos' remote-tracking refs first "
-                               "(no working-tree change).",
+                "description": "Side effect when true: `git fetch` updates remote-tracking refs "
+                               "and FETCH_HEAD in the local clones of the deploying repos "
+                               "(no working-tree change) so desired state is current.",
             },
         },
         "additionalProperties": False,
     },
-    "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True,
+    # fetch:true writes remote-tracking refs locally, so the tool as a whole is not read-only
+    # in the MCP sense; nothing it does is destructive.
+    "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True,
                     "openWorldHint": True},
 }
 
@@ -118,6 +123,9 @@ class Server:
         method, msg_id = message["method"], message.get("id")
         if "id" not in message:  # notification: never answered
             return None
+        if msg_id is None or isinstance(msg_id, bool) or not isinstance(msg_id, (str, int, float)):
+            # JSON-RPC ids are strings or numbers; MCP additionally forbids null.
+            return _error(None, -32600, "Invalid Request: id must be a string or number")
         params = message.get("params") or {}
         if method == "initialize":
             requested = params.get("protocolVersion") if isinstance(params, dict) else None
@@ -126,7 +134,8 @@ class Server:
                 "protocolVersion": version,
                 "capabilities": {"tools": {"listChanged": False}},
                 "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
-                "instructions": "Read-only estate status. Call estate_status, optionally with env.",
+                "instructions": "Estate status. Call estate_status, optionally with env; "
+                                "fetch:true also updates local remote-tracking refs.",
             })
         if method == "ping":
             return _result(msg_id, {})
@@ -151,6 +160,7 @@ class Server:
         except Exception as error:  # noqa: BLE001 - surface as a tool error, keep serving
             text = estate.redact(f"estate status failed: {type(error).__name__}: {error}")
             return {"content": [{"type": "text", "text": text}], "isError": True}
+        report = estate.guard_report(report)  # same emit guard as the CLI
         return {"content": [{"type": "text", "text": json.dumps(report, indent=1)}],
                 "structuredContent": report, "isError": False}
 
