@@ -523,6 +523,22 @@ class HostDerivationTests(unittest.TestCase):
         self.assertEqual(held["held"]["declared_host_holds"]["value"], ["out-of-dispatch"])
         self.assertEqual(held["gate"]["next_blocking_gate"]["value"]["gate"], "holds")
 
+    def test_malformed_holds_are_unknown_not_a_crash(self):
+        for bad in (["x"], [{"id": "a"}], [{"id": "Bad Id", "reason": "r"}], "none", [None]):
+            with self.subTest(holds=bad):
+                def edit(fixture, bad=bad):
+                    record = json.loads(fixture["stdout"])
+                    record["holds"] = bad
+                    fixture["stdout"] = json.dumps(record)
+                report = replay_edited(["workstation"], {"workstation.environment_record.json": edit})
+                self.assertEqual(schema_check.validate(report, SCHEMA), [])
+                env = by_id(report)["workstation"]
+                self.assertEqual(env["held"]["declared_host_holds"]["status"], "unknown")
+                self.assertIn("malformed", env["held"]["declared_host_holds"]["reason"])
+                gate = env["gate"]["next_blocking_gate"]
+                self.assertEqual(gate["status"], "unknown")
+                self.assertIn("'holds'", gate["reason"])
+
     def test_profile_revision_drift_blocks_on_both_hosts(self):
         for host in ("workstation", "devbox"):
             with self.subTest(host=host):
@@ -664,6 +680,36 @@ class SafetyAndHelperTests(unittest.TestCase):
         report = json.loads(done.stdout)
         self.assertEqual(report["guard_redactions"], saved["guard_redactions"])
         self.assertEqual(schema_check.validate(report, SCHEMA), [])
+
+    def _from_json(self, saved, *extra):
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+            json.dump(saved, handle)
+        done = subprocess.run([str(ROOT / "bin/agentops"), "estate", "status", "--from", handle.name,
+                               "--json", *extra], capture_output=True, text=True, check=True)
+        Path(handle.name).unlink()
+        return done.stdout
+
+    def test_untrusted_earlier_redactions_are_never_emitted(self):
+        token = "ghp_" + "ABCDEFGHIJ" + "0123456789" + "abcdefghij" + "0123456789"  # fake, assembled
+        path_shaped_secret = "$.Zx9Qw7Lm3Rt8Yp2Kd6Vn4Bh1Jc5Gf0Ts"
+        saved = replay(["devbox"])
+        saved["guard_redactions"] = ["$.x", token, 5, "$.x", path_shaped_secret, "$.y z", {"p": 1}]
+        out = self._from_json(saved)
+        self.assertNotIn(token, out)
+        self.assertNotIn("Zx9Qw7Lm3Rt8Yp2Kd6Vn4Bh1Jc5Gf0Ts", out)
+        self.assertEqual(json.loads(out)["guard_redactions"], ["$.x"])
+
+    def test_env_filter_remaps_redaction_paths(self):
+        saved = replay()
+        ids = [e["id"] for e in saved["environments"]]
+        devbox = ids.index("devbox")
+        saved["guard_redactions"] = [f"$.environments[{devbox}].desired.a", "$.environments[0].desired.b",
+                                     "$.generator.tool"]
+        report = json.loads(self._from_json(saved, "--env", "devbox"))
+        self.assertEqual([e["id"] for e in report["environments"]], ["devbox"])
+        self.assertEqual(report["guard_redactions"], ["$.environments[0].desired.a", "$.generator.tool"])
+        self.assertEqual(estate.remap_guard_paths(["$.environments[2].x", "$.environments[1]"], [1, 2]),
+                         ["$.environments[1].x", "$.environments[0]"])
 
     def test_emit_guard_fails_closed_per_field(self):
         report = {"a": {"evidence": "token Zx9Qw7Lm3Rt8Yp2Kd6Vn4Bh1Jc5Gf0Ts here", "ok": "sha256:" + "a" * 64},
