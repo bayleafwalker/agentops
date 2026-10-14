@@ -22,7 +22,7 @@ Commands:
 
     agentops host-adapter run [--once [--wait]]
     agentops host-adapter status [--json]
-    agentops host-adapter resolve <message_id> --abandon [--repo REPO]
+    agentops host-adapter resolve <message_id> --abandon [--repo REPO]   # stop the service first
 """
 
 from __future__ import annotations
@@ -32,6 +32,7 @@ import asyncio
 import contextlib
 import datetime as _dt
 import fcntl
+import functools
 import hashlib
 import json
 import os
@@ -80,8 +81,24 @@ def canonical(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
-def _parse_time(value: str) -> float:
-    return _dt.datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+def _parse_time(value: Any) -> float | None:
+    """RFC 3339 with an explicit offset to epoch seconds; None when malformed or offset-less."""
+    try:
+        parsed = _dt.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed.timestamp() if parsed.tzinfo is not None else None
+
+
+def not_after_denial(value: Any, now: float) -> tuple[str, str] | None:
+    if not value:
+        return None
+    limit = _parse_time(value)
+    if limit is None:
+        return "invalid-not-after", f"not_after {value!r} is not an RFC 3339 timestamp with an offset"
+    if now >= limit:
+        return "sender-validity-elapsed", f"not_after {value} has passed"
+    return None
 
 
 # --------------------------------------------------------------------------
@@ -165,7 +182,7 @@ class VuoroOwner:
             code = getattr(exc, "code", None)
             if isinstance(code, str):
                 raise OwnerError(code, str(exc)) from exc
-            raise
+            raise OwnerError("transport", f"{type(exc).__name__}: {exc}") from exc
 
     def agent_register(self, repo_id, *, instance_id, declaration, idempotency_key):
         return self._invoke("work.agent.register-v1", {
@@ -244,6 +261,17 @@ class HarnessPort(Protocol):
     def abort(self, session_id: str, directory: str) -> None: ...
 
 
+def _shaped(fn):
+    """Unexpected response shapes are harness errors, not crashes of the tick."""
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except (KeyError, TypeError, AttributeError, IndexError) as exc:
+            raise HarnessError(f"{fn.__name__}: unexpected response shape: {type(exc).__name__}: {exc}") from exc
+    return wrapper
+
+
 class OpenCodeServe:
     """`opencode serve` over loopback HTTP. Endpoints verified against 1.19.0 `/doc`.
 
@@ -268,7 +296,10 @@ class OpenCodeServe:
                 raw = resp.read()
         except (urllib.error.URLError, OSError) as exc:
             raise HarnessError(f"{method} {path}: {exc}") from exc
-        return json.loads(raw) if raw else None
+        try:
+            return json.loads(raw) if raw else None
+        except ValueError as exc:
+            raise HarnessError(f"{method} {path}: response is not JSON") from exc
 
     def health(self) -> bool:
         try:
@@ -276,11 +307,15 @@ class OpenCodeServe:
         except (HarnessError, ValueError):
             return False
 
+    @_shaped
     def create_session(self, title: str, directory: str) -> str:
         return self._call("POST", "/session", {"directory": directory}, {"title": title})["id"]
 
+    @_shaped
     def find_sessions(self, title: str, directory: str) -> list[str]:
-        rows = self._call("GET", "/session", {"directory": directory, "search": title, "limit": 100}) or []
+        rows = self._call("GET", "/session", {"directory": directory, "search": title, "limit": 100})
+        if not isinstance(rows, list):
+            raise HarnessError("find_sessions: unexpected response shape")
         return [row["id"] for row in rows if row.get("title") == title]
 
     def send_prompt(self, session_id: str, text: str, directory: str, model: str | None) -> None:
@@ -290,10 +325,13 @@ class OpenCodeServe:
             body["model"] = {"providerID": provider, "modelID": model_id}
         self._call("POST", f"/session/{session_id}/prompt_async", {"directory": directory}, body)
 
+    @_shaped
     def session_state(self, session_id: str, directory: str) -> SessionState:
         status = self._call("GET", "/session/status", {"directory": directory}) or {}
         busy = (status.get(session_id) or {}).get("type") in ("busy", "retry")
-        messages = self._call("GET", f"/session/{session_id}/message", {"directory": directory}) or []
+        messages = self._call("GET", f"/session/{session_id}/message", {"directory": directory})
+        if not isinstance(messages, list) or not isinstance(status, dict):
+            raise HarnessError("session_state: unexpected response shape")
         assistants = [m for m in messages if (m.get("info") or {}).get("role") == "assistant"]
         last = assistants[-1]["info"] if assistants else {}
         parts = [p for m in messages for p in m.get("parts", [])]
@@ -420,12 +458,13 @@ CREATE TABLE IF NOT EXISTS messages (
   abort_requested INTEGER NOT NULL DEFAULT 0,
   outcome TEXT, summary TEXT, evidence TEXT, detail TEXT,
   ambiguous_sent INTEGER NOT NULL DEFAULT 0,
+  abort_sent INTEGER NOT NULL DEFAULT 0, idle_polls INTEGER NOT NULL DEFAULT 0,
   closed INTEGER NOT NULL DEFAULT 0,
   last_error TEXT, created_at REAL NOT NULL, updated_at REAL NOT NULL,
   PRIMARY KEY (repo_id, message_id));
 """
 _COLUMNS = ("state decision reason_code reason_text run_id session_id prompt_sent abort_requested "
-            "outcome summary evidence detail ambiguous_sent closed last_error").split()
+            "outcome summary evidence detail ambiguous_sent abort_sent idle_polls closed last_error").split()
 
 
 class State:
@@ -576,8 +615,8 @@ class Adapter:
     def _guarded(self, fn: Callable, *args: Any) -> None:
         try:
             fn(*args)
-        except (OwnerError, HarnessError, OSError) as exc:
-            self.log(f"{getattr(fn, '__name__', fn)}{args!r}: {exc}")
+        except Exception as exc:  # noqa: BLE001 - one bad record or call must not stop the daemon
+            self.log(f"{getattr(fn, '__name__', fn)}{args!r}: {type(exc).__name__}: {exc}")
 
     def _declaration(self, policy: Policy) -> dict:
         harness = policy.harness
@@ -639,8 +678,8 @@ class Adapter:
             try:
                 if not handlers[rec["state"]](rec):
                     return
-            except (OwnerError, HarnessError, OSError) as exc:
-                self.state.update(repo, mid, last_error=str(exc)[:500])
+            except Exception as exc:  # noqa: BLE001 - parked on the record; the tick continues
+                self.state.update(repo, mid, last_error=f"{type(exc).__name__}: {exc}"[:500])
                 raise
 
     def _receipt(self, rec: sqlite3.Row, kind: str, **fields: Any) -> dict:
@@ -660,8 +699,8 @@ class Adapter:
             denial = ("recipient-mismatch", "message targets another instance")
         if denial is None and env.get("mode", "request") != "request":
             denial = ("mode-not-supported", f"mode {env.get('mode')!r}")
-        if denial is None and not_after and self.clock() >= _parse_time(not_after):
-            denial = ("sender-validity-elapsed", f"not_after {not_after} has passed")
+        if denial is None:
+            denial = not_after_denial(not_after, self.clock())
         if denial:
             decision, (code, text) = "refused", denial
         self.state.update(rec["repo_id"], rec["message_id"], state=S_DECIDED, decision=decision,
@@ -674,11 +713,11 @@ class Adapter:
         self._receipt(rec, "acknowledged")
         self._checkpoint("acknowledged_sent")
         key = (rec["repo_id"], rec["message_id"])
-        if rec["decision"] == "refused":
-            self._receipt(rec, "refused", reason={"code": rec["reason_code"], "text": rec["reason_text"] or ""})
-            self.state.update(*key, closed=1)
-            return False
         try:
+            if rec["decision"] == "refused":
+                self._receipt(rec, "refused", reason={"code": rec["reason_code"], "text": rec["reason_text"] or ""})
+                self.state.update(*key, closed=1)
+                return False
             self._receipt(rec, "accepted")
         except OwnerError as exc:
             if exc.code != "already-decided":
@@ -699,10 +738,12 @@ class Adapter:
             if exc.code != "idempotency-conflict":
                 raise
             # The pinned configuration changed between retries. Never mint a new key.
-            self.state.update(*key, state=S_AMBIGUOUS, ambiguous_sent=1,
+            self.state.update(*key, state=S_AMBIGUOUS,
                               detail=f"run registration conflict: {exc.message}"[:2000])
-            return False
+            return True  # the loop flushes launch-ambiguous (no run_id known)
         run_id = (result.get("run") or {}).get("run_id") or result.get("run_id")
+        if not run_id:
+            raise OwnerError("invalid-result", "run registration returned no run_id")
         self.state.update(*key, state=S_RUN_REGISTERED, run_id=run_id)
         self._checkpoint("run_registered_persisted")
         return True
@@ -723,9 +764,8 @@ class Adapter:
         except OwnerError as exc:
             if exc.code != "run-already-linked":
                 raise
-            self.state.update(*key, state=S_AMBIGUOUS, ambiguous_sent=1,
-                              detail=f"run-linked refused: {exc.message}"[:2000])
-            return False
+            self.state.update(*key, state=S_AMBIGUOUS, detail=f"run-linked refused: {exc.message}"[:2000])
+            return True  # the loop flushes launch-ambiguous
         self._checkpoint("run_linked_sent")
         env = json.loads(rec["envelope"])
         policy = load_policy(self.policy_path)  # re-read immediately before launch
@@ -734,12 +774,13 @@ class Adapter:
         denial = policy_denial(policy, rec["repo_id"], env)
         if denial is None and _has_cancel(receipts):
             denial = ("canceled-by-sender", "cancel-requested was recorded before launch")
-        if denial is None and env.get("not_after") and self.clock() >= _parse_time(env["not_after"]):
-            denial = ("sender-validity-elapsed", "not_after passed before launch")
+        if denial is None:
+            denial = not_after_denial(env.get("not_after"), self.clock())
         if denial:
             self._close_not_started(rec, *denial)
             return False
-        live = sum(1 for r in self.state.open_records() if r["state"] in (S_LAUNCH_INTENT, S_LAUNCHED))
+        live = sum(1 for r in self.state.open_records()
+                   if r["state"] in (S_LAUNCH_INTENT, S_LAUNCHED) or (r["state"] == S_AMBIGUOUS and r["run_id"]))
         if live >= policy.max_concurrent or not self.harness.health():
             return False  # deferred; the next tick retries
         self.state.update(*key, state=S_LAUNCH_INTENT)
@@ -768,9 +809,10 @@ class Adapter:
         return True
 
     def _flush_ambiguous(self, rec) -> None:
-        if rec["ambiguous_sent"] or not rec["run_id"]:
+        if rec["ambiguous_sent"]:
             return
-        self._receipt(rec, "launch-ambiguous", detail=(rec["detail"] or "")[:2048])
+        extra = {"run_id": rec["run_id"]} if rec["run_id"] else {}
+        self._receipt(rec, "launch-ambiguous", detail=(rec["detail"] or "")[:2048], **extra)
         self.state.update(rec["repo_id"], rec["message_id"], ambiguous_sent=1)
 
     def _on_launched(self, rec) -> bool:
@@ -790,20 +832,32 @@ class Adapter:
             receipts = status.get("receipts") or (status.get("message") or {}).get("receipts") or []
             if _has_cancel(receipts):
                 self.state.update(*key, abort_requested=1)
-                self.harness.abort(sid, directory)
-                self._checkpoint("abort_sent")
                 rec = self.state.get(*key)
         st = self.harness.session_state(sid, directory)
+        if rec["abort_requested"] and (not rec["abort_sent"] or st.busy):
+            # An abort sent before the session is busy can be a no-op: repeat it (idempotent) while busy.
+            self.harness.abort(sid, directory)
+            self.state.update(*key, abort_sent=1)
+            self._checkpoint("abort_sent")
+            rec = self.state.get(*key)
+            st = self.harness.session_state(sid, directory)
         if st.busy:
             return False
-        if not (st.assistant_completed or st.error or rec["abort_requested"]):
-            return False  # prompt accepted, assistant has not started yet
-        if st.error == "MessageAbortedError" or (rec["abort_requested"] and not st.assistant_completed):
+        # `canceled` only on evidence; otherwise record what actually happened.
+        if st.error == "MessageAbortedError":
             outcome = "canceled"
         elif st.error:
             outcome = "failed"
-        else:
+        elif st.assistant_completed:
             outcome = "completed"
+        elif rec["abort_requested"] and rec["abort_sent"]:
+            # Idle, aborted, and no assistant message at all: canceled after a grace tick.
+            if rec["idle_polls"] < 1:
+                self.state.update(*key, idle_polls=rec["idle_polls"] + 1)
+                return False
+            outcome = "canceled"
+        else:
+            return False  # prompt accepted, assistant has not started yet
         evidence = [{"kind": "run", "ref": rec["run_id"]}, {"kind": "harness-session", "ref": sid}]
         note = _NOTE_ID.search(st.text)
         if note:
@@ -880,7 +934,9 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--max-wait", type=float, default=900.0)
     st = sub.add_parser("status", help="print processing records, including ambiguous ones")
     st.add_argument("--json", action="store_true")
-    res = sub.add_parser("resolve", help="close an ambiguous message (explicit act; never relaunches)")
+    res = sub.add_parser(
+        "resolve", help="close an ambiguous message (explicit act; never relaunches). Takes the state lock, "
+        "so the service must be stopped first (exit 3 while it runs): one writer per state dir, no racing the poll loop.")
     res.add_argument("message_id")
     res.add_argument("--abandon", action="store_true", required=True)
     res.add_argument("--repo")

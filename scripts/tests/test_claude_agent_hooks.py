@@ -97,3 +97,33 @@ def test_main_with_an_unreachable_owner_exits_zero_within_the_deadline(tmp_path)
     p = subprocess.run([sys.executable, str(SCRIPTS / "claude_agent_hooks.py"), "session-start"],
                        input="{}", capture_output=True, text=True, env=env, timeout=10)
     assert p.returncode == 0 and p.stdout == "" and time.time() - t < 5
+
+
+def test_concurrent_session_starts_converge_on_one_instance_id(tmp_path, monkeypatch):
+    first = hooks.ha.new_ulid("ins")
+    other = hooks.ha.new_ulid("ins")
+    path, _ = hooks._paths(tmp_path)
+
+    def racing_mint(prefix):
+        # another SessionStart wins the race after this one decided to mint
+        path.write_text(json.dumps({"instance_id": other, "registered_version": None, "registered_repos": []}))
+        return first
+
+    monkeypatch.setattr(hooks.ha, "new_ulid", racing_mint)
+    record, created = hooks.load_or_mint(tmp_path)
+    assert record["instance_id"] == other and created is False
+    assert json.loads(path.read_text())["instance_id"] == other
+    assert [p.name for p in tmp_path.iterdir()] == [path.name]  # no stray tmp files
+
+
+def test_the_deadline_also_covers_a_stdin_that_never_closes(tmp_path):
+    env = dict(os.environ, AGENTOPS_VUORO_PROFILE=str(tmp_path / "missing.json"),
+               AGENTOPS_AGENT_INSTANCES_DIR=str(tmp_path / "i"))
+    t = time.time()
+    p = subprocess.Popen([sys.executable, str(SCRIPTS / "claude_agent_hooks.py"), "prompt-submit"],
+                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+    try:
+        rc = p.wait(timeout=8)
+    finally:
+        p.kill()
+    assert rc == 0 and time.time() - t < 6

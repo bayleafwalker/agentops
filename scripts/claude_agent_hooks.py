@@ -65,8 +65,16 @@ def load_or_mint(base: Path) -> tuple[dict, bool]:
         pass
     base.mkdir(parents=True, exist_ok=True, mode=0o700)
     record = {"instance_id": ha.new_ulid("ins"), "registered_version": None, "registered_repos": []}
-    _write(path, record)
-    return record, True
+    # Exclusive create: link() fails if the file exists, so concurrent SessionStarts converge on one id.
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    tmp.write_text(json.dumps(record))
+    try:
+        os.link(tmp, path)
+        return record, True
+    except FileExistsError:
+        return json.loads(path.read_text()), False
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def _write(path: Path, record: dict) -> None:
@@ -121,15 +129,17 @@ def _on_alarm(signum, frame):  # noqa: ANN001
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     owner = None
-    try:
+    try:  # the deadline covers everything, including a stdin that never closes
+        signal.signal(signal.SIGALRM, _on_alarm)
+        signal.alarm(DEADLINE_SECONDS)
         sys.stdin.read()  # hook event payload; not needed
+    except TimeoutError:
+        return 0
     except Exception:  # noqa: BLE001
         pass
     try:
         if not argv or argv[0] not in ("session-start", "prompt-submit"):
             return 0
-        signal.signal(signal.SIGALRM, _on_alarm)
-        signal.alarm(DEADLINE_SECONDS)
         profile = os.environ.get("AGENTOPS_VUORO_PROFILE", DEFAULT_PROFILE)
         if not Path(profile).is_file():
             return 0

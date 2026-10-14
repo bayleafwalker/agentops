@@ -49,6 +49,9 @@ class FakeOwner:
         self.run_register_calls = 0
         self.calls: list[tuple[str, str]] = []
         self.register_conflict = False
+        self.fail_once: set[str] = set()   # receipt kinds that raise a transport error once
+        self.fail_messages: set[str] = set()  # message ids whose receipts always raise
+        self.no_run_id = False
 
     # test helpers
     def send(self, mid: str = "msg_A", *, sender: str = SENDER, kind: str = "continue", pred: str | None = "run_P",
@@ -100,6 +103,11 @@ class FakeOwner:
 
     def message_receipt(self, repo, *, message_id, instance_id, kind, **fields):
         self.calls.append((message_id, kind))
+        if message_id in self.fail_messages:
+            raise RuntimeError("boom")
+        if kind in self.fail_once:
+            self.fail_once.discard(kind)
+            raise ha.OwnerError("transport", "injected")
         rs = self.receipts[message_id]
         mine = lambda k: next((r for r in rs if r["kind"] == k and r["instance_id"] == instance_id), None)  # noqa: E731
         rec = {"kind": kind, "instance_id": instance_id, "principal_id": ME, **fields}
@@ -127,8 +135,8 @@ class FakeOwner:
                 raise ha.OwnerError("run-already-linked")
             return self._add(rs, rec)
         if kind == "launch-ambiguous":
-            if not mine("run-linked"):
-                raise ha.OwnerError("not-accepted", "needs run-linked")
+            if not mine("accepted"):
+                raise ha.OwnerError("not-accepted", "needs accepted")
             return replay(mine(kind)) if mine(kind) else self._add(rs, rec)
         if kind == "result-linked":
             outcome = fields["outcome"]
@@ -154,6 +162,8 @@ class FakeOwner:
 
     def run_register(self, repo, arguments):
         self.run_register_calls += 1
+        if self.no_run_id:
+            return {"repo_id": repo, "run": {}}
         key = arguments["idempotency_key"]
         digest = ha.canonical(arguments)
         if key in self.runs:
@@ -176,6 +186,7 @@ class FakeHarness:
         self.finish_on_poll = True  # a prompted session is complete when next observed
         self.fail_with: str | None = None
         self.note_text = ""
+        self.manual_start = False  # a prompted session does not become busy until start() is called
 
     def health(self):
         return self.healthy
@@ -183,7 +194,7 @@ class FakeHarness:
     def create_session(self, title, directory):
         self.creates += 1
         sid = f"ses_{self.creates:04d}"
-        self.sessions[sid] = {"title": title, "messages": 0, "aborted": False}
+        self.sessions[sid] = {"title": title, "messages": 0, "aborted": False, "started": False}
         return sid
 
     def find_sessions(self, title, directory):
@@ -193,13 +204,20 @@ class FakeHarness:
 
     def send_prompt(self, sid, text, directory, model):
         self.prompts.append((sid, text))
-        self.sessions[sid]["messages"] = 1
+        self.sessions[sid]["messages"] = 1  # the user message; the assistant message comes with start
+        self.sessions[sid]["started"] = not self.manual_start
+
+    def start(self):
+        for s in self.sessions.values():
+            s["started"] = s["messages"] > 0
 
     def session_state(self, sid, directory):
         s = self.sessions[sid]
         if s["aborted"]:
             return ha.SessionState(busy=False, message_count=s["messages"], assistant_completed=True,
                                    error="MessageAbortedError")
+        if not s["started"]:
+            return ha.SessionState(busy=False, message_count=s["messages"])
         if s["messages"] and self.finish_on_poll:
             return ha.SessionState(busy=False, message_count=s["messages"], assistant_completed=not self.fail_with,
                                    error=self.fail_with, text=self.note_text)
@@ -207,7 +225,9 @@ class FakeHarness:
 
     def abort(self, sid, directory):
         self.aborts.append(sid)
-        self.sessions[sid]["aborted"] = True
+        s = self.sessions[sid]
+        if s["started"] and not self.finish_on_poll:  # a no-op before the session is busy or after it ended
+            s["aborted"] = True
 
 
 # ---------------------------------------------------------------- fixtures
@@ -460,7 +480,7 @@ def test_crash_at_any_persisted_step_resumes_with_exactly_one_launch(rig, step):
     rig.tick(4)
     assert rig.harness.creates == 1 and len(rig.harness.prompts) == 1
     assert rig.rec()["outcome"] == "completed" and rig.rec()["closed"] == 1
-    assert rig.owner.run_register_calls <= 2 and len(rig.owner.runs) == 1
+    assert rig.owner.run_register_calls == 1 and len(rig.owner.runs) == 1
 
 
 def test_crash_after_intent_before_create_is_ambiguous_not_relaunched(rig):
@@ -527,7 +547,7 @@ def test_prompt_is_not_sent_twice_when_session_already_has_messages(rig):
     rig.crash_at("launched_persisted")
     with pytest.raises(Crash):
         rig.tick()
-    rig.harness.sessions["ses_0001"]["messages"] = 1  # prompt landed just before the crash
+    rig.harness.sessions["ses_0001"].update(messages=1, started=True)  # prompt landed just before the crash
     rig.boot()
     rig.tick(3)
     assert rig.harness.prompts == [] and rig.rec()["outcome"] == "completed"
@@ -544,6 +564,8 @@ def test_run_registration_conflict_is_ambiguous_and_mints_no_new_key(rig):
     rig.boot()
     rig.tick(3)
     assert rig.rec()["state"] == ha.S_AMBIGUOUS and "conflict" in rig.rec()["detail"]
+    amb = rig.owner.receipt_of("msg_A", "launch-ambiguous")
+    assert amb and "run_id" not in amb and rig.rec()["ambiguous_sent"] == 1
     assert list(rig.owner.runs) == ["inbox.msg_A"] and rig.harness.creates == 0
 
 
@@ -633,3 +655,229 @@ def test_opencode_serve_refuses_a_non_loopback_url():
 
 def test_health_is_false_when_the_server_is_down():
     assert ha.OpenCodeServe("http://127.0.0.1:1", timeout=0.5).health() is False
+
+
+# ---------------------------------------------------------------- review round: abort, robustness, receipts
+
+def test_abort_before_busy_is_a_noop_so_it_is_repeated_while_busy(rig):
+    rig.harness.finish_on_poll = False
+    rig.harness.manual_start = True
+    rig.owner.send()
+    rig.tick()
+    rig.owner.cancel("msg_A")
+    rig.tick()
+    assert len(rig.harness.aborts) == 1 and rig.rec()["closed"] == 0  # no-op abort, no evidence: not canceled yet
+    rig.harness.start()
+    rig.tick()
+    assert len(rig.harness.aborts) == 2
+    assert rig.owner.receipt_of("msg_A", "result-linked")["outcome"] == "canceled"
+
+
+def test_cancel_that_loses_the_race_records_what_actually_happened(rig):
+    rig.owner.send()
+    rig.checkpoint = lambda name: rig.owner.cancel("msg_A") if name == "prompt_sent" else None
+    rig.tick(3)
+    assert rig.owner.receipt_of("msg_A", "result-linked")["outcome"] == "completed"
+
+
+def test_cancel_of_a_session_that_never_starts_is_canceled_after_a_grace_tick(rig):
+    rig.harness.manual_start = True
+    rig.owner.send()
+    rig.tick()
+    rig.owner.cancel("msg_A")
+    rig.tick()
+    assert rig.rec()["closed"] == 0
+    rig.tick()
+    assert rig.owner.receipt_of("msg_A", "result-linked")["outcome"] == "canceled"
+
+
+def test_crash_after_abort_sent_resumes_to_canceled(rig):
+    rig.harness.finish_on_poll = False
+    rig.owner.send()
+    rig.tick()
+    rig.owner.cancel("msg_A")
+    rig.crash_at("abort_sent")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.boot()
+    rig.tick(2)
+    assert rig.owner.receipt_of("msg_A", "result-linked")["outcome"] == "canceled" and rig.harness.creates == 1
+
+
+def test_crash_after_not_started_persisted_still_writes_the_result_once(rig):
+    write_policy(rig.policy, allowed_senders=[])
+    rig.owner.send()
+    rig.crash_at("not_started_persisted")
+    # accept needs the sender allowed at decision time, so revoke only after run-linked
+    write_policy(rig.policy)
+    orig = rig.checkpoint
+
+    def hook(name):
+        if name == "run_linked_sent":
+            write_policy(rig.policy, allowed_senders=[])
+        orig(name)
+    rig.checkpoint = hook
+    with pytest.raises(Crash):
+        rig.tick(2)
+    rig.boot()
+    rig.tick(2)
+    assert rig.owner.kinds("msg_A").count("result-linked") == 1 and rig.harness.creates == 0
+    assert rig.rec()["state"] == ha.S_NOT_STARTED and rig.rec()["closed"] == 1
+
+
+def test_crash_while_adopting_is_recoverable(rig):
+    rig.owner.send()
+    rig.crash_at("session_created")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.boot()
+    rig.crash_at("adopted_persisted")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.boot()
+    rig.tick(3)
+    assert rig.harness.creates == 1 and rig.rec()["outcome"] == "completed"
+
+
+def test_crash_after_ambiguous_persisted_still_sends_launch_ambiguous(rig):
+    rig.owner.send()
+    rig.crash_at("launch_intent_persisted")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.boot()
+    rig.crash_at("ambiguous_persisted")
+    with pytest.raises(Crash):
+        rig.tick()
+    assert rig.owner.receipt_of("msg_A", "launch-ambiguous") is None
+    rig.boot()
+    rig.tick(2)
+    assert rig.owner.kinds("msg_A").count("launch-ambiguous") == 1 and rig.harness.creates == 0
+
+
+def test_one_failing_record_does_not_stop_the_others(rig):
+    rig.owner.send("msg_A")
+    rig.owner.send("msg_B")
+    rig.owner.fail_messages.add("msg_A")
+    rig.tick(3)
+    assert rig.rec("msg_B")["outcome"] == "completed"
+    assert "RuntimeError" in rig.rec("msg_A")["last_error"] and rig.rec("msg_A")["closed"] == 0
+
+
+def test_vuoro_client_errors_without_a_code_become_transport_errors():
+    import asyncio
+
+    class Client:
+        def __init__(self, exc):
+            self.exc = exc
+
+        async def invoke(self, *a, **k):
+            raise self.exc
+
+    class Coded(Exception):
+        code = "already-decided"
+
+    for exc, code in ((ConnectionError("down"), "transport"), (Coded("x"), "already-decided")):
+        o = ha.VuoroOwner("unused")
+        o._client, o._loop = Client(exc), asyncio.new_event_loop()
+        with pytest.raises(ha.OwnerError) as ei:
+            o.message_status(REPO, message_id="msg_A")
+        assert ei.value.code == code
+        o._loop.close()
+
+
+@pytest.mark.parametrize("value", ["tomorrow", "2030-01-01T00:00:00", 12])
+def test_malformed_or_offsetless_not_after_is_refused(rig, value):
+    rig.owner.send(not_after=value)
+    rig.tick(2)
+    assert rig.owner.receipt_of("msg_A", "refused")["reason"]["code"] == "invalid-not-after"
+    assert rig.harness.creates == 0
+
+
+def test_a_valid_future_not_after_is_honoured(rig):
+    rig.owner.send(not_after="2999-01-01T00:00:00Z")
+    rig.tick(2)
+    assert rig.rec()["outcome"] == "completed"
+
+
+def test_refusal_that_loses_to_another_instances_decision_is_lost_decision(rig):
+    write_policy(rig.policy, allowed_senders=[])
+    rig.owner.send()
+    rig.owner.receipts["msg_A"].append({"kind": "accepted", "instance_id": "ins_OTHER", "principal_id": ME})
+    rig.tick(2)
+    assert rig.rec()["state"] == ha.S_LOST and rig.rec()["closed"] == 1
+
+
+def test_run_already_linked_writes_launch_ambiguous_with_the_known_run(rig):
+    rig.owner.send()
+    me = rig.adapter.instance_id
+    rig.owner.receipts["msg_A"] += [
+        {"kind": "accepted", "instance_id": me, "principal_id": ME},
+        {"kind": "run-linked", "instance_id": me, "principal_id": ME, "run_id": "run_OTHER"}]
+    rig.tick(2)
+    amb = rig.owner.receipt_of("msg_A", "launch-ambiguous")
+    assert rig.rec()["state"] == ha.S_AMBIGUOUS and amb and amb["run_id"] == rig.rec()["run_id"]
+    assert rig.harness.creates == 0
+
+
+def test_ambiguous_is_not_marked_sent_until_the_receipt_is_written(rig):
+    rig.owner.send()
+    rig.crash_at("launch_intent_persisted")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.boot()
+    rig.owner.fail_once.add("launch-ambiguous")
+    rig.tick()
+    assert rig.rec()["state"] == ha.S_AMBIGUOUS and rig.rec()["ambiguous_sent"] == 0
+    rig.tick()
+    assert rig.rec()["ambiguous_sent"] == 1 and rig.owner.receipt_of("msg_A", "launch-ambiguous")
+
+
+def test_an_unresolved_ambiguous_run_counts_toward_max_concurrent(rig):
+    write_policy(rig.policy, max_concurrent=1)
+    rig.owner.send("msg_A")
+    rig.crash_at("launch_intent_persisted")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.boot()
+    rig.owner.send("msg_B")
+    rig.tick(3)
+    assert rig.rec("msg_A")["state"] == ha.S_AMBIGUOUS
+    assert rig.harness.creates == 0 and rig.rec("msg_B")["state"] == ha.S_RUN_REGISTERED
+
+
+def test_a_run_registration_without_run_id_is_an_error_and_persists_nothing(rig):
+    rig.owner.no_run_id = True
+    rig.owner.send()
+    rig.tick()
+    assert rig.rec()["state"] == ha.S_DECIDED and rig.rec()["run_id"] is None
+    assert "invalid-result" in rig.rec()["last_error"]
+
+
+@pytest.mark.parametrize("payload", ["<html>not json</html>", "{}"])
+def test_unexpected_harness_responses_are_harness_errors(payload):
+    import http.server
+    import threading
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def _go(self):
+            raw = payload.encode()
+            self.send_response(200)
+            self.send_header("content-length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+
+        do_GET = do_POST = _go
+
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        oc = ha.OpenCodeServe(f"http://127.0.0.1:{srv.server_address[1]}")
+        for call in (lambda: oc.create_session("t", "/w"), lambda: oc.session_state("ses_x", "/w")):
+            with pytest.raises(ha.HarnessError):
+                call()
+        assert oc.health() is False
+    finally:
+        srv.shutdown()
