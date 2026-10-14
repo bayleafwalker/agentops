@@ -173,11 +173,14 @@ class VuoroOwner:
             self._loop.close()
         self._client = self._loop = None
 
-    def _invoke(self, operation: str, arguments: dict, repo_id: str, *, key: str | None = None) -> dict:
+    def _invoke(self, operation: str, arguments: dict, repo_id: str) -> dict:
+        # The directory, inbox and run operations carry their idempotency key in the
+        # arguments; their catalog entries refuse an envelope key
+        # (idempotency-key-not-allowed), so none is ever sent here.
         client = self._ensure()
         try:
             return self._loop.run_until_complete(  # type: ignore[union-attr]
-                client.invoke(operation, arguments, repo_id=repo_id, idempotency_key=key))
+                client.invoke(operation, arguments, repo_id=repo_id))
         except Exception as exc:  # noqa: BLE001 - map the client's rejection, re-raise the rest
             code = getattr(exc, "code", None)
             if isinstance(code, str):
@@ -187,7 +190,7 @@ class VuoroOwner:
     def agent_register(self, repo_id, *, instance_id, declaration, idempotency_key):
         return self._invoke("work.agent.register-v1", {
             "instance_id": instance_id, "declaration": declaration,
-            "idempotency_key": idempotency_key}, repo_id, key=idempotency_key)
+            "idempotency_key": idempotency_key}, repo_id)
 
     def agent_observe(self, repo_id, *, instance_id, fact, valid_for_seconds, idempotency_key,
                       channel=None, run_id=None):
@@ -198,12 +201,12 @@ class VuoroOwner:
             args["channel"] = channel
         if run_id is not None:
             args["run_id"] = run_id
-        return self._invoke("work.agent.observe-v1", args, repo_id, key=idempotency_key)
+        return self._invoke("work.agent.observe-v1", args, repo_id)
 
     def agent_retire(self, repo_id, *, instance_id, reason, idempotency_key):
         return self._invoke("work.agent.retire-v1", {
             "instance_id": instance_id, "reason": reason,
-            "idempotency_key": idempotency_key}, repo_id, key=idempotency_key)
+            "idempotency_key": idempotency_key}, repo_id)
 
     def agent_list(self, repo_id, **arguments):
         return self._invoke("work.agent.list-v1", dict(arguments), repo_id)
@@ -231,8 +234,7 @@ class VuoroOwner:
         return self._invoke("work.message.cancel-v1", {"message_id": message_id, "reason": reason}, repo_id)
 
     def run_register(self, repo_id, arguments):
-        return self._invoke("work.run.register-v1", arguments, repo_id,
-                            key=arguments.get("idempotency_key"))
+        return self._invoke("work.run.register-v1", arguments, repo_id)
 
 
 # --------------------------------------------------------------------------

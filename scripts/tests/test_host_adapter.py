@@ -785,6 +785,30 @@ def test_vuoro_client_errors_without_a_code_become_transport_errors():
         o._loop.close()
 
 
+def test_vuoro_owner_never_sends_an_envelope_idempotency_key():
+    """The live catalog refuses envelope keys for these operations (idempotency-key-not-allowed)."""
+    import asyncio
+
+    calls = []
+
+    class Client:
+        async def invoke(self, operation, arguments, **kwargs):
+            calls.append((operation, arguments, kwargs))
+            return {"run": {"run_id": "run_X"}}
+
+    o = ha.VuoroOwner("unused")
+    o._client, o._loop = Client(), asyncio.new_event_loop()
+    o.agent_register(REPO, instance_id="ins_A", declaration={}, idempotency_key="reg.key.0001")
+    o.agent_observe(REPO, instance_id="ins_A", fact="observed", valid_for_seconds=90, idempotency_key="obs.key.0001")
+    o.agent_retire(REPO, instance_id="ins_A", reason="done", idempotency_key="ret.key.0001")
+    o.run_register(REPO, {"idempotency_key": "inbox.msg_A"})
+    o._loop.close()
+    assert len(calls) == 4
+    for operation, arguments, kwargs in calls:
+        assert "idempotency_key" not in kwargs, operation
+        assert arguments["idempotency_key"], operation
+
+
 @pytest.mark.parametrize("value", ["tomorrow", "2030-01-01T00:00:00", 12])
 def test_malformed_or_offsetless_not_after_is_refused(rig, value):
     rig.owner.send(not_after=value)
