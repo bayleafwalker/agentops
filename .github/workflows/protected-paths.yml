@@ -7,19 +7,30 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
 
+permissions:
+  contents: read
+
 jobs:
   protected-paths:
     runs-on: ubuntu-latest
     steps:
+      # Trust boundary: the checker and the protected-path list (the manifest)
+      # come from the BASE commit, so a PR cannot rewrite the gate that judges
+      # it. The PR head is fetched as git objects (data) only; it is never
+      # checked out and nothing from it is executed.
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.base.sha }}
           fetch-depth: 0
+          persist-credentials: false
+      - name: fetch PR head as data
+        run: git fetch --no-tags origin "${{ github.event.pull_request.head.sha }}"
       - name: check
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           python3 scripts/check_protected_paths.py \
-            --base "origin/${{ github.event.pull_request.base.ref }}" \
+            --base "${{ github.event.pull_request.base.sha }}" \
             --head "${{ github.event.pull_request.head.sha }}" \
             --title "$PR_TITLE"
 
@@ -38,13 +49,19 @@ jobs:
     # TS-6: committed auditctl shards are authoritative evidence until the S4
     # evidence-home migration. Fails a PR that rewrites rather than appends to
     # a committed shard under _artifacts/**/audit/**.
+    # Same trust boundary as protected-paths: base checkout runs the script,
+    # the PR head is fetched as data only.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.base.sha }}
           fetch-depth: 0
+          persist-credentials: false
+      - name: fetch PR head as data
+        run: git fetch --no-tags origin "${{ github.event.pull_request.head.sha }}"
       - name: check
         run: |
           python3 scripts/check_append_only_shards.py \
-            --base "origin/${{ github.event.pull_request.base.ref }}" \
+            --base "${{ github.event.pull_request.base.sha }}" \
             --head "${{ github.event.pull_request.head.sha }}"
