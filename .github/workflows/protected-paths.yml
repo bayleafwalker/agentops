@@ -30,11 +30,18 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           SENDER: ${{ github.event.sender.login }}
         run: |
+          # Bootstrap only: a base that predates --sender cannot be passed it.
+          # The base script is trusted, so this probe cannot be steered by the PR;
+          # remove once every base carries the flag.
+          sender_args=()
+          if grep -q -- '--sender' scripts/check_protected_paths.py; then
+            sender_args=(--sender "$SENDER")
+          fi
           python3 scripts/check_protected_paths.py \
             --base "${{ github.event.pull_request.base.sha }}" \
             --head "${{ github.event.pull_request.head.sha }}" \
             --title "$PR_TITLE" \
-            --sender "$SENDER"
+            "${sender_args[@]}"
 
   templates-dispatch-allowlist:
     # S2 item 6: templates/dispatch was deleted in full (PR-E, then PR-B for
