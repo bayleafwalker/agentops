@@ -95,7 +95,9 @@ ENVIRONMENT_OPTIONAL = {"authority", "tooling", "trust_roots", "credential_broke
 #: Records with this role are a maintained runner composition: they must state
 #: their bounded authority and pinned tooling (bounded-execution-environment.md).
 RUNNER_ROLE = "unattended-agent-host"
-OPERATION = re.compile(r"^[a-z0-9][a-z0-9._-]*\*?$")
+OPERATION = re.compile(r"^[a-z0-9][a-z0-9._-]*$")  # an exact operation; grants never use wildcards
+OPERATION_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]*\*?$")  # explicit_approval only (it restricts)
+APPROVER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$")
 TOOL_DIGEST = re.compile(r"^(sha256:[0-9a-f]{64}|git:[0-9a-f]{40}|nix:[0-9a-z]{32})$")
 SHA256_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 TRUST_ROOT_KINDS = {"tls-ca-bundle", "vuoro-endpoint", "credential-broker"}
@@ -143,9 +145,9 @@ def validate_authority(value: object, path: Path) -> dict:
     _strings(scoped["repositories"], "authority.scoped_execution.repositories", path, TOKEN)
     scoped_ops = _strings(scoped["operations"], "authority.scoped_execution.operations", path, OPERATION)
     publication = scoped["publication_operation"]
-    if not isinstance(publication, str) or not OPERATION.fullmatch(publication) or publication.endswith("*"):
+    if not isinstance(publication, str) or not OPERATION.fullmatch(publication):
         raise ProfileError(f"{path}: authority.scoped_execution.publication_operation must name one operation")
-    if not any(operation_matches(p, publication) for p in scoped_ops):
+    if publication not in scoped_ops:
         raise ProfileError(f"{path}: publication_operation {publication} is not within scoped_execution.operations")
     ttl = scoped["max_ttl_seconds"]
     if not isinstance(ttl, int) or isinstance(ttl, bool) or not 1 <= ttl <= MAX_EXECUTION_TTL_SECONDS:
@@ -156,9 +158,13 @@ def validate_authority(value: object, path: Path) -> dict:
     transitions: set[str] = set()
     for index, entry in enumerate(approvals):
         field = f"authority.explicit_approval[{index}]"
-        entry = _exact_object(entry, {"transition", "operations"}, field, path)
+        entry = _exact_object(entry, {"transition", "operations", "approvers", "max_approval_age_seconds"}, field, path)
         transitions.add(_token(entry["transition"], f"{field}.transition", path))
-        for op in _strings(entry["operations"], f"{field}.operations", path, OPERATION):
+        _strings(entry["approvers"], f"{field}.approvers", path, APPROVER)
+        age = entry["max_approval_age_seconds"]
+        if not isinstance(age, int) or isinstance(age, bool) or not 1 <= age <= MAX_EXECUTION_TTL_SECONDS:
+            raise ProfileError(f"{path}: {field}.max_approval_age_seconds must be 1..{MAX_EXECUTION_TTL_SECONDS}")
+        for op in _strings(entry["operations"], f"{field}.operations", path, OPERATION_PATTERN):
             granted = [p for p in read_ops + scoped_ops if _patterns_overlap(p, op)]
             if granted:
                 raise ProfileError(f"{path}: {field} operation {op} is also granted without approval by {granted}")

@@ -27,13 +27,17 @@
         "work.effect.attempt-get-v1",
         "work.agent.list-v1",
         "work.agent.describe-v1",
-        "work.message.status-v1"
+        "work.message.status-v1",
+        "work.read.item-decisions"
       ]
     },
     "scoped_execution": {
       "repositories": ["agentops"],
       "operations": [
-        "work.effect.attempt-*",
+        "work.effect.attempt-open-v1",
+        "work.effect.attempt-redeem-v1",
+        "work.effect.attempt-seal-unused-v1",
+        "work.effect.attempt-report-applied-v1",
         "agentops.dispatch.publish-v1",
         "agentops.host-adapter.launch-successor-v1"
       ],
@@ -41,8 +45,18 @@
       "max_ttl_seconds": 3600
     },
     "explicit_approval": [
-      {"transition": "rollout-resume", "operations": ["rollout.resume-*"]},
-      {"transition": "protected-publication", "operations": ["agentops.publication.protected-*", "pr.merge"]}
+      {
+        "transition": "rollout-resume",
+        "operations": ["rollout.resume-*"],
+        "approvers": ["workstation-vuoro"],
+        "max_approval_age_seconds": 3600
+      },
+      {
+        "transition": "protected-publication",
+        "operations": ["agentops.publication.protected-*", "pr.merge"],
+        "approvers": ["workstation-vuoro"],
+        "max_approval_age_seconds": 3600
+      }
     ]
   },
   "tooling": [

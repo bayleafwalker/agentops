@@ -110,6 +110,25 @@ def publish(repo: str, tip: str, run_branch: str, expected: list[str], item_ids:
     return {**report, "action": action, "pr_url": url, "error": ", ".join(protected)}
 
 
+def authority_refusal(args: argparse.Namespace) -> dict | None:
+    """Run the effect-boundary check for this publication; a refusal report, or None to proceed."""
+    import execution_authority as authority  # noqa: PLC0415 - only needed when gated
+    from validate_vuoro_profiles import ProfileError, validate_environment  # noqa: PLC0415
+
+    try:
+        record = validate_environment(args.authority_environment)
+        operation = record["authority"]["scoped_execution"]["publication_operation"]
+    except (ProfileError, KeyError, TypeError) as error:
+        return {"published": False, "action": "publish-refused", "error": f"authority: environment-invalid: {error}"}
+    decision = authority.authorize(args.authority_environment, authority.ExecutionRequest(
+        operation=operation, repo_id=args.authority_repo, run_id=args.run_id, grant_id=args.grant_id,
+        attempt_id=args.attempt_id, commit_sha=resolve(args.repo, args.tip)), args.profile)
+    if decision.allowed:
+        return None
+    return {"published": False, "action": "publish-refused", "authority": decision.as_dict(),
+            "error": f"authority: {decision.code}: {decision.reason}"}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--repo", required=True)
@@ -117,8 +136,23 @@ def main() -> int:
     parser.add_argument("--run-branch", required=True)
     parser.add_argument("--expected", action="append", default=[])
     parser.add_argument("--item-id", action="append", default=[])
+    gate = parser.add_argument_group(
+        "effect-boundary authority (docs/architecture/bounded-execution-environment.md)",
+        "With --authority-environment, execution_authority.decide() must allow the record's "
+        "publication operation for this exact commit before any effect.")
+    gate.add_argument("--authority-environment", type=Path)
+    gate.add_argument("--authority-repo", default="agentops")
+    gate.add_argument("--run-id")
+    gate.add_argument("--grant-id")
+    gate.add_argument("--attempt-id")
+    gate.add_argument("--profile", type=Path, help="vuoro client profile for the served owner reads")
     args = parser.parse_args()
     try:
+        if args.authority_environment:
+            refusal = authority_refusal(args)
+            if refusal:
+                print(json.dumps(refusal))
+                return 1
         report = publish(args.repo, args.tip, args.run_branch, args.expected, args.item_id)
     except (ValueError, OSError, subprocess.CalledProcessError, SystemExit) as error:
         report = {"published": False, "action": "publish-refused", "error": str(error)}

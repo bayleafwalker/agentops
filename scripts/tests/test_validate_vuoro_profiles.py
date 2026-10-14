@@ -237,9 +237,47 @@ def test_publication_operation_must_be_in_scope(tmp_path: Path) -> None:
 
 def test_approval_operation_cannot_also_be_scoped(tmp_path: Path) -> None:
     def mutate(r):
-        r["authority"]["scoped_execution"]["operations"].append("rollout.*")
+        r["authority"]["scoped_execution"]["operations"].append("rollout.resume-v1")
     with pytest.raises(validator.ProfileError, match="also granted without approval"):
         validator.validate_environment(_devbox_with(tmp_path, mutate))
+
+
+@pytest.mark.parametrize("tier", ["standing_read", "scoped_execution"])
+def test_grants_cannot_use_wildcards(tmp_path: Path, tier: str) -> None:
+    def mutate(r):
+        r["authority"][tier]["operations"].append("work.effect.attempt-*")
+    with pytest.raises(validator.ProfileError, match=f"{tier}.operations"):
+        validator.validate_environment(_devbox_with(tmp_path, mutate))
+
+
+def test_approval_needs_approvers_and_age(tmp_path: Path) -> None:
+    def mutate(r):
+        del r["authority"]["explicit_approval"][0]["max_approval_age_seconds"]
+    with pytest.raises(validator.ProfileError, match="explicit_approval"):
+        validator.validate_environment(_devbox_with(tmp_path, mutate))
+
+
+def test_schema_accepts_devbox_and_requires_runner_blocks() -> None:
+    import sys
+
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import schema_check
+
+    schema = json.loads((ROOT / "environment-record/environment-record.schema.json").read_text())
+    record = json.loads(DEVBOX.read_text())
+    assert schema_check.validate(record, schema) == []
+    del record["authority"]
+    assert schema_check.validate(record, schema)
+    record = json.loads(DEVBOX.read_text())
+    record["roles"] = ["vuoro-served-client"]
+    del record["authority"]
+    assert schema_check.validate(record, schema) == []
+    record = json.loads(DEVBOX.read_text())
+    record["authority"]["scoped_execution"]["publication_operation"] = "agentops.*"
+    assert schema_check.validate(record, schema)
+    record = json.loads(DEVBOX.read_text())
+    record["authority"]["scoped_execution"]["operations"][0] = "work.effect.attempt-*"
+    assert schema_check.validate(record, schema)
 
 
 def test_ttl_is_bounded(tmp_path: Path) -> None:
