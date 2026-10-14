@@ -196,7 +196,7 @@ class FakeHarness:
         self.creates += 1
         sid = f"ses_{self.creates:04d}"
         self.sessions[sid] = {"title": title, "messages": 0, "aborted": False, "started": False,
-                              "permission": ha.SUCCESSOR_PERMISSION}
+                              "permission": ha.SUCCESSOR_PERMISSION, "directory": directory}
         return sid
 
     def session_permission(self, sid, directory):
@@ -205,7 +205,8 @@ class FakeHarness:
     def find_sessions(self, title, directory):
         if self.hide_search:
             return []
-        return [sid for sid, s in self.sessions.items() if s["title"] == title]
+        # opencode scopes sessions by directory: a search elsewhere finds nothing.
+        return [sid for sid, s in self.sessions.items() if s["title"] == title and s["directory"] == directory]
 
     def send_prompt(self, sid, text, directory, model):
         self.prompts.append((sid, text))
@@ -968,7 +969,7 @@ def test_title_match_without_the_ruleset_is_not_adopted(rig):
     with pytest.raises(Crash):
         rig.tick(2)
     rig.harness.sessions["ses_foreign"] = {"title": "vuoro-msg:msg_A", "messages": 0, "aborted": False,
-                                           "started": False, "permission": None}
+                                           "started": False, "permission": None, "directory": "/work"}
     rig.boot().tick()
     rec = rig.rec()
     assert rec["state"] == ha.S_AMBIGUOUS and "without the successor permission ruleset" in rec["detail"]
@@ -1227,3 +1228,71 @@ def test_untrusted_config_accepts_root_owned_read_only_file():
     if os.geteuid() == 0:
         pytest.skip("root can write anything")
     assert ha.untrusted_config("/etc/passwd") is None
+
+
+# ---------------------------------------------------------------- per-run directories and serve auth
+
+def test_run_root_gives_each_run_its_own_protected_directory(rig):
+    import stat as _stat
+
+    root = rig.tmp / "runs"
+    root.mkdir()
+    rig.adapter.config = ha.Config(poll_interval=10, directory="/work", run_root=str(root))
+    rig.owner.send()
+    rig.tick(2)
+    run_dir = root / "msg_A"
+    session = rig.harness.sessions["ses_0001"]
+    assert session["directory"] == str(run_dir)
+    assert _stat.S_IMODE(run_dir.stat().st_mode) == 0o3770
+    assert _stat.S_IMODE((run_dir / ".opencode").stat().st_mode) == 0o555
+    assert _stat.S_IMODE((run_dir / "opencode.json").stat().st_mode) == 0o444
+    assert rig.rec()["outcome"] == "completed"
+
+
+def test_run_directory_recovery_uses_the_same_directory_and_rejects_odd_ids(rig):
+    root = rig.tmp / "runs"
+    root.mkdir()
+    rig.adapter.config = ha.Config(poll_interval=10, directory="/work", run_root=str(root))
+    assert rig.adapter.run_directory({"message_id": "msg_A"}) == str(root / "msg_A")
+    with pytest.raises(ha.HarnessError):
+        rig.adapter.run_directory({"message_id": "../escape"})
+
+
+def test_without_run_root_the_shared_directory_is_used(rig):
+    assert rig.adapter.run_directory({"message_id": "msg_A"}) == "/work"
+
+
+def test_serve_client_sends_basic_auth_only_when_configured(monkeypatch):
+    import base64 as _b64
+
+    seen = []
+
+    class Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return b'{"healthy": true}'
+
+    def fake_urlopen(req, timeout):
+        seen.append(req.get_header("Authorization"))
+        return Resp()
+
+    monkeypatch.setattr(ha.urllib.request, "urlopen", fake_urlopen)
+    assert ha.OpenCodeServe("http://127.0.0.1:4096", password="s3").health()
+    assert seen[-1] == "Basic " + _b64.b64encode(b"opencode:s3").decode()
+    assert ha.OpenCodeServe("http://127.0.0.1:4096").health()
+    assert seen[-1] is None
+
+
+def test_serve_password_file_wins(monkeypatch, tmp_path):
+    secret = tmp_path / "pw"
+    secret.write_text("from-file\n")
+    monkeypatch.setenv("OPENCODE_SERVER_PASSWORD", "from-env")
+    monkeypatch.setenv("OPENCODE_SERVER_PASSWORD_FILE", str(secret))
+    assert ha._serve_password() == "from-file"
+    monkeypatch.delenv("OPENCODE_SERVER_PASSWORD_FILE")
+    assert ha._serve_password() == "from-env"

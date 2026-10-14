@@ -17,6 +17,11 @@ WorkingDirectory=/projects/dev/agentops
 Environment=SPRINTCTL_BACKEND=served
 Environment=SPRINTCTL_VUORO_PROFILE=%h/.config/vuoro/profiles/devbox-inbox-native-vuoro-shared.json
 Environment=PATH=%h/.local/bin:/run/current-system/sw/bin:/usr/bin:/bin
+# Project-local opencode config (opencode.json[c], .opencode/) in the session directory is
+# never loaded, so a session cannot plant plugins or config for itself (opencode 1.19.0:
+# config/config.ts, config/paths.ts). Side effect: the repo AGENTS.md is not loaded either;
+# the adapter prompt carries the successor instructions.
+Environment=OPENCODE_DISABLE_PROJECT_CONFIG=1
 ExecStart=/run/current-system/sw/bin/opencode serve --hostname 127.0.0.1 --port 4096
 Restart=on-failure
 RestartSec=10
@@ -35,6 +40,8 @@ UMask=0077
 
 BindPaths=%h/.local/share/opencode %h/.local/state/opencode %h/.cache/opencode
 BindReadOnlyPaths=/projects/dev/agentops
+# ~/.config/opencode must already contain .gitignore: opencode writes it at start and
+# returns HTTP 500 when the directory is read-only and the file is missing.
 BindReadOnlyPaths=%h/.config/opencode
 BindReadOnlyPaths=%h/.local/bin/sprintctl %h/.local/share/uv/tools/sprintctl %h/.local/share/uv/python
 BindReadOnlyPaths=%h/.config/vuoro/profiles/devbox-inbox-native-vuoro-shared.json

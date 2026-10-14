@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import base64
 import contextlib
 import datetime as _dt
 import fcntl
@@ -323,18 +324,28 @@ class OpenCodeServe:
     directory that created the session finds nothing.
     """
 
-    def __init__(self, base_url: str = "http://127.0.0.1:4096", timeout: float = 10.0) -> None:
+    def __init__(self, base_url: str = "http://127.0.0.1:4096", timeout: float = 10.0,
+                 password: str | None = None, username: str = "opencode") -> None:
         host = urllib.parse.urlsplit(base_url).hostname
         if host not in ("127.0.0.1", "localhost", "::1"):
-            raise ValueError("opencode serve is unauthenticated; the adapter only talks to loopback")
+            raise ValueError("opencode serve is loopback-only; the adapter never talks to another host")
         self.base = base_url.rstrip("/")
         self.timeout = timeout
+        # opencode serve HTTP Basic auth (OPENCODE_SERVER_PASSWORD / _USERNAME on the server).
+        # Shared only by the adapter and the serve unit, so another local process on
+        # loopback cannot drive sessions.
+        self._auth = None
+        if password:
+            token = base64.b64encode(f"{username}:{password}".encode()).decode()
+            self._auth = f"Basic {token}"
 
     def _call(self, method: str, path: str, query: dict | None = None, body: Any = None) -> Any:
         url = self.base + path + ("?" + urllib.parse.urlencode(query) if query else "")
         data = None if body is None else json.dumps(body).encode()
-        req = urllib.request.Request(url, method=method, data=data,
-                                     headers={"content-type": "application/json"})
+        headers = {"content-type": "application/json"}
+        if self._auth:
+            headers["authorization"] = self._auth
+        req = urllib.request.Request(url, method=method, data=data, headers=headers)
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # noqa: S310 - loopback only
                 raw = resp.read()
@@ -724,6 +735,9 @@ class Config:
     host_class: str = "devbox"
     read_limit: int = 50
     trusted_config: bool = False  # policy and environment record must be root-owned (NixOS unit)
+    #: When set, each run's session works in <run_root>/<message_id> (see run_directory),
+    #: not in `directory`. The NixOS unit sets it (AGENTOPS_HOST_ADAPTER_RUN_ROOT).
+    run_root: str | None = None
 
     @property
     def valid_for(self) -> int:
@@ -835,6 +849,34 @@ class Adapter:
                 self.state.update(repo, mid, last_error=f"{type(exc).__name__}: {exc}"[:500])
                 raise
 
+    def run_directory(self, rec, *, create: bool = False) -> str:
+        """The directory a run's session works in (and is scoped by in opencode).
+
+        Without `run_root`: the shared `directory`. With it: `<run_root>/<message_id>`,
+        created before launch as adapter-owned, group-shared (setgid, sticky). It holds
+        an adapter-owned, read-only `.opencode/` and `opencode.json` so the session
+        cannot plant project config or plugins there; the sticky bit stops the
+        session renaming or deleting them. The serve unit also sets
+        OPENCODE_DISABLE_PROJECT_CONFIG=1; this is the second layer.
+        """
+        if not self.config.run_root:
+            return self.config.directory
+        message_id = rec["message_id"]
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", message_id or ""):
+            raise HarnessError("message id is not usable as a run directory name")
+        path = Path(self.config.run_root) / message_id
+        if create:
+            path.mkdir(mode=0o770, exist_ok=True)
+            os.chmod(path, 0o3770)  # setgid + sticky; mkdir's mode is masked by the umask
+            planted = path / ".opencode"
+            planted.mkdir(exist_ok=True)
+            os.chmod(planted, 0o555)
+            config = path / "opencode.json"
+            if not config.exists():
+                config.write_text("{}\n", encoding="utf-8")
+            os.chmod(config, 0o444)
+        return str(path)
+
     def _receipt(self, rec: sqlite3.Row, kind: str, **fields: Any) -> dict:
         return self.owner.message_receipt(rec["repo_id"], message_id=rec["message_id"],
                                           instance_id=self.instance_id, kind=kind, **fields)
@@ -944,7 +986,7 @@ class Adapter:
             return False  # deferred; the next tick retries
         self.state.update(*key, state=S_LAUNCH_INTENT)
         self._checkpoint("launch_intent_persisted")
-        sid = self.harness.create_session(TITLE_PREFIX + rec["message_id"], self.config.directory)
+        sid = self.harness.create_session(TITLE_PREFIX + rec["message_id"], self.run_directory(rec, create=True))
         self._checkpoint("session_created")
         self.state.update(*key, state=S_LAUNCHED, session_id=sid, launched_at=self.clock())
         self._checkpoint("launched_persisted")
@@ -956,8 +998,8 @@ class Adapter:
         if rec["session_id"]:
             self.state.update(*key, state=S_LAUNCHED)
             return True
-        found = self.harness.find_sessions(TITLE_PREFIX + rec["message_id"], self.config.directory)
-        if len(found) == 1 and self.harness.session_permission(found[0], self.config.directory) == SUCCESSOR_PERMISSION:
+        found = self.harness.find_sessions(TITLE_PREFIX + rec["message_id"], self.run_directory(rec))
+        if len(found) == 1 and self.harness.session_permission(found[0], self.run_directory(rec)) == SUCCESSOR_PERMISSION:
             self.state.update(*key, state=S_LAUNCHED, session_id=found[0], launched_at=self.clock())
             self._checkpoint("adopted_persisted")
             return True
@@ -978,7 +1020,7 @@ class Adapter:
 
     def _on_launched(self, rec) -> bool:
         key = (rec["repo_id"], rec["message_id"])
-        sid, directory = rec["session_id"], self.config.directory
+        sid, directory = rec["session_id"], self.run_directory(rec)
         env = json.loads(rec["envelope"])
         policy = load_policy(self.policy_path, trusted=self.config.trusted_config)
         if rec["launched_at"] is None:  # a record launched by an earlier build
@@ -1081,7 +1123,7 @@ class Adapter:
             # A stuck run: stop the session first; the abort is idempotent.
             evidence.append({"kind": "harness-session", "ref": rec["session_id"]})
             try:
-                self.harness.abort(rec["session_id"], self.config.directory)
+                self.harness.abort(rec["session_id"], self.run_directory(rec))
                 what = "a launched run (session aborted)"
             except HarnessError as exc:
                 what = f"a launched run (abort failed: {exc})"[:300]
@@ -1111,6 +1153,14 @@ def _status_rows(state: State) -> list[dict]:
     return rows
 
 
+def _serve_password() -> str | None:
+    """OPENCODE_SERVER_PASSWORD_FILE (systemd LoadCredential) wins over OPENCODE_SERVER_PASSWORD."""
+    path = os.environ.get("OPENCODE_SERVER_PASSWORD_FILE")
+    if path:
+        return Path(path).read_text(encoding="utf-8").strip() or None
+    return os.environ.get("OPENCODE_SERVER_PASSWORD") or None
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="agentops host-adapter", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -1121,6 +1171,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="vuoro client profile (env AGENTOPS_HOST_ADAPTER_PROFILE)")
     parser.add_argument("--serve-url", default=os.environ.get("OPENCODE_SERVE_URL", "http://127.0.0.1:4096"))
     parser.add_argument("--directory", default=os.environ.get("AGENTOPS_HOST_ADAPTER_DIRECTORY", os.getcwd()))
+    parser.add_argument("--run-root", default=os.environ.get("AGENTOPS_HOST_ADAPTER_RUN_ROOT") or None,
+                        help="per-run session directories under this root (env AGENTOPS_HOST_ADAPTER_RUN_ROOT)")
     parser.add_argument("--poll-interval", type=float,
                         default=float(os.environ.get("AGENTOPS_HOST_ADAPTER_POLL_SECONDS", "30")))
     parser.add_argument("--host-class", default=os.environ.get("AGENTOPS_HOST_ADAPTER_HOST_CLASS", "devbox"))
@@ -1171,8 +1223,15 @@ def main(argv: list[str] | None = None) -> int:
         return 3
     owner = VuoroOwner(args.profile)
     config = Config(poll_interval=args.poll_interval, directory=args.directory, host_class=args.host_class,
-                    trusted_config=args.trusted_config)
-    adapter = Adapter(owner=owner, harness=OpenCodeServe(args.serve_url), state=state,
+                    trusted_config=args.trusted_config, run_root=args.run_root)
+    try:
+        password = _serve_password()
+    except OSError as exc:
+        print(f"host-adapter: cannot read the opencode serve password: {type(exc).__name__}", file=sys.stderr)
+        return 2
+    harness = OpenCodeServe(args.serve_url, password=password,
+                            username=os.environ.get("OPENCODE_SERVER_USERNAME") or "opencode")
+    adapter = Adapter(owner=owner, harness=harness, state=state,
                       policy_path=args.policy, config=config)
     try:
         if args.command == "resolve":
