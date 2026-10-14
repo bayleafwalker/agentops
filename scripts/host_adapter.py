@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import base64
 import contextlib
 import datetime as _dt
 import fcntl
@@ -320,18 +321,25 @@ class OpenCodeServe:
     directory that created the session finds nothing.
     """
 
-    def __init__(self, base_url: str = "http://127.0.0.1:4096", timeout: float = 10.0) -> None:
+    def __init__(self, base_url: str = "http://127.0.0.1:4096", timeout: float = 10.0,
+                 password: str | None = None, username: str = "opencode") -> None:
         host = urllib.parse.urlsplit(base_url).hostname
         if host not in ("127.0.0.1", "localhost", "::1"):
             raise ValueError("opencode serve is unauthenticated; the adapter only talks to loopback")
         self.base = base_url.rstrip("/")
         self.timeout = timeout
+        # opencode serve with OPENCODE_SERVER_PASSWORD requires HTTP basic auth on every
+        # endpoint, /global/health included (verified against 1.18.33).
+        self._headers = {"content-type": "application/json"}
+        if password:
+            token = base64.b64encode(f"{username}:{password}".encode()).decode()
+            self._headers["authorization"] = f"Basic {token}"
 
     def _call(self, method: str, path: str, query: dict | None = None, body: Any = None) -> Any:
         url = self.base + path + ("?" + urllib.parse.urlencode(query) if query else "")
         data = None if body is None else json.dumps(body).encode()
         req = urllib.request.Request(url, method=method, data=data,
-                                     headers={"content-type": "application/json"})
+                                     headers=self._headers)
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # noqa: S310 - loopback only
                 raw = resp.read()
@@ -1075,7 +1083,9 @@ def main(argv: list[str] | None = None) -> int:
         return 3
     owner = VuoroOwner(args.profile)
     config = Config(poll_interval=args.poll_interval, directory=args.directory, host_class=args.host_class)
-    adapter = Adapter(owner=owner, harness=OpenCodeServe(args.serve_url), state=state,
+    harness = OpenCodeServe(args.serve_url, password=os.environ.get("OPENCODE_SERVER_PASSWORD") or None,
+                            username=os.environ.get("OPENCODE_SERVER_USERNAME") or "opencode")
+    adapter = Adapter(owner=owner, harness=harness, state=state,
                       policy_path=args.policy, config=config)
     try:
         if args.command == "resolve":

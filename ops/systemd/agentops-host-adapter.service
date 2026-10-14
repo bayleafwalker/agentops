@@ -12,6 +12,8 @@ Wants=opencode-serve-inbox.service
 Type=simple
 WorkingDirectory=/projects/dev/agentops
 EnvironmentFile=%h/.config/agentops/host-adapter.env
+# The inbox server's basic-auth password (shared with opencode-serve-inbox.service).
+EnvironmentFile=%h/.config/agentops/opencode-inbox-server.env
 # Explicit served-mode selection; no direnv. The profile matches AGENTOPS_HOST_ADAPTER_PROFILE.
 Environment=SPRINTCTL_BACKEND=served
 Environment=SPRINTCTL_VUORO_PROFILE=%h/.config/vuoro/profiles/devbox-inbox-native-vuoro-shared.json

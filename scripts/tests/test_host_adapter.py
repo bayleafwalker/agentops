@@ -1143,3 +1143,56 @@ def test_units_and_env_example_name_the_same_paths():
     # The inbox server keeps its own session database, never the agent's shared one.
     assert "XDG_DATA_HOME=%S/opencode-inbox/data" in server
     assert "BindPaths=%h/.local/share/opencode" not in server
+
+
+# ---------------------------------------------------------------- review round 4 (#355)
+
+def test_opencode_serve_sends_basic_auth_when_a_password_is_set():
+    import base64
+    import http.server
+    import threading
+
+    seen = []
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_GET(self):
+            seen.append(self.headers.get("authorization"))
+            raw = json.dumps({"healthy": True}).encode()
+            self.send_response(200)
+            self.send_header("content-length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        base = f"http://127.0.0.1:{srv.server_address[1]}"
+        assert ha.OpenCodeServe(base, password="s3cret").health()
+        assert ha.OpenCodeServe(base).health()
+    finally:
+        srv.shutdown()
+    assert seen[0] == "Basic " + base64.b64encode(b"opencode:s3cret").decode()
+    assert seen[1] is None
+
+
+def test_inbox_server_unit_pins_its_directories_auth_bind_password_and_hardening():
+    ops = Path(__file__).resolve().parents[2] / "ops" / "systemd"
+    server = (ops / "opencode-serve-inbox.service").read_text()
+    adapter = (ops / "agentops-host-adapter.service").read_text()
+    lines = set(server.splitlines())
+    for line in ("StateDirectory=opencode-inbox/data/opencode opencode-inbox/state",
+                 "CacheDirectory=opencode-inbox",
+                 "Environment=XDG_DATA_HOME=%S/opencode-inbox/data",
+                 "Environment=XDG_STATE_HOME=%S/opencode-inbox/state",
+                 "Environment=XDG_CACHE_HOME=%C/opencode-inbox",
+                 # API-key auth (type=api): read-only is enough, nothing refreshes it.
+                 "BindReadOnlyPaths=%h/.local/share/opencode/auth.json:%S/opencode-inbox/data/opencode/auth.json",
+                 "EnvironmentFile=%h/.config/agentops/opencode-inbox-server.env",
+                 "ProtectHome=tmpfs", "ProtectSystem=strict", "PrivateTmp=yes", "PrivateDevices=yes",
+                 "TemporaryFileSystem=/run/user:ro"):
+        assert line in lines, line
+    assert not any(line.startswith("BindPaths=") and "auth.json" in line for line in lines)
+    assert "EnvironmentFile=%h/.config/agentops/opencode-inbox-server.env" in adapter.splitlines()
