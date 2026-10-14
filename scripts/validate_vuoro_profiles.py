@@ -41,9 +41,16 @@ WORK_AUTHORITIES = {
     "work:pilot-read",
 }
 WORKSTATION_OPERATOR_AUTHORITIES = WORK_AUTHORITIES | {"work:sprint"}
-# This separately commissioned profile is an evidence producer, not an operator.
+# Separately commissioned evidence producers, not operators: each profile id
+# is bound to one source environment and exactly the evidence authorities.
 NATIVE_EVIDENCE_PROFILE_ID = "workstation-mi1-native-vuoro-shared"
 NATIVE_EVIDENCE_AUTHORITIES = {"work:read", "work:evidence"}
+NATIVE_EVIDENCE_PROFILES = {
+    NATIVE_EVIDENCE_PROFILE_ID: "workstation",
+    # Agent directory/inbox identities (vuoro agent-coordination M2c).
+    "workstation-inbox-native-vuoro-shared": "workstation",
+    "devbox-inbox-native-vuoro-shared": "devbox",
+}
 
 
 class ProfileError(ValueError):
@@ -132,9 +139,10 @@ def validate_profile(path: Path, environment: dict[str, object]) -> dict[str, ob
         if environment["id"] == "workstation"
         else WORK_AUTHORITIES
     )
-    if value["id"] == NATIVE_EVIDENCE_PROFILE_ID:
-        if environment["id"] != "workstation":
-            raise ProfileError(f"{path}: native evidence profile is bound to workstation")
+    if value["id"] in NATIVE_EVIDENCE_PROFILES:
+        bound = NATIVE_EVIDENCE_PROFILES[value["id"]]
+        if environment["id"] != bound:
+            raise ProfileError(f"{path}: native evidence profile is bound to {bound}")
         expected_authorities = NATIVE_EVIDENCE_AUTHORITIES
     missing = expected_authorities - authorities
     extra = authorities - expected_authorities
