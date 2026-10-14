@@ -18,6 +18,9 @@ EnvironmentFile=%h/.config/agentops/opencode-inbox-server.env
 Environment=SPRINTCTL_BACKEND=served
 Environment=SPRINTCTL_VUORO_PROFILE=%h/.config/vuoro/profiles/devbox-inbox-native-vuoro-shared.json
 # The sprintctl tool environment carries vuoro_client; the system python3 behind bin/agentops does not.
+# Refuse to start without the password ($$ keeps systemd from expanding it into the
+# command line; the shell reads it from the environment).
+ExecStartPre=/bin/sh -c 'test -n "$${OPENCODE_SERVER_PASSWORD}"'
 ExecStart=%h/.local/share/uv/tools/sprintctl/bin/python -I /projects/dev/agentops/scripts/host_adapter.py run
 Restart=on-failure
 RestartSec=15

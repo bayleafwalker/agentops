@@ -1171,11 +1171,21 @@ def test_opencode_serve_sends_basic_auth_when_a_password_is_set():
     try:
         base = f"http://127.0.0.1:{srv.server_address[1]}"
         assert ha.OpenCodeServe(base, password="s3cret").health()
-        assert ha.OpenCodeServe(base).health()
     finally:
         srv.shutdown()
-    assert seen[0] == "Basic " + base64.b64encode(b"opencode:s3cret").decode()
-    assert seen[1] is None
+    assert seen == ["Basic " + base64.b64encode(b"opencode:s3cret").decode()]
+
+
+@pytest.mark.parametrize("value", [None, ""])
+def test_run_refuses_without_the_server_password(tmp_path, monkeypatch, capsys, value):
+    monkeypatch.delenv("OPENCODE_SERVER_PASSWORD", raising=False)
+    if value is not None:
+        monkeypatch.setenv("OPENCODE_SERVER_PASSWORD", value)
+    rc = ha.main(["--state-dir", str(tmp_path / "state"), "--profile", str(tmp_path / "profile.json"),
+                  "run", "--once"])
+    assert rc == 3
+    assert "OPENCODE_SERVER_PASSWORD is empty" in capsys.readouterr().err
+    assert not (tmp_path / "state").exists()  # refused before taking the state lock
 
 
 def test_inbox_server_unit_pins_its_directories_auth_bind_password_and_hardening():
@@ -1195,4 +1205,8 @@ def test_inbox_server_unit_pins_its_directories_auth_bind_password_and_hardening
                  "TemporaryFileSystem=/run/user:ro"):
         assert line in lines, line
     assert not any(line.startswith("BindPaths=") and "auth.json" in line for line in lines)
+    guard = "ExecStartPre=/bin/sh -c 'test -n \"$${OPENCODE_SERVER_PASSWORD}\"'"
+    for unit in (server, adapter):
+        assert guard in unit.splitlines()
+        assert unit.index(guard) < unit.index("\nExecStart=")
     assert "EnvironmentFile=%h/.config/agentops/opencode-inbox-server.env" in adapter.splitlines()

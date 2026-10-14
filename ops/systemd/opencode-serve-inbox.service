@@ -23,6 +23,11 @@ After=network-online.target
 # - Neither protects against a process already running as this user outside the
 #   sandbox: it can read the env file and edit the database files directly. Only a
 #   separate user account closes that.
+# - The successor's bash tool inherits this server's environment, the password
+#   included (verified: `env` in an unrestricted session lists it; opencode 1.18.33 has
+#   no setting to filter the tool environment). Today the session ruleset refuses `$`
+#   and every command but the two sprintctl verbs, so it cannot be read out; widening
+#   the ruleset (e.g. allowing `env` or `$`) would expose it.
 # - The sprintctl tool environment, the inbox profile and its credential are read-only.
 
 [Service]
@@ -39,6 +44,9 @@ CacheDirectory=opencode-inbox
 Environment=XDG_DATA_HOME=%S/opencode-inbox/data
 Environment=XDG_STATE_HOME=%S/opencode-inbox/state
 Environment=XDG_CACHE_HOME=%C/opencode-inbox
+# Refuse to start without the password ($$ keeps systemd from expanding it into the
+# command line; the shell reads it from the environment).
+ExecStartPre=/bin/sh -c 'test -n "$${OPENCODE_SERVER_PASSWORD}"'
 ExecStart=/run/current-system/sw/bin/opencode serve --hostname 127.0.0.1 --port 4096
 Restart=on-failure
 RestartSec=10

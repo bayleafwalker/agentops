@@ -325,7 +325,7 @@ class OpenCodeServe:
                  password: str | None = None, username: str = "opencode") -> None:
         host = urllib.parse.urlsplit(base_url).hostname
         if host not in ("127.0.0.1", "localhost", "::1"):
-            raise ValueError("opencode serve is unauthenticated; the adapter only talks to loopback")
+            raise ValueError("the adapter only talks to opencode serve on loopback")
         self.base = base_url.rstrip("/")
         self.timeout = timeout
         # opencode serve with OPENCODE_SERVER_PASSWORD requires HTTP basic auth on every
@@ -1076,6 +1076,13 @@ def main(argv: list[str] | None = None) -> int:
     if not args.profile:
         print("host-adapter: --profile or AGENTOPS_HOST_ADAPTER_PROFILE is required", file=sys.stderr)
         return 2
+    password = os.environ.get("OPENCODE_SERVER_PASSWORD") or ""
+    if not password:
+        # Fail closed: without the password every launch would go to an unauthenticated
+        # server (or fail with 401 on each tick). Exit 3 is a configuration error that the
+        # unit does not restart on.
+        print("host-adapter: OPENCODE_SERVER_PASSWORD is empty; refusing to run", file=sys.stderr)
+        return 3
     try:
         state = State(args.state_dir)
     except StateLocked as exc:
@@ -1083,7 +1090,7 @@ def main(argv: list[str] | None = None) -> int:
         return 3
     owner = VuoroOwner(args.profile)
     config = Config(poll_interval=args.poll_interval, directory=args.directory, host_class=args.host_class)
-    harness = OpenCodeServe(args.serve_url, password=os.environ.get("OPENCODE_SERVER_PASSWORD") or None,
+    harness = OpenCodeServe(args.serve_url, password=password,
                             username=os.environ.get("OPENCODE_SERVER_USERNAME") or "opencode")
     adapter = Adapter(owner=owner, harness=harness, state=state,
                       policy_path=args.policy, config=config)
