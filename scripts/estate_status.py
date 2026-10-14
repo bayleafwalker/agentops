@@ -220,8 +220,11 @@ class Probe:
             full_env.pop(name, None)
         observed = _now()
         try:
-            done = subprocess.run(argv, cwd=cwd, env=full_env, input=stdin, text=True,
-                                  capture_output=True, timeout=timeout)
+            # Never inherit our stdin: under `agentops estate mcp` it is the JSON-RPC
+            # channel, and a child (ssh, kubectl) reading it would eat protocol messages.
+            stdin_kw = {"input": stdin} if stdin is not None else {"stdin": subprocess.DEVNULL}
+            done = subprocess.run(argv, cwd=cwd, env=full_env, text=True,
+                                  capture_output=True, timeout=timeout, **stdin_kw)
             stdout = _apply(transform, done.stdout) if done.returncode == 0 else done.stdout
             result = {"ok": done.returncode == 0, "rc": done.returncode,
                       "stdout": redact(stdout), "stderr": redact(done.stderr[-2000:])}
