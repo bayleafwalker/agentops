@@ -68,10 +68,16 @@ _CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 # opencode 1.18.33: the two allows alone admit redirections (`> file`, `>> file`),
 # `$(< file)` and `${VAR}` inside an allowed command, so the trailing denies refuse
 # any command containing a shell metacharacter. Other commands, newline-separated
-# and `&&`-chained commands are denied by the leading `*` deny. The opencode serve
-# unit (ops/systemd/opencode-serve-inbox.service) is the OS-level containment
-# behind this ruleset.
-SHELL_METACHARACTERS = (">", "<", "$", "`", ";", "&", "|")
+# and `&&`-chained commands are denied by the leading `*` deny.
+#
+# Glob characters: `[` is denied like the others. `*` and `?` cannot be: in
+# opencode's pattern syntax they are wildcards with no escape (a backslash in a
+# pattern is normalised to `/`), so `*?*` would deny every command. Disabling
+# globbing from the unit environment does not work either (opencode filters
+# BASH_ENV and SHELLOPTS). An unquoted `*` or `?` in a note therefore expands to
+# file names visible inside the sandboxed opencode serve unit
+# (ops/systemd/opencode-serve-inbox.service), never to file contents.
+SHELL_METACHARACTERS = (">", "<", "$", "`", ";", "&", "|", "[")
 SUCCESSOR_PERMISSION = [
     {"permission": "*", "pattern": "*", "action": "deny"},
     {"permission": "bash", "pattern": "sprintctl run context *", "action": "allow"},
@@ -479,8 +485,8 @@ def build_prompt(envelope: dict, run_id: str, nonce: str) -> str:
         f"1. Run: sprintctl run context --run-id {run_id}",
         f'2. Run: sprintctl run note --run-id {run_id} --note "<one short paragraph on what the context shows>" '
         f"--idempotency-key inbox.{mid}.note",
-        "   The note text must not contain any of these characters: > < $ ` ; & | "
-        "(commands containing them are refused).",
+        "   The note text must not contain any of these characters: > < $ ` ; & | [ * ? "
+        "(commands containing the first eight are refused; * and ? expand to file names).",
         "3. Stop. Make no other changes to any repository, item or run.",
     ]
     return "\n".join(lines) + "\n"

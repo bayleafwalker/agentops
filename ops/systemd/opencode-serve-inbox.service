@@ -8,7 +8,11 @@ After=network-online.target
 # - Home is an empty tmpfs; only the paths below are bound back in. ~/.ssh, ~/.gnupg,
 #   other credentials and the rest of ~/.config never exist inside the service.
 # - /projects/dev is an empty tmpfs except the agentops checkout, bound read-only.
-# - Writable: only opencode's own data, state and cache directories.
+# - Writable: only this server's own data, state and cache directories under
+#   ~/.local/state/opencode-inbox and ~/.cache/opencode-inbox. Its session database is
+#   separate from the agent's other opencode sessions (~/.local/share/opencode), so no
+#   other opencode server can list, read or rewrite an inbox session or its ruleset
+#   through its API. The provider credential (auth.json) is bound in read-only.
 # - The sprintctl tool environment, the inbox profile and its credential are read-only.
 
 [Service]
@@ -17,6 +21,12 @@ WorkingDirectory=/projects/dev/agentops
 Environment=SPRINTCTL_BACKEND=served
 Environment=SPRINTCTL_VUORO_PROFILE=%h/.config/vuoro/profiles/devbox-inbox-native-vuoro-shared.json
 Environment=PATH=%h/.local/bin:/run/current-system/sw/bin:/usr/bin:/bin
+# Own opencode data/state/cache (session database included); created by systemd.
+StateDirectory=opencode-inbox/data/opencode opencode-inbox/state
+CacheDirectory=opencode-inbox
+Environment=XDG_DATA_HOME=%S/opencode-inbox/data
+Environment=XDG_STATE_HOME=%S/opencode-inbox/state
+Environment=XDG_CACHE_HOME=%C/opencode-inbox
 ExecStart=/run/current-system/sw/bin/opencode serve --hostname 127.0.0.1 --port 4096
 Restart=on-failure
 RestartSec=10
@@ -33,7 +43,7 @@ RestrictRealtime=yes
 SystemCallArchitectures=native
 UMask=0077
 
-BindPaths=%h/.local/share/opencode %h/.local/state/opencode %h/.cache/opencode
+BindReadOnlyPaths=%h/.local/share/opencode/auth.json:%S/opencode-inbox/data/opencode/auth.json
 BindReadOnlyPaths=/projects/dev/agentops
 BindReadOnlyPaths=%h/.config/opencode
 BindReadOnlyPaths=%h/.local/bin/sprintctl %h/.local/share/uv/tools/sprintctl %h/.local/share/uv/python
