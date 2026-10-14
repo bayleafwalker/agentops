@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/appservice show origin/main:clusters/main/kubernetes/apps/vuoro-shared-db/app/service-lb.yaml",
+ "observed_at": "2026-10-14T14:38:49Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "apiVersion: v1\nkind: Service\nmetadata:\n  name: actionq-pg\n  namespace: vuoro-shared\n  labels:\n    app.kubernetes.io/name: actionq-pg\nspec:\n  type: LoadBalancer\n  loadBalancerClass: io.cilium/l2-announcer\n  loadBalancerIP: ${ACTIONQ_LB_IP}\n  externalTrafficPolicy: Cluster\n  loadBalancerSourceRanges:\n    - ${DEVBOX_VM_IP}/32\n  selector:\n    cnpg.io/cluster: vuoro-postgres\n    cnpg.io/instanceRole: primary\n  ports:\n    - name: postgres\n      port: 5432\n      targetPort: 5432\n      protocol: TCP\n"
+}

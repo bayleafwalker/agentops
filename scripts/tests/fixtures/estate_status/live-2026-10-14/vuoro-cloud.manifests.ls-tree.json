@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/vuoro-cloud ls-tree -r --name-only refs/tags/v0.1.0-poc.76 apps",
+ "observed_at": "2026-10-14T14:38:52Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "apps/control-admin/admin-enrol-cronjob.yaml\napps/control-admin/admin-webauthn.json\napps/control-admin/deployment.yaml\napps/control-admin/kustomization.yaml\napps/control-admin/service.yaml\napps/control/deployment.yaml\napps/control/kustomization.yaml\napps/control/migration-job.yaml\napps/gateway/deployment.yaml\napps/gateway/kustomization.yaml\napps/runtime-config/compatibility.json\napps/runtime-config/kustomization.yaml\napps/tenant-controller/admission-policy.yaml\napps/tenant-controller/deployment.yaml\napps/tenant-controller/kustomization.yaml\napps/web/deployment.yaml\napps/web/kustomization.yaml\napps/web/site/alternatives.html\napps/web/site/architecture.html\napps/web/site/docs.css\napps/web/site/ecosystem.html\napps/web/site/landing.css\napps/web/site/landing.html\napps/web/site/landing.js\napps/web/site/mental-model.html\napps/web/site/showcase.css\napps/web/site/showcase.html\napps/web/site/showcase.js\napps/web/site/takeover.js\n"
+}

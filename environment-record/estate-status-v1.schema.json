@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/bayleafwalker/agentops/environment-record/estate-status-v1.schema.json",
+  "title": "estate-status/v1",
+  "description": "Read-only per-environment estate status emitted by `agentops estate status --json` (scripts/estate_status.py). Every fact carries its value, source, observation time and evidence; `unknown` is a valid result and always carries a reason.",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "mode", "generator", "environments"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "estate-status/v1"},
+    "generated_at": {"type": "string", "minLength": 1, "format": "date-time"},
+    "mode": {"enum": ["live", "replay"]},
+    "generator": {
+      "type": "object",
+      "required": ["tool", "agentops_sha"],
+      "additionalProperties": false,
+      "properties": {
+        "tool": {"const": "agentops estate status"},
+        "agentops_sha": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}]}
+      }
+    },
+    "environments": {"type": "array", "items": {"$ref": "#/$defs/environment"}}
+  },
+  "$defs": {
+    "fact": {
+      "type": "object",
+      "required": ["status", "value", "source", "observed_at", "evidence"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {"enum": ["known", "unknown"]},
+        "value": {"description": "Any JSON value when known; null when unknown."},
+        "source": {"enum": ["artifact", "live-api", "cluster", "document", "derived"]},
+        "observed_at": {"type": "string", "minLength": 1, "format": "date-time"},
+        "evidence": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1}
+      },
+      "if": {"properties": {"status": {"const": "unknown"}}},
+      "then": {"required": ["reason"], "properties": {"value": {"type": "null"}}}
+    },
+    "facts": {"type": "object", "additionalProperties": {"$ref": "#/$defs/fact"}},
+    "recovery": {
+      "description": "recovery_class fact; when known its value names the class and the factual basis.",
+      "allOf": [
+        {"$ref": "#/$defs/fact"},
+        {
+          "if": {"properties": {"status": {"const": "known"}}},
+          "then": {
+            "properties": {
+              "value": {
+                "type": "object",
+                "required": ["class", "basis"],
+                "properties": {
+                  "class": {"enum": ["cancel", "image-revert", "forward-fix-or-restore"]},
+                  "basis": {"type": "string", "minLength": 1}
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "gate": {
+      "allOf": [
+        {"$ref": "#/$defs/fact"},
+        {
+          "if": {"properties": {"status": {"const": "known"}}},
+          "then": {
+            "properties": {
+              "value": {
+                "type": "object",
+                "required": ["gate", "detail"],
+                "properties": {"gate": {"type": "string", "minLength": 1}, "detail": {"type": "string"}}
+              }
+            }
+          }
+        }
+      ]
+    },
+    "environment": {
+      "type": "object",
+      "required": ["id", "kind", "desired", "running", "usable", "held", "document", "receipts", "gate", "summary"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "kind": {"enum": ["cluster", "host"]},
+        "desired": {"$ref": "#/$defs/facts"},
+        "running": {"$ref": "#/$defs/facts"},
+        "usable": {"$ref": "#/$defs/facts"},
+        "held": {"$ref": "#/$defs/facts"},
+        "document": {"$ref": "#/$defs/facts"},
+        "receipts": {"$ref": "#/$defs/facts"},
+        "gate": {
+          "type": "object",
+          "required": ["next_blocking_gate", "recovery_class"],
+          "additionalProperties": false,
+          "properties": {
+            "next_blocking_gate": {"$ref": "#/$defs/gate"},
+            "recovery_class": {"$ref": "#/$defs/recovery"}
+          }
+        },
+        "summary": {
+          "type": "object",
+          "required": ["facts", "known", "unknown"],
+          "additionalProperties": false,
+          "properties": {
+            "facts": {"type": "integer", "minimum": 0},
+            "known": {"type": "integer", "minimum": 0},
+            "unknown": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["fact", "reason"],
+                "additionalProperties": false,
+                "properties": {"fact": {"type": "string", "minLength": 1}, "reason": {"type": "string", "minLength": 1}}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

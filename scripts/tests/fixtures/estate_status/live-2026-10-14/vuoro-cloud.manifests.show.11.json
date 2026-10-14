@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/vuoro-cloud show refs/tags/v0.1.0-poc.76:apps/runtime-config/kustomization.yaml",
+ "observed_at": "2026-10-14T14:38:52Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\nnamespace: vuoro-system\nconfigMapGenerator:\n  - name: vuoro-compatibility\n    files:\n      - compatibility.json\ngeneratorOptions:\n  disableNameSuffixHash: true\n"
+}

@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/vuoro-cloud remote -v",
+ "observed_at": "2026-10-14T14:38:50Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "github\thttps://github.com/bayleafwalker/vuoro-cloud.git (fetch)\ngithub\thttps://github.com/bayleafwalker/vuoro-cloud.git (push)\norigin\tssh://git@forgejo-ssh.apps.kotona.app:2222/bayleaf/vuoro-cloud.git (fetch)\norigin\tssh://git@forgejo-ssh.apps.kotona.app:2222/bayleaf/vuoro-cloud.git (push)\n"
+}

@@ -1,0 +1,10 @@
+{
+ "body": "{\"schema_version\":\"vuoro-discovery/v1\",\"environment_id\":\"vuoro-cloud\",\"api_endpoint\":\"https://api.vuoro.cloud\",\"bootstrap_endpoint\":\"https://api.vuoro.cloud/api/control/v1/bootstrap/sessions\",\"activation_endpoint\":\"https://vuoro.cloud/activate\",\"client_protocol\":{\"minimum\":1,\"maximum\":1},\"bootstrap_manifest\":\"https://api.vuoro.cloud/api/control/v1/bootstrap/manifest\"}",
+ "evidence": "GET https://api.vuoro.cloud/.well-known/vuoro",
+ "headers": {
+  "content-type": "application/json"
+ },
+ "observed_at": "2026-10-14T14:38:52Z",
+ "ok": true,
+ "status": 200
+}

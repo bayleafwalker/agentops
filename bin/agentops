@@ -31,7 +31,13 @@ fi
 topic="$1"; shift
 script=""
 dir="$root/scripts"
-if [[ -r "$dir/${topic//-/_}.py" ]]; then script="$dir/${topic//-/_}.py"; fi
+if [[ -r "$dir/${topic//-/_}.py" ]]; then
+  script="$dir/${topic//-/_}.py"
+elif [[ $# -ge 1 && "$1" != -* && -r "$dir/${topic//-/_}_${1//-/_}.py" ]]; then
+  # Two-word topics: `agentops estate status` -> scripts/estate_status.py, which
+  # receives `status ...` so its own usage line can spell the two-word form.
+  script="$dir/${topic//-/_}_${1//-/_}.py"
+fi
 if [[ -z "$script" ]]; then
   printf 'agentops: no such topic %q (looked in %s/scripts)\n' "$topic" "$root" >&2
   exit 2

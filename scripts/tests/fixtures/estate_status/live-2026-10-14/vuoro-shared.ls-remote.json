@@ -1,0 +1,8 @@
+{
+ "evidence": "git ls-remote https://github.com/bayleafwalker/appservice.git refs/heads/main",
+ "observed_at": "2026-10-14T14:38:48Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "183fe8b9d4e54ca0d65362588760a63edd6fb403\trefs/heads/main\n"
+}

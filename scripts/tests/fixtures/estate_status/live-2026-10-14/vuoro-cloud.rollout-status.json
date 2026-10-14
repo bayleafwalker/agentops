@@ -1,0 +1,10 @@
+{
+ "body": "{\"schema_version\":\"vuoro-rollout-status/v1\",\"current_generation\":3,\"coexist_with_generations\":[2],\"serving_generations\":[3],\"converged\":true}",
+ "evidence": "GET https://api.vuoro.cloud/api/control/v1/operator/rollout/status  -H 'Authorization: [REDACTED]'",
+ "headers": {
+  "content-type": "application/json"
+ },
+ "observed_at": "2026-10-14T14:38:52Z",
+ "ok": true,
+ "status": 200
+}

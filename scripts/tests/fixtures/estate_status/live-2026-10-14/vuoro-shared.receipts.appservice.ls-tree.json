@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/appservice ls-tree --name-only origin/main verification/results/",
+ "observed_at": "2026-10-14T14:38:50Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "verification/results/flux-shared0192-source-2026-10-10.json\nverification/results/shared0192-image-rollout-2026-10-10.json\nverification/results/shared0193-image-rollout-2026-10-10.json\nverification/results/vuoro-work-schema21-cutover-2026-10-06.json\nverification/results/vuoro-work-schema25-cutover-2026-10-14.json\n"
+}

@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/agentops/.claude/worktrees/agent-a489aa34e71188b15 remote get-url origin",
+ "observed_at": "2026-10-14T14:38:46Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "https://github.com/bayleafwalker/agentops.git\n"
+}

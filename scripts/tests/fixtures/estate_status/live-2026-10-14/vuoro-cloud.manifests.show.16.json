@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/vuoro-cloud show refs/tags/v0.1.0-poc.76:apps/web/kustomization.yaml",
+ "observed_at": "2026-10-14T14:38:52Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\nnamespace: vuoro-system\nresources: [deployment.yaml]\nconfigMapGenerator:\n  - name: vuoro-web-landing\n    files:\n      - landing.html=site/landing.html\n      - landing.js=site/landing.js\n      - landing.css=site/landing.css\n      - docs.css=site/docs.css\n      - mental-model.html=site/mental-model.html\n      - architecture.html=site/architecture.html\n      - ecosystem.html=site/ecosystem.html\n      - alternatives.html=site/alternatives.html\n      - showcase.html=site/showcase.html\n      - showcase.css=site/showcase.css\n      - showcase.js=site/showcase.js\n      - takeover.js=site/takeover.js\n"
+}

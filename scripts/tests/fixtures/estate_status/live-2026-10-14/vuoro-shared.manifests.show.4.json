@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/appservice show origin/main:clusters/main/kubernetes/apps/vuoro-shared-db/app/namespace.yaml",
+ "observed_at": "2026-10-14T14:38:49Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "apiVersion: v1\nkind: Namespace\nmetadata: {name: vuoro-shared}\n"
+}

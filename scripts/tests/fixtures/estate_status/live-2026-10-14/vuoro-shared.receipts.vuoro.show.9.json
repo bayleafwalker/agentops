@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/vuoro show origin/main:verification/results/observable-resource-transport.json",
+ "observed_at": "2026-10-14T14:38:50Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "{\"claims\": [{\"result\": \"example-tested\"}, {\"result\": \"example-tested\"}, {\"result\": \"example-tested\"}], \"context_id\": \"vuoro.observable-resource.transport-v1\", \"depth\": 2, \"implementation_sha\": \"df023a38c5eb41915110b4530dcc4178c6a8c1db\", \"schema_version\": \"verification-result/v1\"}"
+}

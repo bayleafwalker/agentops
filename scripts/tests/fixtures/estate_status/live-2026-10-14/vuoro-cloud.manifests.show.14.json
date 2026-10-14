@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/vuoro-cloud show refs/tags/v0.1.0-poc.76:apps/tenant-controller/kustomization.yaml",
+ "observed_at": "2026-10-14T14:38:52Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\nresources: [deployment.yaml, admission-policy.yaml]\npatches:\n  - target:\n      group: apps\n      version: v1\n      kind: Deployment\n      name: vuoro-tenant-controller\n    patch: |-\n      # G2 activation only after G1 receipts. Refuse container reorder, never patch a sidecar.\n      - op: test\n        path: /spec/template/spec/containers/0/name\n        value: controller\n      - op: add\n        path: /spec/template/spec/containers/0/env/-\n        value:\n          name: VUORO_CLOUD_TENANT_DATABASE_ADMIN_URL\n          valueFrom:\n            secretKeyRef:\n              name: vuoro-tenant-provisioner-db\n              key: VUORO_CLOUD_TENANT_DATABASE_ADMIN_URL\n"
+}

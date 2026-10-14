@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/vuoro show origin/main:verification/results/vuoro-neutral-service-packaging-item-1205.json",
+ "observed_at": "2026-10-14T14:38:50Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "{\"claims\": [{\"result\": \"example-tested\"}, {\"result\": \"example-tested\"}, {\"result\": \"example-tested\"}], \"context_id\": \"vuoro.neutral-service-packaging\", \"depth\": 2, \"implementation_sha\": \"7ad12fe606ae412456839ec0bf1802bd65512602\", \"schema_version\": \"verification-result/v1\"}"
+}

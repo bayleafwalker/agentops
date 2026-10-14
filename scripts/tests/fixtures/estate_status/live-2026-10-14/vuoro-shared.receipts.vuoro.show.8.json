@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/vuoro show origin/main:verification/results/native-recovery-export-only-2026-10-10.json",
+ "observed_at": "2026-10-14T14:38:50Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "{\"claims\": [{\"result\": \"concurrency-tested\"}, {\"result\": \"concurrency-tested\"}, {\"result\": \"concurrency-tested\"}, {\"result\": \"example-tested\"}, {\"result\": \"example-tested\"}, {\"result\": \"example-tested\"}, {\"result\": \"unknown\"}], \"context_id\": \"vuoro.native-recovery-export-only\", \"depth\": 2, \"implementation_sha\": \"96a4c6cea7fb7df6dcfbc5009fbc1aca4a93ee65\", \"schema_version\": \"verification-result/v1\"}"
+}

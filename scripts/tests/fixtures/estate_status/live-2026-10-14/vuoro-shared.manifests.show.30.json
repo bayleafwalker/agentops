@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/appservice show origin/main:clusters/main/kubernetes/apps/vuoro-shared/ks.yaml",
+ "observed_at": "2026-10-14T14:38:49Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "apiVersion: kustomize.toolkit.fluxcd.io/v1\nkind: Kustomization\nmetadata:\n  name: vuoro-shared\n  namespace: flux-system\nspec:\n  interval: 10m\n  path: clusters/main/kubernetes/apps/vuoro-shared/app\n  prune: true\n  wait: true\n  sourceRef:\n    kind: GitRepository\n    name: cluster\n  # The database Kustomization checks migration Job completion. For schema\n  # cutovers, suspend both Kustomizations and stop every old runtime pod before\n  # resuming the database; explicitly observe the new Job Complete and schema\n  # handshake before resuming this runtime. Dependency readiness alone does\n  # not establish that an old writer has stopped. See the main-branch runbook\n  # docs/runbooks/sprintctl-work-schema-v25-cutover.md.\n  dependsOn:\n    - name: vuoro-shared-db\n  healthChecks:\n    - apiVersion: apps/v1\n      kind: Deployment\n      name: vuoro-shared\n      namespace: vuoro-shared\n"
+}

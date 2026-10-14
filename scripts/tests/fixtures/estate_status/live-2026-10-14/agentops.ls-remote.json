@@ -1,0 +1,8 @@
+{
+ "evidence": "git ls-remote https://github.com/bayleafwalker/agentops.git refs/heads/main",
+ "observed_at": "2026-10-14T14:38:46Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "116597245c2dec911972053912e6e65f9b18d996\trefs/heads/main\n"
+}

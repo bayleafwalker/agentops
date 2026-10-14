@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/vuoro-cloud show refs/tags/v0.1.0-poc.75:config/compatibility.json",
+ "observed_at": "2026-10-14T14:38:52Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "{\n  \"schema_version\": \"vuoro-bootstrap-manifest/v1\",\n  \"environment_id\": \"vuoro-cloud\",\n  \"minimum_python\": \"3.12\",\n  \"packages\": {\n    \"vuoro-client\": \"0.1.2\",\n    \"vuoro-adapter-kit\": \"0.2.0\",\n    \"vuoro-schema-runtime\": \"0.1.0\",\n    \"sprintctl\": \"0.18.0\",\n    \"auditctl\": \"0.1.9\",\n    \"vuoro-service\": \"vuoro-service-v0.1.94@sha256:91f61cea5b32c2c8c846172629e3db82dc1b8ad602bc25b7ca4388023a7038d0\"\n  },\n  \"service\": {\n    \"client_protocol_minimum\": 1,\n    \"client_protocol_maximum\": 1,\n    \"vuoro_cloud\": \"0.1.0\"\n  },\n  \"runtime\": {\n    \"generation\": 3,\n    \"coexist_with_generations\": [\n      2\n    ]\n  },\n  \"tenant_schema\": {\n    \"min\": 2,\n    \"max\": 3,\n    \"preferred\": 3\n  },\n  \"client_protocol\": {\n    \"min\": 1,\n    \"max\": 1,\n    \"preferred\": 1,\n    \"deprecated\": []\n  },\n  \"capabilities\": {},\n  \"release_ready\": false\n}\n"
+}

@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/vuoro-cloud show refs/tags/v0.1.0-poc.76:apps/control-admin/kustomization.yaml",
+ "observed_at": "2026-10-14T14:38:52Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\n# The admin plane (admin identity design \u00a7D1, unit 1.3): a separate process\n# and Deployment from vuoro-control, reached only over the operator WireGuard\n# tunnel. Runbook: docs/runbooks/admin-plane.md.\nresources: [deployment.yaml, service.yaml, admin-enrol-cronjob.yaml]\nconfigMapGenerator:\n  # WebAuthn relying party for the admin listener. allowed_aaguids lists only\n  # key models the operator has verified (FIDO MDS3 + the key's own getInfo);\n  # any other key is refused, and the refusal names the presented AAGUID.\n  # Today: 2fc0579f-8113-47ea-b116-bb5a8db9202a, YubiKey 5 Series with NFC.\n  #\n  # attestation_roots_pem, fetched 2026-09-27 from https://developers.yubico.com/PKI/:\n  #   1. \"Yubico Attestation Root 1\"\n  #      https://developers.yubico.com/PKI/yubico-fido-ca-1.pem\n  #      SHA-256 62:76:0C:6A:6E:F9:16:79:F4:54:C8:90:2B:80:FD:00:98:25:B3:F2:5D:A9:0F:1F:BA:CE:2E:C6:58:6C:D5:A8\n  #   2. \"Yubico U2F Root CA Serial 457200631\"\n  #      https://developers.yubico.com/PKI/yubico-ca-1.pem\n  #      SHA-256 0F:A1:38:6F:80:EB:87:13:26:3A:E5:C1:D8:4D:EB:45:5B:DF:08:AE:A5:0A:B0:55:03:CE:FE:E8:2B:09:2D:42\n  # tests/test_admin_manifests.py recomputes both fingerprints.\n  - name: vuoro-admin-webauthn\n    namespace: vuoro-system\n    files: [admin-webauthn.json]\n"
+}

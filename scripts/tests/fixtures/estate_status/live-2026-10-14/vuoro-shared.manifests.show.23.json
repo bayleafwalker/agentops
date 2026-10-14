@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/appservice show origin/main:clusters/main/kubernetes/apps/vuoro-shared/app/config.yaml",
+ "observed_at": "2026-10-14T14:38:49Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "apiVersion: v1\nkind: ConfigMap\nmetadata: {name: vuoro-shared-config, namespace: vuoro-shared}\ndata:\n  VUORO_ENVIRONMENT_NAME: vuoro-shared\n  VUORO_ENVIRONMENT_CLASS: production\n  VUORO_WORK_REPOSITORY_ID: sprintctl\n  VUORO_AUDIT_SCHEMA: audit\n"
+}

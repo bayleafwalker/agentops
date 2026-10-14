@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/appservice show origin/main:clusters/main/kubernetes/apps/vuoro-shared-db/app/networkpolicy-sprintctl-backfill.yaml",
+ "observed_at": "2026-10-14T14:38:49Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "apiVersion: networking.k8s.io/v1\nkind: NetworkPolicy\nmetadata:\n  name: sprintctl-remote-backfill-egress\n  namespace: vuoro-shared\nspec:\n  # Scoped narrowly to the one-off sprintctl-remote-backfill job pods only\n  # (not vuoro-shared namespace-wide) so they can reach the legacy\n  # sprintctl-cnpg-main database in vscode to copy each still-direct-remote\n  # workstation repo's history in. Paired with the matching ingress rule in\n  # sprintctl-postgres/app/networkpolicy.yaml. Remove once the 7 workstation\n  # repos have all been backfilled.\n  podSelector:\n    matchLabels:\n      app.kubernetes.io/name: sprintctl-remote-backfill\n  policyTypes: [Egress]\n  egress:\n    - to:\n        - namespaceSelector:\n            matchLabels:\n              kubernetes.io/metadata.name: vscode\n          podSelector:\n            matchExpressions:\n              - key: cnpg.io/cluster\n                operator: In\n                values:\n                  - sprintctl-cnpg-main\n      ports:\n        - protocol: TCP\n          port: 5432\n"
+}
