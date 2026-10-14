@@ -2,7 +2,7 @@
   "schema_version": "environment-record/v1",
   "id": "devbox",
   "environment_class": "local",
-  "revision": 3,
+  "revision": 4,
   "roles": ["unattended-agent-host", "vuoro-served-client"],
   "constraints": [
     "no-direct-postgresql-egress-for-sprintctl",
@@ -63,32 +63,38 @@
     {
       "name": "sprintctl",
       "version": "0.19.0",
-      "source": "uv tool /home/agent/.local/share/uv/tools/sprintctl from /projects/dev/sprintctl (extras remote,served) at tag v0.19.0",
-      "digest": "git:ad66ddd030dac7134e212df328f2cb5b82639bdc"
+      "source": "/nix/store/jb2gza1m5m77rvi26nwf55ga9agjrpm1-sprintctl-0.19.0 (gitops-nixos pkgs/sprintctl.nix: bayleafwalker/sprintctl v0.19.0 ad66ddd, extras remote,served)",
+      "digest": "nix:jb2gza1m5m77rvi26nwf55ga9agjrpm1"
     },
     {
       "name": "vuoro-client",
       "version": "0.1.1",
-      "source": "sprintctl uv tool environment, vuoro_client-0.1.1.dist-info/RECORD",
-      "digest": "sha256:5c5d3d3e0e6f4498a3fcbb78e1ce98b048e4368c3647ac6fdbbc55eb132f04c5"
+      "source": "gitops-nixos pkgs/agentops-host-adapter.nix: bayleafwalker/vuoro 8b8428e, packages/vuoro-client",
+      "digest": "git:8b8428e41c2178d1ae573cfb15917acdc9f05652"
+    },
+    {
+      "name": "vuoro-adapter-kit",
+      "version": "0.2.2",
+      "source": "gitops-nixos pkgs/sprintctl.nix: release wheel vuoro_adapter_kit-0.2.2-py3-none-any.whl",
+      "digest": "sha256:6d78c2f05a8e3a72c480b0e333232bc90ccee1a36b71fba09f5bc8fc8e5377fa"
     },
     {
       "name": "opencode",
-      "version": "1.18.33",
-      "source": "/nix/store/szf092k6j6i4h6c1da91fdmiq8yq2xr1-opencode-1.18.33",
-      "digest": "nix:szf092k6j6i4h6c1da91fdmiq8yq2xr1"
+      "version": "1.19.0",
+      "source": "/nix/store/0j2gmj4zx6xac1iipzy9m3ybh6wwkh6p-opencode-1.19.0",
+      "digest": "nix:0j2gmj4zx6xac1iipzy9m3ybh6wwkh6p"
     },
     {
       "name": "uv",
-      "version": "0.12.17",
-      "source": "/nix/store/wqpy2j3r0hjlmjyvq0wpd08rm5zn722y-uv-0.12.17",
-      "digest": "nix:wqpy2j3r0hjlmjyvq0wpd08rm5zn722y"
+      "version": "0.13.0",
+      "source": "/nix/store/373m9zapp9af30wim3d9i553fxyap7qz-uv-0.13.0",
+      "digest": "nix:373m9zapp9af30wim3d9i553fxyap7qz"
     },
     {
-      "name": "nixos-system",
-      "version": "26.11.20261001.c59305b (generation 99)",
-      "source": "/nix/store/yqsrz70ma9ym0lm4xy2kyn9kxgkbsh22-nixos-system-devbox-26.11.20261001.c59305b",
-      "digest": "nix:yqsrz70ma9ym0lm4xy2kyn9kxgkbsh22"
+      "name": "nixpkgs",
+      "version": "26.11.20261011.7fd4004 (nixos-unstable)",
+      "source": "gitops-nixos flake.lock nixpkgs input; the devbox toplevel is pinned by the gitops-nixos commit that deploys this record, not here (a record cannot pin a system closure that contains the record)",
+      "digest": "git:7fd4004d0511991fff3a0524856a9be09e28c5f0"
     }
   ],
   "trust_roots": [
