@@ -21,7 +21,7 @@ an error. ``source`` is one of ``artifact`` (a file in Git or a recorded receipt
 
 The report is strictly read-only: kubectl is only ever called with ``get``, HTTP
 only with GET, and the host probes run diagnostics. No secret is decrypted:
-vuoro-cloud's tenant-runtime pin lives only in a SOPS Secret, so it stays unknown.
+vuoro-cloud's tenant-runtime pin is read only from a digest-only rollout/status field, else unknown.
 ``--fetch`` updates remote-tracking refs in the local clones (no working-tree change)
 so desired state is read at the deploying ref rather than at a stale local one.
 
@@ -52,6 +52,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import subprocess
@@ -150,10 +151,87 @@ _REDACTIONS = (
 )
 
 
+_SECRET_KEY = re.compile(
+    r"(?i)(?:password|passwd|secret|token|api[_-]?key|apikey|private[_-]?key|access[_-]?key|"
+    r"credentials?|authorization|dsn|connection[_-]?string|conninfo)")
+# Keys that name or point at a secret rather than hold one.
+_SECRET_KEY_EXEMPT = re.compile(r"(?i)(?:_?ref|_?name|_?path|_?file|_?id|_?kind|_?type|_?hint)$")
+_JSON_STRING_PAIR = re.compile(r'"((?:[^"\\]|\\.){1,80})"(\s*:\s*)"((?:[^"\\]|\\.)*)"')
+
+
+def _redact_json_pair(match: re.Match) -> str:
+    key, sep, value = match.group(1), match.group(2), match.group(3)
+    if (not value or value == "[REDACTED]" or not _SECRET_KEY.search(key)
+            or _SECRET_KEY_EXEMPT.search(key)):
+        return match.group(0)
+    return f'"{key}"{sep}"[REDACTED]"'
+
+
 def redact(text: str) -> str:
     for pattern, replacement in _REDACTIONS:
         text = pattern.sub(replacement, text)
-    return text
+    # JSON (and JSON-in-text) string values under credential-like keys: "password": "x".
+    return _JSON_STRING_PAIR.sub(_redact_json_pair, text)
+
+
+# ---------------------------------------------------------------- emit guard
+#
+# A second, independent line of defence: before any report leaves the process (stdout or
+# MCP), every string in it is scanned with detectors that share nothing with redact(),
+# and a string that trips one is replaced as a whole (fail closed).
+
+_JWT = re.compile(r"eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}")
+_USERINFO = re.compile(r"\b[A-Za-z0-9_.-]+:[^@\s/:\"']{3,}@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+_PEM = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")
+_PREFIXED = re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|sk-[A-Za-z0-9]{20,}|"
+                       r"AKIA[0-9A-Z]{16}|vuo_[a-z]+_[A-Za-z0-9]{8,})")
+_CANDIDATE = re.compile(r"[A-Za-z0-9+/_=-]{24,}")
+GUARD_PLACEHOLDER = "[REDACTED: possible secret]"
+
+
+def _entropy(text: str) -> float:
+    counts = Counter(text)
+    return -sum(c / len(text) * math.log2(c / len(text)) for c in counts.values())
+
+
+def secret_findings(text: str) -> list[str]:
+    """Kinds of secret-looking content in ``text`` (empty when clean)."""
+    found = [kind for kind, pattern in (("jwt", _JWT), ("userinfo", _USERINFO), ("pem", _PEM),
+                                        ("prefixed-token", _PREFIXED)) if pattern.search(text)]
+    for match in _CANDIDATE.finditer(text):
+        token = match.group(0)
+        if re.fullmatch(r"[0-9a-f]+", token) or re.fullmatch(r"[a-z0-9-]+", token):
+            continue  # hex shas/digests and lower-case slugs (names, uids)
+        if re.fullmatch(r"[A-Za-z0-9_-]+", token) and "_" in token and not re.search(r"\d{3}", token):
+            continue  # identifiers such as SPRINTCTL_VUORO_PROFILE
+        if (re.search(r"[A-Z]", token) and re.search(r"[a-z]", token) and re.search(r"\d", token)
+                and _entropy(token) > 4.2):
+            found.append("high-entropy")
+            break
+    return found
+
+
+def guard(value: Any, path: str = "$", hits: list[str] | None = None) -> tuple[Any, list[str]]:
+    """Copy of ``value`` with every secret-looking string replaced whole; returns the paths."""
+    hits = [] if hits is None else hits
+    if isinstance(value, str):
+        if secret_findings(value):
+            hits.append(path)
+            return GUARD_PLACEHOLDER, hits
+        return value, hits
+    if isinstance(value, dict):
+        return {k: guard(v, f"{path}.{k}", hits)[0] for k, v in value.items()}, hits
+    if isinstance(value, list):
+        return [guard(v, f"{path}[{i}]", hits)[0] for i, v in enumerate(value)], hits
+    return value, hits
+
+
+def guard_report(report: dict[str, Any]) -> dict[str, Any]:
+    """The report as it may be emitted: guarded, with the redacted paths listed."""
+    clean, hits = guard({k: v for k, v in report.items() if k != "guard_redactions"})
+    if hits:
+        clean["guard_redactions"] = hits
+    return clean
 
 
 def _now() -> str:
@@ -993,7 +1071,7 @@ def derive_vuoro_shared_gate(env: dict[str, Any]) -> dict[str, Any]:
             return None, why
         want = d["deploying_repo_main_sha"]["value"]
         stale = {n: v["last_applied_revision"] for n, v in r["kustomizations"]["value"].items()
-                 if want not in str(v["last_applied_revision"])}
+                 if not revision_is(v["last_applied_revision"], "main", want)}
         return not stale, f"Flux has not applied main {_short(want)}: {stale}"
 
     def ks_ready():
@@ -1042,9 +1120,14 @@ def derive_vuoro_shared_recovery(env: dict[str, Any]) -> dict[str, Any]:
     is that schema forward-only, and which image is serving relative to the desired one and
     the one that introduced the schema."""
     d, r, doc = env["desired"], env["running"], env["document"]
-    inputs = ["desired.migration_job", "running.jobs", "usable.handshake", "document.schema_forward_only",
-              "desired.migration_job_image_digest", "desired.image_digest", "running.image_digests"]
+    inputs = ["desired.manifest_ref_is_remote_main", "desired.migration_job", "running.jobs",
+              "usable.handshake", "document.schema_forward_only", "desired.migration_job_image_digest",
+              "desired.image_digest", "running.image_digests"]
     evidence = "derived from " + ", ".join(inputs)
+    # Desired state read from a stale (or uncomparable) local ref cannot ground a recovery.
+    fresh, why_stale = current_check(d.get("manifest_ref_is_remote_main"), "local origin/main")
+    if fresh is None:
+        return unknown(why_stale, "derived", evidence)
     state, detail = migration_state(env)
     if state is None or state in ("running", "failed"):
         return unknown(f"{detail}; no recovery class can be chosen until it is resolved", "derived", evidence)
@@ -1278,12 +1361,6 @@ def collect_vuoro_cloud(probe: Probe, *, fetch: bool) -> dict[str, Any]:
             desired["release_report_card"] = unknown(
                 "the report card needs both the newest and the previous release compatibility; "
                 f"previous: {(previous or {}).get('reason') or 'unknown'}", "derived", "build_report_card")
-    desired["tenant_runtime_pin"] = unknown(
-        "the deployed tenant-runtime pin (VUORO_CLOUD_RUNTIME_IMAGE) exists only inside the "
-        "SOPS-encrypted vuoro-controller-runtime Secret; this report does not decrypt secrets, so "
-        "verify-runtime-pin.py is not run (its non-secret mirror check is desired.compatibility_mirror_agrees)",
-        "artifact", "platform/runtime-secrets/controller-runtime.secret.yaml (encrypted)")
-
     # running: cluster (tunnel-gated) + what the control plane serves publicly
     tunnel = probe.run("vuoro-cloud.tunnel", ["ip", "-br", "link", "show", cfg["tunnel_interface"]], timeout=10)
     if tunnel.get("ok"):
@@ -1320,15 +1397,45 @@ def collect_vuoro_cloud(probe: Probe, *, fetch: bool) -> dict[str, Any]:
     token = None
 
     held = held_from_running(running, declared)
-    held["tenants_in_maintenance"] = unknown(
-        "no read-only operator endpoint enumerates workspace maintenance_mode; the operator API "
-        "exposes rollout/status (serving generations) only, per-workspace routes require workspace "
-        "membership, and the workspaces table is reachable only through an audited database path",
-        "live-api", "vuoro-cloud src/vuoro_cloud/control.py operator GET routes")
+    fleet = usable["fleet_rollout"]
+    held["tenants_in_maintenance"] = _rollout_field(
+        fleet, "maintenance_workspaces",
+        lambda v: [w["id"] for w in v],
+        "rollout/status carries no `maintenance_workspaces` field yet (requested from the vuoro-cloud "
+        "lane, docs/runbooks/estate-status.md); per-workspace routes need membership and the "
+        "workspaces table is reachable only through an audited database path")
+    running["tenant_runtime_pin"] = _rollout_field(
+        fleet, "runtime_image",
+        _runtime_digest,
+        "the tenant-runtime pin (VUORO_CLOUD_RUNTIME_IMAGE) exists only inside the SOPS-encrypted "
+        "vuoro-controller-runtime Secret and rollout/status has no digest-only `runtime_image` field "
+        "yet (requested from the vuoro-cloud lane); this report never decrypts secrets")
     env = {"id": "vuoro-cloud", "kind": "cluster", "desired": desired, "running": running,
            "usable": usable, "held": held, "document": {}, "receipts": {}}
     env["gate"] = derive_vuoro_cloud_gate(env)
     return env
+
+
+def _runtime_digest(value: Any) -> str:
+    digest = value["digest"]
+    if not isinstance(digest, str) or not DIGEST.fullmatch(digest):
+        raise ValueError(f"not a sha256 digest: {digest!r}")
+    return digest
+
+
+def _rollout_field(fleet: dict[str, Any], field: str, parse: Callable[[Any], Any],
+                   absent: str) -> dict[str, Any]:
+    """A field of the operator rollout/status document, known only when the control plane serves it."""
+    if not is_known(fleet):
+        return _carry(fleet, "live-api")
+    if field not in fleet["value"]:
+        return unknown(absent, "live-api", fleet["evidence"], fleet["observed_at"])
+    try:
+        return known(parse(fleet["value"][field]), "live-api", f"{fleet['evidence']} .{field}",
+                     fleet["observed_at"])
+    except (KeyError, TypeError, ValueError) as error:
+        return unknown(f"rollout/status .{field} is malformed: {error}", "live-api", fleet["evidence"],
+                       fleet["observed_at"])
 
 
 CLOUD_HOLDS = ("suspended_kustomizations", "suspended_cronjobs", "scaled_below_declared",
@@ -1340,8 +1447,21 @@ def _cloud_applied(d: dict[str, Any], r: dict[str, Any]) -> tuple[bool | None, s
         return None, why
     tag, sha = d["predicted_release_tag"]["value"], d["predicted_release_tag_sha"]["value"]
     stale = {n: v["last_applied_revision"] for n, v in r["kustomizations"]["value"].items()
-             if tag not in str(v["last_applied_revision"]) and sha not in str(v["last_applied_revision"])}
+             if not revision_is(v["last_applied_revision"], tag, sha)}
     return not stale, f"Flux has not applied the predicted tag {tag}: {stale}"
+
+
+def revision_is(revision: Any, ref_name: str, sha: str | None) -> bool:
+    """Whether a Flux revision (``<ref>@sha1:<sha>``, or a bare sha) names exactly this ref
+    or commit. Anchored: tag ``v0.1.0-poc.7`` must not match ``v0.1.0-poc.76@sha1:...``."""
+    if not isinstance(revision, str) or not revision:
+        return False
+    name, _, digest = revision.partition("@")
+    digest = digest.split(":", 1)[-1] if digest else ""
+    if sha and (revision == sha or digest == sha):
+        return True
+    return bool(digest) and name in (ref_name, f"refs/tags/{ref_name}", f"refs/heads/{ref_name}") \
+        and (not sha or digest == sha)
 
 
 def derive_vuoro_cloud_gate(env: dict[str, Any]) -> dict[str, Any]:
@@ -1380,9 +1500,11 @@ def derive_vuoro_cloud_gate(env: dict[str, Any]) -> dict[str, Any]:
         return d["compatibility_mirror_agrees"]["value"], "compatibility mirror disagrees with config/compatibility.json"
 
     def pin():
-        if (why := _need(d.get("tenant_runtime_pin"))):
+        if (why := _need(r.get("tenant_runtime_pin"), d.get("compatibility"))):
             return None, why
-        return True, ""
+        want = digest_of(d["compatibility"]["value"].get("packages", {}).get("vuoro-service"))
+        have = r["tenant_runtime_pin"]["value"]
+        return have == want, f"tenant runtime pin {have} != declared vuoro-service {want}"
 
     gate = _gate([("flux-source-current", lambda: current_check(d.get("flux_source_ref_is_remote_main"),
                                                                 "Flux source read from the watched remote's main")),
@@ -1395,7 +1517,7 @@ def derive_vuoro_cloud_gate(env: dict[str, Any]) -> dict[str, Any]:
                  ["desired.flux_source_ref_is_remote_main", "desired.predicted_release_tag_tree_current", "desired.compatibility",
                   "running.served_compatibility", "desired.compatibility_mirror_agrees",
                   *(f"held.{n}" for n in CLOUD_HOLDS), "running.kustomizations", "desired.deployments",
-                  "running.pod_images", "usable.fleet_rollout", "desired.tenant_runtime_pin"])
+                  "running.pod_images", "usable.fleet_rollout", "running.tenant_runtime_pin"])
     return {"next_blocking_gate": gate, "recovery_class": derive_vuoro_cloud_recovery(env)}
 
 
@@ -1489,9 +1611,12 @@ def collect_host(probe: Probe, host: str, *, agentops_main: dict[str, Any]) -> d
     desired: dict[str, Any] = {"agentops_main_sha": agentops_main, "record_ref_is_remote_main": current}
     for name, rel in (("environment_record", cfg["environment_record"]), ("client_profile", cfg["profile"])):
         shown = git(probe, f"{host}.{name}", ROOT, "show", f"{ref}:{rel}")
-        keep = (("id", "revision", "environment_class", "roles", "constraints") if name == "environment_record"
+        keep = (("id", "revision", "environment_class", "roles", "constraints", "holds")
+                if name == "environment_record"
                 else ("id", "revision", "source_environment_id", "target", "required_authorities"))
-        fact = from_probe(shown, "artifact", lambda r, keep=keep: {k: json.loads(r["stdout"]).get(k) for k in keep})
+        # Only present keys: an absent `holds` must stay distinguishable from `holds: []`.
+        fact = from_probe(shown, "artifact", lambda r, keep=keep: {
+            k: v for k, v in json.loads(r["stdout"]).items() if k in keep})
         fact["evidence"] = f"{where}:{rel}"
         desired[name] = fact
     restamp(desired, ["environment_record", "client_profile"], content_at)
@@ -1551,10 +1676,17 @@ def collect_host(probe: Probe, host: str, *, agentops_main: dict[str, Any]) -> d
             for name in ("sprintctl_version", "installed_profile", "agentops_head"):
                 running[name] = _carry(envelope, "artifact")
             usable["served_doctor"] = _carry(envelope, "live-api")
-    held = {"host_holds": unknown(
-        "environment-record/v1 declares no hold surface for agent hosts (no suspend/pause field), "
-        "so a host hold cannot be observed, only absent from the model", "artifact",
-        f"{where}:{cfg['environment_record']}")}
+    record = desired.get("environment_record")
+    if is_known(record) and isinstance(record["value"].get("holds"), list):
+        held = {"host_holds": known([h.get("id") for h in record["value"]["holds"]], "artifact",
+                                    f"{record['evidence']} holds", record["observed_at"])}
+    elif is_known(record):
+        held = {"host_holds": unknown(
+            "the environment record declares no `holds` field, so whether this host is held is not "
+            "modelled (an empty `holds: []` would state that nothing is held)", "artifact",
+            record["evidence"], record["observed_at"])}
+    else:
+        held = {"host_holds": _carry(record, "artifact")}
     env = {"id": host, "kind": "host", "desired": desired, "running": running, "usable": usable,
            "held": held, "document": {}, "receipts": {}}
     env["gate"] = derive_host_gate(env)
@@ -1695,6 +1827,19 @@ def report_age_warning(report: dict[str, Any], now: datetime | None = None) -> s
             "for current state.")
 
 
+def saved_report_age(report: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
+    """Machine-readable age of a saved report (`--from ... --json`)."""
+    now = now or datetime.now(UTC)
+    try:
+        generated = datetime.fromisoformat(report["generated_at"].replace("Z", "+00:00"))
+        seconds = max(0, int((now - generated).total_seconds()))
+    except (KeyError, ValueError, AttributeError):
+        seconds = None
+    return {"rendered_at": now.replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+            "age_seconds": seconds,
+            "warning": report_age_warning(report, now).removeprefix("> **Warning:** ")}
+
+
 def render_markdown(report: dict[str, Any], *, warning: str | None = None) -> str:
     lines = [f"# Estate status ({report['generated_at']})", ""]
     if warning:
@@ -1777,6 +1922,9 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("--record and --replay are exclusive")
         probe = Probe(record=ns.record, replay=ns.replay)
         report = build_report(probe, ns.env or list(ENVIRONMENTS), fetch=ns.fetch and not ns.replay)
+    if ns.from_file:
+        report["saved_report_age"] = saved_report_age(report)
+    report = guard_report(report)
     if ns.json:
         sys.stdout.write(json.dumps(report, indent=2, sort_keys=False) + "\n")
     else:

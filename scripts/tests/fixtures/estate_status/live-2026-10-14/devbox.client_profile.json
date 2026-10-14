@@ -1,6 +1,6 @@
 {
- "evidence": "git -C /projects/dev/agentops/.claude/worktrees/agent-a489aa34e71188b15 show 0590a213932282be1e46c1ea720093c02aad32ba:environment-record/profiles/devbox-agent-vuoro-shared.json",
- "observed_at": "2026-10-14T15:08:56Z",
+ "evidence": "git -C /projects/dev/agentops/.claude/worktrees/agent-a489aa34e71188b15 show 774d279ff78f321aaff0f3d839475f40b265354f:environment-record/profiles/devbox-agent-vuoro-shared.json",
+ "observed_at": "2026-10-14T15:22:14Z",
  "ok": true,
  "rc": 0,
  "stderr": "",

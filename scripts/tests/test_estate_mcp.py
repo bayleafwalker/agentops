@@ -74,11 +74,16 @@ class StdioRoundTripTests(unittest.TestCase):
         self.assertIn("tools", result["capabilities"])
         self.assertEqual(result["serverInfo"]["name"], "agentops-estate")
 
-    def test_tools_list_advertises_read_only_estate_status(self):
+    def test_tools_list_discloses_the_fetch_side_effect(self):
         tools = self.by_id[2]["result"]["tools"]
         self.assertEqual([t["name"] for t in tools], ["estate_status"])
-        self.assertTrue(tools[0]["annotations"]["readOnlyHint"])
-        self.assertFalse(tools[0]["inputSchema"]["properties"]["fetch"]["default"])
+        # fetch:true writes remote-tracking refs locally, so the tool does not claim read-only.
+        self.assertFalse(tools[0]["annotations"]["readOnlyHint"])
+        self.assertFalse(tools[0]["annotations"]["destructiveHint"])
+        fetch = tools[0]["inputSchema"]["properties"]["fetch"]
+        self.assertFalse(fetch["default"])
+        self.assertIn("remote-tracking refs", fetch["description"])
+        self.assertIn("readOnlyHint is false", tools[0]["description"])
 
     def test_tool_call_returns_the_cli_report(self):
         result = self.by_id[3]["result"]
@@ -122,6 +127,34 @@ class ServerTests(unittest.TestCase):
     def test_unknown_tool_is_invalid_params(self):
         response = replay_server().handle(call(1, {}, name="estate.mutate"))
         self.assertEqual(response["error"]["code"], -32602)
+
+    def test_non_scalar_and_null_ids_are_rejected(self):
+        server = replay_server()
+        for bad in ({"a": 1}, [1], None, True):
+            with self.subTest(id=bad):
+                response = server.handle({"jsonrpc": "2.0", "id": bad, "method": "ping"})
+                self.assertEqual(response["error"]["code"], -32600)
+                self.assertIsNone(response["id"])
+        self.assertEqual(server.handle({"jsonrpc": "2.0", "id": "a-1", "method": "ping"})["result"], {})
+
+    def test_tool_output_passes_the_emit_guard(self):
+        original = estate.build_report
+
+        def leaky(probe, envs, *, fetch):
+            report = original(probe, envs, fetch=fetch)
+            report["environments"][0]["desired"]["image"]["evidence"] = "Zx9Qw7Lm3Rt8Yp2Kd6Vn4Bh1Jc5Gf0Ts"
+            return report
+
+        estate.build_report = leaky
+        try:
+            result = replay_server().handle(call(1, {"env": "vuoro-shared"}))["result"]
+        finally:
+            estate.build_report = original
+        report = result["structuredContent"]
+        self.assertNotIn("Zx9Qw7Lm3Rt8Yp2Kd6Vn4Bh1Jc5Gf0Ts", result["content"][0]["text"])
+        self.assertEqual(report["environments"][0]["desired"]["image"]["evidence"], estate.GUARD_PLACEHOLDER)
+        self.assertEqual(report["guard_redactions"], ["$.environments[0].desired.image.evidence"])
+        self.assertEqual(schema_check.validate(report, SCHEMA), [])
 
     def test_unknown_notification_is_silent(self):
         self.assertIsNone(replay_server().handle({"jsonrpc": "2.0", "method": "notifications/whatever"}))

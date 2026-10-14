@@ -1,6 +1,6 @@
 {
  "evidence": "git -C /projects/dev/appservice show 183fe8b9d4e54ca0d65362588760a63edd6fb403:verification/results/vuoro-work-schema25-cutover-2026-10-14.json",
- "observed_at": "2026-10-14T15:08:52Z",
+ "observed_at": "2026-10-14T15:22:10Z",
  "ok": true,
  "rc": 0,
  "stderr": "",

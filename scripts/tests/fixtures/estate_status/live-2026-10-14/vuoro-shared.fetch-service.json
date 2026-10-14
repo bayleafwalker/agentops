@@ -1,6 +1,6 @@
 {
  "evidence": "git -C /projects/dev/vuoro fetch --quiet origin main",
- "observed_at": "2026-10-14T15:08:50Z",
+ "observed_at": "2026-10-14T15:22:08Z",
  "ok": true,
  "rc": 0,
  "stderr": "",

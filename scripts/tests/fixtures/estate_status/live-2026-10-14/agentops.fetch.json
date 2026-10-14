@@ -1,6 +1,6 @@
 {
  "evidence": "git -C /projects/dev/agentops/.claude/worktrees/agent-a489aa34e71188b15 fetch --quiet origin main",
- "observed_at": "2026-10-14T15:08:48Z",
+ "observed_at": "2026-10-14T15:22:06Z",
  "ok": true,
  "rc": 0,
  "stderr": "",
