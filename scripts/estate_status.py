@@ -20,9 +20,24 @@ an error. ``source`` is one of ``artifact`` (a file in Git or a recorded receipt
 (a runbook statement) or ``derived`` (computed from named facts).
 
 The report is strictly read-only: kubectl is only ever called with ``get``, HTTP
-only with GET, and the host probes run diagnostics. ``--fetch`` updates
-remote-tracking refs in the local clones (no working-tree change) so desired state
-is read at the deploying ref rather than at a stale local one.
+only with GET, and the host probes run diagnostics. No secret is decrypted:
+vuoro-cloud's tenant-runtime pin lives only in a SOPS Secret, so it stays unknown.
+``--fetch`` updates remote-tracking refs in the local clones (no working-tree change)
+so desired state is read at the deploying ref rather than at a stale local one.
+
+Freshness: content read from a local ref is stamped with the ls-remote time when
+the local sha equals the remote's, and otherwise with the ref's last fetch time
+(reflog, or FETCH_HEAD when it records that ref at that sha). A local ref behind its
+remote makes the desired-current gate check unknown. A moved tag makes the tag's
+facts unknown.
+
+Rules that keep derivations honest:
+
+* the gate is ``none`` only when every hold is known and absent;
+* a recovery class needs every input it depends on to be known;
+* the Flux semver constraint is read from the remote Flux actually watches;
+* the tag it selects is labelled a prediction, distinct from Flux's applied
+  revision.
 
 Every probe goes through one ``Probe`` object, so a live run can be recorded with
 ``--record DIR`` (secrets redacted before anything is written) and replayed with
@@ -102,6 +117,7 @@ HOSTS = {
         "ssh": None,
         "envrc": DEV_ROOT / "agentops/.envrc",
         "doctor_cwd": DEV_ROOT / "agentops",
+        "agentops_checkout": DEV_ROOT / "agentops",
     },
     "devbox": {
         "environment_record": "environment-record/devbox-vm.vuoro-shared.json",
@@ -109,6 +125,7 @@ HOSTS = {
         "ssh": "devbox-agent",
         "installed_profile": "~/.config/vuoro/profiles/devbox-agent-vuoro-shared.json",
         "repo_id": "agentops",
+        "agentops_checkout": "/projects/dev/agentops",
     },
 }
 
@@ -119,7 +136,15 @@ _REDACTIONS = (
     (re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{8,}"), "Bearer [REDACTED]"),
     (re.compile(r"\bvuo_[A-Za-z0-9_]{6,}"), "vuo_[REDACTED]"),
     (re.compile(r"(?i)\b(postgres(?:ql)?|mysql|redis)://[^\s\"']+"), r"\1://[REDACTED]"),
-    (re.compile(r"(?i)(password|passwd|secret|token)=([^\s&\"']+)"), r"\1=[REDACTED]"),
+    # key=value only where it is a credential by construction, so code such as
+    # `const token=readToken()` survives: URL query parameters, upper-case env-style
+    # assignments (FOO_TOKEN=..., export DB_PASSWORD=...), and libpq conninfo strings.
+    (re.compile(r"(?i)([?&](?:password|passwd|secret|token|access_token|api_key|apikey)=)[^&\s\"'#]+"),
+     r"\1[REDACTED]"),
+    (re.compile(r"(?<![\w.])((?:export\s+)?[A-Z][A-Z0-9_]*(?:PASSWORD|PASSWD|SECRET|TOKEN|API_KEY)[A-Z0-9_]*=)"
+                r"(?!\[REDACTED\])[^\s\"']+"), r"\1[REDACTED]"),
+    (re.compile(r"(?i)((?:\bhost|\bdbname|\buser)=\S+\s+(?:\w+=\S+\s+)*)password=\S+"),
+     r"\1password=[REDACTED]"),
     (re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}"), "gh_[REDACTED]"),
     (re.compile(r"AGE-SECRET-KEY-[A-Z0-9]+"), "AGE-SECRET-KEY-[REDACTED]"),
 )
@@ -352,6 +377,73 @@ def ls_remote_tags(probe: Probe, key: str, url: str) -> dict[str, Any]:
     return from_probe(result, "live-api", parse)
 
 
+_FETCH_TIME = (
+    'gitdir=$(git -C "$1" rev-parse --absolute-git-dir) || exit 1\n'
+    'printf "reflog=%s\\n" "$(git -C "$1" reflog -n1 --date=iso-strict --format=%gd "$2" 2>/dev/null)"\n'
+    # FETCH_HEAD counts only if it records this very branch, from this remote, at the sha the
+    # ref has now: then its mtime is when that state was last confirmed by a fetch.
+    'remote=${2%%/*}; branch=${2#*/}\n'
+    'url=$(git -C "$1" remote get-url "$remote" 2>/dev/null); url=${url%.git}\n'
+    'want="branch '"'"'$branch'"'"' of $url"\n'
+    'fsha=$(awk -F "\\t" -v w="$want" \'$3 == w {print $1; exit}\' "$gitdir/FETCH_HEAD" 2>/dev/null)\n'
+    'if [ -n "$url" ] && [ -n "$fsha" ] && [ "$fsha" = "$(git -C "$1" rev-parse "$2" 2>/dev/null)" ]; then\n'
+    '  printf "fetch_head_mtime=%s\\n" "$(stat -c %Y "$gitdir/FETCH_HEAD")"\n'
+    'fi\n'
+)
+
+
+def ref_fetch_time(probe: Probe, key: str, repo: Path, ref: str) -> str | None:
+    """When the local ``ref`` was last brought up to date: its reflog time, else the
+    FETCH_HEAD mtime. That, not the time `git show` ran, is when its content was observed."""
+    result = probe.run(key, ["bash", "-c", _FETCH_TIME, "fetch-time", str(repo), ref], timeout=15,
+                       evidence=f"git -C {repo} reflog -n1 {ref}; stat FETCH_HEAD")
+    if not result.get("ok"):
+        return None
+    fields = dict(line.partition("=")[::2] for line in result["stdout"].splitlines())
+    times = []
+    match = re.search(r"@\{([^}]+)\}", fields.get("reflog", ""))
+    if match:
+        try:
+            times.append(datetime.fromisoformat(match.group(1)).astimezone(UTC))
+        except ValueError:
+            pass
+    if fields.get("fetch_head_mtime", "").isdigit():
+        times.append(datetime.fromtimestamp(int(fields["fetch_head_mtime"]), UTC))
+    if not times:
+        return None
+    return max(times).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def ref_current(probe: Probe, key: str, repo: Path, local_ref: str,
+                remote_sha: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any], str | None]:
+    """Compare a local ref with the remote's sha.
+
+    Returns ``(local_sha_fact, is_current_fact, content_observed_at)``. Content read at the
+    local sha was observed at the ls-remote time when the shas agree (the remote served that
+    exact commit then); otherwise at the local ref's last fetch time.
+    """
+    local = _ref_sha(probe, f"{key}.local", repo, local_ref)
+    if not is_known(local):
+        return local, _carry(local, "derived"), None
+    if not is_known(remote_sha):
+        current = unknown(f"cannot compare local {local_ref} with the remote: {remote_sha.get('reason')}",
+                          "derived", f"{local['evidence']} vs {remote_sha.get('evidence')}")
+        return local, current, ref_fetch_time(probe, f"{key}.fetch-time", repo, local_ref)
+    same = local["value"] == remote_sha["value"]
+    current = known(same, "derived", f"{local_ref} {_short(local['value'])} vs remote "
+                    f"{_short(remote_sha['value'])}", remote_sha["observed_at"])
+    at = remote_sha["observed_at"] if same else ref_fetch_time(probe, f"{key}.fetch-time", repo, local_ref)
+    return local, current, at
+
+
+def restamp(facts: dict[str, dict[str, Any]], names: list[str], observed_at: str | None) -> None:
+    """Give git-derived facts the time their content was actually current."""
+    for name in names:
+        fact = facts.get(name)
+        if fact and observed_at:
+            fact["observed_at"] = observed_at
+
+
 def yaml_docs(text: str) -> list[dict[str, Any]]:
     if yaml is None:
         raise RuntimeError("PyYAML is not installed")
@@ -409,16 +501,33 @@ def declared_workloads(files: dict[str, str]) -> dict[str, Any]:
 # ---------------------------------------------------------------- kubectl
 
 
-def kget(probe: Probe, key: str, kubeconfig: Path, *args: str) -> dict[str, Any]:
-    argv = ["kubectl", "get", *args, "-o", "json", "--request-timeout=15s"]
+DNS1123 = re.compile(r"[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*")
+
+
+def is_dns1123(name: Any) -> bool:
+    return isinstance(name, str) and len(name) <= 253 and DNS1123.fullmatch(name) is not None
+
+
+def kget(probe: Probe, key: str, kubeconfig: Path, resource: str, namespace: str,
+         names: tuple[str, ...] = ()) -> dict[str, Any]:
+    """``kubectl get RESOURCE -n NS -o json -- NAMES``; names and namespace must be DNS-1123,
+    and come after ``--`` so a name can never be read as a flag."""
+    bad = [n for n in (namespace, *names) if not is_dns1123(n)]
+    argv = ["kubectl", "get", resource, "-n", namespace, "-o", "json", "--request-timeout=15s"]
+    if names:
+        argv += ["--", *names]
+    evidence = f"KUBECONFIG={kubeconfig} {' '.join(argv)}"
+    if bad:
+        return {"ok": False, "error": f"refusing non-DNS-1123 name(s) {bad!r}", "observed_at": None,
+                "evidence": evidence}
     return probe.run(key, argv, env={"KUBECONFIG": str(kubeconfig)}, timeout=40, transform=_minimize_k8s,
-                     evidence=f"KUBECONFIG={kubeconfig} {' '.join(argv)}")
+                     evidence=evidence)
 
 
 def running_workloads(probe: Probe, prefix: str, kubeconfig: Path, namespace: str,
                       kustomizations: tuple[str, ...]) -> dict[str, dict[str, Any]]:
     facts: dict[str, dict[str, Any]] = {}
-    deploys = kget(probe, f"{prefix}.deploy", kubeconfig, "deploy", "-n", namespace)
+    deploys = kget(probe, f"{prefix}.deploy", kubeconfig, "deployments", namespace)
     facts["deployments"] = from_probe(deploys, "cluster", lambda r: {
         d["metadata"]["name"]: {
             "replicas": d["spec"].get("replicas", 1),
@@ -427,7 +536,7 @@ def running_workloads(probe: Probe, prefix: str, kubeconfig: Path, namespace: st
             "available": d.get("status", {}).get("availableReplicas", 0),
             "images": {c["name"]: c["image"] for c in d["spec"]["template"]["spec"]["containers"]},
         } for d in _json_out(r)["items"]})
-    pods = kget(probe, f"{prefix}.pods", kubeconfig, "pods", "-n", namespace)
+    pods = kget(probe, f"{prefix}.pods", kubeconfig, "pods", namespace)
 
     def parse_pods(r: dict[str, Any]) -> list[dict[str, Any]]:
         rows = []
@@ -443,27 +552,29 @@ def running_workloads(probe: Probe, prefix: str, kubeconfig: Path, namespace: st
         return rows
 
     facts["pod_images"] = from_probe(pods, "cluster", parse_pods)
-    cron = kget(probe, f"{prefix}.cronjobs", kubeconfig, "cronjobs", "-n", namespace)
+    cron = kget(probe, f"{prefix}.cronjobs", kubeconfig, "cronjobs", namespace)
     facts["cronjobs"] = from_probe(cron, "cluster", lambda r: {
         c["metadata"]["name"]: {"suspend": bool(c["spec"].get("suspend", False)),
                                 "last_schedule": c.get("status", {}).get("lastScheduleTime")}
         for c in _json_out(r)["items"]})
-    jobs = kget(probe, f"{prefix}.jobs", kubeconfig, "jobs", "-n", namespace)
+    jobs = kget(probe, f"{prefix}.jobs", kubeconfig, "jobs", namespace)
 
     def parse_jobs(r: dict[str, Any]) -> dict[str, Any]:
         out = {}
         for job in _json_out(r)["items"]:
             conds = {c["type"]: c["status"] for c in job.get("status", {}).get("conditions", [])}
             containers = job["spec"]["template"]["spec"]["containers"]
+            status = job.get("status", {})
             out[job["metadata"]["name"]] = {
                 "complete": conds.get("Complete") == "True", "failed": conds.get("Failed") == "True",
+                "active": int(status.get("active") or 0), "started": bool(status.get("startTime")),
                 "images": {c["name"]: c["image"] for c in containers}}
         return out
 
     facts["jobs"] = from_probe(jobs, "cluster", parse_jobs)
     # Named, so neither unrelated apps nor their (large) inventories are fetched.
     ks = kget(probe, f"{prefix}.kustomizations", kubeconfig,
-              "kustomizations.kustomize.toolkit.fluxcd.io", "-n", "flux-system", *kustomizations)
+              "kustomizations.kustomize.toolkit.fluxcd.io", "flux-system", tuple(kustomizations))
 
     def parse_ks(r: dict[str, Any]) -> dict[str, Any]:
         out = {}
@@ -592,18 +703,87 @@ def semver_in_range(version: str, constraint: str) -> bool:
     return True
 
 
+_ROLLBACK_HEADING = re.compile(
+    r"^#{1,6}\s+(?:failure\s+and\s+)?rollback\s*\((forward[- ]only|reversible)\)\s*$", re.I)
+
+
+def parse_rollback_marker(text: str) -> tuple[bool | None, int | None, str | None]:
+    """The structured rollback marker of a cutover runbook.
+
+    Recognised, in order:
+
+    * YAML front matter ``rollback: forward-only`` or ``rollback: reversible``;
+    * a Markdown heading, outside code fences, whose whole text is ``Rollback (forward only)``,
+      ``Failure and rollback (forward only)`` or the ``(reversible)`` form.
+
+    Anything else, including prose such as "this is not forward only", is no marker, and
+    the caller reports ``unknown``. Returns ``(forward_only, line_number, line)``.
+    """
+    lines = text.splitlines()
+    if lines and lines[0].strip() == "---":
+        for number, line in enumerate(lines[1:], 2):
+            if line.strip() == "---":
+                break
+            match = re.fullmatch(r"\s*rollback\s*:\s*[\"']?(forward-only|reversible)[\"']?\s*", line)
+            if match:
+                return match.group(1) == "forward-only", number, line.strip()
+    fenced = False
+    for number, line in enumerate(lines, 1):
+        if line.lstrip().startswith(("```", "~~~")):
+            fenced = not fenced
+            continue
+        if fenced:
+            continue
+        match = _ROLLBACK_HEADING.match(line.strip())
+        if match:
+            return match.group(1).lower().replace("-", " ") == "forward only", number, line.strip()
+    return None, None, None
+
+
 def _forward_only_runbook(probe: Probe, repo: Path, ref: str, schema: int) -> dict[str, Any]:
     path = f"docs/runbooks/sprintctl-work-schema-v{schema}-cutover.md"
     shown = git(probe, "vuoro-shared.runbook", repo, "show", f"{ref}:{path}")
+    where = f"git:{repo.name}@{_short(ref)}:{path}"
     if not shown.get("ok"):
-        return unknown(f"no schema-{schema} cutover runbook at {ref}: {shown.get('error')}",
-                       "document", f"git:{repo.name}@{ref}:{path}", shown.get("observed_at"))
-    for number, line in enumerate(shown["stdout"].splitlines(), 1):
-        if re.search(r"(?i)forward[ -]only", line):
-            return known(True, "document", f"git:{repo.name}@{ref}:{path}:{number}: {line.strip()}",
-                         shown.get("observed_at"))
-    return known(False, "document", f"git:{repo.name}@{ref}:{path} (no forward-only statement)",
-                 shown.get("observed_at"))
+        return unknown(f"no schema-{schema} cutover runbook at {_short(ref)}: {shown.get('error')}",
+                       "document", where, shown.get("observed_at"))
+    value, number, line = parse_rollback_marker(shown["stdout"])
+    if value is None:
+        return unknown("the runbook carries no structured rollback marker (front matter `rollback:` or "
+                       "a `Rollback (forward only|reversible)` heading)", "document", where,
+                       shown.get("observed_at"))
+    return known(value, "document", f"{where}:{number}: {line}", shown.get("observed_at"))
+
+
+# -------------------------------------------------------------- shared gate helpers
+
+
+def holds_check(h: dict[str, Any], names: tuple[str, ...]) -> tuple[bool | None, str]:
+    """No hold may be unknown or present. A CronJob suspended because Git declares it
+    suspended (break-glass jobs) is intent, not a hold."""
+    for name in names:
+        if (why := _need(h.get(name))):
+            return None, f"{name}: {why}"
+    present = []
+    for name in names:
+        value = h[name]["value"]
+        if name == "suspended_cronjobs":
+            value = [c["name"] for c in value if c.get("declared_suspend") is not True]
+        if value:
+            present.append(f"{name}={value}")
+    return not present, "holds present: " + "; ".join(present)
+
+
+def current_check(fact: dict[str, Any] | None, what: str) -> tuple[bool | None, str]:
+    """Desired state read from a stale local ref is not desired state: unknown, not a pass."""
+    if (why := _need(fact)):
+        return None, f"{what}: {why}"
+    if not fact["value"]:
+        return None, f"{what} is behind the remote ({fact['evidence']}); rerun with --fetch"
+    return True, ""
+
+
+# -------------------------------------------------------------- vuoro-shared
 
 
 def collect_vuoro_shared(probe: Probe, *, fetch: bool) -> dict[str, Any]:
@@ -616,22 +796,24 @@ def collect_vuoro_shared(probe: Probe, *, fetch: bool) -> dict[str, Any]:
     desired: dict[str, Any] = {}
     desired["deploying_repo_main_sha"] = ls_remote_head(probe, "vuoro-shared.ls-remote",
                                                         cfg["remote_url"])
-    desired["manifest_ref_sha"] = _ref_sha(probe, "vuoro-shared.manifest-ref", repo, "origin/main")
-    if is_known(desired["deploying_repo_main_sha"]) and is_known(desired["manifest_ref_sha"]):
-        same = desired["deploying_repo_main_sha"]["value"] == desired["manifest_ref_sha"]["value"]
-        desired["manifest_ref_is_remote_main"] = known(
-            same, "derived", "desired.deploying_repo_main_sha == desired.manifest_ref_sha", None)
-    files = manifest_files(probe, "vuoro-shared.manifests", repo, "origin/main", cfg["app_dirs"])
+    local, current, content_at = ref_current(probe, "vuoro-shared.manifest-ref", repo, "origin/main",
+                                             desired["deploying_repo_main_sha"])
+    desired["manifest_ref_sha"] = local
+    desired["manifest_ref_is_remote_main"] = current
+    ref = local["value"] if is_known(local) else "origin/main"
+    files = manifest_files(probe, "vuoro-shared.manifests", repo, ref, cfg["app_dirs"])
     declared = None
+    git_facts = ["manifest_ref_sha"]
     if is_known(files):
         declared = declared_workloads(files["value"])
         ev, at = files["evidence"], files["observed_at"]
         deploy = declared["deployments"].get(cfg["deployment"])
         if deploy:
             image = next(iter(deploy["images"].values()))
-            desired["image"] = known(image, "artifact", f"git:{repo.name}@origin/main:{deploy['path']}", at)
-            desired["image_digest"] = known(digest_of(image), "artifact", desired["image"]["evidence"], at)
-            desired["replicas"] = known(deploy["replicas"], "artifact", desired["image"]["evidence"], at)
+            evidence = f"git:{repo.name}@{_short(ref)}:{deploy['path']}"
+            desired["image"] = known(image, "artifact", evidence, at)
+            desired["image_digest"] = known(digest_of(image), "artifact", evidence, at)
+            desired["replicas"] = known(deploy["replicas"], "artifact", evidence, at)
         else:
             desired["image"] = unknown(f"Deployment {cfg['deployment']} not declared", "artifact", ev, at)
         desired["kustomizations"] = known(declared["kustomizations"], "artifact", ev, at)
@@ -641,9 +823,8 @@ def collect_vuoro_shared(probe: Probe, *, fetch: bool) -> dict[str, Any]:
         if migrations:
             schema, job = migrations[0]
             job_path = declared["jobs"][job]["path"]
-            text = files["value"][job_path]
-            asserted = re.search(r"CURRENT_SCHEMA_VERSION\s*==\s*(\d+)", text)
-            evidence = f"git:{repo.name}@origin/main:{job_path}"
+            asserted = re.search(r"CURRENT_SCHEMA_VERSION\s*==\s*(\d+)", files["value"][job_path])
+            evidence = f"git:{repo.name}@{_short(ref)}:{job_path}"
             desired["migration_job"] = known(job, "artifact", evidence, at)
             desired["migration_job_image_digest"] = known(
                 digest_of(next(iter(declared["jobs"][job]["images"].values()))), "artifact", evidence, at)
@@ -652,9 +833,12 @@ def collect_vuoro_shared(probe: Probe, *, fetch: bool) -> dict[str, Any]:
                 evidence + (" (CURRENT_SCHEMA_VERSION assertion)" if asserted else " (job name)"), at)
         else:
             desired["work_schema_pin"] = unknown("no vuoro-work-migrate-vN Job declared", "artifact", ev, at)
+        git_facts += ["image", "image_digest", "replicas", "kustomizations", "migration_job",
+                      "migration_job_image_digest", "work_schema_pin"]
     else:
-        for name in ("image", "image_digest", "work_schema_pin", "kustomizations"):
+        for name in ("image", "image_digest", "work_schema_pin", "kustomizations", "migration_job"):
             desired[name] = _carry(files, "artifact")
+    restamp(desired, git_facts, content_at)
     tags = ls_remote_tags(probe, "vuoro-shared.service-tags", cfg["service_remote_url"])
     if is_known(tags):
         versions = [t for t in tags["value"] if t.startswith(cfg["service_tag_prefix"])]
@@ -666,8 +850,8 @@ def collect_vuoro_shared(probe: Probe, *, fetch: bool) -> dict[str, Any]:
     else:
         desired["newest_service_release_tag"] = _carry(tags, "live-api")
 
-    running = running_workloads(probe, "vuoro-shared", cfg["kubeconfig"], cfg["namespace"],
-                                tuple(declared["kustomizations"]) if declared else ("vuoro-shared", "vuoro-shared-db"))
+    ks_names = tuple(declared["kustomizations"]) if declared else ("vuoro-shared", "vuoro-shared-db")
+    running = running_workloads(probe, "vuoro-shared", cfg["kubeconfig"], cfg["namespace"], ks_names)
     pods = running["pod_images"]
     if is_known(pods):
         serving = [p for p in pods["value"] if p["pod"].startswith(cfg["deployment"] + "-")]
@@ -692,18 +876,23 @@ def collect_vuoro_shared(probe: Probe, *, fetch: bool) -> dict[str, Any]:
     held = held_from_running(running, declared)
     document = {}
     if is_known(desired.get("work_schema_pin")):
-        document["schema_forward_only"] = _forward_only_runbook(
-            probe, repo, "origin/main", desired["work_schema_pin"]["value"])
+        document["schema_forward_only"] = _forward_only_runbook(probe, repo, ref,
+                                                                desired["work_schema_pin"]["value"])
+        restamp(document, ["schema_forward_only"], content_at)
     else:
         document["schema_forward_only"] = _carry(desired.get("work_schema_pin"), "document")
+    service_at = ref_fetch_time(probe, "vuoro-shared.receipts.vuoro.fetch-time", cfg["service_repo"],
+                                "origin/main")
     receipts = {
-        "appservice": receipts_at(probe, "vuoro-shared.receipts.appservice", repo, "origin/main",
+        "appservice": receipts_at(probe, "vuoro-shared.receipts.appservice", repo, ref,
                                   "verification/results",
                                   lambda d: "vuoro" in str(d.get("context_id", "")) or
                                   "shared" in str(d.get("context_id", ""))),
         "vuoro": receipts_at(probe, "vuoro-shared.receipts.vuoro", cfg["service_repo"], "origin/main",
                              "verification/results"),
     }
+    restamp(receipts, ["appservice"], content_at)
+    restamp(receipts, ["vuoro"], service_at)
     env = {"id": "vuoro-shared", "kind": "cluster", "desired": desired, "running": running,
            "usable": usable, "held": held, "document": document, "receipts": receipts}
     env["gate"] = derive_vuoro_shared_gate(env)
@@ -749,8 +938,8 @@ def _gate(checks: list[tuple[str, Callable[[], tuple[bool | None, str]]]],
             return unknown(f"cannot evaluate gate {name!r}: {detail}", "derived", evidence)
         if not passed:
             return known({"gate": name, "detail": detail}, "derived", evidence, None)
-    return known({"gate": "none", "detail": "desired == running and usable; nothing blocks"},
-                 "derived", evidence, None)
+    return known({"gate": "none", "detail": "desired == running and usable; no hold present or "
+                  "unknown; nothing blocks"}, "derived", evidence, None)
 
 
 def _need(*facts: dict[str, Any] | None) -> str | None:
@@ -760,14 +949,44 @@ def _need(*facts: dict[str, Any] | None) -> str | None:
     return None
 
 
-def derive_vuoro_shared_gate(env: dict[str, Any]) -> dict[str, Any]:
-    d, r, u, h, doc = (env[k] for k in ("desired", "running", "usable", "held", "document"))
+SHARED_HOLDS = ("suspended_kustomizations", "suspended_cronjobs", "scaled_below_declared")
 
-    def held_ks():
-        if (why := _need(h.get("suspended_kustomizations"))):
-            return None, why
-        names = h["suspended_kustomizations"]["value"]
-        return not names, f"suspended Kustomization(s): {', '.join(names)}"
+
+def migration_state(env: dict[str, Any]) -> tuple[str | None, str]:
+    """State of the declared schema migration: ``committed``, ``pending`` (not started, so the
+    change can still be cancelled), ``running``, ``failed``, or ``None`` when unknown.
+
+    A Job that is gone from the cluster (TTL-deleted) is not evidence of anything by itself;
+    it counts as committed only when the migration image is what serves and the live
+    handshake reports work compatibility ``compatible``.
+    """
+    d, r, u = env["desired"], env["running"], env["usable"]
+    if (why := _need(d.get("migration_job"), r.get("jobs"))):
+        return None, why
+    job = d["migration_job"]["value"]
+    state = r["jobs"]["value"].get(job)
+    if state is None:
+        if not _need(u.get("handshake"), r.get("image_digests"), d.get("migration_job_image_digest")):
+            work = (u["handshake"]["value"].get("domains") or {}).get("work", {})
+            if (work.get("state") == "compatible"
+                    and r["image_digests"]["value"] == [d["migration_job_image_digest"]["value"]]):
+                return "committed", (f"Job {job} is absent from the cluster, but its image serves and the "
+                                     "live handshake reports work compatibility 'compatible'")
+        return None, (f"migration Job {job} is not in the cluster (TTL-deleted or never created) and the "
+                      "handshake does not establish that its schema change committed")
+    if state.get("failed"):
+        return "failed", f"migration Job {job} Failed: the schema change is possibly partially applied"
+    if state.get("complete"):
+        return "committed", f"migration Job {job} Complete"
+    if state.get("active"):
+        return "running", f"migration Job {job} is running and may commit at any moment"
+    if not state.get("started"):
+        return "pending", f"migration Job {job} has not started"
+    return None, f"migration Job {job} started but is neither active, Complete nor Failed"
+
+
+def derive_vuoro_shared_gate(env: dict[str, Any]) -> dict[str, Any]:
+    d, r, u, h = (env[k] for k in ("desired", "running", "usable", "held"))
 
     def flux_applied():
         if (why := _need(r.get("kustomizations"), d.get("deploying_repo_main_sha"))):
@@ -784,17 +1003,16 @@ def derive_vuoro_shared_gate(env: dict[str, Any]) -> dict[str, Any]:
         return not bad, f"Kustomization(s) not Ready: {bad}"
 
     def migration():
-        if (why := _need(d.get("migration_job"), r.get("jobs"))):
-            return None, why
-        job = d["migration_job"]["value"]
-        state = r["jobs"]["value"].get(job)
-        return bool(state and state["complete"]), f"migration Job {job} not Complete ({state})"
+        state, detail = migration_state(env)
+        if state is None:
+            return None, detail
+        return state == "committed", detail
 
     def rollout():
         if (why := _need(d.get("image_digest"), r.get("image_digests"), r.get("deployments"))):
             return None, why
         want, have = d["image_digest"]["value"], r["image_digests"]["value"]
-        dep = r["deployments"]["value"].get(env.get("deployment", VUORO_SHARED["deployment"]), {})
+        dep = r["deployments"]["value"].get(VUORO_SHARED["deployment"], {})
         ok = have == [want] and dep.get("ready") == dep.get("replicas") and dep.get("replicas", 0) > 0
         return ok, f"rollout incomplete: want {want}, pods run {have}, ready {dep.get('ready')}/{dep.get('replicas')}"
 
@@ -805,52 +1023,63 @@ def derive_vuoro_shared_gate(env: dict[str, Any]) -> dict[str, Any]:
         ok = hs["compatibility"] == "compatible" and hs["catalog_revision"] == cat["revision"]
         return ok, f"service not usable: compatibility={hs['compatibility']}, catalog revision match={hs['catalog_revision'] == cat['revision']}"
 
-    gate = _gate([("held", held_ks), ("flux-applied", flux_applied), ("flux-ready", ks_ready),
+    gate = _gate([("desired-current", lambda: current_check(d.get("manifest_ref_is_remote_main"),
+                                                            "local origin/main")),
+                  ("holds", lambda: holds_check(h, SHARED_HOLDS)),
+                  ("flux-applied", flux_applied), ("flux-ready", ks_ready),
                   ("schema-migration", migration), ("image-rollout", rollout),
                   ("served-compatibility", served)],
-                 ["held.suspended_kustomizations", "running.kustomizations",
-                  "desired.deploying_repo_main_sha", "desired.migration_job", "running.jobs",
-                  "desired.image_digest", "running.image_digests", "usable.handshake",
+                 ["desired.manifest_ref_is_remote_main", *(f"held.{n}" for n in SHARED_HOLDS),
+                  "running.kustomizations", "desired.deploying_repo_main_sha", "desired.migration_job",
+                  "running.jobs", "desired.image_digest", "running.image_digests", "usable.handshake",
                   "usable.catalog"])
     return {"next_blocking_gate": gate, "recovery_class": derive_vuoro_shared_recovery(env)}
 
 
 def derive_vuoro_shared_recovery(env: dict[str, Any]) -> dict[str, Any]:
+    """Recovery class from facts, in this order: has the declared migration committed (if it
+    has not started, the change can be cancelled; running, failed or unknowable is unknown),
+    is that schema forward-only, and which image is serving relative to the desired one and
+    the one that introduced the schema."""
     d, r, doc = env["desired"], env["running"], env["document"]
-    inputs = ["desired.migration_job", "running.jobs", "desired.image_digest",
-              "running.image_digests", "document.schema_forward_only",
-              "desired.migration_job_image_digest"]
+    inputs = ["desired.migration_job", "running.jobs", "usable.handshake", "document.schema_forward_only",
+              "desired.migration_job_image_digest", "desired.image_digest", "running.image_digests"]
     evidence = "derived from " + ", ".join(inputs)
-    why = _need(d.get("migration_job"), r.get("jobs"), d.get("image_digest"),
-                r.get("image_digests"))
-    if why:
+    state, detail = migration_state(env)
+    if state is None or state in ("running", "failed"):
+        return unknown(f"{detail}; no recovery class can be chosen until it is resolved", "derived", evidence)
+    if state == "pending":
+        return known({"class": "cancel", "basis": f"{detail}: revert the Git change and resume the "
+                      "previous Kustomizations before it runs"}, "derived", evidence, None)
+    if (why := _need(doc.get("schema_forward_only"), d.get("migration_job_image_digest"),
+                     d.get("image_digest"), r.get("image_digests"))):
         return unknown(why, "derived", evidence)
-    job = d["migration_job"]["value"]
-    state = r["jobs"]["value"].get(job)
-    if not (state and state["complete"]):
-        return known({"class": "cancel", "basis": f"declared migration Job {job} has not completed: "
-                      "revert the Git change and resume the previous Kustomizations before it commits"},
+    running, desired_digest = r["image_digests"]["value"], d["image_digest"]["value"]
+    migration_digest = d["migration_job_image_digest"]["value"]
+    if doc["schema_forward_only"]["value"]:
+        if running == [migration_digest]:
+            return known({"class": "forward-fix-or-restore",
+                          "basis": f"{detail}; the runbook marks the schema forward-only and the serving "
+                          "image introduced it, so every earlier image is incompatible: ship a compatible "
+                          "forward image or perform a coordinated stopped-service restore"},
+                         "derived", evidence, None)
+        if running != [desired_digest]:
+            return known({"class": "forward-fix-or-restore",
+                          "basis": f"{detail} and the schema is forward-only; pods are not on the desired "
+                          "image (rollout incomplete), and no image older than the migration may serve: "
+                          "fix forward or restore"}, "derived", evidence, None)
+        return known({"class": "image-revert",
+                      "basis": f"{detail}; the serving image is newer than the migration image, and "
+                      "reverting to the migration image is a compatible deployment"},
                      "derived", evidence, None)
-    running = r["image_digests"]["value"]
-    if running != [d["image_digest"]["value"]]:
-        return known({"class": "cancel", "basis": "desired image is not yet running; revert the "
-                      "Git change before the rollout completes"}, "derived", evidence, None)
-    if (why := _need(doc.get("schema_forward_only"), d.get("migration_job_image_digest"))):
-        return unknown(why, "derived", evidence)
-    if doc["schema_forward_only"]["value"] and running == [d["migration_job_image_digest"]["value"]]:
-        return known({"class": "forward-fix-or-restore",
-                      "basis": f"{job} completed and its runbook is forward-only; the running image "
-                      "introduced that schema, so every earlier image is incompatible: ship a "
-                      "compatible forward image or perform a coordinated stopped-service restore"},
-                     "derived", evidence, None)
-    return known({"class": "image-revert",
-                  "basis": "running image differs from the migration image or the schema change is "
-                  "reversible; reverting to the migration image is a compatible deployment"},
+    if running != [desired_digest]:
+        return known({"class": "cancel", "basis": f"{detail}; the schema is reversible and the desired "
+                      "image is not yet serving: revert the Git change"}, "derived", evidence, None)
+    return known({"class": "image-revert", "basis": f"{detail}; the runbook marks the schema reversible"},
                  "derived", evidence, None)
 
 
-# ---------------------------------------------------------------- vuoro-cloud
-
+# -------------------------------------------------------------- vuoro-cloud
 
 _REPORT_CARD = (
     "import json, sys\n"
@@ -861,128 +1090,199 @@ _REPORT_CARD = (
     "card.pop('generated_at', None)\n"
     "print(json.dumps(card, sort_keys=True))\n"
 )
+_REPORT_CARD_PATHS = ("src/vuoro_cloud/__init__.py", "src/vuoro_cloud/release.py")
 
 
-def _run_report_card(probe: Probe, previous: dict[str, Any] | None, current: dict[str, Any],
-                     label: str) -> dict[str, Any]:
-    """vuoro-cloud's own release report card (the builder behind scripts/release-report-card.py),
-    run as a probe so the result is recorded and replayable."""
-    src = VUORO_CLOUD["repo"] / "src"
-    result = probe.run("vuoro-cloud.report-card", [sys.executable, "-I", "-c", _REPORT_CARD, str(src)],
-                       stdin=json.dumps({"previous": previous, "current": current}), timeout=30,
-                       evidence=f"vuoro_cloud.release.build_report_card({label}) from {src}")
+def _run_report_card(probe: Probe, repo: Path, tag: str, previous_tag: str,
+                     previous: dict[str, Any], current: dict[str, Any]) -> dict[str, Any]:
+    """vuoro-cloud's release report card builder (behind scripts/release-report-card.py), taken
+    from the release tag's own tree (git archive) and run as a recorded probe."""
+    label = f"vuoro-cloud@{tag}:src/vuoro_cloud/release.py build_report_card({previous_tag} -> {tag})"
+    with tempfile.TemporaryDirectory(prefix="estate-card-") as tmp:
+        export = probe.run("vuoro-cloud.report-card-export",
+                           ["bash", "-c", 'git -C "$1" archive "refs/tags/$2" -- "${@:4}" | tar -x -C "$3"',
+                            "export", str(repo), tag, tmp, *_REPORT_CARD_PATHS], timeout=60,
+                           evidence=f"git -C {repo} archive refs/tags/{tag} -- {' '.join(_REPORT_CARD_PATHS)}")
+        if not export.get("ok"):
+            return unknown(f"cannot export the report-card builder from {tag}: {export.get('error')}",
+                           "artifact", export["evidence"], export.get("observed_at"))
+        result = probe.run("vuoro-cloud.report-card", [sys.executable, "-I", "-c", _REPORT_CARD,
+                                                       str(Path(tmp) / "src")],
+                           stdin=json.dumps({"previous": previous, "current": current}), timeout=30,
+                           evidence=label)
     return from_probe(result, "artifact", _json_out)
 
 
-_PIN_PATHS = ("scripts/verify-runtime-pin.py", "config/compatibility.json",
-              "apps/runtime-config/compatibility.json",
-              "platform/runtime-secrets/controller-runtime.secret.yaml", ".sops.yaml")
+_COMPAT_KEYS = ("packages", "runtime", "tenant_schema", "client_protocol")
 
 
-def _verify_runtime_pin(probe: Probe, repo: Path, tag: dict[str, Any] | None) -> dict[str, Any]:
-    """Run vuoro-cloud's own verify-runtime-pin.py against the release tag's tree.
+def _git_config(probe: Probe, key: str, repo: Path, name: str) -> str | None:
+    result = git(probe, key, repo, "config", "--get", name)
+    return result["stdout"].strip() if result.get("ok") else None
 
-    The script checks the tree it lives in, and the shared checkout's HEAD is rarely the
-    deployed tag, so the tag's files are exported (git archive) into a temporary tree
-    and the tag's own copy of the script runs there. It prints digests only.
-    """
-    if (why := _need(tag)):
-        return unknown(why, "artifact", "verify-runtime-pin.py")
-    name = tag["value"]
-    with tempfile.TemporaryDirectory(prefix="estate-pin-") as tmp:
-        export = probe.run(
-            "vuoro-cloud.pin-export",
-            ["bash", "-c", 'git -C "$1" archive "refs/tags/$2" -- "${@:4}" | tar -x -C "$3"',
-             "export", str(repo), name, tmp, *_PIN_PATHS],
-            timeout=60, evidence=f"git -C {repo} archive refs/tags/{name} -- {' '.join(_PIN_PATHS)}")
-        if not export.get("ok"):
-            return unknown(f"cannot export {name}: {export.get('error')}", "artifact", export["evidence"],
-                           export.get("observed_at"))
-        pin = probe.run("vuoro-cloud.verify-runtime-pin",
-                        [sys.executable, "scripts/verify-runtime-pin.py"], cwd=Path(tmp), timeout=60,
-                        evidence=f"vuoro-cloud@{name}:scripts/verify-runtime-pin.py (run on the tag's tree)")
-    if pin.get("rc") == 0:
-        return known(True, "artifact", pin["evidence"], pin["observed_at"])
-    if pin.get("rc") == 1:
-        return known(False, "artifact", pin["evidence"] + ": " + pin["stderr"].strip()[:400],
-                     pin["observed_at"])
-    detail = (pin.get("stderr") or pin.get("error") or "no output").strip().splitlines()
-    return unknown("verify-runtime-pin could not establish the deployed pin: " + (detail[0] if detail else "")[:240],
-                   "artifact", pin.get("evidence", "verify-runtime-pin.py"), pin.get("observed_at"))
+
+def _remote_for_url(probe: Probe, key: str, repo: Path, url: str) -> str | None:
+    remotes = git(probe, key, repo, "remote", "-v")
+    wanted = {url.rstrip("/"), url.rstrip("/").removesuffix(".git")}
+    for line in remotes.get("stdout", "").splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and parts[1].rstrip("/").removesuffix(".git") in wanted | {
+                u.removesuffix(".git") for u in wanted}:
+            return parts[0]
+    return None
+
+
+def _parse_flux_source(r: dict[str, Any]) -> dict[str, Any]:
+    for doc in yaml_docs(r["stdout"]):
+        if doc.get("kind") == "GitRepository":
+            return {"url": doc["spec"]["url"], "ref": doc["spec"]["ref"]}
+    raise ValueError("no GitRepository")
+
+
+def _tag_tree_fact(probe: Probe, key: str, repo: Path, tag: str, remote_tags: dict[str, Any]
+                   ) -> tuple[dict[str, Any], str | None]:
+    """Whether the local tag is the remote's tag (same commit) and when that was observed."""
+    remote_sha = (known(remote_tags["value"].get(tag), "live-api", remote_tags["evidence"],
+                        remote_tags["observed_at"]) if is_known(remote_tags) and tag in remote_tags["value"]
+                  else _carry(remote_tags, "live-api", f"tag {tag} not on the remote"))
+    local, current, at = ref_current(probe, key, repo, f"refs/tags/{tag}", remote_sha)
+    if is_known(current) and not current["value"]:
+        return unknown(f"local tag {tag} ({_short(local['value'])}) differs from the remote's "
+                       f"({_short(remote_sha['value'])}): the tag was moved or re-signed; rerun with --fetch",
+                       "derived", current["evidence"], current["observed_at"]), None
+    if not is_known(current):
+        hint = " (rerun with --fetch)" if not is_known(local) else ""
+        return unknown(f"{current.get('reason')}{hint}", "derived", current["evidence"]), None
+    return current, at
 
 
 def collect_vuoro_cloud(probe: Probe, *, fetch: bool) -> dict[str, Any]:
     cfg = VUORO_CLOUD
     repo = cfg["repo"]
     desired: dict[str, Any] = {}
-    flux_src = git(probe, "vuoro-cloud.flux-source", repo, "show", f"origin/main:{cfg['flux_source_file']}")
-
-    def parse_source(r: dict[str, Any]) -> dict[str, Any]:
-        for doc in yaml_docs(r["stdout"]):
-            if doc.get("kind") == "GitRepository":
-                return {"url": doc["spec"]["url"], "ref": doc["spec"]["ref"]}
-        raise ValueError("no GitRepository")
-
-    desired["flux_source"] = from_probe(flux_src, "artifact", parse_source)
-    remote_name = "origin"
-    if is_known(desired["flux_source"]):
-        url = desired["flux_source"]["value"]["url"]
-        remotes = git(probe, "vuoro-cloud.remotes", repo, "remote", "-v")
-        for line in remotes.get("stdout", "").splitlines():
-            parts = line.split()
-            if len(parts) >= 2 and parts[1].rstrip("/") in {url, url.removesuffix(".git")}:
-                remote_name = parts[0]
-        if fetch:
-            git(probe, "vuoro-cloud.fetch", repo, "fetch", "--quiet", "--tags", remote_name, timeout=90)
+    canonical = _git_config(probe, "vuoro-cloud.canonical-remote", repo, "claude.canonicalRemote") or "origin"
+    first = git(probe, "vuoro-cloud.flux-source.canonical", repo, "show",
+                f"{canonical}/main:{cfg['flux_source_file']}")
+    source = from_probe(first, "artifact", _parse_flux_source)
+    watched = None
+    if is_known(source):
+        url = source["value"]["url"]
+        watched = _remote_for_url(probe, "vuoro-cloud.remotes", repo, url)
+        desired["flux_watched_remote"] = (
+            known({"remote": watched, "url": url, "canonical_remote": canonical}, "artifact",
+                  f"git -C {repo} remote -v; claude.canonicalRemote={canonical}", source["observed_at"])
+            if watched else unknown(f"no local remote tracks the Flux GitRepository url {url}", "artifact",
+                                    f"git -C {repo} remote -v"))
+        if fetch and watched:
+            git(probe, "vuoro-cloud.fetch", repo, "fetch", "--quiet", "--tags", watched, timeout=90)
         desired["deploying_repo_main_sha"] = ls_remote_head(probe, "vuoro-cloud.ls-remote", url)
-        tags = ls_remote_tags(probe, "vuoro-cloud.tags", url)
-        semver = desired["flux_source"]["value"]["ref"].get("semver")
-        if is_known(tags) and semver:
-            eligible = sorted((t for t in tags["value"] if semver_in_range(t, semver)),
-                              key=_semver_key)
-            if eligible:
-                desired["release_tag"] = known(eligible[-1], "live-api",
-                                               f"{tags['evidence']} | semver {semver!r}", tags["observed_at"])
-                desired["release_tag_sha"] = known(tags["value"][eligible[-1]], "live-api",
-                                                   tags["evidence"], tags["observed_at"])
-                if len(eligible) > 1:
-                    desired["previous_release_tag"] = known(eligible[-2], "live-api",
-                                                            tags["evidence"], tags["observed_at"])
-            else:
-                desired["release_tag"] = unknown(f"no tag matches {semver!r}", "live-api",
-                                                 tags["evidence"], tags["observed_at"])
+        if watched and watched != canonical:
+            # The constraint Flux applies is the one on the remote it watches.
+            second = git(probe, "vuoro-cloud.flux-source.watched", repo, "show",
+                         f"{watched}/main:{cfg['flux_source_file']}")
+            source = from_probe(second, "artifact", _parse_flux_source)
+        if watched:
+            _, current, at = ref_current(probe, "vuoro-cloud.watched-main", repo, f"{watched}/main",
+                                         desired["deploying_repo_main_sha"])
+            desired["flux_source_ref_is_remote_main"] = current
+            restamp({"s": source}, ["s"], at)
         else:
-            desired["release_tag"] = _carry(tags, "live-api",
-                                            None if semver else "flux source is not a semver ref")
+            desired["flux_source_ref_is_remote_main"] = unknown(
+                "the Flux source was read from the canonical remote, not the remote Flux watches",
+                "derived", first["evidence"])
+    desired["flux_source"] = source
+
+    previous = None
+    if is_known(source) and source["value"]["ref"].get("semver"):
+        semver = source["value"]["ref"]["semver"]
+        tags = ls_remote_tags(probe, "vuoro-cloud.tags", source["value"]["url"])
+        eligible = (sorted((t for t in tags["value"] if semver_in_range(t, semver)), key=_semver_key)
+                    if is_known(tags) else [])
+        if eligible:
+            note = (f"selected (predicted): highest tag on {source['value']['url']} matching semver "
+                    f"{semver!r}; Flux's applied revision is running.kustomizations[*].last_applied_revision")
+            desired["predicted_release_tag"] = known(eligible[-1], "live-api", f"{tags['evidence']} | {note}",
+                                                     tags["observed_at"])
+            desired["predicted_release_tag_sha"] = known(tags["value"][eligible[-1]], "live-api",
+                                                         tags["evidence"], tags["observed_at"])
+            if len(eligible) > 1:
+                desired["previous_release_tag"] = known(eligible[-2], "live-api", tags["evidence"],
+                                                        tags["observed_at"])
+            else:
+                desired["previous_release_tag"] = unknown("no earlier eligible tag", "live-api",
+                                                          tags["evidence"], tags["observed_at"])
+        else:
+            desired["predicted_release_tag"] = (
+                unknown(f"no tag matches {semver!r}", "live-api", tags["evidence"], tags["observed_at"])
+                if is_known(tags) else _carry(tags, "live-api"))
     else:
-        desired["release_tag"] = _carry(desired["flux_source"], "artifact")
+        desired["predicted_release_tag"] = _carry(source, "artifact",
+                                                  None if not is_known(source) else "flux source is not a semver ref")
 
     declared = None
-    if is_known(desired.get("release_tag")):
-        tag = desired["release_tag"]["value"]
-        ref = f"refs/tags/{tag}"
-        files = manifest_files(probe, "vuoro-cloud.manifests", repo, ref, (cfg["apps_dir"],))
-        if is_known(files):
-            declared = declared_workloads(files["value"])
-            desired["deployments"] = known(
-                {n: {"replicas": v["replicas"], "images": v["images"]}
-                 for n, v in declared["deployments"].items()},
-                "artifact", files["evidence"], files["observed_at"])
+    if is_known(desired.get("predicted_release_tag")):
+        tag = desired["predicted_release_tag"]["value"]
+        tree, at = _tag_tree_fact(probe, "vuoro-cloud.tag", repo, tag, tags)
+        desired["predicted_release_tag_tree_current"] = tree
+        if is_known(tree):
+            ref = f"refs/tags/{tag}"
+            files = manifest_files(probe, "vuoro-cloud.manifests", repo, ref, (cfg["apps_dir"],))
+            if is_known(files):
+                declared = declared_workloads(files["value"])
+                desired["deployments"] = known(
+                    {n: {"replicas": v["replicas"], "images": v["images"]}
+                     for n, v in declared["deployments"].items()}, "artifact", files["evidence"], at)
+            else:
+                desired["deployments"] = _carry(files, "artifact")
+            compat = git(probe, "vuoro-cloud.compat", repo, "show", f"{ref}:config/compatibility.json")
+            desired["compatibility"] = from_probe(compat, "artifact", lambda r: json.loads(r["stdout"]))
+            mirror = git(probe, "vuoro-cloud.compat-mirror", repo, "show",
+                         f"{ref}:apps/runtime-config/compatibility.json")
+            mirror_fact = from_probe(mirror, "artifact", lambda r: json.loads(r["stdout"]))
+            restamp(desired, ["compatibility"], at)
+            if is_known(desired["compatibility"]):
+                comp = desired["compatibility"]["value"]
+                desired["release_ready"] = known(comp.get("release_ready"), "artifact",
+                                                 desired["compatibility"]["evidence"], at)
+                desired["compatibility_mirror_agrees"] = (
+                    known(mirror_fact["value"].get("packages", {}).get("vuoro-service")
+                          == comp.get("packages", {}).get("vuoro-service"), "artifact",
+                          f"{tag}: config/compatibility.json vs apps/runtime-config/compatibility.json "
+                          "packages.vuoro-service (the non-secret half of verify-runtime-pin.py)", at)
+                    if is_known(mirror_fact) else _carry(mirror_fact, "artifact"))
         else:
-            desired["deployments"] = _carry(files, "artifact",
-                                            f"tag {tag} not in the local clone; rerun with --fetch")
-        compat = git(probe, "vuoro-cloud.compat", repo, "show", f"{ref}:config/compatibility.json")
-        desired["compatibility"] = from_probe(compat, "artifact", lambda r: json.loads(r["stdout"]))
-        if is_known(desired["compatibility"]):
-            previous = None
-            if is_known(desired.get("previous_release_tag")):
+            for name in ("deployments", "compatibility", "release_ready"):
+                desired[name] = _carry(tree, "derived")
+        previous_tag = desired.get("previous_release_tag", {})
+        if is_known(previous_tag) and is_known(desired.get("compatibility")):
+            ptree, pat = _tag_tree_fact(probe, "vuoro-cloud.previous-tag", repo, previous_tag["value"], tags)
+            if is_known(ptree):
                 prev = git(probe, "vuoro-cloud.compat-previous", repo, "show",
-                           f"refs/tags/{desired['previous_release_tag']['value']}:config/compatibility.json")
-                previous = json.loads(prev["stdout"]) if prev.get("ok") else None
-            label = f"{desired.get('previous_release_tag', {}).get('value')} -> {tag}"
-            desired["release_report_card"] = _run_report_card(probe, previous,
-                                                              desired["compatibility"]["value"], label)
-    desired["runtime_pin_agrees"] = _verify_runtime_pin(probe, repo, desired.get("release_tag"))
+                           f"refs/tags/{previous_tag['value']}:config/compatibility.json")
+                previous = from_probe(prev, "artifact", lambda r: json.loads(r["stdout"]))
+                restamp({"p": previous}, ["p"], pat)
+            else:
+                previous = ptree
+        else:
+            previous = _carry(previous_tag if not is_known(previous_tag) else desired.get("compatibility"),
+                              "artifact")
+        desired["previous_compatibility"] = previous
+        if is_known(previous) and is_known(desired.get("compatibility")):
+            desired["compatibility_discriminates"] = known(
+                any(previous["value"].get(k) != desired["compatibility"]["value"].get(k) for k in _COMPAT_KEYS),
+                "derived", f"{previous_tag['value']} vs {tag} over {list(_COMPAT_KEYS)}: when equal, matching "
+                "served compatibility cannot tell which tag is applied", None)
+            desired["release_report_card"] = _run_report_card(
+                probe, repo, tag, previous_tag["value"], previous["value"], desired["compatibility"]["value"])
+        else:
+            desired["release_report_card"] = unknown(
+                "the report card needs both the newest and the previous release compatibility; "
+                f"previous: {(previous or {}).get('reason') or 'unknown'}", "derived", "build_report_card")
+    desired["tenant_runtime_pin"] = unknown(
+        "the deployed tenant-runtime pin (VUORO_CLOUD_RUNTIME_IMAGE) exists only inside the "
+        "SOPS-encrypted vuoro-controller-runtime Secret; this report does not decrypt secrets, so "
+        "verify-runtime-pin.py is not run (its non-secret mirror check is desired.compatibility_mirror_agrees)",
+        "artifact", "platform/runtime-secrets/controller-runtime.secret.yaml (encrypted)")
 
     # running: cluster (tunnel-gated) + what the control plane serves publicly
     tunnel = probe.run("vuoro-cloud.tunnel", ["ip", "-br", "link", "show", cfg["tunnel_interface"]], timeout=10)
@@ -1025,17 +1325,23 @@ def collect_vuoro_cloud(probe: Probe, *, fetch: bool) -> dict[str, Any]:
         "exposes rollout/status (serving generations) only, per-workspace routes require workspace "
         "membership, and the workspaces table is reachable only through an audited database path",
         "live-api", "vuoro-cloud src/vuoro_cloud/control.py operator GET routes")
-    compat = desired.get("compatibility")
-    if is_known(compat):
-        held["release_ready"] = known(compat["value"].get("release_ready"), "artifact", compat["evidence"],
-                                      compat["observed_at"])
     env = {"id": "vuoro-cloud", "kind": "cluster", "desired": desired, "running": running,
            "usable": usable, "held": held, "document": {}, "receipts": {}}
     env["gate"] = derive_vuoro_cloud_gate(env)
     return env
 
 
-_COMPAT_KEYS = ("packages", "runtime", "tenant_schema", "client_protocol")
+CLOUD_HOLDS = ("suspended_kustomizations", "suspended_cronjobs", "scaled_below_declared",
+               "tenants_in_maintenance")
+
+
+def _cloud_applied(d: dict[str, Any], r: dict[str, Any]) -> tuple[bool | None, str]:
+    if (why := _need(r.get("kustomizations"), d.get("predicted_release_tag"), d.get("predicted_release_tag_sha"))):
+        return None, why
+    tag, sha = d["predicted_release_tag"]["value"], d["predicted_release_tag_sha"]["value"]
+    stale = {n: v["last_applied_revision"] for n, v in r["kustomizations"]["value"].items()
+             if tag not in str(v["last_applied_revision"]) and sha not in str(v["last_applied_revision"])}
+    return not stale, f"Flux has not applied the predicted tag {tag}: {stale}"
 
 
 def derive_vuoro_cloud_gate(env: dict[str, Any]) -> dict[str, Any]:
@@ -1046,26 +1352,10 @@ def derive_vuoro_cloud_gate(env: dict[str, Any]) -> dict[str, Any]:
             return None, why
         diff = [k for k in _COMPAT_KEYS
                 if d["compatibility"]["value"].get(k) != r["served_compatibility"]["value"].get(k)]
-        return not diff, f"served compatibility differs from {d['release_tag']['value']} in {diff}"
-
-    def pin():
-        if (why := _need(d.get("runtime_pin_agrees"))):
-            return None, why
-        return d["runtime_pin_agrees"]["value"], "tenant runtime pin disagrees with the compatibility set"
-
-    def held_ks():
-        if (why := _need(h.get("suspended_kustomizations"))):
-            return None, why
-        names = h["suspended_kustomizations"]["value"]
-        return not names, f"suspended Kustomization(s): {', '.join(names)}"
-
-    def flux_applied():
-        if (why := _need(r.get("kustomizations"), d.get("release_tag"))):
-            return None, why
-        tag = d["release_tag"]["value"]
-        stale = {n: v["last_applied_revision"] for n, v in r["kustomizations"]["value"].items()
-                 if tag not in str(v["last_applied_revision"])}
-        return not stale, f"Flux has not applied {tag}: {stale}"
+        # A match is necessary, not sufficient: when the previous tag declares the same set
+        # (desired.compatibility_discriminates false) it cannot show which tag is applied;
+        # flux-applied below decides that.
+        return not diff, f"served compatibility differs from {d['predicted_release_tag']['value']} in {diff}"
 
     def rollout():
         if (why := _need(d.get("deployments"), r.get("deployments"), r.get("pod_images"))):
@@ -1084,40 +1374,74 @@ def derive_vuoro_cloud_gate(env: dict[str, Any]) -> dict[str, Any]:
             return None, why
         return bool(u["fleet_rollout"]["value"].get("converged")), "tenant fleet not converged"
 
-    gate = _gate([("served-compatibility", served_matches), ("runtime-pin", pin), ("held", held_ks),
-                  ("flux-applied", flux_applied), ("image-rollout", rollout), ("fleet-converged", fleet)],
-                 ["desired.compatibility", "running.served_compatibility", "desired.runtime_pin_agrees",
-                  "held.suspended_kustomizations", "running.kustomizations", "desired.deployments",
-                  "running.pod_images", "usable.fleet_rollout"])
-    evidence = "derived from desired.compatibility, running.served_compatibility, desired.release_report_card"
-    why = _need(d.get("compatibility"), r.get("served_compatibility"))
-    if why:
-        recovery = unknown(why, "derived", evidence)
-    elif any(d["compatibility"]["value"].get(k) != r["served_compatibility"]["value"].get(k)
-             for k in _COMPAT_KEYS):
-        recovery = known({"class": "cancel", "basis": "the newest eligible release tag is not yet "
-                          "served; withdrawing it before Flux applies it cancels the change"},
-                         "derived", evidence, None)
-    elif (why := _need(d.get("release_report_card"))):
-        recovery = unknown(why, "derived", evidence)
-    elif d["release_report_card"]["value"].get("maintenance_required"):
-        recovery = known({"class": "forward-fix-or-restore", "basis": "release report card: tenant "
-                          "schema floor raised (rollback_boundary=tenant-schema-floor-raised)"},
-                         "derived", evidence, None)
-    else:
-        recovery = known({"class": "image-revert", "basis": "release report card: rollback_boundary="
-                          f"{d['release_report_card']['value'].get('rollback_boundary')}; a new "
-                          "signed tag pinning the previous digests is a compatible deployment"},
-                         "derived", evidence, None)
-    return {"next_blocking_gate": gate, "recovery_class": recovery}
+    def mirror():
+        if (why := _need(d.get("compatibility_mirror_agrees"))):
+            return None, why
+        return d["compatibility_mirror_agrees"]["value"], "compatibility mirror disagrees with config/compatibility.json"
+
+    def pin():
+        if (why := _need(d.get("tenant_runtime_pin"))):
+            return None, why
+        return True, ""
+
+    gate = _gate([("flux-source-current", lambda: current_check(d.get("flux_source_ref_is_remote_main"),
+                                                                "Flux source read from the watched remote's main")),
+                  ("desired-current", lambda: current_check(d.get("predicted_release_tag_tree_current"),
+                                                            "local predicted release tag")),
+                  ("served-compatibility", served_matches), ("compatibility-mirror", mirror),
+                  ("holds", lambda: holds_check(h, CLOUD_HOLDS)),
+                  ("flux-applied", lambda: _cloud_applied(d, r)), ("image-rollout", rollout),
+                  ("fleet-converged", fleet), ("tenant-runtime-pin", pin)],
+                 ["desired.flux_source_ref_is_remote_main", "desired.predicted_release_tag_tree_current", "desired.compatibility",
+                  "running.served_compatibility", "desired.compatibility_mirror_agrees",
+                  *(f"held.{n}" for n in CLOUD_HOLDS), "running.kustomizations", "desired.deployments",
+                  "running.pod_images", "usable.fleet_rollout", "desired.tenant_runtime_pin"])
+    return {"next_blocking_gate": gate, "recovery_class": derive_vuoro_cloud_recovery(env)}
 
 
-# ---------------------------------------------------------------- hosts
+def derive_vuoro_cloud_recovery(env: dict[str, Any]) -> dict[str, Any]:
+    """Cancel while the predicted tag is not applied; once it is, the report card's rollback
+    boundary decides. Every input (cluster, holds, fleet, both compatibility sets) must be
+    known: a recovery chosen without them would be assumed, not derived."""
+    d, r, u, h = env["desired"], env["running"], env["usable"], env["held"]
+    required = {
+        "desired.predicted_release_tag": d.get("predicted_release_tag"),
+        "desired.compatibility": d.get("compatibility"),
+        "desired.previous_compatibility": d.get("previous_compatibility"),
+        "desired.release_report_card": d.get("release_report_card"),
+        "desired.release_ready": d.get("release_ready"),
+        "running.kustomizations": r.get("kustomizations"),
+        "running.deployments": r.get("deployments"),
+        "running.pod_images": r.get("pod_images"),
+        **{f"held.{n}": h.get(n) for n in CLOUD_HOLDS},
+        "usable.fleet_rollout": u.get("fleet_rollout"),
+    }
+    evidence = "derived from " + ", ".join(required)
+    missing = [name for name, fact in required.items() if not is_known(fact)]
+    if missing:
+        first = required[missing[0]]
+        return unknown(f"unknown input(s) {missing}; first: {(first or {}).get('reason') or 'not observed'}",
+                       "derived", evidence)
+    applied, detail = _cloud_applied(d, r)
+    if not applied:
+        return known({"class": "cancel", "basis": f"{detail}; withdrawing it before Flux applies it "
+                      "cancels the change"}, "derived", evidence, None)
+    card = d["release_report_card"]["value"]
+    if card.get("maintenance_required"):
+        return known({"class": "forward-fix-or-restore", "basis": "release report card: tenant schema floor "
+                      "raised (rollback_boundary=tenant-schema-floor-raised)"}, "derived", evidence, None)
+    return known({"class": "image-revert", "basis": f"release report card: rollback_boundary="
+                  f"{card.get('rollback_boundary')}; a new signed tag pinning the previous digests is a "
+                  "compatible deployment"}, "derived", evidence, None)
+
+
+# -------------------------------------------------------------- hosts
 
 _DEVBOX_SCRIPT = r"""
 set -u
 printf '{"hostname":"%s",' "$(hostname)"
 printf '"sprintctl_version":"%s",' "$(sprintctl --version 2>/dev/null | awk '{print $NF}')"
+printf '"agentops_head":"%s",' "$(git -C {agentops} rev-parse HEAD 2>/dev/null)"
 printf '"profile":'; cat {profile} 2>/dev/null || printf 'null'; printf ','
 d=$(mktemp -d); trap 'rm -rf "$d"' EXIT
 mkdir "$d/.sprintctl"
@@ -1153,28 +1477,38 @@ def _envrc_profile(text: str) -> str:
     return match.group(1).strip("\"'")
 
 
+def _profile_summary(doc: dict[str, Any]) -> dict[str, Any]:
+    return {"id": doc.get("id"), "revision": doc.get("revision"), "target": doc.get("target")}
+
+
 def collect_host(probe: Probe, host: str, *, agentops_main: dict[str, Any]) -> dict[str, Any]:
     cfg = HOSTS[host]
-    head = _ref_sha(probe, f"{host}.agentops-head", ROOT, "HEAD")
-    where = f"git:agentops@{_short(head.get('value'))}"
-    desired: dict[str, Any] = {"agentops_main_sha": agentops_main}
+    local, current, content_at = ref_current(probe, f"{host}.agentops-main", ROOT, "origin/main", agentops_main)
+    ref = local["value"] if is_known(local) else "origin/main"
+    where = f"git:agentops@{_short(ref)}"
+    desired: dict[str, Any] = {"agentops_main_sha": agentops_main, "record_ref_is_remote_main": current}
     for name, rel in (("environment_record", cfg["environment_record"]), ("client_profile", cfg["profile"])):
-        try:
-            doc = json.loads((ROOT / rel).read_text(encoding="utf-8"))
-            keep = ("id", "revision", "environment_class", "roles", "constraints") if name == "environment_record" \
-                else ("id", "revision", "source_environment_id", "target", "required_authorities")
-            desired[name] = known({k: doc.get(k) for k in keep}, "artifact", f"{where}:{rel}", None)
-        except (OSError, ValueError) as error:
-            desired[name] = unknown(f"cannot read {rel}: {error}", "artifact", f"{where}:{rel}")
+        shown = git(probe, f"{host}.{name}", ROOT, "show", f"{ref}:{rel}")
+        keep = (("id", "revision", "environment_class", "roles", "constraints") if name == "environment_record"
+                else ("id", "revision", "source_environment_id", "target", "required_authorities"))
+        fact = from_probe(shown, "artifact", lambda r, keep=keep: {k: json.loads(r["stdout"]).get(k) for k in keep})
+        fact["evidence"] = f"{where}:{rel}"
+        desired[name] = fact
+    restamp(desired, ["environment_record", "client_profile"], content_at)
     running: dict[str, Any] = {}
     usable: dict[str, Any] = {}
     if cfg["ssh"] is None:
         version = probe.run(f"{host}.sprintctl-version", ["sprintctl", "--version"], timeout=20)
         running["sprintctl_version"] = from_probe(version, "artifact", lambda r: r["stdout"].split()[-1])
+        head = _ref_sha(probe, f"{host}.agentops-head", cfg["agentops_checkout"], "HEAD")
+        running["agentops_head"] = head
         envrc = probe.run(f"{host}.envrc", ["grep", "-E", r"^\s*export\s+SPRINTCTL_VUORO_PROFILE=",
                                             str(cfg["envrc"])], timeout=10)
         running["served_profile_path"] = from_probe(envrc, "artifact", lambda r: _envrc_profile(r["stdout"]))
         profile_path = running["served_profile_path"]["value"] or str(DEV_ROOT / "agentops" / cfg["profile"])
+        installed = probe.run(f"{host}.installed-profile", ["cat", profile_path], timeout=10)
+        running["installed_profile"] = from_probe(installed, "artifact",
+                                                  lambda r: _profile_summary(json.loads(r["stdout"])))
         doctor = probe.run(f"{host}.doctor", ["sprintctl", "doctor", "--json"], cwd=cfg["doctor_cwd"],
                            env={"SPRINTCTL_BACKEND": "served", "SPRINTCTL_VUORO_PROFILE": profile_path},
                            unset=("SPRINTCTL_URL",), timeout=90,
@@ -1186,11 +1520,13 @@ def collect_host(probe: Probe, host: str, *, agentops_main: dict[str, Any]) -> d
         usable["served_doctor"] = from_probe(doctor, "live-api", lambda r: _doctor_summary(_json_out(r)))
         running["reachable"] = known(True, "artifact", "local host", version.get("observed_at"))
     else:
-        script = _DEVBOX_SCRIPT.replace("{profile}", cfg["installed_profile"]).replace("{repo_id}", cfg["repo_id"])
+        script = (_DEVBOX_SCRIPT.replace("{profile}", cfg["installed_profile"])
+                  .replace("{repo_id}", cfg["repo_id"]).replace("{agentops}", cfg["agentops_checkout"]))
         remote = probe.run(f"{host}.ssh", ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
                                            cfg["ssh"], "bash", "-s"], stdin=script, timeout=120,
                            evidence=f"ssh {cfg['ssh']} bash -s <read-only probe: sprintctl --version, "
-                                    f"cat {cfg['installed_profile']}, sprintctl doctor --json (served)>")
+                                    f"rev-parse {cfg['agentops_checkout']} HEAD, cat {cfg['installed_profile']}, "
+                                    "sprintctl doctor --json (served)>")
         envelope = from_probe(remote, "artifact", _json_out)
         running["reachable"] = (
             known(True, "artifact", remote["evidence"], remote.get("observed_at")) if remote.get("ok")
@@ -1200,16 +1536,19 @@ def collect_host(probe: Probe, host: str, *, agentops_main: dict[str, Any]) -> d
             value, ev, at = envelope["value"], envelope["evidence"], envelope["observed_at"]
             running["hostname"] = known(value.get("hostname"), "artifact", ev, at)
             running["sprintctl_version"] = known(value.get("sprintctl_version"), "artifact", ev, at)
+            running["agentops_head"] = (
+                known(value["agentops_head"], "artifact", f"{cfg['ssh']}:{cfg['agentops_checkout']} HEAD", at)
+                if value.get("agentops_head")
+                else unknown(f"no agentops checkout at {cfg['agentops_checkout']} on {host}", "artifact", ev, at))
             prof = value.get("profile")
             running["installed_profile"] = (
-                known({"id": prof.get("id"), "revision": prof.get("revision"), "target": prof.get("target")},
-                      "artifact", f"{cfg['ssh']}:{cfg['installed_profile']}", at) if prof
+                known(_profile_summary(prof), "artifact", f"{cfg['ssh']}:{cfg['installed_profile']}", at) if prof
                 else unknown(f"{cfg['installed_profile']} absent on {host}", "artifact", ev, at))
             usable["served_doctor"] = (
                 known(_doctor_summary(value["doctor"]), "live-api", ev + " (via profile on host)", at)
                 if value.get("doctor") else unknown("sprintctl doctor produced no JSON", "live-api", ev, at))
         else:
-            for name in ("sprintctl_version", "installed_profile"):
+            for name in ("sprintctl_version", "installed_profile", "agentops_head"):
                 running[name] = _carry(envelope, "artifact")
             usable["served_doctor"] = _carry(envelope, "live-api")
     held = {"host_holds": unknown(
@@ -1223,20 +1562,25 @@ def collect_host(probe: Probe, host: str, *, agentops_main: dict[str, Any]) -> d
 
 
 def derive_host_gate(env: dict[str, Any]) -> dict[str, Any]:
-    d, r, u = env["desired"], env["running"], env["usable"]
+    d, r, u, h = env["desired"], env["running"], env["usable"], env["held"]
 
     def reachable():
         if (why := _need(r.get("reachable"))):
             return None, why
         return bool(r["reachable"]["value"]), "host unreachable"
 
+    def agentops_current():
+        if (why := _need(r.get("agentops_head"), d.get("agentops_main_sha"))):
+            return None, why
+        have, want = r["agentops_head"]["value"], d["agentops_main_sha"]["value"]
+        return have == want, f"agentops checkout HEAD {_short(have)} != main {_short(want)}"
+
     def profile():
-        if "installed_profile" not in r:
-            return True, ""
         if (why := _need(r.get("installed_profile"), d.get("client_profile"))):
             return None, why
-        have, want = r["installed_profile"]["value"]["revision"], d["client_profile"]["value"]["revision"]
-        return have == want, f"installed client profile revision {have} != declared {want}"
+        have, want = r["installed_profile"]["value"], d["client_profile"]["value"]
+        ok = have["revision"] == want["revision"] and have["id"] == want["id"]
+        return ok, f"installed client profile {have['id']} rev {have['revision']} != declared {want['id']} rev {want['revision']}"
 
     def doctor():
         if (why := _need(u.get("served_doctor"))):
@@ -1245,9 +1589,14 @@ def derive_host_gate(env: dict[str, Any]) -> dict[str, Any]:
         return doc["status"] == "ok" and doc["compatible"] is True, \
             f"served doctor status={doc['status']} compatible={doc['compatible']} findings={doc['findings']}"
 
-    gate = _gate([("reachable", reachable), ("client-profile", profile), ("served-doctor", doctor)],
-                 ["running.reachable", "running.installed_profile", "desired.client_profile",
-                  "usable.served_doctor"])
+    gate = _gate([("desired-current", lambda: current_check(d.get("record_ref_is_remote_main"),
+                                                            "local agentops origin/main")),
+                  ("reachable", reachable), ("agentops-current", agentops_current),
+                  ("client-profile", profile), ("served-doctor", doctor),
+                  ("holds", lambda: holds_check(h, ("host_holds",)))],
+                 ["desired.record_ref_is_remote_main", "running.reachable", "running.agentops_head",
+                  "desired.agentops_main_sha", "running.installed_profile", "desired.client_profile",
+                  "usable.served_doctor", "held.host_holds"])
     evidence = "derived from usable.served_doctor (compatible, schema_status)"
     why = _need(u.get("served_doctor"))
     if why:
@@ -1295,6 +1644,8 @@ def summarize(env: dict[str, Any]) -> dict[str, Any]:
 
 
 def build_report(probe: Probe, envs: list[str], *, fetch: bool) -> dict[str, Any]:
+    if fetch and any(e in HOSTS for e in envs):
+        git(probe, "agentops.fetch", ROOT, "fetch", "--quiet", "origin", "main", timeout=60)
     agentops_url = probe.run("agentops.remote-url", ["git", "-C", str(ROOT), "remote", "get-url", "origin"],
                              timeout=10)
     if agentops_url.get("ok"):
@@ -1330,13 +1681,29 @@ def _cell(value: Any, limit: int = 160) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
-def render_markdown(report: dict[str, Any]) -> str:
-    lines = [f"# Estate status ({report['generated_at']})", "",
-             f"Generated by `{report['generator']['tool']}` at agentops "
-             f"`{_short(report['generator'].get('agentops_sha'))}`, mode `{report['mode']}`. "
-             "`unknown` is a result, not an error: each one carries its reason.", "",
-             "| Environment | Next blocking gate | Recovery class | Known / facts |",
-             "|---|---|---|---|"]
+def report_age_warning(report: dict[str, Any], now: datetime | None = None) -> str:
+    """Rendering a saved report: say how old it is, since every fact is as of then."""
+    now = now or datetime.now(UTC)
+    try:
+        generated = datetime.fromisoformat(report["generated_at"].replace("Z", "+00:00"))
+    except (KeyError, ValueError):
+        return "> **Warning:** saved report without a readable generated_at; its age is unknown."
+    minutes = int((now - generated).total_seconds() // 60)
+    age = f"{minutes // 1440}d {minutes % 1440 // 60}h" if minutes >= 1440 else f"{minutes // 60}h {minutes % 60}m"
+    return (f"> **Warning:** rendered from a saved report generated {report['generated_at']} "
+            f"({age} ago). Every fact is as of its observed_at; rerun `agentops estate status` "
+            "for current state.")
+
+
+def render_markdown(report: dict[str, Any], *, warning: str | None = None) -> str:
+    lines = [f"# Estate status ({report['generated_at']})", ""]
+    if warning:
+        lines += [warning, ""]
+    lines += [f"Generated by `{report['generator']['tool']}` at agentops "
+              f"`{_short(report['generator'].get('agentops_sha'))}`, mode `{report['mode']}`. "
+              "`unknown` is a result, not an error: each one carries its reason.", "",
+              "| Environment | Next blocking gate | Recovery class | Known / facts |",
+              "|---|---|---|---|"]
     for env in report["environments"]:
         gate, rec = env["gate"]["next_blocking_gate"], env["gate"]["recovery_class"]
         gate_txt = gate["value"]["gate"] if is_known(gate) else "unknown"
@@ -1413,7 +1780,7 @@ def main(argv: list[str] | None = None) -> int:
     if ns.json:
         sys.stdout.write(json.dumps(report, indent=2, sort_keys=False) + "\n")
     else:
-        sys.stdout.write(render_markdown(report))
+        sys.stdout.write(render_markdown(report, warning=report_age_warning(report) if ns.from_file else None))
     return 0
 
 

@@ -21,6 +21,23 @@ Read-only guarantees:
 - Bearer tokens, `vuo_*` tokens, DSNs, `password=` values, and GitHub and age keys are redacted before anything is printed, returned or recorded.
 - The vuoro-cloud operator token is read from `~/.config/vuoro/credentials/vuoro-cloud.token` and sent as a header, but it is never echoed or recorded.
 
+The report never decrypts secrets. vuoro-cloud's tenant-runtime pin exists only in a SOPS-encrypted Secret, so `desired.tenant_runtime_pin` stays `unknown` and the vuoro-cloud gate cannot reach `none`. `desired.compatibility_mirror_agrees` reports the non-secret half of `verify-runtime-pin.py`.
+
+How it derives its answers:
+- **Gate.** The next blocking gate is `none` only when every check passes and every hold is known and absent. Holds are suspended Kustomizations, CronJobs suspended without a Git declaration, Deployments scaled below their declared replicas, tenants in maintenance, and host holds. A local ref behind its remote, or a moved tag, makes desired state `unknown`, not a pass.
+- **Recovery class.** It is derived only when every input it depends on is known. For vuoro-shared, the migration Job's state is decisive:
+  - not started: `cancel`;
+  - running or Failed: `unknown`;
+  - TTL-deleted: counts as committed only if the handshake proves it;
+  - committed with a forward-only schema: `forward-fix-or-restore`, unless a newer compatible image is serving.
+- **Forward-only marker.** Forward-only comes from a structured marker in the cutover runbook: front matter `rollback: forward-only|reversible`, or a `Rollback (forward only)` heading.
+- **vuoro-cloud.**
+  - The Flux semver constraint is read from the remote Flux actually watches (`github`), not the canonical remote.
+  - The selected tag is labelled `predicted`. Flux's applied revision is the Kustomizations' `lastAppliedRevision`.
+  - The report card builder runs from the tag's own tree.
+- **Freshness.** Each git-derived fact is timestamped with when its ref was last confirmed against the remote, not when the command ran.
+- **`--from`.** Rendering a saved report with `--from` prints its age.
+
 Cluster access:
 - vuoro-shared uses `KUBECONFIG=/projects/dev/appservice/clusters/.kube/config`.
 - vuoro-cloud uses `~/.config/vuoro/kube/poc.yaml` and the operator tunnel. The report does not bring the tunnel up. If the tunnel is down, the cluster facts are `unknown` with that reason. To include them, run `nmcli connection up vuoro-cloud-operator` and rerun the report.

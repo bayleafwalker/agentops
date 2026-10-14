@@ -1,8 +1,8 @@
 {
- "evidence": "git -C /projects/dev/agentops/.claude/worktrees/agent-a489aa34e71188b15 rev-parse --verify HEAD^{commit}",
- "observed_at": "2026-10-14T14:38:52Z",
+ "evidence": "git -C /projects/dev/agentops rev-parse --verify HEAD^{commit}",
+ "observed_at": "2026-10-14T15:08:55Z",
  "ok": true,
  "rc": 0,
  "stderr": "",
- "stdout": "116597245c2dec911972053912e6e65f9b18d996\n"
+ "stdout": "db0f853dc96230816a805a6639e0f2265ddcd26f\n"
 }

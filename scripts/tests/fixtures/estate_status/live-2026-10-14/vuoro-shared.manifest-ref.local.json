@@ -1,6 +1,6 @@
 {
  "evidence": "git -C /projects/dev/appservice rev-parse --verify origin/main^{commit}",
- "observed_at": "2026-10-14T14:38:49Z",
+ "observed_at": "2026-10-14T15:08:51Z",
  "ok": true,
  "rc": 0,
  "stderr": "",
