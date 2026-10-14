@@ -90,9 +90,142 @@ def _strings(value: object, field: str, path: Path, pattern: re.Pattern[str]) ->
     return value
 
 
+ENVIRONMENT_REQUIRED = {"schema_version", "id", "environment_class", "revision", "roles", "constraints", "capabilities", "runbook_refs", "identity_bindings"}
+ENVIRONMENT_OPTIONAL = {"authority", "tooling", "trust_roots", "credential_broker"}
+#: Records with this role are a maintained runner composition: they must state
+#: their bounded authority and pinned tooling (bounded-execution-environment.md).
+RUNNER_ROLE = "unattended-agent-host"
+OPERATION = re.compile(r"^[a-z0-9][a-z0-9._-]*$")  # an exact operation; grants never use wildcards
+OPERATION_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]*\*?$")  # explicit_approval only (it restricts)
+APPROVER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$")
+TOOL_DIGEST = re.compile(r"^(sha256:[0-9a-f]{64}|git:[0-9a-f]{40}|nix:[0-9a-z]{32})$")
+SHA256_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
+TRUST_ROOT_KINDS = {"tls-ca-bundle", "vuoro-endpoint", "credential-broker"}
+#: cred-broker `Capability` enum (cred-broker src/cred_broker/models.py).
+BROKER_CAPABILITIES = {
+    "repo.read", "repo.write", "repo.create", "repo.admin", "repo.delete",
+    "pr.read", "pr.manage", "pr.merge", "release.read", "release.publish",
+    "deploy.read", "deploy.nonprod", "deploy.prod", "kubernetes.edit",
+}
+MAX_EXECUTION_TTL_SECONDS = 86400
+
+
+def operation_matches(pattern: str, operation: str) -> bool:
+    """One trailing ``*`` matches any suffix; otherwise the match is exact."""
+    if pattern.endswith("*"):
+        return operation.startswith(pattern[:-1])
+    return operation == pattern
+
+
+def _patterns_overlap(a: str, b: str) -> bool:
+    if a.endswith("*") and b.endswith("*"):
+        return a[:-1].startswith(b[:-1]) or b[:-1].startswith(a[:-1])
+    if a.endswith("*"):
+        return operation_matches(a, b)
+    if b.endswith("*"):
+        return operation_matches(b, a)
+    return a == b
+
+
+def _exact_object(value: object, expected: set[str], field: str, path: Path, optional: set[str] = frozenset()) -> dict:
+    if not isinstance(value, dict) or not expected <= set(value) <= expected | optional:
+        raise ProfileError(f"{path}: {field} must contain {sorted(expected)}")
+    return value
+
+
+def validate_authority(value: object, path: Path) -> dict:
+    authority = _exact_object(value, {"standing_read", "scoped_execution", "explicit_approval"}, "authority", path)
+    read = _exact_object(authority["standing_read"], {"operations"}, "authority.standing_read", path)
+    read_ops = _strings(read["operations"], "authority.standing_read.operations", path, OPERATION)
+    scoped = _exact_object(
+        authority["scoped_execution"],
+        {"repositories", "operations", "publication_operation", "max_ttl_seconds"},
+        "authority.scoped_execution", path,
+    )
+    _strings(scoped["repositories"], "authority.scoped_execution.repositories", path, TOKEN)
+    scoped_ops = _strings(scoped["operations"], "authority.scoped_execution.operations", path, OPERATION)
+    publication = scoped["publication_operation"]
+    if not isinstance(publication, str) or not OPERATION.fullmatch(publication):
+        raise ProfileError(f"{path}: authority.scoped_execution.publication_operation must name one operation")
+    if publication not in scoped_ops:
+        raise ProfileError(f"{path}: publication_operation {publication} is not within scoped_execution.operations")
+    ttl = scoped["max_ttl_seconds"]
+    if not isinstance(ttl, int) or isinstance(ttl, bool) or not 1 <= ttl <= MAX_EXECUTION_TTL_SECONDS:
+        raise ProfileError(f"{path}: authority.scoped_execution.max_ttl_seconds must be 1..{MAX_EXECUTION_TTL_SECONDS}")
+    approvals = authority["explicit_approval"]
+    if not isinstance(approvals, list) or not approvals:
+        raise ProfileError(f"{path}: authority.explicit_approval must be a non-empty array")
+    transitions: set[str] = set()
+    for index, entry in enumerate(approvals):
+        field = f"authority.explicit_approval[{index}]"
+        entry = _exact_object(entry, {"transition", "operations", "approvers", "max_approval_age_seconds"}, field, path)
+        transitions.add(_token(entry["transition"], f"{field}.transition", path))
+        _strings(entry["approvers"], f"{field}.approvers", path, APPROVER)
+        age = entry["max_approval_age_seconds"]
+        if not isinstance(age, int) or isinstance(age, bool) or not 1 <= age <= MAX_EXECUTION_TTL_SECONDS:
+            raise ProfileError(f"{path}: {field}.max_approval_age_seconds must be 1..{MAX_EXECUTION_TTL_SECONDS}")
+        for op in _strings(entry["operations"], f"{field}.operations", path, OPERATION_PATTERN):
+            granted = [p for p in read_ops + scoped_ops if _patterns_overlap(p, op)]
+            if granted:
+                raise ProfileError(f"{path}: {field} operation {op} is also granted without approval by {granted}")
+    if len(transitions) != len(approvals):
+        raise ProfileError(f"{path}: authority.explicit_approval transitions must be unique")
+    return authority
+
+
+def _validate_tooling(value: object, path: Path) -> None:
+    if not isinstance(value, list) or not value:
+        raise ProfileError(f"{path}: tooling must be a non-empty array")
+    names = set()
+    for index, tool in enumerate(value):
+        field = f"tooling[{index}]"
+        tool = _exact_object(tool, {"name", "version", "source", "digest"}, field, path)
+        names.add(_token(tool["name"], f"{field}.name", path))
+        for key in ("version", "source"):
+            if not isinstance(tool[key], str) or not tool[key]:
+                raise ProfileError(f"{path}: {field}.{key} must be a non-empty string")
+        if not isinstance(tool["digest"], str) or not TOOL_DIGEST.fullmatch(tool["digest"]):
+            raise ProfileError(f"{path}: {field}.digest must be sha256:, git: or nix: pinned")
+    if len(names) != len(value):
+        raise ProfileError(f"{path}: tooling names must be unique")
+
+
+def _validate_trust_roots(value: object, path: Path) -> None:
+    if not isinstance(value, list) or not value:
+        raise ProfileError(f"{path}: trust_roots must be a non-empty array")
+    for index, root in enumerate(value):
+        field = f"trust_roots[{index}]"
+        root = _exact_object(root, {"id", "kind", "ref"}, field, path, optional={"digest"})
+        _token(root["id"], f"{field}.id", path)
+        if root["kind"] not in TRUST_ROOT_KINDS:
+            raise ProfileError(f"{path}: {field}.kind must be one of {sorted(TRUST_ROOT_KINDS)}")
+        if not isinstance(root["ref"], str) or not root["ref"]:
+            raise ProfileError(f"{path}: {field}.ref must be a non-empty string")
+        if "digest" in root and (not isinstance(root["digest"], str) or not SHA256_DIGEST.fullmatch(root["digest"])):
+            raise ProfileError(f"{path}: {field}.digest must be sha256:<64 hex>")
+
+
+def _validate_credential_broker(value: object, path: Path) -> None:
+    broker = _exact_object(value, {"host_profile", "subject", "capabilities"}, "credential_broker", path)
+    _token(broker["host_profile"], "credential_broker.host_profile", path)
+    if not isinstance(broker["subject"], str) or not re.fullmatch(r"[a-z0-9_]+", broker["subject"]):
+        raise ProfileError(f"{path}: credential_broker.subject must be a broker subject id")
+    if not isinstance(broker["capabilities"], list):
+        raise ProfileError(f"{path}: credential_broker.capabilities must be an array")
+    for index, entry in enumerate(broker["capabilities"]):
+        field = f"credential_broker.capabilities[{index}]"
+        entry = _exact_object(entry, {"capability", "target", "bound"}, field, path)
+        if entry["capability"] not in BROKER_CAPABILITIES:
+            raise ProfileError(f"{path}: {field}.capability is not a cred-broker capability id")
+        if not isinstance(entry["target"], str) or not entry["target"]:
+            raise ProfileError(f"{path}: {field}.target must be a non-empty string")
+        if not isinstance(entry["bound"], bool):
+            raise ProfileError(f"{path}: {field}.bound must be a boolean")
+
+
 def validate_environment(path: Path) -> dict[str, object]:
     value = _load(path)
-    _exact(value, {"schema_version", "id", "environment_class", "revision", "roles", "constraints", "capabilities", "runbook_refs", "identity_bindings"}, path)
+    _exact({k: v for k, v in value.items() if k not in ENVIRONMENT_OPTIONAL}, ENVIRONMENT_REQUIRED, path)
     if value["schema_version"] != "environment-record/v1":
         raise ProfileError(f"{path}: schema_version must be environment-record/v1")
     _token(value["id"], "id", path)
@@ -107,6 +240,18 @@ def validate_environment(path: Path) -> dict[str, object]:
     bindings = value["identity_bindings"]
     if not isinstance(bindings, list) or not bindings:
         raise ProfileError(f"{path}: identity_bindings must be non-empty")
+    if RUNNER_ROLE in value["roles"]:
+        for key in ("authority", "tooling"):
+            if key not in value:
+                raise ProfileError(f"{path}: an {RUNNER_ROLE} record must declare {key}")
+    if "authority" in value:
+        validate_authority(value["authority"], path)
+    if "tooling" in value:
+        _validate_tooling(value["tooling"], path)
+    if "trust_roots" in value:
+        _validate_trust_roots(value["trust_roots"], path)
+    if "credential_broker" in value:
+        _validate_credential_broker(value["credential_broker"], path)
     return value
 
 

@@ -129,3 +129,35 @@ class NativePublisherTests(PublishCheckCase):
             report = checker.confirm(str(self.repos.work), tip, "pr-opened")
         self.assertFalse(report["confirmed"])
         self.assertIn("fetch denied", report["error"])
+
+    def run_main(self, *extra):
+        tip = self.repos.commit("verified", "src/ok.py")
+        argv = ["dispatch_publish.py", "--repo", str(self.repos.work), "--tip", tip,
+                "--run-branch", "dispatch/run-test123", "--expected", tip, *extra]
+        with patch.object(sys, "argv", argv), patch("builtins.print") as printed:
+            code = publisher.main()
+        return code, json.loads(printed.call_args[0][0])
+
+    def test_authority_gate_refuses_before_any_effect(self):
+        environment = Path(__file__).parents[2] / "environment-record/devbox-vm.vuoro-shared.json"
+        with patch.object(publisher, "publish") as effect:
+            code, report = self.run_main("--authority-environment", str(environment),
+                                         "--run-id", "run_1", "--grant-id", "grant_1", "--attempt-id", "attempt_1")
+        effect.assert_not_called()
+        self.assertEqual(code, 1)
+        self.assertEqual(report["action"], "publish-refused")
+        self.assertEqual(report["authority"]["code"], "run-unverified")  # no served owner: fail closed
+        self.assertEqual(checker.remote_ref(str(self.repos.work), "refs/heads/main")[0], self.repos.base)
+
+    def test_authority_gate_refuses_record_without_authority(self):
+        environment = Path(__file__).parents[2] / "environment-record/workstation-linux.vuoro-shared.json"
+        with patch.object(publisher, "publish") as effect:
+            code, report = self.run_main("--authority-environment", str(environment))
+        effect.assert_not_called()
+        self.assertEqual(code, 1)
+        self.assertIn("environment-invalid", report["error"])
+
+    def test_ungated_publication_is_unchanged(self):
+        code, report = self.run_main()
+        self.assertEqual(code, 0)
+        self.assertTrue(report["published"])
