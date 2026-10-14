@@ -2,7 +2,7 @@
   "schema_version": "environment-record/v1",
   "id": "devbox",
   "environment_class": "local",
-  "revision": 2,
+  "revision": 3,
   "roles": ["unattended-agent-host", "vuoro-served-client"],
   "constraints": [
     "no-direct-postgresql-egress-for-sprintctl",
@@ -13,9 +13,95 @@
   "capabilities": ["git-worktree", "vuoro-served-work-client"],
   "runbook_refs": [
     "/projects/dev/agentops/docs/runbooks/vuoro-workstation-cutover.md#devbox-vm",
-    "/projects/dev/agentops/docs/runbooks/vuoro-workstation-cutover.md#identity-and-production-boundary"
+    "/projects/dev/agentops/docs/runbooks/vuoro-workstation-cutover.md#identity-and-production-boundary",
+    "/projects/dev/agentops/docs/architecture/bounded-execution-environment.md"
   ],
   "identity_bindings": [
     {"principal": "environment:devbox-agent", "roles": ["vuoro-shared-work-client"]}
-  ]
+  ],
+  "authority": {
+    "standing_read": {
+      "operations": [
+        "work.run.resolve-v1",
+        "work.run.predecessor-context-v1",
+        "work.effect.attempt-get-v1",
+        "work.agent.list-v1",
+        "work.agent.describe-v1",
+        "work.message.status-v1"
+      ]
+    },
+    "scoped_execution": {
+      "repositories": ["agentops"],
+      "operations": [
+        "work.effect.attempt-*",
+        "agentops.dispatch.publish-v1",
+        "agentops.host-adapter.launch-successor-v1"
+      ],
+      "publication_operation": "agentops.dispatch.publish-v1",
+      "max_ttl_seconds": 3600
+    },
+    "explicit_approval": [
+      {"transition": "rollout-resume", "operations": ["rollout.resume-*"]},
+      {"transition": "protected-publication", "operations": ["agentops.publication.protected-*", "pr.merge"]}
+    ]
+  },
+  "tooling": [
+    {
+      "name": "sprintctl",
+      "version": "0.19.0",
+      "source": "uv tool /home/agent/.local/share/uv/tools/sprintctl from /projects/dev/sprintctl (extras remote,served) at tag v0.19.0",
+      "digest": "git:ad66ddd030dac7134e212df328f2cb5b82639bdc"
+    },
+    {
+      "name": "vuoro-client",
+      "version": "0.1.1",
+      "source": "sprintctl uv tool environment, vuoro_client-0.1.1.dist-info/RECORD",
+      "digest": "sha256:5c5d3d3e0e6f4498a3fcbb78e1ce98b048e4368c3647ac6fdbbc55eb132f04c5"
+    },
+    {
+      "name": "opencode",
+      "version": "1.18.33",
+      "source": "/nix/store/szf092k6j6i4h6c1da91fdmiq8yq2xr1-opencode-1.18.33",
+      "digest": "nix:szf092k6j6i4h6c1da91fdmiq8yq2xr1"
+    },
+    {
+      "name": "uv",
+      "version": "0.12.17",
+      "source": "/nix/store/wqpy2j3r0hjlmjyvq0wpd08rm5zn722y-uv-0.12.17",
+      "digest": "nix:wqpy2j3r0hjlmjyvq0wpd08rm5zn722y"
+    },
+    {
+      "name": "nixos-system",
+      "version": "26.11.20261001.c59305b (generation 99)",
+      "source": "/nix/store/yqsrz70ma9ym0lm4xy2kyn9kxgkbsh22-nixos-system-devbox-26.11.20261001.c59305b",
+      "digest": "nix:yqsrz70ma9ym0lm4xy2kyn9kxgkbsh22"
+    }
+  ],
+  "trust_roots": [
+    {
+      "id": "system-ca-bundle",
+      "kind": "tls-ca-bundle",
+      "ref": "/etc/ssl/certs/ca-certificates.crt",
+      "digest": "sha256:3ba2000fe3d55cb6c41323fabbb105743e2c9422151eea213311538b07b23f5a"
+    },
+    {
+      "id": "vuoro-shared",
+      "kind": "vuoro-endpoint",
+      "ref": "https://vuoro-shared.apps.kotona.app"
+    },
+    {
+      "id": "cred-broker",
+      "kind": "credential-broker",
+      "ref": "appservice clusters/main/kubernetes/apps/cred-broker (host profile development-bounded)"
+    }
+  ],
+  "credential_broker": {
+    "host_profile": "development-bounded",
+    "subject": "usr_agent_devbox",
+    "capabilities": [
+      {"capability": "repo.read", "target": "repo_agentops_github", "bound": false},
+      {"capability": "repo.write", "target": "repo_agentops_github", "bound": false},
+      {"capability": "pr.manage", "target": "repo_agentops_github", "bound": false}
+    ]
+  }
 }

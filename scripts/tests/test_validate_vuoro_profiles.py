@@ -4,6 +4,8 @@ import importlib.util
 import json
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts/validate_vuoro_profiles.py"
@@ -187,3 +189,75 @@ def test_inbox_native_profiles_are_evidence_scoped_and_host_bound(tmp_path: Path
         assert "source_environment_id" in str(exc) or "bound to devbox" in str(exc)
     else:
         raise AssertionError("expected host binding rejection")
+
+DEVBOX = ROOT / "environment-record/devbox-vm.vuoro-shared.json"
+
+
+def _devbox_with(tmp_path: Path, mutate) -> Path:
+    record = json.loads(DEVBOX.read_text(encoding="utf-8"))
+    mutate(record)
+    path = tmp_path / "devbox.json"
+    path.write_text(json.dumps(record), encoding="utf-8")
+    return path
+
+
+def test_devbox_record_declares_bounded_authority_and_pinned_tooling() -> None:
+    record = validator.validate_environment(DEVBOX)
+    scoped = record["authority"]["scoped_execution"]
+    assert scoped["repositories"] == ["agentops"]
+    assert scoped["publication_operation"] == "agentops.dispatch.publish-v1"
+    tools = {tool["name"]: tool["version"] for tool in record["tooling"]}
+    assert tools["sprintctl"] == "0.19.0" and tools["opencode"] == "1.18.33"
+    assert {c["capability"] for c in record["credential_broker"]["capabilities"]} <= validator.BROKER_CAPABILITIES
+
+
+def test_runner_record_without_authority_is_rejected(tmp_path: Path) -> None:
+    path = _devbox_with(tmp_path, lambda r: r.pop("authority"))
+    with pytest.raises(validator.ProfileError, match="must declare authority"):
+        validator.validate_environment(path)
+
+
+def test_records_without_runner_role_need_no_authority() -> None:
+    record = validator.validate_environment(ROOT / "environment-record/workstation-linux.vuoro-shared.json")
+    assert "authority" not in record
+
+
+def test_unknown_environment_field_is_rejected(tmp_path: Path) -> None:
+    path = _devbox_with(tmp_path, lambda r: r.update({"authorities": {}}))
+    with pytest.raises(validator.ProfileError, match="unknown authorities"):
+        validator.validate_environment(path)
+
+
+def test_publication_operation_must_be_in_scope(tmp_path: Path) -> None:
+    def mutate(r):
+        r["authority"]["scoped_execution"]["publication_operation"] = "agentops.other.publish-v1"
+    with pytest.raises(validator.ProfileError, match="not within scoped_execution"):
+        validator.validate_environment(_devbox_with(tmp_path, mutate))
+
+
+def test_approval_operation_cannot_also_be_scoped(tmp_path: Path) -> None:
+    def mutate(r):
+        r["authority"]["scoped_execution"]["operations"].append("rollout.*")
+    with pytest.raises(validator.ProfileError, match="also granted without approval"):
+        validator.validate_environment(_devbox_with(tmp_path, mutate))
+
+
+def test_ttl_is_bounded(tmp_path: Path) -> None:
+    def mutate(r):
+        r["authority"]["scoped_execution"]["max_ttl_seconds"] = 86401
+    with pytest.raises(validator.ProfileError, match="max_ttl_seconds"):
+        validator.validate_environment(_devbox_with(tmp_path, mutate))
+
+
+def test_unpinned_tool_is_rejected(tmp_path: Path) -> None:
+    def mutate(r):
+        r["tooling"][0]["digest"] = "latest"
+    with pytest.raises(validator.ProfileError, match="digest"):
+        validator.validate_environment(_devbox_with(tmp_path, mutate))
+
+
+def test_unknown_broker_capability_is_rejected(tmp_path: Path) -> None:
+    def mutate(r):
+        r["credential_broker"]["capabilities"][0]["capability"] = "repo.everything"
+    with pytest.raises(validator.ProfileError, match="cred-broker capability"):
+        validator.validate_environment(_devbox_with(tmp_path, mutate))
