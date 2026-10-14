@@ -238,9 +238,30 @@ class FakeHarness:
 
 # ---------------------------------------------------------------- fixtures
 
+AUTHORITY = {
+    "standing_read": {"operations": ["work.run.resolve-v1"]},
+    "scoped_execution": {"repositories": [REPO],
+                         "operations": ["work.effect.attempt-open-v1", "agentops.dispatch.publish-v1", ha.LAUNCH_OPERATION],
+                         "publication_operation": "agentops.dispatch.publish-v1", "max_ttl_seconds": 3600},
+    "explicit_approval": [{"transition": "rollout-resume", "operations": ["rollout.resume-*"],
+                           "approvers": ["workstation-vuoro"], "max_approval_age_seconds": 3600}],
+}
+
+
+def write_environment(path: Path, authority: dict | None = AUTHORITY) -> Path:
+    record = {"schema_version": "environment-record/v1", "id": "devbox", "roles": ["unattended-agent-host"]}
+    if authority is not None:
+        record["authority"] = authority
+    path.write_text(json.dumps(record))
+    return path
+
+
 def write_policy(path: Path, **over) -> None:
+    env = path.parent / "environment.json"
+    if not env.exists():
+        write_environment(env)
     pol = {"enabled": True, "launches_enabled": True, "allowed_senders": [SENDER], "allowed_repos": [REPO],
-           "kinds": ["continue"], "max_concurrent": 2,
+           "kinds": ["continue"], "max_concurrent": 2, "environment_record": str(env),
            "harness": {"harness_id": "opencode", "harness_build": "1.19.0", "model_id": "prov/model",
                        "recipe_id": "inbox-continue-v1", "observed_profile": {"sandbox": "none"}}}
     pol.update(over)
@@ -1121,3 +1142,88 @@ def test_timeout_with_session_still_busy_is_recorded_as_unconfirmed(rig):
     rig.tick(5)
     result = rig.owner.receipt_of("msg_A", "result-linked")
     assert result["outcome"] == "failed" and result["reason"]["code"] == "run-timeout-abort-unconfirmed"
+
+# ---------------------------------------------------------------- environment authority gate
+
+def _scoped(**over) -> dict:
+    authority = json.loads(json.dumps(AUTHORITY))
+    authority["scoped_execution"].update(over)
+    return authority
+
+
+@pytest.mark.parametrize("setup", [
+    lambda rig: write_policy(rig.policy, environment_record=None),
+    lambda rig: write_policy(rig.policy, environment_record=str(rig.tmp / "absent.json")),
+    lambda rig: write_environment(rig.tmp / "environment.json", authority=None),
+    # A wildcard grant is an invalid authority block (grants list exact operations).
+    lambda rig: write_environment(rig.tmp / "environment.json", _scoped(operations=["agentops.*"])),
+])
+def test_missing_environment_authority_defers_and_launches_nothing(rig, setup):
+    setup(rig)
+    rig.owner.send()
+    rig.tick(2)
+    rec = rig.rec()
+    assert rec["state"] == ha.S_RECEIVED and rec["reason_code"] == "environment-authority-missing"
+    assert rig.owner.receipt_of("msg_A", "refused") is None
+    assert rig.harness.creates == 0 and rig.owner.run_register_calls == 0
+    write_environment(rig.tmp / "environment.json")
+    write_policy(rig.policy)
+    rig.tick(2)
+    assert rig.rec()["outcome"] == "completed"
+
+
+@pytest.mark.parametrize("authority", [
+    _scoped(repositories=["sprintctl"]),
+    _scoped(operations=["work.effect.attempt-open-v1", "agentops.dispatch.publish-v1"]),
+])
+def test_work_outside_authority_scope_is_refused(rig, authority):
+    write_environment(rig.tmp / "environment.json", authority)
+    rig.owner.send()
+    rig.tick(2)
+    refusal = rig.owner.receipt_of("msg_A", "refused")
+    assert refusal and refusal["reason"]["code"] == "work-outside-authority-scope"
+    assert rig.harness.creates == 0 and rig.owner.run_register_calls == 0
+
+
+def test_authority_withdrawn_before_launch_launches_nothing(rig):
+    rig.owner.send()
+
+    def hook(name):
+        if name == "run_linked_sent":
+            write_environment(rig.tmp / "environment.json", _scoped(repositories=["sprintctl"]))
+    rig.checkpoint = hook
+    rig.tick(2)
+    res = rig.owner.receipt_of("msg_A", "result-linked")
+    assert res["outcome"] == "not-started" and res["reason"]["code"] == "work-outside-authority-scope"
+    assert rig.harness.creates == 0
+
+
+def test_checked_in_devbox_record_grants_the_launch_for_agentops_only():
+    record = Path(__file__).resolve().parents[2] / "environment-record/devbox-vm.vuoro-shared.json"
+    policy = ha.Policy(environment_record=str(record))
+    assert ha.authority_denial(policy, REPO) is None
+    assert ha.authority_denial(policy, "sprintctl")[0] == "work-outside-authority-scope"
+
+
+def test_trusted_mode_refuses_config_this_uid_can_edit(rig):
+    policy = ha.load_policy(rig.policy, trusted=True)
+    assert policy.error and "untrusted policy" in policy.error
+    assert ha.policy_denial(policy, REPO, {"sender_principal_id": SENDER, "kind": "continue"})[0] == "policy-unreadable"
+    record_only = ha.Policy(environment_record=str(rig.tmp / "environment.json"), trusted=True)
+    assert ha.authority_denial(record_only, REPO)[0] == "environment-record-untrusted"
+
+
+def test_trusted_mode_adapter_launches_nothing(rig):
+    rig.adapter.config = ha.Config(poll_interval=10, directory="/work", trusted_config=True)
+    rig.owner.send()
+    rig.tick(2)
+    assert rig.harness.creates == 0 and rig.owner.run_register_calls == 0
+    assert rig.owner.receipt_of("msg_A", "refused") is None
+
+
+def test_untrusted_config_accepts_root_owned_read_only_file():
+    import os
+
+    if os.geteuid() == 0:
+        pytest.skip("root can write anything")
+    assert ha.untrusted_config("/etc/passwd") is None
