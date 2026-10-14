@@ -234,6 +234,22 @@ def is_guard_path(value: Any) -> bool:
             and not secret_findings(value))
 
 
+def resolves_to_placeholder(report: Any, path: str) -> bool:
+    """True if walking ``path`` (``.key`` / ``[n]`` segments) through ``report`` lands on
+    the guard placeholder: the only proof that an earlier redaction record is genuine."""
+    node = report
+    for key, index in re.findall(r"\.([\w-]+)|\[(\d+)\]", path):
+        if index:
+            if not isinstance(node, list) or int(index) >= len(node):
+                return False
+            node = node[int(index)]
+        else:
+            if not isinstance(node, dict) or key not in node:
+                return False
+            node = node[key]
+    return node == GUARD_PLACEHOLDER
+
+
 def remap_guard_paths(paths: Any, kept_indexes: list[int]) -> list[str]:
     """After filtering ``environments`` (``--from --env``), point recorded paths at the
     environments' new positions and drop paths of environments that were filtered out."""
@@ -257,10 +273,11 @@ def guard_report(report: dict[str, Any]) -> dict[str, Any]:
 
     Paths redacted by an earlier emission (a saved report re-emitted with --from) are
     kept: the placeholder no longer trips the detector, but the record of it must survive.
-    The earlier list is untrusted input too: only path-shaped entries that are themselves
-    clean are kept; anything else is dropped, never emitted."""
+    The earlier list is untrusted input too: an entry is kept only if it is path-shaped,
+    clean, and resolves in this report to the placeholder; anything else is dropped."""
     earlier = report.get("guard_redactions")
-    earlier = [p for p in earlier if is_guard_path(p)] if isinstance(earlier, list) else []
+    earlier = [p for p in earlier if is_guard_path(p) and resolves_to_placeholder(report, p)] \
+        if isinstance(earlier, list) else []
     clean, hits = guard({k: v for k, v in report.items() if k != "guard_redactions"})
     merged = list(dict.fromkeys(earlier + hits))
     if merged:
