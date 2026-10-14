@@ -145,3 +145,22 @@ was retired 2026-09-17 (S2 item 6); that default no longer resolves to
 anything. Set `COCKPIT_DISPATCH_MANIFEST_ROOT` explicitly to a directory of
 real `*.dispatch.json` files (each member repo's own, or generated manifests
 staged in `_artifacts`).
+
+## Hand-pass authorisation
+
+A pull request that touches `hybrid.protected_paths` fails the `protected-paths` CI check unless
+its title begins `hand-pass@<sha7>:` AND the actor that triggered the run is listed in
+`hybrid.hand_pass_actors`. `<sha7>` is at least 7 hex characters and must be a prefix of the PR's
+current head sha, so the authorisation covers the commit that was reviewed and nothing pushed
+after it. A plain `hand-pass:` title no longer authorises anything.
+
+The workflow is `pull_request_target`: it is read from the base branch, and the checker and this
+manifest come from the base commit; the PR head is only ever fetched as data and never executed.
+A PR therefore cannot edit the workflow, the checker or the actor list to admit itself, and an
+agent token that titles its own PR still fails ("needs the operator to open, edit or reopen the PR
+on this head").
+
+Operator procedure, after the final push: read the head sha (`gh pr view <n> --json headRefOid`),
+edit the title to `hand-pass@<first 7 of sha>: <summary>`. The `edited` event is sent by you, so
+the check re-runs on that head with you as sender. If anything is pushed afterwards the token no
+longer matches and the check fails until you edit the title again.

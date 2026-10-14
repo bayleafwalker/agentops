@@ -167,8 +167,11 @@
       ".claude/**",
       "scripts/check_append_only_shards.py",
       "scripts/check_protected_paths.py",
-      ".github/workflows/**"
+      ".github/workflows/**",
+      "scripts/check_templates_dispatch_allowlist.py",
+      "scripts/templates_dispatch_allowlist.txt"
     ],
+    "hand_pass_actors": ["bayleafwalker"],
     "worktree_root": "/tmp/agentops-hybrid/worktrees",
     "max_timeout_seconds": 1800,
     "max_cost_usd": 3.0,

@@ -68,7 +68,7 @@ def main(argv: list[str] | None = None) -> int:
         for path in offenders:
             print(f"  {path}", file=sys.stderr)
         print(
-            f"\nAdd the path to {args.allowlist.relative_to(args.root)} only if it is a "
+            f"\nAdd the path to {args.allowlist} only if it is a "
             "genuine historical record or still-real templates/dispatch/hooks/ reference; "
             "otherwise fix the stale path.",
             file=sys.stderr,
