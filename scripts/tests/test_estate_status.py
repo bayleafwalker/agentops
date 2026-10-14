@@ -693,16 +693,36 @@ class SafetyAndHelperTests(unittest.TestCase):
         token = "ghp_" + "ABCDEFGHIJ" + "0123456789" + "abcdefghij" + "0123456789"  # fake, assembled
         path_shaped_secret = "$.Zx9Qw7Lm3Rt8Yp2Kd6Vn4Bh1Jc5Gf0Ts"
         saved = replay(["devbox"])
+        saved["x"] = estate.GUARD_PLACEHOLDER
         saved["guard_redactions"] = ["$.x", token, 5, "$.x", path_shaped_secret, "$.y z", {"p": 1}]
         out = self._from_json(saved)
         self.assertNotIn(token, out)
         self.assertNotIn("Zx9Qw7Lm3Rt8Yp2Kd6Vn4Bh1Jc5Gf0Ts", out)
         self.assertEqual(json.loads(out)["guard_redactions"], ["$.x"])
 
+    def test_smuggled_path_segments_are_dropped(self):
+        smuggle = "$." + "Zx9QwErTy7UiOpAs" + "." + "DfGh2JkLmNbVcX4z"  # fake, assembled at runtime
+        saved = replay(["devbox"])
+        saved["guard_redactions"] = [smuggle]
+        out = self._from_json(saved)
+        self.assertNotIn("DfGh2JkLmNbVcX4z", out)
+        self.assertNotIn("guard_redactions", json.loads(out))
+
+    def test_from_keeps_genuine_placeholder_path_and_drops_non_placeholder(self):
+        saved = replay(["devbox"])
+        saved["environments"][0]["desired"]["environment_record"]["evidence"] = estate.GUARD_PLACEHOLDER
+        genuine = "$.environments[0].desired.environment_record.evidence"
+        saved["guard_redactions"] = [genuine, "$.generator.tool", "$.environments[9].x", genuine]
+        out = json.loads(self._from_json(saved))
+        self.assertEqual(out["guard_redactions"], [genuine])
+
     def test_env_filter_remaps_redaction_paths(self):
         saved = replay()
         ids = [e["id"] for e in saved["environments"]]
         devbox = ids.index("devbox")
+        saved["environments"][devbox]["desired"]["a"] = estate.GUARD_PLACEHOLDER
+        saved["environments"][0]["desired"]["b"] = estate.GUARD_PLACEHOLDER
+        saved["generator"]["tool"] = estate.GUARD_PLACEHOLDER
         saved["guard_redactions"] = [f"$.environments[{devbox}].desired.a", "$.environments[0].desired.b",
                                      "$.generator.tool"]
         report = json.loads(self._from_json(saved, "--env", "devbox"))
