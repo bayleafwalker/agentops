@@ -48,15 +48,15 @@ Cluster access:
 - vuoro-shared uses `KUBECONFIG=/projects/dev/appservice/clusters/.kube/config`.
 - vuoro-cloud uses `~/.config/vuoro/kube/poc.yaml` and the operator tunnel. The report does not bring the tunnel up. If the tunnel is down, the cluster facts are `unknown` with that reason. To include them, run `nmcli connection up vuoro-cloud-operator` and rerun the report.
 
-## Host holds
+## Declared host holds
 
-Agent hosts declare their holds in their environment record as `holds`: an array of `{id, reason, since?, ref?}`. The workstation and devbox records carry `"holds": []`, which states that nothing is held, so `held.host_holds` is known. To take a host out of service, add an entry and bump the record's `revision`, for example:
+Agent hosts declare their holds in their environment record as `holds`: an array of `{id, reason, since?, ref?}`. The workstation and devbox records carry `"holds": []`, which states that nothing is held, so `held.declared_host_holds` is known. These holds are *declared (from the agentops record)*, not observed on the host: the fact name and its evidence say so. To take a host out of service, add an entry and bump the record's `revision`, for example:
 
 ```json
 "holds": [{"id": "out-of-dispatch", "reason": "kernel upgrade", "since": "2026-10-14T18:00:00Z"}]
 ```
 
-The host gate then stops at `holds`. A record without the field reports `held.host_holds` as `unknown`, because holds are not modelled for it. The report reads the record from agentops `origin/main`, so a hold takes effect in the report once it is merged.
+The host gate then stops at `holds`. A record without the field reports `held.declared_host_holds` as `unknown`, because holds are not modelled for it. The report reads the record from agentops `origin/main`, so a hold takes effect in the report once it is merged.
 
 ## What remains unknown, and why
 

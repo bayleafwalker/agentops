@@ -2,7 +2,7 @@
   "schema_version": "environment-record/v1",
   "id": "devbox",
   "environment_class": "local",
-  "revision": 3,
+  "revision": 4,
   "roles": ["unattended-agent-host", "vuoro-served-client"],
   "constraints": [
     "no-direct-postgresql-egress-for-sprintctl",

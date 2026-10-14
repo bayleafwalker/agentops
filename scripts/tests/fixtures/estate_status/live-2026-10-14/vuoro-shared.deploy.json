@@ -1,6 +1,6 @@
 {
  "evidence": "KUBECONFIG=/projects/dev/appservice/clusters/.kube/config kubectl get deployments -n vuoro-shared -o json --request-timeout=15s",
- "observed_at": "2026-10-14T15:22:10Z",
+ "observed_at": "2026-10-14T15:45:36Z",
  "ok": true,
  "rc": 0,
  "stderr": "",

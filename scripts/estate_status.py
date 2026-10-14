@@ -227,10 +227,16 @@ def guard(value: Any, path: str = "$", hits: list[str] | None = None) -> tuple[A
 
 
 def guard_report(report: dict[str, Any]) -> dict[str, Any]:
-    """The report as it may be emitted: guarded, with the redacted paths listed."""
+    """The report as it may be emitted: guarded, with the redacted paths listed.
+
+    Paths redacted by an earlier emission (a saved report re-emitted with --from) are
+    kept: the placeholder no longer trips the detector, but the record of it must survive."""
+    earlier = report.get("guard_redactions")
+    earlier = [p for p in earlier if isinstance(p, str)] if isinstance(earlier, list) else []
     clean, hits = guard({k: v for k, v in report.items() if k != "guard_redactions"})
-    if hits:
-        clean["guard_redactions"] = hits
+    merged = list(dict.fromkeys(earlier + hits))
+    if merged:
+        clean["guard_redactions"] = merged
     return clean
 
 
@@ -1676,17 +1682,20 @@ def collect_host(probe: Probe, host: str, *, agentops_main: dict[str, Any]) -> d
             for name in ("sprintctl_version", "installed_profile", "agentops_head"):
                 running[name] = _carry(envelope, "artifact")
             usable["served_doctor"] = _carry(envelope, "live-api")
+    # Host holds are *declared*: they come from the agentops environment record, not from
+    # observing the host, and the fact name and evidence say so.
     record = desired.get("environment_record")
     if is_known(record) and isinstance(record["value"].get("holds"), list):
-        held = {"host_holds": known([h.get("id") for h in record["value"]["holds"]], "artifact",
-                                    f"{record['evidence']} holds", record["observed_at"])}
+        held = {"declared_host_holds": known(
+            [h.get("id") for h in record["value"]["holds"]], "artifact",
+            f"declared (from the agentops record): {record['evidence']} holds", record["observed_at"])}
     elif is_known(record):
-        held = {"host_holds": unknown(
+        held = {"declared_host_holds": unknown(
             "the environment record declares no `holds` field, so whether this host is held is not "
             "modelled (an empty `holds: []` would state that nothing is held)", "artifact",
-            record["evidence"], record["observed_at"])}
+            f"declared (from the agentops record): {record['evidence']}", record["observed_at"])}
     else:
-        held = {"host_holds": _carry(record, "artifact")}
+        held = {"declared_host_holds": _carry(record, "artifact")}
     env = {"id": host, "kind": "host", "desired": desired, "running": running, "usable": usable,
            "held": held, "document": {}, "receipts": {}}
     env["gate"] = derive_host_gate(env)
@@ -1725,10 +1734,10 @@ def derive_host_gate(env: dict[str, Any]) -> dict[str, Any]:
                                                             "local agentops origin/main")),
                   ("reachable", reachable), ("agentops-current", agentops_current),
                   ("client-profile", profile), ("served-doctor", doctor),
-                  ("holds", lambda: holds_check(h, ("host_holds",)))],
+                  ("holds", lambda: holds_check(h, ("declared_host_holds",)))],
                  ["desired.record_ref_is_remote_main", "running.reachable", "running.agentops_head",
                   "desired.agentops_main_sha", "running.installed_profile", "desired.client_profile",
-                  "usable.served_doctor", "held.host_holds"])
+                  "usable.served_doctor", "held.declared_host_holds"])
     evidence = "derived from usable.served_doctor (compatible, schema_status)"
     why = _need(u.get("served_doctor"))
     if why:
