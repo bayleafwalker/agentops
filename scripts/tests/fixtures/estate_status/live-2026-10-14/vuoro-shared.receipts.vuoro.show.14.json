@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/vuoro show origin/main:verification/results/s4-native-reserve-composition-2026-10-09.json",
+ "observed_at": "2026-10-14T15:08:52Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "{\"claims\": [{\"result\": \"example-tested\"}, {\"result\": \"example-tested\"}, {\"result\": \"example-tested\"}, {\"result\": \"unknown\"}], \"context_id\": \"vuoro.s4.native-reserve-composition\", \"depth\": 2, \"implementation_sha\": \"a78ef4326144c95008f3cbb4b73f97ad9a45a35a\", \"schema_version\": \"verification-result/v1\"}"
+}

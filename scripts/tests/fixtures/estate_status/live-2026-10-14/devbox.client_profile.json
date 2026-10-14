@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/agentops/.claude/worktrees/agent-a489aa34e71188b15 show 0590a213932282be1e46c1ea720093c02aad32ba:environment-record/profiles/devbox-agent-vuoro-shared.json",
+ "observed_at": "2026-10-14T15:08:56Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "{\n  \"schema_version\": \"vuoro-client-profile/v1\",\n  \"id\": \"devbox-agent-vuoro-shared\",\n  \"revision\": 3,\n  \"source_environment_id\": \"devbox\",\n  \"target\": {\n    \"environment_id\": \"vuoro-shared\",\n    \"environment_class\": \"production\",\n    \"endpoint\": \"https://vuoro-shared.apps.kotona.app\"\n  },\n  \"credential_ref\": \"file:/home/agent/.config/vuoro/credentials/vuoro-shared-agent\",\n  \"required_authorities\": [\n    \"work:read\",\n    \"work:lifecycle\",\n    \"work:evidence\",\n    \"work:batch\",\n    \"work:project-read\",\n    \"work:project-write\",\n    \"work:pilot-read\"\n  ],\n  \"production_endpoint_denied\": false\n}\n"
+}

@@ -1,0 +1,8 @@
+{
+ "evidence": "vuoro-cloud@v0.1.0-poc.76:src/vuoro_cloud/release.py build_report_card(v0.1.0-poc.75 -> v0.1.0-poc.76)",
+ "observed_at": "2026-10-14T15:08:55Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "{\"capabilities\": {\"added\": [], \"removed\": []}, \"client_local_migration_required\": false, \"client_protocol\": {\"deprecated\": [], \"max\": 1, \"min\": 1, \"preferred\": 1}, \"maintenance_required\": false, \"newly_deprecated_client_protocols\": [], \"rollback_boundary\": \"runtime-only\", \"runtime\": {\"coexist_with_generations\": [2], \"current_generation\": 3, \"previous_generation\": 3}, \"schema_version\": \"vuoro-release-report-card/v1\", \"tenant_schema\": {\"max\": 3, \"min\": 2, \"preferred\": 3}}\n"
+}

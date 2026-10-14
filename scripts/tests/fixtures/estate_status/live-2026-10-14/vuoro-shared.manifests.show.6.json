@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/appservice show 183fe8b9d4e54ca0d65362588760a63edd6fb403:clusters/main/kubernetes/apps/vuoro-shared-db/app/service-lb-pool.yaml",
+ "observed_at": "2026-10-14T15:08:52Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "# IP pool and L2 announcement for vuoro-shared/actionq-pg (service-lb.yaml).\n# Moved from apps/actionq-db when that app was dropped (S2 item 7).\napiVersion: cilium.io/v2\nkind: CiliumLoadBalancerIPPool\nmetadata:\n  name: actionq-pg\nspec:\n  serviceSelector:\n    matchLabels:\n      app.kubernetes.io/name: actionq-pg\n  blocks:\n    - start: ${ACTIONQ_LB_IP}\n      stop: ${ACTIONQ_LB_IP}\n---\napiVersion: cilium.io/v2alpha1\nkind: CiliumL2AnnouncementPolicy\nmetadata:\n  name: actionq-pg\nspec:\n  interfaces:\n    - eno1\n  loadBalancerIPs: true\n  nodeSelector:\n    matchExpressions:\n      - key: kubernetes.io/hostname\n        operator: In\n        values:\n          - k8s-worker-gpu-1\n  serviceSelector:\n    matchLabels:\n      app.kubernetes.io/name: actionq-pg\n"
+}

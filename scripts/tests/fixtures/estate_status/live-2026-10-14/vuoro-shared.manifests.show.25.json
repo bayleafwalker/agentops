@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/appservice show 183fe8b9d4e54ca0d65362588760a63edd6fb403:clusters/main/kubernetes/apps/vuoro-shared/app/kustomization.yaml",
+ "observed_at": "2026-10-14T15:08:52Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\nresources:\n  - vuoro-identities.secret.yaml\n  - work-resource-observers.yaml\n  - config.yaml\n  - deployment.yaml\n  - service.yaml\n  - route.yaml\n"
+}

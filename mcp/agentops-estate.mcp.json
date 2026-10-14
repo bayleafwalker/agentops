@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "agentops-estate": {
+      "type": "stdio",
+      "command": "/projects/dev/agentops/bin/agentops",
+      "args": ["estate", "mcp"],
+      "env": {}
+    }
+  }
+}

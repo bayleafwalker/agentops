@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/vuoro show origin/main:verification/results/sprintctl-maintenance-second-owner.json",
+ "observed_at": "2026-10-14T15:08:52Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "{\"claims\": [{\"result\": \"example-tested\"}, {\"result\": \"example-tested\"}, {\"result\": \"example-tested\"}], \"context_id\": \"vuoro.sprintctl-maintenance.second-owner\", \"depth\": 2, \"implementation_sha\": \"044a0f8fcb10ccefe11617dfda5c0b2e5b9e63e1\", \"schema_version\": \"verification-result/v1\"}"
+}

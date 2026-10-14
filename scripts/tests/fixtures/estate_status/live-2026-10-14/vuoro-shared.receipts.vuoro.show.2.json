@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/vuoro show origin/main:verification/results/mi1-changed-patch-2026-10-06.json",
+ "observed_at": "2026-10-14T15:08:52Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "{\"claims\": [{\"result\": \"example-tested\"}, {\"result\": \"example-tested\"}, {\"result\": \"unknown\"}], \"context_id\": \"vuoro.mi1.changed-patch\", \"depth\": 0, \"implementation_sha\": \"fdaed58ae318c05953065fa5b319cc98f032aa26\", \"schema_version\": \"verification-result/v1\"}"
+}

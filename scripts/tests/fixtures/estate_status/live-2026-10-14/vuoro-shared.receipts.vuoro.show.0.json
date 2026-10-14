@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/vuoro show origin/main:verification/results/acceptance-explanation-2026-10-10.json",
+ "observed_at": "2026-10-14T15:08:52Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "{\"claims\": [{\"result\": \"example-tested\"}, {\"result\": \"concurrency-tested\"}, {\"result\": \"example-tested\"}, {\"result\": \"example-tested\"}, {\"result\": \"example-tested\"}, {\"result\": \"unknown\"}], \"context_id\": \"vuoro.acceptance-explanation\", \"depth\": 2, \"implementation_sha\": \"2d770035a12bdf319871f6408ac71ec851ba3812\", \"schema_version\": \"verification-result/v1\"}"
+}

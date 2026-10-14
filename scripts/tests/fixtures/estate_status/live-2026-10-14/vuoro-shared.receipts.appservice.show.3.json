@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/appservice show 183fe8b9d4e54ca0d65362588760a63edd6fb403:verification/results/vuoro-work-schema21-cutover-2026-10-06.json",
+ "observed_at": "2026-10-14T15:08:52Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "{\"claims\": [{\"result\": \"example-tested\"}, {\"result\": \"example-tested\"}, {\"result\": \"example-tested\"}, {\"result\": \"unknown\"}], \"context_id\": \"appservice.vuoro.work-schema21-cutover\", \"depth\": 2, \"implementation_sha\": \"946ad9a269abab1163d51435e68e52aec1f6a148\", \"schema_version\": \"verification-result/v1\"}"
+}

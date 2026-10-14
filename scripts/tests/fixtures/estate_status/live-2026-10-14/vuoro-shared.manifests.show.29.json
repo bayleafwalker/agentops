@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/appservice show 183fe8b9d4e54ca0d65362588760a63edd6fb403:clusters/main/kubernetes/apps/vuoro-shared/app/work-resource-observers.yaml",
+ "observed_at": "2026-10-14T15:08:52Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "apiVersion: v1\nkind: ConfigMap\nmetadata: {name: vuoro-work-resource-observers, namespace: vuoro-shared}\ndata:\n  policy.json: |\n    {\n      \"schema_version\": \"vuoro-work-resource-observers/v1\",\n      \"grants\": [\n        {\"actor\":\"workstation-vuoro\",\"repo_ids\":[\"agentops\",\"vuoro\",\"sprintctl\",\"kctl\",\"auditctl\",\"actionq\"]},\n        {\"actor\":\"devbox-agent-vuoro\",\"repo_ids\":[\"agentops\",\"vuoro\",\"sprintctl\",\"kctl\",\"auditctl\",\"actionq\"]}\n      ]\n    }\n"
+}

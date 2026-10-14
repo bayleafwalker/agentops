@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/vuoro-cloud show refs/tags/v0.1.0-poc.76:apps/control/migration-job.yaml",
+ "observed_at": "2026-10-14T15:08:55Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "apiVersion: batch/v1\nkind: Job\nmetadata:\n  name: vuoro-control-migrate\n  namespace: vuoro-system\n  annotations:\n    kustomize.toolkit.fluxcd.io/force: enabled\nspec:\n  backoffLimit: 6\n  ttlSecondsAfterFinished: 86400\n  template:\n    metadata: {labels: {app.kubernetes.io/name: vuoro-control-migrate}}\n    spec:\n      restartPolicy: OnFailure\n      automountServiceAccountToken: false\n      imagePullSecrets: [{name: vuoro-ghcr-pull}]\n      securityContext: {runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, fsGroup: 65532, seccompProfile: {type: RuntimeDefault}}\n      containers:\n        - name: migrate\n          image: ghcr.io/bayleafwalker/vuoro-cloud@sha256:02b792fdf2324ad56ea3ae7a85e82c348b88ae00894bc2991c678f5b065875bf\n          command: [python, /app/migrate.py]\n          env:\n            - {name: VUORO_CLOUD_SERVICE_ROLE, value: control}\n            # DB role split (unit 1.5, G3): migrations run as\n            # vuoro_control_owner, which owns every object from\n            # migrations/021 on; never as vuoro_control again. Only the\n            # database URL is needed (scripts/migrate.py).\n            - {name: VUORO_CLOUD_DATABASE_URL, valueFrom: {secretKeyRef: {name: vuoro-control-migrate-db, key: VUORO_CLOUD_DATABASE_URL}}}\n          resources: {requests: {cpu: 25m, memory: 64Mi}, limits: {cpu: 250m, memory: 256Mi}}\n          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}\n"
+}

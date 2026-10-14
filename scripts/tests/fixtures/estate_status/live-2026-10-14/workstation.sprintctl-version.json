@@ -1,0 +1,8 @@
+{
+ "evidence": "sprintctl --version",
+ "observed_at": "2026-10-14T15:08:55Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "sprintctl, version 0.19.0\n"
+}

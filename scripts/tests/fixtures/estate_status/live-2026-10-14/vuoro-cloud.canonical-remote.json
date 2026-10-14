@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/vuoro-cloud config --get claude.canonicalRemote",
+ "observed_at": "2026-10-14T15:08:52Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "origin\n"
+}

@@ -1,0 +1,9 @@
+{
+ "error": "Device \"vuoro-cloud-wg\" does not exist.",
+ "evidence": "ip -br link show vuoro-cloud-wg",
+ "observed_at": "2026-10-14T15:08:55Z",
+ "ok": false,
+ "rc": 1,
+ "stderr": "Device \"vuoro-cloud-wg\" does not exist.\n",
+ "stdout": ""
+}

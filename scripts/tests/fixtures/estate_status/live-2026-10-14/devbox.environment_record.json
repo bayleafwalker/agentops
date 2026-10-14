@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/agentops/.claude/worktrees/agent-a489aa34e71188b15 show 0590a213932282be1e46c1ea720093c02aad32ba:environment-record/devbox-vm.vuoro-shared.json",
+ "observed_at": "2026-10-14T15:08:56Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "{\n  \"schema_version\": \"environment-record/v1\",\n  \"id\": \"devbox\",\n  \"environment_class\": \"local\",\n  \"revision\": 2,\n  \"roles\": [\"unattended-agent-host\", \"vuoro-served-client\"],\n  \"constraints\": [\n    \"no-direct-postgresql-egress-for-sprintctl\",\n    \"profile-target-must-be-vuoro-shared\",\n    \"production-endpoint-required\",\n    \"independent-worktree-and-tool-install\"\n  ],\n  \"capabilities\": [\"git-worktree\", \"vuoro-served-work-client\"],\n  \"runbook_refs\": [\n    \"/projects/dev/agentops/docs/runbooks/vuoro-workstation-cutover.md#devbox-vm\",\n    \"/projects/dev/agentops/docs/runbooks/vuoro-workstation-cutover.md#identity-and-production-boundary\"\n  ],\n  \"identity_bindings\": [\n    {\"principal\": \"environment:devbox-agent\", \"roles\": [\"vuoro-shared-work-client\"]}\n  ]\n}\n"
+}

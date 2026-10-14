@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/appservice show 183fe8b9d4e54ca0d65362588760a63edd6fb403:verification/results/shared0193-image-rollout-2026-10-10.json",
+ "observed_at": "2026-10-14T15:08:52Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "{\"claims\": [{\"result\": \"example-tested\"}, {\"result\": \"example-tested\"}, {\"result\": \"example-tested\"}, {\"result\": \"unknown\"}], \"context_id\": \"appservice.vuoro.shared0193-image-rollout\", \"depth\": 1, \"implementation_sha\": \"4b5382271abc9a16a4950019c3f4e9e0c1d5f646\", \"schema_version\": \"verification-result/v1\"}"
+}

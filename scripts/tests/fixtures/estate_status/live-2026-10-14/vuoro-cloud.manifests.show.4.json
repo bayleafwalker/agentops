@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/vuoro-cloud show refs/tags/v0.1.0-poc.76:apps/control-admin/service.yaml",
+ "observed_at": "2026-10-14T15:08:55Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "# The admin listener's only ingress (admin identity design D1 \"Admin\n# ingress\", \u00a78 C11): a NodePort on the node's WireGuard address. Required\n# node setting: kube-proxy nodeport-addresses=10.44.0.1/32, so the port binds\n# nowhere else (docs/runbooks/admin-plane.md). externalTrafficPolicy Local\n# keeps the operator's address as the TCP peer; NetworkPolicy\n# allow-admin-tunnel admits only 10.44.0.2/32, and the app checks the peer\n# again. policy/kubernetes.rego allows exactly this Service and no other\n# NodePort. Endpoint: http://10.44.0.1:30843.\napiVersion: v1\nkind: Service\nmetadata:\n  name: vuoro-control-admin\n  namespace: vuoro-system\n  labels: {app.kubernetes.io/name: vuoro-control-admin}\nspec:\n  type: NodePort\n  externalTrafficPolicy: Local\n  selector: {app.kubernetes.io/name: vuoro-control-admin}\n  ports:\n    - {name: admin, protocol: TCP, port: 8443, targetPort: 8443, nodePort: 30843}\n"
+}

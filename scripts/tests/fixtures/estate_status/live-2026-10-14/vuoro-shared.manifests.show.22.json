@@ -1,0 +1,8 @@
+{
+ "evidence": "git -C /projects/dev/appservice show 183fe8b9d4e54ca0d65362588760a63edd6fb403:clusters/main/kubernetes/apps/vuoro-shared-db/ks.yaml",
+ "observed_at": "2026-10-14T15:08:52Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "apiVersion: kustomize.toolkit.fluxcd.io/v1\nkind: Kustomization\nmetadata:\n  name: vuoro-shared-db\n  namespace: flux-system\nspec:\n  interval: 10m\n  path: clusters/main/kubernetes/apps/vuoro-shared-db/app\n  prune: true\n  wait: true\n  timeout: 20m\n  sourceRef:\n    kind: GitRepository\n    name: cluster\n  dependsOn:\n    - name: cloudnative-pg\n  healthChecks:\n    - apiVersion: postgresql.cnpg.io/v1\n      kind: Cluster\n      name: vuoro-postgres\n      namespace: vuoro-shared\n    - apiVersion: batch/v1\n      kind: Job\n      name: vuoro-schema-grants-v3\n      namespace: vuoro-shared\n    - apiVersion: batch/v1\n      kind: Job\n      name: actionq-smoke-schema-migrate-v4\n      namespace: vuoro-shared\n    - apiVersion: batch/v1\n      kind: Job\n      name: vuoro-work-migrate-v25\n      namespace: vuoro-shared\n"
+}

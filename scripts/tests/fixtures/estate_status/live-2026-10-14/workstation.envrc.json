@@ -1,0 +1,8 @@
+{
+ "evidence": "grep -E ^\\s*export\\s+SPRINTCTL_VUORO_PROFILE= /projects/dev/agentops/.envrc",
+ "observed_at": "2026-10-14T15:08:55Z",
+ "ok": true,
+ "rc": 0,
+ "stderr": "",
+ "stdout": "export SPRINTCTL_VUORO_PROFILE=/projects/dev/agentops/environment-record/profiles/workstation-vuoro-shared.json\n"
+}
