@@ -887,6 +887,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "status":
+        if not (Path(args.state_dir) / "adapter.sqlite3").exists():
+            print(f"host-adapter: no state at {args.state_dir}", file=sys.stderr)
+            return 1
         state = State(args.state_dir, read_only=True)
         rows = _status_rows(state)
         print(json.dumps({"instance_id": state.peek_instance_id(), "records": rows}, indent=2)
