@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import base64
 import contextlib
 import datetime as _dt
 import fcntl
@@ -68,10 +69,16 @@ _CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 # opencode 1.18.33: the two allows alone admit redirections (`> file`, `>> file`),
 # `$(< file)` and `${VAR}` inside an allowed command, so the trailing denies refuse
 # any command containing a shell metacharacter. Other commands, newline-separated
-# and `&&`-chained commands are denied by the leading `*` deny. The opencode serve
-# unit (ops/systemd/opencode-serve-inbox.service) is the OS-level containment
-# behind this ruleset.
-SHELL_METACHARACTERS = (">", "<", "$", "`", ";", "&", "|")
+# and `&&`-chained commands are denied by the leading `*` deny.
+#
+# Glob characters: `[` is denied like the others. `*` and `?` cannot be: in
+# opencode's pattern syntax they are wildcards with no escape (a backslash in a
+# pattern is normalised to `/`), so `*?*` would deny every command. Disabling
+# globbing from the unit environment does not work either (opencode filters
+# BASH_ENV and SHELLOPTS). An unquoted `*` or `?` in a note therefore expands to
+# file names visible inside the sandboxed opencode serve unit
+# (ops/systemd/opencode-serve-inbox.service), never to file contents.
+SHELL_METACHARACTERS = (">", "<", "$", "`", ";", "&", "|", "[")
 SUCCESSOR_PERMISSION = [
     {"permission": "*", "pattern": "*", "action": "deny"},
     {"permission": "bash", "pattern": "sprintctl run context *", "action": "allow"},
@@ -314,18 +321,25 @@ class OpenCodeServe:
     directory that created the session finds nothing.
     """
 
-    def __init__(self, base_url: str = "http://127.0.0.1:4096", timeout: float = 10.0) -> None:
+    def __init__(self, base_url: str = "http://127.0.0.1:4096", timeout: float = 10.0,
+                 password: str | None = None, username: str = "opencode") -> None:
         host = urllib.parse.urlsplit(base_url).hostname
         if host not in ("127.0.0.1", "localhost", "::1"):
-            raise ValueError("opencode serve is unauthenticated; the adapter only talks to loopback")
+            raise ValueError("the adapter only talks to opencode serve on loopback")
         self.base = base_url.rstrip("/")
         self.timeout = timeout
+        # opencode serve with OPENCODE_SERVER_PASSWORD requires HTTP basic auth on every
+        # endpoint, /global/health included (verified against 1.18.33).
+        self._headers = {"content-type": "application/json"}
+        if password:
+            token = base64.b64encode(f"{username}:{password}".encode()).decode()
+            self._headers["authorization"] = f"Basic {token}"
 
     def _call(self, method: str, path: str, query: dict | None = None, body: Any = None) -> Any:
         url = self.base + path + ("?" + urllib.parse.urlencode(query) if query else "")
         data = None if body is None else json.dumps(body).encode()
         req = urllib.request.Request(url, method=method, data=data,
-                                     headers={"content-type": "application/json"})
+                                     headers=self._headers)
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # noqa: S310 - loopback only
                 raw = resp.read()
@@ -479,8 +493,8 @@ def build_prompt(envelope: dict, run_id: str, nonce: str) -> str:
         f"1. Run: sprintctl run context --run-id {run_id}",
         f'2. Run: sprintctl run note --run-id {run_id} --note "<one short paragraph on what the context shows>" '
         f"--idempotency-key inbox.{mid}.note",
-        "   The note text must not contain any of these characters: > < $ ` ; & | "
-        "(commands containing them are refused).",
+        "   The note text must not contain any of these characters: > < $ ` ; & | [ * ? "
+        "(commands containing the first eight are refused; * and ? expand to file names).",
         "3. Stop. Make no other changes to any repository, item or run.",
     ]
     return "\n".join(lines) + "\n"
@@ -1062,6 +1076,13 @@ def main(argv: list[str] | None = None) -> int:
     if not args.profile:
         print("host-adapter: --profile or AGENTOPS_HOST_ADAPTER_PROFILE is required", file=sys.stderr)
         return 2
+    password = os.environ.get("OPENCODE_SERVER_PASSWORD") or ""
+    if not password:
+        # Fail closed: without the password every launch would go to an unauthenticated
+        # server (or fail with 401 on each tick). Exit 3 is a configuration error that the
+        # unit does not restart on.
+        print("host-adapter: OPENCODE_SERVER_PASSWORD is empty; refusing to run", file=sys.stderr)
+        return 3
     try:
         state = State(args.state_dir)
     except StateLocked as exc:
@@ -1069,7 +1090,9 @@ def main(argv: list[str] | None = None) -> int:
         return 3
     owner = VuoroOwner(args.profile)
     config = Config(poll_interval=args.poll_interval, directory=args.directory, host_class=args.host_class)
-    adapter = Adapter(owner=owner, harness=OpenCodeServe(args.serve_url), state=state,
+    harness = OpenCodeServe(args.serve_url, password=password,
+                            username=os.environ.get("OPENCODE_SERVER_USERNAME") or "opencode")
+    adapter = Adapter(owner=owner, harness=harness, state=state,
                       policy_path=args.policy, config=config)
     try:
         if args.command == "resolve":

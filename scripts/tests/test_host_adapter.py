@@ -1087,14 +1087,16 @@ def test_ruleset_denies_shell_metacharacters_after_the_allows():
     last_allow = max(i for i, r in enumerate(rules) if r["action"] == "allow")
     denies = [r["pattern"] for r in rules[last_allow + 1:]]
     assert all(r["action"] == "deny" and r["permission"] == "bash" for r in rules[last_allow + 1:])
-    for c in (">", "<", "$", "`", ";", "&", "|"):
+    for c in (">", "<", "$", "`", ";", "&", "|", "["):
         assert f"*{c}*" in denies
+    # `*` and `?` are opencode wildcards: a deny for either would refuse every command.
+    assert not any(set(pattern.strip("*")) & {"*", "?"} for pattern in denies)
 
 
 def test_prompt_tells_the_successor_which_characters_are_refused(rig):
     rig.owner.send()
     rig.tick(2)
-    assert "must not contain any of these characters: > < $ ` ; & |" in rig.harness.prompts[0][1]
+    assert "must not contain any of these characters: > < $ ` ; & | [ * ?" in rig.harness.prompts[0][1]
 
 
 def test_resolve_records_a_failed_abort_instead_of_raising(rig):
@@ -1121,3 +1123,90 @@ def test_timeout_with_session_still_busy_is_recorded_as_unconfirmed(rig):
     rig.tick(5)
     result = rig.owner.receipt_of("msg_A", "result-linked")
     assert result["outcome"] == "failed" and result["reason"]["code"] == "run-timeout-abort-unconfirmed"
+
+
+def test_units_and_env_example_name_the_same_paths():
+    ops = Path(__file__).resolve().parents[2] / "ops" / "systemd"
+    env = dict(line.split("=", 1) for line in (ops / "agentops-host-adapter.env.example").read_text().splitlines()
+               if line and not line.startswith("#"))
+    adapter = (ops / "agentops-host-adapter.service").read_text()
+    server = (ops / "opencode-serve-inbox.service").read_text()
+    profile = env["AGENTOPS_HOST_ADAPTER_PROFILE"].replace("/home/agent", "%h")
+    for unit in (adapter, server):
+        assert f"Environment=SPRINTCTL_VUORO_PROFILE={profile}" in unit
+        assert f"WorkingDirectory={env['AGENTOPS_HOST_ADAPTER_DIRECTORY']}" in unit
+        assert "SPRINTCTL_BACKEND=served" in unit
+    assert f"{env['AGENTOPS_HOST_ADAPTER_DIRECTORY']}/scripts/host_adapter.py run" in adapter
+    port = env["OPENCODE_SERVE_URL"].rsplit(":", 1)[1]
+    assert f"--hostname 127.0.0.1 --port {port}" in server
+    assert f"BindReadOnlyPaths={env['AGENTOPS_HOST_ADAPTER_DIRECTORY']}" in server
+    # The inbox server keeps its own session database, never the agent's shared one.
+    assert "XDG_DATA_HOME=%S/opencode-inbox/data" in server
+    assert "BindPaths=%h/.local/share/opencode" not in server
+
+
+# ---------------------------------------------------------------- review round 4 (#355)
+
+def test_opencode_serve_sends_basic_auth_when_a_password_is_set():
+    import base64
+    import http.server
+    import threading
+
+    seen = []
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_GET(self):
+            seen.append(self.headers.get("authorization"))
+            raw = json.dumps({"healthy": True}).encode()
+            self.send_response(200)
+            self.send_header("content-length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        base = f"http://127.0.0.1:{srv.server_address[1]}"
+        assert ha.OpenCodeServe(base, password="s3cret").health()
+    finally:
+        srv.shutdown()
+    assert seen == ["Basic " + base64.b64encode(b"opencode:s3cret").decode()]
+
+
+@pytest.mark.parametrize("value", [None, ""])
+def test_run_refuses_without_the_server_password(tmp_path, monkeypatch, capsys, value):
+    monkeypatch.delenv("OPENCODE_SERVER_PASSWORD", raising=False)
+    if value is not None:
+        monkeypatch.setenv("OPENCODE_SERVER_PASSWORD", value)
+    rc = ha.main(["--state-dir", str(tmp_path / "state"), "--profile", str(tmp_path / "profile.json"),
+                  "run", "--once"])
+    assert rc == 3
+    assert "OPENCODE_SERVER_PASSWORD is empty" in capsys.readouterr().err
+    assert not (tmp_path / "state").exists()  # refused before taking the state lock
+
+
+def test_inbox_server_unit_pins_its_directories_auth_bind_password_and_hardening():
+    ops = Path(__file__).resolve().parents[2] / "ops" / "systemd"
+    server = (ops / "opencode-serve-inbox.service").read_text()
+    adapter = (ops / "agentops-host-adapter.service").read_text()
+    lines = set(server.splitlines())
+    for line in ("StateDirectory=opencode-inbox/data/opencode opencode-inbox/state",
+                 "CacheDirectory=opencode-inbox",
+                 "Environment=XDG_DATA_HOME=%S/opencode-inbox/data",
+                 "Environment=XDG_STATE_HOME=%S/opencode-inbox/state",
+                 "Environment=XDG_CACHE_HOME=%C/opencode-inbox",
+                 # API-key auth (type=api): read-only is enough, nothing refreshes it.
+                 "BindReadOnlyPaths=%h/.local/share/opencode/auth.json:%S/opencode-inbox/data/opencode/auth.json",
+                 "EnvironmentFile=%h/.config/agentops/opencode-inbox-server.env",
+                 "ProtectHome=tmpfs", "ProtectSystem=strict", "PrivateTmp=yes", "PrivateDevices=yes",
+                 "TemporaryFileSystem=/run/user:ro"):
+        assert line in lines, line
+    assert not any(line.startswith("BindPaths=") and "auth.json" in line for line in lines)
+    guard = "ExecStartPre=/bin/sh -c 'test -n \"$${OPENCODE_SERVER_PASSWORD}\"'"
+    for unit in (server, adapter):
+        assert guard in unit.splitlines()
+        assert unit.index(guard) < unit.index("\nExecStart=")
+    assert "EnvironmentFile=%h/.config/agentops/opencode-inbox-server.env" in adapter.splitlines()
