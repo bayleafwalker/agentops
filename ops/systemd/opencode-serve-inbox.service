@@ -1,0 +1,22 @@
+[Unit]
+Description=opencode serve on loopback for the Vuoro inbox host adapter
+After=network-online.target
+
+# systemd USER unit. The adapter creates each successor session with a server-side
+# permission ruleset (host_adapter.SUCCESSOR_PERMISSION), so this server's global
+# permission defaults do not apply to successor runs.
+
+[Service]
+Type=simple
+WorkingDirectory=/projects/dev/agentops
+# The successor's sprintctl calls run under the adapter's identity, in served mode.
+Environment=SPRINTCTL_BACKEND=served
+Environment=SPRINTCTL_VUORO_PROFILE=%h/.config/vuoro/profiles/devbox-inbox-native-vuoro-shared.json
+Environment=PATH=%h/.local/bin:/run/current-system/sw/bin:/usr/bin:/bin
+ExecStart=/run/current-system/sw/bin/opencode serve --hostname 127.0.0.1 --port 4096
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

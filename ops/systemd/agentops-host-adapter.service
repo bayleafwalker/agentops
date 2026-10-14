@@ -1,7 +1,8 @@
 [Unit]
 Description=agentops host adapter: Vuoro agent inbox to opencode serve (M2b)
 Documentation=file:///projects/dev/agentops/scripts/host_adapter.py
-After=network-online.target
+After=network-online.target opencode-serve-inbox.service
+Wants=opencode-serve-inbox.service
 
 # systemd USER unit (install under ~/.config/systemd/user/). Not enabled by the repo:
 # the operator installs it after the policy file and env file exist. One adapter per
@@ -9,8 +10,13 @@ After=network-online.target
 
 [Service]
 Type=simple
+WorkingDirectory=/projects/dev/agentops
 EnvironmentFile=%h/.config/agentops/host-adapter.env
-ExecStart=/projects/dev/agentops/bin/agentops host-adapter run
+# Explicit served-mode selection; no direnv. The profile matches AGENTOPS_HOST_ADAPTER_PROFILE.
+Environment=SPRINTCTL_BACKEND=served
+Environment=SPRINTCTL_VUORO_PROFILE=%h/.config/vuoro/profiles/devbox-inbox-native-vuoro-shared.json
+# The sprintctl tool environment carries vuoro_client; the system python3 behind bin/agentops does not.
+ExecStart=%h/.local/share/uv/tools/sprintctl/bin/python -I /projects/dev/agentops/scripts/host_adapter.py run
 Restart=on-failure
 RestartSec=15
 # Exit status 3 (state dir locked) and 2 (missing profile) are configuration errors.
