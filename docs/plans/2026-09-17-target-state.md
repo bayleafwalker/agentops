@@ -32,6 +32,48 @@ no vendor comparison or kill-rule outcome is established. This delivery record
 does not change the status vocabulary or broaden proposed claims into an estate,
 hardware or legacy-import qualification.
 
+## Product direction amendment 2026-10-15
+
+Status: **accepted-operator product direction**. The owner supplied an adjusted
+[Vuoro product direction](https://github.com/bayleafwalker/vuoro/blob/main/docs/direction/2026-10-15-product-direction.md)
+and requested assessment and landing on 2026-10-15. It defines a distribution of
+shipped products plus four portable contract domains: work identity, evidence,
+authority/delegation and learning from accepted outcomes. Its sourcing ledger
+records provision, provision with adapter, build and defer decisions; none is an
+implementation or deployment receipt.
+
+This amendment has the following scope over the earlier target and dispositions:
+
+- **TS-1 and TS-2:** native runtimes retain execution and model selection.
+  Sprintctl is the reference work provider; the portable work contract can be
+  served by a replacement provider after a documented swap. ActionQ's harvested
+  invariants remain useful; its retired runner, queue and daemon do not return.
+- **TS-3 and TS-7:** recipe/profile revision references and ExperimentRecord
+  return to product scope for comparisons across providers and accepted outcomes.
+  This supersedes the earlier exclusion of those learning records. Observed
+  instruction/skill digests stay observed; compiled profiles, instruction locks,
+  runtime policy compilers and a Vuoro model router remain out of scope.
+- **TS-5 and TS-6:** protected acceptance remains digest-bound and EvidenceSet
+  remains derived from authoritative records. There is no new auditctl evidence
+  home, parallel acceptance writer or change to preservation of historical shards.
+- **TS-15 and TS-18:** telemetry is provisioned; adapters version their mappings
+  and reference available observations. A backend swap cannot promote evidence
+  assurance or turn a provider completion event into work acceptance.
+- **TS-16:** public coordination and customer-controlled protected authority stay
+  separate. The protected side may pull proposals; the public side gains no
+  inbound effect path, credentials or effect-apply scope. New multi-tenant and
+  cross-organization expansion is deferred, not removed from running systems.
+- **TS-19 and TS-20:** existing correctness/authority conformance stays useful.
+  A supplier-independence claim additionally requires a dated row-specific swap.
+  Coverage baselines retain observation windows, strata and denominators; the
+  historical MI-1 samples are not a current estate measurement.
+
+The direction reopens product learning scope without reviving the retired
+implementations or relabeling component status. Its open decisions remain open;
+runtime, schema, deployment and protected-authority changes require their own
+owner implementation work and evidence. Earlier claims and their source history
+are retained below with this scoped successor.
+
 ## Target claims
 
 | id | Claim | Status | Source |
