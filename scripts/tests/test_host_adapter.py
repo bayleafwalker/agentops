@@ -196,7 +196,7 @@ class FakeHarness:
         self.creates += 1
         sid = f"ses_{self.creates:04d}"
         self.sessions[sid] = {"title": title, "messages": 0, "aborted": False, "started": False,
-                              "permission": ha.SUCCESSOR_PERMISSION}
+                              "permission": ha.SUCCESSOR_PERMISSION, "directory": directory}
         return sid
 
     def session_permission(self, sid, directory):
@@ -205,7 +205,8 @@ class FakeHarness:
     def find_sessions(self, title, directory):
         if self.hide_search:
             return []
-        return [sid for sid, s in self.sessions.items() if s["title"] == title]
+        # opencode scopes sessions by directory: a search elsewhere finds nothing.
+        return [sid for sid, s in self.sessions.items() if s["title"] == title and s["directory"] == directory]
 
     def send_prompt(self, sid, text, directory, model):
         self.prompts.append((sid, text))
@@ -968,7 +969,7 @@ def test_title_match_without_the_ruleset_is_not_adopted(rig):
     with pytest.raises(Crash):
         rig.tick(2)
     rig.harness.sessions["ses_foreign"] = {"title": "vuoro-msg:msg_A", "messages": 0, "aborted": False,
-                                           "started": False, "permission": None}
+                                           "started": False, "permission": None, "directory": "/work"}
     rig.boot().tick()
     rec = rig.rec()
     assert rec["state"] == ha.S_AMBIGUOUS and "without the successor permission ruleset" in rec["detail"]
@@ -1229,6 +1230,169 @@ def test_untrusted_config_accepts_root_owned_read_only_file():
     if os.geteuid() == 0:
         pytest.skip("root can write anything")
     assert ha.untrusted_config("/etc/passwd") is None
+
+
+# ---------------------------------------------------------------- per-run directories and serve auth
+
+def test_run_root_gives_each_run_its_own_protected_directory(rig):
+    import stat as _stat
+
+    root = rig.tmp / "runs"
+    root.mkdir()
+    rig.adapter.config = ha.Config(poll_interval=10, directory="/work", run_root=str(root))
+    rig.owner.send()
+    rig.tick(2)
+    run_dir = root / "msg_A"
+    session = rig.harness.sessions["ses_0001"]
+    assert session["directory"] == str(run_dir)
+    assert _stat.S_IMODE(run_dir.stat().st_mode) == 0o3770
+    assert _stat.S_IMODE((run_dir / ".opencode").stat().st_mode) == 0o555
+    assert _stat.S_IMODE((run_dir / "opencode.json").stat().st_mode) == 0o444
+    assert rig.rec()["outcome"] == "completed"
+
+
+def test_run_directory_recovery_uses_the_same_directory_and_rejects_odd_ids(rig):
+    root = rig.tmp / "runs"
+    root.mkdir()
+    rig.adapter.config = ha.Config(poll_interval=10, directory="/work", run_root=str(root))
+    assert rig.adapter.run_directory({"message_id": "msg_A"}) == str(root / "msg_A")
+    with pytest.raises(ha.HarnessError):
+        rig.adapter.run_directory({"message_id": "../escape"})
+
+
+def test_without_run_root_the_shared_directory_is_used(rig):
+    assert rig.adapter.run_directory({"message_id": "msg_A"}) == "/work"
+
+
+def test_serve_client_sends_basic_auth_only_when_configured(monkeypatch):
+    import base64 as _b64
+
+    seen = []
+
+    class Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return b'{"healthy": true}'
+
+    def fake_urlopen(req, timeout):
+        seen.append(req.get_header("Authorization"))
+        return Resp()
+
+    monkeypatch.setattr(ha.urllib.request, "urlopen", fake_urlopen)
+    assert ha.OpenCodeServe("http://127.0.0.1:4096", password="s3").health()
+    assert seen[-1] == "Basic " + _b64.b64encode(b"opencode:s3").decode()
+    assert ha.OpenCodeServe("http://127.0.0.1:4096").health()
+    assert seen[-1] is None
+
+
+def test_serve_password_file_wins(monkeypatch, tmp_path):
+    secret = tmp_path / "pw"
+    secret.write_text("from-file\n")
+    monkeypatch.setenv("OPENCODE_SERVER_PASSWORD", "from-env")
+    monkeypatch.setenv("OPENCODE_SERVER_PASSWORD_FILE", str(secret))
+    assert ha._serve_password() == "from-file"
+    monkeypatch.delenv("OPENCODE_SERVER_PASSWORD_FILE")
+    assert ha._serve_password() == "from-env"
+
+
+@pytest.mark.parametrize("contents", [None, "", "\n"])
+def test_password_file_errors_fail_before_opening_state(tmp_path, monkeypatch, capsys, contents):
+    secret = tmp_path / "password"
+    if contents is not None:
+        secret.write_text(contents)
+    monkeypatch.setenv("OPENCODE_SERVER_PASSWORD_FILE", str(secret))
+    monkeypatch.setenv("OPENCODE_SERVER_PASSWORD", "must-not-fall-back")
+    assert ha.main(["--state-dir", str(tmp_path / "state"), "--profile", "profile.json", "run", "--once"]) == 3
+    assert not (tmp_path / "state").exists()
+    assert "must-not-fall-back" not in capsys.readouterr().err
+
+
+def test_password_file_is_used_at_cli_startup(tmp_path, monkeypatch):
+    secret = tmp_path / "password"
+    secret.write_text("credential-password\n")
+    monkeypatch.setenv("OPENCODE_SERVER_PASSWORD_FILE", str(secret))
+    monkeypatch.delenv("OPENCODE_SERVER_PASSWORD", raising=False)
+    seen = []
+
+    def make_harness(url, *, password, username):
+        seen.append((password, username))
+        return FakeHarness()
+
+    owner = FakeOwner()
+    owner.close = lambda: None
+    monkeypatch.setattr(ha, "OpenCodeServe", make_harness)
+    monkeypatch.setattr(ha, "VuoroOwner", lambda profile: owner)
+    assert ha.main(["--state-dir", str(tmp_path / "state"), "--profile", "profile.json", "run", "--once"]) == 0
+    assert seen == [("credential-password", "opencode")]
+
+
+@pytest.mark.parametrize("planted", ["run", "plugins", "config", "hardlink", "content"])
+def test_run_directory_rejects_planted_objects_without_touching_targets(rig, planted):
+    root = rig.tmp / "runs"
+    root.mkdir()
+    target = rig.tmp / "target"
+    target.mkdir()
+    sentinel = target / "config.json"
+    sentinel.write_text('{"plugin": ["untrusted"]}\n')
+    sentinel.chmod(0o600)
+    run = root / "msg_A"
+    if planted == "run":
+        run.symlink_to(target, target_is_directory=True)
+    else:
+        run.mkdir()
+        if planted == "plugins":
+            (run / ".opencode").symlink_to(target, target_is_directory=True)
+        elif planted == "config":
+            (run / "opencode.json").symlink_to(sentinel)
+        elif planted == "hardlink":
+            (run / "opencode.json").hardlink_to(sentinel)
+        else:
+            (run / "opencode.json").write_text(sentinel.read_text())
+    rig.adapter.config = ha.Config(run_root=str(root))
+    with pytest.raises((ha.HarnessError, OSError)):
+        rig.adapter.run_directory({"message_id": "msg_A"}, create=True)
+    assert sentinel.read_text() == '{"plugin": ["untrusted"]}\n'
+    assert sentinel.stat().st_mode & 0o777 == 0o600
+    assert sorted(p.name for p in target.iterdir()) == ["config.json"]
+
+
+def test_run_directory_rejects_foreign_owned_path(rig, monkeypatch):
+    import os
+
+    root = rig.tmp / "runs"
+    root.mkdir()
+    run = root / "msg_A"
+    run.mkdir()
+    original_stat = run.stat()
+    original_fstat = os.fstat
+
+    def foreign_stat(fd):
+        st = original_fstat(fd)
+        if (st.st_dev, st.st_ino) == (original_stat.st_dev, original_stat.st_ino):
+            fields = list(st)
+            fields[4] = os.geteuid() + 1  # st_uid; emulate a session-owned directory
+            return os.stat_result(fields)
+        return st
+
+    monkeypatch.setattr(os, "fstat", foreign_stat)
+    rig.adapter.config = ha.Config(run_root=str(root))
+    with pytest.raises(ha.HarnessError, match="owned by the adapter"):
+        rig.adapter.run_directory({"message_id": "msg_A"}, create=True)
+    assert run.stat().st_mode == original_stat.st_mode
+
+
+def test_run_directory_reuses_adapter_owned_anchors(rig):
+    root = rig.tmp / "runs"
+    root.mkdir()
+    rig.adapter.config = ha.Config(run_root=str(root))
+    first = rig.adapter.run_directory({"message_id": "msg_A"}, create=True)
+    assert rig.adapter.run_directory({"message_id": "msg_A"}, create=True) == first
+    assert rig.adapter.run_directory({"message_id": "msg_A"}) == first
 
 
 @pytest.mark.parametrize("value", [True, 42, [], {}, ""])

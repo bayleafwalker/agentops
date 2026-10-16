@@ -762,6 +762,9 @@ class Config:
     host_class: str = "devbox"
     read_limit: int = 50
     trusted_config: bool = False  # policy and environment record must be root-owned (NixOS unit)
+    #: When set, each run's session works in <run_root>/<message_id> (see run_directory),
+    #: not in `directory`. The NixOS unit sets it (AGENTOPS_HOST_ADAPTER_RUN_ROOT).
+    run_root: str | None = None
 
     @property
     def valid_for(self) -> int:
@@ -873,6 +876,86 @@ class Adapter:
                 self.state.update(repo, mid, last_error=f"{type(exc).__name__}: {exc}"[:500])
                 raise
 
+    def run_directory(self, rec, *, create: bool = False) -> str:
+        """The directory a run's session works in (and is scoped by in opencode).
+
+        Without `run_root`: the shared `directory`. With it: `<run_root>/<message_id>`,
+        created before launch as adapter-owned, group-shared (setgid, sticky). It holds
+        an adapter-owned, read-only `.opencode/` and `opencode.json` so the session
+        cannot plant project config or plugins there; the sticky bit stops the
+        session renaming or deleting them. The serve unit also sets
+        OPENCODE_DISABLE_PROJECT_CONFIG=1; this is the second layer.
+        """
+        if not self.config.run_root:
+            return self.config.directory
+        message_id = rec["message_id"]
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", message_id or ""):
+            raise HarnessError("message id is not usable as a run directory name")
+        path = Path(self.config.run_root) / message_id
+        # The shared group can pre-create names under the run root. Never follow
+        # those symlinks or chmod/adopt objects owned by a session uid. Directory
+        # fds keep child operations anchored to the verified parent.
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        with contextlib.ExitStack() as stack:
+            def opened(name, flags, *, parent=None, mode=0o600):
+                fd = os.open(name, flags, mode, dir_fd=parent)
+                stack.callback(os.close, fd)
+                return fd
+
+            def owned(fd):
+                st = os.fstat(fd)
+                if st.st_uid != os.geteuid():
+                    raise HarnessError("run directory objects must be owned by the adapter uid")
+                return st
+
+            root_fd = opened(self.config.run_root, flags)
+            root_st = owned(root_fd)
+            if root_st.st_mode & stat.S_IWOTH or (
+                    root_st.st_mode & stat.S_IWGRP and not root_st.st_mode & stat.S_ISVTX):
+                raise HarnessError("run root must prevent other users replacing adapter-owned directories")
+            if create:
+                try:
+                    os.mkdir(message_id, mode=0o770, dir_fd=root_fd)
+                except FileExistsError:
+                    pass
+            try:
+                run_fd = opened(message_id, flags, parent=root_fd)
+            except FileNotFoundError:
+                if not create:
+                    return str(path)  # recovery searches only; never creates a directory
+                raise
+            run_st = owned(run_fd)
+            if not create:
+                if stat.S_IMODE(run_st.st_mode) != 0o3770:
+                    raise HarnessError("run directory has unsafe permissions")
+                return str(path)
+            os.fchmod(run_fd, 0o3770)
+            try:
+                os.mkdir(".opencode", mode=0o555, dir_fd=run_fd)
+            except FileExistsError:
+                pass
+            plugin_fd = opened(".opencode", flags, parent=run_fd)
+            plugin_st = owned(plugin_fd)
+            if plugin_st.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+                raise HarnessError("run .opencode directory is writable by another uid")
+            if os.listdir(plugin_fd):
+                raise HarnessError("run .opencode directory must be empty")
+            os.fchmod(plugin_fd, 0o555)
+            try:
+                config_fd = opened("opencode.json", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                                   parent=run_fd, mode=0o444)
+            except FileExistsError:
+                config_fd = opened("opencode.json", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, parent=run_fd)
+                st = owned(config_fd)
+                if (not stat.S_ISREG(st.st_mode) or st.st_nlink != 1
+                        or st.st_mode & (stat.S_IWGRP | stat.S_IWOTH)
+                        or os.read(config_fd, 4) not in (b"{}", b"{}\n")):
+                    raise HarnessError("run opencode.json must be a plain empty config owned by the adapter")
+            else:
+                os.write(config_fd, b"{}\n")
+            os.fchmod(config_fd, 0o444)
+        return str(path)
+
     def _receipt(self, rec: sqlite3.Row, kind: str, **fields: Any) -> dict:
         return self.owner.message_receipt(rec["repo_id"], message_id=rec["message_id"],
                                           instance_id=self.instance_id, kind=kind, **fields)
@@ -982,7 +1065,7 @@ class Adapter:
             return False  # deferred; the next tick retries
         self.state.update(*key, state=S_LAUNCH_INTENT)
         self._checkpoint("launch_intent_persisted")
-        sid = self.harness.create_session(TITLE_PREFIX + rec["message_id"], self.config.directory)
+        sid = self.harness.create_session(TITLE_PREFIX + rec["message_id"], self.run_directory(rec, create=True))
         self._checkpoint("session_created")
         self.state.update(*key, state=S_LAUNCHED, session_id=sid, launched_at=self.clock())
         self._checkpoint("launched_persisted")
@@ -994,8 +1077,8 @@ class Adapter:
         if rec["session_id"]:
             self.state.update(*key, state=S_LAUNCHED)
             return True
-        found = self.harness.find_sessions(TITLE_PREFIX + rec["message_id"], self.config.directory)
-        if len(found) == 1 and self.harness.session_permission(found[0], self.config.directory) == SUCCESSOR_PERMISSION:
+        found = self.harness.find_sessions(TITLE_PREFIX + rec["message_id"], self.run_directory(rec))
+        if len(found) == 1 and self.harness.session_permission(found[0], self.run_directory(rec)) == SUCCESSOR_PERMISSION:
             self.state.update(*key, state=S_LAUNCHED, session_id=found[0], launched_at=self.clock())
             self._checkpoint("adopted_persisted")
             return True
@@ -1016,7 +1099,7 @@ class Adapter:
 
     def _on_launched(self, rec) -> bool:
         key = (rec["repo_id"], rec["message_id"])
-        sid, directory = rec["session_id"], self.config.directory
+        sid, directory = rec["session_id"], self.run_directory(rec)
         env = json.loads(rec["envelope"])
         policy = load_policy(self.policy_path, trusted=self.config.trusted_config)
         if rec["launched_at"] is None:  # a record launched by an earlier build
@@ -1119,7 +1202,7 @@ class Adapter:
             # A stuck run: stop the session first; the abort is idempotent.
             evidence.append({"kind": "harness-session", "ref": rec["session_id"]})
             try:
-                self.harness.abort(rec["session_id"], self.config.directory)
+                self.harness.abort(rec["session_id"], self.run_directory(rec))
                 what = "a launched run (session aborted)"
             except HarnessError as exc:
                 what = f"a launched run (abort failed: {exc})"[:300]
@@ -1149,6 +1232,14 @@ def _status_rows(state: State) -> list[dict]:
     return rows
 
 
+def _serve_password() -> str | None:
+    """OPENCODE_SERVER_PASSWORD_FILE (systemd LoadCredential) wins over OPENCODE_SERVER_PASSWORD."""
+    path = os.environ.get("OPENCODE_SERVER_PASSWORD_FILE")
+    if path:
+        return Path(path).read_text(encoding="utf-8").strip() or None
+    return os.environ.get("OPENCODE_SERVER_PASSWORD") or None
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="agentops host-adapter", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -1159,6 +1250,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="vuoro client profile (env AGENTOPS_HOST_ADAPTER_PROFILE)")
     parser.add_argument("--serve-url", default=os.environ.get("OPENCODE_SERVE_URL", "http://127.0.0.1:4096"))
     parser.add_argument("--directory", default=os.environ.get("AGENTOPS_HOST_ADAPTER_DIRECTORY", os.getcwd()))
+    parser.add_argument("--run-root", default=os.environ.get("AGENTOPS_HOST_ADAPTER_RUN_ROOT") or None,
+                        help="per-run session directories under this root (env AGENTOPS_HOST_ADAPTER_RUN_ROOT)")
     parser.add_argument("--poll-interval", type=float,
                         default=float(os.environ.get("AGENTOPS_HOST_ADAPTER_POLL_SECONDS", "30")))
     parser.add_argument("--host-class", default=os.environ.get("AGENTOPS_HOST_ADAPTER_HOST_CLASS", "devbox"))
@@ -1202,7 +1295,11 @@ def main(argv: list[str] | None = None) -> int:
     if not args.profile:
         print("host-adapter: --profile or AGENTOPS_HOST_ADAPTER_PROFILE is required", file=sys.stderr)
         return 2
-    password = os.environ.get("OPENCODE_SERVER_PASSWORD") or ""
+    try:
+        password = _serve_password()
+    except (OSError, UnicodeError) as exc:
+        print(f"host-adapter: cannot read the opencode serve password: {type(exc).__name__}", file=sys.stderr)
+        return 3
     if not password:
         # Fail closed: without the password every launch would go to an unauthenticated
         # server (or fail with 401 on each tick). Exit 3 is a configuration error that the
@@ -1216,7 +1313,7 @@ def main(argv: list[str] | None = None) -> int:
         return 3
     owner = VuoroOwner(args.profile)
     config = Config(poll_interval=args.poll_interval, directory=args.directory, host_class=args.host_class,
-                    trusted_config=args.trusted_config)
+                    trusted_config=args.trusted_config, run_root=args.run_root)
     harness = OpenCodeServe(args.serve_url, password=password,
                             username=os.environ.get("OPENCODE_SERVER_USERNAME") or "opencode")
     adapter = Adapter(owner=owner, harness=harness, state=state,
