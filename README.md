@@ -6,6 +6,13 @@
 
 [Read the Vuoro system shape and end-to-end walkthrough.](docs/architecture/vuoro-system-shape.md)
 
+[Vuoro Cloud](https://vuoro.cloud/) is the invitation-only hosted pilot.
+For a local evaluation without a Cloud account, use the
+[disposable settlement demo](https://github.com/bayleafwalker/vuoro/tree/main/packages/vuoro-demo).
+The [bounded hosted-to-native proof](docs/evidence/2026-10-09-mi1-bindery/README.md)
+records its scope and capture limits; it is separate from the public site's
+illustrated takeover.
+
 Repo-owned planning and future operator surface for the `/projects/dev` agent-ops substrate.
 
 The implementation repos remain separate:
