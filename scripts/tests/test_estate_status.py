@@ -716,6 +716,42 @@ class SafetyAndHelperTests(unittest.TestCase):
         out = json.loads(self._from_json(saved))
         self.assertEqual(out["guard_redactions"], [genuine])
 
+    def test_secret_dict_keys_are_replaced(self):
+        token = "ghp_" + "ABCDEFGHIJ" + "0123456789" + "abcdefghij" + "0123456789"  # fake, assembled
+        token2 = "ghp_" + "KLMNOPQRST" + "0123456789" + "abcdefghij" + "0123456789"
+        saved = replay(["devbox"])
+        saved[token] = "top"
+        saved["generator"][token2] = {"nested": "x"}
+        saved["generator"][estate.GUARD_PLACEHOLDER + "#1"] = "sibling"
+        out = self._from_json(saved)
+        self.assertNotIn(token, out)
+        self.assertNotIn(token2, out)
+        report = json.loads(out)
+        ph = estate.GUARD_PLACEHOLDER
+        self.assertEqual(report[ph + "#1"], ph)
+        self.assertEqual(report["generator"][ph + "#1"], "sibling")
+        self.assertEqual(report["generator"][ph + "#2"], ph)
+        self.assertIn(f'$["{ph}#1"]', report["guard_redactions"])
+        self.assertIn(f'$.generator["{ph}#2"]', report["guard_redactions"])
+        self.assertEqual(json.loads(self._from_json(report))["guard_redactions"], report["guard_redactions"])
+
+    def test_redaction_under_dotted_key_round_trips(self):
+        saved = replay(["devbox"])
+        saved["labels"] = {"app.kubernetes.io/name": "Zx9Qw7Lm3Rt8Yp2Kd6Vn4Bh1Jc5Gf0Ts", 'we"ird]': "ok"}
+        first = estate.guard_report(saved)
+        path = '$.labels["app.kubernetes.io/name"]'
+        self.assertEqual(first["guard_redactions"], [path])
+        out = json.loads(self._from_json(first))
+        self.assertEqual(out["guard_redactions"], [path])
+
+    def test_quoted_segment_escaping_and_smuggling(self):
+        saved = replay(["devbox"])
+        saved["labels"] = {'a"]b.c': estate.GUARD_PLACEHOLDER, "k.v": "plain"}
+        genuine = '$.labels["a\\"]b.c"]'
+        saved["guard_redactions"] = [genuine, '$.labels["k.v"]', '$.labels["missing.key"]',
+                                     '$.labels["a\\"]b.c"]["x"]', '$.labels["bad\\q"]', '$["labels"]x']
+        self.assertEqual(json.loads(self._from_json(saved))["guard_redactions"], [genuine])
+
     def test_env_filter_remaps_redaction_paths(self):
         saved = replay()
         ids = [e["id"] for e in saved["environments"]]
