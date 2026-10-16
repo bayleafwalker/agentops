@@ -32,7 +32,7 @@ from check_protected_paths import _matches_any  # noqa: E402
 
 VERIFIED_PREFIX = "refs/dispatch/verified/"
 PUSHED_ACTIONS = {"pushed", "already-on-origin"}
-PR_ACTIONS = {"pr-opened", "needs-hand-pass-pr"}
+PR_ACTIONS = {"pr-opened", "needs-hand-pass-pr", "branch-pushed"}
 # Protection floor: always added to hybrid.protected_paths, for every code repo, manifest or not.
 FLOOR_PATTERNS = [".claude/**", "**/*.dispatch.json", "*.dispatch.json"]
 
@@ -148,7 +148,7 @@ def remote_ref(repo: str, ref: str) -> tuple[str | None, str | None]:
     return None, None
 
 
-def confirm(repo: str, tip_arg: str, action: str) -> dict:
+def confirm(repo: str, tip_arg: str, action: str, branch: str | None = None) -> dict:
     tip = resolve(repo, tip_arg)
     if tip is None:
         raise SystemExit(f"tip does not resolve: {tip_arg}")
@@ -156,7 +156,7 @@ def confirm(repo: str, tip_arg: str, action: str) -> dict:
     if action in PUSHED_ACTIONS:
         ref = "refs/heads/main"
     elif action in PR_ACTIONS:
-        ref = f"refs/heads/dispatch/publish-{tip[:12]}"
+        ref = f"refs/heads/{branch}" if branch else f"refs/heads/dispatch/publish-{tip[:12]}"
     else:
         report["error"] = f"unknown action {action!r}"
         return report
