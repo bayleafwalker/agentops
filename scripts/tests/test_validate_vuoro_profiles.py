@@ -19,6 +19,34 @@ def _profile(name: str) -> Path:
     return ROOT / "environment-record/profiles" / name
 
 
+def test_host_records_declare_holds() -> None:
+    for name in ("workstation-linux.vuoro-shared.json", "devbox-vm.vuoro-shared.json"):
+        record = validator.validate_environment(ROOT / "environment-record" / name)
+        assert record["holds"] == []
+
+
+def test_holds_are_optional_and_validated(tmp_path: Path) -> None:
+    import pytest
+
+    base = json.loads((ROOT / "environment-record/devbox-vm.vuoro-shared.json").read_text())
+    path = tmp_path / "record.json"
+
+    without = {k: v for k, v in base.items() if k != "holds"}
+    path.write_text(json.dumps(without))
+    assert "holds" not in validator.validate_environment(path)
+
+    path.write_text(json.dumps({**base, "holds": [{"id": "out-of-dispatch", "reason": "upgrade",
+                                                   "since": "2026-10-14T00:00:00Z"}]}))
+    assert validator.validate_environment(path)["holds"][0]["id"] == "out-of-dispatch"
+
+    for bad in ("x", [{"id": "a"}], [{"id": "Bad Id", "reason": "r"}], [{"id": "a", "reason": ""}],
+                [{"id": "a", "reason": "r", "extra": 1}],
+                [{"id": "a", "reason": "r"}, {"id": "a", "reason": "s"}]):
+        path.write_text(json.dumps({**base, "holds": bad}))
+        with pytest.raises(validator.ProfileError):
+            validator.validate_environment(path)
+
+
 def test_checked_in_workstation_profile_is_valid() -> None:
     environment = validator.validate_environment(
         ROOT / "environment-record/workstation-linux.vuoro-shared.json"

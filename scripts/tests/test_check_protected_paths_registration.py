@@ -49,6 +49,7 @@ MANIFEST = {
         ],
         "commands": {"agentops.dispatch.tests": "python -m unittest discover"},
         "worker_routes": ["mechanical_bulk"],
+        "hand_pass_actors": ["operator"],
     },
     "routing": {"action_classes": {"mechanical_bulk": {"self_candidate": True}}},
 }
@@ -104,6 +105,7 @@ class RegistrationSeamTests(unittest.TestCase):
             return checker.main([
                 "--base", self.base, "--head", "HEAD", "--title", title,
                 "--manifest", "agentops.dispatch.json",
+                "--sender", "operator",
             ])
         finally:
             os.chdir(cwd)
@@ -125,7 +127,7 @@ class RegistrationSeamTests(unittest.TestCase):
 
     def test_a_hand_pass_title_still_works_for_the_same_change(self):
         self._commit_manifest(self._with_extra_command())
-        self.assertEqual(self._run("hand-pass: register a command"), 0)
+        self.assertEqual(self._run("hand-pass@" + self._git("rev-parse", "HEAD").strip()[:7] + ": register a command"), 0)
 
     def test_a_second_protected_path_defeats_the_exemption(self):
         self._write_manifest(self._with_extra_command())

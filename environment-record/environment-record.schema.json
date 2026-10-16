@@ -51,6 +51,21 @@
       "items": { "type": "string", "minLength": 1 },
       "uniqueItems": true
     },
+    "holds": {
+      "description": "Declared pauses of this environment (e.g. an agent host taken out of dispatch). An empty array states that nothing is held; an absent field means holds are not modelled, which `agentops estate status` reports as unknown.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "reason"],
+        "properties": {
+          "id": { "$ref": "#/$defs/token" },
+          "reason": { "type": "string", "minLength": 1 },
+          "since": { "type": "string", "minLength": 1, "format": "date-time" },
+          "ref": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
     "identity_bindings": {
       "type": "array",
       "items": {

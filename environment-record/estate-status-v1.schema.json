@@ -19,7 +19,23 @@
         "agentops_sha": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}]}
       }
     },
-    "environments": {"type": "array", "items": {"$ref": "#/$defs/environment"}}
+    "environments": {"type": "array", "items": {"$ref": "#/$defs/environment"}},
+    "saved_report_age": {
+      "description": "Present only when a saved report is re-emitted with --from: how old it is.",
+      "type": "object",
+      "required": ["rendered_at", "age_seconds", "warning"],
+      "additionalProperties": false,
+      "properties": {
+        "rendered_at": {"type": "string", "minLength": 1, "format": "date-time"},
+        "age_seconds": {"oneOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
+        "warning": {"type": "string", "minLength": 1}
+      }
+    },
+    "guard_redactions": {
+      "description": "JSON paths whose whole string value the emit guard replaced because an independent secret detector flagged it.",
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    }
   },
   "$defs": {
     "fact": {

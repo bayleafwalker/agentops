@@ -21,7 +21,15 @@ def github_identity(url: str) -> str | None:
     return match.group(1).lower() if match else None
 
 
-def publish(repo: str, tip: str, run_branch: str, expected: list[str], item_ids: list[str]) -> dict:
+def publish(repo: str, tip: str, run_branch: str, expected: list[str], item_ids: list[str],
+            target: dict | None = None) -> dict:
+    """Publish a verified tip.
+
+    Ungated (target None): push to main when no protected path is touched, else a
+    dispatch/publish-<tip> PR. Gated (target = the attempt target execution_authority
+    allowed): never main -- push exactly target["branch"], and open the PR only when
+    the attempt authorized open_pull_request.
+    """
     report = {"published": False, "action": "publish-refused"}
     if not re.fullmatch(r"dispatch/run-[A-Za-z0-9]{6,}", run_branch):
         raise ValueError("invalid run branch")
@@ -62,7 +70,9 @@ def publish(repo: str, tip: str, run_branch: str, expected: list[str], item_ids:
     if facts["net_zero"] and not facts["expected"]:
         return {**report, "action": "net-zero", "error": "no expected commit outside origin/main; no publication needed"}
     protected = facts["protected_hits"]
-    if not protected:
+    if target is not None and target.get("commit_sha") != full:
+        raise ValueError("tip differs from the attempt's authorized target commit")
+    if not protected and target is None:
         pushed = git(repo, "push", "origin", f"{full}:refs/heads/main", check=False)
         if pushed.returncode == 0:
             checked = confirm(repo, full, "pushed")
@@ -72,19 +82,26 @@ def publish(repo: str, tip: str, run_branch: str, expected: list[str], item_ids:
         refusal = pushed.stderr + pushed.stdout
         if not re.search(r"GH006|GH013|protected branch|rejected|fetch first|non-fast-forward", refusal, re.I):
             raise ValueError("main push failed: " + refusal.strip())
-    if not identity:
+    branch_only = target is not None and target.get("operation") == "push_branch"
+    if not identity and not branch_only:
         raise ValueError("PR hand-back requires a GitHub origin")
-    branch = facts["publish_branch"]
+    branch = target["branch"] if target is not None else facts["publish_branch"]
+    base = (target.get("base_branch") or "main") if target is not None else "main"
     old_sha, error = remote_ref(repo, f"refs/heads/{branch}")
     if error or (old_sha and old_sha != full):
         raise ValueError(error or "publication branch already has another tip")
     if not old_sha:
         git(repo, "push", "origin", f"{full}:refs/heads/{branch}")
+    if target is not None and target.get("operation") == "push_branch":
+        checked = confirm(repo, full, "branch-pushed", branch=branch)
+        if not checked["confirmed"]:
+            raise ValueError(checked.get("error", "branch not confirmed"))
+        return {**report, "published": True, "action": "branch-pushed", "branch": branch}
 
     def gh(*args: str) -> str:
         return subprocess.run(["gh", *args, "--repo", identity], cwd=repo, capture_output=True, text=True, check=True).stdout.strip()
 
-    opened = json.loads(gh("pr", "list", "--state", "open", "--base", "main", "--json", "headRefName,headRefOid,url"))
+    opened = json.loads(gh("pr", "list", "--state", "open", "--base", base, "--json", "headRefName,headRefOid,url"))
     contained = [p["url"] for p in opened if p["headRefName"].startswith("dispatch/publish-")
                  and p["headRefName"] != branch and resolve(repo, p["headRefOid"])
                  and is_ancestor(repo, p["headRefOid"], full)]
@@ -100,18 +117,18 @@ def publish(repo: str, tip: str, run_branch: str, expected: list[str], item_ids:
         with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8") as output:
             output.write(body)
             output.flush()
-            url = gh("pr", "create", "--base", "main", "--head", branch, "--title", f"Dispatch verified batch {full[:12]}", "--body-file", output.name)
+            url = gh("pr", "create", "--base", base, "--head", branch, "--title", f"Dispatch verified batch {full[:12]}", "--body-file", output.name)
     if not re.fullmatch(r"https://github\.com/" + re.escape(identity) + r"/pull/[0-9]+", url, re.I):
         raise ValueError("PR URL does not match origin")
     action = "needs-hand-pass-pr" if protected else "pr-opened"
-    checked = confirm(repo, full, action)
+    checked = confirm(repo, full, action, branch=branch if target is not None else None)
     if not checked["confirmed"]:
         raise ValueError(checked.get("error", "PR branch not confirmed"))
     return {**report, "action": action, "pr_url": url, "error": ", ".join(protected)}
 
 
-def authority_refusal(args: argparse.Namespace) -> dict | None:
-    """Run the effect-boundary check for this publication; a refusal report, or None to proceed."""
+def authority_gate(args: argparse.Namespace) -> tuple[dict | None, dict | None]:
+    """Run the effect-boundary check: (refusal report, None) or (None, the allowed attempt target)."""
     import execution_authority as authority  # noqa: PLC0415 - only needed when gated
     from validate_vuoro_profiles import ProfileError, validate_environment  # noqa: PLC0415
 
@@ -119,14 +136,16 @@ def authority_refusal(args: argparse.Namespace) -> dict | None:
         record = validate_environment(args.authority_environment)
         operation = record["authority"]["scoped_execution"]["publication_operation"]
     except (ProfileError, KeyError, TypeError) as error:
-        return {"published": False, "action": "publish-refused", "error": f"authority: environment-invalid: {error}"}
+        return {"published": False, "action": "publish-refused", "error": f"authority: environment-invalid: {error}"}, None
     decision = authority.authorize(args.authority_environment, authority.ExecutionRequest(
         operation=operation, repo_id=args.authority_repo, run_id=args.run_id, grant_id=args.grant_id,
         attempt_id=args.attempt_id, commit_sha=resolve(args.repo, args.tip)), args.profile)
-    if decision.allowed:
-        return None
+    if decision.allowed and decision.target:
+        return None, decision.target
+    if decision.allowed:  # defensive: an allowed publication always carries its target
+        decision = authority.Decision(False, "internal-error", "allowed publication without a target", decision.tier)
     return {"published": False, "action": "publish-refused", "authority": decision.as_dict(),
-            "error": f"authority: {decision.code}: {decision.reason}"}
+            "error": f"authority: {decision.code}: {decision.reason}"}, None
 
 
 def main() -> int:
@@ -148,12 +167,13 @@ def main() -> int:
     gate.add_argument("--profile", type=Path, help="vuoro client profile for the served owner reads")
     args = parser.parse_args()
     try:
+        target = None
         if args.authority_environment:
-            refusal = authority_refusal(args)
+            refusal, target = authority_gate(args)
             if refusal:
                 print(json.dumps(refusal))
                 return 1
-        report = publish(args.repo, args.tip, args.run_branch, args.expected, args.item_id)
+        report = publish(args.repo, args.tip, args.run_branch, args.expected, args.item_id, target)
     except (ValueError, OSError, subprocess.CalledProcessError, SystemExit) as error:
         report = {"published": False, "action": "publish-refused", "error": str(error)}
     print(json.dumps(report))

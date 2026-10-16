@@ -1,6 +1,6 @@
 {
  "evidence": "cd /projects/dev/agentops && SPRINTCTL_BACKEND=served SPRINTCTL_VUORO_PROFILE=/projects/dev/agentops/environment-record/profiles/workstation-vuoro-shared.json sprintctl doctor --json",
- "observed_at": "2026-10-14T15:08:55Z",
+ "observed_at": "2026-10-14T15:45:39Z",
  "ok": true,
  "rc": 0,
  "stderr": "",

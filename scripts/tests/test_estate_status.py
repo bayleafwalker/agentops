@@ -56,6 +56,17 @@ def by_id(report):
     return {env["id"]: env for env in report["environments"]}
 
 
+def replay_edited(envs, edits):
+    """Replay with some fixtures edited: ``edits`` maps fixture file name -> fn(fixture dict)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        for path in FIXTURES.iterdir():
+            fixture = json.loads(path.read_text())
+            if path.name in edits:
+                edits[path.name](fixture)
+            (Path(tmp) / path.name).write_text(json.dumps(fixture))
+        return replay(envs, directory=Path(tmp))
+
+
 _ENVS = None
 
 
@@ -163,8 +174,10 @@ class ReplayedLiveRunTests(unittest.TestCase):
         self.assertIs(d["compatibility_mirror_agrees"]["value"], True)
         self.assertEqual(d["release_report_card"]["value"]["schema_version"], "vuoro-release-report-card/v1")
         self.assertIn("vuoro-cloud@v0.1.0-poc.76:src/vuoro_cloud/release.py", d["release_report_card"]["evidence"])
-        self.assertEqual(d["tenant_runtime_pin"]["status"], "unknown")
-        self.assertIn("SOPS", d["tenant_runtime_pin"]["reason"])
+        pin = self.envs["vuoro-cloud"]["running"]["tenant_runtime_pin"]
+        self.assertEqual(pin["status"], "unknown")
+        self.assertIn("SOPS", pin["reason"])
+        self.assertIn("runtime_image", pin["reason"])
 
     def test_no_secret_decryption_probe_was_recorded(self):
         names = {p.name for p in FIXTURES.iterdir()}
@@ -180,10 +193,16 @@ class ReplayedLiveRunTests(unittest.TestCase):
             self.assertEqual(doctor["endpoint"], "https://vuoro-shared.apps.kotona.app")
             self.assertEqual(env["running"]["installed_profile"]["value"]["revision"],
                              env["desired"]["client_profile"]["value"]["revision"])
-            # Both checkouts were behind agentops main when the fixtures were recorded.
-            self.assertEqual(env["gate"]["next_blocking_gate"]["value"]["gate"], "agentops-current")
             self.assertEqual(env["gate"]["recovery_class"]["value"]["class"], "image-revert")
-            self.assertEqual(env["held"]["host_holds"]["status"], "unknown")
+            # Recorded after `holds: []` reached agentops main: declared, known, empty.
+            holds = env["held"]["declared_host_holds"]
+            self.assertEqual((holds["status"], holds["value"]), ("known", []))
+            self.assertTrue(holds["evidence"].startswith("declared (from the agentops record):"))
+            self.assertEqual(env["summary"]["unknown"], [])
+        # The workstation was fully current; the devbox checkout was behind agentops main.
+        self.assertEqual(self.envs["workstation"]["gate"]["next_blocking_gate"]["value"]["gate"], "none")
+        self.assertEqual(self.envs["devbox"]["gate"]["next_blocking_gate"]["value"]["gate"],
+                         "agentops-current")
 
     def test_markdown_lists_every_unknown_with_reason(self):
         text = estate.render_markdown(self.report)
@@ -295,6 +314,9 @@ class VuoroSharedDerivationTests(unittest.TestCase):
                 gate = self.gate()
                 self.assertEqual(gate["status"], "unknown")
                 self.assertIn("desired-current", gate["reason"])
+                recovery = self.recovery()
+                self.assertEqual(recovery["status"], "unknown")
+                self.assertIn("origin/main", recovery["reason"])
 
     def test_unapplied_main_blocks(self):
         self.env["desired"]["deploying_repo_main_sha"] = k("f" * 40)
@@ -337,7 +359,7 @@ def cloud_full_env(**overrides):
     h["suspended_cronjobs"] = k([{"name": "vuoro-admin-enrol", "declared_suspend": True}])
     h["scaled_below_declared"] = k([])
     h["tenants_in_maintenance"] = k([])
-    d["tenant_runtime_pin"] = k("sha256:" + "2" * 64)
+    r["tenant_runtime_pin"] = k(estate.digest_of(d["compatibility"]["value"]["packages"]["vuoro-service"]))
     us["fleet_rollout"]["value"]["converged"] = True
     return env
 
@@ -412,10 +434,54 @@ class VuoroCloudDerivationTests(unittest.TestCase):
 
     def test_unverifiable_tenant_pin_keeps_gate_unknown(self):
         env = cloud_full_env()
-        env["desired"]["tenant_runtime_pin"] = u("SOPS")
+        env["running"]["tenant_runtime_pin"] = u("SOPS")
         gate = gate_of(estate.derive_vuoro_cloud_gate, env)
         self.assertEqual(gate["status"], "unknown")
         self.assertIn("tenant-runtime-pin", gate["reason"])
+
+    def test_pin_mismatch_blocks(self):
+        env = cloud_full_env()
+        env["running"]["tenant_runtime_pin"] = k("sha256:" + "3" * 64)
+        self.assertEqual(gate_of(estate.derive_vuoro_cloud_gate, env)["value"]["gate"], "tenant-runtime-pin")
+
+    def test_requested_rollout_fields_make_both_facts_observable(self):
+        want = None
+
+        def edit(fixture):
+            body = json.loads(fixture["body"])
+            body["maintenance_workspaces"] = [{"id": "ws1", "state": "MAINTENANCE", "maintenance_mode": True}]
+            body["runtime_image"] = {"digest": want, "source": "VUORO_CLOUD_RUNTIME_IMAGE"}
+            fixture["body"] = json.dumps(body)
+
+        base = env_copy("vuoro-cloud")
+        want = estate.digest_of(base["desired"]["compatibility"]["value"]["packages"]["vuoro-service"])
+        env = by_id(replay_edited(["vuoro-cloud"], {"vuoro-cloud.rollout-status.json": edit}))["vuoro-cloud"]
+        self.assertEqual(env["held"]["tenants_in_maintenance"]["value"], ["ws1"])
+        self.assertEqual(env["running"]["tenant_runtime_pin"]["value"], want)
+
+    def test_malformed_runtime_image_is_unknown(self):
+        def edit(fixture):
+            body = json.loads(fixture["body"])
+            body["runtime_image"] = {"digest": "latest"}
+            fixture["body"] = json.dumps(body)
+
+        env = by_id(replay_edited(["vuoro-cloud"], {"vuoro-cloud.rollout-status.json": edit}))["vuoro-cloud"]
+        self.assertIn("malformed", env["running"]["tenant_runtime_pin"]["reason"])
+
+    def test_tag_match_is_anchored(self):
+        sha = "a" * 40
+        self.assertTrue(estate.revision_is(f"v0.1.0-poc.7@sha1:{sha}", "v0.1.0-poc.7", sha))
+        self.assertFalse(estate.revision_is(f"v0.1.0-poc.76@sha1:{'b' * 40}", "v0.1.0-poc.7", sha))
+        self.assertFalse(estate.revision_is(f"v0.1.0-poc.7-rc@sha1:{'b' * 40}", "v0.1.0-poc.7", sha))
+        self.assertTrue(estate.revision_is(f"refs/tags/v0.1.0-poc.7@sha1:{sha}", "v0.1.0-poc.7", sha))
+        self.assertTrue(estate.revision_is(sha, "v0.1.0-poc.7", sha))
+        self.assertFalse(estate.revision_is(f"main@sha1:{sha}xx", "main", sha))
+        self.assertFalse(estate.revision_is(None, "main", sha))
+        env = cloud_full_env()
+        tag = env["desired"]["predicted_release_tag"]["value"]
+        for v in env["running"]["kustomizations"]["value"].values():
+            v["last_applied_revision"] = f"{tag}6@sha1:{'c' * 40}"  # e.g. poc.766, not poc.76
+        self.assertEqual(recovery_of(env)["value"]["class"], "cancel")
 
 
 class HostDerivationTests(unittest.TestCase):
@@ -424,8 +490,14 @@ class HostDerivationTests(unittest.TestCase):
         env["running"]["agentops_head"] = k(env["desired"]["agentops_main_sha"]["value"])
         return env
 
-    def test_current_host_stops_at_unobservable_holds(self):
+    def test_current_host_with_declared_empty_holds_is_none(self):
         gate = gate_of(estate.derive_host_gate, self.current())
+        self.assertEqual(gate["value"]["gate"], "none")
+
+    def test_undeclared_holds_stop_the_gate(self):
+        env = self.current()
+        env["held"]["declared_host_holds"] = u("the environment record declares no `holds` field")
+        gate = gate_of(estate.derive_host_gate, env)
         self.assertEqual(gate["status"], "unknown")
         self.assertIn("'holds'", gate["reason"])
 
@@ -435,6 +507,37 @@ class HostDerivationTests(unittest.TestCase):
         result = estate.derive_host_gate(env)
         self.assertEqual(result["recovery_class"]["value"]["class"], "forward-fix-or-restore")
         self.assertEqual(result["next_blocking_gate"]["value"]["gate"], "served-doctor")
+
+    def test_declared_holds_make_host_holds_known(self):
+        def with_holds(holds):
+            def edit(fixture):
+                record = json.loads(fixture["stdout"])
+                record["holds"] = holds
+                fixture["stdout"] = json.dumps(record)
+            return by_id(replay_edited(["workstation"], {"workstation.environment_record.json": edit}))["workstation"]
+
+        clear = with_holds([])
+        self.assertEqual(clear["held"]["declared_host_holds"]["value"], [])
+        self.assertEqual(clear["gate"]["next_blocking_gate"]["value"]["gate"], "none")
+        held = with_holds([{"id": "out-of-dispatch", "reason": "kernel upgrade"}])
+        self.assertEqual(held["held"]["declared_host_holds"]["value"], ["out-of-dispatch"])
+        self.assertEqual(held["gate"]["next_blocking_gate"]["value"]["gate"], "holds")
+
+    def test_malformed_holds_are_unknown_not_a_crash(self):
+        for bad in (["x"], [{"id": "a"}], [{"id": "Bad Id", "reason": "r"}], "none", [None]):
+            with self.subTest(holds=bad):
+                def edit(fixture, bad=bad):
+                    record = json.loads(fixture["stdout"])
+                    record["holds"] = bad
+                    fixture["stdout"] = json.dumps(record)
+                report = replay_edited(["workstation"], {"workstation.environment_record.json": edit})
+                self.assertEqual(schema_check.validate(report, SCHEMA), [])
+                env = by_id(report)["workstation"]
+                self.assertEqual(env["held"]["declared_host_holds"]["status"], "unknown")
+                self.assertIn("malformed", env["held"]["declared_host_holds"]["reason"])
+                gate = env["gate"]["next_blocking_gate"]
+                self.assertEqual(gate["status"], "unknown")
+                self.assertIn("'holds'", gate["reason"])
 
     def test_profile_revision_drift_blocks_on_both_hosts(self):
         for host in ("workstation", "devbox"):
@@ -543,6 +646,103 @@ class SafetyAndHelperTests(unittest.TestCase):
                        "pw42", "a" * 30):
             self.assertNotIn(secret, text)
 
+    def test_json_credential_keys_are_redacted(self):
+        doc = {"password": "hunter2", "db_password": "pw", "client_secret": "cs", "access_token": "at",
+               "api_key": "ak", "privateKey": "pk", "Authorization": "Basic xyz", "nested": {"token": "t1"}}
+        text = estate.redact(json.dumps(doc))
+        parsed = json.loads(text)
+        for value in ("hunter2", "\"pw\"", "\"cs\"", "\"at\"", "\"ak\"", "\"pk\"", "Basic xyz", "\"t1\""):
+            self.assertNotIn(value, text)
+        self.assertEqual(parsed["nested"]["token"], "[REDACTED]")
+
+    def test_json_redaction_keeps_references_and_non_strings(self):
+        doc = {"credential_ref": "file:~/.config/x", "secretName": "vuoro-identities", "token_file": "/p",
+               "credential_resolved": True, "tokens": 3, "authenticated_actor": "workstation-vuoro"}
+        self.assertEqual(json.loads(estate.redact(json.dumps(doc))), doc)
+
+    def test_guard_redactions_survive_re_emission(self):
+        first = estate.guard_report({"a": "token Zx9Qw7Lm3Rt8Yp2Kd6Vn4Bh1Jc5Gf0Ts", "b": "ok"})
+        self.assertEqual(first["guard_redactions"], ["$.a"])
+        again = estate.guard_report(json.loads(json.dumps(first)))
+        self.assertEqual(again["guard_redactions"], ["$.a"])
+        again["c"] = "user:hunter22@db.example.com"
+        self.assertEqual(estate.guard_report(again)["guard_redactions"], ["$.a", "$.c"])
+
+    def test_from_preserves_guard_redactions(self):
+        saved = replay(["devbox"])
+        saved["environments"][0]["desired"]["environment_record"]["evidence"] = "Zx9Qw7Lm3Rt8Yp2Kd6Vn4Bh1Jc5Gf0Ts"
+        saved = estate.guard_report(saved)
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+            json.dump(saved, handle)
+        done = subprocess.run([str(ROOT / "bin/agentops"), "estate", "status", "--from", handle.name, "--json"],
+                              capture_output=True, text=True, check=True)
+        Path(handle.name).unlink()
+        report = json.loads(done.stdout)
+        self.assertEqual(report["guard_redactions"], saved["guard_redactions"])
+        self.assertEqual(schema_check.validate(report, SCHEMA), [])
+
+    def _from_json(self, saved, *extra):
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+            json.dump(saved, handle)
+        done = subprocess.run([str(ROOT / "bin/agentops"), "estate", "status", "--from", handle.name,
+                               "--json", *extra], capture_output=True, text=True, check=True)
+        Path(handle.name).unlink()
+        return done.stdout
+
+    def test_untrusted_earlier_redactions_are_never_emitted(self):
+        token = "ghp_" + "ABCDEFGHIJ" + "0123456789" + "abcdefghij" + "0123456789"  # fake, assembled
+        path_shaped_secret = "$.Zx9Qw7Lm3Rt8Yp2Kd6Vn4Bh1Jc5Gf0Ts"
+        saved = replay(["devbox"])
+        saved["x"] = estate.GUARD_PLACEHOLDER
+        saved["guard_redactions"] = ["$.x", token, 5, "$.x", path_shaped_secret, "$.y z", {"p": 1}]
+        out = self._from_json(saved)
+        self.assertNotIn(token, out)
+        self.assertNotIn("Zx9Qw7Lm3Rt8Yp2Kd6Vn4Bh1Jc5Gf0Ts", out)
+        self.assertEqual(json.loads(out)["guard_redactions"], ["$.x"])
+
+    def test_smuggled_path_segments_are_dropped(self):
+        smuggle = "$." + "Zx9QwErTy7UiOpAs" + "." + "DfGh2JkLmNbVcX4z"  # fake, assembled at runtime
+        saved = replay(["devbox"])
+        saved["guard_redactions"] = [smuggle]
+        out = self._from_json(saved)
+        self.assertNotIn("DfGh2JkLmNbVcX4z", out)
+        self.assertNotIn("guard_redactions", json.loads(out))
+
+    def test_from_keeps_genuine_placeholder_path_and_drops_non_placeholder(self):
+        saved = replay(["devbox"])
+        saved["environments"][0]["desired"]["environment_record"]["evidence"] = estate.GUARD_PLACEHOLDER
+        genuine = "$.environments[0].desired.environment_record.evidence"
+        saved["guard_redactions"] = [genuine, "$.generator.tool", "$.environments[9].x", genuine]
+        out = json.loads(self._from_json(saved))
+        self.assertEqual(out["guard_redactions"], [genuine])
+
+    def test_env_filter_remaps_redaction_paths(self):
+        saved = replay()
+        ids = [e["id"] for e in saved["environments"]]
+        devbox = ids.index("devbox")
+        saved["environments"][devbox]["desired"]["a"] = estate.GUARD_PLACEHOLDER
+        saved["environments"][0]["desired"]["b"] = estate.GUARD_PLACEHOLDER
+        saved["generator"]["tool"] = estate.GUARD_PLACEHOLDER
+        saved["guard_redactions"] = [f"$.environments[{devbox}].desired.a", "$.environments[0].desired.b",
+                                     "$.generator.tool"]
+        report = json.loads(self._from_json(saved, "--env", "devbox"))
+        self.assertEqual([e["id"] for e in report["environments"]], ["devbox"])
+        self.assertEqual(report["guard_redactions"], ["$.environments[0].desired.a", "$.generator.tool"])
+        self.assertEqual(estate.remap_guard_paths(["$.environments[2].x", "$.environments[1]"], [1, 2]),
+                         ["$.environments[1].x", "$.environments[0]"])
+
+    def test_emit_guard_fails_closed_per_field(self):
+        report = {"a": {"evidence": "token Zx9Qw7Lm3Rt8Yp2Kd6Vn4Bh1Jc5Gf0Ts here", "ok": "sha256:" + "a" * 64},
+                  "b": ["fine", "user:hunter22@db.example.com"]}
+        clean = estate.guard_report(report)
+        self.assertEqual(clean["a"]["evidence"], estate.GUARD_PLACEHOLDER)
+        self.assertEqual(clean["a"]["ok"], report["a"]["ok"])
+        self.assertEqual(clean["b"], ["fine", estate.GUARD_PLACEHOLDER])
+        self.assertEqual(clean["guard_redactions"], ["$.a.evidence", "$.b[1]"])
+
+    def test_live_report_needs_no_guard_redaction(self):
+        self.assertNotIn("guard_redactions", estate.guard_report(replay()))
+
     def test_redaction_leaves_code_alone(self):
         for code in ("const token=readToken();", "if (secret=== null) {}", "let password=input.value"):
             with self.subTest(code=code):
@@ -603,6 +803,19 @@ class CliTests(unittest.TestCase):
         Path(handle.name).unlink()
         self.assertIn("## vuoro-shared (cluster)", rendered)
         self.assertIn("rendered from a saved report", rendered)
+
+    def test_from_json_carries_its_age(self):
+        saved = self.run_cli("estate", "status", "--replay", str(FIXTURES), "--json", "--env", "devbox").stdout
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+            handle.write(saved)
+        done = self.run_cli("estate", "status", "--from", handle.name, "--json")
+        Path(handle.name).unlink()
+        report = json.loads(done.stdout)
+        self.assertEqual(schema_check.validate(report, SCHEMA), [])
+        age = report["saved_report_age"]
+        self.assertGreater(age["age_seconds"], 0)
+        self.assertIn("saved report", age["warning"])
+        self.assertNotIn("saved_report_age", json.loads(saved))
 
     def test_two_word_resolution_is_allowlisted(self):
         done = self.run_cli("render", "project", "--help")  # scripts/render_project.py exists

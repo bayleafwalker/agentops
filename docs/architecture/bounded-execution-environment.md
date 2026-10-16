@@ -120,11 +120,32 @@ these hold:
   the operator workstation's Vuoro identity, which differs from
   `devbox-agent-vuoro`);
 * its rationale contains the exact line
-  `approve <transition> repo=<repo> run=<run_id>`;
-* its owner-side `created_at` is less than `max_approval_age_seconds` old.
+  `approve <transition> repo=<repo> run=<run_id> commit=<sha>` or
+  `... pr=<url>`, and the request names that same `commit_sha` or `pr_url`;
+* its owner-side `created_at` is less than `max_approval_age_seconds` old;
+* it has not been used for any other effect (below).
 
-So an approval is bound to one transition, one repository and one run, and it
-expires.
+So an approval is bound to one transition, one repository, one run and one
+commit or PR. It expires, and it can be used once.
+
+**Single use.** When every other check passes, `decide()` consumes the decision
+before it allows the effect. It writes a session note on the run through
+`work.session-note.write-v1` with the idempotency key
+`approval-consume.<decision id>`. The note's content is the use: decision,
+transition, repository, run, operation and commit or PR. The owner's
+idempotency ledger then enforces single use:
+
+* a retry of the same use (same key, same content) replays and is allowed
+  again, so a crash between consumption and the effect does not strand the
+  approval;
+* any other use (same key, different content) gets `idempotency-conflict` and
+  is refused as `approval-already-used`;
+* if the write fails for any other reason, the check refuses
+  (`owner-unavailable`).
+
+The ledger is scoped to the caller's principal. A different principal cannot
+reuse the approval either, because the approval is bound to a run and resolving
+that run requires the run's own binding.
 
 This is the strongest form the served operations support today:
 
@@ -155,7 +176,8 @@ A served `work.approval.record` with structured fields
 | `run-missing`, `grant-id-missing` | The request lacks a run or grant. |
 | `run-superseded` | See "Run and grant" above. |
 | `attempt-missing`, `attempt-state-conflict`, `attempt-already-applied`, `attempt-binding-mismatch`, `commit-missing` | Attempt checks failed. |
-| `approval-required`, `approval-invalid`, `approval-expired` | Tier 3 approval is missing, does not qualify, or is too old. |
+| `approval-required`, `approval-invalid`, `approval-expired`, `approval-already-used` | Tier 3 approval is missing, does not qualify, is too old, or was already used for another effect. |
+| `publication-branch-not-allowed` | The attempt's target branch is not a `dispatch/publish-*` branch (tier 2 never writes `main`). |
 | `run-unverified`, `owner-unavailable`, `internal-error` | The check failed closed. |
 
 ## Runner release versioning
@@ -228,11 +250,20 @@ before every step, so scope, TTL and supersession are rechecked each time:
 * **Steps 1, 2 and 4 are not driven by agentops.** No agentops caller opens,
   redeems or reports attempts today. Whatever implements them must call
   `decide()` with the attempt operation before each step.
-* **Destination mismatch.** The attempt's target is a branch
-  `<prefix>/<intent_id>` (sprintctl `canonical_target`), but `dispatch_publish`
-  pushes to `main` or to `dispatch/publish-*`. Only the commit is bound today.
-  Binding the destination needs `dispatch_publish` to publish to
-  `target.branch`. That is the next step for this operation.
+* **The destination is bound.** A tier 2 publication never writes
+  `refs/heads/main`.
+  * `decide()` allows the publication only when the attempt's
+    `target.branch` starts with `dispatch/publish-`. sprintctl's
+    `canonical_target` makes it end in `/<intent_id>`, for example
+    `dispatch/publish-batch/<intent_id>`.
+  * On allow, `decide()` returns that target. With the gate on,
+    `dispatch_publish` skips the main push entirely.
+  * It pushes the tip to exactly `target.branch`, and only when the tip equals
+    `target.commit_sha`.
+  * For `open_pull_request` it opens the PR against `target.base_branch`.
+    For `push_branch` it stops after the push (`branch-pushed`).
+  * Publishing to `main`, or merging, is protected publication and stays in
+    tier 3.
 
 **Recovery path: `work.effect.attempt-get-v1`.** After a crash at any point,
 the runner reads the attempt (a standing read) and resumes from its state:

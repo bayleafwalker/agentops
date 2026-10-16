@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import base64
 import contextlib
 import datetime as _dt
 import fcntl
@@ -75,10 +76,16 @@ _CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 # opencode 1.18.33: the two allows alone admit redirections (`> file`, `>> file`),
 # `$(< file)` and `${VAR}` inside an allowed command, so the trailing denies refuse
 # any command containing a shell metacharacter. Other commands, newline-separated
-# and `&&`-chained commands are denied by the leading `*` deny. The opencode serve
-# unit (ops/systemd/opencode-serve-inbox.service) is the OS-level containment
-# behind this ruleset.
-SHELL_METACHARACTERS = (">", "<", "$", "`", ";", "&", "|")
+# and `&&`-chained commands are denied by the leading `*` deny.
+#
+# Glob characters: `[` is denied like the others. `*` and `?` cannot be: in
+# opencode's pattern syntax they are wildcards with no escape (a backslash in a
+# pattern is normalised to `/`), so `*?*` would deny every command. Disabling
+# globbing from the unit environment does not work either (opencode filters
+# BASH_ENV and SHELLOPTS). An unquoted `*` or `?` in a note therefore expands to
+# file names visible inside the sandboxed opencode serve unit
+# (ops/systemd/opencode-serve-inbox.service), never to file contents.
+SHELL_METACHARACTERS = (">", "<", "$", "`", ";", "&", "|", "[")
 SUCCESSOR_PERMISSION = [
     {"permission": "*", "pattern": "*", "action": "deny"},
     {"permission": "bash", "pattern": "sprintctl run context *", "action": "allow"},
@@ -323,18 +330,25 @@ class OpenCodeServe:
     directory that created the session finds nothing.
     """
 
-    def __init__(self, base_url: str = "http://127.0.0.1:4096", timeout: float = 10.0) -> None:
+    def __init__(self, base_url: str = "http://127.0.0.1:4096", timeout: float = 10.0,
+                 password: str | None = None, username: str = "opencode") -> None:
         host = urllib.parse.urlsplit(base_url).hostname
         if host not in ("127.0.0.1", "localhost", "::1"):
-            raise ValueError("opencode serve is unauthenticated; the adapter only talks to loopback")
+            raise ValueError("the adapter only talks to opencode serve on loopback")
         self.base = base_url.rstrip("/")
         self.timeout = timeout
+        # opencode serve with OPENCODE_SERVER_PASSWORD requires HTTP basic auth on every
+        # endpoint, /global/health included (verified against 1.18.33).
+        self._headers = {"content-type": "application/json"}
+        if password:
+            token = base64.b64encode(f"{username}:{password}".encode()).decode()
+            self._headers["authorization"] = f"Basic {token}"
 
     def _call(self, method: str, path: str, query: dict | None = None, body: Any = None) -> Any:
         url = self.base + path + ("?" + urllib.parse.urlencode(query) if query else "")
         data = None if body is None else json.dumps(body).encode()
         req = urllib.request.Request(url, method=method, data=data,
-                                     headers={"content-type": "application/json"})
+                                     headers=self._headers)
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # noqa: S310 - loopback only
                 raw = resp.read()
@@ -429,6 +443,9 @@ def load_policy(path: str | Path, *, trusted: bool = False) -> Policy:
         if not isinstance(raw, dict):
             raise ValueError("policy must be a JSON object")
         harness = raw.get("harness") or {}
+        environment_record = raw.get("environment_record")
+        if environment_record is not None and (not isinstance(environment_record, str) or not environment_record):
+            raise ValueError("environment_record must be a non-empty path string")
         return Policy(
             enabled=raw.get("enabled") is True,
             launches_enabled=raw.get("launches_enabled") is True,
@@ -438,7 +455,7 @@ def load_policy(path: str | Path, *, trusted: bool = False) -> Policy:
             max_concurrent=max(1, int(raw.get("max_concurrent", 1))),
             max_run_seconds=max(60, int(raw.get("max_run_seconds", DEFAULT_MAX_RUN_SECONDS))),
             harness={k: harness[k] for k in _HARNESS_KEYS if k in harness},
-            environment_record=raw.get("environment_record") or None,
+            environment_record=environment_record,
             trusted=trusted,
         )
     except (OSError, ValueError, TypeError) as exc:
@@ -485,24 +502,43 @@ def _authority_validator():
 def untrusted_config(path: str | Path) -> str | None:
     """Why `path` cannot bound this process, or None.
 
-    Trusted means: it resolves to a regular file owned by root, not writable by
-    group or others, in a root-owned directory that is not group/other-writable,
-    and this uid cannot write either. A file the bounded uid can edit is a
+    Trusted means: it resolves to a regular file owned by root, and every path
+    component (including symlink locations and targets) is root-owned and cannot
+    be replaced by a writer. A file the bounded uid can edit is a
     tripwire, not a boundary (bounded-execution-environment.md, ownership model).
     """
     try:
-        real = Path(path).resolve(strict=True)
-        for target, kind in ((real, "file"), (real.parent, "directory")):
-            st = target.stat()
+        original = Path(path).absolute()
+        real = original.resolve(strict=True)
+        if not stat.S_ISREG(real.stat().st_mode):
+            return f"{real} is not a regular file"
+        targets = {original, *original.parents}
+        pending = list(targets)
+        while pending:
+            target = pending.pop()
+            resolved = target.resolve(strict=True)
+            expanded = {resolved, *resolved.parents}
+            if target.is_symlink():
+                destination = target.readlink()
+                if not destination.is_absolute():
+                    destination = target.parent / destination
+                expanded.update((destination, *destination.parents))
+            pending.extend(expanded - targets)
+            targets.update(expanded)
+        for target in sorted(targets, key=str):
+            st = target.lstat()
+            kind = "directory" if stat.S_ISDIR(st.st_mode) else "file"
             if st.st_uid != 0:
                 return f"{kind} {target} is not owned by root"
+            # Symlink mode bits are always 0777; replacement is controlled by
+            # its parent, which is checked independently above.
+            if stat.S_ISLNK(st.st_mode):
+                continue
             if st.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
                 return f"{kind} {target} is group- or world-writable"
             if os.access(target, os.W_OK):
                 return f"{kind} {target} is writable by this process"
-        if not stat.S_ISREG(real.stat().st_mode):
-            return f"{real} is not a regular file"
-    except OSError as exc:
+    except (OSError, RuntimeError, ValueError) as exc:
         return f"{path}: {type(exc).__name__}"
     return None
 
@@ -518,6 +554,8 @@ def authority_denial(policy: Policy, repo_id: str) -> tuple[str, str] | None:
     """
     if not policy.environment_record:
         return "environment-authority-missing", "policy.environment_record is not configured"
+    if not isinstance(policy.environment_record, str):
+        return "environment-authority-missing", "policy.environment_record must be a path string"
     record_path = Path(policy.environment_record)
     if policy.trusted:
         reason = untrusted_config(record_path)
@@ -576,8 +614,8 @@ def build_prompt(envelope: dict, run_id: str, nonce: str) -> str:
         f"1. Run: sprintctl run context --run-id {run_id}",
         f'2. Run: sprintctl run note --run-id {run_id} --note "<one short paragraph on what the context shows>" '
         f"--idempotency-key inbox.{mid}.note",
-        "   The note text must not contain any of these characters: > < $ ` ; & | "
-        "(commands containing them are refused).",
+        "   The note text must not contain any of these characters: > < $ ` ; & | [ * ? "
+        "(commands containing the first eight are refused; * and ? expand to file names).",
         "3. Stop. Make no other changes to any repository, item or run.",
     ]
     return "\n".join(lines) + "\n"
@@ -1164,6 +1202,13 @@ def main(argv: list[str] | None = None) -> int:
     if not args.profile:
         print("host-adapter: --profile or AGENTOPS_HOST_ADAPTER_PROFILE is required", file=sys.stderr)
         return 2
+    password = os.environ.get("OPENCODE_SERVER_PASSWORD") or ""
+    if not password:
+        # Fail closed: without the password every launch would go to an unauthenticated
+        # server (or fail with 401 on each tick). Exit 3 is a configuration error that the
+        # unit does not restart on.
+        print("host-adapter: OPENCODE_SERVER_PASSWORD is empty; refusing to run", file=sys.stderr)
+        return 3
     try:
         state = State(args.state_dir)
     except StateLocked as exc:
@@ -1172,7 +1217,9 @@ def main(argv: list[str] | None = None) -> int:
     owner = VuoroOwner(args.profile)
     config = Config(poll_interval=args.poll_interval, directory=args.directory, host_class=args.host_class,
                     trusted_config=args.trusted_config)
-    adapter = Adapter(owner=owner, harness=OpenCodeServe(args.serve_url), state=state,
+    harness = OpenCodeServe(args.serve_url, password=password,
+                            username=os.environ.get("OPENCODE_SERVER_USERNAME") or "opencode")
+    adapter = Adapter(owner=owner, harness=harness, state=state,
                       policy_path=args.policy, config=config)
     try:
         if args.command == "resolve":

@@ -157,6 +157,36 @@ class NativePublisherTests(PublishCheckCase):
         self.assertEqual(code, 1)
         self.assertIn("environment-invalid", report["error"])
 
+    def gated_target(self, tip, **over):
+        target = {"operation": "push_branch", "repository": "agentops",
+                  "branch": "dispatch/publish-batch/intent_01JZZZZZZZZZZZZZZZZZZZZZZZ", "commit_sha": tip}
+        target.update(over)
+        return target
+
+    def test_gated_publication_pushes_only_the_attempt_branch_never_main(self):
+        tip = self.repos.commit("verified", "src/ok.py")  # unprotected: ungated would push main
+        target = self.gated_target(tip)
+        report = publisher.publish(str(self.repos.work), tip, "dispatch/run-test123", [tip], ["1"], target)
+        self.assertEqual(report["action"], "branch-pushed")
+        self.assertEqual(checker.remote_ref(str(self.repos.work), "refs/heads/main")[0], self.repos.base)
+        self.assertEqual(checker.remote_ref(str(self.repos.work), f"refs/heads/{target['branch']}")[0], tip)
+
+    def test_gated_publication_refuses_a_tip_other_than_the_attempt_commit(self):
+        tip = self.repos.commit("verified", "src/ok.py")
+        with self.assertRaisesRegex(ValueError, "authorized target commit"):
+            publisher.publish(str(self.repos.work), tip, "dispatch/run-test123", [tip], ["1"],
+                              self.gated_target("f" * 40))
+        self.assertEqual(checker.remote_ref(str(self.repos.work), "refs/heads/main")[0], self.repos.base)
+
+    def test_gated_main_passes_the_allowed_target_to_publish(self):
+        environment = Path(__file__).parents[2] / "environment-record/devbox-vm.vuoro-shared.json"
+        allowed = {"branch": "dispatch/publish-x/intent_01JZZZZZZZZZZZZZZZZZZZZZZZ"}
+        with patch.object(publisher, "authority_gate", return_value=(None, allowed)), \
+                patch.object(publisher, "publish", return_value={"action": "branch-pushed"}) as effect:
+            code, _ = self.run_main("--authority-environment", str(environment))
+        self.assertEqual(code, 0)
+        self.assertIs(effect.call_args[0][5], allowed)
+
     def test_ungated_publication_is_unchanged(self):
         code, report = self.run_main()
         self.assertEqual(code, 0)

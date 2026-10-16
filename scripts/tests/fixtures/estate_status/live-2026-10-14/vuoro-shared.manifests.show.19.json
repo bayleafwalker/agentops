@@ -1,6 +1,6 @@
 {
- "evidence": "git -C /projects/dev/appservice show 183fe8b9d4e54ca0d65362588760a63edd6fb403:clusters/main/kubernetes/apps/vuoro-shared-db/app/vuoro-work-migrate-v25.yaml",
- "observed_at": "2026-10-14T15:08:52Z",
+ "evidence": "git -C /projects/dev/appservice show ce3d44a87e4d59c292ed7782399f6b201564f075:clusters/main/kubernetes/apps/vuoro-shared-db/app/vuoro-work-migrate-v25.yaml",
+ "observed_at": "2026-10-14T15:45:35Z",
  "ok": true,
  "rc": 0,
  "stderr": "",
