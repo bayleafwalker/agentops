@@ -211,8 +211,19 @@ def secret_findings(text: str) -> list[str]:
     return found
 
 
+_PLAIN_KEY = re.compile(r"[\w-]+")
+
+
+def _key_segment(key: str) -> str:
+    """Path segment for a dict key: ``.key``, or ``["key"]`` (JSON escaping) if not word chars/-."""
+    return f".{key}" if _PLAIN_KEY.fullmatch(key) else f"[{json.dumps(key)}]"
+
+
 def guard(value: Any, path: str = "$", hits: list[str] | None = None) -> tuple[Any, list[str]]:
-    """Copy of ``value`` with every secret-looking string replaced whole; returns the paths."""
+    """Copy of ``value`` with every secret-looking string or key replaced whole; returns the paths.
+
+    A secret-looking key becomes ``GUARD_PLACEHOLDER#n`` (n skips existing sibling keys) and
+    its value is replaced by the placeholder."""
     hits = [] if hits is None else hits
     if isinstance(value, str):
         if secret_findings(value):
@@ -220,33 +231,69 @@ def guard(value: Any, path: str = "$", hits: list[str] | None = None) -> tuple[A
             return GUARD_PLACEHOLDER, hits
         return value, hits
     if isinstance(value, dict):
-        return {k: guard(v, f"{path}.{k}", hits)[0] for k, v in value.items()}, hits
+        out: dict[str, Any] = {}
+        taken = set(value)
+        n = 0
+        for k, v in value.items():
+            if secret_findings(k):
+                n += 1
+                while f"{GUARD_PLACEHOLDER}#{n}" in taken:
+                    n += 1
+                key = f"{GUARD_PLACEHOLDER}#{n}"
+                taken.add(key)
+                hits.append(path + _key_segment(key))
+                out[key] = GUARD_PLACEHOLDER
+            else:
+                out[k] = guard(v, path + _key_segment(k), hits)[0]
+        return out, hits
     if isinstance(value, list):
         return [guard(v, f"{path}[{i}]", hits)[0] for i, v in enumerate(value)], hits
     return value, hits
 
 
-GUARD_PATH = re.compile(r"\$(?:\.[\w-]+|\[\d+\])*")
+_QUOTED = r'\["(?:[^"\\]|\\.)*"\]'
+_SEGMENT = rf"\.([\w-]+)|\[(\d+)\]|({_QUOTED})"
+GUARD_PATH = re.compile(rf"\$(?:\.[\w-]+|\[\d+\]|{_QUOTED})*")
+
+
+def _segments(path: str) -> list[str | int] | None:
+    """Parse a guard path into keys / indexes; None if a quoted segment is not a JSON string."""
+    out: list[str | int] = []
+    for key, index, quoted in re.findall(_SEGMENT, path):
+        if quoted:
+            try:
+                key = json.loads(quoted[1:-1])
+            except ValueError:
+                return None
+            out.append(key)
+        elif index:
+            out.append(int(index))
+        else:
+            out.append(key)
+    return out
 
 
 def is_guard_path(value: Any) -> bool:
     return (isinstance(value, str) and GUARD_PATH.fullmatch(value) is not None
-            and not secret_findings(value))
+            and not secret_findings(value) and _segments(value) is not None)
 
 
 def resolves_to_placeholder(report: Any, path: str) -> bool:
-    """True if walking ``path`` (``.key`` / ``[n]`` segments) through ``report`` lands on
-    the guard placeholder: the only proof that an earlier redaction record is genuine."""
+    """True if walking ``path`` (``.key`` / ``["key"]`` / ``[n]`` segments) through ``report``
+    lands on the guard placeholder: the only proof that an earlier redaction record is genuine."""
+    segments = _segments(path)
+    if segments is None:
+        return False
     node = report
-    for key, index in re.findall(r"\.([\w-]+)|\[(\d+)\]", path):
-        if index:
-            if not isinstance(node, list) or int(index) >= len(node):
+    for seg in segments:
+        if isinstance(seg, int):
+            if not isinstance(node, list) or seg >= len(node):
                 return False
-            node = node[int(index)]
+            node = node[seg]
         else:
-            if not isinstance(node, dict) or key not in node:
+            if not isinstance(node, dict) or seg not in node:
                 return False
-            node = node[key]
+            node = node[seg]
     return node == GUARD_PLACEHOLDER
 
 
@@ -260,7 +307,7 @@ def remap_guard_paths(paths: Any, kept_indexes: list[int]) -> list[str]:
     for path in paths:
         if not is_guard_path(path):
             continue
-        match = re.match(r"\$\.environments\[(\d+)\]", path)
+        match = re.match(r'\$(?:\.environments|\["environments"\])\[(\d+)\]', path)
         if match is None:
             out.append(path)
         elif int(match.group(1)) in new_index:

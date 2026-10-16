@@ -32,7 +32,7 @@
       }
     },
     "guard_redactions": {
-      "description": "JSON paths whose whole string value the emit guard replaced because an independent secret detector flagged it.",
+      "description": "JSON paths ($, .key, [n], and [\"key\"] for keys outside [A-Za-z0-9_-]) whose whole string value, or whose key, the emit guard replaced because an independent secret detector flagged it.",
       "type": "array",
       "items": {"type": "string", "minLength": 1}
     }

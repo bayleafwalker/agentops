@@ -149,10 +149,16 @@ staged in `_artifacts`).
 ## Hand-pass authorisation
 
 A pull request that touches `hybrid.protected_paths` fails the `protected-paths` CI check unless
-its title begins `hand-pass@<sha7>:` AND the actor that triggered the run is listed in
-`hybrid.hand_pass_actors`. `<sha7>` is at least 7 hex characters and must be a prefix of the PR's
-current head sha, so the authorisation covers the commit that was reviewed and nothing pushed
-after it. A plain `hand-pass:` title no longer authorises anything.
+its title begins `hand-pass@<sha>:` AND the actor that triggered the run is listed in
+`hybrid.hand_pass_actors`. `<sha>` must be the PR's current head sha in full (all 40 hex
+characters), so the authorisation covers the commit that was reviewed and nothing pushed after it.
+A prefix is refused: 7 hex is 28 bits, which an agent can grind so that a later commit carries the
+prefix the operator signed. A plain `hand-pass:` title authorises nothing.
+
+There is no other exemption. A packet's freeze commit registers its oracle under
+`hybrid.commands` in `agentops.dispatch.json`; #83 let that through under any `[hybrid]` title,
+but a `hybrid.commands` entry is a shell command the dispatcher runs and anyone, an agent
+included, can write that title. Packet registration PRs therefore need the same hand-pass.
 
 The workflow is `pull_request_target`: it is read from the base branch, and the checker and this
 manifest come from the base commit; the PR head is only ever fetched as data and never executed.
@@ -160,7 +166,8 @@ A PR therefore cannot edit the workflow, the checker or the actor list to admit 
 agent token that titles its own PR still fails ("needs the operator to open, edit or reopen the PR
 on this head").
 
-Operator procedure, after the final push: read the head sha (`gh pr view <n> --json headRefOid`),
-edit the title to `hand-pass@<first 7 of sha>: <summary>`. The `edited` event is sent by you, so
+Operator procedure, after the final push: copy the full head sha
+(`gh pr view <n> --json headRefOid -q .headRefOid`), edit the title to
+`hand-pass@<full sha>: <summary>`. The `edited` event is sent by you, so
 the check re-runs on that head with you as sender. If anything is pushed afterwards the token no
 longer matches and the check fails until you edit the title again.

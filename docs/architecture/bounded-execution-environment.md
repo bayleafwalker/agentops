@@ -184,18 +184,30 @@ A served `work.approval.record` with structured fields
 
 The devbox record is the single maintained runner composition.
 
-* **Version:** the record's `revision` is the runner release. Revision 3 is the
-  first that carries authority.
+* **Version:** the record's `revision` is the runner release.
+  * Revision 3 was the first that carries authority, observed on the host.
+  * Revision 4 is the composition that gitops-nixos #23 (the bounded system
+    service) builds.
 * **Pins:** `tooling[]` pins every component to an immutable digest:
-  * `git:` for a source checkout: sprintctl `v0.19.0` at `ad66ddd`, a uv tool
-    with the `remote,served` extras;
-  * `nix:` for a store path: opencode 1.18.33, uv 0.12.17, and NixOS
-    `26.11.20261001.c59305b` (generation 99);
-  * `sha256:` for an installed distribution's `RECORD`: vuoro-client 0.1.1.
-* **Release rule:** change the tooling on devbox, update the pins, then bump
-  `revision`. A record whose pins no longer match the host is stale. Before
-  trusting it, re-observe the host read-only over `ssh devbox-agent`:
-  `sprintctl --version`, `opencode --version`, `uv --version` and
+  * `nix:` for store paths: sprintctl 0.19.0 (packaged from `v0.19.0`
+    `ad66ddd` with the `remote,served` extras), opencode 1.19.0 and uv 0.13.0;
+  * `git:` for sources: vuoro-client 0.1.1 (`8b8428e`) and nixpkgs
+    `7fd4004`;
+  * `sha256:` for a release wheel: vuoro-adapter-kit 0.2.2.
+* **Why nixpkgs instead of the toplevel:** the record pins nixpkgs, not the
+  NixOS toplevel. The toplevel contains the record, through the pinned agentops
+  source, so it cannot be pinned from inside the record. The gitops-nixos
+  commit that deploys a revision pins the toplevel.
+* **Release rule:**
+  1. Build the composition in gitops-nixos.
+  2. Update the pins here from the built closure.
+  3. Bump `revision`.
+  4. Re-pin gitops-nixos to the agentops commit that carries the revision.
+  5. Switch the host.
+* **Stale records:** until the switch, the host runs the previous revision.
+  A record whose pins do not match the host is stale. Before trusting it,
+  re-observe the host read-only over `ssh devbox-agent`: `sprintctl
+  --version`, `opencode --version`, `uv --version` and
   `readlink -f /run/current-system`.
 * **Trust roots:** `trust_roots[]` lists the TLS CA bundle (with its digest),
   the vuoro-shared endpoint and the credential broker.
