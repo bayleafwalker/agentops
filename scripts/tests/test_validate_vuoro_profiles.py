@@ -235,7 +235,7 @@ def test_devbox_record_declares_bounded_authority_and_pinned_tooling() -> None:
     assert scoped["repositories"] == ["agentops"]
     assert scoped["publication_operation"] == "agentops.dispatch.publish-v1"
     tools = {tool["name"]: tool["version"] for tool in record["tooling"]}
-    assert tools["sprintctl"] == "0.19.0" and tools["opencode"] == "1.18.33"
+    assert tools["sprintctl"] == "0.19.0" and tools["opencode"] == "1.19.0"
     assert {c["capability"] for c in record["credential_broker"]["capabilities"]} <= validator.BROKER_CAPABILITIES
 
 
