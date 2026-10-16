@@ -24,6 +24,13 @@ Invariants, each pinned by a test in `scripts/tests/test_host_adapter.py`:
   if it carries exactly that ruleset.
 * A launched run has a wall-clock limit (`max_run_seconds`); past it the
   session is aborted and the result recorded as failed.
+* A launch needs authority: the policy's `environment_record` must carry an
+  `authority` block (validated by `validate_authority`) whose scoped execution
+  lists the launch operation and the message's repository (`authority_denial`).
+  A missing or untrusted record defers; work outside the scope is refused. With
+  `--trusted-config` (the NixOS system unit) the policy and record must also be
+  root-owned and not writable by this uid; without it the gate is a tripwire
+  for a cooperative agent, not a boundary.
 * Only one instance of the principal can win the decision (`already-decided`).
 
 Commands:
@@ -88,7 +95,9 @@ SUCCESSOR_PERMISSION = [
 DEFAULT_MAX_RUN_SECONDS = 3600
 # Policy states an operator fixes without the message being at fault: defer, never refuse.
 TEMPORARY_DENIALS = frozenset({"policy-unreadable", "adapter-disabled", "launches-disabled",
-                               "harness-not-configured"})
+                               "harness-not-configured",
+                               # environment authority not (yet) installed or not trusted: operator-fixable
+                               "environment-authority-missing", "environment-record-untrusted"})
 DETAIL_MAX_BYTES = 2048
 
 
@@ -412,19 +421,31 @@ class Policy:
     max_concurrent: int = 1
     max_run_seconds: int = DEFAULT_MAX_RUN_SECONDS
     harness: dict = field(default_factory=dict)
+    environment_record: str | None = None  # environment-record/v1 whose authority bounds launches
+    trusted: bool = False  # trusted-config mode: policy and record must be root-owned, not ours to edit
     error: str | None = None  # set when the file was unreadable: everything is denied
 
 
 _HARNESS_KEYS = ("harness_id", "harness_build", "model_id", "recipe_id", "observed_profile")
 
 
-def load_policy(path: str | Path) -> Policy:
-    """Fail closed: a missing or malformed file yields a policy that denies everything."""
+def load_policy(path: str | Path, *, trusted: bool = False) -> Policy:
+    """Fail closed: a missing or malformed file yields a policy that denies everything.
+
+    With `trusted`, a policy file this process could change also denies everything.
+    """
+    if trusted:
+        reason = untrusted_config(path)
+        if reason:
+            return Policy(trusted=True, error=f"untrusted policy: {reason}")
     try:
         raw = json.loads(Path(path).read_text(encoding="utf-8"))
         if not isinstance(raw, dict):
             raise ValueError("policy must be a JSON object")
         harness = raw.get("harness") or {}
+        environment_record = raw.get("environment_record")
+        if environment_record is not None and (not isinstance(environment_record, str) or not environment_record):
+            raise ValueError("environment_record must be a non-empty path string")
         return Policy(
             enabled=raw.get("enabled") is True,
             launches_enabled=raw.get("launches_enabled") is True,
@@ -434,9 +455,11 @@ def load_policy(path: str | Path) -> Policy:
             max_concurrent=max(1, int(raw.get("max_concurrent", 1))),
             max_run_seconds=max(60, int(raw.get("max_run_seconds", DEFAULT_MAX_RUN_SECONDS))),
             harness={k: harness[k] for k in _HARNESS_KEYS if k in harness},
+            environment_record=environment_record,
+            trusted=trusted,
         )
     except (OSError, ValueError, TypeError) as exc:
-        return Policy(error=f"{type(exc).__name__}: {exc}")
+        return Policy(trusted=trusted, error=f"{type(exc).__name__}: {exc}")
 
 
 def policy_denial(policy: Policy, repo_id: str, envelope: dict) -> tuple[str, str] | None:
@@ -458,6 +481,104 @@ def policy_denial(policy: Policy, repo_id: str, envelope: dict) -> tuple[str, st
     provider, _, model = str(policy.harness["model_id"]).partition("/")
     if not provider or not model:
         return "harness-not-configured", "policy.harness.model_id must be <provider>/<model>"
+    return authority_denial(policy, repo_id)
+
+
+#: The scoped-execution operation a successor launch is (docs/architecture/
+#: bounded-execution-environment.md). The environment record must grant it.
+LAUNCH_OPERATION = "agentops.host-adapter.launch-successor-v1"
+
+
+def _authority_validator():
+    """`validate_vuoro_profiles` beside this script (also under `python -I`, which drops the script dir)."""
+    here = str(Path(__file__).resolve().parent)
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    import validate_vuoro_profiles  # noqa: PLC0415
+
+    return validate_vuoro_profiles
+
+
+def untrusted_config(path: str | Path) -> str | None:
+    """Why `path` cannot bound this process, or None.
+
+    Trusted means: it resolves to a regular file owned by root, and every path
+    component (including symlink locations and targets) is root-owned and cannot
+    be replaced by a writer. A file the bounded uid can edit is a
+    tripwire, not a boundary (bounded-execution-environment.md, ownership model).
+    """
+    try:
+        original = Path(path).absolute()
+        real = original.resolve(strict=True)
+        if not stat.S_ISREG(real.stat().st_mode):
+            return f"{real} is not a regular file"
+        targets = {original, *original.parents}
+        pending = list(targets)
+        while pending:
+            target = pending.pop()
+            resolved = target.resolve(strict=True)
+            expanded = {resolved, *resolved.parents}
+            if target.is_symlink():
+                destination = target.readlink()
+                if not destination.is_absolute():
+                    destination = target.parent / destination
+                expanded.update((destination, *destination.parents))
+            pending.extend(expanded - targets)
+            targets.update(expanded)
+        for target in sorted(targets, key=str):
+            st = target.lstat()
+            kind = "directory" if stat.S_ISDIR(st.st_mode) else "file"
+            if st.st_uid != 0:
+                return f"{kind} {target} is not owned by root"
+            # Symlink mode bits are always 0777; replacement is controlled by
+            # its parent, which is checked independently above.
+            if stat.S_ISLNK(st.st_mode):
+                continue
+            if st.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+                return f"{kind} {target} is group- or world-writable"
+            if os.access(target, os.W_OK):
+                return f"{kind} {target} is writable by this process"
+    except (OSError, RuntimeError, ValueError) as exc:
+        return f"{path}: {type(exc).__name__}"
+    return None
+
+
+def authority_denial(policy: Policy, repo_id: str) -> tuple[str, str] | None:
+    """Effect-boundary gate: refuse unless the host's environment record grants this launch.
+
+    The record's authority block is validated with #346's `validate_authority`,
+    so a malformed block grants nothing. Fails closed: no record configured, an
+    unreadable or invalid record, a record without an `authority` block, and in
+    trusted mode a record the adapter's own uid could change, all refuse.
+    Re-read on every call, like the policy.
+    """
+    if not policy.environment_record:
+        return "environment-authority-missing", "policy.environment_record is not configured"
+    if not isinstance(policy.environment_record, str):
+        return "environment-authority-missing", "policy.environment_record must be a path string"
+    record_path = Path(policy.environment_record)
+    if policy.trusted:
+        reason = untrusted_config(record_path)
+        if reason:
+            return "environment-record-untrusted", reason
+    try:
+        record = json.loads(record_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return "environment-authority-missing", f"environment record unreadable: {type(exc).__name__}"
+    if not isinstance(record, dict) or "authority" not in record:
+        return "environment-authority-missing", "environment record declares no authority block"
+    try:
+        validator = _authority_validator()
+        authority = validator.validate_authority(record["authority"], record_path)
+    except ImportError as exc:
+        return "environment-authority-missing", f"authority validator unavailable: {exc}"
+    except ValueError as exc:  # ProfileError
+        return "environment-authority-missing", f"invalid authority block: {exc}"
+    scoped = authority["scoped_execution"]
+    if LAUNCH_OPERATION not in scoped["operations"]:
+        return "work-outside-authority-scope", f"{LAUNCH_OPERATION} is not in the environment's scoped execution"
+    if repo_id not in scoped["repositories"]:
+        return "work-outside-authority-scope", f"repository {repo_id!r} is outside the environment's scope"
     return None
 
 
@@ -640,6 +761,7 @@ class Config:
     directory: str = "."
     host_class: str = "devbox"
     read_limit: int = 50
+    trusted_config: bool = False  # policy and environment record must be root-owned (NixOS unit)
 
     @property
     def valid_for(self) -> int:
@@ -665,7 +787,7 @@ class Adapter:
     # -- loop ---------------------------------------------------------------
 
     def tick(self) -> None:
-        policy = load_policy(self.policy_path)
+        policy = load_policy(self.policy_path, trusted=self.config.trusted_config)
         healthy = self.harness.health()
         for repo in policy.allowed_repos:
             self._guarded(self._register, repo, policy)
@@ -757,7 +879,7 @@ class Adapter:
 
     def _on_received(self, rec) -> bool:
         env = json.loads(rec["envelope"])
-        policy = load_policy(self.policy_path)
+        policy = load_policy(self.policy_path, trusted=self.config.trusted_config)
         decision, code, text = "accepted", None, None
         denial = policy_denial(policy, rec["repo_id"], env)
         target = (env.get("recipient") or {}).get("instance_id")
@@ -799,7 +921,7 @@ class Adapter:
             return False
         self._checkpoint("accepted_sent")
         env = json.loads(rec["envelope"])
-        policy = load_policy(self.policy_path)
+        policy = load_policy(self.policy_path, trusted=self.config.trusted_config)
         args = {k: policy.harness[k] for k in _HARNESS_KEYS if k in policy.harness}
         args["idempotency_key"] = f"inbox.{rec['message_id']}"
         pred = (env.get("context") or {}).get("predecessor_run_id")
@@ -841,7 +963,7 @@ class Adapter:
             return True  # the loop flushes launch-ambiguous
         self._checkpoint("run_linked_sent")
         env = json.loads(rec["envelope"])
-        policy = load_policy(self.policy_path)  # re-read immediately before launch
+        policy = load_policy(self.policy_path, trusted=self.config.trusted_config)  # re-read immediately before launch
         status = self.owner.message_status(rec["repo_id"], message_id=rec["message_id"])
         receipts = status.get("receipts") or (status.get("message") or {}).get("receipts") or []
         denial = policy_denial(policy, rec["repo_id"], env)
@@ -896,7 +1018,7 @@ class Adapter:
         key = (rec["repo_id"], rec["message_id"])
         sid, directory = rec["session_id"], self.config.directory
         env = json.loads(rec["envelope"])
-        policy = load_policy(self.policy_path)
+        policy = load_policy(self.policy_path, trusted=self.config.trusted_config)
         if rec["launched_at"] is None:  # a record launched by an earlier build
             self.state.update(*key, launched_at=self.clock())
             rec = self.state.get(*key)
@@ -1040,6 +1162,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--poll-interval", type=float,
                         default=float(os.environ.get("AGENTOPS_HOST_ADAPTER_POLL_SECONDS", "30")))
     parser.add_argument("--host-class", default=os.environ.get("AGENTOPS_HOST_ADAPTER_HOST_CLASS", "devbox"))
+    parser.add_argument("--trusted-config", action="store_true",
+                        default=os.environ.get("AGENTOPS_HOST_ADAPTER_TRUSTED_CONFIG") == "1",
+                        help="refuse unless the policy and environment record are root-owned and not "
+                             "writable by this uid (the NixOS system unit sets this)")
     sub = parser.add_subparsers(dest="command", required=True)
     run = sub.add_parser("run", help="poll and process the inbox")
     run.add_argument("--once", action="store_true", help="one poll, then exit")
@@ -1089,7 +1215,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"host-adapter: {exc}", file=sys.stderr)
         return 3
     owner = VuoroOwner(args.profile)
-    config = Config(poll_interval=args.poll_interval, directory=args.directory, host_class=args.host_class)
+    config = Config(poll_interval=args.poll_interval, directory=args.directory, host_class=args.host_class,
+                    trusted_config=args.trusted_config)
     harness = OpenCodeServe(args.serve_url, password=password,
                             username=os.environ.get("OPENCODE_SERVER_USERNAME") or "opencode")
     adapter = Adapter(owner=owner, harness=harness, state=state,
