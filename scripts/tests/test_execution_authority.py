@@ -44,7 +44,8 @@ def served_resolve(grant_id: str = "grant_1") -> dict:
 
 
 def served_attempt(state: str = "accepted", kinds: tuple[str, ...] = ("attempt_authorization_accepted",),
-                   opened_at: float = NOW - 60, grant_id: str = "grant_1", operation: str = "push_branch") -> dict:
+                   opened_at: float = NOW - 60, grant_id: str = "grant_1", operation: str = "push_branch",
+                   branch: str = "dispatch/publish-batch/intent_01JZZZZZZZZZZZZZZZZZZZZZZZ") -> dict:
     """work.effect.attempt-get-v1 result, field for field as sprintctl
     effect_attempt_pg.get_in_transaction / _event build it."""
     authorization = {
@@ -54,7 +55,7 @@ def served_attempt(state: str = "accepted", kinds: tuple[str, ...] = ("attempt_a
         "canonical_intent_digest": "c" * 64, "work_item_id": 42, "expected_revision": "r1",
         "release_digest": "d" * 64,
         "target": {"operation": operation, "repository": "agentops",
-                   "branch": "vuoro-effect/intent_01JZZZZZZZZZZZZZZZZZZZZZZZ", "commit_sha": COMMIT,
+                   "branch": branch, "commit_sha": COMMIT,
                    "base_commit": "b" * 40, "title_sha256": "e" * 64, "body_sha256": "f" * 64},
         "target_digest": "9" * 64, "acceptance": {}, "verification_binding": None,
     }
@@ -80,7 +81,7 @@ REPORTED = REDEEMED + ("application_report_received",)
 
 
 def served_decision(decision_id: int = 7, *, kind: str = "accept", actor: str = OPERATOR,
-                    rationale: str = f"approve rollout-resume repo=agentops run={RUN}",
+                    rationale: str = f"approve rollout-resume repo=agentops run={RUN} commit={COMMIT}",
                     created_at: float = NOW - 60) -> dict:
     """One work_decision row in work.read.item-decisions."""
     return {"id": decision_id, "repo_id": "agentops", "kind": kind, "work_item_id": 42, "sprint_id": 1,
@@ -97,6 +98,7 @@ class FakeOwner:
         self.attempt = attempt if attempt is not None else served_attempt()
         self.attempt_error = attempt_error
         self.decisions = decisions if decisions is not None else [served_decision()]
+        self.consumed: dict[int, dict] = {}
         self.calls: list[str] = []
 
     def resolve_run(self, repo_id: str, run_id: str) -> dict:
@@ -115,6 +117,15 @@ class FakeOwner:
         self.calls.append("work.read.item-decisions")
         return {"repo_id": repo_id, "item_id": item_id, "status": "done", "resolution": None,
                 "terminal_decision_id": None, "decisions": self.decisions}
+
+    def consume_approval(self, repo_id: str, run_id: str, decision_id: int, use: dict) -> dict:
+        """work.session-note.write-v1 keyed `approval-consume.<decision>`: the owner's
+        idempotency ledger replays the same use and conflicts on any other."""
+        self.calls.append("work.session-note.write-v1")
+        previous = self.consumed.setdefault(decision_id, use)
+        if previous != use:
+            raise ea.OwnerRefusal("idempotency-conflict")
+        return {"repo_id": repo_id, "run_id": run_id, "note_id": decision_id}
 
 
 def _req(operation: str = "work.effect.attempt-open-v1", **overrides) -> ea.ExecutionRequest:
@@ -299,6 +310,7 @@ def test_duplicate_report_applied_is_refused() -> None:
 # ---------------------------------------------------------------- explicit approval
 
 def _approve(ref: str = "decision:42:7", operation: str = "rollout.resume-v1", **over) -> ea.ExecutionRequest:
+    over.setdefault("commit_sha", COMMIT)
     return _req(operation, approval_ref=ref, **over)
 
 
@@ -323,9 +335,11 @@ def test_approval_by_non_approver_is_refused() -> None:
 
 
 @pytest.mark.parametrize("rationale", [
-    f"approve protected-publication repo=agentops run={RUN}",  # other transition
-    f"approve rollout-resume repo=sprintctl run={RUN}",       # other repo
-    "approve rollout-resume repo=agentops run=run_other",      # other run
+    f"approve protected-publication repo=agentops run={RUN} commit={COMMIT}",  # other transition
+    f"approve rollout-resume repo=sprintctl run={RUN} commit={COMMIT}",       # other repo
+    f"approve rollout-resume repo=agentops run=run_other commit={COMMIT}",     # other run
+    f"approve rollout-resume repo=agentops run={RUN} commit={'b' * 40}",      # other commit
+    f"approve rollout-resume repo=agentops run={RUN}",                        # no commit or PR
     "approved",
 ])
 def test_approval_not_bound_to_this_transition_repo_and_run_is_refused(rationale) -> None:
@@ -370,3 +384,49 @@ def test_record_is_not_mutated() -> None:
     before = copy.deepcopy(record)
     _decide(_req(), record=record)
     assert record == before
+
+
+# ---------------------------------------------------------------- single use and branch-bound publication
+
+def test_approval_is_single_use() -> None:
+    owner = FakeOwner()
+    assert _decide(_approve(), owner).allowed
+    # A retry of the same use (same operation, same commit) replays: still allowed.
+    assert _decide(_approve(), owner).allowed
+    # Any other use of the same decision is refused by the owner's idempotency ledger.
+    other = _approve(operation="rollout.resume-v2")
+    assert _decide(other, owner).code == "approval-already-used"
+    assert owner.calls.count("work.session-note.write-v1") == 3
+
+
+def test_approval_can_bind_a_pull_request() -> None:
+    pr = "https://github.com/bayleafwalker/agentops/pull/999"
+    owner = FakeOwner(decisions=[served_decision(rationale=f"approve rollout-resume repo=agentops run={RUN} pr={pr}")])
+    assert _decide(_approve(commit_sha=None, pr_url=pr), owner).allowed
+    assert _decide(_approve(commit_sha=None, pr_url=pr + "0"), FakeOwner(decisions=owner.decisions)).code == "approval-invalid"
+
+
+def test_approval_request_must_name_commit_or_pr() -> None:
+    assert _decide(_approve(commit_sha=None)).code == "approval-invalid"
+
+
+def test_consumption_failure_fails_closed() -> None:
+    class Down(FakeOwner):
+        def consume_approval(self, *args):
+            raise ea.OwnerRefusal("transport")
+    assert _decide(_approve(), Down()).code == "owner-unavailable"
+
+
+@pytest.mark.parametrize("branch", ["main", "refs/heads/main", "vuoro-effect/intent_01JZZZZZZZZZZZZZZZZZZZZZZZ",
+                                    "dispatch/run-x/intent_01JZZZZZZZZZZZZZZZZZZZZZZZ"])
+def test_tier2_publication_only_to_a_dispatch_publish_branch(branch) -> None:
+    owner = FakeOwner(attempt=served_attempt("redeemed", REDEEMED, branch=branch))
+    assert _decide(_req(PUBLISH, attempt_id=ATTEMPT, commit_sha=COMMIT), owner).code == "publication-branch-not-allowed"
+
+
+def test_allowed_publication_returns_the_bound_target() -> None:
+    owner = FakeOwner(attempt=served_attempt("redeemed", REDEEMED))
+    decision = _decide(_req(PUBLISH, attempt_id=ATTEMPT, commit_sha=COMMIT), owner)
+    assert decision.allowed
+    assert decision.target["branch"] == "dispatch/publish-batch/intent_01JZZZZZZZZZZZZZZZZZZZZZZZ"
+    assert decision.target["commit_sha"] == COMMIT

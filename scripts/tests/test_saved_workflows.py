@@ -44,6 +44,9 @@ CLERICAL = "claude-haiku-4-5-20251001"
 #   workspace: {repo: "null" | "error" | "bad-path" | "traversal" | "bad-branch" | "main-branch" | "bad-base"}
 #                                                the workspace:<repo> stage fails or answers out-of-pattern values (#2563)
 #   workspaceBase: {repo: <sha>}                 the base_sha the workspace:<repo> stage reports (default: the repo head)
+#   manifest: "throw" | "null" | "garbage" | "not-emitted" | "unsafe"   run-manifest emitter failure (#2479);
+#                                                otherwise it answers STUB_RUN_ID / STUB_MANIFEST_DIGEST
+#   cite: false | "wrong"                        the close stub omits run_manifest_line, or reports another run's line
 # The record-verified:<repo> clerical agent (refs/dispatch/verified) answers {ran: true}. The close stub treats a
 # delivery_check whose publication is pushed or already-on-origin as on origin/main (#2558).
 # #2562: publish-preflight:<repo> and publish-confirm:<repo> are exact-command clerical agents that run
@@ -72,6 +75,8 @@ const logs = []
 const heads = {}
 let head = 'ba5e0000'
 
+const STUB_RUN_ID = 'lrun_01J9ZZ0000000000000000000A'
+const STUB_MANIFEST_DIGEST = 'sha256:' + 'c'.repeat(64)
 const hex = text => [...text].map(char => char.charCodeAt(0).toString(16)).join('').slice(0, 10)
 const idsFromPrompt = prompt => [...new Set([...prompt.matchAll(/^- item_id=([0-9]+)/gm)].map(match => match[1]))]
 const itemsFromVerifyPrompt = prompt => [...prompt.matchAll(/^- item_id=([0-9]+).*commit_sha=([0-9a-f]+)/gm)]
@@ -108,11 +113,22 @@ function answer(prompt, options) {
   if (scenario.throwStage === kind) throw new Error(`stubbed ${kind} transport failure`)
   if (kind === 'record-decisions') {
     const match = prompt.match(/--input-json '([^']*)'\n/)
-    records.push({model: options.model, document: JSON.parse(match[1])})
+    records.push({kind: 'record-decisions', model: options.model, document: JSON.parse(match[1])})
     if (scenario.record === 'throw') throw new Error('stubbed recorder failure')
     return scenario.record === 'null' ? null : {ran: true, output: '{}'}
   }
   if (kind === 'record-verified') return {ran: true, output: ''}
+  if (kind === 'run-manifest') {
+    const match = prompt.match(/--input-json '([^']*)'\n/)
+    records.push({kind: 'run-manifest', model: options.model, agentType: options.agentType, document: JSON.parse(match[1])})
+    const mode = scenario.manifest
+    if (mode === 'throw') throw new Error('stubbed manifest emitter failure')
+    if (mode === 'null') return null
+    if (mode === 'garbage') return {ran: true, output: 'Traceback (most recent call last): not json'}
+    if (mode === 'not-emitted') return {ran: true, output: JSON.stringify({emitted: false, error: 'stub'})}
+    if (mode === 'unsafe') return {ran: true, output: JSON.stringify({emitted: true, run_id: "lrun_$(reboot)", manifest_digest: 'sha256:' + 'c'.repeat(64)})}
+    return {ran: true, output: JSON.stringify({emitted: true, run_id: STUB_RUN_ID, manifest_digest: STUB_MANIFEST_DIGEST})}
+  }
   if (kind === 'publish-preflight') {
     const mode = scenario.preflight
     if (mode === 'fail') return null
@@ -270,6 +286,10 @@ function answer(prompt, options) {
   if (kind === 'close') {
     const evidence = closeEvidence(prompt)
     const audit = prompt.includes('deterministic audit closeout')
+    // #2479: the note cites the run when asked to ('cite: false' leaves it out, 'cite: "wrong"' cites another).
+    const citeMatch = prompt.match(/include the line "(Run-Manifest: [^"]+)"/)
+    const citation = !citeMatch || scenario.cite === false ? {}
+      : {run_manifest_line: scenario.cite === 'wrong' ? 'Run-Manifest: lrun_other sha256:0' : citeMatch[1]}
     return {
       repo,
       // 'onOrigin': unpublished work is already on origin/main, so a delivery check passes.
@@ -281,6 +301,7 @@ function answer(prompt, options) {
           item_id: item.item_id,
           closed: !audit && item.verdict === 'confirmed' && !undelivered,
           action: audit ? 'noted' : (item.verdict !== 'confirmed' ? 'released' : undelivered ? 'verified-undelivered' : 'status-done'),
+          ...citation,
         }
       }),
     }
@@ -321,8 +342,10 @@ def run_workflow(path: Path, args: dict, **scenario) -> dict:
         text=True,
     )
     output = json.loads(result.stdout)
-    # Registry bookkeeping is separate from the existing repository-stage trace.
-    output["events"] = [label for label in output["events"] if label != "readonly-probe"]
+    # Registry bookkeeping and the run's RunManifest emission are separate from the repository-stage trace.
+    output["events"] = [label for label in output["events"] if label not in ("readonly-probe", "run-manifest")]
+    output["manifests"] = [record for record in output["records"] if record.get("kind") == "run-manifest"]
+    output["records"] = [record for record in output["records"] if record.get("kind") != "run-manifest"]
     # Clerical exact-command agents (records, and the #2562 publication checks) are not dispatch stages.
     clerical = ("readonly-probe", "record-verified:", "publish-preflight:", "publish-confirm:", "workspace:", "cleanup:")
     output["dispatch_events"] = [
@@ -456,7 +479,7 @@ class SavedWorkflowTests(unittest.TestCase):
                     self.assertNotEqual(entry.get("agentType"), "dispatch-readonly", label)
                     continue
                 kind = label.split(":")[0]
-                if kind in ("route", "record-decisions", "record-verified", "verify", "close"):
+                if kind in ("route", "record-decisions", "record-verified", "run-manifest", "verify", "close"):
                     seen.add(kind)
                     self.assertEqual(entry.get("agentType"), "dispatch-readonly", label)
             self.assertIn("verify", seen)
@@ -465,8 +488,9 @@ class SavedWorkflowTests(unittest.TestCase):
                 self.assertIn("route", seen)
                 self.assertIn("record-decisions", seen)
                 self.assertIn("record-verified", seen)
+                self.assertIn("run-manifest", seen)
         # Commands the read-only stages are told to run must be allowed by the definition.
-        for allowed in ("sprintctl", "jev_shadow.py", "git fetch origin", "git update-ref", "refs/dispatch/verified/", "verification worktree"):
+        for allowed in ("sprintctl", "jev_shadow.py", "run_manifest.py", "git fetch origin", "git update-ref", "refs/dispatch/verified/", "verification worktree"):
             self.assertIn(allowed, agent_def)
 
     def test_build_workflow_frontier_model_matches_canonical_routing(self) -> None:
@@ -1626,6 +1650,69 @@ class SavedWorkflowTests(unittest.TestCase):
         for mode in ("throw", "null"):
             with self.subTest(mode=mode):
                 self.assertEqual(run_workflow(BUILD_WORKFLOW, args, record=mode)["result"], plain["result"])
+
+    @requires_node
+    def test_run_manifest_is_emitted_at_start_and_cited_by_every_record(self) -> None:
+        """#2479: one RunManifest per run, emitted before any repository stage, cited by
+        the decision record and by every closeout note."""
+        args = {"items": [
+            {"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"},
+            {"repo": "example", "item_id": 2, "unit": "storage", "tier": "bounded"},
+        ]}
+        output = run_workflow(BUILD_WORKFLOW, args)
+        labels = [entry["label"] for entry in output["calls"]]
+        self.assertEqual(labels.count("run-manifest"), 1)
+        self.assertEqual(labels[:2], ["readonly-probe", "run-manifest"])
+        emission = call(output, "run-manifest")
+        self.assertEqual(emission["model"], CLERICAL)
+        self.assertEqual(emission["agentType"], "dispatch-readonly")
+        self.assertIn("scripts/run_manifest.py emit --input-json", emission["prompt"])
+        [manifest] = output["manifests"]
+        self.assertEqual(manifest["document"]["workflow"], "vuoro-dispatch-build")
+        self.assertEqual(manifest["document"]["harness_id"], "claude-code")
+        models = manifest["document"]["model_ids"]
+        self.assertEqual(models, sorted(set(models)))
+        self.assertIn(FRONTIER, models)
+        self.assertIn(CLERICAL, models)
+        reference = {"run_id": "lrun_01J9ZZ0000000000000000000A", "manifest_digest": "sha256:" + "c" * 64}
+        self.assertEqual(output["records"][0]["document"]["run"], reference)
+        close_prompt = call(output, "close:example")["prompt"]
+        self.assertIn(f"Run-Manifest: {reference['run_id']} {reference['manifest_digest']}", close_prompt)
+        self.assertEqual(output["result"]["run_manifest"], reference)
+        self.assertEqual({r["item_id"]: r["run_citation"] for r in output["result"]["results"]},
+                         {"1": "cited", "2": "cited"})
+
+    @requires_node
+    def test_an_uncited_closeout_note_is_recorded_and_never_changes_closure(self) -> None:
+        args = {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}
+        cited = run_workflow(BUILD_WORKFLOW, args)
+        for mode in (False, "wrong"):
+            with self.subTest(cite=mode):
+                output = run_workflow(BUILD_WORKFLOW, args, cite=mode)
+                [result] = output["result"]["results"]
+                self.assertEqual(result["run_citation"], "not-cited")
+                self.assertEqual(result["closed"], cited["result"]["results"][0]["closed"])
+                self.assertEqual(output["dispatch_events"], cited["dispatch_events"])
+                self.assertTrue(any("did not cite" in line for line in output["logs"]))
+
+    @requires_node
+    def test_a_failed_manifest_emission_never_changes_dispatch_and_records_say_unbound(self) -> None:
+        args = {"items": [{"repo": "example", "item_id": 1, "unit": "api", "tier": "bounded"}]}
+        bound = run_workflow(BUILD_WORKFLOW, args)
+        for mode in ("throw", "null", "garbage", "not-emitted", "unsafe"):
+            with self.subTest(mode=mode):
+                output = run_workflow(BUILD_WORKFLOW, args, manifest=mode)
+                self.assertIsNone(output["result"]["run_manifest"])
+                self.assertEqual([r["run_citation"] for r in output["result"]["results"]], ["unbound"])
+                strip = lambda result: {**result, "run_manifest": None, "results": [
+                    {k: v for k, v in r.items() if k != "run_citation"} for r in result["results"]]}
+                self.assertEqual(strip(output["result"]), strip(bound["result"]))
+                self.assertEqual(output["dispatch_events"], bound["dispatch_events"])
+                self.assertNotIn("run", output["records"][0]["document"])
+                self.assertNotIn("Run-Manifest:", call(output, "close:example")["prompt"])
+                self.assertNotIn("$(reboot)", json.dumps(output["records"]))
+                recorded = record_with_real_recorder(output)
+                self.assertEqual(recorded["rejected"], [])
 
     @requires_node
     def test_non_boolean_record_decisions_is_rejected(self) -> None:

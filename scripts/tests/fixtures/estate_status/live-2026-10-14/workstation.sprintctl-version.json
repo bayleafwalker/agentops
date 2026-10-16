@@ -1,6 +1,6 @@
 {
  "evidence": "sprintctl --version",
- "observed_at": "2026-10-14T15:08:55Z",
+ "observed_at": "2026-10-14T15:45:39Z",
  "ok": true,
  "rc": 0,
  "stderr": "",

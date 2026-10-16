@@ -2,7 +2,7 @@
   "schema_version": "environment-record/v1",
   "id": "workstation",
   "environment_class": "local",
-  "revision": 3,
+  "revision": 4,
   "roles": ["shared-development-host", "vuoro-served-client"],
   "constraints": [
     "no-workstation-postgresql-credentials",
@@ -14,6 +14,7 @@
     "/projects/dev/agentops/docs/runbooks/vuoro-workstation-cutover.md#workstation",
     "/projects/dev/agentops/docs/runbooks/vuoro-workstation-cutover.md#identity-and-production-boundary"
   ],
+  "holds": [],
   "identity_bindings": [
     {"principal": "environment:workstation-linux", "roles": ["vuoro-shared-work-client"]}
   ]

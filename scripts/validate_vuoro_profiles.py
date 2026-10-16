@@ -91,7 +91,7 @@ def _strings(value: object, field: str, path: Path, pattern: re.Pattern[str]) ->
 
 
 ENVIRONMENT_REQUIRED = {"schema_version", "id", "environment_class", "revision", "roles", "constraints", "capabilities", "runbook_refs", "identity_bindings"}
-ENVIRONMENT_OPTIONAL = {"authority", "tooling", "trust_roots", "credential_broker"}
+ENVIRONMENT_OPTIONAL = {"authority", "tooling", "trust_roots", "credential_broker", "holds"}
 #: Records with this role are a maintained runner composition: they must state
 #: their bounded authority and pinned tooling (bounded-execution-environment.md).
 RUNNER_ROLE = "unattended-agent-host"
@@ -223,9 +223,29 @@ def _validate_credential_broker(value: object, path: Path) -> None:
             raise ProfileError(f"{path}: {field}.bound must be a boolean")
 
 
+def _holds(value: object, path: Path) -> None:
+    """Optional `holds`: the declared pauses of an environment. An empty array is an
+    explicit "nothing is held"; absence means the record does not model holds."""
+    if not isinstance(value, list):
+        raise ProfileError(f"{path}: holds must be an array")
+    seen: set[str] = set()
+    for index, hold in enumerate(value):
+        if not isinstance(hold, dict) or not {"id", "reason"} <= set(hold) or not set(hold) <= {"id", "reason", "since", "ref"}:
+            raise ProfileError(f"{path}: holds[{index}] must have id and reason (optional since, ref) only")
+        _token(hold["id"], f"holds[{index}].id", path)
+        if hold["id"] in seen:
+            raise ProfileError(f"{path}: duplicate hold id {hold['id']!r}")
+        seen.add(hold["id"])
+        for field in ("reason", "since", "ref"):
+            if field in hold and (not isinstance(hold[field], str) or not hold[field]):
+                raise ProfileError(f"{path}: holds[{index}].{field} must be a non-empty string")
+
+
 def validate_environment(path: Path) -> dict[str, object]:
     value = _load(path)
     _exact({k: v for k, v in value.items() if k not in ENVIRONMENT_OPTIONAL}, ENVIRONMENT_REQUIRED, path)
+    if "holds" in value:
+        _holds(value["holds"], path)
     if value["schema_version"] != "environment-record/v1":
         raise ProfileError(f"{path}: schema_version must be environment-record/v1")
     _token(value["id"], "id", path)

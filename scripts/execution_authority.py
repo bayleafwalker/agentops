@@ -63,6 +63,10 @@ EVENT_ACCEPTED = "attempt_authorization_accepted"
 EVENT_REPORTED = "application_report_received"
 #: Provider operations a served attempt can authorize (sprintctl effect_attempt.canonical_target).
 PUBLICATION_TARGETS = {"push_branch", "open_pull_request"}
+#: The only branches a tier 2 publication may write. refs/heads/main never is one.
+PUBLICATION_BRANCH_PREFIX = "dispatch/publish-"
+#: The binding line an approval decision's rationale must carry, bound to one commit or PR.
+APPROVAL_LINE = re.compile(r"^approve (\S+) repo=(\S+) run=(\S+) (commit=[0-9a-f]{40}(?:[0-9a-f]{24})?|pr=https://\S+)$")
 
 
 class OwnerRefusal(Exception):
@@ -78,6 +82,7 @@ class WorkOwner(Protocol):
     def resolve_run(self, repo_id: str, run_id: str) -> dict: ...
     def attempt_get(self, repo_id: str, attempt_id: str) -> dict: ...
     def item_decisions(self, repo_id: str, item_id: int) -> dict: ...
+    def consume_approval(self, repo_id: str, run_id: str, decision_id: int, use: dict) -> dict: ...
 
 
 @dataclass(frozen=True)
@@ -100,6 +105,8 @@ class ExecutionRequest:
     attempt_id: str | None = None
     #: The commit the effect will publish; must equal the attempt's target commit.
     commit_sha: str | None = None
+    #: The pull request the effect concerns, when it is bound to a PR rather than a commit.
+    pr_url: str | None = None
     #: `decision:<item>:<decision>` for tier 3 operations.
     approval_ref: str | None = None
 
@@ -110,6 +117,9 @@ class Decision:
     code: str
     reason: str
     tier: str | None = None
+    #: For an allowed publication: the attempt's authorized target (branch, commit, operation).
+    #: The publisher must publish exactly there and nowhere else.
+    target: dict | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -203,7 +213,7 @@ def _check_run(request: ExecutionRequest, owner: WorkOwner | None) -> dict:
 
 
 def _check_attempt(request: ExecutionRequest, owner: WorkOwner, resolved: dict,
-                   required: str, publication: bool) -> float:
+                   required: str, publication: bool) -> tuple[float, dict]:
     """Attempt state, binding and target; returns the owner-side acceptance time."""
     if not request.attempt_id:
         raise _Refused("attempt-missing", f"{request.operation} requires an attempt_id")
@@ -221,6 +231,14 @@ def _check_attempt(request: ExecutionRequest, owner: WorkOwner, resolved: dict,
     if publication:
         if target.get("operation") not in PUBLICATION_TARGETS:
             raise _Refused("attempt-binding-mismatch", "attempt does not authorize a publication target")
+        branch = target.get("branch")
+        # Tier 2 never publishes to main: only a dispatch/publish-* branch, and only the
+        # attempt's own target branch (protected publication is tier 3).
+        if not isinstance(branch, str) or not branch.startswith(PUBLICATION_BRANCH_PREFIX):
+            raise _Refused("publication-branch-not-allowed",
+                           f"attempt target branch {branch!r} is not a {PUBLICATION_BRANCH_PREFIX}* branch")
+        if target.get("operation") == "open_pull_request" and not target.get("base_branch"):
+            raise _Refused("attempt-binding-mismatch", "pull request target has no base branch")
         if not request.commit_sha:
             raise _Refused("commit-missing", "publication requires the commit it will publish")
     if request.commit_sha and target.get("commit_sha") != request.commit_sha:
@@ -233,7 +251,7 @@ def _check_attempt(request: ExecutionRequest, owner: WorkOwner, resolved: dict,
     first = events[0]
     if not isinstance(first, dict) or first.get("event_kind") != EVENT_ACCEPTED:
         raise _Refused("owner-unavailable", "attempt history does not start with its acceptance")
-    return _parse_time(first.get("created_at"))
+    return _parse_time(first.get("created_at")), target
 
 
 def _check_approval(request: ExecutionRequest, owner: WorkOwner, entry: dict, now: float) -> str:
@@ -252,15 +270,32 @@ def _check_approval(request: ExecutionRequest, owner: WorkOwner, entry: dict, no
         raise _Refused("approval-invalid", "approval must be an accept decision on the referenced item")
     if decision.get("actor") not in entry["approvers"]:
         raise _Refused("approval-invalid", f"decision actor {decision.get('actor')!r} is not an approver for {entry['transition']!r}")
-    binding = f"approve {entry['transition']} repo={request.repo_id} run={request.run_id}"
+    if request.commit_sha:
+        subject = f"commit={request.commit_sha}"
+    elif request.pr_url:
+        subject = f"pr={request.pr_url}"
+    else:
+        raise _Refused("approval-invalid", "a tier 3 request must name the commit_sha or pr_url it is for")
+    binding = f"approve {entry['transition']} repo={request.repo_id} run={request.run_id} {subject}"
     rationale = decision.get("rationale")
-    if not isinstance(rationale, str) or binding not in rationale.splitlines():
+    lines = [ln for ln in rationale.splitlines() if APPROVAL_LINE.fullmatch(ln)] if isinstance(rationale, str) else []
+    if binding not in lines:
         raise _Refused("approval-invalid", f"decision rationale must contain the line {binding!r}")
     try:
         _check_window(_parse_time(decision.get("created_at")), entry["max_approval_age_seconds"], now, "approval")
     except _Refused as exc:
         raise _Refused("approval-expired" if exc.code == "ttl-expired" else "approval-invalid", exc.reason) from None
-    return f"{entry['transition']} approved by {decision.get('actor')} (decision {decision_id})"
+    # Single use: consume the decision owner-side, keyed by its id. A retry of this same
+    # use replays; any other use conflicts on the key and is refused.
+    use = {"decision_id": decision_id, "transition": entry["transition"], "repo_id": request.repo_id,
+           "run_id": request.run_id, "operation": request.operation, "subject": subject}
+    try:
+        _call(owner.consume_approval, "work.session-note.write-v1", request.repo_id, request.run_id, decision_id, use)
+    except _Refused as exc:
+        if exc.reason.endswith("failed: idempotency-conflict"):
+            raise _Refused("approval-already-used", f"decision {decision_id} was already used for another effect") from None
+        raise
+    return f"{entry['transition']} approved by {decision.get('actor')} (decision {decision_id}, {subject})"
 
 
 def _self_attested_window(request: ExecutionRequest, ttl: int, now: float) -> None:
@@ -316,9 +351,10 @@ def decide(record: dict, request: ExecutionRequest, owner: WorkOwner | None = No
         resolved = _check_run(request, owner)
         if required is not None:
             assert owner is not None
-            accepted_at = _check_attempt(request, owner, resolved, required, publication)
+            accepted_at, target = _check_attempt(request, owner, resolved, required, publication)
             _check_window(accepted_at, ttl, current, "attempt authorization")
-        return Decision(True, "scoped-execution", f"{op} on {request.repo_id} within run {request.run_id}", tier)
+        return Decision(True, "scoped-execution", f"{op} on {request.repo_id} within run {request.run_id}", tier,
+                        target if required is not None and publication else None)
     except _Refused as exc:
         return Decision(False, exc.code, exc.reason, tier)
     except Exception as exc:  # noqa: BLE001 - decide() is the boundary; it never raises
@@ -384,6 +420,14 @@ class ServedWorkOwner:
 
     def item_decisions(self, repo_id: str, item_id: int) -> dict:
         return self._invoke("work.read.item-decisions", {"item_id": item_id}, repo_id)
+
+    def consume_approval(self, repo_id: str, run_id: str, decision_id: int, use: dict) -> dict:
+        # The session note is the consumption record; its idempotency key is the decision,
+        # so the owner itself refuses a second, different use (idempotency-conflict).
+        note = "approval-consumed " + json.dumps(use, sort_keys=True, separators=(",", ":"))
+        return self._invoke("work.session-note.write-v1", {
+            "run_id": run_id, "note": note, "idempotency_key": f"approval-consume.{decision_id}",
+        }, repo_id)
 
 
 def authorize(environment: Path, request: ExecutionRequest, profile: Path | None) -> Decision:

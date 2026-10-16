@@ -1,6 +1,6 @@
 {
  "evidence": "git -C /projects/dev/vuoro-cloud fetch --quiet --tags github",
- "observed_at": "2026-10-14T15:08:52Z",
+ "observed_at": "2026-10-14T15:45:36Z",
  "ok": true,
  "rc": 0,
  "stderr": "",
