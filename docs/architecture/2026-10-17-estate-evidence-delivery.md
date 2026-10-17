@@ -40,7 +40,7 @@ states. The cloud workspace has no Sprintctl binary/served profile or configured
 operational credentials. No live items/reservations or acceptance decisions were
 read or changed. Reconcile existing owner items before scheduling further work.
 
-The source changes are published in review-ready pull requests:
+The initial source changes were merged through these pull requests:
 
 - [Appservice #1917](https://github.com/bayleafwalker/appservice/pull/1917) — service
   register and policy evidence.
@@ -51,7 +51,7 @@ The source changes are published in review-ready pull requests:
 - [Agentops #365](https://github.com/bayleafwalker/agentops/pull/365) — architecture,
   dependency sequence and this handoff.
 
-These links identify proposed delivery, not merged or deployed capability.
+These links identify merged source delivery, not deployed or accepted capability.
 Appservice's hosted offline validation and the Nix evaluation/build checks passed
 on the source heads named below. Live owner qualification remains outstanding.
 
@@ -75,8 +75,10 @@ on the source heads named below. Live owner qualification remains outstanding.
    protected operation before retry. The present work does not select a domain
    outcome, fabricate accepted results or qualify the workflow.
 
-EE-07–EE-16 retain their owning-plan design scope while these qualification
-dependencies are open. Domain outcomes EE-17–EE-22 remain with their owners.
+Further source/design delivery across EE-06–EE-23 and every EE-22 entry is
+recorded in the [full-roadmap progress and gate map](2026-10-17-estate-roadmap-source-progress.md).
+The owning plans retain their acceptance gates; domain outcomes remain with
+their owners.
 Nothing in this pickup drops the supported distribution, tenant design, learning
 or smaller-tool scope already accepted by the estate plan.
 
@@ -109,3 +111,6 @@ diff checks passed. No Terraform or provider operation ran.
 No estate runtime observation, adoption measurement, restored artifact or cost
 receipt was collected. Actual operating effort/cost remains unknown; agent reports
 and test counts do not establish EE-23's outcome or support-burden measures.
+The manual Sprintctl foreign-UID source-reader check is recorded in the
+[Unix-DAC handoff evidence note](../evidence/2026-10-17-sprintctl-foreign-uid-handoff.md);
+it uses a disposable fixture and does not qualify an installed host or service.
