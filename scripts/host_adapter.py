@@ -186,7 +186,7 @@ class OwnerPort(Protocol):
     def message_receipt(self, repo_id: str, *, message_id: str, instance_id: str, kind: str, **fields: Any) -> dict: ...
     def message_cancel(self, repo_id: str, *, message_id: str, reason: str) -> dict: ...
     def run_register(self, repo_id: str, arguments: dict) -> dict: ...
-    def run_delegate(self, repo_id: str, *, run_id: str, operations: list[str], ttl_seconds: int,
+    def run_delegate(self, repo_id: str, *, run_id: str, creator_instance_id: str, operations: list[str], ttl_seconds: int,
                      idempotency_key: str) -> dict: ...
     def run_delegation_get(self, repo_id: str, *, delegation_id: str) -> dict: ...
     def run_delegation_revoke(self, repo_id: str, *, delegation_id: str, reason: str,
@@ -235,14 +235,18 @@ class VuoroOwner:
             self._loop.close()
         self._client = self._loop = None
 
-    def _invoke(self, operation: str, arguments: dict, repo_id: str) -> dict:
-        # The directory, inbox and run operations carry their idempotency key in the
-        # arguments; their catalog entries refuse an envelope key
-        # (idempotency-key-not-allowed), so none is ever sent here.
+    def _invoke(self, operation: str, arguments: dict, repo_id: str, *,
+                idempotency_key: str | None = None) -> dict:
+        # Legacy directory, inbox and run operations forbid envelope keys. The
+        # delegation mutations require one as well as their owner argument key;
+        # those typed callers forward it explicitly instead of copying every key.
         client = self._ensure()
+        invocation = {"repo_id": repo_id}
+        if idempotency_key is not None:
+            invocation["idempotency_key"] = idempotency_key
         try:
             return self._loop.run_until_complete(  # type: ignore[union-attr]
-                client.invoke(operation, arguments, repo_id=repo_id))
+                client.invoke(operation, arguments, **invocation))
         except Exception as exc:  # noqa: BLE001 - map the client's rejection, re-raise the rest
             code = getattr(exc, "code", None)
             if isinstance(code, str):
@@ -298,10 +302,11 @@ class VuoroOwner:
     def run_register(self, repo_id, arguments):
         return self._invoke("work.run.register-v1", arguments, repo_id)
 
-    def run_delegate(self, repo_id, *, run_id, operations, ttl_seconds, idempotency_key):
+    def run_delegate(self, repo_id, *, run_id, creator_instance_id, operations, ttl_seconds, idempotency_key):
         return self._invoke("work.run.delegate-v1", {
-            "run_id": run_id, "operations": operations, "ttl_seconds": ttl_seconds,
-            "idempotency_key": idempotency_key}, repo_id)
+            "run_id": run_id, "creator_instance_id": creator_instance_id,
+            "operations": operations, "ttl_seconds": ttl_seconds,
+            "idempotency_key": idempotency_key}, repo_id, idempotency_key=idempotency_key)
 
     def run_delegation_get(self, repo_id, *, delegation_id):
         return self._invoke("work.run.delegation-get-v1", {"delegation_id": delegation_id}, repo_id)
@@ -309,7 +314,7 @@ class VuoroOwner:
     def run_delegation_revoke(self, repo_id, *, delegation_id, reason, idempotency_key):
         return self._invoke("work.run.delegation-revoke-v1", {
             "delegation_id": delegation_id, "reason": reason,
-            "idempotency_key": idempotency_key}, repo_id)
+            "idempotency_key": idempotency_key}, repo_id, idempotency_key=idempotency_key)
 
 
 # --------------------------------------------------------------------------
@@ -1295,7 +1300,8 @@ class Adapter:
             generation = int(current["delegation_generation"])
             idempotency_key = f"delegation-mint.{rec['message_id']}.{rec['run_id']}.{generation}"
             result = self.owner.run_delegate(
-                rec["repo_id"], run_id=rec["run_id"], operations=list(DELEGATED_RUN_OPERATIONS),
+                rec["repo_id"], run_id=rec["run_id"], creator_instance_id=self.instance_id,
+                operations=list(DELEGATED_RUN_OPERATIONS),
                 ttl_seconds=ttl_seconds, idempotency_key=idempotency_key)
             delegation = result.get("delegation") or result
             delegation_id = delegation.get("delegation_id")
