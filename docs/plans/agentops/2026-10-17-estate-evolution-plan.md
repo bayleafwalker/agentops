@@ -105,10 +105,12 @@ inspect their contents.
 
 Source pickup on 2026-10-17 is recorded in the
 [owner-register architecture and qualification handoff](../../architecture/2026-10-17-estate-evidence-delivery.md).
-It implements bounded AS-P1 source reporting, AS-P6 source checks, NX-P1 current
-guidance, NX-P4 offline guard fixtures and DC-P1 evidence preparation. EE-01,
-EE-04 and EE-05 remain open for their owner acceptance, required tool checks and
-live evidence; no estate row is closed by this source-only delivery.
+The [full-roadmap source progress and qualification map](../../architecture/2026-10-17-estate-roadmap-source-progress.md)
+continues that work across product, platform, household, creative and smaller-tool
+entries. Ready source PRs may merge under the operator's instruction; actual
+deployment is excluded. Source tests, released artifacts, deployment, externally
+measured qualification and owner acceptance remain distinct. No estate outcome
+is closed solely by this source delivery.
 
 - Use the owning plan's IDs and existing work items. Record a dependency edge
   instead of copying state or opening another writable queue.
