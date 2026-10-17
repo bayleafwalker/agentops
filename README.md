@@ -6,13 +6,22 @@
 
 [Read the Vuoro system shape and end-to-end walkthrough.](docs/architecture/vuoro-system-shape.md)
 
-Repo-owned planning and future operator surface for the `/projects/dev` agent-ops substrate.
+Canonical dispatch skills, schemas, sync utilities, read-only reporting and
+cross-repository guidance for the `/projects/dev` agent-ops substrate.
+
+[Estate delivery and current qualification handoff.](docs/architecture/2026-10-17-estate-evidence-delivery.md)
+The [full roadmap source progress](docs/architecture/2026-10-17-estate-roadmap-source-progress.md)
+separates merged implementation from release, installation and outcome qualification.
 
 The implementation repos remain separate:
 
 - `sprintctl` owns sprint/work-item state. ([bayleafwalker/sprintctl](https://github.com/bayleafwalker/sprintctl))
-- `kctl` owns knowledge artifact extraction. ([bayleafwalker/kctl](https://github.com/bayleafwalker/kctl))
-- `auditctl` will own repo-local audit ledgers. ([bayleafwalker/auditctl](https://github.com/bayleafwalker/auditctl))
+- Vuoro workspace and `vuoro-knowledge` own current knowledge/artifact work;
+  retired `kctl` is historical migration input only. See the
+  [estate delivery plan](docs/plans/agentops/2026-10-17-estate-evolution-plan.md).
+- `auditctl` owns audit capture and findings; its central schema3 design keeps
+  observation and decision history distinct from current authority. Historical
+  shard import and cutover remain gated. ([bayleafwalker/auditctl](https://github.com/bayleafwalker/auditctl))
 - `actionq` is contracting toward federation of work/execution references,
   relations, assurance, acceptance, and reconciliation. Release 0.1.26 removed
   its daemon, harness/worktree execution plane, and standalone server source;
