@@ -40,6 +40,21 @@ states. The cloud workspace has no Sprintctl binary/served profile or configured
 operational credentials. No live items/reservations or acceptance decisions were
 read or changed. Reconcile existing owner items before scheduling further work.
 
+The source changes are published for review in draft pull requests:
+
+- [Appservice #1917](https://github.com/bayleafwalker/appservice/pull/1917) — service
+  register and policy evidence.
+- [NixOS #25](https://github.com/bayleafwalker/gitops-nixos/pull/25) — current
+  operations and deployment-guard fixtures.
+- [Datacluster #3](https://github.com/bayleafwalker/datacluster/pull/3) — resource
+  evidence intake and historical-guide pointers.
+- [Agentops #365](https://github.com/bayleafwalker/agentops/pull/365) — architecture,
+  dependency sequence and this handoff.
+
+These links identify proposed delivery, not merged or deployed capability. The
+Appservice PR's hosted offline validation can supply the missing local `mise`
+gate; Nix evaluation still needs a Nix-capable environment.
+
 ## Sequence from source delivery to a qualified result
 
 1. Inspect live owner items and reservations, bind this source work to existing
