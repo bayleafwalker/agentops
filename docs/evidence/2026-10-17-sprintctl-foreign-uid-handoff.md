@@ -27,3 +27,11 @@ docker run --rm -i --network none --read-only \
 ```
 
 This is source-reader and Unix DAC evidence only. It does not establish production adapter installation, systemd identity/groups, ACL/MAC behavior, service lifecycle, or a host qualification run.
+
+The shared receiving UID/GID is not a confidentiality boundary between sessions.
+Any process with that same Unix identity and visibility of another run directory
+can read its group-readable token; the owner then limits that copied token to
+its own run, rather than identifying the presenting process. This check proves
+protected writes and reader behavior only. Host qualification must address the
+actual per-session filesystem/process visibility and harness CWD controls before
+claiming isolation between runs. The current launch gate remains disabled.
