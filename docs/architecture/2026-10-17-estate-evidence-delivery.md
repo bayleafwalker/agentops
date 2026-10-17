@@ -31,8 +31,8 @@ carry redacted references; credentials and raw private evidence stay with owners
 |---|---|---|
 | Appservice AS-P1 / EE-01 | `docs/scripts/service_truth.py`, `docs/service-truth-metadata.yaml` and `docs/service-truth-register.md`: offline source report, explicit pins/dependencies and reviewed declarations; observed revision/image/schema/health/use/backup/restore remain unknown. Initial snapshot contains 92 configured Flux units and zero runtime-observed units. Source, metadata and generator provenance are separate. | All critical operating owners/classifications, rendered resources and retirement residue, live observations, actual use and AS-P3/P4 coherent restore receipts. Source list length is not a deployed-service denominator. |
 | Appservice AS-P6 / EE-05 | Existing public-exposure and backup guards inspected and exercised; evidence in `docs/evidence/2026-10-17-policy-guard-qualification.md`. Existing CI runs both without changed-path filters. No bypass was established and no redundant fixture was added. | Live disposable-canary retirement, target/orphan and alert proof, current recovery-composition and upgrade qualification. |
-| NixOS NX-P1 / EE-04 | README, AGENTS and historical runbook pointers now follow source-defined encrypted workstation, isolated devbox and agent-free infra; `docs/runbooks/current-host-operations.md` preserves recovery references and names runtime unknowns. | Nix evaluation/checks and dated runtime identity/isolation/recovery evidence. No host conversion was restarted. |
-| NixOS NX-P4 / EE-05 | Offline `scripts/tests/test_deploy_host_guard.py` exercises refusal before rebuild, valid workstation alias, explicit remote destination and explicit override semantics; wired to `deploy-host-guard` in existing flake checks. Helper examples/comments follow current outputs. | Actual flake evaluation, host dry-run/deployment evidence and rollback/recovery qualification. No deployment behavior or host settings were changed. |
+| NixOS NX-P1 / EE-04 | README, AGENTS and historical runbook pointers now follow source-defined encrypted workstation, isolated devbox and agent-free infra; `docs/runbooks/current-host-operations.md` preserves recovery references and names runtime unknowns. All four outputs evaluated and all three check derivations built. | Owner acceptance and dated runtime identity/isolation/recovery evidence. No host conversion was restarted. |
+| NixOS NX-P4 / EE-05 | Offline `scripts/tests/test_deploy_host_guard.py` exercises refusal before rebuild, valid workstation alias, explicit remote destination and explicit override semantics; the actual `deploy-host-guard` flake build passed all five fixtures. Helper examples/comments follow current outputs. | Host dry-run/deployment evidence and rollback/recovery qualification. No deployment behavior or host settings were changed. |
 | Datacluster DC-P1 / EE-01, EE-04 | `docs/infrastructure/dc-p1-inventory-template.md` prepares timestamped provider/Terraform metadata/DNS/Flux/billing reconciliation and operating-intent decision. Historical architecture/status/upgrade entrypoints link the current gate. | Actual resource existence, owners, costs, access and operating-intent decision. DC-P2–P6 remain gated; no infrastructure change was performed. |
 
 These are implementation references, not fabricated Sprintctl IDs or completion
@@ -40,7 +40,7 @@ states. The cloud workspace has no Sprintctl binary/served profile or configured
 operational credentials. No live items/reservations or acceptance decisions were
 read or changed. Reconcile existing owner items before scheduling further work.
 
-The source changes are published for review in draft pull requests:
+The source changes are published in review-ready pull requests:
 
 - [Appservice #1917](https://github.com/bayleafwalker/appservice/pull/1917) — service
   register and policy evidence.
@@ -52,8 +52,8 @@ The source changes are published for review in draft pull requests:
   dependency sequence and this handoff.
 
 These links identify proposed delivery, not merged or deployed capability.
-Appservice's hosted offline validation passed on the source head named below;
-Nix evaluation still needs a Nix-capable environment.
+Appservice's hosted offline validation and the Nix evaluation/build checks passed
+on the source heads named below. Live owner qualification remains outstanding.
 
 ## Sequence from source delivery to a qualified result
 
@@ -88,18 +88,23 @@ The register generated successfully in JSON and Markdown against current source;
 the snapshot's generator/metadata digests and 92-unit denominator were checked.
 `mise run validate` could not run locally because `mise` is absent. The validation
 task now includes source-register fixtures and generation. Subsequently, hosted
-[Offline Validate run 888](https://github.com/bayleafwalker/appservice/actions/runs/39015092383)
-passed the full gate for Appservice head `2a4e9e27aff2cf2028793e5ada38a43d135677c9`;
-[State protocol contracts](https://github.com/bayleafwalker/appservice/actions/runs/39015092376)
+[Offline Validate run 889](https://github.com/bayleafwalker/appservice/actions/runs/39015620570)
+passed the full gate for Appservice head `47597165a6ca13ed0f6e54fbe89b1d54908b1fd5`;
+[State protocol contracts](https://github.com/bayleafwalker/appservice/actions/runs/39015620572)
 also passed. An initial hosted run exposed the canonical remote URL without a
 `.git` suffix; the final source handles that spelling with regression coverage.
 These are source qualification results, not runtime or deployment evidence.
 
 NixOS deploy guard fixtures: **5 passed**, including a copied-tree rehearsal;
-shell syntax, Markdown links and diff checks passed. `nix flake check` could not
-run because Nix is absent. All host outputs/aliases and the new derivation still
-need evaluation in a Nix-capable environment. Datacluster changes are documentation
-only; local links and diff checks passed. No Terraform or provider operation ran.
+shell syntax, Markdown links and diff checks passed. The initial missing-Nix
+gap was resolved with Nix 2.20.6 and an isolated container. At source head
+`d604a54dda177061b11367079727a356a16c6441`, all four host outputs evaluated and
+the full `nix flake check` built `deploy-host-guard` (5 tests), `audit-recovery`
+(32 tests) and `actionq-retirement`. The [owner evidence](https://github.com/bayleafwalker/gitops-nixos/pull/25)
+records commands, derivations, image digest and limits. The inner Nix sandbox
+was disabled inside the container; this does not qualify sandbox enforcement or
+installed hosts. Datacluster changes are documentation only; local links and
+diff checks passed. No Terraform or provider operation ran.
 
 No estate runtime observation, adoption measurement, restored artifact or cost
 receipt was collected. Actual operating effort/cost remains unknown; agent reports
