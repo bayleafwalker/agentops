@@ -157,3 +157,21 @@ above. They do not establish an estate deployment or owner acceptance.
 
 This update records only material already available in those public pull
 requests. Operational captures and private qualification details are excluded.
+
+
+## Public guide source review follow-up (2026-10-17)
+
+[Kotona #27](https://github.com/bayleafwalker/kotona.app/pull/27) is merged and supersedes
+the earlier source-review and CI blocker recorded above. Its household page
+was substantively reviewed against immutable public HLA and Kotiakku sources
+before advancing the verification date. Source capabilities are now separated
+from unverified installation, household inputs, recommendations and realized
+outcomes; the Vuoro guide follows the public owner/source history. No private
+deployment records or household observations were included.
+
+Validation preserved the existing gates: 148 unit tests, five page-freshness
+checks, 19 retrieval cases, 13 Chromium browser tests, Astro checks/build and
+Worker smoke passed. A masked discovery-ranking regression was corrected in
+the explanatory source text without changing ranking thresholds or queries.
+Publication is a separate result of the existing CI-to-deploy workflow; these
+content/source results establish no household or estate outcome.
