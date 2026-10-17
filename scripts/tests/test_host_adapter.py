@@ -237,6 +237,7 @@ class FakeHarness:
         self.creates += 1
         sid = f"ses_{self.creates:04d}"
         handoff = Path(directory) / ".vuoro"
+        backend_marker = Path(directory) / ".sprintctl" / "backend.json"
         if handoff.exists():
             self.handoff_at_create[sid] = {
                 "profile": json.loads((handoff / "profile.json").read_text()),
@@ -247,6 +248,9 @@ class FakeHarness:
                 "directory_gid": handoff.stat().st_gid,
                 "profile_gid": (handoff / "profile.json").stat().st_gid,
                 "credential_gid": (handoff / "credential").stat().st_gid,
+                "backend_marker": json.loads(backend_marker.read_text()),
+                "backend_marker_mode": backend_marker.stat().st_mode & 0o777,
+                "backend_marker_gid": backend_marker.stat().st_gid,
             }
         self.sessions[sid] = {"title": title, "messages": 0, "aborted": False, "started": False,
                               "permission": ha.SUCCESSOR_PERMISSION, "directory": directory}
@@ -412,6 +416,11 @@ def test_happy_path_launches_once_and_records_the_chain(rig):
     assert files["profile_mode"] == 0o644
     assert files["credential_mode"] == 0o640
     assert files["profile_gid"] == files["credential_gid"] == files["directory_gid"]
+    assert files["backend_marker"] == {"backend": "served", "repo_id": REPO}
+    backend_marker = rig.run_root / "msg_A" / ".sprintctl" / "backend.json"
+    assert backend_marker.read_bytes() == ha.Adapter._backend_marker_bytes(REPO)
+    assert files["backend_marker_mode"] == 0o644
+    assert files["backend_marker_gid"] == (rig.run_root / "msg_A").stat().st_gid
     for path in (rig.tmp / "state" / "adapter.sqlite3", rig.tmp / "state" / "adapter.sqlite3-wal"):
         if path.exists():
             assert record["token"].encode() not in path.read_bytes()
@@ -428,6 +437,59 @@ def test_invalid_delegation_token_is_rejected_before_creating_handoff_files(rig,
         rig.adapter._install_handoff({"run_id": "run_X", "message_id": "msg_A"}, token)
     assert not (rig.run_root / "msg_A" / ".vuoro").exists()
     assert not list(rig.run_root.rglob("credential"))
+
+
+@pytest.mark.parametrize("marker_kind", [
+    "wrong-content", "writable", "foreign-owner", "symlink", "writable-directory",
+])
+def test_untrusted_existing_served_backend_marker_refuses_before_mint_or_launch(rig, marker_kind, monkeypatch):
+    run_dir = Path(rig.adapter.run_directory({"message_id": "msg_A"}, create=True))
+    marker_dir = run_dir / ".sprintctl"
+    marker_dir.mkdir(mode=0o750)
+    marker_dir.chmod(0o750)
+    marker = marker_dir / "backend.json"
+    if marker_kind == "symlink":
+        target = run_dir / "foreign-marker"
+        target.write_text(json.dumps({"backend": "served", "repo_id": REPO}), encoding="utf-8")
+        marker.symlink_to(target)
+    elif marker_kind == "writable-directory":
+        marker_dir.chmod(0o770)
+        marker.write_text(json.dumps({"backend": "served", "repo_id": REPO}), encoding="utf-8")
+        marker.chmod(0o644)
+    else:
+        payload = ({"backend": "local", "repo_id": REPO} if marker_kind == "wrong-content"
+                   else {"backend": "served", "repo_id": REPO})
+        marker.write_text(json.dumps(payload), encoding="utf-8")
+        marker.chmod(0o664 if marker_kind == "writable" else 0o644)
+    if marker_kind == "foreign-owner":
+        import os
+        from types import SimpleNamespace
+
+        real_open, real_fstat = os.open, os.fstat
+        marker_fds = set()
+
+        def tracked_open(path, *args, **kwargs):
+            fd = real_open(path, *args, **kwargs)
+            if path == "backend.json":
+                marker_fds.add(fd)
+            return fd
+
+        def foreign_stat(fd):
+            st = real_fstat(fd)
+            if fd in marker_fds:
+                return SimpleNamespace(st_mode=st.st_mode, st_uid=st.st_uid + 1, st_gid=st.st_gid)
+            return st
+
+        monkeypatch.setattr(os, "open", tracked_open)
+        monkeypatch.setattr(os, "fstat", foreign_stat)
+
+    rig.owner.send()
+    rig.tick(2)
+    rec = rig.rec()
+    assert rec["outcome"] == "not-started"
+    assert rec["reason_code"] == "run-backend-marker-untrusted"
+    assert rig.owner.token_counter == 0 and rig.harness.creates == 0
+    assert rig.owner.receipt_of("msg_A", "result-linked")["outcome"] == "not-started"
 
 
 def test_missing_qualification_flag_refuses_without_falling_back_to_inbox_credential(rig):
@@ -1377,19 +1439,22 @@ def test_trusted_mode_adapter_launches_nothing(rig):
     assert rig.owner.receipt_of("msg_A", "refused") is None
 
 
-def _simulate_root_owned_paths(monkeypatch, *, except_paths=()):
+def _simulate_root_owned_paths(monkeypatch, *, unowned_paths=()):
     import os
+    import stat
 
     original_lstat = Path.lstat
-    except_paths = {Path(path) for path in except_paths}
+    unowned_paths = {Path(path) for path in unowned_paths}
 
     def lstat(path):
         st = original_lstat(path)
-        if path not in except_paths:
-            fields = list(st)
+        fields = list(st)
+        if path in unowned_paths:
+            fields[4] = os.geteuid() + 1
+        else:
+            fields[0] &= ~(stat.S_IWGRP | stat.S_IWOTH)
             fields[4] = 0
-            return os.stat_result(fields)
-        return st
+        return os.stat_result(fields)
 
     monkeypatch.setattr(Path, "lstat", lstat)
     monkeypatch.setattr(ha.os, "access", lambda *a: False)
@@ -1589,8 +1654,11 @@ def test_trusted_config_checks_ancestors_and_symlink_locations(tmp_path, monkeyp
     link = tmp_path / "policy-link"
     link.symlink_to("/etc/passwd")
     assert ha.untrusted_config(link) is not None
-    _simulate_root_owned_paths(monkeypatch, except_paths=(Path("/etc"),))
-    assert "not owned by root" in ha.untrusted_config("/etc/passwd")
+    unowned = tmp_path / "not-root-owned.json"
+    unowned.write_text("{}")
+    unowned.chmod(0o444)
+    _simulate_root_owned_paths(monkeypatch, unowned_paths=(unowned,))
+    assert "not owned by root" in ha.untrusted_config(unowned)
     _simulate_root_owned_paths(monkeypatch)
     assert ha.untrusted_config("/etc/passwd") is None
 

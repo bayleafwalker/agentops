@@ -1056,7 +1056,7 @@ class Adapter:
         try:
             st = os.fstat(fd)
             if not stat.S_ISREG(st.st_mode) or st.st_uid != os.geteuid():
-                raise HarnessError(f"handoff {name} is not a regular adapter-owned file")
+                raise HarnessError(f"run-directory file {name} is not a regular adapter-owned file")
             os.fchown(fd, os.geteuid(), group_id)
             os.fchmod(fd, mode)
             view = memoryview(data)
@@ -1097,7 +1097,76 @@ class Adapter:
             raise HarnessError("run .vuoro directory is not adapter-owned mode 0750")
         return handoff_fd, run_directory
 
+    @staticmethod
+    def _backend_marker_bytes(repo_id: str) -> bytes:
+        return (json.dumps({"backend": "served", "repo_id": repo_id},
+                           sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+
+    def _ensure_served_backend_marker(self, rec) -> None:
+        """Install the protected Sprintctl routing marker in the session's exact CWD."""
+        repo_id = rec.get("repo_id") if isinstance(rec, dict) else rec["repo_id"]
+        if not isinstance(repo_id, str) or not repo_id:
+            raise HarnessError("run has no owner repository identity for the backend marker")
+        run_directory = self.run_directory(rec, create=True)
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        run_fd = os.open(run_directory, flags)
+        try:
+            run_st = os.fstat(run_fd)
+            if (run_st.st_uid != os.geteuid() or stat.S_IMODE(run_st.st_mode) != 0o3770):
+                raise HarnessError("run directory is not adapter-owned sticky 03770")
+            made_marker_dir = False
+            try:
+                os.mkdir(".sprintctl", mode=0o750, dir_fd=run_fd)
+                made_marker_dir = True
+            except FileExistsError:
+                pass
+            marker_fd = os.open(".sprintctl", flags, dir_fd=run_fd)
+        finally:
+            os.close(run_fd)
+        try:
+            marker_dir_st = os.fstat(marker_fd)
+            if made_marker_dir:
+                os.fchmod(marker_fd, 0o750)
+                marker_dir_st = os.fstat(marker_fd)
+            if (marker_dir_st.st_uid != os.geteuid() or marker_dir_st.st_gid != run_st.st_gid
+                    or stat.S_IMODE(marker_dir_st.st_mode) != 0o750):
+                raise HarnessError("run .sprintctl directory is not adapter-owned mode 0750")
+            expected = self._backend_marker_bytes(repo_id)
+            try:
+                self._write_at(marker_fd, "backend.json", expected, 0o644, marker_dir_st.st_gid)
+            except FileExistsError:
+                marker_file_fd = os.open("backend.json", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                                         dir_fd=marker_fd)
+                try:
+                    marker_st = os.fstat(marker_file_fd)
+                    if (not stat.S_ISREG(marker_st.st_mode) or marker_st.st_uid != os.geteuid()
+                            or marker_st.st_gid != marker_dir_st.st_gid
+                            or stat.S_IMODE(marker_st.st_mode) != 0o644):
+                        raise HarnessError("existing .sprintctl/backend.json is not a protected adapter marker")
+                    contents = bytearray()
+                    while len(contents) <= len(expected):
+                        chunk = os.read(marker_file_fd, len(expected) + 1 - len(contents))
+                        if not chunk:
+                            break
+                        contents.extend(chunk)
+                    if bytes(contents) != expected:
+                        raise HarnessError("existing .sprintctl/backend.json does not match the served run identity")
+                finally:
+                    os.close(marker_file_fd)
+            os.fsync(marker_fd)
+        finally:
+            os.close(marker_fd)
+
+    def _served_backend_marker_valid(self, rec) -> bool:
+        try:
+            self._ensure_served_backend_marker(rec)
+            return True
+        except (OSError, HarnessError):
+            return False
+
     def _handoff_files_valid(self, rec) -> bool:
+        if not self._served_backend_marker_valid(rec):
+            return False
         try:
             handoff_fd, _ = self._run_handoff_directory(rec, create=False)
         except (OSError, HarnessError):
@@ -1207,6 +1276,10 @@ class Adapter:
         ttl_seconds = min(policy.max_run_seconds, MAX_DELEGATION_TTL_SECONDS)
         if isinstance(ttl_seconds, bool) or not isinstance(ttl_seconds, int) or ttl_seconds <= 0:
             return "run-delegation-invalid-ttl", "delegation TTL must be a positive integer"
+        try:
+            self._ensure_served_backend_marker(rec)
+        except (OSError, HarnessError) as exc:
+            return "run-backend-marker-untrusted", f"cannot install trusted served backend marker: {exc}"
 
         current = self.state.get(rec["repo_id"], rec["message_id"])
         for _ in range(3):
