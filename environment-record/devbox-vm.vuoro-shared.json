@@ -70,8 +70,8 @@
     {
       "name": "vuoro-client",
       "version": "0.1.1",
-      "source": "gitops-nixos pkgs/agentops-host-adapter.nix: bayleafwalker/vuoro 8b8428e, packages/vuoro-client",
-      "digest": "git:8b8428e41c2178d1ae573cfb15917acdc9f05652"
+      "source": "gitops-nixos pkgs/agentops-host-adapter.nix: official bayleafwalker/vuoro vuoro-client-v0.1.1 release wheel",
+      "digest": "sha256:b5fb6bad174abd00d67504398690bcfb8c3cc3be891e5465983827e5a1740f6d"
     },
     {
       "name": "vuoro-adapter-kit",
