@@ -1,0 +1,73 @@
+{
+  "schema_version": "verification-result/v1",
+  "context_id": "host-adapter-run-handoff-recovery-v1",
+  "contract_ref": {
+    "doc_id": "docs/architecture/host-adapter-run-handoff.md",
+    "revision": "git:8aaf1f8e2d748e615886a497472f73f217fc46b1"
+  },
+  "implementation_sha": "694db475eb3299f638bc0d5b1105ed7cf138cf75",
+  "depth": 1,
+  "environment": {
+    "os": "Linux test runner",
+    "python": "3.12.14",
+    "pytest": "9.1.1",
+    "filesystem": "temporary POSIX filesystem; group/ownership edge cases represented with deterministic fixtures",
+    "owner": "FakeOwner; no live Sprintctl API",
+    "harness": "FakeHarness; no session launch"
+  },
+  "execution": {
+    "commands": [
+      "/workspace/.venv/bin/pytest -q scripts/tests/test_host_adapter.py",
+      "/workspace/.venv/bin/pytest -q scripts/tests",
+      "git diff --check"
+    ],
+    "adapter_tests": "135 passed",
+    "scripts_tests": "1658 passed, 18 skipped, 1383 subtests passed",
+    "warnings": "22 existing Python 3.14 tar extraction deprecation warnings in project release tests",
+    "crash_points": [
+      "delegation minted before metadata persistence",
+      "delegation metadata persisted",
+      "credential file written",
+      "profile file written",
+      "handoff files and directory fsynced before installed journal state"
+    ],
+    "recovery_observation": "Each injected one-time-token-loss history revoked the old delegation, advanced generation once, reminted without reading a token file, and created one harness session; the replacement delegation was revoked on fake settlement.",
+    "refusal_observation": "Malformed owner token and wrong-content, writable, foreign-owner, symlinked, and writable-directory backend-marker fixtures produced not-started outcomes before owner mint or harness launch.",
+    "independent_review": "Parent reviewed the integration change and reported no blocker before the verification packet was added."
+  },
+  "claims": [
+    {
+      "property": "Default-disabled policy prevents run delegation and never falls back to the inbox decision credential",
+      "result": "example-tested"
+    },
+    {
+      "property": "The adapter writes the owner repository's served marker and restricted Vuoro profile into the exact fake harness working directory with protected modes and no token in SQLite",
+      "result": "example-tested"
+    },
+    {
+      "property": "Malformed tokens and unsafe existing marker paths refuse before mint or launch without replacing marker content",
+      "result": "example-tested"
+    },
+    {
+      "property": "Five injected crashes during one-time-token handoff recover by revoking and reminting without reading the token file or relaunching the session",
+      "result": "example-tested"
+    },
+    {
+      "property": "Explicit adapter revocation is ordered before result-linked and settlement revocation is independently observed by the fake owner",
+      "result": "example-tested"
+    },
+    {
+      "property": "The production Sprintctl client consumes this exact adapter marker/profile against a live owner service and host identity",
+      "result": "unknown"
+    },
+    {
+      "property": "Power-loss durability across owner service, SQLite journal, filesystem handoff, and harness effect",
+      "result": "unknown"
+    },
+    {
+      "property": "Production Unix group/ACL behavior, Windows comfort, physical host comfort, or live host launch qualification",
+      "result": "unknown"
+    }
+  ],
+  "counterexamples": []
+}
