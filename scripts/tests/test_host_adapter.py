@@ -186,7 +186,8 @@ class FakeOwner:
         self.runs[key] = (digest, run_id)
         return {"repo_id": repo, "run": {"run_id": run_id}}
 
-    def run_delegate(self, repo, *, run_id, operations, ttl_seconds, idempotency_key):
+    def run_delegate(self, repo, *, run_id, creator_instance_id, operations, ttl_seconds, idempotency_key):
+        assert self.instance_principal.get(creator_instance_id) == ME
         self.delegate_ttls.append(ttl_seconds)
         prior = self.delegation_keys.get(idempotency_key)
         if prior:
@@ -1041,7 +1042,8 @@ def test_vuoro_owner_sends_delegation_calls_through_the_owner_port():
     o.agent_observe(REPO, instance_id="ins_A", fact="observed", valid_for_seconds=90, idempotency_key="obs.key.0001")
     o.agent_retire(REPO, instance_id="ins_A", reason="done", idempotency_key="ret.key.0001")
     o.run_register(REPO, {"idempotency_key": "inbox.msg_A"})
-    o.run_delegate(REPO, run_id="run_X", operations=list(ha.DELEGATED_RUN_OPERATIONS),
+    o.run_delegate(REPO, run_id="run_X", creator_instance_id="ins_A",
+                   operations=list(ha.DELEGATED_RUN_OPERATIONS),
                    ttl_seconds=3600, idempotency_key="delegation.mint.0001")
     o.run_delegation_get(REPO, delegation_id="dlg_X")
     o.run_delegation_revoke(REPO, delegation_id="dlg_X", reason="settled",
@@ -1052,8 +1054,15 @@ def test_vuoro_owner_sends_delegation_calls_through_the_owner_port():
         "work.run.register-v1", "work.run.delegate-v1", "work.run.delegation-get-v1",
         "work.run.delegation-revoke-v1",
     ]
+    # Released Sprintctl delegation mutations require both the invocation and
+    # owner argument keys. Legacy directory/run calls forbid an invocation key.
     for operation, arguments, kwargs in calls:
-        assert "idempotency_key" not in kwargs, operation
+        if operation in ("work.run.delegate-v1", "work.run.delegation-revoke-v1"):
+            assert kwargs["idempotency_key"] == arguments["idempotency_key"], operation
+            if operation == "work.run.delegate-v1":
+                assert arguments["creator_instance_id"] == "ins_A"
+        else:
+            assert "idempotency_key" not in kwargs, operation
         if operation == "work.run.delegation-get-v1":
             assert "idempotency_key" not in arguments
         else:
