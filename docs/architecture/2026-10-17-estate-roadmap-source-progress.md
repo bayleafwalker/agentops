@@ -129,3 +129,25 @@ Live Sprintctl profiles/credentials are unavailable in this workspace. Existing
 owner items and reservations must be reconciled through their real authority
 before scheduling deployment or closing outcomes. The present source work does
 not fabricate a parallel writable tracking ledger or waive any acceptance gate.
+
+
+## Public source maintenance follow-up (2026-10-17)
+
+The following public source results supersede the specific source/CI blockers
+above. They do not establish an estate deployment or owner acceptance.
+
+- [Agentops #371](https://github.com/bayleafwalker/agentops/pull/371) is merged.
+  The estate report distinguishes an observed inbox launch hold from declared
+  host holds. Missing observations remain unknown; enabled launches do not prove
+  qualification. The regression failed against the previous source, and 83
+  focused tests plus all four hosted checks passed.
+- [Outctl #7](https://github.com/bayleafwalker/outctl/pull/7) is merged.
+  Retained extension workers preserve conventional library paths and their
+  canonical destinations on merged-/usr Linux. Historical context-economy
+  scripts remain unchanged under a narrow Ruff exclusion; maintained code
+  remains linted. All four hosted checks passed, including 339 Python tests,
+  native checks and offline clean-install/rollback rehearsal. The earlier
+  Outctl CI blocker is superseded; its retired-product boundary is unchanged.
+
+This update records only material already available in those public pull
+requests. Operational captures and private qualification details are excluded.
