@@ -103,6 +103,13 @@ inspect their contents.
 
 ## Execution and completion rules
 
+Source pickup on 2026-10-17 is recorded in the
+[owner-register architecture and qualification handoff](../../architecture/2026-10-17-estate-evidence-delivery.md).
+It implements bounded AS-P1 source reporting, AS-P6 source checks, NX-P1 current
+guidance, NX-P4 offline guard fixtures and DC-P1 evidence preparation. EE-01,
+EE-04 and EE-05 remain open for their owner acceptance, required tool checks and
+live evidence; no estate row is closed by this source-only delivery.
+
 - Use the owning plan's IDs and existing work items. Record a dependency edge
   instead of copying state or opening another writable queue.
 - Design/documentation work can proceed before runtime qualification. Exposure,
