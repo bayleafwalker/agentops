@@ -111,3 +111,6 @@ diff checks passed. No Terraform or provider operation ran.
 No estate runtime observation, adoption measurement, restored artifact or cost
 receipt was collected. Actual operating effort/cost remains unknown; agent reports
 and test counts do not establish EE-23's outcome or support-burden measures.
+The manual Sprintctl foreign-UID source-reader check is recorded in the
+[Unix-DAC handoff evidence note](../evidence/2026-10-17-sprintctl-foreign-uid-handoff.md);
+it uses a disposable fixture and does not qualify an installed host or service.
