@@ -6,17 +6,12 @@
 
 [Read the Vuoro system shape and end-to-end walkthrough.](docs/architecture/vuoro-system-shape.md)
 
-Canonical dispatch skills, schemas, sync utilities, read-only reporting and
-cross-repository guidance for the `/projects/dev` agent-ops substrate.
-
-[Estate delivery and current qualification handoff.](docs/architecture/2026-10-17-estate-evidence-delivery.md)
+Repo-owned planning and future operator surface for the `/projects/dev` agent-ops substrate.
 
 The implementation repos remain separate:
 
 - `sprintctl` owns sprint/work-item state. ([bayleafwalker/sprintctl](https://github.com/bayleafwalker/sprintctl))
-- Vuoro workspace and `vuoro-knowledge` own current knowledge/artifact work;
-  retired `kctl` is historical migration input only. See the
-  [estate delivery plan](docs/plans/agentops/2026-10-17-estate-evolution-plan.md).
+- `kctl` owns knowledge artifact extraction. ([bayleafwalker/kctl](https://github.com/bayleafwalker/kctl))
 - `auditctl` will own repo-local audit ledgers. ([bayleafwalker/auditctl](https://github.com/bayleafwalker/auditctl))
 - `actionq` is contracting toward federation of work/execution references,
   relations, assurance, acceptance, and reconciliation. Release 0.1.26 removed
