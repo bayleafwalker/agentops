@@ -2,6 +2,9 @@
 
 ## Current estate delivery plan
 
+- [Owner-register architecture and qualification handoff](../../architecture/2026-10-17-estate-evidence-delivery.md)
+  records the first source implementation, tests, owner boundaries and remaining
+  connected-evidence gates. It is a handoff, not a second work tracker.
 - [Estate evolution: project delivery and operating plan](2026-10-17-estate-evolution-plan.md)
   lands the full October 17 assessment into owner plans, including supported
   distribution, onboarding, upgrades, support and broader product design.
