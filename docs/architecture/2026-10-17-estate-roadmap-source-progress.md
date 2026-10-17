@@ -149,5 +149,11 @@ above. They do not establish an estate deployment or owner acceptance.
   native checks and offline clean-install/rollback rehearsal. The earlier
   Outctl CI blocker is superseded; its retired-product boundary is unchanged.
 
+- [Agentops #366](https://github.com/bayleafwalker/agentops/pull/366) and
+  [#367](https://github.com/bayleafwalker/agentops/pull/367) are merged. The README
+  follows current source ownership, and the former cockpit is labelled historical
+  in the public guide. Their earlier source-only publication hold is superseded.
+  This does not establish that every other historical guide entry is reconciled.
+
 This update records only material already available in those public pull
 requests. Operational captures and private qualification details are excluded.
