@@ -52,6 +52,12 @@ class FakeOwner:
         self.fail_once: set[str] = set()   # receipt kinds that raise a transport error once
         self.fail_messages: set[str] = set()  # message ids whose receipts always raise
         self.no_run_id = False
+        self.delegations: dict[str, dict] = {}
+        self.delegation_keys: dict[str, str] = {}
+        self.delegation_runs: dict[str, str] = {}
+        self.delegation_events: list[tuple[str, str]] = []
+        self.delegate_ttls: list[int] = []
+        self.token_counter = 0
 
     # test helpers
     def send(self, mid: str = "msg_A", *, sender: str = SENDER, kind: str = "continue", pred: str | None = "run_P",
@@ -152,6 +158,12 @@ class FakeOwner:
                 if same:
                     return replay(existing)
                 raise ha.OwnerError("already-resulted")
+            linked = mine("run-linked")
+            if linked:
+                delegation_id = self.delegation_runs.get(linked["run_id"])
+                if delegation_id:
+                    self.delegations[delegation_id]["revoked"] = True
+                    self.delegation_events.append(("settlement-revoke", delegation_id))
             return self._add(rs, rec)
         raise ha.OwnerError("invalid-arguments", kind)
 
@@ -174,6 +186,34 @@ class FakeOwner:
         self.runs[key] = (digest, run_id)
         return {"repo_id": repo, "run": {"run_id": run_id}}
 
+    def run_delegate(self, repo, *, run_id, operations, ttl_seconds, idempotency_key):
+        self.delegate_ttls.append(ttl_seconds)
+        prior = self.delegation_keys.get(idempotency_key)
+        if prior:
+            record = self.delegations[prior]
+            return {k: record[k] for k in ("delegation_id", "expires_at")}
+        self.token_counter += 1
+        delegation_id = f"dlg_{self.token_counter:04d}"
+        token = f"vrd_secret_{self.token_counter:04d}"
+        record = {"delegation_id": delegation_id, "run_id": run_id,
+                  "operations": list(operations), "ttl_seconds": ttl_seconds,
+                  "expires_at": "2027-01-01T00:00:00Z", "token": token, "revoked": False}
+        self.delegation_keys[idempotency_key] = delegation_id
+        self.delegations[delegation_id] = record
+        self.delegation_runs[run_id] = delegation_id
+        self.delegation_events.append(("mint", delegation_id))
+        return {"delegation_id": delegation_id, "expires_at": record["expires_at"], "token": token}
+
+    def run_delegation_get(self, repo, *, delegation_id):
+        record = self.delegations[delegation_id]
+        return {k: record[k] for k in ("delegation_id", "run_id", "operations", "expires_at", "revoked")}
+
+    def run_delegation_revoke(self, repo, *, delegation_id, reason, idempotency_key):
+        record = self.delegations[delegation_id]
+        record["revoked"] = True
+        self.delegation_events.append(("explicit-revoke", delegation_id))
+        return {"delegation_id": delegation_id, "revoked": True}
+
 
 class FakeHarness:
     def __init__(self) -> None:
@@ -188,6 +228,7 @@ class FakeHarness:
         self.fail_with: str | None = None
         self.note_text = ""
         self.manual_start = False  # a prompted session does not become busy until start() is called
+        self.handoff_at_create: dict[str, dict] = {}
 
     def health(self):
         return self.healthy
@@ -195,6 +236,18 @@ class FakeHarness:
     def create_session(self, title, directory):
         self.creates += 1
         sid = f"ses_{self.creates:04d}"
+        handoff = Path(directory) / ".vuoro"
+        if handoff.exists():
+            self.handoff_at_create[sid] = {
+                "profile": json.loads((handoff / "profile.json").read_text()),
+                "credential": (handoff / "credential").read_text(),
+                "directory_mode": handoff.stat().st_mode & 0o777,
+                "profile_mode": (handoff / "profile.json").stat().st_mode & 0o777,
+                "credential_mode": (handoff / "credential").stat().st_mode & 0o777,
+                "directory_gid": handoff.stat().st_gid,
+                "profile_gid": (handoff / "profile.json").stat().st_gid,
+                "credential_gid": (handoff / "credential").stat().st_gid,
+            }
         self.sessions[sid] = {"title": title, "messages": 0, "aborted": False, "started": False,
                               "permission": ha.SUCCESSOR_PERMISSION, "directory": directory}
         return sid
@@ -261,7 +314,8 @@ def write_policy(path: Path, **over) -> None:
     env = path.parent / "environment.json"
     if not env.exists():
         write_environment(env)
-    pol = {"enabled": True, "launches_enabled": True, "allowed_senders": [SENDER], "allowed_repos": [REPO],
+    pol = {"enabled": True, "launches_enabled": True, "run_delegation_qualified": True,
+           "allowed_senders": [SENDER], "allowed_repos": [REPO],
            "kinds": ["continue"], "max_concurrent": 2, "environment_record": str(env),
            "harness": {"harness_id": "opencode", "harness_build": "1.19.0", "model_id": "prov/model",
                        "recipe_id": "inbox-continue-v1", "observed_profile": {"sandbox": "none"}}}
@@ -275,6 +329,18 @@ class Rig:
         self.owner, self.harness = FakeOwner(), FakeHarness()
         self.policy = tmp / "policy.json"
         write_policy(self.policy)
+        self.run_root = tmp / "runs"
+        self.run_root.mkdir()
+        self.profile = tmp / "adapter-profile.json"
+        self.profile.write_text(json.dumps({
+            "schema_version": "vuoro-client-profile/v1", "id": "inbox-profile", "revision": 1,
+            "source_environment_id": "devbox",
+            "target": {"environment_id": "vuoro-shared", "environment_class": "production",
+                       "endpoint": "https://vuoro.example.test"},
+            "credential_ref": "file:/adapter/decision-credential",
+            "required_authorities": ["work:read", "work:evidence"],
+            "production_endpoint_denied": False,
+        }))
         self.now = NOW
         self.checkpoint = None
         self.adapter: ha.Adapter | None = None
@@ -286,7 +352,8 @@ class Rig:
         state = ha.State(self.tmp / "state", clock=lambda: self.now)
         self.adapter = ha.Adapter(
             owner=self.owner, harness=self.harness, state=state, policy_path=self.policy,
-            config=ha.Config(poll_interval=10, directory="/work"), clock=lambda: self.now,
+            config=ha.Config(poll_interval=10, directory="/work", run_root=str(self.run_root),
+                             adapter_profile=str(self.profile)), clock=lambda: self.now,
             checkpoint=lambda name: self.checkpoint(name) if self.checkpoint else None, log=lambda m: None)
         return self.adapter
 
@@ -330,6 +397,68 @@ def test_happy_path_launches_once_and_records_the_chain(rig):
     assert args == {"harness_id": "opencode", "harness_build": "1.19.0", "model_id": "prov/model",
                     "recipe_id": "inbox-continue-v1", "observed_profile": {"sandbox": "none"},
                     "idempotency_key": "inbox.msg_A", "predecessor_run_id": "run_P"}
+    record = rig.owner.delegations[rec["delegation_id"]]
+    assert record["operations"] == list(ha.DELEGATED_RUN_OPERATIONS)
+    assert record["ttl_seconds"] == 3600 and record["revoked"] is True
+    handoff = rig.run_root / "msg_A" / ".vuoro"
+    files = rig.harness.handoff_at_create["ses_0001"]
+    profile = files["profile"]
+    assert profile["credential_ref"] == f"file:{handoff / 'credential'}"
+    assert profile["target"] == json.loads(rig.profile.read_text())["target"]
+    assert profile["required_authorities"] == ["work:read", "work:evidence"]
+    assert profile["credential_ref"] != json.loads(rig.profile.read_text())["credential_ref"]
+    assert files["credential"] == record["token"]
+    assert files["directory_mode"] == 0o750
+    assert files["profile_mode"] == 0o644
+    assert files["credential_mode"] == 0o640
+    assert files["profile_gid"] == files["credential_gid"] == files["directory_gid"]
+    for path in (rig.tmp / "state" / "adapter.sqlite3", rig.tmp / "state" / "adapter.sqlite3-wal"):
+        if path.exists():
+            assert record["token"].encode() not in path.read_bytes()
+    assert [name for name, _ in rig.owner.delegation_events].index("explicit-revoke") < [
+        name for name, _ in rig.owner.delegation_events].index("settlement-revoke")
+
+
+def test_missing_qualification_flag_refuses_without_falling_back_to_inbox_credential(rig):
+    write_policy(rig.policy)
+    raw = json.loads(rig.policy.read_text())
+    raw.pop("run_delegation_qualified")
+    rig.policy.write_text(json.dumps(raw))
+    assert ha.load_policy(rig.policy).run_delegation_qualified is False
+    assert ha.Policy().run_delegation_qualified is False
+    rig.owner.send()
+    rig.tick(2)
+    rec = rig.rec()
+    assert rec["outcome"] == "not-started" and rec["reason_code"] == "run-delegation-unqualified"
+    assert rig.harness.creates == 0 and rig.owner.token_counter == 0
+    assert rig.owner.receipt_of("msg_A", "result-linked")["outcome"] == "not-started"
+
+
+def test_delegation_ttl_is_bounded_by_policy_and_four_hour_ceiling(rig):
+    write_policy(rig.policy, max_run_seconds=50_000)
+    rig.owner.send()
+    rig.tick(2)
+    assert rig.owner.delegate_ttls == [14_400]
+    assert rig.rec()["outcome"] == "completed"
+
+
+@pytest.mark.parametrize("crash_point", [
+    "delegation_minted_before_persisted", "delegation_metadata_persisted",
+    "delegation_credential_written", "delegation_profile_written",
+])
+def test_lost_one_time_token_is_revoked_then_reminted_without_relaunch(crash_point, rig):
+    rig.owner.send()
+    rig.crash_at(crash_point)
+    with pytest.raises(Crash):
+        rig.tick(2)
+    rig.boot()
+    rig.tick(3)
+    assert rig.owner.token_counter == 2 and rig.harness.creates == 1
+    assert rig.owner.delegations["dlg_0001"]["revoked"] is True
+    assert rig.owner.delegations["dlg_0002"]["revoked"] is True  # closed after fake completion
+    rec = rig.rec()
+    assert rec["delegation_generation"] == 1 and rec["handoff_state"] == "installed"
+    assert rec["delegation_id"] == "dlg_0002"
 
 
 def test_launch_prompt_fences_the_body_with_a_fresh_nonce_and_names_the_sprintctl_verbs(rig):
@@ -823,8 +952,7 @@ def test_vuoro_client_errors_without_a_code_become_transport_errors():
         o._loop.close()
 
 
-def test_vuoro_owner_never_sends_an_envelope_idempotency_key():
-    """The live catalog refuses envelope keys for these operations (idempotency-key-not-allowed)."""
+def test_vuoro_owner_sends_delegation_calls_through_the_owner_port():
     import asyncio
 
     calls = []
@@ -840,11 +968,23 @@ def test_vuoro_owner_never_sends_an_envelope_idempotency_key():
     o.agent_observe(REPO, instance_id="ins_A", fact="observed", valid_for_seconds=90, idempotency_key="obs.key.0001")
     o.agent_retire(REPO, instance_id="ins_A", reason="done", idempotency_key="ret.key.0001")
     o.run_register(REPO, {"idempotency_key": "inbox.msg_A"})
+    o.run_delegate(REPO, run_id="run_X", operations=list(ha.DELEGATED_RUN_OPERATIONS),
+                   ttl_seconds=3600, idempotency_key="delegation.mint.0001")
+    o.run_delegation_get(REPO, delegation_id="dlg_X")
+    o.run_delegation_revoke(REPO, delegation_id="dlg_X", reason="settled",
+                            idempotency_key="delegation.revoke.0001")
     o._loop.close()
-    assert len(calls) == 4
+    assert [c[0] for c in calls] == [
+        "work.agent.register-v1", "work.agent.observe-v1", "work.agent.retire-v1",
+        "work.run.register-v1", "work.run.delegate-v1", "work.run.delegation-get-v1",
+        "work.run.delegation-revoke-v1",
+    ]
     for operation, arguments, kwargs in calls:
         assert "idempotency_key" not in kwargs, operation
-        assert arguments["idempotency_key"], operation
+        if operation == "work.run.delegation-get-v1":
+            assert "idempotency_key" not in arguments
+        else:
+            assert arguments["idempotency_key"], operation
 
 
 @pytest.mark.parametrize("value", ["tomorrow", "2030-01-01T00:00:00", 12])
@@ -969,7 +1109,8 @@ def test_title_match_without_the_ruleset_is_not_adopted(rig):
     with pytest.raises(Crash):
         rig.tick(2)
     rig.harness.sessions["ses_foreign"] = {"title": "vuoro-msg:msg_A", "messages": 0, "aborted": False,
-                                           "started": False, "permission": None, "directory": "/work"}
+                                           "started": False, "permission": None,
+                                           "directory": str(rig.run_root / "msg_A")}
     rig.boot().tick()
     rec = rig.rec()
     assert rec["state"] == ha.S_AMBIGUOUS and "without the successor permission ruleset" in rec["detail"]
@@ -1098,7 +1239,8 @@ def test_state_gains_new_columns_in_place(tmp_path):
     db.close()
     st = ha.State(d)
     cols = {r[1] for r in st.db.execute("PRAGMA table_info(messages)")}
-    assert {"launched_at", "model_id"} <= cols
+    assert {"launched_at", "model_id", "delegation_id", "delegation_expires_at",
+            "delegation_generation", "handoff_state"} <= cols
     st.close()
 
 
@@ -1224,11 +1366,26 @@ def test_trusted_mode_adapter_launches_nothing(rig):
     assert rig.owner.receipt_of("msg_A", "refused") is None
 
 
-def test_untrusted_config_accepts_root_owned_read_only_file():
+def _simulate_root_owned_paths(monkeypatch, *, except_paths=()):
     import os
 
-    if os.geteuid() == 0:
-        pytest.skip("root can write anything")
+    original_lstat = Path.lstat
+    except_paths = {Path(path) for path in except_paths}
+
+    def lstat(path):
+        st = original_lstat(path)
+        if path not in except_paths:
+            fields = list(st)
+            fields[4] = 0
+            return os.stat_result(fields)
+        return st
+
+    monkeypatch.setattr(Path, "lstat", lstat)
+    monkeypatch.setattr(ha.os, "access", lambda *a: False)
+
+
+def test_untrusted_config_accepts_root_owned_read_only_file(monkeypatch):
+    _simulate_root_owned_paths(monkeypatch)
     assert ha.untrusted_config("/etc/passwd") is None
 
 
@@ -1238,8 +1395,9 @@ def test_run_root_gives_each_run_its_own_protected_directory(rig):
     import stat as _stat
 
     root = rig.tmp / "runs"
-    root.mkdir()
-    rig.adapter.config = ha.Config(poll_interval=10, directory="/work", run_root=str(root))
+    root.mkdir(exist_ok=True)
+    rig.adapter.config = ha.Config(poll_interval=10, directory="/work", run_root=str(root),
+                                   adapter_profile=str(rig.profile))
     rig.owner.send()
     rig.tick(2)
     run_dir = root / "msg_A"
@@ -1253,7 +1411,7 @@ def test_run_root_gives_each_run_its_own_protected_directory(rig):
 
 def test_run_directory_recovery_uses_the_same_directory_and_rejects_odd_ids(rig):
     root = rig.tmp / "runs"
-    root.mkdir()
+    root.mkdir(exist_ok=True)
     rig.adapter.config = ha.Config(poll_interval=10, directory="/work", run_root=str(root))
     assert rig.adapter.run_directory({"message_id": "msg_A"}) == str(root / "msg_A")
     with pytest.raises(ha.HarnessError):
@@ -1261,6 +1419,7 @@ def test_run_directory_recovery_uses_the_same_directory_and_rejects_odd_ids(rig)
 
 
 def test_without_run_root_the_shared_directory_is_used(rig):
+    rig.adapter.config = ha.Config(directory="/work")
     assert rig.adapter.run_directory({"message_id": "msg_A"}) == "/work"
 
 
@@ -1334,7 +1493,7 @@ def test_password_file_is_used_at_cli_startup(tmp_path, monkeypatch):
 @pytest.mark.parametrize("planted", ["run", "plugins", "config", "hardlink", "content"])
 def test_run_directory_rejects_planted_objects_without_touching_targets(rig, planted):
     root = rig.tmp / "runs"
-    root.mkdir()
+    root.mkdir(exist_ok=True)
     target = rig.tmp / "target"
     target.mkdir()
     sentinel = target / "config.json"
@@ -1365,7 +1524,7 @@ def test_run_directory_rejects_foreign_owned_path(rig, monkeypatch):
     import os
 
     root = rig.tmp / "runs"
-    root.mkdir()
+    root.mkdir(exist_ok=True)
     run = root / "msg_A"
     run.mkdir()
     original_stat = run.stat()
@@ -1388,7 +1547,7 @@ def test_run_directory_rejects_foreign_owned_path(rig, monkeypatch):
 
 def test_run_directory_reuses_adapter_owned_anchors(rig):
     root = rig.tmp / "runs"
-    root.mkdir()
+    root.mkdir(exist_ok=True)
     rig.adapter.config = ha.Config(run_root=str(root))
     first = rig.adapter.run_directory({"message_id": "msg_A"}, create=True)
     assert rig.adapter.run_directory({"message_id": "msg_A"}, create=True) == first
@@ -1419,6 +1578,9 @@ def test_trusted_config_checks_ancestors_and_symlink_locations(tmp_path, monkeyp
     link = tmp_path / "policy-link"
     link.symlink_to("/etc/passwd")
     assert ha.untrusted_config(link) is not None
+    _simulate_root_owned_paths(monkeypatch, except_paths=(Path("/etc"),))
+    assert "not owned by root" in ha.untrusted_config("/etc/passwd")
+    _simulate_root_owned_paths(monkeypatch)
     assert ha.untrusted_config("/etc/passwd") is None
 
 def test_units_and_env_example_name_the_same_paths():
