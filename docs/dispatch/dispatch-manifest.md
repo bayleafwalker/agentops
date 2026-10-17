@@ -132,19 +132,16 @@ worker configuration and does not authorize a queue, daemon, or process
 launcher. The retired `actionq-dispatcher` must never read or generate runtime
 configuration from it.
 
-## Cockpit Visibility
+## Retired cockpit visibility (historical)
 
-The cockpit reads manifests through:
+The former cockpit manifest endpoint (`/cockpit/api/dispatch-manifests`) and
+`COCKPIT_DISPATCH_MANIFEST_ROOT` setting belonged to the retired agent-cockpit
+application, removed 2026-09-16. They are historical migration references, not
+current integration requirements. Do not configure new callers around them.
 
-```text
-/cockpit/api/dispatch-manifests?repo_id=<repo>
-```
-
-The manifest directory used to default to `templates/dispatch/examples`, which
-was retired 2026-09-17 (S2 item 6); that default no longer resolves to
-anything. Set `COCKPIT_DISPATCH_MANIFEST_ROOT` explicitly to a directory of
-real `*.dispatch.json` files (each member repo's own, or generated manifests
-staged in `_artifacts`).
+Current manifests remain repository-owned inputs for the selected coordinator
+and native runtime, as described in [Runtime Format](#runtime-format); they do
+not require a cockpit or generated `_artifacts` copy.
 
 ## Hand-pass authorisation
 
