@@ -1756,3 +1756,34 @@ def test_inbox_server_unit_pins_its_directories_auth_bind_password_and_hardening
         assert guard in unit.splitlines()
         assert unit.index(guard) < unit.index("\nExecStart=")
     assert "EnvironmentFile=%h/.config/agentops/opencode-inbox-server.env" in adapter.splitlines()
+
+
+@pytest.mark.parametrize("changed,owner,mode,accepted", [
+    ("profile", 0, 0o100444, True),
+    ("profile", 1110, 0o100600, True),
+    ("profile", 2222, 0o100444, False),
+    ("profile", 0, 0o100664, False),
+    ("profile", 0, 0o120777, False),
+    ("run_root", 0, 0o040700, False),
+    ("parent", 2222, 0o040755, False),
+])
+def test_handoff_accepts_root_profile_but_preserves_path_ownership_fence(
+        rig, monkeypatch, changed, owner, mode, accepted):
+    import os
+    import stat
+    original_lstat = Path.lstat
+    target = {"profile": rig.profile, "run_root": rig.run_root, "parent": rig.tmp}[changed]
+
+    def lstat(path):
+        fields = list(original_lstat(path))
+        fields[4] = 1110 if path == rig.run_root else 0
+        # The declared run root keeps its sticky shared-group contract.
+        fields[0] &= ~(stat.S_IWGRP | stat.S_IWOTH)
+        if path == target:
+            fields[4], fields[0] = owner, mode
+        return os.stat_result(fields)
+
+    monkeypatch.setattr(Path, "lstat", lstat)
+    monkeypatch.setattr(ha.os, "geteuid", lambda: 1110)
+    denial = rig.adapter._handoff_preflight(ha.Policy(run_delegation_qualified=True))
+    assert (denial is None) is accepted

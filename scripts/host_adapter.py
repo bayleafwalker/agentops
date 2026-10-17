@@ -1022,10 +1022,14 @@ class Adapter:
                     expected = stat.S_ISDIR if leaf_kind == "directory" else stat.S_ISREG
                     if not expected(st.st_mode):
                         return f"{component} is not a regular {leaf_kind}"
-                    if st.st_uid != os.geteuid():
-                        return f"{component} is not owned by the adapter uid"
+                    trusted_owners = {0, os.geteuid()} if leaf_kind == "file" else {os.geteuid()}
+                    if st.st_uid not in trusted_owners:
+                        return f"{component} has an untrusted owner"
                 elif not stat.S_ISDIR(st.st_mode):
                     return f"{component} is not a directory"
+                elif st.st_uid not in {0, os.geteuid()}:
+                    # Even a sticky directory's owner can replace its children.
+                    return f"{component} has an untrusted ancestor owner"
                 # Sticky world/group writable parents such as /tmp cannot replace
                 # this uid's leaf; other writable ancestors are not trusted.
                 if (st.st_mode & (stat.S_IWGRP | stat.S_IWOTH)
