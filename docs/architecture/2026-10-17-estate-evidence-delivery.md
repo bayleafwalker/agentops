@@ -51,9 +51,9 @@ The source changes are published for review in draft pull requests:
 - [Agentops #365](https://github.com/bayleafwalker/agentops/pull/365) — architecture,
   dependency sequence and this handoff.
 
-These links identify proposed delivery, not merged or deployed capability. The
-Appservice PR's hosted offline validation can supply the missing local `mise`
-gate; Nix evaluation still needs a Nix-capable environment.
+These links identify proposed delivery, not merged or deployed capability.
+Appservice's hosted offline validation passed on the source head named below;
+Nix evaluation still needs a Nix-capable environment.
 
 ## Sequence from source delivery to a qualified result
 
@@ -86,8 +86,14 @@ Appservice source-register and backup fixtures: **52 passed** (13 new boundary
 cases and 39 existing backup cases); public-exposure fixtures: **23 passed**.
 The register generated successfully in JSON and Markdown against current source;
 the snapshot's generator/metadata digests and 92-unit denominator were checked.
-`mise run validate` could not run because `mise` is absent. The validation task
-now includes source-register fixtures and generation; the full gate is pending.
+`mise run validate` could not run locally because `mise` is absent. The validation
+task now includes source-register fixtures and generation. Subsequently, hosted
+[Offline Validate run 888](https://github.com/bayleafwalker/appservice/actions/runs/39015092383)
+passed the full gate for Appservice head `2a4e9e27aff2cf2028793e5ada38a43d135677c9`;
+[State protocol contracts](https://github.com/bayleafwalker/appservice/actions/runs/39015092376)
+also passed. An initial hosted run exposed the canonical remote URL without a
+`.git` suffix; the final source handles that spelling with regression coverage.
+These are source qualification results, not runtime or deployment evidence.
 
 NixOS deploy guard fixtures: **5 passed**, including a copied-tree rehearsal;
 shell syntax, Markdown links and diff checks passed. `nix flake check` could not
