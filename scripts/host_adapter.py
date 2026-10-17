@@ -94,6 +94,7 @@ SUCCESSOR_PERMISSION = [
 ]
 DEFAULT_MAX_RUN_SECONDS = 3600
 MAX_DELEGATION_TTL_SECONDS = 4 * 60 * 60
+DELEGATION_TOKEN_RE = re.compile(r"vrd_[A-Z2-7]{52}\Z")
 DELEGATED_RUN_OPERATIONS = (
     "work.run.resolve-v1",
     "work.run.predecessor-context-v1",
@@ -1062,6 +1063,7 @@ class Adapter:
             while view:
                 written = os.write(fd, view)
                 view = view[written:]
+            os.fsync(fd)
         finally:
             os.close(fd)
 
@@ -1171,7 +1173,7 @@ class Adapter:
         return raw
 
     def _install_handoff(self, rec, token: str) -> None:
-        if not isinstance(token, str) or not token or "\n" in token or "\r" in token:
+        if not isinstance(token, str) or DELEGATION_TOKEN_RE.fullmatch(token) is None:
             raise HarnessError("delegation returned an invalid one-time token")
         profile = self._source_profile()
         handoff_fd, run_directory = self._run_handoff_directory(rec, create=True)
@@ -1193,6 +1195,8 @@ class Adapter:
             self._write_at(handoff_fd, "profile.json",
                            (json.dumps(delegated, sort_keys=True) + "\n").encode(), 0o644, handoff_gid)
             self._checkpoint("delegation_profile_written")
+            os.fsync(handoff_fd)
+            self._checkpoint("delegation_handoff_synced")
         finally:
             os.close(handoff_fd)
 

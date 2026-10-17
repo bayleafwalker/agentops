@@ -194,7 +194,7 @@ class FakeOwner:
             return {k: record[k] for k in ("delegation_id", "expires_at")}
         self.token_counter += 1
         delegation_id = f"dlg_{self.token_counter:04d}"
-        token = f"vrd_secret_{self.token_counter:04d}"
+        token = "vrd_" + ("A" if self.token_counter == 1 else "B") * 52
         record = {"delegation_id": delegation_id, "run_id": run_id,
                   "operations": list(operations), "ttl_seconds": ttl_seconds,
                   "expires_at": "2027-01-01T00:00:00Z", "token": token, "revoked": False}
@@ -419,6 +419,17 @@ def test_happy_path_launches_once_and_records_the_chain(rig):
         name for name, _ in rig.owner.delegation_events].index("settlement-revoke")
 
 
+@pytest.mark.parametrize("token", [
+    "vrd_secret_primary_token", "vrd_" + "A" * 51, "vrd_" + "a" * 52,
+    "vrd_" + "A" * 51 + "8", "vrd_" + "A" * 52 + "\n",
+])
+def test_invalid_delegation_token_is_rejected_before_creating_handoff_files(rig, token):
+    with pytest.raises(ha.HarnessError, match="invalid one-time token"):
+        rig.adapter._install_handoff({"run_id": "run_X", "message_id": "msg_A"}, token)
+    assert not (rig.run_root / "msg_A" / ".vuoro").exists()
+    assert not list(rig.run_root.rglob("credential"))
+
+
 def test_missing_qualification_flag_refuses_without_falling_back_to_inbox_credential(rig):
     write_policy(rig.policy)
     raw = json.loads(rig.policy.read_text())
@@ -444,7 +455,7 @@ def test_delegation_ttl_is_bounded_by_policy_and_four_hour_ceiling(rig):
 
 @pytest.mark.parametrize("crash_point", [
     "delegation_minted_before_persisted", "delegation_metadata_persisted",
-    "delegation_credential_written", "delegation_profile_written",
+    "delegation_credential_written", "delegation_profile_written", "delegation_handoff_synced",
 ])
 def test_lost_one_time_token_is_revoked_then_reminted_without_relaunch(crash_point, rig):
     rig.owner.send()
