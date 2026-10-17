@@ -1,5 +1,14 @@
 # Agent-Ops Plans
 
+## Current estate delivery plan
+
+- [Estate evolution: project delivery and operating plan](2026-10-17-estate-evolution-plan.md)
+  lands the full October 17 assessment into owner plans, including supported
+  distribution, onboarding, upgrades, support and broader product design.
+  Work uses dependencies and acceptance criteria, without calendar horizons.
+  This is accepted planning scope with implementation/qualification pending;
+  existing target-state and domain authority boundaries remain in force.
+
 Cross-repo planning for the agent-ops substrate lives here because the substrate is not owned by `homelab-analytics`.
 
 These files live in the `/projects/dev/agentops` repo. Treat this repo as the coordination and future operator-surface home for the flat `/projects/dev` workspace, where implementation repos are siblings rather than nested under a `repos/` directory.
