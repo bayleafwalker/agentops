@@ -198,7 +198,8 @@ class ReplayedLiveRunTests(unittest.TestCase):
             holds = env["held"]["declared_host_holds"]
             self.assertEqual((holds["status"], holds["value"]), ("known", []))
             self.assertTrue(holds["evidence"].startswith("declared (from the agentops record):"))
-            self.assertEqual(env["summary"]["unknown"], [])
+            self.assertEqual([f["fact"] for f in env["summary"]["unknown"]],
+                             ["held.inbox_launches_disabled"] if host == "devbox" else [])
         # The workstation was fully current; the devbox checkout was behind agentops main.
         self.assertEqual(self.envs["workstation"]["gate"]["next_blocking_gate"]["value"]["gate"], "none")
         self.assertEqual(self.envs["devbox"]["gate"]["next_blocking_gate"]["value"]["gate"],
@@ -488,11 +489,74 @@ class HostDerivationTests(unittest.TestCase):
     def current(self, host="devbox"):
         env = env_copy(host)
         env["running"]["agentops_head"] = k(env["desired"]["agentops_main_sha"]["value"])
+        if host == "devbox":
+            env["held"]["inbox_launches_disabled"] = k(False)
         return env
 
     def test_current_host_with_declared_empty_holds_is_none(self):
-        gate = gate_of(estate.derive_host_gate, self.current())
+        env = self.current()
+        gate = gate_of(estate.derive_host_gate, env)
         self.assertEqual(gate["value"]["gate"], "none")
+        env["held"]["inbox_launches_disabled"] = k(True)
+        self.assertEqual(gate_of(estate.derive_host_gate, env)["value"]["gate"], "holds")
+
+    def test_observed_inbox_policy_controls_hold_without_claiming_qualification(self):
+        for enabled in (True, False, None, "false", 0):
+            with self.subTest(enabled=enabled):
+                def edit(fixture):
+                    envelope = json.loads(fixture["stdout"])
+                    envelope["inbox_launches_enabled"] = enabled
+                    envelope["agentops_head"] = env_copy("devbox")["desired"]["agentops_main_sha"]["value"]
+                    fixture["stdout"] = json.dumps(envelope)
+                env = by_id(replay_edited(["devbox"], {"devbox.ssh.json": edit}))["devbox"]
+                self.assertEqual(schema_check.validate(replay_edited(
+                    ["devbox"], {"devbox.ssh.json": edit}), SCHEMA), [])
+                hold = env["held"]["inbox_launches_disabled"]
+                gate = env["gate"]["next_blocking_gate"]
+                self.assertEqual(env["held"]["declared_host_holds"]["value"], [])
+                self.assertEqual(env["usable"]["served_doctor"]["value"]["status"], "ok")
+                if isinstance(enabled, bool):
+                    self.assertEqual(hold["value"], not enabled)
+                    self.assertEqual(gate["value"]["gate"], "none" if enabled else "holds")
+                    if enabled:
+                        self.assertIn("inbox launch qualification is not evaluated", gate["value"]["detail"])
+                else:
+                    self.assertEqual(hold["status"], "unknown")
+                    self.assertEqual(gate["status"], "unknown")
+                self.assertTrue(hold["evidence"].startswith("observed on host:"))
+
+    def test_remote_policy_probe_emits_only_boolean_or_null(self):
+        code = estate._DEVBOX_SCRIPT.split("<<'PY_POLICY'\n", 1)[1].split("\nPY_POLICY", 1)[0]
+        with tempfile.TemporaryDirectory() as tmp:
+            policy = Path(tmp) / "policy.json"
+            for body, expected in ((None, "null"), ("broken", "null"),
+                                   ('{"launches_enabled":false,"private":"do-not-emit"}', "false"),
+                                   ('{"launches_enabled":true,"private":"do-not-emit"}', "true"),
+                                   ('{"launches_enabled":"false"}', "null"), ('{}', "null")):
+                with self.subTest(body=body):
+                    if body is not None:
+                        policy.write_text(body)
+                    result = subprocess.run([sys.executable, "-c", code.replace("{inbox_policy}", str(policy))],
+                                            capture_output=True, text=True, check=True)
+                    self.assertEqual(result.stdout, expected)
+                    self.assertEqual(result.stderr, "")
+
+    def test_failed_ssh_leaves_observed_hold_unknown(self):
+        def edit(fixture):
+            fixture.update(ok=False, stdout="", error="ssh unavailable")
+        env = by_id(replay_edited(["devbox"], {"devbox.ssh.json": edit}))["devbox"]
+        self.assertEqual(env["held"]["inbox_launches_disabled"]["status"], "unknown")
+        self.assertIn("ssh unavailable", env["held"]["inbox_launches_disabled"]["reason"])
+
+    def test_historical_missing_policy_is_unknown_when_host_otherwise_current(self):
+        env = self.current()
+        env["held"]["inbox_launches_disabled"] = env_copy("devbox")["held"]["inbox_launches_disabled"]
+        self.assertEqual(gate_of(estate.derive_host_gate, env)["status"], "unknown")
+
+    def test_workstation_needs_no_inbox_adapter(self):
+        env = self.current("workstation")
+        self.assertNotIn("inbox_launches_disabled", env["held"])
+        self.assertEqual(gate_of(estate.derive_host_gate, env)["value"]["gate"], "none")
 
     def test_undeclared_holds_stop_the_gate(self):
         env = self.current()

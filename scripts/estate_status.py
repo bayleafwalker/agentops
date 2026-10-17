@@ -126,6 +126,7 @@ HOSTS = {
         "ssh": "devbox-agent",
         "installed_profile": "~/.config/vuoro/profiles/devbox-agent-vuoro-shared.json",
         "repo_id": "agentops",
+        "inbox_policy": "~/.config/agentops/host-adapter/policy.json",
         "agentops_checkout": "/projects/dev/agentops",
     },
 }
@@ -1662,6 +1663,17 @@ set -u
 printf '{"hostname":"%s",' "$(hostname)"
 printf '"sprintctl_version":"%s",' "$(sprintctl --version 2>/dev/null | awk '{print $NF}')"
 printf '"agentops_head":"%s",' "$(git -C {agentops} rev-parse HEAD 2>/dev/null)"
+printf '"inbox_launches_enabled":'
+python3 - <<'PY_POLICY'
+import json
+from pathlib import Path
+try:
+    value = json.loads(Path("{inbox_policy}").expanduser().read_text()).get("launches_enabled")
+except (OSError, ValueError, AttributeError):
+    value = None
+print(json.dumps(value if isinstance(value, bool) else None), end="")
+PY_POLICY
+printf ','
 printf '"profile":'; cat {profile} 2>/dev/null || printf 'null'; printf ','
 d=$(mktemp -d); trap 'rm -rf "$d"' EXIT
 mkdir "$d/.sprintctl"
@@ -1750,11 +1762,13 @@ def collect_host(probe: Probe, host: str, *, agentops_main: dict[str, Any]) -> d
         running["reachable"] = known(True, "artifact", "local host", version.get("observed_at"))
     else:
         script = (_DEVBOX_SCRIPT.replace("{profile}", cfg["installed_profile"])
-                  .replace("{repo_id}", cfg["repo_id"]).replace("{agentops}", cfg["agentops_checkout"]))
+                  .replace("{repo_id}", cfg["repo_id"]).replace("{agentops}", cfg["agentops_checkout"])
+                  .replace("{inbox_policy}", cfg["inbox_policy"]))
         remote = probe.run(f"{host}.ssh", ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
                                            cfg["ssh"], "bash", "-s"], stdin=script, timeout=120,
                            evidence=f"ssh {cfg['ssh']} bash -s <read-only probe: sprintctl --version, "
                                     f"rev-parse {cfg['agentops_checkout']} HEAD, cat {cfg['installed_profile']}, "
+                                    f"read only launches_enabled from {cfg['inbox_policy']}, "
                                     "sprintctl doctor --json (served)>")
         envelope = from_probe(remote, "artifact", _json_out)
         running["reachable"] = (
@@ -1800,6 +1814,15 @@ def collect_host(probe: Probe, host: str, *, agentops_main: dict[str, Any]) -> d
             f"declared (from the agentops record): {record['evidence']}", record["observed_at"])}
     else:
         held = {"declared_host_holds": _carry(record, "artifact")}
+    if "inbox_policy" in cfg:
+        evidence = f"observed on host: {cfg['ssh']}:{cfg['inbox_policy']} launches_enabled"
+        enabled = envelope["value"].get("inbox_launches_enabled") if is_known(envelope) else None
+        held["inbox_launches_disabled"] = (
+            known(not enabled, "artifact", evidence, envelope.get("observed_at"))
+            if isinstance(enabled, bool) else
+            unknown("inbox adapter launches_enabled is absent, unreadable or not a boolean"
+                    if is_known(envelope) else envelope["reason"],
+                    "artifact", evidence, envelope.get("observed_at")))
     env = {"id": host, "kind": "host", "desired": desired, "running": running, "usable": usable,
            "held": held, "document": {}, "receipts": {}}
     env["gate"] = derive_host_gate(env)
@@ -1834,14 +1857,19 @@ def derive_host_gate(env: dict[str, Any]) -> dict[str, Any]:
         return doc["status"] == "ok" and doc["compatible"] is True, \
             f"served doctor status={doc['status']} compatible={doc['compatible']} findings={doc['findings']}"
 
+    host_holds = ("declared_host_holds",) + (
+        ("inbox_launches_disabled",) if "inbox_policy" in HOSTS[env["id"]] else ())
     gate = _gate([("desired-current", lambda: current_check(d.get("record_ref_is_remote_main"),
                                                             "local agentops origin/main")),
                   ("reachable", reachable), ("agentops-current", agentops_current),
                   ("client-profile", profile), ("served-doctor", doctor),
-                  ("holds", lambda: holds_check(h, ("declared_host_holds",)))],
+                  ("holds", lambda: holds_check(h, host_holds))],
                  ["desired.record_ref_is_remote_main", "running.reachable", "running.agentops_head",
                   "desired.agentops_main_sha", "running.installed_profile", "desired.client_profile",
-                  "usable.served_doctor", "held.declared_host_holds"])
+                  "usable.served_doctor", *(f"held.{name}" for name in host_holds)])
+    if is_known(gate) and gate["value"]["gate"] == "none":
+        gate["value"]["detail"] += "; host checks cover served-client usability and observed holds; " \
+                                  "inbox launch qualification is not evaluated"
     evidence = "derived from usable.served_doctor (compatible, schema_status)"
     why = _need(u.get("served_doctor"))
     if why:
