@@ -8,7 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-REPOS = {"cred-broker", "datacluster-template", "acceptance-lab", "homelab-analytics"}
+LEGACY_REPOS = {"cred-broker", "datacluster-template", "acceptance-lab", "homelab-analytics"}
+SUPPORTED_SCHEMAS = {"agentops-estate-owner-source-interfaces/v1", "agentops-estate-owner-source-increment/v1"}
 UNKNOWN = "unknown"
 
 def fail(message: str) -> None:
@@ -16,19 +17,25 @@ def fail(message: str) -> None:
 
 def check(path: Path, roots: dict[str, Path]) -> None:
     data = json.loads(path.read_text())
-    if data.get("schema") != "agentops-estate-owner-source-interfaces/v1":
+    if data.get("schema") not in SUPPORTED_SCHEMAS:
         fail("unexpected schema")
     repos = data.get("repositories", [])
     repo_names = [r.get("repo") for r in repos]
     if len(repo_names) != len(set(repo_names)):
         fail("repository records must not be duplicated")
-    if set(repo_names) != REPOS:
-        fail("repository set must contain exactly the four scoped owners")
+    scope = data.get("scope", {})
+    declared_scope = scope.get("owner_repositories") if isinstance(scope, dict) else None
+    if declared_scope is not None and (len(declared_scope) != len(set(declared_scope)) or set(declared_scope) != set(repo_names)):
+        fail("repository records must exactly match the declared scope")
+    if not repos:
+        fail("repository evidence must not be empty")
+    if declared_scope is None and set(repo_names) != LEGACY_REPOS:
+        fail("legacy inventory repository set changed without an explicit scope")
     revisions: dict[str, str] = {}
     evidence_by_repo: dict[str, dict[str, str]] = {}
     for repo in repos:
         name, rev = repo.get("repo"), repo.get("source_revision")
-        if name not in roots or not isinstance(rev, str) or len(rev) != 40:
+        if not isinstance(name, str) or not name or name not in roots or not isinstance(rev, str) or len(rev) != 40:
             fail(f"missing root or full source revision for {name}")
         revisions[name] = rev
         visibility = repo.get("visibility_observation", {})
@@ -55,7 +62,7 @@ def check(path: Path, roots: dict[str, Path]) -> None:
         if not iid or iid in ids:
             fail("interface IDs must be present and unique")
         ids.add(iid)
-        if repo not in REPOS or owner != next(r["owner"] for r in repos if r["repo"] == repo):
+        if repo not in revisions or owner != next(r["owner"] for r in repos if r["repo"] == repo):
             fail(f"{iid}: owner/repository mapping mismatch")
         if item.get("source_revision") != revisions[repo]:
             fail(f"{iid}: source revision mismatch")

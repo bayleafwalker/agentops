@@ -89,3 +89,22 @@ def test_rejects_duplicate_repository_record(tmp_path):
         assert "must not be duplicated" in str(exc)
         return
     assert False, "duplicate repository record was accepted"
+
+def test_accepts_explicit_increment_scope(tmp_path):
+    doc, roots = fixture(tmp_path)
+    doc["schema"] = "agentops-estate-owner-source-increment/v1"
+    doc["scope"] = {"owner_repositories": [r["repo"] for r in doc["repositories"]]}
+    path=tmp_path/"inventory.json"; path.write_text(json.dumps(doc))
+    checker.check(path, roots)
+
+def test_rejects_increment_scope_mismatch(tmp_path):
+    doc, roots = fixture(tmp_path)
+    doc["schema"] = "agentops-estate-owner-source-increment/v1"
+    doc["scope"] = {"owner_repositories": ["only-one"]}
+    path=tmp_path/"inventory.json"; path.write_text(json.dumps(doc))
+    try:
+        checker.check(path, roots)
+    except ValueError as exc:
+        assert "exactly match" in str(exc)
+        return
+    assert False, "scope mismatch was accepted"
