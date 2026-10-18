@@ -46,3 +46,5 @@ The agent-cockpit UI (`apps/web/`) was retired from the cluster (appservice #164
 source deleted in 2026-09; recover it from git history if needed.
 
 [Two-year KAOS roadmap](docs/plans/agentops/2026-10-18-kaos-2028-roadmap.md): goals, features, product onboarding and project activities traced to current state.
+
+Operator-action request lifecycle and TUI/UI delivery: [planned refinement](docs/plans/agentops/2026-10-18-operator-actions.md).

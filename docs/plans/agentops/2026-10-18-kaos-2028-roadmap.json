@@ -877,5 +877,83 @@
       "existing_item": null,
       "served_ref": "homelab-analytics#2696"
     }
+  ],
+  "refinements": [
+    {
+      "parent": "CL-K03",
+      "parent_item": "vuoro-cloud#2682",
+      "document": "2026-10-18-operator-actions.md",
+      "activities": [
+        {
+          "id": "OA-01",
+          "owner": "vuoro",
+          "title": "Define and implement durable operator-request contract",
+          "depends": [],
+          "work": "Ratify canonical coordination ownership and API alongside existing work/effect owners; implement stable identity, revision-safe updates, multiple requesting sessions and work dependencies, typed perform/authorize/decide/provide-information requests, complete versioned procedures, freshness and withdrawal semantics. No new effect authority or independent work-status ledger.",
+          "acceptance": "Duplicate retries create one request; concurrent revisions conflict explicitly; one requester withdrawing preserves other dependants; dead sessions retain requests with uncertain freshness; material command/target/authority changes invalidate prior acceptance; unavailable source is not completed or withdrawn.",
+          "served_item": "vuoro#2725"
+        },
+        {
+          "id": "OA-02",
+          "owner": "agentops",
+          "title": "Integrate Claude and Codex request publication and reconciliation",
+          "depends": [
+            "OA-01"
+          ],
+          "work": "Implement shared CLI/MCP publishing contract through qualified native-runtime integrations; verify genuine operator blockers; publish complete instructions before yielding; update or withdraw stable requests; use non-authoritative retry outbox during outages. Qualify each local/cloud/runtime mode separately. Transcript extraction may suggest candidates only.",
+          "acceptance": "Both Claude and Codex publish and revise requests with session/project/workspace/host links; retry/reconnect deduplicates; unsupported modes are explicit; routine permitted work is not handed off; raw logs and secrets are excluded; session closure is not completion.",
+          "served_item": "agentops#2726"
+        },
+        {
+          "id": "OA-03",
+          "owner": "vuoro-cloud",
+          "title": "Deliver operator-action TUI over shared request lifecycle",
+          "depends": [
+            "OA-01",
+            "OA-02"
+          ],
+          "work": "Build keyboard-first collated TUI with ready/revalidation/verification/deferred views, impact and context filters, complete multi-step procedures, exact host/cwd/identity/target, expected results, progress and recovery, source-session links, defer/decline/report-performed actions. Reuse shared owner API and per-workspace entitlements.",
+          "acceptance": "Operator completes a request without reopening chat; wrong-host/stale-revision requests cannot appear ready; procedure progress survives restart; unauthorized project data is absent; viewing/copying or reporting performed is not authorization or successful effect; sensitive values remain outside durable request content.",
+          "served_item": "vuoro-cloud#2727"
+        },
+        {
+          "id": "OA-04",
+          "owner": "vuoro",
+          "title": "Verify operator outcomes and deliver safe continuation events",
+          "depends": [
+            "OA-01",
+            "OA-02"
+          ],
+          "work": "Implement explicit completion basis (authorized source observation or human attestation), partial/uncertain result reconciliation, versioned resolution events and retry-safe delivery; integrate through native-runtime owners for wake/resume or explicit continuation-ready packets. Scope blocked work precisely and support successor takeover without introducing a scheduler.",
+          "acceptance": "A false performed report remains unverified; physical work can resolve with labeled human attestation; multiple dependants receive one logical resolution; lost/duplicate delivery never repeats an effect; unavailable native wake produces visible continuation-ready state; a successor continues from current work and exact evidence without original chat.",
+          "served_item": "vuoro#2728"
+        },
+        {
+          "id": "OA-05",
+          "owner": "vuoro-cloud",
+          "title": "Add shared web view and bounded operator notifications",
+          "depends": [
+            "OA-03",
+            "OA-04",
+            "OA-06"
+          ],
+          "work": "Reuse qualified request API for web UI; add assignment, defer-until/change conditions, explicit deadlines and bounded notification preferences. Batch compatible contexts while retaining independent authority boundaries; show coverage and freshness across runtimes. Qualify notification and identity integrations rather than duplicating native approval controls.",
+          "acceptance": "TUI/web show consistent revisions; unauthorized tenant data never leaks; unchanged requests remain quiet; meaningful changes re-surface appropriately; defer and decline propagate to affected work; expired action instructions require refresh; partial runtime coverage is visible.",
+          "served_item": "vuoro-cloud#2729"
+        },
+        {
+          "id": "OA-06",
+          "owner": "agentops",
+          "title": "Qualify overnight operator-action workflow across both runtimes",
+          "depends": [
+            "OA-03",
+            "OA-04"
+          ],
+          "work": "Run real interactive authentication, multi-step operator procedure and explicit authorization workflows with Claude and Codex; include dead requester, shared request, stale target, partial failure, missed wake and another session completing work. Compare against predeclared AO-K02 attention baseline; document setup, support, upgrade, rollback and export.",
+          "acceptance": "After an overnight absence the operator acts from one current list without reconstructing chats; affected work resumes or explicitly becomes continuation-ready; all mandatory negative cases pass; report denominators, stale/unnecessary requests, repeated prompts, operator effort, human wait and post-resolution delay. Retain/revise/adopt decision uses evidence, not screen availability.",
+          "served_item": "agentops#2730"
+        }
+      ]
+    }
   ]
 }
