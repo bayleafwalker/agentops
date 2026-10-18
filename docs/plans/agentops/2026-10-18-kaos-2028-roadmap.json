@@ -1,0 +1,881 @@
+{
+  "kind": "requirements-trace-not-work-state",
+  "version": 1,
+  "goals": [
+    "G01",
+    "G02",
+    "G03",
+    "G04",
+    "G05",
+    "G06",
+    "G07",
+    "G08",
+    "G09",
+    "G10",
+    "G11",
+    "G12"
+  ],
+  "features": {
+    "F01": [
+      "Purpose, commitments and priorities",
+      "Why this work; what changed; what should stop?"
+    ],
+    "F02": [
+      "Fresh estate/capacity answers",
+      "What exists, runs, gets used and remains unknown?"
+    ],
+    "F03": [
+      "Versioned context and source impact",
+      "Which facts count and which decisions need review?"
+    ],
+    "F04": [
+      "Durable continuation",
+      "What can a cold successor safely continue?"
+    ],
+    "F05": [
+      "Execution placement qualification",
+      "Which arrangement meets privacy, quality and urgency?"
+    ],
+    "F06": [
+      "Delegation and protected operations",
+      "Who may do this, for whom, within which limits?"
+    ],
+    "F07": [
+      "Reconstructible accepted results",
+      "Was it claimed, executed, observed and accepted?"
+    ],
+    "F08": [
+      "Commitment economics",
+      "What is committed, enforced, spent or unknown?"
+    ],
+    "F09": [
+      "Restore and reconcile",
+      "Can the whole application recover without duplicate effects?"
+    ],
+    "F10": [
+      "Data and dependency boundaries",
+      "What entered the workflow and where could it go?"
+    ],
+    "F11": [
+      "Outcome-linked learning",
+      "Which change improved useful outcomes with sufficient evidence?"
+    ],
+    "F12": [
+      "First use, attention and distribution",
+      "What needs my judgment and how do I recover?"
+    ],
+    "F13": [
+      "Supplier replacement and estate proof",
+      "Can another provider or person continue with intact meaning?"
+    ],
+    "F14": [
+      "Domain usefulness",
+      "What changed in the household, creative or research domain?"
+    ]
+  },
+  "obstacles": [
+    [
+      "O01",
+      "G01 G12",
+      "More activity without user value",
+      "AO-K02 AO-K05 AO-K06"
+    ],
+    [
+      "O02",
+      "G02 G07",
+      "Stale configuration mistaken for observed reality",
+      "AS-K01 NX-K01 DC-K01 SP-K02"
+    ],
+    [
+      "O03",
+      "G03 G10",
+      "Superseded/unauthorized context governs work",
+      "VU-K03 VU-K04 HLA-K02"
+    ],
+    [
+      "O04",
+      "G04 G07",
+      "Session loss, duplicate message or late report corrupts settlement",
+      "VU-K02 SP-K01 SP-K02"
+    ],
+    [
+      "O05",
+      "G05 G08",
+      "Cheap inference causes expensive retries or contention",
+      "LI-K01 LI-K02 DC-K02 VU-K08"
+    ],
+    [
+      "O06",
+      "G06 G10",
+      "Tool content or successor identity amplifies authority",
+      "CB-K01 VU-K06 VU-K07 AO-K04 NX-K02"
+    ],
+    [
+      "O07",
+      "G07 G11",
+      "Self-report or model grader substitutes for acceptance",
+      "AL-K01 AU-K01 SP-K02"
+    ],
+    [
+      "O08",
+      "G08",
+      "Delayed billing/parallel attempts multiply exposure",
+      "VU-K08 DC-K02"
+    ],
+    [
+      "O09",
+      "G09",
+      "Partial restore or uncertain effect is blindly retried",
+      "AS-K02 NX-K01"
+    ],
+    [
+      "O10",
+      "G11",
+      "Biased cohorts/sparse capture imply false improvement",
+      "AO-K02 AL-K02 VU-K09 HLA-K04"
+    ],
+    [
+      "O11",
+      "G12",
+      "Swap loses hidden session state or evidence meaning",
+      "VU-K10 CL-K04"
+    ],
+    [
+      "O12",
+      "G12",
+      "Attention overload; silence becomes consent",
+      "CL-K02 CL-K03"
+    ],
+    [
+      "O13",
+      "G01 G07",
+      "Fixture success substitutes for actual household/play outcome",
+      "HLA-K03 FW-K01 AE-K01 AO-K05"
+    ]
+  ],
+  "activities": [
+    {
+      "id": "AO-K01",
+      "owner": "agentops",
+      "goal": "G01",
+      "feature": "F01",
+      "sourcing": "build",
+      "baseline": "EE-01..23 give owner outcomes; dated delivery notes distinguish source from live qualification. No complete goal-to-item trace.",
+      "activities": "Publish goal/object/agent/operation models; map all existing estate entries; reconcile live tracker references; record baseline windows and maintain traceability on scope changes.",
+      "acceptance": "Every leaf requirement has an owner, obstacle, feature, activity and acceptance path; inherited scope is retained; no duplicate work-state store; a changed goal identifies affected features and items.",
+      "depends_on": [],
+      "existing_item": null,
+      "served_ref": "agentops#2666"
+    },
+    {
+      "id": "AO-K02",
+      "owner": "agentops",
+      "goal": "G01",
+      "feature": "F01",
+      "sourcing": "build",
+      "baseline": "EE-23 calls for effort and cost; estate-wide measured outcome baseline is not established by source delivery.",
+      "activities": "Select representative software, household and creative cohorts; record useful outcomes, maintenance/re-explanation/review minutes, failed attempts and missing observations; set explicit improvement thresholds before comparisons.",
+      "acceptance": "Dated population, denominator and coverage accompany each measure; unknown cost/effort is not zero; a no-improvement case prevents a benefit claim. Operational threshold setting has a named owner.",
+      "depends_on": [
+        "AO-K01"
+      ],
+      "existing_item": null,
+      "served_ref": "agentops#2667"
+    },
+    {
+      "id": "AS-K01",
+      "owner": "appservice",
+      "goal": "G02",
+      "feature": "F02",
+      "sourcing": "provision+adapter",
+      "baseline": "AS-P1 source register exists; source snapshot is not runtime inventory. AS-P2/P6 require owner qualification.",
+      "activities": "Extend AS-P1/P2 with owner-local observed revisions, actual use, dependencies and freshness; reconcile release/schema/identity drift; map source and runtime facts without creating another inventory authority.",
+      "acceptance": "Every in-scope service answers owner/purpose/use/version/cost-source/recovery; denied or stale observations remain explicit; a declared-but-absent service is not presented as deployed.",
+      "depends_on": [
+        "AO-K01"
+      ],
+      "existing_item": null,
+      "served_ref": "appservice#2668"
+    },
+    {
+      "id": "NX-K01",
+      "owner": "gitops-nixos",
+      "goal": "G02",
+      "feature": "F02",
+      "sourcing": "provision+adapter",
+      "baseline": "Nix source describes host roles; current isolation and restoration need dated evidence. Referenced Oct17 owner plan must be checked on canonical Forgejo.",
+      "activities": "Reconcile canonical host documentation; qualify workstation, execution and infrastructure roles; record installed binaries, trust boundaries, hardware capacity and rebuild/rollback paths; preserve completed migrations.",
+      "acceptance": "A fresh host report separates configuration from observed identity/isolation; one isolated rebuild and rollback yields measured recovery time; no old migration is restarted from stale prose.",
+      "depends_on": [
+        "AO-K01"
+      ],
+      "existing_item": null,
+      "served_ref": "gitops-nixos#2669"
+    },
+    {
+      "id": "DC-K01",
+      "owner": "datacluster",
+      "goal": "G02",
+      "feature": "F02",
+      "sourcing": "provision+adapter",
+      "baseline": "DC-P1 has an intake template; actual resources, cost and operating intent require owner evidence.",
+      "activities": "Reconcile provider resources, state, DNS, billing, owners and useful workload; execute DC-P2..P6 only after their gates; compare existing capacity with managed offerings and explicit retirement options.",
+      "acceptance": "Each paid resource has purpose, owner, cost evidence and next decision; orphan and unavailable facts are explicit; one useful data workload is reproduced before claiming platform value.",
+      "depends_on": [
+        "AO-K01"
+      ],
+      "existing_item": null,
+      "served_ref": "datacluster#2670"
+    },
+    {
+      "id": "AS-K02",
+      "owner": "appservice",
+      "goal": "G09",
+      "feature": "F09",
+      "sourcing": "provision+adapter",
+      "baseline": "AS-P3/P4/P5 and appservice#2205 cover recovery but source fixtures do not prove coherent live restoration.",
+      "activities": "Inventory database/files/object-store recovery dependencies; agree RPO/RTO with owners; rehearse isolated whole-application restoration, interrupted effects, recovery credentials and rollback; update runbooks.",
+      "acceptance": "Restored application passes owner-level functional checks at measured RPO/RTO; missing files or incompatible schemas fail acceptance; uncertain effects reconcile before retry.",
+      "depends_on": [
+        "AS-K01",
+        "NX-K01"
+      ],
+      "existing_item": "appservice#2205",
+      "served_ref": "appservice#2205"
+    },
+    {
+      "id": "AS-K03",
+      "owner": "appservice",
+      "goal": "G10",
+      "feature": "F10",
+      "sourcing": "provision+adapter",
+      "baseline": "OTel/Langfuse and identity/secret foundations have existing deployment and follow-up records; do not commission them again from historical absence claims.",
+      "activities": "Qualify installed Authentik/OpenBao/OTel composition; configure per-source capture, retention, redaction, access and failure monitoring; reference source-owned evidence and preserve historical shards.",
+      "acceptance": "Capture outage, sensitive payload, revoked read and retention-expiry cases are observable; raw telemetry grants no authority; coverage gaps are measured; upgrade/restore and owner runbooks exist.",
+      "depends_on": [
+        "AS-K01"
+      ],
+      "existing_item": null,
+      "served_ref": "appservice#2671"
+    },
+    {
+      "id": "VU-K01",
+      "owner": "vuoro",
+      "goal": "G01",
+      "feature": "F01",
+      "sourcing": "build",
+      "baseline": "Product plan B/H identifies objectives and stewardship; work provider owns lifecycle. A general commitment capability is not qualified.",
+      "activities": "Discover objective-to-work and continuing responsibility use cases; specify owner, success/stop criteria, assumptions, review triggers and dependencies; implement the smallest contract through the existing work provider; expose amend/stop and bounded impact reads.",
+      "acceptance": "An abandoned objective can stop dependent future work without erasing history; an assumption change lists affected decisions and unknown links; household semantics remain in HLA; no universal scheduler or automatic reopening.",
+      "depends_on": [
+        "AO-K02"
+      ],
+      "existing_item": null,
+      "served_ref": "vuoro#2672"
+    },
+    {
+      "id": "VU-K02",
+      "owner": "vuoro",
+      "goal": "G04",
+      "feature": "F04",
+      "sourcing": "build",
+      "baseline": "Hosted/native handoff has bounded MI-1 proof; newer Sprintctl resume work needs field qualification.",
+      "activities": "Qualify continuation using explicit work/attempt/artifact handles and current owner revisions; validate stale predecessor, duplicate delivery and unknown effect paths; onboard two native clients through existing runtime tools.",
+      "acceptance": "A cold successor reconstructs the next safe action without private chat; stale reports cannot settle; receipt, observation and acceptance remain distinct. No credentials are inherited.",
+      "depends_on": [
+        "AS-K01"
+      ],
+      "existing_item": "agentops#2654",
+      "served_ref": "agentops#2654"
+    },
+    {
+      "id": "SP-K01",
+      "owner": "sprintctl",
+      "goal": "G04",
+      "feature": "F04",
+      "sourcing": "build",
+      "baseline": "Resume briefings have software work; independent-reader field validation remains pending.",
+      "activities": "Run the existing interrupted-task protocol with independent readers across model/harness/host; measure missing context, extra reads and recovery effort; retain unsuccessful trials.",
+      "acceptance": "Readers detect deliberate artifact/Decision changes and resume from owner records; effort and unknowns have a denominator; a changed artifact cannot inherit acceptance.",
+      "depends_on": [
+        "VU-K02"
+      ],
+      "existing_item": "sprintctl#2661",
+      "served_ref": "sprintctl#2661"
+    },
+    {
+      "id": "SP-K02",
+      "owner": "sprintctl",
+      "goal": "G07",
+      "feature": "F07",
+      "sourcing": "build",
+      "baseline": "Bounded explanations exist; general result-packet guarantees are pending in sprintctl#2662.",
+      "activities": "Complete request/attempt/artifact/receipt/observation/Decision joins, supported export/import and integrity contracts; connect derived result packets to owner records.",
+      "acceptance": "Independent reader detects missing receipt and changed digest; exported relationships and evidence classes survive import; no invented actor or target joins.",
+      "depends_on": [
+        "VU-K02"
+      ],
+      "existing_item": "sprintctl#2662",
+      "served_ref": "sprintctl#2662"
+    },
+    {
+      "id": "SP-K03",
+      "owner": "sprintctl",
+      "goal": "G01",
+      "feature": "F01",
+      "sourcing": "build",
+      "baseline": "Cross-project dependency support is tracked in sprintctl#2215; actual served cross-scope support must be probed.",
+      "activities": "Qualify explicit project-scoped references and dependencies; if unsupported, implement owner-scoped access and read semantics using current contract; preserve same-repo behavior.",
+      "acceptance": "Unauthorized references refuse without leakage; unresolved cross-project dependency is shown honestly in readiness; remove/replay/cycle cases are exercised in disposable scopes.",
+      "depends_on": [
+        "AO-K01"
+      ],
+      "existing_item": "sprintctl#2215",
+      "served_ref": "sprintctl#2215"
+    },
+    {
+      "id": "VU-K03",
+      "owner": "vuoro",
+      "goal": "G03",
+      "feature": "F03",
+      "sourcing": "build",
+      "baseline": "vuoro-workspace and vuoro-knowledge have different owners; product plan C/C2 includes revisions, proposals, source resolution and export.",
+      "activities": "Qualify exact-byte retrieval, original source revision, current publication/access, stale-source signals, index rebuild and portable export/import; retain Git and workspace authority separation.",
+      "acceptance": "A fresh session retrieves the exact allowed artifact; revocation covers search/snippets/downloads/feeds/exports; changed source and missing bytes are explicit; original history survives rebuild.",
+      "depends_on": [
+        "VU-K02"
+      ],
+      "existing_item": null,
+      "served_ref": "vuoro#2673"
+    },
+    {
+      "id": "VU-K04",
+      "owner": "vuoro",
+      "goal": "G03",
+      "feature": "F03",
+      "sourcing": "build",
+      "baseline": "Memory is provisioned in native runtimes; cross-work knowledge requires authoritative context selection, not a duplicate global memory engine.",
+      "activities": "Distinguish preference, standing decision, observation, hypothesis, lesson and creative canon in supplied context; reference original authority and expiry; implement bounded affected-decision queries and correction/export/deletion behavior.",
+      "acceptance": "Superseded instructions do not govern new work; an inferred preference cannot become a grant; correction exposes dependent decisions; deletion/retention policy explains residual audit records.",
+      "depends_on": [
+        "VU-K03",
+        "VU-K01"
+      ],
+      "existing_item": null,
+      "served_ref": "vuoro#2674"
+    },
+    {
+      "id": "VU-K05",
+      "owner": "vuoro",
+      "goal": "G03",
+      "feature": "F03",
+      "sourcing": "provision+adapter",
+      "baseline": "C2 lists Git ingestion/export, rich extraction, semantic retrieval, reminders, item permissions and collaboration as planned extensions.",
+      "activities": "For each C2 extension collect actual corpus/workflow misses; compare shipped providers; select smallest integration; implement revision/permission mappings and failure behavior; qualify and document operator support.",
+      "acceptance": "Each C2 row has a sourcing decision and pilot acceptance: precise file anchors, authorized retrieval, controlled reminders, conflict recovery and export. Unsupported cases stay visible; no default whole-repository ingestion.",
+      "depends_on": [
+        "VU-K03"
+      ],
+      "existing_item": null,
+      "served_ref": "vuoro#2675"
+    },
+    {
+      "id": "CB-K01",
+      "owner": "cred-broker",
+      "goal": "G06",
+      "feature": "F06",
+      "sourcing": "provision+adapter",
+      "baseline": "Broker provides repository/capability-scoped issuance; authority gaps and revocation boundaries remain explicit.",
+      "activities": "Bind principal, work, attempt and delegation references to non-secret receipts; qualify narrower successor credentials, revocation at enforcement points and provider authority gaps; keep policy and secret custody external.",
+      "acceptance": "Copied metadata cannot authenticate a caller; successor receives only its own scope; revoked issuance fails; existing provider-token residual lifetime is reported; no secret appears in records.",
+      "depends_on": [
+        "AO-K01"
+      ],
+      "existing_item": null,
+      "served_ref": "cred-broker#2676"
+    },
+    {
+      "id": "VU-K06",
+      "owner": "vuoro",
+      "goal": "G06",
+      "feature": "F06",
+      "sourcing": "build",
+      "baseline": "EffectGrant and protected acceptance exist in product direction and historical vuoro#2235; latest direction supersedes older routing/compiled-profile assumptions.",
+      "activities": "Reconcile current implementation before extending grant/delegation records; specify current policy revision, artifact/operation binding, budgets, revocation and onward delegation; qualify protected acceptance independently of public proposals.",
+      "acceptance": "Public proposal cannot authorize its own effect; materially changed content is reevaluated; delegation cannot widen; a late/expired grant fails and is retained as evidence.",
+      "depends_on": [
+        "CB-K01",
+        "VU-K02"
+      ],
+      "existing_item": "vuoro#2235",
+      "served_ref": "vuoro#2235"
+    },
+    {
+      "id": "VU-K07",
+      "owner": "vuoro",
+      "goal": "G06",
+      "feature": "F06",
+      "sourcing": "provision+adapter",
+      "baseline": "Cedar versus OPA and workload identity sourcing are open decisions; existing identity is not workload attestation.",
+      "activities": "Evaluate existing policy/identity providers against actual refusal and explanation requirements; document selected configuration or justified no-component decision; add only the adapter and qualified lifecycle required.",
+      "acceptance": "Spoofing, revocation, expiry, policy-version and copied-token cases have named enforcement results; reported model/runtime identity is never called attested without proof; swap limits are explicit.",
+      "depends_on": [
+        "VU-K06"
+      ],
+      "existing_item": null,
+      "served_ref": "vuoro#2677"
+    },
+    {
+      "id": "VU-K08",
+      "owner": "vuoro",
+      "goal": "G08",
+      "feature": "F08",
+      "sourcing": "provision+adapter",
+      "baseline": "Product direction distinguishes commitment accounting from provider hard stops and delayed alerts.",
+      "activities": "Inventory spend controls by provider and execution route; bind one shared commitment budget to attempts; account known/unknown cost and enforcement delay; expose reservations, residual exposure and cancellation consequences.",
+      "acceptance": "Concurrent attempts do not each receive the full commitment budget; an alert is never labelled a hard cap; missing bills stay unknown; tested cancellation states explain in-flight work.",
+      "depends_on": [
+        "VU-K06",
+        "DC-K01"
+      ],
+      "existing_item": null,
+      "served_ref": "vuoro#2678"
+    },
+    {
+      "id": "AO-K03",
+      "owner": "agentops",
+      "goal": "G05",
+      "feature": "F05",
+      "sourcing": "provision+adapter",
+      "baseline": "W41-R5 already studies managed-workflow responsibility; native runtimes retain execution.",
+      "activities": "Complete provider responsibility and session/work identity mapping with official current documentation; characterize context egress, environment custody, retries, cancellation, usage and supported tools before paid onboarding.",
+      "acceptance": "Duplicate events, missing evidence, failed child and late result preserve owner semantics; capability matrix distinguishes model location, tool execution location and effect authority.",
+      "depends_on": [
+        "AO-K01"
+      ],
+      "existing_item": "agentops#2651",
+      "served_ref": "agentops#2651"
+    },
+    {
+      "id": "LI-K01",
+      "owner": "local-inference",
+      "goal": "G05",
+      "feature": "F05",
+      "sourcing": "provision+adapter",
+      "baseline": "Stable endpoint and measured profiles exist in source; 24GB GPU assumptions and staged challengers require fresh qualification; repository has no configured remote.",
+      "activities": "Refresh hardware/driver/runtime observation; pin model/quantization/parser/engine licenses and digests; replay representative coding, extraction and writing tasks; measure memory, context, concurrency, latency and power.",
+      "acceptance": "A profile qualifies only for named tasks at named context/concurrency; malformed tools, OOM and interruption fail visibly; unsupported challengers are not promoted; rollback returns the measured baseline.",
+      "depends_on": [
+        "AO-K02"
+      ],
+      "existing_item": null,
+      "served_ref": "local-inference#2679"
+    },
+    {
+      "id": "LI-K02",
+      "owner": "local-inference",
+      "goal": "G05",
+      "feature": "F05",
+      "sourcing": "provision+adapter",
+      "baseline": "No universally better local escalation lane is established; model selection stays in the consuming harness.",
+      "activities": "Compare qualified local and hosted open-weight arrangements on the same accepted tasks; include cloud data policy, GPU contention, failed attempts, billing, operator time and fallback; configure selected native clients without a Vuoro model router.",
+      "acceptance": "Privacy refusal cannot fall through to cloud; total cost per accepted cohort includes failures; higher quality or savings are bounded by sample and task; no blanket cheap-worker policy.",
+      "depends_on": [
+        "LI-K01",
+        "AL-K01",
+        "AO-K03"
+      ],
+      "existing_item": null,
+      "served_ref": "local-inference#2680"
+    },
+    {
+      "id": "DC-K02",
+      "owner": "datacluster",
+      "goal": "G05",
+      "feature": "F05",
+      "sourcing": "provision+adapter",
+      "baseline": "Provider capacity and spend require DC-K01; rented inference and sandboxes are alternatives, not a procurement decision.",
+      "activities": "Compare managed frontier sandboxes, hosted open-weight APIs and rented GPU containers for named workloads; specify region, data handling, startup/teardown, quotas, usage receipts and export; onboard selected option only through existing authorization.",
+      "acceptance": "One bounded pilot produces accepted artifacts, cost receipts and verified teardown; failure/timeout leaves no unowned resource; no purchase or live provisioning is implied by this planning item.",
+      "depends_on": [
+        "DC-K01",
+        "AO-K03",
+        "AL-K01"
+      ],
+      "existing_item": null,
+      "served_ref": "datacluster#2681"
+    },
+    {
+      "id": "CL-K01",
+      "owner": "vuoro-cloud",
+      "goal": "G12",
+      "feature": "F12",
+      "sourcing": "provision+adapter",
+      "baseline": "Native client onboarding items are held in agentops; named-client compatibility precedes registration changes. Canonical 20-PRODUCT-DISTRIBUTION-PLAN.md was absent at inspection.",
+      "activities": "Reconcile canonical distribution planning; onboard actual hosted/native clients with existing identity flows and capability disclosures; test first scoped read, artifact result, durable work link and continuation.",
+      "acceptance": "A fresh user reaches one accepted result without operator database edits; unsupported client auth/task features are explicit; no private endpoint scraping or broader effect scope.",
+      "depends_on": [
+        "AO-K03",
+        "VU-K02"
+      ],
+      "existing_item": "agentops#2636",
+      "served_ref": "agentops#2636"
+    },
+    {
+      "id": "CL-K02",
+      "owner": "vuoro-cloud",
+      "goal": "G12",
+      "feature": "F12",
+      "sourcing": "build",
+      "baseline": "ADMIN-01 source-backed exception inbox is already scoped as a derived view without independent acknowledgement state.",
+      "activities": "Deliver existing missing-receipt/stale-source projection; show source, freshness, uncertainty, owner and safe next action; test entitlement and source repair.",
+      "acceptance": "One exception appears once; unauthorized workspace data is absent; source repair clears it; screen state cannot change work acceptance.",
+      "depends_on": [
+        "VU-K02",
+        "AS-K01"
+      ],
+      "existing_item": "agentops#2626",
+      "served_ref": "agentops#2626"
+    },
+    {
+      "id": "CL-K03",
+      "owner": "vuoro-cloud",
+      "goal": "G12",
+      "feature": "F12",
+      "sourcing": "build",
+      "baseline": "A full attention lifecycle is explicitly unqualified in product positioning; extends rather than relabels CL-K02.",
+      "activities": "Design accountable acknowledge/assign/defer/escalate/resolve semantics at the existing owner boundary; implement bounded notification policy and human decision packets; compare interruption burden against baseline.",
+      "acceptance": "Deferred issue reappears only on defined change/deadline; dependent work waits without blocking unrelated work; silence grants no approval; withdrawn/superseded requests clear correctly; attention burden is measured.",
+      "depends_on": [
+        "CL-K02",
+        "VU-K08",
+        "AO-K02"
+      ],
+      "existing_item": null,
+      "served_ref": "vuoro-cloud#2682"
+    },
+    {
+      "id": "CL-K04",
+      "owner": "vuoro-cloud",
+      "goal": "G12",
+      "feature": "F12",
+      "sourcing": "provision+adapter",
+      "baseline": "Supported distribution and independent-user qualification are accepted estate scope; current hosting records are dated observations.",
+      "activities": "Package a versioned supported composition; specify installation, client connection, upgrade, migration, rollback, support, diagnostic redaction, restore/export and removal; run an isolated independent-user pilot.",
+      "acceptance": "User completes onboarding, interruption recovery and export without private operator knowledge; supported versions and costs are explicit; a failed upgrade recovers; support effort and repeat use have denominators.",
+      "depends_on": [
+        "CL-K01",
+        "CL-K02",
+        "AS-K02",
+        "VU-K10"
+      ],
+      "existing_item": null,
+      "served_ref": "vuoro-cloud#2683"
+    },
+    {
+      "id": "CL-K05",
+      "owner": "vuoro-cloud",
+      "goal": "G06",
+      "feature": "F06",
+      "sourcing": "build",
+      "baseline": "EE-14 admits tenant/cross-organization design and qualification into plans; it does not authorize live expansion.",
+      "activities": "Design tenant-side protected horizon, enrollment, delegation, data separation, residency/retention, billing/support and incident responsibility; implement isolated fixtures and qualification before exposure.",
+      "acceptance": "Cross-tenant search/cache/export/restore leakage is refused; consent and revocation are explicit; no public-to-protected effect path; readiness evidence precedes any authorized deployment.",
+      "depends_on": [
+        "CL-K04",
+        "VU-K07"
+      ],
+      "existing_item": null,
+      "served_ref": "vuoro-cloud#2684"
+    },
+    {
+      "id": "AL-K01",
+      "owner": "acceptance-lab",
+      "goal": "G07",
+      "feature": "F07",
+      "sourcing": "build",
+      "baseline": "Prototype deterministic scenarios and append-only records exist; no production policy authority.",
+      "activities": "Build representative held-out cohorts from real accepted/failed work; define mechanism, quality, authority and economics criteria; calibrate subjective rubrics with humans; version scorer and corpus together.",
+      "acceptance": "Known bad authority/effect/budget cases fail even if prose quality is high; repeated trials and denominators are reported; candidate cannot alter its own oracle; model judges cannot override hard gates.",
+      "depends_on": [
+        "AO-K02"
+      ],
+      "existing_item": null,
+      "served_ref": "acceptance-lab#2685"
+    },
+    {
+      "id": "AL-K02",
+      "owner": "acceptance-lab",
+      "goal": "G11",
+      "feature": "F11",
+      "sourcing": "build",
+      "baseline": "Existing baseline/candidate comparison is prototype evidence; extraction into Vuoro requires two real consumers.",
+      "activities": "Run one local-inference and one HLA or creative campaign; compare accepted outcomes, uncertainty, rework and review cost; evaluate whether shared event contract merits adapter adoption, retention or consolidation.",
+      "acceptance": "Two consumers demonstrate decision value and measured burden before shared extraction; insufficient sample is inconclusive; no experiment result automatically promotes production policy.",
+      "depends_on": [
+        "AL-K01",
+        "LI-K01"
+      ],
+      "existing_item": null,
+      "served_ref": "acceptance-lab#2686"
+    },
+    {
+      "id": "VU-K09",
+      "owner": "vuoro",
+      "goal": "G11",
+      "feature": "F11",
+      "sourcing": "build",
+      "baseline": "ExperimentRecord first-class implementation and a real ablation are already agentops#2487; one prior ad hoc experiment must not be rerun as new evidence.",
+      "activities": "Complete experiment records over observed recipe/profile/provider revisions and accepted outcomes; stratify by workload, coverage and dates; expose rework, recovery and attention; propose bounded autonomy revisions.",
+      "acceptance": "Comparable cohorts retain failures/unknowns; inadequate n/coverage suppresses comparison; changing a review boundary needs existing authorized decision; rollback restores prior configuration and records history.",
+      "depends_on": [
+        "AL-K01",
+        "VU-K08"
+      ],
+      "existing_item": "agentops#2487",
+      "served_ref": "agentops#2487"
+    },
+    {
+      "id": "VU-K10",
+      "owner": "vuoro",
+      "goal": "G12",
+      "feature": "F13",
+      "sourcing": "provision+adapter",
+      "baseline": "Product plan E requires dated row-specific swaps; export/rehearsal already tracked in agentops#2484.",
+      "activities": "Rehearse harness, telemetry and work-provider swaps independently; export original artifacts and relationship/authority history; record adapter changes, capability loss and recovery steps.",
+      "acceptance": "Cold participant continues after import and supplier replacement without changed acceptance semantics; missing observation remains missing; each claim names only the rows actually swapped.",
+      "depends_on": [
+        "VU-K03",
+        "VU-K06",
+        "SP-K02"
+      ],
+      "existing_item": "agentops#2484",
+      "served_ref": "agentops#2484"
+    },
+    {
+      "id": "AU-K01",
+      "owner": "auditctl",
+      "goal": "G07",
+      "feature": "F07",
+      "sourcing": "build",
+      "baseline": "S4 import is active under agentops#2485; committed legacy shards retain historical authority until verified import.",
+      "activities": "Extend existing import plan with provenance, original digests, completeness strata, rebuild and interrupted-import reconciliation; retain local observation semantics and central owner boundary.",
+      "acceptance": "Imported payload/original digest/provenance match source; duplicate and interrupted import converge without rewriting history; missing source blocks completeness claim.",
+      "depends_on": [
+        "AS-K03"
+      ],
+      "existing_item": "agentops#2485",
+      "served_ref": "agentops#2485"
+    },
+    {
+      "id": "AO-K04",
+      "owner": "agentops",
+      "goal": "G10",
+      "feature": "F10",
+      "sourcing": "provision+adapter",
+      "baseline": "W41-R4 already defines one skill supply-chain qualification; no compiled profile or global registry is required.",
+      "activities": "Complete source/digest/dependency/load-path inventory for a real skill; test changed bytes and permission-widening metadata; publish native-provider onboarding and retirement rules.",
+      "acceptance": "Changed or unverified dependency cannot inherit prior permission; metadata cannot grant authority; observed digests retain unknown coverage; native packaging can replace the adapter.",
+      "depends_on": [
+        "AO-K01"
+      ],
+      "existing_item": "agentops#2650",
+      "served_ref": "agentops#2650"
+    },
+    {
+      "id": "NX-K02",
+      "owner": "gitops-nixos",
+      "goal": "G10",
+      "feature": "F10",
+      "sourcing": "provision+adapter",
+      "baseline": "Containment comparison and runtime negative-path upgrade acceptance already exist as agentops#2648/#2649.",
+      "activities": "Qualify actual Linux isolation for native/local/cloud-connected runtimes; compare filesystem, process, credential and network boundaries; pin supported upgrades and run denial cases before rollout.",
+      "acceptance": "Hostile repository/tool output cannot read protected secrets through tested routes; egress denial stays denial; an unavailable sandbox is explicit; upgrade failure rolls back without broadening authority.",
+      "depends_on": [
+        "NX-K01",
+        "AO-K04"
+      ],
+      "existing_item": "agentops#2648",
+      "served_ref": "agentops#2648"
+    },
+    {
+      "id": "SC-K01",
+      "owner": "scribectl",
+      "goal": "G03",
+      "feature": "F03",
+      "sourcing": "build",
+      "baseline": "Frozen packs, candidate mining and human ratification exist; live qualification has outstanding routed-fill and sync items.",
+      "activities": "Qualify one representative writing project across session/model interruption; preserve frozen pack hashes, drafts, source/canon distinction and human verdict; exercise recovery on copied vaults before live workflow.",
+      "acceptance": "Cold session continues from the correct pack; generated text cannot become canon automatically; conflicting or partial sync does not overwrite accepted material; actual writer review effort is recorded.",
+      "depends_on": [
+        "LI-K01",
+        "VU-K03"
+      ],
+      "existing_item": "scribectl#1420",
+      "served_ref": "scribectl#1420"
+    },
+    {
+      "id": "SC-K02",
+      "owner": "scribectl",
+      "goal": "G11",
+      "feature": "F11",
+      "sourcing": "provision+adapter",
+      "baseline": "Multiple native backends and local writing experiments exist; new model usefulness is not implied by benchmark rank.",
+      "activities": "Compare qualified local and frontier arrangements on the same writing tasks using voice/canon criteria and human selection; retain exact drafts and cost/effort; update native runner configuration only after result.",
+      "acceptance": "Writer can prefer a result independently of model identity; cost includes rejected drafts and review; canon violations fail; no automated ratification or agent-on-agent infinite iteration.",
+      "depends_on": [
+        "SC-K01",
+        "AL-K01"
+      ],
+      "existing_item": null,
+      "served_ref": "scribectl#2687"
+    },
+    {
+      "id": "FW-K01",
+      "owner": "frontier-weave",
+      "goal": "G01",
+      "feature": "F14",
+      "sourcing": "build",
+      "baseline": "Existing core-gameplay roadmap and FW-0101 physical-device/comfort observation gate own the domain; AI scaffolding is not a playable outcome.",
+      "activities": "Complete existing physical comfort observation and smallest asymmetric co-op slice; record shared outcome, persistence and player effort; connect only reusable evidence/work references to ecosystem learning.",
+      "acceptance": "Two players pursuing different activities create one consequential shared result; actual device/play observations accompany automated tests; human canon/mechanic ratification stays intact.",
+      "depends_on": [
+        "AO-K02"
+      ],
+      "existing_item": null,
+      "served_ref": "frontier-weave#2688"
+    },
+    {
+      "id": "AE-K01",
+      "owner": "aligned-equity",
+      "goal": "G01",
+      "feature": "F14",
+      "sourcing": "build",
+      "baseline": "Finland-first useful-evidence plan and fixture contracts exist; fixture success alone does not establish useful real company evidence.",
+      "activities": "Complete existing sourced Finnish company evidence spine; expose provenance, rights, uncertainty and freshness; evaluate one explainable decision view and subsequent review.",
+      "acceptance": "Reader traces claims to authorized current sources and distinguishes observations from interpretation; decision relevance is measured without investment-performance promises.",
+      "depends_on": [
+        "AO-K02"
+      ],
+      "existing_item": null,
+      "served_ref": "aligned-equity#2689"
+    },
+    {
+      "id": "BW-K01",
+      "owner": "browser-workbench",
+      "goal": "G05",
+      "feature": "F05",
+      "sourcing": "provision+adapter",
+      "baseline": "EE-22d requires a real browser/debugger workflow; archived HostProto lineage is not a generic runtime to revive.",
+      "activities": "Select named consumer; qualify native browser/debugger adapter capabilities and authentication boundary; export bounded raw/normalized evidence and unsupported-feature declarations.",
+      "acceptance": "Real host/toolchain completes the selected workflow; unavailable capability is explicit; browser content cannot supply authority; conformance references integrate with supplier swap records.",
+      "depends_on": [
+        "AO-K03",
+        "AO-K04"
+      ],
+      "existing_item": null,
+      "served_ref": "browser-workbench#2690"
+    },
+    {
+      "id": "AO-K05",
+      "owner": "agentops",
+      "goal": "G01",
+      "feature": "F14",
+      "sourcing": "build",
+      "baseline": "EE-19 and EE-22a..j already assign smaller-project outcomes; unrelated personal archives remain outside scope.",
+      "activities": "Reconcile Bindery field proof, CV Studio edit/export, public project guides, FlowLab campaign, Box/templates, physical rack-parts and unused pilots with owner plans; preserve requirements and record adopt/integrate/maintain/close decisions.",
+      "acceptance": "Every inherited EE row resolves to a current owner plan or explicit successor; physical/play/user evidence remains distinct from source tests; no retired cockpit/dispatcher/Outctl implementation is revived.",
+      "depends_on": [
+        "AO-K01"
+      ],
+      "existing_item": null,
+      "served_ref": "agentops#2691"
+    },
+    {
+      "id": "AO-K06",
+      "owner": "agentops",
+      "goal": "G12",
+      "feature": "F13",
+      "sourcing": "build",
+      "baseline": "The two-year outcome is a target; current corpus contains bounded proofs, source deliveries and live gaps.",
+      "activities": "Run the full end-state demonstration using owner evidence: continuity, reconstructability, whole-application recovery, measured improvement, supplier swap, domain usefulness and independent-user operation; publish limitations and next gaps.",
+      "acceptance": "All seven demonstrations have dated evidence and scope; failure of any required goal prevents an estate-wide completion claim; ongoing maintenance/support effort is compared with AO-K02 baseline.",
+      "depends_on": [
+        "SP-K01",
+        "SP-K02",
+        "AS-K02",
+        "VU-K09",
+        "VU-K10",
+        "CL-K04",
+        "FW-K01",
+        "AE-K01",
+        "SC-K02",
+        "AO-K05",
+        "HLA-K04"
+      ],
+      "existing_item": null,
+      "served_ref": "agentops#2692"
+    },
+    {
+      "id": "HLA-K01",
+      "owner": "homelab-analytics",
+      "goal": "G01",
+      "feature": "F14",
+      "sourcing": "build",
+      "baseline": "Household outcome plan and evaluator source exist; live acceptance is unqualified.",
+      "activities": "Extend named household decision with purpose, authorized owner, baseline/window, success measure, review triggers and stop conditions; reuse publication and identity boundaries.",
+      "acceptance": "Success, timed review, changed source, stop and missing evidence differ; stopped commitments make no new proactive proposal; history remains readable.",
+      "depends_on": [
+        "AO-K02"
+      ],
+      "existing_item": null,
+      "served_ref": "homelab-analytics#2693"
+    },
+    {
+      "id": "HLA-K02",
+      "owner": "homelab-analytics",
+      "goal": "G03",
+      "feature": "F03",
+      "sourcing": "build",
+      "baseline": "SourceFreshnessView and publication snapshots exist; freshness differs from conclusion validity.",
+      "activities": "Trace corrected source windows, tariffs and mappings to affected publications and commitments; emit idempotent review signals.",
+      "acceptance": "Unrelated periods stay valid; repeated revision creates no duplicate; recomputation creates a new version; unknown evidence cannot support confident savings.",
+      "depends_on": [
+        "HLA-K01"
+      ],
+      "existing_item": null,
+      "served_ref": "homelab-analytics#2694"
+    },
+    {
+      "id": "HLA-K03",
+      "owner": "homelab-analytics",
+      "goal": "G01",
+      "feature": "F14",
+      "sourcing": "build",
+      "baseline": "Existing plan requires observed consequences; fixtures do not establish household value.",
+      "activities": "Link decision or non-decision to exact publication; record follow-up, result, baseline, confounders, attribution hypothesis and missingness; conduct two real reviews.",
+      "acceptance": "Measured result differs from estimated avoided cost; real follow-up and continue/stop decision are evidenced; recommendation does not authorize actuation.",
+      "depends_on": [
+        "HLA-K02"
+      ],
+      "existing_item": null,
+      "served_ref": "homelab-analytics#2695"
+    },
+    {
+      "id": "HLA-K04",
+      "owner": "homelab-analytics",
+      "goal": "G11",
+      "feature": "F11",
+      "sourcing": "provision+adapter",
+      "baseline": "HLA retains household authority; Vuoro learns through portable outcome references.",
+      "activities": "Export minimal commitment/work/publication references, observation window, verdict, attention/cost coverage and versioned evidence pointer.",
+      "acceptance": "Retry yields one logical event; correction supersedes; raw household rows and credentials stay excluded; unknown effort is not zero; real event and correction are reconstructible.",
+      "depends_on": [
+        "HLA-K03",
+        "VU-K09"
+      ],
+      "existing_item": null,
+      "served_ref": "homelab-analytics#2696"
+    }
+  ]
+}
