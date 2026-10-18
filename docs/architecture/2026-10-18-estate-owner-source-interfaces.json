@@ -1,0 +1,539 @@
+{
+  "captured_at": "2026-10-18",
+  "global_unknowns": [
+    "consumer graph and actual callers",
+    "runtime/deployed versions and active catalogs",
+    "configured endpoints, principals and effective authority",
+    "runtime persistence location, data classification and retention unless source code states a local implementation",
+    "compatibility window, cutover, rollback, shim lifetime and disposition",
+    "canonical default-branch revision beyond the exact commits listed here"
+  ],
+  "historical_seed": "The earlier census and first-consumer documents are preserved unchanged; this additive extract does not replace their counts or claims.",
+  "interfaces": [
+    {
+      "authority_and_auth": "Service methods require mutual TLS plus bearer for standard broker operations; host-session flow is certificate-only and derives subject/policy from certificate. Exact deployment principals and caller set are unknown.",
+      "boundary": "Broker HTTPS API and Python client; pyproject declares credctl, server, session-admin, enrollment, and migration entry points.",
+      "compatibility_cutover_rollback": "unknown",
+      "configured_consumers": "unknown",
+      "disposition": "unassigned; descriptive source inventory only",
+      "id": "ec01-cred-broker-http-and-client-v1",
+      "live_use": "unknown; source-only, no runtime catalog or traffic observation",
+      "owner": "cred-broker",
+      "persistence_and_data": "Broker owns credential/session and approval records per implementation; deployed storage location, retention and data classification not established here.",
+      "producer_consumer": "Broker service produces the declared HTTP operations; callers/consumers are not enumerated by these files.",
+      "protocol_and_operations": {
+        "protocol_version": "route prefix v1 (no separate negotiated version found in inspected files)",
+        "routes": [
+          "GET /v1/health",
+          "POST /v1/authorize",
+          "POST /v1/credentials",
+          "POST /v1/approvals/challenge",
+          "POST /v1/approvals/approve",
+          "POST /v1/sessions/delegate",
+          "POST /v1/sessions/host"
+        ],
+        "transport": "HTTPS/JSON"
+      },
+      "repo": "cred-broker",
+      "retry_and_delivery": "Client performs one bounded HTTPS request; source protocol documentation forbids retrying ambiguous protected POSTs. Production retry behavior unknown.",
+      "source_files": [
+        {
+          "path": "pyproject.toml",
+          "sha256": "e680487e404db3f8034f8a6b9d513154e7111fb99eee82ff2faba3de9dd1917b"
+        },
+        {
+          "path": "src/cred_broker/server.py",
+          "sha256": "a3642daa4f55a330b6bfcd542cf7fbe043b30504ebd82688a4be78e4185caea7"
+        },
+        {
+          "path": "src/cred_broker/client.py",
+          "sha256": "2387e9e2e8a890308dd00d7d2699d011074f4d2c2cad625d1c334721d42e7d2f"
+        }
+      ],
+      "source_revision": "72b86d765f5e7386383cec2171b577c2af845839"
+    },
+    {
+      "authority_and_auth": "Protected routes require client certificate and bearer, and are denied on the public listener. They distinguish intent acceptance from source readout; source retrieval is outside read-copy.",
+      "boundary": "Private Q4 protected-intent lifecycle and protected-effect readout endpoints.",
+      "compatibility_cutover_rollback": "unknown",
+      "configured_consumers": "unknown",
+      "disposition": "unassigned; source contract only",
+      "id": "ec01-cred-broker-protected-intent-readout-v1",
+      "live_use": "unknown; no deployment or invocation observations",
+      "owner": "cred-broker",
+      "persistence_and_data": "Accepted intent/effect receipts are broker-owned by source design; concrete deployed persistence/retention unknown.",
+      "producer_consumer": "cred-broker declares prepare/accept/receipt and accepted-effect list/read-copy boundaries; consumers are not established by inspected source.",
+      "protocol_and_operations": {
+        "protocol_version": "v1 route namespace; protocol docs define operation schemas",
+        "routes": [
+          "/v1/protected-intents/prepare",
+          "/v1/protected-intents/accept",
+          "/v1/protected-intents/read",
+          "/v1/protected-intents/receiptlookup",
+          "/v1/protected-effects/list-accepted",
+          "/v1/protected-effects/read-copy"
+        ],
+        "transport": "private HTTPS/JSON"
+      },
+      "repo": "cred-broker",
+      "retry_and_delivery": "Docs explicitly prohibit retrying an ambiguous POST; read operations have no runtime retry evidence.",
+      "source_files": [
+        {
+          "path": "src/cred_broker/server.py",
+          "sha256": "a3642daa4f55a330b6bfcd542cf7fbe043b30504ebd82688a4be78e4185caea7"
+        },
+        {
+          "path": "src/cred_broker/protected_intent_protocol.py",
+          "sha256": "8046ab61354115a2bd526b20c79188f9cf944461f37f65cbf7eaf93409fa0b62"
+        },
+        {
+          "path": "src/cred_broker/protected_intent_readout_protocol.py",
+          "sha256": "a9537a2f17ed90e85d24274c6b5bbed85778758910eb54a877e9334a05609277"
+        },
+        {
+          "path": "docs/protected-intent-protocol.md",
+          "sha256": "be1ebdad1e4f1a20f70fa356c6208224904e422dc2ef8f491ef04a90fa6312da"
+        },
+        {
+          "path": "docs/protected-intent-readout.md",
+          "sha256": "9b0edda9ff2e6baff1642a45459693821eb94183c8b944bdc3c4bcff1ebcf1e8"
+        }
+      ],
+      "source_revision": "72b86d765f5e7386383cec2171b577c2af845839"
+    },
+    {
+      "authority_and_auth": "Resources name serviceAccount spark-operator and reference secret s3-credentials; actual authority, secret contents and cluster target are not established.",
+      "boundary": "Template landing and transform SparkApplication resources plus Avro records and Python package metadata.",
+      "compatibility_cutover_rollback": "unknown",
+      "configured_consumers": "unknown",
+      "disposition": "unassigned; template boundary only",
+      "id": "ec01-datacluster-sparkapplication-template-v1",
+      "live_use": "unknown; repository is a template and no cluster observation was made",
+      "owner": "datacluster",
+      "persistence_and_data": "Landing/curated data contract and package source exist; actual storage and retention unknown.",
+      "producer_consumer": "Template defines Spark Operator resources that submit Python jobs; deployment operators and concrete cluster consumers unknown.",
+      "protocol_and_operations": {
+        "resource_api": "sparkoperator.k8s.io/v1beta2 SparkApplication",
+        "retry_source_defaults": {
+          "onFailureRetries": 3,
+          "onFailureRetryInterval": 10,
+          "onSubmissionFailureRetries": 5,
+          "onSubmissionFailureRetryInterval": 20,
+          "restartPolicy": "OnFailure"
+        },
+        "schema_format": "Avro records LandingRecord and CuratedRecord; no explicit schema revision field found",
+        "spark_version": "3.5.0"
+      },
+      "repo": "datacluster-template",
+      "source_files": [
+        {
+          "path": "data-platform/setup.py",
+          "sha256": "f08c97eb00614b1cac88918f288446e8100a119228d6eb279de92fa72f19e5ba"
+        },
+        {
+          "path": "data-platform/pipelines/_template/k8s/landing.yaml",
+          "sha256": "37476433cd832049e87242477812040165805ac05c9064b4ae3b60dd08b0b1f4"
+        },
+        {
+          "path": "data-platform/pipelines/_template/k8s/transform.yaml",
+          "sha256": "6e9eed72b9608365e05aa701fbd270368331fadf1f729bd8da1b5bc047e944a0"
+        },
+        {
+          "path": "data-platform/pipelines/_template/schemas/landing.avsc",
+          "sha256": "ea99522c593002c7f56b18ffcf6b0262cdda1b49c6b434b78349ddaff7d41ff3"
+        },
+        {
+          "path": "data-platform/pipelines/_template/schemas/curated.avsc",
+          "sha256": "3ef9643391fbf4bbb0e2de0204557dba0060ebc0e685bf192e5fa7ec3b364bd7"
+        }
+      ],
+      "source_revision": "d6ee58081b6b71e609bc927091bfc8a510ed1745"
+    },
+    {
+      "authority_and_auth": "Inputs include hcloud_token and tailscale_auth_key marked sensitive; do not infer values or configured principals. Outputs include sensitive talosconfig/kubeconfig material.",
+      "boundary": "Terraform v2 cluster provisioning module and declared outputs.",
+      "compatibility_cutover_rollback": "unknown",
+      "configured_consumers": "unknown",
+      "disposition": "unassigned; provisioning source boundary only",
+      "id": "ec01-datacluster-terraform-provisioning-v1",
+      "live_use": "unknown; no state/backend/cluster read",
+      "owner": "datacluster",
+      "persistence_and_data": "Terraform state and actual resource ownership not established by these source files.",
+      "producer_consumer": "Terraform configuration declares Hetzner and Talos module inputs and cluster outputs; state backends, callers and instantiated environment unknown.",
+      "protocol_and_operations": {
+        "interface": "Terraform configuration, not a runtime network protocol",
+        "provider": "hetznercloud/hcloud ~>1.57",
+        "talos_module": "hcloud-talos/talos/hcloud 2.20.7",
+        "terraform_constraint": ">=1.0"
+      },
+      "repo": "datacluster-template",
+      "retry_and_delivery": "not declared as an interface retry contract",
+      "source_files": [
+        {
+          "path": "terraform-v2/main.tf",
+          "sha256": "96d4ce8d01872e673cdee64c0f91564172a1e054fd3f345990bf993f0cdd2674"
+        },
+        {
+          "path": "terraform-v2/variables.tf",
+          "sha256": "cf7ddda2e69ab078d786f80dfcfbdd2b3839c234aedc9140f4eb677ae0a4b62d"
+        },
+        {
+          "path": "terraform-v2/outputs.tf",
+          "sha256": "36779ec6900a26c65f2baa813d499643a938f63c1bd192fbf313505d58e172dc"
+        }
+      ],
+      "source_revision": "d6ee58081b6b71e609bc927091bfc8a510ed1745"
+    },
+    {
+      "authority_and_auth": "No remote identity or credential protocol declared; local SQLite store is append-only event authority and projections are rebuildable per source.",
+      "boundary": "acceptlab command interface, candidate/scenario schema and SQLite event-store implementation.",
+      "compatibility_cutover_rollback": "unknown",
+      "configured_consumers": "unknown",
+      "disposition": "unassigned; local interface only",
+      "id": "ec01-acceptance-lab-cli-and-local-event-store-v1",
+      "live_use": "unknown; source-only",
+      "owner": "acceptance-lab",
+      "persistence_and_data": "SQLite event chain with event_hash/previous_hash; projections can be rebuilt. File path, backup, retention and consumer use are not established.",
+      "producer_consumer": "CLI evaluates candidates/scenarios and emits local reports; named downstream consumers are not declared in inspected source.",
+      "protocol_and_operations": {
+        "commands": [
+          "init",
+          "evaluate",
+          "report",
+          "compare",
+          "verify-store",
+          "rebuild",
+          "list-runs",
+          "demo"
+        ],
+        "schema_version": "scenario/candidate models default to string 1",
+        "transport": "local CLI and local SQLite store; no network API declared"
+      },
+      "repo": "acceptance-lab",
+      "retry_and_delivery": "No distributed delivery contract declared. CLI exit codes distinguish fail/regression/invalid-store; invocation retry policy unknown.",
+      "source_files": [
+        {
+          "path": "pyproject.toml",
+          "sha256": "37f916508d5023198c0286e9113089b51f4e71a71e93fc5867ae092315a16efc"
+        },
+        {
+          "path": "src/acceptance_lab/cli.py",
+          "sha256": "9702d813c11646bfcfc328a197b42f59298c7aab70d64d4a6a27a295cc5e367f"
+        },
+        {
+          "path": "src/acceptance_lab/models.py",
+          "sha256": "46a239bc4541c17fbaf6680f442004dcba569bca440d0eee5ac204b958bef065"
+        },
+        {
+          "path": "src/acceptance_lab/store.py",
+          "sha256": "ba3afdad94ac750cf8b90d8d99b1aaf2b50f36b4529bd65bca05b0150dab4029"
+        },
+        {
+          "path": "schemas/scenario.schema.json",
+          "sha256": "18afecc897b22e8cfe4fb57528261fd6a5f9bde210627a2497e720725ef126b5"
+        },
+        {
+          "path": "schemas/candidate-output.schema.json",
+          "sha256": "d9246a0992d6f0cc62d9ca6b45d9beb6b018e24430146eb087a8e9959c79f0f0"
+        }
+      ],
+      "source_revision": "ebc6cafd712c9edb076d14dd7b2d1fabf7c5212c"
+    },
+    {
+      "authority_and_auth": "Route policy source maps required role/permission/service-token scopes; selected control and action routes call unsafe-admin requirement. Configured principals and runtime auth provider unknown.",
+      "boundary": "FastAPI web service and MCP stdio server linked to selected API routes.",
+      "compatibility_cutover_rollback": "unknown",
+      "configured_consumers": "unknown",
+      "disposition": "unassigned; source interface inventory only",
+      "id": "ec01-homelab-api-and-mcp-v1",
+      "live_use": "unknown; source-only, no service/runtime queries",
+      "owner": "homelab-analytics",
+      "persistence_and_data": "API delegates to repositories/services; backing store, retention and deployed data classification not established in this source pass.",
+      "producer_consumer": "API routes expose agent index/catalog, auth session, control schedule, and Home Assistant ingestion/action surfaces. MCP tools call HTTP endpoints; specific installed callers unknown.",
+      "protocol_and_operations": {
+        "api": "HTTP JSON; no global API version declaration found in inspected route files",
+        "mcp": "JSON-RPC 2.0 over line-delimited stdio, MCP protocol 2025-06-18",
+        "mcp_tools": [
+          "list_publications",
+          "get_publication_summary",
+          "get_publication_lineage",
+          "get_proposal",
+          "propose_scenario",
+          "propose_policy",
+          "propose_action"
+        ],
+        "selected_routes": [
+          "GET /api/agent/semantic-index",
+          "GET /api/agent/catalog",
+          "GET /auth/me",
+          "POST /control/schedule-dispatches/{dispatch_id}/retry",
+          "POST /api/ha/ingest",
+          "POST /api/ha/actions/proposals"
+        ]
+      },
+      "repo": "homelab-analytics",
+      "retry_and_delivery": "Source declares schedule-dispatch retry endpoint, allowed only for completed/failed dispatches. MCP errors include retryable flag; source marks upstream/unavailable retryable and forbidden nonretryable. Runtime delivery/retry unknown.",
+      "source_files": [
+        {
+          "path": "pyproject.toml",
+          "sha256": "daa5cfc0e71c6217f5977d0d132b998b9245aabd28f75fe71e46c9c9181e44f1"
+        },
+        {
+          "path": "apps/api/app.py",
+          "sha256": "a3c0992f4fc859428046a421e7cad26eed0b80cbc80d879103ad57a8d1daa22d"
+        },
+        {
+          "path": "apps/api/auth_policies.py",
+          "sha256": "5d0d3ba028e7737d380d37c49f3bc7209feee2065e06e8e0f42ab3fdadf12b8e"
+        },
+        {
+          "path": "apps/api/auth_runtime.py",
+          "sha256": "26f68cf2527690ca8e719dc8ff021680cf8fb0d0b24ab8d6e4cdda63bc1ec928"
+        },
+        {
+          "path": "apps/api/routes/agent_routes.py",
+          "sha256": "ffa30a02a01bdb6ab4de16ab257adbb5598db09ce96575f85c31f6f90c57fcb7"
+        },
+        {
+          "path": "apps/api/routes/auth_session_routes.py",
+          "sha256": "b887f0755446545cf716c7e1bd623e6e5a0ada734d12095352872c5a0db066d7"
+        },
+        {
+          "path": "apps/api/routes/control_routes.py",
+          "sha256": "fa090be1896ad52447fbd613ce06344dd4082289feb05adf1e5f7f6097c50816"
+        },
+        {
+          "path": "apps/api/routes/ha_routes.py",
+          "sha256": "31e11eea26e7a74c8524c024200fb26fbe60ba925e8bd80875996e45b6dc3ac6"
+        },
+        {
+          "path": "apps/agent/mcp_server.py",
+          "sha256": "c9558759ad23d4d94a001c462c16fdfd2c50316888e7f7b4e5c3dde9af396a57"
+        }
+      ],
+      "source_revision": "c8379d7504f12dcc1a9e9d269e4fbb48741d7e8f"
+    },
+    {
+      "authority_and_auth": "CLI source does not establish configured credentials or production authority; command auth depends on runtime wiring not observed.",
+      "boundary": "Worker executable and command parser; package declares API/web/worker entrypoints.",
+      "compatibility_cutover_rollback": "unknown",
+      "configured_consumers": "unknown",
+      "disposition": "unassigned; command surface sample, not exhaustive",
+      "id": "ec01-homelab-worker-cli-v1",
+      "live_use": "unknown",
+      "owner": "homelab-analytics",
+      "persistence_and_data": "Worker uses service/repository layers; configured persistence and retention unknown.",
+      "producer_consumer": "Worker command surface processes ingestion, schedules, transformations and reporting; actual invokers and target environments unknown.",
+      "protocol_and_operations": {
+        "commands_sample": [
+          "ingest-account-transactions",
+          "ingest-configured-csv",
+          "process-schedule-dispatch",
+          "watch-schedule-dispatches",
+          "run-transformation-extension",
+          "run-reporting-extension",
+          "promote-run"
+        ],
+        "entrypoint": "homelab-analytics-worker=apps.worker.main:main",
+        "transport": "local process command line"
+      },
+      "repo": "homelab-analytics",
+      "retry_and_delivery": "Worker README describes promote-run as retry-safe for promotion; other worker retry/recovery behavior is command-specific and not fully inventoried here.",
+      "source_files": [
+        {
+          "path": "pyproject.toml",
+          "sha256": "daa5cfc0e71c6217f5977d0d132b998b9245aabd28f75fe71e46c9c9181e44f1"
+        },
+        {
+          "path": "apps/worker/command_parser.py",
+          "sha256": "35625a73a0f0488064f6ae98dc354706b7574f72b7a44c9ef08f16eb9ff42c85"
+        },
+        {
+          "path": "apps/worker/README.md",
+          "sha256": "f6829ed255826195ff03f0943aa5c90ad31834ccac169a2b3792696dce9f52f1"
+        }
+      ],
+      "source_revision": "c8379d7504f12dcc1a9e9d269e4fbb48741d7e8f"
+    }
+  ],
+  "repositories": [
+    {
+      "owner": "cred-broker",
+      "repo": "cred-broker",
+      "source_files": [
+        {
+          "path": "pyproject.toml",
+          "sha256": "e680487e404db3f8034f8a6b9d513154e7111fb99eee82ff2faba3de9dd1917b"
+        },
+        {
+          "path": "src/cred_broker/server.py",
+          "sha256": "a3642daa4f55a330b6bfcd542cf7fbe043b30504ebd82688a4be78e4185caea7"
+        },
+        {
+          "path": "src/cred_broker/client.py",
+          "sha256": "2387e9e2e8a890308dd00d7d2699d011074f4d2c2cad625d1c334721d42e7d2f"
+        },
+        {
+          "path": "src/cred_broker/protected_intent_protocol.py",
+          "sha256": "8046ab61354115a2bd526b20c79188f9cf944461f37f65cbf7eaf93409fa0b62"
+        },
+        {
+          "path": "src/cred_broker/protected_intent_readout_protocol.py",
+          "sha256": "a9537a2f17ed90e85d24274c6b5bbed85778758910eb54a877e9334a05609277"
+        },
+        {
+          "path": "docs/protected-intent-protocol.md",
+          "sha256": "be1ebdad1e4f1a20f70fa356c6208224904e422dc2ef8f491ef04a90fa6312da"
+        },
+        {
+          "path": "docs/protected-intent-readout.md",
+          "sha256": "9b0edda9ff2e6baff1642a45459693821eb94183c8b944bdc3c4bcff1ebcf1e8"
+        }
+      ],
+      "source_revision": "72b86d765f5e7386383cec2171b577c2af845839",
+      "visibility_observation": {
+        "method": "canonical GitHub repository metadata query; only visibility enum retained",
+        "observed_at": "2026-10-18",
+        "value": "public"
+      }
+    },
+    {
+      "owner": "datacluster",
+      "repo": "datacluster-template",
+      "source_files": [
+        {
+          "path": "terraform-v2/main.tf",
+          "sha256": "96d4ce8d01872e673cdee64c0f91564172a1e054fd3f345990bf993f0cdd2674"
+        },
+        {
+          "path": "terraform-v2/variables.tf",
+          "sha256": "cf7ddda2e69ab078d786f80dfcfbdd2b3839c234aedc9140f4eb677ae0a4b62d"
+        },
+        {
+          "path": "terraform-v2/outputs.tf",
+          "sha256": "36779ec6900a26c65f2baa813d499643a938f63c1bd192fbf313505d58e172dc"
+        },
+        {
+          "path": "data-platform/setup.py",
+          "sha256": "f08c97eb00614b1cac88918f288446e8100a119228d6eb279de92fa72f19e5ba"
+        },
+        {
+          "path": "data-platform/pipelines/_template/k8s/landing.yaml",
+          "sha256": "37476433cd832049e87242477812040165805ac05c9064b4ae3b60dd08b0b1f4"
+        },
+        {
+          "path": "data-platform/pipelines/_template/k8s/transform.yaml",
+          "sha256": "6e9eed72b9608365e05aa701fbd270368331fadf1f729bd8da1b5bc047e944a0"
+        },
+        {
+          "path": "data-platform/pipelines/_template/schemas/landing.avsc",
+          "sha256": "ea99522c593002c7f56b18ffcf6b0262cdda1b49c6b434b78349ddaff7d41ff3"
+        },
+        {
+          "path": "data-platform/pipelines/_template/schemas/curated.avsc",
+          "sha256": "3ef9643391fbf4bbb0e2de0204557dba0060ebc0e685bf192e5fa7ec3b364bd7"
+        }
+      ],
+      "source_revision": "d6ee58081b6b71e609bc927091bfc8a510ed1745",
+      "visibility_observation": {
+        "method": "canonical GitHub repository metadata query; only visibility enum retained",
+        "observed_at": "2026-10-18",
+        "value": "public"
+      }
+    },
+    {
+      "owner": "acceptance-lab",
+      "repo": "acceptance-lab",
+      "source_files": [
+        {
+          "path": "pyproject.toml",
+          "sha256": "37f916508d5023198c0286e9113089b51f4e71a71e93fc5867ae092315a16efc"
+        },
+        {
+          "path": "src/acceptance_lab/cli.py",
+          "sha256": "9702d813c11646bfcfc328a197b42f59298c7aab70d64d4a6a27a295cc5e367f"
+        },
+        {
+          "path": "src/acceptance_lab/models.py",
+          "sha256": "46a239bc4541c17fbaf6680f442004dcba569bca440d0eee5ac204b958bef065"
+        },
+        {
+          "path": "src/acceptance_lab/store.py",
+          "sha256": "ba3afdad94ac750cf8b90d8d99b1aaf2b50f36b4529bd65bca05b0150dab4029"
+        },
+        {
+          "path": "schemas/scenario.schema.json",
+          "sha256": "18afecc897b22e8cfe4fb57528261fd6a5f9bde210627a2497e720725ef126b5"
+        },
+        {
+          "path": "schemas/candidate-output.schema.json",
+          "sha256": "d9246a0992d6f0cc62d9ca6b45d9beb6b018e24430146eb087a8e9959c79f0f0"
+        }
+      ],
+      "source_revision": "ebc6cafd712c9edb076d14dd7b2d1fabf7c5212c",
+      "visibility_observation": {
+        "method": "canonical GitHub repository metadata query; only visibility enum retained",
+        "observed_at": "2026-10-18",
+        "value": "public"
+      }
+    },
+    {
+      "owner": "homelab-analytics",
+      "repo": "homelab-analytics",
+      "source_files": [
+        {
+          "path": "pyproject.toml",
+          "sha256": "daa5cfc0e71c6217f5977d0d132b998b9245aabd28f75fe71e46c9c9181e44f1"
+        },
+        {
+          "path": "apps/api/app.py",
+          "sha256": "a3c0992f4fc859428046a421e7cad26eed0b80cbc80d879103ad57a8d1daa22d"
+        },
+        {
+          "path": "apps/api/auth_policies.py",
+          "sha256": "5d0d3ba028e7737d380d37c49f3bc7209feee2065e06e8e0f42ab3fdadf12b8e"
+        },
+        {
+          "path": "apps/api/auth_runtime.py",
+          "sha256": "26f68cf2527690ca8e719dc8ff021680cf8fb0d0b24ab8d6e4cdda63bc1ec928"
+        },
+        {
+          "path": "apps/api/routes/agent_routes.py",
+          "sha256": "ffa30a02a01bdb6ab4de16ab257adbb5598db09ce96575f85c31f6f90c57fcb7"
+        },
+        {
+          "path": "apps/api/routes/auth_session_routes.py",
+          "sha256": "b887f0755446545cf716c7e1bd623e6e5a0ada734d12095352872c5a0db066d7"
+        },
+        {
+          "path": "apps/api/routes/control_routes.py",
+          "sha256": "fa090be1896ad52447fbd613ce06344dd4082289feb05adf1e5f7f6097c50816"
+        },
+        {
+          "path": "apps/api/routes/ha_routes.py",
+          "sha256": "31e11eea26e7a74c8524c024200fb26fbe60ba925e8bd80875996e45b6dc3ac6"
+        },
+        {
+          "path": "apps/agent/mcp_server.py",
+          "sha256": "c9558759ad23d4d94a001c462c16fdfd2c50316888e7f7b4e5c3dde9af396a57"
+        },
+        {
+          "path": "apps/worker/command_parser.py",
+          "sha256": "35625a73a0f0488064f6ae98dc354706b7574f72b7a44c9ef08f16eb9ff42c85"
+        },
+        {
+          "path": "apps/worker/README.md",
+          "sha256": "f6829ed255826195ff03f0943aa5c90ad31834ccac169a2b3792696dce9f52f1"
+        }
+      ],
+      "source_revision": "c8379d7504f12dcc1a9e9d269e4fbb48741d7e8f",
+      "visibility_observation": {
+        "method": "canonical GitHub repository metadata query; only visibility enum retained",
+        "observed_at": "2026-10-18",
+        "value": "public"
+      }
+    }
+  ],
+  "schema": "agentops-estate-owner-source-interfaces/v1",
+  "scope": "Incremental source-only inventory for four public owner repositories identified by the earlier estate census. No configured runtime, credentials, private appservice, live consumer, traffic, or deployment state was inspected."
+}
