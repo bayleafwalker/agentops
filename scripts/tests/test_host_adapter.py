@@ -1176,10 +1176,10 @@ def test_vuoro_owner_sends_delegation_calls_through_the_owner_port():
     o.run_register(REPO, {"idempotency_key": "inbox.msg_A"})
     o.run_delegate(REPO, run_id="run_X", creator_instance_id="ins_A",
                    operations=list(ha.DELEGATED_RUN_OPERATIONS),
-                   ttl_seconds=3600, idempotency_key="delegation.mint.0001")
+                   ttl_seconds=3600, idempotency_key="delegation.mint.0001")  # gitleaks:allow -- deterministic test idempotency key
     o.run_delegation_get(REPO, delegation_id="dlg_X")
     o.run_delegation_revoke(REPO, delegation_id="dlg_X", reason="settled",
-                            idempotency_key="delegation.revoke.0001")
+                            idempotency_key="delegation.revoke.0001")  # gitleaks:allow -- deterministic test idempotency key
     o._loop.close()
     assert [c[0] for c in calls] == [
         "work.agent.register-v1", "work.agent.observe-v1", "work.agent.retire-v1",

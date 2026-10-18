@@ -1,0 +1,12 @@
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "Deterministic delegation idempotency keys in the host-adapter unit fixture"
+condition = "AND"
+paths = ['''^scripts/tests/test_host_adapter\.py$''']
+regexTarget = "secret"
+regexes = ['''^delegation\.(mint|revoke)\.0001$''']
