@@ -124,3 +124,7 @@ is closed solely by this source delivery.
   effort and consolidate duplicate surfaces rather than adding management layers.
 - Record completion evidence and update the owner plan/index. The report is an
   assessment snapshot; repository plans and owner state are the living work.
+
+## KAOS goal and feature backcast — 18 October 2026
+
+The [two-year KAOS roadmap](2026-10-18-kaos-2028-roadmap.md) preserves every EE entry and adds goal/obstacle/feature/sourcing traceability, owner activities and served project items. Dependencies govern sequence; no calendar bucket or completed implementation is implied.
