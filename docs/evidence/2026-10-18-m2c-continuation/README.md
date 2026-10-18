@@ -88,9 +88,11 @@ checks passed.
 The current adapter source is Agentops PR [#384](https://github.com/bayleafwalker/agentops/pull/384),
 merged as `7aa1f71dcd27fafe0ecbefb052b7da72a04b91b7`; all checks on that
 PR passed. The tested adapter file hash above is distinct from its Git commit
-identity. The change makes operator abandonment resumable and re-raises
-`_advance` failures after recording the diagnostic state; ordinary revoke-key
-behavior remains unchanged. The prior source is Agentops PR [#376](https://github.com/bayleafwalker/agentops/pull/376),
+identity. The source delta adds an operator-abandonment replay branch and
+freezes abandoned-message replay keys. The `_advance` exception handler's
+diagnostic update followed by re-raise is present in both source versions; it
+is not a new PR #384 behavior. Ordinary revoke-key behavior remains unchanged.
+The prior source is Agentops PR [#376](https://github.com/bayleafwalker/agentops/pull/376),
 merged as `e8d1d73653230d1df052631e3b2218ad9da2ef0e`, with its required checks
 passing. The PR #384 checks were recorded by CI runs
 [39126473532](https://github.com/bayleafwalker/agentops/actions/runs/39126473532)
@@ -110,8 +112,25 @@ remain attributed to the earlier `32b4` source where they ran. They are not
 relabelled as tests of `460`. The later source-specific success, supported
 abandonment, current-policy denial and cancellation-result cases exercise the
 changed paths on `460`. The review found no roadmap requirement to rerun every
-unchanged historical path for this narrow source delta; prior caller-visible
-tick-exit behavior is not claimed for `460`.
+unchanged historical path for this narrow source delta.
+
+The retained historical evidence is indexed here so each owner result remains
+attached to the source and native records that produced it. The table records
+item/message/delegation or run/note identifiers where present, plus the reviewed
+receipt digest. Item/event effects remain as stated by each receipt; a note ID
+is an owner note, not a served sprint event number.
+
+| History | Source | Native identifiers | Receipt SHA-256 |
+| --- | --- | --- | --- |
+| Duplicate delivery recovery | `32b4` | item 2757; message `msg_01M57AXE6FWGCT1JYXZ4PP0NWF` seq 18; delegation `dlg_50SJ0KVZ0XTJBFPFJT9DZH95RV`; auditor run `run_RTQ71E6ECWNZW7NH3QZRC3B7W5`; note 32 | `aa5c27293ec4fbb2f35c20e6eab87203bc79939ebdb70c10541674a4bd77712c` |
+| Crash after ingest | `32b4` | item 2759; message `msg_01M57BGDKTBQYB6YBYJ9VJTMPN` seq 19; run `run_MB3H4Y8A3AJH6CC6X5EX9K504Y`; delegation `dlg_S8Q0NE1VBRTXDBWMPFMQBPCA0A`; notes 33/34 | `96c89bb54278ce80c55835b3d11e4cc1faae119043897907c659c36809e5cf83` |
+| Crash before harness launch | `32b4` | item 2760; message `msg_01M57BXK61MGW8V9D6SFXH2MHJ` seq 20; run `run_812PPJZYV9BH3QTPRP0B5Q50X5`; delegation `dlg_G38ZSKPRQFJT6KE094TME58DD6`; note 35 | `f30b47a8080e24032ed9840edd9da0712dddc3497130ee0f6735b903a998608f` |
+| Crash after harness create | `32b4` | item 2762; message `msg_0J1B8Y3B1C51YW6Y9JNMD66YAE` seq 21; run `run_9ZZ0GZN218ZX4BR40PVKVS8CFT`; delegation `dlg_T09YTN3PJ80GGCP71M8AKKAPQC`; note 37 | `3c0c7b1fe31404b6a6bd5a08f222efdedcfbed7bac19be263734e58ce2bad458` |
+| Result linked, response lost | `32b4` | item 2766; message `msg_04MQDKJ2V5F9Y9HEGSV89NWD6T` seq 22; run `run_GA1WCW2328BK63A35SMCP65KVB`; delegation `dlg_TE8K53SE3XG97564EZCXNFRAD2`; note 39 | `048bd39781900c4bee0422c35e24a58966cf51a1e462573a5300db9db0cab311` |
+| Sender response uncertain | `32b4` | item 2767; message `msg_0YET9GN1RH5G010ME9ZJ0WKCP6` seq 23; delegation `dlg_1K8AF8DPN39M8XFNX7MYC7FGPG`; recipient note 41 | `a19cca90e72c8ef901f992e938fc4dae0c4cb5f3cd9a89194a44870b3856a6a6` |
+| Gateway outage and owner recovery | `32b4` | item 2770; message `msg_01M57DZ87VVNJT2GVZJRQ5R5VG` seq 24; run `run_AFG61Y2GWW3E7GFH4CFBVAGSTF`; delegation `dlg_ZJWQFEYW7864PAFRAWC59YDH16`; note 43 | `0644a862f1d4868145c97caff1ba0337903b56d7a49af7e294858b215c6d20f7` |
+| Overlapping advisory reservations | `32b4` | item 2732; reservations 305 and 306 overlapped, then both released | `ac6ea0135aa30f5b6ebdb3865876f4b51fbf59f4549c8bd42afd30a4784df424` |
+| Stale work revision refused | `32b4` | item 2731; request event `c7afab42-79f8-4916-a8e5-d167976df672`; stale decision event `09ea37d4-0f54-4e1a-b3fe-32721149de83` | `ac6ea0135aa30f5b6ebdb3865876f4b51fbf59f4549c8bd42afd30a4784df424` |
 
 Supporting current-source evidence was reviewed under served event 5629 on
 agentops#2654. This public page contains exact owner identifiers and digests
@@ -132,8 +151,9 @@ to those private files.
   completed outcome. It does not support a rollback claim.
 - These are disposable qualification cases. They do not prove that the ordinary
   production instance is enabled or qualified, nor do they qualify an ordinary
-  production release, an operator pilot, or a rollback procedure. The final
-  protected-runtime rollout and normal-instance proof remain open as of this
+  production release or a rollback procedure. Operator pilot work is outside
+  M2c and is tracked separately. The final protected-runtime rollout and
+  normal-instance proof remain open as of this
   record and must be added through a reviewed update before M2c is called
   complete.
 - No terminal Decision is recorded for agentops#2654. The item remains active;

@@ -126,7 +126,105 @@
   },
   "open_gates": [
     "normal production instance and final protected-runtime rollout qualification",
-    "operator pilot and complete roadmap exit review",
     "no terminal Decision on agentops#2654"
+  ],
+  "historical_cases": [
+    {
+      "name": "duplicate delivery recovery",
+      "source": "32b4f0365aaabbb61c59ee7b04114ecb312edd0335f2ef414db9c3141d61955a",
+      "item_id": 2757,
+      "message_id": "msg_01M57AXE6FWGCT1JYXZ4PP0NWF",
+      "inbox_seq": 18,
+      "delegation_id": "dlg_50SJ0KVZ0XTJBFPFJT9DZH95RV",
+      "auditor_run_id": "run_RTQ71E6ECWNZW7NH3QZRC3B7W5",
+      "owner_note_id": 32,
+      "receipt_sha256": "aa5c27293ec4fbb2f35c20e6eab87203bc79939ebdb70c10541674a4bd77712c"
+    },
+    {
+      "name": "crash after ingest",
+      "source": "32b4f0365aaabbb61c59ee7b04114ecb312edd0335f2ef414db9c3141d61955a",
+      "item_id": 2759,
+      "message_id": "msg_01M57BGDKTBQYB6YBYJ9VJTMPN",
+      "inbox_seq": 19,
+      "recipient_run_id": "run_MB3H4Y8A3AJH6CC6X5EX9K504Y",
+      "delegation_id": "dlg_S8Q0NE1VBRTXDBWMPFMQBPCA0A",
+      "owner_note_ids": [
+        33,
+        34
+      ],
+      "receipt_sha256": "96c89bb54278ce80c55835b3d11e4cc1faae119043897907c659c36809e5cf83"
+    },
+    {
+      "name": "crash before harness launch",
+      "source": "32b4f0365aaabbb61c59ee7b04114ecb312edd0335f2ef414db9c3141d61955a",
+      "item_id": 2760,
+      "message_id": "msg_01M57BXK61MGW8V9D6SFXH2MHJ",
+      "inbox_seq": 20,
+      "recipient_run_id": "run_812PPJZYV9BH3QTPRP0B5Q50X5",
+      "delegation_id": "dlg_G38ZSKPRQFJT6KE094TME58DD6",
+      "sender_note_id": 35,
+      "receipt_sha256": "f30b47a8080e24032ed9840edd9da0712dddc3497130ee0f6735b903a998608f"
+    },
+    {
+      "name": "crash after harness create",
+      "source": "32b4f0365aaabbb61c59ee7b04114ecb312edd0335f2ef414db9c3141d61955a",
+      "item_id": 2762,
+      "message_id": "msg_0J1B8Y3B1C51YW6Y9JNMD66YAE",
+      "inbox_seq": 21,
+      "recipient_run_id": "run_9ZZ0GZN218ZX4BR40PVKVS8CFT",
+      "delegation_id": "dlg_T09YTN3PJ80GGCP71M8AKKAPQC",
+      "owner_note_id": 37,
+      "receipt_sha256": "3c0c7b1fe31404b6a6bd5a08f222efdedcfbed7bac19be263734e58ce2bad458"
+    },
+    {
+      "name": "result linked, response lost",
+      "source": "32b4f0365aaabbb61c59ee7b04114ecb312edd0335f2ef414db9c3141d61955a",
+      "item_id": 2766,
+      "message_id": "msg_04MQDKJ2V5F9Y9HEGSV89NWD6T",
+      "inbox_seq": 22,
+      "recipient_run_id": "run_GA1WCW2328BK63A35SMCP65KVB",
+      "delegation_id": "dlg_TE8K53SE3XG97564EZCXNFRAD2",
+      "owner_note_id": 39,
+      "receipt_sha256": "048bd39781900c4bee0422c35e24a58966cf51a1e462573a5300db9db0cab311"
+    },
+    {
+      "name": "sender response uncertain",
+      "source": "32b4f0365aaabbb61c59ee7b04114ecb312edd0335f2ef414db9c3141d61955a",
+      "item_id": 2767,
+      "message_id": "msg_0YET9GN1RH5G010ME9ZJ0WKCP6",
+      "inbox_seq": 23,
+      "delegation_id": "dlg_1K8AF8DPN39M8XFNX7MYC7FGPG",
+      "recipient_note_id": 41,
+      "receipt_sha256": "a19cca90e72c8ef901f992e938fc4dae0c4cb5f3cd9a89194a44870b3856a6a6"
+    },
+    {
+      "name": "gateway outage and owner recovery",
+      "source": "32b4f0365aaabbb61c59ee7b04114ecb312edd0335f2ef414db9c3141d61955a",
+      "item_id": 2770,
+      "message_id": "msg_01M57DZ87VVNJT2GVZJRQ5R5VG",
+      "inbox_seq": 24,
+      "run_id": "run_AFG61Y2GWW3E7GFH4CFBVAGSTF",
+      "delegation_id": "dlg_ZJWQFEYW7864PAFRAWC59YDH16",
+      "owner_note_id": 43,
+      "receipt_sha256": "0644a862f1d4868145c97caff1ba0337903b56d7a49af7e294858b215c6d20f7"
+    },
+    {
+      "name": "overlapping advisory reservations",
+      "source": "32b4f0365aaabbb61c59ee7b04114ecb312edd0335f2ef414db9c3141d61955a",
+      "item_id": 2732,
+      "reservation_ids": [
+        305,
+        306
+      ],
+      "receipt_sha256": "ac6ea0135aa30f5b6ebdb3865876f4b51fbf59f4549c8bd42afd30a4784df424"
+    },
+    {
+      "name": "stale work revision refused",
+      "source": "32b4f0365aaabbb61c59ee7b04114ecb312edd0335f2ef414db9c3141d61955a",
+      "item_id": 2731,
+      "request_event_id": "c7afab42-79f8-4916-a8e5-d167976df672",
+      "stale_decision_event_id": "09ea37d4-0f54-4e1a-b3fe-32721149de83",
+      "receipt_sha256": "ac6ea0135aa30f5b6ebdb3865876f4b51fbf59f4549c8bd42afd30a4784df424"
+    }
   ]
 }
