@@ -56,6 +56,8 @@ class FakeOwner:
         self.delegation_keys: dict[str, str] = {}
         self.delegation_runs: dict[str, str] = {}
         self.delegation_events: list[tuple[str, str]] = []
+        self.delegation_revoke_requests: dict[str, tuple[str, dict]] = {}
+        self.fail_after_revoke_once: set[str] = set()
         self.delegate_ttls: list[int] = []
         self.token_counter = 0
 
@@ -210,10 +212,26 @@ class FakeOwner:
         return {k: record[k] for k in ("delegation_id", "run_id", "operations", "expires_at", "revoked")}
 
     def run_delegation_revoke(self, repo, *, delegation_id, reason, idempotency_key):
+        arguments = {"delegation_id": delegation_id, "reason": reason,
+                     "idempotency_key": idempotency_key}
+        digest = ha.canonical(arguments)
+        prior = self.delegation_revoke_requests.get(idempotency_key)
+        if prior:
+            if prior[0] != digest:
+                raise ha.OwnerError("idempotency-conflict", "key reused with other arguments")
+            return dict(prior[1], replayed=True)
         record = self.delegations[delegation_id]
+        already_revoked = record["revoked"]
         record["revoked"] = True
-        self.delegation_events.append(("explicit-revoke", delegation_id))
-        return {"delegation_id": delegation_id, "revoked": True}
+        if not already_revoked:
+            self.delegation_events.append(("explicit-revoke", delegation_id))
+        result = {"delegation_id": delegation_id, "revoked": True,
+                  "already_revoked": already_revoked}
+        self.delegation_revoke_requests[idempotency_key] = (digest, result)
+        if idempotency_key in self.fail_after_revoke_once:
+            self.fail_after_revoke_once.remove(idempotency_key)
+            raise ha.OwnerError("transport", "injected lost revoke response")
+        return result
 
 
 class FakeHarness:
@@ -427,6 +445,22 @@ def test_happy_path_launches_once_and_records_the_chain(rig):
             assert record["token"].encode() not in path.read_bytes()
     assert [name for name, _ in rig.owner.delegation_events].index("explicit-revoke") < [
         name for name, _ in rig.owner.delegation_events].index("settlement-revoke")
+
+
+def test_normal_completion_retries_same_revoke_key_after_lost_response(rig):
+    rig.owner.send()
+    rig.owner.fail_after_revoke_once.add("delegation-revoke.msg_A.dlg_0001")
+
+    rig.tick()
+    rec = rig.rec()
+    assert rec["state"] == ha.S_FINISHED and rec["outcome"] == "completed" and rec["closed"] == 0
+    assert rig.owner.receipt_of("msg_A", "result-linked") is None
+
+    rig.tick()
+    rec = rig.rec()
+    assert rec["state"] == ha.S_FINISHED and rec["outcome"] == "completed" and rec["closed"] == 1
+    assert rig.owner.receipt_of("msg_A", "result-linked")["outcome"] == "completed"
+    assert rig.harness.creates == 1 and len(rig.harness.prompts) == 1
 
 
 @pytest.mark.parametrize("token", [
@@ -771,10 +805,44 @@ def test_resolve_abandon_is_the_only_way_out_and_never_launches(rig):
     rig.adapter.resolve_abandon("msg_A")
     res = rig.owner.receipt_of("msg_A", "result-linked")
     assert res["outcome"] == "abandoned" and rig.rec()["closed"] == 1
+    assert rig.owner.delegations[rig.rec()["delegation_id"]]["revoked"] is True
+    handoff = rig.run_root / "msg_A" / ".vuoro"
+    assert (handoff / "credential").is_file() and (handoff / "profile.json").is_file()
+    revoke_keys = rig.owner.delegation_revoke_requests
+    assert set(revoke_keys) == {
+        "delegation-revoke.msg_A.dlg_0001",
+        "delegation-revoke.msg_A.dlg_0001.operator-abandon-v1",
+    }
     rig.tick(3)
     assert rig.harness.creates == 1
     with pytest.raises(SystemExit):
         rig.adapter.resolve_abandon("msg_A")  # no longer ambiguous
+
+
+def test_resolve_abandon_retries_same_key_after_lost_revoke_response(rig):
+    rig.owner.send()
+    rig.crash_at("session_created")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.harness.hide_search = True
+    rig.boot()
+    rig.tick(2)
+    key = "delegation-revoke.msg_A.dlg_0001.operator-abandon-v1"  # gitleaks:allow - fixed test idempotency key
+    rig.owner.fail_after_revoke_once.add(key)
+
+    with pytest.raises(ha.OwnerError, match="transport"):
+        rig.adapter.resolve_abandon("msg_A")
+    assert rig.rec()["state"] == ha.S_AMBIGUOUS and rig.rec()["closed"] == 0
+    assert rig.owner.receipt_of("msg_A", "result-linked") is None
+    assert rig.harness.creates == 1 and rig.harness.prompts == []
+
+    rig.adapter.resolve_abandon("msg_A")
+    result = rig.owner.receipt_of("msg_A", "result-linked")
+    assert result["outcome"] == "abandoned" and rig.rec()["closed"] == 1
+    assert rig.owner.delegation_revoke_requests[key][0] == ha.canonical({
+        "delegation_id": "dlg_0001", "reason": "run-abandoned", "idempotency_key": key,
+    })
+    assert rig.harness.creates == 1 and rig.harness.prompts == []
 
 
 def test_prompt_is_not_sent_twice_when_session_already_has_messages(rig):

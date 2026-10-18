@@ -1216,13 +1216,16 @@ class Adapter:
         finally:
             os.close(handoff_fd)
 
-    def _delegation_revoke(self, rec, reason: str) -> None:
+    def _delegation_revoke(self, rec, reason: str, *, key_suffix: str | None = None) -> None:
         delegation_id = rec["delegation_id"]
         if not delegation_id:
             return
+        key = f"delegation-revoke.{rec['message_id']}.{delegation_id}"
+        if key_suffix:
+            key = f"{key}.{key_suffix}"
         self.owner.run_delegation_revoke(
             rec["repo_id"], delegation_id=delegation_id, reason=reason,
-            idempotency_key=f"delegation-revoke.{rec['message_id']}.{delegation_id}")
+            idempotency_key=key)
 
     def _rotate_delegation(self, rec, reason: str) -> None:
         """Revoke before dropping metadata; a bearer secret is never read back."""
@@ -1613,12 +1616,25 @@ class Adapter:
                 what = "a launched run (session aborted)"
             except HarnessError as exc:
                 what = f"a launched run (abort failed: {exc})"[:300]
+        # This is a distinct owner mutation from the earlier launch-intent
+        # recovery revoke. Keep the old key for all existing revoke paths, but
+        # bind this operator resolution to its own stable key so it cannot
+        # reuse that key with a different reason. Finish owner-side writes
+        # before making the local row terminal: a lost response can then be
+        # retried from the still-open ambiguous/launched row with the same key.
+        summary = f"{what} abandoned by an explicit operator act"
+        reason_text = f"an operator abandoned {what}"
+        self._delegation_revoke(rec, "run-abandoned", key_suffix="operator-abandon-v1")
+        result_fields: dict[str, Any] = {
+            "outcome": "abandoned", "summary": summary,
+            "evidence_refs": evidence,
+            "reason": {"code": "operator-abandoned", "text": reason_text},
+        }
+        self._receipt(rec, "result-linked", **result_fields)
         self.state.update(rec["repo_id"], message_id, state=S_FINISHED, outcome="abandoned",
-                          reason_code="operator-abandoned",
-                          reason_text=f"an operator abandoned {what}",
-                          summary=f"{what} abandoned by an explicit operator act",
-                          evidence=canonical(evidence))
-        self._on_closing(self.state.get(rec["repo_id"], message_id))
+                          reason_code="operator-abandoned", reason_text=reason_text,
+                          summary=summary, evidence=canonical(evidence), closed=1)
+        self._checkpoint("closed")
         return rec["repo_id"]
 
 
