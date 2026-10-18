@@ -910,6 +910,9 @@ class Adapter:
             rec = self.state.get(repo, mid)
             if rec["closed"] or rec["state"] == S_LOST:
                 return
+            if self._abandon_intent(rec) is not None:
+                self._finish_abandon_intent(rec)
+                return
             if rec["state"] == S_AMBIGUOUS:
                 self._flush_ambiguous(rec)
                 return
@@ -1598,6 +1601,43 @@ class Adapter:
 
     # -- operator act -------------------------------------------------------
 
+    @staticmethod
+    def _abandon_intent(rec) -> dict[str, Any] | None:
+        if rec["reason_code"] != "operator-abandoned" or rec["outcome"] != "abandoned":
+            return None
+        try:
+            evidence = json.loads(rec["evidence"] or "")
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise OwnerError("local-abandon-intent-invalid", "saved abandonment evidence is invalid") from exc
+        if (not isinstance(rec["summary"], str) or not rec["summary"]
+                or not isinstance(rec["reason_text"], str) or not rec["reason_text"]
+                or not isinstance(evidence, list)
+                or any(not isinstance(item, dict) for item in evidence)):
+            raise OwnerError("local-abandon-intent-invalid", "saved abandonment intent is incomplete")
+        return {
+            "outcome": "abandoned", "summary": rec["summary"],
+            "evidence_refs": evidence,
+            "reason": {"code": "operator-abandoned", "text": rec["reason_text"]},
+        }
+
+    def _finish_abandon_intent(self, rec) -> None:
+        fields = self._abandon_intent(rec)
+        if fields is None or rec["state"] not in (S_AMBIGUOUS, S_LAUNCHED) or rec["closed"]:
+            raise OwnerError("local-abandon-intent-invalid", "saved abandonment intent is not resumable")
+        # Both owner writes are idempotent on the frozen intent. If either
+        # response is lost, the still-open local record resumes these exact
+        # arguments without repeating a harness abort or changing the result.
+        if rec["state"] == S_AMBIGUOUS and not rec["ambiguous_sent"]:
+            self._flush_ambiguous(rec)
+            rec = self.state.get(rec["repo_id"], rec["message_id"])
+        self._delegation_revoke(rec, "run-abandoned", key_suffix="operator-abandon-v1")
+        self._receipt(rec, "result-linked", **fields)
+        self.state.update(rec["repo_id"], rec["message_id"], state=S_FINISHED,
+                          outcome="abandoned", reason_code="operator-abandoned",
+                          reason_text=fields["reason"]["text"], summary=fields["summary"],
+                          evidence=canonical(fields["evidence_refs"]), closed=1)
+        self._checkpoint("closed")
+
     def resolve_abandon(self, message_id: str, repo: str | None = None) -> str:
         rows = [r for r in self.state.all_records()
                 if r["message_id"] == message_id and (repo is None or r["repo_id"] == repo)]
@@ -1606,35 +1646,25 @@ class Adapter:
         rec = rows[0]
         if rec["state"] not in (S_AMBIGUOUS, S_LAUNCHED) or rec["closed"]:
             raise SystemExit(f"host-adapter: {message_id} is {rec['state']}, not ambiguous or launched")
-        evidence = [{"kind": "run", "ref": rec["run_id"]}] if rec["run_id"] else []
-        what = "an ambiguous launch"
-        if rec["state"] == S_LAUNCHED:
-            # A stuck run: stop the session first; the abort is idempotent.
-            evidence.append({"kind": "harness-session", "ref": rec["session_id"]})
-            try:
-                self.harness.abort(rec["session_id"], self.run_directory(rec))
-                what = "a launched run (session aborted)"
-            except HarnessError as exc:
-                what = f"a launched run (abort failed: {exc})"[:300]
-        # This is a distinct owner mutation from the earlier launch-intent
-        # recovery revoke. Keep the old key for all existing revoke paths, but
-        # bind this operator resolution to its own stable key so it cannot
-        # reuse that key with a different reason. Finish owner-side writes
-        # before making the local row terminal: a lost response can then be
-        # retried from the still-open ambiguous/launched row with the same key.
-        summary = f"{what} abandoned by an explicit operator act"
-        reason_text = f"an operator abandoned {what}"
-        self._delegation_revoke(rec, "run-abandoned", key_suffix="operator-abandon-v1")
-        result_fields: dict[str, Any] = {
-            "outcome": "abandoned", "summary": summary,
-            "evidence_refs": evidence,
-            "reason": {"code": "operator-abandoned", "text": reason_text},
-        }
-        self._receipt(rec, "result-linked", **result_fields)
-        self.state.update(rec["repo_id"], message_id, state=S_FINISHED, outcome="abandoned",
-                          reason_code="operator-abandoned", reason_text=reason_text,
-                          summary=summary, evidence=canonical(evidence), closed=1)
-        self._checkpoint("closed")
+        if self._abandon_intent(rec) is None:
+            evidence = [{"kind": "run", "ref": rec["run_id"]}] if rec["run_id"] else []
+            what = "an ambiguous launch"
+            if rec["state"] == S_LAUNCHED:
+                # A stuck run: stop the session before fixing the owner result fields.
+                evidence.append({"kind": "harness-session", "ref": rec["session_id"]})
+                try:
+                    self.harness.abort(rec["session_id"], self.run_directory(rec))
+                    what = "a launched run (session aborted)"
+                except HarnessError as exc:
+                    what = f"a launched run (abort failed: {exc})"[:300]
+            summary = f"{what} abandoned by an explicit operator act"
+            reason_text = f"an operator abandoned {what}"
+            self.state.update(rec["repo_id"], message_id, outcome="abandoned",
+                              reason_code="operator-abandoned", reason_text=reason_text,
+                              summary=summary, evidence=canonical(evidence))
+            self._checkpoint("abandon_intent_persisted")
+            rec = self.state.get(rec["repo_id"], message_id)
+        self._finish_abandon_intent(rec)
         return rec["repo_id"]
 
 

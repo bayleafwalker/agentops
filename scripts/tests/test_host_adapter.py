@@ -51,6 +51,7 @@ class FakeOwner:
         self.register_conflict = False
         self.fail_once: set[str] = set()   # receipt kinds that raise a transport error once
         self.fail_messages: set[str] = set()  # message ids whose receipts always raise
+        self.lose_result_linked_once: set[str] = set()
         self.no_run_id = False
         self.delegations: dict[str, dict] = {}
         self.delegation_keys: dict[str, str] = {}
@@ -166,7 +167,11 @@ class FakeOwner:
                 if delegation_id:
                     self.delegations[delegation_id]["revoked"] = True
                     self.delegation_events.append(("settlement-revoke", delegation_id))
-            return self._add(rs, rec)
+            result = self._add(rs, rec)
+            if message_id in self.lose_result_linked_once:
+                self.lose_result_linked_once.remove(message_id)
+                raise ha.OwnerError("transport", "injected lost result-linked response")
+            return result
         raise ha.OwnerError("invalid-arguments", kind)
 
     @staticmethod
@@ -835,7 +840,6 @@ def test_resolve_abandon_retries_same_key_after_lost_revoke_response(rig):
     assert rig.rec()["state"] == ha.S_AMBIGUOUS and rig.rec()["closed"] == 0
     assert rig.owner.receipt_of("msg_A", "result-linked") is None
     assert rig.harness.creates == 1 and rig.harness.prompts == []
-
     rig.adapter.resolve_abandon("msg_A")
     result = rig.owner.receipt_of("msg_A", "result-linked")
     assert result["outcome"] == "abandoned" and rig.rec()["closed"] == 1
@@ -843,6 +847,66 @@ def test_resolve_abandon_retries_same_key_after_lost_revoke_response(rig):
         "delegation_id": "dlg_0001", "reason": "run-abandoned", "idempotency_key": key,
     })
     assert rig.harness.creates == 1 and rig.harness.prompts == []
+
+
+def test_ambiguous_abandon_resumes_frozen_intent_after_lost_result_response(rig):
+    rig.owner.send()
+    rig.crash_at("session_created")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.harness.hide_search = True
+    rig.boot()
+    rig.tick(2)
+    rig.owner.lose_result_linked_once.add("msg_A")
+
+    with pytest.raises(ha.OwnerError, match="lost result-linked"):
+        rig.adapter.resolve_abandon("msg_A")
+    rec = rig.rec()
+    assert (rec["state"], rec["closed"], rec["outcome"], rec["reason_code"]) == (
+        ha.S_AMBIGUOUS, 0, "abandoned", "operator-abandoned")
+    committed = rig.owner.receipt_of("msg_A", "result-linked")
+    assert committed and committed["outcome"] == "abandoned"
+
+    rig.boot()
+    rig.tick()
+    rec = rig.rec()
+    assert (rec["state"], rec["closed"], rec["outcome"]) == (ha.S_FINISHED, 1, "abandoned")
+    assert rig.owner.receipts["msg_A"].count(committed) == 1
+    assert rig.harness.creates == 1 and rig.harness.prompts == []
+    handoff = rig.run_root / "msg_A" / ".vuoro"
+    assert (handoff / "credential").is_file() and (handoff / "profile.json").is_file()
+
+
+def test_launched_abandon_retry_reuses_frozen_abort_result_after_lost_receipt(rig):
+    rig.harness.finish_on_poll = False
+    rig.owner.send()
+    rig.tick(2)
+    before = rig.rec()
+    assert before["state"] == ha.S_LAUNCHED
+    rig.owner.lose_result_linked_once.add("msg_A")
+
+    with pytest.raises(ha.OwnerError, match="lost result-linked"):
+        rig.adapter.resolve_abandon("msg_A")
+    intent = rig.rec()
+    assert intent["state"] == ha.S_LAUNCHED and intent["closed"] == 0
+    assert intent["outcome"] == "abandoned"
+    assert "session aborted" in intent["summary"]
+    committed = rig.owner.receipt_of("msg_A", "result-linked")
+    assert committed and "session aborted" in committed["summary"]
+    assert rig.harness.aborts == [before["session_id"]]
+
+    def changed_abort(sid, directory):
+        raise AssertionError("frozen abandonment retry must not abort a second time")
+    rig.harness.abort = changed_abort
+    rig.boot()
+    rig.tick()
+    rec = rig.rec()
+    assert (rec["state"], rec["closed"], rec["outcome"]) == (ha.S_FINISHED, 1, "abandoned")
+    assert rig.owner.receipts["msg_A"].count(committed) == 1
+    assert rig.harness.aborts == [before["session_id"]]
+    assert rig.harness.creates == 1 and len(rig.harness.prompts) == 1
+    handoff = rig.run_root / "msg_A" / ".vuoro"
+    assert (handoff / "credential").is_file() and (handoff / "profile.json").is_file()
 
 
 def test_prompt_is_not_sent_twice_when_session_already_has_messages(rig):
