@@ -48,3 +48,5 @@ source deleted in 2026-09; recover it from git history if needed.
 [Two-year KAOS roadmap](docs/plans/agentops/2026-10-18-kaos-2028-roadmap.md): goals, features, product onboarding and project activities traced to current state.
 
 Operator-action request lifecycle and TUI/UI delivery: [planned refinement](docs/plans/agentops/2026-10-18-operator-actions.md).
+
+Estate-wide contract rewrite: [requirements map](docs/plans/agentops/2026-10-18-estate-contract-rewrite.md) and [architecture discovery](docs/plans/agentops/2026-10-18-estate-contract-architecture-discovery.md).

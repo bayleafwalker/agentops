@@ -147,3 +147,7 @@ OA-06 runs three real workflows across Claude and Codex: interactive authenticat
 Predeclare workload/window and attention baseline. Report current-request coverage, stale and unnecessary requests, repeated prompts, operator minutes, blocked time waiting for the person versus verification/continuation delay, and failed/unsupported cases. Do not claim reduced burden from screen availability. An evidence-backed adopt/revise/retain decision closes the pilot; web/notification expansion follows the qualified TUI lifecycle.
 
 Tracker status is authoritative in served Sprintctl. This document records requirements and registered references, not a second live work ledger. Earlier status/active reservations on linked work are preserved.
+
+## Contract rewrite dependency amendment
+
+This is the first complete consumer of the [estate contract rewrite](2026-10-18-estate-contract-rewrite.md). OA-01 joins EC-02 contract ownership; OA-02 uses EC-03 generation and EC-09 native integration; OA-03/OA-05 join EC-08 hosted/UI migration; OA-04 joins EC-05 work-provider and EC-07 evidence migration; OA-06 supplies the EC-20 field-proof gate. Existing functional acceptance and native execution boundaries remain. Discovery and credential-free prototypes may precede stack selection; production implementation uses the qualified EC-00 decision and foundation. No separate legacy operator API is to be built merely to migrate it later.

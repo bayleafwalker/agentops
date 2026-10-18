@@ -1,0 +1,1167 @@
+{
+  "kind": "requirements-map-not-work-state",
+  "version": 1,
+  "date": "2026-10-18",
+  "programme": "Estate-wide contract rewrite",
+  "decision": "Estate-wide destination accepted; canonical IDL and transport selection gated on EC-00 architectural qualification",
+  "goals": [
+    "G01",
+    "G02",
+    "G03",
+    "G04",
+    "G05",
+    "G06",
+    "G07",
+    "G08",
+    "G09",
+    "G10",
+    "G11",
+    "G12"
+  ],
+  "activities": [
+    {
+      "id": "EC-01",
+      "owner": "agentops",
+      "title": "Inventory every estate interface and assign migration disposition",
+      "depends_on": [],
+      "scope": "Build producer/consumer/version/authority inventory from source plus owner observations; include internal APIs, CLI machine modes, MCP mappings, events, artifacts, plugins and scripts. Record replace/adapt/retain-external/retire per boundary; unknown consumers block retirement. Reconcile smaller projects and generated guidance.",
+      "requirements": [
+        "ER-001",
+        "ER-040",
+        "ER-041"
+      ],
+      "served_item": "agentops#2733"
+    },
+    {
+      "id": "EC-00",
+      "owner": "vuoro",
+      "title": "Qualify architecture alternatives and record the stack decision",
+      "depends_on": [
+        "EC-01"
+      ],
+      "scope": "Use the landed architectural discovery to compare protobuf plus gRPC/Connect against TypeSpec/OpenAPI and scoped alternatives on identical operator-action cases. Record actual language/runtime/browser/proxy behavior, failure semantics, tooling burden and benchmarks. Select IDL, transports, versions and exception rules through an ADR before foundation implementation; estate-wide rewrite remains committed.",
+      "requirements": [
+        "ER-002",
+        "ER-010",
+        "ER-043",
+        "ER-047",
+        "ER-048"
+      ],
+      "served_item": "vuoro#2734"
+    },
+    {
+      "id": "EC-02",
+      "owner": "vuoro",
+      "title": "Define canonical domain contract foundation and package ownership",
+      "depends_on": [
+        "EC-00"
+      ],
+      "scope": "Implement selected IDL package boundaries, identifiers, commands/queries/events, validation, compatibility policy, authority metadata, semantic hashing and domain ownership. Settle operator-request ownership with OA-01. No generic execute-payload escape or new universal runtime.",
+      "requirements": [
+        "ER-002",
+        "ER-003",
+        "ER-004",
+        "ER-005",
+        "ER-006",
+        "ER-012",
+        "ER-022",
+        "ER-025"
+      ],
+      "served_item": "vuoro#2735"
+    },
+    {
+      "id": "EC-03",
+      "owner": "agentops",
+      "title": "Build reproducible contract generation and conformance toolchain",
+      "depends_on": [
+        "EC-02"
+      ],
+      "scope": "Generate typed clients, validators, readable CLI/MCP schemas, fixtures and docs from one source; pin compiler/plugins/runtime matrix; test deterministic regeneration and lossy projections; package versioned artifacts for Python/TypeScript and discovered Go/Rust consumers.",
+      "requirements": [
+        "ER-005",
+        "ER-007",
+        "ER-008",
+        "ER-009",
+        "ER-045",
+        "ER-047"
+      ],
+      "served_item": "agentops#2736"
+    },
+    {
+      "id": "EC-04",
+      "owner": "vuoro",
+      "title": "Migrate service composition and client transport contracts",
+      "depends_on": [
+        "EC-03"
+      ],
+      "scope": "Replace internal service/client/adapter-kit/schema-runtime interfaces with selected contracts; preserve compatibility discovery, context/knowledge, artifacts, effect and learning semantics. Qualify streaming, errors, pagination, overload, resumable reads and capability negotiation.",
+      "requirements": [
+        "ER-003",
+        "ER-006",
+        "ER-010",
+        "ER-012",
+        "ER-014",
+        "ER-015",
+        "ER-016",
+        "ER-017",
+        "ER-024",
+        "ER-028",
+        "ER-029",
+        "ER-041"
+      ],
+      "served_item": "vuoro#2737"
+    },
+    {
+      "id": "EC-05",
+      "owner": "sprintctl",
+      "title": "Migrate work, request, release and continuation provider boundary",
+      "depends_on": [
+        "EC-04"
+      ],
+      "scope": "Map reference work provider operations and durable identifiers; preserve CAS, reservations, terminal decisions, snapshots and cross-project dependencies. Implement operator request/continuation requirements with OA-01/OA-04 under settled ownership; qualify alternative provider conformance.",
+      "requirements": [
+        "ER-004",
+        "ER-011",
+        "ER-013",
+        "ER-014",
+        "ER-025",
+        "ER-026",
+        "ER-027"
+      ],
+      "served_item": "sprintctl#2738"
+    },
+    {
+      "id": "EC-06",
+      "owner": "cred-broker",
+      "title": "Migrate identity delegation and protected-operation interfaces",
+      "depends_on": [
+        "EC-03"
+      ],
+      "scope": "Adapt broker identity/session/capability APIs and protected consumers while retaining existing authentication, custody and policy owners. Verify spoofing, audience/resource scope, revocation, replay, unknown fields and exact-operation binding; no automatic grant widening.",
+      "requirements": [
+        "ER-018",
+        "ER-019"
+      ],
+      "served_item": "cred-broker#2739"
+    },
+    {
+      "id": "EC-07",
+      "owner": "auditctl",
+      "title": "Migrate evidence ingestion and reconstruction interfaces",
+      "depends_on": [
+        "EC-03"
+      ],
+      "scope": "Replace publisher/ingest/query boundaries while preserving original event IDs, bytes, provenance, observation-vs-decision semantics and S4 authoritative home. Introduce versioned decoding and semantic signature/digest test vectors; no historical evidence restamping.",
+      "requirements": [
+        "ER-021",
+        "ER-022",
+        "ER-023",
+        "ER-024",
+        "ER-029",
+        "ER-042"
+      ],
+      "served_item": "auditctl#2740"
+    },
+    {
+      "id": "EC-08",
+      "owner": "vuoro-cloud",
+      "title": "Migrate hosted edge and prove operator-action vertical workflow",
+      "depends_on": [
+        "EC-04",
+        "EC-05",
+        "EC-06",
+        "EC-07",
+        "EC-09"
+      ],
+      "scope": "Implement chosen browser/HTTP/RPC edge and adapters, tenant isolation and generated UI clients; compose OA-01 through OA-06 as first end-to-end consumer. Preserve protected-side pull topology and distinct hosting/effect grants; verify actual proxy and browser paths.",
+      "requirements": [
+        "ER-010",
+        "ER-018",
+        "ER-020",
+        "ER-021",
+        "ER-025",
+        "ER-030"
+      ],
+      "served_item": "vuoro-cloud#2741"
+    },
+    {
+      "id": "EC-09",
+      "owner": "agentops",
+      "title": "Migrate native runtime integrations and generated agent tools",
+      "depends_on": [
+        "EC-04"
+      ],
+      "scope": "Replace Claude/Codex/local-native integration plumbing using generated readable tools; map provider work/session handles without pretending all providers support wake, cancel, tools or events. Qualify lost delivery, dead sessions and successor continuation; retain external native protocols at adapters.",
+      "requirements": [
+        "ER-009",
+        "ER-014",
+        "ER-017",
+        "ER-026",
+        "ER-045"
+      ],
+      "served_item": "agentops#2742"
+    },
+    {
+      "id": "EC-10",
+      "owner": "appservice",
+      "title": "Qualify deployment networking telemetry and disaster recovery",
+      "depends_on": [
+        "EC-08"
+      ],
+      "scope": "Update service discovery, ingress/proxy/timeouts, identity, observability, deployment compatibility and backup/restore composition; test network faults and outage recovery using disposable environments before any separately authorized live rollout.",
+      "requirements": [
+        "ER-015",
+        "ER-016",
+        "ER-020",
+        "ER-021",
+        "ER-030",
+        "ER-031",
+        "ER-042"
+      ],
+      "served_item": "appservice#2743"
+    },
+    {
+      "id": "EC-11",
+      "owner": "gitops-nixos",
+      "title": "Package generated SDK toolchains and workstation integrations",
+      "depends_on": [
+        "EC-03"
+      ],
+      "scope": "Pin compiler/plugins/client runtimes in reproducible host packaging; exercise rebuild/offline restore, certificate/config discovery and user terminal integrations. Avoid a mandatory extra runtime or language without measured justification.",
+      "requirements": [
+        "ER-008",
+        "ER-032",
+        "ER-047"
+      ],
+      "served_item": "gitops-nixos#2744"
+    },
+    {
+      "id": "EC-12",
+      "owner": "datacluster",
+      "title": "Migrate compute-provider and capacity observation interfaces",
+      "depends_on": [
+        "EC-04"
+      ],
+      "scope": "Adapt resource discovery, provisioned compute handles, cost/usage and teardown observations through typed contracts; preserve missingness, provider-native APIs and region/retention boundaries. Bulk data remains in suitable referenced artifact formats.",
+      "requirements": [
+        "ER-024",
+        "ER-033"
+      ],
+      "served_item": "datacluster#2745"
+    },
+    {
+      "id": "EC-13",
+      "owner": "local-inference",
+      "title": "Migrate inference integration and local resource metadata",
+      "depends_on": [
+        "EC-11",
+        "EC-12"
+      ],
+      "scope": "Adapt local model/harness/tool/environment metadata and native client integration; retain external inference protocol; verify context/privacy refusal, interruption, contention and rollback without introducing central model routing.",
+      "requirements": [
+        "ER-034"
+      ],
+      "served_item": "local-inference#2746"
+    },
+    {
+      "id": "EC-14",
+      "owner": "homelab-analytics",
+      "title": "Migrate household publication and outcome integration",
+      "depends_on": [
+        "EC-05",
+        "EC-07",
+        "EC-09"
+      ],
+      "scope": "Use generated contracts for commitment/publication/outcome references and freshness corrections; preserve household authority, evidence windows, human decisions and raw-data locality. Validate representative actual consumer workflows and export.",
+      "requirements": [
+        "ER-035"
+      ],
+      "served_item": "homelab-analytics#2747"
+    },
+    {
+      "id": "EC-15",
+      "owner": "scribectl",
+      "title": "Migrate writing context and ratified outcome integration",
+      "depends_on": [
+        "EC-05",
+        "EC-07",
+        "EC-09"
+      ],
+      "scope": "Replace machine boundaries for context/artifact/work/outcome links while preserving human creative ratification and source revisions; prove interruption, correction, export and no automatic canon promotion.",
+      "requirements": [
+        "ER-036"
+      ],
+      "served_item": "scribectl#2748"
+    },
+    {
+      "id": "EC-16",
+      "owner": "frontier-weave",
+      "title": "Migrate physical and cooperative project integrations",
+      "depends_on": [
+        "EC-05",
+        "EC-07",
+        "EC-09"
+      ],
+      "scope": "Map project evidence, work and physical/human attestation boundaries; preserve domain-specific authority and uncertain physical outcomes; prove supported workflows and failure recovery with generated clients.",
+      "requirements": [
+        "ER-037"
+      ],
+      "served_item": "frontier-weave#2749"
+    },
+    {
+      "id": "EC-17",
+      "owner": "aligned-equity",
+      "title": "Migrate research evidence and decision integrations",
+      "depends_on": [
+        "EC-05",
+        "EC-07",
+        "EC-09"
+      ],
+      "scope": "Map research sources, assumptions, provenance, evidence and accepted decisions without converting estimates into facts; preserve corpus revisions and export; qualify old/new client behavior and useful domain outcomes.",
+      "requirements": [
+        "ER-038"
+      ],
+      "served_item": "aligned-equity#2750"
+    },
+    {
+      "id": "EC-18",
+      "owner": "browser-workbench",
+      "title": "Migrate browser workspace and runtime adapter boundaries",
+      "depends_on": [
+        "EC-05",
+        "EC-07",
+        "EC-09"
+      ],
+      "scope": "Generate supported browser and local bridge interfaces; qualify Python/TypeScript/Rust boundaries actually present, browser streaming restrictions, identity, cancellation and result links; retain browser/runtime-owned execution.",
+      "requirements": [
+        "ER-039"
+      ],
+      "served_item": "browser-workbench#2751"
+    },
+    {
+      "id": "EC-19",
+      "owner": "agentops",
+      "title": "Reconcile remaining consumers and retire obsolete integration surfaces",
+      "depends_on": [
+        "EC-04",
+        "EC-05",
+        "EC-07"
+      ],
+      "scope": "Account for Bindery and every smaller tool/plugin/script found by EC-01, including historical kctl/actionq/outctl surfaces. Assign owner-specific implementation tasks before cutover; prove replace/adapt/external-retain/retire disposition. Retired components are not rebuilt merely because old schemas exist.",
+      "requirements": [
+        "ER-040"
+      ],
+      "served_item": "agentops#2752"
+    },
+    {
+      "id": "EC-20",
+      "owner": "acceptance-lab",
+      "title": "Run estate conformance recovery and supplier replacement campaign",
+      "depends_on": [
+        "EC-08",
+        "EC-10",
+        "EC-11",
+        "EC-12",
+        "EC-13",
+        "EC-14",
+        "EC-15",
+        "EC-16",
+        "EC-17",
+        "EC-18",
+        "EC-19"
+      ],
+      "scope": "Run mixed-version/language/transport matrices and negative cases, operator overnight scenario, domain outcomes, whole-system recovery and actual provider swap. Measure bounded performance, maintenance and attention against baseline; no throughput benefit inferred from encoding.",
+      "requirements": [
+        "ER-007",
+        "ER-016",
+        "ER-029",
+        "ER-041",
+        "ER-043",
+        "ER-044",
+        "ER-045",
+        "ER-048"
+      ],
+      "served_item": "acceptance-lab#2753"
+    },
+    {
+      "id": "EC-21",
+      "owner": "agentops",
+      "title": "Close migration and delete superseded internal interfaces",
+      "depends_on": [
+        "EC-20"
+      ],
+      "scope": "Verify every inventoried boundary reaches target or an explicit retained external exception; remove temporary shims, duplicate schemas/endpoints/clients/configuration/docs, prove no hidden consumers, retain evidence/history and recovery assets. Record removal PRs and source/released/deployed/qualified distinctions.",
+      "requirements": [
+        "ER-001",
+        "ER-040",
+        "ER-041",
+        "ER-046",
+        "ER-048"
+      ],
+      "served_item": "agentops#2754"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "ER-001",
+      "area": "scope",
+      "owner": "agentops",
+      "activities": [
+        "EC-01",
+        "EC-21"
+      ],
+      "requirement": "Every internal machine interface has a unique inventory entry and explicit disposition.",
+      "acceptance": "Reconcile repository discovery, configured deployments and observed consumers; unresolved/unknown entries prevent programme completion.",
+      "goal": "G12",
+      "feature": "F13",
+      "priority": "must"
+    },
+    {
+      "id": "ER-002",
+      "area": "scope",
+      "owner": "vuoro",
+      "activities": [
+        "EC-00",
+        "EC-02"
+      ],
+      "requirement": "Select one estate-wide canonical contract-authoring convention, with one source per domain package, after architecture qualification.",
+      "acceptance": "ADR compares shortlist on mandatory cases; no independently edited generated schemas; selected versions and exclusions are explicit.",
+      "goal": "G12",
+      "feature": "F13",
+      "priority": "must"
+    },
+    {
+      "id": "ER-003",
+      "area": "ownership",
+      "owner": "vuoro",
+      "activities": [
+        "EC-02",
+        "EC-04"
+      ],
+      "requirement": "Package and service boundaries follow domain state and authority ownership.",
+      "acceptance": "Ownership/import graph is acyclic; work, evidence, authority and UI responsibilities remain distinct; no generic execute(type,payload) authority bypass.",
+      "goal": "G12",
+      "feature": "F13",
+      "priority": "must"
+    },
+    {
+      "id": "ER-004",
+      "area": "identity",
+      "owner": "vuoro",
+      "activities": [
+        "EC-02",
+        "EC-05"
+      ],
+      "requirement": "Work, request, attempt, artifact, event and provider-reference identities remain stable and separately typed.",
+      "acceptance": "A cross-provider continuation retains work identity while changing attempt; tenant/repository collisions and wrong-kind IDs are rejected.",
+      "goal": "G04",
+      "feature": "F04",
+      "priority": "must"
+    },
+    {
+      "id": "ER-005",
+      "area": "typing",
+      "owner": "vuoro",
+      "activities": [
+        "EC-02",
+        "EC-03"
+      ],
+      "requirement": "Missing, zero, empty, unknown, denied and unavailable retain distinct semantics across projections.",
+      "acceptance": "Cross-language and JSON/binary tests exercise defaults, presence, unknown enums/fields, oneof/unions, nullability, integers beyond JS safe range, decimals, timestamps and bytes.",
+      "goal": "G07",
+      "feature": "F07",
+      "priority": "must"
+    },
+    {
+      "id": "ER-006",
+      "area": "validation",
+      "owner": "vuoro",
+      "activities": [
+        "EC-02",
+        "EC-04"
+      ],
+      "requirement": "Business constraints and operation preconditions are enforced by owners beyond generated type checks.",
+      "acceptance": "Well-typed invalid scope/range/state transitions fail; generated validators match server behavior and errors do not leak secrets.",
+      "goal": "G07",
+      "feature": "F07",
+      "priority": "must"
+    },
+    {
+      "id": "ER-007",
+      "area": "evolution",
+      "owner": "agentops",
+      "activities": [
+        "EC-03",
+        "EC-20"
+      ],
+      "requirement": "Compatibility covers source clients, wire data, readable/tool projections and business behavior.",
+      "acceptance": "Supported N/N-1 matrix is declared and passes; incompatible changes require a new version and rollout; removed field identities are never reused where applicable.",
+      "goal": "G12",
+      "feature": "F13",
+      "priority": "must"
+    },
+    {
+      "id": "ER-008",
+      "area": "generation",
+      "owner": "agentops",
+      "activities": [
+        "EC-03",
+        "EC-11"
+      ],
+      "requirement": "Compilers, plugins, descriptors and packages are pinned, reproducible and independently verifiable.",
+      "acceptance": "Clean builds regenerate byte-identical generated artifacts under declared environment; tampered plugin/artifact fails; clients install offline from retained artifacts.",
+      "goal": "G12",
+      "feature": "F13",
+      "priority": "must"
+    },
+    {
+      "id": "ER-009",
+      "area": "generation",
+      "owner": "agentops",
+      "activities": [
+        "EC-03",
+        "EC-09"
+      ],
+      "requirement": "CLI/MCP and model-facing schemas derive from canonical contracts while staying readable and bounded.",
+      "acceptance": "Same valid/invalid fixtures pass/fail across surfaces; unsupported schema constructs fail generation explicitly; no handwritten semantic shadow interface.",
+      "goal": "G12",
+      "feature": "F13",
+      "priority": "must"
+    },
+    {
+      "id": "ER-010",
+      "area": "transport",
+      "owner": "vuoro",
+      "activities": [
+        "EC-00",
+        "EC-04",
+        "EC-08"
+      ],
+      "requirement": "Transport selection meets native, browser, proxy and local connection requirements without separate semantics.",
+      "acceptance": "Representative requests/events traverse actual supported ingress patterns; HTTP/JSON/gRPC/Connect alternatives are qualified only where selected.",
+      "goal": "G12",
+      "feature": "F13",
+      "priority": "must"
+    },
+    {
+      "id": "ER-011",
+      "area": "queries",
+      "owner": "sprintctl",
+      "activities": [
+        "EC-05"
+      ],
+      "requirement": "Queries define pagination, consistency, freshness and permission-scoped snapshots.",
+      "acceptance": "Concurrent mutation, expired cursor, revoked access and unavailable source produce explicit outcomes; no cross-tenant cursor leakage.",
+      "goal": "G02",
+      "feature": "F02",
+      "priority": "must"
+    },
+    {
+      "id": "ER-012",
+      "area": "errors",
+      "owner": "vuoro",
+      "activities": [
+        "EC-02",
+        "EC-04"
+      ],
+      "requirement": "Errors distinguish validation, stale revision, denial, unsupported capability, outage, limit and unknown effect.",
+      "acceptance": "Clients map typed errors consistently; transient failure is not absence; retry guidance never blindly repeats an uncertain effect.",
+      "goal": "G12",
+      "feature": "F13",
+      "priority": "must"
+    },
+    {
+      "id": "ER-013",
+      "area": "commands",
+      "owner": "sprintctl",
+      "activities": [
+        "EC-05"
+      ],
+      "requirement": "Mutations use expected revisions and scoped idempotency with declared retention.",
+      "acceptance": "Concurrent writers conflict; retry of identical operation returns original result; reused key with different payload fails; expired-key handling is explicit.",
+      "goal": "G04",
+      "feature": "F04",
+      "priority": "must"
+    },
+    {
+      "id": "ER-014",
+      "area": "delivery",
+      "owner": "vuoro",
+      "activities": [
+        "EC-04",
+        "EC-05",
+        "EC-09"
+      ],
+      "requirement": "Events have stable IDs, ordering scope, cursors, deduplication and replay/reset semantics.",
+      "acceptance": "Disconnect/restart/duplicate/out-of-order/compacted cursor tests pass; resume cannot silently skip events; event delivery is not exactly-once effect execution.",
+      "goal": "G04",
+      "feature": "F04",
+      "priority": "must"
+    },
+    {
+      "id": "ER-015",
+      "area": "resilience",
+      "owner": "vuoro",
+      "activities": [
+        "EC-04",
+        "EC-10"
+      ],
+      "requirement": "Deadlines, cancellation and retries are explicit per operation.",
+      "acceptance": "Timeout after commit yields reconcilable unknown effect; cancellation is not assumed rollback; non-idempotent effects are not automatically retried or hedged.",
+      "goal": "G09",
+      "feature": "F09",
+      "priority": "must"
+    },
+    {
+      "id": "ER-016",
+      "area": "limits",
+      "owner": "appservice",
+      "activities": [
+        "EC-04",
+        "EC-10",
+        "EC-20"
+      ],
+      "requirement": "Bound payloads, queues, concurrency, streams and resource consumption with backpressure.",
+      "acceptance": "Slow client, oversized message, decompression expansion and overload tests remain bounded; recovery does not cause retry storms.",
+      "goal": "G08",
+      "feature": "F08",
+      "priority": "must"
+    },
+    {
+      "id": "ER-017",
+      "area": "capabilities",
+      "owner": "vuoro",
+      "activities": [
+        "EC-04",
+        "EC-09"
+      ],
+      "requirement": "Clients negotiate capabilities and supported contract versions without treating advertising as authority.",
+      "acceptance": "Unsupported wake/stream/tool modes fail visibly; old clients cannot interpret unknown success states or gain scope through negotiation.",
+      "goal": "G12",
+      "feature": "F13",
+      "priority": "must"
+    },
+    {
+      "id": "ER-018",
+      "area": "security",
+      "owner": "cred-broker",
+      "activities": [
+        "EC-06",
+        "EC-08"
+      ],
+      "requirement": "Authenticated transport identity is bound to actual principal, audience, workspace, resource and action.",
+      "acceptance": "Spoofed identity fields/forwarded headers, wrong audience and cross-tenant requests are denied by the owner; payload identity creates no grant.",
+      "goal": "G06",
+      "feature": "F06",
+      "priority": "must"
+    },
+    {
+      "id": "ER-019",
+      "area": "security",
+      "owner": "cred-broker",
+      "activities": [
+        "EC-06"
+      ],
+      "requirement": "Delegation, revocation and exact-operation acceptance survive the interface migration.",
+      "acceptance": "Expired/revoked/wrong-target/replayed grants fail; altered artifact or procedure cannot reuse acceptance; authority checks occur at the protected boundary.",
+      "goal": "G06",
+      "feature": "F06",
+      "priority": "must"
+    },
+    {
+      "id": "ER-020",
+      "area": "security",
+      "owner": "vuoro-cloud",
+      "activities": [
+        "EC-08",
+        "EC-10"
+      ],
+      "requirement": "Public coordination never gains a new push path into the protected horizon.",
+      "acceptance": "Topology and negative tests prove protected consumers pull under local authority; generated clients cannot bypass existing custody/egress boundaries.",
+      "goal": "G06",
+      "feature": "F06",
+      "priority": "must"
+    },
+    {
+      "id": "ER-021",
+      "area": "privacy",
+      "owner": "vuoro-cloud",
+      "activities": [
+        "EC-07",
+        "EC-08",
+        "EC-10"
+      ],
+      "requirement": "Logs, messages, diagnostics and exports enforce redaction, retention and owner entitlements.",
+      "acceptance": "Secret fixtures and unauthorized workspace records are absent from tool/UI/trace outputs; deleted/revoked data behavior is specified and verified.",
+      "goal": "G10",
+      "feature": "F10",
+      "priority": "must"
+    },
+    {
+      "id": "ER-022",
+      "area": "evidence",
+      "owner": "auditctl",
+      "activities": [
+        "EC-02",
+        "EC-07"
+      ],
+      "requirement": "Signed or hashed meaning uses a versioned domain-specific representation, not generic serialization determinism.",
+      "acceptance": "Cross-language golden vectors cover map order, unknown fields, numeric edge cases and schema changes; altered meaning invalidates binding; original signed bytes remain retained.",
+      "goal": "G07",
+      "feature": "F07",
+      "priority": "must"
+    },
+    {
+      "id": "ER-023",
+      "area": "evidence",
+      "owner": "auditctl",
+      "activities": [
+        "EC-07"
+      ],
+      "requirement": "Historical evidence identity, provenance and authoritative home remain intact.",
+      "acceptance": "Old records decode using retained schemas, retain original bytes/digests, and link to transformed views; reconciliation never restamps historical observations.",
+      "goal": "G07",
+      "feature": "F07",
+      "priority": "must"
+    },
+    {
+      "id": "ER-024",
+      "area": "artifacts",
+      "owner": "vuoro",
+      "activities": [
+        "EC-04",
+        "EC-07",
+        "EC-12"
+      ],
+      "requirement": "Bulk artifacts use authorized immutable references, integrity checks and bounded transfer contracts.",
+      "acceptance": "Expired/unauthorized references fail; corruption is detected; large files are not forced into oversized control messages; portable export reconstructs references.",
+      "goal": "G03",
+      "feature": "F03",
+      "priority": "must"
+    },
+    {
+      "id": "ER-025",
+      "area": "operator",
+      "owner": "vuoro",
+      "activities": [
+        "EC-02",
+        "EC-05",
+        "EC-08"
+      ],
+      "requirement": "The OA-01\u2013OA-06 operator-action lifecycle is the first complete consumer of the selected foundation.",
+      "acceptance": "Both runtimes publish current procedures; dead/shared/stale/partial requests and verification/attestation cases pass; TUI works without reopening chat.",
+      "goal": "G12",
+      "feature": "F12",
+      "priority": "must"
+    },
+    {
+      "id": "ER-026",
+      "area": "continuation",
+      "owner": "agentops",
+      "activities": [
+        "EC-05",
+        "EC-09"
+      ],
+      "requirement": "Resolution continues only affected work through supported native runtime mechanisms.",
+      "acceptance": "Duplicate delivery does not repeat operations; successor uses exact evidence; unsupported wake shows continuation-ready; no new estate scheduler.",
+      "goal": "G04",
+      "feature": "F04",
+      "priority": "must"
+    },
+    {
+      "id": "ER-027",
+      "area": "work",
+      "owner": "sprintctl",
+      "activities": [
+        "EC-05"
+      ],
+      "requirement": "Reference work-provider settlement and cross-project links retain semantics.",
+      "acceptance": "Reservations, releases, CAS and terminal decisions pass existing and new conformance; source receipt/completion event never substitutes for acceptance.",
+      "goal": "G01",
+      "feature": "F01",
+      "priority": "must"
+    },
+    {
+      "id": "ER-028",
+      "area": "context",
+      "owner": "vuoro",
+      "activities": [
+        "EC-04"
+      ],
+      "requirement": "Context, knowledge, source corrections and permissions use versioned typed references.",
+      "acceptance": "Correction invalidates affected conclusions only; source/permission changes are visible; model confidence is not context authority.",
+      "goal": "G03",
+      "feature": "F03",
+      "priority": "must"
+    },
+    {
+      "id": "ER-029",
+      "area": "learning",
+      "owner": "vuoro",
+      "activities": [
+        "EC-04",
+        "EC-07",
+        "EC-20"
+      ],
+      "requirement": "Outcome comparisons preserve cost, attention, denominator, uncertainty and revision provenance.",
+      "acceptance": "Missing observations remain unknown; comparable cohorts reconstruct accepted outcomes; no model router or compiled agent profile is recreated.",
+      "goal": "G11",
+      "feature": "F11",
+      "priority": "must"
+    },
+    {
+      "id": "ER-030",
+      "area": "hosting",
+      "owner": "vuoro-cloud",
+      "activities": [
+        "EC-08",
+        "EC-10"
+      ],
+      "requirement": "Browser/TUI and hosted services use shared contracts with explicit tenancy and supported transport modes.",
+      "acceptance": "Wrong tenant, browser reconnect, proxy buffering and authentication expiry tests pass; UI state cannot settle protected work.",
+      "goal": "G12",
+      "feature": "F13",
+      "priority": "must"
+    },
+    {
+      "id": "ER-031",
+      "area": "platform",
+      "owner": "appservice",
+      "activities": [
+        "EC-10"
+      ],
+      "requirement": "Deployment, discovery, ingress, health, telemetry and restore support mixed-version migration.",
+      "acceptance": "Disposable rollout/drain/rollback and whole-application restore prove configured RPO/RTO and retained decoding assets before live promotion.",
+      "goal": "G09",
+      "feature": "F09",
+      "priority": "must"
+    },
+    {
+      "id": "ER-032",
+      "area": "hosts",
+      "owner": "gitops-nixos",
+      "activities": [
+        "EC-11"
+      ],
+      "requirement": "Host packages reproduce supported compiler/client/runtime and local integration configurations.",
+      "acceptance": "Clean rebuild and offline recovery pass; supported versions are explicit; no hidden developer workstation dependency remains.",
+      "goal": "G09",
+      "feature": "F09",
+      "priority": "must"
+    },
+    {
+      "id": "ER-033",
+      "area": "compute",
+      "owner": "datacluster",
+      "activities": [
+        "EC-12"
+      ],
+      "requirement": "Compute/capacity/cost observations map through typed adapters while providers retain native APIs.",
+      "acceptance": "Scope/region/retention, missing utilization and teardown results remain explicit; provisioning observation does not imply resource ownership or permission.",
+      "goal": "G05",
+      "feature": "F05",
+      "priority": "must"
+    },
+    {
+      "id": "ER-034",
+      "area": "inference",
+      "owner": "local-inference",
+      "activities": [
+        "EC-13"
+      ],
+      "requirement": "Local inference boundaries preserve qualified arrangement metadata and privacy constraints.",
+      "acceptance": "Refused local-only data never falls through to cloud; engine/parser/model revisions, context/concurrency and fallback remain measurable.",
+      "goal": "G05",
+      "feature": "F05",
+      "priority": "must"
+    },
+    {
+      "id": "ER-035",
+      "area": "household",
+      "owner": "homelab-analytics",
+      "activities": [
+        "EC-14"
+      ],
+      "requirement": "Household commitment/publication/outcome interfaces preserve domain meaning.",
+      "acceptance": "Corrected source windows supersede appropriate evidence; estimates differ from measured effects; human acceptance and raw-data locality remain intact.",
+      "goal": "G01",
+      "feature": "F14",
+      "priority": "must"
+    },
+    {
+      "id": "ER-036",
+      "area": "writing",
+      "owner": "scribectl",
+      "activities": [
+        "EC-15"
+      ],
+      "requirement": "Creative workspace integration preserves source revisions and human canon ratification.",
+      "acceptance": "Generated client can resume/export/correct work without silent canon promotion; original artifacts and acceptance remain reconstructible.",
+      "goal": "G01",
+      "feature": "F14",
+      "priority": "must"
+    },
+    {
+      "id": "ER-037",
+      "area": "physical",
+      "owner": "frontier-weave",
+      "activities": [
+        "EC-16"
+      ],
+      "requirement": "Physical/cooperative outcomes retain explicit attestation and uncertainty.",
+      "acceptance": "Human-performed steps, unknown physical state and accepted evidence are distinguishable across restart and export.",
+      "goal": "G01",
+      "feature": "F14",
+      "priority": "must"
+    },
+    {
+      "id": "ER-038",
+      "area": "research",
+      "owner": "aligned-equity",
+      "activities": [
+        "EC-17"
+      ],
+      "requirement": "Research evidence/decision boundaries retain assumptions and source provenance.",
+      "acceptance": "Correction, source version, missing data and accepted decision survive migration and export without converting hypotheses into facts.",
+      "goal": "G01",
+      "feature": "F14",
+      "priority": "must"
+    },
+    {
+      "id": "ER-039",
+      "area": "browser",
+      "owner": "browser-workbench",
+      "activities": [
+        "EC-18"
+      ],
+      "requirement": "Browser/local bridge adapters preserve native execution and qualified language interoperability.",
+      "acceptance": "Actual Python/TS/Rust surfaces discovered are exercised with cancellation, auth loss, streaming limits and exact result links.",
+      "goal": "G12",
+      "feature": "F13",
+      "priority": "must"
+    },
+    {
+      "id": "ER-040",
+      "area": "coverage",
+      "owner": "agentops",
+      "activities": [
+        "EC-01",
+        "EC-19",
+        "EC-21"
+      ],
+      "requirement": "Smaller tools, plugins, batch jobs and scripts receive explicit owner migration or retirement decisions.",
+      "acceptance": "Bindery and every inventory-discovered consumer have owner tasks before cutover; zero unexplained legacy callers after a declared observation window.",
+      "goal": "G12",
+      "feature": "F13",
+      "priority": "must"
+    },
+    {
+      "id": "ER-041",
+      "area": "migration",
+      "owner": "agentops",
+      "activities": [
+        "EC-01",
+        "EC-04",
+        "EC-20",
+        "EC-21"
+      ],
+      "requirement": "Each cutover has one authoritative writer, data reconciliation, consumer switch, rollback and adapter expiry.",
+      "acceptance": "Fault injection during each stage does not create competing authorities; rollback handles new records and unsupported old clients; no indefinite shim.",
+      "goal": "G09",
+      "feature": "F09",
+      "priority": "must"
+    },
+    {
+      "id": "ER-042",
+      "area": "storage",
+      "owner": "auditctl",
+      "activities": [
+        "EC-07",
+        "EC-10"
+      ],
+      "requirement": "Transport changes do not silently change persistence contracts or erase retention obligations.",
+      "acceptance": "Storage migration is separately justified and tested; backups retain schemas/keys by existing policy; restored historical records retain meaning.",
+      "goal": "G09",
+      "feature": "F09",
+      "priority": "must"
+    },
+    {
+      "id": "ER-043",
+      "area": "quality",
+      "owner": "acceptance-lab",
+      "activities": [
+        "EC-00",
+        "EC-20"
+      ],
+      "requirement": "Performance and reliability claims use representative predeclared workloads and baselines.",
+      "acceptance": "Report p50/p95 latency, CPU/RSS, payload size, reconnect/load behavior, generation/build time, maintenance effort and sample size; no fabricated speedup.",
+      "goal": "G07",
+      "feature": "F07",
+      "priority": "must"
+    },
+    {
+      "id": "ER-044",
+      "area": "quality",
+      "owner": "acceptance-lab",
+      "activities": [
+        "EC-20"
+      ],
+      "requirement": "Conformance spans languages, versions, transports, domain behavior and injected faults.",
+      "acceptance": "Supported matrix passes all mandatory negatives; a deliberately broken schema/authority/replay case fails the gate; real supplier swap and recovery are demonstrated.",
+      "goal": "G07",
+      "feature": "F07",
+      "priority": "must"
+    },
+    {
+      "id": "ER-045",
+      "area": "operations",
+      "owner": "agentops",
+      "activities": [
+        "EC-03",
+        "EC-09",
+        "EC-20"
+      ],
+      "requirement": "Humans can inspect typed traffic and reconstruct failures without exposing private payloads.",
+      "acceptance": "Readable redacted CLI views and trace IDs reconstruct requests/results/evidence; debug replay is isolated and cannot execute live effects.",
+      "goal": "G12",
+      "feature": "F13",
+      "priority": "must"
+    },
+    {
+      "id": "ER-046",
+      "area": "closure",
+      "owner": "agentops",
+      "activities": [
+        "EC-21"
+      ],
+      "requirement": "Rewrite completion requires removal of superseded internal paths and explicit retained external boundaries.",
+      "acceptance": "Inventory has no unresolved entries; removal PRs, consumer evidence, release/deployment observations and support/rollback/export handover are linked.",
+      "goal": "G12",
+      "feature": "F13",
+      "priority": "must"
+    },
+    {
+      "id": "ER-047",
+      "area": "supply",
+      "owner": "agentops",
+      "activities": [
+        "EC-00",
+        "EC-03",
+        "EC-11"
+      ],
+      "requirement": "Selected dependencies have viable licensing, maintenance, offline builds and upgrade/security response.",
+      "acceptance": "Document version/runtime support and provenance; pin artifacts; rehearse upgrade/rollback; no required paid registry or hosted code generator without explicit sourcing decision.",
+      "goal": "G10",
+      "feature": "F10",
+      "priority": "must"
+    },
+    {
+      "id": "ER-048",
+      "area": "economics",
+      "owner": "agentops",
+      "activities": [
+        "EC-00",
+        "EC-20",
+        "EC-21"
+      ],
+      "requirement": "Estate rewrite remains accountable to useful outcomes and maintenance/attention burden.",
+      "acceptance": "Measure workflow success, repeated prompts, stale requests, cost per accepted cohort and interface maintenance before/after; inconclusive evidence stays inconclusive.",
+      "goal": "G01",
+      "feature": "F01",
+      "priority": "must"
+    }
+  ],
+  "source_observations": [
+    {
+      "owner": "vuoro",
+      "path": "pyproject.toml",
+      "head": "aa5af4de351f011c1d4f795eaa72b692c5dfcb47",
+      "sha256": "98a9abf9b8505268edd9019e290d83c8ea8d116abb1a804840851bb483633d0b"
+    },
+    {
+      "owner": "vuoro-cloud",
+      "path": "pyproject.toml",
+      "head": "47d49fec848ff3891ef0e49f43a5e071f67a39a5",
+      "sha256": "476a3c391d305b2277b09bdccac1d7ce9bf20b2489e82ca17f2100d9df6f09a7"
+    },
+    {
+      "owner": "vuoro-cloud",
+      "path": "flake.nix",
+      "head": "47d49fec848ff3891ef0e49f43a5e071f67a39a5",
+      "sha256": "e54887862a98c28f36a00932f2cf898528f37cf06f3eed2fe350351f2b9dcb67"
+    },
+    {
+      "owner": "sprintctl",
+      "path": "pyproject.toml",
+      "head": "16f121f1fc527f3238953b6f203b32530cdfb5bc",
+      "sha256": "7577786be7bb627d8c45499c5aba60b370914f50a268a3e5be89c98d2a8a9a51"
+    },
+    {
+      "owner": "cred-broker",
+      "path": "pyproject.toml",
+      "head": "72b86d765f5e7386383cec2171b577c2af845839",
+      "sha256": "e680487e404db3f8034f8a6b9d513154e7111fb99eee82ff2faba3de9dd1917b"
+    },
+    {
+      "owner": "auditctl",
+      "path": "pyproject.toml",
+      "head": "b3985a41c668a31366c87d0fc94a724c4b487d63",
+      "sha256": "3d76476ad6a4b7279b1a28a1bb0da377af77a2ed9f4eee0cbd0a0ca076ce6508"
+    },
+    {
+      "owner": "homelab-analytics",
+      "path": "pyproject.toml",
+      "head": "c8379d7504f12dcc1a9e9d269e4fbb48741d7e8f",
+      "sha256": "daa5cfc0e71c6217f5977d0d132b998b9245aabd28f75fe71e46c9c9181e44f1"
+    },
+    {
+      "owner": "homelab-analytics",
+      "path": "apps/web/frontend/package.json",
+      "head": "c8379d7504f12dcc1a9e9d269e4fbb48741d7e8f",
+      "sha256": "a3e97c7f8165b6af4e08a47dd0b55b429953a93fed2c41cc704392026e8c57ea"
+    },
+    {
+      "owner": "scribectl",
+      "path": "pyproject.toml",
+      "head": "0eab88f3ddb925127c142d7572ccb6794982f241",
+      "sha256": "61cc2f478432e4694404e7ea2a2117dbd83de5b15f0867957daaab6064f1c5a1"
+    },
+    {
+      "owner": "browser-workbench",
+      "path": "pyproject.toml",
+      "head": "8644736bec6e9bf3ae7f3298779c6553b5593f9e",
+      "sha256": "0100c21041f16c159633154735f78559a575cf27324befd5956b2ea8f9a78d45"
+    },
+    {
+      "owner": "browser-workbench",
+      "path": "package.json",
+      "head": "8644736bec6e9bf3ae7f3298779c6553b5593f9e",
+      "sha256": "25d72dc5e1727a575ef71fe75dcc7d04cce168951a8ecc718972e3d671163c1b"
+    },
+    {
+      "owner": "browser-workbench",
+      "path": "Cargo.toml",
+      "head": "8644736bec6e9bf3ae7f3298779c6553b5593f9e",
+      "sha256": "38367223bafe2f88f6c2a19786c013f54c8cfac7dca475b443b9f648760113bd"
+    },
+    {
+      "owner": "bindery-core",
+      "path": "go.mod",
+      "head": "39645d9d263251c7179990718b966cc555b47624",
+      "sha256": "3a9222d77c2cf36e6839e3210e786c9b3c61a8171fb84d176cb2e043502d4d5f"
+    },
+    {
+      "owner": "gitops-nixos",
+      "path": "flake.nix",
+      "head": "6f556ff715b1fb556bfab94bc3aa17edd01087d2",
+      "sha256": "84f1c2af8e7a0b197ca5d8793209b09f979974e0a4859fc3616c96542b8c807f"
+    }
+  ],
+  "architecture_discovery": "2026-10-18-estate-contract-architecture-discovery.md",
+  "external_gates": {
+    "EC-20": [
+      "agentops#2730",
+      "agentops#2667"
+    ]
+  }
+}
