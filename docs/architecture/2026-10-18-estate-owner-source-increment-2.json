@@ -1,0 +1,464 @@
+{
+  "captured_at": "2026-10-18",
+  "interfaces": [
+    {
+      "authority_and_auth": "No remote authentication or service authority is declared for these validators. The schema/validator code validates caller-supplied records; any publication authority is outside these files.",
+      "boundary": "Python package validation functions and JSON Schema contracts for source ledger and decision output; optional Homelab Analytics integration module is import-safe and declares no executable registrations in this source snapshot.",
+      "compatibility_cutover_rollback": "unknown",
+      "configured_consumers": "unknown",
+      "disposition": "unassigned; no contract selection or migration recommendation made",
+      "id": "ec01-aligned-equity-package-json-contracts-v1",
+      "live_use": "unknown; source-only, no import/runtime observation",
+      "owner": "aligned-equity",
+      "persistence_and_data": "The interface data represents source provenance, evidence and decision summaries. These functions do not persist records; retention and any consuming store are unknown.",
+      "producer_consumer": "Package code consumes structured evidence/decision dictionaries and validates them against repository schemas; downstream applications and configured consumers unknown. An HLA integration hook is declared, but its implementation is no-op.",
+      "protocol_and_operations": {
+        "hla_adapter_hooks": [
+          "register_extensions",
+          "register_pipeline_registries",
+          "register_functions",
+          "register_capability_packs"
+        ],
+        "module_validators_not_exported_from_package_root": [
+          "validate_decision_output",
+          "validate_feature_record",
+          "validate_evidence_record"
+        ],
+        "package": "aligned-equity 0.1.0; requires Python >=3.11",
+        "public_functions": [
+          "validate_source_ledger_record",
+          "validate_decision_readiness",
+          "validate_entity_identifier_record",
+          "validate_scorecard_run"
+        ],
+        "schema_language": "JSON Schema draft 2020-12; inspected schemas reject extra fields; no explicit data schema_version field in these two schemas",
+        "transport": "in-process Python calls plus JSON data files; no network protocol declared"
+      },
+      "repo": "aligned-equity",
+      "retry_and_delivery": "No delivery or retry protocol declared; validators return validation results synchronously.",
+      "source_files": [
+        {
+          "path": "pyproject.toml",
+          "sha256": "2f646e47dc9a2ae6301fafda7f7a79797a2e12bd4a3ee3d3d7495ec0dc0eeeb3"
+        },
+        {
+          "path": "packages/aligned_equity/__init__.py",
+          "sha256": "672bee0d73f8d4e4a7fca9edc518542415c0387f6fcfee7a3bc2408585f440a7"
+        },
+        {
+          "path": "packages/aligned_equity/source_ledger.py",
+          "sha256": "86e09912017a99d5c5254b8b59bdcbee77486fbe49cf83486666619b50f93253"
+        },
+        {
+          "path": "packages/aligned_equity/decision_output.py",
+          "sha256": "970b072165c9be3c07cff771385b8269d6b1ec75fdb40139e750104b3730a962"
+        },
+        {
+          "path": "schemas/source-ledger-record.schema.json",
+          "sha256": "947949a46a236392195b1f3446458c8fcaf96a0a2c672b72e06e60713713af6e"
+        },
+        {
+          "path": "schemas/decision-output.schema.json",
+          "sha256": "58c3d02dab7f3e4e4c7101e7c21fd17472bf959ddaf286c633e555dcc202be36"
+        },
+        {
+          "path": "homelab-analytics.registry.json",
+          "sha256": "3202dadbe0746a4833514f43abbf9be4bc576f574f241d6459115c6d5f990efd"
+        },
+        {
+          "path": "packages/aligned_equity/integrations/homelab_analytics.py",
+          "sha256": "5cae8c3fe3ec96b227f8997da935f4f550892f67a10d9c30986bcde72dc380da"
+        }
+      ],
+      "source_revision": "64ecdf4db32f2e3fbae242fae002693734178d77"
+    },
+    {
+      "authority_and_auth": "The CLI boundary has no service authentication protocol declared. Backend process/runtime authority is backend-specific and not measured in this source-only inventory.",
+      "boundary": "Local `browser-workbench` CLI consumes declared run-spec JSON and emits result-envelope JSON; a separate Python\u2194Rust worker v1 boundary is already recorded as `browser-workbench:python-rust-native-adapter-v1` in the first-consumer extraction.",
+      "compatibility_cutover_rollback": "unknown",
+      "configured_consumers": "unknown",
+      "disposition": "unassigned; CLI artifact interface only",
+      "id": "ec01-browser-workbench-cli-run-artifacts-v1",
+      "live_use": "unknown; source-only, no CLI/backend invocation",
+      "owner": "browser-workbench",
+      "persistence_and_data": "Run specs/results and evidence are file-based; actual retention/consumer locations unknown.",
+      "producer_consumer": "CLI run/compare/corpus commands consume local specifications/evidence; output is files and stdout JSON. Actual invokers or installed users unknown.",
+      "protocol_and_operations": {
+        "commands": [
+          "run <spec> --output <path>",
+          "capabilities <backend>",
+          "probe <backend>",
+          "compare <baseline> <candidate>",
+          "corpus --output <path>"
+        ],
+        "exit_codes": {
+          "blocked": 78,
+          "different_or_failed": 1,
+          "invalid": 64,
+          "passed": 0,
+          "unsupported": 2
+        },
+        "package_version": "0.2.0",
+        "result_schema_version": "browser-workbench.result/v1",
+        "run_schema_version": "browser-workbench.run/v1",
+        "run_statuses": [
+          "passed",
+          "failed",
+          "unsupported",
+          "blocked",
+          "invalid"
+        ],
+        "transport": "local process command and JSON file contract"
+      },
+      "repo": "browser-workbench",
+      "retry_and_delivery": "CLI invocation and artifact-delivery retry behavior is unknown. Effect retry behavior is cross-referenced through the existing Python/Rust worker contract and is not restated here.",
+      "source_files": [
+        {
+          "path": "pyproject.toml",
+          "sha256": "0100c21041f16c159633154735f78559a575cf27324befd5956b2ea8f9a78d45"
+        },
+        {
+          "path": "src/workbench/cli.py",
+          "sha256": "2987535db29f6b082c9b3a8078bc4c22fa5c3641f5cca1858277c252ef9afafb"
+        },
+        {
+          "path": "src/workbench/runner.py",
+          "sha256": "c56f09d07c2f08a42151ce62e9e8783bb10a8c440524ec3468c90511a0052be2"
+        },
+        {
+          "path": "schemas/run-spec.schema.json",
+          "sha256": "c555b5b9ebaf19a702ede42ab0671a0f24d55254bfc0ceb868dfbc3face3ce45"
+        },
+        {
+          "path": "schemas/result-envelope.schema.json",
+          "sha256": "6ff12d6fefccc0440e598cbc2cb3617de9d6c5c3b54e0599a3a25c566d24b106"
+        },
+        {
+          "path": "spec/RUNNER_CONTRACT_V1.md",
+          "sha256": "995bbef18c7396552ab3bfd2ae37623058093f5eba38b4ea5609f1c58c8d174f"
+        }
+      ],
+      "source_revision": "8644736bec6e9bf3ae7f3298779c6553b5593f9e"
+    },
+    {
+      "authority_and_auth": "No network credentials or remote auth at this interface. Source/docs make the writer checkbox the only ratification verdict; CLI sweep executes that verdict and appends a receipt.",
+      "boundary": "Local scribectl command surface over Markdown/YAML-frontmatter vault notes; context packs are SHA-256-derived frozen Markdown artifacts and ratification candidates use checkbox lines with target wikilinks.",
+      "compatibility_cutover_rollback": "unknown",
+      "configured_consumers": "unknown",
+      "disposition": "unassigned; local authoring interface only",
+      "id": "ec01-scribectl-vault-cli-ratification-v1",
+      "live_use": "unknown; source-only, no vault access or CLI invocation",
+      "owner": "scribectl",
+      "persistence_and_data": "Markdown/YAML files in a configured vault are the persistence boundary; ratification log is append-only by CLI source contract. Actual vault path, deployment and retention are intentionally not read.",
+      "producer_consumer": "CLI reads and writes configured vault files; local author is the ratification authority. Agent or editor consumers of packs are not identified from runtime evidence.",
+      "protocol_and_operations": {
+        "artifact_contract": "typed note frontmatter, ## sections, [[wikilinks]]; context pack embeds 12-hex prefix of SHA-256; ratification inbox line contains checkbox verdict, quoted fact, arrow target and optional provenance",
+        "commands": [
+          "projects",
+          "doctor",
+          "status [--json] [--write]",
+          "next [--write]",
+          "pack <card>",
+          "propose --into <node> --source <source>",
+          "reconcile --into <node>",
+          "ratify [--mine] [--sweep] [--dry-run]",
+          "adopt <note>",
+          "capture <title>",
+          "new card <name>",
+          "init <name>"
+        ],
+        "package_version": "0.1.0",
+        "protocol_version": "none declared for local file/CLI interface",
+        "transport": "local process CLI and filesystem Markdown/YAML conventions; no remote API declared"
+      },
+      "repo": "scribectl",
+      "retry_and_delivery": "No distributed delivery/retry protocol. Pack generation reports unchanged when the same pack is already frozen; shared-vault concurrent writer behavior is not a compare-and-swap guarantee.",
+      "source_files": [
+        {
+          "path": "pyproject.toml",
+          "sha256": "61cc2f478432e4694404e7ea2a2117dbd83de5b15f0867957daaab6064f1c5a1"
+        },
+        {
+          "path": "scribectl/cli.py",
+          "sha256": "0d50f098c14fa48d08869f3e89270a491073b27f3fb67e08f8037a5f01b3eeb0"
+        },
+        {
+          "path": "scribectl/core/vault.py",
+          "sha256": "f0212ed88d010319366df7e1bae97cc18c27c32c843d86a0937bd71660e36ba8"
+        },
+        {
+          "path": "scribectl/core/contextpack.py",
+          "sha256": "714200bd2bc1da2c75a2a38c787892f173a5ce0745893a25c71ee5f443026122"
+        },
+        {
+          "path": "scribectl/core/inbox.py",
+          "sha256": "487c7f292409d21be7575b298b8177ac98e8a4b91c7ef3878dd536163208dcc4"
+        },
+        {
+          "path": "scribectl/core/project.py",
+          "sha256": "6aa09ef065151a8f2aed04d9970584489df1e59e85725f00da4e546249cb60eb"
+        },
+        {
+          "path": "docs/ARCHITECTURE.md",
+          "sha256": "bfaed0eab03f8c2b811e288b7fefcd6018324b574432e6ea9b2dafc8f1ea7382"
+        },
+        {
+          "path": "docs/RATIFICATION.md",
+          "sha256": "472cfc1192944b05f5d8c45aef8914bb449520f7f05a8201ed8d0cce88297f70"
+        }
+      ],
+      "source_revision": "2ddefae3ea4b271cf7fab11331dbcb2d98304f50"
+    },
+    {
+      "authority_and_auth": "API key is the remote authorization credential; configuration entry owns configured value in Home Assistant. No credential values or runtime Home Assistant entries were inspected.",
+      "boundary": "Home Assistant config-flow integration calling Elisa/Gridle public measurements API and projecting measurements into coordinator-managed sensor/history state.",
+      "compatibility_cutover_rollback": "unknown",
+      "configured_consumers": "unknown",
+      "disposition": "unassigned; source-only consumer boundary",
+      "id": "ec01-ha-elisa-kotiakku-home-assistant-gridle-v1",
+      "live_use": "unknown; public source inspected only, no Home Assistant/API invocation",
+      "owner": "ha-elisa-kotiakku",
+      "persistence_and_data": "Home Assistant Store persists energy, economics and analytics state through versioned store keys. Storage backend/retention and installed config contents were not inspected.",
+      "producer_consumer": "Home Assistant integration calls Gridle measurements endpoint and produces `MeasurementData` records/coordinator state; actual Home Assistant installation and consumers unknown.",
+      "protocol_and_operations": {
+        "authentication": "x-api-key header; user config flow accepts an API key and stores it in config-entry data; diagnostics source explicitly redacts that field",
+        "endpoint": "https://residential.gridle.com/api/public/measurements",
+        "integration_version": "1.4.1 in manifest",
+        "parameters": [
+          "start_time",
+          "end_time (optional; source documents maximum 31-day range)"
+        ],
+        "poll_interval": "5 minutes",
+        "request_timeout_seconds": 30,
+        "response": "list of measurement objects mapped to MeasurementData; no explicit API schema/version field found",
+        "transport": "HTTPS GET JSON"
+      },
+      "repo": "ha-elisa-kotiakku",
+      "retry_and_delivery": "Client does not implement request retries. HTTP 401/403 becomes auth failure; HTTP 429 exposes Retry-After and coordinator increases update interval to max(hint, five-minute default) before UpdateFailed. Other API/communication errors become update failures.",
+      "source_files": [
+        {
+          "path": "pyproject.toml",
+          "sha256": "63fb2e2dca8a20a7340f74c407ee318c5f69d5ac191d69768aedefe56f8a76cd"
+        },
+        {
+          "path": "custom_components/elisa_kotiakku/manifest.json",
+          "sha256": "c108c0fbc2503251373c650e4055cfc141081dbcc1a88a3cb3059d74bf28676f"
+        },
+        {
+          "path": "custom_components/elisa_kotiakku/const.py",
+          "sha256": "23b328645581e77900db4354dfb28e6990ed02e9ab899b0aba2e4e81a2c00a6d"
+        },
+        {
+          "path": "custom_components/elisa_kotiakku/api.py",
+          "sha256": "2da46a302b2f66951f0794b7c32f83c0d8d6f2f69d5d185f0aea560b711d1aae"
+        },
+        {
+          "path": "custom_components/elisa_kotiakku/config_flow.py",
+          "sha256": "e7a0e4ed6b594399a92417e64772ca4f7c9d73ef60809f2a1c02cc0e564c4050"
+        },
+        {
+          "path": "custom_components/elisa_kotiakku/coordinator.py",
+          "sha256": "7f3ff6e507fc460ceeba440331687fd75c0e5a33c8e35e1e83827c6bd375dfb6"
+        },
+        {
+          "path": "custom_components/elisa_kotiakku/diagnostics.py",
+          "sha256": "0f52322629b8aa8d6b65b6504708f6d0fde4b848ca5f53b83e3011b2169ed9a4"
+        }
+      ],
+      "source_revision": "83b91adf3ba7d2a7d8b4af87ff094a183c0624f7"
+    }
+  ],
+  "repositories": [
+    {
+      "owner": "aligned-equity",
+      "repo": "aligned-equity",
+      "source_files": [
+        {
+          "path": "pyproject.toml",
+          "sha256": "2f646e47dc9a2ae6301fafda7f7a79797a2e12bd4a3ee3d3d7495ec0dc0eeeb3"
+        },
+        {
+          "path": "packages/aligned_equity/__init__.py",
+          "sha256": "672bee0d73f8d4e4a7fca9edc518542415c0387f6fcfee7a3bc2408585f440a7"
+        },
+        {
+          "path": "packages/aligned_equity/source_ledger.py",
+          "sha256": "86e09912017a99d5c5254b8b59bdcbee77486fbe49cf83486666619b50f93253"
+        },
+        {
+          "path": "packages/aligned_equity/decision_output.py",
+          "sha256": "970b072165c9be3c07cff771385b8269d6b1ec75fdb40139e750104b3730a962"
+        },
+        {
+          "path": "schemas/source-ledger-record.schema.json",
+          "sha256": "947949a46a236392195b1f3446458c8fcaf96a0a2c672b72e06e60713713af6e"
+        },
+        {
+          "path": "schemas/decision-output.schema.json",
+          "sha256": "58c3d02dab7f3e4e4c7101e7c21fd17472bf959ddaf286c633e555dcc202be36"
+        },
+        {
+          "path": "homelab-analytics.registry.json",
+          "sha256": "3202dadbe0746a4833514f43abbf9be4bc576f574f241d6459115c6d5f990efd"
+        },
+        {
+          "path": "packages/aligned_equity/integrations/homelab_analytics.py",
+          "sha256": "5cae8c3fe3ec96b227f8997da935f4f550892f67a10d9c30986bcde72dc380da"
+        }
+      ],
+      "source_revision": "64ecdf4db32f2e3fbae242fae002693734178d77",
+      "visibility_observation": {
+        "method": "canonical GitHub metadata for repository and default branch; only public enum and commit SHA retained",
+        "observed_at": "2026-10-18",
+        "value": "public"
+      }
+    },
+    {
+      "owner": "browser-workbench",
+      "repo": "browser-workbench",
+      "source_files": [
+        {
+          "path": "pyproject.toml",
+          "sha256": "0100c21041f16c159633154735f78559a575cf27324befd5956b2ea8f9a78d45"
+        },
+        {
+          "path": "src/workbench/cli.py",
+          "sha256": "2987535db29f6b082c9b3a8078bc4c22fa5c3641f5cca1858277c252ef9afafb"
+        },
+        {
+          "path": "src/workbench/runner.py",
+          "sha256": "c56f09d07c2f08a42151ce62e9e8783bb10a8c440524ec3468c90511a0052be2"
+        },
+        {
+          "path": "schemas/run-spec.schema.json",
+          "sha256": "c555b5b9ebaf19a702ede42ab0671a0f24d55254bfc0ceb868dfbc3face3ce45"
+        },
+        {
+          "path": "schemas/result-envelope.schema.json",
+          "sha256": "6ff12d6fefccc0440e598cbc2cb3617de9d6c5c3b54e0599a3a25c566d24b106"
+        },
+        {
+          "path": "spec/RUNNER_CONTRACT_V1.md",
+          "sha256": "995bbef18c7396552ab3bfd2ae37623058093f5eba38b4ea5609f1c58c8d174f"
+        }
+      ],
+      "source_revision": "8644736bec6e9bf3ae7f3298779c6553b5593f9e",
+      "visibility_observation": {
+        "method": "canonical GitHub metadata for repository and default branch; only public enum and commit SHA retained",
+        "observed_at": "2026-10-18",
+        "value": "public"
+      }
+    },
+    {
+      "owner": "scribectl",
+      "repo": "scribectl",
+      "source_files": [
+        {
+          "path": "pyproject.toml",
+          "sha256": "61cc2f478432e4694404e7ea2a2117dbd83de5b15f0867957daaab6064f1c5a1"
+        },
+        {
+          "path": "scribectl/cli.py",
+          "sha256": "0d50f098c14fa48d08869f3e89270a491073b27f3fb67e08f8037a5f01b3eeb0"
+        },
+        {
+          "path": "scribectl/core/vault.py",
+          "sha256": "f0212ed88d010319366df7e1bae97cc18c27c32c843d86a0937bd71660e36ba8"
+        },
+        {
+          "path": "scribectl/core/contextpack.py",
+          "sha256": "714200bd2bc1da2c75a2a38c787892f173a5ce0745893a25c71ee5f443026122"
+        },
+        {
+          "path": "scribectl/core/inbox.py",
+          "sha256": "487c7f292409d21be7575b298b8177ac98e8a4b91c7ef3878dd536163208dcc4"
+        },
+        {
+          "path": "scribectl/core/project.py",
+          "sha256": "6aa09ef065151a8f2aed04d9970584489df1e59e85725f00da4e546249cb60eb"
+        },
+        {
+          "path": "docs/ARCHITECTURE.md",
+          "sha256": "bfaed0eab03f8c2b811e288b7fefcd6018324b574432e6ea9b2dafc8f1ea7382"
+        },
+        {
+          "path": "docs/RATIFICATION.md",
+          "sha256": "472cfc1192944b05f5d8c45aef8914bb449520f7f05a8201ed8d0cce88297f70"
+        }
+      ],
+      "source_revision": "2ddefae3ea4b271cf7fab11331dbcb2d98304f50",
+      "visibility_observation": {
+        "method": "canonical GitHub metadata for repository and default branch; only public enum and commit SHA retained",
+        "observed_at": "2026-10-18",
+        "value": "public"
+      }
+    },
+    {
+      "owner": "ha-elisa-kotiakku",
+      "repo": "ha-elisa-kotiakku",
+      "source_files": [
+        {
+          "path": "pyproject.toml",
+          "sha256": "63fb2e2dca8a20a7340f74c407ee318c5f69d5ac191d69768aedefe56f8a76cd"
+        },
+        {
+          "path": "custom_components/elisa_kotiakku/manifest.json",
+          "sha256": "c108c0fbc2503251373c650e4055cfc141081dbcc1a88a3cb3059d74bf28676f"
+        },
+        {
+          "path": "custom_components/elisa_kotiakku/const.py",
+          "sha256": "23b328645581e77900db4354dfb28e6990ed02e9ab899b0aba2e4e81a2c00a6d"
+        },
+        {
+          "path": "custom_components/elisa_kotiakku/api.py",
+          "sha256": "2da46a302b2f66951f0794b7c32f83c0d8d6f2f69d5d185f0aea560b711d1aae"
+        },
+        {
+          "path": "custom_components/elisa_kotiakku/config_flow.py",
+          "sha256": "e7a0e4ed6b594399a92417e64772ca4f7c9d73ef60809f2a1c02cc0e564c4050"
+        },
+        {
+          "path": "custom_components/elisa_kotiakku/coordinator.py",
+          "sha256": "7f3ff6e507fc460ceeba440331687fd75c0e5a33c8e35e1e83827c6bd375dfb6"
+        },
+        {
+          "path": "custom_components/elisa_kotiakku/diagnostics.py",
+          "sha256": "0f52322629b8aa8d6b65b6504708f6d0fde4b848ca5f53b83e3011b2169ed9a4"
+        }
+      ],
+      "source_revision": "83b91adf3ba7d2a7d8b4af87ff094a183c0624f7",
+      "visibility_observation": {
+        "method": "canonical GitHub metadata for repository and default branch; only public enum and commit SHA retained",
+        "observed_at": "2026-10-18",
+        "value": "public"
+      }
+    }
+  ],
+  "schema": "agentops-estate-owner-source-increment/v1",
+  "scope": {
+    "extends": "2026-10-18-estate-owner-source-interfaces.json",
+    "increment_id": "ec01-source-increment-2",
+    "notes": "Additive source extraction. Browser-workbench reuses the already inventoried Python/Rust source boundary by cross-reference and records only its distinct CLI/run-artifact file interface.",
+    "owner_repositories": [
+      "aligned-equity",
+      "browser-workbench",
+      "scribectl",
+      "ha-elisa-kotiakku"
+    ]
+  },
+  "source_method": {
+    "negative_scope": [
+      "No credentials, .env files, private repositories, live services, APIs, owner state, runtime installations, deployed consumers, traffic or production files were read.",
+      "No source contracts, contract targets or cutover plans were selected.",
+      "Public visibility is a metadata observation and does not establish runtime consumers or active deployment."
+    ],
+    "scope": "Exact public default-branch Git commit objects and selected source files only. Browser-workbench local working tree is dirty; no working-tree bytes were used. Scribectl local checkout lagged public main, so an isolated canonical-main source clone was used."
+  },
+  "unresolved": [
+    "actual consumers and runtime use",
+    "installed package/release versions and active service catalogs except source-declared version metadata",
+    "effective credentials/principals/deployment target",
+    "actual retention and operational delivery/retry behavior",
+    "compatibility windows, cutover, rollback, shims and disposition"
+  ]
+}
