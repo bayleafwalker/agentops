@@ -1,0 +1,132 @@
+{
+  "as_of": "2026-10-18",
+  "work_item": "agentops#2654",
+  "served_current_summary_event": 5629,
+  "overall": "listed histories reviewed; ordinary production qualification and final rollout remain open",
+  "completion_claimed": false,
+  "rollback_claimed": false,
+  "source_files": {
+    "previous_adapter": {
+      "agentops_commit": "e8d1d73653230d1df052631e3b2218ad9da2ef0e",
+      "pull_request": 376,
+      "file_sha256": "32b4f0365aaabbb61c59ee7b04114ecb312edd0335f2ef414db9c3141d61955a"
+    },
+    "current_adapter": {
+      "agentops_commit": "7aa1f71dcd27fafe0ecbefb052b7da72a04b91b7",
+      "pull_request": 384,
+      "file_sha256": "460c8a7cfd60f31dabc27a47f796c7071069f4a1b4fe0d7620d3ceb845186cb9"
+    },
+    "qualification_runner": {
+      "agentops_commit": "f205cdd67669242612f2c1d10294657a1c8def42",
+      "pull_request": 379,
+      "file_sha256": "a6b62400d278b1f9efd71be7bba2933ab1dc7490af88c4632b68c6b7f11a2a8e"
+    },
+    "disposable_policy_sha256": "63a1ab454845dd6bdd5a16e5b7d1081488e9060bb9e53ea511df973478d5769a",
+    "qualification_template_sha256": "39afeb21fcad6f23aa0e058e8fbfb56476e77a9c0cb887de1032d5a2fd610833"
+  },
+  "ci": [
+    {
+      "pull_request": 376,
+      "merge_commit": "e8d1d73653230d1df052631e3b2218ad9da2ef0e",
+      "runs": [
+        "https://github.com/bayleafwalker/agentops/actions/runs/39039625858",
+        "https://github.com/bayleafwalker/agentops/actions/runs/39039697752",
+        "https://github.com/bayleafwalker/agentops/actions/runs/39039625821"
+      ],
+      "required_checks": "all successful"
+    },
+    {
+      "pull_request": 379,
+      "merge_commit": "f205cdd67669242612f2c1d10294657a1c8def42",
+      "runs": [
+        "https://github.com/bayleafwalker/agentops/actions/runs/39113727215",
+        "https://github.com/bayleafwalker/agentops/actions/runs/39113734393",
+        "https://github.com/bayleafwalker/agentops/actions/runs/39113729904"
+      ],
+      "required_checks": "all successful"
+    },
+    {
+      "pull_request": 384,
+      "merge_commit": "7aa1f71dcd27fafe0ecbefb052b7da72a04b91b7",
+      "runs": [
+        "https://github.com/bayleafwalker/agentops/actions/runs/39126473532",
+        "https://github.com/bayleafwalker/agentops/actions/runs/39126475133"
+      ],
+      "required_checks": "all successful"
+    }
+  ],
+  "cases": [
+    {
+      "name": "current-source native continuation and auditor join",
+      "source": "460c8a7c",
+      "message_id": "msg_01M57J0S9Z2A7QJ422RK1T19HW",
+      "inbox_seq": 25,
+      "sender_run_id": "run_TPV5N7Z3A6BGC5GYVCGSPSB4GF",
+      "recipient_run_id": "run_MQP9DTQQ21DQR580HNGPASWVFW",
+      "auditor_run_id": "run_GE1XVW0JRTBS98KJMH3FHT5CEN",
+      "delegation_id": "dlg_XFZZWVCHZHF3Q55E7NTRRTAST4",
+      "item_id": 2776,
+      "sender_note_id": 44,
+      "recipient_note_id": 45,
+      "recipient_note_sha256": "5f7fe5b4a8bc17f3375f13c89b039b180055ec6b811f0217ffc2f4d430c77860",
+      "envelope_sha256": "696f92ae3429ecc4e24a67d1a3ff04b39228f9633fda6834630f43a45f9463af",
+      "receipt_sha256": "22a4b4056dd473c5a7b1f140f2b2e97b7d2b7015a4d23228bbd2cc5f54e03aff",
+      "independent_review_sha256": "3581cbcc1f28cfb9f8599f0917f6fe0b021c45dca25d655d6620c9aea8db04b6",
+      "served_event": 5584
+    },
+    {
+      "name": "current-policy authorization denial before execution",
+      "source": "460c8a7c",
+      "message_id": "msg_01M57K610MP6EX64KQ52G6GVTC",
+      "inbox_seq": 26,
+      "recipient_run_id": "run_5XGHEVQBB7FBSVKV37RMWZAFT6",
+      "item_id": 2777,
+      "reason": "kind-not-allowed",
+      "receipt_sha256": "3b6375084bd1e8745d0ec215d00b5920ae37dadc6c87eb32f4e573a096d1e020",
+      "root_review_sha256": "22b27f459893f803c641adda1cf634efffa35b096ab702d23a18289fcca49d91",
+      "served_event": 5604
+    },
+    {
+      "name": "supported ambiguity-to-abandonment resolution",
+      "source": "460c8a7c",
+      "message_id": "msg_01M57BXK61MGW8V9D6SFXH2MHJ",
+      "inbox_seq": 20,
+      "recipient_run_id": "run_812PPJZYV9BH3QTPRP0B5Q50X5",
+      "delegation_id": "dlg_G38ZSKPRQFJT6KE094TME58DD6",
+      "item_id": 2760,
+      "result": "abandoned; no prompt or session",
+      "receipt_sha256": "7bad5f39c4e002856b6b92d804bffbbf41aa95d7b23eb0a321192c745d264ef5",
+      "root_review_sha256": "b46c22b4573e4f312b09122e42b8af5a3f3468a04917cecf6b4fbe740953e449",
+      "served_event": 5584
+    },
+    {
+      "name": "cancellation request while busy; actual completed result",
+      "source": "460c8a7c",
+      "message_id": "msg_01M57MXFDTXXNKB2BFC7CGH13T",
+      "inbox_seq": 27,
+      "sender_run_id": "run_JJAEQBB56EGX8AD5WVZ4R91HT4",
+      "recipient_run_id": "run_BZWTHGQ9J8WR2MKSFT8A0867J5",
+      "auditor_run_id": "run_DZ28Z3TWTT719BVJPQ6YT2JSTP",
+      "delegation_id": "dlg_F3EPFJ7X5DM1S15TA0QHZJZE29",
+      "item_id": 2782,
+      "recipient_note_id": 47,
+      "recipient_note_sha256": "ece02ee12dfea9a71646cdb70adbcb0482ed8b01176ebd322b5299fb1bc722b0",
+      "result": "completed",
+      "rollback_claimed": false,
+      "receipt_sha256": "5352c0804b301a1d3049641803a74283fbd37f076dd74d5060b1eb34634801db",
+      "root_review_sha256": "da65aa510e412f9c80d1743b34acbffd57edcf5932ceca04300c8e296bf08921",
+      "served_event": 5629
+    }
+  ],
+  "historical_source_applicability": {
+    "previous_source_prefix": "32b4f0365aaabbb6",
+    "current_source_prefix": "460c8a7cfd60f31d",
+    "reservation_limit": "legacy advisory reservations can overlap; no native-v1 reservation qualification",
+    "history_rule": "prior cases remain attributed to the source they actually ran; no claim that each was rerun on current source"
+  },
+  "open_gates": [
+    "normal production instance and final protected-runtime rollout qualification",
+    "operator pilot and complete roadmap exit review",
+    "no terminal Decision on agentops#2654"
+  ]
+}
