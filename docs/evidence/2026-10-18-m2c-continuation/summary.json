@@ -1,8 +1,8 @@
 {
   "as_of": "2026-10-18",
   "work_item": "agentops#2654",
-  "served_current_summary_event": 5629,
-  "overall": "listed histories reviewed; ordinary production qualification and final rollout remain open",
+  "served_current_summary_event": 5645,
+  "overall": "listed historical cases and the ordinary production continuation passed; final M2c Decision remains unwritten",
   "completion_claimed": false,
   "rollback_claimed": false,
   "source_files": {
@@ -116,6 +116,40 @@
       "receipt_sha256": "5352c0804b301a1d3049641803a74283fbd37f076dd74d5060b1eb34634801db",
       "root_review_sha256": "da65aa510e412f9c80d1743b34acbffd57edcf5932ceca04300c8e296bf08921",
       "served_event": 5629
+    },
+    {
+      "name": "ordinary production native continuation and auditor join",
+      "source": "460c8a7cfd60f31d",
+      "system_revision": "c3c6301f70031399e733751a1f73a77d2e1eb727",
+      "production_policy_sha256": "6dc86924bc08086ed4d21542d1103240f37cbd619c11b4141f61b157fb9c41d3",
+      "configured_model": "opencode-go/deepseek-v4-flash",
+      "ordinary_invocation_id": "8a8788166ef1408e9e462d6782ea8cdb",
+      "main_pid": 418652,
+      "restarts_before_after": 0,
+      "instance_id": "ins_01M575NGW4492D0S8BJVDB578E",
+      "item_id": 2786,
+      "item_status": "pending",
+      "sprint_id": 559,
+      "sender_run_id": "run_R1SHRJSCMEFE2YZ8V7CBR2RF7N",
+      "sender_note_id": 48,
+      "message_id": "msg_01M57QCCE31SHYHP74D3VFY8R6",
+      "inbox_seq": 28,
+      "envelope_sha256": "694bf0063e8b1994c19ad5abd76ab6949e469119ef920ff0bc9db8c9cec5649e",
+      "recipient_run_id": "run_H6Z06094QPFKVF7HT14EX8NE1J",
+      "session_id": "ses_eb0894bebffemQvsAIze8IMsFt",
+      "delegation_id": "dlg_MHY2KCWH14Z3ZSNNTAKMTH1VZK",
+      "delegation_revoked_at": "2026-10-18T14:42:37.894925Z",
+      "result_linked_at": "2026-10-18T14:42:37.958017Z",
+      "result": "completed",
+      "auditor_run_id": "run_PB35FXTH61ZKV4W7ZB70P6NW0M",
+      "recipient_note_id": 49,
+      "recipient_note_utf8_bytes": 370,
+      "recipient_note_sha256": "6f93c35927095af433e29a6cf599874a54bed6c4d9d3e2a235b63364ffddc2e4",
+      "handoff_credential_profile_absent": true,
+      "qualification_runner_or_manual_tick_used": false,
+      "root_review_sha256": "6c8907c40e1d8ed0210329a4b9502712d2cb76c3cc83e27bf7fe538c055c6596",
+      "served_event": 5645,
+      "assurance_limit": "Configured model identity is recorded, not benchmarked; recipient note records context review, not transcript/tool-call inspection."
     }
   ],
   "historical_source_applicability": {
@@ -125,8 +159,7 @@
     "history_rule": "prior cases remain attributed to the source they actually ran; no claim that each was rerun on current source"
   },
   "open_gates": [
-    "normal production instance and final protected-runtime rollout qualification",
-    "no terminal Decision on agentops#2654"
+    "write and review the terminal Decision on agentops#2654"
   ],
   "historical_cases": [
     {
@@ -226,5 +259,18 @@
       "stale_decision_event_id": "09ea37d4-0f54-4e1a-b3fe-32721149de83",
       "receipt_sha256": "ac6ea0135aa30f5b6ebdb3865876f4b51fbf59f4549c8bd42afd30a4784df424"
     }
-  ]
+  ],
+  "outside_m2c": [
+    "M3 pilot",
+    "OA",
+    "Q4",
+    "Cloud"
+  ],
+  "ordinary_production_gate": {
+    "status": "passed",
+    "root_review_sha256": "6c8907c40e1d8ed0210329a4b9502712d2cb76c3cc83e27bf7fe538c055c6596",
+    "item_projection_correction": "work-item-context/v1 omits sprint_id; match projected item id/status to native create response binding item 2786 to sprint 559. No owner records changed.",
+    "review_reader_limitation": "The initial v4 reader exit was nonzero only for its unsupported sprint_id predicate; actual message and auditor joins passed. Root corrected item conclusion from create response plus current projected id/status.",
+    "decision_status": "NOT_YET_WRITTEN"
+  }
 }

@@ -1,9 +1,10 @@
 # M2c native inbox continuation evidence
 
-Status as of 2026-10-18: the listed owner histories and source-specific cases
-have been reviewed, but the M2c exit condition remains **open**. The ordinary
-production instance and final protected-runtime rollout still require a fresh
-normal-instance qualification. This record is not a completion decision.
+Status as of 2026-10-18: the listed owner histories and source-specific cases,
+including one normal production-instance continuation, have been reviewed. The
+production qualification gate is **passed**. The final M2c exit Decision for
+agentops#2654 has not yet been written, so this record is not a completion
+Decision.
 
 ## What the records establish
 
@@ -73,6 +74,40 @@ Final-receipt digest:
 review digest:
 `da65aa510e412f9c80d1743b34acbffd57edcf5932ceca04300c8e296bf08921`.
 Served update on agentops#2654 is event 5629.
+
+The ordinary production continuation then passed on the fixed production
+instance `ins_01M575NGW4492D0S8BJVDB578E`, using current adapter source hash
+`460c8a7cfd60f31dabc27a47f796c7071069f4a1b4fe0d7620d3ceb845186cb9`, system
+revision `c3c6301f70031399e733751a1f73a77d2e1eb727`, and production policy hash
+`6dc86924bc08086ed4d21542d1103240f37cbd619c11b4141f61b157fb9c41d3`. The
+configured model was `opencode-go/deepseek-v4-flash`; this records configuration,
+not a performance benchmark. The ordinary service retained invocation
+`8a8788166ef1408e9e462d6782ea8cdb`, PID 418652, and zero restarts across the
+message lifecycle.
+
+The owner linked message `msg_01M57QCCE31SHYHP74D3VFY8R6`, inbox sequence 28,
+envelope digest
+`694bf0063e8b1994c19ad5abd76ab6949e469119ef920ff0bc9db8c9cec5649e`, to
+pending item 2786, sender run `run_R1SHRJSCMEFE2YZ8V7CBR2RF7N`, recipient run
+`run_H6Z06094QPFKVF7HT14EX8NE1J`, and session
+`ses_eb0894bebffemQvsAIze8IMsFt`. The sender wrote note 48; the recipient
+auditor run `run_PB35FXTH61ZKV4W7ZB70P6NW0M` reconstructed note 49. The note
+was nonempty, 370 UTF-8 bytes, and had SHA-256
+`6f93c35927095af433e29a6cf599874a54bed6c4d9d3e2a235b63364ffddc2e4`; its text
+is not included here. Delegation
+`dlg_MHY2KCWH14Z3ZSNNTAKMTH1VZK` was revoked at
+`2026-10-18T14:42:37.894925Z`, before the completed result was linked at
+`2026-10-18T14:42:37.958017Z`. The exact handoff credential and profile files
+were absent after completion. The work item remains pending.
+
+The native item projection exposes item identity and status but omits its sprint
+field. The created-item response binds item 2786 to Maintenance sprint 559; the
+current projection matched that ID and pending status. The message and auditor
+joins passed, and root's final review corrected the projection predicate without
+changing owner records. The recipient note confirms context review; no
+transcript or tool-call inspection is claimed. The final review digest is
+`6c8907c40e1d8ed0210329a4b9502712d2cb76c3cc83e27bf7fe538c055c6596`; served
+update on agentops#2654 is event 5645.
 
 ## Source and CI provenance
 
@@ -149,15 +184,12 @@ to those private files.
   No native-v1 reservation qualification is claimed.
 - The cancellation-race case records a requested cancel followed by an actual
   completed outcome. It does not support a rollback claim.
-- These are disposable qualification cases. They do not prove that the ordinary
-  production instance is enabled or qualified, nor do they qualify an ordinary
-  production release or a rollback procedure. Operator pilot work is outside
-  M2c and is tracked separately. The final protected-runtime rollout and
-  normal-instance proof remain open as of this
-  record and must be added through a reviewed update before M2c is called
-  complete.
-- No terminal Decision is recorded for agentops#2654. The item remains active;
-  this evidence does not close it.
+- The disposable cases remain distinct from the ordinary production proof.
+  Together with the ordinary continuation above, the M2c production gate is
+  passed; this evidence does not itself write the terminal Decision for
+  agentops#2654. The item remains active until that Decision is recorded.
+- M3 pilot work, OA, Q4 and Cloud are outside M2c and are not qualified or
+  completed by this evidence.
 
 The runner's source-level contract and isolation limits are documented in
 [`docs/architecture/m2c-live-qualification-runner.md`](../../architecture/m2c-live-qualification-runner.md).
