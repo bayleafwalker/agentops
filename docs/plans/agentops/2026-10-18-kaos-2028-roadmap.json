@@ -955,5 +955,37 @@
         }
       ]
     }
+  ],
+  "programmes": [
+    {
+      "id": "EC",
+      "requirements_map": "2026-10-18-estate-contract-rewrite.json",
+      "architecture_discovery": "2026-10-18-estate-contract-architecture-discovery.md",
+      "scope": "estate-wide internal contract rewrite",
+      "activities": {
+        "EC-01": "agentops#2733",
+        "EC-00": "vuoro#2734",
+        "EC-02": "vuoro#2735",
+        "EC-03": "agentops#2736",
+        "EC-04": "vuoro#2737",
+        "EC-05": "sprintctl#2738",
+        "EC-06": "cred-broker#2739",
+        "EC-07": "auditctl#2740",
+        "EC-08": "vuoro-cloud#2741",
+        "EC-09": "agentops#2742",
+        "EC-10": "appservice#2743",
+        "EC-11": "gitops-nixos#2744",
+        "EC-12": "datacluster#2745",
+        "EC-13": "local-inference#2746",
+        "EC-14": "homelab-analytics#2747",
+        "EC-15": "scribectl#2748",
+        "EC-16": "frontier-weave#2749",
+        "EC-17": "aligned-equity#2750",
+        "EC-18": "browser-workbench#2751",
+        "EC-19": "agentops#2752",
+        "EC-20": "acceptance-lab#2753",
+        "EC-21": "agentops#2754"
+      }
+    }
   ]
 }
