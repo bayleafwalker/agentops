@@ -55,3 +55,37 @@ def test_rejects_missing_runtime_unknown(tmp_path):
     except ValueError:
         return
     assert False, "unsupported live-use claim was accepted"
+
+def test_rejects_interface_hash_drift(tmp_path):
+    doc, roots = fixture(tmp_path)
+    doc = json.loads(json.dumps(doc))
+    doc["interfaces"][0]["source_files"][0]["sha256"] = "f" * 64
+    path=tmp_path/"inventory.json"; path.write_text(json.dumps(doc))
+    try:
+        checker.check(path, roots)
+    except ValueError as exc:
+        assert "path/hash" in str(exc)
+        return
+    assert False, "per-interface hash drift was accepted"
+
+def test_rejects_empty_interface_evidence(tmp_path):
+    doc, roots = fixture(tmp_path)
+    doc["interfaces"][0]["source_files"] = []
+    path=tmp_path/"inventory.json"; path.write_text(json.dumps(doc))
+    try:
+        checker.check(path, roots)
+    except ValueError as exc:
+        assert "must not be empty" in str(exc)
+        return
+    assert False, "empty interface evidence was accepted"
+
+def test_rejects_duplicate_repository_record(tmp_path):
+    doc, roots = fixture(tmp_path)
+    doc["repositories"].append(doc["repositories"][0])
+    path=tmp_path/"inventory.json"; path.write_text(json.dumps(doc))
+    try:
+        checker.check(path, roots)
+    except ValueError as exc:
+        assert "must not be duplicated" in str(exc)
+        return
+    assert False, "duplicate repository record was accepted"

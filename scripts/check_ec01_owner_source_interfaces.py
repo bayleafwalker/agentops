@@ -19,9 +19,13 @@ def check(path: Path, roots: dict[str, Path]) -> None:
     if data.get("schema") != "agentops-estate-owner-source-interfaces/v1":
         fail("unexpected schema")
     repos = data.get("repositories", [])
-    if {r.get("repo") for r in repos} != REPOS:
+    repo_names = [r.get("repo") for r in repos]
+    if len(repo_names) != len(set(repo_names)):
+        fail("repository records must not be duplicated")
+    if set(repo_names) != REPOS:
         fail("repository set must contain exactly the four scoped owners")
     revisions: dict[str, str] = {}
+    evidence_by_repo: dict[str, dict[str, str]] = {}
     for repo in repos:
         name, rev = repo.get("repo"), repo.get("source_revision")
         if name not in roots or not isinstance(rev, str) or len(rev) != 40:
@@ -30,13 +34,21 @@ def check(path: Path, roots: dict[str, Path]) -> None:
         visibility = repo.get("visibility_observation", {})
         if visibility.get("value") != "public" or not visibility.get("observed_at"):
             fail(f"{name}: public visibility observation missing")
-        for item in repo.get("source_files", []):
+        source_files = repo.get("source_files", [])
+        if not source_files:
+            fail(f"{name}: repository evidence must not be empty")
+        if len([f.get("path") for f in source_files]) != len({f.get("path") for f in source_files}):
+            fail(f"{name}: repository evidence paths must not be duplicated")
+        evidence_by_repo[name] = {}
+        for item in source_files:
             p, expected = item.get("path"), item.get("sha256")
             if not p or not expected or p.startswith("/") or ".." in Path(p).parts:
                 fail(f"{name}: invalid evidence path")
             raw = subprocess.check_output(["git", "-C", str(roots[name]), "show", f"{rev}:{p}"], stderr=subprocess.DEVNULL)
-            if hashlib.sha256(raw).hexdigest() != expected:
+            actual = hashlib.sha256(raw).hexdigest()
+            if actual != expected:
                 fail(f"{name}:{p}: source hash mismatch")
+            evidence_by_repo[name][p] = actual
     ids: set[str] = set()
     for item in data.get("interfaces", []):
         iid, repo, owner = item.get("id"), item.get("repo"), item.get("owner")
@@ -47,10 +59,16 @@ def check(path: Path, roots: dict[str, Path]) -> None:
             fail(f"{iid}: owner/repository mapping mismatch")
         if item.get("source_revision") != revisions[repo]:
             fail(f"{iid}: source revision mismatch")
-        known_paths = {f["path"] for r in repos if r["repo"] == repo for f in r["source_files"]}
-        for f in item.get("source_files", []):
-            if f["path"] not in known_paths:
-                fail(f"{iid}: interface evidence missing from repository evidence list")
+        interface_files = item.get("source_files", [])
+        if not interface_files:
+            fail(f"{iid}: interface evidence must not be empty")
+        interface_paths = [f.get("path") for f in interface_files]
+        if len(interface_paths) != len(set(interface_paths)):
+            fail(f"{iid}: interface evidence paths must not be duplicated")
+        for f in interface_files:
+            p, expected = f.get("path"), f.get("sha256")
+            if p not in evidence_by_repo[repo] or expected != evidence_by_repo[repo][p]:
+                fail(f"{iid}: interface path/hash does not match verified repository evidence")
         for field in ("live_use", "configured_consumers", "compatibility_cutover_rollback", "disposition"):
             if not item.get(field):
                 fail(f"{iid}: {field} must be explicit")
