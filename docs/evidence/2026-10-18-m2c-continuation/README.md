@@ -2,9 +2,9 @@
 
 Status as of 2026-10-18: the listed owner histories and source-specific cases,
 including one normal production-instance continuation, have been reviewed. The
-production qualification gate is **passed**. The final M2c exit Decision for
-agentops#2654 has not yet been written, so this record is not a completion
-Decision.
+production qualification gate is **passed**. This evidence snapshot was captured
+before the final M2c Decision for agentops#2654. Subsequent served work state is
+authoritative; this page is evidence, not a terminal Decision.
 
 ## What the records establish
 
@@ -174,6 +174,22 @@ credentials, transcripts or unrestricted owner exports. The receipts remain
 restricted supporting evidence; the digest values here are anchors, not links
 to those private files.
 
+## Reversibility limit and acceptance scope
+
+Roadmap §7 recommends that the first operation **should be reversible**. The
+original item explicitly scopes the successor to reading context and writing a
+note. This proof uses the supported, idempotent, append-only session-note
+operation; no supported removal or reversal was demonstrated. It therefore does
+**not** establish a reversible first operation.
+
+The independent review (digest
+`931a4c17b13bba153709df8b8232ad5b9ec73fa6c0cbd79c37ce26f28474acac`)
+assessed §7 as incomplete on that recommendation. The coordinator retains that
+finding and assesses the explicit note-only item against the reconstructible
+success chain and required failure histories. Any acceptance is limited to that
+scope and must state the unmet reversibility recommendation. It does not grant a
+broader effect capability or claim rollback of append-only evidence.
+
 ## Limits and remaining gate
 
 - A prior continuation attempt returned provider HTTP 401 and is retained as a
@@ -187,7 +203,8 @@ to those private files.
 - The disposable cases remain distinct from the ordinary production proof.
   Together with the ordinary continuation above, the M2c production gate is
   passed; this evidence does not itself write the terminal Decision for
-  agentops#2654. The item remains active until that Decision is recorded.
+  agentops#2654. At capture the item was active; read its served state for any
+  subsequent Decision.
 - M3 pilot work, OA, Q4 and Cloud are outside M2c and are not qualified or
   completed by this evidence.
 

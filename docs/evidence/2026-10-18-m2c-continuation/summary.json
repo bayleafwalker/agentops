@@ -271,6 +271,15 @@
     "root_review_sha256": "6c8907c40e1d8ed0210329a4b9502712d2cb76c3cc83e27bf7fe538c055c6596",
     "item_projection_correction": "work-item-context/v1 omits sprint_id; match projected item id/status to native create response binding item 2786 to sprint 559. No owner records changed.",
     "review_reader_limitation": "The initial v4 reader exit was nonzero only for its unsupported sprint_id predicate; actual message and auditor joins passed. Root corrected item conclusion from create response plus current projected id/status.",
-    "decision_status": "NOT_YET_WRITTEN"
+    "decision_status": "NOT_YET_WRITTEN_AT_CAPTURE"
+  },
+  "capture_basis": "Evidence snapshot before terminal Decision; subsequent served work state is authoritative.",
+  "reversibility_limit": {
+    "roadmap_wording": "The first operation should be reversible and have an observable owner-enforced idempotency or revision boundary.",
+    "actual_operation": "work.session-note.write-v1: idempotent, append-only; no supported reversal demonstrated",
+    "reversibility_demonstrated": false,
+    "independent_review_sha256": "931a4c17b13bba153709df8b8232ad5b9ec73fa6c0cbd79c37ce26f28474acac",
+    "independent_review_verdict": "INCOMPLETE on reversibility criterion; finding retained",
+    "coordinator_acceptance_scope": "Explicit original note-only item, reconstructible chain and required failure histories. Reversibility recommendation remains unmet; no rollback or broader effect authority claimed."
   }
 }
