@@ -36,8 +36,12 @@ that a live owner behaves this way.
 
 Execution must happen in a separately reviewed protected systemd unit using
 the protected adapter identity and its normal file, network and process
-containment. The runner is not permission to widen the production unit. The
-unit must pass its exact immutable `/nix/store` adapter path and independently
+containment. The runner does not verify its own code or the unit's confinement:
+the qualification script itself and its interpreter must also come from the
+reviewed immutable package, with the script's exact bytes and SHA-256 verified
+before use. Do not execute a Git checkout copy in the protected unit. The runner
+is not permission to widen the production unit. The unit must pass its exact
+immutable `/nix/store` adapter path and independently
 verified SHA-256 using `--adapter-path` and `--expected-adapter-sha256`, a
 root-owned trusted test policy, the protected profile, and the OpenCode password
 only as a systemd `LoadCredential`. It must not put a credential value in argv,
@@ -57,9 +61,11 @@ to the protected adapter UID and has no session-readable, writable or
 traversable access. The production adapter state directory is never accepted.
 Each restart history reuses only its own qualification directory.
 
-Before sending a message, read and record the ordinary production instance ID,
-then let the one-shot state register and report its own fresh instance ID. The
-IDs must differ. Every qualification message must explicitly set
+First run the empty-state qualification once with no test messages available;
+that invocation registers the test instance, performs its empty inbox read and
+then reports its fresh instance ID. Capture the report before creating or
+sending a message. Also read and record the ordinary production instance ID;
+the IDs must differ. Every qualification message must explicitly set
 `recipient.instance_id` to the test instance; untargeted messages are forbidden.
 The owner read operation selects messages for the calling principal whose
 recipient instance is either absent or equals the requested instance. Thus a
@@ -69,10 +75,12 @@ failure-injection window as an additional single-consumer safeguard. After
 resuming it, verify its state has no test message and the test message has no
 receipt written by the production instance.
 
-The one-shot output reports the test instance ID before its single tick. Send
-the message only after capturing that ID; include the production instance ID as
-`--production-instance-id` on every invocation so the runner refuses reuse.
-The dedicated `--state-id` names exactly one precreated directory beneath
+The first invocation reports the test instance only after its empty tick. Send
+the targeted message only after capturing that ID. For every subsequent
+invocation, include the production instance ID as `--production-instance-id`
+so the runner refuses reuse. Use separate fault-specific invocations and keep
+the ordinary protected adapter unit held throughout fault histories. The
+dedicated `--state-id` names exactly one precreated directory beneath
 `/var/lib/agentops-m2c-qualification`; reuse it only to resume that same
 scenario. Do not copy production SQLite state into it.
 
