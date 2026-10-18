@@ -93,6 +93,14 @@ SUCCESSOR_PERMISSION = [
     *({"permission": "bash", "pattern": f"*{c}*", "action": "deny"} for c in SHELL_METACHARACTERS),
 ]
 DEFAULT_MAX_RUN_SECONDS = 3600
+MAX_DELEGATION_TTL_SECONDS = 4 * 60 * 60
+DELEGATION_TOKEN_RE = re.compile(r"vrd_[A-Z2-7]{52}\Z")
+DELEGATED_RUN_OPERATIONS = (
+    "work.run.resolve-v1",
+    "work.run.predecessor-context-v1",
+    "work.session-note.write-v1",
+    "work.evidence.append-v1",
+)
 # Policy states an operator fixes without the message being at fault: defer, never refuse.
 TEMPORARY_DENIALS = frozenset({"policy-unreadable", "adapter-disabled", "launches-disabled",
                                "harness-not-configured",
@@ -178,6 +186,11 @@ class OwnerPort(Protocol):
     def message_receipt(self, repo_id: str, *, message_id: str, instance_id: str, kind: str, **fields: Any) -> dict: ...
     def message_cancel(self, repo_id: str, *, message_id: str, reason: str) -> dict: ...
     def run_register(self, repo_id: str, arguments: dict) -> dict: ...
+    def run_delegate(self, repo_id: str, *, run_id: str, creator_instance_id: str, operations: list[str], ttl_seconds: int,
+                     idempotency_key: str) -> dict: ...
+    def run_delegation_get(self, repo_id: str, *, delegation_id: str) -> dict: ...
+    def run_delegation_revoke(self, repo_id: str, *, delegation_id: str, reason: str,
+                              idempotency_key: str) -> dict: ...
 
 
 def _file_credential(ref: str) -> str:
@@ -222,14 +235,18 @@ class VuoroOwner:
             self._loop.close()
         self._client = self._loop = None
 
-    def _invoke(self, operation: str, arguments: dict, repo_id: str) -> dict:
-        # The directory, inbox and run operations carry their idempotency key in the
-        # arguments; their catalog entries refuse an envelope key
-        # (idempotency-key-not-allowed), so none is ever sent here.
+    def _invoke(self, operation: str, arguments: dict, repo_id: str, *,
+                idempotency_key: str | None = None) -> dict:
+        # Legacy directory, inbox and run operations forbid envelope keys. The
+        # delegation mutations require one as well as their owner argument key;
+        # those typed callers forward it explicitly instead of copying every key.
         client = self._ensure()
+        invocation = {"repo_id": repo_id}
+        if idempotency_key is not None:
+            invocation["idempotency_key"] = idempotency_key
         try:
             return self._loop.run_until_complete(  # type: ignore[union-attr]
-                client.invoke(operation, arguments, repo_id=repo_id))
+                client.invoke(operation, arguments, **invocation))
         except Exception as exc:  # noqa: BLE001 - map the client's rejection, re-raise the rest
             code = getattr(exc, "code", None)
             if isinstance(code, str):
@@ -284,6 +301,20 @@ class VuoroOwner:
 
     def run_register(self, repo_id, arguments):
         return self._invoke("work.run.register-v1", arguments, repo_id)
+
+    def run_delegate(self, repo_id, *, run_id, creator_instance_id, operations, ttl_seconds, idempotency_key):
+        return self._invoke("work.run.delegate-v1", {
+            "run_id": run_id, "creator_instance_id": creator_instance_id,
+            "operations": operations, "ttl_seconds": ttl_seconds,
+            "idempotency_key": idempotency_key}, repo_id, idempotency_key=idempotency_key)
+
+    def run_delegation_get(self, repo_id, *, delegation_id):
+        return self._invoke("work.run.delegation-get-v1", {"delegation_id": delegation_id}, repo_id)
+
+    def run_delegation_revoke(self, repo_id, *, delegation_id, reason, idempotency_key):
+        return self._invoke("work.run.delegation-revoke-v1", {
+            "delegation_id": delegation_id, "reason": reason,
+            "idempotency_key": idempotency_key}, repo_id, idempotency_key=idempotency_key)
 
 
 # --------------------------------------------------------------------------
@@ -420,6 +451,7 @@ class Policy:
     kinds: tuple[str, ...] = ("continue",)
     max_concurrent: int = 1
     max_run_seconds: int = DEFAULT_MAX_RUN_SECONDS
+    run_delegation_qualified: bool = False
     harness: dict = field(default_factory=dict)
     environment_record: str | None = None  # environment-record/v1 whose authority bounds launches
     trusted: bool = False  # trusted-config mode: policy and record must be root-owned, not ours to edit
@@ -443,6 +475,9 @@ def load_policy(path: str | Path, *, trusted: bool = False) -> Policy:
         if not isinstance(raw, dict):
             raise ValueError("policy must be a JSON object")
         harness = raw.get("harness") or {}
+        run_delegation_qualified = raw.get("run_delegation_qualified", False)
+        if not isinstance(run_delegation_qualified, bool):
+            raise ValueError("run_delegation_qualified must be a boolean")
         environment_record = raw.get("environment_record")
         if environment_record is not None and (not isinstance(environment_record, str) or not environment_record):
             raise ValueError("environment_record must be a non-empty path string")
@@ -454,6 +489,7 @@ def load_policy(path: str | Path, *, trusted: bool = False) -> Policy:
             kinds=tuple(raw.get("kinds", ("continue",))),
             max_concurrent=max(1, int(raw.get("max_concurrent", 1))),
             max_run_seconds=max(60, int(raw.get("max_run_seconds", DEFAULT_MAX_RUN_SECONDS))),
+            run_delegation_qualified=run_delegation_qualified,
             harness={k: harness[k] for k in _HARNESS_KEYS if k in harness},
             environment_record=environment_record,
             trusted=trusted,
@@ -644,13 +680,18 @@ CREATE TABLE IF NOT EXISTS messages (
   closed INTEGER NOT NULL DEFAULT 0,
   last_error TEXT, created_at REAL NOT NULL, updated_at REAL NOT NULL,
   launched_at REAL, model_id TEXT,
+  delegation_id TEXT, delegation_expires_at TEXT,
+  delegation_generation INTEGER NOT NULL DEFAULT 0, handoff_state TEXT NOT NULL DEFAULT 'none',
   PRIMARY KEY (repo_id, message_id));
 """
 _COLUMNS = ("state decision reason_code reason_text run_id session_id prompt_sent abort_requested "
             "outcome summary evidence detail ambiguous_sent abort_sent idle_polls closed last_error "
-            "launched_at model_id").split()
+            "launched_at model_id delegation_id delegation_expires_at delegation_generation handoff_state").split()
 # Columns added after the first deployed schema; added in place on open.
-_ADDED_COLUMNS = (("launched_at", "REAL"), ("model_id", "TEXT"))
+_ADDED_COLUMNS = (("launched_at", "REAL"), ("model_id", "TEXT"), ("delegation_id", "TEXT"),
+                  ("delegation_expires_at", "TEXT"),
+                  ("delegation_generation", "INTEGER NOT NULL DEFAULT 0"),
+                  ("handoff_state", "TEXT NOT NULL DEFAULT 'none'"))
 
 
 class State:
@@ -765,6 +806,9 @@ class Config:
     #: When set, each run's session works in <run_root>/<message_id> (see run_directory),
     #: not in `directory`. The NixOS unit sets it (AGENTOPS_HOST_ADAPTER_RUN_ROOT).
     run_root: str | None = None
+    #: Trusted source profile whose target is copied into each run profile; its
+    #: inbox credential_ref is deliberately never copied.
+    adapter_profile: str | None = None
 
     @property
     def valid_for(self) -> int:
@@ -866,6 +910,9 @@ class Adapter:
             rec = self.state.get(repo, mid)
             if rec["closed"] or rec["state"] == S_LOST:
                 return
+            if self._abandon_intent(rec) is not None:
+                self._finish_abandon_intent(rec)
+                return
             if rec["state"] == S_AMBIGUOUS:
                 self._flush_ambiguous(rec)
                 return
@@ -955,6 +1002,340 @@ class Adapter:
                 os.write(config_fd, b"{}\n")
             os.fchmod(config_fd, 0o444)
         return str(path)
+
+    @staticmethod
+    def _trusted_path_components(path: str | Path, *, leaf_kind: str) -> str | None:
+        """Refuse replaceable paths used for delegated handoff material."""
+        candidate = Path(path)
+        if not candidate.is_absolute():
+            return "path must be absolute"
+        if ".." in candidate.parts:
+            return "path must not contain parent traversal"
+        try:
+            components = [Path("/")]
+            current = Path("/")
+            for part in candidate.parts[1:]:
+                current = current / part
+                components.append(current)
+            for component in components:
+                st = component.lstat()
+                if stat.S_ISLNK(st.st_mode):
+                    return f"{component} is a symlink"
+                if component == candidate:
+                    expected = stat.S_ISDIR if leaf_kind == "directory" else stat.S_ISREG
+                    if not expected(st.st_mode):
+                        return f"{component} is not a regular {leaf_kind}"
+                    trusted_owners = {0, os.geteuid()} if leaf_kind == "file" else {os.geteuid()}
+                    if st.st_uid not in trusted_owners:
+                        return f"{component} has an untrusted owner"
+                elif not stat.S_ISDIR(st.st_mode):
+                    return f"{component} is not a directory"
+                elif st.st_uid not in {0, os.geteuid()}:
+                    # Even a sticky directory's owner can replace its children.
+                    return f"{component} has an untrusted ancestor owner"
+                # Sticky world/group writable parents such as /tmp cannot replace
+                # this uid's leaf; other writable ancestors are not trusted.
+                if (st.st_mode & (stat.S_IWGRP | stat.S_IWOTH)
+                        and not (stat.S_ISDIR(st.st_mode) and st.st_mode & stat.S_ISVTX)):
+                    return f"{component} is writable by another uid without sticky protection"
+        except OSError as exc:
+            return f"cannot inspect {candidate}: {type(exc).__name__}"
+        return None
+
+    def _handoff_preflight(self, policy: Policy) -> tuple[str, str] | None:
+        if not policy.run_delegation_qualified:
+            return "run-delegation-unqualified", "policy.run_delegation_qualified is not true"
+        if not self.config.run_root:
+            return "run-delegation-unqualified", "a trusted per-run root is required for delegation"
+        if not self.config.adapter_profile:
+            return "run-delegation-unqualified", "the adapter source profile is required for delegation"
+        reason = self._trusted_path_components(self.config.run_root, leaf_kind="directory")
+        if reason:
+            return "run-delegation-unqualified", f"untrusted run root: {reason}"
+        reason = self._trusted_path_components(self.config.adapter_profile, leaf_kind="file")
+        if reason:
+            return "run-delegation-unqualified", f"untrusted adapter profile: {reason}"
+        try:
+            self._source_profile()
+        except (OSError, UnicodeError, ValueError, HarnessError) as exc:
+            return "run-delegation-unqualified", f"invalid adapter profile: {type(exc).__name__}"
+        return None
+
+    @staticmethod
+    def _write_at(directory_fd: int, name: str, data: bytes, mode: int, group_id: int) -> None:
+        fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                     mode, dir_fd=directory_fd)
+        try:
+            st = os.fstat(fd)
+            if not stat.S_ISREG(st.st_mode) or st.st_uid != os.geteuid():
+                raise HarnessError(f"run-directory file {name} is not a regular adapter-owned file")
+            os.fchown(fd, os.geteuid(), group_id)
+            os.fchmod(fd, mode)
+            view = memoryview(data)
+            while view:
+                written = os.write(fd, view)
+                view = view[written:]
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+
+    def _run_handoff_directory(self, rec, *, create: bool) -> tuple[int, str]:
+        """Return an open fd for the adapter-owned per-run `.vuoro` directory."""
+        run_directory = self.run_directory(rec, create=create)
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        run_fd = os.open(run_directory, flags)
+        run_st = os.fstat(run_fd)
+        if (run_st.st_uid != os.geteuid() or stat.S_IMODE(run_st.st_mode) != 0o3770):
+            os.close(run_fd)
+            raise HarnessError("run directory is not adapter-owned sticky 03770")
+        made_handoff_dir = False
+        try:
+            if create:
+                try:
+                    os.mkdir(".vuoro", mode=0o750, dir_fd=run_fd)
+                    made_handoff_dir = True
+                except FileExistsError:
+                    pass
+            handoff_fd = os.open(".vuoro", flags, dir_fd=run_fd)
+        finally:
+            os.close(run_fd)
+        handoff_st = os.fstat(handoff_fd)
+        if made_handoff_dir:
+            os.fchmod(handoff_fd, 0o750)
+            handoff_st = os.fstat(handoff_fd)
+        if (handoff_st.st_uid != os.geteuid() or handoff_st.st_gid != run_st.st_gid
+                or stat.S_IMODE(handoff_st.st_mode) != 0o750):
+            os.close(handoff_fd)
+            raise HarnessError("run .vuoro directory is not adapter-owned mode 0750")
+        return handoff_fd, run_directory
+
+    @staticmethod
+    def _backend_marker_bytes(repo_id: str) -> bytes:
+        return (json.dumps({"backend": "served", "repo_id": repo_id},
+                           sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+
+    def _ensure_served_backend_marker(self, rec) -> None:
+        """Install the protected Sprintctl routing marker in the session's exact CWD."""
+        repo_id = rec.get("repo_id") if isinstance(rec, dict) else rec["repo_id"]
+        if not isinstance(repo_id, str) or not repo_id:
+            raise HarnessError("run has no owner repository identity for the backend marker")
+        run_directory = self.run_directory(rec, create=True)
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        run_fd = os.open(run_directory, flags)
+        try:
+            run_st = os.fstat(run_fd)
+            if (run_st.st_uid != os.geteuid() or stat.S_IMODE(run_st.st_mode) != 0o3770):
+                raise HarnessError("run directory is not adapter-owned sticky 03770")
+            made_marker_dir = False
+            try:
+                os.mkdir(".sprintctl", mode=0o750, dir_fd=run_fd)
+                made_marker_dir = True
+            except FileExistsError:
+                pass
+            marker_fd = os.open(".sprintctl", flags, dir_fd=run_fd)
+        finally:
+            os.close(run_fd)
+        try:
+            marker_dir_st = os.fstat(marker_fd)
+            if made_marker_dir:
+                os.fchmod(marker_fd, 0o750)
+                marker_dir_st = os.fstat(marker_fd)
+            if (marker_dir_st.st_uid != os.geteuid() or marker_dir_st.st_gid != run_st.st_gid
+                    or stat.S_IMODE(marker_dir_st.st_mode) != 0o750):
+                raise HarnessError("run .sprintctl directory is not adapter-owned mode 0750")
+            expected = self._backend_marker_bytes(repo_id)
+            try:
+                self._write_at(marker_fd, "backend.json", expected, 0o644, marker_dir_st.st_gid)
+            except FileExistsError:
+                marker_file_fd = os.open("backend.json", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                                         dir_fd=marker_fd)
+                try:
+                    marker_st = os.fstat(marker_file_fd)
+                    if (not stat.S_ISREG(marker_st.st_mode) or marker_st.st_uid != os.geteuid()
+                            or marker_st.st_gid != marker_dir_st.st_gid
+                            or stat.S_IMODE(marker_st.st_mode) != 0o644):
+                        raise HarnessError("existing .sprintctl/backend.json is not a protected adapter marker")
+                    contents = bytearray()
+                    while len(contents) <= len(expected):
+                        chunk = os.read(marker_file_fd, len(expected) + 1 - len(contents))
+                        if not chunk:
+                            break
+                        contents.extend(chunk)
+                    if bytes(contents) != expected:
+                        raise HarnessError("existing .sprintctl/backend.json does not match the served run identity")
+                finally:
+                    os.close(marker_file_fd)
+            os.fsync(marker_fd)
+        finally:
+            os.close(marker_fd)
+
+    def _served_backend_marker_valid(self, rec) -> bool:
+        try:
+            self._ensure_served_backend_marker(rec)
+            return True
+        except (OSError, HarnessError):
+            return False
+
+    def _handoff_files_valid(self, rec) -> bool:
+        if not self._served_backend_marker_valid(rec):
+            return False
+        try:
+            handoff_fd, _ = self._run_handoff_directory(rec, create=False)
+        except (OSError, HarnessError):
+            return False
+        try:
+            for name, mode in (("profile.json", 0o644), ("credential", 0o640)):
+                try:
+                    fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=handoff_fd)
+                except OSError:
+                    return False
+                try:
+                    st = os.fstat(fd)
+                    if (not stat.S_ISREG(st.st_mode) or st.st_uid != os.geteuid()
+                            or stat.S_IMODE(st.st_mode) != mode or st.st_nlink != 1):
+                        return False
+                finally:
+                    os.close(fd)
+            return True
+        finally:
+            os.close(handoff_fd)
+
+    def _remove_handoff_files(self, rec) -> None:
+        if not self.config.run_root or not rec["delegation_id"]:
+            return
+        try:
+            handoff_fd, _ = self._run_handoff_directory(rec, create=False)
+        except FileNotFoundError:
+            return
+        try:
+            for name in ("profile.json", "credential"):
+                try:
+                    st = os.stat(name, dir_fd=handoff_fd, follow_symlinks=False)
+                except FileNotFoundError:
+                    continue
+                if st.st_uid != os.geteuid() or not stat.S_ISREG(st.st_mode):
+                    raise HarnessError(f"refusing to remove unsafe handoff object {name}")
+                os.unlink(name, dir_fd=handoff_fd)
+        finally:
+            os.close(handoff_fd)
+
+    def _delegation_revoke(self, rec, reason: str, *, key_suffix: str | None = None) -> None:
+        delegation_id = rec["delegation_id"]
+        if not delegation_id:
+            return
+        key = f"delegation-revoke.{rec['message_id']}.{delegation_id}"
+        if key_suffix:
+            key = f"{key}.{key_suffix}"
+        self.owner.run_delegation_revoke(
+            rec["repo_id"], delegation_id=delegation_id, reason=reason,
+            idempotency_key=key)
+
+    def _rotate_delegation(self, rec, reason: str) -> None:
+        """Revoke before dropping metadata; a bearer secret is never read back."""
+        self._delegation_revoke(rec, reason)
+        self._remove_handoff_files(rec)
+        self.state.update(rec["repo_id"], rec["message_id"], delegation_id=None,
+                          delegation_expires_at=None,
+                          delegation_generation=rec["delegation_generation"] + 1,
+                          handoff_state="none")
+
+    def _source_profile(self) -> dict:
+        path = Path(self.config.adapter_profile or "")
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        if (not isinstance(raw, dict)
+                or raw.get("schema_version") != "vuoro-client-profile/v1"
+                or not isinstance(raw.get("target"), dict)
+                or not isinstance(raw.get("id"), str)
+                or not isinstance(raw.get("source_environment_id"), str)
+                or not isinstance(raw.get("revision"), int)
+                or not isinstance(raw.get("production_endpoint_denied"), bool)):
+            raise HarnessError("adapter profile is not a supported Vuoro profile")
+        target = raw["target"]
+        if not all(isinstance(target.get(k), str) and target[k]
+                   for k in ("environment_id", "environment_class", "endpoint")):
+            raise HarnessError("adapter profile target is incomplete")
+        return raw
+
+    def _install_handoff(self, rec, token: str) -> None:
+        if not isinstance(token, str) or DELEGATION_TOKEN_RE.fullmatch(token) is None:
+            raise HarnessError("delegation returned an invalid one-time token")
+        profile = self._source_profile()
+        handoff_fd, run_directory = self._run_handoff_directory(rec, create=True)
+        try:
+            credential_path = str(Path(run_directory) / ".vuoro" / "credential")
+            delegated = {
+                "schema_version": "vuoro-client-profile/v1",
+                "id": f"run-{hashlib.sha256(rec['run_id'].encode()).hexdigest()[:20]}",
+                "revision": 1,
+                "source_environment_id": profile["source_environment_id"],
+                "target": profile["target"],
+                "credential_ref": f"file:{credential_path}",
+                "required_authorities": ["work:read", "work:evidence"],
+                "production_endpoint_denied": profile["production_endpoint_denied"],
+            }
+            handoff_gid = os.fstat(handoff_fd).st_gid
+            self._write_at(handoff_fd, "credential", token.encode("utf-8"), 0o640, handoff_gid)
+            self._checkpoint("delegation_credential_written")
+            self._write_at(handoff_fd, "profile.json",
+                           (json.dumps(delegated, sort_keys=True) + "\n").encode(), 0o644, handoff_gid)
+            self._checkpoint("delegation_profile_written")
+            os.fsync(handoff_fd)
+            self._checkpoint("delegation_handoff_synced")
+        finally:
+            os.close(handoff_fd)
+
+    def _prepare_run_handoff(self, rec, policy: Policy) -> tuple[str, str] | None:
+        denial = self._handoff_preflight(policy)
+        if denial:
+            return denial
+        ttl_seconds = min(policy.max_run_seconds, MAX_DELEGATION_TTL_SECONDS)
+        if isinstance(ttl_seconds, bool) or not isinstance(ttl_seconds, int) or ttl_seconds <= 0:
+            return "run-delegation-invalid-ttl", "delegation TTL must be a positive integer"
+        try:
+            self._ensure_served_backend_marker(rec)
+        except (OSError, HarnessError) as exc:
+            return "run-backend-marker-untrusted", f"cannot install trusted served backend marker: {exc}"
+
+        current = self.state.get(rec["repo_id"], rec["message_id"])
+        for _ in range(3):
+            if current["handoff_state"] == "installed" and self._handoff_files_valid(current):
+                return None
+            if current["delegation_id"]:
+                # Minted but not completely handed off: even if a token file exists,
+                # never read it back. Revoke, discard, and advance the mint generation.
+                self._rotate_delegation(current, "handoff-recovery")
+                current = self.state.get(rec["repo_id"], rec["message_id"])
+                self._checkpoint("delegation_generation_advanced")
+                continue
+            generation = int(current["delegation_generation"])
+            idempotency_key = f"delegation-mint.{rec['message_id']}.{rec['run_id']}.{generation}"
+            result = self.owner.run_delegate(
+                rec["repo_id"], run_id=rec["run_id"], creator_instance_id=self.instance_id,
+                operations=list(DELEGATED_RUN_OPERATIONS),
+                ttl_seconds=ttl_seconds, idempotency_key=idempotency_key)
+            delegation = result.get("delegation") or result
+            delegation_id = delegation.get("delegation_id")
+            expires_at = delegation.get("expires_at")
+            if not isinstance(delegation_id, str) or not delegation_id or not isinstance(expires_at, str):
+                raise OwnerError("invalid-result", "run delegate returned incomplete metadata")
+            token = result.get("token") or delegation.get("token")
+            self._checkpoint("delegation_minted_before_persisted")
+            self.state.update(rec["repo_id"], rec["message_id"], delegation_id=delegation_id,
+                              delegation_expires_at=expires_at, handoff_state="minted")
+            self._checkpoint("delegation_metadata_persisted")
+            current = self.state.get(rec["repo_id"], rec["message_id"])
+            if not token:
+                # An idempotent replay proves a prior one-time mint happened, but
+                # cannot recover its secret. Revoke it and mint under a new key.
+                self._rotate_delegation(current, "mint-replay-has-no-token")
+                current = self.state.get(rec["repo_id"], rec["message_id"])
+                self._checkpoint("delegation_generation_advanced")
+                continue
+            self._install_handoff(current, token)
+            self.state.update(rec["repo_id"], rec["message_id"], handoff_state="installed")
+            self._checkpoint("delegation_handoff_installed")
+            return None
+        raise OwnerError("delegation-recovery-exhausted", "could not complete one-time handoff safely")
 
     def _receipt(self, rec: sqlite3.Row, kind: str, **fields: Any) -> dict:
         return self.owner.message_receipt(rec["repo_id"], message_id=rec["message_id"],
@@ -1063,6 +1444,29 @@ class Adapter:
                    if r["state"] in (S_LAUNCH_INTENT, S_LAUNCHED) or (r["state"] == S_AMBIGUOUS and r["run_id"]))
         if live >= policy.max_concurrent or not self.harness.health():
             return False  # deferred; the next tick retries
+        handoff_denial = self._prepare_run_handoff(rec, policy)
+        if handoff_denial:
+            self._close_not_started(rec, *handoff_denial)
+            return False
+        # The owner calls needed to mint and install the token may take time.
+        # Re-read policy and owner state immediately before crossing into launch.
+        latest = load_policy(self.policy_path, trusted=self.config.trusted_config)
+        denial = policy_denial(latest, rec["repo_id"], env)
+        status = self.owner.message_status(rec["repo_id"], message_id=rec["message_id"])
+        receipts = status.get("receipts") or (status.get("message") or {}).get("receipts") or []
+        if denial and denial[0] in TEMPORARY_DENIALS:
+            return False
+        if denial is None and _has_cancel(receipts):
+            denial = ("canceled-by-sender", "cancel-requested was recorded before launch")
+        if denial is None:
+            denial = not_after_denial(env.get("not_after"), self.clock())
+        if denial:
+            self._close_not_started(self.state.get(*key), *denial)
+            return False
+        if (not latest.run_delegation_qualified
+                or latest.max_run_seconds != policy.max_run_seconds):
+            self._rotate_delegation(self.state.get(*key), "policy-changed-before-launch")
+            return False
         self.state.update(*key, state=S_LAUNCH_INTENT)
         self._checkpoint("launch_intent_persisted")
         sid = self.harness.create_session(TITLE_PREFIX + rec["message_id"], self.run_directory(rec, create=True))
@@ -1086,6 +1490,9 @@ class Adapter:
                else "found 1 session without the successor permission ruleset")
         detail = (f"launch intent persisted without a session id; title search for "
                   f"{TITLE_PREFIX}{rec['message_id']} {why}; not relaunching")
+        # No verified session can consume this credential. Revoke it before
+        # preserving the ambiguous record for explicit operator resolution.
+        self._delegation_revoke(rec, "launch-session-not-found")
         self.state.update(*key, state=S_AMBIGUOUS, detail=detail)
         self._checkpoint("ambiguous_persisted")
         return True
@@ -1176,17 +1583,60 @@ class Adapter:
         return True
 
     def _on_closing(self, rec) -> bool:
+        # Revoke before publishing settlement. The owner's settlement handler
+        # also revokes independently, so either path closes the credential.
+        self._delegation_revoke(rec, f"run-{rec['outcome']}")
         fields: dict[str, Any] = {"outcome": rec["outcome"], "summary": rec["summary"] or "",
                                   "evidence_refs": json.loads(rec["evidence"] or "[]")}
         if rec["outcome"] in ("not-started", "abandoned") or (
                 rec["outcome"] == "failed" and (rec["reason_code"] or "").startswith("run-timeout")):
             fields["reason"] = {"code": rec["reason_code"], "text": rec["reason_text"] or ""}
         self._receipt(rec, "result-linked", **fields)
+        if (rec["outcome"] != "abandoned"
+                and rec["reason_code"] != "run-timeout-abort-unconfirmed"):
+            self._remove_handoff_files(rec)
         self.state.update(rec["repo_id"], rec["message_id"], closed=1)
         self._checkpoint("closed")
         return False
 
     # -- operator act -------------------------------------------------------
+
+    @staticmethod
+    def _abandon_intent(rec) -> dict[str, Any] | None:
+        if rec["reason_code"] != "operator-abandoned" or rec["outcome"] != "abandoned":
+            return None
+        try:
+            evidence = json.loads(rec["evidence"] or "")
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise OwnerError("local-abandon-intent-invalid", "saved abandonment evidence is invalid") from exc
+        if (not isinstance(rec["summary"], str) or not rec["summary"]
+                or not isinstance(rec["reason_text"], str) or not rec["reason_text"]
+                or not isinstance(evidence, list)
+                or any(not isinstance(item, dict) for item in evidence)):
+            raise OwnerError("local-abandon-intent-invalid", "saved abandonment intent is incomplete")
+        return {
+            "outcome": "abandoned", "summary": rec["summary"],
+            "evidence_refs": evidence,
+            "reason": {"code": "operator-abandoned", "text": rec["reason_text"]},
+        }
+
+    def _finish_abandon_intent(self, rec) -> None:
+        fields = self._abandon_intent(rec)
+        if fields is None or rec["state"] not in (S_AMBIGUOUS, S_LAUNCHED) or rec["closed"]:
+            raise OwnerError("local-abandon-intent-invalid", "saved abandonment intent is not resumable")
+        # Both owner writes are idempotent on the frozen intent. If either
+        # response is lost, the still-open local record resumes these exact
+        # arguments without repeating a harness abort or changing the result.
+        if rec["state"] == S_AMBIGUOUS and not rec["ambiguous_sent"]:
+            self._flush_ambiguous(rec)
+            rec = self.state.get(rec["repo_id"], rec["message_id"])
+        self._delegation_revoke(rec, "run-abandoned", key_suffix="operator-abandon-v1")
+        self._receipt(rec, "result-linked", **fields)
+        self.state.update(rec["repo_id"], rec["message_id"], state=S_FINISHED,
+                          outcome="abandoned", reason_code="operator-abandoned",
+                          reason_text=fields["reason"]["text"], summary=fields["summary"],
+                          evidence=canonical(fields["evidence_refs"]), closed=1)
+        self._checkpoint("closed")
 
     def resolve_abandon(self, message_id: str, repo: str | None = None) -> str:
         rows = [r for r in self.state.all_records()
@@ -1196,22 +1646,25 @@ class Adapter:
         rec = rows[0]
         if rec["state"] not in (S_AMBIGUOUS, S_LAUNCHED) or rec["closed"]:
             raise SystemExit(f"host-adapter: {message_id} is {rec['state']}, not ambiguous or launched")
-        evidence = [{"kind": "run", "ref": rec["run_id"]}] if rec["run_id"] else []
-        what = "an ambiguous launch"
-        if rec["state"] == S_LAUNCHED:
-            # A stuck run: stop the session first; the abort is idempotent.
-            evidence.append({"kind": "harness-session", "ref": rec["session_id"]})
-            try:
-                self.harness.abort(rec["session_id"], self.run_directory(rec))
-                what = "a launched run (session aborted)"
-            except HarnessError as exc:
-                what = f"a launched run (abort failed: {exc})"[:300]
-        self.state.update(rec["repo_id"], message_id, state=S_FINISHED, outcome="abandoned",
-                          reason_code="operator-abandoned",
-                          reason_text=f"an operator abandoned {what}",
-                          summary=f"{what} abandoned by an explicit operator act",
-                          evidence=canonical(evidence))
-        self._on_closing(self.state.get(rec["repo_id"], message_id))
+        if self._abandon_intent(rec) is None:
+            evidence = [{"kind": "run", "ref": rec["run_id"]}] if rec["run_id"] else []
+            what = "an ambiguous launch"
+            if rec["state"] == S_LAUNCHED:
+                # A stuck run: stop the session before fixing the owner result fields.
+                evidence.append({"kind": "harness-session", "ref": rec["session_id"]})
+                try:
+                    self.harness.abort(rec["session_id"], self.run_directory(rec))
+                    what = "a launched run (session aborted)"
+                except HarnessError as exc:
+                    what = f"a launched run (abort failed: {exc})"[:300]
+            summary = f"{what} abandoned by an explicit operator act"
+            reason_text = f"an operator abandoned {what}"
+            self.state.update(rec["repo_id"], message_id, outcome="abandoned",
+                              reason_code="operator-abandoned", reason_text=reason_text,
+                              summary=summary, evidence=canonical(evidence))
+            self._checkpoint("abandon_intent_persisted")
+            rec = self.state.get(rec["repo_id"], message_id)
+        self._finish_abandon_intent(rec)
         return rec["repo_id"]
 
 
@@ -1313,7 +1766,7 @@ def main(argv: list[str] | None = None) -> int:
         return 3
     owner = VuoroOwner(args.profile)
     config = Config(poll_interval=args.poll_interval, directory=args.directory, host_class=args.host_class,
-                    trusted_config=args.trusted_config, run_root=args.run_root)
+                    trusted_config=args.trusted_config, run_root=args.run_root, adapter_profile=args.profile)
     harness = OpenCodeServe(args.serve_url, password=password,
                             username=os.environ.get("OPENCODE_SERVER_USERNAME") or "opencode")
     adapter = Adapter(owner=owner, harness=harness, state=state,

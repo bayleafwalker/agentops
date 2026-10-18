@@ -58,6 +58,20 @@ Agent hosts declare their holds in their environment record as `holds`: an array
 
 The host gate then stops at `holds`. A record without the field reports `held.declared_host_holds` as `unknown`, because holds are not modelled for it. The report reads the record from agentops `origin/main`, so a hold takes effect in the report once it is merged.
 
+The devbox additionally reports `held.inbox_launches_disabled`, observed from the
+user inbox adapter policy at `~/.config/agentops/host-adapter/policy.json`. The SSH
+probe emits only its `launches_enabled` boolean, never the policy body. `false`
+means this launch capability is held; `true` means this specific hold is absent.
+A missing, unreadable or nonboolean field makes the fact and otherwise passing
+host gate `unknown`. Historical replays without the observation remain unknown.
+This observed hold is separate from `held.declared_host_holds`; an empty declared
+list does not clear it. The workstation does not require an inbox adapter.
+
+`usable.served_doctor` describes served-client usability. Neither a passing doctor
+nor enabled launches proves inbox launch qualification, available authority,
+harness readiness or successful execution. The host gate checks the reported
+client state and holds; launch qualification remains outside this report.
+
 ## What remains unknown, and why
 
 | Fact | Why it is unknown | What would make it known |

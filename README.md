@@ -13,13 +13,22 @@ The [bounded hosted-to-native proof](docs/evidence/2026-10-09-mi1-bindery/README
 records its scope and capture limits; it is separate from the public site's
 illustrated takeover.
 
-Repo-owned planning and future operator surface for the `/projects/dev` agent-ops substrate.
+Canonical dispatch skills, schemas, sync utilities, read-only reporting and
+cross-repository guidance for the `/projects/dev` agent-ops substrate.
+
+[Estate delivery and current qualification handoff.](docs/architecture/2026-10-17-estate-evidence-delivery.md)
+The [full roadmap source progress](docs/architecture/2026-10-17-estate-roadmap-source-progress.md)
+separates merged implementation from release, installation and outcome qualification.
 
 The implementation repos remain separate:
 
 - `sprintctl` owns sprint/work-item state. ([bayleafwalker/sprintctl](https://github.com/bayleafwalker/sprintctl))
-- `kctl` owns knowledge artifact extraction. ([bayleafwalker/kctl](https://github.com/bayleafwalker/kctl))
-- `auditctl` will own repo-local audit ledgers. ([bayleafwalker/auditctl](https://github.com/bayleafwalker/auditctl))
+- Vuoro workspace and `vuoro-knowledge` own current knowledge/artifact work;
+  retired `kctl` is historical migration input only. See the
+  [estate delivery plan](docs/plans/agentops/2026-10-17-estate-evolution-plan.md).
+- `auditctl` owns audit capture and findings; its central schema3 design keeps
+  observation and decision history distinct from current authority. Historical
+  shard import and cutover remain gated. ([bayleafwalker/auditctl](https://github.com/bayleafwalker/auditctl))
 - `actionq` is contracting toward federation of work/execution references,
   relations, assurance, acceptance, and reconciliation. Release 0.1.26 removed
   its daemon, harness/worktree execution plane, and standalone server source;
@@ -42,3 +51,9 @@ site/index.html         # interactive map of the wider AgentOps ecosystem
 
 The agent-cockpit UI (`apps/web/`) was retired from the cluster (appservice #1647) and its
 source deleted in 2026-09; recover it from git history if needed.
+
+[Two-year KAOS roadmap](docs/plans/agentops/2026-10-18-kaos-2028-roadmap.md): goals, features, product onboarding and project activities traced to current state.
+
+Operator-action request lifecycle and TUI/UI delivery: [planned refinement](docs/plans/agentops/2026-10-18-operator-actions.md).
+
+Estate-wide contract rewrite: [requirements map](docs/plans/agentops/2026-10-18-estate-contract-rewrite.md) and [architecture discovery](docs/plans/agentops/2026-10-18-estate-contract-architecture-discovery.md).

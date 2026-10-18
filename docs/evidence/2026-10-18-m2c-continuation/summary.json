@@ -1,0 +1,285 @@
+{
+  "as_of": "2026-10-18",
+  "work_item": "agentops#2654",
+  "served_current_summary_event": 5645,
+  "overall": "listed historical cases and the ordinary production continuation passed; final M2c Decision remains unwritten",
+  "completion_claimed": false,
+  "rollback_claimed": false,
+  "source_files": {
+    "previous_adapter": {
+      "agentops_commit": "e8d1d73653230d1df052631e3b2218ad9da2ef0e",
+      "pull_request": 376,
+      "file_sha256": "32b4f0365aaabbb61c59ee7b04114ecb312edd0335f2ef414db9c3141d61955a"
+    },
+    "current_adapter": {
+      "agentops_commit": "7aa1f71dcd27fafe0ecbefb052b7da72a04b91b7",
+      "pull_request": 384,
+      "file_sha256": "460c8a7cfd60f31dabc27a47f796c7071069f4a1b4fe0d7620d3ceb845186cb9"
+    },
+    "qualification_runner": {
+      "agentops_commit": "f205cdd67669242612f2c1d10294657a1c8def42",
+      "pull_request": 379,
+      "file_sha256": "a6b62400d278b1f9efd71be7bba2933ab1dc7490af88c4632b68c6b7f11a2a8e"
+    },
+    "disposable_policy_sha256": "63a1ab454845dd6bdd5a16e5b7d1081488e9060bb9e53ea511df973478d5769a",
+    "qualification_template_sha256": "39afeb21fcad6f23aa0e058e8fbfb56476e77a9c0cb887de1032d5a2fd610833"
+  },
+  "ci": [
+    {
+      "pull_request": 376,
+      "merge_commit": "e8d1d73653230d1df052631e3b2218ad9da2ef0e",
+      "runs": [
+        "https://github.com/bayleafwalker/agentops/actions/runs/39039625858",
+        "https://github.com/bayleafwalker/agentops/actions/runs/39039697752",
+        "https://github.com/bayleafwalker/agentops/actions/runs/39039625821"
+      ],
+      "required_checks": "all successful"
+    },
+    {
+      "pull_request": 379,
+      "merge_commit": "f205cdd67669242612f2c1d10294657a1c8def42",
+      "runs": [
+        "https://github.com/bayleafwalker/agentops/actions/runs/39113727215",
+        "https://github.com/bayleafwalker/agentops/actions/runs/39113734393",
+        "https://github.com/bayleafwalker/agentops/actions/runs/39113729904"
+      ],
+      "required_checks": "all successful"
+    },
+    {
+      "pull_request": 384,
+      "merge_commit": "7aa1f71dcd27fafe0ecbefb052b7da72a04b91b7",
+      "runs": [
+        "https://github.com/bayleafwalker/agentops/actions/runs/39126473532",
+        "https://github.com/bayleafwalker/agentops/actions/runs/39126475133"
+      ],
+      "required_checks": "all successful"
+    }
+  ],
+  "cases": [
+    {
+      "name": "current-source native continuation and auditor join",
+      "source": "460c8a7c",
+      "message_id": "msg_01M57J0S9Z2A7QJ422RK1T19HW",
+      "inbox_seq": 25,
+      "sender_run_id": "run_TPV5N7Z3A6BGC5GYVCGSPSB4GF",
+      "recipient_run_id": "run_MQP9DTQQ21DQR580HNGPASWVFW",
+      "auditor_run_id": "run_GE1XVW0JRTBS98KJMH3FHT5CEN",
+      "delegation_id": "dlg_XFZZWVCHZHF3Q55E7NTRRTAST4",
+      "item_id": 2776,
+      "sender_note_id": 44,
+      "recipient_note_id": 45,
+      "recipient_note_sha256": "5f7fe5b4a8bc17f3375f13c89b039b180055ec6b811f0217ffc2f4d430c77860",
+      "envelope_sha256": "696f92ae3429ecc4e24a67d1a3ff04b39228f9633fda6834630f43a45f9463af",
+      "receipt_sha256": "22a4b4056dd473c5a7b1f140f2b2e97b7d2b7015a4d23228bbd2cc5f54e03aff",
+      "independent_review_sha256": "3581cbcc1f28cfb9f8599f0917f6fe0b021c45dca25d655d6620c9aea8db04b6",
+      "served_event": 5584
+    },
+    {
+      "name": "current-policy authorization denial before execution",
+      "source": "460c8a7c",
+      "message_id": "msg_01M57K610MP6EX64KQ52G6GVTC",
+      "inbox_seq": 26,
+      "recipient_run_id": "run_5XGHEVQBB7FBSVKV37RMWZAFT6",
+      "item_id": 2777,
+      "reason": "kind-not-allowed",
+      "receipt_sha256": "3b6375084bd1e8745d0ec215d00b5920ae37dadc6c87eb32f4e573a096d1e020",
+      "root_review_sha256": "22b27f459893f803c641adda1cf634efffa35b096ab702d23a18289fcca49d91",
+      "served_event": 5604
+    },
+    {
+      "name": "supported ambiguity-to-abandonment resolution",
+      "source": "460c8a7c",
+      "message_id": "msg_01M57BXK61MGW8V9D6SFXH2MHJ",
+      "inbox_seq": 20,
+      "recipient_run_id": "run_812PPJZYV9BH3QTPRP0B5Q50X5",
+      "delegation_id": "dlg_G38ZSKPRQFJT6KE094TME58DD6",
+      "item_id": 2760,
+      "result": "abandoned; no prompt or session",
+      "receipt_sha256": "7bad5f39c4e002856b6b92d804bffbbf41aa95d7b23eb0a321192c745d264ef5",
+      "root_review_sha256": "b46c22b4573e4f312b09122e42b8af5a3f3468a04917cecf6b4fbe740953e449",
+      "served_event": 5584
+    },
+    {
+      "name": "cancellation request while busy; actual completed result",
+      "source": "460c8a7c",
+      "message_id": "msg_01M57MXFDTXXNKB2BFC7CGH13T",
+      "inbox_seq": 27,
+      "sender_run_id": "run_JJAEQBB56EGX8AD5WVZ4R91HT4",
+      "recipient_run_id": "run_BZWTHGQ9J8WR2MKSFT8A0867J5",
+      "auditor_run_id": "run_DZ28Z3TWTT719BVJPQ6YT2JSTP",
+      "delegation_id": "dlg_F3EPFJ7X5DM1S15TA0QHZJZE29",
+      "item_id": 2782,
+      "recipient_note_id": 47,
+      "recipient_note_sha256": "ece02ee12dfea9a71646cdb70adbcb0482ed8b01176ebd322b5299fb1bc722b0",
+      "result": "completed",
+      "rollback_claimed": false,
+      "receipt_sha256": "5352c0804b301a1d3049641803a74283fbd37f076dd74d5060b1eb34634801db",
+      "root_review_sha256": "da65aa510e412f9c80d1743b34acbffd57edcf5932ceca04300c8e296bf08921",
+      "served_event": 5629
+    },
+    {
+      "name": "ordinary production native continuation and auditor join",
+      "source": "460c8a7cfd60f31d",
+      "system_revision": "c3c6301f70031399e733751a1f73a77d2e1eb727",
+      "production_policy_sha256": "6dc86924bc08086ed4d21542d1103240f37cbd619c11b4141f61b157fb9c41d3",
+      "configured_model": "opencode-go/deepseek-v4-flash",
+      "ordinary_invocation_id": "8a8788166ef1408e9e462d6782ea8cdb",
+      "main_pid": 418652,
+      "restarts_before_after": 0,
+      "instance_id": "ins_01M575NGW4492D0S8BJVDB578E",
+      "item_id": 2786,
+      "item_status": "pending",
+      "sprint_id": 559,
+      "sender_run_id": "run_R1SHRJSCMEFE2YZ8V7CBR2RF7N",
+      "sender_note_id": 48,
+      "message_id": "msg_01M57QCCE31SHYHP74D3VFY8R6",
+      "inbox_seq": 28,
+      "envelope_sha256": "694bf0063e8b1994c19ad5abd76ab6949e469119ef920ff0bc9db8c9cec5649e",
+      "recipient_run_id": "run_H6Z06094QPFKVF7HT14EX8NE1J",
+      "session_id": "ses_eb0894bebffemQvsAIze8IMsFt",
+      "delegation_id": "dlg_MHY2KCWH14Z3ZSNNTAKMTH1VZK",
+      "delegation_revoked_at": "2026-10-18T14:42:37.894925Z",
+      "result_linked_at": "2026-10-18T14:42:37.958017Z",
+      "result": "completed",
+      "auditor_run_id": "run_PB35FXTH61ZKV4W7ZB70P6NW0M",
+      "recipient_note_id": 49,
+      "recipient_note_utf8_bytes": 370,
+      "recipient_note_sha256": "6f93c35927095af433e29a6cf599874a54bed6c4d9d3e2a235b63364ffddc2e4",
+      "handoff_credential_profile_absent": true,
+      "qualification_runner_or_manual_tick_used": false,
+      "root_review_sha256": "6c8907c40e1d8ed0210329a4b9502712d2cb76c3cc83e27bf7fe538c055c6596",
+      "served_event": 5645,
+      "assurance_limit": "Configured model identity is recorded, not benchmarked; recipient note records context review, not transcript/tool-call inspection."
+    }
+  ],
+  "historical_source_applicability": {
+    "previous_source_prefix": "32b4f0365aaabbb6",
+    "current_source_prefix": "460c8a7cfd60f31d",
+    "reservation_limit": "legacy advisory reservations can overlap; no native-v1 reservation qualification",
+    "history_rule": "prior cases remain attributed to the source they actually ran; no claim that each was rerun on current source"
+  },
+  "open_gates": [
+    "write and review the terminal Decision on agentops#2654"
+  ],
+  "historical_cases": [
+    {
+      "name": "duplicate delivery recovery",
+      "source": "32b4f0365aaabbb61c59ee7b04114ecb312edd0335f2ef414db9c3141d61955a",
+      "item_id": 2757,
+      "message_id": "msg_01M57AXE6FWGCT1JYXZ4PP0NWF",
+      "inbox_seq": 18,
+      "delegation_id": "dlg_50SJ0KVZ0XTJBFPFJT9DZH95RV",
+      "auditor_run_id": "run_RTQ71E6ECWNZW7NH3QZRC3B7W5",
+      "owner_note_id": 32,
+      "receipt_sha256": "aa5c27293ec4fbb2f35c20e6eab87203bc79939ebdb70c10541674a4bd77712c"
+    },
+    {
+      "name": "crash after ingest",
+      "source": "32b4f0365aaabbb61c59ee7b04114ecb312edd0335f2ef414db9c3141d61955a",
+      "item_id": 2759,
+      "message_id": "msg_01M57BGDKTBQYB6YBYJ9VJTMPN",
+      "inbox_seq": 19,
+      "recipient_run_id": "run_MB3H4Y8A3AJH6CC6X5EX9K504Y",
+      "delegation_id": "dlg_S8Q0NE1VBRTXDBWMPFMQBPCA0A",
+      "owner_note_ids": [
+        33,
+        34
+      ],
+      "receipt_sha256": "96c89bb54278ce80c55835b3d11e4cc1faae119043897907c659c36809e5cf83"
+    },
+    {
+      "name": "crash before harness launch",
+      "source": "32b4f0365aaabbb61c59ee7b04114ecb312edd0335f2ef414db9c3141d61955a",
+      "item_id": 2760,
+      "message_id": "msg_01M57BXK61MGW8V9D6SFXH2MHJ",
+      "inbox_seq": 20,
+      "recipient_run_id": "run_812PPJZYV9BH3QTPRP0B5Q50X5",
+      "delegation_id": "dlg_G38ZSKPRQFJT6KE094TME58DD6",
+      "sender_note_id": 35,
+      "receipt_sha256": "f30b47a8080e24032ed9840edd9da0712dddc3497130ee0f6735b903a998608f"
+    },
+    {
+      "name": "crash after harness create",
+      "source": "32b4f0365aaabbb61c59ee7b04114ecb312edd0335f2ef414db9c3141d61955a",
+      "item_id": 2762,
+      "message_id": "msg_0J1B8Y3B1C51YW6Y9JNMD66YAE",
+      "inbox_seq": 21,
+      "recipient_run_id": "run_9ZZ0GZN218ZX4BR40PVKVS8CFT",
+      "delegation_id": "dlg_T09YTN3PJ80GGCP71M8AKKAPQC",
+      "owner_note_id": 37,
+      "receipt_sha256": "3c0c7b1fe31404b6a6bd5a08f222efdedcfbed7bac19be263734e58ce2bad458"
+    },
+    {
+      "name": "result linked, response lost",
+      "source": "32b4f0365aaabbb61c59ee7b04114ecb312edd0335f2ef414db9c3141d61955a",
+      "item_id": 2766,
+      "message_id": "msg_04MQDKJ2V5F9Y9HEGSV89NWD6T",
+      "inbox_seq": 22,
+      "recipient_run_id": "run_GA1WCW2328BK63A35SMCP65KVB",
+      "delegation_id": "dlg_TE8K53SE3XG97564EZCXNFRAD2",
+      "owner_note_id": 39,
+      "receipt_sha256": "048bd39781900c4bee0422c35e24a58966cf51a1e462573a5300db9db0cab311"
+    },
+    {
+      "name": "sender response uncertain",
+      "source": "32b4f0365aaabbb61c59ee7b04114ecb312edd0335f2ef414db9c3141d61955a",
+      "item_id": 2767,
+      "message_id": "msg_0YET9GN1RH5G010ME9ZJ0WKCP6",
+      "inbox_seq": 23,
+      "delegation_id": "dlg_1K8AF8DPN39M8XFNX7MYC7FGPG",
+      "recipient_note_id": 41,
+      "receipt_sha256": "a19cca90e72c8ef901f992e938fc4dae0c4cb5f3cd9a89194a44870b3856a6a6"
+    },
+    {
+      "name": "gateway outage and owner recovery",
+      "source": "32b4f0365aaabbb61c59ee7b04114ecb312edd0335f2ef414db9c3141d61955a",
+      "item_id": 2770,
+      "message_id": "msg_01M57DZ87VVNJT2GVZJRQ5R5VG",
+      "inbox_seq": 24,
+      "run_id": "run_AFG61Y2GWW3E7GFH4CFBVAGSTF",
+      "delegation_id": "dlg_ZJWQFEYW7864PAFRAWC59YDH16",
+      "owner_note_id": 43,
+      "receipt_sha256": "0644a862f1d4868145c97caff1ba0337903b56d7a49af7e294858b215c6d20f7"
+    },
+    {
+      "name": "overlapping advisory reservations",
+      "source": "32b4f0365aaabbb61c59ee7b04114ecb312edd0335f2ef414db9c3141d61955a",
+      "item_id": 2732,
+      "reservation_ids": [
+        305,
+        306
+      ],
+      "receipt_sha256": "ac6ea0135aa30f5b6ebdb3865876f4b51fbf59f4549c8bd42afd30a4784df424"
+    },
+    {
+      "name": "stale work revision refused",
+      "source": "32b4f0365aaabbb61c59ee7b04114ecb312edd0335f2ef414db9c3141d61955a",
+      "item_id": 2731,
+      "request_event_id": "c7afab42-79f8-4916-a8e5-d167976df672",
+      "stale_decision_event_id": "09ea37d4-0f54-4e1a-b3fe-32721149de83",
+      "receipt_sha256": "ac6ea0135aa30f5b6ebdb3865876f4b51fbf59f4549c8bd42afd30a4784df424"
+    }
+  ],
+  "outside_m2c": [
+    "M3 pilot",
+    "OA",
+    "Q4",
+    "Cloud"
+  ],
+  "ordinary_production_gate": {
+    "status": "passed",
+    "root_review_sha256": "6c8907c40e1d8ed0210329a4b9502712d2cb76c3cc83e27bf7fe538c055c6596",
+    "item_projection_correction": "work-item-context/v1 omits sprint_id; match projected item id/status to native create response binding item 2786 to sprint 559. No owner records changed.",
+    "review_reader_limitation": "The initial v4 reader exit was nonzero only for its unsupported sprint_id predicate; actual message and auditor joins passed. Root corrected item conclusion from create response plus current projected id/status.",
+    "decision_status": "NOT_YET_WRITTEN_AT_CAPTURE"
+  },
+  "capture_basis": "Evidence snapshot before terminal Decision; subsequent served work state is authoritative.",
+  "reversibility_limit": {
+    "roadmap_wording": "The first operation should be reversible and have an observable owner-enforced idempotency or revision boundary.",
+    "actual_operation": "work.session-note.write-v1: idempotent, append-only; no supported reversal demonstrated",
+    "reversibility_demonstrated": false,
+    "independent_review_sha256": "931a4c17b13bba153709df8b8232ad5b9ec73fa6c0cbd79c37ce26f28474acac",
+    "independent_review_verdict": "INCOMPLETE on reversibility criterion; finding retained",
+    "coordinator_acceptance_scope": "Explicit original note-only item, reconstructible chain and required failure histories. Reversibility recommendation remains unmet; no rollback or broader effect authority claimed."
+  }
+}

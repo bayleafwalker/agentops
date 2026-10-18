@@ -1,0 +1,84 @@
+{
+  "schema_version": "test-context/v1",
+  "id": "host-adapter-run-handoff-recovery-v1",
+  "owner_repo": "agentops",
+  "subject": "Run-scoped one-time delegation, protected exact-CWD handoff, and launch recovery",
+  "contract_ref": {
+    "doc_id": "docs/architecture/host-adapter-run-handoff.md",
+    "revision": "git:8aaf1f8e2d748e615886a497472f73f217fc46b1"
+  },
+  "source_of_truth": [
+    "Vuoro owner contract docs/architecture/run-scoped-delegation.md at git:4be83ff743abba6528ca1cfef777d5647b971630",
+    "Agentops adapter journal, handoff filesystem, and harness state machine at implementation commit git:694db475eb3299f638bc0d5b1105ed7cf138cf75",
+    "Owner run/delegation operations and their idempotency semantics"
+  ],
+  "depth": 1,
+  "backends": [
+    "Adapter SQLite journal on a temporary local filesystem",
+    "POSIX temporary run directories with fixture-controlled ownership and permission metadata"
+  ],
+  "actors": [
+    "Adapter process under test",
+    "FakeOwner implementing run registration, one-time delegation replay, and revocation",
+    "FakeHarness implementing session creation, title lookup, permission inspection, and adoption",
+    "Test controller injecting crashes and restarting the adapter over the same journal"
+  ],
+  "operations": [
+    "work.run.register-v1",
+    "work.run.delegate-v1",
+    "work.run.delegation-get-v1",
+    "work.run.delegation-revoke-v1",
+    "work.message.receipt-v1 run-linked",
+    "work.message.receipt-v1 result-linked",
+    "harness session create, title search, permission inspection, and prompt"
+  ],
+  "consistency": {
+    "target": "Safe recovery across one-time owner token, local SQLite journal, filesystem handoff, and ambiguous harness launch",
+    "object": "One message/run delegation generation, served backend marker, per-run profile/token files, session identity, and closing receipt"
+  },
+  "invariants": [
+    "Delegation is disabled by default and an unqualified run never receives the inbox decision credential as fallback",
+    "The SQLite journal stores delegation id, expiry, generation, and handoff state but never the token",
+    "An owner token must match vrd_ plus exactly 52 base32 characters before any handoff files are created",
+    "A metadata-only idempotent mint replay is revoked and followed by a durable generation advance and new mint; token files are never reread",
+    "The protected .sprintctl/backend.json marker and .vuoro profile/token are in the exact harness working directory and match owner repository and adapter profile identity",
+    "Foreign, symlinked, writable, or mismatched existing backend markers refuse before mint and launch without overwriting content",
+    "A recovered verified session is adopted without relaunch and keeps its delegation; an unverified launch outcome is never relaunched",
+    "Explicit revocation precedes result-linked; failed revocation remains closing and retryable"
+  ],
+  "faults": [
+    "Crash after owner mint before delegation metadata persistence",
+    "Crash after delegation metadata persistence",
+    "Crash after credential file write",
+    "Crash after profile file write",
+    "Crash after handoff file and directory fsync but before installed state persistence",
+    "Malformed token format",
+    "Wrong-content, writable, foreign-owner, symlinked, or writable-directory backend marker",
+    "Launch intent recovery with an existing verified session or no verified session",
+    "Owner revocation failure before settlement"
+  ],
+  "oracles": [
+    "Persisted SQLite row contains no token and generation/idempotency key advance exactly once on recovery",
+    "Fake owner records the abandoned delegation revoked and the replacement delegation revoked on settlement",
+    "Fake harness observes the exact served marker and profile in the session working directory and is created at most once",
+    "Refusal fixtures produce no delegation mint, no session, and no overwritten marker content",
+    "Receipt history orders explicit revoke before result-linked; retryable close remains open on revoke failure"
+  ],
+  "implementation_anchors": [
+    "scripts/host_adapter.py:Adapter._prepare_run_handoff",
+    "scripts/host_adapter.py:Adapter._ensure_served_backend_marker",
+    "scripts/host_adapter.py:Adapter._install_handoff",
+    "scripts/host_adapter.py:Adapter._on_run_registered",
+    "scripts/host_adapter.py:Adapter._on_launch_intent",
+    "scripts/host_adapter.py:Adapter._on_closing",
+    "scripts/tests/test_host_adapter.py:test_lost_one_time_token_is_revoked_then_reminted_without_relaunch",
+    "scripts/tests/test_host_adapter.py:test_untrusted_existing_served_backend_marker_refuses_before_mint_or_launch"
+  ],
+  "limits": [
+    "Bounded fake-owner/fake-harness examples only; no live Sprintctl owner API or host launch was exercised",
+    "The test asserts the client marker/profile wire in the exact harness CWD but does not invoke the deployed Sprintctl client against a live service",
+    "Synthetic ownership and mode fixtures do not qualify production Unix groups, ACLs, another user identity, Windows, or physical comfort",
+    "fsync call ordering is exercised but power-loss durability across SQLite and filesystem is unknown",
+    "Delegation qualification remains false and no host production configuration was enabled"
+  ]
+}
