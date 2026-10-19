@@ -132,13 +132,33 @@ def discover_stores(root: Path) -> dict[str, list[Path]]:
     return stores
 
 
+def in_git_work_tree(path: Path) -> bool:
+    """Whether ``path`` lies inside a git work tree."""
+    env = dict(os.environ, GIT_OPTIONAL_LOCKS="0")
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(path), "rev-parse", "--is-inside-work-tree"],
+            capture_output=True, text=True, timeout=60, env=env)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return proc.returncode == 0 and proc.stdout.strip() == "true"
+
+
 def discover_store_dirs(root: Path) -> dict[str, Path]:
-    """Map scope to one of its audit directories (used to locate the holding repository)."""
-    dirs: dict[str, Path] = {}
+    """Map scope to one of its audit directories (used to locate the holding repository).
+
+    A scope can have several: the estate keeps a copy at ``<root>/_artifacts/<scope>/audit``
+    beside the repository's own ``<root>/<scope>/_artifacts/<scope>/audit``. The copy sorts
+    first but is in no git work tree, so taking it reported every such scope as "no git
+    history to compare against" and alerted on repositories that were merely inactive.
+    Prefer a directory inside a git work tree; fall back to the first only when none is.
+    """
+    candidates: dict[str, list[Path]] = {}
     for audit_dir in sorted(root.glob(STORE_GLOB)):
         if audit_dir.is_dir():
-            dirs.setdefault(audit_dir.parent.name, audit_dir)
-    return dirs
+            candidates.setdefault(audit_dir.parent.name, []).append(audit_dir)
+    return {scope: next((d for d in dirs if in_git_work_tree(d)), dirs[0])
+            for scope, dirs in candidates.items()}
 
 
 def newest_commit(store_dir: Path) -> datetime | None:
