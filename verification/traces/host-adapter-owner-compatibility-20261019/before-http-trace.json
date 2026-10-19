@@ -1,0 +1,17 @@
+{
+  "base_commit": "a960f147a7f9afc771dcff32cf5a670f60c3c908",
+  "counterexample": "wrong expected environment was never checked; mutation returned accepted",
+  "result": {
+    "retired": true
+  },
+  "requests": [
+    [
+      "GET",
+      "/api/catalog/v1"
+    ],
+    [
+      "POST",
+      "/api/invoke/v1"
+    ]
+  ]
+}

@@ -1,0 +1,95 @@
+{
+  "schema_version": "test-context/v1",
+  "id": "host-adapter-owner-compatibility-2733",
+  "owner_repo": "agentops",
+  "subject": "Checked client initialization before invocation and metadata-only owner observation",
+  "contract_ref": {
+    "doc_id": "docs/architecture/host-adapter-owner-observation.md",
+    "revision": "candidate on git:a960f147a7f9afc771dcff32cf5a670f60c3c908"
+  },
+  "source_of_truth": "Existing released vuoro-client 0.1.1 handshake contract; actual VuoroOwner literal calls; immutable EC-01 agentops:vuoro-owner-port inventory",
+  "depth": 1,
+  "backends": [
+    "httpx.MockTransport over the released client",
+    "in-process fake client and catalog",
+    "existing live Vuoro profile, metadata GETs only"
+  ],
+  "actors": [
+    "synchronous host adapter",
+    "released asynchronous client",
+    "fixture transport",
+    "live read-only observer"
+  ],
+  "initial_state": [
+    "No cached owner client or event loop",
+    "Historical inventory contains all 14 current literal calls"
+  ],
+  "operations": [
+    {
+      "name": "initialize",
+      "actors": "*"
+    },
+    {
+      "name": "handshake",
+      "actors": "*"
+    },
+    {
+      "name": "invoke",
+      "actors": "*"
+    },
+    {
+      "name": "close",
+      "actors": "*"
+    },
+    {
+      "name": "inspect-owner",
+      "actors": "*"
+    }
+  ],
+  "consistency": {
+    "target": "application-invariant",
+    "object": "Owner client lifecycle and complete observation of declared call metadata"
+  },
+  "assumptions": {
+    "isolation": "One synchronous adapter thread owns each client/event loop; metadata reads do not create an atomic service snapshot"
+  },
+  "bounds": {
+    "owner_operations": 14,
+    "depth": "examples with fault injection; no concurrency/model proof"
+  },
+  "invariants": [
+    "No owner invocation before the existing client handshake succeeds",
+    "Failed initialization closes resources and never caches the failed client",
+    "Inspection performs only handshake/catalog reads and opens no execution dependencies",
+    "Every current declared owner call is represented; metadata equality never implies effective authority or execution acceptance",
+    "Reports omit credentials, profiles, endpoint/environment identity and arbitrary server error text"
+  ],
+  "faults": [
+    "wrong expected environment",
+    "unsupported protocol range",
+    "invalid supplied release identity",
+    "handshake 503 then retry",
+    "profile/client construction/entry/handshake failures",
+    "missing/duplicate/malformed/stale catalog or inventory",
+    "schema/authority/idempotency/scope/semantics/deprecation drift",
+    "unsupported schema feature",
+    "missing profile"
+  ],
+  "oracles": [
+    "Released-client request log contains no POST after handshake refusal",
+    "Failed client HTTP transport and event loops are closed before retry",
+    "All 14 rows have explicit exact/missing/ambiguous/drift/unavailable status",
+    "Forbidden State/harness/password constructors fail the inspection test",
+    "Live HTTP guard permits exactly the two metadata GET routes"
+  ],
+  "implementation_anchors": [
+    "scripts/host_adapter.py:VuoroOwner._ensure",
+    "scripts/host_adapter.py:inspect_owner",
+    "scripts/tests/test_host_adapter_owner_inspection.py",
+    "scripts/tests/test_host_adapter_released_client.py"
+  ],
+  "expansions": [
+    "semantic-doc",
+    "fault-scenario"
+  ]
+}

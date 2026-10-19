@@ -37,6 +37,7 @@ Commands:
 
     agentops host-adapter run [--once [--wait]]
     agentops host-adapter status [--json]
+    agentops host-adapter --profile PROFILE inspect-owner
     agentops host-adapter resolve <message_id> --abandon [--repo REPO]   # stop the service first;
                                                                          # ambiguous or stuck launched records
 """
@@ -44,6 +45,7 @@ Commands:
 from __future__ import annotations
 
 import argparse
+import ast
 import asyncio
 import base64
 import contextlib
@@ -51,6 +53,7 @@ import datetime as _dt
 import fcntl
 import functools
 import hashlib
+import importlib.metadata
 import json
 import os
 import re
@@ -172,7 +175,7 @@ class OwnerError(Exception):
 
 
 class OwnerPort(Protocol):
-    """The eleven owner operations the adapter and the hooks use."""
+    """The fourteen owner operations the adapter and the hooks use."""
 
     def agent_register(self, repo_id: str, *, instance_id: str, declaration: dict, idempotency_key: str) -> dict: ...
     def agent_observe(self, repo_id: str, *, instance_id: str, fact: str, valid_for_seconds: int,
@@ -216,24 +219,52 @@ class VuoroOwner:
         self._profile_path = Path(profile_path)
         self._loop: asyncio.AbstractEventLoop | None = None
         self._client: Any = None
+        self._handshake: dict | None = None
 
     def _ensure(self) -> Any:
         if self._client is None:
-            from vuoro_client import AsyncVuoroClient  # noqa: PLC0415 - optional dependency
-            from vuoro_client.profile import load_profile  # noqa: PLC0415
+            # __aenter__ does not perform the released client's handshake. Do
+            # not publish/cache a client until its profile/environment, protocol
+            # and supplied release identity have passed that existing contract.
+            loop = None
+            client = None
+            try:
+                from vuoro_client import AsyncVuoroClient  # noqa: PLC0415 - optional dependency
+                from vuoro_client.profile import load_profile  # noqa: PLC0415
 
-            self._loop = asyncio.new_event_loop()
-            client = AsyncVuoroClient(load_profile(self._profile_path), _file_credential)
-            self._loop.run_until_complete(client.__aenter__())
-            self._client = client
+                profile = load_profile(self._profile_path)
+                loop = asyncio.new_event_loop()
+                client = AsyncVuoroClient(profile, _file_credential)
+                loop.run_until_complete(client.__aenter__())
+                handshake = loop.run_until_complete(client.handshake())
+            except BaseException as exc:
+                if client is not None and loop is not None:
+                    with contextlib.suppress(Exception):
+                        loop.run_until_complete(client.__aexit__(None, None, None))
+                if loop is not None:
+                    loop.close()
+                if not isinstance(exc, Exception):
+                    raise
+                # Client/profile exceptions can contain endpoints, paths and
+                # server text. A refusal is useful without disclosing those.
+                raise OwnerError("owner-initialization-refused", "profile or handshake unavailable/incompatible") from None
+            self._loop, self._client, self._handshake = loop, client, handshake
         return self._client
 
     def close(self) -> None:
         if self._client is not None and self._loop is not None:
             with contextlib.suppress(Exception):
                 self._loop.run_until_complete(self._client.__aexit__(None, None, None))
+        if self._loop is not None:
             self._loop.close()
         self._client = self._loop = None
+        self._handshake = None
+
+    def metadata(self) -> tuple[dict, dict, frozenset[str]]:
+        """Read the checked handshake and a fresh catalog; never invoke an operation."""
+        client = self._ensure()
+        catalog = self._loop.run_until_complete(client.catalog(force_refresh=True))
+        return self._handshake, catalog, client.supported_schema_features
 
     def _invoke(self, operation: str, arguments: dict, repo_id: str, *,
                 idempotency_key: str | None = None) -> dict:
@@ -315,6 +346,156 @@ class VuoroOwner:
         return self._invoke("work.run.delegation-revoke-v1", {
             "delegation_id": delegation_id, "reason": reason,
             "idempotency_key": idempotency_key}, repo_id, idempotency_key=idempotency_key)
+
+
+# This is an observation against a historical EC-01 inventory, not an IDL or a
+# generated-client acceptance gate. Keep the snapshot immutable and name its
+# digest in each observation so drift is never silently re-baselined.
+OWNER_INVENTORY = Path(__file__).resolve().parents[1] / "docs/architecture/2026-10-18-estate-first-consumer-contracts.json"
+OWNER_CONTRACT_FIELDS = (
+    "name", "owning_domain", "repo_scoped", "required_authority", "idempotency",
+    "execution_semantics", "required_client_schema_features", "input_schema",
+    "result_schema", "deprecation",
+)
+
+
+def _metadata_digest(value: Any) -> str:
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"),
+                                    allow_nan=False).encode()).hexdigest()
+
+
+def _declared_owner_operations() -> list[str]:
+    """Extract the actual literal calls, refusing a newly dynamic owner surface."""
+    tree = ast.parse(Path(__file__).read_text(encoding="utf-8"))
+    owner = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "VuoroOwner")
+    names = []
+    for node in ast.walk(owner):
+        if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                and isinstance(node.func.value, ast.Name) and node.func.value.id == "self"
+                and node.func.attr == "_invoke"):
+            if not node.args or not isinstance(node.args[0], ast.Constant) or not isinstance(node.args[0].value, str):
+                raise ValueError("dynamic owner operation has no inventory binding")
+            names.append(node.args[0].value)
+    if not names or len(names) != len(set(names)):
+        raise ValueError("owner operation declaration is empty or ambiguous")
+    return sorted(names)
+
+
+def _owner_inventory(names: list[str]) -> tuple[dict[str, dict], dict]:
+    raw = OWNER_INVENTORY.read_bytes()
+    snapshot = json.loads(raw)
+    record = next(row for row in snapshot["records"] if row["id"] == "agentops:vuoro-owner-port")
+    contracts = record["operation_contracts"]
+    expected = {row["name"]: row for row in contracts}
+    if (len(expected) != len(contracts) or sorted(expected) != names
+            or sorted(record["operation_calls"]) != names
+            or any(not set(OWNER_CONTRACT_FIELDS) <= row.keys() for row in contracts)):
+        raise ValueError("inventory does not cover the current owner calls")
+    return expected, {
+        "inventory": "docs/architecture/2026-10-18-estate-first-consumer-contracts.json",
+        "inventory_sha256": hashlib.sha256(raw).hexdigest(),
+        "record": "agentops:vuoro-owner-port",
+        "adapter_source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        "operation_names_sha256": _metadata_digest(names),
+        "comparison": "exact canonical JSON for the inventoried fields; not semantic equivalence",
+    }
+
+
+def _owner_catalog_rows(expected: dict[str, dict], catalog: dict, supported: frozenset[str]) -> list[dict]:
+    """Join each declared call without exposing arbitrary returned service text."""
+    operations = catalog["operations"]
+    if not isinstance(operations, list) or any(not isinstance(op, dict) or not isinstance(op.get("name"), str)
+                                               for op in operations):
+        raise ValueError("malformed catalog")
+    rows = []
+    for name, contract in sorted(expected.items()):
+        matches = [op for op in operations if op["name"] == name]
+        row = {
+            "name": name, "status": "missing" if not matches else "ambiguous" if len(matches) != 1 else "exact-match",
+            "effective_authority": "unknown", "execution_acceptance": "unknown",
+            "expected": {key: contract[key] for key in (
+                "required_authority", "idempotency", "repo_scoped", "execution_semantics")},
+            "fields": {key: {"expected_sha256": _metadata_digest(contract[key]), "status": "unavailable"}
+                       for key in OWNER_CONTRACT_FIELDS},
+        }
+        if len(matches) == 1:
+            observed = matches[0]
+            features = observed.get("required_client_schema_features")
+            if not isinstance(features, list) or any(not isinstance(f, str) for f in features):
+                raise ValueError("malformed schema features")
+            row["client_schema_features"] = "supported" if set(features) <= supported else "unsupported"
+            for key in OWNER_CONTRACT_FIELDS:
+                field = {"expected_sha256": _metadata_digest(contract[key]), "status": "missing"}
+                if key in observed:
+                    field["observed_sha256"] = _metadata_digest(observed[key])
+                    field["status"] = "exact-match" if field["expected_sha256"] == field["observed_sha256"] else "drift"
+                row["fields"][key] = field
+            # An additive executable contract (e.g. resource-reference wrapping)
+            # is drift too. Do not silently ignore new fields in an owner spec.
+            row["additional_field_count"] = len(set(observed) - set(OWNER_CONTRACT_FIELDS))
+            if (any(f["status"] != "exact-match" for f in row["fields"].values())
+                    or row["client_schema_features"] != "supported" or row["additional_field_count"]):
+                row["status"] = "drift"
+        rows.append(row)
+    return rows
+
+
+def inspect_owner(profile_path: str | Path | None) -> dict:
+    """Metadata only: no State, harness, owner invoke, or effective-authority probe."""
+    report = {
+        "schema_version": "agentops-owner-observation/v1", "status": "unavailable",
+        "effective_authority": "unknown", "execution_acceptance": "unknown",
+        "metadata_only": True, "operations": [], "reason": "inventory-unavailable",
+        "limits": ["Catalog declarations do not establish effective authority or successful execution.",
+                   "Exact metadata equality is not semantic, deployment, or EC-chain qualification.",
+                   "The released client checks a supplied release identity; an absent release is unknown.",
+                   "Profiles, endpoints, credentials, environment names and raw server errors are omitted."],
+    }
+    owner = None
+    try:
+        names = _declared_owner_operations()
+        report["operations"] = [{"name": name, "status": "unavailable", "effective_authority": "unknown",
+                                 "execution_acceptance": "unknown"} for name in names]
+        expected, basis = _owner_inventory(names)
+        report["basis"] = basis
+        report["operations"] = [{
+            "name": name, "status": "unavailable", "effective_authority": "unknown",
+            "execution_acceptance": "unknown",
+            "expected": {key: contract[key] for key in (
+                "required_authority", "idempotency", "repo_scoped", "execution_semantics")},
+            "fields": {key: {"expected_sha256": _metadata_digest(contract[key]), "status": "unavailable"}
+                       for key in OWNER_CONTRACT_FIELDS},
+        } for name, contract in sorted(expected.items())]
+        try:
+            client_version = importlib.metadata.version("vuoro-client")
+        except importlib.metadata.PackageNotFoundError:
+            client_version = "unknown"
+        report["client"] = {"distribution": "vuoro-client", "version": client_version
+                            if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:[a-zA-Z0-9.+-]*)", client_version) else "unknown"}
+        report["reason"] = "profile-or-handshake-unavailable"
+        owner = VuoroOwner(profile_path)
+        owner._ensure()
+        report["reason"] = "catalog-unavailable"
+        handshake, catalog, supported = owner.metadata()
+        report["reason"] = "metadata-invalid"
+        rows = _owner_catalog_rows(expected, catalog, supported)
+        release = handshake.get("service_release")
+        # No arbitrary server strings are copied to the output, even on success.
+        report["handshake"] = {"client_checks": "passed", "release_identity": "validated" if release else "unknown",
+                               "release_sha256": _metadata_digest(release) if release else None}
+        report["catalog"] = {"revision_sha256": _metadata_digest(catalog.get("revision")),
+                             "operation_count": len(catalog["operations"])}
+        report["operations"] = rows
+        report["status"] = "exact-match" if all(row["status"] == "exact-match" for row in rows) else "drift"
+        report.pop("reason")
+    except Exception:
+        # Structured, bounded failure only. Exceptions can contain credential
+        # refs, endpoint URLs, private environment names or arbitrary response text.
+        pass
+    finally:
+        if owner is not None:
+            owner.close()
+    return report
 
 
 # --------------------------------------------------------------------------
@@ -1717,6 +1898,7 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--once", action="store_true", help="one poll, then exit")
     run.add_argument("--wait", action="store_true", help="with --once: keep ticking until launched runs settle")
     run.add_argument("--max-wait", type=float, default=900.0)
+    sub.add_parser("inspect-owner", help="read handshake/catalog and compare all owner contracts; no invocation")
     st = sub.add_parser("status", help="print processing records, including ambiguous ones")
     st.add_argument("--json", action="store_true")
     res = sub.add_parser(
@@ -1744,6 +1926,11 @@ def main(argv: list[str] | None = None) -> int:
                    f"{' AMBIGUOUS: ' + (r['detail'] or '') if r['state'] == S_AMBIGUOUS else ''}"
                    for r in rows]))
         return 0
+
+    if args.command == "inspect-owner":
+        report = inspect_owner(args.profile)
+        print(json.dumps(report, indent=2, sort_keys=True))
+        return {"exact-match": 0, "drift": 1, "unavailable": 2}[report["status"]]
 
     if not args.profile:
         print("host-adapter: --profile or AGENTOPS_HOST_ADAPTER_PROFILE is required", file=sys.stderr)

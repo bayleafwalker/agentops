@@ -1,0 +1,225 @@
+{
+  "checks": [
+    {
+      "topic": "audit-freshness",
+      "exit_code": 0
+    },
+    {
+      "topic": "auditctl-resolve",
+      "exit_code": 0
+    },
+    {
+      "topic": "check-append-only-shards",
+      "exit_code": 0
+    },
+    {
+      "topic": "check-ec01-owner-source-interfaces",
+      "exit_code": 0
+    },
+    {
+      "topic": "check-ec01-sprintctl-snapshot",
+      "exit_code": 0
+    },
+    {
+      "topic": "check-hook-wiring",
+      "exit_code": 0
+    },
+    {
+      "topic": "check-producers",
+      "exit_code": 0
+    },
+    {
+      "topic": "check-protected-paths",
+      "exit_code": 0
+    },
+    {
+      "topic": "check-templates-dispatch-allowlist",
+      "exit_code": 0
+    },
+    {
+      "topic": "check-trajectory-flags",
+      "exit_code": 0
+    },
+    {
+      "topic": "claude-agent-hooks",
+      "exit_code": 0
+    },
+    {
+      "topic": "commit-audit-shards",
+      "exit_code": 0
+    },
+    {
+      "topic": "cost-per-release",
+      "exit_code": 0
+    },
+    {
+      "topic": "dispatch-publish",
+      "exit_code": 0
+    },
+    {
+      "topic": "dispatch-publish-check",
+      "exit_code": 0
+    },
+    {
+      "topic": "dispatch-run-branches",
+      "exit_code": 0
+    },
+    {
+      "topic": "estate-mcp",
+      "exit_code": 0
+    },
+    {
+      "topic": "estate-status",
+      "exit_code": 0
+    },
+    {
+      "topic": "evidence-completeness",
+      "exit_code": 0
+    },
+    {
+      "topic": "execution-authority",
+      "exit_code": 0
+    },
+    {
+      "topic": "handoff",
+      "exit_code": 0
+    },
+    {
+      "topic": "handoff-codex",
+      "exit_code": 0
+    },
+    {
+      "topic": "host-adapter",
+      "exit_code": 0
+    },
+    {
+      "topic": "jev-client",
+      "exit_code": 0
+    },
+    {
+      "topic": "jev-shadow",
+      "exit_code": 0
+    },
+    {
+      "topic": "jev-shadow-report",
+      "exit_code": 0
+    },
+    {
+      "topic": "maintenance-lane-report",
+      "exit_code": 0
+    },
+    {
+      "topic": "materialize-project",
+      "exit_code": 0
+    },
+    {
+      "topic": "metanarrative",
+      "exit_code": 0
+    },
+    {
+      "topic": "profile-comparison",
+      "exit_code": 0
+    },
+    {
+      "topic": "project-release",
+      "exit_code": 0
+    },
+    {
+      "topic": "qualify-inbox-m2c",
+      "exit_code": 0
+    },
+    {
+      "topic": "query-audit-attribution",
+      "exit_code": 0
+    },
+    {
+      "topic": "reconstructability-coverage",
+      "exit_code": 0
+    },
+    {
+      "topic": "render-disposition-fragment",
+      "exit_code": 0
+    },
+    {
+      "topic": "render-environment-context",
+      "exit_code": 0
+    },
+    {
+      "topic": "render-project",
+      "exit_code": 0
+    },
+    {
+      "topic": "render-workspace-agents",
+      "exit_code": 0
+    },
+    {
+      "topic": "resolve-environment-record",
+      "exit_code": 0
+    },
+    {
+      "topic": "routine-pr-conformance",
+      "exit_code": 0
+    },
+    {
+      "topic": "run-manifest",
+      "exit_code": 0
+    },
+    {
+      "topic": "schema-check",
+      "exit_code": 0
+    },
+    {
+      "topic": "session-binding",
+      "exit_code": 0
+    },
+    {
+      "topic": "session-mechanization-trigger",
+      "exit_code": 0
+    },
+    {
+      "topic": "session-notes",
+      "exit_code": 0
+    },
+    {
+      "topic": "session-reconciler",
+      "exit_code": 0
+    },
+    {
+      "topic": "session-scribe",
+      "exit_code": 0
+    },
+    {
+      "topic": "sync-skills",
+      "exit_code": 0
+    },
+    {
+      "topic": "validate-client-compatibility",
+      "exit_code": 0
+    },
+    {
+      "topic": "validate-dispatch-manifest",
+      "exit_code": 0
+    },
+    {
+      "topic": "validate-model-records",
+      "exit_code": 0
+    },
+    {
+      "topic": "validate-session-mechanization-artifacts",
+      "exit_code": 0
+    },
+    {
+      "topic": "validate-verification-artifacts",
+      "exit_code": 0
+    },
+    {
+      "topic": "validate-vuoro-profiles",
+      "exit_code": 0
+    },
+    {
+      "topic": "vuoro-run-records",
+      "exit_code": 0
+    }
+  ],
+  "failures": []
+}
