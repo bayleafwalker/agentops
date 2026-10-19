@@ -1,0 +1,50 @@
+FFFFF
+======================================================================
+FAIL: test_failed_handshake_retry_uses_fresh_client_and_closes_old (__main__.ReleasedClientBoundary.test_failed_handshake_retry_uses_fresh_client_and_closes_old)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/agentops-ec01-owner-compatibility-20261019/scripts/tests/test_host_adapter_released_client.py", line 87, in test_failed_handshake_retry_uses_fresh_client_and_closes_old
+    with self.assertRaises(ha.OwnerError):
+         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+AssertionError: OwnerError not raised
+
+======================================================================
+FAIL: test_success_handshakes_once_and_preserves_invocation (__main__.ReleasedClientBoundary.test_success_handshakes_once_and_preserves_invocation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/agentops-ec01-owner-compatibility-20261019/scripts/tests/test_host_adapter_released_client.py", line 100, in test_success_handshakes_once_and_preserves_invocation
+    self.assertEqual(self.requests.count(("GET", "/api/meta/v1/handshake")), 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_wrong_environment_refuses_before_invoke (__main__.ReleasedClientBoundary.test_wrong_environment_refuses_before_invoke)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/agentops-ec01-owner-compatibility-20261019/scripts/tests/test_host_adapter_released_client.py", line 66, in test_wrong_environment_refuses_before_invoke
+    with self.assertRaises(ha.OwnerError):
+         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+AssertionError: OwnerError not raised
+
+======================================================================
+FAIL: test_wrong_protocol_refuses_before_invoke (__main__.ReleasedClientBoundary.test_wrong_protocol_refuses_before_invoke)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/agentops-ec01-owner-compatibility-20261019/scripts/tests/test_host_adapter_released_client.py", line 75, in test_wrong_protocol_refuses_before_invoke
+    with self.assertRaises(ha.OwnerError):
+         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+AssertionError: OwnerError not raised
+
+======================================================================
+FAIL: test_wrong_release_refuses_before_invoke (__main__.ReleasedClientBoundary.test_wrong_release_refuses_before_invoke)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/agentops-ec01-owner-compatibility-20261019/scripts/tests/test_host_adapter_released_client.py", line 81, in test_wrong_release_refuses_before_invoke
+    with self.assertRaises(ha.OwnerError):
+         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+AssertionError: OwnerError not raised
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.006s
+
+FAILED (failures=5)

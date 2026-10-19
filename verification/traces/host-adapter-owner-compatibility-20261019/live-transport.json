@@ -1,0 +1,18 @@
+{
+  "adapter_source_sha256": "8ce58f0062845370f21124c86c44ebc7482ab8e4f34d132310bdda2494d35c12",
+  "effective_authority": "unknown",
+  "execution_acceptance": "unknown",
+  "guard": "HTTP client request boundary refuses everything except the two metadata GET paths",
+  "operation_count": 14,
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/api/meta/v1/handshake"
+    },
+    {
+      "method": "GET",
+      "path": "/api/catalog/v1"
+    }
+  ],
+  "status": "exact-match"
+}

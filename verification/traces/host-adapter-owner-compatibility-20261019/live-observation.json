@@ -1,0 +1,960 @@
+{
+  "basis": {
+    "adapter_source_sha256": "8ce58f0062845370f21124c86c44ebc7482ab8e4f34d132310bdda2494d35c12",
+    "comparison": "exact canonical JSON for the inventoried fields; not semantic equivalence",
+    "inventory": "docs/architecture/2026-10-18-estate-first-consumer-contracts.json",
+    "inventory_sha256": "6d01d0892377dcc32a87a281af6cf35560aaabd0f49fd3c1bc4ba2cd5536165d",
+    "operation_names_sha256": "47c22d9b879ba7f46c0ef7ebd6fc8cc8263eccc3bde1bac65177439384617d52",
+    "record": "agentops:vuoro-owner-port"
+  },
+  "catalog": {
+    "operation_count": 126,
+    "revision_sha256": "476675ea9e07af50797807fe7777c470149425944f744e24f329d3b18cabe90e"
+  },
+  "client": {
+    "distribution": "vuoro-client",
+    "version": "0.1.1"
+  },
+  "effective_authority": "unknown",
+  "execution_acceptance": "unknown",
+  "handshake": {
+    "client_checks": "passed",
+    "release_identity": "validated",
+    "release_sha256": "ab359c8c7044387d578ea5c684273c754c329e634d5aa9318ed73a9a3e5aae56"
+  },
+  "limits": [
+    "Catalog declarations do not establish effective authority or successful execution.",
+    "Exact metadata equality is not semantic, deployment, or EC-chain qualification.",
+    "The released client checks a supplied release identity; an absent release is unknown.",
+    "Profiles, endpoints, credentials, environment names and raw server errors are omitted."
+  ],
+  "metadata_only": true,
+  "operations": [
+    {
+      "additional_field_count": 0,
+      "client_schema_features": "supported",
+      "effective_authority": "unknown",
+      "execution_acceptance": "unknown",
+      "expected": {
+        "execution_semantics": "read",
+        "idempotency": "not-allowed",
+        "repo_scoped": true,
+        "required_authority": "work:read"
+      },
+      "fields": {
+        "deprecation": {
+          "expected_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "observed_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "status": "exact-match"
+        },
+        "execution_semantics": {
+          "expected_sha256": "6f3658822a73dc4c1d09ba64a062d0d1ef89fb250f5f5923c3a1755c2f63b1db",
+          "observed_sha256": "6f3658822a73dc4c1d09ba64a062d0d1ef89fb250f5f5923c3a1755c2f63b1db",
+          "status": "exact-match"
+        },
+        "idempotency": {
+          "expected_sha256": "4d2d744a808eec43cfe99d3c91045b23dc3ae50c83b5b1d0aded8fa086390f35",
+          "observed_sha256": "4d2d744a808eec43cfe99d3c91045b23dc3ae50c83b5b1d0aded8fa086390f35",
+          "status": "exact-match"
+        },
+        "input_schema": {
+          "expected_sha256": "74457b2427bc71864360fd97fbfdca76ce64af875b7cd114c844c56cd643e673",
+          "observed_sha256": "74457b2427bc71864360fd97fbfdca76ce64af875b7cd114c844c56cd643e673",
+          "status": "exact-match"
+        },
+        "name": {
+          "expected_sha256": "77b40c0ee2a000b730ba35f6f81f09c6efa6a5a556abfcd09fbfb3d6d74693cf",
+          "observed_sha256": "77b40c0ee2a000b730ba35f6f81f09c6efa6a5a556abfcd09fbfb3d6d74693cf",
+          "status": "exact-match"
+        },
+        "owning_domain": {
+          "expected_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "observed_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "status": "exact-match"
+        },
+        "repo_scoped": {
+          "expected_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "observed_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "status": "exact-match"
+        },
+        "required_authority": {
+          "expected_sha256": "2b9c1372aeec8db44944ef2bd40a43bc3627ea668bc2fe30ecd8be348b21eae1",
+          "observed_sha256": "2b9c1372aeec8db44944ef2bd40a43bc3627ea668bc2fe30ecd8be348b21eae1",
+          "status": "exact-match"
+        },
+        "required_client_schema_features": {
+          "expected_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "observed_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "status": "exact-match"
+        },
+        "result_schema": {
+          "expected_sha256": "8656901fa28cdb1d2b0f57c2e93dc5f3b5047e19b738bf9c9a28194eb4ccc5e7",
+          "observed_sha256": "8656901fa28cdb1d2b0f57c2e93dc5f3b5047e19b738bf9c9a28194eb4ccc5e7",
+          "status": "exact-match"
+        }
+      },
+      "name": "work.agent.describe-v1",
+      "status": "exact-match"
+    },
+    {
+      "additional_field_count": 0,
+      "client_schema_features": "supported",
+      "effective_authority": "unknown",
+      "execution_acceptance": "unknown",
+      "expected": {
+        "execution_semantics": "read",
+        "idempotency": "not-allowed",
+        "repo_scoped": true,
+        "required_authority": "work:read"
+      },
+      "fields": {
+        "deprecation": {
+          "expected_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "observed_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "status": "exact-match"
+        },
+        "execution_semantics": {
+          "expected_sha256": "6f3658822a73dc4c1d09ba64a062d0d1ef89fb250f5f5923c3a1755c2f63b1db",
+          "observed_sha256": "6f3658822a73dc4c1d09ba64a062d0d1ef89fb250f5f5923c3a1755c2f63b1db",
+          "status": "exact-match"
+        },
+        "idempotency": {
+          "expected_sha256": "4d2d744a808eec43cfe99d3c91045b23dc3ae50c83b5b1d0aded8fa086390f35",
+          "observed_sha256": "4d2d744a808eec43cfe99d3c91045b23dc3ae50c83b5b1d0aded8fa086390f35",
+          "status": "exact-match"
+        },
+        "input_schema": {
+          "expected_sha256": "042facf3b558f981b2e7ab32c8de9dac3ff01862a589cba601011689aff8b296",
+          "observed_sha256": "042facf3b558f981b2e7ab32c8de9dac3ff01862a589cba601011689aff8b296",
+          "status": "exact-match"
+        },
+        "name": {
+          "expected_sha256": "b105b0512bcd61c1de9316cd9b54ecd0aac5d109d9fb9c2075c3a4bae83ce488",
+          "observed_sha256": "b105b0512bcd61c1de9316cd9b54ecd0aac5d109d9fb9c2075c3a4bae83ce488",
+          "status": "exact-match"
+        },
+        "owning_domain": {
+          "expected_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "observed_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "status": "exact-match"
+        },
+        "repo_scoped": {
+          "expected_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "observed_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "status": "exact-match"
+        },
+        "required_authority": {
+          "expected_sha256": "2b9c1372aeec8db44944ef2bd40a43bc3627ea668bc2fe30ecd8be348b21eae1",
+          "observed_sha256": "2b9c1372aeec8db44944ef2bd40a43bc3627ea668bc2fe30ecd8be348b21eae1",
+          "status": "exact-match"
+        },
+        "required_client_schema_features": {
+          "expected_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "observed_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "status": "exact-match"
+        },
+        "result_schema": {
+          "expected_sha256": "028e881ca2c500ea60c4430a4f02d699a9b7cd720a99d2167714c2e96d3b1d4d",
+          "observed_sha256": "028e881ca2c500ea60c4430a4f02d699a9b7cd720a99d2167714c2e96d3b1d4d",
+          "status": "exact-match"
+        }
+      },
+      "name": "work.agent.list-v1",
+      "status": "exact-match"
+    },
+    {
+      "additional_field_count": 0,
+      "client_schema_features": "supported",
+      "effective_authority": "unknown",
+      "execution_acceptance": "unknown",
+      "expected": {
+        "execution_semantics": "write",
+        "idempotency": "not-allowed",
+        "repo_scoped": true,
+        "required_authority": "work:evidence"
+      },
+      "fields": {
+        "deprecation": {
+          "expected_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "observed_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "status": "exact-match"
+        },
+        "execution_semantics": {
+          "expected_sha256": "bc2434a12fecfa191ab66b56a67f8fe2507216b76be96a72b1f866562cdc3567",
+          "observed_sha256": "bc2434a12fecfa191ab66b56a67f8fe2507216b76be96a72b1f866562cdc3567",
+          "status": "exact-match"
+        },
+        "idempotency": {
+          "expected_sha256": "4d2d744a808eec43cfe99d3c91045b23dc3ae50c83b5b1d0aded8fa086390f35",
+          "observed_sha256": "4d2d744a808eec43cfe99d3c91045b23dc3ae50c83b5b1d0aded8fa086390f35",
+          "status": "exact-match"
+        },
+        "input_schema": {
+          "expected_sha256": "34db7c6dd9425a15a38960a824bd7637f464477d5f7b010d100fc3f1ad61f9ba",
+          "observed_sha256": "34db7c6dd9425a15a38960a824bd7637f464477d5f7b010d100fc3f1ad61f9ba",
+          "status": "exact-match"
+        },
+        "name": {
+          "expected_sha256": "db3138cb05318ab04b024b184be641c3daa535298f84a771c3e4e61482e50ce9",
+          "observed_sha256": "db3138cb05318ab04b024b184be641c3daa535298f84a771c3e4e61482e50ce9",
+          "status": "exact-match"
+        },
+        "owning_domain": {
+          "expected_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "observed_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "status": "exact-match"
+        },
+        "repo_scoped": {
+          "expected_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "observed_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "status": "exact-match"
+        },
+        "required_authority": {
+          "expected_sha256": "5806950b59b550611a218bb1b2d0f7d007bf2cd597c97edf70949658b5a6b66e",
+          "observed_sha256": "5806950b59b550611a218bb1b2d0f7d007bf2cd597c97edf70949658b5a6b66e",
+          "status": "exact-match"
+        },
+        "required_client_schema_features": {
+          "expected_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "observed_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "status": "exact-match"
+        },
+        "result_schema": {
+          "expected_sha256": "b970e0a0669cd629a0828835b0d13b627b81f4d3c6e9d99c8c9a1d02c33467d6",
+          "observed_sha256": "b970e0a0669cd629a0828835b0d13b627b81f4d3c6e9d99c8c9a1d02c33467d6",
+          "status": "exact-match"
+        }
+      },
+      "name": "work.agent.observe-v1",
+      "status": "exact-match"
+    },
+    {
+      "additional_field_count": 0,
+      "client_schema_features": "supported",
+      "effective_authority": "unknown",
+      "execution_acceptance": "unknown",
+      "expected": {
+        "execution_semantics": "write",
+        "idempotency": "not-allowed",
+        "repo_scoped": true,
+        "required_authority": "work:evidence"
+      },
+      "fields": {
+        "deprecation": {
+          "expected_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "observed_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "status": "exact-match"
+        },
+        "execution_semantics": {
+          "expected_sha256": "bc2434a12fecfa191ab66b56a67f8fe2507216b76be96a72b1f866562cdc3567",
+          "observed_sha256": "bc2434a12fecfa191ab66b56a67f8fe2507216b76be96a72b1f866562cdc3567",
+          "status": "exact-match"
+        },
+        "idempotency": {
+          "expected_sha256": "4d2d744a808eec43cfe99d3c91045b23dc3ae50c83b5b1d0aded8fa086390f35",
+          "observed_sha256": "4d2d744a808eec43cfe99d3c91045b23dc3ae50c83b5b1d0aded8fa086390f35",
+          "status": "exact-match"
+        },
+        "input_schema": {
+          "expected_sha256": "d36613392928d248e229d2a168436aea83a13fa6eb8590f827d99f95367bb3ba",
+          "observed_sha256": "d36613392928d248e229d2a168436aea83a13fa6eb8590f827d99f95367bb3ba",
+          "status": "exact-match"
+        },
+        "name": {
+          "expected_sha256": "eaee169e8353b83fbc623bf4590489741f348c7d56d48a5ee68999d0d856d725",
+          "observed_sha256": "eaee169e8353b83fbc623bf4590489741f348c7d56d48a5ee68999d0d856d725",
+          "status": "exact-match"
+        },
+        "owning_domain": {
+          "expected_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "observed_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "status": "exact-match"
+        },
+        "repo_scoped": {
+          "expected_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "observed_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "status": "exact-match"
+        },
+        "required_authority": {
+          "expected_sha256": "5806950b59b550611a218bb1b2d0f7d007bf2cd597c97edf70949658b5a6b66e",
+          "observed_sha256": "5806950b59b550611a218bb1b2d0f7d007bf2cd597c97edf70949658b5a6b66e",
+          "status": "exact-match"
+        },
+        "required_client_schema_features": {
+          "expected_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "observed_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "status": "exact-match"
+        },
+        "result_schema": {
+          "expected_sha256": "b2340878e550b771914cf0a292165bd921f637000e747814aeb8020ad01437ae",
+          "observed_sha256": "b2340878e550b771914cf0a292165bd921f637000e747814aeb8020ad01437ae",
+          "status": "exact-match"
+        }
+      },
+      "name": "work.agent.register-v1",
+      "status": "exact-match"
+    },
+    {
+      "additional_field_count": 0,
+      "client_schema_features": "supported",
+      "effective_authority": "unknown",
+      "execution_acceptance": "unknown",
+      "expected": {
+        "execution_semantics": "write",
+        "idempotency": "not-allowed",
+        "repo_scoped": true,
+        "required_authority": "work:evidence"
+      },
+      "fields": {
+        "deprecation": {
+          "expected_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "observed_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "status": "exact-match"
+        },
+        "execution_semantics": {
+          "expected_sha256": "bc2434a12fecfa191ab66b56a67f8fe2507216b76be96a72b1f866562cdc3567",
+          "observed_sha256": "bc2434a12fecfa191ab66b56a67f8fe2507216b76be96a72b1f866562cdc3567",
+          "status": "exact-match"
+        },
+        "idempotency": {
+          "expected_sha256": "4d2d744a808eec43cfe99d3c91045b23dc3ae50c83b5b1d0aded8fa086390f35",
+          "observed_sha256": "4d2d744a808eec43cfe99d3c91045b23dc3ae50c83b5b1d0aded8fa086390f35",
+          "status": "exact-match"
+        },
+        "input_schema": {
+          "expected_sha256": "b1d10361608dbdcef72674538c2a36a56e0a499eeddc153a2aed05209dfd9595",
+          "observed_sha256": "b1d10361608dbdcef72674538c2a36a56e0a499eeddc153a2aed05209dfd9595",
+          "status": "exact-match"
+        },
+        "name": {
+          "expected_sha256": "4205d9a9adbfda2a1f504633fa27ccd374f2ecf62f0dcc199406a233ce8c4c51",
+          "observed_sha256": "4205d9a9adbfda2a1f504633fa27ccd374f2ecf62f0dcc199406a233ce8c4c51",
+          "status": "exact-match"
+        },
+        "owning_domain": {
+          "expected_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "observed_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "status": "exact-match"
+        },
+        "repo_scoped": {
+          "expected_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "observed_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "status": "exact-match"
+        },
+        "required_authority": {
+          "expected_sha256": "5806950b59b550611a218bb1b2d0f7d007bf2cd597c97edf70949658b5a6b66e",
+          "observed_sha256": "5806950b59b550611a218bb1b2d0f7d007bf2cd597c97edf70949658b5a6b66e",
+          "status": "exact-match"
+        },
+        "required_client_schema_features": {
+          "expected_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "observed_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "status": "exact-match"
+        },
+        "result_schema": {
+          "expected_sha256": "e9f6b4c8252b2d30858c5cc0a6bc93d628decc2bfc1325e5fdbf0e8d86f97dc1",
+          "observed_sha256": "e9f6b4c8252b2d30858c5cc0a6bc93d628decc2bfc1325e5fdbf0e8d86f97dc1",
+          "status": "exact-match"
+        }
+      },
+      "name": "work.agent.retire-v1",
+      "status": "exact-match"
+    },
+    {
+      "additional_field_count": 0,
+      "client_schema_features": "supported",
+      "effective_authority": "unknown",
+      "execution_acceptance": "unknown",
+      "expected": {
+        "execution_semantics": "write",
+        "idempotency": "not-allowed",
+        "repo_scoped": true,
+        "required_authority": "work:evidence"
+      },
+      "fields": {
+        "deprecation": {
+          "expected_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "observed_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "status": "exact-match"
+        },
+        "execution_semantics": {
+          "expected_sha256": "bc2434a12fecfa191ab66b56a67f8fe2507216b76be96a72b1f866562cdc3567",
+          "observed_sha256": "bc2434a12fecfa191ab66b56a67f8fe2507216b76be96a72b1f866562cdc3567",
+          "status": "exact-match"
+        },
+        "idempotency": {
+          "expected_sha256": "4d2d744a808eec43cfe99d3c91045b23dc3ae50c83b5b1d0aded8fa086390f35",
+          "observed_sha256": "4d2d744a808eec43cfe99d3c91045b23dc3ae50c83b5b1d0aded8fa086390f35",
+          "status": "exact-match"
+        },
+        "input_schema": {
+          "expected_sha256": "02499df173b99508802be665a04dde92acdd7173d518b52b001b9157ef6ac0ad",
+          "observed_sha256": "02499df173b99508802be665a04dde92acdd7173d518b52b001b9157ef6ac0ad",
+          "status": "exact-match"
+        },
+        "name": {
+          "expected_sha256": "ced4de12e36ab6512c1b75feff89594947541639a19af056ad3a596a5c3eb19c",
+          "observed_sha256": "ced4de12e36ab6512c1b75feff89594947541639a19af056ad3a596a5c3eb19c",
+          "status": "exact-match"
+        },
+        "owning_domain": {
+          "expected_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "observed_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "status": "exact-match"
+        },
+        "repo_scoped": {
+          "expected_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "observed_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "status": "exact-match"
+        },
+        "required_authority": {
+          "expected_sha256": "5806950b59b550611a218bb1b2d0f7d007bf2cd597c97edf70949658b5a6b66e",
+          "observed_sha256": "5806950b59b550611a218bb1b2d0f7d007bf2cd597c97edf70949658b5a6b66e",
+          "status": "exact-match"
+        },
+        "required_client_schema_features": {
+          "expected_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "observed_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "status": "exact-match"
+        },
+        "result_schema": {
+          "expected_sha256": "93788a4c5d40234c4792571fd9c349a2bbae04e81495da0a84845aae87baf3ff",
+          "observed_sha256": "93788a4c5d40234c4792571fd9c349a2bbae04e81495da0a84845aae87baf3ff",
+          "status": "exact-match"
+        }
+      },
+      "name": "work.message.cancel-v1",
+      "status": "exact-match"
+    },
+    {
+      "additional_field_count": 0,
+      "client_schema_features": "supported",
+      "effective_authority": "unknown",
+      "execution_acceptance": "unknown",
+      "expected": {
+        "execution_semantics": "read",
+        "idempotency": "not-allowed",
+        "repo_scoped": true,
+        "required_authority": "work:read"
+      },
+      "fields": {
+        "deprecation": {
+          "expected_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "observed_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "status": "exact-match"
+        },
+        "execution_semantics": {
+          "expected_sha256": "6f3658822a73dc4c1d09ba64a062d0d1ef89fb250f5f5923c3a1755c2f63b1db",
+          "observed_sha256": "6f3658822a73dc4c1d09ba64a062d0d1ef89fb250f5f5923c3a1755c2f63b1db",
+          "status": "exact-match"
+        },
+        "idempotency": {
+          "expected_sha256": "4d2d744a808eec43cfe99d3c91045b23dc3ae50c83b5b1d0aded8fa086390f35",
+          "observed_sha256": "4d2d744a808eec43cfe99d3c91045b23dc3ae50c83b5b1d0aded8fa086390f35",
+          "status": "exact-match"
+        },
+        "input_schema": {
+          "expected_sha256": "665908b1bbb5facc77939cededc09465368d2e31699a201f3749b97760068449",
+          "observed_sha256": "665908b1bbb5facc77939cededc09465368d2e31699a201f3749b97760068449",
+          "status": "exact-match"
+        },
+        "name": {
+          "expected_sha256": "30d70b6a8e1abc02434b67262c4ea5fbd840ddd035a6678ccefc31ada976cec9",
+          "observed_sha256": "30d70b6a8e1abc02434b67262c4ea5fbd840ddd035a6678ccefc31ada976cec9",
+          "status": "exact-match"
+        },
+        "owning_domain": {
+          "expected_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "observed_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "status": "exact-match"
+        },
+        "repo_scoped": {
+          "expected_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "observed_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "status": "exact-match"
+        },
+        "required_authority": {
+          "expected_sha256": "2b9c1372aeec8db44944ef2bd40a43bc3627ea668bc2fe30ecd8be348b21eae1",
+          "observed_sha256": "2b9c1372aeec8db44944ef2bd40a43bc3627ea668bc2fe30ecd8be348b21eae1",
+          "status": "exact-match"
+        },
+        "required_client_schema_features": {
+          "expected_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "observed_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "status": "exact-match"
+        },
+        "result_schema": {
+          "expected_sha256": "70b78ddc791243973261e6c0c4831be1337e9d1a1be88c51271783b5ccc67d8b",
+          "observed_sha256": "70b78ddc791243973261e6c0c4831be1337e9d1a1be88c51271783b5ccc67d8b",
+          "status": "exact-match"
+        }
+      },
+      "name": "work.message.read-v1",
+      "status": "exact-match"
+    },
+    {
+      "additional_field_count": 0,
+      "client_schema_features": "supported",
+      "effective_authority": "unknown",
+      "execution_acceptance": "unknown",
+      "expected": {
+        "execution_semantics": "write",
+        "idempotency": "not-allowed",
+        "repo_scoped": true,
+        "required_authority": "work:evidence"
+      },
+      "fields": {
+        "deprecation": {
+          "expected_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "observed_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "status": "exact-match"
+        },
+        "execution_semantics": {
+          "expected_sha256": "bc2434a12fecfa191ab66b56a67f8fe2507216b76be96a72b1f866562cdc3567",
+          "observed_sha256": "bc2434a12fecfa191ab66b56a67f8fe2507216b76be96a72b1f866562cdc3567",
+          "status": "exact-match"
+        },
+        "idempotency": {
+          "expected_sha256": "4d2d744a808eec43cfe99d3c91045b23dc3ae50c83b5b1d0aded8fa086390f35",
+          "observed_sha256": "4d2d744a808eec43cfe99d3c91045b23dc3ae50c83b5b1d0aded8fa086390f35",
+          "status": "exact-match"
+        },
+        "input_schema": {
+          "expected_sha256": "de69da372b32d71b23330e84cdccca2ec30b74fba4a8e0304eb19300eaa0a330",
+          "observed_sha256": "de69da372b32d71b23330e84cdccca2ec30b74fba4a8e0304eb19300eaa0a330",
+          "status": "exact-match"
+        },
+        "name": {
+          "expected_sha256": "44dc0706269c6b28345e757662e82185ab0e1a5ba30093282882b7e92cc3a619",
+          "observed_sha256": "44dc0706269c6b28345e757662e82185ab0e1a5ba30093282882b7e92cc3a619",
+          "status": "exact-match"
+        },
+        "owning_domain": {
+          "expected_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "observed_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "status": "exact-match"
+        },
+        "repo_scoped": {
+          "expected_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "observed_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "status": "exact-match"
+        },
+        "required_authority": {
+          "expected_sha256": "5806950b59b550611a218bb1b2d0f7d007bf2cd597c97edf70949658b5a6b66e",
+          "observed_sha256": "5806950b59b550611a218bb1b2d0f7d007bf2cd597c97edf70949658b5a6b66e",
+          "status": "exact-match"
+        },
+        "required_client_schema_features": {
+          "expected_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "observed_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "status": "exact-match"
+        },
+        "result_schema": {
+          "expected_sha256": "93788a4c5d40234c4792571fd9c349a2bbae04e81495da0a84845aae87baf3ff",
+          "observed_sha256": "93788a4c5d40234c4792571fd9c349a2bbae04e81495da0a84845aae87baf3ff",
+          "status": "exact-match"
+        }
+      },
+      "name": "work.message.receipt-v1",
+      "status": "exact-match"
+    },
+    {
+      "additional_field_count": 0,
+      "client_schema_features": "supported",
+      "effective_authority": "unknown",
+      "execution_acceptance": "unknown",
+      "expected": {
+        "execution_semantics": "write",
+        "idempotency": "not-allowed",
+        "repo_scoped": true,
+        "required_authority": "work:evidence"
+      },
+      "fields": {
+        "deprecation": {
+          "expected_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "observed_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "status": "exact-match"
+        },
+        "execution_semantics": {
+          "expected_sha256": "bc2434a12fecfa191ab66b56a67f8fe2507216b76be96a72b1f866562cdc3567",
+          "observed_sha256": "bc2434a12fecfa191ab66b56a67f8fe2507216b76be96a72b1f866562cdc3567",
+          "status": "exact-match"
+        },
+        "idempotency": {
+          "expected_sha256": "4d2d744a808eec43cfe99d3c91045b23dc3ae50c83b5b1d0aded8fa086390f35",
+          "observed_sha256": "4d2d744a808eec43cfe99d3c91045b23dc3ae50c83b5b1d0aded8fa086390f35",
+          "status": "exact-match"
+        },
+        "input_schema": {
+          "expected_sha256": "b6dbdc9d68767174a2cce727334b7d49c28ee067001d520011dfe6ba1191bacb",
+          "observed_sha256": "b6dbdc9d68767174a2cce727334b7d49c28ee067001d520011dfe6ba1191bacb",
+          "status": "exact-match"
+        },
+        "name": {
+          "expected_sha256": "28abd9244b51cc71f75bc56b284ac1a54854c0a7664e99e628a8b16c0e83345e",
+          "observed_sha256": "28abd9244b51cc71f75bc56b284ac1a54854c0a7664e99e628a8b16c0e83345e",
+          "status": "exact-match"
+        },
+        "owning_domain": {
+          "expected_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "observed_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "status": "exact-match"
+        },
+        "repo_scoped": {
+          "expected_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "observed_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "status": "exact-match"
+        },
+        "required_authority": {
+          "expected_sha256": "5806950b59b550611a218bb1b2d0f7d007bf2cd597c97edf70949658b5a6b66e",
+          "observed_sha256": "5806950b59b550611a218bb1b2d0f7d007bf2cd597c97edf70949658b5a6b66e",
+          "status": "exact-match"
+        },
+        "required_client_schema_features": {
+          "expected_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "observed_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "status": "exact-match"
+        },
+        "result_schema": {
+          "expected_sha256": "e1b872d1b7db558e690c364aacc004598e7f4ede13ce4fcdd714a8f0a8ce700b",
+          "observed_sha256": "e1b872d1b7db558e690c364aacc004598e7f4ede13ce4fcdd714a8f0a8ce700b",
+          "status": "exact-match"
+        }
+      },
+      "name": "work.message.send-v1",
+      "status": "exact-match"
+    },
+    {
+      "additional_field_count": 0,
+      "client_schema_features": "supported",
+      "effective_authority": "unknown",
+      "execution_acceptance": "unknown",
+      "expected": {
+        "execution_semantics": "read",
+        "idempotency": "not-allowed",
+        "repo_scoped": true,
+        "required_authority": "work:read"
+      },
+      "fields": {
+        "deprecation": {
+          "expected_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "observed_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "status": "exact-match"
+        },
+        "execution_semantics": {
+          "expected_sha256": "6f3658822a73dc4c1d09ba64a062d0d1ef89fb250f5f5923c3a1755c2f63b1db",
+          "observed_sha256": "6f3658822a73dc4c1d09ba64a062d0d1ef89fb250f5f5923c3a1755c2f63b1db",
+          "status": "exact-match"
+        },
+        "idempotency": {
+          "expected_sha256": "4d2d744a808eec43cfe99d3c91045b23dc3ae50c83b5b1d0aded8fa086390f35",
+          "observed_sha256": "4d2d744a808eec43cfe99d3c91045b23dc3ae50c83b5b1d0aded8fa086390f35",
+          "status": "exact-match"
+        },
+        "input_schema": {
+          "expected_sha256": "541870a4d50a21f72be1c426cadcc172e22fcc9189a9cb936602cbaf14790816",
+          "observed_sha256": "541870a4d50a21f72be1c426cadcc172e22fcc9189a9cb936602cbaf14790816",
+          "status": "exact-match"
+        },
+        "name": {
+          "expected_sha256": "8b0fa01d54d8a7d5f329c5737cbc97467d8bec5843fbdf5e9fc6bcc2eccadc9f",
+          "observed_sha256": "8b0fa01d54d8a7d5f329c5737cbc97467d8bec5843fbdf5e9fc6bcc2eccadc9f",
+          "status": "exact-match"
+        },
+        "owning_domain": {
+          "expected_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "observed_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "status": "exact-match"
+        },
+        "repo_scoped": {
+          "expected_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "observed_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "status": "exact-match"
+        },
+        "required_authority": {
+          "expected_sha256": "2b9c1372aeec8db44944ef2bd40a43bc3627ea668bc2fe30ecd8be348b21eae1",
+          "observed_sha256": "2b9c1372aeec8db44944ef2bd40a43bc3627ea668bc2fe30ecd8be348b21eae1",
+          "status": "exact-match"
+        },
+        "required_client_schema_features": {
+          "expected_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "observed_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "status": "exact-match"
+        },
+        "result_schema": {
+          "expected_sha256": "2f0eff9ad2d19f9aa8d07837ef65ed02d2d633b4069b5bd822d01fdf61f49709",
+          "observed_sha256": "2f0eff9ad2d19f9aa8d07837ef65ed02d2d633b4069b5bd822d01fdf61f49709",
+          "status": "exact-match"
+        }
+      },
+      "name": "work.message.status-v1",
+      "status": "exact-match"
+    },
+    {
+      "additional_field_count": 0,
+      "client_schema_features": "supported",
+      "effective_authority": "unknown",
+      "execution_acceptance": "unknown",
+      "expected": {
+        "execution_semantics": "write",
+        "idempotency": "required",
+        "repo_scoped": true,
+        "required_authority": "work:evidence"
+      },
+      "fields": {
+        "deprecation": {
+          "expected_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "observed_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "status": "exact-match"
+        },
+        "execution_semantics": {
+          "expected_sha256": "bc2434a12fecfa191ab66b56a67f8fe2507216b76be96a72b1f866562cdc3567",
+          "observed_sha256": "bc2434a12fecfa191ab66b56a67f8fe2507216b76be96a72b1f866562cdc3567",
+          "status": "exact-match"
+        },
+        "idempotency": {
+          "expected_sha256": "cf51937bad8b2f6948b8edf1bd3289f3bc332ec610f99df2f5aff0218b3a554b",
+          "observed_sha256": "cf51937bad8b2f6948b8edf1bd3289f3bc332ec610f99df2f5aff0218b3a554b",
+          "status": "exact-match"
+        },
+        "input_schema": {
+          "expected_sha256": "d78bc18a4347ebc529b82080f31ac4f86ec9f9466eb2e1f252baa8e10ebde284",
+          "observed_sha256": "d78bc18a4347ebc529b82080f31ac4f86ec9f9466eb2e1f252baa8e10ebde284",
+          "status": "exact-match"
+        },
+        "name": {
+          "expected_sha256": "683f63524bc7b514486f5daf1c6ae98873757975462abe94e3fead39a267a74a",
+          "observed_sha256": "683f63524bc7b514486f5daf1c6ae98873757975462abe94e3fead39a267a74a",
+          "status": "exact-match"
+        },
+        "owning_domain": {
+          "expected_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "observed_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "status": "exact-match"
+        },
+        "repo_scoped": {
+          "expected_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "observed_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "status": "exact-match"
+        },
+        "required_authority": {
+          "expected_sha256": "5806950b59b550611a218bb1b2d0f7d007bf2cd597c97edf70949658b5a6b66e",
+          "observed_sha256": "5806950b59b550611a218bb1b2d0f7d007bf2cd597c97edf70949658b5a6b66e",
+          "status": "exact-match"
+        },
+        "required_client_schema_features": {
+          "expected_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "observed_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "status": "exact-match"
+        },
+        "result_schema": {
+          "expected_sha256": "7041e5ef7ab269ce893660852c2397550d1e9a21f0298b447e4dad775bc8044c",
+          "observed_sha256": "7041e5ef7ab269ce893660852c2397550d1e9a21f0298b447e4dad775bc8044c",
+          "status": "exact-match"
+        }
+      },
+      "name": "work.run.delegate-v1",
+      "status": "exact-match"
+    },
+    {
+      "additional_field_count": 0,
+      "client_schema_features": "supported",
+      "effective_authority": "unknown",
+      "execution_acceptance": "unknown",
+      "expected": {
+        "execution_semantics": "read",
+        "idempotency": "not-allowed",
+        "repo_scoped": true,
+        "required_authority": "work:read"
+      },
+      "fields": {
+        "deprecation": {
+          "expected_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "observed_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "status": "exact-match"
+        },
+        "execution_semantics": {
+          "expected_sha256": "6f3658822a73dc4c1d09ba64a062d0d1ef89fb250f5f5923c3a1755c2f63b1db",
+          "observed_sha256": "6f3658822a73dc4c1d09ba64a062d0d1ef89fb250f5f5923c3a1755c2f63b1db",
+          "status": "exact-match"
+        },
+        "idempotency": {
+          "expected_sha256": "4d2d744a808eec43cfe99d3c91045b23dc3ae50c83b5b1d0aded8fa086390f35",
+          "observed_sha256": "4d2d744a808eec43cfe99d3c91045b23dc3ae50c83b5b1d0aded8fa086390f35",
+          "status": "exact-match"
+        },
+        "input_schema": {
+          "expected_sha256": "4552f21961317b85c19de03b9ed0aa100fe58d0501120873cd0dcdb3c5dfbfd6",
+          "observed_sha256": "4552f21961317b85c19de03b9ed0aa100fe58d0501120873cd0dcdb3c5dfbfd6",
+          "status": "exact-match"
+        },
+        "name": {
+          "expected_sha256": "5fc4e3e0d035ee34dfabda1c3647cac5240378be3d00b6d5a22eca5a11c2f462",
+          "observed_sha256": "5fc4e3e0d035ee34dfabda1c3647cac5240378be3d00b6d5a22eca5a11c2f462",
+          "status": "exact-match"
+        },
+        "owning_domain": {
+          "expected_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "observed_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "status": "exact-match"
+        },
+        "repo_scoped": {
+          "expected_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "observed_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "status": "exact-match"
+        },
+        "required_authority": {
+          "expected_sha256": "2b9c1372aeec8db44944ef2bd40a43bc3627ea668bc2fe30ecd8be348b21eae1",
+          "observed_sha256": "2b9c1372aeec8db44944ef2bd40a43bc3627ea668bc2fe30ecd8be348b21eae1",
+          "status": "exact-match"
+        },
+        "required_client_schema_features": {
+          "expected_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "observed_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "status": "exact-match"
+        },
+        "result_schema": {
+          "expected_sha256": "95aac03ecd782feaf53eca3e53d4210e4675cb4ac0cb2dd9a2f25a84c1fc5b22",
+          "observed_sha256": "95aac03ecd782feaf53eca3e53d4210e4675cb4ac0cb2dd9a2f25a84c1fc5b22",
+          "status": "exact-match"
+        }
+      },
+      "name": "work.run.delegation-get-v1",
+      "status": "exact-match"
+    },
+    {
+      "additional_field_count": 0,
+      "client_schema_features": "supported",
+      "effective_authority": "unknown",
+      "execution_acceptance": "unknown",
+      "expected": {
+        "execution_semantics": "write",
+        "idempotency": "required",
+        "repo_scoped": true,
+        "required_authority": "work:evidence"
+      },
+      "fields": {
+        "deprecation": {
+          "expected_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "observed_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "status": "exact-match"
+        },
+        "execution_semantics": {
+          "expected_sha256": "bc2434a12fecfa191ab66b56a67f8fe2507216b76be96a72b1f866562cdc3567",
+          "observed_sha256": "bc2434a12fecfa191ab66b56a67f8fe2507216b76be96a72b1f866562cdc3567",
+          "status": "exact-match"
+        },
+        "idempotency": {
+          "expected_sha256": "cf51937bad8b2f6948b8edf1bd3289f3bc332ec610f99df2f5aff0218b3a554b",
+          "observed_sha256": "cf51937bad8b2f6948b8edf1bd3289f3bc332ec610f99df2f5aff0218b3a554b",
+          "status": "exact-match"
+        },
+        "input_schema": {
+          "expected_sha256": "ba2b2db35581e6bff1b95cb6688b30cc26bc71fff54f3f07b88f0abf2dcc7e2b",
+          "observed_sha256": "ba2b2db35581e6bff1b95cb6688b30cc26bc71fff54f3f07b88f0abf2dcc7e2b",
+          "status": "exact-match"
+        },
+        "name": {
+          "expected_sha256": "7cb96ba2f7503b148e5060dd1d7ca01be8e910d03c9f49e306dfaff6ebf13876",
+          "observed_sha256": "7cb96ba2f7503b148e5060dd1d7ca01be8e910d03c9f49e306dfaff6ebf13876",
+          "status": "exact-match"
+        },
+        "owning_domain": {
+          "expected_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "observed_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "status": "exact-match"
+        },
+        "repo_scoped": {
+          "expected_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "observed_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "status": "exact-match"
+        },
+        "required_authority": {
+          "expected_sha256": "5806950b59b550611a218bb1b2d0f7d007bf2cd597c97edf70949658b5a6b66e",
+          "observed_sha256": "5806950b59b550611a218bb1b2d0f7d007bf2cd597c97edf70949658b5a6b66e",
+          "status": "exact-match"
+        },
+        "required_client_schema_features": {
+          "expected_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "observed_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "status": "exact-match"
+        },
+        "result_schema": {
+          "expected_sha256": "000c59e0dfdd5627db7f042204e8231cb7c15eb0e2f8f274ed24de4d9c1dd30e",
+          "observed_sha256": "000c59e0dfdd5627db7f042204e8231cb7c15eb0e2f8f274ed24de4d9c1dd30e",
+          "status": "exact-match"
+        }
+      },
+      "name": "work.run.delegation-revoke-v1",
+      "status": "exact-match"
+    },
+    {
+      "additional_field_count": 0,
+      "client_schema_features": "supported",
+      "effective_authority": "unknown",
+      "execution_acceptance": "unknown",
+      "expected": {
+        "execution_semantics": "write",
+        "idempotency": "not-allowed",
+        "repo_scoped": true,
+        "required_authority": "work:evidence"
+      },
+      "fields": {
+        "deprecation": {
+          "expected_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "observed_sha256": "400390759fe2014a255b47ed0f247971f1b39507dae854a86e3f1d7f3befcd25",
+          "status": "exact-match"
+        },
+        "execution_semantics": {
+          "expected_sha256": "bc2434a12fecfa191ab66b56a67f8fe2507216b76be96a72b1f866562cdc3567",
+          "observed_sha256": "bc2434a12fecfa191ab66b56a67f8fe2507216b76be96a72b1f866562cdc3567",
+          "status": "exact-match"
+        },
+        "idempotency": {
+          "expected_sha256": "4d2d744a808eec43cfe99d3c91045b23dc3ae50c83b5b1d0aded8fa086390f35",
+          "observed_sha256": "4d2d744a808eec43cfe99d3c91045b23dc3ae50c83b5b1d0aded8fa086390f35",
+          "status": "exact-match"
+        },
+        "input_schema": {
+          "expected_sha256": "eda59e8d9a21c0ea8e7f3bbcebd6898e93158b01e480934b141760f9b4d9d7fb",
+          "observed_sha256": "eda59e8d9a21c0ea8e7f3bbcebd6898e93158b01e480934b141760f9b4d9d7fb",
+          "status": "exact-match"
+        },
+        "name": {
+          "expected_sha256": "0800d1dbd5af37728e716f1a35d97438b319161d654813f8e38b3cd866e703bc",
+          "observed_sha256": "0800d1dbd5af37728e716f1a35d97438b319161d654813f8e38b3cd866e703bc",
+          "status": "exact-match"
+        },
+        "owning_domain": {
+          "expected_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "observed_sha256": "dd3e8955d3a5ffeb7a7d3db22f06e294f71f57f1b717e9ae0ac76566e1a317da",
+          "status": "exact-match"
+        },
+        "repo_scoped": {
+          "expected_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "observed_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+          "status": "exact-match"
+        },
+        "required_authority": {
+          "expected_sha256": "5806950b59b550611a218bb1b2d0f7d007bf2cd597c97edf70949658b5a6b66e",
+          "observed_sha256": "5806950b59b550611a218bb1b2d0f7d007bf2cd597c97edf70949658b5a6b66e",
+          "status": "exact-match"
+        },
+        "required_client_schema_features": {
+          "expected_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "observed_sha256": "8f93ca906fd35782a63485c2cb510f235c9b8703b1f596f45848e67bbec16588",
+          "status": "exact-match"
+        },
+        "result_schema": {
+          "expected_sha256": "7aea1ced9978029d897a285c124199c80d595faac276e090fedb32377c2ada2f",
+          "observed_sha256": "7aea1ced9978029d897a285c124199c80d595faac276e090fedb32377c2ada2f",
+          "status": "exact-match"
+        }
+      },
+      "name": "work.run.register-v1",
+      "status": "exact-match"
+    }
+  ],
+  "schema_version": "agentops-owner-observation/v1",
+  "status": "exact-match"
+}

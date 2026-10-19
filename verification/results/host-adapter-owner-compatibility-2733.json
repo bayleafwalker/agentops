@@ -1,0 +1,104 @@
+{
+  "schema_version": "verification-result/v1",
+  "context_id": "host-adapter-owner-compatibility-2733",
+  "contract_ref": {
+    "doc_id": "docs/architecture/host-adapter-owner-observation.md",
+    "revision": "candidate on git:a960f147a7f9afc771dcff32cf5a670f60c3c908"
+  },
+  "implementation_sha": "sha256:8ce58f0062845370f21124c86c44ebc7482ab8e4f34d132310bdda2494d35c12",
+  "depth": 1,
+  "environment": {
+    "backend": "Released-client HTTP transport fixtures, fake clients, and guarded live metadata-only reads",
+    "isolation": "No live owner invoke; all local state in temporary fixtures; real filesystem tests outside sandbox",
+    "tool_versions": {
+      "released_client": "vuoro-client 0.1.1",
+      "httpx": "0.28.1",
+      "jsonschema": "4.26.0",
+      "released_client_python": "3.13",
+      "full_suite": "manifest nix shell nixpkgs#nodejs with uv pytest/PyYAML"
+    }
+  },
+  "execution": {
+    "histories": 40,
+    "bounds": {
+      "released_client_tests": 8,
+      "local_inspection_lifecycle_tests": 32,
+      "existing_adapter_tests": 146,
+      "full_scripts_passed": 1708,
+      "full_scripts_skipped": 28,
+      "full_scripts_subtests": 1395,
+      "context_economy_passed": 29,
+      "live_operations_compared": 14,
+      "live_catalog_operations": 126,
+      "live_http_requests": 2
+    },
+    "faults_exercised": [
+      "wrong environment",
+      "wrong protocol",
+      "wrong supplied release identity",
+      "503 then fresh retry",
+      "profile/load/enter/handshake failure",
+      "missing duplicate malformed or stale catalog/inventory",
+      "schema/authority/idempotency/semantics/scope/deprecation drift",
+      "unsupported features",
+      "missing profile"
+    ]
+  },
+  "claims": [
+    {
+      "property": "No invocation before successful released-client handshake; refusal cleanup and fresh retry",
+      "result": "example-tested",
+      "evidence": [
+        "verification/traces/host-adapter-owner-compatibility-20261019/before-http-trace.json",
+        "verification/traces/host-adapter-owner-compatibility-20261019/before-released-client.txt",
+        "verification/traces/host-adapter-owner-compatibility-20261019/after-released-client.txt"
+      ]
+    },
+    {
+      "property": "All declared owner calls join metadata with explicit drift/unavailable and redaction; no execution dependencies",
+      "result": "example-tested",
+      "evidence": [
+        "verification/traces/host-adapter-owner-compatibility-20261019/inspection-tests.txt"
+      ]
+    },
+    {
+      "property": "Live existing profile matches all 14 inventory contracts with exactly handshake and catalog GETs",
+      "result": "example-tested",
+      "evidence": [
+        "verification/traces/host-adapter-owner-compatibility-20261019/live-observation.json",
+        "verification/traces/host-adapter-owner-compatibility-20261019/live-transport.json"
+      ]
+    },
+    {
+      "property": "Existing adapter and scripts regressions remain satisfied in the required tool environment",
+      "result": "example-tested",
+      "evidence": [
+        "verification/traces/host-adapter-owner-compatibility-20261019/full-scripts-tests.txt",
+        "verification/traces/host-adapter-owner-compatibility-20261019/adapter-regression.txt",
+        "verification/traces/host-adapter-owner-compatibility-20261019/context-economy-tests.txt",
+        "verification/traces/host-adapter-owner-compatibility-20261019/cli-help-check.json"
+      ]
+    },
+    {
+      "property": "Effective authority, live invocation/launch/recovery acceptance, deployed fix, EC-chain qualification",
+      "result": "unknown",
+      "evidence": [
+        "No live owner operations or deployment performed by this worker"
+      ]
+    }
+  ],
+  "counterexamples": [
+    {
+      "summary": "At base a960f147, actual released client accepted a fixture mutation with a wrong expected environment; it requested catalog and invoke without any handshake",
+      "trace_ref": "verification/traces/host-adapter-owner-compatibility-20261019/before-http-trace.json"
+    }
+  ],
+  "notes": [
+    "Implementation identity is exact source SHA-256 before root-owned commit/landing. No completion claim for EC-01 or downstream EC chain.",
+    "Default scripts suite skips optional released-client tests; separate installed-client run passes all eight.",
+    "Initial restricted sandbox suite produced false root-ancestor ownership refusals; outside-sandbox existing adapter suite passed.",
+    "Initial full scripts run lacked Node and correctly failed 96 required workflow checks; prescribed manifest environment passed the full suite.",
+    "Live guard rejects any HTTP method/path other than the two metadata GETs. Metadata equality does not prove effective authority or atomic service identity.",
+    "Actual devbox source/runtime gates true; verified canonical Gitops source preserves them. No gate changes made."
+  ]
+}
