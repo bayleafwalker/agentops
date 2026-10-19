@@ -5,8 +5,14 @@ TS-6 (docs/plans/2026-09-17-target-state.md) makes committed shards the
 authoritative evidence until the S4 import. Shards used to be committed by a
 Stop hook ("chore(audit): append today's shard"), which never fires in headless
 runs; from 2026-08-30 they were committed by hand, and days went uncommitted.
-This routine replaces both. It runs unattended from a systemd user timer
-(gitops-nixos, ``audit-shards-commit.timer``).
+This routine replaced both, running from the hourly gitops-nixos
+``audit-shards-commit.timer``. That timer was retired on 2026-09-30, when an
+independent archive (gitops-nixos ``audit-shards-collect`` /
+``audit-shards-publish`` -> ``bayleaf/audit-archive``) became the successor
+evidence home and new shards became gitignored. It is now run manually only,
+through gitops-nixos ``commit-audit-shards``, to close the appended suffix of
+an already tracked shard once its UTC day has ended
+(docs/runbooks/dev-environments.md, "Audit shards").
 
 The commit has to happen *inside the checkout the hooks write into*. A shard
 committed from another clone or worktree and pushed leaves the original checkout
