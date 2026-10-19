@@ -250,3 +250,39 @@ def test_activity_window_boundary_follows_window_seconds(git_env):
     assert proc.returncode == 1, detail(proc)
     assert any("capture" in line.lower() for line in lines_naming(proc, "inside")), detail(proc)
     assert any("inactive" in line.lower() for line in lines_naming(proc, "outside")), detail(proc)
+
+
+def test_estate_copy_outside_git_does_not_hide_the_repository(git_env):
+    # The estate keeps <root>/_artifacts/<scope>/audit beside the repository's own store;
+    # it sorts first and is in no git work tree. quiet stopped committing long ago, so its
+    # stale store is inactive, not "no git history".
+    repo = make_repo(git_env, "quiet", NOW - timedelta(days=30))
+    write_store(repo, "quiet", NOW - timedelta(days=20))
+    write_store(git_env, "quiet", NOW - timedelta(days=20))
+
+    proc = run(git_env)
+
+    assert proc.returncode == 0, detail(proc)
+    named = lines_naming(proc, "quiet")
+    assert any("inactive" in line.lower() for line in named), detail(proc)
+    assert not any("no git history" in line.lower() for line in named), detail(proc)
+
+
+def test_estate_copy_still_lets_an_active_repository_alert(git_env):
+    repo = make_repo(git_env, "busy", NOW - timedelta(hours=1))
+    write_store(repo, "busy", NOW - timedelta(days=5))
+    write_store(git_env, "busy", NOW - timedelta(days=5))
+
+    proc = run(git_env)
+
+    assert proc.returncode == 1, detail(proc)
+    assert any("capture" in line.lower() for line in lines_naming(proc, "busy")), detail(proc)
+
+
+def test_store_only_outside_git_still_alerts(git_env):
+    write_store(git_env, "orphan", NOW - timedelta(days=5))
+
+    proc = run(git_env)
+
+    assert proc.returncode == 1, detail(proc)
+    assert any("no git history" in line.lower() for line in lines_naming(proc, "orphan")), detail(proc)
