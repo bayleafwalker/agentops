@@ -88,7 +88,7 @@
     "head": "e8af0e8385231741fbd64d0bfa6c81c0158859ff",
     "reason": "Resolved by explicit authorization; no pending routing approval"
   },
-  "s3_scope": "Complete: dedicatedcrossprojectkeydeployed dfe77915143ddec2f49fe9c69aa802ac4152738e. All21scopechecks,12allconsumeridentitychecks,CNPGbackup,bothnonemptyVolSyncbackup/restores anddirectOTLP401/401/200exacttracepass; canonicalevidenceinPR1957merged1f92b4669ce729d895c8d72053525d45209500d6. Item2550closeoutpending.",
+  "s3_scope": "Complete: dedicatedcrossprojectkeydeployed dfe77915143ddec2f49fe9c69aa802ac4152738e. All21scopechecks,12allconsumeridentitychecks,CNPGbackup,bothnonemptyVolSyncbackup/restores anddirectOTLP401/401/200exacttracepass; canonicalevidenceinPR1957merged1f92b4669ce729d895c8d72053525d45209500d6. Item2550 accepted, decision405; reservation408 released.",
   "completed_items": {
     "2824": {
       "decision_id": 397,
@@ -139,7 +139,7 @@
     "consumer_release": "vuoro-service-v0.1.97 published",
     "image_digest": "sha256:560349db9d67a10740fa9fd7a199a2af2b74c12be052430944d9f11ebf0f88d8",
     "image_attestation": "verified againstcanonical48835a2",
-    "rollout_candidate": "appservice86f8c26d imagepin, staged keydd12d2fe, helper331fbd03; PRcreationpendingtoolresult",
+    "rollout_candidate": "Historical candidate appservice86f8c26d image pin, dd12d2fe staged key and331fbd03 helper; landed via PR1954.",
     "rollout_pr": 1954,
     "rollout_state": "PR1954 merged0152e558; productionservice0.1.97readynewdigest, ownerreadsadvertised. Liveworkstationrunregistrationrejectedidentity-unbound; syntheticitem2829withdrawn. Do not rebind legacytoken."
   },
