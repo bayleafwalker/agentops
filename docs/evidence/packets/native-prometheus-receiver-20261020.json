@@ -1,0 +1,25 @@
+{
+  "schema": "native-prometheus-receiver-acceptance/v1",
+  "source": "9154953964c07c405be2a744fbb03a9aa640edf8",
+  "merge": "37239c3b2f8ccb2c2a590557265632368aa07983",
+  "item": 2830,
+  "before": {
+    "http_status": 404,
+    "receiver_disabled_message": true,
+    "empty_request_created_no_series": true
+  },
+  "after": {
+    "http_status": 400,
+    "receiver_disabled_message": false,
+    "decoder_error_class": "s2: corrupt input",
+    "request_reaches_compression_decoder": true,
+    "empty_request_created_no_series": true,
+    "live_receiver_flag_enabled": true,
+    "all_containers_ready": true,
+    "passed": true
+  },
+  "oracle_correction": "Initial predicate required snappy in the decoder error; actual deployed decoder returns s2: corrupt input. Counterexample retained host-local; final predicate recognizes the observed compression decoder.",
+  "pinned_chart_render": "92.10.1 renders Prometheus.spec.enableRemoteWriteReceiver true",
+  "ci": "Both required candidate and both canonical post-merge CI checks passed.",
+  "limits": "No synthetic time series written. Receiver endpoint/configuration only; authenticated native all-sink sample proof remains2827. HelmRelease final reconciliation pending."
+}
