@@ -1,0 +1,25 @@
+{
+  "schema": "langfuse-raw-otlp-deletion-acceptance/v1",
+  "trace_id": "ba382f3139280a467284ba4ba4d4a810",
+  "span_id": "e85f00bfbc61b8bb",
+  "checks": {
+    "synthetic_ingest_accepted": true,
+    "owned_raw_batch_exists_before": true,
+    "owned_raw_batch_listed_before": true,
+    "exact_span_read_before_delete": true,
+    "delete_request_accepted": true,
+    "two_successful_empty_reads_after_delete": true,
+    "owned_raw_batch_absent_after_api_delete": false,
+    "owned_synthetic_raw_batch_cleanup_confirmed": true
+  },
+  "passed": false,
+  "scope": "Owned raw OTLP batch key from API receipt, HEAD before and after application deletion; if retained, manual cleanup removes only this synthetic batch. Backup copies remain separate.",
+  "probe_exit": 1,
+  "absence_oracle": "A scoped HEAD403/404 alone is never absence. Require a successful authenticated exact-prefix listing empty after a positive exact-prefix listing before; HEAD200 proves persistence.",
+  "upstream": {
+    "version": "v4.59.0",
+    "source": "https://github.com/langfuse/langfuse/blob/v4.59.0/worker/src/queues/otelIngestionQueue.ts",
+    "finding": "Raw OTLP batches are uploaded under event-prefix/otel/project/date/uuid.json, are not indexed in blob_storage_file_log, and are not removed by trace deletion."
+  },
+  "disposition": "Open item2828. Continuous native real-data export stays disabled. A batch may contain multiple traces; a remedy must preserve unrelated live traces and support backup/restore deletion separately."
+}

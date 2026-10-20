@@ -24,13 +24,15 @@
     "2826": 416,
     "2827": 417,
     "2828": 418,
-    "2830": 419
+    "2830": 419,
+    "2831": 420
   },
   "remaining": [
     "Native2827/2398: run both versioned native fixtures through actual receiver and all sinks after operator stages temporary acceptance Secret; remove temporary Secret after testing. Real localCLI all3signals/fail-open already proven; continuous export remains disabled.",
-    "UI2551: redirect and existing-account alignment deployed and verified after restart; await user OAuth callback/project visibility confirmation.",
-    "Retention2828/2398: hostoptinstoreandrealpersistentcleanup/digest/deletionproofdelivered; applicationcanarydeletepasses. CompletephysicalS3/CH/PG/backupcopydisposition; currentVolSyncmonthly3stillpreventsall-copy30dayclaim.",
-    "Land programme and remaining runtime evidence; complete remaining acceptance and only then remove owned worktrees."
+    "UI2551: user confirms successful authenticated browser login on2026-10-20. API exact-span visibility already proven; project trace-page visibility not explicitly reported.",
+    "Retention2828/2398: raw OTLP synthetic batch remains in S3 after successful API deletion; independently verified then only owned synthetic object cleaned. Implement batch-aware deletion and bounded backup/restore disposition. VolSync monthly3 prevents an all-copy30day claim.",
+    "Land programme and remaining runtime evidence; complete remaining acceptance and only then remove owned worktrees.",
+    "User extension2026-10-20: implement OpenCode integration and both Vuoro Cloud service tracing and harness-session/run/work-item correlation. No change to model/work authority."
   ],
   "evidence": {
     "direct_otlp": "Unauth401, wrong401, authenticated200, exact v4 observation visible; run20261020131256",
@@ -159,7 +161,7 @@
   },
   "pending_user_input": {
     "otlp_acceptance_secret": "PreToolUse hookblockedSOPScredentialpipe; exactoperatorcommandprovidedviaasyncquestionto stageexistingheaderas loki/alloy-otlp-acceptance, keyAUTH_HEADER. Notcreatedyet. Removeafterallnativechecks.",
-    "ui_callback": "After PR1960 authorized existing-account alignment, restart5/5 and actual NextAuth redirect8/8 checksPASS. User browser callback/project visibility confirmation remains pending."
+    "ui_callback": "User confirms successful browser login. No callback failure remains; trace-page visibility not explicitly reported."
   },
   "advisory_eval": {
     "protocol_commit": "52c0905",
@@ -216,5 +218,29 @@
       "release": "kube-prometheus-stack.v10",
       "status": "deployed"
     }
+  },
+  "extension": {
+    "authorized": [
+      "OpenCode",
+      "Vuoro Cloud service/model-call tracing",
+      "harness-session/run/work-item correlation"
+    ],
+    "scope_answer": "Both",
+    "opencode_version": "1.19.0",
+    "langfuse_plugin_assessment": "Official plugin0.5+ supports installed version but includes prompt, output, reasoning and tool content; metadata-only path required by existing policy."
+  },
+  "native_metrics_network": {
+    "item": 2831,
+    "source_merge": "4f340fd4c26a337ce9832570ecb1a2ed3f3dead1",
+    "packet": "native-metrics-network-20261020.json",
+    "real_collectors_ready": 6,
+    "limits": [
+      "HTTP transport proof; no native metric sample accepted by this probe."
+    ]
+  },
+  "retained_raw_batch": {
+    "packet": "langfuse-raw-otlp-deletion-20261020.json",
+    "passed": false,
+    "owned_canary_cleanup_confirmed": true
   }
 }
