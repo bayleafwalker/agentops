@@ -12,19 +12,19 @@
 | `frontier-review` | `claude-opus-5-5` | `gpt-5.6-sol` | Explicit high-consequence semantic validation; not the default review tier. |
 | `review-synthesis` | `claude-sonnet-5-5` | `gpt-5.6-terra` | Verified: GPT-5.6 GA 2026-07-09; ID confirmed via OpenAI docs. |
 | `release-ops` | `claude-sonnet-5-5` | `gpt-5.6-terra` | Strong general model within the calling provider family. |
-| `fast-build` | `claude-sonnet-5-5` | `gpt-5.3-codex-spark` | Bounded implementation; Codex falls back to `gpt-5.6-luna` when Spark is unavailable or exhausted. |
+| `fast-build` | `claude-sonnet-5-5` | `gpt-5.6-luna` | Bounded implementation; the previously configured same-provider fallback is the observed default. |
 | `standard-build` | `claude-sonnet-5-5` | `gpt-5.6-terra` | Implementation requiring repository discovery, contract inference, or interpretation of non-obvious failures. |
 | `hard-build` | `claude-sonnet-5-5` (fallback `claude-opus-5-5`) | `gpt-5.6-terra` | Semantically hard implementation after decisions are settled; unresolved architecture routes to `frontier-plan`. |
 
 The `verified` field belongs to the concrete provider ID, not the alias. The gpt-5.6 tier IDs (`-sol`/`-terra`/`-luna`) were confirmed against OpenAI's GA announcement and Codex model docs on 2026-07-18; recent Codex CLI releases ship them in the built-in catalog, but tier access depends on the authenticated plan (free/Go accounts get Terra only) and older CLI builds (e.g. 0.144.x) may predate the catalog entries. An unverified ID must not become a required default until its provider CLI or official documentation confirms availability.
 
-`gpt-5.3-codex-spark` was confirmed on 2026-07-22 in the installed Codex CLI
-catalog and [OpenAI's product documentation](https://openai.com/index/introducing-gpt-5-3-codex-spark/).
-It is a ChatGPT/Codex research-preview route with a separate usage limit and
-is not a general API-key model. Its routing record therefore includes
-`transport` and `surfaces`; a dispatcher must skip it when the active
-transport is incompatible and use the same-provider fallback. Build prompts
-must continue to name required verification commands explicitly.
+The 2026-10-20 authenticated Codex catalogue advertises Luna but does not
+advertise the former Spark default. The policy therefore promotes its already
+configured Luna fallback. This is local availability evidence, not a global
+retirement claim. Re-admitting a transport-specific model requires fresh
+availability evidence for that transport. Newer advertised models remain
+candidates until outcome comparisons justify changing the baseline. Build
+prompts must continue to name required verification commands explicitly.
 
 `caller_harness_providers` maps a trusted calling harness to the provider
 branch used for alias resolution. Claude maps to `anthropic`, Codex maps to
@@ -74,9 +74,8 @@ Route implementation by boundedness and uncertainty rather than by diff size:
 - `frontier-plan`: unresolved architecture, ownership, cross-repository sequencing, compatibility boundaries, or backlog realignment. Sol and Opus are decision tiers, not bulk implementation defaults.
 - `frontier-review`: selected final validation where a subtle semantic miss has unusually high consequence. Ordinary independent validation remains `review-synthesis`.
 
-Provider ladders are intentionally asymmetric. Spark is the preferred bounded
-Codex implementation worker on compatible authenticated surfaces, with Luna
-as its same-provider fallback; Haiku remains a clerical/read-only worker.
+Provider ladders are intentionally asymmetric. Luna is the observed bounded
+Codex implementation baseline; Haiku remains a clerical/read-only worker.
 Anthropic therefore uses Sonnet at different effort levels for code-bearing
 build tiers rather than pretending its tiers are equivalent to Codex tiers.
 
@@ -143,6 +142,14 @@ retired `actionq-dispatcher` supplies no routing or reasoning behavior.
 4. Re-scan for retired IDs. Historical training or archival records may remain only when their historical status is clear.
 
 The shared `model-routing-optimizer` skill carries the repeatable audit workflow.
+
+`scripts/audit_model_routing.py` checks aliases against observed native
+catalogues without selecting models, dispatching work or changing runtime
+configuration. Pass `--catalogue codex=<models_cache.json>` and
+`--catalogue anthropic=<native-probe-results.json>`. A supported fallback does
+not hide an unobserved primary, a model in another provider's catalogue cannot
+qualify a fallback, and malformed input means **could not check**. The report
+records policy/catalogue digests and observed model IDs; it grants no authority.
 
 ## Historical Exceptions
 

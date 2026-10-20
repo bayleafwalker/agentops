@@ -79,16 +79,9 @@
         "note": "2026-09-28: operator directed Sonnet 5.5 / Opus 5.5 for workflows; claude-sonnet-5-5 and claude-opus-5-5 verified by `claude -p --model <id>` probe (the dotted form claude-sonnet-5.5 does not resolve)."
       },
       "codex": {
-        "model": "gpt-5.3-codex-spark",
-        "fallback": "gpt-5.6-luna",
+        "model": "gpt-5.6-luna",
         "verified": true,
-        "transport": "chatgpt",
-        "surfaces": [
-          "codex-cli",
-          "codex-app",
-          "vscode-extension"
-        ],
-        "note": "2026-07-22: Spark is the preferred bounded fast-build model when the caller is an authenticated Codex surface. It has a separate preview usage limit and is not generally API-accessible; API-key workers and exhausted/unavailable Spark sessions fall back to gpt-5.6-luna."
+        "note": "2026-10-20: promote the existing same-provider fallback to the bounded-build default. The authenticated native Codex catalogue advertises gpt-5.6-luna but no longer advertises the former gpt-5.3-codex-spark default. This establishes an observed default, not a claim that Spark is globally retired. Re-admission needs fresh transport-specific availability evidence; newer advertised models need outcome comparisons before policy promotion."
       }
     },
     "standard-build": {
