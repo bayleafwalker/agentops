@@ -16,6 +16,9 @@
 #              so a deliberate pooling export keeps working
 #   REQ-2547-6 a pin pointing OUTSIDE the launch work tree is an explicit override (an
 #              operator, every other hook test's fixture store) -> nothing changes
+#   REQ-2547-7 the hook runs IN the event's work tree but the env still carries the
+#              direnv export of the launch tree (DIRENV_DIR names it) -> the publisher
+#              drops those pins; without DIRENV_DIR such pins remain an override
 #   REQ-2547-3 event `.cwd` outside any git work tree (even under a bare `.auditctl`
 #              index, or under a parent with an EMPTY `.git` directory, as /projects/dev
 #              has), missing, relative or absent -> the process CWD (the pre-fix
@@ -92,7 +95,7 @@ run_hook() {
   : > "$AUDITCTL_PWD_LOG"
   : > "$AUDITCTL_TYPE_LOG"
   ( cd -- "$launch_dir" && printf '%s' "$event" | env \
-      AUDITCTL_DB="$db" AUDITCTL_ARTIFACTS_ROOT="$root" \
+      AUDITCTL_DB="$db" AUDITCTL_ARTIFACTS_ROOT="$root" DIRENV_DIR="${fixture_direnv_dir-}" \
       PATH="$bindir:$PATH" AUDITCTL_BIN="$bindir/auditctl" \
       AGENTOPS_COST_LOG="$tmp/costs.jsonl" AGENTOPS_GATE_LOG_DIR="$gatedir" \
       AGENTOPS_AUDIT_FAILURE_LOG="$tmp/fail.jsonl" \
@@ -128,6 +131,17 @@ assert_eq "REQ-2547-6 override db pin" \
 assert_eq "REQ-2547-6 override root pin" \
   "$(run_hook "$target" "" "$launch/.auditctl/auditctl.db" "$tmp/fixture-store")" \
   "$launch|$launch/.auditctl/auditctl.db|$tmp/fixture-store"
+fixture_direnv_dir="-$launch"
+assert_eq "REQ-2547-7 hook in event tree, direnv pins from launch" \
+  "$(run_hook "$target" "" "" "" "$target")" "$target|<unset>|<unset>"
+assert_eq "REQ-2547-7 direnv launch, event in launch repo" "$(run_hook "$launch")" "$pinned"
+fixture_direnv_dir="-$target"
+assert_eq "REQ-2547-7 direnv in event tree keeps its own pins" \
+  "$(run_hook "$target" "" "$target/.auditctl/auditctl.db" "$target" "$target")" \
+  "$target|$target/.auditctl/auditctl.db|$target"
+fixture_direnv_dir=""
+assert_eq "REQ-2547-7 no DIRENV_DIR: foreign pins stay an override" \
+  "$(run_hook "$target" "" "" "" "$target")" "$target|$launch/.auditctl/auditctl.db|$launch"
 assert_eq "REQ-2547-3 non-repo cwd"    "$(run_hook "$plain")"           "$pinned"
 assert_eq "REQ-2547-3 empty .git root" "$(run_hook "$fakews")"          "$pinned"
 assert_eq "REQ-2547-3 empty .git sub"  "$(run_hook "$fakews/not-a-repo")" "$pinned"
