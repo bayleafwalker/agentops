@@ -1,0 +1,41 @@
+# python3 -B -m pytest -v scripts/tests/test_owner_workload.py (no optional client installed)
+============================= test session starts ==============================
+platform linux -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0 -- /run/current-system/sw/bin/python3
+rootdir: <worktree>
+collecting ... collected 33 items
+
+scripts/tests/test_owner_workload.py::test_shape_retains_no_keys_values_ids_or_hashes PASSED [  3%]
+scripts/tests/test_owner_workload.py::test_shape_distinguishes_null_empty_zero_and_false PASSED [  6%]
+scripts/tests/test_owner_workload.py::test_approved_plan_parses_with_exact_digest PASSED [  9%]
+scripts/tests/test_owner_workload.py::test_plan_digest_mismatch_refuses PASSED [ 12%]
+scripts/tests/test_owner_workload.py::test_modified_allowlist_or_private_binding_fields_refuse[<lambda>0] PASSED [ 15%]
+scripts/tests/test_owner_workload.py::test_modified_allowlist_or_private_binding_fields_refuse[<lambda>1] PASSED [ 18%]
+scripts/tests/test_owner_workload.py::test_modified_allowlist_or_private_binding_fields_refuse[<lambda>2] PASSED [ 21%]
+scripts/tests/test_owner_workload.py::test_modified_allowlist_or_private_binding_fields_refuse[<lambda>3] PASSED [ 24%]
+scripts/tests/test_owner_workload.py::test_modified_allowlist_or_private_binding_fields_refuse[<lambda>4] PASSED [ 27%]
+scripts/tests/test_owner_workload.py::test_modified_allowlist_or_private_binding_fields_refuse[<lambda>5] PASSED [ 30%]
+scripts/tests/test_owner_workload.py::test_modified_allowlist_or_private_binding_fields_refuse[<lambda>6] PASSED [ 33%]
+scripts/tests/test_owner_workload.py::test_modified_allowlist_or_private_binding_fields_refuse[<lambda>7] PASSED [ 36%]
+scripts/tests/test_owner_workload.py::test_bad_plan_cli_emits_bounded_failure_without_raw_exception PASSED [ 39%]
+scripts/tests/test_owner_workload.py::test_request_budget_is_derived_from_the_handshake_sequence PASSED [ 42%]
+scripts/tests/test_owner_workload.py::test_pre_handshake_plan_refuses[<lambda>-plan-sequence-mismatch] PASSED [ 45%]
+scripts/tests/test_owner_workload.py::test_pre_handshake_plan_refuses[<lambda>-plan-bounds-mismatch] PASSED [ 48%]
+scripts/tests/test_owner_workload.py::test_pre_handshake_plan_refuses[<lambda>-plan-request-budget-mismatch] PASSED [ 51%]
+scripts/tests/test_owner_workload.py::test_pre_handshake_plan_refuses[<lambda>-sprintctl-version-unsupported] PASSED [ 54%]
+scripts/tests/test_owner_workload.py::test_installed_sprintctl_0_20_refuses_before_network PASSED [ 57%]
+scripts/tests/test_owner_workload.py::test_guard_admits_exactly_the_handshake_budget_then_refuses_count PASSED [ 60%]
+scripts/tests/test_owner_workload.py::test_metadata_mode_budget_is_twelve PASSED [ 63%]
+scripts/tests/test_owner_workload.py::test_trial_outside_handshake_sequence_never_reaches_transport[sent0] PASSED [ 66%]
+scripts/tests/test_owner_workload.py::test_trial_outside_handshake_sequence_never_reaches_transport[sent1] PASSED [ 69%]
+scripts/tests/test_owner_workload.py::test_trial_outside_handshake_sequence_never_reaches_transport[sent2] PASSED [ 72%]
+scripts/tests/test_owner_workload.py::test_trial_stopping_before_invoke_is_an_incomplete_sequence PASSED [ 75%]
+scripts/tests/test_owner_workload.py::test_explicit_five_second_request_timeout_refuses PASSED [ 78%]
+scripts/tests/test_owner_workload.py::test_request_timeout_shrinks_to_the_remaining_wall_time PASSED [ 81%]
+scripts/tests/test_owner_workload.py::test_wall_cap_refuses_before_transport PASSED [ 84%]
+scripts/tests/test_owner_workload.py::test_response_and_request_body_caps_refuse PASSED [ 87%]
+scripts/tests/test_owner_workload.py::test_fake_run_complete_has_exact_budget_window_and_no_local_writes PASSED [ 90%]
+scripts/tests/test_owner_workload.py::test_fake_run_failure_after_traffic_is_incomplete_with_samples_kept PASSED [ 93%]
+scripts/tests/test_owner_workload.py::test_fake_run_wall_cap_between_trials_is_incomplete PASSED [ 96%]
+scripts/tests/test_owner_workload.py::test_fake_run_refusal_before_traffic_is_refused_and_restores_bytecode_flag PASSED [100%]
+
+============================== 33 passed in 0.13s ==============================

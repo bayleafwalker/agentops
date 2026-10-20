@@ -1,0 +1,99 @@
+{
+  "schema_version": "verification-result/v1",
+  "context_id": "ec01-controlled-read-cohort-2733",
+  "contract_ref": {
+    "doc_id": "docs/architecture/ec01-controlled-read-cohort.md",
+    "revision": "candidate on git:55183bbda9227bd68b6369e7eb15f97017cf55ed"
+  },
+  "implementation_sha": "sha256:ce981b4d07a9a4888f1904a0e85c81fde44edb2d66abb8dcf8781d53be71a753",
+  "depth": 1,
+  "environment": {
+    "backend": "Fake guard/run fixtures and released-client httpx.MockTransport fixtures",
+    "isolation": "No live endpoint contacted; no collector run against any real service; empty read-only HOME/XDG",
+    "tool_versions": {
+      "sprintctl": "0.21.0 (release branch 8d67b15; module bytes equal ca3aa1b)",
+      "released_client": "vuoro-client 0.1.1",
+      "httpx": "0.28.1",
+      "released_client_python": "3.13",
+      "full_suite": "manifest nix shell nixpkgs#nodejs with uv pytest/PyYAML"
+    }
+  },
+  "execution": {
+    "histories": 50,
+    "bounds": {
+      "offline_tests": 33,
+      "released_client_tests": 17,
+      "full_scripts_passed": 1744,
+      "full_scripts_skipped": 45,
+      "full_scripts_subtests": 1395,
+      "context_economy_passed": 29,
+      "live_http_requests": 0
+    },
+    "faults_exercised": [
+      "pre-handshake 0.20.0 sequence or cap in plan",
+      "installed 0.20.0",
+      "out-of-order, repeated or extra request",
+      "request timeout",
+      "wall cap reached mid-cohort",
+      "count cap",
+      "oversized request or response body",
+      "HTTP 403/503 mid-cohort",
+      "release, catalog, contract, source, repository or profile change",
+      "encoded response"
+    ]
+  },
+  "claims": [
+    {
+      "property": "Request budget derives from the handshake sequence; 18th CLI / 13th metadata request, out-of-order and pre-handshake trials refuse before transport",
+      "result": "example-tested",
+      "evidence": [
+        "verification/traces/ec01-controlled-read-cohort-2733/offline-tests.txt",
+        "verification/traces/ec01-controlled-read-cohort-2733/released-client-tests.txt"
+      ]
+    },
+    {
+      "property": "Explicit 5 s request timeout, wall cap, body caps and Sprintctl 0.20.0 refuse",
+      "result": "example-tested",
+      "evidence": [
+        "verification/traces/ec01-controlled-read-cohort-2733/offline-tests.txt",
+        "verification/traces/ec01-controlled-read-cohort-2733/released-client-tests.txt"
+      ]
+    },
+    {
+      "property": "Partial runs are incomplete with completed samples and complete event/window records; pre-network refusals are refused",
+      "result": "example-tested",
+      "evidence": [
+        "verification/traces/ec01-controlled-read-cohort-2733/offline-tests.txt",
+        "verification/traces/ec01-controlled-read-cohort-2733/released-client-tests.txt"
+      ]
+    },
+    {
+      "property": "No local state or bytecode writes by the collector, including the real Sprintctl 0.21.0 CLI path",
+      "result": "example-tested",
+      "evidence": [
+        "verification/traces/ec01-controlled-read-cohort-2733/offline-tests.txt",
+        "verification/traces/ec01-controlled-read-cohort-2733/released-client-tests.txt"
+      ]
+    },
+    {
+      "property": "Existing scripts regressions remain satisfied",
+      "result": "example-tested",
+      "evidence": [
+        "verification/traces/ec01-controlled-read-cohort-2733/full-scripts-tests.txt"
+      ]
+    },
+    {
+      "property": "Live cohort measurements, installed 0.21.0 wheel hashes on the sampling host, effective authority, EC-01 completion",
+      "result": "unknown",
+      "evidence": [
+        "No live sampling performed; bindings computed from release source"
+      ]
+    }
+  ],
+  "counterexamples": [],
+  "notes": [
+    "Default scripts suite skips the 17 released-client tests; the separate 0.21.0 interpreter run is the released-client evidence.",
+    "Sprintctl source hashes come from the 0.21.0 release branch; 0.20.0 installed bytes matched git bytes. Re-confirm against the installed wheel before live sampling.",
+    "The bytecode check failed when run() did not suppress bytecode writes (mutation check), so it is not vacuous."
+  ]
+}
