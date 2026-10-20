@@ -17,6 +17,7 @@
     "environment": { "$ref": "#/$defs/identifier" },
     "trace_id": { "pattern": "^[0-9a-f]{32}$" },
     "span_id": { "pattern": "^[0-9a-f]{16}$" },
+    "token_type": { "enum": ["input", "output", "cache_read", "cache_write", "reasoning_output", "total"] },
     "input_tokens": { "type": "integer", "minimum": 0 },
     "output_tokens": { "type": "integer", "minimum": 0 },
     "context_tokens": { "type": "integer", "minimum": 0 },
