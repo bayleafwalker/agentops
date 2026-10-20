@@ -1,0 +1,58 @@
+{
+  "schema": "alloy-prometheus-network-after/v1",
+  "source_merge": "4f340fd4c26a337ce9832570ecb1a2ed3f3dead1",
+  "results": [
+    {
+      "pod": "alloy-canary-9ldgt",
+      "exit": 0,
+      "http_status_line": "HTTP/1.1 200 OK",
+      "passed": true
+    },
+    {
+      "pod": "alloy-canary-f68jg",
+      "exit": 0,
+      "http_status_line": "HTTP/1.1 200 OK",
+      "passed": true
+    },
+    {
+      "pod": "alloy-canary-mcxlr",
+      "exit": 0,
+      "http_status_line": "HTTP/1.1 200 OK",
+      "passed": true
+    },
+    {
+      "pod": "alloy-canary-phkhd",
+      "exit": 0,
+      "http_status_line": "HTTP/1.1 200 OK",
+      "passed": true
+    },
+    {
+      "pod": "alloy-canary-vkg2k",
+      "exit": 0,
+      "http_status_line": "HTTP/1.1 200 OK",
+      "passed": true
+    },
+    {
+      "pod": "alloy-canary-wl8k6",
+      "exit": 0,
+      "http_status_line": "HTTP/1.1 200 OK",
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "scope": "Real production collector HTTP readiness connectivity only; no telemetry sample or credential sent.",
+  "source_pr": "https://github.com/bayleafwalker/appservice/pull/1961",
+  "candidate_head": "1e8952727e831fb43f843f344a320efc3af61794",
+  "validation": {
+    "full_validate": "passed, 57.95 seconds, 368 rebuild tests, 2 skipped; 37 Langfuse tests",
+    "negative": "Removing only the required egress resource makes rendered test fail; restored fixture passes. Both individual edges independently reject wildcard peer broadening.",
+    "postmerge_ci": {
+      "offline_validate": 39470130838,
+      "contract": 39470130876
+    },
+    "flux": "source/root/Alloy/Prometheus Kustomizations Ready at canonical source_merge"
+  },
+  "limits": [
+    "HTTP transport proof; no native metric sample accepted by this probe."
+  ]
+}
