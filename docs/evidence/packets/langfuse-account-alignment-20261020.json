@@ -1,0 +1,29 @@
+{
+  "schema": "langfuse-existing-account-alignment/v1",
+  "source": "9154953964c07c405be2a744fbb03a9aa640edf8",
+  "merge": "37239c3b2f8ccb2c2a590557265632368aa07983",
+  "authorization": "Operator explicitly chose Align existing account while preserving project memberships.",
+  "migration": {
+    "existing_account_aligned": true,
+    "account_id_and_non_email_fields_preserved": true,
+    "organization_and_project_memberships_preserved": true,
+    "live_bootstrap_email_updated": true,
+    "new_account_created": false,
+    "negative_guard_failed_closed": true
+  },
+  "after_restart": {
+    "schema": "langfuse-account-alignment-restart-acceptance/v1",
+    "checks": {
+      "one_account": true,
+      "same_account_id": true,
+      "email_matches_authorized_admin": true,
+      "non_email_fields_preserved": true,
+      "restarted_web_bootstrap_email_matches_admin": true
+    },
+    "passed": true,
+    "scope": "Readback after web rollout and startup initialization; no addresses, passwords or account values emitted; user OAuth callback still separate."
+  },
+  "actual_native_nextauth_signin": "8/8 checks PASS after restart, including discovery, exactclient/callback, state and PKCE.",
+  "user_callback": "Not yet confirmed",
+  "privacy": "No addresses, passwords, identity digests, accountIDs or credentials included."
+}
