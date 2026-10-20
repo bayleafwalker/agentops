@@ -329,6 +329,11 @@ class RequestGuard:
         except KeyboardInterrupt:
             outcome = 'interrupted'
             raise
+        except asyncio.CancelledError:
+            # asyncio.run turns Ctrl-C into a cancellation of the in-flight request;
+            # run() relabels it interrupted once the run ends in an interrupt.
+            outcome = 'cancelled'
+            raise
         finally:
             event['outcome'] = outcome or self.reason or 'transport-error'
             event['duration_seconds'] = self.clock() - start
@@ -343,6 +348,19 @@ class RequestGuard:
                 return await guard.send(request, lambda req: super(GuardedClient, self).send(
                     req, stream=True, follow_redirects=False))
         return GuardedClient
+
+
+def is_interrupt(exc):
+    """Ctrl-C, directly or as click's Abort (which click raises from KeyboardInterrupt)."""
+    for _ in range(16):
+        if exc is None:
+            return False
+        if isinstance(exc, KeyboardInterrupt):
+            return True
+        if any(c.__module__.startswith('click') and c.__name__ == 'Abort' for c in type(exc).__mro__):
+            return not isinstance(exc.__cause__ or exc.__context__, EOFError)
+        exc = exc.__cause__ or exc.__context__
+    return False
 
 
 def utc_now():
@@ -435,7 +453,12 @@ def run(plan, plan_digest, mode, profile_path, adapter_path, *, clock=time.monot
             raise
         # An operator interrupt still yields the report for what was already sent;
         # main() then exits 130.
-        report['reason'] = ('interrupted' if isinstance(exc, KeyboardInterrupt) else
+        interrupted = is_interrupt(exc)
+        if interrupted and guard:
+            for event in guard.events:
+                if event['outcome'] == 'cancelled':
+                    event['outcome'] = 'interrupted'
+        report['reason'] = ('interrupted' if interrupted else
                             guard.reason if guard and guard.reason else
                             str(exc) if isinstance(exc, Refusal) else 'dependency-or-transport-refused')
         # Once anything reached the transport the run is a partial cohort, kept

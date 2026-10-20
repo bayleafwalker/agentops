@@ -5,4 +5,4 @@ scripts/tests/test_project_release.py: 14 warnings
   <worktree>/scripts/project_release.py:719: DeprecationWarning: Python 3.14 will, by default, filter extracted tar archives and reject files or modify their metadata. Use the filter argument to control this behavior.
     archive.extractall(destination)
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-1757 passed, 48 skipped, 22 warnings, 1395 subtests passed in 78.43s (0:01:18)
+1758 passed, 52 skipped, 22 warnings, 1395 subtests passed in 78.89s (0:01:18)

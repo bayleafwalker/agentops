@@ -4,6 +4,7 @@ import copy
 import hashlib
 import json
 from pathlib import Path
+import signal
 import sys
 
 import pytest
@@ -167,7 +168,7 @@ def _invoke_body():
 class FakeServer:
     def __init__(self):
         self.calls, self.delay, self.chunks, self.slow_at = [], 0, None, None
-        self.raw, self.history, self.interrupt_at = {}, [], None
+        self.raw, self.history, self.interrupt_at, self.sigint_at = {}, [], None, None
 
     async def __call__(self, request):
         path = cohort.urlsplit(str(request.url)).path
@@ -176,6 +177,9 @@ class FakeServer:
             await asyncio.sleep(self.delay or 1)
         if len(self.calls) == self.interrupt_at:
             raise KeyboardInterrupt
+        if len(self.calls) == self.sigint_at:
+            signal.raise_signal(signal.SIGINT)
+            await asyncio.sleep(0)  # the runner's cancellation lands here, in flight
         body = {'/api/meta/v1/handshake': {'service_release': {'version': 'fixture'}},
                 '/api/catalog/v1': {'revision': 'fixture'}}.get(path, {'status': 'accepted'})
         response = FakeResponse(200, content=self.raw.get(path, json.dumps(body).encode()), chunks=self.chunks)
@@ -558,3 +562,14 @@ def test_interrupted_report_exits_130(monkeypatch, capsys):
     assert cohort.main(['--plan', 'p', '--plan-sha256', '0' * 64, '--mode', 'host-adapter-metadata',
                         '--profile', 'p', '--adapter-script', 'a']) == 130
     assert json.loads(capsys.readouterr().out)['status'] == 'incomplete'
+
+
+def test_fake_run_sigint_cancellation_in_flight_is_interrupted(fake_run):
+    # asyncio.run handles SIGINT by cancelling the task, then raises KeyboardInterrupt.
+    assert signal.getsignal(signal.SIGINT) is signal.default_int_handler
+    fake_run.server.sigint_at = 2 + 2 + 2  # second request of the second trial
+    report = fake_run.run()
+    assert report['status'] == 'incomplete' and report['reason'] == 'interrupted', report
+    assert report['events'][-1]['outcome'] == 'interrupted'
+    assert [event['outcome'] for event in report['events'][:-1]] == ['ok'] * 5
+    _assert_window_complete(report, 1)

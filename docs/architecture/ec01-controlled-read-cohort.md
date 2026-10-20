@@ -67,7 +67,11 @@ Report status is one of:
   and every request that was let through is recorded with its outcome (`ok`, or
   the refusal reason such as `request-timeout` or `http-refused`). An operator
   interrupt (Ctrl-C) after traffic also yields an `incomplete` report, with
-  reason `interrupted`.
+  reason `interrupted`. This covers the three forms an interrupt takes: a
+  KeyboardInterrupt, click's `Abort` during the CLI trial, and the cancellation
+  that `asyncio.run` delivers to the request in flight. That request is labelled
+  `interrupted`. Tests cover a raised KeyboardInterrupt and a real SIGINT in the
+  preflight and in a CLI trial, plus a direct `Abort`.
 
 The `window` record holds start and end UTC times, elapsed time, the wall cap,
 the budget and its derivation, the number of requests sent and the trials

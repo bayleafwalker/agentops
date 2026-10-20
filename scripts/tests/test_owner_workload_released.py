@@ -9,10 +9,12 @@ import json
 import os
 from pathlib import Path
 import shutil
+import signal
 import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+import asyncio
 
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'scripts'))
@@ -63,6 +65,7 @@ class ReleasedCohort(unittest.TestCase):
         class Stream(httpx.AsyncByteStream):
             def __init__(self,content):self.content=content
             async def __aiter__(self):
+                await asyncio.sleep(0)  # a network read yields to the loop
                 yield self.content
         def handle(request):
             owner.requests.append((request.method,request.url.path))
@@ -243,6 +246,47 @@ class ReleasedCohort(unittest.TestCase):
             report=self.run_cohort()
         self.assertEqual((report['status'],report['reason']),('incomplete','cli-exit-nonzero'),report)
         self.assertEqual(self.requests,cohort.PREFLIGHT)
+
+    def test_cli_interrupt_from_the_transport_is_interrupted(self):
+        # Inside the click invocation: click converts KeyboardInterrupt into Abort.
+        def interrupt(request):
+            if len(self.requests)==2+2:raise KeyboardInterrupt
+        self.after_request=interrupt
+        report=self.run_cohort()
+        self.assertEqual((report['status'],report['reason']),('incomplete','interrupted'),report)
+        self.assertEqual(report['events'][-1]['outcome'],'interrupted')
+        self.assertEqual(report['samples'],[])
+
+    def test_cli_sigint_cancels_in_flight_request_and_is_interrupted(self):
+        # A real SIGINT during the CLI's asyncio.run: the runner cancels the
+        # in-flight request, re-raises KeyboardInterrupt and click turns it into Abort.
+        self.assertIs(signal.getsignal(signal.SIGINT),signal.default_int_handler)
+        def interrupt(request):
+            if len(self.requests)==2+3+2:signal.raise_signal(signal.SIGINT)
+        self.after_request=interrupt
+        report=self.run_cohort()
+        self.assertEqual((report['status'],report['reason']),('incomplete','interrupted'),report)
+        self.assertEqual(len(report['samples']),1)
+        self.assertEqual(report['events'][-1]['outcome'],'interrupted')
+        self.assertEqual(report['events'][-1]['trial'],1)
+
+    def test_preflight_sigint_is_interrupted(self):
+        def interrupt(request):
+            if len(self.requests)==1:signal.raise_signal(signal.SIGINT)
+        self.after_request=interrupt
+        report=self.run_cohort()
+        self.assertEqual((report['status'],report['reason']),('incomplete','interrupted'),report)
+        self.assertEqual([e['outcome'] for e in report['events']],['interrupted'])
+
+    def test_click_abort_is_interrupted_but_eof_abort_is_not(self):
+        import click
+        with patch.object(sprintctl.cli.cli,'main',side_effect=click.exceptions.Abort()):
+            report=self.run_cohort()
+        self.assertEqual((report['status'],report['reason']),('incomplete','interrupted'),report)
+        try:
+            raise click.exceptions.Abort() from EOFError()
+        except click.exceptions.Abort as exc:
+            self.assertFalse(cohort.is_interrupt(exc))
 
     def test_installed_sprintctl_must_be_the_handshake_release(self):
         import importlib.metadata
