@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Shared event-side audit routing for Stop and SubagentStop (agentops#2547/#2591).
 # Sourced only. Select another real git worktree only when both audit pins are
-# unset or point into the launch tree. Explicit external overrides and invalid
+# unset or point into the launch tree (the hook's cwd tree, or the direnv tree in
+# DIRENV_DIR when the session has since moved). Explicit external overrides and invalid
 # event paths preserve launch-directory publication. Never changes the caller.
 
 # Event paths require a .git file or .git/HEAD: an empty workspace-level .git
@@ -37,7 +38,7 @@ _auditctl_pin_is_launch() {
   return 1
 }
 auditctl_event_cwd() {
-  local event="$1" _event_cwd _event_top _proc_top _proc_top_l
+  local event="$1" _event_cwd _event_top _proc_top _proc_top_l _dir _dir_top
   _event_cwd="$(printf '%s' "$event" | jq -r '.cwd // ""' 2>/dev/null || true)"
   if [[ "$_event_cwd" == /* && -d "$_event_cwd" ]]; then
     # Physical paths on both sides, so a symlinked mount cannot make one tree look like two.
@@ -49,9 +50,16 @@ auditctl_event_cwd() {
     _event_top="$(_auditctl_git_top "$_event_cwd" strict)" || _event_top=""
     _proc_top="$(_auditctl_git_top "$(pwd -P 2>/dev/null || printf '%s' "$PWD")")" || _proc_top=""
     _proc_top_l="$(_auditctl_git_top "$PWD")" || _proc_top_l=""
-    if [[ -n "$_event_top" && -n "$_proc_top" && "$_event_top" != "$_proc_top" ]] &&
-       _auditctl_pin_is_launch "${AUDITCTL_DB-}" "$_proc_top" "$_proc_top_l" &&
-       _auditctl_pin_is_launch "${AUDITCTL_ARTIFACTS_ROOT-}" "$_proc_top" "$_proc_top_l"; then
+    # The harness can run the hook in the session's CURRENT directory while the env still
+    # carries the direnv export of the tree the session was launched in: DIRENV_DIR
+    # ("-<dir>") names that tree. Count it as a launch tree too, so a session launched in
+    # agentops that works in sprintctl does not file sprintctl's events into agentops.
+    _dir="${DIRENV_DIR#-}"; _dir_top=""
+    [[ "$_dir" == /* ]] && { _dir_top="$(_auditctl_git_top "$_dir")" || _dir_top=""; }
+    if [[ -n "$_event_top" && -n "$_proc_top" ]] &&
+       [[ "$_event_top" != "$_proc_top" || ( -n "$_dir_top" && "$_event_top" != "$_dir_top" ) ]] &&
+       _auditctl_pin_is_launch "${AUDITCTL_DB-}" "$_proc_top" "$_proc_top_l" "$_dir_top" "$_dir" &&
+       _auditctl_pin_is_launch "${AUDITCTL_ARTIFACTS_ROOT-}" "$_proc_top" "$_proc_top_l" "$_dir_top" "$_dir"; then
       printf '%s' "$_event_cwd"
     fi
   fi
