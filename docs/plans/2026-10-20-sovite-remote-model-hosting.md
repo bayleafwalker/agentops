@@ -1,8 +1,9 @@
 # Sovite: portable, qualified model bindings (remote model hosting)
 
 Status: **accepted 2026-10-20** (operator delegated the decision; every §15 recommendation accepted).
-PR 1 (v1alpha2 schema, database schema 2) shipped as Sovite 0.1.10 (`cabf7a8`) and is deployed.
-Next: PR 2, identity and connector protocol with an in-cluster pilot helper.
+PR 1 (v1alpha2 schema, database schema 2) shipped as Sovite 0.1.10 (`cabf7a8`). PR 2 (connector protocol,
+helper-signed-v1 identity, development-only pilot helper; independently reviewed, findings fixed) shipped as
+0.1.13 (`90a3316`); both deployed on appservice. Next: PR 3, gateway and execution authority (in progress).
 Planner: Codex, read-only, from Sovite `d192717`. Source brief sha256 prefix `13b608c83847f3c5`; links rewritten as `repo:path`.
 
 **Decision-complete design brief — portable, qualified model bindings**
