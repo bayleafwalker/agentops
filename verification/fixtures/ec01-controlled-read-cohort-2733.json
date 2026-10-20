@@ -1,0 +1,151 @@
+{
+  "schema_version": "agentops-controlled-read-plan/v1",
+  "cohort_id": "ec01-controlled-owner-read-20261019",
+  "purpose": "Controlled qualification traffic for a declared Python owner-read cohort; not natural population sampling or workflow success before/after",
+  "implementation_base": "55183bbda9227bd68b6369e7eb15f97017cf55ed",
+  "modes": {
+    "host-adapter-metadata": {
+      "entrypoint": "installed or exact-source host_adapter.inspect_owner(profile)",
+      "allowed_requests_per_trial": [
+        "GET /api/meta/v1/handshake",
+        "GET /api/catalog/v1"
+      ],
+      "owner_operations": [],
+      "scope": "Actual fixed client/profile path; devbox sampling runs under adapter UID against its existing profile only after root rollout/review",
+      "request_budget": {
+        "preflight_requests": 2,
+        "requests_per_trial": 2,
+        "trials": 5,
+        "total": 12
+      },
+      "sequence_evidence": "host_adapter.inspect_owner opens one released client per call: handshake GET then catalog GET. Budget 2 preflight + 5 trials x 2 = 12."
+    },
+    "served-cli-inbox-read": {
+      "entrypoint": "installed sprintctl.cli:cli with exact arguments message read --after-seq 0 --limit 1",
+      "allowed_requests_per_trial": [
+        "GET /api/meta/v1/handshake",
+        "GET /api/catalog/v1",
+        "POST /api/invoke/v1"
+      ],
+      "owner_operations": [
+        "work.message.read-v1"
+      ],
+      "arguments": {
+        "after_seq": 0,
+        "limit": 1
+      },
+      "scope": "Existing workstation served profile and repo binding; no instance selector or changed cursor; CLI output discarded in memory",
+      "sequence_evidence": "Sprintctl 0.21.0 (commit ca3aa1b, #2822): served._invoke_operation builds a fresh client per call and runs handshake() before invoke(); the released client's invoke() fetches the catalog before the POST, so each trial is handshake GET, catalog GET, read invocation POST (sprintctl tests/test_served_invoke_handshake_oracle.py asserts this order for message read). Budget 2 preflight + 5 trials x 3 = 17. Sprintctl 0.20.0 sent catalog+invoke only (12 requests) and is refused; any other binding or sequence refuses until plan revision.",
+      "repository_context": "Run from existing canonical Agentops checkout with its served repo marker; do not create a marker or pass markerless bypass.",
+      "request_budget": {
+        "preflight_requests": 2,
+        "requests_per_trial": 3,
+        "trials": 5,
+        "total": 17
+      }
+    }
+  },
+  "preflight": {
+    "allowed_requests": [
+      "GET /api/meta/v1/handshake",
+      "GET /api/catalog/v1"
+    ],
+    "required": [
+      "Exact approved plan SHA-256 and fixed executable/module version+hash bindings",
+      "Successful released-client profile/environment/protocol/release checks",
+      "Exact catalog contract match for selected read operation, including read semantics/work:read/idempotency not-allowed/repo scope",
+      "Pinned approved metadata release/catalog digests and endpoint equality in memory; changed binding aborts",
+      "No execution before all local checks pass; no raw profile/endpoint/credential/ID values in output"
+    ]
+  },
+  "bounds": {
+    "trials_per_mode": 5,
+    "concurrent_requests": 1,
+    "inter_trial_seconds": 1,
+    "max_wall_seconds_per_mode": 60,
+    "max_request_seconds": 5,
+    "max_http_requests_per_mode": {
+      "host-adapter-metadata": 12,
+      "served-cli-inbox-read": 17
+    },
+    "max_request_body_bytes": 4096,
+    "max_response_body_bytes": 2097152,
+    "automatic_retries": 0,
+    "warmup_samples_discarded": 0
+  },
+  "transport_guard": [
+    "Observe the actual HTTP client send boundary while preserving the released client's normal TLS/proxy transport setup",
+    "Only fixed method/path sequence; no redirects/query variants or unlisted operations",
+    "Before POST, require exact read operation, args and existing repo binding; require null idempotency/basis fields; unknown invocation fields refuse",
+    "Bound streamed response bytes and remaining time, classify errors without copying response/error text",
+    "Stop on first binding/permission/schema/transport/size refusal; status refused when nothing was sent, incomplete (completed samples and every admitted request kept) once anything was sent",
+    "Request Accept-Encoding identity, refuse encoded responses, and label body bytes only; preserve default TLS/proxy setup. Compression/performance population is outside this cohort."
+  ],
+  "retained_metrics": [
+    "Public source/package/version identities, approved plan digest, metadata contract/release digests",
+    "Mode, trial index, elapsed duration, HTTP method+fixed route, status class, HTTP version and bounded TLS version enum",
+    "Request/response BODY bytes only, separately labeled canonical argument bytes; no claim of full wire/TLS byte counts",
+    "Aggregate JSON node type counts, total string UTF-8 bytes, array/object counts, max depth and max array length; no keys or scalar values",
+    "Read result message count bounded 0..1; empty is recorded as empty and not treated as evidence of a populated workload",
+    "Observed in-flight count and explicitly controlled sequential concurrency; source configured limits separately labeled",
+    "Observed metadata-only path vs read invocation path, timing window and proxy-configuration presence only"
+  ],
+  "never_retain": [
+    "request or response bodies",
+    "message text",
+    "IDs or cursors",
+    "credential or authorization headers",
+    "profile or endpoint strings",
+    "arbitrary server error text",
+    "hashes of private payloads"
+  ],
+  "tests_before_live": [
+    "Plan/source/release/catalog mismatch refuses before invoke",
+    "Mutation operation, altered read args, unknown envelope fields, redirect or endpoint change never reach the underlying transport",
+    "Actual released Sprintctl 0.21.0 CLI fixture produces only handshake, catalog and read invocation per trial (17 requests per mode), no message receipt or local state write",
+    "Actual host-adapter inspector fixture produces only two metadata GETs",
+    "Secret sentinel bodies/keys/errors and credential headers are absent from report; shape aggregation retains no values",
+    "Empty inbox, 403, 503, oversized/slow response, elapsed budget and count cap stay distinct, bounded and fail closed",
+    "Explicit per-request timeout, wall cap, request-count cap and handshake-sequence budget each refuse; a failure after any request is reported incomplete with completed samples kept",
+    "Installed or planned Sprintctl 0.20.0 refuses before any network request"
+  ],
+  "live_gate": "Root reviews exact implementation+plan packet before sampling. No live cohort sampling authorized yet.",
+  "exclusions": [
+    "MCP/browser population",
+    "Go/Rust deployed consumers",
+    "mutation workload qualification",
+    "production throughput or p95 claims from five samples",
+    "operator workflow success",
+    "effective authority beyond the exact read observed",
+    "full EC01 completion or interface retirement"
+  ],
+  "ec00_handoff": "Bind the observed read-size classes and conditions to this controlled cohort before choosing benchmark cases; retain stress cases as explicitly synthetic and run all candidates identically. Other inventory unknowns remain retirement holds.",
+  "bindings": {
+    "versions": {
+      "sprintctl": "0.21.0",
+      "vuoro-client": "0.1.1",
+      "httpx": "0.28.1"
+    },
+    "source_files": {
+      "sprintctl.cli": {
+        "sha256": "3abe03be653dbde6a66c44285bf00d9f84a706648c99b758dadca75e7adfc5ac"
+      },
+      "sprintctl.served": {
+        "sha256": "4370312a86599ffd9dfe9c818f6a57f7995ffed2a0915f677ffee21a77ce258a"
+      },
+      "sprintctl.commands.inbox": {
+        "sha256": "08c50619692887d3a4e541726ace8d837676c2731caeaa8f9d4d6b1779cb7313"
+      },
+      "vuoro_client.client": {
+        "sha256": "d2933ea8819f58997e8b8a2f102ede6b0886f3e0d9a1eb97a30ea94f8feba521"
+      },
+      "vuoro_client.profile": {
+        "sha256": "1ad6d238a916e10fd77b1a79c1a9c252fa3712eb331cfc3c5cdf41a1417ddc72"
+      }
+    },
+    "adapter_source_sha256": "8ce58f0062845370f21124c86c44ebc7482ab8e4f34d132310bdda2494d35c12",
+    "inventory_sha256": "6d01d0892377dcc32a87a281af6cf35560aaabd0f49fd3c1bc4ba2cd5536165d",
+    "service_release_sha256": "ab359c8c7044387d578ea5c684273c754c329e634d5aa9318ed73a9a3e5aae56",
+    "catalog_revision_sha256": "476675ea9e07af50797807fe7777c470149425944f744e24f329d3b18cabe90e"
+  }
+}

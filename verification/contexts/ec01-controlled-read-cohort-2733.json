@@ -1,0 +1,116 @@
+{
+  "schema_version": "test-context/v1",
+  "id": "ec01-controlled-read-cohort-2733",
+  "owner_repo": "agentops",
+  "subject": "Bounded controlled read cohort over the host-adapter metadata path and the Sprintctl 0.21.0 served message read",
+  "contract_ref": {
+    "doc_id": "docs/architecture/ec01-controlled-read-cohort.md",
+    "revision": "candidate on git:55183bbda9227bd68b6369e7eb15f97017cf55ed"
+  },
+  "source_of_truth": "Approved plan verification/fixtures/ec01-controlled-read-cohort-2733.json; Sprintctl ca3aa1b served._invoke_operation (handshake before invoke) and its handshake oracle; released vuoro-client 0.1.1",
+  "depth": 1,
+  "backends": [
+    "fake request/response objects and fake httpx/vuoro_client modules",
+    "released Sprintctl 0.21.0 CLI and vuoro-client 0.1.1 over httpx.MockTransport"
+  ],
+  "actors": [
+    "collector run loop",
+    "request guard",
+    "released client",
+    "fixture transport"
+  ],
+  "initial_state": [
+    "Empty read-only HOME/XDG/cwd directories",
+    "Exact plan, source, adapter and package bindings"
+  ],
+  "operations": [
+    {
+      "name": "preflight",
+      "actors": "*"
+    },
+    {
+      "name": "handshake",
+      "actors": "*"
+    },
+    {
+      "name": "catalog",
+      "actors": "*"
+    },
+    {
+      "name": "invoke",
+      "actors": "*"
+    },
+    {
+      "name": "inspect-owner",
+      "actors": "*"
+    },
+    {
+      "name": "inter-trial-sleep",
+      "actors": "*"
+    }
+  ],
+  "consistency": {
+    "target": "application-invariant",
+    "object": "Per-mode request sequence, request budget and report status"
+  },
+  "assumptions": {
+    "isolation": "One sequential collector per mode; no live endpoint in tests"
+  },
+  "bounds": {
+    "trials_per_mode": 5,
+    "request_budget": {
+      "host-adapter-metadata": 12,
+      "served-cli-inbox-read": 17
+    },
+    "depth": "examples with fault injection; no concurrency/model proof"
+  },
+  "invariants": [
+    "Only the declared method/path sequence reaches the transport; the CLI trial is handshake, catalog, invoke",
+    "A refusal is final: no request is admitted after one, and a swallowed refusal is re-raised at trial end; redirects are never followed",
+    "Requests sent never exceed preflight + 5 x per-trial requests (12 metadata, 17 CLI); a complete run sends exactly that",
+    "Sprintctl other than 0.21.0 (plan or installed) refuses before any request",
+    "Per-request timeout is 5 s or the remaining wall time; no request after the 60 s wall cap",
+    "Status is refused when nothing was sent, incomplete after any request (completed samples kept), complete only at the exact budget",
+    "Every admitted request has an event with outcome; the window record is complete",
+    "No local state or bytecode is written; reports omit payloads, IDs and credentials",
+    "Controlled traffic is never classified as natural workload, workflow acceptance or estate completeness"
+  ],
+  "faults": [
+    "pre-handshake 0.20.0 sequence or cap in plan",
+    "installed 0.20.0",
+    "out-of-order, repeated or extra request",
+    "request timeout",
+    "wall cap reached mid-cohort",
+    "count cap",
+    "oversized request or response body",
+    "HTTP 403/503 mid-cohort",
+    "release, catalog, contract, source, repository or profile change",
+    "encoded response",
+    "redirect (3xx or followed history)",
+    "request after an earlier refusal",
+    "invoke for another repository",
+    "metadata request body",
+    "second request in flight",
+    "more than one returned message",
+    "refusal swallowed by the client",
+    "malformed or too-deep metadata JSON",
+    "nonzero CLI return code",
+    "operator interrupt after traffic: KeyboardInterrupt, SIGINT cancellation, click's Abort raised from a KeyboardInterrupt; bare and EOF Abort are not interrupts"
+  ],
+  "oracles": [
+    "Fixture transport request log equals the declared sequence and budget",
+    "Guard refuses before the transport (no transport call recorded)",
+    "Report status/reason/samples/window/events match the stopping point",
+    "Fixture root and HOME/XDG trees unchanged before/after run; adapter copy has no __pycache__"
+  ],
+  "implementation_anchors": [
+    "scripts/observe_owner_workload.py:RequestGuard",
+    "scripts/observe_owner_workload.py:run",
+    "scripts/tests/test_owner_workload.py",
+    "scripts/tests/test_owner_workload_released.py"
+  ],
+  "expansions": [
+    "semantic-doc",
+    "fault-scenario"
+  ]
+}

@@ -1,0 +1,122 @@
+{
+  "schema_version": "verification-result/v1",
+  "context_id": "ec01-controlled-read-cohort-2733",
+  "contract_ref": {
+    "doc_id": "docs/architecture/ec01-controlled-read-cohort.md",
+    "revision": "candidate on git:55183bbda9227bd68b6369e7eb15f97017cf55ed"
+  },
+  "implementation_sha": "sha256:9a42539d84a9c11806db1f563970229d3f260ee996eb9271622428dd9abe4a73",
+  "depth": 1,
+  "environment": {
+    "backend": "Fake guard/run fixtures and released-client httpx.MockTransport fixtures",
+    "isolation": "No live endpoint contacted; no collector run against any real service; empty read-only HOME/XDG",
+    "tool_versions": {
+      "sprintctl": "0.21.0 (release branch 8d67b15; module bytes equal ca3aa1b and the published v0.21.0 wheel)",
+      "released_client": "vuoro-client 0.1.1",
+      "httpx": "0.28.1",
+      "released_client_python": "3.13",
+      "full_suite": "manifest nix shell nixpkgs#nodejs with uv pytest/PyYAML"
+    }
+  },
+  "execution": {
+    "histories": 71,
+    "bounds": {
+      "offline_tests": 47,
+      "released_client_tests": 24,
+      "full_scripts_passed": 1758,
+      "full_scripts_skipped": 52,
+      "full_scripts_subtests": 1395,
+      "context_economy_passed": 29,
+      "live_http_requests": 0,
+      "released_client_subtests": 9
+    },
+    "faults_exercised": [
+      "pre-handshake 0.20.0 sequence or cap in plan",
+      "installed 0.20.0",
+      "out-of-order, repeated or extra request",
+      "request timeout",
+      "wall cap reached mid-cohort",
+      "count cap",
+      "oversized request or response body",
+      "HTTP 403/503 mid-cohort",
+      "release, catalog, contract, source, repository or profile change",
+      "encoded response",
+      "302 redirect and followed-redirect history",
+      "request after an earlier refusal",
+      "invoke for another repository",
+      "metadata request with a body",
+      "second request in flight",
+      "more than one returned message",
+      "refusal swallowed by the client",
+      "non-object, too deep and decoder-recursion metadata JSON",
+      "nonzero CLI return code",
+      "KeyboardInterrupt from the transport (host-adapter and CLI paths)",
+      "real SIGINT during preflight and a CLI trial (asyncio cancellation, click Abort raised from KeyboardInterrupt)",
+      "click Abort raised from a KeyboardInterrupt (interrupted) vs bare Abort and Abort from EOFError (not interrupted, exit 2)"
+    ]
+  },
+  "claims": [
+    {
+      "property": "Request budget derives from the handshake sequence; 18th CLI / 13th metadata request, out-of-order and pre-handshake trials refuse before transport",
+      "result": "example-tested",
+      "evidence": [
+        "verification/traces/ec01-controlled-read-cohort-2733/offline-tests.txt",
+        "verification/traces/ec01-controlled-read-cohort-2733/released-client-tests.txt"
+      ]
+    },
+    {
+      "property": "Explicit 5 s request timeout, wall cap, body caps and Sprintctl 0.20.0 refuse",
+      "result": "example-tested",
+      "evidence": [
+        "verification/traces/ec01-controlled-read-cohort-2733/offline-tests.txt",
+        "verification/traces/ec01-controlled-read-cohort-2733/released-client-tests.txt"
+      ]
+    },
+    {
+      "property": "Partial runs are incomplete with completed samples and complete event/window records; pre-network refusals are refused",
+      "result": "example-tested",
+      "evidence": [
+        "verification/traces/ec01-controlled-read-cohort-2733/offline-tests.txt",
+        "verification/traces/ec01-controlled-read-cohort-2733/released-client-tests.txt"
+      ]
+    },
+    {
+      "property": "Redirects never followed; refusals final and re-raised at trial end; repo, metadata-body, in-flight, message-count, CLI-exit and malformed-JSON guards each refuse with a bounded outcome; an interrupt after traffic (KeyboardInterrupt, real SIGINT cancelling the in-flight request in preflight or a CLI trial, or click's Abort raised from a KeyboardInterrupt; a bare or EOF Abort is not an interrupt) reports incomplete/interrupted with the in-flight request labelled interrupted; main exits 130 for that report",
+      "result": "example-tested",
+      "evidence": [
+        "verification/traces/ec01-controlled-read-cohort-2733/offline-tests.txt",
+        "verification/traces/ec01-controlled-read-cohort-2733/released-client-tests.txt"
+      ]
+    },
+    {
+      "property": "No local state or bytecode writes by the collector, including the real Sprintctl 0.21.0 CLI path",
+      "result": "example-tested",
+      "evidence": [
+        "verification/traces/ec01-controlled-read-cohort-2733/offline-tests.txt",
+        "verification/traces/ec01-controlled-read-cohort-2733/released-client-tests.txt"
+      ]
+    },
+    {
+      "property": "Existing scripts regressions remain satisfied",
+      "result": "example-tested",
+      "evidence": [
+        "verification/traces/ec01-controlled-read-cohort-2733/full-scripts-tests.txt"
+      ]
+    },
+    {
+      "property": "Live cohort measurements, effective authority, EC-01 completion",
+      "result": "unknown",
+      "evidence": [
+        "No live sampling performed"
+      ]
+    }
+  ],
+  "counterexamples": [],
+  "notes": [
+    "Default scripts suite skips the 24 released-client tests; the separate 0.21.0 interpreter run is the released-client evidence.",
+    "The bytecode check failed when run() did not suppress bytecode writes (mutation check), so it is not vacuous.",
+    "Sprintctl module hashes in the plan match the published v0.21.0 wheel asset (sha256 30fa8b14\u2026908d), confirmed in review.",
+    "Each review-requested guard (follow_redirects, final refusal, repo_id, metadata body, in-flight, message count, trial-end re-raise, refused/incomplete split, redirect history, interrupt, CLI exit code, decoder recursion, shape routing, non-object JSON) was mutated individually and a test failed every time.",
+    "Interrupt handling (cancellation relabel, cancelled label, cause/context chain walk, and a broadened any-Abort classification) was mutated individually and a test failed every time. The SIGINT tests raise a real signal in-process under the default handler; terminal Ctrl-C delivery itself is not exercised."
+  ]
+}
