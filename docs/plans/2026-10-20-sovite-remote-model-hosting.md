@@ -3,7 +3,7 @@
 Status: **accepted 2026-10-20** (operator delegated the decision; every §15 recommendation accepted).
 PR 1 (v1alpha2 schema, database schema 2) shipped as Sovite 0.1.10 (`cabf7a8`). PR 2 (connector protocol,
 helper-signed-v1 identity, development-only pilot helper; independently reviewed, findings fixed) shipped as
-0.1.13 (`90a3316`); both deployed on appservice. Next: PR 3, gateway and execution authority (in progress).
+0.1.13 (`90a3316`); PR 3 (gateway and execution authority, database schema 3) shipped as 0.1.14 (`fa621d4`); all deployed on appservice. Next: PR 4. Operator-agreed scope addition 2026-10-20: PR 4 also removes `SOVITE_DATABASE_URL`, the operator token and caller tokens from worker and native-harness pods. Workers keep only their lease/harness and execution workload credentials and reach state through control endpoints. Today the chart's shared `sovite.runtimeEnv` gives workers the full control environment, so a compromised task could rewrite policy or qualification.
 Planner: Codex, read-only, from Sovite `d192717`. Source brief sha256 prefix `13b608c83847f3c5`; links rewritten as `repo:path`.
 
 **Decision-complete design brief — portable, qualified model bindings**
