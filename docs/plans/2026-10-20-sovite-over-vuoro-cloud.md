@@ -1,6 +1,6 @@
 # Publishing Sovite over vuoro-cloud as a workspace-owned capability
 
-Status: **direction accepted 2026-10-20; design proposed.** Operator direction: BYO models are a Sovite
+Status: **accepted 2026-10-20.** Operator decisions: vuoro-cloud distribution item 9 / CL-K06 holds the end-to-end acceptance (vuoro-cloud PR #275); a shared SNI-passthrough L4 helper edge, disabled until demonstrated and separately authorized; pilot retention 24 h for task bodies, at most 30 days for backups. A1 is satisfied by the remote-hosting brief in Git. S1 shipped as Sovite 0.1.12 (`03519e4`). Next: S2 after remote-hosting PR 3. Operator direction: BYO models are a Sovite
 concept; vuoro-cloud publishes Sovite to workspaces as a composed coordination capability. Vuoro gets no
 model concept and Sovite is not a model-provider service. Nothing here authorizes Terraform, Flux,
 cluster, public endpoint or DNS changes; the vuoro-cloud hold and its signed-promotion rules still apply.
