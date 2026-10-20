@@ -2,7 +2,7 @@
   "schema_version": "environment-record/v1",
   "id": "devbox",
   "environment_class": "local",
-  "revision": 5,
+  "revision": 6,
   "roles": ["unattended-agent-host", "vuoro-served-client"],
   "constraints": [
     "no-direct-postgresql-egress-for-sprintctl",
@@ -63,9 +63,9 @@
   "tooling": [
     {
       "name": "sprintctl",
-      "version": "0.20.0",
-      "source": "/nix/store/j2mdylir4mdf4bj1m9q1kb4g698zfpg1-sprintctl-0.20.0 (gitops-nixos pkgs/sprintctl.nix: official bayleafwalker/sprintctl v0.20.0 wheel, extras remote,served)",
-      "digest": "nix:j2mdylir4mdf4bj1m9q1kb4g698zfpg1"
+      "version": "0.21.0",
+      "source": "/nix/store/zwcvz886jqxsapjw17l5nncyxkqn0lxw-sprintctl-0.21.0 (gitops-nixos pkgs/sprintctl.nix: official bayleafwalker/sprintctl v0.21.0 wheel, extras remote,served)",
+      "digest": "nix:zwcvz886jqxsapjw17l5nncyxkqn0lxw"
     },
     {
       "name": "vuoro-client",
