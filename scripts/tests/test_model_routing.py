@@ -24,13 +24,11 @@ class ModelRoutingTests(unittest.TestCase):
                 self.assertIn("anthropic", self.routing["aliases"][alias])
                 self.assertIn("codex", self.routing["aliases"][alias])
 
-    def test_fast_codex_build_uses_cli_only_spark_with_same_provider_fallback(self) -> None:
+    def test_fast_codex_build_uses_the_observed_same_provider_baseline(self) -> None:
         route = self.routing["aliases"]["fast-build"]["codex"]
 
-        self.assertEqual(route["model"], "gpt-5.3-codex-spark")
-        self.assertEqual(route["fallback"], "gpt-5.6-luna")
-        self.assertEqual(route["transport"], "chatgpt")
-        self.assertIn("codex-cli", route["surfaces"])
+        self.assertEqual(route["model"], "gpt-5.6-luna")
+        self.assertNotIn("transport", route)
         self.assertTrue(route["verified"])
 
     def test_kimi_remains_fail_closed_until_model_routes_exist(self) -> None:
