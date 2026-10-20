@@ -1,8 +1,8 @@
-# nix shell nixpkgs#nodejs -c uv run --no-project --with pytest --with pyyaml python -m pytest -q scripts/tests (base 55183bb + this change; progress dots omitted)
+# nix shell nixpkgs#nodejs -c uv run --no-project --with pytest --with pyyaml python -m pytest -q scripts/tests (base f38a013 + this change; progress dots omitted)
 =============================== warnings summary ===============================
 scripts/tests/test_materialize_project_release.py: 8 warnings
 scripts/tests/test_project_release.py: 14 warnings
   <worktree>/scripts/project_release.py:719: DeprecationWarning: Python 3.14 will, by default, filter extracted tar archives and reject files or modify their metadata. Use the filter argument to control this behavior.
     archive.extractall(destination)
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-1758 passed, 52 skipped, 22 warnings, 1395 subtests passed in 78.74s (0:01:18)
+1776 passed, 53 skipped, 22 warnings, 1395 subtests passed in 80.13s (0:01:20)

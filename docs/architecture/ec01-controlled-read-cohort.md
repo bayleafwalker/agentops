@@ -58,6 +58,33 @@ that returns more than one message, or a nonzero CLI return code, also stops
 the run. Changed plan, source, package, adapter, inventory, release, catalog,
 profile or repository bindings are refused too.
 
+## Profile binding
+
+The plan binds one exact profile per mode in `modes.<mode>.profile_binding`:
+
+| Mode | Profile id | Source environment |
+|---|---|---|
+| `served-cli-inbox-read` | `workstation-inbox-native-vuoro-shared` | `workstation` |
+| `host-adapter-metadata` | `devbox-inbox-native-vuoro-shared` | `devbox` |
+
+Each binding pins these fields:
+
+- the profile id and revision;
+- the source environment;
+- the target endpoint and environment id;
+- the required authorities: `work:read` and `work:evidence`.
+
+The whole profile file is not hashed, and its `credential_ref` is neither bound
+nor read. Before any request, the collector reads only the `--profile` JSON and
+compares those fields with the binding. Any difference ends the run as
+`refused` with `profile-binding-mismatch`, with zero requests sent.
+
+This closes the gap behind the first live CLI attempt: the run used the
+workstation maintenance profile (`workstation-vuoro-shared`), which has no
+principal or workspace inbox, and it ended `incomplete` with 403
+`identity-unbound`. That profile is now refused locally, as is either host's
+profile used for the other mode.
+
 Report status is one of:
 
 - `complete`: all 5 trials ran, and the requests sent equal the budget.
@@ -123,14 +150,26 @@ Live sampling is not authorized by this change. Before a sample, root reviews th
 implementation and the plan packet. The plan's Sprintctl module hashes match
 the published v0.21.0 wheel asset (sha256 `30fa8b14…908d`), and the collector
 checks them against whatever is installed on the sampling host. Then, from the
-canonical Agentops checkout with its served repository marker, once per mode:
+canonical Agentops checkout with its served repository marker, run the CLI mode
+on the workstation with its inbox identity:
 
 ```sh
 python -B scripts/observe_owner_workload.py \
   --plan verification/fixtures/ec01-controlled-read-cohort-2733.json \
   --plan-sha256 <digest-approved-at-review> \
-  --mode served-cli-inbox-read --profile /path/to/existing/profile.json \
+  --mode served-cli-inbox-read \
+  --profile environment-record/profiles/workstation-inbox-native-vuoro-shared.json \
   --adapter-script scripts/host_adapter.py
+```
+
+Run the metadata mode on devbox, as the adapter's UID, with its existing profile:
+
+```sh
+python -B scripts/observe_owner_workload.py \
+  --plan <plan path> --plan-sha256 <digest-approved-at-review> \
+  --mode host-adapter-metadata \
+  --profile /etc/agentops/host-adapter/vuoro-profile.json \
+  --adapter-script <installed host_adapter.py>
 ```
 
 Exit `0` is `complete`. Exit `2` is `refused` or `incomplete`, with a bounded

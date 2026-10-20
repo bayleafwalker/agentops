@@ -2,7 +2,7 @@
   "schema_version": "agentops-controlled-read-plan/v1",
   "cohort_id": "ec01-controlled-owner-read-20261019",
   "purpose": "Controlled qualification traffic for a declared Python owner-read cohort; not natural population sampling or workflow success before/after",
-  "implementation_base": "55183bbda9227bd68b6369e7eb15f97017cf55ed",
+  "implementation_base": "f38a013176b845e0bd036e728c297bb7d5a0fa58",
   "modes": {
     "host-adapter-metadata": {
       "entrypoint": "installed or exact-source host_adapter.inspect_owner(profile)",
@@ -11,14 +11,25 @@
         "GET /api/catalog/v1"
       ],
       "owner_operations": [],
-      "scope": "Actual fixed client/profile path; devbox sampling runs under adapter UID against its existing profile only after root rollout/review",
+      "scope": "Devbox host adapter under its own UID with its existing profile /etc/agentops/host-adapter/vuoro-profile.json (profile id devbox-inbox-native-vuoro-shared, source_environment_id devbox), after root rollout/review; any other profile refuses before a request",
       "request_budget": {
         "preflight_requests": 2,
         "requests_per_trial": 2,
         "trials": 5,
         "total": 12
       },
-      "sequence_evidence": "host_adapter.inspect_owner opens one released client per call: handshake GET then catalog GET. Budget 2 preflight + 5 trials x 2 = 12."
+      "sequence_evidence": "host_adapter.inspect_owner opens one released client per call: handshake GET then catalog GET. Budget 2 preflight + 5 trials x 2 = 12.",
+      "profile_binding": {
+        "id": "devbox-inbox-native-vuoro-shared",
+        "source_environment_id": "devbox",
+        "revision": 1,
+        "endpoint": "https://vuoro-shared.apps.kotona.app",
+        "environment_id": "vuoro-shared",
+        "required_authorities": [
+          "work:read",
+          "work:evidence"
+        ]
+      }
     },
     "served-cli-inbox-read": {
       "entrypoint": "installed sprintctl.cli:cli with exact arguments message read --after-seq 0 --limit 1",
@@ -34,7 +45,7 @@
         "after_seq": 0,
         "limit": 1
       },
-      "scope": "Existing workstation served profile and repo binding; no instance selector or changed cursor; CLI output discarded in memory",
+      "scope": "Workstation inbox identity profile environment-record/profiles/workstation-inbox-native-vuoro-shared.json (profile id workstation-inbox-native-vuoro-shared, source_environment_id workstation; work:read + work:evidence) and the existing repo binding. The workstation maintenance profile (workstation-vuoro-shared) has no principal/workspace inbox and refuses before a request. No instance selector or changed cursor; CLI output discarded in memory",
       "sequence_evidence": "Sprintctl 0.21.0 (commit ca3aa1b, #2822): served._invoke_operation builds a fresh client per call and runs handshake() before invoke(); the released client's invoke() fetches the catalog before the POST, so each trial is handshake GET, catalog GET, read invocation POST (sprintctl tests/test_served_invoke_handshake_oracle.py asserts this order for message read). Budget 2 preflight + 5 trials x 3 = 17. Sprintctl 0.20.0 sent catalog+invoke only (12 requests) and is refused; any other binding or sequence refuses until plan revision.",
       "repository_context": "Run from existing canonical Agentops checkout with its served repo marker; do not create a marker or pass markerless bypass.",
       "request_budget": {
@@ -42,6 +53,17 @@
         "requests_per_trial": 3,
         "trials": 5,
         "total": 17
+      },
+      "profile_binding": {
+        "id": "workstation-inbox-native-vuoro-shared",
+        "source_environment_id": "workstation",
+        "revision": 1,
+        "endpoint": "https://vuoro-shared.apps.kotona.app",
+        "environment_id": "vuoro-shared",
+        "required_authorities": [
+          "work:read",
+          "work:evidence"
+        ]
       }
     }
   },
@@ -52,6 +74,7 @@
     ],
     "required": [
       "Exact approved plan SHA-256 and fixed executable/module version+hash bindings",
+      "Profile id, revision, source environment, target endpoint/environment and required authorities equal the mode's profile_binding (credential_ref never read or bound)",
       "Successful released-client profile/environment/protocol/release checks",
       "Exact catalog contract match for selected read operation, including read semantics/work:read/idempotency not-allowed/repo scope",
       "Pinned approved metadata release/catalog digests and endpoint equality in memory; changed binding aborts",

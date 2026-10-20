@@ -3,9 +3,9 @@
   "context_id": "ec01-controlled-read-cohort-2733",
   "contract_ref": {
     "doc_id": "docs/architecture/ec01-controlled-read-cohort.md",
-    "revision": "candidate on git:55183bbda9227bd68b6369e7eb15f97017cf55ed"
+    "revision": "candidate on git:f38a013176b845e0bd036e728c297bb7d5a0fa58"
   },
-  "implementation_sha": "sha256:9a42539d84a9c11806db1f563970229d3f260ee996eb9271622428dd9abe4a73",
+  "implementation_sha": "sha256:5364b120008f17e01444542491df142177a3ee9b2663a8a639191e54c7b16297",
   "depth": 1,
   "environment": {
     "backend": "Fake guard/run fixtures and released-client httpx.MockTransport fixtures",
@@ -19,12 +19,12 @@
     }
   },
   "execution": {
-    "histories": 71,
+    "histories": 89,
     "bounds": {
-      "offline_tests": 47,
-      "released_client_tests": 24,
-      "full_scripts_passed": 1758,
-      "full_scripts_skipped": 52,
+      "offline_tests": 64,
+      "released_client_tests": 25,
+      "full_scripts_passed": 1776,
+      "full_scripts_skipped": 53,
       "full_scripts_subtests": 1395,
       "context_economy_passed": 29,
       "live_http_requests": 0,
@@ -52,7 +52,11 @@
       "nonzero CLI return code",
       "KeyboardInterrupt from the transport (host-adapter and CLI paths)",
       "real SIGINT during preflight and a CLI trial (asyncio cancellation, click Abort raised from KeyboardInterrupt)",
-      "click Abort raised from a KeyboardInterrupt (interrupted) vs bare Abort and Abort from EOFError (not interrupted, exit 2)"
+      "click Abort raised from a KeyboardInterrupt (interrupted) vs bare Abort and Abort from EOFError (not interrupted, exit 2)",
+      "maintenance or other-host profile",
+      "wrong profile id, revision, source environment, endpoint, environment or authorities",
+      "missing profile target",
+      "malformed plan profile binding"
     ]
   },
   "claims": [
@@ -89,6 +93,14 @@
       ]
     },
     {
+      "property": "Each mode's exact profile binding (id, revision, source environment, endpoint, environment id, authorities) is checked before any request; the workstation maintenance profile and other mismatches refuse with zero requests and the credential is never read",
+      "result": "example-tested",
+      "evidence": [
+        "verification/traces/ec01-controlled-read-cohort-2733/offline-tests.txt",
+        "verification/traces/ec01-controlled-read-cohort-2733/released-client-tests.txt"
+      ]
+    },
+    {
       "property": "No local state or bytecode writes by the collector, including the real Sprintctl 0.21.0 CLI path",
       "result": "example-tested",
       "evidence": [
@@ -111,12 +123,18 @@
       ]
     }
   ],
-  "counterexamples": [],
+  "counterexamples": [
+    {
+      "summary": "Live run with plan ed0709c3 used the workstation maintenance profile (workstation-vuoro-shared, no principal/workspace inbox) for served-cli-inbox-read and ended incomplete with 403 identity-unbound; the plan named no profile. Now refused locally as profile-binding-mismatch.",
+      "trace_ref": "scripts/tests/test_owner_workload.py::test_other_repository_profiles_refuse"
+    }
+  ],
   "notes": [
-    "Default scripts suite skips the 24 released-client tests; the separate 0.21.0 interpreter run is the released-client evidence.",
+    "Default scripts suite skips the 25 released-client tests; the separate 0.21.0 interpreter run is the released-client evidence.",
     "The bytecode check failed when run() did not suppress bytecode writes (mutation check), so it is not vacuous.",
     "Sprintctl module hashes in the plan match the published v0.21.0 wheel asset (sha256 30fa8b14\u2026908d), confirmed in review.",
     "Each review-requested guard (follow_redirects, final refusal, repo_id, metadata body, in-flight, message count, trial-end re-raise, refused/incomplete split, redirect history, interrupt, CLI exit code, decoder recursion, shape routing, non-object JSON) was mutated individually and a test failed every time.",
-    "Interrupt handling (cancellation relabel, cancelled label, cause/context chain walk, and a broadened any-Abort classification) was mutated individually and a test failed every time. The SIGINT tests raise a real signal in-process under the default handler; terminal Ctrl-C delivery itself is not exercised."
+    "Interrupt handling (cancellation relabel, cancelled label, cause/context chain walk, and a broadened any-Abort classification) was mutated individually and a test failed every time. The SIGINT tests raise a real signal in-process under the default handler; terminal Ctrl-C delivery itself is not exercised.",
+    "Profile check mutated per field (id, revision, source environment, endpoint, environment id, authorities), removed, moved after source bindings, and with the plan-shape check disabled: a test failed every time."
   ]
 }

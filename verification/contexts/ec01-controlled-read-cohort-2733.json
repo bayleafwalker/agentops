@@ -5,7 +5,7 @@
   "subject": "Bounded controlled read cohort over the host-adapter metadata path and the Sprintctl 0.21.0 served message read",
   "contract_ref": {
     "doc_id": "docs/architecture/ec01-controlled-read-cohort.md",
-    "revision": "candidate on git:55183bbda9227bd68b6369e7eb15f97017cf55ed"
+    "revision": "candidate on git:f38a013176b845e0bd036e728c297bb7d5a0fa58"
   },
   "source_of_truth": "Approved plan verification/fixtures/ec01-controlled-read-cohort-2733.json; Sprintctl ca3aa1b served._invoke_operation (handshake before invoke) and its handshake oracle; released vuoro-client 0.1.1",
   "depth": 1,
@@ -21,7 +21,8 @@
   ],
   "initial_state": [
     "Empty read-only HOME/XDG/cwd directories",
-    "Exact plan, source, adapter and package bindings"
+    "Exact plan, source, adapter and package bindings",
+    "Mode-bound profile: workstation-inbox-native-vuoro-shared (CLI) or devbox-inbox-native-vuoro-shared (metadata)"
   ],
   "operations": [
     {
@@ -68,6 +69,7 @@
     "Only the declared method/path sequence reaches the transport; the CLI trial is handshake, catalog, invoke",
     "A refusal is final: no request is admitted after one, and a swallowed refusal is re-raised at trial end; redirects are never followed",
     "Requests sent never exceed preflight + 5 x per-trial requests (12 metadata, 17 CLI); a complete run sends exactly that",
+    "The --profile identity fields equal the mode's profile_binding before any request; the credential_ref is never bound or read",
     "Sprintctl other than 0.21.0 (plan or installed) refuses before any request",
     "Per-request timeout is 5 s or the remaining wall time; no request after the 60 s wall cap",
     "Status is refused when nothing was sent, incomplete after any request (completed samples kept), complete only at the exact budget",
@@ -95,7 +97,8 @@
     "refusal swallowed by the client",
     "malformed or too-deep metadata JSON",
     "nonzero CLI return code",
-    "operator interrupt after traffic: KeyboardInterrupt, SIGINT cancellation, click's Abort raised from a KeyboardInterrupt; bare and EOF Abort are not interrupts"
+    "operator interrupt after traffic: KeyboardInterrupt, SIGINT cancellation, click's Abort raised from a KeyboardInterrupt; bare and EOF Abort are not interrupts",
+    "maintenance, other-host or altered profile"
   ],
   "oracles": [
     "Fixture transport request log equals the declared sequence and budget",
@@ -105,6 +108,7 @@
   ],
   "implementation_anchors": [
     "scripts/observe_owner_workload.py:RequestGuard",
+    "scripts/observe_owner_workload.py:check_profile",
     "scripts/observe_owner_workload.py:run",
     "scripts/tests/test_owner_workload.py",
     "scripts/tests/test_owner_workload_released.py"
