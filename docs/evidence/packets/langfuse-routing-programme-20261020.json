@@ -63,7 +63,7 @@
     "host_evidence_store": "agentopsPR401merge3a0543da0d388d2d28c48691b2d0c32f5821567b; code5521d29cf1c20c1823cdc600039885a6b3077048",
     "host_retention": "gitops-nixoscd29bf97d74c1476f1afadfa51f156e424586309; Forgejo1573flake-checksuccess",
     "retention_alternate_copy": "appservice PR1959 merge6d41978245451fc5b0de20852467d618630e55d7; both candidate CI green; Flux source/root/langfuse converged; one-shot TTL job succeeded; live all6 table TTL readback pass; acceptance Job cleaned.",
-    "programme_evidence": "agentops PR403 merge1fe58d1ea42ddc5f2ea187a246ee442beb05deee; all candidate and postmerge CI green",
+    "programme_evidence": "agentops PR4031fe58d1 and PR4047473ba25358fc90c95f125878fe3327dd21e4c95; source account/receiver repair37239c3b2f8ccb2c2a590557265632368aa07983.",
     "authentik_account_alignment": "appservice PR1960 merge37239c3b2f8ccb2c2a590557265632368aa07983; both exact-head CI green, full local postmerge tree validate pass, wrongidentity negative guard observed; restarted web5/5 +actualsign-in8/8PASS."
   },
   "privacy_item": {
@@ -210,6 +210,11 @@
     "candidate": "9154953964c07c405be2a744fbb03a9aa640edf8",
     "merge": "37239c3b2f8ccb2c2a590557265632368aa07983",
     "chart_render": "Pinned92.10.1 renders supported flagtrue",
-    "state": "Live Prometheus pod ready with receiver flag, empty remote-write POST400 reaches s2 compression decoder instead of old404 disabledhandler. HelmRelease final reconciliation still pending. Full native sample sink proof remains2827."
+    "state": "Complete bounded receiver repair: canonical37239c3b2f8ccb2c2a590557265632368aa07983, both candidate and postmerge CI green; live podready+flagtrue, actualdisabled404 before then400 compression decoder after, no sampleswritten; HelmReleaseReadyTrue deployedv10. No hook/certificate recovery or readiness weakening performed. Full native sample acceptance remains2827.",
+    "helm_release": {
+      "ready": true,
+      "release": "kube-prometheus-stack.v10",
+      "status": "deployed"
+    }
   }
 }
