@@ -52,6 +52,9 @@ class ReleasedCohort(unittest.TestCase):
             'target':{'environment_id':'fixture','environment_class':'development','endpoint':'https://fixture.invalid'},
             'credential_ref':'file:'+str(credential),'required_authorities':['work:read'],'production_endpoint_denied':True}))
         self.plan=json.loads((ROOT/'verification/fixtures/ec01-controlled-read-cohort-2733.json').read_text())
+        for mode in cohort.MODES:
+            self.plan['modes'][mode]['profile_binding']={'id':'fixture','revision':1,'source_environment_id':'workstation',
+                'endpoint':'https://fixture.invalid','environment_id':'fixture','required_authorities':['work:read']}
         self.handshake={'client_protocol':{'minimum':1,'maximum':1},'service_release':{'distribution':'vuoro-service','version':'fixture'},
                         'environment':{'name':'fixture','environment_class':'development'}}
         expected,_=host_adapter._owner_inventory(host_adapter._declared_owner_operations())
@@ -298,6 +301,13 @@ class ReleasedCohort(unittest.TestCase):
                 patch('sys.stdout'):
             self.assertEqual(cohort.main(['--plan','p','--plan-sha256','0'*64,'--mode','served-cli-inbox-read',
                                           '--profile','p','--adapter-script','a']),2)
+
+    def test_maintenance_profile_refuses_before_network(self):
+        profile=json.loads(self.profile.read_text());profile.update(id='workstation-vuoro-shared',revision=3)
+        self.profile.write_text(json.dumps(profile))
+        report=self.run_cohort()
+        self.assertEqual((report['status'],report['reason']),('refused','profile-binding-mismatch'))
+        self.assertEqual(self.requests,[])
 
     def test_installed_sprintctl_must_be_the_handshake_release(self):
         import importlib.metadata

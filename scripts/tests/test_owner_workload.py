@@ -152,8 +152,20 @@ class FakeResponse:
         FakeResponse.closed.append(self)
 
 
+FIXTURE_PROFILE = {'schema_version': 'vuoro-client-profile/v1', 'id': 'fixture', 'revision': 1,
+                   'source_environment_id': 'workstation', 'credential_ref': 'file:/nonexistent/never-read',
+                   'target': {'environment_id': 'fixture', 'environment_class': 'development',
+                              'endpoint': 'https://fixture.invalid'},
+                   'required_authorities': ['work:read'], 'production_endpoint_denied': True}
+FIXTURE_BINDING = {'id': 'fixture', 'revision': 1, 'source_environment_id': 'workstation',
+                   'endpoint': 'https://fixture.invalid', 'environment_id': 'fixture', 'required_authorities': ['work:read']}
+PROFILES = Path(__file__).resolve().parents[2] / 'environment-record/profiles'
+
+
 def _fixture_plan():
     plan = json.loads(PLAN.read_text())
+    for mode in cohort.MODES:
+        plan['modes'][mode]['profile_binding'] = dict(FIXTURE_BINDING)
     plan['bindings']['service_release_sha256'] = cohort.digest({'version': 'fixture'})
     plan['bindings']['catalog_revision_sha256'] = cohort.digest('fixture')
     return plan
@@ -359,7 +371,7 @@ def fake_run(tmp_path, monkeypatch):
         monkeypatch.setitem(sys.modules, name, module)
     adapter_dir = tmp_path / 'adapter'; adapter_dir.mkdir()
     adapter = adapter_dir / 'fake_host_adapter.py'; adapter.write_text(FAKE_ADAPTER)
-    profile_path = tmp_path / 'profile.json'; profile_path.write_text('{}')
+    profile_path = tmp_path / 'profile.json'; profile_path.write_text(json.dumps(FIXTURE_PROFILE))
     def bindings(plan, adapter_path, mode):
         loaded = cohort.load_adapter(adapter_path)
         return loaded, loaded._owner_inventory([])[0]
@@ -382,7 +394,7 @@ def fake_run(tmp_path, monkeypatch):
         return cohort.run(_fixture_plan(), 'fixture-plan', 'host-adapter-metadata', profile_path, adapter,
                           clock=clock, sleep=sleep, **kwargs)
     yield types.SimpleNamespace(run=run, server=server, clock=clock, state=state, adapter_dir=adapter_dir,
-                                client=AsyncVuoroClient)
+                                client=AsyncVuoroClient, profile_path=profile_path)
     for directory in state.values():
         directory.chmod(0o700)
 
@@ -573,3 +585,61 @@ def test_fake_run_sigint_cancellation_in_flight_is_interrupted(fake_run):
     assert report['events'][-1]['outcome'] == 'interrupted'
     assert [event['outcome'] for event in report['events'][:-1]] == ['ok'] * 5
     _assert_window_complete(report, 1)
+
+
+# --- Per-mode profile binding: checked before any request; credential never read. ---
+
+@pytest.mark.parametrize('mode,profile', [
+    ('served-cli-inbox-read', 'workstation-inbox-native-vuoro-shared.json'),
+    ('host-adapter-metadata', 'devbox-inbox-native-vuoro-shared.json'),
+])
+def test_bound_inbox_profile_passes(mode, profile):
+    cohort.check_profile(json.loads(PLAN.read_text()), mode, PROFILES / profile)
+
+
+@pytest.mark.parametrize('mode,profile', [
+    ('served-cli-inbox-read', 'workstation-vuoro-shared.json'),           # maintenance identity, no inbox
+    ('served-cli-inbox-read', 'devbox-inbox-native-vuoro-shared.json'),   # other host's identity
+    ('host-adapter-metadata', 'workstation-inbox-native-vuoro-shared.json'),
+    ('host-adapter-metadata', 'devbox-agent-vuoro-shared.json'),
+])
+def test_other_repository_profiles_refuse(mode, profile):
+    with pytest.raises(cohort.Refusal, match='profile-binding-mismatch'):
+        cohort.check_profile(json.loads(PLAN.read_text()), mode, PROFILES / profile)
+
+
+def test_plan_without_a_valid_profile_binding_refuses(tmp_path):
+    for alter in (lambda b: b.pop('id'), lambda b: b.update(revision='1'), lambda b: b.update(required_authorities='work:read'),
+                  lambda b: b.update(credential_ref='file:/x')):
+        plan = json.loads(PLAN.read_text()); alter(plan['modes']['served-cli-inbox-read']['profile_binding'])
+        with pytest.raises(cohort.Refusal, match='plan-profile-binding-invalid'):
+            cohort.load_plan(*_plan_digest(tmp_path, plan))
+
+
+@pytest.mark.parametrize('alter', [
+    lambda p: p.clear() or p.update(json.loads((PROFILES / 'workstation-vuoro-shared.json').read_text())),
+    lambda p: p.update(id='workstation-vuoro-shared'),
+    lambda p: p.update(revision=2),
+    lambda p: p.update(source_environment_id='devbox'),
+    lambda p: p['target'].update(environment_id='other-environment'),
+    lambda p: p['target'].update(endpoint='https://other.invalid'),
+    lambda p: p.update(required_authorities=['work:read', 'work:lifecycle']),
+    lambda p: p.update(required_authorities=[]),
+    lambda p: p.pop('target'),
+])
+def test_fake_run_profile_mismatch_refuses_with_zero_requests(fake_run, monkeypatch, alter):
+    called = []
+    monkeypatch.setattr(cohort, 'check_bindings', lambda *args: called.append(args))
+    profile = copy.deepcopy(FIXTURE_PROFILE); alter(profile)
+    fake_run.profile_path.write_text(json.dumps(profile))
+    report = fake_run.run()
+    assert (report['status'], report['reason']) == ('refused', 'profile-binding-mismatch')
+    assert fake_run.server.calls == [] and report['events'] == [] and called == []
+    assert 'fixture.invalid' not in json.dumps(report) and 'other.invalid' not in json.dumps(report)
+
+
+def test_profile_check_never_opens_the_credential(tmp_path):
+    profile = dict(FIXTURE_PROFILE, credential_ref='file:' + str(tmp_path / 'absent-credential'))
+    path = tmp_path / 'profile.json'; path.write_text(json.dumps(profile))
+    cohort.check_profile(_fixture_plan(), 'served-cli-inbox-read', path)
+    assert not (tmp_path / 'absent-credential').exists()

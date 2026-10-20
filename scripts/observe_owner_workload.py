@@ -51,6 +51,8 @@ BOUNDS = {'trials_per_mode': TRIALS, 'concurrent_requests': 1, 'inter_trial_seco
 MODULES = ('sprintctl.cli', 'sprintctl.served', 'sprintctl.commands.inbox',
            'vuoro_client.client', 'vuoro_client.profile')
 DEFAULT_PORTS = {'http': 80, 'https': 443}
+# Profile identity fields each mode binds. The credential_ref is never bound or read.
+PROFILE_FIELDS = ('id', 'revision', 'source_environment_id', 'endpoint', 'environment_id', 'required_authorities')
 
 
 class Refusal(Exception):
@@ -129,6 +131,13 @@ def load_plan(path, expected_digest):
             raise Refusal('plan-sequence-mismatch')
         if modes[mode].get('request_budget') != budget_derivation(mode):
             raise Refusal('plan-request-budget-mismatch')
+        binding = modes[mode].get('profile_binding')
+        if (not isinstance(binding, dict) or set(binding) != set(PROFILE_FIELDS) or
+                not all(isinstance(binding[k], str) and binding[k] for k in PROFILE_FIELDS
+                        if k not in ('revision', 'required_authorities')) or
+                type(binding['revision']) is not int or not isinstance(binding['required_authorities'], list) or
+                not all(isinstance(a, str) for a in binding['required_authorities'])):
+            raise Refusal('plan-profile-binding-invalid')
     bindings = plan.get('bindings', {})
     if set(bindings) != {'versions', 'source_files', 'adapter_source_sha256', 'inventory_sha256',
                          'service_release_sha256', 'catalog_revision_sha256'}:
@@ -148,6 +157,25 @@ def load_plan(path, expected_digest):
     if any(not isinstance(value, str) or not re.fullmatch('[0-9a-f]{64}', value) for value in hashes):
         raise Refusal('plan-bindings-invalid')
     return plan
+
+
+def check_profile(plan, mode, profile_path):
+    """Match the profile's identity fields to the mode's binding before any request.
+
+    Reads only the profile JSON; the referenced credential is never opened.
+    """
+    binding = plan['modes'][mode]['profile_binding']
+    try:
+        profile = json.loads(Path(profile_path).read_bytes())
+        target = profile['target']
+        observed = {'id': profile['id'], 'revision': profile['revision'],
+                    'source_environment_id': profile['source_environment_id'],
+                    'endpoint': target['endpoint'], 'environment_id': target['environment_id'],
+                    'required_authorities': sorted(profile['required_authorities'])}
+    except (OSError, ValueError, UnicodeError, KeyError, TypeError):
+        raise Refusal('profile-binding-mismatch') from None
+    if observed != dict(binding, required_authorities=sorted(binding['required_authorities'])):
+        raise Refusal('profile-binding-mismatch')
 
 
 def load_adapter(adapter_path):
@@ -382,6 +410,7 @@ def run(plan, plan_digest, mode, profile_path, adapter_path, *, clock=time.monot
               'population_representativeness': 'unknown', 'estate_completeness': 'unknown', 'events': []}
     guard = None
     try:
+        check_profile(plan, mode, profile_path)
         adapter, expected = check_bindings(plan, adapter_path, mode)
         from vuoro_client import AsyncVuoroClient
         from vuoro_client.profile import load_profile
