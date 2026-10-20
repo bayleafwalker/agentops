@@ -54,7 +54,7 @@ auditctl_event_cwd() {
     # carries the direnv export of the tree the session was launched in: DIRENV_DIR
     # ("-<dir>") names that tree. Count it as a launch tree too, so a session launched in
     # agentops that works in sprintctl does not file sprintctl's events into agentops.
-    _dir="${DIRENV_DIR#-}"; _dir_top=""
+    _dir="${DIRENV_DIR-}"; _dir="${_dir#-}"; _dir_top=""
     [[ "$_dir" == /* ]] && { _dir_top="$(_auditctl_git_top "$_dir")" || _dir_top=""; }
     if [[ -n "$_event_top" && -n "$_proc_top" ]] &&
        [[ "$_event_top" != "$_proc_top" || ( -n "$_dir_top" && "$_event_top" != "$_dir_top" ) ]] &&
