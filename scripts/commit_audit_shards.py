@@ -386,7 +386,11 @@ def commit_and_push(repo: Repo, result: Result, *, upstream: str, default: str,
             if any(now - (repo.path / p).stat().st_mtime > STALE_PARTIAL_AGE for p in partial):
                 result.reason = STALE_PARTIAL
         if ready:
-            repo.run("add", "--", *ready)
+            # --force: repositories now gitignore `_artifacts/*/audit*/`, and git
+            # refuses a plain add of a tracked file under an ignored directory.
+            # `ready` comes from `git status`, which never lists ignored untracked
+            # files, so forcing cannot pick up a newly ignored shard.
+            repo.run("add", "--force", "--", *ready)
             repo.run("commit", "--quiet", "-m", MESSAGE.format(date=through_date(ready)),
                      "--only", "--", *ready)
         if not repo.commits(f"{upstream}..HEAD"):

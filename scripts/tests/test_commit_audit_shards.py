@@ -133,6 +133,20 @@ def test_untracked_and_modified_shards_in_one_commit(env):
     assert git(env["remote"], "show", f"main:{SHARD}") == '{"n":1}\n{"n":1.5}'
 
 
+def test_tracked_shard_under_ignored_dir_is_closed_untracked_stays_ignored(env):
+    write(env["work"], ".gitignore", "_artifacts/*/audit*/\n")
+    commit_all(env["work"], "chore: ignore new shards")
+    git(env["work"], "push", "-q", "origin", "main")
+    write(env["work"], SHARD, '{"n":1.5}\n', append=True)
+    write(env["work"], SHARD2, '{"n":2}\n')
+    rc, results, _ = run(env)
+    assert rc == 0 and results[0]["action"] == "pushed"
+    assert results[0]["shards"] == [SHARD]
+    assert remote_files(env) == [SHARD]
+    assert git(env["remote"], "show", f"main:{SHARD}") == '{"n":1}\n{"n":1.5}'
+    assert git(env["work"], "status", "--porcelain") == ""
+
+
 def test_non_shard_changes_are_untouched(env):
     work = env["work"]
     write(work, "staged.txt", "staged\n")
