@@ -12,15 +12,16 @@ scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_changed_cont
 scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_changed_release_stops_before_catalog_or_read PASSED [ 20%]
 scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_cli_interrupt_from_the_transport_is_interrupted PASSED [ 25%]
 scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_cli_sigint_cancels_in_flight_request_and_is_interrupted PASSED [ 29%]
-scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_click_abort_is_interrupted_but_eof_abort_is_not PASSED [ 33%]
-scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_encoded_stream_is_outside_declared_cohort PASSED [ 37%]
-scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_failure_mid_cohort_is_incomplete_with_completed_trials_kept PASSED [ 41%]
-scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_http_denial_is_explicit_and_no_retry PASSED [ 45%]
-scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_http_outage_is_explicit_and_no_retry PASSED [ 50%]
-scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_incorrect_repository_marker_refuses_before_network PASSED [ 54%]
-scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_installed_sprintctl_must_be_the_handshake_release PASSED [ 58%]
-scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_more_than_one_returned_message_is_refused PASSED [ 62%]
-scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_nonzero_cli_return_code_is_refused PASSED [ 66%]
+scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_encoded_stream_is_outside_declared_cohort PASSED [ 33%]
+scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_failure_mid_cohort_is_incomplete_with_completed_trials_kept PASSED [ 37%]
+scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_http_denial_is_explicit_and_no_retry PASSED [ 41%]
+scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_http_outage_is_explicit_and_no_retry PASSED [ 45%]
+scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_incorrect_repository_marker_refuses_before_network PASSED [ 50%]
+scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_installed_sprintctl_must_be_the_handshake_release PASSED [ 54%]
+scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_more_than_one_returned_message_is_refused PASSED [ 58%]
+scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_nonzero_cli_return_code_is_refused PASSED [ 62%]
+scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_only_an_abort_raised_from_keyboard_interrupt_is_interrupted 
+scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_only_an_abort_raised_from_keyboard_interrupt_is_interrupted PASSED [ 66%]
 scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_oversize_stream_closes_and_stops PASSED [ 70%]
 scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_preflight_sigint_is_interrupted PASSED [ 75%]
 scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_profile_change_stops_before_first_trial PASSED [ 79%]
@@ -31,4 +32,4 @@ scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_unlisted_req
 scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_unlisted_requests_and_mutations_never_reach_transport PASSED [ 95%]
 scripts/tests/test_owner_workload_released.py::ReleasedCohort::test_wrong_environment_stops_before_catalog_or_read PASSED [100%]
 
-==================== 24 passed, 6 subtests passed in 1.17s =====================
+==================== 24 passed, 9 subtests passed in 1.23s =====================

@@ -351,14 +351,16 @@ class RequestGuard:
 
 
 def is_interrupt(exc):
-    """Ctrl-C, directly or as click's Abort (which click raises from KeyboardInterrupt)."""
+    """Ctrl-C, directly or chained (click raises Abort from KeyboardInterrupt).
+
+    A bare Abort (ctx.abort(), a declined confirm) or one from EOFError is not an
+    interrupt; only the cause/context chain decides.
+    """
     for _ in range(16):
         if exc is None:
             return False
         if isinstance(exc, KeyboardInterrupt):
             return True
-        if any(c.__module__.startswith('click') and c.__name__ == 'Abort' for c in type(exc).__mro__):
-            return not isinstance(exc.__cause__ or exc.__context__, EOFError)
         exc = exc.__cause__ or exc.__context__
     return False
 

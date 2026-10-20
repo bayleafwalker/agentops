@@ -95,7 +95,7 @@
     "refusal swallowed by the client",
     "malformed or too-deep metadata JSON",
     "nonzero CLI return code",
-    "operator interrupt after traffic: KeyboardInterrupt, SIGINT cancellation, click Abort"
+    "operator interrupt after traffic: KeyboardInterrupt, SIGINT cancellation, click's Abort raised from a KeyboardInterrupt; bare and EOF Abort are not interrupts"
   ],
   "oracles": [
     "Fixture transport request log equals the declared sequence and budget",

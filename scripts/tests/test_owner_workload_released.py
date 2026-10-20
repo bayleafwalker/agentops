@@ -278,15 +278,26 @@ class ReleasedCohort(unittest.TestCase):
         self.assertEqual((report['status'],report['reason']),('incomplete','interrupted'),report)
         self.assertEqual([e['outcome'] for e in report['events']],['interrupted'])
 
-    def test_click_abort_is_interrupted_but_eof_abort_is_not(self):
+    def test_only_an_abort_raised_from_keyboard_interrupt_is_interrupted(self):
         import click
-        with patch.object(sprintctl.cli.cli,'main',side_effect=click.exceptions.Abort()):
-            report=self.run_cohort()
-        self.assertEqual((report['status'],report['reason']),('incomplete','interrupted'),report)
-        try:
-            raise click.exceptions.Abort() from EOFError()
-        except click.exceptions.Abort as exc:
-            self.assertFalse(cohort.is_interrupt(exc))
+        def abort_from(cause):
+            try:
+                raise click.exceptions.Abort() from cause
+            except click.exceptions.Abort as exc:
+                return exc
+        for name,abort,expected in (('bare',click.exceptions.Abort(),'dependency-or-transport-refused'),
+                                    ('eof',abort_from(EOFError()),'dependency-or-transport-refused'),
+                                    ('ctrl-c',abort_from(KeyboardInterrupt()),'interrupted')):
+            with self.subTest(name):
+                with patch.object(sprintctl.cli.cli,'main',side_effect=abort):
+                    report=self.run_cohort()
+                self.assertEqual((report['status'],report['reason']),('incomplete',expected),report)
+                self.assertEqual(cohort.is_interrupt(abort),expected=='interrupted')
+        with patch.object(cohort,'load_plan',return_value={}), \
+                patch.object(cohort,'run',return_value={'status':'incomplete','reason':'dependency-or-transport-refused','samples':[]}), \
+                patch('sys.stdout'):
+            self.assertEqual(cohort.main(['--plan','p','--plan-sha256','0'*64,'--mode','served-cli-inbox-read',
+                                          '--profile','p','--adapter-script','a']),2)
 
     def test_installed_sprintctl_must_be_the_handshake_release(self):
         import importlib.metadata

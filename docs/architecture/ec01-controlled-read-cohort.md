@@ -68,10 +68,13 @@ Report status is one of:
   the refusal reason such as `request-timeout` or `http-refused`). An operator
   interrupt (Ctrl-C) after traffic also yields an `incomplete` report, with
   reason `interrupted`. This covers the three forms an interrupt takes: a
-  KeyboardInterrupt, click's `Abort` during the CLI trial, and the cancellation
-  that `asyncio.run` delivers to the request in flight. That request is labelled
-  `interrupted`. Tests cover a raised KeyboardInterrupt and a real SIGINT in the
-  preflight and in a CLI trial, plus a direct `Abort`.
+  KeyboardInterrupt, click's `Abort` raised from a KeyboardInterrupt during the
+  CLI trial, and the cancellation that `asyncio.run` delivers to the request in
+  flight. That request is labelled `interrupted`. A bare `Abort` (such as
+  `ctx.abort()` or a declined confirm) or an `Abort` from EOF is not an
+  interrupt: it ends as `dependency-or-transport-refused` with exit 2. Tests
+  cover a raised KeyboardInterrupt, a real SIGINT in the preflight and in a CLI
+  trial, and each of the three kinds of `Abort`.
 
 The `window` record holds start and end UTC times, elapsed time, the wall cap,
 the budget and its derivation, the number of requests sent and the trials
