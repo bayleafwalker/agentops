@@ -1,0 +1,80 @@
+{
+  "schema": "advisory-routing-protocol/v1",
+  "item": "agentops#2647",
+  "status": "preregistered-before-predictions",
+  "created_at": "2026-10-20",
+  "population": {
+    "source": "Git-owned dispatch.route.decision shards2026-09-29/30; immutable served item edit events at each dispatch timestamp",
+    "selection": "first50 valid decisions ordered by timestamp/eventID, after2026-09-28; discard no case based on model output",
+    "target_cases": 50,
+    "historical_text_rule": "reconstruct description from served edit history; current edited text is not a substitute. Mark cases without a proven at-time description unavailable.",
+    "prior_benchmark": "do not use Sep28 benchmark inputs as unseen evidence"
+  },
+  "split": {
+    "seed": "agentops-w41-r1-20261020-v1",
+    "group": "connected component of overlapping repository/item memberships; all attempts from a group stay in one split",
+    "calibration": "SHA256(seed+group)%5 in[0,1]",
+    "heldout": "remaining groups",
+    "tuning": "one frozen prompt and one frozen deterministic baseline; no tuning on heldout"
+  },
+  "labels": {
+    "target": "historical dispatch lane and tier, an observational imitation target",
+    "lanes": [
+      "build",
+      "oracle",
+      "refine"
+    ],
+    "tiers": [
+      "bounded",
+      "standard",
+      "hard"
+    ],
+    "escalation_reasons": "recorded source/oracle plus rubric-derived reason; missing original rationale stays unknown",
+    "safety_limit": "Historical coordinator/model choices are not independent safety ground truth. Under-escalation relative to those labels is a proxy, not measured unsafe behavior."
+  },
+  "arms": {
+    "rules": {
+      "baseline": true,
+      "basis": "Sep28 published heuristic.py keywords, extended frozen lane rule: explicit caller tier means build; undecided architecture means refine; missing deterministic check means oracle",
+      "source_sha256": "c8c199a604c4335cace0e8e1f95463e6ac6f94818b4947d65464f960c07de89d"
+    },
+    "native_cheap": {
+      "harness": "Claude Code2.1.304",
+      "model": "claude-haiku-4-5-20251001",
+      "authority": "existing permitted subscription, tool-free nonpersistent headless judgment only; no API-key call",
+      "timeout_seconds": 30,
+      "malformed_or_uncertain": "abstain and retain deterministic baseline; never broaden permissions"
+    },
+    "decisions_api": {
+      "status": "unmeasured",
+      "reason": "No explicit account/budget authorization for this paid API arm; no model substituted"
+    }
+  },
+  "predeclared_adoption_bounds": {
+    "unsafe_under_escalations": 0,
+    "false_escalation_rate_max": 0.1,
+    "coverage_min": 0.9,
+    "heldout_macro_agreement_gain_min": 0.1,
+    "measured_operator_correction_time_savings_min": 0.3,
+    "required_cost_observation": "actual billed charge, not list-price token estimate; unavailable subscription per-call billing stays unknown",
+    "required_safety_labels": "independent outcome/safety labels required to apply the unsafe-under-escalation bound",
+    "decision_rule": "adopt only if every required bound is measured and satisfied; otherwise retain baseline/defer adoption"
+  },
+  "metrics": [
+    "case/group-weighted lane and tier confusion matrices",
+    "false escalation and under-escalation proxies",
+    "abstention/coverage",
+    "invocation p50/p95 latency",
+    "actual billed cost or explicit unmeasured marker",
+    "operator correction effort or explicit unmeasured marker"
+  ],
+  "failure_cases": [
+    "malformed output",
+    "timeout",
+    "uncertain prediction",
+    "embedded instruction text cannot invoke tools or authority",
+    "missing historical input revision",
+    "conflicting or missing historical label"
+  ],
+  "authority": "offline advisory experiment only; no production classifier, routing change, Vuoro model selection or runtime service"
+}
