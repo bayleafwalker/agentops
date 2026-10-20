@@ -224,6 +224,8 @@ class RequestGuard:
             self.refuse('incomplete-request-sequence')
 
     def admit(self, request):
+        if self.reason:  # refusals are final: nothing more is sent after one
+            raise Refusal(self.reason)
         self.check_wall()
         if len(self.events) >= self.budget:
             self.refuse('request-count-limit')
@@ -277,6 +279,10 @@ class RequestGuard:
             async def read_bounded():
                 nonlocal response
                 response = await transport(request)
+                # Defense in depth: the transport is called with follow_redirects=False;
+                # a followed redirect would be an unadmitted second request.
+                if getattr(response, 'history', None):
+                    self.refuse('redirect-refused')
                 if response.headers.get('content-encoding', 'identity').lower() not in ('identity', ''):
                     self.refuse('encoded-response-not-in-cohort')
                 content = bytearray()
@@ -298,13 +304,20 @@ class RequestGuard:
             tls = stream.get_extra_info('ssl_object') if stream and hasattr(stream, 'get_extra_info') else None
             tls_version = tls.version() if tls is not None else None
             event['tls_version'] = tls_version if tls_version in ('TLSv1.2', 'TLSv1.3') else 'unknown'
-            if not result.is_success:
+            if not result.is_success:  # includes every 3xx: redirects are never followed
                 self.refuse('http-refused')
             try:
                 response_json = result.json()
+            except RecursionError:
+                self.refuse('shape-depth-limit')
             except (ValueError, UnicodeError):
                 self.refuse('response-json-invalid')
-            event['response_shape'] = shape(response_json)
+            try:
+                event['response_shape'] = shape(response_json)
+            except Refusal as exc:
+                self.refuse(str(exc))
+            if (request.method, path) in (CATALOG, HANDSHAKE) and not isinstance(response_json, dict):
+                self.refuse('response-shape-refused')
             if (request.method, path) == CATALOG:
                 if digest(response_json.get('revision')) != self.plan['bindings']['catalog_revision_sha256']:
                     self.refuse('catalog-revision-mismatch')
@@ -313,6 +326,9 @@ class RequestGuard:
                     self.refuse('service-release-mismatch')
             outcome = 'ok'
             return result
+        except KeyboardInterrupt:
+            outcome = 'interrupted'
+            raise
         finally:
             event['outcome'] = outcome or self.reason or 'transport-error'
             event['duration_seconds'] = self.clock() - start
@@ -334,7 +350,7 @@ def utc_now():
 
 
 def run(plan, plan_digest, mode, profile_path, adapter_path, *, clock=time.monotonic, sleep=None):
-    """Return a report whose status is complete, refused (nothing sent) or incomplete."""
+    """Return a report whose status is complete, refused (nothing admitted) or incomplete."""
     sleep = sleep or time.sleep
     # Importing the adapter and released modules must not leave bytecode beside
     # them; the collector writes nothing locally and only prints its report.
@@ -393,7 +409,9 @@ def run(plan, plan_digest, mode, profile_path, adapter_path, *, clock=time.monot
                     stdout, stderr = io.StringIO(), io.StringIO()
                     with patch.dict(os.environ, {'SPRINTCTL_BACKEND': 'served', 'SPRINTCTL_VUORO_PROFILE': str(profile_path)}), \
                             contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
-                        cli.main(args=['message', 'read', '--after-seq', '0', '--limit', '1'], standalone_mode=False)
+                        code = cli.main(args=['message', 'read', '--after-seq', '0', '--limit', '1'], standalone_mode=False)
+                    if code not in (None, 0):
+                        raise Refusal('cli-exit-nonzero')
                     rendered = stdout.getvalue()
                     if len(rendered.encode()) > BOUNDS['max_response_body_bytes']:
                         raise Refusal('cli-output-size-limit')
@@ -413,11 +431,15 @@ def run(plan, plan_digest, mode, profile_path, adapter_path, *, clock=time.monot
         report['status'] = 'complete'
         report.pop('reason')
     except BaseException as exc:
-        if not isinstance(exc, (Exception, SystemExit)):
+        if not isinstance(exc, (Exception, SystemExit, KeyboardInterrupt)):
             raise
-        report['reason'] = guard.reason if guard and guard.reason else str(exc) if isinstance(exc, Refusal) else 'dependency-or-transport-refused'
+        # An operator interrupt still yields the report for what was already sent;
+        # main() then exits 130.
+        report['reason'] = ('interrupted' if isinstance(exc, KeyboardInterrupt) else
+                            guard.reason if guard and guard.reason else
+                            str(exc) if isinstance(exc, Refusal) else 'dependency-or-transport-refused')
         # Once anything reached the transport the run is a partial cohort, kept
-        # with its completed samples; refused means nothing was sent.
+        # with its completed samples; refused means nothing was admitted.
         report['status'] = 'incomplete' if guard and guard.events else 'refused'
     finally:
         sys.dont_write_bytecode = previous_bytecode
@@ -448,7 +470,9 @@ def main(argv=None):
     except Exception as exc:
         report = {'status': 'refused', 'reason': str(exc) if isinstance(exc, Refusal) else 'plan-unavailable', 'samples': []}
     print(json.dumps(report, sort_keys=True, indent=2))
-    return 0 if report['status'] == 'complete' else 2
+    if report['status'] == 'complete':
+        return 0
+    return 130 if report.get('reason') == 'interrupted' else 2
 
 
 if __name__ == '__main__':

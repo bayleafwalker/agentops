@@ -167,15 +167,20 @@ def _invoke_body():
 class FakeServer:
     def __init__(self):
         self.calls, self.delay, self.chunks, self.slow_at = [], 0, None, None
+        self.raw, self.history, self.interrupt_at = {}, [], None
 
     async def __call__(self, request):
         path = cohort.urlsplit(str(request.url)).path
         self.calls.append((request.method, path))
         if self.delay or len(self.calls) == self.slow_at:
             await asyncio.sleep(self.delay or 1)
+        if len(self.calls) == self.interrupt_at:
+            raise KeyboardInterrupt
         body = {'/api/meta/v1/handshake': {'service_release': {'version': 'fixture'}},
                 '/api/catalog/v1': {'revision': 'fixture'}}.get(path, {'status': 'accepted'})
-        return FakeResponse(200, content=json.dumps(body).encode(), chunks=self.chunks)
+        response = FakeResponse(200, content=self.raw.get(path, json.dumps(body).encode()), chunks=self.chunks)
+        response.history = self.history
+        return response
 
 
 def _request(pair):
@@ -372,7 +377,8 @@ def fake_run(tmp_path, monkeypatch):
     def run(**kwargs):
         return cohort.run(_fixture_plan(), 'fixture-plan', 'host-adapter-metadata', profile_path, adapter,
                           clock=clock, sleep=sleep, **kwargs)
-    yield types.SimpleNamespace(run=run, server=server, clock=clock, state=state, adapter_dir=adapter_dir)
+    yield types.SimpleNamespace(run=run, server=server, clock=clock, state=state, adapter_dir=adapter_dir,
+                                client=AsyncVuoroClient)
     for directory in state.values():
         directory.chmod(0o700)
 
@@ -445,3 +451,110 @@ def test_fake_run_refusal_before_traffic_is_refused_and_restores_bytecode_flag(f
     assert fake_run.server.calls == [] and report['events'] == []
     _assert_window_complete(report, 0)
     _assert_no_local_writes(fake_run)
+
+
+# --- Review follow-ups: final refusals, redirects, payload/shape guards, interrupts. ---
+
+def test_refusal_is_final_for_later_valid_requests():
+    guard, _, server = _guard()
+    guard.begin('trial', cohort.CLI_READ, 0)
+    with pytest.raises(cohort.Refusal, match='request-sequence-refused'):
+        _send(guard, server, cohort.CATALOG)
+    with pytest.raises(cohort.Refusal, match='request-sequence-refused'):
+        _send(guard, server, cohort.HANDSHAKE)  # in sequence, but after a refusal
+    assert server.calls == [] and guard.events == []
+
+
+def test_followed_redirect_history_is_refused():
+    guard, _, server = _guard()
+    server.history = [object()]
+    guard.begin('trial', cohort.CLI_READ, 0)
+    with pytest.raises(cohort.Refusal, match='redirect-refused'):
+        _send(guard, server, cohort.HANDSHAKE)
+    assert guard.events[0]['outcome'] == 'redirect-refused'
+
+
+def test_invoke_for_another_repository_is_refused():
+    guard, _, server = _guard()
+    guard.begin('trial', [cohort.INVOKE], 0)
+    body = json.loads(_invoke_body()); body['repo_id'] = 'other-repo'
+    with pytest.raises(cohort.Refusal, match='invocation-refused'):
+        asyncio.run(guard.send(FakeRequest('POST', '/api/invoke/v1', body=json.dumps(body).encode()), server))
+    assert server.calls == []
+
+
+def test_metadata_request_with_body_is_refused():
+    guard, _, server = _guard()
+    guard.begin('trial', cohort.CLI_READ, 0)
+    with pytest.raises(cohort.Refusal, match='metadata-body-refused'):
+        asyncio.run(guard.send(FakeRequest('GET', '/api/meta/v1/handshake', body=b'{}'), server))
+    assert server.calls == []
+
+
+def test_second_request_in_flight_is_refused():
+    guard, _, server = _guard()
+    server.delay = 0.05
+    guard.begin('trial', cohort.CLI_READ, 0)
+    async def both():
+        return await asyncio.gather(guard.send(_request(cohort.HANDSHAKE), server),
+                                    guard.send(_request(cohort.CATALOG), server), return_exceptions=True)
+    first, second = asyncio.run(both())
+    assert isinstance(second, cohort.Refusal) and str(second) == 'concurrency-limit'
+    assert server.calls == [cohort.HANDSHAKE] and guard.max_in_flight == 1
+
+
+def test_swallowed_refusal_is_reraised_at_trial_end():
+    guard, _, server = _guard()
+    server.raw['/api/meta/v1/handshake'] = json.dumps({'service_release': {'version': 'changed'}}).encode()
+    guard.begin('trial', [cohort.HANDSHAKE], 0)
+    try:  # a client that catches the error and returns normally
+        _send(guard, server, cohort.HANDSHAKE)
+    except cohort.Refusal:
+        pass
+    assert guard.position == len(guard.sequence)
+    with pytest.raises(cohort.Refusal, match='service-release-mismatch'):
+        guard.finish()
+
+
+@pytest.mark.parametrize('raw,reason', [
+    (b'[]', 'response-shape-refused'),
+    (b'"text"', 'response-shape-refused'),
+    (b'[' * 70 + b']' * 70, 'shape-depth-limit'),
+    (b'[' * 200000 + b']' * 200000, 'shape-depth-limit'),  # RecursionError in the JSON decoder
+])
+def test_malformed_metadata_json_gets_a_bounded_outcome(raw, reason):
+    guard, _, server = _guard()
+    server.raw['/api/catalog/v1'] = raw
+    guard.begin('trial', [cohort.CATALOG], 0)
+    with pytest.raises(cohort.Refusal, match=reason):
+        _send(guard, server, cohort.CATALOG)
+    assert guard.events[0]['outcome'] == reason
+
+
+def test_fake_run_guard_created_but_nothing_sent_is_refused(fake_run, monkeypatch):
+    async def broken(self):
+        raise RuntimeError('SECRET client failure')
+    monkeypatch.setattr(fake_run.client, 'handshake', broken)
+    report = fake_run.run()
+    assert 'network_conditions' in report  # the guard existed
+    assert report['status'] == 'refused' and report['reason'] == 'dependency-or-transport-refused'
+    assert report['events'] == [] and 'SECRET' not in json.dumps(report)
+    _assert_window_complete(report, 0)
+
+
+def test_fake_run_interrupt_after_traffic_reports_incomplete(fake_run):
+    fake_run.server.interrupt_at = 2 + 2 + 1  # first request of the second trial
+    report = fake_run.run()
+    assert report['status'] == 'incomplete' and report['reason'] == 'interrupted'
+    assert len(report['samples']) == 1
+    assert report['events'][-1]['outcome'] == 'interrupted'
+    _assert_window_complete(report, 1)
+    _assert_no_local_writes(fake_run)
+
+
+def test_interrupted_report_exits_130(monkeypatch, capsys):
+    monkeypatch.setattr(cohort, 'load_plan', lambda path, digest: {})
+    monkeypatch.setattr(cohort, 'run', lambda *args: {'status': 'incomplete', 'reason': 'interrupted', 'samples': []})
+    assert cohort.main(['--plan', 'p', '--plan-sha256', '0' * 64, '--mode', 'host-adapter-metadata',
+                        '--profile', 'p', '--adapter-script', 'a']) == 130
+    assert json.loads(capsys.readouterr().out)['status'] == 'incomplete'

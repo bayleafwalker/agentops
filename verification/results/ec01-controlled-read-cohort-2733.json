@@ -5,13 +5,13 @@
     "doc_id": "docs/architecture/ec01-controlled-read-cohort.md",
     "revision": "candidate on git:55183bbda9227bd68b6369e7eb15f97017cf55ed"
   },
-  "implementation_sha": "sha256:ce981b4d07a9a4888f1904a0e85c81fde44edb2d66abb8dcf8781d53be71a753",
+  "implementation_sha": "sha256:ebe58080651bf0dc0b8c3c33a04b37be37c5f5919268fc586d5d6ffe4247a123",
   "depth": 1,
   "environment": {
     "backend": "Fake guard/run fixtures and released-client httpx.MockTransport fixtures",
     "isolation": "No live endpoint contacted; no collector run against any real service; empty read-only HOME/XDG",
     "tool_versions": {
-      "sprintctl": "0.21.0 (release branch 8d67b15; module bytes equal ca3aa1b)",
+      "sprintctl": "0.21.0 (release branch 8d67b15; module bytes equal ca3aa1b and the published v0.21.0 wheel)",
       "released_client": "vuoro-client 0.1.1",
       "httpx": "0.28.1",
       "released_client_python": "3.13",
@@ -19,12 +19,12 @@
     }
   },
   "execution": {
-    "histories": 50,
+    "histories": 66,
     "bounds": {
-      "offline_tests": 33,
-      "released_client_tests": 17,
-      "full_scripts_passed": 1744,
-      "full_scripts_skipped": 45,
+      "offline_tests": 46,
+      "released_client_tests": 20,
+      "full_scripts_passed": 1757,
+      "full_scripts_skipped": 48,
       "full_scripts_subtests": 1395,
       "context_economy_passed": 29,
       "live_http_requests": 0
@@ -39,7 +39,17 @@
       "oversized request or response body",
       "HTTP 403/503 mid-cohort",
       "release, catalog, contract, source, repository or profile change",
-      "encoded response"
+      "encoded response",
+      "302 redirect and followed-redirect history",
+      "request after an earlier refusal",
+      "invoke for another repository",
+      "metadata request with a body",
+      "second request in flight",
+      "more than one returned message",
+      "refusal swallowed by the client",
+      "non-object, too deep and decoder-recursion metadata JSON",
+      "operator interrupt after traffic",
+      "nonzero CLI return code"
     ]
   },
   "claims": [
@@ -68,6 +78,14 @@
       ]
     },
     {
+      "property": "Redirects never followed; refusals final and re-raised at trial end; repo, metadata-body, in-flight, message-count, CLI-exit and malformed-JSON guards each refuse with a bounded outcome; interrupt after traffic reports incomplete and exits 130",
+      "result": "example-tested",
+      "evidence": [
+        "verification/traces/ec01-controlled-read-cohort-2733/offline-tests.txt",
+        "verification/traces/ec01-controlled-read-cohort-2733/released-client-tests.txt"
+      ]
+    },
+    {
       "property": "No local state or bytecode writes by the collector, including the real Sprintctl 0.21.0 CLI path",
       "result": "example-tested",
       "evidence": [
@@ -83,17 +101,18 @@
       ]
     },
     {
-      "property": "Live cohort measurements, installed 0.21.0 wheel hashes on the sampling host, effective authority, EC-01 completion",
+      "property": "Live cohort measurements, effective authority, EC-01 completion",
       "result": "unknown",
       "evidence": [
-        "No live sampling performed; bindings computed from release source"
+        "No live sampling performed"
       ]
     }
   ],
   "counterexamples": [],
   "notes": [
-    "Default scripts suite skips the 17 released-client tests; the separate 0.21.0 interpreter run is the released-client evidence.",
-    "Sprintctl source hashes come from the 0.21.0 release branch; 0.20.0 installed bytes matched git bytes. Re-confirm against the installed wheel before live sampling.",
-    "The bytecode check failed when run() did not suppress bytecode writes (mutation check), so it is not vacuous."
+    "Default scripts suite skips the 20 released-client tests; the separate 0.21.0 interpreter run is the released-client evidence.",
+    "The bytecode check failed when run() did not suppress bytecode writes (mutation check), so it is not vacuous.",
+    "Sprintctl module hashes in the plan match the published v0.21.0 wheel asset (sha256 30fa8b14\u2026908d), confirmed in review.",
+    "Each review-requested guard (follow_redirects, final refusal, repo_id, metadata body, in-flight, message count, trial-end re-raise, refused/incomplete split, redirect history, interrupt, CLI exit code, decoder recursion, shape routing, non-object JSON) was mutated individually and a test failed every time."
   ]
 }

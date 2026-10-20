@@ -56,7 +56,7 @@ class ReleasedCohort(unittest.TestCase):
         self.catalog={'revision':'fixture','operations':list(copy.deepcopy(expected).values())}
         self.plan['bindings']['service_release_sha256']=cohort.digest(self.handshake['service_release'])
         self.plan['bindings']['catalog_revision_sha256']=cohort.digest('fixture')
-        self.requests=[];self.clients=[];self.status=200;self.huge=False;self.compressed=False
+        self.requests=[];self.clients=[];self.status=200;self.huge=False;self.compressed=False;self.redirect=False
         self.result={'messages':[],'next_after_seq':12345}
         self.after_request=None
         owner=self
@@ -71,7 +71,11 @@ class ReleasedCohort(unittest.TestCase):
             else: body={'status':'accepted','result':owner.result}
             content=json.dumps(body).encode()
             if owner.huge:content=b'x'*(cohort.BOUNDS['max_response_body_bytes']+1)
-            response=httpx.Response(owner.status,stream=Stream(content),headers={'Content-Encoding':'gzip'} if owner.compressed else {})
+            headers={'Content-Encoding':'gzip'} if owner.compressed else {}
+            if owner.redirect and len(owner.requests)==1:
+                response=httpx.Response(302,stream=Stream(b'{}'),headers={'Location':'https://fixture.invalid/api/catalog/v1'})
+            else:
+                response=httpx.Response(owner.status,stream=Stream(content),headers=headers)
             if owner.after_request:owner.after_request(request)
             return response
         self.handle=handle
@@ -216,6 +220,29 @@ class ReleasedCohort(unittest.TestCase):
         self.assertEqual(len(report['samples']),2)
         self.assertEqual(len(self.requests),9)
         self.assertEqual(report['events'][-1]['trial'],2)
+
+    def test_redirect_is_never_followed_under_the_guard(self):
+        # Pins follow_redirects=False: following would send an unadmitted second request.
+        self.redirect=True
+        report=self.run_cohort()
+        self.assertEqual((report['status'],report['reason']),('incomplete','http-refused'),report)
+        self.assertEqual(self.requests,[cohort.HANDSHAKE])
+        self.assertEqual(report['events'][0]['status_code'],302)
+
+    def test_more_than_one_returned_message_is_refused(self):
+        message={'message_id':'SECRET-ID','sender_principal_id':'SECRET-SENDER','workspace_id':'SECRET-WORKSPACE',
+                 'repo_id':'SECRET-REPO','persisted_at':'SECRET-TIME','envelope_digest':'SECRET-DIGEST','inbox_seq':1,'receipts':[]}
+        self.result['messages']=[message,dict(message)]
+        report=self.run_cohort()
+        self.assertEqual((report['status'],report['reason']),('incomplete','read-count-limit'),report)
+        self.assertEqual(report['samples'],[])
+        self.assertNotIn('SECRET',json.dumps(report))
+
+    def test_nonzero_cli_return_code_is_refused(self):
+        with patch.object(sprintctl.cli.cli,'main',return_value=1):
+            report=self.run_cohort()
+        self.assertEqual((report['status'],report['reason']),('incomplete','cli-exit-nonzero'),report)
+        self.assertEqual(self.requests,cohort.PREFLIGHT)
 
     def test_installed_sprintctl_must_be_the_handshake_release(self):
         import importlib.metadata

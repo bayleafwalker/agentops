@@ -66,6 +66,7 @@
   },
   "invariants": [
     "Only the declared method/path sequence reaches the transport; the CLI trial is handshake, catalog, invoke",
+    "A refusal is final: no request is admitted after one, and a swallowed refusal is re-raised at trial end; redirects are never followed",
     "Requests sent never exceed preflight + 5 x per-trial requests (12 metadata, 17 CLI); a complete run sends exactly that",
     "Sprintctl other than 0.21.0 (plan or installed) refuses before any request",
     "Per-request timeout is 5 s or the remaining wall time; no request after the 60 s wall cap",
@@ -84,7 +85,17 @@
     "oversized request or response body",
     "HTTP 403/503 mid-cohort",
     "release, catalog, contract, source, repository or profile change",
-    "encoded response"
+    "encoded response",
+    "redirect (3xx or followed history)",
+    "request after an earlier refusal",
+    "invoke for another repository",
+    "metadata request body",
+    "second request in flight",
+    "more than one returned message",
+    "refusal swallowed by the client",
+    "malformed or too-deep metadata JSON",
+    "operator interrupt after traffic",
+    "nonzero CLI return code"
   ],
   "oracles": [
     "Fixture transport request log equals the declared sequence and budget",

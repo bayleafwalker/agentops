@@ -46,17 +46,28 @@ proxy setup are left as the client sets them. It admits only the declared
 method and path at each position, on the profile's origin, with no query or
 redirect. Anything else is refused before it reaches the transport: an extra or
 out-of-order request, a 0.20.0-style trial without a handshake, the 18th
-request, a request after the wall cap, an oversized body, or an unlisted
-operation or argument. Changed plan, source, package, adapter, inventory,
-release, catalog, profile or repository bindings are refused too.
+request, a request after the wall cap, a second request in flight, an oversized
+body, a metadata request with a body, an invocation for another repository, or
+an unlisted operation or argument. Redirects are never followed: a 3xx is
+`http-refused`, and a response carrying followed-redirect history is
+`redirect-refused`. A refusal is final: no request is admitted after one, and a
+refusal the client swallowed is raised again at the end of the trial. Metadata
+JSON that is not an object, nests too deeply or cannot be measured gets a
+bounded outcome (`response-shape-refused`, `shape-depth-limit`). A CLI read
+that returns more than one message, or a nonzero CLI return code, also stops
+the run. Changed plan, source, package, adapter, inventory, release, catalog,
+profile or repository bindings are refused too.
 
 Report status is one of:
 
 - `complete`: all 5 trials ran, and the requests sent equal the budget.
-- `refused`: stopped before any request reached the transport.
+- `refused`: nothing was admitted to the transport, even if the guard already
+  existed.
 - `incomplete`: stopped after at least one request. Completed samples are kept,
   and every request that was let through is recorded with its outcome (`ok`, or
-  the refusal reason such as `request-timeout` or `http-refused`).
+  the refusal reason such as `request-timeout` or `http-refused`). An operator
+  interrupt (Ctrl-C) after traffic also yields an `incomplete` report, with
+  reason `interrupted`.
 
 The `window` record holds start and end UTC times, elapsed time, the wall cap,
 the budget and its derivation, the number of requests sent and the trials
@@ -102,9 +113,9 @@ released-client evidence. Run it with the released interpreter:
 ```
 
 Live sampling is not authorized by this change. Before a sample, root reviews the
-implementation and the plan packet, and confirms that the installed 0.21.0 module
-hashes match the plan bindings. (The bindings were computed from the 0.21.0
-release source; installed and git bytes matched for 0.20.0.) Then, from the
+implementation and the plan packet. The plan's Sprintctl module hashes match
+the published v0.21.0 wheel asset (sha256 `30fa8b14…908d`), and the collector
+checks them against whatever is installed on the sampling host. Then, from the
 canonical Agentops checkout with its served repository marker, once per mode:
 
 ```sh
@@ -116,5 +127,5 @@ python -B scripts/observe_owner_workload.py \
 ```
 
 Exit `0` is `complete`. Exit `2` is `refused` or `incomplete`, with a bounded
-reason. A non-complete run is evidence about the attempt only. It is not retried
+reason. Exit `130` is an interrupted run, after its report is printed. A non-complete run is evidence about the attempt only. It is not retried
 automatically.
