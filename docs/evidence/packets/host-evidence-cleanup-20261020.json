@@ -1,0 +1,18 @@
+{
+  "schema": "host-evidence-cleanup-acceptance/v1",
+  "source": "cd29bf97d74c1476f1afadfa51f156e424586309",
+  "checks": {
+    "paired_digest_retrieval": true,
+    "real_service_refuses_unrecognized_file": true,
+    "refusal_exit2_observable": true,
+    "real_service_deleted_expired_payload_and_record": true,
+    "negative_retrieval_after_expiry": true,
+    "recent_control_retained": true,
+    "source_preserved": true,
+    "explicit_control_cleanup": true,
+    "timer_stays_active": true
+  },
+  "passed": true,
+  "fault_observation": "Result=exit-code\nExecMainStatus=2\n",
+  "scope": "Real installed user cleanup service and persistent six-hour timer; accelerated31day synthetic record, no real transcript captured. Both owned canaries removed; original input preserved until temporary test directory cleanup. Other stores/capsules and backup archives have independent lifecycle."
+}

@@ -1,0 +1,191 @@
+{
+  "schema": "langfuse-routing-programme/v1",
+  "session_id": "01a1593b-c15c-7412-957c-9c6dc9777b8b",
+  "objective": "Complete Langfuse, native model routing, and measured advisory routing end to end",
+  "worktrees": {
+    "appservice": "/projects/dev/_wt/langfuse-20261020",
+    "agentops": "/projects/dev/_wt/routing-20261020",
+    "gitops-nixos": "/projects/dev/_wt/otel-host-20261020",
+    "vuoro": "/projects/dev/_wt/quota-park-20261020",
+    "sprintctl": "/projects/dev/_wt/e4-owner-20261020",
+    "native-mapping": "/projects/dev/_wt/native-map-20261020"
+  },
+  "items": {
+    "2398": 406,
+    "2492": 407,
+    "2550": 408,
+    "2551": 409,
+    "2552": 410,
+    "2557": 411,
+    "2472": 412,
+    "2647": 413,
+    "2824": 414,
+    "2825": 415,
+    "2826": 416,
+    "2827": 417,
+    "2828": 418
+  },
+  "remaining": [
+    "Native2827/2398: run both versioned native fixtures through actual receiver and all sinks after operator stages temporary acceptance Secret; remove temporary Secret after testing. Real localCLI all3signals/fail-open already proven; continuous export remains disabled.",
+    "UI2551: nativeAuthentikSSOdeployedandactualanonymousNextAuthredirect8/8PASSafterfixingdouble-slash404. AwaituserOAuthcallback/projectvisibilityconfirmation.",
+    "Retention2828/2398: hostoptinstoreandrealpersistentcleanup/digest/deletionproofdelivered; applicationcanarydeletepasses. CompletephysicalS3/CH/PG/backupcopydisposition; currentVolSyncmonthly3stillpreventsall-copy30dayclaim.",
+    "Land programme and remaining runtime evidence; complete remaining acceptance and only then remove owned worktrees."
+  ],
+  "evidence": {
+    "direct_otlp": "Unauth401, wrong401, authenticated200, exact v4 observation visible; run20261020131256",
+    "negative_tests": [
+      "InvalidAccessKeyId/SignatureDoesNotMatch cannot count as S3 scope denial",
+      "Empty observations data200 cannot pass exact-span readback",
+      "Open Alloy receiver cannot pass authentication acceptance"
+    ],
+    "appservice_validation": "mise run validate passed; focused38passed1skip51subtests; log /tmp/langfuse-validate-final-20261020.log",
+    "alloy_otlp": "Unauth401/wrong401/auth200 and exact v4 observation visible; trace9c1fcab96cd09ab9b711034c987e27bc; six collectors rolled",
+    "production_privacy_after": "Exact span6f465b005539f1914effce4039588292 readable; forbidden synthetic canary absent after every collector reload logged13:46Z. Earlier13:45 check ran before reload propagation and failed; preserve that observation.",
+    "resource_bounds": "live all7 containers bounded; quota35Gi/6PVC used vs96Gi/16PVC; resource-bounds-live.json host-persistent",
+    "deletion": "Newsynthetictrace3879a679049e73ae50443d46dc4e0adb visiblethenDELETEacceptedandtwoHTTP200emptyreads; scopeapplicationAPIonly, physicalS3/CH/PG/backupdispositionunproven."
+  },
+  "constraints": [
+    "Preserve other sessions shared working copies",
+    "Model choice stays native; Vuoro observes and parks only",
+    "No continuous real-data export until live redaction/deletion/fail-open acceptance",
+    "Credentials remain SOPS/private runtime files; do not print values"
+  ],
+  "landed": {
+    "appservice": "bd9e96bfee60a0486c46ea6d98051751120b999b",
+    "gitops-nixos": "8c7dad3",
+    "privacy": "appservice PR1951 merge07f2836c09a060d6f12d4f6ffd0d72e27551c208",
+    "lifecycle_and_production_proof": "appservice 1d82a35ac2858a80941b68e5467907557ade188d (PR1952), post-merge CI green",
+    "sprintctl_owner": "206e396c7ba36f1f6922cb445471b4182a725f4b, published0.22.0 wheel verified; evidence-only followup d25c467 on main",
+    "routing": "agentops PR398 merged c9393af8b437c8432ee2e7152f5ca5d5cc6acb7e; postmerge CI success",
+    "native_telemetry_repair": "gitops-nixos7cb7a4e main; Forgejo1562 flake-check success; remains disabled",
+    "s3_preparation": "appservice PR1953 ac97b7faf729f56075b2915bbd6e0467465f4b94, CIgreen",
+    "host_evidence_store": "agentopsPR401merge3a0543da0d388d2d28c48691b2d0c32f5821567b; code5521d29cf1c20c1823cdc600039885a6b3077048",
+    "host_retention": "gitops-nixoscd29bf97d74c1476f1afadfa51f156e424586309; Forgejo1573flake-checksuccess"
+  },
+  "privacy_item": {
+    "item_id": 2824,
+    "reservation_id": 414,
+    "failure": "Before-fix live canary leak preserved; fixed and verified in isolated three-signal collector and converged production exact-span readback.",
+    "status": "accepted"
+  },
+  "candidates": {
+    "privacy": {
+      "repo": "appservice",
+      "pr": 1951,
+      "head": "aa6fb388",
+      "evidence": "redaction-nested-metadata-after.json"
+    },
+    "routing": {
+      "repo": "agentops",
+      "head": "e8af0e8",
+      "evidence": "routing-audit-after.json"
+    }
+  },
+  "contract_gap_2472": "Resolved andaccepted406: releasedownerreads andconsumer0.1.97deployed;4realpublishedowneredgehistories satisfyrequiredautomatedacceptance. Optionalunboundoperatorprofiledoesnotjustifynewauthoritygate.",
+  "routing_authorization": {
+    "status": "User authorized exact SHA declaration and merge; completed",
+    "pr": 398,
+    "head": "e8af0e8385231741fbd64d0bfa6c81c0158859ff",
+    "reason": "Resolved by explicit authorization; no pending routing approval"
+  },
+  "s3_scope": "Complete: dedicatedcrossprojectkeydeployed dfe77915143ddec2f49fe9c69aa802ac4152738e. All21scopechecks,12allconsumeridentitychecks,CNPGbackup,bothnonemptyVolSyncbackup/restores anddirectOTLP401/401/200exacttracepass; canonicalevidenceinPR1957merged1f92b4669ce729d895c8d72053525d45209500d6. Item2550closeoutpending.",
+  "completed_items": {
+    "2824": {
+      "decision_id": 397,
+      "reservation_released": 414
+    },
+    "2552": {
+      "decision_id": 398,
+      "reservation_released": 410
+    },
+    "2557": {
+      "decision_id": 399,
+      "reservation_released": 411
+    },
+    "2826": {
+      "decision_id": 400,
+      "reservation_released": 416
+    },
+    "2825": {
+      "decision_id": 401,
+      "reservation_released": 415
+    },
+    "2492": {
+      "decision_id": 402,
+      "reservation_released": 407
+    },
+    "2647": {
+      "decision_id": 403,
+      "reservation_released": 413
+    },
+    "2550": {
+      "decision_id": 405,
+      "reservation_released": 408
+    },
+    "2472": {
+      "decision_id": 406,
+      "reservation_released": 412
+    }
+  },
+  "e4_progress": {
+    "owner_release": "0.22.0",
+    "owner_source": "206e396c7ba36f1f6922cb445471b4182a725f4b",
+    "published_wheel_sha256": "2783651fc835e3e6123a14e3b1ca7587f9920db3c76c79c6ac7fdf5869cb2ca3",
+    "consumer_pr": 269,
+    "consumer_head": "8973b56f94c92dbfc0914b24df3c977203e0bfe2",
+    "consumer_source": "679e1b5",
+    "tests": "3058pass146optional-skips fullworkspace;136pass3separate-fixture-skips installedownerconformance incl4E4 no skips;26edge cases;9boundaries",
+    "consumer_merge": "48835a29492e57673bf087d0a1d762c7acfbd00a",
+    "consumer_release": "vuoro-service-v0.1.97 published",
+    "image_digest": "sha256:560349db9d67a10740fa9fd7a199a2af2b74c12be052430944d9f11ebf0f88d8",
+    "image_attestation": "verified againstcanonical48835a2",
+    "rollout_candidate": "appservice86f8c26d imagepin, staged keydd12d2fe, helper331fbd03; PRcreationpendingtoolresult",
+    "rollout_pr": 1954,
+    "rollout_state": "PR1954 merged0152e558; productionservice0.1.97readynewdigest, ownerreadsadvertised. Liveworkstationrunregistrationrejectedidentity-unbound; syntheticitem2829withdrawn. Do not rebind legacytoken."
+  },
+  "native_probes": {
+    "file": "native-harness-probes-20261020.json",
+    "versions": {
+      "codex": "0.163.0",
+      "claude": "2.1.304"
+    },
+    "signals": "both emitted traces/logs/metrics to isolated loopback; synthetic content canary absent",
+    "fail_open": "both completed expected reply with collector unavailable in2.6-4s",
+    "limits": "not sink mapping/deletion/retention or continuous export acceptance"
+  },
+  "pending_user_input": {
+    "otlp_acceptance_secret": "PreToolUse hookblockedSOPScredentialpipe; exactoperatorcommandprovidedviaasyncquestionto stageexistingheaderas loki/alloy-otlp-acceptance, keyAUTH_HEADER. Notcreatedyet. Removeafterallnativechecks.",
+    "ui_callback": "AfterPR1958rollout actualNextAuthredirect8/8PASS; userretryrequested afterpreviousOAuthSignin. No callbacksuccessclaimed."
+  },
+  "advisory_eval": {
+    "protocol_commit": "52c0905",
+    "corpus": "50cases,23groups,17calibration33heldout; all50historicalrevisionshashverified,9editsrewound,0priorbenchmarkoverlap",
+    "authorization": "User explicitly approved native export; all50 predictions completed",
+    "source": "agentops PR400 merged; public inputs reconstructed from pinned Git and served history; no prose published",
+    "session_log": "/tmp/w41-native-predictions-20261020.log",
+    "result": "retain-baseline; native heldout15.2%jointagreement60.6%coverage vs rules18.2%;33attempts16groups"
+  },
+  "native_mapping": {
+    "source_schema_candidate": "agentopsb96cec00a75f598bb9108270c07e442b3314696c adds finite token_type optional enum,11tests pass",
+    "worktree": "/projects/dev/_wt/native-map-20261020",
+    "state": "PR1955 merged4b74ba7048bf0fff079d2caefe66aa79fbd05e12; bothrequiredCIgreen,FluxAlloyreconciled; sixpodsready."
+  },
+  "authentik_ui": {
+    "finding": "User reachedLangfuse/auth/sign-in withnoAuthentikbutton; outergatewayproxywasnotnativeappSSO",
+    "source": "appservice PR1957 merged1f92b4669ce729d895c8d72053525d45209500d6",
+    "state": "NativeOIDCclientauthworks,blueprintsuccessful. OperatorreportedOAuthSignin; actualinstalledNextAuth4.24.15double-slashdiscovery404reproduced. PR1958merged1345c32495c8d873641a06e8fe64a5d0cc6eba7bnormalizesissuer. Afterrolloutall8actualanonymousNextAuthsign-inchecksPASS(state,PKCE,exactcallback/issuer/client). Userretryrequested;callbackunconfirmed.",
+    "restriction": "BothproxyandnativeOIDCapplicationboundtoappservice-admin;signupdisabled;existingemailaccountlinkingonlyno rolechanges"
+  },
+  "host_store": {
+    "candidate": "agentops5521d29",
+    "tests": "12focusedpassed;1115scriptsrun52skipped/1063passedbeforefsync/statoptimization,focused12rerunpassedafter",
+    "state": "Completehostcomponent: Nixcd29bf97d74c1476f1afadfa51f156e424586309CI1573success; evidence-onlybbf2190main. Activepersistenttimer,exactunitGCroots,9realservicechecksPASS inclacceleratedexpiry,negativehashread,unknownfileexit2andretainedrecentcontrol. Nativeexportdisabled."
+  },
+  "retention_inventory_finding": "Additionalphysicalfullcopyobservations_pid_tid_sortinghasnoTTL; candidateCronJobfixaddsstart_time+30days withrealrenderedscriptfunctionaltestandoldmanifestfailurecase. Otherderivedmetadataandbackuphistoryunqualified; noall-copy30dayclaim.",
+  "durability": {
+    "this_packet": "cross-host-replicated once committed and merged",
+    "served_items": "durable-authoritative",
+    "host_artifacts": "host-persistent/semi-ephemeral; not authoritative",
+    "tmp_and_worktrees": "session-local"
+  }
+}
