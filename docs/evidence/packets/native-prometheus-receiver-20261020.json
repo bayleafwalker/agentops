@@ -21,5 +21,11 @@
   "oracle_correction": "Initial predicate required snappy in the decoder error; actual deployed decoder returns s2: corrupt input. Counterexample retained host-local; final predicate recognizes the observed compression decoder.",
   "pinned_chart_render": "92.10.1 renders Prometheus.spec.enableRemoteWriteReceiver true",
   "ci": "Both required candidate and both canonical post-merge CI checks passed.",
-  "limits": "No synthetic time series written. Receiver endpoint/configuration only; authenticated native all-sink sample proof remains2827. HelmRelease final reconciliation pending."
+  "limits": "No synthetic time series written. Receiver endpoint/configuration only; authenticated native all-sink sample proof remains2827.",
+  "helm_release": {
+    "ready": true,
+    "release": "kube-prometheus-stack.v10",
+    "status": "deployed"
+  },
+  "reconciliation_scope": "Chart completed naturally. Earlier persisted hook last_run was stale; proposed recovery precondition refused missing ServiceAccount and made no changes. No hook/certificate was recreated and no readiness check was weakened."
 }
