@@ -48,3 +48,6 @@ docs/evidence/packets/*.reference.patch
 # append-only history (TS-6); this rule only hides new, untracked shards.
 /_artifacts/agentops/audit/
 .claude/settings.local.json
+
+# Private frozen replay inputs; public evidence contains their hash and source recipe.
+/jev/eval/agentops-2026-10-20/cases.jsonl

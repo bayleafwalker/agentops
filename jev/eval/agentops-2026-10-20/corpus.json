@@ -1,0 +1,28 @@
+{
+  "schema": "advisory-routing-corpus/v1",
+  "cases": 50,
+  "groups": 23,
+  "split_counts": {
+    "calibration": 17,
+    "heldout": 33
+  },
+  "source_git_sha": "c9393af8b437c8432ee2e7152f5ca5d5cc6acb7e",
+  "source_shards": [
+    "2026-09-29",
+    "2026-09-30"
+  ],
+  "historical_revision_hashes_verified": 50,
+  "rewound_edit_count": 9,
+  "old_benchmark_overlap": 0,
+  "files": {
+    "protocol.json": "0784c4fe3cd652833a09a22c527abea1879474bd1a864f101e7e4c0dbe89a6fc",
+    "cases.jsonl": "681fb2aa2069551e97aed1244589b83af46e9667b4be0e31874e8483b96c4e6d",
+    "labels-observed.jsonl": "418649e300906b993dfacf4654ca2bb94be0395834bff8ee1713fe25d1884e88"
+  },
+  "limitations": [
+    "50 attempts from24work items; groups, not attempts, bound independence",
+    "Labels are observed historical choices, not independently adjudicated safety outcomes",
+    "Original escalation prose was not recorded; labels retain explicit missing markers",
+    "Private served snapshots remain host-persistent; only deidentified inputs are published"
+  ]
+}

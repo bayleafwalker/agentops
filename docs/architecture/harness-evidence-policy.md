@@ -73,7 +73,11 @@ The allowlisted keys, summarized:
   `span_id` — opaque identifiers only, never content.
 - **Provenance:** `runtime`, `harness`, `model`, `environment`.
 - **Volume/cost:** `input_tokens`, `output_tokens`, `context_tokens`,
-  `cost_usd_list`.
+  `cost_usd_list`. Numeric token metrics may also carry `token_type`, a closed
+  vocabulary (`input`, `output`, `cache_read`, `cache_write`,
+  `reasoning_output`, `total`). Versioned native mappings preserve the
+  distinction between these counters; the field never carries arbitrary
+  native strings, consumption estimates or model recommendations.
 - **Timing/outcome:** `durations` (wall/queue/tool seconds), `result_class`,
   `terminal_reason` (the same seven-code vocabulary auditctl's
   `TERMINAL_REASON_CODES` already enforces: `completed`, `process-exit`,

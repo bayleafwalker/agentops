@@ -99,6 +99,17 @@ class PositiveFixture(unittest.TestCase):
         self.assertEqual(errors, [])
 
 
+class TokenMetricPartition(unittest.TestCase):
+    def test_finite_native_partitions_are_accepted_and_content_is_rejected(self):
+        for value in ("input", "output", "cache_read", "cache_write", "reasoning_output", "total"):
+            with self.subTest(value=value):
+                self.assertEqual(schema_check.validate({**POSITIVE_FIXTURE, "token_type": value}, SCHEMA), [])
+        for value in ("Authorization: Bearer private", "/private/transcript", "input_private", {"prompt": "private"}, 1):
+            with self.subTest(value=value):
+                errors = schema_check.validate({**POSITIVE_FIXTURE, "token_type": value}, SCHEMA)
+                self.assertTrue(any("token_type" in error for error in errors), errors)
+
+
 class NegativeFixtures(unittest.TestCase):
     def test_prompt_text_key_is_rejected(self) -> None:
         instance = dict(POSITIVE_FIXTURE)

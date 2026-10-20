@@ -1,0 +1,309 @@
+{
+  "schema": "advisory-routing-result/v1",
+  "metrics": {
+    "calibration:rules": {
+      "cases": 17,
+      "independent_groups": 7,
+      "lane_confusion": {
+        "build": {
+          "build": 9,
+          "oracle": 0,
+          "refine": 5
+        },
+        "oracle": {
+          "build": 0,
+          "oracle": 0,
+          "refine": 0
+        },
+        "refine": {
+          "build": 1,
+          "oracle": 0,
+          "refine": 2
+        }
+      },
+      "tier_confusion": {
+        "bounded": {
+          "bounded": 5,
+          "standard": 0,
+          "hard": 5
+        },
+        "standard": {
+          "bounded": 4,
+          "standard": 0,
+          "hard": 0
+        },
+        "hard": {
+          "bounded": 0,
+          "standard": 0,
+          "hard": 3
+        }
+      },
+      "joint_exact_agreement": 0.4117647058823529,
+      "group_weighted_joint_agreement": 0.38095238095238093,
+      "false_escalation_proxy_count": 5,
+      "under_escalation_proxy_count": 4,
+      "abstentions": 0,
+      "coverage": 1.0,
+      "latency_p50_seconds": 8.54299942147918e-05,
+      "latency_p95_seconds": 0.00030567100475309417,
+      "actual_billed_cost_usd": null,
+      "operator_correction_seconds": null,
+      "independent_unsafe_under_escalations": null
+    },
+    "calibration:native_cheap": {
+      "cases": 17,
+      "independent_groups": 7,
+      "lane_confusion": {
+        "build": {
+          "build": 11,
+          "oracle": 0,
+          "refine": 3
+        },
+        "oracle": {
+          "build": 0,
+          "oracle": 0,
+          "refine": 0
+        },
+        "refine": {
+          "build": 2,
+          "oracle": 0,
+          "refine": 1
+        }
+      },
+      "tier_confusion": {
+        "bounded": {
+          "bounded": 2,
+          "standard": 0,
+          "hard": 8
+        },
+        "standard": {
+          "bounded": 1,
+          "standard": 1,
+          "hard": 2
+        },
+        "hard": {
+          "bounded": 0,
+          "standard": 0,
+          "hard": 3
+        }
+      },
+      "joint_exact_agreement": 0.29411764705882354,
+      "group_weighted_joint_agreement": 0.2619047619047619,
+      "false_escalation_proxy_count": 3,
+      "under_escalation_proxy_count": 2,
+      "abstentions": 5,
+      "coverage": 0.7058823529411764,
+      "latency_p50_seconds": 26.653034107002895,
+      "latency_p95_seconds": 30.01393294599984,
+      "actual_billed_cost_usd": null,
+      "operator_correction_seconds": null,
+      "independent_unsafe_under_escalations": null
+    },
+    "heldout:rules": {
+      "cases": 33,
+      "independent_groups": 16,
+      "lane_confusion": {
+        "build": {
+          "build": 18,
+          "oracle": 1,
+          "refine": 6
+        },
+        "oracle": {
+          "build": 1,
+          "oracle": 0,
+          "refine": 2
+        },
+        "refine": {
+          "build": 3,
+          "oracle": 0,
+          "refine": 2
+        }
+      },
+      "tier_confusion": {
+        "bounded": {
+          "bounded": 4,
+          "standard": 0,
+          "hard": 7
+        },
+        "standard": {
+          "bounded": 11,
+          "standard": 0,
+          "hard": 6
+        },
+        "hard": {
+          "bounded": 1,
+          "standard": 0,
+          "hard": 4
+        }
+      },
+      "joint_exact_agreement": 0.18181818181818182,
+      "group_weighted_joint_agreement": 0.2708333333333333,
+      "false_escalation_proxy_count": 9,
+      "under_escalation_proxy_count": 14,
+      "abstentions": 0,
+      "coverage": 1.0,
+      "latency_p50_seconds": 0.00011336000170558691,
+      "latency_p95_seconds": 0.0006548129967995919,
+      "actual_billed_cost_usd": null,
+      "operator_correction_seconds": null,
+      "independent_unsafe_under_escalations": null
+    },
+    "heldout:native_cheap": {
+      "cases": 33,
+      "independent_groups": 16,
+      "lane_confusion": {
+        "build": {
+          "build": 18,
+          "oracle": 3,
+          "refine": 4
+        },
+        "oracle": {
+          "build": 2,
+          "oracle": 0,
+          "refine": 1
+        },
+        "refine": {
+          "build": 5,
+          "oracle": 0,
+          "refine": 0
+        }
+      },
+      "tier_confusion": {
+        "bounded": {
+          "bounded": 3,
+          "standard": 2,
+          "hard": 6
+        },
+        "standard": {
+          "bounded": 5,
+          "standard": 2,
+          "hard": 10
+        },
+        "hard": {
+          "bounded": 0,
+          "standard": 1,
+          "hard": 4
+        }
+      },
+      "joint_exact_agreement": 0.15151515151515152,
+      "group_weighted_joint_agreement": 0.20833333333333334,
+      "false_escalation_proxy_count": 8,
+      "under_escalation_proxy_count": 10,
+      "abstentions": 13,
+      "coverage": 0.6060606060606061,
+      "latency_p50_seconds": 25.599941432999913,
+      "latency_p95_seconds": 30.015593336000165,
+      "actual_billed_cost_usd": null,
+      "operator_correction_seconds": null,
+      "independent_unsafe_under_escalations": null
+    },
+    "all:rules": {
+      "cases": 50,
+      "independent_groups": 23,
+      "lane_confusion": {
+        "build": {
+          "build": 27,
+          "oracle": 1,
+          "refine": 11
+        },
+        "oracle": {
+          "build": 1,
+          "oracle": 0,
+          "refine": 2
+        },
+        "refine": {
+          "build": 4,
+          "oracle": 0,
+          "refine": 4
+        }
+      },
+      "tier_confusion": {
+        "bounded": {
+          "bounded": 9,
+          "standard": 0,
+          "hard": 12
+        },
+        "standard": {
+          "bounded": 15,
+          "standard": 0,
+          "hard": 6
+        },
+        "hard": {
+          "bounded": 1,
+          "standard": 0,
+          "hard": 7
+        }
+      },
+      "joint_exact_agreement": 0.26,
+      "group_weighted_joint_agreement": 0.30434782608695654,
+      "false_escalation_proxy_count": 14,
+      "under_escalation_proxy_count": 18,
+      "abstentions": 0,
+      "coverage": 1.0,
+      "latency_p50_seconds": 0.00010544600081630051,
+      "latency_p95_seconds": 0.00030567100475309417,
+      "actual_billed_cost_usd": null,
+      "operator_correction_seconds": null,
+      "independent_unsafe_under_escalations": null
+    },
+    "all:native_cheap": {
+      "cases": 50,
+      "independent_groups": 23,
+      "lane_confusion": {
+        "build": {
+          "build": 29,
+          "oracle": 3,
+          "refine": 7
+        },
+        "oracle": {
+          "build": 2,
+          "oracle": 0,
+          "refine": 1
+        },
+        "refine": {
+          "build": 7,
+          "oracle": 0,
+          "refine": 1
+        }
+      },
+      "tier_confusion": {
+        "bounded": {
+          "bounded": 5,
+          "standard": 2,
+          "hard": 14
+        },
+        "standard": {
+          "bounded": 6,
+          "standard": 3,
+          "hard": 12
+        },
+        "hard": {
+          "bounded": 0,
+          "standard": 1,
+          "hard": 7
+        }
+      },
+      "joint_exact_agreement": 0.2,
+      "group_weighted_joint_agreement": 0.2246376811594203,
+      "false_escalation_proxy_count": 11,
+      "under_escalation_proxy_count": 12,
+      "abstentions": 18,
+      "coverage": 0.64,
+      "latency_p50_seconds": 26.359593143002712,
+      "latency_p95_seconds": 30.014931413999875,
+      "actual_billed_cost_usd": null,
+      "operator_correction_seconds": null,
+      "independent_unsafe_under_escalations": null
+    }
+  },
+  "decisions_api": {
+    "status": "unmeasured",
+    "reason": "no account/budget authorization"
+  },
+  "recommendation": "retain-baseline",
+  "reasons": [
+    "Historical lanes are imitation targets, not independent safety labels.",
+    "Actual per-call subscription billing and operator correction time are unmeasured; adoption bounds cannot be established.",
+    "No production model selection or authority changes follow from this experiment."
+  ]
+}
