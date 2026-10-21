@@ -34,8 +34,16 @@ git history of the repository that holds it: newest commit within the window
 (measured from ``--now``) -> active -> a *capture failure* (alert); older ->
 *inactive* (reported, not an alert); no git repository to compare against ->
 still an alert (silence without evidence of inactivity is a failed invariant).
-Activity comes from commit dates, never file-system times. The scheduled run
-uses ``--root <estate> --window-seconds 172800 --git-activity``.
+Activity comes from commit dates, never file-system times. Merge commits and
+commits that touch only audit bookkeeping (``_artifacts/`` and ``.gitignore``
+files) are not activity: an estate-wide shard-ignore sweep committed into every
+repository from one session, and counting it alerted on five idle repositories.
+
+``--dormant SCOPE`` (repeatable) declares a store dormant: its gauge is still
+emitted, but staleness is reported, not alerted. Use it for a store with no
+repository to compare against whose project is parked, not retired, and drop
+it when the project resumes. The scheduled run uses ``--root <estate>
+--window-seconds 172800 --git-activity`` plus the estate's ``--dormant`` list.
 """
 from __future__ import annotations
 
@@ -161,15 +169,22 @@ def discover_store_dirs(root: Path) -> dict[str, Path]:
             for scope, dirs in candidates.items()}
 
 
-def newest_commit(store_dir: Path) -> datetime | None:
-    """Committer time of the newest commit of the repository holding ``store_dir``.
+#: Paths whose changes alone are audit bookkeeping, not work that should have been captured.
+#: ``top`` anchors them at the repository root: ``git -C`` runs inside the store directory.
+BOOKKEEPING_PATHSPECS = [":(top)", ":(top,exclude)_artifacts", ":(top,exclude,glob)**/.gitignore"]
 
-    None when the store is not in a git work tree, or the repository has no commits.
+
+def newest_commit(store_dir: Path) -> datetime | None:
+    """Committer time of the newest activity commit of the repository holding ``store_dir``.
+
+    Merges and commits touching only ``BOOKKEEPING_PATHSPECS`` exclusions are skipped. None
+    when the store is not in a git work tree, or the repository has no such commit.
     """
     env = dict(os.environ, GIT_OPTIONAL_LOCKS="0")
     try:
         proc = subprocess.run(
-            ["git", "-C", str(store_dir), "log", "-1", "--format=%ct", "HEAD"],
+            ["git", "-C", str(store_dir), "log", "-1", "--no-merges", "--format=%ct", "HEAD",
+             "--", *BOOKKEEPING_PATHSPECS],
             capture_output=True, text=True, timeout=60, env=env)
     except (OSError, subprocess.SubprocessError):
         return None
@@ -193,6 +208,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--git-activity", action="store_true",
                         help="classify a stale store as a capture failure (repository active "
                              "within the window) or inactive (no commits within the window)")
+    parser.add_argument("--dormant", action="append", default=[], metavar="SCOPE",
+                        help="a parked store: report staleness without alerting (repeatable)")
     args = parser.parse_args(argv)
 
     if args.now is not None:
@@ -229,7 +246,10 @@ def main(argv: list[str] | None = None) -> int:
             continue
         age = max(0.0, (now - newest).total_seconds())
         print(f'{METRIC}{{repo="{scope}"}} {age:.3f}')
-        if age > args.window_seconds and args.git_activity:
+        if age > args.window_seconds and scope in args.dormant:
+            print(f"audit-freshness: {scope}: dormant (declared), last durable event {age:.0f}s "
+                  f"ago (not an alert)", file=sys.stderr)
+        elif age > args.window_seconds and args.git_activity:
             commit = newest_commit(store_dirs[scope]) if scope in store_dirs else None
             if commit is None:
                 alerts.append(scope)
