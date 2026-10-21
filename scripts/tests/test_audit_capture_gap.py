@@ -286,3 +286,82 @@ def test_store_only_outside_git_still_alerts(git_env):
 
     assert proc.returncode == 1, detail(proc)
     assert any("no git history" in line.lower() for line in lines_naming(proc, "orphan")), detail(proc)
+
+
+def commit_at(repo: Path, when: datetime, path: str, text: str, message: str) -> None:
+    """Commit ``text`` to ``repo/path`` with author and committer date ``when``."""
+    target = repo / path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text)
+    subprocess.run(["git", "add", "-f", path], cwd=repo, check=True)
+    stamp = iso(when)
+    env = dict(os.environ, GIT_AUTHOR_DATE=stamp, GIT_COMMITTER_DATE=stamp)
+    subprocess.run(["git", "commit", "-q", "-m", message], cwd=repo, check=True, env=env)
+
+
+def test_bookkeeping_only_commit_is_not_activity(git_env):
+    # The 2026-10-20 sweep: one session committed "ignore new auditctl shards" into every
+    # repository. Those repositories were idle; the sweep is not work capture should have seen.
+    repo = make_repo(git_env, "idle", NOW - timedelta(days=30))
+    write_store(repo, "idle", NOW - timedelta(days=20))
+    commit_at(repo, NOW - timedelta(hours=3), ".gitignore", "_artifacts/\n", "chore: ignore shards")
+    commit_at(repo, NOW - timedelta(hours=2), "sub/.gitignore", "x\n", "chore: nested ignore")
+    commit_at(repo, NOW - timedelta(hours=1), "_artifacts/idle/audit/events-x.ndjson", "\n",
+              "chore(audit): append shards")
+
+    proc = run(git_env)
+
+    assert proc.returncode == 0, detail(proc)
+    assert any("inactive" in line.lower() for line in lines_naming(proc, "idle")), detail(proc)
+
+
+def test_merge_commit_is_not_activity(git_env):
+    repo = make_repo(git_env, "merged", NOW - timedelta(days=30))
+    write_store(repo, "merged", NOW - timedelta(days=20))
+    subprocess.run(["git", "checkout", "-q", "-b", "side"], cwd=repo, check=True)
+    commit_at(repo, NOW - timedelta(days=25), "work.txt", "w\n", "old work")
+    subprocess.run(["git", "checkout", "-q", "main"], cwd=repo, check=True)
+    stamp = iso(NOW - timedelta(hours=1))
+    env = dict(os.environ, GIT_AUTHOR_DATE=stamp, GIT_COMMITTER_DATE=stamp)
+    subprocess.run(["git", "merge", "-q", "--no-ff", "-m", "merge", "side"], cwd=repo, check=True,
+                   env=env)
+
+    proc = run(git_env)
+
+    assert proc.returncode == 0, detail(proc)
+
+
+def test_real_commit_beside_bookkeeping_is_still_a_capture_failure(git_env):
+    repo = make_repo(git_env, "mixed", NOW - timedelta(days=30))
+    write_store(repo, "mixed", NOW - timedelta(days=5))
+    commit_at(repo, NOW - timedelta(hours=2), "src.py", "x = 1\n", "feat: work")
+    commit_at(repo, NOW - timedelta(hours=1), ".gitignore", "_artifacts/\n", "chore: ignore shards")
+
+    proc = run(git_env)
+
+    assert proc.returncode == 1, detail(proc)
+    assert any("capture" in line.lower() for line in lines_naming(proc, "mixed")), detail(proc)
+
+
+def test_dormant_store_is_reported_not_alerted(git_env):
+    write_store(git_env, "parked", NOW - timedelta(days=30))
+    argv = [sys.executable, str(SCRIPT), "--root", str(git_env), "--now", iso(NOW),
+            "--window-seconds", str(WINDOW), "--git-activity", "--dormant", "parked"]
+
+    proc = subprocess.run(argv, capture_output=True, text=True, timeout=120)
+
+    assert proc.returncode == 0, detail(proc)
+    assert "parked" in gauges(proc.stdout), detail(proc)
+    assert any("dormant" in line.lower() for line in lines_naming(proc, "parked")), detail(proc)
+
+
+def test_dormant_does_not_hide_other_stores(git_env):
+    write_store(git_env, "parked", NOW - timedelta(days=30))
+    write_store(git_env, "orphan", NOW - timedelta(days=5))
+    argv = [sys.executable, str(SCRIPT), "--root", str(git_env), "--now", iso(NOW),
+            "--window-seconds", str(WINDOW), "--git-activity", "--dormant", "parked"]
+
+    proc = subprocess.run(argv, capture_output=True, text=True, timeout=120)
+
+    assert proc.returncode == 1, detail(proc)
+    assert any("no git history" in line.lower() for line in lines_naming(proc, "orphan")), detail(proc)
