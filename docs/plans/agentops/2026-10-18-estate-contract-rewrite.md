@@ -1,6 +1,6 @@
 # Estate-wide contract rewrite: requirements and delivery map
 
-Status: **user-requested requirements baseline, 18 October 2026**. The estate-wide destination is accepted. The later request for architectural discovery reopens the IDL/transport choice: protobuf is a lead candidate, not a final stack decision. See [architectural discovery](2026-10-18-estate-contract-architecture-discovery.md). This change lands plans and registered requirements, not schemas, implementations, deployments or expanded grants.
+Status: **user-requested requirements baseline, 18 October 2026**. The estate-wide destination is accepted. The later request for architectural discovery reopens the IDL/transport choice: protobuf was the provisional lead candidate. On 21 October 2026 the operator selected TypeSpec → OpenAPI / JSON Schema 2020-12 as the estate default; see the [EC-00 contract stack ADR](../../architecture/2026-10-21-ec00-contract-stack-adr.md), which also lists the EC-00 acceptance evidence still owed. See [architectural discovery](2026-10-18-estate-contract-architecture-discovery.md). This change lands plans and registered requirements, not schemas, implementations, deployments or expanded grants.
 
 This cross-cutting programme amends the implementation dependencies of the [two-year KAOS roadmap](2026-10-18-kaos-2028-roadmap.md) and [Operator Actions plan](2026-10-18-operator-actions.md). Existing functional outcomes remain required. The JSON companion is a requirements trace, not a second live work ledger; served Sprintctl owns item status.
 
