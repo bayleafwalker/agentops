@@ -1,0 +1,59 @@
+{
+  "artifact_kind": "outcome-measurement-authoring-template",
+  "status": "template-not-run",
+  "experiment_record_ref": null,
+  "population_ref": null,
+  "requirements_ref": null,
+  "evaluation_policy_ref": null,
+  "population_registered_at": null,
+  "observation_window": {
+    "start": null,
+    "end": null
+  },
+  "expected_case_ids": [],
+  "cases": [],
+  "case_template": {
+    "case_id": null,
+    "artifact_revision_ref": null,
+    "run_ids": [],
+    "internal_acceptance": {
+      "disposition": "unknown",
+      "owner_decision_ref": null,
+      "observed_at": null
+    },
+    "independent_requirements": {
+      "status": "unknown",
+      "criterion_refs": [],
+      "oracle_refs": [],
+      "oracle_origin": null,
+      "independence_basis": null,
+      "evaluator_ref": null,
+      "evaluated_revision_ref": null,
+      "evidence_refs": [],
+      "unknown_required_checks": []
+    },
+    "actual_use": {
+      "status": "unknown",
+      "consumer_ref": null,
+      "window_start": null,
+      "window_end": null,
+      "evidence_refs": []
+    },
+    "escaped_defects": {
+      "observed_count": null,
+      "detection_method_ref": null,
+      "window_start": null,
+      "window_end": null,
+      "coverage_description": null,
+      "evidence_refs": []
+    },
+    "measurement_evidence_refs": [],
+    "limitations": []
+  },
+  "limitations": [
+    "Authoring companion only; not a runtime import shape or an ExperimentRecord.",
+    "No observations, acceptance decisions, independent results or costs are supplied.",
+    "Null is unknown. Empty observation arrays establish no positive outcome.",
+    "Keep owner acceptance, independently checked requirements, actual use and escaped defects distinct."
+  ]
+}

@@ -1,5 +1,13 @@
 # Agent-Ops Plans
 
+## Opportunistic follow-through (22 October 2026)
+
+- [Agent interface and outcome artifacts](2026-10-22-opportunistic-follow-through/README.md)
+  map the scan onto current owners: output-completeness review, an independent
+  outcome-observation companion, knowledge-reuse regression cases and MCP
+  compatibility follow-through. They reuse existing experiment and compatibility
+  machinery; source delivery does not claim runtime adoption or a measured result.
+
 ## Current estate delivery plan
 
 - [Owner-register architecture and qualification handoff](../../architecture/2026-10-17-estate-evidence-delivery.md)
