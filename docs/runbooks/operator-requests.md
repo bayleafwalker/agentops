@@ -79,6 +79,7 @@ agentops operator-requests outbox stage-publish --repo sprintctl \
   --arguments /secure/path/publish-operator-request.json
 agentops operator-requests outbox list
 agentops operator-requests outbox deliver --profile /secure/path/vuoro-profile.json
+agentops operator-requests outbox reconcile --profile /secure/path/vuoro-profile.json
 agentops operator-requests outbox prune-acknowledged
 ```
 
@@ -86,12 +87,17 @@ Delivery is manual and sends the exact staged request ID, arguments, and
 idempotency key back to the owner. The owner decides whether it is new,
 already applied, stale, or conflicting. Only the owner response containing
 exactly the matching `request_id`, a positive integer `revision`, and boolean
-`replayed` marks the entry acknowledged. Transport failures, owner refusals,
-and malformed or missing responses leave it pending. `prune-acknowledged`
-removes acknowledged rows to free bounded local storage.
+`replayed` marks the entry acknowledged. Once a publish call has started, a
+transport failure or malformed acknowledgement moves the entry to `uncertain`
+and further delivery skips it. Reconcile performs a repo-scoped owner `get`:
+a matching current snapshot acknowledges it, and an explicit owner `not-found`
+returns it to `pending`; changed or malformed snapshots and read/auth failures
+leave it `uncertain`. `prune-acknowledged` removes acknowledged rows to free
+bounded local storage.
 The outbox never retries an effect, attestation, decline, or other operation.
-It does not resolve ambiguous owner outcomes locally. Re-delivery is explicit
-and relies on owner idempotency for the preserved key.
+It does not resolve ambiguous owner outcomes locally. Re-delivery after a
+confirmed absence is explicit and relies on owner idempotency for the preserved
+key.
 
 The default path is `$XDG_STATE_HOME/agentops/operator-requests` or
 `~/.local/state/agentops/operator-requests`; set
