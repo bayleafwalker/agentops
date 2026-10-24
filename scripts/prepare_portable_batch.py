@@ -25,6 +25,8 @@ from verify_portable_batch_pins import PinError, load_manifest, state_for_repo
 SCRIPT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_PIN_MANIFEST = SCRIPT_ROOT / "docs/plans/agentops/portable-feature-batch-pins.v1.json"
 MAX_REQUEST_BYTES = 1_048_576
+MAX_JSON_DEPTH = 64
+MAX_JSON_NODES = 100_000
 MAX_REPOSITORIES = 32
 MAX_DEPENDENCIES = 256
 MAX_OBSERVATIONS = 256
@@ -44,6 +46,35 @@ OBSERVATION_STATES = {"ready", "blocked", "unknown", "stale", "refused", "uncert
 
 class PacketError(ValueError):
     """Invalid request or local source observation."""
+
+
+def _check_json_bounds(text: str) -> None:
+    depth = 0
+    nodes = 1
+    quoted = False
+    escaped = False
+    for char in text:
+        if quoted:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                quoted = False
+            continue
+        if char == '"':
+            quoted = True
+        elif char in "[{":
+            depth += 1
+            nodes += 1
+            if depth > MAX_JSON_DEPTH:
+                raise PacketError("request file exceeds JSON depth limit")
+        elif char in "]}":
+            depth -= 1
+        elif char == ",":
+            nodes += 1
+        if nodes > MAX_JSON_NODES:
+            raise PacketError("request file exceeds JSON node limit")
 
 
 def _pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -146,10 +177,10 @@ def _load_request(path: Path) -> dict[str, Any]:
     if len(raw) > MAX_REQUEST_BYTES:
         raise PacketError("request file exceeds 1 MiB")
     try:
-        value = json.loads(
-            raw.decode("utf-8"), object_pairs_hook=_pairs, parse_constant=_constant
-        )
-    except (UnicodeError, json.JSONDecodeError, PacketError):
+        decoded = raw.decode("utf-8")
+        _check_json_bounds(decoded)
+        value = json.loads(decoded, object_pairs_hook=_pairs, parse_constant=_constant)
+    except (UnicodeError, json.JSONDecodeError, PacketError, RecursionError):
         raise PacketError("request file is not strict UTF-8 JSON") from None
     if not isinstance(value, dict):
         raise PacketError("request root must be an object")

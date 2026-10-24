@@ -11,7 +11,7 @@
     "candidate": { "$ref": "#/$defs/candidate" },
     "evaluated_at": { "type": "string", "format": "date-time", "maxLength": 64 },
     "max_receipt_age_seconds": { "type": "integer", "minimum": 60, "maximum": 2592000 },
-    "required_checks": { "type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true, "items": { "$ref": "#/$defs/identity" } },
+    "required_checks": { "type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true, "items": { "$ref": "#/$defs/identity" }, "not": { "contains": { "const": "independent-review" } } },
     "receipts": { "type": "array", "maxItems": 128, "items": { "$ref": "#/$defs/receipt" } }
   },
   "$defs": {

@@ -34,6 +34,8 @@ from prepare_portable_batch import (
 
 SCRIPT_ROOT = Path(__file__).resolve().parent.parent
 MAX_REQUEST_BYTES = 1_048_576
+MAX_JSON_DEPTH = 64
+MAX_JSON_NODES = 100_000
 MAX_RECEIPTS = 128
 MAX_CHECKS = 64
 OBJECT_ID = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
@@ -45,6 +47,35 @@ class ReviewPacketError(ValueError):
     """Invalid review request or local candidate observation."""
 
 
+def _check_json_bounds(text: str) -> None:
+    depth = 0
+    nodes = 1
+    quoted = False
+    escaped = False
+    for char in text:
+        if quoted:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                quoted = False
+            continue
+        if char == '"':
+            quoted = True
+        elif char in "[{":
+            depth += 1
+            nodes += 1
+            if depth > MAX_JSON_DEPTH:
+                raise ReviewPacketError("review request exceeds JSON depth limit")
+        elif char in "]}":
+            depth -= 1
+        elif char == ",":
+            nodes += 1
+        if nodes > MAX_JSON_NODES:
+            raise ReviewPacketError("review request exceeds JSON node limit")
+
+
 def _load_request(path: Path) -> dict[str, Any]:
     try:
         with path.open("rb") as stream:
@@ -54,8 +85,10 @@ def _load_request(path: Path) -> dict[str, Any]:
     if len(raw) > MAX_REQUEST_BYTES:
         raise ReviewPacketError("review request exceeds 1 MiB")
     try:
-        value = json.loads(raw.decode("utf-8"), object_pairs_hook=_pairs, parse_constant=_constant)
-    except (UnicodeError, json.JSONDecodeError, PacketError):
+        decoded = raw.decode("utf-8")
+        _check_json_bounds(decoded)
+        value = json.loads(decoded, object_pairs_hook=_pairs, parse_constant=_constant)
+    except (UnicodeError, json.JSONDecodeError, PacketError, RecursionError):
         raise ReviewPacketError("review request is not strict UTF-8 JSON") from None
     if not isinstance(value, dict):
         raise ReviewPacketError("review request root must be an object")
@@ -119,11 +152,15 @@ def _validate_request(raw: dict[str, Any]) -> dict[str, Any]:
         "target_branch": _branch(candidate["target_branch"], "candidate.target_branch"),
         "author_id": _text(candidate["author_id"], "candidate.author_id", maximum=256),
     }
+    if request["candidate"]["branch"] == request["candidate"]["target_branch"]:
+        raise ReviewPacketError("candidate and target branches must differ")
 
     checks = root["required_checks"]
     if not isinstance(checks, list) or not 1 <= len(checks) <= MAX_CHECKS:
         raise ReviewPacketError("required_checks must contain 1..64 entries")
     normalized_checks = [_identity(value, "required check") for value in checks]
+    if "independent-review" in normalized_checks:
+        raise ReviewPacketError("independent-review is a reserved evidence name")
     if len(set(normalized_checks)) != len(normalized_checks):
         raise ReviewPacketError("required_checks contains duplicate names")
     request["required_checks"] = sorted(normalized_checks)
@@ -353,10 +390,19 @@ def _evaluate_receipts(request: dict[str, Any], candidate: dict[str, Any]) -> tu
     reviews = [row for row in evaluated if row["kind"] == "independent-review"]
     if not reviews:
         review_state = "missing"
-    elif not any(row["status"] == "matches-exact-head-unverified" for row in reviews):
-        review_state = "blocked"
     else:
-        review_state = "matches-exact-head-unverified"
+        current = [
+            row for row in reviews
+            if row["status"] in {
+                "matches-exact-head-unverified", "not-passed", "not-independent"
+            }
+        ]
+        if len(current) > 1:
+            review_state = "ambiguous"
+        elif len(current) == 1:
+            review_state = current[0]["status"]
+        else:
+            review_state = "blocked"
     required.append({"check_name": "independent-review", "status": review_state})
     return evaluated, required
 
