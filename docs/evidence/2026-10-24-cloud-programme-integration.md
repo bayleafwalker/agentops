@@ -17,7 +17,7 @@ The hashes below identify the current integrated candidate trees. All branches a
 | Repository | Local branch | Code commit | Code tree |
 | --- | --- | --- | --- |
 | Vuoro | `cloud/20261024/programme-08-integration-vuoro-exact` | `e849c4e7a231585330980bf4bd5aeb00ebfa6150` | `a2d603031a5151ff4b487d73906d3b782b005770` |
-| Vuoro Cloud | `cloud/20261024/programme-08-integration-vuoro-cloud-exact` | `690f2ed2b15501532817e1b3e7473d4570a35c1f` | `c92bba669368ceb655fa838aeec50ce06ee10f28` |
+| Vuoro Cloud | `cloud/20261024/programme-08-integration-vuoro-cloud-exact` | `95b6af72f2addec4fcfaf1461ea873d5a61d6816` | `4e9174d78d0ddab562ed42891c216f154492740a` |
 | Sprintctl | `cloud/20261024/programme-08-integration-sprintctl` | `bab967f70b19558ffc280e6e65193433f0c6283e` | `9b5d7518a1f7e02c1cb59c847ee27c2ad5f916ba` |
 | AgentOps | `cloud/20261024/programme-08-integration-agentops-exact` | `eb97f55be6a9d13c9921309f0b47af79ef4a35b2` | `2a914f522e68a3aaefbbce61dc0d3a4d3fe60e14` |
 | Appservice | `cloud/20261024/programme-08-integration-appservice-exact` | `68fccbd23dac2dd612aad6b0f5fcd406cc3c6172` | `2cc4223daf54ab0961f2d0eba4d4076a04c1aecf` |
@@ -42,7 +42,7 @@ The hashes below identify the current integrated candidate trees. All branches a
 - P05 adds an F2 wire-contract candidate for current pull/start behavior and records the unresolved renew/status/handback/complete/lookup API semantics. It preserves the existing gate requiring an accepted shared foundation and real O2/F2 qualification before any private worker route is added.
 - P06 adds gateway-issued invocation and attempt IDs to telemetry only after exact owner-receipt validation. Harness labels and session/work hints remain explicitly claimed; no request body, secret, grant, or model field is exported.
 - P07 refreshes its source inventory to the Appservice candidate's Langfuse v4.69.0 pin and adds the legacy span/generation POST/PATCH write routes. The v4.69 admin replay route still has no global admission disable or replay fence. The pinned source was checked through the GitHub connector at commit `a0ef9519ce6c934f7db929251a17c35f4080f3c2`.
-- The final P08 review verified all follow-up commits were ancestors of the exact branches and found no remaining issue after fixing one stale Langfuse version string and one imprecise P02 evidence-digest statement.
+- The final P08 review verified all follow-up commits were ancestors of the exact branches and found no remaining issue after fixing one stale Langfuse version string and one imprecise P02 evidence-digest statement. Final integration diff-check also caught and removed a trailing blank line in the P03 TUI test (`95b6af72f2addec4fcfaf1461ea873d5a61d6816`); this was whitespace-only.
 
 ## Focused verification
 
