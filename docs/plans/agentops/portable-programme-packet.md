@@ -60,11 +60,29 @@ manifest revision; it must be a local file and its pinned branch tips are still
 checked against the selected local repository objects.
 
 The output is deterministic for the same request and local Git state. Use
-`--format text` for a concise operator summary. Exit status `0` means the
-source/blob observations match; `1` means a declared source reference is
-missing or stale; `2` means the request or repository mapping is malformed.
-No command mode contacts an owner, changes a repository, creates a task, starts
-a session, changes grants, lands work, or deploys.
+`--format text` for a concise operator summary. `--format prompt` renders a
+bounded user-launch prompt from the same validated packet. It is
+`SELF-CONTAINED-USER-LAUNCH-PROMPT` only when all source and pin checks pass and
+the request has zero dependencies. If any source is blocked or any dependency
+is present, it emits `BLOCKED-CONTEXT` and says to stop before launch. It never
+copies dependency bytes or fetches them; dependency refs remain explicit and an
+operator must separately supply and authorize the bytes. Unsafe prompt text
+that resembles a local path, remote URL, or credential is not echoed.
+
+The prompt states user launch only, unknown provider capability, separate
+manual receipt phases, and no dispatch, grant change, landing, or deployment.
+Use the closed
+[`portable-manual-launch-observation/v1`](../../../schemas/portable-manual-launch-observation.v1.schema.json)
+schema to record `intent`, `submitted`, `acknowledged`, `started`, and
+`useful_progress` as separate observations. Phases after `intent` require a
+platform-issued task ID, actual resolved model and environment, and exact source
+refs; missing values stay unknown. A prompt or URL is not a task receipt.
+
+Exit status `0` means JSON/text source observations match or a prompt is
+self-contained; `1` means observations are blocked or the prompt must stop;
+`2` means the request or repository mapping is malformed. No command mode
+contacts an owner, changes a repository, dispatches or creates a task, starts a
+session, changes grants, lands work, or deploys.
 
 ## Readiness rules
 
