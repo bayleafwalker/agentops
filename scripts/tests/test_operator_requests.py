@@ -203,6 +203,18 @@ class LocalRequestOutboxTests(unittest.TestCase):
         with self.assertRaises(requests.RequestClientError) as caught:
             self.store.list_entries()
         self.assertEqual(caught.exception.code, "outbox-storage-invalid")
+        data.write_text('{"schema":"operator-request-outbox/v1","entries":[],"entries":[]}')
+        with self.assertRaises(requests.RequestClientError) as caught:
+            self.store.list_entries()
+        self.assertEqual(caught.exception.code, "outbox-storage-invalid")
+        duplicated_nested_key = json.dumps(valid).replace(
+            '"summary": "Restart a test service"',
+            '"summary": "first", "summary": "second"',
+        )
+        data.write_text(duplicated_nested_key)
+        with self.assertRaises(requests.RequestClientError) as caught:
+            self.store.list_entries()
+        self.assertEqual(caught.exception.code, "outbox-storage-invalid")
         data.write_text(" " * (self.store.MAX_BYTES + 1))
         with self.assertRaises(requests.RequestClientError) as caught:
             self.store.list_entries()

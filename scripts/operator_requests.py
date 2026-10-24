@@ -127,8 +127,16 @@ class LocalRequestOutbox:
             raise RequestClientError("outbox-storage-invalid", "outbox file could not be read safely") from exc
         if len(raw.encode("utf-8")) > self.MAX_BYTES:
             raise RequestClientError("outbox-storage-invalid", "outbox file exceeds its size limit")
+        def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+            value: dict[str, Any] = {}
+            for key, item in pairs:
+                if key in value:
+                    raise ValueError("duplicate JSON object key")
+                value[key] = item
+            return value
+
         try:
-            doc = json.loads(raw)
+            doc = json.loads(raw, object_pairs_hook=reject_duplicate_keys)
         except (ValueError, RecursionError) as exc:
             raise RequestClientError("outbox-storage-invalid", "outbox file is not valid JSON") from exc
         if (
