@@ -14,7 +14,7 @@ qualification.
 | Sprintctl | `cloud/20261024/programme-08-integration-sprintctl` at `e80df31ad6424f1c757ebbab68dfe0042fb4d571` | `docs/reference/vuoro-work-adapter.md` catalogs the protocol-v1 owner operations, their authority, idempotency, and schema evolution. `docs/reference/operator-request-lifecycle.md` describes the schema 28 request candidate and `work.request.*` operations. `docs/reference/context-and-handoff.md` documents served-only `run brief`, backed by `work.run.continuation-delta-v1`. The pinned Vuoro demo uses Sprintctl `0.22.0`. |
 | Sovite | `cloud/20261024/programme-08-integration-sovite-exact` at `46c2670d6a047367617b58af7e5cf62a43f4ccae` | `docs/plans/2026-10-23-execution-lease-owner.md` describes internal reserve/start behavior. `docs/contracts/worker-execution-v1-candidate.md` is a proposal; `pyproject.toml` says `0.1.17`, while the Vuoro demo dependency pin remains `0.1.16`. |
 | Vuoro Cloud | `cloud/20261024/programme-08-integration-vuoro-cloud-exact` at `95b6af72f2addec4fcfaf1461ea873d5a61d6816` | `src/vuoro_cloud/oauth_scopes.py`, `security.py`, and `config/schemas/` describe caller grants, connector/invocation records, and evidence shapes. No portable-workflow owner plan or supported new-Cloud task-launch API is present in this candidate. |
-| Appservice | `cloud/20261024/programme-08-integration-appservice-exact` at `323d6b33ed130f5fec311629bbb80b5a09459aa7` (code head `b9e74ecab5da486c62bb21de528e72253f024bd9`) | `docs/plans/2026-10-24-portable-agent-workflows.md` assigns onboarding, worker-host commissioning, landing prerequisites, observability, and source/artifact reachability. The onboarding sync validates every binding capability against the policy registry and target-only bindings against configured provider targets, skips valid target-only bindings, matches Forgejo providers case-insensitively, and fails closed on ambiguous/missing scope, duplicate desired names or repository identities, unknown repository references, and malformed fields before DB/API calls. Existing integration comparison remains name-only. Its latest input-validation follow-up received static review and syntax parsing, with no tests or live Forgejo calls. Its surveyed source pin is `5ab5e11771a07585457759c0344908d6d0011286`. |
+| Appservice | `cloud/20261024/programme-08-integration-appservice-exact` at `109f6c36cf5a2512ea31069acfabdce15e4c7e09` (sync code head `b9e74ecab5da486c62bb21de528e72253f024bd9`) | `docs/plans/2026-10-24-portable-agent-workflows.md` assigns onboarding, worker-host commissioning, landing prerequisites, observability, and source/artifact reachability. The onboarding sync validates every binding capability against the policy registry and target-only bindings against configured provider targets, skips valid target-only bindings, matches Forgejo providers case-insensitively, and fails closed on ambiguous/missing scope, duplicate desired names or repository identities, unknown repository references, and malformed fields before DB/API calls. Existing integration comparison remains name-only. Its AS-PW4 requirements are a proposed candidate at `docs/plans/2026-10-24-portable-observability-requirements.md`; the requirements assign lifecycle, execution, usage, and forwarding facts to their respective owners. No tests or live Forgejo calls were run for the latest input-validation follow-up. Its surveyed source pin is `5ab5e11771a07585457759c0344908d6d0011286`. |
 
 The `gitops-nixos`, `cred-broker`, and `mars-founder` source trees are not present
 in this workspace. The survey pins in the AgentOps plan (`b554d5e0`,
@@ -98,7 +98,7 @@ itself access, start work, accept a candidate, or authorize landing.
 
 A separate Vuoro contract-foundation candidate is present locally on
 `cloud/20261024/programme-01-contract-foundation`, current tip
-`9d9bbc3af98309bb2677807d131b5279415ccd68`. It is separate from the Vuoro
+`fe7ce5a2e61d7e9d7b8786ba8bdafd08f59a91fc`. It is separate from the Vuoro
 integration branch in the source-pins table above; its toolchain pin changes
 are present from commit `3db3e34a142f0cb1e7ad773fcdcc1948082ea731`. Its
 checked-in generation inputs pin `@typespec/compiler`, `@typespec/http`, `@typespec/openapi`,
@@ -129,7 +129,11 @@ these follow-ups were also not tested in this pass.
 This advances source pinning in the candidate but does not close EC-00. The
 repo-local `public_mcp_tools()` projection in `scripts/contracts/generate.py`
 still rejects every operation marked public and returns an empty tool list; it
-does not implement an admitted MCP schema projection. The MCP projection's
+does not implement an admitted MCP schema projection. A definition-only MCP
+projection requirements draft is recorded at
+`docs/plans/2026-10-24-mcp-toolset-projection-requirements.md` on the same
+candidate branch; it specifies a future mapping without changing the generator
+or selecting a public operation roster. The MCP projection's
 behavior/provenance, Python boundary-model generator selection, remaining ER-002
 cases, ingress evidence, and other outstanding ADR acceptance conditions remain
 open. The candidate has not been released or adopted by the cross-owner

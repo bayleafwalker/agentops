@@ -31,6 +31,11 @@ execution attempt. Vuoro coordinates and records. Agentops owns shared guidance,
 contracts and diagnostics. These are responsibilities, not a new monolithic
 runner.
 
+The expanded implementation batch and owner-specific requirements drafts are
+tracked in the proposed [portable feature batch](2026-10-24-portable-feature-batch.md).
+That document sequences candidate work and acceptance evidence without
+ratifying cross-owner interfaces or release gates.
+
 ## What the investigation established
 
 | Observation | Consequence |
@@ -58,8 +63,9 @@ Its EC-00 source recheck records partial TypeSpec/OpenAPI tool pins from the
 separate Vuoro contract-foundation candidate at
 `3db3e34a142f0cb1e7ad773fcdcc1948082ea731`; it leaves the MCP projection and
 other EC-00 acceptance conditions open.
-On the separate Vuoro contract-foundation candidate at current tip
-`9d9bbc3af98309bb2677807d131b5279415ccd68`, commits
+The separate Vuoro contract-foundation candidate is now at current tip
+`fe7ce5a2e61d7e9d7b8786ba8bdafd08f59a91fc`; its Python SDK code follow-ups
+through `9d9bbc3af98309bb2677807d131b5279415ccd68` include commits
 `1d50efb1f3801afe36c29ee040b31086cd9431e6` and
 `08d50726fce210754a8a48e94c18f526487886e1`; the latter bounds structural scans
 before decoding. Commits `42a3a7bd31444651e64ba795e8519192104f9399` and
@@ -68,7 +74,9 @@ body cap and bodyless request/response behavior with TypeScript. Independent
 source review found no concrete issue in these changes; no tests ran for these
 follow-ups in this pass.
 These changes are not part of the separate Vuoro integration candidate listed
-in the source-pins table.
+in the source-pins table. The definition-only MCP projection requirements are
+at `6334a9bd38ca1dfc3ecd9f169de48602d7013d10`; they do not implement or admit
+a public tool roster.
 The Appservice AS-PW3 source inventory is recorded on candidate branch
 `cloud/20261024/programme-08-integration-appservice-exact` at
 `docs/evidence/2026-10-24-portable-workflow-landing-policy-inventory.md`; it
@@ -103,7 +111,10 @@ commit `2d7bce4e89c12ce5ce4fa866ff6cce45e5c3d747` in
 `docs/evidence/2026-10-24-portable-workflow-observability-inventory.md`. It
 maps existing harness and telemetry evidence while leaving portable run/attempt
 correlation, progress/heartbeat and usage coverage dependent on released owner
-interfaces.
+interfaces. Its owner-specific requirements draft is at candidate branch head
+`109f6c36cf5a2512ea31069acfabdce15e4c7e09`; it assigns work state to Sprintctl,
+execution observations to Sovite, usage to native harness/provider owners, and
+keeps AgentOps in a shared-guidance role.
 
 ## Ownership and durable plans
 

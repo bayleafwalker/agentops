@@ -77,9 +77,9 @@ review and release process.
 | 1 | **Authorized programme packet and readiness view.** Compose current work readiness, repository/change scope, source citations/digests, bounds, evidence pointers and access requirements. Validate before dispatch; produce a human-readable dry-run. | Sprintctl work/readiness and continuation reads; Vuoro context/evidence forwarding; AgentOps documentation/projection. Contract fields only after owner review under the established generator/release path. | Clean-host fixture reconstructs the same bounded packet from authorized owner reads; stale revisions, wrong workspace, unknown refs and absent bytes refuse dispatch with a reason. Packet alone grants no access or authority. |
 | 1 | **Host and repository readiness/onboarding.** Diagnose caller-visible provider capability, runtime/config version, headless auth, network, source reachability and isolation. Dry-run idempotent repository registration and scoped grants; resume partial setup without duplicating identity or widening permissions. | Programme 02 gitops-nixos host profile; programme 03 cred-broker and Appservice onboarding/landing controls; Vuoro and Sprintctl bindings. | Disposable commissioning records actual host/runtime/config and negative checks for missing auth, drift, inaccessible source, duplicate repo, ambiguous scope and revoked grant. Owner-specific apply receipts; no host or credential claims from source inventory alone. |
 | 2 | **Repository execution attempts.** Implement a supported Sovite-owned worker lifecycle for exact authorized bindings: admit, start, renew, status, hand back, complete and lookup; isolate worktree, credentials, output storage and control plane. Native harness resumption stays native. | Programme 05 Sovite F2/R4 and accepted owner contracts; programme 02 commissioned host; stable packet assumptions from stage 1. Vuoro adapter only after Sovite owner release. | Owner tests plus cross-owner disposable histories for lost start response, crash during edit, expired fence, takeover while old process runs, revoked capability and inaccessible predecessor handle. Prove old attempt cannot publish under replacement fence; exact artifacts remain readable only under owner policy. |
-| 2 | **Continuation and operator request flow.** Project changed/current owner state, request dependencies and performed-vs-attested outcomes; continue authorized bounded work or provide manual next step when native wake is unavailable. | Expected owner requirement draft: `sprintctl/docs/plans/2026-10-24-portable-continuation-requirements.md`; Vuoro request/context owner work from programme 04; preserve Sprintctl work/request authority. | Successor on unrelated host obtains bounded current delta and permitted context; stale or withdrawn request, dead requester, shared dependant, duplicate delivery and false performed report retain explicit owner state. No wake/resume assertion without runtime receipt. |
-| 3 | **Operational visibility and usage coverage.** Correlate attempt progress, startup, completion, provider usage, failure and notifications; distinguish heartbeats from useful progress; preserve privacy and tenant scope. | Expected owner requirement draft: `appservice/docs/plans/2026-10-24-portable-observability-requirements.md`; telemetry programme 06, Appservice observability and owner exporters. | Synthetic missing/late/conflicting usage, stale heartbeat, duplicate notification, failed exporter and cross-tenant cases. Unknown spend and stale progress are visible; notifications deduplicate by correlated attempt; no transcript or secret ingestion. |
-| 3 | **Supported launch and capability composition.** Show caller-specific supported/unsupported launch choices and distinguish published setup from task-creation capability. Keep a manual user-launched path with explicit evidence when automation is unavailable. | Vuoro Cloud programme 03 and current provider capability; no inference from docs, URLs, or published environments. | For each advertised caller/provider generation, an owner-supported capability statement and a disposable launch/startup receipt. Unsupported mode returns an honest manual action; no task-submit support is inferred by this document. |
+| 2 | **Continuation and operator request flow.** Project changed/current owner state, request dependencies and performed-vs-attested outcomes; continue authorized bounded work or provide manual next step when native wake is unavailable. | Sprintctl candidate requirement draft at `sprintctl/docs/plans/2026-10-24-portable-continuation-requirements.md`; Vuoro request/context owner work from programme 04; preserve Sprintctl work/request authority. | Successor on unrelated host obtains bounded current delta and permitted context; stale or withdrawn request, dead requester, shared dependant, duplicate delivery and false performed report retain explicit owner state. No wake/resume assertion without runtime receipt. |
+| 3 | **Operational visibility and usage coverage.** Correlate attempt progress, startup, completion, provider usage, failure and notifications; distinguish heartbeats from useful progress; preserve privacy and tenant scope. | Appservice candidate requirement draft at `appservice/docs/plans/2026-10-24-portable-observability-requirements.md`; telemetry programme 06, Appservice observability and owner exporters. | Synthetic missing/late/conflicting usage, stale heartbeat, duplicate notification, failed exporter and cross-tenant cases. Unknown spend and stale progress are visible; notifications deduplicate by correlated attempt; no transcript or secret ingestion. |
+| 3 | **Supported launch and capability composition.** Show caller-specific supported/unsupported launch choices and distinguish published setup from task-creation capability. Keep a manual user-launched path with explicit evidence when automation is unavailable. | Vuoro Cloud candidate requirement draft at `vuoro-cloud/docs/plans/2026-10-24-portable-environment-capability-requirements.md`; programme 03 and current provider capability. No inference from docs, URLs, or published environments. | For each advertised caller/provider generation, an owner-supported capability statement and a disposable launch/startup receipt. Unsupported mode returns an honest manual action; no task-submit support is inferred by this document. |
 | 4 | **Exact candidate review and landing preparation.** Bind checks/reviews to exact candidate head; prepare canonical landing and rollback actions; retain ambiguous outcomes for reconciliation. Deployment remains separately gated. | Appservice landing prerequisites; AgentOps shared evidence; repository owners' CI, review and protected landing policy; credential-broker authority. | Mismatched tested head, stale review, lost merge response, successful merge with cleanup failure, and no-deploy cases yield correct separate status. Canonical receipts name exact commit and policy result. |
 | 5 | **Two-repository, two-host pilot.** Run a disposable bounded programme, interrupt/replace host, continue on an independently authorized second host, then repeat on Mars Founder and a second repository before broad portability claims. | Programme 08 pilot; all preceding owner packages at usable released revisions; operator-authorized disposable scopes. | Full history from preparation through candidate and return, including injected host loss and independent candidate verification. Capture exact source/artifact refs, owner receipts, resource bounds, unresolved defects and unsupported modes. No production deployment implied. |
 
@@ -91,25 +91,24 @@ integration candidate is not a substitute for an owner release.
 
 ## Owner requirement drafts to reconcile
 
-The following are expected owner-scoped drafts named for this batch. Their paths
-are references for coordination; this document does not assert they exist in
-this checkout, are accepted, or have been implemented:
+These proposed owner-scoped drafts are committed on local candidate branches.
+The pins identify source for review; they do not establish owner acceptance,
+release, implementation, or deployment:
 
-- Vuoro: `vuoro/docs/plans/2026-10-24-mcp-toolset-projection-requirements.md`
-  — callable tool projection, caller visibility, provenance and refusal behavior.
-- Sovite: `sovite/docs/contracts/worker-execution-remote-operations-requirements.md`
-  — execution-owner remote lifecycle requirements and uncertainty/fencing
-  evidence.
-- Appservice: `appservice/docs/plans/2026-10-24-portable-observability-requirements.md`
-  — attempt correlation, progress, usage coverage and operational visibility.
-- Sprintctl: `sprintctl/docs/plans/2026-10-24-portable-continuation-requirements.md`
-  — owner-scoped current-state reads, successor continuation and request flow.
+| Owner | Candidate branch and commit | Draft |
+|---|---|---|
+| Vuoro | `cloud/20261024/programme-01-contract-foundation` at `fe7ce5a2e61d7e9d7b8786ba8bdafd08f59a91fc` | `docs/plans/2026-10-24-mcp-toolset-projection-requirements.md` |
+| Sovite | `cloud/20261024/programme-09-p05-f2-contract` at `6e9cb948b57a03df6525a295121ae5c966b3e169` | `docs/contracts/worker-execution-remote-operations-requirements.md` |
+| Appservice | `cloud/20261024/programme-08-integration-appservice-exact` at `109f6c36cf5a2512ea31069acfabdce15e4c7e09` | `docs/plans/2026-10-24-portable-observability-requirements.md` |
+| Sprintctl | `cloud/20261024/programme-09-p04-request-lifecycle` at `7be36d224f5833b430f5b0796005cb13a7a9ad43` | `docs/plans/2026-10-24-portable-continuation-requirements.md` |
+| Vuoro Cloud | `cloud/20261024/programme-08-integration-vuoro-cloud-exact` at `535b167cade42d3b25d7a8cb855634cf96c83195` | `docs/plans/2026-10-24-portable-environment-capability-requirements.md` |
 
-Reconcile these with their owners and canonical source before selecting
-implementation tasks. They are not a ratified shared API. In particular,
-toolset projection cannot manufacture owner operations; Sovite requirements
-cannot assign Sprintctl work state; continuation references do not transfer
-execution authority; telemetry does not become work authority.
+Reconcile these with their owners and canonical sources before selecting
+implementation tasks. They are not ratified shared APIs. Toolset projection
+cannot manufacture owner operations; Sovite requirements cannot assign
+Sprintctl work state; continuation references do not transfer execution
+authority; telemetry does not become work authority; and capability metadata
+does not create a launch path.
 
 ## Blocked gates
 
