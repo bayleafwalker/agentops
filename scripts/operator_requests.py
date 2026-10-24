@@ -10,10 +10,13 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import fcntl
 import json
 import os
 import re
+import stat
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any, Callable, TextIO
 
@@ -49,6 +52,193 @@ class RequestClientError(RuntimeError):
         super().__init__(f"{code}: {message}" if message else code)
         self.code = code
         self.message = message
+
+
+class LocalRequestOutbox:
+    """Private, bounded, non-authoritative queue for idempotent request publication."""
+
+    MAX_ENTRIES = 200
+    MAX_BYTES = 1_000_000
+
+    def __init__(self, directory: Path) -> None:
+        self.directory = Path(os.path.abspath(directory.expanduser()))
+        self.data_path = self.directory / "outbox.json"
+        self.lock_path = self.directory / ".lock"
+
+    @classmethod
+    def default(cls) -> "LocalRequestOutbox":
+        root = os.environ.get("AGENTOPS_OPERATOR_REQUESTS_OUTBOX")
+        if root:
+            return cls(Path(root))
+        state = os.environ.get("XDG_STATE_HOME")
+        base = Path(state).expanduser() if state else Path.home() / ".local" / "state"
+        return cls(base / "agentops" / "operator-requests")
+
+    def _prepare(self) -> None:
+        # Walk with dir_fd + O_NOFOLLOW so a symlink is rejected before any
+        # child directory can be created beneath its target.
+        flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+        current_fd = os.open(self.directory.anchor, flags)
+        try:
+            for part in self.directory.parts[1:]:
+                try:
+                    next_fd = os.open(part, flags, dir_fd=current_fd)
+                except FileNotFoundError:
+                    try:
+                        os.mkdir(part, 0o700, dir_fd=current_fd)
+                    except FileExistsError:
+                        pass
+                    try:
+                        next_fd = os.open(part, flags, dir_fd=current_fd)
+                    except OSError as exc:
+                        raise RequestClientError("outbox-storage-refused", "outbox path contains a symlink or non-directory") from exc
+                except OSError as exc:
+                    raise RequestClientError("outbox-storage-refused", "outbox path contains a symlink or non-directory") from exc
+                os.close(current_fd)
+                current_fd = next_fd
+            info = os.fstat(current_fd)
+            if info.st_uid != os.getuid() or info.st_mode & 0o077:
+                raise RequestClientError("outbox-storage-refused", "outbox directory must be owned by this user and mode 0700")
+        finally:
+            os.close(current_fd)
+
+    def _secure_open(self, path: Path, flags: int, mode: int = 0o600) -> int:
+        try:
+            fd = os.open(path, flags | getattr(os, "O_NOFOLLOW", 0), mode)
+        except OSError as exc:
+            if isinstance(exc, FileNotFoundError):
+                raise
+            raise RequestClientError("outbox-storage-refused", "outbox file cannot be opened safely") from exc
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            os.close(fd)
+            raise RequestClientError("outbox-storage-refused", "outbox file must be private, regular, and singly linked")
+        return fd
+
+    def _load(self) -> list[dict[str, Any]]:
+        try:
+            fd = self._secure_open(self.data_path, os.O_RDONLY)
+        except FileNotFoundError:
+            return []
+        with os.fdopen(fd, "r", encoding="utf-8") as handle:
+            raw = handle.read(self.MAX_BYTES + 1)
+        if len(raw.encode("utf-8")) > self.MAX_BYTES:
+            raise RequestClientError("outbox-capacity-exceeded", "outbox file exceeds its size limit")
+        try:
+            doc = json.loads(raw)
+        except ValueError as exc:
+            raise RequestClientError("outbox-storage-invalid", "outbox file is not valid JSON") from exc
+        if not isinstance(doc, dict) or doc.get("schema") != "operator-request-outbox/v1" or not isinstance(doc.get("entries"), list):
+            raise RequestClientError("outbox-storage-invalid", "outbox file has an unsupported format")
+        return doc["entries"]
+
+    def _save(self, entries: list[dict[str, Any]]) -> None:
+        raw = json.dumps({"schema": "operator-request-outbox/v1", "entries": entries}, ensure_ascii=False, separators=(",", ":"))
+        if len(raw.encode("utf-8")) > self.MAX_BYTES:
+            raise RequestClientError("outbox-capacity-exceeded", "outbox size limit reached")
+        fd, tmp_name = tempfile.mkstemp(prefix=".outbox-", dir=self.directory)
+        try:
+            os.fchmod(fd, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(raw)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(tmp_name, self.data_path)
+            dir_fd = os.open(self.directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+        finally:
+            try:
+                os.unlink(tmp_name)
+            except FileNotFoundError:
+                pass
+
+    def _locked(self, action: Callable[[], Any]) -> Any:
+        self._prepare()
+        fd = self._secure_open(self.lock_path, os.O_CREAT | os.O_RDWR)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            return action()
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+            os.close(fd)
+
+    def stage_publish(self, repo_id: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        if not isinstance(repo_id, str) or not repo_id.strip() or not isinstance(arguments, dict):
+            raise RequestClientError("invalid-arguments", "repo and publish arguments are required")
+        _check_content(arguments)
+        request_id = arguments.get("request_id")
+        idem = arguments.get("idempotency_key")
+        if not isinstance(request_id, str) or not request_id.startswith("req_") or not isinstance(idem, str) or not idem.strip():
+            raise RequestClientError("invalid-arguments", "publish requires a stable req_ request_id and idempotency_key")
+
+        def stage() -> dict[str, Any]:
+            entries = self._load()
+            for row in entries:
+                if row.get("request_id") == request_id:
+                    if row.get("repo_id") == repo_id and row.get("arguments") == arguments:
+                        return {"state": row["state"], "request_id": request_id, "idempotency_key": idem}
+                    raise RequestClientError("outbox-identity-conflict", "request ID already has different staged content")
+            if len(entries) >= self.MAX_ENTRIES:
+                raise RequestClientError("outbox-capacity-exceeded", "outbox entry limit reached")
+            entries.append({"request_id": request_id, "repo_id": repo_id, "operation": "publish",
+                            "idempotency_key": idem, "arguments": arguments, "state": "pending"})
+            self._save(entries)
+            return {"state": "pending", "request_id": request_id, "idempotency_key": idem}
+        return self._locked(stage)
+
+    def list_entries(self) -> list[dict[str, Any]]:
+        return self._locked(lambda: [
+            {key: row[key] for key in ("request_id", "repo_id", "state", "last_error") if key in row}
+            for row in self._load()
+        ])
+
+    def prune_acknowledged(self) -> int:
+        def prune() -> int:
+            entries = self._load()
+            kept = [row for row in entries if row.get("state") != "acknowledged"]
+            removed = len(entries) - len(kept)
+            if removed:
+                self._save(kept)
+            return removed
+        return self._locked(prune)
+
+    def deliver(self, invoke: Callable[[str, str, dict[str, Any]], Any]) -> list[dict[str, Any]]:
+        def run() -> list[dict[str, Any]]:
+            entries = self._load()
+            reports = []
+            for row in entries:
+                if row.get("state") != "pending":
+                    continue
+                try:
+                    # Only publish is admitted. The owner receives the unchanged ID,
+                    # content, and idempotency key and remains authoritative.
+                    if row.get("operation") != "publish" or row.get("arguments", {}).get("request_id") != row.get("request_id") or row.get("arguments", {}).get("idempotency_key") != row.get("idempotency_key"):
+                        raise RequestClientError("outbox-entry-invalid", "staged publication identity is inconsistent")
+                    _check_content(row["arguments"])
+                    acknowledgement = invoke("publish", row["repo_id"], row["arguments"])
+                    if acknowledgement is None:
+                        raise RequestClientError("owner-acknowledgement-missing", "owner returned no acknowledgement")
+                except RequestClientError as exc:
+                    row["last_error"] = exc.code
+                    reports.append({"request_id": row["request_id"], "state": "pending", "error": exc.code})
+                    self._save(entries)
+                    continue
+                except Exception:
+                    row["last_error"] = "owner-transport-failed"
+                    reports.append({"request_id": row["request_id"], "state": "pending", "error": "owner-transport-failed"})
+                    self._save(entries)
+                    continue
+                # Normal owner return is the acknowledgement boundary. No local
+                # status is inferred from the request packet or transport setup.
+                row["state"] = "acknowledged"
+                row.pop("last_error", None)
+                reports.append({"request_id": row["request_id"], "state": "acknowledged"})
+                self._save(entries)
+            return reports
+        return self._locked(run)
 
 
 def _check_content(value: Any, path: str = "arguments") -> None:
@@ -321,6 +511,12 @@ def main(argv: list[str] | None = None) -> int:
     invoke.add_argument("--repo", required=True, help="repository scope; identity remains owner supplied")
     invoke.add_argument("--arguments", required=True, metavar="FILE|-", help="JSON arguments file or stdin")
     invoke.add_argument("--profile", help="Vuoro profile (defaults to AGENTOPS_VUORO_PROFILE)")
+    outbox = subparsers.add_parser("outbox", help="stage and explicitly deliver idempotent request publications")
+    outbox.add_argument("action", choices=("stage-publish", "list", "deliver", "prune-acknowledged"))
+    outbox.add_argument("--directory", help="private outbox directory (defaults to XDG state path)")
+    outbox.add_argument("--repo", help="repository scope for stage-publish")
+    outbox.add_argument("--arguments", metavar="FILE|-", help="publish JSON for stage-publish")
+    outbox.add_argument("--profile", help="Vuoro profile (required for deliver)")
     mcp = subparsers.add_parser("mcp", help="serve the operator request tools over stdio MCP")
     mcp.add_argument("--profile", help="Vuoro profile (defaults to AGENTOPS_VUORO_PROFILE)")
     args = parser.parse_args(argv)
@@ -329,6 +525,24 @@ def main(argv: list[str] | None = None) -> int:
             profile = _profile_path(args.profile)
             print("agentops-operator-requests: stdio MCP server ready", file=sys.stderr)
             serve(MCPServer(lambda: VuoroRequestOwner(profile)), sys.stdin, sys.stdout)
+            return 0
+        if args.command == "outbox":
+            store = LocalRequestOutbox(Path(args.directory)) if args.directory else LocalRequestOutbox.default()
+            if args.action == "stage-publish":
+                if not args.repo or not args.arguments:
+                    raise RequestClientError("invalid-arguments", "stage-publish requires --repo and --arguments")
+                value = store.stage_publish(args.repo, _arguments(args.arguments))
+            elif args.action == "list":
+                value = {"entries": store.list_entries()}
+            elif args.action == "prune-acknowledged":
+                value = {"removed": store.prune_acknowledged()}
+            else:
+                owner = VuoroRequestOwner(_profile_path(args.profile))
+                try:
+                    value = {"deliveries": store.deliver(owner.invoke)}
+                finally:
+                    owner.close()
+            print(json.dumps(value, indent=2, ensure_ascii=False))
             return 0
         result = VuoroRequestOwner(_profile_path(args.profile))
         try:
