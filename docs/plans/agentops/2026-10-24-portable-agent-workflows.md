@@ -79,7 +79,7 @@ Its AS-PW3 inventory remains on the same candidate branch at commit
 `docs/evidence/2026-10-24-portable-workflow-landing-policy-inventory.md`; it
 maps tracked workflow settings without claiming current effective host rules.
 The AS-PW1 inventory was refreshed at commit
-`06a3e7c9e0ab18d693252f3e49fa55a2e31a52da` in
+`323d6b33ed130f5fec311629bbb80b5a09459aa7` in
 `docs/evidence/2026-10-24-portable-workflow-onboarding-inventory.md`. Its sync
 script hardening is in commits `1b359878`, `a1a63336`, `753e5544`,
 `b24187e3bdee30463a0850401519b4392f87ebfc`, and
