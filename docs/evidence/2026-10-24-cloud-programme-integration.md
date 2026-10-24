@@ -1,25 +1,27 @@
 # Cloud programme candidate handback
 
-Snapshot: 2026-10-24. This records local source candidates and focused disposable checks for the eight programmes in `docs/dispatch/programmes/2026-10-24/`. It is not a deployment, production, retained-state, or owner-acceptance receipt.
+Snapshot: 2026-10-24, refreshed after the follow-on source work and independent review. This records local source candidates and focused disposable checks for the eight programmes in `docs/dispatch/programmes/2026-10-24/`. It is not a deployment, production, retained-state, or owner-acceptance receipt.
 
 ## Dispatch and continuation
 
-The Codex Cloud submission failed before task creation because this environment could not reach `chatgpt.com/backend-api/wham/environments`; its enforced restricted network policy excludes that host. No Cloud task ID was returned. The available controls expose neither a working Cloud submission path nor a persistent native Goal create/read/update path. The 30-hour prompt therefore does not establish automatic continuation, remote task identity, selected remote model, or a started implementation session. Source work proceeded in local isolated Git worktrees with GPT-6 Luna subagents where useful.
+This continuation ran in managed cloud environment `ccarenv_b64_Y2NhcmVudl9hNDJhMDA2MTM0Zjg4MTkxODdiODhkYjU4MTg1YjRjZA`; the environment status API reported it running and connected with an enforced restricted policy. The API exposes an environment ID, but this runtime exposed no separate Codex Cloud task handle or persistent native Goal create/read/update control. The earlier Codex Cloud submission failed before task creation because the policy excludes `chatgpt.com/backend-api/wham/environments`; no task ID was returned. No remote model selection or automatic continuation is claimed. Source work continued in isolated Git worktrees, with GPT-6 Luna sessions used for independent programme increments and review.
+
+The current policy permits GitHub, but the shell HTTPS proxy at `proxy:8080` could not be reached when I tried to bootstrap the Appservice CI tool runner. I did not bypass the proxy. Pinned Nix/mise gates therefore remain unrun.
 
 The programme specifications and long-running worker contract were read from AgentOps source commit `b760494dea018794231e197e71927b12e14efa53`. The initial source seeds were verified as Vuoro Cloud `a237bbdade2528c6769af666bc84c25e3caa1ca3`, Vuoro contracts `ff5b468a4c977dc098aa1395bbe70f283fdae2c3`, and Appservice native309 `04119cd0c5edfd92eeb839ce78d43dc313bb3a0d`.
 
 ## Exact integration candidates
 
-The hashes below identify the integrated code trees before this evidence-only update. All branches are local and clean.
+The hashes below identify the current integrated candidate trees. All branches are local and clean. AgentOps `eb97f55` is the P04 code head; later commits on that branch update this evidence report.
 
 | Repository | Local branch | Code commit | Code tree |
 | --- | --- | --- | --- |
 | Vuoro | `cloud/20261024/programme-08-integration-vuoro-exact` | `e849c4e7a231585330980bf4bd5aeb00ebfa6150` | `a2d603031a5151ff4b487d73906d3b782b005770` |
-| Vuoro Cloud | `cloud/20261024/programme-08-integration-vuoro-cloud-exact` | `419ba91c8e703f8938a9ea177f5d3a8610aa82d7` | `cc70615ccd06b1f72c63193510a3cf69f4c56fb4` |
-| Sprintctl | `cloud/20261024/programme-08-integration-sprintctl` | `86a6131e4e7b8cd03d0fa7e8897bf59dab1ccd77` | `cb25e4d7e159e9c35b14285db3ec9ef80865e6ec` |
+| Vuoro Cloud | `cloud/20261024/programme-08-integration-vuoro-cloud-exact` | `690f2ed2b15501532817e1b3e7473d4570a35c1f` | `c92bba669368ceb655fa838aeec50ce06ee10f28` |
+| Sprintctl | `cloud/20261024/programme-08-integration-sprintctl` | `bab967f70b19558ffc280e6e65193433f0c6283e` | `9b5d7518a1f7e02c1cb59c847ee27c2ad5f916ba` |
 | AgentOps | `cloud/20261024/programme-08-integration-agentops-exact` | `eb97f55be6a9d13c9921309f0b47af79ef4a35b2` | `2a914f522e68a3aaefbbce61dc0d3a4d3fe60e14` |
-| Appservice | `cloud/20261024/programme-08-integration-appservice-exact` | `4f5ddd81210efa086ceb47c00ac1ede975d40226` | `1ddad6f81652d321d9214f099dffa83a39c405fd` |
-| Sovite | `cloud/20261024/programme-08-integration-sovite-exact` | `cd4d672ea50dca472c87bbba49034311ff70320d` | `a4823fcd398b7750e5fb3e53edf7e4ffbabe8425` |
+| Appservice | `cloud/20261024/programme-08-integration-appservice-exact` | `68fccbd23dac2dd612aad6b0f5fcd406cc3c6172` | `2cc4223daf54ab0961f2d0eba4d4076a04c1aecf` |
+| Sovite | `cloud/20261024/programme-08-integration-sovite-exact` | `46c2670d6a047367617b58af7e5cf62a43f4ccae` | `4c32af92e22b734345f7a0689a6fa67d13885b16` |
 
 ## Implemented increments
 
@@ -31,6 +33,16 @@ The hashes below identify the integrated code trees before this evidence-only up
 - **06 Telemetry:** the preserved native309 normalizer, synthetic mutation fixtures, metadata-only receipt projection, and pinned Alloy acceptance harness remain integrated. Optional owner-run correlation failures fail open without losing an accepted owner response. Cloud telemetry now has loopback OTLP transport tests for success, HTTP refusal, closed-port refusal, cleanup bounds, and response-canary absence from captured logs/output. These tests use only synthetic local data; Cloud correlation remains synthetic/source-side.
 - **07 Retention and whole-application recovery:** ingestion entry points and replay-barrier evidence are documented; a store-specific receipt validator checks supplied evidence without authorizing publication. Duplicate JSON keys are rejected in both receipt and recovery-readiness readers. The offline replay fixture records exact synthetic original-object members, worker-model reads, and separate full/core/API counts. It explicitly leaves `barrier_qualified=false`; no supported upstream replay barrier was found, so retain quarantine and stopped-serving requirements.
 - **08 Integration and review:** exact candidate commits are integrated on isolated local branches. Independent review found duplicate-key ambiguity in P07 receipts; both parsers and regression tests were fixed. Independent reviews found no concrete defects in P01, P02, P03, P04, P05, P06, the repaired P07 queue-consumption fixture, or the P05 API-admission note. The P03 review caught the out-of-view revision-conflict edge; its repair was independently re-reviewed with no remaining finding. The latest P06 loopback suite passed on the exact branch with explicit local-loopback permission. No main merge, push, release, deployment, live tenant access, or terminal owner acceptance occurred.
+
+## Follow-on source work
+
+- P02's refreshed gap note traces the exact restore, clone, cleanup, traffic-gate, and schema-reconciliation effects. It concludes that the current source does not define a post-restore serving-data transition or a rollback bound to a run/probe receipt. The evidence digest is syntax-validated and recorded in signed parameters/audit but is not resolved to that receipt. Exact next decision: keep clone checks diagnostic, or define an owner-approved signed replacement transition and rollback states.
+- P03 adds a member-read and notification contract proposal with delegated owner authorization, explicit paging/coverage, safe projection, notification deduplication, and fresh authorization on open. The source has no supported member-authenticated owner adapter or change feed, so the shared web view remains unimplemented.
+- P04 adds PostgreSQL tests for withdrawing one of multiple dependants and for target-change supersession. Only live dependants transfer to the replacement, and original request history remains available.
+- P05 adds an F2 wire-contract candidate for current pull/start behavior and records the unresolved renew/status/handback/complete/lookup API semantics. It preserves the existing gate requiring an accepted shared foundation and real O2/F2 qualification before any private worker route is added.
+- P06 adds gateway-issued invocation and attempt IDs to telemetry only after exact owner-receipt validation. Harness labels and session/work hints remain explicitly claimed; no request body, secret, grant, or model field is exported.
+- P07 refreshes its source inventory to the Appservice candidate's Langfuse v4.69.0 pin and adds the legacy span/generation POST/PATCH write routes. The v4.69 admin replay route still has no global admission disable or replay fence. The pinned source was checked through the GitHub connector at commit `a0ef9519ce6c934f7db929251a17c35f4080f3c2`.
+- The final P08 review verified all follow-up commits were ancestors of the exact branches and found no remaining issue after fixing one stale Langfuse version string and one imprecise P02 evidence-digest statement.
 
 ## Focused verification
 
@@ -58,24 +70,30 @@ The hashes below identify the integrated code trees before this evidence-only up
 | Appservice P07 | Synthetic replay fixture after queue-ack assertions | **3 passed**; ingestion review **3 passed**; recovery readiness **6 passed**. Output remains explicitly model-only with no barrier qualification. |
 | Vuoro Cloud P06 | `PYTHONPATH=src /workspace/vuoro-cloud/.venv/bin/pytest -q tests/test_telemetry.py` on exact branch | **26 passed** with a narrow permission for ephemeral `127.0.0.1` loopback binds; one existing Starlette/httpx deprecation warning. The whole sink was local and synthetic. |
 | Appservice P06 | Pinned Alloy synthetic acceptance | **62-case matrix passed** (54 exported, 8 refused) plus seven control/mutation pairs on local image `grafana/alloy@sha256:2aa2099af76c0098d4af7a4d6e48f86cb66dc1a000222ad927a1c67c6542d13f`. Receipt SHA-256: `f864098cd0263dd8e5e8e1f8d63a5ae02c6e3f86b45465c82c6a0561ba781a81`. AgentOps metadata projection matched byte-for-byte; 6 projection tests passed. |
+| Sprintctl P04 follow-up | `tests/test_operator_request_pg.py` with contract tests | **22 passed** (7 disposable PostgreSQL 16.15, 15 contract tests); `py_compile` and `git diff --check` passed. Ruff was unavailable. The integrated tree matches the producer tree `9b5d7518a1f7e02c1cb59c847ee27c2ad5f916ba`. |
+| Vuoro Cloud P02/P03 follow-up | Source contract and evidence-note review | `git diff --check` passed. Documentation-only; no runtime test applies. |
+| Sovite P05 follow-up | F2 wire-contract candidate review | `git diff --check` passed. Documentation-only; no route or credential change and no runtime test applies. |
+| Vuoro Cloud P06 follow-up | `PYTHONPATH=src /workspace/vuoro-cloud/.venv/bin/pytest -q tests/test_telemetry.py` on final integrated head | **27 passed**, one existing Starlette/httpx deprecation warning. The local OTLP receiver used synthetic data and ephemeral loopback. Five targeted owner-receipt integration cases skipped because PostgreSQL server binaries were unavailable. |
+| Appservice P07 follow-up | `python -m unittest -v test_langfuse_ingestion_review` on final integrated head | **3 passed** after the regression assertion was added for metrics-route wording matching the pinned Langfuse source tag. `git diff --check` passed. |
+| AgentOps P08 | `python scripts/validate_verification_artifacts.py --root .` | Passed for all verification contexts/results and dispatch manifest on the exact AgentOps branch. |
 
 Commands above ran against the indicated local candidate worktrees. PostgreSQL checks used disposable local databases only.
 
 ## Remaining work and workstation gates
 
-- Cloud dispatch and persistent Goal continuation remain unavailable under the enforced network policy; no task identity, selected remote model, or unattended continuation is claimed.
-- P01 still needs the pinned Nix/Python 3.13/Node generation workflow, original 257-case zero-skip production gate, generated-wheel build matrix, and clean offline installed-consumer test under the pinned toolchain. Shared cross-language wire vectors now pass locally; broader generated-client parity under the pinned toolchain remains unqualified. Nix and mise are absent; required pinned wheels are not cached offline.
-- P02 still needs exact pinned Nix checks and qualified disposable source/clone runtime identity and restore verification. Generic post-restore hold/resume and rollback authority is undefined in source; the evidence note specifies the contract inputs still required. All field observations and freshness gates remain workstation-only.
-- P03 still needs the shared web view, bounded notifications, current authorized request journey against disposable owner services, versioned install/upgrade/export/rollback tooling, and two-tenant/service-backed checks. The MCP access explanation requires a different token audience and keeps downstream owner permission unknown; the exception projection has no current authorized owner-read adapter. Neither is added to the control CLI.
-- P04 still needs supported native publication, automatic wake/cross-machine work-link consumers, performed-report verification, idempotent resolution delivery, and the full cross-session disposable-owner race matrix. The local continuation packet is read-only, requires human attestation, and has no service-backed or native-wake qualification.
+- The current runtime exposes a connected managed environment ID but no separate task handle or persistent Goal API. Cloud task submission and unattended continuation remain unqualified; no remote model selection is claimed.
+- P01 still needs the pinned Nix/Python 3.13/Node generation workflow, original 257-case zero-skip production gate, generated-wheel build matrix, and clean offline installed-consumer test under the pinned toolchain. Shared cross-language wire vectors now pass locally; broader generated-client parity under the pinned toolchain remains unqualified. Nix and mise are absent. The environment defaults to Python 3.12.14, Node 24.19.0, and uv 0.12.23; the programme's pinned set is Python 3.13.16, Node 24.21.0, npm 11.19.0, and uv 0.13.1. The Appservice CI tool bootstrap could not fetch through the unreachable shell proxy.
+- P02 still needs exact pinned Nix checks and qualified disposable source/clone runtime identity and restore verification. The current source does not define generic post-restore release or rollback authority. The updated note specifies the owner decision, receipt binding, and field evidence still required; all field observations and freshness gates remain workstation-only.
+- P03 still needs an accepted owner/identity contract, shared web view, bounded notifications, current authorized request journey against disposable owner services, versioned install/upgrade/export/rollback tooling, and two-tenant/service-backed checks. The MCP access explanation requires a different token audience and keeps downstream owner permission unknown; the exception projection has no current authorized owner-read adapter. Neither is added to the control CLI.
+- P04 still needs supported native publication, automatic wake/cross-machine work-link consumers, performed-report verification, idempotent resolution delivery, and the remaining cross-session disposable-owner race matrix. The local continuation packet is read-only, requires human attestation, and has no service-backed or native-wake qualification.
 - P05 still needs the source-contract gate for a scoped worker execution-owner and artifact-write API: the shared foundation and real O2/F2 consumer qualifications must be accepted before private routes are added. Those gates are not established by this candidate set. The API is needed before DB/S3 credentials can be removed. External-CA CSR/renewal, PostgreSQL route/lifecycle variants, Python 3.11/3.12 feature-gate coverage, remote-host qualification, S4-S6, and the Vuoro receipt adapter also remain. Compose tests prove operator/caller tokens stay out of the worker; they do not establish cluster enforcement or live inference.
-- P06 synthetic telemetry does not qualify production sinks, actual service traces, activation, or live owner correlation. Run `mise run validate` and affected `mise run flux-schema` checks when the pinned toolchain is available.
-- P07 still has no supported replay barrier or disposable upstream runtime qualification. The synthetic fixture does not establish replay prevention, actual physical/API state, historical deletion completeness, physical erasure, or publication permission. Keep serving stopped or quarantined pending supported upstream evidence and operator review of retained isolated state.
+- P06 telemetry joins the validated owner run to gateway invocation/attempt IDs, but remains synthetic/source-side. It does not qualify production sinks, actual service traces, activation, or owner-verified work-item reads. Run `mise run validate` and affected `mise run flux-schema` checks when the pinned toolchain is available.
+- P07's exact pinned Langfuse v4.69.0 source has no supported global replay barrier. The synthetic fixture does not establish replay prevention, actual physical/API state, historical deletion completeness, physical erasure, or publication permission. Keep serving stopped or quarantined pending a supported barrier and operator review of retained isolated state.
 - Cross-repository full compatibility and the exact pinned owner repository gates remain incomplete. No source candidate is a deployed-state observation or terminal owner acceptance.
 
 ## Ordered workstation review
 
-1. Restore a qualified Cloud submission and persistent Goal path if remote continuation is required; verify task ID, model, repositories, branches, and continuation evidence.
+1. When native controls are available, record the platform-issued task identity, resolved model, repository/branch bindings, and persistent Goal continuation separately from the managed environment ID.
 2. Review the six exact candidate branches. Run pinned P01 production/installed-wheel gates and P02 backup/recovery checks.
 3. Run P02 and Sprintctl owner suites on pinned PostgreSQL 16; exercise P04 unknown-outcome handling and current/revoked authorization against disposable owners.
 4. Run P03 against disposable owner services; complete the shared web/notification and release-impact surface; run P05 HTTP/PostgreSQL and CA-lifecycle gates.
