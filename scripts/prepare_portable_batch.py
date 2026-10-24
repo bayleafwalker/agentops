@@ -29,6 +29,7 @@ MAX_REPOSITORIES = 32
 MAX_DEPENDENCIES = 256
 MAX_OBSERVATIONS = 256
 MAX_TEXT = 4096
+MAX_DEPENDENCY_BLOB_BYTES = 4 * 1024 * 1024
 OWNER = re.compile(r"^[a-z][a-z0-9-]{0,62}$")
 IDENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 OBJECT_ID = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
@@ -551,11 +552,58 @@ def _dependency_observation(repo_path: str | None, row: dict[str, Any]) -> dict[
         result["checks"]["commit_object"] = "failed"
         return result
     result["checks"]["commit_object"] = "passed"
-    blob = _git(resolved, "cat-file", "blob", f"{row['commit']}:{row['path']}")
-    if blob.returncode != 0:
+    size = _git(resolved, "cat-file", "-s", f"{row['commit']}:{row['path']}")
+    if size.returncode != 0:
         result["checks"]["blob"] = "failed"
         return result
-    actual = hashlib.sha256(blob.stdout).hexdigest()
+    try:
+        blob_size = int(size.stdout.decode("ascii").strip())
+    except (UnicodeError, ValueError):
+        result["checks"]["blob"] = "failed"
+        return result
+    if blob_size > MAX_DEPENDENCY_BLOB_BYTES:
+        result["checks"]["blob"] = "oversized"
+        result["checks"]["sha256"] = "unknown"
+        return result
+    env = os.environ.copy()
+    env.update(
+        {
+            "GIT_NO_LAZY_FETCH": "1",
+            "GIT_NO_REPLACE_OBJECTS": "1",
+            "GIT_OPTIONAL_LOCKS": "0",
+            "GIT_TERMINAL_PROMPT": "0",
+        }
+    )
+    try:
+        process = subprocess.Popen(
+            ["git", "-C", resolved, "cat-file", "blob", f"{row['commit']}:{row['path']}"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            env=env,
+        )
+        digest = hashlib.sha256()
+        total = 0
+        assert process.stdout is not None
+        while True:
+            chunk = process.stdout.read(min(65_536, MAX_DEPENDENCY_BLOB_BYTES + 1 - total))
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > MAX_DEPENDENCY_BLOB_BYTES:
+                process.kill()
+                process.wait()
+                result["checks"]["blob"] = "oversized"
+                result["checks"]["sha256"] = "unknown"
+                return result
+            digest.update(chunk)
+        return_code = process.wait()
+    except OSError:
+        result["checks"]["blob"] = "failed"
+        return result
+    if return_code != 0 or total != blob_size:
+        result["checks"]["blob"] = "failed"
+        return result
+    actual = digest.hexdigest()
     result["actual_sha256"] = actual
     result["checks"]["blob"] = "passed"
     result["checks"]["sha256"] = "passed" if actual == row["sha256"] else "mismatch"

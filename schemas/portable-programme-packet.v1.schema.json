@@ -135,8 +135,8 @@
           "required": ["commit_object", "blob", "sha256"],
           "properties": {
             "commit_object": { "$ref": "#/$defs/checkState" },
-            "blob": { "$ref": "#/$defs/checkState" },
-            "sha256": { "enum": ["passed", "mismatch", "missing"] }
+            "blob": { "enum": ["passed", "failed", "missing", "oversized"] },
+            "sha256": { "enum": ["passed", "mismatch", "missing", "unknown"] }
           }
         },
         "actual_sha256": { "oneOf": [{ "type": "null" }, { "$ref": "portable-programme-run-request.v1.schema.json#/$defs/sha256" }] },
