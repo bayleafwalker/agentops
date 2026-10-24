@@ -33,7 +33,7 @@
     {
       "owner": "vuoro-cloud",
       "branch": "cloud/20261024/programme-08-integration-vuoro-cloud-exact",
-      "commit": "535b167cade42d3b25d7a8cb855634cf96c83195",
+      "commit": "bce13bf210905156f7443e174be3dfa7dbee8ce5",
       "draft_path": "docs/plans/2026-10-24-portable-environment-capability-requirements.md",
       "draft_sha256": "cd702ef8021b29c895dbf09cc0ee30a949757ab8944c3ccd5f732e1c3cc4e57f"
     }

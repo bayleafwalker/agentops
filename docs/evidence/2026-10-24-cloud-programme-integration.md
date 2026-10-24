@@ -12,16 +12,16 @@ The programme specifications and long-running worker contract were read from Age
 
 ## Exact integration candidates
 
-The hashes below identify the integrated candidate code trees. All branches are local and clean. AgentOps `af5b586` is the current code head; later commits on that branch update this evidence report.
+The hashes below identify the local integration candidate code trees. All branches are isolated local branches. The AgentOps code head shown is the implementation state before this evidence refresh; later commits on that branch update this report and the portable feature batch.
 
 | Repository | Local branch | Code commit | Code tree |
 | --- | --- | --- | --- |
-| Vuoro | `cloud/20261024/programme-08-integration-vuoro-exact` | `e849c4e7a231585330980bf4bd5aeb00ebfa6150` | `a2d603031a5151ff4b487d73906d3b782b005770` |
-| Vuoro Cloud | `cloud/20261024/programme-08-integration-vuoro-cloud-exact` | `95b6af72f2addec4fcfaf1461ea873d5a61d6816` | `4e9174d78d0ddab562ed42891c216f154492740a` |
-| Sprintctl | `cloud/20261024/programme-08-integration-sprintctl` | `e80df31ad6424f1c757ebbab68dfe0042fb4d571` | `49736852e9e54c2c5736452eb42e62a25b727bea` |
-| AgentOps | `cloud/20261024/programme-08-integration-agentops-exact` | `af5b58643ce486a17069eee84effa6edad299bba` | `7ffa10aefd78f22644bf7f485a6c4a20aa68416f` |
-| Appservice | `cloud/20261024/programme-08-integration-appservice-exact` | `5b552c37e8de8fb2a13806da4c88bd09db973b14` | `f0c0cd5136c5b6eb7df3cb94389446b0d5466dcb` |
-| Sovite | `cloud/20261024/programme-08-integration-sovite-exact` | `46c2670d6a047367617b58af7e5cf62a43f4ccae` | `4c32af92e22b734345f7a0689a6fa67d13885b16` |
+| Vuoro | `cloud/20261024/programme-08-integration-vuoro-exact` | `914f42f800c53e289d4a10d738827d385c6bf0db` | `df08b6c9c5f37ba2d817e336b65e00009010cf6c` |
+| Vuoro Cloud | `cloud/20261024/programme-08-integration-vuoro-cloud-exact` | `bce13bf210905156f7443e174be3dfa7dbee8ce5` | `466ed14500ffdc732a9995220e4a3a01193d9c3e` |
+| Sprintctl | `cloud/20261024/programme-08-integration-sprintctl` | `3ce3c1b9ded9a673b7da9a8201092aafb1bccefe` | `2e5c4a211bd9d22cbb753bed66337802a5a93fbd` |
+| AgentOps | `cloud/20261024/programme-08-integration-agentops-exact` | `714a7e1c68b983d3bed47f28dcc8b880a0ecc6fc` | `7f5f832330d17b9f24348e1a08f6523f06ddda50` |
+| Appservice | `cloud/20261024/programme-08-integration-appservice-exact` | `af2bb60dc38aadb6afed45f2d791c1f6fe7392cf` | `8b4366a46d6a640d10b5bb1b1bf91f4ee69afe65` |
+| Sovite | `cloud/20261024/programme-08-integration-sovite-exact` | `a4040fe20f58543048f70aa1143f37ecaf4971de` | `162e6da6a261928f6ee76c68cea755dbeac3c0d4` |
 
 ## Implemented increments
 
@@ -45,6 +45,23 @@ The hashes below identify the integrated candidate code trees. All branches are 
 - A follow-up source-local gap pass found no additional safe edits in P01, P02, P03, P05, or P06; remaining work in those programmes depends on pinned tooling, owner contracts, or runtime qualification. The final P08 review verified the P04 Sprintctl tree equals its tested producer tree and found no issue in the new P04/P07/AgentOps follow-ups. Earlier integration review fixed one stale Langfuse version string and one imprecise P02 evidence-digest statement. Final integration diff-check also caught and removed a trailing blank line in the P03 TUI test (`95b6af72f2addec4fcfaf1461ea873d5a61d6816`); this was whitespace-only.
 - Portable-workflow PW-01 now has a source-pinned inventory of existing owner records, operation/schema versions, local test coverage, and cross-host gaps at [portable workflow contract inventory](2026-10-24-portable-workflow-contract-inventory.md). It records Sprintctl `run brief` as a partial one-owner continuation path, not a cross-owner programme packet. Vuoro's separate contract-foundation candidate pins part of the TypeSpec/OpenAPI chain at `3db3e34a142f0cb1e7ad773fcdcc1948082ea731`; commits `1d50efb1f3801afe36c29ee040b31086cd9431e6` and `08d50726fce210754a8a48e94c18f526487886e1` align Python JSON complexity checks and add pre-decode structural bounds. The latter received independent source review, but no tests ran for this follow-up in this pass; F1b generated-SDK qualification remains open. The MCP projection and other EC-00 acceptance conditions remain open.
 - Appservice AS-PW1 and AS-PW3 inventories are on candidate branch `cloud/20261024/programme-08-integration-appservice-exact`; AS-PW3 remains at commit `7871d6d50a63e2e8406e279b2b0d2bffb2e9851e`. The AS-PW1 inventory was refreshed at `4da4a4ccda922f69ddee7341fa3036d02f716a58`. Its sync hardening commits `1b359878`, `a1a63336`, and `753e5544` skip target-only bindings, refuse ambiguous/missing scope and duplicate desired names before DB/API calls, and mark the 16-entry live comparison as historical. Existing grants are still compared by name only; claims/effective scope, live Forgejo recheck, and cross-owner resume remain open. The AS-PW5 reachability inventory is at `54f2e1a56153053010698dcdc24449a810371864`; AS-PW4 observability inventory is at `2d7bce4e89c12ce5ce4fa866ff6cce45e5c3d747`. The source inventories add no authority-bearing manifest and claim no released cross-owner packet.
+
+## Local implementation coverage at refreshed snapshot
+
+The following source slices were integrated on the isolated P08 branches after
+the earlier focused checks above. For these new integrations, only
+`git diff --check` and static Python AST parsing were performed. No tests were
+added or run. Earlier test results in this report belong to the exact earlier
+commits named in their rows; they do not qualify these newer commits.
+
+| Owner | Exact candidate | Locally implemented slice | Remaining evidence boundary |
+| --- | --- | --- | --- |
+| Vuoro | `914f42f800c53e289d4a10d738827d385c6bf0db` | Pre-decode JSON structural limits, depth/node bounds, a 4 MiB wire JSON cap, generated Python SDK request/response enforcement, and a definition-only MCP projection requirements draft. | Generated SDK parity/install and cross-language gates were not run on this integration. MCP projection remains empty and needs explicit owner decisions. |
+| Vuoro Cloud | `bce13bf210905156f7443e174be3dfa7dbee8ce5` | Workspace CLI output now reports member response `checked_at` separately from controller observation and workspace update time. Existing recovery checks and the request web-read boundary remain intact. | No provider task-submit path, authenticated web-read adapter, change feed, or notification implementation was added. |
+| Sprintctl | `3ce3c1b9ded9a673b7da9a8201092aafb1bccefe` | `run collect` archives explicitly supplied successful owner pages; `run collect-inspect` validates page/collection integrity offline. The archive is bounded, non-atomic, and preserves per-list completeness and cursor history. | No owner reads or automated paging occur. Error/refusal envelopes and automated paging authorization remain undefined. |
+| Sovite | `a4040fe20f58543048f70aa1143f37ecaf4971de` | Operator-only helper enrollment provisioning validates a bounded body, uses an already-issued external-CA certificate, checks the active binding role, returns no certificate material, and writes an operator audit event. F2 remote-operation requirements now link from the candidate contract. | No tests were run for the new provision route. CA issuance/renewal and wire semantics for renew/status/handback/complete/lookup remain open owner gates. |
+| Appservice | `af2bb60dc38aadb6afed45f2d791c1f6fe7392cf` | Offline onboarding plan and validation are integrated; the mode emits deterministic desired state and marks existing Forgejo state unknown without network or database reads. | Existing-state equality remains name-only. Tests and live Forgejo qualification were not run for the offline-plan mode. |
+| AgentOps | implementation commit `034bece`; pin update `714a7e1` | Local verifier checks required commit objects, exact candidate branch tips, and owner draft blob hashes without enabling Git lazy fetch. The branch also includes the local publish outbox and read-only continuation-ready packet. | The verifier was not run in this pass; source pins do not establish acceptance, release, live source freshness, or task startup. |
 
 ## Focused verification
 
