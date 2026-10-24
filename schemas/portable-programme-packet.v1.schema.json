@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/portable-programme-packet.v1.schema.json",
+  "title": "Portable programme packet v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "request",
+    "status",
+    "source_observations",
+    "dependency_observations",
+    "source_pin_observations",
+    "readiness_observations",
+    "bounds",
+    "authority",
+    "unknowns",
+    "packet_sha256"
+  ],
+  "properties": {
+    "schema": { "const": "portable-programme-packet/v1" },
+    "request": { "$ref": "portable-programme-run-request.v1.schema.json" },
+    "status": { "enum": ["prepared-for-review", "blocked"] },
+    "source_observations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/sourceObservation" }
+    },
+    "dependency_observations": {
+      "type": "array",
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/dependencyObservation" }
+    },
+    "source_pin_observations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/sourcePinObservation" }
+    },
+    "readiness_observations": {
+      "type": "array",
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/readinessObservation" }
+    },
+    "bounds": { "$ref": "portable-programme-run-request.v1.schema.json#/$defs/bounds" },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dispatch", "grant_changes", "landing", "deployment"],
+      "properties": {
+        "dispatch": { "const": "not-authorized-by-packet" },
+        "grant_changes": { "const": "none" },
+        "landing": { "const": "candidate-only-operator-review-required" },
+        "deployment": { "const": "excluded" }
+      }
+    },
+    "unknowns": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": { "type": "string", "minLength": 1, "maxLength": 1000 }
+    },
+    "packet_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  },
+  "$defs": {
+    "checkState": { "enum": ["passed", "failed", "missing", "stale", "unknown", "mismatch"] },
+    "sourceObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owner",
+        "repository_id",
+        "source_branch",
+        "expected_source_commit",
+        "checks",
+        "actual_source_branch_tip",
+        "target_branch_tip",
+        "target_branch_observation",
+        "canonical_identity_verification",
+        "working_tree_state",
+        "local_repo_path_included"
+      ],
+      "properties": {
+        "owner": { "$ref": "portable-programme-run-request.v1.schema.json#/$defs/owner" },
+        "repository_id": { "$ref": "portable-programme-run-request.v1.schema.json#/$defs/identifier" },
+        "source_branch": { "$ref": "portable-programme-run-request.v1.schema.json#/$defs/branch" },
+        "expected_source_commit": { "$ref": "portable-programme-run-request.v1.schema.json#/$defs/commit" },
+        "checks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["repository", "canonical_identity", "commit_object", "source_branch_tip", "working_tree"],
+          "properties": {
+            "repository": { "$ref": "#/$defs/checkState" },
+            "canonical_identity": { "$ref": "#/$defs/checkState" },
+            "commit_object": { "$ref": "#/$defs/checkState" },
+            "source_branch_tip": { "$ref": "#/$defs/checkState" },
+            "working_tree": { "$ref": "#/$defs/checkState" }
+          }
+        },
+        "actual_source_branch_tip": { "oneOf": [{ "type": "null" }, { "$ref": "portable-programme-run-request.v1.schema.json#/$defs/commit" }] },
+        "target_branch_tip": { "oneOf": [{ "type": "null" }, { "$ref": "portable-programme-run-request.v1.schema.json#/$defs/commit" }] },
+        "target_branch_observation": { "enum": ["unknown", "local-tip-observed-not-authorized"] },
+        "canonical_identity_verification": { "enum": ["passed", "mismatch", "unknown"] },
+        "working_tree_state": { "enum": ["clean", "dirty", "unknown"] },
+        "local_repo_path_included": { "const": false }
+      }
+    },
+    "dependencyObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "owner",
+        "commit",
+        "path",
+        "sha256",
+        "purpose",
+        "access_class",
+        "checks",
+        "actual_sha256",
+        "verification_scope"
+      ],
+      "properties": {
+        "id": { "$ref": "portable-programme-run-request.v1.schema.json#/$defs/identifier" },
+        "owner": { "$ref": "portable-programme-run-request.v1.schema.json#/$defs/owner" },
+        "commit": { "$ref": "portable-programme-run-request.v1.schema.json#/$defs/commit" },
+        "path": { "$ref": "portable-programme-run-request.v1.schema.json#/$defs/repoPath" },
+        "sha256": { "$ref": "portable-programme-run-request.v1.schema.json#/$defs/sha256" },
+        "purpose": { "$ref": "portable-programme-run-request.v1.schema.json#/$defs/text1000" },
+        "access_class": { "enum": ["source-read", "artifact-read"] },
+        "checks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["commit_object", "blob", "sha256"],
+          "properties": {
+            "commit_object": { "$ref": "#/$defs/checkState" },
+            "blob": { "$ref": "#/$defs/checkState" },
+            "sha256": { "enum": ["passed", "mismatch", "missing"] }
+          }
+        },
+        "actual_sha256": { "oneOf": [{ "type": "null" }, { "$ref": "portable-programme-run-request.v1.schema.json#/$defs/sha256" }] },
+        "verification_scope": { "const": "local-git-object-only" }
+      }
+    },
+    "sourcePinObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owner",
+        "branch",
+        "expected_commit",
+        "draft_path",
+        "expected_draft_sha256",
+        "checks",
+        "actual_branch_tip",
+        "actual_draft_sha256",
+        "errors",
+        "status"
+      ],
+      "properties": {
+        "owner": { "$ref": "portable-programme-run-request.v1.schema.json#/$defs/owner" },
+        "branch": { "$ref": "portable-programme-run-request.v1.schema.json#/$defs/branch" },
+        "expected_commit": { "$ref": "portable-programme-run-request.v1.schema.json#/$defs/commit" },
+        "draft_path": { "$ref": "portable-programme-run-request.v1.schema.json#/$defs/repoPath" },
+        "expected_draft_sha256": { "$ref": "portable-programme-run-request.v1.schema.json#/$defs/sha256" },
+        "checks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["commit_object", "branch_tip", "draft_path", "draft_sha256"],
+          "properties": {
+            "commit_object": { "$ref": "#/$defs/checkState" },
+            "branch_tip": { "$ref": "#/$defs/checkState" },
+            "draft_path": { "$ref": "#/$defs/checkState" },
+            "draft_sha256": { "$ref": "#/$defs/checkState" }
+          }
+        },
+        "actual_branch_tip": { "oneOf": [{ "type": "null" }, { "$ref": "portable-programme-run-request.v1.schema.json#/$defs/commit" }] },
+        "actual_draft_sha256": { "oneOf": [{ "type": "null" }, { "$ref": "portable-programme-run-request.v1.schema.json#/$defs/sha256" }] },
+        "errors": { "type": "array", "maxItems": 16, "items": { "type": "string", "maxLength": 500 } },
+        "status": { "enum": ["passed", "failed"] }
+      }
+    },
+    "readinessObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "kind", "reported_state", "verification"],
+      "properties": {
+        "owner": { "$ref": "portable-programme-run-request.v1.schema.json#/$defs/owner" },
+        "kind": { "$ref": "portable-programme-run-request.v1.schema.json#/$defs/identifier" },
+        "reported_state": { "enum": ["ready", "blocked", "unknown", "stale", "refused", "uncertain"] },
+        "verification": { "const": "caller-provided-unverified" },
+        "observed_at": { "type": "string", "format": "date-time" },
+        "evidence_id": { "$ref": "portable-programme-run-request.v1.schema.json#/$defs/identifier" }
+      }
+    }
+  }
+}
