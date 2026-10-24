@@ -96,6 +96,19 @@ These proposed owner-scoped drafts are committed on local candidate branches.
 The pins identify source for review; they do not establish owner acceptance,
 release, implementation, or deployment:
 
+The versioned pin data is maintained in
+[`portable-feature-batch-pins.v1.json`](portable-feature-batch-pins.v1.json).
+Verify the pinned local source objects with
+`python scripts/verify_portable_batch_pins.py --repo vuoro=/path/to/vuoro`
+and repeat `--repo OWNER=PATH` for the other four local repositories. The
+verifier performs local Git object, local branch-tip, and
+draft-blob checks and reports the draft SHA256 in JSON. It disables Git lazy
+fetch and does not inspect working-tree contents, contact a remote, compare a
+release artifact, or establish owner acceptance, release, implementation,
+qualification, or deployment. An absent repository mapping or unavailable or
+stale local evidence fails the check; obtain the candidate object locally
+through the repository's normal process before retrying.
+
 | Owner | Candidate branch and commit | Draft |
 |---|---|---|
 | Vuoro | `cloud/20261024/programme-01-contract-foundation` at `fe7ce5a2e61d7e9d7b8786ba8bdafd08f59a91fc` | `docs/plans/2026-10-24-mcp-toolset-projection-requirements.md` |
