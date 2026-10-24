@@ -58,7 +58,8 @@ Its EC-00 source recheck records partial TypeSpec/OpenAPI tool pins from the
 separate Vuoro contract-foundation candidate at
 `3db3e34a142f0cb1e7ad773fcdcc1948082ea731`; it leaves the MCP projection and
 other EC-00 acceptance conditions open.
-The Vuoro candidate now also has Python JSON complexity commits
+On the separate Vuoro contract-foundation candidate at current tip
+`9d9bbc3af98309bb2677807d131b5279415ccd68`, commits
 `1d50efb1f3801afe36c29ee040b31086cd9431e6` and
 `08d50726fce210754a8a48e94c18f526487886e1`; the latter bounds structural scans
 before decoding. Commits `42a3a7bd31444651e64ba795e8519192104f9399` and
@@ -66,6 +67,8 @@ before decoding. Commits `42a3a7bd31444651e64ba795e8519192104f9399` and
 body cap and bodyless request/response behavior with TypeScript. Independent
 source review found no concrete issue in these changes; no tests ran for these
 follow-ups in this pass.
+These changes are not part of the separate Vuoro integration candidate listed
+in the source-pins table.
 The Appservice AS-PW3 source inventory is recorded on candidate branch
 `cloud/20261024/programme-08-integration-appservice-exact` at
 `docs/evidence/2026-10-24-portable-workflow-landing-policy-inventory.md`; it
@@ -76,18 +79,20 @@ Its AS-PW3 inventory remains on the same candidate branch at commit
 `docs/evidence/2026-10-24-portable-workflow-landing-policy-inventory.md`; it
 maps tracked workflow settings without claiming current effective host rules.
 The AS-PW1 inventory was refreshed at commit
-`2a60b8de86c167296710f96a84e75a0068471710` in
+`06a3e7c9e0ab18d693252f3e49fa55a2e31a52da` in
 `docs/evidence/2026-10-24-portable-workflow-onboarding-inventory.md`. Its sync
-script hardening is in commits `1b359878`, `a1a63336`, `753e5544`, and
-`b24187e3bdee30463a0850401519b4392f87ebfc`: it skips target-only bindings,
-matches Forgejo provider names case-insensitively like the policy validator,
-rejects ambiguous/missing binding scope, duplicate desired names or repository
-identities, unknown repository
-references, and malformed repository/capability fields before database/API
-calls, and marks the old Forgejo count as historical. Existing integrations
-are still compared by name only; no claim or effective-scope verification,
-cross-owner onboarding receipt, or live Forgejo recheck is claimed. No tests
-were run for the latest source follow-up in this pass.
+script hardening is in commits `1b359878`, `a1a63336`, `753e5544`,
+`b24187e3bdee30463a0850401519b4392f87ebfc`, and
+`b9e74ecab5da486c62bb21de528e72253f024bd9`: it validates all capabilities
+against the policy registry and target-only bindings against configured
+provider targets before skipping them; matches Forgejo provider names
+case-insensitively like the policy validator; and rejects ambiguous/missing
+binding scope, duplicate desired names or repository identities, unknown
+repository references, and malformed fields before database/API calls. The
+old Forgejo count is marked historical. Existing integrations are still
+compared by name only; no claim or effective-scope verification, cross-owner
+onboarding receipt, or live Forgejo recheck is claimed. No tests were run for
+the latest source follow-up in this pass.
 The AS-PW5 source and artifact reachability inventory is on that branch at
 commit `54f2e1a56153053010698dcdc24449a810371864`, at
 `docs/evidence/2026-10-24-portable-workflow-source-reachability-inventory.md`;
