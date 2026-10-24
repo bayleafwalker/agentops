@@ -1,0 +1,79 @@
+{
+  "collector_image": "docker.io/grafana/alloy@sha256:2aa2099af76c0098d4af7a4d6e48f86cb66dc1a000222ad927a1c67c6542d13f",
+  "credentials_included": false,
+  "full_matrix": {
+    "cases": 62,
+    "exported_records": 54,
+    "passed": true,
+    "refused": 8
+  },
+  "mutations": [
+    {
+      "expected_drop": false,
+      "exported_records": 1,
+      "mutant_after_control": true,
+      "name": "row-only-session-identity",
+      "passed": true,
+      "positive_control_observed": true
+    },
+    {
+      "expected_drop": false,
+      "exported_records": 1,
+      "mutant_after_control": true,
+      "name": "usage-string-coercion",
+      "passed": true,
+      "positive_control_observed": true
+    },
+    {
+      "expected_drop": false,
+      "exported_records": 1,
+      "mutant_after_control": true,
+      "name": "usage-unsafe-integer",
+      "passed": true,
+      "positive_control_observed": true
+    },
+    {
+      "expected_drop": false,
+      "exported_records": 1,
+      "mutant_after_control": true,
+      "name": "model-conflict",
+      "passed": true,
+      "positive_control_observed": true
+    },
+    {
+      "expected_drop": true,
+      "exported_records": 0,
+      "mutant_after_control": true,
+      "name": "metric-temporality",
+      "passed": true,
+      "positive_control_observed": true
+    },
+    {
+      "expected_drop": true,
+      "exported_records": 0,
+      "mutant_after_control": true,
+      "name": "finite-token-partition",
+      "passed": true,
+      "positive_control_observed": true
+    },
+    {
+      "expected_drop": false,
+      "exported_records": 1,
+      "mutant_after_control": true,
+      "name": "interaction-terminal-only",
+      "passed": true,
+      "positive_control_observed": true
+    }
+  ],
+  "production_access": false,
+  "receipt_sha256": "f864098cd0263dd8e5e8e1f8d63a5ae02c6e3f86b45465c82c6a0561ba781a81",
+  "rendered_config_sha256": "416be39159bd5d537883fe1ed27738aa4630ae32db84feac3dd4199f5172a05f",
+  "schema": "agentops-native309-synthetic-acceptance/v1",
+  "scope": "synthetic-only; no production access or external exporter",
+  "source": {
+    "branch": "cloud/20261024/programme-06-telemetry",
+    "commit": "7fabc910445292eb7dd5acbac636f5fd572ebf43",
+    "repository": "appservice"
+  },
+  "telemetry_payloads_included": false
+}
