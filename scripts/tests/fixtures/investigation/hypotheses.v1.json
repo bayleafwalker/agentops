@@ -1,0 +1,12 @@
+[
+  {
+    "id": "feature_enabled",
+    "statement": "The service configuration enables the feature.",
+    "prior": 0.5
+  },
+  {
+    "id": "feature_disabled",
+    "statement": "The service configuration leaves the feature disabled.",
+    "prior": 0.5
+  }
+]

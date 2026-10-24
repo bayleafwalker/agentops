@@ -1,0 +1,60 @@
+{
+  "abstention_rate": 0.0,
+  "case_count": 3,
+  "cases": [
+    {
+      "abstained": false,
+      "brier_score": 0.1134549256972792,
+      "correct": true,
+      "expected_first_probe": "cross_workload_node_correlation",
+      "expected_hypothesis": "shared_node_pressure",
+      "id": "shared-node-pressure-001",
+      "posterior": {
+        "monitoring_component_fault": 0.11210762331838565,
+        "probe_configuration": 0.16143497757847533,
+        "shared_node_pressure": 0.7264573991031391
+      },
+      "prediction": "shared_node_pressure",
+      "selected_first_probe": "cross_workload_node_correlation",
+      "source_ref": "github://bayleafwalker/appservice@b560caa3db231cb3d2737db22d05a056d4f43e8d/docs/training/health-checks/cluster-health-check-2026-02-20.md"
+    },
+    {
+      "abstained": false,
+      "brier_score": 0.022497319842764093,
+      "correct": true,
+      "expected_first_probe": "desired_state_target_alignment",
+      "expected_hypothesis": "parked_service_still_targeted",
+      "id": "parked-service-target-mismatch-001",
+      "posterior": {
+        "network_path_failure": 0.05773672055427252,
+        "parked_service_still_targeted": 0.8775981524249423,
+        "service_failure": 0.06466512702078521
+      },
+      "prediction": "parked_service_still_targeted",
+      "selected_first_probe": "desired_state_target_alignment",
+      "source_ref": "github://bayleafwalker/appservice@b560caa3db231cb3d2737db22d05a056d4f43e8d/docs/training/health-checks/cluster-health-remediation-2026-02-21.md"
+    },
+    {
+      "abstained": false,
+      "brier_score": 0.06933423585234429,
+      "correct": true,
+      "expected_first_probe": "application_upgrade_status",
+      "expected_hypothesis": "application_upgrade_pending",
+      "id": "application-maintenance-after-upgrade-001",
+      "posterior": {
+        "application_upgrade_pending": 0.7901174168297457,
+        "backend_service_failure": 0.14530332681017613,
+        "ingress_route_failure": 0.06457925636007829
+      },
+      "prediction": "application_upgrade_pending",
+      "selected_first_probe": "application_upgrade_status",
+      "source_ref": "github://bayleafwalker/appservice@b560caa3db231cb3d2737db22d05a056d4f43e8d/docs/training/health-checks/cluster-health-check-2026-07-06-nextcloud-blackbox.md"
+    }
+  ],
+  "dataset_digest": "sha256:e745c889020d5f3dfa8aea68c92b1c540ba0a4bc1e92b3c9c28a62a14c310a3c",
+  "mean_brier_score": 0.06842882713079586,
+  "probe_selection_match": 1.0,
+  "qualification": "offline_dataset_replay",
+  "schema": "agentops.investigation-evaluation-result.v1",
+  "top1_accuracy": 1.0
+}

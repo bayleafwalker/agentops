@@ -1,0 +1,127 @@
+{
+  "schema": "agentops.investigation-evaluation.v1",
+  "dataset_id": "appservice-retrospective-sanitized-incidents-v1",
+  "description": "Three sanitized cases reconstructed from committed Appservice training reports. Probe predictions and first-probe expectations were authored retrospectively; this is replay smoke qualification, not a blinded benchmark or independent validation.",
+  "cases": [
+    {
+      "id": "shared-node-pressure-001",
+      "source_ref": "github://bayleafwalker/appservice@b560caa3db231cb3d2737db22d05a056d4f43e8d/docs/training/health-checks/cluster-health-check-2026-02-20.md",
+      "hypotheses": [
+        {"id": "shared_node_pressure", "statement": "A shared node resource or runtime bottleneck is delaying health probes.", "prior": 0.45},
+        {"id": "probe_configuration", "statement": "Probe configuration is the primary cause of the observed timeouts.", "prior": 0.30},
+        {"id": "monitoring_component_fault", "statement": "The monitoring component is failing independently of shared node pressure.", "prior": 0.25}
+      ],
+      "probes": [
+        {
+          "id": "cross_workload_node_correlation",
+          "statement": "Compare node pressure and runtime warnings across affected and unrelated workloads.",
+          "risk": "low",
+          "cost": 0.05,
+          "implementation": {"kind": "external_observation", "outcomes": ["shared_node_pressure", "no_shared_node_pressure", "unknown"]},
+          "likelihoods": {
+            "shared_node_pressure": {"shared_node_pressure": 0.90, "no_shared_node_pressure": 0.05, "unknown": 0.05},
+            "probe_configuration": {"shared_node_pressure": 0.30, "no_shared_node_pressure": 0.60, "unknown": 0.10},
+            "monitoring_component_fault": {"shared_node_pressure": 0.25, "no_shared_node_pressure": 0.65, "unknown": 0.10}
+          }
+        },
+        {
+          "id": "controller_reconciliation_health",
+          "statement": "Check whether source and deployment reconciliation are healthy.",
+          "risk": "low",
+          "cost": 0.10,
+          "implementation": {"kind": "external_observation", "outcomes": ["healthy", "unhealthy", "unknown"]},
+          "likelihoods": {
+            "shared_node_pressure": {"healthy": 0.75, "unhealthy": 0.15, "unknown": 0.10},
+            "probe_configuration": {"healthy": 0.75, "unhealthy": 0.15, "unknown": 0.10},
+            "monitoring_component_fault": {"healthy": 0.75, "unhealthy": 0.15, "unknown": 0.10}
+          }
+        }
+      ],
+      "expected_first_probe": "cross_workload_node_correlation",
+      "observations": [{"probe_id": "cross_workload_node_correlation", "outcome": "shared_node_pressure"}],
+      "expected_hypothesis": "shared_node_pressure",
+      "decision_threshold": 0.70,
+      "max_risk": "low"
+    },
+    {
+      "id": "parked-service-target-mismatch-001",
+      "source_ref": "github://bayleafwalker/appservice@b560caa3db231cb3d2737db22d05a056d4f43e8d/docs/training/health-checks/cluster-health-remediation-2026-02-21.md",
+      "hypotheses": [
+        {"id": "parked_service_still_targeted", "statement": "Monitoring still targets a service that is intentionally parked.", "prior": 0.40},
+        {"id": "service_failure", "statement": "The service is intended to be available but its workload is failing.", "prior": 0.35},
+        {"id": "network_path_failure", "statement": "The service and monitoring intent are valid, but the network path is failing.", "prior": 0.25}
+      ],
+      "probes": [
+        {
+          "id": "desired_state_target_alignment",
+          "statement": "Compare declared service availability intent with configured monitoring targets.",
+          "risk": "low",
+          "cost": 0.05,
+          "implementation": {"kind": "external_observation", "outcomes": ["parked_target_mismatch", "target_matches_intent", "unknown"]},
+          "likelihoods": {
+            "parked_service_still_targeted": {"parked_target_mismatch": 0.95, "target_matches_intent": 0.02, "unknown": 0.03},
+            "service_failure": {"parked_target_mismatch": 0.08, "target_matches_intent": 0.82, "unknown": 0.10},
+            "network_path_failure": {"parked_target_mismatch": 0.10, "target_matches_intent": 0.80, "unknown": 0.10}
+          }
+        },
+        {
+          "id": "generic_http_health",
+          "statement": "Check whether the configured service URL returns an error.",
+          "risk": "low",
+          "cost": 0.15,
+          "implementation": {"kind": "external_observation", "outcomes": ["http_error", "http_ok", "unknown"]},
+          "likelihoods": {
+            "parked_service_still_targeted": {"http_error": 0.90, "http_ok": 0.05, "unknown": 0.05},
+            "service_failure": {"http_error": 0.80, "http_ok": 0.10, "unknown": 0.10},
+            "network_path_failure": {"http_error": 0.80, "http_ok": 0.10, "unknown": 0.10}
+          }
+        }
+      ],
+      "expected_first_probe": "desired_state_target_alignment",
+      "observations": [{"probe_id": "desired_state_target_alignment", "outcome": "parked_target_mismatch"}],
+      "expected_hypothesis": "parked_service_still_targeted",
+      "decision_threshold": 0.85,
+      "max_risk": "low"
+    },
+    {
+      "id": "application-maintenance-after-upgrade-001",
+      "source_ref": "github://bayleafwalker/appservice@b560caa3db231cb3d2737db22d05a056d4f43e8d/docs/training/health-checks/cluster-health-check-2026-07-06-nextcloud-blackbox.md",
+      "hypotheses": [
+        {"id": "application_upgrade_pending", "statement": "An incomplete in-application upgrade left the application in maintenance mode.", "prior": 0.34},
+        {"id": "ingress_route_failure", "statement": "The ingress or route is failing before requests reach a healthy application.", "prior": 0.33},
+        {"id": "backend_service_failure", "statement": "The application backend or its dependencies are unhealthy.", "prior": 0.33}
+      ],
+      "probes": [
+        {
+          "id": "application_upgrade_status",
+          "statement": "Read the application's supported status fields for maintenance and pending upgrade state.",
+          "risk": "low",
+          "cost": 0.05,
+          "implementation": {"kind": "external_observation", "outcomes": ["upgrade_pending_maintenance", "normal", "unavailable"]},
+          "likelihoods": {
+            "application_upgrade_pending": {"upgrade_pending_maintenance": 0.95, "normal": 0.02, "unavailable": 0.03},
+            "ingress_route_failure": {"upgrade_pending_maintenance": 0.08, "normal": 0.82, "unavailable": 0.10},
+            "backend_service_failure": {"upgrade_pending_maintenance": 0.18, "normal": 0.72, "unavailable": 0.10}
+          }
+        },
+        {
+          "id": "route_and_endpoint_health",
+          "statement": "Check route acceptance, service endpoints and backend readiness.",
+          "risk": "low",
+          "cost": 0.10,
+          "implementation": {"kind": "external_observation", "outcomes": ["route_and_endpoints_healthy", "routing_or_endpoint_failure", "unknown"]},
+          "likelihoods": {
+            "application_upgrade_pending": {"route_and_endpoints_healthy": 0.90, "routing_or_endpoint_failure": 0.05, "unknown": 0.05},
+            "ingress_route_failure": {"route_and_endpoints_healthy": 0.05, "routing_or_endpoint_failure": 0.90, "unknown": 0.05},
+            "backend_service_failure": {"route_and_endpoints_healthy": 0.35, "routing_or_endpoint_failure": 0.55, "unknown": 0.10}
+          }
+        }
+      ],
+      "expected_first_probe": "application_upgrade_status",
+      "observations": [{"probe_id": "application_upgrade_status", "outcome": "upgrade_pending_maintenance"}],
+      "expected_hypothesis": "application_upgrade_pending",
+      "decision_threshold": 0.75,
+      "max_risk": "low"
+    }
+  ]
+}

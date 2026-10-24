@@ -1,0 +1,1 @@
+{"captured_at":"2026-10-24T18:18:04Z","implementation":"text_contains","input_bytes":14,"input_digest":"sha256:fb5ff1984232edecfce6fbfa6deb6374bcd7bf898f58d2c51b9e46cbbbbb78fe","network":"none","outcome":"absent","path":"service.conf","probe_id":"check_feature_setting","side_effects":"none"}

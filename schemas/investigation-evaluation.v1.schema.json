@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/investigation-evaluation.v1.schema.json",
+  "title": "Agentops investigation evaluation dataset v1",
+  "description": "Frozen incident or synthetic cases with pre-registered hypotheses, probe predictions, observed outcomes and expected conclusions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "dataset_id", "cases"],
+  "properties": {
+    "schema": {"const": "agentops.investigation-evaluation.v1"},
+    "dataset_id": {"type": "string", "minLength": 1},
+    "description": {"type": "string"},
+    "cases": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id", "source_ref", "hypotheses", "probes", "expected_first_probe",
+          "observations", "expected_hypothesis"
+        ],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "source_ref": {"type": "string", "minLength": 1},
+          "hypotheses": {"type": "array", "minItems": 2},
+          "probes": {"type": "array", "minItems": 1},
+          "expected_first_probe": {"type": "string"},
+          "observations": {"type": "array", "minItems": 1},
+          "expected_hypothesis": {"type": "string"},
+          "decision_threshold": {"type": "number", "exclusiveMinimum": 0.5, "maximum": 1},
+          "max_risk": {"enum": ["low", "medium", "high"]}
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

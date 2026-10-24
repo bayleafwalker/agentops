@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/investigation-event.v1.schema.json",
+  "title": "Agentops investigation event envelope v1",
+  "description": "One append-only event. The event digest is SHA-256 over canonical JSON of seq, kind, data and previous_digest.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["seq", "kind", "data", "previous_digest", "digest"],
+  "properties": {
+    "seq": {"type": "integer", "minimum": 1},
+    "kind": {
+      "enum": [
+        "initialized", "probe_registered", "probe_selected", "probe_started",
+        "probe_observed", "external_observation", "probe_interrupted", "report_created"
+      ]
+    },
+    "data": {"type": "object"},
+    "previous_digest": {
+      "anyOf": [
+        {"type": "null"},
+        {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      ]
+    },
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

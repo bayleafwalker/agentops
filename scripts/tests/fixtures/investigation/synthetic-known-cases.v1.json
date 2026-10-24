@@ -1,0 +1,58 @@
+{
+  "schema": "agentops.investigation-evaluation.v1",
+  "dataset_id": "synthetic-demo-not-historical",
+  "description": "A deterministic offline demonstration case. It is not an operational incident.",
+  "cases": [
+    {
+      "id": "synthetic-config-disabled-001",
+      "source_ref": "synthetic://agentops/autonomous-investigation/config-disabled-001",
+      "hypotheses": [
+        {
+          "id": "feature_enabled",
+          "statement": "The service configuration enables the feature.",
+          "prior": 0.5
+        },
+        {
+          "id": "feature_disabled",
+          "statement": "The service configuration leaves the feature disabled.",
+          "prior": 0.5
+        }
+      ],
+      "probes": [
+        {
+          "id": "check_feature_setting",
+          "statement": "Check whether the service configuration contains enabled=true.",
+          "risk": "low",
+          "cost": 0.05,
+          "implementation": {
+            "kind": "text_contains",
+            "path": "service.conf",
+            "literal": "enabled=true"
+          },
+          "likelihoods": {
+            "feature_enabled": {
+              "present": 0.98,
+              "absent": 0.01,
+              "missing": 0.01
+            },
+            "feature_disabled": {
+              "present": 0.01,
+              "absent": 0.98,
+              "missing": 0.01
+            }
+          }
+        }
+      ],
+      "expected_first_probe": "check_feature_setting",
+      "observations": [
+        {
+          "probe_id": "check_feature_setting",
+          "outcome": "absent"
+        }
+      ],
+      "expected_hypothesis": "feature_disabled",
+      "decision_threshold": 0.9,
+      "max_risk": "low"
+    }
+  ]
+}

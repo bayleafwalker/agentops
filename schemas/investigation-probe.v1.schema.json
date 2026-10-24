@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/investigation-probe.v1.schema.json",
+  "title": "Agentops investigation probe v1",
+  "description": "Pre-registered prediction table and safe probe declaration. The runtime validator also checks matching outcome sets and probability totals.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "statement", "risk", "cost", "implementation", "likelihoods"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$"},
+    "statement": {"type": "string", "minLength": 1, "maxLength": 2048},
+    "risk": {"enum": ["low", "medium", "high"]},
+    "cost": {"type": "number", "minimum": 0, "maximum": 1},
+    "implementation": {
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "path"],
+          "properties": {
+            "kind": {"const": "file_exists"}, "path": {"type": "string", "minLength": 1},
+            "effects": {"const": "read_only"}
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "path", "expected_digest"],
+          "properties": {
+            "kind": {"const": "sha256_matches"}, "path": {"type": "string", "minLength": 1},
+            "expected_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+            "effects": {"const": "read_only"}
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "path", "literal"],
+          "properties": {
+            "kind": {"const": "text_contains"}, "path": {"type": "string", "minLength": 1},
+            "literal": {"type": "string", "minLength": 1, "maxLength": 4096},
+            "effects": {"const": "read_only"}
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "path", "pointer", "expected"],
+          "properties": {
+            "kind": {"const": "json_equals"}, "path": {"type": "string", "minLength": 1},
+            "pointer": {"type": "string", "pattern": "^(|/.*)$"},
+            "expected": {}, "effects": {"const": "read_only"}
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "outcomes"],
+          "properties": {
+            "kind": {"const": "external_observation"},
+            "outcomes": {
+              "type": "array", "minItems": 2, "uniqueItems": true,
+              "items": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$"}
+            },
+            "effects": {"const": "read_only"}
+          }
+        }
+      ]
+    },
+    "likelihoods": {
+      "type": "object",
+      "minProperties": 2,
+      "patternProperties": {
+        "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$": {
+          "type": "object", "minProperties": 2,
+          "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

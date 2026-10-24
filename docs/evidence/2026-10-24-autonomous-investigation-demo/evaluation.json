@@ -1,0 +1,27 @@
+{
+  "abstention_rate": 0.0,
+  "case_count": 1,
+  "cases": [
+    {
+      "abstained": false,
+      "brier_score": 0.00020406081012141526,
+      "correct": true,
+      "expected_first_probe": "check_feature_setting",
+      "expected_hypothesis": "feature_disabled",
+      "id": "synthetic-config-disabled-001",
+      "posterior": {
+        "feature_disabled": 0.98989898989899,
+        "feature_enabled": 0.010101010101010102
+      },
+      "prediction": "feature_disabled",
+      "selected_first_probe": "check_feature_setting",
+      "source_ref": "synthetic://agentops/autonomous-investigation/config-disabled-001"
+    }
+  ],
+  "dataset_digest": "sha256:6f62402e6eac8c69f8334b183900fc3af94af75cc2e44a80f29bffb57bc3ebf1",
+  "mean_brier_score": 0.00020406081012141526,
+  "probe_selection_match": 1.0,
+  "qualification": "offline_dataset_replay",
+  "schema": "agentops.investigation-evaluation-result.v1",
+  "top1_accuracy": 1.0
+}
