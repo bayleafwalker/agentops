@@ -270,14 +270,6 @@ class LocalRequestOutboxTests(unittest.TestCase):
         with self.assertRaises(requests.RequestClientError) as caught:
             self.store.list_entries()
         self.assertEqual(caught.exception.code, "outbox-storage-invalid")
-        data.write_text(json.dumps({"schema": valid["schema"], "entries": [row] * 201}))
-        with self.assertRaises(requests.RequestClientError) as caught:
-            self.store.list_entries()
-        self.assertEqual(caught.exception.code, "outbox-storage-invalid")
-        data.write_text(json.dumps({"schema": valid["schema"], "entries": [], "extra": True}))
-        with self.assertRaises(requests.RequestClientError) as caught:
-            self.store.list_entries()
-        self.assertEqual(caught.exception.code, "outbox-storage-invalid")
         data.write_text('{"schema":"operator-request-outbox/v1","entries":[],"entries":[]}')
         with self.assertRaises(requests.RequestClientError) as caught:
             self.store.list_entries()
@@ -294,6 +286,79 @@ class LocalRequestOutboxTests(unittest.TestCase):
         with self.assertRaises(requests.RequestClientError) as caught:
             self.store.list_entries()
         self.assertEqual(caught.exception.code, "outbox-storage-invalid")
+        data.write_text(json.dumps({"schema": valid["schema"], "entries": [row] * 201}))
+        with self.assertRaises(requests.RequestClientError) as caught:
+            self.store.list_entries()
+        self.assertEqual(caught.exception.code, "outbox-storage-invalid")
+        data.write_text(json.dumps({"schema": valid["schema"], "entries": [], "extra": True}))
+        with self.assertRaises(requests.RequestClientError) as caught:
+            self.store.list_entries()
+        self.assertEqual(caught.exception.code, "outbox-storage-invalid")
+
+
+class ContinuationReadyTests(unittest.TestCase):
+    request_id = "req_01JZZZZZZZZZZZZZZZZZZZZZZZ"
+
+    def owner_records(self, *, state="resolved", stale=False, action="resolved-human-attestation"):
+        snapshot = {
+            "request_id": self.request_id, "revision": 4, "state": state, "freshness": "current",
+            "packet": {"schema": "operator-request/v1", "kind": "perform", "required_outcome": "service healthy",
+                       "reason": "operator action required", "execution": {}, "procedure": {}, "blocker": {}},
+            "dependants": [
+                {"work_item_id": 55, "session_id": "old-session", "runtime_id": "codex-local",
+                 "work_revision": "work-r7", "current_work_revision": "work-r7" if not stale else "work-r8",
+                 "source_changed": stale, "state": "active", "attached_at": "2026-10-24T00:00:00Z", "withdrawn_at": None},
+                {"work_item_id": 56, "session_id": "withdrawn-session", "runtime_id": None,
+                 "work_revision": "work-r2", "current_work_revision": "work-r2", "source_changed": False,
+                 "state": "withdrawn", "attached_at": "2026-10-24T00:00:00Z", "withdrawn_at": "2026-10-24T00:01:00Z"},
+            ],
+            "created_at": "2026-10-24T00:00:00Z", "updated_at": "2026-10-24T00:02:00Z",
+        }
+        events = {
+            "request_id": self.request_id, "next_after_revision": 4,
+            "events": [{"request_id": self.request_id, "revision": 4, "action": action,
+                        "actor": "private-principal", "details": {"completion_basis": "human-attestation",
+                        "statement": "private attestation text", "performed_at": "2026-10-24T00:01:00Z",
+                        "protected_effect_authorized": False}, "recorded_at": "2026-10-24T00:02:00Z"}],
+        }
+        class Owner:
+            def __init__(self): self.calls = []
+            def invoke(self, suffix, repo, args):
+                self.calls.append((suffix, repo, args))
+                return snapshot if suffix == "get" else events
+        return Owner()
+
+    def test_human_attestation_produces_metadata_only_successor_packet(self):
+        owner = self.owner_records()
+        result = requests.continuation_ready_packet(owner, "sprintctl", self.request_id)
+        self.assertEqual([call[0] for call in owner.calls], ["get", "events"])
+        self.assertEqual(owner.calls[1][2], {"request_id": self.request_id, "after_revision": 3, "limit": 1})
+        self.assertEqual(result["schema"], "operator-request-continuation-ready/v1")
+        self.assertEqual(result["owner"], {"repo_id": "sprintctl", "read_operation": "work.request.get-v1"})
+        self.assertEqual(result["resolution"]["basis"], "human-attestation")
+        self.assertEqual(len(result["dependants"]), 1)
+        self.assertEqual(result["dependants"][0]["state"], "continuation-ready")
+        serialized = json.dumps(result)
+        self.assertNotIn("private attestation text", serialized)
+        self.assertNotIn("private-principal", serialized)
+
+    def test_stale_work_link_is_marked_needs_refresh(self):
+        owner = self.owner_records(stale=True)
+        result = requests.continuation_ready_packet(owner, "sprintctl", self.request_id)
+        self.assertEqual(result["dependants"][0]["state"], "needs-refresh")
+
+    def test_performed_report_without_resolution_does_not_create_packet(self):
+        owner = self.owner_records(state="reported-performed")
+        with self.assertRaises(requests.RequestClientError) as caught:
+            requests.continuation_ready_packet(owner, "sprintctl", self.request_id)
+        self.assertEqual(caught.exception.code, "continuation-not-ready")
+        self.assertEqual([call[0] for call in owner.calls], ["get"])
+
+    def test_unrecognized_resolution_evidence_is_refused(self):
+        owner = self.owner_records(action="performed-reported")
+        with self.assertRaises(requests.RequestClientError) as caught:
+            requests.continuation_ready_packet(owner, "sprintctl", self.request_id)
+        self.assertEqual(caught.exception.code, "resolution-evidence-unavailable")
 
 
 if __name__ == "__main__":
