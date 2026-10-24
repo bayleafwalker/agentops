@@ -59,6 +59,13 @@ The Appservice AS-PW3 source inventory is recorded on candidate branch
 `docs/evidence/2026-10-24-portable-workflow-landing-policy-inventory.md`; it
 distinguishes tracked workflow configuration and dated settings evidence from
 current effective host rules, which remain unverified.
+Its AS-PW1 and AS-PW3 inventories are on the same candidate branch at commit
+`7871d6d50a63e2e8406e279b2b0d2bffb2e9851e`; their files are
+`docs/evidence/2026-10-24-portable-workflow-onboarding-inventory.md` and
+`docs/evidence/2026-10-24-portable-workflow-landing-policy-inventory.md`. They
+map existing owner-applied registration, host identity and landing paths
+without claiming a cross-owner onboarding record or current effective host
+rules.
 
 ## Ownership and durable plans
 
