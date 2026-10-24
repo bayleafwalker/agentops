@@ -360,6 +360,75 @@ class ContinuationReadyTests(unittest.TestCase):
             requests.continuation_ready_packet(owner, "sprintctl", self.request_id)
         self.assertEqual(caught.exception.code, "resolution-evidence-unavailable")
 
+    def test_revoked_event_read_does_not_emit_a_successor_packet(self):
+        snapshot_owner = self.owner_records()
+        snapshot = snapshot_owner.invoke("get", "sprintctl", {"request_id": self.request_id})
+
+        class RevokedEventsOwner:
+            def __init__(self):
+                self.calls = []
+
+            def invoke(self, suffix, repo_id, arguments):
+                self.calls.append((suffix, repo_id, arguments))
+                if suffix == "get":
+                    return snapshot
+                raise requests.RequestClientError("authority-required")
+
+        owner = RevokedEventsOwner()
+        with self.assertRaises(requests.RequestClientError) as caught:
+            requests.continuation_ready_packet(owner, "sprintctl", self.request_id)
+
+        self.assertEqual(caught.exception.code, "authority-required")
+        self.assertEqual([call[0] for call in owner.calls], ["get", "events"])
+
+    def test_malformed_work_link_identity_is_refused(self):
+        malformed_fields = (
+            {"work_item_id": requests._MAX_SAFE_INTEGER + 1},
+            {"runtime_id": ""},
+        )
+        for fields in malformed_fields:
+            with self.subTest(fields=fields):
+                source = self.owner_records()
+                snapshot = source.invoke("get", "sprintctl", {"request_id": self.request_id})
+                snapshot["dependants"][0].update(fields)
+
+                class MalformedSnapshotOwner:
+                    def __init__(self):
+                        self.calls = []
+
+                    def invoke(self, suffix, repo_id, arguments):
+                        self.calls.append(suffix)
+                        if suffix == "get":
+                            return snapshot
+                        return source.invoke(suffix, repo_id, arguments)
+
+                owner = MalformedSnapshotOwner()
+                with self.assertRaises(requests.RequestClientError) as caught:
+                    requests.continuation_ready_packet(owner, "sprintctl", self.request_id)
+
+                self.assertEqual(caught.exception.code, "continuation-snapshot-invalid")
+
+    def test_reconciliation_rejects_unsafe_dependent_identity(self):
+        source = self.owner_records()
+        snapshot = source.invoke("get", "sprintctl", {"request_id": self.request_id})
+        snapshot["dependants"] = snapshot["dependants"][:1]
+        expected = {"work_item_id": 55, "session_id": "old-session"}
+        for change in (
+            {"work_item_id": requests._MAX_SAFE_INTEGER + 1},
+            {"runtime_id": ""},
+        ):
+            with self.subTest(change=change):
+                row = {
+                    "request_id": self.request_id,
+                    "arguments": {
+                        "packet": snapshot["packet"],
+                        "dependants": [{**expected, **change}],
+                    },
+                }
+                candidate = {**snapshot, "dependants": [dict(snapshot["dependants"][0])]}
+                candidate["dependants"][0].update(change)
+                self.assertFalse(requests.LocalRequestOutbox._snapshot_matches(row, candidate))
+
 
 if __name__ == "__main__":
     unittest.main()

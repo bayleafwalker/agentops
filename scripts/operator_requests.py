@@ -45,6 +45,7 @@ _SENSITIVE_TEXT = re.compile(
     r"\b(?:password|passphrase|access[_ -]?token|client[_ -]?secret)\s*[:=]\s*\S+)"
 )
 _RFC3339_TEXT = re.compile(r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)$")
+_MAX_SAFE_INTEGER = (1 << 53) - 1
 
 
 class RequestClientError(RuntimeError):
@@ -355,7 +356,8 @@ class LocalRequestOutbox:
                 dependent.get("work_item_id"), dependent.get("session_id"), dependent.get("runtime_id")
             )
             if (
-                isinstance(item_id, bool) or not isinstance(item_id, int) or item_id <= 0
+                isinstance(item_id, bool) or not isinstance(item_id, int)
+                or not 1 <= item_id <= _MAX_SAFE_INTEGER
                 or not isinstance(session_id, str) or not session_id
                 or (runtime_id is not None and (not isinstance(runtime_id, str) or not runtime_id))
             ):
@@ -376,7 +378,8 @@ class LocalRequestOutbox:
             )
             dep_state = dependent.get("state")
             if (
-                isinstance(item_id, bool) or not isinstance(item_id, int) or item_id <= 0
+                isinstance(item_id, bool) or not isinstance(item_id, int)
+                or not 1 <= item_id <= _MAX_SAFE_INTEGER
                 or not isinstance(session_id, str) or not session_id
                 or (runtime_id is not None and (not isinstance(runtime_id, str) or not runtime_id))
                 or not isinstance(dependent.get("work_revision"), str)
@@ -511,9 +514,10 @@ def continuation_ready_packet(owner: Any, repo_id: str, request_id: str) -> dict
         work_revision, current_revision = dependant.get("work_revision"), dependant.get("current_work_revision")
         state = dependant.get("state")
         if (
-            isinstance(item_id, bool) or not isinstance(item_id, int) or item_id <= 0
+            isinstance(item_id, bool) or not isinstance(item_id, int)
+            or not 1 <= item_id <= _MAX_SAFE_INTEGER
             or not isinstance(session_id, str) or not session_id
-            or (runtime_id is not None and not isinstance(runtime_id, str))
+            or (runtime_id is not None and (not isinstance(runtime_id, str) or not runtime_id))
             or not isinstance(work_revision, str)
             or (current_revision is not None and not isinstance(current_revision, str))
             or not isinstance(dependant.get("source_changed"), bool)
