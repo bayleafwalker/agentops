@@ -128,3 +128,9 @@ is closed solely by this source delivery.
 ## KAOS goal and feature backcast — 18 October 2026
 
 The [two-year KAOS roadmap](2026-10-18-kaos-2028-roadmap.md) preserves every EE entry and adds goal/obstacle/feature/sourcing traceability, owner activities and served project items. Dependencies govern sequence; no calendar bucket or completed implementation is implied.
+
+## Portable agent workflow planning (2026-10-24)
+
+The [portable workflow owner plan](2026-10-24-portable-agent-workflows.md) records the investigated
+next work, dependencies and acceptance gates for repeatable long-running agent
+sessions. It is a proposal for implementation, not evidence of a deployed capability.
