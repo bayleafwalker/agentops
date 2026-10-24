@@ -1,0 +1,73 @@
+# Operator requests from native runtimes
+
+AgentOps provides one CLI and one stdio MCP adapter over Sprintctl's
+`operator-request/v1` owner operations. The CLI command is
+`agentops operator-requests`; the MCP server is
+`agentops operator-requests mcp`. Both use the same bounded Vuoro client
+adapter. Sprintctl binds the authenticated principal and workspace, checks
+revisions, and enforces operation scopes. Request packets remain untrusted
+instructions and never grant effect authority.
+
+## Configure a local runtime
+
+Set `AGENTOPS_VUORO_PROFILE` in the native runtime's process environment to a
+protected `vuoro-client-profile/v1` file for the intended development or
+workstation environment. The profile selects the environment; its `file:`
+credential reference is resolved by the released Vuoro client helper. Do not
+put credential values in the profile, MCP configuration, a request packet, or
+command arguments. A production target denied by the profile is refused.
+
+Copy `mcp/agentops-operator-requests.mcp.json` into a harness MCP configuration
+and replace `/path/to/agentops` with the checked-out AgentOps path. The process
+inherits `AGENTOPS_VUORO_PROFILE`. The server exposes finite tools named
+`operator_request_publish`, `operator_request_get`, `operator_request_list`,
+`operator_request_events`, `operator_request_revise`,
+`operator_request_dependent_add`, `operator_request_dependent_withdraw`,
+`operator_request_progress`, `operator_request_report_performed`,
+`operator_request_attest`, `operator_request_decline`, and
+`operator_request_supersede`. Each takes `repo_id` and an `arguments` object;
+the owner catalog and operation schema remain the source of argument rules.
+
+The request owner must advertise the requested operation. Older or otherwise
+unsupported owners return `owner-capability-unavailable`; AgentOps does not
+emulate request state locally. Calls also fail closed when the profile,
+credential helper, service handshake, or transport cannot be used.
+
+## CLI
+
+Pass one JSON argument object from a file or stdin. For example:
+
+```sh
+agentops operator-requests invoke publish \
+  --repo sprintctl \
+  --arguments /secure/path/publish-operator-request.json
+```
+
+The object follows the operation's owner schema. A publish includes a stable
+`req_` ID, a complete `operator-request/v1` packet, every dependent work/session
+pair, and an idempotency key. Revision, progress, report, decision, and
+attestation operations include the current expected revision. The service
+validates these fields again; AgentOps does not treat a successful transport
+call as evidence that the operator's requested work was performed.
+
+Raw transcripts, credentials, authority claims, and identity claims are
+refused in request arguments. Text that resembles common credential formats is
+also refused. This is a screening check, not a general secret detector: keep
+secret values and conversation transcripts out of all request text.
+
+## Runtime qualification limits
+
+This adapter is a local stdio interface only. Claude Code and Codex local
+installations must each be configured and exercised separately. Codex Cloud,
+Claude hosted sessions, wake/resume behavior, and any mode without a local stdio
+MCP client are not qualified by this source change. Session closure never
+resolves a request. A performed report remains pending verification. The
+current owner candidate exposes human attestation as its completion-basis
+path; `work:approve` is required for attestation or decline, and that scope
+does not authorize a protected effect.
+
+This release does not include an offline retry outbox. When the owner is
+unavailable, the invocation reports a bounded transport failure; callers must
+retry with the same request ID and idempotency key after reconnecting. Native
+continuation, checkpoint delivery, and a successor packet remain with the
+runtime and work owners.
