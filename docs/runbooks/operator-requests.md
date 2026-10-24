@@ -66,6 +66,26 @@ current owner candidate exposes human attestation as its completion-basis
 path; `work:approve` is required for attestation or decline, and that scope
 does not authorize a protected effect.
 
+## Continuation-ready fallback
+
+When a native runtime cannot wake a successor, request a read-only fallback
+packet after resolution:
+
+```sh
+agentops operator-requests continuation-ready --repo sprintctl \
+  --request-id req_01JZZZZZZZZZZZZZZZZZZZZZZZ --profile /secure/path/vuoro-profile.json
+```
+
+The command reads the current request snapshot and its event at the current
+revision. It emits a fallback only for a resolved request whose event identifies
+the owner's `resolved-human-attestation` basis. A `report-performed` result by
+itself is refused. Active dependants are marked `continuation-ready` only when
+owner freshness is current and their source work revision still matches;
+others are marked `needs-refresh`. The packet contains request/work identity
+and owner event coordinates, not attestation text or actor identity. It does not
+wake a runtime, acknowledge delivery, change owner state, or replace reading the
+full current request packet from the owner.
+
 ## Offline publication outbox
 
 For offline callers, the CLI provides a local outbox for `publish` only. It

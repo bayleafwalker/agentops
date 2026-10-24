@@ -319,6 +319,7 @@ class LocalRequestOutbox:
             return reports
         return self._locked(run)
 
+
     @staticmethod
     def _snapshot_matches(row: dict[str, Any], snapshot: Any) -> bool:
         fields = {"request_id", "revision", "state", "freshness", "packet", "dependants", "created_at", "updated_at"}
@@ -438,6 +439,116 @@ class LocalRequestOutbox:
                 self._save(entries)
             return reports
         return self._locked(run)
+
+
+def continuation_ready_packet(owner: Any, repo_id: str, request_id: str) -> dict[str, Any]:
+    """Project a current owner resolution into a safe, read-only successor packet."""
+    snapshot = owner.invoke("get", repo_id, {"request_id": request_id})
+    snapshot_fields = {"request_id", "revision", "state", "freshness", "packet", "dependants", "created_at", "updated_at"}
+    revision = snapshot.get("revision") if isinstance(snapshot, dict) else None
+    if (
+        not isinstance(snapshot, dict) or set(snapshot) != snapshot_fields
+        or snapshot.get("request_id") != request_id
+        or isinstance(revision, bool) or not isinstance(revision, int) or revision <= 0
+        or snapshot.get("state") != "resolved"
+        or not isinstance(snapshot.get("freshness"), str)
+        or snapshot["freshness"] not in {"current", "needs-refresh", "unknown"}
+        or not isinstance(snapshot.get("packet"), dict)
+        or not isinstance(snapshot.get("dependants"), list) or len(snapshot["dependants"]) > 128
+        or not LocalRequestOutbox._valid_timestamp(snapshot.get("created_at"))
+        or not LocalRequestOutbox._valid_timestamp(snapshot.get("updated_at"))
+    ):
+        raise RequestClientError("continuation-not-ready", "owner request is not a valid resolved snapshot")
+    packet = snapshot["packet"]
+    if (
+        set(packet) != {"schema", "kind", "required_outcome", "reason", "execution", "procedure", "blocker"}
+        or packet.get("schema") != "operator-request/v1"
+        or not isinstance(packet.get("kind"), str)
+        or packet["kind"] not in {"perform", "authorize", "decide", "provide-information"}
+    ):
+        raise RequestClientError("continuation-snapshot-invalid", "owner request packet is malformed")
+
+    event_page = owner.invoke("events", repo_id, {
+        "request_id": request_id, "after_revision": revision - 1, "limit": 1,
+    })
+    if (
+        not isinstance(event_page, dict)
+        or set(event_page) != {"request_id", "events", "next_after_revision"}
+        or event_page.get("request_id") != request_id
+        or not isinstance(event_page.get("events"), list)
+        or len(event_page["events"]) != 1
+        or isinstance(event_page.get("next_after_revision"), bool)
+        or not isinstance(event_page.get("next_after_revision"), int)
+        or event_page.get("next_after_revision") != revision
+    ):
+        raise RequestClientError("resolution-evidence-unavailable", "owner resolution event is missing or malformed")
+    event = event_page["events"][0]
+    event_fields = {"request_id", "revision", "action", "actor", "details", "recorded_at"}
+    details = event.get("details") if isinstance(event, dict) else None
+    if (
+        not isinstance(event, dict) or set(event) != event_fields
+        or event.get("request_id") != request_id
+        or isinstance(event.get("revision"), bool) or not isinstance(event.get("revision"), int)
+        or event.get("revision") != revision
+        or event.get("action") != "resolved-human-attestation"
+        or not isinstance(details, dict)
+        or details.get("completion_basis") != "human-attestation"
+        or details.get("protected_effect_authorized") is not False
+        or not LocalRequestOutbox._valid_timestamp(event.get("recorded_at"))
+    ):
+        raise RequestClientError("resolution-evidence-unavailable", "owner event does not prove a supported resolution")
+
+    dependants = []
+    dep_fields = {
+        "work_item_id", "session_id", "runtime_id", "work_revision", "current_work_revision",
+        "source_changed", "state", "attached_at", "withdrawn_at",
+    }
+    for dependant in snapshot["dependants"]:
+        if not isinstance(dependant, dict) or set(dependant) != dep_fields:
+            raise RequestClientError("continuation-snapshot-invalid", "owner dependant record is malformed")
+        item_id, session_id = dependant.get("work_item_id"), dependant.get("session_id")
+        runtime_id = dependant.get("runtime_id")
+        work_revision, current_revision = dependant.get("work_revision"), dependant.get("current_work_revision")
+        state = dependant.get("state")
+        if (
+            isinstance(item_id, bool) or not isinstance(item_id, int) or item_id <= 0
+            or not isinstance(session_id, str) or not session_id
+            or (runtime_id is not None and not isinstance(runtime_id, str))
+            or not isinstance(work_revision, str)
+            or (current_revision is not None and not isinstance(current_revision, str))
+            or not isinstance(dependant.get("source_changed"), bool)
+            or not isinstance(state, str)
+            or state not in {"active", "withdrawn"}
+            or not LocalRequestOutbox._valid_timestamp(dependant.get("attached_at"))
+            or (dependant.get("withdrawn_at") is not None and not LocalRequestOutbox._valid_timestamp(dependant.get("withdrawn_at")))
+        ):
+            raise RequestClientError("continuation-snapshot-invalid", "owner dependant record is malformed")
+        if state != "active":
+            continue
+        current = (
+            snapshot["freshness"] == "current"
+            and dependant["source_changed"] is False
+            and current_revision == work_revision
+        )
+        dependants.append({
+            "work_item_id": item_id,
+            "session_id": session_id,
+            "work_revision": work_revision,
+            "current_work_revision": current_revision,
+            "state": "continuation-ready" if current else "needs-refresh",
+        })
+    return {
+        "schema": "operator-request-continuation-ready/v1",
+        "owner": {"repo_id": repo_id, "read_operation": OPERATIONS["get"]},
+        "request_id": request_id,
+        "request_revision": revision,
+        "resolution": {
+            "event_revision": revision,
+            "basis": "human-attestation",
+            "event_recorded_at": event["recorded_at"],
+        },
+        "dependants": dependants,
+    }
 
 
 def _check_content(value: Any, path: str = "arguments") -> None:
@@ -716,6 +827,12 @@ def main(argv: list[str] | None = None) -> int:
     outbox.add_argument("--repo", help="repository scope for stage-publish")
     outbox.add_argument("--arguments", metavar="FILE|-", help="publish JSON for stage-publish")
     outbox.add_argument("--profile", help="Vuoro profile (required for deliver)")
+    continuation = subparsers.add_parser(
+        "continuation-ready", help="print a read-only successor packet for a resolved operator request"
+    )
+    continuation.add_argument("--repo", required=True, help="repository scope")
+    continuation.add_argument("--request-id", required=True, help="stable operator request ID")
+    continuation.add_argument("--profile", help="Vuoro profile (defaults to AGENTOPS_VUORO_PROFILE)")
     mcp = subparsers.add_parser("mcp", help="serve the operator request tools over stdio MCP")
     mcp.add_argument("--profile", help="Vuoro profile (defaults to AGENTOPS_VUORO_PROFILE)")
     args = parser.parse_args(argv)
@@ -747,6 +864,14 @@ def main(argv: list[str] | None = None) -> int:
                     value = {"deliveries": store.deliver(owner.invoke)}
                 finally:
                     owner.close()
+            print(json.dumps(value, indent=2, ensure_ascii=False))
+            return 0
+        if args.command == "continuation-ready":
+            owner = VuoroRequestOwner(_profile_path(args.profile))
+            try:
+                value = continuation_ready_packet(owner, args.repo, args.request_id)
+            finally:
+                owner.close()
             print(json.dumps(value, indent=2, ensure_ascii=False))
             return 0
         result = VuoroRequestOwner(_profile_path(args.profile))
