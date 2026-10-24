@@ -94,8 +94,33 @@ keep work state with Sprintctl, and keep provider session state with the native
 harness. A packet can describe requests and observations; it cannot grant
 itself access, start work, accept a candidate, or authorize landing.
 
-Before a new shared schema is admitted, review the unresolved EC-00 acceptance
-conditions and pin the generation/validator toolchain. Follow-on threat
+### EC-00 toolchain source recheck
+
+A separate Vuoro contract-foundation candidate is present locally at
+`cloud/20261024/programme-01-contract-foundation`, commit
+`3db3e34a142f0cb1e7ad773fcdcc1948082ea731`. It is separate from the Vuoro
+integration branch in the source-pins table above. Its checked-in generation
+inputs now pin `@typespec/compiler`, `@typespec/http`, `@typespec/openapi`,
+`@typespec/openapi3`, and `@typespec/json-schema` to `1.17.0` in
+`tools/contracts/package.json` and the lockfile. The owner TSP config explicitly
+sets OpenAPI output to `3.0.0`; its package manifest also pins
+`@hey-api/openapi-ts` `0.99.0`, TypeScript `5.9.3`, AJV `8.20.0`, Node `24.21.0`,
+and npm `11.19.0`. `uv.lock` pins Python `jsonschema` `4.26.0`, which the
+contract runtime and operation catalog use for Draft 2020-12 validation. The
+generator records exact tool artifacts in `tools/contracts/toolchain/tool-artifacts.json`.
+
+This advances source pinning in the candidate but does not close EC-00. The
+repo-local `public_mcp_tools()` projection in `scripts/contracts/generate.py`
+still rejects every operation marked public and returns an empty tool list; it
+does not implement an admitted MCP schema projection. The MCP projection's
+behavior/provenance, Python boundary-model generator selection, remaining ER-002
+cases, ingress evidence, and other outstanding ADR acceptance conditions remain
+open. The candidate has not been released or adopted by the cross-owner
+consumers. Do not describe the shared generation chain as fully pinned or
+qualified on this evidence.
+
+Before admitting a new shared schema, reconcile the remaining EC-00 acceptance
+conditions against the exact candidate and consumer revisions. Follow-on threat
 fixtures should exercise wrong repository/workspace, stale source and governing
 refs, revoked grants, missing transfer permission, response loss, uncertain
 startup, stale attempt/candidate, and unknown usage coverage. Existing fake

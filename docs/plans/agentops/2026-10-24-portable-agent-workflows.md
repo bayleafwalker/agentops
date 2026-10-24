@@ -54,6 +54,10 @@ A later source-only PW-01 inventory of the integrated candidate branches is
 recorded in the [portable workflow contract inventory](../../evidence/2026-10-24-portable-workflow-contract-inventory.md).
 It identifies existing owner records, schema revisions, and unqualified
 cross-host histories without ratifying a new API or changing the survey pins.
+Its EC-00 source recheck records partial TypeSpec/OpenAPI tool pins from the
+separate Vuoro contract-foundation candidate at
+`3db3e34a142f0cb1e7ad773fcdcc1948082ea731`; it leaves the MCP projection and
+other EC-00 acceptance conditions open.
 The Appservice AS-PW3 source inventory is recorded on candidate branch
 `cloud/20261024/programme-08-integration-appservice-exact` at
 `docs/evidence/2026-10-24-portable-workflow-landing-policy-inventory.md`; it
@@ -71,6 +75,12 @@ commit `54f2e1a56153053010698dcdc24449a810371864`, at
 `docs/evidence/2026-10-24-portable-workflow-source-reachability-inventory.md`;
 it maps the Appservice canonical/mirror decision and narrow service-release
 path without claiming generic worker transfer support.
+The AS-PW4 observability inventory was added to the same candidate branch at
+commit `2d7bce4e89c12ce5ce4fa866ff6cce45e5c3d747` in
+`docs/evidence/2026-10-24-portable-workflow-observability-inventory.md`. It
+maps existing harness and telemetry evidence while leaving portable run/attempt
+correlation, progress/heartbeat and usage coverage dependent on released owner
+interfaces.
 
 ## Ownership and durable plans
 
