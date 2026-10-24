@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "agentops-operator-requests": {
+      "type": "stdio",
+      "command": "/path/to/agentops/bin/agentops",
+      "args": ["operator-requests", "mcp"],
+      "env": {}
+    }
+  }
+}
