@@ -50,6 +50,16 @@ failures reported in the handoff are motivations; they are not fresh production
 reproductions. No provider credentials or private handoff bytes belong in a
 portable task packet.
 
+A later source-only PW-01 inventory of the integrated candidate branches is
+recorded in the [portable workflow contract inventory](../../evidence/2026-10-24-portable-workflow-contract-inventory.md).
+It identifies existing owner records, schema revisions, and unqualified
+cross-host histories without ratifying a new API or changing the survey pins.
+The Appservice AS-PW3 source inventory is recorded on candidate branch
+`cloud/20261024/programme-08-integration-appservice-exact` at
+`docs/evidence/2026-10-24-portable-workflow-landing-policy-inventory.md`; it
+distinguishes tracked workflow configuration and dated settings evidence from
+current effective host rules, which remain unverified.
+
 ## Ownership and durable plans
 
 | Repository | Owner plan | Responsibility |
