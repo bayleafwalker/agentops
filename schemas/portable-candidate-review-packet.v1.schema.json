@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/portable-candidate-review-packet.v1.schema.json",
+  "title": "Portable exact candidate review packet v1",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema", "evaluated_at", "candidate", "receipt_observations", "required_evidence", "packet_state", "landing_policy_observation", "manual_review_actions", "authority", "unknowns", "packet_sha256"],
+  "properties": {
+    "schema": { "const": "portable-candidate-review-packet/v1" },
+    "evaluated_at": { "type": "string", "format": "date-time", "maxLength": 64 }, "candidate": { "$ref": "#/$defs/candidateObservation" },
+    "receipt_observations": { "type": "array", "maxItems": 128, "items": { "$ref": "#/$defs/receiptObservation" } },
+    "required_evidence": { "type": "array", "minItems": 2, "maxItems": 65, "items": { "$ref": "#/$defs/evidenceState" } },
+    "packet_state": { "enum": ["metadata-consistent-for-manual-review", "blocked"] },
+    "landing_policy_observation": { "type": "object", "additionalProperties": false, "required": ["status", "reason"], "properties": { "status": { "const": "unknown" }, "reason": { "type": "string", "minLength": 1, "maxLength": 512 } } },
+    "manual_review_actions": { "type": "array", "minItems": 1, "maxItems": 16, "items": { "type": "object", "additionalProperties": false, "required": ["order", "action"], "properties": { "order": { "type": "integer", "minimum": 1, "maximum": 16 }, "action": { "type": "string", "minLength": 1, "maxLength": 512 } } } },
+    "authority": { "type": "object", "additionalProperties": false, "required": ["merge", "push", "fetch", "dispatch", "grant_changes", "deployment"], "properties": { "merge": { "const": "not-performed-and-not-available" }, "push": { "const": "not-performed-and-not-available" }, "fetch": { "const": "not-performed-and-not-available" }, "dispatch": { "const": "not-performed-and-not-available" }, "grant_changes": { "const": "none" }, "deployment": { "const": "excluded" } } },
+    "unknowns": { "type": "array", "minItems": 1, "maxItems": 16, "items": { "type": "string", "minLength": 1, "maxLength": 512 } },
+    "packet_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  },
+  "$defs": {
+    "checkState": { "enum": ["passed", "failed", "missing", "unknown", "mismatch", "dirty"] },
+    "candidateObservation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["owner", "repository_id", "branch", "commit", "tree", "target_branch", "target_branch_tip", "candidate_includes_local_target", "checks", "local_repo_path_included"],
+      "properties": {
+        "owner": { "$ref": "portable-candidate-review-request.v1.schema.json#/$defs/owner" }, "repository_id": { "$ref": "portable-candidate-review-request.v1.schema.json#/$defs/repositoryId" },
+        "branch": { "$ref": "portable-candidate-review-request.v1.schema.json#/$defs/branch" }, "commit": { "$ref": "portable-candidate-review-request.v1.schema.json#/$defs/objectId" },
+        "tree": { "oneOf": [{ "type": "null" }, { "$ref": "portable-candidate-review-request.v1.schema.json#/$defs/objectId" }] },
+        "target_branch": { "$ref": "portable-candidate-review-request.v1.schema.json#/$defs/branch" },
+        "target_branch_tip": { "oneOf": [{ "type": "null" }, { "$ref": "portable-candidate-review-request.v1.schema.json#/$defs/objectId" }] },
+        "candidate_includes_local_target": { "enum": ["unknown", "yes-local-ancestry-observed", "no-local-ancestry-observed"] },
+        "checks": { "type": "object", "additionalProperties": false, "required": ["repository", "origin_identity", "commit_object", "branch_tip", "clean_worktree", "tree_object"], "properties": { "repository": { "$ref": "#/$defs/checkState" }, "origin_identity": { "enum": ["passed", "mismatch", "unknown"] }, "commit_object": { "$ref": "#/$defs/checkState" }, "branch_tip": { "enum": ["passed", "missing", "mismatch"] }, "clean_worktree": { "enum": ["passed", "missing", "dirty"] }, "tree_object": { "$ref": "#/$defs/checkState" } } },
+        "local_repo_path_included": { "const": false }
+      }
+    },
+    "receiptObservation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "subject_commit", "subject_tree", "result", "observed_at", "valid_until", "evidence_sha256", "status", "evidence_authenticity"],
+      "properties": {
+        "kind": { "enum": ["independent-review", "check"] },
+        "subject_commit": { "$ref": "portable-candidate-review-request.v1.schema.json#/$defs/objectId" }, "subject_tree": { "$ref": "portable-candidate-review-request.v1.schema.json#/$defs/objectId" },
+        "result": { "enum": ["passed", "failed", "blocked", "unknown"] }, "observed_at": { "type": "string", "format": "date-time" }, "valid_until": { "type": "string", "format": "date-time" },
+        "evidence_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }, "status": { "enum": ["mismatched-head", "future-dated", "stale", "not-passed", "not-independent", "matches-exact-head-unverified", "candidate-tree-unavailable"] },
+        "evidence_authenticity": { "const": "caller-supplied-unverified" }, "check_name": { "$ref": "portable-candidate-review-request.v1.schema.json#/$defs/identity" }
+      },
+      "oneOf": [{ "properties": { "kind": { "const": "independent-review" } }, "not": { "required": ["check_name"] } }, { "properties": { "kind": { "const": "check" } }, "required": ["check_name"] }]
+    },
+    "evidenceState": { "type": "object", "additionalProperties": false, "required": ["check_name", "status"], "properties": { "check_name": { "type": "string", "minLength": 1, "maxLength": 128 }, "status": { "enum": ["missing", "ambiguous", "blocked", "mismatched-head", "future-dated", "stale", "not-passed", "not-independent", "matches-exact-head-unverified", "candidate-tree-unavailable"] } } }
+  }
+}

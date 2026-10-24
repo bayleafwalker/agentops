@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/portable-candidate-review-request.v1.schema.json",
+  "title": "Portable exact candidate review request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "request_id", "candidate", "evaluated_at", "max_receipt_age_seconds", "required_checks", "receipts"],
+  "properties": {
+    "schema": { "const": "portable-candidate-review-request/v1" },
+    "request_id": { "$ref": "#/$defs/identity" },
+    "candidate": { "$ref": "#/$defs/candidate" },
+    "evaluated_at": { "type": "string", "format": "date-time", "maxLength": 64 },
+    "max_receipt_age_seconds": { "type": "integer", "minimum": 60, "maximum": 2592000 },
+    "required_checks": { "type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true, "items": { "$ref": "#/$defs/identity" } },
+    "receipts": { "type": "array", "maxItems": 128, "items": { "$ref": "#/$defs/receipt" } }
+  },
+  "$defs": {
+    "identity": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "owner": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,62}$" },
+    "repositoryId": { "type": "string", "pattern": "^[a-z0-9.-]+/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", "maxLength": 256 },
+    "branch": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "objectId": { "type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$" },
+    "candidate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["owner", "repository_id", "branch", "commit", "target_branch", "author_id"],
+      "properties": {
+        "owner": { "$ref": "#/$defs/owner" }, "repository_id": { "$ref": "#/$defs/repositoryId" },
+        "branch": { "$ref": "#/$defs/branch" }, "commit": { "$ref": "#/$defs/objectId" },
+        "target_branch": { "$ref": "#/$defs/branch" }, "author_id": { "type": "string", "minLength": 1, "maxLength": 256 }
+      }
+    },
+    "receipt": {
+      "oneOf": [ { "$ref": "#/$defs/reviewReceipt" }, { "$ref": "#/$defs/checkReceipt" } ]
+    },
+    "receiptBase": {
+      "type": "object", "required": ["receipt_id", "kind", "subject_commit", "subject_tree", "result", "observed_at", "valid_until", "evidence_sha256"],
+      "properties": {
+        "receipt_id": { "$ref": "#/$defs/identity" }, "subject_commit": { "$ref": "#/$defs/objectId" }, "subject_tree": { "$ref": "#/$defs/objectId" },
+        "result": { "enum": ["passed", "failed", "blocked", "unknown"] },
+        "observed_at": { "type": "string", "format": "date-time", "maxLength": 64 }, "valid_until": { "type": "string", "format": "date-time", "maxLength": 64 },
+        "evidence_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "reviewReceipt": { "allOf": [ { "$ref": "#/$defs/receiptBase" }, { "type": "object", "required": ["reviewer_id"], "properties": { "kind": { "const": "independent-review" }, "reviewer_id": { "type": "string", "minLength": 1, "maxLength": 256 } } } ], "unevaluatedProperties": false },
+    "checkReceipt": { "allOf": [ { "$ref": "#/$defs/receiptBase" }, { "type": "object", "required": ["check_name"], "properties": { "kind": { "const": "check" }, "check_name": { "$ref": "#/$defs/identity" } } } ], "unevaluatedProperties": false }
+  }
+}
