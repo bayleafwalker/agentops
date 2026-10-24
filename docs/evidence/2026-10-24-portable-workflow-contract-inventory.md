@@ -14,7 +14,7 @@ qualification.
 | Sprintctl | `cloud/20261024/programme-08-integration-sprintctl` at `e80df31ad6424f1c757ebbab68dfe0042fb4d571` | `docs/reference/vuoro-work-adapter.md` catalogs the protocol-v1 owner operations, their authority, idempotency, and schema evolution. `docs/reference/operator-request-lifecycle.md` describes the schema 28 request candidate and `work.request.*` operations. `docs/reference/context-and-handoff.md` documents served-only `run brief`, backed by `work.run.continuation-delta-v1`. The pinned Vuoro demo uses Sprintctl `0.22.0`. |
 | Sovite | `cloud/20261024/programme-08-integration-sovite-exact` at `46c2670d6a047367617b58af7e5cf62a43f4ccae` | `docs/plans/2026-10-23-execution-lease-owner.md` describes internal reserve/start behavior. `docs/contracts/worker-execution-v1-candidate.md` is a proposal; `pyproject.toml` says `0.1.17`, while the Vuoro demo dependency pin remains `0.1.16`. |
 | Vuoro Cloud | `cloud/20261024/programme-08-integration-vuoro-cloud-exact` at `95b6af72f2addec4fcfaf1461ea873d5a61d6816` | `src/vuoro_cloud/oauth_scopes.py`, `security.py`, and `config/schemas/` describe caller grants, connector/invocation records, and evidence shapes. No portable-workflow owner plan or supported new-Cloud task-launch API is present in this candidate. |
-| Appservice | `cloud/20261024/programme-08-integration-appservice-exact` at `4da4a4ccda922f69ddee7341fa3036d02f716a58` (code head `753e5544531364b06e1136bb48f50f08cb8e902e`) | `docs/plans/2026-10-24-portable-agent-workflows.md` assigns onboarding, worker-host commissioning, landing prerequisites, observability, and source/artifact reachability. The onboarding sync now explicitly skips target-only bindings, rejects ambiguous or missing scope, and refuses duplicate desired integration names before DB/API calls; existing integration comparison remains name-only. Its surveyed source pin is `5ab5e11771a07585457759c0344908d6d0011286`. |
+| Appservice | `cloud/20261024/programme-08-integration-appservice-exact` at `2a60b8de86c167296710f96a84e75a0068471710` (code head `b24187e3bdee30463a0850401519b4392f87ebfc`) | `docs/plans/2026-10-24-portable-agent-workflows.md` assigns onboarding, worker-host commissioning, landing prerequisites, observability, and source/artifact reachability. The onboarding sync skips target-only bindings, matches Forgejo providers case-insensitively like the policy validator, and fails closed on ambiguous/missing scope, duplicate desired names or repository identities, unknown repository references, and malformed repository/capability fields before DB/API calls. Existing integration comparison remains name-only. Its surveyed source pin is `5ab5e11771a07585457759c0344908d6d0011286`. |
 
 The `gitops-nixos`, `cred-broker`, and `mars-founder` source trees are not present
 in this workspace. The survey pins in the AgentOps plan (`b554d5e0`,
@@ -96,11 +96,12 @@ itself access, start work, accept a candidate, or authorize landing.
 
 ### EC-00 toolchain source recheck
 
-A separate Vuoro contract-foundation candidate is present locally at
-`cloud/20261024/programme-01-contract-foundation`, commit
-`3db3e34a142f0cb1e7ad773fcdcc1948082ea731`. It is separate from the Vuoro
-integration branch in the source-pins table above. Its checked-in generation
-inputs now pin `@typespec/compiler`, `@typespec/http`, `@typespec/openapi`,
+A separate Vuoro contract-foundation candidate is present locally on
+`cloud/20261024/programme-01-contract-foundation`, current tip
+`9d9bbc3af98309bb2677807d131b5279415ccd68`. It is separate from the Vuoro
+integration branch in the source-pins table above; its toolchain pin changes
+are present from commit `3db3e34a142f0cb1e7ad773fcdcc1948082ea731`. Its
+checked-in generation inputs pin `@typespec/compiler`, `@typespec/http`, `@typespec/openapi`,
 `@typespec/openapi3`, and `@typespec/json-schema` to `1.17.0` in
 `tools/contracts/package.json` and the lockfile. The owner TSP config explicitly
 sets OpenAPI output to `3.0.0`; its package manifest also pins
@@ -118,6 +119,12 @@ scan before materialization while leaving decoding, duplicate-key detection,
 UTF-8 and numeric validation to the existing decoder. Independent review found
 no concrete issue with grammar parity or failure mapping. This follow-up was
 not tested in this pass; generated SDK consumer qualification remains open.
+Commits `42a3a7bd31444651e64ba795e8519192104f9399` and
+`9d9bbc3af98309bb2677807d131b5279415ccd68` add the matching 4 MiB Python wire
+body cap, preserve the 16 MiB package-document parsing allowance, reject
+nonempty bodies for bodyless requests, and check declared response caps before
+reading chunks. Independent review found no concrete mismatch in those paths;
+these follow-ups were also not tested in this pass.
 
 This advances source pinning in the candidate but does not close EC-00. The
 repo-local `public_mcp_tools()` projection in `scripts/contracts/generate.py`

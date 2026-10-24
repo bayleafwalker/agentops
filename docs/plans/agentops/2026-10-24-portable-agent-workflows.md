@@ -61,7 +61,11 @@ other EC-00 acceptance conditions open.
 The Vuoro candidate now also has Python JSON complexity commits
 `1d50efb1f3801afe36c29ee040b31086cd9431e6` and
 `08d50726fce210754a8a48e94c18f526487886e1`; the latter bounds structural scans
-before decoding, with independent source review but no test run in this pass.
+before decoding. Commits `42a3a7bd31444651e64ba795e8519192104f9399` and
+`9d9bbc3af98309bb2677807d131b5279415ccd68` align the Python SDK's 4 MiB wire
+body cap and bodyless request/response behavior with TypeScript. Independent
+source review found no concrete issue in these changes; no tests ran for these
+follow-ups in this pass.
 The Appservice AS-PW3 source inventory is recorded on candidate branch
 `cloud/20261024/programme-08-integration-appservice-exact` at
 `docs/evidence/2026-10-24-portable-workflow-landing-policy-inventory.md`; it
@@ -72,14 +76,18 @@ Its AS-PW3 inventory remains on the same candidate branch at commit
 `docs/evidence/2026-10-24-portable-workflow-landing-policy-inventory.md`; it
 maps tracked workflow settings without claiming current effective host rules.
 The AS-PW1 inventory was refreshed at commit
-`4da4a4ccda922f69ddee7341fa3036d02f716a58` in
+`2a60b8de86c167296710f96a84e75a0068471710` in
 `docs/evidence/2026-10-24-portable-workflow-onboarding-inventory.md`. Its sync
-script hardening is in commits `1b359878`, `a1a63336`, and `753e5544`: it skips
-target-only bindings, rejects ambiguous/missing binding scope and duplicate
-desired names before database/API calls, and marks the old Forgejo count as
-historical. Existing integrations are still compared by name only; no claim or
-effective-scope verification, cross-owner onboarding receipt, or live Forgejo
-recheck is claimed.
+script hardening is in commits `1b359878`, `a1a63336`, `753e5544`, and
+`b24187e3bdee30463a0850401519b4392f87ebfc`: it skips target-only bindings,
+matches Forgejo provider names case-insensitively like the policy validator,
+rejects ambiguous/missing binding scope, duplicate desired names or repository
+identities, unknown repository
+references, and malformed repository/capability fields before database/API
+calls, and marks the old Forgejo count as historical. Existing integrations
+are still compared by name only; no claim or effective-scope verification,
+cross-owner onboarding receipt, or live Forgejo recheck is claimed. No tests
+were run for the latest source follow-up in this pass.
 The AS-PW5 source and artifact reachability inventory is on that branch at
 commit `54f2e1a56153053010698dcdc24449a810371864`, at
 `docs/evidence/2026-10-24-portable-workflow-source-reachability-inventory.md`;
