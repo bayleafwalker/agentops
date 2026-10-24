@@ -26,7 +26,7 @@ The requested seed refs were verified at startup: Vuoro Cloud `a237bbdade2528c67
 
 The selected integration branches preserve exact producer commit ancestry. Initial review branches had equivalent source trees made from copied commits; the exact-lineage branches below were rebuilt as merge commits and checked to have identical source trees to those initial integrations.
 
-| Repository | Local branch | Head | Source tree |
+| Repository | Local branch | Source integration commit | Source tree |
 | --- | --- | --- | --- |
 | Vuoro | `cloud/20261024/programme-08-integration-vuoro-exact` | `b47de91a33ed39c9f0d3ee1944c93a619f8991a4` | `2489c03cbd0355a58170c9b3c2361fb573f323e4` |
 | Vuoro Cloud | `cloud/20261024/programme-08-integration-vuoro-cloud-exact` | `2daa4450c44a77b06c596d2991b0fc8a13bcdf79` | `ee44d743c81a94397deb27db30d089c3df74790c` |
@@ -36,6 +36,8 @@ The selected integration branches preserve exact producer commit ancestry. Initi
 | Sovite | `cloud/20261024/programme-05-sovite` | `d1973b27306414f3d0c69289d4e37e67ec2b15fe` | Producer candidate; no separate P08 changes |
 
 The Vuoro integration contains exact P01 and P04 commits. Vuoro Cloud contains exact P02 and P03 commits plus the TUI coverage repair, recorded on the exact-lineage branch as `2daa4450c44a77b06c596d2991b0fc8a13bcdf79`. AgentOps contains exact P04 and P06 commits. Appservice contains exact P06 source and acceptance commits and the P07 candidate. The separate earlier integration branches remain local and unchanged; the `*-exact` branches are the review targets.
+
+This evidence file is committed as a follow-up on the AgentOps integration branch; it does not change the source tree recorded above.
 
 ## Implemented source increments
 
