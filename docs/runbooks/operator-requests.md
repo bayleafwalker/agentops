@@ -84,10 +84,11 @@ agentops operator-requests outbox prune-acknowledged
 
 Delivery is manual and sends the exact staged request ID, arguments, and
 idempotency key back to the owner. The owner decides whether it is new,
-already applied, stale, or conflicting. A non-empty normal owner response
-marks the entry acknowledged; transport failures, owner refusals, and missing
-responses leave it pending. `prune-acknowledged` removes acknowledged rows to
-free bounded local storage.
+already applied, stale, or conflicting. Only the owner response containing
+exactly the matching `request_id`, a positive integer `revision`, and boolean
+`replayed` marks the entry acknowledged. Transport failures, owner refusals,
+and malformed or missing responses leave it pending. `prune-acknowledged`
+removes acknowledged rows to free bounded local storage.
 The outbox never retries an effect, attestation, decline, or other operation.
 It does not resolve ambiguous owner outcomes locally. Re-delivery is explicit
 and relies on owner idempotency for the preserved key.

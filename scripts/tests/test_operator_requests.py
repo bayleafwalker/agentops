@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import sys
+import json
 import os
 import tempfile
 import unittest
@@ -102,7 +103,7 @@ class LocalRequestOutboxTests(unittest.TestCase):
 
         def acknowledged(suffix, repo, payload):
             observed.append((suffix, repo, payload))
-            return {"request_id": payload["request_id"], "revision": 1}
+            return {"request_id": payload["request_id"], "revision": 1, "replayed": True}
         result = self.store.deliver(acknowledged)
         self.assertEqual(result, [{"request_id": self.arguments["request_id"], "state": "acknowledged"}])
         self.assertEqual(self.store.list_entries()[0]["state"], "acknowledged")
@@ -135,19 +136,77 @@ class LocalRequestOutboxTests(unittest.TestCase):
             self.store.stage_publish(self.repo, second)
         self.assertEqual(caught.exception.code, "outbox-capacity-exceeded")
 
-    def test_empty_owner_response_does_not_mark_acknowledged(self):
+    def test_malformed_owner_acknowledgements_remain_pending(self):
         self.store.stage_publish(self.repo, self.arguments)
-        result = self.store.deliver(lambda *args: None)
-        self.assertEqual(result[0]["state"], "pending")
-        self.assertEqual(result[0]["error"], "owner-acknowledgement-missing")
-        self.assertEqual(self.store.list_entries()[0]["state"], "pending")
+        responses = (
+            {},
+            {"request_id": "req_wrong", "revision": 1, "replayed": False},
+            {"request_id": self.arguments["request_id"], "replayed": False},
+            {"request_id": self.arguments["request_id"], "revision": 0, "replayed": False},
+            {"request_id": self.arguments["request_id"], "revision": True, "replayed": False},
+            {"request_id": self.arguments["request_id"], "revision": 1, "replayed": "true"},
+            None,
+        )
+        for response in responses:
+            with self.subTest(response=response):
+                result = self.store.deliver(lambda *args: response)
+                self.assertEqual(result[0]["state"], "pending")
+                self.assertEqual(result[0]["error"], "owner-acknowledgement-invalid")
+                self.assertEqual(self.store.list_entries()[0]["state"], "pending")
+
+    def test_valid_replay_acknowledgement_marks_entry_acknowledged(self):
+        self.store.stage_publish(self.repo, self.arguments)
+        response = {
+            "request_id": self.arguments["request_id"],
+            "revision": 3,
+            "replayed": True,
+        }
+        result = self.store.deliver(lambda *args: response)
+        self.assertEqual(result, [{"request_id": self.arguments["request_id"], "state": "acknowledged"}])
+        self.assertEqual(self.store.list_entries()[0]["state"], "acknowledged")
 
     def test_only_acknowledged_rows_can_be_pruned(self):
         self.store.stage_publish(self.repo, self.arguments)
         self.assertEqual(self.store.prune_acknowledged(), 0)
-        self.store.deliver(lambda *args: {"accepted": True})
+        self.store.deliver(lambda suffix, repo, payload: {
+            "request_id": payload["request_id"], "revision": 1, "replayed": False,
+        })
         self.assertEqual(self.store.prune_acknowledged(), 1)
         self.assertEqual(self.store.list_entries(), [])
+
+    def test_load_rejects_tampered_rows_and_more_than_200_rows(self):
+        self.store.stage_publish(self.repo, self.arguments)
+        data = self.directory / "outbox.json"
+        valid = json.loads(data.read_text())
+        row = valid["entries"][0]
+        malformed = (
+            {**row, "unexpected": "field"},
+            {**row, "state": []},
+            {**row, "arguments": {**row["arguments"], "idempotency_key": "different"}},
+            {**row, "arguments": {**row["arguments"], "rawTranscript": "private"}},
+        )
+        for bad_row in malformed:
+            with self.subTest(row=bad_row):
+                data.write_text(json.dumps({"schema": valid["schema"], "entries": [bad_row]}))
+                with self.assertRaises(requests.RequestClientError) as caught:
+                    self.store.list_entries()
+                self.assertEqual(caught.exception.code, "outbox-storage-invalid")
+        data.write_text(json.dumps({"schema": valid["schema"], "entries": [row, row]}))
+        with self.assertRaises(requests.RequestClientError) as caught:
+            self.store.list_entries()
+        self.assertEqual(caught.exception.code, "outbox-storage-invalid")
+        data.write_text(json.dumps({"schema": valid["schema"], "entries": [row] * 201}))
+        with self.assertRaises(requests.RequestClientError) as caught:
+            self.store.list_entries()
+        self.assertEqual(caught.exception.code, "outbox-storage-invalid")
+        data.write_text(json.dumps({"schema": valid["schema"], "entries": [], "extra": True}))
+        with self.assertRaises(requests.RequestClientError) as caught:
+            self.store.list_entries()
+        self.assertEqual(caught.exception.code, "outbox-storage-invalid")
+        data.write_text(" " * (self.store.MAX_BYTES + 1))
+        with self.assertRaises(requests.RequestClientError) as caught:
+            self.store.list_entries()
+        self.assertEqual(caught.exception.code, "outbox-storage-invalid")
 
 
 if __name__ == "__main__":

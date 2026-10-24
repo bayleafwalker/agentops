@@ -120,17 +120,60 @@ class LocalRequestOutbox:
             fd = self._secure_open(self.data_path, os.O_RDONLY)
         except FileNotFoundError:
             return []
-        with os.fdopen(fd, "r", encoding="utf-8") as handle:
-            raw = handle.read(self.MAX_BYTES + 1)
+        try:
+            with os.fdopen(fd, "r", encoding="utf-8") as handle:
+                raw = handle.read(self.MAX_BYTES + 1)
+        except (OSError, UnicodeError) as exc:
+            raise RequestClientError("outbox-storage-invalid", "outbox file could not be read safely") from exc
         if len(raw.encode("utf-8")) > self.MAX_BYTES:
-            raise RequestClientError("outbox-capacity-exceeded", "outbox file exceeds its size limit")
+            raise RequestClientError("outbox-storage-invalid", "outbox file exceeds its size limit")
         try:
             doc = json.loads(raw)
-        except ValueError as exc:
+        except (ValueError, RecursionError) as exc:
             raise RequestClientError("outbox-storage-invalid", "outbox file is not valid JSON") from exc
-        if not isinstance(doc, dict) or doc.get("schema") != "operator-request-outbox/v1" or not isinstance(doc.get("entries"), list):
+        if (
+            not isinstance(doc, dict)
+            or set(doc) != {"schema", "entries"}
+            or doc.get("schema") != "operator-request-outbox/v1"
+            or not isinstance(doc.get("entries"), list)
+        ):
             raise RequestClientError("outbox-storage-invalid", "outbox file has an unsupported format")
-        return doc["entries"]
+        entries = doc["entries"]
+        if len(entries) > self.MAX_ENTRIES:
+            raise RequestClientError("outbox-storage-invalid", "outbox file exceeds its row limit")
+        seen: set[str] = set()
+        required = {"request_id", "repo_id", "operation", "idempotency_key", "arguments", "state"}
+        allowed = required | {"last_error"}
+        for row in entries:
+            if not isinstance(row, dict) or not required.issubset(row) or not set(row).issubset(allowed):
+                raise RequestClientError("outbox-storage-invalid", "outbox row fields are invalid")
+            request_id = row["request_id"]
+            idem = row["idempotency_key"]
+            if (
+                not isinstance(request_id, str) or not request_id.startswith("req_") or len(request_id) <= 4
+                or request_id in seen
+                or not isinstance(row["repo_id"], str) or not row["repo_id"].strip() or len(row["repo_id"]) > 256
+                or row["operation"] != "publish"
+                or not isinstance(idem, str) or not idem.strip() or len(idem) > 512
+                or not isinstance(row["arguments"], dict)
+                or row["arguments"].get("request_id") != request_id
+                or row["arguments"].get("idempotency_key") != idem
+                or not isinstance(row["state"], str)
+                or row["state"] not in {"pending", "acknowledged"}
+                or (row["state"] == "acknowledged" and "last_error" in row)
+            ):
+                raise RequestClientError("outbox-storage-invalid", "outbox row identity or state is invalid")
+            if "last_error" in row and (
+                not isinstance(row["last_error"], str)
+                or not re.fullmatch(r"[a-z0-9-]{1,80}", row["last_error"])
+            ):
+                raise RequestClientError("outbox-storage-invalid", "outbox row error marker is invalid")
+            try:
+                _check_content(row["arguments"])
+            except RequestClientError as exc:
+                raise RequestClientError("outbox-storage-invalid", "outbox row contains refused content") from exc
+            seen.add(request_id)
+        return entries
 
     def _save(self, entries: list[dict[str, Any]]) -> None:
         raw = json.dumps({"schema": "operator-request-outbox/v1", "entries": entries}, ensure_ascii=False, separators=(",", ":"))
@@ -219,11 +262,22 @@ class LocalRequestOutbox:
                         raise RequestClientError("outbox-entry-invalid", "staged publication identity is inconsistent")
                     _check_content(row["arguments"])
                     acknowledgement = invoke("publish", row["repo_id"], row["arguments"])
-                    if acknowledgement is None:
-                        raise RequestClientError("owner-acknowledgement-missing", "owner returned no acknowledgement")
+                    if (
+                        not isinstance(acknowledgement, dict)
+                        or set(acknowledgement) != {"request_id", "revision", "replayed"}
+                        or acknowledgement.get("request_id") != row["request_id"]
+                        or isinstance(acknowledgement.get("revision"), bool)
+                        or not isinstance(acknowledgement.get("revision"), int)
+                        or acknowledgement["revision"] <= 0
+                        or not isinstance(acknowledgement.get("replayed"), bool)
+                    ):
+                        raise RequestClientError(
+                            "owner-acknowledgement-invalid", "owner response does not match the publish acknowledgement contract"
+                        )
                 except RequestClientError as exc:
-                    row["last_error"] = exc.code
-                    reports.append({"request_id": row["request_id"], "state": "pending", "error": exc.code})
+                    code = exc.code if re.fullmatch(r"[a-z0-9-]{1,80}", exc.code) else "owner-operation-refused"
+                    row["last_error"] = code
+                    reports.append({"request_id": row["request_id"], "state": "pending", "error": code})
                     self._save(entries)
                     continue
                 except Exception:
@@ -231,8 +285,9 @@ class LocalRequestOutbox:
                     reports.append({"request_id": row["request_id"], "state": "pending", "error": "owner-transport-failed"})
                     self._save(entries)
                     continue
-                # Normal owner return is the acknowledgement boundary. No local
-                # status is inferred from the request packet or transport setup.
+                # Only a contract-valid owner publish response is the
+                # acknowledgement boundary. No local status is inferred from
+                # the request packet or transport setup.
                 row["state"] = "acknowledged"
                 row.pop("last_error", None)
                 reports.append({"request_id": row["request_id"], "state": "acknowledged"})
