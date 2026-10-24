@@ -17,6 +17,7 @@ import re
 import stat
 import sys
 import tempfile
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, TextIO
 
@@ -43,6 +44,7 @@ _SENSITIVE_TEXT = re.compile(
     r"\bBearer\s+[A-Za-z0-9._~+/=-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|"
     r"\b(?:password|passphrase|access[_ -]?token|client[_ -]?secret)\s*[:=]\s*\S+)"
 )
+_RFC3339_TEXT = re.compile(r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)$")
 
 
 class RequestClientError(RuntimeError):
@@ -167,8 +169,9 @@ class LocalRequestOutbox:
                 or row["arguments"].get("request_id") != request_id
                 or row["arguments"].get("idempotency_key") != idem
                 or not isinstance(row["state"], str)
-                or row["state"] not in {"pending", "acknowledged"}
+                or row["state"] not in {"pending", "uncertain", "acknowledged"}
                 or (row["state"] == "acknowledged" and "last_error" in row)
+                or (row["state"] == "uncertain" and "last_error" not in row)
             ):
                 raise RequestClientError("outbox-storage-invalid", "outbox row identity or state is invalid")
             if "last_error" in row and (
@@ -263,12 +266,20 @@ class LocalRequestOutbox:
             for row in entries:
                 if row.get("state") != "pending":
                     continue
+                attempted = False
                 try:
                     # Only publish is admitted. The owner receives the unchanged ID,
                     # content, and idempotency key and remains authoritative.
                     if row.get("operation") != "publish" or row.get("arguments", {}).get("request_id") != row.get("request_id") or row.get("arguments", {}).get("idempotency_key") != row.get("idempotency_key"):
                         raise RequestClientError("outbox-entry-invalid", "staged publication identity is inconsistent")
                     _check_content(row["arguments"])
+                    # Persist uncertainty before crossing the owner boundary. A
+                    # crash after commit or during transport must not leave a
+                    # durable pending row that can be posted again blindly.
+                    row["state"] = "uncertain"
+                    row["last_error"] = "publish-attempt-started"
+                    self._save(entries)
+                    attempted = True
                     acknowledgement = invoke("publish", row["repo_id"], row["arguments"])
                     if (
                         not isinstance(acknowledgement, dict)
@@ -284,13 +295,18 @@ class LocalRequestOutbox:
                         )
                 except RequestClientError as exc:
                     code = exc.code if re.fullmatch(r"[a-z0-9-]{1,80}", exc.code) else "owner-operation-refused"
+                    if attempted:
+                        row["state"] = "uncertain"
                     row["last_error"] = code
-                    reports.append({"request_id": row["request_id"], "state": "pending", "error": code})
+                    reports.append({"request_id": row["request_id"], "state": row["state"], "error": code})
                     self._save(entries)
                     continue
                 except Exception:
-                    row["last_error"] = "owner-transport-failed"
-                    reports.append({"request_id": row["request_id"], "state": "pending", "error": "owner-transport-failed"})
+                    code = "owner-transport-failed"
+                    if attempted:
+                        row["state"] = "uncertain"
+                    row["last_error"] = code
+                    reports.append({"request_id": row["request_id"], "state": row["state"], "error": code})
                     self._save(entries)
                     continue
                 # Only a contract-valid owner publish response is the
@@ -299,6 +315,126 @@ class LocalRequestOutbox:
                 row["state"] = "acknowledged"
                 row.pop("last_error", None)
                 reports.append({"request_id": row["request_id"], "state": "acknowledged"})
+                self._save(entries)
+            return reports
+        return self._locked(run)
+
+    @staticmethod
+    def _snapshot_matches(row: dict[str, Any], snapshot: Any) -> bool:
+        fields = {"request_id", "revision", "state", "freshness", "packet", "dependants", "created_at", "updated_at"}
+        states = {"open", "reported-performed", "verifying", "resolved", "declined", "withdrawn", "superseded"}
+        freshness_values = {"current", "needs-refresh", "unknown"}
+        if not isinstance(snapshot, dict) or set(snapshot) != fields:
+            return False
+        revision, state, freshness = snapshot.get("revision"), snapshot.get("state"), snapshot.get("freshness")
+        if (
+            snapshot.get("request_id") != row["request_id"]
+            or isinstance(revision, bool) or not isinstance(revision, int) or revision <= 0
+            or not isinstance(state, str) or state not in states
+            or not isinstance(freshness, str) or freshness not in freshness_values
+            or not LocalRequestOutbox._valid_timestamp(snapshot.get("created_at"))
+            or not LocalRequestOutbox._valid_timestamp(snapshot.get("updated_at"))
+            or not isinstance(snapshot.get("packet"), dict)
+            or not isinstance(snapshot.get("dependants"), list)
+            or len(snapshot["dependants"]) > 128
+        ):
+            return False
+        try:
+            _check_content(snapshot)
+        except RequestClientError:
+            return False
+        if snapshot["packet"] != row["arguments"].get("packet"):
+            return False
+
+        expected: list[tuple[int, str, str | None]] = []
+        for dependent in row["arguments"].get("dependants", []):
+            if not isinstance(dependent, dict):
+                return False
+            item_id, session_id, runtime_id = (
+                dependent.get("work_item_id"), dependent.get("session_id"), dependent.get("runtime_id")
+            )
+            if (
+                isinstance(item_id, bool) or not isinstance(item_id, int) or item_id <= 0
+                or not isinstance(session_id, str) or not session_id
+                or (runtime_id is not None and (not isinstance(runtime_id, str) or not runtime_id))
+            ):
+                return False
+            expected.append((item_id, session_id, runtime_id))
+
+        dependant_fields = {
+            "work_item_id", "session_id", "runtime_id", "work_revision", "current_work_revision",
+            "source_changed", "state", "attached_at", "withdrawn_at",
+        }
+        records = snapshot["dependants"]
+        actual: list[tuple[int, str, str | None]] = []
+        for dependent in records:
+            if not isinstance(dependent, dict) or set(dependent) != dependant_fields:
+                return False
+            item_id, session_id, runtime_id = (
+                dependent.get("work_item_id"), dependent.get("session_id"), dependent.get("runtime_id")
+            )
+            dep_state = dependent.get("state")
+            if (
+                isinstance(item_id, bool) or not isinstance(item_id, int) or item_id <= 0
+                or not isinstance(session_id, str) or not session_id
+                or (runtime_id is not None and (not isinstance(runtime_id, str) or not runtime_id))
+                or not isinstance(dependent.get("work_revision"), str)
+                or (dependent.get("current_work_revision") is not None and not isinstance(dependent.get("current_work_revision"), str))
+                or not isinstance(dependent.get("source_changed"), bool)
+                or not isinstance(dep_state, str) or dep_state not in {"active", "withdrawn"}
+                or not LocalRequestOutbox._valid_timestamp(dependent.get("attached_at"))
+                or (dependent.get("withdrawn_at") is not None and not LocalRequestOutbox._valid_timestamp(dependent.get("withdrawn_at")))
+            ):
+                return False
+            if dep_state != "active":
+                return False
+            actual.append((item_id, session_id, runtime_id))
+        key = lambda item: (item[0], item[1], item[2] or "")
+        return sorted(actual, key=key) == sorted(expected, key=key)
+
+    @staticmethod
+    def _valid_timestamp(value: Any) -> bool:
+        if not isinstance(value, str) or not _RFC3339_TEXT.fullmatch(value):
+            return False
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+        return parsed.tzinfo is not None and parsed.utcoffset() is not None
+
+    def reconcile(self, invoke: Callable[[str, str, dict[str, Any]], Any]) -> list[dict[str, Any]]:
+        def run() -> list[dict[str, Any]]:
+            entries = self._load()
+            reports = []
+            for row in entries:
+                if row.get("state") != "uncertain":
+                    continue
+                try:
+                    snapshot = invoke("get", row["repo_id"], {"request_id": row["request_id"]})
+                except RequestClientError as exc:
+                    code = exc.code if re.fullmatch(r"[a-z0-9-]{1,80}", exc.code) else "owner-read-refused"
+                    if code == "not-found":
+                        row["state"] = "pending"
+                        row.pop("last_error", None)
+                        reports.append({"request_id": row["request_id"], "state": "pending", "result": "confirmed-absent"})
+                    else:
+                        row["last_error"] = code
+                        reports.append({"request_id": row["request_id"], "state": "uncertain", "error": code})
+                    self._save(entries)
+                    continue
+                except Exception:
+                    code = "owner-transport-failed"
+                    row["last_error"] = code
+                    reports.append({"request_id": row["request_id"], "state": "uncertain", "error": code})
+                    self._save(entries)
+                    continue
+                if self._snapshot_matches(row, snapshot):
+                    row["state"] = "acknowledged"
+                    row.pop("last_error", None)
+                    reports.append({"request_id": row["request_id"], "state": "acknowledged"})
+                else:
+                    row["last_error"] = "owner-snapshot-mismatch"
+                    reports.append({"request_id": row["request_id"], "state": "uncertain", "error": "owner-snapshot-mismatch"})
                 self._save(entries)
             return reports
         return self._locked(run)
@@ -575,7 +711,7 @@ def main(argv: list[str] | None = None) -> int:
     invoke.add_argument("--arguments", required=True, metavar="FILE|-", help="JSON arguments file or stdin")
     invoke.add_argument("--profile", help="Vuoro profile (defaults to AGENTOPS_VUORO_PROFILE)")
     outbox = subparsers.add_parser("outbox", help="stage and explicitly deliver idempotent request publications")
-    outbox.add_argument("action", choices=("stage-publish", "list", "deliver", "prune-acknowledged"))
+    outbox.add_argument("action", choices=("stage-publish", "list", "deliver", "reconcile", "prune-acknowledged"))
     outbox.add_argument("--directory", help="private outbox directory (defaults to XDG state path)")
     outbox.add_argument("--repo", help="repository scope for stage-publish")
     outbox.add_argument("--arguments", metavar="FILE|-", help="publish JSON for stage-publish")
@@ -599,6 +735,12 @@ def main(argv: list[str] | None = None) -> int:
                 value = {"entries": store.list_entries()}
             elif args.action == "prune-acknowledged":
                 value = {"removed": store.prune_acknowledged()}
+            elif args.action == "reconcile":
+                owner = VuoroRequestOwner(_profile_path(args.profile))
+                try:
+                    value = {"reconciliation": store.reconcile(owner.invoke)}
+                finally:
+                    owner.close()
             else:
                 owner = VuoroRequestOwner(_profile_path(args.profile))
                 try:

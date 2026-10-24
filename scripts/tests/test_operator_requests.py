@@ -66,8 +66,23 @@ class LocalRequestOutboxTests(unittest.TestCase):
         self.arguments = {
             "request_id": "req_01JZZZZZZZZZZZZZZZZZZZZZZZ",
             "idempotency_key": "publish-req-01JZZZZZZZZZZZZZZZZZZZZZZZ",
-            "request": {"summary": "Restart a test service", "procedure": ["Check health", "Restart"]},
+            "packet": {"summary": "Restart a test service", "procedure": ["Check health", "Restart"]},
+            "dependants": [{"work_item_id": 42, "session_id": "session-1"}],
         }
+
+    def snapshot(self, **overrides):
+        value = {
+            "request_id": self.arguments["request_id"], "revision": 1, "state": "open",
+            "freshness": "current", "packet": self.arguments["packet"],
+            "dependants": [{
+                "work_item_id": 42, "session_id": "session-1", "runtime_id": None,
+                "work_revision": "work-r1", "current_work_revision": "work-r1",
+                "source_changed": False, "state": "active", "attached_at": "2026-10-24T00:00:00Z",
+                "withdrawn_at": None,
+            }],
+            "created_at": "2026-10-24T00:00:00Z", "updated_at": "2026-10-24T00:00:00Z",
+        }
+        return {**value, **overrides}
 
     def test_stage_is_non_authoritative_and_duplicate_preserves_identity(self):
         first = self.store.stage_publish(self.repo, self.arguments)
@@ -98,7 +113,12 @@ class LocalRequestOutboxTests(unittest.TestCase):
             observed.append((suffix, repo, payload))
             raise requests.RequestClientError("owner-transport-failed")
         result = self.store.deliver(unavailable)
-        self.assertEqual(result[0]["state"], "pending")
+        self.assertEqual(result[0]["state"], "uncertain")
+        self.assertEqual(self.store.list_entries()[0]["state"], "uncertain")
+
+        self.store.reconcile(lambda suffix, repo, args: (_ for _ in ()).throw(
+            requests.RequestClientError("not-found")
+        ))
         self.assertEqual(self.store.list_entries()[0]["state"], "pending")
 
         def acknowledged(suffix, repo, payload):
@@ -136,8 +156,7 @@ class LocalRequestOutboxTests(unittest.TestCase):
             self.store.stage_publish(self.repo, second)
         self.assertEqual(caught.exception.code, "outbox-capacity-exceeded")
 
-    def test_malformed_owner_acknowledgements_remain_pending(self):
-        self.store.stage_publish(self.repo, self.arguments)
+    def test_malformed_owner_acknowledgements_require_reconciliation(self):
         responses = (
             {},
             {"request_id": "req_wrong", "revision": 1, "replayed": False},
@@ -147,12 +166,14 @@ class LocalRequestOutboxTests(unittest.TestCase):
             {"request_id": self.arguments["request_id"], "revision": 1, "replayed": "true"},
             None,
         )
-        for response in responses:
+        for index, response in enumerate(responses):
             with self.subTest(response=response):
-                result = self.store.deliver(lambda *args: response)
-                self.assertEqual(result[0]["state"], "pending")
+                store = requests.LocalRequestOutbox(self.directory / f"invalid-ack-{index}")
+                store.stage_publish(self.repo, self.arguments)
+                result = store.deliver(lambda *args: response)
+                self.assertEqual(result[0]["state"], "uncertain")
                 self.assertEqual(result[0]["error"], "owner-acknowledgement-invalid")
-                self.assertEqual(self.store.list_entries()[0]["state"], "pending")
+                self.assertEqual(store.list_entries()[0]["state"], "uncertain")
 
     def test_valid_replay_acknowledgement_marks_entry_acknowledged(self):
         self.store.stage_publish(self.repo, self.arguments)
@@ -164,6 +185,60 @@ class LocalRequestOutboxTests(unittest.TestCase):
         result = self.store.deliver(lambda *args: response)
         self.assertEqual(result, [{"request_id": self.arguments["request_id"], "state": "acknowledged"}])
         self.assertEqual(self.store.list_entries()[0]["state"], "acknowledged")
+
+    def _make_uncertain(self):
+        self.store.stage_publish(self.repo, self.arguments)
+        result = self.store.deliver(lambda *args: (_ for _ in ()).throw(
+            requests.RequestClientError("owner-transport-failed")
+        ))
+        self.assertEqual(result[0]["state"], "uncertain")
+
+    def test_committed_but_lost_response_is_read_before_any_repost(self):
+        self.store.stage_publish(self.repo, self.arguments)
+        calls = []
+        def committed_then_lost(suffix, repo, payload):
+            calls.append(suffix)
+            persisted_states = json.loads((self.directory / "outbox.json").read_text())["entries"]
+            self.assertEqual(persisted_states[0]["state"], "uncertain")
+            raise requests.RequestClientError("owner-transport-failed")
+        self.store.deliver(committed_then_lost)
+        self.assertEqual(self.store.list_entries()[0]["state"], "uncertain")
+        self.assertEqual(self.store.deliver(lambda *args: self.fail("must not POST while uncertain")), [])
+
+        result = self.store.reconcile(lambda suffix, repo, args: (calls.append(suffix), self.snapshot())[1])
+        self.assertEqual(result[0]["state"], "acknowledged")
+        self.assertEqual(calls, ["publish", "get"])
+
+    def test_confirmed_absence_returns_to_retryable_pending(self):
+        self._make_uncertain()
+        result = self.store.reconcile(lambda *args: (_ for _ in ()).throw(requests.RequestClientError("not-found")))
+        self.assertEqual(result[0]["result"], "confirmed-absent")
+        self.assertEqual(self.store.list_entries()[0]["state"], "pending")
+
+    def test_changed_packet_and_malformed_snapshot_stay_uncertain(self):
+        self._make_uncertain()
+        changed = self.snapshot(packet={"summary": "changed"})
+        result = self.store.reconcile(lambda *args: changed)
+        self.assertEqual(result[0]["state"], "uncertain")
+        self.assertEqual(self.store.list_entries()[0]["state"], "uncertain")
+
+        malformed = self.snapshot()
+        malformed.pop("dependants")
+        result = self.store.reconcile(lambda *args: malformed)
+        self.assertEqual(result[0]["state"], "uncertain")
+        self.assertEqual(result[0]["error"], "owner-snapshot-mismatch")
+
+        changed_dependants = self.snapshot(dependants=[])
+        result = self.store.reconcile(lambda *args: changed_dependants)
+        self.assertEqual(result[0]["state"], "uncertain")
+        self.assertEqual(result[0]["error"], "owner-snapshot-mismatch")
+
+    def test_revoked_owner_read_stays_uncertain_and_does_not_post(self):
+        self._make_uncertain()
+        result = self.store.reconcile(lambda *args: (_ for _ in ()).throw(requests.RequestClientError("authority-required")))
+        self.assertEqual(result[0]["state"], "uncertain")
+        self.assertEqual(result[0]["error"], "authority-required")
+        self.assertEqual(self.store.deliver(lambda *args: self.fail("must not POST while uncertain")), [])
 
     def test_only_acknowledged_rows_can_be_pruned(self):
         self.store.stage_publish(self.repo, self.arguments)
