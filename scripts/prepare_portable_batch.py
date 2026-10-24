@@ -482,7 +482,7 @@ def _source_observation(repo_path: str | None, row: dict[str, Any]) -> dict[str,
         return result
     try:
         resolved = str(Path(repo_path).resolve(strict=True))
-    except OSError:
+    except (OSError, RuntimeError):
         result["checks"]["repository"] = "failed"
         return result
     root = _git(resolved, "rev-parse", "--show-toplevel")
@@ -500,7 +500,14 @@ def _source_observation(repo_path: str | None, row: dict[str, Any]) -> dict[str,
     )
     result["checks"]["canonical_identity"] = identity_status
     result["canonical_identity_verification"] = identity_status
-    worktree = _git(resolved, "status", "--porcelain=v1", "--untracked-files=all")
+    worktree = _git(
+        resolved,
+        "-c",
+        "core.fsmonitor=false",
+        "status",
+        "--porcelain=v1",
+        "--untracked-files=all",
+    )
     if worktree.returncode == 0:
         is_clean = not worktree.stdout
         result["checks"]["working_tree"] = "passed" if is_clean else "failed"
@@ -537,7 +544,7 @@ def _dependency_observation(repo_path: str | None, row: dict[str, Any]) -> dict[
         return result
     try:
         resolved = str(Path(repo_path).resolve(strict=True))
-    except OSError:
+    except (OSError, RuntimeError):
         return result
     commit = _git(resolved, "cat-file", "-e", f"{row['commit']}^{{commit}}")
     if commit.returncode != 0:
