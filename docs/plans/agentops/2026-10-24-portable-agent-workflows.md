@@ -66,6 +66,11 @@ Its AS-PW1 and AS-PW3 inventories are on the same candidate branch at commit
 map existing owner-applied registration, host identity and landing paths
 without claiming a cross-owner onboarding record or current effective host
 rules.
+The AS-PW5 source and artifact reachability inventory is on that branch at
+commit `54f2e1a56153053010698dcdc24449a810371864`, at
+`docs/evidence/2026-10-24-portable-workflow-source-reachability-inventory.md`;
+it maps the Appservice canonical/mirror decision and narrow service-release
+path without claiming generic worker transfer support.
 
 ## Ownership and durable plans
 
