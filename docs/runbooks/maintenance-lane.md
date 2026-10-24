@@ -80,7 +80,7 @@ Measured full-suite times, where known:
 | Tier | Who works it | Use for |
 |---|---|---|
 | `clerical` | Claude Haiku (`clerical` alias) | Read-only triage, formatting, mechanical edits with a literal spec |
-| `fast-build` | Claude Sonnet via `worker` agent, or Codex Spark | Bounded implementation with tests |
+| `fast-build` | Claude Sonnet via `worker` agent, or GPT-6 Luna | Implementation with tests; approved long-running programmes carry explicit planning and realignment scope |
 | `worker` | Claude Opus 5 or Sonnet 5 dispatched as a generic subagent (`tier:worker` tag), rather than through the `fast-build`/`expert`/`clerical` agent configs | Item classes not routed to a more specific tier; see [Check-up](#check-up) for its measured first-pass rate |
 | `local` | `local3090/worker-fast` or `local3090/devstral` via OpenCode | **Sandbox/advisory only** — `supervised-experiment` and `corpus-run` task classes as defined in [`model-routing.md`](../dispatch/model-routing.md#unqualified-local-models-sandboxadvisory-allowlist); unqualified, results go to the local-inference scorecard; see [Local model qualification](#local-model-qualification) below |
 | `expert` | Claude Sonnet via `expert` agent | Read-only analysis of current behaviour |

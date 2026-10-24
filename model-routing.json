@@ -79,9 +79,9 @@
         "note": "2026-09-28: operator directed Sonnet 5.5 / Opus 5.5 for workflows; claude-sonnet-5-5 and claude-opus-5-5 verified by `claude -p --model <id>` probe (the dotted form claude-sonnet-5.5 does not resolve)."
       },
       "codex": {
-        "model": "gpt-5.6-luna",
+        "model": "gpt-6-luna",
         "verified": true,
-        "note": "2026-10-20: promote the existing same-provider fallback to the bounded-build default. The authenticated native Codex catalogue advertises gpt-5.6-luna but no longer advertises the former gpt-5.3-codex-spark default. This establishes an observed default, not a claim that Spark is globally retired. Re-admission needs fresh transport-specific availability evidence; newer advertised models need outcome comparisons before policy promotion."
+        "note": "2026-10-24: operator selected GPT-6 Luna for fast-build and approved long-running implementation programmes with planning and backlog realignment within their declared scope. A native Codex no-tools request with model gpt-6-luna returned LUNA6_ROUTE_OK. This verifies the native route, not Cloud environment availability or comparative outcome quality. Cloud dispatch must separately verify its observed model and continuation support. No automatic model substitution."
       }
     },
     "standard-build": {
