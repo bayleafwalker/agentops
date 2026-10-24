@@ -14,7 +14,7 @@ qualification.
 | Sprintctl | `cloud/20261024/programme-08-integration-sprintctl` at `e80df31ad6424f1c757ebbab68dfe0042fb4d571` | `docs/reference/vuoro-work-adapter.md` catalogs the protocol-v1 owner operations, their authority, idempotency, and schema evolution. `docs/reference/operator-request-lifecycle.md` describes the schema 28 request candidate and `work.request.*` operations. `docs/reference/context-and-handoff.md` documents served-only `run brief`, backed by `work.run.continuation-delta-v1`. The pinned Vuoro demo uses Sprintctl `0.22.0`. |
 | Sovite | `cloud/20261024/programme-08-integration-sovite-exact` at `46c2670d6a047367617b58af7e5cf62a43f4ccae` | `docs/plans/2026-10-23-execution-lease-owner.md` describes internal reserve/start behavior. `docs/contracts/worker-execution-v1-candidate.md` is a proposal; `pyproject.toml` says `0.1.17`, while the Vuoro demo dependency pin remains `0.1.16`. |
 | Vuoro Cloud | `cloud/20261024/programme-08-integration-vuoro-cloud-exact` at `95b6af72f2addec4fcfaf1461ea873d5a61d6816` | `src/vuoro_cloud/oauth_scopes.py`, `security.py`, and `config/schemas/` describe caller grants, connector/invocation records, and evidence shapes. No portable-workflow owner plan or supported new-Cloud task-launch API is present in this candidate. |
-| Appservice | `cloud/20261024/programme-08-integration-appservice-exact` at `5b552c37e8de8fb2a13806da4c88bd09db973b14` | `docs/plans/2026-10-24-portable-agent-workflows.md` assigns onboarding, worker-host commissioning, landing prerequisites, observability, and source/artifact reachability. It is explicitly documentation-only; its surveyed source pin is `5ab5e11771a07585457759c0344908d6d0011286`. |
+| Appservice | `cloud/20261024/programme-08-integration-appservice-exact` at `4da4a4ccda922f69ddee7341fa3036d02f716a58` (code head `753e5544531364b06e1136bb48f50f08cb8e902e`) | `docs/plans/2026-10-24-portable-agent-workflows.md` assigns onboarding, worker-host commissioning, landing prerequisites, observability, and source/artifact reachability. The onboarding sync now explicitly skips target-only bindings, rejects ambiguous or missing scope, and refuses duplicate desired integration names before DB/API calls; existing integration comparison remains name-only. Its surveyed source pin is `5ab5e11771a07585457759c0344908d6d0011286`. |
 
 The `gitops-nixos`, `cred-broker`, and `mars-founder` source trees are not present
 in this workspace. The survey pins in the AgentOps plan (`b554d5e0`,
@@ -108,6 +108,16 @@ sets OpenAPI output to `3.0.0`; its package manifest also pins
 and npm `11.19.0`. `uv.lock` pins Python `jsonschema` `4.26.0`, which the
 contract runtime and operation catalog use for Draft 2020-12 validation. The
 generator records exact tool artifacts in `tools/contracts/toolchain/tool-artifacts.json`.
+
+The follow-up candidate at `1d50efb1f3801afe36c29ee040b31086cd9431e6` aligned
+Python's accepted JSON depth/node counts with the TypeScript parser (depth 64,
+100,000 values). Independent review found that this first guard ran after
+`json.loads`, so it did not limit parse-time allocation. The next candidate
+commit, `08d50726fce210754a8a48e94c18f526487886e1`, adds a bounded structural
+scan before materialization while leaving decoding, duplicate-key detection,
+UTF-8 and numeric validation to the existing decoder. Independent review found
+no concrete issue with grammar parity or failure mapping. This follow-up was
+not tested in this pass; generated SDK consumer qualification remains open.
 
 This advances source pinning in the candidate but does not close EC-00. The
 repo-local `public_mcp_tools()` projection in `scripts/contracts/generate.py`

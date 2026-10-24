@@ -58,18 +58,28 @@ Its EC-00 source recheck records partial TypeSpec/OpenAPI tool pins from the
 separate Vuoro contract-foundation candidate at
 `3db3e34a142f0cb1e7ad773fcdcc1948082ea731`; it leaves the MCP projection and
 other EC-00 acceptance conditions open.
+The Vuoro candidate now also has Python JSON complexity commits
+`1d50efb1f3801afe36c29ee040b31086cd9431e6` and
+`08d50726fce210754a8a48e94c18f526487886e1`; the latter bounds structural scans
+before decoding, with independent source review but no test run in this pass.
 The Appservice AS-PW3 source inventory is recorded on candidate branch
 `cloud/20261024/programme-08-integration-appservice-exact` at
 `docs/evidence/2026-10-24-portable-workflow-landing-policy-inventory.md`; it
 distinguishes tracked workflow configuration and dated settings evidence from
 current effective host rules, which remain unverified.
-Its AS-PW1 and AS-PW3 inventories are on the same candidate branch at commit
-`7871d6d50a63e2e8406e279b2b0d2bffb2e9851e`; their files are
-`docs/evidence/2026-10-24-portable-workflow-onboarding-inventory.md` and
-`docs/evidence/2026-10-24-portable-workflow-landing-policy-inventory.md`. They
-map existing owner-applied registration, host identity and landing paths
-without claiming a cross-owner onboarding record or current effective host
-rules.
+Its AS-PW3 inventory remains on the same candidate branch at commit
+`7871d6d50a63e2e8406e279b2b0d2bffb2e9851e` in
+`docs/evidence/2026-10-24-portable-workflow-landing-policy-inventory.md`; it
+maps tracked workflow settings without claiming current effective host rules.
+The AS-PW1 inventory was refreshed at commit
+`4da4a4ccda922f69ddee7341fa3036d02f716a58` in
+`docs/evidence/2026-10-24-portable-workflow-onboarding-inventory.md`. Its sync
+script hardening is in commits `1b359878`, `a1a63336`, and `753e5544`: it skips
+target-only bindings, rejects ambiguous/missing binding scope and duplicate
+desired names before database/API calls, and marks the old Forgejo count as
+historical. Existing integrations are still compared by name only; no claim or
+effective-scope verification, cross-owner onboarding receipt, or live Forgejo
+recheck is claimed.
 The AS-PW5 source and artifact reachability inventory is on that branch at
 commit `54f2e1a56153053010698dcdc24449a810371864`, at
 `docs/evidence/2026-10-24-portable-workflow-source-reachability-inventory.md`;
