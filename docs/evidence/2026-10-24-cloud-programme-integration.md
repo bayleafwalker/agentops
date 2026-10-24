@@ -1,6 +1,6 @@
 # Cloud programme candidate handback
 
-Snapshot: 2026-10-24, refreshed after the follow-on source work and independent review. This records local source candidates and focused disposable checks for the eight programmes in `docs/dispatch/programmes/2026-10-24/`. It is not a deployment, production, retained-state, or owner-acceptance receipt.
+Snapshot: 2026-10-24, refreshed after the follow-on source work and independent review. This records local source candidates and focused disposable checks for the eight programmes in `docs/dispatch/programmes/2026-10-24/`. It is not a deployment, production, retained-state, or owner-acceptance receipt. Owner choices do not block local candidate implementation; this batch uses the selected architecture with provisional interfaces recorded explicitly. Owner review/release and compatibility qualification remain later evidence. Deployment is excluded.
 
 ## Dispatch and continuation
 
@@ -12,16 +12,40 @@ The programme specifications and long-running worker contract were read from Age
 
 ## Exact integration candidates
 
-The hashes below identify the local integration candidate code trees. All branches are isolated local branches. The AgentOps code head shown is the implementation state before this evidence refresh; later commits on that branch update this report and the portable feature batch.
+The hashes below identify current local integration candidate branch heads and trees. All branches are isolated local branches. The AgentOps implementation head is identified immediately before this evidence refresh; the commit recording this refresh becomes the AgentOps branch tip and contains the refreshed matrix, so its own hash is not embedded in itself.
 
 | Repository | Local branch | Code commit | Code tree |
 | --- | --- | --- | --- |
-| Vuoro | `cloud/20261024/programme-08-integration-vuoro-exact` | `914f42f800c53e289d4a10d738827d385c6bf0db` | `df08b6c9c5f37ba2d817e336b65e00009010cf6c` |
-| Vuoro Cloud | `cloud/20261024/programme-08-integration-vuoro-cloud-exact` | `bce13bf210905156f7443e174be3dfa7dbee8ce5` | `466ed14500ffdc732a9995220e4a3a01193d9c3e` |
-| Sprintctl | `cloud/20261024/programme-08-integration-sprintctl` | `3ce3c1b9ded9a673b7da9a8201092aafb1bccefe` | `2e5c4a211bd9d22cbb753bed66337802a5a93fbd` |
-| AgentOps | `cloud/20261024/programme-08-integration-agentops-exact` | `714a7e1c68b983d3bed47f28dcc8b880a0ecc6fc` | `7f5f832330d17b9f24348e1a08f6523f06ddda50` |
-| Appservice | `cloud/20261024/programme-08-integration-appservice-exact` | `af2bb60dc38aadb6afed45f2d791c1f6fe7392cf` | `8b4366a46d6a640d10b5bb1b1bf91f4ee69afe65` |
-| Sovite | `cloud/20261024/programme-08-integration-sovite-exact` | `a4040fe20f58543048f70aa1143f37ecaf4971de` | `162e6da6a261928f6ee76c68cea755dbeac3c0d4` |
+| Vuoro | `cloud/20261024/programme-08-integration-vuoro-exact` | `9d7003ee2b693c91695f124bc16dc30639bd74ca` | `3991ed38259cead99a1d8f5986f678d313618f1c` |
+| Vuoro Cloud | `cloud/20261024/programme-08-integration-vuoro-cloud-exact` | `260571aafa299d5300099163b8a836820d5779d4` | `02642ed7678faa834518b4df5d0ef1e92c9baf15` |
+| Sprintctl | `cloud/20261024/programme-08-integration-sprintctl` | `ec6d5465b7f6e60edc4e1afd7462faf6150e68cf` | `5fa2315031dc8ba034b9d2f3f5059614aa8b1c26` |
+| AgentOps | `cloud/20261024/programme-08-integration-agentops-exact` | implementation head before this refresh: `c194cf07f9fdc5e6581ce493e29d4d4ec8262b5`; tree `6a71dd7ffbf612d685d61543797fccb803869914` | The resulting evidence-refresh commit is the branch tip and contains this updated table/matrix. |
+| Appservice | `cloud/20261024/programme-08-integration-appservice-exact` | `17cbe5bd46a40800f0d168920449a2932e4d98f4` | `74be9ad05391353bf8cb84019e2d1fa10ecbdaee` |
+| Sovite | `cloud/20261024/programme-08-integration-sovite-exact` | `ca9b5df3caef28d6dca0dd587e251aff482dcf11` | `933922bf9000954522aa3e0c83de624bddee5026` |
+
+### Local P01–P08 implementation matrix
+
+This matrix points to local candidate slices only. It does not claim owner
+acceptance, live state, deployment, or qualification beyond the focused
+receipts explicitly listed later in this document.
+
+| Programme | Local implementation branch and slice |
+| --- | --- |
+| P01 Contract foundation | Vuoro `cloud/20261024/programme-08-integration-vuoro-exact` (`9d7003e`): bounded JSON depth/node decoding in contract reader and generated Python client; MCP projection requirements remain a definition-only draft. |
+| P02 Cloud recovery | Vuoro Cloud `cloud/20261024/programme-08-integration-vuoro-cloud-exact` (`260571a`): strict restore evidence parsing and source/clone identity guards; pinned Nix and field recovery qualification remain open. |
+| P03 Cloud product | Vuoro Cloud same branch (`260571a`): request conflict/refusal TUI handling, paged workspace observation fields, static site and member-read/notification requirements. |
+| P04 Requests and continuation | Vuoro P08 (`9d7003e`), Sprintctl P08 (`ec6d546`), and AgentOps P08 (implementation head `c194cf0`): owner request lifecycle candidates, bounded continuation page archive, private local publish outbox and read-only continuation-ready packet. |
+| P05 Sovite | Sovite `cloud/20261024/programme-08-integration-sovite-exact` (`ca9b5df`): operator-only enrollment provisioning and F2 wire-contract requirements; remote worker operations remain unimplemented. |
+| P06 Telemetry | Appservice P08 (`17cbe5b`) and Vuoro Cloud P08 (`260571a`): native309 normalization/receipt projection and synthetic OTLP correlation/transport. |
+| P07 Retention | Appservice P08 (`17cbe5b`): offline retention evidence validation, ingest-route inventory, and replay-barrier status; serving/replay qualification remains explicitly unresolved. |
+| P08 Integration and review | All five owner integration branches above plus AgentOps P08: exact local candidate heads, portable packet tooling, and manual pre-landing review packet. Deployment remains excluded. |
+
+Focused checks below are historical receipts tied to the commands and candidate
+revisions recorded when each check ran; they do not imply that every current
+branch head was tested or built. No tests or builds ran for the latest producer
+follow-up commits or this evidence refresh. The follow-ups received only static
+review/checks as described in their sections. No owner acceptance or live
+deployment state is claimed.
 
 ## Implemented increments
 

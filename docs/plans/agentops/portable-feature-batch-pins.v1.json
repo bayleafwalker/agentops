@@ -19,7 +19,7 @@
     {
       "owner": "appservice",
       "branch": "cloud/20261024/programme-08-integration-appservice-exact",
-      "commit": "af2bb60dc38aadb6afed45f2d791c1f6fe7392cf",
+      "commit": "17cbe5bd46a40800f0d168920449a2932e4d98f4",
       "draft_path": "docs/plans/2026-10-24-portable-observability-requirements.md",
       "draft_sha256": "965cf66525c26f8b13dc0d364415684fcc9292b6cf07bdd0cdf96c928c774391"
     },
@@ -33,7 +33,7 @@
     {
       "owner": "vuoro-cloud",
       "branch": "cloud/20261024/programme-08-integration-vuoro-cloud-exact",
-      "commit": "bce13bf210905156f7443e174be3dfa7dbee8ce5",
+      "commit": "260571aafa299d5300099163b8a836820d5779d4",
       "draft_path": "docs/plans/2026-10-24-portable-environment-capability-requirements.md",
       "draft_sha256": "cd702ef8021b29c895dbf09cc0ee30a949757ab8944c3ccd5f732e1c3cc4e57f"
     }
