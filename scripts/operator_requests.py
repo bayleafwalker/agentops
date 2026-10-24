@@ -29,7 +29,12 @@ _SENSITIVE_KEYS = frozenset({
     "actor", "principal", "principal_id", "workspace", "workspace_id", "repo", "repo_id",
     "authority", "authorities", "capability", "token", "access_token", "secret", "password",
     "credential", "transcript", "raw_transcript", "raw_log", "session_log",
+    "api_key", "private_key", "identity_claim", "authority_claim",
 })
+_SENSITIVE_KEY_PARTS = (
+    "transcript", "credential", "secret", "password", "passphrase", "token",
+    "authority", "principal", "identity", "identity_claim", "api_key", "private_key",
+)
 _SENSITIVE_TEXT = re.compile(
     r"(?i)(?:\bAKIA[0-9A-Z]{16}\b|\bgh[pousr]_[A-Za-z0-9]{20,}\b|"
     r"\bBearer\s+[A-Za-z0-9._~+/=-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|"
@@ -53,7 +58,15 @@ def _check_content(value: Any, path: str = "arguments") -> None:
             if not isinstance(key, str):
                 raise RequestClientError("invalid-arguments", f"{path} contains a non-text object key")
             normalized = key.casefold().replace("-", "_")
-            if normalized in _SENSITIVE_KEYS:
+            # Reject aliases and compound field names too (for example
+            # conversation_transcript, apiKey, or claimed_authority). The
+            # owner remains authoritative; this is a local data minimization
+            # boundary before request content crosses the transport.
+            compact = normalized.replace("_", "")
+            if normalized in _SENSITIVE_KEYS or any(
+                part in normalized or part.replace("_", "") in compact
+                for part in _SENSITIVE_KEY_PARTS
+            ):
                 raise RequestClientError("sensitive-content-refused", f"{path}.{key} is not allowed")
             _check_content(child, f"{path}.{key}")
     elif isinstance(value, list):
@@ -207,6 +220,10 @@ class MCPServer:
         if set(arguments) != {"repo_id", "arguments"}:
             return _tool_error("invalid-arguments", "tool requires exactly repo_id and arguments")
         try:
+            # Keep the MCP boundary safe even when a test, embedding, or future
+            # adapter supplies an owner implementation other than the CLI's
+            # VuoroRequestOwner.
+            _check_content(arguments["arguments"])
             result = self._get_owner().invoke(suffix, arguments["repo_id"], arguments["arguments"])
         except RequestClientError as exc:
             return _tool_error(exc.code, exc.message)
