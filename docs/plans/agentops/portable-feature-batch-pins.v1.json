@@ -19,7 +19,7 @@
     {
       "owner": "appservice",
       "branch": "cloud/20261024/programme-08-integration-appservice-exact",
-      "commit": "109f6c36cf5a2512ea31069acfabdce15e4c7e09",
+      "commit": "1f9a3f132012f3d04494d48ea60d48a8c0572f7c",
       "draft_path": "docs/plans/2026-10-24-portable-observability-requirements.md",
       "draft_sha256": "965cf66525c26f8b13dc0d364415684fcc9292b6cf07bdd0cdf96c928c774391"
     },

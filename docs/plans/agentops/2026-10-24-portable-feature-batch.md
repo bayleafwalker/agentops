@@ -113,7 +113,7 @@ through the repository's normal process before retrying.
 |---|---|---|
 | Vuoro | `cloud/20261024/programme-01-contract-foundation` at `fe7ce5a2e61d7e9d7b8786ba8bdafd08f59a91fc` | `docs/plans/2026-10-24-mcp-toolset-projection-requirements.md` |
 | Sovite | `cloud/20261024/programme-09-p05-f2-contract` at `6e9cb948b57a03df6525a295121ae5c966b3e169` | `docs/contracts/worker-execution-remote-operations-requirements.md` |
-| Appservice | `cloud/20261024/programme-08-integration-appservice-exact` at `109f6c36cf5a2512ea31069acfabdce15e4c7e09` | `docs/plans/2026-10-24-portable-observability-requirements.md` |
+| Appservice | `cloud/20261024/programme-08-integration-appservice-exact` at `1f9a3f132012f3d04494d48ea60d48a8c0572f7c` | `docs/plans/2026-10-24-portable-observability-requirements.md` |
 | Sprintctl | `cloud/20261024/programme-09-p04-request-lifecycle` at `2bd514e1f02b97cb656eb88db7d1f6a9989b1c9c` | `docs/plans/2026-10-24-portable-continuation-requirements.md` |
 | Vuoro Cloud | `cloud/20261024/programme-08-integration-vuoro-cloud-exact` at `535b167cade42d3b25d7a8cb855634cf96c83195` | `docs/plans/2026-10-24-portable-environment-capability-requirements.md` |
 
@@ -132,7 +132,7 @@ deployment:
 
 | Owner | Candidate branch and head | Implementation slice | Evidence boundary |
 |---|---|---|---|
-| Appservice | `cloud/20261024/programme-08-integration-appservice-exact` at `109f6c36cf5a2512ea31069acfabdce15e4c7e09` | `docs/scripts/cred-broker-forgejo-sync.py` validates binding identities, policy-registry capabilities, target-only provider bindings, repository references, duplicate names/identities, and case-insensitive Forgejo matching before external calls. | Local source review only for this batch; existing name-only comparison remains. No live Forgejo login/create call or end-to-end onboarding qualification is claimed. |
+| Appservice | `cloud/20261024/programme-08-integration-appservice-exact` at `1f9a3f132012f3d04494d48ea60d48a8c0572f7c` | `docs/scripts/cred-broker-forgejo-sync.py` validates binding identities, policy-registry capabilities, target-only provider bindings, repository references, duplicate names/identities, and case-insensitive Forgejo matching before external calls. Its `--offline-plan` emits deterministic desired entries and marks existing Forgejo state unknown without reading it. | Static syntax and whitespace checks only; tests and live Forgejo calls were not run. Default existing-state comparison remains name-only. End-to-end onboarding qualification is not claimed. |
 | Sprintctl | `cloud/20261024/programme-09-p04-request-lifecycle` at `2bd514e1f02b97cb656eb88db7d1f6a9989b1c9c` | `sprintctl run collect` packages explicitly supplied, schema-valid page responses as bounded non-atomic observations; `sprintctl run collect-inspect` checks collection/page integrity and derived metadata offline. Both preserve all three request/returned cursor chains and per-list completeness. | Static syntax and whitespace checks only; tests were not run. No owner calls occur. Owner error/refusal envelopes remain unsupported until their schema is released; issue approval for automated paging remains unverified. |
 
 The Sprintctl artifact is an offline candidate format, not a replacement for
