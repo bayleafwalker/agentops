@@ -24,10 +24,10 @@ class ModelRoutingTests(unittest.TestCase):
                 self.assertIn("anthropic", self.routing["aliases"][alias])
                 self.assertIn("codex", self.routing["aliases"][alias])
 
-    def test_fast_codex_build_uses_the_observed_same_provider_baseline(self) -> None:
+    def test_fast_codex_build_uses_the_operator_selected_verified_model(self) -> None:
         route = self.routing["aliases"]["fast-build"]["codex"]
 
-        self.assertEqual(route["model"], "gpt-5.6-luna")
+        self.assertEqual(route["model"], "gpt-6-luna")
         self.assertNotIn("transport", route)
         self.assertTrue(route["verified"])
 

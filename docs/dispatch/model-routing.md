@@ -12,19 +12,27 @@
 | `frontier-review` | `claude-opus-5-5` | `gpt-5.6-sol` | Explicit high-consequence semantic validation; not the default review tier. |
 | `review-synthesis` | `claude-sonnet-5-5` | `gpt-5.6-terra` | Verified: GPT-5.6 GA 2026-07-09; ID confirmed via OpenAI docs. |
 | `release-ops` | `claude-sonnet-5-5` | `gpt-5.6-terra` | Strong general model within the calling provider family. |
-| `fast-build` | `claude-sonnet-5-5` | `gpt-5.6-luna` | Bounded implementation; the previously configured same-provider fallback is the observed default. |
+| `fast-build` | `claude-sonnet-5-5` | `gpt-6-luna` | Operator-selected implementation model; native route verified 2026-10-24. Long-running programmes carry explicit planning and realignment instructions. |
 | `standard-build` | `claude-sonnet-5-5` | `gpt-5.6-terra` | Implementation requiring repository discovery, contract inference, or interpretation of non-obvious failures. |
 | `hard-build` | `claude-sonnet-5-5` (fallback `claude-opus-5-5`) | `gpt-5.6-terra` | Semantically hard implementation after decisions are settled; unresolved architecture routes to `frontier-plan`. |
 
 The `verified` field belongs to the concrete provider ID, not the alias. The gpt-5.6 tier IDs (`-sol`/`-terra`/`-luna`) were confirmed against OpenAI's GA announcement and Codex model docs on 2026-07-18; recent Codex CLI releases ship them in the built-in catalog, but tier access depends on the authenticated plan (free/Go accounts get Terra only) and older CLI builds (e.g. 0.144.x) may predate the catalog entries. An unverified ID must not become a required default until its provider CLI or official documentation confirms availability.
 
-The 2026-10-20 authenticated Codex catalogue advertises Luna but does not
-advertise the former Spark default. The policy therefore promotes its already
-configured Luna fallback. This is local availability evidence, not a global
-retirement claim. Re-admitting a transport-specific model requires fresh
-availability evidence for that transport. Newer advertised models remain
-candidates until outcome comparisons justify changing the baseline. Build
-prompts must continue to name required verification commands explicitly.
+On 2026-10-24 the operator selected GPT-6 Luna for `fast-build`, superseding
+the October 20 GPT-5.6 Luna baseline. A native Codex no-tools request explicitly
+using `gpt-6-luna` returned the requested marker. This establishes native route
+availability; Cloud model selection, environment access and continuation must
+be verified separately. It does not establish comparative outcome quality or
+retire other models. Build prompts must name required verification commands.
+
+The model alias selects a model, not the worker's authority or stopping rule.
+An explicitly approved long-running programme can give Luna responsibility for
+discovery, planning, defining missing tests and interfaces, and realigning the
+chosen backlog within existing product boundaries. Use the
+[long-running worker contract](long-running-worker.md) for that instruction
+set. Do not give such a session a bounded-worker instruction that requires it
+to stop after its first candidate or seek coordinator approval for ordinary
+engineering decisions. Production authority and acceptance remain separate.
 
 `caller_harness_providers` maps a trusted calling harness to the provider
 branch used for alias resolution. Claude maps to `anthropic`, Codex maps to
