@@ -92,7 +92,7 @@ def advance_serialized_candidate(adapter: Any) -> None:
     if state == "VERIFYING":
         if not candidate.get("attempt"):
             base = adapter.main_tip()
-            command = adapter.config.get("check_command", ["nix", "develop", "-c", "just", "check"])
+            command = adapter.verification_command()
             directory, number = adapter.attempt(
                 "verify", candidate, command, candidate["worktree"],
                 candidate["provider"], candidate["model"], base)
