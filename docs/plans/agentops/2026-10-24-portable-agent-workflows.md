@@ -12,6 +12,18 @@ infrastructure changes. The user requested durable plans after the cloud-dispatc
 and Mars Founder investigations. TS-1 through TS-15 in
 [the target state](../2026-09-17-target-state.md) remain governing direction.
 
+## Approved subscription-backed pilot (2026-10-25)
+
+The [Decimal Iron cross-harness pilot](2026-10-25-subscription-cross-harness-pilot.md)
+is the operator-approved, bounded validation of this programme. Its
+non-negotiable scope is two Claude Projects cloud issue threads plus a cheaper
+subscription-authenticated native devbox session, deliberate cross-provider
+attempt continuation, and evidence/conflict/review measurement. GitHub Actions
+and metered model API execution are out of scope. This pilot does not establish
+that Projects eligibility, native launch, subscription billing or owner
+integration are already qualified. It adds no dispatcher and does not
+supersede the owner work packages.
+
 ## Outcome and decision
 
 An operator should select a backlog and an eligible environment, authorize a
