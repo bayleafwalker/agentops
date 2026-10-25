@@ -117,7 +117,7 @@ def decide_failover(policy: Any, *, current_binding_id: str | None,
         return FailoverDecision(False, "usage_observer_untrusted")
     if usage.get("billing_snapshot_ref") != policy.get("billing_snapshot_ref"):
         return FailoverDecision(False, "usage_billing_snapshot_mismatch")
-    for field in ("attempt_ref", "evidence_ref"):
+    for field in ("attempt_ref", "evidence_ref", "source_ref"):
         if not isinstance(usage.get(field), str) or not usage[field].strip():
             return FailoverDecision(False, "usage_evidence_missing")
     if not expected_attempt_ref or usage["attempt_ref"] != expected_attempt_ref:

@@ -110,7 +110,8 @@ class ProviderFailoverTests(unittest.TestCase):
             expected_attempt_ref="attempt:1",
             usage={"state": "known", "complete": True, "observer": "coordinator",
                    "billing_snapshot_ref": "owner-snapshot:billing", "attempt_ref": "attempt:1",
-                   "evidence_ref": "evidence:usage", "attempt_cost_usd": 0.05,
+                   "evidence_ref": "evidence:usage", "source_ref": "coordinator-usage:1",
+                   "attempt_cost_usd": 0.05,
                    "remaining_budget_usd": 0.20}, now=100.0)
 
     def test_disabled_by_default(self):
