@@ -115,7 +115,7 @@ def _read_log(root: Path) -> list[dict[str, Any]]:
         raise InvestigationError("investigation event log is missing") from exc
     if not stat.S_ISREG(info.st_mode) or info.st_size > MAX_LOG_BYTES:
         raise InvestigationError("event log is not a bounded regular file")
-    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK | getattr(os, "O_NOFOLLOW", 0))
     try:
         with os.fdopen(fd, "rb", closefd=False) as stream:
             raw = stream.read(MAX_LOG_BYTES + 1)
@@ -199,14 +199,12 @@ def _store_object(root: Path, data: bytes) -> str:
     directory.mkdir(mode=0o700, exist_ok=True)
     target = directory / digest.removeprefix("sha256:")
     if target.exists():
-        if target.is_symlink() or _sha(target.read_bytes()) != digest:
-            raise InvestigationError(f"existing object is not immutable: {digest}")
+        _verify_object(root, digest)
         return digest
     try:
         _write_new(target, data)
     except FileExistsError:
-        if target.is_symlink() or _sha(target.read_bytes()) != digest:
-            raise InvestigationError(f"concurrent object write mismatch: {digest}")
+        _verify_object(root, digest)
     return digest
 
 
@@ -218,7 +216,7 @@ def _verify_object(root: Path, digest: str) -> bytes:
         raise InvestigationError("object store must be a real directory")
     path = directory / digest.removeprefix("sha256:")
     try:
-        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK | getattr(os, "O_NOFOLLOW", 0))
     except FileNotFoundError as exc:
         raise InvestigationError(f"evidence object is missing: {digest}") from exc
     try:

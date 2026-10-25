@@ -90,6 +90,22 @@ class InvestigationWorkflowAdversarialTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("bounded regular files", result.stderr)
 
+    def test_fifo_evidence_object_is_refused_without_waiting_for_a_writer(self):
+        digest = iw._store_object(self.record, b"owned evidence")
+        path = self.record / "objects" / digest.removeprefix("sha256:")
+        path.unlink()
+        os.mkfifo(path)
+        for operation in (f"iw._verify_object(root, {digest!r})",
+                          "iw._store_object(root, b'owned evidence')"):
+            code = (
+                "from pathlib import Path; from scripts import investigation_workflow as iw; "
+                f"root=Path({str(self.record)!r}); {operation}"
+            )
+            result = subprocess.run([sys.executable, "-c", code], capture_output=True,
+                                    text=True, timeout=2)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("bounded regular file", result.stderr)
+
     def test_06_shell_and_unknown_probe_implementations_are_refused(self):
         probe = self.probe(implementation={
             "kind": "shell", "command": "cat private.txt", "effects": "read_only",
