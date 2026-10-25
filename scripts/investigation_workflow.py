@@ -521,7 +521,8 @@ def _state_from_events(root: Path, events: list[dict[str, Any]]) -> dict[str, An
                 raise InvestigationError("interrupted probe requires a digest-addressed record")
             _verify_object(root, evidence["digest"])
             observation = {
-                "seq": row["seq"], "probe_id": probe_id, "outcome": "unresolved",
+                "seq": row["seq"], "event_digest": row["digest"],
+                "probe_id": probe_id, "outcome": "unresolved",
                 "evidence": evidence, "unexpected": True, "posterior_after": dict(posterior),
                 "kind": kind,
             }
@@ -554,7 +555,7 @@ def _state_from_events(root: Path, events: list[dict[str, Any]]) -> dict[str, An
             if not unexpected:
                 posterior = {h: posterior[h] * likelihood[h] / predictive for h in hypothesis_ids}
             observation = {
-                "seq": row["seq"],
+                "seq": row["seq"], "event_digest": row["digest"],
                 "probe_id": probe_id,
                 "outcome": outcome,
                 "evidence": evidence,
@@ -572,7 +573,7 @@ def _state_from_events(root: Path, events: list[dict[str, Any]]) -> dict[str, An
             if not DIGEST_RE.fullmatch(str(data.get("digest", ""))):
                 raise InvestigationError("report event has an invalid digest")
             _verify_object(root, data["digest"])
-            reports.append(dict(data))
+            reports.append({**dict(data), "event_digest": row["digest"]})
         elif kind == "artifact_reference":
             ref = _validate_relative_file(data.get("artifact_ref"))
             if init.get("artifact_ref") not in (None, ref):
@@ -902,21 +903,19 @@ def vuoro_evidence_payloads(root: Path) -> list[dict[str, Any]]:
     if not run_id:
         raise InvestigationError("Vuoro evidence export requires an existing registered run_id")
     ref_root = state["init"].get("artifact_ref") or f"_artifacts/investigations/{root.name}"
-    event_head = state["events"][-1]["digest"]
-    provenance = {
+    provenance_base = {
         "investigation_id": state["init"]["investigation_id"],
-        "event_head": event_head,
         "source_repository": state["init"].get("repository"),
         "source_commit": state["init"].get("source_commit"),
     }
 
-    def append_args(kind: str, ref: str, digest: str) -> dict[str, Any]:
-        key_material = f"{run_id}\0{kind}\0{digest}".encode("utf-8")
+    def append_args(kind: str, ref: str, digest: str, event_head: str) -> dict[str, Any]:
+        key_material = f"{run_id}\0{kind}\0{digest}\0{event_head}".encode("utf-8")
         idempotency_key = "inv:" + hashlib.sha256(key_material).hexdigest()[:48]
         return {
             "run_id": run_id, "kind": kind, "ref": ref, "digest": digest,
             "collector": COLLECTOR, "idempotency_key": idempotency_key,
-            "provenance": provenance,
+            "provenance": {**provenance_base, "event_head": event_head},
             "validity": {
                 "basis": "until_inputs_change",
                 "valid_from": state["init"]["created_at"],
@@ -928,9 +927,13 @@ def vuoro_evidence_payloads(root: Path) -> list[dict[str, Any]]:
     for observation in state["observations"]:
         evidence = observation["evidence"]
         ref = evidence.get("ref") or f"{ref_root}/objects/{evidence['digest'].removeprefix('sha256:')}"
-        payloads.append(append_args("investigation_observation", ref, evidence["digest"]))
+        payloads.append(append_args(
+            "investigation_observation", ref, evidence["digest"], observation["event_digest"]
+        ))
     for report in state["reports"]:
-        payloads.append(append_args("investigation_report", report["ref"], report["digest"]))
+        payloads.append(append_args(
+            "investigation_report", report["ref"], report["digest"], report["event_digest"]
+        ))
     return payloads
 
 
