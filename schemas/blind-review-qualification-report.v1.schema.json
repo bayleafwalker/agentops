@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.dev/schemas/blind-review-qualification-report.v1.schema.json",
+  "title": "Blind review qualification report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "target_model", "status", "card_count", "target_observation_count",
+    "actual_target_card_coverage", "expected_high_identity_count", "detected_high_identities",
+    "missed_high_identities", "unsupported_high_count", "unadjudicated_high_count",
+    "control_false_positive_count", "unknown_label_count", "latency_coverage",
+    "usage_coverage", "cost_coverage", "card_inputs", "checks", "changes_model_policy"
+  ],
+  "properties": {
+    "schema": {"const": "blind-review-qualification-report/v1"},
+    "target_model": {"type": "string", "minLength": 1},
+    "status": {"enum": ["qualified_for_operator_review", "not_qualified"]},
+    "card_count": {"type": "integer", "minimum": 0},
+    "target_observation_count": {"type": "integer", "minimum": 0},
+    "actual_target_card_coverage": {"type": "integer", "minimum": 0},
+    "expected_high_identity_count": {"type": "integer", "minimum": 0},
+    "detected_high_identities": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "missed_high_identities": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "unsupported_high_count": {"type": "integer", "minimum": 0},
+    "unadjudicated_high_count": {"type": "integer", "minimum": 0},
+    "control_false_positive_count": {"type": "integer", "minimum": 0},
+    "unknown_label_count": {"type": "integer", "minimum": 0},
+    "latency_coverage": {"$ref": "#/$defs/coverage"},
+    "usage_coverage": {"$ref": "#/$defs/coverage"},
+    "cost_coverage": {"$ref": "#/$defs/coverage"},
+    "card_inputs": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["card_id", "input_digest", "artifact_sha256", "source_revision", "path"],
+        "properties": {
+          "card_id": {"type": "string"},
+          "input_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "artifact_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "source_revision": {"type": "string"},
+          "path": {"type": "string"}
+        }
+      }
+    },
+    "checks": {
+      "type": "object", "additionalProperties": false,
+      "required": ["historical_high_recall", "all_cards_covered_by_actual_target",
+        "no_unsupported_high", "no_unadjudicated_high", "negative_controls_clear",
+        "latency_coverage_complete", "usage_coverage_complete"],
+      "properties": {
+        "historical_high_recall": {"type": "boolean"},
+        "all_cards_covered_by_actual_target": {"type": "boolean"},
+        "no_unsupported_high": {"type": "boolean"},
+        "no_unadjudicated_high": {"type": "boolean"},
+        "negative_controls_clear": {"type": "boolean"},
+        "latency_coverage_complete": {"type": "boolean"},
+        "usage_coverage_complete": {"type": "boolean"}
+      }
+    },
+    "changes_model_policy": {"const": false}
+  },
+  "$defs": {
+    "coverage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["known", "total"],
+      "properties": {
+        "known": {"type": "integer", "minimum": 0},
+        "total": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

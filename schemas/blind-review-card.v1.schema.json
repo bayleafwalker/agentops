@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.dev/schemas/blind-review-card.v1.schema.json",
+  "title": "Blind code review card",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "card_id", "parent_revision", "source_revision", "path",
+    "artifact_kind", "artifact_sha256", "artifact_utf8", "prompt", "input_digest"
+  ],
+  "properties": {
+    "schema": {"const": "blind-review-card/v1"},
+    "card_id": {"type": "string", "minLength": 1},
+    "parent_revision": {"type": ["string", "null"]},
+    "source_revision": {"type": "string", "minLength": 1},
+    "path": {"type": "string", "minLength": 1},
+    "artifact_kind": {"type": "string", "minLength": 1},
+    "artifact_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "artifact_utf8": {"type": "string"},
+    "prompt": {"type": "string", "minLength": 1},
+    "input_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}
