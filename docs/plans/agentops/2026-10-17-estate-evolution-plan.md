@@ -18,6 +18,20 @@ this document identify plan entries, not fabricated Sprintctl items. Sprintctl
 remains the work-item authority; implementations should bind these references
 to existing owner items before creating duplicates.
 
+## October 25 scoped evidence/decision implementation
+
+The [evidence-guided agent work implementation plan](
+2026-10-25-evidence-guided-agent-workflows.md) defines owner-owned packets
+AE-01..AE-12 for native session capture, optional semantic interpretation,
+work-owner completion assessment, accepted-outcome model comparisons,
+secondary-GPU decision inference and research/writing/game/analytics pilots.
+These refine EE-06, EE-08, EE-09, EE-10, EE-17, EE-23 and the respective
+domain plans **without** replacing their acceptance criteria or creating a
+parallel work ledger. No mandatory model/human gate is inserted into an
+already satisfiable acceptance contract. The first delivery is a single
+replayable evidence-to-completion vertical slice, not an estate-wide rollout.
+Only served Sprintctl binds the actual owner work-item IDs.
+
 ## Intended result
 
 One operator or team can carry a purpose across agents, sessions and machines,
