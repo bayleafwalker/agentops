@@ -54,6 +54,11 @@ Raw transcripts, credentials, authority claims, and identity claims are
 refused in request arguments. Text that resembles common credential formats is
 also refused. This is a screening check, not a general secret detector: keep
 secret values and conversation transcripts out of all request text.
+The packet's `execution.intended_identity` is descriptive routing context for
+the operator's target account; it is not a claim about the current caller and
+is allowed. The owner continues to bind the authenticated caller and authority.
+CLI JSON input and MCP lines are bounded and reject duplicate keys, non-finite
+numbers, invalid Unicode, and over-deep structures before opening the owner.
 
 ## Runtime qualification limits
 

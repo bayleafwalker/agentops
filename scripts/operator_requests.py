@@ -12,6 +12,7 @@ import argparse
 import asyncio
 import fcntl
 import json
+import math
 import os
 import re
 import stat
@@ -33,11 +34,12 @@ _SENSITIVE_KEYS = frozenset({
     "actor", "principal", "principal_id", "workspace", "workspace_id", "repo", "repo_id",
     "authority", "authorities", "capability", "token", "access_token", "secret", "password",
     "credential", "transcript", "raw_transcript", "raw_log", "session_log",
-    "api_key", "private_key", "identity_claim", "authority_claim",
+    "api_key", "private_key", "identity", "identity_id", "identity_claim",
+    "authority_claim", "claimed_identity",
 })
 _SENSITIVE_KEY_PARTS = (
     "transcript", "credential", "secret", "password", "passphrase", "token",
-    "authority", "principal", "identity", "identity_claim", "api_key", "private_key",
+    "authority", "principal", "identity_claim", "api_key", "private_key",
 )
 _SENSITIVE_TEXT = re.compile(
     r"(?i)(?:\bAKIA[0-9A-Z]{16}\b|\bgh[pousr]_[A-Za-z0-9]{20,}\b|"
@@ -46,6 +48,8 @@ _SENSITIVE_TEXT = re.compile(
 )
 _RFC3339_TEXT = re.compile(r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)$")
 _MAX_SAFE_INTEGER = (1 << 53) - 1
+MAX_REQUEST_JSON_BYTES = 1_000_000
+MAX_REQUEST_JSON_DEPTH = 64
 
 
 class RequestClientError(RuntimeError):
@@ -785,14 +789,67 @@ def _error(msg_id: Any, code: int, message: str) -> dict[str, Any]:
     return {"jsonrpc": "2.0", "id": msg_id, "error": {"code": code, "message": message}}
 
 
+def _strict_json(raw: str | bytes) -> Any:
+    """Parse bounded JSON without accepting duplicate keys or non-JSON numbers."""
+    try:
+        if isinstance(raw, bytes):
+            if len(raw) > MAX_REQUEST_JSON_BYTES:
+                raise ValueError("size limit")
+            source = raw.decode("utf-8", "strict")
+        elif isinstance(raw, str):
+            source = raw
+            if len(source.encode("utf-8", "strict")) > MAX_REQUEST_JSON_BYTES:
+                raise ValueError("size limit")
+        else:
+            raise ValueError("not text")
+
+        def reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+            result: dict[str, Any] = {}
+            for key, value in pairs:
+                if key in result:
+                    raise ValueError("duplicate key")
+                result[key] = value
+            return result
+
+        def reject_constant(_value: str) -> Any:
+            raise ValueError("non-finite constant")
+
+        value = json.loads(source, object_pairs_hook=reject_duplicates, parse_constant=reject_constant)
+        stack: list[tuple[Any, int]] = [(value, 0)]
+        while stack:
+            item, depth = stack.pop()
+            if depth > MAX_REQUEST_JSON_DEPTH:
+                raise ValueError("depth limit")
+            if isinstance(item, dict):
+                for key, child in item.items():
+                    key.encode("utf-8", "strict")
+                    stack.append((child, depth + 1))
+            elif isinstance(item, list):
+                stack.extend((child, depth + 1) for child in item)
+            elif isinstance(item, str):
+                item.encode("utf-8", "strict")
+            elif isinstance(item, float) and not math.isfinite(item):
+                raise ValueError("non-finite number")
+        return value
+    except (UnicodeError, ValueError, RecursionError, json.JSONDecodeError):
+        raise RequestClientError("invalid-json", "input is not bounded, strict JSON") from None
+
+
 def serve(server: MCPServer, stdin: TextIO, stdout: TextIO) -> None:
     try:
-        for line in stdin:
+        while True:
+            line = stdin.readline(MAX_REQUEST_JSON_BYTES + 2)
+            if not line:
+                break
+            if len(line) >= MAX_REQUEST_JSON_BYTES + 2 and not line.endswith("\n"):
+                stdout.write(json.dumps(_error(None, -32700, "Parse error"), separators=(",", ":")) + "\n")
+                stdout.flush()
+                break
             if not line.strip():
                 continue
             try:
-                message = json.loads(line)
-            except ValueError:
+                message = _strict_json(line[:-1] if line.endswith("\n") else line)
+            except RequestClientError:
                 response = _error(None, -32700, "Parse error")
             else:
                 response = (
@@ -808,9 +865,13 @@ def serve(server: MCPServer, stdin: TextIO, stdout: TextIO) -> None:
 
 def _arguments(path: str) -> dict[str, Any]:
     try:
-        raw = sys.stdin.read() if path == "-" else Path(path).read_text(encoding="utf-8")
-        value = json.loads(raw)
-    except (OSError, json.JSONDecodeError) as exc:
+        if path == "-":
+            raw = sys.stdin.read(MAX_REQUEST_JSON_BYTES + 1)
+        else:
+            with Path(path).open("rb") as handle:
+                raw = handle.read(MAX_REQUEST_JSON_BYTES + 1)
+        value = _strict_json(raw)
+    except (OSError, RequestClientError) as exc:
         raise RequestClientError("invalid-arguments", "arguments must be valid JSON from a readable file or stdin") from exc
     if not isinstance(value, dict):
         raise RequestClientError("invalid-arguments", "arguments JSON must be an object")

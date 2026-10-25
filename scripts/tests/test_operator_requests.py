@@ -1,16 +1,52 @@
 """Focused tests for the local operator-request transport boundary."""
 from __future__ import annotations
 
+import asyncio
 import sys
 import json
 import os
 import tempfile
 import unittest
+from io import StringIO
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import operator_requests as requests
+
+
+def complete_packet():
+    return {
+        "schema": "operator-request/v1",
+        "kind": "perform",
+        "required_outcome": "The operator runs the checked migration command.",
+        "reason": "The native session has no route to the approved operator host.",
+        "execution": {
+            "host": "ops.example.invalid",
+            "directory": "/srv/service",
+            "intended_identity": "deployment-operator",
+            "target": "staging/service-a",
+            "inputs": [{"name": "operator session", "acquire_from": "approved terminal login"}],
+        },
+        "procedure": {
+            "version": "1.0.0",
+            "steps": [{
+                "step_id": "check",
+                "instruction": "Run the documented read-only preflight command.",
+                "expected_result": "The target reports the expected release digest.",
+                "preconditions": ["The operator is on ops.example.invalid."],
+                "verification": "Compare the returned digest with the pinned release.",
+                "partial_progress": "Record the observed step before proceeding.",
+                "recovery": "Stop and refresh this request if the digest differs.",
+            }],
+        },
+        "blocker": {
+            "condition": "A checked operator-only preflight remains outstanding.",
+            "checked_at": "2026-10-24T10:00:00Z",
+            "fresh_until": "2026-10-24T11:00:00Z",
+            "source_revisions": [{"source": "release", "revision": "sha256:abc"}],
+        },
+    }
 
 
 class RequestContentBoundaryTests(unittest.TestCase):
@@ -21,6 +57,8 @@ class RequestContentBoundaryTests(unittest.TestCase):
             {"claimed_authority": "can approve"},
             {"session": {"credential_reference": "file:secret"}},
             {"context": {"raw_transcript": "private words"}},
+            {"identity": "claimed-user"},
+            {"authority": "can-approve"},
         ):
             with self.subTest(payload=payload), self.assertRaises(requests.RequestClientError) as caught:
                 requests._check_content(payload)
@@ -44,6 +82,93 @@ class RequestContentBoundaryTests(unittest.TestCase):
         self.assertEqual(reply["structuredContent"]["code"], "sensitive-content-refused")
         owner.invoke.assert_not_called()
 
+    def test_complete_publish_packet_with_intended_identity_passes_adapter_and_mcp(self):
+        request_id = "req_01JZZZZZZZZZZZZZZZZZZZZZZZ"
+        arguments = {
+            "request_id": request_id,
+            "packet": complete_packet(),
+            "dependants": [{"work_item_id": 42, "session_id": "session-1"}],
+            "idempotency_key": "publish-req-01JZZZZZZZZZZZZZZZZZZZZZZZ",
+        }
+        owner = requests.VuoroRequestOwner(Path("/unused/profile"))
+        loop = asyncio.new_event_loop()
+        owner._loop = loop
+        calls = []
+
+        class Client:
+            async def invoke(self, operation, payload, *, repo_id):
+                calls.append((operation, payload, repo_id))
+                return {"request_id": request_id, "revision": 1, "replayed": False}
+
+        owner._client = Client()
+        owner._operations = {requests.OPERATIONS["publish"]}
+        try:
+            result = owner.invoke("publish", "sprintctl", arguments)
+        finally:
+            owner.close()
+        self.assertEqual(result, {"request_id": request_id, "revision": 1, "replayed": False})
+        self.assertEqual(calls, [(requests.OPERATIONS["publish"], arguments, "sprintctl")])
+
+        forwarded = []
+        server = requests.MCPServer(lambda: type("Owner", (), {
+            "invoke": lambda _self, suffix, repo, payload: (
+                forwarded.append((suffix, repo, payload))
+                or {"request_id": request_id, "revision": 1, "replayed": False}
+            ),
+        })())
+        reply = server.call_tool("publish", {"repo_id": "sprintctl", "arguments": arguments})
+        self.assertFalse(reply["isError"])
+        self.assertEqual(forwarded, [("publish", "sprintctl", arguments)])
+
+    def test_strict_json_rejects_duplicate_nonfinite_overdeep_and_oversize(self):
+        overdeep = "{" * (requests.MAX_REQUEST_JSON_DEPTH + 1) + "0" + "}" * (requests.MAX_REQUEST_JSON_DEPTH + 1)
+        for raw in (
+            '{"x":1,"x":2}',
+            '{"x":NaN}',
+            '{"x":1e9999}',
+            overdeep,
+            " " * (requests.MAX_REQUEST_JSON_BYTES + 1),
+        ):
+            with self.subTest(length=len(raw)), self.assertRaises(requests.RequestClientError) as caught:
+                requests._strict_json(raw)
+            self.assertEqual(caught.exception.code, "invalid-json")
+
+    def test_mcp_strict_parse_refusal_precedes_owner_initialization(self):
+        overdeep = "{" * (requests.MAX_REQUEST_JSON_DEPTH + 1) + "0" + "}" * (requests.MAX_REQUEST_JSON_DEPTH + 1)
+        invalid = (
+            '{"jsonrpc":"2.0","id":1,"method":"ping","method":"tools/list"}',
+            '{"jsonrpc":"2.0","id":1,"method":"ping","params":{"x":NaN}}',
+            '{"jsonrpc":"2.0","id":1,"method":"ping","params":' + overdeep + "}",
+            " " * (requests.MAX_REQUEST_JSON_BYTES + 2),
+        )
+        owner_factory = Mock(side_effect=AssertionError("owner must remain unopened"))
+        output = StringIO()
+        requests.serve(requests.MCPServer(owner_factory), StringIO("\n".join(invalid) + "\n"), output)
+        replies = [json.loads(line) for line in output.getvalue().splitlines()]
+        self.assertEqual(len(replies), len(invalid))
+        self.assertTrue(all(reply["error"]["code"] == -32700 for reply in replies))
+        owner_factory.assert_not_called()
+
+    def test_cli_strict_arguments_refuse_before_owner_initialization(self):
+        overdeep = "{" * (requests.MAX_REQUEST_JSON_DEPTH + 1) + "0" + "}" * (requests.MAX_REQUEST_JSON_DEPTH + 1)
+        invalid = (
+            '{"request_id":"one","request_id":"two"}',
+            '{"request_id":NaN}',
+            '{"request_id":1e9999}',
+            overdeep,
+            " " * (requests.MAX_REQUEST_JSON_BYTES + 1),
+        )
+        for raw in invalid:
+            with self.subTest(length=len(raw)), patch.object(requests.sys, "stdin", StringIO(raw)), \
+                    patch.object(requests.sys, "stderr", StringIO()), \
+                    patch.object(requests.VuoroRequestOwner, "_ensure") as ensure:
+                result = requests.main([
+                    "invoke", "publish", "--repo", "sprintctl", "--arguments", "-",
+                    "--profile", "/unused/profile",
+                ])
+                self.assertEqual(result, 2)
+                ensure.assert_not_called()
+
     def test_owner_refusal_for_stale_or_revoked_access_is_not_rewritten(self) -> None:
         class Owner:
             def invoke(self, suffix, repo_id, arguments):
@@ -66,7 +191,7 @@ class LocalRequestOutboxTests(unittest.TestCase):
         self.arguments = {
             "request_id": "req_01JZZZZZZZZZZZZZZZZZZZZZZZ",
             "idempotency_key": "publish-req-01JZZZZZZZZZZZZZZZZZZZZZZZ",
-            "packet": {"summary": "Restart a test service", "procedure": ["Check health", "Restart"]},
+            "packet": complete_packet(),
             "dependants": [{"work_item_id": 42, "session_id": "session-1"}],
         }
 
@@ -275,8 +400,8 @@ class LocalRequestOutboxTests(unittest.TestCase):
             self.store.list_entries()
         self.assertEqual(caught.exception.code, "outbox-storage-invalid")
         duplicated_nested_key = json.dumps(valid).replace(
-            '"summary": "Restart a test service"',
-            '"summary": "first", "summary": "second"',
+            '"required_outcome": "The operator runs the checked migration command."',
+            '"required_outcome": "first", "required_outcome": "second"',
         )
         data.write_text(duplicated_nested_key)
         with self.assertRaises(requests.RequestClientError) as caught:
