@@ -54,8 +54,9 @@ mint or verify Sovite authority or qualification.
 The scheduler extraction is mechanical. It preserves the collection-before-
 admission ordering, capacity/dependency/area/quota/spacing checks, and the
 single-candidate verification/review/integration progression. The adapter still
-provides usage and failover reconciliation, task/attempt transitions, check and
-review receipts, repo freshness, scope checks, Git merge/push/cleanup, and
+provides usage and failover reconciliation, task/attempt transitions, the
+project verification command and check receipts, review receipts, repo
+freshness, scope checks, Git merge/push/cleanup, and
 tick-finalization behavior. It does not change provider selection, risk meaning,
 acceptance policy, or integration authority.
 

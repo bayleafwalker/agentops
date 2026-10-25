@@ -38,8 +38,7 @@ class FakeQuota:
 class Adapter:
     def __init__(self, tasks, *, max_workers=3, results=None, blocked=()):
         self.store = FakeStore(tasks)
-        self.config = {"max_workers": max_workers, "launch_spacing": 0,
-                       "check_command": ["check", "--exact"]}
+        self.config = {"max_workers": max_workers, "launch_spacing": 0}
         self.quota = FakeQuota(blocked)
         self.results = dict(results or {})
         self.calls = []
@@ -72,6 +71,9 @@ class Adapter:
         self.calls.append(("save", task["id"], state))
         return deepcopy(saved)
     def main_tip(self): self.calls.append("main_tip"); return self.tip
+    def verification_command(self):
+        self.calls.append("verification_command")
+        return ["adapter-check", "--project-profile"]
     def attempt(self, kind, task, command, cwd, provider, model, base):
         self.attempt_number += 1
         value = ("attempt:" + str(self.attempt_number), self.attempt_number)
@@ -123,6 +125,8 @@ class SchedulerTests(unittest.TestCase):
         self.assertEqual(adapter.store._tasks[0]["state"], "VERIFYING")
         self.assertEqual(adapter.store._tasks[1]["state"], "READY")
         self.assertEqual(adapter.attempt_number, 1)
+        self.assertIn(("attempt", "verify", "first", ("adapter-check", "--project-profile"), "main-0"),
+                      adapter.calls)
         self.assertEqual(sum(1 for call in adapter.calls if isinstance(call, tuple)
                              and call[0] == "attempt"), 1)
         self.assertIn(("waiting", "second", "integration_queue"), adapter.calls)
