@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.dev/schemas/blind-review-label-set.v1.schema.json",
+  "title": "Private expected findings for blind review scoring",
+  "description": "Keep this file outside reviewer request bundles and public artifacts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "expected_findings", "negative_controls", "unknown_label_count"],
+  "properties": {
+    "schema": {"const": "blind-review-label-set/v1"},
+    "expected_findings": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["finding_id", "severity", "card_ids"],
+        "properties": {
+          "finding_id": {"type": "string", "minLength": 1},
+          "severity": {"enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO", "UNKNOWN"]},
+          "card_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1, "uniqueItems": true}
+        }
+      }
+    },
+    "negative_controls": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["card_id", "absent_finding_ids"],
+        "properties": {
+          "card_id": {"type": "string", "minLength": 1},
+          "absent_finding_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+        }
+      }
+    },
+    "unknown_label_count": {"type": "integer", "minimum": 0}
+  }
+}

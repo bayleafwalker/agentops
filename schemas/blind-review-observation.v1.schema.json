@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.dev/schemas/blind-review-observation.v1.schema.json",
+  "title": "Adjudicated blind review observation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "card_id", "input_digest", "model", "runtime", "findings"],
+  "properties": {
+    "schema": {"const": "blind-review-observation/v1"},
+    "card_id": {"type": "string", "minLength": 1},
+    "input_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "model": {
+      "type": "object", "additionalProperties": false,
+      "required": ["provider", "id", "revision", "actual"],
+      "properties": {
+        "provider": {"type": "string", "minLength": 1},
+        "id": {"type": "string", "minLength": 1},
+        "revision": {"type": "string", "minLength": 1},
+        "actual": {"type": "boolean"}
+      }
+    },
+    "runtime": {
+      "type": "object", "additionalProperties": false,
+      "required": ["adapter", "version", "request_id", "response_sha256", "actual", "latency_ms", "usage"],
+      "properties": {
+        "adapter": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "minLength": 1},
+        "request_id": {"type": "string", "minLength": 1},
+        "response_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "actual": {"type": "boolean"},
+        "latency_ms": {"type": ["number", "null"], "minimum": 0},
+        "usage": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["input_tokens", "output_tokens", "cost_usd"],
+          "properties": {
+            "input_tokens": {"type": ["number", "null"], "minimum": 0},
+            "output_tokens": {"type": ["number", "null"], "minimum": 0},
+            "cost_usd": {"type": ["number", "null"], "minimum": 0}
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["finding_id", "severity", "claim", "verification", "support"],
+        "properties": {
+          "finding_id": {"type": ["string", "null"]},
+          "severity": {"enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO", "UNKNOWN"]},
+          "claim": {"type": "string", "minLength": 1},
+          "verification": {
+            "type": "object", "additionalProperties": false,
+            "required": ["status", "adjudicator"],
+            "properties": {
+              "status": {"enum": ["confirmed", "unsupported", "unknown"]},
+              "adjudicator": {"type": "string", "minLength": 1}
+            }
+          },
+          "support": {
+            "oneOf": [
+              {"type": "null"},
+              {
+                "type": "object", "additionalProperties": false,
+                "required": ["file", "line", "mechanism"],
+                "properties": {
+                  "file": {"type": "string", "minLength": 1},
+                  "line": {"type": "integer", "minimum": 1},
+                  "mechanism": {"type": "string", "minLength": 1}
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
