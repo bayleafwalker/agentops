@@ -28,6 +28,7 @@ OBJECTS = "objects"
 MAX_LOG_BYTES = 32 * 1024 * 1024
 MAX_EVENT_BYTES = 2 * 1024 * 1024
 MAX_PROBE_BYTES = 2 * 1024 * 1024
+_UNCONDITIONAL = object()
 SCHEMA = "agentops.investigation.v1"
 EVAL_SCHEMA = "agentops.investigation-evaluation.v1"
 COLLECTOR = "agentops.autonomous-investigation.v1"
@@ -147,7 +148,8 @@ def _read_log(root: Path) -> list[dict[str, Any]]:
     return rows
 
 
-def _append(root: Path, kind: str, data: dict[str, Any]) -> dict[str, Any]:
+def _append(root: Path, kind: str, data: dict[str, Any], *,
+            expected_head: Any = _UNCONDITIONAL) -> dict[str, Any]:
     root = _check_root(root)
     log = root / EVENTS
     if log.is_symlink():
@@ -159,9 +161,13 @@ def _append(root: Path, kind: str, data: dict[str, Any]) -> dict[str, Any]:
     try:
         fcntl.flock(lock_fd, fcntl.LOCK_EX)
         rows = _read_log(root)
+        previous = rows[-1]["digest"] if rows else None
+        if expected_head is not _UNCONDITIONAL and expected_head != previous:
+            raise InvestigationError("investigation changed concurrently; reload before retrying")
         if not rows and kind != "initialized":
             raise InvestigationError("first event must initialize the investigation")
-        previous = rows[-1]["digest"] if rows else None
+        if rows and kind == "initialized":
+            raise InvestigationError("investigation is already initialized")
         signed = {"seq": len(rows) + 1, "kind": kind, "data": data,
                   "previous_digest": previous}
         row = {**signed, "digest": _sha(_canonical(signed))}
@@ -595,7 +601,8 @@ def add_probe(root: Path, value: Any) -> dict[str, Any]:
     if state["selected"] is not None or state["active"] is not None:
         raise InvestigationError("register the next probe only after resolving the current one")
     recorded = {key: value for key, value in probe.items() if key != "outcomes"}
-    _append(root, "probe_registered", {"probe": recorded})
+    _append(root, "probe_registered", {"probe": recorded},
+            expected_head=state["events"][-1]["digest"])
     return probe
 
 
@@ -616,7 +623,7 @@ def select_next(root: Path) -> dict[str, Any] | None:
         "posterior_before": dict(state["posterior"]),
         "strategy": "expected_information_gain.v1",
         "reason": "highest expected entropy reduction after declared safety and cost penalties",
-    })
+    }, expected_head=state["events"][-1]["digest"])
     return best
 
 
@@ -729,10 +736,13 @@ def execute_selected(root: Path, probe_root: Path) -> dict[str, Any]:
         raise InvestigationError("external native-runtime probes must be recorded with observe")
     _append(root, "probe_started", {
         "probe_id": probe_id, "started_at": _now(), "runner": COLLECTOR, "effects": "read_only",
-    })
+    }, expected_head=state["events"][-1]["digest"])
     outcome, evidence = _run_builtin(probe, probe_root)
     object_bytes = _canonical(evidence)
     digest = _store_object(root, object_bytes)
+    latest_state = load_state(root)
+    if latest_state["active"] != probe_id:
+        raise InvestigationError("probe state changed while it was running; evidence was retained")
     observed = {
         "probe_id": probe_id, "outcome": outcome, "observed_at": _now(),
         "evidence": {
@@ -740,7 +750,8 @@ def execute_selected(root: Path, probe_root: Path) -> dict[str, Any]:
             "media_type": "application/json", "kind": "read_only_probe_result",
         },
     }
-    _append(root, "probe_observed", observed)
+    _append(root, "probe_observed", observed,
+            expected_head=latest_state["events"][-1]["digest"])
     return observed
 
 
@@ -775,7 +786,8 @@ def record_external_observation(root: Path, *, outcome: str, evidence_ref: str,
             "media_type": "external-reference", "kind": "native_runtime_observation",
         },
     }
-    _append(root, "external_observation", data)
+    _append(root, "external_observation", data,
+            expected_head=state["events"][-1]["digest"])
     return data
 
 
@@ -801,7 +813,8 @@ def resolve_interrupted_probe(root: Path, reason: str) -> dict[str, Any]:
             "media_type": "application/json", "kind": "interrupted_probe",
         },
     }
-    _append(root, "probe_interrupted", data)
+    _append(root, "probe_interrupted", data,
+            expected_head=state["events"][-1]["digest"])
     return data
 
 
@@ -814,6 +827,9 @@ def build_report(root: Path) -> dict[str, Any]:
     margin = top_probability - second_probability
     threshold = state["init"]["decision_threshold"]
     clean_evidence = not state["surprises"]
+    remaining = rank_probes(
+        state["probes"], posterior, state["completed"], state["init"].get("max_risk", "low")
+    )
     if state["observations"] and clean_evidence and top_probability >= threshold and margin >= 0.2:
         conclusion = "supported"
         confidence = "high" if top_probability >= 0.95 and margin >= 0.4 else "moderate"
@@ -827,9 +843,6 @@ def build_report(root: Path) -> dict[str, Any]:
     elif state["selected"] is not None:
         stop_reason = "selected_probe_not_yet_resolved"
     elif stop_reason is None:
-        remaining = rank_probes(
-            state["probes"], posterior, state["completed"], state["init"].get("max_risk", "low")
-        )
         stop_reason = ("no_discriminating_safe_probe_remains"
                        if not remaining or remaining[0]["utility"] <= 1e-12
                        else "continue_with_next_probe")
@@ -851,9 +864,7 @@ def build_report(root: Path) -> dict[str, Any]:
         "unexpected_observations": len(state["surprises"]),
         "probe_decisions": state["decisions"],
         "selected_probe": state["selected"], "incomplete_probe": state["active"],
-        "next_probe": (rank_probes(
-            state["probes"], posterior, state["completed"], state["init"].get("max_risk", "low")
-        ) or [None])[0],
+        "next_probe": (remaining[0] if stop_reason == "continue_with_next_probe" else None),
         "event_count": len(state["events"]), "event_head": state["events"][-1]["digest"],
         "limits": [
             "Posterior values depend on the pre-registered likelihood model.",
@@ -881,7 +892,7 @@ def write_report(root: Path) -> dict[str, Any]:
     ref_root = state["init"].get("artifact_ref")
     ref = f"{ref_root}/reports/{report_path.name}" if ref_root else f"reports/{report_path.name}"
     payload = {"digest": digest, "ref": ref, "size_bytes": len(data), "media_type": "application/json"}
-    _append(root, "report_created", payload)
+    _append(root, "report_created", payload, expected_head=report["event_head"])
     return {**report, "evidence": payload}
 
 
@@ -1104,8 +1115,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "vuoro-evidence":
             result = vuoro_evidence_payloads(args.directory)
         elif args.command == "evaluate":
-            raw = args.dataset.read_bytes()
-            dataset = _loads(raw, str(args.dataset))
+            dataset = _read_json_file(args.dataset)
             if args.expected_digest and _sha(_canonical(dataset)) != args.expected_digest:
                 raise InvestigationError("evaluation dataset digest does not match the supplied pin")
             result = evaluate_dataset(dataset)
