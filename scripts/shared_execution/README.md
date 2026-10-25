@@ -22,6 +22,8 @@ The main imports are:
 - `governance.InterpretationGovernance` to append immutable result and
   interpretation revisions, disposition attestations, and dispute-driven
   reconciliation intents to the existing event log.
+- `scheduler.tick(adapter)` for ordered result collection, worker-slot admission,
+  and serialized candidate progression through verification, review, and merge.
 
 ## Authority and policy boundary
 
@@ -47,6 +49,14 @@ requires a known future reset. Those references remain caller-supplied claims;
 the helper validates a prequalified snapshot's shape and bounds but does not
 mint or verify Sovite authority or qualification.
 
+The scheduler extraction is mechanical. It preserves the collection-before-
+admission ordering, capacity/dependency/area/quota/spacing checks, and the
+single-candidate verification/review/integration progression. The adapter still
+provides usage and failover reconciliation, task/attempt transitions, check and
+review receipts, repo freshness, scope checks, Git merge/push/cleanup, and
+tick-finalization behavior. It does not change provider selection, risk meaning,
+acceptance policy, or integration authority.
+
 The consumer must reconcile the previous attempt receipt and preserve the
 contract and workspace before creating a new attempt. It must record the
 provider change durably and link the new attempt to its predecessor. Paid
@@ -54,9 +64,11 @@ upgrades are refused unless the next attempt's explicit ceiling is no higher
 than the current binding's ceiling and fits the remaining budget. The helper
 does not enable an unqualified binding or authorize fallback by itself.
 
-The current extraction is the runtime and process-supervision slice. The
-V2.1 scheduler and project integration loop remain in their project adapter
-until each behavior has an equivalent contract and parity coverage.
+The extracted shared slice includes the V2.1 runtime/process mechanics and the
+generic capacity, dependency, slot-refill, and serialized-candidate progression
+in `scheduler.tick`. Project Git actions, verification and acceptance policy,
+review semantics, provider policy, scope checks, and the integration loop's
+project-specific hooks remain in their adapter.
 
 Retrospective interpretation governance is separate from execution state.
 `record_result_revision` and `record_interpretation_revision` bind immutable
