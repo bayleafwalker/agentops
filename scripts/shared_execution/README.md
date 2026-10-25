@@ -1,9 +1,9 @@
 # Shared execution mechanics
 
-This package extracts the V2.1 local runtime and child-process supervision
-used by project dispatch adapters. Consumers vendor the package and record its
-source digest in a project `dispatch.lock`. The lock is verified before a
-consumer starts its dispatcher.
+This package extracts V2.1 local runtime, child-process supervision, quota
+pause, and scheduler mechanics used by project dispatch adapters. Consumers
+vendor the package and record its source digest in a project `dispatch.lock`.
+The lock is verified before a consumer starts its dispatcher.
 
 The main imports are:
 
@@ -11,6 +11,8 @@ The main imports are:
   journaling, and single-driver lock;
 - `runtime.atomic`, `runtime.read`, `runtime.git`, and `runtime.alive` for the
   existing durability and process identity behavior;
+- `quota.QuotaLedger` for the existing atomic per-provider, per-window quota
+  pause ledger, with provider windows supplied by the project adapter;
 - `process.run_child` and `process.stop_attempt` for child process groups,
   timeout cleanup, and restart cleanup;
 - `protocol.RunEnvelope`, `AttemptEnvelope`, `EventEnvelope`, and `EvidenceRef`
@@ -64,11 +66,17 @@ upgrades are refused unless the next attempt's explicit ceiling is no higher
 than the current binding's ceiling and fits the remaining budget. The helper
 does not enable an unqualified binding or authorize fallback by itself.
 
-The extracted shared slice includes the V2.1 runtime/process mechanics and the
-generic capacity, dependency, slot-refill, and serialized-candidate progression
-in `scheduler.tick`. Project Git actions, verification and acceptance policy,
-review semantics, provider policy, scope checks, and the integration loop's
-project-specific hooks remain in their adapter.
+The extracted shared slice includes V2.1 runtime/process mechanics, quota pause
+persistence, and the generic capacity, dependency, slot-refill, and
+serialized-candidate progression in `scheduler.tick`. Project Git actions,
+verification and acceptance policy, review semantics, provider policy, scope
+checks, and integration-loop project hooks remain in their adapter.
+
+Quota pause persistence is a mechanics helper. The consumer supplies provider
+window names and parses provider output before recording an observation. The
+ledger preserves unknown resets as blocked, expires known resets against an
+injected/current clock, and keeps provider windows independent. It does not
+enforce a spending budget or decide whether a binding is eligible.
 
 Retrospective interpretation governance is separate from execution state.
 `record_result_revision` and `record_interpretation_revision` bind immutable
