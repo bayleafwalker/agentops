@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import subprocess
+from unittest.mock import patch
 import os
 from pathlib import Path
 import sys
@@ -175,6 +178,66 @@ class ProcessTests(unittest.TestCase):
             self.assertEqual(marker.read_text(), "x")
             child = json.loads((attempt / "child.json").read_text())
             self.assertEqual(child["pgid"], child["pid"])
+
+    def test_stdin_artifact_delivers_complete_payload_above_argv_limit(self):
+        for size in (0, 256 * 1024, 2 * 1024 * 1024):
+            with self.subTest(size=size), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                data = b"x" * size
+                digest = hashlib.sha256(data).hexdigest()
+                (root / "input.txt").write_bytes(data)
+                spec = {"cwd": directory, "timeout": 3, "stdin_artifact": {
+                    "file": "input.txt", "sha256": digest, "size_bytes": size}}
+                with (root / "output.log").open("ab") as output:
+                    result = run_child([sys.executable, "-c",
+                        "import sys,hashlib; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())"],
+                        output, spec=spec, attempt_dir=root, env=os.environ.copy(), started_at=time.time())
+                self.assertEqual(result, 0)
+                self.assertEqual((root / "output.log").read_text().strip(), digest)
+
+    def test_invalid_stdin_artifact_never_starts_child(self):
+        for case in ("hash", "size", "escape", "symlink", "fifo", "oversize", "boolean", "null"):
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / "input.txt").write_bytes(b"input")
+                binding = {"file": "input.txt", "sha256": hashlib.sha256(b"input").hexdigest(), "size_bytes": 5}
+                if case == "hash": binding["sha256"] = "0" * 64
+                elif case == "size": binding["size_bytes"] = 4
+                elif case == "escape": binding["file"] = "../input.txt"
+                elif case == "oversize": binding["size_bytes"] = 2 * 1024 * 1024 + 1
+                elif case == "boolean": binding["size_bytes"] = True
+                elif case == "null": binding = None
+                elif case == "symlink":
+                    (root / "link.txt").symlink_to(root / "input.txt")
+                    binding["file"] = "link.txt"
+                elif case == "fifo":
+                    os.mkfifo(root / "pipe")
+                    binding["file"] = "pipe"
+                spec = {"cwd": directory, "timeout": 3, "stdin_artifact": binding}
+                with (root / "output.log").open("ab") as output:
+                    with self.assertRaises((OSError, ValueError)):
+                        run_child([sys.executable, "-c", "raise RuntimeError('must not start')"], output,
+                                  spec=spec, attempt_dir=root, env=os.environ.copy(), started_at=time.time())
+                self.assertFalse((root / "child.json").exists())
+
+    def test_stdin_is_the_verified_snapshot_even_if_source_changes_before_spawn(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "input.txt"
+            source.write_bytes(b"verified input")
+            digest = hashlib.sha256(source.read_bytes()).hexdigest()
+            spec = {"cwd": directory, "timeout": 3, "stdin_artifact": {
+                "file": "input.txt", "sha256": digest, "size_bytes": source.stat().st_size}}
+            original_popen = subprocess.Popen
+            def mutate_then_spawn(*args, **kwargs):
+                source.write_bytes(b"different source")
+                return original_popen(*args, **kwargs)
+            with (root / "output.log").open("ab") as output:
+                with patch("shared_execution.process.subprocess.Popen", side_effect=mutate_then_spawn):
+                    result = run_child([sys.executable, "-c", "import sys; print(sys.stdin.read())"], output,
+                                      spec=spec, attempt_dir=root, env=os.environ.copy(), started_at=time.time())
+            self.assertEqual(result, 0)
+            self.assertEqual((root / "output.log").read_text().strip(), "verified input")
 
     def test_v21_timeout_returns_124(self):
         with tempfile.TemporaryDirectory() as directory:
