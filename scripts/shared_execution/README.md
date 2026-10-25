@@ -19,6 +19,9 @@ The main imports are:
 - `provider.decide_failover` to check a caller-supplied ordered binding snapshot
   against explicit role, harness-command, data-class, quota-reset, usage, and
   cost constraints.
+- `governance.InterpretationGovernance` to append immutable result and
+  interpretation revisions, disposition attestations, and dispute-driven
+  reconciliation intents to the existing event log.
 
 ## Authority and policy boundary
 
@@ -54,3 +57,18 @@ does not enable an unqualified binding or authorize fallback by itself.
 The current extraction is the runtime and process-supervision slice. The
 V2.1 scheduler and project integration loop remain in their project adapter
 until each behavior has an equivalent contract and parity coverage.
+
+Retrospective interpretation governance is separate from execution state.
+`record_result_revision` and `record_interpretation_revision` bind immutable
+source and evidence references, digests, provenance, and revision dependencies.
+`attest_disposition` appends `pending`, `acknowledged`, `ratified`, `disputed`,
+or `superseded` observations without replacing earlier attestations; superseded
+observations name an existing replacement revision of the same kind. The actor
+reference is attribution, not an authorization check; the caller's owner
+contract remains responsible for identity and authority. A dispute
+appends an advisory reconciliation intent listing the transitive revisions to
+reevaluate and their original evidence references. The intent is an immutable
+snapshot; `downstream_impacts` computes the current dependency closure, including
+revisions added later. It does not create an owner work item, change a task
+state, block unrelated work, or gate integration.
+Project adapters retain risk meaning and external-effect authorization.
