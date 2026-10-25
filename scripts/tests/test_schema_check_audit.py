@@ -720,7 +720,7 @@ class AuditDiscriminationTests(unittest.TestCase):
     """
 
     def test_a_stub_that_always_returns_empty_is_refused(self):
-        defective = [row[0] for row in SINGLE_DEFECT_SCHEMAS.values()]
+        defective = [schema for _, schema, _, _ in _live_single_defects()]
         defective += [schema for schema, _ in MULTI_DEFECT_SCHEMAS.values()]
         reported = 0
         for schema in defective:

@@ -34,8 +34,9 @@ Composition is enforced:
   matching several.
 * ``not`` -- the subschema must not hold.
 * ``propertyNames`` -- every key of an object satisfies a subschema.
-* ``minItems``, ``minProperties``, ``maximum`` -- the obvious bounds, with
-  ``maximum`` mirroring ``minimum`` and neither applied to a boolean.
+* ``minItems``, ``maxItems``, ``minLength``, ``maxLength``, ``minProperties``,
+  ``maximum`` -- the obvious bounds, with ``maximum`` mirroring ``minimum``
+  and neither applied to a boolean.
 * ``additionalProperties`` in its subschema form -- every property ``properties``
   does not name must satisfy that subschema; ``False`` still forbids extras and
   names each one, ``True`` and absent still constrain nothing.
@@ -58,9 +59,9 @@ import re
 
 SUPPORTED_KEYWORDS = frozenset({
     "type", "required", "properties", "additionalProperties", "items",
-    "enum", "const", "pattern", "minLength", "minimum", "uniqueItems",
+    "enum", "const", "pattern", "minLength", "maxLength", "minimum", "uniqueItems",
     "$defs", "$ref", "allOf", "if", "then", "oneOf", "not",
-    "propertyNames", "minItems", "minProperties", "maximum",
+    "propertyNames", "minItems", "maxItems", "minProperties", "maximum",
 })
 
 ANNOTATION_KEYWORDS = frozenset({
@@ -206,7 +207,10 @@ def _audit_schema(schema, path, root, seen=None, defects=None):
             _audit_schema(value, f"{path}.then", root, seen, defects)
         elif keyword == "propertyNames":
             _audit_schema(value, f"{path}.propertyNames", root, seen, defects)
-        elif keyword in ("minItems", "minProperties", "maximum"):
+        elif keyword in ("minItems", "maxItems", "minLength", "maxLength", "minProperties"):
+            if type(value) is not int or value < 0:
+                defects.append(f"{path}: {keyword} must be a non-negative integer")
+        elif keyword in ("minimum", "maximum"):
             if (not isinstance(value, (int, float))
                     or isinstance(value, bool)):
                 defects.append(f"{path}: {keyword} must be a number")
@@ -277,6 +281,9 @@ def _validate(instance, schema, path, root, assert_formats=()):
         min_length = schema.get("minLength")
         if min_length is not None and len(instance) < min_length:
             errors.append(f"{path}: shorter than minLength {min_length}")
+        max_length = schema.get("maxLength")
+        if max_length is not None and len(instance) > max_length:
+            errors.append(f"{path}: longer than maxLength {max_length}")
         fmt = schema.get("format")
         if fmt in assert_formats and not FORMAT_CHECKERS[fmt](instance):
             errors.append(
@@ -320,6 +327,9 @@ def _validate(instance, schema, path, root, assert_formats=()):
         min_items = schema.get("minItems")
         if min_items is not None and len(instance) < min_items:
             errors.append(f"{path}: fewer than minItems {min_items}")
+        max_items = schema.get("maxItems")
+        if max_items is not None and len(instance) > max_items:
+            errors.append(f"{path}: more than maxItems {max_items}")
         item_schema = schema.get("items")
         if item_schema:
             for index, item in enumerate(instance):
