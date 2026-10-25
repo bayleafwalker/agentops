@@ -1,5 +1,16 @@
 # Agent-Ops Plans
 
+## Evidence-guided agent work (25 October 2026)
+
+- [Capture, small decisions, owner completion, accepted-outcome learning and
+  cross-domain model experiments](2026-10-25-evidence-guided-agent-workflows.md)
+  — operator-requested implementation packages AE-01..AE-12. Maps audit,
+  work/Release, model-learning and local-inference owners plus writing, game,
+  asset and analytics pilots. Planning references are **not** new Sprintctl
+  work items or runtime permissions. Start with a replayable
+  evidence-to-completion slice; preserve automatic completion when the
+  current contract already permits it.
+
 ## Approved subscription-backed cross-harness pilot (25 October 2026)
 
 - [Decimal Iron: Claude Projects + cheap devbox, with failed-handoff and evidence
