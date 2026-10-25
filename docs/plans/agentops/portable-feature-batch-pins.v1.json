@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "purpose": "portable-feature-batch-owner-draft-source-pins",
+  "owners": [
+    {
+      "owner": "vuoro",
+      "branch": "cloud/20261024/programme-01-contract-foundation",
+      "commit": "fe7ce5a2e61d7e9d7b8786ba8bdafd08f59a91fc",
+      "draft_path": "docs/plans/2026-10-24-mcp-toolset-projection-requirements.md",
+      "draft_sha256": "9bd059a9bed284ab55e52f8e35e97278e987959e719a82ccccd0da0f36620b10"
+    },
+    {
+      "owner": "sovite",
+      "branch": "cloud/20261024/programme-09-p05-f2-contract",
+      "commit": "6e9cb948b57a03df6525a295121ae5c966b3e169",
+      "draft_path": "docs/contracts/worker-execution-remote-operations-requirements.md",
+      "draft_sha256": "7ccd37b78e1baf5e5139f669761d814564382e74df8bea340277746189974809"
+    },
+    {
+      "owner": "appservice",
+      "branch": "cloud/20261024/programme-08-integration-appservice-exact",
+      "commit": "17cbe5bd46a40800f0d168920449a2932e4d98f4",
+      "draft_path": "docs/plans/2026-10-24-portable-observability-requirements.md",
+      "draft_sha256": "965cf66525c26f8b13dc0d364415684fcc9292b6cf07bdd0cdf96c928c774391"
+    },
+    {
+      "owner": "sprintctl",
+      "branch": "cloud/20261024/programme-09-p04-request-lifecycle",
+      "commit": "2bd514e1f02b97cb656eb88db7d1f6a9989b1c9c",
+      "draft_path": "docs/plans/2026-10-24-portable-continuation-requirements.md",
+      "draft_sha256": "18e50dd2c38fc34de810bee4208baa40340c36b2881a0389c6613b67533947d8"
+    },
+    {
+      "owner": "vuoro-cloud",
+      "branch": "cloud/20261024/programme-08-integration-vuoro-cloud-exact",
+      "commit": "260571aafa299d5300099163b8a836820d5779d4",
+      "draft_path": "docs/plans/2026-10-24-portable-environment-capability-requirements.md",
+      "draft_sha256": "cd702ef8021b29c895dbf09cc0ee30a949757ab8944c3ccd5f732e1c3cc4e57f"
+    }
+  ]
+}

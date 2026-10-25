@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/portable-programme-run-request.v1.schema.json",
+  "title": "Portable programme run request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "request_id",
+    "goal",
+    "completion_evidence",
+    "repositories",
+    "dependencies",
+    "bounds",
+    "readiness_observations",
+    "review_policy",
+    "landing_policy"
+  ],
+  "properties": {
+    "schema": { "const": "portable-programme-run-request/v1" },
+    "request_id": { "$ref": "#/$defs/identifier" },
+    "goal": { "$ref": "#/$defs/text8000" },
+    "completion_evidence": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/text1000" }
+    },
+    "repositories": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/repository" }
+    },
+    "dependencies": {
+      "type": "array",
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/dependency" }
+    },
+    "bounds": { "$ref": "#/$defs/bounds" },
+    "readiness_observations": {
+      "type": "array",
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/readinessObservation" }
+    },
+    "review_policy": { "const": "independent-exact-head-review" },
+    "landing_policy": { "enum": ["candidate-only", "hold-for-operator"] }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "owner": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,62}$" },
+    "canonicalRepo": { "type": "string", "pattern": "^[A-Za-z0-9.-]+/(?:[A-Za-z0-9._-]+/)+[A-Za-z0-9._-]+$" },
+    "text8000": { "type": "string", "minLength": 1, "maxLength": 8000, "pattern": "\\S" },
+    "text1000": { "type": "string", "minLength": 1, "maxLength": 1000, "pattern": "\\S" },
+    "text500": { "type": "string", "minLength": 1, "maxLength": 500, "pattern": "\\S" },
+    "text160": { "type": "string", "minLength": 1, "maxLength": 160, "pattern": "\\S" },
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?/)[^\\\\\\u0000]+$"
+    },
+    "commit": { "type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "branch": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?/)(?!.*//)(?!.*@\\{)[A-Za-z0-9._/-]+(?<!/)$"
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owner",
+        "repository_id",
+        "source_branch",
+        "source_commit",
+        "target_branch",
+        "permitted_paths",
+        "access_class",
+        "requested_harness",
+        "requested_model"
+      ],
+      "properties": {
+        "owner": { "$ref": "#/$defs/owner" },
+        "repository_id": { "$ref": "#/$defs/canonicalRepo" },
+        "source_branch": { "$ref": "#/$defs/branch" },
+        "source_commit": { "$ref": "#/$defs/commit" },
+        "target_branch": { "$ref": "#/$defs/branch" },
+        "permitted_paths": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/repoPath" }
+        },
+        "access_class": { "enum": ["source-read", "candidate-write", "artifact-read"] },
+        "requested_harness": { "$ref": "#/$defs/text160" },
+        "requested_model": { "$ref": "#/$defs/text160" }
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "owner", "commit", "path", "sha256", "purpose", "access_class"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "owner": { "$ref": "#/$defs/owner" },
+        "commit": { "$ref": "#/$defs/commit" },
+        "path": { "$ref": "#/$defs/repoPath" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "purpose": { "$ref": "#/$defs/text1000" },
+        "access_class": { "enum": ["source-read", "artifact-read"] }
+      }
+    },
+    "bounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deadline_utc",
+        "spend_limit_usd",
+        "aggregate_concurrency",
+        "replanning_limit",
+        "checkpoint_interval_seconds",
+        "stop_conditions",
+        "escalation_route"
+      ],
+      "properties": {
+        "deadline_utc": { "type": "string", "format": "date-time" },
+        "spend_limit_usd": { "type": "string", "pattern": "^(?:0|[1-9][0-9]{0,8})(?:\\.[0-9]{1,2})?$" },
+        "aggregate_concurrency": { "type": "integer", "minimum": 1, "maximum": 32 },
+        "replanning_limit": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "checkpoint_interval_seconds": { "type": "integer", "minimum": 30, "maximum": 86400 },
+        "stop_conditions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/text500" }
+        },
+        "escalation_route": { "$ref": "#/$defs/text500" }
+      }
+    },
+    "readinessObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "kind", "reported_state"],
+      "properties": {
+        "owner": { "$ref": "#/$defs/owner" },
+        "kind": { "$ref": "#/$defs/identifier" },
+        "reported_state": { "enum": ["ready", "blocked", "unknown", "stale", "refused", "uncertain"] },
+        "observed_at": { "type": "string", "format": "date-time" },
+        "evidence_id": { "$ref": "#/$defs/identifier" }
+      }
+    }
+  }
+}
