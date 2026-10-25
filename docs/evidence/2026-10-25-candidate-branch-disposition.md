@@ -59,3 +59,26 @@ This is local source qualification only. Source pins in the candidate manifest
 remain a snapshot and must be rechecked against current owners before use. The
 report does not certify provider capability, receipt authenticity, owner
 readiness, a public MCP roster, a service, a release, or a deployment.
+
+## P08 Sovite client disposition update — 2026-10-25
+
+The earlier P08 assessment above predates the current published Sovite owner
+source. Sovite v0.1.21 is released from public source commit
+[`f76ff8cad5e5733721d5ba37dcf13444f732bd3a`](https://github.com/bayleafwalker/sovite/commit/f76ff8cad5e5733721d5ba37dcf13444f732bd3a).
+Its published wheel is
+[`sovite_platform-0.1.21-py3-none-any.whl`](https://github.com/bayleafwalker/sovite/releases/download/v0.1.21/sovite_platform-0.1.21-py3-none-any.whl),
+SHA-256 `ec0790a6d09f914661f6cd5fc24f4390516acb44f3749b8af6af0ea2bc59f017`.
+The generated F2 execution contract and strict owner client are in that source
+under `contracts/execution-v1/`,
+`sovite/execution_contract/vuoro_contract_c3c73ae52d117dd8407c15d4b4b549461e753e30de4783134a2cad02f5dd1ab4_client/`,
+and `sovite/execution_client.py`; tests exercise the generated client through
+the owner API. Current canonical Sovite main also contains PR #17 at
+[`1939baadc80dc1dd51cea9ad9f47e63eb817e412`](https://github.com/bayleafwalker/sovite/commit/1939baadc80dc1dd51cea9ad9f47e63eb817e412).
+
+Disposition update: Vuoro P08's handwritten provisional Sovite adapter in
+`packages/vuoro-demo/src/vuoro_demo/sovite_execution.py` and its earlier
+`vuoro-client` prototype are superseded by the generated owner contract/client
+and bounded strict client in the released Sovite source. The old prototype
+remains historical evidence only; the P08 branch may retire after its other
+source items are reconciled. This source disposition does not make a new claim
+about rollout or owner acceptance.
