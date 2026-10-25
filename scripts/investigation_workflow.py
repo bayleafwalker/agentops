@@ -646,7 +646,8 @@ def _safe_read(root: Path, relative: str, limit: int = MAX_PROBE_BYTES) -> bytes
                 os.close(fd)
             fd = next_fd
         try:
-            file_fd = os.open(parts[-1], os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=fd)
+            file_fd = os.open(parts[-1], os.O_RDONLY | os.O_NONBLOCK |
+                              getattr(os, "O_NOFOLLOW", 0), dir_fd=fd)
         except FileNotFoundError:
             return None
         try:
@@ -978,6 +979,7 @@ def evaluate_dataset(dataset: Any) -> dict[str, Any]:
         observations = case.get("observations")
         if not isinstance(observations, list) or not observations:
             raise InvestigationError(f"evaluation case {case_id} needs observed outcomes")
+        unexpected_observation = False
         for observation in observations:
             probe = probes.get(observation.get("probe_id"))
             if probe is None or observation.get("outcome") not in probe["outcomes"]:
@@ -986,12 +988,16 @@ def evaluate_dataset(dataset: Any) -> dict[str, Any]:
             predictive = sum(posterior[h] * likelihood[h] for h in hypothesis_ids)
             if predictive > 0:
                 posterior = {h: posterior[h] * likelihood[h] / predictive for h in hypothesis_ids}
+            else:
+                unexpected_observation = True
         expected_hypothesis = case.get("expected_hypothesis")
         if expected_hypothesis not in hypothesis_ids:
             raise InvestigationError(f"evaluation case {case_id} target hypothesis is missing")
         ordered = sorted(posterior.items(), key=lambda pair: (-pair[1], pair[0]))
         threshold = float(case.get("decision_threshold", 0.9))
-        predicted = ordered[0][0] if ordered[0][1] >= threshold else None
+        predicted = (ordered[0][0] if not unexpected_observation
+                     and ordered[0][1] >= threshold
+                     and ordered[0][1] - ordered[1][1] >= 0.2 else None)
         is_correct = predicted == expected_hypothesis
         correct += int(is_correct)
         abstained += int(predicted is None)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -77,6 +78,17 @@ class InvestigationWorkflowAdversarialTests(unittest.TestCase):
         self.add_and_select()
         with self.assertRaises(iw.InvestigationError):
             iw.execute_selected(self.record, self.source)
+
+    def test_fifo_probe_is_refused_without_waiting_for_a_writer(self):
+        os.mkfifo(self.source / "service.conf")
+        code = (
+            "from pathlib import Path; from scripts import investigation_workflow as iw; "
+            f"iw._safe_read(Path({str(self.source)!r}), 'service.conf')"
+        )
+        result = subprocess.run([sys.executable, "-c", code], capture_output=True,
+                                text=True, timeout=2)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("bounded regular files", result.stderr)
 
     def test_06_shell_and_unknown_probe_implementations_are_refused(self):
         probe = self.probe(implementation={
@@ -247,6 +259,25 @@ class InvestigationEvaluationAndIntegrationTests(unittest.TestCase):
                                 for item in payloads))
             self.assertTrue(all(item["provenance"]["event_head"].startswith("sha256:")
                                 for item in payloads))
+
+    def test_evaluation_abstains_after_an_impossible_observation(self):
+        dataset = json.loads((Path(__file__).parent / "fixtures/investigation/"
+                              "synthetic-known-cases.v1.json").read_text())
+        case = dataset["cases"][0]
+        dataset["cases"] = [case]
+        probe = case["probes"][0]
+        outcome = next(iter(next(iter(probe["likelihoods"].values()))))
+        for hypothesis in case["hypotheses"]:
+            hypothesis["prior"] = (0.99 if hypothesis["id"] == case["expected_hypothesis"]
+                                   else 0.01)
+        for distribution in probe["likelihoods"].values():
+            alternatives = [key for key in distribution if key != outcome]
+            distribution.update({key: (1.0 if key == alternatives[0] else 0.0)
+                                 for key in distribution})
+        case["observations"] = [{"probe_id": probe["id"], "outcome": outcome}]
+        result = iw.evaluate_dataset(dataset)
+        self.assertEqual(result["abstention_rate"], 1.0)
+        self.assertIsNone(result["cases"][0]["prediction"])
 
     def test_schema_documents_are_valid_json(self):
         root = Path(__file__).parents[2] / "schemas"
