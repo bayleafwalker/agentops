@@ -93,3 +93,20 @@ snapshot; `downstream_impacts` computes the current dependency closure, includin
 revisions added later. It does not create an owner work item, change a task
 state, block unrelated work, or gate integration.
 Project adapters retain risk meaning and external-effect authorization.
+
+## Bounded stdin artifacts
+
+`process.run_child` retains `/dev/null` stdin unless the immutable attempt spec
+contains `stdin_artifact: {"file": "input.txt", "sha256": "<64 lowercase hex>",
+"size_bytes": N}`. The file must be a direct regular file inside the attempt
+directory; symlinks, FIFOs, path traversal and input above 2 MiB are refused
+before starting a child. Exact bytes are size/hash checked and copied into an
+anonymous input snapshot, so a later source-file change cannot change the
+child's input. The consumer must bind this artifact and its prompt/command
+to its attempt identity and result receipt. This helper provides transport,
+not provider qualification or authorization to send data.
+
+This supports complete context beyond operating-system argv limits without
+silent truncation. Provider-specific stdin semantics remain in adapters; for
+example, [Claude's CLI reference](https://code.claude.com/docs/en/cli-reference)
+documents piped input with print mode. No provider is invoked by these tests.
