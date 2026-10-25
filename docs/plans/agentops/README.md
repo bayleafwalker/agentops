@@ -1,5 +1,15 @@
 # Agent-Ops Plans
 
+## Approved subscription-backed cross-harness pilot (25 October 2026)
+
+- [Decimal Iron: Claude Projects + cheap devbox, with failed-handoff and evidence
+  comparison](2026-10-25-subscription-cross-harness-pilot.md) — approved
+  **experiment plan**, not executed qualification. Cross-harness subscription
+  routing, native interaction, Vuoro evidence reconstruction and merge/review
+  conflict measurement. Follows the broader
+  [portable-workflows programme](2026-10-24-portable-agent-workflows.md)
+  without introducing a new dispatcher.
+
 ## Opportunistic follow-through (22 October 2026)
 
 - [Agent interface and outcome artifacts](2026-10-22-opportunistic-follow-through/README.md)
