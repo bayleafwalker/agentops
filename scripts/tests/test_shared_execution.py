@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from shared_execution.runtime import Store  # noqa: E402
 from shared_execution.process import run_child  # noqa: E402
 from shared_execution.lock import source_digest, verify_dispatch_lock  # noqa: E402
+from shared_execution.provider import decide_failover, harness_command_digest  # noqa: E402
 from shared_execution.protocol import AttemptEnvelope, EventEnvelope, EvidenceRef, RunEnvelope  # noqa: E402
 
 class ProtocolTests(unittest.TestCase):
@@ -70,6 +71,89 @@ class RuntimeTests(unittest.TestCase):
             source.write_text("ENGINE = 2\n")
             with self.assertRaisesRegex(ValueError, "digest mismatch"):
                 verify_dispatch_lock(lock)
+
+
+class ProviderFailoverTests(unittest.TestCase):
+    def setUp(self):
+        command_digest = harness_command_digest(["opencode", "run", "-m", "{model}", "{prompt}"])
+        common = {
+            "role_id": "worker",
+            "harness_id": "opencode",
+            "eligibility_ref": "owner-snapshot:eligible",
+            "role_qualification_ref": "evidence:role-equivalence",
+            "data_policy_ref": "evidence:data-scope",
+            "billing_mode": "api",
+            "billing_ref": "evidence:billing-binding",
+            "harness_qualification_ref": "evidence:harness-command",
+            "worker_command_sha256": command_digest,
+            "allowed_data_classes": ["public"],
+        }
+        self.policy = {
+            "schema_version": "provider-failover/v1",
+            "enabled": True,
+            "source_ref": "operator-snapshot:bindings",
+            "billing_snapshot_ref": "owner-snapshot:billing",
+            "budget_enforcement_ref": "coordinator-budget:task-1",
+            "allow_paid_overage": False,
+            "ordered_bindings": [
+                dict(common, binding_id="binding-a", provider_id="provider-a",
+                     model_id="model-a", max_cost_per_attempt_usd=0.25),
+                dict(common, binding_id="binding-b", provider_id="provider-b",
+                     model_id="model-b", max_cost_per_attempt_usd=0.20),
+            ],
+        }
+        self.arguments = dict(
+            current_binding_id="binding-a", current_provider_id="provider-a",
+            current_model_id="model-a", role_id="worker", data_class="public",
+            harness_id="opencode", worker_command_sha256=command_digest,
+            failure_kind="transport_error", quota_reset_at=None,
+            expected_attempt_ref="attempt:1",
+            usage={"state": "known", "complete": True, "observer": "coordinator",
+                   "billing_snapshot_ref": "owner-snapshot:billing", "attempt_ref": "attempt:1",
+                   "evidence_ref": "evidence:usage", "source_ref": "coordinator-usage:1",
+                   "attempt_cost_usd": 0.05,
+                   "remaining_budget_usd": 0.20}, now=100.0)
+
+    def test_disabled_by_default(self):
+        decision = decide_failover(None, **self.arguments)
+        self.assertFalse(decision.allowed)
+        self.assertEqual(decision.reason, "disabled")
+
+    def test_next_explicit_qualified_binding_is_returned_in_operator_order(self):
+        decision = decide_failover(self.policy, **self.arguments)
+        self.assertTrue(decision.allowed)
+        self.assertEqual(decision.binding["binding_id"], "binding-b")
+        self.assertEqual(decision.reason, "binding_snapshot_constraints_passed")
+        self.assertEqual(decision.usage_ref, "evidence:usage")
+
+    def test_unknown_usage_and_quota_reset_pause(self):
+        unknown_usage = dict(self.arguments, usage=None)
+        self.assertEqual(decide_failover(self.policy, **unknown_usage).reason, "usage_unknown")
+        quota = dict(self.arguments, failure_kind="quota_exhausted", quota_reset_at=None)
+        self.assertEqual(decide_failover(self.policy, **quota).reason, "quota_reset_unknown_or_elapsed")
+
+    def test_role_data_and_cost_constraints_deny_binding(self):
+        self.assertEqual(decide_failover(self.policy, **dict(self.arguments, role_id="review"))
+                         .reason, "current_role_or_harness_unqualified")
+        self.assertEqual(decide_failover(self.policy, **dict(self.arguments, data_class="restricted"))
+                         .reason, "current_data_policy_unqualified")
+        expensive = [dict(self.policy["ordered_bindings"][0]), dict(self.policy["ordered_bindings"][1])]
+        expensive[1]["max_cost_per_attempt_usd"] = 0.30
+        policy = dict(self.policy, ordered_bindings=expensive)
+        self.assertEqual(decide_failover(policy, **self.arguments).reason,
+                         "candidate_cost_exceeds_current_ceiling")
+
+    def test_timeout_is_not_a_qualified_failover_outcome(self):
+        decision = decide_failover(self.policy, **dict(self.arguments, failure_kind="timeout"))
+        self.assertEqual(decision.reason, "failure_kind_not_qualified")
+
+    def test_worker_report_and_paid_overage_cannot_authorize_fallback(self):
+        worker_usage = dict(self.arguments["usage"], observer="worker")
+        decision = decide_failover(self.policy, **dict(self.arguments, usage=worker_usage))
+        self.assertEqual(decision.reason, "usage_observer_untrusted")
+        paid = dict(self.policy, allow_paid_overage=True)
+        self.assertIn("allow_paid_overage must be false",
+                      decide_failover(paid, **self.arguments).reason)
 
 
 class ProcessTests(unittest.TestCase):

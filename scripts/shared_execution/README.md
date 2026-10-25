@@ -15,7 +15,10 @@ The main imports are:
   timeout cleanup, and restart cleanup;
 - `protocol.RunEnvelope`, `AttemptEnvelope`, `EventEnvelope`, and `EvidenceRef`
   for versioned JSON identities and evidence references;
-- `lock.verify_dispatch_lock` to verify vendored source bytes at startup.
+- `lock.verify_dispatch_lock` to verify vendored source bytes at startup;
+- `provider.decide_failover` to check a caller-supplied ordered binding snapshot
+  against explicit role, harness-command, data-class, quota-reset, usage, and
+  cost constraints.
 
 ## Authority and policy boundary
 
@@ -30,9 +33,23 @@ authority.
 Project adapters retain task eligibility, requirements, acceptance tests,
 scorecards, repo scope, and integration policy. Sovite owns eligible providers,
 role/model bindings, data rules, and cost constraints. This package does not
-select a provider or model and does not interpret provider output. It does not
-perform automatic provider failover. A future failover policy must wait for a
-qualified attempt boundary and be explicit about retries and spend.
+select a provider or model and does not interpret provider output. Failover
+checks are disabled when the feature flag is absent or false. When enabled by
+the consumer, the helper checks only the next binding in the operator-provided
+order. It requires explicit eligibility, role, harness-command and data-policy
+references, explicit subscription/API billing mode, billing and budget
+enforcement references, known coordinator/owner attempt usage, and a known
+remaining budget. Paid overage must be explicitly false. Quota exhaustion also
+requires a known future reset. Those references remain caller-supplied claims;
+the helper validates a prequalified snapshot's shape and bounds but does not
+mint or verify Sovite authority or qualification.
+
+The consumer must reconcile the previous attempt receipt and preserve the
+contract and workspace before creating a new attempt. It must record the
+provider change durably and link the new attempt to its predecessor. Paid
+upgrades are refused unless the next attempt's explicit ceiling is no higher
+than the current binding's ceiling and fits the remaining budget. The helper
+does not enable an unqualified binding or authorize fallback by itself.
 
 The current extraction is the runtime and process-supervision slice. The
 V2.1 scheduler and project integration loop remain in their project adapter
