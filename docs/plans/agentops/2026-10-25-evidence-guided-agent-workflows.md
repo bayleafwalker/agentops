@@ -233,10 +233,15 @@ work acceptance operation against an exact revision and grant. Audit and
 semantic pipelines run asynchronously; no new approval gates. Independently
 replay an ambiguous-effect recovery case.
 
-**D3: reuse and domains.** Enable AE-02 for one input and two consumers,
-AE-05 accepted-outcome comparison and AE-06 local-host cost test. Then run
-AE-07 through AE-12 as independent bounded studies. A winner becomes an
-owner-provided optional capability, not a permanent global model mapping.
+**D3: reuse and independently ready domain studies.** Qualify AE-02 for one
+input and two consumers, AE-05 against an owner-authorized accepted-outcome
+source, and AE-06 only after its AE-04 fixture and current GPU inventory pass.
+Run AE-07 through AE-12 as independently schedulable bounded studies as soon
+as each packet's own prerequisites pass; do not make them wait for AE-05 or
+AE-06 unless their packet names that dependency. In particular, AE-08 requires
+AE-05, AE-10 requires AE-04, and AE-12 requires AE-02's multi-consumer
+evidence. A winner becomes an owner-provided optional capability, not a
+permanent global model mapping.
 
 **Rollback:** turn off enrichers and model-backed recommendations first,
 preserve source records and owner decisions, stop newly generated follow-up
