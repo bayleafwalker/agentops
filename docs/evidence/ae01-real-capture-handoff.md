@@ -13,14 +13,14 @@
 
 Related ownership evidence:
 
-- Agentops `docs/plans/agentops/state-event-command-matrix.md` assigns the harness-neutral Tier-0 session wrapper to ActionQ and capsule/exhaust contracts plus cross-domain projection to Agentops.
-- ActionQ `HANDOFF.md` records deletion of the session wrapper with the retired execution plane. Its remaining `completion_outbox` is capsule-keyed; `tests/test_completion_outbox.py::test_stream_identity_sequence_and_event_ids_survive_restart` and `::test_lost_ack_retry_digest_quarantine_and_health` cover its own producer semantics, not Agentops native Stop, commit, or test-result capture.
+- Agentops `docs/plans/agentops/state-event-command-matrix.md` assigns the harness-neutral Tier-0 session wrapper to ActionQ and capsule/exhaust contracts plus cross-domain projection to AgentOps.
+- ActionQ `HANDOFF.md` records deletion of the session wrapper with the retired execution plane. Its remaining `completion_outbox` is capsule-keyed; `tests/test_completion_outbox.py::test_stream_identity_sequence_and_event_ids_survive_restart` and `::test_lost_ack_retry_digest_quarantine_and_health` cover its own producer semantics, not AgentOps native Stop, commit, or test-result capture.
 - ActionQ `packages/actionq-runner` has managed-dispatch source and result-artifact contracts. Those contracts are not wired to these interactive native hooks and cannot stand in for their missing references.
 - Auditctl `docs/contracts/publisher-subprocess.md` says publishers must not blindly retry `auditctl add`: a fresh invocation may create a second valid observation.
 
 ## Smallest owner handoff
 
-1. **Agentops host integration owner:** identify the supported host/configuration and register the existing minimal native Stop hooks for Claude Code and Codex. Return a redacted registration/read-back check and one native event from each harness. The Claude capture must not use `transcript_path` as evidence; the Codex capture must preserve its event as a turn observation rather than claiming session completion.
+1. **Agentops host integration owner:** identify the supported host and read back its actual runtime configuration. The checked-in Claude cost hook is not source-only because it reads the transcript, and no checked-in native hook registration exists. Supply/register a source-only Claude Stop hook and verify the Codex Stop registration before collecting one native event from each harness. Capture only native identifiers and timestamps; do not use `transcript_path` as evidence. Preserve Codex Stop as a turn observation rather than claiming session completion.
 2. **ActionQ runtime owner:** provide the session-lifecycle capture path assigned by the state-event matrix, or explicitly reassign it. Bind each source observation to the observed native session/turn, exact repository identity, tested commit/tree, and immutable test-result ref plus digest. If the tested tree is dirty, report its bounded diff/tree digest as unknown for commit-based attribution rather than substituting current `HEAD`. Keep the capture producer in its existing owner boundary; do not add an Agentops execution host, queue, or router.
 3. **Auditctl publisher owner (only if Auditctl is the chosen durable sink):** agree the stable source identity and recovery path before a caller retries an ambiguous publish. A new `auditctl add` call is not an idempotent retry. Preserve raw prompt, transcript, command output, and absolute paths outside the observation payload; refs and digests must resolve to owner-held bytes.
 
