@@ -1,0 +1,101 @@
+{
+  "schema": "agentops-ae01-coverage-fixture/v1",
+  "cases": [
+    {
+      "case_id": "fixture-claude-captured",
+      "harness": "claude-code",
+      "expected_sources": ["native-stop", "git-commit", "test-result"],
+      "observations": [
+        {
+          "origin_id": "claude-stop-hook",
+          "origin_seq": 1,
+          "source_kind": "native-stop",
+          "source_ref": "fixture:claude-session-01",
+          "source_digest": "sha256:a58df66b0e47f9fce79141cda564a174414467f09655208394cd7166b8b16bdc",
+          "observed_at": "2026-10-26T00:00:00Z"
+        },
+        {
+          "origin_id": "claude-stop-hook",
+          "origin_seq": 1,
+          "source_kind": "native-stop",
+          "source_ref": "fixture:claude-session-01",
+          "source_digest": "sha256:a58df66b0e47f9fce79141cda564a174414467f09655208394cd7166b8b16bdc",
+          "observed_at": "2026-10-26T00:00:01Z"
+        },
+        {
+          "origin_id": "git-source",
+          "origin_seq": 1,
+          "source_kind": "git-commit",
+          "source_ref": "fixture:claude-commit-01",
+          "source_digest": "sha256:2ae56fd6e47100d1b5a17ed0306c13d839b2ec7b695e783674b1064b69b63f3f",
+          "observed_at": "2026-10-26T00:00:02Z"
+        },
+        {
+          "origin_id": "ci-source",
+          "origin_seq": 1,
+          "source_kind": "test-result",
+          "source_ref": "fixture:claude-test-01",
+          "source_digest": "sha256:7df756a5299d1d604cb0956ebc4988adb5c98d163bb55c8e05cbef8df4bc99a7",
+          "observed_at": "2026-10-26T00:00:03Z"
+        }
+      ]
+    },
+    {
+      "case_id": "fixture-codex-captured",
+      "harness": "codex",
+      "expected_sources": ["native-stop", "git-commit", "test-result"],
+      "observations": [
+        {
+          "origin_id": "codex-stop-hook",
+          "origin_seq": 1,
+          "source_kind": "native-stop",
+          "source_ref": "fixture:codex-session-01",
+          "source_digest": "sha256:927810ce45c40c0dfbbc972007a70e2adb235be72f595e0b0646633661f83ce4",
+          "observed_at": "2026-10-26T00:01:00Z"
+        },
+        {
+          "origin_id": "git-source",
+          "origin_seq": 1,
+          "source_kind": "git-commit",
+          "source_ref": "fixture:codex-commit-01",
+          "source_digest": "sha256:9987514935ccf2a359c396dd661a3361fff320853eef71097e97866caf55e72f",
+          "observed_at": "2026-10-26T00:01:01Z"
+        },
+        {
+          "origin_id": "ci-source",
+          "origin_seq": 1,
+          "source_kind": "test-result",
+          "source_ref": "fixture:codex-test-01",
+          "source_digest": "sha256:445cf7ef72734f380ac19221b925d3714cf22ca8951c1bc15482cbc3a3a98c66",
+          "observed_at": "2026-10-26T00:01:02Z"
+        }
+      ]
+    },
+    {
+      "case_id": "fixture-claude-missing-hook",
+      "harness": "claude-code",
+      "expected_sources": ["native-stop", "git-commit", "test-result"],
+      "unavailable_sources": [
+        {"source_kind": "native-stop", "reason_code": "hook_not_emitted"}
+      ],
+      "observations": [
+        {
+          "origin_id": "git-source",
+          "origin_seq": 1,
+          "source_kind": "git-commit",
+          "source_ref": "fixture:missing-commit-01",
+          "source_digest": "sha256:8d9ca7c41a1ae09ecab9b5454e9b28f26270c2c8284611632e3fa95a9ff11dd7",
+          "observed_at": "2026-10-26T00:02:01Z"
+        },
+        {
+          "origin_id": "ci-source",
+          "origin_seq": 1,
+          "source_kind": "test-result",
+          "source_ref": "fixture:missing-test-01",
+          "source_digest": "sha256:576b86cddaa167fb620e1ac37e25f2d574c339f8456bb6c6ea763252f26e3920",
+          "observed_at": "2026-10-26T00:02:02Z"
+        }
+      ]
+    }
+  ]
+}
