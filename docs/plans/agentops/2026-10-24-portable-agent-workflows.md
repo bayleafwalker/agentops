@@ -125,7 +125,7 @@ plan lands. Check live dependencies and reservations before selection.
 | Order / package | Owner and scope | Exit evidence |
 |---|---|---|
 | 1 / PW-01 | agentops + domain owners: capability/state vocabulary, portable packet and threat fixtures; align agentops#2692, agentops#2730 and agentops#2864 | Contract review against TS claims; minimal packet resumes on a clean host without local archive access. |
-| 1 / PW-02 | gitops-nixos + agentops: reusable worker host, readiness and drift; align agentops#2733, agentops#2736 and agentops#2742 | Measured runtime/auth/network/isolation evidence; failures explain the actual boundary. |
+| 1 / PW-02 | gitops-nixos#2867 owns managed guest image/host commissioning; agentops#2733, agentops#2736 and agentops#2742 remain inventory, contract-toolchain and runtime-integration inputs | Measured runtime/auth/network/isolation evidence; failures explain the actual boundary. |
 | 1 / PW-03 | cred-broker + appservice + Vuoro/Sprintctl: idempotent repository onboarding composition | Dry-run reports existing/missing/conflicting registrations; repeat apply makes no duplicate identity or broadened grant. |
 | 2 / PW-04 | Sovite: repository session execution through qualified native bindings, using R4/F2 execution-owner work (agentops#2850) | Crash/response-loss/takeover histories fence old attempts; code edits and native resumption work in isolated worktrees. Depends on PW-01/02. |
 | 2 / PW-05 | Vuoro + Sprintctl: portable continuation and owner-evidence projections; align vuoro#2725, vuoro#2728, vuoro#2734, vuoro#2735, vuoro#2737 and sprintctl#2738 | Another authorized host reconstructs ready work and sources, without converting advisory metadata into authority. |
