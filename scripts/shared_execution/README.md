@@ -110,3 +110,24 @@ This supports complete context beyond operating-system argv limits without
 silent truncation. Provider-specific stdin semantics remain in adapters; for
 example, [Claude's CLI reference](https://code.claude.com/docs/en/cli-reference)
 documents piped input with print mode. No provider is invoked by these tests.
+
+## Offline repository-delivery qualification fixture
+
+`python scripts/repository_delivery_qualification.py init /tmp/delivery-demo`
+creates a disposable local Git repository and scheduler journal. Run `step` with
+the same directory repeatedly; each invocation opens and closes the local journal,
+so the next invocation acts as a successor. `inspect` prints the recorded task.
+The fixture creates a candidate commit, checks it from a fresh detached worktree
+using the fixed `repository_delivery_verifier.py` outside the candidate, and
+records a simulated completion. The verifier examines data without importing
+candidate code; it runs with isolated Python and an empty environment. The
+candidate, exact base and clean worktree are checked again on resumption.
+
+The local fixture owner supplies fixed demo identities and simulated review; it
+has no authority and the `MERGED` scheduler state means simulated completion,
+not a Git merge or publication. A missing worker or verification receipt after
+an interruption remains unresolved; this fixture does not replay it. Real owner
+leases, execution, review, integration, isolation, durable service and support
+are not established. The local SQLite journal is host-local mechanics, not an
+authority store. This file is a qualification entrypoint, not a released
+production workflow implementation.
