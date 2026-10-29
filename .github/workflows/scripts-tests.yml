@@ -42,6 +42,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: astral-sh/setup-uv@v8.3.2
       - name: dependencies
         # pytest loads scripts/tests/conftest.py (audit-store isolation), which unittest
         # discovery never does; render_disposition_fragment imports yaml.
