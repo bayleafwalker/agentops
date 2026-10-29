@@ -1,4 +1,5 @@
 """Trusted offline verifier: inspect exact committed data without importing it."""
+import argparse
 import ast
 import hashlib
 import os
@@ -40,4 +41,9 @@ def main(candidate, delivery_hash, test_hash):
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:])
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("candidate")
+    parser.add_argument("delivery_hash")
+    parser.add_argument("test_hash")
+    arguments = parser.parse_args()
+    main(arguments.candidate, arguments.delivery_hash, arguments.test_hash)
