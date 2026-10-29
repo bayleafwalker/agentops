@@ -121,12 +121,17 @@ The fixture creates a candidate commit, checks it from a fresh detached worktree
 using the fixed `repository_delivery_verifier.py` outside the candidate, and
 records a simulated completion. The verifier examines data without importing
 candidate code; it runs with isolated Python and an empty environment. The
-candidate, exact base and clean worktree are checked again on resumption.
+exact changed path set, committed regular-file modes, base and clean worktree
+are checked again on resumption. The external verifier opens files without
+following symlinks and compares bytes to their committed Git blobs.
 
 The local fixture owner supplies fixed demo identities and simulated review; it
 has no authority and the `MERGED` scheduler state means simulated completion,
 not a Git merge or publication. A missing worker or verification receipt after
-an interruption remains unresolved; this fixture does not replay it. Real owner
+an interruption remains unresolved; this fixture does not replay it. A test
+kills the local consumer after its candidate commit and before its receipt,
+then reopens the journal and checks that no second candidate is created. This
+does not simulate or reconcile a remote provider or an external side effect. Real owner
 leases, execution, review, integration, isolation, durable service and support
 are not established. The local SQLite journal is host-local mechanics, not an
 authority store. This file is a qualification entrypoint, not a released

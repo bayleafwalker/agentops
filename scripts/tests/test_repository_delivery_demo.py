@@ -1,4 +1,6 @@
 """Exercise the offline repository-delivery consumer, including refusal paths."""
+import hashlib
+import subprocess
 import sys
 from pathlib import Path
 import tempfile
@@ -84,6 +86,77 @@ class RepositoryDeliveryDemoTests(unittest.TestCase):
         git(candidate, 'commit', '-m', 'tamper')
         with self.assertRaisesRegex(ValueError, 'candidate'):
             self.step()
+
+    def _replace_worker_candidate(self, mutate):
+        self.step()
+        candidate = self.root / 'candidate'
+        mutate(candidate)
+        git(candidate, 'add', '-A')
+        git(candidate, 'commit', '--amend', '--no-edit')
+        new_commit = git(candidate, 'rev-parse', 'HEAD')
+        adapter = Demo(self.root, DemoOwner())
+        try:
+            adapter.store.setmeta('offline-worker-1', {'exit': 'committed', 'commit': new_commit})
+        finally:
+            adapter.close()
+
+    def test_unverified_extra_candidate_file_is_refused(self):
+        self._replace_worker_candidate(lambda candidate: (candidate / 'unverified.py').write_text('bad = True\n'))
+        with self.assertRaisesRegex(ValueError, 'candidate'):
+            self.step()
+
+    def test_symlink_candidate_file_is_refused(self):
+        def replace(candidate):
+            target = self.root / 'outside.py'
+            target.write_text('VALUE = "delivered"\n')
+            (candidate / 'delivery.py').unlink()
+            (candidate / 'delivery.py').symlink_to(target)
+        self._replace_worker_candidate(replace)
+        with self.assertRaisesRegex(ValueError, 'candidate'):
+            self.step()
+
+    def test_trusted_verifier_refuses_symlink_and_blob_mismatch(self):
+        verifier = Path(__file__).resolve().parents[1] / 'repository_delivery_verifier.py'
+        directory = self.root / 'external-check'
+        directory.mkdir()
+        (directory / 'delivery.py').write_text('VALUE = "delivered"\n')
+        (directory / 'test_delivery.py').write_text(
+            'import unittest\nfrom delivery import VALUE\nclass DeliveryTest(unittest.TestCase):\n'
+            "    def test_value(self): self.assertEqual(VALUE, 'delivered')\n")
+        hashes = [hashlib.sha256((directory / name).read_bytes()).hexdigest()
+                  for name in ('delivery.py', 'test_delivery.py')]
+        def run(values):
+            return subprocess.run([sys.executable, '-I', str(verifier), str(directory), *values],
+                                  env={}, capture_output=True).returncode
+        self.assertEqual(run(hashes), 0)
+        self.assertNotEqual(run(['0' * 64, hashes[1]]), 0)
+        (directory / 'delivery.py').unlink()
+        target = self.root / 'target.py'
+        target.write_text('VALUE = "delivered"\n')
+        (directory / 'delivery.py').symlink_to(target)
+        self.assertNotEqual(run(hashes), 0)
+
+    def test_process_death_after_candidate_commit_does_not_replay(self):
+        script = """
+import os, sys
+sys.path.insert(0, sys.argv[2])
+from repository_delivery_qualification import Demo, DemoOwner
+adapter = Demo(sys.argv[1], DemoOwner())
+original = adapter.store.setmeta
+def stop_before_receipt(key, value):
+    if key == 'offline-worker-1': os._exit(73)
+    return original(key, value)
+adapter.store.setmeta = stop_before_receipt
+adapter.step()
+"""
+        result = subprocess.run([sys.executable, '-c', script, str(self.root),
+                                 str(Path(__file__).resolve().parents[1])], capture_output=True)
+        self.assertEqual(result.returncode, 73)
+        committed = git(self.root / 'candidate', 'rev-parse', 'HEAD')
+        successor = self.step()
+        self.assertEqual(successor['state'], 'RUNNING')
+        self.assertEqual(successor['worker_envelope']['attempt_id'], 'offline-worker-1')
+        self.assertEqual(git(self.root / 'candidate', 'rev-parse', 'HEAD'), committed)
 
     def test_no_change_is_blocked(self):
         self.temp.cleanup()

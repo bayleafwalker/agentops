@@ -104,6 +104,14 @@ class Demo:
             raise ValueError("candidate worktree changed")
         if git(self.candidate, "rev-parse", "HEAD^1") != self.run["base"]:
             raise ValueError("candidate base changed")
+        changed = subprocess.run(["git", "-C", str(self.repo), "diff", "--name-only", "-z", "--no-renames", self.run["base"], candidate, "--"], check=True, capture_output=True).stdout.split(b"\0")
+        if sorted(changed) != [b"", b"delivery.py", b"test_delivery.py"]:
+            raise ValueError("candidate changed paths outside fixture")
+        for name in ("delivery.py", "test_delivery.py"):
+            entry = git(self.repo, "ls-tree", candidate, "--", name)
+            if not entry.startswith("100644 blob "):
+                raise ValueError("candidate file mode is not regular")
+
         check = task.get("check")
         if check and hashlib.sha256(Path(self.verification_command()[-1]).read_bytes()).hexdigest() != check.get("verifier_sha256"):
             raise ValueError("trusted verifier changed after check")
@@ -154,7 +162,12 @@ class Demo:
         try:
             verifier = Path(self.verification_command()[-1])
             verifier_hash = hashlib.sha256(verifier.read_bytes()).hexdigest()
-            result = subprocess.run(self.verification_command() + [str(clean)], cwd=self.root, env={},
+            blob_hashes = []
+            for name in ("delivery.py", "test_delivery.py"):
+                blob = subprocess.run(["git", "-C", str(self.repo), "show", f"{task['worker_commit']}:{name}"],
+                                      check=True, capture_output=True).stdout
+                blob_hashes.append(hashlib.sha256(blob).hexdigest())
+            result = subprocess.run(self.verification_command() + [str(clean), *blob_hashes], cwd=self.root, env={},
                 capture_output=True, text=True, timeout=30)
             dirty = git(clean, "status", "--porcelain", "--untracked-files=all")
             if hashlib.sha256(verifier.read_bytes()).hexdigest() != verifier_hash:
