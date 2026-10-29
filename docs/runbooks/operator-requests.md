@@ -81,9 +81,11 @@ agentops operator-requests continuation-ready --repo sprintctl \
   --request-id req_01JZZZZZZZZZZZZZZZZZZZZZZZ --profile /secure/path/vuoro-profile.json
 ```
 
-The command reads the current request snapshot and its event at the current
-revision. It emits a fallback only for a resolved request whose event identifies
-the owner's `resolved-human-attestation` basis. A `report-performed` result by
+The command calls the advertised `work.request.continuation-v1` owner read.
+The request, resolution event and active work links share one owner snapshot.
+An older owner without this capability is explicitly unsupported; the command
+does not fall back to composing separate reads. It emits a fallback only for a
+resolved request whose event identifies the owner's `resolved-human-attestation` basis. A `report-performed` result by
 itself is refused. Active dependants are marked `continuation-ready` only when
 owner freshness is current and their source work revision still matches;
 others are marked `needs-refresh`. The packet contains request/work identity
