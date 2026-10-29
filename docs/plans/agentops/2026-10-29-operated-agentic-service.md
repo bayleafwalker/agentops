@@ -115,13 +115,15 @@ requirement and acceptance basis when selecting work.
 | --- | --- |
 | D0 | `agentops#2866` owns this source architecture and foundation batch. Fresh runtime observations and their unknowns are recorded in its served evidence. |
 | D1 | `vuoro-cloud#2683`, `#2684` and `#2741` retain composition, enrollment/lifecycle and hosted proof. New `gitops-nixos#2867` owns the previously missing guest image/host commissioning scope; local packet and KVM evidence is only a foundation. Consume `agentops#2850` for Sovite execution ownership. |
-| D2 | Refine Cloud `#2682`, `#2683` and `#2684` for the outbound gateway, named LAN API, approved lab, separate administration and actual failure proof. The source pod-read seam does not close this stage. Existing AgentOps `#2646`, `#2601` and `#2555` retain tenant traffic, resource-prefix and provisioning-role work. |
-| D3 | `agentops#2864` retains the portable programme and actual repository-delivery consumer; `#2692`, `#2730` and `#2726` retain end-to-end proof and owner-action publication. Current-context contracts remain with `sprintctl#2738` and Vuoro `#2725`, `#2728`, `#2734`, `#2735`, `#2737`. The offline fixture supplies no live acceptance. |
+| D2 | New `agentops#2869` owns the resource gateway implementation across Sovite adapters and the existing protected-executor contract. Cloud `#2682`, `#2683` and `#2684` retain operated enrollment/composition and owner-accountable proof. The source pod-read seam does not close this stage. Existing AgentOps `#2646`, `#2601` and `#2555` retain tenant traffic, resource-prefix and provisioning-role work. |
+| D3 | New `agentops#2868` owns the actual repository-delivery consumer. `agentops#2864` retains implementation-programme coordination; `#2692`, `#2730` and `#2726` retain end-to-end proof and owner-action publication. Current-context contracts remain with `sprintctl#2738` and Vuoro `#2725`, `#2728`, `#2734`, `#2735`, `#2737`. The offline fixture supplies no live acceptance. |
 | D4 | AgentOps `#2599`, `#2630`, `#2850`, Vuoro `#2673` and Sprintctl `#1234` retain backup/restore, exit/recovery, execution fences, exact-source/export and atomic recovery work. Combined qualification remains in the end-state demonstration `agentops#2692`. |
 | D5 | AgentOps `#2484`, Sprintctl `#2127`, Cloud `#2684`, Vuoro `#2678` and AgentOps `#2692` retain cross-harness departure, external onboarding, support/incident policy, spend characterization and independent-user measures. |
 
 The portable programme's PW-02 host commissioning is now explicitly bound to
-`gitops-nixos#2867`. AgentOps `#2733`, `#2736` and `#2742` remain inventory,
+`gitops-nixos#2867`. The survey also found no specific actual delivery-consumer
+or gateway-implementation item; `agentops#2868` and `#2869` now fill those gaps
+without replacing the existing programmes. AgentOps `#2733`, `#2736` and `#2742` remain inventory,
 contract-toolchain and runtime-integration inputs; they are not substitute guest
 commissioning items. Some historical numeric dependency references did not
 resolve in the named owner scope during the survey. Reconcile those through
