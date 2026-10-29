@@ -424,132 +424,95 @@ class LocalRequestOutboxTests(unittest.TestCase):
 class ContinuationReadyTests(unittest.TestCase):
     request_id = "req_01JZZZZZZZZZZZZZZZZZZZZZZZ"
 
-    def owner_records(self, *, state="resolved", stale=False, action="resolved-human-attestation"):
-        snapshot = {
-            "request_id": self.request_id, "revision": 4, "state": state, "freshness": "current",
-            "packet": {"schema": "operator-request/v1", "kind": "perform", "required_outcome": "service healthy",
-                       "reason": "operator action required", "execution": {}, "procedure": {}, "blocker": {}},
-            "dependants": [
-                {"work_item_id": 55, "session_id": "old-session", "runtime_id": "codex-local",
-                 "work_revision": "work-r7", "current_work_revision": "work-r7" if not stale else "work-r8",
-                 "source_changed": stale, "state": "active", "attached_at": "2026-10-24T00:00:00Z", "withdrawn_at": None},
-                {"work_item_id": 56, "session_id": "withdrawn-session", "runtime_id": None,
-                 "work_revision": "work-r2", "current_work_revision": "work-r2", "source_changed": False,
-                 "state": "withdrawn", "attached_at": "2026-10-24T00:00:00Z", "withdrawn_at": "2026-10-24T00:01:00Z"},
-            ],
-            "created_at": "2026-10-24T00:00:00Z", "updated_at": "2026-10-24T00:02:00Z",
+    def packet(self, *, stale=False):
+        return {
+            "schema": "operator-request-continuation-ready/v1",
+            "owner": {"repo_id": "sprintctl", "read_operation": "work.request.continuation-v1"},
+            "request_id": self.request_id, "request_revision": 4,
+            "resolution": {"event_revision": 4, "basis": "human-attestation",
+                           "event_recorded_at": "2026-10-24T00:02:00Z"},
+            "dependants": [{"work_item_id": 55, "session_id": "old-session", "work_revision": "work-r7",
+                            "current_work_revision": "work-r8" if stale else "work-r7",
+                            "state": "needs-refresh" if stale else "continuation-ready"}],
         }
-        events = {
-            "request_id": self.request_id, "next_after_revision": 4,
-            "events": [{"request_id": self.request_id, "revision": 4, "action": action,
-                        "actor": "private-principal", "details": {"completion_basis": "human-attestation",
-                        "statement": "private attestation text", "performed_at": "2026-10-24T00:01:00Z",
-                        "protected_effect_authorized": False}, "recorded_at": "2026-10-24T00:02:00Z"}],
-        }
+
+    def owner(self, packet=None, error=None):
+        value = self.packet() if packet is None else packet
         class Owner:
             def __init__(self): self.calls = []
             def invoke(self, suffix, repo, args):
                 self.calls.append((suffix, repo, args))
-                return snapshot if suffix == "get" else events
+                if suffix != "continuation":
+                    raise AssertionError("consumer composed separate owner reads")
+                if error:
+                    raise requests.RequestClientError(error)
+                return value
         return Owner()
 
-    def test_human_attestation_produces_metadata_only_successor_packet(self):
-        owner = self.owner_records()
-        result = requests.continuation_ready_packet(owner, "sprintctl", self.request_id)
-        self.assertEqual([call[0] for call in owner.calls], ["get", "events"])
-        self.assertEqual(owner.calls[1][2], {"request_id": self.request_id, "after_revision": 3, "limit": 1})
-        self.assertEqual(result["schema"], "operator-request-continuation-ready/v1")
-        self.assertEqual(result["owner"], {"repo_id": "sprintctl", "read_operation": "work.request.get-v1"})
-        self.assertEqual(result["resolution"]["basis"], "human-attestation")
-        self.assertEqual(len(result["dependants"]), 1)
-        self.assertEqual(result["dependants"][0]["state"], "continuation-ready")
-        serialized = json.dumps(result)
-        self.assertNotIn("private attestation text", serialized)
-        self.assertNotIn("private-principal", serialized)
+    def test_one_owner_read_produces_the_metadata_only_successor_packet(self):
+        owner = self.owner()
+        value = requests.continuation_ready_packet(owner, "sprintctl", self.request_id)
+        self.assertEqual(value, self.packet())
+        self.assertEqual(owner.calls, [("continuation", "sprintctl", {"request_id": self.request_id})])
 
-    def test_stale_work_link_is_marked_needs_refresh(self):
-        owner = self.owner_records(stale=True)
-        result = requests.continuation_ready_packet(owner, "sprintctl", self.request_id)
-        self.assertEqual(result["dependants"][0]["state"], "needs-refresh")
+    def test_stale_work_link_remains_needs_refresh(self):
+        value = requests.continuation_ready_packet(self.owner(self.packet(stale=True)), "sprintctl", self.request_id)
+        self.assertEqual(value["dependants"][0]["state"], "needs-refresh")
 
-    def test_performed_report_without_resolution_does_not_create_packet(self):
-        owner = self.owner_records(state="reported-performed")
-        with self.assertRaises(requests.RequestClientError) as caught:
-            requests.continuation_ready_packet(owner, "sprintctl", self.request_id)
-        self.assertEqual(caught.exception.code, "continuation-not-ready")
-        self.assertEqual([call[0] for call in owner.calls], ["get"])
-
-    def test_unrecognized_resolution_evidence_is_refused(self):
-        owner = self.owner_records(action="performed-reported")
-        with self.assertRaises(requests.RequestClientError) as caught:
-            requests.continuation_ready_packet(owner, "sprintctl", self.request_id)
-        self.assertEqual(caught.exception.code, "resolution-evidence-unavailable")
-
-    def test_revoked_event_read_does_not_emit_a_successor_packet(self):
-        snapshot_owner = self.owner_records()
-        snapshot = snapshot_owner.invoke("get", "sprintctl", {"request_id": self.request_id})
-
-        class RevokedEventsOwner:
-            def __init__(self):
-                self.calls = []
-
-            def invoke(self, suffix, repo_id, arguments):
-                self.calls.append((suffix, repo_id, arguments))
-                if suffix == "get":
-                    return snapshot
-                raise requests.RequestClientError("authority-required")
-
-        owner = RevokedEventsOwner()
-        with self.assertRaises(requests.RequestClientError) as caught:
-            requests.continuation_ready_packet(owner, "sprintctl", self.request_id)
-
-        self.assertEqual(caught.exception.code, "authority-required")
-        self.assertEqual([call[0] for call in owner.calls], ["get", "events"])
-
-    def test_malformed_work_link_identity_is_refused(self):
-        malformed_fields = (
-            {"work_item_id": requests._MAX_SAFE_INTEGER + 1},
-            {"runtime_id": ""},
-        )
-        for fields in malformed_fields:
-            with self.subTest(fields=fields):
-                source = self.owner_records()
-                snapshot = source.invoke("get", "sprintctl", {"request_id": self.request_id})
-                snapshot["dependants"][0].update(fields)
-
-                class MalformedSnapshotOwner:
-                    def __init__(self):
-                        self.calls = []
-
-                    def invoke(self, suffix, repo_id, arguments):
-                        self.calls.append(suffix)
-                        if suffix == "get":
-                            return snapshot
-                        return source.invoke(suffix, repo_id, arguments)
-
-                owner = MalformedSnapshotOwner()
+    def test_owner_refusals_never_fall_back_to_partial_reads(self):
+        for code in ("continuation-not-ready", "resolution-evidence-unavailable", "authority-required",
+                     "owner-capability-unavailable", "owner-transport-failed"):
+            with self.subTest(code=code):
+                owner = self.owner(error=code)
                 with self.assertRaises(requests.RequestClientError) as caught:
                     requests.continuation_ready_packet(owner, "sprintctl", self.request_id)
+                self.assertEqual(caught.exception.code, code)
+                self.assertEqual([call[0] for call in owner.calls], ["continuation"])
 
+    def test_malformed_or_foreign_owner_packets_are_refused(self):
+        changes = (
+            lambda v: v.update(request_id="req_01JYYYYYYYYYYYYYYYYYYYYYYY"),
+            lambda v: v.update(request_revision=True),
+            lambda v: v.update(extra="unexpected"),
+            lambda v: v["owner"].update(repo_id="foreign"),
+            lambda v: v["owner"].update(read_operation="work.request.get-v1"),
+            lambda v: v["resolution"].update(event_revision=3),
+            lambda v: v["resolution"].update(event_recorded_at="yesterday"),
+            lambda v: v["resolution"].update(basis="caller-verified"),
+            lambda v: v["resolution"].update(protected_effect_authorized=True),
+            lambda v: v["dependants"][0].update(work_item_id=requests._MAX_SAFE_INTEGER + 1),
+            lambda v: v["dependants"][0].update(session_id=""),
+            lambda v: v["dependants"][0].update(runtime_id="unsupported-extra-field"),
+            lambda v: v["dependants"][0].update(current_work_revision=None),
+            lambda v: v["dependants"][0].update(current_work_revision="different"),
+            lambda v: v["dependants"].append(dict(v["dependants"][0])),
+        )
+        for change in changes:
+            with self.subTest(change=change):
+                value = self.packet()
+                change(value)
+                with self.assertRaises(requests.RequestClientError) as caught:
+                    requests.continuation_ready_packet(self.owner(value), "sprintctl", self.request_id)
                 self.assertEqual(caught.exception.code, "continuation-snapshot-invalid")
 
+    def test_continuation_tool_advertises_only_read_semantics(self):
+        tool = requests._tool("continuation")
+        self.assertTrue(tool["annotations"]["readOnlyHint"])
+        self.assertTrue(tool["annotations"]["idempotentHint"])
+        self.assertFalse(tool["annotations"]["destructiveHint"])
+
     def test_reconciliation_rejects_unsafe_dependent_identity(self):
-        source = self.owner_records()
-        snapshot = source.invoke("get", "sprintctl", {"request_id": self.request_id})
-        snapshot["dependants"] = snapshot["dependants"][:1]
         expected = {"work_item_id": 55, "session_id": "old-session"}
-        for change in (
-            {"work_item_id": requests._MAX_SAFE_INTEGER + 1},
-            {"runtime_id": ""},
-        ):
+        snapshot = {"request_id": self.request_id, "revision": 4, "state": "open", "freshness": "current",
+                    "packet": complete_packet(), "created_at": "2026-10-24T00:00:00Z",
+                    "updated_at": "2026-10-24T00:02:00Z",
+                    "dependants": [{**expected, "runtime_id": "codex-local", "work_revision": "work-r7",
+                                    "current_work_revision": "work-r7", "source_changed": False, "state": "active",
+                                    "attached_at": "2026-10-24T00:00:00Z", "withdrawn_at": None}]}
+        for change in ({"work_item_id": requests._MAX_SAFE_INTEGER + 1}, {"runtime_id": ""}):
             with self.subTest(change=change):
-                row = {
-                    "request_id": self.request_id,
-                    "arguments": {
-                        "packet": snapshot["packet"],
-                        "dependants": [{**expected, **change}],
-                    },
-                }
+                row = {"request_id": self.request_id,
+                       "arguments": {"packet": snapshot["packet"], "dependants": [{**expected, **change}]}}
                 candidate = {**snapshot, "dependants": [dict(snapshot["dependants"][0])]}
                 candidate["dependants"][0].update(change)
                 self.assertFalse(requests.LocalRequestOutbox._snapshot_matches(row, candidate))
