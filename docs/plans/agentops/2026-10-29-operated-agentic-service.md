@@ -104,6 +104,62 @@ Independent source work can proceed concurrently. Each consumer pins released
 owner contracts before installation. Source changes do not prove release,
 deployment, physical isolation, real provider authentication or user acceptance.
 
+### Reconciled owner work
+
+Read-only served reconciliation on 29 October found these existing homes for
+the remaining delivery. These are references to authoritative work, not a second
+queue or a claim that an item is ready. Preserve the owners' current dependency,
+requirement and acceptance basis when selecting work.
+
+| Stage | Existing owner work and refinement |
+| --- | --- |
+| D0 | `agentops#2866` owns this source architecture and foundation batch. Fresh runtime observations and their unknowns are recorded in its served evidence. |
+| D1 | `vuoro-cloud#2683`, `#2684` and `#2741` retain composition, enrollment/lifecycle and hosted proof. New `gitops-nixos#2867` owns the previously missing guest image/host commissioning scope; local packet and KVM evidence is only a foundation. Consume `agentops#2850` for Sovite execution ownership. |
+| D2 | New `agentops#2869` owns the resource gateway implementation across Sovite adapters and the existing protected-executor contract. Cloud `#2682`, `#2683` and `#2684` retain operated enrollment/composition and owner-accountable proof. The source pod-read seam does not close this stage. Existing AgentOps `#2646`, `#2601` and `#2555` retain tenant traffic, resource-prefix and provisioning-role work. |
+| D3 | New `agentops#2868` owns the actual repository-delivery consumer. `agentops#2864` retains implementation-programme coordination; `#2692`, `#2730` and `#2726` retain end-to-end proof and owner-action publication. Current-context contracts remain with `sprintctl#2738` and Vuoro `#2725`, `#2728`, `#2734`, `#2735`, `#2737`. The offline fixture supplies no live acceptance. |
+| D4 | AgentOps `#2599`, `#2630`, `#2850`, Vuoro `#2673` and Sprintctl `#1234` retain backup/restore, exit/recovery, execution fences, exact-source/export and atomic recovery work. Combined qualification remains in the end-state demonstration `agentops#2692`. |
+| D5 | AgentOps `#2484`, Sprintctl `#2127`, Cloud `#2684`, Vuoro `#2678` and AgentOps `#2692` retain cross-harness departure, external onboarding, support/incident policy, spend characterization and independent-user measures. |
+
+The portable programme's PW-02 host commissioning is now explicitly bound to
+`gitops-nixos#2867`. The survey also found no specific actual delivery-consumer
+or gateway-implementation item; `agentops#2868` and `#2869` now fill those gaps
+without replacing the existing programmes. AgentOps `#2733`, `#2736` and `#2742` remain inventory,
+contract-toolchain and runtime-integration inputs; they are not substitute guest
+commissioning items. Some historical numeric dependency references did not
+resolve in the named owner scope during the survey. Reconcile those through
+current owner reads instead of treating them as verified blockers or bypassing
+them. Append-only refinement notes were recorded on Cloud `#2682`–`#2684`.
+
+### Foundation evidence and its limits
+
+The repository-delivery fixture uses real local Git, exact committed bytes and
+clean verification, with a simulated owner. Sovite source now binds execution
+to the admitted grant/class/mirror/profile and bounds advertised readiness by
+current owner and qualification deadlines. Its resource read seam permits only
+a catalog-resolved HTTPS pod observation with current exact-byte output release.
+Neither installs a production mutable host or resource gateway.
+
+The disabled guest egress module has two complementary local proofs. Disposable
+user/network namespaces on kernel `6.18.58` exercised new and established flows;
+four deliberately weakened policies failed their intended checks. A separate
+two-guest KVM test on kernel `6.18.59` exercised the booted nftables service,
+nonroot candidate probes, positive reachability controls and service restoration.
+Both bind module SHA256
+`e5af5129e0fe390abe8611b244786d6c2b7f915fab106578af5904614418c822`.
+The namespace source-rules serialization hashes to
+`4134716d28190f17c8e78ddf50866d24b20add05ed705bdd4b4f265eff6781e7`;
+the VM's normalized stateless nft table hashes to
+`af75feb71b17b0b646994eb9f912ccdc4be992f24645a21f8a42a51bfd60c0b2`.
+These are different representations and test placements. The VM proof does not
+cover IPv6 packets; the namespace proof does. Neither qualifies a provider image,
+private resource gateway, model account, live workflow, tenant restore or service.
+
+Committed source and PR evidence are cross-host-replicated. Served work records
+are durable-authoritative. Local Nix build logs are host-persistent and subject
+to garbage collection; temporary transcripts and namespace receipts are
+session-local. Preserve required qualification evidence under the release and
+evidence owners before using it for a supported service claim.
+
 ## First integrated service demonstration
 
 1. Start from a fresh browser without a personal workstation dependency.
