@@ -45,6 +45,16 @@ if [[ -z "$script" ]]; then
   exit 2
 fi
 
+# This transport topic needs its released client; use its committed script
+# lock without discovering a caller's unrelated project configuration.
+if [[ "$script" == "$root/scripts/operator_requests.py" ]]; then
+  if ! command -v uv >/dev/null 2>&1; then
+    printf 'agentops operator-requests: uv is required for the locked client runtime\n' >&2
+    exit 127
+  fi
+  exec uv run --no-config --no-project --locked --script "$script" "$@"
+fi
+
 PY=""
 for candidate in python3 /usr/bin/python3 "$HOME/.local/bin/python3"; do
   if command -v "$candidate" >/dev/null 2>&1; then PY="$candidate"; break; fi

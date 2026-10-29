@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "vuoro-client @ https://github.com/bayleafwalker/vuoro/releases/download/vuoro-client-v0.1.6/vuoro_client-0.1.6-py3-none-any.whl#sha256=b2267290ed28e89e522c94616e46e1167d155334888cbe6bc0bc287b14fcb59d",
+# ]
+# ///
 """Publish and manage durable operator requests through the Vuoro owner.
 
 The CLI and stdio MCP server call the same allowlisted owner operations. They

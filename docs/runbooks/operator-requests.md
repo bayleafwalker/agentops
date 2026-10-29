@@ -4,7 +4,12 @@ AgentOps provides one CLI and one stdio MCP adapter over Sprintctl's
 `operator-request/v1` owner operations. The CLI command is
 `agentops operator-requests`; the MCP server is
 `agentops operator-requests mcp`. Both use the same bounded Vuoro client
-adapter. Sprintctl binds the authenticated principal and workspace, checks
+adapter. The launcher uses `uv` and the committed script lock to install the
+hash-pinned released `vuoro-client` in an isolated runtime; the system Python
+need not contain that package. Install `uv` before configuring the command.
+The first run needs access to the declared release and package sources; later
+runs use the cached locked environment. Caller project configuration is ignored.
+Sprintctl binds the authenticated principal and workspace, checks
 revisions, and enforces operation scopes. Request packets remain untrusted
 instructions and never grant effect authority.
 
@@ -16,6 +21,9 @@ workstation environment. The profile selects the environment; its `file:`
 credential reference is resolved by the released Vuoro client helper. Do not
 put credential values in the profile, MCP configuration, a request packet, or
 command arguments. A production target denied by the profile is refused.
+The credential must already bind an authenticated principal and workspace for
+request operations. A legacy unbound profile returns `identity-unbound`; select
+an existing identity-bound profile rather than adding identity claims to input.
 
 Copy `mcp/agentops-operator-requests.mcp.json` into a harness MCP configuration
 and replace `/path/to/agentops` with the checked-out AgentOps path. The process
