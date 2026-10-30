@@ -84,6 +84,15 @@ credential; work reassignment alone cannot stop an old process.
 
 ## Shared contract to shape before implementation (PW-01)
 
+**30 October refinement:** implement capture and successor evidence against
+[the AE-01 capture-integrity profile](2026-10-30-capture-integrity-and-export.md).
+Native bytes remain native; exact ranges, coverage gaps and derived exports are
+observations. A captured transcript, transport acknowledgement or worker summary
+cannot supply admission, target-effect verification or work acceptance. Existing
+capsule UUIDs remain unchanged, and a cross-harness handoff does not promise native
+session resumption. The profile supplies the additional negative replay cases for
+PW-01/PW-05 without adding a second session or work store.
+
 Describe a versioned exchange using existing shared-contract ownership and
 release paths. Extend current contracts only where fields or operations are
 missing; do not introduce a second repository identity registry or a second

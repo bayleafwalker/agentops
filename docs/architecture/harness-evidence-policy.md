@@ -2,6 +2,14 @@
 
 **Status:** Accepted (operator-delegated, 2026-09-14; decision G6/G7 in `docs/plans/agentops/native-runtime-federation-realignment-2026-08-20.md`, note on sprintctl #2376). Backend Langfuse is operator-selected (G1).
 
+**Implementation refinement (2026-10-30):** the
+[capture-integrity and export profile](../plans/agentops/2026-10-30-capture-integrity-and-export.md)
+adds exact-source-range, coverage and derived-export requirements to AE-01.
+Raw capture remains opt-in. Scanner findings are observations; existing
+Sovite/resource-owner output release decides destination-specific egress of exact
+bytes. The following per-sink policy is not evidence that those new collectors
+or export checks are deployed.
+
 This policy governs everything the native-harness telemetry path is allowed to
 emit and how long any of it may live. It exists because
 [`docs/ecosystem.md`](../ecosystem.md) (~36, ~96–100) already names native
@@ -191,10 +199,14 @@ dispatcher verification gates fail **closed**"
 - **Prometheus:** metrics are aggregate/numeric only; there is no per-session
   raw content to delete, only the numeric series, which ages out at 15d.
 - **Host-local transcripts:** delete the file at the path named by the
-  session's `evidence_uri` and drop the corresponding
-  `raw_transcript_ref`/`transcript_sha256` correlation fields from any
-  session record that still lists them, either on `retention_days` expiry
-  or on an explicit operator deletion request.
+  session's `evidence_uri` on `retention_days` expiry or an authorized deletion
+  request. Preserve immutable source refs/digests under the evidence owner's
+  retention policy; do not edit old capsules, owner evidence or historical
+  audit shards to remove their correlation fields. Record an availability or
+  retention observation where the owner supports it. A mutable display may
+  hide the locator, but must distinguish expired/deleted content from unknown,
+  access-denied or digest-mismatched content. This 2026-10-30 clarification
+  replaces the earlier instruction to drop fields from existing records.
 
 ## Enablement gate checklist
 

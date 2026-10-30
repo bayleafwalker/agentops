@@ -2,6 +2,17 @@
 
 Status: adopted for session-mechanization work (item #1106)
 
+**Current ownership and capture direction (2026-10-30):** the artifact contracts
+below remain historical readable formats; references to the ActionQ wrapper and
+cockpit describe their original implementation programme. The
+[current target state](../plans/2026-09-17-target-state.md) and
+[operated-service ownership](../plans/agentops/2026-10-29-operated-agentic-service.md)
+govern new execution work. The [capture-integrity implementation profile](../plans/agentops/2026-10-30-capture-integrity-and-export.md)
+extends AE-01 native observations and PW-01/PW-05 continuation; it does not revive
+those retired engines or change `session-capsule/v1`. In particular, a v1 UUID,
+clean end or raw-artifact ref supplies no unrecorded coverage, egress permission
+or cross-harness resume guarantee. No `session-capsule/v2` producer is declared.
+
 These are the two agentops-owned artifact contracts named in
 [`docs/plans/agentops/session-mechanization-plan.md`](../plans/agentops/session-mechanization-plan.md)
 and classified in
