@@ -90,6 +90,15 @@ Decisions and effect receipts remain distinct.
 
 ## Delivery packets and prerequisites
 
+**AE-01 refinement (2026-10-30):** [capture integrity and deliberate export](2026-10-30-capture-integrity-and-export.md)
+is the exact-range/coverage/export implementation profile for the source inventory
+and replay below. Preserve native formats, immutable source/destination digests,
+declared unknowns and semantic `session-note/v1` handoffs. A hash chain or clean
+exit does not establish whole-session completeness. The pending
+[AE-01 coverage replay PR #429](https://github.com/bayleafwalker/agentops/pull/429)
+is an input to reconcile, not a main-branch or real-runtime qualification claim.
+The legacy capsule schema and retired scribe are not reactivated by this work.
+
 | Packet | Owner and scoped deliverable | Prerequisite | Acceptance / exit |
 | --- | --- | --- | --- |
 | **AE-01** | Agentops + native harness adapters: inventory and pin event sources, implement minimal session/CI/Git observation envelope and offline replay; no new runner | Existing harness telemetry policy; EC-01 inventory | Two real harness types plus one simulated missing-hook case; full source/observed coverage matrix, privacy, retry, restart and outbox proof |
@@ -159,6 +168,61 @@ under host-local retention and access. Telemetry has restricted identifiers
 and artifact pointers only. Offline producer retries reconcile durable origin,
 sequence and content hash; no blind retries after ambiguous writes or effects.
 Loss of capture is measured, never converted into fabricated events.
+
+## Bounded verifier-first repair (D3 refinement, 2026-10-30)
+
+The [operated-service D3 consumer](2026-10-29-operated-agentic-service.md)
+already owns bounded repair under `agentops#2868`. Add a deterministic precursor
+there when a task has a small enumerated edit space and a frozen independent
+verifier. This is a repository-workflow technique, not a new global scheduler,
+provider router or permission-granting model. Its comparison belongs in
+[Vuoro VU-ME5](https://github.com/bayleafwalker/vuoro/blob/main/docs/plans/2026-10-25-model-evaluation-integration.md),
+using existing ExperimentRecord/accepted-outcome methods.
+
+1. Freeze the exact candidate baseline, allowed edit paths/operations, independent
+   verifier revision and acceptance basis. Distinguish a candidate test the worker
+   may add from the external verification oracle the candidate cannot change.
+   Reconfirm current work and execution authority before starting the repair.
+2. Enumerate only configured small edits; each candidate begins from the same
+   frozen baseline in a disposable isolated worktree/environment. Preserve earlier
+   work as an artifact before starting. A failed candidate cannot contaminate the
+   next candidate, verifier environment, caches or acceptance inputs.
+3. Bound candidate count, elapsed time, CPU/compute, disk/output and verifier calls.
+   Stop on the first independently verified eligible candidate or the first budget
+   reached. Running tests is compute, so no-model-call does not mean zero cost.
+4. Record exact candidate, verifier and result refs for failures as well as passes.
+   An unresolved external effect requires owner reconciliation before any retry;
+   deterministic search never retries publish/deploy operations speculatively.
+5. If the search fails or its budget is exhausted, the existing native harness
+   policy may choose an allowed model attempt or stop. Record requested/observed
+   supplier, reason, data-class admission and usage provenance. No silent hosted
+   inference, permission broadening or new mandatory approval loop is introduced.
+6. The candidate still passes the current owner acceptance and integration path.
+   A repair verifier's pass is evidence and cannot itself settle work, land a
+   branch or authorize a target effect.
+
+Start from the existing `scripts/repository_delivery_qualification.py` disposable
+Git consumer and `scripts/repository_delivery_verifier.py` external verifier.
+Their current fake owner and simulated integration remain explicitly fake; do not
+turn fixture success into live service qualification. If a selected task does not
+have a bounded useful edit space, skip the precursor and record that choice.
+
+Use a preregistered matched case set: native baseline versus bounded-search-then-
+native-fallback, identical base/acceptance and total budgets, retained failures,
+operator/review effort and all compute. Report model-free, first-model-edit,
+fallback and unresolved cases separately, with all denominators. Do not generalize
+a single-fault synthetic speedup to arbitrary repository work.
+
+Required negatives: exhausted search; poisoned candidate cache; attempted oracle
+edit; previous candidate residue; stale accepted basis; verifier timeout/crash;
+passing local check with missing independent receipt; lost effect response;
+disallowed supplier fallback. Each must preserve original artifacts, uncertainty
+and the current authority boundary. Rollback disables the precursor and resumes
+the existing native workflow; retain its attempts/results and reconcile ambiguous
+effects instead of replaying them.
+
+**Delivery status:** implementation requirements only. No repair search is enabled
+by this amendment, and it creates no new work item or acceptance writer.
 
 ## Replay and measurement protocol
 

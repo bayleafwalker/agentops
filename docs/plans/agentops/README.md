@@ -1,5 +1,16 @@
 # Agent-Ops Plans
 
+## Capture integrity and bounded repair (30 October 2026)
+
+- [Capture integrity and deliberate export](2026-10-30-capture-integrity-and-export.md)
+  refines AE-01 and PW-01/PW-05 with exact native ranges, honest coverage,
+  separate private/derived artifacts, owner-released egress and successor replay.
+  Existing `session-capsule/v1` and `session-note/v1` remain unchanged; there is
+  no new capsule engine or claim of live capture qualification.
+- [Evidence-guided work](2026-10-25-evidence-guided-agent-workflows.md#bounded-verifier-first-repair-d3-refinement-2026-10-30)
+  refines the existing D3 repository-delivery consumer with bounded deterministic
+  repair before optional inference, immutable verification and measured cost.
+
 ## Evidence-guided agent work (25 October 2026)
 
 - [Capture, small decisions, owner completion, accepted-outcome learning and
