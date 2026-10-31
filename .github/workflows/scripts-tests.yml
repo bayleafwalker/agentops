@@ -90,7 +90,7 @@ jobs:
       SOVITE_REPAIR_REQUIRE_PG: "1"
       SPRINTCTL_TEST_PG_URL: postgresql://sprintctl_test_consumer:test@127.0.0.1:5432/sprintctl_test_consumer
       RELEASED_WORK_OWNER_PYTHON: ${{ github.workspace }}/_owners/released-work-owner/bin/python
-      PYTHONPATH: ${{ github.workspace }}/scripts:${{ github.workspace }}/scripts/qualification:${{ github.workspace }}/_owners/sovite/tests:${{ github.workspace }}/_owners/vuoro/packages/vuoro-service/src
+      PYTHONPATH: ${{ github.workspace }}/scripts:${{ github.workspace }}/scripts/qualification:${{ github.workspace }}/_owners/sovite/tests:${{ github.workspace }}/_owners/sprintctl:${{ github.workspace }}/_owners/vuoro/packages/vuoro-service/src
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
