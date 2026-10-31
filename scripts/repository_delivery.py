@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#   "vuoro-contracts @ https://github.com/bayleafwalker/vuoro/releases/download/vuoro-contracts-v0.2.0/vuoro_contracts-0.2.0-py3-none-any.whl#sha256=7bc6558076fff11591b6382641608a95afebb846c254309673351a29854e12c9",
 #   "vuoro-client @ https://github.com/bayleafwalker/vuoro/releases/download/vuoro-client-v0.1.6/vuoro_client-0.1.6-py3-none-any.whl#sha256=b2267290ed28e89e522c94616e46e1167d155334888cbe6bc0bc287b14fcb59d",
 # ]
 # ///
@@ -18,6 +19,7 @@ import asyncio
 import base64
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -116,8 +118,50 @@ class Vuoro:
         except Exception as exc:
             raise DeliveryError('owner-refused:' + getattr(exc, 'code', 'unknown-outcome')) from None
 
+    def catalog(self):
+        try:
+            return self.loop.run_until_complete(self.client.catalog(force_refresh=True))
+        except Exception:
+            raise DeliveryError('owner-catalog-unavailable') from None
+
     def close(self):
         self.loop.run_until_complete(self.client.__aexit__(None, None, None)); self.loop.close()
+
+
+REPAIR_OPERATIONS = {
+    'repositoryRepairSubmit':'/api/repository-runs/v1/repairs',
+    'repositoryRepairFeedbackContext':'/api/repository-runs/v1/repair-feedback-context',
+}
+
+
+class OwnerRepairContract:
+    """Read the actual pinned owner bundle; never copy its domain schema."""
+    def __init__(self, value, state_root):
+        need(type(value) is dict and set(value) == {'root','integrity_sha256','source_ref'}, 'repair-contract-required')
+        path = Path(value['root'])
+        need(path.is_absolute() and path.resolve(strict=True) == path and path.is_dir()
+             and state_root not in path.parents and path != state_root
+             and SHA.fullmatch(value['integrity_sha256']) and isinstance(value['source_ref'], str)
+             and re.fullmatch(r'https://github.com/bayleafwalker/sovite/blob/[0-9a-f]{40}/docs/contracts/repository-repair-v1\.provenance\.json', value['source_ref']), 'repair-contract-required')
+        for parent in (path, *path.parents):
+            info = parent.stat()
+            sticky = parent != path and info.st_uid == 0 and info.st_mode & stat.S_ISVTX
+            need(info.st_uid in (0, os.getuid()) and (not info.st_mode & 0o022 or sticky), 'repair-contract-unprotected')
+        from vuoro_contracts import ContractBundle
+        self.bundle = ContractBundle.load(path, integrity_sha256=value['integrity_sha256'])
+        need(self.bundle.manifest['contractId'] == 'sovite.repository-repair.v1'
+             and self.bundle.manifest['contractVersion'] == '1.1.0', 'repair-contract-unsupported')
+        for operation, route in REPAIR_OPERATIONS.items():
+            metadata = self.bundle.manifest['operations'].get(operation)
+            need(metadata and metadata['method'] == 'POST' and metadata['path'] == route
+                 and metadata['exposure'] == 'internal', 'repair-contract-unsupported')
+
+    def request(self, operation, body):
+        need(operation in REPAIR_OPERATIONS, 'repair-operation-unsupported')
+        self.bundle.validate_request(operation, body)
+
+    def response(self, operation, status, body): self.bundle.validate_response(operation, status, body)
+    def feedback(self, body): self.bundle.validate_schema('RepairFeedback.json', body)
 
 
 class Sovite:
@@ -129,16 +173,37 @@ class Sovite:
         self.client = httpx.Client(base_url=endpoint, headers={'Authorization':'Bearer '+_file_credential(credential_ref)},
                                    timeout=30, follow_redirects=False)
 
-    def call(self, method, path, **kwargs):
+    def _response(self, method, path, **kwargs):
         try:
-            response = self.client.request(method, '/api/repository-runs/v1' + path, **kwargs)
-            need(200 <= response.status_code < 300, 'execution-owner-refused:' + str(response.status_code))
+            response = self.client.request(method, path, **kwargs)
             need(len(response.content) <= 2*MAX_ARTIFACT, 'execution-response-too-large')
-            return response.json()
+            if not 200 <= response.status_code < 300:
+                code = None
+                try: code = response.json().get('detail', {}).get('code')
+                except Exception: pass
+                code = code if isinstance(code, str) and re.fullmatch(r'[A-Za-z0-9_-]{1,96}', code) else 'refused'
+                raise DeliveryError('execution-owner-refused:' + str(response.status_code) + ':' + code)
+            return response
         except DeliveryError:
             raise
         except Exception:
             raise DeliveryError('execution-owner-unknown-outcome') from None
+
+    def call(self, method, path, **kwargs):
+        return self._response(method, '/api/repository-runs/v1' + path, **kwargs).json()
+
+    def repair_call(self, contract, operation, body, *, key=None):
+        contract.request(operation, body)
+        response = self._response('POST', REPAIR_OPERATIONS[operation], json=body,
+                                  headers={'Idempotency-Key':key} if key else {})
+        result = response.json()
+        contract.response(operation, response.status_code, result)
+        return result
+
+    def approve_feedback(self, body):
+        # The existing output owner authenticates the actual caller and applies
+        # its installed procedure; this adapter creates no approval authority.
+        return self._response('POST', '/api/output-releases', json=body).json()
 
     def close(self): self.client.close()
 
@@ -239,7 +304,15 @@ class RepositoryDelivery:
         self.root = private_root(root)
         self.spec, self.work, self.workspace, self.execution = spec, work, workspace, execution
         need(spec.get('schema_version') == 'agentops-repository-delivery/v1', 'unsupported-delivery-profile')
-        need(spec.get('max_repairs') == 0, 'repair-policy-unsupported')
+        need(type(spec.get('max_repairs')) is int and 0 <= spec['max_repairs'] <= 3, 'repair-policy-unsupported')
+        self.repair_contract = None
+        if spec['max_repairs']:
+            policy = spec.get('repair')
+            need(type(policy) is dict and set(policy) == {'owner_contract','feedback_contract_id','max_cost_usd'}
+                 and isinstance(policy['feedback_contract_id'], str) and policy['feedback_contract_id']
+                 and type(policy['max_cost_usd']) in (int,float) and math.isfinite(policy['max_cost_usd'])
+                 and 0 <= policy['max_cost_usd'] <= spec['packet']['max_cost_usd'], 'repair-policy-invalid')
+            self.repair_contract = OwnerRepairContract(policy['owner_contract'], self.root)
         need(isinstance(spec.get('basis'), dict) and SHA.fullmatch(spec['basis'].get('current_release_digest') or ''),
              'current-work-release-required')
         source_url = urlsplit(spec['canonical_url'])
@@ -250,15 +323,24 @@ class RepositoryDelivery:
         self.config, self.quota = {'max_workers':1, 'launch_spacing':0}, _Quota()
         self.store = Store(self.root/'scheduler')
         old = self.store.meta('spec')
-        if old is not None and old != spec and {k:v for k,v in old.items() if k != 'publication_attempt_id'} == {k:v for k,v in spec.items() if k != 'publication_attempt_id'}:
-            need(self.store.tasks()[0]['state'] in ('REVIEWED', 'MERGING'), 'publication-selector-too-early')
+        selectors = {'publication_attempt_id', 'repair_feedback'}
+        if old is not None and old != spec and {k:v for k,v in old.items() if k not in selectors} == {k:v for k,v in spec.items() if k not in selectors}:
+            task = self.store.tasks()[0]
+            if old.get('publication_attempt_id') != spec.get('publication_attempt_id'):
+                need(task['state'] in ('REVIEWED', 'MERGING'), 'publication-selector-too-early')
+            if old.get('repair_feedback') != spec.get('repair_feedback'):
+                need(task['state'] == 'BLOCKED' and task.get('repair_pending'), 'repair-selector-too-early')
+                selected = spec.get('repair_feedback')
+                need(selected is None or (type(selected) is dict and set(selected) == {'parent_run_id','release_id'}
+                     and selected['parent_run_id'] == task['repair_pending']['parent_run_id']), 'repair-feedback-selector-invalid')
             self.current()
-            self.store.event('publication-attempt-selected', attempt_id=spec['publication_attempt_id'])
+            self.store.event('owner-selector-selected', publication_attempt_id=spec.get('publication_attempt_id'),
+                             repair_feedback=spec.get('repair_feedback'))
             self.store.setmeta('spec', spec)
             old = spec
         if old is not None and old != spec:
             need(predecessor == old['run_id'] and old['run_id'] != spec['run_id'], 'profile-changed-requires-new-continuation')
-            mutable = {'run_id', 'grant_id', 'lease_id', 'basis', 'publication_attempt_id'}
+            mutable = {'run_id', 'grant_id', 'lease_id', 'basis', 'publication_attempt_id', 'repair_feedback'}
             need({k:v for k,v in old.items() if k not in mutable} ==
                  {k:v for k,v in spec.items() if k not in mutable}, 'continuation-profile-changed')
             self.current()
@@ -274,6 +356,16 @@ class RepositoryDelivery:
                 'attempt':None, 'worktree':str(self.root/'candidate')})
 
     def close(self): self.store.close()
+    def candidate_path(self, task):
+        count = task.get('repair_count', 0)
+        need(type(count) is int and 0 <= count <= 3, 'repair-history-invalid')
+        return self.root / ('candidate' if count == 0 else 'candidate-'+str(count))
+
+    def driver_directory(self, name, task):
+        count = task.get('repair_count', 0)
+        self.candidate_path(task)
+        return self.root / ('driver-'+name+('-'+str(count) if count else ''))
+
     def current(self):
         s = self.spec
         binding = self.work.invoke('work.run.resolve-v2', {'run_id':s['run_id']}, s['repo_id'])
@@ -281,6 +373,9 @@ class RepositoryDelivery:
              and binding['state'] == 'active' and binding['superseded_by_run_id'] is None, 'stale-work-run')
         delta = self.work.invoke('work.run.continuation-delta-v1', {'run_id':s['run_id'], 'item_id':s['item_id'],
                                  'checkpoint':s['basis']}, s['repo_id'])['delta']
+        need(all(isinstance(delta['current'].get(key), str)
+                 and re.fullmatch(r'sha256:[0-9a-f]{64}', delta['current'][key])
+                 for key in ('current_decision_digest','current_reference_set_digest')), 'current-work-basis-unavailable')
         need(delta['current'] == s['basis'] and delta['work']['status'] in ('pending','active'), 'work-basis-changed')
         item = self.work.invoke('work.read.item', {'item_id':s['item_id']}, s['repo_id'])['item']
         need(item['edit_revision'] == s['basis']['work_edit_revision']
@@ -288,6 +383,11 @@ class RepositoryDelivery:
         lease = self.work.invoke('work.lease.read-v1' , {'item_id':s['item_id']}, s['repo_id'])['current_lease']
         need(lease and lease['lease_id'] == s['lease_id'] and lease['run_id'] == s['run_id']
              and lease['state'] == 'active' and lease['stale'] is False, 'stale-work-lease')
+        release = self.work.invoke('work.read.release', {'item_id':s['item_id']}, s['repo_id'])['release']
+        need(release and release['release_digest'] == s['basis']['current_release_digest']
+             and lease.get('basis_release_digest') == release['release_digest']
+             and isinstance(lease.get('basis_item_revision'), str)
+             and lease['basis_item_revision'] == release['item_revision'], 'work-lease-basis-unavailable')
         # The owner refreshes the same lease. No claim takeover occurs here.
         self.work.invoke('work.lease.heartbeat-v1', {'lease_id':s['lease_id'], 'run_id':s['run_id']}, s['repo_id'])
         return lease
@@ -297,13 +397,59 @@ class RepositoryDelivery:
         task = self.store.tasks()[0]
         if task['state'] == 'MERGING' and task.get('outcome_payload'):
             if self.observe_settlement(task): return self.store.tasks()[0]
-        self.current()
-        tick(self)
+        if task.get('work_stop'):
+            self.stop_owned_execution(task, task['work_stop'])
+            return self.store.tasks()[0]
+        try:
+            self.current()
+            tick(self)
+        except DeliveryError as exc:
+            if str(exc) in {'stale-work-run', 'work-basis-changed', 'current-requirements-mismatch',
+                            'stale-work-lease', 'work-lease-basis-unavailable', 'current-work-basis-unavailable'}:
+                self.stop_owned_execution(self.store.tasks()[0], str(exc))
+                return self.store.tasks()[0]
+            raise
         return self.store.tasks()[0]
+    def stop_owned_execution(self, task, reason):
+        current = self.store.tasks()[0]
+        need(current['id'] == task['id'] and current['state'] != 'MERGED', 'cancellation-task-changed')
+        # The tick may already have acknowledged a child or durably stored its
+        # submission. Never replace those facts with a pre-tick task snapshot.
+        task = current
+        # A stale Work poll has bounded local effect. The execution owner owns
+        # cancellation and in-flight calls may already have crossed admission.
+        pending = task.get('repair_pending') or {}
+        key = pending.get('submission_key') or task.get('submission_key')
+        run_id = None if pending.get('submission_key') else task.get('execution_id')
+        task = self.save(task, 'BLOCKED', work_stop=reason, cause=reason, resume=None,
+                         cancellation_intent={'submission_key':key, 'run_id':run_id, 'reason':reason})
+        if not key:
+            self.save(task, cancellation_state='no-submission-intent'); return
+        params = {'workspace_id':self.spec['packet']['workspace_id']}
+        if not run_id:
+            listed = self.execution.call('GET', '/runs', params=dict(params, limit=100))['runs']
+            found = [r for r in listed if r.get('idempotency_key') == key
+                     and r.get('repository_id') == self.spec['repository_id']
+                     and r.get('workspace_id') == params['workspace_id']]
+            need(len(found) <= 1, 'cancellation-owner-history-ambiguous')
+            if not found:
+                self.save(task, cancellation_state='submission-outcome-unknown'); return
+            run_id = found[0]['id']
+        run = self.execution.call('GET', '/runs/'+run_id, params=params)['run']
+        need(run['id'] == run_id and run.get('idempotency_key') == key
+             and run['repository_id'] == self.spec['repository_id']
+             and run['workspace_id'] == params['workspace_id'], 'cancellation-source-mismatch')
+        if run['state'] not in ('completed','failed','cancelled','blocked'):
+            run = self.execution.call('POST', '/runs/'+run_id+'/cancel', params=params)['run']
+            need(run['id'] == run_id, 'cancellation-source-mismatch')
+        self.save(task, cancellation_state=run['state'], cancellation_receipt=run)
+
     def ingest(self): pass
     def ingest_usage(self): pass
     def retry_deferred_failovers(self): pass
-    def resume_quota_blocked(self, task): pass
+    def resume_quota_blocked(self, task):
+        if task.get('repair_pending'):
+            self.progress_repair(task)
     def capture_checkpoints(self, task): return task
     def finalize_tick(self): pass
     def waiting(self, task, cause): return task
@@ -313,6 +459,11 @@ class RepositoryDelivery:
     def start_worker(self, task):
         self.current()
         s = self.spec
+        if task.get('repair_ack'):
+            ack = task['repair_ack']
+            need(ack['repair_number'] == task['repair_count'] and task['execution_id'] == ack['run_id'], 'repair-acknowledgement-changed')
+            self.save(task, 'RUNNING', attempt='sovite:'+task['submission_key'], cause=None, resume=None)
+            return
         caps = self.execution.call('GET', '/capabilities', params={'workspace_id':s['packet']['workspace_id']})
         eligible = [e for e in caps['executors'] if e['id'] == s['packet']['executor_id'] and e['launch_supported'] is True
                     and e['availability'] == 'available' and s['repository_id'] in e['repository_ids']]
@@ -346,7 +497,15 @@ class RepositoryDelivery:
             need(len(retained) == 1 and retained[0]['sha256'] == retained[0]['receipt']['sha256'], 'retention-evidence-invalid')
             return {'exit':'committed', 'run':run, 'retained':retained[0]['receipt']}
         result = self.store.meta(attempt)
-        # Missing driver result after restart is UNKNOWN. Do not rerun it.
+        if result is None:
+            task = self.store.tasks()[0]
+            need(task.get('attempt') == attempt and re.fullmatch(r'verify-[1-4]', attempt), 'verification-attempt-mismatch')
+            directory = self.driver_directory('check', task)
+            need((directory/'result.json').is_file(), 'driver-outcome-unknown')
+            # Reconcile an fsynced completed driver result after the scheduler
+            # acknowledgement was lost. driver() validates and never reruns it.
+            result = self.driver('check', task)
+            self.store.setmeta(attempt, result)
         return result
 
     def finish_worker(self, task, result):
@@ -373,20 +532,25 @@ class RepositoryDelivery:
         data, bundle = validate_export(raw, receipt, repository_id=s['repository_id'],
                                       base_sha=s['packet']['base_sha'], run_id=task['execution_id'])
         need(any(a['id'] == data['attempt_id'] and a['state'] == 'completed' for a in result['run']['attempts']), 'execution-attempt-mismatch')
-        write_exact(self.root/'retained-export.json', raw)
-        branch = import_candidate(self.root/'candidate', s['canonical_url'], data, bundle, s['allowed_areas'])
+        count = task.get('repair_count', 0)
+        retained_path = self.root / ('retained-export.json' if not count else 'retained-export-'+str(count)+'.json')
+        need(not retained_path.exists() or retained_path.read_bytes() == raw, 'retained-export-changed')
+        write_exact(retained_path, raw)
+        candidate = self.candidate_path(task)
+        branch = import_candidate(candidate, s['canonical_url'], data, bundle, s['allowed_areas'])
         self.save(task, 'READY', worker_commit=data['tip_sha'], attempt=None, retained=receipt, branch=branch,
-                  execution_receipt=result['run'], waiting_cause=None)
+                  execution_receipt=result['run'], waiting_cause=None, worktree=str(candidate),
+                  check=None, review=None, verification_done=False, verified_tip=None)
 
     def main_tip(self):
         task = self.store.tasks()[0]
         if not task.get('worker_commit'): return self.spec['packet']['base_sha']
-        data = git(self.root/'candidate', 'ls-remote', 'origin', 'refs/heads/main').decode().split()
+        data = git(self.candidate_path(task), 'ls-remote', 'origin', 'refs/heads/main').decode().split()
         need(len(data) == 2 and COMMIT.fullmatch(data[0]), 'canonical-main-unavailable')
         return data[0]
 
     def integrity(self, task):
-        repo = self.root/'candidate'
+        repo = self.candidate_path(task)
         need(git(repo, 'rev-parse', 'HEAD').decode().strip() == task['worker_commit']
              and not git(repo, 'status', '--porcelain', '--untracked-files=all'), 'candidate-mutated')
 
@@ -395,7 +559,7 @@ class RepositoryDelivery:
         self.current(); self.integrity(task)
         need(base == self.spec['packet']['base_sha'], 'canonical-base-changed')
         number = task.get('attempts', 0) + 1
-        need(number <= 1, 'verification-retry-requires-reconciliation')
+        need(number <= task.get('repair_count', 0)+1, 'verification-retry-requires-reconciliation')
         name = 'verify-'+str(number)
         self.store.setmeta(name+':intent', {'base':base, 'tip':task['worker_commit']})
         return name, number
@@ -410,7 +574,7 @@ class RepositoryDelivery:
         need(path.is_absolute() and path.resolve() == path and path.is_file()
              and path.stat().st_uid in (0, os.getuid()) and not path.stat().st_mode & 0o022
              and self.root not in path.parents and hashlib.sha256(path.read_bytes()).hexdigest() == driver['sha256'], 'trusted-driver-changed')
-        directory = self.root/('driver-'+name)
+        directory = self.driver_directory(name, task)
         need(type(driver['timeout_seconds']) is int and 1 <= driver['timeout_seconds'] <= 3600, 'driver-timeout-invalid')
         if directory.exists():
             need((directory/'result.json').is_file(), 'driver-outcome-unknown')
@@ -426,7 +590,7 @@ class RepositoryDelivery:
         clean = directory/'checkout'
         # Independent clean checkout for check and review. The qualified driver
         # owns sandboxing; candidate configuration never supplies its command.
-        git(directory, 'clone', '--no-hardlinks', '--no-checkout', str(self.root/'candidate'), str(clean))
+        git(directory, 'clone', '--no-hardlinks', '--no-checkout', str(self.candidate_path(task)), str(clean))
         git(clean, 'checkout', '--detach', task['worker_commit'])
         command = [str(path), str(clean), self.spec['packet']['base_sha'], task['worker_commit']]
         atomic(directory/'intent.json', {'command':command, 'driver_sha256':driver['sha256'], 'profile':digest(policy)})
@@ -438,7 +602,7 @@ class RepositoryDelivery:
              and not git(clean, 'status', '--porcelain', '--untracked-files=all'), 'verification-input-mutated')
         result = {'exit':'committed' if code == 0 else 'check_failed', 'candidate':task['worker_commit'],
                   'base':self.spec['packet']['base_sha'], 'driver_sha256':driver['sha256'], 'profile':digest(policy),
-                  'log_sha256':hashlib.sha256((directory/'output.log').read_bytes()).hexdigest()}
+                  'log_sha256':hashlib.sha256((directory/'output.log').read_bytes()).hexdigest(), 'exit_code':code}
         atomic(directory/'result.json', result)
         return result
 
@@ -450,7 +614,7 @@ class RepositoryDelivery:
     def finish_verify(self, task, result):
         self.current(); self.integrity(task)
         if result['exit'] != 'committed' or result['candidate'] != task['worker_commit']:
-            self.block(task, 'verification-failed', 'READY'); return
+            self.begin_repair(task, 'check', result); return
         self.save(task, verification_done=True, verified_tip=result['candidate'], check=result)
 
     def accept_review(self, task):
@@ -458,8 +622,110 @@ class RepositoryDelivery:
         need(self.spec['acceptance']['check']['sha256'] != self.spec['acceptance']['review']['sha256'], 'independent-review-required')
         result = self.driver('review', task)
         if result['exit'] != 'committed':
-            self.block(task, 'independent-review-failed', 'READY'); return
+            self.begin_repair(task, 'review', result); return
         self.save(task, 'REVIEWED', review=result)
+
+    def begin_repair(self, task, name, result):
+        cause = 'verification-failed' if name == 'check' else 'independent-review-failed'
+        if not self.spec.get('max_repairs'):
+            self.block(task, cause, 'READY'); return
+        count = task.get('repair_count', 0)
+        if count >= self.spec['max_repairs']:
+            self.block(task, 'repair-budget-exhausted', 'READY'); return
+        # Only a completed qualified driver failure is repair evidence. Missing
+        # results, timeout/process-control failures and model-run failure have
+        # separate reconciliation paths and cannot acquire repair authority.
+        need(result.get('exit') == 'check_failed' and type(result.get('exit_code')) is int
+             and 1 <= result['exit_code'] < 124 and result['candidate'] == task['worker_commit'],
+             'repair-feedback-result-unavailable')
+        need(self.driver(name, task) == result, 'repair-feedback-result-changed')
+        pending = {'parent_run_id':task['execution_id'], 'root_run_id':task.get('repair_root_run_id', task['execution_id']),
+                   'candidate_sha256':task['retained']['sha256'], 'candidate_tip_sha':task['worker_commit'],
+                   'repair_number':count+1, 'driver':name, 'result':result}
+        self.save(task, 'BLOCKED', cause='repair-feedback-pending', resume='PLANNED', repair_pending=pending)
+
+    def progress_repair(self, task):
+        self.current(); self.integrity(task)
+        pending = dict(task['repair_pending'])
+        need(pending['repair_number'] == task.get('repair_count', 0)+1
+             and pending['repair_number'] <= self.spec['max_repairs']
+             and pending['parent_run_id'] == task['execution_id']
+             and pending['candidate_sha256'] == task['retained']['sha256']
+             and pending['candidate_tip_sha'] == task['worker_commit']
+             and self.driver(pending['driver'], task) == pending['result'], 'repair-history-changed')
+        selected = self.spec.get('repair_feedback')
+        if selected is not None:
+            need(type(selected) is dict and set(selected) == {'parent_run_id', 'release_id'}
+                 and isinstance(selected['release_id'], str)
+                 and re.fullmatch(r'release_[0-9a-f]{64}', selected['release_id']), 'repair-feedback-selector-invalid')
+        if not pending.get('feedback_release_id') and selected and selected['parent_run_id'] == pending['parent_run_id']:
+            pending['feedback_release_id'] = selected['release_id']
+            task = self.save(task, repair_pending=pending)
+        if not pending.get('feedback_release_id'):
+            try:
+                context = self.execution.repair_call(self.repair_contract, 'repositoryRepairFeedbackContext', {
+                    'parent_run_id':pending['parent_run_id'], 'feedback_contract_id':self.spec['repair']['feedback_contract_id']})
+            except DeliveryError as exc:
+                if str(exc).startswith('execution-owner-refused:403:'):
+                    self.save(task, cause='repair-feedback-release-required', repair_pending=pending)
+                    return
+                raise
+            need(context['parent_run_id'] == pending['parent_run_id']
+                 and context['candidate_sha256'] == pending['candidate_sha256']
+                 and context['candidate_tip_sha'] == pending['candidate_tip_sha'], 'repair-feedback-context-changed')
+            if pending.get('feedback_context'):
+                need(pending['feedback_context'] == context, 'repair-feedback-context-changed')
+            else:
+                directory = self.driver_directory(pending['driver'], task)
+                with (directory/'output.log').open('rb') as stream:
+                    excerpt = stream.read(12000).decode('utf-8', errors='replace')
+                feedback = {'schema_version':'sovite-repository-repair-feedback/v1',
+                    'parent_run_id':pending['parent_run_id'], 'candidate_export_sha256':pending['candidate_sha256'],
+                    'candidate_tip_sha':pending['candidate_tip_sha'],
+                    'result':'check_failed' if pending['driver'] == 'check' else 'review_failed',
+                    'feedback':canonical({'driver_result':pending['result'], 'log_excerpt':excerpt,
+                        'log_excerpt_max_bytes':12000, 'full_log_sha256':pending['result']['log_sha256']}).decode()}
+                self.repair_contract.feedback(feedback)
+                result_sha = digest(pending['result'])
+                approval = {'source_job_id':context['parent_run_id'], 'source_digest':context['source_digest'],
+                    'contract_id':context['contract_id'], 'expected_contract_revision':context['contract_revision'],
+                    'expected_generation':context['expected_generation'], 'content':canonical(feedback).decode(),
+                    'evidence_refs':[{'owner':'agentops.repository-delivery', 'resource_id':'driver-result:'+result_sha,
+                        'revision':'sha256:'+pending['result']['driver_sha256'], 'content_digest':'sha256:'+result_sha}]}
+                pending.update(feedback_context=context, approval=approval)
+                task = self.save(task, repair_pending=pending, cause='repair-feedback-approval-pending')
+            # The eligible owned-parent context was reacquired above on every
+            # retry. A different credential cannot approve as another actor.
+            self.current()
+            release = self.execution.approve_feedback(pending['approval'])
+            need(isinstance(release.get('release_id'), str)
+                 and re.fullmatch(r'release_[0-9a-f]{64}', release['release_id'])
+                 and release.get('contract_revision') == context['contract_revision'], 'repair-feedback-approval-unknown')
+            pending['feedback_release_id'] = release['release_id']
+            task = self.save(task, repair_pending=pending)
+        if not pending.get('submission'):
+            repair = {'parent_run_id':pending['parent_run_id'], 'candidate_sha256':pending['candidate_sha256'],
+                      'feedback_release_id':pending['feedback_release_id'], 'max_cost_usd':self.spec['repair']['max_cost_usd']}
+            body = dict(repair, schema_version='sovite-repository-repair/v1',
+                        preview_id=digest({'principal':self.spec['sovite_principal'], 'repair':repair}))
+            self.repair_contract.request('repositoryRepairSubmit', body)
+            pending.update(submission=body, submission_key='delivery-repair-'+digest({'run_id':self.spec['run_id'],
+                           'repair_number':pending['repair_number'], 'repair':body}))
+            task = self.save(task, repair_pending=pending, cause='repair-submission-pending')
+        self.current()
+        ack = self.execution.repair_call(self.repair_contract, 'repositoryRepairSubmit', pending['submission'], key=pending['submission_key'])
+        need(ack['parent_run_id'] == pending['parent_run_id'] and ack['root_run_id'] == pending['root_run_id']
+             and ack['repair_number'] == pending['repair_number'] and ack['run_id'] != pending['parent_run_id'], 'repair-submission-mismatch')
+        history = [*task.get('repair_history', []), {'parent_run_id':task['execution_id'],
+            'retained':task['retained'], 'candidate_tip_sha':task['worker_commit'], 'driver':pending['driver'],
+            'driver_result':pending['result'], 'feedback_context':pending.get('feedback_context'),
+            'approval':pending.get('approval'), 'feedback_release_id':pending['feedback_release_id'],
+            'submission':pending['submission'], 'submission_key':pending['submission_key'], 'acknowledgement':ack}]
+        self.save(task, 'PLANNED', repair_history=history, repair_pending=None, repair_ack=ack,
+                  repair_count=pending['repair_number'], repair_root_run_id=pending['root_run_id'],
+                  execution_id=ack['run_id'], submission=pending['submission'], submission_key=pending['submission_key'],
+                  attempt=None, cause=None, resume=None, check=None, review=None, verification_done=False,
+                  verified_tip=None, publication=None)
 
     def integrate(self, task):
         self.current(); self.integrity(task)
@@ -470,40 +736,81 @@ class RepositoryDelivery:
         need(s.get('publication_attempt_id') or task.get('publication'), 'publication-attempt-required')
         args = SimpleNamespace(authority_environment=Path(s['authority_environment']), authority_repo=s['repo_id'],
             run_id=s['run_id'], grant_id=s['grant_id'], attempt_id=s['publication_attempt_id'],
-            profile=Path(s['work_profile']), repo=str(self.root/'candidate'), tip=task['worker_commit'])
+            profile=Path(s['work_profile']), repo=str(self.candidate_path(task)), tip=task['worker_commit'])
         if not task.get('publication'):
             refusal, target = authority_gate(args)
             need(refusal is None and target, 'publication-authority-refused')
             need(self.main_tip() == task['verified_base'], 'canonical-base-changed')
             self.store.setmeta('publication-intent', {'tip':task['worker_commit'], 'target':target})
-            result = publish(str(self.root/'candidate'), task['worker_commit'], task['branch'], [task['worker_commit']],
+            result = publish(str(self.candidate_path(task)), task['worker_commit'], task['branch'], [task['worker_commit']],
                              [str(s['item_id'])], target)
             task = self.save(task, publication=result)
         # Branch/PR creation is not canonical integration. The repository
         # owner's existing landing path must integrate the exact verified tip.
-        git(self.root/'candidate', 'fetch', '--no-tags', 'origin', 'refs/heads/main:refs/remotes/origin/main')
-        if not git_ancestor(self.root/'candidate', task['worker_commit'], 'origin/main'):
+        git(self.candidate_path(task), 'fetch', '--no-tags', 'origin', 'refs/heads/main:refs/remotes/origin/main')
+        if not git_ancestor(self.candidate_path(task), task['worker_commit'], 'origin/main'):
             return  # exact candidate still awaiting the repository owner
         self.current()
         payload = {'candidate':task['worker_commit'], 'base':task['verified_base'], 'basis':s['basis'],
                    'retained':task['retained'], 'verification':task['check'], 'review':task['review'], 'publication':task['publication']}
-        # The released lease outcome operation has no atomic expected-basis
-        # input. Never use it as an exact-basis acceptance shortcut. Preserve
-        # the complete payload at the work owner and observe its independent
-        # exact-release/evidence decision through the existing read API.
+        self.report_outcome(task, payload)
+
+    def report_outcome(self, task, payload):
+        s = self.spec
         if not task.get('outcome_payload'):
-            note = self.work.invoke('work.session-note.write-v1', {'run_id':s['run_id'],
-                'note':canonical({'schema':'agentops-repository-delivery-result/v1', 'result':payload,
-                                  'sha256':digest(payload)}).decode(),
-                'idempotency_key':'delivery-evidence-'+digest(payload)}, s['repo_id'])
-            self.save(task, outcome_payload=payload, outcome_note_id=note['note_id'],
-                      outcome_report={'settled':False, 'reason':'owner-acceptance-pending', 'note_id':note['note_id']})
+            catalog = self.work.catalog()
+            operations = [op for op in catalog['operations'] if op['name'] == 'work.lease.report-outcome-v2']
+            need(len(operations) <= 1, 'owner-catalog-operation-ambiguous')
+            if operations:
+                need('checkpoint' in operations[0]['input_schema']['required'], 'owner-outcome-basis-contract-unsupported')
+                lease = self.current()
+                body = {'lease_id':s['lease_id'], 'run_id':s['run_id'], 'outcome':'succeeded',
+                    'summary':'Verified exact repository candidate integrated on canonical main',
+                    'payload':payload, 'checks':[{'name':'review','status':'passed'}, {'name':'tests','status':'passed'}],
+                    'checkpoint':s['basis'], 'idempotency_key':'delivery-outcome-'+digest(payload)}
+                task = self.save(task, outcome_payload=payload, outcome_intent=body,
+                                 settlement_principal_id=lease['principal_id'])
+            else:
+                # Legacy owners preserve full evidence but cannot atomically
+                # compare this exact reference/Decision basis at settlement.
+                note = self.work.invoke('work.session-note.write-v1', {'run_id':s['run_id'],
+                    'note':canonical({'schema':'agentops-repository-delivery-result/v1', 'result':payload,
+                                      'sha256':digest(payload)}).decode(),
+                    'idempotency_key':'delivery-evidence-'+digest(payload)}, s['repo_id'])
+                self.save(task, outcome_payload=payload, outcome_note_id=note['note_id'],
+                          outcome_report={'settled':False, 'reason':'owner-exact-basis-operation-unavailable', 'note_id':note['note_id']})
+                return
+        if task.get('outcome_intent') and not task.get('owner_outcome_report'):
+            result = self.work.invoke('work.lease.report-outcome-v2', task['outcome_intent'], s['repo_id'])
+            self.match_outcome_report(task, result['report'])
+            self.save(task, owner_outcome_report=result['report'], outcome_report=result)
+
+    def match_outcome_report(self, task, report):
+        body = task['outcome_intent']
+        need(report.get('lease_id') == body['lease_id'] and report.get('run_id') == body['run_id']
+             and report.get('item_id') == self.spec['item_id']
+             and report.get('principal_id') == task['settlement_principal_id']
+             and all(report.get(k) == body[k] for k in ('outcome','summary','payload','checks'))
+             and isinstance(report.get('payload_digest'), str) and SHA.fullmatch(report['payload_digest']),
+             'owner-outcome-report-mismatch')
 
     def observe_settlement(self, task):
         s = self.spec
         decisions = self.work.invoke('work.read.item-decisions', {'item_id':s['item_id']}, s['repo_id'])
         if decisions['status'] != 'done': return False
-        payload_sha = digest(task['outcome_payload'])
+        if task.get('outcome_intent'):
+            observed = self.work.invoke('work.lease.read-v1', {'item_id':s['item_id']}, s['repo_id'])
+            reports = [r for r in observed['outcome_reports'] if r.get('lease_id') == s['lease_id']
+                       and r.get('run_id') == s['run_id'] and r.get('disposition') == 'settled']
+            need(len(reports) == 1, 'owner-outcome-report-unavailable')
+            report = reports[0]
+            if task.get('owner_outcome_report'):
+                need(report['report_id'] == task['owner_outcome_report']['report_id'], 'owner-outcome-report-mismatch')
+            self.match_outcome_report(task, report)
+            need(report['disposition'] == 'settled' and report['decision_id'] == decisions['terminal_decision_id'], 'owner-outcome-not-settled')
+            payload_sha = report['payload_digest']
+        else:
+            payload_sha = digest(task['outcome_payload'])
         accepted = [d for d in decisions['decisions'] if d.get('id') == decisions['terminal_decision_id']
                     and d.get('kind') == 'accept' and d.get('release_digest') == s['basis']['current_release_digest']
                     and payload_sha in d.get('evidence_digests', [])]
