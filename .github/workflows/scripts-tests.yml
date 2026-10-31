@@ -68,3 +68,61 @@ jobs:
             fi
           done
           exit "$status"
+
+  repository-delivery-owners:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: consumer_owners
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d consumer_owners"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      SOVITE_WORKSPACE_TEST_DSN: postgresql://postgres:postgres@127.0.0.1:5432/consumer_owners
+      SOVITE_TEST_POSTGRES_URL: postgresql://postgres:postgres@127.0.0.1:5432/consumer_owners
+      SOVITE_WORKSPACE_REQUIRE_PG: "1"
+      SOVITE_REPAIR_REQUIRE_PG: "1"
+      SPRINTCTL_TEST_PG_URL: postgresql://sprintctl_test_consumer:test@127.0.0.1:5432/sprintctl_test_consumer
+      RELEASED_WORK_OWNER_PYTHON: ${{ runner.temp }}/released-work-owner/bin/python
+      PYTHONPATH: ${{ github.workspace }}/scripts:${{ github.workspace }}/_owners/sovite/tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: bayleafwalker/sovite
+          ref: e5f392eb1717a5f4f6b8c4fa0f7fc777ee6608b8
+          path: _owners/sovite
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: bayleafwalker/sprintctl
+          ref: cd5ba9bb817e6e7b3fbd65fdf817999505f11883
+          path: _owners/sprintctl
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v8.3.2
+      - name: install exact owner source tuples and immutable legacy contract
+        run: |
+          python -m pip install './_owners/sovite[test]' './_owners/sprintctl[dev,remote]'
+          uv venv "$RUNNER_TEMP/released-work-owner" --python python
+          uv pip install --python "$RELEASED_WORK_OWNER_PYTHON" 'sprintctl[inspection] @ https://github.com/bayleafwalker/sprintctl/releases/download/v0.27.0/sprintctl-0.27.0-py3-none-any.whl#sha256=ed865d2ad4048de04856f0169fa8f020fa1edeec9aa467f8a9a91a97e6407bc7'
+      - name: create guarded unprivileged Work fixture
+        run: |
+          python - <<'PY'
+          import os
+          import psycopg
+          with psycopg.connect(os.environ['SOVITE_TEST_POSTGRES_URL'], autocommit=True) as conn:
+              conn.execute("CREATE ROLE sprintctl_test_consumer LOGIN PASSWORD 'test' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS")
+              conn.execute("CREATE DATABASE sprintctl_test_consumer OWNER sprintctl_test_consumer TEMPLATE template0 ENCODING 'UTF8'")
+              conn.execute("COMMENT ON DATABASE sprintctl_test_consumer IS 'sprintctl:disposable-integration-test'")
+          PY
+      - name: actual consumer and owner fault histories (no native or deployment qualification)
+        run: python -m pytest -q scripts/qualification/repository_delivery_owners.py --maxfail=1

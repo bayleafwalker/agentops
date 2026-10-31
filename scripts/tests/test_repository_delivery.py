@@ -99,6 +99,37 @@ class DeliveryArtifactTests(unittest.TestCase):
         driver.write_text(driver.read_text()+'# changed\n')
         with self.assertRaisesRegex(DeliveryError, 'driver-changed'): adapter.driver('check', task)
 
+    def test_driver_completed_result_survives_lost_scheduler_ack_without_rerun(self):
+        adapter = RepositoryDelivery.__new__(RepositoryDelivery)
+        adapter.root = self.root/'driver-recovery'; adapter.root.mkdir(mode=0o700)
+        adapter.store = Store(adapter.root/'scheduler')
+        import_candidate(adapter.root/'candidate', str(self.source), self.data, self.bundle, ['src'])
+        counter = self.root/'driver-effects'
+        driver = self.root/'trusted-recovery-check'
+        driver.write_text('#!'+sys.executable+'\nfrom pathlib import Path\n'
+                          'p=Path('+repr(str(counter))+')\np.write_text(p.read_text()+"x" if p.exists() else "x")\n')
+        driver.chmod(0o700)
+        adapter.spec = {'packet':{'base_sha':self.base}, 'acceptance':{'expires_at':'2099-01-01T00:00:00Z',
+            'qualification_ref':'local-fixture-only', 'allowed_classes':['C1'],
+            'check':{'path':str(driver), 'sha256':hashlib.sha256(driver.read_bytes()).hexdigest(), 'timeout_seconds':5}}}
+        task = {'id':'delivery', 'state':'VERIFYING', 'attempt':'verify-1',
+                'worker_commit':self.tip, 'retained':{'output_class':'C1'}}
+        adapter.store.save(task)
+        result = adapter.driver('check', task)  # effect + fsynced result; drop scheduler acknowledgement
+        adapter.close()
+        adapter.store = Store(adapter.root/'scheduler')
+        try:
+            self.assertIsNone(adapter.store.meta('verify-1'))
+            self.assertEqual(adapter.status('verify-1'), result)
+            self.assertEqual(adapter.status('verify-1'), result)
+            self.assertEqual(counter.read_text(), 'x')
+            adapter.store.db.execute("DELETE FROM meta WHERE key='verify-1'"); adapter.store.db.commit()
+            (adapter.root/'driver-check/result.json').unlink()
+            with self.assertRaisesRegex(DeliveryError, 'driver-outcome-unknown'):
+                adapter.status('verify-1')
+            self.assertEqual(counter.read_text(), 'x')
+        finally: adapter.close()
+
     def immediate_execution(self, state):
         """Transport projections only; exercise actual scheduler/import state."""
         adapter = RepositoryDelivery.__new__(RepositoryDelivery)

@@ -3,7 +3,10 @@ revision = 5
 requires-python = ">=3.12"
 
 [manifest]
-requirements = [{ name = "vuoro-client", url = "https://github.com/bayleafwalker/vuoro/releases/download/vuoro-client-v0.1.6/vuoro_client-0.1.6-py3-none-any.whl" }]
+requirements = [
+    { name = "vuoro-client", url = "https://github.com/bayleafwalker/vuoro/releases/download/vuoro-client-v0.1.6/vuoro_client-0.1.6-py3-none-any.whl" },
+    { name = "vuoro-contracts", url = "https://github.com/bayleafwalker/vuoro/releases/download/vuoro-contracts-v0.2.0/vuoro_contracts-0.2.0-py3-none-any.whl" },
+]
 
 [[package]]
 name = "annotated-types"
@@ -402,5 +405,25 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.10,<3" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.3,<9" },
     { name = "vuoro-contracts", marker = "extra == 'test'" },
+]
+provides-extras = ["test"]
+
+[[package]]
+name = "vuoro-contracts"
+version = "0.2.0"
+source = { url = "https://github.com/bayleafwalker/vuoro/releases/download/vuoro-contracts-v0.2.0/vuoro_contracts-0.2.0-py3-none-any.whl" }
+dependencies = [
+    { name = "jsonschema" },
+    { name = "referencing" },
+]
+wheels = [
+    { url = "https://github.com/bayleafwalker/vuoro/releases/download/vuoro-contracts-v0.2.0/vuoro_contracts-0.2.0-py3-none-any.whl", hash = "sha256:7bc6558076fff11591b6382641608a95afebb846c254309673351a29854e12c9" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "jsonschema", specifier = "==4.26.0" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=8.3,<9" },
+    { name = "referencing", specifier = "==0.37.0" },
 ]
 provides-extras = ["test"]
