@@ -1,0 +1,85 @@
+{
+  "schema_version": "verification-result/v1",
+  "context_id": "estate-pilot-protected-acceptance-20261031",
+  "contract_ref": {
+    "doc_id": "estate-pilot-protected-acceptance",
+    "revision": "a98093da8b8a0f5d1ccb944fc6e1421a7998f1ea"
+  },
+  "implementation_sha": "a98093da8b8a0f5d1ccb944fc6e1421a7998f1ea",
+  "depth": 3,
+  "environment": {
+    "backend": "Actual local KVM and sanitized Git/Nix",
+    "isolation": "Fresh diskless microvm with only loopback, no host shares or credentials; root supervisor and UID1000 oracle",
+    "tool_versions": {
+      "python": "3.14.8",
+      "kernel": "6.18.59",
+      "qemu": "11.1.2"
+    }
+  },
+  "execution": {
+    "histories": 9,
+    "bounds": {
+      "synthetic_controls": 9,
+      "behavioral_cases": 17,
+      "baseline_tests": 109,
+      "guest_vcpus": 1,
+      "guest_memory_mib": 1536,
+      "qemu_seconds": 120,
+      "host_seconds": 125,
+      "consumer_seconds": 135,
+      "paid_calls": 0,
+      "real_work_runs": 0,
+      "scripts_passed": 1986,
+      "scripts_optional_skipped": 57,
+      "scripts_subtests": 1506,
+      "context_economy_passed": 29
+    },
+    "faults_exercised": [
+      "Original defect unchanged",
+      "Unrelated source mutation",
+      "Vacuous additional regression",
+      "Launcher killed",
+      "QEMU killed",
+      "Missing closure import caught before physical qualification"
+    ]
+  },
+  "claims": [
+    {
+      "property": "Source admission, distinct behavioral/review results, per-method differential and guest boundaries",
+      "result": "example-tested",
+      "evidence": [
+        "2026-10-31.synthetic-proof.json",
+        "../../../scripts/qualification/verify_estate_acceptance.py"
+      ]
+    },
+    {
+      "property": "Launcher death stops QEMU; killed QEMU cannot produce a successful outcome",
+      "result": "example-tested",
+      "evidence": [
+        "2026-10-31.synthetic-proof.json"
+      ]
+    },
+    {
+      "property": "Installed owner image qualification and actual Work2873/caller/Workspace/retention/publication commissioning",
+      "result": "unknown"
+    }
+  ],
+  "counterexamples": [
+    {
+      "summary": "Unchanged numeric isinstance accepts True; source admission refuses original type partition",
+      "trace_ref": "2026-10-31.synthetic-proof.json#results.unfixed-check"
+    },
+    {
+      "summary": "One failing baseline regression cannot mask a vacuous second regression",
+      "trace_ref": "2026-10-31.synthetic-proof.json#results.vacuous-review"
+    }
+  ],
+  "notes": [
+    "All controls use temporary synthetic commits; canonical estate task remains unfixed.",
+    "Proof SHA256 cfde0c6932f58a1b10f428cd120716fafc2a28aad0bb5247770a80e5ffaf1cf9",
+    "Pins qualified:false; constructor requires explicit source and actual Work base. Prototype receipts and first incomplete package import do not qualify this source.",
+    "Full ordinary CI, Gitops constructor checks and finalcanonical runtime/consumer tuple remain separate required checks.",
+    "Full local ordinary suite with required Node and unrestricted disposable loopback/filesystem fixtures:1986 passed57 optional skips1506 subtests; context economy29passed. Earlier sandboxed run is a failed environment probe, not validation. Gitops full flake passed; documentation/proof additions re-evaluate to the exact same tested package w82h08dbmxsjm1gg5nb24is25c0fr5ap.",
+    "Proof runner now asserts exact positive metrics, and all nine controls passed again using the unchanged immutable KVM package."
+  ]
+}

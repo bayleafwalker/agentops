@@ -1,0 +1,164 @@
+{
+  "package": "/nix/store/w82h08dbmxsjm1gg5nb24is25c0fr5ap-estate-pilot-protected-acceptance",
+  "pins": {
+    "allowed_classes": [
+      "C0"
+    ],
+    "baseline_revision": "dcb137a42c5bd135415515c8d750ec8c5b1b1660",
+    "configuration": "/nix/store/i1r6xiywf5rn3ppfvpcqdcvidzvp9n4b-estate-pilot-acceptance-vm.json",
+    "drivers": {
+      "check": {
+        "path": "/nix/store/0bvcj9qvywxfz28vpywbnwx0s06pxcpc-estate-maintenance-check/bin/estate-maintenance-check",
+        "sha256": "6d0b47c3e4a40907d47bd7779d87d129047adde2c04097ae506db40e0f43da86",
+        "timeout_seconds": 135
+      },
+      "review": {
+        "path": "/nix/store/8pqa9rz8a93fzkbkwww1yj0ipbqv97mc-estate-maintenance-review/bin/estate-maintenance-review",
+        "sha256": "d9e20b3faadf74ccb050094201754b0171368cbf0d8d2fcd055343bb885b61da",
+        "timeout_seconds": 135
+      }
+    },
+    "initrd_sha256": "a6c74205f2fe2d030bba716742722706e71f693216244e89f00575821cdda48f",
+    "kernel_sha256": "37f4ec99288cdc04ad0842981302eaf1b0e5ba2b9a6a528bc1187f6dcfcaa619",
+    "qualified": false,
+    "schema_version": "agentops-estate-acceptance-pins/v1",
+    "work_base": "dcb137a42c5bd135415515c8d750ec8c5b1b1660"
+  },
+  "qualified": false,
+  "results": {
+    "parent-death": {
+      "positive_receipt": false,
+      "qemu_stopped": true,
+      "returncode": -9,
+      "target": "parent"
+    },
+    "positive-check": {
+      "elapsed_seconds": 6.54,
+      "receipt": {
+        "base": "dcb137a42c5bd135415515c8d750ec8c5b1b1660",
+        "candidate": "8714bd1cd8494430b0336e6d6eeaedb6a87853be",
+        "challenge": "ce9aab5ac8a4b31e336fd313b4596ea80022dbe10732bfe07c196672665ddfac",
+        "guest_boot_id": "becff81a-8a98-40a0-a1ef-3f61306288c0",
+        "input_sha256": "5631cdc0e47bfa0f4717968facc1d48a0f61ee2d7a7f6481f454f781b9c12256",
+        "metrics": {
+          "baseline_tests": 109,
+          "cases": 17
+        },
+        "mode": "check",
+        "outcome": "passed",
+        "reason": "none",
+        "schema_version": "agentops-estate-acceptance-result/v1"
+      },
+      "returncode": 0
+    },
+    "positive-review": {
+      "elapsed_seconds": 3.96,
+      "receipt": {
+        "base": "dcb137a42c5bd135415515c8d750ec8c5b1b1660",
+        "candidate": "8714bd1cd8494430b0336e6d6eeaedb6a87853be",
+        "challenge": "69c421c594dd33db7e7746d041b53003587c6a8b536cb7970ede36c37b8bb2ed",
+        "guest_boot_id": "550a31e7-9c87-405d-9a2e-d289e87c14f9",
+        "input_sha256": "e4f4a74411de0ad532dc14c5330947e328e3216126c4e8fbde23942f021e1bb7",
+        "metrics": {
+          "added_regressions": 1,
+          "baseline_failures": 1,
+          "regression_tests": 1,
+          "type_partitions": 8
+        },
+        "mode": "review",
+        "outcome": "passed",
+        "reason": "none",
+        "schema_version": "agentops-estate-acceptance-result/v1"
+      },
+      "returncode": 0
+    },
+    "qemu-death": {
+      "positive_receipt": false,
+      "qemu_stopped": true,
+      "returncode": 124,
+      "target": "qemu"
+    },
+    "unfixed-check": {
+      "elapsed_seconds": 3.97,
+      "receipt": {
+        "base": "dcb137a42c5bd135415515c8d750ec8c5b1b1660",
+        "candidate": "578368d2c127ef0885e487c245d7a4a62b27338e",
+        "challenge": "badbac9ac38b736d313e80f5fb7828b5d443c6b6701ebb68cb56a2d39c4b1635",
+        "guest_boot_id": "3fb7d143-1d72-4ef4-8e49-1c428b96e72f",
+        "input_sha256": "9b5ec429619ec23d7fe39cd7a585959e3aeed4970bcf0d89000f2b6108adf159",
+        "metrics": {},
+        "mode": "check",
+        "outcome": "failed",
+        "reason": "boolean-type-partition",
+        "schema_version": "agentops-estate-acceptance-result/v1"
+      },
+      "returncode": 1
+    },
+    "unfixed-review": {
+      "elapsed_seconds": 3.97,
+      "receipt": {
+        "base": "dcb137a42c5bd135415515c8d750ec8c5b1b1660",
+        "candidate": "578368d2c127ef0885e487c245d7a4a62b27338e",
+        "challenge": "b2ee1717eedf67dabceb8a9f3fc213ecf7e5a5b1742187cd1430b9cd6448c816",
+        "guest_boot_id": "f7030340-ea12-4b73-b6d6-2ee08dae4c69",
+        "input_sha256": "be27736d05afef154f5dc6c9eb31f3332c82424be1c1758b78708450d89ddde8",
+        "metrics": {},
+        "mode": "review",
+        "outcome": "failed",
+        "reason": "boolean-type-partition",
+        "schema_version": "agentops-estate-acceptance-result/v1"
+      },
+      "returncode": 1
+    },
+    "unrelated-check": {
+      "elapsed_seconds": 4.33,
+      "receipt": {
+        "base": "dcb137a42c5bd135415515c8d750ec8c5b1b1660",
+        "candidate": "7c474b0706336ba6bfe4c0fec6edfcf95014092d",
+        "challenge": "249232c783324a82b58271c6123d885714f2439fe417f744c37fda373aef8a29",
+        "guest_boot_id": "e7d0e4f6-0826-4bc0-bb54-ca86212f8603",
+        "input_sha256": "7074fc0fb40485132e075be2f90aa533299e562784c770c43cb46f7b8662d816",
+        "metrics": {},
+        "mode": "check",
+        "outcome": "failed",
+        "reason": "unrelated-source-change",
+        "schema_version": "agentops-estate-acceptance-result/v1"
+      },
+      "returncode": 1
+    },
+    "unrelated-review": {
+      "elapsed_seconds": 4.67,
+      "receipt": {
+        "base": "dcb137a42c5bd135415515c8d750ec8c5b1b1660",
+        "candidate": "7c474b0706336ba6bfe4c0fec6edfcf95014092d",
+        "challenge": "d2b1a1295faafc09ac69c0648c0188fb02a28e64f2146e5bb6935c2444647a44",
+        "guest_boot_id": "851ed8e6-1278-4c1c-8656-b9ac3f65c767",
+        "input_sha256": "99fc24e002346c078466f373f267fdf71d9e970953fba046943035948c626efb",
+        "metrics": {},
+        "mode": "review",
+        "outcome": "failed",
+        "reason": "unrelated-source-change",
+        "schema_version": "agentops-estate-acceptance-result/v1"
+      },
+      "returncode": 1
+    },
+    "vacuous-review": {
+      "elapsed_seconds": 4.29,
+      "receipt": {
+        "base": "dcb137a42c5bd135415515c8d750ec8c5b1b1660",
+        "candidate": "35e23c04a1e264c21c1aba4ede60476365162d0f",
+        "challenge": "09f2f6d01556534035d7e9ff71067df99bec2635fc72ab01ca1267d2e19c58d8",
+        "guest_boot_id": "38a7d99c-4136-4e44-afcf-0cf82cade4de",
+        "input_sha256": "2b4c58cf3d6072cfa54105981fd519de395de6e08638fbfa78eb57af5fbcad57",
+        "metrics": {},
+        "mode": "review",
+        "outcome": "failed",
+        "reason": "regression-baseline-not-failed",
+        "schema_version": "agentops-estate-acceptance-result/v1"
+      },
+      "returncode": 1
+    }
+  },
+  "schema_version": "agentops-estate-acceptance-synthetic-proof/v1",
+  "scope": "local KVM synthetic controls only; no Work, owner, model, deployment or publication authority"
+}

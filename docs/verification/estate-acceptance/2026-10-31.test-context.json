@@ -1,0 +1,85 @@
+{
+  "schema_version": "test-context/v1",
+  "id": "estate-pilot-protected-acceptance-20261031",
+  "owner_repo": "agentops",
+  "subject": "Protected source admission, distinct diskless KVM check/review and bounded outcome receipts for the public Work2873 defect",
+  "contract_ref": {
+    "doc_id": "estate-pilot-protected-acceptance",
+    "revision": "a98093da8b8a0f5d1ccb944fc6e1421a7998f1ea"
+  },
+  "source_of_truth": "Pinned public baseline, explicit immutable Nix constructor, root guest supervisor and existing consumer driver contract",
+  "depth": 3,
+  "backends": [
+    "Actual KVM microvm without NIC, disks or shares",
+    "Actual local sanitized Git and immutable Nix closure"
+  ],
+  "actors": [
+    "Trusted host launcher",
+    "Root guest supervisor",
+    "Unprivileged admitted candidate/oracle",
+    "Separate protected reviewer"
+  ],
+  "operations": [
+    {
+      "name": "Check and review",
+      "actors": [
+        "Trusted host launcher",
+        "Root guest supervisor"
+      ],
+      "synchronization": "Separate new KVM boots; read-only staged inputs; challenge/digest-bound receipt after quiescence"
+    },
+    {
+      "name": "Negative and interruption controls",
+      "actors": [
+        "Trusted host launcher"
+      ],
+      "synchronization": "Synthetic temporary clones only; kill exact owned launcher or QEMU, verify no positive receipt"
+    }
+  ],
+  "consistency": {
+    "target": "application-invariant",
+    "object": "Source scope, per-method differential and exact completed/unknown outcome separation"
+  },
+  "bounds": {
+    "synthetic_controls": 9,
+    "behavioral_cases": 17,
+    "baseline_tests": 109,
+    "guest_vcpus": 1,
+    "guest_memory_mib": 1536,
+    "qemu_seconds": 120,
+    "host_seconds": 125,
+    "consumer_seconds": 135,
+    "paid_calls": 0,
+    "real_work_runs": 0
+  },
+  "invariants": [
+    "Admit pure typeguard source before import in both modes",
+    "Only two ordinary modified paths, exact protected base blobs and actual Work base ancestry",
+    "Candidate and existing test AST preserved except allowed predicate and new closed regressions",
+    "Every new method passes candidate and assertion-fails baseline without error/skip",
+    "No access to positively created root secret, PID1 environment or serial output; no nonloopback connectivity",
+    "Check/review distinct boot UUIDs, fresh challenge and payload digest",
+    "Root receipt after UID1000 quiescence; malformed or interrupted outcome remains unknown124",
+    "No owner, model, deployment, Work acceptance, qualification or publication authority"
+  ],
+  "faults": [
+    "Original defect unchanged",
+    "Unrelated source mutation",
+    "Vacuous additional regression",
+    "Launcher killed",
+    "QEMU killed",
+    "Missing closure import caught before physical qualification"
+  ],
+  "oracles": [
+    "Nine final synthetic KVM controls in committed proof",
+    "Nine closed-grammar/result-integrity unit methods",
+    "Independent source review fixed three findings before final physical rerun"
+  ],
+  "implementation_anchors": [
+    "scripts/qualification/estate_maintenance_oracle.py",
+    "scripts/qualification/estate_acceptance_guest.py",
+    "scripts/qualification/estate_acceptance_vm.py",
+    "scripts/qualification/verify_estate_acceptance.py",
+    "scripts/tests/test_repository_acceptance_oracle.py"
+  ]
+}
