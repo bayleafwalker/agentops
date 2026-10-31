@@ -1,0 +1,128 @@
+"""Actual Git and trusted-driver boundaries; these do not simulate acceptance."""
+import base64
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from repository_delivery import DeliveryError, RepositoryDelivery, canonical, digest, git, import_candidate, validate_export
+
+
+class DeliveryArtifactTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        self.source = self.root/'source'; self.source.mkdir()
+        git(self.source, 'init', '-b', 'main')
+        git(self.source, 'config', 'user.name', 'Test')
+        git(self.source, 'config', 'user.email', 'test@example.invalid')
+        (self.source/'src').mkdir(); (self.source/'src'/'value.txt').write_text('base\n')
+        git(self.source, 'add', '.'); git(self.source, 'commit', '-m', 'base')
+        self.base = git(self.source, 'rev-parse', 'HEAD').decode().strip()
+        (self.source/'src'/'value.txt').write_text('candidate\n')
+        git(self.source, 'add', '.'); git(self.source, 'commit', '-m', 'candidate')
+        self.tip = git(self.source, 'rev-parse', 'HEAD').decode().strip()
+        git(self.source, 'update-ref', 'refs/heads/candidate', self.tip)
+        # The canonical repository contains only base; the bundle must supply tip.
+        git(self.source, 'update-ref', 'refs/heads/main', self.base)
+        patch = git(self.source, 'diff', '--no-ext-diff', '--no-textconv', '--binary', '--no-renames', self.base, self.tip, '--')
+        bundle_path = self.root/'candidate.bundle'
+        git(self.source, 'bundle', 'create', str(bundle_path), 'refs/heads/candidate', '^'+self.base)
+        self.bundle = bundle_path.read_bytes()
+        projection = {'base_sha':self.base, 'tip_sha':self.tip, 'patch_sha256':hashlib.sha256(patch).hexdigest()}
+        self.data = {'schema_version':'sovite-repository-candidate-export/v1', 'run_id':'owner-run', 'attempt_id':'owner-attempt',
+                     'repository_id':'project', 'base_sha':self.base, 'tip_sha':self.tip, 'patch_sha256':projection['patch_sha256'],
+                     'receipt_projection':projection, 'receipt_projection_sha256':digest(projection),
+                     'bundle_base64':base64.b64encode(self.bundle).decode(), 'bundle_sha256':hashlib.sha256(self.bundle).hexdigest()}
+        self.raw = canonical(self.data)
+        self.receipt = {'sha256':hashlib.sha256(self.raw).hexdigest(), 'size':len(self.raw)}
+
+    def tearDown(self): self.temp.cleanup()
+    def checked(self, raw=None):
+        return validate_export(raw or self.raw, self.receipt, repository_id='project', base_sha=self.base, run_id='owner-run')
+
+    def test_base_only_consumer_reconstructs_exact_candidate_and_restart_reuses_it(self):
+        data, bundle = self.checked()
+        checkout = self.root/'consumer'
+        branch = import_candidate(checkout, str(self.source), data, bundle, ['src'])
+        self.assertEqual(git(checkout, 'rev-parse', 'HEAD').decode().strip(), self.tip)
+        self.assertEqual((checkout/'src'/'value.txt').read_text(), 'candidate\n')
+        self.assertEqual(import_candidate(checkout, str(self.source), data, bundle, ['src']), branch)
+        (checkout/'src'/'value.txt').write_text('tamper')
+        with self.assertRaises(DeliveryError): import_candidate(checkout, str(self.source), data, bundle, ['src'])
+
+    def test_outer_digest_wrong_source_and_inner_digest_are_refused(self):
+        with self.assertRaises(DeliveryError): self.checked(self.raw+b' ')
+        changed = dict(self.data, run_id='foreign-run')
+        raw = canonical(changed); receipt = {'sha256':hashlib.sha256(raw).hexdigest(), 'size':len(raw)}
+        with self.assertRaisesRegex(DeliveryError, 'source-mismatch'):
+            validate_export(raw, receipt, repository_id='project', base_sha=self.base, run_id='owner-run')
+        changed = dict(self.data, bundle_sha256='0'*64)
+        raw = canonical(changed); receipt = {'sha256':hashlib.sha256(raw).hexdigest(), 'size':len(raw)}
+        with self.assertRaisesRegex(DeliveryError, 'bundle-changed'):
+            validate_export(raw, receipt, repository_id='project', base_sha=self.base, run_id='owner-run')
+
+    def test_allowed_area_cannot_be_inherited_from_candidate(self):
+        with self.assertRaisesRegex(DeliveryError, 'area-denied'):
+            import_candidate(self.root/'denied', str(self.source), self.data, self.bundle, ['docs'])
+
+    def test_driver_does_not_inherit_credentials_and_missing_result_is_unknown(self):
+        adapter = RepositoryDelivery.__new__(RepositoryDelivery)
+        adapter.root = self.root/'protected'; adapter.root.mkdir(mode=0o700)
+        import_candidate(adapter.root/'candidate', str(self.source), self.data, self.bundle, ['src'])
+        driver = self.root/'trusted-check'
+        driver.write_text('#!'+sys.executable+'\nimport os,sys\nfrom pathlib import Path\n'
+                          'assert "FJ_TOKEN" not in os.environ\n'
+                          'assert (Path(sys.argv[1])/"src/value.txt").read_text()=="candidate\\n"\n')
+        driver.chmod(0o700)
+        adapter.spec = {'packet':{'base_sha':self.base}, 'acceptance':{'expires_at':'2099-01-01T00:00:00Z',
+            'qualification_ref':'local-fixture-only', 'allowed_classes':['C1'],
+            'check':{'path':str(driver), 'sha256':hashlib.sha256(driver.read_bytes()).hexdigest(), 'timeout_seconds':5}}}
+        task = {'worker_commit':self.tip, 'retained':{'output_class':'C1'}}
+        old = os.environ.get('FJ_TOKEN'); os.environ['FJ_TOKEN']='synthetic-not-inherited'
+        try: result = adapter.driver('check', task)
+        finally:
+            if old is None: del os.environ['FJ_TOKEN']
+            else: os.environ['FJ_TOKEN']=old
+        self.assertEqual(result['exit'], 'committed')
+        self.assertEqual(adapter.driver('check', task), result)
+        (adapter.root/'driver-check'/'result.json').unlink()
+        with self.assertRaisesRegex(DeliveryError, 'outcome-unknown'): adapter.driver('check', task)
+        driver.write_text(driver.read_text()+'# changed\n')
+        with self.assertRaisesRegex(DeliveryError, 'driver-changed'): adapter.driver('check', task)
+
+    def test_owner_terminal_decision_must_bind_exact_release_and_evidence(self):
+        # Read-projection fixtures isolate the matching rule; this is not a
+        # simulated successful delivery or owner authority implementation.
+        from shared_execution.runtime import Store
+        adapter = RepositoryDelivery.__new__(RepositoryDelivery)
+        adapter.root = self.root/'state'; adapter.root.mkdir(mode=0o700)
+        adapter.store = Store(adapter.root/'scheduler')
+        adapter.spec = {'repo_id':'project', 'item_id':1, 'basis':{'current_release_digest':'a'*64}}
+        task = {'id':'delivery', 'state':'MERGING', 'outcome_payload':{'candidate':self.tip}}
+        adapter.store.save(task)
+        reads = {'status':'done', 'terminal_decision_id':1, 'decisions':[{'id':1, 'kind':'accept',
+                 'release_digest':'a'*64, 'evidence_digests':['0'*64]}]}
+        class DecisionProjection:
+            def invoke(self, *args): return reads
+        adapter.work = DecisionProjection()
+        try:
+            with self.assertRaisesRegex(DeliveryError, 'different-basis-or-evidence'):
+                adapter.observe_settlement(task)
+            self.assertEqual(adapter.store.tasks()[0]['state'], 'MERGING')
+            reads['decisions'][0]['evidence_digests'] = [digest(task['outcome_payload'])]
+            reads['decisions'][0]['release_digest'] = 'b'*64
+            with self.assertRaises(DeliveryError): adapter.observe_settlement(task)
+            reads['decisions'][0]['release_digest'] = 'a'*64
+            self.assertTrue(adapter.observe_settlement(task))
+            self.assertEqual(adapter.store.tasks()[0]['state'], 'MERGED')
+        finally: adapter.store.close()
+
+
+if __name__ == '__main__': unittest.main()

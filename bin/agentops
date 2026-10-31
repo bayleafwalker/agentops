@@ -47,9 +47,9 @@ fi
 
 # This transport topic needs its released client; use its committed script
 # lock without discovering a caller's unrelated project configuration.
-if [[ "$script" == "$root/scripts/operator_requests.py" ]]; then
+if [[ "$script" == "$root/scripts/operator_requests.py" || "$script" == "$root/scripts/repository_delivery.py" ]]; then
   if ! command -v uv >/dev/null 2>&1; then
-    printf 'agentops operator-requests: uv is required for the locked client runtime\n' >&2
+    printf 'agentops: uv is required for the locked client runtime\n' >&2
     exit 127
   fi
   exec uv run --no-config --no-project --locked --script "$script" "$@"
