@@ -3,9 +3,9 @@
   "context_id": "estate-pilot-protected-acceptance-20261031",
   "contract_ref": {
     "doc_id": "estate-pilot-protected-acceptance",
-    "revision": "e59fa8b2b366df4eb2f0ceda5ac803ddba3da6c5"
+    "revision": "a98093da8b8a0f5d1ccb944fc6e1421a7998f1ea"
   },
-  "implementation_sha": "e59fa8b2b366df4eb2f0ceda5ac803ddba3da6c5",
+  "implementation_sha": "a98093da8b8a0f5d1ccb944fc6e1421a7998f1ea",
   "depth": 3,
   "environment": {
     "backend": "Actual local KVM and sanitized Git/Nix",
@@ -76,9 +76,10 @@
   ],
   "notes": [
     "All controls use temporary synthetic commits; canonical estate task remains unfixed.",
-    "Proof SHA256 84da13ff69a0b23f87af5ee45577c85d0a18c48621b2822fa3f899cdd0a5c89b",
+    "Proof SHA256 cfde0c6932f58a1b10f428cd120716fafc2a28aad0bb5247770a80e5ffaf1cf9",
     "Pins qualified:false; constructor requires explicit source and actual Work base. Prototype receipts and first incomplete package import do not qualify this source.",
     "Full ordinary CI, Gitops constructor checks and finalcanonical runtime/consumer tuple remain separate required checks.",
-    "Full local ordinary suite with required Node and unrestricted disposable loopback/filesystem fixtures:1986 passed57 optional skips1506 subtests; context economy29passed. Earlier sandboxed run is a failed environment probe, not validation. Gitops full flake passed; documentation/proof additions re-evaluate to the exact same tested package w82h08dbmxsjm1gg5nb24is25c0fr5ap."
+    "Full local ordinary suite with required Node and unrestricted disposable loopback/filesystem fixtures:1986 passed57 optional skips1506 subtests; context economy29passed. Earlier sandboxed run is a failed environment probe, not validation. Gitops full flake passed; documentation/proof additions re-evaluate to the exact same tested package w82h08dbmxsjm1gg5nb24is25c0fr5ap.",
+    "Proof runner now asserts exact positive metrics, and all nine controls passed again using the unchanged immutable KVM package."
   ]
 }

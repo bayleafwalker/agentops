@@ -5,7 +5,7 @@
   "subject": "Protected source admission, distinct diskless KVM check/review and bounded outcome receipts for the public Work2873 defect",
   "contract_ref": {
     "doc_id": "estate-pilot-protected-acceptance",
-    "revision": "e59fa8b2b366df4eb2f0ceda5ac803ddba3da6c5"
+    "revision": "a98093da8b8a0f5d1ccb944fc6e1421a7998f1ea"
   },
   "source_of_truth": "Pinned public baseline, explicit immutable Nix constructor, root guest supervisor and existing consumer driver contract",
   "depth": 3,

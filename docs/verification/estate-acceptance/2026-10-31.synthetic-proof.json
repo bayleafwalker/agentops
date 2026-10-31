@@ -33,13 +33,13 @@
       "target": "parent"
     },
     "positive-check": {
-      "elapsed_seconds": 6.66,
+      "elapsed_seconds": 6.54,
       "receipt": {
         "base": "dcb137a42c5bd135415515c8d750ec8c5b1b1660",
-        "candidate": "454a0e19f24b56bf4625b3004d2c66b9159abf19",
-        "challenge": "a1c1063d429b93dee49119c9bacb81f5b19e58879cd7996e51cbc7533b7bfc42",
-        "guest_boot_id": "38edd8b8-325d-4115-90d3-2a1f05cc8cbc",
-        "input_sha256": "3a17efef8b48e1f0fe98d35695010f15d48e60e9a47314986356de623e42a4b1",
+        "candidate": "8714bd1cd8494430b0336e6d6eeaedb6a87853be",
+        "challenge": "ce9aab5ac8a4b31e336fd313b4596ea80022dbe10732bfe07c196672665ddfac",
+        "guest_boot_id": "becff81a-8a98-40a0-a1ef-3f61306288c0",
+        "input_sha256": "5631cdc0e47bfa0f4717968facc1d48a0f61ee2d7a7f6481f454f781b9c12256",
         "metrics": {
           "baseline_tests": 109,
           "cases": 17
@@ -52,13 +52,13 @@
       "returncode": 0
     },
     "positive-review": {
-      "elapsed_seconds": 4.06,
+      "elapsed_seconds": 3.96,
       "receipt": {
         "base": "dcb137a42c5bd135415515c8d750ec8c5b1b1660",
-        "candidate": "454a0e19f24b56bf4625b3004d2c66b9159abf19",
-        "challenge": "81c871a52bd8c4f89a0488190b45ce70afb4cc3b5b127adaa14c12a052e89c68",
-        "guest_boot_id": "c360cc75-8227-4c19-be3c-407567683a6d",
-        "input_sha256": "54c472363e27d724eb67919285c37297241980a186e41c7f95e337c6f6b05570",
+        "candidate": "8714bd1cd8494430b0336e6d6eeaedb6a87853be",
+        "challenge": "69c421c594dd33db7e7746d041b53003587c6a8b536cb7970ede36c37b8bb2ed",
+        "guest_boot_id": "550a31e7-9c87-405d-9a2e-d289e87c14f9",
+        "input_sha256": "e4f4a74411de0ad532dc14c5330947e328e3216126c4e8fbde23942f021e1bb7",
         "metrics": {
           "added_regressions": 1,
           "baseline_failures": 1,
@@ -79,13 +79,13 @@
       "target": "qemu"
     },
     "unfixed-check": {
-      "elapsed_seconds": 4.07,
+      "elapsed_seconds": 3.97,
       "receipt": {
         "base": "dcb137a42c5bd135415515c8d750ec8c5b1b1660",
-        "candidate": "f56d1ef6439099d0bdd82b5b4448022932b7743f",
-        "challenge": "fd3a08956f0b4e60098da5ecd19c6e58a9d9e0f1cddd5e9e867220515996f7f5",
-        "guest_boot_id": "99e0d6c2-cda4-4c4b-9de8-eb4879fcb17a",
-        "input_sha256": "df25c6c741e540b91e20e15ab2dd8cfbc072ad00954c89aa5beda115a21eefcb",
+        "candidate": "578368d2c127ef0885e487c245d7a4a62b27338e",
+        "challenge": "badbac9ac38b736d313e80f5fb7828b5d443c6b6701ebb68cb56a2d39c4b1635",
+        "guest_boot_id": "3fb7d143-1d72-4ef4-8e49-1c428b96e72f",
+        "input_sha256": "9b5ec429619ec23d7fe39cd7a585959e3aeed4970bcf0d89000f2b6108adf159",
         "metrics": {},
         "mode": "check",
         "outcome": "failed",
@@ -95,13 +95,13 @@
       "returncode": 1
     },
     "unfixed-review": {
-      "elapsed_seconds": 4.01,
+      "elapsed_seconds": 3.97,
       "receipt": {
         "base": "dcb137a42c5bd135415515c8d750ec8c5b1b1660",
-        "candidate": "f56d1ef6439099d0bdd82b5b4448022932b7743f",
-        "challenge": "17a97c8d26e3c4c9e74594634fadea17dffc348921d3132211bb07f617fa77b8",
-        "guest_boot_id": "53330b14-0463-498a-b22e-fc8164ca8f57",
-        "input_sha256": "3ae05a2cd3017b8da168b26c9ea917851febcf01019cf1731fa34170a559f105",
+        "candidate": "578368d2c127ef0885e487c245d7a4a62b27338e",
+        "challenge": "b2ee1717eedf67dabceb8a9f3fc213ecf7e5a5b1742187cd1430b9cd6448c816",
+        "guest_boot_id": "f7030340-ea12-4b73-b6d6-2ee08dae4c69",
+        "input_sha256": "be27736d05afef154f5dc6c9eb31f3332c82424be1c1758b78708450d89ddde8",
         "metrics": {},
         "mode": "review",
         "outcome": "failed",
@@ -111,13 +111,13 @@
       "returncode": 1
     },
     "unrelated-check": {
-      "elapsed_seconds": 3.95,
+      "elapsed_seconds": 4.33,
       "receipt": {
         "base": "dcb137a42c5bd135415515c8d750ec8c5b1b1660",
-        "candidate": "9273e929082e861b988fd5bd9651be54f95b5bf2",
-        "challenge": "b24c4e301fda42e081eec085dcc48b9edb9856cdd3c2d7c7061b30be517ac11d",
-        "guest_boot_id": "63b79c71-f524-48ee-9440-76841aceb32f",
-        "input_sha256": "5d097e807a943ab05a62f98980e322f35cd8ee63a4e6b33e3603c65ea285f66b",
+        "candidate": "7c474b0706336ba6bfe4c0fec6edfcf95014092d",
+        "challenge": "249232c783324a82b58271c6123d885714f2439fe417f744c37fda373aef8a29",
+        "guest_boot_id": "e7d0e4f6-0826-4bc0-bb54-ca86212f8603",
+        "input_sha256": "7074fc0fb40485132e075be2f90aa533299e562784c770c43cb46f7b8662d816",
         "metrics": {},
         "mode": "check",
         "outcome": "failed",
@@ -127,13 +127,13 @@
       "returncode": 1
     },
     "unrelated-review": {
-      "elapsed_seconds": 3.91,
+      "elapsed_seconds": 4.67,
       "receipt": {
         "base": "dcb137a42c5bd135415515c8d750ec8c5b1b1660",
-        "candidate": "9273e929082e861b988fd5bd9651be54f95b5bf2",
-        "challenge": "96f82efb85532381c007f967784439ff9b52a671b8a043b598498868f9635d7f",
-        "guest_boot_id": "70e42560-ad38-41fd-955c-c6b099e83fb8",
-        "input_sha256": "3f16015788e8105cfd6fddf6647746113809bc8efa2846908843e4620d77010e",
+        "candidate": "7c474b0706336ba6bfe4c0fec6edfcf95014092d",
+        "challenge": "d2b1a1295faafc09ac69c0648c0188fb02a28e64f2146e5bb6935c2444647a44",
+        "guest_boot_id": "851ed8e6-1278-4c1c-8656-b9ac3f65c767",
+        "input_sha256": "99fc24e002346c078466f373f267fdf71d9e970953fba046943035948c626efb",
         "metrics": {},
         "mode": "review",
         "outcome": "failed",
@@ -143,13 +143,13 @@
       "returncode": 1
     },
     "vacuous-review": {
-      "elapsed_seconds": 4.12,
+      "elapsed_seconds": 4.29,
       "receipt": {
         "base": "dcb137a42c5bd135415515c8d750ec8c5b1b1660",
-        "candidate": "d49125db4262ec8b6a36cbd9e2b0021a8deb986e",
-        "challenge": "86afddf120fea31bf0d98f8b2c041f37b2497a9429d461449ec6e1b7386eb042",
-        "guest_boot_id": "d10ebf5f-b1cc-4740-8696-0074b724a83d",
-        "input_sha256": "dfc74cd115206afb7c262699bfdf86447030c68a4fa5bbe3a67490a48247b917",
+        "candidate": "35e23c04a1e264c21c1aba4ede60476365162d0f",
+        "challenge": "09f2f6d01556534035d7e9ff71067df99bec2635fc72ab01ca1267d2e19c58d8",
+        "guest_boot_id": "38a7d99c-4136-4e44-afcf-0cf82cade4de",
+        "input_sha256": "2b4c58cf3d6072cfa54105981fd519de395de6e08638fbfa78eb57af5fbcad57",
         "metrics": {},
         "mode": "review",
         "outcome": "failed",
