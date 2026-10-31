@@ -143,7 +143,7 @@ class Sovite:
     def close(self): self.client.close()
 
 
-def git(repo, *args):
+def _git_result(repo, *args):
     # Repository data cannot enable hooks, filters, replacement objects,
     # attributes helpers, fsmonitor or environment-supplied Git configuration.
     env = {'PATH':os.defpath, 'LANG':'C', 'GIT_CONFIG_NOSYSTEM':'1', 'GIT_CONFIG_GLOBAL':'/dev/null',
@@ -151,9 +151,20 @@ def git(repo, *args):
     result = subprocess.run([GIT, '-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false',
                              '-c', 'core.attributesFile=/dev/null', '-C', str(repo), *args],
                             env=env, stdin=subprocess.DEVNULL, capture_output=True, timeout=60)
-    need(result.returncode == 0, 'repository-operation-refused')
     need(len(result.stdout) <= 16*MAX_ARTIFACT, 'repository-output-too-large')
+    return result
+
+
+def git(repo, *args):
+    result = _git_result(repo, *args)
+    need(result.returncode == 0, 'repository-operation-refused')
     return result.stdout
+
+
+def git_ancestor(repo, ancestor, descendant):
+    result = _git_result(repo, 'merge-base', '--is-ancestor', ancestor, descendant)
+    need(result.returncode in (0, 1), 'canonical-integration-unknown')
+    return result.returncode == 0
 
 
 def validate_export(raw, receipt, *, repository_id, base_sha, run_id):
@@ -471,10 +482,8 @@ class RepositoryDelivery:
         # Branch/PR creation is not canonical integration. The repository
         # owner's existing landing path must integrate the exact verified tip.
         git(self.root/'candidate', 'fetch', '--no-tags', 'origin', 'refs/heads/main:refs/remotes/origin/main')
-        landed = subprocess.run([GIT, '-C', str(self.root/'candidate'), 'merge-base', '--is-ancestor',
-                                 task['worker_commit'], 'origin/main'], capture_output=True)
-        if landed.returncode == 1: return  # exact candidate still awaiting the repository owner
-        need(landed.returncode == 0, 'canonical-integration-unknown')
+        if not git_ancestor(self.root/'candidate', task['worker_commit'], 'origin/main'):
+            return  # exact candidate still awaiting the repository owner
         self.current()
         payload = {'candidate':task['worker_commit'], 'base':task['verified_base'], 'basis':s['basis'],
                    'retained':task['retained'], 'verification':task['check'], 'review':task['review'], 'publication':task['publication']}
