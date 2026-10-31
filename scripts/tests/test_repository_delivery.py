@@ -171,6 +171,39 @@ class DeliveryArtifactTests(unittest.TestCase):
         with self.assertRaisesRegex(DeliveryError, 'public-source-url-required'):
             RepositoryDelivery(self.root/'protected', spec, None, None, None)
 
+    def test_canonical_integration_cannot_inherit_a_foreign_git_directory(self):
+        # The true canonical main still contains only base. A different local
+        # repository claims the candidate is its origin/main; ambient GIT_DIR
+        # must not select that history for the actual integration observation.
+        adapter = RepositoryDelivery.__new__(RepositoryDelivery)
+        adapter.root = self.root/'integration'; adapter.root.mkdir(mode=0o700)
+        adapter.store = Store(adapter.root/'scheduler')
+        branch = import_candidate(adapter.root/'candidate', str(self.source), self.data, self.bundle, ['src'])
+        foreign = self.root/'foreign'; foreign.mkdir()
+        git(foreign, 'init', '-b', 'main')
+        git(foreign, 'fetch', str(self.source), 'refs/heads/candidate:refs/remotes/origin/main')
+        adapter.current = lambda: None
+        adapter.spec = {'authority_environment':str(adapter.root/'environment.json'), 'repo_id':'project',
+            'run_id':'work-run', 'grant_id':'grant', 'publication_attempt_id':None,
+            'work_profile':str(adapter.root/'profile.json'), 'item_id':1, 'basis':{}}
+        task = {'id':'delivery', 'state':'MERGING', 'worker_commit':self.tip, 'verified_base':self.base,
+            'branch':branch, 'publication':{'fixture':'already-published'}, 'retained':self.receipt,
+            'check':{'exit':'committed'}, 'review':{'exit':'committed'}}
+        adapter.store.save(task)
+        class NoUnlandedEvidence:
+            def invoke(self, *args):
+                raise AssertionError('unlanded candidate incorrectly reported as canonical')
+        adapter.work = NoUnlandedEvidence()
+        previous = os.environ.get('GIT_DIR'); os.environ['GIT_DIR'] = str(foreign/'.git')
+        try:
+            adapter.integrate(task)
+            self.assertNotIn('outcome_payload', adapter.store.tasks()[0])
+            self.assertEqual(git(adapter.root/'candidate', 'rev-parse', 'origin/main').decode().strip(), self.base)
+        finally:
+            if previous is None: del os.environ['GIT_DIR']
+            else: os.environ['GIT_DIR'] = previous
+            adapter.close()
+
     def test_owner_terminal_decision_must_bind_exact_release_and_evidence(self):
         # Read-projection fixtures isolate the matching rule; this is not a
         # simulated successful delivery or owner authority implementation.
