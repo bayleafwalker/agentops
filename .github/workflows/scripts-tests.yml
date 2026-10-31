@@ -96,7 +96,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: bayleafwalker/sovite
-          ref: e1c19c4a23c5c440815802da9ff017f4aed01383
+          ref: 51d6f1d758963190cbe5dfdab59199346092886f
           path: _owners/sovite
           persist-credentials: false
       - uses: actions/checkout@v4

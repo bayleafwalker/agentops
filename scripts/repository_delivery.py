@@ -158,7 +158,7 @@ class OwnerRepairContract:
         from vuoro_contracts import ContractBundle
         self.bundle = ContractBundle.load(path, integrity_sha256=value['integrity_sha256'])
         need(self.bundle.manifest['contractId'] == 'sovite.repository-repair.v1'
-             and self.bundle.manifest['contractVersion'] in ({'1.3.0'} if recovery else {'1.1.0','1.2.0','1.3.0'}), 'repair-contract-unsupported')
+             and self.bundle.manifest['contractVersion'] in ({'1.3.0','1.4.0'} if recovery else {'1.1.0','1.2.0','1.3.0','1.4.0'}), 'repair-contract-unsupported')
         for operation, route in self.operations.items():
             metadata = self.bundle.manifest['operations'].get(operation)
             need(metadata and metadata['method'] == 'POST' and metadata['path'] == route

@@ -116,12 +116,14 @@ clean trusted verification. Local caps create no additional repair authority.
 
 A commissioned installation must pin a released owner contract/runtime tuple,
 not an unreleased source checkout. The source qualification gate now pins Sovite
-`e1c19c4a23c5c440815802da9ff017f4aed01383` and Sprintctl
+`51d6f1d758963190cbe5dfdab59199346092886f` and Sprintctl
 `3bccfaca020c2effb68430f9251b8c9857500fbf`. Active repairs accept the unchanged
-operations from explicitly pinned owner1.1,1.2 or1.3 bundles. Historical capture
-and exact-copy release require owner1.3, whose generated data integrity is
-`4b83e978ed83be672f4f93cb413aa1500a8ed91bbc8e5866ebf8391ef7fd3e3f`.
-The earlier1.1 source pin/integrity is superseded for this qualification gate.
+operations from explicitly pinned owner1.1,1.2,1.3 or1.4 bundles. Historical capture
+and exact-copy release require owner1.3 or1.4. The pinned owner1.4 generated data
+integrity is `4cae80913a14417b45856b7aa4513c80b049a01aad2f59e757a495ca4f5a5b82`.
+Owner1.4 adds the native activation read; all27 prior1.3 schema definitions are
+unchanged. This consumer continues using only its repair and recovery operations.
+Earlier source/integrity pins remain supported history, superseded for this gate.
 The provenance URL and integrity pin are contract identity, not installation or
 execution approval.
 
@@ -226,7 +228,7 @@ The CLI's recovery result is a transport/storage observation, not a success or
 acceptance decision.
 
 The source gate `repository_recovery_owners.py` uses actual loopback Sovite HTTP,
-the emitted owner1.3 bundle and released Workspace PostgreSQL/HTTP. It covers
+the emitted owner1.4 bundle and released Workspace PostgreSQL/HTTP. It covers
 large exact copies, independent durable-intent reads before HTTP, capture/
 release/retention and begin/upload/finalize response loss, an ineligible generic
 procedure followed by a real owner release selector, a revoked active guard,
