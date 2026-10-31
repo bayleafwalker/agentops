@@ -21,6 +21,9 @@ are setting up or repairing a host, not at session start. The legacy vscode-shel
 
 `agentops estate status --env infra --json` reads the infrastructure host's
 identity, NixOS version and public `/var/lib/maintenance-health/health.json`.
+Maintenance summaries retain the next scheduled execution and the incident's
+start/severity, including the collector's once-per-incident budget escalation.
+Malformed schedule or escalation fields remain unknown evidence.
 It installs nothing on infra and requires no agent tools or served-client
 credentials there. Workstation status also consumes its persistent report.
 Missing, malformed, foreign-host, future-dated or more-than-thirty-minute-old
