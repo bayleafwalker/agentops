@@ -35,7 +35,7 @@ from test_repository_currentness import Guard
 from test_repository_runs import CALLER
 from vuoro_client.profile import Profile
 
-OWNER_PIN='e1c19c4a23c5c440815802da9ff017f4aed01383'
+OWNER_PIN='51d6f1d758963190cbe5dfdab59199346092886f'
 
 
 @pytest.fixture
@@ -108,7 +108,7 @@ def test_historical_consumer_exact_copy_lost_ack_and_fresh_reader(interrupted,se
     app=create_app(platform.settings,platform,repository_run_owner=owner,candidate_publication_service=service)
     root=tmp_path/'controller';root.mkdir(mode=0o700)
     data=tmp_path/'owner-contract';shutil.copytree(Path(resources.files(contract.PACKAGE).joinpath('data')),data);data.chmod(0o700)
-    assert contract.INTEGRITY=='4b83e978ed83be672f4f93cb413aa1500a8ed91bbc8e5866ebf8391ef7fd3e3f'
+    assert contract.INTEGRITY=='4cae80913a14417b45856b7aa4513c80b049a01aad2f59e757a495ca4f5a5b82'
     internal=before.resolved['repository_run']
     packet={'schema_version':'portable-work/v1','goal':before.task,
             **{key:internal[key] for key in ('workspace_id','repository_id','executor_id','base_sha','max_cost_usd','deadline','concurrency')}}

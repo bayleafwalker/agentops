@@ -214,7 +214,7 @@ def test_actual_consumer_repair_preserves_failed_candidate_and_recovers_exact_lo
                         'review':{'path':str(review),'sha256':hashlib.sha256(review.read_bytes()).hexdigest(),'timeout_seconds':5}}}
                 delivery_specs.append(adapter.spec)
                 adapter.repair_contract=OwnerRepairContract({'root':str(data),'integrity_sha256':contract.INTEGRITY,
-                    'source_ref':'https://github.com/bayleafwalker/sovite/blob/ca09603fc1cf7c1cd04fefe18ca282d019f99140/docs/contracts/repository-repair-v1.provenance.json'},root)
+                    'source_ref':'https://github.com/bayleafwalker/sovite/blob/51d6f1d758963190cbe5dfdab59199346092886f/docs/contracts/repository-repair-v1.provenance.json'},root)
                 adapter.store.save({'id':'delivery','state':'RUNNING','attempt':'sovite:original',
                     'execution_id':parent.id,'submission_key':parent.resolved['repository_run']['idempotency_key'],
                     'areas':['src'],'provider':'sovite','model':'fixture','dependencies':[],'worktree':str(root/'candidate')})
