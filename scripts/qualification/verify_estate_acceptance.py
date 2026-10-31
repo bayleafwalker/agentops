@@ -66,6 +66,11 @@ def invoke(package, mode, row, expected):
     need(result.returncode == expected and not result.stderr)
     receipt = json.loads(result.stdout)
     need(receipt["outcome"] == ("passed" if expected == 0 else "failed"))
+    if expected == 0:
+        metrics = {"cases": 17, "baseline_tests": 109} if mode == "check" else {
+            "type_partitions": 8, "added_regressions": 1,
+            "regression_tests": 1, "baseline_failures": 1}
+        need(receipt["metrics"] == metrics)
     return {"returncode": result.returncode, "elapsed_seconds": round(time.monotonic()-start, 2), "receipt": receipt}
 
 
