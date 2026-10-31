@@ -339,6 +339,13 @@ class RepositoryDelivery:
         return result
 
     def finish_worker(self, task, result):
+        # status() may have persisted the owner's submission acknowledgement
+        # during this same scheduler tick. Collect against that current record,
+        # rather than overwrite it with the scheduler's pre-status snapshot.
+        current = self.store.tasks()[0]
+        need(current['id'] == task['id'] and current['state'] == 'RUNNING'
+             and current['attempt'] == task['attempt'], 'execution-collection-changed')
+        task = current
         if result['exit'] != 'committed':
             self.block(task, 'execution-failed-or-uncertain', 'PLANNED'); return
         self.current()
