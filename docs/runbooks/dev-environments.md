@@ -66,6 +66,19 @@ session is working in (the event's `cwd`, a worktree mapping to its main checkou
 one it was launched in: when that differs, it drops the launch checkout's direnv
 `AUDITCTL_DB` / `AUDITCTL_ARTIFACTS_ROOT` pins for that write (agentops#2547).
 
+An existing workspace ledger also supplies a capture scope when it declares
+its identity in `.auditctl-id` and `.auditctl/auditctl.db` has a SQLite file header.
+For `/projects/dev` the declared identity is `dev`, preserving the historical
+scope. The identity file is host-persistent workspace configuration; it does not
+turn the parent folder into a Git repository. Workspace observations drop
+inherited pins for nested checkouts even when the hook runs in the workspace
+and `DIRENV_DIR` is absent. Pins outside the launch/workspace trees remain
+explicit overrides. Empty `.git` directories, empty index files, invalid event
+paths and uninitialized folders do not opt into routing. This prevents sessions
+at `/projects/dev` from filing their observations into `agentops` while leaving
+the `dev` ledger stale. Historical observations keep their original identity
+and location; this changes future capture only.
+
 **Shards are no longer committed to repositories.** On 2026-09-30 the operator replaced
 the hourly `audit-shards-commit` timer with an independent archive (gitops-nixos
 `docs/runbooks/audit-persistence.md`, `modules/home/bayleaf/audit-shards.nix`): the

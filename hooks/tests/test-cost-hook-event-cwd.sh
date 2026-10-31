@@ -78,6 +78,7 @@ fakews="$tmp/workspace"; mkdir -p "$fakews/.git" "$fakews/not-a-repo"
 git_init "$fakews/nested"
 indexonly="$tmp/index-only"; mkdir -p "$indexonly/.auditctl" "$indexonly/work"
 : > "$indexonly/.auditctl/auditctl.db"
+printf '%s\n' index-only > "$indexonly/.auditctl-id"
 
 # run_hook <event-cwd|__absent__> [auditctl-dir] [db-pin] [root-pin]
 #   -> echoes "<publisher CWD>|<AUDITCTL_DB>|<ROOT>"
@@ -151,6 +152,32 @@ assert_eq "REQ-2547-3 bare index"      "$(run_hook "$indexonly/work")"  "$pinned
 assert_eq "REQ-2547-3 missing cwd"     "$(run_hook "$tmp/gone")"        "$pinned"
 assert_eq "REQ-2547-3 relative cwd"    "$(run_hook "relative/path")"   "$pinned"
 assert_eq "REQ-2547-3 absent cwd"      "$(run_hook __absent__)"         "$pinned"
+
+# An initialized workspace ledger is a real capture scope even without Git.
+# Keep empty/fake indexes above rejected; a SQLite file header distinguishes
+# the existing ledger from a directory or an empty touched file.
+workspace="$tmp/audited-workspace"
+mkdir -p "$workspace/.auditctl" "$workspace/.git" "$workspace/work"
+python3 - "$workspace/.auditctl/auditctl.db" <<'PY'
+import sqlite3, sys
+with sqlite3.connect(sys.argv[1]) as db:
+    db.execute("CREATE TABLE fixture (id INTEGER)")
+PY
+assert_eq "unmarked SQLite index does not opt into workspace routing" \
+  "$(run_hook "$workspace/work")" "$pinned"
+printf '%s\n' ../invalid > "$workspace/.auditctl-id"
+assert_eq "invalid workspace identity does not opt into routing" \
+  "$(run_hook "$workspace/work")" "$pinned"
+printf '%s\n' audited-workspace > "$workspace/.auditctl-id"
+git_init "$workspace/launch"
+assert_eq "initialized workspace routes away from launch pins" \
+  "$(run_hook "$workspace/work")" "$workspace/work|<unset>|<unset>"
+assert_eq "workspace process drops inherited child-repo pins without direnv" \
+  "$(run_hook "$workspace" "" "$workspace/launch/.auditctl/auditctl.db" "$workspace/launch" "$workspace")" \
+  "$workspace|<unset>|<unset>"
+assert_eq "workspace preserves an external override" \
+  "$(run_hook "$workspace" "" "$elsewhere_db" "$tmp/fixture-store" "$workspace")" \
+  "$workspace|$elsewhere_db|$tmp/fixture-store"
 if [[ "$hook_name" == log-session-cost.sh ]]; then
   [[ -s "$tmp/costs.jsonl" ]] || fail "the cost row was not written"
 fi
@@ -183,6 +210,12 @@ if [[ -n "$real" ]]; then
   jq -s -e --arg type "$expected_type" '[.[] | select(.type == $type)] | length == 1' \
     "$target"/_artifacts/target/audit/events-*.ndjson >/dev/null \
     || fail "REQ-2547-4: real store lacks the expected event type"
+  run_hook "$workspace/work" "$real_dir" >/dev/null
+  jq -s -e --arg type "$expected_type" 'any(.[]; .type == $type
+      and .resolved_context.repo_id == "audited-workspace"
+      and (.resolved_context.published_from | endswith("/audited-workspace/work")))' \
+    "$workspace"/_artifacts/audited-workspace/audit/events-*.ndjson >/dev/null \
+    || fail "initialized workspace did not receive the real hook observation"
   msg="REQ-2547-4 checked with $real"
 else
   msg="REQ-2547-4 skipped (no auditctl publisher on this host)"

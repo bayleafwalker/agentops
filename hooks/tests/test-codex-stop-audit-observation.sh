@@ -119,6 +119,32 @@ if [[ -x "$real" ]]; then
       and .metadata.turn_id == "codex-real-turn")' \
       "$target"/_artifacts/target/audit/events-*.ndjson >/dev/null \
       || fail "real auditctl did not persist the Codex turn in the fixture store"
+
+  # The live failure: a workspace process inherits pins for a nested checkout.
+  # Its existing SQLite ledger must receive the observation, with no fake Git
+  # repository and no global AUDITCTL environment override.
+  workspace="$tmp/workspace"
+  mkdir -p "$workspace/.auditctl" "$workspace/.git" "$workspace/launch"
+  python3 - "$workspace/.auditctl/auditctl.db" <<'PY'
+import sqlite3, sys
+with sqlite3.connect(sys.argv[1]) as db:
+    db.execute("CREATE TABLE fixture (id INTEGER)")
+PY
+  printf '%s\n' workspace > "$workspace/.auditctl-id"
+  git_init "$workspace/launch"
+  workspace_event="$(jq -cn --arg cwd "$workspace" \
+    '{session_id:"codex-workspace-session",turn_id:"codex-workspace-turn",cwd:$cwd}')"
+  ( cd "$workspace" && printf '%s' "$workspace_event" | env -u DIRENV_DIR \
+      AUDITCTL_DB="$workspace/launch/.auditctl/auditctl.db" AUDITCTL_ARTIFACTS_ROOT="$workspace/launch" \
+      AGENTOPS_COST_LOG="$AGENTOPS_COST_LOG" AGENTOPS_GATE_LOG_DIR="$tmp/gates" \
+      AGENTOPS_AUDIT_FAILURE_LOG="$AGENTOPS_AUDIT_FAILURE_LOG" AUDITCTL_BIN="$real" \
+      bash "$stop_hook" ) || fail "workspace Codex hook failed"
+  jq -s -e 'any(.[]; .source == "codex-hook"
+      and .metadata.turn_id == "codex-workspace-turn"
+      and .resolved_context.repo_id == "workspace")' \
+      "$workspace"/_artifacts/workspace/audit/events-*.ndjson >/dev/null \
+      || fail "Codex workspace observation was misfiled into the child checkout"
+  [[ ! -d "$workspace/launch/_artifacts" ]] || fail "child checkout received workspace evidence"
 fi
 
 printf 'Codex Stop audit observation tests passed\n'
