@@ -12,6 +12,8 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from repository_delivery import DeliveryError, RepositoryDelivery, canonical, digest, git, import_candidate, validate_export
+from shared_execution.runtime import Store
+from shared_execution.scheduler import tick
 
 
 class DeliveryArtifactTests(unittest.TestCase):
@@ -96,6 +98,68 @@ class DeliveryArtifactTests(unittest.TestCase):
         with self.assertRaisesRegex(DeliveryError, 'outcome-unknown'): adapter.driver('check', task)
         driver.write_text(driver.read_text()+'# changed\n')
         with self.assertRaisesRegex(DeliveryError, 'driver-changed'): adapter.driver('check', task)
+
+    def immediate_execution(self, state):
+        """Transport projections only; exercise actual scheduler/import state."""
+        adapter = RepositoryDelivery.__new__(RepositoryDelivery)
+        adapter.root = self.root/'delivery'; adapter.root.mkdir(mode=0o700)
+        adapter.store = Store(adapter.root/'scheduler')
+        adapter.current = lambda: None
+        adapter.config = {'max_workers':1, 'launch_spacing':0}
+        adapter.spec = {'repo_id':'project', 'run_id':'work-run', 'repository_id':'project',
+            'packet':{'workspace_id':'workspace', 'base_sha':self.base},
+            'canonical_url':str(self.source), 'allowed_areas':['src'],
+            'workspace_endpoint':'https://workspace.example.invalid', 'workspace_id':'workspace',
+            'workspace_destination':'workspace-workspace', 'allowed_classes':['C1']}
+        receipt = dict(self.receipt, endpoint=adapter.spec['workspace_endpoint'], workspace_id='workspace',
+                       destination='workspace-workspace', output_class='C1', artifact_id='artifact', version_id='version')
+        run = {'id':'owner-run', 'repository_id':'project', 'preview_id':'preview', 'state':state,
+               'attempts':[{'id':'owner-attempt', 'state':'completed'}],
+               'evidence':[{'label':'retained-candidate', 'sha256':receipt['sha256'], 'receipt':receipt}]}
+        calls = []
+        class ExecutionProjection:
+            def call(self, method, path, **kwargs):
+                calls.append((method, path))
+                return {'run':run}
+        class ArtifactProjection:
+            def invoke(self, operation, arguments):
+                return dict(receipt, processing_state='ready', content_base64=base64.b64encode(self_raw).decode())
+        self_raw = self.raw
+        adapter.execution = ExecutionProjection(); adapter.workspace = ArtifactProjection()
+        adapter.store.save({'id':'delivery', 'state':'RUNNING', 'attempt':'sovite:submission-key',
+            'submission':{'preview_id':'preview'}, 'submission_key':'submission-key', 'execution_id':None,
+            'areas':['src'], 'provider':'sovite', 'model':'executor', 'dependencies':[],
+            'worktree':str(adapter.root/'candidate')})
+        # Stop after the actual scheduler has collected the terminal response;
+        # verification is a separate commissioned boundary.
+        adapter.attempt = lambda *args: ('verify-1', 1)
+        adapter.launch = lambda path: None
+        adapter.verification_command = lambda: []
+        adapter.main_tip = lambda: self.base
+        return adapter, calls
+
+    def test_immediate_completed_submission_keeps_acknowledgement_through_collection(self):
+        adapter, calls = self.immediate_execution('completed')
+        try:
+            tick(adapter)
+            task = adapter.store.tasks()[0]
+            self.assertEqual(task['execution_id'], 'owner-run')
+            self.assertEqual(task['worker_commit'], self.tip)
+            self.assertEqual(task['state'], 'VERIFYING')
+            self.assertEqual((adapter.root/'retained-export.json').read_bytes(), self.raw)
+            self.assertEqual(calls, [('POST','/runs'), ('GET','/runs/owner-run')])
+        finally: adapter.close()
+
+    def test_immediate_failed_submission_preserves_acknowledged_owner_run(self):
+        adapter, calls = self.immediate_execution('failed')
+        try:
+            tick(adapter)
+            task = adapter.store.tasks()[0]
+            self.assertEqual(task['execution_id'], 'owner-run')
+            self.assertEqual(task['state'], 'BLOCKED')
+            self.assertEqual(task['cause'], 'execution-failed-or-uncertain')
+            self.assertEqual(calls, [('POST','/runs'), ('GET','/runs/owner-run')])
+        finally: adapter.close()
 
     def test_unreleased_work_and_credential_bearing_source_refuse_before_any_owner_call(self):
         spec = {'schema_version':'agentops-repository-delivery/v1', 'max_repairs':0,
