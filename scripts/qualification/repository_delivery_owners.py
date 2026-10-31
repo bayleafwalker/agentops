@@ -93,7 +93,7 @@ class WorkOwner:
         pg.init_db(self.store)
         self.app = WorkApplication.postgres(self.store)
         identity = SimpleNamespace(actor='qualified-fixture-controller', environment='disposable-fixture',
-            authorities=frozenset({'work:evidence','work:claim','work:read'}), principal_id='fixture:controller',
+            authorities=frozenset({'work:evidence','work:claim','work:read'}), principal_id='fixture:controller:0',
             workspace_id='fixture-workspace', client_id=None, grant_id=None)
         self.context = SimpleNamespace(identity=identity, request_id='fixture-request', basis_revision=None,
             catalog_revision='actual-source-contract', idempotency_requirement='not-allowed', idempotency_key=None)
@@ -143,6 +143,7 @@ def test_actual_consumer_repair_preserves_failed_candidate_and_recovers_exact_lo
     async def scenario():
         service, original, reader = await configured(postgres_prepared,served_workspace,tmp_path)
         platform, exporter, parent, attempt, mirror, base = postgres_prepared
+        delivery_specs=[]
         app = create_app(platform.settings,platform,repository_run_owner=service.owner)
         app.state.repository_repair_service = service
         class Loss(httpx.AsyncBaseTransport):
@@ -161,6 +162,11 @@ def test_actual_consumer_repair_preserves_failed_candidate_and_recovers_exact_lo
                     else:
                         assert pending['submission']==body
                         assert pending['submission_key']==request.headers['Idempotency-Key']
+                        # Independently cross-check the fixed installed guard
+                        # against the real consumer's durable HTTP intent.
+                        from repository_currentness import _repair_key
+                        guard_repair={**body,'repair_number':pending['repair_number']}
+                        assert _repair_key(delivery_specs[0],guard_repair,parent.caller)==request.headers['Idempotency-Key']
                 response = await self.inner.handle_async_request(request)
                 if lost_path and request.url.path == lost_path and response.status_code < 300 and not self.lost:
                     self.lost=True
@@ -206,6 +212,7 @@ def test_actual_consumer_repair_preserves_failed_candidate_and_recovers_exact_lo
                         'allowed_classes':['C3'],
                         'check':{'path':str(check),'sha256':hashlib.sha256(check.read_bytes()).hexdigest(),'timeout_seconds':5},
                         'review':{'path':str(review),'sha256':hashlib.sha256(review.read_bytes()).hexdigest(),'timeout_seconds':5}}}
+                delivery_specs.append(adapter.spec)
                 adapter.repair_contract=OwnerRepairContract({'root':str(data),'integrity_sha256':contract.INTEGRITY,
                     'source_ref':'https://github.com/bayleafwalker/sovite/blob/ca09603fc1cf7c1cd04fefe18ca282d019f99140/docs/contracts/repository-repair-v1.provenance.json'},root)
                 adapter.store.save({'id':'delivery','state':'RUNNING','attempt':'sovite:original',

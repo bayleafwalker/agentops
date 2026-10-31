@@ -90,20 +90,26 @@ jobs:
       SOVITE_REPAIR_REQUIRE_PG: "1"
       SPRINTCTL_TEST_PG_URL: postgresql://sprintctl_test_consumer:test@127.0.0.1:5432/sprintctl_test_consumer
       RELEASED_WORK_OWNER_PYTHON: ${{ github.workspace }}/_owners/released-work-owner/bin/python
-      PYTHONPATH: ${{ github.workspace }}/scripts:${{ github.workspace }}/_owners/sovite/tests
+      PYTHONPATH: ${{ github.workspace }}/scripts:${{ github.workspace }}/scripts/qualification:${{ github.workspace }}/_owners/sovite/tests:${{ github.workspace }}/_owners/vuoro/packages/vuoro-service/src
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
           repository: bayleafwalker/sovite
-          ref: e5f392eb1717a5f4f6b8c4fa0f7fc777ee6608b8
+          ref: 1585edd22bb03397b3cc9a2e5fb437659b22f66e
           path: _owners/sovite
           persist-credentials: false
       - uses: actions/checkout@v4
         with:
           repository: bayleafwalker/sprintctl
-          ref: cd5ba9bb817e6e7b3fbd65fdf817999505f11883
+          ref: 3bccfaca020c2effb68430f9251b8c9857500fbf
           path: _owners/sprintctl
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: bayleafwalker/vuoro
+          ref: 3c92e1ddb1026ed11926d3de1ca62809d8b59442
+          path: _owners/vuoro
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -125,4 +131,8 @@ jobs:
               conn.execute("COMMENT ON DATABASE sprintctl_test_consumer IS 'sprintctl:disposable-integration-test'")
           PY
       - name: actual consumer and owner fault histories (no native or deployment qualification)
-        run: python -m pytest -q scripts/qualification/repository_delivery_owners.py --maxfail=1
+        # The exact service source edge is qualified through PYTHONPATH above;
+        # released production adapter/service pins remain separate.
+        run: >-
+          python -m pytest -q scripts/qualification/repository_delivery_owners.py
+          scripts/qualification/repository_currentness_owners.py --maxfail=1
