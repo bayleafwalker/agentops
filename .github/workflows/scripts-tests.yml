@@ -89,7 +89,7 @@ jobs:
       SOVITE_WORKSPACE_REQUIRE_PG: "1"
       SOVITE_REPAIR_REQUIRE_PG: "1"
       SPRINTCTL_TEST_PG_URL: postgresql://sprintctl_test_consumer:test@127.0.0.1:5432/sprintctl_test_consumer
-      RELEASED_WORK_OWNER_PYTHON: ${{ runner.temp }}/released-work-owner/bin/python
+      RELEASED_WORK_OWNER_PYTHON: ${{ github.workspace }}/_owners/released-work-owner/bin/python
       PYTHONPATH: ${{ github.workspace }}/scripts:${{ github.workspace }}/_owners/sovite/tests
     steps:
       - uses: actions/checkout@v4
@@ -112,7 +112,7 @@ jobs:
       - name: install exact owner source tuples and immutable legacy contract
         run: |
           python -m pip install './_owners/sovite[test]' './_owners/sprintctl[dev,remote]'
-          uv venv "$RUNNER_TEMP/released-work-owner" --python python
+          uv venv "$GITHUB_WORKSPACE/_owners/released-work-owner" --python python
           uv pip install --python "$RELEASED_WORK_OWNER_PYTHON" 'sprintctl[inspection] @ https://github.com/bayleafwalker/sprintctl/releases/download/v0.27.0/sprintctl-0.27.0-py3-none-any.whl#sha256=ed865d2ad4048de04856f0169fa8f020fa1edeec9aa467f8a9a91a97e6407bc7'
       - name: create guarded unprivileged Work fixture
         run: |
