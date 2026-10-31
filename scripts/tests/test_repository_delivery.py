@@ -97,6 +97,16 @@ class DeliveryArtifactTests(unittest.TestCase):
         driver.write_text(driver.read_text()+'# changed\n')
         with self.assertRaisesRegex(DeliveryError, 'driver-changed'): adapter.driver('check', task)
 
+    def test_unreleased_work_and_credential_bearing_source_refuse_before_any_owner_call(self):
+        spec = {'schema_version':'agentops-repository-delivery/v1', 'max_repairs':0,
+                'basis':{'current_release_digest':None}, 'canonical_url':'https://github.com/example/project'}
+        with self.assertRaisesRegex(DeliveryError, 'work-release-required'):
+            RepositoryDelivery(self.root/'protected', spec, None, None, None)
+        spec['basis']['current_release_digest'] = 'a'*64
+        spec['canonical_url'] = 'https://user:synthetic-secret@example.invalid/project'
+        with self.assertRaisesRegex(DeliveryError, 'public-source-url-required'):
+            RepositoryDelivery(self.root/'protected', spec, None, None, None)
+
     def test_owner_terminal_decision_must_bind_exact_release_and_evidence(self):
         # Read-projection fixtures isolate the matching rule; this is not a
         # simulated successful delivery or owner authority implementation.

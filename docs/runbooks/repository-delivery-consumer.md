@@ -23,7 +23,7 @@ never credentials or agent-written authority claims:
 | Fields | Source |
 | --- | --- |
 | `repo_id`, `item_id`, `run_id`, `grant_id`, `lease_id` | Existing current work-owner binding and lease. The command never takes over a lease. |
-| `basis` | Exact `delta.current` from `work.run.continuation-delta-v1`, including release, decision and reference digests. |
+| `basis` | Exact `delta.current` with a non-null 64-character current release digest from `work.run.continuation-delta-v1`, including release, decision and reference digests. |
 | `packet` | Existing `portable-work/v1` Sovite packet: workspace/repository/executor IDs, full base SHA, cost, deadline and concurrency. `goal` must equal the current full work item description; longer-than-contract tasks require owner refinement. |
 | `repository_id`, `canonical_url`, `allowed_areas` | Project-owner configuration and current admitted source. Public unauthenticated Git is the first supported retrieval path; do not weaken sanitized Git to inherit private credentials. |
 | `sovite_endpoint`, `sovite_principal`, `sovite_credential_ref` | Commissioned execution API and caller. Server verification of the principal-bound preview prevents a changed credential from silently replaying submission as another caller. |

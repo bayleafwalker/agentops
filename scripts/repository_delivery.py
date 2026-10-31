@@ -229,6 +229,11 @@ class RepositoryDelivery:
         self.spec, self.work, self.workspace, self.execution = spec, work, workspace, execution
         need(spec.get('schema_version') == 'agentops-repository-delivery/v1', 'unsupported-delivery-profile')
         need(spec.get('max_repairs') == 0, 'repair-policy-unsupported')
+        need(isinstance(spec.get('basis'), dict) and SHA.fullmatch(spec['basis'].get('current_release_digest') or ''),
+             'current-work-release-required')
+        source_url = urlsplit(spec['canonical_url'])
+        need(source_url.scheme == 'https' and source_url.netloc and not source_url.username
+             and not source_url.password and not source_url.query and not source_url.fragment, 'public-source-url-required')
         need(COMMIT.fullmatch(spec['packet']['base_sha']), 'full-base-required')
         need(spec['packet']['repository_id'] == spec['repository_id'], 'repository-binding-mismatch')
         self.config, self.quota = {'max_workers':1, 'launch_spacing':0}, _Quota()
