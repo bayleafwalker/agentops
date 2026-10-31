@@ -1764,8 +1764,24 @@ def maintenance_fact(result: dict[str, Any], host: str) -> dict[str, Any]:
                     raise ValueError("maintenance success is stale despite a healthy label")
             if healthy and job.get("last_attempt", {}).get("result") == "failed":
                 raise ValueError("maintenance attempt failed despite a healthy label")
+            next_run = job.get("next_run")
+            if next_run is not None and (not isinstance(next_run, dict)
+                    or not set(next_run).issubset({"NextElapseUSecRealtime", "NextElapseUSecMonotonic"})
+                    or not all(value is None or isinstance(value, str) and len(value) <= 256
+                               for value in next_run.values())):
+                raise ValueError("malformed maintenance schedule")
+            level, since = job.get("incident_level"), job.get("incident_since")
+            if level not in (None, "attention", "escalated") or (healthy and (level or since)):
+                raise ValueError("maintenance incident contradicts healthy status")
+            if level is not None or since is not None:
+                if level is None or not isinstance(since, str):
+                    raise ValueError("maintenance incident lacks time or level")
+                incident = datetime.fromisoformat(since.replace("Z", "+00:00"))
+                if incident.tzinfo is None or (incident - checked).total_seconds() > 300:
+                    raise ValueError("maintenance incident timestamp is invalid")
             summary[unit] = {key: job.get(key) for key in (
-                "status", "problems", "last_success_at", "last_success_age_seconds", "timer")}
+                "status", "problems", "last_success_at", "last_success_age_seconds", "timer",
+                "next_run", "incident_since", "incident_level")}
         status = "degraded" if any(j["problems"] for j in summary.values()) else "healthy"
         if data.get("status") != status or data.get("probe_error"):
             raise ValueError("maintenance collection incomplete or status inconsistent")

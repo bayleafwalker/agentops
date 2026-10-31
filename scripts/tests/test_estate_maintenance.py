@@ -71,6 +71,33 @@ class MaintenanceFacts(unittest.TestCase):
         fact = estate.maintenance_fact(probe(data), "infra")
         self.assertNotIn("CANARY", json.dumps(fact))
 
+    def test_next_execution_and_budget_escalation_are_preserved(self):
+        data = report()
+        data["status"] = "degraded"
+        job = data["jobs"]["talos-etcd-backup.service"]
+        job.update(status="degraded", problems=["last-run-failed"], incident_since="2026-10-31T05:00:00Z",
+                   incident_level="escalated", next_run={"NextElapseUSecRealtime": "Sun 2026-11-01 04:21:40 EET",
+                                                          "NextElapseUSecMonotonic": "0"})
+        fact = estate.maintenance_fact(probe(data), "infra")
+        summary = fact["value"]["jobs"]["talos-etcd-backup.service"]
+        self.assertEqual(summary["next_run"], job["next_run"])
+        self.assertEqual(summary["incident_level"], "escalated")
+        self.assertEqual(summary["incident_since"], job["incident_since"])
+
+    def test_inconsistent_or_malformed_incident_and_schedule_are_unknown(self):
+        for fields in ({"incident_level": "escalated"}, {"incident_level": "invented"},
+                       {"next_run": "not a timer result"}, {"next_run": {"unexpected": "CANARY"}}):
+            data = report()
+            data["jobs"]["talos-etcd-backup.service"].update(fields)
+            self.assertEqual(estate.maintenance_fact(probe(data), "infra")["status"], "unknown")
+
+    def test_escalation_needs_a_valid_incident_time(self):
+        for since in ("2026-10-31T13:00:00Z", "2026-10-31T05:00:00", "invalid"):
+            data = report(); data["status"] = "degraded"
+            data["jobs"]["talos-etcd-backup.service"].update(status="degraded", problems=["last-run-failed"],
+                incident_level="escalated", incident_since=since)
+            self.assertEqual(estate.maintenance_fact(probe(data), "infra")["status"], "unknown")
+
     def test_infra_does_not_require_agent_tools_or_credentials(self):
         calls = []
         class Fake:
