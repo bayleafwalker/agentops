@@ -115,11 +115,13 @@ budget reservations. Acknowledged children reenter the shared scheduler and
 clean trusted verification. Local caps create no additional repair authority.
 
 A commissioned installation must pin a released owner contract/runtime tuple,
-not an unreleased source checkout. The source qualification gate pins Sovite
-`e5f392eb1717a5f4f6b8c4fa0f7fc777ee6608b8` and Sprintctl
-`cd5ba9bb817e6e7b3fbd65fdf817999505f11883` while the corresponding published
-contract/runtime is pending. Its generated repair data integrity is
-`3690da2ebd4fb8ffb5ddac04749e2cb1a191f3821fe4b1e466b95e01426d94e2`.
+not an unreleased source checkout. The source qualification gate now pins Sovite
+`e1c19c4a23c5c440815802da9ff017f4aed01383` and Sprintctl
+`3bccfaca020c2effb68430f9251b8c9857500fbf`. Active repairs accept the unchanged
+operations from explicitly pinned owner1.1,1.2 or1.3 bundles. Historical capture
+and exact-copy release require owner1.3, whose generated data integrity is
+`4b83e978ed83be672f4f93cb413aa1500a8ed91bbc8e5866ebf8391ef7fd3e3f`.
+The earlier1.1 source pin/integrity is superseded for this qualification gate.
 The provenance URL and integrity pin are contract identity, not installation or
 execution approval.
 
@@ -152,3 +154,82 @@ Sovite/released-Workspace HTTP, owner-admitted repair, lost acknowledgements,
 retained child import, independent verification, bounded cancellation and exact
 settlement. Its mutable callback is deterministic; it neither qualifies a native
 driver nor exercises a real forge publication/production deployment.
+
+
+## Historical interrupted recovery
+
+Use the original saved spec and protected state with an explicit recovery
+policy and exact owner attempt:
+
+```
+bin/agentops repository-delivery --spec ORIGINAL_SPEC --state EXISTING_STATE \
+  --recovery-policy PROTECTED_POLICY --attempt-id ACTUAL_OWNER_ATTEMPT
+```
+
+The closed local policy selects an actual output contract/destination and a
+protected generated owner1.3 bundle:
+
+```json
+{
+  "schema_version": "agentops-repository-recovery/v1",
+  "contract_id": "recovery-copy",
+  "destination_id": "ACTUAL_WORKSPACE_DESTINATION",
+  "owner_contract": {
+    "root": "/protected/released-owner-sdk/data",
+    "integrity_sha256": "4b83e978ed83be672f4f93cb413aa1500a8ed91bbc8e5866ebf8391ef7fd3e3f",
+    "source_ref": "https://github.com/bayleafwalker/sovite/blob/e1c19c4a23c5c440815802da9ff017f4aed01383/docs/contracts/repository-repair-v1.provenance.json"
+  }
+}
+```
+
+This example records source identity, not an installed/released runtime claim.
+Commissioning still requires the released owner contract/runtime tuple and
+actual configured caller, copy procedure and Workspace target. The policy must
+be outside the mutable state directory, with protected ownership/ancestors and
+no symlinks or unrelated writers. Destination must match the original saved
+Workspace destination; no credential, endpoint or authority is added by it.
+
+Recovery mode opens only the configured Sovite and Workspace clients. It does
+not open the Work profile, require the old Work lease/basis to remain active,
+or run a scheduler tick. Keep the original spec unchanged, including its full
+goal and canonical base. It requires an existing owned blocked/failed/cancelled
+run and a definite historical interrupted/uncertain/failed/cancelled attempt.
+A lost execution acknowledgement is found only in bounded actual owner history
+by the already saved exact submission key. Optional `--execution-id` selects a
+known run with that same key; missing or ambiguous history stays unknown. The
+mode never submits a new execution or repair to discover whether one exists.
+
+Capture, context, exact-copy release and retention intents are committed in the
+existing local Store before HTTP. Lost replies reconcile the same exact bodies;
+the owner supplies capture identity and deterministic existing approval/transfer
+identity. The eligible current caller can use only the installed owner exact
+stored-copy procedure. No bytes are passed to an approval API, no generic
+review is asserted by the machine, and ordinary64KiB approval limits remain.
+If that procedure is unavailable, the stop includes the exact source/contract/
+destination selector. `--release-id` can select a real already-approved owner
+release; the owner independently validates exact source, caller, class and
+destination. There is no universal human gate or operator credential here.
+
+Retention uses the existing owner-to-Workspace transfer. Every new read of a
+ready version uses the current Workspace reader, exact endpoint/class/
+destination/size/hash and recovery provenance, even if a local copy already
+exists. Actual owner history's retained recovery locator can be read after the
+producer binding/runtime is retired, without producer reapproval. Storage
+membership supplies no model-context or continuing execution authority.
+
+Recovered bytes remain private under `STATE/recoveries/<sha256>.json` with
+`publication_eligible:false` and `repair_eligible:false`. They are never imported
+as a candidate or sent through check, review, repair, Work settlement or billing
+refund. Active candidate ingestion explicitly refuses recovery artifacts. The
+original local task and owner unknown/budget reservations remain unchanged.
+The CLI's recovery result is a transport/storage observation, not a success or
+acceptance decision.
+
+The source gate `repository_recovery_owners.py` uses actual loopback Sovite HTTP,
+the emitted owner1.3 bundle and released Workspace PostgreSQL/HTTP. It covers
+large exact copies, independent durable-intent reads before HTTP, capture/
+release/retention and begin/upload/finalize response loss, an ineligible generic
+procedure followed by a real owner release selector, a revoked active guard,
+retired producer and current reader membership revocation. Its native callback
+is the owner's explicit interruption fixture; it does not commission a VM,
+provider, production network or release.
