@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 import sys
 import sqlite3
+import shutil
 from types import SimpleNamespace
 import uuid
 
@@ -185,7 +186,12 @@ def test_actual_consumer_repair_preserves_failed_candidate_and_recovers_exact_lo
                 check.chmod(0o700)
                 review = tmp_path/'trusted-review'
                 review.write_text('#!'+sys.executable+'\nprint("independent fixture review")\n'); review.chmod(0o700)
-                data = Path(resources.files(contract.PACKAGE).joinpath('data'))
+                # CI's Python toolcache can have writable ancestors. Reuse
+                # the exact generated owner artifact in a private fixture
+                # directory; retain production path protection and integrity.
+                data = tmp_path/'pinned-owner-contract'
+                shutil.copytree(Path(resources.files(contract.PACKAGE).joinpath('data')),data)
+                data.chmod(0o700)
                 adapter = RepositoryDelivery.__new__(RepositoryDelivery)
                 adapter.root=root; adapter.work=work; adapter.workspace=Workspace(); adapter.execution=execution
                 adapter.store=Store(root/'scheduler'); adapter.config={'max_workers':1,'launch_spacing':0}
