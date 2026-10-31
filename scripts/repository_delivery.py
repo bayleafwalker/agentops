@@ -134,9 +134,17 @@ REPAIR_OPERATIONS = {
 }
 
 
+RECOVERY_OPERATIONS = {
+    'repositoryRecoveryCapture':'/api/repository-runs/v1/runs/{run_id}/recovery',
+    'repositoryRecoveryContext':'/api/repository-runs/v1/runs/{run_id}/recovery-context',
+    'repositoryRecoveryRelease':'/api/repository-runs/v1/runs/{run_id}/recovery-release',
+}
+
+
 class OwnerRepairContract:
     """Read the actual pinned owner bundle; never copy its domain schema."""
-    def __init__(self, value, state_root):
+    def __init__(self, value, state_root, *, recovery=False):
+        self.operations = RECOVERY_OPERATIONS if recovery else REPAIR_OPERATIONS
         need(type(value) is dict and set(value) == {'root','integrity_sha256','source_ref'}, 'repair-contract-required')
         path = Path(value['root'])
         need(path.is_absolute() and path.resolve(strict=True) == path and path.is_dir()
@@ -150,14 +158,17 @@ class OwnerRepairContract:
         from vuoro_contracts import ContractBundle
         self.bundle = ContractBundle.load(path, integrity_sha256=value['integrity_sha256'])
         need(self.bundle.manifest['contractId'] == 'sovite.repository-repair.v1'
-             and self.bundle.manifest['contractVersion'] == '1.1.0', 'repair-contract-unsupported')
-        for operation, route in REPAIR_OPERATIONS.items():
+             and self.bundle.manifest['contractVersion'] in ({'1.3.0'} if recovery else {'1.1.0','1.2.0','1.3.0'}), 'repair-contract-unsupported')
+        for operation, route in self.operations.items():
             metadata = self.bundle.manifest['operations'].get(operation)
             need(metadata and metadata['method'] == 'POST' and metadata['path'] == route
                  and metadata['exposure'] == 'internal', 'repair-contract-unsupported')
 
-    def request(self, operation, body):
-        need(operation in REPAIR_OPERATIONS, 'repair-operation-unsupported')
+    def request(self, operation, body, *, run_id=None):
+        need(operation in self.operations, 'repository-operation-unsupported')
+        if '{run_id}' in self.operations[operation]:
+            self.bundle.validate_parameter(operation,'path','run_id',run_id)
+        else: need(run_id is None,'repository-operation-unsupported')
         self.bundle.validate_request(operation, body)
 
     def response(self, operation, status, body): self.bundle.validate_response(operation, status, body)
@@ -200,6 +211,14 @@ class Sovite:
         contract.response(operation, response.status_code, result)
         return result
 
+    def recovery_call(self, contract, operation, run_id, body):
+        need(operation in RECOVERY_OPERATIONS,'recovery-operation-unsupported')
+        contract.request(operation,body,run_id=run_id)
+        route=RECOVERY_OPERATIONS[operation].replace('{run_id}',run_id)
+        response=self._response('POST',route,json=body)
+        result=response.json();contract.response(operation,response.status_code,result)
+        return result
+
     def approve_feedback(self, body):
         # The existing output owner authenticates the actual caller and applies
         # its installed procedure; this adapter creates no approval authority.
@@ -238,6 +257,9 @@ def validate_export(raw, receipt, *, repository_id, base_sha, run_id):
     need(data['schema_version'] == 'sovite-repository-candidate-export/v1'
          and data['repository_id'] == repository_id and data['base_sha'] == base_sha and data['run_id'] == run_id
          and COMMIT.fullmatch(data['tip_sha']), 'candidate-source-mismatch')
+    need(data.get('kind') != 'repository-recovery-artifact'
+         and data.get('publication_eligible') is not False and data.get('repair_eligible') is not False,
+         'recovery-is-not-publication-candidate')
     need('fence' not in data['receipt_projection'] and digest(data['receipt_projection']) == data['receipt_projection_sha256'],
          'candidate-receipt-changed')
     projection = data['receipt_projection']
@@ -821,15 +843,243 @@ class RepositoryDelivery:
 
 
 
+def recovery_policy(path,state_root):
+    path=Path(path).absolute();state_root=Path(state_root).absolute()
+    need(path.resolve(strict=True)==path and path.is_file() and state_root not in path.parents,
+         'protected-recovery-policy-required')
+    for parent in (path,*path.parents):
+        info=parent.stat();sticky=parent!=path and info.st_uid==0 and info.st_mode&stat.S_ISVTX
+        need(info.st_uid in {0,os.getuid()} and (not info.st_mode&0o022 or sticky),
+             'protected-recovery-policy-required')
+    return load(path,65536)
+
+
+class HistoricalRecovery:
+    """Retain/read an already owned failed attempt without active Work authority."""
+    def __init__(self, root, spec, workspace, execution, policy, *, attempt_id, execution_id=None, release_id=None):
+        self.root=private_root(root)
+        need((self.root/'scheduler'/'state.sqlite3').is_file(),'existing-delivery-state-required')
+        self.spec,self.workspace,self.execution=spec,workspace,execution
+        need(spec.get('schema_version')=='agentops-repository-delivery/v1'
+             and COMMIT.fullmatch(spec['packet']['base_sha'])
+             and spec['packet']['repository_id']==spec['repository_id'],'historical-delivery-profile-invalid')
+        need(type(policy) is dict and set(policy)=={'schema_version','owner_contract','contract_id','destination_id'}
+             and policy['schema_version']=='agentops-repository-recovery/v1'
+             and isinstance(policy['contract_id'],str) and policy['contract_id']
+             and policy['destination_id']==spec['workspace_destination'],'recovery-policy-invalid')
+        self.policy=policy
+        self.contract=OwnerRepairContract(policy['owner_contract'],self.root,recovery=True)
+        need(isinstance(attempt_id,str) and re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._:-]{0,127}',attempt_id),'recovery-attempt-invalid')
+        need(release_id is None or re.fullmatch(r'release_[0-9a-f]{64}',release_id),'recovery-release-selector-invalid')
+        self.attempt_id,self.execution_id,self.release_id=attempt_id,execution_id,release_id
+        self.policy_digest=digest({**policy,'owner_contract':{key:value for key,value in policy['owner_contract'].items() if key!='root'}})
+        self.store=Store(self.root/'scheduler')
+        try:
+            need(self.store.meta('spec')==spec,'historical-delivery-profile-changed')
+            need(len(self.store.tasks())==1 and self.store.tasks()[0]['id']=='delivery','historical-delivery-task-required')
+        except Exception:
+            self.store.close();raise
+
+    def close(self):self.store.close()
+
+    def _run(self):
+        task=self.store.tasks()[0]
+        pending=task.get('repair_pending') or {}
+        key=pending.get('submission_key') or task.get('submission_key')
+        need(isinstance(key,str) and re.fullmatch(r'[A-Za-z0-9_.-]{16,128}',key),'historical-submission-intent-required')
+        selected=self.execution_id or (None if pending.get('submission_key') else task.get('execution_id'))
+        if selected is None:
+            receipt=task.get('cancellation_receipt') or {}
+            if receipt.get('idempotency_key')==key:selected=receipt.get('id')
+        params={'workspace_id':self.spec['packet']['workspace_id']}
+        if selected is None:
+            runs=self.execution.call('GET','/runs',params={**params,'limit':500})['runs']
+            matches=[row for row in runs if row.get('idempotency_key')==key
+                and row.get('workspace_id')==params['workspace_id'] and row.get('repository_id')==self.spec['repository_id']]
+            need(len(matches)==1,'historical-submission-outcome-unknown')
+            selected=matches[0]['id']
+        need(isinstance(selected,str) and re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._:-]{0,127}',selected),'historical-run-selector-invalid')
+        run=self.execution.call('GET','/runs/'+selected,params=params)['run']
+        need(run['id']==selected and run.get('idempotency_key')==key
+             and run['repository_id']==self.spec['repository_id'] and run['workspace_id']==params['workspace_id']
+             and run['executor_id']==self.spec['packet']['executor_id'],'historical-source-mismatch')
+        submission=pending.get('submission') if pending.get('submission_key') else task.get('submission')
+        need(type(submission) is dict,'historical-submission-intent-required')
+        if submission.get('schema_version')=='sovite-repository-run/v1':
+            need(submission.get('packet')==self.spec['packet']
+                 and isinstance(submission.get('preview_id'),str) and SHA.fullmatch(submission['preview_id'])
+                 and run.get('preview_id')==submission['preview_id'],'historical-preview-mismatch')
+        elif submission.get('schema_version')=='sovite-repository-repair/v1':
+            predecessors=[row for row in run.get('evidence',[]) if row.get('label')=='repair-predecessor']
+            need(len(predecessors)==1 and predecessors[0].get('uri')=='sovite://repository-runs/'+submission['parent_run_id']
+                 and predecessors[0].get('sha256')==submission['candidate_sha256'],'historical-repair-lineage-mismatch')
+            ack=task.get('repair_ack') if not pending.get('submission_key') else None
+            need(ack is None or ack['run_id']==run['id'],'historical-repair-acknowledgement-changed')
+        else:need(False,'historical-submission-intent-required')
+        need(run['state'] in {'blocked','failed','cancelled'},'historical-terminal-execution-required')
+        attempts=[row for row in run['attempts'] if row['id']==self.attempt_id]
+        need(len(attempts)==1 and attempts[0]['state'] in {'uncertain','interrupted','failed','cancelled'},'historical-attempt-unavailable')
+        name='recovery:'+digest({'task_id':task['id'],'submission_key':key,'attempt_id':self.attempt_id})
+        identity={'schema_version':'agentops-repository-recovery-state/v1','task_id':task['id'],
+            'submission_key':key,'run_id':selected,'attempt_id':self.attempt_id,'policy_digest':self.policy_digest}
+        record=self.store.meta(name)
+        if record is None:record=identity;self.store.setmeta(name,record)
+        need(all(record.get(field)==value for field,value in identity.items()),'historical-recovery-intent-changed')
+        return name,record,run
+
+    def _save(self,name,record,**updates):
+        record={**record,**updates};self.store.setmeta(name,record);return record
+
+    def _receipt(self,receipt,source_digest=None):
+        s=self.spec
+        need(receipt['endpoint']==s['workspace_endpoint'].rstrip('/') and receipt['workspace_id']==s['workspace_id']
+             and receipt['destination']==s['workspace_destination'] and receipt['output_class'] in s['allowed_classes']
+             and type(receipt['size']) is int and 0<=receipt['size']<=MAX_ARTIFACT
+             and SHA.fullmatch(receipt['sha256']) and re.fullmatch(r'release_[0-9a-f]{64}',receipt['release_id']),
+             'recovery-current-reader-policy-denied')
+        need(source_digest is None or source_digest=='sha256:'+receipt['sha256'],'recovery-retained-source-changed')
+        return receipt
+
+    def _download(self,receipt,run_id):
+        receipt=self._receipt(receipt)
+        response=self.workspace.invoke('knowledge.artifact.download-v1',{'workspace_id':receipt['workspace_id'],
+            'artifact_id':receipt['artifact_id'],'version':receipt['version_id']})
+        need(response['artifact_id']==receipt['artifact_id'] and response['version_id']==receipt['version_id']
+             and response['processing_state']=='ready' and response['sha256']==receipt['sha256']
+             and response['size']==receipt['size'] and len(response['content_base64'])<=4*((MAX_ARTIFACT+2)//3),
+             'recovery-retained-version-changed')
+        raw=base64.b64decode(response['content_base64'],validate=True)
+        need(len(raw)==receipt['size'] and hashlib.sha256(raw).hexdigest()==receipt['sha256'],'recovery-retained-content-changed')
+        data=json.loads(raw,object_pairs_hook=unique_pairs,parse_constant=lambda _:need(False,'invalid-json-number'))
+        need(canonical(data)==raw and data['schema_version']=='sovite-repository-candidate-export/v1'
+             and data['kind']=='repository-recovery-artifact' and data['run_id']==run_id
+             and data['attempt_id']==self.attempt_id and data['workspace_id']==self.spec['packet']['workspace_id']
+             and data['repository_id']==self.spec['repository_id'] and data['base_sha']==self.spec['packet']['base_sha']
+             and COMMIT.fullmatch(data['tip_sha']) and data['outcome'] in {'uncertain','interrupted','failed','cancelled'}
+             and data['publication_eligible'] is False and data['repair_eligible'] is False,'recovery-artifact-source-mismatch')
+        projection=data['receipt_projection']
+        need('fence' not in projection and digest(projection)==data['receipt_projection_sha256']
+             and projection['job_id']==run_id and projection['attempt_id']==self.attempt_id
+             and projection['within_deadline'] is False and projection['publication_eligible'] is False
+             and projection['repair_eligible'] is False and SHA.fullmatch(projection['packet_sha256'])
+             and all(projection[key]==data[key] for key in ('workspace_id','repository_id','base_sha','tip_sha','patch_sha256')),
+             'recovery-artifact-provenance-changed')
+        bundle=base64.b64decode(data['bundle_base64'],validate=True)
+        need(len(bundle)<=MAX_ARTIFACT and hashlib.sha256(bundle).hexdigest()==data['bundle_sha256'],'recovery-artifact-bundle-changed')
+        directory=self.root/'recoveries';directory.mkdir(mode=0o700,exist_ok=True)
+        need(directory.resolve()==directory and directory.stat().st_uid==os.getuid()
+             and not directory.stat().st_mode&0o077,'recovery-storage-unprotected')
+        path=directory/(receipt['sha256']+'.json')
+        need(not path.is_symlink() and (not path.exists() or path.read_bytes()==raw),'recovery-storage-changed')
+        write_exact(path,raw)
+        return {'state':'recovery-retained','run_id':run_id,'attempt_id':self.attempt_id,'outcome':data['outcome'],
+            'receipt':receipt,'artifact_path':str(path),'publication_eligible':False,'repair_eligible':False}
+
+    def failure(self,reason):
+        records=[]
+        for row in self.store.db.execute("SELECT body FROM meta WHERE key LIKE 'recovery:%'"):
+            record=json.loads(row[0])
+            if record.get('attempt_id')==self.attempt_id:records.append(record)
+        result={'state':'recovery-unavailable','reason':reason,'attempt_id':self.attempt_id,
+                'publication_eligible':False,'repair_eligible':False}
+        if len(records)==1:
+            record=records[0];result['run_id']=record['run_id']
+            if record.get('capture'):
+                result['release_request']={'run_id':record['run_id'],'attempt_id':self.attempt_id,
+                    'source_digest':record['capture']['source_digest'],'contract_id':self.policy['contract_id'],
+                    'destination_id':self.policy['destination_id']}
+        if 'recovery_copy_denied' in reason:
+            result['next_action']='Use an actual owner-approved --release-id or correct the installed exact-copy policy; this client grants no approval.'
+        elif 'unknown-outcome' in reason:
+            result['next_action']='Repeat the same recovery invocation to reconcile its saved exact intent.'
+        return result
+
+    def step(self):
+        name,record,run=self._run();run_id=record['run_id']
+        source=(record.get('capture') or {}).get('source_digest')
+        history=[row for row in run.get('evidence',[]) if row.get('label')=='retained-recovery-candidate'
+                 and row.get('attempt_id')==self.attempt_id]
+        need(len(history)<=1,'recovery-retention-history-ambiguous')
+        if history:
+            entry=history[0];receipt=self._receipt(entry['receipt'],source)
+            need(entry['sha256']==receipt['sha256'],'recovery-retention-history-changed')
+            if record.get('receipt'):need(record['receipt']==receipt,'recovery-retention-history-changed')
+            if self.release_id:need(receipt['release_id']==self.release_id,'recovery-release-selector-changed')
+            record=self._save(name,record,receipt=receipt)
+        if record.get('receipt'):
+            return self._download(record['receipt'],run_id)
+        body={'workspace_id':self.spec['packet']['workspace_id'],'attempt_id':self.attempt_id}
+        if 'capture_intent' not in record:record=self._save(name,record,capture_intent=body)
+        need(record['capture_intent']==body,'recovery-capture-intent-changed')
+        if 'capture' not in record:
+            captured=self.execution.recovery_call(self.contract,'repositoryRecoveryCapture',run_id,body)
+            need(captured['kind']=='repository-recovery-artifact' and captured['run_id']==run_id
+                 and captured['attempt_id']==self.attempt_id and captured['workspace_id']==body['workspace_id']
+                 and captured['repository_id']==self.spec['repository_id'] and captured['base_sha']==self.spec['packet']['base_sha']
+                 and captured['publication_eligible'] is False and captured['repair_eligible'] is False,
+                 'recovery-capture-source-changed')
+            record=self._save(name,record,capture=captured)
+        captured=record['capture']
+        selector={**body,'source_digest':captured['source_digest'],'contract_id':self.policy['contract_id'],
+                  'destination_id':self.policy['destination_id']}
+        if self.release_id:
+            need(not record.get('release_id') or record['release_id']==self.release_id,'recovery-release-selector-changed')
+            record=self._save(name,record,release_id=self.release_id)
+        if not record.get('release_id'):
+            if not record.get('context'):
+                if 'context_intent' not in record:record=self._save(name,record,context_intent=selector)
+                need(record['context_intent']==selector,'recovery-context-intent-changed')
+                context=self.execution.recovery_call(self.contract,'repositoryRecoveryContext',run_id,selector)
+                need(context['run_id']==run_id and context['attempt_id']==self.attempt_id
+                     and context['source_digest']==captured['source_digest'] and context['contract_id']==self.policy['contract_id']
+                     and self.policy['destination_id'] in context['destinations']
+                     and context['output_class'] in self.spec['allowed_classes']
+                     and context['publication_eligible'] is False and context['repair_eligible'] is False,
+                     'recovery-procedure-context-changed')
+                record=self._save(name,record,context=context)
+            context=record['context']
+            approval={**selector,'expected_generation':context['expected_generation'],
+                      'expected_contract_revision':context['contract_revision']}
+            if 'release_intent' not in record:record=self._save(name,record,release_intent=approval)
+            need(record['release_intent']==approval,'recovery-release-intent-changed')
+            released=self.execution.recovery_call(self.contract,'repositoryRecoveryRelease',run_id,record['release_intent'])
+            need(released['contract_revision']==context['contract_revision'] and released['output_class']==context['output_class']
+                 and self.policy['destination_id'] in released['destinations'],'recovery-output-release-changed')
+            record=self._save(name,record,release=released,release_id=released['release_id'])
+        retention={**body,'release_id':record['release_id']}
+        if 'retention_intent' not in record:record=self._save(name,record,retention_intent=retention)
+        need(record['retention_intent']==retention,'recovery-retention-intent-changed')
+        receipt=self.execution.call('POST','/runs/'+run_id+'/candidate-retention',json=retention)['receipt']
+        self._receipt(receipt,captured['source_digest'])
+        need(receipt['release_id']==record['release_id'],'recovery-retention-release-changed')
+        record=self._save(name,record,receipt=receipt)
+        return self._download(receipt,run_id)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--spec', type=Path, required=True)
     parser.add_argument('--state', type=Path, required=True)
     parser.add_argument('--predecessor', help='owner-bound predecessor run when adopting a retained continuation')
+    parser.add_argument('--recovery-policy',type=Path,help='explicit historical recovery policy; does not run an active delivery tick')
+    parser.add_argument('--attempt-id',help='exact failed/uncertain owner attempt for historical recovery')
+    parser.add_argument('--execution-id',help='exact already-owned execution selector when its acknowledgement was lost')
+    parser.add_argument('--release-id',help='optional actual owner output release selector; grants no approval authority')
     args = parser.parse_args(argv)
     clients = []; adapter = None
     try:
         spec = load(args.spec)
+        need(bool(args.recovery_policy)==bool(args.attempt_id),'historical-recovery-selectors-required')
+        need(args.recovery_policy or not (args.execution_id or args.release_id),'historical-recovery-mode-required')
+        if args.recovery_policy:
+            need(args.predecessor is None,'historical-recovery-predecessor-unsupported')
+            policy=recovery_policy(args.recovery_policy,args.state)
+            workspace=Vuoro(spec['workspace_profile']);clients.append(workspace)
+            need(workspace.client.profile.endpoint.rstrip('/')==spec['workspace_endpoint'].rstrip('/'),'workspace-endpoint-mismatch')
+            execution=Sovite(spec['sovite_endpoint'],spec['sovite_credential_ref']);clients.append(execution)
+            adapter=HistoricalRecovery(args.state,spec,workspace,execution,policy,attempt_id=args.attempt_id,
+                execution_id=args.execution_id,release_id=args.release_id)
+            print(json.dumps(adapter.step()));return 0
         work = Vuoro(spec['work_profile']); clients.append(work)
         workspace = Vuoro(spec['workspace_profile']); clients.append(workspace)
         need(workspace.client.profile.endpoint.rstrip('/') == spec['workspace_endpoint'].rstrip('/'), 'workspace-endpoint-mismatch')
@@ -842,7 +1092,8 @@ def main(argv=None):
         return 0
     except Exception as exc:
         code = str(exc) if isinstance(exc, DeliveryError) else 'delivery-unknown-outcome'
-        print(json.dumps({'state':'stopped', 'reason':code}), file=sys.stderr)
+        report=adapter.failure(code) if isinstance(adapter,HistoricalRecovery) else {'state':'stopped','reason':code}
+        print(json.dumps(report),file=sys.stderr)
         return 1
     finally:
         if adapter: adapter.close()
