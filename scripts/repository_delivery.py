@@ -234,6 +234,12 @@ class RepositoryDelivery:
         self.config, self.quota = {'max_workers':1, 'launch_spacing':0}, _Quota()
         self.store = Store(self.root/'scheduler')
         old = self.store.meta('spec')
+        if old is not None and old != spec and {k:v for k,v in old.items() if k != 'publication_attempt_id'} == {k:v for k,v in spec.items() if k != 'publication_attempt_id'}:
+            need(self.store.tasks()[0]['state'] in ('REVIEWED', 'MERGING'), 'publication-selector-too-early')
+            self.current()
+            self.store.event('publication-attempt-selected', attempt_id=spec['publication_attempt_id'])
+            self.store.setmeta('spec', spec)
+            old = spec
         if old is not None and old != spec:
             need(predecessor == old['run_id'] and old['run_id'] != spec['run_id'], 'profile-changed-requires-new-continuation')
             mutable = {'run_id', 'grant_id', 'lease_id', 'basis', 'publication_attempt_id'}
@@ -438,6 +444,7 @@ class RepositoryDelivery:
         s = self.spec
         # Existing redeemed exact-target effect attempt is required. This
         # consumer neither accepts effects nor grants itself merge authority.
+        need(s.get('publication_attempt_id') or task.get('publication'), 'publication-attempt-required')
         args = SimpleNamespace(authority_environment=Path(s['authority_environment']), authority_repo=s['repo_id'],
             run_id=s['run_id'], grant_id=s['grant_id'], attempt_id=s['publication_attempt_id'],
             profile=Path(s['work_profile']), repo=str(self.root/'candidate'), tip=task['worker_commit'])

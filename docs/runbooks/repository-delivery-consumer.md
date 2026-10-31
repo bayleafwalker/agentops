@@ -30,7 +30,7 @@ never credentials or agent-written authority claims:
 | `work_profile`, `workspace_profile` | Released Vuoro client profile paths. Membership and run identity are checked at their owners; filenames are not identity proof. |
 | `workspace_endpoint`, `workspace_id`, `workspace_destination`, `allowed_classes` | Current reader policy for the exact private retained destination. Destination spelling is `workspace-<Workspace ULID>`. The owner-returned receipt must match all fields before download. |
 | `acceptance` | Qualified private acceptance profile: `qualification_ref`, timezone-aware `expires_at`, `allowed_classes`, separate `check` and `review` driver records. Each driver has an absolute protected executable `path`, exact `sha256`, and bounded `timeout_seconds`. |
-| `authority_environment`, `publication_attempt_id` | Existing trusted environment record and owner-issued redeemed publication attempt for the exact commit. The existing `dispatch-publish` authority check remains mandatory. |
+| `authority_environment`, `publication_attempt_id` | Existing trusted environment record and owner-issued redeemed publication attempt for the exact commit. Start with `publication_attempt_id: null`; after review, the protected host may update only this selector to the actual issued attempt, without changing the source/work binding. The existing `dispatch-publish` authority check remains mandatory. |
 | `max_repairs` | `0` in this first implementation. Failed checks or uncertain attempts preserve an actionable stop; this source adds no repair launcher. |
 
 Acceptance drivers receive a separate clean checkout path, base SHA and exact
@@ -38,8 +38,7 @@ candidate SHA. The configured, separately qualified driver owns its sandbox and
 resource/network isolation. The consumer supplies no inherited credentials and
 checks the executable digest, candidate HEAD and cleanliness before/after it.
 A passing exit is check/review evidence; Sprintctl still applies its effective
-verification profile. Higher verification bars may leave the report awaiting
-independent owner verification. Do not claim settlement from driver exits.
+verification profile. Higher verification bars remain the work owner's responsibility. Do not claim settlement from driver exits.
 
 ## Progression and recovery
 
