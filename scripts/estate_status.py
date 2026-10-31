@@ -81,7 +81,7 @@ CLIENT_PROTOCOL = 1  # vuoro_client.client.PROTOCOL_VERSION
 PROTOCOL_HEADER = "X-Vuoro-Client-Protocol"  # without it the service answers 426
 USER_AGENT = "agentops-estate-status/1 (read-only)"
 
-ENVIRONMENTS = ("vuoro-shared", "vuoro-cloud", "workstation", "devbox")
+ENVIRONMENTS = ("vuoro-shared", "vuoro-cloud", "workstation", "devbox", "infra")
 
 VUORO_SHARED = {
     "repo": DEV_ROOT / "appservice",
@@ -119,6 +119,9 @@ HOSTS = {
         "envrc": DEV_ROOT / "agentops/.envrc",
         "doctor_cwd": DEV_ROOT / "agentops",
         "agentops_checkout": DEV_ROOT / "agentops",
+        "maintenance_units": ("restic-backups-truenas.service", "claude-sessions-archive.service",
+                              "projects-snapshot-daily.service", "projects-snapshot-weekly.service",
+                              "btrbk-main.service"),
     },
     "devbox": {
         "environment_record": "environment-record/devbox-vm.vuoro-shared.json",
@@ -128,6 +131,11 @@ HOSTS = {
         "repo_id": "agentops",
         "inbox_policy": "~/.config/agentops/host-adapter/policy.json",
         "agentops_checkout": "/projects/dev/agentops",
+    },
+    "infra": {
+        "ssh": "infra",
+        "operations_only": True,
+        "maintenance_units": ("talos-etcd-backup.service",),
     },
 }
 
@@ -1719,8 +1727,102 @@ def _well_formed_holds(holds: Any) -> bool:
         and isinstance(h.get("reason"), str) and h["reason"] for h in holds)
 
 
+def maintenance_fact(result: dict[str, Any], host: str) -> dict[str, Any]:
+    """Read only the host's public outcome summary; old/missing evidence is unknown."""
+    def parse(r):
+        data = _json_out(r)
+        if data.get("schema_version") != "maintenance-health/v1" or data.get("host") != host:
+            raise ValueError("maintenance report schema or host identity mismatch")
+        checked = datetime.fromisoformat(data["checked_at"].replace("Z", "+00:00"))
+        observed = datetime.fromisoformat(r["observed_at"].replace("Z", "+00:00"))
+        if checked.tzinfo is None or observed.tzinfo is None:
+            raise ValueError("maintenance report needs timezone-aware timestamps")
+        age = (observed - checked).total_seconds()
+        if age > 1800 or age < -300:
+            raise ValueError("maintenance report is stale or its clock is in the future")
+        jobs = data.get("jobs")
+        if not isinstance(jobs, dict) or not set(HOSTS[host]["maintenance_units"]).issubset(jobs):
+            raise ValueError("maintenance report omits required scheduled jobs")
+        summary = {}
+        for unit, job in jobs.items():
+            if (not re.fullmatch(r"[A-Za-z0-9_.@-]+\.service", unit) or not isinstance(job, dict)
+                    or job.get("status") not in ("healthy", "degraded")
+                    or not isinstance(job.get("problems"), list)
+                    or not all(isinstance(p, str) for p in job["problems"])):
+                raise ValueError("malformed maintenance job summary")
+            healthy = not job["problems"]
+            if healthy != (job["status"] == "healthy") or (healthy and not job.get("last_success_at")):
+                raise ValueError("maintenance health lacks a successful outcome")
+            if job.get("last_success_at"):
+                success = datetime.fromisoformat(job["last_success_at"].replace("Z", "+00:00"))
+                if success.tzinfo is None or (success - checked).total_seconds() > 300:
+                    raise ValueError("maintenance success timestamp is invalid")
+                limit = job.get("max_age_hours")
+                if not isinstance(limit, (int, float)) or not math.isfinite(limit) or limit <= 0:
+                    raise ValueError("maintenance freshness limit is invalid")
+                if healthy and (checked - success).total_seconds() > limit * 3600:
+                    raise ValueError("maintenance success is stale despite a healthy label")
+            if healthy and job.get("last_attempt", {}).get("result") == "failed":
+                raise ValueError("maintenance attempt failed despite a healthy label")
+            summary[unit] = {key: job.get(key) for key in (
+                "status", "problems", "last_success_at", "last_success_age_seconds", "timer")}
+        status = "degraded" if any(j["problems"] for j in summary.values()) else "healthy"
+        if data.get("status") != status or data.get("probe_error"):
+            raise ValueError("maintenance collection incomplete or status inconsistent")
+        return {"status": status, "checked_at": data["checked_at"], "jobs": summary}
+    fact = from_probe(result, "artifact", parse)
+    if is_known(fact):
+        fact["observed_at"] = fact["value"]["checked_at"]
+    return fact
+
+
+def collect_maintenance(probe: Probe, host: str) -> dict[str, Any]:
+    path = "/var/lib/maintenance-health/health.json"
+    target = HOSTS[host]["ssh"]
+    command = (["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", target, "cat", path]
+               if target else ["cat", path])
+    return maintenance_fact(probe.run(f"{host}.maintenance-health", command, timeout=20,
+                                      evidence=f"{target + ':' if target else ''}{path}"), host)
+
+
+def maintenance_check(fact):
+    if why := _need(fact):
+        return None, why
+    data = fact["value"]
+    failed = [unit for unit, job in data["jobs"].items() if job["problems"]]
+    return data["status"] == "healthy", "maintenance incidents: " + ", ".join(failed)
+
+
+def collect_infra(probe: Probe, observer_source: dict[str, Any]) -> dict[str, Any]:
+    host, target = "infra", HOSTS["infra"]["ssh"]
+    prefix = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", target]
+    identity = probe.run("infra.hostname", [*prefix, "hostname"], timeout=20)
+    def parse_hostname(result):
+        value = result["stdout"].strip()
+        if value != host:
+            raise ValueError("infra hostname mismatch")
+        return value
+    hostname = from_probe(identity, "artifact", parse_hostname)
+    version = probe.run("infra.nixos-version", [*prefix, "nixos-version", "--json"], timeout=20)
+    running = {"hostname": hostname,
+               "nixos_version": from_probe(version, "artifact", _json_out),
+               "maintenance_health": collect_maintenance(probe, host)}
+    gate = _gate([("host-identity", lambda: (True, "") if is_known(hostname) else (None, hostname["reason"])),
+                  ("maintenance-health", lambda: maintenance_check(running["maintenance_health"]))],
+                 ["running.hostname", "running.maintenance_health"])
+    if is_known(gate) and gate["value"]["gate"] == "none":
+        gate["value"]["detail"] = "infra identity and scheduled-job outcomes are healthy; restore readiness is not evaluated"
+    return {"id": host, "kind": "host", "desired": {"observer_main_sha": observer_source}, "running": running,
+            "usable": {}, "held": {}, "document": {}, "receipts": {},
+            "gate": {"next_blocking_gate": gate,
+                     "recovery_class": unknown("backup outcomes do not qualify a restore or rollback",
+                                               "derived", "infra maintenance scope")}}
+
+
 def collect_host(probe: Probe, host: str, *, agentops_main: dict[str, Any]) -> dict[str, Any]:
     cfg = HOSTS[host]
+    if cfg.get("operations_only"):
+        return collect_infra(probe, agentops_main)
     local, current, content_at = ref_current(probe, f"{host}.agentops-main", ROOT, "origin/main", agentops_main)
     ref = local["value"] if is_known(local) else "origin/main"
     where = f"git:agentops@{_short(ref)}"
@@ -1794,6 +1896,8 @@ def collect_host(probe: Probe, host: str, *, agentops_main: dict[str, Any]) -> d
             for name in ("sprintctl_version", "installed_profile", "agentops_head"):
                 running[name] = _carry(envelope, "artifact")
             usable["served_doctor"] = _carry(envelope, "live-api")
+    if cfg.get("maintenance_units"):
+        running["maintenance_health"] = collect_maintenance(probe, host)
     # Host holds are *declared*: they come from the agentops environment record, not from
     # observing the host, and the fact name and evidence say so.
     record = desired.get("environment_record")
@@ -1863,10 +1967,13 @@ def derive_host_gate(env: dict[str, Any]) -> dict[str, Any]:
                                                             "local agentops origin/main")),
                   ("reachable", reachable), ("agentops-current", agentops_current),
                   ("client-profile", profile), ("served-doctor", doctor),
-                  ("holds", lambda: holds_check(h, host_holds))],
+                  ("holds", lambda: holds_check(h, host_holds)),
+                  *([("maintenance-health", lambda: maintenance_check(r.get("maintenance_health")))]
+                    if HOSTS[env["id"]].get("maintenance_units") else [])],
                  ["desired.record_ref_is_remote_main", "running.reachable", "running.agentops_head",
                   "desired.agentops_main_sha", "running.installed_profile", "desired.client_profile",
-                  "usable.served_doctor", *(f"held.{name}" for name in host_holds)])
+                  "usable.served_doctor", *(f"held.{name}" for name in host_holds),
+                  *(["running.maintenance_health"] if HOSTS[env["id"]].get("maintenance_units") else [])])
     if is_known(gate) and gate["value"]["gate"] == "none":
         gate["value"]["detail"] += "; host checks cover served-client usability and observed holds; " \
                                   "inbox launch qualification is not evaluated"

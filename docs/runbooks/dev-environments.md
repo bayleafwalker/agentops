@@ -19,6 +19,17 @@ are setting up or repairing a host, not at session start. The legacy vscode-shel
 
 ## Session telemetry
 
+`agentops estate status --env infra --json` reads the infrastructure host's
+identity, NixOS version and public `/var/lib/maintenance-health/health.json`.
+It installs nothing on infra and requires no agent tools or served-client
+credentials there. Workstation status also consumes its persistent report.
+Missing, malformed, foreign-host, future-dated or more-than-thirty-minute-old
+reports remain unknown and block an all-clear maintenance answer. Reports carry
+collection time, latest complete success and per-job incidents; cleared systemd
+failed-unit state is not recovery evidence. Restore/rollback readiness remains
+a separate qualification. The collector and its `maintenance-health/v1` contract
+belong to gitops-nixos (`docs/runbooks/maintenance-health.md`).
+
 `log-session-cost.sh` (Stop) appends cumulative per-session snapshots to
 `/projects/dev/.claude/session-costs.jsonl`, and `gate-log.sh` (PostToolUse) records gate
 commands. Rows supersede: reduce to the newest row per `session` before aggregating.

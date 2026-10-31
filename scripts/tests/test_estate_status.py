@@ -199,9 +199,11 @@ class ReplayedLiveRunTests(unittest.TestCase):
             self.assertEqual((holds["status"], holds["value"]), ("known", []))
             self.assertTrue(holds["evidence"].startswith("declared (from the agentops record):"))
             self.assertEqual([f["fact"] for f in env["summary"]["unknown"]],
-                             ["held.inbox_launches_disabled"] if host == "devbox" else [])
-        # The workstation was fully current; the devbox checkout was behind agentops main.
-        self.assertEqual(self.envs["workstation"]["gate"]["next_blocking_gate"]["value"]["gate"], "none")
+                             ["held.inbox_launches_disabled"] if host == "devbox" else
+                             ["running.maintenance_health", "gate.next_blocking_gate"])
+        # Historical fixtures predate persistent maintenance reporting; it is
+        # unknown, rather than invented as healthy. Devbox's checkout was old.
+        self.assertEqual(self.envs["workstation"]["gate"]["next_blocking_gate"]["status"], "unknown")
         self.assertEqual(self.envs["devbox"]["gate"]["next_blocking_gate"]["value"]["gate"],
                          "agentops-current")
 
@@ -489,6 +491,8 @@ class HostDerivationTests(unittest.TestCase):
     def current(self, host="devbox"):
         env = env_copy(host)
         env["running"]["agentops_head"] = k(env["desired"]["agentops_main_sha"]["value"])
+        if host == "workstation":
+            env["running"]["maintenance_health"] = k({"status": "healthy", "jobs": {}})
         if host == "devbox":
             env["held"]["inbox_launches_disabled"] = k(False)
         return env
@@ -582,7 +586,8 @@ class HostDerivationTests(unittest.TestCase):
 
         clear = with_holds([])
         self.assertEqual(clear["held"]["declared_host_holds"]["value"], [])
-        self.assertEqual(clear["gate"]["next_blocking_gate"]["value"]["gate"], "none")
+        self.assertEqual(clear["gate"]["next_blocking_gate"]["status"], "unknown")
+        self.assertIn("maintenance-health", clear["gate"]["next_blocking_gate"]["reason"])
         held = with_holds([{"id": "out-of-dispatch", "reason": "kernel upgrade"}])
         self.assertEqual(held["held"]["declared_host_holds"]["value"], ["out-of-dispatch"])
         self.assertEqual(held["gate"]["next_blocking_gate"]["value"]["gate"], "holds")
