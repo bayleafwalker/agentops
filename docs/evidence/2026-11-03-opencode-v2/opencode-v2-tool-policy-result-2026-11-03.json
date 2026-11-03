@@ -1,0 +1,176 @@
+{
+  "action_mapping": {
+    "file_read": "read",
+    "file_write": "edit (exposes write)",
+    "network_fetch": "webfetch",
+    "skill": "skill",
+    "subagent": "subagent"
+  },
+  "binary": "/nix/store/9ysv2ynpka84idp745mcd8l0ayc2f102-opencode-2.0.32/bin/opencode",
+  "isolation": {
+    "credentials": "generated synthetic-only provider key and server password; neither recorded",
+    "filesystem": "temporary HOME/XDG/project; removed after probe",
+    "network": "bubblewrap --unshare-net; local fake provider and local HTTP canary only",
+    "production_effects": "none"
+  },
+  "limits": [
+    "These controls exercise only the listed tool calls and temporary paths.",
+    "No general OS/filesystem, kernel, network-policy, or deployed-service containment claim.",
+    "Subagent positive control used the fake local provider; it does not qualify arbitrary agents.",
+    "MCP behavior remains untested."
+  ],
+  "mcp": {
+    "reason": "no local MCP endpoint was provisioned in this probe",
+    "status": "untested"
+  },
+  "mutated_negative_control": {
+    "caught_failure": "mutated denial did not protect the file",
+    "denial_assertion_failed_as_expected": true,
+    "observed_canary_read": true,
+    "rule_mutation": "wildcard deny changed to wildcard allow"
+  },
+  "ordered_policy": "wildcard deny first; single action allow appended for positive controls",
+  "restart_recovery": {
+    "ordered_permissions_exact": true,
+    "read_canary_returned": false,
+    "read_tool_offered": false,
+    "read_tool_rejected": true,
+    "same_session_id": true
+  },
+  "results": [
+    {
+      "case": "read-deny",
+      "fake_provider_requests": 2,
+      "loopback_http_hits": 0,
+      "read_canary_returned": false,
+      "skill_marker_in_tool_output": false,
+      "terminal_idle_observed": true,
+      "tool_error": "tool-not-available",
+      "tool_offered": false,
+      "tool_status": "error",
+      "write_target_created": false
+    },
+    {
+      "case": "read-allow",
+      "fake_provider_requests": 2,
+      "loopback_http_hits": 0,
+      "read_canary_returned": true,
+      "skill_marker_in_tool_output": false,
+      "terminal_idle_observed": true,
+      "tool_error": null,
+      "tool_offered": true,
+      "tool_status": "completed",
+      "write_target_created": false
+    },
+    {
+      "case": "read-mutated-control",
+      "fake_provider_requests": 2,
+      "loopback_http_hits": 0,
+      "read_canary_returned": true,
+      "skill_marker_in_tool_output": false,
+      "terminal_idle_observed": true,
+      "tool_error": null,
+      "tool_offered": true,
+      "tool_status": "completed",
+      "write_target_created": false
+    },
+    {
+      "case": "write-deny",
+      "fake_provider_requests": 2,
+      "loopback_http_hits": 0,
+      "read_canary_returned": false,
+      "skill_marker_in_tool_output": false,
+      "terminal_idle_observed": true,
+      "tool_error": "tool-not-available",
+      "tool_offered": false,
+      "tool_status": "error",
+      "write_target_created": false
+    },
+    {
+      "case": "write-allow",
+      "fake_provider_requests": 2,
+      "loopback_http_hits": 0,
+      "read_canary_returned": false,
+      "skill_marker_in_tool_output": false,
+      "terminal_idle_observed": true,
+      "tool_error": null,
+      "tool_offered": true,
+      "tool_status": "completed",
+      "write_target_created": true
+    },
+    {
+      "case": "webfetch-deny",
+      "fake_provider_requests": 2,
+      "loopback_http_hits": 0,
+      "read_canary_returned": false,
+      "skill_marker_in_tool_output": false,
+      "terminal_idle_observed": true,
+      "tool_error": "tool-not-available",
+      "tool_offered": false,
+      "tool_status": "error",
+      "write_target_created": false
+    },
+    {
+      "case": "webfetch-allow",
+      "fake_provider_requests": 2,
+      "loopback_http_hits": 1,
+      "read_canary_returned": false,
+      "skill_marker_in_tool_output": false,
+      "terminal_idle_observed": true,
+      "tool_error": null,
+      "tool_offered": true,
+      "tool_status": "completed",
+      "write_target_created": false
+    },
+    {
+      "case": "subagent-deny",
+      "fake_provider_requests": 2,
+      "loopback_http_hits": 0,
+      "read_canary_returned": false,
+      "skill_marker_in_tool_output": false,
+      "terminal_idle_observed": true,
+      "tool_error": "tool-not-available",
+      "tool_offered": false,
+      "tool_status": "error",
+      "write_target_created": false
+    },
+    {
+      "case": "subagent-allow",
+      "fake_provider_requests": 3,
+      "loopback_http_hits": 0,
+      "read_canary_returned": false,
+      "skill_marker_in_tool_output": false,
+      "terminal_idle_observed": true,
+      "tool_error": null,
+      "tool_offered": true,
+      "tool_status": "completed",
+      "write_target_created": false
+    },
+    {
+      "case": "skill-deny",
+      "fake_provider_requests": 2,
+      "loopback_http_hits": 0,
+      "read_canary_returned": false,
+      "skill_marker_in_tool_output": false,
+      "terminal_idle_observed": true,
+      "tool_error": "tool-not-available",
+      "tool_offered": false,
+      "tool_status": "error",
+      "write_target_created": false
+    },
+    {
+      "case": "skill-allow",
+      "fake_provider_requests": 2,
+      "loopback_http_hits": 0,
+      "read_canary_returned": false,
+      "skill_marker_in_tool_output": true,
+      "terminal_idle_observed": true,
+      "tool_error": null,
+      "tool_offered": true,
+      "tool_status": "completed",
+      "write_target_created": false
+    }
+  ],
+  "schema": "opencode-v2-tool-policy-probe/v1",
+  "version": "2.0.32"
+}
