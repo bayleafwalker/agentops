@@ -1038,60 +1038,81 @@ class State:
                             (*fields.values(), self.clock(), repo_id, message_id))
 
     def prepare_v2_prompt(self, repo_id: str, message_id: str) -> dict[str, str]:
-        """Persist a reconstructible input intent before a future v2 submission.
-
-        This is local preparation only: intent does not mean admitted, started,
-        or completed. The production adapter does not invoke this helper yet.
-        """
-        fields = ("prompt_id", "prompt_nonce", "prompt_sha256", "prompt_binding_sha256", "prompt_admission")
+        """Persist a reconstructible intent; never submit a prompt."""
         with self.tx():
-            row = self.get(repo_id, message_id)
-            if (row is None or row["harness_api"] != "opencode-v2" or row["state"] != S_LAUNCHED
-                    or row["closed"] or row["prompt_sent"]
-                    or not all(isinstance(row[k], str) and row[k].strip()
-                               for k in ("run_id", "session_id", "model_id"))):
-                raise PromptIntentError("v2 launched binding is incomplete")
-            provider, separator, model = row["model_id"].partition("/")
-            if (not separator or not provider.strip() or not model.strip()
-                    or provider != provider.strip() or model != model.strip()):
-                raise PromptIntentError("v2 model binding is invalid")
-            try:
-                envelope = json.loads(row["envelope"])
-            except (TypeError, ValueError) as exc:
-                raise PromptIntentError("v2 envelope is invalid") from exc
-            if not isinstance(envelope, dict) or envelope.get("message_id") != message_id:
-                raise PromptIntentError("v2 envelope identity is invalid")
-            binding = {"repo_id": repo_id, "message_id": message_id, "run_id": row["run_id"],
-                       "session_id": row["session_id"], "model_id": row["model_id"],
-                       "harness_api": row["harness_api"], "envelope": envelope}
-            values = [row[k] for k in fields]
-            if all(value is None for value in values):
-                prompt_id, nonce = "msg_" + secrets.token_hex(16), secrets.token_hex(16)
-                binding["prompt_id"] = prompt_id
-                binding_sha = hashlib.sha256(canonical(binding).encode("utf-8")).hexdigest()
-                text = build_prompt(envelope, row["run_id"], nonce)
-                digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
-                self.db.execute(
-                    "UPDATE messages SET prompt_id=?,prompt_nonce=?,prompt_sha256=?,"
-                    "prompt_binding_sha256=?,prompt_admission=?,updated_at=? WHERE repo_id=? AND message_id=?",
-                    (prompt_id, nonce, digest, binding_sha, "intent", self.clock(), repo_id, message_id))
-            else:
-                prompt_id, nonce, digest, recorded_binding, admission = values
-                if (not all(isinstance(value, str) for value in values)
-                        or not re.fullmatch(r"msg_[0-9a-f]{32}", prompt_id)
-                        or not re.fullmatch(r"[0-9a-f]{32}", nonce)
-                        or not re.fullmatch(r"[0-9a-f]{64}", digest)
-                        or not re.fullmatch(r"[0-9a-f]{64}", recorded_binding)
-                        or admission != "intent"):
-                    raise PromptIntentError("v2 prompt intent is partial or its binding changed")
-                binding["prompt_id"] = prompt_id
-                binding_sha = hashlib.sha256(canonical(binding).encode("utf-8")).hexdigest()
-                if recorded_binding != binding_sha:
-                    raise PromptIntentError("v2 prompt intent is partial or its binding changed")
-                text = build_prompt(envelope, row["run_id"], nonce)
-                if hashlib.sha256(text.encode("utf-8")).hexdigest() != digest:
-                    raise PromptIntentError("v2 prompt digest mismatch")
-            return {"id": prompt_id, "text": text, "sha256": digest, "admission": "intent"}
+            return self._v2_prompt_locked(repo_id, message_id, create=True, allowed=("intent",))
+
+    def load_v2_prompt(self, repo_id: str, message_id: str) -> dict[str, str]:
+        """Read existing bytes for reconciliation; this does not authorize a send."""
+        with self.tx():
+            return self._v2_prompt_locked(repo_id, message_id, create=False,
+                                          allowed=("intent", "unknown"))
+
+    def begin_v2_submission(self, repo_id: str, message_id: str) -> dict[str, str]:
+        """Durably mark a single first submission uncertain before returning bytes.
+
+        This local transition is not a claim of downstream exactly-once
+        execution and cannot protect against manual database modification.
+        """
+        with self.tx():
+            intent = self._v2_prompt_locked(repo_id, message_id, create=False, allowed=("intent",))
+            self.db.execute("UPDATE messages SET prompt_admission=?,updated_at=? WHERE repo_id=? AND message_id=?",
+                            ("unknown", self.clock(), repo_id, message_id))
+            return {**intent, "admission": "unknown"}
+
+    def _v2_prompt_locked(self, repo_id: str, message_id: str, *, create: bool,
+                          allowed: tuple[str, ...]) -> dict[str, str]:
+        fields = ("prompt_id", "prompt_nonce", "prompt_sha256", "prompt_binding_sha256", "prompt_admission")
+        row = self.get(repo_id, message_id)
+        if (row is None or row["harness_api"] != "opencode-v2" or row["state"] != S_LAUNCHED
+                or row["closed"] or row["prompt_sent"]
+                or not all(isinstance(row[k], str) and row[k].strip()
+                           for k in ("run_id", "session_id", "model_id"))):
+            raise PromptIntentError("v2 launched binding is incomplete")
+        provider, separator, model = row["model_id"].partition("/")
+        if (not separator or not provider.strip() or not model.strip()
+                or provider != provider.strip() or model != model.strip()):
+            raise PromptIntentError("v2 model binding is invalid")
+        try:
+            envelope = json.loads(row["envelope"])
+        except (TypeError, ValueError) as exc:
+            raise PromptIntentError("v2 envelope is invalid") from exc
+        if not isinstance(envelope, dict) or envelope.get("message_id") != message_id:
+            raise PromptIntentError("v2 envelope identity is invalid")
+        binding = {"repo_id": repo_id, "message_id": message_id, "run_id": row["run_id"],
+                   "session_id": row["session_id"], "model_id": row["model_id"],
+                   "harness_api": row["harness_api"], "envelope": envelope}
+        values = [row[k] for k in fields]
+        if all(value is None for value in values):
+            if not create:
+                raise PromptIntentError("v2 prompt intent is missing")
+            prompt_id, nonce = "msg_" + secrets.token_hex(16), secrets.token_hex(16)
+            binding["prompt_id"] = prompt_id
+            binding_sha = hashlib.sha256(canonical(binding).encode("utf-8")).hexdigest()
+            text = build_prompt(envelope, row["run_id"], nonce)
+            digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+            self.db.execute(
+                "UPDATE messages SET prompt_id=?,prompt_nonce=?,prompt_sha256=?,"
+                "prompt_binding_sha256=?,prompt_admission=?,updated_at=? WHERE repo_id=? AND message_id=?",
+                (prompt_id, nonce, digest, binding_sha, "intent", self.clock(), repo_id, message_id))
+        else:
+            prompt_id, nonce, digest, recorded_binding, admission = values
+            if (not all(isinstance(value, str) for value in values)
+                    or not re.fullmatch(r"msg_[0-9a-f]{32}", prompt_id)
+                    or not re.fullmatch(r"[0-9a-f]{32}", nonce)
+                    or not re.fullmatch(r"[0-9a-f]{64}", digest)
+                    or not re.fullmatch(r"[0-9a-f]{64}", recorded_binding)
+                    or admission not in allowed):
+                raise PromptIntentError("v2 prompt intent is partial or its binding changed")
+            binding["prompt_id"] = prompt_id
+            binding_sha = hashlib.sha256(canonical(binding).encode("utf-8")).hexdigest()
+            if recorded_binding != binding_sha:
+                raise PromptIntentError("v2 prompt intent is partial or its binding changed")
+            text = build_prompt(envelope, row["run_id"], nonce)
+            if hashlib.sha256(text.encode("utf-8")).hexdigest() != digest:
+                raise PromptIntentError("v2 prompt digest mismatch")
+        return {"id": prompt_id, "text": text, "sha256": digest,
+                "admission": admission if values[0] is not None else "intent"}
 
     def open_records(self) -> list[sqlite3.Row]:
         return self.db.execute(
