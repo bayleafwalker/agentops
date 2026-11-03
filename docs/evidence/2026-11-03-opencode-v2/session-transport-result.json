@@ -1,0 +1,344 @@
+{
+  "imported_module_sha256": "13bbcf6f74e41670d7de32dbf3c7a199ef19b42d444577012dbf8c67343990f0",
+  "isolation": {
+    "generated_auth_secret_recorded": false,
+    "network_namespace_unshared": true,
+    "only_loopback_server": true,
+    "prompts_sent": false,
+    "provider_credentials_or_config_read": false,
+    "temporary_home_xdg_and_sessions": true
+  },
+  "server_version": "2.0.32",
+  "transport_observations": {
+    "binding_drift": {
+      "changed_model_variant": "default",
+      "directory_server_side_mutation": "not available in tested API; only mismatched expected binding was checked",
+      "model_read_back": true,
+      "model_route_status": 204,
+      "model_variant": "default",
+      "new_permissions_validated": true,
+      "old_model_failure": "session binding mismatch",
+      "old_model_rejected": true,
+      "old_permissions_failure": "session binding mismatch",
+      "old_permissions_rejected": true,
+      "permissions_patch_status": 204,
+      "permissions_read_back": true,
+      "wrong_directory_failure": "session binding mismatch",
+      "wrong_expected_directory_rejected": true
+    },
+    "create_session": {
+      "binding_round_trip": true,
+      "create_data_keys": [
+        "cost",
+        "id",
+        "location",
+        "model",
+        "permissions",
+        "projectID",
+        "time",
+        "title",
+        "tokens"
+      ],
+      "create_envelope_keys": [
+        "data"
+      ],
+      "created": true,
+      "directory_redacted": true,
+      "get_envelope_keys": [
+        "data"
+      ],
+      "get_session_keys": [
+        "cost",
+        "id",
+        "location",
+        "model",
+        "permissions",
+        "projectID",
+        "time",
+        "title",
+        "tokens"
+      ],
+      "id_redacted": true,
+      "session_shape": {
+        "location_keys": [
+          "directory"
+        ],
+        "model": {
+          "id": "fake",
+          "providerID": "mock",
+          "variant": "default"
+        },
+        "permissions_effect": "deny",
+        "permissions_rule_keys": [
+          "action",
+          "effect",
+          "resource"
+        ],
+        "project_id_type": "str",
+        "time_keys": [
+          "created",
+          "updated"
+        ],
+        "tokens_keys": [
+          "cache",
+          "input",
+          "output",
+          "reasoning"
+        ]
+      }
+    },
+    "discovery": {
+      "duplicate_ids_redacted": true,
+      "duplicate_result": "ambiguous session identity",
+      "duplicate_title_pages": [
+        {
+          "cursor_keys": [
+            "next",
+            "previous"
+          ],
+          "cursor_present": false,
+          "directory_matches_expected": true,
+          "directory_present": true,
+          "exact_title_count": 1,
+          "kind": "list",
+          "limit": 50,
+          "next_cursor_present": true,
+          "page": 1,
+          "query_keys": [
+            "directory",
+            "limit",
+            "search"
+          ],
+          "row_count": 50,
+          "row_keys": [
+            "cost",
+            "id",
+            "location",
+            "model",
+            "permissions",
+            "projectID",
+            "time",
+            "title",
+            "tokens"
+          ],
+          "search_present": true,
+          "search_value": "v2-duplicate-target"
+        },
+        {
+          "cursor_keys": [
+            "next",
+            "previous"
+          ],
+          "cursor_present": true,
+          "directory_matches_expected": true,
+          "directory_present": true,
+          "exact_title_count": 1,
+          "kind": "list",
+          "limit": 50,
+          "next_cursor_present": true,
+          "page": 2,
+          "query_keys": [
+            "cursor",
+            "directory",
+            "limit",
+            "search"
+          ],
+          "row_count": 12,
+          "row_keys": [
+            "cost",
+            "id",
+            "location",
+            "model",
+            "permissions",
+            "projectID",
+            "time",
+            "title",
+            "tokens"
+          ],
+          "search_present": true,
+          "search_value": "v2-duplicate-target"
+        },
+        {
+          "cursor_keys": [
+            "next",
+            "previous"
+          ],
+          "cursor_present": true,
+          "directory_matches_expected": true,
+          "directory_present": true,
+          "exact_title_count": 0,
+          "kind": "list",
+          "limit": 50,
+          "next_cursor_present": false,
+          "page": 3,
+          "query_keys": [
+            "cursor",
+            "directory",
+            "limit",
+            "search"
+          ],
+          "row_count": 0,
+          "row_keys": [],
+          "search_present": true,
+          "search_value": "v2-duplicate-target"
+        }
+      ],
+      "expected_search_hits": 111,
+      "page_size": 50,
+      "pages_observed": [
+        {
+          "cursor_keys": [
+            "next",
+            "previous"
+          ],
+          "cursor_present": false,
+          "directory_matches_expected": true,
+          "directory_present": true,
+          "exact_title_count": 0,
+          "kind": "list",
+          "limit": 50,
+          "next_cursor_present": true,
+          "page": 1,
+          "query_keys": [
+            "directory",
+            "limit",
+            "search"
+          ],
+          "row_count": 50,
+          "row_keys": [
+            "cost",
+            "id",
+            "location",
+            "model",
+            "permissions",
+            "projectID",
+            "time",
+            "title",
+            "tokens"
+          ],
+          "search_present": true,
+          "search_value": "v2-full-target"
+        },
+        {
+          "cursor_keys": [
+            "next",
+            "previous"
+          ],
+          "cursor_present": true,
+          "directory_matches_expected": true,
+          "directory_present": true,
+          "exact_title_count": 1,
+          "kind": "list",
+          "limit": 50,
+          "next_cursor_present": true,
+          "page": 2,
+          "query_keys": [
+            "cursor",
+            "directory",
+            "limit",
+            "search"
+          ],
+          "row_count": 50,
+          "row_keys": [
+            "cost",
+            "id",
+            "location",
+            "model",
+            "permissions",
+            "projectID",
+            "time",
+            "title",
+            "tokens"
+          ],
+          "search_present": true,
+          "search_value": "v2-full-target"
+        },
+        {
+          "cursor_keys": [
+            "next",
+            "previous"
+          ],
+          "cursor_present": true,
+          "directory_matches_expected": true,
+          "directory_present": true,
+          "exact_title_count": 0,
+          "kind": "list",
+          "limit": 50,
+          "next_cursor_present": true,
+          "page": 3,
+          "query_keys": [
+            "cursor",
+            "directory",
+            "limit",
+            "search"
+          ],
+          "row_count": 11,
+          "row_keys": [
+            "cost",
+            "id",
+            "location",
+            "model",
+            "permissions",
+            "projectID",
+            "time",
+            "title",
+            "tokens"
+          ],
+          "search_present": true,
+          "search_value": "v2-full-target"
+        },
+        {
+          "cursor_keys": [
+            "next",
+            "previous"
+          ],
+          "cursor_present": true,
+          "directory_matches_expected": true,
+          "directory_present": true,
+          "exact_title_count": 0,
+          "kind": "list",
+          "limit": 50,
+          "next_cursor_present": false,
+          "page": 4,
+          "query_keys": [
+            "cursor",
+            "directory",
+            "limit",
+            "search"
+          ],
+          "row_count": 0,
+          "row_keys": [],
+          "search_present": true,
+          "search_value": "v2-full-target"
+        }
+      ],
+      "returned_exact_identity": true,
+      "wrong_directory_pages": [
+        {
+          "cursor_keys": [
+            "next",
+            "previous"
+          ],
+          "cursor_present": false,
+          "directory_matches_expected": false,
+          "directory_present": true,
+          "exact_title_count": 0,
+          "kind": "list",
+          "limit": 50,
+          "next_cursor_present": false,
+          "page": 1,
+          "query_keys": [
+            "directory",
+            "limit",
+            "search"
+          ],
+          "row_count": 0,
+          "row_keys": [],
+          "search_present": true,
+          "search_value": "v2-full-target"
+        }
+      ],
+      "wrong_directory_result_count": 0
+    }
+  }
+}
