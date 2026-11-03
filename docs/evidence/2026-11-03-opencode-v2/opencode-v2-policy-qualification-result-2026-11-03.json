@@ -1,0 +1,159 @@
+{
+  "assertions": {
+    "all_expected_controls_passed": true,
+    "forced_negative_control": "forced negative control"
+  },
+  "cases": [
+    {
+      "case": "same-allow",
+      "fake_sprintctl_invoked": false,
+      "idle_has_input_id_key": false,
+      "idle_id_differs_from_input": true,
+      "idle_outcome": "succeeded",
+      "injection_sentinel_created": null,
+      "model_saw_shell": true,
+      "prompt_status": 200,
+      "same_command_sentinel_created": true,
+      "tool_parts": [
+        {
+          "error": null,
+          "executed": false,
+          "exit": 0,
+          "name": "shell",
+          "state": "completed"
+        }
+      ],
+      "user_id_matches_prompt_response": true
+    },
+    {
+      "case": "same-deny",
+      "fake_sprintctl_invoked": false,
+      "idle_has_input_id_key": false,
+      "idle_id_differs_from_input": true,
+      "idle_outcome": "succeeded",
+      "injection_sentinel_created": null,
+      "model_saw_shell": false,
+      "prompt_status": 200,
+      "same_command_sentinel_created": false,
+      "tool_parts": [
+        {
+          "error": "No tool named \"shell\" is currently available. Please use a tool from the available tool list.",
+          "executed": false,
+          "exit": null,
+          "name": "shell",
+          "state": "error"
+        }
+      ],
+      "user_id_matches_prompt_response": true
+    },
+    {
+      "case": "reversed-rule-order",
+      "fake_sprintctl_invoked": false,
+      "idle_has_input_id_key": false,
+      "idle_id_differs_from_input": true,
+      "idle_outcome": "succeeded",
+      "injection_sentinel_created": null,
+      "model_saw_shell": false,
+      "prompt_status": 200,
+      "same_command_sentinel_created": null,
+      "tool_parts": [
+        {
+          "error": "No tool named \"shell\" is currently available. Please use a tool from the available tool list.",
+          "executed": false,
+          "exit": null,
+          "name": "shell",
+          "state": "error"
+        }
+      ],
+      "user_id_matches_prompt_response": true
+    },
+    {
+      "case": "context-allow",
+      "fake_sprintctl_invoked": true,
+      "idle_has_input_id_key": false,
+      "idle_id_differs_from_input": true,
+      "idle_outcome": "succeeded",
+      "injection_sentinel_created": null,
+      "model_saw_shell": true,
+      "prompt_status": 200,
+      "same_command_sentinel_created": null,
+      "tool_parts": [
+        {
+          "error": null,
+          "executed": false,
+          "exit": 0,
+          "name": "shell",
+          "state": "completed"
+        }
+      ],
+      "user_id_matches_prompt_response": true
+    },
+    {
+      "case": "note-allow",
+      "fake_sprintctl_invoked": true,
+      "idle_has_input_id_key": false,
+      "idle_id_differs_from_input": true,
+      "idle_outcome": "succeeded",
+      "injection_sentinel_created": null,
+      "model_saw_shell": true,
+      "prompt_status": 200,
+      "same_command_sentinel_created": null,
+      "tool_parts": [
+        {
+          "error": null,
+          "executed": false,
+          "exit": 0,
+          "name": "shell",
+          "state": "completed"
+        }
+      ],
+      "user_id_matches_prompt_response": true
+    },
+    {
+      "case": "publish-deny",
+      "fake_sprintctl_invoked": false,
+      "idle_has_input_id_key": false,
+      "idle_id_differs_from_input": true,
+      "idle_outcome": "succeeded",
+      "injection_sentinel_created": null,
+      "model_saw_shell": true,
+      "prompt_status": 200,
+      "same_command_sentinel_created": null,
+      "tool_parts": [
+        {
+          "error": "Permission denied: shell",
+          "executed": false,
+          "exit": null,
+          "name": "shell",
+          "state": "error"
+        }
+      ],
+      "user_id_matches_prompt_response": true
+    },
+    {
+      "case": "semicolon-deny",
+      "fake_sprintctl_invoked": false,
+      "idle_has_input_id_key": false,
+      "idle_id_differs_from_input": true,
+      "idle_outcome": "succeeded",
+      "injection_sentinel_created": false,
+      "model_saw_shell": true,
+      "prompt_status": 200,
+      "same_command_sentinel_created": null,
+      "tool_parts": [
+        {
+          "error": "Permission denied: shell",
+          "executed": false,
+          "exit": null,
+          "name": "shell",
+          "state": "error"
+        }
+      ],
+      "user_id_matches_prompt_response": true
+    }
+  ],
+  "external_network": false,
+  "fake_cli_effects": "temporary marker writes only",
+  "permission_rule_order": "wildcard deny first; specific allow exceptions after; metacharacter deny last",
+  "version": "2.0.32"
+}
