@@ -1,0 +1,147 @@
+{
+  "isolation": {
+    "bwrap_unshare_net": true,
+    "generated_password_recorded": false,
+    "no_external_inference": true,
+    "no_provider_credentials_or_configuration_read": true,
+    "only_loopback_server_provider": true,
+    "temporary_home_xdg_sessions": true
+  },
+  "module_sha256": "78c627e98b989fd69f119c9d34d50f33b336bc7057e0daadf0759ee86c19a25a",
+  "observer_message_page_calls": [
+    {
+      "cursor_next_present": true,
+      "method": "GET",
+      "path_suffix": "/message",
+      "query_keys": [
+        "limit"
+      ],
+      "row_count": 1
+    },
+    {
+      "cursor_next_present": false,
+      "method": "GET",
+      "path_suffix": "/message",
+      "query_keys": [
+        "cursor",
+        "limit"
+      ],
+      "row_count": 0
+    },
+    {
+      "cursor_next_present": true,
+      "method": "GET",
+      "path_suffix": "/message",
+      "query_keys": [
+        "limit"
+      ],
+      "row_count": 5
+    },
+    {
+      "cursor_next_present": false,
+      "method": "GET",
+      "path_suffix": "/message",
+      "query_keys": [
+        "cursor",
+        "limit"
+      ],
+      "row_count": 0
+    },
+    {
+      "cursor_next_present": true,
+      "method": "GET",
+      "path_suffix": "/message",
+      "query_keys": [
+        "limit"
+      ],
+      "row_count": 5
+    },
+    {
+      "cursor_next_present": false,
+      "method": "GET",
+      "path_suffix": "/message",
+      "query_keys": [
+        "cursor",
+        "limit"
+      ],
+      "row_count": 0
+    }
+  ],
+  "provider_calls": 2,
+  "queued_inbox_before_drain": {
+    "ack_data_keys": [
+      "delivery",
+      "id",
+      "payload",
+      "sessionID",
+      "time",
+      "type"
+    ],
+    "delivery": "queue",
+    "inbox_count": 1,
+    "inbox_item_keys": [
+      "delivery",
+      "id",
+      "payload",
+      "sessionID",
+      "time",
+      "type"
+    ],
+    "inbox_payload_keys": [
+      "text"
+    ],
+    "inbox_status": 200,
+    "inbox_text_matches": true,
+    "observer_result": {
+      "input_id_matches": true,
+      "session_id_matches": true,
+      "sha256": "5763edd934525d34178954c7b8f684a1a49c2e00306b8d9d00768807e5b922fb",
+      "sources": [
+        "inbox"
+      ],
+      "status": "observed"
+    },
+    "queued_transcript_present_before_drain": false,
+    "raw_ack_status": 200
+  },
+  "queued_transcript_after_drain": {
+    "inbox_count": 0,
+    "inbox_status": 200,
+    "observer_result": {
+      "input_id_matches": true,
+      "session_id_matches": true,
+      "sha256": "5763edd934525d34178954c7b8f684a1a49c2e00306b8d9d00768807e5b922fb",
+      "sources": [
+        "message"
+      ],
+      "status": "observed"
+    },
+    "same_input_id_present": true,
+    "same_text_present": true
+  },
+  "server_version": "2.0.32",
+  "submit_prompt": {
+    "captured_prompt_call": {
+      "body_keys": [
+        "id",
+        "text"
+      ],
+      "delivery_field_present": false,
+      "method": "POST",
+      "path_suffix": "/prompt"
+    },
+    "delivery_parameter_supported_by_method": false,
+    "returned_digest_matches": true,
+    "returned_id_matches": true,
+    "returned_session_matches": true
+  },
+  "submit_prompt_observed_after_drain": {
+    "input_id_matches": true,
+    "session_id_matches": true,
+    "sha256": "df542cb4a34b2e40e958d54fa4609b5a5baf4efc750b47d5c09b04f37520e8f6",
+    "sources": [
+      "message"
+    ],
+    "status": "observed"
+  }
+}

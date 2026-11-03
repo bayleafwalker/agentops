@@ -2,6 +2,7 @@
 
 import base64
 import http.client
+import hashlib
 import json
 import posixpath
 import re
@@ -151,3 +152,79 @@ class OpenCodeV2:
                 raise V2Error("invalid discovery cursor")
             seen.add(cursor)
         raise V2Error("discovery page limit exceeded")
+
+    def submit_prompt(self, session_id, prompt_id, text):
+        """Send once; callers must persist uncertainty before calling this method."""
+        sid, pid = self._id(session_id), self._id(prompt_id)
+        if not pid.startswith("msg_") or not isinstance(text, str) or not text:
+            raise V2Error("invalid prompt")
+        data = self._request("POST", f"/api/session/{sid}/prompt",
+                             body={"id": pid, "text": text}).get("data")
+        payload = data.get("payload") if isinstance(data, dict) else None
+        timestamp = data.get("time") if isinstance(data, dict) else None
+        created = timestamp.get("created") if isinstance(timestamp, dict) else None
+        if (not isinstance(data, dict) or data.get("id") != pid or data.get("sessionID") != sid
+                or data.get("type") != "user" or not isinstance(payload, dict)
+                or payload != {"text": text} or data.get("delivery") not in ("steer", "queue")
+                or isinstance(created, bool) or not isinstance(created, (int, float))):
+            raise V2Error("invalid prompt acknowledgement")
+        return {"id": pid, "session_id": sid, "sha256": hashlib.sha256(text.encode()).hexdigest()}
+
+    def observe_admission(self, session_id, prompt_id, text_sha256):
+        """Observe a text-only input, or return unknown; absence never authorizes retry.
+
+        Inbox validation is deliberately restricted to user inputs; other
+        variants are uncertainty, not evidence that an input is absent.
+        """
+        sid, pid = self._id(session_id), self._id(prompt_id)
+        if not pid.startswith("msg_") or not isinstance(text_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", text_sha256):
+            raise V2Error("invalid prompt digest")
+        found = []
+        inbox = self._request("GET", f"/api/session/{sid}/inbox").get("data")
+        if not isinstance(inbox, list):
+            raise V2Error("invalid inbox")
+        inbox_ids = set()
+        for item in inbox:
+            if (not isinstance(item, dict) or not isinstance(item.get("id"), str)
+                    or item.get("sessionID") != sid or item.get("type") != "user"
+                    or not isinstance(item.get("payload"), dict)
+                    or not isinstance(item["payload"].get("text"), str)):
+                raise V2Error("invalid inbox")
+            if item["id"] in inbox_ids:
+                raise V2Error("duplicate input identity")
+            inbox_ids.add(item["id"])
+            if item["id"] == pid:
+                if set(item["payload"]) != {"text"}:
+                    raise V2Error("conflicting input payload")
+                found.append(("inbox", item["payload"]["text"]))
+        cursor, seen, message_ids = None, set(), set()
+        for _ in range(self.MAX_PAGES):
+            query = {"limit": self.PAGE_SIZE}
+            if cursor is not None:
+                query["cursor"] = cursor
+            page = self._request("GET", f"/api/session/{sid}/message", query=query)
+            rows, paging = page.get("data"), page.get("cursor")
+            if not isinstance(rows, list) or not isinstance(paging, dict) or "next" not in paging:
+                raise V2Error("invalid message page")
+            for row in rows:
+                if not isinstance(row, dict) or not isinstance(row.get("id"), str) or not isinstance(row.get("type"), str):
+                    raise V2Error("invalid message page")
+                if row["id"] in message_ids:
+                    raise V2Error("duplicate message identity")
+                message_ids.add(row["id"])
+                if row["id"] == pid:
+                    if row["type"] != "user" or not isinstance(row.get("text"), str):
+                        raise V2Error("conflicting input identity")
+                    found.append(("message", row["text"]))
+            cursor = paging["next"]
+            if cursor is None:
+                break
+            if not isinstance(cursor, str) or not cursor or cursor in seen:
+                raise V2Error("invalid message cursor")
+            seen.add(cursor)
+        else:
+            raise V2Error("message page limit exceeded")
+        if any(hashlib.sha256(text.encode()).hexdigest() != text_sha256 for _, text in found):
+            raise V2Error("conflicting input payload")
+        return {"status": "observed" if found else "unknown", "id": pid, "session_id": sid,
+                "sha256": text_sha256, "sources": [source for source, _ in found]}
