@@ -210,7 +210,8 @@ def test_admission_observes_inbox_and_paginated_messages_or_unknown(monkeypatch)
 def test_admission_accepts_either_projection_when_other_is_empty(monkeypatch, source):
     c = client()
     digest = hashlib.sha256(b"input").hexdigest()
-    inbox = [{"id": "msg_input", "sessionID": "ses_1", "type": "user", "payload": {"text": "input"}}]
+    inbox = [{"id": "msg_input", "sessionID": "ses_1", "type": "user", "payload": {"text": "input"},
+              "delivery": "queue", "time": {"created": 1}}]
     messages = [{"id": "msg_input", "type": "user", "text": "input"}]
     monkeypatch.setattr(c, "_request", lambda method, path, **kw:
         {"data": inbox if source == "inbox" else []} if path.endswith("/inbox") else
@@ -447,6 +448,67 @@ def test_empty_session_observation_fails_closed(monkeypatch, mode):
             c.empty_session_observed("ses_1")
     else:
         assert c.empty_session_observed("ses_1") is (mode == "empty")
+
+
+@pytest.mark.parametrize("mode,expected", [("queued", "queued"), ("running", "running"),
+                                           ("foreign", "unknown"), ("active_queue", "unknown"),
+                                           ("terminal", "unknown"), ("changed", "unknown"),
+                                           ("foreign_assistant", "unknown"), ("end_active", "unknown")])
+def test_cancellation_target_requires_stable_sole_input(monkeypatch, mode, expected):
+    c = client()
+    digest = hashlib.sha256(b"input").hexdigest()
+    inbox = [{"id": "msg_input", "sessionID": "ses_1", "type": "user", "payload": {"text": "input"},
+              "delivery": "queue", "time": {"created": 1}}]
+    rows = [{"id": "msg_input", "type": "user", "text": "input", "time": {"created": 1}}]
+    inbox_reads = 0
+    active_reads = 0
+    def request(method, path, **kwargs):
+        nonlocal inbox_reads, active_reads
+        if path == "/api/session/ses_1": return {"data": ROW}
+        if path == "/api/session/active":
+            active_reads += 1
+            return {"data": {"ses_1": {"type": "running"}} if mode in ("running", "foreign", "active_queue", "foreign_assistant") or (mode == "end_active" and active_reads > 1) else {}}
+        if path.endswith("/inbox"):
+            inbox_reads += 1
+            present = mode in ("queued", "active_queue") or (mode == "changed" and inbox_reads > 1)
+            return {"data": inbox if present else []}
+        batch = list(rows) if mode in ("running", "foreign", "terminal", "foreign_assistant") else []
+        if mode == "foreign": batch.append({"id": "msg_other", "type": "user", "text": "other", "time": {"created": 2}})
+        if mode == "terminal": batch.append({"id": "msg_idle", "type": "idle", "outcome": "succeeded", "time": {"created": 2}})
+        if mode == "foreign_assistant": batch.append({"id": "msg_reply", "type": "assistant", "agent": "build", "content": [],
+            "time": {"created": 2}, "model": {"providerID": "other", "id": "model"}})
+        return {"data": batch, "cursor": {"next": None}}
+    monkeypatch.setattr(c, "_request", request)
+    assert c.inspect_cancellation_target("ses_1", "msg_input", digest, "/work", "local/model", PERMISSIONS)["status"] == expected
+
+
+@pytest.mark.parametrize("field,value", [("delivery", None), ("time", {"created": True}),
+                                        ("payload", {"text": "input", "files": ["extra"]})])
+def test_cancellation_target_rejects_malformed_pending_input(monkeypatch, field, value):
+    c = client()
+    item = {"id": "msg_input", "sessionID": "ses_1", "type": "user", "payload": {"text": "input"},
+            "delivery": "queue", "time": {"created": 1}, field: value}
+    def request(method, path, **kwargs):
+        if path == "/api/session/ses_1": return {"data": ROW}
+        if path == "/api/session/active": return {"data": {}}
+        if path.endswith("/inbox"): return {"data": [item]}
+        return {"data": [], "cursor": {"next": None}}
+    monkeypatch.setattr(c, "_request", request)
+    assert c.inspect_cancellation_target("ses_1", "msg_input", hashlib.sha256(b"input").hexdigest(),
+                                         "/work", "local/model", PERMISSIONS)["status"] == "unknown"
+
+
+def test_cancellation_target_rejects_cyclic_pagination(monkeypatch):
+    c = client()
+    def request(method, path, **kwargs):
+        if path == "/api/session/ses_1": return {"data": ROW}
+        if path == "/api/session/active": return {"data": {}}
+        if path.endswith("/inbox"): return {"data": []}
+        return {"data": [], "cursor": {"next": "cycle"}}
+    monkeypatch.setattr(c, "_request", request)
+    with pytest.raises(v2.V2Error, match="cursor"):
+        c.inspect_cancellation_target("ses_1", "msg_input", hashlib.sha256(b"input").hexdigest(),
+                                       "/work", "local/model", PERMISSIONS)
 
 
 @pytest.mark.parametrize("url", ["http://example.com:80", "http://127.0.0.1:99/path", "http://user:pass@127.0.0.1:99", "https://127.0.0.1:99"])

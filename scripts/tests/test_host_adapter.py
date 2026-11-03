@@ -1081,6 +1081,8 @@ class SyntheticV2SessionTransport:
         self.creates = 0
         self.prompts = []
         self.terminal_outcome = None
+        self.cancel_state = "unknown"
+        self.cancel_actions = []
 
     def server_version(self):
         return self.version
@@ -1120,6 +1122,18 @@ class SyntheticV2SessionTransport:
                 "prompt_id": prompt_id, "text_sha256": digest, "terminal_id": "msg_terminal",
                 "interval_sha256": "a" * 64, "correlation": "single-input-two-snapshot",
                 "atomicity": "not-established"}
+
+    def inspect_cancellation_target(self, sid, prompt_id, digest, directory, model, permissions):
+        self.validate_session(sid, directory, model, permissions)
+        return {"status": self.cancel_state}
+
+    def request_pending_deletion(self, sid, prompt_id):
+        self.cancel_actions.append(("delete", sid, prompt_id))
+        return {"status": "acknowledged"}
+
+    def interrupt_session(self, sid):
+        self.cancel_actions.append(("interrupt", sid))
+        return {"status": "acknowledged", "interrupted": True}
 
 
 def use_fixture_v2(rig, transport):
@@ -1690,6 +1704,119 @@ def test_fixture_v2_owner_closeout_replays_without_inference(rig, failure):
     rig.tick(2)
     assert rig.rec()["closed"] and rig.rec()["outcome"] == "completed"
     assert len(transport.prompts) == 1 and rig.owner.kinds("msg_A").count("result-linked") == 1
+
+
+@pytest.mark.parametrize("state,action", [("running", "interrupt")])
+def test_fixture_v2_cancel_action_is_once_and_never_an_outcome(rig, state, action):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.adapter._fixture_v2_prompt = True
+    rig.adapter._fixture_v2_terminal = True
+    rig.owner.send()
+    rig.tick(2)
+    rig.owner.cancel("msg_A")
+    transport.cancel_state = state
+    rig.adapter._fixture_v2_cancellation = True
+    rig.tick(3)
+    assert len(transport.cancel_actions) == 1 and transport.cancel_actions[0][0] == action
+    assert rig.rec()[f"v2_{action}_state"] == "unknown" and not rig.rec()["closed"]
+    assert rig.owner.receipt_of("msg_A", "result-linked") is None
+
+
+def test_fixture_v2_unqualified_queued_deletion_is_deferred(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.adapter._fixture_v2_prompt = True
+    rig.adapter._fixture_v2_terminal = True
+    rig.owner.send()
+    rig.tick(2)
+    rig.owner.cancel("msg_A")
+    transport.cancel_state = "queued"
+    rig.adapter._fixture_v2_cancellation = True
+    rig.tick(2)
+    assert not transport.cancel_actions and rig.rec()["v2_delete_state"] == "not_requested"
+    assert "unqualified" in rig.rec()["last_error"] and not rig.rec()["closed"]
+
+
+def test_fixture_v2_cancel_uncertain_before_write_does_not_retry(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.adapter._fixture_v2_prompt = True
+    rig.adapter._fixture_v2_terminal = True
+    rig.owner.send()
+    rig.tick(2)
+    rig.owner.cancel("msg_A")
+    transport.cancel_state = "running"
+    rig.adapter._fixture_v2_cancellation = True
+    rig.crash_at("v2_interrupt_unknown_persisted")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.boot()
+    rig.adapter._fixture_v2 = transport
+    rig.adapter._fixture_v2_prompt = True
+    rig.adapter._fixture_v2_terminal = True
+    rig.adapter._fixture_v2_cancellation = True
+    rig.tick(2)
+    assert rig.rec()["v2_interrupt_state"] == "unknown" and not transport.cancel_actions
+    assert not rig.rec()["closed"]
+
+
+def test_fixture_v2_changing_cancel_observation_prevents_action(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.adapter._fixture_v2_prompt = True
+    rig.adapter._fixture_v2_terminal = True
+    rig.owner.send()
+    rig.tick(2)
+    rig.owner.cancel("msg_A")
+    observations = iter([{"status": "running"}, {"status": "unknown"}])
+    transport.inspect_cancellation_target = lambda *args: next(observations)
+    rig.adapter._fixture_v2_cancellation = True
+    rig.tick()
+    assert not transport.cancel_actions and rig.rec()["v2_interrupt_state"] == "not_requested"
+
+
+def test_fixture_v2_terminal_checkpoint_prevents_late_cancel_write(rig):
+    transport = SyntheticV2SessionTransport()
+    transport.terminal_outcome = "succeeded"
+    use_fixture_v2(rig, transport)
+    rig.adapter._fixture_v2_prompt = True
+    rig.adapter._fixture_v2_terminal = True
+    rig.owner.send()
+    rig.crash_at("v2_terminal_evidence_persisted")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.owner.cancel("msg_A")
+    transport.cancel_state = "running"
+    rig.boot()
+    rig.adapter._fixture_v2 = transport
+    rig.adapter._fixture_v2_prompt = True
+    rig.adapter._fixture_v2_terminal = True
+    rig.adapter._fixture_v2_cancellation = True
+    rig.tick(2)
+    assert rig.rec()["closed"] and rig.rec()["outcome"] == "completed" and not transport.cancel_actions
+
+
+@pytest.mark.parametrize("state,action", [("running", "interrupt")])
+def test_fixture_v2_lost_cancel_response_does_not_retry(rig, state, action):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.adapter._fixture_v2_prompt = True
+    rig.adapter._fixture_v2_terminal = True
+    rig.owner.send()
+    rig.tick(2)
+    rig.owner.cancel("msg_A")
+    transport.cancel_state = state
+    name = "request_pending_deletion" if action == "delete" else "interrupt_session"
+    original = getattr(transport, name)
+    def lose_response(*args):
+        original(*args)
+        raise RuntimeError("synthetic lost cancellation response")
+    setattr(transport, name, lose_response)
+    rig.adapter._fixture_v2_cancellation = True
+    rig.tick(3)
+    assert len(transport.cancel_actions) == 1 and transport.cancel_actions[0][0] == action
+    assert rig.rec()[f"v2_{action}_state"] == "unknown" and not rig.rec()["closed"]
 
 
 def test_legacy_transport_does_not_create_for_v2_registered_run(rig):
