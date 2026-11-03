@@ -9,6 +9,8 @@ ROOT = Path(__file__).resolve().parents[2]
 EVIDENCE = ROOT / "docs/evidence/2026-11-03-opencode-v2"
 PROBE = EVIDENCE / "opencode-v2-tool-policy-probe-2026-11-03.py"
 RESULT = EVIDENCE / "opencode-v2-tool-policy-result-2026-11-03.json"
+MCP_PROBE = EVIDENCE / "opencode-v2-mcp-discovery-probe-2026-11-03.py"
+MCP_RESULT = EVIDENCE / "opencode-v2-mcp-discovery-result-2026-11-03.json"
 
 
 def test_tool_policy_result_is_bound_to_probe_and_pinned_binary():
@@ -61,6 +63,22 @@ def test_mutated_rule_fails_denial_and_restart_preserves_the_ordered_policy():
 def test_mcp_scope_is_explicitly_unqualified():
     result = json.loads(RESULT.read_text(encoding="utf-8"))
     assert result["mcp"]["status"] == "untested"
-    assert "MCP behavior remains untested." in result["limits"]
+    mcp = json.loads(MCP_RESULT.read_text(encoding="utf-8"))
+    assert hashlib.sha256(MCP_PROBE.read_bytes()).hexdigest() == (
+        "286b6c7c64b9c41d973119d8fd00d1bdcc43d39997f90631424acc61b4a395e7"
+    )
+    assert hashlib.sha256(MCP_RESULT.read_bytes()).hexdigest() == (
+        "625c9a23875bd39af5e91a5cd093ee1db163a2edc9f83214181df49299cfbe37"
+    )
+    assert mcp["schema"] == "opencode-v2-mcp-discovery-probe/v1"
+    assert mcp["version"] == "2.0.32"
+    assert mcp["mcp_cli"]["stdout"].strip() == "No MCP servers configured"
+    assert "mcp__localtest__echo" not in mcp["discovery_tool_names"]
+    assert mcp["mcp_tool_name"] is None
+    assert mcp["mcp_calls"] == []
+    assert "permission allow/deny was not tested" in mcp["limitation"]
+    assert mcp["denied"]["parts"][0]["status"] == "error"
+    assert all(case["parts"][0]["status"] == "error" for case in mcp["allow_rule_candidates"].values())
     doc = (EVIDENCE / "lifecycle-qualification.md").read_text(encoding="utf-8")
-    assert "MCP was not provisioned and remains untested." in doc
+    assert "MCP allow/deny remains untested because this binary did not" in doc
+    assert "unknown-tool rejections, not permission" in doc

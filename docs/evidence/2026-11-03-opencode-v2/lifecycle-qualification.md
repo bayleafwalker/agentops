@@ -82,7 +82,23 @@ assertion failed as expected; the probe records the caught assertion. This
 demonstrates that the negative check detects this specific policy regression.
 It does not validate arbitrary policy mutations.
 
-MCP was not provisioned and remains untested. These controls establish only
+The subsequent MCP discovery attempt is retained in the
+[MCP probe](opencode-v2-mcp-discovery-probe-2026-11-03.py) and
+[sanitized result](opencode-v2-mcp-discovery-result-2026-11-03.json). It
+configured a synthetic local stdio server in both the temporary project config
+and temporary XDG global config, with the documented `mcp.servers.localtest`
+shape. The server implemented initialize, tools/list, and tools/call; its only
+tool returned a synthetic marker and appended a local call record. The
+`opencode mcp list` command nevertheless returned `No MCP servers configured`,
+and the provider saw only built-in tools, with no `mcp__localtest__echo`. Forced
+calls under deny-all and four candidate explicit allow actions all returned
+`No tool named "mcp__localtest__echo" is currently available`; the server call
+record remained empty. These are unknown-tool rejections, not permission
+enforcement. MCP allow/deny remains untested because this binary did not
+discover the configured server. The attempt does not establish whether another
+configuration path or runtime provisioning mechanism would work.
+
+These controls establish only
 the listed tool calls, rules, and disposable paths on this binary. They do not
 establish general filesystem, kernel, OS, external network, MCP, deployed
 service, real-owner, or full adapter recovery containment. A `succeeded` idle
