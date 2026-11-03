@@ -932,14 +932,14 @@ CREATE TABLE IF NOT EXISTS messages (
   delegation_generation INTEGER NOT NULL DEFAULT 0, handoff_state TEXT NOT NULL DEFAULT 'none',
   harness_api TEXT, prompt_id TEXT, prompt_nonce TEXT, prompt_sha256 TEXT,
   prompt_binding_sha256 TEXT, prompt_admission TEXT, prompt_admission_evidence TEXT,
-  v2_launch_binding TEXT, v2_launch_binding_sha256 TEXT,
+  v2_launch_binding TEXT, v2_launch_binding_sha256 TEXT, prompt_launch_binding_sha256 TEXT,
   PRIMARY KEY (repo_id, message_id));
 """
 _COLUMNS = ("state decision reason_code reason_text run_id session_id prompt_sent abort_requested "
             "outcome summary evidence detail ambiguous_sent abort_sent idle_polls closed last_error "
             "launched_at model_id delegation_id delegation_expires_at delegation_generation handoff_state "
             "harness_api prompt_id prompt_nonce prompt_sha256 prompt_binding_sha256 prompt_admission prompt_admission_evidence "
-            "v2_launch_binding v2_launch_binding_sha256").split()
+            "v2_launch_binding v2_launch_binding_sha256 prompt_launch_binding_sha256").split()
 # Columns added after the first deployed schema; added in place on open.
 _ADDED_COLUMNS = (("launched_at", "REAL"), ("model_id", "TEXT"), ("delegation_id", "TEXT"),
                   ("delegation_expires_at", "TEXT"),
@@ -948,7 +948,8 @@ _ADDED_COLUMNS = (("launched_at", "REAL"), ("model_id", "TEXT"), ("delegation_id
                   ("harness_api", "TEXT"), ("prompt_id", "TEXT"), ("prompt_nonce", "TEXT"),
                   ("prompt_sha256", "TEXT"), ("prompt_binding_sha256", "TEXT"),
                   ("prompt_admission", "TEXT"), ("prompt_admission_evidence", "TEXT"),
-                  ("v2_launch_binding", "TEXT"), ("v2_launch_binding_sha256", "TEXT"))
+                  ("v2_launch_binding", "TEXT"), ("v2_launch_binding_sha256", "TEXT"),
+                  ("prompt_launch_binding_sha256", "TEXT"))
 
 
 class State:
@@ -1061,7 +1062,7 @@ class State:
             if (row is None or row["state"] != S_RUN_REGISTERED or row["closed"] or row["session_id"] is not None
                     or row["prompt_sent"] or any(row[key] is not None for key in
                         ("prompt_id", "prompt_nonce", "prompt_sha256", "prompt_binding_sha256",
-                         "prompt_admission", "prompt_admission_evidence"))
+                         "prompt_admission", "prompt_admission_evidence", "prompt_launch_binding_sha256"))
                     or row["harness_api"] not in (None, "opencode-v2")
                     or not isinstance(row["run_id"], str) or not row["run_id"]
                     or not isinstance(row["model_id"], str) or row["model_id"].count("/") != 1
@@ -1178,7 +1179,8 @@ class State:
 
     def _v2_prompt_locked(self, repo_id: str, message_id: str, *, create: bool,
                           allowed: tuple[str, ...]) -> dict[str, str]:
-        fields = ("prompt_id", "prompt_nonce", "prompt_sha256", "prompt_binding_sha256", "prompt_admission")
+        fields = ("prompt_id", "prompt_nonce", "prompt_sha256", "prompt_binding_sha256", "prompt_admission",
+                  "prompt_launch_binding_sha256")
         row = self.get(repo_id, message_id)
         if (row is None or row["harness_api"] != "opencode-v2" or row["state"] != S_LAUNCHED
                 or row["closed"] or row["prompt_sent"]
@@ -1189,6 +1191,7 @@ class State:
         if (not separator or not provider.strip() or not model.strip()
                 or provider != provider.strip() or model != model.strip()):
             raise PromptIntentError("v2 model binding is invalid")
+        self.load_v2_launch_binding(repo_id, message_id)
         try:
             envelope = json.loads(row["envelope"])
         except (TypeError, ValueError) as exc:
@@ -1197,7 +1200,9 @@ class State:
             raise PromptIntentError("v2 envelope identity is invalid")
         binding = {"repo_id": repo_id, "message_id": message_id, "run_id": row["run_id"],
                    "session_id": row["session_id"], "model_id": row["model_id"],
-                   "harness_api": row["harness_api"], "envelope": envelope}
+                   "harness_api": row["harness_api"], "envelope": envelope,
+                   "fingerprint_format": "v2-prompt-launch-linked/v1",
+                   "launch_binding_sha256": row["v2_launch_binding_sha256"]}
         values = [row[k] for k in fields]
         if row["prompt_admission"] != "admitted" and row["prompt_admission_evidence"] is not None:
             raise PromptIntentError("unexpected v2 admission evidence")
@@ -1211,15 +1216,18 @@ class State:
             digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
             self.db.execute(
                 "UPDATE messages SET prompt_id=?,prompt_nonce=?,prompt_sha256=?,"
-                "prompt_binding_sha256=?,prompt_admission=?,updated_at=? WHERE repo_id=? AND message_id=?",
-                (prompt_id, nonce, digest, binding_sha, "intent", self.clock(), repo_id, message_id))
+                "prompt_binding_sha256=?,prompt_admission=?,prompt_launch_binding_sha256=?,updated_at=? "
+                "WHERE repo_id=? AND message_id=?",
+                (prompt_id, nonce, digest, binding_sha, "intent", row["v2_launch_binding_sha256"],
+                 self.clock(), repo_id, message_id))
         else:
-            prompt_id, nonce, digest, recorded_binding, admission = values
+            prompt_id, nonce, digest, recorded_binding, admission, launch_digest = values
             if (not all(isinstance(value, str) for value in values)
                     or not re.fullmatch(r"msg_[0-9a-f]{32}", prompt_id)
                     or not re.fullmatch(r"[0-9a-f]{32}", nonce)
                     or not re.fullmatch(r"[0-9a-f]{64}", digest)
                     or not re.fullmatch(r"[0-9a-f]{64}", recorded_binding)
+                    or launch_digest != row["v2_launch_binding_sha256"]
                     or admission not in allowed):
                 raise PromptIntentError("v2 prompt intent is partial or its binding changed")
             binding["prompt_id"] = prompt_id
