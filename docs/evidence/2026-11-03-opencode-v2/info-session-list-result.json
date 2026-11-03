@@ -1,0 +1,154 @@
+{
+  "schema": "opencode-api-probe/v1",
+  "observed_at": "2026-11-03",
+  "durability": "cross-host-replicated when committed; raw isolated probe files were session-local",
+  "target": {
+    "host": "devbox",
+    "binary": "/nix/store/9ysv2ynpka84idp745mcd8l0ayc2f102-opencode-2.0.32/bin/opencode",
+    "version": "2.0.32"
+  },
+  "isolation": {
+    "network": "bwrap --unshare-net; loopback only",
+    "home_xdg_sessions": "temporary; removed after each run",
+    "environment": "allowlisted; no inherited provider credentials",
+    "provider_configuration": "no pre-existing provider configuration read; test sessions use only a temporary unconfigured local-fake provider",
+    "generated_password": "not recorded"
+  },
+  "server_info": {
+    "authenticated_status": 200,
+    "unauthenticated_status": 401,
+    "openapi_description": "server identity, connection URLs, paths, readiness status",
+    "actual_response_shape": {
+      "version": "2.0.32",
+      "pid": "<process-specific integer redacted>",
+      "urls": [
+        "http://127.0.0.1:<ephemeral-port>"
+      ],
+      "paths": {
+        "tmp": "<server temporary path redacted>"
+      },
+      "capabilities": {
+        "persistentPty": true
+      }
+    },
+    "fields_to_treat_as_environment_metadata": [
+      "pid",
+      "urls",
+      "paths"
+    ],
+    "safe_sample_values": {
+      "version": "2.0.32",
+      "capabilities": {
+        "persistentPty": true
+      }
+    },
+    "readiness_note": "No separate ready/healthy boolean appeared in the response."
+  },
+  "session_create": {
+    "route": "POST /api/session",
+    "response": "200 {data: Session.Info}",
+    "create_fields": [
+      "agent?",
+      "id?",
+      "location?",
+      "metadata?",
+      "model?",
+      "parentID?",
+      "permissions?",
+      "title?"
+    ],
+    "location_schema": {
+      "type": "object",
+      "required": [
+        "directory"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "directory": {
+          "$ref": "#/components/schemas/AbsolutePath"
+        }
+      }
+    },
+    "observed_echo": "Three sessions created with absolute temporary directories; each response returned the same directory, requested local-fake model and deny-all permissions. IDs and paths omitted."
+  },
+  "session_list": {
+    "route": "GET /api/session",
+    "response": "200 {data: Session.Info[], cursor: {previous, next}}",
+    "query_fields": [
+      "limit?",
+      "order?",
+      "search?",
+      "parentID?",
+      "directory?",
+      "project?",
+      "subpath?",
+      "cursor?"
+    ],
+    "query_notes": {
+      "limit": "string query parameter; defaults to newest 50 sessions",
+      "order": [
+        "asc",
+        "desc"
+      ],
+      "cursor": "opaque token; OpenAPI says do not combine cursor with order"
+    },
+    "observations": {
+      "search_prefix_v2_page_dash_with_limit_1_order_asc": {
+        "status": 200,
+        "count": 1,
+        "next_cursor_present": true
+      },
+      "same_search_limit_1_with_next_cursor_no_order": {
+        "status": 200,
+        "count": 1,
+        "next_cursor_present": true
+      },
+      "directory_exact_filter": {
+        "status": 200,
+        "count": 1
+      },
+      "title_exact_search": {
+        "status": 200,
+        "count": 1
+      },
+      "cursor_values": "not retained; opaque"
+    }
+  },
+  "deny_all_tool_exposure_probe": {
+    "fixture": "denyall-tools-probe.py",
+    "method": "temporary custom OpenAI-compatible provider on loopback only; server and mock endpoint were in one no-egress network namespace",
+    "policy": "session permissions [{action:'*', resource:'*', effect:'deny'}]",
+    "deny_all_observation": {
+      "provider_request_count": 1,
+      "tool_names_offered_to_model": [],
+      "session_finished": true,
+      "idle_outcome": "succeeded",
+      "sentinel_created": false
+    },
+    "allow_control": {
+      "policy": "same session with wildcard allow",
+      "tool_names_offered_to_model": [
+        "edit",
+        "glob",
+        "grep",
+        "question",
+        "read",
+        "shell",
+        "skill",
+        "subagent",
+        "webfetch",
+        "websearch",
+        "write",
+        "execute"
+      ],
+      "provider_request_count": 2,
+      "synthetic_tool_call_result": "failed before sentinel creation; no shell side effect observed"
+    },
+    "conclusion": "Deny-all removed every tool from the provider request while the allow control exposed tools, including shell. Directly executing a denied tool was not conclusively verified because the fake tool-call response failed even in the allow control. No external inference occurred."
+  },
+  "fixture": "info-session-list-probe.py",
+  "limitations": [
+    "Only synthetic sessions and temporary files were used.",
+    "The fake-provider test establishes deny-all tool filtering at model-request time; it does not establish behavior for a malicious provider response naming a tool absent from the request."
+  ]
+}

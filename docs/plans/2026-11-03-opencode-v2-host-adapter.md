@@ -25,6 +25,16 @@ record request and response shapes. Source documentation and current public
 schemas may describe later releases; qualification must target the installed
 binary, not infer behavior from a newer schema.
 
+A second [sanitized probe](../evidence/2026-11-03-opencode-v2/info-session-list-result.json)
+and its retained scripts cover server identity, session creation and paging,
+and deny-all tool exposure to a loopback fake provider. Deny-all exposed no
+tools while the allow control exposed tools. The synthetic shell invocation
+failed even in the allow control, so this does not prove direct denial of a
+malicious tool call. Both retained scripts were rerun against the pinned binary.
+The identity check failed when the expected version was deliberately changed;
+the tool-exposure check failed when its deny rule was deliberately replaced by
+allow.
+
 ## Required behavior
 
 1. Preserve the legacy transport for already-qualified v1 installations. Detect
