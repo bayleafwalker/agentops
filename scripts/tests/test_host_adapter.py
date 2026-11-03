@@ -1031,11 +1031,67 @@ def test_health_is_false_when_the_server_is_down():
 
 
 def test_unhealthy_harness_defers_launch_after_run_registration(rig):
-    rig.harness.healthy = False
     rig.owner.send()
+    rig.crash_at("ingested")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.boot()
+    rig.harness.healthy = False
     rig.tick(3)
     assert rig.rec()["state"] == ha.S_RUN_REGISTERED
     assert rig.rec()["run_id"] is not None
+    assert rig.harness.creates == 0
+    assert rig.harness.prompts == []
+
+
+def test_unhealthy_harness_pauses_new_intake_until_recovery(rig):
+    rig.harness.healthy = False
+    rig.owner.send()
+    rig.tick(3)
+    assert rig.rec() is None
+    assert rig.adapter.state.cursor(REPO) == 0
+    assert rig.owner.kinds("msg_A") == []
+    assert rig.owner.run_register_calls == 0
+    rig.harness.healthy = True
+    rig.tick(3)
+    assert rig.rec()["outcome"] == "completed"
+    assert rig.harness.creates == 1 and len(rig.harness.prompts) == 1
+    assert rig.owner.run_register_calls == 1
+
+
+def test_unhealthy_harness_continues_existing_cancel_reconciliation(rig):
+    rig.harness.finish_on_poll = False
+    rig.owner.send()
+    rig.tick(2)
+    assert rig.rec()["state"] == ha.S_LAUNCHED
+    rig.harness.healthy = False
+    rig.tick(2)
+    assert rig.rec()["state"] == ha.S_LAUNCHED
+    assert not rig.rec()["closed"]
+    rig.owner.cancel("msg_A")
+    rig.tick(2)
+    assert rig.rec()["outcome"] == "canceled"
+    assert len(rig.harness.aborts) >= 1
+
+
+def test_unhealthy_harness_still_refuses_previously_ingested_invalid_work(rig):
+    rig.owner.send(sender="iss:unauthorized:1")
+    rig.crash_at("ingested")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.boot()
+    rig.harness.healthy = False
+    rig.tick(2)
+    assert rig.owner.receipt_of("msg_A", "refused") is not None
+    assert rig.harness.creates == 0
+
+
+def test_health_loss_after_poll_still_blocks_launch(rig):
+    calls = iter([True] + [False] * 20)
+    rig.harness.health = lambda: next(calls, False)
+    rig.owner.send()
+    rig.tick(2)
+    assert rig.rec()["state"] == ha.S_RUN_REGISTERED
     assert rig.harness.creates == 0
     assert rig.harness.prompts == []
 
