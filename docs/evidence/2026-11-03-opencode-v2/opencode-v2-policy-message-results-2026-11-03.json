@@ -90,12 +90,29 @@
     "message_result": {
       "path": "opencode-v2-message-shapes-result-2026-11-03.json",
       "sha256": "12f581d1246e1812039a3301ebfd1cff17a83ae54a450ee439df12dfa60f8afb"
+    },
+    "shell_metachar_probe": {
+      "path": "opencode-v2-shell-metachar-probe.py",
+      "sha256": "73f213fcc05ba39316b4cb579ae83ca96b6faac735587f0a99ff51947823a124"
+    },
+    "shell_metachar_result": {
+      "path": "opencode-v2-shell-metachar-result-2026-11-03.json",
+      "sha256": "7fa9087182c70fb95c00a69c4db14e324c8a937f83dd95ed6f6543ed76ba69a9"
     }
   },
   "assertion_controls": {
     "both_fixtures_report_all_expected_controls_passed": true,
     "both_fixtures_force_and_catch_assertion_error": "forced negative control",
     "policy_negative_controls": ["same shell call denied", "reversed rule order", "unlisted sprintctl publish", "semicolon injection"],
-    "message_negative_controls": ["provider no-route yields failed idle", "interrupt yields interrupted idle", "503 retry remains nonterminal in bounded window"]
+    "message_negative_controls": ["provider no-route yields failed idle", "interrupt yields interrupted idle", "503 retry remains nonterminal in bounded window"],
+    "shell_metachar_negative_controls": ["raw metacharacter shell calls are expected blocked and asserted", "semicolon chain asserted blocked with no sentinel", "exact newline allow control failure is recorded, not proof of newline deny"]
+  },
+  "shell_metachar_observations": {
+    "all_current_raw_characters_blocked": [">", "<", "$", "`", ";", "&", "|", "["],
+    "quoted_cases_blocked": ["semicolon", "dollar substitution", "backtick substitution"],
+    "newline_chain": "blocked even with exact newline-containing allow; why exact allow does not permit it is unresolved",
+    "newline_deny_rule_effect": "unknown because the exact allow control itself did not permit the command",
+    "quoted_newline": "allowed; fake CLI ran; no chain sentinel appeared",
+    "limits": "specific commands and rule sets only; no general shell-containment claim"
   }
 }
