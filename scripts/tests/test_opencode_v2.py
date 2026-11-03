@@ -122,7 +122,7 @@ def test_network_failures_are_sanitized_and_never_retried(monkeypatch):
         thread.join()
 
 
-@pytest.mark.parametrize("mode", ["lost", "redirect", "html", "oversize"])
+@pytest.mark.parametrize("mode", ["lost", "redirect", "html", "oversize", "empty204"])
 def test_rejects_untrusted_responses_without_retry(mode):
     calls = []
     class Handler(BaseHTTPRequestHandler):
@@ -131,12 +131,13 @@ def test_rejects_untrusted_responses_without_retry(mode):
             if mode == "lost":
                 self.connection.close()
                 return
-            self.send_response(302 if mode == "redirect" else 200)
+            self.send_response(302 if mode == "redirect" else 204 if mode == "empty204" else 200)
             self.send_header("Content-Type", "text/html" if mode == "html" else "application/json")
             if mode == "redirect":
                 self.send_header("Location", "/diverted")
             self.end_headers()
-            self.wfile.write(b"x" * (v2.OpenCodeV2.MAX_RESPONSE + 1) if mode == "oversize" else b"{}")
+            if mode != "empty204":
+                self.wfile.write(b"x" * (v2.OpenCodeV2.MAX_RESPONSE + 1) if mode == "oversize" else b"{}")
         def log_message(self, *args):
             pass
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
@@ -267,6 +268,73 @@ def test_lost_prompt_response_does_not_retry(monkeypatch):
     with pytest.raises(v2.V2Error):
         c.submit_prompt("ses_1", "msg_input", "input")
     assert calls == [("POST", "/api/session/ses_1/prompt")]
+
+
+def test_cancellation_requests_acknowledge_without_claiming_effect(monkeypatch):
+    c = client()
+    calls = []
+    def request(method, path, **kwargs):
+        calls.append((method, path, kwargs))
+        return {"interrupted": True} if method == "POST" else {}
+    monkeypatch.setattr(c, "_request", request)
+    assert c.interrupt_session("ses_1") == {"status": "acknowledged", "interrupted": True}
+    assert c.request_pending_deletion("ses_1", "msg_input") == {"status": "acknowledged"}
+    assert calls == [("POST", "/api/session/ses_1/interrupt", {"query": {"resume": "false"}}),
+                     ("DELETE", "/api/session/ses_1/inbox/msg_input", {"empty_ok": True})]
+    monkeypatch.setattr(c, "_request", lambda *a, **k: {"interrupted": False})
+    assert c.interrupt_session("ses_1") == {"status": "acknowledged", "interrupted": False}
+    monkeypatch.setattr(c, "_request", lambda *a, **k: {"interrupted": "false"})
+    with pytest.raises(v2.V2Error, match="interrupt acknowledgement"):
+        c.interrupt_session("ses_1")
+    monkeypatch.setattr(c, "_request", lambda *a, **k: {})
+    with pytest.raises(v2.V2Error, match="interrupt acknowledgement"):
+        c.interrupt_session("ses_1")
+
+
+@pytest.mark.parametrize("operation", ["interrupt", "delete"])
+def test_lost_cancellation_response_is_not_retried(monkeypatch, operation):
+    c = client()
+    calls = []
+    def lost(method, path, **kwargs):
+        calls.append((method, path))
+        raise v2.V2Error("server request failed")
+    monkeypatch.setattr(c, "_request", lost)
+    with pytest.raises(v2.V2Error):
+        if operation == "interrupt":
+            c.interrupt_session("ses_1")
+        else:
+            c.request_pending_deletion("ses_1", "msg_input")
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize("status", [200, 204])
+def test_pending_delete_accepts_only_empty_204(status):
+    calls = []
+    class Handler(BaseHTTPRequestHandler):
+        def do_DELETE(self):
+            calls.append(self.path)
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            if status == 200:
+                self.wfile.write(b"{}")
+        def log_message(self, *args):
+            pass
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        c = v2.OpenCodeV2(f"http://127.0.0.1:{server.server_port}", "user", "secret")
+        if status == 204:
+            assert c.request_pending_deletion("ses_1", "msg_input") == {"status": "acknowledged"}
+        else:
+            with pytest.raises(v2.V2Error):
+                c.request_pending_deletion("ses_1", "msg_input")
+        assert calls == ["/api/session/ses_1/inbox/msg_input"]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
 
 
 @pytest.mark.parametrize("url", ["http://example.com:80", "http://127.0.0.1:99/path", "http://user:pass@127.0.0.1:99", "https://127.0.0.1:99"])
