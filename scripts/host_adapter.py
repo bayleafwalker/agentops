@@ -1394,9 +1394,13 @@ class Adapter:
     def __init__(self, *, owner: OwnerPort, harness: HarnessPort, state: State, policy_path: str | Path,
                  config: Config | None = None, clock: Callable[[], float] = time.time,
                  checkpoint: Callable[[str], None] | None = None,
-                 log: Callable[[str], None] | None = None) -> None:
+                 log: Callable[[str], None] | None = None,
+                 experimental_v2_session_transport=None) -> None:
         self.owner = owner
         self.harness = harness
+        # Constructor injection is reserved for synthetic fixtures. No CLI or
+        # production configuration selects this incomplete path.
+        self._fixture_v2 = experimental_v2_session_transport
         self.state = state
         self.policy_path = Path(policy_path)
         self.config = config or Config()
@@ -1410,7 +1414,7 @@ class Adapter:
 
     def tick(self) -> None:
         policy = load_policy(self.policy_path, trusted=self.config.trusted_config)
-        healthy = self.harness.health()
+        healthy = self._fixture_v2_ready() if self._fixture_v2 is not None else self.harness.health()
         for repo in policy.allowed_repos:
             self._guarded(self._register, repo, policy)
             self._observe(repo, "observed")
@@ -1472,7 +1476,7 @@ class Adapter:
                                            instance_id=self.instance_id)
             messages = page.get("messages") or []
             nxt = int(page.get("next_after_seq", after))
-            self.state.ingest(repo, messages, nxt)
+            self.state.ingest(repo, messages, nxt, fixture_v2=self._fixture_v2 is not None)
             self._checkpoint("ingested")
             if len(messages) < self.config.read_limit or nxt <= after:
                 return
@@ -1494,6 +1498,29 @@ class Adapter:
                 return
             if rec["state"] == S_AMBIGUOUS:
                 self._flush_ambiguous(rec)
+                return
+            if rec["execution_selection"] is not None and self._fixture_v2 is not None:
+                expected = canonical({"schema": "adapter-execution-selection/v1", "api": "opencode-v2",
+                                      "source": "synthetic-fixture"})
+                if rec["execution_selection"] != expected:
+                    self.state.update(repo, mid, last_error="unsupported execution selection for this transport")
+                    return
+                if rec["state"] == S_RECEIVED:
+                    if self._on_received(rec):
+                        continue
+                elif rec["state"] == S_DECIDED:
+                    if self._on_fixture_v2_decided(rec):
+                        continue
+                elif rec["state"] == S_RUN_REGISTERED:
+                    if self._on_run_registered(rec, fixture_v2=True):
+                        continue
+                elif rec["state"] == S_LAUNCH_INTENT:
+                    if self._on_fixture_v2_launch_intent(rec):
+                        continue
+                elif rec["state"] in (S_FINISHED, S_NOT_STARTED):
+                    if self._on_closing(rec):
+                        continue
+                # A launched fixture intentionally stops before any prompt.
                 return
             if rec["execution_selection"] is not None and rec["state"] not in (S_FINISHED, S_NOT_STARTED):
                 self.state.update(repo, mid, last_error="unsupported execution selection for this transport")
@@ -1929,6 +1956,78 @@ class Adapter:
         return self.owner.message_receipt(rec["repo_id"], message_id=rec["message_id"],
                                           instance_id=self.instance_id, kind=kind, **fields)
 
+    def _fixture_v2_ready(self) -> bool:
+        try:
+            return self._fixture_v2 is not None and self._fixture_v2.server_version() == "2.0.32"
+        except Exception:  # noqa: BLE001 - unavailable is never a fallback
+            return False
+
+    def _on_fixture_v2_decided(self, rec) -> bool:
+        if rec["decision"] == "refused":
+            return self._on_decided(rec)
+        key = (rec["repo_id"], rec["message_id"])
+        status = self.owner.message_status(rec["repo_id"], message_id=rec["message_id"])
+        receipts = status.get("receipts") or (status.get("message") or {}).get("receipts") or []
+        accepted = any(r.get("kind") == "accepted" and r.get("instance_id") == self.instance_id for r in receipts)
+        if not accepted:
+            policy = load_policy(self.policy_path, trusted=self.config.trusted_config)
+            env = json.loads(rec["envelope"])
+            denial = policy_denial(policy, rec["repo_id"], env)
+            if denial is None and _has_cancel(receipts):
+                denial = ("canceled-by-sender", "cancel-requested was recorded before the decision")
+            if denial is None:
+                denial = not_after_denial(env.get("not_after"), self.clock())
+            if denial and denial[0] in TEMPORARY_DENIALS:
+                return False
+            if denial:
+                self.state.update(*key, decision="refused", reason_code=denial[0], reason_text=denial[1])
+                return self._on_decided(self.state.get(*key))
+            if not self._fixture_v2_ready():
+                self.state.update(*key, last_error="fixture v2 unavailable or version mismatch")
+                return False
+        if rec["v2_registration_intent"] is None and rec["v2_registration_intent_sha256"] is None:
+            if accepted:
+                self.state.update(*key, last_error="accepted fixture lacks registration intent")
+                return False
+            policy = load_policy(self.policy_path, trusted=self.config.trusted_config)
+            env = json.loads(rec["envelope"])
+            if policy_denial(policy, rec["repo_id"], env):
+                return False
+            args = {k: policy.harness[k] for k in _HARNESS_KEYS if k in policy.harness}
+            args["idempotency_key"] = f"inbox.{rec['message_id']}"
+            pred = (env.get("context") or {}).get("predecessor_run_id")
+            if pred:
+                args["predecessor_run_id"] = pred
+            self.state.prepare_v2_registration_intent(*key, args)
+            self._checkpoint("v2_registration_intent_persisted")
+        args = self.state.load_v2_registration_intent(*key)["arguments"]
+        if not accepted and any(policy.harness.get(k) != args[k] for k in _HARNESS_KEYS):
+            return False
+        self._receipt(rec, "observed")
+        self._receipt(rec, "acknowledged")
+        self._checkpoint("acknowledged_sent")
+        try:
+            self._receipt(rec, "accepted")
+        except OwnerError as exc:
+            if exc.code != "already-decided":
+                raise
+            self.state.update(*key, state=S_LOST, closed=1, detail=exc.message[:500])
+            return False
+        self._checkpoint("accepted_sent")
+        try:
+            result = self.owner.run_register(rec["repo_id"], args)
+        except OwnerError as exc:
+            if exc.code != "idempotency-conflict":
+                raise
+            self.state.update(*key, state=S_AMBIGUOUS, detail=_truncate_bytes(f"run registration conflict: {exc.message}"))
+            return True
+        run_id = (result.get("run") or {}).get("run_id") or result.get("run_id")
+        if not run_id:
+            raise OwnerError("invalid-result", "run registration returned no run_id")
+        self.state.update(*key, state=S_RUN_REGISTERED, run_id=run_id, model_id=args["model_id"])
+        self._checkpoint("run_registered_persisted")
+        return True
+
     def _on_received(self, rec) -> bool:
         env = json.loads(rec["envelope"])
         policy = load_policy(self.policy_path, trusted=self.config.trusted_config)
@@ -2004,7 +2103,7 @@ class Adapter:
         self._checkpoint("not_started_persisted")
         self._on_closing(self.state.get(*key))
 
-    def _on_run_registered(self, rec) -> bool:
+    def _on_run_registered(self, rec, *, fixture_v2: bool = False) -> bool:
         key = (rec["repo_id"], rec["message_id"])
         try:
             self._receipt(rec, "run-linked", run_id=rec["run_id"])
@@ -2030,7 +2129,7 @@ class Adapter:
             return False
         live = sum(1 for r in self.state.open_records()
                    if r["state"] in (S_LAUNCH_INTENT, S_LAUNCHED) or (r["state"] == S_AMBIGUOUS and r["run_id"]))
-        if live >= policy.max_concurrent or not self.harness.health():
+        if live >= policy.max_concurrent or not (self._fixture_v2_ready() if fixture_v2 else self.harness.health()):
             return False  # deferred; the next tick retries
         handoff_denial = self._prepare_run_handoff(rec, policy)
         if handoff_denial:
@@ -2055,12 +2154,50 @@ class Adapter:
                 or latest.max_run_seconds != policy.max_run_seconds):
             self._rotate_delegation(self.state.get(*key), "policy-changed-before-launch")
             return False
+        if fixture_v2:
+            snapshot = self.state.load_v2_registration_intent(*key)
+            if any(latest.harness.get(k) != snapshot["arguments"][k] for k in _HARNESS_KEYS):
+                return False
+            if not self._fixture_v2_ready():
+                return False
+            directory = self.run_directory(rec, create=True)
+            binding = self.state.prepare_v2_launch_binding(
+                *key, directory=directory, title=TITLE_PREFIX + rec["message_id"],
+                permissions=self._fixture_v2.permissions, server_version="2.0.32")
+            self._checkpoint("v2_launch_binding_persisted")
         self.state.update(*key, state=S_LAUNCH_INTENT)
         self._checkpoint("launch_intent_persisted")
-        sid = self.harness.create_session(TITLE_PREFIX + rec["message_id"], self.run_directory(rec, create=True))
+        if fixture_v2:
+            sid = self._fixture_v2.create_session(binding["title"], binding["directory"], binding["model_id"], binding["permissions"])
+            self._fixture_v2.validate_session(sid, binding["directory"], binding["model_id"], binding["permissions"])
+        else:
+            sid = self.harness.create_session(TITLE_PREFIX + rec["message_id"], self.run_directory(rec, create=True))
         self._checkpoint("session_created")
         self.state.update(*key, state=S_LAUNCHED, session_id=sid, launched_at=self.clock())
         self._checkpoint("launched_persisted")
+        return True
+
+    def _on_fixture_v2_launch_intent(self, rec) -> bool:
+        """Recover a fixture session without ever issuing a second create."""
+        if not self._fixture_v2_ready():
+            return False
+        key = (rec["repo_id"], rec["message_id"])
+        binding = self.state.load_v2_launch_binding(*key)
+        registration = self.state.load_v2_registration_intent(*key)["arguments"]
+        if (registration["harness_build"] != binding["server_version"]
+                or registration["model_id"] != binding["model_id"]):
+            raise HarnessError("fixture registration binding mismatch")
+        found = self._fixture_v2.find_sessions(binding["title"], binding["directory"])
+        if len(found) == 1:
+            if rec["session_id"] is not None and rec["session_id"] != found[0]:
+                raise HarnessError("fixture persisted session identity mismatch")
+            self._fixture_v2.validate_session(found[0], binding["directory"], binding["model_id"], binding["permissions"])
+            self.state.update(*key, state=S_LAUNCHED, session_id=found[0], launched_at=self.clock())
+            self._checkpoint("adopted_persisted")
+            return True
+        self._delegation_revoke(rec, "launch-session-not-found")
+        self.state.update(*key, state=S_AMBIGUOUS, detail=f"v2 launch recovery found {len(found)} sessions; not relaunching")
+        self._checkpoint("ambiguous_persisted")
         return True
 
     def _on_launch_intent(self, rec) -> bool:
