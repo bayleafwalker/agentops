@@ -1352,8 +1352,11 @@ class State:
             return {"intent": snapshot, "delete_state": row["v2_delete_state"],
                     "interrupt_state": row["v2_interrupt_state"]}
 
-    def _validate_v2_cancellation_locked(self, repo_id: str, message_id: str, reason: str, snapshot: dict, row) -> None:
-        prompt = self._v2_prompt_locked(repo_id, message_id, create=False, allowed=("unknown", "admitted"))
+    def _validate_v2_cancellation_locked(self, repo_id: str, message_id: str, reason: str, snapshot: dict, row,
+                                         *, allow_finished: bool = False) -> None:
+        prompt = self._v2_prompt_locked(repo_id, message_id, create=False, allowed=("unknown", "admitted"),
+                                        allowed_states=(S_LAUNCHED, S_FINISHED) if allow_finished else (S_LAUNCHED,),
+                                        allow_closed=allow_finished)
         selection = canonical({"schema": "adapter-execution-selection/v1", "api": "opencode-v2",
                                "source": "synthetic-fixture"})
         expected = {"schema": "adapter-v2-cancellation-intent/v1", "repo_id": repo_id,
@@ -1369,7 +1372,8 @@ class State:
             raise PromptIntentError("invalid v2 cancellation intent")
 
     def _v2_terminal_context_locked(self, repo_id: str, message_id: str):
-        prompt = self._v2_prompt_locked(repo_id, message_id, create=False, allowed=("admitted",))
+        prompt = self._v2_prompt_locked(repo_id, message_id, create=False, allowed=("admitted",),
+                                        allowed_states=(S_LAUNCHED, S_FINISHED), allow_closed=True)
         row = self.get(repo_id, message_id)
         selection = canonical({"schema": "adapter-execution-selection/v1", "api": "opencode-v2",
                                "source": "synthetic-fixture"})
@@ -1386,7 +1390,7 @@ class State:
                 reason = snapshot["reason"]
             except (TypeError, ValueError, KeyError):
                 raise PromptIntentError("invalid v2 cancellation intent") from None
-            self._validate_v2_cancellation_locked(repo_id, message_id, reason, snapshot, row)
+            self._validate_v2_cancellation_locked(repo_id, message_id, reason, snapshot, row, allow_finished=True)
         return row, prompt, binding
 
     def record_v2_terminal(self, repo_id: str, message_id: str, observation: dict) -> dict:
@@ -1405,6 +1409,8 @@ class State:
             raise PromptIntentError("invalid v2 terminal observation")
         with self.tx():
             row, prompt, binding = self._v2_terminal_context_locked(repo_id, message_id)
+            if row["state"] != S_LAUNCHED and row["v2_terminal_evidence"] is None:
+                raise PromptIntentError("v2 terminal observation cannot start after disposition")
             if (observation["session_id"] != row["session_id"] or observation["prompt_id"] != prompt["id"]
                     or observation["text_sha256"] != prompt["sha256"]):
                 raise PromptIntentError("v2 terminal observation binding mismatch")
@@ -1442,6 +1448,29 @@ class State:
             row, prompt, binding = self._v2_terminal_context_locked(repo_id, message_id)
             return self._load_v2_terminal_locked(row, prompt, binding)
 
+    def finish_fixture_v2_terminal(self, repo_id: str, message_id: str) -> None:
+        """Freeze fixture disposition from prior terminal evidence; no owner write."""
+        with self.tx():
+            row, prompt, binding = self._v2_terminal_context_locked(repo_id, message_id)
+            evidence = self._load_v2_terminal_locked(row, prompt, binding)
+            outcome = {"succeeded": "completed", "failed": "failed", "interrupted": "canceled"}[evidence["outcome"]]
+            refs = canonical([{"kind": "run", "ref": row["run_id"]},
+                              {"kind": "harness-session", "ref": row["session_id"]}])
+            summary = f"fixture v2 terminal observed: {evidence['outcome']}"
+            if row["state"] == S_FINISHED:
+                if row["outcome"] != outcome or row["summary"] != summary or row["evidence"] != refs:
+                    raise PromptIntentError("fixture terminal disposition conflict")
+                return
+            cancel_reason = None
+            if row["v2_cancel_intent"] is not None:
+                cancel_reason = json.loads(row["v2_cancel_intent"])["reason"]
+            if (row["state"] != S_LAUNCHED or row["closed"] or cancel_reason == "timeout"
+                    or (row["reason_code"] or "").startswith("run-timeout")):
+                raise PromptIntentError("fixture terminal disposition unavailable")
+            self.db.execute("UPDATE messages SET state=?,outcome=?,summary=?,evidence=?,updated_at=? "
+                            "WHERE repo_id=? AND message_id=?",
+                            (S_FINISHED, outcome, summary, refs, self.clock(), repo_id, message_id))
+
     @staticmethod
     def _load_v2_terminal_locked(row, prompt: dict, binding: dict) -> dict:
         try:
@@ -1472,12 +1501,13 @@ class State:
         return evidence
 
     def _v2_prompt_locked(self, repo_id: str, message_id: str, *, create: bool,
-                          allowed: tuple[str, ...]) -> dict[str, str]:
+                          allowed: tuple[str, ...], allowed_states: tuple[str, ...] = (S_LAUNCHED,),
+                          allow_closed: bool = False) -> dict[str, str]:
         fields = ("prompt_id", "prompt_nonce", "prompt_sha256", "prompt_binding_sha256", "prompt_admission",
                   "prompt_launch_binding_sha256")
         row = self.get(repo_id, message_id)
-        if (row is None or row["harness_api"] != "opencode-v2" or row["state"] != S_LAUNCHED
-                or row["closed"] or row["prompt_sent"]
+        if (row is None or row["harness_api"] != "opencode-v2" or row["state"] not in allowed_states
+                or (row["closed"] and not allow_closed) or row["prompt_sent"]
                 or not all(isinstance(row[k], str) and row[k].strip()
                            for k in ("run_id", "session_id", "model_id"))):
             raise PromptIntentError("v2 launched binding is incomplete")
@@ -1603,7 +1633,8 @@ class Adapter:
                  config: Config | None = None, clock: Callable[[], float] = time.time,
                  checkpoint: Callable[[str], None] | None = None,
                  log: Callable[[str], None] | None = None,
-                 experimental_v2_session_transport=None, experimental_v2_prompt_admission: bool = False) -> None:
+                 experimental_v2_session_transport=None, experimental_v2_prompt_admission: bool = False,
+                 experimental_v2_terminal_completion: bool = False) -> None:
         self.owner = owner
         self.harness = harness
         # Constructor injection is reserved for synthetic fixtures. No CLI or
@@ -1612,6 +1643,10 @@ class Adapter:
         if not isinstance(experimental_v2_prompt_admission, bool) or (experimental_v2_prompt_admission and self._fixture_v2 is None):
             raise ValueError("fixture prompt admission requires a fixture transport")
         self._fixture_v2_prompt = experimental_v2_prompt_admission
+        if (not isinstance(experimental_v2_terminal_completion, bool)
+                or (experimental_v2_terminal_completion and not self._fixture_v2_prompt)):
+            raise ValueError("fixture terminal completion requires fixture prompt admission")
+        self._fixture_v2_terminal = experimental_v2_terminal_completion
         self.state = state
         self.policy_path = Path(policy_path)
         self.config = config or Config()
@@ -1729,11 +1764,16 @@ class Adapter:
                     if self._on_fixture_v2_launch_intent(rec):
                         continue
                 elif rec["state"] == S_LAUNCHED and self._fixture_v2_prompt:
-                    self._on_fixture_v2_admission(rec)
+                    if not (self._fixture_v2_terminal and (rec["v2_terminal_evidence"] is not None
+                            or rec["v2_terminal_evidence_sha256"] is not None)):
+                        self._on_fixture_v2_admission(rec)
+                        rec = self.state.get(repo, mid)
+                    if self._fixture_v2_terminal and rec["state"] == S_LAUNCHED and self._on_fixture_v2_terminal(rec):
+                        continue
                 elif rec["state"] in (S_FINISHED, S_NOT_STARTED):
                     if self._on_closing(rec):
                         continue
-                # A launched fixture intentionally stops before any prompt.
+                # Later work proceeds only when its explicit fixture phase is enabled.
                 return
             if rec["execution_selection"] is not None and rec["state"] not in (S_FINISHED, S_NOT_STARTED):
                 self.state.update(repo, mid, last_error="unsupported execution selection for this transport")
@@ -2491,6 +2531,28 @@ class Adapter:
             "server_version": "2.0.32", "prompt_binding_sha256": self.state.get(*key)["prompt_binding_sha256"]})
         self._checkpoint("v2_admission_persisted")
 
+    def _on_fixture_v2_terminal(self, rec) -> bool:
+        """Synthetic terminal observation; cancellation requests are not issued here."""
+        if rec["prompt_admission"] != "admitted":
+            return False
+        key = (rec["repo_id"], rec["message_id"])
+        if rec["v2_terminal_evidence"] is None and rec["v2_terminal_evidence_sha256"] is None:
+            if not self._fixture_v2_ready():
+                return False
+            prompt = self.state.load_v2_prompt(*key)
+            binding = self.state.load_v2_launch_binding(*key)
+            observed = self._fixture_v2.observe_terminal(rec["session_id"], prompt["id"], prompt["sha256"],
+                binding["directory"], binding["model_id"], binding["permissions"])
+            if observed.get("status") != "terminal-observed":
+                return False
+            self.state.record_v2_terminal(*key, observed)
+            self._checkpoint("v2_terminal_evidence_persisted")
+        else:
+            self.state.load_v2_terminal(*key)
+        self.state.finish_fixture_v2_terminal(*key)
+        self._checkpoint("v2_terminal_disposition_persisted")
+        return True
+
     def _on_launch_intent(self, rec) -> bool:
         """Recovery only: an intent with no session id. Never creates a session."""
         key = (rec["repo_id"], rec["message_id"])
@@ -2599,6 +2661,12 @@ class Adapter:
         return True
 
     def _on_closing(self, rec) -> bool:
+        if (rec["execution_selection"] is not None and rec["state"] == S_FINISHED
+                and rec["v2_terminal_evidence"] is None and rec["v2_terminal_evidence_sha256"] is None):
+            raise PromptIntentError("fixture terminal evidence is missing")
+        if rec["v2_terminal_evidence"] is not None or rec["v2_terminal_evidence_sha256"] is not None:
+            self.state.finish_fixture_v2_terminal(rec["repo_id"], rec["message_id"])
+            rec = self.state.get(rec["repo_id"], rec["message_id"])
         # Revoke before publishing settlement. The owner's settlement handler
         # also revokes independently, so either path closes the credential.
         self._delegation_revoke(rec, f"run-{rec['outcome']}")

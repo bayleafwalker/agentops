@@ -1080,6 +1080,7 @@ class SyntheticV2SessionTransport:
         self.sessions = {}
         self.creates = 0
         self.prompts = []
+        self.terminal_outcome = None
 
     def server_version(self):
         return self.version
@@ -1110,6 +1111,15 @@ class SyntheticV2SessionTransport:
         matches = [item for item in self.prompts if item == {"id": prompt_id, "session_id": sid, "sha256": digest}]
         return {"status": "observed" if matches else "unknown", "id": prompt_id,
                 "session_id": sid, "sha256": digest, "sources": ["message"] if matches else []}
+
+    def observe_terminal(self, sid, prompt_id, digest, directory, model, permissions):
+        self.validate_session(sid, directory, model, permissions)
+        if self.terminal_outcome is None:
+            return {"status": "unknown"}
+        return {"status": "terminal-observed", "outcome": self.terminal_outcome, "session_id": sid,
+                "prompt_id": prompt_id, "text_sha256": digest, "terminal_id": "msg_terminal",
+                "interval_sha256": "a" * 64, "correlation": "single-input-two-snapshot",
+                "atomicity": "not-established"}
 
 
 def use_fixture_v2(rig, transport):
@@ -1531,6 +1541,155 @@ def test_fixture_v2_cancel_during_scan_prevents_send(rig):
     rig.adapter._fixture_v2_prompt = True
     rig.tick()
     assert not transport.prompts and rig.rec()["prompt_admission"] == "intent"
+
+
+@pytest.mark.parametrize("native,outcome", [("succeeded", "completed"), ("failed", "failed"),
+                                            ("interrupted", "canceled")])
+def test_fixture_v2_terminal_completion_uses_existing_owner_closeout(rig, native, outcome):
+    transport = SyntheticV2SessionTransport()
+    transport.terminal_outcome = native
+    use_fixture_v2(rig, transport)
+    rig.adapter._fixture_v2_prompt = True
+    rig.adapter._fixture_v2_terminal = True
+    rig.owner.send()
+    rig.tick(3)
+    assert rig.rec()["closed"] and rig.rec()["outcome"] == outcome and len(transport.prompts) == 1
+    assert rig.owner.receipt_of("msg_A", "result-linked")["outcome"] == outcome
+    assert rig.rec()["v2_terminal_evidence"] is not None
+
+
+def test_fixture_v2_terminal_checkpoint_recovers_during_server_outage(rig):
+    transport = SyntheticV2SessionTransport()
+    transport.terminal_outcome = "succeeded"
+    use_fixture_v2(rig, transport)
+    rig.adapter._fixture_v2_prompt = True
+    rig.adapter._fixture_v2_terminal = True
+    rig.owner.send()
+    rig.crash_at("v2_terminal_evidence_persisted")
+    with pytest.raises(Crash):
+        rig.tick()
+    transport.version = "2.0.33"
+    rig.boot()
+    rig.adapter._fixture_v2 = transport
+    rig.adapter._fixture_v2_prompt = True
+    rig.adapter._fixture_v2_terminal = True
+    rig.tick(2)
+    assert rig.rec()["closed"] and rig.rec()["outcome"] == "completed" and len(transport.prompts) == 1
+    assert rig.owner.receipt_of("msg_A", "result-linked")["outcome"] == "completed"
+
+
+def test_fixture_v2_terminal_checkpoint_closes_without_native_session_reads(rig):
+    transport = SyntheticV2SessionTransport()
+    transport.terminal_outcome = "succeeded"
+    use_fixture_v2(rig, transport)
+    rig.adapter._fixture_v2_prompt = True
+    rig.adapter._fixture_v2_terminal = True
+    rig.owner.send()
+    rig.crash_at("v2_terminal_evidence_persisted")
+    with pytest.raises(Crash):
+        rig.tick()
+    transport.sessions[rig.rec()["session_id"]]["permissions"] = []
+    transport.validate_session = lambda *a: pytest.fail("native session read after terminal checkpoint")
+    transport.observe_terminal = lambda *a: pytest.fail("native terminal read after checkpoint")
+    rig.boot()
+    rig.adapter._fixture_v2 = transport
+    rig.adapter._fixture_v2_prompt = True
+    rig.adapter._fixture_v2_terminal = True
+    rig.tick(2)
+    assert rig.rec()["closed"] and rig.rec()["outcome"] == "completed"
+
+
+def test_fixture_v2_timeout_intent_defers_terminal_mapping(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.adapter._fixture_v2_prompt = True
+    rig.owner.send()
+    rig.tick(2)
+    rig.adapter.state.prepare_v2_cancellation(REPO, "msg_A", reason="timeout")
+    transport.terminal_outcome = "interrupted"
+    rig.adapter._fixture_v2_terminal = True
+    rig.tick(2)
+    assert not rig.rec()["closed"] and rig.rec()["v2_terminal_evidence"] is not None
+    assert rig.owner.receipt_of("msg_A", "result-linked") is None
+
+
+def test_fixture_v2_disposition_corruption_cannot_reach_owner(rig):
+    transport = SyntheticV2SessionTransport()
+    transport.terminal_outcome = "succeeded"
+    use_fixture_v2(rig, transport)
+    rig.adapter._fixture_v2_prompt = True
+    rig.adapter._fixture_v2_terminal = True
+    rig.owner.send()
+    rig.crash_at("v2_terminal_disposition_persisted")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.adapter.state.update(REPO, "msg_A", outcome="failed")
+    rig.boot()
+    rig.tick(2)
+    assert not rig.rec()["closed"] and rig.owner.receipt_of("msg_A", "result-linked") is None
+
+
+def test_fixture_v2_missing_terminal_checkpoint_cannot_reach_owner(rig):
+    transport = SyntheticV2SessionTransport()
+    transport.terminal_outcome = "succeeded"
+    use_fixture_v2(rig, transport)
+    rig.adapter._fixture_v2_prompt = True
+    rig.adapter._fixture_v2_terminal = True
+    rig.owner.send()
+    rig.crash_at("v2_terminal_disposition_persisted")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.adapter.state.update(REPO, "msg_A", v2_terminal_evidence=None, v2_terminal_evidence_sha256=None)
+    rig.boot()
+    rig.tick(2)
+    assert not rig.rec()["closed"] and rig.owner.receipt_of("msg_A", "result-linked") is None
+
+
+def test_fixture_v2_cancel_racing_with_success_preserves_success(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.adapter._fixture_v2_prompt = True
+    rig.adapter._fixture_v2_terminal = True
+    rig.owner.send()
+    rig.tick(2)
+    assert not rig.rec()["closed"] and rig.rec()["prompt_admission"] == "admitted"
+    rig.owner.cancel("msg_A")
+    transport.terminal_outcome = "succeeded"
+    rig.tick(2)
+    assert rig.rec()["closed"] and rig.rec()["outcome"] == "completed"
+
+
+def test_fixture_v2_unknown_terminal_remains_open(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.adapter._fixture_v2_prompt = True
+    rig.adapter._fixture_v2_terminal = True
+    rig.owner.send()
+    rig.tick(3)
+    assert rig.rec()["prompt_admission"] == "admitted" and not rig.rec()["closed"]
+    assert rig.owner.receipt_of("msg_A", "result-linked") is None and len(transport.prompts) == 1
+
+
+@pytest.mark.parametrize("failure", ["revoke", "result"])
+def test_fixture_v2_owner_closeout_replays_without_inference(rig, failure):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.adapter._fixture_v2_prompt = True
+    rig.adapter._fixture_v2_terminal = True
+    rig.owner.send()
+    rig.tick(2)
+    delegation_id = rig.rec()["delegation_id"]
+    if failure == "revoke":
+        rig.owner.fail_after_revoke_once.add(f"delegation-revoke.msg_A.{delegation_id}")
+    else:
+        rig.owner.lose_result_linked_once.add("msg_A")
+    transport.terminal_outcome = "succeeded"
+    rig.tick()
+    assert rig.rec()["state"] == ha.S_FINISHED and not rig.rec()["closed"]
+    rig.boot()
+    rig.tick(2)
+    assert rig.rec()["closed"] and rig.rec()["outcome"] == "completed"
+    assert len(transport.prompts) == 1 and rig.owner.kinds("msg_A").count("result-linked") == 1
 
 
 def test_legacy_transport_does_not_create_for_v2_registered_run(rig):
