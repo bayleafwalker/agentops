@@ -1274,7 +1274,9 @@ class TestCommittedEvidenceRefRates(unittest.TestCase):
 
     def _committed_artifact_refs(self) -> list[str]:
         refs = []
-        for path in sorted((ROOT / "docs/dispatch/handoffs").glob("*.v*.json")):
+        tracked = _git(ROOT, "ls-files", "-z", "docs/dispatch/handoffs/*.v*.json")
+        for name in sorted(filter(None, tracked.split("\0"))):
+            path = ROOT / name
             if path.name.endswith("sprintctl-bundle.json"):
                 continue
             data = json.loads(path.read_text())
@@ -1284,12 +1286,18 @@ class TestCommittedEvidenceRefRates(unittest.TestCase):
         return refs
 
     @staticmethod
+    def _artifact_exists(ref: str) -> bool:
+        match = handoff._EVIDENCE_REF_SHA_RE.match(ref)
+        path = Path(match.group("ref") if match else ref)
+        return (path if path.is_absolute() else handoff.REPO_ROOT / path).is_file()
+
+    @staticmethod
     def _refused(ref: str) -> bool:
         return bool(handoff._evidence_problems(
             {"evidence": [{"kind": "artifact", "ref": ref}]}))
 
     def test_every_existing_committed_ref_is_checked(self) -> None:
-        existing = [r for r in self._committed_artifact_refs() if Path(r).is_file()]
+        existing = [r for r in self._committed_artifact_refs() if self._artifact_exists(r)]
         if not existing:
             self.skipTest(
                 "no committed artifact ref resolves on this host; the rate has "
@@ -1298,13 +1306,24 @@ class TestCommittedEvidenceRefRates(unittest.TestCase):
         self.assertEqual(checked / len(existing), 1.0)
 
     def test_every_missing_committed_ref_is_refused(self) -> None:
-        missing = [r for r in self._committed_artifact_refs() if not Path(r).is_file()]
+        missing = [r for r in self._committed_artifact_refs() if not self._artifact_exists(r)]
         if not missing:
             self.skipTest(
                 "no committed artifact ref is missing on this host; the rate has "
                 "an empty denominator here (see test_mechanism_holds_on_every_host)")
         refused = sum(1 for r in missing if self._refused(r))
         self.assertEqual(refused / len(missing), 1.0)
+
+    def test_partition_recognizes_only_valid_hash_fragments(self) -> None:
+        path = Path(__file__).resolve()
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        self.assertTrue(self._artifact_exists(f"{path}#sha256={digest}"))
+        self.assertFalse(self._refused(f"{path}#sha256={digest}"))
+        self.assertFalse(self._artifact_exists(f"{path}#sha256=invalid"))
+        self.assertTrue(self._refused(f"{path}#sha256=invalid"))
+        missing = path.parent / "does-not-exist-evidence-ref"
+        self.assertFalse(self._artifact_exists(f"{missing}#sha256={digest}"))
+        self.assertTrue(self._refused(f"{missing}#sha256={digest}"))
 
     def test_mechanism_holds_on_every_host(self) -> None:
         """Host-independent: both partitions non-empty, built not found.
