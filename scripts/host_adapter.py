@@ -934,6 +934,7 @@ CREATE TABLE IF NOT EXISTS messages (
   prompt_binding_sha256 TEXT, prompt_admission TEXT, prompt_admission_evidence TEXT,
   v2_launch_binding TEXT, v2_launch_binding_sha256 TEXT, prompt_launch_binding_sha256 TEXT,
   execution_selection TEXT, v2_registration_intent TEXT, v2_registration_intent_sha256 TEXT,
+  v2_cancel_intent TEXT, v2_cancel_intent_sha256 TEXT, v2_delete_state TEXT, v2_interrupt_state TEXT,
   PRIMARY KEY (repo_id, message_id));
 """
 _COLUMNS = ("state decision reason_code reason_text run_id session_id prompt_sent abort_requested "
@@ -941,7 +942,8 @@ _COLUMNS = ("state decision reason_code reason_text run_id session_id prompt_sen
             "launched_at model_id delegation_id delegation_expires_at delegation_generation handoff_state "
             "harness_api prompt_id prompt_nonce prompt_sha256 prompt_binding_sha256 prompt_admission prompt_admission_evidence "
             "v2_launch_binding v2_launch_binding_sha256 prompt_launch_binding_sha256 "
-            "execution_selection v2_registration_intent v2_registration_intent_sha256").split()
+            "execution_selection v2_registration_intent v2_registration_intent_sha256 "
+            "v2_cancel_intent v2_cancel_intent_sha256 v2_delete_state v2_interrupt_state").split()
 # Columns added after the first deployed schema; added in place on open.
 _ADDED_COLUMNS = (("launched_at", "REAL"), ("model_id", "TEXT"), ("delegation_id", "TEXT"),
                   ("delegation_expires_at", "TEXT"),
@@ -953,7 +955,8 @@ _ADDED_COLUMNS = (("launched_at", "REAL"), ("model_id", "TEXT"), ("delegation_id
                   ("v2_launch_binding", "TEXT"), ("v2_launch_binding_sha256", "TEXT"),
                   ("prompt_launch_binding_sha256", "TEXT"),
                   ("execution_selection", "TEXT"), ("v2_registration_intent", "TEXT"),
-                  ("v2_registration_intent_sha256", "TEXT"))
+                  ("v2_registration_intent_sha256", "TEXT"), ("v2_cancel_intent", "TEXT"),
+                  ("v2_cancel_intent_sha256", "TEXT"), ("v2_delete_state", "TEXT"), ("v2_interrupt_state", "TEXT"))
 
 
 class State:
@@ -1087,7 +1090,8 @@ class State:
                     or row["prompt_sent"] or any(row[key] is not None for key in
                         ("v2_launch_binding", "v2_launch_binding_sha256", "prompt_id", "prompt_nonce",
                          "prompt_sha256", "prompt_binding_sha256", "prompt_admission", "prompt_admission_evidence",
-                         "prompt_launch_binding_sha256"))):
+                         "prompt_launch_binding_sha256", "v2_cancel_intent", "v2_cancel_intent_sha256",
+                         "v2_delete_state", "v2_interrupt_state"))):
                 raise PromptIntentError("v2 registration selection is incomplete")
             try:
                 envelope = json.loads(row["envelope"])
@@ -1156,7 +1160,8 @@ class State:
             if (row is None or row["state"] != S_RUN_REGISTERED or row["closed"] or row["session_id"] is not None
                     or row["prompt_sent"] or any(row[key] is not None for key in
                         ("prompt_id", "prompt_nonce", "prompt_sha256", "prompt_binding_sha256",
-                         "prompt_admission", "prompt_admission_evidence", "prompt_launch_binding_sha256"))
+                         "prompt_admission", "prompt_admission_evidence", "prompt_launch_binding_sha256",
+                         "v2_cancel_intent", "v2_cancel_intent_sha256", "v2_delete_state", "v2_interrupt_state"))
                     or row["harness_api"] not in (None, "opencode-v2")
                     or not isinstance(row["run_id"], str) or not row["run_id"]
                     or not isinstance(row["model_id"], str) or row["model_id"].count("/") != 1
@@ -1271,6 +1276,90 @@ class State:
                             ("admitted", canonical(evidence), self.clock(), repo_id, message_id))
             return evidence
 
+    def prepare_v2_cancellation(self, repo_id: str, message_id: str, *, reason: str) -> dict:
+        """Freeze a fixture cancellation identity; it does not establish an outcome.
+
+        A caller-supplied reason is not proof of an owner request or of session
+        ownership. Both require separate observation before any native action.
+        """
+        if reason not in ("cancel-requested", "expired", "timeout"):
+            raise PromptIntentError("invalid v2 cancellation reason")
+        with self.tx():
+            prompt = self._v2_prompt_locked(repo_id, message_id, create=False, allowed=("unknown", "admitted"))
+            row = self.get(repo_id, message_id)
+            selection = canonical({"schema": "adapter-execution-selection/v1", "api": "opencode-v2",
+                                   "source": "synthetic-fixture"})
+            if row["execution_selection"] != selection:
+                raise PromptIntentError("v2 cancellation selection is incomplete")
+            snapshot = {"schema": "adapter-v2-cancellation-intent/v1", "repo_id": repo_id,
+                        "message_id": message_id, "run_id": row["run_id"], "session_id": row["session_id"],
+                        "prompt_id": prompt["id"], "prompt_sha256": prompt["sha256"],
+                        "launch_binding_sha256": row["v2_launch_binding_sha256"], "reason": reason}
+            raw = canonical(snapshot)
+            digest = hashlib.sha256(raw.encode()).hexdigest()
+            values = (row["v2_cancel_intent"], row["v2_cancel_intent_sha256"],
+                      row["v2_delete_state"], row["v2_interrupt_state"])
+            if all(value is None for value in values):
+                self.db.execute("UPDATE messages SET v2_cancel_intent=?,v2_cancel_intent_sha256=?,"
+                                "v2_delete_state=?,v2_interrupt_state=?,updated_at=? WHERE repo_id=? AND message_id=?",
+                                (raw, digest, "not_requested", "not_requested", self.clock(), repo_id, message_id))
+            elif (values[0] != raw or values[1] != digest
+                  or values[2] not in ("not_requested", "unknown") or values[3] not in ("not_requested", "unknown")):
+                raise PromptIntentError("v2 cancellation intent changed or is partial")
+            return snapshot
+
+    def begin_v2_cancellation_action(self, repo_id: str, message_id: str, *, action: str) -> dict:
+        """Mark one native request uncertain before returning permission to issue it."""
+        if action not in ("delete", "interrupt"):
+            raise PromptIntentError("invalid v2 cancellation action")
+        with self.tx():
+            row = self.get(repo_id, message_id)
+            if row is None or row["v2_cancel_intent"] is None:
+                raise PromptIntentError("v2 cancellation intent is missing")
+            try:
+                snapshot = json.loads(row["v2_cancel_intent"])
+                reason = snapshot["reason"]
+            except (TypeError, ValueError, KeyError):
+                raise PromptIntentError("invalid v2 cancellation intent") from None
+            self._validate_v2_cancellation_locked(repo_id, message_id, reason, snapshot, row)
+            column = "v2_delete_state" if action == "delete" else "v2_interrupt_state"
+            if row[column] != "not_requested":
+                raise PromptIntentError("v2 cancellation action is already uncertain")
+            self.db.execute(f"UPDATE messages SET {column}=?,updated_at=? WHERE repo_id=? AND message_id=?",
+                            ("unknown", self.clock(), repo_id, message_id))
+            return snapshot
+
+    def load_v2_cancellation(self, repo_id: str, message_id: str) -> dict:
+        """Read intent and uncertain requests; this does not authorize a resend."""
+        with self.tx():
+            row = self.get(repo_id, message_id)
+            if row is None or row["v2_cancel_intent"] is None:
+                raise PromptIntentError("v2 cancellation intent is missing")
+            try:
+                snapshot = json.loads(row["v2_cancel_intent"])
+                reason = snapshot["reason"]
+            except (TypeError, ValueError, KeyError):
+                raise PromptIntentError("invalid v2 cancellation intent") from None
+            self._validate_v2_cancellation_locked(repo_id, message_id, reason, snapshot, row)
+            return {"intent": snapshot, "delete_state": row["v2_delete_state"],
+                    "interrupt_state": row["v2_interrupt_state"]}
+
+    def _validate_v2_cancellation_locked(self, repo_id: str, message_id: str, reason: str, snapshot: dict, row) -> None:
+        prompt = self._v2_prompt_locked(repo_id, message_id, create=False, allowed=("unknown", "admitted"))
+        selection = canonical({"schema": "adapter-execution-selection/v1", "api": "opencode-v2",
+                               "source": "synthetic-fixture"})
+        expected = {"schema": "adapter-v2-cancellation-intent/v1", "repo_id": repo_id,
+                    "message_id": message_id, "run_id": row["run_id"], "session_id": row["session_id"],
+                    "prompt_id": prompt["id"], "prompt_sha256": prompt["sha256"],
+                    "launch_binding_sha256": row["v2_launch_binding_sha256"], "reason": reason}
+        raw = row["v2_cancel_intent"]
+        if (reason not in ("cancel-requested", "expired", "timeout") or row["execution_selection"] != selection
+                or snapshot != expected or raw != canonical(expected)
+                or row["v2_cancel_intent_sha256"] != hashlib.sha256(raw.encode()).hexdigest()
+                or row["v2_delete_state"] not in ("not_requested", "unknown")
+                or row["v2_interrupt_state"] not in ("not_requested", "unknown")):
+            raise PromptIntentError("invalid v2 cancellation intent")
+
     def _v2_prompt_locked(self, repo_id: str, message_id: str, *, create: bool,
                           allowed: tuple[str, ...]) -> dict[str, str]:
         fields = ("prompt_id", "prompt_nonce", "prompt_sha256", "prompt_binding_sha256", "prompt_admission",
@@ -1298,11 +1387,17 @@ class State:
                    "fingerprint_format": "v2-prompt-launch-linked/v1",
                    "launch_binding_sha256": row["v2_launch_binding_sha256"]}
         values = [row[k] for k in fields]
+        if (row["prompt_admission"] == "intent" and any(row[k] is not None for k in
+                ("v2_cancel_intent", "v2_cancel_intent_sha256", "v2_delete_state", "v2_interrupt_state"))):
+            raise PromptIntentError("v2 cancellation state conflicts with prompt intent")
         if row["prompt_admission"] != "admitted" and row["prompt_admission_evidence"] is not None:
             raise PromptIntentError("unexpected v2 admission evidence")
         if all(value is None for value in values):
             if not create:
                 raise PromptIntentError("v2 prompt intent is missing")
+            if any(row[k] is not None for k in ("v2_cancel_intent", "v2_cancel_intent_sha256",
+                                                "v2_delete_state", "v2_interrupt_state")):
+                raise PromptIntentError("v2 cancellation state precedes prompt intent")
             prompt_id, nonce = "msg_" + secrets.token_hex(16), secrets.token_hex(16)
             binding["prompt_id"] = prompt_id
             binding_sha = hashlib.sha256(canonical(binding).encode("utf-8")).hexdigest()
