@@ -1,0 +1,101 @@
+{
+  "scope": "four one-shot synthetic clerical checks; no tools",
+  "model_requested": "worker-fast",
+  "max_tokens": 512,
+  "temperature": 0,
+  "cases": [
+    {
+      "case": "extract",
+      "prompt": "Return JSON only with keys owner and date: \"The review is owned by Mira and is due on 2026-11-12.\"",
+      "expected": {
+        "owner": "Mira",
+        "date": "2026-11-12"
+      },
+      "content": "{\n  \"owner\": \"Mira\",\n  \"date\": \"2026-11-12\"\n}",
+      "parsed": {
+        "owner": "Mira",
+        "date": "2026-11-12"
+      },
+      "pass": true,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 30,
+        "prompt_tokens": 44,
+        "total_tokens": 74,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "seconds": 14.003
+    },
+    {
+      "case": "classify",
+      "prompt": "Return JSON only with key status. Classify as blocked, done, or active: \"The release cannot proceed until the certificate arrives.\"",
+      "expected": {
+        "status": "blocked"
+      },
+      "content": "{\n  \"status\": \"blocked\"\n}",
+      "parsed": {
+        "status": "blocked"
+      },
+      "pass": true,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 12,
+        "prompt_tokens": 39,
+        "total_tokens": 51,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "seconds": 0.276
+    },
+    {
+      "case": "filter",
+      "prompt": "Return JSON only with key ids containing an array of IDs whose priority is high: A=low, B=high, C=medium, D=high. Preserve input order.",
+      "expected": {
+        "ids": [
+          "B",
+          "D"
+        ]
+      },
+      "content": "```json\n{\n  \"ids\": [\"B\", \"D\"]\n}\n```",
+      "parsed": null,
+      "pass": false,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 20,
+        "prompt_tokens": 48,
+        "total_tokens": 68,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "seconds": 0.327
+    },
+    {
+      "case": "normalize",
+      "prompt": "Return JSON only with keys name and email: \"  Ada L.  | ADA@EXAMPLE.COM  \". Strip surrounding spaces and lowercase email.",
+      "expected": {
+        "name": "Ada L.",
+        "email": "ada@example.com"
+      },
+      "content": "{\n  \"name\": \"Ada L.\",\n  \"email\": \"ada@example.com\"\n}",
+      "parsed": {
+        "name": "Ada L.",
+        "email": "ada@example.com"
+      },
+      "pass": true,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 23,
+        "prompt_tokens": 41,
+        "total_tokens": 64,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "seconds": 0.343
+    }
+  ]
+}
