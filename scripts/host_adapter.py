@@ -933,13 +933,15 @@ CREATE TABLE IF NOT EXISTS messages (
   harness_api TEXT, prompt_id TEXT, prompt_nonce TEXT, prompt_sha256 TEXT,
   prompt_binding_sha256 TEXT, prompt_admission TEXT, prompt_admission_evidence TEXT,
   v2_launch_binding TEXT, v2_launch_binding_sha256 TEXT, prompt_launch_binding_sha256 TEXT,
+  execution_selection TEXT, v2_registration_intent TEXT, v2_registration_intent_sha256 TEXT,
   PRIMARY KEY (repo_id, message_id));
 """
 _COLUMNS = ("state decision reason_code reason_text run_id session_id prompt_sent abort_requested "
             "outcome summary evidence detail ambiguous_sent abort_sent idle_polls closed last_error "
             "launched_at model_id delegation_id delegation_expires_at delegation_generation handoff_state "
             "harness_api prompt_id prompt_nonce prompt_sha256 prompt_binding_sha256 prompt_admission prompt_admission_evidence "
-            "v2_launch_binding v2_launch_binding_sha256 prompt_launch_binding_sha256").split()
+            "v2_launch_binding v2_launch_binding_sha256 prompt_launch_binding_sha256 "
+            "execution_selection v2_registration_intent v2_registration_intent_sha256").split()
 # Columns added after the first deployed schema; added in place on open.
 _ADDED_COLUMNS = (("launched_at", "REAL"), ("model_id", "TEXT"), ("delegation_id", "TEXT"),
                   ("delegation_expires_at", "TEXT"),
@@ -949,7 +951,9 @@ _ADDED_COLUMNS = (("launched_at", "REAL"), ("model_id", "TEXT"), ("delegation_id
                   ("prompt_sha256", "TEXT"), ("prompt_binding_sha256", "TEXT"),
                   ("prompt_admission", "TEXT"), ("prompt_admission_evidence", "TEXT"),
                   ("v2_launch_binding", "TEXT"), ("v2_launch_binding_sha256", "TEXT"),
-                  ("prompt_launch_binding_sha256", "TEXT"))
+                  ("prompt_launch_binding_sha256", "TEXT"),
+                  ("execution_selection", "TEXT"), ("v2_registration_intent", "TEXT"),
+                  ("v2_registration_intent_sha256", "TEXT"))
 
 
 class State:
@@ -1015,16 +1019,24 @@ class State:
         row = self.db.execute("SELECT next_after_seq FROM cursors WHERE repo_id=?", (repo_id,)).fetchone()
         return row[0] if row else 0
 
-    def ingest(self, repo_id: str, messages: list[dict], next_after_seq: int) -> int:
-        """Persist new records and the cursor in one transaction. Returns records created."""
+    def ingest(self, repo_id: str, messages: list[dict], next_after_seq: int, *, fixture_v2: bool = False) -> int:
+        """Persist new records and the cursor in one transaction. Returns records created.
+
+        The fixture marker is trusted caller input, not proof that a service or
+        owner is synthetic. No production caller enables it.
+        """
         created = 0
         now = self.clock()
+        if not isinstance(fixture_v2, bool):
+            raise ValueError("invalid fixture selection")
+        selection = canonical({"schema": "adapter-execution-selection/v1", "api": "opencode-v2",
+                               "source": "synthetic-fixture"}) if fixture_v2 else None
         with self.tx():
             for msg in messages:
                 cur = self.db.execute(
-                    "INSERT OR IGNORE INTO messages (repo_id,message_id,inbox_seq,envelope,state,created_at,updated_at)"
-                    " VALUES (?,?,?,?,?,?,?)",
-                    (repo_id, msg["message_id"], msg["inbox_seq"], canonical(msg), S_RECEIVED, now, now))
+                    "INSERT OR IGNORE INTO messages (repo_id,message_id,inbox_seq,envelope,state,created_at,updated_at,execution_selection)"
+                    " VALUES (?,?,?,?,?,?,?,?)",
+                    (repo_id, msg["message_id"], msg["inbox_seq"], canonical(msg), S_RECEIVED, now, now, selection))
                 created += cur.rowcount
             self.db.execute(
                 "INSERT INTO cursors VALUES (?,?) ON CONFLICT(repo_id) DO UPDATE SET "
@@ -1041,6 +1053,88 @@ class State:
         with self.tx():
             self.db.execute(f"UPDATE messages SET {sets} WHERE repo_id=? AND message_id=?",
                             (*fields.values(), self.clock(), repo_id, message_id))
+
+    @staticmethod
+    def _validate_v2_registration_arguments(message_id: str, arguments: dict) -> None:
+        if (not isinstance(arguments, dict)
+                or set(arguments) not in (set(_HARNESS_KEYS) | {"idempotency_key"},
+                                          set(_HARNESS_KEYS) | {"idempotency_key", "predecessor_run_id"})
+                or arguments.get("harness_id") != "opencode" or arguments.get("harness_build") != "2.0.32"
+                or arguments.get("idempotency_key") != f"inbox.{message_id}"
+                or not isinstance(arguments.get("model_id"), str) or arguments["model_id"].count("/") != 1
+                or not all(part and part == part.strip() and not any(c.isspace() or c == "\0" for c in part)
+                           for part in arguments["model_id"].split("/"))
+                or not isinstance(arguments.get("recipe_id"), str) or not arguments["recipe_id"]
+                or not isinstance(arguments.get("observed_profile"), dict)
+                or ("predecessor_run_id" in arguments and
+                    (not isinstance(arguments["predecessor_run_id"], str) or not arguments["predecessor_run_id"]))):
+            raise PromptIntentError("invalid v2 registration arguments")
+
+    def prepare_v2_registration_intent(self, repo_id: str, message_id: str, arguments: dict) -> dict:
+        """Freeze fixture-selected owner arguments before a future registration call."""
+        selection = canonical({"schema": "adapter-execution-selection/v1", "api": "opencode-v2",
+                               "source": "synthetic-fixture"})
+        self._validate_v2_registration_arguments(message_id, arguments)
+        snapshot = {"schema": "adapter-v2-registration-intent/v1", "repo_id": repo_id,
+                    "message_id": message_id, "arguments": arguments}
+        encoded = canonical(snapshot)
+        digest = hashlib.sha256(encoded.encode()).hexdigest()
+        with self.tx():
+            row = self.get(repo_id, message_id)
+            if (row is None or row["execution_selection"] != selection or row["state"] != S_DECIDED
+                    or row["decision"] != "accepted" or row["closed"] or row["run_id"] is not None
+                    or row["model_id"] is not None or row["session_id"] is not None or row["harness_api"] is not None
+                    or row["prompt_sent"] or any(row[key] is not None for key in
+                        ("v2_launch_binding", "v2_launch_binding_sha256", "prompt_id", "prompt_nonce",
+                         "prompt_sha256", "prompt_binding_sha256", "prompt_admission", "prompt_admission_evidence",
+                         "prompt_launch_binding_sha256"))):
+                raise PromptIntentError("v2 registration selection is incomplete")
+            try:
+                envelope = json.loads(row["envelope"])
+                context = envelope.get("context") or {}
+                predecessor = context.get("predecessor_run_id")
+            except (TypeError, ValueError, AttributeError):
+                raise PromptIntentError("invalid v2 registration envelope") from None
+            if predecessor != arguments.get("predecessor_run_id"):
+                raise PromptIntentError("v2 predecessor binding mismatch")
+            if row["v2_registration_intent"] is None and row["v2_registration_intent_sha256"] is None:
+                self.db.execute("UPDATE messages SET v2_registration_intent=?,v2_registration_intent_sha256=?,updated_at=? "
+                                "WHERE repo_id=? AND message_id=?", (encoded, digest, self.clock(), repo_id, message_id))
+            elif row["v2_registration_intent"] != encoded or row["v2_registration_intent_sha256"] != digest:
+                raise PromptIntentError("v2 registration intent changed or is partial")
+            return snapshot
+
+    def load_v2_registration_intent(self, repo_id: str, message_id: str) -> dict:
+        """Read frozen owner arguments without consulting mutable policy."""
+        row = self.get(repo_id, message_id)
+        selection = canonical({"schema": "adapter-execution-selection/v1", "api": "opencode-v2",
+                               "source": "synthetic-fixture"})
+        if row is None or row["execution_selection"] != selection:
+            raise PromptIntentError("v2 registration selection is incomplete")
+        raw, digest = row["v2_registration_intent"], row["v2_registration_intent_sha256"]
+        try:
+            snapshot = json.loads(raw)
+            valid = (isinstance(raw, str) and isinstance(digest, str)
+                     and hashlib.sha256(raw.encode()).hexdigest() == digest
+                     and isinstance(snapshot, dict) and canonical(snapshot) == raw
+                     and set(snapshot) == {"schema", "repo_id", "message_id", "arguments"}
+                     and snapshot["schema"] == "adapter-v2-registration-intent/v1"
+                     and snapshot["repo_id"] == repo_id and snapshot["message_id"] == message_id)
+        except (TypeError, ValueError, KeyError):
+            valid = False
+        if not valid:
+            raise PromptIntentError("invalid v2 registration intent")
+        self._validate_v2_registration_arguments(message_id, snapshot["arguments"])
+        try:
+            envelope = json.loads(row["envelope"])
+            predecessor = (envelope.get("context") or {}).get("predecessor_run_id")
+        except (TypeError, ValueError, AttributeError):
+            raise PromptIntentError("invalid v2 registration envelope") from None
+        if predecessor != snapshot["arguments"].get("predecessor_run_id"):
+            raise PromptIntentError("v2 predecessor binding mismatch")
+        if row["run_id"] is not None and row["model_id"] != snapshot["arguments"]["model_id"]:
+            raise PromptIntentError("v2 registered model mismatch")
+        return snapshot
 
     def prepare_v2_launch_binding(self, repo_id: str, message_id: str, *, directory: str, title: str,
                                   permissions: list[dict], server_version: str) -> dict:
@@ -1331,7 +1425,7 @@ class Adapter:
         for rec in self.state.open_records():
             self._guarded(self._advance, rec["repo_id"], rec["message_id"])
         for rec in self.state.open_records():
-            if (rec["harness_api"] in (None, "opencode-v1") and rec["run_id"]
+            if (rec["execution_selection"] is None and rec["harness_api"] in (None, "opencode-v1") and rec["run_id"]
                     and rec["state"] in (S_LAUNCH_INTENT, S_LAUNCHED)):
                 self._observe(rec["repo_id"], "executing", run_id=rec["run_id"])
 
@@ -1400,6 +1494,9 @@ class Adapter:
                 return
             if rec["state"] == S_AMBIGUOUS:
                 self._flush_ambiguous(rec)
+                return
+            if rec["execution_selection"] is not None and rec["state"] not in (S_FINISHED, S_NOT_STARTED):
+                self.state.update(repo, mid, last_error="unsupported execution selection for this transport")
                 return
             # Fence every nonterminal state, including received/decided: an
             # unfamiliar binding must not be interpreted by this transport.
@@ -2138,7 +2235,8 @@ class Adapter:
         if rec["state"] not in (S_AMBIGUOUS, S_LAUNCHED) or rec["closed"]:
             raise SystemExit(f"host-adapter: {message_id} is {rec['state']}, not ambiguous or launched")
         if self._abandon_intent(rec) is None:
-            if rec["state"] == S_LAUNCHED and rec["harness_api"] not in (None, "opencode-v1"):
+            if (rec["state"] == S_LAUNCHED and (rec["execution_selection"] is not None
+                    or rec["harness_api"] not in (None, "opencode-v1"))):
                 raise SystemExit("host-adapter: unsupported harness API for this transport")
             evidence = [{"kind": "run", "ref": rec["run_id"]}] if rec["run_id"] else []
             what = "an ambiguous launch"
