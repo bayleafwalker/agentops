@@ -102,11 +102,19 @@ build tiers rather than pretending its tiers are equivalent to Codex tiers.
 
 Validation does not have to use a more expensive model to be independent. Fresh context, direct diff inspection, cold checks, and authority to reject are the minimum contract. Use `review-synthesis` for ordinary independent verification and reserve `frontier-review` for high-consequence semantic risk, not every patch.
 
-## Routing Decision Records
+## Historical local route-decision records
 
-`vuoro-dispatch-build` records every unit it routes as a `dispatch.route.decision` auditctl
-event (flow: `docs/dispatch/workflow-topology.md`). One clerical step at the end of the run calls
-`scripts/jev_shadow.py record`, and each unit's event holds:
+The `dispatch.route.decision` emitter is historical local-dispatch instrumentation, not an active
+native-session route recorder. Its producer is the saved `vuoro-dispatch-build` workflow and
+`scripts/jev_shadow.py record`; `/projects/dev/AGENTS.md` marks the saved workflow as legacy and
+prohibits using it for new work until it is migrated. Do not revive that workflow to create
+telemetry. The last workstation snapshot found 80 host-local events from September 28–30, 2026,
+none since October 1, and no run reference on those historical events; see
+[`docs/evidence/2026-11-03-routing-estate.md`](../evidence/2026-11-03-routing-estate.md) for the
+dated query and limits. The implementation can attach a local RunManifest reference, but that
+capability is not evidence of current emission or an active producer.
+
+When present, these records describe dispatch-workflow decisions and outcomes. The fields include:
 
 - **Route:** the lane (`build`, `oracle` or `refine`), the tier, and the source (`explicit`,
   `haiku-route`, `explicit+haiku-route` or `route-missing`).
@@ -123,9 +131,12 @@ event (flow: `docs/dispatch/workflow-topology.md`). One clerical step at the end
   the closeout note carried the `Run-Manifest` line.
 
 Every field is an identifier, an enum or a count. The recorder relays no prose, makes no network
-call, and always exits 0. Pass `record_decisions: false` to skip it. These records are the labels
-any routing comparison needs, and they measure the flow itself: how often refinement happens, how
-often oracles are written, how many repairs are needed, and what gets parked.
+call, and always exits 0. Pass `record_decisions: false` to skip it. Such records measure the
+historical workflow's lane/tier choices and outcomes. They do not establish the model or provider
+actually selected by a native harness, token usage, subscription allocation, quota, or cost. The
+current session-binding observation does not fill this gap: it records session and declared
+settings context, not the selected model/provider or an attempt link. Native route telemetry under
+the target-state emit-only policy is not established by these historical records.
 
 **Offline Jev scoring.** `jev_shadow.py score` reads recorded decisions back from the
 audit shards and rebuilds each unit's item text from sprintctl. It then asks TypeSafe
@@ -136,11 +147,23 @@ agreement with the recorded decision.
 - **Key:** the operator's 0600 file named by `TYPESAFE_API_KEY_FILE`. Without it, scoring runs in `fake` mode.
 - **Before any decisions exist:** `corpus` and `replay` build and score an item corpus.
 
-Jev is not in the dispatch path. The 2026-09-28 evaluation
-(`jev/eval/agentops-2026-09-28/README.md`) found no router reliably better than Haiku, measured
-when a "not ready" answer blocked work. Routing now picks a lane rather than a gate, so over-routing
-to refinement costs a refinement pass instead of a blocked unit. That makes a cheaper router
-easier to justify; recorded decisions and their outcomes are the measure.
+Jev is not in the dispatch path. The latest independent evaluation is the
+[2026-10-20 W41-R1 comparison](../../jev/eval/agentops-2026-10-20/README.md), which says to keep
+production routing unchanged. On 33 held-out attempts from 16 work groups, native Haiku had 60.6%
+non-abstaining coverage versus the preregistered 90% minimum, 15.2% joint lane/tier agreement versus
+18.2% for the deterministic comparator, and 20.8% group-weighted agreement versus 27.1%. These
+historical choices are imitation labels, not independent safety labels; neither arm was qualified
+as a safe router, and the comparator was not proposed as a production replacement. False-escalation
+and under-escalation counts are disagreement proxies, not measured unsafe outcomes. Actual billed
+cost and operator correction time were unavailable, and the Decisions API arm was unmeasured.
+
+The preregistered adoption rule requires every bound to be measured and met: zero independently
+labeled unsafe under-escalations, false-escalation rate at most 10%, at least 90% coverage, at least
+10% held-out macro-agreement gain, at least 30% measured operator-correction-time savings, and an
+actual billed-charge observation. The current evaluation does not satisfy those evidence
+requirements. Do not tune on its held-out cases or infer adoption, safety, billing, or provider
+entitlement from this comparison. Any future routing change needs a new independently qualified
+evaluation and an explicit owner decision; Jev remains advisory and outside dispatch.
 
 Moving any router judgment into dispatch is an operator decision. It needs measured
 agreement against recorded decisions and hindsight labels, using a pinned bundle and
