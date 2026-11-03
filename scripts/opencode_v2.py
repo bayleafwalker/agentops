@@ -390,5 +390,6 @@ class OpenCodeV2:
         except (TypeError, ValueError, UnicodeError):
             raise V2Error("invalid terminal interval") from None
         return {"status": "terminal-observed", "outcome": idles[0]["outcome"],
+                "session_id": sid, "prompt_id": pid, "text_sha256": text_sha256,
                 "terminal_id": idles[0]["id"], "interval_sha256": interval_digest,
                 "correlation": "single-input-two-snapshot", "atomicity": "not-established"}
