@@ -13,7 +13,12 @@ ROOT = Path(__file__).resolve().parents[1]
 def observed_models(value: object) -> set[str]:
     if isinstance(value, dict) and isinstance(value.get("models"), list):
         rows = value["models"]
-        if not rows or any(not isinstance(row, dict) or not isinstance(row.get("slug"), str) for row in rows):
+        if not rows or any(
+            not isinstance(row, dict)
+            or not isinstance(row.get("slug"), str)
+            or not row["slug"].strip()
+            for row in rows
+        ):
             raise ValueError("catalogue has no usable model records")
         return {row["slug"] for row in rows if row.get("visibility") != "hide"}
     if isinstance(value, list) and value:
@@ -25,7 +30,8 @@ def observed_models(value: object) -> set[str]:
                 raise ValueError("native model probe failed; availability is inconclusive")
             if row["success"]:
                 observed = row.get("observed_models")
-                if not isinstance(observed, list) or not observed or any(not isinstance(x, str) for x in observed):
+                if (not isinstance(observed, list) or not observed
+                        or any(not isinstance(x, str) or not x.strip() for x in observed)):
                     raise ValueError("successful probe lacks observed model identity")
                 models.update(observed)
         return models
@@ -44,7 +50,9 @@ def audit(policy: dict, catalogues: dict[str, set[str]]) -> list[dict]:
             issues = []
             if route.get("verified") is not True:
                 issues.append("primary-unverified")
-            if primary not in available:
+            if not isinstance(primary, str) or not primary.strip():
+                issues.append("primary-unconfigured")
+            elif primary not in available:
                 issues.append("primary-not-observed")
             if fallback and fallback not in available:
                 issues.append("same-provider-fallback-not-observed")
