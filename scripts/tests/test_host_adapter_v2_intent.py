@@ -38,6 +38,37 @@ def test_prompt_intent_is_atomic_stable_and_survives_restart(prepared_state, tmp
     # The fixture closes the original state once more.
 
 
+def test_begin_is_one_time_and_unknown_survives_restart(prepared_state, tmp_path):
+    with pytest.raises(ha.PromptIntentError, match="missing"):
+        prepared_state.load_v2_prompt("repo", "msg_A")
+    with pytest.raises(ha.PromptIntentError, match="missing"):
+        prepared_state.begin_v2_submission("repo", "msg_A")
+    intent = prepared_state.prepare_v2_prompt("repo", "msg_A")
+    started = prepared_state.begin_v2_submission("repo", "msg_A")
+    assert started == {**intent, "admission": "unknown"}
+    with pytest.raises(ha.PromptIntentError):
+        prepared_state.begin_v2_submission("repo", "msg_A")
+    with pytest.raises(ha.PromptIntentError):
+        prepared_state.prepare_v2_prompt("repo", "msg_A")
+    prepared_state.close()
+    reopened = ha.State(tmp_path)
+    try:
+        assert reopened.load_v2_prompt("repo", "msg_A") == started
+        with pytest.raises(ha.PromptIntentError):
+            reopened.begin_v2_submission("repo", "msg_A")
+    finally:
+        reopened.close()
+
+
+def test_failed_begin_rolls_back_before_authorizing_submission(prepared_state):
+    intent = prepared_state.prepare_v2_prompt("repo", "msg_A")
+    prepared_state.db.execute("""CREATE TRIGGER reject_begin BEFORE UPDATE OF prompt_admission ON messages
+        BEGIN SELECT RAISE(ABORT, 'injected rejection'); END""")
+    with pytest.raises(sqlite3.IntegrityError, match="injected rejection"):
+        prepared_state.begin_v2_submission("repo", "msg_A")
+    assert prepared_state.load_v2_prompt("repo", "msg_A") == intent
+
+
 @pytest.mark.parametrize("field,value", [
     ("harness_api", None), ("harness_api", "opencode-v1"),
     ("state", ha.S_RECEIVED), ("session_id", None), ("run_id", None),
