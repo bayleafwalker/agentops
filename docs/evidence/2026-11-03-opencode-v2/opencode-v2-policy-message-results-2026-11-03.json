@@ -1,0 +1,101 @@
+{
+  "schema": "opencode-v2-isolated-qualification/v1",
+  "observed_at": "2026-11-03",
+  "target": {
+    "host": "devbox",
+    "binary": "/nix/store/9ysv2ynpka84idp745mcd8l0ayc2f102-opencode-2.0.32/bin/opencode",
+    "version": "2.0.32"
+  },
+  "isolation": {
+    "network": "bwrap --unshare-net; only the fake model endpoint bound on loopback",
+    "filesystem": "temporary HOME/XDG/worktree/fake CLI; removed after each probe",
+    "credentials": "generated Basic password and synthetic-only local provider key; neither recorded",
+    "production_effects": "none; sprintctl is a fake executable which only records a local marker"
+  },
+  "policy_tool_calls": {
+    "same_shell_call_wildcard_allow": {
+      "command": "touch <temporary sentinel>",
+      "tool_offered_to_model": true,
+      "tool_state": "completed, exit 0",
+      "sentinel_created": true,
+      "idle_outcome": "succeeded"
+    },
+    "same_shell_call_wildcard_deny": {
+      "command": "same exact touch command as wildcard-allow case",
+      "tool_offered_to_model": false,
+      "fake_provider_emitted_shell_call_anyway": true,
+      "tool_state": "error: No tool named shell is currently available",
+      "sentinel_created": false,
+      "idle_outcome": "succeeded"
+    },
+    "narrow_policy": {
+      "rules_in_order": [
+        {"action": "*", "resource": "*", "effect": "deny"},
+        {"action": "shell", "resource": "sprintctl run context *", "effect": "allow"},
+        {"action": "shell", "resource": "sprintctl run note *", "effect": "allow"}
+      ],
+      "context_command": {"tool_offered": true, "tool_state": "completed, exit 0", "fake_sprintctl_invoked": true, "idle_outcome": "succeeded"},
+      "note_command": {"tool_offered": true, "tool_state": "completed, exit 0", "fake_sprintctl_invoked": true, "idle_outcome": "succeeded"},
+      "publish_command": {"command": "sprintctl run publish synthetic-run", "tool_state": "error: Permission denied: shell", "fake_sprintctl_invoked": false, "idle_outcome": "succeeded"},
+      "semicolon_injection": {"command": "sprintctl run context synthetic-run; touch <temporary sentinel>", "rules_added_after_allows": [{"action": "shell", "resource": "*;*", "effect": "deny"}], "tool_state": "error: Permission denied: shell", "fake_sprintctl_invoked": false, "sentinel_created": false, "idle_outcome": "succeeded"}
+    },
+    "reversed_rule_order": {"rules": "specific shell allow followed by wildcard deny", "shell_offered_to_model": false, "tool_state": "error: No tool named shell is currently available", "fake_sprintctl_invoked": false},
+    "input_linkage": {
+      "transcript_user_id_matches_prompt_response_id": true,
+      "idle_id_equals_prompt_response_id": false,
+      "idle_message_contains_input_id_field": false,
+      "idle_success_after_tool_denial": true,
+      "interpretation": "Idle reports session drain outcome; the idle ID is its own msg_ ID and does not identify which user input completed. Tool success/denial must be read from assistant tool parts, not inferred from idle outcome."
+    },
+    "tool_executed_field": "The assistant tool part reported executed=false even when a harmless touch/fake CLI command completed with exit 0 and its temporary side effect was observed. Use state.status and state.metadata.exit for observed process completion."
+  },
+  "messages": {
+    "prompt_default": "POST /api/session/{id}/prompt returned a user inbox object with delivery=steer when delivery was omitted.",
+    "user_transcript": "{id, time:{created}, text, type:'user'}; transcript ID equals the ID returned by prompt POST.",
+    "user_prompt_response": "{data:{id, sessionID, time:{created}, type:'user', payload:{text}, delivery}}",
+    "assistant_success": "{id, time:{created,streamed,completed}, type:'assistant', agent, model:{id,providerID,variant}, content:[{type:'text',text}], finish:'stop', rawFinish, cost, tokens}",
+    "assistant_tool": "content includes {type:'tool', id, name:'shell', executed:false, state:{status:'completed',input:{command},content,metadata:{status,truncated,exit}},time:{created,ran,completed}}",
+    "idle_success": "{id,time:{created},type:'idle',outcome:'succeeded'}",
+    "idle_failed_no_route": "{id,time:{created},type:'idle',outcome:'failed',error:{type:'provider.no-route',message:'Model unavailable: missing-provider/not-configured'}}",
+    "interruption": {
+      "interrupt_response": {"interrupted": true},
+      "assistant_event": "type=assistant, finish=error, error={type:'aborted',message:'Step interrupted'}",
+      "idle_event": "type=idle, outcome=interrupted",
+      "idle_id_equals_prompt_id": false
+    },
+    "queue_inbox": {
+      "while_first_generation_was_held": {
+        "prompt_response": "{data:{id,sessionID,time:{created},type:'user',payload:{text:'queued-next'},delivery:'queue'}}",
+        "GET /api/session/{id}/inbox": "{data:[the same user message object]}",
+        "queued_transcript_id_matches_prompt_response_id": true
+      },
+      "after_release": "Messages contained both user prompts and both assistant turns; the observed drain emitted one terminal idle event for the queued sequence."
+    },
+    "provider_503": "The local fake endpoint returned HTTP 503. Within an 8 second observation window OpenCode had retried (assistant retry attempt=4) and had not emitted terminal idle; do not treat the first provider error as terminal."
+  },
+  "permission_rule_order": "With [wildcard deny, specific shell allow] the shell tool was offered and the specific context/note commands passed. Reversing that order ([specific allow, wildcard deny]) removed shell from the model request. Rules are order-sensitive; use deny first, allow exceptions after it.",
+  "reproducible_artifacts": {
+    "policy_probe": {
+      "path": "opencode-v2-policy-qualification-probe.py",
+      "sha256": "31f9e15c486daf94674317d33432e24e6e5adaca550b9f63f3c36554b496d32b"
+    },
+    "policy_result": {
+      "path": "opencode-v2-policy-qualification-result-2026-11-03.json",
+      "sha256": "235403484feaaea70ba28bf77a2e016664766122202a5f056535a7d83f272d45"
+    },
+    "message_probe": {
+      "path": "opencode-v2-message-shapes-probe.py",
+      "sha256": "77e0df7fa12c32952fe178204f247dc26839b24c841c4b2e88a3927b96ffdd0e"
+    },
+    "message_result": {
+      "path": "opencode-v2-message-shapes-result-2026-11-03.json",
+      "sha256": "12f581d1246e1812039a3301ebfd1cff17a83ae54a450ee439df12dfa60f8afb"
+    }
+  },
+  "assertion_controls": {
+    "both_fixtures_report_all_expected_controls_passed": true,
+    "both_fixtures_force_and_catch_assertion_error": "forced negative control",
+    "policy_negative_controls": ["same shell call denied", "reversed rule order", "unlisted sprintctl publish", "semicolon injection"],
+    "message_negative_controls": ["provider no-route yields failed idle", "interrupt yields interrupted idle", "503 retry remains nonterminal in bounded window"]
+  }
+}

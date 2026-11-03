@@ -1,0 +1,694 @@
+{
+  "assertions": {
+    "all_expected_controls_passed": true,
+    "forced_negative_control": "forced negative control"
+  },
+  "external_network": false,
+  "input_linkage": {
+    "failed_idle_id_equals_prompt_response": false,
+    "interrupted_idle_id_equals_prompt_response": false,
+    "observed_idle_prompt_link_fields": [],
+    "queued_user_id_matches_prompt_and_inbox": true,
+    "sampled_idle_ids_distinct_from_inputs": true,
+    "schema_idle_prompt_link_fields": [],
+    "success_user_id_matches_prompt_response": true
+  },
+  "interruption": {
+    "active_before": {
+      "contains_session": true,
+      "status": 200
+    },
+    "assistant": {
+      "agent": "build",
+      "content": [],
+      "error": {
+        "message": "Step interrupted",
+        "type": "aborted"
+      },
+      "finish": "error",
+      "id": "<msg-id>",
+      "model": {
+        "id": "fake",
+        "providerID": "mock",
+        "variant": "default"
+      },
+      "time": {
+        "completed": "<timestamp>",
+        "created": "<timestamp>"
+      },
+      "type": "assistant"
+    },
+    "idle": {
+      "id": "<msg-id>",
+      "outcome": "interrupted",
+      "time": {
+        "created": "<timestamp>"
+      },
+      "type": "idle"
+    },
+    "idle_id_equals_prompt_response_id": false,
+    "interrupt_response": {
+      "interrupted": true
+    },
+    "prompt_status": 200
+  },
+  "no_route_failure": {
+    "idle": {
+      "error": {
+        "message": "Model unavailable: missing-provider/not-configured",
+        "type": "provider.no-route"
+      },
+      "id": "<msg-id>",
+      "outcome": "failed",
+      "time": {
+        "created": "<timestamp>"
+      },
+      "type": "idle"
+    },
+    "idle_id_equals_prompt_response_id": false,
+    "prompt_status": 200,
+    "transcript_user_id_matches_prompt_response": true
+  },
+  "provider_503_retry": {
+    "assistant_retry": {
+      "agent": "build",
+      "content": [],
+      "id": "<msg-id>",
+      "model": {
+        "id": "fake",
+        "providerID": "mock",
+        "variant": "default"
+      },
+      "retry": {
+        "at": 1793730866160,
+        "attempt": 4,
+        "error": {
+          "message": "synthetic provider failure",
+          "response": {
+            "body": "{\"error\": {\"message\": \"synthetic provider failure\"}}"
+          },
+          "status": 503,
+          "type": "provider.internal"
+        }
+      },
+      "time": {
+        "created": "<timestamp>"
+      },
+      "type": "assistant"
+    },
+    "prompt_status": 200,
+    "provider_requests": 3,
+    "terminal_idle_seen_within_8s": false
+  },
+  "queue": {
+    "first_prompt_status": 200,
+    "idle_count_after_drain": 1,
+    "idle_id_equals_queued_prompt_id": false,
+    "inbox_status_while_active": 200,
+    "inbox_while_active": [
+      {
+        "delivery": "queue",
+        "id": "<msg-id>",
+        "payload": {
+          "text": "queued-next"
+        },
+        "sessionID": "<session-id>",
+        "time": {
+          "created": "<timestamp>"
+        },
+        "type": "user"
+      }
+    ],
+    "message_types_after_drain": [
+      "idle",
+      "assistant",
+      "user",
+      "assistant",
+      "user"
+    ],
+    "queued_id_matches_inbox_entry": true,
+    "queued_id_matches_transcript_user": true,
+    "queued_prompt": {
+      "delivery": "queue",
+      "id": "<msg-id>",
+      "payload": {
+        "text": "queued-next"
+      },
+      "sessionID": "<session-id>",
+      "time": {
+        "created": "<timestamp>"
+      },
+      "type": "user"
+    },
+    "queued_prompt_status": 200
+  },
+  "schemas": {
+    "Session.Inbox.User": {
+      "additionalProperties": false,
+      "properties": {
+        "delivery": {
+          "$ref": "#/components/schemas/Session.Inbox.Delivery"
+        },
+        "id": {
+          "$ref": "#/components/schemas/Session.Message.ID"
+        },
+        "payload": {
+          "$ref": "#/components/schemas/Session.Inbox.UserPayload"
+        },
+        "sessionID": {
+          "$ref": "#/components/schemas/Session.ID"
+        },
+        "time": {
+          "additionalProperties": false,
+          "properties": {
+            "created": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "created"
+          ],
+          "type": "object"
+        },
+        "type": {
+          "enum": [
+            "user"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "sessionID",
+        "time",
+        "type",
+        "payload",
+        "delivery"
+      ],
+      "type": "object"
+    },
+    "Session.Inbox.UserPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "agents": {
+          "items": {
+            "$ref": "#/components/schemas/Prompt.AgentAttachment"
+          },
+          "type": "array"
+        },
+        "files": {
+          "items": {
+            "$ref": "#/components/schemas/Prompt.FileAttachment"
+          },
+          "type": "array"
+        },
+        "metadata": {
+          "type": "object"
+        },
+        "skills": {
+          "items": {
+            "$ref": "#/components/schemas/Prompt.SkillAttachment"
+          },
+          "type": "array"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "type": "object"
+    },
+    "Session.Message.Assistant": {
+      "additionalProperties": false,
+      "properties": {
+        "agent": {
+          "$ref": "#/components/schemas/Agent.ID"
+        },
+        "content": {
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Session.Message.Assistant.Text"
+              },
+              {
+                "$ref": "#/components/schemas/Session.Message.Assistant.Reasoning"
+              },
+              {
+                "$ref": "#/components/schemas/Session.Message.Assistant.Tool"
+              }
+            ]
+          },
+          "type": "array"
+        },
+        "cost": {
+          "$ref": "#/components/schemas/Money.USD"
+        },
+        "error": {
+          "$ref": "#/components/schemas/Session.StructuredError"
+        },
+        "finish": {
+          "enum": [
+            "stop",
+            "length",
+            "tool-calls",
+            "content-filter",
+            "error",
+            "unknown"
+          ],
+          "type": "string"
+        },
+        "id": {
+          "$ref": "#/components/schemas/Session.Message.ID"
+        },
+        "metadata": {
+          "type": "object"
+        },
+        "model": {
+          "$ref": "#/components/schemas/Model.Ref"
+        },
+        "providerState": {
+          "$ref": "#/components/schemas/Session.Message.ProviderState_4"
+        },
+        "rawFinish": {
+          "type": "string"
+        },
+        "retry": {
+          "$ref": "#/components/schemas/Session.Message.Assistant.Retry"
+        },
+        "snapshot": {
+          "additionalProperties": false,
+          "properties": {
+            "end": {
+              "$ref": "#/components/schemas/Snapshot.ID"
+            },
+            "files": {
+              "items": {
+                "$ref": "#/components/schemas/RelativePath"
+              },
+              "type": "array"
+            },
+            "start": {
+              "$ref": "#/components/schemas/Snapshot.ID"
+            }
+          },
+          "type": "object"
+        },
+        "time": {
+          "additionalProperties": false,
+          "properties": {
+            "completed": {
+              "type": "number"
+            },
+            "created": {
+              "type": "number"
+            },
+            "streamed": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "created"
+          ],
+          "type": "object"
+        },
+        "tokens": {
+          "$ref": "#/components/schemas/TokenUsage.Info"
+        },
+        "type": {
+          "enum": [
+            "assistant"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "time",
+        "type",
+        "agent",
+        "model",
+        "content"
+      ],
+      "type": "object"
+    },
+    "Session.Message.Assistant.Tool": {
+      "additionalProperties": false,
+      "properties": {
+        "executed": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "providerResultState": {
+          "$ref": "#/components/schemas/Session.Message.ProviderState_3"
+        },
+        "providerState": {
+          "$ref": "#/components/schemas/Session.Message.ProviderState_2"
+        },
+        "state": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/Session.Message.ToolState.Streaming"
+            },
+            {
+              "$ref": "#/components/schemas/Session.Message.ToolState.Running"
+            },
+            {
+              "$ref": "#/components/schemas/Session.Message.ToolState.Completed"
+            },
+            {
+              "$ref": "#/components/schemas/Session.Message.ToolState.Error"
+            }
+          ]
+        },
+        "time": {
+          "additionalProperties": false,
+          "properties": {
+            "completed": {
+              "type": "number"
+            },
+            "created": {
+              "type": "number"
+            },
+            "ran": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "created"
+          ],
+          "type": "object"
+        },
+        "type": {
+          "enum": [
+            "tool"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "name",
+        "state",
+        "time"
+      ],
+      "type": "object"
+    },
+    "Session.Message.Idle": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "$ref": "#/components/schemas/Session.StructuredError"
+        },
+        "id": {
+          "$ref": "#/components/schemas/Session.Message.ID"
+        },
+        "metadata": {
+          "type": "object"
+        },
+        "outcome": {
+          "enum": [
+            "succeeded",
+            "failed",
+            "interrupted"
+          ],
+          "type": "string"
+        },
+        "time": {
+          "additionalProperties": false,
+          "properties": {
+            "created": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "created"
+          ],
+          "type": "object"
+        },
+        "type": {
+          "enum": [
+            "idle"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "time",
+        "type",
+        "outcome"
+      ],
+      "type": "object"
+    },
+    "Session.Message.ToolState.Completed": {
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "items": {
+            "$ref": "#/components/schemas/Tool.Content"
+          },
+          "minItems": 1,
+          "prefixItems": [
+            {
+              "$ref": "#/components/schemas/Tool.Content"
+            }
+          ],
+          "type": "array"
+        },
+        "input": {
+          "type": "object"
+        },
+        "metadata": {
+          "type": "object"
+        },
+        "status": {
+          "enum": [
+            "completed"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "input",
+        "content"
+      ],
+      "type": "object"
+    },
+    "Session.Message.ToolState.Error": {
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "items": {
+            "$ref": "#/components/schemas/Tool.Content"
+          },
+          "minItems": 1,
+          "prefixItems": [
+            {
+              "$ref": "#/components/schemas/Tool.Content"
+            }
+          ],
+          "type": "array"
+        },
+        "error": {
+          "$ref": "#/components/schemas/Session.StructuredError"
+        },
+        "input": {
+          "type": "object"
+        },
+        "metadata": {
+          "type": "object"
+        },
+        "status": {
+          "enum": [
+            "error"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "input",
+        "error"
+      ],
+      "type": "object"
+    },
+    "Session.Message.User": {
+      "additionalProperties": false,
+      "properties": {
+        "agents": {
+          "items": {
+            "$ref": "#/components/schemas/Prompt.AgentAttachment"
+          },
+          "type": "array"
+        },
+        "files": {
+          "items": {
+            "$ref": "#/components/schemas/Prompt.FileAttachment"
+          },
+          "type": "array"
+        },
+        "id": {
+          "$ref": "#/components/schemas/Session.Message.ID"
+        },
+        "metadata": {
+          "type": "object"
+        },
+        "skills": {
+          "items": {
+            "$ref": "#/components/schemas/Prompt.SkillAttachment"
+          },
+          "type": "array"
+        },
+        "text": {
+          "type": "string"
+        },
+        "time": {
+          "additionalProperties": false,
+          "properties": {
+            "created": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "created"
+          ],
+          "type": "object"
+        },
+        "type": {
+          "enum": [
+            "user"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "time",
+        "text",
+        "type"
+      ],
+      "type": "object"
+    },
+    "Session.StructuredError": {
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "type": "string"
+        },
+        "response": {
+          "additionalProperties": false,
+          "properties": {
+            "body": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "body"
+          ],
+          "type": "object"
+        },
+        "status": {
+          "maximum": 599,
+          "minimum": 100,
+          "type": "integer"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "message"
+      ],
+      "type": "object"
+    }
+  },
+  "success": {
+    "assistant": {
+      "agent": "build",
+      "content": [
+        {
+          "text": "Synthetic response.",
+          "type": "text"
+        }
+      ],
+      "cost": 0,
+      "finish": "stop",
+      "id": "<msg-id>",
+      "model": {
+        "id": "fake",
+        "providerID": "mock",
+        "variant": "default"
+      },
+      "rawFinish": "stop",
+      "time": {
+        "completed": "<timestamp>",
+        "created": "<timestamp>",
+        "streamed": "<timestamp>"
+      },
+      "tokens": {
+        "cache": {
+          "read": 0,
+          "write": 0
+        },
+        "input": 0,
+        "output": 0,
+        "reasoning": 0
+      },
+      "type": "assistant"
+    },
+    "idle": {
+      "id": "<msg-id>",
+      "outcome": "succeeded",
+      "time": {
+        "created": "<timestamp>"
+      },
+      "type": "idle"
+    },
+    "idle_fields": [
+      "id",
+      "outcome",
+      "time",
+      "type"
+    ],
+    "idle_id_equals_prompt": false,
+    "idle_keys": [
+      "id",
+      "outcome",
+      "time",
+      "type"
+    ],
+    "prompt_response": {
+      "delivery": "steer",
+      "id": "<msg-id>",
+      "payload": {
+        "text": "SUCCESS-ME"
+      },
+      "sessionID": "<session-id>",
+      "time": {
+        "created": "<timestamp>"
+      },
+      "type": "user"
+    },
+    "prompt_status": 200,
+    "transcript_user": {
+      "id": "<msg-id>",
+      "text": "SUCCESS-ME",
+      "time": {
+        "created": "<timestamp>"
+      },
+      "type": "user"
+    },
+    "user_id_matches_prompt": true
+  },
+  "version": "2.0.32"
+}
