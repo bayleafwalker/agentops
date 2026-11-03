@@ -1,0 +1,20 @@
+diff --git a/scripts/audit_model_routing.py b/scripts/audit_model_routing.py
+index b338052..30e4cb9 100644
+--- a/scripts/audit_model_routing.py
++++ b/scripts/audit_model_routing.py
+@@ -13,8 +13,14 @@ ROOT = Path(__file__).resolve().parents[1]
+ def observed_models(value: object) -> set[str]:
+     if isinstance(value, dict) and isinstance(value.get("models"), list):
+         rows = value["models"]
+-        if not rows or any(not isinstance(row, dict) or not isinstance(row.get("slug"), str) for row in rows):
++        if not rows:
+             raise ValueError("catalogue has no usable model records")
++        for row in rows:
++            if not isinstance(row, dict):
++                raise ValueError("catalogue has no usable model records")
++            slug = row.get("slug")
++            if not isinstance(slug, str) or not slug.strip():
++                raise ValueError("catalogue has no usable model records")
+         return {row["slug"] for row in rows if row.get("visibility") != "hide"}
+     if isinstance(value, list) and value:
+         models = set()
