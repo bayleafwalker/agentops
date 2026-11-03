@@ -355,7 +355,9 @@ def test_terminal_observation_requires_two_stable_single_input_snapshots(monkeyp
         pytest.fail("unexpected request")
     monkeypatch.setattr(c, "_request", request)
     result = c.observe_terminal("ses_1", "msg_input", digest, "/work", "local/model", PERMISSIONS)
-    assert result == {"status": "terminal-observed", "outcome": outcome,
+    interval = json.dumps(rows, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    assert result == {"status": "terminal-observed", "outcome": outcome, "terminal_id": "msg_idle",
+                      "interval_sha256": hashlib.sha256(interval.encode()).hexdigest(),
                       "correlation": "single-input-two-snapshot", "atomicity": "not-established"}
     assert len([p for p, _ in calls if p.endswith("/message")]) == 2
     assert all(k["query"]["order"] == "asc" for p, k in calls if p.endswith("/message"))

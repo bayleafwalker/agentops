@@ -1,0 +1,125 @@
+{
+  "cases": {
+    "failure": {
+      "digest_and_terminal_id_match": true,
+      "independent_capture": {
+        "interval_sha256": "0efabc6e22f2bf57d39cf190b0ccd82c96c59a98b7fb927092c18a9c78637abe",
+        "ordered_types": [
+          "user",
+          "idle"
+        ],
+        "row_count": 2,
+        "terminal_id": "msg_1a2f4a819001HaAH5wIdhWmLEE"
+      },
+      "observation": {
+        "atomicity": "not-established",
+        "correlation": "single-input-two-snapshot",
+        "interval_sha256": "0efabc6e22f2bf57d39cf190b0ccd82c96c59a98b7fb927092c18a9c78637abe",
+        "outcome": "failed",
+        "status": "terminal-observed",
+        "terminal_id": "msg_1a2f4a819001HaAH5wIdhWmLEE"
+      }
+    },
+    "foreign_session_queue": {
+      "digest_and_terminal_id_match": true,
+      "foreign_queue_present": true,
+      "independent_capture": {
+        "interval_sha256": "c974a0ce0a714c418c52772a0af625740a6ffd128631be3d1656c1ff3daa79e0",
+        "ordered_types": [
+          "user",
+          "assistant",
+          "idle"
+        ],
+        "row_count": 3,
+        "terminal_id": "msg_1a2f4a9b600158gQ6gvnS7Z8e4"
+      },
+      "unrelated_terminal": {
+        "atomicity": "not-established",
+        "correlation": "single-input-two-snapshot",
+        "interval_sha256": "c974a0ce0a714c418c52772a0af625740a6ffd128631be3d1656c1ff3daa79e0",
+        "outcome": "succeeded",
+        "status": "terminal-observed",
+        "terminal_id": "msg_1a2f4a9b600158gQ6gvnS7Z8e4"
+      }
+    },
+    "interruption": {
+      "active_observation": {
+        "status": "active"
+      },
+      "digest_and_terminal_id_match": true,
+      "independent_capture": {
+        "interval_sha256": "8bfb6d85863593d46c2af662947420896273da26563dad12d41504135b263aac",
+        "ordered_types": [
+          "user",
+          "assistant",
+          "idle"
+        ],
+        "row_count": 3,
+        "terminal_id": "msg_1a2f4a8a9001bfbo01npC7VfSb"
+      },
+      "interrupt_ack": {
+        "interrupted": true,
+        "status": "acknowledged"
+      },
+      "terminal_observation": {
+        "atomicity": "not-established",
+        "correlation": "single-input-two-snapshot",
+        "interval_sha256": "8bfb6d85863593d46c2af662947420896273da26563dad12d41504135b263aac",
+        "outcome": "interrupted",
+        "status": "terminal-observed",
+        "terminal_id": "msg_1a2f4a8a9001bfbo01npC7VfSb"
+      }
+    },
+    "same_session_queued": {
+      "active_observation": {
+        "status": "active"
+      },
+      "after_interrupt_observation": {
+        "status": "unknown"
+      },
+      "interrupt_ack": {
+        "interrupted": true,
+        "status": "acknowledged"
+      },
+      "queued_id_still_in_inbox": true
+    },
+    "success": {
+      "digest_and_terminal_id_match": true,
+      "first": {
+        "atomicity": "not-established",
+        "correlation": "single-input-two-snapshot",
+        "interval_sha256": "a77b3db5ba0925d4a9641190e38e25f541b6ae108267e5c3e77af0a8c8df0565",
+        "outcome": "succeeded",
+        "status": "terminal-observed",
+        "terminal_id": "msg_1a2f4a778001DQ7u7oI3x6qbz1"
+      },
+      "independent_capture": {
+        "interval_sha256": "a77b3db5ba0925d4a9641190e38e25f541b6ae108267e5c3e77af0a8c8df0565",
+        "ordered_types": [
+          "user",
+          "assistant",
+          "idle"
+        ],
+        "row_count": 3,
+        "terminal_id": "msg_1a2f4a778001DQ7u7oI3x6qbz1"
+      },
+      "repeat": {
+        "atomicity": "not-established",
+        "correlation": "single-input-two-snapshot",
+        "interval_sha256": "a77b3db5ba0925d4a9641190e38e25f541b6ae108267e5c3e77af0a8c8df0565",
+        "outcome": "succeeded",
+        "status": "terminal-observed",
+        "terminal_id": "msg_1a2f4a778001DQ7u7oI3x6qbz1"
+      }
+    }
+  },
+  "isolation": {
+    "loopback_fake_provider": true,
+    "network_unshared": true,
+    "no_real_provider_credentials": true,
+    "synthetic_password_not_recorded": true,
+    "temporary_home_xdg": true
+  },
+  "module_sha256": "95b7bca4ad30b304617241fcb7d900c169b9113a546a5066b94623f256346cad",
+  "version": "2.0.32"
+}

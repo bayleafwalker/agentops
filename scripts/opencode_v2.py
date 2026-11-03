@@ -349,5 +349,11 @@ class OpenCodeV2:
             return {"status": second["status"]}
         if rows != second["rows"]:
             return {"status": "unknown"}
+        try:
+            interval = json.dumps(rows, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+            interval_digest = hashlib.sha256(interval.encode()).hexdigest()
+        except (TypeError, ValueError, UnicodeError):
+            raise V2Error("invalid terminal interval") from None
         return {"status": "terminal-observed", "outcome": idles[0]["outcome"],
+                "terminal_id": idles[0]["id"], "interval_sha256": interval_digest,
                 "correlation": "single-input-two-snapshot", "atomicity": "not-established"}
