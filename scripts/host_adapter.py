@@ -1634,7 +1634,7 @@ class Adapter:
                  checkpoint: Callable[[str], None] | None = None,
                  log: Callable[[str], None] | None = None,
                  experimental_v2_session_transport=None, experimental_v2_prompt_admission: bool = False,
-                 experimental_v2_terminal_completion: bool = False) -> None:
+                 experimental_v2_terminal_completion: bool = False, experimental_v2_cancellation: bool = False) -> None:
         self.owner = owner
         self.harness = harness
         # Constructor injection is reserved for synthetic fixtures. No CLI or
@@ -1647,6 +1647,10 @@ class Adapter:
                 or (experimental_v2_terminal_completion and not self._fixture_v2_prompt)):
             raise ValueError("fixture terminal completion requires fixture prompt admission")
         self._fixture_v2_terminal = experimental_v2_terminal_completion
+        if (not isinstance(experimental_v2_cancellation, bool)
+                or (experimental_v2_cancellation and not self._fixture_v2_terminal)):
+            raise ValueError("fixture cancellation requires fixture terminal completion")
+        self._fixture_v2_cancellation = experimental_v2_cancellation
         self.state = state
         self.policy_path = Path(policy_path)
         self.config = config or Config()
@@ -1768,6 +1772,9 @@ class Adapter:
                             or rec["v2_terminal_evidence_sha256"] is not None)):
                         self._on_fixture_v2_admission(rec)
                         rec = self.state.get(repo, mid)
+                        if self._fixture_v2_cancellation and rec["state"] == S_LAUNCHED:
+                            self._on_fixture_v2_cancellation(rec)
+                            rec = self.state.get(repo, mid)
                     if self._fixture_v2_terminal and rec["state"] == S_LAUNCHED and self._on_fixture_v2_terminal(rec):
                         continue
                 elif rec["state"] in (S_FINISHED, S_NOT_STARTED):
@@ -2552,6 +2559,47 @@ class Adapter:
         self.state.finish_fixture_v2_terminal(*key)
         self._checkpoint("v2_terminal_disposition_persisted")
         return True
+
+    def _on_fixture_v2_cancellation(self, rec) -> None:
+        """Synthetic cancellation requests; fixture must control all session writers."""
+        if rec["prompt_admission"] not in ("unknown", "admitted"):
+            return
+        key = (rec["repo_id"], rec["message_id"])
+        status = self.owner.message_status(rec["repo_id"], message_id=rec["message_id"])
+        receipts = status.get("receipts") or (status.get("message") or {}).get("receipts") or []
+        if not _has_cancel(receipts):
+            return
+        self.state.prepare_v2_cancellation(*key, reason="cancel-requested")
+        cancel = self.state.load_v2_cancellation(*key)
+        if not self._fixture_v2_ready():
+            return
+        prompt = self.state.load_v2_prompt(*key)
+        binding = self.state.load_v2_launch_binding(*key)
+        registration = self.state.load_v2_registration_intent(*key)["arguments"]
+        if (registration["harness_build"] != binding["server_version"]
+                or registration["model_id"] != binding["model_id"]):
+            raise HarnessError("fixture registration binding mismatch")
+        args = (rec["session_id"], prompt["id"], prompt["sha256"], binding["directory"], binding["model_id"], binding["permissions"])
+        observed = self._fixture_v2.inspect_cancellation_target(*args)
+        action = {"queued": "delete", "running": "interrupt"}.get(observed.get("status"))
+        if action == "delete":
+            self.state.update(*key, last_error="fixture queued deletion is unqualified")
+            return
+        if action is None or cancel[f"{action}_state"] != "not_requested":
+            return
+        if self._fixture_v2.inspect_cancellation_target(*args).get("status") != observed["status"]:
+            return
+        status = self.owner.message_status(rec["repo_id"], message_id=rec["message_id"])
+        receipts = status.get("receipts") or (status.get("message") or {}).get("receipts") or []
+        if not _has_cancel(receipts) or not self._fixture_v2_ready():
+            return
+        self.state.begin_v2_cancellation_action(*key, action=action)
+        self._checkpoint(f"v2_{action}_unknown_persisted")
+        if action == "delete":
+            self._fixture_v2.request_pending_deletion(rec["session_id"], prompt["id"])
+        else:
+            self._fixture_v2.interrupt_session(rec["session_id"])
+        self._checkpoint(f"v2_{action}_acknowledged")
 
     def _on_launch_intent(self, rec) -> bool:
         """Recovery only: an intent with no session id. Never creates a session."""

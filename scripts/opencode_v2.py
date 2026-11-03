@@ -250,6 +250,99 @@ class OpenCodeV2:
         self._request("DELETE", f"/api/session/{sid}/inbox/{pid}", empty_ok=True)
         return {"status": "acknowledged"}
 
+    def inspect_cancellation_target(self, session_id, prompt_id, text_sha256, directory, model_id, permissions):
+        """Observe a sole queued/running input twice; this is not an exclusion fence."""
+        sid, pid = self._id(session_id), self._id(prompt_id)
+        if not pid.startswith("msg_") or not isinstance(text_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", text_sha256):
+            raise V2Error("invalid prompt digest")
+        binding = self._binding(directory, model_id, permissions)
+        def snapshot():
+            self._validate(self.get_session(sid), binding)
+            active = self._active(sid)
+            inbox = self._request("GET", f"/api/session/{sid}/inbox").get("data")
+            if not isinstance(inbox, list):
+                raise V2Error("invalid inbox")
+            seen, cursor, rows = set(), None, []
+            for _ in range(self.MAX_PAGES):
+                query = {"limit": self.PAGE_SIZE}
+                if cursor is None:
+                    query["order"] = "asc"
+                else:
+                    query["cursor"] = cursor
+                page = self._request("GET", f"/api/session/{sid}/message", query=query)
+                batch, paging = page.get("data"), page.get("cursor")
+                if not isinstance(batch, list) or not isinstance(paging, dict) or "next" not in paging:
+                    raise V2Error("invalid message page")
+                rows.extend(batch)
+                cursor = paging["next"]
+                if cursor is None:
+                    break
+                if not isinstance(cursor, str) or not cursor or cursor in seen:
+                    raise V2Error("invalid message cursor")
+                seen.add(cursor)
+            else:
+                raise V2Error("message page limit exceeded")
+            self._validate(self.get_session(sid), binding)
+            if self._active(sid) != active:
+                return None
+            inbox_after = self._request("GET", f"/api/session/{sid}/inbox").get("data")
+            if not isinstance(inbox_after, list):
+                raise V2Error("invalid inbox")
+            if inbox_after != inbox:
+                return None
+            return {"active": active, "inbox": inbox, "rows": rows}
+        first, second = snapshot(), snapshot()
+        if first is None or first != second:
+            return {"status": "unknown"}
+        inbox, rows = first["inbox"], first["rows"]
+        if any(not isinstance(item, dict) or not isinstance(item.get("id"), str) for item in inbox + rows):
+            raise V2Error("invalid cancellation projection")
+        for row in rows:
+            time = row.get("time")
+            created = time.get("created") if isinstance(time, dict) else None
+            try:
+                valid_time = not isinstance(created, bool) and isinstance(created, (int, float)) and math.isfinite(created)
+            except OverflowError:
+                valid_time = False
+            if not valid_time:
+                raise V2Error("invalid cancellation projection")
+        ids = [item["id"] for item in rows]
+        if len(ids) != len(set(ids)):
+            raise V2Error("duplicate message identity")
+        users = [row for row in rows if row.get("type") == "user"]
+        if any(row.get("type") not in ("user", "assistant", "idle") for row in rows):
+            return {"status": "unknown"}
+        if any(row.get("type") == "idle" for row in rows):
+            return {"status": "unknown"}
+        if len(inbox) == 1 and not rows and not first["active"]:
+            item = inbox[0]
+            payload = item.get("payload")
+            item_time = item.get("time")
+            created = item_time.get("created") if isinstance(item_time, dict) else None
+            try:
+                valid_time = not isinstance(created, bool) and isinstance(created, (int, float)) and math.isfinite(created)
+            except OverflowError:
+                valid_time = False
+            if (item.get("id") == pid and item.get("sessionID") == sid and item.get("type") == "user"
+                    and item.get("delivery") in ("steer", "queue") and valid_time
+                    and isinstance(payload, dict) and set(payload) == {"text"} and isinstance(payload["text"], str)
+                    and hashlib.sha256(payload["text"].encode()).hexdigest() == text_sha256):
+                return {"status": "queued"}
+        if (not inbox and first["active"] and len(users) == 1 and rows and rows[0] is users[0]
+                and users[0].get("id") == pid and set(users[0]) == {"id", "type", "text", "time"}
+                and isinstance(users[0].get("text"), str)
+                and hashlib.sha256(users[0]["text"].encode()).hexdigest() == text_sha256):
+            for row in rows:
+                if row["type"] == "assistant":
+                    model = row.get("model")
+                    if (not isinstance(row.get("agent"), str) or not row["agent"] or not isinstance(row.get("content"), list)
+                            or not isinstance(model, dict) or set(model) - {"providerID", "id", "variant"}
+                            or model.get("providerID") != binding["model"]["providerID"]
+                            or model.get("id") != binding["model"]["id"] or model.get("variant", "default") != "default"):
+                        return {"status": "unknown"}
+            return {"status": "running"}
+        return {"status": "unknown"}
+
     def _active(self, sid):
         data = self._request("GET", "/api/session/active").get("data")
         if not isinstance(data, dict):
