@@ -69,6 +69,78 @@ def test_failed_begin_rolls_back_before_authorizing_submission(prepared_state):
     assert prepared_state.load_v2_prompt("repo", "msg_A") == intent
 
 
+def observation(state, sources=None):
+    prompt = state.load_v2_prompt("repo", "msg_A")
+    row = state.get("repo", "msg_A")
+    return {"status": "observed", "id": prompt["id"], "session_id": row["session_id"],
+            "sha256": prompt["sha256"], "sources": sources or ["inbox"], "server_version": "2.0.32",
+            "prompt_binding_sha256": row["prompt_binding_sha256"]}
+
+
+def test_admission_checkpoint_merges_sources_and_survives_restart(prepared_state, tmp_path):
+    prepared_state.prepare_v2_prompt("repo", "msg_A")
+    started = prepared_state.begin_v2_submission("repo", "msg_A")
+    evidence = prepared_state.record_v2_admission("repo", "msg_A", observation(prepared_state))
+    assert evidence["sources"] == ["inbox"]
+    assert prepared_state.record_v2_admission("repo", "msg_A", observation(prepared_state)) == evidence
+    merged = prepared_state.record_v2_admission("repo", "msg_A", observation(prepared_state, ["message"]))
+    assert merged["sources"] == ["inbox", "message"] and merged["first_observed_at"] == evidence["first_observed_at"]
+    prepared_state.close()
+    reopened = ha.State(tmp_path)
+    try:
+        assert reopened.load_v2_prompt("repo", "msg_A") == {**started, "admission": "admitted"}
+        with pytest.raises(ha.PromptIntentError):
+            reopened.begin_v2_submission("repo", "msg_A")
+    finally:
+        reopened.close()
+
+
+@pytest.mark.parametrize("field,value", [("status", "unknown"), ("id", "msg_other"),
+                                        ("session_id", "ses_other"), ("sha256", "0" * 64),
+                                        ("prompt_binding_sha256", "0" * 64),
+                                        ("server_version", "2.0.33"), ("sources", [])])
+def test_admission_rejects_unverified_or_changed_observations(prepared_state, field, value):
+    prepared_state.prepare_v2_prompt("repo", "msg_A")
+    prepared_state.begin_v2_submission("repo", "msg_A")
+    item = observation(prepared_state)
+    item[field] = value
+    with pytest.raises(ha.PromptIntentError):
+        prepared_state.record_v2_admission("repo", "msg_A", item)
+    assert prepared_state.load_v2_prompt("repo", "msg_A")["admission"] == "unknown"
+
+
+def test_admission_checkpoint_rejects_corruption_and_rolls_back(prepared_state):
+    prepared_state.prepare_v2_prompt("repo", "msg_A")
+    prepared_state.begin_v2_submission("repo", "msg_A")
+    item = observation(prepared_state)
+    prepared_state.db.execute("""CREATE TRIGGER reject_admission BEFORE UPDATE OF prompt_admission_evidence ON messages
+        BEGIN SELECT RAISE(ABORT, 'injected rejection'); END""")
+    with pytest.raises(sqlite3.IntegrityError):
+        prepared_state.record_v2_admission("repo", "msg_A", item)
+    assert prepared_state.load_v2_prompt("repo", "msg_A")["admission"] == "unknown"
+    prepared_state.db.execute("DROP TRIGGER reject_admission")
+    prepared_state.record_v2_admission("repo", "msg_A", item)
+    prepared_state.update("repo", "msg_A", prompt_admission_evidence="{}")
+    with pytest.raises(ha.PromptIntentError, match="evidence"):
+        prepared_state.load_v2_prompt("repo", "msg_A")
+
+
+def test_admission_rejects_nonfinite_timestamps(prepared_state):
+    prepared_state.prepare_v2_prompt("repo", "msg_A")
+    prepared_state.begin_v2_submission("repo", "msg_A")
+    item = observation(prepared_state)
+    old_clock = prepared_state.clock
+    prepared_state.clock = lambda: float("nan")
+    with pytest.raises(ha.PromptIntentError, match="clock"):
+        prepared_state.record_v2_admission("repo", "msg_A", item)
+    prepared_state.clock = old_clock
+    evidence = prepared_state.record_v2_admission("repo", "msg_A", item)
+    evidence["first_observed_at"] = float("inf")
+    prepared_state.update("repo", "msg_A", prompt_admission_evidence=json.dumps(evidence))
+    with pytest.raises(ha.PromptIntentError, match="evidence"):
+        prepared_state.load_v2_prompt("repo", "msg_A")
+
+
 @pytest.mark.parametrize("field,value", [
     ("harness_api", None), ("harness_api", "opencode-v1"),
     ("state", ha.S_RECEIVED), ("session_id", None), ("run_id", None),
