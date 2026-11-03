@@ -1030,6 +1030,15 @@ def test_health_is_false_when_the_server_is_down():
     assert ha.OpenCodeServe("http://127.0.0.1:1", timeout=0.5).health() is False
 
 
+def test_unhealthy_harness_defers_launch_after_run_registration(rig):
+    rig.harness.healthy = False
+    rig.owner.send()
+    rig.tick(3)
+    assert rig.rec()["state"] == ha.S_RUN_REGISTERED
+    assert rig.rec()["run_id"] is not None
+    assert rig.harness.creates == 0
+    assert rig.harness.prompts == []
+
 # ---------------------------------------------------------------- review round: abort, robustness, receipts
 
 def test_abort_before_busy_is_a_noop_so_it_is_repeated_while_busy(rig):
