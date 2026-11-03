@@ -48,6 +48,36 @@ assertion raises and records the failure marker. For reproduction:
 ssh devbox-agent 'bwrap --unshare-net --ro-bind / / --tmpfs /tmp --dev /dev --proc /proc --clearenv --setenv PATH /run/current-system/sw/bin:/usr/bin:/bin python3 -' < docs/evidence/2026-11-03-opencode-v2/opencode-v2-shell-metachar-probe.py
 ```
 
+The prompt-admission fixture then measured the request/ack and projection path.
+OpenAPI requires prompt `text`; omitting it returned HTTP 400 and left the
+transcript IDs unchanged. A valid prompt returned HTTP 200 with
+`{data:{delivery,id,payload,sessionID,time,type}}`; the default delivery was
+`steer`, and its user ID/text matched the transcript. A queued prompt appeared
+immediately in the inbox with the same ID/text. While the first synthetic
+inference was held, that queued ID was absent from the transcript throughout a
+one-second observation window; after release and drain it appeared with the
+same text. The inbox was empty after drain.
+
+Four acknowledged turns produced 12 transcript rows. Reading with `limit=2`
+returned six full pages and an empty terminal page; paged IDs were unique and
+their set matched the unpaged read. For response loss, a loopback proxy received
+the server's HTTP 200 acknowledgement and then dropped it, so the caller saw
+`RemoteDisconnected`. A client-supplied message ID was already present in the
+transcript. Replaying that ID returned the original acknowledgement without a
+second transcript row or provider request in the two-second observation. A
+replay with the same ID but different text also returned the original text.
+This demonstrates observed same-process behavior; it does not establish
+deduplication durability across a server restart. Likewise, transcript
+projection absence was measured only during the bounded one-second held
+inference window.
+
+The prompt fixture and sanitized result are bound by SHA-256 in the compact
+summary below. Reproduce it on the isolated devbox with:
+
+```sh
+ssh devbox-agent 'bwrap --unshare-net --ro-bind / / --tmpfs /tmp --dev /dev --proc /proc --clearenv --setenv PATH /run/current-system/sw/bin:/usr/bin:/bin python3 -' < docs/evidence/2026-11-03-opencode-v2/opencode-v2-prompt-admission-probe.py
+```
+
 The compact [summary](opencode-v2-policy-message-results-2026-11-03.json) binds
 the original policy/message scripts and their initial sanitized results by
 SHA-256. The scripts assert positive and negative observations and exercise a

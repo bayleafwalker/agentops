@@ -1,0 +1,404 @@
+{
+  "delayed_projection": {
+    "first_ack_delivery": "steer",
+    "first_prompt_status": 200,
+    "immediate_inbox_count": 1,
+    "immediate_inbox_status": 200,
+    "immediate_transcript_count": 1,
+    "inbox_count_after_drain": 0,
+    "inbox_envelope_keys": [
+      "data"
+    ],
+    "inbox_item_delivery": "queue",
+    "inbox_item_keys": [
+      "delivery",
+      "id",
+      "payload",
+      "sessionID",
+      "time",
+      "type"
+    ],
+    "inbox_item_payload_keys": [
+      "text"
+    ],
+    "inbox_item_text": "DELAY-QUEUED",
+    "inbox_status_after_drain": 200,
+    "projection_observation_window_ms": 1000,
+    "queued_ack_data_keys": [
+      "delivery",
+      "id",
+      "payload",
+      "sessionID",
+      "time",
+      "type"
+    ],
+    "queued_ack_delivery": "queue",
+    "queued_ack_id_in_transcript_after_drain": true,
+    "queued_ack_id_in_transcript_before_release": false,
+    "queued_ack_id_matches_inbox": true,
+    "queued_inbox_first_seen_ms_after_ack": 0,
+    "queued_prompt_status": 200,
+    "queued_transcript_first_seen_ms_after_ack": null,
+    "queued_user_text_after_drain": "DELAY-QUEUED",
+    "queued_user_text_before_release": ""
+  },
+  "isolation": {
+    "bwrap_unshare_net": true,
+    "generated_password_recorded": false,
+    "loopback_only": true,
+    "no_external_inference": true,
+    "no_provider_credentials_or_config_read": true,
+    "temporary_home_xdg_and_sessions": true
+  },
+  "negative_control": {
+    "asserted_rejected_without_admission": true,
+    "case": "POST prompt with required text omitted",
+    "response_keys": [
+      "_tag",
+      "kind",
+      "message"
+    ],
+    "status": 400,
+    "transcript_unchanged": true
+  },
+  "openapi": {
+    "inbox_200_properties": [
+      "data"
+    ],
+    "inbox_200_required": [
+      "data"
+    ],
+    "inbox_200_schema_keys": [
+      "additionalProperties",
+      "properties",
+      "required",
+      "type"
+    ],
+    "message_200_schema_keys": [
+      "$ref"
+    ],
+    "message_200_schema_ref": "#/components/schemas/SessionMessagesResponse",
+    "message_get_query_parameter_names": [
+      "sessionID",
+      "limit",
+      "order",
+      "cursor",
+      "type"
+    ],
+    "prompt_200_properties": [
+      "data"
+    ],
+    "prompt_200_required": [
+      "data"
+    ],
+    "prompt_200_schema_keys": [
+      "additionalProperties",
+      "properties",
+      "required",
+      "type"
+    ],
+    "prompt_request_fields": [
+      "agents",
+      "delivery",
+      "files",
+      "id",
+      "metadata",
+      "resume",
+      "skills",
+      "text"
+    ],
+    "prompt_request_required": [
+      "text"
+    ]
+  },
+  "pagination": {
+    "message_shape_keys_by_type": {
+      "assistant": [
+        "agent",
+        "content",
+        "cost",
+        "finish",
+        "id",
+        "model",
+        "rawFinish",
+        "time",
+        "tokens",
+        "type"
+      ],
+      "idle": [
+        "id",
+        "outcome",
+        "time",
+        "type"
+      ],
+      "user": [
+        "id",
+        "text",
+        "time",
+        "type"
+      ]
+    },
+    "paged_count": 12,
+    "paged_identity_set_matches_unpaged": true,
+    "paged_ids_unique": true,
+    "pages": [
+      {
+        "ack_id_matches": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "count": 2,
+        "cursor_keys": [
+          "next",
+          "previous"
+        ],
+        "next_present": true,
+        "status": 200,
+        "types": [
+          "idle",
+          "assistant"
+        ],
+        "user_texts": []
+      },
+      {
+        "ack_id_matches": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "count": 2,
+        "cursor_keys": [
+          "next",
+          "previous"
+        ],
+        "next_present": true,
+        "status": 200,
+        "types": [
+          "user",
+          "idle"
+        ],
+        "user_texts": [
+          "PAGE-3"
+        ]
+      },
+      {
+        "ack_id_matches": [
+          false,
+          false,
+          true,
+          false
+        ],
+        "count": 2,
+        "cursor_keys": [
+          "next",
+          "previous"
+        ],
+        "next_present": true,
+        "status": 200,
+        "types": [
+          "assistant",
+          "user"
+        ],
+        "user_texts": [
+          "PAGE-2"
+        ]
+      },
+      {
+        "ack_id_matches": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "count": 2,
+        "cursor_keys": [
+          "next",
+          "previous"
+        ],
+        "next_present": true,
+        "status": 200,
+        "types": [
+          "idle",
+          "assistant"
+        ],
+        "user_texts": []
+      },
+      {
+        "ack_id_matches": [
+          false,
+          true,
+          false,
+          false
+        ],
+        "count": 2,
+        "cursor_keys": [
+          "next",
+          "previous"
+        ],
+        "next_present": true,
+        "status": 200,
+        "types": [
+          "user",
+          "idle"
+        ],
+        "user_texts": [
+          "PAGE-1"
+        ]
+      },
+      {
+        "ack_id_matches": [
+          true,
+          false,
+          false,
+          false
+        ],
+        "count": 2,
+        "cursor_keys": [
+          "next",
+          "previous"
+        ],
+        "next_present": true,
+        "status": 200,
+        "types": [
+          "assistant",
+          "user"
+        ],
+        "user_texts": [
+          "PAGE-0"
+        ]
+      },
+      {
+        "ack_id_matches": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "count": 0,
+        "cursor_keys": [
+          "next",
+          "previous"
+        ],
+        "next_present": false,
+        "status": 200,
+        "types": [],
+        "user_texts": []
+      }
+    ],
+    "pagination_param_names": [
+      "sessionID",
+      "limit",
+      "order",
+      "cursor",
+      "type"
+    ],
+    "prompt_ack_user_id_matches": {
+      "PAGE-0": true,
+      "PAGE-1": true,
+      "PAGE-2": true,
+      "PAGE-3": true
+    },
+    "unpaged_count": 12,
+    "unpaged_cursor_keys": [
+      "next",
+      "previous"
+    ],
+    "unpaged_envelope_keys": [
+      "cursor",
+      "data"
+    ],
+    "unpaged_types": [
+      "idle",
+      "assistant",
+      "user",
+      "idle",
+      "assistant",
+      "user",
+      "idle",
+      "assistant",
+      "user",
+      "idle",
+      "assistant",
+      "user"
+    ],
+    "unpaged_user_texts": [
+      "PAGE-3",
+      "PAGE-2",
+      "PAGE-1",
+      "PAGE-0"
+    ]
+  },
+  "prompt_ack": {
+    "data_keys": [
+      "delivery",
+      "id",
+      "payload",
+      "sessionID",
+      "time",
+      "type"
+    ],
+    "delivery": "steer",
+    "envelope_keys": [
+      "data"
+    ],
+    "id_format_prefix": "msg_",
+    "inbox_item_count_after_completion": 0,
+    "inbox_status_after_completion": 200,
+    "payload_keys": [
+      "text"
+    ],
+    "payload_text": "PROMPT-SUCCESS",
+    "session_id_matches_request": true,
+    "status": 200,
+    "time_keys": [
+      "created"
+    ],
+    "transcript_user_id_matches_ack": true,
+    "transcript_user_text": "PROMPT-SUCCESS",
+    "type": "user"
+  },
+  "response_loss": {
+    "caller_error_class": "RemoteDisconnected",
+    "client_supplied_input_id": "msg_probe_response_loss",
+    "input_id_count_after_drain": 1,
+    "input_id_seen_in_transcript_before_release": true,
+    "provider_call_delta_during_retry_window": 0,
+    "proxy_dropped_response": true,
+    "proxy_request_count": 1,
+    "proxy_response_body_bytes_received": 182,
+    "proxy_upstream_ack_data_keys": [
+      "delivery",
+      "id",
+      "payload",
+      "sessionID",
+      "time",
+      "type"
+    ],
+    "proxy_upstream_ack_delivery": "steer",
+    "proxy_upstream_ack_id_matches_supplied": true,
+    "proxy_upstream_ack_payload_text": "LOSS-ACK",
+    "proxy_upstream_status": 200,
+    "retry_deduplicated": true,
+    "same_id_different_text_ack_text": "LOSS-ACK",
+    "same_id_different_text_status": 200,
+    "same_id_different_text_transcript_texts": [
+      "LOSS-ACK"
+    ],
+    "same_id_retry_ack_keys": [
+      "delivery",
+      "id",
+      "payload",
+      "sessionID",
+      "time",
+      "type"
+    ],
+    "same_id_retry_ack_matches_supplied_id": true,
+    "same_id_retry_status": 200,
+    "same_id_retry_transcript_count": 1
+  },
+  "server_version": "2.0.32",
+  "synthetic_provider_requests": 8
+}
