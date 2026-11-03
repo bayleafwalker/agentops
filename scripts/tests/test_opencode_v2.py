@@ -1,4 +1,5 @@
 import importlib.util
+import hashlib
 import json
 from pathlib import Path
 import threading
@@ -169,6 +170,103 @@ def test_bad_session_and_page_limit_fail_closed(monkeypatch):
     monkeypatch.setattr(c, "_request", lambda *a, **k: {"data": [{**ROW, "location": {}}], "cursor": {"next": None}})
     with pytest.raises(v2.V2Error, match="page"):
         c.find_sessions("test", "/work")
+
+
+def test_submit_validates_acknowledged_identity_and_payload(monkeypatch):
+    c = client()
+    text = "synthetic input"
+    ack = {"id": "msg_input", "sessionID": "ses_1", "type": "user", "payload": {"text": text},
+           "delivery": "steer", "time": {"created": 1}}
+    calls = []
+    def request(method, path, **kwargs):
+        calls.append((method, path, kwargs))
+        return {"data": ack}
+    monkeypatch.setattr(c, "_request", request)
+    result = c.submit_prompt("ses_1", "msg_input", text)
+    assert result["sha256"] == hashlib.sha256(text.encode()).hexdigest()
+    assert calls[0][2]["body"] == {"id": "msg_input", "text": text}
+    ack["payload"]["text"] = "other"
+    with pytest.raises(v2.V2Error, match="acknowledgement"):
+        c.submit_prompt("ses_1", "msg_input", text)
+
+
+def test_admission_observes_inbox_and_paginated_messages_or_unknown(monkeypatch):
+    c = client()
+    digest = hashlib.sha256(b"synthetic").hexdigest()
+    inbox = {"data": [{"id": "msg_input", "sessionID": "ses_1", "type": "user", "payload": {"text": "synthetic"}}]}
+    pages = [{"data": [{"id": "assistant_1", "type": "assistant"}], "cursor": {"next": "next"}},
+             {"data": [{"id": "msg_input", "type": "user", "text": "synthetic"}], "cursor": {"next": None}}]
+    def request(method, path, **kwargs):
+        return inbox if path.endswith("/inbox") else pages.pop(0)
+    monkeypatch.setattr(c, "_request", request)
+    assert c.observe_admission("ses_1", "msg_input", digest)["sources"] == ["inbox", "message"]
+    monkeypatch.setattr(c, "_request", lambda method, path, **kw: {"data": []} if path.endswith("/inbox")
+                        else {"data": [], "cursor": {"next": None}})
+    assert c.observe_admission("ses_1", "msg_input", digest)["status"] == "unknown"
+
+
+@pytest.mark.parametrize("source", ["inbox", "message"])
+def test_admission_accepts_either_projection_when_other_is_empty(monkeypatch, source):
+    c = client()
+    digest = hashlib.sha256(b"input").hexdigest()
+    inbox = [{"id": "msg_input", "sessionID": "ses_1", "type": "user", "payload": {"text": "input"}}]
+    messages = [{"id": "msg_input", "type": "user", "text": "input"}]
+    monkeypatch.setattr(c, "_request", lambda method, path, **kw:
+        {"data": inbox if source == "inbox" else []} if path.endswith("/inbox") else
+        {"data": messages if source == "message" else [], "cursor": {"next": None}})
+    assert c.observe_admission("ses_1", "msg_input", digest)["sources"] == [source]
+
+
+def test_admission_rejects_conflict_and_incomplete_pagination(monkeypatch):
+    c = client()
+    digest = hashlib.sha256(b"synthetic").hexdigest()
+    inbox = {"data": [{"id": "msg_input", "sessionID": "ses_1", "type": "user", "payload": {"text": "other"}}]}
+    monkeypatch.setattr(c, "_request", lambda method, path, **kw: inbox if path.endswith("/inbox")
+                        else {"data": [], "cursor": {"next": None}})
+    with pytest.raises(v2.V2Error, match="conflicting input payload"):
+        c.observe_admission("ses_1", "msg_input", digest)
+    monkeypatch.setattr(c, "_request", lambda method, path, **kw: {"data": []} if path.endswith("/inbox")
+                        else {"data": [], "cursor": {"next": "cycle"}})
+    with pytest.raises(v2.V2Error, match="cursor"):
+        c.observe_admission("ses_1", "msg_input", digest)
+
+
+@pytest.mark.parametrize("field,value", [("delivery", None), ("time", {"created": True}),
+                                        ("payload", {"text": "input", "files": ["extra"]}),
+                                        ("sessionID", "ses_other")])
+def test_submit_rejects_malformed_ack(monkeypatch, field, value):
+    c = client()
+    ack = {"id": "msg_input", "sessionID": "ses_1", "type": "user", "payload": {"text": "input"},
+           "delivery": "steer", "time": {"created": 1}, field: value}
+    monkeypatch.setattr(c, "_request", lambda *a, **k: {"data": ack})
+    with pytest.raises(v2.V2Error, match="acknowledgement"):
+        c.submit_prompt("ses_1", "msg_input", "input")
+
+
+def test_admission_rejects_duplicate_and_missing_pages(monkeypatch):
+    c = client()
+    digest = hashlib.sha256(b"input").hexdigest()
+    row = {"id": "msg_input", "type": "user", "text": "input"}
+    pages = iter([{"data": [row], "cursor": {"next": "next"}},
+                  {"data": [row], "cursor": {"next": None}}])
+    monkeypatch.setattr(c, "_request", lambda method, path, **kw: {"data": []} if path.endswith("/inbox") else next(pages))
+    with pytest.raises(v2.V2Error, match="duplicate"):
+        c.observe_admission("ses_1", "msg_input", digest)
+    monkeypatch.setattr(c, "_request", lambda method, path, **kw: {"data": []})
+    with pytest.raises(v2.V2Error, match="message page"):
+        c.observe_admission("ses_1", "msg_input", digest)
+
+
+def test_lost_prompt_response_does_not_retry(monkeypatch):
+    c = client()
+    calls = []
+    def lost(method, path, **kwargs):
+        calls.append((method, path))
+        raise v2.V2Error("server request failed")
+    monkeypatch.setattr(c, "_request", lost)
+    with pytest.raises(v2.V2Error):
+        c.submit_prompt("ses_1", "msg_input", "input")
+    assert calls == [("POST", "/api/session/ses_1/prompt")]
 
 
 @pytest.mark.parametrize("url", ["http://example.com:80", "http://127.0.0.1:99/path", "http://user:pass@127.0.0.1:99", "https://127.0.0.1:99"])
