@@ -1044,6 +1044,101 @@ def test_unhealthy_harness_defers_launch_after_run_registration(rig):
     assert rig.harness.prompts == []
 
 
+@pytest.mark.parametrize("api", ["opencode-v2", "unknown-v3", ""])
+def test_legacy_transport_does_not_prompt_or_observe_foreign_api_attempt(rig, api):
+    rig.owner.send()
+    rig.crash_at("launched_persisted")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.adapter.state.update(REPO, "msg_A", harness_api=api)
+    rig.boot()
+    rig.owner.observations.clear()
+    rig.tick(2)
+    assert rig.rec()["state"] == ha.S_LAUNCHED and not rig.rec()["closed"]
+    assert rig.harness.prompts == [] and rig.harness.aborts == []
+    assert rig.owner.receipt_of("msg_A", "result-linked") is None
+    assert not any(item["fact"] == "executing" for item in rig.owner.observations)
+
+
+def test_legacy_transport_does_not_create_for_v2_registered_run(rig):
+    rig.owner.send()
+    rig.crash_at("run_registered_persisted")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.adapter.state.update(REPO, "msg_A", harness_api="opencode-v2")
+    rig.boot()
+    rig.tick(2)
+    assert rig.rec()["state"] == ha.S_RUN_REGISTERED
+    assert rig.harness.creates == 0 and rig.harness.prompts == []
+
+
+def test_legacy_transport_does_not_recover_v2_launch_intent(rig):
+    rig.owner.send()
+    rig.crash_at("launch_intent_persisted")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.adapter.state.update(REPO, "msg_A", harness_api="opencode-v2")
+    rig.boot()
+    rig.harness.find_sessions = lambda *args: pytest.fail("legacy session lookup was attempted")
+    rig.tick(2)
+    assert rig.rec()["state"] == ha.S_LAUNCH_INTENT and not rig.rec()["closed"]
+    assert rig.harness.creates == 0 and rig.harness.prompts == []
+
+
+def test_explicit_v1_binding_still_executes(rig):
+    rig.owner.send()
+    rig.crash_at("launched_persisted")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.adapter.state.update(REPO, "msg_A", harness_api="opencode-v1")
+    rig.boot()
+    rig.tick(2)
+    assert rig.rec()["outcome"] == "completed" and rig.rec()["closed"]
+    assert len(rig.harness.prompts) == 1
+
+
+def test_legacy_transport_can_close_already_finished_v2_attempt(rig):
+    rig.owner.send()
+    rig.crash_at("finished_persisted")
+    with pytest.raises(Crash):
+        rig.tick(3)
+    rig.adapter.state.update(REPO, "msg_A", harness_api="opencode-v2")
+    rig.boot()
+    rig.tick(2)
+    assert rig.rec()["closed"] == 1
+    assert rig.owner.receipt_of("msg_A", "result-linked")["outcome"] == "completed"
+
+
+def test_legacy_transport_refuses_fresh_abandon_abort_for_v2_attempt(rig):
+    rig.owner.send()
+    rig.crash_at("launched_persisted")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.adapter.state.update(REPO, "msg_A", harness_api="opencode-v2")
+    rig.boot()
+    owner_calls = list(rig.owner.calls)
+    with pytest.raises(SystemExit, match="unsupported harness API"):
+        rig.adapter.resolve_abandon("msg_A")
+    assert rig.harness.aborts == [] and not rig.rec()["closed"]
+    assert rig.owner.calls == owner_calls
+    assert rig.rec()["outcome"] is None and rig.rec()["reason_code"] is None
+
+
+def test_legacy_transport_reconciles_saved_v2_abandonment_without_abort(rig):
+    rig.harness.finish_on_poll = False
+    rig.owner.send()
+    rig.tick(2)
+    rig.crash_at("abandon_intent_persisted")
+    with pytest.raises(Crash):
+        rig.adapter.resolve_abandon("msg_A")
+    aborts = list(rig.harness.aborts)
+    rig.adapter.state.update(REPO, "msg_A", harness_api="opencode-v2")
+    rig.boot()
+    rig.tick(2)
+    assert rig.rec()["closed"] == 1 and rig.rec()["outcome"] == "abandoned"
+    assert rig.harness.aborts == aborts
+
+
 def test_unhealthy_harness_pauses_new_intake_until_recovery(rig):
     rig.harness.healthy = False
     rig.owner.send()
