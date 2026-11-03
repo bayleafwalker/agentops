@@ -935,6 +935,7 @@ CREATE TABLE IF NOT EXISTS messages (
   v2_launch_binding TEXT, v2_launch_binding_sha256 TEXT, prompt_launch_binding_sha256 TEXT,
   execution_selection TEXT, v2_registration_intent TEXT, v2_registration_intent_sha256 TEXT,
   v2_cancel_intent TEXT, v2_cancel_intent_sha256 TEXT, v2_delete_state TEXT, v2_interrupt_state TEXT,
+  v2_terminal_evidence TEXT, v2_terminal_evidence_sha256 TEXT,
   PRIMARY KEY (repo_id, message_id));
 """
 _COLUMNS = ("state decision reason_code reason_text run_id session_id prompt_sent abort_requested "
@@ -943,7 +944,8 @@ _COLUMNS = ("state decision reason_code reason_text run_id session_id prompt_sen
             "harness_api prompt_id prompt_nonce prompt_sha256 prompt_binding_sha256 prompt_admission prompt_admission_evidence "
             "v2_launch_binding v2_launch_binding_sha256 prompt_launch_binding_sha256 "
             "execution_selection v2_registration_intent v2_registration_intent_sha256 "
-            "v2_cancel_intent v2_cancel_intent_sha256 v2_delete_state v2_interrupt_state").split()
+            "v2_cancel_intent v2_cancel_intent_sha256 v2_delete_state v2_interrupt_state "
+            "v2_terminal_evidence v2_terminal_evidence_sha256").split()
 # Columns added after the first deployed schema; added in place on open.
 _ADDED_COLUMNS = (("launched_at", "REAL"), ("model_id", "TEXT"), ("delegation_id", "TEXT"),
                   ("delegation_expires_at", "TEXT"),
@@ -956,7 +958,8 @@ _ADDED_COLUMNS = (("launched_at", "REAL"), ("model_id", "TEXT"), ("delegation_id
                   ("prompt_launch_binding_sha256", "TEXT"),
                   ("execution_selection", "TEXT"), ("v2_registration_intent", "TEXT"),
                   ("v2_registration_intent_sha256", "TEXT"), ("v2_cancel_intent", "TEXT"),
-                  ("v2_cancel_intent_sha256", "TEXT"), ("v2_delete_state", "TEXT"), ("v2_interrupt_state", "TEXT"))
+                  ("v2_cancel_intent_sha256", "TEXT"), ("v2_delete_state", "TEXT"), ("v2_interrupt_state", "TEXT"),
+                  ("v2_terminal_evidence", "TEXT"), ("v2_terminal_evidence_sha256", "TEXT"))
 
 
 class State:
@@ -1091,7 +1094,7 @@ class State:
                         ("v2_launch_binding", "v2_launch_binding_sha256", "prompt_id", "prompt_nonce",
                          "prompt_sha256", "prompt_binding_sha256", "prompt_admission", "prompt_admission_evidence",
                          "prompt_launch_binding_sha256", "v2_cancel_intent", "v2_cancel_intent_sha256",
-                         "v2_delete_state", "v2_interrupt_state"))):
+                         "v2_delete_state", "v2_interrupt_state", "v2_terminal_evidence", "v2_terminal_evidence_sha256"))):
                 raise PromptIntentError("v2 registration selection is incomplete")
             try:
                 envelope = json.loads(row["envelope"])
@@ -1161,7 +1164,8 @@ class State:
                     or row["prompt_sent"] or any(row[key] is not None for key in
                         ("prompt_id", "prompt_nonce", "prompt_sha256", "prompt_binding_sha256",
                          "prompt_admission", "prompt_admission_evidence", "prompt_launch_binding_sha256",
-                         "v2_cancel_intent", "v2_cancel_intent_sha256", "v2_delete_state", "v2_interrupt_state"))
+                         "v2_cancel_intent", "v2_cancel_intent_sha256", "v2_delete_state", "v2_interrupt_state",
+                         "v2_terminal_evidence", "v2_terminal_evidence_sha256"))
                     or row["harness_api"] not in (None, "opencode-v2")
                     or not isinstance(row["run_id"], str) or not row["run_id"]
                     or not isinstance(row["model_id"], str) or row["model_id"].count("/") != 1
@@ -1300,6 +1304,8 @@ class State:
             values = (row["v2_cancel_intent"], row["v2_cancel_intent_sha256"],
                       row["v2_delete_state"], row["v2_interrupt_state"])
             if all(value is None for value in values):
+                if row["v2_terminal_evidence"] is not None or row["v2_terminal_evidence_sha256"] is not None:
+                    raise PromptIntentError("terminal evidence already exists")
                 self.db.execute("UPDATE messages SET v2_cancel_intent=?,v2_cancel_intent_sha256=?,"
                                 "v2_delete_state=?,v2_interrupt_state=?,updated_at=? WHERE repo_id=? AND message_id=?",
                                 (raw, digest, "not_requested", "not_requested", self.clock(), repo_id, message_id))
@@ -1322,6 +1328,8 @@ class State:
             except (TypeError, ValueError, KeyError):
                 raise PromptIntentError("invalid v2 cancellation intent") from None
             self._validate_v2_cancellation_locked(repo_id, message_id, reason, snapshot, row)
+            if row["v2_terminal_evidence"] is not None or row["v2_terminal_evidence_sha256"] is not None:
+                raise PromptIntentError("terminal evidence already exists")
             column = "v2_delete_state" if action == "delete" else "v2_interrupt_state"
             if row[column] != "not_requested":
                 raise PromptIntentError("v2 cancellation action is already uncertain")
@@ -1360,6 +1368,109 @@ class State:
                 or row["v2_interrupt_state"] not in ("not_requested", "unknown")):
             raise PromptIntentError("invalid v2 cancellation intent")
 
+    def _v2_terminal_context_locked(self, repo_id: str, message_id: str):
+        prompt = self._v2_prompt_locked(repo_id, message_id, create=False, allowed=("admitted",))
+        row = self.get(repo_id, message_id)
+        selection = canonical({"schema": "adapter-execution-selection/v1", "api": "opencode-v2",
+                               "source": "synthetic-fixture"})
+        if row["execution_selection"] != selection:
+            raise PromptIntentError("v2 terminal selection is incomplete")
+        registration = self.load_v2_registration_intent(repo_id, message_id)["arguments"]
+        binding = self.load_v2_launch_binding(repo_id, message_id)
+        if registration["model_id"] != binding["model_id"] or registration["harness_build"] != binding["server_version"]:
+            raise PromptIntentError("v2 terminal registration mismatch")
+        cancel_fields = (row["v2_cancel_intent"], row["v2_cancel_intent_sha256"], row["v2_delete_state"], row["v2_interrupt_state"])
+        if any(value is not None for value in cancel_fields):
+            try:
+                snapshot = json.loads(row["v2_cancel_intent"])
+                reason = snapshot["reason"]
+            except (TypeError, ValueError, KeyError):
+                raise PromptIntentError("invalid v2 cancellation intent") from None
+            self._validate_v2_cancellation_locked(repo_id, message_id, reason, snapshot, row)
+        return row, prompt, binding
+
+    def record_v2_terminal(self, repo_id: str, message_id: str, observation: dict) -> dict:
+        """Record a trusted fixture observation; it is not owner settlement."""
+        fields = {"status", "outcome", "terminal_id", "interval_sha256", "correlation", "atomicity",
+                  "session_id", "prompt_id", "text_sha256"}
+        if (not isinstance(observation, dict) or set(observation) != fields
+                or observation["status"] != "terminal-observed"
+                or observation["outcome"] not in ("succeeded", "failed", "interrupted")
+                or not isinstance(observation["terminal_id"], str)
+                or not re.fullmatch(r"msg_[A-Za-z0-9_-]+", observation["terminal_id"])
+                or not isinstance(observation["interval_sha256"], str)
+                or not re.fullmatch(r"[0-9a-f]{64}", observation["interval_sha256"])
+                or observation["correlation"] != "single-input-two-snapshot"
+                or observation["atomicity"] != "not-established"):
+            raise PromptIntentError("invalid v2 terminal observation")
+        with self.tx():
+            row, prompt, binding = self._v2_terminal_context_locked(repo_id, message_id)
+            if (observation["session_id"] != row["session_id"] or observation["prompt_id"] != prompt["id"]
+                    or observation["text_sha256"] != prompt["sha256"]):
+                raise PromptIntentError("v2 terminal observation binding mismatch")
+            if observation["terminal_id"] == prompt["id"]:
+                raise PromptIntentError("v2 terminal identity conflicts with input")
+            now = self.clock()
+            try:
+                valid_clock = not isinstance(now, bool) and isinstance(now, (int, float)) and math.isfinite(now)
+            except OverflowError:
+                valid_clock = False
+            if not valid_clock:
+                raise PromptIntentError("invalid terminal observation clock")
+            evidence = {"schema": "adapter-v2-terminal-observation/v1", "server_version": binding["server_version"],
+                        "repo_id": repo_id, "message_id": message_id, "run_id": row["run_id"],
+                        "session_id": row["session_id"], "prompt_id": prompt["id"], "prompt_sha256": prompt["sha256"],
+                        "prompt_binding_sha256": row["prompt_binding_sha256"],
+                        "launch_binding_sha256": row["v2_launch_binding_sha256"],
+                        "outcome": observation["outcome"], "terminal_id": observation["terminal_id"],
+                        "interval_sha256": observation["interval_sha256"], "correlation": observation["correlation"],
+                        "atomicity": observation["atomicity"], "first_observed_at": now}
+            if row["v2_terminal_evidence"] is not None or row["v2_terminal_evidence_sha256"] is not None:
+                prior = self._load_v2_terminal_locked(row, prompt, binding)
+                evidence["first_observed_at"] = prior["first_observed_at"]
+                if evidence != prior:
+                    raise PromptIntentError("v2 terminal observation conflict")
+                return prior
+            raw = canonical(evidence)
+            self.db.execute("UPDATE messages SET v2_terminal_evidence=?,v2_terminal_evidence_sha256=?,updated_at=? "
+                            "WHERE repo_id=? AND message_id=?", (raw, hashlib.sha256(raw.encode()).hexdigest(),
+                                                                  self.clock(), repo_id, message_id))
+            return evidence
+
+    def load_v2_terminal(self, repo_id: str, message_id: str) -> dict:
+        with self.tx():
+            row, prompt, binding = self._v2_terminal_context_locked(repo_id, message_id)
+            return self._load_v2_terminal_locked(row, prompt, binding)
+
+    @staticmethod
+    def _load_v2_terminal_locked(row, prompt: dict, binding: dict) -> dict:
+        try:
+            raw, digest = row["v2_terminal_evidence"], row["v2_terminal_evidence_sha256"]
+            evidence = json.loads(raw)
+            timestamp = evidence["first_observed_at"]
+            valid = (isinstance(raw, str) and isinstance(digest, str) and hashlib.sha256(raw.encode()).hexdigest() == digest
+                     and canonical(evidence) == raw and set(evidence) == {"schema", "server_version", "repo_id",
+                       "message_id", "run_id", "session_id", "prompt_id", "prompt_sha256", "prompt_binding_sha256",
+                       "launch_binding_sha256", "outcome", "terminal_id", "interval_sha256", "correlation", "atomicity", "first_observed_at"}
+                     and evidence["schema"] == "adapter-v2-terminal-observation/v1"
+                     and evidence["server_version"] == binding["server_version"] and evidence["repo_id"] == row["repo_id"]
+                     and evidence["message_id"] == row["message_id"] and evidence["run_id"] == row["run_id"]
+                     and evidence["session_id"] == row["session_id"] and evidence["prompt_id"] == prompt["id"]
+                     and evidence["prompt_sha256"] == prompt["sha256"]
+                     and evidence["prompt_binding_sha256"] == row["prompt_binding_sha256"]
+                     and evidence["launch_binding_sha256"] == row["v2_launch_binding_sha256"]
+                     and evidence["outcome"] in ("succeeded", "failed", "interrupted")
+                     and isinstance(evidence["terminal_id"], str) and re.fullmatch(r"msg_[A-Za-z0-9_-]+", evidence["terminal_id"])
+                     and evidence["terminal_id"] != prompt["id"]
+                     and isinstance(evidence["interval_sha256"], str) and re.fullmatch(r"[0-9a-f]{64}", evidence["interval_sha256"])
+                     and evidence["correlation"] == "single-input-two-snapshot" and evidence["atomicity"] == "not-established"
+                     and not isinstance(timestamp, bool) and isinstance(timestamp, (int, float)) and math.isfinite(timestamp))
+        except (TypeError, ValueError, KeyError, OverflowError):
+            valid = False
+        if not valid:
+            raise PromptIntentError("invalid v2 terminal evidence")
+        return evidence
+
     def _v2_prompt_locked(self, repo_id: str, message_id: str, *, create: bool,
                           allowed: tuple[str, ...]) -> dict[str, str]:
         fields = ("prompt_id", "prompt_nonce", "prompt_sha256", "prompt_binding_sha256", "prompt_admission",
@@ -1388,7 +1499,8 @@ class State:
                    "launch_binding_sha256": row["v2_launch_binding_sha256"]}
         values = [row[k] for k in fields]
         if (row["prompt_admission"] == "intent" and any(row[k] is not None for k in
-                ("v2_cancel_intent", "v2_cancel_intent_sha256", "v2_delete_state", "v2_interrupt_state"))):
+                ("v2_cancel_intent", "v2_cancel_intent_sha256", "v2_delete_state", "v2_interrupt_state",
+                 "v2_terminal_evidence", "v2_terminal_evidence_sha256"))):
             raise PromptIntentError("v2 cancellation state conflicts with prompt intent")
         if row["prompt_admission"] != "admitted" and row["prompt_admission_evidence"] is not None:
             raise PromptIntentError("unexpected v2 admission evidence")
@@ -1396,7 +1508,8 @@ class State:
             if not create:
                 raise PromptIntentError("v2 prompt intent is missing")
             if any(row[k] is not None for k in ("v2_cancel_intent", "v2_cancel_intent_sha256",
-                                                "v2_delete_state", "v2_interrupt_state")):
+                                                "v2_delete_state", "v2_interrupt_state",
+                                                "v2_terminal_evidence", "v2_terminal_evidence_sha256")):
                 raise PromptIntentError("v2 cancellation state precedes prompt intent")
             prompt_id, nonce = "msg_" + secrets.token_hex(16), secrets.token_hex(16)
             binding["prompt_id"] = prompt_id

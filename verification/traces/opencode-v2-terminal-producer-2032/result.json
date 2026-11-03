@@ -1,0 +1,122 @@
+{
+  "cases": {
+    "failure": {
+      "independent_capture": {
+        "interval_sha256": "af6435217e7adc33886f55596409e8add4228fe67eea40880af6487cf60b1d2e",
+        "ordered_types": [
+          "user",
+          "idle"
+        ],
+        "row_count": 2
+      },
+      "observation": {
+        "interval_sha256": "af6435217e7adc33886f55596409e8add4228fe67eea40880af6487cf60b1d2e",
+        "outcome": "failed",
+        "prompt_id_matches_submitted_and_transcript": true,
+        "session_id_matches_created": true,
+        "status": "terminal-observed",
+        "terminal_id": "msg_1a3235c12001P6bvU4jGGEx1h1",
+        "terminal_id_and_interval_match_independent_rows": true,
+        "text_sha256_matches_submitted_and_transcript": true
+      },
+      "producer_fields_match_transcript": true
+    },
+    "foreign_session_queue": {
+      "foreign_queue_present": true,
+      "independent_capture": {
+        "interval_sha256": "b4aad4a11555f4a4546360b9e1552580c801287a48559b0c18e77f6bc50ec1fb",
+        "ordered_types": [
+          "user",
+          "assistant",
+          "idle"
+        ],
+        "row_count": 3
+      },
+      "producer_fields_match_transcript": true,
+      "unrelated_terminal": {
+        "interval_sha256": "b4aad4a11555f4a4546360b9e1552580c801287a48559b0c18e77f6bc50ec1fb",
+        "outcome": "succeeded",
+        "prompt_id_matches_submitted_and_transcript": true,
+        "session_id_matches_created": true,
+        "status": "terminal-observed",
+        "terminal_id": "msg_1a3235de3001sv1BP32T5hErfm",
+        "terminal_id_and_interval_match_independent_rows": true,
+        "text_sha256_matches_submitted_and_transcript": true
+      }
+    },
+    "interruption": {
+      "active_observation": {
+        "status": "active"
+      },
+      "independent_capture": {
+        "interval_sha256": "e8e6546127c0a7baf2a254264002b0e8107ca8f641ef72642aaadad7c5d0ec8b",
+        "ordered_types": [
+          "user",
+          "assistant",
+          "idle"
+        ],
+        "row_count": 3
+      },
+      "interrupt_ack": {
+        "interrupted": true,
+        "status": "acknowledged"
+      },
+      "producer_fields_match_transcript": true,
+      "terminal_observation": {
+        "interval_sha256": "e8e6546127c0a7baf2a254264002b0e8107ca8f641ef72642aaadad7c5d0ec8b",
+        "outcome": "interrupted",
+        "prompt_id_matches_submitted_and_transcript": true,
+        "session_id_matches_created": true,
+        "status": "terminal-observed",
+        "terminal_id": "msg_1a3235cbf001bTAbAMEx2KUp7k",
+        "terminal_id_and_interval_match_independent_rows": true,
+        "text_sha256_matches_submitted_and_transcript": true
+      }
+    },
+    "same_session_queued": {
+      "active_observation": {
+        "status": "active"
+      },
+      "after_interrupt_observation": {
+        "status": "unknown"
+      },
+      "interrupt_ack": {
+        "interrupted": true,
+        "status": "acknowledged"
+      },
+      "queued_id_still_in_inbox": true
+    },
+    "success": {
+      "first": {
+        "interval_sha256": "80f0f2c52aa399c6df69cc46235fb4a33b9c60a3d80013c380f6757774973beb",
+        "outcome": "succeeded",
+        "prompt_id_matches_submitted_and_transcript": true,
+        "session_id_matches_created": true,
+        "status": "terminal-observed",
+        "terminal_id": "msg_1a3235b87001RB26D1wodoXBp1",
+        "terminal_id_and_interval_match_independent_rows": true,
+        "text_sha256_matches_submitted_and_transcript": true
+      },
+      "independent_capture": {
+        "interval_sha256": "80f0f2c52aa399c6df69cc46235fb4a33b9c60a3d80013c380f6757774973beb",
+        "ordered_types": [
+          "user",
+          "assistant",
+          "idle"
+        ],
+        "row_count": 3
+      },
+      "producer_fields_match_transcript": true,
+      "repeat_matches_first": true
+    }
+  },
+  "isolation": {
+    "loopback_fake_provider": true,
+    "network_unshared": true,
+    "no_real_provider_credentials": true,
+    "synthetic_password_not_recorded": true,
+    "temporary_home_xdg": true
+  },
+  "module_sha256": "4d9f05e108540ea49db62923c59696b77a3eca05333c37e2f4d6b6ed5096d1a0",
+  "version": "2.0.32"
+}
