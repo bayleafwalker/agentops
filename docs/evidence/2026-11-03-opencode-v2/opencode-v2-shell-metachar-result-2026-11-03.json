@@ -1,0 +1,276 @@
+{
+  "assertions": {
+    "baseline_allowed": true,
+    "current_metacharacter_cases_blocked": true,
+    "explicit_newline_negative_control_blocked": true,
+    "forced_negative_control": "forced negative control",
+    "newline_chain_blocked_even_after_exact_allow": true,
+    "newline_chain_exact_allow_control": false,
+    "newline_inside_single_quotes_allowed": true,
+    "quoted_note_allowed": true,
+    "semicolon_negative_control_blocked": true
+  },
+  "external_network": false,
+  "interpretation": {
+    "newline_chain": "blocked even after an exact newline-containing allow rule was added; reason is unresolved",
+    "newline_deny_rule_effect": "unknown: the exact allow control itself did not permit the newline command, so the extra newline deny rule was not isolated",
+    "quoted_metacharacters": "blocked for tested semicolon, dollar expansion, and backticks despite quoting",
+    "quoted_newline": "allowed and fake sprintctl ran; no command-chain sentinel was created",
+    "raw_metacharacter_permission_outcomes": "blocked for all tested characters under the default-deny plus narrow sprintctl allow rules and per-character deny rules"
+  },
+  "observations": [
+    {
+      "case": "baseline",
+      "classification": "allowed",
+      "command": "<synthetic command; see fixture source>",
+      "exit": 0,
+      "fake_sprintctl_invoked": true,
+      "idle_outcome": "succeeded",
+      "sentinels_created": [],
+      "tool_error": null,
+      "tool_names_offered": [
+        "shell"
+      ],
+      "tool_state": "completed"
+    },
+    {
+      "case": "greater-than",
+      "classification": "blocked",
+      "command": "<synthetic command; see fixture source>",
+      "exit": null,
+      "fake_sprintctl_invoked": false,
+      "idle_outcome": "succeeded",
+      "sentinels_created": [],
+      "tool_error": "Permission denied: shell",
+      "tool_names_offered": [
+        "shell"
+      ],
+      "tool_state": "error"
+    },
+    {
+      "case": "less-than",
+      "classification": "blocked",
+      "command": "<synthetic command; see fixture source>",
+      "exit": null,
+      "fake_sprintctl_invoked": false,
+      "idle_outcome": "succeeded",
+      "sentinels_created": [],
+      "tool_error": "Permission denied: shell",
+      "tool_names_offered": [
+        "shell"
+      ],
+      "tool_state": "error"
+    },
+    {
+      "case": "dollar-substitution",
+      "classification": "blocked",
+      "command": "<synthetic command; see fixture source>",
+      "exit": null,
+      "fake_sprintctl_invoked": false,
+      "idle_outcome": "succeeded",
+      "sentinels_created": [],
+      "tool_error": "Permission denied: shell",
+      "tool_names_offered": [
+        "shell"
+      ],
+      "tool_state": "error"
+    },
+    {
+      "case": "backtick-substitution",
+      "classification": "blocked",
+      "command": "<synthetic command; see fixture source>",
+      "exit": null,
+      "fake_sprintctl_invoked": false,
+      "idle_outcome": "succeeded",
+      "sentinels_created": [],
+      "tool_error": "Permission denied: shell",
+      "tool_names_offered": [
+        "shell"
+      ],
+      "tool_state": "error"
+    },
+    {
+      "case": "semicolon-chain",
+      "classification": "blocked",
+      "command": "<synthetic command; see fixture source>",
+      "exit": null,
+      "fake_sprintctl_invoked": false,
+      "idle_outcome": "succeeded",
+      "sentinels_created": [],
+      "tool_error": "Permission denied: shell",
+      "tool_names_offered": [
+        "shell"
+      ],
+      "tool_state": "error"
+    },
+    {
+      "case": "and-chain",
+      "classification": "blocked",
+      "command": "<synthetic command; see fixture source>",
+      "exit": null,
+      "fake_sprintctl_invoked": false,
+      "idle_outcome": "succeeded",
+      "sentinels_created": [],
+      "tool_error": "Permission denied: shell",
+      "tool_names_offered": [
+        "shell"
+      ],
+      "tool_state": "error"
+    },
+    {
+      "case": "pipe-chain",
+      "classification": "blocked",
+      "command": "<synthetic command; see fixture source>",
+      "exit": null,
+      "fake_sprintctl_invoked": false,
+      "idle_outcome": "succeeded",
+      "sentinels_created": [],
+      "tool_error": "Permission denied: shell",
+      "tool_names_offered": [
+        "shell"
+      ],
+      "tool_state": "error"
+    },
+    {
+      "case": "bracket-glob",
+      "classification": "blocked",
+      "command": "<synthetic command; see fixture source>",
+      "exit": null,
+      "fake_sprintctl_invoked": false,
+      "idle_outcome": "succeeded",
+      "sentinels_created": [],
+      "tool_error": "Permission denied: shell",
+      "tool_names_offered": [
+        "shell"
+      ],
+      "tool_state": "error"
+    },
+    {
+      "case": "newline-chain",
+      "classification": "blocked",
+      "command": "<synthetic command; see fixture source>",
+      "exit": null,
+      "fake_sprintctl_invoked": false,
+      "idle_outcome": "succeeded",
+      "sentinels_created": [],
+      "tool_error": "Permission denied: shell",
+      "tool_names_offered": [
+        "shell"
+      ],
+      "tool_state": "error"
+    },
+    {
+      "case": "newline-in-single-quotes",
+      "classification": "allowed",
+      "command": "<synthetic command; see fixture source>",
+      "exit": 0,
+      "fake_sprintctl_invoked": true,
+      "idle_outcome": "succeeded",
+      "sentinels_created": [],
+      "tool_error": null,
+      "tool_names_offered": [
+        "shell"
+      ],
+      "tool_state": "completed"
+    },
+    {
+      "case": "semicolon-single-quoted",
+      "classification": "blocked",
+      "command": "<synthetic command; see fixture source>",
+      "exit": null,
+      "fake_sprintctl_invoked": false,
+      "idle_outcome": "succeeded",
+      "sentinels_created": [],
+      "tool_error": "Permission denied: shell",
+      "tool_names_offered": [
+        "shell"
+      ],
+      "tool_state": "error"
+    },
+    {
+      "case": "dollar-double-quoted",
+      "classification": "blocked",
+      "command": "<synthetic command; see fixture source>",
+      "exit": null,
+      "fake_sprintctl_invoked": false,
+      "idle_outcome": "succeeded",
+      "sentinels_created": [],
+      "tool_error": "Permission denied: shell",
+      "tool_names_offered": [
+        "shell"
+      ],
+      "tool_state": "error"
+    },
+    {
+      "case": "backtick-single-quoted",
+      "classification": "blocked",
+      "command": "<synthetic command; see fixture source>",
+      "exit": null,
+      "fake_sprintctl_invoked": false,
+      "idle_outcome": "succeeded",
+      "sentinels_created": [],
+      "tool_error": "Permission denied: shell",
+      "tool_names_offered": [
+        "shell"
+      ],
+      "tool_state": "error"
+    },
+    {
+      "case": "quoted-note-allow",
+      "classification": "allowed",
+      "command": "<synthetic command; see fixture source>",
+      "exit": 0,
+      "fake_sprintctl_invoked": true,
+      "idle_outcome": "succeeded",
+      "sentinels_created": [],
+      "tool_error": null,
+      "tool_names_offered": [
+        "shell"
+      ],
+      "tool_state": "completed"
+    },
+    {
+      "case": "newline-explicit-deny",
+      "classification": "blocked",
+      "command": "<synthetic command; see fixture source>",
+      "exit": null,
+      "fake_sprintctl_invoked": false,
+      "idle_outcome": "succeeded",
+      "sentinels_created": [],
+      "tool_error": "Permission denied: shell",
+      "tool_names_offered": [
+        "shell"
+      ],
+      "tool_state": "error"
+    }
+  ],
+  "permissions": {
+    "allow_patterns": [
+      "sprintctl run context *",
+      "sprintctl run note *"
+    ],
+    "default": "deny all",
+    "deny_patterns": [
+      "*>*",
+      "*<*",
+      "*$*",
+      "*`*",
+      "*;*",
+      "*&*",
+      "*|*",
+      "*[*"
+    ],
+    "extra_newline_deny": "*\\n*"
+  },
+  "shell_metacharacters_from_current_adapter": [
+    ">",
+    "<",
+    "$",
+    "`",
+    ";",
+    "&",
+    "|",
+    "["
+  ],
+  "version": "2.0.32"
+}
