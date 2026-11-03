@@ -1,0 +1,65 @@
+{
+  "assurance": "app-server-reported selected thread configuration only",
+  "cli_version": "0.166.0",
+  "initialize": "success",
+  "isolation": {
+    "ambient_credentials_in_child_environment": false,
+    "provider_calls": false,
+    "raw_protocol_messages_recorded": false,
+    "temporary_codex_home_contains_only_model_config": true,
+    "temporary_workspace": true,
+    "turn_start_sent": false
+  },
+  "limits": [
+    "No inference turn was started; no provider serving or billing claim is established.",
+    "A returned model string is not proof of model catalog entitlement or backend identity.",
+    "An explicit request echoed in the response does not show provider-side availability.",
+    "Resume error details are limited to the JSON-RPC code; message text is omitted."
+  ],
+  "observations": {
+    "configured_default": {
+      "model": "gpt-6.1-terra",
+      "modelProvider": "openai",
+      "response": "success",
+      "serviceTier": null,
+      "threadStatus": {
+        "type": "idle"
+      }
+    },
+    "ephemeral_resume_without_model_override": {
+      "jsonrpc_error_code": -32600,
+      "response": "error"
+    },
+    "explicit_model": {
+      "model": "gpt-6-luna",
+      "modelProvider": "openai",
+      "response": "success",
+      "serviceTier": null,
+      "threadStatus": {
+        "type": "idle"
+      }
+    },
+    "unsupported_model_negative_control": {
+      "model": "codex-routing-probe-model-does-not-exist-20261103",
+      "modelProvider": "openai",
+      "response": "success",
+      "serviceTier": null,
+      "threadStatus": {
+        "type": "idle"
+      }
+    }
+  },
+  "protocol_schema_sha256": {
+    "v2/ThreadResumeParams.ts": "6ea6561448792277f9b52ac9d920d71ef8c9be6e43621ee6329fb948329e8ff7",
+    "v2/ThreadResumeResponse.ts": "080196e4c158212de187a0d3331de28bf8a62df17d90663cf5d1fc2665dd8177",
+    "v2/ThreadStartParams.ts": "dc8bebec4181a5502fc141b0122cc48e066b3b5c77d9fd2a4de875fcd6d66a68",
+    "v2/ThreadStartResponse.ts": "62762558532dab6b3113a8e9385e282b05a7a1e68b9a31bb508a5d9acff45f26"
+  },
+  "requests": {
+    "all_threads_ephemeral": true,
+    "approval_policy": "never",
+    "sandbox": "read-only",
+    "unsupported_model": "codex-routing-probe-model-does-not-exist-20261103",
+    "unsupported_model_fallback": false
+  }
+}
