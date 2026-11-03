@@ -1,0 +1,77 @@
+{
+  "isolation": {
+    "loopback_fake_provider": true,
+    "network_unshared": true,
+    "no_real_credentials": true,
+    "synthetic_password_not_recorded": true,
+    "temporary_home_xdg": true
+  },
+  "observations": {
+    "active_empty_with_pending_inbox": {
+      "active_count_after_2s": 0,
+      "active_count_after_terminal": 0,
+      "active_count_before_interrupt": 1,
+      "inbox_id_after_terminal_present": true,
+      "inbox_id_before_present": true,
+      "interrupt_response": {
+        "interrupted": true
+      },
+      "interrupt_status": 200,
+      "queued_id_in_transcript": false,
+      "terminal_idle_outcome": [
+        "interrupted"
+      ]
+    },
+    "ascending_pagination": {
+      "active_map_during_race": {
+        "data_count": 1,
+        "entry_types": [
+          "running"
+        ]
+      },
+      "baseline_page_counts": [
+        50,
+        4,
+        0
+      ],
+      "baseline_total_rows": 54,
+      "cursor_plus_order_error_tag": "InvalidCursorError",
+      "cursor_plus_order_status": 400,
+      "first_page_user_ids_in_creation_order": [
+        "msg_base_00",
+        "msg_base_01",
+        "msg_base_02",
+        "msg_base_03",
+        "msg_base_04",
+        "msg_base_05",
+        "msg_base_06",
+        "msg_base_07",
+        "msg_base_08",
+        "msg_base_09",
+        "msg_base_10",
+        "msg_base_11",
+        "msg_base_12",
+        "msg_base_13",
+        "msg_base_14",
+        "msg_base_15"
+      ],
+      "last_input_on_second_page": true,
+      "oldest_input_on_first_page": true,
+      "page2_active_known_inputs": [
+        "msg_base_17",
+        "msg_race_hold"
+      ],
+      "page2_includes_race_user_after_terminal": true,
+      "page2_includes_race_user_while_active": true,
+      "page2_terminal_known_inputs": [
+        "msg_base_17",
+        "msg_race_hold"
+      ],
+      "same_cursor_page2_count_after_terminal": 7,
+      "same_cursor_page2_count_while_active": 5,
+      "same_cursor_page2_identity_set_changed": true,
+      "same_cursor_page2_identity_set_stable": false
+    }
+  },
+  "version": "2.0.32"
+}
