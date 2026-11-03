@@ -1071,6 +1071,275 @@ def test_default_adapter_fences_fixture_or_unknown_execution_selection(rig, sele
     assert rig.owner.kinds("msg_A") == [] and rig.harness.creates == 0
 
 
+class SyntheticV2SessionTransport:
+    permissions = [{"action": "*", "resource": "*", "effect": "deny"}]
+
+    def __init__(self):
+        self.version = "2.0.32"
+        self.sessions = {}
+        self.creates = 0
+
+    def server_version(self):
+        return self.version
+
+    def create_session(self, title, directory, model, permissions):
+        self.creates += 1
+        sid = f"ses_v2_{self.creates}"
+        self.sessions[sid] = {"title": title, "directory": directory, "model": model, "permissions": permissions}
+        return sid
+
+    def find_sessions(self, title, directory):
+        return [sid for sid, row in self.sessions.items() if row["title"] == title and row["directory"] == directory]
+
+    def validate_session(self, sid, directory, model, permissions):
+        row = self.sessions[sid]
+        if (row["directory"], row["model"], row["permissions"]) != (directory, model, permissions):
+            raise ha.HarnessError("fixture binding mismatch")
+
+
+def use_fixture_v2(rig, transport):
+    write_policy(rig.policy, harness={"harness_id": "opencode", "harness_build": "2.0.32",
+                                    "model_id": "prov/model", "recipe_id": "inbox-continue-v1",
+                                    "observed_profile": {"sandbox": "none"}})
+    rig.adapter._fixture_v2 = transport
+
+
+def test_fixture_v2_creates_once_and_stops_before_prompt(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.owner.send()
+    rig.tick(3)
+    assert rig.rec()["state"] == ha.S_LAUNCHED and transport.creates == 1
+    assert rig.rec()["harness_api"] == "opencode-v2" and not rig.rec()["prompt_sent"]
+    assert rig.harness.prompts == [] and rig.owner.receipt_of("msg_A", "result-linked") is None
+    assert not any(item["fact"] == "executing" for item in rig.owner.observations)
+
+
+@pytest.mark.parametrize("checkpoint", ["v2_launch_binding_persisted", "session_created"])
+def test_fixture_v2_restart_never_duplicates_create(rig, checkpoint):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.owner.send()
+    rig.crash_at(checkpoint)
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.boot()
+    rig.adapter._fixture_v2 = transport
+    rig.tick(3)
+    assert rig.rec()["state"] == ha.S_LAUNCHED and transport.creates == 1
+    assert rig.harness.prompts == []
+
+
+def test_fixture_v2_does_not_create_after_intent_with_no_session(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.owner.send()
+    rig.crash_at("launch_intent_persisted")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.boot()
+    rig.adapter._fixture_v2 = transport
+    rig.tick(2)
+    assert rig.rec()["state"] == ha.S_AMBIGUOUS and transport.creates == 0
+
+
+def test_fixture_v2_version_mismatch_does_not_ingest(rig):
+    transport = SyntheticV2SessionTransport()
+    transport.version = "2.0.33"
+    use_fixture_v2(rig, transport)
+    rig.owner.send()
+    rig.tick(2)
+    assert rig.rec() is None and transport.creates == 0 and rig.owner.run_register_calls == 0
+
+
+def test_fixture_v2_replays_frozen_registration_after_lost_response(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    original = rig.owner.run_register
+    seen = []
+    def lose_once(repo, arguments):
+        seen.append(ha.canonical(arguments))
+        result = original(repo, arguments)
+        if len(seen) == 1:
+            raise RuntimeError("synthetic lost owner response")
+        return result
+    rig.owner.run_register = lose_once
+    rig.owner.send()
+    rig.tick()
+    assert rig.rec()["state"] == ha.S_DECIDED and transport.creates == 0
+    transport.version = "2.0.33"
+    rig.boot()
+    rig.adapter._fixture_v2 = transport
+    rig.tick(2)
+    assert len(seen) == 2 and seen[0] == seen[1] and len(rig.owner.runs) == 1
+    assert rig.rec()["state"] == ha.S_RUN_REGISTERED and transport.creates == 0
+    transport.version = "2.0.32"
+    rig.tick(2)
+    assert rig.rec()["state"] == ha.S_LAUNCHED and transport.creates == 1
+
+
+def test_fixture_v2_binding_drift_cannot_be_adopted(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.owner.send()
+    rig.crash_at("session_created")
+    with pytest.raises(Crash):
+        rig.tick()
+    next(iter(transport.sessions.values()))["model"] = "prov/other"
+    rig.boot()
+    rig.adapter._fixture_v2 = transport
+    rig.tick(2)
+    assert rig.rec()["state"] == ha.S_LAUNCH_INTENT and transport.creates == 1
+    assert rig.harness.prompts == [] and rig.owner.receipt_of("msg_A", "result-linked") is None
+
+
+def test_fixture_v2_recovery_never_replaces_persisted_session_id(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.owner.send()
+    rig.crash_at("session_created")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.adapter.state.update(REPO, "msg_A", session_id="ses_other")
+    rig.boot()
+    rig.adapter._fixture_v2 = transport
+    rig.tick(2)
+    assert rig.rec()["state"] == ha.S_LAUNCH_INTENT and rig.rec()["session_id"] == "ses_other"
+    assert transport.creates == 1 and rig.harness.prompts == []
+
+
+def test_fixture_v2_duplicate_sessions_are_ambiguous(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.owner.send()
+    rig.crash_at("session_created")
+    with pytest.raises(Crash):
+        rig.tick()
+    transport.sessions["ses_duplicate"] = dict(next(iter(transport.sessions.values())))
+    rig.boot()
+    rig.adapter._fixture_v2 = transport
+    rig.tick(2)
+    assert rig.rec()["state"] == ha.S_AMBIGUOUS and transport.creates == 1
+    assert rig.harness.prompts == []
+
+
+def test_fixture_v2_version_change_defers_recovery(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.owner.send()
+    rig.crash_at("session_created")
+    with pytest.raises(Crash):
+        rig.tick()
+    transport.version = "2.0.33"
+    rig.boot()
+    rig.adapter._fixture_v2 = transport
+    rig.tick(2)
+    assert rig.rec()["state"] == ha.S_LAUNCH_INTENT and transport.creates == 1
+    transport.version = "2.0.32"
+    rig.tick(2)
+    assert rig.rec()["state"] == ha.S_LAUNCHED and transport.creates == 1
+
+
+def test_fixture_v2_lost_create_response_adopts_without_recreate(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    original = transport.create_session
+    def lose_response(*args):
+        original(*args)
+        raise RuntimeError("synthetic lost create response")
+    transport.create_session = lose_response
+    rig.owner.send()
+    rig.tick()
+    assert rig.rec()["state"] == ha.S_LAUNCH_INTENT and transport.creates == 1
+    rig.boot()
+    rig.adapter._fixture_v2 = transport
+    rig.tick(2)
+    assert rig.rec()["state"] == ha.S_LAUNCHED and transport.creates == 1
+    assert rig.harness.prompts == []
+
+
+def test_fixture_v2_cancel_after_acceptance_prevents_create(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.owner.send()
+    rig.crash_at("accepted_sent")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.owner.cancel("msg_A")
+    rig.boot()
+    rig.adapter._fixture_v2 = transport
+    rig.tick(2)
+    assert rig.rec()["outcome"] == "not-started" and rig.rec()["closed"]
+    assert transport.creates == 0 and rig.harness.prompts == []
+
+
+def test_fixture_v2_policy_change_does_not_rewrite_registration(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.owner.send()
+    rig.crash_at("v2_registration_intent_persisted")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.boot()
+    rig.adapter._fixture_v2 = transport
+    write_policy(rig.policy, harness={"harness_id": "opencode", "harness_build": "2.0.32",
+                                     "model_id": "prov/changed", "recipe_id": "inbox-continue-v1",
+                                     "observed_profile": {"sandbox": "none"}})
+    rig.tick(2)
+    assert rig.rec()["state"] == ha.S_DECIDED and transport.creates == 0 and not rig.owner.runs
+    use_fixture_v2(rig, transport)
+    rig.tick(2)
+    assert rig.rec()["state"] == ha.S_LAUNCHED and transport.creates == 1
+    stored = json.loads(next(iter(rig.owner.runs.values()))[0])
+    assert stored["model_id"] == "prov/model"
+
+
+def test_fixture_v2_cancel_before_acceptance_refuses_even_if_server_unavailable(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.owner.send()
+    rig.crash_at("v2_registration_intent_persisted")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.owner.cancel("msg_A")
+    transport.version = "2.0.33"
+    rig.boot()
+    rig.adapter._fixture_v2 = transport
+    rig.tick(2)
+    assert rig.rec()["closed"] and rig.rec()["decision"] == "refused"
+    assert "accepted" not in rig.owner.kinds("msg_A") and rig.owner.run_register_calls == 0
+
+
+def test_fixture_v2_accepted_registration_recovers_during_server_outage(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.owner.send()
+    rig.crash_at("accepted_sent")
+    with pytest.raises(Crash):
+        rig.tick()
+    transport.version = "2.0.33"
+    rig.boot()
+    rig.adapter._fixture_v2 = transport
+    rig.tick(2)
+    assert rig.rec()["state"] == ha.S_RUN_REGISTERED and rig.owner.run_register_calls == 1
+    assert transport.creates == 0 and not rig.rec()["closed"]
+
+
+def test_fixture_v2_expiry_before_acceptance_refuses(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.owner.send(not_after="2027-01-15T08:01:00Z")
+    rig.crash_at("v2_registration_intent_persisted")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.now += 120
+    rig.boot()
+    rig.adapter._fixture_v2 = transport
+    rig.tick(2)
+    assert rig.rec()["closed"] and rig.rec()["decision"] == "refused"
+    assert "accepted" not in rig.owner.kinds("msg_A") and transport.creates == 0
+
+
 def test_legacy_transport_does_not_create_for_v2_registered_run(rig):
     rig.owner.send()
     rig.crash_at("run_registered_persisted")
