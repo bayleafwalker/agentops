@@ -906,6 +906,10 @@ class StateLocked(RuntimeError):
     pass
 
 
+class PromptIntentError(RuntimeError):
+    """A v2 prompt cannot be reconstructed from a trustworthy persisted intent."""
+
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS cursors (repo_id TEXT PRIMARY KEY NOT NULL, next_after_seq INTEGER NOT NULL);
@@ -923,16 +927,22 @@ CREATE TABLE IF NOT EXISTS messages (
   launched_at REAL, model_id TEXT,
   delegation_id TEXT, delegation_expires_at TEXT,
   delegation_generation INTEGER NOT NULL DEFAULT 0, handoff_state TEXT NOT NULL DEFAULT 'none',
+  harness_api TEXT, prompt_id TEXT, prompt_nonce TEXT, prompt_sha256 TEXT,
+  prompt_binding_sha256 TEXT, prompt_admission TEXT,
   PRIMARY KEY (repo_id, message_id));
 """
 _COLUMNS = ("state decision reason_code reason_text run_id session_id prompt_sent abort_requested "
             "outcome summary evidence detail ambiguous_sent abort_sent idle_polls closed last_error "
-            "launched_at model_id delegation_id delegation_expires_at delegation_generation handoff_state").split()
+            "launched_at model_id delegation_id delegation_expires_at delegation_generation handoff_state "
+            "harness_api prompt_id prompt_nonce prompt_sha256 prompt_binding_sha256 prompt_admission").split()
 # Columns added after the first deployed schema; added in place on open.
 _ADDED_COLUMNS = (("launched_at", "REAL"), ("model_id", "TEXT"), ("delegation_id", "TEXT"),
                   ("delegation_expires_at", "TEXT"),
                   ("delegation_generation", "INTEGER NOT NULL DEFAULT 0"),
-                  ("handoff_state", "TEXT NOT NULL DEFAULT 'none'"))
+                  ("handoff_state", "TEXT NOT NULL DEFAULT 'none'"),
+                  ("harness_api", "TEXT"), ("prompt_id", "TEXT"), ("prompt_nonce", "TEXT"),
+                  ("prompt_sha256", "TEXT"), ("prompt_binding_sha256", "TEXT"),
+                  ("prompt_admission", "TEXT"))
 
 
 class State:
@@ -1024,6 +1034,62 @@ class State:
         with self.tx():
             self.db.execute(f"UPDATE messages SET {sets} WHERE repo_id=? AND message_id=?",
                             (*fields.values(), self.clock(), repo_id, message_id))
+
+    def prepare_v2_prompt(self, repo_id: str, message_id: str) -> dict[str, str]:
+        """Persist a reconstructible input intent before a future v2 submission.
+
+        This is local preparation only: intent does not mean admitted, started,
+        or completed. The production adapter does not invoke this helper yet.
+        """
+        fields = ("prompt_id", "prompt_nonce", "prompt_sha256", "prompt_binding_sha256", "prompt_admission")
+        with self.tx():
+            row = self.get(repo_id, message_id)
+            if (row is None or row["harness_api"] != "opencode-v2" or row["state"] != S_LAUNCHED
+                    or row["closed"] or row["prompt_sent"]
+                    or not all(isinstance(row[k], str) and row[k].strip()
+                               for k in ("run_id", "session_id", "model_id"))):
+                raise PromptIntentError("v2 launched binding is incomplete")
+            provider, separator, model = row["model_id"].partition("/")
+            if (not separator or not provider.strip() or not model.strip()
+                    or provider != provider.strip() or model != model.strip()):
+                raise PromptIntentError("v2 model binding is invalid")
+            try:
+                envelope = json.loads(row["envelope"])
+            except (TypeError, ValueError) as exc:
+                raise PromptIntentError("v2 envelope is invalid") from exc
+            if not isinstance(envelope, dict) or envelope.get("message_id") != message_id:
+                raise PromptIntentError("v2 envelope identity is invalid")
+            binding = {"repo_id": repo_id, "message_id": message_id, "run_id": row["run_id"],
+                       "session_id": row["session_id"], "model_id": row["model_id"],
+                       "harness_api": row["harness_api"], "envelope": envelope}
+            values = [row[k] for k in fields]
+            if all(value is None for value in values):
+                prompt_id, nonce = "msg_" + secrets.token_hex(16), secrets.token_hex(16)
+                binding["prompt_id"] = prompt_id
+                binding_sha = hashlib.sha256(canonical(binding).encode("utf-8")).hexdigest()
+                text = build_prompt(envelope, row["run_id"], nonce)
+                digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+                self.db.execute(
+                    "UPDATE messages SET prompt_id=?,prompt_nonce=?,prompt_sha256=?,"
+                    "prompt_binding_sha256=?,prompt_admission=?,updated_at=? WHERE repo_id=? AND message_id=?",
+                    (prompt_id, nonce, digest, binding_sha, "intent", self.clock(), repo_id, message_id))
+            else:
+                prompt_id, nonce, digest, recorded_binding, admission = values
+                if (not all(isinstance(value, str) for value in values)
+                        or not re.fullmatch(r"msg_[0-9a-f]{32}", prompt_id)
+                        or not re.fullmatch(r"[0-9a-f]{32}", nonce)
+                        or not re.fullmatch(r"[0-9a-f]{64}", digest)
+                        or not re.fullmatch(r"[0-9a-f]{64}", recorded_binding)
+                        or admission != "intent"):
+                    raise PromptIntentError("v2 prompt intent is partial or its binding changed")
+                binding["prompt_id"] = prompt_id
+                binding_sha = hashlib.sha256(canonical(binding).encode("utf-8")).hexdigest()
+                if recorded_binding != binding_sha:
+                    raise PromptIntentError("v2 prompt intent is partial or its binding changed")
+                text = build_prompt(envelope, row["run_id"], nonce)
+                if hashlib.sha256(text.encode("utf-8")).hexdigest() != digest:
+                    raise PromptIntentError("v2 prompt digest mismatch")
+            return {"id": prompt_id, "text": text, "sha256": digest, "admission": "intent"}
 
     def open_records(self) -> list[sqlite3.Row]:
         return self.db.execute(
