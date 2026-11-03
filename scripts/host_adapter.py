@@ -61,6 +61,7 @@ import functools
 import hashlib
 import importlib.metadata
 import json
+import math
 import os
 import re
 import secrets
@@ -930,13 +931,13 @@ CREATE TABLE IF NOT EXISTS messages (
   delegation_id TEXT, delegation_expires_at TEXT,
   delegation_generation INTEGER NOT NULL DEFAULT 0, handoff_state TEXT NOT NULL DEFAULT 'none',
   harness_api TEXT, prompt_id TEXT, prompt_nonce TEXT, prompt_sha256 TEXT,
-  prompt_binding_sha256 TEXT, prompt_admission TEXT,
+  prompt_binding_sha256 TEXT, prompt_admission TEXT, prompt_admission_evidence TEXT,
   PRIMARY KEY (repo_id, message_id));
 """
 _COLUMNS = ("state decision reason_code reason_text run_id session_id prompt_sent abort_requested "
             "outcome summary evidence detail ambiguous_sent abort_sent idle_polls closed last_error "
             "launched_at model_id delegation_id delegation_expires_at delegation_generation handoff_state "
-            "harness_api prompt_id prompt_nonce prompt_sha256 prompt_binding_sha256 prompt_admission").split()
+            "harness_api prompt_id prompt_nonce prompt_sha256 prompt_binding_sha256 prompt_admission prompt_admission_evidence").split()
 # Columns added after the first deployed schema; added in place on open.
 _ADDED_COLUMNS = (("launched_at", "REAL"), ("model_id", "TEXT"), ("delegation_id", "TEXT"),
                   ("delegation_expires_at", "TEXT"),
@@ -944,7 +945,7 @@ _ADDED_COLUMNS = (("launched_at", "REAL"), ("model_id", "TEXT"), ("delegation_id
                   ("handoff_state", "TEXT NOT NULL DEFAULT 'none'"),
                   ("harness_api", "TEXT"), ("prompt_id", "TEXT"), ("prompt_nonce", "TEXT"),
                   ("prompt_sha256", "TEXT"), ("prompt_binding_sha256", "TEXT"),
-                  ("prompt_admission", "TEXT"))
+                  ("prompt_admission", "TEXT"), ("prompt_admission_evidence", "TEXT"))
 
 
 class State:
@@ -1046,7 +1047,7 @@ class State:
         """Read existing bytes for reconciliation; this does not authorize a send."""
         with self.tx():
             return self._v2_prompt_locked(repo_id, message_id, create=False,
-                                          allowed=("intent", "unknown"))
+                                          allowed=("intent", "unknown", "admitted"))
 
     def begin_v2_submission(self, repo_id: str, message_id: str) -> dict[str, str]:
         """Durably mark a single first submission uncertain before returning bytes.
@@ -1059,6 +1060,41 @@ class State:
             self.db.execute("UPDATE messages SET prompt_admission=?,updated_at=? WHERE repo_id=? AND message_id=?",
                             ("unknown", self.clock(), repo_id, message_id))
             return {**intent, "admission": "unknown"}
+
+    def record_v2_admission(self, repo_id: str, message_id: str, observation: dict) -> dict:
+        """Record a trusted caller's validated observation, not execution success."""
+        required = {"status", "id", "session_id", "sha256", "sources", "server_version", "prompt_binding_sha256"}
+        if not isinstance(observation, dict) or set(observation) != required:
+            raise PromptIntentError("invalid admission observation")
+        sources = observation["sources"]
+        if (observation["status"] != "observed" or observation["server_version"] != "2.0.32"
+                or not isinstance(sources, list) or not sources
+                or any(source not in ("ack", "inbox", "message") for source in sources)
+                or len(set(sources)) != len(sources)):
+            raise PromptIntentError("invalid admission observation")
+        with self.tx():
+            prompt = self._v2_prompt_locked(repo_id, message_id, create=False, allowed=("unknown", "admitted"))
+            row = self.get(repo_id, message_id)
+            if (observation["id"] != prompt["id"] or observation["sha256"] != prompt["sha256"]
+                    or observation["session_id"] != row["session_id"]
+                    or observation["prompt_binding_sha256"] != row["prompt_binding_sha256"]):
+                raise PromptIntentError("admission observation binding mismatch")
+            now = self.clock()
+            if isinstance(now, bool) or not isinstance(now, (int, float)) or not math.isfinite(now):
+                raise PromptIntentError("invalid observation clock")
+            evidence = {"schema": "opencode-v2-admission-observation/v1", "transport": "opencode-v2",
+                        "server_version": observation["server_version"], "prompt_id": prompt["id"],
+                        "session_id": row["session_id"], "text_sha256": prompt["sha256"],
+                        "prompt_binding_sha256": row["prompt_binding_sha256"],
+                        "sources": sorted(sources), "first_observed_at": now}
+            if prompt["admission"] == "admitted":
+                previous = json.loads(row["prompt_admission_evidence"])
+                evidence["sources"] = sorted(set(previous["sources"]) | set(sources))
+                evidence["first_observed_at"] = previous["first_observed_at"]
+            self.db.execute("UPDATE messages SET prompt_admission=?,prompt_admission_evidence=?,updated_at=? "
+                            "WHERE repo_id=? AND message_id=?",
+                            ("admitted", canonical(evidence), self.clock(), repo_id, message_id))
+            return evidence
 
     def _v2_prompt_locked(self, repo_id: str, message_id: str, *, create: bool,
                           allowed: tuple[str, ...]) -> dict[str, str]:
@@ -1083,6 +1119,8 @@ class State:
                    "session_id": row["session_id"], "model_id": row["model_id"],
                    "harness_api": row["harness_api"], "envelope": envelope}
         values = [row[k] for k in fields]
+        if row["prompt_admission"] != "admitted" and row["prompt_admission_evidence"] is not None:
+            raise PromptIntentError("unexpected v2 admission evidence")
         if all(value is None for value in values):
             if not create:
                 raise PromptIntentError("v2 prompt intent is missing")
@@ -1111,8 +1149,33 @@ class State:
             text = build_prompt(envelope, row["run_id"], nonce)
             if hashlib.sha256(text.encode("utf-8")).hexdigest() != digest:
                 raise PromptIntentError("v2 prompt digest mismatch")
+            if admission == "admitted":
+                self._validate_v2_admission_evidence(row, prompt_id, digest)
         return {"id": prompt_id, "text": text, "sha256": digest,
                 "admission": admission if values[0] is not None else "intent"}
+
+    @staticmethod
+    def _validate_v2_admission_evidence(row, prompt_id: str, digest: str) -> None:
+        try:
+            evidence = json.loads(row["prompt_admission_evidence"])
+            sources = evidence["sources"]
+            valid = (set(evidence) == {"schema", "transport", "server_version", "prompt_id", "session_id",
+                                        "text_sha256", "prompt_binding_sha256", "sources", "first_observed_at"}
+                     and evidence["schema"] == "opencode-v2-admission-observation/v1"
+                     and evidence["transport"] == "opencode-v2" and evidence["server_version"] == "2.0.32"
+                     and evidence["prompt_id"] == prompt_id and evidence["session_id"] == row["session_id"]
+                     and evidence["text_sha256"] == digest
+                     and evidence["prompt_binding_sha256"] == row["prompt_binding_sha256"]
+                     and isinstance(sources, list) and bool(sources)
+                     and all(source in ("ack", "inbox", "message") for source in sources)
+                     and sources == sorted(set(sources))
+                     and isinstance(evidence["first_observed_at"], (int, float))
+                     and not isinstance(evidence["first_observed_at"], bool)
+                     and math.isfinite(evidence["first_observed_at"]))
+        except (TypeError, ValueError, KeyError, OverflowError):
+            valid = False
+        if not valid:
+            raise PromptIntentError("invalid v2 admission evidence")
 
     def open_records(self) -> list[sqlite3.Row]:
         return self.db.execute(
