@@ -21,6 +21,8 @@ Invariants, each pinned by a test in `scripts/tests/test_host_adapter.py`:
 * An unhealthy harness pauses intake of new inbox messages. Existing records
   continue through cancellation and reconciliation; a previously ingested
   request may still be accepted or registered while launch remains deferred.
+* This v1 transport never drives an attempt bound to another harness API.
+  Already recorded terminal and abandonment evidence may still be reconciled.
 * The successor runs in a session created with a server-side permission
   ruleset (`SUCCESSOR_PERMISSION`): everything denied except `sprintctl run
   context` and `sprintctl run note`. A session found by title is adopted only
@@ -1157,7 +1159,8 @@ class Adapter:
         for rec in self.state.open_records():
             self._guarded(self._advance, rec["repo_id"], rec["message_id"])
         for rec in self.state.open_records():
-            if rec["run_id"] and rec["state"] in (S_LAUNCH_INTENT, S_LAUNCHED):
+            if (rec["harness_api"] in (None, "opencode-v1") and rec["run_id"]
+                    and rec["state"] in (S_LAUNCH_INTENT, S_LAUNCHED)):
                 self._observe(rec["repo_id"], "executing", run_id=rec["run_id"])
 
     def _guarded(self, fn: Callable, *args: Any) -> None:
@@ -1225,6 +1228,12 @@ class Adapter:
                 return
             if rec["state"] == S_AMBIGUOUS:
                 self._flush_ambiguous(rec)
+                return
+            # Fence every nonterminal state, including received/decided: an
+            # unfamiliar binding must not be interpreted by this transport.
+            if (rec["harness_api"] not in (None, "opencode-v1")
+                    and rec["state"] not in (S_FINISHED, S_NOT_STARTED)):
+                self.state.update(repo, mid, last_error="unsupported harness API for this transport")
                 return
             try:
                 if not handlers[rec["state"]](rec):
@@ -1957,6 +1966,8 @@ class Adapter:
         if rec["state"] not in (S_AMBIGUOUS, S_LAUNCHED) or rec["closed"]:
             raise SystemExit(f"host-adapter: {message_id} is {rec['state']}, not ambiguous or launched")
         if self._abandon_intent(rec) is None:
+            if rec["state"] == S_LAUNCHED and rec["harness_api"] not in (None, "opencode-v1"):
+                raise SystemExit("host-adapter: unsupported harness API for this transport")
             evidence = [{"kind": "run", "ref": rec["run_id"]}] if rec["run_id"] else []
             what = "an ambiguous launch"
             if rec["state"] == S_LAUNCHED:
