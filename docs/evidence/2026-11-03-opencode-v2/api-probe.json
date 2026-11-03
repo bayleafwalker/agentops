@@ -1,0 +1,237 @@
+{
+  "schema": "opencode-api-probe/v1",
+  "observed_at": "2026-11-03",
+  "durability": "cross-host-replicated when committed; raw isolated probe files were session-local",
+  "target": {
+    "host": "devbox",
+    "binary": "/nix/store/9ysv2ynpka84idp745mcd8l0ayc2f102-opencode-2.0.32/bin/opencode",
+    "version": "2.0.32"
+  },
+  "isolation": {
+    "network": "bwrap --unshare-net; local loopback only",
+    "filesystem": "temporary HOME and XDG directories under disposable /tmp, removed after each run",
+    "environment": "allowlisted; no inherited provider credentials or provider configuration read",
+    "authentication": "generated disposable Basic-auth password; value not retained"
+  },
+  "schemas": {
+    "Model.Ref": {
+      "type": "object",
+      "required": [
+        "id",
+        "providerID"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "providerID": {
+          "$ref": "#/components/schemas/Provider.ID"
+        },
+        "variant": {
+          "type": "string"
+        }
+      }
+    },
+    "Permission.Rule": {
+      "type": "object",
+      "required": [
+        "action",
+        "resource",
+        "effect"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "type": "string"
+        },
+        "resource": {
+          "type": "string"
+        },
+        "effect": {
+          "$ref": "#/components/schemas/Permission.Effect"
+        }
+      }
+    },
+    "Permission.Effect": {
+      "type": "string",
+      "enum": [
+        "allow",
+        "deny",
+        "ask"
+      ]
+    },
+    "Permission.Ruleset": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/Permission.Rule"
+      }
+    },
+    "Session.Inbox.Delivery": {
+      "type": "string",
+      "enum": [
+        "steer",
+        "queue"
+      ]
+    },
+    "Session.Message.ID": {
+      "type": "string",
+      "pattern": "^msg_"
+    },
+    "Session.Inbox.User": {
+      "type": "object",
+      "required": [
+        "id",
+        "sessionID",
+        "time",
+        "type",
+        "payload",
+        "delivery"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/components/schemas/Session.Message.ID"
+        },
+        "sessionID": {
+          "$ref": "#/components/schemas/Session.ID"
+        },
+        "time": {
+          "type": "object",
+          "required": [
+            "created"
+          ],
+          "properties": {
+            "created": {
+              "type": "number"
+            }
+          }
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "user"
+          ]
+        },
+        "payload": {
+          "$ref": "#/components/schemas/Session.Inbox.UserPayload"
+        },
+        "delivery": {
+          "$ref": "#/components/schemas/Session.Inbox.Delivery"
+        }
+      }
+    },
+    "Session.Inbox.UserPayload": {
+      "type": "object",
+      "required": [
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/Prompt.FileAttachment"
+          }
+        },
+        "agents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/Prompt.AgentAttachment"
+          }
+        },
+        "skills": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/Prompt.SkillAttachment"
+          }
+        },
+        "metadata": {
+          "type": "object"
+        }
+      }
+    }
+  },
+  "routes": {
+    "POST /api/session": {
+      "request_fields": [
+        "id?",
+        "parentID?",
+        "title?",
+        "agent?",
+        "model?",
+        "location?",
+        "metadata?",
+        "permissions?"
+      ],
+      "response": "200 {data: Session.Info}",
+      "notes": "No directory query parameter on create. Session.Info returns selected model and permissions."
+    },
+    "POST /api/session/{sessionID}/model": {
+      "request": {
+        "model": {
+          "$ref": "#/components/schemas/Model.Ref"
+        }
+      },
+      "response": "204 No Content"
+    },
+    "PATCH /api/session/{sessionID}": {
+      "request_fields": [
+        "title?",
+        "metadata?",
+        "permissions?"
+      ],
+      "response": "204 No Content",
+      "notes": "Model is absent from the OpenAPI request schema. A model-only PATCH returned 204 but a follow-up GET showed the selected model unchanged."
+    },
+    "POST /api/session/{sessionID}/prompt": {
+      "request_fields": [
+        "id?",
+        "text",
+        "files?",
+        "agents?",
+        "skills?",
+        "metadata?",
+        "delivery?",
+        "resume?"
+      ],
+      "response": "200 {data: Session.Inbox.User}"
+    },
+    "GET /api/session/{sessionID}/inbox": {
+      "response": "200 {data: Session.Inbox.Info[]}"
+    },
+    "GET /api/session/{sessionID}/message": {
+      "response": "200 {data: Session.Message.Info[], cursor: {previous, next}}"
+    }
+  },
+  "observations": [
+    {
+      "case": "model-at-create-and-update",
+      "result": "PASS",
+      "detail": "Creating a session with model {id: never-connect, providerID: local-fake} returned 200 and GET returned that model (variant default). POST /model with a second fake model returned 204; GET reflected the new model."
+    },
+    {
+      "case": "patch-model-field",
+      "result": "NO-OP",
+      "detail": "PATCH with only a model field returned 204, but GET confirmed the model remained the value set by POST /model."
+    },
+    {
+      "case": "duplicate-prompt-id",
+      "result": "ID-DEDUP-OBSERVED",
+      "detail": "Two POST /prompt calls with id msg_probe_same_id both returned 200 and the same ID. The second response returned the first stored text; GET messages contained one user row for that ID. Inbox was empty after processing. This establishes duplicate-ID coalescing in this probe, not a general exactly-once guarantee for downstream processing."
+    },
+    {
+      "case": "inference-suppression",
+      "result": "PASS",
+      "detail": "Prompts used an unconfigured local-fake provider/model and the server ran in an isolated network namespace. No external inference was possible; transcript reported model unavailable."
+    }
+  ],
+  "limitations": [
+    "The duplicate-ID probe used identical prompt IDs and a fake unavailable model. It does not establish idempotency across sessions or all delivery modes.",
+    "The isolated probes accessed no production server, configuration, or credentials."
+  ],
+  "schema_scope": "selected schema excerpts only; not a standalone validation schema"
+}
