@@ -1,0 +1,83 @@
+{
+  "direct_route": "/api/session/active",
+  "isolation": {
+    "loopback_provider_only": true,
+    "network_unshared": true,
+    "no_real_provider_config": true,
+    "synthetic_auth_not_recorded": true,
+    "temporary_home_xdg": true
+  },
+  "observations": {
+    "after_interrupt": {
+      "data_count": 0,
+      "data_type": "dict",
+      "entries": [],
+      "http_status": 200,
+      "json_type": "dict"
+    },
+    "after_retry_interrupt": {
+      "data_count": 0,
+      "data_type": "dict",
+      "entries": [],
+      "http_status": 200,
+      "json_type": "dict"
+    },
+    "held_busy": {
+      "data_count": 1,
+      "data_type": "dict",
+      "entries": [
+        {
+          "key_matches_expected_session": true,
+          "record": {
+            "type": "running"
+          }
+        }
+      ],
+      "http_status": 200,
+      "json_type": "dict"
+    },
+    "idle_initial": {
+      "data_count": 0,
+      "data_type": "dict",
+      "entries": [],
+      "http_status": 200,
+      "json_type": "dict"
+    },
+    "idle_with_session": {
+      "data_count": 0,
+      "data_type": "dict",
+      "entries": [],
+      "http_status": 200,
+      "json_type": "dict"
+    },
+    "interrupt_ack": {
+      "payload": {
+        "interrupted": true
+      },
+      "status": 200
+    },
+    "retry_interrupt_ack": {
+      "payload": {
+        "interrupted": true
+      },
+      "status": 200
+    },
+    "retrying_busy": {
+      "data_count": 1,
+      "data_type": "dict",
+      "entries": [
+        {
+          "key_matches_expected_session": true,
+          "record": {
+            "type": "running"
+          }
+        }
+      ],
+      "http_status": 200,
+      "json_type": "dict"
+    }
+  },
+  "provider_retry_call_count": 2,
+  "retry_attempts_before_retry_snapshot": 2,
+  "version": "2.0.32"
+}
