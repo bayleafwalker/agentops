@@ -932,12 +932,14 @@ CREATE TABLE IF NOT EXISTS messages (
   delegation_generation INTEGER NOT NULL DEFAULT 0, handoff_state TEXT NOT NULL DEFAULT 'none',
   harness_api TEXT, prompt_id TEXT, prompt_nonce TEXT, prompt_sha256 TEXT,
   prompt_binding_sha256 TEXT, prompt_admission TEXT, prompt_admission_evidence TEXT,
+  v2_launch_binding TEXT, v2_launch_binding_sha256 TEXT,
   PRIMARY KEY (repo_id, message_id));
 """
 _COLUMNS = ("state decision reason_code reason_text run_id session_id prompt_sent abort_requested "
             "outcome summary evidence detail ambiguous_sent abort_sent idle_polls closed last_error "
             "launched_at model_id delegation_id delegation_expires_at delegation_generation handoff_state "
-            "harness_api prompt_id prompt_nonce prompt_sha256 prompt_binding_sha256 prompt_admission prompt_admission_evidence").split()
+            "harness_api prompt_id prompt_nonce prompt_sha256 prompt_binding_sha256 prompt_admission prompt_admission_evidence "
+            "v2_launch_binding v2_launch_binding_sha256").split()
 # Columns added after the first deployed schema; added in place on open.
 _ADDED_COLUMNS = (("launched_at", "REAL"), ("model_id", "TEXT"), ("delegation_id", "TEXT"),
                   ("delegation_expires_at", "TEXT"),
@@ -945,7 +947,8 @@ _ADDED_COLUMNS = (("launched_at", "REAL"), ("model_id", "TEXT"), ("delegation_id
                   ("handoff_state", "TEXT NOT NULL DEFAULT 'none'"),
                   ("harness_api", "TEXT"), ("prompt_id", "TEXT"), ("prompt_nonce", "TEXT"),
                   ("prompt_sha256", "TEXT"), ("prompt_binding_sha256", "TEXT"),
-                  ("prompt_admission", "TEXT"), ("prompt_admission_evidence", "TEXT"))
+                  ("prompt_admission", "TEXT"), ("prompt_admission_evidence", "TEXT"),
+                  ("v2_launch_binding", "TEXT"), ("v2_launch_binding_sha256", "TEXT"))
 
 
 class State:
@@ -1037,6 +1040,83 @@ class State:
         with self.tx():
             self.db.execute(f"UPDATE messages SET {sets} WHERE repo_id=? AND message_id=?",
                             (*fields.values(), self.clock(), repo_id, message_id))
+
+    def prepare_v2_launch_binding(self, repo_id: str, message_id: str, *, directory: str, title: str,
+                                  permissions: list[dict], server_version: str) -> dict:
+        """Freeze a new v2 launch binding before any future server write.
+
+        A caller must first qualify the owner-registered harness and model.
+        Null API values also occur on legacy rows and do not authorize their
+        automatic conversion. The supplied rules are not qualified here.
+        """
+        if (not isinstance(directory, str) or not directory.startswith("/") or "\0" in directory
+                or os.path.normpath(directory) != directory or not isinstance(title, str) or not title or "\0" in title
+                or server_version != "2.0.32" or not isinstance(permissions, list) or not permissions
+                or any(not isinstance(rule, dict) or set(rule) != {"action", "resource", "effect"}
+                       or any(not isinstance(rule[key], str) or not rule[key] for key in rule)
+                       or rule["effect"] not in ("allow", "deny", "ask") for rule in permissions)):
+            raise PromptIntentError("invalid v2 launch binding")
+        with self.tx():
+            row = self.get(repo_id, message_id)
+            if (row is None or row["state"] != S_RUN_REGISTERED or row["closed"] or row["session_id"] is not None
+                    or row["prompt_sent"] or any(row[key] is not None for key in
+                        ("prompt_id", "prompt_nonce", "prompt_sha256", "prompt_binding_sha256",
+                         "prompt_admission", "prompt_admission_evidence"))
+                    or row["harness_api"] not in (None, "opencode-v2")
+                    or not isinstance(row["run_id"], str) or not row["run_id"]
+                    or not isinstance(row["model_id"], str) or row["model_id"].count("/") != 1
+                    or any(not part or part != part.strip() or any(c.isspace() for c in part)
+                           or "\0" in part for part in row["model_id"].split("/"))):
+                raise PromptIntentError("v2 registered run binding is incomplete")
+            binding = {"schema": "opencode-v2-launch-binding/v1", "harness_api": "opencode-v2",
+                       "server_version": server_version, "repo_id": repo_id, "message_id": message_id,
+                       "run_id": row["run_id"], "model_id": row["model_id"], "directory": directory,
+                       "title": title, "permissions": permissions}
+            encoded = canonical(binding)
+            digest = hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+            if row["v2_launch_binding"] is None and row["v2_launch_binding_sha256"] is None:
+                if row["harness_api"] is not None:
+                    raise PromptIntentError("v2 launch binding is partial")
+                self.db.execute("UPDATE messages SET harness_api=?,v2_launch_binding=?,v2_launch_binding_sha256=?,"
+                                "updated_at=? WHERE repo_id=? AND message_id=?",
+                                ("opencode-v2", encoded, digest, self.clock(), repo_id, message_id))
+            elif row["harness_api"] != "opencode-v2" or row["v2_launch_binding"] != encoded or row["v2_launch_binding_sha256"] != digest:
+                raise PromptIntentError("v2 launch binding changed or is partial")
+            return binding
+
+    def load_v2_launch_binding(self, repo_id: str, message_id: str) -> dict:
+        """Read a frozen binding without using current configuration."""
+        row = self.get(repo_id, message_id)
+        if row is None or row["harness_api"] != "opencode-v2":
+            raise PromptIntentError("v2 launch binding is missing")
+        raw, digest = row["v2_launch_binding"], row["v2_launch_binding_sha256"]
+        try:
+            binding = json.loads(raw)
+            valid = (isinstance(raw, str) and isinstance(digest, str)
+                     and hashlib.sha256(raw.encode("utf-8")).hexdigest() == digest
+                     and isinstance(binding, dict) and canonical(binding) == raw
+                     and binding["schema"] == "opencode-v2-launch-binding/v1"
+                     and binding["harness_api"] == "opencode-v2" and binding["server_version"] == "2.0.32"
+                     and binding["repo_id"] == repo_id and binding["message_id"] == message_id
+                     and binding["run_id"] == row["run_id"] and binding["model_id"] == row["model_id"]
+                     and isinstance(binding["run_id"], str) and bool(binding["run_id"])
+                     and isinstance(binding["model_id"], str) and binding["model_id"].count("/") == 1
+                     and all(part and part == part.strip() and "\0" not in part
+                             and not any(c.isspace() for c in part) for part in binding["model_id"].split("/"))
+                     and isinstance(binding["directory"], str) and binding["directory"].startswith("/")
+                     and "\0" not in binding["directory"] and os.path.normpath(binding["directory"]) == binding["directory"]
+                     and isinstance(binding["title"], str) and bool(binding["title"]) and "\0" not in binding["title"]
+                     and isinstance(binding["permissions"], list) and bool(binding["permissions"])
+                     and all(isinstance(rule, dict) and set(rule) == {"action", "resource", "effect"}
+                             and all(isinstance(rule[key], str) and bool(rule[key]) for key in rule)
+                             and rule["effect"] in ("allow", "deny", "ask") for rule in binding["permissions"])
+                     and set(binding) == {"schema", "harness_api", "server_version", "repo_id", "message_id",
+                                          "run_id", "model_id", "directory", "title", "permissions"})
+        except (TypeError, ValueError, KeyError):
+            valid = False
+        if not valid:
+            raise PromptIntentError("invalid v2 launch binding")
+        return binding
 
     def prepare_v2_prompt(self, repo_id: str, message_id: str) -> dict[str, str]:
         """Persist a reconstructible intent; never submit a prompt."""
