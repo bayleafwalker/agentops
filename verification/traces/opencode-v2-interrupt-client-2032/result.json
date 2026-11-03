@@ -1,0 +1,57 @@
+{
+  "cases": {
+    "correct_session_delete": {
+      "ack": {
+        "status": "acknowledged"
+      },
+      "provider_saw_cancelled_text": false,
+      "queued_id_after": false,
+      "queued_id_before": true,
+      "queued_id_in_transcript": false
+    },
+    "idle_repeated_interrupt": {
+      "active_map": {
+        "data": {}
+      },
+      "first": {
+        "interrupted": false,
+        "status": "acknowledged"
+      },
+      "repeat": {
+        "interrupted": false,
+        "status": "acknowledged"
+      }
+    },
+    "interrupt_with_queued_input": {
+      "ack": {
+        "interrupted": true,
+        "status": "acknowledged"
+      },
+      "queued_id_after_ack": true,
+      "queued_id_after_terminal": true,
+      "queued_id_in_transcript": false
+    },
+    "unknown_session_interrupt": {
+      "error_class": "V2Error",
+      "message": "server request failed"
+    },
+    "wrong_session_delete": {
+      "direct_route_status": 204,
+      "module_ack": {
+        "status": "acknowledged"
+      },
+      "target_id_present_after": true,
+      "target_id_present_before": true,
+      "wrong_session_inbox_count": 0
+    }
+  },
+  "isolation": {
+    "loopback_fake_provider": true,
+    "network_unshared": true,
+    "no_real_config_or_credentials": true,
+    "synthetic_password_not_recorded": true,
+    "temporary_home_xdg": true
+  },
+  "tested_module_sha256": "638c52496b0ca3cb7cd2f9204ddec9628e32d13615dad95f730c00b46476a5dc",
+  "version": "2.0.32"
+}

@@ -41,7 +41,7 @@ class OpenCodeV2:
         self.timeout = timeout
         self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
 
-    def _request(self, method, path, query=None, body=None):
+    def _request(self, method, path, query=None, body=None, *, empty_ok=False):
         url = self.origin + path
         if query:
             url += "?" + urllib.parse.urlencode(query)
@@ -52,6 +52,10 @@ class OpenCodeV2:
         req = urllib.request.Request(url, data=payload, headers=headers, method=method)
         try:
             with self.opener.open(req, timeout=self.timeout) as response:
+                if empty_ok:
+                    if response.status != 204 or response.read(1):
+                        raise V2Error("unexpected server response")
+                    return {}
                 if response.status != 200 or response.headers.get_content_type() != "application/json":
                     raise V2Error("unexpected server response")
                 raw = response.read(self.MAX_RESPONSE + 1)
@@ -228,3 +232,19 @@ class OpenCodeV2:
             raise V2Error("conflicting input payload")
         return {"status": "observed" if found else "unknown", "id": pid, "session_id": sid,
                 "sha256": text_sha256, "sources": [source for source, _ in found]}
+
+    def interrupt_session(self, session_id):
+        """Request interruption; acknowledgement is not terminal evidence."""
+        sid = self._id(session_id)
+        response = self._request("POST", f"/api/session/{sid}/interrupt", query={"resume": "false"})
+        if not isinstance(response.get("interrupted"), bool):
+            raise V2Error("invalid interrupt acknowledgement")
+        return {"status": "acknowledged", "interrupted": response["interrupted"]}
+
+    def request_pending_deletion(self, session_id, prompt_id):
+        """Request queue removal; only later readback can show its effect."""
+        sid, pid = self._id(session_id), self._id(prompt_id)
+        if not pid.startswith("msg_"):
+            raise V2Error("invalid prompt")
+        self._request("DELETE", f"/api/session/{sid}/inbox/{pid}", empty_ok=True)
+        return {"status": "acknowledged"}
