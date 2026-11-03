@@ -1,0 +1,440 @@
+{
+  "delete_path_template": "/api/session/{sessionID}/inbox/{inboxID}",
+  "interrupt_path_template": "/api/session/{sessionID}/interrupt",
+  "isolation": {
+    "bwrap_unshare_net": true,
+    "generated_password_recorded": false,
+    "loopback_only_fake_provider": true,
+    "no_external_inference": true,
+    "no_provider_credentials_or_real_config_read": true,
+    "temporary_home_xdg_sessions": true
+  },
+  "limits": [
+    "Status endpoint has session-level state only; no assertion links a busy or idle record to one specific prompt.",
+    "Page and restart checks cover this temporary local data root and this server build only.",
+    "Interrupt and queue-delete responses are reported separately from inbox/transcript readback."
+  ],
+  "observations": {
+    "interrupt_terminal": {
+      "assistant_error_type": "aborted",
+      "assistant_finish": "error",
+      "idle_id_equals_prompt_id": false,
+      "idle_outcome": "interrupted",
+      "idle_shape_keys": [
+        "id",
+        "outcome",
+        "time",
+        "type"
+      ],
+      "interrupt_http_status": 200,
+      "interrupt_response": {
+        "interrupted": true
+      },
+      "prompt_id_matches_user": true,
+      "prompt_status": 200,
+      "status_after_terminal": null,
+      "status_while_provider_held": null
+    },
+    "interrupt_with_queued_input": {
+      "assistant_finishes_after_interrupt": [
+        "error"
+      ],
+      "idle_outcomes_after_interrupt": [
+        "interrupted"
+      ],
+      "inbox_status_after_wait": 200,
+      "inbox_status_immediately_after_ack": 200,
+      "interrupt_http_status": 200,
+      "interrupt_response": {
+        "interrupted": true
+      },
+      "queued_id_in_inbox_after_wait": true,
+      "queued_id_in_transcript_after_wait": false,
+      "queued_id_in_transcript_immediately": false,
+      "queued_id_still_in_inbox_immediately": true,
+      "queued_prompt_status": 200,
+      "status_after_wait": null,
+      "status_before_interrupt": null
+    },
+    "no_route_terminal": {
+      "assistant_error_type": null,
+      "assistant_finish": null,
+      "idle_error_type": "provider.no-route",
+      "idle_outcome": "failed",
+      "prompt_id_matches_user": true,
+      "prompt_status": 200,
+      "status_after_terminal": null
+    },
+    "pagination_restart": {
+      "all_prompt_ids_survived_restart": true,
+      "first_response_after_restart_count": 50,
+      "first_response_before_restart_count": 50,
+      "oldest_prompt_page_before_restart": 2,
+      "paged_after_count": 54,
+      "paged_after_ids_unique": true,
+      "paged_before_count": 54,
+      "paged_before_ids_unique": true,
+      "paged_identity_set_survived_restart": true,
+      "pages_after_restart": [
+        {
+          "cursor_next_present": true,
+          "row_count": 50,
+          "status": 200,
+          "types": [
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant"
+          ],
+          "user_ids_from_test_set": [
+            "msg_page_17",
+            "msg_page_16",
+            "msg_page_15",
+            "msg_page_14",
+            "msg_page_13",
+            "msg_page_12",
+            "msg_page_11",
+            "msg_page_10",
+            "msg_page_09",
+            "msg_page_08",
+            "msg_page_07",
+            "msg_page_06",
+            "msg_page_05",
+            "msg_page_04",
+            "msg_page_03",
+            "msg_page_02"
+          ]
+        },
+        {
+          "cursor_next_present": true,
+          "row_count": 4,
+          "status": 200,
+          "types": [
+            "user",
+            "idle",
+            "assistant",
+            "user"
+          ],
+          "user_ids_from_test_set": [
+            "msg_page_01",
+            "msg_page_00"
+          ]
+        },
+        {
+          "cursor_next_present": false,
+          "row_count": 0,
+          "status": 200,
+          "types": [],
+          "user_ids_from_test_set": []
+        }
+      ],
+      "pages_before_restart": [
+        {
+          "cursor_next_present": true,
+          "row_count": 50,
+          "status": 200,
+          "types": [
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant",
+            "user",
+            "idle",
+            "assistant"
+          ],
+          "user_ids_from_test_set": [
+            "msg_page_17",
+            "msg_page_16",
+            "msg_page_15",
+            "msg_page_14",
+            "msg_page_13",
+            "msg_page_12",
+            "msg_page_11",
+            "msg_page_10",
+            "msg_page_09",
+            "msg_page_08",
+            "msg_page_07",
+            "msg_page_06",
+            "msg_page_05",
+            "msg_page_04",
+            "msg_page_03",
+            "msg_page_02"
+          ]
+        },
+        {
+          "cursor_next_present": true,
+          "row_count": 4,
+          "status": 200,
+          "types": [
+            "user",
+            "idle",
+            "assistant",
+            "user"
+          ],
+          "user_ids_from_test_set": [
+            "msg_page_01",
+            "msg_page_00"
+          ]
+        },
+        {
+          "cursor_next_present": false,
+          "row_count": 0,
+          "status": 200,
+          "types": [],
+          "user_ids_from_test_set": []
+        }
+      ],
+      "prompt_count": 18,
+      "session_get_after_restart_status": 200,
+      "session_get_envelope_keys": [
+        "data"
+      ],
+      "status_after_restart": null
+    },
+    "queue_delete_lost_response": {
+      "caller_error_class": "RemoteDisconnected",
+      "cancelled_id_in_transcript_after_drain": false,
+      "cancelled_id_provider_inference": false,
+      "delete_route_template": "/api/session/{sessionID}/inbox/{inboxID}",
+      "inbox_status_after_delete": 200,
+      "inbox_status_before_delete": 200,
+      "proxy_response_body_bytes": 0,
+      "proxy_response_was_dropped": true,
+      "proxy_upstream_status": 204,
+      "queued_id_after_delete": false,
+      "queued_id_before_delete": true,
+      "queued_prompt_status": 200,
+      "terminal_idle_outcomes": [
+        "succeeded"
+      ]
+    },
+    "queue_duplicate_foreign": {
+      "conflict_ack_text": "QUEUE-ONE",
+      "cross_session_delete_status": 204,
+      "duplicate_ack_id_matches": true,
+      "first_ack_id_matches": true,
+      "foreign_input_absent_from_other_session_inbox": true,
+      "foreign_item_still_in_own_inbox": true,
+      "foreign_session_inbox_count": 1,
+      "foreign_session_inbox_status": 200,
+      "foreign_session_queue_status": 200,
+      "foreign_status_after_drain": null,
+      "foreign_user_present_after_drain": true,
+      "inbox_rows_before_release": [
+        {
+          "delivery": "queue",
+          "id": "msg_queue_one",
+          "session_matches": true,
+          "text": "QUEUE-ONE"
+        },
+        {
+          "delivery": "queue",
+          "id": "msg_queue_two",
+          "session_matches": true,
+          "text": "QUEUE-TWO"
+        }
+      ],
+      "inbox_status": 200,
+      "prompt_ack_statuses": {
+        "first": 200,
+        "same_id_different_text": 200,
+        "same_id_same_text": 200,
+        "second_id": 200
+      },
+      "queue_drain_assertion": true,
+      "queue_terminal_idle_count": 1,
+      "queue_terminal_outcomes": [
+        "succeeded"
+      ],
+      "queue_transcript_order_oldest_to_newest": [
+        {
+          "finish": null,
+          "id": "msg_queue_hold",
+          "non_input_message_id_present": null,
+          "outcome": null,
+          "text": "QUEUE-HOLD",
+          "type": "user"
+        },
+        {
+          "finish": "stop",
+          "id": null,
+          "non_input_message_id_present": true,
+          "outcome": null,
+          "text": "synthetic reply: QUEUE-HOLD",
+          "type": "assistant"
+        },
+        {
+          "finish": null,
+          "id": "msg_queue_one",
+          "non_input_message_id_present": null,
+          "outcome": null,
+          "text": "QUEUE-ONE",
+          "type": "user"
+        },
+        {
+          "finish": "stop",
+          "id": null,
+          "non_input_message_id_present": true,
+          "outcome": null,
+          "text": "synthetic reply: QUEUE-ONE",
+          "type": "assistant"
+        },
+        {
+          "finish": null,
+          "id": "msg_queue_two",
+          "non_input_message_id_present": null,
+          "outcome": null,
+          "text": "QUEUE-TWO",
+          "type": "user"
+        },
+        {
+          "finish": "stop",
+          "id": null,
+          "non_input_message_id_present": true,
+          "outcome": null,
+          "text": "synthetic reply: QUEUE-TWO",
+          "type": "assistant"
+        },
+        {
+          "finish": null,
+          "id": null,
+          "non_input_message_id_present": true,
+          "outcome": "succeeded",
+          "text": null,
+          "type": "idle"
+        }
+      ],
+      "same_id_count_in_inbox": 1,
+      "status_after_drain": null,
+      "status_busy": null
+    },
+    "route_discovery": {
+      "inbox_delete_paths": [
+        "/api/session/{sessionID}/inbox/{inboxID}"
+      ],
+      "interrupt_post_paths": [
+        "/api/session/{sessionID}/interrupt"
+      ],
+      "session_status_get_paths": []
+    }
+  },
+  "provider_calls": [
+    "QUEUE-HOLD",
+    "FOREIGN-HOLD",
+    "QUEUE-ONE",
+    "FOREIGN-QUEUED",
+    "QUEUE-TWO",
+    "INTERRUPT-QUEUE-HOLD",
+    "CANCEL-HOLD",
+    "INTERRUPT-HOLD",
+    "PAGINATION-TURN-00",
+    "PAGINATION-TURN-01",
+    "PAGINATION-TURN-02",
+    "PAGINATION-TURN-03",
+    "PAGINATION-TURN-04",
+    "PAGINATION-TURN-05",
+    "PAGINATION-TURN-06",
+    "PAGINATION-TURN-07",
+    "PAGINATION-TURN-08",
+    "PAGINATION-TURN-09",
+    "PAGINATION-TURN-10",
+    "PAGINATION-TURN-11",
+    "PAGINATION-TURN-12",
+    "PAGINATION-TURN-13",
+    "PAGINATION-TURN-14",
+    "PAGINATION-TURN-15",
+    "PAGINATION-TURN-16",
+    "PAGINATION-TURN-17"
+  ],
+  "server_version": "2.0.32",
+  "status_path": null
+}
