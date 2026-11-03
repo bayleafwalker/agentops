@@ -48,6 +48,51 @@ assertion raises and records the failure marker. For reproduction:
 ssh devbox-agent 'bwrap --unshare-net --ro-bind / / --tmpfs /tmp --dev /dev --proc /proc --clearenv --setenv PATH /run/current-system/sw/bin:/usr/bin:/bin python3 -' < docs/evidence/2026-11-03-opencode-v2/opencode-v2-shell-metachar-probe.py
 ```
 
+## Fresh tool-family and restart controls
+
+The [tool-policy probe](opencode-v2-tool-policy-probe-2026-11-03.py) and its
+[sanitized result](opencode-v2-tool-policy-result-2026-11-03.json) were run
+against the pinned 2.0.32 binary on devbox inside the same no-egress bubblewrap
+network namespace. It uses only a loopback fake model provider, a loopback HTTP
+canary, temporary HOME/XDG/project state, and generated synthetic credentials.
+The script asserts the expected results and removes the temporary tree when it
+exits. SHA-256 values are `b449e4f3fc413909d1d129009e9bf9e508dfdbc3c43356b048138c139f886106`
+for the probe and `90d282af1e69c1c0f91978bcf9ca53c7ea971e55d8abb3a816f3df9ccd8342dc`
+for the sanitized result.
+
+With ordered wildcard deny followed by one action allow, the fake provider's
+forced calls were blocked for `read`, `write`, `webfetch`, `subagent`, and
+`skill`. The deny controls observed no file canary, write target, or local HTTP
+request. Matching positive controls read the unique temporary canary, created
+the temporary write target, fetched the loopback HTTP canary, completed one
+subagent request through the fake provider, and loaded the synthetic skill
+marker. The v2 permission action that exposes `write` is `edit`; the subagent
+tool is named `subagent`. No real subagent provider or external endpoint was
+used.
+
+The restart control stopped and restarted the disposable server while retaining
+its temporary database and XDG roots. The same session ID and exact ordered
+wildcard-deny rule were returned after restart. A malicious-provider `read`
+call against that recovered session remained unadvertised and rejected, and
+the canary was not returned.
+
+A forced mutation changed the wildcard deny effect to allow. Under that
+mutated rule, the forced `read` returned the canary and the same denial
+assertion failed as expected; the probe records the caught assertion. This
+demonstrates that the negative check detects this specific policy regression.
+It does not validate arbitrary policy mutations.
+
+MCP was not provisioned and remains untested. These controls establish only
+the listed tool calls, rules, and disposable paths on this binary. They do not
+establish general filesystem, kernel, OS, external network, MCP, deployed
+service, real-owner, or full adapter recovery containment. A `succeeded` idle
+event remains a session drain signal and is not a tool-effect success signal.
+Reproduce the probe with:
+
+```sh
+ssh devbox-agent 'bwrap --unshare-net --ro-bind / / --tmpfs /tmp --dev /dev --proc /proc --clearenv --setenv PATH /run/current-system/sw/bin:/usr/bin:/bin python3 -' < docs/evidence/2026-11-03-opencode-v2/opencode-v2-tool-policy-probe-2026-11-03.py
+```
+
 The prompt-admission fixture then measured the request/ack and projection path.
 OpenAPI requires prompt `text`; omitting it returned HTTP 400 and left the
 transcript IDs unchanged. A valid prompt returned HTTP 200 with
