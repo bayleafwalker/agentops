@@ -162,8 +162,9 @@ labeled unsafe under-escalations, false-escalation rate at most 10%, at least 90
 10% held-out macro-agreement gain, at least 30% measured operator-correction-time savings, and an
 actual billed-charge observation. The current evaluation does not satisfy those evidence
 requirements. Do not tune on its held-out cases or infer adoption, safety, billing, or provider
-entitlement from this comparison. Any future routing change needs a new independently qualified
-evaluation and an explicit owner decision; Jev remains advisory and outside dispatch.
+entitlement from this comparison. Any future routing change should be supported by a new
+independently qualified evaluation, with its disposition recorded consistently with the current
+target state; Jev remains advisory and outside dispatch.
 
 Moving any router judgment into dispatch is an operator decision. It needs measured
 agreement against recorded decisions and hindsight labels, using a pinned bundle and
