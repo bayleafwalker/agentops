@@ -1,0 +1,79 @@
+{
+  "allow_rule_candidates": {
+    "localtest.echo": {
+      "parts": [
+        {
+          "error": "No tool named \"mcp__localtest__echo\" is currently available. Please use a tool from the available tool list.",
+          "marker": false,
+          "name": "mcp__localtest__echo",
+          "status": "error"
+        }
+      ]
+    },
+    "mcp": {
+      "parts": [
+        {
+          "error": "No tool named \"mcp__localtest__echo\" is currently available. Please use a tool from the available tool list.",
+          "marker": false,
+          "name": "mcp__localtest__echo",
+          "status": "error"
+        }
+      ]
+    },
+    "mcp.localtest.echo": {
+      "parts": [
+        {
+          "error": "No tool named \"mcp__localtest__echo\" is currently available. Please use a tool from the available tool list.",
+          "marker": false,
+          "name": "mcp__localtest__echo",
+          "status": "error"
+        }
+      ]
+    },
+    "mcp__localtest__echo": {
+      "parts": [
+        {
+          "error": "No tool named \"mcp__localtest__echo\" is currently available. Please use a tool from the available tool list.",
+          "marker": false,
+          "name": "mcp__localtest__echo",
+          "status": "error"
+        }
+      ]
+    }
+  },
+  "config_mode": "temporary local stdio server configured in project and XDG global config; synthetic echo only",
+  "denied": {
+    "parts": [
+      {
+        "error": "No tool named \"mcp__localtest__echo\" is currently available. Please use a tool from the available tool list.",
+        "marker": false,
+        "name": "mcp__localtest__echo",
+        "status": "error"
+      }
+    ]
+  },
+  "discovery_tool_names": [
+    "edit",
+    "glob",
+    "grep",
+    "question",
+    "read",
+    "shell",
+    "skill",
+    "subagent",
+    "webfetch",
+    "websearch",
+    "write",
+    "execute"
+  ],
+  "limitation": "The server was not discovered, so these are unknown-tool rejections; MCP permission allow/deny was not tested.",
+  "mcp_calls": [],
+  "mcp_cli": {
+    "returncode": 0,
+    "stderr": "",
+    "stdout": "No MCP servers configured\n"
+  },
+  "mcp_tool_name": null,
+  "schema": "opencode-v2-mcp-discovery-probe/v1",
+  "version": "2.0.32"
+}
