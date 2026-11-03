@@ -18,6 +18,9 @@ Invariants, each pinned by a test in `scripts/tests/test_host_adapter.py`:
 * The policy is re-read every poll and again immediately before launch. A
   temporary policy state (unreadable, disabled, launches disabled, harness not
   configured) defers the message; it never refuses it permanently.
+* An unhealthy harness pauses intake of new inbox messages. Existing records
+  continue through cancellation and reconciliation; a previously ingested
+  request may still be accepted or registered while launch remains deferred.
 * The successor runs in a session created with a server-side permission
   ruleset (`SUCCESSOR_PERMISSION`): everything denied except `sprintctl run
   context` and `sprintctl run note`. A session found by title is adopted only
@@ -1079,7 +1082,10 @@ class Adapter:
             self._observe(repo, "observed")
             if healthy:
                 self._observe(repo, "reachable", channel=CHANNEL)
-        if policy.enabled and not policy.error:
+        # Leave unread requests at the owner while the harness is unavailable.
+        # Existing records still advance below, including cancellation and
+        # reconciliation, and launch retains its own fresh health check.
+        if policy.enabled and not policy.error and healthy:
             for repo in policy.allowed_repos:
                 self._guarded(self._poll, repo)
         for rec in self.state.open_records():
