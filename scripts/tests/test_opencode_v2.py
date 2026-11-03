@@ -337,6 +337,95 @@ def test_pending_delete_accepts_only_empty_204(status):
         thread.join()
 
 
+@pytest.mark.parametrize("outcome", ["succeeded", "failed", "interrupted"])
+def test_terminal_observation_requires_two_stable_single_input_snapshots(monkeypatch, outcome):
+    c = client()
+    digest = hashlib.sha256(b"input").hexdigest()
+    rows = [{"id": "msg_input", "type": "user", "text": "input", "time": {"created": 1}},
+            {"id": "msg_reply", "type": "assistant", "time": {"created": 2}, "agent": "build",
+             "model": ROW["model"], "content": []},
+            {"id": "msg_idle", "type": "idle", "outcome": outcome, "time": {"created": 3}}]
+    calls = []
+    def request(method, path, **kwargs):
+        calls.append((path, kwargs))
+        if path == "/api/session/ses_1": return {"data": ROW}
+        if path == "/api/session/active": return {"data": {}}
+        if path.endswith("/inbox"): return {"data": []}
+        if path.endswith("/message"): return {"data": rows, "cursor": {"next": None}}
+        pytest.fail("unexpected request")
+    monkeypatch.setattr(c, "_request", request)
+    result = c.observe_terminal("ses_1", "msg_input", digest, "/work", "local/model", PERMISSIONS)
+    assert result == {"status": "terminal-observed", "outcome": outcome,
+                      "correlation": "single-input-two-snapshot", "atomicity": "not-established"}
+    assert len([p for p, _ in calls if p.endswith("/message")]) == 2
+    assert all(k["query"]["order"] == "asc" for p, k in calls if p.endswith("/message"))
+
+
+@pytest.mark.parametrize("mode", ["active", "inbox", "foreign", "digest", "stale", "changed", "binding", "queued_during_read", "model_drift", "attachment"])
+def test_terminal_observation_refuses_ambiguous_state(monkeypatch, mode):
+    c = client()
+    digest = hashlib.sha256(b"input").hexdigest()
+    rows = [{"id": "msg_input", "type": "user", "text": "input", "time": {"created": 1}},
+            {"id": "msg_idle", "type": "idle", "outcome": "succeeded", "time": {"created": 2}}]
+    if mode == "foreign": rows.insert(1, {"id": "msg_foreign", "type": "user", "text": "other", "time": {"created": 1}})
+    if mode == "stale": rows.insert(0, {"id": "msg_old_idle", "type": "idle", "outcome": "succeeded", "time": {"created": 0}})
+    if mode == "digest": rows[0]["text"] = "other"
+    if mode == "attachment": rows[0]["files"] = ["extra"]
+    if mode == "model_drift": rows.insert(1, {"id": "msg_reply", "type": "assistant", "time": {"created": 1},
+                                               "agent": "build", "model": {"providerID": "local", "id": "other"}, "content": []})
+    pages = 0
+    inbox_reads = 0
+    def request(method, path, **kwargs):
+        nonlocal pages, inbox_reads
+        if path == "/api/session/ses_1":
+            return {"data": {**ROW, "permissions": []} if mode == "binding" else ROW}
+        if path == "/api/session/active": return {"data": {"ses_1": {"type": "running"}} if mode == "active" else {}}
+        if path.endswith("/inbox"):
+            inbox_reads += 1
+            return {"data": [{"id": "queued"}] if mode == "inbox" or (mode == "queued_during_read" and inbox_reads == 2) else []}
+        if path.endswith("/message"):
+            pages += 1
+            return {"data": rows + ([{"id": "msg_new", "type": "idle", "outcome": "succeeded", "time": {"created": 3}}] if mode == "changed" and pages == 2 else []),
+                    "cursor": {"next": None}}
+        pytest.fail("unexpected request")
+    monkeypatch.setattr(c, "_request", request)
+    if mode in ("binding", "model_drift", "attachment"):
+        with pytest.raises(v2.V2Error):
+            c.observe_terminal("ses_1", "msg_input", digest, "/work", "local/model", PERMISSIONS)
+    else:
+        result = c.observe_terminal("ses_1", "msg_input", digest, "/work", "local/model", PERMISSIONS)
+        assert result["status"] == ("active" if mode == "active" else "unknown")
+
+
+def test_terminal_cursor_cycle_is_uncertainty(monkeypatch):
+    c = client()
+    def request(method, path, **kwargs):
+        if path == "/api/session/ses_1": return {"data": ROW}
+        if path == "/api/session/active": return {"data": {}}
+        if path.endswith("/inbox"): return {"data": []}
+        return {"data": [], "cursor": {"next": "cycle"}}
+    monkeypatch.setattr(c, "_request", request)
+    with pytest.raises(v2.V2Error, match="cursor"):
+        c.observe_terminal("ses_1", "msg_input", hashlib.sha256(b"input").hexdigest(), "/work", "local/model", PERMISSIONS)
+
+
+def test_terminal_active_after_history_is_not_terminal(monkeypatch):
+    c = client()
+    calls = 0
+    def request(method, path, **kwargs):
+        nonlocal calls
+        if path == "/api/session/ses_1": return {"data": ROW}
+        if path == "/api/session/active":
+            calls += 1
+            return {"data": {"ses_1": {"type": "running"}} if calls == 2 else {}}
+        if path.endswith("/inbox"): return {"data": []}
+        return {"data": [{"id": "msg_input", "type": "user", "text": "input", "time": {"created": 1}},
+                         {"id": "msg_idle", "type": "idle", "outcome": "succeeded", "time": {"created": 2}}],
+                "cursor": {"next": None}}
+    monkeypatch.setattr(c, "_request", request)
+    assert c.observe_terminal("ses_1", "msg_input", hashlib.sha256(b"input").hexdigest(), "/work", "local/model", PERMISSIONS) == {"status": "active"}
+
+
 @pytest.mark.parametrize("url", ["http://example.com:80", "http://127.0.0.1:99/path", "http://user:pass@127.0.0.1:99", "https://127.0.0.1:99"])
 def test_rejects_nonlocal_or_ambiguous_origins(url):
     with pytest.raises(v2.V2Error):

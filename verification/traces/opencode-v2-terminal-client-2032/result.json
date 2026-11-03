@@ -1,0 +1,72 @@
+{
+  "cases": {
+    "failure": {
+      "observation": {
+        "atomicity": "not-established",
+        "correlation": "single-input-two-snapshot",
+        "outcome": "failed",
+        "status": "terminal-observed"
+      }
+    },
+    "foreign_session_queue": {
+      "foreign_queue_present": true,
+      "unrelated_terminal": {
+        "atomicity": "not-established",
+        "correlation": "single-input-two-snapshot",
+        "outcome": "succeeded",
+        "status": "terminal-observed"
+      }
+    },
+    "interruption": {
+      "active_observation": {
+        "status": "active"
+      },
+      "interrupt_ack": {
+        "interrupted": true,
+        "status": "acknowledged"
+      },
+      "terminal_observation": {
+        "atomicity": "not-established",
+        "correlation": "single-input-two-snapshot",
+        "outcome": "interrupted",
+        "status": "terminal-observed"
+      }
+    },
+    "same_session_queued": {
+      "active_observation": {
+        "status": "active"
+      },
+      "after_interrupt_observation": {
+        "status": "unknown"
+      },
+      "interrupt_ack": {
+        "interrupted": true,
+        "status": "acknowledged"
+      },
+      "queued_id_still_in_inbox": true
+    },
+    "success": {
+      "first": {
+        "atomicity": "not-established",
+        "correlation": "single-input-two-snapshot",
+        "outcome": "succeeded",
+        "status": "terminal-observed"
+      },
+      "repeat": {
+        "atomicity": "not-established",
+        "correlation": "single-input-two-snapshot",
+        "outcome": "succeeded",
+        "status": "terminal-observed"
+      }
+    }
+  },
+  "isolation": {
+    "loopback_fake_provider": true,
+    "network_unshared": true,
+    "no_real_provider_credentials": true,
+    "synthetic_password_not_recorded": true,
+    "temporary_home_xdg": true
+  },
+  "module_sha256": "50c61fc5a35f1de4f9f04c747311bddfa38b6c574011c4a1e79291afa6a4cd4a",
+  "version": "2.0.32"
+}
