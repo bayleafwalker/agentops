@@ -16,8 +16,11 @@ def prepared_state(tmp_path):
     state = ha.State(tmp_path)
     envelope = {"message_id": "msg_A", "inbox_seq": 1, "body": {"text": "synthetic"}}
     state.ingest("repo", [envelope], 1)
-    state.update("repo", "msg_A", state=ha.S_LAUNCHED, run_id="run_A", session_id="ses_A",
-                 model_id="opencode-go/model", harness_api="opencode-v2")
+    state.update("repo", "msg_A", state=ha.S_RUN_REGISTERED, run_id="run_A", model_id="opencode-go/model")
+    state.prepare_v2_launch_binding("repo", "msg_A", directory="/work/run", title="test",
+                                    permissions=[{"action": "*", "resource": "*", "effect": "deny"}],
+                                    server_version="2.0.32")
+    state.update("repo", "msg_A", state=ha.S_LAUNCHED, session_id="ses_A")
     yield state
     state.close()
 
@@ -203,6 +206,63 @@ def test_replacing_nonce_with_another_valid_nonce_is_refused(prepared_state):
         prepared_state.prepare_v2_prompt("repo", "msg_A")
 
 
+@pytest.mark.parametrize("admission", ["intent", "unknown", "admitted"])
+def test_historical_unlinked_prompt_is_refused_without_mutation(prepared_state, admission):
+    prepared_state.prepare_v2_prompt("repo", "msg_A")
+    prepared_state.update("repo", "msg_A", prompt_admission=admission, prompt_launch_binding_sha256=None)
+    before = dict(prepared_state.get("repo", "msg_A"))
+    with pytest.raises(ha.PromptIntentError):
+        prepared_state.load_v2_prompt("repo", "msg_A")
+    assert dict(prepared_state.get("repo", "msg_A")) == before
+
+
+@pytest.mark.parametrize("field,value", [("directory", "/other"),
+                                        ("permissions", [{"action": "*", "resource": "*", "effect": "allow"}])])
+def test_prompt_rejects_changed_launch_binding(prepared_state, field, value):
+    prepared_state.prepare_v2_prompt("repo", "msg_A")
+    row = prepared_state.get("repo", "msg_A")
+    binding = json.loads(row["v2_launch_binding"])
+    binding[field] = value
+    raw = ha.canonical(binding)
+    prepared_state.update("repo", "msg_A", v2_launch_binding=raw,
+                          v2_launch_binding_sha256=hashlib.sha256(raw.encode()).hexdigest())
+    with pytest.raises(ha.PromptIntentError):
+        prepared_state.load_v2_prompt("repo", "msg_A")
+
+
+@pytest.mark.parametrize("field", ["v2_launch_binding", "prompt_launch_binding_sha256"])
+def test_missing_launch_or_link_only_state_is_refused(prepared_state, field):
+    if field == "v2_launch_binding":
+        prepared_state.update("repo", "msg_A", v2_launch_binding=None)
+    else:
+        prepared_state.update("repo", "msg_A", prompt_launch_binding_sha256="0" * 64)
+    before = dict(prepared_state.get("repo", "msg_A"))
+    with pytest.raises(ha.PromptIntentError):
+        prepared_state.prepare_v2_prompt("repo", "msg_A")
+    assert dict(prepared_state.get("repo", "msg_A")) == before
+
+
+def test_prior_schema_unlinked_prompt_is_preserved_and_refused(prepared_state, tmp_path):
+    original = prepared_state.prepare_v2_prompt("repo", "msg_A")
+    before = dict(prepared_state.get("repo", "msg_A"))
+    prepared_state.close()
+    db = sqlite3.connect(tmp_path / "adapter.sqlite3")
+    db.execute("ALTER TABLE messages DROP COLUMN prompt_launch_binding_sha256")
+    db.close()
+    reopened = ha.State(tmp_path)
+    try:
+        after = dict(reopened.get("repo", "msg_A"))
+        assert after["prompt_launch_binding_sha256"] is None
+        for key in ("prompt_id", "prompt_nonce", "prompt_sha256", "prompt_binding_sha256", "prompt_admission"):
+            assert after[key] == before[key]
+        assert after["prompt_id"] == original["id"]
+        with pytest.raises(ha.PromptIntentError):
+            reopened.load_v2_prompt("repo", "msg_A")
+        assert dict(reopened.get("repo", "msg_A")) == after
+    finally:
+        reopened.close()
+
+
 def test_failure_before_persist_rolls_back_all_intent_fields(prepared_state, monkeypatch):
     def fail(*args):
         raise RuntimeError("injected failure")
@@ -211,6 +271,7 @@ def test_failure_before_persist_rolls_back_all_intent_fields(prepared_state, mon
         prepared_state.prepare_v2_prompt("repo", "msg_A")
     row = prepared_state.get("repo", "msg_A")
     assert all(row[key] is None for key in ("prompt_id", "prompt_nonce", "prompt_sha256", "prompt_binding_sha256", "prompt_admission"))
+    assert row["prompt_launch_binding_sha256"] is None
 
 
 def test_database_rejection_does_not_leave_partial_intent(prepared_state):
@@ -220,6 +281,7 @@ def test_database_rejection_does_not_leave_partial_intent(prepared_state):
         prepared_state.prepare_v2_prompt("repo", "msg_A")
     row = prepared_state.get("repo", "msg_A")
     assert all(row[key] is None for key in ("prompt_id", "prompt_nonce", "prompt_sha256", "prompt_binding_sha256", "prompt_admission"))
+    assert row["prompt_launch_binding_sha256"] is None
 
 
 def test_existing_legacy_rows_migrate_without_inventing_intent(tmp_path):
