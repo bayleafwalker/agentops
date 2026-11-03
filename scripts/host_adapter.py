@@ -38,6 +38,7 @@ Commands:
     agentops host-adapter run [--once [--wait]]
     agentops host-adapter status [--json]
     agentops host-adapter --profile PROFILE inspect-owner
+    agentops host-adapter inspect-harness
     agentops host-adapter resolve <message_id> --abandon [--repo REPO]   # stop the service first;
                                                                          # ambiguous or stuck launched records
 """
@@ -576,6 +577,62 @@ class OpenCodeServe:
             return bool((self._call("GET", "/global/health") or {}).get("healthy"))
         except (HarnessError, ValueError):
             return False
+
+    def inspect_harness(self) -> dict[str, Any]:
+        """Observe API identity only; this result never authorizes a launch."""
+        parsed = urllib.parse.urlsplit(self.base)
+        if (parsed.scheme not in ("http", "https") or parsed.username is not None
+                or parsed.password is not None or parsed.path not in ("", "/")
+                or parsed.query or parsed.fragment):
+            return {"status": "unavailable", "reason": "configuration", "launch_qualified": False}
+        class NoRedirect(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self, req, fp, code, msg, headers, newurl):
+                return None
+
+        # A loopback diagnostic must not send the service credential through a
+        # proxy inherited from the caller's environment.
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+
+        def get_json(path: str) -> dict | None:
+            try:
+                request = urllib.request.Request(self.base + path, headers=self._headers)
+                with opener.open(request, timeout=self.timeout) as response:
+                    if response.status != 200 or response.headers.get_content_type() != "application/json":
+                        return None
+                    raw = response.read(32769)
+                if len(raw) > 32768:
+                    return None
+                value = json.loads(raw)
+                return value if isinstance(value, dict) else None
+            except (urllib.error.URLError, OSError, ValueError, UnicodeError):
+                return None
+
+        info = get_json("/api/info")
+        health = get_json("/global/health")
+        version_re = re.compile(r"(\d+)\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?\Z")
+        version = info.get("version") if info else None
+        match = version_re.fullmatch(version) if isinstance(version, str) and len(version) <= 64 else None
+        v2_identity = bool(
+            info and match and int(match.group(1)) >= 2
+            and isinstance(info.get("pid"), int) and not isinstance(info.get("pid"), bool)
+            and info["pid"] >= 0
+            and isinstance(info.get("urls"), list) and all(isinstance(x, str) for x in info["urls"])
+            and isinstance(info.get("paths"), dict) and isinstance(info["paths"].get("tmp"), str)
+        )
+        legacy_version = health.get("version") if health else None
+        legacy_match = (version_re.fullmatch(legacy_version)
+                        if isinstance(legacy_version, str) and len(legacy_version) <= 64 else None)
+        legacy_identity = bool(health and health.get("healthy") is True and legacy_match
+                               and legacy_match.group(1) == "1")
+        if v2_identity and legacy_identity:
+            return {"status": "unavailable", "reason": "ambiguous-server", "launch_qualified": False}
+        if info is not None and not v2_identity:
+            return {"status": "unavailable", "reason": "unrecognized-or-unreachable", "launch_qualified": False}
+        if v2_identity:
+            return {"status": "unsupported-harness-api", "version": version, "launch_qualified": False}
+        if legacy_identity:
+            return {"status": "legacy-api-observed", "version": legacy_version, "launch_qualified": False}
+        return {"status": "unavailable", "reason": "unrecognized-or-unreachable", "launch_qualified": False}
 
     @_shaped
     def create_session(self, title: str, directory: str) -> str:
@@ -1899,6 +1956,7 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--wait", action="store_true", help="with --once: keep ticking until launched runs settle")
     run.add_argument("--max-wait", type=float, default=900.0)
     sub.add_parser("inspect-owner", help="read handshake/catalog and compare all owner contracts; no invocation")
+    sub.add_parser("inspect-harness", help="diagnose the loopback harness API without launching work")
     st = sub.add_parser("status", help="print processing records, including ambiguous ones")
     st.add_argument("--json", action="store_true")
     res = sub.add_parser(
@@ -1931,6 +1989,19 @@ def main(argv: list[str] | None = None) -> int:
         report = inspect_owner(args.profile)
         print(json.dumps(report, indent=2, sort_keys=True))
         return {"exact-match": 0, "drift": 1, "unavailable": 2}[report["status"]]
+
+    if args.command == "inspect-harness":
+        try:
+            password = _serve_password()
+            if not password:
+                raise ValueError("missing credential")
+            harness = OpenCodeServe(args.serve_url, password=password,
+                                    username=os.environ.get("OPENCODE_SERVER_USERNAME") or "opencode")
+            report = harness.inspect_harness()
+        except (OSError, UnicodeError, ValueError):
+            report = {"status": "unavailable", "reason": "configuration", "launch_qualified": False}
+        print(json.dumps(report, indent=2, sort_keys=True))
+        return 0 if report["status"] == "legacy-api-observed" else 2
 
     if not args.profile:
         print("host-adapter: --profile or AGENTOPS_HOST_ADAPTER_PROFILE is required", file=sys.stderr)
