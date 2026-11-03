@@ -1060,6 +1060,17 @@ def test_legacy_transport_does_not_prompt_or_observe_foreign_api_attempt(rig, ap
     assert not any(item["fact"] == "executing" for item in rig.owner.observations)
 
 
+@pytest.mark.parametrize("selection", ["fixture", "malformed"])
+def test_default_adapter_fences_fixture_or_unknown_execution_selection(rig, selection):
+    rig.owner.send()
+    rig.adapter.state.ingest(REPO, [rig.owner.messages["msg_A"]], 1, fixture_v2=True)
+    if selection == "malformed":
+        rig.adapter.state.update(REPO, "msg_A", execution_selection="{}")
+    rig.tick(2)
+    assert rig.rec()["state"] == ha.S_RECEIVED
+    assert rig.owner.kinds("msg_A") == [] and rig.harness.creates == 0
+
+
 def test_legacy_transport_does_not_create_for_v2_registered_run(rig):
     rig.owner.send()
     rig.crash_at("run_registered_persisted")
