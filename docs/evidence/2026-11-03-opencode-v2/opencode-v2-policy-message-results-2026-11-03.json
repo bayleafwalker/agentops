@@ -98,6 +98,14 @@
     "shell_metachar_result": {
       "path": "opencode-v2-shell-metachar-result-2026-11-03.json",
       "sha256": "7fa9087182c70fb95c00a69c4db14e324c8a937f83dd95ed6f6543ed76ba69a9"
+    },
+    "prompt_admission_probe": {
+      "path": "opencode-v2-prompt-admission-probe.py",
+      "sha256": "6f18f1f27440b7bbebeb55453e18201ee2828c6c9a9ed6d0f88ea9fc78fca975"
+    },
+    "prompt_admission_result": {
+      "path": "opencode-v2-prompt-admission-result-2026-11-03.json",
+      "sha256": "f593ce52446a480acebd744a8fa619e1c542cf3ca8331e156badc9aa5982df1f"
     }
   },
   "assertion_controls": {
@@ -105,7 +113,8 @@
     "both_fixtures_force_and_catch_assertion_error": "forced negative control",
     "policy_negative_controls": ["same shell call denied", "reversed rule order", "unlisted sprintctl publish", "semicolon injection"],
     "message_negative_controls": ["provider no-route yields failed idle", "interrupt yields interrupted idle", "503 retry remains nonterminal in bounded window"],
-    "shell_metachar_negative_controls": ["raw metacharacter shell calls are expected blocked and asserted", "semicolon chain asserted blocked with no sentinel", "exact newline allow control failure is recorded, not proof of newline deny"]
+    "shell_metachar_negative_controls": ["raw metacharacter shell calls are expected blocked and asserted", "semicolon chain asserted blocked with no sentinel", "exact newline allow control failure is recorded, not proof of newline deny"],
+    "prompt_admission_negative_control": "missing required text returned HTTP 400 and left the transcript IDs unchanged"
   },
   "shell_metachar_observations": {
     "all_current_raw_characters_blocked": [">", "<", "$", "`", ";", "&", "|", "["],
@@ -114,5 +123,13 @@
     "newline_deny_rule_effect": "unknown because the exact allow control itself did not permit the command",
     "quoted_newline": "allowed; fake CLI ran; no chain sentinel appeared",
     "limits": "specific commands and rule sets only; no general shell-containment claim"
+  },
+  "prompt_admission_observations": {
+    "ack": "HTTP 200 {data:{delivery,id,payload,sessionID,time,type}}; default delivery steer; ack user ID and payload text matched transcript user",
+    "queue_projection": "queued ack ID/text appeared in inbox immediately; during 1s held-inference window it was absent from transcript; same ID/text appeared after drain",
+    "pagination": "12 message rows returned by 6 limit=2 pages plus one empty terminal page; unique paged IDs equaled unpaged IDs",
+    "response_loss": "proxy received upstream HTTP 200 ack then dropped response; caller got RemoteDisconnected; supplied ID was in transcript; same-ID retry returned original ack and caused no new transcript row or provider call in the 2s observation",
+    "same_id_changed_payload": "retry with same ID and different text returned HTTP 200 with the original text; transcript retained only the original user text",
+    "limits": "one live server process and synthetic session; no restart durability guarantee; transcript absence bounded to 1s; no external inference or production effect"
   }
 }
