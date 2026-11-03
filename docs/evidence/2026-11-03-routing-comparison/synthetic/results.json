@@ -1,0 +1,181 @@
+{
+  "date": "2026-11-03",
+  "scope": "paired frozen self-contained task routing comparison",
+  "billing": "existing Codex subscription and workstation local worker-fast only; no metered API",
+  "tasks": [
+    {
+      "id": "T1",
+      "task_prompt": "Compute the result exactly. Start x=7. For each operation in order: add 5; multiply by 3; subtract 8; integer-divide by 2 (floor); add 11. Return only the final integer.",
+      "shared_prefix": "Solve this frozen self-contained benchmark task. Do not use tools. ",
+      "oracle": "25",
+      "oracle_method": "direct arithmetic/finite enumeration independently computed from the task definition",
+      "arms": {
+        "codex_terra_chatgpt": {
+          "model_requested": "gpt-6.1-terra",
+          "thread_id": "[redacted-thread]",
+          "attempts": 1,
+          "result": "25",
+          "duration_ms": 3244,
+          "correct": true
+        },
+        "local_worker_fast": {
+          "model": "worker-fast",
+          "endpoint": "http://127.0.0.1:8020/v1/chat/completions",
+          "attempts": 1,
+          "result": "13",
+          "wall_seconds": 0.293,
+          "prompt_tokens": 75,
+          "completion_tokens": 3,
+          "max_tokens": 120,
+          "correct": false
+        }
+      }
+    },
+    {
+      "id": "T2",
+      "task_prompt": "Given records [\"kiwi:4\",\"pear:9\",\"fig:2\",\"plum:9\",\"date:7\"], keep records whose number is odd, sort by number ascending then name ascending, and return names joined by commas. Return only the string.",
+      "shared_prefix": "Solve this frozen self-contained benchmark task. Do not use tools. ",
+      "oracle": "date,pear,plum",
+      "oracle_method": "direct arithmetic/finite enumeration independently computed from the task definition",
+      "arms": {
+        "codex_terra_chatgpt": {
+          "model_requested": "gpt-6.1-terra",
+          "thread_id": "[redacted-thread]",
+          "attempts": 1,
+          "result": "date,pear,plum",
+          "duration_ms": 3777,
+          "correct": true
+        },
+        "local_worker_fast": {
+          "model": "worker-fast",
+          "endpoint": "http://127.0.0.1:8020/v1/chat/completions",
+          "attempts": 1,
+          "result": "fig,kiwi,date",
+          "wall_seconds": 0.179,
+          "prompt_tokens": 78,
+          "completion_tokens": 6,
+          "max_tokens": 120,
+          "correct": false
+        }
+      }
+    },
+    {
+      "id": "T3",
+      "task_prompt": "Evaluate this expression using standard precedence and integer arithmetic: 144 / 12 + 7 * (5 - 2) - 19. Return only the integer.",
+      "shared_prefix": "Solve this frozen self-contained benchmark task. Do not use tools. ",
+      "oracle": "14",
+      "oracle_method": "direct arithmetic/finite enumeration independently computed from the task definition",
+      "arms": {
+        "codex_terra_chatgpt": {
+          "model_requested": "gpt-6.1-terra",
+          "thread_id": "[redacted-thread]",
+          "attempts": 1,
+          "result": "14",
+          "duration_ms": 3776,
+          "correct": true
+        },
+        "local_worker_fast": {
+          "model": "worker-fast",
+          "endpoint": "http://127.0.0.1:8020/v1/chat/completions",
+          "attempts": 1,
+          "result": "19",
+          "wall_seconds": 0.147,
+          "prompt_tokens": 64,
+          "completion_tokens": 3,
+          "max_tokens": 120,
+          "correct": false
+        }
+      }
+    },
+    {
+      "id": "T4",
+      "task_prompt": "Apply these steps to [3,1,4,1,5,9]: remove duplicates preserving first occurrence; discard values less than 3; square remaining values; return the sum. Return only the integer.",
+      "shared_prefix": "Solve this frozen self-contained benchmark task. Do not use tools. ",
+      "oracle": "131",
+      "oracle_method": "direct arithmetic/finite enumeration independently computed from the task definition",
+      "arms": {
+        "codex_terra_chatgpt": {
+          "model_requested": "gpt-6.1-terra",
+          "thread_id": "[redacted-thread]",
+          "attempts": 1,
+          "result": "131",
+          "duration_ms": 4460,
+          "correct": true
+        },
+        "local_worker_fast": {
+          "model": "worker-fast",
+          "endpoint": "http://127.0.0.1:8020/v1/chat/completions",
+          "attempts": 1,
+          "result": "117",
+          "wall_seconds": 0.153,
+          "prompt_tokens": 69,
+          "completion_tokens": 4,
+          "max_tokens": 120,
+          "correct": false
+        }
+      }
+    },
+    {
+      "id": "T5",
+      "task_prompt": "Intervals are half-open: A=[1,4), B=[4,6), C=[2,5), D=[6,8), E=[8,9). Select a maximum-size pairwise non-overlapping subset. If tied, choose the lexicographically smallest sorted list of labels. Return labels comma-separated.",
+      "shared_prefix": "Solve this frozen self-contained benchmark task. Do not use tools. ",
+      "oracle": "A,B,D,E",
+      "oracle_method": "direct arithmetic/finite enumeration independently computed from the task definition",
+      "arms": {
+        "codex_terra_chatgpt": {
+          "model_requested": "gpt-6.1-terra",
+          "thread_id": "[redacted-thread]",
+          "attempts": 1,
+          "result": "A,B,D,E",
+          "duration_ms": 4490,
+          "correct": true
+        },
+        "local_worker_fast": {
+          "model": "worker-fast",
+          "endpoint": "http://127.0.0.1:8020/v1/chat/completions",
+          "attempts": 1,
+          "result": "[truncated at 120 completion tokens; no final label list]",
+          "wall_seconds": 0.996,
+          "prompt_tokens": 91,
+          "completion_tokens": 120,
+          "max_tokens": 120,
+          "correct": false
+        }
+      }
+    },
+    {
+      "id": "T6",
+      "task_prompt": "For each n from 1 through 20 inclusive, add n if divisible by 3, subtract n if divisible by 5, and do neither otherwise. Numbers divisible by both satisfy both actions. Return the final total.",
+      "shared_prefix": "Solve this frozen self-contained benchmark task. Do not use tools. ",
+      "oracle": "13",
+      "oracle_method": "direct arithmetic/finite enumeration independently computed from the task definition",
+      "arms": {
+        "codex_terra_chatgpt": {
+          "model_requested": "gpt-6.1-terra",
+          "thread_id": "[redacted-thread]",
+          "attempts": 1,
+          "result": "13",
+          "duration_ms": 3501,
+          "correct": true
+        },
+        "local_worker_fast": {
+          "model": "worker-fast",
+          "endpoint": "http://127.0.0.1:8020/v1/chat/completions",
+          "attempts": 1,
+          "result": "[truncated at 120 completion tokens; no final integer]",
+          "wall_seconds": 0.989,
+          "prompt_tokens": 72,
+          "completion_tokens": 120,
+          "max_tokens": 120,
+          "correct": false
+        }
+      }
+    }
+  ],
+  "source_audit_correction": {
+    "task_id": "T1",
+    "correction": "The initially assembled results.json transposed the Terra and worker-fast values for T1. The raw workstation Codex thread returned 25; the original worker-fast HTTP response returned 13. Values and correctness flags are corrected here.",
+    "codex_source": "Codex TUI read_thread for [redacted-thread], completed message text 25, duration 3244 ms.",
+    "local_source": "Initial local worker-fast call in exec session 4288, HTTP 200 response text 13, 0.293 s, usage 75 prompt / 3 completion tokens."
+  }
+}

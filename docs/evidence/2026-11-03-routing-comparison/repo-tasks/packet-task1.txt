@@ -1,0 +1,6 @@
+Task 1 — native catalogue slug validation
+
+In scripts/audit_model_routing.py, harden observed_models() for the object form {"models": [...]}.
+Each row must be an object with a non-empty string slug. Treat a slug containing only whitespace as invalid. Reject the entire catalogue with ValueError if any row is malformed; do not silently drop malformed records. Continue excluding valid rows whose visibility is "hide" and return visible slugs as a set. Preserve current behavior for valid records and for the probe-list form.
+
+Constraints: modify only scripts/audit_model_routing.py. Do not edit tests, docs, routing data, or unrelated files. Do not run network commands. Implement the smallest clear change. At the end summarize the change and list files changed.

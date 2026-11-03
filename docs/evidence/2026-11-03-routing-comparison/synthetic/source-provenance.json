@@ -1,0 +1,95 @@
+{
+  "date": "2026-11-03",
+  "private_data": "none recorded",
+  "codex_terra_chatgpt": {
+    "source": "separate Codex TUI task threads, requested model gpt-6.1-terra",
+    "thread_ids": [
+      "[redacted-thread]",
+      "[redacted-thread]",
+      "[redacted-thread]",
+      "[redacted-thread]",
+      "[redacted-thread]",
+      "[redacted-thread]"
+    ],
+    "raw_result_texts": [
+      "25",
+      "date,pear,plum",
+      "14",
+      "131",
+      "A,B,D,E",
+      "13"
+    ],
+    "duration_ms": [
+      3244,
+      3777,
+      3776,
+      4460,
+      4490,
+      3501
+    ]
+  },
+  "local_worker_fast": {
+    "source": "initial direct OpenAI-compatible HTTP calls to 127.0.0.1:8020/v1/chat/completions",
+    "command_session_id": 4288,
+    "http_status": 200,
+    "raw_result_texts": [
+      "13",
+      "fig,kiwi,date",
+      "19",
+      "117",
+      "[truncated at 120 completion tokens; no final label list]",
+      "[truncated at 120 completion tokens; no final integer]"
+    ],
+    "wall_seconds": [
+      0.293,
+      0.179,
+      0.147,
+      0.153,
+      0.996,
+      0.989
+    ],
+    "usage_tokens": [
+      78,
+      84,
+      67,
+      73,
+      211,
+      192
+    ],
+    "transposition_correction": {
+      "task_id": "T1",
+      "correction": "The initially assembled results.json transposed the Terra and worker-fast values for T1. The raw workstation Codex thread returned 25; the original worker-fast HTTP response returned 13. Values and correctness flags are corrected here.",
+      "codex_source": "Codex TUI read_thread for [redacted-thread], completed message text 25, duration 3244 ms.",
+      "local_source": "Initial local worker-fast call in exec session 4288, HTTP 200 response text 13, 0.293 s, usage 75 prompt / 3 completion tokens."
+    }
+  },
+  "opencode_go": {
+    "source_file": "opencode-go-results.json",
+    "model_requested": "opencode-go/kimi-k2.7-code",
+    "session_ids": [
+      "[redacted-session]",
+      "[redacted-session]",
+      "[redacted-session]",
+      "[redacted-session]",
+      "[redacted-session]",
+      "[redacted-session]"
+    ],
+    "exit_codes": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "tool_event_counts": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "billing": "unknown"
+  }
+}

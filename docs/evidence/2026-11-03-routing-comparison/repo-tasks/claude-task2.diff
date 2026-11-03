@@ -1,0 +1,15 @@
+diff --git a/scripts/audit_model_routing.py b/scripts/audit_model_routing.py
+index b338052..03382ee 100644
+--- a/scripts/audit_model_routing.py
++++ b/scripts/audit_model_routing.py
+@@ -44,7 +44,9 @@ def audit(policy: dict, catalogues: dict[str, set[str]]) -> list[dict]:
+             issues = []
+             if route.get("verified") is not True:
+                 issues.append("primary-unverified")
+-            if primary not in available:
++            if not isinstance(primary, str) or not primary.strip():
++                issues.append("primary-unconfigured")
++            elif primary not in available:
+                 issues.append("primary-not-observed")
+             if fallback and fallback not in available:
+                 issues.append("same-provider-fallback-not-observed")

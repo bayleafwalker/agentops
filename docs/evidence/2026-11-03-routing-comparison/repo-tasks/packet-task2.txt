@@ -1,0 +1,5 @@
+Task 2 — distinguish unconfigured primaries in audit output
+
+In scripts/audit_model_routing.py, make audit() report a missing or malformed primary model explicitly. When route.get("model") is not a non-empty string after stripping whitespace, include "primary-unconfigured" in that route's issues and do not also include "primary-not-observed" for it. Keep the existing verified check and fallback checks. A nonblank primary must retain current behavior, including "primary-not-observed" when absent from the provider catalogue. Preserve the reported primary value as currently done.
+
+Constraints: modify only scripts/audit_model_routing.py. Do not edit tests, docs, routing data, or unrelated files. Do not run network commands. Implement the smallest clear change. At the end summarize the change and list files changed.

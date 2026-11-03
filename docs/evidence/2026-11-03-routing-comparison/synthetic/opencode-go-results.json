@@ -1,0 +1,321 @@
+{
+  "provider": "OpenCode Go",
+  "model_requested": "opencode-go/kimi-k2.7-code",
+  "billing_verification": "unknown",
+  "permission_environment": "OPENCODE_PERMISSION={\"*\":\"deny\"}",
+  "tasks": [
+    {
+      "id": "T1",
+      "model_requested": "opencode-go/kimi-k2.7-code",
+      "attempts": 1,
+      "session_ids": [
+        "[redacted-session]"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 12.588,
+      "events": [
+        {
+          "type": "step_start",
+          "timestamp": 1793726710854,
+          "sessionID": "[redacted-session]",
+          "part": {
+            "id": "prt_1a27184460016i0viiaKCEOTHO",
+            "sessionID": "[redacted-session]",
+            "messageID": "msg_1a2715ab7001q8T4SXJKIl7deF",
+            "type": "step-start"
+          }
+        },
+        {
+          "type": "text",
+          "timestamp": 1793726712676,
+          "sessionID": "[redacted-session]",
+          "part": {
+            "id": "prt_1a2715ab7001q8T4SXJKIl7deF_text-0",
+            "sessionID": "[redacted-session]",
+            "messageID": "msg_1a2715ab7001q8T4SXJKIl7deF",
+            "type": "text",
+            "text": "25",
+            "time": {
+              "start": 1793726700218,
+              "end": 1793726712676
+            }
+          }
+        }
+      ],
+      "stdout": "{\"type\":\"step_start\",\"timestamp\":1793726710854,\"sessionID\":\"[redacted-session]\",\"part\":{\"id\":\"prt_1a27184460016i0viiaKCEOTHO\",\"sessionID\":\"[redacted-session]\",\"messageID\":\"msg_1a2715ab7001q8T4SXJKIl7deF\",\"type\":\"step-start\"}}\n{\"type\":\"text\",\"timestamp\":1793726712676,\"sessionID\":\"[redacted-session]\",\"part\":{\"id\":\"prt_1a2715ab7001q8T4SXJKIl7deF_text-0\",\"sessionID\":\"[redacted-session]\",\"messageID\":\"msg_1a2715ab7001q8T4SXJKIl7deF\",\"type\":\"text\",\"text\":\"25\",\"time\":{\"start\":1793726700218,\"end\":1793726712676}}}\n",
+      "stderr": "",
+      "assistant_text": "25",
+      "errors": [],
+      "tool_events": [],
+      "oracle": "25",
+      "exact_answer_match": true,
+      "semantic_oracle_present": true,
+      "format_compliant": true,
+      "session_id": "[redacted-session]",
+      "source_provenance": "OpenCode CLI JSON event stream captured in this result file; see session_id and stdout/events."
+    },
+    {
+      "id": "T2",
+      "model_requested": "opencode-go/kimi-k2.7-code",
+      "attempts": 1,
+      "session_ids": [
+        "[redacted-session]"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 6.337,
+      "events": [
+        {
+          "type": "step_start",
+          "timestamp": 1793726717082,
+          "sessionID": "[redacted-session]",
+          "part": {
+            "id": "prt_1a2719c9a001oTjPSiSc0UBV2f",
+            "sessionID": "[redacted-session]",
+            "messageID": "msg_1a2718bc2001YpFW6LMT1AxuPx",
+            "type": "step-start"
+          }
+        },
+        {
+          "type": "text",
+          "timestamp": 1793726719017,
+          "sessionID": "[redacted-session]",
+          "part": {
+            "id": "prt_1a2718bc2001YpFW6LMT1AxuPx_text-0",
+            "sessionID": "[redacted-session]",
+            "messageID": "msg_1a2718bc2001YpFW6LMT1AxuPx",
+            "type": "text",
+            "text": "date,pear,plum",
+            "time": {
+              "start": 1793726712772,
+              "end": 1793726719017
+            }
+          }
+        }
+      ],
+      "stdout": "{\"type\":\"step_start\",\"timestamp\":1793726717082,\"sessionID\":\"[redacted-session]\",\"part\":{\"id\":\"prt_1a2719c9a001oTjPSiSc0UBV2f\",\"sessionID\":\"[redacted-session]\",\"messageID\":\"msg_1a2718bc2001YpFW6LMT1AxuPx\",\"type\":\"step-start\"}}\n{\"type\":\"text\",\"timestamp\":1793726719017,\"sessionID\":\"[redacted-session]\",\"part\":{\"id\":\"prt_1a2718bc2001YpFW6LMT1AxuPx_text-0\",\"sessionID\":\"[redacted-session]\",\"messageID\":\"msg_1a2718bc2001YpFW6LMT1AxuPx\",\"type\":\"text\",\"text\":\"date,pear,plum\",\"time\":{\"start\":1793726712772,\"end\":1793726719017}}}\n",
+      "stderr": "",
+      "assistant_text": "date,pear,plum",
+      "errors": [],
+      "tool_events": [],
+      "oracle": "date,pear,plum",
+      "exact_answer_match": true,
+      "semantic_oracle_present": true,
+      "format_compliant": true,
+      "session_id": "[redacted-session]",
+      "source_provenance": "OpenCode CLI JSON event stream captured in this result file; see session_id and stdout/events."
+    },
+    {
+      "id": "T3",
+      "model_requested": "opencode-go/kimi-k2.7-code",
+      "attempts": 1,
+      "session_ids": [
+        "[redacted-session]"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 4.532,
+      "events": [
+        {
+          "type": "step_start",
+          "timestamp": 1793726720592,
+          "sessionID": "[redacted-session]",
+          "part": {
+            "id": "prt_1a271aa50001RapwqHZMjX3QH0",
+            "sessionID": "[redacted-session]",
+            "messageID": "msg_1a271a47e001qV1hYgwQnlxJMk",
+            "type": "step-start"
+          }
+        },
+        {
+          "type": "text",
+          "timestamp": 1793726723551,
+          "sessionID": "[redacted-session]",
+          "part": {
+            "id": "prt_1a271a47e001qV1hYgwQnlxJMk_text-0",
+            "sessionID": "[redacted-session]",
+            "messageID": "msg_1a271a47e001qV1hYgwQnlxJMk",
+            "type": "text",
+            "text": "14",
+            "time": {
+              "start": 1793726719104,
+              "end": 1793726723551
+            }
+          }
+        }
+      ],
+      "stdout": "{\"type\":\"step_start\",\"timestamp\":1793726720592,\"sessionID\":\"[redacted-session]\",\"part\":{\"id\":\"prt_1a271aa50001RapwqHZMjX3QH0\",\"sessionID\":\"[redacted-session]\",\"messageID\":\"msg_1a271a47e001qV1hYgwQnlxJMk\",\"type\":\"step-start\"}}\n{\"type\":\"text\",\"timestamp\":1793726723551,\"sessionID\":\"[redacted-session]\",\"part\":{\"id\":\"prt_1a271a47e001qV1hYgwQnlxJMk_text-0\",\"sessionID\":\"[redacted-session]\",\"messageID\":\"msg_1a271a47e001qV1hYgwQnlxJMk\",\"type\":\"text\",\"text\":\"14\",\"time\":{\"start\":1793726719104,\"end\":1793726723551}}}\n",
+      "stderr": "",
+      "assistant_text": "14",
+      "errors": [],
+      "tool_events": [],
+      "oracle": "14",
+      "exact_answer_match": true,
+      "semantic_oracle_present": true,
+      "format_compliant": true,
+      "session_id": "[redacted-session]",
+      "source_provenance": "OpenCode CLI JSON event stream captured in this result file; see session_id and stdout/events."
+    },
+    {
+      "id": "T4",
+      "model_requested": "opencode-go/kimi-k2.7-code",
+      "attempts": 1,
+      "session_ids": [
+        "[redacted-session]"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 3.952,
+      "events": [
+        {
+          "type": "step_start",
+          "timestamp": 1793726725699,
+          "sessionID": "[redacted-session]",
+          "part": {
+            "id": "prt_1a271be4300151IYrRa6bsv1qD",
+            "sessionID": "[redacted-session]",
+            "messageID": "msg_1a271b631001vV9uGKX2VmF2Zf",
+            "type": "step-start"
+          }
+        },
+        {
+          "type": "text",
+          "timestamp": 1793726727503,
+          "sessionID": "[redacted-session]",
+          "part": {
+            "id": "prt_1a271b631001vV9uGKX2VmF2Zf_text-0",
+            "sessionID": "[redacted-session]",
+            "messageID": "msg_1a271b631001vV9uGKX2VmF2Zf",
+            "type": "text",
+            "text": "131",
+            "time": {
+              "start": 1793726723635,
+              "end": 1793726727503
+            }
+          }
+        }
+      ],
+      "stdout": "{\"type\":\"step_start\",\"timestamp\":1793726725699,\"sessionID\":\"[redacted-session]\",\"part\":{\"id\":\"prt_1a271be4300151IYrRa6bsv1qD\",\"sessionID\":\"[redacted-session]\",\"messageID\":\"msg_1a271b631001vV9uGKX2VmF2Zf\",\"type\":\"step-start\"}}\n{\"type\":\"text\",\"timestamp\":1793726727503,\"sessionID\":\"[redacted-session]\",\"part\":{\"id\":\"prt_1a271b631001vV9uGKX2VmF2Zf_text-0\",\"sessionID\":\"[redacted-session]\",\"messageID\":\"msg_1a271b631001vV9uGKX2VmF2Zf\",\"type\":\"text\",\"text\":\"131\",\"time\":{\"start\":1793726723635,\"end\":1793726727503}}}\n",
+      "stderr": "",
+      "assistant_text": "131",
+      "errors": [],
+      "tool_events": [],
+      "oracle": "131",
+      "exact_answer_match": true,
+      "semantic_oracle_present": true,
+      "format_compliant": true,
+      "session_id": "[redacted-session]",
+      "source_provenance": "OpenCode CLI JSON event stream captured in this result file; see session_id and stdout/events."
+    },
+    {
+      "id": "T5",
+      "model_requested": "opencode-go/kimi-k2.7-code",
+      "attempts": 1,
+      "session_ids": [
+        "[redacted-session]"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 9.726,
+      "events": [
+        {
+          "type": "step_start",
+          "timestamp": 1793726728935,
+          "sessionID": "[redacted-session]",
+          "part": {
+            "id": "prt_1a271cae6001ibaTQIilJym9fp",
+            "sessionID": "[redacted-session]",
+            "messageID": "msg_1a271c59f001uI44EHJsH4k7YW",
+            "type": "step-start"
+          }
+        },
+        {
+          "type": "text",
+          "timestamp": 1793726737229,
+          "sessionID": "[redacted-session]",
+          "part": {
+            "id": "prt_1a271c59f001uI44EHJsH4k7YW_text-0",
+            "sessionID": "[redacted-session]",
+            "messageID": "msg_1a271c59f001uI44EHJsH4k7YW",
+            "type": "text",
+            "text": "A,B,D,E",
+            "time": {
+              "start": 1793726727585,
+              "end": 1793726737229
+            }
+          }
+        }
+      ],
+      "stdout": "{\"type\":\"step_start\",\"timestamp\":1793726728935,\"sessionID\":\"[redacted-session]\",\"part\":{\"id\":\"prt_1a271cae6001ibaTQIilJym9fp\",\"sessionID\":\"[redacted-session]\",\"messageID\":\"msg_1a271c59f001uI44EHJsH4k7YW\",\"type\":\"step-start\"}}\n{\"type\":\"text\",\"timestamp\":1793726737229,\"sessionID\":\"[redacted-session]\",\"part\":{\"id\":\"prt_1a271c59f001uI44EHJsH4k7YW_text-0\",\"sessionID\":\"[redacted-session]\",\"messageID\":\"msg_1a271c59f001uI44EHJsH4k7YW\",\"type\":\"text\",\"text\":\"A,B,D,E\",\"time\":{\"start\":1793726727585,\"end\":1793726737229}}}\n",
+      "stderr": "",
+      "assistant_text": "A,B,D,E",
+      "errors": [],
+      "tool_events": [],
+      "oracle": "A,B,D,E",
+      "exact_answer_match": true,
+      "semantic_oracle_present": true,
+      "format_compliant": true,
+      "session_id": "[redacted-session]",
+      "source_provenance": "OpenCode CLI JSON event stream captured in this result file; see session_id and stdout/events."
+    },
+    {
+      "id": "T6",
+      "model_requested": "opencode-go/kimi-k2.7-code",
+      "attempts": 1,
+      "session_ids": [
+        "[redacted-session]"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 11.101,
+      "events": [
+        {
+          "type": "step_start",
+          "timestamp": 1793726738735,
+          "sessionID": "[redacted-session]",
+          "part": {
+            "id": "prt_1a271f12f001NwtugHdiMimgKd",
+            "sessionID": "[redacted-session]",
+            "messageID": "msg_1a271eb9d00170O0Lkx4CG5OvV",
+            "type": "step-start"
+          }
+        },
+        {
+          "type": "text",
+          "timestamp": 1793726748329,
+          "sessionID": "[redacted-session]",
+          "part": {
+            "id": "prt_1a271eb9d00170O0Lkx4CG5OvV_text-0",
+            "sessionID": "[redacted-session]",
+            "messageID": "msg_1a271eb9d00170O0Lkx4CG5OvV",
+            "type": "text",
+            "text": "The final total is **13**.\n\nBreakdown:\n\n| n | Action | Contribution |\n|---|--------|-------------|\n| 3 | +3 | +3 |\n| 5 | \u22125 | \u22125 |\n| 6 | +6 | +6 |\n| 9 | +9 | +9 |\n| 10 | \u221210 | \u221210 |\n| 12 | +12 | +12 |\n| 15 | +15 and \u221215 | 0 |\n| 18 | +18 | +18 |\n| 20 | \u221220 | \u221220 |\n\nSum: 3 \u2212 5 + 6 + 9 \u2212 10 + 12 + 0 + 18 \u2212 20 = **13**.",
+            "time": {
+              "start": 1793726737312,
+              "end": 1793726748329
+            }
+          }
+        }
+      ],
+      "stdout": "{\"type\":\"step_start\",\"timestamp\":1793726738735,\"sessionID\":\"[redacted-session]\",\"part\":{\"id\":\"prt_1a271f12f001NwtugHdiMimgKd\",\"sessionID\":\"[redacted-session]\",\"messageID\":\"msg_1a271eb9d00170O0Lkx4CG5OvV\",\"type\":\"step-start\"}}\n{\"type\":\"text\",\"timestamp\":1793726748329,\"sessionID\":\"[redacted-session]\",\"part\":{\"id\":\"prt_1a271eb9d00170O0Lkx4CG5OvV_text-0\",\"sessionID\":\"[redacted-session]\",\"messageID\":\"msg_1a271eb9d00170O0Lkx4CG5OvV\",\"type\":\"text\",\"text\":\"The final total is **13**.\\n\\nBreakdown:\\n\\n| n | Action | Contribution |\\n|---|--------|-------------|\\n| 3 | +3 | +3 |\\n| 5 | \u22125 | \u22125 |\\n| 6 | +6 | +6 |\\n| 9 | +9 | +9 |\\n| 10 | \u221210 | \u221210 |\\n| 12 | +12 | +12 |\\n| 15 | +15 and \u221215 | 0 |\\n| 18 | +18 | +18 |\\n| 20 | \u221220 | \u221220 |\\n\\nSum: 3 \u2212 5 + 6 + 9 \u2212 10 + 12 + 0 + 18 \u2212 20 = **13**.\",\"time\":{\"start\":1793726737312,\"end\":1793726748329}}}\n",
+      "stderr": "",
+      "assistant_text": "The final total is **13**.\n\nBreakdown:\n\n| n | Action | Contribution |\n|---|--------|-------------|\n| 3 | +3 | +3 |\n| 5 | \u22125 | \u22125 |\n| 6 | +6 | +6 |\n| 9 | +9 | +9 |\n| 10 | \u221210 | \u221210 |\n| 12 | +12 | +12 |\n| 15 | +15 and \u221215 | 0 |\n| 18 | +18 | +18 |\n| 20 | \u221220 | \u221220 |\n\nSum: 3 \u2212 5 + 6 + 9 \u2212 10 + 12 + 0 + 18 \u2212 20 = **13**.",
+      "errors": [],
+      "tool_events": [],
+      "oracle": "13",
+      "exact_answer_match": false,
+      "semantic_oracle_present": true,
+      "format_compliant": false,
+      "session_id": "[redacted-session]",
+      "source_provenance": "OpenCode CLI JSON event stream captured in this result file; see session_id and stdout/events."
+    }
+  ],
+  "scoring": {
+    "exact_answer_match_count": 5,
+    "semantic_oracle_present_count": 6,
+    "format_compliant_count": 5,
+    "attempt_count": 6,
+    "scoring_note": "Exact/format pass requires the assistant text to equal the required oracle string exactly. Semantic presence checks whether the oracle string occurs within the output; it does not waive the prompt\u2019s return-only requirement."
+  },
+  "cli": {
+    "name": "OpenCode",
+    "version": "2.2.1",
+    "invocation": "opencode run --model opencode-go/kimi-k2.7-code --format json --title routing-go-Tn <exact shared prompt>"
+  },
+  "provider_billing_status": "unknown; existing Go route was used, billing/account allocation not independently verified"
+}
