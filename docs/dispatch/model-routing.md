@@ -25,6 +25,19 @@ availability; Cloud model selection, environment access and continuation must
 be verified separately. It does not establish comparative outcome quality or
 retire other models. Build prompts must name required verification commands.
 
+On 2026-11-03, a devbox running Codex CLI 0.166.0 reported ChatGPT
+authentication and completed an explicit `gpt-6-luna` request. Initial model
+catalogue requests returned `401 token_expired` warnings without preventing
+that execution. In the same persistent session, a plain resume selected the
+configured `gpt-5.6-sol` default, warned of the model change, and preserved
+conversation context. Resuming with an explicit `--model gpt-6-luna` selected
+Luna and warned about the preceding Sol model. Session continuity therefore
+does not establish model continuity. When a programme requires a fixed model,
+select it explicitly on resume and record the model reported by the runtime;
+apply the programme's attempt-boundary rules if the model changes. This is an
+observation of that host and CLI version, not proof of billing, quality, or
+behavior in other runtimes.
+
 The model alias selects a model, not the worker's authority or stopping rule.
 An explicitly approved long-running programme can give Luna responsibility for
 discovery, planning, defining missing tests and interfaces, and realigning the
