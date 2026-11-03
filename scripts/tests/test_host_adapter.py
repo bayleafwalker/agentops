@@ -15,6 +15,7 @@ the adapter's own error handling cannot swallow it.
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -1078,6 +1079,7 @@ class SyntheticV2SessionTransport:
         self.version = "2.0.32"
         self.sessions = {}
         self.creates = 0
+        self.prompts = []
 
     def server_version(self):
         return self.version
@@ -1095,6 +1097,19 @@ class SyntheticV2SessionTransport:
         row = self.sessions[sid]
         if (row["directory"], row["model"], row["permissions"]) != (directory, model, permissions):
             raise ha.HarnessError("fixture binding mismatch")
+
+    def empty_session_observed(self, sid):
+        return not any(item["session_id"] == sid for item in self.prompts)
+
+    def submit_prompt(self, sid, prompt_id, text):
+        item = {"id": prompt_id, "session_id": sid, "sha256": hashlib.sha256(text.encode()).hexdigest()}
+        self.prompts.append(item)
+        return item
+
+    def observe_admission(self, sid, prompt_id, digest):
+        matches = [item for item in self.prompts if item == {"id": prompt_id, "session_id": sid, "sha256": digest}]
+        return {"status": "observed" if matches else "unknown", "id": prompt_id,
+                "session_id": sid, "sha256": digest, "sources": ["message"] if matches else []}
 
 
 def use_fixture_v2(rig, transport):
@@ -1338,6 +1353,184 @@ def test_fixture_v2_expiry_before_acceptance_refuses(rig):
     rig.tick(2)
     assert rig.rec()["closed"] and rig.rec()["decision"] == "refused"
     assert "accepted" not in rig.owner.kinds("msg_A") and transport.creates == 0
+
+
+def test_fixture_v2_prompt_admission_is_explicit_and_one_time(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.owner.send()
+    rig.tick(2)
+    assert rig.rec()["state"] == ha.S_LAUNCHED and not transport.prompts
+    rig.adapter._fixture_v2_prompt = True
+    rig.tick(3)
+    assert rig.rec()["prompt_admission"] == "admitted" and len(transport.prompts) == 1
+    assert rig.owner.receipt_of("msg_A", "result-linked") is None and not rig.rec()["closed"]
+
+
+def test_fixture_v2_prompt_lost_ack_reconciles_without_resend(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.adapter._fixture_v2_prompt = True
+    original = transport.submit_prompt
+    def lose_response(*args):
+        original(*args)
+        raise RuntimeError("synthetic lost prompt acknowledgement")
+    transport.submit_prompt = lose_response
+    rig.owner.send()
+    rig.tick()
+    assert rig.rec()["prompt_admission"] == "unknown" and len(transport.prompts) == 1
+    rig.boot()
+    rig.adapter._fixture_v2 = transport
+    rig.adapter._fixture_v2_prompt = True
+    rig.tick(2)
+    assert rig.rec()["prompt_admission"] == "admitted" and len(transport.prompts) == 1
+    assert rig.owner.receipt_of("msg_A", "result-linked") is None
+
+
+def test_fixture_v2_lost_ack_reconciles_after_cancellation_and_policy_drift(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.adapter._fixture_v2_prompt = True
+    original = transport.submit_prompt
+    def lose_response(*args):
+        original(*args)
+        raise RuntimeError("synthetic lost prompt acknowledgement")
+    transport.submit_prompt = lose_response
+    rig.owner.send()
+    rig.tick()
+    assert rig.rec()["prompt_admission"] == "unknown" and len(transport.prompts) == 1
+    rig.owner.cancel("msg_A")
+    write_policy(rig.policy, launches_enabled=False)
+    rig.boot()
+    rig.adapter._fixture_v2 = transport
+    rig.adapter._fixture_v2_prompt = True
+    rig.tick(2)
+    assert rig.rec()["prompt_admission"] == "admitted" and len(transport.prompts) == 1
+    assert rig.owner.receipt_of("msg_A", "result-linked") is None and not rig.rec()["closed"]
+
+
+def test_fixture_v2_unknown_before_send_never_retries(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.adapter._fixture_v2_prompt = True
+    rig.owner.send()
+    rig.crash_at("v2_submission_unknown_persisted")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.boot()
+    rig.adapter._fixture_v2 = transport
+    rig.adapter._fixture_v2_prompt = True
+    rig.tick(2)
+    assert rig.rec()["prompt_admission"] == "unknown" and not transport.prompts
+    assert rig.owner.receipt_of("msg_A", "result-linked") is None
+
+
+def test_fixture_v2_cancel_after_unknown_neither_resends_nor_settles(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.adapter._fixture_v2_prompt = True
+    rig.owner.send()
+    rig.crash_at("v2_submission_unknown_persisted")
+    with pytest.raises(Crash):
+        rig.tick()
+    rig.owner.cancel("msg_A")
+    rig.boot()
+    rig.adapter._fixture_v2 = transport
+    rig.adapter._fixture_v2_prompt = True
+    rig.tick(2)
+    assert rig.rec()["prompt_admission"] == "unknown" and not transport.prompts
+    assert rig.owner.receipt_of("msg_A", "result-linked") is None and not rig.rec()["closed"]
+
+
+def test_fixture_v2_prompt_intent_restart_sends_once(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.adapter._fixture_v2_prompt = True
+    rig.owner.send()
+    rig.crash_at("v2_prompt_intent_persisted")
+    with pytest.raises(Crash):
+        rig.tick()
+    assert rig.rec()["prompt_admission"] == "intent" and not transport.prompts
+    rig.boot()
+    rig.adapter._fixture_v2 = transport
+    rig.adapter._fixture_v2_prompt = True
+    rig.tick(2)
+    assert rig.rec()["prompt_admission"] == "admitted" and len(transport.prompts) == 1
+
+
+def test_fixture_v2_foreign_input_prevents_first_send(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.owner.send()
+    rig.tick(2)
+    transport.prompts.append({"id": "msg_foreign", "session_id": rig.rec()["session_id"], "sha256": "0" * 64})
+    rig.adapter._fixture_v2_prompt = True
+    rig.tick(2)
+    assert rig.rec()["prompt_admission"] is None and len(transport.prompts) == 1
+
+
+def test_fixture_v2_cancel_after_create_defers_without_owner_settlement(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.owner.send()
+    rig.tick(2)
+    rig.owner.cancel("msg_A")
+    rig.adapter._fixture_v2_prompt = True
+    rig.tick(2)
+    assert not rig.rec()["closed"] and rig.owner.receipt_of("msg_A", "result-linked") is None
+    assert not transport.prompts and "canceled-by-sender" in rig.rec()["last_error"]
+
+
+def test_fixture_v2_corrupt_prompt_cannot_close_not_started(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.owner.send()
+    rig.tick(2)
+    rig.adapter.state.update(REPO, "msg_A", prompt_nonce="partial")
+    rig.owner.cancel("msg_A")
+    rig.adapter._fixture_v2_prompt = True
+    rig.tick(2)
+    assert not rig.rec()["closed"] and rig.owner.receipt_of("msg_A", "result-linked") is None
+    assert not transport.prompts
+
+
+def test_fixture_v2_permission_drift_prevents_first_send(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.owner.send()
+    rig.tick(2)
+    transport.sessions[rig.rec()["session_id"]]["permissions"] = []
+    rig.adapter._fixture_v2_prompt = True
+    rig.tick(2)
+    assert rig.rec()["prompt_admission"] is None and not transport.prompts
+
+
+def test_fixture_v2_permission_change_during_scan_prevents_send(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.owner.send()
+    rig.tick(2)
+    def mutate(sid):
+        transport.sessions[sid]["permissions"] = []
+        return True
+    transport.empty_session_observed = mutate
+    rig.adapter._fixture_v2_prompt = True
+    rig.tick(2)
+    assert not transport.prompts and rig.rec()["prompt_admission"] in (None, "intent")
+
+
+def test_fixture_v2_cancel_during_scan_prevents_send(rig):
+    transport = SyntheticV2SessionTransport()
+    use_fixture_v2(rig, transport)
+    rig.owner.send()
+    rig.tick(2)
+    def cancel(sid):
+        rig.owner.cancel("msg_A")
+        return True
+    transport.empty_session_observed = cancel
+    rig.adapter._fixture_v2_prompt = True
+    rig.tick()
+    assert not transport.prompts and rig.rec()["prompt_admission"] == "intent"
 
 
 def test_legacy_transport_does_not_create_for_v2_registered_run(rig):

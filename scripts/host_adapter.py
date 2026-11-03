@@ -1395,12 +1395,15 @@ class Adapter:
                  config: Config | None = None, clock: Callable[[], float] = time.time,
                  checkpoint: Callable[[str], None] | None = None,
                  log: Callable[[str], None] | None = None,
-                 experimental_v2_session_transport=None) -> None:
+                 experimental_v2_session_transport=None, experimental_v2_prompt_admission: bool = False) -> None:
         self.owner = owner
         self.harness = harness
         # Constructor injection is reserved for synthetic fixtures. No CLI or
         # production configuration selects this incomplete path.
         self._fixture_v2 = experimental_v2_session_transport
+        if not isinstance(experimental_v2_prompt_admission, bool) or (experimental_v2_prompt_admission and self._fixture_v2 is None):
+            raise ValueError("fixture prompt admission requires a fixture transport")
+        self._fixture_v2_prompt = experimental_v2_prompt_admission
         self.state = state
         self.policy_path = Path(policy_path)
         self.config = config or Config()
@@ -1517,6 +1520,8 @@ class Adapter:
                 elif rec["state"] == S_LAUNCH_INTENT:
                     if self._on_fixture_v2_launch_intent(rec):
                         continue
+                elif rec["state"] == S_LAUNCHED and self._fixture_v2_prompt:
+                    self._on_fixture_v2_admission(rec)
                 elif rec["state"] in (S_FINISHED, S_NOT_STARTED):
                     if self._on_closing(rec):
                         continue
@@ -2199,6 +2204,84 @@ class Adapter:
         self.state.update(*key, state=S_AMBIGUOUS, detail=f"v2 launch recovery found {len(found)} sessions; not relaunching")
         self._checkpoint("ambiguous_persisted")
         return True
+
+    def _on_fixture_v2_admission(self, rec) -> None:
+        """Synthetic admission only; post-creation cancellation remains unresolved."""
+        key = (rec["repo_id"], rec["message_id"])
+        if not self._fixture_v2_ready():
+            return
+        binding = self.state.load_v2_launch_binding(*key)
+        registration = self.state.load_v2_registration_intent(*key)["arguments"]
+        if (registration["harness_build"] != binding["server_version"]
+                or registration["model_id"] != binding["model_id"] or not rec["session_id"]):
+            raise HarnessError("fixture registration binding mismatch")
+        self._fixture_v2.validate_session(rec["session_id"], binding["directory"], binding["model_id"], binding["permissions"])
+        admission = rec["prompt_admission"]
+        if admission == "admitted":
+            self.state.load_v2_prompt(*key)
+            return
+        if admission == "unknown":
+            prompt = self.state.load_v2_prompt(*key)
+            observed = self._fixture_v2.observe_admission(rec["session_id"], prompt["id"], prompt["sha256"])
+            if observed.get("status") == "observed":
+                self.state.record_v2_admission(*key, {**observed, "server_version": "2.0.32",
+                    "prompt_binding_sha256": rec["prompt_binding_sha256"]})
+                self._checkpoint("v2_admission_persisted")
+            return
+        if admission == "intent":
+            self.state.load_v2_prompt(*key)
+        elif admission is None:
+            if any(rec[k] is not None for k in ("prompt_id", "prompt_nonce", "prompt_sha256",
+                   "prompt_binding_sha256", "prompt_launch_binding_sha256", "prompt_admission_evidence")):
+                raise PromptIntentError("partial fixture prompt intent")
+        else:
+            raise PromptIntentError("invalid fixture admission state")
+        status = self.owner.message_status(rec["repo_id"], message_id=rec["message_id"])
+        receipts = status.get("receipts") or (status.get("message") or {}).get("receipts") or []
+        policy = load_policy(self.policy_path, trusted=self.config.trusted_config)
+        env = json.loads(rec["envelope"])
+        denial = policy_denial(policy, rec["repo_id"], env)
+        if denial is None and _has_cancel(receipts):
+            denial = ("canceled-by-sender", "cancel-requested was recorded before prompt")
+        if denial is None:
+            denial = not_after_denial(env.get("not_after"), self.clock())
+        if denial:
+            self.state.update(*key, last_error=f"fixture admission deferred: {denial[0]}")
+            return
+        if any(policy.harness.get(k) != registration[k] for k in _HARNESS_KEYS):
+            return
+        if not self._fixture_v2.empty_session_observed(rec["session_id"]):
+            return
+        prompt = self.state.prepare_v2_prompt(*key)
+        self._checkpoint("v2_prompt_intent_persisted")
+        status = self.owner.message_status(rec["repo_id"], message_id=rec["message_id"])
+        receipts = status.get("receipts") or (status.get("message") or {}).get("receipts") or []
+        latest = load_policy(self.policy_path, trusted=self.config.trusted_config)
+        if (policy_denial(latest, rec["repo_id"], env) or _has_cancel(receipts)
+                or not_after_denial(env.get("not_after"), self.clock())
+                or any(latest.harness.get(k) != registration[k] for k in _HARNESS_KEYS)
+                or not self._fixture_v2_ready()):
+            return
+        self._fixture_v2.validate_session(rec["session_id"], binding["directory"], binding["model_id"], binding["permissions"])
+        if not self._fixture_v2.empty_session_observed(rec["session_id"]):
+            return
+        self._fixture_v2.validate_session(rec["session_id"], binding["directory"], binding["model_id"], binding["permissions"])
+        if not self._fixture_v2_ready():
+            return
+        status = self.owner.message_status(rec["repo_id"], message_id=rec["message_id"])
+        receipts = status.get("receipts") or (status.get("message") or {}).get("receipts") or []
+        latest = load_policy(self.policy_path, trusted=self.config.trusted_config)
+        if (policy_denial(latest, rec["repo_id"], env) or _has_cancel(receipts)
+                or not_after_denial(env.get("not_after"), self.clock())
+                or any(latest.harness.get(k) != registration[k] for k in _HARNESS_KEYS)):
+            return
+        prompt = self.state.begin_v2_submission(*key)
+        self._checkpoint("v2_submission_unknown_persisted")
+        acknowledged = self._fixture_v2.submit_prompt(rec["session_id"], prompt["id"], prompt["text"])
+        self._checkpoint("v2_prompt_acknowledged")
+        self.state.record_v2_admission(*key, {"status": "observed", **acknowledged, "sources": ["ack"],
+            "server_version": "2.0.32", "prompt_binding_sha256": self.state.get(*key)["prompt_binding_sha256"]})
+        self._checkpoint("v2_admission_persisted")
 
     def _on_launch_intent(self, rec) -> bool:
         """Recovery only: an intent with no session id. Never creates a session."""

@@ -428,6 +428,26 @@ def test_terminal_active_after_history_is_not_terminal(monkeypatch):
     assert c.observe_terminal("ses_1", "msg_input", hashlib.sha256(b"input").hexdigest(), "/work", "local/model", PERMISSIONS) == {"status": "active"}
 
 
+@pytest.mark.parametrize("mode", ["empty", "active", "inbox", "history", "late_queue", "cycle"])
+def test_empty_session_observation_fails_closed(monkeypatch, mode):
+    c = client()
+    inbox_reads = 0
+    def request(method, path, **kwargs):
+        nonlocal inbox_reads
+        if path == "/api/session/active": return {"data": {"ses_1": {"type": "running"}} if mode == "active" else {}}
+        if path.endswith("/inbox"):
+            inbox_reads += 1
+            return {"data": [{"id": "queued"}] if mode == "inbox" or (mode == "late_queue" and inbox_reads == 2) else []}
+        return {"data": [{"id": "input"}] if mode == "history" else [],
+                "cursor": {"next": "cycle" if mode == "cycle" else None}}
+    monkeypatch.setattr(c, "_request", request)
+    if mode == "cycle":
+        with pytest.raises(v2.V2Error, match="cursor"):
+            c.empty_session_observed("ses_1")
+    else:
+        assert c.empty_session_observed("ses_1") is (mode == "empty")
+
+
 @pytest.mark.parametrize("url", ["http://example.com:80", "http://127.0.0.1:99/path", "http://user:pass@127.0.0.1:99", "https://127.0.0.1:99"])
 def test_rejects_nonlocal_or_ambiguous_origins(url):
     with pytest.raises(v2.V2Error):

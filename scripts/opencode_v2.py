@@ -261,6 +261,41 @@ class OpenCodeV2:
             raise V2Error("unknown active session state")
         return True
 
+    def empty_session_observed(self, session_id):
+        """Read-only empty-session observation; not an atomic exclusion fence."""
+        sid = self._id(session_id)
+        for _ in range(2):
+            if self._active(sid):
+                return False
+            inbox = self._request("GET", f"/api/session/{sid}/inbox").get("data")
+            if not isinstance(inbox, list):
+                raise V2Error("invalid inbox")
+            if inbox:
+                return False
+            seen, cursor = set(), None
+            for _ in range(self.MAX_PAGES):
+                query = {"limit": self.PAGE_SIZE}
+                if cursor is not None:
+                    query["cursor"] = cursor
+                page = self._request("GET", f"/api/session/{sid}/message", query=query)
+                rows, paging = page.get("data"), page.get("cursor")
+                if not isinstance(rows, list) or not isinstance(paging, dict) or "next" not in paging:
+                    raise V2Error("invalid message page")
+                if rows:
+                    return False
+                cursor = paging["next"]
+                if cursor is None:
+                    break
+                if not isinstance(cursor, str) or not cursor or cursor in seen:
+                    raise V2Error("invalid message cursor")
+                seen.add(cursor)
+            else:
+                raise V2Error("message page limit exceeded")
+        inbox = self._request("GET", f"/api/session/{sid}/inbox").get("data")
+        if not isinstance(inbox, list):
+            raise V2Error("invalid inbox")
+        return not inbox and not self._active(sid)
+
     def _terminal_snapshot(self, sid, binding):
         self._validate(self.get_session(sid), binding)
         if self._active(sid):
