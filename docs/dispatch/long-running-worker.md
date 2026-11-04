@@ -20,6 +20,24 @@ decision for a frontier coordinator. Existing product decisions, domain
 ownership and protected authority boundaries still apply. If a reserved policy
 decision is necessary, record a precise proposal and continue independent work.
 
+## Outcome ownership and native delegation
+
+Apply the [active routing dogfood practice](model-routing.md#active-dogfood-practice-2026-11-04).
+The coordinator supplies an outcome, acceptance criteria, constraints, ownership
+boundaries and escalation conditions; the implementation owner develops the
+plan. Luna does not require a coordinator-authored sequence of granular tasks.
+Model selection follows complexity and uncertainty, while decomposition belongs
+to the owner. Escalate when new semantic uncertainty exceeds the selected route,
+an acceptance requirement cannot be satisfied, or authority or ownership conflicts.
+
+Within the programme's authorized native capabilities, use cheaper sessions,
+including authorized OpenCode Go routes, for granular implementation and useful
+suboutcomes. Declare non-overlapping ownership and one integration owner; do not
+return every subtask or ordinary engineering decision to the coordinator. Respect
+the programme's selected-model requirement for its primary owner and record
+different delegated bindings explicitly. Assess usefulness during real execution
+and fix or retire ineffective patterns; no separate routing project is required.
+
 ## Execution and continuation
 
 Use the exact requested model, normally `gpt-6-luna`, and the verified native

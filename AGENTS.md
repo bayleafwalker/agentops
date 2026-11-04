@@ -45,6 +45,11 @@ python scripts/materialize_project.py setup|sync --project <home-repo>/project.t
   (2026-09-17); its policy and driver were deleted with `templates/dispatch`. See
   `docs/runbooks/hybrid-dispatch.md` for the historical record.
 - Model IDs and qualification are data in `model-routing.json`.
+- Apply the operator's 2026-11-04 [routing dogfood practice](docs/dispatch/model-routing.md#active-dogfood-practice-2026-11-04)
+  in current and resumed sessions: route whole outcomes by complexity, let workers
+  plan and decompose, use native cheaper sessions including authorized OpenCode Go,
+  and handle minor tasks directly when delegation costs more. Assess during real work;
+  fix or retire ineffective patterns without a preliminary policy or benchmark project.
 
 ## Landing
 

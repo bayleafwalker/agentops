@@ -87,6 +87,48 @@ before selecting a fallback.
 
 ## Work Routing
 
+### Active dogfood practice (2026-11-04)
+
+Status: operator-directed working practice, effective immediately. Take it into
+use on real work, assess functionality, and fix or retire it as evidence warrants.
+This records the instruction; a policy PR, detailed coordinator plan or separate
+qualification project is not a prerequisite to using the practice. Comparative
+model quality and automatic routing remain observations to establish.
+
+The unit of ownership is a useful outcome with acceptance criteria. Select Luna
+or Terra by semantic complexity and uncertainty, not file count, diff size or
+task granularity. Luna can own discovery and planning within a clear outcome;
+Terra suits difficult semantic, concurrency, authority or architectural problems.
+An obvious minor task can be cheaper for the coordinator to complete directly.
+
+Give the owner the outcome, acceptance criteria, constraints, ownership boundaries
+and escalation conditions. Reuse existing requirements and checks. Do not build
+a detailed implementation plan merely to make work delegable to Luna. The owner
+plans, decomposes, implements, verifies and repairs within the authorized scope,
+including native delegation of granular work to cheaper sessions. Ordinary
+engineering decisions do not require repeated coordinator approval.
+
+Consider authorized OpenCode Go routes for suitable complete outcomes and for
+worker-owned implementation subtasks. Keep runtime model selection explicit and
+observe the actual binding; one model's successful result does not qualify another.
+Preserve existing data, effect, review and integration boundaries, with one
+declared integration owner for overlapping files and target-branch writes.
+
+Use a lightweight deterministic complexity decision when useful; consult an
+advisory classifier such as Jev only for ambiguous cases, with abstention and
+escalation available. Classify the outcome, not every microtask, and reconsider
+when new evidence changes its complexity. This instruction does not qualify the
+historical Jev classifier or authorize an autonomous router or effect decision.
+
+Assess through ordinary outcome closeouts: acceptance, coordinator preparation
+and intervention effort, review findings, repairs, elapsed time and observed
+route. Record available measurements and label estimates or unknowns. Avoid
+duplicate bookkeeping and utilization targets that manufacture work. Adjust the
+practice as results arrive; retain useful patterns in guidance and mark failed
+ones retired with their evidence. Do not revive the retired hybrid driver.
+
+### Alias guidance
+
 Route implementation by boundedness and uncertainty rather than by diff size:
 
 - `fast-build`: scope and acceptance criteria are concrete, the pattern is known, and deterministic checks can reject a bad result. Local feature work, test additions, contained bug fixes, adapters, and repetitive cross-cutting edits can all qualify.
@@ -174,9 +216,10 @@ facts are not in the state it is sent.
 
 ## Reasoning Controls
 
-Reasoning controls are applied by the frontier coordinator through the selected
-native runtime's verified interface. Treat unsupported or unverified controls
-as absent and record the observed model/binding assurance in evidence. The
+Reasoning controls are selected by the outcome owner within the authorized
+runtime and model scope, using the native runtime's verified interface. Do not
+require a frontier coordinator to tune every worker step. Treat unsupported or
+unverified controls as absent and record the observed model/binding assurance in evidence. The
 retired `actionq-dispatcher` supplies no routing or reasoning behavior.
 
 ## Refresh Procedure

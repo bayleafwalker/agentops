@@ -17,6 +17,25 @@ are setting up or repairing a host, not at session start. The legacy vscode-shel
   `--apply`. It never syncs Git state, source, `.envrc` state, secrets, worktrees or tool
   installs, and never deletes remote files.
 
+## Shared outcome-routing practice
+
+The source for the operator's 2026-11-04 dogfood instruction is
+`templates/workspace/outcome-routing.md`. Workstation user-level entry points are:
+
+- Codex: `~/.codex/AGENTS.md` instructs sessions to read that source before work.
+- Claude Code: `~/.claude/CLAUDE.md` imports that source with `@/absolute/path`.
+- OpenCode: `~/.config/opencode/AGENTS.md` instructs sessions to read that source.
+
+These are host-persistent loaders, not replicated installations or proof of runtime
+adherence. Install the short reference on each host using its own checkout path,
+preserving existing instructions. Avoid replacing a complete native config merely
+to add guidance. The workspace AGENTS template also references the same source.
+Before rendering it, inspect existing drift so unrelated local guidance is not
+silently replaced. Running sessions must reread the source or restart; do not claim
+that an edit to an instruction file updates an already-running session's context.
+Normal task closeouts provide the dogfood assessment; a separate benchmark or
+telemetry project is not required.
+
 ## Session telemetry
 
 `agentops estate status --env infra --json` reads the infrastructure host's

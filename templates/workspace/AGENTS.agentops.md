@@ -78,6 +78,10 @@ work there.
 
 ## Engineering practice
 
+- Apply `/projects/dev/agentops/templates/workspace/outcome-routing.md` for the
+  operator's active routing dogfood practice: complexity selects the model, workers
+  own decomposition, and minor tasks can be completed directly. Assess in real work
+  and fix or retire ineffective patterns; no preliminary routing project is required.
 - Force every check, guard or probe into its failure case and watch it fail before trusting it.
   A reasoned "it would fail" is not evidence; a check that cannot fail manufactures confidence.
 - Keep, retire or implement is decided from the written target state, not from whether
