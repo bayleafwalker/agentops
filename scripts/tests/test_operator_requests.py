@@ -181,6 +181,49 @@ class RequestContentBoundaryTests(unittest.TestCase):
         self.assertEqual(reply["structuredContent"]["code"], "request-stale")
 
 
+class ContinuationReceiptTests(unittest.TestCase):
+    def test_explicit_receipt_forwards_exact_owner_arguments_and_capability_gate(self):
+        args = {
+            "request_id": "req_01JZZZZZZZZZZZZZZZZZZZZZZZ",
+            "resolution_event_revision": 3,
+            "work_item_id": 42,
+            "expected_work_revision": "item:fixture@status:active",
+            "idempotency_key": "receipt-key-001",
+        }
+        calls = []
+
+        class Client:
+            async def invoke(self, operation, payload, *, repo_id):
+                calls.append((operation, payload, repo_id))
+                return {"replayed": True, "work_item_id": 42}
+
+        owner = requests.VuoroRequestOwner(Path("/unused/profile"))
+        owner._loop = asyncio.new_event_loop()
+        owner._client = Client()
+        try:
+            with self.assertRaises(requests.RequestClientError) as caught:
+                owner.invoke("continuation-receipt", "sprintctl", args)
+            self.assertEqual(caught.exception.code, "owner-capability-unavailable")
+            self.assertEqual(calls, [])
+            owner._operations = {"work.request.continuation-receipt-v1"}
+            reply = requests.MCPServer(lambda: owner).call_tool(
+                "continuation-receipt", {"repo_id": "sprintctl", "arguments": args}
+            )
+            self.assertFalse(reply["isError"])
+            self.assertTrue(reply["structuredContent"]["replayed"])
+            self.assertEqual(calls, [("work.request.continuation-receipt-v1", args, "sprintctl")])
+        finally:
+            owner.close()
+
+    def test_receipt_tool_is_explicit_write_and_names_historical_replay(self):
+        tool = requests._tool("continuation-receipt")
+        self.assertFalse(tool["annotations"]["readOnlyHint"])
+        self.assertIn("historical", tool["description"])
+        self.assertIn("does not prove runtime consumption", tool["description"])
+        self.assertEqual(requests.TOOL_TO_SUFFIX[tool["name"]], "continuation-receipt")
+
+
+
 class LocalRequestOutboxTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

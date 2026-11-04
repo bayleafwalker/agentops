@@ -101,6 +101,22 @@ and owner event coordinates, not attestation text or actor identity. It does not
 wake a runtime, acknowledge delivery, change owner state, or replace reading the
 full current request packet from the owner.
 
+## Explicit principal receipt
+
+A schema-30-capable owner may advertise `work.request.continuation-receipt-v1`.
+The requesting principal may explicitly record a receipt for one dependant with
+`work:write` using `invoke continuation-receipt` or the corresponding MCP tool.
+Supply the request ID, resolution event revision, work item ID and expected work
+status revision from the current owner packet. Choose an idempotency key and
+reuse that same key with identical arguments when retrying the receipt. The owner
+binds principal, workspace and session routing metadata; callers cannot supply a
+session. An absent capability is refused. A receipt is a principal assertion,
+not proof that a native session received, consumed or resumed the work; it grants
+no effect authority. Same-key replay returns a historical receipt, not a new
+freshness check. Status tokens cannot detect a return to an earlier status or a
+description edit; reread current owner facts and verify required work material
+before any action. Receipt is never recorded automatically by a read or retry.
+
 ## Offline publication outbox
 
 For offline callers, the CLI provides a local outbox for `publish` only. It
