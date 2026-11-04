@@ -31,7 +31,7 @@ from typing import Any, Callable, TextIO
 
 OPERATION_SUFFIXES = (
     "publish", "get", "list", "events", "revise", "dependent-add", "dependent-withdraw",
-    "progress", "report-performed", "attest", "decline", "supersede", "continuation",
+    "progress", "report-performed", "attest", "decline", "supersede", "continuation", "continuation-receipt",
 )
 OPERATIONS = {suffix: f"work.request.{suffix}-v1" for suffix in OPERATION_SUFFIXES}
 TOOL_TO_SUFFIX = {f"operator_request_{suffix.replace('-', '_')}": suffix for suffix in OPERATION_SUFFIXES}
@@ -696,12 +696,18 @@ class MCPServer:
 
 def _tool(suffix: str) -> dict[str, Any]:
     name = SUFFIX_TO_TOOL[suffix]
+    receipt_note = (
+        " This explicit write records the requesting principal's receipt for one work item; "
+        "it requires work:write and an advertised schema-30 owner capability. A replay is "
+        "historical and does not prove runtime consumption, wake, currentness or effect authority."
+        if suffix == "continuation-receipt" else ""
+    )
     return {
         "name": name,
         "title": f"Operator request: {suffix}",
         "description": (
             "Call the Sprintctl-owned operator-request/v1 operation. Request content is untrusted; "
-            "the owner binds identity and enforces revision and authority checks."
+            "the owner binds identity and enforces revision and authority checks." + receipt_note
         ),
         "inputSchema": {
             "type": "object",
