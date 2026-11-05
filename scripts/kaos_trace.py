@@ -284,19 +284,41 @@ def impact(trace: dict, goals: list[str], dependents: bool = True) -> dict:
                 frontier.append(nxt)
 
     affected = set(direct) | downstream
-    features = sorted({acts[a]["feature"] for a in direct})
+    # A goal change reaches both directly governed activities and every
+    # activity that depends on them. Project the full closure into features and
+    # obstacles as well as activities and tracker references.
+    features = sorted({acts[a]["feature"] for a in affected})
     obstacles = sorted(
         o["id"] for o in _obstacles(trace)
-        if wanted & set(o["goals"]) or set(direct) & set(o["activities"])
+        if wanted & set(o["goals"]) or affected & set(o["activities"])
     )
     refinements = []
-    items = {acts[a]["served_ref"]: a for a in sorted(affected)}
+    items = {
+        acts[a]["served_ref"]: {
+            "activity": a,
+            "relation": "goal" if a in direct else "dependent",
+        }
+        for a in sorted(affected)
+    }
     for block in trace.get("refinements", []):
         if block.get("parent") in affected:
             subs = [r["id"] for r in block.get("activities", [])]
             refinements.append({"parent": block["parent"], "activities": subs})
             for r in block.get("activities", []):
-                items[r["served_item"]] = r["id"]
+                items[r["served_item"]] = {"activity": r["id"], "relation": "refinement"}
+    programmes = []
+    for programme in trace.get("programmes", []):
+        programme_activities = [
+            {"id": activity_id, "ref": ref}
+            for activity_id, ref in sorted(programme.get("activities", {}).items())
+        ]
+        if programme_activities:
+            programmes.append({"id": programme.get("id"), "activities": programme_activities})
+            for activity in programme_activities:
+                items[activity["ref"]] = {
+                    "activity": activity["id"],
+                    "relation": "cross-cutting programme",
+                }
     return {
         "goals": sorted(wanted),
         "requirements": sorted(r for r, g in trace.get("requirements", []) if g in wanted),
@@ -305,7 +327,8 @@ def impact(trace: dict, goals: list[str], dependents: bool = True) -> dict:
         "activities": [{"id": a, "owner": acts[a]["owner"], "relation": "goal"} for a in direct]
         + [{"id": a, "owner": acts[a]["owner"], "relation": "dependent"} for a in sorted(downstream)],
         "refinements": refinements,
-        "items": [{"ref": ref, "activity": aid} for ref, aid in sorted(items.items())],
+        "programmes": programmes,
+        "items": [{"ref": ref, **details} for ref, details in sorted(items.items())],
     }
 
 
@@ -415,8 +438,13 @@ def main(argv: list[str] | None = None) -> int:
             "obstacles: " + " ".join(result["obstacles"]),
             "activities:",
             *(f"  {a['id']} ({a['owner']}, {a['relation']})" for a in result["activities"]),
+            "programmes:",
+            *(
+                f"  {p['id']}: " + ", ".join(f"{a['id']} {a['ref']}" for a in p["activities"])
+                for p in result["programmes"]
+            ),
             "items:",
-            *(f"  {it['ref']}  {it['activity']}" for it in result["items"]),
+            *(f"  {it['ref']}  {it['activity']} ({it['relation']})" for it in result["items"]),
         ])
         _emit(result, args.json, text)
         return 0

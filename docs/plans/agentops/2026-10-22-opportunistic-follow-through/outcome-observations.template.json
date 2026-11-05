@@ -1,7 +1,6 @@
 {
-  "artifact_kind": "outcome-measurement-authoring-template",
+  "artifact_kind": "outcome-measurement-companion",
   "status": "template-not-run",
-  "experiment_record_ref": null,
   "population_ref": null,
   "requirements_ref": null,
   "evaluation_policy_ref": null,
@@ -11,9 +10,36 @@
     "end": null
   },
   "expected_case_ids": [],
+  "comparison": {
+    "cohort_id": null,
+    "registered_at": null,
+    "use_required": null,
+    "threshold_owner_ref": null,
+    "claim_rule_ref": null,
+    "arms": {
+      "baseline": {
+        "experiment_record_ref": null,
+        "revision_ref": null
+      },
+      "candidate": {
+        "experiment_record_ref": null,
+        "revision_ref": null
+      }
+    },
+    "thresholds": [],
+    "threshold_template": {
+      "metric": null,
+      "direction": null,
+      "amount": null,
+      "owner_ref": null,
+      "registered_at": null
+    }
+  },
   "cases": [],
   "case_template": {
     "case_id": null,
+    "arm_id": null,
+    "observed_at": null,
     "artifact_revision_ref": null,
     "run_ids": [],
     "internal_acceptance": {
@@ -47,12 +73,35 @@
       "coverage_description": null,
       "evidence_refs": []
     },
+    "burden": {
+      "maintenance_minutes": {
+        "value": null,
+        "source_refs": []
+      },
+      "reexplanation_minutes": {
+        "value": null,
+        "source_refs": []
+      },
+      "review_minutes": {
+        "value": null,
+        "source_refs": []
+      },
+      "failed_attempts": {
+        "value": null,
+        "source_refs": []
+      },
+      "direct_cost": {
+        "amount": null,
+        "currency": null,
+        "source_refs": []
+      }
+    },
     "measurement_evidence_refs": [],
     "limitations": []
   },
   "limitations": [
     "Authoring companion only; not a runtime import shape or an ExperimentRecord.",
-    "No observations, acceptance decisions, independent results or costs are supplied.",
+    "No observations, acceptance decisions, independent results, costs or thresholds are supplied.",
     "Null is unknown. Empty observation arrays establish no positive outcome.",
     "Keep owner acceptance, independently checked requirements, actual use and escaped defects distinct."
   ]
