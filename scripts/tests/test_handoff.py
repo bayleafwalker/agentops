@@ -1163,6 +1163,103 @@ class TestTrackerWatermark(unittest.TestCase):
         self.assertIn("2", joined)   # current status_revision
         self.assertEqual(handoff.main(["validate", str(path)]), 0)   # not moved on disk
 
+    def test_nested_sprintctl_item_envelope_detects_done_and_moved(self) -> None:
+        from unittest import mock
+        with mock.patch.object(
+                handoff, "sprintctl_item_show",
+                return_value={"status": "open", "status_revision": 1}):
+            path = self._create("nested", "item 81 pending")
+        data = json.loads(path.read_text())
+        for item, expected in [
+                ({"status": "done", "status_revision": 2}, "is done"),
+                ({"status": "in_progress", "status_revision": 3},
+                 "status has moved")]:
+            response = subprocess.CompletedProcess(
+                ["sprintctl"], 0,
+                json.dumps({"item": item, "other": "ignored"}), "")
+            with mock.patch.object(handoff.subprocess, "run", return_value=response):
+                problems = handoff._tracker_problems(data)
+            self.assertTrue(any(expected in problem for problem in problems), problems)
+
+    def test_nested_sprintctl_item_envelope_and_failed_read(self) -> None:
+        from unittest import mock
+        nested = subprocess.CompletedProcess(
+            ["sprintctl"], 0,
+            '{"item":{"status":"open","status_revision":7}}', "")
+        with mock.patch.object(handoff.subprocess, "run", return_value=nested):
+            self.assertEqual(handoff.sprintctl_item_show(self.repo, "77"),
+                             {"status": "open", "status_revision": 7})
+        failed = subprocess.CompletedProcess(["sprintctl"], 1, "", "offline")
+        with mock.patch.object(handoff.subprocess, "run", return_value=failed):
+            self.assertIsNone(handoff.sprintctl_item_show(self.repo, "77"))
+
+    def test_empty_successful_item_read_is_protocol_error(self) -> None:
+        from unittest import mock
+        for stdout in ("", "  \n\t"):
+            response = subprocess.CompletedProcess(["sprintctl"], 0, stdout, "")
+            with self.subTest(stdout=repr(stdout)), mock.patch.object(
+                    handoff.subprocess, "run", return_value=response):
+                with self.assertRaisesRegex(
+                        handoff.TrackerProtocolError, "empty successful"):
+                    handoff.sprintctl_item_show(self.repo, "77")
+
+    def test_malformed_nested_item_envelopes_are_unreadable(self) -> None:
+        from unittest import mock
+        for envelope in (None, "not-an-item", 7, [], {},
+                         {"status": "open"},
+                         {"status": "", "status_revision": 1},
+                         {"status": "open", "status_revision": True}):
+            response = subprocess.CompletedProcess(
+                ["sprintctl"], 0, json.dumps({"item": envelope}), "")
+            with self.subTest(item=envelope), mock.patch.object(
+                    handoff.subprocess, "run", return_value=response):
+                with self.assertRaises(handoff.TrackerProtocolError):
+                    handoff.sprintctl_item_show(self.repo, "77")
+
+    def test_malformed_successful_response_refuses_validation(self) -> None:
+        from unittest import mock
+        with mock.patch.object(
+                handoff, "sprintctl_item_show",
+                return_value={"status": "open", "status_revision": 1}):
+            path = self._create("bad-envelope", "item 78 pending")
+        data = json.loads(path.read_text())
+        for stdout, expected in (("{\"item\":{}}", "response has no valid status"),
+                                 ("", "empty successful response"),
+                                 (" \n", "empty successful response")):
+            malformed = subprocess.CompletedProcess(
+                ["sprintctl"], 0, stdout, "")
+            with self.subTest(stdout=repr(stdout)), mock.patch.object(
+                    handoff.subprocess, "run", return_value=malformed):
+                problems = handoff._tracker_problems(data)
+            self.assertTrue(any(expected in problem for problem in problems),
+                            problems)
+
+    def test_stable_done_baseline_is_valid_when_revision_is_unchanged(self) -> None:
+        from unittest import mock
+        with mock.patch.object(
+                handoff, "sprintctl_item_show",
+                return_value={"status": "done", "status_revision": 8}):
+            path = self._create("already-done", "item 79 historical")
+        data = json.loads(path.read_text())
+        with mock.patch.object(
+                handoff, "sprintctl_item_show",
+                return_value={"status": "done", "status_revision": 8}):
+            self.assertEqual(handoff._tracker_problems(data), [])
+
+    def test_done_baseline_with_moved_revision_still_refuses(self) -> None:
+        from unittest import mock
+        with mock.patch.object(
+                handoff, "sprintctl_item_show",
+                return_value={"status": "done", "status_revision": 8}):
+            path = self._create("done-moved", "item 80 historical")
+        data = json.loads(path.read_text())
+        with mock.patch.object(
+                handoff, "sprintctl_item_show",
+                return_value={"status": "done", "status_revision": 9}):
+            problems = handoff._tracker_problems(data)
+        self.assertTrue(any("status_revision has moved" in problem
+                            for problem in problems), problems)
+
     def test_validate_refuses_when_status_revision_moves_without_closing(self) -> None:
         from unittest import mock
         with mock.patch.object(
@@ -1176,6 +1273,80 @@ class TestTrackerWatermark(unittest.TestCase):
             problems = handoff.validate_handoff(data)
         self.assertTrue(any("55" in p and "status_revision" in p for p in problems),
                         problems)
+
+    def test_known_status_change_refuses_even_when_revision_is_missing(self) -> None:
+        from unittest import mock
+        with mock.patch.object(
+                handoff, "sprintctl_item_show",
+                return_value={"status": "open", "status_revision": None}):
+            path = self._create("status-change-no-revision", "item 59 next")
+        data = json.loads(path.read_text())
+        with mock.patch.object(
+                handoff, "sprintctl_item_show",
+                return_value={"status": "in_progress", "status_revision": None}):
+            problems = handoff._tracker_problems(data)
+        self.assertTrue(any("59" in problem and "status has moved" in problem
+                            for problem in problems), problems)
+
+    def test_known_status_change_refuses_even_when_revision_is_unchanged(self) -> None:
+        from unittest import mock
+        with mock.patch.object(
+                handoff, "sprintctl_item_show",
+                return_value={"status": "open", "status_revision": 3}):
+            path = self._create("status-change-same-revision", "item 60 next")
+        data = json.loads(path.read_text())
+        with mock.patch.object(
+                handoff, "sprintctl_item_show",
+                return_value={"status": "in_progress", "status_revision": 3}):
+            problems = handoff._tracker_problems(data)
+        self.assertTrue(any("60" in problem and "status has moved" in problem
+                            for problem in problems), problems)
+
+    def test_known_status_change_with_unknown_revision_still_refuses(self) -> None:
+        from unittest import mock
+        with mock.patch.object(
+                handoff, "sprintctl_item_show",
+                return_value={"status": "open", "status_revision": 1}):
+            path = self._create("unknown-revision", "item 56 pending")
+        data = json.loads(path.read_text())
+        data["state"]["tracker_watermark"][0]["status_revision"] = None
+        with mock.patch.object(
+                handoff, "sprintctl_item_show",
+                return_value={"status": "in_progress", "status_revision": 9}):
+            problems = handoff._tracker_problems(data)
+        self.assertTrue(any("56" in problem and "status has moved" in problem
+                            for problem in problems), problems)
+
+    def test_unknown_recorded_revision_still_refuses_live_done_item(self) -> None:
+        from unittest import mock
+        with mock.patch.object(
+                handoff, "sprintctl_item_show",
+                return_value={"status": "open", "status_revision": 1}):
+            path = self._create("unknown-done", "item 57 pending")
+        data = json.loads(path.read_text())
+        data["state"]["tracker_watermark"][0]["status_revision"] = None
+        with mock.patch.object(
+                handoff, "sprintctl_item_show",
+                return_value={"status": "done", "status_revision": 9}):
+            problems = handoff._tracker_problems(data)
+        self.assertTrue(any("57" in problem and "is done" in problem
+                            for problem in problems), problems)
+
+    def test_unknown_recorded_status_does_not_assume_item_was_already_done(self) -> None:
+        from unittest import mock
+        with mock.patch.object(
+                handoff, "sprintctl_item_show",
+                return_value={"status": "open", "status_revision": 1}):
+            path = self._create("unknown-status", "item 58 pending")
+        data = json.loads(path.read_text())
+        data["state"]["tracker_watermark"][0]["status"] = None
+        data["state"]["tracker_watermark"][0]["status_revision"] = None
+        with mock.patch.object(
+                handoff, "sprintctl_item_show",
+                return_value={"status": "done", "status_revision": 9}):
+            problems = handoff._tracker_problems(data)
+        self.assertTrue(any("58" in problem and "is done" in problem
+                            for problem in problems), problems)
 
     def test_an_absent_sprintctl_at_validate_time_skips_not_fails(self) -> None:
         from unittest import mock
