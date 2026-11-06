@@ -16,7 +16,7 @@ on every open Forgejo PR head before acting on this plan.
   each unapplied file in sorted order with one `execute` per file, inside one
   `psycopg.connect` block (not autocommit). All unapplied files and their
   bookkeeping rows therefore commit together at exit, unless a file issues its
-  own `COMMIT`; 24 of the 33 files wrap themselves in `BEGIN; ... COMMIT;`, which
+  own `COMMIT`; 26 of the 33 files wrap themselves in `BEGIN; ... COMMIT;`, which
   commits the batch so far. The runner has no advisory lock, checksum, down path
   or written transaction policy, and `CREATE INDEX CONCURRENTLY` cannot run in
   any file today.
@@ -99,13 +99,16 @@ role grants touched, tenant-schema impact, image bump needed.
 
 Changes to `scripts/migrate.py`, each with a disposable-PG test. Decide first,
 as a recorded choice, who owns the transaction: the runner (one transaction per
-file, files must not contain `BEGIN`/`COMMIT`, which would require rewriting 24
+file, files must not contain `BEGIN`/`COMMIT`, which would require rewriting 26
 released files and is therefore not recommended) or the files (the runner runs
 in autocommit and each file keeps its own `BEGIN; ... COMMIT;`). Recommended:
-files own it, runner uses autocommit, each file must be atomic by itself so a
-Job retry (`backoffLimit: 6`) is safe, and a file that needs
+files own it, runner uses autocommit, each new file must be atomic and
+idempotent (atomicity alone does not make a Job retry safe: the bookkeeping row
+is inserted after the file and committed later, so an earlier committed file is
+re-run if a later one fails; moving the insert into each file's transaction is a
+separate change), and a file that needs
 `CREATE INDEX CONCURRENTLY` omits the wrapper and is reviewed as an exception.
-Changing to autocommit changes behaviour for the 9 unwrapped files and needs
+Changing to autocommit changes behaviour for the 7 unwrapped files (008, 009, 011, 013, 022, 024, 032) and needs
 rehearsal (P4) before release.
 
 - Take a PostgreSQL session advisory lock (`pg_advisory_lock`, not the
