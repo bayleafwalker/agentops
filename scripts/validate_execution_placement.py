@@ -114,6 +114,9 @@ def validate(document: Any, *, repository_root: Path | None = None) -> dict[str,
     for index, placement in enumerate(raw_placements):
         field = f"placements[{index}]"
         _need(isinstance(placement, dict), f"{field} must be an object")
+        extra = set(placement) - {"id", "product", "environment_variant", "unknowns", *CLAIM_FIELDS}
+        _need(not extra, f"{field} has unrecognized fields (qualification or run claims are not allowed): "
+                         f"{', '.join(sorted(extra))}")
         placement_id = _text(placement.get("id"), f"{field}.id")
         _need(placement_id not in placement_ids, f"duplicate placement id: {placement_id}")
         placement_ids.add(placement_id)

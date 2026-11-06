@@ -43,6 +43,12 @@ class ExecutionPlacementTests(unittest.TestCase):
         self.assertEqual(report["scenarios_run"], 0)
         self.assertEqual(vp.main([]), 0)
 
+    def test_placement_level_qualification_or_run_claim_rejected(self):
+        for key, value in (("qualification_status", "qualified"), ("scenarios_run", 3)):
+            doc = _matrix()
+            doc["placements"][0][key] = value
+            self.assertRejected(doc, "unrecognized fields")
+
     def test_non_https_source_ref_rejected(self):
         doc = _matrix()
         src = _first_official(doc)

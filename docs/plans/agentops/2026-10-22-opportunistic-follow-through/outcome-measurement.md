@@ -104,8 +104,10 @@ python scripts/outcome_measurement.py path/to/outcome-observations.json --json
 The report gives each arm's expected denominator and known-case coverage for
 useful verified outcomes, independent passes, burden, failed attempts, defects
 and cost. `not-preregistered` means the population, revisions, dates, owner or
-threshold is missing or not frozen in time; `incomplete` means a required case
-or observation is missing; `thresholds-not-met` is a valid no-improvement or
+threshold is missing or not frozen in time, including when a whole expected
+case/arm pair has no observation; `incomplete` means an observed case lacks a
+required value (for example a null cost or burden, an unknown required check, or
+mixed currencies); both states exit 2 and neither allows a benefit claim; `thresholds-not-met` is a valid no-improvement or
 guardrail failure; and `thresholds-met` means only that the configured
 descriptive comparison passed. In all states, owner review remains necessary.
 An outcome-improvement claim requires a positive useful-verified-rate threshold.
