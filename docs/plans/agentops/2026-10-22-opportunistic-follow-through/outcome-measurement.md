@@ -1,10 +1,11 @@
 # Measure acceptance, correctness and use separately
 
-Status: reusable experiment procedure, 22 October 2026. No cohort has been run
-or accepted by this artifact. Use the
-[blank companion](outcome-observations.template.json) to retain observations
-beside the existing experiment record; it is not an import payload, schema
-migration, acceptance writer or production data set.
+Status: reusable experiment procedure with a read-only preflight, 5 November
+2026. No cohort has been run or accepted by this artifact. Use one
+[companion](outcome-observations.template.json) for each software, household or
+creative cohort to retain observations beside the existing experiment records;
+it is not an import payload, schema migration, acceptance writer or production
+data set.
 
 ## Reuse the current owners
 
@@ -69,21 +70,62 @@ a precise total-cost ratio. Never sum currencies without an explicitly sourced
 conversion basis. A token count is not a monetary cost. Repeated runs of one
 case do not manufacture extra successful cases.
 
-## Using the blank companion
+## Preregistering and using the companion
 
-Copy it into the owner's private evidence location. Fill `experiment_record_ref`
-with the existing record's immutable identity and bind the planned population,
-requirements and evaluation policy before runs. Duplicate `case_template` once
-per expected case into `cases`; retain unobserved population members. Null means
-unknown, not zero. An empty array means no observations were supplied; it does
-not mean a check passed. The template deliberately contains no case IDs, pass
-results, costs, timestamps or claimed reviewers.
+Copy it into the owner's private evidence location. Bind the planned population,
+independent requirements, evaluation policy and observation window before runs.
+Record the same frozen expected case IDs for both arms, and reference the
+baseline and candidate `ExperimentRecord` and revision under `comparison.arms`.
+Set `comparison.registered_at`, the named threshold owner, the claim rule, a
+positive useful-verified-rate threshold, and thresholds for maintenance,
+re-explanation, review, failed attempts, escaped defects and direct cost before
+recording observations. Each threshold carries its own owner reference and
+registration time. Duplicate `case_template` once per case per arm into `cases`;
+preserve absent cases with no positive observation instead of dropping them.
+Record the arm revision and first observation time. Null means unknown, not zero.
+An empty observation array means no observations were supplied; it does not mean
+a check passed.
+
+The companion records case-level maintenance, re-explanation and review minutes,
+failed attempts, direct cost with currency, and escaped defects alongside
+independent requirement checks, actual use and internal acceptance. Link those
+values to their source evidence. Keep owner acceptance, independently checked
+requirements, actual use and escaped defects distinct. A pass requires its
+criterion, independent oracle, evaluator, evaluated revision and evidence refs;
+observed use and zero escaped defects also require their observation basis and
+coverage.
+
+Run the read-only guard before discussing an outcome:
+
+```sh
+python scripts/outcome_measurement.py path/to/outcome-observations.json --json
+```
+
+The report gives each arm's expected denominator and known-case coverage for
+useful verified outcomes, independent passes, burden, failed attempts, defects
+and cost. `not-preregistered` means the population, revisions, dates, owner or
+threshold is missing or not frozen in time; `incomplete` means a required case
+or observation is missing; `thresholds-not-met` is a valid no-improvement or
+guardrail failure; and `thresholds-met` means only that the configured
+descriptive comparison passed. In all states, owner review remains necessary.
+An outcome-improvement claim requires a positive useful-verified-rate threshold.
+A benefit claim also requires preregistered thresholds and complete source
+coverage for maintenance, re-explanation, review, failed attempts, escaped
+defects and direct cost; each configured threshold must pass. `no_worse` sets a
+maximum permitted increase, while `increase` and `decrease` require at least the
+stated change. Rate changes use a 0-to-1 fraction; burden and cost use minutes,
+attempt counts, defect counts and the recorded currency. Missing cost, effort,
+use, defects or independent evidence stay unknown and block the corresponding
+claim. Mixed currencies cannot be compared; this companion does not convert
+them or claim causal effects.
 
 The companion preserves semantic detail absent from the base observation's
 disposition/evidence-class fields. Store its immutable reference among the
 owner evidence, and use the existing ExperimentRecord for run/population/cost
-accounting. If consumption requires a new service operation, implement it under
-the TypeSpec contract process rather than turning this authoring file into an ABI.
+accounting. The preflight reads the authored companion only; it does not verify
+that referenced owner records exist or write a result back to them. If
+consumption requires a new service operation, implement it under the TypeSpec
+contract process rather than turning this authoring file into an ABI.
 
 ## Why compliance is a separate diagnostic
 

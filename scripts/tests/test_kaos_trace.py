@@ -126,17 +126,25 @@ def test_impact_of_goal_change():
     assert result["obstacles"] == ["O02"]
     assert [(a["id"], a["relation"]) for a in result["activities"]] == [("BB-K01", "goal"), ("CC-K01", "goal")]
     assert result["refinements"] == [{"parent": "BB-K01", "activities": ["OA-01", "OA-02"]}]
-    assert {i["ref"] for i in result["items"]} == {"vuoro#11", "vuoro#12", "vuoro#20", "agentops#21"}
+    assert result["programmes"] == [{"id": "EC", "activities": [{"id": "EC-01", "ref": "agentops#30"}]}]
+    assert {i["ref"] for i in result["items"]} == {
+        "vuoro#11", "vuoro#12", "vuoro#20", "agentops#21", "agentops#30"
+    }
+    programme_item = next(i for i in result["items"] if i["ref"] == "agentops#30")
+    assert programme_item["relation"] == "cross-cutting programme"
 
 
 def test_impact_follows_dependents_transitively():
     result = kt.impact(_trace(), ["G01"])
     assert [(a["id"], a["relation"]) for a in result["activities"]] == [
         ("AA-K01", "goal"), ("BB-K01", "dependent"), ("CC-K01", "dependent")]
-    assert [f["id"] for f in result["features"]] == ["F01"]
+    assert [f["id"] for f in result["features"]] == ["F01", "F02"]
+    assert result["obstacles"] == ["O01", "O02"]
     direct = kt.impact(_trace(), ["G01"], dependents=False)
     assert [a["id"] for a in direct["activities"]] == ["AA-K01"]
-    assert [i["ref"] for i in direct["items"]] == ["agentops#10"]
+    assert [f["id"] for f in direct["features"]] == ["F01"]
+    assert direct["obstacles"] == ["O01"]
+    assert {i["ref"] for i in direct["items"]} == {"agentops#10", "agentops#30"}
 
 
 def test_impact_rejects_unknown_goal():

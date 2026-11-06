@@ -1,0 +1,449 @@
+{
+  "schema_version": "agentops-execution-placement-matrix/v1",
+  "reviewed_at": "2026-11-05",
+  "qualification_status": "source-mapped-not-qualified",
+  "sources": [
+    {
+      "id": "anthropic-managed-overview",
+      "kind": "official_docs",
+      "title": "Claude Managed Agents overview",
+      "url": "https://platform.claude.com/docs/en/managed-agents/overview",
+      "reviewed_at": "2026-11-05"
+    },
+    {
+      "id": "anthropic-environments",
+      "kind": "official_docs",
+      "title": "Choosing a Claude Managed Agents environment",
+      "url": "https://platform.claude.com/docs/en/managed-agents/choosing-an-environment",
+      "reviewed_at": "2026-11-05"
+    },
+    {
+      "id": "anthropic-workflow-runs",
+      "kind": "official_docs",
+      "title": "Claude Managed Agents workflow runs",
+      "url": "https://platform.claude.com/docs/en/managed-agents/workflow-runs",
+      "reviewed_at": "2026-11-05"
+    },
+    {
+      "id": "anthropic-events",
+      "kind": "official_docs",
+      "title": "Claude Managed Agents session event stream",
+      "url": "https://platform.claude.com/docs/en/managed-agents/events-and-streaming",
+      "reviewed_at": "2026-11-05"
+    },
+    {
+      "id": "anthropic-budgets",
+      "kind": "official_docs",
+      "title": "Claude Managed Agents session budgets",
+      "url": "https://platform.claude.com/docs/en/managed-agents/budgets",
+      "reviewed_at": "2026-11-05"
+    },
+    {
+      "id": "anthropic-secure-deployment",
+      "kind": "official_docs",
+      "title": "Secure a Claude Managed Agents deployment",
+      "url": "https://platform.claude.com/docs/en/managed-agents/secure-deployment",
+      "reviewed_at": "2026-11-05"
+    },
+    {
+      "id": "anthropic-threads",
+      "kind": "official_docs",
+      "title": "Claude Managed Agents session threads",
+      "url": "https://platform.claude.com/docs/en/managed-agents/session-threads",
+      "reviewed_at": "2026-11-05"
+    },
+    {
+      "id": "openai-agents-api",
+      "kind": "official_docs",
+      "title": "OpenAI Agents API overview",
+      "url": "https://developers.openai.com/api/docs/guides/agents-api/overview",
+      "reviewed_at": "2026-11-05"
+    },
+    {
+      "id": "openai-agents-architecture",
+      "kind": "official_docs",
+      "title": "OpenAI Agents API architecture",
+      "url": "https://developers.openai.com/api/docs/guides/agents-api/architecture",
+      "reviewed_at": "2026-11-05"
+    },
+    {
+      "id": "openai-agents-api-sessions",
+      "kind": "official_docs",
+      "title": "OpenAI Agents API sessions, events and cancellation",
+      "url": "https://developers.openai.com/api/docs/guides/agents-api/sessions",
+      "reviewed_at": "2026-11-05"
+    },
+    {
+      "id": "openai-agents-api-events",
+      "kind": "official_docs",
+      "title": "OpenAI Agents API events and items",
+      "url": "https://developers.openai.com/api/docs/guides/agents-api/sessions/events",
+      "reviewed_at": "2026-11-05"
+    },
+    {
+      "id": "openai-agents-api-lifecycle",
+      "kind": "official_docs",
+      "title": "OpenAI Agents API sandbox lifecycle",
+      "url": "https://developers.openai.com/api/docs/guides/agents-api/environments/lifecycle",
+      "reviewed_at": "2026-11-05"
+    },
+    {
+      "id": "openai-hosted-environment",
+      "kind": "official_docs",
+      "title": "OpenAI-hosted Agents API environments",
+      "url": "https://developers.openai.com/api/docs/guides/agents-api/environments/openai-hosted",
+      "reviewed_at": "2026-11-05"
+    },
+    {
+      "id": "openai-self-hosted-environment",
+      "kind": "official_docs",
+      "title": "Self-hosted Agents API environments",
+      "url": "https://developers.openai.com/api/docs/guides/agents-api/environments/self-hosted",
+      "reviewed_at": "2026-11-05"
+    },
+    {
+      "id": "openai-sdk-tools",
+      "kind": "official_docs",
+      "title": "OpenAI Agents SDK tools",
+      "url": "https://openai.github.io/openai-agents-python/tools/",
+      "reviewed_at": "2026-11-05"
+    },
+    {
+      "id": "openai-sdk-sessions",
+      "kind": "official_docs",
+      "title": "OpenAI Agents SDK sessions",
+      "url": "https://openai.github.io/openai-agents-python/sessions/",
+      "reviewed_at": "2026-11-05"
+    },
+    {
+      "id": "openai-sdk-running",
+      "kind": "official_docs",
+      "title": "Running OpenAI Agents SDK agents",
+      "url": "https://openai.github.io/openai-agents-python/running_agents/",
+      "reviewed_at": "2026-11-05"
+    },
+    {
+      "id": "openai-sdk-models",
+      "kind": "official_docs",
+      "title": "OpenAI Agents SDK models and providers",
+      "url": "https://openai.github.io/openai-agents-python/models/",
+      "reviewed_at": "2026-11-05"
+    },
+    {
+      "id": "openai-sdk-usage",
+      "kind": "official_docs",
+      "title": "OpenAI Agents SDK usage accounting",
+      "url": "https://openai.github.io/openai-agents-python/usage/",
+      "reviewed_at": "2026-11-05"
+    },
+    {
+      "id": "w41-r5",
+      "kind": "repository_doc",
+      "title": "W41-R5 managed-workflow responsibility and identity review",
+      "path": "docs/plans/2026-10-11-agent-systems-w39-w41.md",
+      "reviewed_at": "2026-11-05"
+    },
+    {
+      "id": "target-state-ts16",
+      "kind": "repository_doc",
+      "title": "Target state TS-16 execution and authority boundary",
+      "path": "docs/plans/2026-09-17-target-state.md",
+      "reviewed_at": "2026-11-05"
+    }
+  ],
+  "required_owner_identity": [
+    "work_item_ref",
+    "attempt_id",
+    "artifact_revision_or_digest",
+    "current_owner_revision",
+    "owner_acceptance_ref",
+    "effect_receipt_ref_when_applicable"
+  ],
+  "placements": [
+    {
+      "id": "anthropic-managed-agents-cloud",
+      "product": "Claude Managed Agents",
+      "environment_variant": "Anthropic-managed cloud sandbox",
+      "model_location": {
+        "claim": "Claude runs on Anthropic's service; the selected environment changes tool execution location, not model location.",
+        "source_refs": ["anthropic-managed-overview", "anthropic-environments"]
+      },
+      "tool_execution_location": {
+        "claim": "Built-in bash and file tools execute in an isolated Linux container managed by Anthropic for the session.",
+        "source_refs": ["anthropic-managed-overview", "anthropic-environments"]
+      },
+      "environment_custodian": {
+        "claim": "Anthropic operates the sandbox; the application selects the environment and configures its network rules and packages.",
+        "source_refs": ["anthropic-environments"]
+      },
+      "context_egress": {
+        "claim": "Conversation history, tool results, sandbox files/state, skills and memory stores are available to the Managed Agents service; web search and fetch execute on Anthropic's side.",
+        "source_refs": ["anthropic-environments"]
+      },
+      "tool_surface": {
+        "claim": "The documented surface includes bash, file operations, web search/fetch and configured MCP servers; the exact enabled tools are agent configuration.",
+        "source_refs": ["anthropic-managed-overview", "anthropic-environments"]
+      },
+      "provider_identity": {
+        "ids": ["session_id", "event_id", "workflow_run_id", "session_thread_id"],
+        "claim": "Session event history and workflow/thread lifecycles expose provider identities; none is an owner work or acceptance identity.",
+        "source_refs": ["anthropic-events", "anthropic-workflow-runs", "anthropic-threads", "w41-r5"]
+      },
+      "retry_and_completion": {
+        "claim": "A repeated result for the same custom tool call has no further effect at the session API. Workflow/thread failures and missing thread output still require explicit owner-side treatment; provider terminal status is not work acceptance.",
+        "source_refs": ["anthropic-events", "anthropic-workflow-runs", "anthropic-threads", "w41-r5"]
+      },
+      "cancellation_and_interruption": {
+        "claim": "A session interrupt stops the agent turn but does not itself end open workflow runs; ask the agent to stop its runs or wait for their ended events. A budget pause is a separate state.",
+        "source_refs": ["anthropic-events", "anthropic-workflow-runs", "anthropic-secure-deployment"]
+      },
+      "usage_and_cost": {
+        "claim": "Session events expose cumulative usage and tracked list cost; a session budget stops new model requests at its list-cost ceiling. This is not target-effect cancellation or a local per-work-item settlement record.",
+        "source_refs": ["anthropic-budgets", "anthropic-events", "target-state-ts16"]
+      },
+      "effect_authority": {
+        "claim": "A provider session grants no estate effect authority. Any effect is limited by the target owner's credential, operation and current decision.",
+        "source_refs": ["target-state-ts16"]
+      },
+      "unknowns": [
+        "The selected model/version, account-specific data controls, configured tools, network policy and credentials vary by agent and environment and are not established by this source map.",
+        "No provider session or owner-side event replay was run for this activity."
+      ]
+    },
+    {
+      "id": "anthropic-managed-agents-self-hosted",
+      "product": "Claude Managed Agents",
+      "environment_variant": "Self-hosted sandbox worker",
+      "model_location": {
+        "claim": "Claude and the agent loop remain on Anthropic's side; the worker executes bash and file tool calls on the operator's infrastructure.",
+        "source_refs": ["anthropic-environments"]
+      },
+      "tool_execution_location": {
+        "claim": "Tool commands and file operations run on the self-hosted worker; web search/fetch and MCP server connections remain service-side.",
+        "source_refs": ["anthropic-environments"]
+      },
+      "environment_custodian": {
+        "claim": "The operator owns worker hardening, network limits, isolation and environment-key handling.",
+        "source_refs": ["anthropic-environments"]
+      },
+      "context_egress": {
+        "claim": "Conversation history, tool results, skills and memory stores reach Managed Agents; sandbox files/processes stay on the worker, but tool results sent to the model cross to Anthropic.",
+        "source_refs": ["anthropic-environments"]
+      },
+      "tool_surface": {
+        "claim": "The worker executes bash/file calls; the self-hosted option omits managed file/GitHub session resources. Web search/fetch and MCP server connections remain service-side.",
+        "source_refs": ["anthropic-environments", "anthropic-managed-overview"]
+      },
+      "provider_identity": {
+        "ids": ["session_id", "event_id", "workflow_run_id", "session_thread_id"],
+        "claim": "Provider session/workflow/thread IDs identify provider execution and must be linked to the estate's separate work and attempt IDs.",
+        "source_refs": ["anthropic-events", "anthropic-workflow-runs", "anthropic-threads", "w41-r5"]
+      },
+      "retry_and_completion": {
+        "claim": "Same-call result replay is idempotent at the documented session endpoint; this does not establish exactly-once worker effects or owner acceptance.",
+        "source_refs": ["anthropic-events", "anthropic-environments", "w41-r5"]
+      },
+      "cancellation_and_interruption": {
+        "claim": "Session interrupt does not end open workflow runs. The operator owns worker/process cleanup in addition to requesting the agent stop its runs; exact worker termination evidence is not established here.",
+        "source_refs": ["anthropic-events", "anthropic-workflow-runs", "anthropic-secure-deployment", "anthropic-environments"]
+      },
+      "usage_and_cost": {
+        "claim": "Session usage and list-cost budgets are provider-side; actual worker compute, account billing and per-owner-task allocation require separate operator evidence.",
+        "source_refs": ["anthropic-budgets", "anthropic-events", "anthropic-environments"]
+      },
+      "effect_authority": {
+        "claim": "Self-hosting changes tool execution location, not model or effect authority. A target owner still controls credentials and accepts effects under its own contract.",
+        "source_refs": ["anthropic-environments", "target-state-ts16"]
+      },
+      "unknowns": [
+        "The worker's actual hardening, egress rules, mounted credentials and deployment state require operator evidence.",
+        "No provider session or owner-side event replay was run for this activity."
+      ]
+    },
+    {
+      "id": "openai-agents-api-openai-hosted",
+      "product": "OpenAI Agents API (managed Codex harness)",
+      "environment_variant": "OpenAI-hosted sandbox",
+      "model_location": {
+        "claim": "OpenAI operates the Codex harness, model/tool loop, session orchestration, compaction and recovery; the exact configured model remains an agent setting.",
+        "source_refs": ["openai-agents-api", "openai-agents-architecture"]
+      },
+      "tool_execution_location": {
+        "claim": "Shell, code and file work runs in an OpenAI-provisioned sandbox; application function tools still execute in the application server.",
+        "source_refs": ["openai-agents-architecture", "openai-hosted-environment"]
+      },
+      "environment_custodian": {
+        "claim": "OpenAI provisions and manages the hosted sandbox; the application supplies task inputs and configures packages, files, network access and available tools.",
+        "source_refs": ["openai-agents-api", "openai-hosted-environment"]
+      },
+      "context_egress": {
+        "claim": "Session input/events and tool results are exchanged with the OpenAI-managed harness. Exact retention and each tool's data flow depend on the configured API and tools.",
+        "source_refs": ["openai-agents-api", "openai-agents-architecture"]
+      },
+      "tool_surface": {
+        "claim": "The hosted environment runs shell/code/file work; the agent may also use application function tools, MCP and configured hosted tools.",
+        "source_refs": ["openai-agents-api", "openai-agents-architecture", "openai-hosted-environment"]
+      },
+      "provider_identity": {
+        "ids": ["agent_id", "session_id", "environment_id", "event_id", "turn_id", "call_id"],
+        "claim": "These identify API resources or one pending tool/approval action; they are not a work item, attempt or acceptance identity.",
+        "source_refs": ["openai-agents-api", "openai-agents-architecture", "w41-r5"]
+      },
+      "retry_and_completion": {
+        "claim": "The API exposes session and tool-call lifecycle. The reviewed sources do not establish exactly-once delivery or make a terminal session state an owner acceptance.",
+        "source_refs": ["openai-agents-api", "openai-agents-architecture", "w41-r5"]
+      },
+      "cancellation_and_interruption": {
+        "claim": "The API accepts a cancel-turn event. A hosted environment can outlive a session; reconcile any external effect and verify environment cleanup independently.",
+        "source_refs": ["openai-agents-api-sessions", "openai-agents-api-events", "openai-agents-api-lifecycle"]
+      },
+      "usage_and_cost": {
+        "claim": "Model usage, OpenAI tools and OpenAI-hosted containers have separate API, tool and container rates; account totals and task-level allocation still require source evidence.",
+        "source_refs": ["openai-agents-api", "openai-agents-api-lifecycle"]
+      },
+      "effect_authority": {
+        "claim": "Configured function tools run in the application and hosted tools/sandboxes run within their documented boundary; none substitutes for the target owner's credential, operation and current decision.",
+        "source_refs": ["openai-agents-architecture", "target-state-ts16"]
+      },
+      "unknowns": [
+        "Selected model, organization data controls, environment contents, network policy and tool credentials are deployment-specific.",
+        "No provider session or owner-side event replay was run for this activity."
+      ]
+    },
+    {
+      "id": "openai-agents-api-self-hosted",
+      "product": "OpenAI Agents API (managed Codex harness)",
+      "environment_variant": "Application-managed executor",
+      "model_location": {
+        "claim": "OpenAI operates the model/tool-loop harness and durable session; the application operates the connected executor environment.",
+        "source_refs": ["openai-agents-api", "openai-agents-architecture", "openai-self-hosted-environment"]
+      },
+      "tool_execution_location": {
+        "claim": "The application starts and connects an executor that runs requested commands in its selected environment; application function tools run wherever the application implements them.",
+        "source_refs": ["openai-agents-architecture", "openai-self-hosted-environment"]
+      },
+      "environment_custodian": {
+        "claim": "The application/operator manages executor setup, connection, environment lifecycle and private-network access.",
+        "source_refs": ["openai-agents-architecture", "openai-self-hosted-environment"]
+      },
+      "context_egress": {
+        "claim": "Tool results and agent context return to the OpenAI-managed harness; the executor can keep its filesystem local, but returned content crosses the provider boundary.",
+        "source_refs": ["openai-agents-architecture", "openai-self-hosted-environment"]
+      },
+      "tool_surface": {
+        "claim": "The configured self-hosted executor runs requested commands; application function tools run in their application implementation and MCP tools use their configured server boundary.",
+        "source_refs": ["openai-agents-api", "openai-agents-architecture", "openai-self-hosted-environment"]
+      },
+      "provider_identity": {
+        "ids": ["agent_id", "session_id", "environment_id", "event_id", "turn_id", "call_id"],
+        "claim": "API resource and call IDs must be joined to a separate estate work/attempt mapping; executor identity is additional provenance.",
+        "source_refs": ["openai-agents-api", "openai-self-hosted-environment", "w41-r5"]
+      },
+      "retry_and_completion": {
+        "claim": "The reviewed sources do not promise exactly-once executor effects. Ambiguous executor results require owner-side reconciliation before retry; session completion is not acceptance.",
+        "source_refs": ["openai-agents-architecture", "openai-self-hosted-environment", "w41-r5"]
+      },
+      "cancellation_and_interruption": {
+        "claim": "A cancel-turn event stops current model work; the application manages executor lifecycle and must separately stop or reconcile already-issued tool work and pending effects.",
+        "source_refs": ["openai-agents-api-sessions", "openai-agents-api-events", "openai-agents-api-lifecycle", "openai-self-hosted-environment"]
+      },
+      "usage_and_cost": {
+        "claim": "Model and OpenAI tool rates are provider-side; self-hosted compute and its cost remain application/operator responsibilities. No local per-work-item cost source is established here.",
+        "source_refs": ["openai-agents-api", "openai-self-hosted-environment"]
+      },
+      "effect_authority": {
+        "claim": "The application controls executor credentials and tools, while the target owner controls the effect contract and acceptance. Provider IDs confer neither.",
+        "source_refs": ["openai-self-hosted-environment", "target-state-ts16"]
+      },
+      "unknowns": [
+        "Actual executor identity, network routes, credentials, failure recovery and data retention require deployment-specific qualification.",
+        "No provider session or owner-side event replay was run for this activity."
+      ]
+    },
+    {
+      "id": "openai-agents-sdk-local-tools",
+      "product": "OpenAI Agents SDK (Python, local function tools)",
+      "environment_variant": "Application process and configured model provider",
+      "model_location": {
+        "claim": "The SDK supports configured model providers; model location is determined by the selected provider, not by the SDK session object.",
+        "source_refs": ["openai-sdk-models", "openai-sdk-sessions"]
+      },
+      "tool_execution_location": {
+        "claim": "Local function tools execute in the application process; hosted OpenAI tools execute on OpenAI servers; other tool types follow their configured runtime.",
+        "source_refs": ["openai-sdk-tools"]
+      },
+      "environment_custodian": {
+        "claim": "The application owns the local process and locally implemented tools; provider-hosted tools and any sandbox retain their own execution boundary.",
+        "source_refs": ["openai-sdk-tools"]
+      },
+      "context_egress": {
+        "claim": "Model inputs and outputs cross to the configured model provider. Tool inputs/results may also be traced; tracing sensitivity is configurable. Tool-specific egress must be reviewed separately.",
+        "source_refs": ["openai-sdk-tools", "openai-sdk-running"]
+      },
+      "tool_surface": {
+        "claim": "This placement covers local FunctionTools; the SDK also provides hosted OpenAI tools, and ShellTool can be local or hosted. The configured tool type decides execution location.",
+        "source_refs": ["openai-sdk-tools"]
+      },
+      "provider_identity": {
+        "ids": ["session_id", "conversation_id", "previous_response_id", "trace_id", "group_id"],
+        "claim": "SDK sessions are client-managed history; Responses conversation/response IDs are provider-managed continuation; trace/group IDs are observability links. None alone is an owner work identity.",
+        "source_refs": ["openai-sdk-sessions", "openai-sdk-running", "w41-r5"]
+      },
+      "retry_and_completion": {
+        "claim": "The SDK can resume interrupted runs and retain conversation history, but application tools own their own idempotency and a completed run is not domain acceptance.",
+        "source_refs": ["openai-sdk-running", "openai-sdk-sessions", "w41-r5"]
+      },
+      "cancellation_and_interruption": {
+        "claim": "The SDK exposes interruptions and resumable run state, but cleanup/cancellation of a currently executing local tool depends on the application runtime and tool implementation.",
+        "source_refs": ["openai-sdk-running", "openai-sdk-sessions", "openai-sdk-tools"]
+      },
+      "usage_and_cost": {
+        "claim": "The SDK reports per-run aggregated usage and per-request entries; provider pricing and local tool/compute costs require separate source records.",
+        "source_refs": ["openai-sdk-usage", "openai-sdk-running"]
+      },
+      "effect_authority": {
+        "claim": "The application tool and target owner define effect permissions and acceptance; an SDK session, trace or model response grants no effect authority.",
+        "source_refs": ["openai-sdk-tools", "target-state-ts16"]
+      },
+      "unknowns": [
+        "Actual model provider, tool registry, approval policy, tracing configuration and target credentials are application-specific.",
+        "No provider session or owner-side event replay was run for this activity."
+      ]
+    }
+  ],
+  "qualification_scenarios": [
+    {
+      "id": "duplicate-event",
+      "status": "not-run",
+      "scenario": "Replay one provider event or tool-call result after losing the consumer acknowledgement.",
+      "required_owner_invariant": "The same event and owner idempotency key reconcile to one durable observation/effect. A distinct event is not deduplicated only because its payload matches.",
+      "source_refs": ["w41-r5", "target-state-ts16"]
+    },
+    {
+      "id": "missing-child-evidence",
+      "status": "not-run",
+      "scenario": "A parent workflow finishes while a child thread/result is absent or unreadable.",
+      "required_owner_invariant": "Keep the missing child in the expected coverage denominator; outcome and acceptance remain unknown until owner evidence closes the gap.",
+      "source_refs": ["w41-r5", "target-state-ts16"]
+    },
+    {
+      "id": "failed-child",
+      "status": "not-run",
+      "scenario": "A child tool/model call fails while the parent emits a terminal summary.",
+      "required_owner_invariant": "Preserve the child failure and its evidence; a parent summary or provider terminal state cannot override the owner's acceptance criteria.",
+      "source_refs": ["w41-r5", "target-state-ts16"]
+    },
+    {
+      "id": "late-result-after-replacement",
+      "status": "not-run",
+      "scenario": "A replaced or interrupted worker returns after a newer attempt owns the work.",
+      "required_owner_invariant": "Bind the result to its originating attempt and artifact revision; retain it as evidence without settling or overwriting the current owner state.",
+      "source_refs": ["w41-r5", "target-state-ts16"]
+    }
+  ],
+  "limitations": [
+    "This source map records documented product boundaries, not current account settings, runtime deployment or paid qualification.",
+    "The scenario list is a fixture contract only. It is not evidence that an owner implementation passed those cases.",
+    "No provider terminal event, session/thread ID or run trace is an owner acceptance or effect receipt."
+  ]
+}
