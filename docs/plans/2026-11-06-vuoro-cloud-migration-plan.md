@@ -17,7 +17,7 @@ on every open Forgejo PR head before acting on this plan.
   `psycopg.connect` block (not autocommit). All unapplied files and their
   bookkeeping rows therefore commit together at exit, unless a file issues its
   own `COMMIT`; 26 of the 33 files wrap themselves in `BEGIN; ... COMMIT;`, which
-  commits the batch so far. The runner has no advisory lock, checksum, down path
+  commits the batch so far. The runner has no advisory lock, manifest check, down path
   or written transaction policy, and `CREATE INDEX CONCURRENTLY` cannot run in
   any file today.
 - Apply path: k8s Job `apps/control/migration-job.yaml` (digest-pinned image,
@@ -115,13 +115,17 @@ rehearsal (P4) before release.
   transaction variant) on the single runner connection for the whole run, with a
   distinct constant key (not the `hashtext(workspace_id)` scheme of document 18)
   and a try-lock with timeout so a second Job fails fast and visibly.
-- Store a content checksum per applied file and refuse to run if an applied
-  file's bytes changed. Backfill is a runner step, not a migration: when the
-  checksum column is NULL for an applied name, the runner records the current
-  file digest once, after an operator confirms the files match what was applied.
-  Define NULL handling (applied but unchecked = reported, not trusted) and the
-  fresh-install path (checksum written with the row). Fix digest rules (raw
-  bytes, no newline normalisation) and check `.gitattributes`.
+- Record content digests in a checked-in manifest, `config/migrations.sha256`
+  (raw bytes, `sha256sum` format; outside `migrations/` because the name check
+  rejects other files there), not in the database. A `schema_migrations.checksum`
+  column was built first and dropped: the controller's pre-claim check compares
+  the public relation catalog exactly, so rolling back to the previous image
+  would have been refused. The runner fails before applying anything if a
+  released file differs from its manifest line or has none; `--write-manifest`
+  only appends lines for new files. The manifest catches edits to released files
+  at run time and in CI, but not drift between a live database and its files,
+  since the database keeps no record. The migration Job image must be rebuilt to
+  carry the manifest.
 - Gap check is baseline-aware: the missing 016 is declared in a reviewed
   allowlist, and any new gap or duplicate fails.
 
@@ -159,7 +163,7 @@ document exists, and make P1's checklist require that statement.
 
 ### P7. Release path integration
 
-Depends on P2 and P4. Add the migration digest and checksum set to the release gate and report card,
+Depends on P2 and P4. Add the migration manifest digest (and the rehearsal result from P4) to the release gate and report card,
 so a promoted tag shows which migrations it contains. Staging admission already
 requires physical evidence beyond a merged pin; migrations ride that rule.
 
@@ -178,9 +182,9 @@ source.
   `db_roles.py`, but that was checked on GitHub mirror branches only. Before any
   package starts, re-diff those paths on Forgejo and coordinate numbering with
   the declared integration owner.
-- Checksum backfill (P2) touches every live control database. It needs a
-  rehearsal against a restored copy and an operator-run step; it is not
-  authorized by this plan.
+- No package changes the live database schema or runs against a live database.
+  The manifest design removed the earlier checksum backfill, which would have
+  been an operator step on every control database.
 - No package claims production readiness. Each is source work whose acceptance
   is a passing disposable-PG test; deployment evidence is separate.
 
