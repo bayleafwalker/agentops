@@ -128,7 +128,7 @@ class OutcomeMeasurementTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             self.assertEqual(om.main([str(_write(Path(tmp), doc))]), 0)
 
-    def test_missing_expected_case_is_incomplete(self):
+    def test_missing_expected_case_is_not_preregistered(self):
         import tempfile
         doc = _prereg()
         doc["cases"] = [c for c in doc["cases"] if not (c["arm_id"] == "candidate" and c["case_id"] == "c2")]
@@ -136,9 +136,7 @@ class OutcomeMeasurementTests(unittest.TestCase):
         self.assertEqual(report["arms"]["candidate"]["missing_case_ids"], ["c2"])
         self.assertFalse(report["benefit_claim_allowed"])
         self.assertFalse(report["outcome_improvement_claim_allowed"])
-        # DISCREPANCY with outcome-measurement.md ("incomplete means a required case is
-        # missing"): a missing case pair fails full_observation_dates, so scope_ready is
-        # false and the code reports not-preregistered.
+        # A missing case pair fails full_observation_dates, so scope_ready is false.
         self.assertEqual(report["state"], "not-preregistered")
         with tempfile.TemporaryDirectory() as tmp:
             self.assertEqual(om.main([str(_write(Path(tmp), doc))]), 2)
