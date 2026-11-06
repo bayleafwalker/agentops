@@ -58,8 +58,10 @@ the git basis only -- it says nothing about whether the tracker items this
 handoff names are still in the state it recorded. `state.tracker_watermark`
 closes that gap: at `create`, each item id named in the sprintctl bundle or in
 `next_action` is looked up live and its status/status_revision recorded; at
-`validate`, the same items are looked up again and a handoff is refused if an
-item is now done or its status_revision has moved. An absent or failing
+`validate`, the same items are looked up again and a handoff is refused if a
+known status has changed, an item is done unless the recorded status explicitly
+says it was already done, or its known status_revision has moved. An unknown
+recorded status does not count as evidence that the item was already done. An absent or failing
 sprintctl skips the lookup at both ends -- same meaning as `--no-tree-check`,
 skip not fail -- so this build never blocks on a tracker that is not there.
 
@@ -124,6 +126,10 @@ SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
 class HandoffError(Exception):
     """A refusal with a message meant for a human, not a traceback."""
+
+
+class TrackerProtocolError(HandoffError):
+    """A successful tracker response that violates the item-show contract."""
 
 
 # --------------------------------------------------------------------------
@@ -409,8 +415,8 @@ def _referenced_item_ids(next_action: str,
 def sprintctl_item_show(repo: Path, item_id: str) -> dict[str, Any] | None:
     """Live `sprintctl item show` state for one item, or None.
 
-    None means "could not ask" -- sprintctl missing, offline, erroring or
-    answering with something other than JSON -- and is not itself a refusal:
+    None means "could not ask" -- sprintctl missing, offline or erroring --
+    and is not itself a refusal:
     exactly `sprintctl_bundle`'s meaning for an absent or failing sprintctl.
     A module-level function so tests inject a fake by monkeypatching
     `handoff.sprintctl_item_show`, the same shape as `SSHTransport` standing
@@ -422,13 +428,37 @@ def sprintctl_item_show(repo: Path, item_id: str) -> dict[str, Any] | None:
             cwd=str(repo), capture_output=True, text=True)
     except OSError:
         return None
-    if proc.returncode != 0 or not proc.stdout.strip():
+    if proc.returncode != 0:
         return None
+    if not proc.stdout.strip():
+        raise TrackerProtocolError(
+            f"tracker item {item_id} returned an empty successful response")
     try:
         record = json.loads(proc.stdout)
-    except json.JSONDecodeError:
-        return None
-    return record if isinstance(record, dict) else None
+    except json.JSONDecodeError as exc:
+        raise TrackerProtocolError(
+            f"tracker item {item_id} returned invalid JSON") from exc
+    if not isinstance(record, dict):
+        raise TrackerProtocolError(
+            f"tracker item {item_id} response must be an object")
+    # Current sprintctl wraps the item in an envelope. Keep accepting the
+    # older flat response too, since deployed clients may still return it.
+    item = record.get("item") if "item" in record else record
+    if not isinstance(item, dict):
+        raise TrackerProtocolError(
+            f"tracker item {item_id} response has a malformed item envelope")
+    status = item.get("status")
+    revision = item.get("status_revision")
+    if not isinstance(status, str) or not status.strip():
+        raise TrackerProtocolError(
+            f"tracker item {item_id} response has no valid status")
+    if "status_revision" not in item or not (
+            revision is None
+            or isinstance(revision, int) and not isinstance(revision, bool)
+            or isinstance(revision, str) and bool(revision.strip())):
+        raise TrackerProtocolError(
+            f"tracker item {item_id} response has no valid status_revision")
+    return {"status": status, "status_revision": revision}
 
 
 def tracker_watermark(repo: Path, next_action: str,
@@ -817,18 +847,31 @@ def _tracker_problems(handoff: dict[str, Any]) -> list[str]:
     problems = []
     for recorded in watermark:
         item_id = recorded["item_id"]
-        live = sprintctl_item_show(repo, item_id)
+        try:
+            live = sprintctl_item_show(repo, item_id)
+        except TrackerProtocolError as exc:
+            problems.append(f"tracker: {exc}; refusing")
+            continue
         if live is None:
             continue
         live_status = live.get("status")
         live_revision = live.get("status_revision")
         recorded_revision = recorded.get("status_revision")
-        if live_status == "done":
+        recorded_status = recorded.get("status")
+        if live_status == "done" and recorded_status != "done":
+            # Unknown historical status is not evidence that a done item was
+            # already done when the handoff was created.
             problems.append(
                 f"tracker: item {item_id} is done (recorded status_revision "
                 f"{recorded_revision!r}, current {live_revision!r}); this "
                 "handoff's tracker claim is stale, refusing")
-        elif live_revision != recorded_revision:
+        elif recorded_status is not None and live_status != recorded_status:
+            problems.append(
+                f"tracker: item {item_id} status has moved (recorded "
+                f"{recorded_status!r}, current {live_status!r}); this "
+                "handoff's tracker claim is stale, refusing")
+        elif (recorded_revision is not None
+              and live_revision != recorded_revision):
             problems.append(
                 f"tracker: item {item_id} status_revision has moved (recorded "
                 f"{recorded_revision!r}, current {live_revision!r}); live "
