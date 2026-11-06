@@ -6,6 +6,7 @@ import importlib.util
 import io
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -120,7 +121,7 @@ class SkillBoundaryTests(unittest.TestCase):
         })
         self.assertEqual(inv["load_paths"], [{
             "path": ".claude/skills/demo", "kind": "symlink", "target": "../../skills/demo",
-            "resolves_to_skill": True, "observation": "source-link-only"}])
+            "resolves_to_skill": True, "tree_sha256": None, "observation": "source-link-only"}])
         self.assertEqual(set(inv["provider_load_coverage"].values()), {"unknown"})
         self.assertEqual(inv["provenance"]["trust_class"], "unknown")
 
@@ -303,6 +304,81 @@ class SkillBoundaryTests(unittest.TestCase):
         self.assertEqual((entry["kind"], entry["resolves_to_skill"]), ("refused-symlink-escape", False))
         entry = sb._load_path("../outside", self.repo.root.resolve(), self.repo.skill.resolve())
         self.assertEqual(entry["kind"], "refused-path-escape")
+
+    # -- load paths ----------------------------------------------------------------------
+
+    def _self_contained(self) -> dict:
+        """Make demo self-contained, add a sibling skill `bar`, commit and grant."""
+        self.repo.write("skills/demo/SKILL.md", "---\nname: demo\ndescription: d\n---\nSelf-contained.\n")
+        self.repo.write("skills/bar/SKILL.md", "---\nname: demo\ndescription: other bytes\n---\nOther.\n")
+        self.repo.commit()
+        grant = _grant(self.repo.inventory())
+        self.assertTrue(sb.compare(grant, self.repo.inventory())["inherit"])
+        return grant
+
+    def test_retargeted_load_path_symlink_denies_through_compare_and_cli(self):
+        grant = self._self_contained()
+        link = self.repo.root / ".claude" / "skills" / "demo"
+        link.unlink()
+        os.symlink("../../skills/bar", link)
+        self.repo.commit()
+        current = self.repo.inventory()
+        self.assertFalse(current["load_paths"][0]["resolves_to_skill"])
+        self.assertEqual(self.codes(current, grant, keep_revision=True),
+                         {"load-path-changed", "load-path-not-resolving-to-skill"})
+        grant_path = self.tmp / "grant.json"
+        grant_path.write_text(json.dumps(grant))
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(sb.main(["compare", "--grant", str(grant_path), "--skill-dir", str(self.repo.skill),
+                                      "--repo-root", str(self.repo.root)]), 2)
+
+    def test_diverging_directory_copy_denies(self):
+        self._self_contained()
+        shutil.copytree(self.repo.skill, self.repo.root / ".agents" / "skills" / "demo")
+        self.repo.commit()
+        grant = _grant(self.repo.inventory())
+        copy_entry = next(e for e in grant["inventory"]["load_paths"] if e["kind"] == "directory-copy")
+        self.assertTrue(copy_entry["resolves_to_skill"])
+        self.assertEqual(copy_entry["tree_sha256"], grant["inventory"]["tree_sha256"])
+        self.assertTrue(sb.compare(grant, self.repo.inventory())["inherit"])
+        self.repo.write(".agents/skills/demo/SKILL.md", "---\nname: demo\nallowed-tools: Bash\n---\nx\n")
+        self.repo.commit()
+        self.assertEqual(self.codes(self.repo.inventory(), grant, keep_revision=True),
+                         {"load-path-changed", "load-path-not-resolving-to-skill"})
+
+    def test_unsafe_directory_copy_is_refused_and_denies(self):
+        grant = self._self_contained()
+        copy_dir = self.repo.root / ".agents" / "skills" / "demo"
+        copy_dir.mkdir(parents=True)
+        os.symlink("../../../skills/demo/SKILL.md", copy_dir / "SKILL.md")
+        self.repo.commit()
+        current = self.repo.inventory()
+        entry = next(e for e in current["load_paths"] if e["path"] == ".agents/skills/demo")
+        self.assertEqual((entry["kind"], entry["tree_sha256"]), ("refused-unsafe-copy", None))
+        self.assertEqual(self.codes(current, grant, keep_revision=True),
+                         {"load-path-added", "load-path-not-resolving-to-skill"})
+
+    def test_removed_or_added_load_path_denies(self):
+        grant = self._self_contained()
+        (self.repo.root / ".claude" / "skills" / "demo").unlink()
+        self.repo.commit()
+        self.assertEqual(self.codes(self.repo.inventory(), grant, keep_revision=True), {"load-path-removed"})
+        os.symlink("../../skills/demo", self.repo.root / ".claude" / "skills" / "demo")
+        os.makedirs(self.repo.root / ".agents" / "skills")
+        os.symlink("../../skills/demo", self.repo.root / ".agents" / "skills" / "demo")
+        self.repo.commit()
+        self.assertEqual(self.codes(self.repo.inventory(), grant, keep_revision=True), {"load-path-added"})
+
+    def test_grant_baseline_must_be_clean_with_known_source(self):
+        self.repo.write("skills/demo/references/notes.md", "dirty\n")
+        with self.assertRaisesRegex(sb.SkillBoundaryError, "tree_state must be clean"):
+            sb.compare(_grant(self.repo.inventory()), self.base)
+        no_origin = Repo(self.tmp / "no-origin", origin=None)
+        with self.assertRaisesRegex(sb.SkillBoundaryError, "origin must be known"):
+            sb.compare(_grant(no_origin.inventory()), self.base)
+        no_git = Repo(self.tmp / "no-git", git=False)
+        with self.assertRaisesRegex(sb.SkillBoundaryError, "origin must be known"):
+            sb.compare(_grant(no_git.inventory()), self.base)
 
     def test_malformed_or_tampered_grant_is_an_error(self):
         tampered = copy.deepcopy(self.grant)

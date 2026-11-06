@@ -85,7 +85,8 @@
         "observation": "source-link-only",
         "path": ".claude/skills/workflow-artifact-capture",
         "resolves_to_skill": true,
-        "target": "../../skills/workflow-artifact-capture"
+        "target": "../../skills/workflow-artifact-capture",
+        "tree_sha256": null
       }
     ],
     "provenance": {
@@ -108,7 +109,7 @@
     "source": {
       "origin": "https://github.com/bayleafwalker/agentops.git",
       "repository_tree_state": "modified",
-      "revision": "55c961680373c5737627d1b8e4672f8560ce62f1",
+      "revision": "b52f35ac07a6581e4e762c53067be4607db4290a",
       "tree_state": "clean",
       "vcs": "git"
     },

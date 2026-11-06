@@ -234,10 +234,10 @@ def _dependency(ref: str, base: str, repo_root: Path, skill_dir: Path) -> dict[s
 # --------------------------------------------------------------------------- load paths
 
 
-def _load_path(link: str, repo_root: Path, skill_dir: Path) -> dict[str, Any]:
+def _load_path(link: str, repo_root: Path, skill_dir: Path, skill_tree_sha256: str | None = None) -> dict[str, Any]:
     path = Path(os.path.normpath(repo_root / link))
     entry: dict[str, Any] = {"path": link, "kind": "absent", "target": None,
-                             "resolves_to_skill": False,
+                             "resolves_to_skill": False, "tree_sha256": None,
                              "observation": "source-link-only"}
     if not _inside(path, repo_root):
         entry["kind"] = "refused-path-escape"
@@ -250,9 +250,19 @@ def _load_path(link: str, repo_root: Path, skill_dir: Path) -> dict[str, Any]:
         if not _inside(resolved, repo_root):
             entry["kind"] = "refused-symlink-escape"
             entry["resolves_to_skill"] = False
+    elif path.is_dir():
+        # A copy is loaded as its own bytes: it resolves to the skill only if its
+        # digest equals the canonical tree. An unsafe copy is refused, not digested.
+        entry["kind"] = "directory-copy"
+        try:
+            entry["tree_sha256"] = _tree_digest(_files(path))
+        except SkillBoundaryError:
+            entry["kind"] = "refused-unsafe-copy"
+            return entry
+        entry["resolves_to_skill"] = (path.resolve() == skill_dir
+                                      or entry["tree_sha256"] == skill_tree_sha256)
     elif path.exists():
-        entry["kind"] = "directory-copy" if path.is_dir() else "file"
-        entry["resolves_to_skill"] = path.resolve() == skill_dir
+        entry["kind"] = "file"
     return entry
 
 
@@ -290,7 +300,7 @@ def inventory(skill_dir: Path, *, repo_root: Path | None = None,
         candidate = repo_root / prefix / skill_dir.name
         if candidate.is_symlink() or candidate.exists():
             links.add(f"{prefix}/{skill_dir.name}")
-    load = [_load_path(link, repo_root, skill_dir) for link in sorted(links)]
+    load = [_load_path(link, repo_root, skill_dir, _tree_digest(files)) for link in sorted(links)]
 
     adapter_files = [f["path"] for f in files if f["path"].startswith("agents/")]
     skill_rel = skill_dir.relative_to(repo_root).as_posix()
@@ -354,7 +364,13 @@ def validate_grant(grant: Any) -> dict[str, Any]:
     accepted = grant.get("accepted_dynamic_references", [])
     _need(isinstance(accepted, list) and all(isinstance(r, str) and _DYNAMIC.search(r) for r in accepted),
           "grant.accepted_dynamic_references must list dynamic reference strings")
-    _validate_inventory(grant.get("inventory"), "grant.inventory")
+    baseline = _validate_inventory(grant.get("inventory"), "grant.inventory")
+    # A grant may only approve bytes a revision attests: an unknown origin or revision,
+    # or uncommitted skill bytes, cannot be the baseline that later inventories inherit.
+    source = baseline["source"]
+    _need(source.get("origin") not in (None, "unknown"), "grant.inventory.source.origin must be known")
+    _need(source.get("revision") not in (None, "unknown"), "grant.inventory.source.revision must be known")
+    _need(source.get("tree_state") == "clean", "grant.inventory.source.tree_state must be clean")
     return grant
 
 
@@ -421,7 +437,21 @@ def compare(grant: dict[str, Any], current: dict[str, Any]) -> dict[str, Any]:
         deny("repository-not-clean-with-external-dependencies",
              f"repository tree state is {src.get('repository_tree_state')}")
 
-    prior_deps ={(d["reference"], d["resolved_from"]): d for d in prior["dependencies"]}
+    prior_links = {entry["path"]: entry for entry in prior["load_paths"]}
+    current_links = {entry["path"]: entry for entry in current["load_paths"]}
+    for link in sorted(prior_links.keys() | current_links.keys()):
+        before, after = prior_links.get(link), current_links.get(link)
+        if after is None or after.get("kind") == "absent":
+            deny("load-path-removed", link)
+            continue
+        if not after.get("resolves_to_skill"):
+            deny("load-path-not-resolving-to-skill", f"{link} ({after.get('kind')})")
+        if before is None:
+            deny("load-path-added", link)
+        elif any(before.get(k) != after.get(k) for k in ("kind", "target", "tree_sha256")):
+            deny("load-path-changed", link)
+
+    prior_deps = {(d["reference"], d["resolved_from"]): d for d in prior["dependencies"]}
     accepted_dynamic = set(grant.get("accepted_dynamic_references", []))
     for dep in current["dependencies"]:
         key = (dep["reference"], dep["resolved_from"])

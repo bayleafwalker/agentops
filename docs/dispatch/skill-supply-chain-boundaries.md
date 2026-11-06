@@ -21,7 +21,7 @@ every run.
 | `adapter_files` | vendor adapter metadata such as `agents/openai.yaml` | Digested like any other file. Never treated as authority. |
 | `dependencies[]` | repository-relative path references and Markdown links in the body: `observed` (digested), `within-skill-tree`, `missing`, `dynamic`, `directory-not-digested`, `refused-path-escape`, `refused-symlink` | Anything that is not observed stays non-observed and is never treated as unused. |
 | `dependency_coverage` | whether every declared path reference resolved, plus the dependency classes this tool cannot discover (executables, transitive imports, environment and credentials, network/MCP endpoints) | Classes it cannot discover are always `unknown`. |
-| `load_paths[]` | repository links or copies such as `.claude/skills/<name>`, with their targets | `observation: source-link-only`. A link that escapes the repository is refused. |
+| `load_paths[]` | repository links or copies such as `.claude/skills/<name>`: kind, symlink target, `resolves_to_skill`, and a `tree_sha256` for a directory copy | `observation: source-link-only`. A link that escapes the repository is refused. A copy that contains a symlink or a non-regular file is `refused-unsafe-copy`. A copy resolves to the skill only when its digest equals the canonical tree. |
 | `provider_load_coverage` | `skill-tool`, `native-slash`, `preloaded`, `codex` (the #2488 coverage design) | Always `unknown` here. Only native observations, such as the session binding's `skill_coverage`, can change it. |
 | `provenance` | publisher, trust class | `unknown` until an owner record supplies them. Repository location does not imply either. |
 | `host_execution_policy` | not recorded | The policy and its revision belong to the grant, not to distribution metadata. |
@@ -35,6 +35,15 @@ A grant (`agentops-skill-boundary-grant/v1`) holds `host_policy_ref`,
 `inherit: true` only when none of these denials apply. The exit code is 0 when
 the skill inherits, 2 when it is denied and 1 when an input is malformed.
 
+`--skill-dir` is the authoritative mode, because it inventories the tree at
+the moment of comparison. `--current <file>` trusts the inventory it is given:
+the only check is that its `tree_sha256` matches its own `files[]`, so it is
+for re-checking recorded reports, not for admitting a skill.
+
+The baseline in the grant must name a known origin and revision and a clean
+skill tree, or the grant is malformed. Bytes that no revision attests cannot
+be the baseline for later inheritance.
+
 - **Changed bytes:** a file is added, removed or changed, or its mode changes
   (`file-*`); a dependency's digest changes (`dependency-bytes-changed`); or a
   dependency reference is added or removed.
@@ -45,8 +54,13 @@ the skill inherits, 2 when it is denied and 1 when an input is malformed.
   origin has changed, or the skill tree is not clean.
 - **Transitive closure unknown:** the skill references files outside its own
   tree, and either the revision has changed or the repository is not clean.
-  Identical bytes in a new revision carry the grant over only for a
-  self-contained skill.
+  Identical bytes at a different revision inherit only when the skill has no
+  references outside its own directory.
+- **Load paths:** a granted load path is removed or now `absent`; its kind,
+  symlink target or copy digest changes; a load path is added; or any current
+  load path does not resolve to the canonical skill. If a link is retargeted
+  or a copy diverges, the harness would load different bytes under the
+  granted name.
 - **Permission metadata:** any added, removed or changed non-inert
   frontmatter key, including keys this tool does not recognise. The tool
   cannot tell widening from narrowing, so every change counts as possible
