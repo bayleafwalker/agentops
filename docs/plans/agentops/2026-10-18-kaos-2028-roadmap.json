@@ -723,7 +723,7 @@
       "goal": "G10",
       "feature": "F10",
       "sourcing": "provision+adapter",
-      "baseline": "W41-R4 already defines one skill supply-chain qualification; no compiled profile or global registry is required.",
+      "baseline": "W41-R4 defines the skill supply-chain qualification; no compiled profile or global registry is required. `skill_boundary.py` now inventories one skill directory (source, raw-byte digests, frontmatter, declared path dependencies, load-path links) and denies grant inheritance on changed bytes, changed permission metadata, unverified dependencies or unknown origin; onboarding and retirement rules are in `docs/dispatch/skill-supply-chain-boundaries.md`. The recorded `workflow-artifact-capture` inventory (substituting the absent `recording-acceptance`) is a source-only observation. Live provider load, native-package replacement, transitive dependency discovery and owner qualification remain unproven.",
       "activities": "Complete source/digest/dependency/load-path inventory for a real skill; test changed bytes and permission-widening metadata; publish native-provider onboarding and retirement rules.",
       "acceptance": "Changed or unverified dependency cannot inherit prior permission; metadata cannot grant authority; observed digests retain unknown coverage; native packaging can replace the adapter.",
       "depends_on": [
