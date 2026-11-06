@@ -1,0 +1,125 @@
+{
+  "activity": "AO-K04",
+  "command": "python3 scripts/skill_boundary.py inventory skills/workflow-artifact-capture",
+  "evidence_kind": "source-only-observation",
+  "findings": [
+    "Recorded from the uncommitted working tree of the AO-K04 change: the skill tree is clean at the recorded revision, and repository_tree_state is modified only because this change's files were not yet committed.",
+    "Load path .claude/skills/workflow-artifact-capture is a symlink to the canonical skill; this is a source link, not proof that any provider loaded it.",
+    "docs/README.md is referenced but missing in agentops: the skill's references resolve against the consuming repository, so dependency coverage is repository-specific and stays incomplete here.",
+    "docs/notes/*.md is dynamic and docs/training/ is a directory; neither is digested, so no grant can be inherited from this inventory while those statuses remain.",
+    "Frontmatter carries only name and description; permission_metadata is empty. Metadata grants no authority either way.",
+    "Provider load coverage (skill-tool, native-slash, preloaded, codex), publisher and trust class are unknown."
+  ],
+  "inventory": {
+    "adapter_files": [],
+    "dependencies": [
+      {
+        "path": "docs/README.md",
+        "reference": "docs/README.md",
+        "resolved_from": "repository",
+        "sha256": null,
+        "status": "missing"
+      },
+      {
+        "path": null,
+        "reference": "docs/notes/*.md",
+        "resolved_from": "repository",
+        "sha256": null,
+        "status": "dynamic"
+      },
+      {
+        "path": "docs/training",
+        "reference": "docs/training/",
+        "resolved_from": "repository",
+        "sha256": null,
+        "status": "directory-not-digested"
+      },
+      {
+        "path": "docs/training/workflow-artifact-TEMPLATE.md",
+        "reference": "docs/training/workflow-artifact-TEMPLATE.md",
+        "resolved_from": "repository",
+        "sha256": "2eacc4c56d9faa30914e7efda00aca180950706b420ba3345c2a0ed5c3b0fb3f",
+        "status": "observed"
+      }
+    ],
+    "dependency_coverage": {
+      "declared_path_references": "incomplete",
+      "undiscovered_classes": {
+        "environment-variables-and-credentials": "unknown",
+        "executables-invoked-by-instructions": "unknown",
+        "network-and-mcp-endpoints": "unknown",
+        "transitive-imports-of-referenced-scripts": "unknown"
+      },
+      "unresolved_statuses": [
+        "directory-not-digested",
+        "dynamic",
+        "missing"
+      ]
+    },
+    "files": [
+      {
+        "executable": false,
+        "path": "SKILL.md",
+        "sha256": "076fb30a2837cdc7e7a5c0ef3c31b1a52d06fe0d5ad903834bbaa5380a4c811c",
+        "size": 4534
+      }
+    ],
+    "frontmatter": {
+      "authority": "none: metadata is recorded, never granted",
+      "permission_metadata": {},
+      "permission_metadata_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "sha256": "967114d9adcb9462365b94a710b6279db1560c3091f7cd532b2d152893baf9ad",
+      "status": "parsed",
+      "values": {
+        "description": "Use at the end of a workflow or session to classify session outputs, promote reusable examples into committed training artifacts, and route sprint-scoped durable lessons into kctl when appropriate.",
+        "name": "workflow-artifact-capture"
+      }
+    },
+    "host_execution_policy": {
+      "note": "host execution policy and its revision live in the grant, not in distribution metadata",
+      "recorded": false
+    },
+    "load_paths": [
+      {
+        "kind": "symlink",
+        "observation": "source-link-only",
+        "path": ".claude/skills/workflow-artifact-capture",
+        "resolves_to_skill": true,
+        "target": "../../skills/workflow-artifact-capture",
+        "tree_sha256": null
+      }
+    ],
+    "provenance": {
+      "note": "not inferred from repository location; an owner record must supply it",
+      "publisher": "unknown",
+      "trust_class": "unknown"
+    },
+    "provider_load_coverage": {
+      "codex": "unknown",
+      "native-slash": "unknown",
+      "preloaded": "unknown",
+      "skill-tool": "unknown"
+    },
+    "qualification_status": "source-observed-not-qualified",
+    "schema_version": "agentops-skill-boundary-inventory/v1",
+    "skill": {
+      "directory": "skills/workflow-artifact-capture",
+      "name": "workflow-artifact-capture"
+    },
+    "source": {
+      "origin": "https://github.com/bayleafwalker/agentops.git",
+      "repository_tree_state": "modified",
+      "revision": "b52f35ac07a6581e4e762c53067be4607db4290a",
+      "tree_state": "clean",
+      "vcs": "git"
+    },
+    "tree_sha256": "fa20535f382faba9ee7f0d28044ce5879b90ac57d0e31405a7e7f975724e7c37"
+  },
+  "live_provider_load_observed": false,
+  "owner_qualification": "none",
+  "recorded_at": "2026-11-06",
+  "requirement": "W41-R4",
+  "schema_version": "agentops-skill-boundary-evidence/v1",
+  "served_ref": "agentops#2650",
+  "substitution_reason": "W41-R4 names skills/recording-acceptance/SKILL.md, which is not present in this repository or the workstation skill directories on 2026-11-06. workflow-artifact-capture is substituted because it is canonical in skills/, has a repository load-path link (.claude/skills/workflow-artifact-capture), and declares path dependencies that exercise observed, missing, dynamic and directory statuses."
+}
