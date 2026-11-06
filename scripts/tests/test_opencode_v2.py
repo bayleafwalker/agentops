@@ -540,6 +540,7 @@ class FakeServer:
 
     def attach(self, c):
         c._request = self.request
+        self.error = c.__init__.__globals__["V2Error"]  # mutants define their own class
         return c
 
     def request(self, method, path, query=None, body=None, empty_ok=False):
@@ -547,7 +548,7 @@ class FakeServer:
             self.posts.append(path)
         result = self._route(method, path, query or {}, body)
         if method == "POST" and path in self.lose:
-            raise v2.V2Error("server request failed")
+            raise self.error("server request failed")
         return result
 
     def _paged(self, rows, query):
@@ -634,10 +635,6 @@ def test_restart_after_lost_prompt_response_reconciles_without_resubmitting():
     server.start("ses_1")  # admission moves from the inbox projection to message history
     assert restarted.observe_admission("ses_1", "msg_input", DIGEST)["sources"] == ["message"]
     assert server.posts == ["/api/session/ses_1/prompt"]
-
-
-def test_admission_not_yet_projected_is_unknown_not_permission_to_resubmit():
-    assert fresh(seeded()).observe_admission("ses_1", "msg_input", DIGEST)["status"] == "unknown"
 
 
 def test_discovery_paginates_across_pages_and_finds_late_duplicate():
@@ -730,7 +727,7 @@ def sc_ambiguous(m):
 def sc_discovery_cycle(m):
     server = seeded()
     server._paged = lambda rows, query: {"data": [], "cursor": {"next": "cycle"}}
-    with pytest.raises(m.V2Error, match="cursor"):
+    with pytest.raises(m.V2Error, match="invalid discovery cursor"):
         fresh(server, m).find_sessions("test", "/work")
 
 
@@ -753,7 +750,7 @@ def sc_create_not_retried(m):
     server.lose.add("/api/session")
     with pytest.raises(m.V2Error):
         fresh(server, m).create_session("test", "/work", "local/model", PERMISSIONS)
-    assert len(server.sessions) == 1 and server.posts == ["/api/session"]
+    assert server.posts == ["/api/session"]
 
 
 def sc_prompt_not_retried(m):
@@ -832,45 +829,61 @@ def sc_assistant_model_drift(m):
 def sc_terminal_cursor_cycle(m):
     server = seeded()
     server._paged = lambda rows, query: {"data": [], "cursor": {"next": "cycle"}}
-    with pytest.raises(m.V2Error, match="cursor"):
+    with pytest.raises(m.V2Error, match="invalid message cursor"):
         observe(server, m)
 
 
 STAMP = "or len(idles) != 1 or not rows or rows[0] is not users[0] or rows[-1] is not idles[0]"
+RETRY_CREATE = 'data = self._request("POST", "/api/session", body={"title": title, **binding}).get("data")'
+RETRY_PROMPT = ('data = self._request("POST", f"/api/session/{sid}/prompt",\n'
+                '                             body={"id": pid, "text": text}).get("data")')
+MODEL_ID = 'or model.get("id") != binding["model"]["id"]\n                            or model.get("variant"'
+# name: (old, new, scenario, exception the mutant must raise, regex it must match)
+# Scenarios use pytest.raises internally, so a mutant that stops raising yields pytest's
+# Failed "DID NOT RAISE"; a regex mismatch yields AssertionError.
 CONTROLS = {
-    "ambiguous-session": ("if len(matches) > 1:", "if False:", sc_ambiguous),
+    "ambiguous-session": ("if len(matches) > 1:", "if False:", sc_ambiguous, pytest.fail.Exception, "DID NOT RAISE"),
+    # without the seen-cursor check only the page-limit backstop stops the loop
     "discovery-cursor-cycle": ('if not isinstance(cursor, str) or not cursor or cursor in seen:\n'
                                '                raise V2Error("invalid discovery cursor")',
-                               'if False:\n                raise V2Error("invalid discovery cursor")', sc_discovery_cycle),
-    "permission-drift": ('\n                or data.get("permissions") != binding["permissions"]):', "):", sc_permission_drift),
-    "directory-drift": ('or data.get("location") != binding["location"]', "or False", sc_directory_drift),
-    "create-no-retry": ('data = self._request("POST", "/api/session", body={"title": title, **binding}).get("data")',
-                        'try:\n            data = self._request("POST", "/api/session", body={"title": title, **binding}).get("data")\n'
-                        '        except V2Error:\n            data = self._request("POST", "/api/session", body={"title": title, **binding}).get("data")',
-                        sc_create_not_retried),
-    "prompt-no-retry": ('        data = self._request("POST", f"/api/session/{sid}/prompt",\n'
-                        '                             body={"id": pid, "text": text}).get("data")',
-                        '        try:\n            data = self._request("POST", f"/api/session/{sid}/prompt", body={"id": pid, "text": text}).get("data")\n'
-                        '        except V2Error:\n            data = self._request("POST", f"/api/session/{sid}/prompt", body={"id": pid, "text": text}).get("data")',
-                        sc_prompt_not_retried),
-    "empty-projection-unknown": ('"observed" if found else "unknown"', '"observed" if found else "absent"', sc_empty_projection_is_unknown),
+                               'if False:\n                raise V2Error("invalid discovery cursor")',
+                               sc_discovery_cycle, AssertionError, "page limit exceeded"),
+    "permission-drift": ('\n                or data.get("permissions") != binding["permissions"]):', "):",
+                         sc_permission_drift, pytest.fail.Exception, "DID NOT RAISE"),
+    "directory-drift": ('or data.get("location") != binding["location"]', "or False",
+                        sc_directory_drift, pytest.fail.Exception, "DID NOT RAISE"),
+    "create-no-retry": (RETRY_CREATE,
+                        'try:\n            ' + RETRY_CREATE + '\n        except V2Error:\n            ' + RETRY_CREATE,
+                        sc_create_not_retried, AssertionError, "one more item"),
+    "prompt-no-retry": (RETRY_PROMPT,
+                        'try:\n            ' + RETRY_PROMPT + '\n        except V2Error:\n            ' + RETRY_PROMPT,
+                        sc_prompt_not_retried, AssertionError, "one more item"),
+    "empty-projection-unknown": ('"observed" if found else "unknown"', '"observed" if found else "absent"',
+                                 sc_empty_projection_is_unknown, AssertionError, "unknown"),
     "admission-digest": ("if any(hashlib.sha256(text.encode()).hexdigest() != text_sha256 for _, text in found):",
-                         "if False:", sc_admission_digest),
-    "terminal-prompt-identity": ('or users[0].get("id") != pid', "", sc_wrong_prompt_identity),
-    "terminal-stale-idle": (STAMP, "", sc_stale_idle),
-    "terminal-needs-idle": ("or len(idles) != 1 or not rows", "or len(idles) > 1 or not rows", sc_no_idle_after_assistant),
-    "active-map": ("        if sid not in data:\n            return False", "        return False", sc_active_is_not_terminal),
-    "two-snapshot-stability": ('if rows != second["rows"]:', "if False:", sc_snapshot_stability),
-    "assistant-model-binding": ('or model.get("id") != binding["model"]["id"]', "", sc_assistant_model_drift),
+                         "if False:", sc_admission_digest, pytest.fail.Exception, "DID NOT RAISE"),
+    "terminal-prompt-identity": ('or users[0].get("id") != pid', "", sc_wrong_prompt_identity, AssertionError, "terminal-observed"),
+    "terminal-stale-idle": (STAMP, "", sc_stale_idle, AssertionError, "terminal-observed"),
+    # idles[0] on an empty list: the guard is what keeps a missing idle row from being read as an outcome
+    "terminal-needs-idle": ("or len(idles) != 1 or not rows", "or len(idles) > 1 or not rows",
+                            sc_no_idle_after_assistant, IndexError, "list index out of range"),
+    "active-map": ("        if sid not in data:\n            return False", "        return False",
+                   sc_active_is_not_terminal, AssertionError, "terminal-observed"),
+    "two-snapshot-stability": ('if rows != second["rows"]:', "if False:", sc_snapshot_stability, AssertionError, "terminal-observed"),
+    "assistant-model-binding": (MODEL_ID, 'or False\n                            or model.get("variant"',
+                                sc_assistant_model_drift, pytest.fail.Exception, "DID NOT RAISE"),
+    # without the seen-cursor check only the page-limit backstop stops the loop
     "terminal-cursor-cycle": ('if not isinstance(cursor, str) or not cursor or cursor in cursors:\n'
                               '                raise V2Error("invalid message cursor")',
-                              'if False:\n                raise V2Error("invalid message cursor")', sc_terminal_cursor_cycle),
+                              'if False:\n                raise V2Error("invalid message cursor")',
+                              sc_terminal_cursor_cycle, AssertionError, "page limit exceeded"),
 }
 
 
 @pytest.mark.parametrize("name", list(CONTROLS))
 def test_negative_control_fails_without_its_protection(name):
-    old, new, scenario = CONTROLS[name]
+    old, new, scenario, exception, reason = CONTROLS[name]
+    mutant = mutated(old, new)  # built outside raises: a non-matching pattern must error, not pass
     scenario(v2)  # the real module satisfies the scenario
-    with pytest.raises((Exception, pytest.fail.Exception)):
-        scenario(mutated(old, new))
+    with pytest.raises(exception, match=reason):
+        scenario(mutant)
