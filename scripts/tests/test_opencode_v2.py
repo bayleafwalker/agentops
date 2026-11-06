@@ -1,3 +1,4 @@
+import importlib.machinery
 import importlib.util
 import hashlib
 import json
@@ -515,3 +516,374 @@ def test_cancellation_target_rejects_cyclic_pagination(monkeypatch):
 def test_rejects_nonlocal_or_ambiguous_origins(url):
     with pytest.raises(v2.V2Error):
         v2.OpenCodeV2(url, "user", "secret")
+
+
+# --- Stateful fake server, restart recovery and negative controls -----------------------------
+
+DIGEST = hashlib.sha256(b"input").hexdigest()
+BIND = ("/work", "local/model", PERMISSIONS)
+
+
+class FakeServer:
+    """In-memory v2 server state; clients are disposable, like a restarted owner process."""
+
+    def __init__(self):
+        self.sessions, self.inbox, self.messages, self.running = {}, {}, {}, set()
+        self.posts = []
+        self.lose = set()  # POST paths whose response is lost after the effect happened
+        self.page = 50
+        self.clock = 0
+
+    def tick(self):
+        self.clock += 1
+        return {"created": self.clock}
+
+    def attach(self, c):
+        c._request = self.request
+        self.error = c.__init__.__globals__["V2Error"]  # mutants define their own class
+        return c
+
+    def request(self, method, path, query=None, body=None, empty_ok=False):
+        if method == "POST":
+            self.posts.append(path)
+        result = self._route(method, path, query or {}, body)
+        if method == "POST" and path in self.lose:
+            raise self.error("server request failed")
+        return result
+
+    def _paged(self, rows, query):
+        start = int(query.get("cursor", 0))
+        end = start + self.page
+        return {"data": rows[start:end], "cursor": {"next": str(end) if end < len(rows) else None}}
+
+    def _route(self, method, path, query, body):
+        parts = path.strip("/").split("/")
+        if path == "/api/session" and method == "POST":
+            sid = f"ses_{len(self.sessions) + 1}"
+            row = {"id": sid, **body}
+            self.sessions[sid] = row
+            self.inbox[sid], self.messages[sid] = [], []
+            return {"data": dict(row)}
+        if path == "/api/session":
+            rows = [r for r in self.sessions.values() if query["search"] in r["title"]
+                    and r["location"]["directory"] == query["directory"]]
+            return self._paged(rows, query)
+        if path == "/api/session/active":
+            return {"data": {s: {"type": "running"} for s in self.running}}
+        sid = parts[2]
+        if len(parts) == 3:
+            return {"data": dict(self.sessions[sid])}
+        if parts[3] == "prompt":
+            item = {"id": body["id"], "sessionID": sid, "type": "user", "payload": {"text": body["text"]},
+                    "delivery": "queue", "time": self.tick()}
+            self.inbox[sid].append(item)
+            return {"data": dict(item)}
+        if parts[3] == "inbox":
+            return {"data": list(self.inbox[sid])}
+        if parts[3] == "message":
+            return self._paged(self.messages[sid], query)
+        if parts[3] == "interrupt":
+            return {"interrupted": sid in self.running}
+        raise AssertionError(path)
+
+    def start(self, sid):
+        """Move the queued input into history and mark the session running."""
+        for item in self.inbox[sid]:
+            self.messages[sid].append({"id": item["id"], "type": "user", "text": item["payload"]["text"],
+                                       "time": self.tick()})
+        self.inbox[sid] = []
+        self.running.add(sid)
+
+    def assistant(self, sid, n):
+        self.messages[sid].append({"id": f"msg_a{n}", "type": "assistant", "agent": "build", "content": [],
+                                   "model": ROW["model"], "time": self.tick()})
+
+    def finish(self, sid, outcome):
+        self.running.discard(sid)
+        self.messages[sid].append({"id": "msg_idle", "type": "idle", "outcome": outcome, "time": self.tick()})
+
+
+def fresh(server, module=None):
+    return server.attach((module or v2).OpenCodeV2("http://127.0.0.1:1234", "user", "secret"))
+
+
+def seeded(sid="ses_1"):
+    server = FakeServer()
+    server.sessions[sid] = {**ROW, "id": sid}
+    server.inbox[sid], server.messages[sid] = [], []
+    return server
+
+
+def test_restart_after_lost_create_response_recovers_the_one_session():
+    server = FakeServer()
+    server.lose.add("/api/session")
+    with pytest.raises(v2.V2Error):
+        fresh(server).create_session("test", "/work", "local/model", PERMISSIONS)
+    restarted = fresh(server)  # no memory of the first client
+    assert restarted.find_sessions("test", "/work") == ["ses_1"]
+    restarted.validate_session("ses_1", *BIND)
+    assert server.posts == ["/api/session"]
+
+
+def test_restart_after_lost_prompt_response_reconciles_without_resubmitting():
+    server = seeded()
+    server.lose.add("/api/session/ses_1/prompt")
+    with pytest.raises(v2.V2Error):
+        fresh(server).submit_prompt("ses_1", "msg_input", "input")
+    restarted = fresh(server)
+    assert restarted.observe_admission("ses_1", "msg_input", DIGEST)["sources"] == ["inbox"]
+    server.start("ses_1")  # admission moves from the inbox projection to message history
+    assert restarted.observe_admission("ses_1", "msg_input", DIGEST)["sources"] == ["message"]
+    assert server.posts == ["/api/session/ses_1/prompt"]
+
+
+def test_discovery_paginates_across_pages_and_finds_late_duplicate():
+    server = FakeServer()
+    server.page = 2
+    for i in range(5):
+        server.sessions[f"ses_{i}"] = {**ROW, "id": f"ses_{i}", "title": f"other-{i}"}
+    server.sessions["ses_a"] = {**ROW, "id": "ses_a", "title": "test"}
+    assert fresh(server).find_sessions("test", "/work") == ["ses_a"]
+    server.sessions["ses_b"] = {**ROW, "id": "ses_b", "title": "test"}
+    with pytest.raises(v2.V2Error, match="ambiguous"):
+        fresh(server).find_sessions("test", "/work")
+
+
+def observe(server, module=None, pid="msg_input", digest=DIGEST):
+    return fresh(server, module).observe_terminal("ses_1", pid, digest, *BIND)
+
+
+def test_terminal_over_pages_with_intermediate_tool_turns():
+    server = seeded()
+    server.page = 2
+    fresh(server).submit_prompt("ses_1", "msg_input", "input")
+    server.start("ses_1")
+    for n in range(3):  # assistant tool turns are not terminal
+        server.assistant("ses_1", n)
+        assert observe(server) == {"status": "active"}
+    server.running.discard("ses_1")  # absence from the active map alone is not outcome proof
+    assert observe(server)["status"] == "unknown"
+    server.finish("ses_1", "succeeded")
+    result = observe(server)
+    assert (result["status"], result["outcome"], result["prompt_id"]) == ("terminal-observed", "succeeded", "msg_input")
+
+
+def test_terminal_is_bound_to_the_admitted_input_not_an_earlier_turn():
+    server = seeded()
+    server.messages["ses_1"] = [{"id": "msg_old_idle", "type": "idle", "outcome": "succeeded", "time": server.tick()},
+                                {"id": "msg_input", "type": "user", "text": "input", "time": server.tick()}]
+    assert observe(server)["status"] == "unknown"  # only an earlier turn has finished
+    # evidence for a different prompt identity never settles this one
+    server.messages["ses_1"] = [{"id": "msg_other", "type": "user", "text": "input", "time": server.tick()},
+                                {"id": "msg_idle", "type": "idle", "outcome": "succeeded", "time": server.tick()}]
+    assert observe(server)["status"] == "unknown"
+
+
+def test_cancellation_race_ack_is_not_terminal_and_outcome_comes_from_history():
+    server = seeded()
+    fresh(server).submit_prompt("ses_1", "msg_input", "input")
+    server.start("ses_1")
+    c = fresh(server)
+    assert c.interrupt_session("ses_1") == {"status": "acknowledged", "interrupted": True}
+    assert observe(server) == {"status": "active"}
+    # the interrupt lost the race: the turn completed successfully; acknowledgement must not relabel it
+    server.finish("ses_1", "succeeded")
+    assert c.interrupt_session("ses_1") == {"status": "acknowledged", "interrupted": False}
+    assert observe(server)["outcome"] == "succeeded"
+
+
+def test_cancellation_not_observed_until_interrupted_history_exists():
+    server = seeded()
+    fresh(server).submit_prompt("ses_1", "msg_input", "input")
+    server.start("ses_1")
+    fresh(server).interrupt_session("ses_1")
+    server.running.discard("ses_1")  # left the active map but no interrupted idle exists yet
+    assert observe(server)["status"] == "unknown"
+    server.finish("ses_1", "interrupted")
+    assert observe(server)["outcome"] == "interrupted"
+
+
+# Each control disables one protection in a copy of the module source. The scenario must pass
+# on the real module and fail on the mutant, so the protection is what the test depends on.
+
+SOURCE = (Path(__file__).parents[1] / "opencode_v2.py").read_text()
+
+
+def mutated(old, new):
+    assert SOURCE.count(old) == 1, old
+    module = importlib.util.module_from_spec(importlib.machinery.ModuleSpec("opencode_v2_mutant", None))
+    exec(compile(SOURCE.replace(old, new), "opencode_v2_mutant", "exec"), module.__dict__)
+    return module
+
+
+def sc_ambiguous(m):
+    server = FakeServer()
+    for sid in ("ses_1", "ses_2"):
+        server.sessions[sid] = {**ROW, "id": sid}
+    with pytest.raises(m.V2Error, match="ambiguous"):
+        fresh(server, m).find_sessions("test", "/work")
+
+
+def sc_discovery_cycle(m):
+    server = seeded()
+    server._paged = lambda rows, query: {"data": [], "cursor": {"next": "cycle"}}
+    with pytest.raises(m.V2Error, match="invalid discovery cursor"):
+        fresh(server, m).find_sessions("test", "/work")
+
+
+def sc_permission_drift(m):
+    server = seeded()
+    server.sessions["ses_1"]["permissions"] = PERMISSIONS + [{"action": "shell", "resource": "*", "effect": "allow"}]
+    with pytest.raises(m.V2Error, match="binding mismatch"):
+        fresh(server, m).validate_session("ses_1", *BIND)
+
+
+def sc_directory_drift(m):
+    server = seeded()
+    server.sessions["ses_1"]["location"] = {"directory": "/other"}
+    with pytest.raises(m.V2Error, match="binding mismatch"):
+        fresh(server, m).validate_session("ses_1", *BIND)
+
+
+def sc_create_not_retried(m):
+    server = FakeServer()
+    server.lose.add("/api/session")
+    with pytest.raises(m.V2Error):
+        fresh(server, m).create_session("test", "/work", "local/model", PERMISSIONS)
+    assert server.posts == ["/api/session"]
+
+
+def sc_prompt_not_retried(m):
+    server = seeded()
+    server.lose.add("/api/session/ses_1/prompt")
+    with pytest.raises(m.V2Error):
+        fresh(server, m).submit_prompt("ses_1", "msg_input", "input")
+    assert server.posts == ["/api/session/ses_1/prompt"] and len(server.inbox["ses_1"]) == 1
+
+
+def sc_empty_projection_is_unknown(m):
+    assert fresh(seeded(), m).observe_admission("ses_1", "msg_input", DIGEST)["status"] == "unknown"
+
+
+def sc_admission_digest(m):
+    server = seeded()
+    server.inbox["ses_1"].append({"id": "msg_input", "sessionID": "ses_1", "type": "user",
+                                  "payload": {"text": "other"}, "delivery": "queue", "time": {"created": 1}})
+    with pytest.raises(m.V2Error, match="conflicting"):
+        fresh(server, m).observe_admission("ses_1", "msg_input", DIGEST)
+
+
+def terminal_server(rows):
+    server = seeded()
+    server.messages["ses_1"] = rows
+    return server
+
+
+USER = {"id": "msg_input", "type": "user", "text": "input", "time": {"created": 1}}
+IDLE = {"id": "msg_idle", "type": "idle", "outcome": "succeeded", "time": {"created": 2}}
+
+
+def sc_wrong_prompt_identity(m):
+    assert observe(terminal_server([{**USER, "id": "msg_other"}, IDLE]), m)["status"] == "unknown"
+
+
+def sc_stale_idle(m):
+    old = {**IDLE, "id": "msg_old_idle", "time": {"created": 0}}
+    assert observe(terminal_server([old, USER]), m)["status"] == "unknown"
+
+
+def sc_no_idle_after_assistant(m):
+    reply = {"id": "msg_a", "type": "assistant", "agent": "build", "content": [],
+             "model": ROW["model"], "time": {"created": 2}}
+    assert observe(terminal_server([USER, reply]), m)["status"] == "unknown"
+
+
+def sc_active_is_not_terminal(m):
+    server = terminal_server([USER, IDLE])
+    server.running.add("ses_1")
+    assert observe(server, m) == {"status": "active"}
+
+
+def sc_snapshot_stability(m):
+    server = terminal_server([USER, {**IDLE, "outcome": "failed"}])
+    reads = 0
+    route = server._route
+    def route_changing(method, path, query, body):
+        nonlocal reads
+        if path.endswith("/message"):
+            reads += 1
+            if reads == 2:
+                server.messages["ses_1"] = server.messages["ses_1"] + [{**IDLE, "id": "msg_late", "time": {"created": 3}}]
+        return route(method, path, query, body)
+    server._route = route_changing
+    assert observe(server, m)["status"] == "unknown"
+
+
+def sc_assistant_model_drift(m):
+    reply = {"id": "msg_a", "type": "assistant", "agent": "build", "content": [],
+             "model": {"providerID": "local", "id": "other"}, "time": {"created": 2}}
+    with pytest.raises(m.V2Error):
+        observe(terminal_server([USER, reply, {**IDLE, "time": {"created": 3}}]), m)
+
+
+def sc_terminal_cursor_cycle(m):
+    server = seeded()
+    server._paged = lambda rows, query: {"data": [], "cursor": {"next": "cycle"}}
+    with pytest.raises(m.V2Error, match="invalid message cursor"):
+        observe(server, m)
+
+
+STAMP = "or len(idles) != 1 or not rows or rows[0] is not users[0] or rows[-1] is not idles[0]"
+RETRY_CREATE = 'data = self._request("POST", "/api/session", body={"title": title, **binding}).get("data")'
+RETRY_PROMPT = ('data = self._request("POST", f"/api/session/{sid}/prompt",\n'
+                '                             body={"id": pid, "text": text}).get("data")')
+MODEL_ID = 'or model.get("id") != binding["model"]["id"]\n                            or model.get("variant"'
+# name: (old, new, scenario, exception the mutant must raise, regex it must match)
+# Scenarios use pytest.raises internally, so a mutant that stops raising yields pytest's
+# Failed "DID NOT RAISE"; a regex mismatch yields AssertionError.
+CONTROLS = {
+    "ambiguous-session": ("if len(matches) > 1:", "if False:", sc_ambiguous, pytest.fail.Exception, "DID NOT RAISE"),
+    # without the seen-cursor check only the page-limit backstop stops the loop
+    "discovery-cursor-cycle": ('if not isinstance(cursor, str) or not cursor or cursor in seen:\n'
+                               '                raise V2Error("invalid discovery cursor")',
+                               'if False:\n                raise V2Error("invalid discovery cursor")',
+                               sc_discovery_cycle, AssertionError, "page limit exceeded"),
+    "permission-drift": ('\n                or data.get("permissions") != binding["permissions"]):', "):",
+                         sc_permission_drift, pytest.fail.Exception, "DID NOT RAISE"),
+    "directory-drift": ('or data.get("location") != binding["location"]', "or False",
+                        sc_directory_drift, pytest.fail.Exception, "DID NOT RAISE"),
+    "create-no-retry": (RETRY_CREATE,
+                        'try:\n            ' + RETRY_CREATE + '\n        except V2Error:\n            ' + RETRY_CREATE,
+                        sc_create_not_retried, AssertionError, "one more item"),
+    "prompt-no-retry": (RETRY_PROMPT,
+                        'try:\n            ' + RETRY_PROMPT + '\n        except V2Error:\n            ' + RETRY_PROMPT,
+                        sc_prompt_not_retried, AssertionError, "one more item"),
+    "empty-projection-unknown": ('"observed" if found else "unknown"', '"observed" if found else "absent"',
+                                 sc_empty_projection_is_unknown, AssertionError, "unknown"),
+    "admission-digest": ("if any(hashlib.sha256(text.encode()).hexdigest() != text_sha256 for _, text in found):",
+                         "if False:", sc_admission_digest, pytest.fail.Exception, "DID NOT RAISE"),
+    "terminal-prompt-identity": ('or users[0].get("id") != pid', "", sc_wrong_prompt_identity, AssertionError, "terminal-observed"),
+    "terminal-stale-idle": (STAMP, "", sc_stale_idle, AssertionError, "terminal-observed"),
+    # idles[0] on an empty list: the guard is what keeps a missing idle row from being read as an outcome
+    "terminal-needs-idle": ("or len(idles) != 1 or not rows", "or len(idles) > 1 or not rows",
+                            sc_no_idle_after_assistant, IndexError, "list index out of range"),
+    "active-map": ("        if sid not in data:\n            return False", "        return False",
+                   sc_active_is_not_terminal, AssertionError, "terminal-observed"),
+    "two-snapshot-stability": ('if rows != second["rows"]:', "if False:", sc_snapshot_stability, AssertionError, "terminal-observed"),
+    "assistant-model-binding": (MODEL_ID, 'or False\n                            or model.get("variant"',
+                                sc_assistant_model_drift, pytest.fail.Exception, "DID NOT RAISE"),
+    # without the seen-cursor check only the page-limit backstop stops the loop
+    "terminal-cursor-cycle": ('if not isinstance(cursor, str) or not cursor or cursor in cursors:\n'
+                              '                raise V2Error("invalid message cursor")',
+                              'if False:\n                raise V2Error("invalid message cursor")',
+                              sc_terminal_cursor_cycle, AssertionError, "page limit exceeded"),
+}
+
+
+@pytest.mark.parametrize("name", list(CONTROLS))
+def test_negative_control_fails_without_its_protection(name):
+    old, new, scenario, exception, reason = CONTROLS[name]
+    mutant = mutated(old, new)  # built outside raises: a non-matching pattern must error, not pass
+    scenario(v2)  # the real module satisfies the scenario
+    with pytest.raises(exception, match=reason):
+        scenario(mutant)
