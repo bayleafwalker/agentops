@@ -148,3 +148,14 @@ The [two-year KAOS roadmap](2026-10-18-kaos-2028-roadmap.md) preserves every EE 
 The [portable workflow owner plan](2026-10-24-portable-agent-workflows.md) records the investigated
 next work, dependencies and acceptance gates for repeatable long-running agent
 sessions. It is a proposal for implementation, not evidence of a deployed capability.
+
+## Outcome-settlement reference qualification (2026-11-06)
+
+The [operations qualification profile](2026-11-06-outcome-settlement-qualification.md)
+narrows EE-06/08/10/11/12/16/23 into one lab publication with a lost response,
+target reconciliation and a cold successor. It reuses PW-01/PW-05, AE-01/AE-03,
+AO-K02 measurement and AO-K03 placement evidence. The profile adds owner-specific
+fault cases and transfer gates; it does not close those activities, change served
+work state, defer workspace extensions or reduce the October 29 hosted-service
+scope. Planning and landing are operator-requested; runtime qualification and
+operational authority remain separate.
