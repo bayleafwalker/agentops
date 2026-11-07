@@ -84,8 +84,7 @@ Encode the full sprint close-out sequence so steps are not repeated ad-hoc acros
    Durable knowledge moves to the Vuoro workspace and `vuoro-knowledge`. Do not
    run `kctl-extract` or any `kctl` command.
 
-8. **Verify clean state.** Confirm the sprint's lessons are recorded as events
-   and that no sprint item is left unreviewed:
+8. **Verify clean state.** Confirm the sprint's lessons are recorded as events:
    ```bash
    sprintctl event list --sprint-id <id>
    ```
