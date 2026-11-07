@@ -20,11 +20,22 @@ Definitions versus references (deterministic heuristics, no guessing):
 * definition, ``emitter`` (weaker) -- source code that writes the id into a
   ``schema``/``schema_version`` field of a literal it builds. It decides ownership
   only when no repository has a stronger definition;
-* reference -- every other mention, and every mention in docs (``*.md``), tests and
-  fixtures. Only ids that some repository defines are catalogued.
+* reference -- every other mention, and every mention in docs (``*.md`` and ``docs/``),
+  plans, evidence, tests and fixtures. Only ids that some repository defines are catalogued.
 
 An id defined by several repositories lists them all and is flagged "multiple
-definers". A root that does not exist is reported as "not available", not an error.
+definers", unless the id carries a repository prefix (``sprintctl-``, ``credctl-``,
+``cred-broker-``, ``sovite-``, ``vuoro-``, ``agentops-``) naming one of the definers,
+which then owns it; the others are listed as non-owning definers. A root that does not
+exist is reported as "not available", not an error.
+
+Sources: a git root is read from tracked content only -- this agentops checkout from
+its working tree (``git ls-files``), every other root from its upstream commit
+(``main@{upstream}``, else ``origin/main``, else ``HEAD``; override with ``--ref``) --
+so untracked or ignored local files never enter the scan and an unpulled sibling does
+not hide upstream changes. The catalog records each sibling's source sha, which makes
+drift visible to ``--check``. Only a non-git directory is walked. The ``vuoro`` root
+is ``vuoro/contracts`` only.
 
 The scan skips VCS, dependency, build and artifact directories and any file whose
 name suggests secrets; it never prints file contents beyond the matched id.
@@ -38,10 +49,12 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import json
+import os
 import re
+import subprocess
 import sys
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = Path("docs/contracts/SCHEMA-CATALOG.md")
@@ -80,6 +93,15 @@ TEST_DIR_NAMES = frozenset({
 })
 TYPED_SUFFIXES = frozenset({".ts", ".tsx", ".tsp"})
 MAX_FILE_BYTES = 2_000_000
+GIT_TIMEOUT = 120
+# An id named with a repository prefix belongs to that repository when it is among
+# the definers; this breaks "multiple definers" ties such as a consumer's copy of a
+# producer's constant.
+PREFIX_OWNERS: tuple[tuple[str, str], ...] = (
+    ("agentops-", "agentops"), ("cred-broker-", "cred-broker"), ("credctl-", "cred-broker"),
+    ("sovite-", "sovite"), ("sovite.", "sovite"), ("sprintctl-", "sprintctl"),
+    ("sprintctl.", "sprintctl"), ("vuoro-", "vuoro"),
+)
 
 ID_BODY = r"[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*/v[0-9]+"
 ID_RE = re.compile(rf"^{ID_BODY}$")
@@ -110,6 +132,8 @@ STRONG_KINDS = ("schema-file", "constant", "type-literal")
 class Root:
     label: str
     path: Path
+    # None: the agentops checkout reads its working tree, siblings their upstream.
+    ref: str | None = None
 
 
 @dataclass
@@ -123,6 +147,7 @@ class Scan:
     # term -> repo -> set of (type name, relpath)
     types: dict[str, dict[str, set[tuple[str, str]]]] = field(default_factory=dict)
     files_scanned: dict[str, int] = field(default_factory=dict)
+    sources: dict[str, str] = field(default_factory=dict)
 
 
 def is_secret_name(name: str) -> bool:
@@ -130,7 +155,52 @@ def is_secret_name(name: str) -> bool:
     return any(fnmatch.fnmatch(lower, pattern) for pattern in SECRET_NAME_PATTERNS)
 
 
-def iter_files(root: Path):
+def wanted(rel: PurePosixPath, size: int | None) -> bool:
+    """Shared filter for every source: skip dirs, scanned suffixes, secret names, size."""
+    if any(part in SKIP_DIRS for part in rel.parts[:-1]):
+        return False
+    if rel.suffix not in SCAN_SUFFIXES or is_secret_name(rel.name):
+        return False
+    return size is None or size <= MAX_FILE_BYTES
+
+
+def git(path: Path, *args: str, stdin: bytes | None = None) -> bytes | None:
+    """Read-only git query; None when git is unavailable or the command fails."""
+    try:
+        result = subprocess.run(["git", "-C", str(path), *args], input=stdin,
+                                capture_output=True, timeout=GIT_TIMEOUT, check=False,
+                                env={**os.environ, "GIT_OPTIONAL_LOCKS": "0",
+                                     "GIT_TERMINAL_PROMPT": "0"})
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return result.stdout if result.returncode == 0 else None
+
+
+def git_text(path: Path, *args: str) -> str | None:
+    raw = git(path, *args)
+    return raw.decode("utf-8", "replace").strip() if raw is not None else None
+
+
+def is_git_root(path: Path) -> bool:
+    return git_text(path, "rev-parse", "--is-inside-work-tree") == "true"
+
+
+def resolve_ref(path: Path, ref: str) -> tuple[str, str] | None:
+    """(display name, commit sha) for `upstream` (main@{upstream}, else origin/main,
+    else HEAD) or any explicit revision."""
+    candidates = ["main@{upstream}", "origin/main", "HEAD"] if ref == "upstream" else [ref]
+    for candidate in candidates:
+        sha = git_text(path, "rev-parse", "--verify", "--quiet", f"{candidate}^{{commit}}")
+        if sha:
+            name = candidate
+            if candidate == "main@{upstream}":
+                name = git_text(path, "rev-parse", "--abbrev-ref", candidate) or candidate
+            return name, sha
+    return None
+
+
+def walk_files(root: Path):
+    """Non-git roots only: every regular file, without following symlinks."""
     stack = [root]
     while stack:
         directory = stack.pop()
@@ -145,17 +215,92 @@ def iter_files(root: Path):
                 if entry.name not in SKIP_DIRS:
                     stack.append(entry)
                 continue
-            if entry.suffix not in SCAN_SUFFIXES or is_secret_name(entry.name):
-                continue
+            rel = PurePosixPath(entry.relative_to(root).as_posix())
             try:
-                if entry.stat().st_size > MAX_FILE_BYTES:
-                    continue
+                size = entry.stat().st_size
             except OSError:
                 continue
-            yield entry
+            if wanted(rel, size):
+                yield rel, entry
 
 
-def is_reference_only(rel: Path) -> bool:
+def worktree_files(root: Path):
+    """Tracked files only (`git ls-files`), read from disk: untracked and ignored local
+    clutter never enters the scan."""
+    listing = git(root, "ls-files", "-z", "--cached")
+    for name in sorted(filter(None, (listing or b"").decode("utf-8", "replace").split("\0"))):
+        rel = PurePosixPath(name)
+        path = root / name
+        if path.is_symlink() or not path.is_file():
+            continue
+        if wanted(rel, path.stat().st_size):
+            yield rel, path
+
+
+def read_sources(root: "Root", exclude: frozenset[str]):
+    """Yield (relpath, text) for every scannable file of the root, plus a description
+    of the source. Git roots read tracked content (working tree or a commit); only a
+    non-git directory is walked."""
+    if not is_git_root(root.path):
+        return "directory walk", (
+            (rel, path.read_text(encoding="utf-8")) for rel, path in walk_files(root.path)
+            if rel.as_posix() not in exclude and readable(path))
+    ref = root.ref or ("worktree" if root.path.resolve() == REPO_ROOT else "upstream")
+    if ref == "worktree":
+        return "working tree, tracked files", (
+            (rel, path.read_text(encoding="utf-8")) for rel, path in worktree_files(root.path)
+            if rel.as_posix() not in exclude and readable(path))
+    resolved = resolve_ref(root.path, ref)
+    if resolved is None:
+        return f"unresolvable ref {ref}", iter(())
+    name, sha = resolved
+    return f"{name} @ {sha[:12]}", tree_files(root.path, sha, exclude)
+
+
+def readable(path: Path) -> bool:
+    try:
+        path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False
+    return True
+
+
+def tree_files(root: Path, sha: str, exclude: frozenset[str]):
+    """Blobs of the commit's subtree for this root (a root may be a subdirectory, such
+    as vuoro/contracts), read with `git ls-tree` and `git cat-file --batch`."""
+    prefix = git_text(root, "rev-parse", "--show-prefix") or ""
+    # From the top level: run inside a subdirectory, ls-tree would also apply that
+    # subdirectory as a path filter inside the already-narrowed tree.
+    top = Path(git_text(root, "rev-parse", "--show-toplevel") or root)
+    listing = git(top, "ls-tree", "-r", "-z", "--long", f"{sha}:{prefix}")
+    blobs: list[tuple[PurePosixPath, str]] = []
+    for entry in filter(None, (listing or b"").decode("utf-8", "replace").split("\0")):
+        meta, _, name = entry.partition("\t")
+        mode, kind, blob, size = meta.split()
+        if kind != "blob" or mode == "120000":
+            continue
+        rel = PurePosixPath(name)
+        if wanted(rel, int(size)) and rel.as_posix() not in exclude:
+            blobs.append((rel, blob))
+    blobs.sort()
+    if not blobs:
+        return
+    raw = git(root, "cat-file", "--batch", stdin="".join(f"{b}\n" for _, b in blobs).encode())
+    if raw is None:
+        return
+    offset = 0
+    for rel, _ in blobs:
+        header_end = raw.index(b"\n", offset)
+        size = int(raw[offset:header_end].split()[2])
+        body = raw[header_end + 1: header_end + 1 + size]
+        offset = header_end + 1 + size + 1
+        try:
+            yield rel, body.decode("utf-8")
+        except UnicodeDecodeError:
+            continue
+
+
+def is_reference_only(rel: PurePosixPath) -> bool:
     """Docs, tests and fixtures can only reference an id, never define it."""
     if rel.suffix == ".md":
         return True
@@ -204,37 +349,32 @@ def schema_file_ids(document: object) -> set[str]:
     return found
 
 
-def scan_root(root: Root, scan: Scan, exclude: frozenset[Path] = frozenset()) -> None:
+def scan_root(root: Root, scan: Scan, exclude: frozenset[str] = frozenset()) -> None:
     count = 0
-    for path in iter_files(root.path):
-        if path.resolve() in exclude:
-            continue
-        try:
-            text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            continue
+    source, files = read_sources(root, exclude)
+    scan.sources[root.label] = source
+    for rel, text in files:
         count += 1
-        rel = path.relative_to(root.path)
         relstr = rel.as_posix()
         for match in MENTION_RE.finditer(text):
             scan.mentions.setdefault(match.group(1), set()).add(root.label)
         if is_reference_only(rel):
             continue
         found: set[tuple[str, str]] = set()
-        if path.suffix == ".json":
-            if path.name.endswith(".schema.json") or '"$schema"' in text:
+        if rel.suffix == ".json":
+            if rel.name.endswith(".schema.json") or '"$schema"' in text:
                 try:
                     document = json.loads(text)
                 except ValueError:
                     document = None
-                if path.name.endswith(".schema.json") or (
+                if rel.name.endswith(".schema.json") or (
                         isinstance(document, dict) and "$schema" in document):
                     found |= {(sid, "schema-file") for sid in schema_file_ids(document)}
-        elif path.suffix in CODE_SUFFIXES:
+        elif rel.suffix in CODE_SUFFIXES:
             found |= {(m.group(1), "constant") for m in CONST_RE.finditer(text)}
-            if path.suffix in TYPED_SUFFIXES:
+            if rel.suffix in TYPED_SUFFIXES:
                 found |= {(m.group(1), "type-literal") for m in TYPE_LITERAL_RE.finditer(text)}
-            if path.suffix != ".tsp":
+            if rel.suffix != ".tsp":
                 found |= {(m.group(1), "emitter") for m in EMITTER_RE.finditer(text)}
             for match in TYPE_DECL_RE.finditer(text):
                 name = match.group(1)
@@ -248,13 +388,16 @@ def scan_root(root: Root, scan: Scan, exclude: frozenset[Path] = frozenset()) ->
 
 
 def run_scan(roots: list[Root], exclude: frozenset[Path] = frozenset()) -> Scan:
-    """Scan every available root; ``exclude`` (resolved paths) keeps the catalog itself
-    out of its own input, so regeneration is idempotent."""
+    """Scan every available root; ``exclude`` (absolute paths) keeps the catalog and
+    this script out of their own input, so regeneration is idempotent."""
     scan = Scan()
     for root in roots:
         if root.path.is_dir():
             scan.available.append(root.label)
-            scan_root(root, scan, exclude)
+            base = root.path.resolve()
+            rels = frozenset(p.resolve().relative_to(base).as_posix() for p in exclude
+                             if p.resolve().is_relative_to(base))
+            scan_root(root, scan, rels)
         else:
             scan.unavailable.append((root.label, str(root.path)))
     return scan
@@ -264,9 +407,16 @@ def strongest(entries: set[tuple[str, str]]) -> bool:
     return any(kind in STRONG_KINDS for kind, _ in entries)
 
 
-def owners_of(per_repo: dict[str, set[tuple[str, str]]]) -> list[str]:
+def owners_of(sid: str, per_repo: dict[str, set[tuple[str, str]]]) -> list[str]:
+    """Repos with a strong definition (else every emitter), narrowed to the repo the
+    id's prefix names when that repo is among them."""
     strong = sorted(repo for repo, entries in per_repo.items() if strongest(entries))
-    return strong or sorted(per_repo)
+    candidates = strong or sorted(per_repo)
+    if len(candidates) > 1:
+        for prefix, repo in PREFIX_OWNERS:
+            if sid.startswith(prefix) and repo in candidates:
+                return [repo]
+    return candidates
 
 
 def primary_path(entries: set[tuple[str, str]]) -> str:
@@ -317,7 +467,7 @@ def vocabulary(scan: Scan) -> list[dict]:
             if not term_in_id(term, sid):
                 continue
             per_repo = scan.definitions[sid]
-            for repo in owners_of(per_repo):
+            for repo in owners_of(sid, per_repo):
                 id_repos.setdefault(repo, []).append(sid)
                 if head_noun(term, sid):
                     heads.setdefault(repo, []).append((sid, primary_path(per_repo[repo])))
@@ -362,41 +512,54 @@ def render(scan: Scan, roots: list[Root], date: str | None) -> str:
         "A definition is a JSON Schema `$id` or `const`, an upper-case source constant, or a "
         "TypeSpec/TypeScript literal-typed `schema` property; `emitter` (code that writes the id "
         "into a `schema` field it builds) counts only when no repository has a stronger "
-        "definition. Mentions in docs, tests and fixtures are references.",
+        "definition. Among several definers, an id prefixed with a repository name "
+        "(`sprintctl-`, `credctl-`, `cred-broker-`, `sovite-`, `vuoro-`, `agentops-`) is owned by "
+        "that repository when it is one of them. Mentions in docs, plans, evidence, tests and "
+        "fixtures are references.",
         "",
         "## Roots",
         "",
-        "| Repository | Status | Files scanned | Ids defined |",
-        "|---|---|---|---|",
+        "Git roots are read from tracked content only: agentops from its working tree "
+        "(`git ls-files`), siblings from their upstream commit (`main@{upstream}`, else "
+        "`origin/main`, else `HEAD`), so local clutter and unpulled checkouts do not change "
+        "the catalog. The source sha makes sibling drift visible to `--check`. The vuoro root "
+        "covers only `vuoro/contracts`, not the rest of the vuoro repository.",
+        "",
+        "| Repository | Status | Source | Files scanned | Ids defined |",
+        "|---|---|---|---|---|",
     ]
     defined_count: dict[str, int] = {}
     for sid, per_repo in scan.definitions.items():
-        for repo in owners_of(per_repo):
+        for repo in owners_of(sid, per_repo):
             defined_count[repo] = defined_count.get(repo, 0) + 1
     unavailable = dict(scan.unavailable)
     for root in roots:
         if root.label in unavailable:
-            lines.append(f"| {root.label} | not available | - | - |")
+            lines.append(f"| {root.label} | not available | - | - | - |")
         else:
-            lines.append(f"| {root.label} | scanned | {scan.files_scanned.get(root.label, 0)} "
+            lines.append(f"| {root.label} | scanned | {scan.sources.get(root.label, '-')} "
+                         f"| {scan.files_scanned.get(root.label, 0)} "
                          f"| {defined_count.get(root.label, 0)} |")
     lines += ["", "Ids defined counts each id once per owning repository.", ""]
 
-    multi = sorted(sid for sid, per in scan.definitions.items() if len(owners_of(per)) > 1)
+    multi = sorted(sid for sid, per in scan.definitions.items() if len(owners_of(sid, per)) > 1)
     lines += ["## Schema ids", "",
               f"{len(scan.definitions)} ids; {len(multi)} with multiple definers.", "",
-              "| Id | Owner | Definition | Also referenced by | Flag |",
-              "|---|---|---|---|---|"]
+              "| Id | Owner | Definition | Other definers (not owning) | Also referenced by | Flag |",
+              "|---|---|---|---|---|---|"]
     for sid in sorted(scan.definitions):
         per_repo = scan.definitions[sid]
-        owners = owners_of(per_repo)
-        definition = "<br>".join(
-            f"{repo}: `{primary_path(per_repo[repo])}` "
-            f"({', '.join(sorted({kind for kind, _ in per_repo[repo]}))})"
-            for repo in owners)
+        owners = owners_of(sid, per_repo)
+
+        def describe(repo: str) -> str:
+            kinds = ", ".join(sorted({kind for kind, _ in per_repo[repo]}))
+            return f"{repo}: `{primary_path(per_repo[repo])}` ({kinds})"
+
+        definition = "<br>".join(describe(repo) for repo in owners)
+        others = "<br>".join(describe(repo) for repo in sorted(set(per_repo) - set(owners)))
         refs = sorted(scan.mentions.get(sid, set()) - set(per_repo))
         flag = "multiple definers" if len(owners) > 1 else ""
-        lines.append(f"| `{sid}` | {', '.join(owners)} | {definition} | "
+        lines.append(f"| `{sid}` | {', '.join(owners)} | {definition} | {others or '-'} | "
                      f"{', '.join(refs) or '-'} | {flag} |")
 
     lines += ["", "## Vocabulary", "",
@@ -425,16 +588,20 @@ def render(scan: Scan, roots: list[Root], date: str | None) -> str:
     return "\n".join(lines) + "\n"
 
 
-def parse_roots(values: list[str] | None) -> list[Root]:
-    if not values:
-        return [Root(label, path) for label, path in DEFAULT_ROOTS]
-    roots = []
-    for value in values:
+def parse_roots(values: list[str] | None, refs: list[str] | None = None) -> list[Root]:
+    pairs = [(label, path) for label, path in DEFAULT_ROOTS] if not values else []
+    for value in values or []:
         label, sep, path = value.partition("=")
         if not sep or not label or not path:
             raise SystemExit(f"schema-catalog: --root expects NAME=PATH, got {value!r}")
-        roots.append(Root(label, Path(path).expanduser()))
-    return roots
+        pairs.append((label, Path(path).expanduser()))
+    ref_by_label: dict[str, str] = {}
+    for value in refs or []:
+        label, sep, ref = value.partition("=")
+        if not sep or not label or not ref:
+            raise SystemExit(f"schema-catalog: --ref expects NAME=REF, got {value!r}")
+        ref_by_label[label] = ref
+    return [Root(label, path, ref_by_label.get(label)) for label, path in pairs]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -445,6 +612,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", action="append", metavar="NAME=PATH",
                         help="repository to scan (repeatable; replaces the defaults: "
                              + ", ".join(f"{label}={path}" for label, path in DEFAULT_ROOTS) + ")")
+    parser.add_argument("--ref", action="append", metavar="NAME=REF",
+                        help="what to read for a git root: 'worktree' (tracked files on disk), "
+                             "'upstream' (main@{upstream}, else origin/main, else HEAD) or any "
+                             "revision; default worktree for this agentops checkout, upstream "
+                             "for every other root")
     parser.add_argument("--output", type=Path, default=None,
                         help=f"catalog path (default: <agentops>/{DEFAULT_OUTPUT})")
     parser.add_argument("--stdout", action="store_true", help="print instead of writing")
@@ -454,7 +626,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--date", help="stamp this date in the header (omitted by default)")
     args = parser.parse_args(argv)
 
-    roots = parse_roots(args.root)
+    roots = parse_roots(args.root, args.ref)
     output = args.output or REPO_ROOT / DEFAULT_OUTPUT
     text = render(run_scan(roots, frozenset({output.resolve(), Path(__file__).resolve()})), roots, args.date)
     if args.stdout:

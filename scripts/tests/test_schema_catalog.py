@@ -8,8 +8,12 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 SCRIPT = Path(__file__).resolve().parents[1] / "schema_catalog.py"
 SPEC = importlib.util.spec_from_file_location("schema_catalog", SCRIPT)
@@ -74,17 +78,17 @@ def scan(tmp_path: Path):
 def test_definitions_and_owners(tmp_path):
     result, _ = scan(tmp_path)
     defs = result.definitions
-    assert catalog.owners_of(defs["handoff/v1"]) == ["alpha"]
+    assert catalog.owners_of("handoff/v1", defs["handoff/v1"]) == ["alpha"]
     assert {kind for kind, _ in defs["handoff/v1"]["alpha"]} == {"schema-file"}
-    assert catalog.owners_of(defs["alpha-work-lease/v1"]) == ["alpha"]
-    assert catalog.owners_of(defs["beta-intent/v1"]) == ["beta"]
-    assert catalog.owners_of(defs["beta-fence/v1"]) == ["beta"]
+    assert catalog.owners_of("alpha-work-lease/v1", defs["alpha-work-lease/v1"]) == ["alpha"]
+    assert catalog.owners_of("beta-intent/v1", defs["beta-intent/v1"]) == ["beta"]
+    assert catalog.owners_of("beta-fence/v1", defs["beta-fence/v1"]) == ["beta"]
     assert ("type-literal", "contracts/main.tsp") in defs["beta-fence/v1"]["beta"]
     # An emitter alone owns an id ...
-    assert catalog.owners_of(defs["beta-emitted/v1"]) == ["beta"]
+    assert catalog.owners_of("beta-emitted/v1", defs["beta-emitted/v1"]) == ["beta"]
     # ... but loses to a stronger definition elsewhere.
-    assert catalog.owners_of(defs["alpha-receipt/v1"]) == ["alpha"]
-    assert catalog.owners_of(defs["shared-thing/v1"]) == ["alpha", "beta"]
+    assert catalog.owners_of("alpha-receipt/v1", defs["alpha-receipt/v1"]) == ["alpha"]
+    assert catalog.owners_of("shared-thing/v1", defs["shared-thing/v1"]) == ["alpha", "beta"]
 
 
 def test_references_are_not_definitions(tmp_path):
@@ -185,3 +189,92 @@ def test_bad_root_argument():
         assert "NAME=PATH" in str(exc)
     else:  # pragma: no cover
         raise AssertionError("expected SystemExit")
+
+
+def test_non_owning_definers_stay_visible(tmp_path):
+    """A weak emitter outranked by a constant is listed, not dropped from the row."""
+    _, out = run(tmp_path)
+    row = next(line for line in out.read_text().splitlines()
+               if line.startswith("| `alpha-receipt/v1`"))
+    cells = [c.strip() for c in row.strip("|").split("|")]
+    assert cells[1] == "alpha"
+    assert cells[3] == "beta: `beta/only_emit.py` (emitter)"
+    assert cells[4] == "-"  # beta is a definer, so not repeated as a referencer
+
+
+def test_repository_prefix_breaks_definer_ties(tmp_path):
+    alpha, beta = tmp_path / "alpha", tmp_path / "beta"
+    write(alpha / "a.py", 'X = "beta-shared-intent/v1"\nY = "plain-shared/v1"\n')
+    write(beta / "b.py", 'X = "beta-shared-intent/v1"\nY = "plain-shared/v1"\n')
+    prefixes = catalog.PREFIX_OWNERS
+    catalog.PREFIX_OWNERS = (("beta-", "beta"),)
+    try:
+        result = catalog.run_scan(catalog.parse_roots([f"alpha={alpha}", f"beta={beta}"]))
+        defs = result.definitions
+        assert catalog.owners_of("beta-shared-intent/v1", defs["beta-shared-intent/v1"]) == ["beta"]
+        assert catalog.owners_of("plain-shared/v1", defs["plain-shared/v1"]) == ["alpha", "beta"]
+    finally:
+        catalog.PREFIX_OWNERS = prefixes
+    assert ("credctl-", "cred-broker") in catalog.PREFIX_OWNERS
+
+
+GIT_ENV = {
+    "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.test",
+    "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.test",
+    "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1",
+}
+
+
+def sh(*args: str, cwd: Path | None = None) -> None:
+    subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True,
+                   env={**os.environ, **GIT_ENV})
+
+
+@pytest.fixture
+def git_sibling(tmp_path, monkeypatch):
+    """A sibling clone whose upstream has a commit it has not pulled, plus tracked,
+    untracked and ignored files under a `contracts/` subdirectory root."""
+    for key, value in GIT_ENV.items():
+        monkeypatch.setenv(key, value)
+    remote = tmp_path / "remote.git"
+    sh("init", "--bare", "-b", "main", str(remote))
+    writer = tmp_path / "writer"
+    sh("clone", str(remote), str(writer))
+    write(writer / "contracts" / "a.py", 'TRACKED = "sib-tracked/v1"\n')
+    write(writer / "outside.py", 'OUTSIDE = "sib-outside/v1"\n')
+    write(writer / ".gitignore", "ignored.py\n")
+    sh("add", "-A", cwd=writer)
+    sh("commit", "-m", "one", cwd=writer)
+    sh("push", "origin", "main", cwd=writer)
+    clone = tmp_path / "clone"
+    sh("clone", str(remote), str(clone))
+    write(writer / "contracts" / "b.py", 'UPSTREAM = "sib-upstream-only/v1"\n')
+    sh("add", "-A", cwd=writer)
+    sh("commit", "-m", "two", cwd=writer)
+    sh("push", "origin", "main", cwd=writer)
+    sh("fetch", "origin", cwd=clone)
+    write(clone / "contracts" / "untracked.py", 'LOCAL = "sib-untracked/v1"\n')
+    write(clone / "contracts" / "ignored.py", 'IGNORED = "sib-ignored/v1"\n')
+    return clone
+
+
+def test_git_root_reads_upstream_tracked_content(git_sibling):
+    roots = catalog.parse_roots([f"sib={git_sibling / 'contracts'}"])
+    result = catalog.run_scan(roots)
+    assert set(result.definitions) == {"sib-tracked/v1", "sib-upstream-only/v1"}
+    assert result.sources["sib"].startswith("origin/main @ ")
+    assert result.files_scanned["sib"] == 2
+
+
+def test_git_root_worktree_mode_skips_untracked_and_ignored(git_sibling):
+    roots = catalog.parse_roots([f"sib={git_sibling / 'contracts'}"], ["sib=worktree"])
+    result = catalog.run_scan(roots)
+    assert set(result.definitions) == {"sib-tracked/v1"}
+    assert result.sources["sib"] == "working tree, tracked files"
+    for sid in ("sib-untracked/v1", "sib-ignored/v1", "sib-outside/v1"):
+        assert sid not in result.mentions
+
+
+def test_bad_ref_argument():
+    with pytest.raises(SystemExit, match="NAME=REF"):
+        catalog.parse_roots(None, ["no-equals"])

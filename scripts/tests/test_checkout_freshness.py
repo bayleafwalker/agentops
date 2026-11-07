@@ -90,6 +90,7 @@ def test_dirty_untracked_and_worktrees(estate, tmp_path):
     (clone / "new.txt").write_text("x\n")
     (clone / "sub").mkdir()
     (clone / "sub" / "deep.txt").write_text("y\n")
+    (clone / "sub" / "deeper.txt").write_text("z\n")  # a wholly untracked dir counts once
     sh("worktree", "add", str(tmp_path / "wt"), "-b", "side", cwd=clone)
     report = fresh.inspect("repo", clone, fetch=False)
     assert (report["dirty_tracked"], report["untracked"], report["worktrees"]) == (1, 2, 2)
@@ -142,3 +143,75 @@ def test_strict_passes_when_current(estate, capsys):
     payload = json.loads(capsys.readouterr().out)
     assert payload["repos"][0]["repo"] == "named"
     assert payload["repos"][0]["path"] == str(clone)
+
+
+def test_last_fetch_is_reflog_entry_time_not_commit_time(estate, monkeypatch):
+    _, clone = estate
+    commit_time = int(subprocess.run(["git", "log", "-1", "--format=%ct", "origin/main"],
+                                     cwd=clone, capture_output=True, text=True).stdout)
+    fetched_at = 2_000_000_000  # 2033-05-18T03:33:20Z, well after any commit
+    # The reflog entry a fetch writes is stamped with the committer date.
+    monkeypatch.setenv("GIT_COMMITTER_DATE", f"@{fetched_at} +0000")
+    sh("fetch", "origin", cwd=clone)  # moves origin/main, so a reflog entry is written
+    monkeypatch.delenv("GIT_COMMITTER_DATE")
+    git_dir = clone / ".git"
+    if (git_dir / "FETCH_HEAD").exists():
+        os.utime(git_dir / "FETCH_HEAD", (1_000_000_000, 1_000_000_000))  # older than the reflog
+    assert fresh.reflog_time(clone, "refs/remotes/origin/main") == fetched_at
+    assert fetched_at != commit_time
+    when, source = fresh.last_fetch(clone, "refs/remotes/origin/main")
+    assert (when, source) == ("2033-05-18T03:33:20Z", "reflog")
+
+
+def test_local_branch_upstream_skips_fetch(estate):
+    _, clone = estate
+    sh("branch", "base", cwd=clone)
+    sh("branch", "--set-upstream-to=base", "main", cwd=clone)
+    report = fresh.inspect("repo", clone, fetch=True)
+    assert report["upstream"] == "base"
+    assert report["fetch"] == "skipped: upstream is a local branch"
+    assert (report["main_ahead"], report["main_behind"]) == (0, 0)
+
+
+def test_remote_name_with_slash(estate):
+    _, clone = estate
+    sh("remote", "rename", "origin", "team/upstream", cwd=clone)
+    report = fresh.inspect("repo", clone, fetch=True)
+    assert report["fetch"] == "ok"
+    assert report["upstream"] == "team/upstream/main"
+    assert report["main_behind"] == 1
+
+
+def test_fetch_is_noninteractive_and_scoped(estate, monkeypatch):
+    _, clone = estate
+    calls = []
+    real = fresh.git
+
+    def spy(repo, *args, **kwargs):
+        calls.append((args, kwargs.get("extra_env")))
+        return real(repo, *args, **kwargs)
+
+    monkeypatch.delenv("GIT_SSH_COMMAND", raising=False)
+    monkeypatch.setattr(fresh, "git", spy)
+    fresh.inspect("repo", clone, fetch=True)
+    fetch_args, env = next((a, e) for a, e in calls if a[0] == "fetch")
+    assert fetch_args == ("fetch", "--quiet", "--no-auto-gc", "--recurse-submodules=no", "origin")
+    assert env == {"GIT_SSH_COMMAND": "ssh -o BatchMode=yes"}
+
+
+def test_timeouts_render_as_unknown(estate, monkeypatch):
+    _, clone = estate
+    real = fresh.git
+
+    def slow_status(repo, *args, **kwargs):
+        if args and args[0] in {"status", "worktree"}:
+            raise subprocess.TimeoutExpired(["git", *args], 1)
+        return real(repo, *args, **kwargs)
+
+    monkeypatch.setattr(fresh, "git", slow_status)
+    report = fresh.inspect("repo", clone, fetch=False)
+    assert report["dirty_tracked"] is None and report["worktrees"] is None
+    assert report["timeouts"] == ["status", "worktree list --porcelain"]
+    text = fresh.render_markdown([report])
+    assert "| timeout/unknown | timeout/unknown | timeout/unknown |" in text
+    assert "git timed out on status" in text

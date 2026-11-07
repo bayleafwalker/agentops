@@ -160,10 +160,10 @@ python3 scripts/checkout_freshness.py --fetch   # or: agentops checkout-freshnes
 For agentops, sprintctl, vuoro, vuoro-cloud, sovite, cred-broker, appservice and gitops-nixos under `/projects/dev`, it reports:
 - the current branch;
 - local `main` ahead/behind `main@{upstream}` (falling back to `origin/main`);
-- the last fetch time;
-- dirty tracked and untracked file counts;
+- the last fetch time (the newer of the remote-tracking ref's newest reflog entry and `FETCH_HEAD`);
+- dirty tracked paths, and untracked entries in git's `normal` mode (a wholly untracked directory counts once);
 - the worktree count.
 
-`--fetch` updates only remote-tracking refs (and `FETCH_HEAD`); nothing touches a working tree, index or local branch. Pass repo names, absolute paths or `NAME=PATH` to override the list. `--json` emits `checkout-freshness/v1`. `--strict` exits 1 when any main is behind or any checkout is dirty; without it the exit is always 0.
+`--fetch` runs a non-interactive `git fetch --no-auto-gc --recurse-submodules=no` of the upstream remote, which updates only remote-tracking refs and `FETCH_HEAD`; nothing touches a working tree, index or local branch. Pass repo names, absolute paths or `NAME=PATH` to override the list. `--json` emits `checkout-freshness/v1`. `--strict` exits 1 when any main is behind or any checkout is dirty; without it the exit is always 0. A git query that times out shows as `timeout/unknown`.
 
 The report is advisory, not a hook. A behind main means file reads describe an older state than the remote: pull, or read from `origin/main`, before planning from them.
