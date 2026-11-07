@@ -1,0 +1,186 @@
+{
+  "schema_version": "handoff/v1",
+  "handoff_id": "2026-11-06-full-track-handoff.v2",
+  "version": 2,
+  "created_at": "2026-11-07T11:27:54Z",
+  "origin_host": "workstation",
+  "origin_path": "/projects/dev/agentops/docs/dispatch/handoffs/2026-11-06-full-track-handoff.v2.json",
+  "origin_cwd": "/projects/dev/agentops",
+  "track": "full-track-night-stop",
+  "predecessor": {
+    "harness": "claude",
+    "session_id": "3fd034ba-6099-4b66-af77-453a347fc28f",
+    "transcript_path": null,
+    "model": "claude-opus-5-5",
+    "context_used_pct": null
+  },
+  "objective": "On explicit resume complete all seven full-track programmes and integration under their original acceptance criteria; the work remains incomplete.",
+  "constraints": [
+    "User requested handoff: stop autonomous continuation until explicit resume.",
+    "User authorized all actions needed for full-track completion including service minting and specifically approved the exact Vuoro service 0.1.104 wheel and GHCR image publication; that tag and both workflows completed. Technical acceptance, independent review and current tool permissions remain required.",
+    "User states ambiguities are architecture decisions, not decisions to defer to an owner; dispatch a separate session where docs are unclear.",
+    "Preserve protected originals, unrelated dirty edits and private artifacts; temporary checkouts are ephemeral; verify canonical targets independently from local origin. Root integrates target writes.",
+    "Do not reroute or retry the previously platform-blocked specific adversarial Work31 review, rejected private receipt upload, rejected overnight served note, or automatic-review rejected branch deletion without appropriate specific authorization. Do not claim any blocked review passed.",
+    "Do not close parent outcomes from source-only slices. No live Work31 migration or PR2153 merge until its actual continuous fence, recovery and migration gates are satisfied. No unscoped production service credential mint."
+  ],
+  "decisions": [
+    {
+      "what": "Preserve v1 directory contract and use separate v2 capability adjunct",
+      "why": "Registering v2 into the frozen v1 declaration table invalidates v1 directory responses. A separate active-instance capability tied to the exact current v1 declaration revision avoids projection and must fail closed on stale base or retirement."
+    },
+    {
+      "what": "Keep delivery, verifier and inventory slices private or offline",
+      "why": "Trusted provider transport, receiver registration and runtime, material writer/restore fencing and field proof are not yet established."
+    },
+    {
+      "what": "Keep external fairness v2 opt-in",
+      "why": "Stable finite queue and fresh operation ID behavior has local PG/SQLite loopback evidence; total DB work and field/infinite-arrival fairness are not qualified."
+    }
+  ],
+  "rejected": [
+    {
+      "what": "Retry or reroute previously blocked Work31 adversarial review or private upload",
+      "why": "A platform cybersecurity filter or automatic approval review blocked specific earlier actions; do not bypass those decisions."
+    },
+    {
+      "what": "Treat schema 29 as ready for 0.1.103 rollout",
+      "why": "A live read-only query observed Work29 while the image requires Work31; field cutover prerequisites remain incomplete."
+    },
+    {
+      "what": "Treat synthetic test passes as field qualification",
+      "why": "Private transport, trust, one-use delivery, material fencing and live recovery acceptance remain unproved."
+    }
+  ],
+  "state": {
+    "repos": [
+      {
+        "path": "/projects/dev/agentops",
+        "head": "478dfad0373276f8234012627ab108e5d4bb6056",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "6f5248a51855839302d292480c95e94e13065e40dbc4a62575b241fd279ac6c3",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/sovite",
+        "head": "dc1110f97397ed4c64af025095dd7f41205527b8",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "1b1c724359dd6e6b0d789ff8ef5e56cf1575df20ba16cf4eaa1d7d525ea04e65",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/vuoro",
+        "head": "3f2d4ca8e479ba7c94b652fd08a7ba9ec318aff2",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "1c752604c580c5dfce3bf95f664aa4c70464c4abcaf63e5ffb1d1877e67ab8da",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/vuoro-cloud",
+        "head": "807852b625bef2a4d62b28de9cee54ca03953bfc",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "76aa615bf1b62a3c003a81329c893c4946fb69978adbd3e94ee6ef0124cf5e18",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/sprintctl",
+        "head": "8df99b9cb9446b65a25b97d5d39024995601a9ec",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "a24b3fa1f08288ead5829cf10dbd2a317efd994b1f53d3a88c964a9587bd96a9",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/appservice",
+        "head": "ca7c98cca1af95374a79751c5c8400cfac82a160",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "29327467771b648387887f3cf5ace33103541e3fa5cf48d75b848db6ef817773",
+        "unpushed": 0
+      }
+    ],
+    "running": [],
+    "digest_version": 5,
+    "tracker_watermark": [
+      {
+        "item_id": "2307",
+        "status": "done",
+        "status_revision": "item:f7afe610-d277-4fcd-a1e9-3da17031b130@status:done"
+      },
+      {
+        "item_id": "2308",
+        "status": "done",
+        "status_revision": "item:f384d9eb-17a6-446d-b01e-3ff520dc0f8a@status:done"
+      },
+      {
+        "item_id": "2309",
+        "status": "done",
+        "status_revision": "item:0030dbbd-89be-4a15-ae6a-925a248ec3dd@status:done"
+      },
+      {
+        "item_id": "2310",
+        "status": "done",
+        "status_revision": "item:d86da9e3-a559-407d-9194-5f8d65d1a411@status:done"
+      },
+      {
+        "item_id": "2311",
+        "status": "done",
+        "status_revision": "item:1e1cf627-f246-4b48-a457-da5e11c95db3@status:done"
+      },
+      {
+        "item_id": "2329",
+        "status": "done",
+        "status_revision": "item:0531f87e-ba50-4550-b7f8-2517d7bf03ac@status:done"
+      },
+      {
+        "item_id": "2654",
+        "status": "done",
+        "status_revision": "item:5c64768e-0c3c-404f-852d-52059ccacc8e@status:done"
+      }
+    ]
+  },
+  "unresolved": [
+    "The full-track programmes and integration are incomplete; no parent was closed. See host-persistent current and previous summaries for original criteria and detailed chronology.",
+    "Sovite PR78 is merged but post-merge run 42296894445 was in progress at handoff. Earlier distinct CI failures and causes remain preserved and unexplained.",
+    "Uncommitted adjunct schema34 capability candidate is preserved as bundle, binary patch, untracked tar and checksum manifest; final FOR SHARE lock change was not tested or reviewed.",
+    "Appservice PR2153 remains open with live Work29 and no proven continuous fence, paired recoveries or migration; no live change was made.",
+    "No authenticated private Cloud-owner transport, concrete service identity, service credential mint, versioned registration/receiver, or end-to-end delivery qualification exists.",
+    "Material-v2 writer/epoch/restore/outbox guarantees and other backup, retention, telemetry, TUI, native and field acceptance remain open; do not alter another session's EC-00 reservation.",
+    "v2 regenerates the v1 working-tree digests after the 2026-11-06 handoff files were committed to agentops main (#497, #499) and the landscape-alignment changes landed. v1 was acknowledged by session 01a1b49e-8c4f-7233-bade-4685b7a2caa7 at 2026-11-07T06:08:16Z; objective and next_action are unchanged from v1. Programme state: docs/dispatch/programmes/STATUS.md."
+  ],
+  "evidence": [
+    {
+      "kind": "artifact",
+      "ref": "_artifacts/agentops/ecosystem-resume-2026-11-06/handoff-summary.md"
+    },
+    {
+      "kind": "artifact",
+      "ref": "_artifacts/agentops/ecosystem-resume-2026-11-06/continuation/2026-11-06-service-mint-progress.md"
+    },
+    {
+      "kind": "artifact",
+      "ref": "_artifacts/agentops/ecosystem-resume-2026-11-06/handoff-adjunct/SHA256SUMS"
+    },
+    {
+      "kind": "artifact",
+      "ref": "docs/dispatch/handoffs/2026-11-05-full-track-handoff.v1.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "_artifacts/agentops/ecosystem-resume-2026-11-05/handoff-summary.md"
+    }
+  ],
+  "sprintctl_bundle_ref": {
+    "path": "/projects/dev/agentops/docs/dispatch/handoffs/2026-11-06-full-track-handoff.v2.sprintctl-bundle.json",
+    "sha256": "53afcf6426c62d0f469b96248f44ee90438d83a34e6e4da0f5b15dcbfdb10266",
+    "generated_at": "2026-11-07T11:27:51Z"
+  },
+  "next_action": "On explicit resume ack this handoff with the actual successor session, validate recorded snapshots and evidence; read _artifacts/agentops/ecosystem-resume-2026-11-06/handoff-summary.md and previous canonical handoff, verify current canonical refs and hosted CI, query live served records, then restore and review the preserved uncommitted adjunct capability candidate and continue all tracks.",
+  "successor": {
+    "session_id": null,
+    "acknowledged_at": null
+  }
+}
