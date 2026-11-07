@@ -1,7 +1,14 @@
 ---
 name: kctl-extract
-description: Use at sprint close to extract durable knowledge and coordination lessons from sprintctl events into the kctl review pipeline.
+description: RETIRED. kctl admits no new operations; this skill is kept as a historical tombstone. Record durable lessons as structured sprintctl events (see workflow-artifact-capture); durable knowledge moves to the Vuoro workspace and vuoro-knowledge.
 ---
+
+> **RETIRED (estate plan EE-07, `docs/plans/agentops/2026-10-17-estate-evolution-plan.md`).**
+> `kctl` is retired and admits no new operations; its data is historical migration
+> input. Do not run this skill for new lessons. Record durable decisions, patterns,
+> lessons and risks with `sprintctl event add` (payload fields below remain the right
+> shape) and follow `workflow-artifact-capture`. The steps below are retained only
+> as a record of the former procedure and for reading historical `kctl` data.
 
 ## Goal
 

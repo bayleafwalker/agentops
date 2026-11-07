@@ -5,7 +5,7 @@ description: Use when work already exists in sprintctl and the request is to con
 
 ## Goal
 
-Resume an already-registered sprint item from live `sprintctl` state without duplicating work, silently interrupting another session's reservation, or losing knowledge that should flow into `kctl` later.
+Resume an already-registered sprint item from live `sprintctl` state without duplicating work, silently interrupting another session's reservation, or losing knowledge that should flow into the Vuoro workspace knowledge later (record it as a structured `sprintctl event` while context is hot).
 
 ## Inputs
 
