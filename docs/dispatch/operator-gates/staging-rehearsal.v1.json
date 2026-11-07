@@ -1,0 +1,61 @@
+{
+  "schema": "operator-command-package/v1",
+  "package_id": "vuoro-cloud-staging-rehearsal",
+  "title": "Rehearse the tenant migration and green Talos environment with real owner wheels",
+  "gate_kind": "rehearsal",
+  "programmes": [
+    "docs/dispatch/programmes/2026-10-24/02-cloud-recovery.md",
+    "docs/plans/2026-11-06-vuoro-cloud-migration-plan.md"
+  ],
+  "work_refs": [],
+  "owner": "release train owner: operator-designated coordinator (default-assigned 2026-11-07)",
+  "readiness": "blocked",
+  "blockers": [
+    {
+      "description": "Migration plan P5 (#353, tenant verification and scripted rollback plan) is open on Forgejo.",
+      "resolved_by": "vuoro-cloud#353 merged"
+    },
+    {
+      "description": "Tenant schema-version mapping has no contract yet; the rehearsal cannot assert which work schema each runtime expects.",
+      "resolved_by": "tenant schema-version mapping contract from the vuoro repo (owner: see README owners)"
+    }
+  ],
+  "why_operator": "The Talos environment is cost-bearing (Hetzner) and the plan/apply plus kubeconfig and Talos config stay out of Git on the operator workstation (operator-actions.md section 8).",
+  "host": "operator workstation",
+  "directory": "/projects/dev/vuoro-cloud",
+  "preconditions": [
+    {
+      "check": "Source rehearsal passes against an older baseline",
+      "command": "pg16=\"$(nix build --no-link --print-out-paths .#postgresql_16)/bin\" && VUORO_TEST_POSTGRES_BIN=\"$pg16\" uv run --extra test python scripts/migration_rehearsal.py --previous-ref v0.1.0-poc.75",
+      "expected": "upgrade and fresh install produce the same schema",
+      "verified_at": null
+    },
+    {
+      "check": "P5 merged",
+      "command": "fj pr view 353",
+      "expected": "Merged",
+      "verified_at": "2026-11-07T09:00Z",
+      "observed": "Open"
+    }
+  ],
+  "commands": [
+    { "step": 1, "command": "Plan terraform/environments/talos as a separate environment and review the saved plan", "expected": "saved plan with only the green environment's resources", "exact": false },
+    { "step": 2, "command": "Apply the reviewed plan, restore copied databases, reconcile the same workload tree, follow checklists/talos-cutover.md up to but not including DNS cutover", "expected": "workloads Ready on Talos against copied data; tenant verification passes before READY", "exact": false }
+  ],
+  "expected_result": "A green Talos environment running the current tree against copied data, with tenant catalog verification evidence and no DNS change.",
+  "send_back": [
+    "The saved plan summary (resource counts)",
+    "Reconcile status and the tenant verification receipts",
+    "Cost incurred, if known"
+  ],
+  "rollback": {
+    "description": "Destroy the separate green environment; production is untouched because DNS cutover is a separate approval.",
+    "commands": ["Destroy terraform/environments/talos from the reviewed state"]
+  },
+  "references": [
+    "/projects/dev/vuoro-cloud/docs/runbooks/operator-actions.md (section 8)",
+    "/projects/dev/vuoro-cloud/docs/runbooks/migration-rehearsal.md"
+  ],
+  "created": "2026-11-07",
+  "last_verified": "2026-11-07"
+}

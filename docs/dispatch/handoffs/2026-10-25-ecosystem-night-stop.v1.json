@@ -1,0 +1,368 @@
+{
+  "schema_version": "handoff/v1",
+  "handoff_id": "2026-10-25-ecosystem-night-stop.v1",
+  "version": 1,
+  "created_at": "2026-10-25T21:20:07Z",
+  "origin_host": "workstation",
+  "origin_path": "/projects/dev/agentops/docs/dispatch/handoffs/2026-10-25-ecosystem-night-stop.v1.json",
+  "origin_cwd": "/projects/dev/agentops",
+  "track": "ecosystem-luna-implementation-20261025",
+  "predecessor": {
+    "harness": "codex",
+    "session_id": "01a172de-267d-7263-b7fa-a82ef3a669f4",
+    "transcript_path": null,
+    "model": "gpt-6",
+    "context_used_pct": null
+  },
+  "objective": "Resume ecosystem backlog implementation, reviewed main merges and qualified deployment after the 2026-10-25 night stop; first collect the two native Codex/Luna xhigh devbox workers, then finish Cloud recovery/promotion and guarded temporary cleanup without losing source or inventing acceptance.",
+  "constraints": [
+    "User standing authorization: merging main and service mutations approved for this and future sessions. Latest instruction: pack up; source/test work may continue overnight on DEVBOX using native CODEX harness, gpt-6-luna with high/very-high/max reasoning. Both actual overnight sessions use xhigh. No new root live work overnight.",
+    "Root session is on workstation. /projects/dev is NOT shared with devbox. All private operational receipts remain workstation host-persistent; Git and served Sprintctl are durable authority. Do not commit private field receipts or credentials to public agentops.",
+    "Before credential conclusions run hooks/forge-credential.sh status AND inventory; network tools can silently return exit0/empty under sandbox: escalate and measure, not infer absence. Packaged credctl only. Forgejo canonical owner bayleaf; GitHub bayleafwalker. Cloud canonical is Forgejo, passive GitHub mirror is stale.",
+    "Cloud human-actioned deletion rule remains in /projects/dev/vuoro-cloud/.claude/gates.json. Explicit five-UID and seven-UID user exceptions were consumed successfully and cover NO new resources/PVCs. Routine standing mutation approval does not override that rule. Hardware Cloud promotion needs owner PIN and two YubiKey touches after exact reviewed artifacts are ready. No software signing fallback.",
+    "Explicit real kubeconfigs only: homelab /projects/dev/appservice/clusters/.kube/config context admin@main; Cloud /home/bayleaf/.config/vuoro/kube/poc.yaml context default. Bare kubectl hits kind. Cloud VPN was already up; do not close a preexisting connection.",
+    "All five Cloud owners maintenance/read_only, six physical workloads replicas0, both Crons and apps Kustomization held; final closed-state verification21:13Z. Do not resume writers until actual recovery, adoption and release gates pass. Source schema31 and old service.94/.18 tenant remain live, no new clone/backup launched.",
+    "Never start old .97 runtime on shared work schema28. Shared .99 runtime uses DML-only principal; migration owner is not serving. No schema downgrade, new knowledge caller scopes, export enablement or retention/tombstone recovery claim.",
+    "Original shared worktrees have preexisting dirty/untracked private files; do not reset/clean them. Source changes were isolated. Preserve other authors active plan branches and all unknown work. After merge error query actual PR state before retry; separate merge, remote ref cleanup and local/worktree outcomes.",
+    "Native Codex overnight worker threads are scoped source workers, not a successor to this root handoff; do not launch duplicates or ack on their behalf. They are NOT authorized live deployment/promotion/signing/pin/PVC/cleanup work. Retired ActionQ runner/queue/hybrid supervisor must not be revived.",
+    "All-backlog completion is NOT established: many records are historical/retired/future/pilot/field gated. Keep their owner criteria; do not close from source presence alone. Sprintctl852 remains foundation-owner shaped, 2096 actual batch authorization and 2828 retention/recovery remain unproved."
+  ],
+  "decisions": [
+    {
+      "what": "Shared service release and deployment complete",
+      "why": "Service0.1.99 / Sprintctl0.24.0 / embedded MCPedge0.1.9 / work28 / Workspace1, PG16.13; image sha256:a6280820576d61cec296700360f6988305d248e3ef6c981e5236d5a098a8bf22. Actual serving native imageID and config match attested OCI index/child; Ready1/1, zero restarts. Flux parent+2children resumed Ready on appservice main ee22c3203a495b662575bc5759217d648e8620f0, hourly dump resumed. Both sealed pre27 and post28 encrypted DB streams and object copies actually restored and released normal-composition checks passed. Full combined Vuoro release suite3602passed147conditional skips."
+    },
+    {
+      "what": "Immutable sources and artifacts verified, never retag",
+      "why": "Vuoro.99 source cf7a07292f7df4fabc26fd1f9c839062268c625a, wheel SHA fcfaea4e8bd59028e328547b9fad473c19d594268c10684bd03930e5390cd338; exact source/tag/workflow attestations for wheel and image. Sprintctl.24 source c2c1cc6e3cbd0f0170c7175726cfff23eac50e33, wheel SHA53872068f8cbf670e31fe24fd20a70ff0ca611b93aa9edd2d2cdb0944df10b2f. Edge.9 ships inside .99, no separate publisher needed. Workstation CLI.24 honors exact owner client.1.1 pin; forcing .1.5 correctly refused."
+    },
+    {
+      "what": "Sprintctl2596 accepted narrowly",
+      "why": "Decision436, lesson6326, evidence d74b5cbdcd06fa40a01cc0e5e5b444f9c5b628ab9528b81862ddfc4132f301a5; own reservation456released. Owner/edge16384-character bound,1MiB full UTF8/JSON context response budget, independent cursor progress and historical oversized-row refusal, numeric-only compatibility check, exact tests, immutable releases and shared deployment. No Cloud-wide/EC00/grant/retention acceptance implied."
+    },
+    {
+      "what": "Sovite.21/schema5 deployed and healthy",
+      "why": "Control1, compatibility workers2, API-only remote1 ready; immutable image192.168.20.221:5000/sovite-platform@sha256:d391d0465541dbf695dfdf7688c1da5f3509222af886376b00a69b03ba9f9d48. Actual bounded remote/native/artifact canary96 passed with DML-only SQL role and DDL refusal; original data preserved. One-day DEVELOPMENT qualification6df83dfb0fc34ec8824a51da62a4d965 expires Oct26 ~17:13UTC, not general production/competence. Source repository-session additions main2f1dbf7 are not wired into immutable.21 runtime."
+    },
+    {
+      "what": "Cloud303 and300 merged; remaining exact heads stay distinct",
+      "why": "3039fdb302e085e64923898a6f1bb38dc1ed0af87c4 then30031e41cf8acb94df3d2cc3258c93dd282c02b139b merged via broker after all5 exact PR checks passed.305head915b1bbac22a6b5efa7f391f35d5c9a807b6e652 has4substantive green/final credential-free pending at stop.306 externally changed11c5a52a421725c04d64081963d738e180226c8c, fresh CIpending.304historical-doc-only6ace8104824461fda3ac19864d815266af83901d.228bbfdd3dc72cd9c246b3848bd156bb33739ac1956 remains held on real OAuth consent/proposal/refusal proof despite green oldCI.307duplicate closed, sourcebranch preserved until306 lands. Latest Cloud main31e41cf. Postmerge303 PUSH checks now show failures and300push/publisher pending: investigate actual latest-main run context before release, do not confuse with the premerge green PR checks or assume cause."
+    },
+    {
+      "what": "Cloud tenant repin requires a real owner migration qualifier",
+      "why": "Current control composition qualifier uses dummy tenant image and control025->034; does NOT execute real TENANT_MIGRATION_SCRIPT for actual service.94/Sprintctl.18/work22/audit3 to .99/.24/work28/audit3. New Luna draft was untested; overnight Cloud worker owns completing strict source/tests in isolation. Tenant generation, work schema and Workspace schema are separate. Do not repin config/compatibility or SOPS before proof."
+    },
+    {
+      "what": "Two native overnight workers verified on independent devbox",
+      "why": "Codex CLI0.164.0; actual session turn_contexts modelgpt-6-luna effortxhigh, real first tools and STARTED.json. systemd user Linger=yes, each runtime max9h,2CPU,MemoryHigh1536MiB/MemoryMax2304MiB; deadline06:00UTC. Cloud thread01a174e6-6973-7cb0-8b75-6fd789fee4e1; foundation thread01a174e7-5555-7ff1-b456-74089368f914. Root /projects/dev/_overnight/ecosystem-20261025 on devbox. Source packets copied and hashes verified; no workstation credentials/private production state copied. Devbox broker stale/timer absent, configured canonical Git reads and exact native Luna/xhigh route worked. Workers must preserve bundle if publication denied."
+    },
+    {
+      "what": "Root reservation released and work remains active",
+      "why": "agentops2864 event6332 records night handoff and worker dispatch; prior progress6330. Own reservation448released21:15UTC; item remains active. Luna2111 execution457released. Do not release stale reservations owned by other sessions."
+    },
+    {
+      "what": "Additional54 remote stale refs handled this resumed segment",
+      "why": "31 Luna-reviewed superseded source refs archived with exact provenance tags,6 exact recently merged PR refs removed,17 exact old merged PR refs archived/retired; clean worktree files preserved detached. Older cleanup totals in programme-state. Local cred-broker feat/digest-bound-accept-2535 at eefa957610c03406bb617d816d6ee2b453ef4fbb differs from retired remote bd532cd4edeea3b1d75c9a05d8d5493710219b40 and was preserved. Preflight22Vuoro+20Appservice merged-attached targets NOT executed because user stopped; revalidate before any future action."
+    },
+    {
+      "what": "Vuoro2111 readiness test complete, source landing delegated overnight",
+      "why": "PR290exactd92d66104aa8ae04ff0eed3d3d4059a6131c7f7d reviewed by root, all12checks green including mandatory schema28PG16/17; local published-wheel composition realPG16.15 test8passed/no skip. Test forces root connection unavailable, verifies liveness200/readiness redacted503 then readiness/read recovery. Foundation devbox worker may freshly verify and merge that reviewed exact source only; do not duplicate its action. Item acceptance still requires its current full criteria; no new release needed for test-only commit."
+    }
+  ],
+  "rejected": [
+    {
+      "what": "Child-only Flux maintenance fence",
+      "why": "Self-owned flux-entry parent restored child settings and old runtime. Seal guard refused BEFORE DDL. Fixed source2068 requires parentFIRST/children/parentLAST. Preserve initial failed receipt, never reuse unqualified first dump as backup pair."
+    },
+    {
+      "what": "Single kubectl port-forward for all restore phases / TCP readiness probes",
+      "why": "Closing first RO connection can reset the whole forward and restore never connected. Qualified host helper uses separate owned forward phases and stdout readiness marker; create-only attempt receipt prevents blind retry, readonly reinspection proved empty target first. Never copy host age key or write plaintext dump."
+    },
+    {
+      "what": "Treating copied diagnostic stdout as generation authority",
+      "why": "Private post28 copied script had stale work27 labels; native actual identity and sealed pair are post28/work28/.99. Original mistaken derived summary retained; corrected summary/native records authoritative."
+    },
+    {
+      "what": "Blind retry of partial isolated cleanup",
+      "why": "Frozen helper82363efb4e6b9470d431ed84c0e99e62e19037654cc148b0f350a7525593d082 removed10sourcehelpers successfully. Target attempt deleted only pre27Cluster/Pod/CNPGPVC, then refused a NEW Kyverno EphemeralReport UID11dffc21-f944-455b-a13e-39930c4fdbcc for known deleted Pod68f31dd3-2e21-4aa8-bd5d-6c365c867765 (managed-by kyverno, admission resource.uid label). Pre27objectPVC0b12a2a6 retained; post28Clusterfb87428e/Pod81d052df/twoPVC untouched. Old preflight requires4PVCs and cannot safely be rerun as-is. Capture fresh outcomes/census/storage, review legitimate report, prepare explicit phase-resume helper; retain ALL original backups/snapshots/S3 versions and source volumes."
+    },
+    {
+      "what": "Unsupported kubectl delete --preconditions flag / status-only deletion response",
+      "why": "Review caught before execution. Final helper uses loopback kubectl proxy DELETE with DeleteOptions preconditions.uid; accepts exact terminating resource or StatusSuccess;21forced-failure tests. IDs/reclaim policies/source protection validated before first effect."
+    },
+    {
+      "what": "Faking public-list recovery success with synthetic work",
+      "why": "Real source has7done items and .18 public list returns0. New terminal-item proof selects actual existing item1/repo vuoro via pinned owner. Initial item observer failed because ConfigMap terminal_item.py not projected;305 fixes source+clone projection, actual OCI test189s passed. Approved seven-UID cleanup00a53bf4d69d0b60725a714c6ad8a80cd157e1ee8abc7206f9fb3c56ad3afcc8 executed19:10UTC; holds preserved. No fresh backup/clone yet."
+    },
+    {
+      "what": "Broad branch purge by ancestry / discard dirty worktrees",
+      "why": "Initial broad attempt auto-review rejected before effect. Narrow proof uses exact PRhead+on-main merge ancestry or aggregate squash patch identity, unchanged leases, archived superseded source provenance and preserved clean file trees. Unknown/different local head stays for source review; new active plan branches are not stale by name."
+    },
+    {
+      "what": "Sovite prior104 expected answer",
+      "why": "Coordinator arithmetic and old direct answer were wrong; corrected actual fixture is96=4*18+3*8. Preserved old records and issued corrected bounded development qualification. Do not propagate104 or general competence claims."
+    },
+    {
+      "what": "Optional public field-note publication / forge comment403",
+      "why": "Automatic review rejected optional Sovite live field facts publication; did not bypass, source/private evidence retained. Forgejo repo.write comment endpoint403 respected; PRbodyPATCH worked. Never broaden credentials to bypass403."
+    },
+    {
+      "what": "Foundation devbox initial native launch",
+      "why": "Intentional multi-repo parent was not Git: native Codex refused BEFORE any thread or code effect. Corrected launcher with supported --skip-git-repo-check and recreated ONLY failed foundation unit after systemd removed it. Both actual threads now verified; do not restart them or rerun the non-idempotent launcher."
+    }
+  ],
+  "state": {
+    "repos": [
+      {
+        "path": "/projects/dev/agentops",
+        "head": "67a450f60c6d3eebb363188d741d4c2d85da37b8",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "8956ae230a7c118e819bd01262b4ed4e051b29b7f9b25b0bd7f16a15e23130b8",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/vuoro",
+        "head": "7dfa23483773d778cb2fa65a152e87b3278d437c",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "1c752604c580c5dfce3bf95f664aa4c70464c4abcaf63e5ffb1d1877e67ab8da",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/sprintctl",
+        "head": "32bc4e6b3b1fa1c369fcd139605d0dff6795488e",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "a24b3fa1f08288ead5829cf10dbd2a317efd994b1f53d3a88c964a9587bd96a9",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/sovite",
+        "head": "1c8b55b5fe724bfc0dfbdc0bfcaf0b63d2302311",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "0b90f8ca7d450c70805a4bc39f1553caab352acb962579262070525ed99122ec",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/appservice",
+        "head": "cb4acf25057bce24bcd81218fd97bf7f6a9cbe9d",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "29327467771b648387887f3cf5ace33103541e3fa5cf48d75b848db6ef817773",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/actionq",
+        "head": "0fc77e8ec879228f576a83156a24a9758ca773c8",
+        "branch": "main",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/auditctl",
+        "head": "a3fe8de10fbfbfc4eacc842a9e26bcfc126820f6",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "40b887a4614850ea85227f2a14382333db82be72d86ae94e724b85fe695ce1a2",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/kctl",
+        "head": "dcd82ee520f2ec53377c54c29b0bb3de9d228666",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "b5455b6debb7ef1ff18de670e2cd4aabdea3ab573a01d9068011b3d9598b34a6",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/cred-broker",
+        "head": "c0bee20e90e4bf41ee8c6ab5f99f97de2656a9bc",
+        "branch": "main",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/gitops-nixos",
+        "head": "b1d07d84b9a77d9d7ae1abc1ca07cb7b4cd9bf38",
+        "branch": "main",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/vuoro-cloud",
+        "head": "547af64e5e351eb74bd4b0a6b8fcba79650e78d6",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "182390cf6f5cd7d4994a2cfaabad6d6e8365ec52924c7bcb2cd972f02fce75ad",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/vuoro-2111-readiness",
+        "head": "d92d66104aa8ae04ff0eed3d3d4059a6131c7f7d",
+        "branch": "codex/readiness-reconnect-2111",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 51
+      },
+      {
+        "path": "/tmp/cloud-tenant-upgrade-qual",
+        "head": "31e41cf8acb94df3d2cc3258c93dd282c02b139b",
+        "branch": "codex/tenant-upgrade-qualification-20261025",
+        "dirty": true,
+        "diff_sha256": "ba281ba7f27c73e3d786c6201edcb6199786bcf3af2a75c78033114e579efb7f",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/ecosystem-field-source-20261025",
+        "head": "cb0601ebee349022e04c6eb17b925de59645bd66",
+        "branch": null,
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/ecosystem-vuoro-shared-deploy-20261025",
+        "head": "0021c317d2cdf550d379b2b5d98569dc22e8c362",
+        "branch": "deploy/vuoro-service-0.1.99-20261025",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/appservice-host-stream-restore",
+        "head": "e460edfc5ef7f319e2f95299078dc8f7188fa459",
+        "branch": "codex/host-stream-restoration-20261025",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      }
+    ],
+    "running": [
+      "DEVBOX native Codex cloud: systemd user ecosystem-luna-cloud-20261025.service, thread01a174e6-6973-7cb0-8b75-6fd789fee4e1, cwd /projects/dev/_overnight/ecosystem-20261025/cloud. Source-only real tenant migration qualifier and strict tests. Logs ../logs/cloud.native.jsonl,cloud.stderr,cloud.last.md; result/HANDOFF in workspace. Modelgpt-6-luna/xhigh verified. Continues independently of workstation shutdown; Linger=yes.",
+      "DEVBOX native Codex foundation: ecosystem-luna-foundation-20261025.service, thread01a174e7-5555-7ff1-b456-74089368f914, cwd /projects/dev/_overnight/ecosystem-20261025/foundation with3isolatedrepos. ReviewedPR290landing afterfreshchecks, Sprintctl2097 source gaps, two sourcebranch audits and optional mechanicaldoc2534; excludes foundation-gated852, field, cleanup. Logs ../logs/foundation.*; result/HANDOFF workspace. Modelgpt-6-luna/xhigh verified; source-only.",
+      "External canonical CI may continue; do not cancel valid jobs or restart active Forgejo runner. Single mainrunner causes queue behind real jobs; statuspending alone is not stall. No workstation-owned live deployment/migration/background cleanup remains running."
+    ],
+    "digest_version": 5,
+    "tracker_watermark": [
+      {
+        "item_id": "2307",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2308",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2309",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2310",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2311",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2329",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2654",
+        "status": null,
+        "status_revision": null
+      }
+    ]
+  },
+  "unresolved": [
+    "Cloud next: fresh exact CI/context check, merge305 only all5green, coordinate evolving306 and historical304 without overwriting external heads; inspect latest-main push/publisher failures/pending before release. Then actual source terminal item observation, fresh CNPGBackup, physical clone/catalogue/provenance/runtime owner proof; latest tenant qualifier and control034 PG17primary/PG16support receipts; exact immutable6pins and unused hardware-signed generation. Cloud228 OAuth real named-client consent remains separate.",
+    "Final shared temporary cleanup is PARTIAL, not a rollback problem. Both restore proofs already qualified and source is healthy. Remaining isolated namespace/object copies and post28PG use storage; sourcebackups/snapshots/dump versions protected. Reconcile known partial native outcomes first; do not run frozen helper again against changed preconditions.",
+    "All backlog is not implemented/accepted.2096 ScopesA/C source tests done but work.batch.apply actual authorized productive operation missing; authority doctor reservation touch proves only touch. Local outbox6legacyrecords, modeoff/configuredfalse and cursorunknown: NO speculative sync.2828 retention startup sanitation/inventory/replay barriers unproved. EC00 native wake/production ingress/crash recovery/performance etc still open. Source equality is not field acceptance. Future/pilot and retired ActionQ work need honest owner disposition.",
+    "Collect overnight result.json/HANDOFF.md/candidate PRs and verify source basis/focused tests/CI. Native workers may finish early when bounded tasks complete; unit inactivity is not automatically failure. No orchestrator polling loop or ActionQ transport introduced. Check actual unit Result/last message/native session before resuming.",
+    "Remote/local stale branch reconciliation remains. See per-repo provenance/results and fresh inventory.42reviewed merged-attached refs were planned but not executed; unique source/dependency/persistent labels and dirty worktrees still require review. Do not erase preserved cred-broker eefa957 localcode or other authors evidence-guided plan branches."
+  ],
+  "evidence": [
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/ecosystem-implementation-2026-10-25/programme-state.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/ecosystem-implementation-2026-10-25/night-stop-evidence-manifest.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/home/bayleaf/.local/state/ecosystem-implementation-20261025/20261025T192652Z-shared-work28-v2/live-rollout-success.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/home/bayleaf/.local/state/ecosystem-implementation-20261025/20261025T192652Z-shared-work28-v2/running-image-native-status.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/home/bayleaf/.local/state/ecosystem-implementation-20261025/20261025T192652Z-shared-work28-v2/cleanup-reviewed/target-cleanup-execution.log"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/ecosystem-implementation-2026-10-25/stop-live-state.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/ecosystem-implementation-2026-10-25/stop-cloud-prs.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/home/bayleaf/.local/state/ecosystem-implementation-20261025/20261025T205134Z-terminal-recovery-v2/after-owner-verification.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/home/bayleaf/.local/state/ecosystem-implementation-20261025/20261025T133939Z-recovery/source-catalogue.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/ecosystem-implementation-2026-10-25/overnight/native-startup-verification.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "devbox-agent:/projects/dev/_overnight/ecosystem-20261025/packets/packet-sha256.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "devbox-agent:/projects/dev/_overnight/ecosystem-20261025/basis.json"
+    },
+    {
+      "kind": "sprintctl",
+      "ref": "agentops#2864 event6332 (night handoff),event6330 (rollout); root reservation448released"
+    },
+    {
+      "kind": "sprintctl",
+      "ref": "sprintctl#2596 Decision436/evidence d74b5cbdcd06fa40a01cc0e5e5b444f9c5b628ab9528b81862ddfc4132f301a5"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/ecosystem-implementation-2026-10-25/overnight/vuoro2111-handoff.md"
+    }
+  ],
+  "sprintctl_bundle_ref": {
+    "path": "/projects/dev/agentops/docs/dispatch/handoffs/2026-10-25-ecosystem-night-stop.v1.sprintctl-bundle.json",
+    "sha256": "526a082b23dcaf58cef73d75d8de3c1273958991400cdde9a157e9fef2559013",
+    "generated_at": "2026-10-25T21:20:04Z"
+  },
+  "next_action": "First acknowledge this handoff using the actual successor CODEX_THREAD_ID (never a fabricated ID). Then run: ssh devbox-agent \"systemctl --user status ecosystem-luna-cloud-20261025.service ecosystem-luna-foundation-20261025.service --no-pager; find /projects/dev/_overnight/ecosystem-20261025 -maxdepth 3 \\( -name result.json -o -name HANDOFF.md \\) -print\". Read both native results/logs before launching or merging anything else; their first source PR290 action may already have completed. Re-probe credential status/inventory, read programme-state and final Cloudhold/partialcleanup receipts, then capture fresh native service/storage and exact PR state before choosing the next operation.",
+  "successor": {
+    "session_id": null,
+    "acknowledged_at": null
+  }
+}

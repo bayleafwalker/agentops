@@ -1,0 +1,79 @@
+{
+  "schema": "operator-command-package/v1",
+  "package_id": "vuoro-service-0-1-104-rollout",
+  "title": "Roll the vuoro-cloud tenant runtime from vuoro-service 0.1.94 to 0.1.104",
+  "gate_kind": "deployment",
+  "programmes": [
+    "docs/dispatch/programmes/2026-10-24/03-cloud-product.md"
+  ],
+  "work_refs": [],
+  "owner": "release train owner: operator-designated coordinator (default-assigned 2026-11-07)",
+  "readiness": "blocked",
+  "blockers": [
+    {
+      "description": "config/compatibility.json still pins vuoro-service-v0.1.94 with release_ready false; pyproject.toml lists both the vuoro-service 0.1.100 and 0.1.104 wheel URLs (separate extras). The pin change and its compatibility evidence are source work that must land first. 0.1.102 and later need work schema 30 and 0.1.103 needs Work31, so the tenant work-schema mapping must be known.",
+      "resolved_by": "source PR in vuoro-cloud bumping config/compatibility.json and apps/runtime-config/compatibility.json, plus the tenant schema-version mapping contract from the vuoro repo"
+    },
+    {
+      "description": "The rollout ships through a promotion.",
+      "resolved_by": "package vuoro-cloud-poc-promotion"
+    }
+  ],
+  "why_operator": "Moving the tenant runtime is a deployment change through the signed promotion path, and the runtime pin lives in a SOPS-encrypted Secret that only the operator's age key can verify.",
+  "host": "operator workstation",
+  "directory": "/projects/dev/vuoro-cloud",
+  "preconditions": [
+    {
+      "check": "Declared pin on canonical main",
+      "command": "git fetch origin && git show origin/main:config/compatibility.json | grep -n 'vuoro-service\\|release_ready'",
+      "expected": "vuoro-service-v0.1.104@sha256:<digest> and release_ready true after the source PR lands",
+      "verified_at": "2026-11-07T09:00Z",
+      "observed": "vuoro-service-v0.1.94@sha256:91f61cea...; release_ready false (not yet ready)"
+    },
+    {
+      "check": "Published 0.1.104 wheel digest matches the attested release",
+      "command": "git show origin/main:pyproject.toml | grep vuoro-service",
+      "expected": "sha256=39f5ee328a8e4dd96f119c651d64e063811b3202d0ea621165f43231c51dc8e4",
+      "verified_at": "2026-11-07T09:00Z",
+      "observed": "pyproject.toml line 39 pins vuoro-service-v0.1.104 with sha256=39f5ee32...c8e4 (equal to the attested wheel); line 35 also pins 0.1.100"
+    }
+  ],
+  "commands": [
+    {
+      "step": 1,
+      "command": "SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt make verify-runtime-pin",
+      "expected": "compatibility.json, its runtime-config mirror and the decrypted Secret agree on the 0.1.104 image; non-zero exit means not verified",
+      "exact": true
+    },
+    {
+      "step": 2,
+      "command": "Run package vuoro-cloud-poc-promotion for the head that carries the pin change",
+      "expected": "promote-deployment succeeds",
+      "exact": false
+    },
+    {
+      "step": 3,
+      "command": "agentops estate status --env vuoro-cloud --fetch",
+      "expected": "running tenant-runtime pin reported as the 0.1.104 digest (or unknown with a reason); held tenants unchanged; gate none or the next named gate",
+      "exact": true
+    }
+  ],
+  "expected_result": "Pilot tenant runtime serving vuoro-service 0.1.104 with the declared and deployed pins equal; four held tenants untouched.",
+  "send_back": [
+    "verify-runtime-pin output (pass or the exact mismatch)",
+    "The promotion send-back items",
+    "The step 3 report (markdown output)"
+  ],
+  "rollback": {
+    "description": "Promote a new higher generation pinning the previous runtime digest; the expanded schema stays (forward-only migrations).",
+    "commands": [
+      "Run package vuoro-cloud-poc-promotion with the previous accepted digest"
+    ]
+  },
+  "references": [
+    "/projects/dev/vuoro-cloud/docs/runbooks/operator-actions.md (Verify the tenant runtime pin)",
+    "docs/plans/2026-11-06-vuoro-cloud-migration-plan.md"
+  ],
+  "created": "2026-11-07",
+  "last_verified": "2026-11-07"
+}

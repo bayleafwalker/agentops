@@ -1,0 +1,91 @@
+# Handoff 2026-10-01-all-project-followups-admin-2-2b.v1
+
+<!-- Rendered from the canonical JSON beside this file. Do not hand-edit:
+     `agentops handoff validate` and `ack` read the JSON, never this. -->
+
+**Objective.** Finish all authorized follow-ups: agentops#2578, #2579 and #2582, validate and land every resulting change on canonical main, close tracker reservations, and leave no hanging PRs or own worktrees.
+
+**Next action.** After ack and restating constraints, run credential status/inventory, then inspect gh pr view 302 --json headRefOid,state and gh pr checks 302 with require_escalated; independently verify latest b7a0c64 native deletion/upstream guard, merge green exact head. Then update Cloud expected scope set and implement real-role lifecycle integration tests before making further implementation claims.
+
+## Predecessor
+
+- harness: Codex
+- session: 01a0f877-5d9c-7013-866f-1da09209589b
+- model: gpt-6
+- context used: unknown%
+- transcript: unknown
+- origin: `workstation:/projects/dev/agentops/docs/dispatch/handoffs/2026-10-01-all-project-followups-admin-2-2b.v1.json` (authoritative copy; an ack from another host goes through it)
+
+Read-only after transfer: once a successor acks, the predecessor makes no
+edits and takes no external actions. It stays consultable.
+
+## Constraints
+
+- User explicitly authorized review and fixes across all projects, merges to main, and follow-up of all three remaining pickups. Latest request is Produce Handoff; predecessor stops task work after producing it.
+- Read /projects/dev/AGENTS.md and repository AGENTS.md. Network calls require exec_command sandbox_permissions=require_escalated; empty sandbox output is not evidence of absence. Before credential reasoning run agentops/hooks/forge-credential.sh status and inventory. Use packaged /run/current-system/sw/bin/credctl, never the uncommitted venv client or raw admin/personal tokens.
+- Cloud code commits/PRs/merges are authorized. Deployment, promotion, Terraform, Flux or cluster mutation require separate operational authorization under vuoro-cloud/.claude/gates.json. Do not claim live rollout from code validation.
+- Preserve unrelated dirty audit shards, .codex/hooks.json, untracked handoffs, artifacts and other sessions' worktrees. Current own worktrees are /projects/dev/_wt/dispatch-followups and /projects/dev/_wt/admin-2.2b.
+- Do not spawn subagents absent explicit applicable instructions. Two existing read-only reviewers /root/review_existing_pickups and /root/publication_design were reused; their latest findings are summarized below.
+- Tracker must use served backend: SPRINTCTL_BACKEND=served SPRINTCTL_VUORO_PROFILE=/projects/dev/agentops/environment-record/profiles/workstation-vuoro-shared.json from primary agentops checkout. Its .envrc is intentionally blocked; never allow it. Active maintenance work item is 559. Accept items only after actual landing; then release reservations.
+
+## Decisions
+
+- **Original cross-project sweep completed before follow-up work** — Hook fixes landed agentops PR300 (8755df34), 10 missing aliases plus 3 library aliases restored, 7 duplicate Stop registrations removed; checker 42 registrations, zero failures. Agentops PR254 merged (582e8ef). PR301 native publisher and run-worktree fixes merged 6aded3fce0827ca53bbdd8e9691166a4e6dc2438; #2563/#2597 accepted decisions 191/192, reservations154/155 released. Cloud admin2.2a PR203 merged 360e0a4, 377 role-backed tests; #2581 accepted decision190. HA elisa PR15 merged70e2206 with green postmerge CI. Appservice PR1808 CLI-only Talos14.2 bump retired because fleet remains14.1; branch deleted. Cloud PR208 candidate67 merged by another active session. Sweep found zero open PRs across45 repositories plus wizard via fj; served note4171 supersedes earlier wizard blocker4162.
+- **Agentops dispatch fixes are committed and pushed on PR302, all CI green as of handoff** — Worktree /projects/dev/_wt/dispatch-followups, branch fix/dispatch-followups, commits752ec43 and b7a0c64. PR https://github.com/bayleafwalker/agentops/pull/302 title hand-pass: fix(dispatch): fail fast and retire delivered run branches. Latest gh pr checks302 passed append-only-shards, protected-paths, scripts-tests, templates-dispatch-allowlist. Full base scripts suite1194 passed/1129 subtests/20 skips; latest branch retirement targeted9 passed. Protected workflow edits require hand-pass title and independent review.
+- **#2578 fail-fast readonly probe and #2579 conservative native Git retirement** — Both saved workflow entry points probe dispatch-readonly before groups/pipeline/workspace, reject exception/null/available false with launch-from-/projects/dev/agentops remedy. Test harness covers both and all three failures. scripts/dispatch_run_branches.py fetches origin/main, reports dispatch/run-* ancestry/occupancy/age, removes only explicitly named clean registered /projects/dev/_wt/dispatch-* worktrees with --apply, and retires only merged free branches using git branch -d with canonical origin/main command-local upstream. Existing alternate or ambiguous upstreams are refused. Native delete catches concurrent tip advance and checkout; tests force both. No force-delete or stale-fetch fallback.
+- **Cloud admin2.2b implementation exists uncommitted and is not yet validated** — Worktree /projects/dev/_wt/admin-2.2b, branch feat/admin-2.2b, base d0a67cdac817435a7ef678242244ba0807e09d33 (candidate67). New lifecycle.py mechanically extracts operator services with unchanged route decorators, uses BoundDatabase to share admin operation transaction, recursively redacts invitation/token/secret/device_code/credential/details from operation steps/audit while preserving invitation response. Adds workspace create/transfer and safe member admin-actions projection. admin.py adds scoped rollout, invitation, epoch, drain, migration, backup, service-controls, analytics, invite-request twins, typed assertion envelopes and canonical params, plus create/transfer. principal_ops records heir previous membership and old-owner revoke/admin choice. CLI/browser member projection accepts any active membership and exposes exact safe columns only. OAuth adds workspace.lifecycle and backup scopes; operations adds backup-observation.record. New migration024 and db_roles grants are narrow column grants where possible.
+- **Admin2.2b hidden acceptance requirements** — m1 bootstrap redemption now requires existing authenticable non-disabled approved user and active membership, rather than ensure_user_subject resurrection; refuse missing/reclassified/disabled without PAT. n4 transfer audit and steps must include previous heir membership state/role. n5 document 2.3 sweeper for abandoned requested operations after challenge TTL to mark failed and allow retry. n6 notifier public DNS resolving private IP: NetworkPolicy /32 is real guard; verify/document. All mutations need assertion failure tests, destructive transfer needs UV/PIN. Create supports valid human owner, or unexpired valid test principal only with is_test=true. Atomic workspace/owner/project/outbox. Projection schema vuoro-admin-actions/v1 and exact created_at/action/actor/actor_kind/reason/outcome/operation_id/target only, newest first, limit1..200; browser and CLI any active member, outsiders/revoked denied.
+- **Active tracker ownership** — Items2578,2579,2582 status active. Reservations156 release hash9f421137ffa44c9b6a22d6b006612956825cfc9228b3b8b377f06cfe329afbf3;157 hashdeea2100894c2a2df0f247beb88ee4b981aa8659bde5662491a2e4dc10256e44;158 hash7a2a5b3ed232fac834d01a79f8ded7023d68ccf7c64d3ce24fc87f29b0f576d8. Keep ownership until each main landing and terminal acceptance, then release. Exact CLI help should guide decide/release arguments.
+
+## Rejected
+
+- **Wizard credential workaround** — wizard-valley-world-window is the broker's deliberate negative control. Native EDITOR=true fj -H git.apps.kotona.app repo view bayleaf/wizard-valley-world-window verified zero PRs and local clean main zero ahead/behind. Do not alter broker policy or use broad tokens.
+- **update-ref CAS for branch retirement** — Reviewer reproduced deleting a branch checked out after enumeration. Native git branch -d rejects occupancy and concurrent unmerged advance. Command-local upstream alone also fails because branch.merge is multivalued: explicitly refuse alternate/multiple existing upstream values before native delete. Fix committed b7a0c64; ask reviewer for final confirmation.
+- **Raw lifecycle result in admin operation audit** — Invitation creation returns a secret. Recursive audit_safe_result must redact steps/audit while response keeps invitation; add integration assertion that secret is absent from durable audit/operation data.
+- **Cloud test_control_integration.py** — This file does not exist; operator tests are tests/test_postgres_integration.py. Initial run exited4 before tests. Use nix develop -c uv run --extra test to obtain Python3.12/PostgreSQL18.
+- **Treat old scope equality test as implementation regression** — Focused admin_principal_integration plus admin_unit run passed55 then failed test_admin_scope_registry_is_disjoint_from_the_mcp_registry because its expected set still contains only old3 scopes. Update expected set to include lifecycle/backup and retain disjointness checks. No new lifecycle integration tests written yet.
+
+## Repo state
+
+Digest definition: v5 (see the handoffs README).
+
+| path | branch | head | dirty | unpushed | diff_sha256 |
+|---|---|---|---|---|---|
+| `/projects/dev/agentops` | main | `6aded3fce082` | yes | 0 | `5e88839d23d87b77…` |
+| `/projects/dev/_wt/dispatch-followups` | fix/dispatch-followups | `b7a0c64057c6` | no | 0 | `e3b0c44298fc1c14…` |
+| `/projects/dev/vuoro-cloud` | main | `d0a67cdac817` | no | 0 | `e3b0c44298fc1c14…` |
+| `/projects/dev/_wt/admin-2.2b` | feat/admin-2.2b | `d0a67cdac817` | yes | 0 | `4c6783e4b98a7b1e…` |
+| `/projects/dev/appservice` | main | `995d4ae9e06a` | yes | 0 | `abda0efaab317279…` |
+| `/projects/dev/ha-elisa-kotiakku` | main | `70e220697f46` | no | 0 | `e3b0c44298fc1c14…` |
+| `/projects/dev/wizard-valley-world-window` | main | `48bc31f8cfd5` | no | 0 | `e3b0c44298fc1c14…` |
+
+**Running:**
+
+- No known running test or push sessions. Dispatch push session31768 completed successfully. Cloud last test session4237 completed exit1 (55 passed plus obsolete scope assertion). GitHub PR302 CI complete green. Existing review agents are idle/consultable, no concurrent implementation.
+
+## Unresolved
+
+- PR302 is green but UNMERGED. Obtain independent reviewer confirmation of b7a0c64 upstream guard, merge exact head on GitHub, sync primary main safely, remove own worktree/branch, accept2578/2579 and release156/157.
+- Cloud code is UNCOMMITTED. Changed admin.py,cli_routes.py,control.py,db_roles.py,oauth_scopes.py,operations.py,principal_ops.py,vuoro_cloud_cli/user_commands.py; new lifecycle.py and migrations/024_admin_lifecycle_grants.sql. ruff check --fix/format already run. Review signatures and defaults, operator parity, permissions, transaction behavior and redaction.
+- Write tests/test_admin_lifecycle_integration.py using real admin role via admin_env (tests/test_admin_integration.py:200) and Ops soft authenticator (tests/test_admin_operations_integration.py:65). Ops default only lifecycle scope; supply principal/read/backup as needed. Ops.challenge+sign then POST actual routes; Ops.run mounts probe and is not a real mutation test. Seed helpers in test_admin_principal_integration.py. Cover every twin success, assertion missing on all mutations, transfer missingUV, invalid/disabled/nonhuman owners, test owner flag/expiry, prior membership, atomic rollback, invitation secrecy, browser and CLI projection membership and columns, disabled/reclassified bootstrap no PAT, gateway404 paths, role grants. Existing CLI unit fixtures in test_cli_user.py, OAuth/CLI integration in test_cli_routes_integration.py and test_oauth_as_integration.py.
+- Document admin challenge targets/canonical params chosen by code (invitations target invitations; epoch subject; backup backup_id; service-controls target service-controls; invite-request id; create slug; transfer workspace id). Add n5 runbook and verify n6. Reorder POST_SPLIT_GRANTS024 after023 for clarity. Fetch origin before confirming024 is still free; other active sessions may advance main.
+- Run focused failures then required full Cloud tests, ruff and repo CI validation. Final review against docs/plans/2026-09-30-admin-slice-2.2-spec.md, agentops docs/plans/2026-09-27-admin-identity-and-vuoro-cli-design.md and multi-resource authorization contract, then product intention records19-PRODUCT-POSITIONING-AND-PROOF.md and00-EXECUTIVE-DECISION.md. Do not retire operator routes yet; one generation coexistence until unitR.
+- Commit/push Cloud origin (canonical Forgejo; GitHub passive replica), open PR with scoped broker write capability, wait ALL CI noPending, merge via credctl merge --repository forgejo:bayleaf/vuoro-cloud --pr N --head-sha FULL --style fast-forward-only --forgejo-url https://git.apps.kotona.app. Clean own checkout/branches, sync primary safely, accept2582/release158. Final sweep must distinguish unable-to-check from zero PRs.
+
+## Evidence
+
+- artifact: `/projects/dev/_wt/dispatch-followups/scripts/dispatch_run_branches.py`
+- artifact: `/projects/dev/_wt/dispatch-followups/scripts/tests/test_dispatch_run_branches.py`
+- artifact: `/tmp/dispatch-followups-pr.md`
+- artifact: `/projects/dev/_wt/admin-2.2b/docs/plans/2026-09-30-admin-slice-2.2-spec.md`
+- artifact: `/projects/dev/_wt/admin-2.2b/src/vuoro_cloud/lifecycle.py`
+- sprintctl: `agentops#2578, agentops#2579, agentops#2582; reservations156/157/158; note4171`
+
+## sprintctl bundle
+
+- none (sprintctl unavailable or produced no bundle)
+
+## Successor
+
+- session: 01a102d4-c0d5-7591-90a8-34b1ba3c2617
+- acknowledged: 2026-10-03T17:35:12Z

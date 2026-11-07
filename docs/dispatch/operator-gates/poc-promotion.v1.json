@@ -1,0 +1,92 @@
+{
+  "schema": "operator-command-package/v1",
+  "package_id": "vuoro-cloud-poc-promotion",
+  "title": "Promote the next vuoro-cloud deployment generation (v0.1.0-poc.N)",
+  "gate_kind": "promotion",
+  "programmes": [
+    "docs/dispatch/programmes/2026-10-24/03-cloud-product.md"
+  ],
+  "work_refs": [],
+  "owner": "release train owner: operator-designated coordinator (default-assigned 2026-11-07)",
+  "readiness": "blocked",
+  "blockers": [
+    {
+      "description": "No reviewed main head is frozen for this generation yet, so PROMOTION_EXPECTED_HEAD and the canonical OCI digest from the Forgejo publish-image run for that head are not known. P5 (#353) is still open on Forgejo.",
+      "resolved_by": "coordinator: freeze the reviewed head after #353 lands, read the publish-image digest for it, and fill steps 2 and 4"
+    }
+  ],
+  "why_operator": "The promotion declaration is signed with the dedicated OpenPGP promotion identity AB73 C1C5 617B 5098 038C DA95 3AF9 5EDE B824 3BE7 on the owner's YubiKey (touch to sign). Key availability is not release authorization; each generation needs scope-specific approval.",
+  "host": "operator workstation",
+  "directory": "/projects/dev/vuoro-cloud",
+  "preconditions": [
+    {
+      "check": "Newest deployment tag on canonical Forgejo, so N is the next integer",
+      "command": "git ls-remote --tags origin 'v0.1.0-poc.*' | sed 's#.*refs/tags/##' | grep -v '\\^{}' | sort -t. -k4 -n | tail -1",
+      "expected": "v0.1.0-poc.81 (so N = 82) unless another promotion happened since",
+      "verified_at": "2026-11-07T09:00Z",
+      "observed": "v0.1.0-poc.81"
+    },
+    {
+      "check": "Local main equals the frozen reviewed head and has no tracked changes",
+      "command": "git fetch origin && git status -sb && git rev-parse origin/main",
+      "expected": "## main...origin/main with no tracked modifications; origin/main equals the frozen head",
+      "verified_at": null
+    },
+    {
+      "check": "Promotion keyring present and YubiKey answers",
+      "command": "GNUPGHOME=/home/bayleaf/.config/vuoro/openpgp gpg --card-status | grep -i 'signature key'",
+      "expected": "Signature key line showing AB73 C1C5 617B 5098 038C DA95 3AF9 5EDE B824 3BE7",
+      "verified_at": null
+    }
+  ],
+  "commands": [
+    {
+      "step": 1,
+      "command": "git checkout main && git pull --ff-only origin main",
+      "expected": "Fast-forward or 'Already up to date'",
+      "exact": true
+    },
+    {
+      "step": 2,
+      "command": "PROMOTION_EXPECTED_HEAD=<frozen 40-hex head> scripts/promote-release.sh sha256:<canonical OCI digest> 82",
+      "expected": "Two YubiKey touches; branch and tag v0.1.0-poc.82 pushed to origin; a Forgejo PR URL printed with the next steps",
+      "exact": false
+    },
+    {
+      "step": 3,
+      "command": "fj pr merge <PR number printed in step 2> -M fast-forward-only",
+      "expected": "PR merged fast-forward, signature kept",
+      "exact": false
+    },
+    {
+      "step": 4,
+      "command": "curl -sS -o /dev/null -w '%{http_code}\\n' -X POST -H \"Authorization: token $(cat ~/.config/forgejo/workstation-scope-token)\" -H 'Content-Type: application/json' https://git.apps.kotona.app/api/v1/repos/bayleaf/vuoro-cloud/actions/workflows/promote-deployment.yaml/dispatches -d '{\"ref\":\"v0.1.0-poc.82\",\"inputs\":{\"deployment_tag\":\"v0.1.0-poc.82\",\"image_digest\":\"sha256:<canonical OCI digest>\"}}'",
+      "expected": "204",
+      "exact": false
+    },
+    {
+      "step": 5,
+      "command": "fj actions tasks --repo bayleaf/vuoro-cloud --host git.apps.kotona.app",
+      "expected": "promote-deployment run for v0.1.0-poc.82 succeeds",
+      "exact": true
+    }
+  ],
+  "expected_result": "Signed tag v0.1.0-poc.82 on Forgejo and the private GitHub replica with identical object IDs, the same OCI digest in GHCR, a promotion receipt, and Flux selecting the tag.",
+  "send_back": [
+    "The PR number and the promote-deployment run ID with its final status",
+    "Output of: git ls-remote --tags origin v0.1.0-poc.82 and git ls-remote --tags github v0.1.0-poc.82",
+    "Any refusal text from promote-release.sh or the workflow, verbatim"
+  ],
+  "rollback": {
+    "description": "Image rollback is a new higher signed tag pinning the previous accepted digest (D-037/D-038); tags are never moved or deleted. Migrations are forward-only and expand/contract (migration plan), so the previous image must run against the expanded schema: check the migration plan's rollback rule and the credential-rotation runbook's image-only rollback hazards before re-promoting. Before step 4 nothing is deployed: abandon by closing the PR and leaving the tag unused.",
+    "commands": [
+      "PROMOTION_EXPECTED_HEAD=<new frozen head> scripts/promote-release.sh sha256:<previous accepted digest> <N+1>"
+    ]
+  },
+  "references": [
+    "/projects/dev/vuoro-cloud/docs/CI-AND-INTEGRATION.md (Promotion, distribution and recovery policy)",
+    "/projects/dev/vuoro-cloud/scripts/promote-release.sh"
+  ],
+  "created": "2026-11-07",
+  "last_verified": "2026-11-07"
+}

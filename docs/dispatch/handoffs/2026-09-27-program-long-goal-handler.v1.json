@@ -1,0 +1,155 @@
+{
+  "schema_version": "handoff/v1",
+  "handoff_id": "2026-09-27-program-long-goal-handler.v1",
+  "version": 1,
+  "created_at": "2026-09-27T08:49:01Z",
+  "origin_host": "workstation",
+  "origin_path": "/projects/dev/agentops/docs/dispatch/handoffs/2026-09-27-program-long-goal-handler.v1.json",
+  "origin_cwd": "/projects/dev/agentops",
+  "track": "program-long-goal-handler",
+  "predecessor": {
+    "harness": "claude-code",
+    "session_id": "bef3ec08-dbcc-4a95-902a-fbc16833f9b3",
+    "transcript_path": null,
+    "model": "claude-opus-5-5",
+    "context_used_pct": null
+  },
+  "objective": "Carry the vuoro.cloud program forward: finish Milestone 1 (record and resume real work) per the operator-reviewed plan (agentops docs/plans/2026-09-27-backlog-ideation.md, 'Revision after operator review', PR #253), land #2519 (assertion replay protection), implement the admin/user identity and vuoro-cli design once its PR exists, and keep release trains moving (vuoro release -> vuoro-cloud pin -> signed promotion -> tenant roll). State at handoff (2026-09-27 ~12:00 EEST): generation 47 (v0.1.0-poc.47, vuoro-cloud 332faa4, image sha256:4c5f0a49\u2026) is live and verified; tenants kotona and isolation-proof run vuoro-service 0.1.76 (sha256:2815fbd3\u2026, sprintctl 0.8.0, work schema 17). E2 run/evidence and E3 propose+reconciler are merged; M1-1..M1-3 (#2521-#2523) are accepted; the first reconstructable automated session exists (vuoro#140, run_M3ZZS6FM0WRW90GNMWX35649PJ, conformance CONFORMANT, TS-16 coverage 1/2).",
+  "constraints": [
+    "Merge/mutation/publish/deploy approval: the operator approved mutations against main, deployments and running-service mutations for session bef3ec08 only. Ask again.",
+    "Before merging any PR, an independent review by a fresh read-only subagent must be posted on the PR (GitHub comment; Forgejo: in the PR body at creation). This includes commits the session writes itself (rebase glue, pin bumps, one-line fixes). The auto-mode classifier blocks unreviewed/self-approved merges ([Merge Without Review], [Self-Approval]); on a denial, stop and give the operator the exact command, never route around it.",
+    "vuoro-cloud (Forgejo) is fast-forward-only: credctl merge --repository forgejo:bayleaf/vuoro-cloud --pr N --head-sha <40-char> --style fast-forward-only --forgejo-url https://git.apps.kotona.app. Same for gitops-nixos and cred-broker. fj needs --repo bayleaf/<repo> outside a checkout; fj pr status can crash; use `fj actions tasks --repo \u2026 --host git.apps.kotona.app` for CI.",
+    "Promotion: pin the four workload manifests to the Forgejo-built digest first, then the operator runs scripts/promote-release.sh sha256:<digest> <gen> (YubiKey), agent verifies signed tag (GNUPGHOME=~/.config/vuoro/openpgp git verify-tag) and CI, ff-merges the candidate, operator dispatches promote-deployment.yaml with curl (workstation-scope-token), agent verifies Flux SourceVerified + pod imageIDs. Tenant rolls are an operator browser-console PATCH {desired_state:READY}; each runs vuoro-migrate on the new image (forward-only; take a CNPG Backup CR first).",
+    "Cloud work: dispatch with `claude --cloud` from a trusted checkout (credit-billed), not Routines (plan window). Include every repo the session must push to in its sources; if a session starts from a seed bundle and hits a push 403, ask the operator to attach the repo mid-session. Follow-ups: claude -p '<msg>' --cloud <session_id> --output-format json.",
+    "TS-16 unamended: cloud callers only queue effects; acceptance is trusted-side (interactive, or opt-in trusted-side auto-accept). vuoro:effect.propose and vuoro:work.claim stay reserved until durable intent store / exclusive lease exist and every tenant runtime serves the tools (the edge refuses assertions carrying authorities with no tools).",
+    "Operator preferences: no artificial gates (criteria are cheap checks of finished work, not entry gates; bias to trying); maximal changes on main, no stale feature branches; vuoro.cloud owns telemetry, homelab-analytics consumes it and may prescribe actions; product direction is split-horizon with vuoro.cloud as the primary endpoint (see memory product-direction-split-horizon).",
+    "Scratchpad worktrees off origin/main; never edit or pull the shared checkouts under /projects/dev except where the operator asks (audit shards are now committed automatically by the audit-shards-commit timer; do not commit shards by hand)."
+  ],
+  "decisions": [
+    {
+      "what": "TS-16 kept unamended (operator 2026-09-26/27)",
+      "why": "Codex review C1: synchronous propose is apply authority. Effects are queued intents; acceptance trusted-side; opt-in auto-accept policy only trusted-side. agentops #251."
+    },
+    {
+      "what": "Milestones M1 record+resume / M2 one bounded effect / M3 widen replace the 'next 10 dispatches'",
+      "why": "Operator review of PR #253; M1 filed as #2521-#2525; lease owner for effect intents recommended sprintctl (R4)."
+    },
+    {
+      "what": "Telemetry owned by vuoro.cloud; homelab-analytics consumes and may prescribe actions",
+      "why": "Operator decision 2026-09-27, recorded on agentops PR #256."
+    },
+    {
+      "what": "blocker12-canary tenant (orphaned synthetic owner) kept until an audited admin retirement path exists",
+      "why": "Operator decision; no bypass of membership checks."
+    },
+    {
+      "what": "Audit shards committed automatically",
+      "why": "agentops #257/#260 + gitops-nixos #6: hourly user timer, commits only shard paths in each checkout, protected mains land via shard-only PR + credctl ff merge."
+    }
+  ],
+  "rejected": [
+    {
+      "what": "Retrying classifier-denied merges or using the operator's Forgejo token to work around fj scope limits",
+      "why": "Routing around a denial; hand the exact command to the operator instead."
+    },
+    {
+      "what": "Deleting Routines via API",
+      "why": "Not supported by RemoteTrigger; seven finished build Routines were disabled instead (operator may delete in UI). 'Vuoro connector validation' (trig_011h9rgNW69ZiNzbnmmp1n2G) is kept: it is the evidence Routine tracked by the TS-16 cohort."
+    }
+  ],
+  "state": {
+    "repos": [
+      {
+        "path": "/projects/dev/agentops",
+        "head": "c9f88e7c0ee669eab03aa277afbf98cd574c2c68",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "24bef0cd717d4668176b42d8c9b664aac57bdb51df63fd52b4529555eb79f552",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/vuoro",
+        "head": "3a0006a1377168af14643e20300f1b211a0a6076",
+        "branch": "main",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/vuoro-cloud",
+        "head": "332faa4c2087a42d4ba220f4c2ee2dfa8aff5a71",
+        "branch": "main",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/sprintctl",
+        "head": "20ff17d770db57014d6a5d5006fb75745b53b120",
+        "branch": "main",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      }
+    ],
+    "running": [
+      "Local Opus orchestrator for #2520 (claims lease) started from session bef3ec08 (subagent; its results come back to that session). If bef3ec08 is gone, find its PRs with `gh pr list -R bayleafwalker/sprintctl --search 2520` and `gh pr list -R bayleafwalker/vuoro --search 2520`; worktrees under /tmp/claude-1000/-projects-dev-agentops/bef3ec08-dbcc-4a95-902a-fbc16833f9b3/scratchpad/orch-2520/.",
+      "Cloud session session_01VtuKHjxZabGYYxkpBTkzt2: vuoro#134 fix-up (cross-process replay, deterministic lock test, jti regex relax, proofed-use cap).",
+      "Cloud session session_01GbNnkdsZpHQ2NAZwy7S96Y: admin identity + vuoro-cli design doc (agentops branch docs/admin-identity-vuoro-cli-design).",
+      "audit-shards-commit.timer (user systemd, hourly): state ~/.local/state/agentops/audit-shards/last-run.json, journalctl --user -u audit-shards-commit."
+    ],
+    "digest_version": 4,
+    "tracker_watermark": [
+      {
+        "item_id": "2520",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2519",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2526",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2525",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2524",
+        "status": null,
+        "status_revision": null
+      }
+    ]
+  },
+  "unresolved": [
+    "vuoro#134 (#2519 runtime replay protection): review found a cross-process replay blocker + 3 should-fix; fix-up sent to cloud session session_01VtuKHjxZabGYYxkpBTkzt2; re-review and merge pending. Rollout order verified: Forgejo #136 -> runtime release on every tenant -> Forgejo #135 -> vuoro-mcp audience split.",
+    "Forgejo vuoro-cloud PRs ready (reviewed, in body): #132 docs drift, #134 api.vuoro.cloud expired-session redirect, #136 edge-proof key mount; #135 gateway jti held until every tenant runs #134's runtime.",
+    "Admin/user identity + vuoro-cli design: cloud session session_01GbNnkdsZpHQ2NAZwy7S96Y pushed branch docs/admin-identity-vuoro-cli-design (e4c47d1); PR not yet opened at handoff. Operator wants a local Opus orchestrator to implement it in independent worktrees once it lands, then the same for remaining work.",
+    "Planning PRs open for operator reading (do not merge without operator): agentops #253 backlog (revised to milestones), #254 UI/UX + docs library, #255 ecosystem split-horizon architecture, #256 telemetry/audit/operator actions.",
+    "sprintctl items: #2520 (claims lease, p1, blocks #2524) in progress; #2524 M1-4 blocked; #2525 M1-5 waits for vuoro#134; #2526 edge schema deviations (after #134); #2527 OAuth scope upgrade gap (existing grants never gain new default scopes; claude.ai reconnect only refreshes).",
+    "Old read-only connector grant 01M3CBEBGYWYKG24XYF83KDKFC and test grants 01M3CA5Q802J5KECYJA2Y94M0K / 01M3CAQ5M9P7ZF9RVMGEXGXTBJ and drill PAT 01M3BTNG1X9C18D2FHE3YX88NA still active (operator: may keep for tests).",
+    "Follow-ups not yet filed: re-check devbox sprintctl CLI version (#2502 was withdrawn on workstation evidence only)."
+  ],
+  "evidence": [
+    {
+      "kind": "sprintctl",
+      "ref": "agentops sprint 559: #2466 #2467 #2515 #2516 #2517 #2490 #2521 #2522 #2523 accepted 2026-09-27 (decisions #144-#153); #2520-#2527 open"
+    },
+    {
+      "kind": "session",
+      "ref": "bef3ec08-dbcc-4a95-902a-fbc16833f9b3"
+    }
+  ],
+  "sprintctl_bundle_ref": null,
+  "next_action": "Ack this record. Then, at or after 15:00 EEST (the operator's 5h window resets then; pause until then): (1) Check the in-flight work listed under RUNNING and pick up whatever has reported: #2520 claims lease (a local Opus orchestrator from session bef3ec08; results arrive as PRs on bayleafwalker/sprintctl and bayleafwalker/vuoro titled '(agentops#2520)'; find them with gh pr list --search 2519/2520); vuoro#134 (#2519 runtime replay protection; cloud session session_01VtuKHjxZabGYYxkpBTkzt2 is applying the fix-up); the admin-identity/vuoro-cli design PR on agentops branch docs/admin-identity-vuoro-cli-design (cloud session session_01GbNnkdsZpHQ2NAZwy7S96Y). (2) Every PR gets an independent adversarial review by a fresh read-only subagent, posted on the PR (on Forgejo, put the review in the PR body at creation: fj's token cannot comment), before merge. (3) When vuoro#134 passes review: merge; then the vuoro-cloud side in order: Forgejo #136 (edge-proof key mount) + #132 (docs) + #134 (api.vuoro.cloud / redirect) as one generation, then vuoro-service release with #134's runtime, runtime pin, promotion, tenant roll (kotona then isolation-proof), and only after every tenant runs it: Forgejo #135 (gateway mints jti). Then #2526 (edge schema deviations; enable ENFORCE_EDGE_PROOF_AND_REPLAY in the strict-client job) and #2525 (M1-5 successor runs). (4) When the design PR opens and has its summary comment: dispatch a local Opus orchestrator to implement it in independent worktrees (operator request). (5) After #2520 lands: sprintctl 0.9.0 release, vuoro pin + service release, cloud generation, tenant roll with schema-18 migration, then grant vuoro:work.claim; then #2524 (M1-4 settlement proof).",
+  "successor": {
+    "session_id": "10b73718-a84c-4da8-923c-297e4d9743eb",
+    "acknowledged_at": "2026-09-27T12:02:15Z"
+  }
+}

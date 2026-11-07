@@ -1,0 +1,96 @@
+# Handoff 2026-09-27-ra2-channel-live-lab.v1
+
+<!-- Rendered from the canonical JSON beside this file. Do not hand-edit:
+     `agentops handoff validate` and `ack` read the JSON, never this. -->
+
+**Objective.** Get the RA2 channel to play and finish unattended live lab matches: stage 1 (two-client acceptance, match ends by itself, control_plane_lifecycle_complete=true) and stage 2 (Channel tool + fork ra2yrcpp DLL + agent seat that deploys its MCV), then land the lab kit in adapter#5 and run the pre-registered local-LLM shadow pass after the reboot.
+
+**Next action.** After the reboot: (1) `curl -s http://127.0.0.1:8020/v1/models` (worker-fast listed => GPU fixed); (2) start both lab clients and `cd /projects/bindery-vm/lab-kit-2026-09-27/lab && ./lab-run.sh --preflight`; (3) diagnose why the stage-1 AI houses never act (spawn HouseHandicaps=2 / Brutal overlay) test-first in the adapter's SpawnGameOptions, then rerun `./lab-run.sh --stage 1` until the match ends by itself with control_plane_lifecycle_complete=true.
+
+## Predecessor
+
+- harness: claude-code
+- session: 12b54b2a-2ada-4812-b58b-541e0f4682af
+- model: claude-opus-5-5
+- context used: unknown%
+- transcript: unknown
+- origin: `workstation:/projects/dev/agentops/docs/dispatch/handoffs/2026-09-27-ra2-channel-live-lab.v1.json` (authoritative copy; an ack from another host goes through it)
+
+Read-only after transfer: once a successor acks, the predecessor makes no
+edits and takes no external actions. It stays consultable.
+
+## Constraints
+
+- Operator approved deployment and mutations and asked to merge towards main; merge reviewed, CI-green PRs yourself (gh pr merge is now permitted). The classifier still blocks self-approving brand-new external repos/forks and scheduled tasks/persistence beyond the approved one: surface those to the operator.
+- gitops-nixos: Forgejo (origin, ssh forgejo-ssh.apps.kotona.app:2222/bayleaf/gitops-nixos) is canonical; land via Forgejo PR + `credctl merge --repository forgejo:bayleaf/gitops-nixos --pr N --head-sha <sha> --style fast-forward-only --forgejo-url https://git.apps.kotona.app`, then `git push github origin/main:refs/heads/main`. The hourly audit-shard timer moves main: rebase right before merging. Activation needs the operator's `nxs` (sudo). The deploy attribute is workstation-encrypted.
+- bindery-ra2-adapter, bindery-core, ra2yrcpp, ra2yrproto: GitHub (bayleafwalker/*) is canonical. Forks: ALWAYS pass -R bayleafwalker/<repo> to gh (a bare gh pr create in a fork targets shmocz upstream).
+- Never touch /projects/dev/bindery-ra2-adapter's working tree; use worktrees under /projects/dev/_wt/.
+- dotnet only via `nix shell nixpkgs#dotnet-sdk_8 -c dotnet ...` with sandbox disabled; TreatWarningsAsErrors; global.json pins the 8.0 SDK line.
+- Every fix: a test seen to FAIL then PASS; never weaken tests; quote raw dotnet test totals in commits/PRs.
+- Lab guests: drive them only through the QEMU guest agent (deploy/ra2-lab/ra2-vm-exec) and the operator-approved on-demand task \Bindery\BinderyLabRun (virtio, interactive, no triggers). No other tasks/services/Run keys/autologon. Take `qemu-img snapshot -c` before offline image changes. Nothing from the lab is published off the host; tokens never printed.
+- Bulk LLM work: local endpoint only (--llm-endpoint http://127.0.0.1:8020/v1 --llm-model worker-fast); pre-registration in docs/experiments/2026-09-27-llm-shadow-full-vocabulary-preregistration.md fixes the cell and criteria (N1-N4, G1-G3); one run, no retuning.
+
+## Decisions
+
+- **Merged: adapter #3 (channel, 80194d0), #4 (live ra2yrcpp transport, 1ad2536), #2 (strategic bot, a9c12bc), #6 (enrollment lease heartbeats, 05d7963); bindery-core #9 (b1c15f8); ra2yrcpp #1->base, #2 base->develop (a5c0619), #3 stable IDs (cbab959); ra2yrproto #1 stable IDs (e8754b5); gitops-nixos #20/#7/#8/#9 (Forgejo main fcd47f9 + later audit commits).** — Operator: 'include these and merge towards main, implement the intended scope'. Each PR reviewed (independent Opus review for #4), CI green, raw test totals quoted.
+- **Hands-off lab access = QEMU guest agent (already installed in the golden image) + an agent channel on each domain; not SSH.** — Clones have no sshd, and Windows classifies virbr0 as Public so all unsolicited inbound traffic is dropped; the agent needs no network. Verified: ra2-vm-exec runs as SYSTEM on both clients.
+- **Games start in the desktop session via the on-demand scheduled task BinderyLabRun (operator chose this option).** — guest-exec runs in session 0 (no desktop); the task runs in session 1 as virtio. Verified, 0 triggers.
+- **profiles.ra2Lab in gitops-nixos: libvirtd+swtpm, swtpm on system PATH, allowedBridges virbr0, ra2-lab-default-network unit, controlPlanePort 8080 opened on virbr0 only; ra2Channel (MediaMTX) enabled on workstation.** — Session VMs need swtpm on the user daemon's PATH; guests must reach the control plane on 192.168.122.1:8080; all verified after nxs (generation 72+).
+- **Enrollment leases are kept alive by EnrollmentLeaseKeeper (third of remaining lease, 5-30 s), merged as adapter#6.** — First stage-1 run: bindery-core's 2-minute lease lapsed mid-match -> exit reports 410 Gone -> session failed. Rerun with the fix: session running and enrollments active past 34 minutes, leases renewing.
+- **PR #2 CI fixes: global.json pins SDK 8.0.4xx, Enumerable.Reverse explicit; CRLF-safe VanillaIni edit; ThreadPoolHeadroom module initializer (min 64 workers) in Bot.Tests.** — Runner's newest SDK bound links.Reverse() to the void span overload; CRLF checkout broke a \n Replace (reproduced by converting to CRLF); starvation reproduced with taskset -c 0,1 + DOTNET_PROCESSOR_COUNT=2 (Failed 2 -> 0).
+- **LLM shadow metric pre-registered with N4 adaptability added before any model run (arm llm-shadow-t3, 24-match training cell).** — Critique #3 names adaptable/varied/explainable; N1-N3 covered only two.
+- **The black box on the operator's right monitor is a swaync notification pop-up (10 s layer surface) rendering black.** — Hyprland event log: only openlayer swaync-notification-window at 23:44:18, 23:50:27, 00:01:41; NVIDIA userspace 595.104 vs kernel 595.99.02 mismatch makes GPU clients (vivaldi gpu-process, swaync) fail. Reboot fixes; operator will re-verify.
+
+## Rejected
+
+- **Publishing the lab control plane through Docker (-p 192.168.122.1:8080) or running it inside client-a as a scheduled task** — Classifier denied (Security Weaken / Unauthorized Persistence); solved declaratively by gitops profiles.ra2Lab.controlPlanePort instead.
+- **The August harness on the guests' E: discs** — Built before a528b15: no AI houses, SkipScoreScreen or QuickExit, so matches cannot end unattended. The lab now uses tools published from adapter main (lab kit payload).
+- **Reaching the guests over SSH/WinRM** — No sshd in the clones; Public network profile drops inbound. Use the guest agent.
+- **ACPI shutdown of a logged-in guest** — Ignored by the desktop. Use qemu-agent-command guest-shutdown; virsh destroy only if the agent is dead.
+- **Vendoring ra2yrproto into the ra2yrcpp fork** — Operator asked for justification; chose a separate bayleafwalker/ra2yrproto fork (shared protocol, upstreamable single commit, ra2yrcpp stays submodule-synced).
+- **force-with-lease=<branch> against a URL remote** — No tracking ref -> rejected; pass the explicit expected sha.
+
+## Repo state
+
+Digest definition: v4 (see the handoffs README).
+
+| path | branch | head | dirty | unpushed | diff_sha256 |
+|---|---|---|---|---|---|
+| `/projects/dev/_wt/ra2-channel-live` | feat/ra2-lab-hands-off | `e8b69391e8fb` | no | 0 | `e3b0c44298fc1c14…` |
+| `/projects/dev/_wt/bindery-ra2-bot` | feat/strategic-bot | `77043c5837ca` | no | 0 | `e3b0c44298fc1c14…` |
+| `/projects/dev/gitops-nixos` | main | `9b152c07d583` | yes | 0 | `e3b0c44298fc1c14…` |
+
+**Running:**
+
+- Nothing running on the host (tunnel/control plane torn down, guests' game trees restored to stock). Lab VMs bindery-ra2-client-{a,b} are running under qemu:///session until the operator shuts down; tomorrow start them with `virsh -c qemu:///session start bindery-ra2-client-{a,b}` and wait for `virsh -c qemu:///session qemu-agent-command <dom> '{"execute":"guest-ping"}'`.
+
+## Unresolved
+
+- Stage 1 match never ends by itself. Rerun 20260927-233533-s1 (with the heartbeat fix) ran to the 40-minute cap: player-a kept 13 units/$10000 the whole time, the AI houses never acted; lab-run stopped the match at 00:17:42 (harness exit -1, no terminal reports), control plane still showed session running and both enrollments active (leases held 40 min — heartbeat fix proven). Relay 150484/150477 datagrams. Spawn has AIPlayers=2, Multi3/Multi4 with HouseHandicaps=2 — hypothesis: in yrpp-spawner the handicap is the AI difficulty (0=Hard, 2=Easy) and/or the Brutal overlay in spawnmap.ini does not take effect; check the spawner source/docs and whether GameState lists/grows the AI houses. Also: lab-run's telemetry counter prints -1 records for ~750 MB captures (fix the count).
+- Stage 2 never run: first live test of the fork DLL (libra2yrcpp.dll from adb9077 cross-build + libmcfgthread-2.dll from the nix mingw toolchain + fork zlib1.dll) and of the agent seat's deploy_mcv order.
+- lab-run.sh and helpers (gx, gpush, gpull, relay-counters, publish.sh) are prototypes with hard-coded paths (a swtpm store path now unnecessary after nxs, /projects/dev/_wt/ra2-channel-live/deploy/ra2-lab/ra2-vm-exec, /mnt/arch-home/bayleaf/Bindery/tunnel/run-private-tunnel.sh). Productize into deploy/ra2-lab/ on adapter#5 (branch feat/ra2-lab-hands-off, worktree /projects/dev/_wt/ra2-channel-live) after the first clean stage-1 and stage-2 runs.
+- Local-LLM shadow pass (pre-registered) waits for the reboot: NVML driver/library mismatch since the 19:17 switch; after reboot `curl -s http://127.0.0.1:8020/v1/models` should list worker-fast.
+- Oracle arm below the belief selector on held-out (74 vs 68/96) unexplained; bot spending model treats N factories as N parallel items; SkirmishSimulation spawn fallback uses StartRegions[0] (latent).
+- sprintctl #2110 not found in auditctl/agentops/bindery-ra2-bot scopes (auditctl #2315/#2316/#2317 closed with evidence notes).
+- Leftovers to clean: client-a C:\Bindery\lab-2026-09-27 (file locked by an old guest-agent handle; delete after guest reboot); scratchpad worktrees lab/core (bindery-core) and lab/adapter (adapter) — remove with `git worktree remove`.
+
+## Evidence
+
+- artifact: `/projects/bindery-vm/lab-kit-2026-09-27/lab/lab-run.sh (copy of the scratchpad lab kit: payload/, secrets/ mode 700, runs/, logs/; fork DLL build in ../xbuild)`
+- artifact: `/projects/bindery-vm/lab-kit-2026-09-27/lab/runs/20260927-232204-s1/evidence/client-a/evidence\live-acceptance-evidence.json (first stage-1 run: 410 Gone after lease lapse)`
+- artifact: `/projects/bindery-vm/lab-kit-2026-09-27/lab/runs/20260927-233533-s1 (stage-1 rerun with heartbeat fix; see lab-run.log and control-plane/state.json)`
+- artifact: `/projects/dev/_wt/ra2-channel-live/deploy/ra2-lab/README.md (guest-agent access, import-domains.sh)`
+- artifact: `https://github.com/bayleafwalker/bindery-ra2-adapter/pull/5 (open: lab tooling)`
+- artifact: `docs/experiments/2026-09-27-llm-shadow-full-vocabulary-preregistration.md (bindery-ra2-adapter main)`
+- artifact: `docs/architecture/strategic-bot-results.md + docs/results/2026-09-27-66c3185/ (bindery-ra2-adapter main)`
+- artifact: `/projects/dev/agentops/docs/dispatch/handoffs/2026-09-27-ra2-strategic-bot.v4.json (predecessor handoff this session acked)`
+- session: `12b54b2a-2ada-4812-b58b-541e0f4682af`
+
+## sprintctl bundle
+
+- none (sprintctl unavailable or produced no bundle)
+
+## Successor
+
+- session: (unacknowledged)
+- acknowledged: —

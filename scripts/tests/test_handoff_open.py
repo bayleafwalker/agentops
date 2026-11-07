@@ -486,7 +486,10 @@ class TestTrackAndOriginCwdOnCreate(unittest.TestCase):
         # predating the fields still validate; newer files legitimately carry
         # them and are checked for validity alongside.
         handoffs_dir = ROOT / "docs" / "dispatch" / "handoffs"
-        files = sorted(handoffs_dir.glob("*.json"))
+        # Sprintctl bundles (`*.sprintctl-bundle.json`) sit beside handoffs
+        # and are referenced by digest; they are not handoff documents.
+        files = sorted(p for p in handoffs_dir.glob("*.json")
+                       if not p.name.endswith(".sprintctl-bundle.json"))
         self.assertTrue(files)
         legacy = 0
         for path in files:

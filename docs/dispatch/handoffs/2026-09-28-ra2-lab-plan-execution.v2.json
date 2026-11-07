@@ -1,0 +1,174 @@
+{
+  "schema_version": "handoff/v1",
+  "handoff_id": "2026-09-28-ra2-lab-plan-execution.v2",
+  "version": 2,
+  "created_at": "2026-09-28T14:53:29Z",
+  "origin_host": "workstation",
+  "origin_path": "/projects/dev/agentops/docs/dispatch/handoffs/2026-09-28-ra2-lab-plan-execution.v2.json",
+  "origin_cwd": "/projects/dev/agentops",
+  "track": "ra2-lab-plan-execution",
+  "predecessor": {
+    "harness": "claude-code",
+    "session_id": "78afae49-36a2-422b-8478-1c13363193c6",
+    "transcript_path": null,
+    "model": "claude-opus-5-5",
+    "context_used_pct": 61.0
+  },
+  "objective": "Execute the operator-approved planner plan for the Bindery RA2 program: land the channel startup-crash retry, the agent seat's build path (place_building by type, own-production events, build_order routine) proven in a live stage-2 lab run, the pre-registered SeenAttackForceRatio experiment and the pre-registered short-rationale LLM shadow rerun, then the oracle Allied divergence study.",
+  "constraints": [
+    "Operator approved deployment, mutations, push and merge to main, the planner's recommendations, and the WER LocalDumps key on both guests; merge only reviewed (independent reviewer agent), CI-green PRs; gh pr merge --merge --match-head-commit <sha>.",
+    "Never force-push (this session broke that once on #13's branch with --force-with-lease; use follow-up commits). Never git stash (shared stack).",
+    "bindery-ra2-adapter, ra2yrcpp, ra2yrproto: GitHub bayleafwalker/* canonical; always pass -R bayleafwalker/<repo> to gh (forks default to shmocz upstream).",
+    "Never touch /projects/dev/bindery-ra2-adapter's working tree; worktrees under /projects/dev/_wt/ only.",
+    "dotnet only via `nix shell nixpkgs#dotnet-sdk_8 -c dotnet ...` with the sandbox disabled; TreatWarningsAsErrors; every fix a test seen to FAIL then PASS; never weaken tests; quote raw dotnet test totals (Adapter and Bot, Release) in commits/PRs.",
+    "Lab guests only via deploy/ra2-lab (ra2-vm-exec/push/pull) and the on-demand task \\Bindery\\BinderyLabRun; no other tasks/services/Run keys/autologon; nothing from the lab published off the host; tokens never printed.",
+    "Experiments: pre-registration committed and pushed before any run; one run, no retuning; no tuning on held-out data; bulk LLM work only on the local endpoint http://127.0.0.1:8020/v1 model worker-fast.",
+    "Fork DLL must be built with upstream's docker MinGW toolchain (shmocz/ra2yrcpp image built locally, not pushed); never the nix GCC15/mcfgthread build (quits on frame 0)."
+  ],
+  "decisions": [
+    {
+      "what": "Stage 1 unattended: the two AI houses are allied (SpawnAiParticipant.Team -> [MultiN_Alliances]); adapter #7",
+      "why": "Unallied AI fought each other for 40 min and never approached idle player-a (decoded capture); allied, player-a is defeated and the match ends itself (runs 20260928-104926/114735/121424-s1)."
+    },
+    {
+      "what": "Stage 2 works: ObjectTypeClass.id (ra2yrproto#2 f777d59, ra2yrcpp#4 7ac3641) and orders resolved on the seat's client by stable unique_id (adapter #10)",
+      "why": "Display names vs rules ids blocked the MCV routine; object addresses differ between clients (0x18fb8700 vs 0x18d87758, same uid 1070755). Seat deployed MCV in runs 120014, 124923 and the 6-run series."
+    },
+    {
+      "what": "Startup crash is inside DDRAW.dll (DDrawCompat 0.5.4) at offset 0x1C104 on both clients",
+      "why": "Located via the same-boot 32-bit module list of a live gamemd (SysWOW64 PowerShell, (Get-Process gamemd).Modules); faulting insn is a prologue push in a helper with 1158 callers => deep recursion. ~2/20 fork-DLL launches, 0/~18 stock. DDrawCompat.ini sets CpuAffinity=1."
+    },
+    {
+      "what": "Planner plan adopted (operator pre-approved): Q4 retry once in ChannelRunner, Q5 place_building by type on the seat's client, Q6 own-production events + BuildOrderRoutineController + spiral placement, Q1 pre-registered Seen 0.8 vs 1.0 decided on training cells, Q2 traced divergence after Q1, Q3 one short-rationale rerun then close the line if it fails",
+      "why": "Planner report in this session; DDrawCompat version/ini left unchanged because it would change the golden appliance."
+    },
+    {
+      "what": "Oracle gap explained, ratio not changed (adapter #16)",
+      "why": "Oracle always uses SeenAttackForceRatio 0.8 on exact enemy value; 40 seeds: selector 356 vs oracle 337/480, paired Allied 46 vs 1; changing it from held-out data would be held-out tuning."
+    },
+    {
+      "what": "LLM shadow pass (pre-registered) failed only N3 (0.119); Parameters tier stays",
+      "why": "Recorded in adapter #11; rerun under a new pre-registration is item Q3."
+    }
+  ],
+  "rejected": [
+    {
+      "what": "Changing the AI handicap to fix stage 1",
+      "why": "SpawnMatchPlan records 2026-08-25 measurement: 2 is aggressive, 0 passive; the cause was the missing alliance."
+    },
+    {
+      "what": "nix GCC 15 + mcfgthread cross-build of the fork DLL",
+      "why": "Game quits on frame 0 with nothing recorded; upstream docker toolchain build of the same commit plays full matches."
+    },
+    {
+      "what": "Treating Syringe exit code 3 as an abort",
+      "why": "3 is the normal QuickExit code; a crash shows an NTSTATUS 0xC....... exit (now notable, #12)."
+    },
+    {
+      "what": "ra2-vm-push through one virsh stdin session for all files",
+      "why": "8 s vs ~1 s per 5 MB; stdin path is opt-in --secret for tokens/settings only (#17)."
+    },
+    {
+      "what": "qemu-img snapshot before the WER registry change",
+      "why": "Unsafe on a disk in use by the running guest; the change is a single reversible key (revert: ra2-vm-exec <dom> 'Remove-Item -Recurse \"HKLM:\\SOFTWARE\\Microsoft\\Windows\\Windows Error Reporting\\LocalDumps\"')."
+    },
+    {
+      "what": "Resolving the crash offset as 0xC104 assuming 64K-aligned bases",
+      "why": "Wrong: the true module offset is 0x1C104 (base 0x72EE0000); use the same-boot module list."
+    },
+    {
+      "what": "Upgrading DDrawCompat or editing DDrawCompat.ini now",
+      "why": "Changes the golden appliance and breaks comparability; planner defers any fix to a fork-side A/B after a crash is captured with log and dump."
+    }
+  ],
+  "state": {
+    "repos": [
+      {
+        "path": "/projects/dev/_wt/ra2-channel-live",
+        "head": "89e6649b46cbe8e303cef7148bb64e4c67102ce9",
+        "branch": "feat/lab-keep-ddrawcompat-log",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/_wt/channel-retry",
+        "head": "bbdd78afe0e44da40c3d6868a8a9856d05747d80",
+        "branch": "plan/channel-retry",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/_wt/llm-prereg",
+        "head": "a60af92e606b8e4f7519b5db2c5b20ba5c842b7d",
+        "branch": "plan/llm-prereg",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/_wt/ra2yrcpp-docker",
+        "head": "c629c5157a47e6332b7052dad5f217d09b28742e",
+        "branch": "feat/object-type-id",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      }
+    ],
+    "running": [
+      "Seen-ratio arena runs: /projects/dev/_wt/sim-prereg/docs/results/2026-09-29-seen-ratio/run.sh (6 parallel arena runs + analysis, started 17:31, ~3 h; writes untracked results into that worktree; pre-registration committed and pushed as b343615 on branch plan/sim-prereg before the run).",
+      "Worker agent implementing plan items Q5/Q6 in /projects/dev/_wt/seat-build (owned by the predecessor session; if the predecessor is read-only, inspect the branch state and finish from its commits).",
+      "Lab VMs bindery-ra2-client-{a,b} running under qemu:///session, restored to stock ra2yrcpp; WER LocalDumps set for gamemd.exe on both.",
+      "Lab payload in RA2_LAB_HOME=/projects/bindery-vm/lab-kit-2026-09-27/lab built at adapter 18f0aa5 with the docker fork DLL from /projects/dev/_wt/ra2yrcpp-docker/cbuild/mingw-w64-i686-Release/pkg/bin; RA2_LAB_TUNNEL=/mnt/arch-home/bayleaf/Bindery/tunnel/run-private-tunnel.sh."
+    ],
+    "digest_version": 4,
+    "tracker_watermark": []
+  },
+  "unresolved": [
+    "Open PR #18 (keep DDrawCompat log per run + list dumps): needs independent review + CI, then merge.",
+    "Branch plan/channel-retry bbdd78a (pushed, no PR yet): open PR, independent review (note: its before-fix failure was only a compile error on new fields; reviewer should confirm behavioural coverage), CI, merge.",
+    "Branch plan/llm-prereg a60af92 (pushed, no PR): prompt bound + pre-registration docs/experiments/2026-09-29-llm-shadow-short-rationale-preregistration.md. Run it exactly as pre-registered (reuse docs/results/2026-09-28-llm-shadow-t3/run.sh with output docs/results/2026-09-29-llm-shadow-short-rationale), record the Outcome, PR, review, merge.",
+    "Seat build path (plan items Q5/Q6): worker in progress in /projects/dev/_wt/seat-build (branch plan/seat-build, WIP commit 8b9520e + uncommitted part 2). When done: review, push, PR, then a live `lab-run.sh --stage 2` with agentSeat routine build_order (render() in deploy/ra2-lab/lab-run.sh sets routine deploy_mcv; needs a way to choose build_order) proving produce -> completed -> place for three building types.",
+    "Seen-ratio experiment running (see running); when done read docs/results/2026-09-29-seen-ratio/{T,H1,H2}-analysis.txt, apply criteria C1-C4 exactly as pre-registered (C3 requires dotnet test with default 1.0 only if C1, C2, C4 pass), write the Outcome, PR.",
+    "Then Q2: short pre-registration docs/experiments/2026-09-29-oracle-allied-divergence-preregistration.md plus docs/experiments/oracle_divergence.py committed before reading traces; run --arms selector,selector-oracle --maps heldout --opponents ai-horde,ai-armor (all difficulties) --seeds 40 --benchmark contested --knob SeenAttackForceRatio=1.0 --trace <dir>.",
+    "Startup crash: wait for a crash with the DDrawCompat log (after #18) and check C:\\Bindery\\dumps (WER may not fire under Syringe); then the planner's pre-registered fork A/B (defer ra2yrcpp service threads to first game frame, >=60 launches per arm).",
+    "sprintctl #2110: not found in 9 scopes; untraceable - drop unless the operator names its repo."
+  ],
+  "evidence": [
+    {
+      "kind": "session",
+      "ref": "78afae49-36a2-422b-8478-1c13363193c6"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/docs/dispatch/handoffs/2026-09-27-ra2-channel-live-lab.v2.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/_wt/ra2-channel-live/deploy/ra2-lab/README.md"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/_wt/sim-prereg/docs/experiments/2026-09-29-seen-attack-ratio-preregistration.md"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/_wt/llm-prereg/docs/experiments/2026-09-29-llm-shadow-short-rationale-preregistration.md"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/bindery-vm/lab-kit-2026-09-27/lab/runs/20260928-171841-s2/lab-run.log"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/home/bayleaf/.claude/jobs/78afae49/tmp/series/summary.txt"
+    }
+  ],
+  "sprintctl_bundle_ref": null,
+  "next_action": "gh pr view 18 -R bayleafwalker/bindery-ra2-adapter --json state,headRefOid,mergeStateStatus && git -C /projects/dev/_wt/seat-build log --oneline origin/main..HEAD && ls /projects/dev/_wt/sim-prereg/docs/results/2026-09-29-seen-ratio/ ; then work the unresolved list in order.",
+  "successor": {
+    "session_id": null,
+    "acknowledged_at": null
+  }
+}

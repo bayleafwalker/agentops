@@ -1,0 +1,175 @@
+{
+  "schema_version": "handoff/v1",
+  "handoff_id": "2026-09-29-value-routing-dispatch.v1",
+  "version": 1,
+  "created_at": "2026-09-29T05:06:07Z",
+  "origin_host": "workstation",
+  "origin_path": "/projects/dev/agentops/docs/dispatch/handoffs/2026-09-29-value-routing-dispatch.v1.json",
+  "origin_cwd": "/projects/dev/agentops",
+  "track": "value-routing-dispatch",
+  "predecessor": {
+    "harness": "claude",
+    "session_id": "2b406a76-8b1b-409e-a492-c6ef35ed6dac",
+    "transcript_path": null,
+    "model": "claude-opus-5-5",
+    "context_used_pct": null
+  },
+  "objective": "Continue running the value-routing dispatch workflow (agentops .claude/workflows/vuoro-dispatch-build.js) on real sprint items, and fix what each run exposes, until the pending delivered items close through the gated path and the next batch of agentops-local items flows end to end. Routing and readiness add value rather than gate it: route -> refine (Opus 5.5) / oracle (Opus 5.5, separate author) -> build (Sonnet 5.5) -> independent verify -> up to 2 repairs -> park (git revert) -> publish verified work -> close. The operator is not escalated to by default.",
+  "constraints": [
+    "Nothing waits on the operator by default. Refine and decide from documented direction, recording decisions on the item. Raise to the operator only when product intention is entirely missing, or for the operator's own authority (their credentials, spending, irreversible production changes), with exact steps. Never track or count escalations as a metric.",
+    "Planners and refiners keep genuine oversight: router and lattice advice is advisory. Guard against Goodhart: never drop scope, only move it to a named follow-up with a 'build: scope moved' or 'refinement: intent moved' note. The verifier checks each move is justified.",
+    "Workflows use claude-sonnet-5-5 and claude-opus-5-5, with Haiku 4.5 clerical only. model-routing.json is canonical; change it via the model-routing-optimizer skill.",
+    "Every commit I author gets an independent review posted on its PR before merge. Land on main via PR, then remove worktrees and branches. Changes to .claude/workflows/* and other protected paths need a 'hand-pass:' PR title.",
+    "Do not close sprint items by hand. On 2026-09-28 the permission classifier blocked `sprintctl item status --status done` as a CI bypass. Items close only through the workflow's verified close stage.",
+    "sprintctl 0.10.0 uses the served backend with advisory reservations: `sprintctl agent-protocol`; `item status --expected-revision`; `--reason` is required for `--status pending`. In a fresh shell, prefix commands with `direnv exec .`, otherwise sprintctl refuses (`SPRINTCTL_BACKEND=local cannot be used`).",
+    "The workflow builds in the item's tracker repo only. Items tracked in agentops that change vuoro/sprintctl/appservice code cannot be dispatched yet. Do not dispatch appservice items with push, because pushing appservice main deploys via Flux."
+  ],
+  "decisions": [
+    {
+      "what": "Jev (TypeSafe System One) is offline only; routing decisions are recorded online as dispatch.route.decision events",
+      "why": "The hindsight evaluation (jev/eval/agentops-2026-09-28) found no router reliably better than Haiku: the two judges agree 70%, and rankings flip by judge. The online shadow cost 2 Haiku relay agents per unit plus a network call in dispatch."
+    },
+    {
+      "what": "Build workflow reworked into value-routing lanes (PR #267); later hardened by #268 (publish ignores other work's uncommitted files), #269 (5.5 models; no silent narrowing in any lane; moved scope must be justified), and #270 (reservation protocol; full suite always; handoff test fix)",
+      "why": "Operator direction: readiness and routing must add value, not gate. Each fix came from a real run: wf_4579893c-f77, wf_7afb4db3-b90, wf_5a42918c-5f9, wf_f3702534-055."
+    },
+    {
+      "what": "Target architecture recorded in docs/dispatch/plan-acceptance-lattice.md: plan graph -> Jev acceptance lattice -> frontier resolution -> frozen digested contract -> oracle -> build -> verify",
+      "why": "Operator-endorsed direction. lattice-v0 showed atomic probes match Haiku (AUC ~0.7) and are diagnostic. A naive OR over-flags (77/100), so thresholds must be calibrated on outcome labels first."
+    },
+    {
+      "what": "Follow-up items filed for scope that runs dropped: #2545 (capture gap; its cross-repo half moved on to #2547) and #2546 (branch protection on main, written up for the operator)",
+      "why": "The no-silent-narrowing rule. #2546 changes how every agent lands on main (main has no protection today), so it is an operator policy call."
+    },
+    {
+      "what": "Fixed a date time-bomb in test_commit_audit_shards.py (stub PRs stamped 2026-09-27 with a 24h stale rule)",
+      "why": "It failed 5 tests on every branch, main included, from 2026-09-28."
+    }
+  ],
+  "rejected": [
+    {
+      "what": "Replacing Haiku triage with Jev as the dispatch gate",
+      "why": "Accuracy was not reliably better. Jev errs toward dispatching unplanned work (silent waste), where Haiku errs toward blocking. Reconsider only on recorded-outcome evidence."
+    },
+    {
+      "what": "route-v2 bundle (reworded tier criteria)",
+      "why": "Inconclusive: better or worse depending on the judge. Kept as eval data only."
+    },
+    {
+      "what": "Jev verify-gate shadow",
+      "why": "It duplicated the code-clamped verdict."
+    },
+    {
+      "what": "Reporting moved-scope counts in run results",
+      "why": "It would create a metric for agents to optimise."
+    }
+  ],
+  "state": {
+    "repos": [
+      {
+        "path": "/projects/dev/agentops",
+        "head": "4dd439dd92f3f20efd0684c2d88d04bd1787102d",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "daf15f5bd05681a2f4d79529a9034cce5a2e6a8bb8c9c75e9cf003fcfab99097",
+        "unpushed": 0
+      }
+    ],
+    "running": [],
+    "digest_version": 5,
+    "tracker_watermark": [
+      {
+        "item_id": "2307",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2308",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2309",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2310",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2311",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2329",
+        "status": null,
+        "status_revision": null
+      }
+    ]
+  },
+  "unresolved": [
+    "#2531, #2544 and #2545 are delivered on main but pending. They close after the manifest fix and a re-run (next_action).",
+    "Repair rounds ran on an environment failure in run 4. Improve the verify prompt so a harness or dependency failure of the suite command is reported as not_available (inconclusive, then one re-verify), not failed, which triggers useless repairs.",
+    "Cross-repo items (most of the agentops backlog changes vuoro/sprintctl code): choose between a per-item code repo in the workflow and moving the items to their own trackers.",
+    "#2546 branch protection on main needs an operator decision (exact steps are in the item).",
+    "#2547 capture repair in vuoro/hostproto/etc. and the estate timer are cross-repo.",
+    "Once more runs exist, score lattice-v0 probes offline against dispatch.route.decision outcomes (6 unit records so far) to calibrate thresholds.",
+    "model-routing frontier-default is still claude-fable-5 (claude-fable-5-1 exists). The operator only asked for Sonnet/Opus 5.5.",
+    "Offered: a kotona.app note, 'Readiness should produce work, not permission' (with 'Accuracy hides the direction of the mistake' as evidence). The operator has not answered."
+  ],
+  "evidence": [
+    {
+      "kind": "session",
+      "ref": "2b406a76-8b1b-409e-a492-c6ef35ed6dac"
+    },
+    {
+      "kind": "artifact",
+      "ref": "jev/eval/agentops-2026-09-28/README.md"
+    },
+    {
+      "kind": "artifact",
+      "ref": "docs/dispatch/workflow-topology.md"
+    },
+    {
+      "kind": "artifact",
+      "ref": "docs/dispatch/plan-acceptance-lattice.md"
+    },
+    {
+      "kind": "auditctl",
+      "ref": "dispatch.route.decision events in _artifacts/agentops/audit/events-2026-09-28.ndjson"
+    },
+    {
+      "kind": "sprintctl",
+      "ref": "agentops#2531"
+    },
+    {
+      "kind": "sprintctl",
+      "ref": "agentops#2544"
+    },
+    {
+      "kind": "sprintctl",
+      "ref": "agentops#2545"
+    },
+    {
+      "kind": "sprintctl",
+      "ref": "agentops#2546"
+    },
+    {
+      "kind": "sprintctl",
+      "ref": "agentops#2547"
+    }
+  ],
+  "sprintctl_bundle_ref": {
+    "path": "/projects/dev/agentops/docs/dispatch/handoffs/2026-09-29-value-routing-dispatch.v1.sprintctl-bundle.json",
+    "sha256": "3c8cfecaea08b500a13724acb829d17792af4aa2472fbcf1a7db518887803d9f",
+    "generated_at": "2026-09-29T05:06:05Z"
+  },
+  "next_action": "Fix the manifest full-suite command, then re-run the three delivered items. In agentops.dispatch.json, the verification commands at lines ~156 and ~190 are `uv run --no-project --with pytest python -m pytest -q scripts/tests`. They fail in a clean environment with `No module named yaml` (CI installs pyyaml). Add `--with pyyaml` to both. The file is likely protected, so land it as a `hand-pass:` PR, post an independent review on the PR, merge on green CI, and update the main checkout. Then run Workflow({scriptPath: '/projects/dev/agentops/.claude/workflows/vuoro-dispatch-build.js', args: {items: [{repo: 'agentops', item_id: 2531, unit: 'handoff-digest-v5'}, {repo: 'agentops', item_id: 2544, unit: 'handoff-ack-guard'}, {repo: 'agentops', item_id: 2545, unit: 'audit-capture-gap'}], push: true}}). All three are already delivered on main (c338f48, 3d37389, d72f1ae), and run 4 (wf_f3702534-055) confirmed each on its merits. Only the broken suite command clamped them to issues_found, and they are pending again.",
+  "successor": {
+    "session_id": "670479d6-ab6e-406f-bc84-647f5afb44e2",
+    "acknowledged_at": "2026-09-29T05:19:01Z"
+  }
+}

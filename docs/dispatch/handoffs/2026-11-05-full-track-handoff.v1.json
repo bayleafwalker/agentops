@@ -1,0 +1,396 @@
+{
+  "schema_version": "handoff/v1",
+  "handoff_id": "2026-11-05-full-track-handoff.v1",
+  "version": 1,
+  "created_at": "2026-11-05T20:10:54Z",
+  "origin_host": "workstation",
+  "origin_path": "/projects/dev/agentops/docs/dispatch/handoffs/2026-11-05-full-track-handoff.v1.json",
+  "origin_cwd": "/projects/dev/agentops",
+  "track": "full-track-night-stop",
+  "predecessor": {
+    "harness": "codex",
+    "session_id": "01a1ac79-b776-7f53-8ab5-58efb4dfb656",
+    "transcript_path": null,
+    "model": null,
+    "context_used_pct": null
+  },
+  "objective": "On explicit resume complete all seven source implementation programmes and integration under original owner acceptance; full track remains incomplete.",
+  "constraints": [
+    "User requested handoff; no autonomous continuation until explicit resume.",
+    "Source-only authority: no deployment, production data/grant changes, shared migration, live signing, destructive retention, private archive upload or real Work31 execution.",
+    "Preserve protected originals, unrelated edits and private artifacts; verify canonical targets independently from local origin.",
+    "Root integrates target writes; independent review and required CI remain mandatory; no parent closure from source slices.",
+    "Do not retry or reroute prior rejected overnight served note, adversarial Work31 task, private receipt upload, or automatic-review rejected branch deletion without specific authority."
+  ],
+  "decisions": [
+    {
+      "what": "Source slices merged but full track remains open",
+      "why": "Original owner acceptance and live/native/field proofs remain incomplete."
+    },
+    {
+      "what": "PR71 and PR70 remain open",
+      "why": "PR71 original workflows failed distinct production authority timeouts; bounded retries assess recurrence, and PR70 depends on resolved base."
+    },
+    {
+      "what": "Keep material-v2 and external fairness prototypes unconnected",
+      "why": "Writer/restore authority and ordered-denial semantics remain unproved."
+    }
+  ],
+  "rejected": [
+    {
+      "what": "Delete merged Sprintctl branch",
+      "why": "Automatic approval review rejected gh api DELETE as irreversible remote mutation lacking explicit user authorization; do not bypass or retry without approval."
+    },
+    {
+      "what": "Publish external profile filtered fallback",
+      "why": "It skipped a real earlier 403 denial and audit; ordered larger bounded scan still starves."
+    },
+    {
+      "what": "Treat timed-out CI or installed native attempt as passing",
+      "why": "Owner outcome was unobserved; protected supervisor was unavailable; failures and unknowns remain."
+    }
+  ],
+  "state": {
+    "repos": [
+      {
+        "path": "/projects/dev/agentops",
+        "head": "048547ed420d7f128ff0a5a60f6d9404735479be",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "fcf3cb482c464e1c214d2580ec8885878f76f4a0cf3d297725bfc4aef1d0c7fc",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/sovite",
+        "head": "dcd027db60ffca8d83e4991dbe258afe4d317749",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "0b90f8ca7d450c70805a4bc39f1553caab352acb962579262070525ed99122ec",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/vuoro",
+        "head": "7dfa23483773d778cb2fa65a152e87b3278d437c",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "1c752604c580c5dfce3bf95f664aa4c70464c4abcaf63e5ffb1d1877e67ab8da",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/vuoro-cloud",
+        "head": "547af64e5e351eb74bd4b0a6b8fcba79650e78d6",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "182390cf6f5cd7d4994a2cfaabad6d6e8365ec52924c7bcb2cd972f02fce75ad",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/sprintctl",
+        "head": "32bc4e6b3b1fa1c369fcd139605d0dff6795488e",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "a24b3fa1f08288ead5829cf10dbd2a317efd994b1f53d3a88c964a9587bd96a9",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/sovite-expired-owner-20261104",
+        "head": "ac3def04991e1ecb4ac460331c373e6339879487",
+        "branch": "codex/recover-expired-owner-owner-20261104",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 26
+      },
+      {
+        "path": "/tmp/fulltrack-cloud-source",
+        "head": "41701772fcd90f57cf12ad465b11030b3ef8918a",
+        "branch": "source-2628-backup-card",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/fulltrack-vuoro-source",
+        "head": "22d591c3fcda69288f0ed7b7ad83d7e7a5e1e275",
+        "branch": "source-ec00",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 8
+      },
+      {
+        "path": "/tmp/fulltrack-sprintctl-source",
+        "head": "db3ff0e738aebb42736c801747f6616d1a97e516",
+        "branch": "source-receipt",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 12
+      },
+      {
+        "path": "/tmp/fulltrack-agentops-source",
+        "head": "4ae0ad5d179a57fb9322d3f56bcabf9a2f733f8c",
+        "branch": "source-2728-receipt",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/fulltrack-appservice-source",
+        "head": "a4b955128e1ba42011bcc25a7fd9b8d23d73372f",
+        "branch": "source-retention-reconcile",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 9
+      },
+      {
+        "path": "/tmp/fulltrack-cloud-preview",
+        "head": "afdcd2a3117a6efede5e1776a407acfd659e968a",
+        "branch": "source-effect-preview",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 2
+      },
+      {
+        "path": "/tmp/fulltrack-cloud-admission",
+        "head": "133a3bcaea39f38762c4e3452f450a147b0df669",
+        "branch": "source-recipient-admission",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 5
+      },
+      {
+        "path": "/tmp/fulltrack-vuoro-identity",
+        "head": "ee600ead01fb2dbae3e4bec93c7417890411c43b",
+        "branch": "source-gateway-oauth-provenance",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 3
+      },
+      {
+        "path": "/tmp/fulltrack-cloud-oauth",
+        "head": "47cac4e1fc9a56d86d4ff195ce9c07c22cbdbc7a",
+        "branch": "source-oauth-provenance",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 2
+      },
+      {
+        "path": "/tmp/fulltrack-vuoro-admission",
+        "head": "8a33a93a17c98829bd6b219fa537536e86a45887",
+        "branch": "source-recipient-proof",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 8
+      },
+      {
+        "path": "/tmp/fulltrack-owner-review-snapshot",
+        "head": "8d23663d64c3c5de079ccdbbaae2e618cd15f95d",
+        "branch": "source-receipt",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 1
+      },
+      {
+        "path": "/tmp/fulltrack-owner-meta",
+        "head": "189b58e688d3b00abbd1ef7e9e337c3c90a0cf15",
+        "branch": "source-receipt",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 1
+      },
+      {
+        "path": "/tmp/fulltrack-owner-delivery",
+        "head": "a63ea83e162f4c15231c2d8ba4440949a5af47c5",
+        "branch": "source-receipt",
+        "dirty": true,
+        "diff_sha256": "540118f9047d22d2f708599826729440d21c703cc4e95f550ecb103c4dadf1db",
+        "unpushed": 7
+      },
+      {
+        "path": "/tmp/fulltrack-cloud-preview-resume-20261105",
+        "head": "fdda83f8cadf7d54e3fb6f8fb29c3eb24fbffdd4",
+        "branch": "resume-preview-20261105",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 1
+      },
+      {
+        "path": "/tmp/fulltrack-cloud-admission-resume-20261105",
+        "head": "d8226f08bd001de35be50e0da510d024b438c835",
+        "branch": "resume-admission-20261105",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 5
+      },
+      {
+        "path": "/tmp/fulltrack-owner-lookup-20261105",
+        "head": "db3ff0e738aebb42736c801747f6616d1a97e516",
+        "branch": "source-receipt",
+        "dirty": true,
+        "diff_sha256": "ae7d0c4c88423694f0f5a95621c8ffd75f6bc80191d0e01c0af11730879d7c7c",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/fulltrack-cloud-channel-20261105",
+        "head": "d8226f08bd001de35be50e0da510d024b438c835",
+        "branch": "resume-admission-20261105",
+        "dirty": true,
+        "diff_sha256": "d3fdc434f3217566d7abb3f6875cc8a8ef4d9f01703c80b1da8bf0ef45bf8ebf",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/fulltrack-material-v2-20261105",
+        "head": "a63ea83e162f4c15231c2d8ba4440949a5af47c5",
+        "branch": "source-receipt",
+        "dirty": true,
+        "diff_sha256": "bb72dd23bd69d3bae2af49a8f16f741048379d66cf55e6c5f676df600af329b5",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/material-owner-epoch-20261105",
+        "head": "05f919e71c01f1294c822cb37b5b0f09d5a71fad",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "b3b5239d2e50af149f7a0d81a9184cfb9f93d68f09463667af46b413fd8877b1",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/sovite-programme-20261105",
+        "head": "b414a7607977a2de2295f9f341b261f456f97448",
+        "branch": "codex/sovite-dispatch-fairness-20261105",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 3
+      },
+      {
+        "path": "/tmp/sovite-external-fairness-investigation",
+        "head": "477449149f2471a6b10fdc23845784aa3ad75917",
+        "branch": "codex/external-fairness-investigation",
+        "dirty": true,
+        "diff_sha256": "2a4fcef21cc3b7f3c5ec39b31d4f72ba2155e29c50d9b4d5e04232ff170c48d9",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/sovite-fairness-cursor-final-20261105",
+        "head": "477449149f2471a6b10fdc23845784aa3ad75917",
+        "branch": "codex/sovite-fair-cursor-final",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 3
+      },
+      {
+        "path": "/tmp/sovite-native-protocol-20261105",
+        "head": "3a1a4d66feaff7e30e8a8dae1c7a679d968aec68",
+        "branch": "codex/native-protocol-20261105",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 3
+      },
+      {
+        "path": "/tmp/sovite-ci-setup-freeze-20261105-r3",
+        "head": "7c8aa46d63182bce9fba1ee7ab0a4f6d98081ee2",
+        "branch": null,
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/sovite-queue-double-20261105",
+        "head": "00217931e40a7d88a6034ad7973c44a4f5591688",
+        "branch": "codex/queue-double-20261105",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 1
+      },
+      {
+        "path": "/tmp/fulltrack-telemetry-correlation-20261105",
+        "head": "04507f8c18e4cd9cc957a4bf72f78580a97d459d",
+        "branch": "source-2628-backup-card",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 3
+      },
+      {
+        "path": "/tmp/ec-foundation-20261105",
+        "head": "22d591c3fcda69288f0ed7b7ad83d7e7a5e1e275",
+        "branch": "source-ec00",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      }
+    ],
+    "running": [
+      "No owned workers, tests or disposable servers remain. Remote CI PR71 run 42094550174 attempt2 may finish automatically; no unattended agent continuation."
+    ],
+    "digest_version": 5,
+    "tracker_watermark": [
+      {
+        "item_id": "2307",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2308",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2309",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2310",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2311",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2329",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2654",
+        "status": null,
+        "status_revision": null
+      }
+    ]
+  },
+  "unresolved": [
+    "PR71 PR-workflow attempt2 is running; push workflow attempt2 passed, both attempt1 failures retained.",
+    "PR70 has one failed push workflow; reanchor only after base issue resolves and required CI passes.",
+    "Material v2 admission, identity/restore fencing and authenticated end-to-end delivery remain unimplemented.",
+    "External worker fairness, shared execution wire, native/field qualification, telemetry retention and other original owner criteria remain open."
+  ],
+  "evidence": [
+    {
+      "kind": "artifact",
+      "ref": "_artifacts/agentops/ecosystem-resume-2026-11-05/handoff-summary.md"
+    },
+    {
+      "kind": "artifact",
+      "ref": "_artifacts/agentops/ecosystem-resume-2026-11-05/handoff-manifest.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "_artifacts/agentops/ecosystem-resume-2026-11-01/programmes/source-continuation-2026-11-04/SHA256SUMS"
+    },
+    {
+      "kind": "artifact",
+      "ref": "_artifacts/agentops/sovite-external-fairness-20261105/SHA256SUMS"
+    }
+  ],
+  "sprintctl_bundle_ref": {
+    "path": "/projects/dev/agentops/docs/dispatch/handoffs/2026-11-05-full-track-handoff.v1.sprintctl-bundle.json",
+    "sha256": "9185981b8c0403fcd2ea15578d4720138a405e2f9049fcd2f5891e5e868b9e2b",
+    "generated_at": "2026-11-05T20:10:51Z"
+  },
+  "next_action": "On explicit user resume, ack this handoff with the actual successor session, validate all trees, then read _artifacts/agentops/ecosystem-resume-2026-11-05/handoff-summary.md and verify the handoff-manifest and packet hashes, current canonical source refs, PR71 retry and PR70 exact head/CI before any write.",
+  "successor": {
+    "session_id": "01a1afde-2eda-7403-9116-f922c1fea392",
+    "acknowledged_at": "2026-11-06T07:59:49Z"
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "schema": "operator-command-package/v1",
+  "package_id": "admission-mint-signing",
+  "title": "Mint the production admission service credential and sign the first real admission",
+  "gate_kind": "signing",
+  "programmes": [
+    "docs/dispatch/programmes/2026-10-24/04-requests-continuation.md"
+  ],
+  "work_refs": [],
+  "owner": "release train owner: operator-designated coordinator (default-assigned 2026-11-07)",
+  "readiness": "blocked",
+  "blockers": [
+    {
+      "description": "No authenticated private transport exists between the Cloud signer (recipient_admission.py) and the sprintctl private adapter/lookup/ledger; no route, receiver or end-to-end delivery qualification.",
+      "resolved_by": "source item: disposable mTLS Cloud signer endpoint plus owner-only orchestrator with negative tests (missing/wrong client cert, caller-supplied recipient, revoked grant, expired assertion, JTI replay, no message on refusal)"
+    },
+    {
+      "description": "The exact deployment/service identity and certificate target are not determined.",
+      "resolved_by": "architecture decision from the actual deployment and qualification, recorded under docs/decisions"
+    }
+  ],
+  "why_operator": "A production service credential is minted through cred-broker step-up approval, and the signing key is operator-held; no credential has been minted (handoff 2026-11-06).",
+  "host": "operator workstation",
+  "directory": "/projects/dev/cred-broker",
+  "preconditions": [
+    {
+      "check": "The transport and identity blockers are closed by merged, reviewed source",
+      "command": "Read the blockers' work items; each must be merged with exact-head CI green",
+      "expected": "both resolved",
+      "verified_at": null
+    }
+  ],
+  "commands": [
+    {
+      "step": 1,
+      "command": "credctl explain <scoped capability for the admission signer>",
+      "expected": "the decision that would be taken, with no credential value printed",
+      "exact": false
+    },
+    {
+      "step": 2,
+      "command": "credctl approve <request id from step 1>",
+      "expected": "step-up approval recorded; decision receipt ID printed",
+      "exact": false
+    }
+  ],
+  "expected_result": "One scoped, short-lived service credential issued for the reviewed signer identity, a decision receipt, and one real admission delivered end to end.",
+  "send_back": [
+    "Decision receipt ID (never the credential value)",
+    "The admission's delivery receipt or refusal text"
+  ],
+  "rollback": {
+    "description": "Revoke the grant through cred-broker's revocation path (exact command to be stated by the transport source item) and let the short-lived credential expire; the one-use ledger prevents replay.",
+    "commands": []
+  },
+  "references": [
+    "docs/dispatch/handoffs/summaries/2026-11-06-full-track-handoff-summary.md (Admission private transport/real mint)",
+    "/projects/dev/cred-broker/README.md"
+  ],
+  "created": "2026-11-07",
+  "last_verified": "2026-11-07"
+}
