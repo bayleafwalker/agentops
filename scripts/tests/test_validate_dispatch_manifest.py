@@ -738,3 +738,10 @@ class DigestCurrencyTests(_ValidatorCase):
         code, stdout, combined = self.run_main(path)
         self.assertEqual(code, 0, combined)
         self.assertIn("skill_lock not compared", stdout)
+
+    def test_missing_source_file_fails_even_with_digests_warn(self):
+        path = self._manifest_with_digests()
+        (self.tmp / "AGENTS.md").unlink()
+        code, _, combined = self.run_main("--digests-warn", path)
+        self.assertNotEqual(code, 0, combined)
+        self.assertIn("does not exist", combined)

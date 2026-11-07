@@ -134,6 +134,8 @@ def _check_manifest(path, digests_warn=False):
 
     if isinstance(instance, dict):
         stale, skipped = stale_digests(instance, path)
+        errors.extend(m for m in stale if m.endswith("does not exist"))
+        stale = [m for m in stale if not m.endswith("does not exist")]
         (warnings if digests_warn else errors).extend(stale)
         warnings.extend(skipped)
 
@@ -211,9 +213,12 @@ def _last_commit(path):
     sha = out.stdout.strip()
     if out.returncode != 0 or not re.fullmatch(r"[0-9a-f]{40}", sha):
         return None
-    dirty = subprocess.run(
-        ["git", "-C", str(Path(path).parent), "status", "--porcelain", "--", Path(path).name],
-        capture_output=True, text=True, timeout=30)
+    try:
+        dirty = subprocess.run(
+            ["git", "-C", str(Path(path).parent), "status", "--porcelain", "--", Path(path).name],
+            capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
     return None if dirty.returncode != 0 or dirty.stdout.strip() else sha
 
 
