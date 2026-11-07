@@ -38,6 +38,13 @@
       "command": "curl -fsS -A agentops-operator -H \"Authorization: Bearer $(cat ~/.config/vuoro/credentials/vuoro-cloud.token)\" https://api.vuoro.cloud/api/control/v1/operator/rollout/status | jq 'has(\"convergence_reason\")'",
       "expected": "true (false or a missing field means the promotion with #353 has not happened)",
       "verified_at": null
+    },
+    {
+      "check": "The operator checkout is at or past bcc55a9, so python -m vuoro_cloud.tenant_rollback exists for the rollback path",
+      "command": "cd /projects/dev/vuoro-cloud && git status -sb && git merge-base --is-ancestor bcc55a9b1321d415e470be558deeb67dabc5b6ed HEAD && test -f src/vuoro_cloud/tenant_rollback.py && echo current",
+      "expected": "## main...origin/main and current",
+      "verified_at": null,
+      "observed": "2026-11-07: the shared checkout was behind origin/main and lacked tenant_rollback.py; run git pull --ff-only first"
     }
   ],
   "commands": [

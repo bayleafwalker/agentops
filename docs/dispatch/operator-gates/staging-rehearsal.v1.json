@@ -14,8 +14,8 @@
   "readiness": "blocked",
   "blockers": [
     {
-      "description": "Tenant schema-version mapping has no contract yet; the rehearsal cannot assert which work schema each runtime expects.",
-      "resolved_by": "tenant schema-version mapping contract from the vuoro repo (owner: see README owners)"
+      "description": "Tenant schema-version mapping: the contract is merged as proposed in vuoro#312 (vuoro docs/architecture/tenant-runtime-schema-mapping.md), but not implemented, so the rehearsal cannot yet assert which work schema each runtime expects.",
+      "resolved_by": "vuoro source PR implementing the mapping contract (its acceptance criteria 1-5), by the mapping owner in README owners"
     }
   ],
   "why_operator": "The Talos environment is cost-bearing (Hetzner) and the plan/apply plus kubeconfig and Talos config stay out of Git on the operator workstation (operator-actions.md section 8).",
