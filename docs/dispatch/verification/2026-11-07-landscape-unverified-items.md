@@ -51,9 +51,10 @@ Method, all read-only unless noted:
 | Docs and knowledge library owner (EE-07 successor for the knowledge-base prose store; not a #255 decision) | **dropped → now tracked** | `docs/decisions/INDEX.md` lists knowledge-base as "held/dormant; successor store undecided". No open item matched "knowledge library", "docs library" or "knowledge base". | **created agentops#2875** (pending, track target-state-path) |
 | blocker12-canary retirement path (vuoro-cloud; not a #255 decision) | **dropped → now tracked** | vuoro-cloud `IMPLEMENTATION-STATUS.md` (blocker 12, 2026-08-29 trial) records workspace `blocker12-canary` `01M14W25EYKCEX0BTYK1WHJAAK`. Live rollout status (estate report 13:51Z) shows it READY in maintenance mode since 2026-09-11. #2584 names only the owner reclassify. The retire pipeline is #2583, pending. The desired `vuoro-retire-worker` image is the all-zero placeholder digest. | **created agentops#2876** (pending, track vuoro-cloud-admin; depends on #2583, #2584) |
 
-Summary: of the seven #255 decisions, none is dropped. Q2, Q3, Q4(a), Q5 and
-Q6 are carried. Q1 and Q4(c) are only partially carried: Q1 is tracked but no
-programme schedules it, and Q4(c) is a sentence inside an active item. The
+Summary: of the seven #255 decisions, none is dropped. Q2, Q3, Q4(a), Q6 and
+Q7 are carried. Q1, Q4(c) and Q5 are only partially carried. Q1 is tracked but
+no programme schedules it. Q4(c) is a sentence inside an active item. For Q5,
+only one of four rules is verified. The
 two non-#255 candidates were not tracked at all, and they now are.
 
 ### Draft item text, not created: Q4(c) auto-accept canary
