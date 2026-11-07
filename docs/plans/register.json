@@ -1,0 +1,831 @@
+{
+  "docs/dispatch/programmes/2026-10-24/01-contract-foundation.md": {
+    "status": "active",
+    "owner": "operator-designated coordinator (default-assigned 2026-11-07)",
+    "work_ref": "vuoro#2734",
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "operator-approved programme 2026-10-24 (file header); parent open per the 2026-11-06 handoff; completes at source accepted (programmes/STATUS.md)"
+  },
+  "docs/dispatch/programmes/2026-10-24/02-cloud-recovery.md": {
+    "status": "active",
+    "owner": "operator-designated coordinator (default-assigned 2026-11-07)",
+    "work_ref": "agentops#2599",
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "operator-approved programme 2026-10-24 (file header); parent open per the 2026-11-06 handoff; completes at source accepted (programmes/STATUS.md)"
+  },
+  "docs/dispatch/programmes/2026-10-24/03-cloud-product.md": {
+    "status": "active",
+    "owner": "operator-designated coordinator (default-assigned 2026-11-07)",
+    "work_ref": "vuoro-cloud#2727",
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "operator-approved programme 2026-10-24 (file header); parent open per the 2026-11-06 handoff; completes at source accepted (programmes/STATUS.md)"
+  },
+  "docs/dispatch/programmes/2026-10-24/04-requests-continuation.md": {
+    "status": "active",
+    "owner": "operator-designated coordinator (default-assigned 2026-11-07)",
+    "work_ref": "vuoro#2725",
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "operator-approved programme 2026-10-24 (file header); parent open per the 2026-11-06 handoff; completes at source accepted (programmes/STATUS.md)"
+  },
+  "docs/dispatch/programmes/2026-10-24/05-sovite.md": {
+    "status": "active",
+    "owner": "operator-designated coordinator (default-assigned 2026-11-07)",
+    "work_ref": "agentops#2850",
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "operator-approved programme 2026-10-24 (file header); parent open per the 2026-11-06 handoff; completes at source accepted (programmes/STATUS.md)"
+  },
+  "docs/dispatch/programmes/2026-10-24/06-telemetry.md": {
+    "status": "active",
+    "owner": "operator-designated coordinator (default-assigned 2026-11-07)",
+    "work_ref": "agentops#2398",
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "operator-approved programme 2026-10-24 (file header); parent open per the 2026-11-06 handoff; completes at source accepted (programmes/STATUS.md)"
+  },
+  "docs/dispatch/programmes/2026-10-24/07-retention.md": {
+    "status": "active",
+    "owner": "operator-designated coordinator (default-assigned 2026-11-07)",
+    "work_ref": "agentops#2828",
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "operator-approved programme 2026-10-24 (file header); parent open per the 2026-11-06 handoff; completes at source accepted (programmes/STATUS.md)"
+  },
+  "docs/dispatch/programmes/2026-10-24/08-integration.md": {
+    "status": "active",
+    "owner": "operator-designated coordinator (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "operator-approved programme 2026-10-24 (file header); parent open per the 2026-11-06 handoff; completes at source accepted (programmes/STATUS.md)"
+  },
+  "docs/dispatch/programmes/STATUS.md": {
+    "status": "active",
+    "owner": "operator-designated coordinator (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/2026-09-17-target-state.md": {
+    "status": "accepted",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "claims carry their own statuses (TS-1..TS-20); the end state was adopted as owner decision D1 on 2026-09-14 and amended 2026-10-15, 2026-10-29 and 2026-11-07 (see docs/decisions/INDEX.md)"
+  },
+  "docs/plans/2026-09-26-cloud-enablement-plan.md": {
+    "status": "accepted",
+    "owner": "vuoro-cloud (default-assigned 2026-11-07)",
+    "work_ref": "agentops#2514",
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/2026-09-26-cloud-environments-options-memo.md": {
+    "status": "reference",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "decision memo; its E1 recommendation was carried into the cloud enablement plan adopted 2026-09-26"
+  },
+  "docs/plans/2026-09-26-trusted-service-boundary-design.md": {
+    "status": "proposed",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "design memo with a recommendation and assumptions; no adoption record in the file"
+  },
+  "docs/plans/2026-09-27-admin-identity-and-vuoro-cli-design.md": {
+    "status": "accepted",
+    "owner": "vuoro-cloud (default-assigned 2026-11-07)",
+    "work_ref": "agentops#262",
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/2026-09-27-backlog-ideation.md": {
+    "status": "accepted",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": "agentops#2521",
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/2026-09-27-telemetry-audit-and-operator-actions.md": {
+    "status": "proposed",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/2026-09-27-vuoro-cloud-ux-workflow-and-docs.md": {
+    "status": "proposed",
+    "owner": "vuoro-cloud (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/2026-10-03-s4-evidence-home-preparation.md": {
+    "status": "proposed",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": "agentops#2485",
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/2026-10-06-mi1-implementation-packet.md": {
+    "status": "archived",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "MI-1 delivered with bounded served acceptance (target-state MI-1 delivery amendment, 2026-10-09); retained as the delivery packet"
+  },
+  "docs/plans/2026-10-10-native-skill-observation-coverage.md": {
+    "status": "proposed",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": "agentops#2488",
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/2026-10-11-agent-systems-w39-w41.md": {
+    "status": "proposed",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/2026-10-13-vuoro-cloud-ui-copy-and-onboarding-plan.md": {
+    "status": "proposed",
+    "owner": "vuoro-cloud (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/2026-10-13-vuoro-guide-and-knowledge-entry-site.md": {
+    "status": "proposed",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/2026-10-20-sovite-over-vuoro-cloud.md": {
+    "status": "accepted",
+    "owner": "sovite (default-assigned 2026-11-07)",
+    "work_ref": "vuoro-cloud#275",
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/2026-10-20-sovite-remote-model-hosting.md": {
+    "status": "accepted",
+    "owner": "sovite (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/2026-11-03-opencode-v2-host-adapter.md": {
+    "status": "active",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": "agentops#2874",
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/2026-11-06-vuoro-cloud-migration-plan.md": {
+    "status": "active",
+    "owner": "vuoro-cloud (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "declares itself plan only (no vuoro-cloud change authorized by the document); P0-P4, P6, P7 merged on vuoro-cloud and P5 #353 open (programmes/STATUS.md, 2026-11-07)"
+  },
+  "docs/plans/Vuoro-Clean-Room-Comparison-Plan.md": {
+    "status": "archived",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "declared READY 2026-07-23; the clean-room migration-safety gate closed 2026-07-24 with no migration (next-session-dispatch.md)"
+  },
+  "docs/plans/Vuoro-Pre-Clean-Room-Assessment-Plan.md": {
+    "status": "archived",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "pre-assessment for the clean-room gate, which closed 2026-07-24 (next-session-dispatch.md)"
+  },
+  "docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md": {
+    "status": "archived",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "draft hand-off dated 2026-08-23 for the v5 pathway; historical"
+  },
+  "docs/plans/agentops/2026-08-23-session-handoff.md": {
+    "status": "archived",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "session hand-off for a cleared session on 2026-08-23; historical"
+  },
+  "docs/plans/agentops/2026-08-25-l6-d9-restate-pilot-design.md": {
+    "status": "proposed",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/2026-08-25-mechanical-bulk-boundary-decision.md": {
+    "status": "superseded",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": "agentops#2100",
+    "successor": "agentops/2026-08-26-open-owner-decisions.md",
+    "last_verified": "2026-11-07",
+    "justification": "analysis for a ruling that was then made 2026-08-26 (agentops#2100 Option C) in open-owner-decisions"
+  },
+  "docs/plans/agentops/2026-08-26-build-from-spec-probe.md": {
+    "status": "reference",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": "agentops#2100",
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/2026-08-26-open-owner-decisions.md": {
+    "status": "accepted",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/2026-08-27-imperative-effect-correlation-pilot.md": {
+    "status": "proposed",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/2026-10-17-estate-evolution-plan.md": {
+    "status": "accepted",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/2026-10-18-estate-contract-architecture-discovery.md": {
+    "status": "superseded",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": "../architecture/2026-10-21-ec00-contract-stack-adr.md",
+    "last_verified": "2026-11-07",
+    "justification": "superseded by the operator selection of TypeSpec to OpenAPI"
+  },
+  "docs/plans/agentops/2026-10-18-estate-contract-rewrite.md": {
+    "status": "accepted",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/2026-10-18-kaos-2028-roadmap.md": {
+    "status": "accepted",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/2026-10-18-operator-actions.md": {
+    "status": "accepted",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": "vuoro-cloud#2682",
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/2026-10-24-autonomous-investigation-implementation.md": {
+    "status": "proposed",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/2026-10-24-portable-agent-workflows.md": {
+    "status": "proposed",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/2026-10-25-blind-code-review-replay.md": {
+    "status": "active",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/2026-10-25-evidence-guided-agent-workflows.md": {
+    "status": "accepted",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/2026-10-25-subscription-cross-harness-pilot.md": {
+    "status": "accepted",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/2026-10-29-operated-agentic-service.md": {
+    "status": "accepted",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": "agentops#2866",
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/2026-10-30-capture-integrity-and-export.md": {
+    "status": "accepted",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/2026-11-05-execution-placement-qualification.md": {
+    "status": "reference",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/2026-11-06-outcome-settlement-qualification.md": {
+    "status": "accepted",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/README.md": {
+    "status": "reference",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "index of the agent-ops plans directory"
+  },
+  "docs/plans/agentops/agent-cockpit-deployment-handoff.md": {
+    "status": "archived",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "cockpit plan; the cockpit retired 2026-09-16 (ecosystem.md)"
+  },
+  "docs/plans/agentops/agent-cockpit-workstream-e-plan.md": {
+    "status": "archived",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "cockpit plan; the cockpit retired 2026-09-16 (ecosystem.md)"
+  },
+  "docs/plans/agentops/agent-ops-substrate-plan.md": {
+    "status": "superseded",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": "sprintctl:docs/plans/adr-outbox-sync-model.md",
+    "last_verified": "2026-11-07",
+    "justification": "direction update banner (2026-07-14): separate local/remote backend modes superseded as target direction"
+  },
+  "docs/plans/agentops/agentops-2062-ratification-dossier-2026-08-02.md": {
+    "status": "proposed",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/agentops-2074-documentation-portfolio-ledger-and-execution-plan-2026-08-02.md": {
+    "status": "active",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": "agentops#2074",
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/agentops-naming-structure-plan.md": {
+    "status": "reference",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "repository naming recommendation; no status or adoption record in the file"
+  },
+  "docs/plans/agentops/auditctl-publisher-handover.md": {
+    "status": "reference",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "integrator reference for the shipped auditctl publisher"
+  },
+  "docs/plans/agentops/auditctl-workstream-d-plan.md": {
+    "status": "archived",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "workstream D plan; auditctl shipped (auditctl-publisher-handover.md)"
+  },
+  "docs/plans/agentops/boundary-resolutions.md": {
+    "status": "superseded",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": "native-runtime-federation-realignment-2026-08-20.md",
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/caller-mode-routing-runtime-handover.md": {
+    "status": "archived",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "2026-07-22 handover for actionq caller-mode routing; worker routes retired (model-routing.md)"
+  },
+  "docs/plans/agentops/cockpit-agentops-readiness-2026-04-28.md": {
+    "status": "archived",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "cockpit plan; the cockpit retired 2026-09-16 (ecosystem.md)"
+  },
+  "docs/plans/agentops/cockpit-web-frontend-plan.md": {
+    "status": "archived",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "cockpit plan; the cockpit retired 2026-09-16 (ecosystem.md)"
+  },
+  "docs/plans/agentops/cross-repo-dogfood-plan-2026-08-28.md": {
+    "status": "superseded",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": "agentops/meta-narrative-plan-2026-08-29.md",
+    "last_verified": "2026-11-07",
+    "justification": "meta-narrative-plan-2026-08-29.md declares it supersedes rev. 4 of this plan"
+  },
+  "docs/plans/agentops/ecosystem-backlog-review-2026-07-17.md": {
+    "status": "accepted",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/ecosystem-simplification-plan.md": {
+    "status": "superseded",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": "native-runtime-federation-realignment-2026-08-20.md",
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/execution-scope-declaration-pilot.md": {
+    "status": "proposed",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/forge-workflow-resolution-2026-08-29.md": {
+    "status": "active",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/generalized-dispatch-practices-plan.md": {
+    "status": "archived",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "companion to agent-ops-substrate and meta-sprint plans, both superseded; no own status"
+  },
+  "docs/plans/agentops/hybrid-wave-improvements.md": {
+    "status": "archived",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "declared implementation started; hybrid dispatch retired in S2 item 6, 2026-09-17 (AGENTS.md)"
+  },
+  "docs/plans/agentops/kctl-cockpit-knowledge-reads-followup.md": {
+    "status": "archived",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "kctl is retired (estate plan EE-07) and the cockpit retired 2026-09-16"
+  },
+  "docs/plans/agentops/live-session-completion-alert-architecture.md": {
+    "status": "accepted",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": "agentops#2115",
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/live-session-completion-alert-plan.md": {
+    "status": "proposed",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": "agentops#2115",
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/meta-narrative-amendment-2026-08-30.md": {
+    "status": "active",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/meta-narrative-plan-2026-08-29.md": {
+    "status": "active",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "no own status line; amended by meta-narrative-amendment-2026-08-30.md (status active)"
+  },
+  "docs/plans/agentops/meta-sprint-cross-repo-dispatch-plan.md": {
+    "status": "superseded",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": "native-runtime-federation-realignment-2026-08-20.md",
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/native-runtime-federation-realignment-2026-08-20.md": {
+    "status": "active",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/opencode-dispatch-lifecycle-hardening.md": {
+    "status": "proposed",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": "agentops#2115",
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/operative-position-durability-2026-08-29.md": {
+    "status": "reference",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "assessment extension on where the operative position is stored; no status"
+  },
+  "docs/plans/agentops/ops-upgrade-reconciliation-2026-07.md": {
+    "status": "accepted",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/outbox-mechanization-rollout-sequencing.md": {
+    "status": "accepted",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/post-cockpit-waved-dispatch-program.md": {
+    "status": "superseded",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": "agentops#2070",
+    "successor": "native-runtime-federation-realignment-2026-08-20.md",
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/session-mechanization-plan.md": {
+    "status": "accepted",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/session-note-contract-plan.md": {
+    "status": "accepted",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/state-event-command-matrix.md": {
+    "status": "accepted",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/substrate-resilience-plan.md": {
+    "status": "reference",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "failure taxonomy and recovery reference; declares it changes no architecture"
+  },
+  "docs/plans/agentops/volatile-context-implementer-bundle.md": {
+    "status": "reference",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "landed bundle index; parts are flagged obsolete in the file"
+  },
+  "docs/plans/agentops/volatile-context-native-runtime-integration-mapping-2026-08-20.md": {
+    "status": "active",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/vuoro-1189-release-gate-backfill-2026-07-23.md": {
+    "status": "proposed",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/vuoro-1191-ratification-gate-design-2026-07-23.md": {
+    "status": "proposed",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/vuoro-appservice-runtime-handoff.md": {
+    "status": "accepted",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/vuoro-backlog-enablement-2026-07-21.md": {
+    "status": "accepted",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/vuoro-claim-proof-transport-clarification-2026-07-23.md": {
+    "status": "accepted",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/vuoro-continuation-blockers-2026-07-22.md": {
+    "status": "reference",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/vuoro-phase1-study-backlog.md": {
+    "status": "proposed",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/vuoro-phase1-study-corpus.md": {
+    "status": "reference",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/vuoro-phase1-study-prompt-template.md": {
+    "status": "reference",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/vuoro-served-substrate-plan.md": {
+    "status": "accepted",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/agentops/write-surface-policy.md": {
+    "status": "accepted",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/archive/2026-11-07-rejected-opus-goal-state-plan.md": {
+    "status": "rejected",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/assessment-review.md": {
+    "status": "reference",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "conversational critique of the clean-room assessment; source material"
+  },
+  "docs/plans/clean-room-1164-cross-repo-backlog.md": {
+    "status": "archived",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "draft backlog for the clean-room #1164 tract, closed 2026-07-24"
+  },
+  "docs/plans/evidence-needed.md": {
+    "status": "reference",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "operator notes on observation evidence; source material"
+  },
+  "docs/plans/governance-cross-system-durability.md": {
+    "status": "reference",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "conversation transcript on CLI-vs-service durability; source material"
+  },
+  "docs/plans/harness-profile-qualification.md": {
+    "status": "superseded",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": "2026-09-17-target-state.md (TS-3, S6 observed profile digest)",
+    "last_verified": "2026-11-07",
+    "justification": "SUPERSEDED-BY banner names the S6 observed profile digest (target-state TS-3)"
+  },
+  "docs/plans/next-session-dispatch.md": {
+    "status": "archived",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "banner: historical execution record of the 2026-07-24 state, not a live dispatch queue"
+  },
+  "docs/plans/opencode-go-semantic-routing-assessment.md": {
+    "status": "proposed",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/silent-drop-check.md": {
+    "status": "active",
+    "owner": "operator-designated coordinator (default-assigned 2026-11-07)",
+    "last_verified": "2026-11-07"
+  },
+  "docs/plans/trace-background.md": {
+    "status": "reference",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "conversation transcript proposing a Trace tool; source material for trace-commission.md"
+  },
+  "docs/plans/trace-commission.md": {
+    "status": "proposed",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "verdict recommends a constrained experiment and no tracectl domain; no adoption record"
+  },
+  "docs/plans/trace-originating-req.md": {
+    "status": "reference",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "operator request text that originated the Trace discussion; source material"
+  },
+  "docs/plans/v3-claim-semantics-decision.md": {
+    "status": "accepted",
+    "owner": "agentops (default-assigned 2026-11-07)",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-07",
+    "justification": "decision record: operator decision 2026-07-24 demoting claims to advisory reservations; engineering source of truth is sprintctl docs/plans/v3-reservation-model-plan.md"
+  }
+}

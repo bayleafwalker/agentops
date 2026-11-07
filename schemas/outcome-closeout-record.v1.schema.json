@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/outcome-closeout-record.v1.schema.json",
+  "title": "Outcome closeout record v1",
+  "description": "One record per delegated outcome under the 2026-11-04 routing dogfood practice (docs/dispatch/model-routing.md). AttemptRecord-shaped: it joins the observed route, coordinator effort, elapsed time, review findings, repairs and cost that closeout prose otherwise scatters. Every measurement carries a basis (measured, estimate or unknown) so an estimate is never read as a measurement. A record, not infrastructure: nothing consumes it automatically.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "outcome_id", "closed_on", "outcome", "acceptance", "route", "coordinator_effort", "elapsed", "review", "repairs", "cost"],
+  "properties": {
+    "schema": { "const": "outcome-closeout-record/v1" },
+    "outcome_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,79}$" },
+    "closed_on": { "$ref": "#/$defs/date" },
+    "outcome": { "$ref": "#/$defs/text" },
+    "work_refs": { "type": "array", "items": { "$ref": "#/$defs/short" } },
+    "prs": { "type": "array", "items": { "$ref": "#/$defs/short" } },
+    "acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state"],
+      "properties": {
+        "state": { "enum": ["accepted", "partially-accepted", "rejected", "parked", "unknown"] },
+        "criteria": { "type": "array", "items": { "$ref": "#/$defs/text" } },
+        "note": { "$ref": "#/$defs/text" }
+      }
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selected", "observed"],
+      "properties": {
+        "complexity_decision": {
+          "description": "How the route was chosen: deterministic rule, advisory classifier (with its answer) or coordinator judgement.",
+          "$ref": "#/$defs/text"
+        },
+        "selected": { "$ref": "#/$defs/binding" },
+        "observed": {
+          "description": "The binding actually observed at run time (session metadata, transcript header, provider response), not the one requested.",
+          "$ref": "#/$defs/binding"
+        },
+        "suboutcomes": { "type": "array", "items": { "$ref": "#/$defs/binding" } }
+      }
+    },
+    "coordinator_effort": { "$ref": "#/$defs/measure" },
+    "elapsed": { "$ref": "#/$defs/measure" },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["independent", "findings"],
+      "properties": {
+        "reviewer": { "$ref": "#/$defs/binding" },
+        "independent": { "type": "boolean" },
+        "same_tier_as_worker": {
+          "description": "true when the reviewer ran on the same model tier as the worker; comparative-quality claims then need a different reviewer.",
+          "type": "boolean"
+        },
+        "findings": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["blocker", "major", "minor"],
+          "properties": {
+            "blocker": { "type": "integer", "minimum": 0 },
+            "major": { "type": "integer", "minimum": 0 },
+            "minor": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "link": { "$ref": "#/$defs/short" }
+      }
+    },
+    "repairs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 0 },
+        "by": { "enum": ["worker", "coordinator", "mixed", "none"] },
+        "note": { "$ref": "#/$defs/text" }
+      }
+    },
+    "cost": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["basis"],
+      "properties": {
+        "usd": { "oneOf": [{ "type": "null" }, { "type": "number", "minimum": 0 }] },
+        "tokens": { "oneOf": [{ "type": "null" }, { "type": "integer", "minimum": 0 }] },
+        "basis": { "enum": ["measured", "estimate", "unknown"] },
+        "source": { "$ref": "#/$defs/text" }
+      }
+    },
+    "practice_observation": {
+      "description": "What this outcome says about the practice: a pattern kept, adjusted or retired, with the reason.",
+      "$ref": "#/$defs/text"
+    }
+  },
+  "$defs": {
+    "date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+    "short": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "text": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["harness", "model"],
+      "properties": {
+        "role": { "$ref": "#/$defs/short" },
+        "harness": { "$ref": "#/$defs/short" },
+        "model": { "$ref": "#/$defs/short" },
+        "provider": { "$ref": "#/$defs/short" },
+        "evidence": { "$ref": "#/$defs/text" }
+      }
+    },
+    "measure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["basis"],
+      "properties": {
+        "minutes": { "oneOf": [{ "type": "null" }, { "type": "number", "minimum": 0 }] },
+        "basis": { "enum": ["measured", "estimate", "unknown"] },
+        "note": { "$ref": "#/$defs/text" }
+      }
+    }
+  }
+}

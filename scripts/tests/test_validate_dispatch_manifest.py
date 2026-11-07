@@ -658,3 +658,56 @@ class StubDiscriminationTests(_ValidatorCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DigestCurrencyTests(_ValidatorCase):
+    """Recorded instruction and skill digests must match the files' bytes."""
+
+    def _manifest_with_digests(self, agents_bytes=b"rules\n", skill_bytes=b"skill\n", stale=False):
+        root = self.skills_root("dispatch-build")
+        (root / "dispatch-build" / "SKILL.md").write_bytes(skill_bytes)
+        (self.tmp / "AGENTS.md").write_bytes(agents_bytes)
+        manifest = clean_manifest(root)
+        import hashlib
+        agents_digest = hashlib.sha256(agents_bytes).hexdigest()
+        skill_digest = hashlib.sha256(skill_bytes).hexdigest()
+        if stale:
+            agents_digest = "0" * 64
+            skill_digest = "1" * 64
+        manifest["schema_version"] = 2
+        manifest["instruction_set"] = {
+            "schema_version": 1,
+            "discovery": "native",
+            "sources": [{
+                "id": "agents", "path": "AGENTS.md", "kind": "AGENTS.md",
+                "digest": agents_digest, "source_rev": "git:" + "a" * 40,
+            }],
+            "skill_lock": {"dispatch-build": skill_digest},
+        }
+        return self.write("m.dispatch.json", manifest)
+
+    def test_current_digests_pass(self):
+        code, _, combined = self.run_main(self._manifest_with_digests())
+        self.assertEqual(code, 0, combined)
+
+    def test_stale_digests_fail_and_are_named(self):
+        code, _, combined = self.run_main(self._manifest_with_digests(stale=True))
+        self.assertNotEqual(code, 0, combined)
+        self.assertIn("instruction_set.sources[agents]", combined)
+        self.assertIn("instruction_set.skill_lock[dispatch-build]", combined)
+        self.assertIn("--refresh", combined)
+
+    def test_refresh_rewrites_stale_digests_then_passes(self):
+        path = self._manifest_with_digests(stale=True)
+        code, stdout, combined = self.run_main("--refresh", path)
+        self.assertEqual(code, 0, combined)
+        self.assertIn("refreshed", stdout)
+        code, _, combined = self.run_main(path)
+        self.assertEqual(code, 0, combined)
+
+    def test_missing_source_file_fails(self):
+        path = self._manifest_with_digests()
+        (self.tmp / "AGENTS.md").unlink()
+        code, _, combined = self.run_main(path)
+        self.assertNotEqual(code, 0, combined)
+        self.assertIn("does not exist", combined)

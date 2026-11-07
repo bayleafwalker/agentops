@@ -28,11 +28,26 @@ root -- the schema enum is a copy of that listing, so the directory is the
 source of truth. A template root that does not exist on this machine is a
 warning, not a violation: it is the normal cross-repo case, and the enum is
 still enforced so the run is not silently weakened.
+
+Digest currency. ``instruction_set.sources[].digest`` is sha256 over the raw
+bytes of the source file (path relative to the manifest's directory), and
+``instruction_set.skill_lock[<skill>]`` is sha256 over the raw bytes of
+``<template_root>/<skill>/SKILL.md``; these are the methods the retired
+``instruction_doctor.py`` and skill-lock tooling used. They are observed
+digests (TS-3, product direction 2026-10-15), not a pin. A digest that no
+longer matches the file is a violation, so the record cannot drift silently.
+``--refresh`` rewrites stale digests in place (and each source's
+``source_rev`` to the last commit that touched it, when git can say) and then
+validates. A missing source file is a violation; a skill whose template root
+is absent on this machine is skipped with the root warning above.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
+import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -110,7 +125,87 @@ def _check_manifest(path):
                             f"selected skill {skill!r} has no directory under "
                             f"{root}")
 
+    if isinstance(instance, dict):
+        errors.extend(stale_digests(instance, path))
+
     return errors, warnings
+
+
+def _sha256_file(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def _digest_targets(manifest, manifest_path):
+    """Yield (label, recorded, file, setter) for every digest the manifest records."""
+    instruction_set = manifest.get("instruction_set")
+    if not isinstance(instruction_set, dict):
+        return
+    base = Path(manifest_path).parent
+    for source in instruction_set.get("sources") or []:
+        if isinstance(source, dict) and isinstance(source.get("path"), str):
+            yield (f"instruction_set.sources[{source.get('id')}]", source.get("digest"),
+                   base / source["path"], source)
+    lock = instruction_set.get("skill_lock")
+    if isinstance(lock, dict):
+        root = resolve_template_root(manifest, manifest_path)
+        if root.is_dir():
+            for name in sorted(lock):
+                yield (f"instruction_set.skill_lock[{name}]", lock[name],
+                       root / name / "SKILL.md", (lock, name))
+
+
+def stale_digests(manifest, manifest_path):
+    """Return one violation per recorded digest that no longer matches its file."""
+    problems = []
+    for label, recorded, target, _ in _digest_targets(manifest, manifest_path):
+        if not target.is_file():
+            problems.append(f"{label}: {target} does not exist")
+            continue
+        actual = _sha256_file(target)
+        if actual != recorded:
+            problems.append(
+                f"{label}: stale digest {str(recorded)[:12]}..., file is now "
+                f"{actual[:12]}...; run with --refresh")
+    return problems
+
+
+def _last_commit(path):
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(Path(path).parent), "log", "-1", "--format=%H", "--", Path(path).name],
+            capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    sha = out.stdout.strip()
+    return sha if out.returncode == 0 and re.fullmatch(r"[0-9a-f]{40}", sha) else None
+
+
+def refresh(path):
+    """Rewrite stale digests of one manifest in place; return the labels changed."""
+    path = Path(path)
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    changed = []
+    for label, recorded, target, holder in list(_digest_targets(manifest, path)):
+        if not target.is_file():
+            continue
+        actual = _sha256_file(target)
+        if isinstance(holder, tuple):
+            lock, name = holder
+            if lock[name] != actual:
+                lock[name] = actual
+                changed.append(label)
+        else:
+            if holder.get("digest") != actual:
+                holder["digest"] = actual
+                changed.append(label)
+            sha = _last_commit(target)
+            if sha and holder.get("source_rev") != f"git:{sha}":
+                holder["source_rev"] = f"git:{sha}"
+                if label not in changed:
+                    changed.append(label)
+    if changed:
+        path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return changed
 
 
 def main(argv=None) -> int:
@@ -118,12 +213,15 @@ def main(argv=None) -> int:
         argv = sys.argv[1:]
     if "-h" in argv or "--help" in argv:
         print(
-            f"usage: {Path(sys.argv[0]).name} <manifest.dispatch.json> [...]\n\n"
+            f"usage: {Path(sys.argv[0]).name} [--refresh] <manifest.dispatch.json> [...]\n\n"
             "Validate one or more dispatch manifests against "
-            "schemas/dispatch-manifest.schema.json.",
+            "schemas/dispatch-manifest.schema.json and check that recorded "
+            "instruction and skill digests match the files. --refresh rewrites "
+            "stale digests in place first.",
         )
         return 0
-    paths = [Path(arg) for arg in argv]
+    do_refresh = "--refresh" in argv
+    paths = [Path(arg) for arg in argv if arg != "--refresh"]
     if not paths:
         print(
             f"usage: {Path(sys.argv[0]).name} <manifest.dispatch.json> [...]",
@@ -133,6 +231,9 @@ def main(argv=None) -> int:
 
     any_failed = False
     for path in paths:
+        if do_refresh and path.is_file():
+            for label in refresh(path):
+                print(f"refreshed {path}: {label}")
         errors, warnings = _check_manifest(path)
         for warning in warnings:
             print(f"warning: {path}: {warning}")

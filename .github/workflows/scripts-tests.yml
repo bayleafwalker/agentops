@@ -17,6 +17,12 @@ on:
       - "session-mechanization/**"
       - "artifacts-root.default"
       - ".github/workflows/scripts-tests.yml"
+      - "agentops.dispatch.json"
+      - "AGENTS.md"
+      - "docs/plans/**"
+      - "docs/dispatch/programmes/**"
+      - "docs/dispatch/operator-gates/**"
+      - "docs/dispatch/closeouts/**"
   push:
     branches: [main]
     paths:
@@ -30,6 +36,12 @@ on:
       - "session-mechanization/**"
       - "artifacts-root.default"
       - ".github/workflows/scripts-tests.yml"
+      - "agentops.dispatch.json"
+      - "AGENTS.md"
+      - "docs/plans/**"
+      - "docs/dispatch/programmes/**"
+      - "docs/dispatch/operator-gates/**"
+      - "docs/dispatch/closeouts/**"
 
 permissions:
   contents: read
@@ -55,8 +67,12 @@ jobs:
         # both under one rootdir would apply that fixture set to tests written
         # without it. These are stdlib-only and need no extra dependency.
         run: python -m pytest -q scripts/context_economy
-      - name: agentops.dispatch.json validates against the schema
+      - name: agentops.dispatch.json validates against the schema and its digests are current
         run: python3 scripts/validate_dispatch_manifest.py agentops.dispatch.json
+      - name: every plan file is in the plan register
+        run: python3 scripts/plan_register.py --check
+      - name: operator command packages are well formed
+        run: python3 scripts/check_operator_command_packages.py
       - name: every CLI topic answers --help
         run: |
           status=0

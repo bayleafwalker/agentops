@@ -49,6 +49,36 @@ Handling values are `none`, `degraded`, `repair-only`, and `fatal`. The doctor
 performs mechanical checks only; prose conflicts are advisory unless a source
 declares the same scoped `rule_id`.
 
+## Manifest reconciliation (2026-11-07)
+
+`agentops.dispatch.json` stays, as TS-11 requires: it is not an authority, and
+no retirement date is set. It was brought into line with TS-2, TS-3 and the
+2026-10-15 product direction:
+
+- **Digests are current and checked.** `instruction_set.sources[].digest` is
+  sha256 of the source file's raw bytes. `instruction_set.skill_lock[<skill>]`
+  is sha256 of `skills/<skill>/SKILL.md`, the method the retired
+  instruction doctor and skill-lock tooling used. Both are *observed* digests,
+  not a pin or a materialization source. `validate_dispatch_manifest.py` now
+  fails when a recorded digest no longer matches the file. After changing
+  `AGENTS.md` or a selected skill, run
+  `python3 scripts/validate_dispatch_manifest.py --refresh agentops.dispatch.json`
+  in the same PR. That rewrites the digests and each source's `source_rev` to
+  the last commit that touched it. The manifest is a protected path, so such a
+  PR is a hand-pass.
+- **`template_root` is relative (`skills`)**, so the check runs against the
+  checkout being validated, CI included, not a host path.
+- **`instruction_set.role_presets` was removed.** TS-3 holds no role preset in
+  the manifest. `project.toml` keeps descriptive Sol/Luna presets as rendering
+  defaults only, and they grant nothing.
+- **`routing.action_classes.mechanical_bulk` was removed** (OpenCode harness,
+  `self_candidate`). Harness and model choice are native (TS-2), and hybrid
+  dispatch retired in S2 item 6. The self-candidate ruling moved to
+  [a decision record](../decisions/2026-08-26-mechanical-bulk-self-candidate-ruling.md).
+  `hybrid.enabled` is `false`. `hybrid.worker_routes` stays only because the
+  fleet schema requires it. `hybrid.protected_paths` and `hand_pass_actors`
+  still drive the protected-paths gate.
+
 ## Routing Precedence
 
 Dispatchers must resolve `harness` and `model` in this order:
