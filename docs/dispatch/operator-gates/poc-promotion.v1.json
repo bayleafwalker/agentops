@@ -6,13 +6,15 @@
   "programmes": [
     "docs/dispatch/programmes/2026-10-24/03-cloud-product.md"
   ],
-  "work_refs": [],
+  "work_refs": [
+    "vuoro-cloud#353"
+  ],
   "owner": "release train owner: operator-designated coordinator (default-assigned 2026-11-07)",
   "readiness": "blocked",
   "blockers": [
     {
-      "description": "No reviewed main head is frozen for this generation yet, so PROMOTION_EXPECTED_HEAD and the canonical OCI digest from the Forgejo publish-image run for that head are not known. P5 (#353) is still open on Forgejo.",
-      "resolved_by": "coordinator: freeze the reviewed head after #353 lands, read the publish-image digest for it, and fill steps 2 and 4"
+      "description": "vuoro-cloud#353 (P5) merged at main bcc55a9 (2026-11-07T14:20Z). The main push CI run (Forgejo Actions run id 2088) and publish-image run (id 2089) for bcc55a9 were in progress at that time, so PROMOTION_EXPECTED_HEAD can be bcc55a9 but its canonical OCI digest is not known yet.",
+      "resolved_by": "coordinator: once publish-image run 2089 succeeds, freeze bcc55a9 (or a later reviewed head), read the digest from that run, and fill steps 2 and 4"
     }
   ],
   "why_operator": "The promotion declaration is signed with the dedicated OpenPGP promotion identity AB73 C1C5 617B 5098 038C DA95 3AF9 5EDE B824 3BE7 on the owner's YubiKey (touch to sign). Key availability is not release authorization; each generation needs scope-specific approval.",

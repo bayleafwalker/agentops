@@ -11,8 +11,8 @@
   "readiness": "blocked",
   "blockers": [
     {
-      "description": "config/compatibility.json still pins vuoro-service-v0.1.94 with release_ready false; pyproject.toml lists both the vuoro-service 0.1.100 and 0.1.104 wheel URLs (separate extras). The pin change and its compatibility evidence are source work that must land first. 0.1.102 and later need work schema 30 and 0.1.103 needs Work31, so the tenant work-schema mapping must be known.",
-      "resolved_by": "source PR in vuoro-cloud bumping config/compatibility.json and apps/runtime-config/compatibility.json, plus the tenant schema-version mapping contract from the vuoro repo"
+      "description": "config/compatibility.json still pins vuoro-service-v0.1.94 with release_ready false; pyproject.toml lists both the vuoro-service 0.1.100 and 0.1.104 wheel URLs (separate extras). The pin change and its compatibility evidence are source work that must land first. 0.1.102 and later need work schema 30 and 0.1.103 needs Work31, so the tenant work-schema mapping must be known; its contract is merged as proposed in vuoro#312 but not implemented.",
+      "resolved_by": "source PR in vuoro-cloud bumping config/compatibility.json and apps/runtime-config/compatibility.json, plus the vuoro source PR implementing the tenant schema-version mapping contract (vuoro#312, acceptance criteria 1-5)"
     },
     {
       "description": "The rollout ships through a promotion.",
