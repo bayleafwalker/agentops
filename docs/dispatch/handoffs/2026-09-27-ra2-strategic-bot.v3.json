@@ -1,0 +1,137 @@
+{
+  "schema_version": "handoff/v1",
+  "handoff_id": "2026-09-27-ra2-strategic-bot.v3",
+  "version": 3,
+  "created_at": "2026-09-27T08:39:14Z",
+  "origin_host": "workstation",
+  "origin_path": "/projects/dev/agentops/docs/dispatch/handoffs/2026-09-27-ra2-strategic-bot.v3.json",
+  "origin_cwd": "/projects/dev/_wt/bindery-ra2-bot",
+  "track": "ra2-strategic-bot",
+  "predecessor": {
+    "harness": "claude-code",
+    "session_id": "1516e8fe-75ab-46de-84cc-c85f060e8dc3",
+    "transcript_path": null,
+    "model": "claude-opus-5-5",
+    "context_used_pct": null
+  },
+  "objective": "Make the RA2 strategic bot's attack decisions enemy-aware (the measured cause of the blind 131 s rush), then run a pre-registered local-LLM shadow pass, then correct PR #2 and rerun the tournament so the branch is mergeable.",
+  "constraints": [
+    "Work in /projects/dev/_wt/bindery-ra2-bot on branch feat/strategic-bot (PR #2 open, NOT merged; operator merges). Never touch the main checkout /projects/dev/bindery-ra2-adapter.",
+    "dotnet only via: nix shell nixpkgs#dotnet-sdk_8 -c dotnet <args>, with the Bash dangerouslyDisableSandbox parameter (network restore; pre-approved). Parallel dotnet runs are fine. TreatWarningsAsErrors.",
+    "Every fix: a test you ran and saw FAIL before and PASS after. Never weaken invariant tests (fog, late-discard, ownership, validator, the new mirror/numbering invariants in SimMapsTests).",
+    "Any report or PR text must quote the raw dotnet test totals; two Codex successors overstated results (Terra reported a failing test as passing).",
+    "tools/Bindery.Ra2.Bot.Baseline stays frozen; its only permitted edit (placement tie-break) is done.",
+    "Bulk LLM work uses the local endpoint (--llm-endpoint http://127.0.0.1:8020/v1 --llm-model worker-fast). Do NOT use opencode-go for the bot (terms: coding-agent traffic only). opencode-zen (paid) only for explicit live-Claude runs.",
+    "Held-out maps/opponents are for evaluation only; never tune on them. Pre-register thresholds before any LLM evaluation run.",
+    "No sprintctl writes without operator permission (auto-mode denied them); Codex launches need the operator's launch permission."
+  ],
+  "decisions": [
+    {
+      "what": "Map fairness fixed at 24b0738: canonical mirror numbering in SimMaps.Build, RegionGraph.Path lowest-id equal predecessor, MapInfo.RegionOf mirror-invariant tie-break, centre-relative sim positions; invariants in SimMapsTests; MirrorMatchTests covers 4 maps.",
+      "why": "Per-seed side-independence: river-crossing/open-steppe/fortress-choke 24/24, island-bridges 4W/4E, twin-valley 6W/2E (cross-side ties unfixable by ids). Mirror shares 26/45, 24/48, 24/48, 24/48."
+    },
+    {
+      "what": "Frozen baseline placement tie-break fixed at 02d0645 (operator-approved one-off).",
+      "why": "Arena always starts the opponent east; the old lowest-X rule put east bases' buildings forward, handicapping every pinned style."
+    },
+    {
+      "what": "OpenAI-compatible strategist client + arena --llm-endpoint/--llm-model at 2e49971; local worker-fast works (16 shadow proposals/match, 0 failed/rejected, ~6.5 s/call, agreed with selector 4/16).",
+      "why": "Free bulk LLM validation without an Anthropic credential; arms are labelled llm-openai:<model>."
+    },
+    {
+      "what": "Operator approved the change order: (1) enemy-aware attack gating, (2) arena fairness, (3) Verses-based effectiveness + build-time multipliers in rules import, (4) persistent squad roles. Then bandit fix and Full-vocabulary shadow.",
+      "why": "From the design/concept critiques; see /projects/dev/agentops/docs/dispatch/handoffs/2026-09-27-ra2-strategic-bot-data/design-and-concept-critique.md."
+    },
+    {
+      "what": "Operator's target architecture: LLM writes playbooks in a typed plan language; fast typed tactical tier (classifier or Jev-style System One model); deterministic executors; three levels core/genre/game-adapter; custom-AI plug-in interface.",
+      "why": "Recorded in the critique file; an ADR draft is a pending follow-up."
+    }
+  ],
+  "rejected": [
+    {
+      "what": "ArmyValueRatio = NaN (unknown) when the enemy is unseen, as the fix for the blind rush",
+      "why": "Measured no effect: OOS cell 40/72 selector, 52/72 oracle, first attack 131 s before and after. The selector's playbooks (soviet-flak-mix, allied-ifv-mix) attack on OwnArmyValue >= 1200 only. Reverted; do not retry."
+    },
+    {
+      "what": "Mirror test with opponent live-balanced (bot vs itself)",
+      "why": "Degenerate: the opponent slot wins 100% on every map, side and faction, so side share is always 50%. Arm/opponent configs differ; uninvestigated."
+    },
+    {
+      "what": "opencode-go as the bulk LLM backend",
+      "why": "Its terms require coding-agent traffic with session ids and cap 5h/weekly usage; faking a session header would misrepresent the traffic."
+    },
+    {
+      "what": "Trusting successor reports (Luna, Terra) without rerunning tests",
+      "why": "Both overstated; Terra's own MirrorMatchTests was failing when it reported it passing."
+    },
+    {
+      "what": "Region-id numbering as the only fairness fix",
+      "why": "Cross-side ties (one region on each side) cannot be mirrored by any id order; they remain on twin-valley (6W/2E) and are within the test guard."
+    }
+  ],
+  "state": {
+    "repos": [
+      {
+        "path": "/projects/dev/_wt/bindery-ra2-bot",
+        "head": "2e499710b74ca45c6fa615c1e6970491c603a1ef",
+        "branch": "feat/strategic-bot",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      }
+    ],
+    "running": [],
+    "digest_version": 4,
+    "tracker_watermark": []
+  },
+  "unresolved": [
+    "Enemy-aware attack gating design: every attack condition gains an enemy check; unseen enemy army = prior from elapsed time/scouting age, not 0; ratio uses a lower confidence bound. Measure on the OOS cell (baseline selector 40/72, oracle 52/72) and training maps (no regression).",
+    "Faction imbalance: selector as Soviet (flak-mix) 30W/6L vs Allied (ifv-mix) 9W/25L on the OOS cell.",
+    "Why the opponent slot always wins bot-vs-itself (balanced vs live-balanced).",
+    "Non-strength metric (variety/explainability) must be defined before judging any LLM arm.",
+    "PR #2 description overstates (claims all 18 items closed; mirror item was failing until 24b0738). Results tables stale since the fairness fixes: rerun the documented tournament and refresh docs/architecture/strategic-bot-results.md.",
+    "Closing stale auditctl #2315/#2316/#2317 and noting sprintctl #2110 status needs sprintctl write permission (evidence in this session's chat; #2315 fixed by d88a34c/1d170b5, #2316 not a publisher defect per d88a34c, #2317 fixed in .envrc).",
+    "Live Claude run: opencode-zen serves claude-opus-5/haiku-4-5; untested whether it accepts the Anthropic SDK's structured-output/effort params via --llm-endpoint or needs the Anthropic client with a base URL.",
+    "ADR for the three-level architecture and typed plan language not yet drafted."
+  ],
+  "evidence": [
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/docs/dispatch/handoffs/2026-09-27-ra2-strategic-bot-data/design-and-concept-critique.md"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/_artifacts/bindery-ra2-planning/2026-09-27-ideation.md"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/docs/dispatch/handoffs/2026-09-27-ra2-strategic-bot-data/checkup-notes.md"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/docs/dispatch/handoffs/2026-09-27-ra2-strategic-bot-data/codex-terra-report.md"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/docs/dispatch/handoffs/2026-09-27-ra2-strategic-bot-data/residual-items.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/_wt/bindery-ra2-bot/docs/architecture/strategic-bot-proposal.md"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/_wt/bindery-ra2-bot/docs/architecture/strategic-bot-results.md"
+    },
+    {
+      "kind": "session",
+      "ref": "1516e8fe-75ab-46de-84cc-c85f060e8dc3"
+    }
+  ],
+  "sprintctl_bundle_ref": null,
+  "next_action": "cd /projects/dev/_wt/bindery-ra2-bot && git status && git log --oneline -1 (expect clean, 2e49971, in sync with origin). Reproduce the OOS baseline: nix shell nixpkgs#dotnet-sdk_8 -c dotnet run --project tools/Bindery.Ra2.Bot.Arena -c Release -- run --arms selector --oracle both --maps heldout --opponents ai-horde:easy,ai-horde:medium,ai-horde:hard,ai-armor:easy,ai-armor:medium,ai-armor:hard --seeds 6 --benchmark contested --no-decisions --out /tmp/oos-base (expect selector 40/72, selector-oracle 52/72). Then implement enemy-aware attack gating failure-first (start in src/Bindery.Ra2.Bot/Operations/OperationalPlanner.Squads.cs ~line 170 and src/Bindery.Ra2.Bot/Playbooks/DefaultPlaybooks.cs attack conditions) and rerun that command plus a training-map check.",
+  "successor": {
+    "session_id": "164ee96b-82fc-4ce1-9b26-b8ac4d6536d7",
+    "acknowledged_at": "2026-09-27T08:39:56Z"
+  }
+}

@@ -1,0 +1,153 @@
+{
+  "schema_version": "handoff/v1",
+  "handoff_id": "2026-10-04-charterfall-night-stop.v1",
+  "version": 1,
+  "created_at": "2026-10-04T19:46:40Z",
+  "origin_host": "workstation",
+  "origin_path": "/projects/dev/agentops/docs/dispatch/handoffs/2026-10-04-charterfall-night-stop.v1.json",
+  "origin_cwd": "/projects/dev/charterfall",
+  "track": "charterfall-night-stop",
+  "predecessor": {
+    "harness": "codex",
+    "session_id": "6b4585a0-a7ca-4b26-a7dd-77e947240aea",
+    "transcript_path": null,
+    "model": "GPT-6",
+    "context_used_pct": null
+  },
+  "objective": "After the operator resumes, implement full three-faction sets and stronger battlefield mechanics in Charterfall.",
+  "constraints": [
+    "Operator explicitly stopped for tonight; do not resume development until requested.",
+    "Three playable factions, two doctrines each; five-unit neutral Custodian Array. No playable Cold Mandate expansion now.",
+    "Canonical repository is bayleaf/charterfall on git.apps.kotona.app; land ordinary work on main with exact-SHA CI.",
+    "Use served Vuoro through project direnv; never use local database or SPRINTCTL_URL.",
+    "Run Node, Chromium and network commands with sandbox escalation when required. Credential probes precede credential reasoning.",
+    "Static catalog is first presentation increment; do not claim final production art or full product acceptance."
+  ],
+  "decisions": [
+    {
+      "what": "Original SVG masters and paired albedo/ownership-mask atlases supply the complete static roster first.",
+      "why": "Provides inspectable original provenance and deterministic byte-identical builds while leaving pinned Blender animations for later."
+    },
+    {
+      "what": "Normal CI validates assets with Node only.",
+      "why": "The Node slim CI container does not require Python or Chromium; authoring tools are needed only for rebuilding."
+    },
+    {
+      "what": "Ruleset 17 preserves purchased presentation IDs.",
+      "why": "Existing units and queued purchases retain their appearance when a doctrine changes."
+    }
+  ],
+  "rejected": [
+    {
+      "what": "Binding controls only after initial atlas load.",
+      "why": "An early replay upload was ignored; handlers now bind before awaiting initial preparation, and browser replay coverage passes."
+    },
+    {
+      "what": "Broker repo.write credential for this repository.",
+      "why": "Earlier measured repository-unregistered denial; use existing configured Git SSH, never widen credentials."
+    },
+    {
+      "what": "Treating generated static silhouettes as production art acceptance.",
+      "why": "Six HQ module files still reuse two underlying shapes; facings, animation, human recognition and performance acceptance remain open."
+    },
+    {
+      "what": "Broad build/ ignore rule for generated simulation output.",
+      "why": "It also omitted two assets/source/command/build masters; canonical CI caught this. Root-only /build/ now preserves the original command masters."
+    }
+  ],
+  "state": {
+    "repos": [
+      {
+        "path": "/projects/dev/charterfall",
+        "head": "f746d9e534487fd182648ae019378969dcf43751",
+        "branch": "main",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      }
+    ],
+    "running": [],
+    "digest_version": 5,
+    "tracker_watermark": [
+      {
+        "item_id": "2605",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2606",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2607",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2608",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2609",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2610",
+        "status": null,
+        "status_revision": null
+      }
+    ]
+  },
+  "unresolved": [
+    "Refine six doctrine module silhouettes by faction and audit tactical recognition.",
+    "Full faction role/doctrine matchup acceptance remains unfinished.",
+    "Array controller extraction and concurrent-sector incidents remain open.",
+    "Authored terrain/LOS, physical production structures, formation traffic, scale/performance and multiplayer authority remain open.",
+    "Richer program hardware, camera/minimap and Phaser presentation remain open.",
+    "Pinned Blender facings/animation, original map kits, effects and audio remain open.",
+    "Earlier 600-unit benchmark around 49.37 ms/tick exceeds the 10 ms target; not resolved by this asset increment."
+  ],
+  "evidence": [
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/charterfall/docs/plans/IMPLEMENTATION.md"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/charterfall/tools/assets/README.md"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/tmp/charterfall-assets-browser-final.log"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/tmp/charterfall-assets-all-tests.log"
+    },
+    {
+      "kind": "sprintctl",
+      "ref": "served item 2610, sprint 561, reservation 180, session charterfall-factions"
+    },
+    {
+      "kind": "artifact",
+      "ref": "https://git.apps.kotona.app/bayleaf/charterfall/commit/f746d9e534487fd182648ae019378969dcf43751"
+    },
+    {
+      "kind": "artifact",
+      "ref": "https://git.apps.kotona.app/bayleaf/charterfall/actions/runs/25 (exact SHA f746d9e534487fd182648ae019378969dcf43751 success)"
+    }
+  ],
+  "sprintctl_bundle_ref": {
+    "path": "/projects/dev/agentops/docs/dispatch/handoffs/2026-10-04-charterfall-night-stop.v1.sprintctl-bundle.json",
+    "sha256": "e2faf54e56bd9b3199be0e0e07f49f100fb3ba965a28202f507e805539cfd945",
+    "generated_at": "2026-10-04T19:46:39Z"
+  },
+  "next_action": "Wait for operator resume, then cd /projects/dev/charterfall, git fetch origin, read docs/plans/IMPLEMENTATION.md and refresh the served Vuoro reservation before choosing the next audited gap.",
+  "successor": {
+    "session_id": null,
+    "acknowledged_at": null
+  }
+}

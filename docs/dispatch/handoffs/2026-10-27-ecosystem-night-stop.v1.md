@@ -1,0 +1,108 @@
+# Handoff 2026-10-27-ecosystem-night-stop.v1
+
+<!-- Rendered from the canonical JSON beside this file. Do not hand-edit:
+     `agentops handoff validate` and `ack` read the JSON, never this. -->
+
+**Objective.** Resume the ecosystem work after the 2026-10-27 night stop, keeping normal kotona MCP use available; finish the qualified OAuth maintenance fix release and explicitly account for test/observer retirement without replaying completed recovery or destructive cleanup.
+
+**Next action.** Acknowledge this JSON with the actual successor CODEX_THREAD_ID. Run both forge-credential status/inventory probes; read private programme-state.json, night-evidence-manifest.json and oauth-freeze-fix/night-final-ci.json. Freshly verify kotona normal operation with global mutations TRUE (do not refreeze), current source/runtime/backup state and PR318 exact head f1bfa8078920e11cf34cb2ac665bfcdc861c0eea. Resolve native CI1822 and its exact-head release artifact; remote CI may have finished after stop. Once current all-five jobs and all13 source checks pass, review/FF-merge the image pin, then prepare an independent clean signing clone on the frozen pin HEAD for hardware-signed generation79. No signing or deployment happened at night stop. Do not rerun consumed cleanup plans. Keep agentops2864/2646 active; use a new session observation rather than stale foreign execution claims.
+
+## Predecessor
+
+- harness: codex
+- session: 01a17956-26ed-7430-bbe7-4bb5ace3eee8
+- model: gpt-6
+- context used: unknown%
+- transcript: unknown
+- origin: `workstation:/projects/dev/agentops/docs/dispatch/handoffs/2026-10-27-ecosystem-night-stop.v1.json` (authoritative copy; an ack from another host goes through it)
+
+Read-only after transfer: once a successor acks, the predecessor makes no
+edits and takes no external actions. It stays consultable.
+
+## Constraints
+
+- User requested night handoff: all local workers and polling stopped. Remote CI may finish naturally; no new merge, signature, promotion or live action after this stop. Existing user approvals and normal-service intent are recorded; hardware and destructive-deletion participation remain human boundaries.
+- CURRENT global mutations TRUE, provisioning FALSE, signup TRUE. Kotona READY generation14/observed14/schema3 with its .94/91f runtime Ready1 and traffic flags false/false. Other four owners remain held and runtimes0; tenant controller0, two Crons held, apps Flux suspended. Never restore the stale all-five-held/global-Cfalse baseline from earlier handoffs just because an old qualifier expects it.
+- Only kotona is actual used workspace. Isolation-proof, G2/G3 canaries and blocker12 are test/legacy retirement candidates, not indefinite fixtures. Keep their source data until provenance/retirement gates resolve; is_test=false is not silently waived because the user calls them tests.
+- Before credentials run hooks/forge-credential.sh status AND inventory; use packaged /run/current-system/sw/bin/credctl, never the uncommitted cred-broker venv. Sandboxed network calls can exit0/empty; escalate and measure rather than claim absence. Never print token values.
+- Cloud kubeconfig /home/bayleaf/.config/vuoro/kube/poc.yaml context default. Homelab is a separate /projects/dev/appservice/clusters/.kube/config. Bare kubectl is wrong. Leave the existing operator VPN up.
+- Preserve source PostgreSQL, all23 Backup records (including4 historical failed records), source PVC/PV, source archive/S3 objects and serving runtime. Whole-backup physical recovery remains unknown; selected catalog/data parity and live reads are bounded proof.
+- Consumed cleanup plan e3eb6dc21e1952a2f2faef878439ae24bdbb0c457fa5c5dd66bc5f9f45d5a71e is COMPLETE, all37 graph objects explicitly absent. Never rerun it, failed-attempt cleanup scripts, the original roll, traffic restore, or normal activation commands. UID replacement refusal is protective.
+- Cloud .claude/gates.json reserves live destructive cleanup to human execution. Signing uses hardware key AB73C1C5617B5098038CDA953AF95EDEB8243BE7, PIN and two touches for candidate/tag; no software fallback and no PIN in chat.
+- Agentops is public. Private operational/customer evidence under _artifacts is host-persistent only and must not be committed. The new handoff is local/uncommitted; served work state is durable-authoritative. Copy private receipts hash-verified for cross-host continuation.
+- Preserve original repository working trees and unknown branches. Frozen /tmp/terra-held-promotion-20261027 stays at signed8571; do not fast-forward or run promote-release.sh there. The helper checks out main, so use a NEW independent signing clone after pin318 lands, not a linked worktree whose main is checked out elsewhere.
+
+## Decisions
+
+- **Original workspace recovery and real client reads accepted within bounded scope** — Actual production once-controller settled the one backup-bound generation14 event on schema034; runtime91f both containers Ready. Selected41-table/metadata comparison changed only two expected Audit principal timestamps. Traffic restore succeeded, followed by sustained normal write admission. Fresh ChatGPT and Claude described existing completed drill item1, native gateway client/workspace/tool/clock records were HTTP200/noerror, and its nine-field canonical hash90fb0699... exactly matched the original. No new work/run/claim write or whole-backup physical proof is implied.
+- **Weeks-long freeze audited and ordinary mutation admission restored** — Provisioning and mutations were disabled Oct11 for generation75 recovery qualification; mutations only opened briefly thereafter. The historical rationale did not establish current necessity. Human operation01M5ZH1MYW1PXMN2DXD3PF0K36 finished20:32:51Z, Root independently verified the exact Cfalse-to-true transition and all other holds/storage/backups. C remains TRUE permanently, not a temporary OAuth window. Remaining provisioning/controller/Flux holds need their own current exit criteria.
+- **Final private clone cleanup complete** — Human executed the whole reviewed V3-normal cleanup at21:09:27Z. Fourteen direct deletes covered fifteen approved targets plus garbage collection. Root at21:10:09 verified every one of37 graph objects absent, including clone Cluster/Pod/PVC/PV/Lease and bounded rehearsal/controller diagnostics. Source/runtime/all23 backup records and normal Ctrue remained preserved. Root never performed the live DELETE.
+- **PoC78 is still the live control composition** — Signed commit8571bdacd6eff3cd069008511627bf722a2a0dfc/tag v0.1.0-poc.78, image4608ee4af11dad4a4e483df0d2e108d4c5df38b280b6be209be8d364a57f1c4c. Promotion1815/receipt1186 and actual031-to034 migration/role composition were qualified. Tenant runtime is still91f/.94, not the separately OCI-qualified .99 target. Do not conflate source main, signed tag and live images.
+- **Normal reconnection bug fixed in merged PR317, not yet deployed** — Catch-all control write freeze blocked POST /oauth/consent and /oauth/token, including fifteen-minute refresh, breaking standard ChatGPT/Claude auth. Exact POST carveout preserves normal authentication/CSRF/PKCE/epochs/reuse validation and workspace/MCP mutation guards. PR317 final efe1909d198f7a476121fe34c5686e52e68ca9fc FF-merged after independent review,60 actual HTTP/Postgres OAuth tests, all5 nativeCI1819 jobs and all13 source-clean artifact1189 checks. Self-revoke/logout freeze behavior is a separate policy follow-up.
+- **Actual auth candidate image published and isolated-image qualified** — Native publisher1821 completed. OCI index e8fe72b0fdc6b181e9ee8619b0c9015ef9f0c8bde874dbfe791df8d6aaff600d, linux/amd64 child cc19df5f8eeeef9ed3c905c9c66b36dde29cc588e3db306a68f5e6ab4c1525f6, config995f9309a8701020e68a782893afd6669f109db6f4645510b26b2cac2f86b0f3. Registry bytes and publish revision match efe1909. Exact old/new image fixtures on PG17.10 and16.15 passed034-to034 no-op, full catalogs/data/roles/ACL, nonowner migration refusal and configured same-image role probe. Fleet fixtures are synthetic held data, never current all-five-held live proof.
+- **Image pin PR318 is parked, clean and pushed** — Head f1bfa8078920e11cf34cb2ac665bfcdc861c0eea, base efe1909; six files/seven owned image substitutions including two admin-enrol CronJob containers, no replica/hold/schema/runtime/retire-worker changes. NativeCI1822 at21:17:38 had focused pass, integration running, remaining jobs waiting; no artifact then. Agent stopped polling on request. Remote CI can finish, but PR remained OPEN and no merge/signature/tag79/candidate PR/promotion/deployment happened.
+- **Promotion and narrow rollout sequence remains explicit** — After pin318 green/merge, freeze exact clean main and have owner run reviewed signing helper in an independent checkout, two hardware signatures. Verify candidate/tag, exact candidate CI and FF merge, then dispatch promote-deployment via API (204 queues; fj dispatch is broken). Workflow verifies/copies OCI to GHCR, pushes mirror main then tag last; GHCR absent before this step is expected. Source GitRepository auto-selects eligible semver with TagAndHEAD; apps stays suspended. Do not blindly resume apps because it includes Job/controller/web/Crons. Scoped stage.py updates only3 serving Deployment images and requires real signed release admission plus reviewed normal-C fence; this latter binding is not finished yet.
+- **Test and observer retirement is accounted for, not silently forgotten** — isolation-proof/G2/G3 are retirement candidates; G3 exact fixture dependency links2555 whose original window failure is not retroactively accepted. blocker12 provenance/classification links2584. Full retirement2583 remains pending; no live retire-worker Deployment and no accepted P4 teardown transport. Additional12 completed observer Jobs+12CMs+12SucceededPods have no active consumer/PVC/finalizer in full scanned references; six pairs have exact linked output identities and six older pairs match prior spec/data. Remaining script/output custody closures are explicit; no demonstrated indefinite need, no unreviewed deletion. See private disposition reports and served6368.
+- **Earlier authorized work stayed landed or explicitly preserved** — Foundation Vuoro PR290 merged with12 CI checks;2111 broad owner acceptance remains distinct. Cloud310-317 and signed315 landed; exact source OCI tenant .94-to.99 qualification onPG17/16 completed without live repin. Twenty explicitly approved old branches/worktrees were retired, plus this session merged CLI316 branch/worktree. Other source trees/branches and the differing cred-broker eefa957 were preserved. Shared .99/work28 and Sovite status remain per prior handoff; no new shared/Sovite rollout in this segment.
+- **Landing and durability at night stop** — /tmp/vuoro-oauth-freeze-fix-20261027 branchfix/oauth-freeze-boundary-20261027 at efe1909 clean/pushed/merged; /tmp/vuoro-poc79-pin-20261027 branchrelease/poc79-image-pin at f1bfa8 clean/pushed/OPEN318; frozen/tmp/terra-held-promotion-20261027 main8571 clean/preserved for old proof. Original /projects/dev/vuoro-cloud547af preserved. Agentops main67a450f has no new source commit from this segment; its private artifacts and generated handoff are intentionally untracked, and preexisting Oct20 handoff edits were not overwritten. Do not reset/clean originals.
+- **Only own observations released for night stop** — Served night event6372 records the stop; own programme observation459 and recovery observation461 released. Parent2864/2646 remain active. Prior foreign execution281 and other stale claims untouched. All three local agents completed; no detached local worker, poll loop or new overnight live work remains. Remote Forgejo CI alone can finish naturally.
+
+## Rejected
+
+- **An indefinite recovery freeze as normal service behavior** — Weeks-old generation75 rationale did not establish continued necessity. Normal clients must connect/refresh without operator ceremonies. The late user correction drove actual normal-C restoration and a source fix; do not reintroduce the same outage to satisfy old assumptions.
+- **Calling successful metadata discovery useful serving proof** — Initial current-thread calls failed internal then cached Unknown tool. Source catalog success alone was insufficient. Actual fresh ChatGPT and Claude reads, matching source item hash and gateway/client/workspace correlation, are the accepted bounded serving proof.
+- **Blind cleanup retry or adoption by name** — Earlier repeated consumed helpers correctly refused replacement Services. The final plan initially stopped on an unlisted clone Lease, which was added by exact UID/owner only, then all37 absences were required. HTTP mutation retries were removed; no automatic rollback/retry is authorized after ambiguous results.
+- **Current all-five-held qualification or full rollout claim** — One actual tenant is now active and Ctrue. Synthetic held fixture/image tests are not live fleet evidence. Current scoped auth rollout must preserve this normal state; source/candidate/image/publication/scoped deployment are separate facts.
+
+## Repo state
+
+Digest definition: v5 (see the handoffs README).
+
+| path | branch | head | dirty | unpushed | diff_sha256 |
+|---|---|---|---|---|---|
+| `/projects/dev/agentops` | main | `67a450f60c6d` | yes | 0 | `eaaa9af1db4c5ec6…` |
+| `/tmp/vuoro-oauth-freeze-fix-20261027` | fix/oauth-freeze-boundary-20261027 | `efe1909d198f` | no | 0 | `e3b0c44298fc1c14…` |
+| `/tmp/vuoro-poc79-pin-20261027` | release/poc79-image-pin | `f1bfa8078920` | no | 1 | `e3b0c44298fc1c14…` |
+| `/tmp/terra-held-promotion-20261027` | main | `8571bdacd6ef` | no | 0 | `e3b0c44298fc1c14…` |
+| `/projects/dev/vuoro-cloud` | main | `547af64e5e35` | yes | 0 | `182390cf6f5cd7d4…` |
+
+**Running:**
+
+- No local agent, worker, polling loop or new live operation remains.
+- Remote Forgejo nativeCI1822 for openPR318 may continue; re-query native run ID and exact commit on resume, never confuse web run number with API id.
+
+## Unresolved
+
+- Finish PR318 exact-head CI1822/artifact checks, FF merge and hardware-signed79 candidate/tag, candidate checks/merge, promotion API and destination/index/signature proof, then independently review the normal-C fence/release admission and scoped3-serving-image executor. Auth fix317 is merged and image qualified but NOT live.
+- Explicitly review current exit criteria for controller0, provisioningfalse, two Cron holds and apps Flux suspension. Do not silently leave them forever or toggle them as a side effect of a narrow auth rollout; ordinary existing kotona mutation admission must remain TRUE.
+- Retire test workspaces only through supported reviewed preservation/lifecycle gates.2583 pipeline/worker/teardown is unfinished;2555 exact G3 remaining qualification and2584 blocker12 classification need disposition. User says only kotona was actually used, so old KEEP statements are not indefinite requirements.
+- Additional observer resources are separately inventoried in remaining-observer-disposition; finish exact script/output/custody checks and a new UID-frozen human cleanup if eligible. The consumed37-object plan covers NONE of these additional objects.
+- Whole backup/physical/WAL no-op proof, broader2111/2466/852/2096/2828 and other programme acceptance are not implied by selected restoration, source presence or read-only drill-item success. Consult current served criteria; do not close parents from this handoff.
+
+## Evidence
+
+- artifact: `/projects/dev/agentops/_artifacts/agentops/ecosystem-resume-2026-10-27/programme-state.json`
+- artifact: `/projects/dev/agentops/_artifacts/agentops/ecosystem-resume-2026-10-27/night-evidence-manifest.json`
+- artifact: `/projects/dev/agentops/_artifacts/agentops/ecosystem-resume-2026-10-27/served-night-stop.json`
+- artifact: `/projects/dev/agentops/_artifacts/agentops/ecosystem-resume-2026-10-27/oauth-freeze-fix/night-final-ci.json`
+- artifact: `/projects/dev/agentops/_artifacts/agentops/ecosystem-resume-2026-10-27/oauth-freeze-fix/pin-pr.json`
+- artifact: `/projects/dev/agentops/_artifacts/agentops/ecosystem-resume-2026-10-27/human-final-cleanup-v3-normal/root-final-verification.json`
+- artifact: `/projects/dev/agentops/_artifacts/agentops/ecosystem-resume-2026-10-27/post-traffic-restored/useful-owner-read-verified.json`
+- artifact: `/projects/dev/agentops/_artifacts/agentops/ecosystem-resume-2026-10-27/normal-kotona-activation/root-activation-verified.json`
+- artifact: `/projects/dev/agentops/_artifacts/agentops/ecosystem-resume-2026-10-27/oauth-freeze-fix/image-identity.json`
+- artifact: `/projects/dev/agentops/_artifacts/agentops/ecosystem-resume-2026-10-27/oauth-freeze-fix/publish-source-binding.json`
+- artifact: `/projects/dev/agentops/_artifacts/agentops/ecosystem-resume-2026-10-27/oauth-freeze-fix/pg17-efe1909-result.json`
+- artifact: `/projects/dev/agentops/_artifacts/agentops/ecosystem-resume-2026-10-27/oauth-freeze-fix/pg16-efe1909-result.json`
+- artifact: `/projects/dev/agentops/_artifacts/agentops/ecosystem-resume-2026-10-27/test-workspace-disposition/current-assessment.json`
+- artifact: `/projects/dev/agentops/_artifacts/agentops/ecosystem-resume-2026-10-27/remaining-observer-disposition/pair-assessment.json`
+- artifact: `/projects/dev/agentops/_artifacts/agentops/ecosystem-resume-2026-10-27/freeze-history-audit/summary.json`
+- sprintctl: `agentops#2864 events6371/6372; agentops#2646 event6370; agentops#2583 event6368`
+
+## sprintctl bundle
+
+- `/projects/dev/agentops/docs/dispatch/handoffs/2026-10-27-ecosystem-night-stop.v1.sprintctl-bundle.json` (sha256 `fa41def7d9dce068…`)
+
+## Successor
+
+- session: 01a1869b-7d96-7110-9c15-80fb7a6f4961
+- acknowledged: 2026-10-29T07:52:12Z

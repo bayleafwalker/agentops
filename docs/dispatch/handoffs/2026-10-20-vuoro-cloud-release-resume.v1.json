@@ -140,7 +140,7 @@
   "sprintctl_bundle_ref": null,
   "next_action": "Check PR #281 (https://git.apps.kotona.app/bayleaf/vuoro-cloud/pulls/281, head 07a6b8bd1ae2089b1cb74010eed823afee682509): at 20:03Z focused/integration/release-evidence were success and credential-free-gates pending. If not merged yet, when all four are success FF-merge it via the Forgejo API {\"Do\":\"fast-forward-only\",\"head_commit_id\":\"07a6b8bd...\"} (token ~/.config/forgejo/admin-token, never print). Then re-run the local qualification receipt on merged main (see constraints), tell the operator a YubiKey PIN prompt plus two touches are coming, and run `scripts/promote-release.sh sha256:bc23edbff629296973f6f80ceef081e53bb89a9b464200657719ca08e822b09c` from a clean checkout of vuoro-cloud main.",
   "successor": {
-    "session_id": null,
-    "acknowledged_at": null
+    "session_id": "01a15d5d-7e52-77d3-95ec-0ea33036c90d",
+    "acknowledged_at": "2026-10-21T08:51:40Z"
   }
 }

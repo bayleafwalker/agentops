@@ -1,0 +1,192 @@
+{
+  "schema_version": "handoff/v1",
+  "handoff_id": "2026-10-09-post-mi1-night-stop.v1",
+  "version": 1,
+  "created_at": "2026-10-09T20:48:40Z",
+  "origin_host": "workstation",
+  "origin_path": "/projects/dev/agentops/docs/dispatch/handoffs/2026-10-09-post-mi1-night-stop.v1.json",
+  "origin_cwd": "/projects/dev/agentops",
+  "track": "vuoro-ecosystem-post-mi1",
+  "predecessor": {
+    "harness": "codex",
+    "session_id": "01a11f24-a465-73b2-84a9-f0e895b2f955",
+    "transcript_path": null,
+    "model": "GPT-6",
+    "context_used_pct": null
+  },
+  "objective": "Resume the approved Vuoro ecosystem backlog after the operator returns, starting with shared schema22 rollout and Cloud password stage2.",
+  "constraints": [
+    "Stopped for today: no development, delegation or mutations until user resumes.",
+    "Private Cloud source and receipts stay on trusted host; agentops is public.",
+    "Local claude -p Max only; paid Anthropic API and hosted MI1 comparison are retired.",
+    "Measure credential status/inventory; served sprintctl only; acquire fresh reservations.",
+    "No shared schema22 migration or Cloud73 activation occurred. Hardware signatures and independently reviewed maintenance gates remain required."
+  ],
+  "decisions": [
+    {
+      "what": "Owner0.17 and service0.1.91 released; shared rollout parked.",
+      "why": "Released artifacts and proofs passed; final Job review, fresh backup/fence and PR/CI remain; user stopped work."
+    },
+    {
+      "what": "Cloud72 controls remain enabled; provisional73 ciphertext staged only.",
+      "why": "Stage1 browser qualification passed; full stage2 execution packet is unfinished."
+    }
+  ],
+  "rejected": [
+    {
+      "what": "Paid hosted comparison/API execution.",
+      "why": "User requires local Claude Max and retired comparison."
+    },
+    {
+      "what": "Blind promotion retry or old image/password rollback after activation.",
+      "why": "Mirror tag may activate before receipt; schema22 is incompatible with old owner. Adopt matching once-only effects and recover forward."
+    },
+    {
+      "what": "Treat attempt report or resource observation as independent terminal proof.",
+      "why": "Provider invocation and independent terminal collection remain backlog work."
+    }
+  ],
+  "state": {
+    "repos": [
+      {
+        "path": "/projects/dev/agentops",
+        "head": "a09bd7a00a93199d41fcacff4d72b8e3b350897b",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "1ea4061045daac82627ed5b33bbf432f1a52ecdc674effe053bd08cb63c9bc2c",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/sprintctl",
+        "head": "423eac60e02f8cc90719960e2dd4c76493c03077",
+        "branch": "main",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/vuoro",
+        "head": "977d417368ecca2a35ec3572eec87e972a14e5de",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "30f045b3e9a2ce5d0a6f156ef80d9e99a5aec8a40d713de80ac88447c465d001",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/appservice",
+        "head": "c91d556d7e40a41becc4ea13c2f68d6fccec8002",
+        "branch": "main",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/vuoro-s4-attempt-composition-20261009",
+        "head": "abe9f168598b5664d9aa774f3206fa7b57fa14a7",
+        "branch": "feat/s4-attempt-service-20261009",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/appservice-s4-schema22-20261009",
+        "head": "c91d556d7e40a41becc4ea13c2f68d6fccec8002",
+        "branch": "feat/s4-schema22-cutover-20261009",
+        "dirty": true,
+        "diff_sha256": "15f8357d313ac049381c3d27704771517c97fa6adc851f89e01457a9dd98a59b",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/vuoro-cloud-g3-stage2-20261009",
+        "head": "b20b33381ab39fd7461c25edc3f269be0e1e46cc",
+        "branch": "release/g3-password-stage2-20261009",
+        "dirty": true,
+        "diff_sha256": "29946b1ed7f6d24868436a9bd56dc0ee636b940569d957b1c7f6ef518eafaa33",
+        "unpushed": 5
+      },
+      {
+        "path": "/projects/dev/vuoro-cloud",
+        "head": "3116a561c34453bdac2094282f95e2ca665882c4",
+        "branch": "main",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 4
+      }
+    ],
+    "running": [],
+    "digest_version": 5,
+    "tracker_watermark": [
+      {
+        "item_id": "2307",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2308",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2309",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2310",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2311",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2329",
+        "status": null,
+        "status_revision": null
+      }
+    ]
+  },
+  "unresolved": [
+    "Final independent schema22 Job review, fresh writer fence/backup, commit/PR/CI and rollout.",
+    "Cloud73 complete collectors/receipts and independent review, fresh admin/highwater and hardware signatures.",
+    "Remaining broad backlog and dated gates are listed in semantic handover;90-day soak has not started."
+  ],
+  "evidence": [
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/session-notes/2026-10-09-post-mi1/night-stop-handover.md"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/session-notes/2026-10-09-post-mi1/progress.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/session-notes/2026-10-09-post-mi1/s4-schema22-preparation/parked-worktree/manifest.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/session-notes/2026-10-09-post-mi1/s4-service0191-release-qualified.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/session-notes/2026-10-09-post-mi1/g3-stage2-preparation/review-adjudication.json"
+    },
+    {
+      "kind": "sprintctl",
+      "ref": "items2485/2555; stop notes4630/4631; reservations173/159 released"
+    }
+  ],
+  "sprintctl_bundle_ref": {
+    "path": "/projects/dev/agentops/docs/dispatch/handoffs/2026-10-09-post-mi1-night-stop.v1.sprintctl-bundle.json",
+    "sha256": "0d3d9f5db6c75d9bf0f0fddb97f4f40f9a8d0a5f2f3119b4729218983a0c9676",
+    "generated_at": "2026-10-09T20:48:38Z"
+  },
+  "next_action": "Wait for user resume. Then acknowledge this handoff, read the private night-stop-handover.md, run hooks/forge-credential.sh status and inventory, obtain fresh served reservations/live inventory, and request final independent schema22 Job review before any deployment.",
+  "successor": {
+    "session_id": "01a1243b-2ca1-7ef1-a446-30313ebe6e31",
+    "acknowledged_at": "2026-10-10T05:15:02Z"
+  }
+}

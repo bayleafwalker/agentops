@@ -1,0 +1,75 @@
+# Handoff 2026-09-29-vuoro-cloud-role-split.v1
+
+<!-- Rendered from the canonical JSON beside this file. Do not hand-edit:
+     `agentops handoff validate` and `ack` read the JSON, never this. -->
+
+**Objective.** Finish rolling out vuoro-cloud admin-design unit 1.5 (the DB role split, agentops docs/plans/2026-09-27-admin-identity-and-vuoro-cli-design.md rev 13, section D7), one generation per promotion, verifying each against the rollout plan in the body of vuoro-cloud PR #177 before starting the next. Live and verified: gen 58 = G1 (#177: managed roles, role Secrets, 020_role_grants.sql), gen 59 = G2a (#178: gateway as vuoro_gateway), gen 60 = G2b (#179: tenant controller as vuoro_controller). G2c (#180: admin Deployment and both enrol CronJobs as vuoro_control_admin) is merged and pinned (gen 61 pin #191, main 287e310) and waits on the operator's promotion retry. Remaining after it: G3 (#181, migration 021_role_split: REASSIGN, exact matrix, D7 assertion; the migrate Job runs as the owner) and G4 (#182, cleanup). Then the ChatGPT OAuth client for agentops#287.
+
+**Next action.** Wait for the operator's rerun output of scripts/promote-release.sh for generation 61 (digest sha256:adc3f44840078e24bd567046daa34b6f82461796438816f8b7758a5d714a3bb3). Then have Sonnet 5.5 independently review the candidate PR and post a comment. Once CI is green, merge it fast-forward with credctl, dispatch promote-deployment for v0.1.0-poc.61, watch the promote run and Flux, and verify G2c per #177. Then start G3 (#181): merge origin/main into feat/admin-1.5-g3, drop 'WIP:', retarget it to main, and get an Opus review.
+
+## Predecessor
+
+- harness: claude-code
+- session: 09f389de-5bd9-4de5-bd26-7591576bd1bf
+- model: claude-opus-5-5
+- context used: unknown%
+- transcript: /home/bayleaf/.claude/projects/-projects-dev-agentops/09f389de-5bd9-4de5-bd26-7591576bd1bf.jsonl
+- origin: `workstation:/projects/dev/agentops/docs/dispatch/handoffs/2026-09-29-vuoro-cloud-role-split.v1.json` (authoritative copy; an ack from another host goes through it)
+
+Read-only after transfer: once a successor acks, the predecessor makes no
+edits and takes no external actions. It stays consultable.
+
+## Constraints
+
+- Promotion hold from G1 until G3 is verified (#177 body): promote nothing that carries a migration or adds a table access path, other than the unit 1.5 generations themselves, strictly in order G2c, G3, G4, one per promotion.
+- Every commit I author, and every stacked unit PR, gets an independent review comment posted on its Forgejo PR before merge (Opus 5.5 for code units, Sonnet 5.5 for pins and candidates). Merge only with credctl merge --repository forgejo:bayleaf/vuoro-cloud --pr N --head-sha <reviewed sha> --style fast-forward-only --forgejo-url https://git.apps.kotona.app, after the required check 'conformance / credential-free-gates (pull_request)' and the rest are green.
+- Promotion needs the operator's YubiKey: only the operator runs scripts/promote-release.sh <digest>. Everything else (pins, reviews, merges, dispatch of promote-deployment, verification) is mine. Give the operator the exact block: cd /projects/dev/vuoro-cloud; git switch main && git pull --ff-only; scripts/promote-release.sh sha256:<digest>.
+- Production access: export KUBECONFIG=/home/bayleaf/.config/vuoro/kube/poc.yaml and nmcli connection up vuoro-cloud-operator; bring the tunnel down again (nmcli connection down vuoro-cloud-operator) when done (split-horizon Q5). Network commands need the sandbox disabled. SQL checks run as the superuser in the primary: kubectl -n vuoro-data exec vuoro-postgres-1 -c postgres -- psql -d vuoro_control -Atc '...'. Never print secrets; never decrypt SOPS files.
+- Cut branches from origin/main in a worktree (/projects/dev/vuoro-cloud-<name>), never in the shared checkout; remove the worktree and branch after merge, by explicit name only.
+- The permission classifier sometimes denies whole batches (including a prod psql read, and once a plain cat of a task output). Do not split or reroute a denied action; stop and ask the operator, who can grant it via /permissions.
+
+## Decisions
+
+- **Stacked PRs #179-#182 were opened as drafts with a 'WIP:' title; each is taken out of draft only at its turn.** — Forgejo refuses to merge drafts (credctl reports pull-request-not-mergeable), which keeps the order. To start a unit: worktree on feat/admin-1.5-<gen>, git merge --no-edit origin/main (normal merge, never force-push), push, then PATCH the PR with the 'WIP:' prefix removed and base 'main' in one call. Editing or reopening a PR re-runs CI on the same head.
+- **Per generation: wait for the main image (docker buildx imagetools inspect git.apps.kotona.app/bayleaf/vuoro-cloud:sha-<full main sha>, read the manifest digest), then a pin PR replacing the previous digest in the seven ghcr.io/bayleafwalker/vuoro-cloud@sha256 references under apps/, review, merge, operator promotes, review the candidate PR (empty signed commit, tag peels to it, EDDSA key AB73C1C5617B5098038CDA953AF95EDEB8243BE7), merge, then dispatch: POST https://git.apps.kotona.app/api/v1/repos/bayleaf/vuoro-cloud/actions/workflows/promote-deployment.yaml/dispatches with {"ref":"v0.1.0-poc.N","inputs":{"deployment_tag":"v0.1.0-poc.N","image_digest":"sha256:..."}} and token ~/.config/forgejo/workstation-scope-token; 204 means queued.** — The signed-tag promotion is the deployment policy. The Forgejo actions API returns a null head_sha, so match runs on name 'promote' and head_branch = the tag. ghcr.io answers 403 from the workstation for every digest; that is expected.
+- **G2a /mcp check satisfied by the gateway log: /oauth/token 200 then an mcp_exchange 'forwarded' and POST /mcp 200 through the new pods, from a claude.ai Vuoro connector call (list_ready_work).** — The gateway logs requests only when they happen, and no connectors are registered; an invalid-token probe of https://api.vuoro.cloud/mcp returns 401.
+- **Rollout record on Forgejo: the #177 body holds each generation's preconditions, verify and rollback; unit reviews are comments 1058 (#177), 1084 (#178), 1101 (#179), 1115 (#180); pins #185/#187/#189/#191; candidates #186/#188/#190.** — Read these instead of re-deriving the plan.
+- **agentops#287 (Vuoro Cloud plugin package) merged as 68019a4 with the operator's explicit approval.** — Independent review approved it (GitHub comment 5896001229): no secrets, endpoint https://api.vuoro.cloud/mcp, read-only skill and vuoro:work.read scope. Three non-blocking nits were left in that comment.
+
+## Rejected
+
+- **Re-running a failed integration job on** — The next merge of main re-ran CI; it passed. The earlier failure was flaky.
+- **Folding the ChatGPT OAuth client into a role-split generation** — One cause per generation keeps each verification attributable.
+
+## Repo state
+
+Digest definition: v5 (see the handoffs README).
+
+| path | branch | head | dirty | unpushed | diff_sha256 |
+|---|---|---|---|---|---|
+| `/projects/dev/vuoro-cloud` | main | `287e310bc009` | no | 0 | `e3b0c44298fc1c14…` |
+| `/projects/dev/agentops` | main | `818b33dda12c` | yes | 0 | `daf15f5bd05681a2…` |
+
+## Unresolved
+
+- OPERATOR, in progress: gen 61 promotion failed at the tag signature (pinentry Timeout on the second YubiKey touch). The signed candidate commit 16d0d4e sits unpushed on local main of /projects/dev/vuoro-cloud (ahead 1); no tag, no remote branch. The operator was given: git reset --keep origin/main (back to 287e310), check git status -sb shows no 'ahead', then rerun scripts/promote-release.sh sha256:adc3f44840078e24bd567046daa34b6f82461796438816f8b7758a5d714a3bb3 and touch twice. The repo digest in this handoff was taken before that reset, so vuoro-cloud's HEAD may legitimately differ (287e310, or the new candidate).
+- After the gen 61 candidate (expected #192, tag v0.1.0-poc.61): review, merge, dispatch, then verify G2c per #177: admin pod Ready (its startup DELETE FROM admin_webauthn_challenges runs as the new role); exec current_user prints vuoro_control_admin; select count(*) from admin_principals and select seq from audit_chain_head_read() succeed as it; pg_stat_activity shows vuoro_control only from the vuoro-control pod IP (client_addr). Optionally the operator runs nix develop --command uv run --extra cli vuoro-cli admin login --handle operator, then ... admin audit verify (expect ok), then ... admin logout, with the tunnel up (vuoro-cli is not on PATH).
+- G3 (#181) then G4 (#182): both still 'WIP:' drafts whose base is the previous stacked branch. G3 carries migration 021 and changes who runs migrations; its review needs Opus and a close read of #177's G3 plan (pre-checks, verify, rollback). Promotion hold lifts only when G3 is verified.
+- ChatGPT OAuth client for agentops#287: add a 'chatgpt-connector' client limited to vuoro:work.read with its own secret hash in platform/runtime-secrets/oauth-clients.secret.yaml, bump the control Deployment's checksum annotation (same shape as the vuoro-cli client in gen 57), in its own generation after G4. It needs the exact redirect URI from ChatGPT developer mode, which the operator has not provided yet.
+- Follow-ups: (a) CNPG warns that spec.backup.barmanObjectStore is deprecated and will be removed in CloudNativePG 1.31; migrate to the Barman Cloud plugin. (b) Move the vuoro.cloud tenant runtime from vuoro-service 0.1.79 to 0.1.81 (config/compatibility.json) in a later generation for the Postgres reconnect fix. (c) Refresh IMPLEMENTATION-STATUS.md (it still says gen 56). (d) Backlog #2536 (vuoro.cloud cutover), #2555 (controller superuser URL), #2556 (vuoro-shared follow-ups); cred-broker step 8 (two replicas) after a soak with a passing restore drill, then step 9.
+
+## Evidence
+
+- session: `09f389de-5bd9-4de5-bd26-7591576bd1bf`
+- artifact: `/projects/dev/vuoro-cloud/docs/runbooks/admin-plane.md`
+- artifact: `/projects/dev/agentops/docs/plans/2026-09-27-admin-identity-and-vuoro-cli-design.md`
+- artifact: `/projects/dev/vuoro-cloud/scripts/promote-release.sh`
+
+## sprintctl bundle
+
+- none (sprintctl unavailable or produced no bundle)
+
+## Successor
+
+- session: (unacknowledged)
+- acknowledged: —

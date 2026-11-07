@@ -1,0 +1,703 @@
+{
+ "strategy": {
+  "commit": "4fb57d2",
+  "tests": "Bindery.Ra2.Bot.Tests 557/558 passed (1 skipped, 0 failed); Bindery.Ra2.Adapter.Tests 75/75 passed",
+  "items": [
+   {
+    "title": "TwoSpeedStrategist sends event-driven and replan requests to the fast (Refine) strategist when the event arrived while a request was in flight",
+    "status": "fixed",
+    "evidence": "Commit 15d15fb, src/Bindery.Ra2.Bot/Strategy/TwoSpeedStrategist.cs. Each request is now settled against the next context's ActiveIntent. The fast strategist is used only while the active intent is the slow strategist's own choice or a refinement of it. A slow turn counts only when its answer was applied, or was delivered while that commitment stood. Test StrategyLifecycleTests.Two_speed_sends_the_request_an_event_deferred_to_the_slow_strategist uses the real scheduler, validator and arbiter: the event arrives at t=2, the slow answer is late-discarded at t=3, and the deferred request must go to slow. Before the fix it failed with 'Expected: 2 Actual: 1' slow calls; after the fix it passes. One case remains: the slow strategist's own intent is active, an event late-discards its newer answer, and the deferred request has no event in its features. This class cannot tell that from an arbiter refusal, and replan:* reasons are not visible to it either. That case needs the trigger in StrategistContext (see cross_area)."
+   },
+   {
+    "title": "Decision-log content, and the LLM prompt, depend on the process culture, so hashes differ between machines and locales",
+    "status": "already_fixed",
+    "evidence": "Commit 976521e ('format decision rationales and reasons in the invariant culture'). ContextualBanditStrategist.cs:63 and :91, DistilledStrategist, PinnedPlaybookStrategist, PlaybookSelector and StrategyRationale.Explain all use string.Create(CultureInfo.InvariantCulture, ...). FeatureCompiler.Events and the planner notes were changed in the same commit. The Arena and Tune csproj set InvariantGlobalization=true. Test RationaleTests.Rationales_do_not_depend_on_the_machine_locale compares every strategist's rationale under de-DE and the invariant culture. Outside this area, IntentValidator.cs lines 56, 63, 78, 166, 169 and 203 still interpolate doubles in the current culture (see cross_area)."
+   },
+   {
+    "title": "Arena datasets carry no observation mode, so oracle-run decisions can silently train a Belief-mode distilled arm",
+    "status": "fixed",
+    "evidence": "Commit 4fb57d2. DecisionExample now has an ObservationMode Mode field (defaults to Belief for legacy lines). FromDecisionLog reads an optional 'mode' payload field, or falls back to a new mode parameter; a malformed mode is skipped. DecisionDataset.HasOracleExamples is added. DistilledOptions.Mode defaults to Belief, and DistilledStrategist then leaves oracle examples out of training and reports the count in OracleExamplesIgnored. Test DecisionDatasetModeTests.A_belief_distilled_strategist_does_not_train_on_oracle_decisions failed before the fix ('Expected: 0 Actual: 20' TrainedOn) and passes after. The other new tests cover the mode fallback and the NDJSON round trip. It only works end to end once the arbiter writes 'mode' or the arena passes the mode (see cross_area)."
+   },
+   {
+    "title": "TwoSpeedStrategist sends a fallback or emergency placeholder to the fast Refine model; its renewal promotes the placeholder to a primary commitment and the LLM's next choice is refused",
+    "status": "fixed",
+    "evidence": "Commit 15d15fb, same change as the first finding: a placeholder is never the slow strategist's own intent, so every request goes to slow until the slow choice is applied. Test StrategyLifecycleTests.Two_speed_never_lets_the_fast_strategist_renew_a_placeholder_after_a_failed_slow_request uses the real scheduler: the first slow call returns null, then the test asserts that no fast context holds an fb-* intent, that allied-boom ends up active, and that there were 2 slow calls. Before the fix it failed ('Assert.All() Failure: 1 out of 3 items', the fast strategist renewed fb-0); after the fix it passes. The control test Two_speed_keeps_the_fast_strategist_between_slow_turns_once_the_slow_choice_is_active checks that normal 20 s slow / 5 s fast routing is unchanged."
+   },
+   {
+    "title": "The bandit credits every proposal with the match reward, including the ones the arbiter refused and that never took effect",
+    "status": "fixed",
+    "evidence": "Commit 9ca667c, ContextualBanditStrategist.cs. A proposal is now held as pending and added to the episode only if the next request's ActiveIntent carries its intent id. CompleteEpisode(reward, finalActive = null) uses finalActive to settle the last proposal, and AbandonEpisode clears it. Test StrategyLifecycleTests.Bandit_learns_only_from_decisions_that_became_the_active_intent failed before the fix ('Expected: 1 Actual: 3') and passes after. A new test, Bandit_credits_the_last_decision_when_it_is_the_final_active_intent, covers the final proposal. StrategyTests.Bandit_learns_which_playbook_pays_in_a_context was updated to pass the active intent. Until the arena passes the final active intent (see cross_area), each match's last bandit proposal is dropped, not credited."
+   }
+  ],
+  "cross_area": "1) Contracts/Strategy.cs + Runtime/StrategyScheduler.cs: add a trigger reason (e.g. `string? Trigger = null`) to StrategistContext and pass the scheduler's `reason` (\"event:*\", \"replan:*\", \"cadence\", \"initial\") in Start/Context. TwoSpeedStrategist should then route every event:* and replan:* request to slow. That also covers the remaining case where the slow strategist's own intent is active when an event late-discards its answer.\n2) Arbitration/IntentArbiter.cs, both IntentActivated payloads (Activate at about line 287, Renew at about line 318): add `mode = features.Mode` so DecisionDataset.FromDecisionLog tags oracle decisions without help from the caller.\n3) tools/Bindery.Ra2.Bot.Arena: in Program.cs, pass `mode: arm.Oracle ? ObservationMode.Oracle : ObservationMode.Belief` to the FromDecisionLog calls (lines about 194 and 326). After ReadNdjson on --dataset, refuse (or label 'oracle') when `dataset.HasOracleExamples` and the distilled arm is not an oracle arm. In BotAgentFactory.cs, give an oracle distilled arm `new DistilledOptions(Mode: ObservationMode.Oracle)`, and in onFinish (about line 230) call `bandit.CompleteEpisode(Reward(...), <arbiter's final active intent>)` so the last applied bandit decision is credited.\n4) Arbitration/IntentValidator.cs lines 56, 63, 78, 166, 169 and 203 still format doubles in the current culture. Wrap them in string.Create(CultureInfo.InvariantCulture, ...), or set InvariantGlobalization/CA1305 in Directory.Build.props for the bot library and test hosts."
+ },
+ "bridge-ci": {
+  "commit": "7682801",
+  "tests": "Bindery.Ra2.Adapter.Tests 92/92 passed; Bindery.Ra2.Bot.Tests 549/550 passed, 1 skipped (pre-existing skip), 0 failed",
+  "items": [
+   {
+    "title": "RA2 bridge turns every destruction into a Belief event, so destroyed-in-fog confirmations reach belief",
+    "status": "fixed",
+    "evidence": "Partly fixed at 03cce60, where a never-seen or hidden id is no longer reported. The rest is fixed in ab41082: an enemy removal now needs visible=true or killer==self, and a missing visible flag is recorded in MissingFields and the removal skipped. AssemblerFogTests.AnEnemyRemovalWithoutVisibilityOrOurKill_IsNotReported_AndTheMissingFlagIsAudited failed before the change and passes after. The never-seen-id case is guarded by ARemovalOfANeverSeenId_IsNeverReported_EvenWhenMarkedVisible, which already passed after 03cce60."
+   },
+   {
+    "title": "RA2 bridge keeps enemies seen once as seen-now forever and marks their regions visible",
+    "status": "fixed",
+    "evidence": "ab41082. An enemy upsert is now a sighting that counts only for the frame whose window holds it, tracked through the EntityState.LastSightedFrame and lastFrameTime fields. VisibleRegions are built from own entities only. AssemblerFogTests.AnEnemySightedOnce_IsNotReportedAsSeenInLaterFrames and VisibleRegions_ComeFromOwnEntities_NeverFromWhereAnEnemyStands failed before and pass after."
+   },
+   {
+    "title": "Enemy that leaves vision stays in every later frame as currently seen, and its region is reported visible",
+    "status": "fixed",
+    "evidence": "Removal on an upsert with visible=false was already fixed at 03cce60 (BotBridgeTests.AnEnemyThatDrivesIntoFog_LeavesTheFrame_AndItsDeathInFogIsNotReported). The region leak via enemy positions was still present and is fixed in ab41082 (VisibleRegions_ComeFromOwnEntities_NeverFromWhereAnEnemyStands failed before, passes after). The stale own-unit state part is covered by 617c59b (see the entity-update finding)."
+   },
+   {
+    "title": "Destroyed/killed events are not fog-gated: enemy deaths in fog reach the bot",
+    "status": "fixed",
+    "evidence": "Deaths of hidden or never-seen enemies were already gated at 03cce60 (AnEnemyThatDrivesIntoFog..., AnEnemyDeathTheTelemetryMarksInvisible_IsNotReported). A removal with no visibility flag was still reported; ab41082 now requires visible=true or our kill. AnEnemyRemovalWithoutVisibilityOrOurKill_IsNotReported_AndTheMissingFlagIsAudited failed before and passes after. The existing BotBridgeTests.UnitKilled_OfVisibleEnemy test now sends visible=true."
+   },
+   {
+    "title": "game.unit.killed is mapped to EntityKilledByUs with no killer field, so own losses count as kills",
+    "status": "already_fixed",
+    "evidence": "03cce60 added Ra2BotTelemetryContract.FieldKiller. In Ra2ObservationAssembler.ApplyEntityRemoval, killedByUs = !own && killer == self.Value, and an own removal is always EntityDestroyed. Proven by BotBridgeTests.UnitKilled_OfOwnUnit_IsALossNotAKill and UnitKilled_OfVisibleEnemy_IsOurKillOnlyWhenTheKillerIsUs."
+   },
+   {
+    "title": "MatchEnded and other trailing events are never emitted (no flush at match end)",
+    "status": "fixed",
+    "evidence": "1568037. game.lifecycle.ended sets matchEnded, Ingest flushes a final frame at latestFrame, and later events are ignored. AssemblerMatchEndTests.TheMatchEnd_IsDeliveredAtOnce_WithTheEventsBeforeIt_AndNothingFollows and Ra2BotHostTests.Host_ends_on_a_match_end_between_cadence_boundaries failed before and pass after. AMatchEndOnACadenceBoundary_IsDeliveredExactlyOnce guards against a duplicate frame."
+   },
+   {
+    "title": "Frames are stamped with an earlier time than the state and events they carry",
+    "status": "fixed",
+    "evidence": "a22d660. Ingest now calls EmitBoundaries(frame - 1) before Apply, then EmitBoundaries(latestFrame), so an event lands in the first frame at or after its own time. AssemblerTimingTests.NoFrame_CarriesStateOrEventsFromAfterItsOwnTime failed before and passes after. The existing gap test still passes."
+   },
+   {
+    "title": "verify-no-assets.ps1 misses most retail asset types; the 'maps' entry can never match",
+    "status": "fixed",
+    "evidence": "8d1da47. The script now matches retail extensions (.mix .map .mpr .yrm .mmx .csf .shp .vxl .hva .pal .bag .idx), name patterns (*md.ini, rules/art/ai/... .ini, the executables) and any maps/ directory, lists every hit, takes -Root, and also runs in the Linux CI job. Checked with pwsh 7.6.6 through nix: before the change, a planted tests/fixtures/ra2md.mix passed ('No proprietary game assets found.', exit 0). After it, that file, a Maps/ directory and ArtMD.INI each throw (exit 1), and the repo itself passes (exit 0)."
+   },
+   {
+    "title": "RA2 bridge fog leak: enemies stay 'visible' forever, and deaths of unseen enemies are passed through",
+    "status": "fixed",
+    "evidence": "Duplicate of the stale-enemy and fog-gated-removal findings. The hidden-upsert removal and the unseen-death gate landed at 03cce60. The remaining leak, where a single sighting persisted and enemy positions set VisibleRegions, is fixed in ab41082 by AssemblerFogTests (AnEnemySightedOnce..., VisibleRegions_ComeFromOwnEntities..., AnEnemyRemovalWithoutVisibilityOrOurKill...), which failed before and pass after."
+   },
+   {
+    "title": "RA2 bridge invents empty production queues and zero credits/power instead of reporting them missing",
+    "status": "not_fixed",
+    "evidence": "Still present at HEAD: BuildFrame passes Queues=[] and credits 0 / PowerState(0,0) until the first sample. The root fix needs the Bot contract ObservationFrame to express unknown queues, credits and power, and the OperationalPlanner to suppress queue-driven production when queues are unknown. Both are outside the bridge-ci area; see cross_area. Recording these as MissingFields entries per frame would conflict with the per-payload audit semantics that existing tests pin, so no partial adapter change was made."
+   },
+   {
+    "title": "RA2 bridge cannot update an entity after creation: own units never move, take damage or change owner in frames",
+    "status": "fixed",
+    "evidence": "617c59b. A repeat upsert of a tracked id now refreshes position, health and owner without a second EntityCreated. The contract doc and README honesty notes state that under v1 an entity's state is only as current as the source's last upsert. AssemblerRefreshTests.ARepeatedUpsertOfAnOwnEntity_RefreshesItsState_WithoutASecondCreatedEvent and AnEnemyResightedInEveryWindow_IsCreatedOnce failed before and pass after. A dedicated state event (observation/v2) would still need the native ra2yrcpp source, which is outside this repo."
+   },
+   {
+    "title": "Every non-self owner is treated as an enemy: allied players and neutral/civilian houses become enemy contacts",
+    "status": "fixed",
+    "evidence": "7682801. The Ra2ObservationAssembler constructor takes nonHostileOwners, supplied from the match setup because v1 has no alliance field. Their entities never enter frames, their removals are never reported, and listing self throws. AssemblerHostilityTests.AnAlliedOrNeutralOwner_NeverBecomesAnEnemyContact and TheControlledPlayer_CannotBeDeclaredNonHostile failed before (run against a stub parameter) and pass after."
+   },
+   {
+    "title": "Ra2CommandSink.FlushAsync drops a command silently when the transport throws or is cancelled",
+    "status": "fixed",
+    "evidence": "900e308. FlushAsync now peeks, awaits SendAsync, and dequeues only on success. BotBridgeTests.Ra2CommandSink_AFailedSend_KeepsTheEnvelope_AndARetrySendsEverythingInOrder failed before (BufferedCount expected 2, was 1) and passes after."
+   },
+   {
+    "title": "Entity ids and ints are narrowed without a range check, so out-of-range telemetry values alias other entities",
+    "status": "fixed",
+    "evidence": "585d988. TryGetInt, TryGetEntityId, TryGetPlayerId (via TryGetInt), the double path in TryGetLong, and TryGetCell reject out-of-range values with an '(out_of_range)' MissingFields effect and exclude the entity or event. AssemblerRangeTests.AnEntityIdBeyondUInt32_IsExcluded_AndDoesNotAliasATrackedEntity and AnIntFieldBeyondInt32_IsExcluded_NotWrapped failed before and pass after."
+   }
+  ],
+  "cross_area": "Missing queues, credits and power (src/Bindery.Ra2.Bot, contract and planner owners): (1) In src/Bindery.Ra2.Bot/Contracts/Observation.cs ObservationFrame, make Queues nullable (IReadOnlyList<ProductionQueueState>? Queues, where null means the source does not report queues), or add a bool QueuesKnown. Make Credits and Power nullable, or add CreditsKnown and PowerKnown, so the bridge can say 'not yet sampled' instead of sending 0. (2) In the OperationalPlanner, when queues are unknown, HasRoom must not treat an absent queue as free. Suppress queue-driven ProduceCommand, or gate it on the planner's own issued-command ledger with a timeout, and do not charge the budget ledger per plan. (3) Once the contract changes, Ra2ObservationAssembler.BuildFrame (bridge-ci area) passes null or unknown for queues, and for credits and power before the first sample. Separately, callers constructing Ra2ObservationAssembler for team games or maps with neutral houses must now pass nonHostileOwners from the match plan (SpawnMatchPlan/SpawnIniRenderer know teams and the special house). No production caller outside tests exists yet. The native ra2yrcpp telemetry source (outside the repo) must re-send the created/placed upsert at least once per frame cadence for each enemy in sight, and for own units whose state changes. It must include visible (or killer) on enemy destroyed/killed payloads, as now documented in Ra2BotTelemetryContract."
+ },
+ "rules-playbooks": {
+  "commit": "fb7dc46",
+  "tests": "Bindery.Ra2.Bot.Tests 580/581 passed (1 skipped, pre-existing); Bindery.Ra2.Adapter.Tests 75/75 passed. Before the fixes, the new tests failed: 29 failures in the first run at 33d5ce0 plus the importer signature stub.",
+  "items": [
+   {
+    "title": "Importer ignores vanilla [General] PrerequisitePower/Factory/Barracks/Radar/Tech/Proc; generic prereqs become unreachable literal ids",
+    "status": "fixed",
+    "evidence": "a1f0aae: ParseGenericPrerequisites now reads the [General] Prerequisite* keys, including ProcAlternate, and Ares [GenericPrerequisites] overrides them. RulesmdImporterVanillaTests.GeneralSectionPrerequisites_ExpandToTheirBuildings failed before the fix and passes after. AresGenericPrerequisites_TakePrecedenceOverGeneral also passes."
+   },
+   {
+    "title": "Verses= parsed with wrong armor order, so tanks classify as AntiStructure and get role Support",
+    "status": "fixed",
+    "evidence": "a1f0aae: ClassifyByVerses now uses the RA2 order (none, flak, plate | light, medium, heavy | wood, steel, concrete), and AntiStructure maps to the Artillery role on purpose. RulesmdImporterVanillaTests.Verses_UseTheRa2ArmorOrder_SoATankIsAntiArmor failed before and passes after. The old synthetic Verses lists were rewritten in 11-entry RA2 order."
+   },
+   {
+    "title": "Anti-air detection reads AA= on the weapon/unit, but RA2 keeps AA= on the Projectile; Secondary is ignored",
+    "status": "fixed",
+    "evidence": "a1f0aae: ResolveWeapon now reads Primary and Secondary and takes AA/AG from the Projectile section. An AA-only unit is AntiAir and is never reclassified as Artillery. ProjectileAntiAirFlag_MakesAnAntiAirUnit_NotArtillery and SecondaryAntiAirWeapon_SetsTheDualPurposeFlag failed before and pass after."
+   },
+   {
+    "title": "PathTo keeps buildings from a failed alternative in the returned plan",
+    "status": "fixed",
+    "evidence": "6e13781: TryResolve now marks plan.Count before each candidate and rolls plan and trial back when the candidate fails. RulesDatabaseLoadAndPathTests.PathTo_FailedAlternative_LeavesNoBuildingsInThePlan failed before the fix (it returned [POW, DEAR]) and passes after ([DEAR])."
+   },
+   {
+    "title": "Importer MCV role requires Deploys=yes, which vanilla MCVs lack, so they get role Support/Scout",
+    "status": "fixed",
+    "evidence": "a1f0aae: InferRole now gives the Mcv role when DeploysInto names a Factory=BuildingType structure. The old rule (Deploys=yes plus any DeploysInto) is kept. VehicleDeployingIntoAConstructionYard_IsAnMcv failed before and passes after."
+   },
+   {
+    "title": "Prerequisite tokens and type ids are case-sensitive, although INI sections are matched case-insensitively",
+    "status": "fixed",
+    "evidence": "a1f0aae: NormaliseId upper-cases list ids, prerequisite tokens and generic group members. LowercaseIdsAndTokens_AreNormalised failed before and passes after."
+   },
+   {
+    "title": "Missing TechLevel defaults to 0 (buildable); RA2's default is -1 (unbuildable)",
+    "status": "fixed",
+    "evidence": "a1f0aae: GetInt(section, \"TechLevel\", -1). MissingTechLevel_IsUnbuildable (CIVCAR) failed before and passes after."
+   },
+   {
+    "title": "Naval=yes buildings (shipyard) become EntityKind.Naval / QueueKind.Naval and lose Production role",
+    "status": "fixed",
+    "evidence": "a1f0aae: the Naval kind and queue now apply only to non-buildings. On a structure, Naval=yes marks it as the naval factory (TryProducedQueue). NavalBuilding_StaysABuildingAndProducesNavalUnits failed before and passes after; it also checks that DEST is reachable through GAYARD."
+   },
+   {
+    "title": "JSON loaders accept documents with missing arrays and fail later with NullReference/ArgumentNull",
+    "status": "fixed",
+    "evidence": "6e13781: RulesDatabase.Validate throws InvalidDataException that names the unit. 41c864e: PlaybookLibrary.Problem checks required collections, budget sums, parameter min<=default<=max and duplicates. These tests failed before and pass after: RulesDatabaseLoadAndPathTests.LoadJson_MissingUnits_ThrowsInvalidData and LoadJson_NullPrerequisites_ThrowsInvalidDataNamingTheType, and PlaybookLibraryTests.LoadJson_PlaybookMissingCollections_ThrowsInvalidDataNamingIt, LoadJson_MissingPlaybooksArray_ThrowsInvalidData and LoadJson_ParameterDefaultOutsideRange_ThrowsInvalidData."
+   },
+   {
+    "title": "Duplicate type ids in type lists (or duplicate playbook ids) are emitted twice in All",
+    "status": "fixed",
+    "evidence": "a1f0aae: the importer dedupes type ids with a seen set. 6e13781: RulesDatabase rejects a duplicate typeId. 41c864e: PlaybookLibrary rejects a duplicate id. These tests failed before and pass after: DuplicateListEntries_AreImportedOnce, LoadJson_DuplicateTypeId_ThrowsInvalidData and Constructor_DuplicateIds_Throws."
+   },
+   {
+    "title": "Three default-playbook parameters are never read, and the one parameter the planner does read is declared by no playbook",
+    "status": "fixed",
+    "evidence": "The first half was already fixed in 79fbf8c: OperationalPlanner.Squads.cs reads defendThreatRatio (line 92), siegeRangeBufferCells (line 95) and harassIntervalSeconds (line 282), and that commit added PlaybookParameterTests plus a declared-is-consumed test. The second half was still present: retreatBelowForceRatio was read at Squads.cs:89 but no playbook declared it. 1641351 declares it on allied-harass (0.3-1.0, default 0.6, which equals OperationalOptions.DefaultRetreatBelowForceRatio). PlaybookLibraryTests.AuthoredPlaybooks_DeclareEveryParameterThePlannerReads failed before and passes after."
+   },
+   {
+    "title": "allied-harass ('Rocketeer harassment of harvesters') is built around E3, which the fixture makes anti-air-only, so it does 0 damage to any ground target",
+    "status": "fixed",
+    "evidence": "fb7dc46: E3 and HTK in both fixtures now have Weapon=AntiInfantry with antiAir=true, which makes them dual-purpose as in RA2. The role stays AntiAir, so composition shares are unchanged. FixtureTechTreeTests.HarassAndPressurePlaybooks_FieldAUnitThatCanHurtAHarvester and Rocketeers_HitGroundAndAir failed before and pass after."
+   },
+   {
+    "title": "Fixture lists the producing factory as a prerequisite for only some types: after a ConYard loss, tech, defenses and superweapons stay buildable, and E3/E5 need no barracks",
+    "status": "fixed",
+    "evidence": "fb7dc46: every structure in bindery-sim-approx.json and bindery-sim-variant-roster.json now lists GAYARD/NACNST, and every infantry type lists GAPILE/NAHAND. The provenance text is updated. FixtureTechTreeTests.EveryStructure_RequiresAConstructionYard, EveryInfantryType_RequiresABarracks (both fixtures) and WithoutAConstructionYard_NoStructureIsBuildable failed before and pass after."
+   },
+   {
+    "title": "Importer maps country-specific and stolen-tech units to the whole side, so CanBuild and PathTo return true for units the bot's country can never build",
+    "status": "fixed",
+    "evidence": "a1f0aae: Import(ini, sha, string? country = null) and IsCountryRestricted. Units with RequiresStolen*Tech, with RequiredHouses when the country is unknown or not listed, with ForbiddenHouses containing the country, or with a known own-side country missing from Owner, keep their rule but get TechLevel -1. CanBuild and PathTo therefore refuse them, while TryGet and Effectiveness still resolve enemy units. The IRulesDatabase contract is unchanged. CountryOnlyAndStolenTechUnits_AreUnbuildableWithoutAMatchingCountry failed before and passes after."
+   },
+   {
+    "title": "Imported rules never require a construction yard, so every building is buildable with no ConYard",
+    "status": "fixed",
+    "evidence": "a1f0aae: WithImplicitFactory prepends a group of all imported factories for the unit's queue: Factory=BuildingType for structures and defenses, InfantryType, UnitType (naval when the factory is Naval), and AircraftType. The group is skipped for a factory of its own kind or when a prerequisite already names it. EveryBuilding_RequiresAConstructionYard (PathTo from {} is [GACNST, GAPOWR]) and Infantry_RequiresABarracks failed before and pass after."
+   },
+   {
+    "title": "RA2 armor names special_1/special_2 fail Enum.TryParse and silently become ArmorClass.None",
+    "status": "fixed",
+    "evidence": "a1f0aae: ParseArmor maps special* to ArmorClass.Special. Any other unrecognised Armor value falls back to None and is listed with its type ids in RulesDocument.Provenance. SpecialArmor_MapsToSpecial_AndUnknownArmorIsReported failed before and passes after."
+   },
+   {
+    "title": "Playbook parameters the LLM is asked to tune (harassIntervalSeconds, siegeRangeBufferCells, defendThreatRatio) have no effect",
+    "status": "fixed",
+    "evidence": "Parameter wiring was already fixed by 79fbf8c, which made the planner read all three (OperationalPlanner.Squads.cs:92/95/282) and added tests/Bindery.Ra2.Bot.Tests/Operations/PlaybookParameterTests.cs, one test per parameter. One sub-issue was still present: the harvesterTarget description claimed an attack gate that the planner never implements. 1641351 rewrites the description to match the planner's actual use (harvesters kept in production ahead of army units). That wording change has no behavioural test."
+   }
+  ],
+  "cross_area": "1) Operations (optional): harvesterTarget is only a production target in OperationalPlanner.PlanVehicle (OperationalPlanner.cs:354). If the playbook intent really is \"reach N harvesters before committing to the push\", the attack trigger in the planner would have to gate on features.Economy.Harvesters >= harvesterTarget; the playbook description now states what the planner currently does. 2) Callers of RulesmdImporter.Import can now pass the bot's country (the new optional third parameter). No tool calls the importer today; a future RA2 bridge or import CLI should pass the player's Owner country so country units (TNKD, SNIPE) become buildable for that country. 3) Docs (docs/architecture/strategic-bot.md) may still describe E3/HTK as anti-air only or the fixture tech tree without implicit factories; the fixture provenance strings are updated. 4) tools/Bindery.Ra2.Bot.Baseline carries its own frozen copy of the planner and was not touched."
+ },
+ "claude": {
+  "commit": "2816940",
+  "tests": "Bindery.Ra2.Bot.Tests 567/568 passed (1 skipped: LiveClaudeSmokeTests, which needs a live credential); Bindery.Ra2.Adapter.Tests 75/75 passed. Baseline before the fixes was 549/550.",
+  "items": [
+   {
+    "title": "Prompt's minCommitRemainingSeconds restarts on every renewal, but the arbiter's commitment clock does not",
+    "status": "fixed",
+    "evidence": "Commit bf09459: IntentPromptBuilder.CommitmentStart walks the renewal chain in the history back to the first acceptance, which is the arbiter's ActiveSince. Test PromptArbitrationTests.Commitment_window_counts_from_first_acceptance_across_renewals uses the real IntentArbiter. Before the fix it failed (secondsActive expected 30, actual 10). It passes now and also checks that the arbiter's Preview accepts a switch at t=60."
+   },
+   {
+    "title": "Prompt says a fallback- or emergency-installed intent is committed, though the arbiter yields it to any primary proposal",
+    "status": "not_fixed",
+    "evidence": "The prompt cannot know the arbiter's ActiveRole. StrategistContext does not carry it, and IntentHistoryEntry/Source cannot tell a placeholder apart reliably: in llm-shadow and distilled arms, Selector or Distilled sources are primary. This needs a contract change (see cross_area). Commit 5c495cf closes part of the harm: Refine can no longer promote a placeholder."
+   },
+   {
+    "title": "Cost accounting drops cache-write tokens and bills cache reads at full input price",
+    "status": "fixed",
+    "evidence": "Commit 0977f7f: ModelPrice now carries CacheReadMultiplier (0.1, 0.05 for opus-5-5, 0.025 for fable-5-1) and CacheWriteMultiplier (1.25). CostUsd takes cacheCreationTokens. Test PriceTableTests.Cache_reads_bill_at_the_published_discount failed before (expected 0.0159, actual 0.0375) and passes now. Cache_writes_bill_at_the_five_minute_premium also passes. Not fixed here: carrying creation tokens through ProposalCost (contract) and summing ProposalFailed costs in BotArenaAgent (tools). Both are listed in cross_area."
+   },
+   {
+    "title": "Refine mode cannot lower attackArmyValue because it keeps the active intent's frozen attack condition",
+    "status": "fixed",
+    "evidence": "Commit 228c8f2: new AttackArmyThreshold.Retarget, used by ClaudeStrategist.Refined and by IntentVocabulary.Restrict. The Parameters tier (the adopted default) had the same bug. Tests AttackThresholdTests.Parameters_tier_moves_... and Refine_moves_... use the real default playbooks. Both failed before (expected 900, actual 1500) and pass now. A_condition_the_strategist_set_apart_... checks that independently set bounds are left alone."
+   },
+   {
+    "title": "Rule facts omit counters and have no rows for observed enemy types, which the proposal requires",
+    "status": "already_fixed",
+    "evidence": "Commit 49e35e2 (feat(bot): counters and owned-base tech progress in the LLM prompt) added a situation 'counters' block. For each seen enemy type in KnownTech (KnownProduction is derived from it in FeatureCompiler.Enemy.cs:31-34) it gives enemyRole and enemyKind, plus the ranked own counters with the rules' effectiveness multiplier, dps, cost and buildableNow. The system prompt tells the model to use it. Proven by PromptRulesFactsTests.Counters_list_the_most_effective_own_types_against_each_seen_enemy_type."
+   },
+   {
+    "title": "Tech timing is given only from an empty base; the prompt never says which of its own buildings the bot has",
+    "status": "already_fixed",
+    "evidence": "Commit 49e35e2: StrategistContext.OwnedBuildingTypes is filled by StrategyScheduler. The situation 'techProgress' gives remainingPath, remainingCost and serialBuildSecondsRemaining from the owned base, and the empty-base figures stay in the cached match context. Proven by PromptRulesFactsTests.Tech_progress_is_measured_from_the_buildings_actually_owned."
+   },
+   {
+    "title": "Condition metric semantics are not in the prompt, so the model cannot write valid triggers",
+    "status": "fixed",
+    "evidence": "Commit b7dd1e7: the system prompt now has a glossary covering every ConditionMetric (direction, cap from ConditionEvaluator.RatioCap, unknown values, BaseThreatRatio is 0 with no threat). The situation adds 'conditionMetrics' with current values measured by ConditionEvaluator.TryMeasure. Test PromptArbitrationTests.Every_condition_metric_is_defined_and_its_current_value_given failed before ('- GameSeconds' not found) and passes now."
+   },
+   {
+    "title": "Inference cost omits cache-creation tokens and every failed request's tokens",
+    "status": "not_fixed",
+    "evidence": "Root cause is outside this area. ProposalCost (src/Bindery.Ra2.Bot/Contracts/Strategy.cs) has no CacheCreationTokens field, and BotArenaAgent (tools) does not sum ProposalFailed costs. The Claude side is ready: ModelUsage carries CacheCreationTokens, and since 0977f7f PriceTable.CostUsd prices creation tokens at 1.25x. The exact changes are in cross_area."
+   },
+   {
+    "title": "A Refine answer built on an intent that has since expired re-installs that intent over the fallback and starts a new 45 s commitment",
+    "status": "fixed",
+    "evidence": "Commit 5c495cf: Refined() caps ExpiresAt at the active intent's expiry, so a refinement that lands after its base plan expired is already expired and the arbiter refuses it. Test RefineArbitrationTests.A_refinement_of_a_plan_that_expired_in_flight_is_refused uses the real arbiter: expiry at 28, fallback at 28, refine lands at 30. It failed before (ExpiresAt was 145 s) and passes now, with the fallback still active. Residual gap: a refinement of a plan that was aborted rather than expired, whose abort has stopped firing. The id-based check for that is in cross_area."
+   },
+   {
+    "title": "Refine (Haiku) renewals turn a fallback plan into a committed one and set the incumbent confidence, so the slow Claude model is locked out",
+    "status": "fixed",
+    "evidence": "Commit 5c495cf: Refine now fails with claude.refine_not_strategic_plan before any model call when the active intent's Source is not Llm, and Refined() keeps the active intent's Confidence. Tests RefineArbitrationTests.Refine_does_not_touch_a_fallback_placeholder_so_the_strategic_model_can_replace_it and Refine_keeps_the_strategic_models_confidence failed before (a proposal was returned; confidence 0.95 instead of 0.6) and pass now. The placeholder test also shows the slow proposal then activates with reason 'yield'."
+   },
+   {
+    "title": "Replies served by the server-side fallback model cost $0 and relabel the arm's model; the declined attempt's tokens are dropped",
+    "status": "fixed",
+    "evidence": "Commit 0977f7f adds the fallback targets (claude-opus-4-8/4-7/4-6, claude-sonnet-4-6, claude-fable-5) to PriceTable, so a fallback-served reply is no longer priced as unknown ($0). Test PriceTableTests.Server_side_fallback_targets_are_priced failed before (null) and passes now. Commit 2816940: AnthropicMessageClient.UsageOf sums usage.iterations. Test AnthropicUsageTests.A_fallback_served_reply_counts_the_declined_attempt_too failed before (input 300 instead of 5300) and passes now. Still open in tools: the arena labels the arm with the first proposal's model (Stats.Model ??=) and uses `?? 0` for an unknown model; see cross_area."
+   },
+   {
+    "title": "Prompt hides the arbiter's numeric acceptance rules: posture margin 0.15, base-threat ratio 1.5, and that renewal requires the same posture",
+    "status": "fixed",
+    "evidence": "Commit 33adfae: the match context adds an 'arbitration' block (renewal rule, defaultMinCommitSeconds, postureConfidenceMargin, baseThreatOverrideRatio) from the ArbiterOptions passed to IntentPromptBuilder (default ArbiterOptions.Default, the only options the runtime uses). The system prompt states the rules exactly, including that a posture change is not a renewal. Test PromptArbitrationTests.Match_context_states_the_arbiters_acceptance_numbers failed before (no arbitration block) and passes now. Arbitration_numbers_come_from_the_options_the_runtime_uses also passes."
+   },
+   {
+    "title": "Intent history in the prompt fills up with renewals, so the model cannot see its earlier plan switches",
+    "status": "fixed",
+    "evidence": "Commit 1aff8a0: History() folds each renewal chain into one item (first acceptedAt, latest end and endReason, 'renewals' count) and applies historyLimit to plans. Test PromptArbitrationTests.History_collapses_renewals_so_earlier_plan_changes_stay_visible uses the real arbiter with 12 renewals. It failed before (only allied-boom entries) and passes now."
+   }
+  ],
+  "cross_area": "1. Contract (src/Bindery.Ra2.Bot/Contracts/Strategy.cs), needed for finding \"fallback-installed intent shown as committed\": add optional `ProposalRole? ActiveRole = null` and `GameTime? ActiveSince = null` to StrategistContext. Fill them in StrategyScheduler.Context (src/Bindery.Ra2.Bot/Runtime/StrategyScheduler.cs:213) from arbiter.ActiveRole and arbiter.ActiveSince. The Claude area can then emit activeIntent.placeholder (true when the role is Fallback or Emergency) with minCommitRemainingSeconds 0, and state the yield rule in the system prompt. ActiveSince would also replace the history-chain derivation from bf09459, which can only overstate the window when a chain runs past the arbiter's 32-entry history. ProposalRole lives in Bindery.Ra2.Bot.Arbitration, so it either moves to Contracts or the field uses a contract-level enum.\n2. Contract, needed for cache-write cost (findings 'Cost accounting...' and 'Inference cost omits cache-creation tokens...'): add `long CacheCreationTokens = 0` as the last parameter of ProposalCost. Then (a) in ClaudeStrategist.ProposeAsync (Claude area, one line) pass reply.Usage.CacheCreationTokens, and change PriceTable.CostUsd(ProposalCost) to pass cost.CacheCreationTokens (PriceTable already prices it at 1.25x); (b) in tools/Bindery.Ra2.Bot.Arena/BotArenaAgent.cs (~line 102) read the new field, add it to TokensIn, and pass it to PriceTable.CostUsd.\n3. tools/Bindery.Ra2.Bot.Arena/BotArenaAgent.cs: also sum `cost` from DecisionRecordKinds.ProposalFailed records whose strategist is a Claude strategist (ClaudeProposalFailure.ToDecisionRecord writes `cost`). Record served-by separately instead of `Stats.Model ??= model`, so a fallback-served first proposal does not relabel the arm. Count an unpriced model as a flagged 'unpriced' tally instead of `?? 0`.\n4. Mixed-price fallback: ProposalCost has a single Model, so the tokens of a declined attempt on one model and a fallback attempt on another are priced at the served model's rate. This is exact for Opus 5 to Opus 4.8 (same price) but not for Fable 5.1 to Opus 4.8. Exact pricing needs a per-attempt list (model plus usage) in ProposalCost or a precomputed Usd.\n5. src/Bindery.Ra2.Bot/Runtime/StrategyScheduler.cs (late-result check, ~406-414): to close the remaining Refine gap (a refinement of an intent that was aborted, not expired, while in flight), discard a fast-path result whose request-time context.ActiveIntent.IntentId differs from arbiter.Active?.IntentId when it arrives. Optionally, src/Bindery.Ra2.Bot/Strategy/TwoSpeedStrategist.cs should route to the slow strategist when context.ActiveIntent.Source != slow.Source: Refine now declines non-LLM plans, so otherwise those fast ticks are wasted.\n6. src/Bindery.Ra2.Bot/Playbooks/DefaultPlaybooks.cs (allied-grizzly-timing, soviet-rhino-rush) and IntentComposer/PlaybookIntents: the OwnArmyValue attack condition duplicates the attackArmyValue default. Deterministic strategists that set attackArmyValue (the bandit and the tuner) still meet the frozen condition. Either drop the duplicate condition, taking care that OperationalPlanner.Squads 'wanted' needs AttackConditions.Count > 0, or derive it from the parameter in IntentComposer."
+ },
+ "belief-features": {
+  "commit": "b2cbb62",
+  "tests": "Bindery.Ra2.Bot.Tests 566/567 passed (1 skipped, pre-existing); Bindery.Ra2.Adapter.Tests 75/75 passed. Both runs at b2cbb62.",
+  "items": [
+   {
+    "title": "KillsValue counts the opponent's kills, and on RA2 our own deaths, as our kills",
+    "status": "fixed",
+    "evidence": "The producer side was already partly fixed. At 03cce60 the RA2 assembler emits EntityKilledByUs only when the payload's killer is self, and an own death is always EntityDestroyed. At ae5b791 the sim delivers EntityKilledByUs only to the killer. Two paths still produced the bug: Oracle frames still pass every raw frameEvent, and the compiler had no guard. Fix in 2d55537: HandleEntityKilledByUs now skips a victim that is in ownEntityMemory. I did not use an owner==Self check because the sim sets Owner to the killer and the RA2 assembler sets it to the victim. Test: FeatureCompilerReviewTests.KillsValue_CountsOnlyEnemyVictims_NotOurOwnLosses failed before the fix (expected 1000, got 1100) and passes after."
+   },
+   {
+    "title": "Enemy kills of our own units are counted as our kills (EntityKilledByUs owner not checked)",
+    "status": "fixed",
+    "evidence": "Duplicate of the previous finding. Same commit 2d55537 and the same test, KillsValue_CountsOnlyEnemyVictims_NotOurOwnLosses, which covers an own victim with the enemy as owner plus enemy victims under both owner conventions."
+   },
+   {
+    "title": "IncomePerMinute estimator assumes gradual debit but the sim debits full cost up front; value is an unsmoothed per-interval spike",
+    "status": "fixed",
+    "evidence": "6c59705: income is now the credit delta over FeatureOptions.IncomeWindowSeconds (15 s) plus the modelled spend integrated over the same window, and the doc comment now describes the sim's up-front debit. Test: IncomePerMinute_IsWindowed_SoAnUpFrontDebitIsNotAMultiThousandSpike (15 fps, 900-credit tank debited up front) failed before with worst |income| 804600/min and passes after with at most 3600/min."
+   },
+   {
+    "title": "Spending counts every non-ready, non-held queue item, ignoring factory count (utilization does cap)",
+    "status": "fixed",
+    "evidence": "6c59705: each queue now counts at most Factories active items toward spending. Test: Spending_CountsOnlyAsManyItemsAsTheQueueHasFactories failed before (21600 instead of 5400) and passes after."
+   },
+   {
+    "title": "First combat unit (or any army growth from zero) fires ArmyValueSwing at severity 1.0",
+    "status": "fixed",
+    "evidence": "31a7046: fraction = |change| / max(|baseline|, new option ArmyValueSwingMinValue = 1000). Test: ArmyValueSwing_DoesNotFireForTheFirstCheapUnit failed before and passes after."
+   },
+   {
+    "title": "FeatureOptions.LowPowerGraceSeconds and ArmyValueSwingWindowSeconds are ignored",
+    "status": "fixed",
+    "evidence": "31a7046: the swing baseline now comes from Baseline(now, ArmyValueSwingWindowSeconds), and LowPower goes through EmitGated with gapSeconds = LowPowerGraceSeconds. Tests: LowPower_IsGatedByLowPowerGraceSeconds failed before (3 emissions, expected 1) and ArmyValueSwingWindowSeconds_ChangesTheWindowTheSwingIsMeasuredOver failed before. Both pass after."
+   },
+   {
+    "title": "Local and base threat ratio compare local enemy value with the whole army, wherever it is",
+    "status": "fixed",
+    "evidence": "b2cbb62: OwnValue per region is now the sum of own force clusters within ThreatSearchCells of ground travel, the same radius used for enemy value. Total value stays in Army.ArmyValue. Test: BaseThreat_ComparesTheEnemyWithOwnForcesThatCanRespond failed before (OwnValue 4000, expected 0) and passes after; it also checks ConditionEvaluator.BaseThreatRatio >= 1."
+   },
+   {
+    "title": "IncomePerMinute is a one-frame derivative and produces multi-million spikes",
+    "status": "fixed",
+    "evidence": "Same root cause as the sim up-front debit finding. Fixed in 6c59705 and covered by IncomePerMinute_IsWindowed_SoAnUpFrontDebitIsNotAMultiThousandSpike (804600/min before the fix, at most 3600/min after)."
+   },
+   {
+    "title": "Contact confidence rebounds upward when its last-seen region leaves sight (vacancy evidence erased)",
+    "status": "fixed",
+    "evidence": "a1cfcc2: BeliefModel now decays the previous confidence over each frame interval (tracked with previousFrameTime), choosing the half-life for each interval. Test: BeliefModelReviewTests.Confidence_NeverRises_WhenTheVacantRegionLeavesSight failed before and passes after. The existing decay tests are unchanged and still pass."
+   },
+   {
+    "title": "Enemy buildings decay like units: an enemy base or expansion is forgotten about 140 s after it leaves view, and its ore region becomes an expansion candidate",
+    "status": "fixed",
+    "evidence": "a1cfcc2: a Building contact whose region is out of sight keeps its confidence. Vacancy decay, when its region is seen empty, and destroyed events still remove it. Test: EnemyBuilding_IsRememberedOutOfSight_AndForgottenOnlyWhenSeenGone failed before (contact gone by t=300) and passes after; it also checks that Middle stays Enemy and is not an expansion candidate."
+   },
+   {
+    "title": "A single passing enemy unit marks an ore region as Enemy (EnemyExpansionSeen), and control flicker re-fires ExpansionTaken with no de-dup",
+    "status": "fixed",
+    "evidence": "a883fb0: ExpansionTaken now fires when an own building first stands in an ore region, and EnemyExpansionSeen when a remembered enemy building first does. Both are tracked as previous-held sets. ExpansionCandidates now excludes only fields that hold an enemy building. Test: ExpansionEvents_NeedBuildings_NotPassingUnits failed before (Middle dropped from candidates by one rifleman) and passes after. ExpansionTaken_FiresOnceForAnOwnBuildingInAnOreRegion guards the new logic."
+   },
+   {
+    "title": "'Enemy army not seen' and 'tech unknown' unknowns both use LastSeenAnything, so a visible enemy building suppresses the army alarm",
+    "status": "fixed",
+    "evidence": "e2237c4: the unknowns now use separate ages, the newest unit sighting for army and the newest building sighting for tech, taken from contacts and TechLastSeen. A kind never seen ages from the match clock. Test: ArmyNotSeen_IsReportedWhileOnlyEnemyBuildingsAreWatched failed before and passes after."
+   },
+   {
+    "title": "ImportantUnknowns is empty for any enemy never seen, so a fully unscouted match reports no unknowns",
+    "status": "fixed",
+    "evidence": "e2237c4: when EnemyPlayers is empty, the generic 'enemy start unscouted', 'enemy army not seen' and 'enemy tech unknown' unknowns are emitted, using the grace and threshold times against the match clock. Test: ImportantUnknowns_AreReportedBeforeAnyEnemyIsSeen failed before and passes after."
+   },
+   {
+    "title": "CashRunwaySeconds ignores income: it reports a short runway while credits are rising",
+    "status": "fixed",
+    "evidence": "6c59705: runway = credits / (spending - windowed income), and UnknownSeconds (9999) when net burn <= 0. Test: CashRunway_UsesNetBurn_AndIsUnboundedWhileCreditsRise failed before (250 instead of 9999) and passes after; it also checks the draining case (200 credits at 10/s gives 20 s)."
+   },
+   {
+    "title": "Enemy units standing on a shore map to the water region and are dropped from every threat assessment",
+    "status": "fixed",
+    "evidence": "b2cbb62: in threat assessment, a contact whose LastSeenRegion is water now threatens from the land region nearest its last-seen cell (ThreatRegionOf). That region is used for distance, ETA and attack path. Test: BaseThreat_CountsAnEnemyWhoseNearestRegionIsWater (a bank and river map, tank at (47,50)) failed before (EnemyValue 0) and passes after."
+   },
+   {
+    "title": "SuspectedStart becomes our own base (or any lower-id start) once an enemy building is seen there",
+    "status": "fixed",
+    "evidence": "fa6ebda: our own start regions are now excluded. The start is picked in this order: a start still holding a live building of that player, then the earliest first-seen time, then region id. If no start qualifies, the elimination fallback is used. Tests: SuspectedStart_IsNeverOurOwnStart and SuspectedStart_FallsBackToEliminationWhenTheOnlyBuildingSeenIsInOurBase both failed before (r0) and pass after (r2)."
+   },
+   {
+    "title": "Every non-self owner is an enemy: neutral, civilian or allied entities become enemy contacts, contest our base and create a base threat",
+    "status": "not_fixed",
+    "evidence": "Still present at b2cbb62: BeliefModel.UpdateEnemyContacts treats every Owner != frame.Self as an enemy. The fix needs a contract change outside this area. Belief cannot tell enemies from neutral or allied houses, because ObservationFrame and ObservedEntity carry no allegiance data. See cross_area for the exact changes."
+   }
+  ],
+  "cross_area": "1) Neutral, civilian and allied owners (not fixed here). Contracts/Observation.cs: add an optional `IReadOnlySet<PlayerId>? Enemies = null` to ObservationFrame (null keeps today's behaviour, where every non-self owner is an enemy). Two sources then fill it. First, SkirmishSimulation.Observe sets it to every other player. Second, the RA2 bridge sets it from house alliances: this needs Ra2BotTelemetryContract to carry house alliance or neutral flags, and Ra2ObservationAssembler to fill Enemies. After that, the belief area changes BeliefModel.UpdateEnemyContacts, UpdateScoutingKnowledge and BuildEnemyPlayerBeliefs to skip owners that are not in frame.Enemies whenever the set is non-null.\n2) Sim debit timing (src/Bindery.Ra2.Bot.Sim/SkirmishSimulation.cs ApplyProduce, about line 317). The sim debits an item's full cost on enqueue, but RA2 debits it gradually. The windowed estimator in 6c59705 bounds the error at one item's cost over 15 s. Debiting cost*progress per tick, and refunding progress-paid credits on cancel, would make income exact in the sim and match RA2.\n3) Sim Oracle mode (SkirmishSimulation.Observe, about line 187). It passes raw frameEvents, including the opponent's EntityKilledByUs events. The compiler now ignores own victims, but routing oracle events through EventForPlayer with all regions visible would make the event stream consistent.\n4) GameEvent.Owner for EntityKilledByUs means the killer in the sim and the victim in Ra2ObservationAssembler (line 181). Document one meaning in Contracts/Observation.cs, preferably the killer, and align the assembler.\n5) Contracts/Belief.cs:18 ('Confidence decays with age') should say that buildings do not decay out of sight, only through vacancy or a destroyed event. Contracts/Features.cs: the ThreatAssessment.OwnValue doc already says 'own value that can respond', which now matches the code."
+ },
+ "arbitration-runtime": {
+  "commit": "83b373c",
+  "tests": "Bindery.Ra2.Bot.Tests: 581 passed / 582 total (1 skipped: the live Claude smoke test, no credential). Bindery.Ra2.Adapter.Tests: 75/75 passed. Final tree at 83b373c; branch fix/ra2-arbitration-runtime has 4 commits: 43bcd0e, 30b307c, 54d5aaf, 83b373c. Nothing pushed.",
+  "items": [
+   {
+    "title": "ReplayStrategist cannot replay the shadow role, so llm-shadow runs cannot be replayed (invariant 6)",
+    "status": "already_fixed",
+    "evidence": "Fixed in 1c39671: ReplayStrategist now indexes DecisionRecordKinds.ShadowProposal when role == Shadow. The existing Arena test ReplayTests.A_recorded_match_replays_to_the_same_decision_log_hash(\"llm-shadow\") asserts equal hashes and Misses == 0. Added a unit test in 30b307c, BotRuntimeTests.Recorded_shadow_run_replays_identically_from_its_decision_log. It fails when the ShadowProposal clause is mutated to false and passes on the current code."
+   },
+   {
+    "title": "Shadow proposals skip the scheduler's late-discard check, so a result overtaken by a severe event is logged as wouldBe=Activated",
+    "status": "fixed",
+    "evidence": "Commit 30b307c. StrategyScheduler.Handle now runs the same LateReason (age or Invalidator) check for shadow results. A late shadow answer is logged with wouldBe=Refused and wouldBeReason=late:<reason>, and it is not counted in LateDiscarded. Test StrategySchedulerTests.Shadow_result_overtaken_by_a_severe_event_is_logged_as_late failed before the fix and passes after."
+   },
+   {
+    "title": "Base-threat override is level-triggered: every proposal during a sustained threat bypasses commitment and posture hysteresis",
+    "status": "fixed",
+    "evidence": "Commit 43bcd0e. IntentArbiter now allows one base-threat override per threat episode. A baseThreatAnswered flag is set when an intent is activated while the threat holds, and cleared in Update once the threat stops. The override also never replaces a Defend or Turtle incumbent. Tests IntentArbiterTests.Base_threat_overrides_commitment_once_per_threat_episode and Base_threat_override_does_not_replace_a_defensive_incumbent failed before the fix and pass after."
+   },
+   {
+    "title": "ReplayStrategist cannot replay a Shadow strategist: successful shadow answers (kind strategy.shadow) are never indexed",
+    "status": "already_fixed",
+    "evidence": "Same fix as the first finding: 1c39671 indexes strategy.shadow records for the Shadow role. Proven by Arena ReplayTests (llm-shadow arm, hash equal, Misses == 0) and by the new test BotRuntimeTests.Recorded_shadow_run_replays_identically_from_its_decision_log (30b307c), which fails against a mutant that drops the shadow indexing."
+   },
+   {
+    "title": "A request still unanswered when the recording ends replays as an immediate no_opinion, so replayed logs grow extra tail records",
+    "status": "already_fixed",
+    "evidence": "Fixed in 1c39671: ReplayStrategist records the strategy.request versions it sees (recordedRequests). A request that was recorded but never answered now gets a task that never completes, counted in Unanswered, instead of null. Added test BotRuntimeTests.Recorded_run_ending_mid_request_replays_identically (30b307c): 120 s + 20 frames, asserts Misses == 0, Unanswered == 1 and equal hashes. It fails when that branch is disabled."
+   },
+   {
+    "title": "ReplayStrategist does not reproduce a recorded run that ends with a request in flight; replay test's length avoids the case",
+    "status": "already_fixed",
+    "evidence": "The in-flight case was fixed in 1c39671, and Recorded_run_ending_mid_request_replays_identically now covers it. Commit 30b307c also covers replay of recorded failures with Recorded_failures_replay_identically(never|throwing), which checks the exception path and the new superseded path. That exposed a gap in my own supersede change: ReplayStrategist.Deliver now treats a recorded \"superseded\" like \"timeout\" and never completes it. Without that case the \"never\" test fails."
+   },
+   {
+    "title": "Per-playbook MinCommitSeconds is never exercised; ignoring it passes all tests",
+    "status": "fixed",
+    "evidence": "Test-only, commit 43bcd0e. IntentArbiterTests.Playbook_min_commit_seconds_sets_the_window uses playbooks with 90 s and 30 s windows. It checks that a switch at 60 s is refused, one at 91 s is accepted, and a 30 s plan yields at 32 s. The test fails with the mutant `? Options.DefaultMinCommitSeconds` and passes on the real code."
+   },
+   {
+    "title": "Freshness boundaries (age exactly 15 s, severity exactly 0.7) are untested in the scheduler",
+    "status": "fixed",
+    "evidence": "Test-only, commit 30b307c, four tests: Event_at_exactly_the_stale_severity_discards_the_result, Event_just_below_the_stale_severity_does_not_discard, Proposal_exactly_at_the_age_limit_is_applied and Proposal_one_frame_past_the_age_limit_is_discarded. The mutants `evt.Severity > StaleEventSeverity` and `age >= MaxProposalAgeSeconds` each make the matching test fail."
+   },
+   {
+    "title": "Accrual-mode ledger cut (credits drop) has no failure-forcing test",
+    "status": "fixed",
+    "evidence": "Test-only, commit 83b373c. BudgetLedgerTests.Accrual_ledger_cuts_balances_when_capacity_falls (credits 2000 then 100, balances must sum to 100) and Accrual_ledger_never_over_reserves_across_periods (200 random periods). Both fail with the mutant `long cut = 0 * -delta` and pass on the real code."
+   },
+   {
+    "title": "A firing abort trigger never ends the intent; if the fallback proposes the same playbook again, the aborted plan runs until it expires",
+    "status": "fixed",
+    "evidence": "Commit 43bcd0e. IntentArbiter.Update now ends the intent on the abort rising edge with End(features, \"aborted\"), as it does on expiry, and sets FallbackRequested and a replan. Test IntentArbiterTests.Firing_abort_trigger_ends_the_intent failed before the fix and passes after. The existing scheduler test Abort_of_the_active_intent_brings_in_the_fallback_despite_commitment still passes."
+   },
+   {
+    "title": "A proposal answered on the same frame as a trigger's rising edge renews the intent and wipes the replan that trigger requested",
+    "status": "fixed",
+    "evidence": "Commit 43bcd0e. RequestReplan records the snapshot version at which the request was made. Renew and Activate now clear the request only when intent.BasedOnSnapshotVersion is at or after that version (AcknowledgeReplanAnsweredBy). Test IntentArbiterTests.Proposal_from_before_the_replan_request_does_not_acknowledge_it failed before the fix and passes after."
+   },
+   {
+    "title": "The ledger resets spending every period and sizes capacity from credits on hand, so on RA2 (charged while building) in-progress items are funded again",
+    "status": "fixed",
+    "evidence": "Commit 54d5aaf. Before BeginPeriod, BotRuntime now subtracts what unfinished queue items still owe, cost x (1 - progress), and logs it as `unpaid` in operations.plan. This is behind the new option BotOptions.ProductionChargedWhileBuilding, default true for the retail game. StandardBot.SimulatorOptions sets it to false because the simulator debits the full cost when an order is placed. Test BotRuntimeTests.Ledger_capacity_excludes_what_queued_production_still_owes(true, 335) failed without the BotRuntime change and passes with it; the (false, 1010) case passes both ways. The planner's own credit check is in another area; see cross_area."
+   },
+   {
+    "title": "Distillation dataset pairs each LLM decision with features from the activation frame, 4 s after the snapshot the LLM saw",
+    "status": "fixed",
+    "evidence": "Commits 43bcd0e and 30b307c. IntentArbiter.Offer takes an optional `basis` argument. The scheduler passes the request's own features, and intent_activated now logs FeatureVector.Encode(basis) plus featuresSnapshotVersion and featuresFrame. Test StrategySchedulerTests.Activation_records_the_features_the_strategist_saw failed before the fix and passes after. DecisionDataset still takes the example's frame and version from the record; see cross_area."
+   },
+   {
+    "title": "No test checks that the arbiter receives the validator's sanitised intent (invariant 5 clamp/normalise/defaults)",
+    "status": "fixed",
+    "evidence": "Test-only, commit 30b307c. StrategySchedulerTests.Arbiter_installs_the_validators_sanitised_intent proposes aggression=5, a budget summing to 1.05, a 10000 s lifetime and empty attack conditions. It asserts that the active intent and the logged intent are clamped, normalised, capped and filled. The test fails with the mutant `arbiter.Offer(result with { Intent = intent }, ...)`."
+   },
+   {
+    "title": "Validator condition checks (off-map region, NaN threshold, replan triggers, abort defaults, NaN params) have no failure-forcing tests",
+    "status": "fixed",
+    "evidence": "Test-only, commit 83b373c. New IntentValidatorTests: Condition_naming_an_off_map_region_is_rejected and Condition_with_a_nan_threshold_is_rejected (each run for attack, abort and replan), Empty_abort_triggers_are_filled_from_the_playbook, and Nan_parameter_becomes_the_playbook_default_with_a_warning. All 8 cases fail against the five validator mutants and pass on the real code."
+   },
+   {
+    "title": "Arbiter edge detection for abort and base-threat replans is untested (level-triggered or removed passes)",
+    "status": "fixed",
+    "evidence": "Test-only, commit 43bcd0e. IntentArbiterTests.Base_threat_requests_a_replan_once_per_rising_edge fails when the base_threat RequestReplan line is deleted. With the fix for the abort finding, an abort now ends the intent, so a level-triggered abort can no longer re-fire. Firing_abort_trigger_ends_the_intent asserts Active is null and the fallback and replan requests are set."
+   },
+   {
+    "title": "CancelProductionCommand budget-account check in the command gate is untested",
+    "status": "fixed",
+    "evidence": "Test-only, commit 83b373c. CommandGateTests.Cancelling_production_needs_a_budget_account checks that a cancel from \"ops\" passes and one from \"squad\" is dropped with BudgetNoAccount. It fails with the mutant `CancelProductionCommand c => null`."
+   },
+   {
+    "title": "A stale or overtaken in-flight request holds the only primary slot until the 60 s timeout, so event-driven replans wait up to a minute",
+    "status": "fixed",
+    "evidence": "Commit 30b307c. When a trigger is pending and the in-flight primary request's LateReason is set (age or event), StrategyScheduler.Tick now cancels it, logs proposal_failed with reason \"superseded\" and starts the new request on the same tick. Tests Overtaken_in_flight_request_is_superseded_by_the_event_replan and Aged_in_flight_request_is_superseded_by_the_next_cadence failed before the fix and pass after. Existing tests were changed to match. The timeout test now sets MaxProposalAgeSeconds=100 so it still exercises the backstop. The queued-trigger test now uses a 0.65 event. Both severe-event late tests now deliver the answer on the event frame."
+   }
+  ],
+  "cross_area": "1) Strategy area, src/Bindery.Ra2.Bot/Strategy/DecisionDataset.cs: intent_activated `features` now encodes the features the strategist was asked with. New fields `featuresSnapshotVersion` and `featuresFrame` hold that snapshot's version and frame. DecisionDataset.FromDecisionLog (around line 103) still sets DecisionExample.Frame and SnapshotVersion from record.Time.Frame and record.SnapshotVersion, which are the activation frame. It should read featuresFrame and featuresSnapshotVersion when present, and the doc at line 42 should say \"features the strategist saw\". 2) Operations area, src/Bindery.Ra2.Bot/Operations/OperationalPlanner.cs line 97: `credits = Math.Max(0, belief.Credits)` should also subtract the unpaid remainder of unfinished queue items, sum of cost x (1 - progress), when production is charged while building. The ledger and gate now enforce this, so over-orders get dropped at the gate, but the planner's saving logic still sees inflated credits. The planner needs that flag, for example via OperationalOptions, set from BotOptions.ProductionChargedWhileBuilding. 3) Adapter: whoever builds the retail RA2 BotRuntime for Ra2BotHost should keep ProductionChargedWhileBuilding=true (the BotOptions default) and must not reuse StandardBot.SimulatorOptions, which sets it to false. 4) Docs, docs/architecture/strategic-bot.md: document three new behaviours. A firing abort trigger now ends the intent (intent_ended reason \"aborted\"). The base-threat override is spent once per threat episode and skips a Defend or Turtle incumbent. Unusable in-flight primary requests are superseded (proposal_failed reason \"superseded\"), and late shadow answers are logged as wouldBeReason \"late:<reason>\"."
+ },
+ "operations-tactics": {
+  "commit": "51febcc",
+  "tests": "Bindery.Ra2.Bot.Tests: 578 passed / 579 (1 skipped: LiveClaudeSmokeTests, needs a live credential); Bindery.Ra2.Adapter.Tests: 75 passed / 75",
+  "items": [
+   {
+    "title": "Retreating squad turns back as soon as it leaves engagement range (retreat hysteresis bypassed)",
+    "status": "fixed",
+    "evidence": "dea49b3. SquadController checks the known Retreating state before routing; with no contact it keeps issuing RetreatCommand until the squad reaches its home region. Test SquadRetreatAndRoutingTests.Retreating_squad_keeps_retreating_after_it_leaves_engagement_range failed before the fix (AttackMove at t=2) and passes after. Retreating_squad_that_reaches_home_out_of_contact_is_ready_to_attack_again guards the exit."
+   },
+   {
+    "title": "Squad combat state is keyed by reused squad id and never cleared, so a new wave inherits a stale Retreating state",
+    "status": "fixed",
+    "evidence": "dea49b3. States are pruned for squad ids missing from the tick's orders. A state is also dropped when fewer than half of the current members were in the state's tracked member set. Test A_new_wave_under_a_reused_squad_id_does_not_inherit_the_old_retreat failed before (MoveCommand) and passes after."
+   },
+   {
+    "title": "Repair lease has no hysteresis: units are handed back to the squad at 40% health",
+    "status": "fixed",
+    "evidence": "eb0952e. A vehicle under repair is now held until RepairControllerOptions.RepairedFraction (0.9); 0.4 is only the entry threshold. Test RepairControllerTests.A_vehicle_under_repair_is_kept_until_it_is_repaired_not_until_it_crosses_the_entry_threshold failed before (no command at 0.45) and passes after."
+   },
+   {
+    "title": "Retreating squad attack-moves straight back into the fight as soon as it leaves engagement range (endless ping-pong)",
+    "status": "fixed",
+    "evidence": "dea49b3, same root cause and fix as the first item: out of contact, a Retreating squad keeps retreating until it is home. Test Retreating_squad_keeps_retreating_after_it_leaves_engagement_range failed before and passes after."
+   },
+   {
+    "title": "Defend squad at the base is ordered to Move (not fight) exactly when the base is overrun",
+    "status": "fixed",
+    "evidence": "Controller side (dea49b3): a Retreating squad already in its home region fights instead of moving. Test SquadRetreatAndRoutingTests.Outnumbered_squad_already_at_home_fights_instead_of_moving_to_its_own_base failed before and passes after. Planner side (98c056a): a DefendRegion squad whose target region holds own buildings gets RetreatBelowForceRatio 0. Test SquadPlanningTests.Defenders_of_a_base_region_never_retreat_from_it failed before (0.6) and passes after. SiegeSafetyTests.An_outnumbered_sieging_squad_retreats_like_any_other was updated so the base is a separate region; it previously asserted the old move-to-own-base behaviour."
+   },
+   {
+    "title": "Scout and retreat squads (Engage=false) are routed with AttackMove, so they stop to fight",
+    "status": "already_fixed",
+    "evidence": "f400613. RouteCommand returns `order.Engage ? new AttackMoveCommand(...) : new MoveCommand(...)`, and this is kept in the new per-group RouteCommands. Covered by SiegeSafetyTests.An_order_that_does_not_engage_moves_plainly_so_it_can_leave_a_region_with_enemies and the new SquadRetreatAndRoutingTests.Squad_that_does_not_engage_routes_with_a_plain_move; both pass at HEAD without changes."
+   },
+   {
+    "title": "Harvesters flee from unarmed enemy vehicles (enemy harvesters/MCVs), abandoning shared ore fields",
+    "status": "fixed",
+    "evidence": "3a458a8. HarvesterSafetyController.CanHurt keeps only contacts whose rule has a weapon and damage above 0; a type missing from the rules is still treated as a threat. Test HarvesterSafetyTests.Harvesters_keep_harvesting_next_to_unarmed_enemy_vehicles failed before (MoveCommand) and passes after. Harvesters_still_flee_armed_enemies guards the other direction."
+   },
+   {
+    "title": "Repair controller sends damaged vehicles to any Production/Support building and holds them forever",
+    "status": "fixed",
+    "evidence": "eb0952e. Only Support-role buildings (GADEPT/NADEPT in the fixture) count as depots. A repair whose health does not rise for 30 s is given up: the lease is released, with a 60 s cooldown. Tests RepairControllerTests.A_vehicle_is_never_sent_to_a_factory_or_yard_for_repair, A_damaged_vehicle_goes_to_the_service_depot and A_vehicle_that_is_not_being_repaired_is_given_back failed before and pass after. The imported-rules depot role and sim repair realism are covered in cross_area."
+   },
+   {
+    "title": "Building placement has no failure memory: a rejected cell is retried forever and the building queue deadlocks",
+    "status": "fixed",
+    "evidence": "51febcc. OperationalPlanner records each placement order (queue, type, cell, time). If the item is still ready after PlacementRetrySeconds (3 s), that cell is excluded for RejectedPlacementMemorySeconds (120 s) and the search moves on. Test BuildOrderAndPlacementTests.A_placement_the_game_does_not_accept_is_retried_elsewhere failed before (same cell at t=5) and passes after. The sim's lack of a footprint check is in cross_area."
+   },
+   {
+    "title": "Expand objective is ignored; 'expansion' refineries are always built at the main base",
+    "status": "fixed",
+    "evidence": "51febcc. A refinery is now aimed at the Expand objective's ore field, otherwise at the nearest field with no own refinery within 10 cells. Placement is anchored on the own building nearest that field, so refineries move toward new ore instead of crowding the home field. Tests A_refinery_goes_toward_the_ore_field_the_expand_objective_names and Without_an_expand_objective_a_new_refinery_goes_toward_ore_that_has_no_refinery_yet failed before and pass after. Scope limit: placement stays next to the base, and no MCV is built to expand to distant fields (noted in cross_area)."
+   },
+   {
+    "title": "No barracks or army until ~6 minutes while floating 4-5k credits; single serial build order puts barracks last",
+    "status": "already_fixed",
+    "evidence": "ed955d2 added the barracks-first opening, and b6ada01 stopped the economy reserve from deadlocking it. NextBuilding queues the step toward the cheapest infantry before the first refinery (OperationalPlanner.cs 'opening: toward ...'). Covered by EconomyReserveTests.With_money_for_both_the_barracks_still_opens and A_reserve_that_can_never_be_paid_does_not_idle_the_base, which pass at HEAD."
+   },
+   {
+    "title": "Squad retreat state is keyed by stable squad id and never reset, so a fresh attack can start in Retreating",
+    "status": "fixed",
+    "evidence": "dea49b3, same fix as the second item (pruning plus membership reset). Test SquadRetreatAndRoutingTests.A_disbanded_squad_id_starts_afresh_when_it_is_ordered_again failed before (MoveCommand at t=300) and passes after."
+   },
+   {
+    "title": "Focus fire picks targets the squad cannot hit (e.g. aircraft for a ground-only squad) and stops moving",
+    "status": "already_fixed",
+    "evidence": "90b7f20. ChooseFocusTarget skips a candidate when `squadDamage <= 0`; with no hittable candidate the target is null and the squad routes on. The new regression test SquadRetreatAndRoutingTests.Focus_fire_never_picks_a_target_the_squad_cannot_hurt passes at HEAD without changes. Unhittable armed aircraft still count in the local force ratio, which is deliberate: they can still hurt the squad."
+   },
+   {
+    "title": "Scout can be sent to an unreachable start location and never re-targets",
+    "status": "fixed",
+    "evidence": "98c056a. NextScoutTarget's start-location branch now also filters out regions with infinite graph distance. Test SquadPlanningTests.Scout_never_heads_for_a_start_location_it_cannot_walk_to failed before (Island) and passes after (Mid)."
+   },
+   {
+    "title": "Strategist objectives DefendRegion/Expand/DenyExpansion, objective regions and RegionsOfInterest have no effect",
+    "status": "fixed",
+    "evidence": "RegionsOfInterest was already consumed since 79fbf8c. 98c056a adds the rest. DenyExpansion now drives the attack target, alongside AttackRegion by priority. A DefendRegion that outranks the attack and names a threatened region holds the army there, and with no attack wanted the army stages at the DefendRegion region. A Scout objective's region is visited first. Expand drives refinery placement (51febcc). Tests Deny_expansion_sends_the_army_to_its_region, A_defend_objective_that_outranks_the_attack_holds_the_army_at_its_threatened_region, Without_an_attack_the_army_waits_at_the_defend_objective_region, A_scout_objective_region_is_visited_first and A_refinery_goes_toward_the_ore_field_the_expand_objective_names all failed before and pass after."
+   },
+   {
+    "title": "Planner flips attack/defend every pass around base threat 1.0, with no hysteresis or minimum time",
+    "status": "fixed",
+    "evidence": "98c056a. The planner enters defend at defendThreatRatio and leaves only when the threat drops below DefendReleaseFraction (0.7) of it and DefendMinSeconds (10 s) have passed. Test SquadPlanningTests.Base_threat_hovering_around_the_defend_line_does_not_flip_the_army_every_pass failed before (attack/defend alternating) and passes after. Squad ids still change between attack and defend; the controller's membership-based state keeps that safe."
+   },
+   {
+    "title": "Bot never builds a second refinery: FirstStepToward returns null for any building type it already owns",
+    "status": "fixed",
+    "evidence": "fc786f3. FirstStepToward takes `repeatable: true` for the extra-refinery step, so an owned but buildable refinery is returned. Test BuildOrderAndPlacementTests.A_second_refinery_is_built_once_the_economy_calls_for_it failed before (queued the barracks instead) and passes after."
+   },
+   {
+    "title": "Attack squad routing uses the mode region: a mob of fresh reinforcements pulls the front-line army back toward base",
+    "status": "fixed",
+    "evidence": "dea49b3. RouteCommands issues one command per region group of members, each routed from its own region. Test SquadRetreatAndRoutingTests.Reinforcements_at_base_do_not_pull_the_front_line_back failed before (all 11 units sent to Mid (30,10)) and passes after: the front tanks go to (70,10) and the base group to (30,10)."
+   },
+   {
+    "title": "Extra production always adds the cheapest Production building (barracks), counting the ConYard, never a second war factory",
+    "status": "fixed",
+    "evidence": "fc786f3. Zero-cost Production buildings (the yard) no longer count. ExtraFactory picks the cheapest buildable factory that is a prerequisite of a unit in the composition's largest role, and falls back to the cheapest. Test Extra_production_adds_the_factory_the_composition_needs_and_does_not_count_the_yard failed before (nothing queued, because the yard filled the cap) and passes after (weap)."
+   },
+   {
+    "title": "Placement does not add earlier placements in the same pass to the avoid list: building and defense placed on the same cell",
+    "status": "fixed",
+    "evidence": "51febcc. Each chosen (or pending) cell is added to the avoid list before the next queue is placed. Test BuildOrderAndPlacementTests.Two_buildings_placed_in_one_pass_never_share_a_cell failed before (both at (47,47)) and passes after."
+   },
+   {
+    "title": "Focus fire targets contacts last seen up to 20 s ago: the squad halts on ghosts, and in the sim chases their true, hidden position",
+    "status": "fixed",
+    "evidence": "3e90be8. Mobile contacts older than SquadControllerOptions.EngageContactAgeSeconds (2 s) no longer engage the squad, become focus targets or count in the local ratio. Buildings stay engageable up to MaxContactAgeSeconds. Test SquadRetreatAndRoutingTests.Contact_out_of_sight_for_seconds_is_neither_a_focus_target_nor_a_reason_to_retreat failed before and passes after. Rejecting out-of-vision AttackCommands in the sim is in cross_area."
+   }
+  ],
+  "cross_area": "1) Contracts/Rules: UnitRule has no repair flag. RulesmdImporter.InferRole gives a retail service depot (UnitRepair=yes, has prerequisites) the Tech role, so with imported rules RepairController, which now selects Support-role buildings only, finds no depot and does nothing. That is safe but means no repair. Add `bool Repairs` to UnitRule (importer: UnitRepair=yes; fixture: GADEPT/NADEPT true) and let RepairController select depots by it; the Support-role rule is then no longer needed. 2) Sim (src/Bindery.Ra2.Bot.Sim/SkirmishSimulation.cs): ApplyRepair/AdvanceRepair heal anywhere without a depot, which inflates arena results; make healing require the unit to be within a few cells of an own Support/Repairs building. ApplyPlace has no footprint or overlap check; reject cells within BuildGridStep (or the footprint) of an existing building so the arena exercises the new placement retry. ApplyAttack pursues a target through fog; reject an AttackCommand on a target the attacker's side cannot see. 3) Expansion beyond placement range: no MCV is produced or escorted to a distant Expand region. Implementing that needs production plus a deploy flow (Operations and DeployController) and is not in these commits. 4) tools/Bindery.Ra2.Bot.Baseline holds a frozen copy of the old planner and controllers; it was deliberately not changed."
+ },
+ "sim-arena": {
+  "commit": "bbcf712",
+  "tests": "Bindery.Ra2.Bot.Tests 576 passed / 577 (1 skipped: live Claude smoke test, no credential); Bindery.Ra2.Adapter.Tests 75/75 passed. Branch fix/ra2-sim-arena, 13 commits 33d5ce0..bbcf712, not pushed.",
+  "items": [
+   {
+    "title": "Sim fog uses a lagging entity region, so enemy positions inside hidden regions reach Belief frames, belief and features",
+    "status": "fixed",
+    "evidence": "6328df4. Movement now updates e.Region when a unit crosses a border, and Observe decides visibility by the region of the reported cell. New Integration/FogInvariantTests.No_hidden_object_or_event_reaches_a_belief_frame checks every frame of 5 full matches (3 maps, both players). Before the fix it failed on all 5 (583 to 1647 violations each); now it passes. Also failed before and passes now: Arena/LeakageProbeTests. FogAndFreshnessTests.A_proposal_inside_the_freshness_window_is_applied now allows an event-driven discard, which this change exposed."
+   },
+   {
+    "title": "Leakage probe cannot detect the transit leak, and the arena reports 0 leakage while features leak",
+    "status": "fixed",
+    "evidence": "6328df4. New SimLeakageProbe.FogViolations(frame) is a per-frame fog check. The arena LeakageProbe counts fog-violation frames over the whole run of both simulations and reports them as a new column. PerturbHidden also announces a hidden spawn through the event path (new DebugSpawnAnnounced). Arena/LeakageProbeTests.The_arena_probe_finds_no_leak_and_checks_every_frame_for_hidden_objects failed before the region fix (FogViolations > 0) and passes after. It also fails when event gating is broken."
+   },
+   {
+    "title": "The arena logs Claude failures a second time with stopwatch latency; the extra record makes hashes nondeterministic and cannot be replayed",
+    "status": "fixed",
+    "evidence": "d1dd124. Replay was already handled in 1c39671: ReplayStrategist echoes records that have no role. Still broken was the latency. BotAgentFactory now writes the failure record with the fixed simulated latency, the same value successful proposals get. Arena/ClaudeFailureRecordTests.A_failed_request_is_logged_with_the_simulated_latency_not_the_wall_clock logged 0.00049 s / 8.8e-5 s before (expected 3) and passes now."
+   },
+   {
+    "title": "Bandit arm learns from held-out matches, so its held-out win rate is not a held-out result",
+    "status": "already_fixed",
+    "evidence": "ac694b5. Program.BanditLearnsFrom(opponent, split) returns split == \"training\" && !OpponentSets.IsHeldOut(opponent). It is set on context.BanditLearning for each job, and each arm gets its own learner through ArenaRunContext.BanditFor. Test: BanditIsolationTests.The_bandit_learns_only_from_training_maps_against_training_opponents."
+   },
+   {
+    "title": "twin-valley (training) and open-steppe (held-out) favour the west start, and the arm always starts west",
+    "status": "fixed",
+    "evidence": "487e7b6. twin-valley gets an east home ore field (region 8). The east half of open-steppe now mirrors the west (ore-se, flank-ne/se). island-bridges had the same kind of asymmetry and now has a 2-1 link. New SimMapsTests.Both_starts_have_the_same_distances_to_ore_and_to_each_other failed on twin-valley ([15,63] vs [48,96]), island-bridges (66 vs 74) and open-steppe before, and passes on all 5 maps now."
+   },
+   {
+    "title": "Seeds are not independent samples, and odd seed counts (default 1) bias the arm's faction",
+    "status": "fixed",
+    "evidence": "4457c5b had already added faction columns, the odd-seed warning and distinct games against different opponents. The remaining gap was that identical games on different seeds still counted as separate samples. bbcf712: PairedReport.GameKey now uses the arm's faction instead of the seed. BenchmarkTests.Identical_games_on_different_seeds_count_once failed before (3 distinct instead of 2) and passes now. The default --seeds 1 and the Standard benchmark without noise are unchanged; the report warns about both."
+   },
+   {
+    "title": "Timeout winner and trade efficiency use an asset value that leaves out prepaid production and values a ConYard at 0",
+    "status": "fixed",
+    "evidence": "a1cd915. New SimValuation.ValueOf gives a construction yard priced at 0 the cost of its MCV. AssetValue adds every queued item, including items awaiting placement, and MatchRunner.TallyTrades uses the same valuation. SkirmishSimulationVictoryTests.Asset_value_survives_deploying_the_mcv_and_paying_for_production (10000 vs 11000 before) and TradeTallyTests.Destroying_a_construction_yard_is_worth_its_mcv (0 vs 3000 before) failed before and pass now. The timeout test now separates the players by starting credits."
+   },
+   {
+    "title": "Inference cost leaves out billed tokens from failed LLM requests (refusal, max_tokens, parse or mapping failure)",
+    "status": "fixed",
+    "evidence": "cac8bca. New DecisionLogMetrics.Apply adds the cost of ProposalFailed records to tokens and USD. Failed-request USD is shown as its own share in the report. Test: DecisionLogMetricsTests.Fallback_proposals_stay_out_of_the_arm_figures_and_shadow_and_failed_requests_are_counted (new API, so it did not compile against the old code)."
+   },
+   {
+    "title": "Invalid-plan and lateness metrics mix deterministic fallback proposals into the LLM arm's figures",
+    "status": "fixed",
+    "evidence": "cac8bca. Proposals, invalid plans, late discards and lateness now come from the Primary role only. Fallback and emergency proposals are counted in a separate FallbackProposals column. DecisionLogMetricsTests.The_llm_arm_lateness_is_the_llm_latency_not_diluted_by_the_fallback failed before ('lateness 0 s' in an llm --llm-fake match) and passes now."
+   },
+   {
+    "title": "Production idle uses the cheapest item in the whole fixture, not the cheapest item the player can build",
+    "status": "fixed",
+    "evidence": "51026d7. MatchRunner.IsProductionIdle (now public) uses the minimum cost over the items rules.CanBuild allows for the player's faction and owned buildings. ProductionIdleTests.Idle_needs_credits_for_the_cheapest_item_this_player_can_build failed on the old logic (an Allied yard with 500 credits counted as idle) and passes now."
+   },
+   {
+    "title": "Production speed uses every Production building for every queue and keeps going after the right factory is lost",
+    "status": "fixed",
+    "evidence": "169906c. Factories per queue are derived from the rules: the production buildings required by a queue's items, and the yard for the building and defense queues. A queue counts only its own factories, pauses when it has none, and spawns units beside its newest factory. SkirmishSimulationProductionTests.Only_a_queues_own_factories_speed_it_and_losing_them_stops_it failed before (progress 0.866 vs 0.5) and passes now. In ScriptedSkirmishAiTests the ai-turtle wave deadline moved to 1100 s, because its first wave now comes from one war factory."
+   },
+   {
+    "title": "Harvesters move between ore and refinery on a timer and cannot be intercepted on the way",
+    "status": "fixed",
+    "evidence": "d1fbff4. Harvester trips now use RemainingPath movement, so harvesters are present in every region on the route. SkirmishSimulationEconomyTests.A_harvester_crosses_the_regions_on_its_route_and_can_be_hit_there failed before (never hit) and passes now."
+   },
+   {
+    "title": "Cancelling a ready-to-place building refunds its full cost but leaves it placeable",
+    "status": "fixed",
+    "evidence": "182476f. ApplyCancel also removes the matching PendingPlacements entry. SkirmishSimulationProductionTests.Cancelling_a_building_ready_to_place_refunds_it_and_it_can_no_longer_be_placed failed before (placement accepted) and passes now."
+   },
+   {
+    "title": "Arena strategy metrics for the llm arm mix in selector-fallback proposals",
+    "status": "fixed",
+    "evidence": "cac8bca, the same fix as the invalid-plan and lateness finding (DecisionLogMetrics, Primary role only). Test: DecisionLogMetricsTests.The_llm_arm_lateness_is_the_llm_latency_not_diluted_by_the_fallback, which failed before with 0 s samples."
+   },
+   {
+    "title": "llm-shadow arm reports none of the shadow LLM's fog rejections or lateness",
+    "status": "fixed",
+    "evidence": "cac8bca. ShadowLateSeconds, ShadowRejected and ShadowFogRejections are read from ShadowProposal records and reported in new shadow columns and in the leakage section. Test: DecisionLogMetricsTests (shadow assertions). AnalyzeTests was updated for the new columns."
+   },
+   {
+    "title": "Shadow-mode and LLM decisions are never persisted; the claim that recorded LLM runs can be replayed does not hold for the arena",
+    "status": "already_fixed",
+    "evidence": "1c39671. The arena writes decisions/<match>.ndjson and a match manifest for every arm match (CliOptions.WriteDecisions defaults to true). 'arena replay' rebuilds the match with ReplayStrategists in the primary and shadow slots. Test: ReplayTests.A_recorded_match_replays_to_the_same_decision_log_hash. The suggested shadow-inclusive DatasetFilter was not added."
+   },
+   {
+    "title": "The 'distilled' arm distills the selector, not the LLM, and escalates to the selector rather than the LLM",
+    "status": "already_fixed",
+    "evidence": "75aa465 and b7fa332. The teacher is the run's llm arm, or an unreported llm run on the training maps, and never the selector. Escalations go to the Claude strategist. Tests: DistillationTests.Without_an_llm_arm_the_teacher_is_an_unreported_llm_run_never_the_selector, DistillationTests.Out_of_distribution_states_escalate_to_the_claude_strategist, DistillTeacherMapsTests."
+   },
+   {
+    "title": "Sim accepts AttackCommand on fogged or never-seen enemies and routes units to the target's true hidden region",
+    "status": "fixed",
+    "evidence": "fd95829. ApplyAttack rejects a target that the issuer cannot see, judged by the target's cell. Each second, DropTargetsInFog clears explicit targets that have died or left sight. SimAttackFogTests.An_attack_on_an_enemy_the_issuer_cannot_see_is_rejected_and_moves_nothing (rejected 0 vs 1 before) and A_target_that_walks_into_fog_is_dropped_and_not_followed failed before and pass now."
+   },
+   {
+    "title": "Sim state hash leaves out queues, sub-cell positions, orders, pending placements and power, so determinism checks pass on states that have diverged",
+    "status": "fixed",
+    "evidence": "c551d81. ComputeStateHash now covers queues and progress, pending placements, Defeated, id counters, ExactX/Y, region, path, destination, target, harvester phase and timers, carried load, repair, both Xorshift states and pending commands, all in invariant 'R' format. Power is derived from entities, so it is covered through them. SkirmishSimulationDeterminismTests.The_state_hash_sees_sub_cell_movement_and_queue_contents failed before (hashes equal) and passes now."
+   },
+   {
+    "title": "The sim accepts attack orders on enemies the player cannot see and sends the attackers to the enemy's current hidden region",
+    "status": "fixed",
+    "evidence": "fd95829, the same fix as the finding on AttackCommand against fogged or never-seen enemies. Tests: SimAttackFogTests, both failed before."
+   },
+   {
+    "title": "Harvesters still earn credits after their refinery is sold or destroyed",
+    "status": "fixed",
+    "evidence": "d1fbff4. A load is paid only at a refinery that still stands; otherwise the harvester keeps the load and looks for another refinery. No new load starts while the owner has no refinery. SkirmishSimulationEconomyTests.A_harvester_whose_refinery_is_gone_banks_nothing failed before (9750 -> 10450) and passes now."
+   },
+   {
+    "title": "Power has no effect on defenses: Tesla coils, Prism towers and Patriots keep firing during low power",
+    "status": "fixed",
+    "evidence": "b8d9e3b. ResolveCombat skips buildings that drain power while their owner is on low power. SimPowerTests.A_tesla_coil_on_low_power_does_not_fire_and_one_with_power_does failed before (the unpowered coil killed the tank) and passes now."
+   },
+   {
+    "title": "Refineries come without a free harvester, so the first income costs 3400 instead of RA2's 2000",
+    "status": "already_fixed",
+    "evidence": "6e3a960. SimSettings.FreeHarvesterWithRefinery (default true). ApplyPlace calls SpawnFreeHarvester when a refinery is placed. Test: SkirmishSimulationEconomyTests.A_placed_refinery_comes_with_a_free_harvester_that_starts_earning."
+   },
+   {
+    "title": "Sim event fog gating has no test: sending every event to every player passes all 355 tests",
+    "status": "fixed",
+    "evidence": "6328df4. Three tests now fail if EventForPlayer is changed to deliver every event (checked by mutation): FogInvariantTests (the per-frame event check, 129 to 246 violations under the mutant), the new SkirmishSimulationFogTests.Leakage_probe_announces_a_hidden_object_that_only_the_oracle_frame_receives, and LeakageProbeTests. All pass on the real code."
+   }
+  ],
+  "cross_area": "1) SquadController (src/Bindery.Ra2.Bot, Tactics) still sends AttackCommand for contacts up to MaxContactAgeSeconds (20 s) old. Since fd95829 the sim rejects attacks on targets that are not visible, so those resends now count as InvalidCommands. The controller should attack only contacts visible in the current frame and attack-move to the last-seen cell otherwise. The RA2 bridge path would need the same rule. 2) docs/architecture/strategic-bot.md and strategic-bot-results.md should be updated for: the new map shapes (twin-valley has 9 regions with ore-east; open-steppe has 13 regions, mirrored); the arena strategy-table semantics (primary-only figures plus fallback, shadow-invalid and shadow-lateness columns, failed-request cost share); the leakage table's fog-violation-frames column; per-queue factory speed; offline powered defenses; harvester routing; and asset value that includes queued production and values a yard at its MCV's cost. Earlier arena results in the results doc came from the old sim and metrics and would need a rerun (only --llm-fake is possible without a credential). 3) Optional contract change: UnitRule has no factory-for-queue field, so the sim derives each queue's factories from prerequisites. The Aircraft and Naval queues have no Production-role factory in the fixture and fall back to all production buildings; an explicit Factory field, or GAAIRC/NARADR with Role=Production, would make this exact. 4) The suggested shadow-inclusive DatasetFilter for distilling shadow decisions (Strategy/Datasets in src/Bindery.Ra2.Bot) was not added."
+ }
+}

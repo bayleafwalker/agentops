@@ -1,0 +1,267 @@
+{
+  "schema_version": "handoff/v1",
+  "handoff_id": "2026-10-29-ecosystem-night-stop.v1",
+  "version": 1,
+  "created_at": "2026-10-29T20:57:53Z",
+  "origin_host": "workstation",
+  "origin_path": "/projects/dev/agentops/docs/dispatch/handoffs/2026-10-29-ecosystem-night-stop.v1.json",
+  "origin_cwd": "/projects/dev/agentops",
+  "track": "ecosystem-night-stop",
+  "predecessor": {
+    "harness": "codex",
+    "session_id": "01a1869b-7d96-7110-9c15-80fb7a6f4961",
+    "transcript_path": null,
+    "model": "gpt-6",
+    "context_used_pct": null
+  },
+  "objective": "Resume the full planned implementation across all eight ecosystem programmes from the verified releases/live state and the two explicitly parked qualification branches.",
+  "constraints": [
+    "Night handoff requested: no further local implementation, polling, merge, release or deployment; existing remote CI may finish naturally. All eight programmes remain unfinished.",
+    "Preserve normal Cloud mutationsTRUE, provisioningFALSE, appsReadyUNSUSPENDED/controller1, serving Kotona and four held tenants; clone/storage/backups retained. Fresh night protected-state check passed.",
+    "All three human cleanup batches and PR433 operator hand-pass are DONE. No human question pending. Do not rerun consumed cleanup/signing/DDL/rollout helpers. Cloud live deletes remain human-actioned; signing needs owner hardware.",
+    "Private field evidence is host-persistent only and must not be committed to public AgentOps. Source commits replicated; served work authoritative. Preserve preexisting dirty Oct20 handoff files and all original worktrees.",
+    "No subagents/native model agents launched. Do not introduce them without explicit authorization. No native Goal exists.",
+    "Never close parents or bypass EC00/EC02/OA01/pilot gates from source/test/release evidence. FAILED_NO_RESURRECTION and whole-backup unknown limits remain.",
+    "Cloud and homelab kubeconfigs differ. Reprobe credentials, use packaged broker, escalate silent sandbox network failures, and do not direnv allow AgentOps.",
+    "Frozen signing0733 and release-build7bb checkouts must remain frozen. tmp checkouts are session-local; private receipts require hash-verified transfer for another host."
+  ],
+  "decisions": [
+    {
+      "what": "Cloud PoC81 remains live and the retained-clone owner read matches",
+      "why": "Fresh25-object fence passed; actual released-owner terminalitem1 read/catalog unchanged and four authorization negatives passed. Physical/whole backup unknown and writer fence external."
+    },
+    {
+      "what": "Service101/owner26 and AgentOps433 are landed and live/adopted",
+      "why": "Published artifacts/OIDC/coldTLS closure verified; actual homelab Pod/HTTPS/catalog146/all4FluxReady; canonicalCLI+stdioMCP reach owner; bothpostmain pipelines green."
+    },
+    {
+      "what": "Sovite22 is published; live21 remains healthy",
+      "why": "Published wheel/images and18synthetic HTTP process checks qualified; startupfix27 merged13eb39d/postmaingreen. Live image changes need separate accurate deployment qualification."
+    },
+    {
+      "what": "Cloud329 stays open at6c311fa awaiting nativeCI1870",
+      "why": "27PG17TLS/SCRAM tests and3529fast/statics pass; native focused/integration success, remaining jobs/artifact pending. No merge or rollout tonight."
+    },
+    {
+      "what": "Vuoro298 stays draft atfadc33b",
+      "why": "New Rust SDK resolver-boundary fixture preserved/pushed; notcompiled/run. ExactCargo/Rust restored unchanged after offline full-shell source hash failure; explicit qualification still required."
+    },
+    {
+      "what": "Only own claims released for night",
+      "why": "Verified464/465 belonged to this exactsession; released through served owner at20:52, foreignclaims untouched and parent remainsactive. Nightprogress6439."
+    }
+  ],
+  "rejected": [
+    {
+      "what": "Repeat completed hardware, cleanup or work29 migration actions",
+      "why": "All consumed; fresh state alreadyverified. Old scripts protect exact prior UIDs and must not act on replacements."
+    },
+    {
+      "what": "Interpret isolated clone read as whole-fleet/physical recoverability",
+      "why": "Only one supported owner read and four catalog observational matches; fifth work12 unsupported, writer fence external and wholebackup unknown."
+    },
+    {
+      "what": "Claim new Rust SDK test is qualified from Python syntax or normal CI",
+      "why": "Rust binary notcompiled/run. Unpolled-future control is insufficient; need actual resolverentry and independent no-effect controls."
+    },
+    {
+      "what": "Relax a source hash or silently substitute compilers",
+      "why": "Offline shell TinyCC fixed-output mismatch is preserved; exact Cargo/Rust binaries restored from configured cache instead, no pin changes."
+    },
+    {
+      "what": "Claim PostgreSQL17 dumps restore unchanged into PostgreSQL16",
+      "why": "Actual supplemental test25pass/2restorefail on transaction_timeout; unsupported downgrade, not an oracle to waive."
+    },
+    {
+      "what": "Resurrect retired Langfuse to rerun old three-sink acceptance",
+      "why": "Original no-resurrection failure/global barrier and incomplete deletion inventory remain; old recipe depends on retired state."
+    }
+  ],
+  "state": {
+    "repos": [
+      {
+        "path": "/projects/dev/agentops",
+        "head": "09498925c72986122a936274a3be7d68684a7f1f",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "ef8b8f0ea71d6f395ba73e265d3770f8ebffce95db46e286f6b03502a81167d0",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/agentops-ecosystem-full-track-20261029",
+        "head": "09498925c72986122a936274a3be7d68684a7f1f",
+        "branch": "main",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/vuoro-ecosystem-full-track-20261029",
+        "head": "fadc33b19b5b3e61f679f4afb84325e429346f45",
+        "branch": "test/rust-sdk-predispatch-cancellation-20261029",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/vuoro-full-track-20261029",
+        "head": "6c311faeabfd04cd9d1c470e7dced06d88f2717b",
+        "branch": "test/retirement-dump-tls-scram-20261029",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/sprintctl-ecosystem-full-track-20261029",
+        "head": "4fd2ded431f71c53e4b71852bbbdb8f3ae5f0e79",
+        "branch": "release/v0.26.0-20261029",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/sovite-ecosystem-full-track-20261029",
+        "head": "13eb39d050d9f0164af9a8705dc075bcb51bbfdd",
+        "branch": "main",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/sovite22-release-build-20261029",
+        "head": "7bb4b7d68156dbf60b87e0a616f14732acddf295",
+        "branch": null,
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/appservice-ecosystem-full-track-20261029",
+        "head": "9b847c96a7c7057ba5538f41420d3de92a4bf825",
+        "branch": "release/vuoro101-continuation-20261029",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 1
+      },
+      {
+        "path": "/tmp/appservice-vuoro101-validation-20261029",
+        "head": "ccddccc0b14e4f7b5927c74b85d4f66262b3c7f0",
+        "branch": "main",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 1
+      },
+      {
+        "path": "/tmp/vuoro-poc81-signing-20261029",
+        "head": "0733b420763bbd7759baf34653f665726b87c97c",
+        "branch": "main",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 1
+      }
+    ],
+    "running": [
+      "No local worker, native agent, poll loop, database fixture or new live operation remains.",
+      "Remote Forgejo CI1870 forCloud329 may finish naturally; remote GitHubCI for draft298 may also run. Re-query exact heads/results on resume."
+    ],
+    "digest_version": 5,
+    "tracker_watermark": [
+      {
+        "item_id": "2307",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2308",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2309",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2310",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2311",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2329",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2654",
+        "status": null,
+        "status_revision": null
+      }
+    ]
+  },
+  "unresolved": [
+    "Finish exact-head Cloud329 nativeall5/all13 clean-source artifact qualification and review; no automatic retry of unknown mutations.",
+    "Compile/run/review draftVuoro298 real Rust SDK cancellation/deadline controls with exactlockedtools; keep draft until qualified.",
+    "Full Cloud provisioning/fleet/retirement/P4 live TLS+store/toolchain/teardown, official CLI/versioned distribution and supported test-tenant retirement remain open.",
+    "Source-observed request verifier/deliveryack/nativewake and real human/runtime pilot2730; OA05web/notifications remaingated. Do not backfill chatDone as attestation.",
+    "Sovite per-user delegation/helper enrollment/lifecycle/defaultworker credential removal and actualruntime commissioning;22liveadoption remainsseparate.",
+    "EC00 remaining mandatory/supply/ingress/benchmark/economics criteria, EC02ownership/domainmigrations and ER025 remainopen.",
+    "Production current telemetry/native310/correlation/export and retention/full-deletion-barrier acceptance remainopen; no all8parent closure."
+  ],
+  "evidence": [
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/full-track-2026-10-29/programme-ledger.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/full-track-2026-10-29/night-evidence-manifest.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/full-track-2026-10-29/night-final-cloud-ci.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/full-track-2026-10-29/night-cloud-protected-verified.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/full-track-2026-10-29/night-source-state.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/full-track-2026-10-29/night-handover-body.txt"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/full-track-2026-10-29/operator-request-canonical-runtime-qualified.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/full-track-2026-10-29/sovite22-http-worker-qualified.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/full-track-2026-10-29/retirement-tls-source-qualified.json"
+    },
+    {
+      "kind": "sprintctl",
+      "ref": "agentops#2864 event6439; own reservations464/465 released"
+    }
+  ],
+  "sprintctl_bundle_ref": {
+    "path": "/projects/dev/agentops/docs/dispatch/handoffs/2026-10-29-ecosystem-night-stop.v1.sprintctl-bundle.json",
+    "sha256": "289bb112d334f79ad1b8a5b2282c27bc7223a016cd92ee77e8ad76f085cff6bb",
+    "generated_at": "2026-10-29T20:57:50Z"
+  },
+  "next_action": "Acknowledge the canonical JSON with the actual successor CODEX_THREAD_ID; run both forge credential probes; read programme-ledger.json, night-evidence-manifest.json and night-final-cloud-ci.json. Recheck Cloud PR329 exact6c311fa/native1870/all5+all13 artifact before any merge, then qualify DRAFT Vuoro298 fadc33b explicitly with locked Rust tools. Reobserve live services/clone and preserve current normal mutationsTRUE/apps-unsuspended state; do not replay completed cleanups, signatures, migrations or rollouts.",
+  "successor": {
+    "session_id": "01a1915c-4cd1-7061-ad07-a19dd8773ee1",
+    "acknowledged_at": "2026-10-31T09:54:47Z"
+  }
+}

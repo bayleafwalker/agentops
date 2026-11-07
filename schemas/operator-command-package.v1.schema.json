@@ -1,0 +1,243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentops.local/schemas/operator-command-package.v1.schema.json",
+  "title": "Operator command package v1",
+  "description": "A work item for a step only the operator can perform, written so the operator can act without reconstructing a conversation: the directory, the exact commands, the verified precondition, the expected result, what to send back, and how to roll back. It is the body an operator request carries; it grants no authority by itself and does not replace the durable operator-request lifecycle owned through Vuoro (CL-K03). Rule source: /projects/dev/CLAUDE.md, 'Nothing waits on the operator unless verified'.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "package_id",
+    "title",
+    "gate_kind",
+    "programmes",
+    "work_refs",
+    "owner",
+    "readiness",
+    "why_operator",
+    "directory",
+    "preconditions",
+    "commands",
+    "expected_result",
+    "send_back",
+    "rollback",
+    "created",
+    "last_verified"
+  ],
+  "properties": {
+    "schema": {
+      "const": "operator-command-package/v1"
+    },
+    "package_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{2,79}$"
+    },
+    "title": {
+      "$ref": "#/$defs/text200"
+    },
+    "gate_kind": {
+      "enum": [
+        "deployment",
+        "promotion",
+        "signing",
+        "field-execution",
+        "rehearsal",
+        "credential"
+      ]
+    },
+    "programmes": {
+      "description": "Programme files (repo-relative) whose deployment gate this package carries.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/text200"
+      }
+    },
+    "work_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9._-]+#[0-9A-Za-z-]+$"
+      }
+    },
+    "owner": {
+      "$ref": "#/$defs/text200"
+    },
+    "readiness": {
+      "description": "ready: every precondition has been verified and the commands are exact. blocked: at least one blocker is open; the package still states every command that is already exact and names the source item that will produce the rest.",
+      "enum": [
+        "ready",
+        "blocked"
+      ]
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "description",
+          "resolved_by"
+        ],
+        "properties": {
+          "description": {
+            "$ref": "#/$defs/text1000"
+          },
+          "resolved_by": {
+            "description": "The work item, PR or decision that clears this blocker. 'operator' is not a valid resolver: route to build, repair or park.",
+            "$ref": "#/$defs/text1000"
+          }
+        }
+      }
+    },
+    "why_operator": {
+      "description": "The verified reason only the operator can do this (hardware key, cost approval, effect authority).",
+      "$ref": "#/$defs/text1000"
+    },
+    "host": {
+      "$ref": "#/$defs/text200"
+    },
+    "directory": {
+      "type": "string",
+      "pattern": "^/"
+    },
+    "shell_setup": {
+      "description": "Steps that open a new shell (for example nix develop). Present only when needed; commands after it are numbered steps.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/text1000"
+      }
+    },
+    "preconditions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "check",
+          "command",
+          "expected",
+          "verified_at"
+        ],
+        "properties": {
+          "check": {
+            "$ref": "#/$defs/text1000"
+          },
+          "command": {
+            "$ref": "#/$defs/text2000"
+          },
+          "expected": {
+            "$ref": "#/$defs/text1000"
+          },
+          "verified_at": {
+            "description": "UTC timestamp of the last verification by an agent, or null when not yet verified.",
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:[0-9]{2})?Z$"
+              }
+            ]
+          },
+          "observed": {
+            "$ref": "#/$defs/text1000"
+          }
+        }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "step",
+          "command",
+          "expected"
+        ],
+        "properties": {
+          "step": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "command": {
+            "$ref": "#/$defs/text2000"
+          },
+          "expected": {
+            "$ref": "#/$defs/text1000"
+          },
+          "exact": {
+            "description": "false when the command is a template whose values a named blocker will produce.",
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "expected_result": {
+      "$ref": "#/$defs/text2000"
+    },
+    "send_back": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/text1000"
+      }
+    },
+    "rollback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "description",
+        "commands"
+      ],
+      "properties": {
+        "description": {
+          "$ref": "#/$defs/text2000"
+        },
+        "commands": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text2000"
+          }
+        }
+      }
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/text1000"
+      }
+    },
+    "created": {
+      "$ref": "#/$defs/date"
+    },
+    "last_verified": {
+      "$ref": "#/$defs/date"
+    }
+  },
+  "$defs": {
+    "date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "text200": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "text1000": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    },
+    "text2000": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    }
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "schema": "operator-command-package/v1",
+  "package_id": "work31-appservice-field-execution",
+  "title": "Execute the work29 to work31 cutover on the vuoro-shared appservice primary",
+  "gate_kind": "field-execution",
+  "programmes": ["docs/dispatch/programmes/2026-10-24/08-integration.md"],
+  "work_refs": ["appservice#2153"],
+  "owner": "release train owner: operator-designated coordinator (default-assigned 2026-11-07)",
+  "readiness": "blocked",
+  "blockers": [
+    {
+      "description": "The work31 helper refuses every other database session, so a persistent DB monitor plus helper stages need a separately reviewed session/phase handoff protocol. Until it and the full policy/data-plane fence are proven the prepared Jobs are not admitted (runbook, last section).",
+      "resolved_by": "appservice source item: reviewed monitor/helper phase handoff, then an adversarial review of the Work31 procedure. Do not reroute the earlier platform-blocked review; request a fresh scoped review"
+    },
+    {
+      "description": "Fresh coherent pre31 Work and Workspace recovery pair, bound to exact source/storage/backup identities and restored in isolation under the same fence, does not exist yet.",
+      "resolved_by": "appservice source item: paired-evidence handoff and restore generator review (runbook, 'Paired recovery preparation')"
+    },
+    {
+      "description": "PR2153 (pin service 0.1.103 for work31) is open; startup does not migrate, so it must not merge before the migration completes.",
+      "resolved_by": "merge PR2153 only after step 5 below succeeds"
+    }
+  ],
+  "why_operator": "Live schema migration on the shared production primary under a continuous writer, Flux, network and database fence is outside standing source-only authority (handoffs 2026-11-05, 2026-11-06) and needs the operator's explicit field-window approval.",
+  "host": "operator workstation with the vuoro-shared kubeconfig",
+  "directory": "/projects/dev/appservice",
+  "preconditions": [
+    {
+      "check": "PR2153 still open at the reviewed head",
+      "command": "gh pr view 2153 -R bayleafwalker/appservice --json state,headRefOid",
+      "expected": "state OPEN, headRefOid equals the reviewed head",
+      "verified_at": "2026-11-07T09:00Z",
+      "observed": "OPEN at 4bb6cbcee75f07b137023aebee2df344c44b6972"
+    },
+    {
+      "check": "Live primary is exactly work schema 29 and service 0.1.101 is ready",
+      "command": "agentops estate status --env vuoro-shared --fetch",
+      "expected": "running service 0.1.101 ready 1/1; a different schema or service means inspect and refuse",
+      "verified_at": null
+    },
+    {
+      "check": "Rendered Jobs are byte-identical to the reviewed render",
+      "command": "python3 docs/scripts/vuoro-workspace-cutover/render-work31-jobs.py --help",
+      "expected": "renderer present; exact render arguments come with the reviewed phase handoff",
+      "verified_at": null
+    }
+  ],
+  "commands": [
+    { "step": 1, "command": "Establish the continuous fence per docs/runbooks/vuoro-workspace-continuous-fence.md and record the fence receipt", "expected": "monitored writer, Flux, scheduled-job, network and DB fence held; receipt written", "exact": false },
+    { "step": 2, "command": "Capture the fresh pre31 pair: prepare-fresh-dump31.py, prepare-dump-identity31.py, seal-pair31.py, then isolated restore with provision-restore-secrets31.py and check-pre31-restored-objects.py", "expected": "sealed pre31 pair and an isolated restore whose catalog matches the source", "exact": false },
+    { "step": 3, "command": "Apply the rendered preflight, migrate, grants and postcheck Jobs in order under the fence", "expected": "owner migration reports [30, 31]; postcheck verifies work31 delegation and receipt catalogs and ACLs", "exact": false },
+    { "step": 4, "command": "Capture and independently restore the post31 pair; run check-post31-restored-objects.py", "expected": "post31 checker passes on the isolated restore", "exact": false },
+    { "step": 5, "command": "Merge PR2153, let Flux roll service 0.1.103, then lift the fence through the reviewed guarded steps", "expected": "service 0.1.103 ready, startup admission observed", "exact": false }
+  ],
+  "expected_result": "Primary at work31, service 0.1.103 running, pre31 and post31 pairs retained with restore evidence, fence lifted through reviewed steps, no retried unknown outcome.",
+  "send_back": [
+    "Fence receipt ID and the monitor log covering the window",
+    "Job names, completion status and the postcheck output",
+    "Pre31 and post31 pair seal digests and checker outputs",
+    "Any lost response or refusal verbatim (do not retry)"
+  ],
+  "rollback": {
+    "description": "Before step 3: lift the fence, nothing changed. After a failed or unknown step 3: stop, inspect owner state, and restore the sealed pre31 pair into service only through the reviewed restore procedure; never retry automatically.",
+    "commands": []
+  },
+  "references": [
+    "/projects/dev/appservice/docs/runbooks/vuoro-work31-cutover.md",
+    "/projects/dev/appservice/docs/runbooks/vuoro-workspace-continuous-fence.md",
+    "docs/dispatch/handoffs/2026-11-06-full-track-handoff.v1.json"
+  ],
+  "created": "2026-11-07",
+  "last_verified": "2026-11-07"
+}

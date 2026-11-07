@@ -1,0 +1,332 @@
+{
+  "schema_version": "handoff/v1",
+  "handoff_id": "2026-10-03-vuoro-ecosystem-gen69-and-future-work.v2",
+  "version": 2,
+  "created_at": "2026-10-03T20:31:49Z",
+  "origin_host": "workstation",
+  "origin_path": "/projects/dev/agentops/docs/dispatch/handoffs/2026-10-03-vuoro-ecosystem-gen69-and-future-work.v2.json",
+  "origin_cwd": "/projects/dev/agentops",
+  "track": "vuoro-cloud-role-split",
+  "predecessor": {
+    "harness": "codex",
+    "session_id": "01a102d4-c0d5-7591-90a8-34b1ba3c2617",
+    "transcript_path": null,
+    "model": "gpt-6",
+    "context_used_pct": null
+  },
+  "objective": "Resume the holistic Vuoro ecosystem program tomorrow (2026-10-04). User requested this handoff after the gen69 rollout and concurrent preparation work. The program is unfinished; do not mark its long goal complete. This successor continues acknowledged gen68 and admin handoffs from October1, which already name this predecessor as their successor. Do not re-ack those old files.\nCompleted: agentops2578/2579 PR302 canonical068e282986d04b87effec78ba722184dadccab3d; Cloud2582 admin2.2b PR212 canonical7ff17519f609a2f974eee58e47496dbb8318938c. Gen68 finished on two valid human-owned tenants; invalid blocker12 remains excluded. Gen69 admin2.2b image pin217 and signed candidate221 merged; live rollout verified. Public authority units2570/2593/2594 and effect ownership2567/2598/2568 published and accepted. Evidence authority decision2480 and corrections2602 accepted. Profile query2486 PR304 canonical4bf1d7ec75b582c5ca0b9ddd169c31e5a4950307 accepted Decision204, four CI green; worktree/branches cleaned. See detailed unresolved lanes and preserved artifacts below.",
+  "constraints": [
+    "User authorized ongoing program execution and concurrent orchestrators in independent worktrees. User approved ongoing private Vuoro diffs, relevant source/spec/tests and receipts sent to Claude for independent review; exclude credentials and real secrets. Persist authorization across sessions.",
+    "Read /projects/dev/AGENTS.md, repository AGENTS/CLAUDE and .agents/environment.generated.md. Read target-state2026-09-17 before dispatch/model/project changes. Private Cloud source stays local; this handoff and host artifacts are untracked local state, do not publish them in public agentops.",
+    "Before credential reasoning measure hooks/forge-credential.sh status and inventory. Packaged /run/current-system/sw/bin/credctl only. Scoped broker repo.read/repo.write/pr.merge preferred. Broker session expired2026-10-03T19:45:42Z; unattendedrenewal denied host-unattended-session-undeclared. Private operations paused, no broader OAuth/static-token fallback. Cert expires2026-10-04T17:45:22Z. Userrefresh question pending, see next action.",
+    "Network tools can return exit0/empty in sandbox; escalate and remeasure. Do not call unchecked absent. Never print tokens, decrypted secrets or forge error bodies.",
+    "Served tracker sprint559 from primary agentops: SPRINTCTL_BACKEND=served SPRINTCTL_VUORO_PROFILE=/projects/dev/agentops/environment-record/profiles/workstation-vuoro-shared.json. Attribution tags agent:codex,model:gpt-6,attempt:N. No direnv allow; no local tracker backend.",
+    "Opus5.5 code review; Sonnet5.5 pin/candidate/release review. Independent comment before merge, exact reviewed head and all CI green. Cloud FFonly credctl merge. Ordinary Forgejo issue comments403; POST pulls/N/reviews eventCOMMENT+commit_id works. Rebased local preparations have patch-equivalence reviews but need fresh exact-headCI/receipt beforemerge.",
+    "Hardware promotion only user YubiKey PIN+two touches, trustedfingerprintAB73C1C5617B5098038CDA953AF95EDEB8243BE7. Give one cd&&git switch main&&git pull --ff-only&&scripts/promote-release.sh sha256:DIGEST command only after reviewed source/pin+CI+backup. No software signing bypass. One cause per Cloud generation; separate G1/G2/G3 activations.",
+    "Cloud kube /home/bayleaf/.config/vuoro/kube/poc.yaml, nmcli connection up/down vuoro-cloud-operator; tunnel isDOWN at handoff. Appservice kube /projects/dev/appservice/clusters/.kube/config. Inherited program operational authorization includes ordinary rollout/prodreads; live kubectl delete and Talos reset/upgrade/wipe remain human-only. G1probe TTLcleanup only.",
+    "Preserve unrelated dirty agentops audit shards, .codex files, earlier untracked handoffs, other sessions/worktrees. Primaryagentops synced4bf1d7e preserving unrelateddirty. Cloudmain260d clean. Do not commit private host artifacts or sweep other worktrees.",
+    "Retirement/classification/source preparation is not activation or acceptance. No synthetic D6recipients, bucketbindings, freshnesspolicies, valid blocker12 owner, restorecopy or successful reportproof may be invented. Owner-protected operation ceremonies remain useractions when required.",
+    "Reservations159/164/170 controller and165/173 admin and172 authority are preserved for successor; explicitly inspect/reassign/takeover, never silently steal active claim. Old agents stop after checkpoint. Goal remains active/unfinished, predecessor parked for handoff."
+  ],
+  "decisions": [
+    {
+      "what": "Gen69 admin2.2b live is verified; final promotion workflow receipt remains open",
+      "why": "Candidate221 head260d, tagv0.1.0-poc.69 objectc69dce5283e1b3a8eddb0ba85ac1152ef3412db7 signed, Sonnetreview1331,4greenrun848. Dispatch204 once, run849/API1212/job3568 running at last broker read. Independent mirror+all3FluxREADY69/260d, actualimageIDs e92, migration024grants andzero permission errors verified. Do not redispatch."
+    },
+    {
+      "what": "New hosted evidence authority belongs in substrate hash chain; exports are projections",
+      "why": "Decision199 on2480, corrected publicdocs2602 Decision200. Preserve original legacy audit payload/record digests and provenance through S4 import; envelope digest never replaces them. Hosted acceptance must not grant merge/signing/credentials/effectapply."
+    },
+    {
+      "what": "Profile query2486 accepted with measured single-profile limitation",
+      "why": "Live devbox-agent account/homeagent has60done ticks and60bindings; devbox-vm/home dev was wrong for laneledger. Digestd7bc07cf53e6 root/projects/dev,2sources,0skills,61attempts,43accepted,29firstpass,12reworked,6unreviewed,rate29/55,no_binding0. Baselinejoin byte-equivalent and2507/2508spotchecks. No skill differentiation yet; do not invent TS3qualification."
+    },
+    {
+      "what": "Published authority releases are source-qualified, Cloud effect availability is separate2600",
+      "why": "Sprintctl0.12.0 wheelSHA256e669d47f698b6d9509132e2f3dae17323d7b6c17b3c446a66b8172c026c4c5af, Vuoro0.1.83 image0b9bdf5c8c9645438825d68f1a51928162db9ad94df715077d4826b52095829a. No productiontenantrollout0.1.83 yet; trustedaccepted-discovery capability separate from publicproposal."
+    }
+  ],
+  "rejected": [
+    {
+      "what": "Broad credential fallback after scoped broker expiry",
+      "why": "Broker actual session-expired and direct sessionrenew denied; user refresh script required. Cert/privatekey generation remains user-owned."
+    },
+    {
+      "what": "Treat canceled stale draft CI as green",
+      "why": "Only OWNobsolete runs1203\u20131207 canceled. Exactrebasedheads need newCI. Canceling duplicatepinmain/publish1208/1209 was automatically rejected as outside cancellation scope; not retried/bypassed. Those jobs later finished."
+    },
+    {
+      "what": "Blind delete of old backup prefix or invalid-owner canary",
+      "why": "Human-only; copy-first classification and24hretirement hold stillmissing. D14backupcred_broker only6of14days asofOct3; no objectdeletions/retentionchanges."
+    }
+  ],
+  "state": {
+    "repos": [
+      {
+        "path": "/projects/dev/agentops",
+        "head": "4bf1d7ec75b582c5ca0b9ddd169c31e5a4950307",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "dc794c7c3335d5270ac0a197b56c0a8e55f598303579ee29faf25b5e3d06fdfa",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/vuoro-cloud",
+        "head": "260d300167b516bf2c13c3a231bf421a22694a7e",
+        "branch": "main",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/_wt/tenant-provisioner-2555",
+        "head": "19bf6189e24aed7c1b8e8443185df9d3c70d336f",
+        "branch": "feat/tenant-provisioner-2555",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 6
+      },
+      {
+        "path": "/projects/dev/_wt/tenant-provisioner-2555-g2",
+        "head": "d328915fccd19129f657de8169d2be90668d6267",
+        "branch": "feat/tenant-provisioner-2555-g2",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 10
+      },
+      {
+        "path": "/projects/dev/_wt/tenant-provisioner-2555-g3",
+        "head": "94ed74b09732338251d3600f9c4705f8cd32d0ea",
+        "branch": "feat/tenant-provisioner-2555-g3",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 11
+      },
+      {
+        "path": "/projects/dev/_wt/tenant-prefix-collision",
+        "head": "46154374531e93d06c8a162140f8d364250ae6b8",
+        "branch": "fix/tenant-prefix-collision",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 3
+      },
+      {
+        "path": "/projects/dev/_wt/backup-evidence-2599",
+        "head": "13ee7c1a115c3988870761ed25e63c541016e787",
+        "branch": "feat/backup-evidence-preparation-2599",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 3
+      },
+      {
+        "path": "/projects/dev/_wt/admin-2.3-retire",
+        "head": "f71b8a9d81c3206fa0908c77362057d8745cce0d",
+        "branch": "plan/admin-2.3-retire",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/_wt/admin-2.3-provenance",
+        "head": "64bddf66af11120e6f2224f0d821b4b962642dc4",
+        "branch": "feat/admin-2.3-provenance",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/_wt/admin-2.3-dump-transport",
+        "head": "593c60309f03807eb635691bb80540b01b7633ef",
+        "branch": "feat/admin-2.3-dump-transport",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 1
+      },
+      {
+        "path": "/projects/dev/_wt/admin-2.3-plan-routes",
+        "head": "1e5969cd0a2b4bff480df29df7ce4d5de021cee5",
+        "branch": "feat/admin-2.3-plan-routes",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 2
+      },
+      {
+        "path": "/projects/dev/_wt/admin-2.4-classification",
+        "head": "bb642c7ce771b0d8e33f35004613b614c13c374f",
+        "branch": "plan/admin-2.4-classification",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 3
+      },
+      {
+        "path": "/projects/dev/_wt/agentops-s4-evidence-home",
+        "head": "51e9afe0ae54598b7ea17cd3182499d9e61087f3",
+        "branch": "docs/s4-evidence-home",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/_wt/authority-resource-2595",
+        "head": "cfde1b65fd589df18c28609304f83af29dae842b",
+        "branch": "test/authority-resource-contract-2595",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 2
+      }
+    ],
+    "running": [
+      "Disposable PostgreSQL container effects-conformance-2567 remains on loopback127.0.0.1:55494; reuse for tests only after inspecting state. No controller/admin/release action or code review process is running."
+    ],
+    "digest_version": 5,
+    "tracker_watermark": [
+      {
+        "item_id": "2582",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2555",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2601",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2599",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2583",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2584",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2595",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2485",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2600",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2585",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2428",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2307",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2308",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2309",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2310",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2311",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2329",
+        "status": null,
+        "status_revision": null
+      }
+    ]
+  },
+  "unresolved": [
+    "GEN69 CLOSEOUT: Cloudsource7ff imageOCIindexsha256:e92ec159197bcf0674cae369bd91744aaf22f7b26bcdba60a60174262bea55a0 (amd64feec2891fa1d7048c8e9551003ce0cd8295a7e3d2156b47cd4101e2e2657a0c6); pin217 b644fee90fcb82bae8d63ea62312750344e817a0; signedcandidate221260d300167b516bf2c13c3a231bf421a22694a7e. Backupvuoro-data/vuoro-postgres-pre-gen69-20261003 ID20261003T190025 completed19:00:34Z. Afterrefreshread /actions/runs/1212 and/jobs +artifacts, establish promotion849success/finalreceipt, recordon2582. Do not redispatch. Live verified all3Fluxready69/260d, actualcontrol/admin/gateway/controller/migration e92,024migrationpresent+narrowcolumnUPDATE/backupINSERT,no tableUPDATE/no desired_state/no tenant_migration_stepSELECT,0permissiondenials. CLIownerworkspace admin-actions kotona returnedactions[] validschema. Candidatebranchcleanup ifstillpresent independentlyverify; noworktreeleft.",
+    "GEN68 TENANTS: isolation-proof id01M3CA7V972W3HQSYWBG7V6JBB gen7 andkotona01M3ABJS1QW0Q6BNDCHP0DDTYF gen9 READY; actualtenantimage d3a2dc7f330c360491cd3fcc970d1dd0c18bdee32945fd7efdc316b42c0a7e69, migrations18to20 firstattempt. Blocker12 id01M14W25EYKCEX0BTYK1WHJAAK ownergithub:blocker12-canary is invalidnumeric human, PARKEDoldf5c9. No impersonation/rawDB writes. Gen69didnotchange tenantimage. CLIownersession validat19:38 but remeasuretomorrow; expiredadminsessionremoved, useradminlogin --handle operator neededwhenprotectedmutationsready.",
+    "CONTROLLER2555+COLLISION2601: PR214G1 local19bf6189e24aed7c1b8e8443185df9d3c70d336f, PR215G2d328915fccd19129f657de8169d2be90668d6267, PR219G394ed74b09732338251d3600f9c4705f8cd32d0ea, PR218collision46154374531e93d06c8a162140f8d364250ae6b8. Allclean unpublishedrestackedheads on69; prior independentreviews patch-equivalent, freshCI/exactheadreceiptneededafterrefresh. Testunit/PG G11473/709,G21474/732,G31475unit,collision1467/697. Checkpoints4261/4262; res159/164 undercontroller-authority-01a102d4. G1opssequence needs consolidation of supersedingaddenda/stalehashes+finalcompleteartifactreview, then rootprechecks/approval. Hardwarecandidate+CI beforemaintenance; quiescence mustincludeoutbox/migrations/advisorylocks/sessions notpodabsencealone. Bootstrapreplay2x/canonicalcatalogsnapshot,PairedSOPS+CNPGroles preservingexisting, SQLSTATE42501probe13denials+negativecontrol,ownerrollbackNOLOGIN/inRoles[] beforepairremoval,noDROP/REASSIGN. OldsuperusercontrollerG1thenG2repeatsadoptionbeforeURLswitch; sourceandactivationseparate. CollisionordinarycreatealreadyUNIQUEquarded; newguardfor persistedlegacy distinctenvironmentrecords, no allegedprodexploit. Full2555notcompletebeforeG1/G2/G3liveproof.",
+    "BACKUP2599: preparationhead13ee7c1a115c3988870761ed25e63c541016e787 clean, noPR, sourceOpusAPPROVE0de0dc20 patch-equivalent,1492unit/686PG+47focused;checkpoint4263res170controller. Namedmanualcompletedbackupcapture expectedID+digestmandatory andprotectedadmin.backup ceremony; rejectsfailed/running/missing/unrelated/future/incompleteproof, no schema/liveingestion yet. ActualDBlastreadycontrolobservationAug14; helper onlyscheduleddaily, excludesmanualpregeneration. GETrollout dynamicallyreselectslatest; notdurablygenerationbound. Oct3scheduleddryrunbackup20261003T021500 completed02:15:09Z digest3f2166a82476bcb07ac691b1d03c556f134c60c6f065f9165f4e7ad3e8c3c4e2 submittedfalse. Remainingexactobservation/digest+generation snapshotatomicwithreconcileoutbox andpolltargetgeneration binding; refusalbeforemutation, unboundoldmetadatahistorical, no inventedmaxagepolicy.",
+    "ADMIN2583 RETIREMENTPREP: PR213f71b8a9d81c3206fa0908c77362057d8745cce0d policy;PR21664bddf66af11120e6f2224f0d821b4b962642dc4 provenance;PR220 local593c60309f03807eb635691bb80540b01b7633ef dumptransportfixunpublished (remoteolderrequestchangesreview1332). Plan/statusrouteslocal1e5969cd0a2b4bff480df29df7ce4d5de021cee5. AllOpusAPPROVEPREPARATION, notfullitemacceptance. Dumpfullarchive verification beyondTOC,closeexportersnapshotafterpg_dump,ageencrypt,realfreshDBrestoretest,ObjectLockCOMPLIANCE/versionboundSHAreadback;1554unit/711PG. Provenancefullhumanhistoryinclremovedowners,notNULL waiver. MissingD6hardware+escrowpublicrecipients,versionedObjectLockbucketbinding,CA/pinnedJob/retentionpolicy; noSecrets/buckets/RBACchanges. Stillasyncapplyworker/cancellation/deferreddelete/admission; controllercurrentlyDENIESnamespaceDELETE,donotaddsilentauthority. Checkfinalagentcheckpointartifacts/res165.",
+    "CLASSIFICATION2584: currentkindNULLsafe_READONLYreportprepbb642c7ce771b0d8e33f35004613b614c13c374f clean1472unit/700PG,OpusAPPROVEPREP. OldagentopsrunbookSQL001\u2013014stale. RunnerrequiresoneReadyCNPGprimary,restoretarget/drillcontextsystem/timeline/migrations/outputhashesUTC. NeedauthorizedwholecontrolDBcopy vuoro-data/vuoro-restore-drill fromverifiedbackup+restore receipt THENcopyclassificationreport THENcurrentproductionreport THENprotectedtestreclassification --expire now. ActualCNPGonlyvuoro-postgres; no restorecopy exists and no reportproof. Blocker12excludeduntiltheseconditions+identityresolution;retirement24hhold,humandeletion. No liveactionyet.",
+    "ADMIN2585+LATER: staticoperatorAPIretirement needs coexistencegeneration, allCLIadmintwins, zero successfulstaticcalls beforeUnitRroute removal; no removal yet. Deferrednits duplicate_slug500/per-kindredaction/refusal audit/transferworkspacestate. Adminnotificationendpoint/SOPSntfys ecretoperatorchoice stilloptional. Remaining2586/2587/2588/2589/2590 keepserveddependencyorder, don'tconflateprepwithsourcequalification.",
+    "AUTHORITY2595: sourceharvestworktree/projects/dev/_wt/authority-resource-2595. Complete19invariantcrosswalk,neutralreferencecontract,derivedimmutablecreatorquery,supportedpublishedSprintctl0.12HTTP/PGprobes. Gaps2603immutableepochownership/dependencycycle/rejecteddecision/fullaggregate and2604missingcatalogrevision compatibility; nonqualificationexplicit, gapreceiptsseparatefromessentialpassedtests, no skips/xfail. InitialOpusrequestedfivefixes nowboundedfixed; finalrereview/checkpointagentwillappend. NoPRinflightatuserstop. Essential33strictmarker reference+lease passed,6ownerobservationspassed, priorservice286passed; finalhead/fullsuiteinagentcheckpoint. res172takeoverrequired.",
+    "S4 2485: separate public agentops preparationdesignworktree/projects/dev/_wt/agentops-s4-evidence-home branchdocs/s4-evidence-home. Proposed separateevidence schema+roles underSprintctlowner,originalpayload/digest/rawsourcebinding mapping, deriveduncertainty evaluator. Exactabsorbintakegate authority stop/reserve->committrailer->evidence->propose/restart/sync +compareeffective state; anydivergence keepauditctlseparate. Measuredcurrentreserve resolvesliveidentity; syncisnotblanketofflinequeueforreserve/evidence/propose, currentrerunevaluatornotaccepted+used+deadharness proof. Noimplementation/import/hookcutoverstarted. 90dayread-onlysoakstartsactualcoordinatedcutover;datesunset. TS13remainsproposedcanonically;don'tratifykctlretirementbyprose. Review/head/PRagentcheckpoint pendingres173. HistoricalhostDOSSIERonlycontextnotbindingpolicy. WL-A3readtimeexpiryjoinafterimport,2489kctl/metanarrative blockedbyS4.",
+    "PUBLIC RELEASES AND2600:2570PR166773a59eDecision195;2593PR167d87a9fc59fea5138a6850301aa5e4515564ed795Decision196;2598SprintctlPR1168dcbed1f9fa3a8001d969a560f5c070b6e599322Decision198;2568Sprintctl0.12PR117f6936f410f41a7dfaf7e5a1390c552eb90954874Decision201;2567VuoroPR168cd1ca6b824e36e533818243c18643ffc694a55e4Decision202;2594VuoroPR170b7ffdfa10949c7fd6605175c0c9a5ed09eadc45bDecision203. Accepted-listnewwork.effect.list-accepted-v1 capabilitydistinctfromproposed. Cloud2600pending: effectproposeOAuthmapsminimal effect:propose+work.effect.propose+work.effect.get ONLY. Noaccept/reject/list-proposed/list-accepted/mark-applied publicauthority. NoCloudeditsyet; publishedVuoro0.1.83notrolled. Needseparatesource/pin/candidate/tenantgenerationtestswithowner.",
+    "D14 2428: Oct3ObjectLockinventory4976versions15series,14existingDB15daysSep19\u2013Oct3;cred-broker/cred_brokerONLY6daysSep28\u2013Oct3. Latestdrill15restorePASS/15lockPASSbut14dayprereqfails. Nooldprefixdelete/retentionchange. Oct5zerodeletemarker/usagepreflightfuture;earliestbroker14daysaroundOct12recheckexactly. Humanonlydelete. Otherinheritedopenitems2591/2592/2596,auditindexorphanAug30,appservice1810,D7quotedidentifiernit andActionQresidue remaintracked; noautomaticauditctl --allow-index-only/rebuild/archival.",
+    "FINAL ADMIN/S4 CHECKPOINTS: S4 draft PR305 https://github.com/bayleafwalker/agentops/pull/305 exact head51e9afe0ae54598b7ea17cd3182499d9e61087f3, all3CIgreen, Opus APPROVE PREPARATION receipt pullrequestreview5402586228. Checkpoints4265/4266/4267 on2485/2583/2584. No S4 Decision accept. Private final reviews and tests durable in each worktree .artifacts/admin-retirement-reviews/<prefix>/ or .artifacts/admin-classification-reviews/bb642c7/. Res173/165 remain active. S4 implementation must first close measured owner intake/evaluator gaps before absorb/import/cutover.",
+    "FINAL CONTROLLER ARTIFACTS: 96 ignored files at /projects/dev/_wt/tenant-provisioner-2555/.artifacts/handoff-2026-10-03; manifest.json SHA256 f3818f0d213db798551d4c8ed7eaee80507b30f262a622d5d46913d3c33a21f2. STATUS.txt records pending complete operational rereview and all external prerequisites. No source/live/publication after checkpoint. Consolidate revision addenda before relying on hashes; substitute live placeholders and bind embedded script hash to manifest command.",
+    "FINAL RESOURCE CHECKPOINT: 2595 note4268, local committed3466a41 in /projects/dev/_wt/authority-resource-2595 branchtest/authority-resource-contract-2595, no push/PR/acceptance. 291service tests,33configured strict-marker conformance and6separateowner observations pass. First Opus review five blockers corrected and committed; follow-up result still pending at snapshot preparation, see final appended receipt before action. Res172 retained. No full Sprintctl resource qualification claim.",
+    "FINAL RESOURCE SUPERSEDES EARLIER3466a41: clean exacthead cfde1b65fd589df18c28609304f83af29dae842b, servednotes4268/4269; first five Opus blockers and follow-up masked-rebuild branches fixed with structural/digest tests plus seven nits. Exact-head independent approval still required tomorrow; noPR/push/Decision. 291service/33configuredreferencelease/6HTTPPG allpass,zero configuredskips. Register ActionQ archive-condition and derivedownershipquery goal steps as required beforeacceptance; didnotmodify/archiveActionQ. Diff/reviews copied into root durable artifact directory. Disposable PostgreSQL effects-conformance-2567 loopback55494 retained forsuccessor.",
+    "FINAL EXACT-HEAD REVIEW SUPERSEDES PENDING REVIEW REQUIREMENT ABOVE: Opus APPROVE/no blockers for cfde1b65fd589df18c28609304f83af29dae842b, served checkpoint4271. No source changes, publication, PR, CI or acceptance. Approval covers checkpoint only; gaps2603/2604 and explicit nonqualification remain. Durable final transcript resource2595-exact-head-review.md in root artifact directory. Tomorrow publish exact head, post exact-head receipt and completeCI; registerrequired archive-condition/ownership-query steps before harvestDecision."
+  ],
+  "evidence": [
+    {
+      "kind": "session",
+      "ref": "codex:01a102d4-c0d5-7591-90a8-34b1ba3c2617"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/session-notes/2026-10-03-ecosystem/profile-comparison-2486-acceptance.json"
+    },
+    {
+      "kind": "sprintctl",
+      "ref": "agentops sprint559: checkpoints4261/4262/4263/4264; Decisions193\u2013204; finalagentcheckpoints recorded below"
+    },
+    {
+      "kind": "artifact",
+      "ref": "docs/dispatch/handoffs/2026-10-01-vuoro-cloud-gen68-and-ecosystem.v1.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "docs/dispatch/handoffs/2026-10-01-all-project-followups-admin-2-2b.v1.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/_wt/tenant-provisioner-2555/.artifacts/handoff-2026-10-03/manifest.json"
+    },
+    {
+      "kind": "sprintctl",
+      "ref": "agentops#2485 checkpoint4265; #2583 checkpoint4266; #2584 checkpoint4267; #2595 checkpoint4268"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/session-notes/2026-10-03-ecosystem/resource2595-exact-head-review.md"
+    }
+  ],
+  "sprintctl_bundle_ref": {
+    "path": "/projects/dev/agentops/docs/dispatch/handoffs/2026-10-03-vuoro-ecosystem-gen69-and-future-work.v2.sprintctl-bundle.json",
+    "sha256": "4a11c42a2850d9bd1ab5910f67c012f51b7ff755b10e1baa710d0c9f7a47397d",
+    "generated_at": "2026-10-03T20:31:43Z"
+  },
+  "next_action": "Acknowledge this new handoff as the sole successor; old gen68/admin handoffs are already acknowledged. Read durable lane checkpoints and inspect preserved reservations before takeover. First measure hooks/forge-credential.sh status and inventory. Ask user to run cd /projects/dev/appservice && KUBECONFIG=/projects/dev/appservice/clusters/.kube/config docs/scripts/cred-broker-refresh-identity.sh and return status lines (pending question from predecessor; tomorrow certificate may also need user-owned renewal). After successful scoped repo.read, retrieve gen69 promotion run849/API1212/job3568 final status/artifacts and record on agentops#2582 without redispatch. Reassign/reserve then dispatch independent worktree orchestrators for agentops#2555/#2601/#2599, #2583/#2584 and #2595/#2485; use dependency-ordered exact-head review+CI and one cause per generation. Keep agentops#2600/#2585/#2428 futuregates explicit. Do not restart ended predecessor processes or interpret preparation as live acceptance.",
+  "successor": {
+    "session_id": null,
+    "acknowledged_at": null
+  }
+}

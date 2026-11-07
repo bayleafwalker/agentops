@@ -1,0 +1,112 @@
+{
+  "schema_version": "handoff/v1",
+  "handoff_id": "2026-09-29-ra2-tiered-strategy.v1",
+  "version": 1,
+  "created_at": "2026-09-29T20:21:57Z",
+  "origin_host": "workstation",
+  "origin_path": "/projects/dev/agentops/docs/dispatch/handoffs/2026-09-29-ra2-tiered-strategy.v1.json",
+  "origin_cwd": "/projects/dev/_wt/ra2-next",
+  "track": "ra2-tiered-strategy",
+  "predecessor": {
+    "harness": "claude-code",
+    "session_id": "b085e1a6-a4f6-49e4-a18d-42194b880d7d",
+    "transcript_path": "/home/bayleaf/.claude/projects/-projects-dev/b085e1a6-a4f6-49e4-a18d-42194b880d7d.jsonl",
+    "model": "claude-opus-5-5",
+    "context_used_pct": null
+  },
+  "objective": "Continue the RA2 strategic-bot build line in bindery-ra2-adapter along the operator's tiered pipeline: tier 1 an in-process LLM plays (cheap tier: gpt-6-luna via OpenCode Go), tier 2 its captured decisions are compiled into phased playbooks (`arena induce`), tier 3 proven playbooks run deterministically (`--arms pinned:<id>`). Near term: land PR #42 (inducer + pinned arm), collect Luna decision data on TRAINING maps, induce playbooks, then a pre-registered held-out test of pinned:<induced> vs selector and Luna.",
+  "constraints": [
+    "Long runs (over ~1 h) must name the decision they inform, be preceded by a ~30-min pilot, be interleaved and resumable (--interleave, --resume), and the operator is told up front if the machine must stay on overnight.",
+    "Claude API spend is limited: do not use the Anthropic API key (~/.config/bindery-arena.key) for arena play. Use gpt-6-luna through OpenCode Go (flat plan) via the local forwarder, or the free deterministic arms. Kimi K2.7 Code is unusable (timeouts). The OpenAI key in ~/.config/bindery-openai.key has no Decisions API access yet; its docs are not public.",
+    "Never print keys. Scripts that read keys live in the scratchpad as ocgo_* or decisions_* (operator-approved permission rules in /projects/dev/.claude/settings.local.json).",
+    "Commits, pushes, merges and deploys are explicitly approved. Every PR gets an independent Opus review posted as a comment before merge; merge only on green CI (Windows included), with a merge commit.",
+    "Implementation goes to Sonnet 5.5 workers in worktrees; Opus 5.5 reviews. Worker worktree isolation follows the session's primary directory: dispatch builders from a session rooted in bindery-ra2-adapter, or create the worktree yourself and pass its path.",
+    "Do not tune on held-out data: held-out maps are open-steppe and fortress-choke, held-out opponents are ai-horde and ai-armor. Values are fixed before a registered run, and a decision rests on the cells the pre-registration names.",
+    "tools/Bindery.Ra2.Bot.Baseline is frozen and must not change; it compiles against the live Contracts, so contract changes stay additive.",
+    "Local main of /projects/dev/bindery-ra2-adapter is 122 behind origin and has an untracked .claude/; other sessions use that checkout. Do not reset or pull it; work in worktrees off origin/main."
+  ],
+  "decisions": [
+    {
+      "what": "The next build after the 20-cell test is perception/attack gate, not a Soviet playbook guard",
+      "why": "Pre-registered test (PR #38): gpt-6-luna 20/20 Soviet held-out cells vs selector 17/20, better 3 / worse 0; rule branch 2. Rhino-rush was 4.7% of Luna's proposals."
+    },
+    {
+      "what": "The BaseSightingWeightCap line is closed; the knob stays diagnostic at 1.0 (PR #40, record PR #41)",
+      "why": "A free check showed identical selector winners on 16 hard held-out cells at caps 1.0, 0.5 and 0.0. The losing launch had w 0.37, not a base-only w of 1."
+    },
+    {
+      "what": "Fortress-choke losses are two problems",
+      "why": "vs ai-horde:hard, perception (the oracle selector attacks at ~320 s and wins); vs ai-armor:hard, strategy (the oracle selector loses 4/4). Luna wins both with a late mass attack (~490 s, ~5,800 army)."
+    },
+    {
+      "what": "Most of Luna's Soviet edge is choosing generic-expand",
+      "why": "A free check: pinned:generic-expand (no model) won 18/20 of Luna's 20 Soviet cells; the 2 losses were ai-horde:easy on open-steppe. Held-out, so reported only; the clean route is training-map induction."
+    },
+    {
+      "what": "Playbook phases, --playbooks files, enemy composition metrics (behind --extended-metrics), LLM failure-rate labelling and --seed-list are merged",
+      "why": "PRs #34-#37, #39, #40, each independently reviewed."
+    }
+  ],
+  "rejected": [
+    {
+      "what": "Running the 20-cell test on the Claude API (claude-opus-5)",
+      "why": "Stopped at ~4 minutes with no match finished: ~$110 of a limited budget. Total Claude API spend for the pilot line is $13.39."
+    },
+    {
+      "what": "A registered test of BaseSightingWeightCap = 0.5 on training maps",
+      "why": "The training split has no choke map, so it could not decide; the free check refuted the mechanism anyway."
+    },
+    {
+      "what": "Inducing playbooks from the existing Luna logs for evaluation",
+      "why": "They are all held-out; use them only as smoke data."
+    }
+  ],
+  "state": {
+    "repos": [
+      {
+        "path": "/projects/dev/_wt/ra2-next",
+        "head": "fba7da8b91157a792751cfbafb5542b769f5aa6f",
+        "branch": "ra2/next",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      }
+    ],
+    "running": [],
+    "digest_version": 5,
+    "tracker_watermark": []
+  },
+  "unresolved": [
+    "PR #42 (arena induce + pinned arm) is open with one blocking review finding (held-out opponents leak into --split training) and four non-blocking ones; see next_action.",
+    "The Luna training-map data collection waits on the operator's go-ahead (timing, overnight).",
+    "Perception fix vs ai-horde:hard on fortress-choke (the belief bot attacks late) and a strategy fix vs ai-armor:hard on fortress-choke are not built. Candidates: a phased playbook using the new --extended-metrics conditions, or an induced playbook.",
+    "The OpenAI Decisions API (limited preview) is a candidate for fast playbook choice and attack go/no-go. It is blocked on access and docs; the probe is scratchpad/decisions_probe.py.",
+    "Kotona notes: three drafts are in kotona-notes-private branch drafts/2026-09-29-strategist-arena (3d28fab), not pushed, awaiting the operator's review. Note 1's fix claim is now true (#37 merged).",
+    "The operator's tier-2 pipeline existed only as tier 1; tier 2 is #42's inducer, and there is still no playbook promotion gate (VocabularyAdoption gates vocabulary tiers only).",
+    "Stale worktrees from earlier sessions under /projects/dev/_wt (bindery-ra2-bot, channel-retry, llm-prereg, oracle-div, oracle-scouting, ra2-channel-live, scouting-cap, seat-build, seat-gaps, sim-prereg, tunnelstub) and merged agent worktrees under .claude/worktrees are not this session's to delete without checking."
+  ],
+  "evidence": [
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/_wt/ra2-next/docs/results/2026-09-29-claude-transfer-pilot/PLAN.md"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/_wt/ra2-next/docs/experiments/2026-09-30-base-sighting-cap-preregistration.md"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/_wt/ra2-next/docs/results/2026-09-29-claude-transfer-pilot/ocgo_proxy.py"
+    },
+    {
+      "kind": "session",
+      "ref": "b085e1a6-a4f6-49e4-a18d-42194b880d7d"
+    }
+  ],
+  "sprintctl_bundle_ref": null,
+  "next_action": "In a session rooted in /projects/dev/_wt/ra2-next (a worktree of bindery-ra2-adapter on branch ra2/next at origin/main fba7da8; PR #42 is https://github.com/bayleafwalker/bindery-ra2-adapter/pull/42): (1) PR #42 (branch feat/arena-induce-pinned, 277c0ff, worktree .claude/worktrees/agent-ada8fef6f7b38cac2) has an independent Opus review with one BLOCKING finding: `--split training` filters only on the map split (PlaybookInducer.cs:274), so matches against held-out opponents (ai-horde, ai-armor) on training maps leak in; add the same `!OpponentSets.IsHeldOut(opponent)` check the dataset export uses (Program.cs:49-50) plus a test. Also fix: the induced attack gate is not enforced in the build phase (PhaseTracker.cs:85 applies no start-phase override, so the base's attack conditions apply; either put the army/time bound into the top-level attack conditions or correct the README/description at PlaybookInducer.cs:233); count support per match, not per proposal, and exclude validation-rejected and late-discarded proposals (StrategyScheduler.cs:307-320,431); print a warning when a pinned arm plays the faction its playbook does not list (BotAgentFactory.cs:303); state in the report that data is conditioned on won matches. Have a Sonnet worker fix these on the branch, re-review, post the review summary as a PR comment, merge with a merge commit on green CI (Linux and Windows). (2) Only when the operator says so (it takes ~1-2 h and ~$1-2 of the OpenCode Go allowance; the operator was asked whether to run it in the morning rather than overnight): restart the forwarder `python3 docs/results/2026-09-29-claude-transfer-pilot/ocgo_proxy.py 8032 <log>` and run a 30-min Luna pilot on training maps, then the collection (`--arms llm-t1 --maps training --llm-endpoint http://127.0.0.1:8032/v1 --llm-model gpt-6-luna --interleave`, both factions). (3) `arena induce --split training`, pre-register the held-out test before running it.",
+  "successor": {
+    "session_id": "9a1346ef-731e-4fb0-9444-fc0a90f1b28b",
+    "acknowledged_at": "2026-09-30T16:05:07Z"
+  }
+}

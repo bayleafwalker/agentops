@@ -1,0 +1,69 @@
+# Handoff 2026-10-23-mars-founder-roadmap-m1.v1
+
+<!-- Rendered from the canonical JSON beside this file. Do not hand-edit:
+     `agentops handoff validate` and `ack` read the JSON, never this. -->
+
+**Objective.** Execute the mars-founder roadmap (docs/plan/04-roadmap.md) as dispatcher: implementation items go to OpenCode opencode/deepseek-v4.1-flash-free via tools/dispatch/dispatch.sh in per-item worktrees; this session reviews (independent Opus review for diffs > ~1000 lines), re-verifies (nix develop -c just check, determinism, campaign outputs), fast-forward merges to main and pushes. M0 is done and Forgejo CI is green (run #3). M1 sim chain is in progress.
+
+**Next action.** Then run the M1 gate: LLM-playtester pilot (~30 min first): Sonnet agents read only player-facing campaign output and explain each return; score agreement with sim-cli why ground truth; >=70% → proceed to M2 graybox screens (sprintctl item 2861), else iterate rules.
+
+## Predecessor
+
+- harness: claude-code
+- session: 840d25e6-fb81-456c-87d2-a0ab2b37f33b
+- model: claude-opus-5-5
+- context used: unknown%
+- transcript: unknown
+- origin: `workstation:/projects/dev/agentops/docs/dispatch/handoffs/2026-10-23-mars-founder-roadmap-m1.v1.json` (authoritative copy; an ack from another host goes through it)
+
+Read-only after transfer: once a successor acks, the predecessor makes no
+edits and takes no external actions. It stays consultable.
+
+## Constraints
+
+- Worker prompts must pass facts (spec sections, invariants, exact test names, verification to paste), not 'read AGENTS.md'. Workers commit on their branch only; this session merges/pushes (standing approval).
+- Spec numbers in docs/plan/05-slice-rules.md are the dispatcher's to fix; workers report design gaps, not tune rules. Every state change via World::apply + ledger; integers only; deterministic.
+- Network commands (fj, git push, nix develop first fetch, opencode) need dangerouslyDisableSandbox: true.
+
+## Decisions
+
+- **Stack: Godot 4.7.2 + Rust core + godot-rust 0.5.5 (ADR-0001)** — proven by against-the-shape-of-the-world; sim is the product
+- **Physical rules always monthly; long years coarser only in agency/reporting (ADR-0003)** — exact conservation, SIM-02 by ledger replay
+- **Two-pass dose distribution; promise breach = monthly maintenance demand unmet** — single pass breached treatment promises every month and starved the founder despite stock
+- **First headless Godot import retried once in check.sh/export.sh** — fresh .godot import aborts exit 134 after completing (3/3); CI always fresh; Godot calls have timeouts
+
+## Rejected
+
+- **opencode-go/deepseek-v4.1-flash** — operator asked for the free model; OpenCode Console key was renewed and works
+
+## Repo state
+
+Digest definition: v5 (see the handoffs README).
+
+| path | branch | head | dirty | unpushed | diff_sha256 |
+|---|---|---|---|---|---|
+| `/projects/dev/mars-founder` | main | `674fb74f52bc` | no | 0 | `e3b0c44298fc1c14…` |
+
+**Running:**
+
+- OpenCode worker for m1-institutions in /projects/dev/mars-founder.worktrees/m1-institutions (started ~22:30, 90 min timeout; commits on its branch only)
+
+## Unresolved
+
+- sprintctl item status changes need mars-founder.dispatch.json with authority_repo_uuid; registration path unknown, asked operator. Sprint 578 items 2851-2861 exist; statuses lag.
+- cred-broker denies forgejo:bayleaf/mars-founder (repository-unregistered); Forgejo job logs need a token (classifier blocks reading ~/.config/forgejo tokens). fj actions tasks gives status only.
+- No real Windows run yet: Wine smoke only; .github/workflows/windows-smoke.yml awaits a GitHub push-mirror.
+- Design observations for the M1 gate: default mandates recall early (inhabited_breach ~year 17-18 in 3 of 4 archetypes; compact recalls the founder at year 13: founder treatment last priority, clinics unpowered first).
+
+## Evidence
+
+- session: `840d25e6-fb81-456c-87d2-a0ab2b37f33b`
+
+## sprintctl bundle
+
+- none (sprintctl unavailable or produced no bundle)
+
+## Successor
+
+- session: 3535a8ac-9b22-4f84-9432-0cb0fb925d5c
+- acknowledged: 2026-10-24T05:50:29Z

@@ -1,0 +1,288 @@
+{
+  "schema_version": "handoff/v1",
+  "handoff_id": "2026-11-04-full-track-night-stop.v1",
+  "version": 1,
+  "created_at": "2026-11-04T21:45:48Z",
+  "origin_host": "workstation",
+  "origin_path": "/projects/dev/agentops/docs/dispatch/handoffs/2026-11-04-full-track-night-stop.v1.json",
+  "origin_cwd": "/projects/dev/agentops",
+  "track": "ecosystem-full-track",
+  "predecessor": {
+    "harness": "codex",
+    "session_id": "01a19d3d-fc87-7332-81cb-bf8ea466ccc7",
+    "transcript_path": null,
+    "model": null,
+    "context_used_pct": null
+  },
+  "objective": "On explicit resume, complete the seven source implementation programmes plus integration/review under original owner acceptance; full track is paused and incomplete.",
+  "constraints": [
+    "Night stop requested: no autonomous continuation until user resumes.",
+    "Use the night summary and two verified packets; source-only authority does not permit deployment/shared migration/grant/data changes or real Work31 field execution.",
+    "Preserve protected originals, unrelated edits and private artifacts; never infer canonical target from local-clone origin.",
+    "Root coordinates target writes; workers own planning/decomposition/verification by complexity; reviews and required CI remain mandatory.",
+    "Do not retry the rejected overnight served note, adversarial Work31 task or private receipt upload without the specific authority noted in summary."
+  ],
+  "decisions": [
+    {
+      "what": "Full-track outcome ownership remains active for resume; no parent accepted",
+      "why": "User explicitly ordered continuation through full implementation, then explicitly paused for tonight."
+    },
+    {
+      "what": "Keep Cloud345 open despite all5CI passing at final read",
+      "why": "Night stop supersedes starting another merge; resume revalidates exact47cac and canonical base."
+    },
+    {
+      "what": "Structured local checkpoint instead of shared overnight note",
+      "why": "Automatic approval rejected that optional write; no bypass or repeated permission request needed to complete local handoff."
+    }
+  ],
+  "rejected": [
+    {
+      "what": "Publish local-clone origin implicitly",
+      "why": "Some origins are local protected working copies; canonical target must be independently verified."
+    },
+    {
+      "what": "Treat R9 frozen recovery or current WIP as accepted",
+      "why": "Frozen R9 backend BLOCKED; current source repair uncommitted/unreviewed and broad run interrupted."
+    },
+    {
+      "what": "Promote model/prototype or source merge into actual delivery/currentness/native/field proof",
+      "why": "Channel, ledger, receiver, material lifecycle/lock/restore and actual runtime qualification remain open."
+    },
+    {
+      "what": "Repeat canceled PR307 setup job indefinitely",
+      "why": "Exactly one retry attempt2 already succeeded; original evidence retained."
+    }
+  ],
+  "state": {
+    "repos": [
+      {
+        "path": "/projects/dev/agentops",
+        "head": "048547ed420d7f128ff0a5a60f6d9404735479be",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "f3388d3ac9814e79b862c880a7142c973b9f7222ef27d768b59efd9cd6793208",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/sovite",
+        "head": "dcd027db60ffca8d83e4991dbe258afe4d317749",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "0b90f8ca7d450c70805a4bc39f1553caab352acb962579262070525ed99122ec",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/vuoro",
+        "head": "7dfa23483773d778cb2fa65a152e87b3278d437c",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "1c752604c580c5dfce3bf95f664aa4c70464c4abcaf63e5ffb1d1877e67ab8da",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/vuoro-cloud",
+        "head": "547af64e5e351eb74bd4b0a6b8fcba79650e78d6",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "182390cf6f5cd7d4994a2cfaabad6d6e8365ec52924c7bcb2cd972f02fce75ad",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/sprintctl",
+        "head": "32bc4e6b3b1fa1c369fcd139605d0dff6795488e",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "a24b3fa1f08288ead5829cf10dbd2a317efd994b1f53d3a88c964a9587bd96a9",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/sovite-expired-owner-20261104",
+        "head": "67842ba8c4338846e78c23ba4b953fea74de9cf0",
+        "branch": "codex/recover-expired-owner-owner-20261104",
+        "dirty": true,
+        "diff_sha256": "a2c0ee408339e1c187674d43e514e2cffadcd8dec4415631f8eadd3e99a5adbf",
+        "unpushed": 21
+      },
+      {
+        "path": "/tmp/fulltrack-cloud-source",
+        "head": "41701772fcd90f57cf12ad465b11030b3ef8918a",
+        "branch": "source-2628-backup-card",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/fulltrack-vuoro-source",
+        "head": "22d591c3fcda69288f0ed7b7ad83d7e7a5e1e275",
+        "branch": "source-ec00",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 8
+      },
+      {
+        "path": "/tmp/fulltrack-sprintctl-source",
+        "head": "db3ff0e738aebb42736c801747f6616d1a97e516",
+        "branch": "source-receipt",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 12
+      },
+      {
+        "path": "/tmp/fulltrack-agentops-source",
+        "head": "4ae0ad5d179a57fb9322d3f56bcabf9a2f733f8c",
+        "branch": "source-2728-receipt",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/fulltrack-appservice-source",
+        "head": "a4b955128e1ba42011bcc25a7fd9b8d23d73372f",
+        "branch": "source-retention-reconcile",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 9
+      },
+      {
+        "path": "/tmp/fulltrack-cloud-preview",
+        "head": "afdcd2a3117a6efede5e1776a407acfd659e968a",
+        "branch": "source-effect-preview",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 2
+      },
+      {
+        "path": "/tmp/fulltrack-cloud-admission",
+        "head": "133a3bcaea39f38762c4e3452f450a147b0df669",
+        "branch": "source-recipient-admission",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 5
+      },
+      {
+        "path": "/tmp/fulltrack-vuoro-identity",
+        "head": "ee600ead01fb2dbae3e4bec93c7417890411c43b",
+        "branch": "source-gateway-oauth-provenance",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 3
+      },
+      {
+        "path": "/tmp/fulltrack-cloud-oauth",
+        "head": "47cac4e1fc9a56d86d4ff195ce9c07c22cbdbc7a",
+        "branch": "source-oauth-provenance",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 2
+      },
+      {
+        "path": "/tmp/fulltrack-vuoro-admission",
+        "head": "8a33a93a17c98829bd6b219fa537536e86a45887",
+        "branch": "source-recipient-proof",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 8
+      },
+      {
+        "path": "/tmp/fulltrack-owner-review-snapshot",
+        "head": "8d23663d64c3c5de079ccdbbaae2e618cd15f95d",
+        "branch": "source-receipt",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 1
+      },
+      {
+        "path": "/tmp/fulltrack-owner-meta",
+        "head": "189b58e688d3b00abbd1ef7e9e337c3c90a0cf15",
+        "branch": "source-receipt",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 1
+      },
+      {
+        "path": "/tmp/fulltrack-owner-delivery",
+        "head": "a63ea83e162f4c15231c2d8ba4440949a5af47c5",
+        "branch": "source-receipt",
+        "dirty": true,
+        "diff_sha256": "540118f9047d22d2f708599826729440d21c703cc4e95f550ecb103c4dadf1db",
+        "unpushed": 7
+      }
+    ],
+    "running": [
+      "No owned native workers/tests/disposable servers remain. Remote CI may finish automatically; no agent continuation or merge overnight. Stale socket files documented."
+    ],
+    "digest_version": 5,
+    "tracker_watermark": [
+      {
+        "item_id": "2307",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2308",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2309",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2310",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2311",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2329",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2654",
+        "status": null,
+        "status_revision": null
+      }
+    ]
+  },
+  "unresolved": [
+    "Source programme parents remain active; see exact owner map and remaining source frontiers in summary.",
+    "Sprintctl db3 needs remaining cold/state-protocol publication/CI coordination, no actual migration.",
+    "Sovite WIP requires full exact validation and two fresh independent reviews before source publication.",
+    "Residual avahi-owned socket files and optional rejected tracker note remain documented."
+  ],
+  "evidence": [
+    {
+      "kind": "artifact",
+      "ref": "_artifacts/agentops/ecosystem-resume-2026-11-04/night-stop-summary.md"
+    },
+    {
+      "kind": "artifact",
+      "ref": "_artifacts/agentops/ecosystem-resume-2026-11-01/programmes/source-continuation-2026-11-04/SHA256SUMS"
+    },
+    {
+      "kind": "artifact",
+      "ref": "_artifacts/agentops/sovite-expired-owner-resume-2026-11-04/nightstop-r9-wip/HANDOFF.md"
+    },
+    {
+      "kind": "artifact",
+      "ref": "_artifacts/agentops/ecosystem-resume-2026-11-04/night-stop-manifest.json"
+    }
+  ],
+  "sprintctl_bundle_ref": {
+    "path": "/projects/dev/agentops/docs/dispatch/handoffs/2026-11-04-full-track-night-stop.v1.sprintctl-bundle.json",
+    "sha256": "6cb54dea2c3e4b1faed5174389290ad573248657a81945829c07c058f8987699",
+    "generated_at": "2026-11-04T21:45:45Z"
+  },
+  "next_action": "After explicit user resume and actual-session ack, read _artifacts/agentops/ecosystem-resume-2026-11-04/night-stop-summary.md; verify the two packet manifests, current source refs and Cloud PR345 exact head47cac/CI before any write. Continue all programme source outcomes, not only345.",
+  "successor": {
+    "session_id": "01a1ac79-b776-7f53-8ab5-58efb4dfb656",
+    "acknowledged_at": "2026-11-05T16:12:12Z"
+  }
+}

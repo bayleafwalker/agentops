@@ -1,0 +1,341 @@
+{
+  "schema_version": "handoff/v1",
+  "handoff_id": "2026-10-31-ecosystem-night-stop.v1",
+  "version": 1,
+  "created_at": "2026-10-31T20:27:37Z",
+  "origin_host": "workstation",
+  "origin_path": "/projects/dev/agentops/docs/dispatch/handoffs/2026-10-31-ecosystem-night-stop.v1.json",
+  "origin_cwd": "/projects/dev/agentops",
+  "track": "ecosystem-night-stop",
+  "predecessor": {
+    "harness": "codex",
+    "session_id": "01a1915c-4cd1-7061-ad07-a19dd8773ee1",
+    "transcript_path": null,
+    "model": "gpt-6",
+    "context_used_pct": null
+  },
+  "objective": "Resume all eight ecosystem programmes from the verified Oct31 releases/live state; qualify a fresh Work31/103 window and Sovite25 native/field composition without replaying completed operations.",
+  "constraints": [
+    "Operator requested handoff: stop local implementation, field admission, polling loops, merges/releases/deployments; final read-only capture and handoff bookkeeping only. Independent operated-service provider cleanup is separately owned and may finish.",
+    "All eight programmes remain unfinished. No Work writer window began; live Work101/owner26/schema29 and Sovite23/schema6 remain healthy. Never close parents or infer production/native/human/all-copy acceptance from source tests/releases.",
+    "All six original oct31-a helper/dump Pod UIDs naturally FAILED20:20:56-20:21:04 with exact fixed gate-refusal logs; all six original gate UIDs/data remain CLOSED; dump main/fetch containers never started. Both holders remain suspended. Preserve captured history; never reset/retry/reuse this attempt. A new reviewed field window requires fresh identities/inputs/receipts.",
+    "Independent coordinator completed explicitly user-requested Hetzner CLEANUP/STOP at2026-10-31T20:22:53.976639+00:00: all3newservers and dedicated network/snapshot/2FW/2autoIPs verified404. Protected PoC162143497/SSHkey116946685 unchanged. No22UTC cleanup pending; deleted VM/boot/provider IDs historical, recommission fresh. NAS13 separate/unenrolled.",
+    "User approved service mutations/deployments/downtime, reviewed green merges/releases and delegation. Six specific disposable A/B/C Sovite volumes already deleted under explicit approval; source/D/rehearsals/backups retained. No new deletion question pending; do not extend that approval to protected recovery copies.",
+    "Private OUT and handoff/notes are HOST-PERSISTENT/uncommitted, not cross-host durable or public source. Preserve dirty canonical roots/unrelated worktrees. Source Git replicated; served work authoritative. Cross-host pickup needs hash-verified private evidence transfer.",
+    "Run both forge credential probes; use packaged broker; sandbox exit0/empty means could-not-check and requires escalation. Explicit homelab kubeconfig/contextadmin@main differs from Cloud. Never direnv allow AgentOps. Host PID verification requires escalated host context.",
+    "Frozen signed0733 and release-build7bb checkouts must remain frozen. Native pair provisioner imports retained /tmp/appservice-native31-fix-20261031 at10b6; preserve/copy hash-verified before cleanup. No unknown mutation retry, stale qualification inheritance or new App privilege escalation.",
+    "Own observation473 released20:14:12UTC after exact session verification; served checkpoint6498 onagentops#2864. Foreign claims untouched; coordinate fresh writer window with independent coordinator. Leave VPNUP. No native Goal exists.",
+    "Foreign native commissioning and control-image source drafts are intentionally UNCOMMITTED/UNQUALIFIED in two named worktrees; hash-verified host-persistent source archives and blocker list retained in handoff folder. Root releases landed; do not equate these foreign drafts with landed source."
+  ],
+  "decisions": [
+    {
+      "what": "Initial Cloud329 and Rust298 pickup work completed",
+      "why": "Cloud abc69f5 all5/all13 clean-source native evidence; Rust merged4daf after actual resolver cancellation controls/all12. Scope remains bounded, not fleet or rollback acceptance."
+    },
+    {
+      "what": "Sovite23 live cutover complete; retain its development qualification and recovery copies",
+      "why": "Exactly-once5to6/oldrows+ACL+audit+21artifacts preserved, normal probes/policies restored, final deployment readiness verified. D retained; explicitly approved six A/B/C volumes removed."
+    },
+    {
+      "what": "Service103/Work31 and Sovite25 are published source and cold-qualified, field gated",
+      "why": "103OIDCimage/wheel and actual composedPG16.13 pass;25four published assets/manual reproducibility and actual6to7CLI fixture pass. Neither supplies current field pair/native qualification."
+    },
+    {
+      "what": "Appservice2153 stays open/HOLDMERGE",
+      "why": "Reviewed image-only e408 has both real existing ARC checks green, but field31 plus post-pair/readback/startup gates remain. REST base olda5c while main722; refresh actual integration before landing."
+    },
+    {
+      "what": "Final restore policy profiles observed and disposable probes removed",
+      "why": "Eight public NPs actual UID-ledgered; B six real DNS/TCP profiles pass and six UIDs deleted/absent; all17 policyUID/specs unchanged. Combined-policy scope only; source four probes remain."
+    },
+    {
+      "what": "Use existing ARC reviewed-ci refs for private quota failures",
+      "why": "Both unchanged workflows pass on existing repo-scoped runners. Hosted jobs failed before steps; no new CI infrastructure/credentials/App scopes needed."
+    },
+    {
+      "what": "Classified the original closed-gate attempt after natural timeout",
+      "why": "Exact six original Pod UIDs Failed/fixed refusal logs and all six original gate UIDs/data still closed; no Work writer window or helper/dump execution. Terminal Jobs may naturally TTL-delete, evidence retained."
+    },
+    {
+      "what": "User-requested operated-service provider cleanup complete",
+      "why": "Independent exact saved-plan cleanup verified nine owned API paths404; protected existing PoC/SSHkey unchanged; private receipt copied/hash-bound. Do not repeat deletion."
+    }
+  ],
+  "rejected": [
+    {
+      "what": "Replay schema28/30, Sovite23 cutover, old cleanup or signing helpers",
+      "why": "Consumed exact prior identities and completed operations; stale replay is unsafe and does not satisfy new31/25 admission."
+    },
+    {
+      "what": "Reset or extend the closed oct31-a gate timeout to salvage field window",
+      "why": "Original bounded one-shot attempt must remain history; new reviewed identities/receipts needed after expiry."
+    },
+    {
+      "what": "Count restore DNS/TCP probes as complete source fence or physical paired recoverability",
+      "why": "No same-Pod pre-policy source positive; source profiles/devbox matched denial/continuous watch/actual full pre+post native pairs still absent."
+    },
+    {
+      "what": "Reuse23 signature or mere signer availability for25/native all11 qualification",
+      "why": "Live non-hosted/development legacyoperator identity measured; key match boolean only. New digest/tuple/current actual eleven-check evidence remains required."
+    },
+    {
+      "what": "Treat policy JSON matching, API dry-run, mock native tests or short DB sampling as field proof",
+      "why": "Actual CNI/source owners/storage/readback and continuous identity-bound observations remain separate; .5s samples miss shorter sessions."
+    },
+    {
+      "what": "Broaden GitHub App access or create runner infrastructure for quota failures",
+      "why": "App installscope PUT403 made no change; existing reviewed-ref ARC route is sufficient."
+    },
+    {
+      "what": "Relax TinyCC fixed-output hash or accept PG17dump->PG16 downgrade failures",
+      "why": "Original unsupported/toolchain failures retained; no pin/compiler/oracle waiver."
+    },
+    {
+      "what": "Full ORM audit inside512Mi Sovite control or resurrect retired Langfuse",
+      "why": "One audit caused OOM/recovered; use bounded workstation streaming. Original FAILED_NO_RESURRECTION/deletion-barrier gaps remain."
+    }
+  ],
+  "state": {
+    "repos": [
+      {
+        "path": "/projects/dev/agentops",
+        "head": "309cf4ce4c56b683dda915b472e835ffcd248478",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "bda617d13a34a8338f51309cf0ad582cd03c63c7f342b0ad73caa0019bf40604",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/appservice",
+        "head": "ad1e93c026bdb81973365c6734a1e3d4caf98c44",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "29327467771b648387887f3cf5ace33103541e3fa5cf48d75b848db6ef817773",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/sovite",
+        "head": "dcd027db60ffca8d83e4991dbe258afe4d317749",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "0b90f8ca7d450c70805a4bc39f1553caab352acb962579262070525ed99122ec",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/sprintctl",
+        "head": "32bc4e6b3b1fa1c369fcd139605d0dff6795488e",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "a24b3fa1f08288ead5829cf10dbd2a317efd994b1f53d3a88c964a9587bd96a9",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/vuoro",
+        "head": "7dfa23483773d778cb2fa65a152e87b3278d437c",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "1c752604c580c5dfce3bf95f664aa4c70464c4abcaf63e5ffb1d1877e67ab8da",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/vuoro-cloud",
+        "head": "547af64e5e351eb74bd4b0a6b8fcba79650e78d6",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "182390cf6f5cd7d4994a2cfaabad6d6e8365ec52924c7bcb2cd972f02fce75ad",
+        "unpushed": 0
+      },
+      {
+        "path": "/projects/dev/gitops-nixos",
+        "head": "75de54b7cb441b05a10bce2369fd3485dbddcb68",
+        "branch": "main",
+        "dirty": true,
+        "diff_sha256": "31f66f95657b2f09d2f0c048a803f8d7256590e6ffc5abee9915d784d358ea71",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/appservice-work103-20261031",
+        "head": "e408bbe8ee9747888d390bc37f5b8918b2711775",
+        "branch": "codex/vuoro-service103-work31-pin-20261031",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/appservice-native31-fix-20261031",
+        "head": "10b6e08d9a7395821863c47818a6b60d50f4ed09",
+        "branch": "work31-native-cli-20261031",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 6
+      },
+      {
+        "path": "/tmp/sovite-v0.1.25-release-20261031",
+        "head": "0d7df9f4a0b054b5fc97067c15a1fa56d7bad9fc",
+        "branch": "release/v0.1.25-20261031",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/vuoro-ecosystem-full-track-20261029",
+        "head": "13eb445d80a7252dd1b67df98a68927cf26a7ae5",
+        "branch": "test/rust-sdk-predispatch-cancellation-20261029",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/vuoro-full-track-20261029",
+        "head": "abc69f52114c18f78702fa692af72f7415e3d121",
+        "branch": "test/retirement-dump-tls-scram-20261029",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/vuoro-poc81-signing-20261029",
+        "head": "0733b420763bbd7759baf34653f665726b87c97c",
+        "branch": "main",
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 1
+      },
+      {
+        "path": "/tmp/sovite22-release-build-20261029",
+        "head": "7bb4b7d68156dbf60b87e0a616f14732acddf295",
+        "branch": null,
+        "dirty": false,
+        "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/operated-cloud-native-commissioning-probe-20261031",
+        "head": "52d497e9774580ca9cfc13bcdfb663bf824d37e8",
+        "branch": "feat/native-commissioning-probe-20261031",
+        "dirty": true,
+        "diff_sha256": "4f06ed6a74fe6c01e6a74de4b3157c4e3597798781d498764a88298d6b8f82ab",
+        "unpushed": 0
+      },
+      {
+        "path": "/tmp/operated-sovite-control-image-20261031",
+        "head": "353b2c60bcac1dc345b188587c88f7603d71f787",
+        "branch": "feat/sovite-native-control-image-20261031",
+        "dirty": true,
+        "diff_sha256": "8e0b75b8a55265d19ac79464648c4ae71b9cac24ec407fb96f866828f0861b3f",
+        "unpushed": 0
+      }
+    ],
+    "running": [
+      "No Root subagents, field watcher or poll loop remain running. Six original gated helper/dump Pods naturally failed20:21UTC before helper/dump execution; original terminal Jobs may TTL-delete after600seconds. Both holders remain suspended.",
+      "Independent operated-service source/CI may finish; its provider cleanup COMPLETE. No new Hetzner commissioning resources remain. Existing deployed services, NAS13 and protected recovery storage retained."
+    ],
+    "digest_version": 5,
+    "tracker_watermark": [
+      {
+        "item_id": "2864",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2307",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2308",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2309",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2310",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2311",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2329",
+        "status": null,
+        "status_revision": null
+      },
+      {
+        "item_id": "2654",
+        "status": null,
+        "status_revision": null
+      }
+    ]
+  },
+  "unresolved": [
+    "Fresh Work31 attempt: coordinate owner pause, guarded holds, live preholder before drain, fresh source/lease/client roles/TLS, actual source positive/negative/devbox CNI, complete API/RBAC/policy watch baseline and admitted17phase supervisor.",
+    "Actual pre31 sealed native backup+encrypted versioned dump+isolated PG/Workspace catalog/ACL/object readback before DDL; four exact helper stages; actual post31 fullpair/readback before103startup. No native pair/field31 has happened.",
+    "Sovite25 final Nix image/control composition, current provider/NAS/relay bindings, actual native all11 commissioning and accurate qualification, fresh paired6to7 field migration; live23 retained.",
+    "Provider cleanup COMPLETE; refresh any remaining Cloud/Gitops source/activation and recommission fresh only when needed. Old provider/boot IDs historical.",
+    "All eight programme owner criteria remain: EC00mandatory/operational/economics; EC02/ER025; OA01source-observed/nativewake and humanpilot2730/OA05; Cloudfleet/provisioning/retirement/distribution; Sovite delegation/lifecycle; productiontelemetry; retention/all-copy.",
+    "Foreign final20:26:Cloud335OPEN3a015d1 fourchecksPASS/aggregatepending;Gitops62OPENdfc3b90 appendPASS/flakepending. Health61c0canonical/postmainPASS but workstationstillx403/noactivation. NAS13running20.110/unenrolled/tokenabsent/pollinactive/KVMgap; no62activation/probe. Source-checkpoints manifests/7NixGCroots retained. Foreign474/475/476/477released; othersuntouched."
+  ],
+  "evidence": [
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/ecosystem-resume-2026-10-31/handoff-2026-10-31/handover-body.txt"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/ecosystem-resume-2026-10-31/handoff-2026-10-31/evidence-manifest.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/ecosystem-resume-2026-10-31/handoff-2026-10-31/live-summary.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/ecosystem-resume-2026-10-31/programme-ledger.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/ecosystem-resume-2026-10-31/work31-admission/cni-preflight-attempt-b/root-restore-cni-acceptance.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/ecosystem-resume-2026-10-31/sovite25-cutover/digest-manifest.json"
+    },
+    {
+      "kind": "sprintctl",
+      "ref": "agentops#2864 event6498; own473 released; all eight parents remain open"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/ecosystem-resume-2026-10-31/handoff-2026-10-31/closed-attempt-final.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/ecosystem-resume-2026-10-31/handoff-2026-10-31/provider-cleanup-final.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/ecosystem-resume-2026-10-31/handoff-2026-10-31/foreign-native-source-handoff.json"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/projects/dev/agentops/_artifacts/agentops/ecosystem-resume-2026-10-31/handoff-2026-10-31/foreign-draft-preservation.json"
+    }
+  ],
+  "sprintctl_bundle_ref": {
+    "path": "/projects/dev/agentops/docs/dispatch/handoffs/2026-10-31-ecosystem-night-stop.v1.sprintctl-bundle.json",
+    "sha256": "64e1a655b2d63ef4e3427e7ebcc56c3c3f5f578fa95e218096912c48f4a07724",
+    "generated_at": "2026-10-31T20:27:34Z"
+  },
+  "next_action": "Acknowledge this canonical JSON using the actual successor session ID; run both hooks/forge-credential.sh status and inventory; read programme-ledger.json and handoff-2026-10-31/handover-body.txt, evidence-manifest.json, final gate/provider addenda. FIRST verify the recorded completed provider cleanup and inspect expired CLOSED oct31-a Jobs without retry/reset; old commissioning identities are historical. Take fresh observation on agentops#2864 and coordinate with independent thread01a19160 before reviewing a NEW Work31 attempt or25 field admission. Keep2153HOLDMERGE until actual31/postpair gates; do not replay completed23 cleanup/signing/migrations.",
+  "successor": {
+    "session_id": "01a195a2-980d-71d0-8b87-bbbed40c144b",
+    "acknowledged_at": "2026-11-01T05:49:56Z"
+  }
+}

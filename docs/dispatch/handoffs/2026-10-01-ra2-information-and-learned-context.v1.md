@@ -1,0 +1,88 @@
+# Handoff 2026-10-01-ra2-information-and-learned-context.v1
+
+<!-- Rendered from the canonical JSON beside this file. Do not hand-edit:
+     `agentops handoff validate` and `ack` read the JSON, never this. -->
+
+**Objective.** Test the operator's hypothesis that the RA2 strategist (selector and LLM) fails on the beatable cells because it gets too little information and has no learned context of what wins. First separate 'information' from 'strategy library' with free deterministic diagnostics, then build whichever fix the diagnostic points at, pre-registered on the contested benchmark.
+
+**Next action.** In /projects/dev/_wt/ra2-next (ra2/next at origin/main b4d4aea), build the arena in Release, then run the free information-vs-strategy diagnostic on the 0/12 cells. (a) `arena run --arms selector,selector-oracle --maps training --benchmark contested --opponents live-balanced,live-harass --seeds 8 --no-decisions --out <scratch>/oracle`, reading the Allied (odd-seed) rows. (b) The same cells with `--arms pinned:<id>` for every default playbook that lists Allied (`arena playbooks export` lists them), as a playbook x opponent matrix. Report: does full information win, and does any playbook win? Then propose the information fix or the learned-context or strategy fix it points to, pre-registered on contested Allied vs live-*.
+
+## Predecessor
+
+- harness: claude-code
+- session: 9a1346ef-731e-4fb0-9444-fc0a90f1b28b
+- model: claude-opus-5-5
+- context used: unknown%
+- transcript: unknown
+- origin: `workstation:/projects/dev/agentops/docs/dispatch/handoffs/2026-10-01-ra2-information-and-learned-context.v1.json` (authoritative copy; an ack from another host goes through it)
+
+Read-only after transfer: once a successor acks, the predecessor makes no
+edits and takes no external actions. It stays consultable.
+
+## Constraints
+
+- Long runs (over ~1 h) must name the decision they inform, run a ~30-min pilot first, use --interleave and --resume, and the operator is told up front if the machine must stay on overnight.
+- No Anthropic API key (~/.config/bindery-arena.key) for arena play. LLM play uses gpt-6-luna via OpenCode Go through the local forwarder docs/results/2026-09-30-luna-contested/ocgo_proxy.py, or the free deterministic arms. Other OpenCode Go models miss the arena's 25 s reply deadline; see rejected.
+- The forwarder must not run as a Claude background job (2 h limit kills it mid-run). Start it with `systemd-run --user --unit ocgo-proxy python3 <path>/ocgo_proxy.py 8032 <log>` and stop it with `systemctl --user stop ocgo-proxy`. Never use `pkill -f` with a pattern that matches your own shell.
+- Never print keys. Scripts that read keys live in the scratchpad as ocgo_* or decisions_*.
+- Commits, pushes, merges and deploys are approved. Every PR gets an independent Opus review posted as a PR comment before merge, and merges only on green CI (Linux and Windows), with a merge commit. Never force-push.
+- Implementation goes to Sonnet 5.5 workers in worktrees; Opus 5.5 reviews. Create the worktree yourself (git worktree add under /projects/dev/_wt/) and pass its path.
+- Do not tune on held-out data. Held-out maps are open-steppe and fortress-choke; held-out opponents are ai-horde and ai-armor. Pre-register before any registered run, NAME THE BENCHMARK in the pre-registration, and check the report's 'Benchmark check' line: a baseline outside the 30-70% band is saturated and cannot decide anything.
+- tools/Bindery.Ra2.Bot.Baseline is frozen; contract changes stay additive.
+- Do not reset or pull the local main checkout /projects/dev/bindery-ra2-adapter (other sessions use it). Work in worktrees off origin/main.
+- Results commit decision logs as decisions.tar.xz plus a .sha256, never raw decisions/*.ndjson, and never file names containing ':' (Windows CI cannot check them out). Delete 0-byte dataset-pinned:*.ndjson files before committing.
+- dotnet is not on PATH: export PATH=/nix/store/s352dsp8b8g7v7r5yyp2cry5fp90zs1v-dotnet-sdk-wrapped-8.0.425/bin:$PATH. Network commands (gh, git push, the forwarder) need the sandbox disabled.
+
+## Decisions
+
+- **Selector stays the tier-3 default; no further spend on model-chosen playbooks for now** — Pre-registered contested test (PR #47): Luna won 7/30, selector 10/30, better 1 / worse 4, rule branch 3 (parity). All three outage readings agree.
+- **Induced generic-expand playbook NOT promoted (correction, PR #46)** — PR #45's branch-1 call ran on the saturated standard benchmark (selector 0.750). A free diagnostic showed pinned playbooks are exploited by bot-style opponents: live-* contested candidate 15/60 vs selector 55/60. Induction was worse than its base, 0 better / 8 worse paired.
+- **The only discriminating region found: Allied (odd seeds) vs live-* bot styles under --benchmark contested, training maps** — Selector-only calibration gives 20/60 there (33%) and is saturated everywhere else (Soviet 103/108, scripted ai-* about 100%). Calibration data: docs/results/2026-09-30-induced-playbook-test/diagnostic/calibration/.
+- **The operator's working hypothesis for the next step: the strategist is short of information and has no learned context of winning strategies** — Stated by the operator after PR #47. Luna barely adapts (allied-boom 59-85% of its time against every live style), and both Luna and the selector lose 0/12 as Allied against live-balanced and live-harass.
+- **Inducer (PRs #42, #43) is merged and correct: training-split filter, adopted-intent attribution, per-match medians, rising-edge launch attribution via the plan's intentId** — Two-round independent reviews; byte-identical outputs; held-out logs used only as smoke data.
+
+## Rejected
+
+- **Promoting a single induced playbook as tier 3** — A fixed playbook is exploitable by adaptive or bot-style opponents (diagnostic in PR #46). Tier 2 should induce a choice POLICY, not one playbook.
+- **Deciding anything on the standard benchmark** — Saturated: the selector wins 75-100%. The report flags it; PR #45 ignored the flag and had to be corrected.
+- **deepseek-v4-pro, deepseek-v4-flash, kimi-k3, qwen3.7-plus, qwen3.8-max, mimo-v2.6-pro as arena models** — They miss the 25 s reply deadline on the real ~8k-token prompt (v4-pro median 61 s; v4-flash median 23 s, p90 52 s, 61% timeouts). The short-prompt probe understates latency 1.5-10x.
+- **grok-4.7, glm-5.3, minimax-m3** — Protocol unsupported, or no valid JSON output.
+- **Claude Opus API for arena play** — Limited budget (about $2.69/match). PR #47 gives no evidence that a stronger model would choose better; the failure is non-adaptive choice or missing information.
+- **Inducing from Luna's held-out logs, or from collections Luna won 100%** — Held-out data is for evaluation only. A 24/24 collection gives the inducer no losses to contrast with (selection on outcome).
+
+## Repo state
+
+Digest definition: v5 (see the handoffs README).
+
+| path | branch | head | dirty | unpushed | diff_sha256 |
+|---|---|---|---|---|---|
+| `/projects/dev/_wt/ra2-next` | ra2/next | `b4d4aea56a73` | no | 0 | `e3b0c44298fc1c14…` |
+
+## Unresolved
+
+- Is the bottleneck information or strategy? Untested. The -oracle arms (full information, e.g. selector-oracle) on the 0/12 cells (Allied vs live-balanced and live-harass, contested, training maps) separate the two. If the oracle selector also loses, information is not the bottleneck.
+- Can any existing playbook win those cells? Untested. A free matrix of pinned:<every playbook that lists Allied> on the same cells shows whether a choice policy could win at all, or whether the library needs a new playbook or tactics.
+- What does the strategist actually see? Read what the selector consumes (feature vector fv2 in strategy.intent_activated records) and the LLM prompt (ClaudeStrategist / prompt catalogue), and list which enemy-composition and scouting signals are missing. --extended-metrics exists but may only feed reports.
+- 'Learned context' design: candidates are an outcome matrix (playbook x opponent style x map, training data only) or retrieval of won-match decisions, injected into the LLM prompt or used as a selector prior. Needs a sage/design pass before building.
+- Selector drift between builds (17/20 at 852e625 vs 15/20 at c50b769 on held-out Soviet cells) is unexplained.
+- No playbook promotion gate exists yet. If one is built, it must include the contested benchmark and the bot-style opponents.
+- Kotona notes drafts (kotona-notes-private branch drafts/2026-09-29-strategist-arena, 3d28fab) still await operator review. Note 1's fix claim is true; nothing written since reflects PRs #42-#47.
+- Stale worktrees under /projects/dev/_wt from earlier sessions, and .claude/worktrees/agent-ada8fef6f7b38cac2 (PR #42, merged), are not this track's to delete without checking.
+
+## Evidence
+
+- artifact: `/projects/dev/_wt/ra2-next/docs/results/2026-09-30-luna-contested/RESULTS.md`
+- artifact: `/projects/dev/_wt/ra2-next/docs/experiments/2026-09-30-luna-contested-preregistration.md`
+- artifact: `/projects/dev/_wt/ra2-next/docs/results/2026-09-30-induced-playbook-test/RESULTS.md`
+- artifact: `/projects/dev/_wt/ra2-next/docs/results/2026-09-30-induced-playbook-test/diagnostic/calibration/results.json`
+- artifact: `/projects/dev/_wt/ra2-next/docs/results/2026-09-30-luna-contested/ocgo_proxy.py`
+- session: `9a1346ef-731e-4fb0-9444-fc0a90f1b28b`
+
+## sprintctl bundle
+
+- none (sprintctl unavailable or produced no bundle)
+
+## Successor
+
+- session: (unacknowledged)
+- acknowledged: —

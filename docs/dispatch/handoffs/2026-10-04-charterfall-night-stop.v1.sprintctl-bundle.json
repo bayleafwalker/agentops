@@ -1,0 +1,1218 @@
+{
+  "active_reservations": [
+    {
+      "activity_age_seconds": 2665,
+      "actor": "workstation-vuoro",
+      "correlation_ref": null,
+      "created_at": "2026-10-04T09:44:29Z",
+      "id": 180,
+      "interruption_reason": null,
+      "last_activity_at": "2026-10-04T19:02:14Z",
+      "release_digest": "47d5e6993c7fe32a8d450067f5c923dfc56349937e930f975afee75377a0bab3",
+      "released_at": null,
+      "repo_id": "charterfall",
+      "role": "execution",
+      "session_id": "charterfall-factions",
+      "stale": false,
+      "state": "active",
+      "work_item_id": 2610
+    }
+  ],
+  "agent_shutdown_protocol": {
+    "required_before_termination": [
+      "Reassign or release each active reservation.",
+      "Run 'sprintctl handoff' to produce a new bundle."
+    ],
+    "resumption_hint": "Incoming agents may reserve or reassign without a credential."
+  },
+  "bundle_type": "handoff",
+  "bundle_version": "1",
+  "conflicts": [
+    {
+      "item_ids": [
+        2610
+      ],
+      "kind": "stale-work",
+      "severity": "warning",
+      "summary": "1 item(s) are stale and may be drifting out of date."
+    }
+  ],
+  "delta_since_last_handoff": {
+    "event_count": 40,
+    "item_ids_touched": [],
+    "previous_handoff_at": null,
+    "reservation_ids_touched": []
+  },
+  "events": [
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T08:15:04.277173Z",
+      "event_type": "reservation.reserved",
+      "id": 4306,
+      "payload": "{\"role\": \"execution\", \"session_id\": \"charterfall-foundation\", \"release_digest\": \"a89c7ee8c36032c8885f8b6efb9316271dae27f735ff80120fa8013f53c7e38b\", \"reservation_id\": 177, \"correlation_ref\": null, \"interrupt_existing\": false, \"conflicting_reservation_ids\": []}",
+      "repo_id": "charterfall",
+      "source_type": "system",
+      "sprint_id": 561,
+      "work_item_id": 2605
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T08:24:04.369502Z",
+      "event_type": "blocker",
+      "id": 4308,
+      "payload": "{\"detail\": \"All 11 tests and Chromium desktop/mobile checks pass. fj repo create rejected write:user scope; broker deny repository-unregistered. No remote exists. Local commits are host-persistent; remote CI and landing remain outstanding. Await approved repository creation or target.\", \"summary\": \"Foundation locally verified; private forge repository creation denied\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2605
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T08:24:43.632604Z",
+      "event_type": "reservation.released",
+      "id": 4309,
+      "payload": "{\"reservation_id\": 177}",
+      "repo_id": "charterfall",
+      "source_type": "system",
+      "sprint_id": 561,
+      "work_item_id": 2605
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T08:55:06.777025Z",
+      "event_type": "reservation.reserved",
+      "id": 4314,
+      "payload": "{\"role\": \"execution\", \"session_id\": \"charterfall-landing\", \"release_digest\": \"33c61da652076a968549474ecd964dfaa974d60ba3ec8fdc313d860859233778\", \"reservation_id\": 179, \"correlation_ref\": null, \"interrupt_existing\": false, \"conflicting_reservation_ids\": []}",
+      "repo_id": "charterfall",
+      "source_type": "system",
+      "sprint_id": 561,
+      "work_item_id": 2605
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T08:58:05.288817Z",
+      "event_type": "item-decided",
+      "id": 4317,
+      "payload": "{\"kind\": \"accept\", \"resolution\": \"accepted\", \"decision_id\": 208, \"release_digest\": \"33c61da652076a968549474ecd964dfaa974d60ba3ec8fdc313d860859233778\", \"idempotency_key\": \"b577632a5e994f249a493f9b66edc6e5\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2605
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T08:58:05.609506Z",
+      "event_type": "reservation.released",
+      "id": 4318,
+      "payload": "{\"reservation_id\": 179}",
+      "repo_id": "charterfall",
+      "source_type": "system",
+      "sprint_id": 561,
+      "work_item_id": 2605
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T09:06:33.295037Z",
+      "event_type": "update",
+      "id": 4321,
+      "payload": "{\"detail\": \"Revision e8eb2a862ee2ff0b71db26bdbf914ad3811729f8 is published and origin/main matches it. Forgejo run 4 (API run 1234), simulation job 3626/task 2953 succeeded after the shared runner queue cleared. Working tree is clean.\", \"git_sha\": \"e8eb2a862ee2ff0b71db26bdbf914ad3811729f8\", \"summary\": \"Final main revision CI passed\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2605
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T09:44:29.490494Z",
+      "event_type": "reservation.reserved",
+      "id": 4326,
+      "payload": "{\"role\": \"execution\", \"session_id\": \"charterfall-factions\", \"release_digest\": \"47d5e6993c7fe32a8d450067f5c923dfc56349937e930f975afee75377a0bab3\", \"reservation_id\": 180, \"correlation_ref\": null, \"interrupt_existing\": false, \"conflicting_reservation_ids\": []}",
+      "repo_id": "charterfall",
+      "source_type": "system",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T09:58:12.429129Z",
+      "event_type": "decision",
+      "id": 4327,
+      "payload": "{\"tags\": [], \"detail\": \"Select renderer-independent TypeScript systems plus Phaser target and semantic DOM HUD, retaining Canvas during migration. Original Blender-to-sprite pipeline with SVG catalog first. User explicitly confirmed neutral-only Array launch. Full objective remains active: complete doctrine abilities, deployed Custodians, command/navigation/visibility/economy/taskforces/maps/UI/assets require further implementation.\", \"summary\": \"Planner selections recorded; three playable factions and neutral Array\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T10:04:41.382223Z",
+      "event_type": "update",
+      "id": 4328,
+      "payload": "{\"detail\": \"Commit 00206f0 on canonical main: UI, stack, gameplay and asset planning reconciled in docs/plans. Three playable faction catalogs, preserved doctrine purchases, air/armor targeting, passengers, local cultivation and assigned deployed fabrication started. Reviewer combat/unload defects corrected. 22 Node tests, 2 Playwright checks, production build and Forgejo Actions run 5 pass. Full implementation remains active; completion matrix explicitly tracks ownership separation, navigation, fog, physical economy, independent factories, real Array actors, map systems, task forces, renderer migration and asset production.\", \"git_sha\": \"00206f0\", \"summary\": \"Architecture and asset plans landed with verified faction migration increment\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T10:20:42.586440Z",
+      "event_type": "update",
+      "id": 4330,
+      "payload": "{\"detail\": \"Commit cab3f74: deterministic cached grid navigation, movement occupancy, command-structure and deployed footprints, flood/deployment invalidation and stranded-unit escape. Replaced invisible sector damage with Surveyor, Reclaimer, Interdictor, Sealer and Warden; physical source-owned recapture, repair/clearance, destructible expiring fixtures, finite deployment, no death respawns and local jurisdiction. Architectural review defects corrected. 38 Node tests, 2 browser checks and production build pass; guard mutations fail as expected. Full faction/mechanics objective remains active; see completion matrix.\", \"git_sha\": \"cab3f74\", \"summary\": \"Terrain routing and five physical Custodian actors implemented\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T10:48:23.955859Z",
+      "event_type": "update",
+      "id": 4334,
+      "payload": "{\"detail\": \"Commit c6f5c00: independent per-factory bounded queues, packing/boarding pauses, whole-queue loss refunds, blocked exits and retained production through relocation. Up to eight owned editable forces, independent composition and factory assignment, global/per-force reserve floors, physical safe muster and delayed cohorts, stable vacant joining slots, role-aware right-drag frontage, dissolution refunds and stance/manual override. Disengage packs deployed units. Architectural crowd/rank defects corrected; 53 Node tests, 4 browser checks, build/type checks pass; four guard mutations fail as expected. Prior navigation/Array CI run 6 succeeded. Full implementation matrix remains active.\", \"git_sha\": \"c6f5c00\", \"summary\": \"Independent factories and maintained task forces landed\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T11:13:52.485540Z",
+      "event_type": "update",
+      "id": 4338,
+      "payload": "{\"detail\": \"main e9b56ea separates player IDs from faction data and enables all nine ordered launch pairings including mirrors. Browser and AI submit typed versioned commands with caller binding, sequence freshness, admission ownership and execution-time revalidation. Match JSON records initial config, step durations and AI commands; verifier reconstructs canonical final state. Future-then-immediate scheduling defect found by architecture review fixed with regression. 63 Node tests, five Chromium checks, typecheck and build pass locally. Disposable caller/sequence/execution-ownership/hash mutations fail their intended tests. Independent asset architecture review records SVG-first, Blender sprite production, atlas masks/pivots/memory/provenance gates. Full objective remains active: fog, finite expansion economy, complete doctrine verbs, richer maps, renderer/assets and observed match/performance evidence remain pending. CI pending verification.\", \"git_sha\": \"e9b56ea\", \"summary\": \"Validated command boundary, mirror ownership and verified match records landed\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T11:29:19.940409Z",
+      "event_type": "update",
+      "id": 4343,
+      "payload": "{\"detail\": \"main 996c79b adds rule-owned radial vision/exploration and last-seen HQ/relay memory. Filtered player/AI observations omit hidden enemies, enemy economics/orders and unseen doctrines/programs; notices and tracer audiences enforce visibility. Live shared spotting gates weapons and security; growth/occlusion require detection, disconnected sensors lose support, boarded/dead units grant no vision. Automated muster checks only observed threats. Architectural review caught and fixed cloned-relay identity disabling controls and lethal-shot effect disappearance. 75 Node tests, six Chromium checks, make check/test and build pass. Disposable hidden-unit, concealment, stale-memory and AI-targeting mutants fail corresponding tests. Rule version bumped to4; fog replay reconstructs and reads never change state. Previous commit e9b56ea canonical CI succeeded. Current CI pending. Full objective remains active: physical finite expansion economy, complete doctrine/faction verbs, richer maps, projectiles, renderer/assets, scale and human match evidence remain pending.\", \"git_sha\": \"996c79b\", \"summary\": \"Shared fog, stale observations and detection-aware spotting landed\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T12:00:51.954264Z",
+      "event_type": "update",
+      "id": 4348,
+      "payload": "{\"detail\": \"Canonical main c83d97a adds seven finite seams, bounded physical cargo delivery/recovery, paid hauler replacement, independent refinery queues, interruptible engineer construction, damage-scaled cancellation refunds, fog-safe economy views, typed logistics commands and browser controls. Asset architecture planner refined content-derived inventory and selected SVG-first then original Blender orthographic sprite pipeline with A0-A4 backlog. Local make check/test/build passed: 90 tests and seven Chromium checks. Five disposable economy guard mutations failed their intended scenarios. Canonical CI run 10 (API 1260) waiting at publication. Full faction abilities, map headline systems, production assets, renderer migration and match/performance evidence remain active scope.\", \"git_sha\": \"c83d97a255e25e0ee83c59aabba0ef2ce3fe9c19\", \"summary\": \"Physical finite economy and asset architecture landed\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T12:22:19.575675Z",
+      "event_type": "update",
+      "id": 4351,
+      "payload": "{\"detail\": \"Canonical main 2057275 implements paid interruptible Continuity one-use flood permits and Freehold bounded Audit spoofing with Surveyor detection, plus temporary permanent-origin network links with channel/active capacity reservation. Ownership/source/finite deployment budget remain unchanged. Actor/endpoint/tether loss removes effects, dependency cuts interrupt programming and reset Mandate; ordinary units keep fighting. Browser field office and observation-filtered indicators expose abilities; Freehold AI uses observed opportunities. make check/test/build passed: 106 Node scenarios and eight Chromium checks. Seven disposable guard mutations fail intended tests, including actual same-tick attack/repair. Independent review found no additional demonstrated blocker. Prior logistics c83d97a canonical run 10 API 1260 job 3700 task 3023 passed; new infrastructure CI pending verification. Full doctrine behaviors, physical relay fixtures, additional maps, original asset production, renderer migration, performance and human match evidence remain unfinished.\", \"git_sha\": \"2057275b4f5fec916d9938263f0b7e42d8511f43\", \"summary\": \"Faction authorization spoofing and tethered bypass landed\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T12:22:41.680920Z",
+      "event_type": "update",
+      "id": 4352,
+      "payload": "{\"detail\": \"Verified Forgejo run 11 API 1263 simulation job 3706 task 3030 success after canonical main 2057275 publication. Local verification also passed 106 Node scenarios, eight Chromium scenarios, production build and seven deliberate guard defects. Scope remains active; this increment does not complete full faction/doctrine/map/art/performance acceptance.\", \"git_sha\": \"2057275b4f5fec916d9938263f0b7e42d8511f43\", \"summary\": \"Infrastructure increment canonical CI passed\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T13:57:07.853485Z",
+      "event_type": "update",
+      "id": 4405,
+      "payload": "{\"detail\": \"Canonical main 3e296aa0843d6fd33a5b8c2da3c19a4459ce2ba6: Security barriers, Ghost concealment, finite shared wreck ledgers, explicit scrap and one-use immutable Mechanist rebuild, deployed-only entrenchment, exact single-unit movement, observation-filtered controls/replays. Local make check, 124 Node tests, build and 9 Chromium browser tests passed. Seven disposable guard removals ran all18 fieldwork tests and failed their intended assertions. Independent asset architect retained SVG then Blender pipeline and corrected wreck inventory/tool availability. Full objective remains active; matrix records remaining behavior, maps, presentation and tactical evidence. Canonical CI pending verification.\", \"git_sha\": \"3e296aa0843d6fd33a5b8c2da3c19a4459ce2ba6\", \"summary\": \"Landed doctrine fieldwork and finite wreck recovery\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T14:10:30.843975Z",
+      "event_type": "update",
+      "id": 4416,
+      "payload": "{\"detail\": \"Forgejo canonical run12 API1266 job3715 task3070 completed success for published 3e296aa0843d6fd33a5b8c2da3c19a4459ce2ba6. Local browser and mutation evidence already recorded in note4405. Full objective stays active; timed deployment and capability gates are now under implementation.\", \"git_sha\": \"3e296aa0843d6fd33a5b8c2da3c19a4459ce2ba6\", \"summary\": \"Canonical CI passed for doctrine fieldwork\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T14:17:39.413050Z",
+      "event_type": "update",
+      "id": 4418,
+      "payload": "{\"detail\": \"Canonical main dbe8fb1c794a02acf7f81238245387867d9ee8f1: renderer-independent typed deployment state, purchase-specific setup/pack times, lance/siege weapon gates for all5 target families, operational sensor detection/spotting and anchoring, held physical footprints, automatic normal packing and preserved emergency disengage, boarding reset, fabrication/fieldwork/refinery phase exclusion. AI holds transitions instead of cancelling its own setup. Local make check, make test136, production build and10 Chromium browser cases pass. Eight disposable guard removals each ran12 deployment scenarios and failed their intended checks. Ruleset8 replay/observation evidence documented. Full objective remains active with Helix variants, local powers, further maps, combat/presentation/traffic and observed tactical evidence pending.\", \"git_sha\": \"dbe8fb1c794a02acf7f81238245387867d9ee8f1\", \"summary\": \"Landed timed deployment and operational gates\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T14:47:09.008411Z",
+      "event_type": "update",
+      "id": 4427,
+      "payload": "{\"detail\": \"Forgejo run13 API1269 job3724 task3079 completed success for dbe8fb1c794a02acf7f81238245387867d9ee8f1. The full item remains active; Helix three-program cultivation, public biological Audits and doctrine carrier/repair behavior are now being validated.\", \"git_sha\": \"dbe8fb1c794a02acf7f81238245387867d9ee8f1\", \"summary\": \"Canonical deployment CI passed\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T14:51:55.685559Z",
+      "event_type": "update",
+      "id": 4432,
+      "payload": "{\"detail\": \"Canonical main c1c6c82ea8c26053b4c01ee12e3daf123cab500b: three paid interruptible terrain programs, immutable standard/Bloom/Spine profiles, strongest-rate ground repair/transit, finite shared quotas, physical light-armor growth cores and flood destruction, local pruning, three-cultivator Pollen cargo. Aquifer biological reserve opens source-owned finite five-actor Audit at3 local growths, supports pre-containment withdrawal and120s player cooldown, preserves chosen water schedule. Observation-filtered controls and command-only replays verified. Local make check/test154, build and11 Chromium browser cases passed; eight disposable guard removals ran18 scenarios and failed intended checks. Ruleset9 contract and additional asset requirements documented. Full objective remains active; role/doctrine audit, combat/projectiles, map/power/fixture expansion, presentation/assets and tactical-scale evidence are still pending.\", \"git_sha\": \"c1c6c82ea8c26053b4c01ee12e3daf123cab500b\", \"summary\": \"Landed Helix cultivation and finite biological Audits\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T14:52:48.818275Z",
+      "event_type": "update",
+      "id": 4433,
+      "payload": "{\"detail\": \"Forgejo canonical run14 API1271 job3729 task3085 completed success for c1c6c82ea8c26053b4c01ee12e3daf123cab500b. Local154 simulation tests,11 browser cases and negative guard evidence are recorded in note4432 and docs/COMMANDS.md. Main tracks canonical origin; full implementation objective remains active.\", \"git_sha\": \"c1c6c82ea8c26053b4c01ee12e3daf123cab500b\", \"summary\": \"Canonical Helix cultivation CI passed\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T15:34:50.094598Z",
+      "event_type": "update",
+      "id": 4437,
+      "payload": "{\"detail\": \"Commit fa3564cb1a6abbc6f1a1f3684387c60e4b5d18cf adds delayed ballistic/guided fire, bounded hostile ground splash, visible-target focus commands, ordinary stop-to-fire, simultaneous acquisition/damage, casualty-safe capture and paid fieldwork completion, explicit mutual-HQ draws, fog-filtered projectile/effect presentation and ruleset10 replay. Local make check, 178 simulation tests, 12 Chromium cases, focused final browser verification, production build and eight disposable guard removals pass. Asset planner recommendations incorporated. Canonical CI pending verification. Full three-faction/maps/powers/asset/performance objective and reservation180 remain active; no completion claim.\", \"git_sha\": \"fa3564cb1a6abbc6f1a1f3684387c60e4b5d18cf\", \"summary\": \"Landed projectile combat and simultaneous damage on canonical main\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T15:35:53.700058Z",
+      "event_type": "update",
+      "id": 4438,
+      "payload": "{\"detail\": \"Canonical Forgejo run15 API1272, simulation job3730 task3086 succeeded for pushed main fa3564cb1a6abbc6f1a1f3684387c60e4b5d18cf. Required check, 178 simulation tests and production build passed in CI; 12 Chromium cases and final focused browser check passed locally. Eight isolated combat guard removals fail intended assertions after baseline qualification. Sources and tests are cross-host-replicated in canonical Git; served work remains durable-authoritative. Full implementation objective and reservation180 remain active.\", \"git_sha\": \"fa3564cb1a6abbc6f1a1f3684387c60e4b5d18cf\", \"summary\": \"Canonical CI passed for projectile combat increment\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T16:01:58.473047Z",
+      "event_type": "update",
+      "id": 4444,
+      "payload": "{\"detail\": \"cad094c2b10c78f27c90cca7c4d135faf06bfb39 adds Continuity relay isolation, Freehold sensor blackout and Helix occlusion fog; paid telegraphed wind-ups, capacity leases, live coverage/role/cooldown/ownership validation, simultaneous resolution, damage interruption, cut bypass endpoints, private observations, shared-command controls/AI and ruleset11 replay. Local make check, 202 simulation tests, 14 Chromium cases, production build and ten isolated guard-removal failures passed. Canonical CI awaiting verification. Full faction/maps/assets/performance objective and reservation180 remain active.\", \"git_sha\": \"cad094c2b10c78f27c90cca7c4d135faf06bfb39\", \"summary\": \"Landed presence-gated faction powers on canonical main\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T16:03:34.511336Z",
+      "event_type": "update",
+      "id": 4445,
+      "payload": "{\"detail\": \"Follow-up cefd2750ab1fd45ef75e216ef15ef7b4c34339fd corrects an edit-script variable reuse that overwrote COMMANDS.md with ARCHITECTURE.md and ASSETS.md with IMPLEMENTATION.md in cad094c. Both original documents from fa3564c are now preserved byte-for-byte with only intended power additions appended (57 and6 added lines). Gameplay implementation and its 202 local tests, 14 browser cases, ten falsifying guard checks and build are unchanged. New canonical CI verification in progress; goal and reservation remain active.\", \"git_sha\": \"cefd2750ab1fd45ef75e216ef15ef7b4c34339fd\", \"summary\": \"Restored original command and asset documentation after write error\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T16:04:45.104265Z",
+      "event_type": "update",
+      "id": 4446,
+      "payload": "{\"detail\": \"Exact current main cefd2750ab1fd45ef75e216ef15ef7b4c34339fd has success status for Prototype checks / simulation; Forgejo run17 API1275 job3733 task3089. CI logs prove required check, 202 tests all passing and build success. Original gameplay commit cad094c also passed run16. Fourteen Chromium cases and ten isolated guard-removal checks pass locally. Documentation correction preserves original command/asset contracts and adds only intended power sections. Git worktree clean; source/contracts cross-host-replicated and served work durable-authoritative. Full implementation objective and reservation180 remain active.\", \"git_sha\": \"cefd2750ab1fd45ef75e216ef15ef7b4c34339fd\", \"summary\": \"Canonical CI passed for faction powers and documentation correction\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T16:41:43.430489Z",
+      "event_type": "update",
+      "id": 4457,
+      "payload": "{\"detail\": \"Canonical main 73da4164038a59c3d780c3ba0b7c6c1bb9e202e7 adds selectable Cold Archive, three finite paid vault layers, physical cargo and connected-owner capacity, interruption/cancellation, shared typed incident lifecycle with map-relative five-actor budget, Archive spoof/AI/replay/observed controls. Local make check, 231 Node cases, 16 Chromium cases and production build pass. npm run verify:archive qualifies clean tests then eleven guard removals fail intended assertions. CI run18/API1276 is currently running; exact-SHA status still to verify. Broker repo.write probe denied repository-unregistered; configured canonical SSH push succeeded without widening credentials. Full objective remains active: Freight Loop, typed actor extraction, richer physical programs, terrain sight/network authority, tactical role/doctrine audits, console/Phaser/assets and scale/human playtests remain. Git is cross-host-replicated; served Vuoro is durable-authoritative; scratch logs are session-local.\", \"git_sha\": \"73da4164038a59c3d780c3ba0b7c6c1bb9e202e7\", \"summary\": \"Cold Archive and shared finite incidents landed; CI running\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T16:42:19.986747Z",
+      "event_type": "update",
+      "id": 4458,
+      "payload": "{\"detail\": \"Forgejo commit status for 73da4164038a59c3d780c3ba0b7c6c1bb9e202e7 is success, bound to run18/API1276/job3734/task3090. Job logs confirm make check, 231 tests with zero failures, production Vite build and Job succeeded. Sixteen Chromium cases and eleven qualified guard mutations passed locally. Canonical main is landed, working tree clean; full implementation item remains active and reservation180 retained for remaining requirements.\", \"git_sha\": \"73da4164038a59c3d780c3ba0b7c6c1bb9e202e7\", \"summary\": \"Cold Archive exact-SHA canonical CI succeeded\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T17:32:19.540939Z",
+      "event_type": "update",
+      "id": 4471,
+      "payload": "{\"detail\": \"Canonical main 95a2d12b6dcbe52ad946743dcbbf80bc301fd413 implements the third selectable map: physical four-station civic train, finite 1200-matter supply, paid interruptible cargo/transport/crossing dispatches, real six-seat ground troop boarding and safe/emergency disembarkation, visible local corridor warnings and five-actor source incidents, public reset clock, spoofing and source fixture/hauler deconstruction. Rotating same-player blockers cannot reset the warning; different players receive a fresh window. Shared commands, fog filtering, AI dispatch and map-aware replay remain in use. Local check, 260 Node cases, full19 Chromium cases plus focused3 post-UI repeat, 14 Freight and11 Archive intended guard failures, and production build pass. Git is cross-host-replicated; served Vuoro durable-authoritative; scratch evidence session-local. Forgejo run19/API1279 is running; exact-SHA status remains to verify. Full goal/item remain active: physical program fixtures, role/doctrine tactical audit, typed actor extraction/concurrent sectors, terrain sight/network authority, console/Phaser/assets and scale/human playtests remain. Train invulnerability and schematic geometry are explicit prototype limitations.\", \"git_sha\": \"95a2d12b6dcbe52ad946743dcbbf80bc301fd413\", \"summary\": \"Freight Loop cargo, troop transit and corridor incidents landed; CI running\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T17:35:12.021093Z",
+      "event_type": "update",
+      "id": 4473,
+      "payload": "{\"detail\": \"Forgejo commit status for 95a2d12b6dcbe52ad946743dcbbf80bc301fd413 is success, bound to run19/API1279/job3740/task3096. Job logs confirm check, 260 tests with zero failures, production Vite build and Job succeeded. Local full19 browser cases, focused3 post-UI repeat and fourteen Freight/eleven Archive guard failures passed. Canonical main is landed and the working tree is clean. Full objective/item2610 remain active; reservation180 retained for remaining requirements. No production-readiness, asset-production, scale or human tactical-balance claim.\", \"git_sha\": \"95a2d12b6dcbe52ad946743dcbbf80bc301fd413\", \"summary\": \"Freight Loop exact-SHA canonical CI succeeded\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T18:09:48.406247Z",
+      "event_type": "update",
+      "id": 4480,
+      "payload": "{\"detail\": \"Canonical main 2d72f91986e69bb6a1ddaa92072510d4bb7218bd adds five persistent attackable gun sockets, travelling ground cannon fire, 70-matter/eight-second engineer restoration with one capacity lease, continuous eligibility and final-frame damage interruption, socket clearance, fog memory, shared commands/replay, AI restoration and inspector controls. All 281 Node cases pass; all 21 Chromium cases pass, with five focused cases rerun after final combat/controller edits; check/build pass. Eleven Security guard removals and compatible fourteen Freight/eleven Archive mutations fail through intended assertions. Active-gun map/inspector visually inspected; screenshots and logs session-local. Git is cross-host-replicated; Vuoro is durable-authoritative. Broker repo.write remains denied repository-unregistered; configured canonical SSH succeeds. Full goal and reservation remain active: other physical programs, tactical faction/doctrine audit, terrain LOS, asset pipeline and broader human/scale acceptance remain incomplete.\", \"git_sha\": \"2d72f91986e69bb6a1ddaa92072510d4bb7218bd\", \"summary\": \"Physical Security relay hardware landed; CI pending\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T18:11:14.195876Z",
+      "event_type": "update",
+      "id": 4481,
+      "payload": "{\"detail\": \"Forgejo run21/API1281 job3742 task3098 passed for canonical 2d72f91986e69bb6a1ddaa92072510d4bb7218bd. Exact commit status success; job logs confirm required check, 281 Node cases with zero failures, production build and Job succeeded (63 seconds). Local full browser suite21 and five final focused browser cases passed; eleven Security guard removals detected, fourteen Freight/eleven Archive compatible. Working tree clean. Item2610 and reservation180 remain active; full requested faction/gameplay/UI/asset acceptance remains incomplete as recorded in the implementation matrix.\", \"git_sha\": \"2d72f91986e69bb6a1ddaa92072510d4bb7218bd\", \"summary\": \"Security hardware exact-SHA CI passed\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T18:43:19.471831Z",
+      "event_type": "update",
+      "id": 4487,
+      "payload": "{\"detail\": \"Canonical main a68eac5c533dc9ceebba8765120dc90e13e88cfc adds destructible Sensor/Industry attachments, live local detection/spotting and ground/hauler repair, workshop-dependent Archive opening, shared paid engineer restoration, fog-safe inspector/replay/AI, and compact fixture routing fixes. Local checks: make check, 307 Node cases, 23 Chromium cases, build, 15 utility plus 11 Security/11 Archive/14 Freight guard removals passed; both utility inspectors visually reviewed. Forgejo run 22 API 1282 running. Full faction/mechanics scope and production assets remain open; reservation 180 remains active. Git is cross-host-replicated; this served note is durable-authoritative; local logs/screenshots are session-local.\", \"git_sha\": \"a68eac5c533dc9ceebba8765120dc90e13e88cfc\", \"summary\": \"Sensor and Industry relay hardware landed; exact-SHA CI running\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T18:45:03.676770Z",
+      "event_type": "update",
+      "id": 4489,
+      "payload": "{\"detail\": \"Canonical main a68eac5c533dc9ceebba8765120dc90e13e88cfc has successful exact-commit Prototype checks / simulation status. Forgejo run 22 (API 1282), job 3743/task 3099 finished successfully with check, 307 Node tests (zero failures), and production build. Local 23 Chromium cases and 51 falsifying guard checks also passed. Working tree clean. Full launch-faction/mechanics acceptance and original asset production remain pending; item 2610 and reservation 180 stay active.\", \"git_sha\": \"a68eac5c533dc9ceebba8765120dc90e13e88cfc\", \"summary\": \"Exact-SHA CI passed for physical Sensor and Industry hardware\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T18:59:08.888523Z",
+      "event_type": "update",
+      "id": 4493,
+      "payload": "{\"detail\": \"Canonical main 10e7f5398c1017895ed7df485b81a573e385f994 makes printed and Sealer barriers intercept rifles, cannons, piercing rounds and ground missiles at exact first surface contact. Friendly cover stops fire without harm; siege arcs and air combat pass overhead. Security guns share interception, sector jurisdiction and simultaneous damage stay intact, and hidden tracer endpoints are suppressed. A341-offset probe found and qualified surface-contact rounding with a1e-7 tolerance. Local final check, 324 Node cases, 23 Chromium cases, build and 13 new plus 51 existing guard removals passed; real paid-printing replay visually reviewed. Forgejo run23 API1283 running. Full objective and asset/tactical acceptance remain open. Git is cross-host-replicated; served evidence is durable-authoritative; local logs/screens are session-local.\", \"git_sha\": \"10e7f5398c1017895ed7df485b81a573e385f994\", \"summary\": \"Physical direct-fire barrier cover landed; exact-SHA CI running\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T19:01:10.179805Z",
+      "event_type": "update",
+      "id": 4494,
+      "payload": "{\"detail\": \"Canonical main 10e7f5398c1017895ed7df485b81a573e385f994 has successful exact-commit Prototype checks / simulation status. Forgejo run23 API1283, job3744/task3100 succeeded with required check, 324 Node cases (zero failures) and build. Local final 23 Chromium cases, 13 cover guard removals and requalified51 existing hardware/map removals passed. Working tree clean. Full faction/mechanics objective remains active: authored terrain/LOS, structure production, controller/formation/scale acceptance, richer UI and original assets/tactical proof are still incomplete. Item2610/reservation180 stay active.\", \"git_sha\": \"10e7f5398c1017895ed7df485b81a573e385f994\", \"summary\": \"Exact-SHA CI passed for physical barrier cover\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T19:43:29.284429Z",
+      "event_type": "update",
+      "id": 4497,
+      "payload": "{\"detail\": \"104 original presentations / 167 states, paired ownership-mask atlases, immutable purchased identities and bounded selective Canvas loading. Local check/build, 330 Node cases and all 28 browser cases passed. Two pinned builds byte-identical; malformed pixel/tool fixtures rejected. Three public frame IDs received an exact-value gitleaks false-positive allowlist; hook stayed enabled. Operator requested a pause for tonight; full product scope remains unfinished.\", \"git_sha\": \"e75e4aaff9911c72bd65783e600eaf550ff25cf5\", \"summary\": \"Original static asset catalog landed; exact-SHA CI pending\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T19:46:38.622152Z",
+      "event_type": "update",
+      "id": 4498,
+      "payload": "{\"detail\": \"Canonical main f746d9e534487fd182648ae019378969dcf43751 passed exact-SHA Prototype checks / simulation in run 25 (1m38s). Local 330 Node cases and 28 browser cases pass. First run caught two command/build masters hidden by broad build/ ignore rule; root-only ignore corrected and sources tracked. Original static catalog is 104 presentations / 167 states; production art, faction/module recognition, full gameplay acceptance and scale remain unfinished. Keep item active; no completion claim. Work stops for tonight with a structured handoff.\", \"git_sha\": \"f746d9e534487fd182648ae019378969dcf43751\", \"summary\": \"Night checkpoint verified; operator paused further work\", \"git_branch\": \"main\"}",
+      "repo_id": "charterfall",
+      "source_type": "actor",
+      "sprint_id": 561,
+      "work_item_id": 2610
+    }
+  ],
+  "evidence": {
+    "dirty_files": [],
+    "items_with_refs": 2,
+    "recent_decision_count": 1,
+    "recent_event_count": 40,
+    "total_refs": 4,
+    "validation_outcomes": []
+  },
+  "freshness": {
+    "active_reservation_count": 1,
+    "dirty_file_count": 0,
+    "generated_at": "2026-10-04T19:46:39Z",
+    "previous_handoff_at": null,
+    "stale_item_count": 1
+  },
+  "generated_at": "2026-10-04T19:46:39Z",
+  "generated_from": {
+    "command": "sprintctl handoff",
+    "events_limit": 50
+  },
+  "git_context": {
+    "branch": "main",
+    "dirty_files": [],
+    "sha": "f746d9e534487fd182648ae019378969dcf43751",
+    "worktree": "/projects/dev/charterfall"
+  },
+  "items": [
+    {
+      "aggregate_uuid": "cc67ebbc-6520-480f-89f6-d5423d3a2385",
+      "assignee": null,
+      "created_at": "2026-10-04T08:14:51.008397Z",
+      "description": "Land original Charterfall direction, scribectl gamedev workspace, portable browser prototype, tests and CI.",
+      "id": 2605,
+      "legacy": false,
+      "priority": null,
+      "refs": [
+        {
+          "created_at": "2026-10-04T08:24:04.087578Z",
+          "id": 789,
+          "label": "Operator product direction",
+          "ref_type": "doc",
+          "repo_id": "charterfall",
+          "scope": {
+            "kind": "doc",
+            "value": "docs/DIRECTION.md"
+          },
+          "url": "docs/DIRECTION.md",
+          "work_item_id": 2605
+        },
+        {
+          "created_at": "2026-10-04T08:58:04.979462Z",
+          "id": 790,
+          "label": "Green foundation CI",
+          "ref_type": "other",
+          "repo_id": "charterfall",
+          "url": "https://git.apps.kotona.app/bayleaf/charterfall/actions/runs/2",
+          "work_item_id": 2605
+        }
+      ],
+      "repo_id": "charterfall",
+      "resolution": "accepted",
+      "sprint_id": 561,
+      "status": "done",
+      "terminal_decision_id": 208,
+      "title": "Initialize project and playable Spillway Nine systems slice",
+      "track_id": 1692,
+      "track_name": "foundation",
+      "updated_at": "2026-10-04T08:58:05.288817Z"
+    },
+    {
+      "aggregate_uuid": "2c1e3588-b00a-4e99-880b-5ef03352b9f4",
+      "assignee": null,
+      "created_at": "2026-10-04T08:20:15.763352Z",
+      "description": "Prove deterministic commands, physical terrain change, relay traits, mobile production and task-force support; record engine selection with executable evidence.",
+      "id": 2606,
+      "legacy": false,
+      "priority": 1,
+      "repo_id": "charterfall",
+      "resolution": null,
+      "sprint_id": 561,
+      "status": "pending",
+      "terminal_decision_id": null,
+      "title": "Compare OpenRA and Godot with a relay/flood/networking spike",
+      "track_id": 1693,
+      "track_name": "engine",
+      "updated_at": "2026-10-04T08:20:15.763352Z"
+    },
+    {
+      "aggregate_uuid": "0e48db8f-75f6-4b53-9d46-cab12e760876",
+      "assignee": null,
+      "created_at": "2026-10-04T08:21:24.801969Z",
+      "description": "Proper movement, visibility, hauler expansions, eight complete roles per faction, visible doctrines and safe multi-task-force reinforcement; retain link-raid comeback paths.",
+      "id": 2607,
+      "legacy": false,
+      "priority": 2,
+      "repo_id": "charterfall",
+      "resolution": null,
+      "sprint_id": 561,
+      "status": "pending",
+      "terminal_decision_id": null,
+      "title": "Complete the first serious playable milestone",
+      "track_id": 1694,
+      "track_name": "gameplay",
+      "updated_at": "2026-10-04T08:21:24.801969Z"
+    },
+    {
+      "aggregate_uuid": "c15ac5cf-3791-47b6-bfe0-a2154e308060",
+      "assignee": null,
+      "created_at": "2026-10-04T08:21:25.212183Z",
+      "description": "Surveyor, Reclaimer, Interdictor, Sealer and Warden with shared faction data, finite source-targeted incident deployments and sector recovery; separate environment/player controllers.",
+      "id": 2608,
+      "legacy": false,
+      "priority": 2,
+      "repo_id": "charterfall",
+      "resolution": null,
+      "sprint_id": 561,
+      "status": "pending",
+      "terminal_decision_id": null,
+      "title": "Deploy the five-unit faction-shaped neutral Array",
+      "track_id": 1695,
+      "track_name": "custodian",
+      "updated_at": "2026-10-04T08:21:25.212183Z"
+    },
+    {
+      "aggregate_uuid": "fc062b45-1b17-450e-84bc-44b9b41b2618",
+      "assignee": null,
+      "created_at": "2026-10-04T08:21:25.498400Z",
+      "description": "Three per faction: record link raids versus HQ rushes, local program choice and reserve/composition decisions; reject static dominant programs and queue automation that obscures command.",
+      "id": 2609,
+      "legacy": false,
+      "priority": 3,
+      "repo_id": "charterfall",
+      "resolution": null,
+      "sprint_id": 561,
+      "status": "pending",
+      "terminal_decision_id": null,
+      "title": "Observe six matches against the three core design questions",
+      "track_id": 1696,
+      "track_name": "playtest",
+      "updated_at": "2026-10-04T08:21:25.498400Z"
+    },
+    {
+      "aggregate_uuid": "e06441a6-b373-41b5-a02f-79282ceb1f01",
+      "assignee": null,
+      "created_at": "2026-10-04T09:43:49.613600Z",
+      "description": "User goal: three12-unit factions, six behavioral doctrines, five neutral Array actors; typed renderer-independent rules, armor/air/transports, terrain/pathfinding/fog, physical economy/mobile factories, multiple formation task forces, local powers, three forecast map systems, replayable commands and readable control console/assets. Planning agents dispatched by operator request; no playable Array expansion.",
+      "id": 2610,
+      "legacy": false,
+      "priority": 1,
+      "refs": [
+        {
+          "created_at": "2026-10-04T09:58:11.842517Z",
+          "id": 791,
+          "label": "Full implementation and completion matrix",
+          "ref_type": "doc",
+          "repo_id": "charterfall",
+          "scope": {
+            "kind": "doc",
+            "value": "docs/plans/IMPLEMENTATION.md"
+          },
+          "url": "docs/plans/IMPLEMENTATION.md",
+          "work_item_id": 2610
+        },
+        {
+          "created_at": "2026-10-04T09:58:12.144976Z",
+          "id": 792,
+          "label": "Asset creation architecture and inventory",
+          "ref_type": "doc",
+          "repo_id": "charterfall",
+          "scope": {
+            "kind": "doc",
+            "value": "docs/plans/ASSETS.md"
+          },
+          "url": "docs/plans/ASSETS.md",
+          "work_item_id": 2610
+        }
+      ],
+      "repo_id": "charterfall",
+      "resolution": null,
+      "sprint_id": 561,
+      "status": "active",
+      "terminal_decision_id": null,
+      "title": "Implement complete launch factions and stronger battlefield systems",
+      "track_id": 1694,
+      "track_name": "gameplay",
+      "updated_at": "2026-10-04T09:44:29.971366Z"
+    }
+  ],
+  "last_checkpoint": null,
+  "next_action": {
+    "item_id": 2610,
+    "kind": "refresh-stale-item",
+    "reason": "1 item(s) are stale and may be drifting out of date.",
+    "summary": "Refresh stale item #2610 before it drifts further."
+  },
+  "recent_decisions": [
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T09:58:12.429129Z",
+      "detail": "Select renderer-independent TypeScript systems plus Phaser target and semantic DOM HUD, retaining Canvas during migration. Original Blender-to-sprite pipeline with SVG catalog first. User explicitly confirmed neutral-only Array launch. Full objective remains active: complete doctrine abilities, deployed Custodians, command/navigation/visibility/economy/taskforces/maps/UI/assets require further implementation.",
+      "event_id": 4327,
+      "event_type": "decision",
+      "id": 4327,
+      "summary": "Planner selections recorded; three playable factions and neutral Array",
+      "tags": [],
+      "work_item_id": 2610
+    }
+  ],
+  "recent_events": [
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T08:15:04.277173Z",
+      "detail": null,
+      "event_id": 4306,
+      "event_type": "reservation.reserved",
+      "id": 4306,
+      "summary": "reservation.reserved",
+      "tags": [],
+      "work_item_id": 2605
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T08:24:04.369502Z",
+      "detail": "All 11 tests and Chromium desktop/mobile checks pass. fj repo create rejected write:user scope; broker deny repository-unregistered. No remote exists. Local commits are host-persistent; remote CI and landing remain outstanding. Await approved repository creation or target.",
+      "event_id": 4308,
+      "event_type": "blocker",
+      "id": 4308,
+      "summary": "Foundation locally verified; private forge repository creation denied",
+      "tags": [],
+      "work_item_id": 2605
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T08:24:43.632604Z",
+      "detail": null,
+      "event_id": 4309,
+      "event_type": "reservation.released",
+      "id": 4309,
+      "summary": "reservation.released",
+      "tags": [],
+      "work_item_id": 2605
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T08:55:06.777025Z",
+      "detail": null,
+      "event_id": 4314,
+      "event_type": "reservation.reserved",
+      "id": 4314,
+      "summary": "reservation.reserved",
+      "tags": [],
+      "work_item_id": 2605
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T08:58:05.288817Z",
+      "detail": null,
+      "event_id": 4317,
+      "event_type": "item-decided",
+      "id": 4317,
+      "summary": "item-decided",
+      "tags": [],
+      "work_item_id": 2605
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T08:58:05.609506Z",
+      "detail": null,
+      "event_id": 4318,
+      "event_type": "reservation.released",
+      "id": 4318,
+      "summary": "reservation.released",
+      "tags": [],
+      "work_item_id": 2605
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T09:06:33.295037Z",
+      "detail": "Revision e8eb2a862ee2ff0b71db26bdbf914ad3811729f8 is published and origin/main matches it. Forgejo run 4 (API run 1234), simulation job 3626/task 2953 succeeded after the shared runner queue cleared. Working tree is clean.",
+      "event_id": 4321,
+      "event_type": "update",
+      "id": 4321,
+      "summary": "Final main revision CI passed",
+      "tags": [],
+      "work_item_id": 2605
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T09:44:29.490494Z",
+      "detail": null,
+      "event_id": 4326,
+      "event_type": "reservation.reserved",
+      "id": 4326,
+      "summary": "reservation.reserved",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T09:58:12.429129Z",
+      "detail": "Select renderer-independent TypeScript systems plus Phaser target and semantic DOM HUD, retaining Canvas during migration. Original Blender-to-sprite pipeline with SVG catalog first. User explicitly confirmed neutral-only Array launch. Full objective remains active: complete doctrine abilities, deployed Custodians, command/navigation/visibility/economy/taskforces/maps/UI/assets require further implementation.",
+      "event_id": 4327,
+      "event_type": "decision",
+      "id": 4327,
+      "summary": "Planner selections recorded; three playable factions and neutral Array",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T10:04:41.382223Z",
+      "detail": "Commit 00206f0 on canonical main: UI, stack, gameplay and asset planning reconciled in docs/plans. Three playable faction catalogs, preserved doctrine purchases, air/armor targeting, passengers, local cultivation and assigned deployed fabrication started. Reviewer combat/unload defects corrected. 22 Node tests, 2 Playwright checks, production build and Forgejo Actions run 5 pass. Full implementation remains active; completion matrix explicitly tracks ownership separation, navigation, fog, physical economy, independent factories, real Array actors, map systems, task forces, renderer migration and asset production.",
+      "event_id": 4328,
+      "event_type": "update",
+      "id": 4328,
+      "summary": "Architecture and asset plans landed with verified faction migration increment",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T10:20:42.586440Z",
+      "detail": "Commit cab3f74: deterministic cached grid navigation, movement occupancy, command-structure and deployed footprints, flood/deployment invalidation and stranded-unit escape. Replaced invisible sector damage with Surveyor, Reclaimer, Interdictor, Sealer and Warden; physical source-owned recapture, repair/clearance, destructible expiring fixtures, finite deployment, no death respawns and local jurisdiction. Architectural review defects corrected. 38 Node tests, 2 browser checks and production build pass; guard mutations fail as expected. Full faction/mechanics objective remains active; see completion matrix.",
+      "event_id": 4330,
+      "event_type": "update",
+      "id": 4330,
+      "summary": "Terrain routing and five physical Custodian actors implemented",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T10:48:23.955859Z",
+      "detail": "Commit c6f5c00: independent per-factory bounded queues, packing/boarding pauses, whole-queue loss refunds, blocked exits and retained production through relocation. Up to eight owned editable forces, independent composition and factory assignment, global/per-force reserve floors, physical safe muster and delayed cohorts, stable vacant joining slots, role-aware right-drag frontage, dissolution refunds and stance/manual override. Disengage packs deployed units. Architectural crowd/rank defects corrected; 53 Node tests, 4 browser checks, build/type checks pass; four guard mutations fail as expected. Prior navigation/Array CI run 6 succeeded. Full implementation matrix remains active.",
+      "event_id": 4334,
+      "event_type": "update",
+      "id": 4334,
+      "summary": "Independent factories and maintained task forces landed",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T11:13:52.485540Z",
+      "detail": "main e9b56ea separates player IDs from faction data and enables all nine ordered launch pairings including mirrors. Browser and AI submit typed versioned commands with caller binding, sequence freshness, admission ownership and execution-time revalidation. Match JSON records initial config, step durations and AI commands; verifier reconstructs canonical final state. Future-then-immediate scheduling defect found by architecture review fixed with regression. 63 Node tests, five Chromium checks, typecheck and build pass locally. Disposable caller/sequence/execution-ownership/hash mutations fail their intended tests. Independent asset architecture review records SVG-first, Blender sprite production, atlas masks/pivots/memory/provenance gates. Full objective remains active: fog, finite expansion economy, complete doctrine verbs, richer maps, renderer/assets and observed match/performance evidence remain pending. CI pending verification.",
+      "event_id": 4338,
+      "event_type": "update",
+      "id": 4338,
+      "summary": "Validated command boundary, mirror ownership and verified match records landed",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T11:29:19.940409Z",
+      "detail": "main 996c79b adds rule-owned radial vision/exploration and last-seen HQ/relay memory. Filtered player/AI observations omit hidden enemies, enemy economics/orders and unseen doctrines/programs; notices and tracer audiences enforce visibility. Live shared spotting gates weapons and security; growth/occlusion require detection, disconnected sensors lose support, boarded/dead units grant no vision. Automated muster checks only observed threats. Architectural review caught and fixed cloned-relay identity disabling controls and lethal-shot effect disappearance. 75 Node tests, six Chromium checks, make check/test and build pass. Disposable hidden-unit, concealment, stale-memory and AI-targeting mutants fail corresponding tests. Rule version bumped to4; fog replay reconstructs and reads never change state. Previous commit e9b56ea canonical CI succeeded. Current CI pending. Full objective remains active: physical finite expansion economy, complete doctrine/faction verbs, richer maps, projectiles, renderer/assets, scale and human match evidence remain pending.",
+      "event_id": 4343,
+      "event_type": "update",
+      "id": 4343,
+      "summary": "Shared fog, stale observations and detection-aware spotting landed",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T12:00:51.954264Z",
+      "detail": "Canonical main c83d97a adds seven finite seams, bounded physical cargo delivery/recovery, paid hauler replacement, independent refinery queues, interruptible engineer construction, damage-scaled cancellation refunds, fog-safe economy views, typed logistics commands and browser controls. Asset architecture planner refined content-derived inventory and selected SVG-first then original Blender orthographic sprite pipeline with A0-A4 backlog. Local make check/test/build passed: 90 tests and seven Chromium checks. Five disposable economy guard mutations failed their intended scenarios. Canonical CI run 10 (API 1260) waiting at publication. Full faction abilities, map headline systems, production assets, renderer migration and match/performance evidence remain active scope.",
+      "event_id": 4348,
+      "event_type": "update",
+      "id": 4348,
+      "summary": "Physical finite economy and asset architecture landed",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T12:22:19.575675Z",
+      "detail": "Canonical main 2057275 implements paid interruptible Continuity one-use flood permits and Freehold bounded Audit spoofing with Surveyor detection, plus temporary permanent-origin network links with channel/active capacity reservation. Ownership/source/finite deployment budget remain unchanged. Actor/endpoint/tether loss removes effects, dependency cuts interrupt programming and reset Mandate; ordinary units keep fighting. Browser field office and observation-filtered indicators expose abilities; Freehold AI uses observed opportunities. make check/test/build passed: 106 Node scenarios and eight Chromium checks. Seven disposable guard mutations fail intended tests, including actual same-tick attack/repair. Independent review found no additional demonstrated blocker. Prior logistics c83d97a canonical run 10 API 1260 job 3700 task 3023 passed; new infrastructure CI pending verification. Full doctrine behaviors, physical relay fixtures, additional maps, original asset production, renderer migration, performance and human match evidence remain unfinished.",
+      "event_id": 4351,
+      "event_type": "update",
+      "id": 4351,
+      "summary": "Faction authorization spoofing and tethered bypass landed",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T12:22:41.680920Z",
+      "detail": "Verified Forgejo run 11 API 1263 simulation job 3706 task 3030 success after canonical main 2057275 publication. Local verification also passed 106 Node scenarios, eight Chromium scenarios, production build and seven deliberate guard defects. Scope remains active; this increment does not complete full faction/doctrine/map/art/performance acceptance.",
+      "event_id": 4352,
+      "event_type": "update",
+      "id": 4352,
+      "summary": "Infrastructure increment canonical CI passed",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T13:57:07.853485Z",
+      "detail": "Canonical main 3e296aa0843d6fd33a5b8c2da3c19a4459ce2ba6: Security barriers, Ghost concealment, finite shared wreck ledgers, explicit scrap and one-use immutable Mechanist rebuild, deployed-only entrenchment, exact single-unit movement, observation-filtered controls/replays. Local make check, 124 Node tests, build and 9 Chromium browser tests passed. Seven disposable guard removals ran all18 fieldwork tests and failed their intended assertions. Independent asset architect retained SVG then Blender pipeline and corrected wreck inventory/tool availability. Full objective remains active; matrix records remaining behavior, maps, presentation and tactical evidence. Canonical CI pending verification.",
+      "event_id": 4405,
+      "event_type": "update",
+      "id": 4405,
+      "summary": "Landed doctrine fieldwork and finite wreck recovery",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T14:10:30.843975Z",
+      "detail": "Forgejo canonical run12 API1266 job3715 task3070 completed success for published 3e296aa0843d6fd33a5b8c2da3c19a4459ce2ba6. Local browser and mutation evidence already recorded in note4405. Full objective stays active; timed deployment and capability gates are now under implementation.",
+      "event_id": 4416,
+      "event_type": "update",
+      "id": 4416,
+      "summary": "Canonical CI passed for doctrine fieldwork",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T14:17:39.413050Z",
+      "detail": "Canonical main dbe8fb1c794a02acf7f81238245387867d9ee8f1: renderer-independent typed deployment state, purchase-specific setup/pack times, lance/siege weapon gates for all5 target families, operational sensor detection/spotting and anchoring, held physical footprints, automatic normal packing and preserved emergency disengage, boarding reset, fabrication/fieldwork/refinery phase exclusion. AI holds transitions instead of cancelling its own setup. Local make check, make test136, production build and10 Chromium browser cases pass. Eight disposable guard removals each ran12 deployment scenarios and failed their intended checks. Ruleset8 replay/observation evidence documented. Full objective remains active with Helix variants, local powers, further maps, combat/presentation/traffic and observed tactical evidence pending.",
+      "event_id": 4418,
+      "event_type": "update",
+      "id": 4418,
+      "summary": "Landed timed deployment and operational gates",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T14:47:09.008411Z",
+      "detail": "Forgejo run13 API1269 job3724 task3079 completed success for dbe8fb1c794a02acf7f81238245387867d9ee8f1. The full item remains active; Helix three-program cultivation, public biological Audits and doctrine carrier/repair behavior are now being validated.",
+      "event_id": 4427,
+      "event_type": "update",
+      "id": 4427,
+      "summary": "Canonical deployment CI passed",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T14:51:55.685559Z",
+      "detail": "Canonical main c1c6c82ea8c26053b4c01ee12e3daf123cab500b: three paid interruptible terrain programs, immutable standard/Bloom/Spine profiles, strongest-rate ground repair/transit, finite shared quotas, physical light-armor growth cores and flood destruction, local pruning, three-cultivator Pollen cargo. Aquifer biological reserve opens source-owned finite five-actor Audit at3 local growths, supports pre-containment withdrawal and120s player cooldown, preserves chosen water schedule. Observation-filtered controls and command-only replays verified. Local make check/test154, build and11 Chromium browser cases passed; eight disposable guard removals ran18 scenarios and failed intended checks. Ruleset9 contract and additional asset requirements documented. Full objective remains active; role/doctrine audit, combat/projectiles, map/power/fixture expansion, presentation/assets and tactical-scale evidence are still pending.",
+      "event_id": 4432,
+      "event_type": "update",
+      "id": 4432,
+      "summary": "Landed Helix cultivation and finite biological Audits",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T14:52:48.818275Z",
+      "detail": "Forgejo canonical run14 API1271 job3729 task3085 completed success for c1c6c82ea8c26053b4c01ee12e3daf123cab500b. Local154 simulation tests,11 browser cases and negative guard evidence are recorded in note4432 and docs/COMMANDS.md. Main tracks canonical origin; full implementation objective remains active.",
+      "event_id": 4433,
+      "event_type": "update",
+      "id": 4433,
+      "summary": "Canonical Helix cultivation CI passed",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T15:34:50.094598Z",
+      "detail": "Commit fa3564cb1a6abbc6f1a1f3684387c60e4b5d18cf adds delayed ballistic/guided fire, bounded hostile ground splash, visible-target focus commands, ordinary stop-to-fire, simultaneous acquisition/damage, casualty-safe capture and paid fieldwork completion, explicit mutual-HQ draws, fog-filtered projectile/effect presentation and ruleset10 replay. Local make check, 178 simulation tests, 12 Chromium cases, focused final browser verification, production build and eight disposable guard removals pass. Asset planner recommendations incorporated. Canonical CI pending verification. Full three-faction/maps/powers/asset/performance objective and reservation180 remain active; no completion claim.",
+      "event_id": 4437,
+      "event_type": "update",
+      "id": 4437,
+      "summary": "Landed projectile combat and simultaneous damage on canonical main",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T15:35:53.700058Z",
+      "detail": "Canonical Forgejo run15 API1272, simulation job3730 task3086 succeeded for pushed main fa3564cb1a6abbc6f1a1f3684387c60e4b5d18cf. Required check, 178 simulation tests and production build passed in CI; 12 Chromium cases and final focused browser check passed locally. Eight isolated combat guard removals fail intended assertions after baseline qualification. Sources and tests are cross-host-replicated in canonical Git; served work remains durable-authoritative. Full implementation objective and reservation180 remain active.",
+      "event_id": 4438,
+      "event_type": "update",
+      "id": 4438,
+      "summary": "Canonical CI passed for projectile combat increment",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T16:01:58.473047Z",
+      "detail": "cad094c2b10c78f27c90cca7c4d135faf06bfb39 adds Continuity relay isolation, Freehold sensor blackout and Helix occlusion fog; paid telegraphed wind-ups, capacity leases, live coverage/role/cooldown/ownership validation, simultaneous resolution, damage interruption, cut bypass endpoints, private observations, shared-command controls/AI and ruleset11 replay. Local make check, 202 simulation tests, 14 Chromium cases, production build and ten isolated guard-removal failures passed. Canonical CI awaiting verification. Full faction/maps/assets/performance objective and reservation180 remain active.",
+      "event_id": 4444,
+      "event_type": "update",
+      "id": 4444,
+      "summary": "Landed presence-gated faction powers on canonical main",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T16:03:34.511336Z",
+      "detail": "Follow-up cefd2750ab1fd45ef75e216ef15ef7b4c34339fd corrects an edit-script variable reuse that overwrote COMMANDS.md with ARCHITECTURE.md and ASSETS.md with IMPLEMENTATION.md in cad094c. Both original documents from fa3564c are now preserved byte-for-byte with only intended power additions appended (57 and6 added lines). Gameplay implementation and its 202 local tests, 14 browser cases, ten falsifying guard checks and build are unchanged. New canonical CI verification in progress; goal and reservation remain active.",
+      "event_id": 4445,
+      "event_type": "update",
+      "id": 4445,
+      "summary": "Restored original command and asset documentation after write error",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T16:04:45.104265Z",
+      "detail": "Exact current main cefd2750ab1fd45ef75e216ef15ef7b4c34339fd has success status for Prototype checks / simulation; Forgejo run17 API1275 job3733 task3089. CI logs prove required check, 202 tests all passing and build success. Original gameplay commit cad094c also passed run16. Fourteen Chromium cases and ten isolated guard-removal checks pass locally. Documentation correction preserves original command/asset contracts and adds only intended power sections. Git worktree clean; source/contracts cross-host-replicated and served work durable-authoritative. Full implementation objective and reservation180 remain active.",
+      "event_id": 4446,
+      "event_type": "update",
+      "id": 4446,
+      "summary": "Canonical CI passed for faction powers and documentation correction",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T16:41:43.430489Z",
+      "detail": "Canonical main 73da4164038a59c3d780c3ba0b7c6c1bb9e202e7 adds selectable Cold Archive, three finite paid vault layers, physical cargo and connected-owner capacity, interruption/cancellation, shared typed incident lifecycle with map-relative five-actor budget, Archive spoof/AI/replay/observed controls. Local make check, 231 Node cases, 16 Chromium cases and production build pass. npm run verify:archive qualifies clean tests then eleven guard removals fail intended assertions. CI run18/API1276 is currently running; exact-SHA status still to verify. Broker repo.write probe denied repository-unregistered; configured canonical SSH push succeeded without widening credentials. Full objective remains active: Freight Loop, typed actor extraction, richer physical programs, terrain sight/network authority, tactical role/doctrine audits, console/Phaser/assets and scale/human playtests remain. Git is cross-host-replicated; served Vuoro is durable-authoritative; scratch logs are session-local.",
+      "event_id": 4457,
+      "event_type": "update",
+      "id": 4457,
+      "summary": "Cold Archive and shared finite incidents landed; CI running",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T16:42:19.986747Z",
+      "detail": "Forgejo commit status for 73da4164038a59c3d780c3ba0b7c6c1bb9e202e7 is success, bound to run18/API1276/job3734/task3090. Job logs confirm make check, 231 tests with zero failures, production Vite build and Job succeeded. Sixteen Chromium cases and eleven qualified guard mutations passed locally. Canonical main is landed, working tree clean; full implementation item remains active and reservation180 retained for remaining requirements.",
+      "event_id": 4458,
+      "event_type": "update",
+      "id": 4458,
+      "summary": "Cold Archive exact-SHA canonical CI succeeded",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T17:32:19.540939Z",
+      "detail": "Canonical main 95a2d12b6dcbe52ad946743dcbbf80bc301fd413 implements the third selectable map: physical four-station civic train, finite 1200-matter supply, paid interruptible cargo/transport/crossing dispatches, real six-seat ground troop boarding and safe/emergency disembarkation, visible local corridor warnings and five-actor source incidents, public reset clock, spoofing and source fixture/hauler deconstruction. Rotating same-player blockers cannot reset the warning; different players receive a fresh window. Shared commands, fog filtering, AI dispatch and map-aware replay remain in use. Local check, 260 Node cases, full19 Chromium cases plus focused3 post-UI repeat, 14 Freight and11 Archive intended guard failures, and production build pass. Git is cross-host-replicated; served Vuoro durable-authoritative; scratch evidence session-local. Forgejo run19/API1279 is running; exact-SHA status remains to verify. Full goal/item remain active: physical program fixtures, role/doctrine tactical audit, typed actor extraction/concurrent sectors, terrain sight/network authority, console/Phaser/assets and scale/human playtests remain. Train invulnerability and schematic geometry are explicit prototype limitations.",
+      "event_id": 4471,
+      "event_type": "update",
+      "id": 4471,
+      "summary": "Freight Loop cargo, troop transit and corridor incidents landed; CI running",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T17:35:12.021093Z",
+      "detail": "Forgejo commit status for 95a2d12b6dcbe52ad946743dcbbf80bc301fd413 is success, bound to run19/API1279/job3740/task3096. Job logs confirm check, 260 tests with zero failures, production Vite build and Job succeeded. Local full19 browser cases, focused3 post-UI repeat and fourteen Freight/eleven Archive guard failures passed. Canonical main is landed and the working tree is clean. Full objective/item2610 remain active; reservation180 retained for remaining requirements. No production-readiness, asset-production, scale or human tactical-balance claim.",
+      "event_id": 4473,
+      "event_type": "update",
+      "id": 4473,
+      "summary": "Freight Loop exact-SHA canonical CI succeeded",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T18:09:48.406247Z",
+      "detail": "Canonical main 2d72f91986e69bb6a1ddaa92072510d4bb7218bd adds five persistent attackable gun sockets, travelling ground cannon fire, 70-matter/eight-second engineer restoration with one capacity lease, continuous eligibility and final-frame damage interruption, socket clearance, fog memory, shared commands/replay, AI restoration and inspector controls. All 281 Node cases pass; all 21 Chromium cases pass, with five focused cases rerun after final combat/controller edits; check/build pass. Eleven Security guard removals and compatible fourteen Freight/eleven Archive mutations fail through intended assertions. Active-gun map/inspector visually inspected; screenshots and logs session-local. Git is cross-host-replicated; Vuoro is durable-authoritative. Broker repo.write remains denied repository-unregistered; configured canonical SSH succeeds. Full goal and reservation remain active: other physical programs, tactical faction/doctrine audit, terrain LOS, asset pipeline and broader human/scale acceptance remain incomplete.",
+      "event_id": 4480,
+      "event_type": "update",
+      "id": 4480,
+      "summary": "Physical Security relay hardware landed; CI pending",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T18:11:14.195876Z",
+      "detail": "Forgejo run21/API1281 job3742 task3098 passed for canonical 2d72f91986e69bb6a1ddaa92072510d4bb7218bd. Exact commit status success; job logs confirm required check, 281 Node cases with zero failures, production build and Job succeeded (63 seconds). Local full browser suite21 and five final focused browser cases passed; eleven Security guard removals detected, fourteen Freight/eleven Archive compatible. Working tree clean. Item2610 and reservation180 remain active; full requested faction/gameplay/UI/asset acceptance remains incomplete as recorded in the implementation matrix.",
+      "event_id": 4481,
+      "event_type": "update",
+      "id": 4481,
+      "summary": "Security hardware exact-SHA CI passed",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T18:43:19.471831Z",
+      "detail": "Canonical main a68eac5c533dc9ceebba8765120dc90e13e88cfc adds destructible Sensor/Industry attachments, live local detection/spotting and ground/hauler repair, workshop-dependent Archive opening, shared paid engineer restoration, fog-safe inspector/replay/AI, and compact fixture routing fixes. Local checks: make check, 307 Node cases, 23 Chromium cases, build, 15 utility plus 11 Security/11 Archive/14 Freight guard removals passed; both utility inspectors visually reviewed. Forgejo run 22 API 1282 running. Full faction/mechanics scope and production assets remain open; reservation 180 remains active. Git is cross-host-replicated; this served note is durable-authoritative; local logs/screenshots are session-local.",
+      "event_id": 4487,
+      "event_type": "update",
+      "id": 4487,
+      "summary": "Sensor and Industry relay hardware landed; exact-SHA CI running",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T18:45:03.676770Z",
+      "detail": "Canonical main a68eac5c533dc9ceebba8765120dc90e13e88cfc has successful exact-commit Prototype checks / simulation status. Forgejo run 22 (API 1282), job 3743/task 3099 finished successfully with check, 307 Node tests (zero failures), and production build. Local 23 Chromium cases and 51 falsifying guard checks also passed. Working tree clean. Full launch-faction/mechanics acceptance and original asset production remain pending; item 2610 and reservation 180 stay active.",
+      "event_id": 4489,
+      "event_type": "update",
+      "id": 4489,
+      "summary": "Exact-SHA CI passed for physical Sensor and Industry hardware",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T18:59:08.888523Z",
+      "detail": "Canonical main 10e7f5398c1017895ed7df485b81a573e385f994 makes printed and Sealer barriers intercept rifles, cannons, piercing rounds and ground missiles at exact first surface contact. Friendly cover stops fire without harm; siege arcs and air combat pass overhead. Security guns share interception, sector jurisdiction and simultaneous damage stay intact, and hidden tracer endpoints are suppressed. A341-offset probe found and qualified surface-contact rounding with a1e-7 tolerance. Local final check, 324 Node cases, 23 Chromium cases, build and 13 new plus 51 existing guard removals passed; real paid-printing replay visually reviewed. Forgejo run23 API1283 running. Full objective and asset/tactical acceptance remain open. Git is cross-host-replicated; served evidence is durable-authoritative; local logs/screens are session-local.",
+      "event_id": 4493,
+      "event_type": "update",
+      "id": 4493,
+      "summary": "Physical direct-fire barrier cover landed; exact-SHA CI running",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T19:01:10.179805Z",
+      "detail": "Canonical main 10e7f5398c1017895ed7df485b81a573e385f994 has successful exact-commit Prototype checks / simulation status. Forgejo run23 API1283, job3744/task3100 succeeded with required check, 324 Node cases (zero failures) and build. Local final 23 Chromium cases, 13 cover guard removals and requalified51 existing hardware/map removals passed. Working tree clean. Full faction/mechanics objective remains active: authored terrain/LOS, structure production, controller/formation/scale acceptance, richer UI and original assets/tactical proof are still incomplete. Item2610/reservation180 stay active.",
+      "event_id": 4494,
+      "event_type": "update",
+      "id": 4494,
+      "summary": "Exact-SHA CI passed for physical barrier cover",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T19:43:29.284429Z",
+      "detail": "104 original presentations / 167 states, paired ownership-mask atlases, immutable purchased identities and bounded selective Canvas loading. Local check/build, 330 Node cases and all 28 browser cases passed. Two pinned builds byte-identical; malformed pixel/tool fixtures rejected. Three public frame IDs received an exact-value gitleaks false-positive allowlist; hook stayed enabled. Operator requested a pause for tonight; full product scope remains unfinished.",
+      "event_id": 4497,
+      "event_type": "update",
+      "id": 4497,
+      "summary": "Original static asset catalog landed; exact-SHA CI pending",
+      "tags": [],
+      "work_item_id": 2610
+    },
+    {
+      "actor": "workstation-vuoro",
+      "created_at": "2026-10-04T19:46:38.622152Z",
+      "detail": "Canonical main f746d9e534487fd182648ae019378969dcf43751 passed exact-SHA Prototype checks / simulation in run 25 (1m38s). Local 330 Node cases and 28 browser cases pass. First run caught two command/build masters hidden by broad build/ ignore rule; root-only ignore corrected and sources tracked. Original static catalog is 104 presentations / 167 states; production art, faction/module recognition, full gameplay acceptance and scale remain unfinished. Keep item active; no completion claim. Work stops for tonight with a structured handoff.",
+      "event_id": 4498,
+      "event_type": "update",
+      "id": 4498,
+      "summary": "Night checkpoint verified; operator paused further work",
+      "tags": [],
+      "work_item_id": 2610
+    }
+  ],
+  "reservation_model": {
+    "exclusive": false,
+    "maintenance_interrupt_after_days": 7.0,
+    "maintenance_interrupt_trigger": "explicit 'sprintctl maintain sweep' only",
+    "ownership_proof": null,
+    "reassign_command": "sprintctl reservation reassign",
+    "stale_after_hours": 4.0
+  },
+  "resume_instructions": [
+    "Read this handoff bundle first.",
+    "Refresh live state with 'sprintctl usage --context --json'.",
+    "List active reservations with 'sprintctl reservation list --all --json'."
+  ],
+  "sprint": {
+    "aggregate_uuid": "a0bd450d-5a4f-495d-91cd-14611d61786c",
+    "created_at": "2026-10-04T08:09:58.461207Z",
+    "end_date": null,
+    "goal": "Establish Charterfall and prove the relay, flood and maintenance loop",
+    "id": 561,
+    "kind": "active_sprint",
+    "name": "2026-S01-spillway-foundation",
+    "repo_id": "charterfall",
+    "start_date": null,
+    "status": "active"
+  },
+  "sprintctl_version": "0.11.0",
+  "summary": {
+    "active": 1,
+    "active_reservations": 1,
+    "active_unreserved": 0,
+    "blocked": 0,
+    "done": 1,
+    "pending": 4,
+    "ready": 4,
+    "stale": 1,
+    "total": 6,
+    "waiting_on_dependencies": 0
+  },
+  "work": {
+    "active_items": [
+      {
+        "id": 2610,
+        "title": "Implement complete launch factions and stronger battlefield systems",
+        "track": "gameplay"
+      }
+    ],
+    "active_unreserved_items": [],
+    "blocked_items": [],
+    "ready_items": [
+      {
+        "id": 2606,
+        "title": "Compare OpenRA and Godot with a relay/flood/networking spike",
+        "track": "engine"
+      },
+      {
+        "id": 2607,
+        "title": "Complete the first serious playable milestone",
+        "track": "gameplay"
+      },
+      {
+        "id": 2608,
+        "title": "Deploy the five-unit faction-shaped neutral Array",
+        "track": "custodian"
+      },
+      {
+        "id": 2609,
+        "title": "Observe six matches against the three core design questions",
+        "track": "playtest"
+      }
+    ],
+    "stale_items": [
+      {
+        "id": 2610,
+        "idle_seconds": 36129,
+        "status": "active",
+        "title": "Implement complete launch factions and stronger battlefield systems",
+        "track": "gameplay"
+      }
+    ]
+  }
+}

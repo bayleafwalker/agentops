@@ -92,5 +92,5 @@ Digest definition: v5 (see the handoffs README).
 
 ## Successor
 
-- session: (unacknowledged)
-- acknowledged: —
+- session: 01a15d5d-7e52-77d3-95ec-0ea33036c90d
+- acknowledged: 2026-10-21T08:51:40Z

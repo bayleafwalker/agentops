@@ -10,3 +10,13 @@ condition = "AND"
 paths = ['''^scripts/tests/test_host_adapter\.py$''']
 regexTarget = "secret"
 regexes = ['''^delegation\.(mint|revoke)\.0001$''']
+
+[[rules]]
+id = "sourcegraph-access-token"
+
+[[rules.allowlists]]
+description = "Git object IDs (40 lowercase hex) recorded as `head` in handoff repo state; the sourcegraph rule matches any 40-hex run"
+condition = "AND"
+paths = ['''^docs/dispatch/handoffs/[^/]+\.json$''']
+regexTarget = "line"
+regexes = ['''^\s*"head": "[0-9a-f]{40}",?$''']
