@@ -489,6 +489,216 @@ class VuoroCloudDerivationTests(unittest.TestCase):
         self.assertEqual(recovery_of(env)["value"]["class"], "cancel")
 
 
+ALLOWLIST_TEXT = (ROOT / estate.HELD_ALLOWLIST_REL).read_text()
+ALLOWLIST_SCHEMA = json.loads((ROOT / "environment-record/vuoro-cloud-held-workspaces.schema.json").read_text())
+HELD = {"01M14W25EYKCEX0BTYK1WHJAAK": "blocker12-canary", "01M3CA7V972W3HQSYWBG7V6JBB": "isolation-proof",
+        "01M43WESAQZQB85189TCYRZCVG": "g2-gen71-canary", "01M4H11J5G9RA2DC0XHXRV7VC0": "g3-gen72-canary"}
+UNLISTED = "01M5ZZZZZZZZZZZZZZZZZZZZZZ"
+
+
+def served(wid, **fields):
+    return {"id": wid, "state": "READY", "maintenance_mode": True, "active_migration_id": None,
+            "since": "2026-10-03T18:28:11Z", **fields}
+
+
+def with_tenants(workspaces, allowlist_text=ALLOWLIST_TEXT):
+    """cloud_full_env with the tenant facts built exactly as collect_vuoro_cloud builds them."""
+    env = cloud_full_env()
+    h = env["held"]
+    h["tenants_in_maintenance"] = k([estate._maintenance_label(w) for w in workspaces])
+    try:
+        allowlist = k(estate.parse_held_allowlist(allowlist_text))
+    except ValueError as error:
+        allowlist = u(f"malformed: {error}")
+    h["tenant_hold_review"] = estate._tenant_hold_review(k(workspaces), allowlist)
+    return env
+
+
+AGENTOPS_MAIN = json.loads((FIXTURES / "agentops.ls-remote.json").read_text())["stdout"].split()[0]
+
+
+def replay_cloud(workspaces, allowlist_text=ALLOWLIST_TEXT, local_main=AGENTOPS_MAIN):
+    """Full replay with rollout/status serving ``workspaces``, the local agentops origin/main at
+    ``local_main`` and the allowlist fixture present."""
+    with tempfile.TemporaryDirectory() as tmp:
+        for path in FIXTURES.iterdir():
+            fixture = json.loads(path.read_text())
+            if path.name == "vuoro-cloud.rollout-status.json":
+                body = json.loads(fixture["body"])
+                body["maintenance_workspaces"] = workspaces
+                fixture["body"] = json.dumps(body)
+            (Path(tmp) / path.name).write_text(json.dumps(fixture))
+        (Path(tmp) / "vuoro-cloud.agentops-main.local.json").write_text(json.dumps(
+            {"ok": True, "rc": 0, "stdout": local_main + "\n", "stderr": "", "observed_at": T,
+             "evidence": "git rev-parse"}))
+        if allowlist_text is not None:
+            (Path(tmp) / "vuoro-cloud.held-allowlist.json").write_text(json.dumps(
+                {"ok": True, "rc": 0, "stdout": allowlist_text, "stderr": "", "observed_at": T,
+                 "evidence": "git show"}))
+        report = replay(["vuoro-cloud"], directory=Path(tmp))
+    return report, by_id(report)["vuoro-cloud"]
+
+
+class HeldWorkspaceAllowlistTests(unittest.TestCase):
+    def gate(self, env):
+        return gate_of(estate.derive_vuoro_cloud_gate, env)
+
+    def test_repo_allowlist_matches_schema_and_parser(self):
+        doc = json.loads(ALLOWLIST_TEXT)
+        self.assertEqual(schema_check.validate(doc, ALLOWLIST_SCHEMA), [])
+        parsed = estate.parse_held_allowlist(ALLOWLIST_TEXT)
+        self.assertEqual({w: e["slug"] for w, e in parsed.items()}, HELD)
+        for entry in parsed.values():
+            self.assertIs(entry["expected_maintenance_mode"], True)
+            self.assertIs(entry["expected_read_only"], True)
+            self.assertEqual(entry["expected_state"], "READY")
+            self.assertTrue(entry["retire_blocked_by"])
+
+    def test_allowlisted_and_matching_is_held_by_design_not_a_hold(self):
+        workspaces = [served(w) for w in HELD]
+        env = with_tenants(workspaces)
+        gate = self.gate(env)
+        self.assertEqual(gate["value"]["gate"], "none")
+        self.assertIn("held-by-design: 01M3CA7V972W3HQSYWBG7V6JBB (isolation-proof, test workspace held by design",
+                      gate["value"]["detail"])
+        self.assertEqual(len([n for n in gate["value"]["notes"] if n.startswith("held-by-design")]), 4)
+        # Evidence is kept in full: every served id is still in held.tenants_in_maintenance.
+        self.assertEqual(len(env["held"]["tenants_in_maintenance"]["value"]), 4)
+        self.assertEqual(env["held"]["tenant_hold_review"]["value"]["blocking"], [])
+        self.assertEqual(recovery_of(env)["value"]["class"], "image-revert")
+
+    def test_served_read_only_must_match_when_present(self):
+        wid = "01M43WESAQZQB85189TCYRZCVG"
+        self.assertEqual(self.gate(with_tenants([served(wid, read_only=True)]))["value"]["gate"], "none")
+        self.assertEqual(self.gate(with_tenants([served(wid, read_only=False)]))["value"]["gate"], "holds")
+
+    def test_allowlisted_but_deviating_still_holds(self):
+        wid = "01M3CA7V972W3HQSYWBG7V6JBB"
+        for fields in ({"maintenance_mode": False}, {"state": "MIGRATING"}, {"state": "MAINTENANCE"},
+                       {"active_migration_id": "mig-1"}, {"read_only": False}, {"maintenance_mode": "yes"},
+                       {"maintenance_mode": None}, {"state": None}):
+            with self.subTest(fields=fields):
+                gate = self.gate(with_tenants([served(wid, **fields)]))
+                self.assertEqual(gate["value"]["gate"], "holds")
+                self.assertIn(f"tenants_in_maintenance=['{wid}", gate["value"]["detail"])
+                self.assertIn(f"allowlist deviates, blocking: {wid} (isolation-proof)", gate["value"]["detail"])
+                self.assertNotIn("held-by-design", gate["value"]["detail"])
+
+    def test_non_listed_workspace_holds(self):
+        gate = self.gate(with_tenants([served(UNLISTED)]))
+        self.assertEqual(gate["value"]["gate"], "holds")
+        self.assertIn(UNLISTED, gate["value"]["detail"])
+
+    def test_mixed_blocks_only_on_the_unlisted_and_names_the_rest(self):
+        workspaces = [served(w) for w in HELD] + [served(UNLISTED, state="MAINTENANCE")]
+        gate = self.gate(with_tenants(workspaces))
+        detail = gate["value"]["detail"]
+        self.assertEqual(gate["value"]["gate"], "holds")
+        held_part = detail.split("; held-by-design")[0]
+        self.assertIn(UNLISTED, held_part)
+        for wid in HELD:
+            self.assertNotIn(wid, held_part)
+            self.assertIn(f"held-by-design: {wid} ({HELD[wid]}", detail)
+
+    def test_stale_entry_is_signalled(self):
+        present = ["01M3CA7V972W3HQSYWBG7V6JBB", "01M43WESAQZQB85189TCYRZCVG"]
+        env = with_tenants([served(w) for w in present])
+        review = env["held"]["tenant_hold_review"]["value"]
+        self.assertEqual({e["id"] for e in review["allowlist_stale"]},
+                         {"01M14W25EYKCEX0BTYK1WHJAAK", "01M4H11J5G9RA2DC0XHXRV7VC0"})
+        gate = self.gate(env)
+        self.assertEqual(gate["value"]["gate"], "none")
+        self.assertIn("allowlist_stale: 01M14W25EYKCEX0BTYK1WHJAAK (blocker12-canary)", gate["value"]["detail"])
+        self.assertIn(estate.HELD_ALLOWLIST_REL, gate["value"]["detail"])
+        # No maintenance at all: every entry is stale, nothing blocks.
+        empty = self.gate(with_tenants([]))
+        self.assertEqual(empty["value"]["gate"], "none")
+        self.assertIn("allowlist_stale", empty["value"]["detail"])
+
+    def test_unusable_allowlist_exempts_nothing(self):
+        doc = json.loads(ALLOWLIST_TEXT)
+        broken = {
+            "duplicate id": {**doc, "entries": doc["entries"] + doc["entries"][:1]},
+            "maintenance false": {**doc, "entries": [{**doc["entries"][0], "expected_maintenance_mode": False}]},
+            "bad ulid": {**doc, "entries": [{**doc["entries"][0], "workspace_id": "ws1"}]},
+            "no reviewer": {**doc, "entries": [{**doc["entries"][0], "reviewer": ""}]},
+            "no blockers": {**doc, "entries": [{**doc["entries"][0], "retire_blocked_by": []}]},
+            "wrong schema": {**doc, "schema_version": "v0"},
+        }
+        for name, bad in broken.items():
+            with self.subTest(name=name):
+                with self.assertRaises(ValueError):
+                    estate.parse_held_allowlist(json.dumps(bad))
+                gate = self.gate(with_tenants([served(w) for w in HELD], json.dumps(bad)))
+                self.assertEqual(gate["value"]["gate"], "holds")
+                self.assertIn("allowlist unusable, nothing exempted", gate["value"]["detail"])
+
+    def test_missing_or_inconsistent_review_blocks_every_tenant_hold(self):
+        env = with_tenants([served(w) for w in HELD])
+        env["held"]["tenant_hold_review"] = u("not derived")
+        self.assertEqual(self.gate(env)["value"]["gate"], "holds")
+        env = with_tenants([served(w) for w in HELD])
+        env["held"]["tenants_in_maintenance"]["value"].append(UNLISTED)  # review no longer covers it
+        self.assertEqual(self.gate(env)["value"]["gate"], "holds")
+
+    def test_replayed_collection_reads_allowlist_from_origin_main(self):
+        report, env = replay_cloud([served(w) for w in HELD])
+        self.assertEqual(schema_check.validate(report, SCHEMA), [])
+        doc = env["document"]["held_workspace_allowlist"]
+        self.assertEqual(doc["status"], "known")
+        self.assertIn(f"origin/main({AGENTOPS_MAIN[:12]}):{estate.HELD_ALLOWLIST_REL}", doc["evidence"])
+        self.assertEqual(len(env["held"]["tenants_in_maintenance"]["value"]), 4)
+        self.assertEqual(len(env["held"]["tenant_hold_review"]["value"]["held_by_design"]), 4)
+        _, missing = replay_cloud([served(w) for w in HELD], allowlist_text=None)
+        self.assertEqual(missing["document"]["held_workspace_allowlist"]["status"], "unknown")
+        self.assertEqual(len(missing["held"]["tenant_hold_review"]["value"]["blocking"]), 4)
+
+    def test_stale_local_origin_main_exempts_nothing(self):
+        _, env = replay_cloud([served(w) for w in HELD], local_main="f" * 40)
+        doc = env["document"]["held_workspace_allowlist"]
+        self.assertEqual(doc["status"], "unknown")
+        self.assertIn("behind the remote", doc["reason"])
+        self.assertEqual(len(env["held"]["tenant_hold_review"]["value"]["blocking"]), 4)
+
+    def test_served_null_read_only_and_duplicate_ids_block(self):
+        wid = "01M43WESAQZQB85189TCYRZCVG"
+        self.assertEqual(self.gate(with_tenants([served(wid, read_only=None)]))["value"]["gate"], "holds")
+        gate = self.gate(with_tenants([served(wid), served(wid, state="MIGRATING")]))
+        self.assertEqual(gate["value"]["gate"], "holds")
+        self.assertIn("state=MIGRATING", gate["value"]["detail"].split("; held-by-design")[0])
+
+    def test_allowlist_rejects_unknown_keys_and_non_ready_state(self):
+        doc = json.loads(ALLOWLIST_TEXT)
+        for change in ({"expected_state": "MIGRATING"}, {"exempt_everything": True}):
+            with self.subTest(change=change):
+                bad = {**doc, "entries": [{**doc["entries"][0], **change}]}
+                self.assertNotEqual(schema_check.validate(bad, ALLOWLIST_SCHEMA), [])
+                with self.assertRaises(ValueError):
+                    estate.parse_held_allowlist(json.dumps(bad))
+
+    def test_notes_stay_with_the_holds_and_none_gates(self):
+        env = with_tenants([served(w) for w in HELD])
+        env["running"]["tenant_runtime_pin"] = k("sha256:" + "3" * 64)
+        gate = self.gate(env)
+        self.assertEqual(gate["value"]["gate"], "tenant-runtime-pin")
+        self.assertNotIn("held-by-design", gate["value"]["detail"])
+        self.assertNotIn("notes", gate["value"])
+
+    def test_malformed_route_data_is_unknown_never_a_pass(self):
+        for workspaces in ("x", ["01M3CA7V972W3HQSYWBG7V6JBB"], [{"state": "READY"}], [None]):
+            with self.subTest(workspaces=workspaces):
+                report, env = replay_cloud(workspaces)
+                self.assertEqual(schema_check.validate(report, SCHEMA), [])
+                self.assertEqual(env["held"]["tenants_in_maintenance"]["status"], "unknown")
+                self.assertEqual(env["held"]["tenant_hold_review"]["status"], "unknown")
+                full = cloud_full_env()
+                full["held"].update(tenants_in_maintenance=env["held"]["tenants_in_maintenance"],
+                                    tenant_hold_review=env["held"]["tenant_hold_review"])
+                gate = self.gate(full)
+                self.assertEqual(gate["status"], "unknown")
+                self.assertIn("holds", gate["reason"])
+
+
 class HostDerivationTests(unittest.TestCase):
     def current(self, host="devbox"):
         env = env_copy(host)

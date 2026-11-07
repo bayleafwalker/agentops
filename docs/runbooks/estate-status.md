@@ -30,7 +30,7 @@ Read-only guarantees:
 The report never decrypts secrets. `desired.compatibility_mirror_agrees` reports the non-secret half of `verify-runtime-pin.py`. The deployed tenant-runtime pin is `running.tenant_runtime_pin`, read only from a digest-only field of the operator rollout status (see the request below).
 
 How it derives its answers:
-- **Gate.** The next blocking gate is `none` only when every check passes and every hold is known and absent. Holds are suspended Kustomizations, CronJobs suspended without a Git declaration, Deployments scaled below their declared replicas, tenants in maintenance, and host holds. A local ref behind its remote, or a moved tag, makes desired state `unknown`, not a pass.
+- **Gate.** The next blocking gate is `none` only when every check passes and every hold is known and absent. Holds are suspended Kustomizations, CronJobs suspended without a Git declaration, Deployments scaled below their declared replicas, tenants in maintenance (except reviewed [workspaces held by design](#vuoro-cloud-workspaces-held-by-design)), and host holds. A local ref behind its remote, or a moved tag, makes desired state `unknown`, not a pass.
 - **Recovery class.** It is derived only when every input it depends on is known. For vuoro-shared, the migration Job's state is decisive:
   - not started: `cancel`;
   - running or Failed: `unknown`;
@@ -72,6 +72,35 @@ nor enabled launches proves inbox launch qualification, available authority,
 harness readiness or successful execution. The host gate checks the reported
 client state and holds; launch qualification remains outside this report.
 
+## vuoro-cloud workspaces held by design
+
+Some vuoro-cloud test workspaces stay in maintenance on purpose until they can be retired. They are listed in `environment-record/vuoro-cloud.held-workspaces.json` (schema `environment-record/vuoro-cloud-held-workspaces.schema.json`). Each entry has `workspace_id`, `slug`, `reason`, `reviewer`, `reviewed_on`, `expected_state`, `expected_maintenance_mode` (always `true`), `expected_read_only` and `retire_blocked_by`. The operator reviewed the current four entries on 2026-11-07 (`blocker12-canary`, `isolation-proof`, `g2-gen71-canary`, `g3-gen72-canary`; [readiness page §5](../dispatch/verification/2026-11-07-vuoro-cloud-workspace-readiness.md#5-estate-gate-semantics-for-held-test-workspaces-implemented-2026-11-07)).
+
+The report reads the list from agentops `origin/main`, never from the working tree. An entry therefore takes effect only once it is merged. The local `origin/main` must equal the remote `main` (checked with `git ls-remote`). If the clone is behind, the list is `unknown` and exempts nothing; rerun with `--fetch`. This way, an entry removed upstream cannot keep hiding a hold. The list is `document.held_workspace_allowlist`.
+
+A `maintenance_workspaces` entry from `rollout/status` stops blocking the `holds` gate only when all of these are true:
+
+- its id is on the list (`expected_state` is always `READY`);
+- the served `state` equals `expected_state`, and `maintenance_mode` is `true`;
+- if the route serves `read_only`, it equals `expected_read_only` (the route does not serve it yet, so it is not checked today);
+- `active_migration_id` is null or absent.
+
+Anything else still yields `holds`. That includes an id on the list whose served fields differ; the gate detail names it as `allowlist deviates, blocking`. It also includes a list that is missing or malformed: then nothing is exempted, and the detail says `held-workspace allowlist unusable`. Malformed route data makes the tenant facts and the gate `unknown`, never a pass.
+
+Nothing is dropped from the report:
+
+- `held.tenants_in_maintenance` still lists every served workspace.
+- `held.tenant_hold_review` splits them into `blocking`, `held_by_design`, `deviating` and `allowlist_stale`.
+- When the gate stops at `holds` or reports `none`, its detail and its `notes` list carry one `held-by-design: <id> (<slug>, <reason>)` line per exempted workspace. When the `holds` check cannot be evaluated, the same lines are appended to the gate's `unknown` reason. A gate that stops at an earlier or later check leaves them out; `held.tenant_hold_review` always has them.
+- `allowlist_stale` names listed ids that are no longer served in `maintenance_workspaces`, which is the signal to prune the list after a retirement.
+
+**Scope and risk.** This changes only the agentops estate report's `holds` gate. It does not change or exempt anything in vuoro-cloud's own rollout or fleet-convergence gates. The held workspaces must still be counted there, or be retired first. For example, `isolation-proof` is on tenant schema 2, so a rollout that requires every tenant on schema 3 must not proceed past it on the strength of this list. The list duplicates the server's `is_test` fact, so it is a stopgap. Follow-up items:
+
+- agentops#2877: deploy the retire worker.
+- agentops#2878: B4 base-backup and recovery qualification.
+- agentops#2879: serve `is_test`, `read_only` and a hold reason in `rollout/status`, so the list can be dropped.
+- agentops#2880: retire the four workspaces and delete their entries.
+
 ## What remains unknown, and why
 
 | Fact | Why it is unknown | What would make it known |
@@ -87,7 +116,7 @@ client state and holds; launch qualification remains outside this report.
 
 Both fields are additive to the existing operator `GET /api/control/v1/operator/rollout/status`, which already uses the operator token and returns `vuoro-rollout-status/v1`. Neither field requires decryption on the reader's side, and neither exposes a credential. `agentops estate status` already reads both when present; no change on the agentops side is needed.
 
-1. **`maintenance_workspaces`** (array; empty means none) lists every workspace whose `maintenance_mode` is true or whose `state` is `MAINTENANCE` or `MIGRATING`. Each entry is `{"id", "state", "maintenance_mode", "active_migration_id", "since"}`, built from the same `workspaces` columns that `cli_routes.py`'s rollout route already selects. The estate report treats a non-empty list as a hold and the empty list as "no tenant held".
+1. **`maintenance_workspaces`** (array; empty means none) lists every workspace whose `maintenance_mode` is true or whose `state` is `MAINTENANCE` or `MIGRATING`. Each entry is `{"id", "state", "maintenance_mode", "active_migration_id", "since"}`, built from the same `workspaces` columns that `cli_routes.py`'s rollout route already selects. The estate report treats a non-empty list as a hold, except entries on the reviewed held-by-design list whose served fields match (above), and the empty list as "no tenant held". Adding `slug`, `is_test`, `read_only` and a hold reason per entry (agentops#2879) would let the report drop that list.
 2. **`runtime_image`** is `{"digest": "sha256:<64 hex>", "source": "VUORO_CLOUD_RUNTIME_IMAGE"}`. The control plane fills it from its own environment, where the controller-runtime Secret has already been decrypted by Kubernetes, emitting the digest only and never the rest of the Secret. The estate report compares it with `config/compatibility.json` `packages.vuoro-service` at the predicted release tag. This replaces the decrypting half of `verify-runtime-pin.py` for read-only callers. An equivalent alternative is to move `VUORO_CLOUD_RUNTIME_IMAGE` out of the SOPS Secret into the plain `vuoro-compatibility` ConfigMap, since an image digest is not secret. That would make the pin readable from Git and from `kubectl get configmap`.
 
 Until both fields ship, vuoro-cloud's gate and recovery class stay `unknown`. That is correct, not a defect.

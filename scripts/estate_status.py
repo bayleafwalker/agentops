@@ -1111,20 +1111,26 @@ def _short(sha: str | None) -> str:
 
 
 def _gate(checks: list[tuple[str, Callable[[], tuple[bool | None, str]]]],
-          inputs: list[str]) -> dict[str, Any]:
-    """Walk ordered checks; the first blocking (or unevaluable) one is the next gate."""
+          inputs: list[str], notes: list[str] | None = None, notes_at: str | None = None) -> dict[str, Any]:
+    """Walk ordered checks; the first blocking (or unevaluable) one is the next gate.
+    ``notes`` (e.g. held-by-design tenants) are appended only when the gate stops at check
+    ``notes_at`` or nothing blocks, where they explain the result; other gates stay terse."""
     evidence = "derived from " + ", ".join(inputs)
+    tail = "".join(f"; {n}" for n in notes or [])
+    extra = {"notes": list(notes)} if notes else {}
     for name, check in checks:
+        here = name == notes_at
         try:
             passed, detail = check()
         except (KeyError, TypeError) as error:
             passed, detail = None, f"input missing: {error}"
         if passed is None:
-            return unknown(f"cannot evaluate gate {name!r}: {detail}", "derived", evidence)
+            return unknown(f"cannot evaluate gate {name!r}: {detail}{tail if here else ''}", "derived", evidence)
         if not passed:
-            return known({"gate": name, "detail": detail}, "derived", evidence, None)
+            return known({"gate": name, "detail": detail + (tail if here else ""), **(extra if here else {})},
+                         "derived", evidence, None)
     return known({"gate": "none", "detail": "desired == running and usable; no hold present or "
-                  "unknown; nothing blocks"}, "derived", evidence, None)
+                  "unknown; nothing blocks" + tail, **extra}, "derived", evidence, None)
 
 
 def _need(*facts: dict[str, Any] | None) -> str | None:
@@ -1346,7 +1352,8 @@ def _tag_tree_fact(probe: Probe, key: str, repo: Path, tag: str, remote_tags: di
     return current, at
 
 
-def collect_vuoro_cloud(probe: Probe, *, fetch: bool) -> dict[str, Any]:
+def collect_vuoro_cloud(probe: Probe, *, fetch: bool,
+                        agentops_main: dict[str, Any] | None = None) -> dict[str, Any]:
     cfg = VUORO_CLOUD
     repo = cfg["repo"]
     desired: dict[str, Any] = {}
@@ -1505,12 +1512,18 @@ def collect_vuoro_cloud(probe: Probe, *, fetch: bool) -> dict[str, Any]:
 
     held = held_from_running(running, declared)
     fleet = usable["fleet_rollout"]
-    held["tenants_in_maintenance"] = _rollout_field(
-        fleet, "maintenance_workspaces",
-        lambda v: [_maintenance_label(w) for w in v],
+    absent_maintenance = (
         "rollout/status carries no `maintenance_workspaces` field yet (requested from the vuoro-cloud "
         "lane, docs/runbooks/estate-status.md); per-workspace routes need membership and the "
         "workspaces table is reachable only through an audited database path")
+    held["tenants_in_maintenance"] = _rollout_field(
+        fleet, "maintenance_workspaces",
+        _maintenance_labels, absent_maintenance)
+    document = {"held_workspace_allowlist": held_workspace_allowlist(
+        probe, agentops_main or unknown("agentops remote main not observed", "live-api", "git ls-remote"))}
+    held["tenant_hold_review"] = _tenant_hold_review(
+        _rollout_field(fleet, "maintenance_workspaces", lambda v: v, absent_maintenance),
+        document["held_workspace_allowlist"])
     running["tenant_runtime_pin"] = _rollout_field(
         fleet, "runtime_image",
         _runtime_digest,
@@ -1518,7 +1531,7 @@ def collect_vuoro_cloud(probe: Probe, *, fetch: bool) -> dict[str, Any]:
         "vuoro-controller-runtime Secret and rollout/status has no digest-only `runtime_image` field "
         "yet (requested from the vuoro-cloud lane); this report never decrypts secrets")
     env = {"id": "vuoro-cloud", "kind": "cluster", "desired": desired, "running": running,
-           "usable": usable, "held": held, "document": {}, "receipts": {}}
+           "usable": usable, "held": held, "document": document, "receipts": {}}
     env["gate"] = derive_vuoro_cloud_gate(env)
     return env
 
@@ -1530,11 +1543,172 @@ def _runtime_digest(value: Any) -> str:
     return digest
 
 
+def _maintenance_labels(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        raise TypeError("maintenance_workspaces is not a list")
+    return [_maintenance_label(w) for w in value]
+
+
 def _maintenance_label(w: dict[str, Any]) -> str:
     """Workspace id plus the hold columns rollout/status already serves (state, maintenance_mode,
     since), so the gate detail says why a workspace is held. The route serves no slug or reason."""
+    if not isinstance(w, dict) or not isinstance(w.get("id"), str) or not w["id"]:
+        raise TypeError(f"maintenance entry is not an object with a string id: {w!r}"[:200])
     extra = ", ".join(f"{k}={w[k]}" for k in ("state", "maintenance_mode", "since") if w.get(k) is not None)
     return f"{w['id']} ({extra})" if extra else w["id"]
+
+
+# Reviewed allowlist of vuoro-cloud workspaces held in maintenance by design. It is read
+# from agentops origin/main (merged, reviewed content only), never from the working tree.
+HELD_ALLOWLIST_REL = "environment-record/vuoro-cloud.held-workspaces.json"
+HELD_ALLOWLIST_SCHEMA = "vuoro-cloud-held-workspaces/v1"
+_ULID = re.compile(r"[0-9A-HJKMNP-TV-Z]{26}")
+_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
+_ALLOWLIST_KEYS = {"workspace_id", "slug", "reason", "reviewer", "reviewed_on", "expected_state",
+                   "expected_maintenance_mode", "expected_read_only", "retire_blocked_by", "note"}
+
+
+def parse_held_allowlist(text: str) -> dict[str, dict[str, Any]]:
+    """Allowlist entries keyed by workspace id. Strict: any defect rejects the whole list,
+    so a malformed list exempts nothing (fail closed to `holds`)."""
+    doc = json.loads(text)
+    if not isinstance(doc, dict) or doc.get("schema_version") != HELD_ALLOWLIST_SCHEMA \
+            or doc.get("environment_id") != "vuoro-cloud" or not isinstance(doc.get("entries"), list):
+        raise ValueError(f"not a {HELD_ALLOWLIST_SCHEMA} document for vuoro-cloud")
+    out: dict[str, dict[str, Any]] = {}
+    for i, e in enumerate(doc["entries"]):
+        where = f"entries[{i}]"
+        if not isinstance(e, dict):
+            raise ValueError(f"{where} is not an object")
+        wid = e.get("workspace_id")
+        if not isinstance(wid, str) or not _ULID.fullmatch(wid):
+            raise ValueError(f"{where}.workspace_id is not a workspace ULID")
+        if wid in out:
+            raise ValueError(f"{where}.workspace_id {wid} is listed twice")
+        unknown_keys = set(e) - _ALLOWLIST_KEYS
+        if unknown_keys:
+            raise ValueError(f"{where} has unknown keys {sorted(unknown_keys)}")
+        if e.get("expected_state") != "READY":
+            raise ValueError(f"{where}.expected_state must be READY")
+        for key in ("slug", "reason", "reviewer"):
+            if not isinstance(e.get(key), str) or not e[key].strip():
+                raise ValueError(f"{where}.{key} must be a non-empty string")
+        if not isinstance(e.get("reviewed_on"), str) or not _DAY.fullmatch(e["reviewed_on"]):
+            raise ValueError(f"{where}.reviewed_on must be YYYY-MM-DD")
+        if e.get("expected_maintenance_mode") is not True:
+            raise ValueError(f"{where}.expected_maintenance_mode must be true")
+        if not isinstance(e.get("expected_read_only"), bool):
+            raise ValueError(f"{where}.expected_read_only must be a boolean")
+        blocked = e.get("retire_blocked_by")
+        if not isinstance(blocked, list) or not blocked \
+                or not all(isinstance(b, str) and b.strip() for b in blocked):
+            raise ValueError(f"{where}.retire_blocked_by must be a non-empty list of strings")
+        out[wid] = e
+    return out
+
+
+def held_workspace_allowlist(probe: Probe, agentops_main: dict[str, Any]) -> dict[str, Any]:
+    """The allowlist at agentops origin/main, known only while that local ref equals the remote
+    main: an entry removed upstream must not keep exempting a hold from a stale clone."""
+    evidence = f"git:agentops@origin/main:{HELD_ALLOWLIST_REL}"
+    local, current, at = ref_current(probe, "vuoro-cloud.agentops-main", ROOT, "origin/main", agentops_main)
+    if not is_known(current) or not current["value"]:
+        why = current.get("reason") if not is_known(current) else (
+            f"local origin/main is behind the remote ({current['evidence']}); rerun with --fetch")
+        return unknown(f"held-workspace allowlist not read: {why}", "document", evidence, at)
+    shown = git(probe, "vuoro-cloud.held-allowlist", ROOT, "show", f"{local['value']}:{HELD_ALLOWLIST_REL}")
+    fact = from_probe(shown, "document", lambda r: parse_held_allowlist(r["stdout"]))
+    fact["evidence"] = f"git:agentops@origin/main({_short(local['value'])}):{HELD_ALLOWLIST_REL}"
+    return fact
+
+
+def _allowlist_deviation(w: dict[str, Any], entry: dict[str, Any]) -> list[str]:
+    """Why a served maintenance entry does not match its recorded expectation (empty: matches)."""
+    why = []
+    if w.get("state") != entry["expected_state"]:
+        why.append(f"state={w.get('state')!r}, expected {entry['expected_state']!r}")
+    if w.get("maintenance_mode") is not True:
+        why.append(f"maintenance_mode={w.get('maintenance_mode')!r}, expected True")
+    if "read_only" in w and w["read_only"] is not entry["expected_read_only"]:
+        why.append(f"read_only={w['read_only']!r}, expected {entry['expected_read_only']!r}")
+    if w.get("active_migration_id") is not None:
+        why.append(f"active_migration_id={w['active_migration_id']!r}")
+    return why
+
+
+def classify_tenant_holds(workspaces: Any, allowlist: dict[str, dict[str, Any]] | None) -> dict[str, Any]:
+    """Split served `maintenance_workspaces` into holds that block and reviewed holds by design.
+
+    An entry is held-by-design only when its id is allowlisted AND the served fields match the
+    recorded expectation AND no migration is active. Everything else blocks, including an
+    allowlisted id whose fields deviate. Allowlisted ids no longer served are `allowlist_stale`."""
+    if not isinstance(workspaces, list):
+        raise TypeError("maintenance_workspaces is not a list")
+    allowlist = allowlist or {}
+    review: dict[str, Any] = {"blocking": [], "held_by_design": [], "deviating": [], "allowlist_stale": []}
+    served = set()
+    for w in workspaces:
+        label = _maintenance_label(w)  # raises on a non-object entry or a missing id
+        wid = w["id"]
+        served.add(wid)
+        entry = allowlist.get(wid) if isinstance(wid, str) else None
+        if entry is None:
+            review["blocking"].append(label)
+            continue
+        why = _allowlist_deviation(w, entry)
+        if why:
+            review["blocking"].append(label)
+            review["deviating"].append({"id": wid, "slug": entry["slug"], "why": why})
+        else:
+            review["held_by_design"].append({"id": wid, "slug": entry["slug"], "reason": entry["reason"],
+                                             "label": label})
+    review["allowlist_stale"] = [{"id": wid, "slug": e["slug"]}
+                                 for wid, e in sorted(allowlist.items()) if wid not in served]
+    return review
+
+
+def _tenant_hold_review(workspaces: dict[str, Any], allowlist: dict[str, Any]) -> dict[str, Any]:
+    """Derived fact: the served maintenance list judged against the reviewed allowlist. An
+    unusable allowlist exempts nothing; its reason is kept in `allowlist_error`."""
+    if not is_known(workspaces):
+        return _carry(workspaces, "derived")
+    evidence = f"{workspaces['evidence']} vs {allowlist.get('evidence')}"
+    try:
+        review = classify_tenant_holds(workspaces["value"], allowlist["value"] if is_known(allowlist) else None)
+    except (KeyError, TypeError, ValueError) as error:
+        return unknown(f"rollout/status .maintenance_workspaces is malformed: {error}", "derived", evidence,
+                       workspaces["observed_at"])
+    review["allowlist_error"] = None if is_known(allowlist) else (allowlist.get("reason") or "not observed")
+    return known(review, "derived", evidence, workspaces["observed_at"])
+
+
+def tenant_hold_notes(h: dict[str, Any]) -> list[str]:
+    """Gate-detail lines for reviewed holds; empty when the review is not known."""
+    review = h.get("tenant_hold_review")
+    if not is_known(review):
+        return []
+    v = review["value"]
+    notes = [f"held-by-design: {e['id']} ({e['slug']}, {e['reason']})" for e in v["held_by_design"]]
+    notes += [f"allowlist deviates, blocking: {e['id']} ({e['slug']}): {'; '.join(e['why'])}"
+              for e in v["deviating"]]
+    if v["allowlist_stale"]:
+        notes.append("allowlist_stale: " + ", ".join(f"{e['id']} ({e['slug']})" for e in v["allowlist_stale"])
+                     + f" no longer in maintenance_workspaces; prune {HELD_ALLOWLIST_REL}")
+    if v.get("allowlist_error"):
+        notes.append(f"held-workspace allowlist unusable, nothing exempted: {v['allowlist_error']}")
+    return notes
+
+
+def cloud_holds_check(h: dict[str, Any]) -> tuple[bool | None, str]:
+    """`holds_check` over CLOUD_HOLDS, where tenants held by design (reviewed allowlist, served
+    fields matching) do not block. Without a consistent review every tenant hold blocks."""
+    tim, review = h.get("tenants_in_maintenance"), h.get("tenant_hold_review")
+    view = dict(h)
+    if is_known(tim) and tim["value"] and is_known(review):
+        v = review["value"]
+        if len(v["blocking"]) + len(v["held_by_design"]) == len(tim["value"]):
+            view["tenants_in_maintenance"] = {**tim, "value": v["blocking"]}
+    return holds_check(view, CLOUD_HOLDS)
 
 
 def _rollout_field(fleet: dict[str, Any], field: str, parse: Callable[[Any], Any],
@@ -1625,13 +1799,14 @@ def derive_vuoro_cloud_gate(env: dict[str, Any]) -> dict[str, Any]:
                   ("desired-current", lambda: current_check(d.get("predicted_release_tag_tree_current"),
                                                             "local predicted release tag")),
                   ("served-compatibility", served_matches), ("compatibility-mirror", mirror),
-                  ("holds", lambda: holds_check(h, CLOUD_HOLDS)),
+                  ("holds", lambda: cloud_holds_check(h)),
                   ("flux-applied", lambda: _cloud_applied(d, r)), ("image-rollout", rollout),
                   ("fleet-converged", fleet), ("tenant-runtime-pin", pin)],
                  ["desired.flux_source_ref_is_remote_main", "desired.predicted_release_tag_tree_current", "desired.compatibility",
                   "running.served_compatibility", "desired.compatibility_mirror_agrees",
-                  *(f"held.{n}" for n in CLOUD_HOLDS), "running.kustomizations", "desired.deployments",
-                  "running.pod_images", "usable.fleet_rollout", "running.tenant_runtime_pin"])
+                  *(f"held.{n}" for n in CLOUD_HOLDS), "held.tenant_hold_review", "running.kustomizations",
+                  "desired.deployments", "running.pod_images", "usable.fleet_rollout", "running.tenant_runtime_pin"],
+                 notes=tenant_hold_notes(h), notes_at="holds")
     return {"next_blocking_gate": gate, "recovery_class": derive_vuoro_cloud_recovery(env)}
 
 
@@ -2047,7 +2222,7 @@ def summarize(env: dict[str, Any]) -> dict[str, Any]:
 
 
 def build_report(probe: Probe, envs: list[str], *, fetch: bool) -> dict[str, Any]:
-    if fetch and any(e in HOSTS for e in envs):
+    if fetch and any(e in HOSTS or e == "vuoro-cloud" for e in envs):
         git(probe, "agentops.fetch", ROOT, "fetch", "--quiet", "origin", "main", timeout=60)
     agentops_url = probe.run("agentops.remote-url", ["git", "-C", str(ROOT), "remote", "get-url", "origin"],
                              timeout=10)
@@ -2062,7 +2237,7 @@ def build_report(probe: Probe, envs: list[str], *, fetch: bool) -> dict[str, Any
         if env_id == "vuoro-shared":
             env = collect_vuoro_shared(probe, fetch=fetch)
         elif env_id == "vuoro-cloud":
-            env = collect_vuoro_cloud(probe, fetch=fetch)
+            env = collect_vuoro_cloud(probe, fetch=fetch, agentops_main=agentops_main)
         else:
             env = collect_host(probe, env_id, agentops_main=agentops_main)
         stamp_derived(env)

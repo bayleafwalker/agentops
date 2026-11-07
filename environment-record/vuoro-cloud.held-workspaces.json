@@ -1,0 +1,65 @@
+{
+  "schema_version": "vuoro-cloud-held-workspaces/v1",
+  "environment_id": "vuoro-cloud",
+  "scope": "agentops estate report `holds` gate only (scripts/estate_status.py). Not a vuoro-cloud rollout or fleet-convergence exemption. Remove entries when agentops#2880 retires the workspaces, or drop the file when agentops#2879 serves is_test and a hold reason.",
+  "entries": [
+    {
+      "workspace_id": "01M14W25EYKCEX0BTYK1WHJAAK",
+      "slug": "blocker12-canary",
+      "reason": "test workspace held by design; retirement blocked until the retire worker is deployed and base-backup qualification (B4) lands",
+      "reviewer": "operator",
+      "reviewed_on": "2026-11-07",
+      "expected_state": "READY",
+      "expected_maintenance_mode": true,
+      "expected_read_only": true,
+      "retire_blocked_by": [
+        "agentops#2877 retire worker not deployed",
+        "agentops#2878 base-backup qualification (B4)"
+      ],
+      "note": "orphaned; retirement path decision agentops#2876"
+    },
+    {
+      "workspace_id": "01M3CA7V972W3HQSYWBG7V6JBB",
+      "slug": "isolation-proof",
+      "reason": "test workspace held by design; retirement blocked until the retire worker is deployed and base-backup qualification (B4) lands",
+      "reviewer": "operator",
+      "reviewed_on": "2026-11-07",
+      "expected_state": "READY",
+      "expected_maintenance_mode": true,
+      "expected_read_only": true,
+      "retire_blocked_by": [
+        "agentops#2877 retire worker not deployed",
+        "agentops#2878 base-backup qualification (B4)"
+      ],
+      "note": "tenant schema 2; vuoro-cloud fleet/rollout gates must still count it"
+    },
+    {
+      "workspace_id": "01M43WESAQZQB85189TCYRZCVG",
+      "slug": "g2-gen71-canary",
+      "reason": "test workspace held by design; retirement blocked until the retire worker is deployed and base-backup qualification (B4) lands",
+      "reviewer": "operator",
+      "reviewed_on": "2026-11-07",
+      "expected_state": "READY",
+      "expected_maintenance_mode": true,
+      "expected_read_only": true,
+      "retire_blocked_by": [
+        "agentops#2877 retire worker not deployed",
+        "agentops#2878 base-backup qualification (B4)"
+      ]
+    },
+    {
+      "workspace_id": "01M4H11J5G9RA2DC0XHXRV7VC0",
+      "slug": "g3-gen72-canary",
+      "reason": "test workspace held by design; retirement blocked until the retire worker is deployed and base-backup qualification (B4) lands",
+      "reviewer": "operator",
+      "reviewed_on": "2026-11-07",
+      "expected_state": "READY",
+      "expected_maintenance_mode": true,
+      "expected_read_only": true,
+      "retire_blocked_by": [
+        "agentops#2877 retire worker not deployed",
+        "agentops#2878 base-backup qualification (B4)"
+      ]
+    }
+  ]
+}
