@@ -111,6 +111,20 @@ not created now, so the same scope is not tracked twice.
 | Live API | the rollout/status API is reachable. Fleet generation 3 is converged. Four tenants are in maintenance (since 09-11 to 10-09). `runtime_image` is null. The API does not reveal the control-plane image. | estate `usable.fleet_rollout` |
 | Repo's own statement | "`v0.1.0-poc.81` exists as a signed tag … Whether it is deployed is unconfirmed". The "Verified state, 29 October" header checked poc.80 at 15:59Z, **before** the poc.81 tag (16:49Z) and its promotion (17:34Z). | `IMPLEMENTATION-STATUS.md:16-55` |
 
+**Observed 2026-11-07 (after this section was first written):** the operator
+brought the tunnel up and the read-only steps of
+`docs/dispatch/operator-gates/vuoro-cloud-live-state-read.v1.json` (steps 2-5)
+were run exactly as written. The node `vuoro-cloud-poc` was Ready; the Flux
+GitRepository revision was `v0.1.0-poc.81@sha1:0733b420763bbd7759baf34653f665726b87c97c`
+(`Ready=True:Succeeded`; the SourceVerified condition was not visible in the
+captured output); `vuoro-control`, `vuoro-control-admin`, `vuoro-gateway` and
+`vuoro-tenant-controller` were ready at their declared replicas on an image
+digest beginning `sha256:e2c6b8d2`, the poc.81 image (only the prefix was
+compared). The estate status JSON reported `next_blocking_gate` = `holds`
+because several tenants are in maintenance. poc.81 is therefore **observed
+live**; the paragraph below is the pre-observation reasoning and is kept for
+the record. The tunnel was brought down afterwards.
+
 **Verdict:** poc.81 was promoted correctly and published to the source Flux
 watches. By the selection rule, the GitRepository should pick it up. The
 Kustomizations, though, run on 10m intervals with `wait: true` and
