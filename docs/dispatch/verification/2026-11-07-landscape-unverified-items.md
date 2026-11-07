@@ -97,7 +97,7 @@ not created now, so the same scope is not tracked twice.
   knowledge-library row at #2875 and its blocker12 row at #2876. The plan's
   owner makes that edit; this change does not touch the file.
 
-## 2. vuoro-cloud `v0.1.0-poc.81`: promoted and published, deployment not observed
+## 2. vuoro-cloud `v0.1.0-poc.81`: promoted, published and observed live (revision and image prefix)
 
 | Fact | Value | Source |
 |---|---|---|
@@ -111,7 +111,7 @@ not created now, so the same scope is not tracked twice.
 | Live API | the rollout/status API is reachable. Fleet generation 3 is converged. Four tenants are in maintenance (since 09-11 to 10-09). `runtime_image` is null. The API does not reveal the control-plane image. | estate `usable.fleet_rollout` |
 | Repo's own statement | "`v0.1.0-poc.81` exists as a signed tag … Whether it is deployed is unconfirmed". The "Verified state, 29 October" header checked poc.80 at 15:59Z, **before** the poc.81 tag (16:49Z) and its promotion (17:34Z). | `IMPLEMENTATION-STATUS.md:16-55` |
 
-**Observed 2026-11-07 (after this section was first written):** the operator
+**Observed 2026-11-07, after 14:00Z (after this section was first written):** the operator
 brought the tunnel up and the read-only steps of
 `docs/dispatch/operator-gates/vuoro-cloud-live-state-read.v1.json` (steps 2-5)
 were run exactly as written. The node `vuoro-cloud-poc` was Ready; the Flux
@@ -125,7 +125,7 @@ because several tenants are in maintenance. poc.81 is therefore **observed
 live**; the paragraph below is the pre-observation reasoning and is kept for
 the record. The tunnel was brought down afterwards.
 
-**Verdict:** poc.81 was promoted correctly and published to the source Flux
+**Pre-observation verdict (superseded by the observation above):** poc.81 was promoted correctly and published to the source Flux
 watches. By the selection rule, the GitRepository should pick it up. The
 Kustomizations, though, run on 10m intervals with `wait: true` and
 `dependsOn`. The 2026-09-27 handoff (v4) also records that promotion has
@@ -137,8 +137,9 @@ platform or apps Kustomization. Nothing read today rules either out. The poc.80 
 poc.81 diff is CLI and packaging. It touches `vuoro_cloud_cli/*`,
 `pyproject.toml`/`uv.lock`, `Makefile`, `flake.nix` and the workload and
 Job image pins. No server route changed, so no unauthenticated probe can tell the two
-apart. The observation is packaged for the operator as
-[vuoro-cloud-live-state-read](../operator-gates/vuoro-cloud-live-state-read.v1.json).
+apart. The observation was made by running the operator package
+[vuoro-cloud-live-state-read](../operator-gates/vuoro-cloud-live-state-read.v1.json)
+(steps 2-5) and confirmed poc.81, as recorded above.
 
 ## 3. Live cluster state
 
@@ -180,10 +181,11 @@ uses), 2026-11-07 ~13:55Z:
 
   They are cleanup candidates for the Sovite owner (programme 05).
 
-### vuoro-cloud (single-node k3s, Hetzner): not observable read-only
+### vuoro-cloud (single-node k3s, Hetzner): pre-observation state at 13:51Z, superseded by section 2
 
-The estate report has every `running.*` and `held.*` fact unknown because the
-operator tunnel is down. No read-only route exists that does not activate the
+At the time of writing (13:51Z) the estate report had every `running.*` and
+`held.*` fact unknown because the operator tunnel was down. The package was
+run afterwards and the result is recorded in section 2. No read-only route exists that does not activate the
 operator tunnel and use the PoC admin kubeconfig, so the observation is the
 operator package
 [vuoro-cloud-live-state-read](../operator-gates/vuoro-cloud-live-state-read.v1.json),
@@ -208,6 +210,6 @@ the rollback.
 - The appservice-peer half of Q5.
 - The cause of the pgdump Job errors.
 - Whether the Sovite OOM recurs.
-- The vuoro-cloud running generation (operator package above).
+- For vuoro-cloud: the full image digest (only the `sha256:e2c6b8d2` prefix was compared), the Flux SourceVerified condition, and the running generation number.
 - No secret, `.env`, `.state` or SOPS file was read. Cluster access was
   `get` only.
