@@ -12,7 +12,7 @@ Git roots are read from tracked content only: agentops from its working tree (`g
 
 | Repository | Status | Source | Files scanned | Ids defined |
 |---|---|---|---|---|
-| agentops | scanned | working tree, tracked files | 1492 | 89 |
+| agentops | scanned | working tree, tracked files | 1694 | 90 |
 | sprintctl | scanned | origin/main @ 15892e7d7926 | 1010 | 64 |
 | vuoro | scanned | origin/main @ 3f2d4ca8e479 | 5 | 2 |
 | cred-broker | scanned | origin/main @ e3696ece7f0a | 143 | 24 |
@@ -22,7 +22,7 @@ Ids defined counts each id once per owning repository.
 
 ## Schema ids
 
-216 ids; 3 with multiple definers.
+217 ids; 3 with multiple definers.
 
 | Id | Owner | Definition | Other definers (not owning) | Also referenced by | Flag |
 |---|---|---|---|---|---|
@@ -114,6 +114,7 @@ Ids defined counts each id once per owning repository.
 | `operator-acceptance-presentation/v1` | agentops | agentops: `apps/operator-projection/src/operator_projection/portable_acceptance.py` (constant) | - | - |  |
 | `operator-attempt-comparison/v1` | agentops | agentops: `apps/operator-projection/src/operator_projection/comparison.py` (constant) | - | - |  |
 | `operator-bundle-verification/v1` | agentops | agentops: `apps/operator-projection/src/operator_projection/bundle.py` (emitter) | - | - |  |
+| `operator-command-package/v1` | agentops | agentops: `schemas/operator-command-package.v1.schema.json` (schema-file) | - | - |  |
 | `operator-projection/v1` | agentops | agentops: `apps/operator-projection/src/operator_projection/__init__.py` (constant) | - | - |  |
 | `operator-reconstruction-bundle/v1` | agentops | agentops: `apps/operator-projection/src/operator_projection/bundle.py` (constant) | - | - |  |
 | `operator-reconstruction-capture/v1` | agentops | agentops: `apps/operator-projection/src/operator_projection/reconstruction.py` (constant) | - | - |  |
@@ -136,7 +137,7 @@ Ids defined counts each id once per owning repository.
 | `project-replication-receipt/v1` | agentops | agentops: `schemas/project-release/project-replication-receipt.v1.schema.json` (constant, schema-file) | - | - |  |
 | `projection-rebuild-capture/v1` | sprintctl | sprintctl: `verification/traces/extract-projection-rebuild.py` (emitter) | - | - |  |
 | `protected-effect-envelope/v1` | cred-broker | cred-broker: `src/cred_broker/protected_intent_readout.py` (emitter) | - | - |  |
-| `protected-effect-evidence-binding/v1` | cred-broker | cred-broker: `src/cred_broker/protected_intent_source_verification.py` (emitter) | - | - |  |
+| `protected-effect-evidence-binding/v1` | cred-broker | cred-broker: `src/cred_broker/protected_intent_source_verification.py` (emitter) | - | agentops |  |
 | `provider-failover/v1` | agentops | agentops: `scripts/shared_execution/provider.py` (constant) | - | - |  |
 | `realignment-session/v1` | agentops | agentops: `model/realignment-session.schema.json` (constant, emitter, schema-file) | - | - |  |
 | `recipient-resolution-notification/v1` | sprintctl | sprintctl: `sprintctl/recipient_delivery_pg.py` (constant) | - | - |  |
