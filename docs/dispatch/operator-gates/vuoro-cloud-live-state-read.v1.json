@@ -19,7 +19,7 @@
       "command": "nmcli -t -f NAME,TYPE connection show | grep '^vuoro-cloud-operator:'",
       "expected": "vuoro-cloud-operator:wireguard",
       "verified_at": "2026-11-07T13:55Z",
-      "observed": "vuoro-cloud-operator:42ff6f29-0ffa-49f7-93af-9cf6594c22a4:wireguard"
+      "observed": "vuoro-cloud-operator:wireguard"
     },
     {
       "check": "The tunnel is currently down (so step 1 is needed and step 6 restores the starting state)",
@@ -40,7 +40,7 @@
       "command": "git ls-remote --tags https://github.com/bayleafwalker/vuoro-cloud.git 'v0.1.0-poc.8*'",
       "expected": "refs/tags/v0.1.0-poc.81^{} at 0733b420763bbd7759baf34653f665726b87c97c and no poc.82",
       "verified_at": "2026-11-07T13:50Z",
-      "observed": "poc.81 tag object 67c5709, peeled 0733b42; poc.82 absent (GitHub API 404)"
+      "observed": "refs/tags/v0.1.0-poc.81 67c570967fd8..., refs/tags/v0.1.0-poc.81^{} 0733b420763b...; no poc.82 ref listed"
     }
   ],
   "commands": [
@@ -81,7 +81,7 @@
       "exact": true
     }
   ],
-  "expected_result": "The running generation is known by observation. Most likely, inferred from read-only evidence on 2026-11-07: poc.81 is serving, because the signed tag and commit verify against the trusted promoter key, the Forgejo promote-deployment run 4522 succeeded at 2026-10-29T17:34Z and published the tag to GitHub, and Flux selects the highest signed tag in '>=0.1.0-0 <0.2.0-0'. If step 3 or 4 shows poc.80 instead, the Flux source is suspended, failing verification or not reconciling, and that is a repair item for vuoro-cloud.",
+  "expected_result": "The running generation is known by observation. Expected, not observed, from read-only evidence on 2026-11-07: poc.81 is serving. The basis: the signed tag and commit verify against the trusted promoter key; the Forgejo promote-deployment run 4522 succeeded at 2026-10-29T17:34Z and published the tag to GitHub; and the GitRepository selects the highest signed tag in '>=0.1.0-0 <0.2.0-0'. Diagnosis if not: step 3 showing poc.80 means the Flux source is suspended, failing verification or not reconciling. Step 3 showing poc.81 while step 4 shows poc.80 images means the platform or apps Kustomization stalled; promotion has historically included a manual flux reconcile of the source and the three Kustomizations. Either case is a vuoro-cloud repair item, not an action under this package.",
   "send_back": [
     "Output of steps 2, 3 and 4 verbatim (no secrets are printed by them)",
     "The path of the estate JSON written in step 5, or its gate.next_blocking_gate and running.deployments values",
