@@ -1,0 +1,84 @@
+{
+  "schema": "operator-command-package/v1",
+  "package_id": "vuoro-cloud-live-tenant-migration-proof",
+  "title": "Observe a real tenant migration and mixed-generation rollout on the live vuoro-cloud cluster",
+  "gate_kind": "deployment",
+  "programmes": [
+    "docs/plans/2026-11-06-vuoro-cloud-migration-plan.md",
+    "docs/dispatch/programmes/2026-10-24/03-cloud-product.md"
+  ],
+  "work_refs": [
+    "vuoro-cloud#353"
+  ],
+  "owner": "release train owner: operator-designated coordinator (default-assigned 2026-11-07)",
+  "readiness": "blocked",
+  "blockers": [
+    {
+      "description": "No live rollout carries a tenant work-schema migration yet. The first one is the vuoro-service 0.1.94 to 0.1.104 roll (work schema 31), which is itself blocked on its pin PR and the tenant schema-version mapping.",
+      "resolved_by": "package vuoro-service-0-1-104-rollout reaching its step 2 (promotion of the head that carries the pin change)"
+    },
+    {
+      "description": "P5 verification runs in the controller only from the generation that contains it; the live controller image predates #353 until the next promotion.",
+      "resolved_by": "package vuoro-cloud-poc-promotion for a main head that contains vuoro-cloud#353"
+    }
+  ],
+  "why_operator": "The observation rides a signed promotion and a tenant runtime roll on the live cluster; both are deployment effects behind the operator's YubiKey promotion key and age key, and the read uses the operator token, which is not delegated to agents.",
+  "host": "operator workstation",
+  "directory": "/projects/dev/vuoro-cloud",
+  "preconditions": [
+    {
+      "check": "vuoro-cloud#353 (P5 tenant catalog verification, convergence_reason, scripted rollback plan) is merged on canonical main",
+      "command": "git fetch origin && git merge-base --is-ancestor bcc55a9b1321d415e470be558deeb67dabc5b6ed origin/main && echo merged",
+      "expected": "merged",
+      "verified_at": "2026-11-07T14:20Z",
+      "observed": "merged at bcc55a9"
+    },
+    {
+      "check": "The deployed controller generation contains #353 (rollout/status reports convergence_reason)",
+      "command": "curl -fsS -A agentops-operator -H \"Authorization: Bearer $(cat ~/.config/vuoro/credentials/vuoro-cloud.token)\" https://api.vuoro.cloud/api/control/v1/operator/rollout/status | jq 'has(\"convergence_reason\")'",
+      "expected": "true (false or a missing field means the promotion with #353 has not happened)",
+      "verified_at": null
+    }
+  ],
+  "commands": [
+    {
+      "step": 1,
+      "command": "agentops estate status --env vuoro-cloud --fetch",
+      "expected": "baseline: maintenance_workspaces lists only the known held tenants; runtime pin 0.1.94 (or unknown with a reason)",
+      "exact": true
+    },
+    {
+      "step": 2,
+      "command": "Run package vuoro-service-0-1-104-rollout; while its promotion reconciles, repeat every 30 s until the pilot workspace is READY: curl -fsS -A agentops-operator -H \"Authorization: Bearer $(cat ~/.config/vuoro/credentials/vuoro-cloud.token)\" https://api.vuoro.cloud/api/control/v1/operator/rollout/status | jq -c '{convergence_reason, maintenance_workspaces}' | tee -a ~/vuoro-live-migration-proof.jsonl",
+      "expected": "convergence_reason moves from other-generation-serving to current-generation-only; the pilot workspace passes through MIGRATING and leaves maintenance_workspaces as READY, never ROLLBACK_REQUIRED",
+      "exact": false
+    },
+    {
+      "step": 3,
+      "command": "vuoro-cli workspace status <pilot workspace id>",
+      "expected": "state READY at the roll's generation; the tenant catalog verification passed before READY (no failure_detail)",
+      "exact": false
+    }
+  ],
+  "expected_result": "First live evidence that a tenant work-schema migration passes P5 catalog verification before READY and that convergence is reported during a real mixed-generation window. Closes the 'live mixed-generation proof' residual in vuoro-cloud 18-MULTITENANT-VERSIONING-AND-MIGRATION.md for the POC cluster; the Talos proof stays in package vuoro-cloud-staging-rehearsal.",
+  "send_back": [
+    "~/vuoro-live-migration-proof.jsonl (status samples; contains no secret)",
+    "The step 1 and step 3 outputs",
+    "If the workspace reached ROLLBACK_REQUIRED: the output of python -m vuoro_cloud.tenant_rollback plan --workspace <id> --checkpoint-ref <ref> and nothing else changed"
+  ],
+  "rollback": {
+    "description": "Observation is read-only. If the tenant migration fails, the workspace stays fenced in ROLLBACK_REQUIRED; run the read-only rollback plan, restore from the recorded checkpoint per 18-MULTITENANT-VERSIONING-AND-MIGRATION.md, then verify-restored. The runtime pin rolls back through package vuoro-service-0-1-104-rollout's rollback.",
+    "commands": [
+      "python -m vuoro_cloud.tenant_rollback plan --workspace <id> --checkpoint-ref <ref>",
+      "python -m vuoro_cloud.tenant_rollback verify-restored --workspace <id> --checkpoint-ref <ref>",
+      "Run the rollback of package vuoro-service-0-1-104-rollout"
+    ]
+  },
+  "references": [
+    "/projects/dev/vuoro-cloud/18-MULTITENANT-VERSIONING-AND-MIGRATION.md",
+    "/projects/dev/vuoro-cloud/docs/runbooks/operator-actions.md (Read-only: the estate fields of rollout/status)",
+    "/projects/dev/vuoro-cloud/docs/runbooks/vuoro-cli.md"
+  ],
+  "created": "2026-11-07",
+  "last_verified": "2026-11-07"
+}

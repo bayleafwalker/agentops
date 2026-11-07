@@ -37,9 +37,10 @@ reports both.
 |---|---|---|---|
 | [work31-appservice-field-execution](work31-appservice-field-execution.v1.json) | field execution | 08 integration | blocked: monitor/helper phase protocol, fresh pre31 pair |
 | [vuoro-service-0-1-104-rollout](vuoro-0-1-104-rollout.v1.json) | deployment | 03 cloud product | blocked: pin PR, schema-version mapping, promotion |
-| [vuoro-cloud-poc-promotion](poc-promotion.v1.json) | promotion | 03 cloud product | blocked: frozen head and digest after #353 |
+| [vuoro-cloud-poc-promotion](poc-promotion.v1.json) | promotion | 03 cloud product | blocked: publish-image digest for bcc55a9 (#353 merged) |
 | [admission-mint-signing](admission-mint-signing.v1.json) | signing | 04 requests | blocked: private transport, service identity decision |
-| [vuoro-cloud-staging-rehearsal](staging-rehearsal.v1.json) | rehearsal | 02 cloud recovery, migration plan | blocked: #353, schema-version mapping |
+| [vuoro-cloud-staging-rehearsal](staging-rehearsal.v1.json) | rehearsal | 02 cloud recovery, migration plan | blocked: schema-version mapping (#353 merged) |
+| [vuoro-cloud-live-tenant-migration-proof](live-tenant-migration-proof.v1.json) | deployment | 03 cloud product, migration plan | blocked: 0.1.104 rollout, promotion containing #353 |
 | [vuoro-cloud-live-state-read](vuoro-cloud-live-state-read.v1.json) | deployment (read-only observation) | 03 cloud product | ready: operator tunnel up, then `kubectl get` only |
 
 ## Owners

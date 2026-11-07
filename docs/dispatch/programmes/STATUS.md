@@ -59,18 +59,23 @@ outcome is closed or source-accepted yet.
 ## vuoro-cloud migration plan P0-P7
 
 Plan: [2026-11-06 migration plan](../../plans/2026-11-06-vuoro-cloud-migration-plan.md).
-Forgejo `bayleaf/vuoro-cloud`, main `f1159258` on 2026-11-07.
+Forgejo `bayleaf/vuoro-cloud`, main `bcc55a9b` on 2026-11-07.
 
 | Phase | PR | State 2026-11-07 |
 |---|---|---|
 | P0 principles | #349 | merged |
 | P1-P4, P6, P7 | #350, #351, #352, #354, #355 via integration #356 | merged |
-| P5 tenant verification and scripted rollback plan | #353 | **open** (CI was pending 2026-11-06 21:39Z; still open 2026-11-07) |
+| P5 tenant verification and scripted rollback plan | #353 | merged 2026-11-07 (fast-forward to vuoro-cloud main bcc55a9; exact-head CI green, independent review on PR) |
 
-Not buildable from source: tenant schema-version mapping (contract owned by the
-vuoro repo, see [owners](../operator-gates/README.md#owners)), staging
-rehearsal with real owner wheels, live Talos proof, migration Job image rebuild
-carrying the manifest. Fast-forward-only merges and one ~30 minute runner mean
+Remaining after P5. Tenant schema-version mapping: the contract is merged as
+*proposed* in vuoro (`docs/architecture/tenant-runtime-schema-mapping.md`,
+vuoro#312). Implementing it is source work in vuoro (its acceptance criteria
+1-5) for the [owner](../operator-gates/README.md#owners), not an operator gate.
+Operator gates: staging rehearsal with real owner wheels
+([package](../operator-gates/staging-rehearsal.v1.json)), live mixed-generation
+tenant migration proof ([package](../operator-gates/live-tenant-migration-proof.v1.json)),
+and the migration Job image carrying the manifest, which ships through the next
+[promotion](../operator-gates/poc-promotion.v1.json). Fast-forward-only merges and one ~30 minute runner mean
 reviewed work should land as one stacked linear branch.
 
 ## Sovite
