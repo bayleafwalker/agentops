@@ -1507,7 +1507,7 @@ def collect_vuoro_cloud(probe: Probe, *, fetch: bool) -> dict[str, Any]:
     fleet = usable["fleet_rollout"]
     held["tenants_in_maintenance"] = _rollout_field(
         fleet, "maintenance_workspaces",
-        lambda v: [w["id"] for w in v],
+        lambda v: [_maintenance_label(w) for w in v],
         "rollout/status carries no `maintenance_workspaces` field yet (requested from the vuoro-cloud "
         "lane, docs/runbooks/estate-status.md); per-workspace routes need membership and the "
         "workspaces table is reachable only through an audited database path")
@@ -1528,6 +1528,13 @@ def _runtime_digest(value: Any) -> str:
     if not isinstance(digest, str) or not DIGEST.fullmatch(digest):
         raise ValueError(f"not a sha256 digest: {digest!r}")
     return digest
+
+
+def _maintenance_label(w: dict[str, Any]) -> str:
+    """Workspace id plus the hold columns rollout/status already serves (state, maintenance_mode,
+    since), so the gate detail says why a workspace is held. The route serves no slug or reason."""
+    extra = ", ".join(f"{k}={w[k]}" for k in ("state", "maintenance_mode", "since") if w.get(k) is not None)
+    return f"{w['id']} ({extra})" if extra else w["id"]
 
 
 def _rollout_field(fleet: dict[str, Any], field: str, parse: Callable[[Any], Any],

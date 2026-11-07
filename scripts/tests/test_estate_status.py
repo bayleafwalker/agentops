@@ -452,14 +452,16 @@ class VuoroCloudDerivationTests(unittest.TestCase):
 
         def edit(fixture):
             body = json.loads(fixture["body"])
-            body["maintenance_workspaces"] = [{"id": "ws1", "state": "MAINTENANCE", "maintenance_mode": True}]
+            body["maintenance_workspaces"] = [{"id": "ws1", "state": "MAINTENANCE", "maintenance_mode": True,
+                                                    "since": "2026-10-13T00:00:00Z"}]
             body["runtime_image"] = {"digest": want, "source": "VUORO_CLOUD_RUNTIME_IMAGE"}
             fixture["body"] = json.dumps(body)
 
         base = env_copy("vuoro-cloud")
         want = estate.digest_of(base["desired"]["compatibility"]["value"]["packages"]["vuoro-service"])
         env = by_id(replay_edited(["vuoro-cloud"], {"vuoro-cloud.rollout-status.json": edit}))["vuoro-cloud"]
-        self.assertEqual(env["held"]["tenants_in_maintenance"]["value"], ["ws1"])
+        self.assertEqual(env["held"]["tenants_in_maintenance"]["value"],
+                         ["ws1 (state=MAINTENANCE, maintenance_mode=True, since=2026-10-13T00:00:00Z)"])
         self.assertEqual(env["running"]["tenant_runtime_pin"]["value"], want)
 
     def test_malformed_runtime_image_is_unknown(self):
