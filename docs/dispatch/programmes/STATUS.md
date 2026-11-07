@@ -52,7 +52,7 @@ outcome is closed or source-accepted yet.
 | 03 | [Cloud product, TUI, distribution](2026-10-24/03-cloud-product.md) | vuoro-cloud#2727, #2729, #2682-#2684, #2741, agentops#2626-#2636 | Cloud PR345/346/348 merged; Vuoro 0.1.104 published (wheel + GHCR) | Cloud TUI #2727 gated on OA-01/OA-02 and EC foundation; 0.1.104 not pinned in vuoro-cloud (pins 0.1.94) | 0.1.104 rollout; poc.N promotion |
 | 04 | [Requests and continuation](2026-10-24/04-requests-continuation.md) | vuoro#2725, #2728, agentops#2726, #2730, #2554, #2623, #2638 | sprintctl PR217, PR219-222 merged (owner lookup, material catalog, requester adapter, schema33 ledger) | private authenticated transport, real admission mint, receiver; material-v2 all-writer gate, lock order, restore anti-fork, outbox recovery unproved | mint signing |
 | 05 | [Sovite](2026-10-24/05-sovite.md) | agentops#2850, #2849, CL-K06 | Sovite PR67-80 merged (GitHub, read 2026-11-07); PR81 test-only open; external fairness v2 opt-in | three unexplained CI failures (PR70 `authority_unavailable`, PR71 1122 ms timeout, earlier push run); SV-PW1-5 qualification | Sovite field qualification |
-| 06 | [Telemetry](2026-10-24/06-telemetry.md) | agentops#2398, #2833, #2835 | synthetic export seam (Cloud PR346) | native child probe (one allowed run used); receipt-to-sink | none until source accepted |
+| 06 | [Telemetry](2026-10-24/06-telemetry.md) | agentops#2398, #2833, #2835 | synthetic export seam (Cloud PR346) | native child probe (exactly one run taken; not to be repeated without specific authority); receipt-to-sink | none until source accepted |
 | 07 | [Retention](2026-10-24/07-retention.md) | agentops#2828 | none accepted | upstream replay fence; authoritative deletion inventory | none until source accepted |
 | 08 | [Integration](2026-10-24/08-integration.md) | all candidates | appservice PR2171/2172 merged | appservice PR2153 open: needs Work31 against live Work29 primary behind an enforced fence | Work31 appservice field execution |
 
@@ -75,7 +75,7 @@ reviewed work should land as one stacked linear branch.
 
 ## Sovite
 
-Source: PR67-80 merged, PR81 (test-only diagnostic setup time) open. Last live observation 2026-10-19. The
+Source: PR67-80 merged, PR81 (test-only diagnostic setup time) open. Last live observation 2026-10-19 (landscape research notes, 2026-11-07). The
 standalone (bundled Garage and Ollama) versus workspace-hosted duality has no
 recorded decision; the spec's "This release does not write to a Vuoro service"
 conflicts with the shipped `vuoro-contracts` pin and Vuoro adapter. Both are
@@ -93,4 +93,4 @@ precedes further Sovite slices.
 ## Refresh rule
 
 Refresh this page in the same change as each new structured handoff, and bump
-`last_verified`. The plan register lists it under `docs/dispatch/programmes`.
+`last_verified`. The plan register (`docs/plans/REGISTER.md`) lists it with the programme files.

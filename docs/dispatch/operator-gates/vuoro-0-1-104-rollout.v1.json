@@ -11,7 +11,7 @@
   "readiness": "blocked",
   "blockers": [
     {
-      "description": "config/compatibility.json still pins vuoro-service-v0.1.94 with release_ready false; pyproject already pins the 0.1.104 wheel. The pin change and its compatibility evidence are source work that must land first. 0.1.102 and later need work schema 30 and 0.1.103 needs Work31, so the tenant work-schema mapping must be known.",
+      "description": "config/compatibility.json still pins vuoro-service-v0.1.94 with release_ready false; pyproject.toml lists both the vuoro-service 0.1.100 and 0.1.104 wheel URLs (separate extras). The pin change and its compatibility evidence are source work that must land first. 0.1.102 and later need work schema 30 and 0.1.103 needs Work31, so the tenant work-schema mapping must be known.",
       "resolved_by": "source PR in vuoro-cloud bumping config/compatibility.json and apps/runtime-config/compatibility.json, plus the tenant schema-version mapping contract from the vuoro repo"
     },
     {
@@ -35,7 +35,7 @@
       "command": "git show origin/main:pyproject.toml | grep vuoro-service",
       "expected": "sha256=39f5ee328a8e4dd96f119c651d64e063811b3202d0ea621165f43231c51dc8e4",
       "verified_at": "2026-11-07T09:00Z",
-      "observed": "matches"
+      "observed": "pyproject.toml line 39 pins vuoro-service-v0.1.104 with sha256=39f5ee32...c8e4 (equal to the attested wheel); line 35 also pins 0.1.100"
     }
   ],
   "commands": [

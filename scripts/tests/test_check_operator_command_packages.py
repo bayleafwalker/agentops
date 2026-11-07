@@ -76,7 +76,23 @@ def test_operator_is_not_a_resolver():
     doc = copy.deepcopy(READY)
     doc["readiness"] = "blocked"
     doc["blockers"] = [{"description": "x", "resolved_by": "the operator"}]
-    assert any("only 'operator'" in e for e in checker.check_package(doc, SCHEMA))
+    assert any("starts with 'operator'" in e for e in checker.check_package(doc, SCHEMA))
+    doc["blockers"] = [{"description": "x", "resolved_by": "Operator approval of the window"}]
+    assert any("starts with 'operator'" in e for e in checker.check_package(doc, SCHEMA))
+
+
+def test_ready_requires_explicit_exact():
+    doc = copy.deepcopy(READY)
+    del doc["commands"][0]["exact"]
+    assert any("not exact" in e for e in checker.check_package(doc, SCHEMA))
+
+
+def test_readme_link_to_missing_package(tmp_path):
+    (tmp_path / "a.json").write_text(json.dumps(READY))
+    (tmp_path / "README.md").write_text("[a](a.json) [gone](gone.json) prose (a.json)\n")
+    results = checker.check_directory(tmp_path)
+    assert results["a.json"] == []
+    assert "README.md -> gone.json" in results
 
 
 def test_missing_required_field_fails_schema():
@@ -87,7 +103,7 @@ def test_missing_required_field_fails_schema():
 
 def test_unlisted_package_fails(tmp_path):
     (tmp_path / "a.json").write_text(json.dumps(READY))
-    (tmp_path / "README.md").write_text("no links here\n")
+    (tmp_path / "README.md").write_text("mentioned in prose (a.json) only\n")
     results = checker.check_directory(tmp_path)
     assert results["a.json"] == ["not linked from README.md"]
     (tmp_path / "README.md").write_text("[a](a.json)\n")
