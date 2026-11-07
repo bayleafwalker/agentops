@@ -11,7 +11,7 @@ For each key repository of the estate this reports, without changing anything:
 * tracked paths with changes, untracked entries (``--untracked-files=normal``: a wholly
   untracked directory counts once), and the worktree count.
 
-A git query that times out is reported as ``timeout/unknown`` rather than a number.
+A git query that times out is reported as ``timeout``; any other missing value as ``unknown``.
 
 Run it at session start, before planning reads: ``--fetch`` first runs ``git fetch``
 for the upstream remote (``--no-auto-gc --recurse-submodules=no``, ssh in BatchMode),
@@ -50,7 +50,7 @@ def git(repo: Path, *args: str, timeout: int = GIT_TIMEOUT,
 
 
 class GitTimeout(Exception):
-    """A read-only git query exceeded GIT_TIMEOUT; rendered as "timeout/unknown"."""
+    """A read-only git query exceeded GIT_TIMEOUT; rendered as "timeout"."""
 
 
 def out(repo: Path, *args: str) -> str | None:
@@ -228,8 +228,11 @@ def stale(report: dict) -> bool:
     return bool(report.get("main_behind")) or bool(report.get("dirty_tracked"))
 
 
-def cell(value) -> str:
-    return "timeout/unknown" if value is None else str(value)
+def cell(value, timed_out: bool = False) -> str:
+    """None is 'timeout' only when a git step for this repo actually timed out."""
+    if value is None:
+        return "timeout" if timed_out else "unknown"
+    return str(value)
 
 
 def render_markdown(reports: list[dict]) -> str:
@@ -243,14 +246,15 @@ def render_markdown(reports: list[dict]) -> str:
             lines.append(f"| {r['repo']} | not available ({r['reason']}) | - | - | - | - | - |")
             continue
         if r.get("main_ahead") is None:
-            position = r.get("last_fetch_source") or "timeout/unknown"
+            position = r.get("last_fetch_source") or ("timeout" if r.get("timeouts") else "unknown")
         else:
             position = f"+{r['main_ahead']}/-{r['main_behind']} {r['upstream']}"
             if r["upstream_source"] != "main@{upstream}":
                 position += " (fallback)"
-        fetched = r.get("last_fetch") or r.get("last_fetch_source") or "timeout/unknown"
-        lines.append(f"| {r['repo']} | {cell(r['branch'])} | {position} | {fetched} | "
-                     f"{cell(r['dirty_tracked'])} | {cell(r['untracked'])} | {cell(r['worktrees'])} |")
+        fetched = r.get("last_fetch") or r.get("last_fetch_source") or ("timeout" if r.get("timeouts") else "unknown")
+        t = bool(r.get("timeouts"))
+        lines.append(f"| {r['repo']} | {cell(r['branch'], t)} | {position} | {fetched} | "
+                     f"{cell(r['dirty_tracked'], t)} | {cell(r['untracked'], t)} | {cell(r['worktrees'], t)} |")
         if r.get("fetch", "ok") != "ok":
             notes.append(f"- {r['repo']}: fetch {r['fetch']}")
         if r.get("timeouts"):

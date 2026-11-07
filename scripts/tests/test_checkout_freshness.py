@@ -213,5 +213,5 @@ def test_timeouts_render_as_unknown(estate, monkeypatch):
     assert report["dirty_tracked"] is None and report["worktrees"] is None
     assert report["timeouts"] == ["status", "worktree list --porcelain"]
     text = fresh.render_markdown([report])
-    assert "| timeout/unknown | timeout/unknown | timeout/unknown |" in text
+    assert "| timeout | timeout | timeout |" in text
     assert "git timed out on status" in text
