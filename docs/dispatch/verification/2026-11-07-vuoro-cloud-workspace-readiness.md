@@ -75,7 +75,7 @@ Source: admin plane through `vuoro-cli` (read-only), 2026-11-07 about 14:40Z.
   reports 0.20.0. [inference] local client, hosted tenant and `vuoro-shared`
   work schemas are not the same version, so a mapping and a schema check are
   required before any record-family move.
-- **[fact]** `docs/IMPLEMENTATION-MATRIX.md` lists "higher-blast-radius
+- **[fact]** vuoro-cloud `docs/IMPLEMENTATION-MATRIX.md` lists "higher-blast-radius
   proof" columns that are still open (external two-user onboarding, released
   Actionq operations, synthetic canary and real backup/restore evidence).
 
@@ -154,4 +154,4 @@ workspace ids for `held.tenants_in_maintenance`. The rollout route already
 serves `state`, `maintenance_mode` and `since`, so the report now prints them
 with each id (this PR). The route serves no slug, no hold reason and no test
 flag; the report cannot print them until vuoro-cloud adds them
-(`operator-actions.md` documents the field shape).
+(field shape: `docs/runbooks/estate-status.md` here, vuoro-cloud `docs/runbooks/operator-actions.md`).
