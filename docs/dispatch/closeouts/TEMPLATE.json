@@ -1,0 +1,25 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "example-outcome-slug",
+  "closed_on": "2026-11-07",
+  "outcome": "One sentence: the useful outcome and its acceptance criteria.",
+  "work_refs": [],
+  "prs": [],
+  "acceptance": { "state": "unknown", "criteria": [] },
+  "route": {
+    "complexity_decision": "deterministic rule | advisory classifier answer | coordinator judgement, and why",
+    "selected": { "role": "worker", "harness": "unknown", "model": "unknown" },
+    "observed": { "role": "worker", "harness": "unknown", "model": "unknown", "evidence": "where the actual binding was read" },
+    "suboutcomes": []
+  },
+  "coordinator_effort": { "minutes": null, "basis": "unknown" },
+  "elapsed": { "minutes": null, "basis": "unknown" },
+  "review": {
+    "reviewer": { "role": "reviewer", "harness": "unknown", "model": "unknown" },
+    "independent": true,
+    "same_tier_as_worker": false,
+    "findings": { "blocker": 0, "major": 0, "minor": 0 }
+  },
+  "repairs": { "count": 0, "by": "none" },
+  "cost": { "usd": null, "tokens": null, "basis": "unknown" }
+}

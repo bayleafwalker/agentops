@@ -74,6 +74,28 @@ runtime, schema, deployment and protected-authority changes require their own
 owner implementation work and evidence. Earlier claims and their source history
 are retained below with this scoped successor.
 
+## Operator ruling amendment 2026-11-07
+
+Status: **accepted-operator**. On 2026-11-07 the operator rejected a goal-state
+plan because it "over-weighted retiring and not building tools on the basis of
+usage notes, which is not the relevant reason for this ecosystem"
+([archived rejected plan](archive/2026-11-07-rejected-opus-goal-state-plan.md)).
+This restates the 2026-09-22 direction recorded under the E1 tripwire below
+("Plans should always aim for assumption of use"). Under the intent-first rule,
+the claims that conflict with it are corrected here, not applied:
+
+- **TS-12:** producers are still measured before a contract is added or
+  retired. The clause "machinery with zero outcomes for six months is deleted"
+  is **superseded**. Low usage or dormancy is not a reason to retire, archive
+  or delete a tool or repository. Such tools are recorded in the
+  [plan register](REGISTER.md) and the [decision index](../decisions/INDEX.md)
+  with owner, purpose and status `held/dormant`, as facts.
+- **Tripwire "Six months with zero hits from a restored interim tool. Delete it":**
+  **superseded** on the same basis.
+- Retirement follows only from an accepted decision that names the retired
+  thing and its successor (for example kctl under estate plan EE-07, hybrid
+  dispatch under S2 item 6).
+
 ## Target claims
 
 | id | Claim | Status | Source |

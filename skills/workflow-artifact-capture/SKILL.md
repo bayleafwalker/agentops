@@ -1,6 +1,6 @@
 ---
 name: workflow-artifact-capture
-description: Use at the end of a workflow or session to classify session outputs, promote reusable examples into committed training artifacts, and route sprint-scoped durable lessons into kctl when appropriate.
+description: Use at the end of a workflow or session to classify session outputs, promote reusable examples into committed training artifacts, and record sprint-scoped durable lessons as structured sprintctl events when appropriate.
 ---
 
 ## Goal
@@ -18,7 +18,7 @@ This skill separates:
 
 - One or more source notes under `.agents/sessions/` or `.agents/handoffs/`.
 - Any related diff, verification output, sprint state, or review findings needed to explain what actually happened.
-- Optional live `sprintctl` / `kctl` context when the lessons came from sprint-scoped work.
+- Optional live `sprintctl` context when the lessons came from sprint-scoped work.
 
 ## Classification rules
 
@@ -33,14 +33,18 @@ Keep it only in `.agents/sessions/` when it is mainly:
 
 Session notes are source material, not the permanent teaching surface.
 
-### 2. Promote it into `kctl`
+### 2. Record it as a structured `sprintctl` event
 
-Use `sprintctl event add` and the `kctl-extract` workflow when the artifact is:
+Use `sprintctl event add` when the artifact is:
 - a durable decision, pattern, lesson, risk, or coordination correction
 - tied to sprint-scoped execution
 - concise enough to survive as structured repo knowledge
 
-Prefer `kctl` for rules and decisions that should become searchable repo memory.
+The event is the capture. `kctl` is retired and admits no new operations; its
+data is historical migration input, and durable knowledge moves to the Vuoro
+workspace and `vuoro-knowledge` (estate plan EE-07,
+`docs/plans/agentops/2026-10-17-estate-evolution-plan.md`). Do not run
+`kctl extract` or `kctl-extract` for new lessons.
 
 ### 3. Promote it into `docs/training/`
 
@@ -59,7 +63,7 @@ If the session surfaced a useful idea that is not yet accepted scope and is not 
 - add or update a `docs/notes/*.md` note, or
 - convert it into sprint scope later with `sprint-packet`
 
-Do not force speculative ideas into `kctl` or `docs/training/`.
+Do not force speculative ideas into sprintctl events or `docs/training/`.
 
 ## Training artifact shape
 
@@ -75,7 +79,7 @@ Keep them curated:
 ## Steps
 
 1. Read the source session note(s) and identify candidate lessons, workflow patterns, and reusable command sequences.
-2. Classify each candidate using the rules above: session-only, `kctl`, training doc, or idea capture.
+2. Classify each candidate using the rules above: session-only, sprintctl event, training doc, or idea capture.
 3. If a durable sprint-scoped lesson is missing from live state, add a structured `sprintctl event` with `summary`, `detail`, `tags`, and `confidence`.
 4. If a curated training document is warranted, write it under `docs/training/` and link the source session note(s).
 5. Update `docs/README.md` when you add a new durable training artifact family that should be discoverable.
@@ -84,7 +88,7 @@ Keep them curated:
 ## Output contract
 
 - The session's lasting outputs are classified explicitly.
-- Durable structured lessons are routed into `kctl` when they belong there.
+- Durable structured lessons are recorded as sprintctl events when they belong there.
 - Reusable narrative examples are captured under `docs/training/`.
 - Speculative or out-of-scope ideas are kept out of the permanent training surface unless they are intentionally curated.
 
@@ -92,6 +96,6 @@ Keep them curated:
 
 - Do not treat `.agents/sessions/` as the permanent training library.
 - Do not copy full prompt transcripts or shell dumps into committed training docs.
-- Do not publish thin or speculative ideas to `kctl` just to preserve them somewhere.
-- Do not create a training artifact when a short `kctl` entry or a small note would do.
+- Do not record thin or speculative ideas as sprintctl events just to preserve them somewhere.
+- Do not create a training artifact when a short sprintctl event or a small note would do.
 - Do not silently skip capture when the workflow calls for it; if capture is blocked by permissions or session constraints, report that block explicitly.

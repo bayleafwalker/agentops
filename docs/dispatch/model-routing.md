@@ -114,6 +114,20 @@ observe the actual binding; one model's successful result does not qualify anoth
 Preserve existing data, effect, review and integration boundaries, with one
 declared integration owner for overlapping files and target-branch writes.
 
+**External-provider data boundary (OpenCode Go and any non-first-party route).**
+An OpenCode Go request leaves the estate for an external model provider. Send
+only material that is already public or that the operator explicitly cleared
+for that provider: public-repository source and docs, synthetic fixtures, and
+self-contained implementation subtasks derived from them. Do not send queue or
+work contracts, authority, credential or effect designs, protected-horizon or
+private-repository content (appservice, cred-broker, vuoro-cloud operations,
+private sprintctl state), served tracker records, handoffs, telemetry, customer
+or tenant data, or anything under a data restriction. When an outcome needs
+restricted context, route it to a first-party harness instead; do not redact
+restricted material into an external prompt. This is why the automatic approval
+review rejected sending a detailed queue contract to OpenCode Go on 2026-11-06:
+the boundary held, and that request is not to be rerouted.
+
 Use a lightweight deterministic complexity decision when useful; consult an
 advisory classifier such as Jev only for ambiguous cases, with abstention and
 escalation available. Classify the outcome, not every microtask, and reconsider
@@ -122,7 +136,10 @@ historical Jev classifier or authorize an autonomous router or effect decision.
 
 Assess through ordinary outcome closeouts: acceptance, coordinator preparation
 and intervention effort, review findings, repairs, elapsed time and observed
-route. Record available measurements and label estimates or unknowns. Avoid
+route. Record them as one
+[`outcome-closeout-record/v1`](closeouts/README.md) per outcome (copy
+`closeouts/TEMPLATE.json`), with each measurement's basis `measured`,
+`estimate` or `unknown`. Record available measurements and label estimates or unknowns. Avoid
 duplicate bookkeeping and utilization targets that manufacture work. Adjust the
 practice as results arrive; retain useful patterns in guidance and mark failed
 ones retired with their evidence. Do not revive the retired hybrid driver.
@@ -147,7 +164,8 @@ Validation does not have to use a more expensive model to be independent. Fresh 
 ## Historical local route-decision records
 
 The `dispatch.route.decision` emitter is historical local-dispatch instrumentation, not an active
-native-session route recorder. Its producer is the saved `vuoro-dispatch-build` workflow and
+native-session route recorder. Its producer is the saved `vuoro-dispatch-build` workflow
+(`agentops/.claude/workflows/vuoro-dispatch-build.js`, repo-relative) and
 `scripts/jev_shadow.py record`; `/projects/dev/AGENTS.md` marks the saved workflow as legacy and
 prohibits using it for new work until it is migrated. Do not revive that workflow to create
 telemetry. The last workstation snapshot found 80 host-local events from September 28–30, 2026,

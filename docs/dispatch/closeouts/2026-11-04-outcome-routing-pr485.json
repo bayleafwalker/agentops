@@ -1,0 +1,25 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "outcome-routing-guidance-pr485",
+  "closed_on": "2026-11-04",
+  "outcome": "Land the 2026-11-04 active dogfood routing practice in docs/dispatch/model-routing.md and the workspace template.",
+  "work_refs": [],
+  "prs": ["https://github.com/bayleafwalker/agentops/pull/485"],
+  "acceptance": { "state": "accepted", "criteria": ["focused tests, manifest, protected-paths and append-only checks pass"] },
+  "route": {
+    "complexity_decision": "coordinator judgement: minor guidance integration handled by the coordinator directly",
+    "selected": { "role": "coordinator", "harness": "codex", "model": "unknown" },
+    "observed": { "role": "coordinator", "harness": "codex", "model": "unknown", "evidence": "_artifacts/agentops/outcome-routing-2026-11-04/review-and-checks.json records no binding" }
+  },
+  "coordinator_effort": { "minutes": null, "basis": "unknown", "note": "closeout states effort was not measured" },
+  "elapsed": { "minutes": null, "basis": "unknown" },
+  "review": {
+    "reviewer": { "role": "reviewer", "harness": "codex", "model": "gpt-6-luna" },
+    "independent": true,
+    "same_tier_as_worker": true,
+    "findings": { "blocker": 0, "major": 0, "minor": 0 }
+  },
+  "repairs": { "count": 0, "by": "none" },
+  "cost": { "usd": null, "tokens": null, "basis": "unknown" },
+  "practice_observation": "Backfilled from review-and-checks.json. Comparative quality unknown: the reviewer ran on the Luna tier named as the worker baseline, so this record cannot support a Luna-vs-Terra claim."
+}

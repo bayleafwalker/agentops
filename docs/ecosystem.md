@@ -1,6 +1,6 @@
 # Agent-Ops Ecosystem
 
-A reference for the `/projects/dev` agent-ops substrate: what each tool does, how they relate, how the cockpit reads them, how to deploy the system, and how to get started.
+A reference for the `/projects/dev` agent-ops substrate: what each tool does, how they relate, how to deploy the system, and how to get started.
 
 > **Current target architecture, realigned 2026-08-20:** native harnesses and
 > runtimes execute agent work; Sprintctl uses advisory reservations plus
@@ -12,6 +12,11 @@ A reference for the `/projects/dev` agent-ops substrate: what each tool does, ho
 > and [`vuoro-system-shape.md`](architecture/vuoro-system-shape.md). Sections
 > explicitly labelled **deployed compatibility** describe migration residue,
 > not a surface to extend.
+>
+> **Refreshed 2026-11-07:** `kctl` is retired (historical migration input only;
+> estate plan EE-07) and the cockpit retired on 2026-09-16. Vuoro, vuoro-cloud,
+> cred-broker and Sovite are listed below. Quickstart tracks no longer install
+> `kctl`.
 
 ---
 
@@ -29,12 +34,16 @@ Vuoro process composes all domain adapters.
 | Domain | Tool | Repo |
 |---|---|---|
 | Sprint and work-item state | `sprintctl` | [bayleafwalker/sprintctl](https://github.com/bayleafwalker/sprintctl) |
-| Knowledge extraction and review | `kctl` | [bayleafwalker/kctl](https://github.com/bayleafwalker/kctl) |
+| Durable knowledge and artifacts | Vuoro workspace and `vuoro-knowledge` (`kctl` retired; historical migration input only, EE-07) | [bayleafwalker/vuoro](https://github.com/bayleafwalker/vuoro) |
 | Repo-local audit and event ledger | `auditctl` | [bayleafwalker/auditctl](https://github.com/bayleafwalker/auditctl) |
 | Federated work/execution references, relations, assurance, acceptance and reconciliation (target) | `actionq` | [bayleafwalker/actionq](https://github.com/bayleafwalker/actionq) |
 | Native agent execution and session lifecycle | selected first-party harness/runtime | external integration boundary |
 | Native harness telemetry and raw evidence | OpenTelemetry plus Langfuse (selected 2026-09-14)/object storage | deployment-selected, non-authoritative |
-| Operator UI and cross-repo plans | `agentops` | [bayleafwalker/agentops](https://github.com/bayleafwalker/agentops) |
+| Governed-work coordination and settlement (leases, takeover, stale-result rejection, verification), served MCP; not a runner, queue, model router or worker supervisor (TS-1) | `vuoro` | [bayleafwalker/vuoro](https://github.com/bayleafwalker/vuoro) |
+| Operated hosting of the Vuoro server boundary (control plane, gateway, per-workspace runtimes) | `vuoro-cloud` | Forgejo `bayleaf/vuoro-cloud` (promotion authority); GitHub `bayleafwalker/vuoro-cloud` replica |
+| Capability authorization, short-lived provider credentials, digest-bound effect-intent acceptance (`credctl` client) | `cred-broker` | Forgejo `bayleaf/cred-broker` |
+| Execution owner under Vuoro: remote execution and model hosting as a workspace-owned capability ([accepted 2026-10-20](plans/2026-10-20-sovite-over-vuoro-cloud.md)) | `sovite` | [bayleafwalker/sovite](https://github.com/bayleafwalker/sovite) |
+| Canonical skills, schemas, guidance and cross-repo plans (the cockpit UI retired 2026-09-16) | `agentops` | [bayleafwalker/agentops](https://github.com/bayleafwalker/agentops) |
 | Kubernetes deployment | `appservice` | private — internal operations only |
 
 These are siblings under `/projects/dev/`, not nested inside each other. `_artifacts/` is their shared output directory.
@@ -179,6 +188,11 @@ sprintctl reservation list --item-id 1 --json
 ---
 
 ### kctl
+
+> **Retired.** `kctl` admits no new operations; its data is historical
+> migration input and durable knowledge moves to the Vuoro workspace and
+> `vuoro-knowledge` ([estate plan EE-07](plans/agentops/2026-10-17-estate-evolution-plan.md)).
+> This section is kept as a reference for reading old records only.
 
 **What it does.** Reads sprintctl event streams and extracts two separate artifact types: durable knowledge (decisions, patterns, lessons, blockers resolved) and coordination knowledge (claim handoffs, ownership corrections, workflow improvements). It drives a review pipeline: `candidate → approved → published → rendered markdown`.
 
@@ -529,7 +543,6 @@ Suitable for any repo that wants structured execution state without queue dispat
 ```bash
 # 1. Install
 uv tool install /projects/dev/sprintctl --python python3
-uv tool install /projects/dev/kctl     --python python3
 
 # 2. Configure (add to repo .envrc, or direnv allow after editing)
 export SPRINTCTL_BACKEND=local
@@ -549,19 +562,16 @@ sprintctl item show --id 1 --json  # read status_revision
 sprintctl item status --id 1 --status done --actor me \
   --expected-revision 'item:<uuid>@status:active'
 
-# 5. Extract and publish knowledge at sprint end
-kctl extract --sprint-id 1
-kctl review list --status pending --json
-kctl review approve --id 1
-kctl publish --id 1
-kctl render > docs/knowledge-base.md
+# 5. Record durable lessons as structured sprint events (kctl is retired)
+sprintctl event add --help            # summary, detail, tags, confidence
+sprintctl render > docs/sprint-snapshots/sprint-current.txt
 ```
 
 ---
 
 ### Track B: Add audit publishing
 
-Extend Track A with `auditctl` to capture commits, merges, decisions, and session events as NDJSON artifacts the cockpit reads.
+Extend Track A with `auditctl` to capture commits, merges, decisions, and session events as repo-local NDJSON artifacts.
 
 ```bash
 # 1. Install
@@ -584,7 +594,7 @@ auditctl list --limit 10
 ls /projects/dev/_artifacts/<repo-id>/audit/
 ```
 
-Commits and merges now land in the daily NDJSON shard automatically. The cockpit's right-pane Outcomes feed reads from these shards.
+Commits and merges now land in the daily NDJSON shard automatically. (The cockpit that once read these shards retired on 2026-09-16.)
 
 ---
 
@@ -604,11 +614,15 @@ execution reference through ActionQ federation.
 | Repo | Owns | Does not own |
 |---|---|---|
 | `sprintctl` | Sprint state, work items, revisions, decisions, dependencies, advisory reservations | Native session lifecycle, telemetry, audit events |
-| `kctl` | Knowledge review pipeline, durable artifact rendering | Sprint writes, audit events |
+| `kctl` | Retired: historical knowledge records, read-only migration input (EE-07) | Any new operation |
 | `auditctl` | Repo-local audit index, NDJSON shards, git hook templates | Sprint state, knowledge graph, centralized storage |
 | `actionq` | Target federation domain; currently retained queue lifecycle, Vuoro adapter, and persistence extraction boundary after daemon/server/harness source deletion | Native runtime execution, Sprint state, knowledge, audit internals |
 | `actionq-dispatcher` | Inactive fail-closed retirement tombstone | Dispatch, queue access, process launch, federation, or workflow policy |
-| `agentops` | Operator UI, cross-repo substrate plans | Substrate state (reads only) |
+| `agentops` | Canonical skills, schemas, guidance, cross-repo plans | Substrate state (reads only), execution, model choice |
+| `vuoro` | Coordination and settlement semantics, contracts, served MCP, workspace knowledge | Running workers, queues, model routing |
+| `vuoro-cloud` | Operated hosting: control plane, gateway, tenant runtimes, signed promotion | Sprintctl, ActionQ, Auditctl or Kctl authority logic |
+| `cred-broker` | Credential authorization, decision receipts, effect-intent acceptance | Stored credential values, work state |
+| `sovite` | Execution owner: leases on its execution queue, model bindings, grants, qualification | Vuoro coordination authority, tenant isolation outside its capability |
 | `appservice` | Live Kubernetes manifests, CNPG clusters, secrets (private repo) | Application logic |
 
 The boundary rule: work state and its mutation revisions belong to Sprintctl;
