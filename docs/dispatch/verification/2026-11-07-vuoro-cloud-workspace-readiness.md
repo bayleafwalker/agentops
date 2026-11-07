@@ -25,8 +25,8 @@ Source: admin plane through `vuoro-cli` (read-only), 2026-11-07 about 14:40Z.
 - **[fact]** Four test workspaces are held by design (maintenance yes,
   read-only yes, operation generation 0, so no engage operation exists):
   `blocker12-canary` (orphaned), `isolation-proof` (schema 2),
-  `g2-gen71-canary`, `g3-gen72-canary`. The estate gate reads `holds` only
-  because of them (`scripts/estate_status.py`; vuoro-cloud
+  `g2-gen71-canary`, `g3-gen72-canary`. Before 2026-11-07 the estate gate read `holds` only
+  because of them; they are now allowlisted as held-by-design (§5) (`scripts/estate_status.py`; vuoro-cloud
   `rollout/status` `maintenance_workspaces`).
 - **[fact]** vuoro-cloud `config/compatibility.json` has
   `release_ready: false`, pins `sprintctl` 0.18.0 and `tenant_schema` 2..3.
@@ -90,7 +90,7 @@ Source: admin plane through `vuoro-cli` (read-only), 2026-11-07 about 14:40Z.
 | B5 | Long-lived PAT is transitional; the local identity/token flow does not exist | Q1 amendment [fact] | durable credentials on agent hosts |
 | B6 | Outage semantics (#2537) not started; `vuoro-shared` fallback role depends on it | §3.3 [fact] | removing vuoro-shared as the write path |
 | B7 | `release_ready: false`; external onboarding and synthetic canary open | compatibility.json, STATUS [fact] | public or multi-user use, not personal use |
-| B8 | Held test workspaces make the estate gate read `holds` | observation [fact] | rollouts that require all tenants migrated or unheld |
+| B8 | Held test workspaces make the estate gate read `holds` (estate report side resolved 2026-11-07 by the §5 allowlist; vuoro-cloud rollout gates still count them until #2880 retires them) | observation [fact] | rollouts that require all tenants migrated or unheld |
 
 Not a blocker **[inference]**: the cluster, controller, gateway or the
 operator workspace itself. They are healthy by the observation.
@@ -111,9 +111,18 @@ workspaces, distinct from `release_ready` for external users.
 - Risk: a personal-use pass must not be read as `release_ready` or as
   permission for other users; label it in the gate output.
 
-## 5. Estate gate semantics for held test workspaces (proposal, no code change)
+## 5. Estate gate semantics for held test workspaces (implemented 2026-11-07)
 
-Today any entry in `maintenance_workspaces` makes the gate `holds`
+**Status: implemented.** The operator accepted this proposal on 2026-11-07 ("Accepted, make the changes"). The four test workspaces stay held: retirement is not possible yet, because the retire worker is not deployed and the base-backup gate (B4) cannot be met. The allowlist is `environment-record/vuoro-cloud.held-workspaces.json`; semantics are in `docs/runbooks/estate-status.md` ("vuoro-cloud workspaces held by design"). As implemented, an entry is held-by-design only when its id is listed, the served `state` and `maintenance_mode` match, `read_only` matches when served, and no migration is active. A listed id that no longer appears is reported as `allowlist_stale`. This changes only the estate report's gate; the vuoro-cloud rollout and fleet-convergence gates are unchanged (risk 2 below still applies). Follow-up items:
+
+- agentops#2877: deploy the retire worker.
+- agentops#2878: B4 base-backup and WAL/physical recovery qualification, with a live restore proof.
+- agentops#2879: serve `is_test`, `read_only` and a hold reason in `rollout/status`, so the allowlist can be dropped.
+- agentops#2880: retire the four workspaces after #2877 and #2878, then delete the entries; linked to #2876.
+
+The original proposal follows.
+
+Before this change, any entry in `maintenance_workspaces` makes the gate `holds`
 (`held.tenants_in_maintenance`, `CLOUD_HOLDS`). The route serves
 `{id, state, maintenance_mode, active_migration_id, since}` with no slug, no
 hold reason and no test flag.
@@ -139,7 +148,7 @@ vuoro-cloud) removes the question without any semantic change.
 | Stage | Work item | Acceptance check |
 |---|---|---|
 | S0 (now) | This page and the vuoro-cloud status corrections merged; estate gate detail names held workspaces (state, mode, since) | `agentops estate status` shows ids with state and `since`; vuoro-cloud STATUS has no stale "held since 2026-10-13" text |
-| S1 | Decide the four test workspaces: leave, or retire via plan flow (operator decision) | Gate no longer reads `holds`, or the allowlist proposal is reviewed and recorded |
+| S1 (done 2026-11-07) | Decide the four test workspaces: leave, or retire via plan flow (operator decision). Decided: leave held; allowlist implemented (§5); retirement queued as #2880 | Gate no longer reads `holds`, or the allowlist proposal is reviewed and recorded: recorded (`environment-record/vuoro-cloud.held-workspaces.json`) |
 | S2 | Draft the record family to store mapping and the cutover plan under `docs/plans` (register entry); fold into #2536 | Plan names every family, its current store, its target, and a before/after count check; plan register passes |
 | S3 | Add a `workstation-vuoro-cloud` profile with `production_endpoint_denied` reviewed; read-only first (`work:read`) | Profile passes the environment-record checks; a read through it returns `kotona` data; no write authority granted |
 | S4 | Resolve skew: pick the tenant runtime and Sprintctl pair, run composition qualification and tenant migration on a test workspace | `scripts/qualify_composition.py` passes; test workspace migrates and rolls back; `release_ready` unchanged |
