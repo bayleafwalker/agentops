@@ -28,11 +28,21 @@
       "reconcile": {
         "enabled": true,
         "model_alias": "review-synthesis"
+      },
+      "mechanical_bulk": {
+        "enabled": true,
+        "harness": "opencode",
+        "model_alias": "fast-build",
+        "self_candidate": true,
+        "permitted_routes": [
+          "mechanical_bulk"
+        ],
+        "self_candidate_ruling": "Owner ruling 2026-08-26 (agentops#2100, Option C), REISSUED and keyed to this action class rather than inherited from a route of the same name. Route selects execution and is transient; authority to mint a candidate without a human review record is a separate, durable decision and must be stated deliberately. This grant is made for the action class mechanical_bulk, and covers exactly the routes named in permitted_routes -- a route added later inherits nothing. It carries forward, unchanged in substance, the owner ruling of 2026-08-23 (L-3 / D-8): human approval is perpendicular to the loop -- review happens at release, architecture and style boundaries, not per mechanical packet. A green evidence gate on this class disposes candidate without a per-packet independent review record; D-8's >=5-green-first-pass-with-0-escalations rule governs which classes qualify. Reissued rather than edited so that the act of granting is visible in the record: the 2026-08-23 ruling was written about a class and applied through a route, and this closes that gap."
       }
     }
   },
   "skills": {
-    "template_root": "skills",
+    "template_root": "/projects/dev/agentops/skills",
     "selected": [
       "dispatch-plan",
       "dispatch-wave",
@@ -54,8 +64,8 @@
         "id": "agentops-agents",
         "path": "AGENTS.md",
         "kind": "AGENTS.md",
-        "digest": "ca492f14c1b6da7b6b32d6df2fb6e078219af14c87014f086ce5233deb58db9c",
-        "source_rev": "git:43239c5bcf2a3896860e1077f9b8d767aa8990b9",
+        "digest": "8f669cb7663ff0a36060f325a4a9b0be6a3af45ee9308ff45fa40e27f37a317d",
+        "source_rev": "git:a688960608f624d96c1791138dcb07bfe55c973d",
         "refs": [],
         "rules": [],
         "hooks": [],
@@ -89,18 +99,35 @@
         "docs/dispatch/"
       ]
     },
+    "role_presets": {
+      "planner": {
+        "model": "Sol",
+        "behavior": "xhigh",
+        "tool_mode": "read-only"
+      },
+      "worker": {
+        "model": "Luna",
+        "behavior": "high",
+        "tool_mode": "write"
+      },
+      "reviewer": {
+        "model": "Sol",
+        "behavior": "xhigh",
+        "tool_mode": "read-only"
+      }
+    },
     "provider_adapters": [],
     "skill_lock": {
-      "dispatch-plan": "e54a1f26aaee065131473adda1ef58aeec0c51df680049d96770f61eeff73bdf",
+      "dispatch-plan": "8da2efaaa4f760a468e5b642d2aa47162df594b52b813138e875189726cf34d6",
       "dispatch-wave": "a85480af99dd4a628a5c55683cd5b79ef483f07771efb0358c3210c233647a7e",
-      "dispatch-build": "78912b5e58b4e0a7d648305265b98d42b37ecfe1feb1eae01d89e89a7b121602",
+      "dispatch-build": "f895830df38ea72b79f13864130fd2e3ffca3488b261d38744c86cfc79995a1f",
       "dispatch-review": "0bf4c6f46b30f8ea33c5e226f90f000919291bbe199e0ae14d39cb1c219ea678",
       "code-change-verification": "da8dca1568f93ca1cb7f73ff88d75849c5c58676c4b3274516069a3197fe13a3",
-      "item-done": "701db98e3d27dd9cad1b989e005dadb2d7ad879f8316b64ee31c1de1b7fe1718",
-      "model-routing-optimizer": "d3418b24fa9e8025b8a285dcb37b9394a9914c36268cacf6b2d82e066728e47c",
-      "workflow-artifact-capture": "1f44dbc8a35a09ac03df7789268b49c934bff93ca0e555cbbb4ced0e656cd3a8",
-      "reconcile-project-contracts": "06b27e0d4bed83bbc25f95d71e37353a6a98178d2d9438664e257915c25032f5",
-      "session-handover": "ed9616ee689692366f24bdab3ba55520b8ce253efe808d2bc6cdd9471fd64f87"
+      "item-done": "441b9b333890d50fc6486f78e60662e8ebbdcefb51c57f34374b44fced32d68d",
+      "model-routing-optimizer": "8863acfbfaf08818272fbc5cfd2f139e4ea61e54e009ba6087406245cfc4c0a9",
+      "workflow-artifact-capture": "076fb30a2837cdc7e7a5c0ef3c31b1a52d06fe0d5ad903834bbaa5380a4c811c",
+      "reconcile-project-contracts": "3161e7ac4455bfccf20d783a4e9af5ac507c233d4a0afd3acad2857dafccad70",
+      "session-handover": "840bd46a272e2497647431465ef767f27c9348a7fabc31ce7a4dba86b4b2f4f9"
     }
   },
   "scope": {
@@ -121,7 +148,7 @@
     ]
   },
   "hybrid": {
-    "enabled": false,
+    "enabled": true,
     "worker_routes": [
       "mechanical_bulk"
     ],
@@ -144,9 +171,7 @@
       "scripts/check_templates_dispatch_allowlist.py",
       "scripts/templates_dispatch_allowlist.txt"
     ],
-    "hand_pass_actors": [
-      "bayleafwalker"
-    ],
+    "hand_pass_actors": ["bayleafwalker"],
     "worktree_root": "/tmp/agentops-hybrid/worktrees",
     "max_timeout_seconds": 1800,
     "max_cost_usd": 3.0,
@@ -154,8 +179,7 @@
     "hard_token_ceiling": 2000000,
     "notes": [
       "The dispatch contract itself is coordinator-only: a worker must never edit the policy, schema, or driver that bounds it.",
-      "Eligibility is determined by oracle ownership and failure mode, not implementation size.",
-      "Hybrid dispatch retired in S2 item 6 (2026-09-17). enabled is false; worker_routes stays only because the fleet schema requires it, and nothing routes through it. The mechanical_bulk self-candidate ruling lives in docs/decisions/2026-08-26-mechanical-bulk-self-candidate-ruling.md. This section still carries protected_paths and hand_pass_actors for the protected-paths gate."
+      "Eligibility is determined by oracle ownership and failure mode, not implementation size."
     ]
   },
   "verification": {

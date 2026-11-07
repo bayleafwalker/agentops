@@ -11,8 +11,10 @@ recorded: 2026-11-07
 Until 2026-11-07 this ruling lived only as prose in
 `routing.action_classes.mechanical_bulk.self_candidate_ruling` of
 `agentops.dispatch.json`. That file is not an authority (target-state TS-11),
-so the ruling is recorded here and the manifest no longer carries the class
-(see "Manifest reconciliation" in [dispatch-manifest.md](../dispatch/dispatch-manifest.md)).
+so the ruling is recorded here. Removing the class from the manifest is a
+protected-path change and follows in a separate hand-pass PR
+(branch `feat/dispatch-manifest-reconciliation`); until then the manifest
+prose duplicates this record and this record governs.
 
 ## Ruling (verbatim from the manifest)
 

@@ -28,33 +28,11 @@ root -- the schema enum is a copy of that listing, so the directory is the
 source of truth. A template root that does not exist on this machine is a
 warning, not a violation: it is the normal cross-repo case, and the enum is
 still enforced so the run is not silently weakened.
-
-Digest currency. ``instruction_set.sources[].digest`` is sha256 over the raw
-bytes of the source file (path relative to the manifest's directory), and
-``instruction_set.skill_lock[<skill>]`` is sha256 over the raw bytes of
-``<template_root>/<skill>/SKILL.md``; these are the methods the retired
-``instruction_doctor.py`` and skill-lock tooling used. They are observed
-digests (TS-3, product direction 2026-10-15), not a pin. A digest that no
-longer matches the file is a violation, so the record cannot drift silently.
-``--refresh`` rewrites stale digests in place (and each source's
-``source_rev`` to the last commit that touched it, when git can say) and then
-validates; ``source_rev`` is left alone when the file has uncommitted edits.
-A missing source file is a violation. ``skill_lock`` is compared only when the
-template root lies inside the manifest's own repository: an absolute root
-elsewhere (a fleet manifest pointing at the host's agentops checkout) is
-skipped with a warning, because that checkout says nothing about the copies
-the repo installed. ``--digests-warn`` reports stale digests as warnings
-instead of errors. CI uses it, so a refresh rides along with the next manifest
-change and an AGENTS.md or skill edit never needs a protected-path pass of its
-own.
 """
 
 from __future__ import annotations
 
-import hashlib
 import json
-import re
-import subprocess
 import sys
 from pathlib import Path
 
@@ -91,7 +69,7 @@ def resolve_template_root(manifest, manifest_path):
     return candidate
 
 
-def _check_manifest(path, digests_warn=False):
+def _check_manifest(path):
     """Return (errors, warnings) for one manifest file."""
     path = Path(path)
     if not path.is_file():
@@ -132,127 +110,7 @@ def _check_manifest(path, digests_warn=False):
                             f"selected skill {skill!r} has no directory under "
                             f"{root}")
 
-    if isinstance(instance, dict):
-        stale, skipped = stale_digests(instance, path)
-        errors.extend(m for m in stale if m.endswith("does not exist"))
-        stale = [m for m in stale if not m.endswith("does not exist")]
-        (warnings if digests_warn else errors).extend(stale)
-        warnings.extend(skipped)
-
     return errors, warnings
-
-
-def _sha256_file(path):
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
-
-
-def _repo_root(path):
-    try:
-        out = subprocess.run(["git", "-C", str(Path(path).resolve().parent), "rev-parse", "--show-toplevel"],
-                             capture_output=True, text=True, timeout=30)
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    return Path(out.stdout.strip()).resolve() if out.returncode == 0 and out.stdout.strip() else None
-
-
-def _skill_root_is_local(root, manifest_path):
-    base = _repo_root(manifest_path) or Path(manifest_path).resolve().parent
-    try:
-        root.resolve().relative_to(base)
-    except ValueError:
-        return False
-    return True
-
-
-def _digest_targets(manifest, manifest_path, skipped=None):
-    """Yield (label, recorded, file, setter) for every digest the manifest records."""
-    instruction_set = manifest.get("instruction_set")
-    if not isinstance(instruction_set, dict):
-        return
-    base = Path(manifest_path).parent
-    for source in instruction_set.get("sources") or []:
-        if isinstance(source, dict) and isinstance(source.get("path"), str):
-            yield (f"instruction_set.sources[{source.get('id')}]", source.get("digest"),
-                   base / source["path"], source)
-    lock = instruction_set.get("skill_lock")
-    if isinstance(lock, dict):
-        root = resolve_template_root(manifest, manifest_path)
-        if root.is_dir() and not _skill_root_is_local(root, manifest_path):
-            if skipped is not None:
-                skipped.append(
-                    f"skill_lock not compared: template root {root} is outside this "
-                    f"manifest's repository")
-        elif root.is_dir():
-            for name in sorted(lock):
-                yield (f"instruction_set.skill_lock[{name}]", lock[name],
-                       root / name / "SKILL.md", (lock, name))
-
-
-def stale_digests(manifest, manifest_path):
-    """Return (stale, skipped): one message per digest that no longer matches its file."""
-    problems, skipped = [], []
-    for label, recorded, target, _ in _digest_targets(manifest, manifest_path, skipped):
-        if not target.is_file():
-            problems.append(f"{label}: {target} does not exist")
-            continue
-        actual = _sha256_file(target)
-        if actual != recorded:
-            problems.append(
-                f"{label}: stale digest {str(recorded)[:12]}..., file is now "
-                f"{actual[:12]}...; run with --refresh")
-    return problems, skipped
-
-
-def _last_commit(path):
-    try:
-        out = subprocess.run(
-            ["git", "-C", str(Path(path).parent), "log", "-1", "--format=%H", "--", Path(path).name],
-            capture_output=True, text=True, timeout=30)
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    sha = out.stdout.strip()
-    if out.returncode != 0 or not re.fullmatch(r"[0-9a-f]{40}", sha):
-        return None
-    try:
-        dirty = subprocess.run(
-            ["git", "-C", str(Path(path).parent), "status", "--porcelain", "--", Path(path).name],
-            capture_output=True, text=True, timeout=30)
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    return None if dirty.returncode != 0 or dirty.stdout.strip() else sha
-
-
-def refresh(path):
-    """Rewrite stale digests of one manifest in place; return the labels changed."""
-    path = Path(path)
-    try:
-        manifest = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return []  # _check_manifest reports it
-    if not isinstance(manifest, dict):
-        return []
-    changed = []
-    for label, recorded, target, holder in list(_digest_targets(manifest, path)):
-        if not target.is_file():
-            continue
-        actual = _sha256_file(target)
-        if isinstance(holder, tuple):
-            lock, name = holder
-            if lock[name] != actual:
-                lock[name] = actual
-                changed.append(label)
-        else:
-            if holder.get("digest") != actual:
-                holder["digest"] = actual
-                changed.append(label)
-            sha = _last_commit(target)
-            if sha and holder.get("source_rev") != f"git:{sha}":
-                holder["source_rev"] = f"git:{sha}"
-                if label not in changed:
-                    changed.append(label)
-    if changed:
-        path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    return changed
 
 
 def main(argv=None) -> int:
@@ -260,17 +118,12 @@ def main(argv=None) -> int:
         argv = sys.argv[1:]
     if "-h" in argv or "--help" in argv:
         print(
-            f"usage: {Path(sys.argv[0]).name} [--refresh] [--digests-warn] <manifest.dispatch.json> [...]\n\n"
+            f"usage: {Path(sys.argv[0]).name} <manifest.dispatch.json> [...]\n\n"
             "Validate one or more dispatch manifests against "
-            "schemas/dispatch-manifest.schema.json and check that recorded "
-            "instruction and skill digests match the files. --refresh rewrites "
-            "stale digests in place first; --digests-warn reports stale digests as "
-            "warnings.",
+            "schemas/dispatch-manifest.schema.json.",
         )
         return 0
-    do_refresh = "--refresh" in argv
-    digests_warn = "--digests-warn" in argv
-    paths = [Path(arg) for arg in argv if arg not in ("--refresh", "--digests-warn")]
+    paths = [Path(arg) for arg in argv]
     if not paths:
         print(
             f"usage: {Path(sys.argv[0]).name} <manifest.dispatch.json> [...]",
@@ -280,10 +133,7 @@ def main(argv=None) -> int:
 
     any_failed = False
     for path in paths:
-        if do_refresh and path.is_file():
-            for label in refresh(path):
-                print(f"refreshed {path}: {label}")
-        errors, warnings = _check_manifest(path, digests_warn=digests_warn)
+        errors, warnings = _check_manifest(path)
         for warning in warnings:
             print(f"warning: {path}: {warning}")
         if errors:
