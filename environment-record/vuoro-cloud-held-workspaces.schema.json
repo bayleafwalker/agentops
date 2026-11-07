@@ -33,7 +33,7 @@
         "reason": { "type": "string", "minLength": 1 },
         "reviewer": { "type": "string", "minLength": 1 },
         "reviewed_on": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
-        "expected_state": { "type": "string", "minLength": 1 },
+        "expected_state": { "const": "READY" },
         "expected_maintenance_mode": { "const": true },
         "expected_read_only": { "type": "boolean" },
         "retire_blocked_by": {

@@ -514,8 +514,12 @@ def with_tenants(workspaces, allowlist_text=ALLOWLIST_TEXT):
     return env
 
 
-def replay_cloud(workspaces, allowlist_text=ALLOWLIST_TEXT):
-    """Full replay with rollout/status serving ``workspaces`` and the allowlist fixture present."""
+AGENTOPS_MAIN = json.loads((FIXTURES / "agentops.ls-remote.json").read_text())["stdout"].split()[0]
+
+
+def replay_cloud(workspaces, allowlist_text=ALLOWLIST_TEXT, local_main=AGENTOPS_MAIN):
+    """Full replay with rollout/status serving ``workspaces``, the local agentops origin/main at
+    ``local_main`` and the allowlist fixture present."""
     with tempfile.TemporaryDirectory() as tmp:
         for path in FIXTURES.iterdir():
             fixture = json.loads(path.read_text())
@@ -524,6 +528,9 @@ def replay_cloud(workspaces, allowlist_text=ALLOWLIST_TEXT):
                 body["maintenance_workspaces"] = workspaces
                 fixture["body"] = json.dumps(body)
             (Path(tmp) / path.name).write_text(json.dumps(fixture))
+        (Path(tmp) / "vuoro-cloud.agentops-main.local.json").write_text(json.dumps(
+            {"ok": True, "rc": 0, "stdout": local_main + "\n", "stderr": "", "observed_at": T,
+             "evidence": "git rev-parse"}))
         if allowlist_text is not None:
             (Path(tmp) / "vuoro-cloud.held-allowlist.json").write_text(json.dumps(
                 {"ok": True, "rc": 0, "stdout": allowlist_text, "stderr": "", "observed_at": T,
@@ -639,12 +646,43 @@ class HeldWorkspaceAllowlistTests(unittest.TestCase):
         self.assertEqual(schema_check.validate(report, SCHEMA), [])
         doc = env["document"]["held_workspace_allowlist"]
         self.assertEqual(doc["status"], "known")
-        self.assertIn(f"origin/main:{estate.HELD_ALLOWLIST_REL}", doc["evidence"])
+        self.assertIn(f"origin/main({AGENTOPS_MAIN[:12]}):{estate.HELD_ALLOWLIST_REL}", doc["evidence"])
         self.assertEqual(len(env["held"]["tenants_in_maintenance"]["value"]), 4)
         self.assertEqual(len(env["held"]["tenant_hold_review"]["value"]["held_by_design"]), 4)
         _, missing = replay_cloud([served(w) for w in HELD], allowlist_text=None)
         self.assertEqual(missing["document"]["held_workspace_allowlist"]["status"], "unknown")
         self.assertEqual(len(missing["held"]["tenant_hold_review"]["value"]["blocking"]), 4)
+
+    def test_stale_local_origin_main_exempts_nothing(self):
+        _, env = replay_cloud([served(w) for w in HELD], local_main="f" * 40)
+        doc = env["document"]["held_workspace_allowlist"]
+        self.assertEqual(doc["status"], "unknown")
+        self.assertIn("behind the remote", doc["reason"])
+        self.assertEqual(len(env["held"]["tenant_hold_review"]["value"]["blocking"]), 4)
+
+    def test_served_null_read_only_and_duplicate_ids_block(self):
+        wid = "01M43WESAQZQB85189TCYRZCVG"
+        self.assertEqual(self.gate(with_tenants([served(wid, read_only=None)]))["value"]["gate"], "holds")
+        gate = self.gate(with_tenants([served(wid), served(wid, state="MIGRATING")]))
+        self.assertEqual(gate["value"]["gate"], "holds")
+        self.assertIn("state=MIGRATING", gate["value"]["detail"].split("; held-by-design")[0])
+
+    def test_allowlist_rejects_unknown_keys_and_non_ready_state(self):
+        doc = json.loads(ALLOWLIST_TEXT)
+        for change in ({"expected_state": "MIGRATING"}, {"exempt_everything": True}):
+            with self.subTest(change=change):
+                bad = {**doc, "entries": [{**doc["entries"][0], **change}]}
+                self.assertNotEqual(schema_check.validate(bad, ALLOWLIST_SCHEMA), [])
+                with self.assertRaises(ValueError):
+                    estate.parse_held_allowlist(json.dumps(bad))
+
+    def test_notes_stay_with_the_holds_and_none_gates(self):
+        env = with_tenants([served(w) for w in HELD])
+        env["running"]["tenant_runtime_pin"] = k("sha256:" + "3" * 64)
+        gate = self.gate(env)
+        self.assertEqual(gate["value"]["gate"], "tenant-runtime-pin")
+        self.assertNotIn("held-by-design", gate["value"]["detail"])
+        self.assertNotIn("notes", gate["value"])
 
     def test_malformed_route_data_is_unknown_never_a_pass(self):
         for workspaces in ("x", ["01M3CA7V972W3HQSYWBG7V6JBB"], [{"state": "READY"}], [None]):

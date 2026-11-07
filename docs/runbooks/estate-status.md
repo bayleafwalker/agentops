@@ -76,11 +76,11 @@ client state and holds; launch qualification remains outside this report.
 
 Some vuoro-cloud test workspaces stay in maintenance on purpose until they can be retired. They are listed in `environment-record/vuoro-cloud.held-workspaces.json` (schema `environment-record/vuoro-cloud-held-workspaces.schema.json`). Each entry has `workspace_id`, `slug`, `reason`, `reviewer`, `reviewed_on`, `expected_state`, `expected_maintenance_mode` (always `true`), `expected_read_only` and `retire_blocked_by`. The operator reviewed the current four entries on 2026-11-07 (`blocker12-canary`, `isolation-proof`, `g2-gen71-canary`, `g3-gen72-canary`; [readiness page §5](../dispatch/verification/2026-11-07-vuoro-cloud-workspace-readiness.md#5-estate-gate-semantics-for-held-test-workspaces-implemented-2026-11-07)).
 
-The report reads the list from agentops `origin/main`, never from the working tree. An entry therefore takes effect only once it is merged. The list is `document.held_workspace_allowlist`.
+The report reads the list from agentops `origin/main`, never from the working tree. An entry therefore takes effect only once it is merged. The local `origin/main` must equal the remote `main` (checked with `git ls-remote`). If the clone is behind, the list is `unknown` and exempts nothing; rerun with `--fetch`. This way, an entry removed upstream cannot keep hiding a hold. The list is `document.held_workspace_allowlist`.
 
 A `maintenance_workspaces` entry from `rollout/status` stops blocking the `holds` gate only when all of these are true:
 
-- its id is on the list;
+- its id is on the list (`expected_state` is always `READY`);
 - the served `state` equals `expected_state`, and `maintenance_mode` is `true`;
 - if the route serves `read_only`, it equals `expected_read_only` (the route does not serve it yet, so it is not checked today);
 - `active_migration_id` is null or absent.
@@ -91,7 +91,7 @@ Nothing is dropped from the report:
 
 - `held.tenants_in_maintenance` still lists every served workspace.
 - `held.tenant_hold_review` splits them into `blocking`, `held_by_design`, `deviating` and `allowlist_stale`.
-- The gate detail, and the gate's `notes`, carry one `held-by-design: <id> (<slug>, <reason>)` line per exempted workspace.
+- When the gate stops at `holds` or reports `none`, its detail and its `notes` list carry one `held-by-design: <id> (<slug>, <reason>)` line per exempted workspace. When the `holds` check cannot be evaluated, the same lines are appended to the gate's `unknown` reason. A gate that stops at an earlier or later check leaves them out; `held.tenant_hold_review` always has them.
 - `allowlist_stale` names listed ids that are no longer served in `maintenance_workspaces`, which is the signal to prune the list after a retirement.
 
 **Scope and risk.** This changes only the agentops estate report's `holds` gate. It does not change or exempt anything in vuoro-cloud's own rollout or fleet-convergence gates. The held workspaces must still be counted there, or be retired first. For example, `isolation-proof` is on tenant schema 2, so a rollout that requires every tenant on schema 3 must not proceed past it on the strength of this list. The list duplicates the server's `is_test` fact, so it is a stopgap. Follow-up items:

@@ -1111,21 +1111,24 @@ def _short(sha: str | None) -> str:
 
 
 def _gate(checks: list[tuple[str, Callable[[], tuple[bool | None, str]]]],
-          inputs: list[str], notes: list[str] | None = None) -> dict[str, Any]:
+          inputs: list[str], notes: list[str] | None = None, notes_at: str | None = None) -> dict[str, Any]:
     """Walk ordered checks; the first blocking (or unevaluable) one is the next gate.
-    ``notes`` (e.g. held-by-design tenants) are appended to whatever the gate reports."""
+    ``notes`` (e.g. held-by-design tenants) are appended only when the gate stops at check
+    ``notes_at`` or nothing blocks, where they explain the result; other gates stay terse."""
     evidence = "derived from " + ", ".join(inputs)
     tail = "".join(f"; {n}" for n in notes or [])
     extra = {"notes": list(notes)} if notes else {}
     for name, check in checks:
+        here = name == notes_at
         try:
             passed, detail = check()
         except (KeyError, TypeError) as error:
             passed, detail = None, f"input missing: {error}"
         if passed is None:
-            return unknown(f"cannot evaluate gate {name!r}: {detail}{tail}", "derived", evidence)
+            return unknown(f"cannot evaluate gate {name!r}: {detail}{tail if here else ''}", "derived", evidence)
         if not passed:
-            return known({"gate": name, "detail": detail + tail, **extra}, "derived", evidence, None)
+            return known({"gate": name, "detail": detail + (tail if here else ""), **(extra if here else {})},
+                         "derived", evidence, None)
     return known({"gate": "none", "detail": "desired == running and usable; no hold present or "
                   "unknown; nothing blocks" + tail, **extra}, "derived", evidence, None)
 
@@ -1349,7 +1352,8 @@ def _tag_tree_fact(probe: Probe, key: str, repo: Path, tag: str, remote_tags: di
     return current, at
 
 
-def collect_vuoro_cloud(probe: Probe, *, fetch: bool) -> dict[str, Any]:
+def collect_vuoro_cloud(probe: Probe, *, fetch: bool,
+                        agentops_main: dict[str, Any] | None = None) -> dict[str, Any]:
     cfg = VUORO_CLOUD
     repo = cfg["repo"]
     desired: dict[str, Any] = {}
@@ -1515,7 +1519,8 @@ def collect_vuoro_cloud(probe: Probe, *, fetch: bool) -> dict[str, Any]:
     held["tenants_in_maintenance"] = _rollout_field(
         fleet, "maintenance_workspaces",
         _maintenance_labels, absent_maintenance)
-    document = {"held_workspace_allowlist": held_workspace_allowlist(probe)}
+    document = {"held_workspace_allowlist": held_workspace_allowlist(
+        probe, agentops_main or unknown("agentops remote main not observed", "live-api", "git ls-remote"))}
     held["tenant_hold_review"] = _tenant_hold_review(
         _rollout_field(fleet, "maintenance_workspaces", lambda v: v, absent_maintenance),
         document["held_workspace_allowlist"])
@@ -1559,6 +1564,8 @@ HELD_ALLOWLIST_REL = "environment-record/vuoro-cloud.held-workspaces.json"
 HELD_ALLOWLIST_SCHEMA = "vuoro-cloud-held-workspaces/v1"
 _ULID = re.compile(r"[0-9A-HJKMNP-TV-Z]{26}")
 _DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
+_ALLOWLIST_KEYS = {"workspace_id", "slug", "reason", "reviewer", "reviewed_on", "expected_state",
+                   "expected_maintenance_mode", "expected_read_only", "retire_blocked_by", "note"}
 
 
 def parse_held_allowlist(text: str) -> dict[str, dict[str, Any]]:
@@ -1578,7 +1585,12 @@ def parse_held_allowlist(text: str) -> dict[str, dict[str, Any]]:
             raise ValueError(f"{where}.workspace_id is not a workspace ULID")
         if wid in out:
             raise ValueError(f"{where}.workspace_id {wid} is listed twice")
-        for key in ("slug", "reason", "reviewer", "expected_state"):
+        unknown_keys = set(e) - _ALLOWLIST_KEYS
+        if unknown_keys:
+            raise ValueError(f"{where} has unknown keys {sorted(unknown_keys)}")
+        if e.get("expected_state") != "READY":
+            raise ValueError(f"{where}.expected_state must be READY")
+        for key in ("slug", "reason", "reviewer"):
             if not isinstance(e.get(key), str) or not e[key].strip():
                 raise ValueError(f"{where}.{key} must be a non-empty string")
         if not isinstance(e.get("reviewed_on"), str) or not _DAY.fullmatch(e["reviewed_on"]):
@@ -1595,10 +1607,18 @@ def parse_held_allowlist(text: str) -> dict[str, dict[str, Any]]:
     return out
 
 
-def held_workspace_allowlist(probe: Probe) -> dict[str, Any]:
-    shown = git(probe, "vuoro-cloud.held-allowlist", ROOT, "show", f"origin/main:{HELD_ALLOWLIST_REL}")
+def held_workspace_allowlist(probe: Probe, agentops_main: dict[str, Any]) -> dict[str, Any]:
+    """The allowlist at agentops origin/main, known only while that local ref equals the remote
+    main: an entry removed upstream must not keep exempting a hold from a stale clone."""
+    evidence = f"git:agentops@origin/main:{HELD_ALLOWLIST_REL}"
+    local, current, at = ref_current(probe, "vuoro-cloud.agentops-main", ROOT, "origin/main", agentops_main)
+    if not is_known(current) or not current["value"]:
+        why = current.get("reason") if not is_known(current) else (
+            f"local origin/main is behind the remote ({current['evidence']}); rerun with --fetch")
+        return unknown(f"held-workspace allowlist not read: {why}", "document", evidence, at)
+    shown = git(probe, "vuoro-cloud.held-allowlist", ROOT, "show", f"{local['value']}:{HELD_ALLOWLIST_REL}")
     fact = from_probe(shown, "document", lambda r: parse_held_allowlist(r["stdout"]))
-    fact["evidence"] = f"git:agentops@origin/main:{HELD_ALLOWLIST_REL}"
+    fact["evidence"] = f"git:agentops@origin/main({_short(local['value'])}):{HELD_ALLOWLIST_REL}"
     return fact
 
 
@@ -1786,7 +1806,7 @@ def derive_vuoro_cloud_gate(env: dict[str, Any]) -> dict[str, Any]:
                   "running.served_compatibility", "desired.compatibility_mirror_agrees",
                   *(f"held.{n}" for n in CLOUD_HOLDS), "held.tenant_hold_review", "running.kustomizations",
                   "desired.deployments", "running.pod_images", "usable.fleet_rollout", "running.tenant_runtime_pin"],
-                 notes=tenant_hold_notes(h))
+                 notes=tenant_hold_notes(h), notes_at="holds")
     return {"next_blocking_gate": gate, "recovery_class": derive_vuoro_cloud_recovery(env)}
 
 
@@ -2202,7 +2222,7 @@ def summarize(env: dict[str, Any]) -> dict[str, Any]:
 
 
 def build_report(probe: Probe, envs: list[str], *, fetch: bool) -> dict[str, Any]:
-    if fetch and any(e in HOSTS for e in envs):
+    if fetch and any(e in HOSTS or e == "vuoro-cloud" for e in envs):
         git(probe, "agentops.fetch", ROOT, "fetch", "--quiet", "origin", "main", timeout=60)
     agentops_url = probe.run("agentops.remote-url", ["git", "-C", str(ROOT), "remote", "get-url", "origin"],
                              timeout=10)
@@ -2217,7 +2237,7 @@ def build_report(probe: Probe, envs: list[str], *, fetch: bool) -> dict[str, Any
         if env_id == "vuoro-shared":
             env = collect_vuoro_shared(probe, fetch=fetch)
         elif env_id == "vuoro-cloud":
-            env = collect_vuoro_cloud(probe, fetch=fetch)
+            env = collect_vuoro_cloud(probe, fetch=fetch, agentops_main=agentops_main)
         else:
             env = collect_host(probe, env_id, agentops_main=agentops_main)
         stamp_derived(env)
