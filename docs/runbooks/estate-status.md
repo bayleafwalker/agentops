@@ -148,3 +148,22 @@ printf '%s\n' \
   '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"estate_status","arguments":{"env":"vuoro-shared"}}}' \
   | agentops estate mcp
 ```
+
+## Checkout freshness at session start
+
+Before planning reads, run:
+
+```sh
+python3 scripts/checkout_freshness.py --fetch   # or: agentops checkout-freshness --fetch
+```
+
+For agentops, sprintctl, vuoro, vuoro-cloud, sovite, cred-broker, appservice and gitops-nixos under `/projects/dev`, it reports:
+- the current branch;
+- local `main` ahead/behind `main@{upstream}` (falling back to `origin/main`);
+- the last fetch time;
+- dirty tracked and untracked file counts;
+- the worktree count.
+
+`--fetch` updates only remote-tracking refs (and `FETCH_HEAD`); nothing touches a working tree, index or local branch. Pass repo names, absolute paths or `NAME=PATH` to override the list. `--json` emits `checkout-freshness/v1`. `--strict` exits 1 when any main is behind or any checkout is dirty; without it the exit is always 0.
+
+The report is advisory, not a hook. A behind main means file reads describe an older state than the remote: pull, or read from `origin/main`, before planning from them.
