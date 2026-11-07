@@ -37,6 +37,8 @@ on every open Forgejo PR head before acting on this plan.
   `checkpoint_ref`. Written for tenant-lifecycle migrations 004-006.
   `fleet_converged()` is permissive with no `runtime_instance` rows by documented
   choice (avoids a first-boot deadlock).
+  Status 2026-11-07: unchanged on vuoro-cloud `main`; vuoro-cloud
+  `18-MULTITENANT-VERSIONING-AND-MIGRATION.md` records it as open under P5.
 - Release: signed `v0.1.0-poc.N` tag plus image digest through
   `promote-deployment.yaml`; Flux GitOps; staging contract in plans 2645/2646.
 - Migrations 020-025 and 029-034 are mostly role grants; 026-028 are not.
@@ -153,6 +155,14 @@ Close the deferred items in `18-...`: deep tenant-schema verification after
 scripted and rehearsed). Make `fleet_converged()` non-permissive when no
 `runtime_instance` rows exist, or document why it must be. Live mixed-generation
 and Talos proof remain operator actions and are not claimed here.
+
+P5 verification needs the expected work schema version for a tenant runtime
+version. That mapping does not exist yet; the proposed contract (owner: the
+`vuoro` repo, status: proposed) is
+`vuoro/docs/architecture/tenant-runtime-schema-mapping.md`
+(https://github.com/bayleafwalker/vuoro/pull/312). Until it exists P5 compares by
+hand. Migration numbering ownership and the stacking rule are in
+vuoro-cloud `docs/runbooks/migration-numbering.md`.
 
 ### P6. Restore and retire-dump interaction
 
