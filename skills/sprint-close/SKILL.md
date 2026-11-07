@@ -10,8 +10,7 @@ Encode the full sprint close-out sequence so steps are not repeated ad-hoc acros
 ## Inputs
 
 - The sprint ID to close (confirm with `sprintctl sprint list` if uncertain).
-- A local/recovery project DB via `.envrc` or exported `SPRINTCTL_DB` and
-  `KCTL_DB`. The maintenance and knowledge-review portions below are not yet
+- A local/recovery project DB via `.envrc` or exported `SPRINTCTL_DB`. The maintenance portion below is not yet
   a normal served blind-agent workflow; do not replace unavailable catalog
   operations with direct-store access.
 - Confirmation that all items intended for this sprint are in `done` or explicitly deferred.
@@ -21,7 +20,7 @@ Encode the full sprint close-out sequence so steps are not repeated ad-hoc acros
 1. **Run the repo's sprint-close gate.** Use the verification commands from the repo's dispatch manifest or overlay (e.g., targeted tests, contract checks). Report pass/fail. If the gate fails, diagnose and fix before continuing. Do not close a sprint on a failing gate.
 
 2. **Confirm sprint item health.** In served mode, use the released
-   `work.maintain.check` composition through `kctl preflight`; do not invoke
+   `work.maintain.check` composition through the selected Vuoro profile; do not invoke
    the direct `maintain check` CLI. If the selected deployed profile does not
    yet contain that contract, stop for an operator-recorded health decision
    rather than opening a local/direct store or continuing with an unverified
@@ -78,21 +77,17 @@ Encode the full sprint close-out sequence so steps are not repeated ad-hoc acros
 
 6. **Refresh the sprint snapshot.** Run `sprint-snapshot` to commit the final state. Use a standalone `chore:` commit.
 
-7. **Extract knowledge.** Run `kctl-extract` only when its required served
-   knowledge composition is released, or in separately authorized
-   local/recovery mode. The served preflight has an owning health-check
-   contract, but Kctl candidate/review composition remains release-pending.
-   Do not use `--no-preflight` or a local store to bypass it.
-   Key local/recovery steps:
-   ```bash
-   kctl extract --sprint-id <id>
-   kctl review list --kind all
-   ```
-   Review all candidates before completing.
+7. **Record knowledge.** `kctl` is retired and admits no new operations (estate
+   plan EE-07). Record each durable decision, pattern, lesson or risk from the
+   sprint as a structured `sprintctl event add` with `summary`, `detail`, `tags`
+   and `confidence` payload fields, following `workflow-artifact-capture`.
+   Durable knowledge moves to the Vuoro workspace and `vuoro-knowledge`. Do not
+   run `kctl-extract` or any `kctl` command.
 
-8. **Verify clean state.**
+8. **Verify clean state.** Confirm the sprint's lessons are recorded as events
+   and that no sprint item is left unreviewed:
    ```bash
-   kctl status --sprint-id <id> --kind all
+   sprintctl event list --sprint-id <id>
    ```
 
 ## Output Contract
@@ -106,7 +101,7 @@ Encode the full sprint close-out sequence so steps are not repeated ad-hoc acros
   recorded `established_by` and `authority_basis`. Validator success is not
   identity proof.
 - Final snapshot committed.
-- All knowledge candidates reviewed (approved or rejected).
+- Durable lessons are recorded as structured `sprintctl` events.
 - Sprint status is `closed` in `sprintctl`.
 
 ## Do Not
@@ -119,5 +114,5 @@ Encode the full sprint close-out sequence so steps are not repeated ad-hoc acros
   the delegation genuinely does not cover it, that is
   `missing-delegated-authority` and belongs in a realignment session, not in a
   queue for a person.
-- Do not close the sprint with `candidate` knowledge entries still unreviewed.
+- Do not close the sprint with durable lessons unrecorded, and do not run `kctl`.
 - Do not carry implementation work into close-out commits.
