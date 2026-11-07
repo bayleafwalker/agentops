@@ -40,6 +40,7 @@ reports both.
 | [vuoro-cloud-poc-promotion](poc-promotion.v1.json) | promotion | 03 cloud product | blocked: frozen head and digest after #353 |
 | [admission-mint-signing](admission-mint-signing.v1.json) | signing | 04 requests | blocked: private transport, service identity decision |
 | [vuoro-cloud-staging-rehearsal](staging-rehearsal.v1.json) | rehearsal | 02 cloud recovery, migration plan | blocked: #353, schema-version mapping |
+| [vuoro-cloud-live-state-read](vuoro-cloud-live-state-read.v1.json) | deployment (read-only observation) | 03 cloud product | ready: operator tunnel up, then `kubectl get` only |
 
 ## Owners
 

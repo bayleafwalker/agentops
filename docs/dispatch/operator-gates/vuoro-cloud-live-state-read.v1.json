@@ -1,0 +1,104 @@
+{
+  "schema": "operator-command-package/v1",
+  "package_id": "vuoro-cloud-live-state-read",
+  "title": "Observe the running vuoro-cloud PoC generation (is v0.1.0-poc.81 live?) through the operator tunnel, read-only",
+  "gate_kind": "deployment",
+  "programmes": [
+    "docs/dispatch/programmes/2026-10-24/03-cloud-product.md"
+  ],
+  "work_refs": [],
+  "owner": "release train owner: operator-designated coordinator (default-assigned 2026-11-07)",
+  "readiness": "ready",
+  "blockers": [],
+  "why_operator": "The PoC Kubernetes API is reachable only through the operator WireGuard tunnel (NetworkManager profile vuoro-cloud-operator), which is down. The estate status report deliberately does not bring tunnels up, and the 2026-11-07 verification session was scoped to read-only checks, so activating the operator tunnel and using the PoC admin kubeconfig stays with the operator. Every cluster command below is a kubectl get; nothing is mutated, signed or deployed.",
+  "host": "operator workstation",
+  "directory": "/projects/dev/agentops",
+  "preconditions": [
+    {
+      "check": "The operator NetworkManager profile exists",
+      "command": "nmcli -t -f NAME,TYPE connection show | grep '^vuoro-cloud-operator:'",
+      "expected": "vuoro-cloud-operator:wireguard",
+      "verified_at": "2026-11-07T13:55Z",
+      "observed": "vuoro-cloud-operator:wireguard"
+    },
+    {
+      "check": "The tunnel is currently down (so step 1 is needed and step 6 restores the starting state)",
+      "command": "ip -br link show vuoro-cloud-wg",
+      "expected": "Device \"vuoro-cloud-wg\" does not exist.",
+      "verified_at": "2026-11-07T13:55Z",
+      "observed": "Device \"vuoro-cloud-wg\" does not exist."
+    },
+    {
+      "check": "The PoC kubeconfig exists with owner-only permissions (metadata only; contents not read)",
+      "command": "stat -c '%a %U' /home/bayleaf/.config/vuoro/kube/poc.yaml",
+      "expected": "600 bayleaf",
+      "verified_at": "2026-11-07T13:55Z",
+      "observed": "600 bayleaf"
+    },
+    {
+      "check": "The desired generation is poc.81: highest signed tag in the Flux semver range on the GitHub source Flux watches",
+      "command": "git ls-remote --tags https://github.com/bayleafwalker/vuoro-cloud.git 'v0.1.0-poc.8*'",
+      "expected": "refs/tags/v0.1.0-poc.81^{} at 0733b420763bbd7759baf34653f665726b87c97c and no poc.82",
+      "verified_at": "2026-11-07T13:50Z",
+      "observed": "refs/tags/v0.1.0-poc.81 67c570967fd8..., refs/tags/v0.1.0-poc.81^{} 0733b420763b...; no poc.82 ref listed"
+    }
+  ],
+  "commands": [
+    {
+      "step": 1,
+      "command": "nmcli connection up vuoro-cloud-operator && ip -br addr show vuoro-cloud-wg",
+      "expected": "Connection successfully activated; vuoro-cloud-wg UNKNOWN 10.44.0.2/24",
+      "exact": true
+    },
+    {
+      "step": 2,
+      "command": "KUBECONFIG=/home/bayleaf/.config/vuoro/kube/poc.yaml kubectl get node vuoro-cloud-poc --request-timeout=15s",
+      "expected": "vuoro-cloud-poc Ready",
+      "exact": true
+    },
+    {
+      "step": 3,
+      "command": "KUBECONFIG=/home/bayleaf/.config/vuoro/kube/poc.yaml kubectl -n flux-system get gitrepository vuoro-cloud -o jsonpath='{.spec.suspend} {.status.artifact.revision} {range .status.conditions[*]}{.type}={.status}:{.reason} {end}{\"\\n\"}' --request-timeout=15s",
+      "expected": "suspend empty or false; revision v0.1.0-poc.81@sha1:0733b420763bbd7759baf34653f665726b87c97c; Ready=True and SourceVerified=True",
+      "exact": true
+    },
+    {
+      "step": 4,
+      "command": "KUBECONFIG=/home/bayleaf/.config/vuoro/kube/poc.yaml kubectl -n vuoro-system get deployments -o jsonpath='{range .items[*]}{.metadata.name} {.status.readyReplicas}/{.spec.replicas} {.spec.template.spec.containers[0].image}{\"\\n\"}{end}' --request-timeout=15s",
+      "expected": "vuoro-control, vuoro-control-admin, vuoro-gateway and vuoro-tenant-controller ready at their declared replicas with image ghcr.io/bayleafwalker/vuoro-cloud@sha256:e2c6b8d22d198d137bb6e66364cda6a77afe57fb737b1fc30de4dcde7dcb0505 (poc.81). sha256:e8fe72b0... means poc.80 is still serving.",
+      "exact": true
+    },
+    {
+      "step": 5,
+      "command": "python3 scripts/estate_status.py --env vuoro-cloud --fetch --json > /tmp/estate-vuoro-cloud-$(date -u +%Y%m%dT%H%MZ).json && python3 scripts/estate_status.py --env vuoro-cloud --from \"$(ls -t /tmp/estate-vuoro-cloud-*.json | head -1)\" --markdown | head -60",
+      "expected": "running.deployments, running.kustomizations and held.* now known; gate.next_blocking_gate evaluates (no 'tunnel is down' reasons)",
+      "exact": true
+    },
+    {
+      "step": 6,
+      "command": "nmcli connection down vuoro-cloud-operator",
+      "expected": "Connection successfully deactivated (runbook operator-access.md: tear the tunnel down after the session)",
+      "exact": true
+    }
+  ],
+  "expected_result": "The running generation is known by observation. Expected, not observed, from read-only evidence on 2026-11-07: poc.81 is serving. The basis: the signed tag and commit verify against the trusted promoter key; the Forgejo promote-deployment run 4522 succeeded at 2026-10-29T17:34Z and published the tag to GitHub; and the GitRepository selects the highest signed tag in '>=0.1.0-0 <0.2.0-0'. Diagnosis if not: step 3 showing poc.80 means the Flux source is suspended, failing verification or not reconciling. Step 3 showing poc.81 while step 4 shows poc.80 images means the platform or apps Kustomization stalled; promotion has historically included a manual flux reconcile of the source and the three Kustomizations. Either case is a vuoro-cloud repair item, not an action under this package.",
+  "send_back": [
+    "Output of steps 2, 3 and 4 verbatim (no secrets are printed by them)",
+    "The path of the estate JSON written in step 5, or its gate.next_blocking_gate and running.deployments values",
+    "Confirmation that step 6 brought the tunnel down"
+  ],
+  "rollback": {
+    "description": "Nothing in the cluster changes. The only state change is the workstation tunnel; bring it down. If step 1 fails with 'unknown connection', the NM profile was lost (see operator-access.md 'Bringing up the tunnel'); stop and report it rather than recreating it.",
+    "commands": [
+      "nmcli connection down vuoro-cloud-operator"
+    ]
+  },
+  "references": [
+    "docs/dispatch/verification/2026-11-07-landscape-unverified-items.md",
+    "vuoro-cloud:docs/runbooks/operator-access.md (Bringing up the tunnel on this workstation; explicit KUBECONFIG)",
+    "vuoro-cloud:clusters/bootstrap/poc/resources.yaml (GitRepository semver range, verify mode TagAndHEAD)",
+    "vuoro-cloud:IMPLEMENTATION-STATUS.md (Verified state, 29 October 2026: poc.80 checked at 15:59 UTC, before the poc.81 promotion)"
+  ],
+  "created": "2026-11-07",
+  "last_verified": "2026-11-07"
+}
