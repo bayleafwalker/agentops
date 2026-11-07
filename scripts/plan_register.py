@@ -39,7 +39,10 @@ EXCLUDE = {OUTPUT.as_posix()}
 VOCABULARY = ("proposed", "accepted", "active", "superseded", "rejected", "archived", "reference")
 DEFAULT_VERIFIED = "2026-11-07"
 
-STATUS_LINE = re.compile(r"(?i)(?:^|[\s*_>.-])status\W{0,4}:\s*\**\s*(.+)$")
+# A status line: "Status:" at the start of a line, after list, quote or
+# emphasis markers (``- **Status:**``, ``> Status:``) or after a sentence or
+# ``·`` separator on a metadata line, not mid-sentence.
+STATUS_LINE = re.compile(r"(?i)(?:^|[\u00b7.;]\s)[\s>*_-]*status\W{0,4}:\s*\**\s*(.+)$")
 FRONT_STATUS = re.compile(r"(?im)^status:\s*(.+)$")
 SUPERSEDED_BY = re.compile(r"(?im)^\W*superseded[-_ ]by\W*:?\**\s*(.+)$")
 WORK_REF = re.compile(r"\b((?:agentops|vuoro-cloud|vuoro|sprintctl|sovite|appservice|actionq|cred-broker)#\d{2,5})\b")
@@ -53,7 +56,7 @@ RULES: tuple[tuple[str, str], ...] = (
     (r"not adopted|nothing here is adopted|not a ruling|nothing has been applied", "proposed"),
     (r"propos|draft|candidate|thesis|design only|plan only", "proposed"),
     (r"ratif|accept|adopt|approv|ruled|decided|reviewed|requested|revised after", "accepted"),
-    (r"ready|active|in progress|implement|landed|current", "active"),
+    (r"\bready\b|\bactive\b|in progress|(?<!not )\bimplement|\blanded\b|(?<![a-z])current", "active"),
     (r"historical|archived|retired", "archived"),
 )
 

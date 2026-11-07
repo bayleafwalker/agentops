@@ -1,6 +1,6 @@
 # Agent-Ops Ecosystem
 
-A reference for the `/projects/dev` agent-ops substrate: what each tool does, how they relate, how the cockpit reads them, how to deploy the system, and how to get started.
+A reference for the `/projects/dev` agent-ops substrate: what each tool does, how they relate, how to deploy the system, and how to get started.
 
 > **Current target architecture, realigned 2026-08-20:** native harnesses and
 > runtimes execute agent work; Sprintctl uses advisory reservations plus

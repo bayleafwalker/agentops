@@ -711,3 +711,30 @@ class DigestCurrencyTests(_ValidatorCase):
         code, _, combined = self.run_main(path)
         self.assertNotEqual(code, 0, combined)
         self.assertIn("does not exist", combined)
+
+    def test_digests_warn_reports_without_failing(self):
+        code, stdout, combined = self.run_main("--digests-warn", self._manifest_with_digests(stale=True))
+        self.assertEqual(code, 0, combined)
+        self.assertIn("warning:", stdout)
+        self.assertIn("stale digest", stdout)
+
+    def test_refresh_on_invalid_json_reports_instead_of_crashing(self):
+        path = self.write("bad.dispatch.json", "{not json")
+        code, _, combined = self.run_main("--refresh", path)
+        self.assertNotEqual(code, 0, combined)
+        self.assertIn("invalid JSON", combined)
+
+    def test_skill_root_outside_the_repo_is_skipped_with_a_warning(self):
+        path = self._manifest_with_digests(stale=True)
+        outside = tempfile.TemporaryDirectory()
+        self.addCleanup(outside.cleanup)
+        other = Path(outside.name) / "skills" / "dispatch-build"
+        other.mkdir(parents=True)
+        (other / "SKILL.md").write_text("x")
+        manifest = json.loads(path.read_text())
+        manifest["skills"]["template_root"] = str(Path(outside.name) / "skills")
+        manifest["instruction_set"]["sources"][0]["digest"] = __import__("hashlib").sha256(b"rules\n").hexdigest()
+        path.write_text(json.dumps(manifest))
+        code, stdout, combined = self.run_main(path)
+        self.assertEqual(code, 0, combined)
+        self.assertIn("skill_lock not compared", stdout)

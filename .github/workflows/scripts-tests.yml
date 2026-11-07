@@ -67,8 +67,8 @@ jobs:
         # both under one rootdir would apply that fixture set to tests written
         # without it. These are stdlib-only and need no extra dependency.
         run: python -m pytest -q scripts/context_economy
-      - name: agentops.dispatch.json validates against the schema and its digests are current
-        run: python3 scripts/validate_dispatch_manifest.py agentops.dispatch.json
+      - name: agentops.dispatch.json validates against the schema (stale observed digests warn)
+        run: python3 scripts/validate_dispatch_manifest.py --digests-warn agentops.dispatch.json
       - name: every plan file is in the plan register
         run: python3 scripts/plan_register.py --check
       - name: operator command packages are well formed

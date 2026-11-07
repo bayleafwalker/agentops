@@ -60,12 +60,15 @@ no retirement date is set. It was brought into line with TS-2, TS-3 and the
   is sha256 of `skills/<skill>/SKILL.md`, the method the retired
   instruction doctor and skill-lock tooling used. Both are *observed* digests,
   not a pin or a materialization source. `validate_dispatch_manifest.py` now
-  fails when a recorded digest no longer matches the file. After changing
-  `AGENTS.md` or a selected skill, run
+  fails when a recorded digest no longer matches the file. CI runs it with
+  `--digests-warn`, which reports stale digests as warnings, because the
+  manifest is a protected path and a refresh needs a hand-pass. An
+  `AGENTS.md` or skill edit therefore never waits on one. Run
   `python3 scripts/validate_dispatch_manifest.py --refresh agentops.dispatch.json`
-  in the same PR. That rewrites the digests and each source's `source_rev` to
-  the last commit that touched it. The manifest is a protected path, so such a
-  PR is a hand-pass.
+  in the next PR that changes the manifest anyway. That rewrites the digests,
+  and each source's `source_rev` to the last commit that touched it (left
+  alone while the file has uncommitted edits). `skill_lock` is compared only
+  when the template root is inside the manifest's repository.
 - **`template_root` is relative (`skills`)**, so the check runs against the
   checkout being validated, CI included, not a host path.
 - **`instruction_set.role_presets` was removed.** TS-3 holds no role preset in

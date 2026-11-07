@@ -99,3 +99,22 @@ def test_vanished_file_fails(tmp_path):
 def test_committed_register_is_current():
     assert reg.validate(ROOT, reg.load(ROOT)) == []
     assert (ROOT / reg.OUTPUT).read_text() == reg.render(ROOT, reg.load(ROOT))
+
+
+def test_status_line_is_anchored():
+    assert reg.STATUS_LINE.search("the job status: running") is None
+    assert reg.STATUS_LINE.search("- **Status:** accepted").group(1).startswith("accepted")
+    assert reg.STATUS_LINE.search("Date: 2026-09-27. Status: decided").group(1) == "decided"
+    assert reg.normalise("not implemented yet") is None
+    assert reg.normalise("recurrent") is None
+
+
+def test_add_missing_appends_derived_rows(tmp_path):
+    root = _repo(tmp_path)
+    (root / reg.DATA).write_text(json.dumps({}))
+    assert reg.main(["--root", str(root), "--add-missing"]) == 0
+    data = json.loads((root / reg.DATA).read_text())
+    assert set(data) == set(reg.plan_files(root))
+    assert data["docs/plans/c.md"]["justification"]
+    assert data["docs/plans/agentops/b.md"]["status"] == "superseded"
+    assert (root / reg.OUTPUT).read_text() == reg.render(root, data)
