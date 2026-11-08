@@ -1684,7 +1684,8 @@ def evaluate_operator_self_use(record: dict[str, Any], *, desired_release_ready:
     elif (today - reviewed).days > 90:
         void = "reviewed_on is older than 90 days"
     elif (record.get("tenant_runtime_pin_changed_after_composition") or
-          (isinstance(composition, dict) and pinned_pair and composition.get("pinned_pair") != pinned_pair)):
+          (isinstance(composition, dict) and pinned_pair and composition.get("pinned_pair")
+           and composition.get("pinned_pair") != pinned_pair)):
         void = "tenant runtime or Sprintctl pin changed after composition qualification"
     elif record.get("vuoro_shared_fallback") is False or record.get("fallback_environment") not in (None, "vuoro-shared"):
         void = "vuoro-shared removed or demoted as fallback"

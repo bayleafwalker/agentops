@@ -30,6 +30,18 @@ class ScriptModeTests(unittest.TestCase):
         self.assertEqual(out.stdout.strip(), "True")
 
 
+class NoQualificationYetTests(unittest.TestCase):
+    def test_known_live_pair_without_recorded_qualification_is_not_void(self):
+        record = estate._load_operator_self_use_record()
+        record["profile_valid"] = True
+        out = estate.evaluate_operator_self_use(
+            record, desired_release_ready={"status": "known", "value": False},
+            today=datetime.date(2026, 11, 8),
+            pinned_pair={"tenant_runtime_pin": "runtime", "sprintctl_version": "0.18.0"})
+        self.assertEqual(out["status"], "not_met")
+        self.assertNotIn("changed after composition", out["label"])
+
+
 class OperatorSelfUseTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
