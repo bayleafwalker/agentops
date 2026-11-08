@@ -1,0 +1,11 @@
+{
+ "body": "{\"environment\": {\"name\": \"vuoro-cloud\"}, \"service_version\": \"fixture\", \"service_release\": {\"version\": \"fixture\"}, \"schema_versions\": {}, \"client_protocol\": 1, \"catalog_revision\": \"fake-catalog-revision\", \"compatibility\": {\"state\": \"compatible\", \"domains\": {}}}",
+ "evidence": "GET https://fixture.invalid/api/meta/v1/handshake",
+ "headers": {
+  "content-type": "application/json",
+  "etag": "\"fake-catalog-revision\""
+ },
+ "observed_at": "2026-10-14T15:45:36Z",
+ "ok": true,
+ "status": 200
+}

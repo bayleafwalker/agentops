@@ -16,6 +16,10 @@ import re
 import subprocess
 import sys
 import tempfile
+import os
+import threading
+import time
+from unittest import mock
 import unittest
 from collections import Counter
 from datetime import UTC, datetime
@@ -37,6 +41,137 @@ import schema_check  # noqa: E402
 SCHEMA = json.loads((ROOT / "environment-record/estate-status-v1.schema.json").read_text())
 T = "2026-10-14T00:00:00Z"
 OTHER = "sha256:" + "1" * 64
+
+
+class CloudCredentialHardeningTests(unittest.TestCase):
+    def credential(self, raw, mode=0o600, symlink=False):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            token_path = root / "token"
+            token_path.write_bytes(raw)
+            token_path.chmod(mode)
+            if symlink:
+                link = root / "link"
+                link.symlink_to(token_path)
+                token_path = link
+            profile = root / "profile.json"
+            profile.write_text(json.dumps({"credential_ref": f"file:{token_path}"}))
+            return estate._workspace_credential(profile)
+
+    def test_trailing_line_ending_is_accepted_and_bad_whitespace_rejected(self):
+        self.assertEqual(self.credential(b"token\n"), ("token", None))
+        self.assertEqual(self.credential(b"token\r\n"), ("token", None))
+        for value, reason in ((b"tok en", "whitespace"), (b"a\nb", "whitespace"), (b"", "empty")):
+            token, actual = self.credential(value)
+            self.assertIsNone(token)
+            self.assertIn(reason, actual)
+
+    def test_permissions_symlink_and_bad_characters_are_unknown(self):
+        self.assertIn("group/world readable", self.credential(b"token", 0o644)[1])
+        self.assertIn("symlink", self.credential(b"token", symlink=True)[1])
+        for value in ("☃".encode(), b"a\x00b", b"a\x7fb"):
+            self.assertIsNone(self.credential(value)[0])
+
+    def test_special_files_and_oversize_credentials_are_rejected_without_blocking(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile = root / "profile.json"
+            fifo = root / "fifo"
+            os.mkfifo(fifo, 0o600)
+            profile.write_text(json.dumps({"credential_ref": f"file:{fifo}"}))
+            result = []
+            thread = threading.Thread(target=lambda: result.append(estate._workspace_credential(profile)))
+            thread.start(); thread.join(1)
+            self.assertFalse(thread.is_alive())
+            self.assertIsNone(result[0][0])
+            directory = root / "dir"; directory.mkdir()
+            self.assertIsNone(estate._read_credential(directory, "test")[0])
+            oversized = root / "large"; oversized.write_bytes(b"x" * 4097); oversized.chmod(0o600)
+            self.assertIsNone(estate._read_credential(oversized, "test")[0])
+
+    def test_any_token_substring_is_redacted_and_auth_errors_hide_body(self):
+        token = "zzFAKEtok3nQ9x7Lm2Pv8Rw4Ks6Hd1Jf5Gb0Nc"
+        class Response:
+            def __init__(self, status, body): self.status, self.body = status, body; self.headers = {"Content-Type": "text/plain"}
+            def __enter__(self): return self
+            def __exit__(self, *args): pass
+            def read(self, _limit): return self.body.encode()
+        for status, fragment in ((401, token[5:15]), (403, token[-12:]), (200, token[3:20]), (200, token[4:16])):
+            opener = mock.MagicMock(); opener.open.return_value = Response(status, "echo=" + fragment)
+            with self.subTest(status=status, fragment=fragment), mock.patch.object(
+                    estate.urllib.request, "build_opener", return_value=opener):
+                result = estate.Probe().http("echo", "http://fixture.invalid/",
+                                             secret_headers={"Authorization": "Bearer " + token})
+                self.assertNotIn(fragment, json.dumps(result))
+                if status in (401, 403): self.assertEqual(result["error"], f"HTTP {status}: ")
+
+    def test_header_value_exception_is_fixed_and_operator_uses_hardened_reader(self):
+        token = "zzFAKEtok3nQ9x7Lm2Pv8Rw4Ks6Hd1Jf5Gb0Nc"
+        opener = mock.MagicMock(); opener.open.side_effect = ValueError(f"Invalid header value b'Bearer {token}'")
+        with mock.patch.object(estate.urllib.request, "build_opener", return_value=opener):
+            result = estate.Probe().http("bad", "http://fixture.invalid/",
+                                         secret_headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(result["error"], "request header rejected")
+        self.assertNotIn(token, json.dumps(result))
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp) / "operator"; directory.mkdir()
+            self.assertIsNone(estate._read_credential(directory, "operator credential")[0])
+            binary = Path(tmp) / "binary"; binary.write_bytes(b"\xff"); binary.chmod(0o600)
+            self.assertIsNone(estate._read_credential(binary, "operator credential")[0])
+
+    def test_secret_redirect_refused_and_response_partial_echo_redacted(self):
+        second_host_requests = []
+        fake_fp = mock.MagicMock()
+        fake_headers = {"Location": "http://127.0.0.1:9999/"}
+        redirect_error = estate.urllib.error.HTTPError("http://127.0.0.1:9998/", 302,
+                                                        "Found", fake_headers, fake_fp)
+        opener = mock.MagicMock()
+        opener.open.side_effect = redirect_error
+        handlers = []
+        def fake_build_opener(*items):
+            handlers.extend(items)
+            return opener
+        with mock.patch.object(estate.urllib.request, "build_opener", side_effect=fake_build_opener):
+            result = estate.Probe().http("redirect", "http://127.0.0.1:9998/",
+                                         secret_headers={"Authorization": "Bearer " + "x" * 40})
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"], "redirect refused")
+        self.assertEqual(second_host_requests, [])
+        self.assertEqual(opener.open.call_args.args[0].unredirected_hdrs["Authorization"],
+                         "Bearer " + "x" * 40)
+        with self.assertRaises(estate.urllib.error.HTTPError) as raised:
+            handlers[0].redirect_request(opener.open.call_args.args[0], None, 302, "Found",
+                                         {"Location": "http://127.0.0.1:9999/"},
+                                         "http://127.0.0.1:9999/")
+        self.assertIn("redirect refused", str(raised.exception))
+
+    def test_record_redacts_partial_token_echo(self):
+        token = "fake-token-value-that-is-long-enough"
+        class Response:
+            status = 401
+            headers = {"Content-Type": "text/plain"}
+            def __enter__(self): return self
+            def __exit__(self, *args): pass
+            def read(self, _limit): return token[:23].encode()
+        opener = mock.MagicMock()
+        opener.open.return_value = Response()
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(
+                estate.urllib.request, "build_opener", return_value=opener):
+            probe = estate.Probe(record=Path(tmp))
+            result = probe.http("echo", "http://fixture.invalid/",
+                                secret_headers={"Authorization": f"Bearer {token}"})
+            fixture = (Path(tmp) / "echo.json").read_text()
+            self.assertNotIn(token[:23], json.dumps(result) + fixture)
+            self.assertIn("[REDACTED]", fixture)
+
+    def test_replay_cloud_facts_do_not_read_credential(self):
+        original = estate._workspace_credential
+        estate._workspace_credential = lambda *_: (_ for _ in ()).throw(AssertionError("credential read"))
+        try:
+            report = replay(["vuoro-cloud"])
+            self.assertIn("handshake", by_id(report)["vuoro-cloud"]["usable"])
+        finally:
+            estate._workspace_credential = original
 
 
 def k(value):
@@ -870,6 +1005,98 @@ class FreshnessTests(unittest.TestCase):
         report = {"generated_at": "2026-10-14T10:00:00Z"}
         text = estate.report_age_warning(report, now=datetime(2026, 10, 14, 13, 30, tzinfo=UTC))
         self.assertIn("3h 30m ago", text)
+
+
+class CloudWorkspaceHandshakeTests(unittest.TestCase):
+    def test_profile_credential_is_resolved_and_whitespace_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            secret = "fake-workspace-token-1234567890"
+            credential = root / "credential"
+            profile = root / "profile.json"
+            profile.write_text(json.dumps({"credential_ref": f"file:{credential}"}))
+            credential.write_text(secret)
+            credential.chmod(0o600)
+            token, reason = estate._workspace_credential(profile)
+            self.assertEqual(token, secret)
+            self.assertIsNone(reason)
+            credential.write_text("  \n")
+            token, reason = estate._workspace_credential(profile)
+            self.assertIsNone(token)
+            self.assertIn("whitespace", reason)
+            credential.unlink()
+            token, reason = estate._workspace_credential(profile)
+            self.assertIsNone(token)
+            self.assertIn("unreadable", reason)
+            profile.write_text(json.dumps({"credential_ref": "env:NOT_ALLOWED"}))
+            token, reason = estate._workspace_credential(profile)
+            self.assertIsNone(token)
+            self.assertIn("no workspace credential designated", reason)
+
+    def test_observed_handshake_never_contains_credential(self):
+        secret = "fake-workspace-token-1234567890"
+
+        class Probe(estate.Probe):
+            def http(self, key, url, **kwargs):
+                self.sent = kwargs.get("secret_headers")
+                return {"ok": True, "status": 200,
+                        "body": json.dumps({"environment": {"id": "vuoro-cloud-ws-01m3abjs1qw0"},
+                                            "compatibility": {"state": "compatible",
+                                                               "domains": {"work": {"state": "compatible"}}}}),
+                        "evidence": "GET handshake -H 'Authorization: [REDACTED]'",
+                        "observed_at": T}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            credential, profile = root / "read-token", root / "profile.json"
+            credential.write_text(secret)
+            credential.chmod(0o600)
+            profile.write_text(json.dumps({"credential_ref": f"file:{credential}"}))
+            probe = Probe()
+            fact = estate._cloud_handshake_fact(probe, profile, "https://api.vuoro.cloud")
+            self.assertEqual(probe.sent, {"Authorization": f"Bearer {secret}"})
+            self.assertEqual(fact["status"], "known")
+            self.assertNotIn(secret, json.dumps(fact))
+
+    def test_gateway_errors_and_timeouts_are_unknown(self):
+        class Probe(estate.Probe):
+            def __init__(self, result):
+                super().__init__()
+                self.result = result
+
+            def http(self, key, url, **kwargs):
+                return self.result
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            credential, profile = root / "credential", root / "profile.json"
+            credential.write_text("fixture-token")
+            credential.chmod(0o600)
+            profile.write_text(json.dumps({"credential_ref": f"file:{credential}"}))
+            for result in ({"ok": False, "status": 401, "error": "HTTP 401", "evidence": "GET"},
+                           {"ok": False, "status": 403, "error": "HTTP 403", "evidence": "GET"},
+                           {"ok": False, "status": None, "error": "unreachable: timed out", "evidence": "GET"}):
+                with self.subTest(result=result):
+                    fact = estate._cloud_handshake_fact(Probe(result), profile,
+                                                        "https://api.vuoro.cloud")
+                    self.assertEqual(fact["status"], "unknown")
+                    self.assertIn("was not observed", fact["reason"])
+
+    def test_replay_handshake_does_not_read_profile_or_credential(self):
+        payload = {"environment": {"id": "vuoro-cloud-ws-01m3abjs1qw0", "name": "cloud"},
+                   "compatibility": {"state": "compatible", "domains": {"work": {"state": "compatible"}}}}
+        result = {"ok": True, "status": 200, "body": json.dumps(payload),
+                  "evidence": "GET handshake", "observed_at": T}
+        with tempfile.TemporaryDirectory() as tmp:
+            fixture_dir = Path(tmp) / "fixtures"
+            fixture_dir.mkdir()
+            (fixture_dir / "vuoro-cloud.handshake.json").write_text(json.dumps(result))
+            probe = estate.Probe(replay=fixture_dir)
+            fact = estate._cloud_handshake_fact(probe, Path("/must/not/be/read"),
+                                                "https://api.vuoro.cloud")
+            self.assertEqual(fact["status"], "known")
+            self.assertEqual(fact["value"]["environment"], "vuoro-cloud-ws-01m3abjs1qw0")
+            self.assertEqual(fact["value"]["domains"]["work"]["state"], "compatible")
 
 
 # An independent secret detector: it must not share logic with estate.redact().

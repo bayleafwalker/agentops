@@ -1,0 +1,11 @@
+{
+ "body": "{\"schema_version\": \"operation-catalog/v1\", \"revision\": \"fake-catalog-revision\", \"operations\": []}",
+ "evidence": "GET https://fixture.invalid/api/catalog/v1",
+ "headers": {
+  "content-type": "application/json",
+  "etag": "\"fake-catalog-revision\""
+ },
+ "observed_at": "2026-10-14T15:45:36Z",
+ "ok": true,
+ "status": 200
+}

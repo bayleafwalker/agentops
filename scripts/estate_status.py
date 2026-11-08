@@ -52,6 +52,9 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import http.client
+import errno
+import stat
 import json
 import math
 import os
@@ -81,6 +84,7 @@ RECOVERY_CLASSES = ("cancel", "image-revert", "forward-fix-or-restore")
 CLIENT_PROTOCOL = 1  # vuoro_client.client.PROTOCOL_VERSION
 PROTOCOL_HEADER = "X-Vuoro-Client-Protocol"  # without it the service answers 426
 USER_AGENT = "agentops-estate-status/1 (read-only)"
+VUORO_CLOUD_USER_AGENT = "agentops-operator"
 
 ENVIRONMENTS = ("vuoro-shared", "vuoro-cloud", "workstation", "devbox", "infra")
 
@@ -109,6 +113,7 @@ VUORO_CLOUD = {
     "apps_dir": "apps",
     "kustomizations": ("vuoro-cloud-operators", "vuoro-cloud-platform", "vuoro-cloud-apps"),
     "api": "https://api.vuoro.cloud",
+    "profile": ROOT / "environment-record/profiles/workstation-vuoro-cloud.json",
     "operator_token_file": Path.home() / ".config/vuoro/credentials/vuoro-cloud.token",
 }
 
@@ -182,6 +187,31 @@ def redact(text: str) -> str:
         text = pattern.sub(replacement, text)
     # JSON (and JSON-in-text) string values under credential-like keys: "password": "x".
     return _JSON_STRING_PAIR.sub(_redact_json_pair, text)
+
+
+def _redact_token_fragments(value: Any, secrets: list[str]) -> Any:
+    if isinstance(value, str):
+        for secret in secrets:
+            token = secret[7:] if secret.lower().startswith("bearer ") else secret
+            if len(token) < 8:
+                continue
+            spans = []
+            for i in range(len(token) - 7):
+                gram = token[i:i + 8]
+                start = 0
+                while (at := value.find(gram, start)) >= 0:
+                    spans.append((at, at + 8)); start = at + 1
+            if spans:
+                spans.sort(); merged = []
+                for a, b in spans:
+                    if merged and a <= merged[-1][1]: merged[-1] = (merged[-1][0], max(b, merged[-1][1]))
+                    else: merged.append((a, b))
+                for a, b in reversed(merged): value = value[:a] + "[REDACTED]" + value[b:]
+        return redact(value)
+    if isinstance(value, dict): return {k: _redact_token_fragments(v, secrets) for k, v in value.items()}
+    if isinstance(value, list): return [_redact_token_fragments(v, secrets) for v in value]
+    if isinstance(value, tuple): return tuple(_redact_token_fragments(v, secrets) for v in value)
+    return value
 
 
 # ---------------------------------------------------------------- emit guard
@@ -395,6 +425,7 @@ class Probe:
     def __init__(self, *, record: Path | None = None, replay: Path | None = None) -> None:
         self.record = record
         self.replay = replay
+        self._secrets: list[str] = []
         if record:
             record.mkdir(parents=True, exist_ok=True)
 
@@ -425,6 +456,7 @@ class Probe:
         return json.loads(path.read_text(encoding="utf-8"))
 
     def _store(self, key: str, result: dict[str, Any]) -> dict[str, Any]:
+        result = _redact_token_fragments(result, self._secrets)
         if self.record:
             self._fixture(key).write_text(json.dumps(result, indent=1, sort_keys=True) + "\n",
                                           encoding="utf-8")
@@ -470,29 +502,52 @@ class Probe:
         if self.replay:
             return self._replayed(key)
         # Cloudflare (api.vuoro.cloud) challenges urllib's default User-Agent with a 403.
-        request = urllib.request.Request(url, method="GET", headers={
-            "User-Agent": USER_AGENT, **(headers or {}), **(secret_headers or {})})
+        request = urllib.request.Request(url, method="GET", headers={"User-Agent": USER_AGENT, **(headers or {})})
+        for name, value in (secret_headers or {}).items():
+            request.add_unredirected_header(name, value)
+            self._secrets.append(value)
         observed = _now()
         shown = " ".join(f"-H '{k}: {v}'" for k, v in (headers or {}).items())
         if secret_headers:
             shown += " " + " ".join(f"-H '{k}: [REDACTED]'" for k in secret_headers)
         evidence = f"GET {url} {shown}".strip()
         try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:
-                status, body, hdrs = response.status, response.read(), dict(response.headers)
+            class NoSecretRedirect(urllib.request.HTTPRedirectHandler):
+                def redirect_request(self, req, fp, code, msg, response_headers, newurl):
+                    if secret_headers:
+                        raise urllib.error.HTTPError(req.full_url, code, "redirect refused", response_headers, fp)
+                    return super().redirect_request(req, fp, code, msg, response_headers, newurl)
+            opener = urllib.request.build_opener(NoSecretRedirect())
+            with opener.open(request, timeout=timeout) as response:
+                status, body, hdrs = response.status, response.read(400_001), dict(response.headers)
         except urllib.error.HTTPError as error:
-            status, body, hdrs = error.code, error.read(), dict(error.headers or {})
-        except (urllib.error.URLError, OSError, TimeoutError) as error:
+            if error.code in (301, 302, 303, 307, 308) and secret_headers:
+                error.close()
+                return self._store(key, {"ok": False, "status": None, "body": "", "error": "redirect refused",
+                                         "observed_at": observed, "evidence": evidence})
+            status, body, hdrs = error.code, error.read(400_001), dict(error.headers or {})
+        except (ValueError, UnicodeError):
             return self._store(key, {"ok": False, "status": None, "body": "",
-                                     "error": f"unreachable: {getattr(error, 'reason', error)}",
+                                     "error": "request header rejected", "observed_at": observed, "evidence": evidence})
+        except (urllib.error.URLError, OSError, TimeoutError, http.client.HTTPException) as error:
+            return self._store(key, {"ok": False, "status": None, "body": "",
+                                     "error": f"unreachable: {getattr(error, 'reason', None) if isinstance(getattr(error, 'reason', None), str) else 'request failed'}",
                                      "observed_at": observed, "evidence": evidence})
         keep = {k.lower(): v for k, v in hdrs.items() if k.lower() in {"etag", "content-type"}}
+        decoded = body.decode("utf-8", "replace")
+        secrets = list((secret_headers or {}).values())
+        secrets += [v[7:] for v in secrets if v.lower().startswith("bearer ")]
+        for secret in secrets:
+            for n in range(len(secret), 7, -1):
+                decoded = decoded.replace(secret[:n], "[REDACTED]")
         result = {"ok": 200 <= status < 300, "status": status,
                   "body": redact(_apply(transform if 200 <= status < 300 else None,
-                                        body.decode("utf-8", "replace"))[:400_000]),
+                                        decoded)[:400_000]),
                   "headers": keep, "observed_at": observed, "evidence": evidence}
         if not result["ok"]:
-            result["error"] = f"HTTP {status}"
+            content_type = str(keep.get("content-type", "")).lower()
+            detail = "" if "html" in content_type or status in (401, 403) else redact(decoded[:120])
+            result["error"] = redact(f"HTTP {status}: {detail}")
         return self._store(key, result)
 
 
@@ -1119,6 +1174,79 @@ def _catalog_summary(doc: dict[str, Any], result: dict[str, Any]) -> dict[str, A
             "by_domain": dict(sorted(Counter(o.get("owning_domain") for o in ops).items()))}
 
 
+def _read_credential(path: Path, label: str) -> tuple[str | None, str | None]:
+    """Read a private, regular credential file without following links or blocking."""
+    fd = None
+    try:
+        flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC
+        fd = os.open(path, flags)
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode): return None, f"{label} is not a regular file"
+        if info.st_mode & 0o077: return None, f"{label} file is group/world readable"
+        if info.st_uid != os.getuid(): return None, f"{label} file is not owned by the current user"
+        chunks = []
+        size = 0
+        while size <= 4096:
+            chunk = os.read(fd, min(4097 - size, 4097))
+            if not chunk: break
+            chunks.append(chunk); size += len(chunk)
+        if size > 4096: return None, f"{label} exceeds 4096 bytes"
+        token = b"".join(chunks).decode("utf-8")
+    except OSError as error:
+        if error.errno == errno.ELOOP: return None, f"{label} path is a symlink"
+        return None, f"{label} is unreadable"
+    except UnicodeError:
+        return None, f"{label} is unreadable"
+    finally:
+        if fd is not None: os.close(fd)
+    token = token.rstrip("\r\n")
+    if not token: return None, f"{label} is empty"
+    if not token.isascii(): return None, f"{label} contains non-ASCII characters"
+    if not token.isprintable() or any(ch.isspace() for ch in token):
+        return None, f"{label} contains whitespace or control characters"
+    return token, None
+
+
+def _workspace_credential(profile_path: Path) -> tuple[str | None, str | None]:
+    """Resolve and read the profile-designated workspace bearer token."""
+    try:
+        profile = json.loads(profile_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None, "workspace credential is unreadable: profile record could not be read"
+    ref = profile.get("credential_ref") if isinstance(profile, dict) else None
+    if not isinstance(ref, str) or not (ref.startswith("file:~/") or ref.startswith("file:/")):
+        return None, "no workspace credential designated in the profile record"
+    path = Path(ref[5:]).expanduser()
+    return _read_credential(path, "workspace credential")
+
+
+def _cloud_handshake_fact(probe: Probe, profile_path: Path, endpoint: str,
+                          token: str | None = None, token_reason: str | None = None) -> dict[str, Any]:
+    evidence = f"GET {endpoint}/api/meta/v1/handshake"
+    if probe.replay:
+        result = probe.http("vuoro-cloud.handshake", endpoint + "/api/meta/v1/handshake")
+    else:
+        if token is None and token_reason is None:
+            token, token_reason = _workspace_credential(profile_path)
+        reason = token_reason
+        if reason:
+            return unknown(reason, "live-api", evidence)
+        result = probe.http(
+            "vuoro-cloud.handshake", endpoint + "/api/meta/v1/handshake",
+            headers={PROTOCOL_HEADER: str(CLIENT_PROTOCOL), "User-Agent": VUORO_CLOUD_USER_AGENT},
+            secret_headers={"Authorization": f"Bearer {token}"})
+    if not result.get("ok"):
+        return unknown(f"workspace handshake was not observed: {redact(result.get('error') or 'request failed')}",
+                       "live-api", result.get("evidence", evidence), result.get("observed_at"))
+    def summarize(probe_result):
+        doc = _json_out(probe_result)
+        summary = _handshake_summary(doc)
+        environment = doc.get("environment") or {}
+        summary["environment"] = environment.get("id") or environment.get("name")
+        return summary
+    return from_probe(result, "live-api", summarize)
+
+
 def _short(sha: str | None) -> str:
     return (sha or "?")[:12]
 
@@ -1506,20 +1634,30 @@ def collect_vuoro_cloud(probe: Probe, *, fetch: bool,
     disco = probe.http("vuoro-cloud.discovery", cfg["api"] + "/.well-known/vuoro")
     usable["discovery"] = from_probe(disco, "live-api", lambda r: {
         k: _json_out(r).get(k) for k in ("environment_id", "api_endpoint", "client_protocol")})
-    usable["handshake"] = unknown(
-        "the cloud gateway handshake requires a workspace bearer token (401 identity-required); "
-        "no workspace-scoped read credential is designated for this report", "live-api",
-        f"GET {cfg['api']}/api/meta/v1/handshake")
+    workspace_token, workspace_reason = (None, None) if probe.replay else _workspace_credential(cfg["profile"])
+    usable["handshake"] = _cloud_handshake_fact(probe, cfg["profile"], cfg["api"],
+                                                workspace_token, workspace_reason)
+    if probe.replay:
+        catalog = probe.http("vuoro-cloud.catalog", cfg["api"] + "/api/catalog/v1")
+        usable["catalog"] = from_probe(catalog, "live-api", lambda r: _catalog_summary(_json_out(r), r))
+    else:
+        if workspace_reason:
+            usable["catalog"] = unknown(workspace_reason, "live-api", f"GET {cfg['api']}/api/catalog/v1")
+        else:
+            catalog = probe.http(
+                "vuoro-cloud.catalog", cfg["api"] + "/api/catalog/v1",
+                headers={PROTOCOL_HEADER: str(CLIENT_PROTOCOL), "User-Agent": VUORO_CLOUD_USER_AGENT},
+                secret_headers={"Authorization": f"Bearer {workspace_token}"}, transform=_minimize_catalog)
+            usable["catalog"] = from_probe(catalog, "live-api",
+                                           lambda r: _catalog_summary(_json_out(r), r))
     token_file = cfg["operator_token_file"]
-    token = None
-    if not probe.replay and token_file.exists():
-        token = token_file.read_text(encoding="utf-8").strip()
+    token, token_reason = (None, None) if probe.replay else _read_credential(token_file, "operator credential")
     if probe.replay or token:
         rollout = probe.http("vuoro-cloud.rollout-status", cfg["api"] + "/api/control/v1/operator/rollout/status",
                              secret_headers={"Authorization": f"Bearer {token}"} if token else None)
         usable["fleet_rollout"] = from_probe(rollout, "live-api", _json_out)
     else:
-        usable["fleet_rollout"] = unknown(f"operator token file {token_file} absent", "live-api",
+        usable["fleet_rollout"] = unknown(token_reason or "operator credential is unavailable", "live-api",
                                           f"GET {cfg['api']}/api/control/v1/operator/rollout/status")
     token = None
 
