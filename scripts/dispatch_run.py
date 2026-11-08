@@ -65,7 +65,7 @@ def validate_cli(worker: str, executable: str) -> tuple[list[str], str | None]:
         return [], f"cannot validate {worker} CLI flags (help exited {result.returncode})"
     tokens = set(re.findall(r"(?<![\w-])--?[A-Za-z][\w-]*", help_text))
     required = {"--model"}
-    command = [executable, "exec", "-s", "workspace-write", "--model"] if worker == "codex" else [executable, "run", "--model", "--format", "json"]
+    command = [executable, "exec", "-s", "workspace-write", "--model"] if worker == "codex" else [executable, "run", "--format", "json", "--model"]
     if worker == "codex":
         required |= {"-s", "--output-last-message"}
     else:
