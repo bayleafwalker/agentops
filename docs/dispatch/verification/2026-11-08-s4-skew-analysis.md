@@ -49,6 +49,21 @@ release-readiness decision changes it.
 
 ## Why the request fails
 
+**Confirmed 2026-11-08 (supersedes the inference below).** This is a defect in
+the client/gateway handoff, not deployed-image drift. `vuoro-client` puts its
+own `request_id` in the invoke body and sends no `X-Request-ID`; the PAT proxy
+in the deployed gateway mints its own id, signs it, and the service rejects the
+mismatch. Live evidence against `https://api.vuoro.cloud` with a `work:read`
+workspace PAT: `work.read.sprints` without the header returns 401
+`identity-required`; with `X-Request-ID` equal to the body `request_id` it
+returns 200 and `kotona` sprints. Full trace and citations:
+[`2026-11-08-s3-vuoro-cloud-read-route.md`](2026-11-08-s3-vuoro-cloud-read-route.md).
+Fix: vuoro PR #317 (client sends the header; vuoro-client 0.1.8). The
+"operator must identify the deployed gateway image" limit below no longer
+blocks this item. Version skew remains a separate S4 question.
+
+*Original offline inference, kept for the record:*
+
 The service gateway identity resolver checks that the signed `request_id`,
 the upstream `X-Request-ID`, and the request body's invocation ID all match.
 In `vuoro-service` this is the guard at
@@ -91,8 +106,8 @@ credential, or workspace. Run from `/projects/dev/vuoro`:
 uv run --offline --extra test pytest -q packages/vuoro-service/tests/test_gateway_identity.py::test_gateway_assertion_resolver_rejects_missing_invocation_request_binding
 ```
 
-This test was not executed here: offline dependency setup is unavailable in
-the current environment. It is a source-level reproduction of the resolver's
+This test was not executed in the offline worker; the S3 follow-up ran the
+client and gateway-identity suites with network access (138 passed). It is a source-level reproduction of the resolver's
 failure condition, not an end-to-end reproduction of the specific deployed
 gateway/client combination.
 
@@ -117,7 +132,9 @@ qualification. After qualification, verify the receipt against the same tree
 with `python scripts/qualification_receipt.py verify
 .artifacts/qualification-receipt.json`.
 
-**Observed output in this environment:** the documented command could not
+**Baseline (2026-11-08, current vuoro-cloud main, run on the workstation with Nix):** `qualify_composition.py` passed 21 scenarios, `release_qualified: false` (blockers: image source unverified, no live probe), exit 0. This is the baseline for main, not the proposed pair.
+
+**Observed output in the offline worker environment:** the documented command could not
 start because the Nix daemon socket is not permitted (`cannot connect to
 socket at '/nix/var/nix/daemon-socket/socket'`). Retrying with `uv run
 --offline --extra test` and a `/tmp` cache could not resolve the uncached
