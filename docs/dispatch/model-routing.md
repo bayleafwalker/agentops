@@ -36,11 +36,14 @@ Codex is invoked with `codex exec -s workspace-write --model MODEL`; it does not
 use the rejected `--full-auto` flag. OpenCode uses `opencode run --model MODEL`.
 Missing CLIs or unsupported required flags fail before the worker starts, with
 a diagnostic. `--timeout` defaults to 3600 seconds; expiration kills the worker
-and records `failed` with exit code 124 and a timeout marker. A `running` record
+and records `failed` with exit code 124 and a timeout marker. `--kill-grace`
+defaults to 5 seconds (0 disables the grace period). A `running` record
 is written before launch and replaced with a terminal record on completion or
 SIGTERM (failed, exit code 143; SIGINT and SIGHUP use 130 and 129). On a signal,
-the wrapper terminates the worker's isolated process group with SIGTERM, then
-SIGKILL after a 250 ms grace period, and reaps the worker. A signal received
+the wrapper terminates the worker's isolated process group with SIGTERM, waits
+up to `--kill-grace` for the entire process group to exit, then sends SIGKILL
+to any remainder and reaps the worker. A second signal skips the remaining
+grace. A signal received
 while the terminal record is being atomically committed does not change the
 committed outcome or process exit code. Worker exit zero writes `done`, nonzero writes
 `failed`, and the explicit `DISPATCH_OUTCOME: ESCALATED` marker in the worker's
