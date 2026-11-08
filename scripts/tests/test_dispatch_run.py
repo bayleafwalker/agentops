@@ -6,6 +6,7 @@ import subprocess
 import sys
 import time
 import textwrap
+import pytest
 
 SCRIPT = Path(__file__).parents[1] / "dispatch_run.py"
 
@@ -91,6 +92,7 @@ def test_record_redacts_json_quoted_keys_and_pem_before_truncating(tmp_path):
     _, record = invoke(tmp_path, tree, fakebin, output=output, final=output)
     serialized = json.dumps(record)
     assert "quoted-secret" not in serialized
+    assert '"token": "[REDACTED]"' in record["final_message_tail"]
     assert "private-material" not in serialized
 
 
@@ -101,6 +103,15 @@ def test_record_redacts_authorization_and_quoted_values(tmp_path):
     serialized = json.dumps(record)
     for secret in ("basic-secret", "bearer-secret", "several secret words", "escaped", "secret\\\" value"):
         assert secret not in serialized
+
+
+def test_record_redacts_token_authorization_and_password_remainder(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    _, record = invoke(tmp_path, tree, fakebin,
+                       output="Authorization: token ghx_abc\npassword: hunter2 more words")
+    serialized = json.dumps(record)
+    assert "ghx_abc" not in serialized
+    assert "hunter2" not in serialized and "more words" not in serialized
 
 
 def test_bad_cli_flags_fail_before_worker_run(tmp_path):
@@ -146,6 +157,14 @@ def test_all_markdown_marker_forms(tmp_path):
     tree, fakebin = setup(tmp_path)
     for final in ("**DISPATCH_OUTCOME:** ESCALATED", "**DISPATCH_OUTCOME**: ESCALATED",
                   "- DISPATCH_OUTCOME: **ESCALATED**"):
+        _, record = invoke(tmp_path, tree, fakebin, final=final)
+        assert record["outcome"] == "escalated", final
+
+
+def test_hash_and_underscore_marker_forms(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    for final in ("__DISPATCH_OUTCOME__: ESCALATED", "DISPATCH_OUTCOME: _ESCALATED_",
+                  "## DISPATCH_OUTCOME: ESCALATED"):
         _, record = invoke(tmp_path, tree, fakebin, final=final)
         assert record["outcome"] == "escalated", final
 
@@ -215,6 +234,31 @@ def test_timeout_kills_process_group_with_grandchild(tmp_path):
     assert time.monotonic() - start < 4
     assert result.returncode == 124
     assert record["outcome"] == "failed" and record["exit_code"] == 124
+
+
+def test_exited_worker_with_pipe_holding_grandchild_is_done_and_killed(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    pidfile = tmp_path / "grandchild.pid"
+    worker = fakebin / "codex"
+    worker.write_text(worker.read_text().replace('printf \'%s\\n\' "$FAKE_OUTPUT"',
+        'sleep 30 & echo $! > "$PIDFILE"; printf \'%s\\n\' "$FAKE_OUTPUT"'))
+    worker.chmod(0o755)
+    status = tmp_path / "records" / "result.json"
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", TMPDIR=str(tmp_path),
+               FAKE_OUTPUT="final worker output", FAKE_FINAL="final message", FAKE_ERR="", FAKE_EXIT="0",
+               ARGV_FILE=str(tmp_path / "argv"), PIDFILE=str(pidfile))
+    started = time.monotonic()
+    result = subprocess.run([sys.executable, str(SCRIPT), "--worker", "codex", "--model", "m",
+                             "--worktree", str(tree), "--status-file", str(status), "--timeout", "4", "prompt"],
+                            text=True, capture_output=True, env=env, timeout=5)
+    record = json.loads(status.read_text())
+    assert time.monotonic() - started < 2
+    assert result.returncode == 0 and record["outcome"] == "done"
+    assert record["final_message_tail"] == "final message"
+    assert "final worker output" in result.stdout
+    pid = int(pidfile.read_text())
+    with pytest.raises(ProcessLookupError):
+        os.kill(pid, 0)
 
 
 def test_final_message_excludes_prompt_and_transcript(tmp_path):
@@ -296,3 +340,30 @@ def test_signals_finalize_running_record_as_failed(tmp_path):
         assert record["outcome"] == "failed"
         assert record["exit_code"] == expected
         assert "killed" in record["final_message_tail"]
+
+
+def test_popen_value_error_finalizes_instead_of_leaving_running(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    status = tmp_path / "nul.json"
+    code = textwrap.dedent(f"""
+        import importlib.util
+        from unittest.mock import patch
+        spec = importlib.util.spec_from_file_location('dispatch_run', {str(SCRIPT)!r})
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        real_popen = m.subprocess.Popen
+        def fail_worker(command, *args, **kwargs):
+            if command[0] == 'git':
+                return real_popen(command, *args, **kwargs)
+            raise ValueError('embedded null byte')
+        with patch.object(m, 'validate_cli', return_value=(["codex"], None)), \\
+             patch.object(m.subprocess, 'Popen', side_effect=fail_worker):
+            raise SystemExit(m.main(['--worker', 'codex', '--model', 'm', '--worktree', {str(tree)!r},
+                                     '--status-file', {str(status)!r}, 'prompt\\0bad']))
+    """)
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}")
+    result = subprocess.run([sys.executable, "-c", code], env=env, text=True, capture_output=True)
+    record = json.loads(status.read_text())
+    assert result.returncode == 1
+    assert record["outcome"] == "failed"
+    assert "ValueError" in record["final_message_tail"]
