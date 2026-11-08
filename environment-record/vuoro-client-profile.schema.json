@@ -53,8 +53,8 @@
             "properties": {
               "environment_id": {
                 "anyOf": [
-                  { "enum": ["vuoro-cloud", "vuoro-cloud-ws-01m3abjs1qw0"] },
-                  { "pattern": "^vuoro-cloud-ws-[0-9a-z]{26}$" }
+                  { "const": "vuoro-cloud" },
+                  { "pattern": "^vuoro-cloud-ws-[0-9a-z]{12}$" }
                 ]
               }
             },

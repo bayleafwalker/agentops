@@ -48,7 +48,7 @@ name `agentops-operator`.
 `vuoro-cloud-ws-01m3abjs1qw0`, for Sprintctl's environment check to pass. The
 workstation profile now uses this per-workspace ID. The validator and schema
 accept only the generic `vuoro-cloud` ID or the exact lowercase
-`vuoro-cloud-ws-<26-character-id>` form; both remain production targets with
+`vuoro-cloud-ws-<12 lowercase characters>` (the server derives it as `workspace_id.lower()[:12]`, vuoro-cloud `lifecycle.py:150`) form; both remain production targets with
 exactly `work:read` and `production_endpoint_denied: false`. Sprintctl compares
 the configured value with the handshake environment
 (`sprintctl/sprintctl/backend.py:232-238`,

@@ -294,8 +294,9 @@ def validate_profile(path: Path, environment: dict[str, object]) -> dict[str, ob
     if parsed is None or parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password or parsed.query or parsed.fragment:
         raise ProfileError(f"{path}: target.endpoint must be a credential-free HTTPS URL")
     target_environment_id = target["environment_id"]
-    is_vuoro_cloud = target_environment_id in {"vuoro-cloud", "vuoro-cloud-ws-01m3abjs1qw0"} or bool(
-        re.fullmatch(r"vuoro-cloud-ws-[0-9a-z]{26}", target_environment_id)
+    is_vuoro_cloud = target_environment_id == "vuoro-cloud" or bool(
+        # Server form: vuoro-cloud-ws-<first 12 lowercase chars of workspace id>.
+        re.fullmatch(r"vuoro-cloud-ws-[0-9a-z]{12}", target_environment_id)
     )
     if target["environment_class"] != "production" or not (
         target_environment_id == "vuoro-shared" or is_vuoro_cloud
