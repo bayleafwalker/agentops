@@ -16,6 +16,20 @@ REC_SCHEMA = json.loads((ROOT / "environment-record/vuoro-cloud-operator-self-us
 PAIR = {"tenant_runtime_pin": "runtime", "sprintctl_version": "0.18.0"}
 
 
+class ScriptModeTests(unittest.TestCase):
+    def test_record_loads_when_estate_status_runs_as_a_plain_script(self):
+        # `agentops estate status` runs the file as a script: `scripts` is not a package then.
+        import subprocess
+        code = (
+            "import sys; sys.path.insert(0, %r); import estate_status as e; "
+            "r = e._load_operator_self_use_record(); print(r.get('scope') is not None or bool(r))"
+        ) % str(ROOT / "scripts")
+        with tempfile.TemporaryDirectory() as tmp:
+            out = subprocess.run([sys.executable, "-I", "-c", code], cwd=tmp, capture_output=True, text=True)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(out.stdout.strip(), "True")
+
+
 class OperatorSelfUseTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

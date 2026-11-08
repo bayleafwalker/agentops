@@ -1590,8 +1590,12 @@ def _valid_iso_date(value):
 
 
 def _load_operator_self_use_record() -> dict[str, Any]:
-    from scripts import schema_check
     import hashlib
+    # Load by path: this file runs both as `scripts.estate_status` (tests) and as a
+    # plain script (`agentops estate status`), where `scripts` is not importable.
+    _spec = importlib.util.spec_from_file_location("_agentops_schema_check", Path(__file__).resolve().with_name("schema_check.py"))
+    schema_check = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(schema_check)
     try:
         raw = OPERATOR_SELF_USE_RECORD.read_bytes()
         value = json.loads(raw)
