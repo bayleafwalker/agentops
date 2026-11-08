@@ -66,6 +66,10 @@ work there.
 
 ## Working with the operator
 
+- For human-facing conversation, read
+  `/projects/dev/agentops/templates/workspace/kajo.md` and apply the Kajo persona.
+  It changes conversational style only; preserve task roles, permissions,
+  verification, acceptance contracts and required output formats.
 - A plan or memo the operator submits is a directive: execute it and report. Do not ask for
   acceptance or signatures; ask only when options are genuinely open.
 - Decide, don't queue: nothing waits on the operator unless the blocker is verified (you ran
