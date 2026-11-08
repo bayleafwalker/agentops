@@ -293,7 +293,13 @@ def validate_profile(path: Path, environment: dict[str, object]) -> dict[str, ob
     parsed = urlparse(endpoint) if isinstance(endpoint, str) else None
     if parsed is None or parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password or parsed.query or parsed.fragment:
         raise ProfileError(f"{path}: target.endpoint must be a credential-free HTTPS URL")
-    if target["environment_class"] != "production" or target["environment_id"] not in {"vuoro-shared", "vuoro-cloud"}:
+    target_environment_id = target["environment_id"]
+    is_vuoro_cloud = target_environment_id in {"vuoro-cloud", "vuoro-cloud-ws-01m3abjs1qw0"} or bool(
+        re.fullmatch(r"vuoro-cloud-ws-[0-9a-z]{26}", target_environment_id)
+    )
+    if target["environment_class"] != "production" or not (
+        target_environment_id == "vuoro-shared" or is_vuoro_cloud
+    ):
         raise ProfileError(f"{path}: only the primary vuoro-shared production target or read-only vuoro-cloud production target is allowed")
     credential_ref = value["credential_ref"]
     if not isinstance(credential_ref, str) or not re.fullmatch(r"file:(?:/|~/).+", credential_ref):
@@ -309,7 +315,7 @@ def validate_profile(path: Path, environment: dict[str, object]) -> dict[str, ob
         if environment["id"] != bound:
             raise ProfileError(f"{path}: native evidence profile is bound to {bound}")
         expected_authorities = NATIVE_EVIDENCE_AUTHORITIES
-    if target["environment_id"] == "vuoro-cloud":
+    if is_vuoro_cloud:
         # Applied last so no profile id can widen a vuoro-cloud target.
         expected_authorities = {"work:read"}
     missing = expected_authorities - authorities

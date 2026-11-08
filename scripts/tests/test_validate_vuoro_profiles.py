@@ -71,12 +71,40 @@ def test_checked_in_vuoro_cloud_profile_is_read_only() -> None:
     environment = validator.validate_environment(ROOT / "environment-record/workstation-linux.vuoro-shared.json")
     profile = validator.validate_profile(_profile("workstation-vuoro-cloud.json"), environment)
     assert profile["required_authorities"] == ["work:read"]
+    assert profile["target"]["environment_id"] == "vuoro-cloud-ws-01m3abjs1qw0"
     assert profile["target"]["endpoint"] == "https://api.vuoro.cloud"
+
+
+@pytest.mark.parametrize("environment_id", ["vuoro-cloud", "vuoro-cloud-ws-01m3abjs1qw0"])
+def test_vuoro_cloud_target_ids_are_read_only(environment_id: str, tmp_path: Path) -> None:
+    environment = validator.validate_environment(ROOT / "environment-record/workstation-linux.vuoro-shared.json")
+    profile = json.loads(_profile("workstation-vuoro-cloud.json").read_text())
+    profile["target"]["environment_id"] = environment_id
+    path = tmp_path / "cloud-valid.json"
+    path.write_text(json.dumps(profile))
+    assert validator.validate_profile(path, environment)["target"]["environment_id"] == environment_id
+
+
+@pytest.mark.parametrize("environment_id", [
+    "vuoro-cloud-ws-01M3ABJS1QW0",  # uppercase
+    "vuoro-cloud-ws-01m3abjs1qw",   # too short
+    "vuoro-cloud-ws-01m3abjs1qw000", # too long
+    "vuoro-cloud-other",
+])
+def test_malformed_vuoro_cloud_target_ids_are_rejected(environment_id: str, tmp_path: Path) -> None:
+    environment = validator.validate_environment(ROOT / "environment-record/workstation-linux.vuoro-shared.json")
+    profile = json.loads(_profile("workstation-vuoro-cloud.json").read_text())
+    profile["target"]["environment_id"] = environment_id
+    path = tmp_path / "cloud-invalid.json"
+    path.write_text(json.dumps(profile))
+    with pytest.raises(validator.ProfileError):
+        validator.validate_profile(path, environment)
 
 
 def test_vuoro_cloud_rejects_any_extra_authority(tmp_path: Path) -> None:
     environment = validator.validate_environment(ROOT / "environment-record/workstation-linux.vuoro-shared.json")
     profile = json.loads(_profile("workstation-vuoro-cloud.json").read_text())
+    profile["target"]["environment_id"] = "vuoro-cloud-ws-01m3abjs1qw0"
     profile["required_authorities"].append("work:lifecycle")
     path = tmp_path / "cloud-write.json"
     path.write_text(json.dumps(profile))

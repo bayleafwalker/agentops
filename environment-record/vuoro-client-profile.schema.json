@@ -47,9 +47,27 @@
   },
   "allOf": [
     {
-      "if": { "properties": { "target": { "properties": { "environment_id": { "const": "vuoro-cloud" } } } } },
+      "if": {
+        "properties": {
+          "target": {
+            "properties": {
+              "environment_id": {
+                "anyOf": [
+                  { "enum": ["vuoro-cloud", "vuoro-cloud-ws-01m3abjs1qw0"] },
+                  { "pattern": "^vuoro-cloud-ws-[0-9a-z]{26}$" }
+                ]
+              }
+            },
+            "required": ["environment_id"]
+          }
+        },
+        "required": ["target"]
+      },
       "then": {
         "properties": {
+          "target": {
+            "properties": { "environment_class": { "const": "production" } }
+          },
           "required_authorities": { "const": ["work:read"] },
           "production_endpoint_denied": { "const": false }
         }
