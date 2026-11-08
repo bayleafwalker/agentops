@@ -13,9 +13,12 @@ are setting up or repairing a host, not at session start. The legacy vscode-shel
   "psycopg is not installed".
 - No cluster tools and no Talos/TrueNAS reach. Its auto-loaded guidance is
   `templates/workspace/CLAUDE.devbox.md`.
-- Shared agent assets: `/projects/dev/.claude/scripts/sync-devbox.sh --dry-run`, then
-  `--apply`. It never syncs Git state, source, `.envrc` state, secrets, worktrees or tool
-  installs, and never deletes remote files.
+- Shared agent assets: run the tracked `/projects/dev/agentops/scripts/sync-devbox.sh`
+  with `--dry-run` first, then `--apply` after reviewing the plan. It syncs shared
+  guidance, Claude hooks and scripts, `templates/workspace` and project schemas; it
+  merges the devbox's `settings.local.json` files and syncs the devbox cost log. It
+  never syncs Git state, source, `.envrc` state, secrets, worktrees or tool installs,
+  and never deletes remote files.
 
 ## Shared outcome-routing practice
 
@@ -39,14 +42,16 @@ telemetry project is not required.
 ### Dispatch run CLI rollout
 
 `agentops dispatch run` is delivered as `scripts/dispatch_run.py` through the
-source checkout and `bin/agentops`. On the workstation, after updating the
-`/projects/dev/agentops` checkout, ensure the existing user entry point resolves
-to that checkout (`mkdir -p ~/.local/bin && ln -sf /projects/dev/agentops/bin/agentops ~/.local/bin/agentops`).
-On devbox, update its independent checkout, then run
-`/projects/dev/.claude/scripts/sync-devbox.sh --dry-run` and
-`/projects/dev/.claude/scripts/sync-devbox.sh --apply` to distribute shared
-agent assets; the CLI is available from that checkout's `bin/agentops` path.
-These are operator rollout commands; source changes do not run them.
+source checkout and `bin/agentops`. On each host, update its independent
+`/projects/dev/agentops` checkout with
+`git -C /projects/dev/agentops pull --ff-only origin main`, then ensure
+`~/.local/bin/agentops` points to that checkout's `bin/agentops` (for example,
+`mkdir -p ~/.local/bin && ln -sf /projects/dev/agentops/bin/agentops ~/.local/bin/agentops`).
+This pull and symlink are the CLI rollout. Separately, the tracked
+`/projects/dev/agentops/scripts/sync-devbox.sh` distributes shared guidance, hooks
+and workspace templates to devbox; run it with `--dry-run` first and review the
+changes before `--apply`. It does not install or update the CLI. These are operator
+rollout commands; source changes do not run them.
 
 ## Session telemetry
 
