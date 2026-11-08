@@ -27,3 +27,4 @@ plan or separate benchmark project is required to start using this practice.
 Details: `/projects/dev/agentops/docs/dispatch/model-routing.md`, section
 "Active dogfood practice (2026-11-04)". This instruction does not expand a session's
 tool permissions or grant delegation when its runtime instructions prohibit it.
+For unattended native workers with coordinator wakeup and a durable local result, use `agentops dispatch run` (see the dispatch-run section in model-routing.md).

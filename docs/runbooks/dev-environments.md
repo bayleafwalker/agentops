@@ -36,6 +36,18 @@ that an edit to an instruction file updates an already-running session's context
 Normal task closeouts provide the dogfood assessment; a separate benchmark or
 telemetry project is not required.
 
+### Dispatch run CLI rollout
+
+`agentops dispatch run` is delivered as `scripts/dispatch_run.py` through the
+source checkout and `bin/agentops`. On the workstation, after updating the
+`/projects/dev/agentops` checkout, ensure the existing user entry point resolves
+to that checkout (`mkdir -p ~/.local/bin && ln -sf /projects/dev/agentops/bin/agentops ~/.local/bin/agentops`).
+On devbox, update its independent checkout, then run
+`/projects/dev/.claude/scripts/sync-devbox.sh --dry-run` and
+`/projects/dev/.claude/scripts/sync-devbox.sh --apply` to distribute shared
+agent assets; the CLI is available from that checkout's `bin/agentops` path.
+These are operator rollout commands; source changes do not run them.
+
 ## Session telemetry
 
 `agentops estate status --env infra --json` reads the infrastructure host's
