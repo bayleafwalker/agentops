@@ -268,6 +268,24 @@ class LocalRequestOutboxTests(unittest.TestCase):
             self.store.stage_publish(self.repo, changed)
         self.assertEqual(caught.exception.code, "outbox-identity-conflict")
 
+    def test_invalid_identity_does_not_poison_existing_outbox(self):
+        self.store.stage_publish(self.repo, self.arguments)
+        cases = [
+            (self.repo, {**self.arguments, "request_id": "req_"}),
+            ("r" * 257, {**self.arguments, "request_id": "req_other"}),
+            (self.repo, {**self.arguments, "request_id": "req_other", "idempotency_key": "k" * 513}),
+        ]
+        for repo, arguments in cases:
+            with self.subTest(repo_length=len(repo), request_id=arguments["request_id"]):
+                with self.assertRaises(requests.RequestClientError):
+                    self.store.stage_publish(repo, arguments)
+                self.assertEqual(len(self.store.list_entries()), 1)
+
+    def test_identity_length_limits_remain_inclusive(self):
+        arguments = {**self.arguments, "idempotency_key": "k" * 512}
+        self.store.stage_publish("r" * 256, arguments)
+        self.assertEqual(self.store.list_entries()[0]["state"], "pending")
+
     def test_sensitive_content_is_rejected_before_directory_creation(self):
         bad = {**self.arguments, "request": {"rawTranscript": "private"}}
         with self.assertRaises(requests.RequestClientError):

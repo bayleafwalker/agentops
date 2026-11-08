@@ -232,12 +232,13 @@ class LocalRequestOutbox:
             os.close(fd)
 
     def stage_publish(self, repo_id: str, arguments: dict[str, Any]) -> dict[str, Any]:
-        if not isinstance(repo_id, str) or not repo_id.strip() or not isinstance(arguments, dict):
+        if not isinstance(repo_id, str) or not repo_id.strip() or len(repo_id) > 256 or not isinstance(arguments, dict):
             raise RequestClientError("invalid-arguments", "repo and publish arguments are required")
         _check_content(arguments)
         request_id = arguments.get("request_id")
         idem = arguments.get("idempotency_key")
-        if not isinstance(request_id, str) or not request_id.startswith("req_") or not isinstance(idem, str) or not idem.strip():
+        if (not isinstance(request_id, str) or not request_id.startswith("req_") or len(request_id) <= 4
+                or not isinstance(idem, str) or not idem.strip() or len(idem) > 512):
             raise RequestClientError("invalid-arguments", "publish requires a stable req_ request_id and idempotency_key")
 
         def stage() -> dict[str, Any]:
