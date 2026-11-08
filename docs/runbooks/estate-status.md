@@ -2,6 +2,30 @@
 
 `agentops estate status` is a read-only report. It covers vuoro-shared, vuoro-cloud and the agent hosts (workstation, devbox), and answers what is **desired**, **running**, **usable** and **held** in each. It then gives the **next blocking gate** and the **recovery class** (`cancel`, `image-revert` or `forward-fix-or-restore`). Each fact carries `{status, value, source, observed_at, evidence}`. `unknown` is a valid answer and always has a `reason`. The report shape is `environment-record/estate-status-v1.schema.json`.
 
+## vuoro.cloud operator self-use
+
+The vuoro.cloud environment also prints `operator_self_use`, a named lower
+qualification for the operator-owned `kotona` workspace on the operator-owned
+host. It is independent of the estate gate: it never changes
+`gate.next_blocking_gate` or `desired.release_ready`. Its status is `met`,
+`not_met` or `void`; it is never a boolean and never grants use to another
+user, tenant or host. The reviewed record is
+`environment-record/vuoro-cloud.operator-self-use.json`, validated by
+`environment-record/vuoro-cloud-operator-self-use.schema.json`.
+
+The report always prints this exact label form (and the same string appears in
+JSON):
+
+> operator-self-use: `<status>`. NOT release_ready. Valid only for operator-owned workspace(s) kotona; grants nothing to other users, tenants or hosts. release_ready=false. Expires `<YYYY-MM-DD>` (PAT) / void if any condition in profile record lapses.
+
+When not met, it prints an additional line naming the first failed check:
+`operator-self-use: not_met (<first failing check>). release_ready=false.`
+`void` indicates invalidating record conditions such as expiry, revocation,
+stale recovery evidence, a newer rehearsal, changed pins, changed fallback,
+scope expansion or stale review. B7 is waived only while
+`desired.release_ready` is false. The qualification is time-bounded to the PAT
+and review and is not a release qualification.
+
 ## CLI
 
 ```sh

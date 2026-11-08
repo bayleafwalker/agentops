@@ -95,20 +95,27 @@ Source: admin plane through `vuoro-cli` (read-only), 2026-11-07 about 14:40Z.
 Not a blocker **[inference]**: the cluster, controller, gateway or the
 operator workspace itself. They are healthy by the observation.
 
-## 4. Personal-use profile (proposal)
+## 4. Operator self-use profile (implemented)
 
-Idea: a lower, named qualification bar for the operator plus their own test
-workspaces, distinct from `release_ready` for external users.
+Implemented profile: `operator-self-use`, a lower named qualification for the
+operator-owned `kotona` workspace and operator-owned host, distinct from
+`release_ready`. Its record is
+[`vuoro-cloud.operator-self-use.json`](../../../environment-record/vuoro-cloud.operator-self-use.json),
+and its status and label are computed by `scripts/estate_status.py` and
+documented in [the estate-status runbook](../../runbooks/estate-status.md#vuorocloud-operator-self-use).
+It never grants use to other users, tenants or hosts and never changes the
+estate gate or `desired.release_ready`.
 
 - **[inference]** B7 and parts of B4 matter much less for one trusted
   operator who also owns the host: no external onboarding, no abuse
   surface, one human to notice and repair. B1, B2, B3, B5 and B6 do not
   shrink, since they protect the operator's own data.
-- Proposed bar, to be reviewed and named before use: (a) B1 to B3 done;
-  (b) a restore drill on `kotona` newer than the cutover rehearsal;
+- Qualification bar: (a) B1 to B3 done;
+  (b) a restore drill on `kotona` completed AFTER the cutover rehearsal and
+  before the first live record family moves;
   (c) PAT use explicitly time-bounded; (d) `vuoro-shared` kept as the
   documented fallback until B6 exists; (e) `release_ready` stays `false`.
-- Risk: a personal-use pass must not be read as `release_ready` or as
+- Risk: an operator-self-use pass must not be read as `release_ready` or as
   permission for other users; label it in the gate output.
 
 ## 5. Estate gate semantics for held test workspaces (implemented 2026-11-07)
@@ -152,7 +159,7 @@ vuoro-cloud) removes the question without any semantic change.
 | S2 | Draft the record family to store mapping and the cutover plan under `docs/plans` (register entry); fold into #2536. Plan: [`2026-11-08-vuoro-cloud-record-family-cutover.md`](../../plans/2026-11-08-vuoro-cloud-record-family-cutover.md). | Plan names every family, its current store, its target, and a before/after count check; plan register passes |
 | S3 (profile and guardrails done; live read proven 2026-11-08 via direct API with an X-Request-ID workaround; profile-based read pending) | Added `environment-record/profiles/workstation-vuoro-cloud.json`, limited to `work:read`; validator and schema require exactly that authority for either `vuoro-cloud` or a valid per-workspace vuoro-cloud target. The profile now uses handshake environment `vuoro-cloud-ws-01m3abjs1qw0`. `production_endpoint_denied: false` means the reviewed production endpoint is enabled for this profile's explicitly bounded read purpose. The profile references a new per-purpose file path and contains no credential. Operator live evidence: `work.read.sprints` returned `kotona` workspace data for repo `vuoro` when `X-Request-ID` matched the invocation body's `request_id`; without that header the gateway returned 401 correlation failure. | Environment-record/profile checks pass and the live read is proven. Remaining: fix the vuoro-client/gateway request-ID handoff. No write authority is granted. |
 | S4 | Resolve skew: pick the tenant runtime and Sprintctl pair, run composition qualification and tenant migration on a test workspace | `scripts/qualify_composition.py` passes; test workspace migrates and rolls back; `release_ready` unchanged |
-| S5 | Fresh restore drill on `kotona`; record a new backup observation | Observation newer than the cutover rehearsal, status `restored` |
+| S5 | Fresh restore drill on `kotona`; record a new backup observation | Required AFTER the cutover rehearsal and before the first live record family moves; status `restored` |
 | S6 | Rehearse the cutover on a copy of one record family, then cut over families one at a time with before/after counts; no dual-write | Counts equal before and after; rollback tested; `vuoro-shared` remains fallback |
 | S7 | Outage-epoch state machine (#2537) before removing the vuoro-shared write path | Epoch tests pass; DEGRADED LOCAL and RECOVERY exercised |
 

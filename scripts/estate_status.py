@@ -51,6 +51,7 @@ a previously saved JSON report.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import math
 import os
@@ -1533,7 +1534,108 @@ def collect_vuoro_cloud(probe: Probe, *, fetch: bool,
     env = {"id": "vuoro-cloud", "kind": "cluster", "desired": desired, "running": running,
            "usable": usable, "held": held, "document": document, "receipts": {}}
     env["gate"] = derive_vuoro_cloud_gate(env)
+    profile_valid = False
+    try:
+        validator_path = ROOT / "scripts/validate_vuoro_profiles.py"
+        spec = importlib.util.spec_from_file_location("validate_vuoro_profiles", validator_path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"cannot load profile validator at {validator_path}")
+        validator = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(validator)
+        workstation = validator.validate_environment(ROOT / "environment-record/workstation-linux.vuoro-shared.json")
+        validator.validate_profile(ROOT / "environment-record/profiles/workstation-vuoro-cloud.json", workstation)
+        profile_valid = True
+    except (ImportError, OSError, ValueError):
+        pass
+    self_use_record = _load_operator_self_use_record()
+    self_use_record["profile_valid"] = profile_valid
+    compat = desired.get("compatibility", {})
+    pinned_pair = None
+    if is_known(compat):
+        packages = compat["value"].get("packages", {})
+        pinned_pair = {"tenant_runtime_pin": packages.get("vuoro-service"),
+                       "sprintctl_version": packages.get("sprintctl")}
+    env["operator_self_use"] = evaluate_operator_self_use(
+        self_use_record, desired_release_ready=desired.get("release_ready"),
+        today=datetime.now(UTC).date(), pinned_pair=pinned_pair)
     return env
+
+
+OPERATOR_SELF_USE_RECORD = ROOT / "environment-record/vuoro-cloud.operator-self-use.json"
+
+
+def _load_operator_self_use_record() -> dict[str, Any]:
+    try:
+        value = json.loads(OPERATOR_SELF_USE_RECORD.read_text(encoding="utf-8"))
+        return value if isinstance(value, dict) else {}
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def evaluate_operator_self_use(record: dict[str, Any], *, desired_release_ready: dict[str, Any] | None,
+                               today: Any, pinned_pair: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Evaluate the deliberately narrow operator-owned workspace qualification."""
+    import datetime as _datetime
+    today = _datetime.date.fromisoformat(str(today)) if isinstance(today, str) else today
+    pat = record.get("pat", {})
+    scope = record.get("scope", {})
+    refs = record.get("evidence_refs", {})
+    composition = refs.get("composition_qualification")
+    composition_matches = (isinstance(composition, dict) and bool(composition.get("ref"))
+                           and pinned_pair is not None and composition.get("pinned_pair") == pinned_pair)
+    expiry = pat.get("expires_on", "")
+    reviewed = record.get("reviewed_on", "")
+    void = None
+    if record.get("revoked"):
+        void = "record marked revoked"
+    elif pat.get("workspace") != "kotona" or pat.get("authorities") != ["work:read"]:
+        void = "PAT workspace or authority scope changed"
+    elif expiry and today > _datetime.date.fromisoformat(expiry):
+        void = "PAT is past expiry"
+    elif record.get("pat_reissued"):
+        void = "PAT reissued without record update"
+    elif (scope.get("workspaces") != ["kotona"] or scope.get("operator_owned") is not True
+          or scope.get("host_owner") != "operator"):
+        void = "scope includes a workspace not owned by the operator"
+    elif desired_release_ready and desired_release_ready.get("status") == "known" and desired_release_ready.get("value") is True:
+        void = "release_ready is true"
+    elif reviewed and (today - _datetime.date.fromisoformat(reviewed)).days > 90:
+        void = "reviewed_on is older than 90 days"
+    elif (record.get("tenant_runtime_pin_changed_after_composition") or
+          (isinstance(composition, dict) and pinned_pair and composition.get("pinned_pair") != pinned_pair)):
+        void = "tenant runtime or Sprintctl pin changed after composition qualification"
+    elif record.get("vuoro_shared_fallback") is False or record.get("fallback_environment") not in (None, "vuoro-shared"):
+        void = "vuoro-shared removed or demoted as fallback"
+    elif (not record.get("latest_restored_observation") and record.get("no_restored_observation_since")
+          and (today - _datetime.date.fromisoformat(record["no_restored_observation_since"])).days >= 30):
+        void = "no restored observation for at least 30 days"
+    elif record.get("rehearsal_on") and record.get("latest_restored_observation") and record["rehearsal_on"] > record["latest_restored_observation"].get("date", ""):
+        void = "a rehearsal is newer than the latest restored observation"
+    elif (record.get("latest_restored_observation") and
+          (today - _datetime.date.fromisoformat(record["latest_restored_observation"]["date"])).days >= 30):
+        void = "restored observation is at least 30 days old"
+
+    checks = [
+        (record.get("profile_valid") is True, "B1 workstation vuoro.cloud profile does not pass validation"),
+        (refs.get("cutover_plan") == "docs/plans/2026-11-08-vuoro-cloud-record-family-cutover.md" and record.get("cutover_open_rows") == [], "B2 cutover plan has open in-scope rows"),
+        (composition_matches,
+         "B3 composition qualification receipt is absent for the pinned pair"),
+        (bool(record.get("latest_restored_observation")) and bool(record.get("rehearsal_on")) and record["latest_restored_observation"].get("status") == "restored" and record["latest_restored_observation"].get("date", "") > record.get("rehearsal_on", ""), "B4 restored backup observation after cutover rehearsal is absent"),
+        (bool(expiry) and _datetime.date.fromisoformat(expiry) >= today and (_datetime.date.fromisoformat(expiry) - _datetime.date.fromisoformat(reviewed)).days <= 30, "B5 PAT expiry is not within 30 days of review"),
+        (record.get("vuoro_shared_fallback") is True and record.get("fallback_environment") == "vuoro-shared", "B6 vuoro-shared is not declared as fallback"),
+        (desired_release_ready is not None and desired_release_ready.get("status") == "known" and desired_release_ready.get("value") is False, "B7 release_ready is not known false"),
+    ]
+    status = "void" if void else "not_met" if not all(ok for ok, _ in checks) else "met"
+    first_failure = next((message for ok, message in checks if not ok), None)
+    expires = expiry or "unknown"
+    label = (f"operator-self-use: {status}. NOT release_ready. Valid only for operator-owned workspace(s) kotona; "
+             f"grants nothing to other users, tenants or hosts. release_ready=false. Expires {expires} (PAT) / "
+             "void if any condition in profile record lapses.")
+    if status == "not_met":
+        label += f"\noperator-self-use: not_met ({first_failure}). release_ready=false."
+    return {"status": status, "not_release_ready": True, "scope": scope,
+            "expires_on": expires, "label": label, **({"first_failing_check": first_failure} if first_failure else {}),
+            **({"void_reason": void} if void else {})}
 
 
 def _runtime_digest(value: Any) -> str:
@@ -2303,6 +2405,8 @@ def render_markdown(report: dict[str, Any], *, warning: str | None = None) -> st
                      f"{env['summary']['known']} / {env['summary']['facts']} |")
     for env in report["environments"]:
         lines += ["", f"## {env['id']} ({env['kind']})", ""]
+        if env.get("operator_self_use"):
+            lines.append(f"- **Operator self-use:** {env['operator_self_use']['label']}")
         gate, rec = env["gate"]["next_blocking_gate"], env["gate"]["recovery_class"]
         lines.append(f"- **Next blocking gate:** " + (
             f"`{gate['value']['gate']}` — {gate['value']['detail']}" if is_known(gate)
