@@ -35,10 +35,21 @@ The wrapper validates the selected CLI's help output before starting work.
 Codex is invoked with `codex exec -s workspace-write --model MODEL`; it does not
 use the rejected `--full-auto` flag. OpenCode uses `opencode run --model MODEL`.
 Missing CLIs or unsupported required flags fail before the worker starts, with
-a diagnostic. `--timeout` defaults to 3600 seconds; expiration kills the worker
-and records `failed` with exit code 124 and a timeout marker. A `running` record
+a diagnostic. `--timeout` defaults to 3600 seconds; expiration sends SIGTERM to
+the worker process group, waits up to `--kill-grace`, then sends SIGKILL to any
+remainder. It records `failed` with exit code 124 and appends
+`DISPATCH_TIMEOUT` to the stdout transcript. `--kill-grace` defaults to 5
+seconds (0 disables the grace period; values above 300 seconds are rejected).
+A `running` record
 is written before launch and replaced with a terminal record on completion or
-SIGTERM (failed, exit code 143). Worker exit zero writes `done`, nonzero writes
+SIGTERM (failed, exit code 143; SIGINT and SIGHUP use 130 and 129). On a signal,
+the wrapper terminates the worker's isolated process group with SIGTERM, waits
+up to `--kill-grace` for the entire process group to exit, then sends SIGKILL
+to any remainder and reaps the worker. On the signal path, a second signal
+skips the remaining grace; timeout handling always uses the configured grace.
+A signal received
+while the terminal record is being atomically committed does not change the
+committed outcome or process exit code. Worker exit zero writes `done`, nonzero writes
 `failed`, and the explicit `DISPATCH_OUTCOME: ESCALATED` marker in the worker's
 final message writes `escalated` even if the process exits nonzero. Include
 `ESCALATION_REASON: …` for a concise reason.
@@ -49,7 +60,9 @@ validation errors. `--model` is passed through as supplied; the caller is
 responsible for resolving it against aliases in `model-routing.json`.
 
 The atomic JSON status record (`agentops-dispatch-run/v1`) contains outcome,
-exit code, branch, head SHA, dirty flag, a bounded/redacted final output tail,
+exit code, branch, head SHA, dirty flag, a bounded/redacted final-message tail
+(Codex's final-message file, or OpenCode's stdout text events; it does not copy
+the stdout transcript or timeout marker into this field),
 escalation reason, UTC start/end timestamps, model and worker. Put it outside
 the worktree if the record should not make that worktree dirty. The wrapper
 does not pass extra network/effect grants or credentials, and stores no

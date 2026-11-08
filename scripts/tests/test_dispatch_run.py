@@ -34,11 +34,13 @@ def setup(tmp_path, help_text="usage: fake exec --model MODEL -s workspace-write
     return tree, fakebin
 
 
-def invoke(tmp_path, tree, fakebin, *, output="finished", final="finished", err="", code="0", extra=(), entry=None, prompt="outcome", sleep=""):
+def invoke(tmp_path, tree, fakebin, *, output="finished", final="finished", err="", code="0", extra=(), entry=None, prompt="outcome", sleep="", env_extra=None):
     status = tmp_path / "records" / "result.json"
     argv_file = tmp_path / "argv.txt"
     env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", TMPDIR=str(tmp_path), FAKE_OUTPUT=output, FAKE_FINAL=final,
                FAKE_ERR=err, FAKE_EXIT=code, FAKE_SLEEP=sleep, ARGV_FILE=str(argv_file))
+    if env_extra:
+        env.update(env_extra)
     command = ([sys.executable, str(SCRIPT)] if entry is None else [str(entry)]) + ["--worker", "codex", "--model", "gpt-6-luna",
                "--worktree", str(tree), "--status-file", str(status), *extra, prompt]
     if entry:
@@ -245,17 +247,50 @@ def test_timeout_kills_worker_and_records_marker(tmp_path):
     assert record["final_message_tail"] == ""
 
 
-def test_timeout_kills_process_group_with_grandchild(tmp_path):
+def test_timeout_drains_output_after_term_grace(tmp_path):
     tree, fakebin = setup(tmp_path)
     worker = fakebin / "codex"
+    worker.write_text("#!/usr/bin/env python3\nimport os,signal,sys,time\n"
+                      "if sys.argv[1:] == ['exec','--help']:\n print('exec --model -s --output-last-message'); raise SystemExit(0)\n"
+                      "path=sys.argv[sys.argv.index('--output-last-message')+1]\n"
+                      "def term(*_):\n print('printed during grace',flush=True); open(path,'w').write('final during grace'); raise SystemExit(0)\n"
+                      "signal.signal(signal.SIGTERM,term)\ntime.sleep(20)\n")
+    worker.chmod(0o755)
+    result, record = invoke(tmp_path, tree, fakebin, extra=("--timeout", "0.1", "--kill-grace", "0.5"))
+    assert result.returncode == 124
+    assert "printed during grace" in result.stdout
+    assert record["exit_code"] == 124
+    assert record["final_message_tail"] == "final during grace"
+
+
+@pytest.mark.parametrize(("option", "value"), [
+    ("--timeout", "nan"), ("--timeout", "inf"), ("--timeout", "-1"),
+    ("--kill-grace", "nan"), ("--kill-grace", "inf"), ("--kill-grace", "-1"),
+    ("--kill-grace", "301"),
+])
+def test_rejects_invalid_time_values(tmp_path, option, value):
+    tree, fakebin = setup(tmp_path)
+    result, record = invoke(tmp_path, tree, fakebin, extra=(option, value))
+    assert result.returncode == 2
+    assert f"{option} must be" in result.stderr
+    assert record is None
+
+
+def test_timeout_kills_process_group_with_grandchild(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    pidfile = tmp_path / "timed-out-worker.pid"
+    worker = fakebin / "codex"
     worker.write_text(worker.read_text().replace('if [ -n "${FAKE_SLEEP:-}" ]; then sleep "$FAKE_SLEEP"; fi',
-                                                 'if [ -n "${FAKE_SLEEP:-}" ]; then sleep 30 & sleep 30; fi'))
+                                                 'echo $$ > "$CHILD_PID"; sleep 30'))
     worker.chmod(0o755)
     start = time.monotonic()
-    result, record = invoke(tmp_path, tree, fakebin, extra=("--timeout", "1"), sleep="yes")
+    result, record = invoke(tmp_path, tree, fakebin, extra=("--timeout", "1"), sleep="yes",
+                            env_extra={"CHILD_PID": str(pidfile)})
     assert time.monotonic() - start < 4
     assert result.returncode == 124
     assert record["outcome"] == "failed" and record["exit_code"] == 124
+    with pytest.raises(ProcessLookupError):
+        os.kill(int(pidfile.read_text()), 0)
 
 
 def test_exited_worker_with_pipe_holding_grandchild_is_done_and_killed(tmp_path):
@@ -366,9 +401,12 @@ def test_late_signal_does_not_overwrite_finalized_record(tmp_path):
     status = tmp_path / "late.json"
     code = textwrap.dedent(f"""
         import importlib.util, os, signal
+        from pathlib import Path
         spec = importlib.util.spec_from_file_location('dispatch_run', {str(SCRIPT)!r})
         m = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(m)
+        previous = lambda signum, frame: None
+        signal.signal(signal.SIGTERM, previous)
         original = m.write_record
         count = [0]
         def write(path, record):
@@ -379,13 +417,139 @@ def test_late_signal_does_not_overwrite_finalized_record(tmp_path):
         m.write_record = write
         m.main(['--worker', 'codex', '--model', 'm', '--worktree', {str(tree)!r},
                 '--status-file', {str(status)!r}, 'prompt'])
+        assert signal.getsignal(signal.SIGTERM) is previous
     """)
     env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", FAKE_FINAL="answer", FAKE_OUTPUT="", FAKE_ERR="", FAKE_EXIT="0", ARGV_FILE=str(tmp_path / "argv"))
     result = subprocess.run([sys.executable, "-c", code], env=env, text=True, capture_output=True)
-    assert result.returncode == 143
+    assert result.returncode == 0
     record = json.loads(status.read_text())
     assert record["outcome"] == "done"
     assert record["final_message_tail"] == "answer"
+
+
+def test_terminal_record_is_single_atomic_replace_and_process_exit_matches(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    status = tmp_path / "atomic.json"
+    code = textwrap.dedent(f"""
+        import importlib.util, os, signal
+        spec = importlib.util.spec_from_file_location('dispatch_run', {str(SCRIPT)!r})
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        calls = []
+        original = m.write_record
+        def write(path, record):
+            calls.append(record['outcome'])
+            original(path, record)
+            if record['outcome'] == 'done':
+                os.kill(os.getpid(), signal.SIGTERM)
+        m.write_record = write
+        result = m.main(['--worker', 'codex', '--model', 'm', '--worktree', {str(tree)!r},
+                         '--status-file', {str(status)!r}, 'prompt'])
+        assert calls == ['running', 'done'], calls
+        assert result == 0
+    """)
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", FAKE_FINAL="answer", FAKE_OUTPUT="", FAKE_ERR="", FAKE_EXIT="0",
+               ARGV_FILE=str(tmp_path / "argv"))
+    result = subprocess.run([sys.executable, "-c", code], env=env, text=True, capture_output=True)
+    assert result.returncode == 0, result.stderr
+    record = json.loads(status.read_text())
+    assert record["outcome"] == "done" and record["exit_code"] == result.returncode
+
+
+def test_script_mode_ignores_signal_after_terminal_commit_until_exit(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    status = tmp_path / "post-commit.json"
+    code = textwrap.dedent(f"""
+        import importlib.util, os, signal, sys, tempfile
+        spec = importlib.util.spec_from_file_location('dispatch_run', {str(SCRIPT)!r})
+        m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+        real = tempfile.TemporaryDirectory
+        class CleanupSignal:
+            def __init__(self, *args, **kwargs): self.inner = real(*args, **kwargs)
+            @property
+            def name(self): return self.inner.name
+            def cleanup(self):
+                os.kill(os.getpid(), signal.SIGINT)
+                self.inner.cleanup()
+        m.tempfile.TemporaryDirectory = CleanupSignal
+        sys.argv = [{str(SCRIPT)!r}, '--worker', 'codex', '--model', 'm', '--worktree', {str(tree)!r},
+                    '--status-file', {str(status)!r}, 'prompt']
+        raise SystemExit(m.main())
+    """)
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", FAKE_FINAL="answer", FAKE_OUTPUT="", FAKE_ERR="",
+               FAKE_EXIT="0", ARGV_FILE=str(tmp_path / "argv"))
+    result = subprocess.run([sys.executable, "-c", code], env=env, text=True, capture_output=True)
+    record = json.loads(status.read_text())
+    assert result.returncode == 0, result.stderr
+    assert record["outcome"] == "done" and record["exit_code"] == 0
+
+
+@pytest.mark.parametrize("when", ["before_spawn", "after_spawn"])
+def test_signal_at_popen_boundary_terminates_worker_and_matches_record(tmp_path, when):
+    tree, fakebin = setup(tmp_path)
+    worker = fakebin / "codex"
+    worker.write_text(worker.read_text().replace('printf \'%s\\n\' "$*" > "$ARGV_FILE"',
+                                                  'echo $$ > "$WORKER_PID"; printf \'%s\\n\' "$*" > "$ARGV_FILE"'))
+    worker.chmod(0o755)
+    status, pidfile = tmp_path / "spawn-race.json", tmp_path / "worker.pid"
+    code = textwrap.dedent(f"""
+        import importlib.util, os, signal
+        from pathlib import Path
+        spec = importlib.util.spec_from_file_location('dispatch_run', {str(SCRIPT)!r})
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        real = m.subprocess.Popen
+        fired = [False]
+        def spawn(*args, **kwargs):
+            if args and args[0] and args[0][0].endswith('/codex') and '--output-last-message' in args[0] and not fired[0]:
+                fired[0] = True
+                if {when!r} == 'before_spawn': os.kill(os.getpid(), signal.SIGTERM)
+                child = real(*args, **kwargs)
+                Path({str(pidfile)!r}).write_text(str(child.pid))
+                if {when!r} == 'after_spawn':
+                    os.kill(os.getpid(), signal.SIGTERM)
+                    os.kill(os.getpid(), signal.SIGINT)
+                return child
+            return real(*args, **kwargs)
+        m.subprocess.Popen = spawn
+        raise SystemExit(m.main(['--worker', 'codex', '--model', 'm', '--worktree', {str(tree)!r},
+                                '--status-file', {str(status)!r}, 'prompt']))
+    """)
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", FAKE_SLEEP="20", FAKE_FINAL="", FAKE_OUTPUT="", FAKE_ERR="",
+               FAKE_EXIT="0", ARGV_FILE=str(tmp_path / "argv"), WORKER_PID=str(pidfile))
+    result = subprocess.run([sys.executable, "-c", code], env=env, text=True, capture_output=True, timeout=4)
+    record = json.loads(status.read_text())
+    assert result.returncode == 143
+    assert record["outcome"] == "failed" and record["exit_code"] == result.returncode
+    pid = int(pidfile.read_text())
+    with pytest.raises(ProcessLookupError):
+        os.kill(pid, 0)
+
+
+def test_worker_launch_closes_inherited_descriptors(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    status = tmp_path / "fds.json"
+    code = textwrap.dedent(f"""
+        import importlib.util
+        from unittest.mock import patch
+        spec = importlib.util.spec_from_file_location('dispatch_run', {str(SCRIPT)!r})
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        real = m.subprocess.Popen
+        captured = []
+        def inspect(command, *args, **kwargs):
+            if command and command[0].endswith('/codex') and '--output-last-message' in command:
+                captured.append(kwargs.get('close_fds'))
+            return real(command, *args, **kwargs)
+        with patch.object(m.subprocess, 'Popen', side_effect=inspect):
+            result = m.main(['--worker', 'codex', '--model', 'm', '--worktree', {str(tree)!r},
+                             '--status-file', {str(status)!r}, 'prompt'])
+        assert result == 0 and captured == [True], captured
+    """)
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", FAKE_FINAL="ok", FAKE_OUTPUT="", FAKE_ERR="", FAKE_EXIT="0",
+               ARGV_FILE=str(tmp_path / "argv"))
+    result = subprocess.run([sys.executable, "-c", code], env=env, text=True, capture_output=True)
+    assert result.returncode == 0, result.stderr
 
 
 def test_signals_finalize_running_record_as_failed(tmp_path):
@@ -436,3 +600,171 @@ def test_popen_value_error_finalizes_instead_of_leaving_running(tmp_path):
     assert result.returncode == 1
     assert record["outcome"] == "failed"
     assert "ValueError" in record["final_message_tail"]
+
+
+def test_write_record_fsyncs_file_and_parent(tmp_path, monkeypatch):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("dispatch_run", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    calls = []
+    real_fsync = os.fsync
+    monkeypatch.setattr(os, "fsync", lambda fd: (calls.append(fd), real_fsync(fd))[1])
+    path = tmp_path / "nested" / "record.json"
+    module.write_record(path, {"outcome": "done"})
+    assert json.loads(path.read_text())["outcome"] == "done"
+    assert len(calls) == 2
+
+
+def test_terminal_record_failure_uses_fallback_and_exits_nonzero(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    status = tmp_path / "terminal.json"
+    code = textwrap.dedent(f"""
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('dispatch_run', {str(SCRIPT)!r})
+        m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+        real = m.write_record
+        def failing(path, record):
+            if str(path) == {str(status)!r} and record['outcome'] != 'running': raise OSError('disk full')
+            return real(path, record)
+        m.write_record = failing
+        raise SystemExit(m.main(['--worker', 'codex', '--model', 'm', '--worktree', {str(tree)!r},
+                                '--status-file', {str(status)!r}, 'prompt']))
+    """)
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", FAKE_FINAL="answer", FAKE_OUTPUT="", FAKE_ERR="",
+               FAKE_EXIT="0", ARGV_FILE=str(tmp_path / "argv"))
+    result = subprocess.run([sys.executable, "-c", code], env=env, text=True, capture_output=True)
+    assert result.returncode == 1
+    assert "terminal record write failed" in result.stderr
+    fallback = json.loads(Path(str(status) + ".fallback.json").read_text())
+    assert fallback["outcome"] == "failed" and fallback["exit_code"] == 1
+
+
+def test_terminal_write_failure_during_signal_keeps_signal_code_and_fallback(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    status = tmp_path / "signal-write-failure.json"
+    code = textwrap.dedent(f"""
+        import importlib.util, os, signal, threading
+        spec = importlib.util.spec_from_file_location('dispatch_run', {str(SCRIPT)!r})
+        m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+        real = m.write_record
+        def failing(path, record):
+            if str(path) == {str(status)!r} and record['outcome'] != 'running': raise OSError('disk full')
+            return real(path, record)
+        m.write_record = failing
+        threading.Timer(.2, lambda: os.kill(os.getpid(), signal.SIGTERM)).start()
+        raise SystemExit(m.main(['--worker', 'codex', '--model', 'm', '--worktree', {str(tree)!r},
+                                '--status-file', {str(status)!r}, 'prompt']))
+    """)
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", FAKE_SLEEP="20", FAKE_FINAL="", FAKE_OUTPUT="",
+               FAKE_ERR="", ARGV_FILE=str(tmp_path / "argv"))
+    result = subprocess.run([sys.executable, "-c", code], env=env, text=True, capture_output=True, timeout=4)
+    assert result.returncode == 143
+    assert result.stderr.count("terminal record write failed") == 1
+    assert "Traceback" not in result.stderr
+    fallback = json.loads(Path(str(status) + ".fallback.json").read_text())
+    assert fallback["outcome"] == "failed" and fallback["exit_code"] == 143
+
+
+@pytest.mark.parametrize(("error", "expected"), [("OSError", 127), ("RuntimeError", 1)])
+def test_terminal_write_failure_in_error_handler_is_reported_once(tmp_path, error, expected):
+    tree, fakebin = setup(tmp_path)
+    status = tmp_path / f"{error}.json"
+    code = textwrap.dedent(f"""
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('dispatch_run', {str(SCRIPT)!r})
+        m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+        real_write = m.write_record
+        def failing_write(path, record):
+            if str(path) == {str(status)!r} and record['outcome'] != 'running': raise OSError('disk full')
+            return real_write(path, record)
+        real_popen = m.subprocess.Popen
+        def fail_worker(command, *args, **kwargs):
+            if command and '--output-last-message' in command: raise {error}('worker launch failed')
+            return real_popen(command, *args, **kwargs)
+        m.write_record = failing_write
+        m.subprocess.Popen = fail_worker
+        raise SystemExit(m.main(['--worker', 'codex', '--model', 'm', '--worktree', {str(tree)!r},
+                                '--status-file', {str(status)!r}, 'prompt']))
+    """)
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}")
+    result = subprocess.run([sys.executable, "-c", code], env=env, text=True, capture_output=True)
+    assert result.returncode == expected
+    assert result.stderr.count("terminal record write failed") == 1
+    assert "Traceback" not in result.stderr and "unexpected error" not in result.stderr
+    fallback = json.loads(Path(str(status) + ".fallback.json").read_text())
+    assert fallback["outcome"] == "failed" and fallback["exit_code"] == expected
+
+
+def test_second_signal_skips_kill_grace(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    worker = fakebin / "codex"
+    ready = tmp_path / "ignoring-term-ready"
+    worker.write_text(worker.read_text().replace('if [ -n "${FAKE_SLEEP:-}" ]; then sleep "$FAKE_SLEEP"; fi',
+                                                 f'trap \'\' TERM\ntouch "{ready}"\nsleep 20'))
+    worker.chmod(0o755)
+    status = tmp_path / "twice.json"
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", FAKE_SLEEP="20", FAKE_FINAL="", FAKE_OUTPUT="",
+               FAKE_ERR="", FAKE_EXIT="0", ARGV_FILE=str(tmp_path / "argv"))
+    proc = subprocess.Popen([sys.executable, str(SCRIPT), "--worker", "codex", "--model", "m",
+                             "--kill-grace", "2", "--worktree", str(tree), "--status-file", str(status), "prompt"],
+                           env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline and not ready.exists():
+        time.sleep(.01)
+    assert ready.exists(), "worker did not install its TERM ignore trap"
+    os.kill(proc.pid, signal.SIGTERM)
+    time.sleep(.1)
+    os.kill(proc.pid, signal.SIGINT)
+    assert proc.wait(timeout=1) == 143
+    record = json.loads(status.read_text())
+    assert record["exit_code"] == 143
+
+
+def test_signal_waits_for_term_exiting_grandchild_before_kill(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    worker = fakebin / "codex"
+    marker = tmp_path / "term-seen"
+    ready = tmp_path / "child-ready"
+    worker.write_text("#!/usr/bin/env python3\nimport os,signal,subprocess,sys,time\n"
+                      "if sys.argv[1:] == ['exec','--help']:\n print('exec --model -s --output-last-message'); raise SystemExit(0)\n"
+                      f"child=subprocess.Popen([sys.executable,'-c',\"import signal,time; signal.signal(signal.SIGTERM, lambda *_: open({str(marker)!r},'w').write('term')); open({str(ready)!r},'w').write('ready'); time.sleep(20)\"])\n"
+                      "time.sleep(20)\n")
+    worker.chmod(0o755)
+    status = tmp_path / "term-child.json"
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}")
+    proc = subprocess.Popen([sys.executable, str(SCRIPT), "--worker", "codex", "--model", "m", "--kill-grace", "2",
+                             "--worktree", str(tree), "--status-file", str(status), "prompt"], env=env,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline and (not status.exists() or json.loads(status.read_text())["outcome"] != "running" or not ready.exists()):
+        time.sleep(.01)
+    os.kill(proc.pid, signal.SIGTERM)
+    assert proc.wait(timeout=4) == 143
+    assert marker.exists()
+
+
+def test_signal_kills_term_ignoring_grandchild_after_grace(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    worker = fakebin / "codex"
+    pidfile = tmp_path / "ignoring.pid"
+    worker.write_text("#!/usr/bin/env python3\nimport os,signal,subprocess,sys,time\n"
+                      "if sys.argv[1:] == ['exec','--help']:\n print('exec --model -s --output-last-message'); raise SystemExit(0)\n"
+                      f"child=subprocess.Popen([sys.executable,'-c',\"import os,signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); open({str(pidfile)!r},'w').write(str(os.getpid())); time.sleep(20)\"])\n"
+                      "time.sleep(20)\n")
+    worker.chmod(0o755)
+    status = tmp_path / "ignore-child.json"
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}")
+    proc = subprocess.Popen([sys.executable, str(SCRIPT), "--worker", "codex", "--model", "m", "--kill-grace", ".25",
+                             "--worktree", str(tree), "--status-file", str(status), "prompt"], env=env,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline and (not status.exists() or json.loads(status.read_text())["outcome"] != "running" or not pidfile.exists()):
+        time.sleep(.01)
+    start = time.monotonic()
+    os.kill(proc.pid, signal.SIGTERM)
+    assert proc.wait(timeout=3) == 143
+    assert time.monotonic() - start >= .20
+    pid = int(pidfile.read_text())
+    with pytest.raises(ProcessLookupError):
+        os.kill(pid, 0)
