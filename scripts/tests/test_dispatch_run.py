@@ -366,9 +366,12 @@ def test_late_signal_does_not_overwrite_finalized_record(tmp_path):
     status = tmp_path / "late.json"
     code = textwrap.dedent(f"""
         import importlib.util, os, signal
+        from pathlib import Path
         spec = importlib.util.spec_from_file_location('dispatch_run', {str(SCRIPT)!r})
         m = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(m)
+        previous = lambda signum, frame: None
+        signal.signal(signal.SIGTERM, previous)
         original = m.write_record
         count = [0]
         def write(path, record):
@@ -379,13 +382,111 @@ def test_late_signal_does_not_overwrite_finalized_record(tmp_path):
         m.write_record = write
         m.main(['--worker', 'codex', '--model', 'm', '--worktree', {str(tree)!r},
                 '--status-file', {str(status)!r}, 'prompt'])
+        assert signal.getsignal(signal.SIGTERM) is previous
     """)
     env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", FAKE_FINAL="answer", FAKE_OUTPUT="", FAKE_ERR="", FAKE_EXIT="0", ARGV_FILE=str(tmp_path / "argv"))
     result = subprocess.run([sys.executable, "-c", code], env=env, text=True, capture_output=True)
-    assert result.returncode == 143
+    assert result.returncode == 0
     record = json.loads(status.read_text())
     assert record["outcome"] == "done"
     assert record["final_message_tail"] == "answer"
+
+
+def test_terminal_record_is_single_atomic_replace_and_process_exit_matches(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    status = tmp_path / "atomic.json"
+    code = textwrap.dedent(f"""
+        import importlib.util, os, signal
+        spec = importlib.util.spec_from_file_location('dispatch_run', {str(SCRIPT)!r})
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        calls = []
+        original = m.write_record
+        def write(path, record):
+            calls.append(record['outcome'])
+            original(path, record)
+            if record['outcome'] == 'done':
+                os.kill(os.getpid(), signal.SIGTERM)
+        m.write_record = write
+        result = m.main(['--worker', 'codex', '--model', 'm', '--worktree', {str(tree)!r},
+                         '--status-file', {str(status)!r}, 'prompt'])
+        assert calls == ['running', 'done'], calls
+        assert result == 0
+    """)
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", FAKE_FINAL="answer", FAKE_OUTPUT="", FAKE_ERR="", FAKE_EXIT="0",
+               ARGV_FILE=str(tmp_path / "argv"))
+    result = subprocess.run([sys.executable, "-c", code], env=env, text=True, capture_output=True)
+    assert result.returncode == 0, result.stderr
+    record = json.loads(status.read_text())
+    assert record["outcome"] == "done" and record["exit_code"] == result.returncode
+
+
+@pytest.mark.parametrize("when", ["before_spawn", "after_spawn"])
+def test_signal_at_popen_boundary_terminates_worker_and_matches_record(tmp_path, when):
+    tree, fakebin = setup(tmp_path)
+    worker = fakebin / "codex"
+    worker.write_text(worker.read_text().replace('printf \'%s\\n\' "$*" > "$ARGV_FILE"',
+                                                  'echo $$ > "$WORKER_PID"; printf \'%s\\n\' "$*" > "$ARGV_FILE"'))
+    worker.chmod(0o755)
+    status, pidfile = tmp_path / "spawn-race.json", tmp_path / "worker.pid"
+    code = textwrap.dedent(f"""
+        import importlib.util, os, signal
+        from pathlib import Path
+        spec = importlib.util.spec_from_file_location('dispatch_run', {str(SCRIPT)!r})
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        real = m.subprocess.Popen
+        fired = [False]
+        def spawn(*args, **kwargs):
+            if args and args[0] and args[0][0].endswith('/codex') and '--output-last-message' in args[0] and not fired[0]:
+                fired[0] = True
+                if {when!r} == 'before_spawn': os.kill(os.getpid(), signal.SIGTERM)
+                child = real(*args, **kwargs)
+                Path({str(pidfile)!r}).write_text(str(child.pid))
+                if {when!r} == 'after_spawn':
+                    os.kill(os.getpid(), signal.SIGTERM)
+                    os.kill(os.getpid(), signal.SIGINT)
+                return child
+            return real(*args, **kwargs)
+        m.subprocess.Popen = spawn
+        raise SystemExit(m.main(['--worker', 'codex', '--model', 'm', '--worktree', {str(tree)!r},
+                                '--status-file', {str(status)!r}, 'prompt']))
+    """)
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", FAKE_SLEEP="20", FAKE_FINAL="", FAKE_OUTPUT="", FAKE_ERR="",
+               FAKE_EXIT="0", ARGV_FILE=str(tmp_path / "argv"), WORKER_PID=str(pidfile))
+    result = subprocess.run([sys.executable, "-c", code], env=env, text=True, capture_output=True, timeout=4)
+    record = json.loads(status.read_text())
+    assert result.returncode == 143
+    assert record["outcome"] == "failed" and record["exit_code"] == result.returncode
+    pid = int(pidfile.read_text())
+    with pytest.raises(ProcessLookupError):
+        os.kill(pid, 0)
+
+
+def test_worker_launch_closes_inherited_descriptors(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    status = tmp_path / "fds.json"
+    code = textwrap.dedent(f"""
+        import importlib.util
+        from unittest.mock import patch
+        spec = importlib.util.spec_from_file_location('dispatch_run', {str(SCRIPT)!r})
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        real = m.subprocess.Popen
+        captured = []
+        def inspect(command, *args, **kwargs):
+            if command and command[0].endswith('/codex') and '--output-last-message' in command:
+                captured.append(kwargs.get('close_fds'))
+            return real(command, *args, **kwargs)
+        with patch.object(m.subprocess, 'Popen', side_effect=inspect):
+            result = m.main(['--worker', 'codex', '--model', 'm', '--worktree', {str(tree)!r},
+                             '--status-file', {str(status)!r}, 'prompt'])
+        assert result == 0 and captured == [True], captured
+    """)
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", FAKE_FINAL="ok", FAKE_OUTPUT="", FAKE_ERR="", FAKE_EXIT="0",
+               ARGV_FILE=str(tmp_path / "argv"))
+    result = subprocess.run([sys.executable, "-c", code], env=env, text=True, capture_output=True)
+    assert result.returncode == 0, result.stderr
 
 
 def test_signals_finalize_running_record_as_failed(tmp_path):

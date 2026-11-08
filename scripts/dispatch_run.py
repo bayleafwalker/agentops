@@ -13,6 +13,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import time
 
 
 def now() -> str:
@@ -147,14 +148,26 @@ def main(argv: list[str] | None = None) -> int:
               "branch": git(worktree, "branch", "--show-current"), "head_sha": git(worktree, "rev-parse", "HEAD"),
               "dirty": bool(git(worktree, "status", "--porcelain")), "final_message_tail": "",
               "escalation_reason": None, "started_at": started, "ended_at": None, "model": args.model, "worker": args.worker}
-    write_record(status_path, record)
+    # Keep termination signals deferred from the initial running record through
+    # spawn and completion. This closes the windows where a signal used to
+    # leave a running record behind or arrive before Popen registered its PID.
+    blocked = {signal.SIGTERM, signal.SIGINT, signal.SIGHUP}
+    old_mask = signal.pthread_sigmask(signal.SIG_BLOCK, blocked)
+    pending_signal = None
+    finalized = False
+    def on_term(signum, frame):
+        nonlocal pending_signal
+        if pending_signal is None:
+            pending_signal = signum
+
+    previous_handlers = {sig: signal.signal(sig, on_term) for sig in blocked}
+    signal.pthread_sigmask(signal.SIG_SETMASK, old_mask)
     temp_dir = None
     temp_path = None
     stdout_path = None
     stderr_path = None
     proc = None
 
-    finalized = False
     def finish(outcome: str, code: int, final: str = "", reason: str | None = None) -> bool:
         nonlocal finalized
         if finalized:
@@ -162,19 +175,25 @@ def main(argv: list[str] | None = None) -> int:
         record.update(outcome=outcome, exit_code=code, final_message_tail=safe_tail(final),
                       escalation_reason=safe_tail(reason, 1000) if outcome == "escalated" and reason else None,
                       ended_at=now())
-        blocked = {signal.SIGTERM, signal.SIGINT, signal.SIGHUP}
         old_mask = signal.pthread_sigmask(signal.SIG_BLOCK, blocked)
         try:
             write_record(status_path, record)
             finalized = True
         finally:
+            # Discard signals queued during the atomic terminal commit. Its
+            # outcome is already authoritative and must agree with our exit.
+            for sig in blocked:
+                try:
+                    signal.sigtimedwait({sig}, 0)
+                except (AttributeError, OSError):
+                    pass
             signal.pthread_sigmask(signal.SIG_SETMASK, old_mask)
         return True
 
-    def kill_group() -> None:
+    def kill_group(sig=signal.SIGKILL) -> None:
         if proc:
             try:
-                os.killpg(proc.pid, signal.SIGKILL)
+                os.killpg(proc.pid, sig)
             except ProcessLookupError:
                 pass
             except PermissionError:
@@ -185,15 +204,22 @@ def main(argv: list[str] | None = None) -> int:
             return "", ""
         return read_tail(stdout_path), read_tail(stderr_path)
 
-    def on_term(signum, frame):
-        kill_group()
-        partial_out, partial_err = bounded_drain()
-        partial = "\n".join(part for part in (partial_out, partial_err) if part)
-        finish("failed", 128 + signum, "worker killed by signal" + ("\n" + partial if partial else ""))
-        raise SystemExit(128 + signum)
+    def terminate_group() -> None:
+        kill_group(signal.SIGTERM)
+        if proc:
+            try:
+                proc.wait(timeout=0.25)
+            except subprocess.TimeoutExpired:
+                pass
+        # The group may contain descendants after the leader has exited.
+        kill_group(signal.SIGKILL)
+        if proc:
+            proc.wait()
 
-    previous_handlers = {sig: signal.signal(sig, on_term) for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)}
     try:
+        write_record(status_path, record)
+        if pending_signal is not None:
+            raise InterruptedError
         temp_dir = tempfile.TemporaryDirectory(prefix="agentops-dispatch-")
         private_dir = Path(temp_dir.name)
         stdout_path, stderr_path = private_dir / "stdout", private_dir / "stderr"
@@ -207,10 +233,25 @@ def main(argv: list[str] | None = None) -> int:
         else:
             command += [args.model, "--", args.prompt]
         with stdout_path.open("wb") as stdout_file, stderr_path.open("wb") as stderr_file:
+            if pending_signal is not None:
+                raise InterruptedError
             proc = subprocess.Popen(command, cwd=worktree, stdin=subprocess.DEVNULL,
-                                    stdout=stdout_file, stderr=stderr_file, start_new_session=True)
+                                    stdout=stdout_file, stderr=stderr_file, start_new_session=True,
+                                    close_fds=True)
+        if pending_signal is not None:
+            raise InterruptedError
         try:
-            proc.wait(timeout=args.timeout)
+            deadline = time.monotonic() + args.timeout
+            while proc.poll() is None and pending_signal is None:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise subprocess.TimeoutExpired(command, args.timeout)
+                try:
+                    proc.wait(timeout=min(0.05, remaining))
+                except subprocess.TimeoutExpired:
+                    continue
+            if pending_signal is not None:
+                raise InterruptedError
             code = proc.returncode
             stdout, stderr = bounded_drain()
             kill_group()
@@ -229,6 +270,8 @@ def main(argv: list[str] | None = None) -> int:
         else:
             final = ""
         marker, reason = escalation(final)
+        if pending_signal is not None:
+            raise InterruptedError
         if marker:
             finish("escalated", code, final, reason)
             result_code = 0
@@ -241,6 +284,13 @@ def main(argv: list[str] | None = None) -> int:
         print(safe_tail(transcript), end="\n" if transcript else "")
         print(f"agentops dispatch run: {record['outcome']}; status: {status_path}", file=sys.stderr)
         return result_code or (1 if record["outcome"] == "failed" else 0)
+    except InterruptedError:
+        sig = pending_signal or signal.SIGTERM
+        terminate_group()
+        partial_out, partial_err = bounded_drain()
+        partial = "\n".join(part for part in (partial_out, partial_err) if part)
+        finish("failed", 128 + sig, "worker killed by signal" + ("\n" + partial if partial else ""))
+        return 128 + sig
     except OSError as exc:
         kill_group()
         partial_out, partial_err = bounded_drain()
