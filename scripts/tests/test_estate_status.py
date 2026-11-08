@@ -16,6 +16,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from unittest import mock
 import unittest
 from collections import Counter
 from datetime import UTC, datetime
@@ -37,6 +38,90 @@ import schema_check  # noqa: E402
 SCHEMA = json.loads((ROOT / "environment-record/estate-status-v1.schema.json").read_text())
 T = "2026-10-14T00:00:00Z"
 OTHER = "sha256:" + "1" * 64
+
+
+class CloudCredentialHardeningTests(unittest.TestCase):
+    def credential(self, raw, mode=0o600, symlink=False):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            token_path = root / "token"
+            token_path.write_bytes(raw)
+            token_path.chmod(mode)
+            if symlink:
+                link = root / "link"
+                link.symlink_to(token_path)
+                token_path = link
+            profile = root / "profile.json"
+            profile.write_text(json.dumps({"credential_ref": f"file:{token_path}"}))
+            return estate._workspace_credential(profile)
+
+    def test_trailing_line_ending_is_accepted_and_bad_whitespace_rejected(self):
+        self.assertEqual(self.credential(b"token\n"), ("token", None))
+        self.assertEqual(self.credential(b"token\r\n"), ("token", None))
+        for value, reason in ((b"tok en", "whitespace"), (b"a\nb", "whitespace"), (b"", "empty")):
+            token, actual = self.credential(value)
+            self.assertIsNone(token)
+            self.assertIn(reason, actual)
+
+    def test_permissions_symlink_and_bad_characters_are_unknown(self):
+        self.assertIn("group/world readable", self.credential(b"token", 0o644)[1])
+        self.assertIn("symlink", self.credential(b"token", symlink=True)[1])
+        for value in ("☃".encode(), b"a\x00b", b"a\x7fb"):
+            self.assertIsNone(self.credential(value)[0])
+
+    def test_secret_redirect_refused_and_response_partial_echo_redacted(self):
+        second_host_requests = []
+        fake_fp = mock.MagicMock()
+        fake_headers = {"Location": "http://127.0.0.1:9999/"}
+        redirect_error = estate.urllib.error.HTTPError("http://127.0.0.1:9998/", 302,
+                                                        "Found", fake_headers, fake_fp)
+        opener = mock.MagicMock()
+        opener.open.side_effect = redirect_error
+        handlers = []
+        def fake_build_opener(*items):
+            handlers.extend(items)
+            return opener
+        with mock.patch.object(estate.urllib.request, "build_opener", side_effect=fake_build_opener):
+            result = estate.Probe().http("redirect", "http://127.0.0.1:9998/",
+                                         secret_headers={"Authorization": "Bearer " + "x" * 40})
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"], "redirect refused")
+        self.assertEqual(second_host_requests, [])
+        self.assertEqual(opener.open.call_args.args[0].unredirected_hdrs["Authorization"],
+                         "Bearer " + "x" * 40)
+        with self.assertRaises(estate.urllib.error.HTTPError) as raised:
+            handlers[0].redirect_request(opener.open.call_args.args[0], None, 302, "Found",
+                                         {"Location": "http://127.0.0.1:9999/"},
+                                         "http://127.0.0.1:9999/")
+        self.assertIn("redirect refused", str(raised.exception))
+
+    def test_record_redacts_partial_token_echo(self):
+        token = "fake-token-value-that-is-long-enough"
+        class Response:
+            status = 401
+            headers = {"Content-Type": "text/plain"}
+            def __enter__(self): return self
+            def __exit__(self, *args): pass
+            def read(self, _limit): return token[:23].encode()
+        opener = mock.MagicMock()
+        opener.open.return_value = Response()
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(
+                estate.urllib.request, "build_opener", return_value=opener):
+            probe = estate.Probe(record=Path(tmp))
+            result = probe.http("echo", "http://fixture.invalid/",
+                                secret_headers={"Authorization": f"Bearer {token}"})
+            fixture = (Path(tmp) / "echo.json").read_text()
+            self.assertNotIn(token[:23], json.dumps(result) + fixture)
+            self.assertIn("[REDACTED]", fixture)
+
+    def test_replay_cloud_facts_do_not_read_credential(self):
+        original = estate._workspace_credential
+        estate._workspace_credential = lambda *_: (_ for _ in ()).throw(AssertionError("credential read"))
+        try:
+            report = replay(["vuoro-cloud"])
+            self.assertIn("handshake", by_id(report)["vuoro-cloud"]["usable"])
+        finally:
+            estate._workspace_credential = original
 
 
 def k(value):
@@ -881,6 +966,7 @@ class CloudWorkspaceHandshakeTests(unittest.TestCase):
             profile = root / "profile.json"
             profile.write_text(json.dumps({"credential_ref": f"file:{credential}"}))
             credential.write_text(secret)
+            credential.chmod(0o600)
             token, reason = estate._workspace_credential(profile)
             self.assertEqual(token, secret)
             self.assertIsNone(reason)
@@ -914,6 +1000,7 @@ class CloudWorkspaceHandshakeTests(unittest.TestCase):
             root = Path(tmp)
             credential, profile = root / "read-token", root / "profile.json"
             credential.write_text(secret)
+            credential.chmod(0o600)
             profile.write_text(json.dumps({"credential_ref": f"file:{credential}"}))
             probe = Probe()
             fact = estate._cloud_handshake_fact(probe, profile, "https://api.vuoro.cloud")
@@ -934,6 +1021,7 @@ class CloudWorkspaceHandshakeTests(unittest.TestCase):
             root = Path(tmp)
             credential, profile = root / "credential", root / "profile.json"
             credential.write_text("fixture-token")
+            credential.chmod(0o600)
             profile.write_text(json.dumps({"credential_ref": f"file:{credential}"}))
             for result in ({"ok": False, "status": 401, "error": "HTTP 401", "evidence": "GET"},
                            {"ok": False, "status": 403, "error": "HTTP 403", "evidence": "GET"},
