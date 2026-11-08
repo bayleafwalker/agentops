@@ -82,11 +82,6 @@
         "model": "gpt-6-luna",
         "verified": true,
         "note": "2026-10-24: operator selected GPT-6 Luna for fast-build and approved long-running implementation programmes with planning and backlog realignment within their declared scope. A native Codex no-tools request with model gpt-6-luna returned LUNA6_ROUTE_OK. This verifies the native route, not Cloud environment availability or comparative outcome quality. Cloud dispatch must separately verify its observed model and continuation support. No automatic model substitution."
-      },
-      "opencode-go": {
-        "model": "opencode-go/deepseek-v4.1-flash",
-        "verified": true,
-        "note": "2026-11-08: operator directed OpenCode Go DeepSeek V4.1 Flash for bulk implementation through lanectl lanes (public repositories only; external-provider data boundary applies). `opencode run --model opencode-go/deepseek-v4.1-flash` returned DEEPSEEK_ROUTE_OK. Verifies the route, not comparative quality."
       }
     },
     "standard-build": {
