@@ -49,14 +49,16 @@ class OperatorSelfUseTests(unittest.TestCase):
     def tearDown(self): self.tmp.cleanup()
 
     def record(self):
+        digest = lambda p: hashlib.sha256((self.root / p).read_bytes()).hexdigest()
         return {"schema_version": "vuoro-cloud-operator-self-use/v1",
             "scope": {"environment_id": "vuoro-cloud", "workspace_id": "01M3ABJS1QW0Q6BNDCHP0DDTYF", "workspaces": ["kotona"], "operator_owned": True, "host_owner": "operator"},
             "reviewer": "reviewer", "reviewed_on": "2026-11-08",
             "pat": {"id": "id", "expires_on": "2026-11-28", "workspace": "kotona", "authorities": ["work:read"]},
             "fallback_environment": "vuoro-shared", "vuoro_shared_fallback": True,
-            "evidence_refs": {"profile": "environment-record/profiles/workstation-vuoro-cloud.json", "cutover_plan": "docs/plans/2026-11-08-vuoro-cloud-record-family-cutover.md",
-                "composition_qualification": {"ref": "receipts/composition.json", "pinned_pair": PAIR},
-                "restored_observation": "evidence/observation.json", "cutover_rehearsal": "evidence/rehearsal.json"},
+            "evidence_refs": {"profile": "environment-record/profiles/workstation-vuoro-cloud.json", "cutover_plan": "docs/plans/2026-11-08-vuoro-cloud-record-family-cutover.md", "cutover_plan_sha256": digest("docs/plans/2026-11-08-vuoro-cloud-record-family-cutover.md"),
+                "composition_qualification": {"ref": "receipts/composition.json", "pinned_pair": PAIR, "sha256": digest("receipts/composition.json")},
+                "restored_observation": "evidence/observation.json", "restored_observation_sha256": digest("evidence/observation.json"),
+                "cutover_rehearsal": "evidence/rehearsal.json", "cutover_rehearsal_sha256": digest("evidence/rehearsal.json")},
             "cutover_open_rows": []}
 
     def evaluate(self, rec=None, ready=False, day="2026-11-08", pins=PAIR):
@@ -141,12 +143,64 @@ class OperatorSelfUseTests(unittest.TestCase):
         r["reviewed_on"] = "2026-11-07"
         (self.root / "evidence/no-restore.json").write_text('{"status":"unavailable","date":"2026-10-09"}')
         (self.root / "evidence/rehearsal.json").write_text('{"date":"2026-10-08"}')
+        r["evidence_refs"]["restored_observation_sha256"] = hashlib.sha256((self.root / "evidence/no-restore.json").read_bytes()).hexdigest()
+        r["evidence_refs"]["cutover_rehearsal_sha256"] = hashlib.sha256((self.root / "evidence/rehearsal.json").read_bytes()).hexdigest()
         self.assertEqual(self.evaluate(r, day="2026-11-07")["status"], "not_met")
         self.assertEqual(self.evaluate(r, day="2026-11-08")["status"], "void")
         r = self.record()
         (self.root / "receipts/composition.json").write_text('{"pinned_pair":{"tenant_runtime_pin":"","sprintctl_version":""}}')
         r["evidence_refs"]["composition_qualification"]["pinned_pair"] = {"tenant_runtime_pin": "", "sprintctl_version": ""}
         self.assertNotEqual(self.evaluate(r)["status"], "met")
+
+    def test_digest_binding_malformed_json_future_dates_and_paths(self):
+        for path in ("receipts/composition.json", "evidence/observation.json", "evidence/rehearsal.json"):
+            rec = self.record()
+            (self.root / path).write_text("[]")
+            ref_hash = {"receipts/composition.json": ("composition_qualification", "sha256"), "evidence/observation.json": (None, "restored_observation_sha256"), "evidence/rehearsal.json": (None, "cutover_rehearsal_sha256")}[path]
+            digest_value = hashlib.sha256((self.root / path).read_bytes()).hexdigest()
+            if ref_hash[0]: rec["evidence_refs"][ref_hash[0]][ref_hash[1]] = digest_value
+            else: rec["evidence_refs"][ref_hash[1]] = digest_value
+            out = self.evaluate(rec)
+            self.assertEqual(out["status"], "not_met")
+            self.assertIn("malformed", out["first_failing_check"])
+            # Fresh fixture file and matching binding for the next case.
+            if path.endswith("composition.json"):
+                (self.root / path).write_text(json.dumps({"pinned_pair": PAIR}))
+            elif path.endswith("observation.json"):
+                (self.root / path).write_text(json.dumps({"status": "restored", "date": "2026-11-07"}))
+            else:
+                (self.root / path).write_text(json.dumps({"date": "2026-11-06"}))
+        rec = self.record()
+        (self.root / "receipts/composition.json").write_text(json.dumps({"pinned_pair": PAIR, "extra": True}))
+        self.assertIn("composition.json digest mismatch", self.evaluate(rec)["first_failing_check"])
+        rec = self.record(); (self.root / "evidence/observation.json").write_text('{"status":"restored","date":"2026-11-09"}')
+        rec["evidence_refs"]["restored_observation_sha256"] = hashlib.sha256((self.root / "evidence/observation.json").read_bytes()).hexdigest()
+        self.assertIn("future", self.evaluate(rec)["first_failing_check"])
+        rec = self.record(); (self.root / "evidence/rehearsal.json").write_text('{"date":"2026-11-09"}')
+        rec["evidence_refs"]["cutover_rehearsal_sha256"] = hashlib.sha256((self.root / "evidence/rehearsal.json").read_bytes()).hexdigest()
+        self.assertIn("future", self.evaluate(rec)["first_failing_check"])
+        for ref in ("../outside.json",):
+            rec = self.record(); rec["evidence_refs"]["restored_observation"] = ref
+            self.assertEqual(self.evaluate(rec)["status"], "not_met")
+        outside = self.root.parent / "outside-evidence.json"; outside.write_text('{"status":"restored","date":"2026-11-07"}')
+        link = self.root / "evidence/escape.json"; link.symlink_to(outside)
+        rec = self.record(); rec["evidence_refs"]["restored_observation"] = "evidence/escape.json"
+        self.assertEqual(self.evaluate(rec)["status"], "not_met")
+
+    def test_plan_marker_digest_and_unknown_release_label(self):
+        rec = self.record()
+        (self.root / "docs/plans/2026-11-08-vuoro-cloud-record-family-cutover.md").write_text(self.plan.replace("[]", '["row"]'))
+        self.assertEqual(self.evaluate(rec)["first_failing_check"], "B2 cutover plan has open in-scope rows")
+        rec = self.record(); out = estate.evaluate_operator_self_use(rec, desired_release_ready={"status": "unknown", "value": None}, today=datetime.date(2026, 11, 8), pinned_pair=PAIR)
+        self.assertIn("release_ready=unknown", out["label"])
+        # Editing the reviewed empty marker without refreshing its bound digest
+        # cannot create a met result.
+        rec = self.record()
+        plan = self.root / "docs/plans/2026-11-08-vuoro-cloud-record-family-cutover.md"
+        plan.write_text(self.plan.replace("[]", '["open"]'))
+        self.assertIn("B2", self.evaluate(rec)["first_failing_check"])
+        plan.write_text(self.plan)
+        self.assertIn("record-family-cutover.md digest mismatch", self.evaluate(rec)["first_failing_check"])
 
 
 if __name__ == "__main__": unittest.main()

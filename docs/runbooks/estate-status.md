@@ -13,13 +13,23 @@ user, tenant or host. The reviewed record is
 `environment-record/vuoro-cloud.operator-self-use.json`, validated by
 `environment-record/vuoro-cloud-operator-self-use.schema.json`.
 
+Each referenced cutover plan and evidence file is bound to the SHA-256 digest
+of its current bytes. The B2 open-rows result comes from the plan's
+`operator-self-use-open-rows:v1` machine-readable block; the record's copy is
+not authoritative. A changed file, including a hand-edited empty open-rows
+marker, fails until reviewed. Updating a digest is the reviewer's act: whenever
+any digest changes, refresh both `reviewer` and `reviewed_on`. `reviewed_on`
+must be on or after every referenced evidence date. Evidence paths must be
+repository-relative, contain no `..` path component, and resolve within the
+repository after symlinks are followed.
+
 The report always prints this exact label form (and the same string appears in
 JSON):
 
 > operator-self-use: `<status>`. NOT release_ready. Valid only for operator-owned workspace(s) kotona; grants nothing to other users, tenants or hosts. release_ready=false. Expires `<YYYY-MM-DD>` (PAT) / void if any condition in profile record lapses.
 
-When not met, it prints an additional line naming the first failed check:
-`operator-self-use: not_met (<first failing check>). release_ready=false.`
+When not met, it prints an additional line naming the first failed check and
+the actual `release_ready` value (or `unknown` when it is not known).
 `void` indicates invalidating record conditions such as expiry, revocation,
 stale recovery evidence, a newer rehearsal, changed pins, changed fallback,
 scope expansion or stale review. B7 is waived only while

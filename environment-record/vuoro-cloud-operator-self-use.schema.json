@@ -13,16 +13,24 @@
     "fallback_environment": {"const": "vuoro-shared"}, "vuoro_shared_fallback": {"type": "boolean"},
     "evidence_refs": {
       "type": "object",
+      "allOf": [
+        {"if": {"required": ["restored_observation"]}, "then": {"required": ["restored_observation_sha256"]}},
+        {"if": {"required": ["cutover_rehearsal"]}, "then": {"required": ["cutover_rehearsal_sha256"]}}
+      ],
       "additionalProperties": false,
-      "required": ["profile", "cutover_plan"],
+      "required": ["profile", "cutover_plan", "cutover_plan_sha256"],
       "properties": {
         "profile": {"const": "environment-record/profiles/workstation-vuoro-cloud.json"},
         "cutover_plan": {"const": "docs/plans/2026-11-08-vuoro-cloud-record-family-cutover.md"},
+        "cutover_plan_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "restored_observation_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "cutover_rehearsal_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "composition_qualification": {
           "type": "object",
-          "required": ["ref", "pinned_pair"],
+          "required": ["ref", "pinned_pair", "sha256"],
           "properties": {
             "ref": {"type": "string", "minLength": 1},
+            "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
             "pinned_pair": {
               "type": "object",
               "required": ["tenant_runtime_pin", "sprintctl_version"],
