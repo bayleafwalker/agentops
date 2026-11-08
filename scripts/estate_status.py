@@ -81,6 +81,7 @@ RECOVERY_CLASSES = ("cancel", "image-revert", "forward-fix-or-restore")
 CLIENT_PROTOCOL = 1  # vuoro_client.client.PROTOCOL_VERSION
 PROTOCOL_HEADER = "X-Vuoro-Client-Protocol"  # without it the service answers 426
 USER_AGENT = "agentops-estate-status/1 (read-only)"
+VUORO_CLOUD_USER_AGENT = "agentops-operator"
 
 ENVIRONMENTS = ("vuoro-shared", "vuoro-cloud", "workstation", "devbox", "infra")
 
@@ -109,6 +110,7 @@ VUORO_CLOUD = {
     "apps_dir": "apps",
     "kustomizations": ("vuoro-cloud-operators", "vuoro-cloud-platform", "vuoro-cloud-apps"),
     "api": "https://api.vuoro.cloud",
+    "profile": ROOT / "environment-record/profiles/workstation-vuoro-cloud.json",
     "operator_token_file": Path.home() / ".config/vuoro/credentials/vuoro-cloud.token",
 }
 
@@ -487,12 +489,16 @@ class Probe:
                                      "error": f"unreachable: {getattr(error, 'reason', error)}",
                                      "observed_at": observed, "evidence": evidence})
         keep = {k.lower(): v for k, v in hdrs.items() if k.lower() in {"etag", "content-type"}}
+        decoded = body.decode("utf-8", "replace")
+        for secret in (secret_headers or {}).values():
+            if secret:
+                decoded = decoded.replace(secret, "[REDACTED]")
         result = {"ok": 200 <= status < 300, "status": status,
                   "body": redact(_apply(transform if 200 <= status < 300 else None,
-                                        body.decode("utf-8", "replace"))[:400_000]),
+                                        decoded)[:400_000]),
                   "headers": keep, "observed_at": observed, "evidence": evidence}
         if not result["ok"]:
-            result["error"] = f"HTTP {status}"
+            result["error"] = f"HTTP {status}: {decoded[:300]}"
         return self._store(key, result)
 
 
@@ -1119,6 +1125,49 @@ def _catalog_summary(doc: dict[str, Any], result: dict[str, Any]) -> dict[str, A
             "by_domain": dict(sorted(Counter(o.get("owning_domain") for o in ops).items()))}
 
 
+def _workspace_credential(profile_path: Path) -> tuple[str | None, str | None]:
+    """Resolve and read the profile-designated workspace bearer token."""
+    try:
+        profile = json.loads(profile_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None, "workspace credential is unreadable: profile record could not be read"
+    ref = profile.get("credential_ref") if isinstance(profile, dict) else None
+    if not isinstance(ref, str) or not ref.startswith("file:"):
+        return None, "no workspace credential designated in the profile record"
+    path = Path(ref[5:]).expanduser()
+    try:
+        token = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        return None, f"workspace credential is unreadable at designated path {path}"
+    if not token or token.isspace() or any(ch.isspace() for ch in token):
+        return None, "workspace credential is empty or contains whitespace"
+    return token, None
+
+
+def _cloud_handshake_fact(probe: Probe, profile_path: Path, endpoint: str) -> dict[str, Any]:
+    evidence = f"GET {endpoint}/api/meta/v1/handshake"
+    if probe.replay:
+        result = probe.http("vuoro-cloud.handshake", endpoint + "/api/meta/v1/handshake")
+    else:
+        token, reason = _workspace_credential(profile_path)
+        if reason:
+            return unknown(reason, "live-api", evidence)
+        result = probe.http(
+            "vuoro-cloud.handshake", endpoint + "/api/meta/v1/handshake",
+            headers={PROTOCOL_HEADER: str(CLIENT_PROTOCOL), "User-Agent": VUORO_CLOUD_USER_AGENT},
+            secret_headers={"Authorization": f"Bearer {token}"})
+    if not result.get("ok"):
+        return unknown(f"workspace handshake was not observed: {redact(result.get('error') or 'request failed')}",
+                       "live-api", result.get("evidence", evidence), result.get("observed_at"))
+    def summarize(probe_result):
+        doc = _json_out(probe_result)
+        summary = _handshake_summary(doc)
+        environment = doc.get("environment") or {}
+        summary["environment"] = environment.get("id") or environment.get("name")
+        return summary
+    return from_probe(result, "live-api", summarize)
+
+
 def _short(sha: str | None) -> str:
     return (sha or "?")[:12]
 
@@ -1506,10 +1555,21 @@ def collect_vuoro_cloud(probe: Probe, *, fetch: bool,
     disco = probe.http("vuoro-cloud.discovery", cfg["api"] + "/.well-known/vuoro")
     usable["discovery"] = from_probe(disco, "live-api", lambda r: {
         k: _json_out(r).get(k) for k in ("environment_id", "api_endpoint", "client_protocol")})
-    usable["handshake"] = unknown(
-        "the cloud gateway handshake requires a workspace bearer token (401 identity-required); "
-        "no workspace-scoped read credential is designated for this report", "live-api",
-        f"GET {cfg['api']}/api/meta/v1/handshake")
+    usable["handshake"] = _cloud_handshake_fact(probe, cfg["profile"], cfg["api"])
+    if probe.replay:
+        catalog = probe.http("vuoro-cloud.catalog", cfg["api"] + "/api/catalog/v1")
+        usable["catalog"] = from_probe(catalog, "live-api", lambda r: _catalog_summary(_json_out(r), r))
+    else:
+        token, token_reason = _workspace_credential(cfg["profile"])
+        if token_reason:
+            usable["catalog"] = unknown(token_reason, "live-api", f"GET {cfg['api']}/api/catalog/v1")
+        else:
+            catalog = probe.http(
+                "vuoro-cloud.catalog", cfg["api"] + "/api/catalog/v1",
+                headers={PROTOCOL_HEADER: str(CLIENT_PROTOCOL), "User-Agent": VUORO_CLOUD_USER_AGENT},
+                secret_headers={"Authorization": f"Bearer {token}"}, transform=_minimize_catalog)
+            usable["catalog"] = from_probe(catalog, "live-api",
+                                           lambda r: _catalog_summary(_json_out(r), r))
     token_file = cfg["operator_token_file"]
     token = None
     if not probe.replay and token_file.exists():

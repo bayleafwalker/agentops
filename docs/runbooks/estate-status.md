@@ -58,7 +58,7 @@ Read-only guarantees:
   - JSON string values under credential-like keys (`password`, `*_secret`, `*token*`, `api_key`, `private_key`, `authorization`, …), except keys that only reference a secret (`*_ref`, `*Name`, `*_path`, `*_file`, `*_id`);
   - GitHub and age keys.
 - An independent emit guard runs over every report before it leaves the process, on CLI JSON and Markdown, `--from` and MCP alike. It checks for JWTs, `user:pass@host`, PEM private keys, prefixed vendor tokens and high-entropy strings, and shares no logic with redaction. Any string it flags is replaced whole with `[REDACTED: possible secret]` (fail closed), and its JSON path is listed in `guard_redactions`.
-- The vuoro-cloud operator token is read from `~/.config/vuoro/credentials/vuoro-cloud.token` and sent as a header, but it is never echoed or recorded.
+- vuoro-cloud `usable.handshake` and `usable.catalog` use the `file:` credential designated by `environment-record/profiles/workstation-vuoro-cloud.json` (`work:read`). The path is expanded from the profile's `credential_ref`; the credential is read only for live probes, sent only in the Authorization header, and never included in output or recorded fixtures. Missing, unreadable or whitespace-containing credentials leave the facts `unknown`. Replay never reads the credential file.
 - `--from FILE --json` adds `saved_report_age` (`rendered_at`, `age_seconds`, `warning`), and `--from` Markdown prints the same warning.
 
 The report never decrypts secrets. `desired.compatibility_mirror_agrees` reports the non-secret half of `verify-runtime-pin.py`. The deployed tenant-runtime pin is `running.tenant_runtime_pin`, read only from a digest-only field of the operator rollout status (see the request below).
@@ -143,7 +143,7 @@ Nothing is dropped from the report:
 | vuoro-cloud `running.*`, `held.suspended_*`, `held.scaled_below_declared` | The operator tunnel is down. | Run `nmcli connection up vuoro-cloud-operator`. The report never raises the tunnel itself. |
 | vuoro-cloud `held.tenants_in_maintenance` | No read-only, non-member endpoint lists workspaces in maintenance. | The rollout-status field requested below. |
 | vuoro-cloud `running.tenant_runtime_pin` | The deployed pin lives only inside a SOPS-encrypted Secret. | The rollout-status field requested below. |
-| vuoro-cloud `usable.handshake` | It needs a workspace bearer token. | A designated read-only workspace credential, if one is ever wanted. |
+| vuoro-cloud `usable.handshake` | The designated workspace credential is absent/unreadable, or the gateway probe failed. | Restore the profile-designated `work:read` credential or resolve the reported gateway failure. |
 | vuoro-cloud `gate.*` | These follow from the rows above. | The rows above. |
 
 ## Request to the vuoro-cloud lane

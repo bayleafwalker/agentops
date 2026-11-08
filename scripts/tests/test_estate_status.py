@@ -872,6 +872,95 @@ class FreshnessTests(unittest.TestCase):
         self.assertIn("3h 30m ago", text)
 
 
+class CloudWorkspaceHandshakeTests(unittest.TestCase):
+    def test_profile_credential_is_resolved_and_whitespace_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            secret = "fake-workspace-token-1234567890"
+            credential = root / "credential"
+            profile = root / "profile.json"
+            profile.write_text(json.dumps({"credential_ref": f"file:{credential}"}))
+            credential.write_text(secret)
+            token, reason = estate._workspace_credential(profile)
+            self.assertEqual(token, secret)
+            self.assertIsNone(reason)
+            credential.write_text("  \n")
+            token, reason = estate._workspace_credential(profile)
+            self.assertIsNone(token)
+            self.assertIn("whitespace", reason)
+            credential.unlink()
+            token, reason = estate._workspace_credential(profile)
+            self.assertIsNone(token)
+            self.assertIn("unreadable", reason)
+            profile.write_text(json.dumps({"credential_ref": "env:NOT_ALLOWED"}))
+            token, reason = estate._workspace_credential(profile)
+            self.assertIsNone(token)
+            self.assertIn("no workspace credential designated", reason)
+
+    def test_observed_handshake_never_contains_credential(self):
+        secret = "fake-workspace-token-1234567890"
+
+        class Probe(estate.Probe):
+            def http(self, key, url, **kwargs):
+                self.sent = kwargs.get("secret_headers")
+                return {"ok": True, "status": 200,
+                        "body": json.dumps({"environment": {"id": "vuoro-cloud-ws-01m3abjs1qw0"},
+                                            "compatibility": {"state": "compatible",
+                                                               "domains": {"work": {"state": "compatible"}}}}),
+                        "evidence": "GET handshake -H 'Authorization: [REDACTED]'",
+                        "observed_at": T}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            credential, profile = root / "read-token", root / "profile.json"
+            credential.write_text(secret)
+            profile.write_text(json.dumps({"credential_ref": f"file:{credential}"}))
+            probe = Probe()
+            fact = estate._cloud_handshake_fact(probe, profile, "https://api.vuoro.cloud")
+            self.assertEqual(probe.sent, {"Authorization": f"Bearer {secret}"})
+            self.assertEqual(fact["status"], "known")
+            self.assertNotIn(secret, json.dumps(fact))
+
+    def test_gateway_errors_and_timeouts_are_unknown(self):
+        class Probe(estate.Probe):
+            def __init__(self, result):
+                super().__init__()
+                self.result = result
+
+            def http(self, key, url, **kwargs):
+                return self.result
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            credential, profile = root / "credential", root / "profile.json"
+            credential.write_text("fixture-token")
+            profile.write_text(json.dumps({"credential_ref": f"file:{credential}"}))
+            for result in ({"ok": False, "status": 401, "error": "HTTP 401", "evidence": "GET"},
+                           {"ok": False, "status": 403, "error": "HTTP 403", "evidence": "GET"},
+                           {"ok": False, "status": None, "error": "unreachable: timed out", "evidence": "GET"}):
+                with self.subTest(result=result):
+                    fact = estate._cloud_handshake_fact(Probe(result), profile,
+                                                        "https://api.vuoro.cloud")
+                    self.assertEqual(fact["status"], "unknown")
+                    self.assertIn("was not observed", fact["reason"])
+
+    def test_replay_handshake_does_not_read_profile_or_credential(self):
+        payload = {"environment": {"id": "vuoro-cloud-ws-01m3abjs1qw0", "name": "cloud"},
+                   "compatibility": {"state": "compatible", "domains": {"work": {"state": "compatible"}}}}
+        result = {"ok": True, "status": 200, "body": json.dumps(payload),
+                  "evidence": "GET handshake", "observed_at": T}
+        with tempfile.TemporaryDirectory() as tmp:
+            fixture_dir = Path(tmp) / "fixtures"
+            fixture_dir.mkdir()
+            (fixture_dir / "vuoro-cloud.handshake.json").write_text(json.dumps(result))
+            probe = estate.Probe(replay=fixture_dir)
+            fact = estate._cloud_handshake_fact(probe, Path("/must/not/be/read"),
+                                                "https://api.vuoro.cloud")
+            self.assertEqual(fact["status"], "known")
+            self.assertEqual(fact["value"]["environment"], "vuoro-cloud-ws-01m3abjs1qw0")
+            self.assertEqual(fact["value"]["domains"]["work"]["state"], "compatible")
+
+
 # An independent secret detector: it must not share logic with estate.redact().
 _JWT = re.compile(r"eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}")
 _DSN = re.compile(r"\b[A-Za-z0-9_.-]+:[^@\s/:\"']{3,}@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
